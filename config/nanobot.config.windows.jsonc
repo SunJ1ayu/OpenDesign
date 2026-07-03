@@ -1,0 +1,92 @@
+// design-studio × Nanobot —— Windows 变体(⚠️ UNTESTED 草稿,2026-07-03,无目标机)
+// 与 Linux 版(nanobot.config.jsonc)同结构;差异只有三处:
+//   1) 路径全走 ${USERPROFILE}/${DS_ROOT} 环境变量(nanobot config 对所有字符串字段
+//      做 ${VAR} 展开,已核 config/loader.py;引用了未设的变量会直接报错 —— 所以
+//      必须经 bin/ds-nanobot.ps1 启动,它负责设 DS_LLM_KEY 和 DS_ROOT)。
+//   2) key 注入按 docs/deploy-security.md §1(D1 拍板):**机主自备 key**(自己买的
+//      LLM,任何 OpenAI 兼容端点),放 %USERPROFILE%\.openDesign\key.txt,ps1 读入
+//      DS_LLM_KEY。不存在 auth.json,部署者不发 key。
+//   3) WebUI 走 WebSocket 通道(装机时 onboard 会设口令;局域网防看,非防机主)。
+//
+// 装法(目标机,PowerShell):
+//        python -m venv %USERPROFILE%\.venvs\design-studio
+//        %USERPROFILE%\.venvs\design-studio\Scripts\pip install nanobot-ai mcp
+//        %USERPROFILE%\.venvs\design-studio\Scripts\nanobot onboard
+//        再把下面几段合并进 %USERPROFILE%\.nanobot\config.json,用 bin\ds-nanobot.ps1 启动。
+{
+  // 大脑 = 机主自备(deploy-security D1):apiBase/model 按机主买的 LLM 填,下面的
+  // MiMo 只是示例;任何 OpenAI 兼容端点(GLM/DeepSeek/Kimi/…)都行。key 不写死在
+  // 此文件:ds-nanobot.ps1 从 key.txt 读入 DS_LLM_KEY,这里只留 ${DS_LLM_KEY} 引用。
+  "providers": {
+    "custom": {
+      "apiKey":  "${DS_LLM_KEY}",
+      "apiBase": "https://token-plan-cn.xiaomimimo.com/v1"
+    }
+  },
+
+  "model_presets": {
+    "primary": {
+      "label": "MiMo", "provider": "custom", "model": "mimo-v2.5",
+      "maxTokens": 8192, "contextWindowTokens": 128000, "temperature": 0.1
+    }
+  },
+
+  "agents": {
+    "defaults": {
+      "modelPreset": "primary"
+    }
+  },
+
+  "tools": {
+    "mcpServers": {
+      // 注意用 venv 的 Scripts/python.exe(Windows 布局,不是 bin/python);
+      // 正斜杠在 Windows 的 CreateProcess/Python 下均可用,避免 JSON 反斜杠转义。
+      "design-studio": {
+        "command": "${USERPROFILE}/.venvs/design-studio/Scripts/python.exe",
+        "args": ["${DS_ROOT}/bin/ds_tools.py"],
+        "env": { "DS_ROOT": "${DS_ROOT}" }
+      },
+      // 批准闸同 Linux:`.approved` 只能由人在终端跑 python bin/ds-approve 创建。
+      // ⚠️ Windows 上 DS_ORGANIZE_ROOTS 白名单用分号分隔(路径里有盘符冒号 C:,
+      //    不能再用冒号当分隔符)—— 依赖 ds_organize 侧 os.pathsep 支持,见 T9 备注。
+      // ⚠️ 空字符串 = 白名单关死,所有目录都报 root_not_allowed(安全兜底不变)。
+      //    默认按 deploy-security §6(D4 拍板)预填 = 桌面 + 下载(乱文件重灾区,
+      //    窄且不含系统目录);机主要 agent 管别的目录,分号追加,例:
+      //    "...;C:/Users/<机主>/Documents/设计资料;D:/项目归档"
+      "design-studio-organize": {
+        "command": "${USERPROFILE}/.venvs/design-studio/Scripts/python.exe",
+        "args": ["${DS_ROOT}/bin/ds_organize.py"],
+        "env": {
+          "DS_ROOT": "${DS_ROOT}",
+          "DS_ORGANIZE_ROOTS": "${USERPROFILE}/Desktop;${USERPROFILE}/Downloads"
+        }
+      },
+      "design-studio-refs": {
+        "command": "${USERPROFILE}/.venvs/design-studio/Scripts/python.exe",
+        "args": ["${DS_ROOT}/bin/ds_refs.py"],
+        "env": { "DS_ROOT": "${DS_ROOT}" }
+      }
+    }
+  },
+
+  "channels": {
+    // WebUI(主入口)= websocket 通道:正常路径是 `nanobot onboard` 开启并设口令,
+    // 不用手填这段;字段名(enabled/token/tokenIssueSecret)已在 Linux 无头验证过,
+    // WebUI 挂在通道端口(默认 8765),浏览器开 http://127.0.0.1:8765/。
+    // "websocket": { "enabled": true, "token": "<onboard 设的口令>", "tokenIssueSecret": "<同上>" },
+
+    // 飞书(可选的手机远程通道,非主入口;用户 2026-07-03 拍板:模板带上,机主要用
+    // **自己接入**——去飞书开放平台建自己的企业自建应用,拿 appId/appSecret,填自己的
+    // open_id 进 allowFrom,再把 enabled 改 true。WebSocket 长连接,不需公网 IP。
+    // 不用就保持 false,不影响 WebUI。
+    "feishu": {
+      "enabled": false,
+      "appId": "<机主自己的 cli_xxx>",
+      "appSecret": "<机主自己的 appSecret>",
+      "allowFrom": ["<机主自己的 open_id(ou_xxx)>"],
+      "groupPolicy": "mention",
+      "domain": "feishu",
+      "streaming": true
+    }
+  }
+}

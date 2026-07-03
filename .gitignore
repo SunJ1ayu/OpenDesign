@@ -1,0 +1,20 @@
+# 运行时/缓存
+__pycache__/
+*.pyc
+*.log
+
+# 业主数据永不进仓(装到谁的机器,数据就留在谁的机器;仓里只有代码和模板)
+# 全部锚定仓根(/):不锚定会误伤 skills/organize、skills/refs 等同名子目录
+/projects/*
+/clients/*
+!/projects/.gitkeep
+!/clients/.gitkeep
+/index.md
+/refs/
+/refs-index.md
+/refs-vocab.md
+/organize/
+
+# 第三方课件提取物(别家公司的私有教学材料,不进任何仓)
+docs/10-systems.md
+docs/10-systems-xhs-mindmap.md

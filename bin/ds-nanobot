@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# 启动 design-studio 的 nanobot(大脑 = MiMo,工具 = ds_tools MCP)。
+# 真 key 从 mimo 官方 CLI 的 auth.json 取(单一来源:CLI 若刷新 key,这里自动跟上)。
+# ⚠️ 环境变量 LLM_API_KEY 是过期的旧 key,勿用(2026-07-01 实测 401)。
+# 用法:  ds-nanobot agent -m "..."   |   ds-nanobot gateway   |   ds-nanobot status
+set -euo pipefail
+VENV=/root/.venvs/design-studio
+AUTH=/root/.local/share/mimocode/auth.json
+[ -r "$AUTH" ] || { echo "ds-nanobot: 找不到 mimo auth.json: $AUTH" >&2; exit 1; }
+MIMO_TP_KEY="$(python3 -c "import json,sys;print(json.load(open('$AUTH'))['xiaomi']['key'])")"
+export MIMO_TP_KEY
+exec "$VENV/bin/nanobot" "$@"

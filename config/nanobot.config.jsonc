@@ -1,0 +1,68 @@
+// design-studio × Nanobot —— 实测可用配置(2026-07-01 端到端跑通)
+// 活的配置在 ~/.nanobot/config.json;本文件是可复现的说明副本(只列我们改动的段)。
+// 起步大脑 = MiMo(mimo-v2.5),工具 = ds_tools MCP server。
+//
+// 装法:  python3 -m venv /root/.venvs/design-studio
+//        /root/.venvs/design-studio/bin/pip install nanobot-ai mcp   (nanobot v0.2.2)
+//        /root/.venvs/design-studio/bin/nanobot onboard              (生成默认 config)
+//        再把下面几段合并进 ~/.nanobot/config.json,用 bin/ds-nanobot 启动。
+{
+  "providers": {
+    // MiMo token-plan 端点是标准 OpenAI 兼容(Bearer)→ 用通用 custom provider。
+    // ⚠️ key 不是环境里的 LLM_API_KEY(那个已过期/401),真 key 在 mimo CLI 的
+    //    /root/.local/share/mimocode/auth.json;bin/ds-nanobot 启动时导出为 MIMO_TP_KEY。
+    "custom": {
+      "apiKey":  "${MIMO_TP_KEY}",
+      "apiBase": "https://token-plan-cn.xiaomimimo.com/v1"
+    }
+    // 备脑(换脑只改 model_presets.primary 指向):anthropic / openai(Codex OAuth 已登)/ 等。
+  },
+
+  // ⚠️ nanobot v0.2.2 顶层键是 snake_case 的 model_presets(不是 modelPresets);内部字段 camelCase。
+  "model_presets": {
+    "primary": {
+      "label": "MiMo", "provider": "custom", "model": "mimo-v2.5",
+      "maxTokens": 8192, "contextWindowTokens": 128000, "temperature": 0.1
+    }
+  },
+
+  "agents": {
+    "defaults": {
+      "modelPreset": "primary"
+      // 系统 prompt(设计师操作契约 + 阶段/状态词表 + 检查/停止三条)走 workspace 的
+      // ~/.nanobot/workspace/AGENTS.md / SOUL.md,不进 config —— 待填(见 spec §6)。
+    }
+  },
+
+  "tools": {
+    "mcpServers": {
+      // stdio MCP server:必须用 design-studio venv 的 python(它才有 mcp SDK)。
+      "design-studio": {
+        "command": "/root/.venvs/design-studio/bin/python",
+        "args": ["/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py"],
+        "env": { "DS_ROOT": "/root/.openclaw/workspace/projects/design-studio" }
+      },
+      // 文件整理三工具(scan/stage/apply)。批准闸不在这里:`.approved` 只能由人在
+      // 终端跑 bin/ds-approve 创建,模型无对应工具 → 未批准的方案物理上执行不了。
+      // ⚠️ DS_ORGANIZE_ROOTS = 允许整理的根目录白名单(冒号分隔);不设 = 全拒。
+      //    部署到目标机器时按实际要整理的目录填(例:C 盘某文件夹 / ~/Downloads)。
+      "design-studio-organize": {
+        "command": "/root/.venvs/design-studio/bin/python",
+        "args": ["/root/.openclaw/workspace/projects/design-studio/bin/ds_organize.py"],
+        "env": {
+          "DS_ROOT": "/root/.openclaw/workspace/projects/design-studio",
+          "DS_ORGANIZE_ROOTS": ""
+        }
+      },
+      // 参考图索引四工具(add_ref/find_refs/link_ref/add_style)。只写 refs-index.md,
+      // 不碰图片文件;词表=空间锁死+风格半开放(refs-vocab.md,首次使用自动生成)。
+      "design-studio-refs": {
+        "command": "/root/.venvs/design-studio/bin/python",
+        "args": ["/root/.openclaw/workspace/projects/design-studio/bin/ds_refs.py"],
+        "env": { "DS_ROOT": "/root/.openclaw/workspace/projects/design-studio" }
+      }
+    }
+  }
+
+  // channels.feishu:待填 appId/appSecret/allowFrom(见 spec §9),本地 CLI 验证已过,飞书是下一步。
+}
