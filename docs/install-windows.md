@@ -58,6 +58,12 @@ Copy-Item C:\OpenDesign\skills\* "$env:USERPROFILE\.nanobot\workspace\skills\" -
 & "<DS_ROOT>\bin\ds-nanobot.ps1" gateway
 ```
 
+⚠️ Windows 默认执行策略(Restricted)会拒跑 .ps1。首次先放开当前用户(一次性):
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
 浏览器开 `http://127.0.0.1:8765/`,用 onboard 设的口令登录。验证三件:
 
 1. 问一句"有什么待办"→ 应调 `list_todos` 返回(证明 MCP 通、脑通);
