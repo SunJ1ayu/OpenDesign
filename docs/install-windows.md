@@ -44,10 +44,13 @@ notepad "$env:USERPROFILE\.openDesign\key.txt"   # 只放一行:机主自己的 
 
 ## 4. 部署 workspace(操作契约 + skills)
 
-拷进 `%USERPROFILE%\.nanobot\workspace\`:
+拷进 `%USERPROFILE%\.nanobot\workspace\`(源都在本仓库内):
 
-- `AGENTS.md`(操作契约,瘦路由)+ `SOUL.md`(口吻)——从开发机 workspace 取;
-- `skills/organize/SKILL.md`、`skills/refs/SKILL.md` ——从本仓库 `skills/` 拷。
+```powershell
+Copy-Item C:\OpenDesign\workspace\AGENTS.md,C:\OpenDesign\workspace\SOUL.md `
+          "$env:USERPROFILE\.nanobot\workspace\"
+Copy-Item C:\OpenDesign\skills\* "$env:USERPROFILE\.nanobot\workspace\skills\" -Recurse -Force
+```
 
 ## 5. 启动与验证
 
