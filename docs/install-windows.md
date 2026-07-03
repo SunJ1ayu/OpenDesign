@@ -3,6 +3,23 @@
 - 状态:⚠️ 全流程 UNTESTED(无目标机);首装 = 部署者自己的 Windows,逐步核对。
 - 决策依据:`docs/deploy-security.md`(D0–D5 已全部拍板,2026-07-03)。
 
+## 快捷安装(推荐):两条命令 + 三次交互
+
+前置只有 Python 3.10+ 和 Git(没有就 `winget install -e --id Python.Python.3.12 Git.Git`,
+Python 用官网安装器的话勾 Add to PATH;装完**新开** PowerShell)。然后:
+
+```powershell
+git clone https://github.com/SunJ1ayu/OpenDesign.git C:\OpenDesign   # 首次弹浏览器授权 GitHub
+powershell -ExecutionPolicy Bypass -File C:\OpenDesign\bin\install.ps1
+```
+
+`install.ps1` 自动做:执行策略、venv + pip、onboard、key 文件、config 合并
+(`bin/ds_merge_config.py`,channels 段不碰)、workspace/skills 拷贝。交互只有三处:
+onboard 设 WebUI 口令、粘贴机主自己的 LLM key(D1)、可选改 apiBase/model(回车 = MiMo
+默认)。脚本可重复运行,已完成的步骤自动跳过。装完照 §5 启动验证。
+
+**脚本中途失败**:把报错原文发回部署者;下面 §0–§5 是同一流程的手动逐步版,用于排查。
+
 ## 0. 前置
 
 - Windows 10/11,Python 3.10+(`python --version` 确认;装官方版勾 Add to PATH)。

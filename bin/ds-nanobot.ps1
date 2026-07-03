@@ -1,4 +1,4 @@
-# ds-nanobot.ps1 — Windows 启动 OpenDesign 的 nanobot(大脑 = MiMo,工具 = ds MCP)。
+﻿# ds-nanobot.ps1 — Windows 启动 OpenDesign 的 nanobot(大脑 = MiMo,工具 = ds MCP)。
 # ⚠️ UNTESTED 草稿(2026-07-03,track opendesign-windows-prep T8):无 Windows 目标机,
 #    只做过静态走查;真机首跑时逐行核对,尤其路径与 key 注入。
 #
