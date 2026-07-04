@@ -86,7 +86,7 @@ def main() -> int:
 
     wanted = {
         "providers": {"custom": tpl["providers"]["custom"]},
-        "model_presets": {"primary": tpl["model_presets"]["primary"]},
+        "model_presets": tpl["model_presets"],   # 全部预设(primary + pro…),供 /model 切换
         "agents": {"defaults": tpl["agents"]["defaults"]},
         # tools.file.enable=false 一并合并:关内置文件工具,逼 PKB 只走 MCP(见模板注释)。
         # deep_merge 只覆盖 enable 子键,不动 onboard 写的其它 tools.file 字段。
