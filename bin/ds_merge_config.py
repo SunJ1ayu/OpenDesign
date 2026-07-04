@@ -88,7 +88,12 @@ def main() -> int:
         "providers": {"custom": tpl["providers"]["custom"]},
         "model_presets": {"primary": tpl["model_presets"]["primary"]},
         "agents": {"defaults": tpl["agents"]["defaults"]},
-        "tools": {"mcpServers": tpl["tools"]["mcpServers"]},
+        # tools.file.enable=false 一并合并:关内置文件工具,逼 PKB 只走 MCP(见模板注释)。
+        # deep_merge 只覆盖 enable 子键,不动 onboard 写的其它 tools.file 字段。
+        "tools": {
+            "mcpServers": tpl["tools"]["mcpServers"],
+            "file": tpl["tools"].get("file", {"enable": False}),
+        },
     }
 
     backup = args.target.with_name(args.target.name + f".bak-{time.strftime('%Y%m%d-%H%M%S')}")

@@ -32,6 +32,35 @@ DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 _CHANGE_RE = re.compile(r"^- \[(?P<status>[^\]]*)\]\s+C(?P<num>\d+)\b")
 _CHANGE_HEADER = "## 变更记录"
 
+# 新建骨架模板 —— 必须含 `## 变更记录` 头(append_change 靠它定位)与 `最后更新:` 页脚
+# (ds_todo 靠它判超期),否则新项目建出来后 append/提醒都接不上(这正是首用暴露的洞)。
+_PROJECT_TEMPLATE = """# {slug}
+
+- 业主: [[{client}]]
+- 阶段: {stage}
+- 地址/户型: {address}
+- 开始日期: {today}
+- 当前状态: 新建,待完善
+
+## 变更记录
+
+## 沟通日志
+
+---
+最后更新: {today}
+"""
+_CLIENT_TEMPLATE = """# {name}
+
+- 联系方式: {contact}
+- 关联项目: {linked}
+- 预算区间:
+- 风格偏好:
+- 关键约束:
+- 决策习惯:
+
+## 备注
+"""
+
 
 # ── 安全:路径 allowlist ────────────────────────────────────────────────────
 def _resolve(ds_root: str, subdir: str, name: str) -> tuple[str | None, dict | None]:
@@ -147,6 +176,58 @@ def list_todos(stale_days: int = 7, ds_root: str = DEFAULT_DS_ROOT) -> dict:
         return {"error": f"ds_todo_failed: {type(e).__name__}: {e}"}
 
 
+# ── 工具 4.5 create_client ──────────────────────────────────────────────────
+def create_client(name: str, contact: str = "", linked: str = "",
+                   ds_root: str = DEFAULT_DS_ROOT) -> dict:
+    """新建业主档案 clients/<name>.md(按 SCHEMA 骨架)。已存在则拒绝覆盖。"""
+    name = ds_common.sanitize_field(name)      # 折换行:防伪造账本/索引行(承 7-03 盲评铁律)
+    if not name:
+        return {"error": "empty_name"}
+    contact = ds_common.sanitize_field(contact)
+    linked = ds_common.sanitize_field(linked)
+    path, err = _resolve(ds_root, "clients", name)   # realpath allowlist 防路径逃逸
+    if err:
+        return err
+    if os.path.exists(path):
+        return {"error": "client_exists"}
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    body = _CLIENT_TEMPLATE.format(
+        name=name, contact=contact, linked=(f"[[{linked}]]" if linked else ""))
+    with open(path, "x", encoding="utf-8") as fh:   # "x":原子创建,已存在即抛(不覆盖)
+        fh.write(body)
+    return {"ok": True, "client": name}
+
+
+# ── 工具 4.6 create_project ─────────────────────────────────────────────────
+def create_project(project: str, client: str, stage: str = "洽谈", address: str = "",
+                   ds_root: str = DEFAULT_DS_ROOT, today: str | None = None) -> dict:
+    """新建项目 projects/<project>.md(按 SCHEMA 骨架,含变更记录头+页脚)。已存在则拒绝
+    覆盖;业主档案缺失时自动补一个最小 stub,避免悬空 [[链接]]。之后 append_change 可直接接上。
+    """
+    today = ds_common.today_str(today)
+    project = ds_common.sanitize_field(project)   # 同时作文件名与标题:消毒后一致
+    client = ds_common.sanitize_field(client)
+    stage = ds_common.sanitize_field(stage)
+    address = ds_common.sanitize_field(address)
+    if not project or not client:
+        return {"error": "empty_name"}
+    path, err = _resolve(ds_root, "projects", project)
+    if err:
+        return err
+    if os.path.exists(path):
+        return {"error": "project_exists"}
+    # 业主档案不存在则先补最小 stub(用消毒后的 client 名;逃逸/已存在都安全跳过)
+    cpath, cerr = _resolve(ds_root, "clients", client)
+    if not cerr and not os.path.exists(cpath):
+        create_client(client, linked=project, ds_root=ds_root)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    body = _PROJECT_TEMPLATE.format(
+        slug=project, client=client, stage=stage, address=address, today=today)
+    with open(path, "x", encoding="utf-8") as fh:
+        fh.write(body)
+    return {"ok": True, "project": project, "client": client, "stage": stage}
+
+
 # ── stdio MCP server 包装(需 `pip install mcp`;未装不影响以上核心) ────────
 def _run_mcp() -> None:
     from mcp.server.fastmcp import FastMCP  # 延迟导入:未装时上面的核心与 tests 照常可用
@@ -155,8 +236,20 @@ def _run_mcp() -> None:
     server = FastMCP("design-studio")
 
     @server.tool()
+    def create_client_tool(name: str, contact: str = "", linked: str = "") -> dict:
+        """新建业主档案。name=业主称呼;contact=联系方式(可选);linked=关联项目slug(可选)。"""
+        return create_client(name, contact=contact, linked=linked, ds_root=ds_root)
+
+    @server.tool()
+    def create_project_tool(project: str, client: str, stage: str = "洽谈",
+                            address: str = "") -> dict:
+        """新建项目(业主不存在会自动补档)。记录任何变更/待办前,项目必须先经此工具建好。
+        project=项目slug;client=业主称呼;stage=阶段(默认洽谈);address=地址/户型(可选)。"""
+        return create_project(project, client, stage=stage, address=address, ds_root=ds_root)
+
+    @server.tool()
     def append_change_tool(project: str, content: str) -> dict:
-        """追加一条业主新提的修改需求(自动编号,标记 [待确认])。"""
+        """追加一条业主新提的修改需求(自动编号,标记 [待确认])。项目须已存在(见 create_project)。"""
         return append_change(project, content, ds_root=ds_root)
 
     @server.tool()

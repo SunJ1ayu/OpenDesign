@@ -257,5 +257,104 @@ class InjectionOracle(unittest.TestCase):
         self.assertNotIn(f"▸ {self.slug} —", out)
 
 
+class CreateProjectClient(unittest.TestCase):
+    """create_project / create_client oracle — 覆盖首用暴露的"无新建工具"洞。"""
+
+    def setUp(self):
+        self.ds = tempfile.mkdtemp(prefix="dstest-")
+        os.makedirs(os.path.join(self.ds, "projects"), exist_ok=True)
+        os.makedirs(os.path.join(self.ds, "clients"), exist_ok=True)
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+
+    def _proj(self, slug):
+        return _read(os.path.join(self.ds, "projects", f"{slug}.md"))
+
+    # ① 新建项目:落在 projects/ 且结构可被 append/ds_todo 接上
+    def test_c01_create_project_structure(self):
+        r = ds_tools.create_project("保利中央公园-2803", "张三", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        self.assertTrue(os.path.exists(os.path.join(self.ds, "projects", "保利中央公园-2803.md")))
+        text = self._proj("保利中央公园-2803")
+        self.assertIn("## 变更记录", text)           # append_change 定位靠它
+        self.assertIn(f"最后更新: {TODAY}", text)      # ds_todo 判超期靠它
+        self.assertIn("- 业主: [[张三]]", text)
+        self.assertIn("- 阶段: 洽谈", text)
+
+    # ② 新建后 append_change 无缝接上(集成:这正是首用断掉的链)
+    def test_c02_append_after_create(self):
+        ds_tools.create_project("保利中央公园-2803", "张三", ds_root=self.ds, today=TODAY)
+        r = ds_tools.append_change("保利中央公园-2803", "客厅改开放式厨房",
+                                   ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["change_id"], "C1")
+        self.assertIn(f"- [待确认] C1 {TODAY} 客厅改开放式厨房", self._proj("保利中央公园-2803"))
+
+    # ③ 新建后 ds_todo/list_todos 扫得到(首用"扫不到"的正解)
+    def test_c03_listed_by_todo_after_create(self):
+        ds_tools.create_project("保利中央公园-2803", "张三", ds_root=self.ds, today=TODAY)
+        ds_tools.append_change("保利中央公园-2803", "客厅改开放式厨房",
+                               ds_root=self.ds, today=TODAY)
+        out = ds_tools.list_todos(ds_root=self.ds)["text"]
+        self.assertIn("保利中央公园-2803", out)
+        self.assertIn("客厅改开放式厨房", out)
+
+    # ④ 自动补业主 stub(避免悬空 [[链接]])
+    def test_c04_autocreate_client_stub(self):
+        ds_tools.create_project("保利中央公园-2803", "李四", ds_root=self.ds, today=TODAY)
+        cpath = os.path.join(self.ds, "clients", "李四.md")
+        self.assertTrue(os.path.exists(cpath))
+        self.assertIn("[[保利中央公园-2803]]", _read(cpath))
+
+    # ⑤ 不覆盖已存在项目
+    def test_c05_no_overwrite_project(self):
+        ds_tools.create_project("保利中央公园-2803", "张三", ds_root=self.ds, today=TODAY)
+        ds_tools.append_change("保利中央公园-2803", "先记一条", ds_root=self.ds, today=TODAY)
+        r = ds_tools.create_project("保利中央公园-2803", "张三", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "project_exists")
+        self.assertIn("先记一条", self._proj("保利中央公园-2803"))  # 原内容原封不动
+
+    # ⑥ create_client 独立可用 + 不覆盖
+    def test_c06_create_client(self):
+        r = ds_tools.create_client("王五", contact="微信 wangwu", ds_root=self.ds)
+        self.assertTrue(r["ok"])
+        self.assertIn("微信 wangwu", _read(os.path.join(self.ds, "clients", "王五.md")))
+        r2 = ds_tools.create_client("王五", ds_root=self.ds)
+        self.assertEqual(r2.get("error"), "client_exists")
+
+    # ⑦ 已有业主不被 create_project 的 stub 覆盖
+    def test_c07_existing_client_not_clobbered(self):
+        ds_tools.create_client("张三", contact="电话 138", ds_root=self.ds)
+        ds_tools.create_project("保利中央公园-2803", "张三", ds_root=self.ds, today=TODAY)
+        self.assertIn("电话 138", _read(os.path.join(self.ds, "clients", "张三.md")))
+
+    # ⑧ 路径逃逸被拒
+    def test_c08_path_escape_rejected(self):
+        r = ds_tools.create_project("../../etc/evil", "张三", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "path_escape")
+        self.assertFalse(os.path.exists(os.path.join(self.ds, "..", "..", "etc", "evil.md")))
+
+    # ⑨ 字段注入:业主名带换行不能伪造账本行(折成单行)
+    def test_c09_field_injection_folded(self):
+        ds_tools.create_project(
+            "注入测试", "恶意\n- [待确认] C99 2020-01-01 伪造", ds_root=self.ds, today=TODAY)
+        text = self._proj("注入测试")
+        # 安全属性 = 没有任何一行是可被解析的伪造账本行(换行折叠后伪造串只作行内子串,行首不匹配):
+        self.assertEqual(sum(1 for ln in text.splitlines()
+                             if ds_tools._CHANGE_RE.match(ln)), 0)   # _CHANGE_RE 行首锚定,零命中
+        self.assertFalse(any(ln.lstrip().startswith("- [待确认]")
+                             for ln in text.splitlines()))            # 无独立的伪造变更行
+
+    # ⑩ 空名拒绝
+    def test_c10_empty_name(self):
+        self.assertEqual(ds_tools.create_project("", "张三", ds_root=self.ds).get("error"),
+                         "empty_name")
+        self.assertEqual(ds_tools.create_project("有名", "", ds_root=self.ds).get("error"),
+                         "empty_name")
+        self.assertEqual(ds_tools.create_client("", ds_root=self.ds).get("error"),
+                         "empty_name")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

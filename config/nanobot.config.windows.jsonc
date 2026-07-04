@@ -38,6 +38,10 @@
   },
 
   "tools": {
+    // 关闭内置文件工具(edit_file/write_file/apply_patch/read_file/grep/…):PKB 只准走
+    // design-studio MCP 工具(create_project/append_change/…),弱模型才不会绕道手写文件到
+    // 错误目录(nanobot workspace ≠ DS_ROOT),导致 list_todos 扫不到。定时提醒走 cron 工具。
+    "file": { "enable": false },
     "mcpServers": {
       // 注意用 venv 的 Scripts/python.exe(Windows 布局,不是 bin/python);
       // 正斜杠在 Windows 的 CreateProcess/Python 下均可用,避免 JSON 反斜杠转义。

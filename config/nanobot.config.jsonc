@@ -35,6 +35,8 @@
   },
 
   "tools": {
+    // 关内置文件工具:PKB 只走 design-studio MCP 工具,弱模型不能绕道手写文件(见 windows 模板注释)。
+    "file": { "enable": false },
     "mcpServers": {
       // stdio MCP server:必须用 design-studio venv 的 python(它才有 mcp SDK)。
       "design-studio": {
