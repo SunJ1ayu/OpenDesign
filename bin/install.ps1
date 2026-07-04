@@ -44,8 +44,15 @@ $pol = Get-ExecutionPolicy -Scope CurrentUser
 if ($pol -eq "RemoteSigned" -or $pol -eq "Unrestricted" -or $pol -eq "Bypass") {
     Write-Host "  已是 $pol,跳过"
 } else {
-    Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force
-    Write-Host "  已设为 RemoteSigned"
+    # 用 -ExecutionPolicy Bypass 启动时，进程作用域的 Bypass 会覆盖 CurrentUser，
+    # Set-ExecutionPolicy 仍会把 CurrentUser 设为 RemoteSigned，但会抛一个"被覆盖"告警；
+    # $ErrorActionPreference=Stop 下这会终止脚本。该告警无害（CurrentUser 实际已更新），忽略之。
+    try {
+        Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force -ErrorAction Stop
+        Write-Host "  已设为 RemoteSigned"
+    } catch {
+        Write-Host "  CurrentUser 已尝试设为 RemoteSigned（进程内 Bypass 覆盖的告警可忽略）" -ForegroundColor DarkGray
+    }
 }
 
 Step 3 "建 venv 并安装 nanobot-ai + mcp"
