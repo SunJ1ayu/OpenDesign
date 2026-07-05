@@ -47,6 +47,18 @@ class TestSkillsSmoke(unittest.TestCase):
         self.assertIn("永远不动图片文件本身", content)
         self.assertNotIn("---\nname:", content)
 
+    # ④ 可达性不变量:本项目禁了内置文件工具(tools.file.enable=false,防脑裂),
+    #    nanobot 按需加载路径(summary 让模型 read_file 拉全文)因此是死路——
+    #    随附 skill 必须全部 always: true 直接进系统提示词,否则模型永远够不到。
+    #    扫全部 workspace skill 而非点名:新增 skill 忘标 always 会在这里变红。
+    def test_04_workspace_skills_all_always(self):
+        ours = {s["name"] for s in self.loader.list_skills(filter_unavailable=False)
+                if s["source"] == "workspace"}
+        always = set(self.loader.get_always_skills())
+        self.assertTrue(ours, "workspace skills 一个都没发现,布局坏了")
+        self.assertEqual(ours - always, set(),
+                         "这些 skill 没标 always: true,文件工具已禁,模型够不到它们")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

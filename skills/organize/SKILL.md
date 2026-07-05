@@ -1,6 +1,7 @@
 ---
 name: organize
 description: 整理电脑文件夹(扫描→出方案→人工批准→执行 move/rename)。凡用户要"整理/归类/改名/归档"文件时用。
+always: true
 ---
 
 # organize — 文件整理(带人工确认闸)
