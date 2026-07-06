@@ -1,7 +1,26 @@
 # HANDOFF — opendesign-workbench（下次会话从这里接）
 
-最后更新：2026-07-06 深夜。**当前状态 = P0 BUILT + verify full lane PASS，
-已 commit 待 push 确认后推 GitHub;下一步 = 用户 Windows 机 git pull 实测。**
+最后更新：2026-07-06 深夜（用户首反馈后）。**当前状态 = P0 BUILT + verify PASS
++ 已推 GitHub(1d5b87c);用户看过后给出第一反馈,方向要调,见下节。**
+
+## ⚠️ 用户首反馈（2026-07-06,决定下一轮方向,优先读）
+
+1. **"页面不好看"** —— P0 的自创配色(墨+纸面+石青)没被认可。用户要的是
+   **能抄就直接抄 nanobot WebUI**,不是"参考布局自己发挥"。下一轮视觉直接
+   照 nanobot 抄:开发机 pip 包里有它编译好的 SPA
+   (`/root/.venvs/design-studio/lib/python3.12/site-packages/nanobot/web/dist/`),
+   把它的 CSS/配色/间距/字体 token 提出来照搬,本地参考合法合理。
+2. **进来第一屏 = 聊天窗口,和 nanobot 一样** —— 首页从"待办"改成"聊天"。
+   这把 P1(聊天模块)的优先级顶到最前:聊天不再是"以后收进来",而是
+   工作台的门面。技术路径 design.md D3-P1 已核好(浏览器直连 8765 ws;
+   token 签发无 CORS → ds_web 代理 token 引导;钉版本+协议基线快照)。
+3. **用户会考虑画一张前端意向图给我** —— 已告知:非常有用,最好是
+   nanobot 截图+圈注要改哪,或任何他喜欢的界面截图。**下一轮动手前等他
+   的图,没图也先把 nanobot 的 token 抄过来打底。**
+
+下一轮开工顺序建议:①抄 nanobot 视觉 token 重做壳(改 app.css+布局,便宜)
+→ ②等意向图定制 → ③P1 聊天模块(另起 track,直连 ws+token 代理)。
+待办页功能保留,退居侧栏第二项。
 
 ## 这个 track 交付了什么（P0）
 
