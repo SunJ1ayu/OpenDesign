@@ -15,6 +15,8 @@ clients/<业主>.md        业主档案:联系方式/偏好/预算/关联项目
 projects/<项目>.md       项目主页:业主/阶段/户型 + 变更记录 + 沟通日志
 schema/SCHEMA.md         字段规范(改字段先改这里)
 bin/ds-todo              主动提醒:扫所有项目的未关闭变更 + 超期未更新项目
+bin/ds_web.py            工作台本地服务(web/dist + 只读 /api,端口 8766)
+web/                     工作台前端(React+Vite 源码;dist/ 构建产物进仓,用户机免 Node)
 index.md                 业主与项目总索引
 ```
 P2 起每个项目加 `projects/<项目>/assets/`(DXF/FBX/效果图归档),届时项目主页从单文件升级为目录。

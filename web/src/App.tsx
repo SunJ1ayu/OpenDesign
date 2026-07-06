@@ -33,7 +33,10 @@ function Health() {
   const [info, setInfo] = useState<string>("检查中…");
   useEffect(() => {
     fetch("/api/health")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`${r.status}`);
+        return r.json();
+      })
       .then((d) => setInfo(`ds-web ${d.version} 在线 · 数据根 ${d.ds_root}`))
       .catch(() => setInfo("ds-web 离线 —— 用 ds-web.ps1 启动本地服务"));
   }, []);

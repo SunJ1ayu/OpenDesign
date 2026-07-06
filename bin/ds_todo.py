@@ -13,7 +13,11 @@ from datetime import date
 
 import ds_common  # 页脚锚定语义的唯一定义(与写侧 bump_last_updated 同源)
 
-OPEN_RE = re.compile(r"^- \[(待确认|进行中)\]")
+# 未关闭变更行的唯一闸门 + 结构化提取(SCHEMA 变更行 `- [状态] C<n> 日期 内容`):
+# 单正则,不设第二个"命中"正则 —— 双正则会漂移(panel 7-06 GLM 指出的缺陷类)。
+# C/日期残缺时各组为 None;\b 防 "C5面板" 这类无空格粘连被误拆。
+FIELDS_RE = re.compile(
+    r"^- \[(待确认|进行中)\](?:\s+C(\d+)\b)?(?:\s+(\d{4}-\d{2}-\d{2}))?\s*(.*)$")
 LASTUPD_RE = ds_common.LASTUPD_DATE_RE  # 行首锚定:沟通日志句中的"最后更新"不再误认
 # env DS_ROOT 缺失时基于 __file__ 推导(bin/ 的上一级):Linux/Windows 通用,不硬编码 /root
 DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -24,32 +28,34 @@ def _today() -> date:
     return date.fromisoformat(t) if t else date.today()
 
 
-def render(root: str, stale_days: int = 7, today: date | None = None) -> str:
+def collect(root: str, stale_days: int = 7, today: date | None = None) -> dict:
+    """结构化核心(唯一真相源):render 与 ds_web /api/todos 都吃这个。
+    返回 {"today", "stale_days", "open": [...], "stale": [...]};open 条目含
+    project/line/status/cnum/date/text/raw,残缺行 cnum/date 为 None。"""
     if today is None:
         today = _today()
     proj = os.path.join(root, "projects")
     files = sorted(f for f in (os.listdir(proj) if os.path.isdir(proj) else [])
                    if f.endswith(".md"))
 
-    out = ["== 未关闭事项(待确认 / 进行中) =="]
-    found = False
-    texts = {}
+    open_items = []
+    stale_items = []
     for f in files:
         with open(os.path.join(proj, f), encoding="utf-8") as fh:
-            texts[f] = fh.read()
-        hits = [(i, ln) for i, ln in enumerate(texts[f].split("\n"), 1) if OPEN_RE.match(ln)]
-        if hits:
-            out.append(f"▸ {f[:-3]}")
-            out.extend(f"    {i}:{ln}" for i, ln in hits)
-            found = True
-    if not found:
-        out.append("  (无)")
-
-    out.append("")
-    out.append(f"== 超过 {stale_days} 天未更新的项目 ==")
-    sfound = False
-    for f in files:
-        dates = LASTUPD_RE.findall(texts[f])
+            text = fh.read()
+        name = f[:-3]
+        for i, ln in enumerate(text.split("\n"), 1):
+            m = FIELDS_RE.match(ln)
+            if not m:
+                continue
+            open_items.append({
+                "project": name, "line": i, "raw": ln,
+                "status": m.group(1),
+                "cnum": int(m.group(2)) if m.group(2) else None,
+                "date": m.group(3),
+                "text": m.group(4),
+            })
+        dates = LASTUPD_RE.findall(text)
         if not dates:
             continue
         try:
@@ -58,9 +64,31 @@ def render(root: str, stale_days: int = 7, today: date | None = None) -> str:
             continue
         age = (today - last).days
         if age >= stale_days:
-            out.append(f"▸ {f[:-3]} — {age}天未更新 (最后 {dates[-1]})")
-            sfound = True
-    if not sfound:
+            stale_items.append({"project": name, "days": age, "last": dates[-1]})
+
+    return {"today": today.isoformat(), "stale_days": stale_days,
+            "open": open_items, "stale": stale_items}
+
+
+def render(root: str, stale_days: int = 7, today: date | None = None) -> str:
+    """collect 的纯格式化壳 —— golden 文本逐字节不变(特征化测试锁定)。"""
+    data = collect(root, stale_days, today)
+
+    out = ["== 未关闭事项(待确认 / 进行中) =="]
+    cur = None
+    for it in data["open"]:
+        if it["project"] != cur:
+            out.append(f"▸ {it['project']}")
+            cur = it["project"]
+        out.append(f"    {it['line']}:{it['raw']}")
+    if not data["open"]:
+        out.append("  (无)")
+
+    out.append("")
+    out.append(f"== 超过 {data['stale_days']} 天未更新的项目 ==")
+    for s in data["stale"]:
+        out.append(f"▸ {s['project']} — {s['days']}天未更新 (最后 {s['last']})")
+    if not data["stale"]:
         out.append("  (无)")
     return "\n".join(out) + "\n"
 

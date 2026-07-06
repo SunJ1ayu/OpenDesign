@@ -60,8 +60,12 @@ if (-not (Test-Path $VPython)) {
     python -m venv $Venv
     if ($LASTEXITCODE -ne 0) { Write-Error "python -m venv 失败,报错见上" }
 }
-& $VPython -m pip install nanobot-ai mcp
+# 钉版本:工作台 P1 要对 nanobot 内部 websocket 协议编程,升级前先跑协议冒烟
+# (track opendesign-workbench design.md D3-P1);升版本 = 改这一行 + 冒烟过再推
+& $VPython -m pip install nanobot-ai==0.2.2 mcp==1.28.1
 if ($LASTEXITCODE -ne 0) { Write-Error "pip install 失败,报错见上(常见:网络;可加 -i 镜像源重试)" }
+& $VPython -m pip check
+if ($LASTEXITCODE -ne 0) { Write-Host "  ⚠ pip check 报依赖冲突(见上),通常仍可用;把输出发回部署者" }
 
 Step 4 "nanobot onboard(交互向导,生成基础配置)"
 if (Test-Path $ConfigJson) {

@@ -119,6 +119,31 @@ class TestDsTodo(unittest.TestCase):
         self.assertIn("▸ a-open", r["text"])
         self.assertIn("▸ b-stale — 13天未更新", r["text"])
 
+    # ⑦ collect 结构化输出(track opendesign-workbench T1):字段齐全、与 golden 同源
+    def test_07_collect_structured(self):
+        root = _mkroot({"a-open.md": A_OPEN, "b-stale.md": B_STALE, "c-clean.md": C_CLEAN})
+        d = ds_todo.collect(root, 7, TODAY)
+        self.assertEqual(d["today"], "2026-07-03")
+        self.assertEqual(d["stale_days"], 7)
+        self.assertEqual(d["open"], [{
+            "project": "a-open", "line": 4, "status": "待确认", "cnum": 1,
+            "date": "2026-06-20", "text": "改推拉门",
+            "raw": "- [待确认] C1 2026-06-20 改推拉门",
+        }])
+        self.assertEqual(d["stale"], [{"project": "b-stale", "days": 13,
+                                       "last": "2026-06-20"}])
+
+    # ⑧ collect 容忍残缺变更行:状态在、C/日期缺 → None,不炸不丢
+    def test_08_collect_partial_line(self):
+        root = _mkroot({"x.md": "# x\n- [进行中] 没编号没日期\n\n---\n最后更新: 2026-07-03\n"})
+        d = ds_todo.collect(root, 7, TODAY)
+        self.assertEqual(len(d["open"]), 1)
+        it = d["open"][0]
+        self.assertEqual(it["status"], "进行中")
+        self.assertIsNone(it["cnum"])
+        self.assertIsNone(it["date"])
+        self.assertEqual(it["text"], "没编号没日期")
+
     # ⑥ list_todos 错误路径:核心崩溃 → 显式 error,不得静默 ok:true
     def test_06_list_todos_error(self):
         orig = ds_todo.render

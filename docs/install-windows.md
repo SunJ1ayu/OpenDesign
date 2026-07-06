@@ -38,7 +38,7 @@ config 合并(`bin/ds_merge_config.py`,channels 段不碰)、workspace/skills �
 
 ```powershell
 python -m venv "$env:USERPROFILE\.venvs\design-studio"
-& "$env:USERPROFILE\.venvs\design-studio\Scripts\pip" install nanobot-ai mcp
+& "$env:USERPROFILE\.venvs\design-studio\Scripts\pip" install nanobot-ai==0.2.2 mcp==1.28.1
 & "$env:USERPROFILE\.venvs\design-studio\Scripts\nanobot" onboard
 ```
 
@@ -98,6 +98,25 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 1. 问一句"有什么待办"→ 应调 `list_todos` 返回(证明 MCP 通、脑通);
 2. 让它扫桌面提整理方案 → 只应返回 dry-run 清单,**不动文件**(`.approved` 闸生效);
 3. 记一条测试变更再关闭 → 项目 md 里 `C<n>` 追加、状态流转正常。
+
+## 5b. 工作台(可选,track opendesign-workbench P0)
+
+聊天之外的第二个入口:本地网页工作台(待办清单等,纯只读,不动任何文件)。
+
+```powershell
+& "<DS_ROOT>\bin\ds-web.ps1"
+```
+
+浏览器开 `http://127.0.0.1:8766/`(与 8765 的聊天 WebUI 并行,互不影响;
+端口被占先 `$env:DS_WEB_PORT = "8768"` 再跑)。前端产物已随仓带
+(`web/dist/`),不用装 Node;`git pull` 即更新,刷新页面生效。
+想要桌面感:Edge 地址栏右侧"安装为应用",得到独立窗口+任务栏图标。
+
+装完(或 git pull 后)跑一次测试即真机验证:
+
+```powershell
+python "<DS_ROOT>\tests\test_ds_web.py"
+```
 
 ## 6. 交代给机主的三句话(D2:不做专门文书)
 

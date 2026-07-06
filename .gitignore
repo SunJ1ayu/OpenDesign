@@ -3,6 +3,13 @@ __pycache__/
 *.pyc
 *.log
 
+# 前端构建依赖/中间物(锚定仓根;web/dist 是构建产物,反而要进仓 —— 用户机免 Node)
+/web/node_modules/
+/web/.vite/
+
+# 评审工具工作残留(submimo 的 plan 目录)
+/.mimocode/
+
 # 业主数据永不进仓(装到谁的机器,数据就留在谁的机器;仓里只有代码和模板)
 # 全部锚定仓根(/):不锚定会误伤 skills/organize、skills/refs 等同名子目录
 /projects/*
