@@ -36,6 +36,10 @@
       灰卡含 3D/设置含 auto-light-dark 三态切换存 localStorage);
       TodoPage 零改动(class 层换皮)。dist 重构建进仓;Playwright
       四截图(chat 浅深/todos 浅/toolbox 深)目检通过;回归绿。
+      **修订(3f68275,用户双截图对比反馈)**:侧栏 220→256px(实测
+      其 dist w-64)/五项补 lucide 内联图标+单行条目/设置钉左下角
+      footer。教训:布局度量也要从 dist 实测,不只色彩 token。
+      用户已在真机拉取查看,无进一步反馈,视觉基线以此为准。
 - [ ] T4 聊天登录/连接流(按 v2 token 模型):口令一次 → localStorage →
       每次开 ws 前经 bootstrap 新签一次性 token(多标签页/StrictMode
       双连各自独立签);前端用 ws_path+已知端口自拼地址(ws_url 只作
