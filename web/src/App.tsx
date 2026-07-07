@@ -1,21 +1,72 @@
 import { useEffect, useState } from "react";
 import TodoPage from "./TodoPage";
 
+// lucide 风格内联图标(nanobot 同款图标系:24 viewBox/描边2/16px 渲染)
+const ICONS: Record<string, JSX.Element> = {
+  chat: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
+  todos: (
+    <>
+      <rect x="3" y="5" width="6" height="6" rx="1" />
+      <path d="m3 17 2 2 4-4" />
+      <path d="M13 6h8" />
+      <path d="M13 12h8" />
+      <path d="M13 18h8" />
+    </>
+  ),
+  calendar: (
+    <>
+      <path d="M8 2v4" />
+      <path d="M16 2v4" />
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M3 10h18" />
+    </>
+  ),
+  toolbox: (
+    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+  ),
+  settings: (
+    <>
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+};
+
+function Icon({ name }: { name: string }) {
+  return (
+    <svg
+      className="nav-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {ICONS[name]}
+    </svg>
+  );
+}
+
 // 侧栏 = plan v2 的固定五项(IA 判据:常驻视图独立页,一次性动作进工具箱)。
 // 聊天是首屏门面,T5 换成真聊天;日历 P2;工具箱先占位卡片,不做插件框架。
+// 设置钉在左下角(nanobot 同位);hint 收进 title 提示,行高与 nanobot 对齐。
 const MODULES = [
   { key: "chat", label: "聊天", hint: "工作台门面 · 直连 nanobot" },
   { key: "todos", label: "待办", hint: "未关闭变更与超期项目" },
   { key: "calendar", label: "日历", hint: "P2 · 排期与重要提醒" },
   { key: "toolbox", label: "工具箱", hint: "跑完就走的小工具" },
-  { key: "settings", label: "设置", hint: "外观与服务状态" },
 ] as const;
 
-type ModuleKey = (typeof MODULES)[number]["key"];
+const SETTINGS = { key: "settings", label: "设置", hint: "外观与服务状态" } as const;
+
+const ALL = [...MODULES, SETTINGS] as const;
+type ModuleKey = (typeof ALL)[number]["key"];
 
 function fromHash(): ModuleKey {
   const h = window.location.hash.replace("#/", "");
-  return (MODULES.some((m) => m.key === h) ? h : "chat") as ModuleKey;
+  return (ALL.some((m) => m.key === h) ? h : "chat") as ModuleKey;
 }
 
 // 深浅模式:默认跟系统(auto),手动选择存 localStorage;.dark 打在 <html> 上
@@ -170,15 +221,27 @@ export default function App() {
             <li key={m.key}>
               <a
                 href={`#/${m.key}`}
+                title={m.hint}
                 className={active === m.key ? "active" : ""}
                 aria-current={active === m.key ? "page" : undefined}
               >
+                <Icon name={m.key} />
                 <span className="nav-label">{m.label}</span>
-                <span className="nav-hint">{m.hint}</span>
               </a>
             </li>
           ))}
         </ul>
+        <div className="sidebar-footer">
+          <a
+            href={`#/${SETTINGS.key}`}
+            title={SETTINGS.hint}
+            className={active === SETTINGS.key ? "active" : ""}
+            aria-current={active === SETTINGS.key ? "page" : undefined}
+          >
+            <Icon name={SETTINGS.key} />
+            <span className="nav-label">{SETTINGS.label}</span>
+          </a>
+        </div>
       </nav>
       <main className="main">
         {active === "chat" && <ChatPage />}

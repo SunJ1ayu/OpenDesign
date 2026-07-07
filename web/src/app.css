@@ -93,7 +93,7 @@ body {
 
 .shell {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 16rem 1fr; /* nanobot 侧栏 w-64 = 256px,实测其 dist */
   height: 100%;
 }
 
@@ -119,10 +119,12 @@ body {
   color: hsl(var(--muted-foreground));
   margin-left: 6px;
 }
-.sidebar ul { list-style: none; margin: 0; padding: 0 8px; }
+.sidebar ul { list-style: none; margin: 0; padding: 0 8px; flex: 1; }
 .sidebar a {
-  display: block;
-  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
   margin-bottom: 2px;
   border-radius: var(--radius);
   color: hsl(var(--sidebar-foreground));
@@ -134,12 +136,18 @@ body {
   color: hsl(var(--sidebar-accent-foreground));
   font-weight: 600;
 }
-.nav-label { display: block; font-size: 13px; }
-.nav-hint {
-  display: block;
-  font-size: 12px;
+.nav-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
   color: hsl(var(--muted-foreground));
-  font-weight: 400;
+}
+.sidebar a.active .nav-icon { color: hsl(var(--sidebar-accent-foreground)); }
+.nav-label { font-size: 13px; }
+/* 设置钉左下角(nanobot 同位) */
+.sidebar-footer {
+  padding: 8px 8px 4px;
+  border-top: 1px solid hsl(var(--sidebar-border));
 }
 
 /* ---- 主区 ---- */
