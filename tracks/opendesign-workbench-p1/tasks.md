@@ -15,15 +15,20 @@
       gateway 停后 SKIP 路径验证 OK,config 已还原)。F11 答案:不带
       webui:true 也回补进历史但缺 turnId,前端一律带。token 一次性、
       attach、401 形状、分页全部实测确认与 plan v2 一致,零意外。
-- [ ] T1 oracle 先行(red-check):设计 Test strategy 七条中 1-4
-      (白名单+key 字符集/502/401 透传+hop-by-hop 剥离/XSS 闸),
-      mock 上游 fixture(stdlib http.server 线程)
-- [ ] T2 ds_web 代理实现:三条白名单 GET 映射
-      `/api/chat/bootstrap→/webui/bootstrap`、
-      `/api/chat/sessions→/api/sessions`、
-      `/api/chat/sessions/<key>/thread→/api/sessions/<key>/webui-thread`;
-      `<key>` 按 `[A-Za-z0-9_:.-]{1,128}` 先验;查询串透传;上游硬编码
-      127.0.0.1:8765(DS_NANOBOT_PORT 可覆盖);纯管道零秘密;T1 转绿
+- [x] T1 oracle 先行 ✅ 2026-07-08:`tests/test_ds_web_proxy.py` 9 条
+      (白名单映射×3/非法 key 零上游/白名单外 404/405 不变量/502/401
+      透传/请求头白名单),mock 上游=记录型 stdlib server;red-check
+      9/9 错(make_server 无 nanobot_port)。XSS 闸按其归属挪 T5/T9
+      (前端渲染层,Python oracle 测不到)。未 commit——按 P0 惯例
+      与 T2 实现同 commit 落仓,红测不单独上 main。
+- [x] T2 ds_web 代理实现 ✅ 2026-07-08:三条白名单 GET 映射 + `<key>`
+      不 unquote 先验字符集且拒 `./..`(% 直接闸外=零路径走私面)+
+      查询串透传 + 请求头白名单 + 502/状态码透传;上游硬编码
+      127.0.0.1(DS_NANOBOT_PORT 可覆盖)。oracle 9/9 绿,全量回归绿。
+      oracle 修两处测试自身 bug:①Authorization 非 ASCII(http 头
+      latin-1 约束)②裸空格/裸€ 请求行不合法到不了路由,wire 真实
+      形状是 %xx(留 %20/%e2%82%ac 变体)。经代理打真 gateway 的
+      端到端留 T10 verify 一并跑。
 - [ ] T3 视觉重皮肤 + IA 重排:nanobot token 两套变量落 `web/src`,
       13/14px + cjk 行高 + 零阴影边框;侧栏五项(聊天首屏/待办/日历占位/
       工具箱占位卡片页/设置占位含深浅切换);待办页换皮不动逻辑
