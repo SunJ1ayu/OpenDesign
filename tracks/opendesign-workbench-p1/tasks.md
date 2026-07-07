@@ -29,9 +29,13 @@
       latin-1 约束)②裸空格/裸€ 请求行不合法到不了路由,wire 真实
       形状是 %xx(留 %20/%e2%82%ac 变体)。经代理打真 gateway 的
       端到端留 T10 verify 一并跑。
-- [ ] T3 视觉重皮肤 + IA 重排:nanobot token 两套变量落 `web/src`,
-      13/14px + cjk 行高 + 零阴影边框;侧栏五项(聊天首屏/待办/日历占位/
-      工具箱占位卡片页/设置占位含深浅切换);待办页换皮不动逻辑
+- [x] T3 视觉重皮肤 + IA 重排 ✅ 2026-07-08:app.css 全量换 nanobot
+      token(浅/深两套 + 状态色语义变量深浅各配)、13px 基准、细滚动条、
+      侧栏半档色差+圆角软高亮(弃 P0 墨侧栏/border-left/衬线 wordmark);
+      App.tsx 侧栏改五项(聊天首屏含输入条壳/待办/日历占位/工具箱两张
+      灰卡含 3D/设置含 auto-light-dark 三态切换存 localStorage);
+      TodoPage 零改动(class 层换皮)。dist 重构建进仓;Playwright
+      四截图(chat 浅深/todos 浅/toolbox 深)目检通过;回归绿。
 - [ ] T4 聊天登录/连接流(按 v2 token 模型):口令一次 → localStorage →
       每次开 ws 前经 bootstrap 新签一次性 token(多标签页/StrictMode
       双连各自独立签);前端用 ws_path+已知端口自拼地址(ws_url 只作
