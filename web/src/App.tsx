@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import TodoPage from "./TodoPage";
+import ChatPage from "./chat/ChatPage";
 
 // lucide 风格内联图标(nanobot 同款图标系:24 viewBox/描边2/16px 渲染)
 const ICONS: Record<string, JSX.Element> = {
@@ -106,24 +107,6 @@ function Placeholder({ title, lines }: { title: string; lines: string[] }) {
       {lines.map((l) => (
         <p key={l}>{l}</p>
       ))}
-    </div>
-  );
-}
-
-// 聊天占位:壳按最终布局立起来(消息区+输入条),T4/T5 填内容
-function ChatPage() {
-  return (
-    <div className="chat-shell">
-      <div className="chat-empty">
-        <p>聊天正在收进工作台(下一轮交付)。</p>
-        <p>
-          现在请用{" "}
-          <a href="http://127.0.0.1:8765/" target="_blank" rel="noreferrer">
-            nanobot 原版界面（127.0.0.1:8765）
-          </a>
-        </p>
-      </div>
-      <div className="chat-inputbar">给 OpenDesign 发消息…（即将可用）</div>
     </div>
   );
 }

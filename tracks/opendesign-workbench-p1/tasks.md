@@ -46,10 +46,18 @@
       其 dist w-64)/五项补 lucide 内联图标+单行条目/设置钉左下角
       footer。教训:布局度量也要从 dist 实测,不只色彩 token。
       用户已在真机拉取查看,无进一步反馈,视觉基线以此为准。
-- [ ] T4 聊天登录/连接流(按 v2 token 模型):口令一次 → localStorage →
-      每次开 ws 前经 bootstrap 新签一次性 token(多标签页/StrictMode
-      双连各自独立签);前端用 ws_path+已知端口自拼地址(ws_url 只作
-      参考);HTTP 401 → 透明重 bootstrap;重签仍 401 → 弹回登录
+- [x] T4 聊天登录/连接流 ✅ 2026-07-10:纯逻辑层 `web/src/chat/connection.ts`
+      (fetch/WebSocket/storage/uuid 全依赖注入)+ `chat/ChatPage.tsx` 四态
+      (登录表单/连接中/已连接/错误横幅含原版界面保底链接)。oracle =
+      `tests/test_chat_connection.mjs` 14 条(node --test 原生跑,零新依赖;
+      red-check:三处突变分别红 1/2/3 条)。端到端实检 7/7 双跑过:部署
+      形状真 gateway(enable_webui.py)+ dist 经 ds_web,Playwright 走
+      错口令→对口令→ready 已连接→刷新免登录→退出登录,截图目检与 T3
+      视觉基线一致,config 已还原。自审抓到并修:①退出登录须触发 effect
+      清理关 ws(否则悬挂 ws 断线会把登录页踢成错误横幅);②中文口令
+      提前转明确登录错误(fetch header 只收 Latin-1,否则 TypeError 被
+      误读成服务故障)。已知边界:ws 握手 401(bootstrap 与握手间口令
+      被改)表现为"连接已断开"+重试,重试路径会正确落回登录。
 - [ ] T5 聊天核心 UI:**流式渲染 = delta 增量(节流)+ stream_end 定稿
       + turn_end 收尾**;tool_hint/progress 安全降级;GFM markdown 用
       react-markdown(**禁 raw HTML,焊 oracle #4**;新依赖锁

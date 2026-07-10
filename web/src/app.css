@@ -33,6 +33,7 @@
   --doing-fg: 210 50% 36%;
   --doing-bg: 210 45% 94%;
   --overdue: 12 60% 42%;
+  --connected: 145 45% 38%;
   --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", "Source Code Pro",
     Menlo, Consolas, monospace;
 }
@@ -64,6 +65,7 @@
   --doing-fg: 210 55% 70%;
   --doing-bg: 212 35% 17%;
   --overdue: 12 65% 62%;
+  --connected: 145 40% 55%;
 }
 
 * { box-sizing: border-box; }
@@ -226,6 +228,78 @@ a { color: hsl(var(--foreground)); }
   min-width: 48px;
 }
 .project-name-inline { font-weight: 600; }
+
+/* ---- 聊天(T4 登录/连接流;消息收发 T5) ---- */
+.chat-login {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 280px;
+  text-align: left;
+}
+.chat-login h2 { font-size: 15px; color: hsl(var(--foreground)); }
+.chat-login input {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 10px;
+  border: 1px solid hsl(var(--input));
+  border-radius: var(--radius);
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+}
+.chat-login-error { color: hsl(var(--overdue)); font-size: 12px; }
+.chat-btn {
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 12px;
+  border: 1px solid hsl(var(--input));
+  border-radius: var(--radius);
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  cursor: pointer;
+}
+.chat-btn:hover { background: hsl(var(--accent)); }
+.chat-btn.primary {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-color: hsl(var(--primary));
+}
+.chat-btn.subtle {
+  border: none;
+  background: none;
+  color: hsl(var(--muted-foreground));
+  padding: 2px 6px;
+}
+.chat-btn.subtle:hover { color: hsl(var(--foreground)); }
+.chat-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  padding: 10px 0 0;
+}
+.chat-status .chat-btn.subtle { margin-left: auto; }
+.chat-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: hsl(var(--connected));
+}
+.chat-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid hsl(var(--overdue) / 0.4);
+  border-radius: var(--radius);
+  background: hsl(var(--overdue) / 0.08);
+  color: hsl(var(--foreground));
+  font-size: 13px;
+}
+.chat-banner-actions { display: flex; gap: 8px; margin-left: auto; }
 
 /* ---- 聊天占位(T5 换成真聊天;壳先按最终布局立起来) ---- */
 .chat-shell {

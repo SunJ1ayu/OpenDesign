@@ -1,1 +1,1 @@
-{"root":["./src/App.tsx","./src/TodoPage.tsx","./src/main.tsx"],"version":"5.6.3"}
+{"root":["./src/App.tsx","./src/TodoPage.tsx","./src/main.tsx","./src/chat/ChatPage.tsx","./src/chat/connection.ts"],"version":"5.6.3"}
