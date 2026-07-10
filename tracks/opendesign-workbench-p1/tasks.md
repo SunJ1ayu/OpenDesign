@@ -58,11 +58,25 @@
       提前转明确登录错误(fetch header 只收 Latin-1,否则 TypeError 被
       误读成服务故障)。已知边界:ws 握手 401(bootstrap 与握手间口令
       被改)表现为"连接已断开"+重试,重试路径会正确落回登录。
-- [ ] T5 聊天核心 UI:**流式渲染 = delta 增量(节流)+ stream_end 定稿
-      + turn_end 收尾**;tool_hint/progress 安全降级;GFM markdown 用
-      react-markdown(**禁 raw HTML,焊 oracle #4**;新依赖锁
-      package-lock);输入框 Enter 查 isComposing(+229 兜底);
-      message 信封带 webui:true+turn_id;错误横幅含"打开原版界面"链接
+- [x] T5(前半)✅ 2026-07-10 聊天核心 = 能看对话:纯函数层
+      `web/src/chat/transcript.ts`(信封 webui:true+turn_id/appendLocalUser
+      锁 busy/applyEvent:delta 按 stream_id 归组→stream_end 定稿→
+      turn_end 解锁,error 事件也解锁防死锁,未知/畸形一律忽略)+
+      `chat/markdown.ts`(react-markdown@10+remark-gfm@4,禁 raw HTML=
+      默认转义,javascript:/data: href 默认剥空,两者均焊 oracle)+
+      ChatPage 真聊天(80ms 节流缓冲批量过 reducer/busy 锁发送不锁
+      打字/自动贴底)。oracle `tests/test_chat_transcript.mjs` 15 条,
+      red-check 3 突变分别红 1/5/9;e2e 真 gateway+真 MiMo 6/6(登录→
+      发送→busy 锁→流式气泡→turn_end 解锁+<li> 真渲染→Enter 第二轮,
+      Shift+Enter 不发),截图目检与 T3 基线一致,config 已还原。
+      e2e 教训:发送键在草稿空时本就禁用,解锁断言要看占位符。
+      fast lane 审:主自审抓 2(error 解锁防死锁/URL scheme 焊 oracle)
+      均修;submimo 2 MUST 均证伪(StrictMode 泄漏=cancelled 闸两时序
+      都覆盖;节流丢事件=pending 连接私有且新连必重置 transcript),
+      收 2(delta role 守卫+边界 oracle),拒 send-throw(规范 CLOSED
+      静默丢弃无抛出路径)/OOM/浅冻结/上游协议命名。oracle 终 17 条。
+      **后半(T5b)留**:tool_hint/progress 降级显示(现=忽略)、
+      代码高亮子集、链接 target。
 - [ ] T6 断线自愈:重连 = 重签 + 对新 ready 重发 attach(裸 chat_id)+
       refetch webui-thread 补缺口;指数退避上限 30s;mock 上游 401/断连
       oracle 转绿

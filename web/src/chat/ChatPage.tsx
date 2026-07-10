@@ -1,12 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChatSession, PasswordRejected, type BootstrapInfo } from "./connection";
+import {
+  emptyTranscript,
+  appendLocalUser,
+  applyEvent,
+  messageEnvelope,
+  shouldSendOnEnter,
+  type TranscriptState,
+} from "./transcript";
+import { renderMarkdown } from "./markdown";
 
-// T4 聊天页 = 登录/连接流。消息收发(流式渲染)是 T5,这里先把连接立起来:
-// 口令一次 → localStorage → 每次开 ws 前新签一次性 token(StrictMode 双连各自签,
-// 由 connection.ts 保证)→ ready 即已连接;口令被拒弹回登录,其余错误走横幅,
-// 横幅里永远给"打开原版界面"保底链接(design D-C4)。
+// T5(半):消息收发 + 流式渲染。协议按 docs/nanobot-ws-protocol.md §2:
+// 发 = 信封带 webui:true+turn_id,本地上屏并锁发送;收 = delta 按 stream_id
+// 归组拼接 → stream_end 定稿 → turn_end 解锁。事件先进缓冲,80ms 节流批量
+// 过 reducer(delta 每帧一 setState 会把渲染打爆)。断线自愈/会话列表是 T6/T7。
 
 const STOCK_WEBUI = "http://127.0.0.1:8765/";
+const FLUSH_MS = 80;
 
 type View =
   | { kind: "login" }
@@ -29,14 +39,29 @@ export default function ChatPage() {
   );
   const [loginError, setLoginError] = useState("");
   const [attempt, setAttempt] = useState(0); // 递增触发重连 effect
+  const [transcript, setTranscript] = useState<TranscriptState>(emptyTranscript);
+  const [draft, setDraft] = useState("");
   const pwRef = useRef<HTMLInputElement>(null);
+  const wsRef = useRef<WebSocket | null>(null); // 当前活连接,send 用
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!session.hasPassword()) return;
     let cancelled = false;
     let ws: WebSocket | null = null;
     let info: BootstrapInfo | null = null;
+    // 节流缓冲:本连接私有,断开即弃
+    let pending: unknown[] = [];
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const flush = () => {
+      timer = null;
+      if (cancelled || pending.length === 0) return;
+      const batch = pending;
+      pending = [];
+      setTranscript((s) => batch.reduce(applyEvent, s));
+    };
     setView({ kind: "connecting" });
+    setTranscript(emptyTranscript); // 每条连接都是新 chat_id,历史回补是 T6/T7
 
     session
       .openSocket()
@@ -47,13 +72,17 @@ export default function ChatPage() {
         }
         ws = r.socket as WebSocket;
         info = r.info;
+        wsRef.current = ws;
         ws.onmessage = (ev) => {
           if (cancelled) return;
           try {
             const m = JSON.parse(ev.data);
             if (m.event === "ready" && typeof m.chat_id === "string") {
               setView({ kind: "connected", chatId: m.chat_id, model: info?.model_name });
+              return;
             }
+            pending.push(m);
+            if (timer === null) timer = setTimeout(flush, FLUSH_MS);
           } catch {
             /* 非 JSON 帧忽略(协议会长,未知的不崩) */
           }
@@ -75,9 +104,17 @@ export default function ChatPage() {
 
     return () => {
       cancelled = true;
+      if (timer !== null) clearTimeout(timer);
+      if (wsRef.current === ws) wsRef.current = null;
       ws?.close();
     };
   }, [session, attempt]);
+
+  // 新内容到就贴底(半 T5 简单版:一律贴底,不做"看历史时不打扰")
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [transcript]);
 
   const login = () => {
     const pw = pwRef.current?.value.trim();
@@ -93,6 +130,15 @@ export default function ChatPage() {
     setView({ kind: "login" });
     // 触发 effect 清理关掉在挂的 ws;无口令时新一轮 effect 直接早退,视图留在登录
     setAttempt((n) => n + 1);
+  };
+
+  const send = () => {
+    const content = draft.trim();
+    const ws = wsRef.current;
+    if (!content || transcript.busy || view.kind !== "connected" || !ws) return;
+    ws.send(JSON.stringify(messageEnvelope(view.chatId, content, crypto.randomUUID())));
+    setTranscript((s) => appendLocalUser(s, content, `local-${crypto.randomUUID()}`));
+    setDraft("");
   };
 
   if (view.kind === "login") {
@@ -172,13 +218,49 @@ export default function ChatPage() {
           退出登录
         </button>
       </div>
-      <div className="chat-empty">
-        <p>连接就绪。消息收发在下一轮交付（T5）。</p>
-        <p>
-          现在发消息请用 <StockLink />
-        </p>
+      {transcript.messages.length === 0 ? (
+        <div className="chat-empty">
+          <p>连接就绪,说点什么吧——比如「记一下:张三家玄关柜改到 2.4 米」。</p>
+        </div>
+      ) : (
+        <div className="chat-messages" ref={scrollRef}>
+          {transcript.messages.map((m) => (
+            <div key={m.id} className={`chat-msg ${m.role}`}>
+              <div className={`chat-msg-body${m.streaming ? " streaming" : ""}`}>
+                {m.role === "assistant" ? renderMarkdown(m.content) : m.content}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="chat-inputbar live">
+        <textarea
+          rows={2}
+          value={draft}
+          placeholder={transcript.busy ? "回复中…" : "给 OpenDesign 发消息,Enter 发送,Shift+Enter 换行"}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (
+              shouldSendOnEnter({
+                key: e.key,
+                shiftKey: e.shiftKey,
+                isComposing: e.nativeEvent.isComposing,
+                keyCode: e.keyCode,
+              })
+            ) {
+              e.preventDefault();
+              send(); // busy 时 send 自己拦(锁发送不锁打字,回复中可先打下一条)
+            }
+          }}
+        />
+        <button
+          className="chat-btn primary"
+          disabled={transcript.busy || !draft.trim()}
+          onClick={send}
+        >
+          发送
+        </button>
       </div>
-      <div className="chat-inputbar">给 OpenDesign 发消息…（T5 开通）</div>
     </div>
   );
 }

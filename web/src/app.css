@@ -331,6 +331,93 @@ a { color: hsl(var(--foreground)); }
   font-size: 13px;
 }
 
+/* ---- 聊天消息区(T5) ---- */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 4px;
+  font-size: 13px;
+}
+.chat-msg { display: flex; }
+.chat-msg.user { justify-content: flex-end; }
+.chat-msg-body {
+  max-width: 85%;
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  line-height: 1.6;
+  overflow-wrap: break-word;
+}
+.chat-msg.user .chat-msg-body {
+  background: hsl(var(--accent));
+  color: hsl(var(--foreground));
+  white-space: pre-wrap;
+}
+.chat-msg.assistant .chat-msg-body {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+/* 流式中的光标:定稿(stream_end)即消失 */
+.chat-msg-body.streaming::after {
+  content: "▍";
+  color: hsl(var(--muted-foreground));
+  animation: chat-blink 1s steps(2) infinite;
+}
+@keyframes chat-blink { 50% { opacity: 0; } }
+/* markdown 内容的紧凑排版(react-markdown 输出裸标签) */
+.chat-msg-body > :first-child { margin-top: 0; }
+.chat-msg-body > :last-child { margin-bottom: 0; }
+.chat-msg-body p, .chat-msg-body ul, .chat-msg-body ol { margin: 6px 0; }
+.chat-msg-body ul, .chat-msg-body ol { padding-left: 20px; }
+.chat-msg-body pre {
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) - 2px);
+  padding: 8px 10px;
+  overflow-x: auto;
+  font-size: 12px;
+}
+.chat-msg-body code { font-family: ui-monospace, monospace; font-size: 12px; }
+.chat-msg-body table { border-collapse: collapse; margin: 6px 0; }
+.chat-msg-body th, .chat-msg-body td {
+  border: 1px solid hsl(var(--border));
+  padding: 4px 8px;
+  text-align: left;
+}
+.chat-msg-body th { background: hsl(var(--muted)); }
+.chat-msg-body blockquote {
+  margin: 6px 0;
+  padding-left: 10px;
+  border-left: 2px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+}
+/* 输入条升级为真输入(live);占位态样式保持原样 */
+.chat-inputbar.live {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  padding: 8px;
+}
+.chat-inputbar.live textarea {
+  flex: 1;
+  border: none;
+  background: transparent;
+  resize: none;
+  color: hsl(var(--foreground));
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  outline: none;
+}
+.chat-inputbar.live textarea::placeholder { color: hsl(var(--muted-foreground)); }
+.chat-inputbar.live .chat-btn.primary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 /* ---- 工具箱:卡片网格 ---- */
 .toolbox-grid {
   display: grid;
