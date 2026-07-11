@@ -31,6 +31,12 @@ type Props = {
   prefill?: { text: string; nonce: number };
   /** 连接就绪回调(App 借此刷新侧栏历史对话;首次登录后无需刷新页面)。 */
   onConnected?: () => void;
+  /**
+   * 展示变体(P3 T1,design.md「抽薄不 fork」):column = 2a 右列(默认),
+   * home = 3a 新对话页。变体只影响 className 与空态 JSX 与输入卡外层样式;
+   * 连接 effect、send、节流缓冲、Enter 判定的代码路径逐字不变(硬约束)。
+   */
+  variant?: "column" | "home";
 };
 
 function StockLink() {
@@ -41,7 +47,12 @@ function StockLink() {
   );
 }
 
-export default function ChatPage({ session: sessionProp, prefill, onConnected }: Props) {
+export default function ChatPage({
+  session: sessionProp,
+  prefill,
+  onConnected,
+  variant = "column",
+}: Props) {
   const fallback = useMemo(() => new ChatSession(), []);
   const session = sessionProp ?? fallback;
   const [view, setView] = useState<View>(() =>
@@ -297,7 +308,7 @@ export default function ChatPage({ session: sessionProp, prefill, onConnected }:
         </button>
       </div>
       {transcript.messages.length === 0 ? (
-        <div className="chat-fill">
+        <div className={`chat-fill${variant === "home" ? " home" : ""}`}>
           <p>连接就绪,说点什么吧——比如「记一下:张三家玄关柜改到 2.4 米」。</p>
         </div>
       ) : (

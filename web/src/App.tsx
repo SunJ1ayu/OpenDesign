@@ -3,6 +3,7 @@ import Sidebar, { type SessionItem } from "./workspace/Sidebar";
 import ChangesColumn from "./workspace/ChangesColumn";
 import CompanionColumn from "./workspace/CompanionColumn";
 import ChatColumn from "./workspace/ChatColumn";
+import ChatPage from "./chat/ChatPage";
 import TodoPage from "./TodoPage";
 import { ChatSession } from "./chat/connection";
 import {
@@ -13,17 +14,20 @@ import {
   type Project,
 } from "./api";
 
-// 主工作区外壳(P2 T2,handoff §Overall Layout):四列横向 flex ——
-// 侧栏 240 / 变更记录 flex:1 / 图片+文件 290 / AI 聊天 340。
-// hash 路由:#/ = 工作区(默认);todos / calendar / skills 保留占位页。
-// 深色:定稿仅浅色,不再挂 .dark(设置弹层里标「即将支持」,design 风险项)。
+// 外壳(P3 T1,handoff v2 导航模型):
+//   hash 路由:#/ = home(3a 新对话,默认)| workspace(2a,点项目进入)
+//   | todos | skills。calendar 删除(功能将来融进待办页)。项目不进 URL。
+// keep-mounted(design.md 核心决策):3a HomeChat 与 2a ChatColumn 两个聊天
+// 实例常驻,非当前路由用 CSS display:none 隐藏、不卸载(transcript/ws 自然
+// 保留;协议每连接一会话,两实例各自独立)。「新对话」/⌘N = 回 3a 现状,
+// 不重置对话(重置 = 亲手复刻"切页丢对话");会话管理是 T7。
 
-type Route = "workspace" | "todos" | "calendar" | "skills";
+type Route = "home" | "workspace" | "todos" | "skills";
 
 function fromHash(): Route {
   const h = window.location.hash.replace(/^#\//, "");
-  if (h === "todos" || h === "calendar" || h === "skills") return h;
-  return "workspace";
+  if (h === "workspace" || h === "todos" || h === "skills") return h;
+  return "home";
 }
 
 const SKILLS = [
@@ -49,15 +53,6 @@ function SkillsPage() {
   );
 }
 
-function CalendarPage() {
-  return (
-    <div className="page placeholder">
-      <h2>日历</h2>
-      <p>项目排期、量房/交付节点与重要提醒,后续版本交付。</p>
-    </div>
-  );
-}
-
 export default function App() {
   const [route, setRoute] = useState<Route>(fromHash);
   const session = useMemo(() => new ChatSession(), []);
@@ -72,12 +67,16 @@ export default function App() {
   const [health, setHealth] = useState<{ version: string; ds_root: string } | null>(null);
   const [sessions, setSessions] = useState<SessionItem[] | null>(null);
 
-  // ---- 聊天联动:预填(标记完成/记一下/新建项目)与新对话(remount) ----
-  const [prefill, setPrefill] = useState<{ text: string; nonce: number }>({
+  // ---- 聊天联动:两个常驻实例各有一份预填(3a 建议 chip/新建项目 → home;
+  // 「✓ 标记完成」在 2a 中央列 → column),nonce 变化即覆盖 draft ----
+  const [homePrefill, setHomePrefill] = useState<{ text: string; nonce: number }>({
     text: "",
     nonce: 0,
   });
-  const [chatEpoch, setChatEpoch] = useState(0);
+  const [colPrefill, setColPrefill] = useState<{ text: string; nonce: number }>({
+    text: "",
+    nonce: 0,
+  });
   const [sessionsEpoch, setSessionsEpoch] = useState(0); // 连接就绪后刷新历史对话
 
   useEffect(() => {
@@ -150,32 +149,37 @@ export default function App() {
     return () => {
       stale = true;
     };
-  }, [session, chatEpoch, sessionsEpoch]);
+  }, [session, sessionsEpoch]);
 
-  // ⌘N 新对话(handoff §Interactions)
+  // ⌘N 新对话 = 回 3a 现状(不重置;UI 不显示角标,行为保留。handoff §Interactions)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "n") {
         e.preventDefault();
-        setChatEpoch((n) => n + 1);
+        window.location.hash = "#/";
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const doPrefill = useCallback((text: string) => {
-    setPrefill((p) => ({ text, nonce: p.nonce + 1 }));
+  const prefillHome = useCallback((text: string) => {
+    setHomePrefill((p) => ({ text, nonce: p.nonce + 1 }));
+  }, []);
+  const prefillCol = useCallback((text: string) => {
+    setColPrefill((p) => ({ text, nonce: p.nonce + 1 }));
   }, []);
 
   const onMarkDone = useCallback(
     (c: Change) => {
       // 只读安全基线:不加写 API;预填交 AI 走 ds_tools/ds-approve 既有闸(design 决策)
       const what = c.cnum !== null ? `C${c.cnum}` : `「${c.text.slice(0, 24)}」`;
-      doPrefill(`把 ${what} 标记完成`);
+      prefillCol(`把 ${what} 标记完成`);
     },
-    [doPrefill],
+    [prefillCol],
   );
+
+  const onConnected = useCallback(() => setSessionsEpoch((n) => n + 1), []);
 
   const selected = projects.find((p) => p.key === selectedKey) ?? null;
 
@@ -185,62 +189,63 @@ export default function App() {
       selectedKey={selectedKey}
       onSelectProject={(k) => {
         setSelectedKey(k);
-        window.location.hash = "#/";
+        window.location.hash = "#/workspace";
       }}
       todosOpenCount={todosCount}
       sessions={sessions}
       onNewChat={() => {
-        setChatEpoch((n) => n + 1);
         window.location.hash = "#/";
       }}
       onNewProject={() => {
-        doPrefill("新建项目:");
+        prefillHome("新建项目:");
         window.location.hash = "#/";
       }}
       health={health}
     />
   );
 
-  if (route !== "workspace") {
-    return (
-      <div className="workspace">
-        {sidebar}
-        {route === "todos" && (
-          <div className="page">
-            <TodoPage />
-          </div>
-        )}
-        {route === "calendar" && <CalendarPage />}
-        {route === "skills" && <SkillsPage />}
-      </div>
-    );
-  }
-
   return (
     <div className="workspace">
       {sidebar}
-      {projErr ? (
-        <section className="center">
-          <div className="center-empty">
-            <div className="error-note">{projErr}</div>
-            <div className="muted">确认 ds-web 服务在跑,刷新重试。</div>
-          </div>
-        </section>
-      ) : (
-        <ChangesColumn
-          project={selected}
-          changes={changes}
-          error={changesErr}
-          onMarkDone={onMarkDone}
+
+      {/* 3a 新对话页(常驻,非 home 路由时 CSS 隐藏不卸载) */}
+      <section className={`home-pane${route === "home" ? "" : " route-hidden"}`}>
+        <ChatPage
+          variant="home"
+          session={session}
+          prefill={homePrefill}
+          onConnected={onConnected}
         />
+      </section>
+
+      {/* 2a 主工作区三列(常驻,非 workspace 路由时 CSS 隐藏不卸载) */}
+      <div className={`ws-pane${route === "workspace" ? "" : " route-hidden"}`}>
+        {projErr ? (
+          <section className="center">
+            <div className="center-empty">
+              <div className="error-note">{projErr}</div>
+              <div className="muted">确认 ds-web 服务在跑,刷新重试。</div>
+            </div>
+          </section>
+        ) : (
+          <ChangesColumn
+            project={selected}
+            changes={changes}
+            error={changesErr}
+            onMarkDone={onMarkDone}
+          />
+        )}
+        <CompanionColumn projectKey={selectedKey} />
+        <ChatColumn session={session} prefill={colPrefill} onConnected={onConnected} />
+      </div>
+
+      {/* 无状态占位页:每次进入重建,无所谓(design.md 取舍) */}
+      {route === "todos" && (
+        <div className="page">
+          <TodoPage />
+        </div>
       )}
-      <CompanionColumn projectKey={selectedKey} />
-      <ChatColumn
-        key={chatEpoch}
-        session={session}
-        prefill={prefill}
-        onConnected={() => setSessionsEpoch((n) => n + 1)}
-      />
+      {route === "skills" && <SkillsPage />}
     </div>
   );
 }

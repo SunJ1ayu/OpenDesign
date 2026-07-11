@@ -82,6 +82,26 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 html, body { overflow: auto; }
 
+/* keep-mounted(P3 T1):非当前路由的常驻聊天实例只隐藏、不卸载。
+   display:none 由这一个 class 承担;给它换 key / 条件卸载都算违规(红线 3)。 */
+.route-hidden { display: none !important; }
+
+/* 2a 三列(变更/伴随/聊天)的常驻容器:可见时对外表现同原先的直接平铺 */
+.ws-pane {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 3a 新对话页容器(布局同 .chatcol 的纵向 flex,占满侧栏右侧整片) */
+.home-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  background: var(--paper);
+}
+
 /* ================= 1. 左侧栏 240px ================= */
 .side {
   display: flex;
@@ -533,6 +553,13 @@ html, body { overflow: auto; }
   flex-direction: column;
   align-items: center;
   padding-top: 16px;
+}
+/* ChatPage 常驻壳(收起时 .route-hidden 隐藏,不卸载) */
+.chatcol-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 /* 消息区(gap 20px,padding 左右 20px) */
