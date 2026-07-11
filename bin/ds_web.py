@@ -33,7 +33,7 @@ import ds_common
 import ds_refs
 import ds_todo
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"  # P2 四列工作区;设置弹层「检查更新」回显此号=运行中是新版的实证
 DEFAULT_NANOBOT_PORT = 8765
 # 与上游 _decode_api_key 同字符集;不含 % 和 / ⇒ 原样转发也无路径走私
 _KEY_RE = re.compile(r"^[A-Za-z0-9_:.-]{1,128}$")
