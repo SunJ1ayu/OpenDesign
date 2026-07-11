@@ -30,13 +30,57 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlsplit
 
 import ds_common
+import ds_refs
 import ds_todo
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 DEFAULT_NANOBOT_PORT = 8765
 # 与上游 _decode_api_key 同字符集;不含 % 和 / ⇒ 原样转发也无路径走私
 _KEY_RE = re.compile(r"^[A-Za-z0-9_:.-]{1,128}$")
 _THREAD_RE = re.compile(r"^/api/chat/sessions/([^/]+)/thread$")
+
+# P2 只读 API 路由(段捕获用 [^/]+,中文项目名在 wire 上是 %xx,故不含裸 /):
+_CHANGES_RE = re.compile(r"^/api/projects/([^/]+)/changes$")
+_PROJ_REFS_RE = re.compile(r"^/api/projects/([^/]+)/refs$")
+_REFS_FILE_RE = re.compile(r"^/api/refs/file/(.+)$")
+
+# 已交付 = 阶段词表(workspace/AGENTS.md)的收尾两档;仅用于侧栏淡化,读侧启发式。
+# 阶段词表如扩展,这里同步。accepted deviation:词表本身不在本 track 定义。
+DELIVERED_STAGES = ("竣工验收", "售后")
+
+# 项目 key 字符集白名单:\w 已覆盖中文(Python re 默认 Unicode);另放行空格与
+# 可读连接符。不含 / \ ⇒ 无路径分隔符;`.`/`..` 与含 `..` 者显式拒(纵深防御,
+# realpath+within 才是权威闸)。
+_PROJ_KEY_RE = re.compile(r"^[\w .()\-]+$")
+# 参考图相对路径白名单(Gate A):同上但放行 / 支持子目录;`..` 走 Gate B(realpath)。
+_REFS_PATH_RE = re.compile(r"^[\w /.()\-]+$")
+
+# 图片扩展名白名单(Gate C)—— 唯一允许读出的类型;svg 排除(直开可执行脚本)。
+_IMG_CTYPES = {
+    ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".webp": "image/webp", ".gif": "image/gif",
+}
+
+
+def _valid_proj_key(key: str) -> bool:
+    """项目 key 合法性:非空、非 `.`/`..`、无 `/ \\ ..`、无控制字符、过字符集白名单。"""
+    if not key or key in (".", "..") or ".." in key:
+        return False
+    if "/" in key or "\\" in key or any(ord(c) < 0x20 for c in key):
+        return False
+    return bool(_PROJ_KEY_RE.match(key))
+
+
+def _field(text: str, name: str) -> str:
+    """取项目头 `- <name>: <值>` 的值(半/全角冒号都认);无则空串。"""
+    m = re.search(rf"^- {re.escape(name)}[:：]\s*(.*)$", text, re.MULTILINE)
+    return m.group(1).strip() if m else ""
+
+
+def _title(text: str) -> str:
+    """取首个 `# 标题` 作项目显示名;无则空串(调用方回落 key)。"""
+    m = re.search(r"^#\s+(.+)$", text, re.MULTILINE)
+    return m.group(1).strip() if m else ""
 DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DEFAULT_DIST = os.path.join(DEFAULT_DS_ROOT, "web", "dist")
 DEFAULT_PORT = 8766
@@ -92,6 +136,14 @@ class Handler(BaseHTTPRequestHandler):
                 self._proxy(f"/api/sessions/{key}/webui-thread")
             else:
                 self._json(404, {"error": "bad key"})
+        elif path == "/api/projects":
+            self._projects()
+        elif (m := _CHANGES_RE.match(path)):
+            self._changes(unquote(m.group(1)))
+        elif (m := _PROJ_REFS_RE.match(path)):
+            self._project_refs(unquote(m.group(1)))
+        elif (m := _REFS_FILE_RE.match(path)):
+            self._refs_file(unquote(m.group(1)))
         elif path.startswith("/api/"):
             self._json(404, {"error": "unknown api"})
         else:
@@ -114,6 +166,119 @@ class Handler(BaseHTTPRequestHandler):
             self._json(500, {"error": "internal"})
             return
         self._json(200, data)
+
+    def _project_file(self, key: str) -> str | None:
+        """key → projects/<key>.md 的 realpath;非法 key / 逃逸 / 不存在 → None。
+        字符集白名单先拦(纵深),realpath + within(projects) 是权威闸,零文件读走私。"""
+        if not _valid_proj_key(key):
+            return None
+        base = os.path.realpath(os.path.join(self.server.ds_root, "projects"))
+        target = os.path.realpath(os.path.join(base, key + ".md"))
+        if not ds_common.within(base, target) or not os.path.isfile(target):
+            return None
+        return target
+
+    def _projects(self):
+        try:
+            root = self.server.ds_root
+            counts = {}  # 未办结计数单一真相源 = ds_todo.collect(与 /api/todos 同源)
+            for it in ds_todo.collect(root)["open"]:
+                counts[it["project"]] = counts.get(it["project"], 0) + 1
+            proj_dir = os.path.join(root, "projects")
+            files = sorted(f for f in (os.listdir(proj_dir) if os.path.isdir(proj_dir)
+                                       else []) if f.endswith(".md"))
+            projects = []
+            for f in files:
+                key = f[:-3]
+                with open(os.path.join(proj_dir, f), encoding="utf-8") as fh:
+                    text = fh.read()
+                stage = _field(text, "阶段")
+                dates = ds_common.LASTUPD_DATE_RE.findall(text)
+                projects.append({
+                    "key": key,
+                    "name": _title(text) or key,
+                    "stage": stage,
+                    "open_count": counts.get(key, 0),
+                    "delivered": stage in DELIVERED_STAGES,
+                    "last_update": dates[-1] if dates else None,
+                })
+        except Exception:
+            traceback.print_exc()  # 坏编码/写锁窗口读期 OSError:500 自愈,trace 进日志
+            self._json(500, {"error": "internal"})
+            return
+        self._json(200, {"projects": projects})
+
+    def _changes(self, key: str):
+        target = self._project_file(key)
+        if target is None:
+            self._json(404, {"error": "not found"})  # 不回显 key/路径
+            return
+        try:
+            with open(target, encoding="utf-8") as fh:
+                text = fh.read()
+            changes = []
+            for ln in text.split("\n"):
+                c = ds_todo.parse_change(ln)  # 四状态全量,单一真相源
+                if c is None:
+                    continue
+                changes.append({
+                    "cnum": c["cnum"], "status": c["status"],
+                    "text": c["text"], "date": c["date"],
+                    # 现有 PKB 格式无空间/来源 → 恒 None(读侧宽容,accepted deviation)
+                    "space": None, "source": None,
+                })
+        except Exception:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
+            return
+        self._json(200, {"key": key, "changes": changes})
+
+    def _project_refs(self, key: str):
+        if not _valid_proj_key(key):
+            self._json(404, {"error": "not found"})
+            return
+        try:
+            refs = ds_refs.list_project_refs(key, self.server.ds_root)
+        except Exception:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
+            return
+        # 只回 UI 需要的字段(id/style/space/file/note),source/used 不外泄
+        out = [{"id": r["id"], "style": r["style"], "space": r["space"],
+                "file": r["file"], "note": r["note"]} for r in refs]
+        self._json(200, {"key": key, "refs": out})
+
+    def _refs_file(self, rel: str):
+        """参考图静态服务 —— 本 track 唯一新增文件读出面。三闸串联,每闸独立可验红:
+        Gate A 字符集白名单 → Gate B realpath 前缀(逃逸/symlink 权威闸)→ Gate C 扩展白名单。
+        404 一律不回显路径;Content-Type 按扩展映射;禁目录列表(只 isfile)。"""
+        # Gate A —— 字符集白名单(拒 % 残留 / 控制字符 / 反斜杠 / 其它非白名单字符)
+        if not _REFS_PATH_RE.match(rel):
+            self._json(404, {"error": "not found"})
+            return
+        base = os.path.realpath(os.path.join(self.server.ds_root, "refs"))
+        target = os.path.realpath(os.path.join(base, rel))
+        # Gate B —— realpath 前缀:裸 ../ 与 symlink 逃逸展开后必须仍落在 refs/ 内
+        if not ds_common.within(base, target):
+            self._json(404, {"error": "not found"})
+            return
+        # Gate C —— 扩展名白名单:只有图片类型可读出
+        ctype = _IMG_CTYPES.get(os.path.splitext(target)[1].lower())
+        if ctype is None:
+            self._json(404, {"error": "not found"})
+            return
+        if not os.path.isfile(target):  # 禁目录列表 + 不存在
+            self._json(404, {"error": "not found"})
+            return
+        try:
+            with open(target, "rb") as fh:
+                body = fh.read()
+        except OSError:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
+            return
+        self._send(200, ctype, body,
+                   {"Cache-Control": "public, max-age=86400"})
 
     def _proxy(self, up_path: str):
         """白名单 GET 转发到本机 nanobot gateway。纯管道:不读不存任何秘密。"""

@@ -119,6 +119,49 @@ def _used_segment(line: str) -> tuple[int, list[str]] | None:
     return None
 
 
+def _prefixed_segment(line: str, prefix: str) -> str:
+    """取以 prefix 开头的那段的值(同 _used_segment 的分段口径,防字段内字面量劫持)。"""
+    for seg in line.split(_SEG_SEP):
+        if seg.startswith(prefix):
+            return seg[len(prefix):].strip()
+    return ""
+
+
+def parse_ref_line(line: str) -> dict | None:
+    """索引行结构化(单一真相源:与 find_refs 共用 _REF_RE + 分段口径)。
+    命中返回 {id, style, space, file, note, source, used};不命中返回 None。
+    风格/空间按逗号拆成列表;找不到的段返回空串/空列表。"""
+    m = _REF_RE.match(line)
+    if not m:
+        return None
+    head = line.split(_SEG_SEP, 1)[0]                 # "- [rN] 风格,…|空间,…"
+    tag_part = head.split("] ", 1)[1] if "] " in head else ""
+    styles = _split_tags(tag_part.split("|")[0]) if "|" in tag_part else []
+    spaces = _split_tags(tag_part.split("|")[1]) if "|" in tag_part else []
+    seg = _used_segment(line)
+    return {
+        "id": f"r{m.group('num')}",
+        "style": styles,
+        "space": spaces,
+        "file": _prefixed_segment(line, "文件:"),
+        "note": _prefixed_segment(line, "备注:"),
+        "source": _prefixed_segment(line, "来源:"),
+        "used": seg[1] if seg else [],
+    }
+
+
+def list_project_refs(project: str, ds_root: str = DEFAULT_DS_ROOT) -> list[dict]:
+    """某项目用到的参考图(结构化)。复用 find_refs 的过滤 + parse_ref_line 的解析,
+    不另造第二套正则。索引缺失 → 空列表。"""
+    hits = find_refs(project=project, ds_root=ds_root).get("hits", [])
+    out = []
+    for ln in hits:
+        parsed = parse_ref_line(ln)
+        if parsed is not None:
+            out.append(parsed)
+    return out
+
+
 # ── 索引读改写 ──────────────────────────────────────────────────────────────
 def _ensure_index(ds_root: str, today: str) -> str:
     path = _index_path(ds_root)

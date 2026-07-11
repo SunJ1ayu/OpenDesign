@@ -13,12 +13,28 @@ from datetime import date
 
 import ds_common  # 页脚锚定语义的唯一定义(与写侧 bump_last_updated 同源)
 
-# 未关闭变更行的唯一闸门 + 结构化提取(SCHEMA 变更行 `- [状态] C<n> 日期 内容`):
+# 变更行的唯一闸门 + 结构化提取(SCHEMA 变更行 `- [状态] C<n> 日期 内容`):
 # 单正则,不设第二个"命中"正则 —— 双正则会漂移(panel 7-06 GLM 指出的缺陷类)。
-# C/日期残缺时各组为 None;\b 防 "C5面板" 这类无空格粘连被误拆。
-FIELDS_RE = re.compile(
-    r"^- \[(待确认|进行中)\](?:\s+C(\d+)\b)?(?:\s+(\d{4}-\d{2}-\d{2}))?\s*(.*)$")
+# 四状态全覆盖(ds_web /api/.../changes 要全量,ds_todo 只取未办结 → 读侧过滤,
+# 同一正则单一真相源);C/日期残缺时各组为 None;\b 防 "C5面板" 无空格粘连误拆。
+STATUS_WORDS = ("待确认", "进行中", "已完成", "已关闭")
+OPEN_STATUS = ("待确认", "进行中")  # 未办结 = ds_todo 主动提醒的范围
+CHANGE_RE = re.compile(
+    r"^- \[(待确认|进行中|已完成|已关闭)\]"
+    r"(?:\s+C(\d+)\b)?(?:\s+(\d{4}-\d{2}-\d{2}))?\s*(.*)$")
 LASTUPD_RE = ds_common.LASTUPD_DATE_RE  # 行首锚定:沟通日志句中的"最后更新"不再误认
+
+
+def parse_change(line: str) -> dict | None:
+    """变更行结构化(单一真相源):ds_todo.collect 与 ds_web changes 端点都吃它。
+    命中返回 {status, cnum, date, text}(cnum/date 残缺为 None),不命中返回 None。"""
+    m = CHANGE_RE.match(line)
+    if not m:
+        return None
+    return {"status": m.group(1),
+            "cnum": int(m.group(2)) if m.group(2) else None,
+            "date": m.group(3),
+            "text": m.group(4)}
 # env DS_ROOT 缺失时基于 __file__ 推导(bin/ 的上一级):Linux/Windows 通用,不硬编码 /root
 DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
@@ -45,15 +61,15 @@ def collect(root: str, stale_days: int = 7, today: date | None = None) -> dict:
             text = fh.read()
         name = f[:-3]
         for i, ln in enumerate(text.split("\n"), 1):
-            m = FIELDS_RE.match(ln)
-            if not m:
-                continue
+            c = parse_change(ln)
+            if c is None or c["status"] not in OPEN_STATUS:
+                continue  # collect 只收未办结;全量交给 changes 端点
             open_items.append({
                 "project": name, "line": i, "raw": ln,
-                "status": m.group(1),
-                "cnum": int(m.group(2)) if m.group(2) else None,
-                "date": m.group(3),
-                "text": m.group(4),
+                "status": c["status"],
+                "cnum": c["cnum"],
+                "date": c["date"],
+                "text": c["text"],
             })
         dates = LASTUPD_RE.findall(text)
         if not dates:
