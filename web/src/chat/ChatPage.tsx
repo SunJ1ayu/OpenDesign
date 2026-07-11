@@ -18,6 +18,9 @@ import { renderMarkdown } from "./markdown";
 const STOCK_WEBUI = "http://127.0.0.1:8765/";
 const FLUSH_MS = 80;
 
+// 3a 空态三建议 chip(handoff §5,逐字):预填不自动发,发送权在人。
+const HOME_CHIPS = ["新建一个项目", "这周有哪些变更没确认?", "找一张客厅参考图"] as const;
+
 type View =
   | { kind: "login" }
   | { kind: "connecting" }
@@ -184,7 +187,9 @@ export default function ChatPage({
               ? "连接后可用…"
               : transcript.busy
                 ? "回复中…"
-                : "回复,或直接说「记一下…」"
+                : variant === "home"
+                  ? "聊设计、找东西,或直接说「记一下…」"
+                  : "回复,或直接说「记一下…」"
           }
           disabled={view.kind !== "connected"}
           onChange={(e) => setDraft(e.target.value)}
@@ -308,9 +313,32 @@ export default function ChatPage({
         </button>
       </div>
       {transcript.messages.length === 0 ? (
-        <div className={`chat-fill${variant === "home" ? " home" : ""}`}>
-          <p>连接就绪,说点什么吧——比如「记一下:张三家玄关柜改到 2.4 米」。</p>
-        </div>
+        variant === "home" ? (
+          /* 3a 空态(handoff §5):问候语 + 620px 大输入卡 + 三建议 chip,
+             除此之外不放任何内容;首条消息后走下面的普通聊天流分支 */
+          <div className="home-hero">
+            <div className="home-greet">今天想聊点什么?</div>
+            {inputCard}
+            <div className="home-chips">
+              {HOME_CHIPS.map((c) => (
+                <button
+                  key={c}
+                  className="home-chip"
+                  onClick={() => {
+                    setDraft(c);
+                    inputRef.current?.focus();
+                  }}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="chat-fill">
+            <p>连接就绪,说点什么吧——比如「记一下:张三家玄关柜改到 2.4 米」。</p>
+          </div>
+        )
       ) : (
         <div className="chat-msgs" ref={scrollRef}>
           {transcript.messages.map((m) =>
@@ -326,7 +354,8 @@ export default function ChatPage({
           )}
         </div>
       )}
-      {inputCard}
+      {/* 3a 空态时输入卡已在 hero 里;其余(含开聊后)一律常规吸底卡 */}
+      {(variant !== "home" || transcript.messages.length > 0) && inputCard}
     </>
   );
 }
