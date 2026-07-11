@@ -133,10 +133,20 @@ html, body { overflow: auto; }
   transition: background var(--hover-ease);
 }
 .side-row:hover { background: var(--paper-hover); }
+/* 「新对话」在 home 路由的当前态:白底卡片 + 描边 + 轻投影 + 名称加粗(t3) */
+.side-row.current {
+  background: #fff;
+  border: 1px solid var(--border-main);
+  box-shadow: var(--shadow-card);
+  font-weight: 600;
+  color: var(--ink);
+  padding: 6px 9px; /* 补 1px 边框,总高与其余行一致 */
+}
+.side-row.current:hover { background: #fff; }
 .side-row .ico { width: 16px; text-align: center; flex: none; }
 .side-row .ico.terra { color: var(--terra); }
 .side-row .grow { flex: 1; min-width: 0; }
-.side-row .kbd { font: 11px var(--font-mono); color: var(--ink-5); }
+.side-row .chev { color: var(--ink-5); font-size: 11px; }
 .side-row .count-badge {
   font: 600 10px var(--font-mono);
   background: var(--terra);
@@ -171,6 +181,7 @@ html, body { overflow: auto; }
   transition: background var(--hover-ease), color var(--hover-ease);
 }
 .hist-row:hover { background: var(--paper-hover); color: var(--ink-2); }
+.hist-row .ico { width: 16px; text-align: center; flex: none; color: var(--ink-5); }
 .hist-row .t {
   flex: 1;
   min-width: 0;
@@ -208,6 +219,8 @@ html, body { overflow: auto; }
   padding: 8px 9px; /* 补 1px 边框,总高与其余行一致 */
 }
 .proj-row.current:hover { background: #fff; }
+/* 状态圆点包在 16px 图标列容器里居中,与菜单/历史行图标列对齐(t3) */
+.proj-row .ico-col { width: 16px; display: flex; justify-content: center; flex: none; }
 .proj-row .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
 .proj-row .dot.now { background: var(--terra); }
 .proj-row .dot.open { background: var(--dot-amber); }
@@ -229,10 +242,6 @@ html, body { overflow: auto; }
   padding: 2px 6px;
   border-radius: 99px;
 }
-
-.side-skills { padding: 10px 8px 0; }
-.side-skills .side-row { padding: 8px 10px; }
-.side-skills .chev { color: var(--ink-5); font-size: 11px; }
 
 .side-flex { flex: 1; }
 
@@ -283,7 +292,6 @@ html, body { overflow: auto; }
 }
 .side-footer { border-top: 1px solid var(--border-main); padding: 8px 10px; }
 .side-footer .side-row { padding: 8px 10px; user-select: none; }
-.side-footer .chev { color: var(--ink-5); font-size: 11px; }
 
 /* ================= 2. 中央变更记录列 flex:1 ================= */
 .center {

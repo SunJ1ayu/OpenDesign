@@ -185,6 +185,7 @@ export default function App() {
 
   const sidebar = (
     <Sidebar
+      route={route}
       projects={projects}
       selectedKey={selectedKey}
       onSelectProject={(k) => {
