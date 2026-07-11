@@ -162,6 +162,22 @@ class TestProjects(unittest.TestCase):
         self.assertEqual(st, 200)
         self.assertEqual(d["projects"], [])
 
+    # 硬化(panel subsense LOW):projects/ 里指向外部的 symlink .md 不读不列
+    def test_projects_symlink_md_excluded(self):
+        if not hasattr(os, "symlink"):
+            self.skipTest("平台无 symlink")
+        root = _mkroot({"保利中央公园.md": PROJ_A})
+        outer = os.path.join(root, "outer-secret.md")
+        with open(outer, "w", encoding="utf-8") as fh:
+            fh.write("# 泄露的外部标题\n\n- 阶段: 不该看见\n")
+        os.symlink(outer, os.path.join(root, "projects", "泄露.md"))
+        with _serve(root) as port:
+            st, _, d = _get_json(port, "/api/projects")
+        self.assertEqual(st, 200)
+        keys = {p["key"] for p in d["projects"]}
+        self.assertEqual(keys, {"保利中央公园"})  # symlink 条目整个不出现
+        self.assertNotIn("泄露的外部标题", json.dumps(d, ensure_ascii=False))
+
     def test_projects_bare_md_tolerant(self):
         root = _mkroot({"光头项目.md": PROJ_BARE})
         with _serve(root) as port:
@@ -339,6 +355,14 @@ class TestRefsFile(unittest.TestCase):
             st, _, body = _req(port, "/api/refs/file/escape.png")
         self.assertEqual(st, 404)
         self.assertNotIn(b"LEAK-SYMLINK", body)
+
+    # Gate A 硬化:re 的 $ 在结尾换行前也匹配,\Z 才封死 trailing-newline 变体
+    def test_file_trailing_newline_404(self):
+        root = _mkroot({})
+        _write_bytes(os.path.join(root, "refs", "a.png"))
+        with _serve(root) as port:
+            st, _, _ = _req(port, "/api/refs/file/a.png%0A")
+        self.assertEqual(st, 404)
 
     def test_file_not_found_no_path_leak(self):
         root = _mkroot({})

@@ -51,9 +51,10 @@ DELIVERED_STAGES = ("竣工验收", "售后")
 # 项目 key 字符集白名单:\w 已覆盖中文(Python re 默认 Unicode);另放行空格与
 # 可读连接符。不含 / \ ⇒ 无路径分隔符;`.`/`..` 与含 `..` 者显式拒(纵深防御,
 # realpath+within 才是权威闸)。
-_PROJ_KEY_RE = re.compile(r"^[\w .()\-]+$")
+_PROJ_KEY_RE = re.compile(r"^[\w .()\-]+\Z")
 # 参考图相对路径白名单(Gate A):同上但放行 / 支持子目录;`..` 走 Gate B(realpath)。
-_REFS_PATH_RE = re.compile(r"^[\w /.()\-]+$")
+# 收尾用 \Z 不用 $:re 的 $ 在"结尾换行符之前"也匹配,`a.png\n` 会漏过字符集闸。
+_REFS_PATH_RE = re.compile(r"^[\w /.()\-]+\Z")
 
 # 图片扩展名白名单(Gate C)—— 唯一允许读出的类型;svg 排除(直开可执行脚本)。
 _IMG_CTYPES = {
@@ -184,13 +185,18 @@ class Handler(BaseHTTPRequestHandler):
             counts = {}  # 未办结计数单一真相源 = ds_todo.collect(与 /api/todos 同源)
             for it in ds_todo.collect(root)["open"]:
                 counts[it["project"]] = counts.get(it["project"], 0) + 1
-            proj_dir = os.path.join(root, "projects")
+            proj_dir = os.path.realpath(os.path.join(root, "projects"))
             files = sorted(f for f in (os.listdir(proj_dir) if os.path.isdir(proj_dir)
                                        else []) if f.endswith(".md"))
             projects = []
             for f in files:
                 key = f[:-3]
-                with open(os.path.join(proj_dir, f), encoding="utf-8") as fh:
+                # 与 _project_file 同一把闸:projects/ 里指向外部的 symlink .md
+                # 不读不列(panel LOW:listdir 直读会把外部文件标题/阶段字段带出)
+                target = os.path.realpath(os.path.join(proj_dir, f))
+                if not ds_common.within(proj_dir, target) or not os.path.isfile(target):
+                    continue
+                with open(target, encoding="utf-8") as fh:
                     text = fh.read()
                 stage = _field(text, "阶段")
                 dates = ds_common.LASTUPD_DATE_RE.findall(text)
