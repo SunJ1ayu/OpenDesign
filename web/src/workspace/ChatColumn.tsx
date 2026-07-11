@@ -8,9 +8,10 @@ import type { ChatSession } from "../chat/connection";
 type Props = {
   session: ChatSession;
   prefill: { text: string; nonce: number };
+  onConnected?: () => void;
 };
 
-export default function ChatColumn({ session, prefill }: Props) {
+export default function ChatColumn({ session, prefill, onConnected }: Props) {
   const [collapsed, setCollapsed] = useState(false);
 
   if (collapsed) {
@@ -35,7 +36,7 @@ export default function ChatColumn({ session, prefill }: Props) {
           »
         </button>
       </div>
-      <ChatPage session={session} prefill={prefill} />
+      <ChatPage session={session} prefill={prefill} onConnected={onConnected} />
     </section>
   );
 }

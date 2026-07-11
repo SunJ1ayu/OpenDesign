@@ -29,6 +29,8 @@ type Props = {
   session?: ChatSession;
   /** 预填输入框(「✓ 标记完成」「新建项目」等联动);nonce 变化即覆盖 draft。 */
   prefill?: { text: string; nonce: number };
+  /** 连接就绪回调(App 借此刷新侧栏历史对话;首次登录后无需刷新页面)。 */
+  onConnected?: () => void;
 };
 
 function StockLink() {
@@ -39,7 +41,7 @@ function StockLink() {
   );
 }
 
-export default function ChatPage({ session: sessionProp, prefill }: Props) {
+export default function ChatPage({ session: sessionProp, prefill, onConnected }: Props) {
   const fallback = useMemo(() => new ChatSession(), []);
   const session = sessionProp ?? fallback;
   const [view, setView] = useState<View>(() =>
@@ -95,6 +97,7 @@ export default function ChatPage({ session: sessionProp, prefill }: Props) {
             const m = JSON.parse(ev.data);
             if (m.event === "ready" && typeof m.chat_id === "string") {
               setView({ kind: "connected", chatId: m.chat_id, model: info?.model_name });
+              onConnected?.();
               return;
             }
             pending.push(m);

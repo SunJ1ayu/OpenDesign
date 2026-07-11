@@ -78,6 +78,7 @@ export default function App() {
     nonce: 0,
   });
   const [chatEpoch, setChatEpoch] = useState(0);
+  const [sessionsEpoch, setSessionsEpoch] = useState(0); // 连接就绪后刷新历史对话
 
   useEffect(() => {
     const onHash = () => setRoute(fromHash());
@@ -149,7 +150,7 @@ export default function App() {
     return () => {
       stale = true;
     };
-  }, [session, chatEpoch]);
+  }, [session, chatEpoch, sessionsEpoch]);
 
   // ⌘N 新对话(handoff §Interactions)
   useEffect(() => {
@@ -234,7 +235,12 @@ export default function App() {
         />
       )}
       <CompanionColumn projectKey={selectedKey} />
-      <ChatColumn key={chatEpoch} session={session} prefill={prefill} />
+      <ChatColumn
+        key={chatEpoch}
+        session={session}
+        prefill={prefill}
+        onConnected={() => setSessionsEpoch((n) => n + 1)}
+      />
     </div>
   );
 }
