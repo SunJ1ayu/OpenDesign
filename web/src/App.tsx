@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Sidebar, { type SessionItem } from "./workspace/Sidebar";
 import ChangesColumn from "./workspace/ChangesColumn";
+import CompanionColumn from "./workspace/CompanionColumn";
+import ChatColumn from "./workspace/ChatColumn";
 import TodoPage from "./TodoPage";
 import { ChatSession } from "./chat/connection";
 import {
@@ -15,7 +17,6 @@ import {
 // 侧栏 240 / 变更记录 flex:1 / 图片+文件 290 / AI 聊天 340。
 // hash 路由:#/ = 工作区(默认);todos / calendar / skills 保留占位页。
 // 深色:定稿仅浅色,不再挂 .dark(设置弹层里标「即将支持」,design 风险项)。
-// 伴随列/聊天列的真身在 T3 接入;此处先立骨架占位保证壳完整。
 
 type Route = "workspace" | "todos" | "calendar" | "skills";
 
@@ -54,33 +55,6 @@ function CalendarPage() {
       <h2>日历</h2>
       <p>项目排期、量房/交付节点与重要提醒,后续版本交付。</p>
     </div>
-  );
-}
-
-// T2 骨架:伴随列与聊天列(T3 换成真身)
-function AsideSkeleton() {
-  return (
-    <section className="aside">
-      <div className="aside-head">
-        <span className="t">图片</span>
-        <span className="grow" />
-      </div>
-      <div className="aside-empty">图片区 T3 接入</div>
-    </section>
-  );
-}
-
-function ChatSkeleton() {
-  return (
-    <section className="chatcol">
-      <div className="chatcol-head">
-        <span className="t">项目助手</span>
-        <span className="grow" />
-      </div>
-      <div className="chat-fill">
-        <p>聊天列 T3 接入</p>
-      </div>
-    </section>
   );
 }
 
@@ -203,7 +177,6 @@ export default function App() {
   );
 
   const selected = projects.find((p) => p.key === selectedKey) ?? null;
-  void prefill; // T3 起传入聊天列;先占位避免未用告警
 
   const sidebar = (
     <Sidebar
@@ -260,8 +233,8 @@ export default function App() {
           onMarkDone={onMarkDone}
         />
       )}
-      <AsideSkeleton />
-      <ChatSkeleton />
+      <CompanionColumn projectKey={selectedKey} />
+      <ChatColumn key={chatEpoch} session={session} prefill={prefill} />
     </div>
   );
 }

@@ -10,10 +10,10 @@ import {
 } from "./transcript";
 import { renderMarkdown } from "./markdown";
 
-// T5(半):消息收发 + 流式渲染。协议按 docs/nanobot-ws-protocol.md §2:
-// 发 = 信封带 webui:true+turn_id,本地上屏并锁发送;收 = delta 按 stream_id
-// 归组拼接 → stream_end 定稿 → turn_end 解锁。事件先进缓冲,80ms 节流批量
-// 过 reducer(delta 每帧一 setState 会把渲染打爆)。断线自愈/会话列表是 T6/T7。
+// P2 T3:视觉照 handoff §4 重排(用户消息低对比右对齐 / AI 无气泡直排 /
+// 赤陶流式光标 / Claude 式组合输入卡 / 「记一下」chip 预填)。
+// 逻辑层零改动:connection.ts / transcript.ts / markdown.ts 原样复用(硬约束,
+// 各自 oracle 守着);连接流程、80ms 节流、信封与事件归组与 P1 完全一致。
 
 const STOCK_WEBUI = "http://127.0.0.1:8765/";
 const FLUSH_MS = 80;
@@ -24,6 +24,13 @@ type View =
   | { kind: "connected"; chatId: string; model?: string }
   | { kind: "error"; msg: string };
 
+type Props = {
+  /** App 级共享的会话(侧栏历史对话与聊天复用同一 token 缓存);缺省自建。 */
+  session?: ChatSession;
+  /** 预填输入框(「✓ 标记完成」「新建项目」等联动);nonce 变化即覆盖 draft。 */
+  prefill?: { text: string; nonce: number };
+};
+
 function StockLink() {
   return (
     <a href={STOCK_WEBUI} target="_blank" rel="noreferrer">
@@ -32,8 +39,9 @@ function StockLink() {
   );
 }
 
-export default function ChatPage() {
-  const session = useMemo(() => new ChatSession(), []);
+export default function ChatPage({ session: sessionProp, prefill }: Props) {
+  const fallback = useMemo(() => new ChatSession(), []);
+  const session = sessionProp ?? fallback;
   const [view, setView] = useState<View>(() =>
     session.hasPassword() ? { kind: "connecting" } : { kind: "login" },
   );
@@ -44,6 +52,14 @@ export default function ChatPage() {
   const pwRef = useRef<HTMLInputElement>(null);
   const wsRef = useRef<WebSocket | null>(null); // 当前活连接,send 用
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // 预填联动:nonce 变化 → 覆盖 draft 并聚焦(不自动发送,发送权在人)
+  useEffect(() => {
+    if (!prefill || prefill.nonce === 0) return;
+    setDraft(prefill.text);
+    inputRef.current?.focus();
+  }, [prefill]);
 
   useEffect(() => {
     if (!session.hasPassword()) return;
@@ -110,7 +126,7 @@ export default function ChatPage() {
     };
   }, [session, attempt]);
 
-  // 新内容到就贴底(半 T5 简单版:一律贴底,不做"看历史时不打扰")
+  // 新内容到就贴底(简单版:一律贴底,不做"看历史时不打扰")
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
@@ -141,103 +157,22 @@ export default function ChatPage() {
     setDraft("");
   };
 
-  if (view.kind === "login") {
-    return (
-      <div className="chat-shell">
-        <div className="chat-empty">
-          <form
-            className="chat-login"
-            onSubmit={(e) => {
-              e.preventDefault();
-              login();
-            }}
-          >
-            <h2>连接聊天服务</h2>
-            <p className="muted">
-              输入 nanobot WebUI 的访问口令。只需一次,保存在本机浏览器。
-            </p>
-            <input
-              ref={pwRef}
-              type="password"
-              placeholder="访问口令"
-              autoFocus
-              autoComplete="current-password"
-            />
-            {loginError && <p className="chat-login-error">{loginError}</p>}
-            <button type="submit" className="chat-btn primary">
-              连接
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  if (view.kind === "connecting") {
-    return (
-      <div className="chat-shell">
-        <div className="chat-empty">
-          <p>正在连接聊天服务…</p>
-        </div>
-        <div className="chat-inputbar">给 OpenDesign 发消息…（连接中）</div>
-      </div>
-    );
-  }
-
-  if (view.kind === "error") {
-    return (
-      <div className="chat-shell">
-        <div className="chat-banner">
-          <span>{view.msg}。请确认 nanobot gateway 已启动。</span>
-          <span className="chat-banner-actions">
-            <button className="chat-btn" onClick={() => setAttempt((n) => n + 1)}>
-              重试
-            </button>
-            <button className="chat-btn" onClick={logout}>
-              退出登录
-            </button>
-          </span>
-        </div>
-        <div className="chat-empty">
-          <p>
-            连接恢复前可以先用 <StockLink />
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="chat-shell">
-      <div className="chat-status">
-        <span className="chat-status-dot" aria-hidden="true" />
-        <span>
-          已连接{view.model ? ` · ${view.model}` : ""} · 会话 {view.chatId.slice(0, 8)}
-        </span>
-        <button className="chat-btn subtle" onClick={logout}>
-          退出登录
-        </button>
-      </div>
-      {transcript.messages.length === 0 ? (
-        <div className="chat-empty">
-          <p>连接就绪,说点什么吧——比如「记一下:张三家玄关柜改到 2.4 米」。</p>
-        </div>
-      ) : (
-        <div className="chat-messages" ref={scrollRef}>
-          {transcript.messages.map((m) => (
-            <div key={m.id} className={`chat-msg ${m.role}`}>
-              <div className={`chat-msg-body${m.streaming ? " streaming" : ""}`}>
-                {m.role === "assistant" ? renderMarkdown(m.content) : m.content}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="chat-inputbar live">
+  // Claude 式组合输入卡(handoff §4:白底/14px 圆角/聚焦赤陶描边/工具行)
+  const inputCard = (
+    <div className="chat-inputwrap">
+      <div className="chat-card">
         <textarea
+          ref={inputRef}
           rows={2}
           value={draft}
-          placeholder={transcript.busy ? "回复中…" : "给 OpenDesign 发消息,Enter 发送,Shift+Enter 换行"}
+          placeholder={
+            view.kind !== "connected"
+              ? "连接后可用…"
+              : transcript.busy
+                ? "回复中…"
+                : "回复,或直接说「记一下…」"
+          }
+          disabled={view.kind !== "connected"}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (
@@ -253,14 +188,131 @@ export default function ChatPage() {
             }
           }}
         />
-        <button
-          className="chat-btn primary"
-          disabled={transcript.busy || !draft.trim()}
-          onClick={send}
-        >
-          发送
-        </button>
+        <div className="tools">
+          <button className="tool-sq" title="添加图片或文件(即将支持)">+</button>
+          <button
+            className="tool-chip"
+            title="快捷开头:记一下"
+            onClick={() => {
+              setDraft((d) => (d.startsWith("记一下") ? d : `记一下:${d}`));
+              inputRef.current?.focus();
+            }}
+          >
+            ✎ 记一下
+          </button>
+          <span className="grow" />
+          <button
+            className="send-btn"
+            title="发送(Enter)"
+            disabled={view.kind !== "connected" || transcript.busy || !draft.trim()}
+            onClick={send}
+          >
+            ↑
+          </button>
+        </div>
       </div>
     </div>
+  );
+
+  if (view.kind === "login") {
+    return (
+      <>
+        <div className="chat-fill">
+          <form
+            className="chat-login"
+            onSubmit={(e) => {
+              e.preventDefault();
+              login();
+            }}
+          >
+            <h2>连接聊天服务</h2>
+            <p className="muted">输入 nanobot WebUI 的访问口令。只需一次,保存在本机浏览器。</p>
+            <input
+              ref={pwRef}
+              type="password"
+              placeholder="访问口令"
+              autoFocus
+              autoComplete="current-password"
+            />
+            {loginError && <p className="chat-login-error">{loginError}</p>}
+            <button type="submit" className="chat-btn primary">
+              连接
+            </button>
+          </form>
+        </div>
+        {inputCard}
+      </>
+    );
+  }
+
+  if (view.kind === "connecting") {
+    return (
+      <>
+        <div className="chat-fill">
+          <p>正在连接聊天服务…</p>
+        </div>
+        {inputCard}
+      </>
+    );
+  }
+
+  if (view.kind === "error") {
+    return (
+      <>
+        <div className="chat-note">
+          <span>{view.msg}。请确认 nanobot gateway 已启动。</span>
+          <span className="acts">
+            <button className="chat-btn" onClick={() => setAttempt((n) => n + 1)}>
+              重试
+            </button>
+            <button className="chat-btn" onClick={logout}>
+              退出登录
+            </button>
+          </span>
+        </div>
+        <div className="chat-fill">
+          <p>
+            连接恢复前可以先用 <StockLink />
+          </p>
+        </div>
+        {inputCard}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="chat-meta">
+        已连接{view.model ? ` · ${view.model}` : ""}
+        <button
+          className="icon-btn"
+          style={{ float: "right", fontSize: 11 }}
+          onClick={logout}
+          title="退出登录"
+        >
+          退出登录
+        </button>
+      </div>
+      {transcript.messages.length === 0 ? (
+        <div className="chat-fill">
+          <p>连接就绪,说点什么吧——比如「记一下:张三家玄关柜改到 2.4 米」。</p>
+        </div>
+      ) : (
+        <div className="chat-msgs" ref={scrollRef}>
+          {transcript.messages.map((m) =>
+            m.role === "user" ? (
+              <div key={m.id} className="msg-user">
+                {m.content}
+              </div>
+            ) : (
+              <div key={m.id} className={`msg-ai${m.streaming ? " streaming" : ""}`}>
+                {renderMarkdown(m.content)}
+              </div>
+            ),
+          )}
+        </div>
+      )}
+      {inputCard}
+    </>
   );
 }

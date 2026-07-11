@@ -1,0 +1,41 @@
+import { useState } from "react";
+import ChatPage from "../chat/ChatPage";
+import type { ChatSession } from "../chat/connection";
+
+// 聊天列(handoff §4,340px):头部(项目助手 / ≡ / » 收起)+ ChatPage 真身。
+// 收起(design 窄窗策略:稿上有 » 按钮)= 收成 36px 竖条,« 展开。
+
+type Props = {
+  session: ChatSession;
+  prefill: { text: string; nonce: number };
+};
+
+export default function ChatColumn({ session, prefill }: Props) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  if (collapsed) {
+    return (
+      <section className="chatcol collapsed">
+        <div className="chat-rail">
+          <button className="icon-btn" title="展开项目助手" onClick={() => setCollapsed(false)}>
+            «
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="chatcol">
+      <div className="chatcol-head">
+        <span className="t">项目助手</span>
+        <span className="grow" />
+        <button className="icon-btn" title="历史对话(即将支持)">≡</button>
+        <button className="icon-btn" title="收起" onClick={() => setCollapsed(true)}>
+          »
+        </button>
+      </div>
+      <ChatPage session={session} prefill={prefill} />
+    </section>
+  );
+}
