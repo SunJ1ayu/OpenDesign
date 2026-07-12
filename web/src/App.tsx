@@ -5,6 +5,8 @@ import CompanionColumn from "./workspace/CompanionColumn";
 import ChatColumn from "./workspace/ChatColumn";
 import ChatPage from "./chat/ChatPage";
 import TodoPage from "./TodoPage";
+import SkillsPage from "./SkillsPage";
+import SearchPanel from "./SearchPanel";
 import { ChatSession } from "./chat/connection";
 import {
   fetchChanges,
@@ -30,29 +32,6 @@ function fromHash(): Route {
   return "home";
 }
 
-const SKILLS = [
-  { name: "CAD 转 3D", desc: "户型 CAD 图纸转 3D 模型查看。", stage: "P2 接入" },
-  { name: "PS 合成 PDF", desc: "批量图片排版合成一份 PDF 交付物。", stage: "规划中" },
-] as const;
-
-function SkillsPage() {
-  return (
-    <div className="page">
-      <h2>技能</h2>
-      <p className="muted">跑完就走的小工具都住这里;想到新的往里加卡片。</p>
-      <div className="skill-grid">
-        {SKILLS.map((s) => (
-          <div className="skill-card" key={s.name}>
-            <div className="nm">{s.name}</div>
-            <div className="ds">{s.desc}</div>
-            <span className="stg">{s.stage} · 未交付</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
   const [route, setRoute] = useState<Route>(fromHash);
   const session = useMemo(() => new ChatSession(), []);
@@ -64,8 +43,16 @@ export default function App() {
   const [changes, setChanges] = useState<Change[] | null>(null);
   const [changesErr, setChangesErr] = useState<string | null>(null);
   const [todosCount, setTodosCount] = useState<number | null>(null);
-  const [health, setHealth] = useState<{ version: string; ds_root: string } | null>(null);
+  const [health, setHealth] = useState<
+    { version: string; ds_root: string; model: string | null } | null
+  >(null);
   const [sessions, setSessions] = useState<SessionItem[] | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  // 搜索回车直达:中央列滚动定位+闪烁(nonce 驱动,cnum=null 只跳项目)
+  const [colHighlight, setColHighlight] = useState<{ cnum: number | null; nonce: number }>({
+    cnum: null,
+    nonce: 0,
+  });
 
   // ---- 聊天联动:两个常驻实例各有一份预填(3a 建议 chip/新建项目 → home;
   // 「✓ 标记完成」在 2a 中央列 → column),nonce 变化即覆盖 draft ----
@@ -104,7 +91,7 @@ export default function App() {
     fetchTodosOpenCount().then(setTodosCount).catch(() => setTodosCount(null));
     fetch("/api/health")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setHealth({ version: d.version, ds_root: d.ds_root }))
+      .then((d) => d && setHealth({ version: d.version, ds_root: d.ds_root, model: d.model ?? null }))
       .catch(() => setHealth(null));
   }, []);
 
@@ -151,12 +138,15 @@ export default function App() {
     };
   }, [session, sessionsEpoch]);
 
-  // ⌘N 新对话 = 回 3a 现状(不重置;UI 不显示角标,行为保留。handoff §Interactions)
+  // ⌘N 新对话 = 回 3a 现状;⌘K 搜索面板(UI 不显示角标,行为保留。handoff §Interactions)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "n") {
         e.preventDefault();
         window.location.hash = "#/";
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen((v) => !v);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -181,6 +171,29 @@ export default function App() {
 
   const onConnected = useCallback(() => setSessionsEpoch((n) => n + 1), []);
 
+  // 进某个项目的工作区(侧栏点击 / 待办「去项目」/ 搜索直达 共用)
+  const goProject = useCallback((key: string) => {
+    setSelectedKey(key);
+    window.location.hash = "#/workspace";
+  }, []);
+
+  const openChangeFromSearch = useCallback(
+    (project: string, cnum: number | null) => {
+      goProject(project);
+      setColHighlight((h) => ({ cnum, nonce: h.nonce + 1 }));
+    },
+    [goProject],
+  );
+
+  // 技能卡 → 3a 新对话预填话术
+  const useSkill = useCallback(
+    (text: string) => {
+      prefillHome(text);
+      window.location.hash = "#/";
+    },
+    [prefillHome],
+  );
+
   const selected = projects.find((p) => p.key === selectedKey) ?? null;
 
   const sidebar = (
@@ -188,10 +201,8 @@ export default function App() {
       route={route}
       projects={projects}
       selectedKey={selectedKey}
-      onSelectProject={(k) => {
-        setSelectedKey(k);
-        window.location.hash = "#/workspace";
-      }}
+      onSelectProject={goProject}
+      onSearch={() => setSearchOpen(true)}
       todosOpenCount={todosCount}
       sessions={sessions}
       onNewChat={() => {
@@ -234,19 +245,24 @@ export default function App() {
             changes={changes}
             error={changesErr}
             onMarkDone={onMarkDone}
+            highlight={colHighlight}
           />
         )}
         <CompanionColumn projectKey={selectedKey} />
         <ChatColumn session={session} prefill={colPrefill} onConnected={onConnected} />
       </div>
 
-      {/* 无状态占位页:每次进入重建,无所谓(design.md 取舍) */}
-      {route === "todos" && (
-        <div className="page">
-          <TodoPage />
-        </div>
-      )}
-      {route === "skills" && <SkillsPage />}
+      {/* 无状态页:每次进入重建,无所谓(design.md 取舍) */}
+      {route === "todos" && <TodoPage projects={projects} onGoProject={goProject} />}
+      {route === "skills" && <SkillsPage onUseSkill={useSkill} />}
+
+      {/* 5a 搜索命令面板(⌘K 浮层,盖在当前页上) */}
+      <SearchPanel
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onOpenChange={openChangeFromSearch}
+        onOpenProject={goProject}
+      />
     </div>
   );
 }

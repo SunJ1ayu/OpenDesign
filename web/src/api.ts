@@ -15,7 +15,7 @@ export type Change = {
   status: string; // 待确认 | 进行中 | 已完成 | 已关闭
   text: string;
   date: string | null; // YYYY-MM-DD
-  space: string | null; // 现有 PKB 格式无此字段,读侧宽容恒 null(design 决策)
+  space: string | null; // 变更行可选【空间】前缀(p4 T1);旧行 null=未标注
   source: string | null;
 };
 

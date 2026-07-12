@@ -21,7 +21,8 @@ type Props = {
   sessions: SessionItem[] | null; // null = 未连接/不可用(隐藏区块内容)
   onNewChat: () => void;
   onNewProject: () => void;
-  health: { version: string; ds_root: string } | null;
+  onSearch: () => void;
+  health: { version: string; ds_root: string; model: string | null } | null;
 };
 
 function dotClass(p: Project, current: boolean): string {
@@ -33,7 +34,7 @@ function dotClass(p: Project, current: boolean): string {
 
 export default function Sidebar({
   route, projects, selectedKey, onSelectProject, todosOpenCount,
-  sessions, onNewChat, onNewProject, health,
+  sessions, onNewChat, onNewProject, onSearch, health,
 }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const popRef = useRef<HTMLDivElement>(null);
@@ -71,7 +72,11 @@ export default function Sidebar({
           <span className="ico terra">✳</span>
           <span className="grow">新对话</span>
         </button>
-        <button className="side-row" title="全局搜索(即将支持)">
+        <button
+          className="side-row"
+          title="全局精确查找变更/图片,不经过 AI(⌘K)"
+          onClick={onSearch}
+        >
           <span className="ico">⌕</span>
           <span className="grow">搜索</span>
         </button>
@@ -163,9 +168,12 @@ export default function Sidebar({
             <span className="val">浅色 ▾</span>
             <span className="soon">深色即将支持</span>
           </button>
-          <button className="item" title="模型与通道设置在 nanobot 配置里">
+          <button
+            className="item"
+            title="切换模型:python bin/set_model.py <模型id>,然后重启 gateway"
+          >
             <span className="lbl">AI 模型</span>
-            <span className="val">本地默认 ▾</span>
+            <span className="val mono">{health?.model ?? "未连接"}</span>
           </button>
           <button className="item">
             <span className="lbl">数据与备份</span>

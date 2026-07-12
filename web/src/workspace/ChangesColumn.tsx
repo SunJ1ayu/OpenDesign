@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Change, Project } from "../api";
 import { cnDate } from "../api";
 
 // 中央变更记录列(handoff §2,flex:1):项目大标题 + 工具行(筛选胶囊)+ 变更列表。
 // 「✓ 标记完成」不写库:预填聊天输入框交 AI(design 决策,ds_web 保持只读)。
+// highlight(p4 T4):搜索回车直达 → 筛选切「全部」+ 滚动定位 + 闪烁一下。
 
 type Filter = "open" | "待确认" | "进行中" | "all";
 
@@ -14,14 +15,35 @@ type Props = {
   changes: Change[] | null; // null = 加载中
   error: string | null;
   onMarkDone: (c: Change) => void;
+  highlight?: { cnum: number | null; nonce: number };
 };
 
 function changeKey(c: Change, i: number): string {
   return c.cnum !== null ? `c${c.cnum}` : `i${i}`;
 }
 
-export default function ChangesColumn({ project, changes, error, onMarkDone }: Props) {
+export default function ChangesColumn({
+  project, changes, error, onMarkDone, highlight,
+}: Props) {
   const [filter, setFilter] = useState<Filter>("open");
+  const [hl, setHl] = useState<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 搜索直达:换到「全部」(目标可能不在当前筛选下)并记下要闪的编号
+  useEffect(() => {
+    if (!highlight || highlight.nonce === 0 || highlight.cnum === null) return;
+    setFilter("all");
+    setHl(highlight.cnum);
+  }, [highlight?.nonce]);
+
+  // 数据到位后滚过去;1.6s 后收掉闪烁态
+  useEffect(() => {
+    if (hl === null || changes === null) return;
+    const el = scrollRef.current?.querySelector(`[data-ck="c${hl}"]`);
+    el?.scrollIntoView({ block: "center" });
+    const t = setTimeout(() => setHl(null), 1600);
+    return () => clearTimeout(t);
+  }, [hl, changes]);
 
   const counts = useMemo(() => {
     const list = changes ?? [];
@@ -98,9 +120,13 @@ export default function ChangesColumn({ project, changes, error, onMarkDone }: P
           )}
         </div>
       ) : (
-        <div className="change-scroll">
+        <div className="change-scroll" ref={scrollRef}>
           {shown.map((c, i) => (
-            <div className={`change-row st-${c.status}`} key={changeKey(c, i)}>
+            <div
+              className={`change-row st-${c.status}${c.cnum !== null && c.cnum === hl ? " hl-flash" : ""}`}
+              data-ck={changeKey(c, i)}
+              key={changeKey(c, i)}
+            >
               <span className="cnum">{c.cnum !== null ? `C${c.cnum}` : "C?"}</span>
               <div className="body">
                 <div className="txt">{c.text}</div>

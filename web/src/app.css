@@ -845,67 +845,226 @@ html, body { overflow: auto; }
 .placeholder { max-width: 520px; }
 .placeholder p { color: var(--ink-4); font-size: 13px; }
 
-/* 待办页(TodoPage 既有 class,暖纸面化) */
-.project-card {
+/* ================= 4a 待办事项页(p4 T3,handoff §6) ================= */
+.todo-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.todo-head .serif {
+  font: 700 22px var(--font-serif);
+  margin: 0;
+  color: var(--ink);
+}
+.todo-head .sub { font-size: 12px; color: var(--ink-4); }
+.todo-head .grow { flex: 1; }
+.todo-empty { padding: 60px 0; text-align: center; font-size: 13px; }
+.todo-cards { display: flex; flex-direction: column; gap: 14px; max-width: 860px; }
+.todo-card {
   background: #fff;
   border: 1px solid var(--border-main);
-  border-radius: 7px;
+  border-radius: 11px;
   box-shadow: var(--shadow-card);
-  padding: 12px 16px;
-  margin-bottom: 10px;
+  padding: 14px 18px 8px;
 }
-.project-name { font-weight: 600; font-size: 13px; margin-bottom: 6px; }
-.change-list { list-style: none; margin: 0; padding: 0; }
-.change-list li { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; font-size: 13px; }
-.rev-tag {
-  font: 600 11px var(--font-mono);
-  border: 1px solid var(--border-main);
-  border-radius: 3px;
+.todo-card .card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+.todo-card .card-head .ico-col { width: 16px; display: flex; justify-content: center; flex: none; }
+.todo-card .card-head .dot { width: 7px; height: 7px; border-radius: 50%; }
+.todo-card .card-head .dot.open { background: var(--dot-amber); }
+.todo-card .card-head .dot.idle { background: var(--dot-gray); }
+.todo-card .card-head .dot.done { background: var(--dot-faded); }
+.todo-card .card-head .nm { font-size: 14px; font-weight: 600; }
+.todo-card .card-head .n-open { font: 10.5px var(--font-mono); color: var(--ink-4); }
+.todo-card .card-head .grow { flex: 1; }
+.stale-badge {
+  font-size: 10.5px;
+  color: var(--terra-deep);
+  background: #f4e3db;
+  border-radius: 99px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+.go-link { font-size: 12px; color: var(--terra-deep); transition: color var(--hover-ease); }
+.go-link:hover { color: var(--terra); }
+.space-sect { padding: 4px 0 2px; }
+.space-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
   color: var(--ink-4);
-  padding: 0 5px;
-  line-height: 1.5;
-  flex-shrink: 0;
+  padding: 5px 0 3px;
 }
-.status { font-size: 11px; padding: 1px 7px; border-radius: 999px; flex-shrink: 0; }
-.status-pending { color: var(--st-pending-fg); background: var(--st-pending-bg); }
-.status-doing { color: var(--st-doing-fg); background: var(--st-doing-bg); }
-.change-text { flex: 1; }
-.change-date { font: 12px var(--font-mono); color: var(--ink-4); }
-.stale-list { list-style: none; margin: 0; padding: 0; }
-.stale-list li {
+.space-head .rule { flex: 1; height: 1px; background: #f0ede4; }
+.todo-row {
   display: flex;
   align-items: baseline;
   gap: 10px;
   padding: 6px 0;
-  border-bottom: 1px solid var(--border-main);
   font-size: 13px;
+  border-bottom: 1px solid var(--border-light);
 }
-.stale-days { font: 700 12px var(--font-mono); color: var(--terra-deep); min-width: 48px; }
-.project-name-inline { font-weight: 600; }
+.todo-row:last-child { border-bottom: none; }
+.todo-row .cnum { font: 600 12px var(--font-mono); color: var(--terra-deep); flex: none; }
+.todo-row .txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todo-row .meta { font-size: 11px; color: var(--ink-5); flex: none; display: flex; gap: 8px; }
+.todo-row .meta .proj-link { color: var(--ink-4); transition: color var(--hover-ease); }
+.todo-row .meta .proj-link:hover { color: var(--terra-deep); }
+.todo-rest { font-size: 12px; padding: 12px 2px 0; max-width: 860px; text-align: center; }
+.todo-card.flat { padding-top: 6px; }
 
-/* 技能占位卡片 */
+/* ================= 5a 搜索命令面板(p4 T4,handoff §7) ================= */
+.sp-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(44, 42, 38, 0.32);
+  z-index: 60;
+}
+.sp-panel {
+  width: 640px;
+  max-width: calc(100vw - 40px);
+  margin: 120px auto 0;
+  background: var(--paper);
+  border-radius: 16px;
+  box-shadow: 0 24px 70px rgba(30, 24, 12, 0.3);
+  display: flex;
+  flex-direction: column;
+  max-height: min(560px, calc(100vh - 160px));
+  overflow: hidden;
+}
+.sp-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 10px;
+}
+.sp-input .ico { color: var(--ink-4); font-size: 15px; }
+.sp-input input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14.5px;
+  color: var(--ink);
+  caret-color: var(--terra);
+}
+.sp-input .esc-tag {
+  font: 10px var(--font-mono);
+  color: var(--ink-5);
+  border: 1px solid var(--border-main);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.sp-tabs { display: flex; gap: 6px; padding: 0 16px 10px; font-size: 12px; }
+.sp-tabs .pill {
+  border: 1px solid var(--border-input);
+  border-radius: 99px;
+  padding: 2px 12px;
+  color: var(--ink-2);
+  background: #fff;
+  transition: background var(--hover-ease);
+}
+.sp-tabs .pill.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.sp-tabs .pill.off { opacity: 0.4; cursor: not-allowed; }
+.sp-results { overflow-y: auto; padding: 0 8px 8px; }
+.sp-hint { padding: 22px 12px; font-size: 12.5px; text-align: center; }
+.sp-group .g-title { font-size: 10.5px; color: var(--ink-5); padding: 8px 10px 4px; }
+.sp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 13px;
+  transition: background var(--hover-ease);
+}
+.sp-row:hover, .sp-row.sel { background: var(--paper-hover); }
+.sp-row .cnum { font: 600 12px var(--font-mono); color: var(--terra-deep); flex: none; }
+.sp-row .txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-row .txt mark { background: #f4e3db; color: var(--terra-deep); border-radius: 2px; padding: 0 1px; }
+.sp-row .meta { font-size: 11px; color: var(--ink-5); flex: none; }
+.sp-row .enter { font-size: 11px; color: var(--ink-5); opacity: 0; flex: none; }
+.sp-row.sel .enter { opacity: 1; }
+.sp-row .thumb {
+  width: 34px;
+  height: 26px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--paper-side);
+  flex: none;
+}
+.sp-foot {
+  display: flex;
+  gap: 14px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border-light);
+  font: 10.5px var(--font-mono);
+  color: var(--ink-5);
+}
+.sp-foot .grow { flex: 1; }
+
+/* 搜索直达:中央列目标行闪烁 */
+.change-row.hl-flash { animation: hlFlash 1.6s ease; }
+@keyframes hlFlash {
+  0% { background: #f4e3db; }
+  100% { background: transparent; }
+}
+
+/* ================= 5b 技能页(p4 T5,handoff §8) ================= */
 .skill-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 12px;
-  max-width: 760px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+  max-width: 860px;
 }
 .skill-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
   background: #fff;
   border: 1px solid var(--border-main);
-  border-radius: 9px;
+  border-radius: 11px;
   box-shadow: var(--shadow-card);
-  padding: 14px 16px;
-  opacity: 0.75;
+  padding: 16px;
+  transition: border-color var(--hover-ease);
 }
-.skill-card .nm { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
-.skill-card .ds { font-size: 12px; color: var(--ink-4); }
-.skill-card .stg {
-  display: inline-block;
-  font: 11px var(--font-mono);
+.skill-card:hover { border-color: var(--terra); }
+.skill-card .icon-block {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: var(--paper-side);
+  color: var(--terra-deep);
+  font-size: 14px;
+  font-weight: 600;
+}
+.skill-card .nm { font-weight: 600; font-size: 14px; }
+.skill-card .ds { font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }
+.skill-card .flow {
+  font: 10px var(--font-mono);
   color: var(--ink-4);
-  border: 1px solid var(--border-main);
-  border-radius: 3px;
-  padding: 0 5px;
-  margin-top: 8px;
+  background: var(--paper-side);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-top: 2px;
 }
+.skill-card.add {
+  border-style: dashed;
+  box-shadow: none;
+  background: transparent;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-4);
+  cursor: default;
+}
+.skill-card.add:hover { border-color: var(--border-main); }
+.skill-card.add .plus { font-size: 18px; }
+.skills-page .tip { font-size: 12px; margin-top: 16px; }

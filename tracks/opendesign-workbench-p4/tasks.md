@@ -8,7 +8,7 @@
 - [x] T1 后端:变更行可选【空间】字段 — oracle 先行(4 条 red-check)→ CHANGE_RE 加可选组
       + parse_change 加 space 键 + append_change 加 space 参数(消毒+剥括号+截长)
       + MCP schema + AGENTS.md 用法一句
-- [ ] T2 后端:/api/health 加 model 字段(读 ~/.nanobot/config.json,读不到=null)
+- [x] T2 后端:/api/health 加 model 字段(读 ~/.nanobot/config.json,读不到=null)
       + bin/set_model.py(备份→改 agents.defaults.model→提示重启)+ oracle
 - [ ] T3 前端:待办事项页重排(项目卡/空间小节/超期标签/按项目·按时间切换/空态)
 - [ ] T4 前端:搜索命令面板 ⌘K(变更+图片,文件/对话置灰;<mark> 高亮;回车跳转)
