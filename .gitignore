@@ -21,6 +21,9 @@ __pycache__/
 /refs-index.md
 /refs-vocab.md
 /organize/
+# 文件工作区:映射是本机路径(业主机各不同),样例树只属于开发机
+/config/workspace.json
+/e2e-workspace/
 
 # 第三方课件提取物(别家公司的私有教学材料,不进任何仓)
 docs/10-systems.md

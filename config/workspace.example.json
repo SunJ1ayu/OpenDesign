@@ -1,0 +1,7 @@
+{
+  "_说明": "文件工作区配置模板:复制为本目录下 workspace.json 再改(workspace.json 不进仓,属于本机)。root=工作区根目录(docs/workspace-taxonomy.md v1.0 结构);projects=项目档案 key → 工作区内项目文件夹相对路径(用 / 分隔)。改完即生效,不用重启。",
+  "root": "D:\\设计工作区",
+  "projects": {
+    "龙腾世纪-1802": "01-项目/20260612 周宁 龙腾世纪 12#1802"
+  }
+}

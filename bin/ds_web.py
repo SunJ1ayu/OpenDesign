@@ -42,7 +42,7 @@ import ds_refs
 import ds_todo
 import ds_workspace
 
-VERSION = "0.5.0"  # P4 待办页重排+搜索面板+技能页+设置弹层;设置弹层「检查更新」回显此号=运行中是新版的实证
+VERSION = "0.6.0"  # P5 文件工作区+图墙+open-folder;设置弹层「检查更新」回显此号=运行中是新版的实证
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -75,8 +75,14 @@ OPEN_BODY_MAX = 4096  # open-folder 请求体上限(key+sub 远小于此)
 
 
 def _default_open_launcher(path: str):
-    """本机打开文件夹。Windows=资源管理器;其余平台 xdg-open(列表参数无 shell)。"""
-    if os.name == "nt":
+    """本机打开文件夹。Windows=资源管理器;其余平台 xdg-open(列表参数无 shell)。
+    DS_OPEN_CMD 覆盖启动命令(e2e 在无桌面 Linux 上注入记录脚本),同样列表参数。"""
+    cmd = os.environ.get("DS_OPEN_CMD")
+    if cmd:
+        import subprocess
+        subprocess.Popen([cmd, path], stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL)
+    elif os.name == "nt":
         os.startfile(path)  # noqa: S606 —— 目录路径已过 realpath within 闸
     else:
         import subprocess

@@ -126,6 +126,17 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 python "<DS_ROOT>\tests\test_ds_web.py"
 ```
 
+### 5c. 文件工作区+图墙(可选,P5;不配则相关面板显示引导空态)
+
+把工作台接到真实项目文件夹(目录结构约定 = docs/workspace-taxonomy.md):
+
+1. 复制 `config\workspace.example.json` → `config\workspace.json`(不进 git,属于本机);
+2. `root` 填工作区根(如 `D:\\设计工作区`,JSON 里反斜杠要双写),`projects` 里
+   每行 = 项目档案 key → 工作区内项目文件夹相对路径(用 `/` 分隔);
+3. 存盘即生效(每请求现读,不用重启)。刷新工作台:项目页右列出现类目计数+最近
+   文件+「打开文件夹」;图片缩略点进图墙(参考图索引∪项目文件夹图片)。
+   一切只读;唯一的"动作"是打开资源管理器,且只能打开工作区内已映射的目录。
+
 ## 6. 交代给机主的三句话(D2:不做专门文书)
 
 1. 你的文件永远在这台机器上;AI 读过的内容会随对话经**你自己的** LLM 账号上云。
