@@ -6,7 +6,8 @@ import { relTime } from "../api";
 // 待办事项/技能)/ 历史对话 / 项目 / 设置弹层。图标沿用定稿的 Unicode 占位
 // (✳ ⌕ ◎ ✦ ◷ ⚙)。v2 要点:日历行删除(功能将来融进待办页)、技能上移进
 // 全局操作组、快捷键角标(⌘N/⌘K)从 UI 移除(keydown 行为在 App 保留)、
-// 所有行共用 16px 图标列居中对齐;「新对话」在 home 路由呈当前态,
+// 所有行共用 16px 图标列居中对齐;全局操作组按路由呈当前态(新对话=home、
+// 待办事项=todos、技能=skills;搜索是弹层无路由不设),
 // 项目行的白底卡片当前态只在 workspace 路由呈现(t3 画板:3a 下项目行均普通态,
 // 仅选中项目圆点保持赤陶)。
 
@@ -80,7 +81,7 @@ export default function Sidebar({
           <span className="grow">搜索</span>
         </button>
         <button
-          className="side-row"
+          className={`side-row${route === "todos" ? " current" : ""}`}
           onClick={() => { window.location.hash = "#/todos"; }}
           title="汇总所有项目未办结变更"
         >
@@ -91,7 +92,7 @@ export default function Sidebar({
           )}
         </button>
         <button
-          className="side-row"
+          className={`side-row${route === "skills" ? " current" : ""}`}
           title="CAD 转 3D、PS 合成 PDF 等"
           onClick={() => { window.location.hash = "#/skills"; }}
         >
