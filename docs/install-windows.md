@@ -81,8 +81,19 @@ Copy-Item C:\OpenDesign\skills\* "$env:USERPROFILE\.nanobot\workspace\skills\" -
 
 ## 5. 启动与验证
 
+一条命令拉起全套(gateway + 工作台,隐藏窗口跑,就绪后自动开浏览器;重复运行安全,
+已在跑的腿自动跳过;停止 = 末尾加 `stop`):
+
 ```powershell
-& "<DS_ROOT>\bin\ds-nanobot.ps1" gateway
+powershell -ExecutionPolicy Bypass -File C:\OpenDesign\bin\start.ps1
+```
+
+日志在 `%USERPROFILE%\.openDesign\logs\`(gateway.log / dsweb.log,起不来先看
+对应 .err.log)。排查或只想单起一腿时,旧的两条命令仍可用:
+
+```powershell
+& "<DS_ROOT>\bin\ds-nanobot.ps1" gateway    # 只起 gateway(前台窗口,看得到日志)
+& "<DS_ROOT>\bin\ds-web.ps1"                # 只起工作台
 ```
 
 ⚠️ Windows 默认执行策略(Restricted)会拒跑 .ps1。首次先放开当前用户(一次性):
@@ -101,11 +112,8 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 ## 5b. 工作台(可选,track opendesign-workbench P0)
 
-聊天之外的第二个入口:本地网页工作台(待办清单等,纯只读,不动任何文件)。
-
-```powershell
-& "<DS_ROOT>\bin\ds-web.ps1"
-```
+聊天之外的第二个入口:本地网页工作台(纯只读,不动任何文件)。`start.ps1` 已含
+这一腿,单起用 `& "<DS_ROOT>\bin\ds-web.ps1"`。
 
 浏览器开 `http://127.0.0.1:8766/`(与 8765 的聊天 WebUI 并行,互不影响;
 端口被占先 `$env:DS_WEB_PORT = "8768"` 再跑)。前端产物已随仓带
