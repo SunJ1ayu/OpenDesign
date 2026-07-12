@@ -184,6 +184,21 @@ class FilesFileTest(unittest.TestCase):
             st, _d = _req(port, self._url("02-参考图/bad!.png"))
             self.assertEqual(404, st)
 
+    def test_trailing_newline_rejected(self):
+        """\\Z 收尾(非 $):`a.png\\n` 不得漏过字符集闸(refs 先例同款)。"""
+        with _serve(_mkroot()) as (port, _):
+            st, _d = _req(port, self._url("02-参考图/客厅参考.png\n"))
+            self.assertEqual(404, st)
+
+    def test_404_no_path_echo(self):
+        """404 响应体不回显请求路径(refs 先例同款断言)。"""
+        with _serve(_mkroot()) as (port, _):
+            st, data = _req(port, self._url("../../../secret/密.png"))
+            self.assertEqual(404, st)
+            body = data.decode("utf-8")
+            self.assertNotIn("secret", body)
+            self.assertNotIn("密", body)
+
     def test_unmapped_key(self):
         with _serve(_mkroot()) as (port, _):
             st, _d = _req(port, self._url("02-参考图/客厅参考.png", key="别的项目"))

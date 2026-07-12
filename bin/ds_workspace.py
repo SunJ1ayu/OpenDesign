@@ -70,7 +70,9 @@ def project_dir(cfg, key: str):
 def _scan(proj_dir: str, max_per_cat: int):
     """单次遍历:{类目名: {"files": [(rel_posix, name, mtime, size)], "capped": bool}}。
     类目 = 项目夹下一级目录;顶层散文件归 ""。点号开头的目录/文件跳过;
-    深度(相对项目根的路径段数)> MAX_DEPTH 不进。"""
+    深度(相对项目根的路径段数)> MAX_DEPTH 不进。
+    读盘 OSError(权限/竞态删除)= 该目录/文件静默跳过,部分结果照常返回——
+    只读视图宁缺勿炸,与 ds_web 500 自愈哲学一致。"""
     cats = {}
 
     def bucket(name):
