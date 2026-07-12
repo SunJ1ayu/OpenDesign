@@ -229,6 +229,20 @@ class OpenFolderTest(unittest.TestCase):
                 self.assertIn(st, (400, 404), body)
             self.assertEqual([], calls)  # 未执行断言:全部拒绝路径零调用
 
+    def test_cross_site_content_type_rejected(self):
+        """CSRF 硬化:非 application/json 一律 400 且零执行。跨站 fetch 想带 json
+        Content-Type 必触发 preflight,而本服务无 OPTIONS 面 → 浏览器直接拦。"""
+        root = _mkroot()
+        with _serve(root) as (port, calls):
+            conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+            conn.request("POST", "/api/open-folder",
+                         body=json.dumps({"key": KEY}).encode("utf-8"),
+                         headers={"Content-Type": "text/plain"})
+            st = conn.getresponse().status
+            conn.close()
+            self.assertEqual(400, st)
+            self.assertEqual([], calls)
+
     def test_bad_json_body(self):
         with _serve(_mkroot()) as (port, calls):
             st, _d = _req(port, "/api/open-folder", "POST", "{broken")

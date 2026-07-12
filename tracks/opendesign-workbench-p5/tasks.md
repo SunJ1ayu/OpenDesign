@@ -11,6 +11,6 @@
 - [x] T3 open-folder POST 受控例外 + 红检(未执行断言 / 其余写方法 405 不变量)
 - [x] T4 前端 CompanionColumn 真数据化(概览+打开按钮+未配置空态)
 - [x] T5 前端 GalleryPage 图墙(路由/筛选/lightbox)+ 纯逻辑 mjs oracle
-- [ ] T6 e2e 真 gateway(Playwright:概览→图墙→筛选→lightbox)+ 全量回归
+- [x] T6 e2e 真 gateway(Playwright:概览→图墙→筛选→lightbox)+ 全量回归
 - [ ] T7 verify.md full lane(panel-review,先落主审)+ dist 构建 + 文档
       (install-windows.md 配置段 + SCHEMA/AGENTS 如涉及)

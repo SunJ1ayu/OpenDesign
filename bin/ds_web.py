@@ -414,7 +414,13 @@ class Handler(BaseHTTPRequestHandler):
     def _open_folder(self):
         """唯一非 GET 端点(P5 design §3)。闸序:body 尺寸/JSON → key 白名单+映射
         (_ws_proj)→ sub 单段白名单+realpath within+isdir(ds_workspace.resolve_sub)
-        → 全过才调 OPEN_LAUNCHER;任何拒绝路径零执行(oracle 断言)。"""
+        → 全过才调 OPEN_LAUNCHER;任何拒绝路径零执行(oracle 断言)。
+        CSRF 硬化:强制 Content-Type application/json——跨站 fetch 带该类型必触发
+        preflight,本服务无 OPTIONS 面 → 浏览器拦;text/plain 类 simple request 在此 400。"""
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return
         try:
             n = int(self.headers.get("Content-Length") or 0)
         except ValueError:
