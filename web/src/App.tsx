@@ -6,6 +6,7 @@ import ChatColumn from "./workspace/ChatColumn";
 import ChatPage from "./chat/ChatPage";
 import TodoPage from "./TodoPage";
 import SkillsPage from "./SkillsPage";
+import GalleryPage from "./GalleryPage";
 import SearchPanel from "./SearchPanel";
 import { ChatSession } from "./chat/connection";
 import {
@@ -24,11 +25,11 @@ import {
 // 保留;协议每连接一会话,两实例各自独立)。「新对话」/⌘N = 回 3a 现状,
 // 不重置对话(重置 = 亲手复刻"切页丢对话");会话管理是 T7。
 
-type Route = "home" | "workspace" | "todos" | "skills";
+type Route = "home" | "workspace" | "todos" | "skills" | "gallery";
 
 function fromHash(): Route {
   const h = window.location.hash.replace(/^#\//, "");
-  if (h === "workspace" || h === "todos" || h === "skills") return h;
+  if (h === "workspace" || h === "todos" || h === "skills" || h === "gallery") return h;
   return "home";
 }
 
@@ -248,13 +249,19 @@ export default function App() {
             highlight={colHighlight}
           />
         )}
-        <CompanionColumn projectKey={selectedKey} />
+        <CompanionColumn
+          projectKey={selectedKey}
+          onOpenGallery={() => {
+            window.location.hash = "#/gallery";
+          }}
+        />
         <ChatColumn session={session} prefill={colPrefill} onConnected={onConnected} />
       </div>
 
       {/* 无状态页:每次进入重建,无所谓(design.md 取舍) */}
       {route === "todos" && <TodoPage projects={projects} onGoProject={goProject} />}
       {route === "skills" && <SkillsPage onUseSkill={useSkill} />}
+      {route === "gallery" && <GalleryPage project={selected} />}
 
       {/* 5a 搜索命令面板(⌘K 浮层,盖在当前页上) */}
       <SearchPanel

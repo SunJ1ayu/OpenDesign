@@ -27,6 +27,18 @@ export type Ref = {
   note: string;
 };
 
+// P5 文件工作区(bin/ds_web.py /api/files/*;未配置/未映射诚实降级)
+export type WsCategory = { name: string; count: number; capped: boolean };
+export type WsRecent = { name: string; category: string; mtime: number; size: number };
+export type FilesOverview =
+  | { configured: false }
+  | { configured: true; mapped: false }
+  | { configured: true; mapped: true; categories: WsCategory[]; recent: WsRecent[] };
+export type FilesImages =
+  | { configured: false }
+  | { configured: true; mapped: false }
+  | { configured: true; mapped: true; images: { rel: string; category: string; mtime: number }[] };
+
 async function getJson<T>(path: string): Promise<T> {
   const r = await fetch(path);
   if (!r.ok) throw new Error(`服务返回 ${r.status}`);
@@ -48,6 +60,30 @@ export const fetchRefs = (key: string) =>
 
 export const fetchTodosOpenCount = () =>
   getJson<{ open: unknown[] }>("/api/todos").then((d) => d.open.length);
+
+export const fetchFilesOverview = (key: string) =>
+  getJson<FilesOverview>(`/api/files/overview/${encodeURIComponent(key)}`);
+
+export const fetchFilesImages = (key: string) =>
+  getJson<FilesImages>(`/api/files/images/${encodeURIComponent(key)}`);
+
+/** 工作区项目图片静态路由(rel 来自 /api/files/images,posix 分隔)。 */
+export function filesImageUrl(key: string, rel: string): string {
+  return (
+    `/api/files/file/${encodeURIComponent(key)}/` +
+    rel.split("/").map(encodeURIComponent).join("/")
+  );
+}
+
+/** 唯一非 GET:打开本机项目文件夹(open-folder 受控例外)。失败抛错由调用方提示。 */
+export async function openFolder(key: string, sub?: string): Promise<void> {
+  const r = await fetch("/api/open-folder", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(sub ? { key, sub } : { key }),
+  });
+  if (!r.ok) throw new Error(`服务返回 ${r.status}`);
+}
 
 /** refs-index 的 file 字段是 "refs/xx.jpg";静态路由挂在 /api/refs/file/ 下。 */
 export function refImageUrl(file: string): string {

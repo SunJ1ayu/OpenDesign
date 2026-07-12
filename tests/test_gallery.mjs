@@ -1,0 +1,83 @@
+// P5 T5 oracle:图墙纯逻辑层(合并/facets/三维 AND 筛选)
+// 跑法:node --test tests/test_gallery.mjs(Node 22+,原生 strip-types)
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import {
+  buildGallery,
+  galleryFacets,
+  filterGallery,
+  refLabel,
+  REF_GROUP,
+} from "../web/src/gallery.ts";
+
+const REFS = [
+  { id: "r1", style: ["奶油风"], space: ["客厅"], file: "refs/a.jpg", note: "" },
+  { id: "r2", style: ["侘寂"], space: ["卧室"], file: "refs/b.png", note: "业主定稿" },
+];
+const IMGS = [
+  { rel: "06-效果图/定稿/终版.png", category: "06-效果图", mtime: 200 },
+  { rel: "02-参考图/冻结.jpg", category: "02-参考图", mtime: 300 },
+  { rel: "06-效果图/过程.png", category: "06-效果图", mtime: 200 },
+];
+
+test("buildGallery:refs 索引序在前,ws 按 mtime 降序(同刻按 rel)", () => {
+  const g = buildGallery("龙腾世纪-1802", REFS, IMGS);
+  assert.deepEqual(
+    g.map((i) => i.id),
+    ["ref:r1", "ref:r2", "ws:02-参考图/冻结.jpg",
+     "ws:06-效果图/定稿/终版.png", "ws:06-效果图/过程.png"],
+  );
+});
+
+test("buildGallery:url 路由正确且逐段编码", () => {
+  const g = buildGallery("龙腾世纪-1802", REFS, IMGS);
+  assert.equal(g[0].url, "/api/refs/file/a.jpg");
+  const ws = g.find((i) => i.id === "ws:02-参考图/冻结.jpg");
+  assert.equal(
+    ws.url,
+    `/api/files/file/${encodeURIComponent("龙腾世纪-1802")}/` +
+      `${encodeURIComponent("02-参考图")}/${encodeURIComponent("冻结.jpg")}`,
+  );
+});
+
+test("buildGallery:label = note > 空间·风格 > 文件名;group 归属", () => {
+  const g = buildGallery("k", REFS, IMGS);
+  assert.equal(g[0].label, "客厅·奶油风");
+  assert.equal(g[1].label, "业主定稿");
+  assert.equal(g[0].group, REF_GROUP);
+  const ws = g.find((i) => i.id === "ws:06-效果图/定稿/终版.png");
+  assert.equal(ws.label, "终版.png");
+  assert.equal(ws.group, "06-效果图");
+});
+
+test("refLabel:全空回落 id", () => {
+  assert.equal(refLabel({ id: "r9", style: [], space: [], file: "x", note: "" }), "r9");
+});
+
+test("galleryFacets:首现序去重;空间/风格只来自 refs", () => {
+  const f = galleryFacets(buildGallery("k", REFS, IMGS));
+  assert.deepEqual(f.groups, [REF_GROUP, "02-参考图", "06-效果图"]);
+  assert.deepEqual(f.spaces, ["客厅", "卧室"]);
+  assert.deepEqual(f.styles, ["奶油风", "侘寂"]);
+});
+
+test("filterGallery:三维 AND;空筛选=全量", () => {
+  const g = buildGallery("k", REFS, IMGS);
+  const none = { group: null, space: null, style: null };
+  assert.equal(filterGallery(g, none).length, g.length);
+  assert.deepEqual(
+    filterGallery(g, { ...none, group: "06-效果图" }).map((i) => i.id),
+    ["ws:06-效果图/定稿/终版.png", "ws:06-效果图/过程.png"],
+  );
+  assert.deepEqual(
+    filterGallery(g, { ...none, space: "客厅" }).map((i) => i.id),
+    ["ref:r1"],
+  );
+  // 空间+组 AND:ws 图无标签被空间筛除
+  assert.deepEqual(filterGallery(g, { group: "06-效果图", space: "客厅", style: null }), []);
+});
+
+test("filterGallery/facets:空输入不崩", () => {
+  assert.deepEqual(buildGallery("k", [], []), []);
+  assert.deepEqual(galleryFacets([]), { groups: [], spaces: [], styles: [] });
+});

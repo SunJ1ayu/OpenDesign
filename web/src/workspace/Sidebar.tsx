@@ -14,7 +14,7 @@ import { relTime } from "../api";
 export type SessionItem = { key: string; title?: string; preview?: string; updated_at?: string };
 
 type Props = {
-  route: "home" | "workspace" | "todos" | "skills";
+  route: "home" | "workspace" | "todos" | "skills" | "gallery";
   projects: Project[];
   selectedKey: string | null;
   onSelectProject: (key: string) => void;
