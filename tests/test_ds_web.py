@@ -223,6 +223,24 @@ class TestDsWeb(unittest.TestCase):
             self.assertEqual(st, 200)
             self.assertIsNone(json.loads(body.decode("utf-8"))["model"])
 
+    # ⑨ health.model 类型守卫:model 非字符串 / 空串 → null(isinstance 守卫的红检;
+    #    panel p4 submimo/subglm 共同点名的最高优先测试缺口)
+    def test_13_health_model_type_guard(self):
+        d = tempfile.mkdtemp(prefix="nb_cfg_")
+        cfg = os.path.join(d, "config.json")
+        for weird in (123, True, [], None, ""):
+            with open(cfg, "w", encoding="utf-8") as fh:
+                json.dump({"agents": {"defaults": {"model": weird}}}, fh)
+            os.environ["DS_NANOBOT_CONFIG"] = cfg
+            try:
+                with _serve(_mkroot({}), _mkdist()) as httpd:
+                    st, _, body = _req(httpd.server_address[1], "/api/health")
+            finally:
+                del os.environ["DS_NANOBOT_CONFIG"]
+            self.assertEqual(st, 200, f"model={weird!r} 探针不应炸")
+            self.assertIsNone(json.loads(body.decode("utf-8"))["model"],
+                              f"model={weird!r} 应回显 null")
+
 
 class TestDistCommitted(unittest.TestCase):
     """oracle #3 后半:仓内 web/dist 必须真实存在(防"忘了构建就推")。"""

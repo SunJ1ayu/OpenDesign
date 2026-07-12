@@ -48,14 +48,17 @@ export default function SearchPanel({ open, onClose, onOpenChange, onOpenProject
   // 打开 → 复位 + 聚焦。⚠️必须与下面的加载 effect 分开:若共用依赖 [open, docs],
   // 索引到位那刻 effect 重跑会把用户已敲的 query 清空(e2e 抓到的真 bug)。
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setDocs(null); // 关闭即弃索引:会话内新记的变更下次打开能搜到(panel p4 submimo 指出)
+      return;
+    }
     setQuery("");
     setSel(0);
     setTab("all");
     inputRef.current?.focus();
   }, [open]);
 
-  // 一次性拉索引(缓存至关闭;再开秒出)
+  // 每次打开拉一次索引(打开期间缓存,关闭失效)
   useEffect(() => {
     if (!open || docs !== null) return;
     let stale = false;

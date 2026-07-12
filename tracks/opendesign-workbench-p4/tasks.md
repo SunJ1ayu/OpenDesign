@@ -15,5 +15,6 @@
       + 侧栏「搜索」行
 - [x] T5 前端:技能页(真实能力卡+预填)+ 设置弹层扩充(外观/AI 模型=真值/数据与备份/
       快捷键/检查更新)
-- [ ] T6 收口:VERSION 0.5.0 + dist 重构建进仓 + 全量 py/mjs 零红 + e2e 真 gateway
+- [x] T6 收口:VERSION 0.5.0 + dist 重构建进仓 + 全量 py/mjs 零红 + e2e 真 gateway
+      (panel 修复轮后复跑 9/9,verify.md PASS)
       + verify.md(full lane)

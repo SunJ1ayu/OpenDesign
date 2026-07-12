@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Project } from "../api";
 import { relTime } from "../api";
 
@@ -37,7 +37,6 @@ export default function Sidebar({
   sessions, onNewChat, onNewProject, onSearch, health,
 }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const popRef = useRef<HTMLDivElement>(null);
 
   // 弹层外点击收起(设置行自身的 toggle 在 onClick 里处理)
   useEffect(() => {
@@ -162,7 +161,7 @@ export default function Sidebar({
 
       {/* 设置弹层(向上弹出;唯一的原型交互) */}
       {settingsOpen && (
-        <div className="settings-pop" ref={popRef}>
+        <div className="settings-pop">
           <button className="item" title="定稿仅浅色;深色适配排期中">
             <span className="lbl">外观</span>
             <span className="val">浅色 ▾</span>

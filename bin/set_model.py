@@ -6,7 +6,8 @@
     python bin/set_model.py xiaomi/mimo-v2.5 --config C:\\Users\\PC\\.nanobot\\config.json
 
 契约(oracle tests/test_set_model.py 锁定):
-  - 只改 agents.defaults.model 一个字段,其余(端点/key/channels)一字不碰;
+  - 只改 agents.defaults.model 一个字段,其余字段(端点/key/channels)值一个不碰
+    (整文件会按标准 JSON 缩进重排——字段值不变,空白格式归一);
   - 改前把原文备份到 config.json.bak;
   - config 缺失/损坏 → 非零退出且不写任何文件(不越权创建配置,装机走 install.ps1);
   - 切换只落盘 —— 必须重启 gateway 才生效(运行中的进程不自动换脑,部署目标规则)。

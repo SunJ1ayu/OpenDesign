@@ -150,10 +150,19 @@ class TestDsTodo(unittest.TestCase):
         self.assertEqual(c["space"], "玄关")
         self.assertEqual(c["text"], "柜子改到 2.4 米")
         self.assertEqual(c["cnum"], 3)
-        # 旧格式行:向后兼容,text 一个字不动
+        # 旧格式行(无【】前缀):向后兼容,text 一个字不动
         old = ds_todo.parse_change("- [进行中] C2 2026-06-19 玄关增加到顶储物柜")
         self.assertIsNone(old["space"])
         self.assertEqual(old["text"], "玄关增加到顶储物柜")
+        # 契约:头部【1-16字】一律读作空间槽——0.4.0 之前正文恰好以短【】开头的旧行,
+        # 解析后 text 会剥掉该前缀(磁盘一字不动,仅展示归组变化;panel p4 subglm 指出后钉死)
+        legacy = ds_todo.parse_change("- [进行中] C2 2026-06-19 【玄关】增加到顶储物柜")
+        self.assertEqual(legacy["space"], "玄关")
+        self.assertEqual(legacy["text"], "增加到顶储物柜")
+        # 正文里出现的孤立】留在 text 里,不破坏解析
+        tail = ds_todo.parse_change("- [待确认] C5 2026-07-12 【玄关】柜子改】到 2.4 米")
+        self.assertEqual(tail["space"], "玄关")
+        self.assertEqual(tail["text"], "柜子改】到 2.4 米")
 
     # ⑩ 空间字段结构不可破:空/超长【】不吞正文;collect 透传 space
     def test_10_space_structure(self):
