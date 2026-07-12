@@ -21,20 +21,23 @@ STATUS_WORDS = ("待确认", "进行中", "已完成", "已关闭")
 OPEN_STATUS = ("待确认", "进行中")  # 未办结 = ds_todo 主动提醒的范围
 CHANGE_RE = re.compile(
     r"^- \[(待确认|进行中|已完成|已关闭)\]"
-    r"(?:\s+C(\d+)\b)?(?:\s+(\d{4}-\d{2}-\d{2}))?\s*(.*)$")
+    r"(?:\s+C(\d+)\b)?(?:\s+(\d{4}-\d{2}-\d{2}))?\s*"
+    r"(?:【([^【】\s][^【】]{0,15})】\s*)?(.*)$")  # 可选【空间】前缀(track p4):1-16字,空/超长落回正文
 LASTUPD_RE = ds_common.LASTUPD_DATE_RE  # 行首锚定:沟通日志句中的"最后更新"不再误认
 
 
 def parse_change(line: str) -> dict | None:
     """变更行结构化(单一真相源):ds_todo.collect 与 ds_web changes 端点都吃它。
-    命中返回 {status, cnum, date, text}(cnum/date 残缺为 None),不命中返回 None。"""
+    命中返回 {status, cnum, date, space, text}(cnum/date/space 残缺为 None),
+    不命中返回 None。space=内容头部可选【空间】前缀(旧行天然 None,零迁移)。"""
     m = CHANGE_RE.match(line)
     if not m:
         return None
     return {"status": m.group(1),
             "cnum": int(m.group(2)) if m.group(2) else None,
             "date": m.group(3),
-            "text": m.group(4)}
+            "space": m.group(4),
+            "text": m.group(5)}
 # env DS_ROOT 缺失时基于 __file__ 推导(bin/ 的上一级):Linux/Windows 通用,不硬编码 /root
 DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
@@ -69,6 +72,7 @@ def collect(root: str, stale_days: int = 7, today: date | None = None) -> dict:
                 "status": c["status"],
                 "cnum": c["cnum"],
                 "date": c["date"],
+                "space": c["space"],
                 "text": c["text"],
             })
         dates = LASTUPD_RE.findall(text)

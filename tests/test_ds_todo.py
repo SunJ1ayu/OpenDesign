@@ -127,7 +127,7 @@ class TestDsTodo(unittest.TestCase):
         self.assertEqual(d["stale_days"], 7)
         self.assertEqual(d["open"], [{
             "project": "a-open", "line": 4, "status": "待确认", "cnum": 1,
-            "date": "2026-06-20", "text": "改推拉门",
+            "date": "2026-06-20", "space": None, "text": "改推拉门",
             "raw": "- [待确认] C1 2026-06-20 改推拉门",
         }])
         self.assertEqual(d["stale"], [{"project": "b-stale", "days": 13,
@@ -143,6 +143,35 @@ class TestDsTodo(unittest.TestCase):
         self.assertIsNone(it["cnum"])
         self.assertIsNone(it["date"])
         self.assertEqual(it["text"], "没编号没日期")
+
+    # ⑨ 空间字段(track p4 T1):【空间】前缀 → space 键;旧行 space=None 且 text 不变
+    def test_09_parse_space(self):
+        c = ds_todo.parse_change("- [待确认] C3 2026-07-12 【玄关】柜子改到 2.4 米")
+        self.assertEqual(c["space"], "玄关")
+        self.assertEqual(c["text"], "柜子改到 2.4 米")
+        self.assertEqual(c["cnum"], 3)
+        # 旧格式行:向后兼容,text 一个字不动
+        old = ds_todo.parse_change("- [进行中] C2 2026-06-19 玄关增加到顶储物柜")
+        self.assertIsNone(old["space"])
+        self.assertEqual(old["text"], "玄关增加到顶储物柜")
+
+    # ⑩ 空间字段结构不可破:空/超长【】不吞正文;collect 透传 space
+    def test_10_space_structure(self):
+        # 空【】不是合法空间标注 → 整段落回 text
+        c = ds_todo.parse_change("- [待确认] C1 2026-07-12 【】留空括号")
+        self.assertIsNone(c["space"])
+        self.assertEqual(c["text"], "【】留空括号")
+        # 超过 16 字的【…】不按空间解析(空间是短词表,长括号=正文自带)
+        long = "【" + "长" * 17 + "】尾巴"
+        c2 = ds_todo.parse_change(f"- [待确认] C1 2026-07-12 {long}")
+        self.assertIsNone(c2["space"])
+        self.assertEqual(c2["text"], long)
+        # collect 透传:待办条目带 space
+        root = _mkroot({"s.md": "# s\n- [待确认] C1 2026-07-01 【客厅】电视墙改岩板\n"
+                                "\n---\n最后更新: 2026-07-02\n"})
+        d = ds_todo.collect(root, 7, TODAY)
+        self.assertEqual(d["open"][0]["space"], "客厅")
+        self.assertEqual(d["open"][0]["text"], "电视墙改岩板")
 
     # ⑥ list_todos 错误路径:核心崩溃 → 显式 error,不得静默 ok:true
     def test_06_list_todos_error(self):

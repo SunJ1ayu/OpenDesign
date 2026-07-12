@@ -236,6 +236,39 @@ class InjectionOracle(unittest.TestCase):
         self.assertEqual(_read(self.path), before)
         self.assertEqual(os.stat(self.path).st_mtime_ns, mtime0)
 
+    # ⑲ 空间字段回环(track p4 T1):append(space=玄关) → 行含【玄关】→ parse 回读
+    def test_19_append_with_space(self):
+        r = ds_tools.append_change(self.slug, "鞋柜改悬浮", space="玄关",
+                                   ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        cid = r["change_id"]
+        self.assertIn(f"- [待确认] {cid} {TODAY} 【玄关】鞋柜改悬浮", _read(self.path))
+        import ds_todo
+        c = ds_todo.parse_change(r["line"])
+        self.assertEqual(c["space"], "玄关")
+        self.assertEqual(c["text"], "鞋柜改悬浮")
+
+    # ⑳ 空间注入:】/【/换行 进不了结构;超长截断;空串视同不带
+    def test_20_space_injection(self):
+        r = ds_tools.append_change(self.slug, "内容", space="玄】\n关【x",
+                                   ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        import ds_todo
+        c = ds_todo.parse_change(r["line"])
+        self.assertIsNotNone(c)                      # 行结构完好
+        self.assertNotIn("】", c["space"])           # 括号剥掉
+        self.assertNotIn("【", c["space"])
+        self.assertEqual(c["text"], "内容")          # 正文没被吞
+        # 超长:截到 16 字仍可解析
+        r2 = ds_tools.append_change(self.slug, "内容2", space="很" * 40,
+                                    ds_root=self.ds, today=TODAY)
+        c2 = ds_todo.parse_change(r2["line"])
+        self.assertEqual(c2["space"], "很" * 16)
+        # 空串/纯空白:视同不带 space,行格式与 0.4.0 逐字节一致(向后兼容物理证明)
+        r3 = ds_tools.append_change(self.slug, "内容3", space="  ",
+                                    ds_root=self.ds, today=TODAY)
+        self.assertEqual(r3["line"], f"- [待确认] {r3['change_id']} {TODAY} 内容3")
+
     # ⑱ 页脚锚定写读同源:正文里行首出现"最后更新"时,更新的是最后一处(真页脚)
     def test_18_footer_anchor_last_occurrence(self):
         with open(self.path, "r+", encoding="utf-8") as fh:

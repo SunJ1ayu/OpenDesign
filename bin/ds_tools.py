@@ -7,7 +7,8 @@
   2) 末尾的 stdio MCP server 包装(需 `pip install mcp`,未装则不影响核心与测试)。
 
 契约铁律(spec §3):
-  - 变更行:`- [状态] C<n> YYYY-MM-DD 内容`,状态 ∈ STATUSES。
+  - 变更行:`- [状态] C<n> YYYY-MM-DD 【空间】内容`,状态 ∈ STATUSES;【空间】可选
+    (1-16字,space 参数写入,值内全角括号剥除防伪造闭合)。
   - 内容是单行:换行在写入口折叠(ds_common.sanitize_field)——多行 content 等于
     伪造任意账本行,词表/锚定/页脚三条铁律会一起被打穿。
   - 末行:`最后更新: YYYY-MM-DD`,每次写动作更新为今天(行首锚定、最后一处)。
@@ -86,11 +87,14 @@ def _max_change_num(lines: list[str]) -> int:
 
 # ── 工具 4.1 append_change ──────────────────────────────────────────────────
 def append_change(project: str, content: str, ds_root: str = DEFAULT_DS_ROOT,
-                  today: str | None = None) -> dict:
+                  today: str | None = None, space: str = "") -> dict:
     today = ds_common.today_str(today)
     content = ds_common.sanitize_field(content)  # 折换行:单行契约的物理保证
     if not content:
         return {"error": "empty_content"}
+    # 空间(可选):消毒后再剥全角括号(防伪造闭合注入结构)、截 16 字;空串视同不带,
+    # 此时行格式与 0.4.0 逐字节相同(向后兼容,oracle test_20 锁定)
+    space = ds_common.sanitize_field(space).replace("【", "").replace("】", "")[:16]
     path, err = _resolve(ds_root, "projects", project)
     if err:
         return err
@@ -100,7 +104,8 @@ def append_change(project: str, content: str, ds_root: str = DEFAULT_DS_ROOT,
     with ds_common.locked_rw(path) as box:
         lines = box["lines"]
         next_num = _max_change_num(lines) + 1
-        new_line = f"- [待确认] C{next_num} {today} {content}"
+        prefix = f"【{space}】" if space else ""
+        new_line = f"- [待确认] C{next_num} {today} {prefix}{content}"
 
         # 找 ## 变更记录 区,插到该区最后一条变更行之后(无则紧跟标题)
         try:
@@ -248,9 +253,10 @@ def _run_mcp() -> None:
         return create_project(project, client, stage=stage, address=address, ds_root=ds_root)
 
     @server.tool()
-    def append_change_tool(project: str, content: str) -> dict:
-        """追加一条业主新提的修改需求(自动编号,标记 [待确认])。项目须已存在(见 create_project)。"""
-        return append_change(project, content, ds_root=ds_root)
+    def append_change_tool(project: str, content: str, space: str = "") -> dict:
+        """追加一条业主新提的修改需求(自动编号,标记 [待确认])。项目须已存在(见 create_project)。
+        space=所属空间(可选但尽量带,如 玄关/客厅/主卧/厨房/卫生间/阳台;听得出就填)。"""
+        return append_change(project, content, ds_root=ds_root, space=space)
 
     @server.tool()
     def set_change_status_tool(project: str, change_id: str, status: str) -> dict:
