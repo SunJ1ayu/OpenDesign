@@ -193,6 +193,36 @@ class TestDsWeb(unittest.TestCase):
         self.assertTrue(d["ok"])
         self.assertIn("version", d)
 
+    # ⑦ health.model(track p4 T2):读 nanobot config 的 agents.defaults.model
+    def test_11_health_model(self):
+        cfg = os.path.join(tempfile.mkdtemp(prefix="nb_cfg_"), "config.json")
+        with open(cfg, "w", encoding="utf-8") as fh:
+            json.dump({"agents": {"defaults": {"model": "xiaomi/mimo-v2.5-pro"}}}, fh)
+        os.environ["DS_NANOBOT_CONFIG"] = cfg
+        try:
+            with _serve(_mkroot({}), _mkdist()) as httpd:
+                st, _, body = _req(httpd.server_address[1], "/api/health")
+        finally:
+            del os.environ["DS_NANOBOT_CONFIG"]
+        self.assertEqual(st, 200)
+        self.assertEqual(json.loads(body.decode("utf-8"))["model"],
+                         "xiaomi/mimo-v2.5-pro")
+
+    # ⑧ health.model 健壮:config 缺失/损坏 → 探针仍 200,model=null(不炸)
+    def test_12_health_model_bad_config(self):
+        bad = os.path.join(tempfile.mkdtemp(prefix="nb_cfg_"), "config.json")
+        with open(bad, "w", encoding="utf-8") as fh:
+            fh.write("{broken json")
+        for cfgpath in (bad, "/nonexistent/config.json"):
+            os.environ["DS_NANOBOT_CONFIG"] = cfgpath
+            try:
+                with _serve(_mkroot({}), _mkdist()) as httpd:
+                    st, _, body = _req(httpd.server_address[1], "/api/health")
+            finally:
+                del os.environ["DS_NANOBOT_CONFIG"]
+            self.assertEqual(st, 200)
+            self.assertIsNone(json.loads(body.decode("utf-8"))["model"])
+
 
 class TestDistCommitted(unittest.TestCase):
     """oracle #3 后半:仓内 web/dist 必须真实存在(防"忘了构建就推")。"""

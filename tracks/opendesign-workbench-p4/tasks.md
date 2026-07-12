@@ -5,7 +5,7 @@
 > 委托 submimo fix 时:主 agent 先写失败测试(oracle)并 commit,再把窄范围实现
 > 交给它;oracle/测试文件对它 off-limits;~2 次红了收回主 agent。
 
-- [ ] T1 后端:变更行可选【空间】字段 — oracle 先行(4 条 red-check)→ CHANGE_RE 加可选组
+- [x] T1 后端:变更行可选【空间】字段 — oracle 先行(4 条 red-check)→ CHANGE_RE 加可选组
       + parse_change 加 space 键 + append_change 加 space 参数(消毒+剥括号+截长)
       + MCP schema + AGENTS.md 用法一句
 - [ ] T2 后端:/api/health 加 model 字段(读 ~/.nanobot/config.json,读不到=null)

@@ -33,8 +33,22 @@ import ds_common
 import ds_refs
 import ds_todo
 
-VERSION = "0.4.0"  # P3 新对话首页+侧栏v2+keep-mounted;设置弹层「检查更新」回显此号=运行中是新版的实证
+VERSION = "0.5.0"  # P4 待办页重排+搜索面板+技能页+设置弹层;设置弹层「检查更新」回显此号=运行中是新版的实证
 DEFAULT_NANOBOT_PORT = 8765
+# nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
+DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
+
+
+def _read_model():
+    """当前大脑 = nanobot config 的 agents.defaults.model。只读、每请求现读(零缓存,
+    与 /api/todos 同哲学);任何读取失败 → None,健康探针本体不受牵连。"""
+    try:
+        cfg = os.environ.get("DS_NANOBOT_CONFIG", DEFAULT_NANOBOT_CONFIG)
+        with open(cfg, encoding="utf-8") as fh:
+            m = json.load(fh).get("agents", {}).get("defaults", {}).get("model")
+        return m if isinstance(m, str) and m else None
+    except Exception:
+        return None
 # 与上游 _decode_api_key 同字符集;不含 % 和 / ⇒ 原样转发也无路径走私
 _KEY_RE = re.compile(r"^[A-Za-z0-9_:.-]{1,128}$")
 _THREAD_RE = re.compile(r"^/api/chat/sessions/([^/]+)/thread$")
@@ -124,7 +138,8 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path == "/api/health":
             self._json(200, {"ok": True, "version": VERSION,
-                             "ds_root": self.server.ds_root})
+                             "ds_root": self.server.ds_root,
+                             "model": _read_model()})
         elif path == "/api/todos":
             self._todos()
         elif path == "/api/chat/bootstrap":
