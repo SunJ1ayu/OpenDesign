@@ -245,8 +245,9 @@ class Handler(BaseHTTPRequestHandler):
                 changes.append({
                     "cnum": c["cnum"], "status": c["status"],
                     "text": c["text"], "date": c["date"],
-                    # 现有 PKB 格式无空间/来源 → 恒 None(读侧宽容,accepted deviation)
-                    "space": None, "source": None,
+                    # space = 变更行可选【空间】前缀(p4 T1,parse 单一真相源);
+                    # source 仍无字段 → 恒 None(读侧宽容,accepted deviation)
+                    "space": c["space"], "source": None,
                 })
         except Exception:
             traceback.print_exc()

@@ -40,7 +40,7 @@ PROJ_A = """# 保利中央公园 2803
 - 当前状态: 玄关柜待业主确认
 
 ## 变更记录
-- [待确认] C12 2026-07-09 玄关柜整体改到 2.4 米高,柜顶留 300mm 检修口
+- [待确认] C12 2026-07-09 【玄关】玄关柜整体改到 2.4 米高,柜顶留 300mm 检修口
 - [进行中] C11 2026-07-08 电视墙改用岩板,取消原定木格栅
 - [已完成] C8 2026-06-28 全屋筒灯统一换 3000K
 - [已关闭] C7 2026-06-20 沙发背景墙两侧加壁灯(业主取消)
@@ -205,8 +205,10 @@ class TestChanges(unittest.TestCase):
         self.assertEqual(c12["cnum"], 12)
         self.assertEqual(c12["date"], "2026-07-09")
         self.assertIn("玄关柜", c12["text"])
-        # 可选字段 space/source:现有 PKB 格式无 → 缺省(读侧宽容,accepted deviation)
-        self.assertIn("space", c12)
+        # space 透传(p4 T1【空间】前缀,parse 单一真相源);无标注行 = None;
+        # source 仍无字段 → 恒 None(读侧宽容,accepted deviation)
+        self.assertEqual(c12["space"], "玄关")
+        self.assertIsNone(d["changes"][1]["space"])
         self.assertIn("source", c12)
 
     def test_changes_partial_line(self):

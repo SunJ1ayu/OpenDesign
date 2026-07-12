@@ -45,14 +45,19 @@ export default function SearchPanel({ open, onClose, onOpenChange, onOpenProject
   const [sel, setSel] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // 打开 → 聚焦 + 一次性拉索引(缓存至关闭;关闭清 query 不清 docs,再开秒出)
+  // 打开 → 复位 + 聚焦。⚠️必须与下面的加载 effect 分开:若共用依赖 [open, docs],
+  // 索引到位那刻 effect 重跑会把用户已敲的 query 清空(e2e 抓到的真 bug)。
   useEffect(() => {
     if (!open) return;
     setQuery("");
     setSel(0);
     setTab("all");
     inputRef.current?.focus();
-    if (docs !== null) return;
+  }, [open]);
+
+  // 一次性拉索引(缓存至关闭;再开秒出)
+  useEffect(() => {
+    if (!open || docs !== null) return;
     let stale = false;
     (async () => {
       try {
