@@ -12,7 +12,15 @@
   %xx 直接非法 → 转发段永远改不了上游路径结构);查询串原样透传;请求头只
   透传 Authorization / X-Nanobot-Auth;上游状态码原样回传(401 不吞,前端
   靠它透明重签);上游连不上 → 502。
-其余方法一律 405 —— 无写面;将来写操作必须过 ds_tools 核心,本服务不直改 PKB。
+文件工作区只读视图(P5,ds_workspace + config/workspace.json):
+  GET /api/files/overview/<key>    类目计数+最近文件(未配置/未映射诚实降级)
+  GET /api/files/images/<key>      项目图片清单
+  GET /api/files/file/<key>/<rel>  项目图片静态服务(三闸同 refs 先例)
+  POST /api/open-folder            {"key","sub"?} → 本机资源管理器打开项目夹。
+    这是"只读铁律"的唯一受控例外(P5 design §3,用户拍板):不写任何数据,
+    仅在 key 映射 + sub 白名单 + realpath within + isdir 全过后执行 OPEN_LAUNCHER;
+    launcher 可注入(测试/e2e 永不真开)。
+其余方法/其余 POST 路径一律 405 —— 无写面;写操作必须过 ds_tools 核心,本服务不直改 PKB。
 
 约束(design.md D2):只绑 127.0.0.1;端口 DS_WEB_PORT(默认 8766),被占明确报错
 退出不静默换口;JSON ensure_ascii=False + charset=utf-8;读期 OSError(Windows
@@ -32,6 +40,7 @@ from urllib.parse import unquote, urlsplit
 import ds_common
 import ds_refs
 import ds_todo
+import ds_workspace
 
 VERSION = "0.5.0"  # P4 待办页重排+搜索面板+技能页+设置弹层;设置弹层「检查更新」回显此号=运行中是新版的实证
 DEFAULT_NANOBOT_PORT = 8765
@@ -57,6 +66,25 @@ _THREAD_RE = re.compile(r"^/api/chat/sessions/([^/]+)/thread$")
 _CHANGES_RE = re.compile(r"^/api/projects/([^/]+)/changes$")
 _PROJ_REFS_RE = re.compile(r"^/api/projects/([^/]+)/refs$")
 _REFS_FILE_RE = re.compile(r"^/api/refs/file/(.+)$")
+# P5 文件工作区路由
+_FILES_OVERVIEW_RE = re.compile(r"^/api/files/overview/([^/]+)$")
+_FILES_IMAGES_RE = re.compile(r"^/api/files/images/([^/]+)$")
+_FILES_FILE_RE = re.compile(r"^/api/files/file/([^/]+)/(.+)$")
+OPEN_FOLDER_PATH = "/api/open-folder"  # do_POST 唯一放行路径,精确匹配
+OPEN_BODY_MAX = 4096  # open-folder 请求体上限(key+sub 远小于此)
+
+
+def _default_open_launcher(path: str):
+    """本机打开文件夹。Windows=资源管理器;其余平台 xdg-open(列表参数无 shell)。"""
+    if os.name == "nt":
+        os.startfile(path)  # noqa: S606 —— 目录路径已过 realpath within 闸
+    else:
+        import subprocess
+        subprocess.Popen(["xdg-open", path], stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL)
+
+
+OPEN_LAUNCHER = _default_open_launcher  # 模块级可注入(测试/e2e 用 fake)
 
 # 已交付 = 阶段词表(workspace/AGENTS.md)的收尾两档;仅用于侧栏淡化,读侧启发式。
 # 阶段词表如扩展,这里同步。accepted deviation:词表本身不在本 track 定义。
@@ -160,6 +188,12 @@ class Handler(BaseHTTPRequestHandler):
             self._project_refs(unquote(m.group(1)))
         elif (m := _REFS_FILE_RE.match(path)):
             self._refs_file(unquote(m.group(1)))
+        elif (m := _FILES_OVERVIEW_RE.match(path)):
+            self._files_meta(unquote(m.group(1)), "overview")
+        elif (m := _FILES_IMAGES_RE.match(path)):
+            self._files_meta(unquote(m.group(1)), "images")
+        elif (m := _FILES_FILE_RE.match(path)):
+            self._files_file(unquote(m.group(1)), unquote(m.group(2)))
         elif path.startswith("/api/"):
             self._json(404, {"error": "unknown api"})
         else:
@@ -170,7 +204,14 @@ class Handler(BaseHTTPRequestHandler):
         self._send(405, "application/json; charset=utf-8", body,
                    {"Allow": "GET"})  # RFC 7231 §6.5.5:405 必带 Allow
 
-    do_POST = do_PUT = do_DELETE = do_PATCH = _method_not_allowed
+    def do_POST(self):
+        # 只读铁律的唯一针孔:精确匹配 open-folder,其余 POST 维持 405(oracle 锁死)
+        if urlsplit(self.path).path == OPEN_FOLDER_PATH:
+            self._open_folder()
+        else:
+            self._method_not_allowed()
+
+    do_PUT = do_DELETE = do_PATCH = _method_not_allowed
 
     def _todos(self):
         try:
@@ -301,6 +342,108 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send(200, ctype, body,
                    {"Cache-Control": "public, max-age=86400"})
+
+    # ── P5 文件工作区 ────────────────────────────────────────────────────────
+
+    def _ws_proj(self, key: str):
+        """(状态, 项目夹) —— 状态 ∈ badkey/unconfigured/unmapped/ok。
+        配置每请求现读(零缓存,与 /api/todos 同哲学,改 json 即生效)。"""
+        if not _valid_proj_key(key):
+            return "badkey", None
+        cfg = ds_workspace.load_config(self.server.ds_root)
+        if cfg is None:
+            return "unconfigured", None
+        pd = ds_workspace.project_dir(cfg, key)
+        if pd is None:
+            return "unmapped", None
+        return "ok", pd
+
+    def _files_meta(self, key: str, kind: str):
+        """overview / images 共用外壳:降级态诚实回 JSON,不 404 糊弄前端。"""
+        status, pd = self._ws_proj(key)
+        if status == "badkey":
+            self._json(404, {"error": "not found"})
+            return
+        if status == "unconfigured":
+            self._json(200, {"configured": False})
+            return
+        if status == "unmapped":
+            self._json(200, {"configured": True, "mapped": False})
+            return
+        try:
+            if kind == "overview":
+                data = ds_workspace.overview(pd)
+            else:
+                data = {"images": ds_workspace.images(pd)}
+        except Exception:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
+            return
+        self._json(200, {"configured": True, "mapped": True, **data})
+
+    def _files_file(self, key: str, rel: str):
+        """项目图片静态服务。三闸同 _refs_file 先例(Gate A 字符集 → Gate B realpath
+        within(项目夹) → Gate C 图片扩展白名单),外加 key 必须已映射;404 不回显路径。"""
+        status, pd = self._ws_proj(key)
+        if status != "ok" or not _REFS_PATH_RE.match(rel):
+            self._json(404, {"error": "not found"})
+            return
+        target = os.path.realpath(os.path.join(pd, rel))
+        if not ds_common.within(pd, target):
+            self._json(404, {"error": "not found"})
+            return
+        ctype = _IMG_CTYPES.get(os.path.splitext(target)[1].lower())
+        if ctype is None or not os.path.isfile(target):
+            self._json(404, {"error": "not found"})
+            return
+        try:
+            with open(target, "rb") as fh:
+                body = fh.read()
+        except OSError:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
+            return
+        self._send(200, ctype, body, {"Cache-Control": "public, max-age=3600"})
+
+    def _open_folder(self):
+        """唯一非 GET 端点(P5 design §3)。闸序:body 尺寸/JSON → key 白名单+映射
+        (_ws_proj)→ sub 单段白名单+realpath within+isdir(ds_workspace.resolve_sub)
+        → 全过才调 OPEN_LAUNCHER;任何拒绝路径零执行(oracle 断言)。"""
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = 0
+        if not 0 < n <= OPEN_BODY_MAX:
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "bad request"})
+            return
+        key = body.get("key") if isinstance(body, dict) else None
+        if not isinstance(key, str) or not key:
+            self._json(400, {"error": "bad request"})
+            return
+        status, pd = self._ws_proj(key)
+        if status != "ok":
+            self._json(404, {"error": "not found"})
+            return
+        sub = body.get("sub")
+        if sub is not None and not isinstance(sub, str):
+            self._json(400, {"error": "bad request"})
+            return
+        target = ds_workspace.resolve_sub(pd, sub)
+        if target is None:
+            self._json(404, {"error": "not found"})
+            return
+        try:
+            OPEN_LAUNCHER(target)
+        except OSError:
+            traceback.print_exc()  # 无桌面/启动器缺失:500,路径不回显
+            self._json(500, {"error": "internal"})
+            return
+        self._json(200, {"ok": True})
 
     def _proxy(self, up_path: str):
         """白名单 GET 转发到本机 nanobot gateway。纯管道:不读不存任何秘密。"""
