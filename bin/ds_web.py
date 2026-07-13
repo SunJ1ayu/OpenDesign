@@ -535,7 +535,10 @@ class Handler(BaseHTTPRequestHandler):
         self._proxy(f"/api/sessions/{key}/delete")
 
     def _proxy(self, up_path: str):
-        """白名单 GET 转发到本机 nanobot gateway。纯管道:不读不存任何秘密。"""
+        """白名单转发到本机 nanobot gateway。纯管道:不读不存任何秘密。
+        上游方法恒为 GET(nanobot ws_http 路由不查方法;delete 针孔也走这条,
+        POST 语义只存在于本服务的暴露面)——将来若有上游要求真 POST 的端点,
+        这里要加 method 参数,别隐式复用。"""
         q = urlsplit(self.path).query
         if q:
             up_path += "?" + q
