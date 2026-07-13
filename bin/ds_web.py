@@ -513,8 +513,9 @@ class Handler(BaseHTTPRequestHandler):
         OPTIONS 面)→ body ≤ OPEN_BODY_MAX 且读净丢弃(防 keep-alive 脱轨)→
         key 白名单(不 unquote,同 thread 代理:%xx 直接非法)→ _proxy 转发。
         真正鉴权在上游(无 Bearer token 上游 401 原样回传);上游若回
-        blocked_by_automations 也原样透传给前端提示,不代理 delete_automations
-        参数(OpenDesign 不暴露自动化面)。"""
+        blocked_by_automations 原样透传给前端提示。查询串按 _proxy 契约原样
+        透传——已鉴权的机主显式带 ?delete_automations=1 属上游本就给他的能力,
+        不是越权面;OpenDesign 前端不带此参数。"""
         ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
         if ctype != "application/json":
             self._json(400, {"error": "bad request"})
