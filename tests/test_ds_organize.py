@@ -342,6 +342,39 @@ class HardeningOracle(unittest.TestCase):
         self.assertEqual(ra.get("error"), "root_not_allowed")
         self.assertEqual(_tree(self.root), before)
 
+    # ㉔ R2-L5(07-13 盲评):apply 复验必须重跑嵌套检查。stage 有 nested_paths 闸,
+    #    但 apply 复验漏了它 → 伪造一个嵌套 plan(直接写 plans/ + .approved)可部分执行:
+    #    op1 把 D→E 落盘后,op2 的 src D/x 已不存在 → apply_failed 但 executed 带残留。
+    #    docstring 自称"plan 文件不作免检信任",这条让它成真。
+    def test_24_apply_rechecks_nested_paths(self):
+        import json
+        root_real = os.path.realpath(self.root)
+        os.makedirs(os.path.join(root_real, "D"))
+        _write(os.path.join(root_real, "D", "x.txt"), "X")
+        ops = [
+            {"op": "move", "src_rel": "D", "dst_rel": "E",
+             "src": os.path.join(root_real, "D"), "dst": os.path.join(root_real, "E"),
+             "snapshot": ds_organize._snapshot(os.path.join(root_real, "D"))},
+            {"op": "move", "src_rel": "D/x.txt", "dst_rel": "y.txt",
+             "src": os.path.join(root_real, "D", "x.txt"),
+             "dst": os.path.join(root_real, "y.txt"),
+             "snapshot": ds_organize._snapshot(os.path.join(root_real, "D", "x.txt"))},
+        ]
+        pid = "20260713-000000-abcdef"
+        plans = os.path.join(self.ds, "organize", "plans")
+        os.makedirs(plans, exist_ok=True)
+        with open(os.path.join(plans, f"plan_{pid}.json"), "w", encoding="utf-8") as fh:
+            json.dump({"plan_id": pid, "root": root_real, "created": "x",
+                       "operations": ops, "summary": "s", "applied_at": None}, fh)
+        with open(os.path.join(plans, f"plan_{pid}.approved"), "w") as fh:
+            fh.write("x\n")
+        before = _tree(self.root)
+        r = ds_organize.apply_plan(pid, allowed_roots=self.allowed, ds_root=self.ds)
+        self.assertEqual(r.get("error"), "conflict")
+        self.assertEqual(r.get("detail"), "nested_paths")
+        self.assertNotIn("executed", r)          # 零执行
+        self.assertEqual(_tree(self.root), before)  # 树原封不动
+
     # ㉓ organize/ 子树(批准机关自身)硬排除:即使 ds_root 被圈进白名单,
     #    plans/.approved/audit.log 也不能成为整理对象
     def test_23_organize_area_protected(self):

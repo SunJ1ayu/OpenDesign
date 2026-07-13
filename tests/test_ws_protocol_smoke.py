@@ -153,10 +153,17 @@ class TestWsProtocolSmoke(unittest.TestCase):
             self.assertEqual(st, 200)
             self.assertIn("messages", th)
             self.assertEqual(th.get("sessionKey"), key)
+            # R2-L6:schemaVersion 漂移探测器(doc §3 记为 3;零成本高信号,升级 nanobot
+            # 若改了 thread schema 这里先炸)
+            self.assertEqual(th.get("schemaVersion"), 3)
 
 
 if __name__ == "__main__":
     r = unittest.main(exit=False, verbosity=2).result
+    # R2-M3(07-13 盲评):unittest 的 wasSuccessful() 把 SKIP 计成功 → rc=0,任何按
+    # 退出码判绿的脚本化(doc §5 升级流程 / 全量 oracle 循环)都会把"没跑"当成"跑绿"。
+    # docstring 与 doc §5 都写死「SKIP 不算通过」——这里给它机械保证:SKIP 即 rc=3。
     if r.skipped and not (r.failures or r.errors):
-        print("\n*** 冒烟被 SKIP,不算通过 ***", file=sys.stderr)
+        print("\n*** 冒烟被 SKIP,不算通过(rc=3)***", file=sys.stderr)
+        sys.exit(3)
     sys.exit(0 if r.wasSuccessful() else 1)

@@ -14,7 +14,7 @@
 |------|-----------|
 | `create_client(name, contact?, linked?)` | 新建业主档案。 |
 | `create_project(project, client, stage?, address?)` | 新建项目。业主档案不存在会自动补。**记任何变更/待办前,项目必须先经此工具建好**——绝不自己写文件。 |
-| `append_change(project, content)` | 业主提了**新的修改需求**。自动算下一个编号、标记 `[待确认]`。你不需要自己编号。项目须已存在(否则先 `create_project`)。 |
+| `append_change(project, content, space?)` | 业主提了**新的修改需求**。自动算下一个编号、标记 `[待确认]`。你不需要自己编号。项目须已存在(否则先 `create_project`)。`space` 可选,写清是哪个空间(如"主卧""客厅"),会作前缀便于按空间聚合;拿不准就留空。 |
 | `set_change_status(project, change_id, status)` | 推进某条变更的状态。`change_id` 形如 `C3`;`status` 必须是 `待确认/进行中/已完成/已关闭` 之一。 |
 | `read_project(name)` | 读某项目的完整记录(业主、阶段、变更记录、沟通日志)。回答项目问题前先读。 |
 | `list_todos(stale_days=7)` | 列出所有项目的未关闭事项 + 超期未更新的项目。这是"主动提醒"的核心。 |

@@ -918,7 +918,7 @@ html, body { overflow: auto; }
   gap: 10px;
   padding: 6px 0;
   font-size: 13px;
-  border-bottom: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-soft);
 }
 .todo-row:last-child { border-bottom: none; }
 .todo-row .cnum { font: 600 12px var(--font-mono); color: var(--terra-deep); flex: none; }
@@ -1015,7 +1015,7 @@ html, body { overflow: auto; }
   display: flex;
   gap: 14px;
   padding: 8px 16px;
-  border-top: 1px solid var(--border-light);
+  border-top: 1px solid var(--border-soft);
   font: 10.5px var(--font-mono);
   color: var(--ink-5);
 }

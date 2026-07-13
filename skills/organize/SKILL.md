@@ -13,6 +13,10 @@ always: true
 
 ## 三个工具与固定流程(顺序不能变)
 
+> MCP 里工具的真实名字带 `_tool` 后缀(`scan_dir_tool` 等),下面按能力名写;调用时以
+> 实际暴露的工具名为准。
+
+
 1. **scan_dir(root)** —— 只读扫描目录,返回文件清单。先扫再提方案,不许凭想象出方案。
 2. **stage_plan(root, operations)** —— 把方案暂存(零改动,不碰任何文件)。
    - `operations` 是列表,每项 `{"op": "move"|"rename", "src": "相对路径", "dst": "相对路径"}`。

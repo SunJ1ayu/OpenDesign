@@ -250,6 +250,12 @@ def apply_plan(plan_id: str, allowed_roots: list[str] | None,
                       for p in (op["src"], op["dst"])]
             if len(set(all_cf)) != len(all_cf):
                 return {"error": "conflict", "detail": "duplicate_or_case_collision"}
+            # R2-L5:嵌套检查与 stage 对齐(plan 文件不作免检信任)——伪造的嵌套 plan
+            # (D 与 D/x 同在一批)否则会 op1 落盘后 op2 src 消失 = 部分执行
+            for a in all_cf:
+                for b in all_cf:
+                    if a != b and _is_ancestor(a, b):
+                        return {"error": "conflict", "detail": "nested_paths"}
             for op in plan["operations"]:
                 src, dst = op["src"], op["dst"]
                 for p in (src, dst):

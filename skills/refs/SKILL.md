@@ -13,12 +13,18 @@ always: true
 
 ## 四个工具
 
+> MCP 里工具的真实名字带 `_tool` 后缀(`add_ref_tool` 等),下面按能力名写;调用时以
+> 实际暴露的工具名为准。
+
 1. **add_ref(file, style, space, source, note)** —— 图片入库打标。
-   - `file` 必须**已经存在于 `refs/` 目录下**(工具不搬图;图片要挪位置走 organize 流程)。
+   - `file` 是**相对工作区根、带 `refs/` 前缀**的路径(如 `refs/客厅.jpg`、
+     `refs/奶油风/a.jpg`),且该文件必须真实存在;工具不搬图,图片要挪位置走 organize 流程。
    - `style`/`space` 可多值,逗号分隔;必须在词表内,否则报错并返回词表。
    - 成功返回 `r<n>` 编号(如 `r12`),编号只增不删,永远指同一张图。
 2. **find_refs(style, space, project, keyword)** —— 按条件检索,条件可留空。
-3. **link_ref(ref_id, project)** —— 把 `r<n>` 挂到项目文件(写进项目 md)。
+3. **link_ref(ref_id, project)** —— 把 `r<n>` 挂到某项目:**只在参考图索引那条记录的
+   「用于:」段加上项目名**(工具只写 `refs-index.md`,不改项目的 .md 文件)。之后
+   `find_refs(project=...)` 就能查到这张图挂在该项目下。
 4. **add_style(style)** —— 往风格词表加新词。
 
 ## 词表规矩(重要)
@@ -32,6 +38,7 @@ always: true
 
 - 工具只写 `refs-index.md` 索引,**永远不动图片文件本身**。
 - `r<n>` 编号只增不删,别试图复用或修改已有条目。
-- `file_not_found` = 图片不在 refs/ 下:先让用户把图放进去(或走 organize 批准流程搬进去),
-  再入库。
+- `path_escape` = `file` 路径不在 `refs/` 下(比如给了桌面/下载目录的原始路径):图片得先
+  放进工作区 `refs/`(或走 organize 批准流程搬进去),再用 `refs/...` 的路径入库。
+- `file_not_found` = 路径在 `refs/` 下但那个文件其实不存在:核对文件名/子目录拼写。
 - 没列到的错误码 → **把错误原样告知用户**,不要自行重试或换写法绕过。

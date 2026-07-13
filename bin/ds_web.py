@@ -45,6 +45,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlsplit
 
 import ds_common
+import ds_model
 import ds_refs
 import ds_todo
 import ds_workspace
@@ -60,21 +61,11 @@ def _read_model():
     就以它指向的预设为准,悬空/未设才回落 agents.defaults.model —— 只读 model 字段会
     在 preset 布局(install.ps1 合并模板后的真机形态)回显假值(07-13 的雷)。
     只读、每请求现读(零缓存,与 /api/todos 同哲学);任何读取失败 → None,
-    健康探针本体不受牵连。"""
+    健康探针本体不受牵连。解析规则抽到 ds_model(与 set_model.py 同一真相源,L1)。"""
     try:
         cfg = os.environ.get("DS_NANOBOT_CONFIG", DEFAULT_NANOBOT_CONFIG)
         with open(cfg, encoding="utf-8") as fh:
-            data = json.load(fh)
-        defaults = data.get("agents", {}).get("defaults", {})
-        preset_name = defaults.get("modelPreset")
-        if isinstance(preset_name, str) and preset_name:
-            preset = data.get("model_presets", {}).get(preset_name)
-            if isinstance(preset, dict):
-                m = preset.get("model")
-                if isinstance(m, str) and m:
-                    return m
-        m = defaults.get("model")
-        return m if isinstance(m, str) and m else None
+            return ds_model.resolve_model(json.load(fh))
     except Exception:
         return None
 # 与上游 _decode_api_key 同字符集;不含 % 和 / ⇒ 原样转发也无路径走私

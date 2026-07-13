@@ -43,7 +43,8 @@ _INDEX_TAIL = "\n---\n最后更新: {today}\n"
 
 _VOCAB_TEMPLATE = """# 参考图词表(ds_refs 工具读写)
 
-## 空间(锁死 —— 工具无新增入口,要改动手编辑本文件)
+## 空间(锁死 —— 权威清单是 ds_refs.py 的 SPACES 常量;下面只是照抄一份供查阅,
+## 改这里没用,要增删空间词得改 ds_refs.py)
 {spaces}
 
 ## 风格(半开放 —— add_style 可增,新增前先跟设计师确认)
@@ -70,18 +71,23 @@ def _ensure_vocab(ds_root: str) -> str:
     return path
 
 
-def _load_styles(ds_root: str) -> list[str]:
-    """从 refs-vocab.md 的「风格」节读词表(空间节固定用 SPACES 常量,锁死)。"""
-    path = _ensure_vocab(ds_root)
+def _parse_styles(text: str) -> list[str]:
+    """从 refs-vocab.md 文本解析「风格」节词表(空间节固定用 SPACES 常量,锁死)。
+    抽成纯函数:_load_styles(读文件)与 add_style 锁内复查(已持文本)同一口径。"""
     styles, in_styles = [], False
-    with open(path, encoding="utf-8") as fh:
-        for ln in fh:
-            if ln.startswith("## "):
-                in_styles = ln.startswith("## 风格")
-                continue
-            if in_styles and ln.startswith("- "):
-                styles.append(ln[2:].strip())
+    for ln in text.splitlines():
+        if ln.startswith("## "):
+            in_styles = ln.startswith("## 风格")
+            continue
+        if in_styles and ln.startswith("- "):
+            styles.append(ln[2:].strip())
     return styles
+
+
+def _load_styles(ds_root: str) -> list[str]:
+    path = _ensure_vocab(ds_root)
+    with open(path, encoding="utf-8") as fh:
+        return _parse_styles(fh.read())
 
 
 def add_style(style: str, ds_root: str = DEFAULT_DS_ROOT) -> dict:
@@ -90,11 +96,13 @@ def add_style(style: str, ds_root: str = DEFAULT_DS_ROOT) -> dict:
     if not style or any(c in style for c in "|,\r\n"):
         return {"error": "bad_style"}
     path = _ensure_vocab(ds_root)
-    if style in _load_styles(ds_root):
-        return {"ok": True, "style": style, "note": "already_exists"}
     with open(path, "r+", encoding="utf-8") as fh, ds_lock.exclusive(fh):
         fh.seek(0)
         text = fh.read()
+        # L8(07-13 盲评):查重在锁内(持文本后),否则并发两次 add 同词都过锁外
+        # 检查 → 词表出现重复行。持锁复查=唯一写者视角。
+        if style in _parse_styles(text):
+            return {"ok": True, "style": style, "note": "already_exists"}
         # 追加到风格节末尾(= 文件末尾,风格是最后一节;简单可靠)
         if not text.endswith("\n"):
             text += "\n"
@@ -262,8 +270,12 @@ def link_ref(ref_id: str, project: str, ds_root: str = DEFAULT_DS_ROOT,
     # 消毒在存在性校验之前:带换行/竖线的名字折叠后对不上真实文件 → project_not_found,
     # 换行永远进不了"用于:"段(纵深防御;正常项目名不受影响)
     project = ds_common.sanitize_field(project, ban_pipe=True)
-    if not project or not os.path.exists(
-            os.path.join(ds_root, "projects", f"{project}.md")):
+    # M3(07-13 盲评):存在性检查走 realpath+within,不给 `../` 逃逸。裸 join 时
+    # `../index` 会命中 ds_root/index.md(PKB 里真存在)并被收进"用于:"段。
+    pbase = os.path.realpath(os.path.join(ds_root, "projects"))
+    ptarget = os.path.realpath(os.path.join(pbase, f"{project}.md"))
+    if (not project or not ds_common.within(pbase, ptarget)
+            or not os.path.isfile(ptarget)):
         return {"error": "project_not_found"}
 
     path = _index_path(ds_root)

@@ -202,6 +202,17 @@ class RefsOracle(unittest.TestCase):
         self.assertTrue(r3.get("ok"), msg=str(r3))
         self.assertEqual(len(ds_refs.find_refs(space="餐厅", ds_root=self.ds)["hits"]), 1)
 
+    # ⑧c M3(07-13 盲评):link_ref 的项目存在性检查走 _resolve/within,不给 `../` 逃逸。
+    #    裸 join 时 `../index` 会命中 ds_root/index.md(PKB 里真存在)→ 被收进"用于:"段。
+    def test_08c_link_project_traversal_rejected(self):
+        self._add()
+        # ds_root 下真放一个 index.md(PKB 常态),证明逃逸目标存在也不给绑
+        with open(os.path.join(self.ds, "index.md"), "w", encoding="utf-8") as fh:
+            fh.write("# 全局索引\n")
+        r = ds_refs.link_ref("r1", "../index", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "project_not_found")
+        self.assertNotIn("../index", _read(self.index))
+
     # ⑫ MCP 表面恰好 4 工具(venv 有 mcp 才跑)
     def test_12_mcp_surface(self):
         try:

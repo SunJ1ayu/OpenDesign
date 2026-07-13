@@ -26,6 +26,8 @@ import json
 import os
 import sys
 
+import ds_model  # preset-优先规则单一真相源(L1;与 ds_web._read_model 同源)
+
 DEFAULT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
 
 
@@ -54,8 +56,8 @@ def main() -> int:
         return 2
 
     defaults = cfg.setdefault("agents", {}).setdefault("defaults", {})
-    active_preset = defaults.get("modelPreset")
-    if isinstance(active_preset, str) and active_preset:
+    active_preset = ds_model.active_preset_name(cfg)  # 与 _read_model 同一判定(L1)
+    if active_preset:
         # preset 布局:写 preset 侧(nanobot 里它优先于 model 字段)
         presets = cfg.setdefault("model_presets", {})
         base = presets.get(active_preset)
