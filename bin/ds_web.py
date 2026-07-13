@@ -50,7 +50,7 @@ import ds_refs
 import ds_todo
 import ds_workspace
 
-VERSION = "0.8.0"  # p7 历史对话删除 + 项目列表直读工作区;回显此号=运行中是新版的实证
+VERSION = "0.8.1"  # hardening:H1 名字闸/H2 Host 校验/M2 字符集收敛/M1 坏文件隔离等盲评修复
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
