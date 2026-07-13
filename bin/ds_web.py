@@ -116,12 +116,10 @@ OPEN_LAUNCHER = _default_open_launcher  # 模块级可注入(测试/e2e 用 fake
 # 阶段词表如扩展,这里同步。accepted deviation:词表本身不在本 track 定义。
 DELIVERED_STAGES = ("竣工验收", "售后")
 
-# 项目 key 字符集白名单:\w 已覆盖中文(Python re 默认 Unicode);另放行空格与
-# 可读连接符,p7 起放行 `#`(工作区文件夹命名约定「楼栋#户号」,wire 上是 %23,
-# unquote 后才进比较,不参与路径语义)。不含 / \ ⇒ 无路径分隔符;`.`/`..` 与含
-# `..` 者显式拒(纵深防御,realpath+within 才是权威闸)。与 ds_workspace._FOLDER_RE
-# 同集合。
-_PROJ_KEY_RE = re.compile(r"^[\w .()#\-]+\Z")
+# 项目 key 字符集白名单 = ds_workspace.PROJECT_NAME_RE(单一真相源:p7 起文件夹名
+# 就是路由 key,"能列出"与"能寻址"必须同集合)。不含 / \ ⇒ 无路径分隔符;
+# `.`/`..` 与含 `..` 者 _valid_proj_key 显式拒(纵深防御,realpath+within 才是权威闸)。
+_PROJ_KEY_RE = ds_workspace.PROJECT_NAME_RE
 # 参考图相对路径白名单(Gate A):同上但放行 / 支持子目录;`..` 走 Gate B(realpath)。
 # 收尾用 \Z 不用 $:re 的 $ 在"结尾换行符之前"也匹配,`a.png\n` 会漏过字符集闸。
 _REFS_PATH_RE = re.compile(r"^[\w /.()\-]+\Z")

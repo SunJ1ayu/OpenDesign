@@ -1,5 +1,6 @@
 // ds_web 只读 API 的类型与取数封装(P2 T2)。
 // 形状 = bin/ds_web.py 四条 GET 的输出(单一真相源,字段勿在前端另造)。
+import type { ChatSession } from "./chat/connection"; // type-only,无运行时依赖/无环
 
 export type Project = {
   key: string;
@@ -92,12 +93,7 @@ export async function openFolder(key: string, sub?: string): Promise<void> {
  * key 传裸串不 encode(_KEY_RE 无 %,p6 e2e 实抓的坑);字符集本就 URL 安全。 */
 export type DeleteSessionResult = { deleted: boolean; blocked_by_automations?: boolean };
 export async function deleteChatSession(
-  session: {
-    apiFetch(
-      path: string,
-      init?: { method?: string; headers?: Record<string, string>; body?: string },
-    ): Promise<{ status: number; json(): Promise<unknown> }>;
-  },
+  session: Pick<ChatSession, "apiFetch">,
   key: string,
 ): Promise<DeleteSessionResult> {
   const r = await session.apiFetch(`/api/chat/sessions/${key}/delete`, {

@@ -27,10 +27,11 @@ MAX_DEPTH = 4           # 相对项目根的最大路径段数(类目算 1 段)
 MAX_PER_CAT = 2000      # 每类目扫描上限
 # 子目录名白名单:单段、\w(含中文)/空格/常见连接符;不含路径分隔符
 _SUB_RE = re.compile(r"^[\w .()\-]+\Z")
-# 项目文件夹名白名单(p7):同上放行 `#`(命名约定「楼栋#户号」)。与 ds_web
-# _PROJ_KEY_RE 同集合(先例:_SUB_RE 也是两处同集合);# 不参与路径语义,
+# 可寻址项目名字符集 —— 单一真相源(p7):文件夹名成为路由 key 后,"能列出"与
+# "能寻址"必须是同一个集合,ds_web._PROJ_KEY_RE 直接引用本常量,两边永不漂移。
+# \w 含中文;放行空格/常见连接符/#(命名约定「楼栋#户号」)。# 不参与路径语义,
 # realpath+within 仍是权威闸。
-_FOLDER_RE = re.compile(r"^[\w .()#\-]+\Z")
+PROJECT_NAME_RE = re.compile(r"^[\w .()#\-]+\Z")
 # projectsDir 未配置时的候选目录名(taxonomy v1.0 写 01项目,真机模板用 01-项目)
 _PROJECTS_DIR_CANDIDATES = ("01项目", "01-项目", "01_项目", "01 项目")
 
@@ -108,7 +109,7 @@ def projects_root(cfg):
 def project_folders(cfg):
     """自动发现的项目夹 [(name, realpath)] 名序;projects-dir 缺失 → []。
     只取一级目录;点号开头跳过(同 _scan);symlink 目录跳过
-    (follow_symlinks=False,外指零风险);名字不过 _FOLDER_RE 白名单者跳过
+    (follow_symlinks=False,外指零风险);名字不过 PROJECT_NAME_RE 白名单者跳过
     (路由 key 字符集寻址不到,列了也点不开)。"""
     proot = projects_root(cfg)
     if proot is None:
@@ -119,7 +120,7 @@ def project_folders(cfg):
     except OSError:
         return []
     for ent in entries:
-        if ent.name.startswith(".") or not _FOLDER_RE.match(ent.name):
+        if ent.name.startswith(".") or not PROJECT_NAME_RE.match(ent.name):
             continue
         try:
             if not ent.is_dir(follow_symlinks=False):
