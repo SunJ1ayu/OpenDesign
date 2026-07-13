@@ -187,8 +187,23 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):  # 请求日志走 stdout(design D2 运维面)
         sys.stdout.write("%s - %s\n" % (self.address_string(), fmt % args))
 
+    def _host_ok(self) -> bool:
+        """H2(07-13 盲评):Host 白名单,拒 DNS rebinding。
+
+        rebinding 下 TCP 连的是 127.0.0.1 但浏览器带的 Host 是恶意域名——绑 loopback
+        与 CORS 都不挡它,Host 头是唯一可辨信号。只认本机形态(带不带端口都认:
+        非标准端口浏览器必带,留裸形态兜 80 端口边缘);比较不区分大小写。
+        """
+        host = (self.headers.get("Host") or "").strip().lower()
+        port = self.server.server_address[1]
+        return host in {f"127.0.0.1:{port}", f"localhost:{port}", f"[::1]:{port}",
+                        "127.0.0.1", "localhost", "[::1]"}
+
     # ---- routes ----
     def do_GET(self):
+        if not self._host_ok():
+            self._json(403, {"error": "bad host"})
+            return
         path = urlsplit(self.path).path
         if path == "/api/health":
             self._json(200, {"ok": True, "version": VERSION,
@@ -231,6 +246,9 @@ class Handler(BaseHTTPRequestHandler):
                    {"Allow": "GET"})  # RFC 7231 §6.5.5:405 必带 Allow
 
     def do_POST(self):
+        if not self._host_ok():  # H2:针孔与 405 之前先验 Host(同 do_GET)
+            self._json(403, {"error": "bad host"})
+            return
         # 只读铁律的受控针孔白名单(精确匹配,其余 POST 维持 405,oracle 锁死):
         # ① open-folder(P5)② 会话删除代理(p7,真正鉴权在上游 Bearer token)
         path = urlsplit(self.path).path

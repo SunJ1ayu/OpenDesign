@@ -279,5 +279,45 @@ class TestDistCommitted(unittest.TestCase):
             "web/dist/index.html 缺失 —— 前端没构建或产物没进仓")
 
 
+class HostGate(unittest.TestCase):
+    """H2(07-13 盲评):Host 白名单闸,拒 DNS rebinding。
+
+    rebinding = 恶意域名解析到 127.0.0.1,浏览器同源策略失效但 Host 头仍是
+    恶意域名——入口统一校验 Host ∈ 本机形态,否则 403,一个数据端点都不给。
+    """
+
+    def _req_host(self, port, path, host, method="GET"):
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+        conn.request(method, path, headers={"Host": host})
+        r = conn.getresponse()
+        body = r.read()
+        conn.close()
+        return r.status, body
+
+    def test_h2_evil_host_403_everywhere(self):
+        root = _mkroot({"翡翠湾-1801.md": PROJ_CN})
+        with _serve(root, _mkdist()) as httpd:
+            port = httpd.server_address[1]
+            for path in ("/api/health", "/api/todos", "/api/projects", "/"):
+                st, body = self._req_host(port, path, "evil.example")
+                self.assertEqual(st, 403, f"{path} 未拦 rebinding Host")
+            # POST 针孔同闸:403 先于 405/业务逻辑
+            st, _ = self._req_host(port, "/api/open-folder", "evil.example:80",
+                                   method="POST")
+            self.assertEqual(st, 403)
+
+    def test_h2_local_hosts_pass(self):
+        root = _mkroot({"翡翠湾-1801.md": PROJ_CN})
+        with _serve(root, _mkdist()) as httpd:
+            port = httpd.server_address[1]
+            for host in (f"127.0.0.1:{port}", f"localhost:{port}",
+                         f"LOCALHOST:{port}", f"[::1]:{port}"):
+                st, _ = self._req_host(port, "/api/health", host)
+                self.assertEqual(st, 200, f"本机 Host {host} 被误拦")
+            # 默认 Host(http.client 自动带 127.0.0.1:<port>)不回归
+            st, _, _ = _req(port, "/api/health")
+            self.assertEqual(st, 200)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

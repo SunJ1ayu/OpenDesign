@@ -23,6 +23,7 @@ import re
 
 import ds_common  # 共享:防逃逸谓词/字段消毒/页脚锚定/加锁读改写(同目录模块)
 import ds_todo    # 主动提醒核心,同目录模块(list_todos 直调,不走 subprocess)
+import ds_workspace  # PROJECT_NAME_RE 单一真相源(写侧与读侧/web key 闸同一套字符集)
 
 # ── 契约常量 ────────────────────────────────────────────────────────────────
 STATUSES = ("待确认", "进行中", "已完成", "已关闭")
@@ -73,6 +74,11 @@ def _resolve(ds_root: str, subdir: str, name: str) -> tuple[str | None, dict | N
     target = os.path.realpath(os.path.join(base, f"{name}.md"))
     if not ds_common.within(base, target):
         return None, {"error": "path_escape"}
+    # H1(07-13 盲评):字符集闸,PROJECT_NAME_RE 单一真相源。`小区/1801` 这类名字
+    # within 过得了(落成嵌套 .md),但读侧(一级 listdir/collect/web key 闸)永远
+    # 看不见=写成功即丢活。写读共用本咽喉,拒之;顺序在 within 之后,path_escape 契约不变。
+    if not ds_workspace.PROJECT_NAME_RE.match(name or ""):
+        return None, {"error": "bad_name"}
     return target, None
 
 

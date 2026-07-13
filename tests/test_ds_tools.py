@@ -389,5 +389,81 @@ class CreateProjectClient(unittest.TestCase):
                          "empty_name")
 
 
+class WriteSideNameGate(unittest.TestCase):
+    """H1(07-13 盲评):写侧名字必须过 ds_workspace.PROJECT_NAME_RE 单一真相源。
+
+    根因=写侧"项目"定义(树内任意 .md)与读侧(一级 *.md)双真相:`小区/1801`
+    落成 projects/小区/1801.md,写入成功但 collect/一级 listdir/web key 闸全都
+    永远看不见——静默丢活。闸在 _resolve(写读同一咽喉),within 之后字符集之前
+    不改 test_c08 钉死的 path_escape 契约。
+    """
+
+    def setUp(self):
+        self.ds = tempfile.mkdtemp(prefix="dstest-")
+        os.makedirs(os.path.join(self.ds, "projects"), exist_ok=True)
+        os.makedirs(os.path.join(self.ds, "clients"), exist_ok=True)
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+
+    def _no_nested(self):
+        # 安全属性:projects/ 与 clients/ 下不允许出现任何子目录(嵌套=读不到)
+        for sub in ("projects", "clients"):
+            base = os.path.join(self.ds, sub)
+            self.assertEqual(
+                [e for e in os.listdir(base)
+                 if os.path.isdir(os.path.join(base, e))], [],
+                f"{sub}/ 出现嵌套目录")
+
+    # ① create_project 拒 `/`,零落盘
+    def test_h1_create_project_slash_rejected(self):
+        r = ds_tools.create_project("翡翠湾/1801", "张三", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "bad_name")
+        self._no_nested()
+
+    # ② create_client 拒 `\`(Linux 上是合法文件名但读视图/兄弟平台全看不见)
+    def test_h1_create_client_backslash_rejected(self):
+        r = ds_tools.create_client("张\\三", ds_root=self.ds)
+        self.assertEqual(r.get("error"), "bad_name")
+        self.assertEqual([e for e in os.listdir(os.path.join(self.ds, "clients"))], [])
+
+    # ③ append/set_status 同闸(即使有人绕过工具已经造出嵌套文件,也不给续写)
+    def test_h1_append_and_status_rejected(self):
+        nested = os.path.join(self.ds, "projects", "翡翠湾")
+        os.makedirs(nested)
+        with open(os.path.join(nested, "1801.md"), "w", encoding="utf-8") as fh:
+            fh.write("# 翡翠湾/1801\n\n## 变更记录\n\n---\n最后更新: 2026-01-01\n")
+        r = ds_tools.append_change("翡翠湾/1801", "改厨房", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "bad_name")
+        r2 = ds_tools.set_change_status("翡翠湾/1801", "C1", "进行中",
+                                        ds_root=self.ds, today=TODAY)
+        self.assertEqual(r2.get("error"), "bad_name")
+
+    # ④ 业主名走 create_project 的自动 stub 路径同样不落嵌套
+    def test_h1_client_via_project_stub_rejected(self):
+        r = ds_tools.create_project("正常项目", "李/四", ds_root=self.ds, today=TODAY)
+        # 项目名合法、业主名非法:项目允许建(业主 stub 静默跳过,linked 悬空可后补),
+        # 但 clients/ 下必须零落盘、零嵌套
+        self.assertTrue(r.get("ok") or r.get("error") == "bad_name")
+        self._no_nested()
+        self.assertEqual(os.listdir(os.path.join(self.ds, "clients")), [])
+
+    # ⑤ 真实命名约定(日期 地点 楼盘 楼栋#户号 + 括号/横线)必须照常全通
+    def test_h1_real_naming_convention_passes(self):
+        slug = "0712 汇景花园 8#1801(复尺)-二期"
+        r = ds_tools.create_project(slug, "张三", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        r2 = ds_tools.append_change(slug, "客厅改开放式", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r2.get("ok"), r2)
+        r3 = ds_tools.set_change_status(slug, "C1", "已完成", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r3.get("ok"), r3)
+        self.assertTrue(ds_tools.read_project(slug, ds_root=self.ds).get("ok"))
+
+    # ⑥ 逃逸仍是 path_escape(闸序不改 test_c08 契约)
+    def test_h1_escape_still_path_escape(self):
+        r = ds_tools.create_project("../../etc/evil", "张三", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "path_escape")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
