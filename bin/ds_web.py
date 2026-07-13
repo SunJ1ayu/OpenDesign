@@ -42,19 +42,31 @@ import ds_refs
 import ds_todo
 import ds_workspace
 
-VERSION = "0.6.0"  # P5 文件工作区+图墙+open-folder;设置弹层「检查更新」回显此号=运行中是新版的实证
+VERSION = "0.6.1"  # health.model 改按 nanobot 规则解析(preset 优先);回显此号=运行中是新版的实证
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
 
 
 def _read_model():
-    """当前大脑 = nanobot config 的 agents.defaults.model。只读、每请求现读(零缓存,
-    与 /api/todos 同哲学);任何读取失败 → None,健康探针本体不受牵连。"""
+    """当前大脑,解析规则与 nanobot 一致(schema.py:AgentDefaults):modelPreset 设了
+    就以它指向的预设为准,悬空/未设才回落 agents.defaults.model —— 只读 model 字段会
+    在 preset 布局(install.ps1 合并模板后的真机形态)回显假值(07-13 的雷)。
+    只读、每请求现读(零缓存,与 /api/todos 同哲学);任何读取失败 → None,
+    健康探针本体不受牵连。"""
     try:
         cfg = os.environ.get("DS_NANOBOT_CONFIG", DEFAULT_NANOBOT_CONFIG)
         with open(cfg, encoding="utf-8") as fh:
-            m = json.load(fh).get("agents", {}).get("defaults", {}).get("model")
+            data = json.load(fh)
+        defaults = data.get("agents", {}).get("defaults", {})
+        preset_name = defaults.get("modelPreset")
+        if isinstance(preset_name, str) and preset_name:
+            preset = data.get("model_presets", {}).get(preset_name)
+            if isinstance(preset, dict):
+                m = preset.get("model")
+                if isinstance(m, str) and m:
+                    return m
+        m = defaults.get("model")
         return m if isinstance(m, str) and m else None
     except Exception:
         return None

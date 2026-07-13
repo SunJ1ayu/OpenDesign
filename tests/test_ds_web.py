@@ -208,6 +208,34 @@ class TestDsWeb(unittest.TestCase):
         self.assertEqual(json.loads(body.decode("utf-8"))["model"],
                          "xiaomi/mimo-v2.5-pro")
 
+    # ⑦b health.model 解析规则与 nanobot 一致:modelPreset 设了就以 preset 为准
+    #    (nanobot 里 preset 优先于 model 字段;install.ps1 合并模板后真机就是这形态,
+    #    只读 model 字段会回显假值 —— 07-13 发现的雷);指针悬空 → 回落 model 字段
+    def test_11b_health_model_preset_wins(self):
+        cfg = os.path.join(tempfile.mkdtemp(prefix="nb_cfg_"), "config.json")
+        layout = {
+            "agents": {"defaults": {"modelPreset": "mimo-v2.5", "model": "stale/ignored"}},
+            "model_presets": {"mimo-v2.5": {"provider": "custom", "model": "mimo-v2.5"}},
+        }
+        with open(cfg, "w", encoding="utf-8") as fh:
+            json.dump(layout, fh)
+        os.environ["DS_NANOBOT_CONFIG"] = cfg
+        try:
+            with _serve(_mkroot({}), _mkdist()) as httpd:
+                st, _, body = _req(httpd.server_address[1], "/api/health")
+            self.assertEqual(st, 200)
+            self.assertEqual(json.loads(body.decode("utf-8"))["model"], "mimo-v2.5")
+            # 悬空指针 → 回落 model 字段,不炸
+            layout["agents"]["defaults"]["modelPreset"] = "gone"
+            with open(cfg, "w", encoding="utf-8") as fh:
+                json.dump(layout, fh)
+            with _serve(_mkroot({}), _mkdist()) as httpd:
+                st, _, body = _req(httpd.server_address[1], "/api/health")
+            self.assertEqual(st, 200)
+            self.assertEqual(json.loads(body.decode("utf-8"))["model"], "stale/ignored")
+        finally:
+            del os.environ["DS_NANOBOT_CONFIG"]
+
     # ⑧ health.model 健壮:config 缺失/损坏 → 探针仍 200,model=null(不炸)
     def test_12_health_model_bad_config(self):
         bad = os.path.join(tempfile.mkdtemp(prefix="nb_cfg_"), "config.json")
