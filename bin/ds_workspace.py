@@ -25,13 +25,17 @@ CONFIG_REL = os.path.join("config", "workspace.json")
 IMG_EXTS = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif"})
 MAX_DEPTH = 4           # 相对项目根的最大路径段数(类目算 1 段)
 MAX_PER_CAT = 2000      # 每类目扫描上限
-# 子目录名白名单:单段、\w(含中文)/空格/常见连接符;不含路径分隔符
-_SUB_RE = re.compile(r"^[\w .()\-]+\Z")
+# 单段文件/目录名字符集 —— 枚举与服务的单一真相源(M2,07-13 盲评)。
+# \w 含中文;放行空格/常见连接符/#(命名约定「楼栋#户号」)。# 不参与路径语义,
+# realpath+within 仍是权威闸。含 # ⇒ 枚举列得出的段,服务/寻址闸必认得
+# (双真相=列得出却永远 404 裂图,# 正是我们自己的命名约定)。
+NAME_CHARS = r"\w .()#\-"
+_SEG_RE = re.compile(rf"^[{NAME_CHARS}]+\Z")  # 单段(无路径分隔符)
+# 子目录名白名单 = 单段字符集(resolve_sub 用);与枚举同一真相源。
+_SUB_RE = _SEG_RE
 # 可寻址项目名字符集 —— 单一真相源(p7):文件夹名成为路由 key 后,"能列出"与
 # "能寻址"必须是同一个集合,ds_web._PROJ_KEY_RE 直接引用本常量,两边永不漂移。
-# \w 含中文;放行空格/常见连接符/#(命名约定「楼栋#户号」)。# 不参与路径语义,
-# realpath+within 仍是权威闸。
-PROJECT_NAME_RE = re.compile(r"^[\w .()#\-]+\Z")
+PROJECT_NAME_RE = _SEG_RE
 # projectsDir 未配置时的候选目录名(taxonomy v1.0 写 01项目,真机模板用 01-项目)
 _PROJECTS_DIR_CANDIDATES = ("01项目", "01-项目", "01_项目", "01 项目")
 
@@ -147,7 +151,8 @@ def _scan(proj_dir: str, max_per_cat: int):
     except OSError:
         return cats
     for ent in entries:
-        if ent.name.startswith("."):
+        # 点号开头跳过;字符集闸(M2):列出的段必须过 _SEG_RE,否则服务/寻址端 404
+        if ent.name.startswith(".") or not _SEG_RE.match(ent.name):
             continue
         if ent.is_file(follow_symlinks=False):
             _add(bucket(""), "", ent, max_per_cat)
@@ -176,7 +181,7 @@ def _walk_cat(cat, rel_dir, abs_dir, depth, max_per_cat):
     except OSError:
         return
     for ent in entries:
-        if ent.name.startswith("."):
+        if ent.name.startswith(".") or not _SEG_RE.match(ent.name):  # 字符集闸(M2)
             continue
         if ent.is_file(follow_symlinks=False):
             if depth + 1 <= MAX_DEPTH:

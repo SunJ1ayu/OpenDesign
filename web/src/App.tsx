@@ -67,6 +67,9 @@ export default function App() {
     nonce: 0,
   });
   const [sessionsEpoch, setSessionsEpoch] = useState(0); // 连接就绪/每轮回复后刷新历史对话
+  // M5(07-13 盲评):每轮回复收尾后,AI 可能刚记了变更/改了状态——变更列、待办角标、
+  // 项目列表都要跟着刷,否则聊完仍要 F5(p6 只修了历史对话侧栏这一半)。
+  const [dataEpoch, setDataEpoch] = useState(0);
   // p6 续聊目标:点历史行 → 首页聊天实例 attach 挂回该会话(null = 新对话)
   const [resumeTarget, setResumeTarget] = useState<{
     sessionKey: string;
@@ -80,6 +83,7 @@ export default function App() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
+  // 项目列表 + 待办角标:挂载即拉,dataEpoch 变(每轮回复后)重拉——刷新变更来源
   useEffect(() => {
     fetchProjects()
       .then((ps) => {
@@ -99,6 +103,10 @@ export default function App() {
       })
       .catch((e: Error) => setProjErr(`读不到项目列表(${e.message})`));
     fetchTodosOpenCount().then(setTodosCount).catch(() => setTodosCount(null));
+  }, [dataEpoch]);
+
+  // 服务信息:挂载一次(版本/model/ds_root 不随聊天变)
+  useEffect(() => {
     fetch("/api/health")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => d && setHealth({ version: d.version, ds_root: d.ds_root, model: d.model ?? null }))
@@ -186,8 +194,12 @@ export default function App() {
   );
 
   const onConnected = useCallback(() => setSessionsEpoch((n) => n + 1), []);
-  // p6:每轮回复收尾也刷新(新会话首轮后即出现在侧栏,免 F5)
-  const onTurnEnd = useCallback(() => setSessionsEpoch((n) => n + 1), []);
+  // p6:每轮回复收尾刷新历史对话侧栏(新会话首轮后即出现,免 F5);
+  // M5:同时 bump dataEpoch → 项目列表+待办角标重拉,变更列经 projects 刷新链跟着重拉。
+  const onTurnEnd = useCallback(() => {
+    setSessionsEpoch((n) => n + 1);
+    setDataEpoch((n) => n + 1);
+  }, []);
 
   // p6:点历史对话行 → 回首页并 attach 续聊(会话 key = websocket:<chat_id>)
   const openSession = useCallback((s: { key: string }) => {

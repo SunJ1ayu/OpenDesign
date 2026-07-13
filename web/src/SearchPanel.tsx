@@ -64,7 +64,9 @@ export default function SearchPanel({ open, onClose, onOpenChange, onOpenProject
     let stale = false;
     (async () => {
       try {
-        const ps = await fetchProjects();
+        // L3(07-13 盲评):未建档文件夹(p7)没有 .md,拉 changes/refs 必 404 白打——
+        // 索引里也没有可搜内容,建档前直接跳过。
+        const ps = (await fetchProjects()).filter((p) => !p.unregistered);
         const per = await Promise.all(
           ps.map(async (p) => {
             const [changes, refs] = await Promise.all([

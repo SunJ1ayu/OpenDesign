@@ -298,5 +298,34 @@ class WriteMethod405Invariant(unittest.TestCase):
             self.assertEqual([], calls)
 
 
+class ListedIsServableTest(unittest.TestCase):
+    """M2(07-13 盲评)不变量:/api/files/images 列出的每一条 rel,file 端点必 200。"""
+
+    def test_hash_file_roundtrip(self):
+        root = _mkroot()
+        proj = os.path.join(root, "ws", *PROJ_REL.split("/"))
+        _touch(os.path.join(proj, "08-交付#归档", "12#1802-客厅.png"), PNG)
+        with _serve(root) as (port, _):
+            st, d = _get_json(port, f"/api/files/images/{_k(KEY)}")
+            self.assertEqual(200, st)
+            rels = [i["rel"] for i in d["images"]]
+            self.assertIn("08-交付#归档/12#1802-客厅.png", rels)
+            for rel in rels:  # 列出 ⊆ 可服务(# 必须编码上线,否则是 fragment)
+                st2, _b = _req(port, f"/api/files/file/{_k(KEY)}/" + quote(rel, safe="/"))
+                self.assertEqual(200, st2, rel)
+
+    def test_unservable_not_listed(self):
+        root = _mkroot()
+        proj = os.path.join(root, "ws", *PROJ_REL.split("/"))
+        _touch(os.path.join(proj, "02-参考图", "报价&终稿.png"), PNG)
+        with _serve(root) as (port, _):
+            st, d = _get_json(port, f"/api/files/images/{_k(KEY)}")
+            self.assertEqual(200, st)
+            self.assertNotIn("&", json.dumps(d, ensure_ascii=False))
+            st_o, d_o = _get_json(port, f"/api/files/overview/{_k(KEY)}")
+            self.assertEqual(200, st_o)
+            self.assertNotIn("&", json.dumps(d_o, ensure_ascii=False))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

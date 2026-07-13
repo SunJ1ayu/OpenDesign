@@ -239,6 +239,37 @@ class ResolveSubTest(unittest.TestCase):
             self.assertIsNone(ds_workspace.resolve_sub(proj, "外链"))
 
 
+class CharsetConvergenceTest(unittest.TestCase):
+    """M2(07-13 盲评):列出=可寻址,单段字符集 NAME_CHARS 单一真相源。
+
+    双真相=枚举零过滤而服务/寻址闸不认 `#`:`12#1802-客厅.jpg` 列得出永远 404
+    裂图(# 正是「楼栋#户号」命名约定)。收敛=# 进白名单;白名单外字符(&)
+    枚举侧同集合过滤=诚实缺席,不给点不开的条目。
+    """
+
+    def _proj(self, tmp):
+        ds_root, _ = make_workspace(tmp)
+        cfg = ds_workspace.load_config(ds_root)
+        return ds_workspace.project_dir(cfg, KEY)
+
+    def test_hash_listed_and_addressable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            proj = self._proj(tmp)
+            _touch(os.path.join(proj, "08-交付#归档", "12#1802-客厅.png"))
+            imgs = ds_workspace.images(proj)
+            self.assertIn("08-交付#归档/12#1802-客厅.png", [i["rel"] for i in imgs])
+            self.assertIsNotNone(ds_workspace.resolve_sub(proj, "08-交付#归档"))
+
+    def test_unservable_chars_not_listed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            proj = self._proj(tmp)
+            _touch(os.path.join(proj, "02-参考图", "报价&终稿.png"))
+            _touch(os.path.join(proj, "素材&杂", "ok.png"))
+            blob = json.dumps({"o": ds_workspace.overview(proj),
+                               "i": ds_workspace.images(proj)}, ensure_ascii=False)
+            self.assertNotIn("&", blob)
+
+
 class AutoDiscoveryTest(unittest.TestCase):
     """p7:projects_root / project_folders / project_dir 三级绑定。
     red-check:注释 project_dir 的唯一命中判断(len(hits)==1)→ token_ambiguous 红;

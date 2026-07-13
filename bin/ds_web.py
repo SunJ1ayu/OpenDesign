@@ -120,15 +120,24 @@ DELIVERED_STAGES = ("竣工验收", "售后")
 # 就是路由 key,"能列出"与"能寻址"必须同集合)。不含 / \ ⇒ 无路径分隔符;
 # `.`/`..` 与含 `..` 者 _valid_proj_key 显式拒(纵深防御,realpath+within 才是权威闸)。
 _PROJ_KEY_RE = ds_workspace.PROJECT_NAME_RE
-# 参考图相对路径白名单(Gate A):同上但放行 / 支持子目录;`..` 走 Gate B(realpath)。
+# 相对路径白名单(Gate A):= ds_workspace.NAME_CHARS 单段字符集 + `/`(支持子目录),
+# 单一真相源(M2,07-13 盲评):枚举侧(ds_workspace._SEG_RE)列得出的每段,服务侧
+# 必须认得,否则 `12#1802-客厅.jpg` 列出即 404 裂图。`..` 走 Gate B(realpath)。
 # 收尾用 \Z 不用 $:re 的 $ 在"结尾换行符之前"也匹配,`a.png\n` 会漏过字符集闸。
-_REFS_PATH_RE = re.compile(r"^[\w /.()\-]+\Z")
+_REFS_PATH_RE = re.compile(rf"^[{ds_workspace.NAME_CHARS}/]+\Z")
 
 # 图片扩展名白名单(Gate C)—— 唯一允许读出的类型;svg 排除(直开可执行脚本)。
 _IMG_CTYPES = {
     ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
     ".webp": "image/webp", ".gif": "image/gif",
 }
+
+
+def _servable_ref_file(file: str) -> bool:
+    """索引行的 file 字段是否 refs/ 下且能过 _refs_file Gate A(M2:列出=可服务)。"""
+    if not isinstance(file, str) or not file.startswith("refs/"):
+        return False
+    return bool(_REFS_PATH_RE.match(file[len("refs/"):]))
 
 
 def _valid_proj_key(key: str) -> bool:
@@ -378,9 +387,12 @@ class Handler(BaseHTTPRequestHandler):
             traceback.print_exc()
             self._json(500, {"error": "internal"})
             return
-        # 只回 UI 需要的字段(id/style/space/file/note),source/used 不外泄
+        # 只回 UI 需要的字段(id/style/space/file/note),source/used 不外泄。
+        # M2 不变量:列出=可服务——file 必须是 refs/ 下、剩余段过 Gate A 的路径,
+        # 否则前端渲染即裂图(索引里手写了服务端认不出的字符)。跳过不列。
         out = [{"id": r["id"], "style": r["style"], "space": r["space"],
-                "file": r["file"], "note": r["note"]} for r in refs]
+                "file": r["file"], "note": r["note"]}
+               for r in refs if _servable_ref_file(r["file"])]
         self._json(200, {"key": key, "refs": out})
 
     def _refs_file(self, rel: str):

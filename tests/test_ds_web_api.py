@@ -434,5 +434,38 @@ class TestRefsFile(unittest.TestCase):
                 self.assertEqual(hd.get("allow"), "GET")
 
 
+class TestRefsCharsetConvergence(unittest.TestCase):
+    """M2(07-13 盲评):refs 列出=可服务同集合。# 进 Gate A;Gate A 不认的行不列。"""
+
+    IDX = """# 参考图索引
+
+- [r1] 奶油风|玄关 | 来源:小红书 | 文件:refs/12#1802-客厅.jpg | 用于:保利中央公园 | 备注:
+- [r2] 侘寂风|客厅 | 来源:小红书 | 文件:refs/坏&图.jpg | 用于:保利中央公园 | 备注:
+
+---
+最后更新: 2026-07-13
+"""
+
+    def test_hash_row_listed_and_served(self):
+        root = _mkroot({"保利中央公园.md": PROJ_A}, refs_index=self.IDX)
+        _write_bytes(os.path.join(root, "refs", "12#1802-客厅.jpg"),
+                     b"\xff\xd8\xffJPEGDATA")
+        with _serve(root) as port:
+            st, _, d = _get_json(port, "/api/projects/" + quote("保利中央公园") + "/refs")
+            self.assertEqual(st, 200)
+            files = [r["file"] for r in d["refs"]]
+            self.assertIn("refs/12#1802-客厅.jpg", files)
+            st2, hd, body = _req(port, "/api/refs/file/" + quote("12#1802-客厅.jpg"))
+            self.assertEqual(st2, 200)
+            self.assertIn(b"JPEGDATA", body)
+
+    def test_unservable_row_not_listed(self):
+        root = _mkroot({"保利中央公园.md": PROJ_A}, refs_index=self.IDX)
+        with _serve(root) as port:
+            st, _, d = _get_json(port, "/api/projects/" + quote("保利中央公园") + "/refs")
+        self.assertEqual(st, 200)
+        self.assertNotIn("refs/坏&图.jpg", [r["file"] for r in d["refs"]])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
