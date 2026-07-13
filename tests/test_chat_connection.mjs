@@ -156,6 +156,28 @@ test("apiFetch:无缓存 token 先 bootstrap,再带 Bearer token 调目标", asy
   assert.equal(authHeader(fetchFn.calls[1]), "Bearer nbwt_1");
 });
 
+// p7:init(method/headers/body)透传,且调用方 headers 覆盖不了 Authorization
+test("apiFetch init 透传:method/body/CT 到线,Authorization 不可被覆盖", async () => {
+  const { s, fetchFn } = makeSession({
+    handler: (url) =>
+      url === "/api/chat/bootstrap"
+        ? jsonRes(200, boot("nbwt_1"))
+        : jsonRes(200, { deleted: true }),
+  });
+  s.setPassword("pw1");
+  const res = await s.apiFetch("/api/chat/sessions/websocket:x/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer 伪造" },
+    body: "{}",
+  });
+  assert.equal(res.status, 200);
+  const call = fetchFn.calls[1];
+  assert.equal(call.init.method, "POST");
+  assert.equal(call.init.body, "{}");
+  assert.equal(call.init.headers["Content-Type"], "application/json");
+  assert.equal(call.init.headers.Authorization, "Bearer nbwt_1");
+});
+
 test("apiFetch 401 → 透明重 bootstrap 一次 → 新 token 重试成功", async () => {
   let issued = 0;
   const { s, fetchFn } = makeSession({

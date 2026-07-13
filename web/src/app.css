@@ -191,6 +191,18 @@ html, body { overflow: auto; }
   text-overflow: ellipsis;
 }
 .hist-row .when { font-size: 10.5px; color: var(--ink-5); flex: none; }
+/* p7 删除 ✕:默认隐藏,悬停行时替换时间位出现 */
+.hist-row .hist-del {
+  display: none;
+  flex: none;
+  width: 16px;
+  text-align: center;
+  color: var(--ink-4);
+  border-radius: 4px;
+}
+.hist-row:hover .when { display: none; }
+.hist-row:hover .hist-del { display: inline-block; }
+.hist-row .hist-del:hover { color: var(--terra-deep); background: var(--terra-pill-bg); }
 .side-empty-hint { padding: 4px 18px; font-size: 11.5px; color: var(--ink-5); }
 
 .proj-list {
@@ -236,6 +248,9 @@ html, body { overflow: auto; }
 .proj-row.current .nm { font-weight: 600; color: var(--ink); }
 .proj-row.delivered .nm { color: var(--ink-3); }
 .proj-row .n-open { font: 600 10px var(--font-mono); color: var(--ink-4); }
+/* p7 未建档(工作区自动发现)项目行:名字淡化 + 小标 */
+.proj-row.unregistered .nm { color: var(--ink-3); }
+.proj-row .n-unreg { font-size: 10px; color: var(--ink-5); flex: none; }
 .proj-row.current .n-open {
   background: var(--terra-pill-bg);
   color: var(--terra-deep);

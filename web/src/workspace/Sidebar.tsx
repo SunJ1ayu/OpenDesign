@@ -21,6 +21,7 @@ type Props = {
   todosOpenCount: number | null;
   sessions: SessionItem[] | null; // null = 未连接/不可用(隐藏区块内容)
   onOpenSession: (s: SessionItem) => void; // p6:点历史行 → 首页 attach 续聊
+  onDeleteSession: (s: SessionItem) => void; // p7:悬停 ✕,确认在 App 层
   onNewChat: () => void;
   onNewProject: () => void;
   onSearch: () => void;
@@ -36,7 +37,8 @@ function dotClass(p: Project, current: boolean): string {
 
 export default function Sidebar({
   route, projects, selectedKey, onSelectProject, todosOpenCount,
-  sessions, onOpenSession, onNewChat, onNewProject, onSearch, health,
+  sessions, onOpenSession, onDeleteSession, onNewChat, onNewProject,
+  onSearch, health,
 }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -120,6 +122,18 @@ export default function Sidebar({
             <span className="ico">◷</span>
             <span className="t">{s.title || s.preview || "(未命名对话)"}</span>
             <span className="when">{relTime(s.updated_at)}</span>
+            {/* span 非嵌套 button(HTML 不允许);阻冒泡免触发续聊 */}
+            <span
+              className="hist-del"
+              role="button"
+              title="删除对话"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteSession(s);
+              }}
+            >
+              ✕
+            </span>
           </button>
         ))}
         {sessions !== null && recent.length === 0 && (
@@ -147,15 +161,19 @@ export default function Sidebar({
           return (
             <button
               key={p.key}
-              className={`proj-row${card ? " current" : ""}${p.delivered ? " delivered" : ""}`}
+              className={`proj-row${card ? " current" : ""}${p.delivered ? " delivered" : ""}${p.unregistered ? " unregistered" : ""}`}
               onClick={() => onSelectProject(p.key)}
-              title={p.stage ? `阶段:${p.stage}` : undefined}
+              title={p.unregistered
+                ? "工作区文件夹(未建档)——在对话里说「新建项目」即可建档"
+                : p.stage ? `阶段:${p.stage}` : undefined}
             >
               <span className="ico-col">
                 <span className={dotClass(p, current)} />
               </span>
               <span className="nm">{p.name}</span>
-              {p.open_count > 0 && <span className="n-open">{p.open_count}</span>}
+              {p.unregistered
+                ? <span className="n-unreg">未建档</span>
+                : p.open_count > 0 && <span className="n-open">{p.open_count}</span>}
             </button>
           );
         })}

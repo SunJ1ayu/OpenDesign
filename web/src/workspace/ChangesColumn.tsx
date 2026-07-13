@@ -70,6 +70,24 @@ export default function ChangesColumn({
     );
   }
 
+  // p7:工作区自动发现的未建档文件夹——没有档案可读,给建档引导
+  if (project.unregistered) {
+    return (
+      <section className="center">
+        <div className="center-head">
+          <div className="proj-title">{project.name}</div>
+        </div>
+        <div className="center-empty">
+          <div className="big">工作区项目,还未建档</div>
+          <div>
+            右侧文件和图墙已经可用;在对话里说「新建项目:{project.name}」,
+            就能开始记录这个项目的变更。
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   const pills: { key: Filter; label: string; n?: number }[] = [
     { key: "open", label: "未办结", n: counts.open },
     { key: "待确认", label: "待确认", n: counts.pending },

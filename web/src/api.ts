@@ -8,6 +8,9 @@ export type Project = {
   open_count: number;
   delivered: boolean;
   last_update: string | null;
+  // p7:true = 工作区自动发现的未建档文件夹(key=文件夹名;文件区/图墙可用,
+  // changes/refs 不请求,建档走对话)
+  unregistered: boolean;
 };
 
 export type Change = {
@@ -83,6 +86,27 @@ export async function openFolder(key: string, sub?: string): Promise<void> {
     body: JSON.stringify(sub ? { key, sub } : { key }),
   });
   if (!r.ok) throw new Error(`服务返回 ${r.status}`);
+}
+
+/** 第二个非 GET(p7 会话删除针孔):经 session.apiFetch 带鉴权走代理。
+ * key 传裸串不 encode(_KEY_RE 无 %,p6 e2e 实抓的坑);字符集本就 URL 安全。 */
+export type DeleteSessionResult = { deleted: boolean; blocked_by_automations?: boolean };
+export async function deleteChatSession(
+  session: {
+    apiFetch(
+      path: string,
+      init?: { method?: string; headers?: Record<string, string>; body?: string },
+    ): Promise<{ status: number; json(): Promise<unknown> }>;
+  },
+  key: string,
+): Promise<DeleteSessionResult> {
+  const r = await session.apiFetch(`/api/chat/sessions/${key}/delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (r.status !== 200) throw new Error(`服务返回 ${r.status}`);
+  return (await r.json()) as DeleteSessionResult;
 }
 
 /** refs-index 的 file 字段是 "refs/xx.jpg";静态路由挂在 /api/refs/file/ 下。 */

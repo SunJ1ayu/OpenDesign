@@ -10,6 +10,7 @@ import GalleryPage from "./GalleryPage";
 import SearchPanel from "./SearchPanel";
 import { ChatSession } from "./chat/connection";
 import {
+  deleteChatSession,
   fetchChanges,
   fetchProjects,
   fetchTodosOpenCount,
@@ -86,9 +87,11 @@ export default function App() {
         setProjects(ps);
         setSelectedKey((cur) => {
           if (cur && ps.some((p) => p.key === cur)) return cur;
-          // 默认选中:最近更新的未交付项目(设计师"手头项目"),否则第一个
-          const active = ps.filter((p) => !p.delivered);
-          const pick = (active.length ? active : ps)
+          // 默认选中:最近更新的未交付已建档项目(设计师"手头项目");
+          // 未建档文件夹(p7)不抢默认位,除非列表里只有它们
+          const pkb = ps.filter((p) => !p.unregistered);
+          const active = pkb.filter((p) => !p.delivered);
+          const pick = (active.length ? active : pkb.length ? pkb : ps)
             .slice()
             .sort((a, b) => (b.last_update ?? "").localeCompare(a.last_update ?? ""))[0];
           return pick ? pick.key : null;
@@ -102,10 +105,15 @@ export default function App() {
       .catch(() => setHealth(null));
   }, []);
 
-  // 选中项目变化 → 拉全量变更
+  // 选中项目变化 → 拉全量变更(未建档项目没有档案,不请求,由中央列给引导)
   useEffect(() => {
     if (!selectedKey) {
       setChanges(null);
+      return;
+    }
+    if (projects.find((p) => p.key === selectedKey)?.unregistered) {
+      setChanges([]);
+      setChangesErr(null);
       return;
     }
     let stale = false;
@@ -121,7 +129,7 @@ export default function App() {
     return () => {
       stale = true;
     };
-  }, [selectedKey]);
+  }, [selectedKey, projects]);
 
   // 历史对话:已登录才拉(经 ds_web 白名单代理,失败静默为 null)
   useEffect(() => {
@@ -193,6 +201,31 @@ export default function App() {
     window.location.hash = "#/";
   }, []);
 
+  // p7:删除历史对话。确认闸在这层(window.confirm);删的是当前续聊目标时清
+  // resume(已渲染 transcript 不清,与 p3「新对话不重置」同语义,accepted deviation)
+  const deleteSession = useCallback(
+    async (s: SessionItem) => {
+      const label = s.title || s.preview || "未命名对话";
+      if (!window.confirm(`删除对话「${label}」?删除后不可恢复。`)) return;
+      try {
+        const res = await deleteChatSession(session, s.key);
+        if (!res.deleted) {
+          window.alert(
+            res.blocked_by_automations
+              ? "该对话绑定了定时任务,暂不能从这里删除。"
+              : "删除失败,稍后再试。",
+          );
+          return;
+        }
+        setResumeTarget((prev) => (prev?.sessionKey === s.key ? null : prev));
+        setSessionsEpoch((n) => n + 1);
+      } catch {
+        window.alert("删除失败:服务不可用或登录已过期。");
+      }
+    },
+    [session],
+  );
+
   // 新对话:回 3a。p3 的「不重置对话」只针对误触丢对话——现在历史对话可点回
   // (本 track),从续聊态开新对话不再是丢失,所以 resume 态下清目标重连拿新
   // chat_id;非 resume 态维持 p3 现状(setState(null→null) React bail-out,零重连)。
@@ -236,6 +269,7 @@ export default function App() {
       todosOpenCount={todosCount}
       sessions={sessions}
       onOpenSession={openSession}
+      onDeleteSession={deleteSession}
       onNewChat={newChat}
       onNewProject={() => {
         prefillHome("新建项目:");

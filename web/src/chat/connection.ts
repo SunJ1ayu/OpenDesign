@@ -23,7 +23,9 @@ export interface ResponseLike {
   json(): Promise<unknown>;
 }
 type FetchLike = (url: string, init?: {
+  method?: string;
   headers?: Record<string, string>;
+  body?: string;
 }) => Promise<ResponseLike>;
 type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
@@ -99,11 +101,16 @@ export class ChatSession {
    * 带鉴权调 ds_web 聊天代理。401 → 透明重签一次再试;
    * 重签 401 或新 token 仍 401 → PasswordRejected(有界,不循环)。
    */
-  async apiFetch(path: string): Promise<ResponseLike> {
+  async apiFetch(
+    path: string,
+    init?: { method?: string; headers?: Record<string, string>; body?: string },
+  ): Promise<ResponseLike> {
     if (!this.apiToken) await this.bootstrap();
     const call = () =>
       this.fetchFn(path, {
-        headers: { Authorization: `Bearer ${this.apiToken}` },
+        ...init,
+        // Authorization 后展开:调用方传入的 headers 不得覆盖鉴权
+        headers: { ...init?.headers, Authorization: `Bearer ${this.apiToken}` },
       });
     let res = await call();
     if (res.status === 401) {
