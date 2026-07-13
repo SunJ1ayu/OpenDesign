@@ -239,5 +239,103 @@ class ResolveSubTest(unittest.TestCase):
             self.assertIsNone(ds_workspace.resolve_sub(proj, "外链"))
 
 
+class AutoDiscoveryTest(unittest.TestCase):
+    """p7:projects_root / project_folders / project_dir 三级绑定。
+    red-check:注释 project_dir 的唯一命中判断(len(hits)==1)→ token_ambiguous 红;
+    注释 project_folders 的 _FOLDER_RE 过滤 → folders_charset 红;
+    注释 projects_root 显式 projectsDir 的 within 闸 → projects_root_escape 红。"""
+
+    def _cfg(self, tmp, mapping=None, projects_dir=None, extra_folders=()):
+        ds_root, ws_root = make_workspace(tmp)
+        for name in extra_folders:
+            os.makedirs(os.path.join(ws_root, "01-项目", name), exist_ok=True)
+        raw = {"root": ws_root, "projects": mapping or {}}
+        if projects_dir is not None:
+            raw["projectsDir"] = projects_dir
+        with open(os.path.join(ds_root, "config", "workspace.json"), "w",
+                  encoding="utf-8") as fh:
+            json.dump(raw, fh, ensure_ascii=False)
+        return ds_workspace.load_config(ds_root), ws_root
+
+    def test_projects_root_candidate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg, ws_root = self._cfg(tmp)
+            self.assertEqual(ds_workspace.projects_root(cfg),
+                             os.path.realpath(os.path.join(ws_root, "01-项目")))
+
+    def test_projects_root_explicit_and_dot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg, ws_root = self._cfg(tmp, projects_dir="01-项目")
+            self.assertEqual(ds_workspace.projects_root(cfg),
+                             os.path.realpath(os.path.join(ws_root, "01-项目")))
+            cfg2, ws_root2 = self._cfg(tmp, projects_dir=".")
+            self.assertEqual(ds_workspace.projects_root(cfg2),
+                             os.path.realpath(ws_root2))
+
+    def test_projects_root_escape(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            os.makedirs(os.path.join(tmp, "outside"), exist_ok=True)
+            cfg, _ = self._cfg(tmp, projects_dir="../outside")
+            self.assertIsNone(ds_workspace.projects_root(cfg))
+
+    def test_projects_root_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg, ws_root = self._cfg(tmp)
+            os.rename(os.path.join(ws_root, "01-项目"),
+                      os.path.join(ws_root, "项目都在这"))
+            self.assertIsNone(ds_workspace.projects_root(cfg))
+            self.assertEqual(ds_workspace.project_folders(cfg), [])
+
+    def test_project_folders(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg, ws_root = self._cfg(tmp, extra_folders=("20260701 平湖 翡翠湾 3#1801",))
+            pdir = os.path.join(ws_root, "01-项目")
+            _touch(os.path.join(pdir, "散文件.txt"))          # 文件不列
+            os.makedirs(os.path.join(pdir, ".回收"))           # 点号开头不列
+            os.symlink(tmp, os.path.join(pdir, "外链夹"))       # symlink 不列
+            names = [n for n, _ in ds_workspace.project_folders(cfg)]
+            self.assertEqual(names, ["20260612 周宁 龙腾世纪 12#1802",
+                                     "20260701 平湖 翡翠湾 3#1801"])
+
+    def test_project_folders_charset(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg, ws_root = self._cfg(tmp, extra_folders=("坏名|竖线",))
+            names = [n for n, _ in ds_workspace.project_folders(cfg)]
+            self.assertNotIn("坏名|竖线", names)
+
+    def test_project_dir_explicit_wins(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            # 显式映射指向另一个文件夹,token 明明命中默认夹也不用
+            cfg, ws_root = self._cfg(
+                tmp, mapping={KEY: "01-项目/手工指定"}, extra_folders=("手工指定",))
+            self.assertEqual(ds_workspace.project_dir(cfg, KEY),
+                             os.path.realpath(os.path.join(ws_root, "01-项目", "手工指定")))
+
+    def test_project_dir_direct_name(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg, ws_root = self._cfg(tmp)
+            name = "20260612 周宁 龙腾世纪 12#1802"
+            self.assertEqual(ds_workspace.project_dir(cfg, name),
+                             os.path.realpath(os.path.join(ws_root, "01-项目", name)))
+
+    def test_project_dir_token_unique(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg, ws_root = self._cfg(tmp)  # 无映射:靠 token 龙腾世纪+1802 唯一命中
+            self.assertEqual(
+                ds_workspace.project_dir(cfg, KEY),
+                os.path.realpath(os.path.join(
+                    ws_root, "01-项目", "20260612 周宁 龙腾世纪 12#1802")))
+
+    def test_project_dir_token_ambiguous(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg, _ = self._cfg(tmp, extra_folders=("20270101 周宁 龙腾世纪 12#1802 二期",))
+            self.assertIsNone(ds_workspace.project_dir(cfg, KEY))
+
+    def test_project_dir_no_match(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg, _ = self._cfg(tmp)
+            self.assertIsNone(ds_workspace.project_dir(cfg, "翡翠湾-1801"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

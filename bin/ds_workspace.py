@@ -27,6 +27,12 @@ MAX_DEPTH = 4           # 相对项目根的最大路径段数(类目算 1 段)
 MAX_PER_CAT = 2000      # 每类目扫描上限
 # 子目录名白名单:单段、\w(含中文)/空格/常见连接符;不含路径分隔符
 _SUB_RE = re.compile(r"^[\w .()\-]+\Z")
+# 项目文件夹名白名单(p7):同上放行 `#`(命名约定「楼栋#户号」)。与 ds_web
+# _PROJ_KEY_RE 同集合(先例:_SUB_RE 也是两处同集合);# 不参与路径语义,
+# realpath+within 仍是权威闸。
+_FOLDER_RE = re.compile(r"^[\w .()#\-]+\Z")
+# projectsDir 未配置时的候选目录名(taxonomy v1.0 写 01项目,真机模板用 01-项目)
+_PROJECTS_DIR_CANDIDATES = ("01项目", "01-项目", "01_项目", "01 项目")
 
 
 def load_config(ds_root: str):
@@ -47,24 +53,81 @@ def load_config(ds_root: str):
     if not all(isinstance(k, str) and isinstance(v, str)
                for k, v in projects.items()):
         return None
+    projects_dir = raw.get("projectsDir")  # 可选:项目夹所在目录(相对 root,"."=root)
+    if projects_dir is not None and not isinstance(projects_dir, str):
+        return None
     root = os.path.realpath(root)
     if not os.path.isdir(root):
         return None
-    return {"root": root, "projects": projects}
+    return {"root": root, "projects": projects, "projectsDir": projects_dir}
 
 
 def project_dir(cfg, key: str):
-    """key → 项目夹 realpath;未映射/映射逃逸工作区根/非目录(含 symlink 外指)
-    → None。cfg 为 load_config 产物。"""
+    """key → 项目夹 realpath;解析三级(p7 design D2,前者优先):
+    ①显式映射(权威,可纠偏)→ ②扫描文件夹名 == key → ③key 按 `-` 切 token,
+    全部 token 均为文件夹名子串且恰好唯一命中(歧义不绑,误绑自保护)。
+    未命中/映射逃逸工作区根/非目录(含 symlink 外指)→ None。cfg 为 load_config 产物。"""
     if cfg is None:
         return None
     rel = cfg["projects"].get(key)
-    if not isinstance(rel, str) or not rel:
+    if isinstance(rel, str) and rel:
+        target = os.path.realpath(os.path.join(cfg["root"], rel))
+        if not ds_common.within(cfg["root"], target) or not os.path.isdir(target):
+            return None
+        return target
+    folders = project_folders(cfg)
+    for name, path in folders:
+        if name == key:
+            return path
+    tokens = [t for t in key.split("-") if t]
+    if not tokens:
         return None
-    target = os.path.realpath(os.path.join(cfg["root"], rel))
-    if not ds_common.within(cfg["root"], target) or not os.path.isdir(target):
+    hits = [path for name, path in folders
+            if all(t in name for t in tokens)]
+    return hits[0] if len(hits) == 1 else None
+
+
+def projects_root(cfg):
+    """项目夹所在目录 realpath;projectsDir 显式配置(within 闸,"."=root)
+    优先,否则候选名取首个存在者;都没有 → None(自动发现整体降级)。"""
+    if cfg is None:
         return None
-    return target
+    rel = cfg.get("projectsDir")
+    if isinstance(rel, str) and rel:
+        target = os.path.realpath(os.path.join(cfg["root"], rel))
+        if ds_common.within(cfg["root"], target) and os.path.isdir(target):
+            return target
+        return None
+    for cand in _PROJECTS_DIR_CANDIDATES:
+        target = os.path.join(cfg["root"], cand)
+        if os.path.isdir(target):
+            return os.path.realpath(target)
+    return None
+
+
+def project_folders(cfg):
+    """自动发现的项目夹 [(name, realpath)] 名序;projects-dir 缺失 → []。
+    只取一级目录;点号开头跳过(同 _scan);symlink 目录跳过
+    (follow_symlinks=False,外指零风险);名字不过 _FOLDER_RE 白名单者跳过
+    (路由 key 字符集寻址不到,列了也点不开)。"""
+    proot = projects_root(cfg)
+    if proot is None:
+        return []
+    out = []
+    try:
+        entries = sorted(os.scandir(proot), key=lambda e: e.name)
+    except OSError:
+        return []
+    for ent in entries:
+        if ent.name.startswith(".") or not _FOLDER_RE.match(ent.name):
+            continue
+        try:
+            if not ent.is_dir(follow_symlinks=False):
+                continue
+        except OSError:
+            continue
+        out.append((ent.name, os.path.realpath(ent.path)))
+    return out
 
 
 def _scan(proj_dir: str, max_per_cat: int):
