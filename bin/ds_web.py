@@ -17,10 +17,17 @@
   GET /api/files/images/<key>      项目图片清单
   GET /api/files/file/<key>/<rel>  项目图片静态服务(三闸同 refs 先例)
   POST /api/open-folder            {"key","sub"?} → 本机资源管理器打开项目夹。
-    这是"只读铁律"的唯一受控例外(P5 design §3,用户拍板):不写任何数据,
+    这是"只读铁律"的首个受控例外(P5 design §3,用户拍板):不写任何数据,
     仅在 key 映射 + sub 白名单 + realpath within + isdir 全过后执行 OPEN_LAUNCHER;
     launcher 可注入(测试/e2e 永不真开)。
-其余方法/其余 POST 路径一律 405 —— 无写面;写操作必须过 ds_tools 核心,本服务不直改 PKB。
+  POST /api/chat/sessions/<key>/delete  → …/api/sessions/<key>/delete(p7 第二针孔):
+    删除历史对话 = 代理 nanobot 原生删除(上游自带"绑定自动化先拒"保护);上游
+    不查方法,本服务只以 POST 暴露(GET 面保持纯只读);真正鉴权在上游 Bearer
+    token,CT json 闸是 CSRF 纵深。本服务仍零 PKB 写面。
+其余方法/其余 POST 路径一律 405 —— 写操作必须过 ds_tools 核心,本服务不直改 PKB。
+项目列表(p7):/api/projects = PKB projects/*.md ∪ 工作区项目夹自动发现
+(ds_workspace.project_folders,未被映射/绑定消费的文件夹以 unregistered:true 追加;
+只读联合,不自动建档)。
 
 约束(design.md D2):只绑 127.0.0.1;端口 DS_WEB_PORT(默认 8766),被占明确报错
 退出不静默换口;JSON ensure_ascii=False + charset=utf-8;读期 OSError(Windows
@@ -42,7 +49,7 @@ import ds_refs
 import ds_todo
 import ds_workspace
 
-VERSION = "0.7.0"  # P6 历史对话点开续聊 + 列表 turn_end 自动刷新;回显此号=运行中是新版的实证
+VERSION = "0.8.0"  # p7 历史对话删除 + 项目列表直读工作区;回显此号=运行中是新版的实证
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -73,6 +80,7 @@ def _read_model():
 # 与上游 _decode_api_key 同字符集;不含 % 和 / ⇒ 原样转发也无路径走私
 _KEY_RE = re.compile(r"^[A-Za-z0-9_:.-]{1,128}$")
 _THREAD_RE = re.compile(r"^/api/chat/sessions/([^/]+)/thread$")
+_SESSION_DELETE_RE = re.compile(r"^/api/chat/sessions/([^/]+)/delete$")  # p7 POST 针孔②
 
 # P2 只读 API 路由(段捕获用 [^/]+,中文项目名在 wire 上是 %xx,故不含裸 /):
 _CHANGES_RE = re.compile(r"^/api/projects/([^/]+)/changes$")
@@ -109,9 +117,11 @@ OPEN_LAUNCHER = _default_open_launcher  # 模块级可注入(测试/e2e 用 fake
 DELIVERED_STAGES = ("竣工验收", "售后")
 
 # 项目 key 字符集白名单:\w 已覆盖中文(Python re 默认 Unicode);另放行空格与
-# 可读连接符。不含 / \ ⇒ 无路径分隔符;`.`/`..` 与含 `..` 者显式拒(纵深防御,
-# realpath+within 才是权威闸)。
-_PROJ_KEY_RE = re.compile(r"^[\w .()\-]+\Z")
+# 可读连接符,p7 起放行 `#`(工作区文件夹命名约定「楼栋#户号」,wire 上是 %23,
+# unquote 后才进比较,不参与路径语义)。不含 / \ ⇒ 无路径分隔符;`.`/`..` 与含
+# `..` 者显式拒(纵深防御,realpath+within 才是权威闸)。与 ds_workspace._FOLDER_RE
+# 同集合。
+_PROJ_KEY_RE = re.compile(r"^[\w .()#\-]+\Z")
 # 参考图相对路径白名单(Gate A):同上但放行 / 支持子目录;`..` 走 Gate B(realpath)。
 # 收尾用 \Z 不用 $:re 的 $ 在"结尾换行符之前"也匹配,`a.png\n` 会漏过字符集闸。
 _REFS_PATH_RE = re.compile(r"^[\w /.()\-]+\Z")
@@ -223,9 +233,13 @@ class Handler(BaseHTTPRequestHandler):
                    {"Allow": "GET"})  # RFC 7231 §6.5.5:405 必带 Allow
 
     def do_POST(self):
-        # 只读铁律的唯一针孔:精确匹配 open-folder,其余 POST 维持 405(oracle 锁死)
-        if urlsplit(self.path).path == OPEN_FOLDER_PATH:
+        # 只读铁律的受控针孔白名单(精确匹配,其余 POST 维持 405,oracle 锁死):
+        # ① open-folder(P5)② 会话删除代理(p7,真正鉴权在上游 Bearer token)
+        path = urlsplit(self.path).path
+        if path == OPEN_FOLDER_PATH:
             self._open_folder()
+        elif (m := _SESSION_DELETE_RE.match(path)):
+            self._delete_session(m.group(1))
         else:
             self._method_not_allowed()
 
@@ -281,7 +295,31 @@ class Handler(BaseHTTPRequestHandler):
                     "open_count": counts.get(key, 0),
                     "delivered": stage in DELIVERED_STAGES,
                     "last_update": dates[-1] if dates else None,
+                    "unregistered": False,
                 })
+            # p7 design D2:联合工作区自动发现的项目夹(只读,不建档)。
+            # 消费集合按 realpath 比对(不按 basename):显式映射目标 ∪ 各 PKB
+            # key 的三级绑定解析结果;没被消费的文件夹以 unregistered 追加,
+            # key=文件夹名 → 文件区/图墙/open-folder 经 project_dir ②直等可用。
+            cfg = ds_workspace.load_config(root)
+            folders = ds_workspace.project_folders(cfg)
+            if folders:
+                consumed = set()
+                for p in projects:
+                    pd = ds_workspace.project_dir(cfg, p["key"])
+                    if pd:
+                        consumed.add(pd)
+                for rel in cfg["projects"].values():
+                    if rel:
+                        consumed.add(os.path.realpath(os.path.join(cfg["root"], rel)))
+                for name, fpath in folders:
+                    if fpath in consumed:
+                        continue
+                    projects.append({
+                        "key": name, "name": name, "stage": "",
+                        "open_count": 0, "delivered": False,
+                        "last_update": None, "unregistered": True,
+                    })
         except Exception:
             traceback.print_exc()  # 坏编码/写锁窗口读期 OSError:500 自愈,trace 进日志
             self._json(500, {"error": "internal"})
@@ -468,6 +506,32 @@ class Handler(BaseHTTPRequestHandler):
             self._json(500, {"error": "internal"})
             return
         self._json(200, {"ok": True})
+
+    def _delete_session(self, key: str):
+        """POST 针孔②(p7 design D1):删除历史对话 → 代理 nanobot 原生删除。
+        闸序:CT application/json(CSRF 纵深:跨站带该类型必 preflight,本服务无
+        OPTIONS 面)→ body ≤ OPEN_BODY_MAX 且读净丢弃(防 keep-alive 脱轨)→
+        key 白名单(不 unquote,同 thread 代理:%xx 直接非法)→ _proxy 转发。
+        真正鉴权在上游(无 Bearer token 上游 401 原样回传);上游若回
+        blocked_by_automations 也原样透传给前端提示,不代理 delete_automations
+        参数(OpenDesign 不暴露自动化面)。"""
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 <= n <= OPEN_BODY_MAX:
+            self._json(400, {"error": "bad request"})
+            return
+        if n:
+            self.rfile.read(n)
+        if not _KEY_RE.match(key) or key in (".", ".."):
+            self._json(404, {"error": "bad key"})
+            return
+        self._proxy(f"/api/sessions/{key}/delete")
 
     def _proxy(self, up_path: str):
         """白名单 GET 转发到本机 nanobot gateway。纯管道:不读不存任何秘密。"""

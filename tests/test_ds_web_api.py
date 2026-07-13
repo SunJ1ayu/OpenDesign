@@ -189,6 +189,57 @@ class TestProjects(unittest.TestCase):
         self.assertEqual(p["last_update"], None)
         self.assertIn(p["stage"], ("", None))
 
+    # ── p7:联合工作区项目夹(design D2)────────────────────────────────────
+    def _add_workspace(self, root, folders, mapping=None):
+        ws = os.path.join(root, "ws")
+        for f in folders:
+            os.makedirs(os.path.join(ws, "01-项目", f), exist_ok=True)
+        os.makedirs(os.path.join(root, "config"), exist_ok=True)
+        with open(os.path.join(root, "config", "workspace.json"), "w",
+                  encoding="utf-8") as fh:
+            json.dump({"root": ws, "projects": mapping or {}}, fh,
+                      ensure_ascii=False)
+        return ws
+
+    def test_projects_union_unregistered(self):
+        root = _mkroot({"翡翠湾-1801.md": PROJ_DELIVERED})
+        self._add_workspace(root, ["20260701 新签 云璟台 3#301"])
+        with _serve(root) as port:
+            _, _, d = _get_json(port, "/api/projects")
+        by_key = {p["key"]: p for p in d["projects"]}
+        self.assertFalse(by_key["翡翠湾-1801"]["unregistered"])
+        u = by_key["20260701 新签 云璟台 3#301"]
+        self.assertTrue(u["unregistered"])
+        self.assertEqual(u["name"], "20260701 新签 云璟台 3#301")
+        self.assertEqual(u["open_count"], 0)
+
+    def test_projects_union_consumed_not_duplicated(self):
+        # 被 token 自动绑定消费(翡翠湾-1801 ↔ 含两 token 的唯一文件夹)与被
+        # 显式映射消费(保利中央公园)的文件夹都不重复出现为未建档条目
+        root = _mkroot({"翡翠湾-1801.md": PROJ_DELIVERED, "保利中央公园.md": PROJ_A})
+        self._add_workspace(
+            root, ["20260601 平湖 翡翠湾 3#1801", "20260501 保利大盘"],
+            mapping={"保利中央公园": "01-项目/20260501 保利大盘"})
+        with _serve(root) as port:
+            _, _, d = _get_json(port, "/api/projects")
+        keys = sorted(p["key"] for p in d["projects"])
+        self.assertEqual(keys, ["保利中央公园", "翡翠湾-1801"])
+
+    def test_projects_unregistered_files_reachable(self):
+        # 未建档 key = 文件夹名(含 #,wire 上 %23)经 project_dir 直等绑定,
+        # 文件区 overview 直接可用 —— 字符集闸放宽 # 的端到端凭证
+        root = _mkroot({})
+        name = "20260701 新签 云璟台 3#301"
+        ws = self._add_workspace(root, [name])
+        catdir = os.path.join(ws, "01-项目", name, "02-参考图")
+        os.makedirs(catdir, exist_ok=True)
+        _write_bytes(os.path.join(catdir, "客厅.png"))
+        with _serve(root) as port:
+            st, _, d = _get_json(port, "/api/files/overview/" + quote(name))
+        self.assertEqual(st, 200)
+        self.assertTrue(d["configured"] and d["mapped"])
+        self.assertEqual(d["categories"][0]["name"], "02-参考图")
+
 
 # ── /api/projects/<key>/changes ──────────────────────────────────────────────
 class TestChanges(unittest.TestCase):

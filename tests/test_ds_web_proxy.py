@@ -95,10 +95,11 @@ def _serve(nanobot_port: int):
         httpd.server_close()
 
 
-def _req(port: int, path: str, method: str = "GET", headers: dict | None = None):
+def _req(port: int, path: str, method: str = "GET", headers: dict | None = None,
+         body: bytes | None = None):
     """裸 http.client:路径原样上线(urllib 会预规范化,测不到服务端校验)。"""
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
-    conn.request(method, path, headers=headers or {})
+    conn.request(method, path, body=body, headers=headers or {})
     r = conn.getresponse()
     body = r.read()
     hd = {k.lower(): v for k, v in r.getheaders()}
@@ -217,6 +218,65 @@ class TestChatProxy(unittest.TestCase):
             # 不带 Authorization 时,上游也不得凭空收到
             _req(port, "/api/chat/sessions")
             self.assertNotIn("authorization", up.requests[1]["headers"])
+
+
+_JSON_CT = {"Content-Type": "application/json"}
+
+
+class TestSessionDelete(unittest.TestCase):
+    """p7 POST 针孔②(design D1)。red-check:注释 _delete_session 的 CT 闸 →
+    test_11 红;注释 key 闸 → test_12 红;把 do_POST 的 _SESSION_DELETE_RE 分支
+    改成透传任意路径 → test_13 红。"""
+
+    # ⑩ 转发:POST(CT json)→ 上游 /api/sessions/<key>/delete,Authorization
+    #    透传,响应(含 blocked_by_automations 形状)原样回传
+    def test_10_delete_forward(self):
+        script = {"/api/sessions/websocket:abc/delete": (200, {"deleted": True})}
+        with _upstream(script) as up, _serve(up.server_address[1]) as port:
+            st, _, body = _req(
+                port, "/api/chat/sessions/websocket:abc/delete", method="POST",
+                headers={**_JSON_CT, "Authorization": "Bearer tk"}, body=b"{}")
+            self.assertEqual(st, 200)
+            self.assertTrue(json.loads(body.decode("utf-8"))["deleted"])
+            r = up.requests[0]
+            self.assertEqual(r["path"], "/api/sessions/websocket:abc/delete")
+            self.assertEqual(r["headers"].get("authorization"), "Bearer tk")
+
+    # ⑪ CSRF 纵深:非 application/json(缺省/text/plain)→ 400,零上游
+    def test_11_delete_requires_json_ct(self):
+        with _upstream() as up, _serve(up.server_address[1]) as port:
+            for hd in ({}, {"Content-Type": "text/plain"}):
+                st, _, _ = _req(port, "/api/chat/sessions/websocket:abc/delete",
+                                method="POST", headers=hd, body=b"{}")
+                self.assertEqual(st, 400, f"headers={hd}")
+            # body 超限同拒
+            st, _, _ = _req(port, "/api/chat/sessions/websocket:abc/delete",
+                            method="POST", headers=_JSON_CT, body=b"x" * 5000)
+            self.assertEqual(st, 400)
+            self.assertEqual(up.requests, [], "拒绝路径不得触达上游")
+
+    # ⑫ 非法 key → 404,零上游(同 thread 代理:%xx 直接非法)
+    def test_12_delete_bad_key(self):
+        bad = ["..", "%2e%2e", "a%2fb", "%e9%be%99", "a" * 129]
+        with _upstream() as up, _serve(up.server_address[1]) as port:
+            for k in bad:
+                st, _, _ = _req(port, f"/api/chat/sessions/{k}/delete",
+                                method="POST", headers=_JSON_CT, body=b"{}")
+                self.assertEqual(st, 404, f"key={k!r} 应 404")
+            self.assertEqual(up.requests, [])
+
+    # ⑬ POST 白名单仍然锁死:delete 之外的 POST 代理路径维持 405
+    def test_13_post_whitelist_still_locked(self):
+        paths = ["/api/chat/sessions", "/api/chat/bootstrap",
+                 "/api/chat/sessions/k/thread",
+                 "/api/chat/sessions/k/delete/extra"]
+        with _upstream() as up, _serve(up.server_address[1]) as port:
+            for p in paths:
+                st, hd, _ = _req(port, p, method="POST",
+                                 headers=_JSON_CT, body=b"{}")
+                self.assertEqual(st, 405, f"path={p} 应 405")
+                self.assertEqual(hd.get("allow"), "GET")
+            self.assertEqual(up.requests, [])
 
 
 if __name__ == "__main__":
