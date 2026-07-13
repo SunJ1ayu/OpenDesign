@@ -206,3 +206,59 @@ test("GFM:代码块/列表基本形状", () => {
   assert.match(html, /<ul>[\s\S]*<li>甲<\/li>/);
   assert.match(html, /<pre><code>/);
 });
+
+// ---- p6:历史对话回放 + attach 信封 -------------------------------------
+// design.md D1/D2:attach 续聊(非只读);thread 回放只收 user/assistant 字符串
+// content,跳 trace 与空 assistant;id 缺省 replay-<i>;busy=false 不锁输入。
+
+import { hydrateFromThread, attachEnvelope } from "../web/src/chat/transcript.ts";
+
+test("attachEnvelope:协议 attach 信封形状", () => {
+  assert.deepEqual(attachEnvelope("chat-9"), { type: "attach", chat_id: "chat-9" });
+});
+
+test("hydrateFromThread:正常回放(role 过滤/id 沿用/不锁输入)", () => {
+  const s = hydrateFromThread({
+    messages: [
+      { id: "u1", role: "user", content: "记一下:玄关柜 2.4 米" },
+      { id: "a1", role: "assistant", content: "已记录 C3。" },
+      { id: "t1", role: "assistant", content: "tool trace…", kind: "trace" },
+      { id: "x1", role: "system", content: "不该出现" },
+      { id: "a2", role: "assistant", content: "   " },
+      { id: "a3", role: "assistant", content: 42 },
+    ],
+  });
+  assert.ok(s);
+  assert.deepEqual(
+    s.messages.map((m) => [m.id, m.role, m.content, m.streaming]),
+    [
+      ["u1", "user", "记一下:玄关柜 2.4 米", false],
+      ["a1", "assistant", "已记录 C3。", false],
+    ],
+  );
+  assert.equal(s.busy, false);
+});
+
+test("hydrateFromThread:id 缺失/非字符串 → replay-<i> 兜底且不重复", () => {
+  const s = hydrateFromThread({
+    messages: [
+      { role: "user", content: "一" },
+      { id: 7, role: "assistant", content: "二" },
+    ],
+  });
+  assert.ok(s);
+  assert.deepEqual(s.messages.map((m) => m.id), ["replay-0", "replay-1"]);
+});
+
+test("hydrateFromThread:畸形 payload → null(安全降级,不崩)", () => {
+  for (const bad of [null, undefined, 42, "x", {}, { messages: "no" }, { messages: null }]) {
+    assert.equal(hydrateFromThread(bad), null, `payload=${JSON.stringify(bad)}`);
+  }
+});
+
+test("hydrateFromThread:全被过滤 → 空消息列表(仍是合法 state,非 null)", () => {
+  const s = hydrateFromThread({ messages: [{ role: "system", content: "x" }] });
+  assert.ok(s);
+  assert.deepEqual(s.messages, []);
+  assert.equal(s.busy, false);
+});

@@ -20,6 +20,7 @@ type Props = {
   onSelectProject: (key: string) => void;
   todosOpenCount: number | null;
   sessions: SessionItem[] | null; // null = 未连接/不可用(隐藏区块内容)
+  onOpenSession: (s: SessionItem) => void; // p6:点历史行 → 首页 attach 续聊
   onNewChat: () => void;
   onNewProject: () => void;
   onSearch: () => void;
@@ -35,7 +36,7 @@ function dotClass(p: Project, current: boolean): string {
 
 export default function Sidebar({
   route, projects, selectedKey, onSelectProject, todosOpenCount,
-  sessions, onNewChat, onNewProject, onSearch, health,
+  sessions, onOpenSession, onNewChat, onNewProject, onSearch, health,
 }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -110,7 +111,12 @@ export default function Sidebar({
       </div>
       <div className="side-list">
         {recent.map((s) => (
-          <button className="hist-row" key={s.key} title={s.title || s.preview || ""}>
+          <button
+            className="hist-row"
+            key={s.key}
+            title={s.title || s.preview || ""}
+            onClick={() => onOpenSession(s)}
+          >
             <span className="ico">◷</span>
             <span className="t">{s.title || s.preview || "(未命名对话)"}</span>
             <span className="when">{relTime(s.updated_at)}</span>

@@ -35,6 +35,37 @@ export function messageEnvelope(chatId: string, content: string, turnId: string)
   };
 }
 
+/** 出站 attach 信封(p6 续聊:挂回历史会话的 chat_id,协议 §2 入站)。 */
+export function attachEnvelope(chatId: string) {
+  return { type: "attach" as const, chat_id: chatId };
+}
+
+/**
+ * webui-thread 回放 → TranscriptState(p6,design.md D2)。
+ * 只收 role∈{user,assistant} 且 content 为 string 的行;跳过 kind:"trace" 与
+ * 空白 assistant;id 沿用服务端的,缺/非法则 replay-<i>;回放完不锁输入。
+ * 畸形 payload → null(安全降级,调用方回退空 transcript)。
+ */
+export function hydrateFromThread(payload: unknown): TranscriptState | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const raw = (payload as Record<string, unknown>).messages;
+  if (!Array.isArray(raw)) return null;
+  const messages: ChatMessage[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const m = raw[i];
+    if (typeof m !== "object" || m === null) continue;
+    const r = m as Record<string, unknown>;
+    if (r.kind === "trace") continue;
+    const role = r.role;
+    if (role !== "user" && role !== "assistant") continue;
+    if (typeof r.content !== "string") continue;
+    if (role === "assistant" && !r.content.trim()) continue;
+    const id = typeof r.id === "string" && r.id ? r.id : `replay-${i}`;
+    messages.push({ id, role, content: r.content, streaming: false });
+  }
+  return { messages, busy: false };
+}
+
 /** 用户消息本地上屏 + 锁输入(回显不靠 ws,协议不回放自己的消息)。 */
 export function appendLocalUser(
   state: TranscriptState,

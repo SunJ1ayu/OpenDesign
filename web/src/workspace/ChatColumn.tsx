@@ -10,9 +10,10 @@ type Props = {
   session: ChatSession;
   prefill: { text: string; nonce: number };
   onConnected?: () => void;
+  onTurnEnd?: () => void;
 };
 
-export default function ChatColumn({ session, prefill, onConnected }: Props) {
+export default function ChatColumn({ session, prefill, onConnected, onTurnEnd }: Props) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -34,7 +35,7 @@ export default function ChatColumn({ session, prefill, onConnected }: Props) {
         </div>
       )}
       <div className={`chatcol-body${collapsed ? " route-hidden" : ""}`}>
-        <ChatPage session={session} prefill={prefill} onConnected={onConnected} />
+        <ChatPage session={session} prefill={prefill} onConnected={onConnected} onTurnEnd={onTurnEnd} />
       </div>
     </section>
   );

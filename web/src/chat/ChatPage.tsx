@@ -4,6 +4,8 @@ import {
   emptyTranscript,
   appendLocalUser,
   applyEvent,
+  attachEnvelope,
+  hydrateFromThread,
   messageEnvelope,
   shouldSendOnEnter,
   type TranscriptState,
@@ -34,6 +36,14 @@ type Props = {
   prefill?: { text: string; nonce: number };
   /** 连接就绪回调(App 借此刷新侧栏历史对话;首次登录后无需刷新页面)。 */
   onConnected?: () => void;
+  /** 每轮回复收尾(turn_end)回调(p6:App 借此自动刷新侧栏历史对话,免 F5)。 */
+  onTurnEnd?: () => void;
+  /**
+   * 续聊目标(p6,design.md D1):设了 = 连接后 attach 挂回该历史会话并回放
+   * thread;null/缺省 = 新对话(服务端默认新 chat_id,现行为)。nonce 变化
+   * 触发重连(同一会话点两次也要重挂)。
+   */
+  resume?: { sessionKey: string; chatId: string; nonce: number } | null;
   /**
    * 展示变体(P3 T1,design.md「抽薄不 fork」):column = 2a 右列(默认),
    * home = 3a 新对话页。变体只影响 className 与空态 JSX 与输入卡外层样式;
@@ -54,6 +64,8 @@ export default function ChatPage({
   session: sessionProp,
   prefill,
   onConnected,
+  onTurnEnd,
+  resume = null,
   variant = "column",
 }: Props) {
   const fallback = useMemo(() => new ChatSession(), []);
@@ -93,7 +105,25 @@ export default function ChatPage({
       setTranscript((s) => batch.reduce(applyEvent, s));
     };
     setView({ kind: "connecting" });
-    setTranscript(emptyTranscript); // 每条连接都是新 chat_id,历史回补是 T6/T7
+    setTranscript(emptyTranscript);
+    // p6 续聊:本轮 effect 的恢复目标(闭包捕获;null = 新对话走 ready 即连上)
+    const target = resume;
+    let attached = false;
+    if (target) {
+      // thread 回放与建连并行;回放消息一律「前插」——无论先后到,都不覆盖
+      // attach 后用户已发的新消息。失败静默降级(attach 仍成立,从空开始)。
+      // key 走裸串:ds_web 代理的 _KEY_RE 白名单是 [A-Za-z0-9_:.-](含冒号、
+      // 不含 %),encodeURIComponent 会把 websocket: 编成 %3A 被代理拒(e2e 实抓)
+      session
+        .apiFetch(`/api/chat/sessions/${target.sessionKey}/thread`)
+        .then(async (r) => (r.status === 200 ? r.json() : null))
+        .then((p) => {
+          const replay = p === null ? null : hydrateFromThread(p);
+          if (cancelled || !replay || replay.messages.length === 0) return;
+          setTranscript((s) => ({ ...s, messages: [...replay.messages, ...s.messages] }));
+        })
+        .catch(() => {});
+    }
 
     session
       .openSocket()
@@ -110,10 +140,28 @@ export default function ChatPage({
           try {
             const m = JSON.parse(ev.data);
             if (m.event === "ready" && typeof m.chat_id === "string") {
+              if (target) {
+                // 服务端默认给的新 chat_id 弃用,改挂历史会话;attached 前不置连上
+                ws?.send(JSON.stringify(attachEnvelope(target.chatId)));
+                return;
+              }
               setView({ kind: "connected", chatId: m.chat_id, model: info?.model_name });
               onConnected?.();
               return;
             }
+            if (target && !attached) {
+              if (m.event === "attached" && m.chat_id === target.chatId) {
+                attached = true;
+                setView({ kind: "connected", chatId: target.chatId, model: info?.model_name });
+                onConnected?.();
+                return;
+              }
+              if (m.event === "error") {
+                setView({ kind: "error", msg: "无法打开该历史对话" });
+                return;
+              }
+            }
+            if (m.event === "turn_end") onTurnEnd?.();
             pending.push(m);
             if (timer === null) timer = setTimeout(flush, FLUSH_MS);
           } catch {
@@ -141,7 +189,10 @@ export default function ChatPage({
       if (wsRef.current === ws) wsRef.current = null;
       ws?.close();
     };
-  }, [session, attempt]);
+    // resume 整体由 nonce 代表(点同一会话两次也要重挂);onConnected/onTurnEnd
+    // 是稳定回调,不入依赖(与既有 onConnected 同约定)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, attempt, resume?.nonce ?? 0]);
 
   // 新内容到就贴底(简单版:一律贴底,不做"看历史时不打扰")
   useEffect(() => {

@@ -42,7 +42,7 @@ import ds_refs
 import ds_todo
 import ds_workspace
 
-VERSION = "0.6.1"  # health.model 改按 nanobot 规则解析(preset 优先);回显此号=运行中是新版的实证
+VERSION = "0.7.0"  # P6 历史对话点开续聊 + 列表 turn_end 自动刷新;回显此号=运行中是新版的实证
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")

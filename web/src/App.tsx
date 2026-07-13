@@ -65,7 +65,13 @@ export default function App() {
     text: "",
     nonce: 0,
   });
-  const [sessionsEpoch, setSessionsEpoch] = useState(0); // 连接就绪后刷新历史对话
+  const [sessionsEpoch, setSessionsEpoch] = useState(0); // 连接就绪/每轮回复后刷新历史对话
+  // p6 续聊目标:点历史行 → 首页聊天实例 attach 挂回该会话(null = 新对话)
+  const [resumeTarget, setResumeTarget] = useState<{
+    sessionKey: string;
+    chatId: string;
+    nonce: number;
+  } | null>(null);
 
   useEffect(() => {
     const onHash = () => setRoute(fromHash());
@@ -144,6 +150,7 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "n") {
         e.preventDefault();
+        setResumeTarget(null); // 与「新对话」同语义(见 newChat 注释)
         window.location.hash = "#/";
       } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -171,6 +178,28 @@ export default function App() {
   );
 
   const onConnected = useCallback(() => setSessionsEpoch((n) => n + 1), []);
+  // p6:每轮回复收尾也刷新(新会话首轮后即出现在侧栏,免 F5)
+  const onTurnEnd = useCallback(() => setSessionsEpoch((n) => n + 1), []);
+
+  // p6:点历史对话行 → 回首页并 attach 续聊(会话 key = websocket:<chat_id>)
+  const openSession = useCallback((s: { key: string }) => {
+    if (!s.key.startsWith("websocket:")) return;
+    const chatId = s.key.slice("websocket:".length);
+    setResumeTarget((prev) => ({
+      sessionKey: s.key,
+      chatId,
+      nonce: (prev?.nonce ?? 0) + 1,
+    }));
+    window.location.hash = "#/";
+  }, []);
+
+  // 新对话:回 3a。p3 的「不重置对话」只针对误触丢对话——现在历史对话可点回
+  // (本 track),从续聊态开新对话不再是丢失,所以 resume 态下清目标重连拿新
+  // chat_id;非 resume 态维持 p3 现状(setState(null→null) React bail-out,零重连)。
+  const newChat = useCallback(() => {
+    setResumeTarget(null);
+    window.location.hash = "#/";
+  }, []);
 
   // 进某个项目的工作区(侧栏点击 / 待办「去项目」/ 搜索直达 共用)
   const goProject = useCallback((key: string) => {
@@ -206,9 +235,8 @@ export default function App() {
       onSearch={() => setSearchOpen(true)}
       todosOpenCount={todosCount}
       sessions={sessions}
-      onNewChat={() => {
-        window.location.hash = "#/";
-      }}
+      onOpenSession={openSession}
+      onNewChat={newChat}
       onNewProject={() => {
         prefillHome("新建项目:");
         window.location.hash = "#/";
@@ -228,6 +256,8 @@ export default function App() {
           session={session}
           prefill={homePrefill}
           onConnected={onConnected}
+          onTurnEnd={onTurnEnd}
+          resume={resumeTarget}
         />
       </section>
 
@@ -255,7 +285,12 @@ export default function App() {
             window.location.hash = "#/gallery";
           }}
         />
-        <ChatColumn session={session} prefill={colPrefill} onConnected={onConnected} />
+        <ChatColumn
+          session={session}
+          prefill={colPrefill}
+          onConnected={onConnected}
+          onTurnEnd={onTurnEnd}
+        />
       </div>
 
       {/* 无状态页:每次进入重建,无所谓(design.md 取舍) */}
