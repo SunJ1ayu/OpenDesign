@@ -156,17 +156,30 @@ class TestDsWeb(unittest.TestCase):
                 st, _, _ = _req(port, p, method=m)
                 self.assertEqual(st, 405, f"{m} {p} -> {st}")
 
-    # ⑦ 错误路径:非 UTF-8 字节 .md → 500 JSON,进程活着(oracle #7,fixture 按 F2)
-    def test_07_bad_utf8_500_survive(self):
-        root = _mkroot({"bad.md": b"# bad\n\xff\xfe not utf8\n"})
+    # ⑦ 错误路径:一个坏编码 .md 不拖垮其余(M1,07-13 盲评;推翻原「整体 500」契约)。
+    #    根因=collect() 无逐文件 try,一坏则 todos+projects 双端点全灭。现:坏文件跳过并
+    #    进 errors 字段,好文件照常返回,进程活着。
+    def test_07_bad_utf8_isolated_not_fatal(self):
+        root = _mkroot({"bad.md": b"# bad\n\xff\xfe not utf8\n",
+                        "翡翠湾-1801.md": PROJ_CN})
         with _serve(root, _mkdist()) as httpd:
             port = httpd.server_address[1]
-            st, hd, body = _req(port, "/api/todos")
-            self.assertEqual(st, 500)
-            self.assertIn("error", json.loads(body.decode("utf-8")))
-            st2, _, body2 = _req(port, "/api/health")
+            # /api/todos:200,好项目的未办结项在,坏文件记进 errors
+            st, _, body = _req(port, "/api/todos")
+            self.assertEqual(st, 200)
+            data = json.loads(body.decode("utf-8"))
+            self.assertTrue(any(it["project"] == "翡翠湾-1801" for it in data["open"]))
+            self.assertIn("bad.md", data.get("errors", []))
+            # /api/projects:200,好项目列出(坏文件不出现)
+            st2, _, body2 = _req(port, "/api/projects")
             self.assertEqual(st2, 200)
-            self.assertTrue(json.loads(body2.decode("utf-8"))["ok"])
+            keys = {p["key"] for p in json.loads(body2.decode("utf-8"))["projects"]}
+            self.assertIn("翡翠湾-1801", keys)
+            self.assertNotIn("bad", keys)
+            # 进程活着
+            st3, _, body3 = _req(port, "/api/health")
+            self.assertEqual(st3, 200)
+            self.assertTrue(json.loads(body3.decode("utf-8"))["ok"])
 
     # ⑧ 实绑 127.0.0.1(oracle #8)
     def test_08_bind_loopback(self):

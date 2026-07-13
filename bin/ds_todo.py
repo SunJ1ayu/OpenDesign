@@ -59,9 +59,14 @@ def collect(root: str, stale_days: int = 7, today: date | None = None) -> dict:
 
     open_items = []
     stale_items = []
+    errors = []  # M1(07-13 盲评):坏编码/读失败的文件记这里,不拖垮整个 collect
     for f in files:
-        with open(os.path.join(proj, f), encoding="utf-8") as fh:
-            text = fh.read()
+        try:
+            with open(os.path.join(proj, f), encoding="utf-8") as fh:
+                text = fh.read()
+        except (OSError, UnicodeDecodeError):
+            errors.append(f)  # 一个坏文件不该让 todos/projects 双端点全灭
+            continue
         name = f[:-3]
         for i, ln in enumerate(text.split("\n"), 1):
             c = parse_change(ln)
@@ -87,7 +92,7 @@ def collect(root: str, stale_days: int = 7, today: date | None = None) -> dict:
             stale_items.append({"project": name, "days": age, "last": dates[-1]})
 
     return {"today": today.isoformat(), "stale_days": stale_days,
-            "open": open_items, "stale": stale_items}
+            "open": open_items, "stale": stale_items, "errors": errors}
 
 
 def render(root: str, stale_days: int = 7, today: date | None = None) -> str:

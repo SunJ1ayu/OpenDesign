@@ -274,8 +274,9 @@ class Handler(BaseHTTPRequestHandler):
         try:
             data = ds_todo.collect(self.server.ds_root)
         except Exception:
-            # 含 Windows 写锁窗口内的读期 OSError(F3)与坏编码文件(F2):
-            # 500 自愈路径,trace 进日志不进响应体
+            # M1 后:坏编码文件(F2)/读期 OSError(F3,Windows 写锁窗口)已在 collect
+            # 内逐文件隔离进 errors 字段;这层降为兜底(projects 目录本身不可列等意外),
+            # 仍 500 但不再被单个坏文件触发。trace 进日志不进响应体。
             traceback.print_exc()
             self._json(500, {"error": "internal"})
             return
@@ -309,8 +310,11 @@ class Handler(BaseHTTPRequestHandler):
                 target = os.path.realpath(os.path.join(proj_dir, f))
                 if not ds_common.within(proj_dir, target) or not os.path.isfile(target):
                     continue
-                with open(target, encoding="utf-8") as fh:
-                    text = fh.read()
+                try:  # M1:坏编码/读失败的单个文件跳过,不 500 整个列表
+                    with open(target, encoding="utf-8") as fh:
+                        text = fh.read()
+                except (OSError, UnicodeDecodeError):
+                    continue
                 stage = _field(text, "阶段")
                 dates = ds_common.LASTUPD_DATE_RE.findall(text)
                 projects.append({
