@@ -5,7 +5,7 @@
     python ds_merge_config.py TEMPLATE.jsonc TARGET.json [--api-base URL] [--model NAME]
 
 只合并模板里的四段(TARGET 先备份为 TARGET.bak-<时间戳>):
-    providers.custom / model_presets.primary / agents.defaults / tools.mcpServers
+    providers.custom / model_presets / agents.defaults / tools.mcpServers
 channels 段永远不碰 —— websocket 归 `nanobot onboard` 管,feishu 是可选通道不预填。
 --api-base/--model 不给时保持模板默认(MiMo 示例端点)。
 """
@@ -82,7 +82,13 @@ def main() -> int:
     if args.api_base:
         tpl["providers"]["custom"]["apiBase"] = args.api_base
     if args.model:
-        tpl["model_presets"]["primary"]["model"] = args.model
+        # 换端点 = 模板的 MiMo 示例预设全部作废:替换成机主模型的单一预设
+        # (预设 key 直接用模型名,与模板"/model 列表显示模型名"的约定一致),
+        # 并把默认预设指过去。maxTokens 等参数沿用模板第一个预设的值。
+        base = dict(next(iter(tpl["model_presets"].values())))
+        base.update(label=args.model, model=args.model)
+        tpl["model_presets"] = {args.model: base}
+        tpl["agents"]["defaults"]["modelPreset"] = args.model
 
     wanted = {
         "providers": {"custom": tpl["providers"]["custom"]},
@@ -104,7 +110,8 @@ def main() -> int:
 
     print(f"ds_merge_config: 已合并 4 段进 {args.target}(备份: {backup.name})")
     print(f"  apiBase = {tpl['providers']['custom']['apiBase']}")
-    print(f"  model   = {tpl['model_presets']['primary']['model']}")
+    default_preset = tpl["agents"]["defaults"]["modelPreset"]
+    print(f"  model   = {tpl['model_presets'][default_preset]['model']}(默认预设 {default_preset})")
     return 0
 
 
