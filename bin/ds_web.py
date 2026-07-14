@@ -50,7 +50,7 @@ import ds_refs
 import ds_todo
 import ds_workspace
 
-VERSION = "0.8.1"  # hardening:H1 名字闸/H2 Host 校验/M2 字符集收敛/M1 坏文件隔离等盲评修复
+VERSION = "0.8.2"  # M2 v2:文件名闸白名单→黑名单,中文全角标点/&等常见命名不再被静默隐藏
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -111,11 +111,10 @@ DELIVERED_STAGES = ("竣工验收", "售后")
 # 就是路由 key,"能列出"与"能寻址"必须同集合)。不含 / \ ⇒ 无路径分隔符;
 # `.`/`..` 与含 `..` 者 _valid_proj_key 显式拒(纵深防御,realpath+within 才是权威闸)。
 _PROJ_KEY_RE = ds_workspace.PROJECT_NAME_RE
-# 相对路径白名单(Gate A):= ds_workspace.NAME_CHARS 单段字符集 + `/`(支持子目录),
-# 单一真相源(M2,07-13 盲评):枚举侧(ds_workspace._SEG_RE)列得出的每段,服务侧
-# 必须认得,否则 `12#1802-客厅.jpg` 列出即 404 裂图。`..` 走 Gate B(realpath)。
-# 收尾用 \Z 不用 $:re 的 $ 在"结尾换行符之前"也匹配,`a.png\n` 会漏过字符集闸。
-_REFS_PATH_RE = re.compile(rf"^[{ds_workspace.NAME_CHARS}/]+\Z")
+# 相对路径闸(Gate A)= ds_workspace.relpath_ok:逐段过单段黑名单(禁 / \ % 控制符、
+# 非 ./..),允许 / 连接子目录。单一真相源(M2,07-13 盲评 + 07-14 v2 黑名单化):枚举侧
+# (ds_workspace._SEG_RE)列得出的每段,服务侧必认得,否则列出即 404 裂图。逃逸权威闸=
+# realpath+within(Gate B);此处 .. 段亦被 relpath_ok 提前拒(纵深防御)。
 
 # 图片扩展名白名单(Gate C)—— 唯一允许读出的类型;svg 排除(直开可执行脚本)。
 _IMG_CTYPES = {
@@ -128,7 +127,7 @@ def _servable_ref_file(file: str) -> bool:
     """索引行的 file 字段是否 refs/ 下且能过 _refs_file Gate A(M2:列出=可服务)。"""
     if not isinstance(file, str) or not file.startswith("refs/"):
         return False
-    return bool(_REFS_PATH_RE.match(file[len("refs/"):]))
+    return ds_workspace.relpath_ok(file[len("refs/"):])
 
 
 def _valid_proj_key(key: str) -> bool:
@@ -392,10 +391,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def _refs_file(self, rel: str):
         """参考图静态服务 —— 本 track 唯一新增文件读出面。三闸串联,每闸独立可验红:
-        Gate A 字符集白名单 → Gate B realpath 前缀(逃逸/symlink 权威闸)→ Gate C 扩展白名单。
+        Gate A 段黑名单 → Gate B realpath 前缀(逃逸/symlink 权威闸)→ Gate C 扩展白名单。
         404 一律不回显路径;Content-Type 按扩展映射;禁目录列表(只 isfile)。"""
-        # Gate A —— 字符集白名单(拒 % 残留 / 控制字符 / 反斜杠 / 其它非白名单字符)
-        if not _REFS_PATH_RE.match(rel):
+        # Gate A —— relpath_ok:拒 % 残留 / 控制字符 / 反斜杠 / 空段 / . .. 段
+        if not ds_workspace.relpath_ok(rel):
             self._json(404, {"error": "not found"})
             return
         base = os.path.realpath(os.path.join(self.server.ds_root, "refs"))
@@ -461,10 +460,10 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {"configured": True, "mapped": True, **data})
 
     def _files_file(self, key: str, rel: str):
-        """项目图片静态服务。三闸同 _refs_file 先例(Gate A 字符集 → Gate B realpath
+        """项目图片静态服务。三闸同 _refs_file 先例(Gate A relpath_ok → Gate B realpath
         within(项目夹) → Gate C 图片扩展白名单),外加 key 必须已映射;404 不回显路径。"""
         status, pd = self._ws_proj(key)
-        if status != "ok" or not _REFS_PATH_RE.match(rel):
+        if status != "ok" or not ds_workspace.relpath_ok(rel):
             self._json(404, {"error": "not found"})
             return
         target = os.path.realpath(os.path.join(pd, rel))

@@ -299,32 +299,37 @@ class WriteMethod405Invariant(unittest.TestCase):
 
 
 class ListedIsServableTest(unittest.TestCase):
-    """M2(07-13 盲评)不变量:/api/files/images 列出的每一条 rel,file 端点必 200。"""
+    """M2(07-13 盲评 + 07-14 v2 黑名单化)不变量:/api/files/images 列出的每一条 rel,
+    file 端点必 200。# / & / 中文全角括号(）等常见命名放行;只有 % 等路径/URL 危险
+    字符才拒(那类文件既不列也不服务)。"""
 
-    def test_hash_file_roundtrip(self):
+    def test_hash_and_punct_file_roundtrip(self):
         root = _mkroot()
         proj = os.path.join(root, "ws", *PROJ_REL.split("/"))
         _touch(os.path.join(proj, "08-交付#归档", "12#1802-客厅.png"), PNG)
+        _touch(os.path.join(proj, "02-参考图", "报价&终稿（复尺）.png"), PNG)  # &+全角括号
         with _serve(root) as (port, _):
             st, d = _get_json(port, f"/api/files/images/{_k(KEY)}")
             self.assertEqual(200, st)
             rels = [i["rel"] for i in d["images"]]
             self.assertIn("08-交付#归档/12#1802-客厅.png", rels)
-            for rel in rels:  # 列出 ⊆ 可服务(# 必须编码上线,否则是 fragment)
+            self.assertIn("02-参考图/报价&终稿（复尺）.png", rels)
+            for rel in rels:  # 列出 ⊆ 可服务(# 与全角字符必须编码上线)
                 st2, _b = _req(port, f"/api/files/file/{_k(KEY)}/" + quote(rel, safe="/"))
                 self.assertEqual(200, st2, rel)
 
     def test_unservable_not_listed(self):
+        # % 是 URL 编码引信 → 黑名单 Gate A 拒;含 % 的文件既不列出(诚实缺席)也服务不到
         root = _mkroot()
         proj = os.path.join(root, "ws", *PROJ_REL.split("/"))
-        _touch(os.path.join(proj, "02-参考图", "报价&终稿.png"), PNG)
+        _touch(os.path.join(proj, "02-参考图", "报价%终稿.png"), PNG)
         with _serve(root) as (port, _):
             st, d = _get_json(port, f"/api/files/images/{_k(KEY)}")
             self.assertEqual(200, st)
-            self.assertNotIn("&", json.dumps(d, ensure_ascii=False))
+            self.assertNotIn("%", json.dumps(d, ensure_ascii=False))
             st_o, d_o = _get_json(port, f"/api/files/overview/{_k(KEY)}")
             self.assertEqual(200, st_o)
-            self.assertNotIn("&", json.dumps(d_o, ensure_ascii=False))
+            self.assertNotIn("%", json.dumps(d_o, ensure_ascii=False))
 
 
 if __name__ == "__main__":

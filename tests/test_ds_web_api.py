@@ -378,10 +378,10 @@ class TestRefsFile(unittest.TestCase):
     # Gate A —— 字符集白名单:含非法字符的路径拒服务(即便真有此文件)
     def test_file_charset_gate(self):
         root = _mkroot({})
-        _write_bytes(os.path.join(root, "refs", "bad!.png"))  # 真实存在
+        _write_bytes(os.path.join(root, "refs", "bad%x.png"))  # 真实存在
         with _serve(root) as port:
-            st, _, _ = _req(port, "/api/refs/file/" + quote("bad!.png"))
-        self.assertEqual(st, 404)  # ! 不在字符集白名单 → 404,而非 200
+            st, _, _ = _req(port, "/api/refs/file/" + quote("bad%x.png"))
+        self.assertEqual(st, 404)  # % 是 URL 编码引信,黑名单 Gate A 拒 → 404,而非 200
 
     # Gate B —— realpath 前缀:裸 ../ 逃出 refs/ 一律 404 且不泄露内容
     def test_file_traversal(self):
@@ -435,36 +435,42 @@ class TestRefsFile(unittest.TestCase):
 
 
 class TestRefsCharsetConvergence(unittest.TestCase):
-    """M2(07-13 盲评):refs 列出=可服务同集合。# 进 Gate A;Gate A 不认的行不列。"""
+    """M2(07-13 盲评 + 07-14 v2 黑名单化):refs 列出=可服务同集合。
+    Gate A 放行 # / & / 中文全角标点(realpath+within 才是权威闸);只有会破坏路径/URL
+    解码的字符(% 等)才拒——那种行既不列出也不服务(诚实缺席)。"""
 
     IDX = """# 参考图索引
 
 - [r1] 奶油风|玄关 | 来源:小红书 | 文件:refs/12#1802-客厅.jpg | 用于:保利中央公园 | 备注:
-- [r2] 侘寂风|客厅 | 来源:小红书 | 文件:refs/坏&图.jpg | 用于:保利中央公园 | 备注:
+- [r2] 侘寂风|客厅 | 来源:小红书 | 文件:refs/坏%图.jpg | 用于:保利中央公园 | 备注:
+- [r3] 奶油风|客厅 | 来源:小红书 | 文件:refs/客厅（复尺）&终.jpg | 用于:保利中央公园 | 备注:
 
 ---
 最后更新: 2026-07-13
 """
 
-    def test_hash_row_listed_and_served(self):
+    def test_hash_and_punct_row_listed_and_served(self):
+        # #(楼栋#户号)与 &/中文全角括号(）——常见真实命名——都必须列得出且服务得到
         root = _mkroot({"保利中央公园.md": PROJ_A}, refs_index=self.IDX)
-        _write_bytes(os.path.join(root, "refs", "12#1802-客厅.jpg"),
-                     b"\xff\xd8\xffJPEGDATA")
+        for name in ("12#1802-客厅.jpg", "客厅（复尺）&终.jpg"):
+            _write_bytes(os.path.join(root, "refs", name), b"\xff\xd8\xffJPEGDATA")
         with _serve(root) as port:
             st, _, d = _get_json(port, "/api/projects/" + quote("保利中央公园") + "/refs")
             self.assertEqual(st, 200)
             files = [r["file"] for r in d["refs"]]
-            self.assertIn("refs/12#1802-客厅.jpg", files)
-            st2, hd, body = _req(port, "/api/refs/file/" + quote("12#1802-客厅.jpg"))
-            self.assertEqual(st2, 200)
-            self.assertIn(b"JPEGDATA", body)
+            for name in ("12#1802-客厅.jpg", "客厅（复尺）&终.jpg"):
+                self.assertIn("refs/" + name, files)
+                st2, hd, body = _req(port, "/api/refs/file/" + quote(name))
+                self.assertEqual(st2, 200, name)
+                self.assertIn(b"JPEGDATA", body)
 
     def test_unservable_row_not_listed(self):
+        # % 是 URL 编码引信,黑名单拒 → 既不列出也服务不到(此行诚实缺席)
         root = _mkroot({"保利中央公园.md": PROJ_A}, refs_index=self.IDX)
         with _serve(root) as port:
             st, _, d = _get_json(port, "/api/projects/" + quote("保利中央公园") + "/refs")
         self.assertEqual(st, 200)
-        self.assertNotIn("refs/坏&图.jpg", [r["file"] for r in d["refs"]])
+        self.assertNotIn("refs/坏%图.jpg", [r["file"] for r in d["refs"]])
 
 
 if __name__ == "__main__":

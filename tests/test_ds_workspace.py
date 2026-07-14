@@ -240,11 +240,11 @@ class ResolveSubTest(unittest.TestCase):
 
 
 class CharsetConvergenceTest(unittest.TestCase):
-    """M2(07-13 盲评):列出=可寻址,单段字符集 NAME_CHARS 单一真相源。
+    """M2(07-13 盲评 + 07-14 v2 黑名单化):列出=可寻址,单段闸 _SEG_RE 单一真相源。
 
-    双真相=枚举零过滤而服务/寻址闸不认 `#`:`12#1802-客厅.jpg` 列得出永远 404
-    裂图(# 正是「楼栋#户号」命名约定)。收敛=# 进白名单;白名单外字符(&)
-    枚举侧同集合过滤=诚实缺席,不给点不开的条目。
+    v1 用字符白名单只补了 #,但 & / 中文全角标点(（）等)仍被枚举侧静默过滤=用户
+    看不见自己的文件。v2 改黑名单:Gate A 只挡 / \\ % 与控制符,放行其余常见命名字符;
+    权威逃逸闸仍是 realpath+within。只有真·危险字符(%)才诚实缺席(既不列也不寻址)。
     """
 
     def _proj(self, tmp):
@@ -252,22 +252,26 @@ class CharsetConvergenceTest(unittest.TestCase):
         cfg = ds_workspace.load_config(ds_root)
         return ds_workspace.project_dir(cfg, KEY)
 
-    def test_hash_listed_and_addressable(self):
+    def test_hash_and_punct_listed_and_addressable(self):
         with tempfile.TemporaryDirectory() as tmp:
             proj = self._proj(tmp)
             _touch(os.path.join(proj, "08-交付#归档", "12#1802-客厅.png"))
-            imgs = ds_workspace.images(proj)
-            self.assertIn("08-交付#归档/12#1802-客厅.png", [i["rel"] for i in imgs])
+            _touch(os.path.join(proj, "02-参考图（复尺）", "报价&终稿.png"))  # 全角括号+&
+            imgs = [i["rel"] for i in ds_workspace.images(proj)]
+            self.assertIn("08-交付#归档/12#1802-客厅.png", imgs)
+            self.assertIn("02-参考图（复尺）/报价&终稿.png", imgs)
             self.assertIsNotNone(ds_workspace.resolve_sub(proj, "08-交付#归档"))
+            self.assertIsNotNone(ds_workspace.resolve_sub(proj, "02-参考图（复尺）"))
 
     def test_unservable_chars_not_listed(self):
+        # % 是 URL 编码引信 → 黑名单拒;含 % 的文件/目录枚举侧诚实缺席
         with tempfile.TemporaryDirectory() as tmp:
             proj = self._proj(tmp)
-            _touch(os.path.join(proj, "02-参考图", "报价&终稿.png"))
-            _touch(os.path.join(proj, "素材&杂", "ok.png"))
+            _touch(os.path.join(proj, "02-参考图", "报价%终稿.png"))
+            _touch(os.path.join(proj, "素材%杂", "ok.png"))
             blob = json.dumps({"o": ds_workspace.overview(proj),
                                "i": ds_workspace.images(proj)}, ensure_ascii=False)
-            self.assertNotIn("&", blob)
+            self.assertNotIn("%", blob)
 
 
 class AutoDiscoveryTest(unittest.TestCase):
@@ -329,10 +333,12 @@ class AutoDiscoveryTest(unittest.TestCase):
                                      "20260701 平湖 翡翠湾 3#1801"])
 
     def test_project_folders_charset(self):
+        # v2 黑名单:含 % 的文件夹名(URL 编码引信)仍被过滤;| & 等普通字符已放行
         with tempfile.TemporaryDirectory() as tmp:
-            cfg, ws_root = self._cfg(tmp, extra_folders=("坏名|竖线",))
+            cfg, ws_root = self._cfg(tmp, extra_folders=("坏名%线", "正常&楼盘"))
             names = [n for n, _ in ds_workspace.project_folders(cfg)]
-            self.assertNotIn("坏名|竖线", names)
+            self.assertNotIn("坏名%线", names)
+            self.assertIn("正常&楼盘", names)  # & 是合法命名字符,应列出
 
     def test_project_dir_explicit_wins(self):
         with tempfile.TemporaryDirectory() as tmp:

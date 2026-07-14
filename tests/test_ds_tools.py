@@ -464,6 +464,22 @@ class WriteSideNameGate(unittest.TestCase):
         r = ds_tools.create_project("../../etc/evil", "张三", ds_root=self.ds, today=TODAY)
         self.assertEqual(r.get("error"), "path_escape")
 
+    # ⑦ v2 黑名单化:中文全角标点 / & 等常见命名字符,写侧名字闸放行(不再误伤)
+    def test_h1_fullwidth_punct_name_passes(self):
+        slug = "汇景花园（复尺）& 二期！"  # 全角括号/&/全角叹号 —— 老白名单会误拒
+        r = ds_tools.create_project(slug, "张三", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        self.assertTrue(ds_tools.append_change(slug, "客厅改开放式",
+                                               ds_root=self.ds, today=TODAY).get("ok"))
+        self.assertTrue(ds_tools.read_project(slug, ds_root=self.ds).get("ok"))
+        self._no_nested()
+
+    # ⑧ % 仍拒(URL 编码引信,黑名单保留)
+    def test_h1_percent_name_rejected(self):
+        r = ds_tools.create_project("坏名%线", "张三", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "bad_name")
+        self._no_nested()
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
