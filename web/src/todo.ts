@@ -84,6 +84,21 @@ export function isValidStatus(s: string): s is Status {
   return (STATUSES as readonly string[]).includes(s);
 }
 
+/** 终态 = 离开 OPEN_STATUS(ds_todo.py)的两个:改到终态后该项从 /api/todos 消失,
+ * 页面够不到 → 必须弹撤销 toast(A2)。非终态(待确认↔进行中)项仍在页面,无需 toast。 */
+export function isTerminalStatus(s: string): boolean {
+  return s === "已完成" || s === "已关闭";
+}
+
+/** 状态含义短语(A4)—— pill/快捷菜单的 title 与测试同源。用户定义:
+ * 待确认=球在业主(等业主拍板);进行中=球在设计师(在做);已完成=做完;已关闭=作废/取消。 */
+export const STATUS_HINT: Record<Status, string> = {
+  待确认: "等业主确认",
+  进行中: "我在做",
+  已完成: "做完了",
+  已关闭: "作废 / 取消",
+};
+
 /** 行内编辑草稿:三字段皆可选,未触碰的字段 undefined。 */
 export type EditDraft = {
   status?: string; // 点选的新状态

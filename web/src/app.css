@@ -406,6 +406,89 @@ html, body { overflow: auto; }
 .st-pill.st-已关闭 { color: var(--st-closed-fg); background: var(--st-closed-bg); }
 .st-pill.st-已关闭 .d { background: var(--st-closed-dot); }
 
+/* ── 待办状态 pill 一键改(todo-ux A1)── pill 变按钮 + 快捷菜单 ─────────────── */
+.st-cell { position: relative; flex: none; display: flex; }
+.st-pill.st-btn { cursor: pointer; transition: filter var(--hover-ease); }
+.st-pill.st-btn:hover, .st-pill.st-btn.open { filter: brightness(0.96); }
+.st-pill.st-btn .caret { font-size: 10px; opacity: 0.6; margin-left: 1px; }
+.st-menu-backdrop { position: fixed; inset: 0; z-index: 40; }
+.st-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  min-width: 168px;
+  background: #fff;
+  border: 1px solid var(--border-input);
+  border-radius: 11px;
+  box-shadow: var(--shadow-pop);
+  padding: 5px;
+  z-index: 41;
+}
+.st-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 7px;
+  transition: background var(--hover-ease);
+}
+.st-menu-item:hover:not(:disabled) { background: var(--paper-side); }
+.st-menu-item:disabled { cursor: default; }
+.st-menu-item.current { background: var(--paper-side); }
+.st-menu-item .chip {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 99px; flex: none;
+}
+.st-menu-item .chip .d { width: 6px; height: 6px; border-radius: 50%; }
+.st-menu-item .chip.st-待确认 { color: var(--st-pending-fg); background: var(--st-pending-bg); }
+.st-menu-item .chip.st-待确认 .d { background: var(--st-pending-dot); }
+.st-menu-item .chip.st-进行中 { color: var(--st-doing-fg); background: var(--st-doing-bg); }
+.st-menu-item .chip.st-进行中 .d { background: var(--st-doing-dot); }
+.st-menu-item .chip.st-已完成 { color: var(--st-done-fg); background: var(--st-done-bg); }
+.st-menu-item .chip.st-已完成 .d { background: var(--st-done-dot); }
+.st-menu-item .chip.st-已关闭 { color: var(--st-closed-fg); background: var(--st-closed-bg); }
+.st-menu-item .chip.st-已关闭 .d { background: var(--st-closed-dot); }
+.st-menu-item .hint { font-size: 11px; color: var(--ink-4); margin-left: auto; }
+/* 终态(已完成/已关闭)次级显眼度:降低手滑一键落终态(复核修正) */
+.st-menu-item.term { opacity: 0.66; }
+.st-menu-item.term:hover:not(:disabled) { opacity: 1; }
+
+/* ── 撤销 / 错误 toast(todo-ux A2)───────────────────────────────────────── */
+.todo-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  box-shadow: var(--shadow-pop);
+  font-size: 13px;
+  z-index: 60;
+}
+.todo-toast.undo { background: var(--ink); color: #fff; }
+.todo-toast.error { background: var(--st-pending-bg); color: var(--st-pending-fg); border: 1px solid var(--st-pending-dot); }
+.todo-toast .toast-undo {
+  font-size: 12.5px; font-weight: 600; color: #fff;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.todo-toast.undo .toast-undo:hover { opacity: 0.82; }
+.todo-toast .toast-x { font-size: 11px; opacity: 0.6; margin-left: 2px; }
+.todo-toast .toast-x:hover { opacity: 1; }
+
+/* ── 备注乐观回显(todo-ux A3)───────────────────────────────────────────── */
+.todo-row .txt .note-tag {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--st-doing-fg);
+  background: var(--st-doing-bg);
+  padding: 1px 7px;
+  border-radius: 99px;
+}
+
 .center-empty {
   flex: 1;
   display: flex;

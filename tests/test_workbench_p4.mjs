@@ -9,6 +9,9 @@ import {
   staleDays,
   buildEditRequest,
   isValidStatus,
+  isTerminalStatus,
+  STATUS_HINT,
+  STATUSES,
 } from "../web/src/todo.ts";
 import { filterDocs, splitHighlight } from "../web/src/search.ts";
 
@@ -113,6 +116,23 @@ test("isValidStatus:四状态通过,其余拒", () => {
   for (const s of ["待确认", "进行中", "已完成", "已关闭"]) assert.ok(isValidStatus(s));
   assert.equal(isValidStatus("done"), false);
   assert.equal(isValidStatus(""), false);
+});
+
+test("isTerminalStatus:已完成/已关闭为终态,两开放态非终态", () => {
+  assert.equal(isTerminalStatus("已完成"), true);
+  assert.equal(isTerminalStatus("已关闭"), true);
+  assert.equal(isTerminalStatus("待确认"), false);
+  assert.equal(isTerminalStatus("进行中"), false);
+  assert.equal(isTerminalStatus("done"), false);
+});
+
+test("STATUS_HINT:覆盖全部四状态且非空", () => {
+  for (const s of STATUSES) {
+    assert.equal(typeof STATUS_HINT[s], "string");
+    assert.ok(STATUS_HINT[s].length > 0);
+  }
+  assert.equal(STATUS_HINT["待确认"], "等业主确认");
+  assert.equal(STATUS_HINT["进行中"], "我在做");
 });
 
 // ---- 搜索 --------------------------------------------------------------

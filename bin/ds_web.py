@@ -51,7 +51,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.9.0"  # 待办行内编辑:POST /api/changes/edit 写针孔 + changes 端点带回历史/备注
+VERSION = "0.10.0"  # 待办交互快修:状态 pill 一键改 + 终态撤销 toast + 备注乐观回显 + 状态语义
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")

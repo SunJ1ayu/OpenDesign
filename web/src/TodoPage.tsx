@@ -5,21 +5,23 @@ import {
   buildEditRequest,
   groupByProject,
   groupBySpace,
+  isTerminalStatus,
   sortByDateDesc,
   staleDays,
+  STATUS_HINT,
   STATUSES,
   type EditDraft,
   type OpenItem,
   type StaleItem,
 } from "./todo";
 
-// 4a 待办事项页(track p4 T3 + opendesign-todo-edit T6):项目卡 + 空间小节 + 超期标签
-// + 按项目/按时间切换 + 行内直接编辑(改状态/改正文/加备注)。数据 = /api/todos
-// (ds_todo.collect 单一真相源;只含未办结)。分组/排序/请求装配在 ./todo.ts(纯函数,
-// oracle 直测),本文件只管摆 + 调 editChange 针孔。
+// 4a 待办事项页(track p4 T3 + todo-edit T6 + todo-ux):项目卡 + 空间小节 + 超期标签
+// + 按项目/按时间切换 + 行内直接编辑 + 状态 pill 一键改(快捷菜单)+ 终态撤销 toast。
+// 数据 = /api/todos(ds_todo.collect 单一真相源;只含未办结=待确认/进行中)。
+// 分组/排序/请求装配在 ./todo.ts(纯函数,oracle 直测),本文件只管摆 + 调 editChange 针孔。
 // 编辑写口:POST /api/changes/edit → ds_tools.edit_change(保格式 + 向变更历史段留痕)。
-// 改正文后本会话内即时显「改过 · 看原文」(悬浮出旧值);持久留痕在工作台变更列
-// (/changes 端点带 history)——待办页数据源不带 history,accepted deviation。
+// 乐观回显(本会话):改正文后「改过·看原文」、加备注后「备注:…」;持久留痕在工作台变更列
+// (/changes 端点带 history)——待办页数据源不带 history/note,accepted deviation。
 
 type Todos = {
   today: string;
@@ -32,6 +34,11 @@ type State =
   | { kind: "loading" }
   | { kind: "error"; message: string }
   | { kind: "ready"; data: Todos };
+
+// 页面级瞬时提示:终态变更后的撤销,或一句错误。
+type Toast =
+  | { kind: "undo"; project: string; cnum: number; label: string; prevStatus: string }
+  | { kind: "error"; message: string };
 
 type Props = {
   projects: Project[];
@@ -74,8 +81,13 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
   const [draft, setDraft] = useState<EditDraft>({});
   const [saving, setSaving] = useState(false);
   const [editErr, setEditErr] = useState<string | null>(null);
-  // 本会话乐观留痕:editId → 旧正文(供「改过 · 看原文」悬浮)
+  // 状态快捷菜单:打开的行 editId(null=没开)
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  // 页面级瞬时提示(撤销 / 错误)
+  const [toast, setToast] = useState<Toast | null>(null);
+  // 本会话乐观留痕:editId → 旧正文(「改过·看原文」)/ editId → 备注(「备注:…」)
   const [edited, setEdited] = useState<Record<string, string>>({});
+  const [noted, setNoted] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let stale = false;
@@ -102,7 +114,20 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
     };
   }, [reloadNonce]);
 
+  // 撤销 toast 自动消失(错误提示也走同一超时);再次变更会覆盖旧 toast。
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  function reload() {
+    setReloadNonce((n) => n + 1);
+    onEdited?.();
+  }
+
   function startEdit(it: OpenItem) {
+    setMenuFor(null);
     setEditing(editId(it));
     setDraft({ status: it.status, text: it.text, note: "" });
     setEditErr(null);
@@ -112,6 +137,35 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
     setEditing(null);
     setDraft({});
     setEditErr(null);
+  }
+
+  // A1:状态 pill 快捷菜单直接改(不进编辑态)。A2:改到终态 → 弹撤销 toast。
+  async function quickSetStatus(it: OpenItem, next: string) {
+    setMenuFor(null);
+    const req = buildEditRequest(it, { status: next });
+    if (!req) return; // no-op(==原状态)
+    try {
+      await editChange(req);
+      setToast(
+        isTerminalStatus(next) && it.cnum !== null
+          ? { kind: "undo", project: it.project, cnum: it.cnum, label: next, prevStatus: it.status }
+          : null,
+      );
+      reload();
+    } catch (e) {
+      setToast({ kind: "error", message: editErrMsg((e as Error).message) });
+    }
+  }
+
+  // A2:撤销 = 把状态改回变更前的原状态。
+  async function undoStatus(t: Extract<Toast, { kind: "undo" }>) {
+    setToast(null);
+    try {
+      await editChange({ project: t.project, cnum: t.cnum, new_status: t.prevStatus });
+      reload();
+    } catch (e) {
+      setToast({ kind: "error", message: editErrMsg((e as Error).message) });
+    }
   }
 
   async function save(it: OpenItem) {
@@ -128,10 +182,18 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
       if (eid && req.new_text !== undefined) {
         setEdited((m) => ({ ...m, [eid]: it.text })); // 记旧正文供看原文
       }
+      if (eid && req.note !== undefined) {
+        setNoted((m) => ({ ...m, [eid]: req.note! })); // A3:备注乐观回显
+      }
       setEditing(null);
       setDraft({});
-      setReloadNonce((n) => n + 1); // 刷本页列表
-      onEdited?.(); // 刷侧栏角标/项目列表
+      // 改到终态 → 撤销 toast(与快捷菜单同款)
+      setToast(
+        req.new_status !== undefined && isTerminalStatus(req.new_status) && it.cnum !== null
+          ? { kind: "undo", project: it.project, cnum: it.cnum, label: req.new_status, prevStatus: it.status }
+          : null,
+      );
+      reload();
     } catch (e) {
       setEditErr(editErrMsg((e as Error).message));
     } finally {
@@ -171,7 +233,7 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
             onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value }))}
           >
             {STATUSES.map((s) => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s} value={s}>{s} · {STATUS_HINT[s]}</option>
             ))}
           </select>
           <input
@@ -192,10 +254,60 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
     </div>
   );
 
+  // 状态单元:pill 是按钮(cnum 可编辑时),点开快捷菜单直接改状态。
+  const statusCell = (it: OpenItem) => {
+    const eid = editId(it);
+    if (!eid) {
+      // 残缺行(cnum=null)不可改:退化为纯展示
+      return (
+        <span className={`st-pill st-${it.status}`} title={STATUS_HINT[it.status as keyof typeof STATUS_HINT]}>
+          <span className="d" />
+          {it.status}
+        </span>
+      );
+    }
+    const open = menuFor === eid;
+    return (
+      <span className="st-cell">
+        <button
+          className={`st-pill st-btn st-${it.status}${open ? " open" : ""}`}
+          title={`${STATUS_HINT[it.status as keyof typeof STATUS_HINT] ?? ""} · 点击改状态`}
+          onClick={() => setMenuFor(open ? null : eid)}
+        >
+          <span className="d" />
+          {it.status}
+          <span className="caret">⌄</span>
+        </button>
+        {open && (
+          <>
+            <div className="st-menu-backdrop" onClick={() => setMenuFor(null)} />
+            <div className="st-menu" role="menu">
+              {STATUSES.map((s) => (
+                <button
+                  key={s}
+                  className={
+                    `st-menu-item${s === it.status ? " current" : ""}` +
+                    (isTerminalStatus(s) ? " term" : "")
+                  }
+                  disabled={s === it.status}
+                  onClick={() => quickSetStatus(it, s)}
+                >
+                  <span className={`chip st-${s}`}><span className="d" />{s}</span>
+                  <span className="hint">{STATUS_HINT[s]}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </span>
+    );
+  };
+
   const row = (it: OpenItem, i: number, withProject = false) => {
     const eid = editId(it);
     if (eid && editing === eid) return editor(it);
     const oldText = eid ? edited[eid] : undefined;
+    const note = eid ? noted[eid] : undefined;
     return (
       <div className="todo-row" key={`${it.project}:${it.line}:${i}`}>
         <span className="cnum">{it.cnum !== null ? `C${it.cnum}` : "—"}</span>
@@ -206,6 +318,7 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
               改过 · 看原文
             </span>
           )}
+          {note !== undefined && <span className="note-tag">备注:{note}</span>}
         </span>
         <span className="meta">
           {withProject && (
@@ -220,10 +333,7 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
             </button>
           )}
         </span>
-        <span className={`st-pill st-${it.status}`}>
-          <span className="d" />
-          {it.status}
-        </span>
+        {statusCell(it)}
       </div>
     );
   };
@@ -306,6 +416,20 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
       ))}
       {data.open.length > 0 && restCount > 0 && (
         <div className="todo-rest muted">其余 {restCount} 个项目没有未办结事项</div>
+      )}
+
+      {toast && (
+        <div className={`todo-toast ${toast.kind}`} role="status">
+          {toast.kind === "undo" ? (
+            <>
+              <span>已标记「{toast.label}」</span>
+              <button className="toast-undo" onClick={() => undoStatus(toast)}>撤销</button>
+            </>
+          ) : (
+            <span>{toast.message}</span>
+          )}
+          <button className="toast-x" onClick={() => setToast(null)} aria-label="关闭">✕</button>
+        </div>
       )}
     </div>
   );
