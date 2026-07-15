@@ -7,6 +7,8 @@ import {
   groupBySpace,
   sortByDateDesc,
   staleDays,
+  buildEditRequest,
+  isValidStatus,
 } from "../web/src/todo.ts";
 import { filterDocs, splitHighlight } from "../web/src/search.ts";
 
@@ -52,6 +54,65 @@ test("staleDays:命中给天数,未超期 null", () => {
   const stale = [{ project: "乙", days: 8, last: "2026-07-04" }];
   assert.equal(staleDays(stale, "乙"), 8);
   assert.equal(staleDays(stale, "甲"), null);
+});
+
+// ---- 行内编辑:请求装配(track opendesign-todo-edit T6 / design test 14)------
+
+const editable = (over = {}) => ({
+  project: "翡翠湾", cnum: 3, status: "进行中", text: "客厅吊顶改平顶", ...over,
+});
+
+test("buildEditRequest:改状态 → 仅带 new_status", () => {
+  const r = buildEditRequest(editable(), { status: "已完成" });
+  assert.deepEqual(r, { project: "翡翠湾", cnum: 3, new_status: "已完成" });
+});
+
+test("buildEditRequest:状态 no-op(==原状态)不带", () => {
+  assert.equal(buildEditRequest(editable(), { status: "进行中" }), null);
+});
+
+test("buildEditRequest:非法状态被剔除", () => {
+  assert.equal(buildEditRequest(editable(), { status: "done" }), null);
+});
+
+test("buildEditRequest:改正文 trim 后 ≠ 原 → 带 new_text", () => {
+  const r = buildEditRequest(editable(), { text: "  客厅吊顶改弧形  " });
+  assert.deepEqual(r, { project: "翡翠湾", cnum: 3, new_text: "客厅吊顶改弧形" });
+});
+
+test("buildEditRequest:正文 no-op / 空白 不带", () => {
+  assert.equal(buildEditRequest(editable(), { text: "客厅吊顶改平顶" }), null);
+  assert.equal(buildEditRequest(editable(), { text: "   " }), null);
+});
+
+test("buildEditRequest:备注非空 → 带 note;空白不带", () => {
+  assert.deepEqual(buildEditRequest(editable(), { note: " 业主确认 " }),
+    { project: "翡翠湾", cnum: 3, note: "业主确认" });
+  assert.equal(buildEditRequest(editable(), { note: "  " }), null);
+});
+
+test("buildEditRequest:三字段同改 → 全带", () => {
+  const r = buildEditRequest(editable(), {
+    status: "已完成", text: "客厅吊顶改弧形", note: "拍板",
+  });
+  assert.deepEqual(r, {
+    project: "翡翠湾", cnum: 3,
+    new_status: "已完成", new_text: "客厅吊顶改弧形", note: "拍板",
+  });
+});
+
+test("buildEditRequest:残缺行(cnum=null)不可编辑 → null", () => {
+  assert.equal(buildEditRequest(editable({ cnum: null }), { status: "已完成" }), null);
+});
+
+test("buildEditRequest:无任何有效改动 → null", () => {
+  assert.equal(buildEditRequest(editable(), {}), null);
+});
+
+test("isValidStatus:四状态通过,其余拒", () => {
+  for (const s of ["待确认", "进行中", "已完成", "已关闭"]) assert.ok(isValidStatus(s));
+  assert.equal(isValidStatus("done"), false);
+  assert.equal(isValidStatus(""), false);
 });
 
 // ---- 搜索 --------------------------------------------------------------

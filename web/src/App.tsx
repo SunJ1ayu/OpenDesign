@@ -340,7 +340,13 @@ export default function App() {
       </div>
 
       {/* 无状态页:每次进入重建,无所谓(design.md 取舍) */}
-      {route === "todos" && <TodoPage projects={projects} onGoProject={goProject} />}
+      {route === "todos" && (
+        <TodoPage
+          projects={projects}
+          onGoProject={goProject}
+          onEdited={() => setDataEpoch((n) => n + 1)}
+        />
+      )}
       {route === "skills" && <SkillsPage onUseSkill={useSkill} />}
       {route === "gallery" && <GalleryPage project={selected} />}
 

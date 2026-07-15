@@ -70,3 +70,72 @@ export function staleDays(stale: StaleItem[], project: string): number | null {
   const hit = stale.find((s) => s.project === project);
   return hit ? hit.days : null;
 }
+
+// ── 行内编辑(track opendesign-todo-edit T6)──────────────────────────────────
+// 纯逻辑层:编辑态草稿 → POST /api/changes/edit 的请求体装配。DOM/fetch 不在这里,
+// 便于 mjs oracle 直测(tests/test_workbench_p4.mjs test 14)。后端 ds_tools.edit_change
+// 是唯一写口径(名字闸/保格式/留痕全在核心);本层只负责"该不该发、发哪些字段"。
+
+/** 四状态(与 ds_tools.STATUSES / ds_todo.STATUS_WORDS 同源)—— 状态点选用。 */
+export const STATUSES = ["待确认", "进行中", "已完成", "已关闭"] as const;
+export type Status = (typeof STATUSES)[number];
+
+export function isValidStatus(s: string): s is Status {
+  return (STATUSES as readonly string[]).includes(s);
+}
+
+/** 行内编辑草稿:三字段皆可选,未触碰的字段 undefined。 */
+export type EditDraft = {
+  status?: string; // 点选的新状态
+  text?: string; // 编辑中的正文(未 trim)
+  note?: string; // 备注输入(未 trim)
+};
+
+/** POST /api/changes/edit 请求体(仅含实际要改的字段;后端按缺省跳过)。 */
+export type EditRequest = {
+  project: string;
+  cnum: number;
+  new_status?: string;
+  new_text?: string;
+  note?: string;
+};
+
+/**
+ * 草稿 → 请求体。只放"真的变了且合法"的字段:
+ *  - new_status:是合法状态且 ≠ 原状态;
+ *  - new_text:trim 后非空且 ≠ 原正文(no-op 不发,免后端写 `原:X`==新值噪声);
+ *  - note:trim 后非空(追加/替换;空视同不改)。
+ * cnum 缺失(残缺行)不可编辑 → null;三字段都无有效改动 → null(无可提交)。
+ */
+export function buildEditRequest(
+  item: Pick<OpenItem, "project" | "cnum" | "status" | "text">,
+  draft: EditDraft,
+): EditRequest | null {
+  if (item.cnum === null) return null;
+  const req: EditRequest = { project: item.project, cnum: item.cnum };
+  let dirty = false;
+
+  if (
+    draft.status !== undefined &&
+    isValidStatus(draft.status) &&
+    draft.status !== item.status
+  ) {
+    req.new_status = draft.status;
+    dirty = true;
+  }
+  if (draft.text !== undefined) {
+    const t = draft.text.trim();
+    if (t && t !== item.text) {
+      req.new_text = t;
+      dirty = true;
+    }
+  }
+  if (draft.note !== undefined) {
+    const n = draft.note.trim();
+    if (n) {
+      req.note = n;
+      dirty = true;
+    }
+  }
+  return dirty ? req : null;
+}

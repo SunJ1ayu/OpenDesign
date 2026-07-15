@@ -105,6 +105,33 @@ export async function deleteChatSession(
   return (await r.json()) as DeleteSessionResult;
 }
 
+/** 第三个非 GET(track opendesign-todo-edit 写针孔):待办行内编辑。
+ * body 只含要改的字段(见 todo.buildEditRequest);后端 ds_tools.edit_change 保格式 + 留痕。
+ * 失败抛错(带后端 error code)由调用方提示。 */
+export type EditChangeBody = {
+  project: string;
+  cnum: number;
+  new_status?: string;
+  new_text?: string;
+  note?: string;
+};
+export async function editChange(body: EditChangeBody): Promise<void> {
+  const r = await fetch("/api/changes/edit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    let code = "";
+    try {
+      code = ((await r.json()) as { error?: string }).error ?? "";
+    } catch {
+      /* 非 JSON 响应:忽略,回落状态码 */
+    }
+    throw new Error(code || `服务返回 ${r.status}`);
+  }
+}
+
 /** refs-index 的 file 字段是 "refs/xx.jpg";静态路由挂在 /api/refs/file/ 下。 */
 export function refImageUrl(file: string): string {
   const rel = file.startsWith("refs/") ? file.slice(5) : file;

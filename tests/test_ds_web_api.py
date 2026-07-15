@@ -293,6 +293,223 @@ class TestChanges(unittest.TestCase):
         self.assertEqual(st, 404)
 
 
+# ── /api/projects/<key>/changes 历史/备注扩展(track opendesign-todo-edit T3)────
+PROJ_HIST = """# 编辑历史项目
+
+- 业主: [[王五]]
+- 阶段: 施工图
+
+## 变更记录
+- [进行中] C2 2026-06-19 玄关改到顶鞋柜
+- [已完成] C5 2026-06-18 【客厅】客厅吊顶改回平顶
+
+## 变更历史
+- C2 改于 2026-07-01｜原:玄关改鞋柜
+- C2 备注:业主微信确认了
+- C5 改于 2026-07-02｜原:客厅吊顶改平顶
+- C5 改于 2026-07-03｜原:客厅吊顶改弧形
+
+## 沟通日志
+- 2026-07-01 微信
+
+---
+最后更新: 2026-07-03
+"""
+
+
+class TestChangesHistory(unittest.TestCase):
+
+    def test_changes_history_and_note_by_cnum(self):
+        root = _mkroot({"编辑历史项目.md": PROJ_HIST})
+        with _serve(root) as port:
+            st, _, d = _get_json(
+                port, "/api/projects/" + quote("编辑历史项目") + "/changes")
+        self.assertEqual(st, 200)
+        self.assertEqual(len(d["changes"]), 2)  # 历史段的行不冒充变更
+        by = {c["cnum"]: c for c in d["changes"]}
+        # C2:一条留痕 + 备注
+        self.assertEqual(by[2]["history"],
+                         [{"date": "2026-07-01", "old": "玄关改鞋柜"}])
+        self.assertEqual(by[2]["note"], "业主微信确认了")
+        self.assertEqual(by[2]["text"], "玄关改到顶鞋柜")  # 主行现值
+        # C5:两条留痕按时序,无备注 → 不带 note 键
+        self.assertEqual(by[5]["history"],
+                         [{"date": "2026-07-02", "old": "客厅吊顶改平顶"},
+                          {"date": "2026-07-03", "old": "客厅吊顶改弧形"}])
+        self.assertNotIn("note", by[5])
+        self.assertEqual(by[5]["space"], "客厅")  # 主行字段照常
+
+    def test_changes_no_history_section_backward_compat(self):
+        root = _mkroot({"保利中央公园.md": PROJ_A})
+        with _serve(root) as port:
+            _, _, d = _get_json(
+                port, "/api/projects/" + quote("保利中央公园") + "/changes")
+        for c in d["changes"]:  # 无历史段:history 恒空列表,无 note 键
+            self.assertEqual(c["history"], [])
+            self.assertNotIn("note", c)
+
+
+# ── POST 写针孔 /api/changes/edit(track opendesign-todo-edit T4,design test 12)──
+class TestEditChangePinhole(unittest.TestCase):
+
+    def _root(self):
+        return _mkroot({"编辑历史项目.md": PROJ_HIST})
+
+    def _proj_text(self, root):
+        with open(os.path.join(root, "projects", "编辑历史项目.md"),
+                  encoding="utf-8") as fh:
+            return fh.read()
+
+    def _post(self, port, path, body, ctype="application/json",
+              method="POST", host=None):
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+        headers = {}
+        if ctype is not None:
+            headers["Content-Type"] = ctype
+        if host is not None:
+            headers["Host"] = host
+        data = None
+        if body is not None:
+            data = body if isinstance(body, (bytes, bytearray)) else \
+                json.dumps(body, ensure_ascii=False).encode("utf-8")
+        conn.request(method, path, body=data, headers=headers)
+        r = conn.getresponse()
+        b = r.read()
+        conn.close()
+        return r.status, (json.loads(b.decode("utf-8")) if b else None)
+
+    # 正常:改正文 + 加备注 → 200,文件保格式落地 + 留痕 + 备注替换
+    def test_edit_happy_path(self):
+        root = self._root()
+        with _serve(root) as port:
+            st, d = self._post(port, "/api/changes/edit", {
+                "project": "编辑历史项目", "cnum": 2,
+                "new_text": "玄关改嵌入到顶鞋柜", "note": "最终确认"})
+        self.assertEqual(st, 200)
+        self.assertTrue(d["ok"])
+        self.assertEqual(d["cnum"], 2)
+        text = self._proj_text(root)
+        self.assertIn("- [进行中] C2 2026-06-19 玄关改嵌入到顶鞋柜", text)
+        self.assertIn("原:玄关改到顶鞋柜", text)          # 新留痕(旧值)
+        self.assertIn("- C2 备注:最终确认", text)          # 备注被替换
+        self.assertNotIn("业主微信确认了", text)
+
+    # CT 非 json → 400,文件逐字节不动
+    def test_edit_ct_gate_rejects_and_no_write(self):
+        root = self._root()
+        before = self._proj_text(root)
+        with _serve(root) as port:
+            st, _ = self._post(port, "/api/changes/edit", {
+                "project": "编辑历史项目", "cnum": 2, "new_status": "已完成"},
+                ctype="text/plain")
+        self.assertEqual(st, 400)
+        self.assertEqual(self._proj_text(root), before)
+
+    # body 超限 → 400
+    def test_edit_body_too_large(self):
+        root = self._root()
+        big = (b'{"project":"\xe7\xbc\x96\xe8\xbe\x91\xe5\x8e\x86\xe5\x8f\xb2'
+               b'\xe9\xa1\xb9\xe7\x9b\xae","cnum":2,"new_text":"'
+               + b'x' * 5000 + b'"}')
+        with _serve(root) as port:
+            st, _ = self._post(port, "/api/changes/edit", big)
+        self.assertEqual(st, 400)
+
+    # 缺 cnum → change_not_found(404)
+    def test_edit_missing_cnum(self):
+        root = self._root()
+        with _serve(root) as port:
+            st, d = self._post(port, "/api/changes/edit", {
+                "project": "编辑历史项目", "new_status": "已完成"})
+        self.assertEqual(st, 404)
+        self.assertEqual(d["error"], "change_not_found")
+
+    # 键白名单:夹带 ds_root 走私 → 400,零执行
+    def test_edit_extra_key_rejected(self):
+        root = self._root()
+        before = self._proj_text(root)
+        with _serve(root) as port:
+            st, _ = self._post(port, "/api/changes/edit", {
+                "project": "编辑历史项目", "cnum": 2,
+                "new_status": "已完成", "ds_root": "/etc"})
+        self.assertEqual(st, 400)
+        self.assertEqual(self._proj_text(root), before)
+
+    # 校验类错误:非法 status → 400 invalid_status;空正文 → 400 empty_text
+    def test_edit_validation_errors(self):
+        root = self._root()
+        with _serve(root) as port:
+            st1, d1 = self._post(port, "/api/changes/edit", {
+                "project": "编辑历史项目", "cnum": 2, "new_status": "done"})
+            st2, d2 = self._post(port, "/api/changes/edit", {
+                "project": "编辑历史项目", "cnum": 2, "new_text": "   "})
+        self.assertEqual((st1, d1["error"]), (400, "invalid_status"))
+        self.assertEqual((st2, d2["error"]), (400, "empty_text"))
+
+    # 精确匹配防走私 + 其余未白名单 POST 路径仍 405(不变量),且零副作用
+    def test_edit_exact_match_and_405_invariant(self):
+        root = self._root()
+        before = self._proj_text(root)
+        payload = {"project": "编辑历史项目", "cnum": 2, "new_status": "已完成"}
+        with _serve(root) as port:
+            for p in ("/api/changes/editx", "/api/changes/edit/",
+                      "/api/changes/edit/2", "/api/changes", "/api/todos"):
+                st, _ = self._post(port, p, payload)
+                self.assertEqual(st, 405, f"{p} 应 405")
+        self.assertEqual(self._proj_text(root), before)  # 未白名单路径零副作用
+
+    # Host 闸继承:恶意 Host → 403 先于业务逻辑
+    def test_edit_host_gate_inherited(self):
+        root = self._root()
+        with _serve(root) as port:
+            st, _ = self._post(port, "/api/changes/edit", {
+                "project": "编辑历史项目", "cnum": 2, "new_status": "已完成"},
+                host="evil.example")
+        self.assertEqual(st, 403)
+
+
+# ── 真 ds_web 写读闭环(track opendesign-todo-edit T5,design test 13)──────────
+class TestEditRoundtrip(unittest.TestCase):
+    """起真服务器 → POST 编辑 → GET changes/todos 见新值 + 累积留痕(写读同一真相源)。"""
+
+    def test_roundtrip_edit_then_read(self):
+        root = _mkroot({"编辑历史项目.md": PROJ_HIST})
+        with _serve(root) as port:
+            # POST:C2 改状态→已完成 + 改正文 + 加备注
+            conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+            conn.request(
+                "POST", "/api/changes/edit",
+                body=json.dumps({
+                    "project": "编辑历史项目", "cnum": 2, "new_status": "已完成",
+                    "new_text": "玄关改嵌入到顶鞋柜", "note": "业主拍板"},
+                    ensure_ascii=False).encode("utf-8"),
+                headers={"Content-Type": "application/json"})
+            r = conn.getresponse()
+            rb = json.loads(r.read().decode("utf-8"))
+            conn.close()
+            self.assertEqual(r.status, 200)
+            self.assertTrue(rb["ok"])
+
+            # GET changes:新状态 + 新正文 + 备注 + 累积留痕(原有 + 本次)
+            _, _, d = _get_json(
+                port, "/api/projects/" + quote("编辑历史项目") + "/changes")
+            by = {c["cnum"]: c for c in d["changes"]}
+            self.assertEqual(by[2]["status"], "已完成")
+            self.assertEqual(by[2]["text"], "玄关改嵌入到顶鞋柜")
+            self.assertEqual(by[2]["note"], "业主拍板")
+            olds = [h["old"] for h in by[2]["history"]]
+            self.assertIn("玄关改鞋柜", olds)        # 原留痕保留
+            self.assertIn("玄关改到顶鞋柜", olds)    # 本次编辑新增留痕
+            # C5 未被本次编辑触碰(隔离)
+            self.assertEqual(by[5]["text"], "客厅吊顶改回平顶")
+
+            # GET todos:C2 已完成 → 从未办结列表消失
+            _, _, t = _get_json(port, "/api/todos")
+            c2_open = [it for it in t["open"]
+                       if it["project"] == "编辑历史项目" and it["cnum"] == 2]
+            self.assertEqual(c2_open, [])
+
+
 # ── /api/projects/<key>/refs ─────────────────────────────────────────────────
 REFS_INDEX = """# 参考图索引
 

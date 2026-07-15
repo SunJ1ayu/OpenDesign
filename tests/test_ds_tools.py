@@ -52,6 +52,15 @@ def _change_count(text):
     return sum(1 for ln in text.splitlines() if ds_tools._CHANGE_RE.match(ln))
 
 
+def _section(text, header):
+    """抽出某 `## 标题` 段(标题行起,到下一 `## `/`---` 或文件末)的原始文本,做逐字节比对用。"""
+    lines = text.split("\n")
+    hi = lines.index(header)
+    end = next((j for j in range(hi + 1, len(lines))
+                if lines[j].startswith("## ") or lines[j].startswith("---")), len(lines))
+    return "\n".join(lines[hi:end])
+
+
 class OracleMatrix(unittest.TestCase):
     def setUp(self):
         self.ds = tempfile.mkdtemp(prefix="dstest-")
@@ -387,6 +396,254 @@ class CreateProjectClient(unittest.TestCase):
                          "empty_name")
         self.assertEqual(ds_tools.create_client("", ds_root=self.ds).get("error"),
                          "empty_name")
+
+
+class EditChangeOracle(unittest.TestCase):
+    """edit_change 核心 oracle(track opendesign-todo-edit,design test 1–5/10/11)。
+
+    改状态/改正文(保前缀字节 + 向独立 `## 变更历史` 段留痕)/加改备注。主 agent 拥有本 oracle。
+    起始 SAMPLE 无 `## 变更历史` 段 ⇒ 首次改正文/加备注即触发建段(design test 11)。
+    """
+
+    def setUp(self):
+        self.ds = tempfile.mkdtemp(prefix="dstest-")
+        self.slug = "翡翠湾-1801"
+        self.default_changes = [
+            "- [待确认] C1 2026-06-20 主卧衣柜改推拉门",
+            "- [进行中] C2 2026-06-19 玄关增加到顶储物柜",
+            "- [已完成] C3 2026-06-18 【客厅】客厅吊顶改平顶",
+        ]
+        self.path = _write_project(self.ds, self.slug, self.default_changes)
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+
+    # ① 改状态:只动主行状态段,cnum/date/space/text 原样,页脚 bump
+    def test_e01_edit_status(self):
+        r = ds_tools.edit_change(self.slug, 1, new_status="已完成",
+                                 ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        text = _read(self.path)
+        self.assertIn("- [已完成] C1 2026-06-20 主卧衣柜改推拉门", text)
+        self.assertIn(f"最后更新: {TODAY}", text)
+        self.assertNotIn("## 变更历史", text)  # 纯改状态不建历史段
+
+    # ② 改正文·前缀字节不变(BLOCK-2):带【空间】变更改正文,前缀逐字节==原值,仅尾段变
+    def test_e02_edit_text_prefix_bytes(self):
+        r = ds_tools.edit_change(self.slug, 3, new_text="客厅吊顶改回弧形造型",
+                                 ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        text = _read(self.path)
+        self.assertIn("- [已完成] C3 2026-06-18 【客厅】客厅吊顶改回弧形造型", text)
+        # 前缀(状态/C号/日期/【空间】)逐字节不变
+        self.assertNotIn("客厅吊顶改平顶", text.split("## 变更历史")[0])  # 主行旧尾段没了
+        # 留痕落在独立历史段
+        self.assertIn("## 变更历史", text)
+        self.assertIn(f"- C3 改于 {TODAY}｜原:客厅吊顶改平顶", text)
+        import ds_todo
+        line = next(l for l in text.splitlines()
+                    if l.startswith("- [已完成] C3"))
+        c = ds_todo.parse_change(line)
+        self.assertEqual(c["space"], "客厅")
+        self.assertEqual(c["date"], "2026-06-18")
+        self.assertEqual(c["text"], "客厅吊顶改回弧形造型")
+
+    # ③ 改正文·no-op:new_text==旧 → 不写留痕、不建段(无 `原:X`==新值噪声)
+    def test_e03_edit_text_noop(self):
+        before = _read(self.path)
+        r = ds_tools.edit_change(self.slug, 1, new_text="主卧衣柜改推拉门",
+                                 ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"))
+        text = _read(self.path)
+        self.assertNotIn("改于", text)
+        self.assertNotIn("## 变更历史", text)
+        self.assertEqual(text, before)  # 真 no-op:文件逐字节不动
+
+    # ④ 多次改正文:累积多条 `- C{n} 改于…` 历史,顺序合理;parse 仍只见原变更数
+    def test_e04_edit_text_multiple(self):
+        ds_tools.edit_change(self.slug, 1, new_text="主卧门改到顶",
+                             ds_root=self.ds, today="2026-07-01")
+        ds_tools.edit_change(self.slug, 1, new_text="主卧门改推拉到顶",
+                             ds_root=self.ds, today="2026-07-02")
+        text = _read(self.path)
+        self.assertIn("- C1 改于 2026-07-01｜原:主卧衣柜改推拉门", text)
+        self.assertIn("- C1 改于 2026-07-02｜原:主卧门改到顶", text)
+        self.assertIn("- [待确认] C1 2026-06-20 主卧门改推拉到顶", text)
+        self.assertEqual(_change_count(text), 3)  # 主变更行仍 3 条
+        lines = text.splitlines()
+        i1 = next(i for i, l in enumerate(lines) if "原:主卧衣柜改推拉门" in l)
+        i2 = next(i for i, l in enumerate(lines) if "原:主卧门改到顶" in l)
+        self.assertLess(i1, i2)  # 早的在上,晚的在下
+
+    # ⑤ 加/改备注:按 cnum 键追加/替换,不重复;parse 数不变
+    def test_e05_note_add_and_replace(self):
+        ds_tools.edit_change(self.slug, 2, note="业主还在犹豫要不要加大",
+                             ds_root=self.ds, today=TODAY)
+        text = _read(self.path)
+        self.assertIn("- C2 备注:业主还在犹豫要不要加大", text)
+        self.assertEqual(_change_count(text), 3)
+        # 再次加备注 → 替换,不叠加
+        ds_tools.edit_change(self.slug, 2, note="业主已确认加大到顶",
+                             ds_root=self.ds, today=TODAY)
+        text2 = _read(self.path)
+        self.assertIn("- C2 备注:业主已确认加大到顶", text2)
+        self.assertNotIn("业主还在犹豫要不要加大", text2)
+        self.assertEqual(sum(1 for l in text2.splitlines()
+                             if l.startswith("- C2 备注")), 1)
+
+    # ⑩ 非法:未知 cnum→change_not_found;非法 status→invalid_status;空 new_text→empty_text;错误路径不碰文件
+    def test_e10_invalid(self):
+        before = _read(self.path)
+        self.assertEqual(
+            ds_tools.edit_change(self.slug, 99, new_status="已完成",
+                                 ds_root=self.ds, today=TODAY).get("error"),
+            "change_not_found")
+        self.assertEqual(
+            ds_tools.edit_change(self.slug, 1, new_status="done",
+                                 ds_root=self.ds, today=TODAY).get("error"),
+            "invalid_status")
+        self.assertEqual(
+            ds_tools.edit_change(self.slug, 1, new_text=" \n\r ",
+                                 ds_root=self.ds, today=TODAY).get("error"),
+            "empty_text")
+        self.assertEqual(_read(self.path), before)  # 三条非法路径全程文件不变
+
+    # ⑪ 段创建:无 `## 变更历史` 段的旧项目首次 edit → 正确建段(位置对,append 段边界不破)
+    def test_e11_history_section_created(self):
+        r = ds_tools.edit_change(self.slug, 1, new_text="主卧改推拉门到顶",
+                                 ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        lines = _read(self.path).splitlines()
+        self.assertIn("## 变更历史", lines)
+        ci = lines.index("## 变更记录")
+        hi = lines.index("## 变更历史")
+        gi = lines.index("## 沟通日志")
+        self.assertTrue(ci < hi < gi)  # 历史段夹在变更记录段与沟通日志之间
+        # append_change 仍落在变更记录段内(段边界不破)
+        r2 = ds_tools.append_change(self.slug, "新需求一条", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r2["ok"])
+        lines2 = _read(self.path).splitlines()
+        ni = next(i for i, l in enumerate(lines2)
+                  if "新需求一条" in l and ds_tools._CHANGE_RE.match(l))
+        hi2 = lines2.index("## 变更历史")
+        self.assertLess(ni, hi2)  # 新变更行在历史段之前
+
+    # ⑫ 非标准状态主行改正文不崩(main-agent finding A):line_re 能定位任意状态,前缀正则
+    #    须同样容忍;只改正文(不带 new_status)时保前缀、正确留痕,不 NoneType.group 崩
+    def test_e12_edit_text_nonstandard_status(self):
+        slug = "畸形状态"
+        _write_project(self.ds, slug, ["- [搁置] C1 2026-06-20 【客厅】老正文"])
+        r = ds_tools.edit_change(slug, 1, new_text="新正文", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        text = _read(os.path.join(self.ds, "projects", f"{slug}.md"))
+        self.assertIn("- [搁置] C1 2026-06-20 【客厅】新正文", text)  # 前缀(含非标准状态)逐字节保留
+        self.assertIn(f"- C1 改于 {TODAY}｜原:老正文", text)          # 留痕旧正文正确
+
+
+class EditChangeRegressionLock(unittest.TestCase):
+    """T2 回归锁(design test 6–9):`## 变更历史` 段的存在不干扰任何既有读/写路径。
+
+    BLOCK-1 反向锁 —— append/set_status 逐字节不碰历史段;collect/parse 不把历史行当待办;
+    多变更按 cnum 键隔离(BLOCK-3)。
+    """
+
+    def setUp(self):
+        self.ds = tempfile.mkdtemp(prefix="dstest-")
+        self.slug = "翡翠湾-1801"
+        self.default_changes = [
+            "- [待确认] C1 2026-06-20 主卧衣柜改推拉门",
+            "- [进行中] C2 2026-06-19 玄关增加到顶储物柜",
+            "- [已完成] C3 2026-06-18 【客厅】客厅吊顶改平顶",
+        ]
+        self.path = _write_project(self.ds, self.slug, self.default_changes)
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+
+    # ⑥ 历史段任何行都不成待办:collect 未办结数==仅按变更记录段
+    def test_e06_history_section_not_todos(self):
+        import ds_todo
+        from datetime import date as _date
+        ds_tools.edit_change(self.slug, 1, new_text="改门到顶", note="业主确认",
+                             ds_root=self.ds, today=TODAY)
+        ds_tools.edit_change(self.slug, 2, new_text="改储物柜", note="待定",
+                             ds_root=self.ds, today=TODAY)
+        data = ds_todo.collect(self.ds, today=_date.fromisoformat(TODAY))
+        open_cnums = sorted(it["cnum"] for it in data["open"]
+                            if it["project"] == self.slug)
+        self.assertEqual(open_cnums, [1, 2])  # 仅两条未办结主变更(C3 已完成不算)
+        for it in data["open"]:  # 历史段的 改于/备注 行绝不混进待办
+            self.assertNotIn("改于", it["raw"])
+            self.assertNotIn("备注", it["raw"])
+
+    # ⑦ 多变更 cnum 隔离(BLOCK-3):改 C2 一字不碰 C5(主行/历史/备注)
+    def test_e07_cnum_isolation(self):
+        slug = "隔离测试"
+        _write_project(self.ds, slug, [
+            "- [待确认] C2 2026-06-20 玄关改鞋柜",
+            "- [进行中] C5 2026-06-19 主卧改门",
+        ])
+        path = os.path.join(self.ds, "projects", f"{slug}.md")
+        ds_tools.edit_change(slug, 2, new_text="玄关改到顶鞋柜", note="C2备注",
+                             ds_root=self.ds, today="2026-07-01")
+        ds_tools.edit_change(slug, 5, new_text="主卧改推拉门", note="C5备注",
+                             ds_root=self.ds, today="2026-07-01")
+        c5_before = [l for l in _read(path).splitlines() if "C5" in l]
+        # 再改 C2(正文+备注)
+        ds_tools.edit_change(slug, 2, new_text="玄关改嵌入鞋柜", note="C2新备注",
+                             ds_root=self.ds, today="2026-07-02")
+        c5_after = [l for l in _read(path).splitlines() if "C5" in l]
+        self.assertEqual(c5_before, c5_after)  # C5 相关行一字未动
+        text = _read(path)
+        self.assertEqual(sum(1 for l in text.splitlines()
+                             if l.startswith("- C2 备注")), 1)  # C2 备注替换不叠加
+        self.assertEqual(sum(1 for l in text.splitlines()
+                             if l.startswith("- C5 备注")), 1)
+        self.assertIn("- C5 备注:C5备注", text)  # C5 备注原样
+
+    # ⑧ append_change 逐字节不碰历史段(BLOCK-1 反向锁)+ 新行落在变更记录段内
+    def test_e08_append_history_untouched(self):
+        ds_tools.edit_change(self.slug, 3, new_text="新正文", note="备注",
+                             ds_root=self.ds, today=TODAY)
+        before_hist = _section(_read(self.path), "## 变更历史")
+        r = ds_tools.append_change(self.slug, "新变更需求", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        text = _read(self.path)
+        self.assertEqual(_section(text, "## 变更历史"), before_hist)  # 历史段逐字节不变
+        lines = text.split("\n")
+        ni = next(i for i, l in enumerate(lines)
+                  if "新变更需求" in l and ds_tools._CHANGE_RE.match(l))
+        hi = lines.index("## 变更历史")
+        self.assertLess(ni, hi)  # 新变更行落在历史段头之前(=变更记录段内)
+
+    # ⑧b 变更记录行逐字节与"无历史段"孪生一致(历史段存在与否不影响 append 产物;
+    #     比对变更行本身 —— 段间分隔空行属段边界排版,不算变更记录内容)
+    def test_e08b_change_lines_bytewise_invariant(self):
+        def change_lines(path):
+            return [l for l in _read(path).split("\n") if ds_tools._CHANGE_RE.match(l)]
+
+        slug_a = "孪生A"
+        pa = _write_project(self.ds, slug_a, self.default_changes)
+        ds_tools.append_change(slug_a, "统一新增", ds_root=self.ds, today=TODAY)
+
+        slug_b = "孪生B"
+        pb = _write_project(self.ds, slug_b, self.default_changes)
+        ds_tools.edit_change(slug_b, 1, note="造个历史段", ds_root=self.ds, today=TODAY)
+        ds_tools.append_change(slug_b, "统一新增", ds_root=self.ds, today=TODAY)
+
+        self.assertEqual(change_lines(pa), change_lines(pb))  # 变更记录行逐字节相同
+
+    # ⑨ set_change_status 不动历史段:只主行状态变
+    def test_e09_set_status_history_untouched(self):
+        ds_tools.edit_change(self.slug, 2, new_text="改正文", note="备注",
+                             ds_root=self.ds, today=TODAY)
+        before_hist = _section(_read(self.path), "## 变更历史")
+        r = ds_tools.set_change_status(self.slug, "C2", "已完成",
+                                       ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        text = _read(self.path)
+        self.assertEqual(_section(text, "## 变更历史"), before_hist)  # 历史段不动
+        self.assertIn("- [已完成] C2 2026-06-19 改正文", text)  # 只主行状态变
 
 
 class WriteSideNameGate(unittest.TestCase):

@@ -48,9 +48,10 @@ import ds_common
 import ds_model
 import ds_refs
 import ds_todo
+import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.8.2"  # M2 v2:文件名闸白名单→黑名单,中文全角标点/&等常见命名不再被静默隐藏
+VERSION = "0.9.0"  # 待办行内编辑:POST /api/changes/edit 写针孔 + changes 端点带回历史/备注
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -83,6 +84,15 @@ _FILES_IMAGES_RE = re.compile(r"^/api/files/images/([^/]+)$")
 _FILES_FILE_RE = re.compile(r"^/api/files/file/([^/]+)/(.+)$")
 OPEN_FOLDER_PATH = "/api/open-folder"  # do_POST 唯一放行路径,精确匹配
 OPEN_BODY_MAX = 4096  # open-folder 请求体上限(key+sub 远小于此)
+EDIT_CHANGE_PATH = "/api/changes/edit"  # do_POST 写针孔③(track opendesign-todo-edit),精确匹配
+# body 键白名单(多余键即拒:防夹带 ds_root/today 等内部参数走私)
+_EDIT_ALLOWED_KEYS = {"project", "cnum", "new_status", "new_text", "note"}
+# edit_change error code → HTTP status(校验类 400,资源类 404,重复 409;名字/逃逸闸不回显细节)
+_EDIT_ERR_STATUS = {
+    "invalid_status": 400, "empty_text": 400,
+    "change_not_found": 404, "project_not_found": 404, "ambiguous_change": 409,
+    "bad_name": 404, "path_escape": 404,
+}
 
 
 def _default_open_launcher(path: str):
@@ -253,6 +263,8 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path == OPEN_FOLDER_PATH:
             self._open_folder()
+        elif path == EDIT_CHANGE_PATH:
+            self._edit_change()
         elif (m := _SESSION_DELETE_RE.match(path)):
             self._delete_session(m.group(1))
         else:
@@ -353,18 +365,24 @@ class Handler(BaseHTTPRequestHandler):
         try:
             with open(target, encoding="utf-8") as fh:
                 text = fh.read()
+            hist = ds_tools.parse_history(text)  # {cnum: {note, history[]}},按 cnum 分桶
             changes = []
             for ln in text.split("\n"):
                 c = ds_todo.parse_change(ln)  # 四状态全量,单一真相源
                 if c is None:
                     continue
-                changes.append({
+                h = hist.get(c["cnum"]) if c["cnum"] is not None else None
+                item = {
                     "cnum": c["cnum"], "status": c["status"],
                     "text": c["text"], "date": c["date"],
                     # space = 变更行可选【空间】前缀(p4 T1,parse 单一真相源);
                     # source 仍无字段 → 恒 None(读侧宽容,accepted deviation)
                     "space": c["space"], "source": None,
-                })
+                    "history": h["history"] if h else [],  # 留痕(时序),无则空列表
+                }
+                if h and h["note"] is not None:
+                    item["note"] = h["note"]  # 备注可选:有才带该键
+                changes.append(item)
         except Exception:
             traceback.print_exc()
             self._json(500, {"error": "internal"})
@@ -555,6 +573,53 @@ class Handler(BaseHTTPRequestHandler):
             self._json(404, {"error": "bad key"})
             return
         self._proxy(f"/api/sessions/{key}/delete")
+
+    def _edit_change(self):
+        """POST 写针孔③(track opendesign-todo-edit design §Approach):待办行内编辑。
+        只读铁律的又一受控开口,posture 同 open-folder/session-delete:
+          CT application/json(CSRF 纵深:跨站带该类型必 preflight,本服务无 OPTIONS 面)
+          → body 0<n≤OPEN_BODY_MAX → JSON dict → 键白名单(多余键即拒,防夹带 ds_root/today
+          走私)→ 类型闸 → ds_tools.edit_change(名字闸/realpath/锁/保格式全在核心)。
+        Host 闸由 do_POST 入口继承。精确匹配(非前缀)防路径走私。trace 不进响应体。"""
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 < n <= OPEN_BODY_MAX:
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "bad request"})
+            return
+        if not isinstance(body, dict) or set(body) - _EDIT_ALLOWED_KEYS:
+            self._json(400, {"error": "bad request"})  # 非对象/多余键 → 拒
+            return
+        project = body.get("project")
+        if not isinstance(project, str) or not project:
+            self._json(400, {"error": "bad request"})
+            return
+        new_status = body.get("new_status")
+        new_text = body.get("new_text")
+        note = body.get("note")
+        if any(v is not None and not isinstance(v, str)
+               for v in (new_status, new_text, note)):
+            self._json(400, {"error": "bad request"})
+            return
+        # cnum 原样交核心:缺失/非数 → edit_change 判 change_not_found(design test 12)
+        r = ds_tools.edit_change(
+            project, body.get("cnum"), new_status=new_status,
+            new_text=new_text, note=note, ds_root=self.server.ds_root)
+        if r.get("ok"):
+            self._json(200, r)
+            return
+        err = r.get("error", "internal")
+        self._json(_EDIT_ERR_STATUS.get(err, 400), {"error": err})
 
     def _proxy(self, up_path: str):
         """白名单转发到本机 nanobot gateway。纯管道:不读不存任何秘密。
