@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Change, Project } from "../api";
-import { cnDate } from "../api";
+import { cnDate, editChange } from "../api";
+import StatusPicker from "../StatusPicker";
 
 // 中央变更记录列(handoff §2,flex:1):项目大标题 + 工具行(筛选胶囊)+ 变更列表。
-// 「✓ 标记完成」不写库:预填聊天输入框交 AI(design 决策,ds_web 保持只读)。
+// 每行状态 pill 可点直接改(todo-ux2):在「全部」筛选下已完成/已关闭也在,故这里是**随时回滚**
+// 的家(点 pill 改回待确认/任意状态);写口径复用 /api/changes/edit 针孔。
 // highlight(p4 T4):搜索回车直达 → 筛选切「全部」+ 滚动定位 + 闪烁一下。
 
 type Filter = "open" | "待确认" | "进行中" | "all";
@@ -14,7 +16,7 @@ type Props = {
   project: Project | null;
   changes: Change[] | null; // null = 加载中
   error: string | null;
-  onMarkDone: (c: Change) => void;
+  onEdited?: () => void; // 改状态成功后回调(App bump dataEpoch → 变更列/待办角标重拉)
   highlight?: { cnum: number | null; nonce: number };
 };
 
@@ -23,11 +25,29 @@ function changeKey(c: Change, i: number): string {
 }
 
 export default function ChangesColumn({
-  project, changes, error, onMarkDone, highlight,
+  project, changes, error, onEdited, highlight,
 }: Props) {
   const [filter, setFilter] = useState<Filter>("open");
   const [hl, setHl] = useState<number | null>(null);
+  const [actionErr, setActionErr] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 行内改状态(可随时把已完成/已关闭点回待确认等)。全部筛选下条目不消失,无需撤销 toast。
+  async function pickStatus(c: Change, next: string) {
+    if (!project || c.cnum === null || next === c.status) return;
+    setActionErr(null);
+    try {
+      await editChange({ project: project.key, cnum: c.cnum, new_status: next });
+      onEdited?.();
+    } catch (e) {
+      const code = (e as Error).message;
+      setActionErr(
+        code === "change_not_found"
+          ? "这条变更找不到了(可能刚被改动),刷新重试。"
+          : `改状态失败(${code})。`,
+      );
+    }
+  }
 
   // 搜索直达:换到「全部」(目标可能不在当前筛选下)并记下要闪的编号
   useEffect(() => {
@@ -160,19 +180,19 @@ export default function ChangesColumn({
                   )}
                 </div>
               </div>
-              {OPEN_SET.has(c.status) && (
-                <button className="mark-done" onClick={() => onMarkDone(c)}>
-                  ✓ 标记完成
-                </button>
+              {c.cnum !== null ? (
+                <StatusPicker status={c.status} onPick={(s) => pickStatus(c, s)} />
+              ) : (
+                <span className={`st-pill st-${c.status}`}>
+                  <span className="d" />
+                  {c.status}
+                </span>
               )}
-              <span className={`st-pill st-${c.status}`}>
-                <span className="d" />
-                {c.status}
-              </span>
             </div>
           ))}
         </div>
       )}
+      {actionErr && <div className="change-action-err error-note sm">{actionErr}</div>}
     </section>
   );
 }

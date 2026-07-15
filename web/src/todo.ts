@@ -119,12 +119,14 @@ export type EditRequest = {
  * 草稿 → 请求体。只放"真的变了且合法"的字段:
  *  - new_status:是合法状态且 ≠ 原状态;
  *  - new_text:trim 后非空且 ≠ 原正文(no-op 不发,免后端写 `原:X`==新值噪声);
- *  - note:trim 后非空(追加/替换;空视同不改)。
- * cnum 缺失(残缺行)不可编辑 → null;三字段都无有效改动 → null(无可提交)。
+ *  - note:trim 后非空**且 ≠ 原备注**(todo-ux2:编辑时备注预填,没动就不重写)。
+ * cnum 缺失(残缺行)不可编辑 → null;都无有效改动 → null(无可提交)。
+ * originalNote:编辑框预填的既有备注(缺省空串=新加备注场景,行为不变)。
  */
 export function buildEditRequest(
   item: Pick<OpenItem, "project" | "cnum" | "status" | "text">,
   draft: EditDraft,
+  originalNote = "",
 ): EditRequest | null {
   if (item.cnum === null) return null;
   const req: EditRequest = { project: item.project, cnum: item.cnum };
@@ -147,7 +149,7 @@ export function buildEditRequest(
   }
   if (draft.note !== undefined) {
     const n = draft.note.trim();
-    if (n) {
+    if (n && n !== originalNote.trim()) {
       req.note = n;
       dirty = true;
     }

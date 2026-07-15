@@ -374,18 +374,6 @@ html, body { overflow: auto; }
   font-size: 11.5px;
   color: var(--ink-4);
 }
-.mark-done {
-  flex: none;
-  font-size: 11.5px;
-  color: var(--ink-4);
-  border: 1px solid var(--border-input);
-  border-radius: 6px;
-  padding: 3px 9px;
-  visibility: hidden;
-  transition: background var(--hover-ease), color var(--hover-ease);
-}
-.change-row:hover .mark-done { visibility: visible; }
-.mark-done:hover { background: var(--paper-side); color: var(--st-done-fg); }
 .st-pill {
   flex: none;
   display: flex;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Project } from "./api";
 import { cnDate, editChange } from "./api";
+import StatusPicker from "./StatusPicker";
 import {
   buildEditRequest,
   groupByProject,
@@ -9,7 +10,6 @@ import {
   sortByDateDesc,
   staleDays,
   STATUS_HINT,
-  STATUSES,
   type EditDraft,
   type OpenItem,
   type StaleItem,
@@ -81,8 +81,6 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
   const [draft, setDraft] = useState<EditDraft>({});
   const [saving, setSaving] = useState(false);
   const [editErr, setEditErr] = useState<string | null>(null);
-  // 状态快捷菜单:打开的行 editId(null=没开)
-  const [menuFor, setMenuFor] = useState<string | null>(null);
   // 页面级瞬时提示(撤销 / 错误)
   const [toast, setToast] = useState<Toast | null>(null);
   // 本会话乐观留痕:editId → 旧正文(「改过·看原文」)/ editId → 备注(「备注:…」)
@@ -127,9 +125,10 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
   }
 
   function startEdit(it: OpenItem) {
-    setMenuFor(null);
-    setEditing(editId(it));
-    setDraft({ status: it.status, text: it.text, note: "" });
+    const eid = editId(it);
+    setEditing(eid);
+    // 备注预填既有值(todo-ux2:在原文上改,不是重打);来源=本会话乐观留痕。
+    setDraft({ text: it.text, note: (eid && noted[eid]) || "" });
     setEditErr(null);
   }
 
@@ -141,7 +140,6 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
 
   // A1:状态 pill 快捷菜单直接改(不进编辑态)。A2:改到终态 → 弹撤销 toast。
   async function quickSetStatus(it: OpenItem, next: string) {
-    setMenuFor(null);
     const req = buildEditRequest(it, { status: next });
     if (!req) return; // no-op(==原状态)
     try {
@@ -169,7 +167,8 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
   }
 
   async function save(it: OpenItem) {
-    const req = buildEditRequest(it, draft);
+    const eid = editId(it);
+    const req = buildEditRequest(it, draft, (eid && noted[eid]) || "");
     if (!req) {
       cancelEdit();
       return; // 无有效改动:直接关
@@ -178,7 +177,6 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
     setEditErr(null);
     try {
       await editChange(req);
-      const eid = editId(it);
       if (eid && req.new_text !== undefined) {
         setEdited((m) => ({ ...m, [eid]: it.text })); // 记旧正文供看原文
       }
@@ -227,15 +225,6 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
           }}
         />
         <div className="edit-controls">
-          <select
-            className="edit-status"
-            value={draft.status ?? it.status}
-            onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value }))}
-          >
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>{s} · {STATUS_HINT[s]}</option>
-            ))}
-          </select>
           <input
             className="edit-note"
             placeholder="加备注(可选)"
@@ -254,11 +243,9 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
     </div>
   );
 
-  // 状态单元:pill 是按钮(cnum 可编辑时),点开快捷菜单直接改状态。
+  // 状态单元:可编辑行用共享 StatusPicker(点开菜单直接改);残缺行退化纯展示。
   const statusCell = (it: OpenItem) => {
-    const eid = editId(it);
-    if (!eid) {
-      // 残缺行(cnum=null)不可改:退化为纯展示
+    if (editId(it) === null) {
       return (
         <span className={`st-pill st-${it.status}`} title={STATUS_HINT[it.status as keyof typeof STATUS_HINT]}>
           <span className="d" />
@@ -266,41 +253,7 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
         </span>
       );
     }
-    const open = menuFor === eid;
-    return (
-      <span className="st-cell">
-        <button
-          className={`st-pill st-btn st-${it.status}${open ? " open" : ""}`}
-          title={`${STATUS_HINT[it.status as keyof typeof STATUS_HINT] ?? ""} · 点击改状态`}
-          onClick={() => setMenuFor(open ? null : eid)}
-        >
-          <span className="d" />
-          {it.status}
-          <span className="caret">⌄</span>
-        </button>
-        {open && (
-          <>
-            <div className="st-menu-backdrop" onClick={() => setMenuFor(null)} />
-            <div className="st-menu" role="menu">
-              {STATUSES.map((s) => (
-                <button
-                  key={s}
-                  className={
-                    `st-menu-item${s === it.status ? " current" : ""}` +
-                    (isTerminalStatus(s) ? " term" : "")
-                  }
-                  disabled={s === it.status}
-                  onClick={() => quickSetStatus(it, s)}
-                >
-                  <span className={`chip st-${s}`}><span className="d" />{s}</span>
-                  <span className="hint">{STATUS_HINT[s]}</span>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </span>
-    );
+    return <StatusPicker status={it.status} onPick={(s) => quickSetStatus(it, s)} />;
   };
 
   const row = (it: OpenItem, i: number, withProject = false) => {

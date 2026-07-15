@@ -62,7 +62,9 @@ export default function App() {
     text: "",
     nonce: 0,
   });
-  const [colPrefill, setColPrefill] = useState<{ text: string; nonce: number }>({
+  // 中央列 ChatColumn 的预填(现无来源:mark-done 已并入变更列可点 pill 直接改);
+  // 保留常量占位满足 ChatColumn 的 prefill 契约。
+  const [colPrefill] = useState<{ text: string; nonce: number }>({
     text: "",
     nonce: 0,
   });
@@ -180,18 +182,6 @@ export default function App() {
   const prefillHome = useCallback((text: string) => {
     setHomePrefill((p) => ({ text, nonce: p.nonce + 1 }));
   }, []);
-  const prefillCol = useCallback((text: string) => {
-    setColPrefill((p) => ({ text, nonce: p.nonce + 1 }));
-  }, []);
-
-  const onMarkDone = useCallback(
-    (c: Change) => {
-      // 只读安全基线:不加写 API;预填交 AI 走 ds_tools/ds-approve 既有闸(design 决策)
-      const what = c.cnum !== null ? `C${c.cnum}` : `「${c.text.slice(0, 24)}」`;
-      prefillCol(`把 ${what} 标记完成`);
-    },
-    [prefillCol],
-  );
 
   const onConnected = useCallback(() => setSessionsEpoch((n) => n + 1), []);
   // p6:每轮回复收尾刷新历史对话侧栏(新会话首轮后即出现,免 F5);
@@ -321,7 +311,7 @@ export default function App() {
             project={selected}
             changes={changes}
             error={changesErr}
-            onMarkDone={onMarkDone}
+            onEdited={() => setDataEpoch((n) => n + 1)}
             highlight={colHighlight}
           />
         )}

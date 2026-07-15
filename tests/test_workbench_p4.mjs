@@ -94,6 +94,13 @@ test("buildEditRequest:备注非空 → 带 note;空白不带", () => {
   assert.equal(buildEditRequest(editable(), { note: "  " }), null);
 });
 
+test("buildEditRequest:备注==原备注(预填没动)→ 不重写(todo-ux2)", () => {
+  assert.equal(buildEditRequest(editable(), { note: "业主确认" }, "业主确认"), null);
+  assert.equal(buildEditRequest(editable(), { note: " 业主确认 " }, "业主确认"), null);
+  assert.deepEqual(buildEditRequest(editable(), { note: "业主书面确认" }, "业主确认"),
+    { project: "翡翠湾", cnum: 3, note: "业主书面确认" });
+});
+
 test("buildEditRequest:三字段同改 → 全带", () => {
   const r = buildEditRequest(editable(), {
     status: "已完成", text: "客厅吊顶改弧形", note: "拍板",
