@@ -339,6 +339,56 @@ def edit_change(project: str, cnum, new_status: str | None = None,
     return {"ok": True, "cnum": int(num), "line": result_line}
 
 
+# ── 工具 4.2c log_communication(owner-feedback track)──────────────────────────
+_COMM_HEADER = "## 沟通日志"
+
+
+def log_communication(project: str, text: str, source: str = "",
+                      ds_root: str = DEFAULT_DS_ROOT, today: str | None = None) -> dict:
+    """业主原话存入「沟通日志」段:多行**逐字保真**(与 sanitize_field 的单行契约相反
+    ——原文保真是本工具的存在理由),每行加 `  > ` 引用前缀,让 `^-`(CHANGE_RE)/
+    `^## `(段界)/`^最后更新`(footer 锚)全部失锚,结构注入面焊死。
+    段缺失自动补建到页脚 `---` 前(旧手写档案兼容)。"""
+    today = ds_common.today_str(today)
+    # 剥括号(防伪造闭合污染头行格式,同 append_change 剥【】先例)+ 截 16
+    source = (ds_common.sanitize_field(source)
+              .replace("(", "").replace(")", "")
+              .replace("（", "").replace("）", ""))[:16]
+    text = re.sub(r"\r\n?", "\n", text or "").strip()
+    if not text:
+        return {"error": "empty_text"}
+    path, err = _resolve(ds_root, "projects", project)
+    if err:
+        return err
+    if not os.path.exists(path):
+        return {"error": "project_not_found"}
+
+    head = f"- {today} 业主原文({source}):" if source else f"- {today} 业主原文:"
+    entry = [head] + [("  > " + ln).rstrip() for ln in text.split("\n")]
+
+    with ds_common.locked_rw(path) as box:
+        lines = box["lines"]
+        hdr = next((i for i, ln in enumerate(lines) if ln.startswith(_COMM_HEADER)), None)
+        if hdr is None:
+            # 补建:插到页脚分隔线前(从尾找,引用行 `  > ---` 不会误锚);无页脚则文件末
+            foot = next((i for i in range(len(lines) - 1, -1, -1)
+                         if lines[i].startswith("---")), len(lines))
+            lines[foot:foot] = [_COMM_HEADER, *entry, ""]
+        else:
+            # 段界 = 下一 `^## ` 或页脚 `^---`;插到段内最后一条非空行之后
+            end = next((j for j in range(hdr + 1, len(lines))
+                        if lines[j].startswith("## ") or lines[j].startswith("---")),
+                       len(lines))
+            insert_at = hdr + 1
+            for i in range(hdr + 1, end):
+                if lines[i].strip():
+                    insert_at = i + 1
+            lines[insert_at:insert_at] = entry
+        ds_common.bump_last_updated(lines, today)
+
+    return {"ok": True, "project": project, "date": today, "lines": len(entry)}
+
+
 # ── 工具 4.3 read_project ───────────────────────────────────────────────────
 def read_project(name: str, ds_root: str = DEFAULT_DS_ROOT) -> dict:
     path, err = _resolve(ds_root, "projects", name)
@@ -706,6 +756,18 @@ def _run_mcp() -> None:
     def set_change_status_tool(project: str, change_id: str, status: str) -> dict:
         """推进某条变更状态。status 必须是:待确认/进行中/已完成/已关闭。"""
         return set_change_status(project, change_id, status, ds_root=ds_root)
+
+    @server.tool()
+    def log_communication_tool(project: str, text: str, source: str = "") -> dict:
+        """把业主的原话逐字存进项目「沟通日志」(多行原样保留)。
+        设计师贴来一段业主的修改意见/聊天记录时,按三步走:
+        ①先用本工具存原文(text=原话原样,别改写;source=来源,如 微信/电话/现场,可选);
+        ②其中**确定要做的**,逐条总结成短句 append_change(一条一件事,去掉客套和废话,
+        能听出空间就带 space);
+        ③业主**还在摇摆/没拍板的**,不要记变更——把那几句原文引用贴回对话,请设计师定,
+        定了再 append_change。
+        回复设计师时报清楚:存了原文、落了哪几条(C 编号)、哪几句在等拍板。"""
+        return log_communication(project, text, source=source, ds_root=ds_root)
 
     @server.tool()
     def read_project_tool(name: str) -> dict:

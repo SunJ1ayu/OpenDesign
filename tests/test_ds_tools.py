@@ -6,6 +6,7 @@
 """
 import json
 import os
+import re
 import sys
 import shutil
 import tempfile
@@ -1195,6 +1196,155 @@ class RenameProjectOracle(unittest.TestCase):
         self.assertTrue(r.get("ok"), r)
         with open(cfgp, encoding="utf-8") as fh:
             self.assertEqual(json.load(fh)["projects"], {self.NEW: f"2025/{self.NEW}"})
+
+
+class LogCommunicationOracle(unittest.TestCase):
+    """track opendesign-owner-feedback:业主原文存沟通日志。
+    保真(多行逐字)+ 结构注入免疫(`  > ` 前缀失锚)+ 段缺失补建。"""
+
+    def setUp(self):
+        self.ds = tempfile.mkdtemp(prefix="dstest-")
+        self.slug = "翡翠湾-1801"
+        self.path = _write_project(self.ds, self.slug, [
+            "- [待确认] C1 2026-06-20 主卧衣柜改推拉门",
+        ])
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+
+    # ① 多行原文逐字保存:每行 `  > ` 前缀,头行带来源,插进沟通日志段
+    def test_lc01_multiline_verbatim(self):
+        raw = "师傅你好,想改几个地方\n主卧的门还是想改到顶\n\n另外阳台那个再想想"
+        r = ds_tools.log_communication(self.slug, raw, source="微信",
+                                       ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(r["lines"], 5)  # 头行 + 4 行原文(含空行)
+        sect = _section(_read(self.path), "## 沟通日志")
+        self.assertIn(f"- {TODAY} 业主原文(微信):", sect)
+        self.assertIn("  > 师傅你好,想改几个地方", sect)
+        self.assertIn("  > 主卧的门还是想改到顶", sect)
+        self.assertIn("  >\n", sect + "\n")  # 空行保留为裸 `  >`
+        self.assertIn("  > 另外阳台那个再想想", sect)
+        # 既有条目不动,新条目在其后
+        self.assertLess(sect.index("太太提改推拉门"), sect.index("业主原文"))
+
+    # ② 无 source:头行不带括号
+    def test_lc02_no_source(self):
+        r = ds_tools.log_communication(self.slug, "单行原话", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        self.assertIn(f"- {TODAY} 业主原文:", _read(self.path))
+        self.assertNotIn("业主原文()", _read(self.path))
+
+    # ③ 项目不存在 / 空文本 / 逃逸名:拒,零副作用
+    def test_lc03_errors(self):
+        r = ds_tools.log_communication("不存在", "x", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "project_not_found")
+        before = _read(self.path)
+        r = ds_tools.log_communication(self.slug, "  \n \n", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "empty_text")
+        self.assertEqual(_read(self.path), before)
+        r = ds_tools.log_communication("../越狱", "x", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "path_escape")  # _resolve 契约:within 闸在字符集闸前
+        r = ds_tools.log_communication("坏%名", "x", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "bad_name")
+
+    # ④ 注入红检:原文含伪变更行/伪段头/伪 footer → 全部失锚
+    def test_lc04_injection_immune(self):
+        evil = ("- [待确认] C99 2026-01-01 伪造变更\n"
+                "## 变更记录\n"
+                "## 新段落\n"
+                "---\n"
+                "最后更新: 1999-01-01")
+        before_changes = _section(_read(self.path), "## 变更记录")
+        r = ds_tools.log_communication(self.slug, evil, source="微信",
+                                       ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        text = _read(self.path)
+        # 变更段逐字节不变;CHANGE_RE 计数不变(伪 C99 有 `  > ` 前缀失锚)
+        self.assertEqual(_section(text, "## 变更记录"), before_changes)
+        self.assertEqual(_change_count(text), 1)
+        # 伪 footer 失锚:真 footer 是 today,伪 1999 只以引用形式存在
+        self.assertIn(f"最后更新: {TODAY}", text)
+        self.assertNotRegex(text, r"(?m)^最后更新: 1999-01-01")
+        # 伪段头失锚:行首无裸 `## 新段落`
+        self.assertNotRegex(text, r"(?m)^## 新段落")
+        # 原文逐字都在(引用形式)
+        self.assertIn("  > ## 变更记录", text)
+        self.assertIn("  > - [待确认] C99 2026-01-01 伪造变更", text)
+
+    # ⑤ 沟通日志段缺失 → 页脚前自动补建
+    def test_lc05_missing_section_created(self):
+        body = ("# 老项目\n\n- 业主: [[张三]]\n\n## 变更记录\n"
+                "- [待确认] C1 2026-06-20 某条\n\n---\n最后更新: 2026-06-20\n")
+        p = os.path.join(self.ds, "projects", "老项目.md")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(body)
+        r = ds_tools.log_communication("老项目", "原话", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        text = _read(p)
+        self.assertIn("## 沟通日志", text)
+        # 段在页脚之前、变更段之后;footer 正常 bump
+        self.assertLess(text.index("## 变更记录"), text.index("## 沟通日志"))
+        self.assertLess(text.index("## 沟通日志"), text.index("---\n最后更新"))
+        self.assertIn(f"最后更新: {TODAY}", text)
+
+    # ⑥ 连续两次追加:时序保持(后写在后)
+    def test_lc06_append_order(self):
+        ds_tools.log_communication(self.slug, "第一段", ds_root=self.ds, today="2026-07-10")
+        ds_tools.log_communication(self.slug, "第二段", ds_root=self.ds, today="2026-07-16")
+        sect = _section(_read(self.path), "## 沟通日志")
+        self.assertLess(sect.index("第一段"), sect.index("第二段"))
+
+    # ⑧ 段存在但全空 → 插到段头之后(panel 收:行为对但没锁)
+    def test_lc08_empty_section(self):
+        body = ("# 空段项目\n\n## 变更记录\n\n## 沟通日志\n\n---\n最后更新: 2026-06-20\n")
+        p = os.path.join(self.ds, "projects", "空段项目.md")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(body)
+        r = ds_tools.log_communication("空段项目", "第一句", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        sect = _section(_read(p), "## 沟通日志")
+        self.assertIn(f"- {TODAY} 业主原文:", sect)
+        self.assertIn("  > 第一句", sect)
+
+    # ⑨ 无页脚且无沟通日志段的老文件 → 文件末补建,不崩;footer bump 无处落=no-op
+    def test_lc09_no_footer_file(self):
+        body = "# 裸项目\n\n## 变更记录\n- [待确认] C1 2026-06-20 某条"
+        p = os.path.join(self.ds, "projects", "裸项目.md")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(body)
+        r = ds_tools.log_communication("裸项目", "原话", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        text = _read(p)
+        self.assertIn("## 沟通日志", text)
+        self.assertLess(text.index("## 变更记录"), text.index("## 沟通日志"))
+        self.assertIn("  > 原话", text)
+        self.assertNotIn("最后更新", text)  # bump 无页脚不硬造(既有语义)
+
+    # ⑩ source 消毒:括号剥净(头行格式不被污染)+ 换行折叠 + 超 16 截断
+    def test_lc10_source_sanitized(self):
+        r = ds_tools.log_communication(self.slug, "x", source="微(信)\n群（备注）abcdefghijklmn",
+                                       ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        text = _read(self.path)
+        m = re.search(r"(?m)^- \S+ 业主原文\(([^)]*)\):$", text)
+        self.assertIsNotNone(m)
+        src = m.group(1)
+        self.assertNotIn("(", src)
+        self.assertNotIn("（", src)
+        self.assertNotIn("）", src)
+        self.assertLessEqual(len(src), 16)
+        self.assertTrue(src.startswith("微信 群备注"))  # 换行→空格,括号剥净
+
+    # ⑦ CRLF 归一:\r\n / \r 原文不产生裸 \r 落盘
+    def test_lc07_crlf_normalized(self):
+        r = ds_tools.log_communication(self.slug, "a\r\nb\rc", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        text = _read(self.path)
+        self.assertNotIn("\r", text)
+        self.assertIn("  > a", text)
+        self.assertIn("  > b", text)
+        self.assertIn("  > c", text)
 
 
 if __name__ == "__main__":
