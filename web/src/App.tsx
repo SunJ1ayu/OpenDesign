@@ -56,21 +56,21 @@ export default function App() {
     nonce: 0,
   });
 
-  // ---- 聊天联动:两个常驻实例各有一份预填(3a 建议 chip/新建项目 → home;
-  // 「✓ 标记完成」在 2a 中央列 → column),nonce 变化即覆盖 draft ----
+  // ---- 聊天联动:3a 建议 chip/新建项目 → home 实例预填,nonce 变化即覆盖 draft
+  // (中央列曾有 colPrefill,唯一调用者「接入工作区」改走 dispatch 后删净) ----
   const [homePrefill, setHomePrefill] = useState<{ text: string; nonce: number }>({
     text: "",
     nonce: 0,
   });
-  // 中央列 ChatColumn 的预填。用途(Track B/B4):文件区未接入工作区时,「接入工作区」
-  // 按钮把提示句预填进同屏的工作区聊天(而非主页,防上下文跳脱),用户补上路径即可让 AI
-  // 调 set_workspace,人留在原地。nonce 变化即覆盖 ChatColumn 的 draft。
-  const [colPrefill, setColPrefill] = useState<{ text: string; nonce: number }>({
+  // 中央列 ChatColumn 的程序化发送(connect-ux)。用途:「接入工作区」表单确认后
+  // 组装完整消息直接发进同屏工作区聊天(而非主页,防上下文跳脱),人留在原地;
+  // 未连接/busy 时 ChatPage 自己降级为预填,动作不丢。
+  const [colDispatch, setColDispatch] = useState<{ text: string; nonce: number }>({
     text: "",
     nonce: 0,
   });
-  const prefillCol = useCallback((text: string) => {
-    setColPrefill((p) => ({ text, nonce: p.nonce + 1 }));
+  const dispatchCol = useCallback((text: string) => {
+    setColDispatch((p) => ({ text, nonce: p.nonce + 1 }));
   }, []);
   const [sessionsEpoch, setSessionsEpoch] = useState(0); // 连接就绪/每轮回复后刷新历史对话
   // M5(07-13 盲评):每轮回复收尾后,AI 可能刚记了变更/改了状态——变更列、待办角标、
@@ -324,13 +324,13 @@ export default function App() {
           onOpenGallery={() => {
             window.location.hash = "#/gallery";
           }}
-          onConnectWorkspace={() =>
-            prefillCol("把我的项目文件夹接进来,路径是:")
+          onConnectWorkspace={(path) =>
+            dispatchCol(`把我的项目文件夹接进来,路径是:${path}`)
           }
         />
         <ChatColumn
           session={session}
-          prefill={colPrefill}
+          dispatch={colDispatch}
           onConnected={onConnected}
           onTurnEnd={onTurnEnd}
         />

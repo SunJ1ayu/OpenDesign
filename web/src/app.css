@@ -715,6 +715,18 @@ html, body { overflow: auto; }
   animation: cursor-blink 1s steps(2) infinite;
 }
 @keyframes cursor-blink { 50% { opacity: 0; } }
+/* 思考中(connect-ux):发出→首个 delta 之间的三点跳动,纯 CSS 无定时器 */
+.msg-ai.thinking { display: flex; gap: 4px; padding: 6px 0; }
+.msg-ai.thinking .tdot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-4);
+  animation: think-bounce 1.2s ease-in-out infinite;
+}
+.msg-ai.thinking .tdot:nth-child(2) { animation-delay: 0.15s; }
+.msg-ai.thinking .tdot:nth-child(3) { animation-delay: 0.3s; }
+@keyframes think-bounce { 30% { transform: translateY(-4px); opacity: 0.5; } }
 /* markdown 紧凑排版(AI 无气泡直排) */
 .msg-ai > :first-child { margin-top: 0; }
 .msg-ai > :last-child { margin-bottom: 0; }
@@ -1269,6 +1281,20 @@ html, body { overflow: auto; }
   transition: background var(--hover-ease), color var(--hover-ease);
 }
 .connect-workspace:hover { background: var(--terra); color: #fff; }
+/* connect-ux:接入表单(点按钮就地展开:说明 + 路径输入 + 发给助手/取消) */
+.connect-form { display: flex; flex-direction: column; gap: 8px; margin: 10px 8px 0; }
+.connect-form .hint { font-size: 11.5px; line-height: 1.6; color: var(--ink-3); }
+.connect-form input {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+}
+.connect-form input:focus { outline: none; border-color: var(--terra); }
+.connect-form .acts { display: flex; gap: 8px; }
 .cat-row {
   display: flex;
   align-items: center;

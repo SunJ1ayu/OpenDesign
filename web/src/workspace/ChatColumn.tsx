@@ -8,12 +8,13 @@ import type { ChatSession } from "../chat/connection";
 
 type Props = {
   session: ChatSession;
-  prefill: { text: string; nonce: number };
+  prefill?: { text: string; nonce: number };
+  dispatch?: { text: string; nonce: number }; // connect-ux:程序化发送透传
   onConnected?: () => void;
   onTurnEnd?: () => void;
 };
 
-export default function ChatColumn({ session, prefill, onConnected, onTurnEnd }: Props) {
+export default function ChatColumn({ session, prefill, dispatch, onConnected, onTurnEnd }: Props) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -35,7 +36,7 @@ export default function ChatColumn({ session, prefill, onConnected, onTurnEnd }:
         </div>
       )}
       <div className={`chatcol-body${collapsed ? " route-hidden" : ""}`}>
-        <ChatPage session={session} prefill={prefill} onConnected={onConnected} onTurnEnd={onTurnEnd} />
+        <ChatPage session={session} prefill={prefill} dispatch={dispatch} onConnected={onConnected} onTurnEnd={onTurnEnd} />
       </div>
     </section>
   );

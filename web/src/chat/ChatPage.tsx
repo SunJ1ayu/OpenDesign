@@ -34,6 +34,12 @@ type Props = {
   session?: ChatSession;
   /** 预填输入框(「✓ 标记完成」「新建项目」等联动);nonce 变化即覆盖 draft。 */
   prefill?: { text: string; nonce: number };
+  /**
+   * 程序化发送(connect-ux:「接入工作区」等完整动作)。nonce 变化 → 能发就
+   * 直接发(已连接且不 busy);不能发 → 降级为预填+聚焦(动作不丢,与 prefill
+   * 同终态)。与 prefill 的区别:prefill=把话递到嘴边,dispatch=替用户说出去。
+   */
+  dispatch?: { text: string; nonce: number };
   /** 连接就绪回调(App 借此刷新侧栏历史对话;首次登录后无需刷新页面)。 */
   onConnected?: () => void;
   /** 每轮回复收尾(turn_end)回调(p6:App 借此自动刷新侧栏历史对话,免 F5)。 */
@@ -63,6 +69,7 @@ function StockLink() {
 export default function ChatPage({
   session: sessionProp,
   prefill,
+  dispatch,
   onConnected,
   onTurnEnd,
   resume = null,
@@ -216,14 +223,30 @@ export default function ChatPage({
     setAttempt((n) => n + 1);
   };
 
-  const send = () => {
-    const content = draft.trim();
+  // 发送单一真相源:按钮/Enter/dispatch 三入口共用,envelope 逻辑只此一份
+  const sendText = (content: string): boolean => {
     const ws = wsRef.current;
-    if (!content || transcript.busy || view.kind !== "connected" || !ws) return;
+    if (!content || transcript.busy || view.kind !== "connected" || !ws) return false;
     ws.send(JSON.stringify(messageEnvelope(view.chatId, content, crypto.randomUUID())));
     setTranscript((s) => appendLocalUser(s, content, `local-${crypto.randomUUID()}`));
-    setDraft("");
+    return true;
   };
+
+  const send = () => {
+    if (sendText(draft.trim())) setDraft("");
+  };
+
+  // 程序化发送:nonce 去重(ref,不进依赖数组=每渲染都核对但只消费一次);
+  // 发不出去(未连接/busy)→ 降级为预填+聚焦,动作不丢
+  const dispatchedRef = useRef(0);
+  useEffect(() => {
+    if (!dispatch || dispatch.nonce === 0 || dispatch.nonce === dispatchedRef.current) return;
+    dispatchedRef.current = dispatch.nonce;
+    if (!sendText(dispatch.text)) {
+      setDraft(dispatch.text);
+      inputRef.current?.focus();
+    }
+  });
 
   // Claude 式组合输入卡(handoff §4:白底/14px 圆角/聚焦赤陶描边/工具行)
   const inputCard = (
@@ -403,6 +426,17 @@ export default function ChatPage({
               </div>
             ),
           )}
+          {/* 思考中(connect-ux):发出→首个 delta 之间的信号真空。纯派生:
+              busy 且末条还是用户消息 = 助手在想;流式一开始末条变 assistant,
+              指示自然消失。无新状态、无定时器。 */}
+          {transcript.busy &&
+            transcript.messages[transcript.messages.length - 1]?.role === "user" && (
+              <div className="msg-ai thinking" aria-label="助手思考中">
+                <span className="tdot" />
+                <span className="tdot" />
+                <span className="tdot" />
+              </div>
+            )}
         </div>
       )}
       {/* 3a 空态时输入卡已在 hero 里;其余(含开聊后)一律常规吸底卡 */}

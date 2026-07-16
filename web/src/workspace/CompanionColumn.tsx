@@ -18,7 +18,9 @@ import { refLabel } from "../gallery";
 type Props = {
   projectKey: string | null;
   onOpenGallery: () => void;
-  onConnectWorkspace: () => void; // B4:预填工作区聊天,引导用户一句话接入(浏览器拿不到真实磁盘路径)
+  /** connect-ux:用户在表单里填好路径确认 → 组装完整消息发进聊天(浏览器拿
+      不到真实磁盘路径,路径必须用户给;写只走 MCP=对话,405 铁律不破)。 */
+  onConnectWorkspace: (path: string) => void;
 };
 
 function fmtSize(n: number): string {
@@ -37,6 +39,9 @@ export default function CompanionColumn({
   const [overview, setOverview] = useState<FilesOverview | null>(null);
   const [wsImages, setWsImages] = useState<FilesImages | null>(null);
   const [openErr, setOpenErr] = useState(false);
+  // connect-ux:接入表单(点「接入工作区」展开;确认后收起,聊天里能看到消息)
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [connectPath, setConnectPath] = useState("");
 
   useEffect(() => {
     setRefs(null);
@@ -176,16 +181,54 @@ export default function CompanionColumn({
         <div className="file-list">
           <div className="aside-empty" style={{ margin: "4px 8px 0" }}>
             还没接入你电脑上的项目文件夹。
-            <br />
-            跟 OpenDesign 说一句项目放在哪即可,以后这里会按类目直接显示文件。
           </div>
-          <button
-            className="connect-workspace"
-            onClick={onConnectWorkspace}
-            title="在聊天里告诉 OpenDesign 你的项目文件夹路径"
-          >
-            接入工作区
-          </button>
+          {!connectOpen ? (
+            <button
+              className="connect-workspace"
+              onClick={() => setConnectOpen(true)}
+              title="告诉 OpenDesign 你的项目文件夹在哪"
+            >
+              接入工作区
+            </button>
+          ) : (
+            <form
+              className="connect-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const p = connectPath.trim();
+                if (!p) return;
+                onConnectWorkspace(p);
+                setConnectOpen(false);
+                setConnectPath("");
+              }}
+            >
+              <div className="hint">
+                工作台在浏览器里看不到你的磁盘,把项目文件夹路径贴给助手:
+              </div>
+              <input
+                autoFocus
+                value={connectPath}
+                placeholder="例如 D:\设计工作区"
+                onChange={(e) => setConnectPath(e.target.value)}
+              />
+              <div className="acts">
+                <button
+                  type="submit"
+                  className="chat-btn primary"
+                  disabled={!connectPath.trim()}
+                >
+                  发给助手
+                </button>
+                <button
+                  type="button"
+                  className="chat-btn"
+                  onClick={() => setConnectOpen(false)}
+                >
+                  取消
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       ) : !overview.mapped ? (
         <div className="file-list">
