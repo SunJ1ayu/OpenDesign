@@ -2,15 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Change, Project } from "../api";
 import { cnDate, editChange } from "../api";
 import StatusPicker from "../StatusPicker";
+import type { Filter } from "./changes";
+import { changeCounts, filterChanges, PROGRESS_ORDER } from "./changes";
 
-// 中央变更记录列(handoff §2,flex:1):项目大标题 + 工具行(筛选胶囊)+ 变更列表。
-// 每行状态 pill 可点直接改(todo-ux2):在「全部」筛选下已完成/已关闭也在,故这里是**随时回滚**
-// 的家(点 pill 改回待确认/任意状态);写口径复用 /api/changes/edit 针孔。
+// 中央变更记录列(handoff §2,flex:1):项目大标题 + 进度一览 + 工具行(筛选胶囊)+ 变更列表。
+// 每行状态 pill 可点直接改(todo-ux2):在「全部」/「已办结」筛选下已完成/已关闭也在,故这里是
+// **随时回滚**的家(点 pill 改回待确认/任意状态);写口径复用 /api/changes/edit 针孔。
+// 计数/筛选分类抽到 ./changes(纯逻辑,oracle 直测);本文件只管渲染与交互。
 // highlight(p4 T4):搜索回车直达 → 筛选切「全部」+ 滚动定位 + 闪烁一下。
-
-type Filter = "open" | "待确认" | "进行中" | "all";
-
-const OPEN_SET = new Set(["待确认", "进行中"]);
 
 type Props = {
   project: Project | null;
@@ -65,19 +64,8 @@ export default function ChangesColumn({
     return () => clearTimeout(t);
   }, [hl, changes]);
 
-  const counts = useMemo(() => {
-    const list = changes ?? [];
-    const pending = list.filter((c) => c.status === "待确认").length;
-    const doing = list.filter((c) => c.status === "进行中").length;
-    return { pending, doing, open: pending + doing, all: list.length };
-  }, [changes]);
-
-  const shown = useMemo(() => {
-    const list = changes ?? [];
-    if (filter === "all") return list;
-    if (filter === "open") return list.filter((c) => OPEN_SET.has(c.status));
-    return list.filter((c) => c.status === filter);
-  }, [changes, filter]);
+  const counts = useMemo(() => changeCounts(changes), [changes]);
+  const shown = useMemo(() => filterChanges(changes, filter), [changes, filter]);
 
   if (!project) {
     return (
@@ -110,8 +98,9 @@ export default function ChangesColumn({
 
   const pills: { key: Filter; label: string; n?: number }[] = [
     { key: "open", label: "未办结", n: counts.open },
-    { key: "待确认", label: "待确认", n: counts.pending },
-    { key: "进行中", label: "进行中", n: counts.doing },
+    { key: "待确认", label: "待确认", n: counts.待确认 },
+    { key: "进行中", label: "进行中", n: counts.进行中 },
+    { key: "done", label: "已办结", n: counts.done },
     { key: "all", label: "全部" },
   ];
 
@@ -119,6 +108,16 @@ export default function ChangesColumn({
     <section className="center">
       <div className="center-head">
         <div className="proj-title">{project.name}</div>
+        {counts.all > 0 && (
+          <div className="proj-progress" title="项目进度一览(各状态条数)">
+            {PROGRESS_ORDER.filter((s) => counts[s] > 0).map((s) => (
+              <span className={`prog-item st-${s}`} key={s}>
+                <span className="d" />
+                {counts[s]} {s}
+              </span>
+            ))}
+          </div>
+        )}
         <div className="center-toolbar">
           <span className="t">变更记录</span>
           <span className="n">{counts.all} 条</span>

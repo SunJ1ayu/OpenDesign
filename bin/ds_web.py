@@ -51,7 +51,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.12.0"  # Track B 工作区接入:set_workspace 工具 + 未接入主动提醒 + 「接入工作区」按钮
+VERSION = "0.13.0"  # 项目工作区完成项管理:「已办结」筛选 + 项目进度一览
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
