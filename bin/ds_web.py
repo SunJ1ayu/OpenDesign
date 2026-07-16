@@ -51,7 +51,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.20.0"  # project-thread:每项目独立工作对话(切项目=切上下文)
+VERSION = "0.21.0"  # delete-project:回收站式删除档案(队列#7)+ 残局硬规矩(#8)
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")

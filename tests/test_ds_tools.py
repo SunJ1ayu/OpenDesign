@@ -1347,5 +1347,132 @@ class LogCommunicationOracle(unittest.TestCase):
         self.assertIn("  > c", text)
 
 
+class DeleteProjectOracle(unittest.TestCase):
+    """track opendesign-delete-project(队列#7):回收站式删除。
+    档案移 projects/.trash/ 不真删;映射摘除;引用只清点不改。"""
+
+    def setUp(self):
+        self.ds = tempfile.mkdtemp(prefix="dstest-")
+        self.slug = "翡翠湾-1801"
+        self.path = _write_project(self.ds, self.slug, [
+            "- [待确认] C1 2026-06-20 主卧衣柜改推拉门",
+        ])
+        # 业主档案带 [[引用]] + index 带引用(删除后应原样留存,只被清点)
+        cdir = os.path.join(self.ds, "clients")
+        os.makedirs(cdir, exist_ok=True)
+        with open(os.path.join(cdir, "张三.md"), "w", encoding="utf-8") as fh:
+            fh.write("# 张三\n\n- 关联项目: [[翡翠湾-1801]]\n")
+        with open(os.path.join(self.ds, "index.md"), "w", encoding="utf-8") as fh:
+            fh.write("# 索引\n\n- [[翡翠湾-1801]] 张三\n")
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+
+    def _trash_files(self):
+        t = os.path.join(self.ds, "projects", ".trash")
+        return sorted(os.listdir(t)) if os.path.isdir(t) else []
+
+    # ① 正常删除:原档案消失,回收站有一份内容一致的
+    def test_dp01_trash_not_delete(self):
+        original = _read(self.path)
+        r = ds_tools.delete_project(self.slug, ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertFalse(os.path.exists(self.path))
+        trashed = self._trash_files()
+        self.assertEqual(len(trashed), 1)
+        self.assertTrue(trashed[0].startswith(self.slug))
+        with open(os.path.join(self.ds, "projects", ".trash", trashed[0]),
+                  encoding="utf-8") as fh:
+            self.assertEqual(fh.read(), original)  # 逐字节保真,可捞回
+        self.assertIn(".trash", r.get("trashed", ""))
+
+    # ② 引用只清点不改动:业主/index 文件逐字节不变,计数返回
+    def test_dp02_refs_counted_not_touched(self):
+        cpath = os.path.join(self.ds, "clients", "张三.md")
+        ipath = os.path.join(self.ds, "index.md")
+        cbefore, ibefore = _read(cpath), _read(ipath)
+        r = ds_tools.delete_project(self.slug, ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(_read(cpath), cbefore)
+        self.assertEqual(_read(ipath), ibefore)
+        self.assertEqual(r["refs_remaining"]["clients"], 1)
+        self.assertEqual(r["refs_remaining"]["index"], 1)
+
+    # ③ 工作区映射指向该项目 → 一并摘除,其余映射不动
+    def test_dp03_mapping_removed(self):
+        cfgdir = os.path.join(self.ds, "config")
+        os.makedirs(cfgdir, exist_ok=True)
+        cfgp = os.path.join(cfgdir, "workspace.json")
+        with open(cfgp, "w", encoding="utf-8") as fh:
+            json.dump({"root": "/tmp", "projects": {self.slug: "某文件夹", "别的": "别夹"}},
+                      fh, ensure_ascii=False)
+        r = ds_tools.delete_project(self.slug, ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertTrue(r.get("mapping_removed"))
+        with open(cfgp, encoding="utf-8") as fh:
+            cfg = json.load(fh)
+        self.assertEqual(cfg["projects"], {"别的": "别夹"})
+        self.assertEqual(cfg["root"], "/tmp")  # 其余字段保真
+
+    # ④ 无映射:mapping_removed=False,config 不被硬造
+    def test_dp04_no_mapping(self):
+        r = ds_tools.delete_project(self.slug, ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertFalse(r.get("mapping_removed"))
+        self.assertFalse(os.path.exists(os.path.join(self.ds, "config", "workspace.json")))
+
+    # ⑤ 错误契约:不存在/逃逸/坏名,零副作用
+    def test_dp05_errors(self):
+        r = ds_tools.delete_project("不存在", ds_root=self.ds)
+        self.assertEqual(r.get("error"), "project_not_found")
+        r = ds_tools.delete_project("../越狱", ds_root=self.ds)
+        self.assertEqual(r.get("error"), "path_escape")
+        r = ds_tools.delete_project("坏%名", ds_root=self.ds)
+        self.assertEqual(r.get("error"), "bad_name")
+        self.assertTrue(os.path.exists(self.path))  # 原档案安然
+        self.assertEqual(self._trash_files(), [])
+
+    # ⑥ 同名两次进回收站不互相覆盖(时间戳+序号消歧)
+    def test_dp06_trash_no_clobber(self):
+        ds_tools.delete_project(self.slug, ds_root=self.ds)
+        _write_project(self.ds, self.slug, ["- [待确认] C1 2026-07-01 第二份"])
+        r = ds_tools.delete_project(self.slug, ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(len(self._trash_files()), 2)
+
+    # ⑧ refs-index 计数走「用于:」段精确项:不误伤超串项目名(panel 双家同标)
+    def test_dp08_refs_count_exact(self):
+        with open(os.path.join(self.ds, "refs-index.md"), "w", encoding="utf-8") as fh:
+            fh.write("# 参考图索引\n\n"
+                      "- r1 2026-07-01 a.jpg | 空间:客厅 | 用于:翡翠湾-1801\n"
+                      "- r2 2026-07-02 b.jpg | 空间:主卧 | 用于:翡翠湾-1801二期\n"
+                      "- r3 2026-07-03 c.jpg | 空间:玄关 | 用于:别项目,翡翠湾-1801\n")
+        r = ds_tools.delete_project(self.slug, ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(r["refs_remaining"]["refs"], 2)  # r1+r3;r2 超串不算
+
+    # ⑨ 坏 workspace.json:映射步静默跳过(不硬修不崩),删除本体照走,文件不动
+    def test_dp09_corrupt_workspace_json(self):
+        cfgdir = os.path.join(self.ds, "config")
+        os.makedirs(cfgdir, exist_ok=True)
+        cfgp = os.path.join(cfgdir, "workspace.json")
+        with open(cfgp, "w", encoding="utf-8") as fh:
+            fh.write("{not valid json")
+        r = ds_tools.delete_project(self.slug, ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertFalse(r.get("mapping_removed"))
+        self.assertEqual(_read(cfgp), "{not valid json")  # 坏 config 原样留给人
+        self.assertFalse(os.path.exists(self.path))
+
+    # ⑦ 删除后扫描侧看不见:collect 不再列出,.trash 不被当项目
+    def test_dp07_invisible_after_delete(self):
+        import ds_todo
+        ds_tools.delete_project(self.slug, ds_root=self.ds)
+        got = ds_todo.collect(self.ds)
+        self.assertEqual([o for o in got["open"] if o["project"] == self.slug], [])
+        projs = ds_tools.read_project(self.slug, ds_root=self.ds)
+        self.assertEqual(projs.get("error"), "project_not_found")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

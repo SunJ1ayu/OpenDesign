@@ -675,6 +675,86 @@ def rename_project(old: str, new: str, ds_root: str = DEFAULT_DS_ROOT,
     return {"ok": True, "old": old, "new": new, "updated": updated}
 
 
+# ── 工具 4.4e delete_project(delete-project track,队列#7)───────────────────────
+def delete_project(project: str, ds_root: str = DEFAULT_DS_ROOT,
+                   now: str | None = None) -> dict:
+    """回收站式删除:档案移 projects/.trash/<name>-<ts>.md(**不真删**,删错可整文件
+    捞回);workspace 映射指向该项目则一并摘除(防悬空);clients/index/refs 里的
+    [[引用]] **只清点不改动**(账本语义,残留计数返回给助手播报)。"""
+    path, err = _resolve(ds_root, "projects", project)
+    if err:
+        return err
+    if not os.path.exists(path):
+        return {"error": "project_not_found"}
+
+    # 顺序有讲究:**先摘映射,后挪档案**。两步不原子,中间崩溃时——此序的残局
+    # =档案还在+映射掉了(可见的重复行态,重跑 delete 或 bind 都能修);反序的
+    # 残局=档案没了+映射悬空(文件夹被悬空映射吃掉,从列表里隐形)。
+    mapping_removed = False
+    cfg_path = os.path.join(ds_root, "config", "workspace.json")
+    if os.path.isfile(cfg_path):
+        try:
+            with open(cfg_path, encoding="utf-8") as fh:
+                raw = json.load(fh)
+        except (OSError, ValueError):
+            raw = None  # 坏 config 不硬修,映射留给人;删除本体照走
+        if (isinstance(raw, dict) and isinstance(raw.get("projects"), dict)
+                and project in raw["projects"]):
+            del raw["projects"][project]
+            _write_workspace_json(cfg_path, raw)
+            mapping_removed = True
+
+    trash_dir = os.path.join(ds_root, "projects", ".trash")
+    os.makedirs(trash_dir, exist_ok=True)
+    if now is None:
+        from datetime import datetime
+        now = datetime.now().strftime("%Y%m%d-%H%M%S")
+    dest = os.path.join(trash_dir, f"{project}-{now}.md")
+    n = 0
+    while os.path.exists(dest):  # 同秒同名不互相覆盖(回收站保真第一),序号 -1 起
+        n += 1
+        dest = os.path.join(trash_dir, f"{project}-{now}-{n}.md")
+    os.replace(path, dest)  # 同分区原子移动
+
+    # 引用清点(不改):clients/*.md 与 index.md 数 [[name]];refs-index.md 走
+    # ds_refs 分段真相源数「用于:」精确项(panel 双家同标:裸名子串会误伤
+    # "翡翠湾-1801二期"这类超串,与 rename ② 同口径)
+    link = f"[[{project}]]"
+    refs_remaining = {"clients": 0, "index": 0, "refs": 0}
+    client_dir = os.path.join(ds_root, "clients")
+    if os.path.isdir(client_dir):
+        for f in sorted(os.listdir(client_dir)):
+            if not f.endswith(".md"):
+                continue
+            try:
+                with open(os.path.join(client_dir, f), encoding="utf-8") as fh:
+                    refs_remaining["clients"] += fh.read().count(link)
+            except (OSError, UnicodeDecodeError):
+                continue  # 坏编码单文件跳过(M1 同哲学)
+    index_path = os.path.join(ds_root, "index.md")
+    if os.path.isfile(index_path):
+        try:
+            with open(index_path, encoding="utf-8") as fh:
+                refs_remaining["index"] = fh.read().count(link)
+        except (OSError, UnicodeDecodeError):
+            pass
+    refs_path = os.path.join(ds_root, "refs-index.md")
+    if os.path.isfile(refs_path):
+        import ds_refs
+        try:
+            with open(refs_path, encoding="utf-8") as fh:
+                for ln in fh.read().split("\n"):
+                    seg = ds_refs._used_segment(ln)
+                    if seg is not None and project in seg[1]:
+                        refs_remaining["refs"] += 1
+        except (OSError, UnicodeDecodeError):
+            pass
+
+    rel = os.path.relpath(dest, ds_root).replace(os.sep, "/")
+    return {"ok": True, "project": project, "trashed": rel,
+            "mapping_removed": mapping_removed, "refs_remaining": refs_remaining}
+
+
 # ── 工具 4.5 create_client ──────────────────────────────────────────────────
 def create_client(name: str, contact: str = "", linked: str = "",
                    ds_root: str = DEFAULT_DS_ROOT) -> dict:
@@ -773,6 +853,14 @@ def _run_mcp() -> None:
     def read_project_tool(name: str) -> dict:
         """读取某个项目的完整记录(业主、阶段、变更、沟通日志)。"""
         return read_project(name, ds_root=ds_root)
+
+    @server.tool()
+    def delete_project_tool(project: str) -> dict:
+        """删除项目档案(回收站式:移入 projects/.trash/,不真删,删错可捞回)。
+        **纪律:只在设计师明确要求删除、且你复述了项目名得到确认之后才调**;
+        绝不因"看起来重复/多余"自作主张。删完把返回里的 trashed 路径和
+        refs_remaining(业主/索引里残留的引用数)报给设计师。"""
+        return delete_project(project, ds_root=ds_root)
 
     @server.tool()
     def list_todos_tool(stale_days: int = 7) -> dict:
