@@ -4,6 +4,7 @@
 跑法:  python3 tests/test_ds_tools.py
 不需要 nanobot / mcp SDK / 网络 —— 只测纯 Python 核心。
 """
+import json
 import os
 import sys
 import shutil
@@ -736,6 +737,138 @@ class WriteSideNameGate(unittest.TestCase):
         r = ds_tools.create_project("坏名%线", "张三", ds_root=self.ds, today=TODAY)
         self.assertEqual(r.get("error"), "bad_name")
         self._no_nested()
+
+
+class SetWorkspaceOracle(unittest.TestCase):
+    """Track B/B1 set_workspace + B2 list_todos 未接入提醒的 oracle(主 agent 拥有)。
+
+    red-check(commit message 附结果):
+      注释 isabs 校验 → test_w02_reject_relative_root 变红
+      注释坏 JSON 备份重写 → test_w05_bad_json_backup_not_crash 变红
+      注释 os.replace 原子写(改直接 open(w) 覆写)→ test_w06_atomic_no_tmp_leftover 仍绿但
+        test_w07 崩溃语义降级(此处以"无 .tmp 残留 + 合法 JSON"守)
+      注释 list_todos 的 load_config prepend → test_w10_list_todos_hint_when_unconfigured 变红
+      把 root 与 DS_ORGANIZE_ROOTS 绑一起写 → test_w12_invariant_no_organize_key 变红
+    """
+
+    def setUp(self):
+        self.ds = tempfile.mkdtemp(prefix="dsws-")
+        os.makedirs(os.path.join(self.ds, "config"), exist_ok=True)
+        self.ws = tempfile.mkdtemp(prefix="dswsroot-")  # 用户真实工作区根
+        self.cfg_path = os.path.join(self.ds, "config", "workspace.json")
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+        shutil.rmtree(self.ws, ignore_errors=True)
+
+    def _write_cfg(self, obj):
+        with open(self.cfg_path, "w", encoding="utf-8") as fh:
+            fh.write(obj if isinstance(obj, str) else json.dumps(obj))
+
+    def _read_cfg(self):
+        with open(self.cfg_path, encoding="utf-8") as fh:
+            return json.load(fh)
+
+    # ① 正常写入 + folder_count(候选目录名 01-项目 下两个项目夹)
+    def test_w01_basic_write_and_count(self):
+        for d in ("01-项目/甲项目", "01-项目/乙项目"):
+            os.makedirs(os.path.join(self.ws, *d.split("/")))
+        r = ds_tools.set_workspace(self.ws, ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(r["root"], os.path.realpath(self.ws))
+        self.assertEqual(r["folder_count"], 2)
+        cfg = self._read_cfg()
+        self.assertEqual(cfg["root"], os.path.realpath(self.ws))
+        self.assertEqual(cfg["projects"], {})
+
+    # ② 拒相对路径(isabs)——不写文件
+    def test_w02_reject_relative_root(self):
+        r = ds_tools.set_workspace("relative/dir", ds_root=self.ds)
+        self.assertEqual(r.get("error"), "root_not_absolute")
+        self.assertFalse(os.path.exists(self.cfg_path))
+
+    # ③ 拒不存在的 root
+    def test_w03_reject_missing_root(self):
+        r = ds_tools.set_workspace(os.path.join(self.ws, "nope"), ds_root=self.ds)
+        self.assertEqual(r.get("error"), "root_not_dir")
+        self.assertFalse(os.path.exists(self.cfg_path))
+
+    # ④ 保留已有 projects 映射(核心:重接工作区不丢用户手写映射)
+    def test_w04_preserve_projects_mapping(self):
+        self._write_cfg({"root": "/old", "projects": {"甲": "01-项目/甲"},
+                         "projectsDir": "01-项目"})
+        r = ds_tools.set_workspace(self.ws, ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        cfg = self._read_cfg()
+        self.assertEqual(cfg["projects"], {"甲": "01-项目/甲"})
+        self.assertEqual(cfg["projectsDir"], "01-项目")  # 未显式传 → 保留
+        self.assertEqual(cfg["root"], os.path.realpath(self.ws))
+
+    # ⑤ 坏 JSON:备份 .bak + 写全新,不崩
+    def test_w05_bad_json_backup_not_crash(self):
+        self._write_cfg("{broken json")
+        r = ds_tools.set_workspace(self.ws, ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertTrue(os.path.exists(self.cfg_path + ".bak"))
+        cfg = self._read_cfg()               # 新文件合法
+        self.assertEqual(cfg["projects"], {})
+
+    # ⑥ 原子写:成功后无 .tmp 残留,且 workspace.json 是合法 JSON
+    def test_w06_atomic_no_tmp_leftover(self):
+        ds_tools.set_workspace(self.ws, ds_root=self.ds)
+        self.assertFalse(os.path.exists(self.cfg_path + ".tmp"))
+        self._read_cfg()  # 不抛 = 合法
+
+    # ⑦ 固定写路径:只写 config/workspace.json,不因 root 内容而变
+    def test_w07_fixed_write_path(self):
+        ds_tools.set_workspace(self.ws, ds_root=self.ds)
+        self.assertTrue(os.path.exists(self.cfg_path))
+
+    # ⑧ projects_dir="." 认 root 级布局(项目夹直接摊在 root 一级)
+    def test_w08_projects_dir_dot_root_level(self):
+        for d in ("甲项目", "乙项目", "丙项目"):
+            os.makedirs(os.path.join(self.ws, d))
+        r0 = ds_tools.set_workspace(self.ws, ds_root=self.ds)  # 无 projects_dir → 认不出
+        self.assertEqual(r0["folder_count"], 0)
+        r1 = ds_tools.set_workspace(self.ws, projects_dir=".", ds_root=self.ds)
+        self.assertEqual(r1["folder_count"], 3)
+        self.assertEqual(self._read_cfg()["projectsDir"], ".")
+
+    # ⑨ 写完免重启即时生效:load_config 立刻见新 root
+    def test_w09_takes_effect_no_restart(self):
+        import ds_workspace
+        self.assertIsNone(ds_workspace.load_config(self.ds))
+        ds_tools.set_workspace(self.ws, ds_root=self.ds)
+        cfg = ds_workspace.load_config(self.ds)
+        self.assertIsNotNone(cfg)
+        self.assertEqual(cfg["root"], os.path.realpath(self.ws))
+
+    # ⑩ B2:未接入 → list_todos 文本前置提醒行
+    def test_w10_list_todos_hint_when_unconfigured(self):
+        shutil.copytree(os.path.join(ROOT, "bin"), os.path.join(self.ds, "bin"),
+                        dirs_exist_ok=True)
+        r = ds_tools.list_todos(7, ds_root=self.ds)
+        self.assertTrue(r["ok"])
+        self.assertIn("还没接入项目文件夹", r["text"])
+        self.assertIn("未关闭事项", r["text"])  # render 原文仍在
+
+    # ⑪ B2:已接入 → 不再提醒
+    def test_w11_list_todos_no_hint_when_configured(self):
+        shutil.copytree(os.path.join(ROOT, "bin"), os.path.join(self.ds, "bin"),
+                        dirs_exist_ok=True)
+        ds_tools.set_workspace(self.ws, ds_root=self.ds)
+        r = ds_tools.list_todos(7, ds_root=self.ds)
+        self.assertTrue(r["ok"])
+        self.assertNotIn("还没接入项目文件夹", r["text"])
+
+    # ⑫ 铁律不变量:set_workspace 只写 root/projects/projectsDir,绝不碰 organize 作用域
+    def test_w12_invariant_no_organize_key(self):
+        os.environ.pop("DS_ORGANIZE_ROOTS", None)
+        ds_tools.set_workspace(self.ws, ds_root=self.ds)
+        cfg = self._read_cfg()
+        self.assertLessEqual(set(cfg.keys()), {"root", "projects", "projectsDir"})
+        # set_workspace 不得副作用式设置 organize 白名单 env
+        self.assertNotIn("DS_ORGANIZE_ROOTS", os.environ)
 
 
 if __name__ == "__main__":

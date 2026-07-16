@@ -18,8 +18,10 @@
 """
 from __future__ import annotations
 
+import json
 import os
 import re
+import shutil
 
 import ds_common  # 共享:防逃逸谓词/字段消毒/页脚锚定/加锁读改写(同目录模块)
 import ds_todo    # 主动提醒核心,同目录模块(list_todos 直调,不走 subprocess)
@@ -349,12 +351,88 @@ def read_project(name: str, ds_root: str = DEFAULT_DS_ROOT) -> dict:
 
 
 # ── 工具 4.4 list_todos ─────────────────────────────────────────────────────
+# 未接入工作区的主动提醒(Track B/B2)。agent 开场必跑 list_todos(AGENTS.md 规则3),
+# 故把"没接入项目文件夹"信号免费搭车塞进这里——不靠弱模型记得另调工具。
+# 落点在此而非 ds_todo.render():render() 被 test_ds_todo.py golden 逐字节锁死,插行会全红;
+# 它是"纯格式化壳",接入状态属工具层职责。仅 prepend 一行,render 文本与其 golden 全不动。
+_NO_WORKSPACE_HINT = (
+    "⚠️ 还没接入项目文件夹。告诉我它们放在哪(例如 D:\\设计工作区),我帮你接上,"
+    "以后工作台能直接看文件和参考图。\n\n"
+)
+
+
 def list_todos(stale_days: int = 7, ds_root: str = DEFAULT_DS_ROOT) -> dict:
     # 直调同目录 ds_todo(不走 subprocess:消灭 Windows 管道编码面,崩溃显式暴露)
     try:
-        return {"ok": True, "text": ds_todo.render(ds_root, int(stale_days))}
+        text = ds_todo.render(ds_root, int(stale_days))
     except Exception as e:
         return {"error": f"ds_todo_failed: {type(e).__name__}: {e}"}
+    # 每请求现读 workspace.json(零缓存):load_config 为 None = 未接入/坏配置,提醒前置
+    if ds_workspace.load_config(ds_root) is None:
+        text = _NO_WORKSPACE_HINT + text
+    return {"ok": True, "text": text}
+
+
+# ── 工具 4.4b set_workspace(Track B/B1)────────────────────────────────────────
+# 让用户不碰 JSON、不找开发者就能把工作台接到自己电脑的项目文件夹。写/更新
+# <ds_root>/config/workspace.json 的 root(+可选 projectsDir),保留已有 projects 映射。
+# 安全(design.md B5):此 root 只 scope 只读文件视图(ds_web 文件/图墙 + open-folder),
+# 不拓宽 LLM 能读并上云的内容。铁律不变量:workspace.json.root 与 DS_ORGANIZE_ROOTS
+# 永远独立——ds_organize(能碰任意机器文件的写/搬面)由独立 env 白名单管、走 ds-approve;
+# 本工具够不到它。谁把两者绑一起 = 把 set_workspace 变成真 exfil 杠杆。
+def set_workspace(root: str, projects_dir: str = "",
+                  ds_root: str = DEFAULT_DS_ROOT) -> dict:
+    """把工作台接到用户电脑的项目文件夹根目录。
+    root:项目文件夹根的绝对路径;projects_dir:可选,项目夹所在子目录(相对 root,
+    "."=项目夹直接在 root 一级)。保留已有 projects 映射;返回 folder_count(自动认出的项目夹数)。"""
+    if not isinstance(root, str) or not os.path.isabs(root):
+        # 拒相对路径:MCP server CWD 不可预测,相对 root 会解析到意外位置
+        return {"error": "root_not_absolute"}
+    real_root = os.path.realpath(root)
+    if not os.path.isdir(real_root):
+        return {"error": "root_not_dir"}  # 不回显路径细节
+
+    cfg_path = os.path.join(ds_root, "config", "workspace.json")
+    os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
+
+    # 读旧配置保留 projects/projectsDir;坏 JSON → 先备份 .bak 再写全新(不崩)
+    projects: dict = {}
+    kept_projects_dir = None
+    if os.path.exists(cfg_path):
+        try:
+            with open(cfg_path, encoding="utf-8") as fh:
+                old = json.load(fh)
+        except (OSError, ValueError):
+            try:  # 坏 JSON:备份原文,避免静默丢用户手写的映射
+                shutil.copyfile(cfg_path, cfg_path + ".bak")
+            except OSError:
+                pass
+            old = None
+        if isinstance(old, dict):
+            op = old.get("projects")
+            if isinstance(op, dict) and all(
+                    isinstance(k, str) and isinstance(v, str) for k, v in op.items()):
+                projects = op
+            opd = old.get("projectsDir")
+            if isinstance(opd, str):
+                kept_projects_dir = opd
+
+    new_cfg = {"root": real_root, "projects": projects}
+    pd = projects_dir if projects_dir else kept_projects_dir  # 显式传优先,否则保留旧值
+    if pd:
+        new_cfg["projectsDir"] = pd
+
+    # 真原子写:同目录 tmp + os.replace(崩溃不留半文件;set_model.py 是直接覆写,非原子,别照抄)
+    tmp = cfg_path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(new_cfg, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+    os.replace(tmp, cfg_path)
+
+    # folder_count 走与前端同一条解析(每请求现读,写完即时生效,无需重启)
+    reloaded = ds_workspace.load_config(ds_root)
+    folder_count = len(ds_workspace.project_folders(reloaded)) if reloaded else 0
+    return {"ok": True, "root": real_root, "folder_count": folder_count}
 
 
 # ── 工具 4.5 create_client ──────────────────────────────────────────────────
@@ -448,6 +526,14 @@ def _run_mcp() -> None:
     def list_todos_tool(stale_days: int = 7) -> dict:
         """列出所有项目的未关闭事项 + 超期未更新项目。"""
         return list_todos(stale_days, ds_root=ds_root)
+
+    @server.tool()
+    def set_workspace_tool(root: str, projects_dir: str = "") -> dict:
+        """把工作台接到用户电脑的项目文件夹根目录(以后能直接看文件和参考图)。
+        root=项目文件夹根的绝对路径(直接传用户说的路径即可,反斜杠不用转义);
+        projects_dir=可选,项目夹所在子目录(相对 root);若接上后 folder_count=0 且用户说
+        项目就直接放在这个文件夹里,再传 projects_dir="."。返回 folder_count=认出的项目夹数。"""
+        return set_workspace(root, projects_dir=projects_dir, ds_root=ds_root)
 
     server.run()
 

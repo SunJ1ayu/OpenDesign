@@ -15,7 +15,11 @@ import { refLabel } from "../gallery";
 // + 文件区(P5 真数据:类目计数+最近文件+打开文件夹;未配置/未映射诚实空态)。
 // open-folder 是只读铁律的唯一受控例外(P5 design §3),失败静默降级为提示。
 
-type Props = { projectKey: string | null; onOpenGallery: () => void };
+type Props = {
+  projectKey: string | null;
+  onOpenGallery: () => void;
+  onConnectWorkspace: () => void; // B4:预填工作区聊天,引导用户一句话接入(浏览器拿不到真实磁盘路径)
+};
 
 function fmtSize(n: number): string {
   if (n >= 1 << 20) return `${(n / (1 << 20)).toFixed(1)}M`;
@@ -23,7 +27,11 @@ function fmtSize(n: number): string {
   return `${n}B`;
 }
 
-export default function CompanionColumn({ projectKey, onOpenGallery }: Props) {
+export default function CompanionColumn({
+  projectKey,
+  onOpenGallery,
+  onConnectWorkspace,
+}: Props) {
   const [tab, setTab] = useState<"ref" | "render">("ref");
   const [refs, setRefs] = useState<Ref[] | null>(null);
   const [overview, setOverview] = useState<FilesOverview | null>(null);
@@ -167,10 +175,17 @@ export default function CompanionColumn({ projectKey, onOpenGallery }: Props) {
       ) : !overview.configured ? (
         <div className="file-list">
           <div className="aside-empty" style={{ margin: "4px 8px 0" }}>
-            还没配置文件工作区。
+            还没接入你电脑上的项目文件夹。
             <br />
-            在 config/workspace.json 填工作区根目录与项目映射后,这里会按类目显示文件。
+            跟 OpenDesign 说一句项目放在哪即可,以后这里会按类目直接显示文件。
           </div>
+          <button
+            className="connect-workspace"
+            onClick={onConnectWorkspace}
+            title="在聊天里告诉 OpenDesign 你的项目文件夹路径"
+          >
+            接入工作区
+          </button>
         </div>
       ) : !overview.mapped ? (
         <div className="file-list">

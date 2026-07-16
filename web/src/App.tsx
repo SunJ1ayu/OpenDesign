@@ -62,12 +62,16 @@ export default function App() {
     text: "",
     nonce: 0,
   });
-  // 中央列 ChatColumn 的预填(现无来源:mark-done 已并入变更列可点 pill 直接改);
-  // 保留常量占位满足 ChatColumn 的 prefill 契约。
-  const [colPrefill] = useState<{ text: string; nonce: number }>({
+  // 中央列 ChatColumn 的预填。用途(Track B/B4):文件区未接入工作区时,「接入工作区」
+  // 按钮把提示句预填进同屏的工作区聊天(而非主页,防上下文跳脱),用户补上路径即可让 AI
+  // 调 set_workspace,人留在原地。nonce 变化即覆盖 ChatColumn 的 draft。
+  const [colPrefill, setColPrefill] = useState<{ text: string; nonce: number }>({
     text: "",
     nonce: 0,
   });
+  const prefillCol = useCallback((text: string) => {
+    setColPrefill((p) => ({ text, nonce: p.nonce + 1 }));
+  }, []);
   const [sessionsEpoch, setSessionsEpoch] = useState(0); // 连接就绪/每轮回复后刷新历史对话
   // M5(07-13 盲评):每轮回复收尾后,AI 可能刚记了变更/改了状态——变更列、待办角标、
   // 项目列表都要跟着刷,否则聊完仍要 F5(p6 只修了历史对话侧栏这一半)。
@@ -320,6 +324,9 @@ export default function App() {
           onOpenGallery={() => {
             window.location.hash = "#/gallery";
           }}
+          onConnectWorkspace={() =>
+            prefillCol("把我的项目文件夹接进来,路径是:")
+          }
         />
         <ChatColumn
           session={session}

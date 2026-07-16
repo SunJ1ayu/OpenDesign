@@ -1238,6 +1238,20 @@ html, body { overflow: auto; }
   transition: background var(--hover-ease), border-color var(--hover-ease);
 }
 .open-folder:hover { background: #fff; border-color: var(--terra); color: var(--ink); }
+/* B4:文件区未接入空态的「接入工作区」按钮 */
+.connect-workspace {
+  margin: 10px 8px 0;
+  height: 28px;
+  padding: 0 14px;
+  font-size: 12px;
+  border: 1px solid var(--terra);
+  border-radius: 8px;
+  color: var(--terra);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--hover-ease), color var(--hover-ease);
+}
+.connect-workspace:hover { background: var(--terra); color: #fff; }
 .cat-row {
   display: flex;
   align-items: center;
