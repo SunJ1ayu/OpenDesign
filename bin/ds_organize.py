@@ -316,7 +316,9 @@ def _build_server(ds_root: str, allowed_roots: list[str]):
 
     @server.tool()
     def scan_dir_tool(root: str) -> dict:
-        """只读列出 root 目录下的文件/子目录(相对路径、类型、大小、修改时间)。"""
+        """整理文件夹的第一步:设计师说"帮我整理/归类这个文件夹/批量改名/归档旧文件"
+        时先调这个——只读列出 root 下的文件/子目录(相对路径、类型、大小、修改时间),
+        看清现状再 stage_plan 出方案。本身零改动,放心调。"""
         return scan_dir(root, allowed_roots=allowed_roots)
 
     @server.tool()

@@ -856,9 +856,10 @@ def _run_mcp() -> None:
 
     @server.tool()
     def delete_project_tool(project: str) -> dict:
-        """删除项目档案(回收站式:移入 projects/.trash/,不真删,删错可捞回)。
-        **纪律:只在设计师明确要求删除、且你复述了项目名得到确认之后才调**;
-        绝不因"看起来重复/多余"自作主张。删完把返回里的 trashed 路径和
+        """删除项目档案。设计师要求删除某个项目档案时用——**典型场景:清理误建的
+        重复档案**("把重复的删掉"就是在叫这个工具)。回收站式:移入 projects/.trash/,
+        不真删,删错可捞回。**纪律:调用前先复述项目名得到设计师确认**;设计师没提出
+        删除时,绝不主动提议或自作主张删任何档案。删完把返回里的 trashed 路径和
         refs_remaining(业主/索引里残留的引用数)报给设计师。"""
         return delete_project(project, ds_root=ds_root)
 
