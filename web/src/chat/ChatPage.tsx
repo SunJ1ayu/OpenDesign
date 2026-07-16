@@ -48,8 +48,19 @@ type Props = {
    * 续聊目标(p6,design.md D1):设了 = 连接后 attach 挂回该历史会话并回放
    * thread;null/缺省 = 新对话(服务端默认新 chat_id,现行为)。nonce 变化
    * 触发重连(同一会话点两次也要重挂)。
+   * project-thread:chatId 为空串 = **强制新会话**(nonce 驱动重连但不 attach,
+   * 切到无映射的项目时用;null→null 切换不重连,空串补上这个缺口)。
    */
   resume?: { sessionKey: string; chatId: string; nonce: number } | null;
+  /** 连上后回调真实 chat_id(ready 新会话/attached 均;项目→会话映射记账用)。 */
+  onChatId?: (chatId: string) => void;
+  /** attach 历史会话失败回调(映射指向已删会话时,App 借此清映射+重开自愈)。 */
+  onAttachFailed?: () => void;
+  /**
+   * 本会话第一条消息的前缀(项目列:「【当前项目:X】」)。仅当 transcript 为空时
+   * 拼上——attach 回放有内容=不是第一句,不拼;回放晚到竞态=多拼一次,无害。
+   */
+  firstSendPrefix?: string;
   /**
    * 展示变体(P3 T1,design.md「抽薄不 fork」):column = 2a 右列(默认),
    * home = 3a 新对话页。变体只影响 className 与空态 JSX 与输入卡外层样式;
@@ -73,6 +84,9 @@ export default function ChatPage({
   onConnected,
   onTurnEnd,
   resume = null,
+  onChatId,
+  onAttachFailed,
+  firstSendPrefix,
   variant = "column",
 }: Props) {
   const fallback = useMemo(() => new ChatSession(), []);
@@ -113,8 +127,9 @@ export default function ChatPage({
     };
     setView({ kind: "connecting" });
     setTranscript(emptyTranscript);
-    // p6 续聊:本轮 effect 的恢复目标(闭包捕获;null = 新对话走 ready 即连上)
-    const target = resume;
+    // p6 续聊:本轮 effect 的恢复目标(闭包捕获;null/空 chatId = 新对话走 ready 即连上
+    // ——空串是 project-thread 的「强制新会话」信号,只借 nonce 触发重连,不 attach)
+    const target = resume && resume.chatId ? resume : null;
     let attached = false;
     if (target) {
       // thread 回放与建连并行;回放消息一律「前插」——无论先后到,都不覆盖
@@ -153,6 +168,7 @@ export default function ChatPage({
                 return;
               }
               setView({ kind: "connected", chatId: m.chat_id, model: info?.model_name });
+              onChatId?.(m.chat_id);
               onConnected?.();
               return;
             }
@@ -160,11 +176,13 @@ export default function ChatPage({
               if (m.event === "attached" && m.chat_id === target.chatId) {
                 attached = true;
                 setView({ kind: "connected", chatId: target.chatId, model: info?.model_name });
+                onChatId?.(target.chatId);
                 onConnected?.();
                 return;
               }
               if (m.event === "error") {
                 setView({ kind: "error", msg: "无法打开该历史对话" });
+                onAttachFailed?.(); // 项目列自愈:清映射+强制新会话重连(App 层)
                 return;
               }
             }
@@ -223,12 +241,18 @@ export default function ChatPage({
     setAttempt((n) => n + 1);
   };
 
-  // 发送单一真相源:按钮/Enter/dispatch 三入口共用,envelope 逻辑只此一份
+  // 发送单一真相源:按钮/Enter/dispatch 三入口共用,envelope 逻辑只此一份。
+  // 项目列首句拼「【当前项目:X】」前缀(transcript 为空=本会话第一句;前缀随消息
+  // 上屏,对用户可见=诚实)。
   const sendText = (content: string): boolean => {
     const ws = wsRef.current;
     if (!content || transcript.busy || view.kind !== "connected" || !ws) return false;
-    ws.send(JSON.stringify(messageEnvelope(view.chatId, content, crypto.randomUUID())));
-    setTranscript((s) => appendLocalUser(s, content, `local-${crypto.randomUUID()}`));
+    const outbound =
+      firstSendPrefix && transcript.messages.length === 0
+        ? `${firstSendPrefix}${content}`
+        : content;
+    ws.send(JSON.stringify(messageEnvelope(view.chatId, outbound, crypto.randomUUID())));
+    setTranscript((s) => appendLocalUser(s, outbound, `local-${crypto.randomUUID()}`));
     return true;
   };
 

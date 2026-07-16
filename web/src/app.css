@@ -191,6 +191,19 @@ html, body { overflow: auto; }
   text-overflow: ellipsis;
 }
 .hist-row .when { font-size: 10.5px; color: var(--ink-5); flex: none; }
+/* project-thread:命中项目映射的历史行项目小标 */
+.hist-row .hist-proj {
+  flex: none;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  color: var(--terra-deep);
+  background: var(--terra-pill-bg);
+  border-radius: 4px;
+  padding: 0 5px;
+}
 /* p7 删除 ✕:默认隐藏,悬停行时替换时间位出现 */
 .hist-row .hist-del {
   display: none;

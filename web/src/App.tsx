@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Sidebar, { type SessionItem } from "./workspace/Sidebar";
 import ChangesColumn from "./workspace/ChangesColumn";
 import CompanionColumn from "./workspace/CompanionColumn";
@@ -9,6 +9,16 @@ import SkillsPage from "./SkillsPage";
 import GalleryPage from "./GalleryPage";
 import SearchPanel from "./SearchPanel";
 import { ChatSession } from "./chat/connection";
+import {
+  loadThreadMap,
+  projectPrefix,
+  sessionLabels,
+  threadFor,
+  THREADS_STORAGE_KEY,
+  withThread,
+  withoutThread,
+  type ThreadMap,
+} from "./chat/projectThread";
 import {
   deleteChatSession,
   fetchChanges,
@@ -82,6 +92,77 @@ export default function App() {
     chatId: string;
     nonce: number;
   } | null>(null);
+
+  // ---- 项目级对话(project-thread):每项目一条工作对话 ----
+  // 映射 项目→chat_id 存 localStorage(本机;丢=重开新对话,PKB 零损失)。
+  const [projThreads, setProjThreads] = useState<ThreadMap>(() =>
+    loadThreadMap(localStorage.getItem(THREADS_STORAGE_KEY)),
+  );
+  useEffect(() => {
+    try {
+      localStorage.setItem(THREADS_STORAGE_KEY, JSON.stringify(projThreads));
+    } catch {
+      /* 隐私模式等存不进:映射退化为会话级,不炸 */
+    }
+  }, [projThreads]);
+  // 工作区聊天列的连接上下文:切项目才重派生(映射更新不触发重连)。
+  // resume.chatId 空串 = 强制新会话(见 ChatPage resume 注释)。project 字段
+  // 记"这条连接是替哪个项目发起的"——记账/自愈回调按它闭包绑定,连接建立中
+  // 用户切走项目也不会记错账(ChatPage effect 捕获的是发起时的回调)。
+  const [colChat, setColChat] = useState<{
+    project: string;
+    resume: { sessionKey: string; chatId: string; nonce: number };
+  } | null>(null);
+  const selKeyRef = useRef<string | null>(null); // 自愈判断"当前还在这个项目吗"用
+  useEffect(() => {
+    selKeyRef.current = selectedKey;
+    if (!selectedKey) return; // 无选中项目:保持现状(初始 null=旧行为)
+    const chatId = threadFor(projThreads, selectedKey);
+    setColChat((prev) => ({
+      project: selectedKey,
+      resume: {
+        sessionKey: chatId ? `websocket:${chatId}` : "",
+        chatId: chatId ?? "",
+        nonce: (prev?.resume.nonce ?? 0) + 1,
+      },
+    }));
+    // projThreads 故意不入依赖:记账更新不该触发重连,只有切项目才重派生
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedKey]);
+  // 记账:绑定发起时的项目(colChat 闭包)。连上即记(eager)——虚会话 attach
+  // 失败有自愈兜底;晚到的回调也记在正确的项目名下。
+  const onColChatId = useCallback(
+    (chatId: string) => {
+      const proj = colChat?.project;
+      if (!proj) return;
+      setProjThreads((m) => (m[proj] === chatId ? m : withThread(m, proj, chatId)));
+    },
+    [colChat],
+  );
+  // 映射指向的会话已删/打不开 → 清该项目映射;仍停在该项目才重连自愈
+  // (已切走就不打扰当前连接,下次回来自然走"无映射=新会话")
+  const onColAttachFailed = useCallback(() => {
+    const proj = colChat?.project;
+    if (!proj) return;
+    setProjThreads((m) => withoutThread(m, proj));
+    if (selKeyRef.current === proj) {
+      setColChat((prev) =>
+        prev
+          ? { project: proj, resume: { sessionKey: "", chatId: "", nonce: prev.resume.nonce + 1 } }
+          : prev,
+      );
+    }
+  }, [colChat]);
+  // 聊天列「+ 新对话」:断开当前项目映射重开一条;旧会话退回全局历史(可点回续聊)
+  const newProjectChat = useCallback(() => {
+    const proj = selectedKey;
+    if (!proj) return;
+    setProjThreads((m) => withoutThread(m, proj));
+    setColChat((prev) => ({
+      project: proj,
+      resume: { sessionKey: "", chatId: "", nonce: (prev?.resume.nonce ?? 0) + 1 },
+    }));
+  }, [selectedKey]);
 
   useEffect(() => {
     const onHash = () => setRoute(fromHash());
@@ -215,6 +296,14 @@ export default function App() {
       if (!window.confirm(`删除对话「${label}」?删除后不可恢复。`)) return;
       try {
         const res = await deleteChatSession(session, s.key);
+        if (res.deleted) {
+          // 清掉指向该会话的项目映射(防项目列 attach 已删会话;attach 失败
+          // 本就有自愈,这里是主路径直接清干净)
+          setProjThreads((m) => {
+            const hits = Object.entries(m).filter(([, cid]) => `websocket:${cid}` === s.key);
+            return hits.reduce((acc, [p]) => withoutThread(acc, p), m);
+          });
+        }
         if (!res.deleted) {
           window.alert(
             res.blocked_by_automations
@@ -264,6 +353,8 @@ export default function App() {
   );
 
   const selected = projects.find((p) => p.key === selectedKey) ?? null;
+  // 历史行项目小标:命中项目映射的会话标上项目名
+  const sessionTags = useMemo(() => sessionLabels(projThreads, projects), [projThreads, projects]);
 
   const sidebar = (
     <Sidebar
@@ -274,6 +365,7 @@ export default function App() {
       onSearch={() => setSearchOpen(true)}
       todosOpenCount={todosCount}
       sessions={sessions}
+      sessionTags={sessionTags}
       onOpenSession={openSession}
       onDeleteSession={deleteSession}
       onNewChat={newChat}
@@ -333,6 +425,11 @@ export default function App() {
           dispatch={colDispatch}
           onConnected={onConnected}
           onTurnEnd={onTurnEnd}
+          resume={colChat?.resume ?? null}
+          onChatId={onColChatId}
+          onAttachFailed={onColAttachFailed}
+          firstSendPrefix={selected ? projectPrefix(selected.name || selected.key) : undefined}
+          onNewChat={newProjectChat}
         />
       </div>
 

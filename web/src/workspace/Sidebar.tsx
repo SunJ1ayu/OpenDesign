@@ -20,6 +20,8 @@ type Props = {
   onSelectProject: (key: string) => void;
   todosOpenCount: number | null;
   sessions: SessionItem[] | null; // null = 未连接/不可用(隐藏区块内容)
+  /** project-thread:sessionKey → 项目显示名(命中项目映射的会话加小标) */
+  sessionTags?: Record<string, string>;
   onOpenSession: (s: SessionItem) => void; // p6:点历史行 → 首页 attach 续聊
   onDeleteSession: (s: SessionItem) => void; // p7:悬停 ✕,确认在 App 层
   onNewChat: () => void;
@@ -37,7 +39,7 @@ function dotClass(p: Project, current: boolean): string {
 
 export default function Sidebar({
   route, projects, selectedKey, onSelectProject, todosOpenCount,
-  sessions, onOpenSession, onDeleteSession, onNewChat, onNewProject,
+  sessions, sessionTags, onOpenSession, onDeleteSession, onNewChat, onNewProject,
   onSearch, health,
 }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -121,6 +123,7 @@ export default function Sidebar({
           >
             <span className="ico">◷</span>
             <span className="t">{s.title || s.preview || "(未命名对话)"}</span>
+            {sessionTags?.[s.key] && <span className="hist-proj">{sessionTags[s.key]}</span>}
             <span className="when">{relTime(s.updated_at)}</span>
             {/* span 非嵌套 button(HTML 不允许);阻冒泡免触发续聊 */}
             <span
