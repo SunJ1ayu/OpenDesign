@@ -1071,7 +1071,9 @@ class RenameProjectOracle(unittest.TestCase):
         self._w("refs-index.md",
                 "# 参考图索引\n\n"
                 f"- [r1] 奶油风|客厅 | 来源: | 文件:refs/a.png | 用于:{self.OLD},锦修外滩二期 | 备注:\n"
-                f"- [r2] 侘寂风|主卧 | 来源: | 文件:refs/b.png | 用于:别家项目 | 备注:\n")
+                f"- [r2] 侘寂风|主卧 | 来源: | 文件:refs/b.png | 用于:别家项目 | 备注:\n"
+                # 尾位 + 重复项(panel S2/S3:行为对也要锁死防回归)
+                f"- [r3] 极简|厨房 | 来源: | 文件:refs/c.png | 用于:别家项目,{self.OLD},{self.OLD} | 备注:\n")
         with open(os.path.join(self.ds, "config", "workspace.json"), "w",
                   encoding="utf-8") as fh:
             json.dump({"root": self.ws, "projects": {self.OLD: f"2025/{self.NEW}"},
@@ -1108,7 +1110,9 @@ class RenameProjectOracle(unittest.TestCase):
         self.assertEqual(cfg["projects"], {self.NEW: f"2025/{self.NEW}"})
         self.assertEqual(r["updated"]["clients"], ["王五"])
         self.assertTrue(r["updated"]["workspace"])
-        self.assertEqual(r["updated"]["refs"], 1)
+        self.assertEqual(r["updated"]["refs"], 2)
+        # r3:尾位+重复项全换,别家项目原样
+        self.assertIn(f"用于:别家项目,{self.NEW},{self.NEW}", refs)
 
     # ② new 已存在 → 拒,零改动
     def test_r02_name_taken(self):
@@ -1155,16 +1159,42 @@ class RenameProjectOracle(unittest.TestCase):
         self.assertTrue(r.get("ok"), r)
         self.assertFalse(r["updated"]["workspace"])
 
-    # ⑨ 引用已改、档案未挪的中断状态 → 重跑补齐(幂等语义)
+    # ⑨ 引用已改、档案未挪的中断状态 → 重跑补齐(幂等语义)。
+    #    panel S1 扩展:workspace 键已迁、title 已写 `# new` 的最深中断态也重跑得通
     def test_r09_rerun_after_partial(self):
-        # 模拟:第一次跑到引用全改完、os.replace 前崩(手工造该状态)
+        # 模拟:第一次跑到 os.replace 前崩——引用全改完+映射键已迁+title 已写
         for rel in ("clients/王五.md", "index.md", "refs-index.md"):
             self._w(rel, self._r(rel).replace(f"[[{self.OLD}]]", f"[[{self.NEW}]]")
                     .replace(f"用于:{self.OLD},", f"用于:{self.NEW},"))
+        cfgp = os.path.join(self.ds, "config", "workspace.json")
+        with open(cfgp, encoding="utf-8") as fh:
+            cfg = json.load(fh)
+        cfg["projects"] = {self.NEW: cfg["projects"].pop(self.OLD)}
+        with open(cfgp, "w", encoding="utf-8") as fh:
+            json.dump(cfg, fh, ensure_ascii=False)
+        self._w(f"projects/{self.OLD}.md",
+                self._r(f"projects/{self.OLD}.md").replace(f"# {self.OLD}", f"# {self.NEW}", 1))
         r = ds_tools.rename_project(self.OLD, self.NEW, ds_root=self.ds)
         self.assertTrue(r.get("ok"), r)
         self.assertTrue(os.path.exists(os.path.join(self.ds, "projects", f"{self.NEW}.md")))
+        self.assertTrue(self._r(f"projects/{self.NEW}.md").startswith(f"# {self.NEW}"))
         self.assertEqual(self._r("clients/王五.md").count(f"[[{self.NEW}]]"), 2)
+        with open(cfgp, encoding="utf-8") as fh:
+            self.assertEqual(json.load(fh)["projects"], {self.NEW: f"2025/{self.NEW}"})
+
+    # ⑩ 悬空 new 映射键被覆盖=语义锁死(panel 双家点名;悬空键无档案=垃圾,
+    #    新项目接管其名下映射是正确行为,不加闸)
+    def test_r10_stray_new_mapping_overwritten(self):
+        cfgp = os.path.join(self.ds, "config", "workspace.json")
+        with open(cfgp, encoding="utf-8") as fh:
+            cfg = json.load(fh)
+        cfg["projects"][self.NEW] = "2025/别的悬空目标"
+        with open(cfgp, "w", encoding="utf-8") as fh:
+            json.dump(cfg, fh, ensure_ascii=False)
+        r = ds_tools.rename_project(self.OLD, self.NEW, ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        with open(cfgp, encoding="utf-8") as fh:
+            self.assertEqual(json.load(fh)["projects"], {self.NEW: f"2025/{self.NEW}"})
 
 
 if __name__ == "__main__":
