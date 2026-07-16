@@ -1042,5 +1042,130 @@ class BindProjectOracle(unittest.TestCase):
         self.assertEqual(self._read_cfg()["projects"]["福清咖啡厅"], "平铺项目夹")
 
 
+class RenameProjectOracle(unittest.TestCase):
+    """rename-project track:rename_project(old, new) 五处一致改名(主 agent 拥有)。
+
+    red-check(commit message 附结果):
+      注释 new 已存在闸(name_taken)→ test_r02 变红
+      refs 用于段"精确项匹配"改成子串替换 → test_r07 变红
+    """
+
+    OLD = "锦修外滩"
+    NEW = "1206 福州 锦绣外滩"
+
+    def setUp(self):
+        self.ds = tempfile.mkdtemp(prefix="dsren-")
+        for d in ("config", "projects", "clients"):
+            os.makedirs(os.path.join(self.ds, d), exist_ok=True)
+        self.ws = tempfile.mkdtemp(prefix="dsrenws-")
+        os.makedirs(os.path.join(self.ws, "2025", self.NEW))
+        self._w(f"projects/{self.OLD}.md",
+                f"# {self.OLD}\n\n- 业主: [[王五]]\n- 阶段: 深化\n\n"
+                f"## 变更记录\n- [待确认] C1 2026-07-01 玄关改柜\n")
+        self._w("clients/王五.md",
+                f"# 王五\n\n- 关联项目: [[{self.OLD}]]\n\n## 备注\n"
+                f"提过 [[{self.OLD}]] 的吊顶要快。\n")
+        self._w("index.md",
+                f"# 索引\n\n| [[{self.OLD}]] | 王五 | 深化 |\n")
+        # 用于段含精确项 + 前缀陷阱项(锦修外滩二期,不得被误伤)
+        self._w("refs-index.md",
+                "# 参考图索引\n\n"
+                f"- [r1] 奶油风|客厅 | 来源: | 文件:refs/a.png | 用于:{self.OLD},锦修外滩二期 | 备注:\n"
+                f"- [r2] 侘寂风|主卧 | 来源: | 文件:refs/b.png | 用于:别家项目 | 备注:\n")
+        with open(os.path.join(self.ds, "config", "workspace.json"), "w",
+                  encoding="utf-8") as fh:
+            json.dump({"root": self.ws, "projects": {self.OLD: f"2025/{self.NEW}"},
+                       "projectsDir": ".", "projectsDepth": 2}, fh, ensure_ascii=False)
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+        shutil.rmtree(self.ws, ignore_errors=True)
+
+    def _w(self, rel, text):
+        p = os.path.join(self.ds, rel)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(text)
+
+    def _r(self, rel):
+        with open(os.path.join(self.ds, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    # ① happy:五处齐改 + 审计清单
+    def test_r01_full_rename(self):
+        r = ds_tools.rename_project(self.OLD, self.NEW, ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertFalse(os.path.exists(os.path.join(self.ds, "projects", f"{self.OLD}.md")))
+        body = self._r(f"projects/{self.NEW}.md")
+        self.assertTrue(body.startswith(f"# {self.NEW}\n"))
+        self.assertIn("- [待确认] C1", body)             # 账本原样
+        self.assertNotIn(f"[[{self.OLD}]]", self._r("clients/王五.md"))
+        self.assertEqual(self._r("clients/王五.md").count(f"[[{self.NEW}]]"), 2)
+        self.assertIn(f"[[{self.NEW}]]", self._r("index.md"))
+        refs = self._r("refs-index.md")
+        self.assertIn(f"用于:{self.NEW},锦修外滩二期", refs)  # 精确项换,前缀项不动
+        with open(os.path.join(self.ds, "config", "workspace.json"), encoding="utf-8") as fh:
+            cfg = json.load(fh)
+        self.assertEqual(cfg["projects"], {self.NEW: f"2025/{self.NEW}"})
+        self.assertEqual(r["updated"]["clients"], ["王五"])
+        self.assertTrue(r["updated"]["workspace"])
+        self.assertEqual(r["updated"]["refs"], 1)
+
+    # ② new 已存在 → 拒,零改动
+    def test_r02_name_taken(self):
+        self._w(f"projects/{self.NEW}.md", f"# {self.NEW}\n")
+        r = ds_tools.rename_project(self.OLD, self.NEW, ds_root=self.ds)
+        self.assertEqual(r.get("error"), "name_taken")
+        self.assertIn(f"[[{self.OLD}]]", self._r("clients/王五.md"))  # 引用没被动
+
+    # ③ old 不存在 → project_not_found
+    def test_r03_old_not_found(self):
+        r = ds_tools.rename_project("没这个项目", self.NEW, ds_root=self.ds)
+        self.assertEqual(r.get("error"), "project_not_found")
+
+    # ④ 坏 new 名:链接/分段定界符与逃逸全拒
+    def test_r04_bad_new_name(self):
+        for bad in ("有|竖线", "有,逗号", "有[[链接", "有]]链接", "../逃逸", "a/b"):
+            r = ds_tools.rename_project(self.OLD, bad, ds_root=self.ds)
+            self.assertIn(r.get("error"), ("bad_name", "path_escape"), bad)
+        self.assertTrue(os.path.exists(os.path.join(self.ds, "projects", f"{self.OLD}.md")))
+
+    # ⑤ old == new → same_name
+    def test_r05_same_name(self):
+        r = ds_tools.rename_project(self.OLD, self.OLD, ds_root=self.ds)
+        self.assertEqual(r.get("error"), "same_name")
+
+    # ⑥ 自定义 title(首标题 ≠ old)保留,只改文件名
+    def test_r06_custom_title_kept(self):
+        self._w(f"projects/{self.OLD}.md", "# 我的自定义标题\n\n- 阶段: 深化\n")
+        r = ds_tools.rename_project(self.OLD, self.NEW, ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertTrue(self._r(f"projects/{self.NEW}.md").startswith("# 我的自定义标题"))
+        self.assertFalse(r["updated"]["title"])
+
+    # ⑦ refs 只换精确项(前缀陷阱 锦修外滩二期 必须原样)——red-check 锚点
+    def test_r07_refs_exact_item_only(self):
+        ds_tools.rename_project(self.OLD, self.NEW, ds_root=self.ds)
+        self.assertIn("锦修外滩二期", self._r("refs-index.md"))
+        self.assertNotIn(f"用于:{self.NEW}二期", self._r("refs-index.md"))
+
+    # ⑧ 无 workspace 配置照常成功,workspace:false
+    def test_r08_no_workspace_ok(self):
+        os.remove(os.path.join(self.ds, "config", "workspace.json"))
+        r = ds_tools.rename_project(self.OLD, self.NEW, ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertFalse(r["updated"]["workspace"])
+
+    # ⑨ 引用已改、档案未挪的中断状态 → 重跑补齐(幂等语义)
+    def test_r09_rerun_after_partial(self):
+        # 模拟:第一次跑到引用全改完、os.replace 前崩(手工造该状态)
+        for rel in ("clients/王五.md", "index.md", "refs-index.md"):
+            self._w(rel, self._r(rel).replace(f"[[{self.OLD}]]", f"[[{self.NEW}]]")
+                    .replace(f"用于:{self.OLD},", f"用于:{self.NEW},"))
+        r = ds_tools.rename_project(self.OLD, self.NEW, ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertTrue(os.path.exists(os.path.join(self.ds, "projects", f"{self.NEW}.md")))
+        self.assertEqual(self._r("clients/王五.md").count(f"[[{self.NEW}]]"), 2)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

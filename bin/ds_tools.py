@@ -507,6 +507,124 @@ def bind_project(project: str, folder: str, ds_root: str = DEFAULT_DS_ROOT) -> d
     return {"ok": True, "project": project, "folder": folder, "rel": rel}
 
 
+# ── 工具 4.4d rename_project(rename-project track)──────────────────────────────
+# 项目名活在五处:档案文件名+首标题、clients/*.md 与 index.md 的 [[链接]]、
+# refs-index.md "用于:"段、workspace.json 映射键。改名必须五处齐动,否则映射键
+# 悬空(合并重新裂开)、链接断掉——这就是"手改 md 文件"方案被否的原因。
+# 执行顺序=引用先改(全幂等),档案 os.replace 最后(=提交点):中途崩 old 档案
+# 还在,重跑一遍补齐;反序崩后 old 已消失无法重跑。跨文件无整体原子性=接受的
+# deviation(单用户本地盘,窗口毫秒级),返回审计清单如实报改了什么。
+def rename_project(old: str, new: str, ds_root: str = DEFAULT_DS_ROOT,
+                   today: str | None = None) -> dict:
+    """项目改名,五处引用一致更新(变更历史/沟通日志正文里的旧名不动=账本语义)。
+    old/new=项目档案名。返回 updated 审计清单(title/clients/index/refs/workspace)。"""
+    today = ds_common.today_str(today)
+    old = (old or "").strip()
+    new = (new or "").strip()
+    old_path, err = _resolve(ds_root, "projects", old)
+    if err:
+        return err
+    if not os.path.exists(old_path):
+        return {"error": "project_not_found"}
+    if new == old:
+        return {"error": "same_name"}
+    new_path, err = _resolve(ds_root, "projects", new)
+    if err:
+        return err
+    # 链接/分段定界符闸:| 是 refs 分段符、, 是"用于"列表分隔、[ ] 是 [[链接]]
+    # 定界(NTFS 本就禁 |,真实文件夹名零成本)。进了这些字符五处一致性就碎了。
+    if any(c in new for c in "|,[]"):
+        return {"error": "bad_name"}
+    if os.path.exists(new_path):
+        return {"error": "name_taken"}
+    # 档案本体先读(fail fast):坏编码在这里就拒,绝不在引用改到一半后才发现
+    # ——否则留下"引用已改、档案没挪"且重跑无法自愈的卡死态。
+    try:
+        with open(old_path, encoding="utf-8") as fh:
+            body = fh.read()
+    except (OSError, UnicodeDecodeError):
+        return {"error": "project_unreadable"}
+
+    updated = {"title": False, "clients": [], "index": False,
+               "refs": 0, "workspace": False}
+
+    # ① clients/*.md + index.md:[[old]] → [[new]](精确定界,散文里的链接也跟走)
+    link_old, link_new = f"[[{old}]]", f"[[{new}]]"
+    client_dir = os.path.join(ds_root, "clients")
+    targets = []
+    if os.path.isdir(client_dir):
+        targets = [os.path.join(client_dir, f) for f in sorted(os.listdir(client_dir))
+                   if f.endswith(".md")]
+    index_path = os.path.join(ds_root, "index.md")
+    if os.path.isfile(index_path):
+        targets.append(index_path)
+    for path in targets:
+        try:
+            with open(path, encoding="utf-8") as fh:
+                text = fh.read()
+        except (OSError, UnicodeDecodeError):
+            continue  # 坏编码单文件跳过(M1 同哲学),审计里自然不出现
+        if link_old not in text:
+            continue
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text.replace(link_old, link_new))
+        if path == index_path:
+            updated["index"] = True
+        else:
+            updated["clients"].append(os.path.splitext(os.path.basename(path))[0])
+
+    # ② refs-index.md:"用于:"段逗号列表精确项替换(复用 ds_refs 分段真相源,
+    # 不子串误伤"锦修外滩二期")
+    refs_path = os.path.join(ds_root, "refs-index.md")
+    if os.path.isfile(refs_path):
+        import ds_refs
+        with ds_common.locked_rw(refs_path) as box:
+            changed = 0
+            lines = box["lines"]
+            for i, ln in enumerate(lines):
+                seg = ds_refs._used_segment(ln)
+                if seg is None:
+                    continue
+                j, used = seg
+                if old not in used:
+                    continue
+                segs = ln.split(ds_refs._SEG_SEP)
+                segs[j] = "用于:" + ",".join(new if u == old else u for u in used)
+                lines[i] = ds_refs._SEG_SEP.join(segs)
+                changed += 1
+            if changed == 0:
+                box["write"] = False
+            else:
+                ds_common.bump_last_updated(lines, today)  # 与 link_ref 同礼数
+            updated["refs"] = changed
+
+    # ③ workspace.json:映射键 old→new(值不动;无配置/无该键=跳过)
+    cfg_path = os.path.join(ds_root, "config", "workspace.json")
+    if os.path.isfile(cfg_path):
+        try:
+            with open(cfg_path, encoding="utf-8") as fh:
+                raw = json.load(fh)
+        except (OSError, ValueError):
+            raw = None
+        if isinstance(raw, dict) and isinstance(raw.get("projects"), dict) \
+                and old in raw["projects"]:
+            raw["projects"][new] = raw["projects"].pop(old)
+            _write_workspace_json(cfg_path, raw)
+            updated["workspace"] = True
+
+    # ④ 档案本体:首标题恰好 `# old` 才改(自定义 title 不动);os.replace=提交点
+    # (body 已在闸后预读,fail fast)
+    first_nl = body.find("\n")
+    first_line = body if first_nl == -1 else body[:first_nl]
+    if first_line.strip() == f"# {old}":
+        body = f"# {new}" + ("" if first_nl == -1 else body[first_nl:])
+        updated["title"] = True
+        with open(old_path, "w", encoding="utf-8") as fh:
+            fh.write(body)
+    os.replace(old_path, new_path)
+    return {"ok": True, "old": old, "new": new, "updated": updated}
+
+
 # ── 工具 4.5 create_client ──────────────────────────────────────────────────
 def create_client(name: str, contact: str = "", linked: str = "",
                    ds_root: str = DEFAULT_DS_ROOT) -> dict:
@@ -611,6 +729,14 @@ def _run_mcp() -> None:
         会一起认出。返回 folder_count=认出的项目夹数(depth=2 时为跨分组总数)。"""
         return set_workspace(root, projects_dir=projects_dir,
                              projects_depth=projects_depth, ds_root=ds_root)
+
+    @server.tool()
+    def rename_project_tool(old: str, new: str) -> dict:
+        """项目改名(档案/业主链接/参考图索引/工作区映射五处一致更新)。
+        设计师要求改项目名、或项目名与文件夹名对齐时用。old=现在的项目名,
+        new=新名。变更历史正文里的旧名不改(账本,历史读起来是当时的名字,正常)。
+        返回 updated 清单,照它播报改了哪些地方。"""
+        return rename_project(old, new, ds_root=ds_root)
 
     @server.tool()
     def bind_project_tool(project: str, folder: str) -> dict:
