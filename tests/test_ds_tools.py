@@ -1025,6 +1025,14 @@ class BindProjectOracle(unittest.TestCase):
         self.assertEqual(cfg["projectsDepth"], 2)
         self.assertFalse(os.path.exists(self.cfg_path + ".tmp"))
 
+    # ②b 同对重绑=幂等成功,文件结构不变(subsense NIT-3)
+    def test_b02b_rebind_same_pair_idempotent(self):
+        ds_tools.bind_project("福清咖啡厅", "2026:0315 某项目", ds_root=self.ds)
+        first = self._read_cfg()
+        r = ds_tools.bind_project("福清咖啡厅", "2026:0315 某项目", ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(self._read_cfg(), first)
+
     # ⑧ depth=1 布局:裸文件夹名即 key,照常绑
     def test_b08_depth1_plain_folder(self):
         os.makedirs(os.path.join(self.ws, "平铺项目夹"))

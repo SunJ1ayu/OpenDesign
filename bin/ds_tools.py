@@ -498,6 +498,8 @@ def bind_project(project: str, folder: str, ds_root: str = DEFAULT_DS_ROOT) -> d
     except (OSError, ValueError):
         # load_config 刚成功,到这多半是竞态;宁拒不猜
         return {"error": "workspace_not_configured"}
+    if not isinstance(raw, dict):  # 顶层非 dict(外部进程写坏):同竞态待遇,不崩
+        return {"error": "workspace_not_configured"}
     if not isinstance(raw.get("projects"), dict):
         raw["projects"] = {}
     raw["projects"][project] = rel
@@ -614,8 +616,9 @@ def _run_mcp() -> None:
     def bind_project_tool(project: str, folder: str) -> dict:
         """把已建档项目与工作区文件夹关联(合并项目列表里的重复条目)。
         用户说"那个文件夹就是 XX 项目"、或项目列表出现同名两行(一个建档一个
-        未建档)时用。project=项目档案名;folder=未建档条目显示的文件夹名
-        (按年份/客户分组时形如 2026:0315 某项目,要带前缀原样传)。重绑=覆盖。"""
+        未建档)时用。project=项目档案名;folder=用户念的文件夹名即可(纯名唯一
+        就绑;按年份分组撞名/没找到时,返回里有 folders 候选名单,从中挑准确的
+        `组:名` 重试一次,别自己编)。重绑=覆盖,绑错再绑一次即可。"""
         return bind_project(project, folder, ds_root=ds_root)
 
     server.run()
