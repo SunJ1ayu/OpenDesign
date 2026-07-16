@@ -235,7 +235,8 @@ export default function CompanionColumn({
           <div className="aside-empty" style={{ margin: "4px 8px 0" }}>
             此项目还没关联文件夹。
             <br />
-            在 config/workspace.json 的 projects 里加一行映射即可。
+            在右侧对话里说「XX 文件夹就是这个项目」即可关联(列表里未建档的
+            那行名字照着说)。
           </div>
         </div>
       ) : (

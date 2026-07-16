@@ -373,6 +373,16 @@ def list_todos(stale_days: int = 7, ds_root: str = DEFAULT_DS_ROOT) -> dict:
     return {"ok": True, "text": text}
 
 
+def _write_workspace_json(cfg_path: str, obj: dict) -> None:
+    """workspace.json 原子写(同目录 tmp + os.replace,崩溃不留半文件)。
+    set_workspace / bind_project 共用的唯一写出口——别再复制第二份。"""
+    tmp = cfg_path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(obj, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+    os.replace(tmp, cfg_path)
+
+
 # ── 工具 4.4b set_workspace(Track B/B1)────────────────────────────────────────
 # 让用户不碰 JSON、不找开发者就能把工作台接到自己电脑的项目文件夹。写/更新
 # <ds_root>/config/workspace.json 的 root(+可选 projectsDir),保留已有 projects 映射。
@@ -438,17 +448,61 @@ def set_workspace(root: str, projects_dir: str = "", projects_depth: int = 0,
     if depth == 2:
         new_cfg["projectsDepth"] = 2
 
-    # 真原子写:同目录 tmp + os.replace(崩溃不留半文件;set_model.py 是直接覆写,非原子,别照抄)
-    tmp = cfg_path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(new_cfg, fh, ensure_ascii=False, indent=2)
-        fh.write("\n")
-    os.replace(tmp, cfg_path)
+    _write_workspace_json(cfg_path, new_cfg)
 
     # folder_count 走与前端同一条解析(每请求现读,写完即时生效,无需重启)
     reloaded = ds_workspace.load_config(ds_root)
     folder_count = len(ds_workspace.project_folders(reloaded)) if reloaded else 0
     return {"ok": True, "root": real_root, "folder_count": folder_count}
+
+
+# ── 工具 4.4c bind_project(bind-project track)──────────────────────────────────
+# 自动绑定三级(显式映射/名字直等/token 唯一)对不上真实命名时,项目列表会出现
+# "建档项目 + 同名文件夹"两行——保守不绑是对的(绑错比不绑重),本工具就是那个
+# 缺失的合并动作:把显式映射写进 workspace.json(显式映射永远优先=纠偏机制)。
+# 写侧四闸全复用既有单一真相源,folder 只认已发现的文件夹 key(已发现=已过两级
+# PROJECT_NAME_RE+无 symlink+realpath;列不出的文件夹绑了 web 侧也寻址不到)。
+def bind_project(project: str, folder: str, ds_root: str = DEFAULT_DS_ROOT) -> dict:
+    """把已建档项目与工作区文件夹关联(合并项目列表里的重复条目)。
+    project=项目档案 key;folder=项目列表里未建档条目的名字(按年份/客户分组时
+    形如 `2026:0315 某项目`,平铺时就是文件夹名)。重绑=覆盖旧映射。"""
+    # 闸① project 必须是已建档项目(_resolve=H1 咽喉:within+字符集)
+    path, err = _resolve(ds_root, "projects", project)
+    if err:
+        return err
+    if not os.path.exists(path):
+        return {"error": "project_not_found"}
+    # 闸② workspace 必须已配置
+    cfg = ds_workspace.load_config(ds_root)
+    if cfg is None:
+        return {"error": "workspace_not_configured"}
+    # 闸③ folder 只认已发现的文件夹(不开第二条路径解析面)。两级匹配:
+    # 精确 key → 纯名唯一命中(侧栏把 `组:名` 拆成"名+组标"两段展示,用户念的
+    # 是纯名;唯一才绑,撞名不猜)。失败/歧义把候选名单还给助手=自愈回路
+    # (助手没有枚举文件夹的工具,不给名单它只能瞎猜)。
+    folders = ds_workspace.project_folders(cfg)
+    matches = [(n, p) for n, p in folders if n == folder]
+    if not matches:
+        matches = [(n, p) for n, p in folders
+                   if ":" in n and n.split(":", 1)[1] == folder]
+    if len(matches) != 1:
+        return {"error": "folder_ambiguous" if matches else "folder_not_found",
+                "folders": [n for n, _ in folders][:50]}
+    folder, target = matches[0]
+    rel = os.path.relpath(target, cfg["root"]).replace(os.sep, "/")
+    # 闸④ 写:原 JSON 整 dict 原样保留,只动 projects[project];原子写
+    cfg_path = os.path.join(ds_root, "config", "workspace.json")
+    try:
+        with open(cfg_path, encoding="utf-8") as fh:
+            raw = json.load(fh)
+    except (OSError, ValueError):
+        # load_config 刚成功,到这多半是竞态;宁拒不猜
+        return {"error": "workspace_not_configured"}
+    if not isinstance(raw.get("projects"), dict):
+        raw["projects"] = {}
+    raw["projects"][project] = rel
+    _write_workspace_json(cfg_path, raw)
+    return {"ok": True, "project": project, "folder": folder, "rel": rel}
 
 
 # ── 工具 4.5 create_client ──────────────────────────────────────────────────
@@ -555,6 +609,14 @@ def _run_mcp() -> None:
         会一起认出。返回 folder_count=认出的项目夹数(depth=2 时为跨分组总数)。"""
         return set_workspace(root, projects_dir=projects_dir,
                              projects_depth=projects_depth, ds_root=ds_root)
+
+    @server.tool()
+    def bind_project_tool(project: str, folder: str) -> dict:
+        """把已建档项目与工作区文件夹关联(合并项目列表里的重复条目)。
+        用户说"那个文件夹就是 XX 项目"、或项目列表出现同名两行(一个建档一个
+        未建档)时用。project=项目档案名;folder=未建档条目显示的文件夹名
+        (按年份/客户分组时形如 2026:0315 某项目,要带前缀原样传)。重绑=覆盖。"""
+        return bind_project(project, folder, ds_root=ds_root)
 
     server.run()
 

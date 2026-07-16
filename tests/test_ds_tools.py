@@ -905,5 +905,134 @@ class SetWorkspaceOracle(unittest.TestCase):
         self.assertFalse(os.path.exists(self.cfg_path))
 
 
+class BindProjectOracle(unittest.TestCase):
+    """bind-project track:bind_project(project, folder) 写显式映射(主 agent 拥有)。
+
+    red-check(commit message 附结果):
+      注释 folder ∈ project_folders 成员闸 → test_b05 变红
+      注释 project 档案存在闸 → test_b03 变红
+    """
+
+    def setUp(self):
+        self.ds = tempfile.mkdtemp(prefix="dsbind-")
+        os.makedirs(os.path.join(self.ds, "config"), exist_ok=True)
+        os.makedirs(os.path.join(self.ds, "projects"), exist_ok=True)
+        self.ws = tempfile.mkdtemp(prefix="dsbindws-")
+        self.cfg_path = os.path.join(self.ds, "config", "workspace.json")
+        # PKB 档案:福清咖啡厅;工作区:depth2 两分组三文件夹
+        with open(os.path.join(self.ds, "projects", "福清咖啡厅.md"), "w",
+                  encoding="utf-8") as fh:
+            fh.write("# 福清咖啡厅\n\n- 阶段: 深化\n")
+        for rel in ("2025/0110 某项目 福清 咖啡厅", "2025/0605 某项目",
+                    "2026/0315 某项目"):
+            os.makedirs(os.path.join(self.ws, *rel.split("/")))
+        self._write_cfg({"root": self.ws, "projects": {"旧项目": "2025/0605 某项目"},
+                         "projectsDir": ".", "projectsDepth": 2})
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+        shutil.rmtree(self.ws, ignore_errors=True)
+
+    def _write_cfg(self, obj):
+        with open(self.cfg_path, "w", encoding="utf-8") as fh:
+            json.dump(obj, fh, ensure_ascii=False)
+
+    def _read_cfg(self):
+        with open(self.cfg_path, encoding="utf-8") as fh:
+            return json.load(fh)
+
+    # ① happy:keyed folder → rel 带组落盘,project_dir 立刻解析到文件夹
+    def test_b01_bind_and_resolve(self):
+        import ds_workspace
+        r = ds_tools.bind_project("福清咖啡厅", "2025:0110 某项目 福清 咖啡厅",
+                                  ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(r["rel"], "2025/0110 某项目 福清 咖啡厅")
+        cfg = self._read_cfg()
+        self.assertEqual(cfg["projects"]["福清咖啡厅"],
+                         "2025/0110 某项目 福清 咖啡厅")
+        loaded = ds_workspace.load_config(self.ds)
+        self.assertEqual(
+            ds_workspace.project_dir(loaded, "福清咖啡厅"),
+            os.path.realpath(os.path.join(self.ws, "2025", "0110 某项目 福清 咖啡厅")))
+
+    # ② 重绑=覆盖(显式映射就是纠偏机制)
+    def test_b02_rebind_overwrites(self):
+        ds_tools.bind_project("福清咖啡厅", "2025:0110 某项目 福清 咖啡厅",
+                              ds_root=self.ds)
+        r = ds_tools.bind_project("福清咖啡厅", "2026:0315 某项目", ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(self._read_cfg()["projects"]["福清咖啡厅"],
+                         "2026/0315 某项目")
+
+    # ③ 项目档案不存在 → 拒,零写入(助手打错字必须被拦)
+    def test_b03_project_not_found(self):
+        before = self._read_cfg()
+        r = ds_tools.bind_project("不存在的项目", "2026:0315 某项目", ds_root=self.ds)
+        self.assertEqual(r.get("error"), "project_not_found")
+        self.assertEqual(self._read_cfg(), before)
+
+    # ④ 坏项目名(H1 咽喉字符集)→ bad_name
+    def test_b04_bad_project_name(self):
+        r = ds_tools.bind_project("小区/1801", "2026:0315 某项目", ds_root=self.ds)
+        self.assertIn(r.get("error"), ("bad_name", "path_escape"))
+
+    # ⑤ folder 非已发现文件夹 → 拒,零写入,且带候选名单(自愈回路:助手无
+    #    枚举工具,不还名单它只能瞎猜)
+    def test_b05_folder_not_found(self):
+        before = self._read_cfg()
+        for bad in ("2026:没这个文件夹", "没这个纯名",
+                    "../逃逸", "2026/0315 某项目"):     # rel 路径形式也不收
+            r = ds_tools.bind_project("福清咖啡厅", bad, ds_root=self.ds)
+            self.assertEqual(r.get("error"), "folder_not_found", bad)
+            self.assertIn("2026:0315 某项目", r.get("folders", []), bad)
+        self.assertEqual(self._read_cfg(), before)
+
+    # ⑤b 纯名唯一命中 → 绑(侧栏展示"名+组标"两段,用户念的是纯名);
+    #    返回的 folder 归一为完整 key
+    def test_b05b_pure_name_unique_binds(self):
+        r = ds_tools.bind_project("福清咖啡厅", "0315 某项目", ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(r["folder"], "2026:0315 某项目")
+        self.assertEqual(self._read_cfg()["projects"]["福清咖啡厅"],
+                         "2026/0315 某项目")
+
+    # ⑤c 纯名跨组撞名 → folder_ambiguous + 候选,零写入(不猜)
+    def test_b05c_pure_name_ambiguous(self):
+        os.makedirs(os.path.join(self.ws, "2025", "0315 某项目"))
+        before = self._read_cfg()
+        r = ds_tools.bind_project("福清咖啡厅", "0315 某项目", ds_root=self.ds)
+        self.assertEqual(r.get("error"), "folder_ambiguous")
+        self.assertIn("2025:0315 某项目", r["folders"])
+        self.assertIn("2026:0315 某项目", r["folders"])
+        self.assertEqual(self._read_cfg(), before)
+
+    # ⑥ workspace 未配置 → 拒
+    def test_b06_workspace_not_configured(self):
+        os.remove(self.cfg_path)
+        r = ds_tools.bind_project("福清咖啡厅", "2026:0315 某项目", ds_root=self.ds)
+        self.assertEqual(r.get("error"), "workspace_not_configured")
+        self.assertFalse(os.path.exists(self.cfg_path))
+
+    # ⑦ 其余字段与既有映射原样保留 + 原子无 .tmp 残留
+    def test_b07_preserves_and_atomic(self):
+        r = ds_tools.bind_project("福清咖啡厅", "2026:0315 某项目", ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        cfg = self._read_cfg()
+        self.assertEqual(cfg["projects"]["旧项目"], "2025/0605 某项目")  # 既有映射不动
+        self.assertEqual(cfg["root"], self.ws)
+        self.assertEqual(cfg["projectsDir"], ".")
+        self.assertEqual(cfg["projectsDepth"], 2)
+        self.assertFalse(os.path.exists(self.cfg_path + ".tmp"))
+
+    # ⑧ depth=1 布局:裸文件夹名即 key,照常绑
+    def test_b08_depth1_plain_folder(self):
+        os.makedirs(os.path.join(self.ws, "平铺项目夹"))
+        self._write_cfg({"root": self.ws, "projects": {}, "projectsDir": "."})
+        r = ds_tools.bind_project("福清咖啡厅", "平铺项目夹", ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(self._read_cfg()["projects"]["福清咖啡厅"], "平铺项目夹")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
