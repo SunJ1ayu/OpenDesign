@@ -4,8 +4,8 @@ import { cnDate, editChange } from "./api";
 import StatusPicker from "./StatusPicker";
 import {
   buildEditRequest,
+  groupByDate,
   groupByProject,
-  groupBySpace,
   isTerminalStatus,
   sortByDateDesc,
   staleDays,
@@ -15,8 +15,9 @@ import {
   type StaleItem,
 } from "./todo";
 
-// 4a 待办事项页(track p4 T3 + todo-edit T6 + todo-ux):项目卡 + 空间小节 + 超期标签
-// + 按项目/按时间切换 + 行内直接编辑 + 状态 pill 一键改(快捷菜单)+ 终态撤销 toast。
+// 4a 待办事项页(track p4 T3 + todo-edit T6 + todo-ux + todo-v3):项目卡 + 日期批次
+// 折叠(最新一批默认展开)+ 超期标签 + 按项目/按时间切换 + 行内直接编辑
+// + 状态 pill 一键改(快捷菜单)+ 终态撤销 toast。空间为行内标签。
 // 数据 = /api/todos(ds_todo.collect 单一真相源;只含未办结=待确认/进行中)。
 // 分组/排序/请求装配在 ./todo.ts(纯函数,oracle 直测),本文件只管摆 + 调 editChange 针孔。
 // 编辑写口:POST /api/changes/edit → ds_tools.edit_change(保格式 + 向变更历史段留痕)。
@@ -75,6 +76,9 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [view, setView] = useState<"project" | "time">("project");
   const [reloadNonce, setReloadNonce] = useState(0);
+  // 日期批次折叠(todo-v3):记"被点过反转"的批次 key,展开态 = 默认(最新一批开) XOR 反转。
+  // 会话级不持久化;数据重拉后同 key 沿用用户的开合选择。
+  const [toggled, setToggled] = useState<Set<string>>(new Set());
 
   // 行内编辑态
   const [editing, setEditing] = useState<string | null>(null);
@@ -265,6 +269,7 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
       <div className="todo-row" key={`${it.project}:${it.line}:${i}`}>
         <span className="cnum">{it.cnum !== null ? `C${it.cnum}` : "—"}</span>
         <span className="txt">
+          {it.space && <span className="space-chip">{it.space}</span>}
           {it.text}
           {oldText !== undefined && (
             <span className="edited-tag" title={`原:${oldText}`}>
@@ -279,7 +284,6 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
               {it.project}
             </button>
           )}
-          {cnDate(it.date)}
           {it.cnum !== null && (
             <button className="edit-btn" onClick={() => startEdit(it)}>
               编辑
@@ -290,6 +294,36 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
       </div>
     );
   };
+
+  // 日期批次(todo-v3):两视图共用。批次头可点折叠;最新一批(gi=0)默认展开。
+  // 批次头自带日期 → 行内不再重复显示日期。
+  const batches = (items: OpenItem[], scope: string, withProject = false) =>
+    groupByDate(items).map((dg, gi) => {
+      const key = `${scope}|${dg.date ?? "@none"}`;
+      const open = (gi === 0) !== toggled.has(key);
+      return (
+        <div className="batch-sect" key={key}>
+          <button
+            className="batch-head"
+            aria-expanded={open}
+            onClick={() =>
+              setToggled((prev) => {
+                const next = new Set(prev);
+                if (next.has(key)) next.delete(key);
+                else next.add(key);
+                return next;
+              })
+            }
+          >
+            <span className="chev">{open ? "▾" : "▸"}</span>
+            <span className="d8">{dg.date ? cnDate(dg.date) : "未标注日期"}</span>
+            <span className="n">{dg.items.length} 条</span>
+            <span className="rule" />
+          </button>
+          {open && dg.items.map((it, i) => row(it, i, withProject))}
+        </div>
+      );
+    });
 
   return (
     <div className="page todo-page">
@@ -338,15 +372,7 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
                     去项目 →
                   </button>
                 </header>
-                {groupBySpace(g.items).map((sg) => (
-                  <div className="space-sect" key={sg.space ?? "@none"}>
-                    <div className="space-head">
-                      <span>{sg.space ?? "未标注"}</span>
-                      <span className="rule" />
-                    </div>
-                    {sg.items.map((it, i) => row(it, i))}
-                  </div>
-                ))}
+                {batches(g.items, g.project)}
               </section>
             );
           })}
@@ -356,7 +382,7 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
       {view === "time" && data.open.length > 0 && (
         <div className="todo-cards">
           <section className="todo-card flat">
-            {sortByDateDesc(data.open).map((it, i) => row(it, i, true))}
+            {batches(sortByDateDesc(data.open), "@time", true)}
           </section>
         </div>
       )}

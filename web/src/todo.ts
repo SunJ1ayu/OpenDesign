@@ -15,7 +15,7 @@ export type OpenItem = {
 export type StaleItem = { project: string; days: number; last: string };
 
 export type ProjectGroup = { project: string; items: OpenItem[] };
-export type SpaceGroup = { space: string | null; items: OpenItem[] };
+export type DateGroup = { date: string | null; items: OpenItem[] };
 
 /** 按项目分组,保持 collect 的遇见序(= projects/ 文件名序,稳定)。 */
 export function groupByProject(open: OpenItem[]): ProjectGroup[] {
@@ -31,21 +31,18 @@ export function groupByProject(open: OpenItem[]): ProjectGroup[] {
   return order.map((project) => ({ project, items: map.get(project)! }));
 }
 
-/** 卡内按空间分小节:遇见序;未标注(null)恒排最后(handoff §6 + design D4)。 */
-export function groupBySpace(items: OpenItem[]): SpaceGroup[] {
-  const order: (string | null)[] = [];
+/** 按日期分批(todo-v3):日期倒序,无日期(null)恒沉底,组内保持传入相对序。
+ * 一次贴入业主反馈 = 一批同日期变更,批次即层级(点头部展开/收起)。 */
+export function groupByDate(items: OpenItem[]): DateGroup[] {
   const map = new Map<string | null, OpenItem[]>();
   for (const it of items) {
-    const key = it.space;
-    if (!map.has(key)) {
-      map.set(key, []);
-      order.push(key);
-    }
+    const key = it.date;
+    if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(it);
   }
-  const named = order.filter((s) => s !== null);
+  const dated = [...map.keys()].filter((d): d is string => d !== null).sort((a, b) => b.localeCompare(a));
   const tail: (string | null)[] = map.has(null) ? [null] : [];
-  return [...named, ...tail].map((space) => ({ space, items: map.get(space)! }));
+  return [...dated, ...tail].map((date) => ({ date, items: map.get(date)! }));
 }
 
 /** 按时间视图:日期倒序平铺;无日期沉底;同日期保持原相对序(稳定排序)。 */

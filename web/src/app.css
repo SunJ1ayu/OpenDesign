@@ -970,7 +970,7 @@ html, body { overflow: auto; }
 .todo-head .sub { font-size: 12px; color: var(--ink-4); }
 .todo-head .grow { flex: 1; }
 .todo-empty { padding: 60px 0; text-align: center; font-size: 13px; }
-.todo-cards { display: flex; flex-direction: column; gap: 14px; max-width: 860px; }
+.todo-cards { display: flex; flex-direction: column; gap: 14px; max-width: 1100px; }
 .todo-card {
   background: #fff;
   border: 1px solid var(--border-main);
@@ -1002,31 +1002,47 @@ html, body { overflow: auto; }
 }
 .go-link { font-size: 12px; color: var(--terra-deep); transition: color var(--hover-ease); }
 .go-link:hover { color: var(--terra); }
-.space-sect { padding: 4px 0 2px; }
-.space-head {
+.batch-sect { padding: 4px 0 2px; }
+.batch-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  width: 100%;
   font-size: 11px;
   color: var(--ink-4);
   padding: 5px 0 3px;
+  cursor: pointer;
+  transition: color var(--hover-ease);
 }
-.space-head .rule { flex: 1; height: 1px; background: #f0ede4; }
+.batch-head:hover { color: var(--terra-deep); }
+.batch-head .chev { font-size: 9px; width: 10px; flex: none; }
+.batch-head .n { color: var(--ink-5); font: 10.5px var(--font-mono); }
+.batch-head .rule { flex: 1; height: 1px; background: #f0ede4; }
 .todo-row {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   gap: 10px;
   padding: 6px 0;
   font-size: 13px;
   border-bottom: 1px solid var(--border-soft);
 }
 .todo-row:last-child { border-bottom: none; }
-.todo-row .cnum { font: 600 12px var(--font-mono); color: var(--terra-deep); flex: none; }
-.todo-row .txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.todo-row .meta { font-size: 11px; color: var(--ink-5); flex: none; display: flex; gap: 8px; }
+.todo-row .cnum { font: 600 12px var(--font-mono); color: var(--terra-deep); flex: none; padding-top: 2px; }
+.todo-row .txt { flex: 1; min-width: 0; white-space: normal; word-break: break-word; line-height: 1.55; }
+.todo-row .txt .space-chip {
+  font-size: 10.5px;
+  color: var(--ink-4);
+  background: #f0ede4;
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-right: 6px;
+  white-space: nowrap;
+}
+.todo-row .meta { font-size: 11px; color: var(--ink-5); flex: none; display: flex; gap: 8px; padding-top: 3px; }
+.todo-row > .st-pill, .todo-row > .st-cell { margin-top: 1px; }
 .todo-row .meta .proj-link { color: var(--ink-4); transition: color var(--hover-ease); }
 .todo-row .meta .proj-link:hover { color: var(--terra-deep); }
-.todo-rest { font-size: 12px; padding: 12px 2px 0; max-width: 860px; text-align: center; }
+.todo-rest { font-size: 12px; padding: 12px 2px 0; max-width: 1100px; text-align: center; }
 .todo-card.flat { padding-top: 6px; }
 
 /* 行内编辑(track opendesign-todo-edit T6) */

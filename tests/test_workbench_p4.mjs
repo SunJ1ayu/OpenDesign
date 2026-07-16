@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   groupByProject,
-  groupBySpace,
+  groupByDate,
   sortByDateDesc,
   staleDays,
   buildEditRequest,
@@ -31,16 +31,33 @@ test("groupByProject:遇见序稳定,同项目聚一起", () => {
   assert.equal(g[0].items.length, 2);
 });
 
-test("groupBySpace:遇见序 + 未标注(null)恒排最后", () => {
-  const g = groupBySpace([
-    item("甲", null, null, "老记录"),
-    item("甲", "客厅", null, "b"),
-    item("甲", "玄关", null, "c"),
-    item("甲", "客厅", null, "d"),
+test("groupByDate:日期倒序分批,无日期(null)恒沉底", () => {
+  const g = groupByDate([
+    item("甲", null, "2026-07-01", "旧"),
+    item("甲", null, null, "无日期"),
+    item("甲", "客厅", "2026-07-16", "新a"),
+    item("甲", null, "2026-07-01", "旧2"),
+    item("甲", null, "2026-07-16", "新b"),
   ]);
-  assert.deepEqual(g.map((x) => x.space), ["客厅", "玄关", null]);
-  assert.equal(g[0].items.length, 2);
-  assert.equal(g[2].items[0].text, "老记录");
+  assert.deepEqual(g.map((x) => x.date), ["2026-07-16", "2026-07-01", null]);
+  assert.deepEqual(g[0].items.map((x) => x.text), ["新a", "新b"]);
+  assert.deepEqual(g[1].items.map((x) => x.text), ["旧", "旧2"]);
+  assert.equal(g[2].items[0].text, "无日期");
+});
+
+test("groupByDate:组内保持传入相对序(时间视图先 sortByDateDesc 再分组不乱序)", () => {
+  const sorted = sortByDateDesc([
+    item("乙", null, "2026-07-10", "b1"),
+    item("甲", null, "2026-07-16", "a1"),
+    item("乙", null, "2026-07-16", "b2"),
+  ]);
+  const g = groupByDate(sorted);
+  assert.deepEqual(g.map((x) => x.date), ["2026-07-16", "2026-07-10"]);
+  assert.deepEqual(g[0].items.map((x) => x.text), ["a1", "b2"]);
+});
+
+test("groupByDate:空表回空,不炸", () => {
+  assert.deepEqual(groupByDate([]), []);
 });
 
 test("sortByDateDesc:日期倒序、无日期沉底、同日稳定", () => {
