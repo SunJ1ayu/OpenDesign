@@ -16,4 +16,4 @@
 - [x] T5 前端:api.ts Project.group + Sidebar 分组标签;npm run build 绿;
       VERSION → 0.14.0
 - [x] T6 文档:workspace.example.json 注释 + install-windows.md;红检突变验证
-- [ ] T7 verify(fast lane:主审 + submimo review)→ verify.md 落 verdict
+- [x] T7 verify(fast lane:主审 + submimo review)→ verify.md 落 verdict

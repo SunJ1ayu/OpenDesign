@@ -396,6 +396,9 @@ class GroupedProjectsTest(unittest.TestCase):
         _touch(os.path.join(ws_root, "2026", "组内散文件.txt"))
         if not os.path.lexists(os.path.join(ws_root, "外链组")):
             os.symlink(tmp, os.path.join(ws_root, "外链组"))  # g06 复用 tmp 容忍
+        if not os.path.lexists(os.path.join(ws_root, "2026", "外链项目")):
+            # submimo S3:分组「内」的 symlink 项目也要被拒(两级同闸的第二级凭证)
+            os.symlink(tmp, os.path.join(ws_root, "2026", "外链项目"))
         os.makedirs(os.path.join(ds_root, "config"), exist_ok=True)
         raw = {"root": ws_root, "projects": mapping or {},
                "projectsDir": ".", "projectsDepth": depth}
@@ -431,6 +434,7 @@ class GroupedProjectsTest(unittest.TestCase):
             names = [n for n, _ in ds_workspace.project_folders(cfg)]
             self.assertFalse(any("项目A" in n for n in names))
             self.assertFalse(any("坏名%项目" in n for n in names))
+            self.assertFalse(any("外链项目" in n for n in names))  # 组内 symlink 拒
 
     # ④ 跨组重名:裸名 token 双命中 → 歧义不绑;token 唯一 → 命中
     def test_g04_cross_group_ambiguity(self):
