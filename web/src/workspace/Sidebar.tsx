@@ -171,6 +171,7 @@ export default function Sidebar({
                 <span className={dotClass(p, current)} />
               </span>
               <span className="nm">{p.name}</span>
+              {p.group ? <span className="n-group">{p.group}</span> : null}
               {p.unregistered
                 ? <span className="n-unreg">未建档</span>
                 : p.open_count > 0 && <span className="n-open">{p.open_count}</span>}

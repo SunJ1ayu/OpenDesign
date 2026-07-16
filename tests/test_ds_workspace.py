@@ -374,5 +374,104 @@ class AutoDiscoveryTest(unittest.TestCase):
             self.assertIsNone(ds_workspace.project_dir(cfg, "翡翠湾-1801"))
 
 
+class GroupedProjectsTest(unittest.TestCase):
+    """depth2 track:projectsDepth=2 两层扫描(分组/项目,key=`组:名`)。
+    red-check(commit message 附结果):
+      把 depth=2 扫描改回一层 → test_g01/g02 红;
+      去掉分组名 PROJECT_NAME_RE 过滤 → test_g03 红;
+      去掉 load_config 的 projectsDepth 取值校验 → test_g06 红。"""
+
+    def _cfg(self, tmp, depth=2, mapping=None):
+        """root 即两层根(如 D:\\G2 DESIGN GROUP):projectsDir="."。
+        树:2024(空组)/2025{0108 欧派, 0605 某项目}/2026{0315 某项目, 0605 某项目}
+        + 干扰项(散文件/点头组/坏名组/坏名项目/symlink 组)。"""
+        ds_root = os.path.join(tmp, "ds")
+        ws_root = os.path.join(tmp, "ws")
+        for rel in ("2024",
+                    "2025/0108 某项目 欧派", "2025/0605 某项目",
+                    "2026/0315 某项目", "2026/0605 某项目",
+                    ".回收/x", "坏名%组/项目A", "2026/坏名%项目"):
+            os.makedirs(os.path.join(ws_root, *rel.split("/")), exist_ok=True)
+        _touch(os.path.join(ws_root, "根散文件.txt"))
+        _touch(os.path.join(ws_root, "2026", "组内散文件.txt"))
+        if not os.path.lexists(os.path.join(ws_root, "外链组")):
+            os.symlink(tmp, os.path.join(ws_root, "外链组"))  # g06 复用 tmp 容忍
+        os.makedirs(os.path.join(ds_root, "config"), exist_ok=True)
+        raw = {"root": ws_root, "projects": mapping or {},
+               "projectsDir": ".", "projectsDepth": depth}
+        with open(os.path.join(ds_root, "config", "workspace.json"), "w",
+                  encoding="utf-8") as fh:
+            json.dump(raw, fh, ensure_ascii=False)
+        return ds_workspace.load_config(ds_root), ws_root
+
+    # ① keyed 名单:组名序→项目名序;空组无条目;散文件/点头/symlink 全跳
+    def test_g01_keyed_listing_sorted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg, ws_root = self._cfg(tmp)
+            folders = ds_workspace.project_folders(cfg)
+            self.assertEqual([n for n, _ in folders],
+                             ["2025:0108 某项目 欧派", "2025:0605 某项目",
+                              "2026:0315 某项目", "2026:0605 某项目"])
+            self.assertEqual(
+                folders[2][1],
+                os.path.realpath(os.path.join(ws_root, "2026", "0315 某项目")))
+
+    # ② keyed key 直等命中 project_dir(②级解析零改动即通)
+    def test_g02_project_dir_keyed_direct(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg, ws_root = self._cfg(tmp)
+            self.assertEqual(
+                ds_workspace.project_dir(cfg, "2025:0605 某项目"),
+                os.path.realpath(os.path.join(ws_root, "2025", "0605 某项目")))
+
+    # ③ 坏名分组整组跳过(组名不过 PROJECT_NAME_RE → 其下项目不列)
+    def test_g03_bad_group_name_skipped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg, _ = self._cfg(tmp)
+            names = [n for n, _ in ds_workspace.project_folders(cfg)]
+            self.assertFalse(any("项目A" in n for n in names))
+            self.assertFalse(any("坏名%项目" in n for n in names))
+
+    # ④ 跨组重名:裸名 token 双命中 → 歧义不绑;token 唯一 → 命中
+    def test_g04_cross_group_ambiguity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg, ws_root = self._cfg(tmp)
+            self.assertIsNone(ds_workspace.project_dir(cfg, "0605-某项目"))
+            self.assertEqual(
+                ds_workspace.project_dir(cfg, "0315-某项目"),
+                os.path.realpath(os.path.join(ws_root, "2026", "0315 某项目")))
+
+    # ⑤ 显式映射优先,指向分组内项目夹照常命中
+    def test_g05_explicit_mapping_wins(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg, ws_root = self._cfg(tmp, mapping={"某项目-0605": "2025/0605 某项目"})
+            self.assertEqual(
+                ds_workspace.project_dir(cfg, "某项目-0605"),
+                os.path.realpath(os.path.join(ws_root, "2025", "0605 某项目")))
+
+    # ⑥ config 校验:非 int / 取值 3 / 字符串 "2" / bool → 整体 None;
+    #    缺省或 null → 归一成 1(同 projectsDir:null=未配置)
+    def test_g06_depth_validation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for bad in ("2", 3, 0, 1.5, True):
+                cfg, _ = self._cfg(tmp, depth=bad)
+                self.assertIsNone(cfg, f"projectsDepth={bad!r} 应整体降级")
+            cfg, _ = self._cfg(tmp, depth=None)  # JSON null = 未配置
+            self.assertIsNotNone(cfg)
+            self.assertEqual(cfg["projectsDepth"], 1)
+            ds_root, ws_root = make_workspace(tmp)
+            cfg = ds_workspace.load_config(ds_root)  # 缺省字段
+            self.assertEqual(cfg["projectsDepth"], 1)
+
+    # ⑦ depth=1 显式写也合法,行为=现行一层(回归护栏)
+    def test_g07_depth1_explicit_unchanged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg, ws_root = self._cfg(tmp, depth=1)
+            names = [n for n, _ in ds_workspace.project_folders(cfg)]
+            # 一层视角:分组夹本身被当项目列出,无 keyed 条目
+            self.assertIn("2025", names)
+            self.assertFalse(any(":" in n for n in names))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

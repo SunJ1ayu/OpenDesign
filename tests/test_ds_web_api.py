@@ -225,6 +225,58 @@ class TestProjects(unittest.TestCase):
         keys = sorted(p["key"] for p in d["projects"])
         self.assertEqual(keys, ["保利中央公园", "翡翠湾-1801"])
 
+    # ── depth2 track:projectsDepth=2 分组工作区 ──────────────────────────
+    def _add_grouped_workspace(self, root, rels, mapping=None):
+        ws = os.path.join(root, "ws")
+        for rel in rels:
+            os.makedirs(os.path.join(ws, *rel.split("/")), exist_ok=True)
+        os.makedirs(os.path.join(root, "config"), exist_ok=True)
+        with open(os.path.join(root, "config", "workspace.json"), "w",
+                  encoding="utf-8") as fh:
+            json.dump({"root": ws, "projects": mapping or {},
+                       "projectsDir": ".", "projectsDepth": 2}, fh,
+                      ensure_ascii=False)
+        return ws
+
+    def test_projects_union_grouped(self):
+        root = _mkroot({})
+        self._add_grouped_workspace(
+            root, ["2025/0605 某项目", "2026/0315 某项目"])
+        with _serve(root) as port:
+            _, _, d = _get_json(port, "/api/projects")
+        by_key = {p["key"]: p for p in d["projects"]}
+        u = by_key["2026:0315 某项目"]
+        self.assertTrue(u["unregistered"])
+        self.assertEqual(u["group"], "2026")
+        self.assertEqual(u["name"], "0315 某项目")
+        self.assertIn("2025:0605 某项目", by_key)
+
+    def test_projects_grouped_consumed_not_duplicated(self):
+        # 显式映射指向分组内项目夹 → 该文件夹不重复出现为未建档条目
+        root = _mkroot({"翡翠湾-1801.md": PROJ_DELIVERED})
+        self._add_grouped_workspace(
+            root, ["2026/0315 某项目"],
+            mapping={"翡翠湾-1801": "2026/0315 某项目"})
+        with _serve(root) as port:
+            _, _, d = _get_json(port, "/api/projects")
+        keys = sorted(p["key"] for p in d["projects"])
+        self.assertEqual(keys, ["翡翠湾-1801"])
+
+    def test_projects_grouped_files_reachable(self):
+        # keyed key 含 `:`(wire 上 %3A,路由 unquote 后过闸)经 project_dir
+        # 直等绑定,文件区 overview 端到端可用
+        root = _mkroot({})
+        ws = self._add_grouped_workspace(root, ["2026/0315 某项目"])
+        catdir = os.path.join(ws, "2026", "0315 某项目", "02-参考图")
+        os.makedirs(catdir, exist_ok=True)
+        _write_bytes(os.path.join(catdir, "客厅.png"))
+        with _serve(root) as port:
+            st, _, d = _get_json(
+                port, "/api/files/overview/" + quote("2026:0315 某项目"))
+        self.assertEqual(st, 200)
+        self.assertTrue(d["configured"] and d["mapped"])
+        self.assertEqual(d["categories"][0]["name"], "02-参考图")
+
     def test_projects_unregistered_files_reachable(self):
         # 未建档 key = 文件夹名(含 #,wire 上 %23)经 project_dir 直等绑定,
         # 文件区 overview 直接可用 —— 字符集闸放宽 # 的端到端凭证

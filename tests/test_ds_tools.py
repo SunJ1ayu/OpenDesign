@@ -861,14 +861,48 @@ class SetWorkspaceOracle(unittest.TestCase):
         self.assertTrue(r["ok"])
         self.assertNotIn("还没接入项目文件夹", r["text"])
 
-    # ⑫ 铁律不变量:set_workspace 只写 root/projects/projectsDir,绝不碰 organize 作用域
+    # ⑫ 铁律不变量:set_workspace 只写 workspace 视图字段,绝不碰 organize 作用域
     def test_w12_invariant_no_organize_key(self):
         os.environ.pop("DS_ORGANIZE_ROOTS", None)
         ds_tools.set_workspace(self.ws, ds_root=self.ds)
         cfg = self._read_cfg()
-        self.assertLessEqual(set(cfg.keys()), {"root", "projects", "projectsDir"})
+        self.assertLessEqual(set(cfg.keys()),
+                             {"root", "projects", "projectsDir", "projectsDepth"})
         # set_workspace 不得副作用式设置 organize 白名单 env
         self.assertNotIn("DS_ORGANIZE_ROOTS", os.environ)
+
+    # ⑬ depth2 track:projects_depth=2 写入 + folder_count 跨分组计数
+    def test_w13_depth2_write_and_count(self):
+        for d in ("2025/0605 某项目", "2026/0315 某项目", "2026/0428 某项目"):
+            os.makedirs(os.path.join(self.ws, *d.split("/")))
+        r = ds_tools.set_workspace(self.ws, projects_dir=".", projects_depth=2,
+                                   ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(r["folder_count"], 3)  # 跨分组总项目数,非分组数
+        self.assertEqual(self._read_cfg()["projectsDepth"], 2)
+
+    # ⑭ 不传 depth → 保留旧值(与 projectsDir 同款语义)
+    def test_w14_depth_preserved_when_omitted(self):
+        self._write_cfg({"root": "/old", "projects": {},
+                         "projectsDir": ".", "projectsDepth": 2})
+        r = ds_tools.set_workspace(self.ws, ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(self._read_cfg()["projectsDepth"], 2)
+
+    # ⑮ 显式传 1 = 回到默认:字段清掉不落盘(写不写等价,保持文件最小)
+    def test_w15_depth1_clears_field(self):
+        self._write_cfg({"root": "/old", "projects": {},
+                         "projectsDir": ".", "projectsDepth": 2})
+        r = ds_tools.set_workspace(self.ws, projects_dir=".", projects_depth=1,
+                                   ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertNotIn("projectsDepth", self._read_cfg())
+
+    # ⑯ 非法 depth 拒绝,不写文件(config 校验是严格的,写侧不能放脏值进去)
+    def test_w16_depth_invalid_rejected(self):
+        r = ds_tools.set_workspace(self.ws, projects_depth=3, ds_root=self.ds)
+        self.assertEqual(r.get("error"), "depth_invalid")
+        self.assertFalse(os.path.exists(self.cfg_path))
 
 
 if __name__ == "__main__":

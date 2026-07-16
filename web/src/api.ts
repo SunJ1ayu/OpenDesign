@@ -12,6 +12,9 @@ export type Project = {
   // p7:true = 工作区自动发现的未建档文件夹(key=文件夹名;文件区/图墙可用,
   // changes/refs 不请求,建档走对话)
   unregistered: boolean;
+  // depth2:projectsDepth=2 时未建档条目的分组名(年份/客户等,key=`组:名`);
+  // depth=1 为 "",已建档条目不带此字段
+  group?: string;
 };
 
 export type Change = {

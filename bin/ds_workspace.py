@@ -72,10 +72,21 @@ def load_config(ds_root: str):
     projects_dir = raw.get("projectsDir")  # 可选:项目夹所在目录(相对 root,"."=root)
     if projects_dir is not None and not isinstance(projects_dir, str):
         return None
+    # 可选:projectsDepth(depth2 track)。1=项目直接在 projectsDir 下(默认);
+    # 2=中间隔一层"分组"夹(年份/客户/地区……中性容器,不写死语义)。
+    # null=未配置(同 projectsDir);非 bool 的 int 且 ∈{1,2} 才合法,否则整体降级
+    # (与 root/projects 同款严格:坏配置=功能下线,不静默猜)。bool 单独拒:
+    # isinstance(True, int) 为真,JSON true 会伪装成 1。
+    depth = raw.get("projectsDepth")
+    if depth is None:
+        depth = 1
+    elif isinstance(depth, bool) or not isinstance(depth, int) or depth not in (1, 2):
+        return None
     root = os.path.realpath(root)
     if not os.path.isdir(root):
         return None
-    return {"root": root, "projects": projects, "projectsDir": projects_dir}
+    return {"root": root, "projects": projects, "projectsDir": projects_dir,
+            "projectsDepth": depth}
 
 
 def project_dir(cfg, key: str):
@@ -121,19 +132,15 @@ def projects_root(cfg):
     return None
 
 
-def project_folders(cfg):
-    """自动发现的项目夹 [(name, realpath)] 名序;projects-dir 缺失 → []。
-    只取一级目录;点号开头跳过(同 _scan);symlink 目录跳过
-    (follow_symlinks=False,外指零风险);名字不过 PROJECT_NAME_RE 白名单者跳过
-    (路由 key 字符集寻址不到,列了也点不开)。"""
-    proot = projects_root(cfg)
-    if proot is None:
-        return []
-    out = []
+def _dir_entries(path):
+    """path 下可作项目/分组的一级子目录 [(name, DirEntry)] 名序:点号开头跳过
+    (同 _scan);名字不过 PROJECT_NAME_RE 者跳过(路由 key 字符集寻址不到,
+    列了也点不开);symlink 目录跳过(follow_symlinks=False,外指零风险)。"""
     try:
-        entries = sorted(os.scandir(proot), key=lambda e: e.name)
+        entries = sorted(os.scandir(path), key=lambda e: e.name)
     except OSError:
         return []
+    out = []
     for ent in entries:
         if ent.name.startswith(".") or not PROJECT_NAME_RE.match(ent.name):
             continue
@@ -142,7 +149,28 @@ def project_folders(cfg):
                 continue
         except OSError:
             continue
-        out.append((ent.name, os.path.realpath(ent.path)))
+        out.append((ent.name, ent))
+    return out
+
+
+def project_folders(cfg):
+    """自动发现的项目夹 [(key, realpath)] 序;projects-dir 缺失 → []。
+    projectsDepth=1(默认):项目夹直接在 projects_root 一级,key=文件夹名。
+    projectsDepth=2(depth2 track):一级=分组夹(年份/客户等中性容器),
+    二级=项目夹,key=`分组:项目名`(`:` 为 NTFS 禁字,Windows 真机零碰撞;
+    _SEG_RE 本就放行,URL 链 unquote 后照常寻址),分组名序→项目名序;
+    空分组无条目、分组下散文件忽略,两级同过 _dir_entries 闸。
+    key 直接被 project_dir ②级"名==key"消费,寻址链零改动。"""
+    proot = projects_root(cfg)
+    if proot is None:
+        return []
+    if cfg.get("projectsDepth", 1) != 2:
+        return [(name, os.path.realpath(ent.path))
+                for name, ent in _dir_entries(proot)]
+    out = []
+    for gname, gent in _dir_entries(proot):
+        for pname, pent in _dir_entries(gent.path):
+            out.append((f"{gname}:{pname}", os.path.realpath(pent.path)))
     return out
 
 

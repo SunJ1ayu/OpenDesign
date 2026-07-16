@@ -51,7 +51,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.13.0"  # 项目工作区完成项管理:「已办结」筛选 + 项目进度一览
+VERSION = "0.14.0"  # 工作区两层结构:projectsDepth=2 分组/项目(年份→项目等)
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -343,13 +343,21 @@ class Handler(BaseHTTPRequestHandler):
                 for rel in cfg["projects"].values():
                     if rel:
                         consumed.add(os.path.realpath(os.path.join(cfg["root"], rel)))
+                # depth2 track:projectsDepth=2 时 key=`分组:项目名`,拆出
+                # group 供前端标签、name 只留纯项目名;depth=1 恒 group=""
+                grouped = cfg.get("projectsDepth", 1) == 2
                 for name, fpath in folders:
                     if fpath in consumed:
                         continue
+                    group = ""
+                    disp = name
+                    if grouped and ":" in name:
+                        group, disp = name.split(":", 1)
                     projects.append({
-                        "key": name, "name": name, "stage": "",
+                        "key": name, "name": disp, "stage": "",
                         "open_count": 0, "delivered": False,
                         "last_update": None, "unregistered": True,
+                        "group": group,
                     })
         except Exception:
             traceback.print_exc()  # 坏编码/写锁窗口读期 OSError:500 自愈,trace 进日志

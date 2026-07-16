@@ -380,14 +380,21 @@ def list_todos(stale_days: int = 7, ds_root: str = DEFAULT_DS_ROOT) -> dict:
 # 不拓宽 LLM 能读并上云的内容。铁律不变量:workspace.json.root 与 DS_ORGANIZE_ROOTS
 # 永远独立——ds_organize(能碰任意机器文件的写/搬面)由独立 env 白名单管、走 ds-approve;
 # 本工具够不到它。谁把两者绑一起 = 把 set_workspace 变成真 exfil 杠杆。
-def set_workspace(root: str, projects_dir: str = "",
+def set_workspace(root: str, projects_dir: str = "", projects_depth: int = 0,
                   ds_root: str = DEFAULT_DS_ROOT) -> dict:
     """把工作台接到用户电脑的项目文件夹根目录。
     root:项目文件夹根的绝对路径;projects_dir:可选,项目夹所在子目录(相对 root,
-    "."=项目夹直接在 root 一级)。保留已有 projects 映射;返回 folder_count(自动认出的项目夹数)。"""
+    "."=项目夹直接在 root 一级);projects_depth:可选(depth2 track),
+    1=项目直接在 projects_dir 下(默认),2=中间隔一层分组夹(按年份/客户等分组的
+    结构),0=不传保留旧值。保留已有 projects 映射;返回 folder_count(自动认出的
+    项目夹数,depth=2 时为跨分组总数)。"""
     if not isinstance(root, str) or not os.path.isabs(root):
         # 拒相对路径:MCP server CWD 不可预测,相对 root 会解析到意外位置
         return {"error": "root_not_absolute"}
+    if isinstance(projects_depth, bool) or not isinstance(projects_depth, int) \
+            or projects_depth not in (0, 1, 2):
+        # 写侧闸:load_config 校验是严格的(坏值=整体降级),脏值不能从这里落盘
+        return {"error": "depth_invalid"}
     real_root = os.path.realpath(root)
     if not os.path.isdir(real_root):
         return {"error": "root_not_dir"}  # 不回显路径细节
@@ -395,9 +402,10 @@ def set_workspace(root: str, projects_dir: str = "",
     cfg_path = os.path.join(ds_root, "config", "workspace.json")
     os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
 
-    # 读旧配置保留 projects/projectsDir;坏 JSON → 先备份 .bak 再写全新(不崩)
+    # 读旧配置保留 projects/projectsDir/projectsDepth;坏 JSON → 先备份 .bak 再写全新(不崩)
     projects: dict = {}
     kept_projects_dir = None
+    kept_depth = 0
     if os.path.exists(cfg_path):
         try:
             with open(cfg_path, encoding="utf-8") as fh:
@@ -416,11 +424,19 @@ def set_workspace(root: str, projects_dir: str = "",
             opd = old.get("projectsDir")
             if isinstance(opd, str):
                 kept_projects_dir = opd
+            odp = old.get("projectsDepth")
+            if not isinstance(odp, bool) and odp in (1, 2):
+                kept_depth = odp
 
     new_cfg = {"root": real_root, "projects": projects}
     pd = projects_dir if projects_dir else kept_projects_dir  # 显式传优先,否则保留旧值
     if pd:
         new_cfg["projectsDir"] = pd
+    # depth 同款语义:显式传优先(1=回默认,清字段不落盘;写不写等价,文件保持最小),
+    # 0=不传保留旧值
+    depth = projects_depth if projects_depth else kept_depth
+    if depth == 2:
+        new_cfg["projectsDepth"] = 2
 
     # 真原子写:同目录 tmp + os.replace(崩溃不留半文件;set_model.py 是直接覆写,非原子,别照抄)
     tmp = cfg_path + ".tmp"
@@ -528,12 +544,17 @@ def _run_mcp() -> None:
         return list_todos(stale_days, ds_root=ds_root)
 
     @server.tool()
-    def set_workspace_tool(root: str, projects_dir: str = "") -> dict:
+    def set_workspace_tool(root: str, projects_dir: str = "",
+                           projects_depth: int = 0) -> dict:
         """把工作台接到用户电脑的项目文件夹根目录(以后能直接看文件和参考图)。
         root=项目文件夹根的绝对路径(直接传用户说的路径即可,反斜杠不用转义);
         projects_dir=可选,项目夹所在子目录(相对 root);若接上后 folder_count=0 且用户说
-        项目就直接放在这个文件夹里,再传 projects_dir="."。返回 folder_count=认出的项目夹数。"""
-        return set_workspace(root, projects_dir=projects_dir, ds_root=ds_root)
+        项目就直接放在这个文件夹里,再传 projects_dir="."。
+        projects_depth=可选:项目夹直接摆在 projects_dir 下不用传;用户的项目按
+        年份/客户等先分了一层文件夹(如 2026/0315 某项目)再传 2,所有分组下的项目
+        会一起认出。返回 folder_count=认出的项目夹数(depth=2 时为跨分组总数)。"""
+        return set_workspace(root, projects_dir=projects_dir,
+                             projects_depth=projects_depth, ds_root=ds_root)
 
     server.run()
 

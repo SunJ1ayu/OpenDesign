@@ -251,6 +251,8 @@ html, body { overflow: auto; }
 /* p7 未建档(工作区自动发现)项目行:名字淡化 + 小标 */
 .proj-row.unregistered .nm { color: var(--ink-3); }
 .proj-row .n-unreg { font-size: 10px; color: var(--ink-5); flex: none; }
+/* depth2 分组标签(年份/客户等,projectsDepth=2 未建档条目) */
+.proj-row .n-group { font: 500 10px var(--font-mono); color: var(--ink-4); flex: none; }
 .proj-row.current .n-open {
   background: var(--terra-pill-bg);
   color: var(--terra-deep);
