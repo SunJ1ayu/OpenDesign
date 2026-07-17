@@ -1,26 +1,31 @@
 # Verify: opendesign-pkb-lint
 
 - Date: 2026-07-17
-- Verdict: <PASS | BLOCK | NEEDS_MORE_INFO>
+- Lane: fast(主审 + submimo)
+- Verdict: **PASS**
 
-> Panel hook — 软判断(correctness/security/edge/spec-drift)走 panel-review:
-> 主 agent 先独立审并落 findings,再跑 submimo/subsense/subglm,主 agent 主裁。
-> build/test 跑通是机械检查。lane:full(主+3,高风险)/ fast(主+1,medium)/
-> self(主自审,小改)。
+## Oracle / 回归
 
-## Mechanical checks
+- oracle tests/test_ds_lint.py:**24/24 绿**(先红后绿;文件对 executor off-limits,
+  merge 后 git diff 亲验零改动)
+- py 全量回归:除 test_ds_adopt(track B oracle,预期红)与 test_ws_protocol_smoke
+  (SKIP rc=3,gateway 未起,与基线一致)外全部退出码 0
+- mjs 套件全绿;resolver eval **25/25**(新增 list_projects/lint_pkb 两用例实跑命中)
+- dist 不内嵌版本号(grep 亲验),0.25.1 只改 VERSION 常量,循 0.21.1 先例
 
-- [ ] build passes
-- [ ] tests pass
-- [ ] no secrets / unsafe ops
+## 评审
 
-## Review
+- 主审(先于读 employee 报告落盘 /root/aiwork/tasks/opendesign-pkb-lint-my-review.md):
+  PASS。T5 等价性手工对读(正则匹配集/三路 prev 收敛/插入位序)、T4 闸位序零落盘、
+  T3 只读+真相源复用、延迟 import 破环,均核实。findings:①ds_lint import 注释不实
+  (已修 06f9aa9);②broken_link 会扫引用块内 [[X]](记录,宁多勿漏);③bad_stage
+  不报缺行(接受,空≠坏)。
+- submimo:PASS,五项重点全过,零新发现(其沉默不作清白凭据,主审已独立核)。
 
-- lane: <full | fast | self>
-- findings:
-  - <...>
-- arbitrated verdict (主裁): <...>
+## 工艺(模型分层试跑第一单)
 
-## Accepted deviations
-
-- <接受的非关键偏差 + 原因 + 影响范围,或 None>
+- Fable5 plan+oracle → **Opus 4.8 worktree 执行(eb412ec/3eee318)** → 主审仲裁。
+- 执行质量:oracle 一次全绿、无需 submimo fix 收尾、零 oracle 触碰、报告含自证
+  可疑点(T5 等价性论证)——**第一单结论:执行腿降档可行,质量未降**。
+- 偏离:repo 无 tracked index.md(.gitignore 早已排除)——"删 sample"任务实际为
+  文档承诺清理,executor 判断正确。
