@@ -531,6 +531,89 @@ html, body { overflow: auto; }
   border-right: 1px solid var(--border-soft);
   overflow: auto;
 }
+/* ── 收件箱卡片(track opendesign-intake)─────────────────────────────── */
+.inbox-card {
+  margin: 12px 12px 0;
+  border: 1px solid var(--border-main);
+  border-radius: 10px;
+  background: var(--paper-side);
+  box-shadow: var(--shadow-card);
+  padding-bottom: 8px;
+}
+.inbox-card .aside-head { padding-top: 10px; }
+.inbox-count {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: var(--st-pending-fg);
+  background: var(--st-pending-bg);
+}
+.inbox-plan {
+  margin: 4px 12px 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--paper);
+  padding: 8px 10px;
+}
+.inbox-plan .plan-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+  margin-bottom: 6px;
+}
+.inbox-plan .plan-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+  padding: 2px 0;
+  min-width: 0;
+}
+.inbox-plan .plan-row .src {
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 45%;
+}
+.inbox-plan .plan-row .arrow { color: var(--ink-4); flex: none; }
+.inbox-plan .plan-row .dst {
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;          /* 目录长时保住尾段(项目/类目)可见 */
+  text-align: left;
+  flex: 1;
+}
+.inbox-plan .plan-acts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.inbox-plan .plan-hint { font-size: 11px; color: var(--ink-4); }
+.inbox-list { padding: 0 12px; }
+.inbox-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  padding: 3px 0;
+  min-width: 0;
+}
+.inbox-row .n {
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inbox-row .grow { flex: 1; }
+.inbox-row .sug { color: var(--ink-4); flex: none; white-space: nowrap; }
+.inbox-row.more { color: var(--ink-4); }
+.inbox-hint { font-size: 11px; color: var(--ink-4); padding: 6px 0 2px; }
+
 /* ── 驾驶舱速览(track opendesign-cockpit)──────────────────────────── */
 .cockpit-brief {
   padding: 18px 16px 0;

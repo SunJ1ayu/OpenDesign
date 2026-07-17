@@ -334,6 +334,25 @@ def _build_server(ds_root: str, allowed_roots: list[str]):
         `ds-approve <plan_id>`,聊天里说"确认"不算数。"""
         return apply_plan(plan_id, allowed_roots=allowed_roots, ds_root=ds_root)
 
+    import ds_intake  # 同目录模块;收件箱认领两工具(track opendesign-intake)
+
+    @server.tool()
+    def list_inbox_tool() -> dict:
+        """看收件箱:设计师问"收件箱里有什么/有没有新文件/帮我整理收件箱"时先调
+        这个——列出工作区 00-收件箱 里的文件,带确定性建议(扩展名→类目,文件名
+        含项目名→建议项目;歧义留空,要问用户别猜)。只读零改动,放心调。"""
+        return ds_intake.list_inbox(ds_root)
+
+    @server.tool()
+    def stage_intake_tool(assignments: list[dict]) -> dict:
+        """把收件箱文件的归类指派暂存成方案(零改动):设计师确认了"这个文件归
+        哪个项目哪个类目"之后调用。assignments=[{name: 收件箱内文件名,
+        project: 项目名(参考图等工作区级类目可为 null), category: 类目 id}]。
+        返回 plan_id;真正移动要用户在工作台收件箱卡片点「确认执行」,
+        聊天里说"确认"不算数,也不要自己调 apply_plan_tool 替用户确认。"""
+        return ds_intake.stage_intake(assignments, allowed_roots=allowed_roots,
+                                      ds_root=ds_root)
+
     return server
 
 

@@ -44,6 +44,10 @@ CASES = [
     ("记住:王姐家别提上一家装修公司,雷区", "update_client"),
     # 审计空格② 已补(set-stage track)
     ("万科城今天开始量房了", "set_stage"),
+    # 收件箱认领(opendesign-intake track):看箱=list_inbox;确认指派=stage_intake
+    ("收件箱里有什么新东西", "list_inbox"),
+    ("帮我整理一下收件箱", "list_inbox"),
+    ("对,玄关那张归到翡翠湾的参考图,户型图放它的CAD", "stage_intake"),
 ]
 
 

@@ -24,6 +24,12 @@
     删除历史对话 = 代理 nanobot 原生删除(上游自带"绑定自动化先拒"保护);上游
     不查方法,本服务只以 POST 暴露(GET 面保持纯只读);真正鉴权在上游 Bearer
     token,CT json 闸是 CSRF 纵深。本服务仍零 PKB 写面。
+收件箱认领(track opendesign-intake,聊天驱动+面板确认):
+  GET /api/intake                  收件箱清单+确定性建议+待确认 plans(只读,
+                                   未配置降级 configured:false)
+  POST /api/intake/approve         {"plan_id"} 针孔④:卡片「确认执行」= 人工批准
+    本体(替代终端 ds-approve,仅限 root 在工作区根内的 intake plan;工作区外
+    plan 维持 CLI 批准)→ approve+apply 一气,apply 整体快照复验兜 TOCTOU。
 其余方法/其余 POST 路径一律 405 —— 写操作必须过 ds_tools 核心,本服务不直改 PKB。
 项目列表(p7):/api/projects = PKB projects/*.md ∪ 工作区项目夹自动发现
 (ds_workspace.project_folders,未被映射/绑定消费的文件夹以 unregistered:true 追加;
@@ -45,13 +51,15 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlsplit
 
 import ds_common
+import ds_intake    # 收件箱清单/建议(track opendesign-intake)
 import ds_model
+import ds_organize  # 针孔④ approve+apply 直调核心(锁/复验/审计全在核心)
 import ds_refs
 import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.24.0"  # cockpit:伴随列→项目驾驶舱(速览/项目图/类目活跃度),拔模板类目名硬编码
+VERSION = "0.25.0"  # intake:收件箱认领闭环(规则表建议+聊天暂存+卡片确认执行,针孔④)
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -85,6 +93,16 @@ _FILES_FILE_RE = re.compile(r"^/api/files/file/([^/]+)/(.+)$")
 OPEN_FOLDER_PATH = "/api/open-folder"  # do_POST 唯一放行路径,精确匹配
 OPEN_BODY_MAX = 4096  # open-folder 请求体上限(key+sub 远小于此)
 EDIT_CHANGE_PATH = "/api/changes/edit"  # do_POST 写针孔③(track opendesign-todo-edit),精确匹配
+INTAKE_APPROVE_PATH = "/api/intake/approve"  # do_POST 针孔④(track opendesign-intake),精确匹配
+_INTAKE_ALLOWED_KEYS = {"plan_id"}
+# 收件箱确认的错误→HTTP 映射:格式/参数错 400,不存在 404,越界 403,状态冲突 409
+_INTAKE_ERR_STATUS = {
+    "bad_plan_id": 400, "plan_not_found": 404, "not_intake_plan": 403,
+    "already_applied": 409, "not_approved": 409, "root_not_allowed": 403,
+    "plan_drift": 409, "would_overwrite": 409, "src_missing": 409,
+    "conflict": 409, "path_escape": 403, "dst_parent_not_dir": 409,
+    "apply_failed": 500,
+}
 # body 键白名单(多余键即拒:防夹带 ds_root/today 等内部参数走私)
 _EDIT_ALLOWED_KEYS = {"project", "cnum", "new_status", "new_text", "note"}
 # edit_change error code → HTTP status(校验类 400,资源类 404,重复 409;名字/逃逸闸不回显细节)
@@ -230,6 +248,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._proxy(f"/api/sessions/{key}/webui-thread")
             else:
                 self._json(404, {"error": "bad key"})
+        elif path == "/api/intake":
+            self._intake()
         elif path == "/api/projects":
             self._projects()
         elif (m := _CHANGES_RE.match(path)):
@@ -265,6 +285,8 @@ class Handler(BaseHTTPRequestHandler):
             self._open_folder()
         elif path == EDIT_CHANGE_PATH:
             self._edit_change()
+        elif path == INTAKE_APPROVE_PATH:
+            self._intake_approve()
         elif (m := _SESSION_DELETE_RE.match(path)):
             self._delete_session(m.group(1))
         else:
@@ -595,6 +617,125 @@ class Handler(BaseHTTPRequestHandler):
             self._json(404, {"error": "bad key"})
             return
         self._proxy(f"/api/sessions/{key}/delete")
+
+    def _intake(self):
+        """GET /api/intake(只读):收件箱清单+确定性建议 + 待确认 plans。
+        未配置工作区/坏规则表/没有收件箱夹 → 200 + configured:false(+reason),
+        卡片按提示态渲染,不 404(files/overview 同款降级哲学)。
+        pending 只列「root 落在工作区根内且未 applied」的 plan —— 桌面清理等
+        工作区外 plan 不进收件箱卡片(那些走 ds-approve CLI)。"""
+        try:
+            r = ds_intake.list_inbox(self.server.ds_root)
+            if not r.get("ok"):
+                self._json(200, {"configured": False,
+                                 "reason": r.get("error", "unknown"),
+                                 "entries": [], "pending": []})
+                return
+            cfg = ds_workspace.load_config(self.server.ds_root)
+            self._json(200, {"configured": True, "inbox": r["inbox"],
+                             "entries": r["entries"],
+                             "truncated": r["truncated"],
+                             "pending": self._pending_plans(cfg)})
+        except Exception:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
+
+    def _pending_plans(self, cfg):
+        """organize/plans/ 里未 applied 且 root 在工作区根内的 plan,按 created 序。
+        单个坏 plan 文件跳过不拖死清单(只读视图宁缺勿炸)。"""
+        out = []
+        plans_dir = os.path.join(self.server.ds_root, "organize", "plans")
+        try:
+            names = sorted(os.listdir(plans_dir))
+        except OSError:
+            return out
+        for name in names:
+            if not (name.startswith("plan_") and name.endswith(".json")):
+                continue
+            try:
+                with open(os.path.join(plans_dir, name), encoding="utf-8") as fh:
+                    plan = json.load(fh)
+                if plan.get("applied_at"):
+                    continue
+                if cfg is None or not ds_common.within(
+                        cfg["root"], os.path.realpath(plan.get("root", ""))):
+                    continue
+                out.append({"plan_id": plan["plan_id"],
+                            "created": plan.get("created"),
+                            "ops": [{"op": op["op"], "src_rel": op["src_rel"],
+                                     "dst_rel": op["dst_rel"]}
+                                    for op in plan.get("operations", [])]})
+            except (OSError, ValueError, KeyError, TypeError):
+                continue
+        return out
+
+    def _intake_approve(self):
+        """POST 针孔④(track opendesign-intake design D1):收件箱卡片「确认执行」。
+        浏览器里人点按钮 = 人工确认本体,替代终端 ds-approve —— 仅限工作区内的
+        intake plan(工作区外的 plan 维持 CLI 批准,面越窄越好)。posture 逐条同
+        edit-change:CT json → body 上限 → 键白名单 → plan_id 格式闸 →
+        plan root 必须落工作区根内 → approve_plan + apply_plan(allowed_roots=
+        [工作区根],apply 的整体快照复验兜 TOCTOU,audit 照记)。"""
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 < n <= OPEN_BODY_MAX:
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "bad request"})
+            return
+        if not isinstance(body, dict) or set(body) - _INTAKE_ALLOWED_KEYS:
+            self._json(400, {"error": "bad request"})
+            return
+        plan_id = body.get("plan_id")
+        if not isinstance(plan_id, str) or not ds_organize._PLAN_ID_RE.match(plan_id):
+            self._json(400, {"error": "bad_plan_id"})
+            return
+        try:
+            cfg = ds_workspace.load_config(self.server.ds_root)
+            if cfg is None:
+                self._json(403, {"error": "not_intake_plan"})
+                return
+            plan_path = os.path.join(self.server.ds_root, "organize", "plans",
+                                     f"plan_{plan_id}.json")
+            if not os.path.exists(plan_path):
+                self._json(404, {"error": "plan_not_found"})
+                return
+            with open(plan_path, encoding="utf-8") as fh:
+                plan = json.load(fh)
+            if not ds_common.within(cfg["root"],
+                                    os.path.realpath(plan.get("root", ""))):
+                self._json(403, {"error": "not_intake_plan"})
+                return
+            if plan.get("applied_at"):
+                self._json(409, {"error": "already_applied"})
+                return
+            r = ds_organize.approve_plan(plan_id, ds_root=self.server.ds_root)
+            if not r.get("ok"):
+                err = r.get("error", "internal")
+                self._json(_INTAKE_ERR_STATUS.get(err, 400), {"error": err})
+                return
+            r = ds_organize.apply_plan(plan_id, [cfg["root"]],
+                                       ds_root=self.server.ds_root)
+            if not r.get("ok"):
+                err = r.get("error", "internal")
+                out = {"error": err}
+                if "executed" in r:  # 部分执行如实回传(audit 有全量)
+                    out["executed"] = r["executed"]
+                self._json(_INTAKE_ERR_STATUS.get(err, 400), out)
+                return
+            self._json(200, r)
+        except Exception:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
 
     def _edit_change(self):
         """POST 写针孔③(track opendesign-todo-edit design §Approach):待办行内编辑。

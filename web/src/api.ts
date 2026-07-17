@@ -141,6 +141,54 @@ export async function editChange(body: EditChangeBody): Promise<void> {
   }
 }
 
+/** 收件箱(track opendesign-intake):GET 清单+建议+待确认 plans;POST 确认执行。 */
+export type IntakeCategory = {
+  id: string;
+  scope: "project" | "workspace";
+  dir: string;
+  mode: "auto" | "suggest";
+};
+export type IntakeEntry = {
+  name: string;
+  type: "file" | "dir";
+  size: number;
+  mtime: number;
+  category: IntakeCategory | null;
+  project: string | null;
+};
+export type IntakePlanOp = { op: string; src_rel: string; dst_rel: string };
+export type IntakePlan = { plan_id: string; created: string | null; ops: IntakePlanOp[] };
+export type IntakeData =
+  | { configured: false; reason?: string; entries: IntakeEntry[]; pending: IntakePlan[] }
+  | {
+      configured: true;
+      inbox: string;
+      truncated: boolean;
+      entries: IntakeEntry[];
+      pending: IntakePlan[];
+    };
+
+export const fetchIntake = () => getJson<IntakeData>("/api/intake");
+
+/** 第四个非 GET(intake 针孔④):收件箱卡片「确认执行」= 人工批准本体,
+ * 后端 approve+apply 一气(快照复验/审计在核心)。失败抛错(带后端 error code)。 */
+export async function approveIntake(planId: string): Promise<void> {
+  const r = await fetch("/api/intake/approve", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ plan_id: planId }),
+  });
+  if (!r.ok) {
+    let code = "";
+    try {
+      code = ((await r.json()) as { error?: string }).error ?? "";
+    } catch {
+      /* 非 JSON 响应:忽略,回落状态码 */
+    }
+    throw new Error(code || `服务返回 ${r.status}`);
+  }
+}
+
 /** refs-index 的 file 字段是 "refs/xx.jpg";静态路由挂在 /api/refs/file/ 下。 */
 export function refImageUrl(file: string): string {
   const rel = file.startsWith("refs/") ? file.slice(5) : file;

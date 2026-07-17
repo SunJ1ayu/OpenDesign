@@ -1,0 +1,252 @@
+#!/usr/bin/env python3
+"""ds_intake 收件箱认领核心的 oracle — track opendesign-intake design.md。
+
+跑法:  python3 tests/test_ds_intake.py
+不需要 nanobot / mcp SDK / 网络 —— 只测纯 Python 核心。
+
+铁律(与 design 对账):
+- 规则表 = config/taxonomy.default.json(仓内)+ <ds_root>/config/taxonomy.json
+  覆盖;坏用户配置 = 功能整体降级(None),不静默猜。
+- 建议是确定性的:扩展名→类目;项目 token 唯一命中才建议,歧义留空。
+- stage_intake 只构造 operations 并直调 ds_organize.stage_plan —— 校验/冲突/
+  快照/approve 硬闸全复用,本模块自己不发明执行路径。
+"""
+import json
+import os
+import sys
+import shutil
+import tempfile
+import unittest
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)  # design-studio/
+sys.path.insert(0, os.path.join(ROOT, "bin"))
+import ds_intake    # noqa: E402
+import ds_organize  # noqa: E402
+
+
+def _write(path, content="x"):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(content)
+
+
+PROJ_A = "20260612 周宁 龙腾世纪 12#1802"
+PROJ_B = "20260701 陈晨 万科城 3#601"
+
+
+class IntakeBase(unittest.TestCase):
+    """夹具:临时 ds_root(workspace.json/taxonomy 覆盖落这)+ 临时工作区
+    (00-收件箱 / 01-项目/两个项目夹 / 03-共享资源)。"""
+
+    def setUp(self):
+        self.ds = tempfile.mkdtemp(prefix="dsintake-ds-")
+        self.ws = tempfile.mkdtemp(prefix="dsintake-ws-")
+        self.inbox = os.path.join(self.ws, "00-收件箱")
+        os.makedirs(self.inbox)
+        for proj in (PROJ_A, PROJ_B):
+            os.makedirs(os.path.join(self.ws, "01-项目", proj))
+        os.makedirs(os.path.join(self.ws, "03-共享资源", "参考图库"))
+        _write(os.path.join(self.ds, "config", "workspace.json"),
+               json.dumps({"root": self.ws, "projects": {}}, ensure_ascii=False))
+        self.allowed = [self.ws]
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+        shutil.rmtree(self.ws, ignore_errors=True)
+
+
+class TaxonomyOracle(IntakeBase):
+    def test_01_default_taxonomy_loads(self):
+        tax = ds_intake.load_taxonomy(self.ds)
+        self.assertIsNotNone(tax)
+        ids = {c["id"] for c in tax["categories"]}
+        self.assertIn("参考图", ids)
+        self.assertIn("CAD", ids)
+
+    def test_02_suggest_by_extension(self):
+        tax = ds_intake.load_taxonomy(self.ds)
+        cat = ds_intake.suggest_category("玄关参考.JPG", tax)  # 大小写不敏感
+        self.assertEqual(cat["id"], "参考图")
+        self.assertEqual(cat["scope"], "workspace")
+        cat = ds_intake.suggest_category("平面图.dwg", tax)
+        self.assertEqual(cat["id"], "CAD")
+        self.assertEqual(cat["mode"], "suggest")  # 被引用类目
+        self.assertIsNone(ds_intake.suggest_category("奇怪文件.xyz", tax))
+        self.assertIsNone(ds_intake.suggest_category("无扩展名", tax))
+
+    def test_03_user_overlay_replaces_toplevel_key(self):
+        _write(os.path.join(self.ds, "config", "taxonomy.json"),
+               json.dumps({"categories": [
+                   {"id": "只有一类", "scope": "project", "dir": "99-其他",
+                    "extensions": [".xyz"], "mode": "auto"}]}, ensure_ascii=False))
+        tax = ds_intake.load_taxonomy(self.ds)
+        self.assertEqual([c["id"] for c in tax["categories"]], ["只有一类"])
+        # 未覆盖的顶层键保默认
+        self.assertIn("00-收件箱", tax["inboxDirs"])
+        self.assertEqual(ds_intake.suggest_category("a.xyz", tax)["id"], "只有一类")
+
+    def test_04_bad_user_overlay_degrades_whole(self):
+        _write(os.path.join(self.ds, "config", "taxonomy.json"), "{broken json")
+        self.assertIsNone(ds_intake.load_taxonomy(self.ds))
+        # 结构不对同样降级(categories 不是 list)
+        _write(os.path.join(self.ds, "config", "taxonomy.json"),
+               json.dumps({"categories": "nope"}))
+        self.assertIsNone(ds_intake.load_taxonomy(self.ds))
+
+
+class ListInboxOracle(IntakeBase):
+    def test_05_lists_files_with_suggestions(self):
+        _write(os.path.join(self.inbox, "龙腾世纪玄关参考.jpg"))
+        _write(os.path.join(self.inbox, "户型图.dwg"))
+        _write(os.path.join(self.inbox, "神秘文件.xyz"))
+        r = ds_intake.list_inbox(self.ds)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(r["inbox"], "00-收件箱")
+        by = {e["name"]: e for e in r["entries"]}
+        self.assertEqual(by["龙腾世纪玄关参考.jpg"]["category"]["id"], "参考图")
+        # 项目 token 唯一命中(龙腾世纪只在 PROJ_A)
+        self.assertEqual(by["龙腾世纪玄关参考.jpg"]["project"], PROJ_A)
+        self.assertEqual(by["户型图.dwg"]["category"]["id"], "CAD")
+        self.assertIsNone(by["户型图.dwg"]["project"])  # 无 token 命中=留空
+        self.assertIsNone(by["神秘文件.xyz"]["category"])
+
+    def test_06_project_token_ambiguity_stays_empty(self):
+        # "周宁" 只在 A;造一个同地点项目让它歧义
+        os.makedirs(os.path.join(self.ws, "01-项目", "20260801 周宁 龙腾世纪 5#301"))
+        _write(os.path.join(self.inbox, "龙腾世纪客厅.jpg"))
+        r = ds_intake.list_inbox(self.ds)
+        e = r["entries"][0]
+        self.assertIsNone(e["project"])  # 两个项目都含"龙腾世纪"→歧义不猜
+
+    def test_07_dirs_listed_without_category(self):
+        os.makedirs(os.path.join(self.inbox, "业主发来的一批图"))
+        _write(os.path.join(self.inbox, "业主发来的一批图", "1.jpg"))
+        r = ds_intake.list_inbox(self.ds)
+        e = [x for x in r["entries"] if x["name"] == "业主发来的一批图"][0]
+        self.assertEqual(e["type"], "dir")
+        self.assertIsNone(e["category"])  # 整夹不拆散,不给扩展名建议
+
+    def test_08_inbox_candidates_and_missing(self):
+        # 候选名容错:换成 "收件箱"
+        os.rename(self.inbox, os.path.join(self.ws, "收件箱"))
+        r = ds_intake.list_inbox(self.ds)
+        self.assertTrue(r.get("ok"))
+        self.assertEqual(r["inbox"], "收件箱")
+        # 一个候选都没有 → 诚实报错
+        os.rename(os.path.join(self.ws, "收件箱"), os.path.join(self.ws, "别的"))
+        r = ds_intake.list_inbox(self.ds)
+        self.assertEqual(r.get("error"), "inbox_not_found")
+
+    def test_09_workspace_unconfigured(self):
+        os.remove(os.path.join(self.ds, "config", "workspace.json"))
+        r = ds_intake.list_inbox(self.ds)
+        self.assertEqual(r.get("error"), "workspace_not_configured")
+
+    def test_10_dotfiles_and_bad_names_skipped(self):
+        _write(os.path.join(self.inbox, ".DS_Store"))
+        _write(os.path.join(self.inbox, "正常.pdf"))
+        r = ds_intake.list_inbox(self.ds)
+        names = [e["name"] for e in r["entries"]]
+        self.assertEqual(names, ["正常.pdf"])
+
+
+class StageIntakeOracle(IntakeBase):
+    def _stage(self, assignments):
+        return ds_intake.stage_intake(assignments, self.allowed, ds_root=self.ds)
+
+    def test_11_stage_project_scope(self):
+        _write(os.path.join(self.inbox, "户型图.dwg"), "DWG")
+        r = self._stage([{"name": "户型图.dwg", "project": PROJ_A, "category": "CAD"}])
+        self.assertTrue(r.get("ok"), r)
+        plan = self._load_plan(r["plan_id"])
+        op = plan["operations"][0]
+        self.assertEqual(op["src_rel"].replace("\\", "/"), "00-收件箱/户型图.dwg")
+        self.assertEqual(op["dst_rel"].replace("\\", "/"),
+                         f"01-项目/{PROJ_A}/03-CAD/户型图.dwg")
+        # stage 零改动:文件还在收件箱
+        self.assertTrue(os.path.exists(os.path.join(self.inbox, "户型图.dwg")))
+
+    def test_12_stage_workspace_scope_ignores_project(self):
+        _write(os.path.join(self.inbox, "参考.jpg"))
+        r = self._stage([{"name": "参考.jpg", "project": None, "category": "参考图"}])
+        self.assertTrue(r.get("ok"), r)
+        plan = self._load_plan(r["plan_id"])
+        self.assertEqual(plan["operations"][0]["dst_rel"].replace("\\", "/"),
+                         "03-共享资源/参考图库/参考.jpg")
+
+    def test_13_project_required_for_project_scope(self):
+        _write(os.path.join(self.inbox, "户型图.dwg"))
+        r = self._stage([{"name": "户型图.dwg", "project": None, "category": "CAD"}])
+        self.assertEqual(r.get("error"), "project_required")
+
+    def test_14_unknown_category_and_project(self):
+        _write(os.path.join(self.inbox, "a.pdf"))
+        r = self._stage([{"name": "a.pdf", "project": PROJ_A, "category": "不存在"}])
+        self.assertEqual(r.get("error"), "unknown_category")
+        r = self._stage([{"name": "a.pdf", "project": "不存在的项目", "category": "资料"}])
+        self.assertEqual(r.get("error"), "project_not_found")
+
+    def test_15_name_must_be_single_segment_in_inbox(self):
+        _write(os.path.join(self.inbox, "a.pdf"))
+        for bad in ("../外面.pdf", "子夹/内部.pdf", "不存在.pdf", "..", ""):
+            r = self._stage([{"name": bad, "project": PROJ_A, "category": "资料"}])
+            self.assertIn(r.get("error"),
+                          ("bad_name", "file_not_in_inbox"), (bad, r))
+
+    def test_16_dir_assignment_moves_whole_dir(self):
+        sub = os.path.join(self.inbox, "业主一批图")
+        os.makedirs(sub)
+        _write(os.path.join(sub, "1.jpg"))
+        r = self._stage([{"name": "业主一批图", "project": PROJ_A, "category": "资料"}])
+        self.assertTrue(r.get("ok"), r)
+        plan = self._load_plan(r["plan_id"])
+        self.assertEqual(len(plan["operations"]), 1)  # 单个整夹 op,不递归拆散
+        self.assertEqual(plan["operations"][0]["dst_rel"].replace("\\", "/"),
+                         f"01-项目/{PROJ_A}/01-资料/业主一批图")
+
+    def test_17_full_chain_approve_apply_moves_file(self):
+        """端到端(核心层):stage → 人工 approve → apply → 文件真归位。"""
+        _write(os.path.join(self.inbox, "参考.jpg"), "IMG")
+        r = self._stage([{"name": "参考.jpg", "project": None, "category": "参考图"}])
+        pid = r["plan_id"]
+        self.assertTrue(ds_organize.approve_plan(pid, ds_root=self.ds).get("ok"))
+        a = ds_organize.apply_plan(pid, self.allowed, ds_root=self.ds)
+        self.assertTrue(a.get("ok"), a)
+        dst = os.path.join(self.ws, "03-共享资源", "参考图库", "参考.jpg")
+        self.assertTrue(os.path.exists(dst))
+        self.assertFalse(os.path.exists(os.path.join(self.inbox, "参考.jpg")))
+
+    def test_17b_apply_creates_missing_category_dir(self):
+        """项目里还没有 03-CAD 夹:apply 建目录后落位(ds_organize 既有能力,
+        钉住 intake 依赖它这一事实)。"""
+        _write(os.path.join(self.inbox, "户型图.dwg"), "DWG")
+        r = self._stage([{"name": "户型图.dwg", "project": PROJ_A, "category": "CAD"}])
+        pid = r["plan_id"]
+        ds_organize.approve_plan(pid, ds_root=self.ds)
+        a = ds_organize.apply_plan(pid, self.allowed, ds_root=self.ds)
+        self.assertTrue(a.get("ok"), a)
+        self.assertTrue(os.path.exists(os.path.join(
+            self.ws, "01-项目", PROJ_A, "03-CAD", "户型图.dwg")))
+
+    def test_18_root_not_in_allowed_roots_honest_error(self):
+        """工作区根不在 DS_ORGANIZE_ROOTS → stage_plan 的 root_not_allowed 原样透出
+        (root⟂DS_ORGANIZE_ROOTS 不变量:不隐式打通,报错让人去配)。"""
+        _write(os.path.join(self.inbox, "参考.jpg"))
+        r = ds_intake.stage_intake(
+            [{"name": "参考.jpg", "project": None, "category": "参考图"}],
+            allowed_roots=["/nonexistent-other"], ds_root=self.ds)
+        self.assertEqual(r.get("error"), "root_not_allowed")
+
+    def test_19_empty_assignments(self):
+        r = self._stage([])
+        self.assertEqual(r.get("error"), "empty_plan")
+
+    def _load_plan(self, plan_id):
+        p = os.path.join(self.ds, "organize", "plans", f"plan_{plan_id}.json")
+        with open(p, encoding="utf-8") as fh:
+            return json.load(fh)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

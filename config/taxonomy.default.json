@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "_comment": "taxonomy v1.0(docs/workspace-taxonomy.md)的机读版,收件箱认领规则表。用户可放 config/taxonomy.json 覆盖同名顶层键。scope: project=进项目内类目夹(需指定项目), workspace=进工作区级共享夹(不需项目)。mode: auto=扩展名可放心自动建议, suggest=被引用风险类目(CAD/SU/MAX/PSD 贴图链/xref),建议仍给但引擎永不自动动它,人工确认才 stage。图片按入口约定=收件箱进来的图默认参考图(渲染图走 3dmax 输出目录,不经收件箱)。",
+  "inboxDirs": ["00-收件箱", "00收件箱", "00_收件箱", "收件箱"],
+  "categories": [
+    {
+      "id": "资料",
+      "scope": "project",
+      "dir": "01-资料",
+      "extensions": [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".csv"],
+      "mode": "auto"
+    },
+    {
+      "id": "参考图",
+      "scope": "workspace",
+      "dir": "03-共享资源/参考图库",
+      "extensions": [".jpg", ".jpeg", ".png", ".webp", ".gif"],
+      "mode": "auto"
+    },
+    {
+      "id": "CAD",
+      "scope": "project",
+      "dir": "03-CAD",
+      "extensions": [".dwg", ".dxf"],
+      "mode": "suggest"
+    },
+    {
+      "id": "SU",
+      "scope": "project",
+      "dir": "04-SU",
+      "extensions": [".skp"],
+      "mode": "suggest"
+    },
+    {
+      "id": "3DMAX",
+      "scope": "project",
+      "dir": "05-3DMAX",
+      "extensions": [".max"],
+      "mode": "suggest"
+    },
+    {
+      "id": "PS源",
+      "scope": "project",
+      "dir": "07-PS源",
+      "extensions": [".psd"],
+      "mode": "suggest"
+    }
+  ]
+}
