@@ -51,7 +51,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.22.0"  # client-tools:read_client/update_client 补业主档案读改暗区(审计空格①)
+VERSION = "0.23.0"  # set-stage:项目阶段推进工具(审计空格②),词表闸 PROJECT_STAGES 入代码
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")

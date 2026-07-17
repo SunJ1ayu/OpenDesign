@@ -42,6 +42,8 @@ CASES = [
     ("业主王姐的电话是多少", "read_client"),
     ("王姐预算加到 45 万了", "update_client"),
     ("记住:王姐家别提上一家装修公司,雷区", "update_client"),
+    # 审计空格② 已补(set-stage track)
+    ("万科城今天开始量房了", "set_stage"),
 ]
 
 

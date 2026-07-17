@@ -35,6 +35,10 @@ STATUSES = ("待确认", "进行中", "已完成", "已关闭")
 CLIENT_FIELDS = ("联系方式", "预算区间", "风格偏好", "关键约束", "决策习惯")
 _NOTE_FIELD = "备注"
 _NOTE_HEADER = "## 备注"
+# 全生命周期阶段词表(set_stage 闸;AGENTS.md「阶段词表」段与此一致,代码为真相源)。
+# 不强制顺序:现实会跳/回退(返工回效果图、跳过软装),顺序校验=假保护。
+PROJECT_STAGES = ("洽谈", "量房", "平面方案", "方案深化", "效果图", "施工图",
+                  "施工交底", "施工跟进", "软装", "竣工验收", "售后")
 # env DS_ROOT 缺失时基于 __file__ 推导(bin/ 的上一级):Linux/Windows 通用,不硬编码 /root
 DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
@@ -839,7 +843,7 @@ def update_client(name: str, field: str, value: str,
             action = "noted"
         else:
             # 头部区 = 首个 `## ` 段头之前;字段行只在这里找/插,段落正文永不误锚
-            field_re = re.compile(rf"^- {re.escape(field)}[::]")
+            field_re = re.compile(rf"^- {re.escape(field)}[:\uff1a]")  # 全角冒号显式转义
             head_end = next((i for i, ln in enumerate(lines)
                              if ln.startswith("## ")), len(lines))
             idx = next((i for i in range(head_end) if field_re.match(lines[i])), None)
@@ -856,6 +860,44 @@ def update_client(name: str, field: str, value: str,
                 lines[insert_at:insert_at] = [f"- {field}: {value}"]
                 action = "inserted"
     return {"ok": True, "client": name, "field": field, "action": action}
+
+
+def set_stage(project: str, stage: str,
+              ds_root: str = DEFAULT_DS_ROOT, today: str | None = None) -> dict:
+    """推进项目阶段:词表(PROJECT_STAGES)精确匹配,头部 `- 阶段:` 行替换
+    (缺行补插,同 update_client 先例)+ 页脚 bump(推进=有动静,超期计时重置)。
+    注入面由构造消灭:sanitize 折行后不在词表即拒,只有词表字面量能落盘。"""
+    today = ds_common.today_str(today)
+    stage = ds_common.sanitize_field(stage)
+    path, err = _resolve(ds_root, "projects", project)
+    if err:
+        return err
+    if stage not in PROJECT_STAGES:
+        return {"error": "bad_stage", "stages": list(PROJECT_STAGES)}
+    if not os.path.exists(path):
+        return {"error": "project_not_found"}
+
+    # ：=全角冒号(显式转义:字面量在混排中易被打成半角——panel 抓过一次)
+    stage_re = re.compile(r"^- 阶段[:\uff1a]\s*(?P<prev>.*)$")
+    prev = None
+    with ds_common.locked_rw(path) as box:
+        lines = box["lines"]
+        head_end = next((i for i, ln in enumerate(lines)
+                         if ln.startswith("## ")), len(lines))
+        idx = next((i for i in range(head_end) if stage_re.match(lines[i])), None)
+        if idx is not None:
+            prev = stage_re.match(lines[idx]).group("prev").strip() or None
+            lines[idx] = f"- 阶段: {stage}"
+        else:
+            insert_at = 0
+            for i in range(head_end):
+                if lines[i].startswith("- "):
+                    insert_at = i + 1
+                elif lines[i].startswith("# ") and insert_at == 0:
+                    insert_at = i + 1
+            lines[insert_at:insert_at] = [f"- 阶段: {stage}"]
+        ds_common.bump_last_updated(lines, today)
+    return {"ok": True, "project": project, "stage": stage, "prev": prev}
 
 
 # ── 工具 4.6 create_project ─────────────────────────────────────────────────
@@ -934,6 +976,14 @@ def _run_mcp() -> None:
     def read_project_tool(name: str) -> dict:
         """读取某个项目的完整记录(业主、阶段、变更、沟通日志)。"""
         return read_project(name, ds_root=ds_root)
+
+    @server.tool()
+    def set_stage_tool(project: str, stage: str) -> dict:
+        """项目推进到新阶段时用:设计师说到"开始量房了/进施工图了/竣工了"这类话,
+        就把项目档案的阶段字段改过来。stage 必须是词表之一:洽谈/量房/平面方案/
+        方案深化/效果图/施工图/施工交底/施工跟进/软装/竣工验收/售后。
+        可以跳阶段也可以回退(返工很正常)。返回 prev=原阶段,播报"从X进到Y"。"""
+        return set_stage(project, stage, ds_root=ds_root)
 
     @server.tool()
     def read_client_tool(name: str) -> dict:

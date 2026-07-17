@@ -1474,6 +1474,99 @@ class DeleteProjectOracle(unittest.TestCase):
         self.assertEqual(projs.get("error"), "project_not_found")
 
 
+class SetStageOracle(unittest.TestCase):
+    """set_stage oracle — 项目阶段推进(tool-audit 空格②,原字段建档后冻结)。"""
+
+    def setUp(self):
+        self.ds = tempfile.mkdtemp(prefix="dstest-")
+        os.makedirs(os.path.join(self.ds, "projects"), exist_ok=True)
+        os.makedirs(os.path.join(self.ds, "clients"), exist_ok=True)
+        ds_tools.create_project("万科城-802", "王姐", ds_root=self.ds, today=TODAY)
+        self.path = os.path.join(self.ds, "projects", "万科城-802.md")
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+
+    # ① 替换:阶段行变、prev 回报、页脚 bump 到 today(超期计时重置)
+    def test_ss01_replace_and_bump(self):
+        r = ds_tools.set_stage("万科城-802", "施工跟进",
+                               ds_root=self.ds, today="2026-07-17")
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["stage"], "施工跟进")
+        self.assertEqual(r["prev"], "洽谈")
+        text = _read(self.path)
+        self.assertIn("- 阶段: 施工跟进", text)
+        self.assertNotIn("- 阶段: 洽谈", text)
+        self.assertIn("最后更新: 2026-07-17", text)
+
+    # ② 词表闸:不在词表拒,带自愈清单,文件零改动
+    def test_ss02_bad_stage(self):
+        before = _read(self.path)
+        r = ds_tools.set_stage("万科城-802", "开工大吉",
+                               ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "bad_stage")
+        self.assertIn("施工跟进", r.get("stages", []))
+        self.assertEqual(_read(self.path), before)
+
+    # ③ 项目不存在;坏词表+坏项目=bad_stage 先(纯函数校验最便宜,契约锁定)
+    def test_ss03_not_found(self):
+        r = ds_tools.set_stage("没这项目", "量房", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "project_not_found")
+        r2 = ds_tools.set_stage("没这项目", "开工大吉", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r2.get("error"), "bad_stage")
+
+    # ④ 名字闸(H1 同款)
+    def test_ss04_bad_name(self):
+        r = ds_tools.set_stage("小区/802", "量房", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "bad_name")
+
+    # ⑤ 手建档案缺阶段行 → 头部区补插
+    def test_ss05_insert_missing_line(self):
+        with open(self.path, "w", encoding="utf-8") as fh:
+            fh.write("# 万科城-802\n\n- 业主: [[王姐]]\n\n## 变更记录\n\n---\n最后更新: 2026-06-01\n")
+        r = ds_tools.set_stage("万科城-802", "量房",
+                               ds_root=self.ds, today="2026-07-17")
+        self.assertTrue(r["ok"])
+        self.assertIsNone(r["prev"])
+        text = _read(self.path)
+        self.assertIn("- 阶段: 量房", text)
+        self.assertLess(text.index("- 阶段:"), text.index("## 变更记录"))
+        self.assertIn("最后更新: 2026-07-17", text)
+
+    # ⑥ 注入面由构造消灭:折行后不在词表 → 拒,逐次显式零改动比对
+    def test_ss06_injection_rejected(self):
+        for bad in ("施工跟进\n## 伪段头", "量房\n- [待确认] C9 x"):
+            before = _read(self.path)
+            r = ds_tools.set_stage("万科城-802", bad,
+                                   ds_root=self.ds, today=TODAY)
+            self.assertEqual(r.get("error"), "bad_stage", bad)
+            self.assertEqual(_read(self.path), before, bad)  # 逐字节零副作用
+        # 纯尾随空格 sanitize strip 后命中词表,应当合法通过
+        r = ds_tools.set_stage("万科城-802", "量房 ", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        self.assertIn("- 阶段: 量房", _read(self.path))
+
+    # ⑧ 手建档案全角冒号行:替换而非补插出重复行(panel 抓的 [::] 半角typo)
+    def test_ss08_fullwidth_colon(self):
+        with open(self.path, "w", encoding="utf-8") as fh:
+            # ：=全角冒号(显式转义:字面量在混排中易被打成半角,正是本 bug 的来源)
+            fh.write("# 万科城-802\n\n- 阶段：洽谈\n\n## 变更记录\n\n---\n最后更新: 2026-06-01\n")
+        r = ds_tools.set_stage("万科城-802", "量房",
+                               ds_root=self.ds, today="2026-07-17")
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["prev"], "洽谈")
+        text = _read(self.path)
+        self.assertEqual(text.count("- 阶段"), 1)   # 一行,不是补插出第二行
+        self.assertIn("- 阶段: 量房", text)
+
+    # ⑦ 同阶段幂等:ok,prev=同名
+    def test_ss07_idempotent(self):
+        r = ds_tools.set_stage("万科城-802", "洽谈", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["prev"], "洽谈")
+        self.assertEqual(_read(self.path).count("- 阶段:"), 1)
+
+
 class ReadClientOracle(unittest.TestCase):
     """read_client oracle — 业主档案读暗区(tool-audit 空格①读侧)。"""
 
@@ -1611,6 +1704,18 @@ class UpdateClientOracle(unittest.TestCase):
                                    ds_root=self.ds, today=TODAY)
         self.assertEqual(r.get("error"), "client_not_found")
         self.assertFalse(os.path.exists(os.path.join(self.ds, "clients", "没这人.md")))
+
+    # ⑩ 手建档案全角冒号字段行:替换而非补插出重复行(panel 抓的 [::] 半角typo)
+    def test_uc10_fullwidth_colon(self):
+        with open(self.path, "w", encoding="utf-8") as fh:
+            fh.write("# 王姐\n\n- 预算区间：30万\n\n## 备注\n")
+        r = ds_tools.update_client("王姐", "预算区间", "全包 45万",
+                                   ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["action"], "replaced")
+        text = _read(self.path)
+        self.assertEqual(text.count("- 预算区间"), 1)
+        self.assertIn("- 预算区间: 全包 45万", text)
 
     # ⑨ 名字闸与读侧同咽喉
     def test_uc09_bad_name(self):
