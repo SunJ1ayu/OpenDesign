@@ -1,7 +1,7 @@
 # Verify: opendesign-intake
 
 - Date: 2026-07-17
-- Verdict: PASS(四腿 panel 仲裁完成;subkimi 补跑结果后补,见 Deviations)
+- Verdict: PASS(四腿 panel 全 PASS + 主审 PASS;修复轮 12 处全落;eval 23/23)
 
 ## Mechanical checks
 
@@ -86,10 +86,9 @@
 
 ## Accepted deviations
 
-- resolver eval:MiMo 上游白天两次超时,恢复后补跑中(3 条 intake 用例已进 CASES;
-  结果后补,不阻验收——工具路由非本 track 正确性判据)。
-- subkimi 1800s 重试尚在跑:其首轮已贡献 NUL finding;四腿中三腿有完整 verdict
-  (submimo/subsense/subglm 全 PASS),重试结果仅作补充证据。
+- resolver eval:补跑 **23/23 ALL PASS**(上游恢复后)。注意 #23(隐式指派句
+  →stage_intake)两轮一败一过=MiMo 采样临界,不改 docstring 硬凑——显式句稳定
+  命中,隐式句路由错时 agent 有 list_inbox 先行兜底;真机误路由再调。
 - subglm agent 腿死因=火山 CodingPlan 未订阅(账号 2129933582,上游 400),
   按既有路由规则切 chat 腿完成;非本 track 问题。
 - suggest_project 子串匹配保守(纯数字段不参与):漏绑靠聊天补,误绑窗口≈0。
