@@ -410,6 +410,44 @@ def read_project(name: str, ds_root: str = DEFAULT_DS_ROOT) -> dict:
         return {"ok": True, "content": fh.read()}
 
 
+# ── 工具 4.3b list_projects ─────────────────────────────────────────────────
+# 聊天大脑的项目枚举(index.md 的真实替身:index.md 靠人手挂行、内置文件工具已禁用=
+# 架构上无人维护,故废弃;此工具现读 projects/ 一级,永远真)。只读、不改盘。
+# 头部字段解析复用 _read_header_field(与写侧 upsert 同源),页脚日期复用
+# ds_common.LASTUPD_DATE_RE(与 ds_todo 同源),不自造第二份解析。
+_LINK_RE = re.compile(r"^\[\[(.+?)\]\]$")
+
+
+def list_projects(ds_root: str = DEFAULT_DS_ROOT) -> dict:
+    """枚举所有项目:project/client/stage/last_updated,按项目名排序。
+    坏编码文件进 errors(不拖垮整表,M1 先例);目录缺失/空 → 空表。"""
+    proj_dir = os.path.join(ds_root, "projects")
+    files = sorted(f for f in (os.listdir(proj_dir) if os.path.isdir(proj_dir) else [])
+                   if f.endswith(".md"))
+    projects = []
+    errors = []
+    for fn in files:
+        slug = fn[:-3]
+        try:
+            with open(os.path.join(proj_dir, fn), encoding="utf-8") as fh:
+                text = fh.read()
+        except (OSError, UnicodeDecodeError):
+            errors.append(slug)  # 一个坏文件不该让整表灭(list_todos.collect 同哲学)
+            continue
+        lines = text.split("\n")
+        raw_client = _read_header_field(lines, "业主")
+        m = _LINK_RE.match(raw_client)
+        client = m.group(1) if m else raw_client        # `[[张三]]` → 张三;裸值原样
+        stage = _read_header_field(lines, "阶段")
+        dates = ds_common.LASTUPD_DATE_RE.findall(text)  # 行首锚定、取最后一处(页脚)
+        projects.append({
+            "project": slug, "client": client, "stage": stage,
+            "last_updated": dates[-1] if dates else "",
+        })
+    projects.sort(key=lambda p: p["project"])
+    return {"ok": True, "projects": projects, "errors": errors}
+
+
 # ── 工具 4.4 list_todos ─────────────────────────────────────────────────────
 # 未接入工作区的主动提醒(Track B/B2)。agent 开场必跑 list_todos(AGENTS.md 规则3),
 # 故把"没接入项目文件夹"信号免费搭车塞进这里——不靠弱模型记得另调工具。
@@ -798,6 +836,50 @@ def read_client(name: str, ds_root: str = DEFAULT_DS_ROOT) -> dict:
         return {"ok": True, "content": fh.read()}
 
 
+# ── 头部字段 upsert / read(update_client + set_stage 单一实现，防漂移）─────────
+# 「头部区找字段行替换、缺行补插」在 update_client 与 set_stage 里逐字节重复过两份
+# （tool-audit 遗留）；收敛成一处。头部区 = 首个 `## ` 段头之前，字段行只在这里
+# 找/插，段落正文永不误锚。全角冒号显式转义 ：（字面量在中英混排里易被打成
+# 半角，panel 抓过一次，硬教训=全角标点必须 \uXXXX），两侧必须同源。
+def _header_field_re(field: str) -> "re.Pattern[str]":
+    return re.compile(rf"^- {re.escape(field)}[:\uff1a]\s*(?P<val>.*)$")
+
+
+def _upsert_header_field(lines: list[str], field: str, value: str) -> str | None:
+    """头部区里把 `- {field}: {value}` 写进去：命中该字段行→替换并返回旧值原文
+    （可能为空串）；缺行→插到头部区末尾并返回 None。调用方据「返回 None 与否」区分
+    inserted/replaced，据旧值算 prev。零行为变化（现有套件即回归 oracle）。"""
+    field_re = _header_field_re(field)
+    head_end = next((i for i, ln in enumerate(lines)
+                     if ln.startswith("## ")), len(lines))
+    idx = next((i for i in range(head_end) if field_re.match(lines[i])), None)
+    if idx is not None:
+        prev = field_re.match(lines[idx]).group("val")
+        lines[idx] = f"- {field}: {value}"
+        return prev
+    insert_at = 0
+    for i in range(head_end):
+        if lines[i].startswith("- "):
+            insert_at = i + 1
+        elif lines[i].startswith("# ") and insert_at == 0:
+            insert_at = i + 1
+    lines[insert_at:insert_at] = [f"- {field}: {value}"]
+    return None
+
+
+def _read_header_field(lines: list[str], field: str) -> str:
+    """头部区里读 `- {field}:` 的值（缺行返回空串）。_upsert 的只读镜像，
+    同一 head_end/字段行定位口径（list_projects / ds_lint 复用，不另造第二套解析）。"""
+    field_re = _header_field_re(field)
+    head_end = next((i for i, ln in enumerate(lines)
+                     if ln.startswith("## ")), len(lines))
+    for i in range(head_end):
+        m = field_re.match(lines[i])
+        if m:
+            return m.group("val").strip()
+    return ""
+
+
 def update_client(name: str, field: str, value: str,
                   ds_root: str = DEFAULT_DS_ROOT, today: str | None = None) -> dict:
     """改业主档案。两档语义:白名单字段(CLIENT_FIELDS)=替换头部字段行的值,
@@ -842,23 +924,10 @@ def update_client(name: str, field: str, value: str,
                 lines[insert_at:insert_at] = [entry]
             action = "noted"
         else:
-            # 头部区 = 首个 `## ` 段头之前;字段行只在这里找/插,段落正文永不误锚
-            field_re = re.compile(rf"^- {re.escape(field)}[:\uff1a]")  # 全角冒号显式转义
-            head_end = next((i for i, ln in enumerate(lines)
-                             if ln.startswith("## ")), len(lines))
-            idx = next((i for i in range(head_end) if field_re.match(lines[i])), None)
-            if idx is not None:
-                lines[idx] = f"- {field}: {value}"
-                action = "replaced"
-            else:
-                insert_at = 0
-                for i in range(head_end):
-                    if lines[i].startswith("- "):
-                        insert_at = i + 1
-                    elif lines[i].startswith("# ") and insert_at == 0:
-                        insert_at = i + 1
-                lines[insert_at:insert_at] = [f"- {field}: {value}"]
-                action = "inserted"
+            # 头部字段 upsert 单一实现(_upsert_header_field):返回 None=缺行补插=inserted,
+            # 返回旧值(含空串)=命中替换=replaced。
+            prev = _upsert_header_field(lines, field, value)
+            action = "inserted" if prev is None else "replaced"
     return {"ok": True, "client": name, "field": field, "action": action}
 
 
@@ -877,25 +946,12 @@ def set_stage(project: str, stage: str,
     if not os.path.exists(path):
         return {"error": "project_not_found"}
 
-    # ：=全角冒号(显式转义:字面量在混排中易被打成半角——panel 抓过一次)
-    stage_re = re.compile(r"^- 阶段[:\uff1a]\s*(?P<prev>.*)$")
     prev = None
     with ds_common.locked_rw(path) as box:
         lines = box["lines"]
-        head_end = next((i for i, ln in enumerate(lines)
-                         if ln.startswith("## ")), len(lines))
-        idx = next((i for i in range(head_end) if stage_re.match(lines[i])), None)
-        if idx is not None:
-            prev = stage_re.match(lines[idx]).group("prev").strip() or None
-            lines[idx] = f"- 阶段: {stage}"
-        else:
-            insert_at = 0
-            for i in range(head_end):
-                if lines[i].startswith("- "):
-                    insert_at = i + 1
-                elif lines[i].startswith("# ") and insert_at == 0:
-                    insert_at = i + 1
-            lines[insert_at:insert_at] = [f"- 阶段: {stage}"]
+        # 头部字段 upsert 单一实现(与 update_client 同源);返回旧值原文→strip 或空即 None
+        raw = _upsert_header_field(lines, "阶段", stage)
+        prev = (raw or "").strip() or None
         ds_common.bump_last_updated(lines, today)
     return {"ok": True, "project": project, "stage": stage, "prev": prev}
 
@@ -913,6 +969,10 @@ def create_project(project: str, client: str, stage: str = "洽谈", address: st
     address = ds_common.sanitize_field(address)
     if not project or not client:
         return {"error": "empty_name"}
+    # stage 词表闸(对齐 set_stage;tool-audit 遗留的不对称):非词表值直接拒、不建文件、
+    # 不补业主 stub。sanitize 折行后只有词表字面量能落盘,注入面由构造消灭。
+    if stage not in PROJECT_STAGES:
+        return {"error": "bad_stage", "stages": list(PROJECT_STAGES)}
     path, err = _resolve(ds_root, "projects", project)
     if err:
         return err
@@ -933,6 +993,7 @@ def create_project(project: str, client: str, stage: str = "洽谈", address: st
 # ── stdio MCP server 包装(需 `pip install mcp`;未装不影响以上核心) ────────
 def _run_mcp() -> None:
     from mcp.server.fastmcp import FastMCP  # 延迟导入:未装时上面的核心与 tests 照常可用
+    import ds_lint  # 延迟导入:ds_lint 反向 import ds_tools,顶层导会成环;仅 MCP 运行期需要
 
     ds_root = os.environ.get("DS_ROOT", DEFAULT_DS_ROOT)
     server = FastMCP("design-studio")
@@ -1014,6 +1075,22 @@ def _run_mcp() -> None:
     def list_todos_tool(stale_days: int = 7) -> dict:
         """列出所有项目的未关闭事项 + 超期未更新项目。"""
         return list_todos(stale_days, ds_root=ds_root)
+
+    @server.tool()
+    def list_projects_tool() -> dict:
+        """列出手上所有项目:被问"有哪些项目/项目列表/所有项目/一共几个项目/都在做什么"
+        时用。返回每个项目的 业主/阶段/最后更新,按项目名排序。只读,回答项目盘点问题
+        先调这个,不要凭记忆报。"""
+        return list_projects(ds_root=ds_root)
+
+    @server.tool()
+    def lint_pkb_tool() -> dict:
+        """给项目/业主档案做一次体检(健康检查):设计师问"检查一下档案/有没有问题/
+        帮我体检/档案还正常吗/有没有重复或断链"时用。确定性只读扫描,只报告不改动,
+        查:断链、重复档案、坏阶段、C 编号撞车、参考图索引悬挂/丢文件、工作区映射悬挂、
+        废弃 index.md 残留、坏编码文件。返回 findings 清单(每条含 check/target/detail),
+        照它逐条播报,修复动作仍走对应工具(改名/删除/organize 闸),别自己手改文件。"""
+        return ds_lint.lint_pkb(ds_root)
 
     @server.tool()
     def set_workspace_tool(root: str, projects_dir: str = "",
