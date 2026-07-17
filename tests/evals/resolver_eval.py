@@ -48,6 +48,9 @@ CASES = [
     ("收件箱里有什么新东西", "list_inbox"),
     ("帮我整理一下收件箱", "list_inbox"),
     ("对,玄关那张归到翡翠湾的参考图,户型图放它的CAD", "stage_intake"),
+    # PKB 体检 + 项目枚举(opendesign-pkb-lint track):盘点=list_projects;体检=lint_pkb
+    ("我手上一共有哪些项目", "list_projects"),
+    ("给我的档案做个体检,看有没有重复或断链", "lint_pkb"),
 ]
 
 

@@ -59,7 +59,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.25.0"  # intake:收件箱认领闭环(规则表建议+聊天暂存+卡片确认执行,针孔④)
+VERSION = "0.25.1"  # pkb-lint:PKB 体检(lint_pkb)+项目枚举(list_projects)+index.md 废弃+审计遗留(stage 闸/upsert 收敛)
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
