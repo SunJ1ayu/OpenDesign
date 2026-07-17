@@ -29,6 +29,12 @@ import ds_workspace  # PROJECT_NAME_RE 单一真相源(写侧与读侧/web key �
 
 # ── 契约常量 ────────────────────────────────────────────────────────────────
 STATUSES = ("待确认", "进行中", "已完成", "已关闭")
+# 业主档案可写字段白名单(update_client,替换语义)。`关联项目` 刻意不在:机器管理
+# 字段(create_project 写入/rename_project 五处联动/delete_project 清点),开放给
+# LLM 自由改写会打断改名/删除的记账。`备注` 走追加语义,单列。
+CLIENT_FIELDS = ("联系方式", "预算区间", "风格偏好", "关键约束", "决策习惯")
+_NOTE_FIELD = "备注"
+_NOTE_HEADER = "## 备注"
 # env DS_ROOT 缺失时基于 __file__ 推导(bin/ 的上一级):Linux/Windows 通用,不硬编码 /root
 DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
@@ -777,6 +783,81 @@ def create_client(name: str, contact: str = "", linked: str = "",
     return {"ok": True, "client": name}
 
 
+def read_client(name: str, ds_root: str = DEFAULT_DS_ROOT) -> dict:
+    """读取业主档案原文(镜像 read_project;clients/ 走同一 _resolve 咽喉)。"""
+    path, err = _resolve(ds_root, "clients", name)
+    if err:
+        return err
+    if not os.path.exists(path):
+        return {"error": "client_not_found"}
+    with open(path, encoding="utf-8") as fh:
+        return {"ok": True, "content": fh.read()}
+
+
+def update_client(name: str, field: str, value: str,
+                  ds_root: str = DEFAULT_DS_ROOT, today: str | None = None) -> dict:
+    """改业主档案。两档语义:白名单字段(CLIENT_FIELDS)=替换头部字段行的值,
+    行缺失(手建档案)则补插头部区末尾;`备注` = 追加一行 `- 日期 内容` 到段尾
+    (积累不覆盖,段缺失自动补建,同 log_communication 先例)。
+    value 经 sanitize_field 折成单行(多行 = 伪造字段行/段头,7-03 盲评铁律);
+    拒空 value(静默清空比显式拒绝更危险,要清让设计师给个"无")。"""
+    today = ds_common.today_str(today)
+    field = ds_common.sanitize_field(field)
+    value = ds_common.sanitize_field(value)
+    path, err = _resolve(ds_root, "clients", name)
+    if err:
+        return err
+    if field != _NOTE_FIELD and field not in CLIENT_FIELDS:
+        return {"error": "bad_field", "fields": [*CLIENT_FIELDS, _NOTE_FIELD]}
+    if not value:
+        return {"error": "empty_value"}
+    if not os.path.exists(path):
+        return {"error": "client_not_found"}
+
+    action = ""
+    with ds_common.locked_rw(path) as box:
+        lines = box["lines"]
+        if field == _NOTE_FIELD:
+            entry = f"- {today} {value}"
+            hdr = next((i for i, ln in enumerate(lines)
+                        if ln.startswith(_NOTE_HEADER)), None)
+            if hdr is None:
+                if lines and lines[-1].strip():
+                    lines.append("")
+                lines.extend([_NOTE_HEADER, entry])
+            else:
+                # 段界 = 下一 `^## `(client 档案无页脚,`---` 一并防御);
+                # 插到段内最后一条非空行之后 —— 同 log_communication 的段内定位
+                end = next((j for j in range(hdr + 1, len(lines))
+                            if lines[j].startswith("## ") or lines[j].startswith("---")),
+                           len(lines))
+                insert_at = hdr + 1
+                for i in range(hdr + 1, end):
+                    if lines[i].strip():
+                        insert_at = i + 1
+                lines[insert_at:insert_at] = [entry]
+            action = "noted"
+        else:
+            # 头部区 = 首个 `## ` 段头之前;字段行只在这里找/插,段落正文永不误锚
+            field_re = re.compile(rf"^- {re.escape(field)}[::]")
+            head_end = next((i for i, ln in enumerate(lines)
+                             if ln.startswith("## ")), len(lines))
+            idx = next((i for i in range(head_end) if field_re.match(lines[i])), None)
+            if idx is not None:
+                lines[idx] = f"- {field}: {value}"
+                action = "replaced"
+            else:
+                insert_at = 0
+                for i in range(head_end):
+                    if lines[i].startswith("- "):
+                        insert_at = i + 1
+                    elif lines[i].startswith("# ") and insert_at == 0:
+                        insert_at = i + 1
+                lines[insert_at:insert_at] = [f"- {field}: {value}"]
+                action = "inserted"
+    return {"ok": True, "client": name, "field": field, "action": action}
+
+
 # ── 工具 4.6 create_project ─────────────────────────────────────────────────
 def create_project(project: str, client: str, stage: str = "洽谈", address: str = "",
                    ds_root: str = DEFAULT_DS_ROOT, today: str | None = None) -> dict:
@@ -853,6 +934,22 @@ def _run_mcp() -> None:
     def read_project_tool(name: str) -> dict:
         """读取某个项目的完整记录(业主、阶段、变更、沟通日志)。"""
         return read_project(name, ds_root=ds_root)
+
+    @server.tool()
+    def read_client_tool(name: str) -> dict:
+        """读取业主档案(联系方式/关联项目/预算区间/风格偏好/关键约束/决策习惯/备注)。
+        被问某业主的情况、或聊到一个项目想先回顾业主偏好和雷区时用。
+        name=业主称呼(clients/ 下的档案名)。回答业主相关问题一律先读档案,不要凭记忆猜。"""
+        return read_client(name, ds_root=ds_root)
+
+    @server.tool()
+    def update_client_tool(name: str, field: str, value: str) -> dict:
+        """更新业主档案。业主信息有变(改预算/换电话/偏好变了),或听到值得记住的
+        性格、雷区、沟通要点时用。field 必须是其一:联系方式/预算区间/风格偏好/
+        关键约束/决策习惯(=整字段改成新值 value)或 备注(=追加一条带日期的记录,
+        原有备注不动;性格雷区类零碎观察记这档)。业主关联哪个项目是机器维护的字段,
+        建项目/项目改名时自动更新。"""
+        return update_client(name, field, value, ds_root=ds_root)
 
     @server.tool()
     def delete_project_tool(project: str) -> dict:

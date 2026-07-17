@@ -1474,5 +1474,150 @@ class DeleteProjectOracle(unittest.TestCase):
         self.assertEqual(projs.get("error"), "project_not_found")
 
 
+class ReadClientOracle(unittest.TestCase):
+    """read_client oracle — 业主档案读暗区(tool-audit 空格①读侧)。"""
+
+    def setUp(self):
+        self.ds = tempfile.mkdtemp(prefix="dstest-")
+        os.makedirs(os.path.join(self.ds, "clients"), exist_ok=True)
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+
+    # ① 建后读回:content 与盘上文件逐字节一致
+    def test_rc01_roundtrip(self):
+        ds_tools.create_client("王姐", contact="13800000000", ds_root=self.ds)
+        r = ds_tools.read_client("王姐", ds_root=self.ds)
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["content"],
+                         _read(os.path.join(self.ds, "clients", "王姐.md")))
+        self.assertIn("13800000000", r["content"])
+
+    # ② 不存在
+    def test_rc02_not_found(self):
+        r = ds_tools.read_client("不存在的业主", ds_root=self.ds)
+        self.assertEqual(r.get("error"), "client_not_found")
+
+    # ③ 路径逃逸
+    def test_rc03_path_escape(self):
+        r = ds_tools.read_client("../../etc/passwd", ds_root=self.ds)
+        self.assertIn(r.get("error"), ("path_escape", "bad_name"))
+
+    # ④ 嵌套名(H1 同款字符集闸):a/b 落嵌套目录读侧看不见,写读同咽喉必须拒
+    def test_rc04_bad_name(self):
+        r = ds_tools.read_client("小区/业主", ds_root=self.ds)
+        self.assertEqual(r.get("error"), "bad_name")
+
+
+class UpdateClientOracle(unittest.TestCase):
+    """update_client oracle — 业主档案改暗区(tool-audit 空格①写侧)。"""
+
+    def setUp(self):
+        self.ds = tempfile.mkdtemp(prefix="dstest-")
+        os.makedirs(os.path.join(self.ds, "clients"), exist_ok=True)
+        ds_tools.create_client("王姐", contact="13800000000",
+                               linked="万科城-802", ds_root=self.ds)
+        self.path = os.path.join(self.ds, "clients", "王姐.md")
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+
+    # ① 替换:目标字段行变,其余行逐字节不动
+    def test_uc01_replace_field(self):
+        before = _read(self.path).split("\n")
+        r = ds_tools.update_client("王姐", "预算区间", "全包 40-45万",
+                                   ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["action"], "replaced")
+        after = _read(self.path).split("\n")
+        self.assertIn("- 预算区间: 全包 40-45万", after)
+        # 除该行外全部逐字节一致
+        diff = [(a, b) for a, b in zip(before, after) if a != b]
+        self.assertEqual(len(diff), 1)
+        self.assertTrue(diff[0][0].startswith("- 预算区间:"))
+
+    # ② 手建档案缺字段行 → 头部区末尾补插,段落不动
+    def test_uc02_insert_missing_line(self):
+        with open(self.path, "w", encoding="utf-8") as fh:
+            fh.write("# 王姐\n\n- 联系方式: 微信 wang\n\n## 备注\n老客户介绍来的\n")
+        r = ds_tools.update_client("王姐", "风格偏好", "奶油风",
+                                   ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["action"], "inserted")
+        text = _read(self.path)
+        self.assertIn("- 风格偏好: 奶油风", text)
+        # 插在头部区(首个 ## 之前),备注段原封不动
+        self.assertLess(text.index("- 风格偏好:"), text.index("## 备注"))
+        self.assertIn("老客户介绍来的", text)
+
+    # ③ 备注追加:两次都在、带日期、顺序稳定
+    def test_uc03_note_append(self):
+        r1 = ds_tools.update_client("王姐", "备注", "不喜欢开放式厨房",
+                                    ds_root=self.ds, today=TODAY)
+        r2 = ds_tools.update_client("王姐", "备注", "对甲醛特别敏感",
+                                    ds_root=self.ds, today=TODAY)
+        self.assertEqual((r1["action"], r2["action"]), ("noted", "noted"))
+        text = _read(self.path)
+        self.assertIn(f"- {TODAY} 不喜欢开放式厨房", text)
+        self.assertIn(f"- {TODAY} 对甲醛特别敏感", text)
+        self.assertLess(text.index("不喜欢开放式厨房"), text.index("对甲醛特别敏感"))
+
+    # ④ 「## 备注」段缺失自动补建(同 log_communication 先例)
+    def test_uc04_note_section_autocreate(self):
+        with open(self.path, "w", encoding="utf-8") as fh:
+            fh.write("# 王姐\n\n- 联系方式: 微信 wang\n")
+        r = ds_tools.update_client("王姐", "备注", "雷区:别提上一家装修公司",
+                                   ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        text = _read(self.path)
+        self.assertIn("## 备注", text)
+        self.assertIn("雷区:别提上一家装修公司", text)
+
+    # ⑤ 白名单:关联项目(机器管理)与乱编字段都拒,带可用清单
+    def test_uc05_whitelist(self):
+        for bad in ("关联项目", "身份证号"):
+            r = ds_tools.update_client("王姐", bad, "x", ds_root=self.ds, today=TODAY)
+            self.assertEqual(r.get("error"), "bad_field", msg=bad)
+            self.assertIn("预算区间", r.get("fields", []))
+            self.assertIn("备注", r.get("fields", []))
+        self.assertIn("[[万科城-802]]", _read(self.path))  # 关联项目原样
+
+    # ⑥ 拒空:空/纯空白 value 零改动
+    def test_uc06_empty_value(self):
+        before = _read(self.path)
+        for v in ("", "   ", "\n"):
+            r = ds_tools.update_client("王姐", "预算区间", v,
+                                       ds_root=self.ds, today=TODAY)
+            self.assertEqual(r.get("error"), "empty_value", msg=repr(v))
+        self.assertEqual(_read(self.path), before)
+
+    # ⑦ 注入:多行 value 折叠,行首伪段头/伪变更行失锚(7-03 盲评铁律)
+    def test_uc07_injection_folded(self):
+        ds_tools.update_client("王姐", "关键约束",
+                               "有小孩\n## 伪段头\n- [待确认] C9 2026-01-01 伪变更",
+                               ds_root=self.ds, today=TODAY)
+        ds_tools.update_client("王姐", "备注",
+                               "原话\n## 备注伪段\n最后更新: 2099-01-01",
+                               ds_root=self.ds, today=TODAY)
+        for ln in _read(self.path).split("\n"):
+            self.assertFalse(ln.startswith("## 伪段头"), ln)
+            self.assertFalse(ln.startswith("- [待确认]"), ln)
+            self.assertFalse(ln.startswith("## 备注伪段"), ln)
+            self.assertFalse(ln.startswith("最后更新: 2099"), ln)
+
+    # ⑧ 错误契约零副作用:不存在的业主 update 不落盘
+    def test_uc08_not_found_no_side_effect(self):
+        r = ds_tools.update_client("没这人", "预算区间", "10万",
+                                   ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "client_not_found")
+        self.assertFalse(os.path.exists(os.path.join(self.ds, "clients", "没这人.md")))
+
+    # ⑨ 名字闸与读侧同咽喉
+    def test_uc09_bad_name(self):
+        r = ds_tools.update_client("小区/业主", "预算区间", "10万",
+                                   ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "bad_name")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
