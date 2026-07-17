@@ -1,6 +1,6 @@
 # Tasks: opendesign-adoption
 
-- base-ref: (track A 合并后的 main,dispatch 时补)
+- base-ref: 45c4df5537011d335a99437b90f6d10eaa736432
 
 > 工艺:模型分层试跑第二单。主 agent oracle 先行(tests/test_ds_adopt.py);
 > Opus worktree 承包实现;oracle off-limits;verify full panel(采纳引擎=产品脊梁级)。
