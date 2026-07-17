@@ -30,7 +30,7 @@ import hashlib
 import os
 import re
 
-import ds_common     # 页脚锚定语义(此处未直接用,留同源引用心智一致)
+import ds_common     # within(workspace 映射逃逸检查)
 import ds_refs       # refs 索引行分段解析(parse_ref_line)
 import ds_todo       # 变更行 C 编号解析(parse_change)
 import ds_tools      # PROJECT_STAGES + 头部字段读取(_read_header_field)
