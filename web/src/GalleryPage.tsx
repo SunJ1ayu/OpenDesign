@@ -135,7 +135,7 @@ export default function GalleryPage({ project }: Props) {
 
       {!loading && items.length === 0 ? (
         <div className="aside-empty" style={{ marginTop: 18 }}>
-          还没有图片。参考图在对话里发图登记;效果图放进项目文件夹的 06-效果图。
+          还没有图片。参考图在对话里发图登记;项目文件夹里的图片会自动出现在这里。
         </div>
       ) : !loading && shown.length === 0 ? (
         <div className="aside-empty" style={{ marginTop: 18 }}>

@@ -6,14 +6,18 @@ export type Project = {
   key: string;
   name: string;
   stage: string;
+  // cockpit 速览:业主(已剥 [[ ]])与「当前状态」一句话;缺字段=空串。
+  // 未建档条目不带这两个字段。
+  owner?: string;
+  status_note?: string;
   open_count: number;
   delivered: boolean;
   last_update: string | null;
   // p7:true = 工作区自动发现的未建档文件夹(key=文件夹名;文件区/图墙可用,
   // changes/refs 不请求,建档走对话)
   unregistered: boolean;
-  // depth2:projectsDepth=2 时未建档条目的分组名(年份/客户等,key=`组:名`);
-  // depth=1 为 "",已建档条目不带此字段
+  // depth2:projectsDepth=2 时的分组名(年份/客户等);depth=1 为 ""。
+  // cockpit 起已建档条目也带(三级绑定命中的夹子反查分组)。
   group?: string;
 };
 
@@ -35,7 +39,9 @@ export type Ref = {
 };
 
 // P5 文件工作区(bin/ds_web.py /api/files/*;未配置/未映射诚实降级)
-export type WsCategory = { name: string; count: number; capped: boolean };
+// latest_mtime=类目最新文件 mtime(epoch 秒,活跃度信号);capped 时 null(宁缺勿假)
+export type WsCategory = { name: string; count: number; capped: boolean;
+                           latest_mtime: number | null };
 export type WsRecent = { name: string; category: string; mtime: number; size: number };
 export type FilesOverview =
   | { configured: false }

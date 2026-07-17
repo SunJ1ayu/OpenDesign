@@ -1,11 +1,11 @@
 # Tasks: opendesign-cockpit
 
 - base-ref: a8a85ff(set-stage 归档后)
-- 状态:plan 冻结,待用户 go
+- 状态:DONE(verify PASS)
 
-- [ ] T1 py oracle 先红:ds_workspace.overview latest_mtime(正常/空/capped=null)
-- [ ] T2 py oracle 先红:_projects owner/status_note/group(depth2×映射×depth1)+405 重申
-- [ ] T3 mjs oracle 先红:cockpit.ts 四函数(判卷:非模板类目名全链路可见)
-- [ ] T4 组件:CompanionColumn 四块重排+dataEpoch/route 门+Gallery 文案+api 类型,build 绿
-- [ ] T5 e2e 真 gateway(速览/项目图/图墙常驻入口/非模板类目夹具)
-- [ ] T6 回归+红检+dist+VERSION 0.24.0+verify fast lane
+- [x] T1 latest_mtime DONE(oracle 先红 2 例→绿;capped→None)
+- [x] T2 _projects owner/status_note/group DONE(oracle 先红 4 例→绿;405 重申)
+- [x] T3 cockpit.ts DONE(mjs 9 例先红后绿;判卷用例「渲染输出」过)
+- [x] T4 组件 DONE(四块重排/拔硬编码/图墙常驻入口/刷新门;build 绿)
+- [x] T5 e2e DONE(真 chromium+真 ds_web 8/8 首跑全过;纯 GET 面无需 gateway,夹具含非模板类目)
+- [x] T6 回归 330py+mjs 全绿;突变红检 3/3;dist 进仓;VERSION 0.24.0;verify fast lane 主审+submimo 双 PASS 零改动

@@ -233,10 +233,14 @@ def _walk_cat(cat, rel_dir, abs_dir, depth, max_per_cat):
 
 
 def overview(proj_dir: str, recent_n: int = 8, max_per_cat: int = MAX_PER_CAT):
-    """{"categories": [{"name","count","capped"}...(按名序)],
+    """{"categories": [{"name","count","capped","latest_mtime"}...(按名序;
+    latest_mtime=类目最新文件 mtime,capped 时 None)],
     "recent": [{"name","category","mtime","size"}...(mtime 降序,前 recent_n)]}"""
     cats = _scan(proj_dir, max_per_cat)
-    categories = [{"name": name, "count": len(c["files"]), "capped": c["capped"]}
+    # latest_mtime=类目活跃度(cockpit);capped 时名序截断后 max 不可信 → None 宁缺勿假
+    categories = [{"name": name, "count": len(c["files"]), "capped": c["capped"],
+                   "latest_mtime": (max(f[2] for f in c["files"])
+                                    if c["files"] and not c["capped"] else None)}
                   for name, c in sorted(cats.items()) if c["files"] or c["capped"]]
     allf = [(mtime, name, cat_name, size)
             for cat_name, c in cats.items()

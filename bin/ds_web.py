@@ -51,7 +51,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.23.0"  # set-stage:项目阶段推进工具(审计空格②),词表闸 PROJECT_STAGES 入代码
+VERSION = "0.24.0"  # cockpit:伴随列→项目驾驶舱(速览/项目图/类目活跃度),拔模板类目名硬编码
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -319,14 +319,21 @@ class Handler(BaseHTTPRequestHandler):
                     continue
                 stage = _field(text, "阶段")
                 dates = ds_common.LASTUPD_DATE_RE.findall(text)
+                # cockpit 速览:业主剥 [[ ]](链接语法是档案内部事,不外泄给 UI)
+                owner = _field(text, "业主")
+                if owner.startswith("[[") and owner.endswith("]]"):
+                    owner = owner[2:-2]
                 projects.append({
                     "key": key,
                     "name": _title(text) or key,
                     "stage": stage,
+                    "owner": owner,
+                    "status_note": _field(text, "当前状态"),
                     "open_count": counts.get(key, 0),
                     "delivered": stage in DELIVERED_STAGES,
                     "last_update": dates[-1] if dates else None,
                     "unregistered": False,
+                    "group": "",
                 })
             # p7 design D2:联合工作区自动发现的项目夹(只读,不建档)。
             # 消费集合按 realpath 比对(不按 basename):显式映射目标 ∪ 各 PKB
@@ -335,17 +342,24 @@ class Handler(BaseHTTPRequestHandler):
             cfg = ds_workspace.load_config(root)
             folders = ds_workspace.project_folders(cfg)
             if folders:
+                # depth2 track:projectsDepth=2 时 key=`分组:项目名`,拆出
+                # group 供前端标签、name 只留纯项目名;depth=1 恒 group=""
+                grouped = cfg.get("projectsDepth", 1) == 2
+                # cockpit(偿 depth2 deviation):文件夹 realpath → 分组名反查表,
+                # 已建档条目经三级绑定命中的夹子也带上 group 标签
+                path_group = {fp: n.split(":", 1)[0]
+                              for n, fp in folders if grouped and ":" in n}
                 consumed = set()
                 for p in projects:
                     pd = ds_workspace.project_dir(cfg, p["key"])
                     if pd:
                         consumed.add(pd)
+                        g = path_group.get(pd)
+                        if g:
+                            p["group"] = g
                 for rel in cfg["projects"].values():
                     if rel:
                         consumed.add(os.path.realpath(os.path.join(cfg["root"], rel)))
-                # depth2 track:projectsDepth=2 时 key=`分组:项目名`,拆出
-                # group 供前端标签、name 只留纯项目名;depth=1 恒 group=""
-                grouped = cfg.get("projectsDepth", 1) == 2
                 for name, fpath in folders:
                     if fpath in consumed:
                         continue

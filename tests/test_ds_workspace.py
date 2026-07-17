@@ -186,6 +186,34 @@ class OverviewTest(unittest.TestCase):
             ov = ds_workspace.overview(self._proj(tmp), recent_n=50)
             self.assertNotIn("index.json", [r["name"] for r in ov["recent"]])
 
+    # cockpit T1:类目活跃度 = 该类目最新文件 mtime
+    def test_latest_mtime(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            proj = self._proj(tmp)
+            mark = 2_000_000_000  # 显式钉一个未来值,断言不依赖夹具的相对时序
+            os.utime(os.path.join(proj, "01-资料", "户型图.dwg"), (mark, mark))
+            ov = ds_workspace.overview(proj)
+            cats = {c["name"]: c for c in ov["categories"]}
+            self.assertEqual(mark, cats["01-资料"]["latest_mtime"])
+            # 每个未截断类目:latest_mtime = recent 口径下该类目文件的最大 mtime
+            ov_all = ds_workspace.overview(proj, recent_n=10_000)
+            by_cat = {}
+            for r in ov_all["recent"]:
+                by_cat[r["category"]] = max(by_cat.get(r["category"], 0), r["mtime"])
+            for c in ov["categories"]:
+                if not c["capped"]:
+                    self.assertEqual(by_cat[c["name"]], c["latest_mtime"], c["name"])
+
+    # cockpit T1:capped 类目名序截断后 max 不可信 → 置 None(宁缺勿假)
+    def test_latest_mtime_capped_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            proj = self._proj(tmp)
+            ov = ds_workspace.overview(proj, max_per_cat=1)
+            cats = {c["name"]: c for c in ov["categories"]}
+            self.assertTrue(cats["01-资料"]["capped"])
+            self.assertIsNone(cats["01-资料"]["latest_mtime"])
+            self.assertIsNotNone(cats["02-参考图"]["latest_mtime"])
+
 
 class ImagesTest(unittest.TestCase):
     def test_ext_whitelist_and_rel(self):

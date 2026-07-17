@@ -262,6 +262,44 @@ class TestProjects(unittest.TestCase):
         keys = sorted(p["key"] for p in d["projects"])
         self.assertEqual(keys, ["翡翠湾-1801"])
 
+    # ── cockpit:速览字段(owner/status_note)+ 已建档 group(偿 depth2 deviation)──
+    def test_projects_owner_status_note(self):
+        root = _mkroot({"保利中央公园.md": PROJ_A, "光头项目.md": PROJ_BARE})
+        with _serve(root) as port:
+            _, _, d = _get_json(port, "/api/projects")
+        by_key = {p["key"]: p for p in d["projects"]}
+        a = by_key["保利中央公园"]
+        self.assertEqual(a["owner"], "张伟")            # [[ ]] 已剥
+        self.assertEqual(a["status_note"], "玄关柜待业主确认")
+        bare = by_key["光头项目"]
+        self.assertEqual(bare["owner"], "")              # 缺字段=空串,读侧宽容
+        self.assertEqual(bare["status_note"], "")
+
+    def test_projects_registered_group_depth2(self):
+        root = _mkroot({"翡翠湾-1801.md": PROJ_DELIVERED})
+        self._add_grouped_workspace(
+            root, ["2026/0315 某项目"],
+            mapping={"翡翠湾-1801": "2026/0315 某项目"})
+        with _serve(root) as port:
+            _, _, d = _get_json(port, "/api/projects")
+        p = {x["key"]: x for x in d["projects"]}["翡翠湾-1801"]
+        self.assertFalse(p["unregistered"])
+        self.assertEqual(p["group"], "2026")   # 已建档条目也带分组标签
+
+    def test_projects_registered_group_depth1_empty(self):
+        root = _mkroot({"翡翠湾-1801.md": PROJ_DELIVERED})
+        self._add_workspace(root, ["20260601 平湖 翡翠湾 3#1801"])
+        with _serve(root) as port:
+            _, _, d = _get_json(port, "/api/projects")
+        p = {x["key"]: x for x in d["projects"]}["翡翠湾-1801"]
+        self.assertEqual(p.get("group", ""), "")  # depth1 恒空,不冒出假分组
+
+    def test_projects_post_405_invariant(self):
+        # cockpit 重申:列表端点仍无任何写面
+        with _serve(_mkroot({})) as port:
+            st, _, _ = _req(port, "/api/projects", method="POST")
+        self.assertEqual(st, 405)
+
     def test_projects_grouped_files_reachable(self):
         # keyed key 含 `:`(wire 上 %3A,路由 unquote 后过闸)经 project_dir
         # 直等绑定,文件区 overview 端到端可用
