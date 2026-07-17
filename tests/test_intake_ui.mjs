@@ -95,6 +95,14 @@ test("preview_rows:src 取文件名,dst 取目录;多 plan 保序", () => {
   assert.equal(got[0].count, 2);
 });
 
+test("preview_rows:工作区根直落(无目录段)显示占位,不给空串", () => {
+  const got = planPreview([
+    { plan_id: "p", created: "",
+      ops: [{ op: "move", src_rel: "a.txt", dst_rel: "b.txt" }] },
+  ]);
+  assert.deepEqual(got[0].rows, [{ src: "a.txt", dstDir: "(工作区根)" }]);
+});
+
 test("preview_rows:Windows 反斜杠路径归一成 /", () => {
   const got = planPreview([
     { plan_id: "p", created: "",

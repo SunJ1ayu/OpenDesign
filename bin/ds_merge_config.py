@@ -95,10 +95,15 @@ def main() -> int:
         "model_presets": tpl["model_presets"],   # 全部预设(primary + pro…),供 /model 切换
         "agents": {"defaults": tpl["agents"]["defaults"]},
         # tools.file.enable=false 一并合并:关内置文件工具,逼 PKB 只走 MCP(见模板注释)。
-        # deep_merge 只覆盖 enable 子键,不动 onboard 写的其它 tools.file 字段。
+        # tools.exec.enable=false 同理(opendesign-intake 审出):nanobot 内置 exec 默认开且
+        # restrictToWorkspace 默认 false,模型能跑任意命令直接造 `.approved`/搬文件 ——
+        # 整个"人工批准闸物理绕不过"的不变量(deploy-security §0)靠它关掉才成立。
+        # 产品流程不用 exec(定时提醒走内置 cron 工具),关掉零功能损失。
+        # deep_merge 只覆盖 enable 子键,不动 onboard 写的其它字段。
         "tools": {
             "mcpServers": tpl["tools"]["mcpServers"],
             "file": tpl["tools"].get("file", {"enable": False}),
+            "exec": tpl["tools"].get("exec", {"enable": False}),
         },
     }
 

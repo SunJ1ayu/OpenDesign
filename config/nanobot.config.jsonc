@@ -41,6 +41,9 @@
   "tools": {
     // 关内置文件工具:PKB 只走 design-studio MCP 工具,弱模型不能绕道手写文件(见 windows 模板注释)。
     "file": { "enable": false },
+    // 关内置 exec(opendesign-intake 审出):exec 默认开且不限工作区,模型可跑任意命令
+    // 直接创建 .approved / 搬文件 = 人工批准闸形同虚设。产品不用 exec(提醒走 cron 工具)。
+    "exec": { "enable": false },
     "mcpServers": {
       // stdio MCP server:必须用 design-studio venv 的 python(它才有 mcp SDK)。
       "design-studio": {

@@ -57,7 +57,10 @@ export function planPreview(pending: IntakePlan[]): PlanPreview[] {
       const dst = op.dst_rel.replace(/\\/g, "/");
       return {
         src: src.slice(src.lastIndexOf("/") + 1),
-        dstDir: dst.slice(0, Math.max(0, dst.lastIndexOf("/"))),
+        // 工作区根直落(无目录段,organize 泛化 plan 可能出现)显示占位而非空串
+        dstDir: dst.includes("/")
+          ? dst.slice(0, dst.lastIndexOf("/"))
+          : "(工作区根)",
       };
     }),
   }));

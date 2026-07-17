@@ -91,7 +91,8 @@ export default function InboxCard({ dataEpoch, active }: Props) {
           </div>
         </div>
       ))}
-      {err && <div className="aside-empty warn">执行失败:{err}(文件未动,详见对话)</div>}
+      {/* 不断言"文件未动":apply_failed 属部分执行场景,已执行部分在审计日志 */}
+      {err && <div className="aside-empty warn">执行失败:{err}(详见对话或审计日志)</div>}
 
       {d.entries.length > 0 && (
         <div className="inbox-list">
@@ -104,6 +105,9 @@ export default function InboxCard({ dataEpoch, active }: Props) {
           ))}
           {d.entries.length > 6 && (
             <div className="inbox-row more">…还有 {d.entries.length - 6} 个</div>
+          )}
+          {d.truncated && (
+            <div className="inbox-row more">收件箱文件过多,仅统计前 500 个</div>
           )}
           <div className="inbox-hint">
             在对话里说「整理收件箱」,确认方案后一键归位。

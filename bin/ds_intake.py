@@ -23,6 +23,7 @@ import os
 import posixpath
 import stat as stat_mod
 
+import ds_common
 import ds_organize
 import ds_workspace
 
@@ -35,13 +36,23 @@ _SEG_RE = ds_workspace.PROJECT_NAME_RE  # 单段名闸,单一真相源
 
 
 # ── 规则表 ────────────────────────────────────────────────────────────────
+def _safe_rel_dir(p: str) -> bool:
+    """规则表里的目录值必须是相对路径且无 .. 段(工作区内寻址;GLM panel 建议的
+    早期拒绝——下游 stage_plan 的 realpath+within 仍是权威闸,这里只是让坏配置
+    在加载时就整体降级,不用等到奇怪的运行期报错)。"""
+    if os.path.isabs(p) or (len(p) >= 2 and p[1] == ":"):  # C: 盘符=Windows 绝对
+        return False
+    return all(seg not in ("", ".", "..") for seg in p.replace("\\", "/").split("/"))
+
+
 def _valid_taxonomy(raw) -> bool:
     if not isinstance(raw, dict):
         return False
     inbox = raw.get("inboxDirs")
     cats = raw.get("categories")
     if inbox is not None and (not isinstance(inbox, list)
-                              or not all(isinstance(i, str) and i for i in inbox)):
+                              or not all(isinstance(i, str) and i
+                                         and _safe_rel_dir(i) for i in inbox)):
         return False
     if cats is not None:
         if not isinstance(cats, list):
@@ -51,6 +62,8 @@ def _valid_taxonomy(raw) -> bool:
                 return False
             if not all(isinstance(c.get(k), str) and c.get(k)
                        for k in ("id", "scope", "dir", "mode")):
+                return False
+            if not _safe_rel_dir(c["dir"]):
                 return False
             if c["scope"] not in ("project", "workspace"):
                 return False
@@ -122,11 +135,17 @@ def suggest_project(name: str, folders) -> str | None:
 
 # ── 收件箱清单 ────────────────────────────────────────────────────────────
 def _find_inbox(cfg, taxonomy):
-    """workspace root 下按候选名找收件箱夹 →(名字, realpath)| None。"""
+    """workspace root 下按候选名找收件箱夹 →(名字, realpath)| None。
+    候选名来自规则表(用户可覆盖),within 闸拒绝指到工作区外的候选
+    (写面本就被 stage_plan 拦,这里把读面/列举也焊死,panel 纵深建议)。"""
     for cand in taxonomy["inboxDirs"]:
         p = os.path.join(cfg["root"], cand)
-        if os.path.isdir(p) and not os.path.islink(p):
-            return cand, os.path.realpath(p)
+        if not (os.path.isdir(p) and not os.path.islink(p)):
+            continue
+        real = os.path.realpath(p)
+        if not ds_common.within(cfg["root"], real):
+            continue
+        return cand, real
     return None
 
 
@@ -202,9 +221,17 @@ def stage_intake(assignments, allowed_roots, ds_root: str) -> dict:
                 or "/" in name or "\\" in name or name in (".", "..")
                 or not _SEG_RE.match(name)):
             return {"error": "bad_name", "index": i}
-        if not os.path.lexists(os.path.join(inbox_real, name)):
+        src_abs = os.path.join(inbox_real, name)
+        if not os.path.lexists(src_abs):
             return {"error": "file_not_in_inbox", "index": i, "name": name}
-        cat = cats.get(a.get("category"))
+        # symlink 不认领(与 list_inbox 跳过对称,MiMo panel 抓的不对称):
+        # stage_plan 会 realpath 到链接目标,移走的是真身留下悬空链接
+        if os.path.islink(src_abs):
+            return {"error": "file_not_in_inbox", "index": i, "name": name}
+        cat_id = a.get("category")
+        if not isinstance(cat_id, str):  # dict/list 会让 dict.get 抛 unhashable
+            return {"error": "unknown_category", "index": i}
+        cat = cats.get(cat_id)
         if cat is None:
             return {"error": "unknown_category", "index": i}
         if cat["scope"] == "project":

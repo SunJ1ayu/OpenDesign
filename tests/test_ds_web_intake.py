@@ -200,6 +200,36 @@ class TestIntakeApprove(unittest.TestCase):
         self.assertEqual(st, 409)
         self.assertEqual(body["error"], "already_applied")
 
+    def test_approve_malformed_plan_root_rejected(self):
+        """root 缺失的坏 plan:realpath("") = 进程 cwd,不能靠 cwd 落点混进
+        工作区判定(GLM panel 抓的批准侧不对称)——列表不列,批准 403。"""
+        plans = os.path.join(self.ds, "organize", "plans")
+        os.makedirs(plans, exist_ok=True)
+        pid = "20260717-000000-abcdef"
+        _write(os.path.join(plans, f"plan_{pid}.json"),
+               json.dumps({"plan_id": pid, "created": "x",
+                           "operations": [], "applied_at": None}))
+        with _serve(self.ds) as port:
+            st, r = _get_json(port, "/api/intake")
+            self.assertEqual([p["plan_id"] for p in r["pending"]], [])
+            st, body = _post(port, "/api/intake/approve", {"plan_id": pid})
+        self.assertEqual(st, 403)
+        self.assertEqual(body["error"], "not_intake_plan")
+
+    def test_approve_bad_host_rejected(self):
+        """Host 闸在 do_POST 入口继承(H2):非白名单 Host 一律 403。"""
+        with _serve(self.ds) as port:
+            c = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+            c.request("POST", "/api/intake/approve",
+                      body=b'{"plan_id":"x"}',
+                      headers={"Content-Type": "application/json",
+                               "Host": "evil.example.com"})
+            r = c.getresponse()
+            st = r.status
+            r.read()
+            c.close()
+        self.assertEqual(st, 403)
+
     def test_other_posts_still_405(self):
         with _serve(self.ds) as port:
             st, _ = _post(port, "/api/intake", {"x": 1})

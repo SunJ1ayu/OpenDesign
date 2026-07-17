@@ -49,6 +49,10 @@
     // design-studio MCP 工具(create_project/append_change/…),弱模型才不会绕道手写文件到
     // 错误目录(nanobot workspace ≠ DS_ROOT),导致 list_todos 扫不到。定时提醒走 cron 工具。
     "file": { "enable": false },
+    // 关闭内置 exec(opendesign-intake 审出):nanobot 默认 exec 开且 restrictToWorkspace=false,
+    // 模型能跑任意 powershell/python 直接创建 .approved、绕过整个人工批准闸(deploy-security §0
+    // 的"物理绕不过"不变量靠这行才成立)。产品流程不用 exec,定时提醒走内置 cron 工具。
+    "exec": { "enable": false },
     "mcpServers": {
       // 注意用 venv 的 Scripts/python.exe(Windows 布局,不是 bin/python);
       // 正斜杠在 Windows 的 CreateProcess/Python 下均可用,避免 JSON 反斜杠转义。

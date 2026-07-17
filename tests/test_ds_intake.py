@@ -138,6 +138,50 @@ class ListInboxOracle(IntakeBase):
         r = ds_intake.list_inbox(self.ds)
         self.assertEqual(r.get("error"), "inbox_not_found")
 
+    def test_08b_inbox_candidate_outside_root_rejected(self):
+        """用户覆盖把 inboxDirs 指到工作区外 → 两道闸都要立得住:
+        ① ../ 段在规则表加载期就整体降级(taxonomy_bad,GLM panel 建议);
+        ② 万一有不带 .. 的越界形态(symlink 候选),_find_inbox within 闸兜底
+        (subsense panel 建议)。列举面不外泄;写面本就被 stage_plan 拦。"""
+        outside = tempfile.mkdtemp(prefix="dsintake-outside-")
+        self.addCleanup(shutil.rmtree, outside, True)
+        _write(os.path.join(outside, "秘密.txt"))
+        os.rename(self.inbox, os.path.join(self.ws, "别的名字"))
+        # ① .. 段:加载期拒
+        rel = os.path.relpath(outside, self.ws)
+        _write(os.path.join(self.ds, "config", "taxonomy.json"),
+               json.dumps({"inboxDirs": [rel]}, ensure_ascii=False))
+        r = ds_intake.list_inbox(self.ds)
+        self.assertEqual(r.get("error"), "taxonomy_bad")
+        # ② symlink 候选指向工作区外:名字合法但 realpath 越界 → within 闸拒
+        os.symlink(outside, os.path.join(self.ws, "假收件箱"))
+        _write(os.path.join(self.ds, "config", "taxonomy.json"),
+               json.dumps({"inboxDirs": ["假收件箱"]}, ensure_ascii=False))
+        r = ds_intake.list_inbox(self.ds)
+        self.assertEqual(r.get("error"), "inbox_not_found")
+
+    def test_08d_symlink_assignment_rejected(self):
+        """指派一个 symlink 名(绕过 list_inbox 只是没列)→ stage 拒
+        (与列举跳过对称;不然移走的是链接真身,MiMo panel 抓的不对称)。"""
+        _write(os.path.join(self.inbox, "真文件.pdf"))
+        os.symlink(os.path.join(self.inbox, "真文件.pdf"),
+                   os.path.join(self.inbox, "链接.pdf"))
+        r = ds_intake.stage_intake(
+            [{"name": "链接.pdf", "project": PROJ_A, "category": "资料"}],
+            self.allowed, ds_root=self.ds)
+        self.assertEqual(r.get("error"), "file_not_in_inbox")
+
+    def test_08c_symlink_entries_skipped(self):
+        """收件箱里的 symlink(文件/目录)不认领:既不列出也不可 stage。"""
+        target = os.path.join(self.ws, "01-项目", PROJ_A)
+        os.symlink(target, os.path.join(self.inbox, "链接目录"))
+        _write(os.path.join(self.inbox, "真文件.pdf"))
+        os.symlink(os.path.join(self.inbox, "真文件.pdf"),
+                   os.path.join(self.inbox, "链接文件.pdf"))
+        r = ds_intake.list_inbox(self.ds)
+        names = [e["name"] for e in r["entries"]]
+        self.assertEqual(names, ["真文件.pdf"])
+
     def test_09_workspace_unconfigured(self):
         os.remove(os.path.join(self.ds, "config", "workspace.json"))
         r = ds_intake.list_inbox(self.ds)

@@ -27,7 +27,8 @@
      硬闸挡着,模型自己批不了)。
 3. **ds_web 两个端点**:
    - GET `/api/intake`(只读):收件箱清单+建议 + pending plans(读 organize/plans/
-     未 approved 未 applied 的)→ 工作台卡片数据源。
+     未 applied 且 root 在工作区根内的;CLI 已批准未执行的也列=人可从卡片点完,
+     行为口径以 verify 仲裁为准)→ 工作台卡片数据源。
    - POST 针孔④ `/api/intake/approve` `{plan_id}`(精确匹配;CT json + 键白名单 +
      plan_id 格式闸 + body 上限,posture 逐条同 edit-change):浏览器里人点
      「确认执行」= 人工确认本体 → `approve_plan` + `apply_plan` 一气呵成,

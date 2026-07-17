@@ -52,6 +52,11 @@ class TestMergeConfig(unittest.TestCase):
                       "默认 modelPreset 必须能在 model_presets 里找到")
         # 摘要打印不崩且报的是默认预设的模型
         self.assertIn(cfg["model_presets"][preset]["model"], p.stdout)
+        # 危险内置工具全关(opendesign-intake 审出的 exec 洞):file 早关,exec 新关——
+        # exec 开着 = 模型可直接创建 .approved,人工批准闸的"物理绕不过"就不成立。
+        # 只断 enable 子键:deep_merge 有意保留 onboard 写的其它字段(如 workspaceOnly)。
+        self.assertIs(cfg["tools"]["file"]["enable"], False)
+        self.assertIs(cfg["tools"]["exec"]["enable"], False)
 
     def test_model_override_creates_preset_and_repoints_default(self):
         p = run_merge(self.target, "--api-base", "https://ex.com/v1",

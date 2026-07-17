@@ -657,8 +657,13 @@ class Handler(BaseHTTPRequestHandler):
                     plan = json.load(fh)
                 if plan.get("applied_at"):
                     continue
+                # root 缺失/非串直接跳过:realpath("") 会解析成本进程 cwd,
+                # 万一 cwd 落在工作区内,坏 plan 就被误判成 intake plan
+                proot = plan.get("root")
+                if not isinstance(proot, str) or not proot:
+                    continue
                 if cfg is None or not ds_common.within(
-                        cfg["root"], os.path.realpath(plan.get("root", ""))):
+                        cfg["root"], os.path.realpath(proot)):
                     continue
                 out.append({"plan_id": plan["plan_id"],
                             "created": plan.get("created"),
@@ -696,7 +701,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": "bad request"})
             return
         plan_id = body.get("plan_id")
-        if not isinstance(plan_id, str) or not ds_organize._PLAN_ID_RE.match(plan_id):
+        if not ds_organize.is_valid_plan_id(plan_id):
             self._json(400, {"error": "bad_plan_id"})
             return
         try:
@@ -711,8 +716,11 @@ class Handler(BaseHTTPRequestHandler):
                 return
             with open(plan_path, encoding="utf-8") as fh:
                 plan = json.load(fh)
-            if not ds_common.within(cfg["root"],
-                                    os.path.realpath(plan.get("root", ""))):
+            # root 缺失守卫与 _pending_plans 对称(GLM panel 抓的不对称):
+            # realpath("") = 本进程 cwd,坏 plan 不能靠 cwd 落点混进工作区判定
+            proot = plan.get("root")
+            if (not isinstance(proot, str) or not proot
+                    or not ds_common.within(cfg["root"], os.path.realpath(proot))):
                 self._json(403, {"error": "not_intake_plan"})
                 return
             if plan.get("applied_at"):

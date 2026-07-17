@@ -16,6 +16,12 @@
 - 真正要防机主的只有一样:**部署者自己的东西**(API key、回传通道),见 §1、§3。
   ⚠️ D1 拍板(机主自备 key)后,部署者在目标机上**没有 key 了**;这一条实际只剩
   "不留回传通道"(§4/§6)。
+- ⚠️ **"模型绕不过"的前提 = nanobot 内置危险工具关死**(2026-07-17 intake track 审出):
+  nanobot 默认 `tools.exec.enable=true` 且 `restrictToWorkspace=false`——exec 开着,
+  模型可跑任意命令直接创建 `.approved`/搬文件,上面所有闸都是纸的。config 模板与
+  `ds_merge_config.py` 现已强制 `file`、`exec` 双关(产品不用 exec,提醒走内置 cron
+  工具);装机后可在 config 里核对这两行。内置 `web` 工具保留(GET-only + SSRF 拦内网,
+  够不着本机针孔),exec 的内网 URL 守卫与此无关——洞在文件系统不在网络。
 
 ## 1. API key:机主自备(BYO)
 

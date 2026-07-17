@@ -37,6 +37,11 @@ MAX_ENTRIES = 2000
 _PLAN_ID_RE = re.compile(r"^\d{8}-\d{6}-[0-9a-f]{6}$")
 
 
+def is_valid_plan_id(plan_id) -> bool:
+    """plan_id 格式闸的公共出口(ds_web 针孔④ 复用;别再摸 _PLAN_ID_RE 私有件)。"""
+    return isinstance(plan_id, str) and bool(_PLAN_ID_RE.match(plan_id))
+
+
 def _now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
