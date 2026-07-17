@@ -358,6 +358,26 @@ def _build_server(ds_root: str, allowed_roots: list[str]):
         return ds_intake.stage_intake(assignments, allowed_roots=allowed_roots,
                                       ds_root=ds_root)
 
+    import ds_adopt  # 同目录模块;采纳引擎两工具(track opendesign-adoption)
+
+    @server.tool()
+    def adopt_workspace_tool() -> dict:
+        """接管我的工作区 / 盘点工作区 / 首装 / 看看工作区什么情况 / 采纳现状:
+        一次只读盘点整个工作区——识别收件箱/项目根/归档/共享结构,列出每个项目夹的
+        绑定状态、类目、根层散文件数,以及有档案却没绑文件夹的项目。零改动。据此
+        引导设计师逐个 bind_project,再对项目内散文件调 stage_adoption。"""
+        return ds_adopt.adopt_scan(ds_root)
+
+    @server.tool()
+    def stage_adoption_tool(project_key: str) -> dict:
+        """把某个已绑定项目【项目夹根一层】的散文件按 taxonomy 暂存归位(零改动):
+        auto 类目(资料/参考图)进方案,suggest 类目(CAD/SU/MAX/PSD 被引用风险)
+        只在 advice 里口头建议、永不自动动,未知扩展名进 skipped。返回 plan_id;
+        真正移动要设计师在工作台卡片点「确认执行」,你不能替他确认也别自己调
+        apply_plan_tool。"""
+        return ds_adopt.stage_adoption(project_key, allowed_roots=allowed_roots,
+                                       ds_root=ds_root)
+
     return server
 
 
