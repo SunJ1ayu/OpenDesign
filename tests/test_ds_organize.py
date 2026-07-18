@@ -284,8 +284,9 @@ class OrganizeOracle(unittest.TestCase):
         self.assertTrue(ds_organize.approve_plan(r["plan_id"], ds_root=self.ds).get("ok"))
         self.assertTrue(self._apply(r["plan_id"]).get("ok"))
 
-    # ⑭ MCP 包装冒烟:恰好暴露 5 个工具(3 organize + 2 intake,opendesign-intake
-    # track 有意扩面),依旧没有任何"批准"工具 —— approve 永远是人的专属动作
+    # ⑭ MCP 包装冒烟:恰好暴露 7 个工具(3 organize + 2 intake + 2 adopt,
+    # opendesign-intake / opendesign-adoption track 有意扩面),依旧没有任何
+    # "批准"工具 —— approve 永远是人的专属动作
     def test_15_mcp_surface(self):
         try:
             import asyncio
@@ -296,7 +297,8 @@ class OrganizeOracle(unittest.TestCase):
         names = {t.name for t in tools}
         self.assertEqual(names, {"scan_dir_tool", "stage_plan_tool",
                                  "apply_plan_tool", "list_inbox_tool",
-                                 "stage_intake_tool"})
+                                 "stage_intake_tool", "adopt_workspace_tool",
+                                 "stage_adoption_tool"})
         for n in names:
             self.assertNotIn("approve", n)
 

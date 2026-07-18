@@ -48,12 +48,15 @@ def _safe_rel_dir(p: str) -> bool:
 def _valid_taxonomy(raw) -> bool:
     if not isinstance(raw, dict):
         return False
-    inbox = raw.get("inboxDirs")
     cats = raw.get("categories")
-    if inbox is not None and (not isinstance(inbox, list)
-                              or not all(isinstance(i, str) and i
-                                         and _safe_rel_dir(i) for i in inbox)):
-        return False
+    # inboxDirs 及 adoption 附加的 archiveDirs/sharedDirs 同款:可选,但给了就必须是
+    # 非空安全相对目录名列表(结构识别的候选名单;坏配置整体降级不静默猜)。
+    for dirs_key in ("inboxDirs", "archiveDirs", "sharedDirs"):
+        val = raw.get(dirs_key)
+        if val is not None and (not isinstance(val, list)
+                                or not all(isinstance(i, str) and i
+                                           and _safe_rel_dir(i) for i in val)):
+            return False
     if cats is not None:
         if not isinstance(cats, list):
             return False
@@ -96,7 +99,7 @@ def load_taxonomy(ds_root: str):
             return None
         if not _valid_taxonomy(overlay):
             return None
-        for key in ("inboxDirs", "categories"):
+        for key in ("inboxDirs", "categories", "archiveDirs", "sharedDirs"):
             if key in overlay:
                 tax[key] = overlay[key]
     return tax

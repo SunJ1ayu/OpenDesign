@@ -51,6 +51,10 @@ CASES = [
     # PKB 体检 + 项目枚举(opendesign-pkb-lint track):盘点=list_projects;体检=lint_pkb
     ("我手上一共有哪些项目", "list_projects"),
     ("给我的档案做个体检,看有没有重复或断链", "lint_pkb"),
+    # 采纳引擎(opendesign-adoption track):盘点现状=adopt_workspace;
+    # 项目根散文件归位=stage_adoption
+    ("接管我的工作区,先盘一盘现在什么情况", "adopt_workspace"),
+    ("把翡翠湾项目文件夹根目录那些散文件归归位", "stage_adoption"),
 ]
 
 
