@@ -30,10 +30,16 @@
   POST /api/intake/approve         {"plan_id"} 针孔④:卡片「确认执行」= 人工批准
     本体(替代终端 ds-approve,仅限 root 在工作区根内的 intake plan;工作区外
     plan 维持 CLI 批准)→ approve+apply 一气,apply 整体快照复验兜 TOCTOU。
+  POST /api/intake/amend           {"plan_id","drop"} 针孔⑧(track opendesign-
+    frontend-p1):卡片单条「跳过」纠偏 → ds_intake.amend_plan(剩余行经
+    stage_plan 全套复验重新暂存;旧 plan 标 superseded_at,不删文件)。
 其余方法/其余 POST 路径一律 405 —— 写操作必须过 ds_tools 核心,本服务不直改 PKB。
 项目列表(p7):/api/projects = PKB projects/*.md ∪ 工作区项目夹自动发现
 (ds_workspace.project_folders,未被映射/绑定消费的文件夹以 unregistered:true 追加;
 只读联合,不自动建档)。
+  POST /api/projects/bind          {"project","folder"} 针孔⑨(同上 track):
+    项目↔工作区文件夹关联薄壳,直调 ds_tools.bind_project(名字闸/两级匹配/
+    原子写全在核心)。
 
 约束(design.md D2):只绑 127.0.0.1;端口 DS_WEB_PORT(默认 8766),被占明确报错
 退出不静默换口;JSON ensure_ascii=False + charset=utf-8;读期 OSError(Windows
@@ -59,7 +65,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.29.0"  # inbox-scan:收件箱「扫描整理」按钮,POST /api/intake/scan 针孔
+VERSION = "0.30.0"  # frontend-p1:收件箱单条纠偏 amend + 项目↔文件夹关联 bind 两针孔
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -97,7 +103,10 @@ INTAKE_APPROVE_PATH = "/api/intake/approve"  # do_POST 针孔④(track opendesig
 ADD_CHANGE_PATH = "/api/changes/add"  # do_POST 写针孔⑤(track opendesign-clickable-actions),精确匹配
 CREATE_PROJECT_PATH = "/api/projects/create"  # do_POST 写针孔⑥(同上 track),精确匹配
 INTAKE_SCAN_PATH = "/api/intake/scan"  # do_POST 写针孔⑦(track opendesign-inbox-scan),精确匹配
+INTAKE_AMEND_PATH = "/api/intake/amend"  # do_POST 写针孔⑧(track opendesign-frontend-p1),精确匹配
+BIND_PROJECT_PATH = "/api/projects/bind"  # do_POST 写针孔⑨(同上 track),精确匹配
 _INTAKE_ALLOWED_KEYS = {"plan_id"}
+_INTAKE_AMEND_ALLOWED_KEYS = {"plan_id", "drop"}
 # 收件箱确认的错误→HTTP 映射:格式/参数错 400,不存在 404,越界 403,状态冲突 409
 _INTAKE_ERR_STATUS = {
     "bad_plan_id": 400, "plan_not_found": 404, "not_intake_plan": 403,
@@ -105,6 +114,18 @@ _INTAKE_ERR_STATUS = {
     "plan_drift": 409, "would_overwrite": 409, "src_missing": 409,
     "conflict": 409, "path_escape": 403, "dst_parent_not_dir": 409,
     "apply_failed": 500,
+    # amend_plan 专属(track opendesign-frontend-p1):废案二次纠偏 409 /
+    # drop 参数闸 400 / 剩余行 stage 复验拒绝(理论上不会撞,防御性兜底)400
+    "plan_superseded": 409, "bad_drop": 400, "empty_plan": 400,
+}
+# bind_project 错误→HTTP 映射(track opendesign-frontend-p1):校验/资源类 404,
+# 状态冲突 409;folder_not_found/folder_ambiguous 时核心回传的 folders 候选
+# 名单原样透传(前端提示用)。
+_BIND_ALLOWED_KEYS = {"project", "folder"}
+_BIND_ERR_STATUS = {
+    "bad_name": 400, "project_not_found": 404,
+    "workspace_not_configured": 409, "folder_not_found": 404,
+    "folder_ambiguous": 409,
 }
 # body 键白名单(空 body {} 针孔:白名单=空集,任何键即拒)
 _SCAN_ALLOWED_KEYS = frozenset()
@@ -322,6 +343,10 @@ class Handler(BaseHTTPRequestHandler):
             self._create_project()
         elif path == INTAKE_SCAN_PATH:
             self._intake_scan()
+        elif path == INTAKE_AMEND_PATH:
+            self._intake_amend()
+        elif path == BIND_PROJECT_PATH:
+            self._bind_project()
         elif (m := _SESSION_DELETE_RE.match(path)):
             self._delete_session(m.group(1))
         else:
@@ -690,7 +715,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 with open(os.path.join(plans_dir, name), encoding="utf-8") as fh:
                     plan = json.load(fh)
-                if plan.get("applied_at"):
+                if plan.get("applied_at") or plan.get("superseded_at"):
                     continue
                 # root 缺失/非串直接跳过:realpath("") 会解析成本进程 cwd,
                 # 万一 cwd 落在工作区内,坏 plan 就被误判成 intake plan
@@ -814,6 +839,63 @@ class Handler(BaseHTTPRequestHandler):
             if not r.get("ok"):
                 err = r.get("error", "internal")
                 self._json(_SCAN_ERR_STATUS.get(err, 400), {"error": err})
+                return
+            self._json(200, r)
+        except Exception:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
+
+    def _intake_amend(self):
+        """POST 针孔⑧(track opendesign-frontend-p1 design §②):收件箱卡片单条
+        「跳过」纠偏。posture 逐条同 _intake_approve:CT json → body 上限 →
+        键白名单 {plan_id, drop} → plan_id 格式闸 → plan root 必须落工作区根内
+        (403 not_intake_plan)→ ds_intake.amend_plan(allowed_roots=[工作区根])。"""
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 < n <= OPEN_BODY_MAX:
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "bad request"})
+            return
+        if not isinstance(body, dict) or set(body) - _INTAKE_AMEND_ALLOWED_KEYS:
+            self._json(400, {"error": "bad request"})
+            return
+        plan_id = body.get("plan_id")
+        if not ds_organize.is_valid_plan_id(plan_id):
+            self._json(400, {"error": "bad_plan_id"})
+            return
+        try:
+            cfg = ds_workspace.load_config(self.server.ds_root)
+            if cfg is None:
+                self._json(403, {"error": "not_intake_plan"})
+                return
+            plan_path = os.path.join(self.server.ds_root, "organize", "plans",
+                                     f"plan_{plan_id}.json")
+            if not os.path.exists(plan_path):
+                self._json(404, {"error": "plan_not_found"})
+                return
+            with open(plan_path, encoding="utf-8") as fh:
+                plan = json.load(fh)
+            # root 缺失守卫与 _intake_approve/_pending_plans 对称
+            proot = plan.get("root")
+            if (not isinstance(proot, str) or not proot
+                    or not ds_common.within(cfg["root"], os.path.realpath(proot))):
+                self._json(403, {"error": "not_intake_plan"})
+                return
+            r = ds_intake.amend_plan(plan_id, body.get("drop"), [cfg["root"]],
+                                     self.server.ds_root)
+            if not r.get("ok"):
+                err = r.get("error", "internal")
+                self._json(_INTAKE_ERR_STATUS.get(err, 400), {"error": err})
                 return
             self._json(200, r)
         except Exception:
@@ -955,6 +1037,48 @@ class Handler(BaseHTTPRequestHandler):
             return
         err = r.get("error", "internal")
         self._json(_CREATE_ERR_STATUS.get(err, 400), {"error": err})
+
+    def _bind_project(self):
+        """POST 写针孔⑨(track opendesign-frontend-p1):项目↔工作区文件夹关联。
+        薄壳,posture 同 _create_project:CT application/json →
+        body 0<n≤OPEN_BODY_MAX → JSON dict → 键白名单 {project, folder} →
+        双非空 str → ds_tools.bind_project(名字闸/已发现文件夹两级匹配/原子写
+        全在核心,零新面)。folder_not_found/folder_ambiguous 时核心回传的
+        folders 候选名单原样透传(前端提示用)。"""
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 < n <= OPEN_BODY_MAX:
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "bad request"})
+            return
+        if not isinstance(body, dict) or set(body) - _BIND_ALLOWED_KEYS:
+            self._json(400, {"error": "bad request"})  # 非对象/多余键 → 拒
+            return
+        project = body.get("project")
+        folder = body.get("folder")
+        if (not isinstance(project, str) or not project
+                or not isinstance(folder, str) or not folder):
+            self._json(400, {"error": "bad request"})
+            return
+        r = ds_tools.bind_project(project, folder, ds_root=self.server.ds_root)
+        if r.get("ok"):
+            self._json(200, r)
+            return
+        err = r.get("error", "internal")
+        out = {"error": err}
+        if "folders" in r:  # folder_not_found/folder_ambiguous 候选名单透传
+            out["folders"] = r["folders"]
+        self._json(_BIND_ERR_STATUS.get(err, 400), out)
 
     def _proxy(self, up_path: str):
         """白名单转发到本机 nanobot gateway。纯管道:不读不存任何秘密。

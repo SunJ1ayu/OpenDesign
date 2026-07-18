@@ -22,6 +22,7 @@ import json
 import os
 import posixpath
 import stat as stat_mod
+from datetime import datetime
 
 import ds_common
 import ds_organize
@@ -299,3 +300,65 @@ def stage_inbox_auto(allowed_roots, ds_root: str) -> dict:
         return res
     return {"ok": True, "plan_id": res["plan_id"], "staged": len(assignments),
             "skipped": skipped}
+
+
+# ── 单条纠偏:剔除 staged plan 里的某几行,剩余重新暂存 ──────────────────
+def _plan_path(ds_root: str, plan_id: str) -> str:
+    return os.path.join(ds_root, "organize", "plans", f"plan_{plan_id}.json")
+
+
+def _valid_drop(drop, n: int) -> bool:
+    if not isinstance(drop, list) or not drop:
+        return False
+    for i in drop:
+        # bool 是 int 子类,必须先排除;True/False 不是合法下标
+        if isinstance(i, bool) or not isinstance(i, int):
+            return False
+        if i < 0 or i >= n:
+            return False
+    return len(set(drop)) == len(drop)
+
+
+def amend_plan(plan_id, drop, allowed_roots, ds_root: str) -> dict:
+    """收件箱卡片单条纠偏(track opendesign-frontend-p1 design §②)。
+    drop = 要剔除的 operations 下标列表。剩余行用旧 plan 的 src_rel/dst_rel
+    原样构造 operations,过 ds_organize.stage_plan 全套复验重新暂存
+    ——存在性/冲突/overwrite 检查免费复用,本函数自己不发明校验路径。
+    stage 失败 → 旧 plan 一字不动,原样回传错误。stage 成功(或剩余 0 行=
+    整案取消)→ 旧 plan 写 superseded_at + superseded_by,不删文件(审计留痕)。
+    已 applied / 已 superseded 的 plan 拒绝再纠偏。"""
+    if not ds_organize.is_valid_plan_id(plan_id):
+        return {"error": "bad_plan_id"}
+    plan_path = _plan_path(ds_root, plan_id)
+    if not os.path.exists(plan_path):
+        return {"error": "plan_not_found"}
+    with open(plan_path, encoding="utf-8") as fh:
+        plan = json.load(fh)
+    if plan.get("applied_at"):
+        return {"error": "already_applied"}
+    if plan.get("superseded_at"):
+        return {"error": "plan_superseded"}
+
+    operations = plan.get("operations") or []
+    if not _valid_drop(drop, len(operations)):
+        return {"error": "bad_drop"}
+    drop_set = set(drop)
+    remaining = [op for i, op in enumerate(operations) if i not in drop_set]
+
+    new_plan_id = None
+    if remaining:
+        new_ops = [{"op": op["op"], "src": op["src_rel"], "dst": op["dst_rel"]}
+                   for op in remaining]
+        res = ds_organize.stage_plan(plan["root"], new_ops, allowed_roots,
+                                     ds_root=ds_root)
+        if not res.get("ok"):
+            return res  # 旧 plan 一字不动
+        new_plan_id = res["plan_id"]
+
+    plan["superseded_at"] = datetime.now().isoformat(timespec="seconds")  # 格式同 ds_organize._now()
+    plan["superseded_by"] = new_plan_id
+    with open(plan_path, "w", encoding="utf-8") as fh:
+        json.dump(plan, fh, ensure_ascii=False, indent=1)
+
+    return {"ok": True, "plan_id": new_plan_id, "count": len(remaining),
+            "dropped": len(drop)}
