@@ -54,6 +54,12 @@ export default function ChangesColumn({
   const [addSpace, setAddSpace] = useState("");
   const [addBusy, setAddBusy] = useState(false);
   const [addErr, setAddErr] = useState<string | null>(null);
+  // 切项目清空快捷输入:防"给 A 打字→切到 B→提交记进 B"的串项目(与建档表单同款重置)
+  useEffect(() => {
+    setAddText("");
+    setAddSpace("");
+    setAddErr(null);
+  }, [project?.key]);
 
   async function submitAdd() {
     const content = addText.trim();
