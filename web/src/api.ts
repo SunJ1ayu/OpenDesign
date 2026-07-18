@@ -263,6 +263,58 @@ export async function scanInbox(): Promise<ScanInboxResult> {
   return (await r.json()) as ScanInboxResult;
 }
 
+/** 第八个非 GET(track opendesign-frontend-p1 写针孔⑧):收件箱卡片单条「跳过」。
+ * drop = 要剔除的 operations 下标列表。成功回传剩余案 plan_id(全跳=null)/count/dropped;
+ * 失败抛错(带后端 error code)由调用方提示。 */
+export type AmendIntakeResult = { ok: true; plan_id: string | null; count: number; dropped: number };
+export async function amendIntake(planId: string, drop: number[]): Promise<AmendIntakeResult> {
+  const r = await fetch("/api/intake/amend", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ plan_id: planId, drop }),
+  });
+  if (!r.ok) {
+    let code = "";
+    try {
+      code = ((await r.json()) as { error?: string }).error ?? "";
+    } catch {
+      /* 非 JSON 响应:忽略,回落状态码 */
+    }
+    throw new Error(code || `服务返回 ${r.status}`);
+  }
+  return (await r.json()) as AmendIntakeResult;
+}
+
+/** 第九个非 GET(同上 track,写针孔⑨):项目↔工作区文件夹关联。
+ * folder_not_found/folder_ambiguous 时后端回传 folders 候选名单,随错误一并抛出
+ * (message = code,候选名单挂在 Error 上供调用方按需读取)。 */
+export class BindProjectError extends Error {
+  folders?: string[];
+  constructor(code: string, folders?: string[]) {
+    super(code);
+    this.folders = folders;
+  }
+}
+export async function bindProject(project: string, folder: string): Promise<void> {
+  const r = await fetch("/api/projects/bind", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project, folder }),
+  });
+  if (!r.ok) {
+    let code = "";
+    let folders: string[] | undefined;
+    try {
+      const d = (await r.json()) as { error?: string; folders?: string[] };
+      code = d.error ?? "";
+      folders = d.folders;
+    } catch {
+      /* 非 JSON 响应:忽略,回落状态码 */
+    }
+    throw new BindProjectError(code || `服务返回 ${r.status}`, folders);
+  }
+}
+
 /** refs-index 的 file 字段是 "refs/xx.jpg";静态路由挂在 /api/refs/file/ 下。 */
 export function refImageUrl(file: string): string {
   const rel = file.startsWith("refs/") ? file.slice(5) : file;

@@ -414,6 +414,17 @@ html, body { overflow: auto; }
   text-decoration: line-through;
   text-decoration-color: #c2bba9;
 }
+/* track opendesign-frontend-p1 §①:正文就地编辑入口,hover 才冒出来(寸土寸金) */
+.change-row .txt .edit-trigger {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--ink-4);
+  opacity: 0;
+  transition: opacity var(--hover-ease), color var(--hover-ease);
+}
+.change-row:hover .txt .edit-trigger { opacity: 1; }
+.change-row .txt .edit-trigger:hover { color: var(--terra-deep); }
+.change-row .body .edit-fields { margin-top: 2px; }
 .change-row .meta {
   display: flex;
   gap: 10px;
@@ -603,7 +614,22 @@ html, body { overflow: auto; }
   direction: rtl;          /* 目录长时保住尾段(项目/类目)可见 */
   text-align: left;
   flex: 1;
+  min-width: 0;
 }
+.inbox-plan .plan-row .skip-btn {
+  flex: none;
+  font-size: 11px;
+  padding: 1px 7px;
+  color: var(--ink-4);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+}
+.inbox-plan .plan-row .skip-btn:hover:not(:disabled) {
+  color: var(--terra-deep);
+  border-color: var(--border-soft);
+}
+.inbox-plan .plan-row .skip-btn:disabled { opacity: 0.5; cursor: default; }
 .inbox-plan .plan-acts {
   display: flex;
   align-items: center;
@@ -1462,6 +1488,21 @@ html, body { overflow: auto; }
 }
 .connect-form input:focus { outline: none; border-color: var(--terra); }
 .connect-form .acts { display: flex; gap: 8px; }
+/* track opendesign-frontend-p1 §③:unmapped 分支的下拉+关联按钮,风格同 connect-form */
+.bind-form { display: flex; flex-direction: column; gap: 8px; margin: 10px 8px 0; }
+.bind-form .acts { display: flex; gap: 8px; }
+.bind-select {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+}
+.bind-select:focus { outline: none; border-color: var(--terra); }
 .cat-row {
   display: flex;
   align-items: center;

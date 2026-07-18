@@ -215,6 +215,8 @@ def approve_plan(plan_id: str, ds_root: str = DEFAULT_DS_ROOT) -> dict:
         plan = json.load(fh)
     if plan.get("applied_at"):
         return {"error": "already_applied"}
+    if plan.get("superseded_at"):
+        return {"error": "plan_superseded"}
     marker = os.path.join(_plans_dir(ds_root), f"plan_{plan_id}.approved")
     with open(marker, "w", encoding="utf-8") as fh:
         fh.write(_now() + "\n")
@@ -239,6 +241,8 @@ def apply_plan(plan_id: str, allowed_roots: list[str] | None,
             plan = json.load(fh)
             if plan.get("applied_at"):
                 return {"error": "already_applied"}
+            if plan.get("superseded_at"):
+                return {"error": "plan_superseded"}
             marker = os.path.join(_plans_dir(ds_root), f"plan_{plan_id}.approved")
             if not os.path.exists(marker):
                 return {"error": "not_approved",
