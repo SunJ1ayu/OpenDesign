@@ -115,8 +115,9 @@ _INTAKE_ERR_STATUS = {
     "conflict": 409, "path_escape": 403, "dst_parent_not_dir": 409,
     "apply_failed": 500,
     # amend_plan 专属(track opendesign-frontend-p1):废案二次纠偏 409 /
-    # drop 参数闸 400 / 剩余行 stage 复验拒绝(理论上不会撞,防御性兜底)400
-    "plan_superseded": 409, "bad_drop": 400, "empty_plan": 400,
+    # drop 参数闸 400 / 畸形 plan(手工改坏)400 / 剩余行 stage 复验拒绝
+    # (理论上不会撞,防御性兜底)400
+    "plan_superseded": 409, "bad_drop": 400, "bad_plan": 400, "empty_plan": 400,
 }
 # bind_project 错误→HTTP 映射(track opendesign-frontend-p1):校验/资源类 404,
 # 状态冲突 409;folder_not_found/folder_ambiguous 时核心回传的 folders 候选
@@ -1068,6 +1069,12 @@ class Handler(BaseHTTPRequestHandler):
         folder = body.get("folder")
         if (not isinstance(project, str) or not project
                 or not isinstance(folder, str) or not folder):
+            self._json(400, {"error": "bad request"})
+            return
+        # 写门对齐读门(四审 subkimi L3,同 _create_project 针孔的先例):核心
+        # PROJECT_NAME_RE 放行含 `..` 的名字(如 a..b),但读侧 _valid_proj_key
+        # 拒之 → 绑出来的映射键读侧永远寻址不到。不造读不到的映射。
+        if not _valid_proj_key(project):
             self._json(400, {"error": "bad request"})
             return
         r = ds_tools.bind_project(project, folder, ds_root=self.server.ds_root)

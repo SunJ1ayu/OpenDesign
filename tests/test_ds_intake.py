@@ -471,6 +471,35 @@ class AmendPlanOracle(IntakeBase):
         self.assertFalse(old.get("superseded_at"))
         self.assertFalse(old.get("superseded_by"))
 
+    def test_a9_malformed_plan_bad_plan_not_500(self):
+        """畸形 plan(手工改坏:op 缺 src_rel / root 缺失)→ 干净 bad_plan,
+        不抛 KeyError(四审三腿独立标的 500 面;核心契约=永远回 error dict)。"""
+        pid = self._stage_two()
+        path = os.path.join(self.ds, "organize", "plans", f"plan_{pid}.json")
+        with open(path, encoding="utf-8") as fh:
+            plan = json.load(fh)
+        del plan["operations"][1]["src_rel"]
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(plan, fh, ensure_ascii=False)
+        r = self._amend(pid, [0])  # 留下标 1(畸形行)
+        self.assertEqual(r.get("error"), "bad_plan", r)
+        # root 整个缺失同样干净拒
+        plan["operations"][1]["src_rel"] = "00-收件箱/卧室参考.jpg"
+        del plan["root"]
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(plan, fh, ensure_ascii=False)
+        r = self._amend(pid, [0])
+        self.assertEqual(r.get("error"), "bad_plan", r)
+
+    def test_a10_amend_write_is_atomic_no_tmp_leftover(self):
+        """supersede 写盘走 tmp+os.replace(subkimi M1 修):plans/ 下不残留
+        .tmp,且旧 plan 重读仍是合法 JSON。"""
+        pid = self._stage_two()
+        self.assertTrue(self._amend(pid, [0]).get("ok"))
+        plans = os.path.join(self.ds, "organize", "plans")
+        self.assertEqual([f for f in os.listdir(plans) if f.endswith(".tmp")], [])
+        self._load_plan(pid)  # 合法 JSON(坏了会抛)
+
     def test_a8_superseded_blocked_from_approve_and_apply(self):
         """废案在 ds_organize 两道闸也被拒:CLI ds-approve / MCP apply 都批不动。"""
         pid = self._stage_two()

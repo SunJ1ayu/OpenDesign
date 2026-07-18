@@ -425,6 +425,35 @@ class TestIntakeAmendPinhole(unittest.TestCase):
                 st, _ = _post(port, p, {})
                 self.assertEqual(st, 405, f"{p} 应 405")
 
+    # ── 四审 subkimi L4 补齐:与兄弟针孔(scan/edit)同款覆盖 ────────────────
+    def test_amend_host_gate_inherited(self):
+        pid = self._stage_two()
+        with _serve(self.ds) as port:
+            conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+            conn.request("POST", "/api/intake/amend",
+                         body=json.dumps({"plan_id": pid, "drop": [0]}).encode(),
+                         headers={"Content-Type": "application/json",
+                                  "Host": "evil.example"})
+            r = conn.getresponse(); r.read(); conn.close()
+        self.assertEqual(r.status, 403)
+
+    def test_amend_body_too_large(self):
+        with _serve(self.ds) as port:
+            big = (b'{"plan_id":"20990101-000000-abcdef","drop":['
+                   + b"0," * 4000 + b"1]}")
+            st, _ = _post(port, "/api/intake/amend", raw=big)
+        self.assertEqual(st, 400)
+
+    def test_amend_applied_plan_409_at_web_layer(self):
+        """核心 already_applied 经针孔映射 409(test_a5 只钉核心层)。"""
+        pid = self._stage_two()
+        ds_organize.approve_plan(pid, ds_root=self.ds)
+        ds_organize.apply_plan(pid, [self.ws], ds_root=self.ds)
+        with _serve(self.ds) as port:
+            st, r = _post(port, "/api/intake/amend", {"plan_id": pid, "drop": [0]})
+        self.assertEqual(st, 409)
+        self.assertEqual(r["error"], "already_applied")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

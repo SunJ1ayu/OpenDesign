@@ -25,6 +25,7 @@ import stat as stat_mod
 from datetime import datetime
 
 import ds_common
+import ds_lock
 import ds_organize
 import ds_workspace
 
@@ -332,33 +333,51 @@ def amend_plan(plan_id, drop, allowed_roots, ds_root: str) -> dict:
     plan_path = _plan_path(ds_root, plan_id)
     if not os.path.exists(plan_path):
         return {"error": "plan_not_found"}
-    with open(plan_path, encoding="utf-8") as fh:
-        plan = json.load(fh)
-    if plan.get("applied_at"):
-        return {"error": "already_applied"}
-    if plan.get("superseded_at"):
-        return {"error": "plan_superseded"}
+    # 与 apply_plan 同一把锁串行化(四审 subkimi M1):不持锁的读-改-写会与并发
+    # approve+apply 交错——amend 读到 applied_at=None,apply 落盘后 amend 把内存里
+    # 的旧 dict 整体回写,applied_at 被抹掉(plan 档案与 audit.log 矛盾);两个并发
+    # amend 也会各自 stage 出重复新案。锁内重读拿最新状态,already_applied 诚实拒。
+    lock_path = os.path.join(ds_root, "organize", ".apply.lock")
+    with open(lock_path, "a") as lockfh, ds_lock.exclusive(lockfh):
+        with open(plan_path, encoding="utf-8") as fh:
+            plan = json.load(fh)
+        if plan.get("applied_at"):
+            return {"error": "already_applied"}
+        if plan.get("superseded_at"):
+            return {"error": "plan_superseded"}
 
-    operations = plan.get("operations") or []
-    if not _valid_drop(drop, len(operations)):
-        return {"error": "bad_drop"}
-    drop_set = set(drop)
-    remaining = [op for i, op in enumerate(operations) if i not in drop_set]
+        operations = plan.get("operations") or []
+        if not _valid_drop(drop, len(operations)):
+            return {"error": "bad_drop"}
+        drop_set = set(drop)
+        remaining = [op for i, op in enumerate(operations) if i not in drop_set]
 
-    new_plan_id = None
-    if remaining:
-        new_ops = [{"op": op["op"], "src": op["src_rel"], "dst": op["dst_rel"]}
-                   for op in remaining]
-        res = ds_organize.stage_plan(plan["root"], new_ops, allowed_roots,
-                                     ds_root=ds_root)
-        if not res.get("ok"):
-            return res  # 旧 plan 一字不动
-        new_plan_id = res["plan_id"]
+        # 畸形 plan(手工改坏)→ 干净 bad_plan 不抛 KeyError(四审三腿独立标):
+        # 核心契约 = 永远回 error dict,500 面留给真正的意外
+        root = plan.get("root")
+        if not isinstance(root, str) or not root:
+            return {"error": "bad_plan"}
+        try:
+            new_ops = [{"op": op["op"], "src": op["src_rel"], "dst": op["dst_rel"]}
+                       for op in remaining]
+        except (KeyError, TypeError):
+            return {"error": "bad_plan"}
 
-    plan["superseded_at"] = datetime.now().isoformat(timespec="seconds")  # 格式同 ds_organize._now()
-    plan["superseded_by"] = new_plan_id
-    with open(plan_path, "w", encoding="utf-8") as fh:
-        json.dump(plan, fh, ensure_ascii=False, indent=1)
+        new_plan_id = None
+        if remaining:
+            res = ds_organize.stage_plan(root, new_ops, allowed_roots,
+                                         ds_root=ds_root)
+            if not res.get("ok"):
+                return res  # 旧 plan 一字不动
+            new_plan_id = res["plan_id"]
+
+        plan["superseded_at"] = datetime.now().isoformat(timespec="seconds")  # 格式同 ds_organize._now()
+        plan["superseded_by"] = new_plan_id
+        # 原子写(subkimi M1 的另一半):直接 open("w") 截断后写,进程中途死=坏 JSON
+        tmp_path = plan_path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as fh:
+            json.dump(plan, fh, ensure_ascii=False, indent=1)
+        os.replace(tmp_path, plan_path)
 
     return {"ok": True, "plan_id": new_plan_id, "count": len(remaining),
             "dropped": len(drop)}

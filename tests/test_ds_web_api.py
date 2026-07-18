@@ -1118,6 +1118,27 @@ class TestBindProjectPinhole(unittest.TestCase):
                 self.assertEqual(st, 405, f"{p} 应 405")
         self.assertEqual(self._ws_map(root), {})
 
+    # ── 四审 subkimi L3/L4 补齐 ──────────────────────────────────────────
+    def test_bind_body_too_large(self):
+        root = _mkroot({"翡翠湾-1801.md": PROJ_A})
+        _mkws(root, ["老宅翻新项目夹"])
+        big = b'{"project":"X","folder":"' + b"y" * 5000 + b'"}'
+        with _serve(root) as port:
+            st, _ = _post_json(port, "/api/projects/bind", big)
+        self.assertEqual(st, 400)
+        self.assertEqual(self._ws_map(root), {})
+
+    def test_bind_dotdot_project_rejected(self):
+        """写门对齐读门(同 create 针孔):`a..b` 核心 PROJECT_NAME_RE 放行,
+        但读侧 _valid_proj_key 拒 → 不许绑出读侧永远寻址不到的映射键。"""
+        root = _mkroot({"a..b.md": PROJ_A})
+        _mkws(root, ["老宅翻新项目夹"])
+        with _serve(root) as port:
+            st, _ = _post_json(port, "/api/projects/bind", {
+                "project": "a..b", "folder": "老宅翻新项目夹"})
+        self.assertEqual(st, 400)
+        self.assertEqual(self._ws_map(root), {})
+
     def test_bind_host_gate_inherited(self):
         root = _mkroot({"翡翠湾-1801.md": PROJ_A})
         _mkws(root, ["老宅翻新项目夹"])
