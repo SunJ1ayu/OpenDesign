@@ -975,6 +975,15 @@ class TestCreateProjectPinhole(unittest.TestCase):
                 self.assertEqual(st, 405, f"{p} 应 405")
         self.assertFalse(self._exists(root, "X-9"))
 
+    def test_create_rejects_unreadable_name(self):
+        # 写门对齐读门:含 .. 的名字(核心 PROJECT_NAME_RE 放行、读侧 _valid_proj_key 拒)
+        # 针孔层先拦,不造 GET 恒 404 的项目(subkimi 四审 Low)。
+        root = _mkroot({})
+        with _serve(root) as port:
+            st, _ = _post_json(port, "/api/projects/create", {"project": "a..b", "client": "李"})
+        self.assertEqual(st, 400)
+        self.assertFalse(self._exists(root, "a..b"))
+
     def test_create_host_gate_inherited(self):
         root = _mkroot({})
         with _serve(root) as port:

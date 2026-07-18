@@ -261,8 +261,9 @@ class TestIntakeScanPinhole(unittest.TestCase):
         return r.status
 
     def test_scan_stages_confident(self):
-        # 龙腾世纪.dwg → PROJ 唯一命中(project 级);参考.jpg → 参考图(workspace)
-        _write(os.path.join(self.inbox, "龙腾世纪玄关.dwg"))
+        # 龙腾世纪户型.pdf → 资料(auto,project 唯一命中);参考.jpg → 参考图(auto,workspace)
+        # (dwg/CAD 是 mode=suggest 被引用类目,永不自动暂存——见 test_ds_intake 回归)
+        _write(os.path.join(self.inbox, "龙腾世纪户型.pdf"))
         _write(os.path.join(self.inbox, "参考.jpg"))
         _write(os.path.join(self.inbox, "未知.xyz"))
         with _serve(self.ds) as port:

@@ -112,6 +112,12 @@ _SCAN_ALLOWED_KEYS = frozenset()
 _SCAN_ERR_STATUS = {
     "workspace_not_configured": 409, "inbox_not_found": 404,
     "taxonomy_bad": 409, "inbox_unreadable": 409,
+    # stage_inbox_auto 内部会调 stage_intake,其错误码沿用 intake 映射(subglm 四审 LOW:
+    # 否则 bad_assignment/conflict/path_escape 等会降级成默认 400)
+    "bad_assignment": 400, "bad_name": 400, "unknown_category": 400,
+    "project_required": 400, "project_not_found": 404, "empty_plan": 400,
+    "file_not_in_inbox": 409, "conflict": 409, "path_escape": 403,
+    "would_overwrite": 409, "dst_parent_not_dir": 409,
 }
 # body 键白名单(多余键即拒:防夹带 ds_root/today 等内部参数走私)
 _EDIT_ALLOWED_KEYS = {"project", "cnum", "new_status", "new_text", "note"}
@@ -929,7 +935,10 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": "bad request"})  # 非对象/多余键 → 拒
             return
         project = body.get("project")
-        if not isinstance(project, str) or not project:
+        # 写门对齐读门(subkimi 四审 Low):create_project 核心 PROJECT_NAME_RE 会放行含 `..`
+        # 的名字(如 a..b),但读侧 _valid_proj_key 拒之 → 建出来的项目 GET changes/refs 恒 404
+        # (07-13 H1 同类"写成功即丢活")。这里先按读门 _valid_proj_key 拦,不造不可读的项目。
+        if not isinstance(project, str) or not _valid_proj_key(project):
             self._json(400, {"error": "bad request"})
             return
         client = body.get("client")

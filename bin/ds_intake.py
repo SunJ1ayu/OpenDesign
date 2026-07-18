@@ -278,6 +278,13 @@ def stage_inbox_auto(allowed_roots, ds_root: str) -> dict:
         if cat is None:
             skipped.append({"name": name, "reason": "unknown_type"})
             continue
+        # mode=suggest(CAD/SU/MAX/PSD 被引用类目):xref/贴图/材质链一动就断,引擎永不
+        # 自动动(与 ds_adopt.stage_adoption:219 同铁律、taxonomy `mode` 语义同源)——
+        # 留 skipped 交人工确认 stage,自动扫描不碰。(四审 subdeepseek/subkimi 抓的漏,
+        # 主审 oracle 曾错误编码成自动暂存。)
+        if cat["mode"] == "suggest":
+            skipped.append({"name": name, "reason": "referenced_type"})
+            continue
         project = ent["project"]
         if cat["scope"] == "project" and not project:
             skipped.append({"name": name, "reason": "ambiguous_project"})

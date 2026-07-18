@@ -298,8 +298,8 @@ class StageInboxAutoOracle(IntakeBase):
     否则(未知扩展/歧义项目/目录)进 skipped 留人工。至少一条 → 过 stage_intake 落 plan。"""
 
     def test_confident_project_file_staged(self):
-        # 龙腾世纪.dwg → CAD(project 级)+ 唯一命中 PROJ_A → 自动暂存
-        _write(os.path.join(self.inbox, "龙腾世纪玄关.dwg"))
+        # 龙腾世纪户型.pdf → 资料(auto,project 级)+ 唯一命中 PROJ_A → 自动暂存
+        _write(os.path.join(self.inbox, "龙腾世纪户型.pdf"))
         r = ds_intake.stage_inbox_auto(self.allowed, self.ds)
         self.assertTrue(r["ok"])
         self.assertEqual(r["staged"], 1)
@@ -314,13 +314,25 @@ class StageInboxAutoOracle(IntakeBase):
         self.assertIsNotNone(r["plan_id"])
 
     def test_ambiguous_project_skipped(self):
-        # 施工图.dwg:CAD(project 级)但文件名无项目 token → 歧义 → skipped 不进 plan
-        _write(os.path.join(self.inbox, "施工图.dwg"))
+        # 户型图.pdf:资料(auto,project 级)但文件名无项目 token → 歧义 → skipped 不进 plan
+        _write(os.path.join(self.inbox, "户型图.pdf"))
         r = ds_intake.stage_inbox_auto(self.allowed, self.ds)
         self.assertEqual(r["staged"], 0)
         self.assertIsNone(r["plan_id"])
         self.assertEqual([(s["name"], s["reason"]) for s in r["skipped"]],
-                         [("施工图.dwg", "ambiguous_project")])
+                         [("户型图.pdf", "ambiguous_project")])
+
+    def test_suggest_mode_never_auto_staged(self):
+        # 四审回归:CAD/SU/MAX/PSD(mode=suggest 被引用类目)即使唯一命中项目也永不自动暂存,
+        # 留 referenced_type 交人工(挪一动就断 xref/贴图链)。
+        _write(os.path.join(self.inbox, "龙腾世纪平面.dwg"))   # CAD,唯一命中 PROJ_A
+        _write(os.path.join(self.inbox, "龙腾世纪.skp"))       # SU
+        _write(os.path.join(self.inbox, "龙腾世纪.max"))       # 3DMAX
+        _write(os.path.join(self.inbox, "龙腾世纪.psd"))       # PS源
+        r = ds_intake.stage_inbox_auto(self.allowed, self.ds)
+        self.assertEqual(r["staged"], 0)
+        self.assertIsNone(r["plan_id"])
+        self.assertEqual({s["reason"] for s in r["skipped"]}, {"referenced_type"})
 
     def test_unknown_ext_skipped(self):
         _write(os.path.join(self.inbox, "神秘.xyz"))
@@ -338,14 +350,14 @@ class StageInboxAutoOracle(IntakeBase):
 
     def test_mixed_batch(self):
         # 一把混合:2 确定(dwg+jpg)+ 2 skip(歧义 dwg + 未知 xyz)
-        _write(os.path.join(self.inbox, "龙腾世纪立面.dwg"))   # → PROJ_A
-        _write(os.path.join(self.inbox, "参考.png"))            # → 参考图
-        _write(os.path.join(self.inbox, "平面.dwg"))            # 歧义
+        _write(os.path.join(self.inbox, "龙腾世纪立面.pdf"))   # 资料 → PROJ_A
+        _write(os.path.join(self.inbox, "参考.png"))            # 参考图 → 参考图库
+        _write(os.path.join(self.inbox, "平面.pdf"))            # 资料,歧义
         _write(os.path.join(self.inbox, "x.xyz"))              # 未知
         r = ds_intake.stage_inbox_auto(self.allowed, self.ds)
         self.assertEqual(r["staged"], 2)
         self.assertIsNotNone(r["plan_id"])
-        self.assertEqual(sorted(s["name"] for s in r["skipped"]), ["x.xyz", "平面.dwg"])
+        self.assertEqual(sorted(s["name"] for s in r["skipped"]), ["x.xyz", "平面.pdf"])
 
     def test_nothing_confident(self):
         _write(os.path.join(self.inbox, "只有.xyz"))
