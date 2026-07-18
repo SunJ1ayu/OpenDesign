@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { FilesImages, FilesOverview, Project, Ref } from "../api";
 import {
+  BindProjectError,
+  bindProject,
   fetchFilesImages,
   fetchFilesOverview,
   fetchRefs,
@@ -41,6 +43,11 @@ type Props = {
   /** connect-ux:用户在表单里填好路径确认 → 组装完整消息发进聊天(浏览器拿
       不到真实磁盘路径,路径必须用户给;写只走 MCP=对话,405 铁律不破)。 */
   onConnectWorkspace: (path: string) => void;
+  /** track opendesign-frontend-p1 §③:候选=工作区自动发现的未建档文件夹 key。
+      App 传 projects.filter(p => p.unregistered).map(p => p.key)。 */
+  folders: string[];
+  /** 关联成功后 App bump dataEpoch,让联合列表/文件区重拉。 */
+  onBound: () => void;
 };
 
 export default function CompanionColumn({
@@ -50,6 +57,8 @@ export default function CompanionColumn({
   active,
   onOpenGallery,
   onConnectWorkspace,
+  folders,
+  onBound,
 }: Props) {
   const [tab, setTab] = useState<"ref" | "proj">("ref");
   const [refs, setRefs] = useState<Ref[] | null>(null);
@@ -59,6 +68,10 @@ export default function CompanionColumn({
   // connect-ux:接入表单(点「接入工作区」展开;确认后收起,聊天里能看到消息)
   const [connectOpen, setConnectOpen] = useState(false);
   const [connectPath, setConnectPath] = useState("");
+  // §③ 项目↔文件夹关联:unmapped 分支的下拉+按钮
+  const [bindFolder, setBindFolder] = useState("");
+  const [binding, setBinding] = useState(false);
+  const [bindErr, setBindErr] = useState("");
   // 已拉取的 (key, epoch) 记账:路由切回来时数据没变就不重扫
   const fetched = useRef<string | null>(null);
 
@@ -82,6 +95,8 @@ export default function CompanionColumn({
       setWsImages(null);
       setTab("ref");
       setOpenErr(false);
+      setBindFolder("");
+      setBindErr("");
     }
     let stale = false;
     fetchRefs(projectKey)
@@ -102,6 +117,24 @@ export default function CompanionColumn({
     if (!projectKey) return;
     setOpenErr(false);
     openFolder(projectKey, sub).catch(() => setOpenErr(true));
+  };
+
+  const doBind = () => {
+    if (!projectKey || !bindFolder) return;
+    setBindErr("");
+    setBinding(true);
+    bindProject(projectKey, bindFolder)
+      .then(() => {
+        setBindFolder("");
+        onBound();
+      })
+      .catch((e: BindProjectError) => {
+        let msg = e.message || "关联失败";
+        if (e.message === "folder_ambiguous") msg = "这个文件夹名撞了,换更完整的名字再试。";
+        else if (e.message === "folder_not_found") msg = "没找到这个文件夹,刷新后重试。";
+        setBindErr(msg);
+      })
+      .finally(() => setBinding(false));
   };
 
   const list = refs ?? [];
@@ -299,10 +332,38 @@ export default function CompanionColumn({
         <div className="file-list">
           <div className="aside-empty" style={{ margin: "4px 8px 0" }}>
             此项目还没关联文件夹。
-            <br />
-            在右侧对话里说「XX 文件夹就是这个项目」即可关联(列表里未建档的
-            那行名字照着说)。
           </div>
+          {folders.length > 0 ? (
+            <div className="bind-form">
+              <div className="acts">
+                <select
+                  className="bind-select"
+                  value={bindFolder}
+                  onChange={(e) => setBindFolder(e.target.value)}
+                >
+                  <option value="">选择文件夹…</option>
+                  {folders.map((f) => (
+                    <option key={f} value={f}>
+                      {f}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="chat-btn primary"
+                  disabled={!bindFolder || binding}
+                  onClick={doBind}
+                >
+                  {binding ? "关联中…" : "关联"}
+                </button>
+              </div>
+              {bindErr && <div className="aside-empty warn">{bindErr}</div>}
+            </div>
+          ) : (
+            <div className="aside-empty" style={{ margin: "4px 8px 0" }}>
+              在右侧对话里说「XX 文件夹就是这个项目」即可关联(列表里未建档的
+              那行名字照着说)。
+            </div>
+          )}
         </div>
       ) : (
         <div className="file-list">

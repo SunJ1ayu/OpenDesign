@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { IntakeData } from "../api";
-import { approveIntake, fetchIntake, scanInbox } from "../api";
+import { amendIntake, approveIntake, fetchIntake, scanInbox } from "../api";
 import { entrySuggestion, intakeState, planPreview } from "./intake";
 
 // 收件箱卡片(track opendesign-intake,design D1/D2):工作区级,不随选中项目变。
@@ -62,6 +62,17 @@ export default function InboxCard({ dataEpoch, active }: Props) {
       .finally(() => setBusy(null));
   };
 
+  // 单条「跳过」(track opendesign-frontend-p1 design §②):与「确认执行」共用
+  // busy 锁(键=`${planId}#skip#${i}`),防两键并发出两个互相打架的请求。
+  const doSkip = (planId: string, i: number) => {
+    setErr("");
+    setBusy(`${planId}#skip#${i}`);
+    amendIntake(planId, [i])
+      .then(() => setLocalEpoch((e) => e + 1))
+      .catch((e: Error) => setErr(e.message || "跳过失败"))
+      .finally(() => setBusy(null));
+  };
+
   const doScan = () => {
     setScanMsg("");
     setScanning(true);
@@ -107,6 +118,14 @@ export default function InboxCard({ dataEpoch, active }: Props) {
               <span className="src" title={r.src}>{r.src}</span>
               <span className="arrow">→</span>
               <span className="dst" title={r.dstDir}>{r.dstDir}</span>
+              <button
+                className="skip-btn"
+                disabled={busy !== null}
+                onClick={() => doSkip(p.planId, i)}
+                title="跳过这一条,其余重新暂存"
+              >
+                跳过
+              </button>
             </div>
           ))}
           <div className="plan-acts">

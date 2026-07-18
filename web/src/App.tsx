@@ -426,6 +426,8 @@ export default function App() {
           onConnectWorkspace={(path) =>
             dispatchCol(`把我的项目文件夹接进来,路径是:${path}`)
           }
+          folders={projects.filter((p) => p.unregistered).map((p) => p.key)}
+          onBound={() => setDataEpoch((n) => n + 1)}
         />
         <ChatColumn
           session={session}

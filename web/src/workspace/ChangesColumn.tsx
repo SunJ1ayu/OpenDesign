@@ -54,11 +54,19 @@ export default function ChangesColumn({
   const [addSpace, setAddSpace] = useState("");
   const [addBusy, setAddBusy] = useState(false);
   const [addErr, setAddErr] = useState<string | null>(null);
+  // 变更行正文就地编辑(track opendesign-frontend-p1 §①)
+  const [editingCnum, setEditingCnum] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editErr, setEditErr] = useState<string | null>(null);
   // 切项目清空快捷输入:防"给 A 打字→切到 B→提交记进 B"的串项目(与建档表单同款重置)
   useEffect(() => {
     setAddText("");
     setAddSpace("");
     setAddErr(null);
+    setEditingCnum(null);
+    setEditDraft("");
+    setEditErr(null);
   }, [project?.key]);
 
   async function submitAdd() {
@@ -122,6 +130,39 @@ export default function ChangesColumn({
           ? "这条变更找不到了(可能刚被改动),刷新重试。"
           : `改状态失败(${code})。`,
       );
+    }
+  }
+
+  // 行内正文就地编辑(track opendesign-frontend-p1 §①):Enter 保存 / Esc 取消,
+  // 服务端为真相源不做乐观 tag——onEdited 整列重拉。空文本/未改动直接取消不发请求。
+  function startEditText(c: Change) {
+    if (c.cnum === null) return;
+    setEditingCnum(c.cnum);
+    setEditDraft(c.text);
+    setEditErr(null);
+  }
+  function cancelEditText() {
+    setEditingCnum(null);
+    setEditDraft("");
+    setEditErr(null);
+  }
+  async function saveEditText(c: Change) {
+    if (!project || c.cnum === null || editSaving) return;
+    const text = editDraft.trim();
+    if (!text || text === c.text) {
+      cancelEditText();
+      return;
+    }
+    setEditSaving(true);
+    setEditErr(null);
+    try {
+      await editChange({ project: project.key, cnum: c.cnum, new_text: text });
+      cancelEditText();
+      onEdited?.();
+    } catch (e) {
+      setEditErr(`保存失败(${(e as Error).message})。`);
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -297,7 +338,51 @@ export default function ChangesColumn({
             >
               <span className="cnum">{c.cnum !== null ? `C${c.cnum}` : "C?"}</span>
               <div className="body">
-                <div className="txt">{c.text}</div>
+                {c.cnum !== null && editingCnum === c.cnum ? (
+                  <div className="edit-fields">
+                    <input
+                      className="edit-text"
+                      value={editDraft}
+                      autoFocus
+                      onChange={(e) => setEditDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveEditText(c);
+                        else if (e.key === "Escape") cancelEditText();
+                      }}
+                      disabled={editSaving}
+                    />
+                    <div className="edit-controls">
+                      <button
+                        className="btn-save"
+                        disabled={editSaving}
+                        onClick={() => saveEditText(c)}
+                      >
+                        {editSaving ? "保存中…" : "保存"}
+                      </button>
+                      <button
+                        className="btn-cancel"
+                        disabled={editSaving}
+                        onClick={cancelEditText}
+                      >
+                        取消
+                      </button>
+                    </div>
+                    {editErr && <div className="error-note sm">{editErr}</div>}
+                  </div>
+                ) : (
+                  <div className="txt">
+                    {c.text}
+                    {c.cnum !== null && (
+                      <button
+                        className="edit-trigger"
+                        onClick={() => startEditText(c)}
+                        title="编辑正文"
+                      >
+                        编辑
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div className="meta">
                   {c.space && <span>{c.space}</span>}
                   {c.space && (c.date || c.source) && <span>·</span>}
