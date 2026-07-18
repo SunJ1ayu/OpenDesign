@@ -167,10 +167,10 @@ def _read_staged(ds_root: str, plan_id: str) -> list[dict]:
     try:
         with open(plan_path, encoding="utf-8") as fh:
             plan = json.load(fh)
-    except (OSError, ValueError):
+        return [{"op": o["op"], "src_rel": o["src_rel"], "dst_rel": o["dst_rel"]}
+                for o in plan.get("operations", [])]
+    except (OSError, ValueError, KeyError, TypeError):
         return []
-    return [{"op": o["op"], "src_rel": o["src_rel"], "dst_rel": o["dst_rel"]}
-            for o in plan.get("operations", [])]
 
 
 def stage_adoption(project_key: str, ds_root: str = DEFAULT_DS_ROOT,
