@@ -59,7 +59,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.27.0"  # gallery-albums:图墙扫描深度可配(默认放深 6)+ 按集合文件夹分相册(封面→点开)
+VERSION = "0.28.0"  # clickable-actions:变更记录「+记一条」+ 未建档「一键建档」两个 POST 写针孔
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -94,6 +94,8 @@ OPEN_FOLDER_PATH = "/api/open-folder"  # do_POST 唯一放行路径,精确匹配
 OPEN_BODY_MAX = 4096  # open-folder 请求体上限(key+sub 远小于此)
 EDIT_CHANGE_PATH = "/api/changes/edit"  # do_POST 写针孔③(track opendesign-todo-edit),精确匹配
 INTAKE_APPROVE_PATH = "/api/intake/approve"  # do_POST 针孔④(track opendesign-intake),精确匹配
+ADD_CHANGE_PATH = "/api/changes/add"  # do_POST 写针孔⑤(track opendesign-clickable-actions),精确匹配
+CREATE_PROJECT_PATH = "/api/projects/create"  # do_POST 写针孔⑥(同上 track),精确匹配
 _INTAKE_ALLOWED_KEYS = {"plan_id"}
 # 收件箱确认的错误→HTTP 映射:格式/参数错 400,不存在 404,越界 403,状态冲突 409
 _INTAKE_ERR_STATUS = {
@@ -109,6 +111,19 @@ _EDIT_ALLOWED_KEYS = {"project", "cnum", "new_status", "new_text", "note"}
 _EDIT_ERR_STATUS = {
     "invalid_status": 400, "empty_text": 400,
     "change_not_found": 404, "project_not_found": 404, "ambiguous_change": 409,
+    "bad_name": 404, "path_escape": 404,
+}
+# body 键白名单(同上例:多余键即拒)
+_ADD_ALLOWED_KEYS = {"project", "content", "space"}
+# append_change error code → HTTP status(校验类 400,资源类 404,段缺失 409)
+_ADD_ERR_STATUS = {
+    "empty_content": 400, "project_not_found": 404, "no_change_section": 409,
+    "bad_name": 404, "path_escape": 404,
+}
+_CREATE_ALLOWED_KEYS = {"project", "client", "stage", "address"}
+# create_project error code → HTTP status(校验类 400,重复 409)
+_CREATE_ERR_STATUS = {
+    "empty_name": 400, "bad_stage": 400, "project_exists": 409,
     "bad_name": 404, "path_escape": 404,
 }
 
@@ -287,6 +302,10 @@ class Handler(BaseHTTPRequestHandler):
             self._edit_change()
         elif path == INTAKE_APPROVE_PATH:
             self._intake_approve()
+        elif path == ADD_CHANGE_PATH:
+            self._add_change()
+        elif path == CREATE_PROJECT_PATH:
+            self._create_project()
         elif (m := _SESSION_DELETE_RE.match(path)):
             self._delete_session(m.group(1))
         else:
@@ -791,6 +810,92 @@ class Handler(BaseHTTPRequestHandler):
             return
         err = r.get("error", "internal")
         self._json(_EDIT_ERR_STATUS.get(err, 400), {"error": err})
+
+    def _add_change(self):
+        """POST 写针孔⑤(track opendesign-clickable-actions):变更记录「+ 记一条」。
+        posture 逐条同 _edit_change:CT application/json → body 0<n≤OPEN_BODY_MAX →
+        JSON dict → 键白名单(多余键即拒,防夹带 ds_root/today 走私)→ 类型闸 →
+        ds_tools.append_change(名字闸/realpath/锁/编号全在核心)。Host 闸由 do_POST
+        入口继承。精确匹配(非前缀)防路径走私。trace 不进响应体。"""
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 < n <= OPEN_BODY_MAX:
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "bad request"})
+            return
+        if not isinstance(body, dict) or set(body) - _ADD_ALLOWED_KEYS:
+            self._json(400, {"error": "bad request"})  # 非对象/多余键 → 拒
+            return
+        project = body.get("project")
+        if not isinstance(project, str) or not project:
+            self._json(400, {"error": "bad request"})
+            return
+        content = body.get("content")
+        space = body.get("space")
+        if any(v is not None and not isinstance(v, str) for v in (content, space)):
+            self._json(400, {"error": "bad request"})
+            return
+        r = ds_tools.append_change(
+            project, content or "", space=space or "", ds_root=self.server.ds_root)
+        if r.get("ok"):
+            self._json(200, r)
+            return
+        err = r.get("error", "internal")
+        self._json(_ADD_ERR_STATUS.get(err, 400), {"error": err})
+
+    def _create_project(self):
+        """POST 写针孔⑥(track opendesign-clickable-actions):未建档文件夹「一键建档」。
+        posture 逐条同 _edit_change/_add_change:CT application/json →
+        body 0<n≤OPEN_BODY_MAX → JSON dict → 键白名单 → 类型闸 →
+        ds_tools.create_project(名字闸/realpath/业主 stub 全在核心)。Host 闸由 do_POST
+        入口继承。精确匹配(非前缀)防路径走私。trace 不进响应体。"""
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 < n <= OPEN_BODY_MAX:
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "bad request"})
+            return
+        if not isinstance(body, dict) or set(body) - _CREATE_ALLOWED_KEYS:
+            self._json(400, {"error": "bad request"})  # 非对象/多余键 → 拒
+            return
+        project = body.get("project")
+        if not isinstance(project, str) or not project:
+            self._json(400, {"error": "bad request"})
+            return
+        client = body.get("client")
+        stage = body.get("stage")
+        address = body.get("address")
+        if any(v is not None and not isinstance(v, str) for v in (client, stage, address)):
+            self._json(400, {"error": "bad request"})
+            return
+        r = ds_tools.create_project(
+            project, client or "", stage=stage or "洽谈", address=address or "",
+            ds_root=self.server.ds_root)
+        if r.get("ok"):
+            self._json(200, r)
+            return
+        err = r.get("error", "internal")
+        self._json(_CREATE_ERR_STATUS.get(err, 400), {"error": err})
 
     def _proxy(self, up_path: str):
         """白名单转发到本机 nanobot gateway。纯管道:不读不存任何秘密。
