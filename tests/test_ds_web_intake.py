@@ -238,5 +238,75 @@ class TestIntakeApprove(unittest.TestCase):
             self.assertEqual(st, 405)
 
 
+class TestIntakeScanPinhole(unittest.TestCase):
+    """POST /api/intake/scan(空 body {})→ ds_intake.stage_inbox_auto。
+    只读墙受控开口,posture 同 /api/intake/approve;allowed_roots=[工作区根]。
+    主 agent 拥有,执行腿 off-limits。"""
+
+    def setUp(self):
+        self.ds, self.ws = _mkfixture()
+        self.inbox = os.path.join(self.ws, "00-收件箱")
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+        shutil.rmtree(self.ws, ignore_errors=True)
+
+    def _post_host(self, port, path, body, host):
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+        conn.request("POST", path,
+                     body=json.dumps(body).encode("utf-8"),
+                     headers={"Content-Type": "application/json", "Host": host})
+        r = conn.getresponse(); r.read(); conn.close()
+        return r.status
+
+    def test_scan_stages_confident(self):
+        # 龙腾世纪.dwg → PROJ 唯一命中(project 级);参考.jpg → 参考图(workspace)
+        _write(os.path.join(self.inbox, "龙腾世纪玄关.dwg"))
+        _write(os.path.join(self.inbox, "参考.jpg"))
+        _write(os.path.join(self.inbox, "未知.xyz"))
+        with _serve(self.ds) as port:
+            st, r = _post(port, "/api/intake/scan", {})
+        self.assertEqual(st, 200)
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["staged"], 2)
+        self.assertIsNotNone(r["plan_id"])
+        self.assertEqual([s["name"] for s in r["skipped"]], ["未知.xyz"])
+
+    def test_scan_empty_inbox_ok(self):
+        with _serve(self.ds) as port:
+            st, r = _post(port, "/api/intake/scan", {})
+        self.assertEqual(st, 200)
+        self.assertEqual(r["staged"], 0)
+
+    def test_scan_ct_gate(self):
+        with _serve(self.ds) as port:
+            st, _ = _post(port, "/api/intake/scan", {}, ctype="text/plain")
+        self.assertEqual(st, 400)
+
+    def test_scan_extra_key_rejected(self):
+        # 空 body 白名单:任何键即拒
+        with _serve(self.ds) as port:
+            st, _ = _post(port, "/api/intake/scan", {"path": "/etc"})
+        self.assertEqual(st, 400)
+
+    def test_scan_exact_match_405(self):
+        with _serve(self.ds) as port:
+            for p in ("/api/intake/scanx", "/api/intake/scan/", "/api/intake"):
+                st, _ = _post(port, p, {})
+                self.assertEqual(st, 405, f"{p} 应 405")
+
+    def test_scan_host_gate_inherited(self):
+        with _serve(self.ds) as port:
+            self.assertEqual(self._post_host(port, "/api/intake/scan", {}, "evil.example"), 403)
+
+    def test_scan_unconfigured(self):
+        empty = tempfile.mkdtemp(prefix="ds_web_intake_empty_")
+        self.addCleanup(shutil.rmtree, empty, ignore_errors=True)
+        with _serve(empty) as port:
+            st, r = _post(port, "/api/intake/scan", {})
+        self.assertEqual(st, 409)
+        self.assertEqual(r["error"], "workspace_not_configured")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

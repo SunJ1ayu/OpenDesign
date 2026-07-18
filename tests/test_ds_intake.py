@@ -292,5 +292,81 @@ class StageIntakeOracle(IntakeBase):
             return json.load(fh)
 
 
+class StageInboxAutoOracle(IntakeBase):
+    """stage_inbox_auto:采纳"确定性建议"自动暂存。主 agent 拥有,执行腿 off-limits。
+    规则:文件有类目 → 若类目 project 级需有唯一项目建议、workspace 级(参考图)无需项目;
+    否则(未知扩展/歧义项目/目录)进 skipped 留人工。至少一条 → 过 stage_intake 落 plan。"""
+
+    def test_confident_project_file_staged(self):
+        # 龙腾世纪.dwg → CAD(project 级)+ 唯一命中 PROJ_A → 自动暂存
+        _write(os.path.join(self.inbox, "龙腾世纪玄关.dwg"))
+        r = ds_intake.stage_inbox_auto(self.allowed, self.ds)
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["staged"], 1)
+        self.assertIsNotNone(r["plan_id"])
+        self.assertEqual(r["skipped"], [])
+
+    def test_workspace_scope_needs_no_project(self):
+        # 客厅参考.jpg → 参考图(workspace 级)→ 无需项目也自动暂存
+        _write(os.path.join(self.inbox, "客厅参考.jpg"))
+        r = ds_intake.stage_inbox_auto(self.allowed, self.ds)
+        self.assertEqual(r["staged"], 1)
+        self.assertIsNotNone(r["plan_id"])
+
+    def test_ambiguous_project_skipped(self):
+        # 施工图.dwg:CAD(project 级)但文件名无项目 token → 歧义 → skipped 不进 plan
+        _write(os.path.join(self.inbox, "施工图.dwg"))
+        r = ds_intake.stage_inbox_auto(self.allowed, self.ds)
+        self.assertEqual(r["staged"], 0)
+        self.assertIsNone(r["plan_id"])
+        self.assertEqual([(s["name"], s["reason"]) for s in r["skipped"]],
+                         [("施工图.dwg", "ambiguous_project")])
+
+    def test_unknown_ext_skipped(self):
+        _write(os.path.join(self.inbox, "神秘.xyz"))
+        r = ds_intake.stage_inbox_auto(self.allowed, self.ds)
+        self.assertEqual(r["staged"], 0)
+        self.assertEqual(r["skipped"][0]["reason"], "unknown_type")
+
+    def test_dir_skipped(self):
+        os.makedirs(os.path.join(self.inbox, "一批图"))
+        _write(os.path.join(self.inbox, "一批图", "a.jpg"))
+        r = ds_intake.stage_inbox_auto(self.allowed, self.ds)
+        self.assertEqual(r["staged"], 0)
+        self.assertEqual([(s["name"], s["reason"]) for s in r["skipped"]],
+                         [("一批图", "not_a_file")])
+
+    def test_mixed_batch(self):
+        # 一把混合:2 确定(dwg+jpg)+ 2 skip(歧义 dwg + 未知 xyz)
+        _write(os.path.join(self.inbox, "龙腾世纪立面.dwg"))   # → PROJ_A
+        _write(os.path.join(self.inbox, "参考.png"))            # → 参考图
+        _write(os.path.join(self.inbox, "平面.dwg"))            # 歧义
+        _write(os.path.join(self.inbox, "x.xyz"))              # 未知
+        r = ds_intake.stage_inbox_auto(self.allowed, self.ds)
+        self.assertEqual(r["staged"], 2)
+        self.assertIsNotNone(r["plan_id"])
+        self.assertEqual(sorted(s["name"] for s in r["skipped"]), ["x.xyz", "平面.dwg"])
+
+    def test_nothing_confident(self):
+        _write(os.path.join(self.inbox, "只有.xyz"))
+        r = ds_intake.stage_inbox_auto(self.allowed, self.ds)
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["staged"], 0)
+        self.assertIsNone(r["plan_id"])
+
+    def test_empty_inbox_ok(self):
+        r = ds_intake.stage_inbox_auto(self.allowed, self.ds)
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["staged"], 0)
+        self.assertEqual(r["skipped"], [])
+
+    def test_unconfigured_propagates(self):
+        empty = tempfile.mkdtemp(prefix="dsintake-empty-")
+        self.addCleanup(shutil.rmtree, empty, ignore_errors=True)
+        r = ds_intake.stage_inbox_auto([empty], empty)
+        self.assertEqual(r.get("error"), "workspace_not_configured")
+
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
