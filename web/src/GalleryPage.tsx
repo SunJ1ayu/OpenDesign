@@ -178,7 +178,7 @@ export default function GalleryPage({ project }: Props) {
           {albums.map((a) => (
             <button
               className="g-cell"
-              key={a.key || "未分类"}
+              key={`alb:${a.key}`}
               title={a.label}
               onClick={() => (a.count > 1 ? setOpenAlbum(a.key) : setZoom(a.cover))}
             >
