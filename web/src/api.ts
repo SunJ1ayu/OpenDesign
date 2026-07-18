@@ -235,6 +235,34 @@ export async function approveIntake(planId: string): Promise<void> {
   }
 }
 
+/** 第七个非 GET(track opendesign-inbox-scan 写针孔⑦):收件箱卡片「扫描整理」。
+ * 空 body(后端键白名单=空集);把「确定性建议」自动采纳为一个待确认 plan,
+ * 歧义/未知留 skipped 交人工。失败抛错(带后端 error code)由调用方提示。 */
+export type ScanInboxSkipped = { name: string; reason: string };
+export type ScanInboxResult = {
+  ok: true;
+  plan_id: string | null;
+  staged: number;
+  skipped: ScanInboxSkipped[];
+};
+export async function scanInbox(): Promise<ScanInboxResult> {
+  const r = await fetch("/api/intake/scan", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (!r.ok) {
+    let code = "";
+    try {
+      code = ((await r.json()) as { error?: string }).error ?? "";
+    } catch {
+      /* 非 JSON 响应:忽略,回落状态码 */
+    }
+    throw new Error(code || `服务返回 ${r.status}`);
+  }
+  return (await r.json()) as ScanInboxResult;
+}
+
 /** refs-index 的 file 字段是 "refs/xx.jpg";静态路由挂在 /api/refs/file/ 下。 */
 export function refImageUrl(file: string): string {
   const rel = file.startsWith("refs/") ? file.slice(5) : file;

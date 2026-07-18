@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { IntakeData } from "../api";
-import { approveIntake, fetchIntake } from "../api";
+import { approveIntake, fetchIntake, scanInbox } from "../api";
 import { entrySuggestion, intakeState, planPreview } from "./intake";
 
 // 收件箱卡片(track opendesign-intake,design D1/D2):工作区级,不随选中项目变。
@@ -20,6 +20,8 @@ export default function InboxCard({ dataEpoch, active }: Props) {
   const [busy, setBusy] = useState<string | null>(null); // 执行中的 plan_id
   const [err, setErr] = useState("");
   const [localEpoch, setLocalEpoch] = useState(0); // 确认成功后自刷新
+  const [scanning, setScanning] = useState(false);
+  const [scanMsg, setScanMsg] = useState(""); // 扫描后的轻量提示(staged/skipped)
   const fetched = useRef<string | null>(null);
 
   useEffect(() => {
@@ -60,13 +62,42 @@ export default function InboxCard({ dataEpoch, active }: Props) {
       .finally(() => setBusy(null));
   };
 
+  const doScan = () => {
+    setScanMsg("");
+    setScanning(true);
+    scanInbox()
+      .then((r) => {
+        if (r.staged > 0) {
+          setLocalEpoch((e) => e + 1); // 新暂存的 plan 出现在待确认区
+          setScanMsg(
+            r.skipped.length > 0
+              ? `已暂存 ${r.staged} 项,${r.skipped.length} 个需手动`
+              : `已暂存 ${r.staged} 项`,
+          );
+        } else {
+          setScanMsg("没有可自动认领的文件");
+        }
+      })
+      .catch((e: Error) => setScanMsg(`扫描失败:${e.message || "未知错误"}`))
+      .finally(() => setScanning(false));
+  };
+
   return (
     <div className="inbox-card">
       <div className="aside-head">
         <span className="t">收件箱</span>
         <span className="inbox-count">{d.entries.length}</span>
         <span className="grow" />
+        <button
+          className="chat-btn"
+          disabled={scanning}
+          onClick={doScan}
+          title="自动认领确定性建议(扩展名/项目名唯一命中),歧义留人工"
+        >
+          {scanning ? "扫描中…" : "扫描整理"}
+        </button>
       </div>
+      {scanMsg && <div className="inbox-hint scan-msg">{scanMsg}</div>}
 
       {plans.map((p) => (
         <div className="inbox-plan" key={p.planId}>
