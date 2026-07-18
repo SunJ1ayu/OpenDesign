@@ -254,3 +254,41 @@ def stage_intake(assignments, allowed_roots, ds_root: str) -> dict:
 
     return ds_organize.stage_plan(cfg["root"], operations, allowed_roots,
                                   ds_root=ds_root)
+
+
+# ── 自动扫描:采纳「确定性建议」自动暂存 ──────────────────────────────────
+def stage_inbox_auto(allowed_roots, ds_root: str) -> dict:
+    """list_inbox 的建议里,只挑「确定」的自动认领:
+    - 目录 → skipped(not_a_file);未知类型(无类目建议)→ skipped(unknown_type);
+    - project 级类目但无唯一项目建议 → skipped(ambiguous_project);
+    - 其余(workspace 级,或 project 级已有唯一项目)→ 收进 assignments。
+    一条都没有 → 不落 plan(plan_id=None,staged=0);否则过 stage_intake 落 plan。"""
+    listing = list_inbox(ds_root)
+    if not listing.get("ok"):
+        return listing
+
+    assignments = []
+    skipped = []
+    for ent in listing["entries"]:
+        name = ent["name"]
+        if ent["type"] != "file":
+            skipped.append({"name": name, "reason": "not_a_file"})
+            continue
+        cat = ent["category"]
+        if cat is None:
+            skipped.append({"name": name, "reason": "unknown_type"})
+            continue
+        project = ent["project"]
+        if cat["scope"] == "project" and not project:
+            skipped.append({"name": name, "reason": "ambiguous_project"})
+            continue
+        assignments.append({"name": name, "category": cat["id"], "project": project})
+
+    if not assignments:
+        return {"ok": True, "plan_id": None, "staged": 0, "skipped": skipped}
+
+    res = stage_intake(assignments, allowed_roots, ds_root)
+    if not res.get("ok"):
+        return res
+    return {"ok": True, "plan_id": res["plan_id"], "staged": len(assignments),
+            "skipped": skipped}

@@ -59,7 +59,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.28.0"  # clickable-actions:变更记录「+记一条」+ 未建档「一键建档」两个 POST 写针孔
+VERSION = "0.29.0"  # inbox-scan:收件箱「扫描整理」按钮,POST /api/intake/scan 针孔
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -96,6 +96,7 @@ EDIT_CHANGE_PATH = "/api/changes/edit"  # do_POST 写针孔③(track opendesign-
 INTAKE_APPROVE_PATH = "/api/intake/approve"  # do_POST 针孔④(track opendesign-intake),精确匹配
 ADD_CHANGE_PATH = "/api/changes/add"  # do_POST 写针孔⑤(track opendesign-clickable-actions),精确匹配
 CREATE_PROJECT_PATH = "/api/projects/create"  # do_POST 写针孔⑥(同上 track),精确匹配
+INTAKE_SCAN_PATH = "/api/intake/scan"  # do_POST 写针孔⑦(track opendesign-inbox-scan),精确匹配
 _INTAKE_ALLOWED_KEYS = {"plan_id"}
 # 收件箱确认的错误→HTTP 映射:格式/参数错 400,不存在 404,越界 403,状态冲突 409
 _INTAKE_ERR_STATUS = {
@@ -104,6 +105,13 @@ _INTAKE_ERR_STATUS = {
     "plan_drift": 409, "would_overwrite": 409, "src_missing": 409,
     "conflict": 409, "path_escape": 403, "dst_parent_not_dir": 409,
     "apply_failed": 500,
+}
+# body 键白名单(空 body {} 针孔:白名单=空集,任何键即拒)
+_SCAN_ALLOWED_KEYS = frozenset()
+# stage_inbox_auto 错误→HTTP 映射:配置/规则表坏或收件箱不可读 409,不存在 404,其余 400
+_SCAN_ERR_STATUS = {
+    "workspace_not_configured": 409, "inbox_not_found": 404,
+    "taxonomy_bad": 409, "inbox_unreadable": 409,
 }
 # body 键白名单(多余键即拒:防夹带 ds_root/today 等内部参数走私)
 _EDIT_ALLOWED_KEYS = {"project", "cnum", "new_status", "new_text", "note"}
@@ -306,6 +314,8 @@ class Handler(BaseHTTPRequestHandler):
             self._add_change()
         elif path == CREATE_PROJECT_PATH:
             self._create_project()
+        elif path == INTAKE_SCAN_PATH:
+            self._intake_scan()
         elif (m := _SESSION_DELETE_RE.match(path)):
             self._delete_session(m.group(1))
         else:
@@ -758,6 +768,46 @@ class Handler(BaseHTTPRequestHandler):
                 if "executed" in r:  # 部分执行如实回传(audit 有全量)
                     out["executed"] = r["executed"]
                 self._json(_INTAKE_ERR_STATUS.get(err, 400), out)
+                return
+            self._json(200, r)
+        except Exception:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
+
+    def _intake_scan(self):
+        """POST 针孔⑦(track opendesign-inbox-scan):收件箱卡片「扫描整理」。
+        触发 ds_intake.stage_inbox_auto——把「00-收件箱里丢了什么」的确定性建议
+        自动采纳为一个待确认 plan,歧义/未知留 skipped 交人工。posture 逐条同
+        _intake_approve/_edit_change:CT json → body 上限 → 空 body 键白名单
+        (任何键即拒,无参数可传)。allowed_roots=[工作区根]。"""
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 < n <= OPEN_BODY_MAX:
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "bad request"})
+            return
+        if not isinstance(body, dict) or set(body) - _SCAN_ALLOWED_KEYS:
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            cfg = ds_workspace.load_config(self.server.ds_root)
+            if cfg is None:
+                self._json(409, {"error": "workspace_not_configured"})
+                return
+            r = ds_intake.stage_inbox_auto([cfg["root"]], self.server.ds_root)
+            if not r.get("ok"):
+                err = r.get("error", "internal")
+                self._json(_SCAN_ERR_STATUS.get(err, 400), {"error": err})
                 return
             self._json(200, r)
         except Exception:

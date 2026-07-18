@@ -630,6 +630,7 @@ html, body { overflow: auto; }
 .inbox-row .sug { color: var(--ink-4); flex: none; white-space: nowrap; }
 .inbox-row.more { color: var(--ink-4); }
 .inbox-hint { font-size: 11px; color: var(--ink-4); padding: 6px 0 2px; }
+.inbox-card > .inbox-hint.scan-msg { padding: 0 16px 6px; }
 
 /* ── 驾驶舱速览(track opendesign-cockpit)──────────────────────────── */
 .cockpit-brief {
