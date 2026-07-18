@@ -310,5 +310,121 @@ class TestIntakeScanPinhole(unittest.TestCase):
         self.assertEqual(r["error"], "workspace_not_configured")
 
 
+class TestIntakeAmendPinhole(unittest.TestCase):
+    """POST /api/intake/amend {plan_id, drop} → ds_intake.amend_plan
+    (track opendesign-frontend-p1 design §②:待确认 plan 单行「跳过」)。
+    posture 逐条同 /api/intake/approve;主 agent 拥有,执行腿 off-limits。"""
+
+    def setUp(self):
+        self.ds, self.ws = _mkfixture()
+        self.inbox = os.path.join(self.ws, "00-收件箱")
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+        shutil.rmtree(self.ws, ignore_errors=True)
+
+    def _stage_two(self):
+        _write(os.path.join(self.inbox, "客厅参考.jpg"), "IMG1")
+        _write(os.path.join(self.inbox, "卧室参考.jpg"), "IMG2")
+        r = ds_intake.stage_intake(
+            [{"name": "客厅参考.jpg", "project": None, "category": "参考图"},
+             {"name": "卧室参考.jpg", "project": None, "category": "参考图"}],
+            allowed_roots=[self.ws], ds_root=self.ds)
+        return r["plan_id"]
+
+    def test_amend_compose_skip_then_approve(self):
+        """全链:暂存2 → 跳过第0行 → pending 只剩新案1行 → 确认 → 留下的落位,
+        被跳的还在收件箱。"""
+        pid = self._stage_two()
+        with _serve(self.ds) as port:
+            st, r = _post(port, "/api/intake/amend", {"plan_id": pid, "drop": [0]})
+            self.assertEqual(st, 200, r)
+            self.assertTrue(r["ok"])
+            new_pid = r["plan_id"]
+            self.assertNotEqual(new_pid, pid)
+            # pending 里废案被过滤,只剩新案(1 行)
+            st, g = _get_json(port, "/api/intake")
+            self.assertEqual([p["plan_id"] for p in g["pending"]], [new_pid])
+            self.assertEqual(len(g["pending"][0]["ops"]), 1)
+            self.assertIn("卧室参考.jpg", g["pending"][0]["ops"][0]["src_rel"])
+            # 确认新案:卧室参考归位;被跳过的客厅参考原地不动
+            st, a = _post(port, "/api/intake/approve", {"plan_id": new_pid})
+            self.assertEqual(st, 200, a)
+        self.assertTrue(os.path.exists(os.path.join(
+            self.ws, "03-共享资源", "参考图库", "卧室参考.jpg")))
+        self.assertTrue(os.path.exists(os.path.join(self.inbox, "客厅参考.jpg")))
+        self.assertFalse(os.path.exists(os.path.join(self.inbox, "卧室参考.jpg")))
+
+    def test_amend_drop_all_cancels_plan(self):
+        pid = self._stage_two()
+        with _serve(self.ds) as port:
+            st, r = _post(port, "/api/intake/amend", {"plan_id": pid, "drop": [0, 1]})
+            self.assertEqual(st, 200, r)
+            self.assertIsNone(r["plan_id"])
+            st, g = _get_json(port, "/api/intake")
+            self.assertEqual(g["pending"], [])
+        # 取消 = 零改动,两个文件都还在
+        self.assertTrue(os.path.exists(os.path.join(self.inbox, "客厅参考.jpg")))
+        self.assertTrue(os.path.exists(os.path.join(self.inbox, "卧室参考.jpg")))
+
+    def test_amend_superseded_conflict(self):
+        pid = self._stage_two()
+        with _serve(self.ds) as port:
+            _post(port, "/api/intake/amend", {"plan_id": pid, "drop": [0]})
+            st, r = _post(port, "/api/intake/amend", {"plan_id": pid, "drop": [1]})
+        self.assertEqual(st, 409)
+        self.assertEqual(r["error"], "plan_superseded")
+
+    def test_amend_rejects_bad_requests(self):
+        pid = self._stage_two()
+        with _serve(self.ds) as port:
+            # CT 闸
+            st, _ = _post(port, "/api/intake/amend",
+                          {"plan_id": pid, "drop": [0]}, ctype="text/plain")
+            self.assertEqual(st, 400)
+            # 键白名单:多余键即拒
+            st, _ = _post(port, "/api/intake/amend",
+                          {"plan_id": pid, "drop": [0], "ds_root": "/etc"})
+            self.assertEqual(st, 400)
+            # plan_id 格式闸
+            st, r = _post(port, "/api/intake/amend",
+                          {"plan_id": "../走私", "drop": [0]})
+            self.assertEqual(st, 400)
+            self.assertEqual(r["error"], "bad_plan_id")
+            # 不存在
+            st, r = _post(port, "/api/intake/amend",
+                          {"plan_id": "20990101-000000-abcdef", "drop": [0]})
+            self.assertEqual(st, 404)
+            # drop 闸(空/越界/重复/非 int)
+            for bad in ([], [5], [0, 0], ["0"], [True], "0", None):
+                st, r = _post(port, "/api/intake/amend",
+                              {"plan_id": pid, "drop": bad})
+                self.assertEqual(st, 400, (bad, r))
+                self.assertEqual(r["error"], "bad_drop", (bad, r))
+            # 全拒之后原案仍在 pending(没被误动)
+            st, g = _get_json(port, "/api/intake")
+            self.assertEqual([p["plan_id"] for p in g["pending"]], [pid])
+
+    def test_amend_rejects_non_workspace_plan(self):
+        """工作区外的 plan(如桌面清理)不许经浏览器纠偏——与 approve 同闸。"""
+        other = tempfile.mkdtemp(prefix="ds_web_amend_other_")
+        self.addCleanup(shutil.rmtree, other, ignore_errors=True)
+        _write(os.path.join(other, "z.txt"))
+        r = ds_organize.stage_plan(other, [{"op": "move", "src": "z.txt",
+                                            "dst": "y.txt"}],
+                                   allowed_roots=[other], ds_root=self.ds)
+        with _serve(self.ds) as port:
+            st, d = _post(port, "/api/intake/amend",
+                          {"plan_id": r["plan_id"], "drop": [0]})
+        self.assertEqual(st, 403)
+        self.assertEqual(d["error"], "not_intake_plan")
+
+    def test_amend_exact_match_405(self):
+        with _serve(self.ds) as port:
+            for p in ("/api/intake/amendx", "/api/intake/amend/"):
+                st, _ = _post(port, p, {})
+                self.assertEqual(st, 405, f"{p} 应 405")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

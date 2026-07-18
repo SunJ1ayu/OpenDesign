@@ -379,6 +379,111 @@ class StageInboxAutoOracle(IntakeBase):
         self.assertEqual(r.get("error"), "workspace_not_configured")
 
 
+class AmendPlanOracle(IntakeBase):
+    """amend_plan:收件箱卡片单条纠偏(track opendesign-frontend-p1 design §②)。
+    主 agent 拥有,执行腿 off-limits。契约:
+    - drop = operations 下标列表(非空/全 int 且非 bool/无重复/在范围内)否则 bad_drop;
+    - 剩余行经 stage_plan 全套复验重新暂存;stage 失败旧 plan 一字不动;
+    - 成功(含剩余 0 行=整案取消)旧 plan 写 superseded_at + superseded_by,不删文件;
+    - 已 applied / 已 superseded 的 plan 拒绝再纠偏。"""
+
+    def _stage_two(self):
+        _write(os.path.join(self.inbox, "客厅参考.jpg"), "IMG1")
+        _write(os.path.join(self.inbox, "卧室参考.jpg"), "IMG2")
+        r = ds_intake.stage_intake(
+            [{"name": "客厅参考.jpg", "project": None, "category": "参考图"},
+             {"name": "卧室参考.jpg", "project": None, "category": "参考图"}],
+            self.allowed, ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
+        return r["plan_id"]
+
+    def _load_plan(self, plan_id):
+        p = os.path.join(self.ds, "organize", "plans", f"plan_{plan_id}.json")
+        with open(p, encoding="utf-8") as fh:
+            return json.load(fh)
+
+    def _amend(self, plan_id, drop):
+        return ds_intake.amend_plan(plan_id, drop, self.allowed, ds_root=self.ds)
+
+    def test_a1_drop_one_restages_rest(self):
+        pid = self._stage_two()
+        r = self._amend(pid, [0])
+        self.assertTrue(r.get("ok"), r)
+        self.assertIsNotNone(r["plan_id"])
+        self.assertNotEqual(r["plan_id"], pid)
+        self.assertEqual(r["count"], 1)
+        self.assertEqual(r["dropped"], 1)
+        # 新 plan = 被留下的那行(下标 1)
+        new = self._load_plan(r["plan_id"])
+        self.assertEqual(len(new["operations"]), 1)
+        self.assertIn("卧室参考.jpg", new["operations"][0]["src_rel"])
+        # 旧 plan 标记 superseded,指向新 plan;文件仍在(审计留痕)
+        old = self._load_plan(pid)
+        self.assertTrue(old.get("superseded_at"))
+        self.assertEqual(old.get("superseded_by"), r["plan_id"])
+        # 零改动:两个文件都还在收件箱
+        self.assertTrue(os.path.exists(os.path.join(self.inbox, "客厅参考.jpg")))
+        self.assertTrue(os.path.exists(os.path.join(self.inbox, "卧室参考.jpg")))
+
+    def test_a2_drop_all_cancels(self):
+        pid = self._stage_two()
+        r = self._amend(pid, [1, 0])
+        self.assertTrue(r.get("ok"), r)
+        self.assertIsNone(r["plan_id"])
+        self.assertEqual(r["count"], 0)
+        self.assertEqual(r["dropped"], 2)
+        old = self._load_plan(pid)
+        self.assertTrue(old.get("superseded_at"))
+        self.assertIsNone(old.get("superseded_by"))
+
+    def test_a3_bad_plan_id_and_not_found(self):
+        self.assertEqual(self._amend("../走私", [0]).get("error"), "bad_plan_id")
+        self.assertEqual(self._amend("20990101-000000-abcdef", [0]).get("error"),
+                         "plan_not_found")
+
+    def test_a4_bad_drop_rejected(self):
+        pid = self._stage_two()
+        for bad in ([], None, "0", [0.5], ["0"], [True], [2], [-1], [0, 0]):
+            r = self._amend(pid, bad)
+            self.assertEqual(r.get("error"), "bad_drop", (bad, r))
+        # 全部拒掉之后 plan 原封不动(没被误 supersede)
+        self.assertFalse(self._load_plan(pid).get("superseded_at"))
+
+    def test_a5_applied_plan_refused(self):
+        pid = self._stage_two()
+        ds_organize.approve_plan(pid, ds_root=self.ds)
+        a = ds_organize.apply_plan(pid, self.allowed, ds_root=self.ds)
+        self.assertTrue(a.get("ok"), a)
+        self.assertEqual(self._amend(pid, [0]).get("error"), "already_applied")
+
+    def test_a6_superseded_plan_refused_again(self):
+        pid = self._stage_two()
+        self.assertTrue(self._amend(pid, [0, 1]).get("ok"))
+        self.assertEqual(self._amend(pid, [0]).get("error"), "plan_superseded")
+
+    def test_a7_stage_failure_keeps_old_plan(self):
+        """留下的行 src 已消失 → stage_plan 复验拒(src_missing)→ 旧 plan 不动。"""
+        pid = self._stage_two()
+        os.remove(os.path.join(self.inbox, "卧室参考.jpg"))
+        r = self._amend(pid, [0])  # 留下标 1(已被删)
+        self.assertEqual(r.get("error"), "src_missing", r)
+        old = self._load_plan(pid)
+        self.assertFalse(old.get("superseded_at"))
+        self.assertFalse(old.get("superseded_by"))
+
+    def test_a8_superseded_blocked_from_approve_and_apply(self):
+        """废案在 ds_organize 两道闸也被拒:CLI ds-approve / MCP apply 都批不动。"""
+        pid = self._stage_two()
+        self.assertTrue(self._amend(pid, [0]).get("ok"))
+        self.assertEqual(ds_organize.approve_plan(pid, ds_root=self.ds).get("error"),
+                         "plan_superseded")
+        # 就算 approve 标记被绕过手工写上,apply 仍拒
+        marker = os.path.join(self.ds, "organize", "plans", f"plan_{pid}.approved")
+        _write(marker, "2026-07-18 00:00:00\n")
+        self.assertEqual(
+            ds_organize.apply_plan(pid, self.allowed, ds_root=self.ds).get("error"),
+            "plan_superseded")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

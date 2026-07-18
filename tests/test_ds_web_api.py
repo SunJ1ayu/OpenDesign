@@ -780,9 +780,8 @@ class TestRefsCharsetConvergence(unittest.TestCase):
         self.assertNotIn("refs/坏%图.jpg", [r["file"] for r in d["refs"]])
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
-
+# (main 在文件末尾——曾在此处,导致直跑本文件时下方 19 个针孔测试静默不执行,
+#  track opendesign-frontend-p1 T0 修正)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # track opendesign-clickable-actions — 两个新 POST 写针孔的契约 oracle。
@@ -990,3 +989,144 @@ class TestCreateProjectPinhole(unittest.TestCase):
             st, _ = _post_json(port, "/api/projects/create",
                                {"project": "X-5", "client": "李"}, host="evil.example")
         self.assertEqual(st, 403)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# track opendesign-frontend-p1 — 写针孔⑨ /api/projects/bind 的契约 oracle。
+# 主 agent 拥有,执行腿(Sonnet 5)off-limits。薄壳直调 ds_tools.bind_project
+# (名字闸/已发现文件夹两级匹配/原子写全在核心,test_ds_tools 已覆盖字段级行为),
+# 这里只钉针孔层:posture + 错误码映射 + 成功写映射。
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _mkws(ds_root: str, folders: list[str], depth: int = 1) -> str:
+    """临时工作区:01-项目/ 下建 folders(depth=2 时 folders 形如 "2026/夹名"),
+    并把 workspace.json 写进 ds_root/config。返回 ws 根。"""
+    ws = tempfile.mkdtemp(prefix="ds_web_bind_ws_")
+    for f in folders:
+        os.makedirs(os.path.join(ws, "01-项目", *f.split("/")))
+    cfg = {"root": ws, "projects": {}}
+    if depth == 2:
+        cfg["projectsDepth"] = 2
+    cfg_dir = os.path.join(ds_root, "config")
+    os.makedirs(cfg_dir, exist_ok=True)
+    with open(os.path.join(cfg_dir, "workspace.json"), "w", encoding="utf-8") as fh:
+        json.dump(cfg, fh, ensure_ascii=False)
+    return ws
+
+
+class TestBindProjectPinhole(unittest.TestCase):
+    """POST /api/projects/bind {project, folder} → ds_tools.bind_project。"""
+
+    def _ws_map(self, root):
+        with open(os.path.join(root, "config", "workspace.json"),
+                  encoding="utf-8") as fh:
+            return json.load(fh)["projects"]
+
+    def test_bind_happy_path_writes_mapping(self):
+        # 项目名与文件夹名对不上(token 也不命中)= 自动三级绑不上的真实场景
+        root = _mkroot({"翡翠湾-1801.md": PROJ_A})
+        _mkws(root, ["老宅翻新项目夹"])
+        with _serve(root) as port:
+            st, d = _post_json(port, "/api/projects/bind", {
+                "project": "翡翠湾-1801", "folder": "老宅翻新项目夹"})
+        self.assertEqual(st, 200, d)
+        self.assertTrue(d["ok"])
+        self.assertEqual(
+            self._ws_map(root)["翡翠湾-1801"].replace("\\", "/"),
+            "01-项目/老宅翻新项目夹")
+
+    def test_bind_ct_gate_rejects_and_no_write(self):
+        root = _mkroot({"翡翠湾-1801.md": PROJ_A})
+        _mkws(root, ["老宅翻新项目夹"])
+        with _serve(root) as port:
+            st, _ = _post_json(port, "/api/projects/bind",
+                               {"project": "翡翠湾-1801", "folder": "老宅翻新项目夹"},
+                               ctype="text/plain")
+        self.assertEqual(st, 400)
+        self.assertEqual(self._ws_map(root), {})
+
+    def test_bind_extra_key_rejected_no_write(self):
+        root = _mkroot({"翡翠湾-1801.md": PROJ_A})
+        _mkws(root, ["老宅翻新项目夹"])
+        with _serve(root) as port:
+            st, _ = _post_json(port, "/api/projects/bind", {
+                "project": "翡翠湾-1801", "folder": "老宅翻新项目夹",
+                "ds_root": "/etc"})
+        self.assertEqual(st, 400)
+        self.assertEqual(self._ws_map(root), {})
+
+    def test_bind_non_string_or_empty_rejected(self):
+        root = _mkroot({"翡翠湾-1801.md": PROJ_A})
+        _mkws(root, ["老宅翻新项目夹"])
+        with _serve(root) as port:
+            for body in ({"project": "", "folder": "老宅翻新项目夹"},
+                         {"project": "翡翠湾-1801", "folder": ""},
+                         {"project": 3, "folder": "老宅翻新项目夹"},
+                         {"project": "翡翠湾-1801", "folder": ["x"]},
+                         {"project": "翡翠湾-1801"},
+                         {"folder": "老宅翻新项目夹"}):
+                st, _ = _post_json(port, "/api/projects/bind", body)
+                self.assertEqual(st, 400, body)
+        self.assertEqual(self._ws_map(root), {})
+
+    def test_bind_project_not_found_404(self):
+        root = _mkroot({})
+        _mkws(root, ["老宅翻新项目夹"])
+        with _serve(root) as port:
+            st, d = _post_json(port, "/api/projects/bind", {
+                "project": "查无此档", "folder": "老宅翻新项目夹"})
+        self.assertEqual(st, 404)
+        self.assertEqual(d["error"], "project_not_found")
+
+    def test_bind_folder_not_found_404_with_candidates(self):
+        root = _mkroot({"翡翠湾-1801.md": PROJ_A})
+        _mkws(root, ["老宅翻新项目夹"])
+        with _serve(root) as port:
+            st, d = _post_json(port, "/api/projects/bind", {
+                "project": "翡翠湾-1801", "folder": "不存在的夹"})
+        self.assertEqual(st, 404)
+        self.assertEqual(d["error"], "folder_not_found")
+        # 候选名单透传(前端可提示;核心本就回传,针孔不剥)
+        self.assertIn("老宅翻新项目夹", d.get("folders", []))
+
+    def test_bind_folder_ambiguous_409(self):
+        # depth2:两个分组下同名夹,报纯名 → 撞名不猜
+        root = _mkroot({"翡翠湾-1801.md": PROJ_A})
+        _mkws(root, ["2025/同名夹", "2026/同名夹"], depth=2)
+        with _serve(root) as port:
+            st, d = _post_json(port, "/api/projects/bind", {
+                "project": "翡翠湾-1801", "folder": "同名夹"})
+        self.assertEqual(st, 409)
+        self.assertEqual(d["error"], "folder_ambiguous")
+        self.assertEqual(self._ws_map(root), {})
+
+    def test_bind_workspace_not_configured_409(self):
+        root = _mkroot({"翡翠湾-1801.md": PROJ_A})  # 不写 workspace.json
+        with _serve(root) as port:
+            st, d = _post_json(port, "/api/projects/bind", {
+                "project": "翡翠湾-1801", "folder": "老宅翻新项目夹"})
+        self.assertEqual(st, 409)
+        self.assertEqual(d["error"], "workspace_not_configured")
+
+    def test_bind_exact_match_and_405_invariant(self):
+        root = _mkroot({"翡翠湾-1801.md": PROJ_A})
+        _mkws(root, ["老宅翻新项目夹"])
+        with _serve(root) as port:
+            for p in ("/api/projects/bindx", "/api/projects/bind/",
+                      "/api/projects/bind/1"):
+                st, _ = _post_json(port, p, {"project": "x", "folder": "y"})
+                self.assertEqual(st, 405, f"{p} 应 405")
+        self.assertEqual(self._ws_map(root), {})
+
+    def test_bind_host_gate_inherited(self):
+        root = _mkroot({"翡翠湾-1801.md": PROJ_A})
+        _mkws(root, ["老宅翻新项目夹"])
+        with _serve(root) as port:
+            st, _ = _post_json(port, "/api/projects/bind",
+                               {"project": "翡翠湾-1801", "folder": "老宅翻新项目夹"},
+                               host="evil.example")
+        self.assertEqual(st, 403)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
