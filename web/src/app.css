@@ -372,6 +372,23 @@ html, body { overflow: auto; }
   border-color: var(--ink);
 }
 
+/* 「+ 记一条」快捷输入(track opendesign-clickable-actions T3):暖纸面输入行,
+   复用 .edit-text/.edit-note/.btn-save(todo-ux 已有样式,posture 一致)。 */
+.quick-add-change { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; }
+.quick-add-change .edit-text { flex: 1; min-width: 0; }
+.quick-add-change .qac-space { flex: none; width: 96px; min-width: 0; }
+
+/* 未建档「一键建档」小表单(T4):同一暖纸面输入,竖排在空态说明下方。 */
+.create-proj-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  max-width: 420px;
+}
+.create-proj-form .edit-text { flex: 1; min-width: 140px; }
+
 .change-scroll { flex: 1; overflow: auto; padding: 6px 28px 20px; }
 .change-row {
   position: relative;

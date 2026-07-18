@@ -408,6 +408,10 @@ export default function App() {
             changes={changes}
             error={changesErr}
             onEdited={() => setDataEpoch((n) => n + 1)}
+            onCreated={(key) => {
+              setSelectedKey(key);
+              setDataEpoch((n) => n + 1);
+            }}
             highlight={colHighlight}
           />
         )}
