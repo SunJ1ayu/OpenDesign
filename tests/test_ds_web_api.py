@@ -782,3 +782,202 @@ class TestRefsCharsetConvergence(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# track opendesign-clickable-actions — 两个新 POST 写针孔的契约 oracle。
+# 主 agent 拥有,执行腿(Sonnet 5)off-limits。二者均是只读墙上的受控开口,
+# posture 逐条同 /api/changes/edit:CT json 闸 → body≤OPEN_BODY_MAX → JSON dict
+# → 键白名单(多余键即拒,防夹带 ds_root/today 走私)→ 类型闸 → 复用 ds_tools 核心
+# → 错误码映射。精确匹配防走私;Host 闸 do_POST 入口继承;trace 不进响应体。
+# 核心函数(append_change/create_project)的字段级行为已由 test_ds_tools 覆盖,
+# 这里只钉"针孔层"。
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _post_json(port, path, body, ctype="application/json", method="POST", host=None):
+    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+    headers = {}
+    if ctype is not None:
+        headers["Content-Type"] = ctype
+    if host is not None:
+        headers["Host"] = host
+    data = None
+    if body is not None:
+        data = body if isinstance(body, (bytes, bytearray)) else \
+            json.dumps(body, ensure_ascii=False).encode("utf-8")
+    conn.request(method, path, body=data, headers=headers)
+    r = conn.getresponse()
+    b = r.read()
+    conn.close()
+    return r.status, (json.loads(b.decode("utf-8")) if b else None)
+
+
+class TestAddChangePinhole(unittest.TestCase):
+    """POST /api/changes/add {project, content, space?} → ds_tools.append_change。"""
+
+    def _root(self):
+        return _mkroot({"编辑历史项目.md": PROJ_HIST})
+
+    def _text(self, root):
+        with open(os.path.join(root, "projects", "编辑历史项目.md"),
+                  encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_add_happy_path(self):
+        root = self._root()
+        with _serve(root) as port:
+            st, d = _post_json(port, "/api/changes/add", {
+                "project": "编辑历史项目", "content": "主卧飘窗改榻榻米", "space": "主卧"})
+        self.assertEqual(st, 200)
+        self.assertTrue(d["ok"])
+        text = self._text(root)
+        # 新行:下一个 cnum(现存 C2/C5 → C6)、状态待确认、带空间前缀
+        self.assertIn("[待确认] C6", text)
+        self.assertIn("【主卧】主卧飘窗改榻榻米", text)
+
+    def test_add_space_optional(self):
+        root = self._root()
+        with _serve(root) as port:
+            st, d = _post_json(port, "/api/changes/add", {
+                "project": "编辑历史项目", "content": "无空间的一条"})
+        self.assertEqual(st, 200)
+        self.assertIn("C6 ", self._text(root))
+
+    def test_add_ct_gate_rejects_and_no_write(self):
+        root = self._root(); before = self._text(root)
+        with _serve(root) as port:
+            st, _ = _post_json(port, "/api/changes/add",
+                               {"project": "编辑历史项目", "content": "x"},
+                               ctype="text/plain")
+        self.assertEqual(st, 400)
+        self.assertEqual(self._text(root), before)
+
+    def test_add_body_too_large(self):
+        root = self._root()
+        big = (b'{"project":"\xe7\xbc\x96\xe8\xbe\x91\xe5\x8e\x86\xe5\x8f\xb2'
+               b'\xe9\xa1\xb9\xe7\x9b\xae","content":"' + b'x' * 5000 + b'"}')
+        with _serve(root) as port:
+            st, _ = _post_json(port, "/api/changes/add", big)
+        self.assertEqual(st, 400)
+
+    def test_add_extra_key_rejected_no_write(self):
+        root = self._root(); before = self._text(root)
+        with _serve(root) as port:
+            st, _ = _post_json(port, "/api/changes/add", {
+                "project": "编辑历史项目", "content": "x", "ds_root": "/etc"})
+        self.assertEqual(st, 400)
+        self.assertEqual(self._text(root), before)
+
+    def test_add_empty_content_400(self):
+        root = self._root()
+        with _serve(root) as port:
+            st, d = _post_json(port, "/api/changes/add", {
+                "project": "编辑历史项目", "content": "   "})
+        self.assertEqual(st, 400)
+        self.assertEqual(d["error"], "empty_content")
+
+    def test_add_project_not_found_404(self):
+        root = self._root()
+        with _serve(root) as port:
+            st, d = _post_json(port, "/api/changes/add", {
+                "project": "查无此项目", "content": "x"})
+        self.assertEqual(st, 404)
+        self.assertEqual(d["error"], "project_not_found")
+
+    def test_add_exact_match_and_405_invariant(self):
+        root = self._root(); before = self._text(root)
+        payload = {"project": "编辑历史项目", "content": "x"}
+        with _serve(root) as port:
+            for p in ("/api/changes/addx", "/api/changes/add/", "/api/changes/add/1"):
+                st, _ = _post_json(port, p, payload)
+                self.assertEqual(st, 405, f"{p} 应 405")
+        self.assertEqual(self._text(root), before)
+
+    def test_add_host_gate_inherited(self):
+        root = self._root()
+        with _serve(root) as port:
+            st, _ = _post_json(port, "/api/changes/add",
+                               {"project": "编辑历史项目", "content": "x"},
+                               host="evil.example")
+        self.assertEqual(st, 403)
+
+
+class TestCreateProjectPinhole(unittest.TestCase):
+    """POST /api/projects/create {project, client, stage?, address?} → ds_tools.create_project。"""
+
+    def _exists(self, root, name):
+        return os.path.exists(os.path.join(root, "projects", f"{name}.md"))
+
+    def test_create_happy_path(self):
+        root = _mkroot({})
+        with _serve(root) as port:
+            st, d = _post_json(port, "/api/projects/create", {
+                "project": "翠湖天地-1201", "client": "陈先生"})
+        self.assertEqual(st, 200)
+        self.assertTrue(d["ok"])
+        self.assertEqual(d["project"], "翠湖天地-1201")
+        self.assertTrue(self._exists(root, "翠湖天地-1201"))
+
+    def test_create_ct_gate_rejects_and_no_write(self):
+        root = _mkroot({})
+        with _serve(root) as port:
+            st, _ = _post_json(port, "/api/projects/create",
+                               {"project": "X-1", "client": "李"}, ctype="text/plain")
+        self.assertEqual(st, 400)
+        self.assertFalse(self._exists(root, "X-1"))
+
+    def test_create_body_too_large(self):
+        root = _mkroot({})
+        big = b'{"project":"X","client":"' + b'y' * 5000 + b'"}'
+        with _serve(root) as port:
+            st, _ = _post_json(port, "/api/projects/create", big)
+        self.assertEqual(st, 400)
+
+    def test_create_extra_key_rejected_no_write(self):
+        root = _mkroot({})
+        with _serve(root) as port:
+            st, _ = _post_json(port, "/api/projects/create", {
+                "project": "X-2", "client": "李", "ds_root": "/etc"})
+        self.assertEqual(st, 400)
+        self.assertFalse(self._exists(root, "X-2"))
+
+    def test_create_missing_client_400(self):
+        # create_project 要求 client 非空 → empty_name
+        root = _mkroot({})
+        with _serve(root) as port:
+            st, d = _post_json(port, "/api/projects/create", {"project": "X-3", "client": "  "})
+        self.assertEqual(st, 400)
+        self.assertEqual(d["error"], "empty_name")
+        self.assertFalse(self._exists(root, "X-3"))
+
+    def test_create_bad_stage_400(self):
+        root = _mkroot({})
+        with _serve(root) as port:
+            st, d = _post_json(port, "/api/projects/create", {
+                "project": "X-4", "client": "李", "stage": "不存在的阶段"})
+        self.assertEqual(st, 400)
+        self.assertEqual(d["error"], "bad_stage")
+
+    def test_create_duplicate_409(self):
+        root = _mkroot({"已有项目.md": PROJ_HIST})
+        with _serve(root) as port:
+            st, d = _post_json(port, "/api/projects/create", {
+                "project": "已有项目", "client": "李"})
+        self.assertEqual(st, 409)
+        self.assertEqual(d["error"], "project_exists")
+
+    def test_create_exact_match_and_405_invariant(self):
+        root = _mkroot({})
+        payload = {"project": "X-9", "client": "李"}
+        with _serve(root) as port:
+            for p in ("/api/projects/createx", "/api/projects/create/", "/api/projects"):
+                st, _ = _post_json(port, p, payload)
+                self.assertEqual(st, 405, f"{p} 应 405")
+        self.assertFalse(self._exists(root, "X-9"))
+
+    def test_create_host_gate_inherited(self):
+        root = _mkroot({})
+        with _serve(root) as port:
+            st, _ = _post_json(port, "/api/projects/create",
+                               {"project": "X-5", "client": "李"}, host="evil.example")
+        self.assertEqual(st, 403)
