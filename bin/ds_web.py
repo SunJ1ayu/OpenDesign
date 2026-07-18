@@ -59,7 +59,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.26.0"  # adoption:采纳引擎 v1(adopt_workspace 只读盘点 + stage_adoption 散文件暂存,plan 上既有确认卡片)
+VERSION = "0.27.0"  # gallery-albums:图墙扫描深度可配(默认放深 6)+ 按集合文件夹分相册(封面→点开)
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -486,21 +486,21 @@ class Handler(BaseHTTPRequestHandler):
     # ── P5 文件工作区 ────────────────────────────────────────────────────────
 
     def _ws_proj(self, key: str):
-        """(状态, 项目夹) —— 状态 ∈ badkey/unconfigured/unmapped/ok。
+        """(状态, 项目夹, 扫描深度) —— 状态 ∈ badkey/unconfigured/unmapped/ok。
         配置每请求现读(零缓存,与 /api/todos 同哲学,改 json 即生效)。"""
         if not _valid_proj_key(key):
-            return "badkey", None
+            return "badkey", None, ds_workspace.DEFAULT_MAX_DEPTH
         cfg = ds_workspace.load_config(self.server.ds_root)
         if cfg is None:
-            return "unconfigured", None
+            return "unconfigured", None, ds_workspace.DEFAULT_MAX_DEPTH
         pd = ds_workspace.project_dir(cfg, key)
         if pd is None:
-            return "unmapped", None
-        return "ok", pd
+            return "unmapped", None, cfg["galleryDepth"]
+        return "ok", pd, cfg["galleryDepth"]
 
     def _files_meta(self, key: str, kind: str):
         """overview / images 共用外壳:降级态诚实回 JSON,不 404 糊弄前端。"""
-        status, pd = self._ws_proj(key)
+        status, pd, depth = self._ws_proj(key)
         if status == "badkey":
             self._json(404, {"error": "not found"})
             return
@@ -512,9 +512,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             if kind == "overview":
-                data = ds_workspace.overview(pd)
+                data = ds_workspace.overview(pd, max_depth=depth)
             else:
-                data = {"images": ds_workspace.images(pd)}
+                data = {"images": ds_workspace.images(pd, max_depth=depth)}
         except Exception:
             traceback.print_exc()
             self._json(500, {"error": "internal"})
@@ -524,7 +524,7 @@ class Handler(BaseHTTPRequestHandler):
     def _files_file(self, key: str, rel: str):
         """项目图片静态服务。三闸同 _refs_file 先例(Gate A relpath_ok → Gate B realpath
         within(项目夹) → Gate C 图片扩展白名单),外加 key 必须已映射;404 不回显路径。"""
-        status, pd = self._ws_proj(key)
+        status, pd, depth = self._ws_proj(key)
         if status != "ok" or not ds_workspace.relpath_ok(rel):
             self._json(404, {"error": "not found"})
             return
@@ -571,7 +571,7 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(key, str) or not key:
             self._json(400, {"error": "bad request"})
             return
-        status, pd = self._ws_proj(key)
+        status, pd, depth = self._ws_proj(key)
         if status != "ok":
             self._json(404, {"error": "not found"})
             return

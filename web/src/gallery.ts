@@ -58,6 +58,50 @@ export function buildGallery(
   return [...a, ...b];
 }
 
+// 相册 = 一个"集合文件夹"(一套效果图/一个参考库),封面 + 展开看全部。
+export type Album = {
+  key: string; // "参考图库" | ws 图父文件夹路径(如 "05-3DMAX/客厅")| ""(根散图)
+  label: string; // 展示名:父夹末段;根散图="未分类";refs="参考图库"
+  group: string; // 来源(顶层类目 / REF_GROUP)
+  cover: GalleryItem; // 册内首项(refs 按索引序、ws 按 mtime 降序 → 最新)
+  items: GalleryItem[];
+  count: number;
+};
+
+/** 把(已排序、通常已筛选的)图墙条目按集合文件夹分册。
+ *  refs 收一册「参考图库」;工作区图按其父文件夹各成一册;根散图归「未分类」。
+ *  封面=册内首项;册序=首现序(稳定)。纯函数,进 mjs oracle。 */
+export function groupAlbums(items: GalleryItem[]): Album[] {
+  const order: string[] = [];
+  const byKey = new Map<string, Album>();
+  for (const it of items) {
+    let key: string;
+    let label: string;
+    let group: string;
+    if (it.id.startsWith("ref:")) {
+      key = REF_GROUP;
+      label = REF_GROUP;
+      group = REF_GROUP;
+    } else {
+      const rel = it.id.slice(3); // "ws:" 前缀固定 3 字符
+      const slash = rel.lastIndexOf("/");
+      key = slash < 0 ? "" : rel.slice(0, slash);
+      const seg = key.lastIndexOf("/");
+      label = key === "" ? "未分类" : key.slice(seg + 1);
+      group = it.group;
+    }
+    let a = byKey.get(key);
+    if (!a) {
+      a = { key, label, group, cover: it, items: [], count: 0 };
+      byKey.set(key, a);
+      order.push(key);
+    }
+    a.items.push(it);
+    a.count += 1;
+  }
+  return order.map((k) => byKey.get(k) as Album);
+}
+
 export type GalleryFilter = {
   group: string | null;
   space: string | null;

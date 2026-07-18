@@ -6,6 +6,7 @@ import {
   buildGallery,
   galleryFacets,
   filterGallery,
+  groupAlbums,
   refLabel,
   REF_GROUP,
 } from "../web/src/gallery.ts";
@@ -80,4 +81,43 @@ test("filterGallery:三维 AND;空筛选=全量", () => {
 test("filterGallery/facets:空输入不崩", () => {
   assert.deepEqual(buildGallery("k", [], []), []);
   assert.deepEqual(galleryFacets([]), { groups: [], spaces: [], styles: [] });
+});
+
+test("groupAlbums:refs 归一册,ws 图按父文件夹分册,册序=首现序", () => {
+  const albums = groupAlbums(buildGallery("k", REFS, IMGS));
+  assert.deepEqual(
+    albums.map((a) => [a.key, a.label, a.count]),
+    [
+      ["参考图库", "参考图库", 2],       // 两条 ref 收一册
+      ["02-参考图", "02-参考图", 1],     // 直接摆类目下(单段)
+      ["06-效果图/定稿", "定稿", 1],     // 册名=父夹末段
+      ["06-效果图", "06-效果图", 1],     // 类目根下的散图独立成册
+    ],
+  );
+});
+
+test("groupAlbums:封面=册内首项(最新);count/items 一致", () => {
+  const imgs = [
+    { rel: "05-3DMAX/客厅/a.png", category: "05-3DMAX", mtime: 100 },
+    { rel: "05-3DMAX/客厅/b.png", category: "05-3DMAX", mtime: 200 },
+  ];
+  const albums = groupAlbums(buildGallery("k", [], imgs));
+  assert.equal(albums.length, 1);
+  const [客厅] = albums;
+  assert.equal(客厅.label, "客厅");
+  assert.equal(客厅.count, 2);
+  assert.equal(客厅.cover.id, "ws:05-3DMAX/客厅/b.png"); // mtime 200 更新=封面
+  assert.deepEqual(客厅.items.map((i) => i.id), [
+    "ws:05-3DMAX/客厅/b.png",
+    "ws:05-3DMAX/客厅/a.png",
+  ]);
+  assert.equal(客厅.group, "05-3DMAX"); // 来源=顶层类目
+});
+
+test("groupAlbums:项目根散图归「未分类」;空输入=空", () => {
+  const albums = groupAlbums(
+    buildGallery("k", [], [{ rel: "封面.png", category: "", mtime: 1 }]),
+  );
+  assert.deepEqual(albums.map((a) => [a.key, a.label]), [["", "未分类"]]);
+  assert.deepEqual(groupAlbums([]), []);
 });

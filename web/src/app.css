@@ -1544,6 +1544,36 @@ html, body { overflow: auto; }
   color: var(--ink-5);
 }
 
+/* 相册:封面右上角张数角标 + 返回条 */
+.g-cell { position: relative; }
+.g-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: rgba(30, 26, 22, 0.72);
+  color: #f3ede2;
+  font-size: 11px;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.g-back {
+  margin: 10px 0 0;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--ink-3);
+  background: none;
+  border: 1px solid var(--border-main);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color var(--hover-ease);
+}
+.g-back:hover { border-color: var(--terra); }
+
 /* lightbox:点图放大,点任意处/Esc 关 */
 .g-light {
   position: fixed;

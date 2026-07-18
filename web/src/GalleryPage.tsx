@@ -5,15 +5,16 @@ import {
   buildGallery,
   filterGallery,
   galleryFacets,
+  groupAlbums,
   REF_GROUP,
   type GalleryFilter,
   type GalleryItem,
   type WsImage,
 } from "./gallery";
 
-// 图墙(P5 T5,一等面):refs 索引(空间/风格标签)∪ 工作区项目图片(按类目)。
-// 纯展示层——合并/facets/筛选逻辑全在 gallery.ts(mjs oracle 覆盖);
-// lightbox 直出原图(v1 无缩略图,proposal 非目标)。
+// 图墙(P5 T5,一等面):refs 索引(空间/风格标签)∪ 工作区项目图片。
+// 两层:相册墙(每个集合文件夹一张封面)→ 点开看该册全部图 → 点图 lightbox。
+// 合并/facets/筛选/分册逻辑全在 gallery.ts(mjs oracle);此处纯展示。
 
 type Props = { project: Project | null };
 
@@ -51,6 +52,7 @@ export default function GalleryPage({ project }: Props) {
   const [refs, setRefs] = useState<Ref[] | null>(null);
   const [images, setImages] = useState<WsImage[] | null>(null);
   const [filter, setFilter] = useState<GalleryFilter>(EMPTY);
+  const [openAlbum, setOpenAlbum] = useState<string | null>(null);
   const [zoom, setZoom] = useState<GalleryItem | null>(null);
 
   const key = project?.key ?? null;
@@ -59,6 +61,7 @@ export default function GalleryPage({ project }: Props) {
     setRefs(null);
     setImages(null);
     setFilter(EMPTY);
+    setOpenAlbum(null);
     setZoom(null);
     if (!key) return;
     let stale = false;
@@ -73,13 +76,19 @@ export default function GalleryPage({ project }: Props) {
     };
   }, [key]);
 
-  // esc 关 lightbox
+  // 改筛选回到相册墙(避免停在一个筛掉后不存在的册)
+  useEffect(() => setOpenAlbum(null), [filter]);
+
+  // esc:先关 lightbox,否则退出当前相册
   useEffect(() => {
-    if (!zoom) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setZoom(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (zoom) setZoom(null);
+      else if (openAlbum) setOpenAlbum(null);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [zoom]);
+  }, [zoom, openAlbum]);
 
   const items = useMemo(
     () => (key ? buildGallery(key, refs ?? [], images ?? []) : []),
@@ -87,6 +96,8 @@ export default function GalleryPage({ project }: Props) {
   );
   const facets = useMemo(() => galleryFacets(items), [items]);
   const shown = useMemo(() => filterGallery(items, filter), [items, filter]);
+  const albums = useMemo(() => groupAlbums(shown), [shown]);
+  const current = openAlbum ? albums.find((a) => a.key === openAlbum) ?? null : null;
   const loading = key !== null && (refs === null || images === null);
 
   if (!project) {
@@ -102,7 +113,11 @@ export default function GalleryPage({ project }: Props) {
       <header className="page-head">
         <h2 className="serif">图墙 · {project.name}</h2>
         <span className="g-dim">
-          {loading ? "读取中…" : `${shown.length} / ${items.length} 张`}
+          {loading
+            ? "读取中…"
+            : current
+              ? `${current.label} · ${current.count} 张`
+              : `${albums.length} 组 · ${shown.length} 张`}
         </span>
         <span className="grow" />
         <button
@@ -133,6 +148,12 @@ export default function GalleryPage({ project }: Props) {
         onPick={(v) => setFilter((f) => ({ ...f, style: v }))}
       />
 
+      {current && (
+        <button className="g-back" onClick={() => setOpenAlbum(null)}>
+          ← 返回相册 · {current.group === REF_GROUP ? "参考" : current.group}
+        </button>
+      )}
+
       {!loading && items.length === 0 ? (
         <div className="aside-empty" style={{ marginTop: 18 }}>
           还没有图片。参考图在对话里发图登记;项目文件夹里的图片会自动出现在这里。
@@ -141,14 +162,31 @@ export default function GalleryPage({ project }: Props) {
         <div className="aside-empty" style={{ marginTop: 18 }}>
           这个筛选组合下没有图(工作区图片没有空间/风格标签)。
         </div>
-      ) : (
+      ) : current ? (
         <div className="g-wall">
-          {shown.map((it) => (
+          {current.items.map((it) => (
             <button className="g-cell" key={it.id} title={it.label} onClick={() => setZoom(it)}>
               <img src={it.url} alt={it.label} loading="lazy" />
               <span className="g-cap">
                 <span className="l">{it.label}</span>
-                <span className="g">{it.group === REF_GROUP ? "参考" : it.group}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="g-wall">
+          {albums.map((a) => (
+            <button
+              className="g-cell"
+              key={a.key || "未分类"}
+              title={a.label}
+              onClick={() => (a.count > 1 ? setOpenAlbum(a.key) : setZoom(a.cover))}
+            >
+              <img src={a.cover.url} alt={a.label} loading="lazy" />
+              {a.count > 1 && <span className="g-badge">{a.count}</span>}
+              <span className="g-cap">
+                <span className="l">{a.label}</span>
+                <span className="g">{a.group === REF_GROUP ? "参考" : a.group}</span>
               </span>
             </button>
           ))}

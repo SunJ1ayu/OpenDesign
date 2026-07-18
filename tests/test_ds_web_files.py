@@ -48,6 +48,8 @@ def _mkroot(with_config=True) -> str:
     _touch(os.path.join(proj, "02-参考图", "客厅参考.png"), PNG)
     _touch(os.path.join(proj, "03-CAD", "平面.dwg"))
     _touch(os.path.join(proj, "06-效果图", "定稿", "客厅终版.png"), PNG)
+    # 项目根起第 5 层:老默认(4)会截断,新默认(6)经 ds_web 透传 max_depth 应服务
+    _touch(os.path.join(proj, "01-资料", "a", "b", "c", "深图.png"), PNG)
     _touch(os.path.join(proj, "06-效果图", "notes.txt"))
     # 工作区外的敏感文件(逃逸目标)
     _touch(os.path.join(d, "secret", "密.png"), PNG)
@@ -114,8 +116,8 @@ class OverviewTest(unittest.TestCase):
             self.assertTrue(obj["configured"])
             self.assertTrue(obj["mapped"])
             cats = {c["name"]: c["count"] for c in obj["categories"]}
-            self.assertEqual({"02-参考图": 1, "03-CAD": 1, "06-效果图": 2}, cats)
-            self.assertEqual(4, len(obj["recent"]))
+            self.assertEqual({"01-资料": 1, "02-参考图": 1, "03-CAD": 1, "06-效果图": 2}, cats)
+            self.assertEqual(5, len(obj["recent"]))
             self.assertTrue(all(set(r) >= {"name", "category", "mtime", "size"}
                                 for r in obj["recent"]))
 
@@ -143,9 +145,9 @@ class ImagesTest(unittest.TestCase):
             st, obj = _get_json(port, f"/api/files/images/{_k(KEY)}")
             self.assertEqual(200, st)
             rels = [i["rel"] for i in obj["images"]]
-            self.assertEqual(["02-参考图/客厅参考.png", "06-效果图/定稿/客厅终版.png"],
-                             rels)
-            self.assertEqual("02-参考图", obj["images"][0]["category"])
+            self.assertEqual(["01-资料/a/b/c/深图.png", "02-参考图/客厅参考.png",
+                              "06-效果图/定稿/客厅终版.png"], rels)  # 深图=新默认深度经 ds_web 服务
+            self.assertEqual("01-资料", obj["images"][0]["category"])
 
     def test_unconfigured(self):
         with _serve(_mkroot(with_config=False)) as (port, _):

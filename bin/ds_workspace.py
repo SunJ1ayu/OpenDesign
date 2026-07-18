@@ -23,7 +23,8 @@ import ds_common
 CONFIG_REL = os.path.join("config", "workspace.json")
 # 图片扩展白名单(与 ds_web 参考图 Gate C 同集合;svg 排除=直开可执行脚本)
 IMG_EXTS = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif"})
-MAX_DEPTH = 4           # 相对项目根的最大路径段数(类目算 1 段)
+DEFAULT_MAX_DEPTH = 6   # 相对项目根的最大路径段数(类目算 1 段);可经 workspace.json galleryDepth 覆盖
+DEPTH_MIN, DEPTH_MAX = 2, 8  # galleryDepth 钳位区间
 MAX_PER_CAT = 2000      # 每类目扫描上限
 # ── 单段/路径名闸 Gate A(M2 v2,07-14:字符白名单 → 危险字符黑名单)────────────
 # 单段文件/目录名 + 项目名 + 参考图相对路径的单一真相源。老版是字符白名单
@@ -82,11 +83,19 @@ def load_config(ds_root: str):
         depth = 1
     elif isinstance(depth, bool) or not isinstance(depth, int) or depth not in (1, 2):
         return None
+    # 可选:galleryDepth(图墙/文件区扫描深度)。与 projectsDepth 的严格不同——
+    # 这是纯 display 旋钮(不参与项目解析/安全),坏值不该让整份配置下线:
+    # 合法非 bool int 钳到 [DEPTH_MIN, DEPTH_MAX],缺失/坏类型回落 DEFAULT_MAX_DEPTH。
+    gd = raw.get("galleryDepth")
+    if isinstance(gd, bool) or not isinstance(gd, int):
+        gallery_depth = DEFAULT_MAX_DEPTH
+    else:
+        gallery_depth = max(DEPTH_MIN, min(DEPTH_MAX, gd))
     root = os.path.realpath(root)
     if not os.path.isdir(root):
         return None
     return {"root": root, "projects": projects, "projectsDir": projects_dir,
-            "projectsDepth": depth}
+            "projectsDepth": depth, "galleryDepth": gallery_depth}
 
 
 def project_dir(cfg, key: str):
@@ -174,10 +183,10 @@ def project_folders(cfg):
     return out
 
 
-def _scan(proj_dir: str, max_per_cat: int):
+def _scan(proj_dir: str, max_per_cat: int, max_depth: int = DEFAULT_MAX_DEPTH):
     """单次遍历:{类目名: {"files": [(rel_posix, name, mtime, size)], "capped": bool}}。
     类目 = 项目夹下一级目录;顶层散文件归 ""。点号开头的目录/文件跳过;
-    深度(相对项目根的路径段数)> MAX_DEPTH 不进。
+    深度(相对项目根的路径段数)> max_depth 不进。
     读盘 OSError(权限/竞态删除)= 该目录/文件静默跳过,部分结果照常返回——
     只读视图宁缺勿炸,与 ds_web 500 自愈哲学一致。"""
     cats = {}
@@ -196,7 +205,7 @@ def _scan(proj_dir: str, max_per_cat: int):
         if ent.is_file(follow_symlinks=False):
             _add(bucket(""), "", ent, max_per_cat)
         elif ent.is_dir(follow_symlinks=False):
-            _walk_cat(bucket(ent.name), ent.name, ent.path, 1, max_per_cat)
+            _walk_cat(bucket(ent.name), ent.name, ent.path, 1, max_per_cat, max_depth)
     return cats
 
 
@@ -214,7 +223,7 @@ def _add(cat, rel_dir, ent, max_per_cat):
     cat["files"].append((rel, ent.name, int(st.st_mtime), st.st_size))
 
 
-def _walk_cat(cat, rel_dir, abs_dir, depth, max_per_cat):
+def _walk_cat(cat, rel_dir, abs_dir, depth, max_per_cat, max_depth):
     try:
         entries = sorted(os.scandir(abs_dir), key=lambda e: e.name)
     except OSError:
@@ -223,20 +232,21 @@ def _walk_cat(cat, rel_dir, abs_dir, depth, max_per_cat):
         if ent.name.startswith(".") or not _SEG_RE.match(ent.name):  # 字符集闸(M2)
             continue
         if ent.is_file(follow_symlinks=False):
-            if depth + 1 <= MAX_DEPTH:
+            if depth + 1 <= max_depth:
                 _add(cat, rel_dir, ent, max_per_cat)
-        elif ent.is_dir(follow_symlinks=False) and depth + 1 < MAX_DEPTH:
+        elif ent.is_dir(follow_symlinks=False) and depth + 1 < max_depth:
             _walk_cat(cat, posixpath.join(rel_dir, ent.name), ent.path,
-                      depth + 1, max_per_cat)
+                      depth + 1, max_per_cat, max_depth)
         if cat["capped"]:
             return
 
 
-def overview(proj_dir: str, recent_n: int = 8, max_per_cat: int = MAX_PER_CAT):
+def overview(proj_dir: str, recent_n: int = 8, max_per_cat: int = MAX_PER_CAT,
+             max_depth: int = DEFAULT_MAX_DEPTH):
     """{"categories": [{"name","count","capped","latest_mtime"}...(按名序;
     latest_mtime=类目最新文件 mtime,capped 时 None)],
     "recent": [{"name","category","mtime","size"}...(mtime 降序,前 recent_n)]}"""
-    cats = _scan(proj_dir, max_per_cat)
+    cats = _scan(proj_dir, max_per_cat, max_depth)
     # latest_mtime=类目活跃度(cockpit);capped 时名序截断后 max 不可信 → None 宁缺勿假
     categories = [{"name": name, "count": len(c["files"]), "capped": c["capped"],
                    "latest_mtime": (max(f[2] for f in c["files"])
@@ -251,9 +261,10 @@ def overview(proj_dir: str, recent_n: int = 8, max_per_cat: int = MAX_PER_CAT):
     return {"categories": categories, "recent": recent}
 
 
-def images(proj_dir: str, max_per_cat: int = MAX_PER_CAT):
+def images(proj_dir: str, max_per_cat: int = MAX_PER_CAT,
+           max_depth: int = DEFAULT_MAX_DEPTH):
     """[{"rel","category","mtime"}...(rel 名序)] —— 扩展白名单内的图片。"""
-    cats = _scan(proj_dir, max_per_cat)
+    cats = _scan(proj_dir, max_per_cat, max_depth)
     out = []
     for cat_name, c in cats.items():
         for rel, _name, mtime, _size in c["files"]:

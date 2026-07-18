@@ -71,6 +71,36 @@ class LoadConfigTest(unittest.TestCase):
             self.assertIsNotNone(cfg)
             self.assertEqual(os.path.realpath(ws_root), cfg["root"])
             self.assertEqual({KEY: PROJ_REL}, cfg["projects"])
+            # galleryDepth 缺省 = DEFAULT_MAX_DEPTH
+            self.assertEqual(ds_workspace.DEFAULT_MAX_DEPTH, cfg["galleryDepth"])
+
+    def _cfg_with(self, tmp, **extra):
+        os.makedirs(os.path.join(tmp, "config"))
+        with open(os.path.join(tmp, "config", "workspace.json"), "w",
+                  encoding="utf-8") as fh:
+            json.dump({"root": tmp, "projects": {}, **extra}, fh)
+        return ds_workspace.load_config(tmp)
+
+    def test_gallery_depth_valid(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(5, self._cfg_with(tmp, galleryDepth=5)["galleryDepth"])
+
+    def test_gallery_depth_clamped(self):
+        # display 旋钮:越界钳到 [2,8],不整体下线
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(8, self._cfg_with(tmp, galleryDepth=99)["galleryDepth"])
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(2, self._cfg_with(tmp, galleryDepth=1)["galleryDepth"])
+
+    def test_gallery_depth_bad_type_falls_back(self):
+        # 坏类型(bool/字符串)回落默认,配置不整体下线(区别于 projectsDepth 的严格)
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = self._cfg_with(tmp, galleryDepth="x")
+            self.assertIsNotNone(cfg)
+            self.assertEqual(ds_workspace.DEFAULT_MAX_DEPTH, cfg["galleryDepth"])
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = self._cfg_with(tmp, galleryDepth=True)
+            self.assertEqual(ds_workspace.DEFAULT_MAX_DEPTH, cfg["galleryDepth"])
 
     def test_missing_file(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -151,13 +181,28 @@ class OverviewTest(unittest.TestCase):
             cats = {c["name"]: c for c in ov["categories"]}
             # .opendesign 不是类目;散文件归 ""(未分类)
             self.assertNotIn(".opendesign", cats)
-            self.assertEqual(2, cats["01-资料"]["count"])  # 深度超限的太深.jpg 不计
+            self.assertEqual(3, cats["01-资料"]["count"])  # 默认深度 6:太深.jpg(第5层)已计入
             self.assertEqual(1, cats["02-参考图"]["count"])
             self.assertEqual(1, cats["03-CAD"]["count"])
             self.assertEqual(2, cats["06-效果图"]["count"])
             self.assertEqual(1, cats[""]["count"])
             names = [c["name"] for c in ov["categories"]]
             self.assertEqual(sorted(names), names)  # 类目名序稳定
+
+    def test_depth_param(self):
+        # 可配深度:太深.jpg 在项目根起第 5 层。max_depth=4 截断、=6(默认)收入。
+        with tempfile.TemporaryDirectory() as tmp:
+            proj = self._proj(tmp)
+            shallow = ds_workspace.overview(proj, max_depth=4)
+            cats4 = {c["name"]: c for c in shallow["categories"]}
+            self.assertEqual(2, cats4["01-资料"]["count"])   # 太深.jpg 不计
+            deep = ds_workspace.overview(proj, max_depth=6)
+            cats6 = {c["name"]: c for c in deep["categories"]}
+            self.assertEqual(3, cats6["01-资料"]["count"])   # 太深.jpg 计入
+            rels4 = {i["rel"] for i in ds_workspace.images(proj, max_depth=4)}
+            self.assertNotIn("01-资料/a/b/c/太深.jpg", rels4)
+            rels6 = {i["rel"] for i in ds_workspace.images(proj, max_depth=6)}
+            self.assertIn("01-资料/a/b/c/太深.jpg", rels6)
 
     def test_recent_order_and_limit(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -224,8 +269,8 @@ class ImagesTest(unittest.TestCase):
             imgs = ds_workspace.images(proj)
             rels = sorted(i["rel"] for i in imgs)
             self.assertEqual(
-                ["01-资料/量房/IMG_001.jpg", "02-参考图/客厅参考.jpg",
-                 "06-效果图/定稿/客厅终版.png"], rels)
+                ["01-资料/a/b/c/太深.jpg", "01-资料/量房/IMG_001.jpg",
+                 "02-参考图/客厅参考.jpg", "06-效果图/定稿/客厅终版.png"], rels)  # 默认深度 6
             by_rel = {i["rel"]: i for i in imgs}
             self.assertEqual("02-参考图", by_rel["02-参考图/客厅参考.jpg"]["category"])
             for i in imgs:
