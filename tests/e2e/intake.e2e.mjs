@@ -8,7 +8,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchBrowser, check } from "./helpers.mjs";
+import { launchBrowser, check, expandInbox } from "./helpers.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PORT = 8792;
@@ -84,6 +84,7 @@ try {
   // ① 进工作区路由 → 收件箱卡片:3 条目 + 确定性建议
   await page.locator(`.proj-list .proj-row:has-text("${proj}")`).first().click();
   await page.locator(".inbox-card").waitFor({ timeout: 10000 });
+  await expandInbox(page); // v4 起默认收成摘要行,两态兼容
   const card = await page.locator(".inbox-card").innerText();
   check(card.includes("翡翠湾玄关参考.png"), "收件箱:图片条目上屏");
   check(card.includes("→ 参考图"), "收件箱:图片建议=参考图(入口约定)");
@@ -95,6 +96,8 @@ try {
   check(staged.ok === true, "核心 stage 成功(零改动)");
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.locator(`.proj-list .proj-row:has-text("${proj}")`).first().click();
+  await page.locator(".inbox-card").waitFor({ timeout: 10000 });
+  await expandInbox(page);
   await page.locator(".inbox-plan").waitFor({ timeout: 10000 });
   const plan = await page.locator(".inbox-plan").innerText();
   check(plan.includes("参考图库"), "预览:参考图 → 共享参考图库");
@@ -113,6 +116,7 @@ try {
   const audit = readFileSync(join(dsRoot, "organize", "audit.log"), "utf-8");
   check(audit.includes(staged.plan_id), "audit.log 记录了本次执行");
   // 未认领的神秘文件还在箱里,卡片仍显示
+  await expandInbox(page);
   const after = await page.locator(".inbox-card").innerText();
   check(after.includes("神秘文件.xyz"), "未认领文件仍在卡片");
 } catch (e) {

@@ -9,7 +9,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchBrowser, check } from "./helpers.mjs";
+import { launchBrowser, check, expandInbox } from "./helpers.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PORT = 8793;
@@ -119,6 +119,8 @@ try {
   check(staged.ok === true, "核心 stage 成功(2 项)");
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.locator(`.proj-list .proj-row:has-text("${projA}")`).first().click();
+  await page.locator(".inbox-card").waitFor({ timeout: 10000 });
+  await expandInbox(page); // v4 起默认收成摘要行,两态兼容
   await page.locator(".inbox-plan").waitFor({ timeout: 10000 });
   check((await page.locator(".inbox-plan .plan-row").count()) === 2, "方案预览 2 行");
   await page.locator('.inbox-plan .plan-row:has-text("翡翠湾玄关参考.png") .skip-btn').click();

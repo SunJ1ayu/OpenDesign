@@ -66,12 +66,15 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await page.goto(base, { waitUntil: "domcontentloaded" });
 
-  // ① 侧栏点开项目 → 驾驶舱速览块:阶段/业主/当前状态/相对时间
+  // ① 侧栏点开项目 → 阶段 chip + 当前状态可见。
+  // v4 质感收口(frontend-p2-polish)把阶段 chip 从速览块挪到中央列标题旁、删业主行,
+  // 此处按"改前改后都绿"中性化:阶段在速览或中央列头任一处即可;业主断言删除
+  // (严格版落点断言在 frontend_p2_polish.e2e.mjs);当前状态留在伴随列。
   await page.locator(`.proj-list .proj-row:has-text("${proj}")`).first().click();
   await page.locator(".cockpit-brief").waitFor({ timeout: 10000 });
   const brief = await page.locator(".cockpit-brief").innerText();
-  check(brief.includes("施工跟进"), "速览:阶段 chip");
-  check(brief.includes("李四"), "速览:业主已剥 [[ ]]");
+  const centerHead = await page.locator(".center-head").innerText().catch(() => "");
+  check((brief + centerHead).includes("施工跟进"), "阶段 chip 可见(速览或中央列头)");
   check(brief.includes("等瓦工进场"), "速览:当前状态一句话");
 
   // ② 类目行:非模板类目名可见(照现状认判卷)+ 活跃度列

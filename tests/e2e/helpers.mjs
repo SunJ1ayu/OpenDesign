@@ -57,6 +57,16 @@ export async function waitAssistantDone(page, scope, timeout = 180000) {
     .waitFor({ timeout });
 }
 
+/** 收件箱两态兼容(v4 质感收口起默认收成一行摘要):有摘要行且未展开 → 点开;
+ * 旧版(无摘要行)no-op。展开态以 [data-ui="inbox-expanded"] 标记为准。 */
+export async function expandInbox(page) {
+  const sum = page.locator('[data-ui="inbox-summary"]');
+  if ((await sum.count()) > 0 &&
+      (await page.locator('[data-ui="inbox-expanded"]').count()) === 0) {
+    await sum.first().click();
+  }
+}
+
 /** 简易断言:失败即抛,场景层统一 try/catch 计数。 */
 export function check(cond, label) {
   if (!cond) throw new Error(`FAIL: ${label}`);

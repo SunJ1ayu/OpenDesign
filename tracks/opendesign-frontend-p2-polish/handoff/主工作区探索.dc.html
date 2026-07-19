@@ -1,0 +1,1531 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&amp;family=Noto+Serif+SC:wght@600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#efede8;font-family:'Noto Sans SC',system-ui,sans-serif}
+a{color:#8a5a3b;text-decoration:none}a:hover{color:#6e4527}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}
+.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:600 13px/1.2 'Noto Sans SC',sans-serif;color:#1a1a1a}
+.dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11.5px/1.3 'Noto Sans SC',sans-serif;color:rgba(0,0,0,.55)}
+.dv-card{max-width:100%;background:#fff;border:1px solid rgba(0,0,0,.09);border-radius:10px;box-shadow:0 2px 14px rgba(0,0,0,.07);overflow:hidden}
+.dv-opt:target .dv-oid{background:#8a5a3b;color:#fff}
+.dv-next{margin:24px 0 0;font:12px/1.5 'Noto Sans SC',sans-serif;color:rgba(0,0,0,.5)}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t6">
+  <div class="dv-thd"><a class="dv-tid" href="#t6">6</a><span class="dv-tname">针对当前实现的修正:统一输入范式 + 按钮体系 + 连接卡</span></div>
+
+  <div style="max-width:920px;margin:0 0 26px;padding:14px 18px;background:rgba(255,255,255,.6);border:1px solid rgba(0,0,0,.07);border-radius:8px;font-size:12px;line-height:1.8;color:rgba(0,0,0,.62)">
+    <strong style="color:#1a1a1a">背景</strong> — 对照 Claude Code 当前实现的 13 张截图。三个问题:① 变更快记行、访问口令用了裸方角 input,与聊天输入卡不是一个家族 ② 「连接聊天服务」表单裸放在页面 C 位 ③ 按钮层级不清(主操作长得像灰字链接)。<a href="#6a">6a</a> 给出全应用唯一的输入范式(三种尺寸)、三级按钮体系和连接卡的正确形态,配合包里的《优化修改单》使用。
+  </div>
+
+  <div class="dv-opts">
+    <div class="dv-opt" id="6a">
+      <div class="dv-olabel"><a class="dv-oid" href="#6a">6a</a>组件规范 · 输入卡三尺寸 / 按钮三级 / 连接卡</div>
+      <div class="dv-card" style="width:1240px">
+        <div data-screen-label="6a 组件规范" style="display:flex;flex-direction:column;gap:26px;width:1240px;background:#faf9f5;color:#2c2a26;font-size:13px;padding:34px 40px 38px">
+
+          <!-- 1. 输入范式 -->
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <span style="font-weight:700;font-size:15px">① 全应用唯一输入范式</span>
+              <span style="font-size:12px;color:#98917f">白底 #fff · 边框 #ddd8ca · 聚焦转 #c46a4a · 禁止裸方角 input</span>
+            </div>
+            <div style="display:flex;gap:22px;align-items:flex-start">
+              <!-- 聊天输入卡 -->
+              <div style="display:flex;flex-direction:column;gap:7px;width:330px">
+                <span style="font-size:11px;color:#98917f">A · 聊天输入卡(圆角 14,双层)</span>
+                <div style="background:#fff;border:1px solid #ddd8ca;border-radius:14px;box-shadow:0 2px 10px rgba(60,50,30,.08)">
+                  <div style="padding:12px 14px 2px;font-size:13px;color:#b0a996">回复,或直接说「记一下…」</div>
+                  <div style="display:flex;align-items:center;gap:6px;padding:8px 10px 10px">
+                    <span style="width:26px;height:26px;border:1px solid #e5e1d6;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#8b8574;font-size:14px">+</span>
+                    <span style="height:26px;display:flex;align-items:center;border:1px solid #e5e1d6;border-radius:8px;padding:0 9px;font-size:11px;color:#8b8574">✎ 记一下</span>
+                    <div style="flex:1"></div>
+                    <span style="height:28px;display:flex;align-items:center;border-radius:8px;background:#c46a4a;color:#fff;padding:0 13px;font-size:12.5px;font-weight:600;cursor:pointer" style-hover="background:#a04f2e">发送</span>
+                  </div>
+                </div>
+              </div>
+              <!-- 变更快记行 -->
+              <div style="display:flex;flex-direction:column;gap:7px;flex:1">
+                <span style="font-size:11px;color:#98917f">B · 变更快记行(圆角 12,单行紧凑版;替换现在的裸 input + 独立下拉 + 灰字按钮)</span>
+                <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #ddd8ca;border-radius:12px;padding:8px 8px 8px 14px;box-shadow:0 1px 3px rgba(60,50,30,.05)">
+                  <span style="color:#c46a4a;font-size:14px;flex:none">✎</span>
+                  <span style="flex:1;font-size:13px;color:#b0a996">记一条变更,如:玄关柜改到 2.4 米,柜顶留检修口…</span>
+                  <span style="display:flex;align-items:center;gap:5px;height:28px;border:1px solid #e5e1d6;border-radius:8px;padding:0 10px;font-size:12px;color:#5c574c;flex:none;cursor:pointer" style-hover="background:#f3f1ea">空间 <span style="color:#b0a996;font-size:10px">⌄</span></span>
+                  <span style="height:28px;display:flex;align-items:center;border-radius:8px;background:#c46a4a;color:#fff;padding:0 14px;font-size:12.5px;font-weight:600;flex:none;cursor:pointer" style-hover="background:#a04f2e">记一条</span>
+                </div>
+                <span style="font-size:11px;color:#b0a996">回车 = 提交;空间不选则 AI 从内容里猜,猜不出记「未分类」;提交后行内闪现绿色「已记入 C13」轻提示</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. 按钮体系 -->
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <span style="font-weight:700;font-size:15px">② 按钮三级体系</span>
+              <span style="font-size:12px;color:#98917f">每屏至多一个主按钮;圆角统一 8px;全部 cursor:pointer + 120ms 过渡</span>
+            </div>
+            <div style="display:flex;gap:26px;align-items:center">
+              <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start">
+                <span style="height:32px;display:flex;align-items:center;border-radius:8px;background:#c46a4a;color:#fff;padding:0 16px;font-size:12.5px;font-weight:600;cursor:pointer" style-hover="background:#a04f2e">连接</span>
+                <span style="font-size:11px;color:#98917f">主按钮:连接 / 记一条 / 关联</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start">
+                <span style="height:32px;display:flex;align-items:center;border-radius:8px;border:1px solid #ddd8ca;background:#fff;color:#5c574c;padding:0 14px;font-size:12.5px;cursor:pointer" style-hover="background:#f3f1ea">扫描整理</span>
+                <span style="font-size:11px;color:#98917f">次按钮:扫描整理 / 打开文件夹 / 添加技能</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start">
+                <span style="font-size:12.5px;color:#a04f2e;cursor:pointer;height:32px;display:flex;align-items:center">去项目 →</span>
+                <span style="font-size:11px;color:#98917f">文字链接:去项目 / 全部文件 / 图墙(一律 #a04f2e)</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start">
+                <span style="display:flex;gap:4px">
+                  <span style="width:28px;height:28px;border-radius:7px;border:1px solid #e5e1d6;background:#fff;display:flex;align-items:center;justify-content:center;color:#8b8574;font-size:12px;cursor:pointer" style-hover="background:#f3f1ea;color:#5c574c">✎</span>
+                  <span style="width:28px;height:28px;border-radius:7px;border:1px solid #e5e1d6;background:#fff;display:flex;align-items:center;justify-content:center;color:#8b8574;font-size:12px;cursor:pointer" style-hover="background:#f3f1ea;color:#3d7a4e">✓</span>
+                </span>
+                <span style="font-size:11px;color:#98917f">行内图标操作:变更行 hover 浮现(编辑/完成),不用裸文字</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. 连接卡 -->
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <span style="font-weight:700;font-size:15px">③ 「连接聊天服务」的正确形态</span>
+              <span style="font-size:12px;color:#98917f">永远是一张卡,不是裸表单;只出现在聊天区域内,不占页面 C 位</span>
+            </div>
+            <div style="display:flex;gap:22px;align-items:flex-start">
+              <!-- 连接卡 -->
+              <div style="width:360px;background:#fff;border:1px solid #e5e1d6;border-radius:16px;padding:22px;box-shadow:0 2px 14px rgba(60,50,30,.09);display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:center;gap:9px">
+                  <span style="width:8px;height:8px;border-radius:50%;background:#b8b1a0"></span>
+                  <span style="font-weight:600;font-size:14px">连接聊天服务</span>
+                </div>
+                <div style="font-size:12.5px;line-height:1.7;color:#5c574c">输入 nanobot WebUI 的访问口令,只需一次,保存在本机。变更记录、图墙、文件不受影响,现在就能用。</div>
+                <div style="display:flex;align-items:center;background:#fff;border:1px solid #ddd8ca;border-radius:10px;padding:9px 13px">
+                  <span style="font-size:13px;color:#b0a996">访问口令</span>
+                </div>
+                <span style="height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:#c46a4a;color:#fff;font-size:13px;font-weight:600;cursor:pointer" style-hover="background:#a04f2e">连接</span>
+                <span style="font-size:11px;color:#b0a996">口令在 nanobot WebUI 设置页获取</span>
+              </div>
+              <!-- 未连接时聊天列的样子 -->
+              <div style="flex:1;display:flex;flex-direction:column;gap:7px">
+                <span style="font-size:11px;color:#98917f">项目工作区聊天列未连接时:顶部一条横幅 + 置灰输入卡,中间区域保持空,不放表单</span>
+                <div style="width:330px;background:#faf9f5;border:1px solid #eceadf;border-radius:12px;overflow:hidden">
+                  <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f7ecd8;font-size:12px;color:#a3651c">
+                    <span style="width:6px;height:6px;border-radius:50%;background:#cf8a2c;flex:none"></span>
+                    <span style="flex:1">未连接聊天服务</span>
+                    <span style="font-weight:600;cursor:pointer;color:#a04f2e">连接</span>
+                  </div>
+                  <div style="height:110px"></div>
+                  <div style="margin:0 10px 10px;background:#fff;border:1px solid #eceadf;border-radius:12px;opacity:.55">
+                    <div style="padding:10px 13px 2px;font-size:12.5px;color:#b0a996">连接后可用…</div>
+                    <div style="display:flex;align-items:center;gap:6px;padding:7px 9px 9px">
+                      <span style="width:24px;height:24px;border:1px solid #e5e1d6;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#b0a996;font-size:13px">+</span>
+                      <div style="flex:1"></div>
+                      <span style="height:26px;display:flex;align-items:center;border-radius:8px;background:#e8d5cb;color:#fff;padding:0 11px;font-size:12px;font-weight:600">发送</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="dv-next">配套逐屏修改项见交接包《优化修改单.md》。</p>
+</section>
+
+<section class="dv-turn" id="t5">
+  <div class="dv-thd"><a class="dv-tid" href="#t5">5</a><span class="dv-tname">搜索 &amp; 技能</span></div>
+
+  <div style="max-width:920px;margin:0 0 26px;padding:14px 18px;background:rgba(255,255,255,.6);border:1px solid rgba(0,0,0,.07);border-radius:8px;font-size:12px;line-height:1.8;color:rgba(0,0,0,.62)">
+    <strong style="color:#1a1a1a">思路</strong> — <a href="#5a">5a</a> 搜索不是独立页面,而是 Cmd/Ctrl+K 命令面板:浮层盖在当前页上,结果按 变更记录 / 文件 / 图片 / 对话 分组,全键盘可达,回车直达。<a href="#5b">5b</a> 技能是独立页:每个技能一张卡(名称 + 一句话说明 + 输入输出格式),点卡即在新对话里以该技能开聊;右上「添加技能」导入新技能包。
+  </div>
+
+  <div class="dv-opts">
+
+    <!-- 5a 搜索 -->
+    <div class="dv-opt" id="5a">
+      <div class="dv-olabel"><a class="dv-oid" href="#5a">5a</a>搜索 · ⌘K 命令面板(盖在任意页面上)</div>
+      <div class="dv-card" style="width:1440px">
+        <div data-screen-label="5a 搜索面板" style="position:relative;display:flex;width:1440px;height:860px;background:#faf9f5;color:#2c2a26;font-size:13px;overflow:hidden">
+
+          <!-- 底层:新对话页(被压暗) -->
+          <div style="display:flex;flex-direction:column;width:240px;flex:none;background:#f3f1ea;border-right:1px solid #e5e1d6">
+            <div style="display:flex;align-items:baseline;padding:18px 20px 12px">
+              <div style="font-weight:700;font-size:15px;letter-spacing:.01em">OpenDesign<span style="color:#c46a4a">.</span></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:1px;padding:4px 8px 0">
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:#5c574c"><span style="width:16px;text-align:center;color:#c46a4a">✳</span><span style="flex:1">新对话</span></div>
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:#5c574c;background:#ece9e0"><span style="width:16px;text-align:center">⌕</span><span style="flex:1">搜索</span></div>
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:#5c574c"><span style="width:16px;text-align:center">◎</span><span style="flex:1">待办事项</span><span style="font:600 10px ui-monospace,monospace;background:#c46a4a;color:#fff;padding:2px 6px;border-radius:99px">7</span></div>
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:#5c574c"><span style="width:16px;text-align:center">✦</span><span style="flex:1">技能</span><span style="color:#b0a996;font-size:11px">›</span></div>
+            </div>
+            <div style="display:flex;align-items:center;padding:14px 18px 4px"><span style="font-size:11px;color:#98917f;letter-spacing:.08em">历史对话</span></div>
+            <div style="display:flex;flex-direction:column;padding:0 8px;gap:1px">
+              <div style="display:flex;align-items:center;gap:9px;padding:6px 10px;color:#8b8574"><span style="width:16px;text-align:center;color:#b0a996">◷</span><span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">岩板和木饰面怎么搭配</span></div>
+            </div>
+            <div style="display:flex;align-items:center;padding:16px 18px 6px"><span style="font-size:11px;color:#98917f;letter-spacing:.08em">项目</span></div>
+            <div style="display:flex;flex-direction:column;padding:0 8px;gap:2px">
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;color:#5c574c"><span style="width:16px;display:flex;justify-content:center"><span style="width:7px;height:7px;border-radius:50%;background:#c46a4a"></span></span><span style="flex:1">保利中央公园 2803</span></div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;color:#5c574c"><span style="width:16px;display:flex;justify-content:center"><span style="width:7px;height:7px;border-radius:50%;background:#cf8a2c"></span></span><span style="flex:1">张三家 · 玄关翻新</span></div>
+            </div>
+            <div style="flex:1"></div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center">
+            <div style="font-family:'Noto Serif SC',serif;font-size:26px;font-weight:700;color:#2c2a26">今天想聊点什么?</div>
+          </div>
+
+          <!-- 遮罩 + 面板 -->
+          <div style="position:absolute;inset:0;background:rgba(44,42,38,.32);display:flex;justify-content:center;padding-top:120px">
+            <div style="width:640px;height:fit-content;background:#faf9f5;border:1px solid #e5e1d6;border-radius:16px;box-shadow:0 24px 70px rgba(30,24,12,.3);overflow:hidden">
+              <div style="display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid #eceadf">
+                <span style="color:#98917f;font-size:15px">⌕</span>
+                <span style="flex:1;font-size:14.5px;color:#2c2a26">岩板<span style="display:inline-block;width:1.5px;height:17px;background:#c46a4a;vertical-align:-3px;margin-left:1px"></span></span>
+                <span style="font:11px ui-monospace,monospace;color:#b0a996;border:1px solid #e5e1d6;border-radius:5px;padding:2px 6px">esc</span>
+              </div>
+              <div style="display:flex;gap:6px;padding:10px 18px 4px;font-size:11.5px">
+                <span style="padding:3px 10px;border-radius:99px;background:#2c2a26;color:#faf9f5">全部</span>
+                <span style="padding:3px 10px;border-radius:99px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">变更</span>
+                <span style="padding:3px 10px;border-radius:99px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">文件</span>
+                <span style="padding:3px 10px;border-radius:99px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">图片</span>
+                <span style="padding:3px 10px;border-radius:99px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">对话</span>
+              </div>
+              <div style="padding:6px 8px 10px;max-height:420px;overflow:auto">
+                <div style="padding:8px 12px 3px;font-size:10.5px;color:#b0a996;letter-spacing:.06em">变更记录</div>
+                <div style="display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:9px;background:#ece9e0">
+                  <span style="font:600 11.5px ui-monospace,monospace;color:#a04f2e;flex:none">C11</span>
+                  <span style="flex:1;font-size:13px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">电视墙改用<mark style="background:#f4e3db;color:#a04f2e;border-radius:2px;padding:0 1px">岩板</mark>,取消原定木格栅</span>
+                  <span style="font-size:10.5px;color:#98917f;flex:none">保利中央公园 · 客厅</span>
+                  <span style="font:11px ui-monospace,monospace;color:#b0a996;flex:none">↵</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:9px;cursor:pointer" style-hover="background:#f3f1ea">
+                  <span style="font:600 11.5px ui-monospace,monospace;color:#98917f;flex:none">C3</span>
+                  <span style="flex:1;font-size:13px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#5c574c">背景墙<mark style="background:#f4e3db;color:#a04f2e;border-radius:2px;padding:0 1px">岩板</mark>色号改浅灰,已完成</span>
+                  <span style="font-size:10.5px;color:#98917f;flex:none">李四家 · 客厅</span>
+                </div>
+                <div style="padding:10px 12px 3px;font-size:10.5px;color:#b0a996;letter-spacing:.06em">图片</div>
+                <div style="display:flex;align-items:center;gap:11px;padding:8px 12px;border-radius:9px;cursor:pointer" style-hover="background:#f3f1ea">
+                  <span style="width:34px;height:26px;border-radius:4px;background:repeating-linear-gradient(45deg,#eeebe2 0 7px,#e2ddce 7px 14px);flex:none"></span>
+                  <span style="flex:1;font-size:13px;color:#5c574c">客厅·<mark style="background:#f4e3db;color:#a04f2e;border-radius:2px;padding:0 1px">岩板</mark>电视墙 参考</span>
+                  <span style="font-size:10.5px;color:#98917f;flex:none">保利中央公园</span>
+                </div>
+                <div style="padding:10px 12px 3px;font-size:10.5px;color:#b0a996;letter-spacing:.06em">对话</div>
+                <div style="display:flex;align-items:center;gap:11px;padding:8px 12px;border-radius:9px;cursor:pointer" style-hover="background:#f3f1ea">
+                  <span style="width:16px;text-align:center;color:#b0a996;flex:none">◷</span>
+                  <span style="flex:1;font-size:13px;color:#5c574c"><mark style="background:#f4e3db;color:#a04f2e;border-radius:2px;padding:0 1px">岩板</mark>和木饰面怎么搭配</span>
+                  <span style="font-size:10.5px;color:#98917f;flex:none">昨天</span>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:14px;padding:9px 18px;border-top:1px solid #eceadf;font-size:11px;color:#b0a996">
+                <span><span style="font-family:ui-monospace,monospace">↑↓</span> 选择</span>
+                <span><span style="font-family:ui-monospace,monospace">↵</span> 打开</span>
+                <span><span style="font-family:ui-monospace,monospace">tab</span> 切分类</span>
+                <div style="flex:1"></div>
+                <span>4 个结果</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- 5b 技能 -->
+    <div class="dv-opt" id="5b">
+      <div class="dv-olabel"><a class="dv-oid" href="#5b">5b</a>技能页 · 技能卡片,点卡进对话</div>
+      <div class="dv-card" style="width:1440px">
+        <div data-screen-label="5b 技能" style="display:flex;width:1440px;height:860px;background:#faf9f5;color:#2c2a26;font-size:13px">
+
+          <!-- 侧栏(技能为当前态) -->
+          <div style="display:flex;flex-direction:column;width:240px;flex:none;background:#f3f1ea;border-right:1px solid #e5e1d6">
+            <div style="display:flex;align-items:baseline;padding:18px 20px 12px">
+              <div style="font-weight:700;font-size:15px;letter-spacing:.01em">OpenDesign<span style="color:#c46a4a">.</span></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:1px;padding:4px 8px 0">
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0"><span style="width:16px;text-align:center;color:#c46a4a">✳</span><span style="flex:1">新对话</span></div>
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0"><span style="width:16px;text-align:center">⌕</span><span style="flex:1">搜索</span></div>
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0"><span style="width:16px;text-align:center">◎</span><span style="flex:1">待办事项</span><span style="font:600 10px ui-monospace,monospace;background:#c46a4a;color:#fff;padding:2px 6px;border-radius:99px">7</span></div>
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;background:#fff;border:1px solid #e5e1d6;border-radius:7px;font-weight:600;box-shadow:0 1px 2px rgba(60,50,30,.05)"><span style="width:16px;text-align:center">✦</span><span style="flex:1">技能</span></div>
+            </div>
+            <div style="display:flex;align-items:center;padding:14px 18px 4px">
+              <span style="font-size:11px;color:#98917f;letter-spacing:.08em">历史对话</span>
+              <div style="flex:1"></div>
+              <span style="font-size:11px;color:#b0a996;cursor:pointer" style-hover="color:#c46a4a">全部</span>
+            </div>
+            <div style="display:flex;flex-direction:column;padding:0 8px;gap:1px">
+              <div style="display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:7px;color:#8b8574;cursor:pointer" style-hover="background:#ece9e0;color:#5c574c">
+                <span style="width:16px;text-align:center;color:#b0a996;flex:none">◷</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">岩板和木饰面怎么搭配</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">昨天</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:7px;color:#8b8574;cursor:pointer" style-hover="background:#ece9e0;color:#5c574c">
+                <span style="width:16px;text-align:center;color:#b0a996;flex:none">◷</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">帮我列全屋主材清单模板</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">7-06</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;padding:16px 18px 6px">
+              <span style="font-size:11px;color:#98917f;letter-spacing:.08em">项目</span>
+              <span style="font:600 10px ui-monospace,monospace;color:#b0a996;margin-left:6px">5</span>
+              <div style="flex:1"></div>
+              <span style="color:#98917f;font-size:14px;cursor:pointer" title="新建项目" style-hover="color:#c46a4a">+</span>
+            </div>
+            <div style="display:flex;flex-direction:column;padding:0 8px;gap:2px;overflow:auto">
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0"><span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#cf8a2c"></span></span><span style="flex:1">保利中央公园 2803</span><span style="font:600 10px ui-monospace,monospace;color:#98917f">4</span></div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0"><span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#cf8a2c"></span></span><span style="flex:1">张三家 · 玄关翻新</span><span style="font:600 10px ui-monospace,monospace;color:#98917f">2</span></div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0"><span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#cf8a2c"></span></span><span style="flex:1">李四家 · 全屋整装</span><span style="font:600 10px ui-monospace,monospace;color:#98917f">1</span></div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0"><span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#b8b1a0"></span></span><span style="flex:1">万科城 1204</span></div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#8b8574;cursor:pointer" style-hover="background:#ece9e0"><span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#d4cfc1"></span></span><span style="flex:1">龙湖 · 两江新宸</span></div>
+            </div>
+            <div style="flex:1"></div>
+            <div style="border-top:1px solid #e5e1d6;padding:8px 10px">
+              <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;text-align:center">⚙</span><span style="flex:1">设置</span>
+                <span style="color:#b0a996;font-size:11px">▴</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 主区:技能 -->
+          <div style="display:flex;flex-direction:column;flex:1;min-width:0">
+            <div style="display:flex;align-items:baseline;gap:12px;padding:22px 32px 0">
+              <div style="font-family:'Noto Serif SC',serif;font-size:22px;font-weight:700">技能</div>
+              <div style="font-size:12px;color:#98917f">在对话里随时调用,也可以从这里直接开始</div>
+              <div style="flex:1"></div>
+              <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#5c574c;border:1px solid #ddd8ca;border-radius:8px;padding:6px 13px;cursor:pointer" style-hover="background:#f3f1ea"><span style="color:#c46a4a">+</span>添加技能</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:20px 32px;align-content:start">
+              <div style="background:#fff;border:1px solid #e5e1d6;border-radius:12px;padding:18px;box-shadow:0 1px 3px rgba(60,50,30,.05);cursor:pointer;display:flex;flex-direction:column;gap:10px" style-hover="border-color:#c46a4a">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span style="width:34px;height:34px;border-radius:9px;background:#f4e3db;color:#a04f2e;display:flex;align-items:center;justify-content:center;font:700 11px ui-monospace,monospace">3D</span>
+                  <span style="font-weight:600;font-size:14px">CAD 转 3D</span>
+                </div>
+                <div style="font-size:12.5px;line-height:1.65;color:#5c574c">把平面 CAD 图纸生成可旋转的 3D 空间模型,快速给业主看空间关系</div>
+                <div style="display:flex;align-items:center;gap:6px;font:10.5px ui-monospace,monospace;color:#b0a996">
+                  <span style="border:1px solid #eceadf;border-radius:4px;padding:1px 5px">DWG</span><span>→</span><span style="border:1px solid #eceadf;border-radius:4px;padding:1px 5px">GLB</span>
+                  <div style="flex:1"></div>
+                  <span>用过 12 次</span>
+                </div>
+              </div>
+              <div style="background:#fff;border:1px solid #e5e1d6;border-radius:12px;padding:18px;box-shadow:0 1px 3px rgba(60,50,30,.05);cursor:pointer;display:flex;flex-direction:column;gap:10px" style-hover="border-color:#c46a4a">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span style="width:34px;height:34px;border-radius:9px;background:#e3eef4;color:#2f6a8f;display:flex;align-items:center;justify-content:center;font:700 10px ui-monospace,monospace">PDF</span>
+                  <span style="font-weight:600;font-size:14px">PS 合成 PDF</span>
+                </div>
+                <div style="font-size:12.5px;line-height:1.65;color:#5c574c">把多张 PSD / 效果图按模板排版,一键合成给业主的方案汇报 PDF</div>
+                <div style="display:flex;align-items:center;gap:6px;font:10.5px ui-monospace,monospace;color:#b0a996">
+                  <span style="border:1px solid #eceadf;border-radius:4px;padding:1px 5px">PSD</span><span>→</span><span style="border:1px solid #eceadf;border-radius:4px;padding:1px 5px">PDF</span>
+                  <div style="flex:1"></div>
+                  <span>用过 5 次</span>
+                </div>
+              </div>
+              <div style="border:1.5px dashed #ddd8ca;border-radius:12px;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#98917f;cursor:pointer;min-height:130px" style-hover="border-color:#c46a4a;color:#a04f2e">
+                <span style="font-size:20px">+</span>
+                <span style="font-size:12.5px">添加技能</span>
+              </div>
+            </div>
+            <div style="padding:0 32px;font-size:11.5px;color:#b0a996">提示:在任何对话里输入「/」也能调出技能列表</div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="dv-next">搜索是 ⌘K 浮层不占导航页面;技能卡点击后进入新对话并预挂该技能。</p>
+</section>
+
+<section class="dv-turn" id="t4">
+  <div class="dv-thd"><a class="dv-tid" href="#t4">4</a><span class="dv-tname">待办事项页 · 按项目分组,项目内按空间分组</span></div>
+
+  <div style="max-width:920px;margin:0 0 26px;padding:14px 18px;background:rgba(255,255,255,.6);border:1px solid rgba(0,0,0,.07);border-radius:8px;font-size:12px;line-height:1.8;color:rgba(0,0,0,.62)">
+    <strong style="color:#1a1a1a">思路</strong> — 每个项目一张卡:卡头是项目名 + 未办结计数 + 超期警示(超 7 天未更新的项目直接在卡头亮红陶色标签,不再单独一个「超期项目」区);卡内变更按空间分小节(玄关/客厅/主卧…),空间名做成小节眉。条目行沿用主工作区的样式(编号 + 内容 + 日期 + 状态),hover 出「去项目 →」。全空态时中间给一句轻话。
+  </div>
+
+  <div class="dv-opts">
+    <div class="dv-opt" id="4a">
+      <div class="dv-olabel"><a class="dv-oid" href="#4a">4a</a>待办事项 · 项目卡 + 空间小节</div>
+      <div class="dv-card" style="width:1440px">
+        <div data-screen-label="4a 待办事项" style="display:flex;width:1440px;height:860px;background:#faf9f5;color:#2c2a26;font-size:13px">
+
+          <!-- 侧栏(待办事项为当前态) -->
+          <div style="display:flex;flex-direction:column;width:240px;flex:none;background:#f3f1ea;border-right:1px solid #e5e1d6">
+            <div style="display:flex;align-items:baseline;padding:18px 20px 12px">
+              <div style="font-weight:700;font-size:15px;letter-spacing:.01em">OpenDesign<span style="color:#c46a4a">.</span></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:1px;padding:4px 8px 0">
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;text-align:center;color:#c46a4a">✳</span><span style="flex:1">新对话</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;text-align:center">⌕</span><span style="flex:1">搜索</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;background:#fff;border:1px solid #e5e1d6;border-radius:7px;font-weight:600;box-shadow:0 1px 2px rgba(60,50,30,.05)">
+                <span style="width:16px;text-align:center">◎</span><span style="flex:1">待办事项</span>
+                <span style="font:600 10px ui-monospace,monospace;background:#c46a4a;color:#fff;padding:2px 6px;border-radius:99px">7</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0" title="CAD 转 3D、PS 合成 PDF 等">
+                <span style="width:16px;text-align:center">✦</span><span style="flex:1">技能</span>
+                <span style="color:#b0a996;font-size:11px">›</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;padding:14px 18px 4px">
+              <span style="font-size:11px;color:#98917f;letter-spacing:.08em">历史对话</span>
+              <div style="flex:1"></div>
+              <span style="font-size:11px;color:#b0a996;cursor:pointer" style-hover="color:#c46a4a">全部</span>
+            </div>
+            <div style="display:flex;flex-direction:column;padding:0 8px;gap:1px">
+              <div style="display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:7px;color:#8b8574;cursor:pointer" style-hover="background:#ece9e0;color:#5c574c">
+                <span style="width:16px;text-align:center;color:#b0a996;flex:none">◷</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">岩板和木饰面怎么搭配</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">昨天</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:7px;color:#8b8574;cursor:pointer" style-hover="background:#ece9e0;color:#5c574c">
+                <span style="width:16px;text-align:center;color:#b0a996;flex:none">◷</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">帮我列全屋主材清单模板</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">7-06</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;padding:16px 18px 6px">
+              <span style="font-size:11px;color:#98917f;letter-spacing:.08em">项目</span>
+              <span style="font:600 10px ui-monospace,monospace;color:#b0a996;margin-left:6px">5</span>
+              <div style="flex:1"></div>
+              <span style="color:#98917f;font-size:14px;cursor:pointer" title="新建项目" style-hover="color:#c46a4a">+</span>
+            </div>
+            <div style="display:flex;flex-direction:column;padding:0 8px;gap:2px;overflow:auto">
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#cf8a2c"></span></span>
+                <span style="flex:1">保利中央公园 2803</span>
+                <span style="font:600 10px ui-monospace,monospace;color:#98917f">4</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#cf8a2c"></span></span>
+                <span style="flex:1">张三家 · 玄关翻新</span>
+                <span style="font:600 10px ui-monospace,monospace;color:#98917f">2</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#cf8a2c"></span></span>
+                <span style="flex:1">李四家 · 全屋整装</span>
+                <span style="font:600 10px ui-monospace,monospace;color:#98917f">1</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#b8b1a0"></span></span>
+                <span style="flex:1">万科城 1204</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#8b8574;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#d4cfc1"></span></span>
+                <span style="flex:1">龙湖 · 两江新宸</span>
+              </div>
+            </div>
+            <div style="flex:1"></div>
+            <div style="border-top:1px solid #e5e1d6;padding:8px 10px">
+              <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;text-align:center">⚙</span><span style="flex:1">设置</span>
+                <span style="color:#b0a996;font-size:11px">▴</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 主区:待办事项 -->
+          <div style="display:flex;flex-direction:column;flex:1;min-width:0">
+            <div style="padding:22px 32px 0">
+              <div style="display:flex;align-items:baseline;gap:12px">
+                <div style="font-family:'Noto Serif SC',serif;font-size:22px;font-weight:700">待办事项</div>
+                <div style="font-size:12px;color:#98917f">7 条未办结 · 3 个项目</div>
+                <div style="flex:1"></div>
+                <div style="display:flex;gap:6px;font-size:12px">
+                  <span style="padding:5px 11px;border-radius:99px;background:#2c2a26;color:#faf9f5">按项目</span>
+                  <span style="padding:5px 11px;border-radius:99px;border:1px solid #ddd8ca;color:#5c574c;cursor:pointer" style-hover="background:#f3f1ea">按时间</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="flex:1;overflow:auto;display:flex;flex-direction:column;gap:14px;padding:18px 32px 28px">
+
+              <!-- 项目卡 1:超期 -->
+              <div style="background:#fff;border:1px solid #e5e1d6;border-radius:11px;box-shadow:0 1px 3px rgba(60,50,30,.05);overflow:hidden">
+                <div style="display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid #eceadf">
+                  <span style="width:7px;height:7px;border-radius:50%;background:#c46a4a;flex:none"></span>
+                  <span style="font-weight:600;font-size:14px">保利中央公园 2803</span>
+                  <span style="font:600 10.5px ui-monospace,monospace;color:#98917f">4 条未办结</span>
+                  <span style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#a04f2e;background:#f4e3db;padding:2px 9px;border-radius:99px">⚑ 8 天没动静</span>
+                  <div style="flex:1"></div>
+                  <span style="font-size:11.5px;color:#a04f2e;cursor:pointer">去项目 →</span>
+                </div>
+                <div style="padding:4px 18px 12px">
+                  <div style="display:flex;align-items:center;gap:8px;padding:10px 0 2px">
+                    <span style="font-size:11px;color:#98917f;letter-spacing:.06em">玄关</span>
+                    <span style="flex:1;border-top:1px solid #f0ede4"></span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;padding:8px 0">
+                    <span style="font:600 12px ui-monospace,monospace;color:#a04f2e;flex:none">C12</span>
+                    <span style="flex:1;font-size:13px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">玄关柜整体改到 2.4 米高,柜顶留 300mm 检修口,门板通顶</span>
+                    <span style="font-size:11px;color:#b0a996;flex:none">7月9日</span>
+                    <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#a3651c;background:#f7ecd8;padding:2px 8px;border-radius:99px"><span style="width:5px;height:5px;border-radius:50%;background:#cf8a2c"></span>待确认</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:10px 0 2px">
+                    <span style="font-size:11px;color:#98917f;letter-spacing:.06em">客厅</span>
+                    <span style="flex:1;border-top:1px solid #f0ede4"></span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;padding:8px 0">
+                    <span style="font:600 12px ui-monospace,monospace;color:#a04f2e;flex:none">C11</span>
+                    <span style="flex:1;font-size:13px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">电视墙改用岩板,取消原定木格栅;岩板留样待业主确认色号</span>
+                    <span style="font-size:11px;color:#b0a996;flex:none">7月8日</span>
+                    <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#2f6a8f;background:#e3eef4;padding:2px 8px;border-radius:99px"><span style="width:5px;height:5px;border-radius:50%;background:#4189b5"></span>进行中</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:10px 0 2px">
+                    <span style="font-size:11px;color:#98917f;letter-spacing:.06em">厨房</span>
+                    <span style="flex:1;border-top:1px solid #f0ede4"></span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;padding:8px 0">
+                    <span style="font:600 12px ui-monospace,monospace;color:#a04f2e;flex:none">C10</span>
+                    <span style="flex:1;font-size:13px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">岛台加宽到 900mm,插座从台面改到侧板,增加一组 USB</span>
+                    <span style="font-size:11px;color:#b0a996;flex:none">7月5日</span>
+                    <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#2f6a8f;background:#e3eef4;padding:2px 8px;border-radius:99px"><span style="width:5px;height:5px;border-radius:50%;background:#4189b5"></span>进行中</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:10px 0 2px">
+                    <span style="font-size:11px;color:#98917f;letter-spacing:.06em">主卧</span>
+                    <span style="flex:1;border-top:1px solid #f0ede4"></span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;padding:8px 0">
+                    <span style="font:600 12px ui-monospace,monospace;color:#a04f2e;flex:none">C9</span>
+                    <span style="flex:1;font-size:13px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">主卧衣柜移门改平开门,内部格局重新排,增加裤抽</span>
+                    <span style="font-size:11px;color:#b0a996;flex:none">7月2日</span>
+                    <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#a3651c;background:#f7ecd8;padding:2px 8px;border-radius:99px"><span style="width:5px;height:5px;border-radius:50%;background:#cf8a2c"></span>待确认</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 项目卡 2 -->
+              <div style="background:#fff;border:1px solid #e5e1d6;border-radius:11px;box-shadow:0 1px 3px rgba(60,50,30,.05);overflow:hidden">
+                <div style="display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid #eceadf">
+                  <span style="width:7px;height:7px;border-radius:50%;background:#cf8a2c;flex:none"></span>
+                  <span style="font-weight:600;font-size:14px">张三家 · 玄关翻新</span>
+                  <span style="font:600 10.5px ui-monospace,monospace;color:#98917f">2 条未办结</span>
+                  <div style="flex:1"></div>
+                  <span style="font-size:11.5px;color:#a04f2e;cursor:pointer">去项目 →</span>
+                </div>
+                <div style="padding:4px 18px 12px">
+                  <div style="display:flex;align-items:center;gap:8px;padding:10px 0 2px">
+                    <span style="font-size:11px;color:#98917f;letter-spacing:.06em">玄关</span>
+                    <span style="flex:1;border-top:1px solid #f0ede4"></span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;padding:8px 0">
+                    <span style="font:600 12px ui-monospace,monospace;color:#a04f2e;flex:none">C5</span>
+                    <span style="flex:1;font-size:13px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">换鞋凳改内嵌式,下方留扫地机器人位</span>
+                    <span style="font-size:11px;color:#b0a996;flex:none">7月10日</span>
+                    <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#a3651c;background:#f7ecd8;padding:2px 8px;border-radius:99px"><span style="width:5px;height:5px;border-radius:50%;background:#cf8a2c"></span>待确认</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;padding:8px 0">
+                    <span style="font:600 12px ui-monospace,monospace;color:#a04f2e;flex:none">C4</span>
+                    <span style="flex:1;font-size:13px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">鞋柜门板换肤感膜,拉手改隐形斜切</span>
+                    <span style="font-size:11px;color:#b0a996;flex:none">7月7日</span>
+                    <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#2f6a8f;background:#e3eef4;padding:2px 8px;border-radius:99px"><span style="width:5px;height:5px;border-radius:50%;background:#4189b5"></span>进行中</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 项目卡 3 -->
+              <div style="background:#fff;border:1px solid #e5e1d6;border-radius:11px;box-shadow:0 1px 3px rgba(60,50,30,.05);overflow:hidden">
+                <div style="display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid #eceadf">
+                  <span style="width:7px;height:7px;border-radius:50%;background:#cf8a2c;flex:none"></span>
+                  <span style="font-weight:600;font-size:14px">李四家 · 全屋整装</span>
+                  <span style="font:600 10.5px ui-monospace,monospace;color:#98917f">1 条未办结</span>
+                  <div style="flex:1"></div>
+                  <span style="font-size:11.5px;color:#a04f2e;cursor:pointer">去项目 →</span>
+                </div>
+                <div style="padding:4px 18px 12px">
+                  <div style="display:flex;align-items:center;gap:8px;padding:10px 0 2px">
+                    <span style="font-size:11px;color:#98917f;letter-spacing:.06em">餐厅</span>
+                    <span style="flex:1;border-top:1px solid #f0ede4"></span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;padding:8px 0">
+                    <span style="font:600 12px ui-monospace,monospace;color:#a04f2e;flex:none">C8</span>
+                    <span style="flex:1;font-size:13px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">餐边柜加酒格,吊柜底加灯带,业主要看灯带色温样品</span>
+                    <span style="font-size:11px;color:#b0a996;flex:none">7月11日</span>
+                    <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#a3651c;background:#f7ecd8;padding:2px 8px;border-radius:99px"><span style="width:5px;height:5px;border-radius:50%;background:#cf8a2c"></span>待确认</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="text-align:center;font-size:12px;color:#b0a996;padding:4px 0">其余 2 个项目没有未办结事项</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="dv-next">要点:超期警示合并进项目卡头(⚑ 标签),不再单列一个「超期项目」区;头部可切「按项目 / 按时间」两种分组。</p>
+</section>
+
+<section class="dv-turn" id="t3">
+  <div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">新对话窗口(点击侧栏「新对话」后)</span></div>
+
+  <div style="max-width:920px;margin:0 0 26px;padding:14px 18px;background:rgba(255,255,255,.6);border:1px solid rgba(0,0,0,.07);border-radius:8px;font-size:12px;line-height:1.8;color:rgba(0,0,0,.62)">
+    <strong style="color:#1a1a1a">思路</strong> — 侧栏沿用 <a href="#2a">2a</a> 定稿样式(新对话行高亮为当前态),右边整片区域只放一件事:居中的输入卡。上方一句问候,下方三个轻量建议 chip;对话开始后即转为普通聊天流。不放任何仪表盘内容,保持空。
+  </div>
+
+  <div class="dv-opts">
+    <div class="dv-opt" id="3a">
+      <div class="dv-olabel"><a class="dv-oid" href="#3a">3a</a>新对话 · 居中单输入框</div>
+      <div class="dv-card" style="width:1440px">
+        <div data-screen-label="3a 新对话" style="display:flex;width:1440px;height:860px;background:#faf9f5;color:#2c2a26;font-size:13px">
+
+          <!-- 侧栏(新对话为当前态) -->
+          <div style="display:flex;flex-direction:column;width:240px;flex:none;background:#f3f1ea;border-right:1px solid #e5e1d6">
+            <div style="display:flex;align-items:baseline;padding:18px 20px 12px">
+              <div style="font-weight:700;font-size:15px;letter-spacing:.01em">OpenDesign<span style="color:#c46a4a">.</span></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:1px;padding:4px 8px 0">
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;background:#fff;border:1px solid #e5e1d6;border-radius:7px;font-weight:600;box-shadow:0 1px 2px rgba(60,50,30,.05)">
+                <span style="width:16px;text-align:center;color:#c46a4a">✳</span><span style="flex:1">新对话</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;text-align:center">⌕</span><span style="flex:1">搜索</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;text-align:center">◎</span><span style="flex:1">待办事项</span>
+                <span style="font:600 10px ui-monospace,monospace;background:#c46a4a;color:#fff;padding:2px 6px;border-radius:99px">7</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0" title="CAD 转 3D、PS 合成 PDF 等">
+                <span style="width:16px;text-align:center">✦</span><span style="flex:1">技能</span>
+                <span style="color:#b0a996;font-size:11px">›</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;padding:14px 18px 4px">
+              <span style="font-size:11px;color:#98917f;letter-spacing:.08em">历史对话</span>
+              <div style="flex:1"></div>
+              <span style="font-size:11px;color:#b0a996;cursor:pointer" style-hover="color:#c46a4a">全部</span>
+            </div>
+            <div style="display:flex;flex-direction:column;padding:0 8px;gap:1px">
+              <div style="display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:7px;color:#8b8574;cursor:pointer" style-hover="background:#ece9e0;color:#5c574c">
+                <span style="width:16px;text-align:center;color:#b0a996;flex:none">◷</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">岩板和木饰面怎么搭配</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">昨天</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:7px;color:#8b8574;cursor:pointer" style-hover="background:#ece9e0;color:#5c574c">
+                <span style="width:16px;text-align:center;color:#b0a996;flex:none">◷</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">帮我列全屋主材清单模板</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">7-06</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;padding:16px 18px 6px">
+              <span style="font-size:11px;color:#98917f;letter-spacing:.08em">项目</span>
+              <span style="font:600 10px ui-monospace,monospace;color:#b0a996;margin-left:6px">5</span>
+              <div style="flex:1"></div>
+              <span style="color:#98917f;font-size:14px;cursor:pointer" title="新建项目" style-hover="color:#c46a4a">+</span>
+            </div>
+            <div style="display:flex;flex-direction:column;padding:0 8px;gap:2px;overflow:auto">
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#c46a4a"></span></span>
+                <span style="flex:1">保利中央公园 2803</span>
+                <span style="font:600 10px ui-monospace,monospace;color:#98917f">4</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#cf8a2c"></span></span>
+                <span style="flex:1">张三家 · 玄关翻新</span>
+                <span style="font:600 10px ui-monospace,monospace;color:#98917f">2</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#cf8a2c"></span></span>
+                <span style="flex:1">李四家 · 全屋整装</span>
+                <span style="font:600 10px ui-monospace,monospace;color:#98917f">1</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#b8b1a0"></span></span>
+                <span style="flex:1">万科城 1204</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#8b8574;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#d4cfc1"></span></span>
+                <span style="flex:1">龙湖 · 两江新宸</span>
+              </div>
+            </div>
+            <div style="flex:1"></div>
+            <div style="border-top:1px solid #e5e1d6;padding:8px 10px">
+              <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;text-align:center">⚙</span><span style="flex:1">设置</span>
+                <span style="color:#b0a996;font-size:11px">▴</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右:空态新对话 -->
+          <div style="display:flex;flex-direction:column;flex:1;min-width:0;align-items:center;justify-content:center;gap:26px;padding:0 60px 40px">
+            <div style="font-family:'Noto Serif SC',serif;font-size:26px;font-weight:700;color:#2c2a26">今天想聊点什么?</div>
+            <div style="width:620px;max-width:100%;background:#fff;border:1px solid #ddd8ca;border-radius:16px;box-shadow:0 2px 14px rgba(60,50,30,.09)" style-focus="border-color:#c46a4a">
+              <div style="padding:16px 18px 4px;font-size:14px;line-height:1.6;color:#b0a996">聊设计、找东西,或直接说「记一下…」</div>
+              <div style="display:flex;align-items:center;gap:6px;padding:10px 12px 12px">
+                <span style="width:28px;height:28px;border:1px solid #e5e1d6;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#8b8574;font-size:15px;cursor:pointer" style-hover="background:#f3f1ea" title="添加图片或文件">+</span>
+                <span style="height:28px;display:flex;align-items:center;border:1px solid #e5e1d6;border-radius:8px;padding:0 10px;font-size:11.5px;color:#8b8574;cursor:pointer" style-hover="background:#f3f1ea">✎ 记一下</span>
+                <div style="flex:1"></div>
+                <span style="width:30px;height:30px;border-radius:9px;background:#c46a4a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer" style-hover="background:#a04f2e">↑</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+              <span style="border:1px solid #e5e1d6;border-radius:99px;padding:6px 14px;font-size:12px;color:#5c574c;cursor:pointer;background:#faf9f5" style-hover="background:#f3f1ea;border-color:#ddd8ca">新建一个项目</span>
+              <span style="border:1px solid #e5e1d6;border-radius:99px;padding:6px 14px;font-size:12px;color:#5c574c;cursor:pointer;background:#faf9f5" style-hover="background:#f3f1ea;border-color:#ddd8ca">这周有哪些变更没确认?</span>
+              <span style="border:1px solid #e5e1d6;border-radius:99px;padding:6px 14px;font-size:12px;color:#5c574c;cursor:pointer;background:#faf9f5" style-hover="background:#f3f1ea;border-color:#ddd8ca">找一张客厅参考图</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="dv-next">同时已修好 <a class="dv-oid" href="#2a">2a</a> 侧栏:图标列对齐统一、去掉乱码快捷键角标。</p>
+</section>
+
+<section class="dv-turn" id="t2">
+  <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">基于 <a class="dv-oid" href="#1a">1a</a> 的侧栏重构与细节优化</span></div>
+
+  <div style="max-width:920px;margin:0 0 26px;padding:14px 18px;background:rgba(255,255,255,.6);border:1px solid rgba(0,0,0,.07);border-radius:8px;font-size:12px;line-height:1.8;color:rgba(0,0,0,.62)">
+    <strong style="color:#1a1a1a">本轮改动</strong> — ① 左下角只留「设置」,点击可向上展开菜单(默认展开演示,可点击收起)② 待办提醒、日历移到侧栏顶部全局区 ③ 顶部新增「新对话」作为总聊天入口,新项目从对话里开 ④ 项目只分一类,不再区分已交付(交付的用灰点表示)⑤ 新增「技能」栏:CAD 转 3D、PS 合成 PDF,可继续添加 ⑥ 顺手补的习惯性细节:全局搜索 ⌘K、项目列表「+」新建、变更行悬停浮现快捷操作(标记完成)、聊天面板标注「仅本项目」避免与总对话混淆。
+  </div>
+
+  <div class="dv-opts">
+    <div class="dv-opt" id="2a">
+      <div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>优化版三栏工作台 · 左下设置可点击展开/收起</div>
+      <div class="dv-card" style="width:1440px">
+        <div data-screen-label="2a 主工作区" style="display:flex;width:1440px;height:860px;background:#faf9f5;color:#2c2a26;font-size:13px">
+
+          <!-- 侧栏 -->
+          <div style="display:flex;flex-direction:column;width:240px;flex:none;background:#f3f1ea;border-right:1px solid #e5e1d6;position:relative">
+            <div style="display:flex;align-items:baseline;padding:18px 20px 12px">
+              <div style="font-weight:700;font-size:15px;letter-spacing:.01em">OpenDesign<span style="color:#c46a4a">.</span></div>
+            </div>
+
+            <!-- 全局区 -->
+            <div style="display:flex;flex-direction:column;gap:1px;padding:4px 8px 0">
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;text-align:center;color:#c46a4a">✳</span><span style="flex:1">新对话</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;text-align:center">⌕</span><span style="flex:1">搜索</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;text-align:center">◎</span><span style="flex:1">待办事项</span>
+                <span style="font:600 10px ui-monospace,monospace;background:#c46a4a;color:#fff;padding:2px 6px;border-radius:99px">7</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0" title="CAD 转 3D、PS 合成 PDF 等">
+                <span style="width:16px;text-align:center">✦</span><span style="flex:1">技能</span>
+                <span style="color:#b0a996;font-size:11px">›</span>
+              </div>
+            </div>
+
+            <!-- 历史对话 -->
+            <div style="display:flex;align-items:center;padding:14px 18px 4px">
+              <span style="font-size:11px;color:#98917f;letter-spacing:.08em">历史对话</span>
+              <div style="flex:1"></div>
+              <span style="font-size:11px;color:#b0a996;cursor:pointer" style-hover="color:#c46a4a">全部</span>
+            </div>
+            <div style="display:flex;flex-direction:column;padding:0 8px;gap:1px">
+              <div style="display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:7px;color:#8b8574;cursor:pointer" style-hover="background:#ece9e0;color:#5c574c">
+                <span style="width:16px;text-align:center;color:#b0a996;flex:none">◷</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">岩板和木饰面怎么搭配</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">昨天</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:7px;color:#8b8574;cursor:pointer" style-hover="background:#ece9e0;color:#5c574c">
+                <span style="width:16px;text-align:center;color:#b0a996;flex:none">◷</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">帮我列全屋主材清单模板</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">7-06</span>
+              </div>
+            </div>
+
+            <!-- 项目 -->
+            <div style="display:flex;align-items:center;padding:16px 18px 6px">
+              <span style="font-size:11px;color:#98917f;letter-spacing:.08em">项目</span>
+              <span style="font:600 10px ui-monospace,monospace;color:#b0a996;margin-left:6px">5</span>
+              <div style="flex:1"></div>
+              <span style="color:#98917f;font-size:14px;cursor:pointer" title="新建项目" style-hover="color:#c46a4a">+</span>
+            </div>
+            <div style="display:flex;flex-direction:column;padding:0 8px;gap:2px;overflow:auto">
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;background:#fff;border:1px solid #e5e1d6;border-radius:7px;box-shadow:0 1px 2px rgba(60,50,30,.05)">
+                <span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#c46a4a"></span></span>
+                <span style="flex:1;font-weight:600">保利中央公园 2803</span>
+                <span style="font:600 10px ui-monospace,monospace;background:#f4e3db;color:#a04f2e;padding:2px 6px;border-radius:99px">4</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#cf8a2c"></span></span>
+                <span style="flex:1">张三家 · 玄关翻新</span>
+                <span style="font:600 10px ui-monospace,monospace;color:#98917f">2</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#cf8a2c"></span></span>
+                <span style="flex:1">李四家 · 全屋整装</span>
+                <span style="font:600 10px ui-monospace,monospace;color:#98917f">1</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#b8b1a0"></span></span>
+                <span style="flex:1">万科城 1204</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#8b8574;cursor:pointer" style-hover="background:#ece9e0">
+                <span style="width:16px;display:flex;justify-content:center;flex:none"><span style="width:7px;height:7px;border-radius:50%;background:#d4cfc1"></span></span>
+                <span style="flex:1">龙湖 · 两江新宸</span>
+              </div>
+            </div>
+
+
+            <div style="flex:1"></div>
+
+            <!-- 设置弹层(向上展开) -->
+            <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;left:10px;right:10px;bottom:54px;background:#fff;border:1px solid #ddd8ca;border-radius:11px;box-shadow:0 12px 34px rgba(60,50,30,.18);padding:6px;z-index:5">
+                <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;cursor:pointer" style-hover="background:#f3f1ea">
+                  <span style="flex:1;font-size:12.5px">外观</span><span style="font-size:11.5px;color:#98917f">浅色 ▾</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;cursor:pointer" style-hover="background:#f3f1ea">
+                  <span style="flex:1;font-size:12.5px">AI 模型</span><span style="font-size:11.5px;color:#98917f">本地默认 ▾</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;cursor:pointer" style-hover="background:#f3f1ea">
+                  <span style="flex:1;font-size:12.5px">数据与备份</span><span style="font:10.5px ui-monospace,monospace;color:#98917f">~/OpenDesign</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;cursor:pointer" style-hover="background:#f3f1ea">
+                  <span style="flex:1;font-size:12.5px">快捷键</span>
+                </div>
+                <div style="border-top:1px solid #eceadf;margin:5px 4px"></div>
+                <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;cursor:pointer" style-hover="background:#f3f1ea">
+                  <span style="flex:1;font-size:12.5px;color:#98917f">检查更新</span><span style="font:10.5px ui-monospace,monospace;color:#b0a996">v0.4.2</span>
+                </div>
+              </div>
+            </sc-if>
+            <div style="border-top:1px solid #e5e1d6;padding:8px 10px">
+              <div onClick="{{ toggleSettings }}" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;color:#5c574c;cursor:pointer;user-select:none" style-hover="background:#ece9e0">
+                <span style="width:16px;text-align:center">⚙</span><span style="flex:1">设置</span>
+                <span style="color:#b0a996;font-size:11px">{{ settingsChevron }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 中央:变更记录 -->
+          <div style="display:flex;flex-direction:column;flex:1;min-width:0;border-right:1px solid #eceadf">
+            <div style="padding:22px 28px 0">
+              <div style="font-family:'Noto Serif SC',serif;font-size:22px;font-weight:700">保利中央公园 2803</div>
+              <div style="display:flex;align-items:center;gap:8px;margin:18px 0 0">
+                <div style="font-weight:600;font-size:14px">变更记录</div>
+                <div style="font:600 11px ui-monospace,monospace;color:#98917f">12 条</div>
+                <div style="flex:1"></div>
+                <div style="display:flex;gap:6px;font-size:12px">
+                  <span style="padding:5px 11px;border-radius:99px;background:#2c2a26;color:#faf9f5">未办结 4</span>
+                  <span style="padding:5px 11px;border-radius:99px;border:1px solid #ddd8ca;color:#5c574c;cursor:pointer" style-hover="background:#f3f1ea">待确认 2</span>
+                  <span style="padding:5px 11px;border-radius:99px;border:1px solid #ddd8ca;color:#5c574c;cursor:pointer" style-hover="background:#f3f1ea">进行中 2</span>
+                  <span style="padding:5px 11px;border-radius:99px;border:1px solid #ddd8ca;color:#5c574c;cursor:pointer" style-hover="background:#f3f1ea">全部</span>
+                </div>
+              </div>
+            </div>
+            <div style="flex:1;overflow:auto;padding:6px 28px 20px">
+              <div style="position:relative;display:flex;align-items:flex-start;gap:14px;padding:15px 2px;border-bottom:1px solid #eceadf">
+                <span style="font:600 12px ui-monospace,monospace;color:#a04f2e;padding-top:2px;flex:none">C12</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;line-height:1.55">玄关柜整体改到 2.4 米高,柜顶留 300mm 检修口,门板通顶</div>
+                  <div style="display:flex;gap:10px;margin-top:5px;font-size:11.5px;color:#98917f"><span>玄关</span><span>·</span><span>7月9日 口头 · 现场</span></div>
+                </div>
+                <span style="flex:none;font-size:11.5px;color:#98917f;border:1px solid #ddd8ca;border-radius:6px;padding:3px 9px;cursor:pointer" style-hover="background:#f3f1ea;color:#3d7a4e">✓ 标记完成</span>
+                <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#a3651c;background:#f7ecd8;padding:3px 9px;border-radius:99px"><span style="width:6px;height:6px;border-radius:50%;background:#cf8a2c"></span>待确认</span>
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:14px;padding:15px 2px;border-bottom:1px solid #eceadf">
+                <span style="font:600 12px ui-monospace,monospace;color:#a04f2e;padding-top:2px;flex:none">C11</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;line-height:1.55">电视墙改用岩板,取消原定木格栅;岩板留样待业主确认色号</div>
+                  <div style="display:flex;gap:10px;margin-top:5px;font-size:11.5px;color:#98917f"><span>客厅</span><span>·</span><span>7月8日 微信语音</span></div>
+                </div>
+                <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#2f6a8f;background:#e3eef4;padding:3px 9px;border-radius:99px"><span style="width:6px;height:6px;border-radius:50%;background:#4189b5"></span>进行中</span>
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:14px;padding:15px 2px;border-bottom:1px solid #eceadf">
+                <span style="font:600 12px ui-monospace,monospace;color:#a04f2e;padding-top:2px;flex:none">C10</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;line-height:1.55">岛台加宽到 900mm,插座从台面改到侧板,增加一组 USB</div>
+                  <div style="display:flex;gap:10px;margin-top:5px;font-size:11.5px;color:#98917f"><span>厨房</span><span>·</span><span>7月5日 电话</span></div>
+                </div>
+                <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#2f6a8f;background:#e3eef4;padding:3px 9px;border-radius:99px"><span style="width:6px;height:6px;border-radius:50%;background:#4189b5"></span>进行中</span>
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:14px;padding:15px 2px;border-bottom:1px solid #eceadf">
+                <span style="font:600 12px ui-monospace,monospace;color:#a04f2e;padding-top:2px;flex:none">C9</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;line-height:1.55">主卧衣柜移门改平开门,内部格局重新排,增加裤抽</div>
+                  <div style="display:flex;gap:10px;margin-top:5px;font-size:11.5px;color:#98917f"><span>主卧</span><span>·</span><span>7月2日 现场</span></div>
+                </div>
+                <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#a3651c;background:#f7ecd8;padding:3px 9px;border-radius:99px"><span style="width:6px;height:6px;border-radius:50%;background:#cf8a2c"></span>待确认</span>
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:14px;padding:15px 2px;border-bottom:1px solid #eceadf;opacity:.62">
+                <span style="font:600 12px ui-monospace,monospace;color:#98917f;padding-top:2px;flex:none">C8</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;line-height:1.55">全屋筒灯统一换 3000K,走廊加两个明装射灯</div>
+                  <div style="display:flex;gap:10px;margin-top:5px;font-size:11.5px;color:#98917f"><span>全屋</span><span>·</span><span>6月28日</span></div>
+                </div>
+                <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#3d7a4e;background:#e4efe6;padding:3px 9px;border-radius:99px"><span style="width:6px;height:6px;border-radius:50%;background:#579a68"></span>已完成</span>
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:14px;padding:15px 2px;opacity:.5">
+                <span style="font:600 12px ui-monospace,monospace;color:#98917f;padding-top:2px;flex:none">C7</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;line-height:1.55;text-decoration:line-through;text-decoration-color:#c2bba9">沙发背景墙两侧加壁灯(业主 6月25日 取消)</div>
+                  <div style="display:flex;gap:10px;margin-top:5px;font-size:11.5px;color:#98917f"><span>客厅</span><span>·</span><span>6月20日</span></div>
+                </div>
+                <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#847e6e;background:#edeadf;padding:3px 9px;border-radius:99px"><span style="width:6px;height:6px;border-radius:50%;background:#a29b88"></span>已关闭</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 伴随列:图片 + 文件 -->
+          <div style="display:flex;flex-direction:column;width:290px;flex:none;background:#faf9f5;border-right:1px solid #eceadf;overflow:auto">
+
+            <!-- 图片:参考图 / 效果图 -->
+            <div style="display:flex;align-items:center;gap:8px;padding:22px 16px 10px">
+              <div style="font-weight:600;font-size:13.5px">图片</div>
+              <div style="flex:1"></div>
+              <div style="display:flex;background:#efece3;border-radius:7px;padding:2px;font-size:11px">
+                <span style="padding:3px 9px;background:#fff;border-radius:5px;font-weight:600;box-shadow:0 1px 2px rgba(60,50,30,.07);cursor:pointer">参考 47</span>
+                <span style="padding:3px 9px;color:#8b8574;cursor:pointer">效果 6</span>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px">
+              <div style="aspect-ratio:4/3;border-radius:6px;background:repeating-linear-gradient(45deg,#eeebe2 0 8px,#e5e1d4 8px 16px);display:flex;align-items:flex-end;padding:7px;cursor:pointer"><span style="font:10px ui-monospace,monospace;color:#8b8574;background:rgba(250,249,245,.9);padding:2px 6px;border-radius:4px">客厅·岩板</span></div>
+              <div style="aspect-ratio:4/3;border-radius:6px;background:repeating-linear-gradient(45deg,#ece8dd 0 8px,#e2ddce 8px 16px);display:flex;align-items:flex-end;padding:7px;cursor:pointer"><span style="font:10px ui-monospace,monospace;color:#8b8574;background:rgba(250,249,245,.9);padding:2px 6px;border-radius:4px">玄关·柜体</span></div>
+              <div style="aspect-ratio:4/3;border-radius:6px;background:repeating-linear-gradient(45deg,#efece4 0 8px,#e6e2d6 8px 16px);display:flex;align-items:flex-end;padding:7px;cursor:pointer"><span style="font:10px ui-monospace,monospace;color:#8b8574;background:rgba(250,249,245,.9);padding:2px 6px;border-radius:4px">主卧·灯光</span></div>
+              <div style="aspect-ratio:4/3;border-radius:6px;background:#efece3;display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:#e8e4d8"><span style="font-size:11.5px;color:#8b8574">+43 图墙 →</span></div>
+            </div>
+
+            <!-- 文件 -->
+            <div style="display:flex;align-items:center;gap:8px;padding:22px 16px 8px">
+              <div style="font-weight:600;font-size:13.5px">项目文件</div>
+              <div style="flex:1"></div>
+              <span style="font-size:11.5px;color:#98917f">18 个</span>
+            </div>
+            <div style="padding:0 16px 8px">
+              <div style="display:flex;align-items:center;gap:7px;background:#f3f1ea;border:1px solid #e5e1d6;border-radius:7px;padding:6px 10px">
+                <span style="color:#b0a996;font-size:12px">⌕</span>
+                <span style="font-size:12px;color:#b0a996">搜文件名…</span>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;padding:0 8px 20px">
+              <div style="padding:8px 10px 3px;font-size:10.5px;color:#b0a996;letter-spacing:.06em">图纸 · 模型</div>
+              <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;cursor:pointer" style-hover="background:#f3f1ea">
+                <span style="font:600 9.5px ui-monospace,monospace;background:#e8e4d8;color:#6e6857;padding:3px 5px;border-radius:4px;flex:none;width:26px;text-align:center">DWG</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">平面方案 v3.dwg</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">7-08</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;cursor:pointer" style-hover="background:#f3f1ea">
+                <span style="font:600 9.5px ui-monospace,monospace;background:#e8e4d8;color:#6e6857;padding:3px 5px;border-radius:4px;flex:none;width:26px;text-align:center">SKP</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">全屋模型 0705.skp</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">7-05</span>
+              </div>
+              <div style="padding:12px 10px 3px;font-size:10.5px;color:#b0a996;letter-spacing:.06em">效果图</div>
+              <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;cursor:pointer" style-hover="background:#f3f1ea">
+                <span style="font:600 9.5px ui-monospace,monospace;background:#e8e4d8;color:#6e6857;padding:3px 5px;border-radius:4px;flex:none;width:26px;text-align:center">JPG</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">客厅效果图 终版.jpg</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">7-02</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;cursor:pointer" style-hover="background:#f3f1ea">
+                <span style="font:600 9.5px ui-monospace,monospace;background:#e8e4d8;color:#6e6857;padding:3px 5px;border-radius:4px;flex:none;width:26px;text-align:center">JPG</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">主卧效果图 v2.jpg</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">6-29</span>
+              </div>
+              <div style="padding:12px 10px 3px;font-size:10.5px;color:#b0a996;letter-spacing:.06em">文档</div>
+              <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;cursor:pointer" style-hover="background:#f3f1ea">
+                <span style="font:600 9.5px ui-monospace,monospace;background:#e8e4d8;color:#6e6857;padding:3px 5px;border-radius:4px;flex:none;width:26px;text-align:center">XLS</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">主材报价 v2.xlsx</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">6-30</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;cursor:pointer" style-hover="background:#f3f1ea">
+                <span style="font:600 9.5px ui-monospace,monospace;background:#e8e4d8;color:#6e6857;padding:3px 5px;border-radius:4px;flex:none;width:26px;text-align:center">PDF</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">施工交底 0620.pdf</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">6-20</span>
+              </div>
+              <div style="padding:8px 10px 0;font-size:11.5px;color:#a04f2e;cursor:pointer">全部文件 →</div>
+            </div>
+          </div>
+
+          <!-- 右:本项目 AI 聊天(Claude 式) -->
+          <div style="display:flex;flex-direction:column;width:340px;flex:none;background:#faf9f5">
+            <div style="display:flex;align-items:center;gap:8px;padding:16px 20px 10px">
+              <span style="font-weight:600;font-size:13px">项目助手</span>
+              <div style="flex:1"></div>
+              <span style="color:#b0a996;font-size:13px;cursor:pointer;padding:2px 4px;border-radius:5px" style-hover="background:#ece9e0;color:#5c574c" title="历史对话">≡</span>
+              <span style="color:#b0a996;font-size:14px;cursor:pointer;padding:2px 4px;border-radius:5px" style-hover="background:#ece9e0;color:#5c574c" title="收起">»</span>
+            </div>
+            <div style="flex:1;overflow:auto;display:flex;flex-direction:column;gap:20px;padding:10px 20px 14px">
+              <div style="align-self:flex-end;max-width:92%;background:#efece3;border-radius:14px;padding:10px 14px;font-size:13px;line-height:1.65;color:#2c2a26">记一下:玄关柜改到 2.4 米,顶上留检修口,门板做通顶</div>
+              <div style="font-size:13.5px;line-height:1.75;color:#2c2a26">
+                已记入变更记录:
+                <div style="background:#fff;border:1px solid #e5e1d6;border-radius:10px;padding:10px 12px;margin:9px 0;box-shadow:0 1px 2px rgba(60,50,30,.05)">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font:600 11px ui-monospace,monospace;color:#a04f2e">C12</span>
+                    <span style="font-size:11px;color:#98917f">玄关 · 7月9日</span>
+                    <div style="flex:1"></div>
+                    <span style="font-size:10.5px;font-weight:600;color:#a3651c;background:#f7ecd8;padding:2px 7px;border-radius:99px">待确认</span>
+                  </div>
+                  <div style="font-size:12.5px;line-height:1.55;margin-top:6px">玄关柜整体改到 2.4 米高,柜顶留 300mm 检修口,门板通顶</div>
+                </div>
+                要把图墙里「玄关·通顶柜」那张参考图挂到这条下面吗?
+              </div>
+              <div style="align-self:flex-end;max-width:92%;background:#efece3;border-radius:14px;padding:10px 14px;font-size:13px;line-height:1.65;color:#2c2a26">这个项目还有哪些没确认的?</div>
+              <div style="font-size:13.5px;line-height:1.85;color:#2c2a26">
+                目前有 2 条<strong>待确认</strong>:<br>
+                · <span style="font:600 11.5px ui-monospace,monospace;color:#a04f2e">C12</span> 玄关柜改 2.4 米<br>
+                · <span style="font:600 11.5px ui-monospace,monospace;color:#a04f2e">C9</span> 主卧衣柜改平开门<br>
+                建议本周电话跟王女士过一遍<span style="display:inline-block;width:8px;height:15px;background:#c46a4a;vertical-align:-2px;border-radius:1px;margin-left:1px"></span>
+              </div>
+            </div>
+            <div style="padding:0 14px 14px">
+              <div style="background:#fff;border:1px solid #ddd8ca;border-radius:14px;box-shadow:0 2px 10px rgba(60,50,30,.08)" style-focus="border-color:#c46a4a">
+                <div style="padding:12px 14px 2px;font-size:13px;line-height:1.6;color:#b0a996">回复,或直接说「记一下…」</div>
+                <div style="display:flex;align-items:center;gap:6px;padding:8px 10px 10px">
+                  <span style="width:26px;height:26px;border:1px solid #e5e1d6;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#8b8574;font-size:14px;cursor:pointer" style-hover="background:#f3f1ea" title="添加图片或文件">+</span>
+                  <span style="height:26px;display:flex;align-items:center;border:1px solid #e5e1d6;border-radius:8px;padding:0 9px;font-size:11px;color:#8b8574;cursor:pointer" style-hover="background:#f3f1ea">✎ 记一下</span>
+                  <div style="flex:1"></div>
+                  <span style="width:28px;height:28px;border-radius:9px;background:#c46a4a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer" style-hover="background:#a04f2e">↑</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="dv-next">下一步可以说:「设置菜单里再加 ___」 · 「细化新对话/待办提醒页」 · 「按 <a class="dv-oid" href="#2a">2a</a> 细化图墙和聊天面板」</p>
+</section>
+
+<section class="dv-turn" id="t1">
+  <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">OpenDesign 主工作区 · 三个布局探索</span></div>
+
+  <div style="max-width:920px;margin:0 0 26px;padding:14px 18px;background:rgba(255,255,255,.6);border:1px solid rgba(0,0,0,.07);border-radius:8px;font-size:12px;line-height:1.8;color:rgba(0,0,0,.62)">
+    <strong style="color:#1a1a1a">假设与推理</strong> — 示例项目「保利中央公园 2803」,虚构数据。变更记录是命根子,所以三个方案里它都占视觉中心;差异在:① 聊天的存在方式(<a href="#1a">1a</a> 常驻右侧板 / <a href="#1b">1b</a> 底部命令条 / <a href="#1c">1c</a> 浮动抽屉)② 图墙与文件如何共存(伴随列 / 标签页 / 对半分)③ 记录密度(舒适行 / 紧凑表格 / 卡片)④ 视觉气质(暖纸面衬线 / 冷灰工具感 / 画廊留白)。待办提醒与日历只留侧栏入口。参考图一律用条纹占位,等真图。
+  </div>
+
+  <div class="dv-opts">
+
+    <!-- ============================== 1a ============================== -->
+    <div class="dv-opt" id="1a">
+      <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>暖纸面三栏 · 聊天常驻右侧板 · 变更居中,图墙文件作伴随列</div>
+      <div class="dv-card" style="width:1440px">
+        <div data-screen-label="1a 主工作区" style="display:flex;width:1440px;height:860px;background:#faf9f5;color:#2c2a26;font-size:13px">
+
+          <!-- 侧栏:项目列表 -->
+          <div style="display:flex;flex-direction:column;width:228px;flex:none;background:#f3f1ea;border-right:1px solid #e5e1d6">
+            <div style="display:flex;align-items:center;gap:8px;padding:18px 18px 14px">
+              <div style="width:22px;height:22px;border-radius:6px;background:#2c2a26;color:#faf9f5;display:flex;align-items:center;justify-content:center;font:700 11px ui-monospace,monospace">O</div>
+              <div style="font-weight:600;font-size:14px;letter-spacing:.02em">OpenDesign</div>
+            </div>
+            <div style="padding:10px 18px 6px;font-size:11px;color:#98917f;letter-spacing:.08em">进行中项目</div>
+            <div style="display:flex;flex-direction:column;padding:0 8px;gap:2px">
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;background:#fff;border:1px solid #e5e1d6;border-radius:7px;box-shadow:0 1px 2px rgba(60,50,30,.05)">
+                <span style="width:7px;height:7px;border-radius:50%;background:#c46a4a;flex:none"></span>
+                <span style="flex:1;font-weight:600">保利中央公园 2803</span>
+                <span style="font:600 10px ui-monospace,monospace;background:#f4e3db;color:#a04f2e;padding:2px 6px;border-radius:99px">4</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c" style-hover="background:#ece9e0">
+                <span style="width:7px;height:7px;border-radius:50%;background:#b8b1a0;flex:none"></span>
+                <span style="flex:1">张三家 · 玄关翻新</span>
+                <span style="font:600 10px ui-monospace,monospace;color:#98917f">2</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c" style-hover="background:#ece9e0">
+                <span style="width:7px;height:7px;border-radius:50%;background:#b8b1a0;flex:none"></span>
+                <span style="flex:1">李四家 · 全屋整装</span>
+                <span style="font:600 10px ui-monospace,monospace;color:#98917f">1</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;color:#5c574c" style-hover="background:#ece9e0">
+                <span style="width:7px;height:7px;border-radius:50%;background:#b8b1a0;flex:none"></span>
+                <span style="flex:1">万科城 1204</span>
+              </div>
+            </div>
+            <div style="padding:16px 18px 6px;font-size:11px;color:#98917f;letter-spacing:.08em">已交付</div>
+            <div style="padding:0 8px;color:#8b8574">
+              <div style="padding:8px 10px;border-radius:7px" style-hover="background:#ece9e0">龙湖 · 两江新宸</div>
+            </div>
+            <div style="flex:1"></div>
+            <div style="border-top:1px solid #e5e1d6;padding:10px 8px;display:flex;flex-direction:column;gap:2px">
+              <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;color:#5c574c" style-hover="background:#ece9e0">
+                <span style="font-size:13px">◎</span><span style="flex:1">待办提醒</span>
+                <span style="font:600 10px ui-monospace,monospace;background:#2c2a26;color:#faf9f5;padding:2px 6px;border-radius:99px">7</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;color:#5c574c" style-hover="background:#ece9e0">
+                <span style="font-size:13px">▦</span><span style="flex:1">日历</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 中央:变更记录 -->
+          <div style="display:flex;flex-direction:column;flex:1;min-width:0;border-right:1px solid #eceadf">
+            <div style="padding:22px 28px 0">
+              <div style="display:flex;align-items:baseline;gap:12px">
+                <div style="font-family:'Noto Serif SC',serif;font-size:22px;font-weight:700">保利中央公园 2803</div>
+                <div style="font-size:12px;color:#98917f">硬装阶段 · 开工第 64 天 · 业主 王女士</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;margin:18px 0 0">
+                <div style="font-weight:600;font-size:14px">变更记录</div>
+                <div style="font:600 11px ui-monospace,monospace;color:#98917f">12 条 · 只增不删</div>
+                <div style="flex:1"></div>
+                <div style="display:flex;gap:6px;font-size:12px">
+                  <span style="padding:5px 11px;border-radius:99px;background:#2c2a26;color:#faf9f5">未办结 4</span>
+                  <span style="padding:5px 11px;border-radius:99px;border:1px solid #ddd8ca;color:#5c574c" style-hover="background:#f3f1ea">待确认 2</span>
+                  <span style="padding:5px 11px;border-radius:99px;border:1px solid #ddd8ca;color:#5c574c" style-hover="background:#f3f1ea">进行中 2</span>
+                  <span style="padding:5px 11px;border-radius:99px;border:1px solid #ddd8ca;color:#5c574c" style-hover="background:#f3f1ea">全部</span>
+                </div>
+              </div>
+            </div>
+            <div style="flex:1;overflow:auto;padding:6px 28px 20px">
+              <div style="display:flex;align-items:flex-start;gap:14px;padding:15px 2px;border-bottom:1px solid #eceadf">
+                <span style="font:600 12px ui-monospace,monospace;color:#a04f2e;padding-top:2px;flex:none">C12</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;line-height:1.55">玄关柜整体改到 2.4 米高,柜顶留 300mm 检修口,门板通顶</div>
+                  <div style="display:flex;gap:10px;margin-top:5px;font-size:11.5px;color:#98917f"><span>玄关</span><span>·</span><span>7月9日 口头 · 现场</span></div>
+                </div>
+                <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#a3651c;background:#f7ecd8;padding:3px 9px;border-radius:99px"><span style="width:6px;height:6px;border-radius:50%;background:#cf8a2c"></span>待确认</span>
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:14px;padding:15px 2px;border-bottom:1px solid #eceadf">
+                <span style="font:600 12px ui-monospace,monospace;color:#a04f2e;padding-top:2px;flex:none">C11</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;line-height:1.55">电视墙改用岩板,取消原定木格栅;岩板留样待业主确认色号</div>
+                  <div style="display:flex;gap:10px;margin-top:5px;font-size:11.5px;color:#98917f"><span>客厅</span><span>·</span><span>7月8日 微信语音</span></div>
+                </div>
+                <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#2f6a8f;background:#e3eef4;padding:3px 9px;border-radius:99px"><span style="width:6px;height:6px;border-radius:50%;background:#4189b5"></span>进行中</span>
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:14px;padding:15px 2px;border-bottom:1px solid #eceadf">
+                <span style="font:600 12px ui-monospace,monospace;color:#a04f2e;padding-top:2px;flex:none">C10</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;line-height:1.55">岛台加宽到 900mm,插座从台面改到侧板,增加一组 USB</div>
+                  <div style="display:flex;gap:10px;margin-top:5px;font-size:11.5px;color:#98917f"><span>厨房</span><span>·</span><span>7月5日 电话</span></div>
+                </div>
+                <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#2f6a8f;background:#e3eef4;padding:3px 9px;border-radius:99px"><span style="width:6px;height:6px;border-radius:50%;background:#4189b5"></span>进行中</span>
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:14px;padding:15px 2px;border-bottom:1px solid #eceadf">
+                <span style="font:600 12px ui-monospace,monospace;color:#a04f2e;padding-top:2px;flex:none">C9</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;line-height:1.55">主卧衣柜移门改平开门,内部格局重新排,增加裤抽</div>
+                  <div style="display:flex;gap:10px;margin-top:5px;font-size:11.5px;color:#98917f"><span>主卧</span><span>·</span><span>7月2日 现场</span></div>
+                </div>
+                <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#a3651c;background:#f7ecd8;padding:3px 9px;border-radius:99px"><span style="width:6px;height:6px;border-radius:50%;background:#cf8a2c"></span>待确认</span>
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:14px;padding:15px 2px;border-bottom:1px solid #eceadf;opacity:.62">
+                <span style="font:600 12px ui-monospace,monospace;color:#98917f;padding-top:2px;flex:none">C8</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;line-height:1.55">全屋筒灯统一换 3000K,走廊加两个明装射灯</div>
+                  <div style="display:flex;gap:10px;margin-top:5px;font-size:11.5px;color:#98917f"><span>全屋</span><span>·</span><span>6月28日</span></div>
+                </div>
+                <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#3d7a4e;background:#e4efe6;padding:3px 9px;border-radius:99px"><span style="width:6px;height:6px;border-radius:50%;background:#579a68"></span>已完成</span>
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:14px;padding:15px 2px;opacity:.5">
+                <span style="font:600 12px ui-monospace,monospace;color:#98917f;padding-top:2px;flex:none">C7</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;line-height:1.55;text-decoration:line-through;text-decoration-color:#c2bba9">沙发背景墙两侧加壁灯(业主 6月25日 取消)</div>
+                  <div style="display:flex;gap:10px;margin-top:5px;font-size:11.5px;color:#98917f"><span>客厅</span><span>·</span><span>6月20日</span></div>
+                </div>
+                <span style="flex:none;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#847e6e;background:#edeadf;padding:3px 9px;border-radius:99px"><span style="width:6px;height:6px;border-radius:50%;background:#a29b88"></span>已关闭</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 伴随列:图墙 + 文件 -->
+          <div style="display:flex;flex-direction:column;width:296px;flex:none;background:#faf9f5;border-right:1px solid #eceadf;overflow:auto">
+            <div style="display:flex;align-items:baseline;padding:24px 20px 12px">
+              <div style="font-weight:600;font-size:13.5px">参考图</div>
+              <div style="flex:1"></div>
+              <a href="#3" style="font-size:11.5px;color:#a04f2e">图墙 →</a>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 20px">
+              <div style="aspect-ratio:4/3;border-radius:6px;background:repeating-linear-gradient(45deg,#eeebe2 0 8px,#e5e1d4 8px 16px);display:flex;align-items:flex-end;padding:7px"><span style="font:10px ui-monospace,monospace;color:#8b8574;background:rgba(250,249,245,.9);padding:2px 6px;border-radius:4px">客厅·岩板</span></div>
+              <div style="aspect-ratio:4/3;border-radius:6px;background:repeating-linear-gradient(45deg,#ece8dd 0 8px,#e2ddce 8px 16px);display:flex;align-items:flex-end;padding:7px"><span style="font:10px ui-monospace,monospace;color:#8b8574;background:rgba(250,249,245,.9);padding:2px 6px;border-radius:4px">玄关·柜体</span></div>
+              <div style="aspect-ratio:4/3;border-radius:6px;background:repeating-linear-gradient(45deg,#efece4 0 8px,#e6e2d6 8px 16px);display:flex;align-items:flex-end;padding:7px"><span style="font:10px ui-monospace,monospace;color:#8b8574;background:rgba(250,249,245,.9);padding:2px 6px;border-radius:4px">主卧·灯光</span></div>
+              <div style="aspect-ratio:4/3;border-radius:6px;background:repeating-linear-gradient(45deg,#edeade 0 8px,#e3dfd0 8px 16px);display:flex;align-items:flex-end;padding:7px"><span style="font:10px ui-monospace,monospace;color:#8b8574;background:rgba(250,249,245,.9);padding:2px 6px;border-radius:4px">厨房·岛台</span></div>
+            </div>
+            <div style="display:flex;align-items:baseline;padding:26px 20px 10px">
+              <div style="font-weight:600;font-size:13.5px">项目文件</div>
+              <div style="flex:1"></div>
+              <span style="font-size:11.5px;color:#98917f">18 个</span>
+            </div>
+            <div style="display:flex;flex-direction:column;padding:0 12px 20px">
+              <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px" style-hover="background:#f3f1ea">
+                <span style="font:600 9.5px ui-monospace,monospace;background:#e8e4d8;color:#6e6857;padding:3px 5px;border-radius:4px;flex:none">DWG</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">平面方案 v3.dwg</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">7-08</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px" style-hover="background:#f3f1ea">
+                <span style="font:600 9.5px ui-monospace,monospace;background:#e8e4d8;color:#6e6857;padding:3px 5px;border-radius:4px;flex:none">SKP</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">全屋模型 0705.skp</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">7-05</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px" style-hover="background:#f3f1ea">
+                <span style="font:600 9.5px ui-monospace,monospace;background:#e8e4d8;color:#6e6857;padding:3px 5px;border-radius:4px;flex:none">JPG</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">客厅效果图 终版.jpg</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">7-02</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px" style-hover="background:#f3f1ea">
+                <span style="font:600 9.5px ui-monospace,monospace;background:#e8e4d8;color:#6e6857;padding:3px 5px;border-radius:4px;flex:none">XLS</span>
+                <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">主材报价 v2.xlsx</span>
+                <span style="font-size:10.5px;color:#b0a996;flex:none">6-30</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右:AI 聊天常驻侧板 -->
+          <div style="display:flex;flex-direction:column;width:324px;flex:none;background:#f3f1ea">
+            <div style="display:flex;align-items:center;gap:8px;padding:16px 18px;border-bottom:1px solid #e5e1d6">
+              <span style="width:8px;height:8px;border-radius:50%;background:#c46a4a"></span>
+              <span style="font-weight:600;font-size:13px">AI 助手</span>
+              <span style="font-size:11px;color:#98917f">· 本项目</span>
+              <div style="flex:1"></div>
+              <span style="color:#98917f;font-size:14px;cursor:pointer" title="收起">»</span>
+            </div>
+            <div style="flex:1;overflow:auto;display:flex;flex-direction:column;gap:14px;padding:18px 16px">
+              <div style="align-self:flex-end;max-width:86%;background:#2c2a26;color:#faf9f5;padding:9px 13px;border-radius:12px 12px 3px 12px;font-size:13px;line-height:1.6">记一下:玄关柜改到 2.4 米,顶上留检修口,门板做通顶</div>
+              <div style="align-self:flex-start;max-width:92%;display:flex;flex-direction:column;gap:8px">
+                <div style="font-size:13px;line-height:1.7;color:#2c2a26">好的,已记入变更记录:</div>
+                <div style="background:#fff;border:1px solid #e5e1d6;border-radius:9px;padding:10px 12px;box-shadow:0 1px 2px rgba(60,50,30,.05)">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font:600 11px ui-monospace,monospace;color:#a04f2e">C12</span>
+                    <span style="font-size:11px;color:#98917f">玄关 · 7月9日</span>
+                    <div style="flex:1"></div>
+                    <span style="font-size:10.5px;font-weight:600;color:#a3651c;background:#f7ecd8;padding:2px 7px;border-radius:99px">待确认</span>
+                  </div>
+                  <div style="font-size:12.5px;line-height:1.55;margin-top:6px">玄关柜整体改到 2.4 米高,柜顶留 300mm 检修口,门板通顶</div>
+                </div>
+              </div>
+              <div style="align-self:flex-end;max-width:86%;background:#2c2a26;color:#faf9f5;padding:9px 13px;border-radius:12px 12px 3px 12px;font-size:13px;line-height:1.6">这个项目还有哪些没确认的?</div>
+              <div style="align-self:flex-start;max-width:92%;font-size:13px;line-height:1.8;color:#2c2a26">
+                目前有 2 条<strong>待确认</strong>:<br>
+                · <span style="font:600 11.5px ui-monospace,monospace;color:#a04f2e">C12</span> 玄关柜改 2.4 米<br>
+                · <span style="font:600 11.5px ui-monospace,monospace;color:#a04f2e">C9</span> 主卧衣柜改平开门<br>
+                建议本周电话跟王女士过一遍<span style="display:inline-block;width:8px;height:15px;background:#c46a4a;vertical-align:-2px;border-radius:1px"></span>
+              </div>
+            </div>
+            <div style="padding:12px 14px 14px">
+              <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #ddd8ca;border-radius:10px;padding:10px 12px;box-shadow:0 1px 3px rgba(60,50,30,.06)">
+                <span style="flex:1;font-size:13px;color:#b0a996">说「记一下…」自动进变更记录</span>
+                <span style="width:26px;height:26px;border-radius:7px;background:#c46a4a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;flex:none">↑</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================== 1b ============================== -->
+    <div class="dv-opt" id="1b">
+      <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>冷灰工具感 · 底部命令条(平时最小化) · 变更全宽紧凑表格,图墙文件是标签页</div>
+      <div class="dv-card" style="width:1200px">
+        <div data-screen-label="1b 主工作区" style="display:flex;width:1200px;height:840px;background:#fbfbfa;color:#1f2023;font-size:13px">
+
+          <!-- 侧栏 -->
+          <div style="display:flex;flex-direction:column;width:216px;flex:none;background:#f4f4f2;border-right:1px solid #e6e6e2">
+            <div style="display:flex;align-items:center;gap:8px;padding:16px 16px 12px">
+              <div style="width:20px;height:20px;border-radius:5px;border:1.5px solid #1f2023;display:flex;align-items:center;justify-content:center;font:700 10px ui-monospace,monospace">O</div>
+              <div style="font-weight:600;font-size:13px;letter-spacing:.03em">OpenDesign</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:1px;padding:6px 8px">
+              <div style="display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:6px;background:#e7e9ec;font-weight:600">
+                <span style="flex:1">保利中央公园 2803</span>
+                <span style="font:600 10px ui-monospace,monospace;color:#3b5f8f">4</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:6px;color:#55575c" style-hover="background:#ececea">
+                <span style="flex:1">张三家 · 玄关翻新</span><span style="font:600 10px ui-monospace,monospace;color:#9a9b98">2</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:6px;color:#55575c" style-hover="background:#ececea">
+                <span style="flex:1">李四家 · 全屋整装</span><span style="font:600 10px ui-monospace,monospace;color:#9a9b98">1</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:6px;color:#55575c" style-hover="background:#ececea">
+                <span style="flex:1">万科城 1204</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:6px;color:#9a9b98" style-hover="background:#ececea">
+                <span style="flex:1">龙湖 · 两江新宸</span><span style="font-size:10px">已交付</span>
+              </div>
+            </div>
+            <div style="margin:10px 16px;border-top:1px dashed #ddddd8"></div>
+            <div style="display:flex;flex-direction:column;gap:1px;padding:0 8px;color:#55575c">
+              <div style="display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:6px" style-hover="background:#ececea"><span style="flex:1">待办提醒</span><span style="font:600 10px ui-monospace,monospace;background:#1f2023;color:#fff;padding:1px 6px;border-radius:99px">7</span></div>
+              <div style="display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:6px" style-hover="background:#ececea"><span style="flex:1">日历</span></div>
+            </div>
+            <div style="flex:1"></div>
+            <div style="padding:12px 16px;font:10.5px ui-monospace,monospace;color:#b6b7b3">本地工作台 · 数据不出电脑</div>
+          </div>
+
+          <!-- 主区 -->
+          <div style="display:flex;flex-direction:column;flex:1;min-width:0;position:relative">
+            <!-- 工具栏 -->
+            <div style="display:flex;align-items:center;gap:16px;padding:14px 24px;border-bottom:1px solid #e6e6e2">
+              <div style="font-weight:700;font-size:16px">保利中央公园 2803</div>
+              <div style="font:11px ui-monospace,monospace;color:#9a9b98">硬装 · D+64</div>
+              <div style="flex:1"></div>
+              <div style="display:flex;background:#efefec;border-radius:8px;padding:3px;font-size:12.5px">
+                <span style="padding:5px 14px;background:#fff;border-radius:6px;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.07)">变更 12</span>
+                <span style="padding:5px 14px;color:#55575c">图墙 47</span>
+                <span style="padding:5px 14px;color:#55575c">文件 18</span>
+              </div>
+            </div>
+            <!-- 筛选行 -->
+            <div style="display:flex;align-items:center;gap:8px;padding:12px 24px;font-size:12px;color:#55575c">
+              <span style="padding:4px 10px;border-radius:6px;background:#1f2023;color:#fff">未办结</span>
+              <span style="padding:4px 10px;border-radius:6px;border:1px solid #e0e0dc" style-hover="background:#efefec">全部</span>
+              <span style="padding:4px 10px;border-radius:6px;border:1px solid #e0e0dc" style-hover="background:#efefec">按空间 ▾</span>
+              <div style="flex:1"></div>
+              <span style="font:11px ui-monospace,monospace;color:#9a9b98">排序:最新在前</span>
+            </div>
+            <!-- 表格 -->
+            <div style="flex:1;overflow:auto;padding:0 24px 96px">
+              <div style="display:grid;grid-template-columns:52px 1fr 88px 72px 92px;gap:0 14px;padding:7px 10px;font:600 10.5px ui-monospace,monospace;color:#9a9b98;letter-spacing:.06em;border-bottom:1px solid #e6e6e2">
+                <span>编号</span><span>内容</span><span>空间</span><span>日期</span><span>状态</span>
+              </div>
+              <div style="display:grid;grid-template-columns:52px 1fr 88px 72px 92px;gap:0 14px;align-items:center;padding:11px 10px;border-bottom:1px solid #f0f0ed;background:#fbf7ef" style-hover="background:#f5f1e8">
+                <span style="font:600 12px ui-monospace,monospace">C12</span>
+                <span style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">玄关柜改到 2.4 米,柜顶留 300mm 检修口,门板通顶</span>
+                <span style="font-size:11.5px;color:#55575c">玄关</span>
+                <span style="font:11px ui-monospace,monospace;color:#9a9b98">07-09</span>
+                <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#9a6a12"><span style="width:7px;height:7px;border-radius:2px;background:#d9a72e"></span>待确认</span>
+              </div>
+              <div style="display:grid;grid-template-columns:52px 1fr 88px 72px 92px;gap:0 14px;align-items:center;padding:11px 10px;border-bottom:1px solid #f0f0ed" style-hover="background:#f5f5f2">
+                <span style="font:600 12px ui-monospace,monospace">C11</span>
+                <span style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">电视墙改岩板,取消木格栅;留样待确认色号</span>
+                <span style="font-size:11.5px;color:#55575c">客厅</span>
+                <span style="font:11px ui-monospace,monospace;color:#9a9b98">07-08</span>
+                <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#3b5f8f"><span style="width:7px;height:7px;border-radius:2px;background:#5b83b4"></span>进行中</span>
+              </div>
+              <div style="display:grid;grid-template-columns:52px 1fr 88px 72px 92px;gap:0 14px;align-items:center;padding:11px 10px;border-bottom:1px solid #f0f0ed" style-hover="background:#f5f5f2">
+                <span style="font:600 12px ui-monospace,monospace">C10</span>
+                <span style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">岛台加宽到 900mm,插座改侧板,加一组 USB</span>
+                <span style="font-size:11.5px;color:#55575c">厨房</span>
+                <span style="font:11px ui-monospace,monospace;color:#9a9b98">07-05</span>
+                <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#3b5f8f"><span style="width:7px;height:7px;border-radius:2px;background:#5b83b4"></span>进行中</span>
+              </div>
+              <div style="display:grid;grid-template-columns:52px 1fr 88px 72px 92px;gap:0 14px;align-items:center;padding:11px 10px;border-bottom:1px solid #f0f0ed;background:#fbf7ef" style-hover="background:#f5f1e8">
+                <span style="font:600 12px ui-monospace,monospace">C9</span>
+                <span style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">主卧衣柜移门改平开门,内部重排,增加裤抽</span>
+                <span style="font-size:11.5px;color:#55575c">主卧</span>
+                <span style="font:11px ui-monospace,monospace;color:#9a9b98">07-02</span>
+                <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#9a6a12"><span style="width:7px;height:7px;border-radius:2px;background:#d9a72e"></span>待确认</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:16px 10px 6px;font:600 10.5px ui-monospace,monospace;color:#b6b7b3;letter-spacing:.06em"><span>已办结</span><span style="flex:1;border-top:1px solid #eeeeea"></span></div>
+              <div style="display:grid;grid-template-columns:52px 1fr 88px 72px 92px;gap:0 14px;align-items:center;padding:11px 10px;border-bottom:1px solid #f0f0ed;color:#8e8f8c">
+                <span style="font:600 12px ui-monospace,monospace">C8</span>
+                <span style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">全屋筒灯换 3000K,走廊加两个明装射灯</span>
+                <span style="font-size:11.5px">全屋</span>
+                <span style="font:11px ui-monospace,monospace">06-28</span>
+                <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#4a7d58"><span style="width:7px;height:7px;border-radius:2px;background:#6da37c"></span>已完成</span>
+              </div>
+              <div style="display:grid;grid-template-columns:52px 1fr 88px 72px 92px;gap:0 14px;align-items:center;padding:11px 10px;border-bottom:1px solid #f0f0ed;color:#b0b1ad">
+                <span style="font:600 12px ui-monospace,monospace">C7</span>
+                <span style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:line-through">沙发背景墙两侧加壁灯(业主取消)</span>
+                <span style="font-size:11.5px">客厅</span>
+                <span style="font:11px ui-monospace,monospace">06-20</span>
+                <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600"><span style="width:7px;height:7px;border-radius:2px;background:#c8c9c5"></span>已关闭</span>
+              </div>
+              <div style="display:grid;grid-template-columns:52px 1fr 88px 72px 92px;gap:0 14px;align-items:center;padding:11px 10px;color:#8e8f8c">
+                <span style="font:600 12px ui-monospace,monospace">C6</span>
+                <span style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">次卧改书房,榻榻米方案定稿</span>
+                <span style="font-size:11.5px">次卧</span>
+                <span style="font:11px ui-monospace,monospace">06-14</span>
+                <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#4a7d58"><span style="width:7px;height:7px;border-radius:2px;background:#6da37c"></span>已完成</span>
+              </div>
+            </div>
+
+            <!-- 底部:AI 确认条 + 命令条 -->
+            <div style="position:absolute;left:0;right:0;bottom:0;padding:0 24px 18px;background:linear-gradient(transparent,#fbfbfa 40%)">
+              <div style="display:flex;align-items:center;gap:10px;margin:0 6px 8px;padding:9px 14px;background:#eef1f5;border:1px solid #dde3ea;border-radius:9px;font-size:12.5px;color:#3b5f8f">
+                <span style="width:7px;height:7px;border-radius:50%;background:#5b83b4;animation:none"></span>
+                <span style="flex:1">AI 已记录 <strong style="font:600 12px ui-monospace,monospace">C12</strong> 玄关柜改 2.4 米 · 待确认 — 正在生成跟进建议<span style="display:inline-block;width:7px;height:13px;background:#5b83b4;vertical-align:-2px;border-radius:1px;margin-left:2px"></span></span>
+                <span style="color:#8e8f8c;cursor:pointer">撤销</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #dcdcd8;border-radius:11px;padding:12px 14px;box-shadow:0 4px 18px rgba(20,22,26,.09)">
+                <span style="font:600 10.5px ui-monospace,monospace;background:#1f2023;color:#fff;padding:3px 7px;border-radius:5px;flex:none">记一下</span>
+                <span style="flex:1;font-size:13px;color:#b0b1ad">对 AI 说,比如「岛台插座改侧板,业主微信说的」</span>
+                <span style="font:11px ui-monospace,monospace;color:#b0b1ad;border:1px solid #e6e6e2;border-radius:5px;padding:2px 6px">⌘K</span>
+                <span style="width:26px;height:26px;border-radius:7px;background:#1f2023;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px">↑</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================== 1c ============================== -->
+    <div class="dv-opt" id="1c">
+      <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>画廊留白 · 顶部导航无侧栏 · 变更卡片 + 图墙对半分,聊天为右下浮动抽屉</div>
+      <div class="dv-card" style="width:1360px">
+        <div data-screen-label="1c 主工作区" style="position:relative;display:flex;flex-direction:column;width:1360px;height:860px;background:#f6f4ef;color:#26241f;font-size:13px;overflow:hidden">
+
+          <!-- 顶部导航 -->
+          <div style="display:flex;align-items:center;gap:22px;padding:16px 36px;border-bottom:1px solid #e7e3d8">
+            <div style="display:flex;align-items:center;gap:9px">
+              <div style="width:22px;height:22px;border-radius:50%;background:#26241f;color:#f6f4ef;display:flex;align-items:center;justify-content:center;font:700 11px ui-monospace,monospace">O</div>
+              <span style="font-weight:600;font-size:13.5px">OpenDesign</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;border:1px solid #ddd8c8;border-radius:99px;background:#fff">
+              <span style="width:7px;height:7px;border-radius:50%;background:#a0693c"></span>
+              <span style="font-weight:600">保利中央公园 2803</span>
+              <span style="color:#a29a86;font-size:11px">▾ 5 个项目</span>
+            </div>
+            <div style="flex:1"></div>
+            <div style="display:flex;align-items:center;gap:18px;font-size:12.5px;color:#6e6857">
+              <span>待办提醒 <span style="font:600 10.5px ui-monospace,monospace;background:#a0693c;color:#fff;padding:1px 6px;border-radius:99px;margin-left:2px">7</span></span>
+              <span>日历</span>
+            </div>
+          </div>
+
+          <!-- 项目题头 -->
+          <div style="display:flex;align-items:baseline;gap:16px;padding:26px 36px 18px">
+            <div style="font-family:'Noto Serif SC',serif;font-size:28px;font-weight:700;letter-spacing:.01em">保利中央公园 2803</div>
+            <div style="font-size:12.5px;color:#a29a86">硬装阶段 · 开工第 64 天</div>
+            <div style="flex:1"></div>
+            <div style="display:flex;gap:22px;font-size:12.5px;color:#6e6857">
+              <span><strong style="font-family:'Noto Serif SC',serif;font-size:19px;color:#26241f">4</strong> 未办结</span>
+              <span><strong style="font-family:'Noto Serif SC',serif;font-size:19px;color:#26241f">47</strong> 参考图</span>
+              <span><strong style="font-family:'Noto Serif SC',serif;font-size:19px;color:#26241f">18</strong> 文件</span>
+            </div>
+          </div>
+
+          <!-- 对半分主体 -->
+          <div style="display:flex;flex:1;min-height:0;gap:28px;padding:0 36px 28px">
+
+            <!-- 左:变更卡片 -->
+            <div style="display:flex;flex-direction:column;width:46%;min-width:0">
+              <div style="display:flex;align-items:center;gap:10px;padding:2px 2px 12px">
+                <span style="font-weight:600;font-size:14px">变更记录</span>
+                <span style="font:600 11px ui-monospace,monospace;color:#a29a86">C1–C12</span>
+                <div style="flex:1"></div>
+                <span style="font-size:12px;color:#6e6857;border-bottom:1.5px solid #26241f;padding-bottom:2px">未办结</span>
+                <span style="font-size:12px;color:#a29a86">全部</span>
+              </div>
+              <div style="flex:1;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:2px">
+                <div style="background:#fff;border:1px solid #e7e3d8;border-radius:11px;padding:14px 16px;box-shadow:0 1px 3px rgba(50,42,25,.05)">
+                  <div style="display:flex;align-items:center;gap:9px">
+                    <span style="font:600 12px ui-monospace,monospace;color:#a0693c">C12</span>
+                    <span style="font-size:11px;color:#a29a86;background:#f1eee5;padding:2px 8px;border-radius:99px">玄关</span>
+                    <div style="flex:1"></div>
+                    <span style="font-size:11.5px;font-weight:600;color:#a3651c">● 待确认</span>
+                  </div>
+                  <div style="font-size:13.5px;line-height:1.6;margin-top:8px">玄关柜整体改到 2.4 米高,柜顶留 300mm 检修口,门板通顶</div>
+                  <div style="font-size:11px;color:#a29a86;margin-top:8px">7月9日 现场口头 · 由 AI 记录</div>
+                </div>
+                <div style="background:#fff;border:1px solid #e7e3d8;border-radius:11px;padding:14px 16px;box-shadow:0 1px 3px rgba(50,42,25,.05)">
+                  <div style="display:flex;align-items:center;gap:9px">
+                    <span style="font:600 12px ui-monospace,monospace;color:#a0693c">C11</span>
+                    <span style="font-size:11px;color:#a29a86;background:#f1eee5;padding:2px 8px;border-radius:99px">客厅</span>
+                    <div style="flex:1"></div>
+                    <span style="font-size:11.5px;font-weight:600;color:#3f6c8c">● 进行中</span>
+                  </div>
+                  <div style="font-size:13.5px;line-height:1.6;margin-top:8px">电视墙改岩板,取消木格栅;岩板留样待业主确认色号</div>
+                  <div style="font-size:11px;color:#a29a86;margin-top:8px">7月8日 微信语音</div>
+                </div>
+                <div style="background:#fff;border:1px solid #e7e3d8;border-radius:11px;padding:14px 16px;box-shadow:0 1px 3px rgba(50,42,25,.05)">
+                  <div style="display:flex;align-items:center;gap:9px">
+                    <span style="font:600 12px ui-monospace,monospace;color:#a0693c">C10</span>
+                    <span style="font-size:11px;color:#a29a86;background:#f1eee5;padding:2px 8px;border-radius:99px">厨房</span>
+                    <div style="flex:1"></div>
+                    <span style="font-size:11.5px;font-weight:600;color:#3f6c8c">● 进行中</span>
+                  </div>
+                  <div style="font-size:13.5px;line-height:1.6;margin-top:8px">岛台加宽到 900mm,插座从台面改侧板,加一组 USB</div>
+                  <div style="font-size:11px;color:#a29a86;margin-top:8px">7月5日 电话</div>
+                </div>
+                <div style="background:#fff;border:1px solid #e7e3d8;border-radius:11px;padding:14px 16px;box-shadow:0 1px 3px rgba(50,42,25,.05)">
+                  <div style="display:flex;align-items:center;gap:9px">
+                    <span style="font:600 12px ui-monospace,monospace;color:#a0693c">C9</span>
+                    <span style="font-size:11px;color:#a29a86;background:#f1eee5;padding:2px 8px;border-radius:99px">主卧</span>
+                    <div style="flex:1"></div>
+                    <span style="font-size:11.5px;font-weight:600;color:#a3651c">● 待确认</span>
+                  </div>
+                  <div style="font-size:13.5px;line-height:1.6;margin-top:8px">衣柜移门改平开门,内部格局重排,增加裤抽</div>
+                  <div style="font-size:11px;color:#a29a86;margin-top:8px">7月2日 现场</div>
+                </div>
+                <div style="text-align:center;font-size:12px;color:#a29a86;padding:6px 0 10px">已办结 8 条 ↓</div>
+              </div>
+            </div>
+
+            <!-- 右:图墙 + 文件 -->
+            <div style="display:flex;flex-direction:column;flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:10px;padding:2px 2px 12px">
+                <span style="font-weight:600;font-size:14px">参考图墙</span>
+                <div style="flex:1"></div>
+                <span style="font-size:12px;color:#6e6857;border-bottom:1.5px solid #26241f;padding-bottom:2px">全部空间</span>
+                <span style="font-size:12px;color:#a29a86">客厅</span>
+                <span style="font-size:12px;color:#a29a86">玄关</span>
+                <span style="font-size:12px;color:#a29a86">主卧</span>
+              </div>
+              <div style="flex:1;overflow:hidden;display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:150px;gap:10px;padding:2px">
+                <div style="grid-row:span 2;border-radius:10px;background:repeating-linear-gradient(45deg,#e9e4d6 0 9px,#dfd9c7 9px 18px);display:flex;align-items:flex-end;padding:9px"><span style="font:10.5px ui-monospace,monospace;color:#6e6857;background:rgba(246,244,239,.92);padding:3px 7px;border-radius:5px">客厅·岩板电视墙</span></div>
+                <div style="border-radius:10px;background:repeating-linear-gradient(45deg,#ece7da 0 9px,#e2dccb 9px 18px);display:flex;align-items:flex-end;padding:9px"><span style="font:10.5px ui-monospace,monospace;color:#6e6857;background:rgba(246,244,239,.92);padding:3px 7px;border-radius:5px">玄关·通顶柜</span></div>
+                <div style="border-radius:10px;background:repeating-linear-gradient(45deg,#e8e3d4 0 9px,#ded8c5 9px 18px);display:flex;align-items:flex-end;padding:9px"><span style="font:10.5px ui-monospace,monospace;color:#6e6857;background:rgba(246,244,239,.92);padding:3px 7px;border-radius:5px">主卧·无主灯</span></div>
+                <div style="border-radius:10px;background:repeating-linear-gradient(45deg,#eae5d8 0 9px,#e0dac9 9px 18px);display:flex;align-items:flex-end;padding:9px"><span style="font:10.5px ui-monospace,monospace;color:#6e6857;background:rgba(246,244,239,.92);padding:3px 7px;border-radius:5px">厨房·中岛</span></div>
+                <div style="grid-row:span 2;border-radius:10px;background:repeating-linear-gradient(45deg,#ebe6d9 0 9px,#e1dbca 9px 18px);display:flex;align-items:flex-end;padding:9px"><span style="font:10.5px ui-monospace,monospace;color:#6e6857;background:rgba(246,244,239,.92);padding:3px 7px;border-radius:5px">卫生间·微水泥</span></div>
+                <div style="border-radius:10px;background:repeating-linear-gradient(45deg,#e7e2d3 0 9px,#ddd7c4 9px 18px);display:flex;align-items:flex-end;padding:9px"><span style="font:10.5px ui-monospace,monospace;color:#6e6857;background:rgba(246,244,239,.92);padding:3px 7px;border-radius:5px">餐厅·吊灯</span></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:14px;margin-top:14px;padding:11px 14px;background:#fff;border:1px solid #e7e3d8;border-radius:11px">
+                <span style="font-size:12.5px;font-weight:600;flex:none">最近文件</span>
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#6e6857"><span style="font:600 9.5px ui-monospace,monospace;background:#f1eee5;padding:2px 5px;border-radius:4px">DWG</span>平面方案 v3</span>
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#6e6857"><span style="font:600 9.5px ui-monospace,monospace;background:#f1eee5;padding:2px 5px;border-radius:4px">SKP</span>全屋模型 0705</span>
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#6e6857"><span style="font:600 9.5px ui-monospace,monospace;background:#f1eee5;padding:2px 5px;border-radius:4px">JPG</span>客厅效果图</span>
+                <div style="flex:1"></div>
+                <span style="font-size:12px;color:#a0693c">全部 18 个 →</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 浮动 AI 抽屉 -->
+          <div style="position:absolute;right:26px;bottom:24px;width:352px;background:#fff;border:1px solid #e0dbcc;border-radius:14px;box-shadow:0 12px 40px rgba(40,32,16,.16);overflow:hidden">
+            <div style="display:flex;align-items:center;gap:8px;padding:11px 15px;border-bottom:1px solid #efece2">
+              <span style="width:8px;height:8px;border-radius:50%;background:#a0693c"></span>
+              <span style="font-weight:600;font-size:12.5px">AI 助手</span>
+              <div style="flex:1"></div>
+              <span style="color:#a29a86;font-size:13px;cursor:pointer">—</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;padding:14px 15px;max-height:220px;overflow:auto">
+              <div style="align-self:flex-end;max-width:88%;background:#26241f;color:#f6f4ef;padding:8px 12px;border-radius:11px 11px 3px 11px;font-size:12.5px;line-height:1.6">记一下:玄关柜改到 2.4 米,顶上留检修口</div>
+              <div style="align-self:flex-start;max-width:92%;font-size:12.5px;line-height:1.7">
+                已记入 <span style="font:600 11px ui-monospace,monospace;color:#a0693c">C12</span> · 玄关 · 待确认。<br>
+                和图墙里「玄关·通顶柜」参考一致,要同步给木工吗<span style="display:inline-block;width:7px;height:13px;background:#a0693c;vertical-align:-2px;border-radius:1px"></span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin:0 12px 12px;background:#f6f4ef;border:1px solid #e7e3d8;border-radius:9px;padding:9px 12px">
+              <span style="flex:1;font-size:12.5px;color:#a29a86">记一下 / 问问这个项目…</span>
+              <span style="width:24px;height:24px;border-radius:6px;background:#a0693c;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px">↑</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="dv-next">下一步可以说:「用 <a class="dv-oid" href="#1a">1a</a> 的三栏,换 <a class="dv-oid" href="#1b">1b</a> 的紧凑表格」 · 「<a class="dv-oid" href="#1c">1c</a> 的抽屉放进 <a class="dv-oid" href="#1a">1a</a>」 · 「选定一个,细化变更面板 / 图墙 / 聊天」</p>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { settingsOpen: true };
+  renderVals() {
+    return {
+      settingsOpen: this.state.settingsOpen,
+      toggleSettings: () => this.setState(function (s) { return { settingsOpen: !s.settingsOpen }; }),
+      settingsChevron: this.state.settingsOpen ? '▾' : '▴'
+    };
+  }
+}
+</script>
+</body>
+</html>
