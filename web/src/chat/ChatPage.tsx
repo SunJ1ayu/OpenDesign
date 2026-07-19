@@ -108,6 +108,11 @@ export default function ChatPage({
     return () => window.removeEventListener("keydown", onKey);
   }, [bannerOpen]);
   const [transcript, setTranscript] = useState<TranscriptState>(emptyTranscript);
+  // modal 不在提交时关(口令错时行内报错要留在眼前——修改单 C):连接成功 login 分支
+  // 整体卸载,modal 自然消失;这里只负责把状态收干净,防登出后 modal 幽灵自开。
+  useEffect(() => {
+    if (view.kind === "connected") setBannerOpen(false);
+  }, [view.kind]);
   const [draft, setDraft] = useState("");
   const pwRef = useRef<HTMLInputElement>(null);
   const wsRef = useRef<WebSocket | null>(null); // 当前活连接,send 用
@@ -359,7 +364,6 @@ export default function ChatPage({
           onSubmit={(e) => {
             e.preventDefault();
             login();
-            setBannerOpen(false);
           }}
         >
           <input

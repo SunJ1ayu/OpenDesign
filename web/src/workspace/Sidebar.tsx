@@ -151,7 +151,7 @@ export default function Sidebar({
                 </span>
               </button>
             ))}
-            {recent.length === 0 && <div className="side-empty-hint">还没有对话记录</div>}
+            {recent.length === 0 && <div className="side-empty-hint">暂无对话</div>}
           </div>
         </>
       )}

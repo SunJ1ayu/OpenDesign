@@ -117,6 +117,7 @@ export default function InboxCard({ dataEpoch, active }: Props) {
           disabled={scanning}
           onClick={(e) => {
             e.stopPropagation();
+            setExpanded(true); // 收起态点扫描:结果(方案/提示)都在折叠区,先展开再扫
             doScan();
           }}
           title="自动认领确定性建议(扩展名/项目名唯一命中),歧义留人工"
