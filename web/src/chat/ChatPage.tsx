@@ -96,6 +96,17 @@ export default function ChatPage({
   );
   const [loginError, setLoginError] = useState("");
   const [attempt, setAttempt] = useState(0); // 递增触发重连 effect
+  // 修改单 C(视图层,不动连接逻辑):工作区聊天列未连接时不放裸表单,顶部琥珀横幅
+  // 点开 = 同一张连接卡的 modal;esc/点遮罩关(全局原则 A3)。仅 variant="column" 用。
+  const [bannerOpen, setBannerOpen] = useState(false);
+  useEffect(() => {
+    if (!bannerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setBannerOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [bannerOpen]);
   const [transcript, setTranscript] = useState<TranscriptState>(emptyTranscript);
   const [draft, setDraft] = useState("");
   const pwRef = useRef<HTMLInputElement>(null);
@@ -324,7 +335,7 @@ export default function ChatPage({
             disabled={view.kind !== "connected" || transcript.busy || !draft.trim()}
             onClick={send}
           >
-            ↑
+            发送
           </button>
         </div>
       </div>
@@ -332,31 +343,72 @@ export default function ChatPage({
   );
 
   if (view.kind === "login") {
+    // 「连接聊天服务」的正确形态(修改单 C):永远是一张卡,不是裸表单;
+    // 只出现在聊天区域内,不占页面 C 位。两处复用同一张卡:
+    // - home(3a):居中呈现(见 .home-pane-login 外层)。
+    // - column(2a 工作区聊天列):不放表单,顶部琥珀横幅点开 modal 才现卡。
+    const connectCard = (
+      <div className="connect-card" data-ui="connect-card">
+        <h2>连接聊天服务</h2>
+        <p className="cc-desc">
+          输入 nanobot WebUI 的访问口令,只需一次,保存在本机。变更记录、图墙、文件不受影响,
+          现在就能用。
+        </p>
+        <form
+          className="chat-login"
+          onSubmit={(e) => {
+            e.preventDefault();
+            login();
+            setBannerOpen(false);
+          }}
+        >
+          <input
+            ref={pwRef}
+            type="password"
+            placeholder="访问口令"
+            autoFocus
+            autoComplete="current-password"
+          />
+          {loginError && <p className="chat-login-error">{loginError}</p>}
+          <button type="submit" className="btn-primary cc-submit">
+            连接
+          </button>
+        </form>
+        <p className="cc-hint">口令在 nanobot WebUI 设置页获取</p>
+      </div>
+    );
+
+    if (variant === "home") {
+      return (
+        <div className="home-pane-login">
+          {connectCard}
+        </div>
+      );
+    }
+
     return (
       <>
-        <div className="chat-fill">
-          <form
-            className="chat-login"
-            onSubmit={(e) => {
-              e.preventDefault();
-              login();
-            }}
-          >
-            <h2>连接聊天服务</h2>
-            <p className="muted">输入 nanobot WebUI 的访问口令。只需一次,保存在本机浏览器。</p>
-            <input
-              ref={pwRef}
-              type="password"
-              placeholder="访问口令"
-              autoFocus
-              autoComplete="current-password"
-            />
-            {loginError && <p className="chat-login-error">{loginError}</p>}
-            <button type="submit" className="chat-btn primary">
-              连接
-            </button>
-          </form>
-        </div>
+        <button
+          className="connect-banner"
+          data-ui="connect-banner"
+          onClick={() => setBannerOpen(true)}
+        >
+          <span className="dot" />
+          未连接聊天服务
+          <span className="banner-link">连接</span>
+        </button>
+        <div className="chat-fill-blank" />
+        {bannerOpen && (
+          <div className="connect-modal-mask" onClick={() => setBannerOpen(false)}>
+            <div
+              className="connect-modal"
+              data-ui="connect-modal"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {connectCard}
+            </div>
+          </div>
+        )}
         {inputCard}
       </>
     );
