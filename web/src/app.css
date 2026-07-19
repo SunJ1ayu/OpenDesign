@@ -69,10 +69,56 @@ button {
 }
 a { color: var(--terra-deep); text-decoration: none; }
 a:hover { text-decoration: underline; }
-button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible {
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible,
+select:focus-visible {
   outline: 2px solid var(--terra);
   outline-offset: -2px;
 }
+
+/* ================= 按钮三级体系(修改单 A2,圆角统一 8px)================= */
+/* 主按钮:每屏至多一个(连接/记一条/关联) */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: var(--terra);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: background var(--hover-ease);
+}
+.btn-primary:hover:not(:disabled) { background: var(--terra-deep); }
+.btn-primary:disabled { opacity: 0.55; cursor: default; }
+/* 次按钮:扫描整理/打开文件夹/添加技能 */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-input);
+  background: #fff;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  transition: background var(--hover-ease);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--paper-side); }
+.btn-secondary:disabled { opacity: 0.55; cursor: default; }
+.btn-secondary.sm { height: 24px; padding: 0 10px; font-size: 11px; }
+/* 文字链接:一律赤陶深色(去项目→ / 全部 / 图墙→ 等) */
+.link-act {
+  color: var(--terra-deep);
+  font-size: 12px;
+  transition: color var(--hover-ease);
+}
+.link-act:hover { color: var(--terra); text-decoration: none; }
+.link-act.inline { display: inline; font: inherit; }
 
 /* ================= 外壳:四列横向 flex(1440×860 画板,全屏自适应) ========== */
 .workspace {
@@ -164,7 +210,7 @@ html, body { overflow: auto; }
 .side-sect .sect-title { font-size: 11px; color: var(--ink-4); letter-spacing: 0.08em; }
 .side-sect .sect-count { font: 600 10px var(--font-mono); color: var(--ink-5); margin-left: 6px; }
 .side-sect .grow { flex: 1; }
-.side-sect .sect-link { font-size: 11px; color: var(--ink-5); transition: color var(--hover-ease); }
+.side-sect .sect-link { font-size: 11px; color: var(--terra-deep); transition: color var(--hover-ease); }
 .side-sect .sect-link:hover { color: var(--terra); text-decoration: none; }
 .side-sect .sect-add { color: var(--ink-4); font-size: 14px; line-height: 1; transition: color var(--hover-ease); }
 .side-sect .sect-add:hover { color: var(--terra); }
@@ -264,6 +310,16 @@ html, body { overflow: auto; }
 /* p7 未建档(工作区自动发现)项目行:名字淡化 + 小标 */
 .proj-row.unregistered .nm { color: var(--ink-3); }
 .proj-row .n-unreg { font-size: 10px; color: var(--ink-5); flex: none; }
+/* 修改单 H:未建档行 hover 出「建档 →」链接(DOM 常驻,CSS hover 显隐);
+   点击行为 = 选中该项目(中央列已是建档表单),链接自身无独立 onClick */
+.proj-row .reg-link {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--terra-deep);
+  opacity: 0;
+  transition: opacity var(--hover-ease);
+}
+.proj-row:hover .reg-link { opacity: 1; }
 /* depth2 分组标签(年份/客户等,projectsDepth=2 未建档条目) */
 .proj-row .n-group { font: 500 10px var(--font-mono); color: var(--ink-4); flex: none; }
 .proj-row.current .n-open {
@@ -332,6 +388,8 @@ html, body { overflow: auto; }
   border-right: 1px solid var(--border-soft);
 }
 .center-head { padding: 22px 28px 0; }
+/* 修改单 D2:阶段 chip 挪到项目标题旁(head-row 承载,原速览行的阶段搬到这里) */
+.center-head .head-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .center-head .proj-title {
   font-family: var(--font-serif);
   font-size: 22px;
@@ -372,11 +430,112 @@ html, body { overflow: auto; }
   border-color: var(--ink);
 }
 
-/* 「+ 记一条」快捷输入(track opendesign-clickable-actions T3):暖纸面输入行,
-   复用 .edit-text/.edit-note/.btn-save(todo-ux 已有样式,posture 一致)。 */
-.quick-add-change { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; }
-.quick-add-change .edit-text { flex: 1; min-width: 0; }
-.quick-add-change .qac-space { flex: none; width: 96px; min-width: 0; }
+/* 快记单行输入卡(修改单 B,track opendesign-frontend-p2-polish):圆角 12 卡 =
+   ✎ + 单行 input + 空间 chip(popover)+ 主色「记一条」;取代旧的裸 input 两件套。 */
+.quicknote-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 6px 8px 6px 12px;
+  background: #fff;
+  border: 1px solid var(--border-input);
+  border-radius: 12px;
+  transition: border-color var(--hover-ease);
+}
+.quicknote-card:focus-within { border-color: var(--terra); }
+.quicknote-card .qn-icon { color: var(--terra); font-size: 13px; flex: none; }
+.quicknote-card .qn-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+}
+.quicknote-card .qn-input::placeholder { color: var(--ink-5); }
+.qn-space-wrap { position: relative; flex: none; }
+.qn-space-chip {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-input);
+  border-radius: 99px;
+  font-size: 12px;
+  color: var(--ink-2);
+  background: #fff;
+  white-space: nowrap;
+  transition: background var(--hover-ease), border-color var(--hover-ease);
+}
+.qn-space-chip:hover { background: var(--paper-side); }
+.qn-space-chip .caret { font-size: 10px; opacity: 0.6; }
+.qn-pop-backdrop { position: fixed; inset: 0; z-index: 40; }
+.qn-space-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 180px;
+  background: #fff;
+  border: 1px solid var(--border-input);
+  border-radius: 11px;
+  box-shadow: var(--shadow-pop);
+  padding: 8px;
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.qn-space-sugg { display: flex; flex-direction: column; gap: 2px; }
+.qn-space-opt {
+  padding: 6px 8px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  color: var(--ink);
+  transition: background var(--hover-ease);
+}
+.qn-space-opt:hover { background: var(--paper-side); }
+.qn-space-input {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12.5px;
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  outline: none;
+  transition: border-color var(--hover-ease);
+}
+.qn-space-input:focus { border-color: var(--terra); }
+.qn-space-clear {
+  padding: 6px 8px;
+  border-radius: 7px;
+  font-size: 12px;
+  color: var(--ink-4);
+  transition: background var(--hover-ease), color var(--hover-ease);
+}
+.qn-space-clear:hover { background: var(--paper-side); color: var(--terra-deep); }
+.quicknote-card .qn-submit { flex: none; height: 28px; padding: 0 14px; }
+
+/* 快记提交后的轻提示(修改单 B):绿色,2s 淡出 */
+.quicknote-toast {
+  margin: 8px 0 0;
+  padding: 6px 12px;
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--st-done-fg);
+  background: var(--st-done-bg);
+  border-radius: 8px;
+  animation: qnToastFade 2s ease forwards;
+}
+@keyframes qnToastFade {
+  0%, 75% { opacity: 1; }
+  100% { opacity: 0; }
+}
 
 /* 未建档「一键建档」小表单(T4):同一暖纸面输入,竖排在空态说明下方。 */
 .create-proj-form {
@@ -387,7 +546,19 @@ html, body { overflow: auto; }
   margin: 14px 0 0;
   max-width: 420px;
 }
-.create-proj-form .edit-text { flex: 1; min-width: 140px; }
+.create-proj-form .edit-text {
+  flex: 1;
+  min-width: 140px;
+  background: #fff;
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color var(--hover-ease);
+}
+.create-proj-form .edit-text:focus { border-color: var(--terra); }
 
 .change-scroll { flex: 1; overflow: auto; padding: 6px 28px 20px; }
 .change-row {
@@ -395,10 +566,15 @@ html, body { overflow: auto; }
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  padding: 15px 2px;
+  padding: 15px 8px;
+  margin: 0 -8px;
+  border-radius: 8px;
   border-bottom: 1px solid var(--border-soft);
+  transition: background var(--hover-ease);
 }
 .change-row:last-child { border-bottom: none; }
+/* 修改单 E3:整行 hover 底色,让"这行可交互"可感知 */
+.change-row:hover { background: #f9f7f1; }
 .change-row.st-已完成 { opacity: 0.62; }
 .change-row.st-已关闭 { opacity: 0.5; }
 .change-row .cnum {
@@ -414,17 +590,33 @@ html, body { overflow: auto; }
   text-decoration: line-through;
   text-decoration-color: #c2bba9;
 }
-/* track opendesign-frontend-p1 §①:正文就地编辑入口,hover 才冒出来(寸土寸金) */
-.change-row .txt .edit-trigger {
-  margin-left: 8px;
-  font-size: 11px;
-  color: var(--ink-4);
-  opacity: 0;
-  transition: opacity var(--hover-ease), color var(--hover-ease);
-}
-.change-row:hover .txt .edit-trigger { opacity: 1; }
-.change-row .txt .edit-trigger:hover { color: var(--terra-deep); }
 .change-row .body .edit-fields { margin-top: 2px; }
+/* 修改单 E1:hover 图标按钮组(✎ 编辑 + ✓ 标记完成),28px 方形描边 */
+.change-row .row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding-top: 1px;
+  opacity: 0;
+  transition: opacity var(--hover-ease);
+}
+.change-row:hover .row-actions { opacity: 1; }
+.icon-act {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-input);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink-3);
+  font-size: 12.5px;
+  transition: background var(--hover-ease), color var(--hover-ease), border-color var(--hover-ease);
+}
+.icon-act:hover { background: var(--paper-side); color: var(--ink); }
+.icon-act.done-btn:hover { color: var(--st-done-fg); border-color: var(--st-done-dot); }
 .change-row .meta {
   display: flex;
   gap: 10px;
@@ -568,15 +760,20 @@ html, body { overflow: auto; }
   box-shadow: var(--shadow-card);
   padding-bottom: 8px;
 }
-.inbox-card .aside-head { padding-top: 10px; }
-.inbox-count {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px 7px;
-  border-radius: 999px;
-  color: var(--st-pending-fg);
-  background: var(--st-pending-bg);
+/* 修改单 D1:默认收成一行摘要,点行展开(扫描整理按钮 stopPropagation 不触发展开) */
+.inbox-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background var(--hover-ease);
 }
+.inbox-summary:hover { background: rgba(196, 106, 74, 0.06); }
+.inbox-summary .t { font-weight: 600; font-size: 13.5px; }
+.inbox-summary .grow { flex: 1; }
+.inbox-summary .chev { color: var(--ink-5); font-size: 10px; }
+.inbox-expanded { padding-bottom: 4px; }
 .inbox-plan {
   margin: 4px 12px 8px;
   border: 1px solid var(--border-soft);
@@ -658,15 +855,16 @@ html, body { overflow: auto; }
 .inbox-hint { font-size: 11px; color: var(--ink-4); padding: 6px 0 2px; }
 .inbox-card > .inbox-hint.scan-msg { padding: 0 16px 6px; }
 
-/* ── 驾驶舱速览(track opendesign-cockpit)──────────────────────────── */
+/* ── 驾驶舱速览(track opendesign-cockpit;修改单 D2 后只剩「当前状态」一句话,
+   阶段/业主/相对时间挪走或删)──────────────────────────────────────────── */
 .cockpit-brief {
   padding: 18px 16px 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.cockpit-brief .row1 { display: flex; align-items: center; gap: 8px; }
-.cockpit-brief .grow { flex: 1; }
+/* stage-chip(修改单 D2):现挂在中央列标题旁(.center-head .head-row),
+   这里的类定义供两处共用 */
 .stage-chip {
   font-size: 11px;
   font-weight: 600;
@@ -678,21 +876,14 @@ html, body { overflow: auto; }
 }
 .stage-chip.done { color: var(--st-done-fg); background: var(--st-done-bg); }
 .stage-chip.unreg { color: var(--st-closed-fg); background: var(--st-closed-bg); }
-.cockpit-brief .owner {
-  font-size: 12px;
-  color: var(--ink-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.cockpit-brief .upd { font-size: 11px; color: var(--ink-4); white-space: nowrap; }
 .cockpit-brief .note {
   font-size: 12px;
   color: var(--ink-2);
   line-height: 1.5;
 }
-.gallery-link { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
-.gallery-link:hover { color: var(--ink); }
+/* 文字链接(修改单 A2):一律 #a04f2e */
+.gallery-link { font-size: 11.5px; color: var(--terra-deep); white-space: nowrap; transition: color var(--hover-ease); }
+.gallery-link:hover { color: var(--terra); }
 .cat-row .act { font-size: 11px; color: var(--ink-4); white-space: nowrap; }
 
 .aside-head { display: flex; align-items: center; gap: 8px; padding: 22px 16px 10px; }
@@ -983,21 +1174,25 @@ html, body { overflow: auto; }
   transition: background var(--hover-ease);
 }
 .tool-chip:hover { background: var(--paper-side); }
+/* 发送按钮(拍板:文字「发送」,不用 ↑ 图标;圆角统一 8px 主按钮体系) */
 .send-btn {
-  width: 28px;
   height: 28px;
-  border-radius: 9px;
+  padding: 0 14px;
+  border-radius: 8px;
   background: var(--terra);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
   transition: background var(--hover-ease);
 }
 .send-btn:hover { background: var(--terra-deep); }
-.send-btn:disabled { opacity: 0.45; cursor: default; }
-.send-btn:disabled:hover { background: var(--terra); }
+/* 未连接置灰:同形态、底色 #e8d5cb(不是简单降透明度) */
+.send-btn:disabled { background: #e8d5cb; cursor: default; }
+.send-btn:disabled:hover { background: #e8d5cb; }
 
 /* 聊天登录/连接/错误(逻辑不变,壳内窄版) */
 .chat-fill {
@@ -1020,11 +1215,13 @@ html, body { overflow: auto; }
 .chat-login input {
   font: inherit;
   font-size: 13px;
-  padding: 7px 10px;
+  padding: 9px 12px;
   border: 1px solid var(--border-input);
-  border-radius: 7px;
+  border-radius: 10px;
   background: #fff;
   color: var(--ink);
+  outline: none;
+  transition: border-color var(--hover-ease);
 }
 .chat-login input:focus { border-color: var(--terra); outline: none; }
 .chat-login-error { color: var(--terra-deep); font-size: 12px; }
@@ -1032,7 +1229,7 @@ html, body { overflow: auto; }
   font-size: 12.5px;
   padding: 5px 12px;
   border: 1px solid var(--border-input);
-  border-radius: 7px;
+  border-radius: 8px;
   background: #fff;
   color: var(--ink-2);
   transition: background var(--hover-ease);
@@ -1058,6 +1255,71 @@ html, body { overflow: auto; }
   font-size: 11px;
   color: var(--ink-5);
   padding: 0 20px 6px;
+}
+
+/* ── 「连接聊天服务」卡(修改单 C):永远一张卡,不是裸表单 ─────────────────── */
+.connect-card {
+  width: 360px;
+  max-width: calc(100% - 32px);
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: var(--shadow-pop);
+  padding: 22px 20px 18px;
+  text-align: left;
+}
+.connect-card h2 { font-size: 14px; font-weight: 600; margin: 0 0 8px; color: var(--ink); }
+.connect-card .cc-desc {
+  margin: 0 0 16px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+.connect-card .chat-login { gap: 10px; }
+.connect-card .cc-submit { width: 100%; }
+.connect-card .cc-hint { margin: 10px 0 0; font-size: 11px; color: var(--ink-4); text-align: center; }
+
+/* home(3a):整片区域居中呈现连接卡 */
+.home-pane-login {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* column(2a 工作区聊天列):顶部琥珀横幅,点开 modal 才现卡 */
+.connect-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% - 28px);
+  margin: 14px 14px 0;
+  padding: 10px 14px;
+  background: var(--st-pending-bg);
+  border: 1px solid var(--st-pending-dot);
+  border-radius: 9px;
+  color: var(--st-pending-fg);
+  font-size: 12.5px;
+  transition: background var(--hover-ease);
+}
+.connect-banner:hover { background: #f3e2c8; }
+.connect-banner .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--st-pending-dot);
+  flex: none;
+}
+.connect-banner .banner-link { margin-left: auto; font-weight: 600; color: var(--terra-deep); }
+.chat-fill-blank { flex: 1; min-height: 0; }
+.connect-modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(44, 42, 38, 0.32);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ================= 3a 新对话页(handoff §5,精确值照 t3 画板内联样式) ====== */
@@ -1099,7 +1361,7 @@ html, body { overflow: auto; }
 .home-hero .chat-card .tools { padding: 10px 12px 12px; }
 .home-hero .tool-sq { width: 28px; height: 28px; font-size: 15px; }
 .home-hero .tool-chip { height: 28px; padding: 0 10px; font-size: 11.5px; }
-.home-hero .send-btn { width: 30px; height: 30px; font-size: 15px; }
+.home-hero .send-btn { height: 30px; padding: 0 16px; font-size: 13px; }
 
 /* 三建议 chip(描边胶囊,预填不自动发) */
 .home-chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
@@ -1147,7 +1409,8 @@ html, body { overflow: auto; }
 .todo-head .sub { font-size: 12px; color: var(--ink-4); }
 .todo-head .grow { flex: 1; }
 .todo-empty { padding: 60px 0; text-align: center; font-size: 13px; }
-.todo-cards { display: flex; flex-direction: column; gap: 14px; max-width: 1100px; }
+/* 修改单 G2:内容区最大宽 ~880px 居中,卡距 14px */
+.todo-cards { display: flex; flex-direction: column; gap: 14px; max-width: 880px; margin: 0 auto; }
 .todo-card {
   background: #fff;
   border: 1px solid var(--border-main);
@@ -1219,8 +1482,21 @@ html, body { overflow: auto; }
 .todo-row > .st-pill, .todo-row > .st-cell { margin-top: 1px; }
 .todo-row .meta .proj-link { color: var(--ink-4); transition: color var(--hover-ease); }
 .todo-row .meta .proj-link:hover { color: var(--terra-deep); }
-.todo-rest { font-size: 12px; padding: 12px 2px 0; max-width: 1100px; text-align: center; }
+.todo-rest { font-size: 12px; padding: 12px 2px 0; max-width: 880px; margin: 0 auto; text-align: center; }
 .todo-card.flat { padding-top: 6px; }
+
+/* 空间小节(修改单 G1):小节眉 = 空间名 + 浅分隔线,不折叠、不按日期分批 */
+.space-sect { padding: 4px 0 2px; }
+.space-sect-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ink-4);
+  padding: 5px 0 3px;
+}
+.space-sect-head .nm { font-weight: 600; color: var(--ink-3); white-space: nowrap; }
+.space-sect-head .rule { flex: 1; height: 1px; background: #f0ede4; }
 
 /* 行内编辑(track opendesign-todo-edit T6) */
 .todo-row .meta .edit-btn {
@@ -1249,32 +1525,34 @@ html, body { overflow: auto; }
 .edit-fields .edit-text {
   width: 100%;
   font-size: 13px;
-  padding: 5px 8px;
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
-  background: var(--paper);
+  padding: 6px 10px;
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
+  background: #fff;
   color: inherit;
+  outline: none;
+  transition: border-color var(--hover-ease);
 }
 .edit-fields .edit-text:focus,
 .edit-fields .edit-note:focus,
-.edit-fields .edit-status:focus { outline: 2px solid var(--terra); border-color: transparent; }
+.edit-fields .edit-status:focus { border-color: var(--terra); outline: none; }
 .edit-fields .edit-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .edit-fields .edit-status {
   font-size: 12px;
-  padding: 4px 6px;
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
-  background: var(--paper);
+  padding: 5px 8px;
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
+  background: #fff;
   color: inherit;
 }
 .edit-fields .edit-note {
   flex: 1;
   min-width: 120px;
   font-size: 12px;
-  padding: 4px 8px;
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
-  background: var(--paper);
+  padding: 5px 10px;
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
+  background: #fff;
   color: inherit;
 }
 .edit-fields .btn-save {
@@ -1310,12 +1588,19 @@ html, body { overflow: auto; }
   max-height: min(560px, calc(100vh - 160px));
   overflow: hidden;
 }
+/* 输入范式唯一(修改单 A1/H):⌘K 输入行改成白底描边卡,聚焦边框转赤陶 */
 .sp-input {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 16px 10px;
+  margin: 14px 16px 10px;
+  padding: 10px 14px;
+  background: #fff;
+  border: 1px solid var(--border-input);
+  border-radius: 12px;
+  transition: border-color var(--hover-ease);
 }
+.sp-input:focus-within { border-color: var(--terra); }
 .sp-input .ico { color: var(--ink-4); font-size: 15px; }
 .sp-input input {
   flex: 1;
@@ -1358,7 +1643,9 @@ html, body { overflow: auto; }
   font-size: 13px;
   transition: background var(--hover-ease);
 }
-.sp-row:hover, .sp-row.sel { background: var(--paper-hover); }
+/* 修改单 H:结果行 hover #f3f1ea(paper-side)、选中 #ece9e0(paper-hover) */
+.sp-row:hover { background: var(--paper-side); }
+.sp-row.sel { background: var(--paper-hover); }
 .sp-row .cnum { font: 600 12px var(--font-mono); color: var(--terra-deep); flex: none; }
 .sp-row .txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sp-row .txt mark { background: #f4e3db; color: var(--terra-deep); border-radius: 2px; padding: 0 1px; }
@@ -1449,17 +1736,18 @@ html, body { overflow: auto; }
 /* ── P5 文件工作区 + 图墙 ─────────────────────────────────────────────── */
 
 /* 伴随列文件区:类目行(可点=打开资源管理器)+ 最近更新 */
+/* 次按钮(修改单 A2):白底描边,hover 底 #f3f1ea */
 .open-folder {
-  height: 24px;
-  padding: 0 10px;
-  font-size: 11px;
-  border: 1px solid var(--border-main);
-  border-radius: 7px;
-  color: var(--ink-3);
-  background: transparent;
-  transition: background var(--hover-ease), border-color var(--hover-ease);
+  height: 26px;
+  padding: 0 12px;
+  font-size: 11.5px;
+  border: 1px solid var(--border-input);
+  border-radius: 8px;
+  color: var(--ink-2);
+  background: #fff;
+  transition: background var(--hover-ease);
 }
-.open-folder:hover { background: #fff; border-color: var(--terra); color: var(--ink); }
+.open-folder:hover { background: var(--paper-side); }
 /* B4:文件区未接入空态的「接入工作区」按钮 */
 .connect-workspace {
   margin: 10px 8px 0;
@@ -1478,13 +1766,15 @@ html, body { overflow: auto; }
 .connect-form { display: flex; flex-direction: column; gap: 8px; margin: 10px 8px 0; }
 .connect-form .hint { font-size: 11.5px; line-height: 1.6; color: var(--ink-3); }
 .connect-form input {
-  height: 30px;
+  height: 32px;
   padding: 0 10px;
   font-size: 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
   background: #fff;
   color: var(--ink);
+  outline: none;
+  transition: border-color var(--hover-ease);
 }
 .connect-form input:focus { outline: none; border-color: var(--terra); }
 .connect-form .acts { display: flex; gap: 8px; }
@@ -1494,13 +1784,15 @@ html, body { overflow: auto; }
 .bind-select {
   flex: 1;
   min-width: 0;
-  height: 30px;
+  height: 32px;
   padding: 0 10px;
   font-size: 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
   background: #fff;
   color: var(--ink);
+  outline: none;
+  transition: border-color var(--hover-ease);
 }
 .bind-select:focus { outline: none; border-color: var(--terra); }
 .cat-row {
@@ -1577,9 +1869,14 @@ html, body { overflow: auto; }
   background: #fff;
   padding: 0;
   text-align: left;
-  transition: border-color var(--hover-ease), box-shadow var(--hover-ease);
+  transition: border-color var(--hover-ease), box-shadow var(--hover-ease), transform var(--hover-ease);
 }
-.g-cell:hover { border-color: var(--terra); box-shadow: var(--shadow-input); }
+/* 修改单 H:封面卡 hover 上浮 + 投影加深,暗示可点 */
+.g-cell:hover {
+  border-color: var(--terra);
+  box-shadow: 0 8px 20px rgba(60, 50, 30, 0.16);
+  transform: translateY(-2px);
+}
 .g-cell img { display: block; width: 100%; height: auto; }
 .g-cap {
   display: flex;
