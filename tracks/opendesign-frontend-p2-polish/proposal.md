@@ -1,7 +1,7 @@
 # Proposal: opendesign-frontend-p2-polish
 
 - Date: 2026-07-19
-- Status: open
+- Status: done
 
 ## Goal
 落地 Claude Design v4「质感收口」交付包(handoff/,优化修改单.md A–H + 6a 组件规范):
