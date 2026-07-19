@@ -142,9 +142,11 @@ export async function editChange(body: EditChangeBody): Promise<void> {
 }
 
 /** 第五个非 GET(track opendesign-clickable-actions 写针孔⑤):变更记录「+ 记一条」。
- * space 可选(不带即不带前缀)。失败抛错(带后端 error code)由调用方提示。 */
+ * space 可选(不带即不带前缀)。成功回传 change_id(如 "C13",快记 toast 用)+ 落盘行原文。
+ * 失败抛错(带后端 error code)由调用方提示。 */
 export type AddChangeBody = { project: string; content: string; space?: string };
-export async function addChange(body: AddChangeBody): Promise<void> {
+export type AddChangeResult = { ok: true; change_id: string; line: string };
+export async function addChange(body: AddChangeBody): Promise<AddChangeResult> {
   const r = await fetch("/api/changes/add", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -159,6 +161,7 @@ export async function addChange(body: AddChangeBody): Promise<void> {
     }
     throw new Error(code || `服务返回 ${r.status}`);
   }
+  return (await r.json()) as AddChangeResult;
 }
 
 /** 第六个非 GET(同上 track,写针孔⑥):未建档文件夹「一键建档」。

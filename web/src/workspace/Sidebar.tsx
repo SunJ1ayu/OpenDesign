@@ -57,6 +57,16 @@ export default function Sidebar({
     return () => document.removeEventListener("mousedown", onDown);
   }, [settingsOpen]);
 
+  // 全局原则(修改单 A3):esc 关一切弹层——设置弹层也不例外。
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSettingsOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [settingsOpen]);
+
   const recent = (sessions ?? []).slice(0, 2);
 
   return (
@@ -107,45 +117,44 @@ export default function Sidebar({
         </button>
       </div>
 
-      {/* 历史对话 */}
-      <div className="side-sect">
-        <span className="sect-title">历史对话</span>
-        <span className="grow" />
-        <button className="sect-link" title="全部对话(即将支持)">全部</button>
-      </div>
-      <div className="side-list">
-        {recent.map((s) => (
-          <button
-            className="hist-row"
-            key={s.key}
-            title={s.title || s.preview || ""}
-            onClick={() => onOpenSession(s)}
-          >
-            <span className="ico">◷</span>
-            <span className="t">{s.title || s.preview || "(未命名对话)"}</span>
-            {sessionTags?.[s.key] && <span className="hist-proj">{sessionTags[s.key]}</span>}
-            <span className="when">{relTime(s.updated_at)}</span>
-            {/* span 非嵌套 button(HTML 不允许);阻冒泡免触发续聊 */}
-            <span
-              className="hist-del"
-              role="button"
-              title="删除对话"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteSession(s);
-              }}
-            >
-              ✕
-            </span>
-          </button>
-        ))}
-        {sessions !== null && recent.length === 0 && (
-          <div className="side-empty-hint">还没有对话记录</div>
-        )}
-        {sessions === null && (
-          <div className="side-empty-hint">连接聊天后显示</div>
-        )}
-      </div>
+      {/* 历史对话(修改单 F4:未连接时整组隐藏——sessions===null 即未连接) */}
+      {sessions !== null && (
+        <>
+          <div className="side-sect">
+            <span className="sect-title">历史对话</span>
+            <span className="grow" />
+            <button className="sect-link" title="全部对话(即将支持)">全部</button>
+          </div>
+          <div className="side-list">
+            {recent.map((s) => (
+              <button
+                className="hist-row"
+                key={s.key}
+                title={s.title || s.preview || ""}
+                onClick={() => onOpenSession(s)}
+              >
+                <span className="ico">◷</span>
+                <span className="t">{s.title || s.preview || "(未命名对话)"}</span>
+                {sessionTags?.[s.key] && <span className="hist-proj">{sessionTags[s.key]}</span>}
+                <span className="when">{relTime(s.updated_at)}</span>
+                {/* span 非嵌套 button(HTML 不允许);阻冒泡免触发续聊 */}
+                <span
+                  className="hist-del"
+                  role="button"
+                  title="删除对话"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteSession(s);
+                  }}
+                >
+                  ✕
+                </span>
+              </button>
+            ))}
+            {recent.length === 0 && <div className="side-empty-hint">还没有对话记录</div>}
+          </div>
+        </>
+      )}
 
       {/* 项目 */}
       <div className="side-sect projects">
@@ -175,9 +184,14 @@ export default function Sidebar({
               </span>
               <span className="nm">{p.name}</span>
               {p.group ? <span className="n-group">{p.group}</span> : null}
-              {p.unregistered
-                ? <span className="n-unreg">未建档</span>
-                : p.open_count > 0 && <span className="n-open">{p.open_count}</span>}
+              {p.unregistered ? (
+                <>
+                  <span className="reg-link" data-ui="side-reg-link">建档 →</span>
+                  <span className="n-unreg">未建档</span>
+                </>
+              ) : (
+                p.open_count > 0 && <span className="n-open">{p.open_count}</span>
+              )}
             </button>
           );
         })}

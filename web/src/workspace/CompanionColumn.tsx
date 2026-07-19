@@ -9,7 +9,6 @@ import {
   filesImageUrl,
   openFolder,
   refImageUrl,
-  relTime,
 } from "../api";
 import { refLabel } from "../gallery";
 import {
@@ -48,6 +47,9 @@ type Props = {
   folders: string[];
   /** 关联成功后 App bump dataEpoch,让联合列表/文件区重拉。 */
   onBound: () => void;
+  /** 修改单 F(参考图空态「登记参考图」可点):预填聊天,复用现有 dispatch 通道
+      (已连接直接发送;未连接降级为草稿+聚焦)。缺省时该处退化为纯文字,不可点。 */
+  onPrefillRegRef?: () => void;
 };
 
 export default function CompanionColumn({
@@ -59,6 +61,7 @@ export default function CompanionColumn({
   onConnectWorkspace,
   folders,
   onBound,
+  onPrefillRegRef,
 }: Props) {
   const [tab, setTab] = useState<"ref" | "proj">("ref");
   const [refs, setRefs] = useState<Ref[] | null>(null);
@@ -157,32 +160,16 @@ export default function CompanionColumn({
       {/* ⓪ 收件箱(intake,工作区级,不随选中项目变;没事时隐身) */}
       <InboxCard dataEpoch={dataEpoch} active={active} />
 
-      {/* ① 项目速览(cockpit) */}
-      {project && (
+      {/* ① 项目速览(cockpit,修改单 D2):阶段/业主/相对时间挪走或删——
+          阶段挪中央列标题旁(ChangesColumn stage-chip),业主不再展示;
+          「当前状态」一句话保留。 */}
+      {project && project.status_note ? (
         <div className="cockpit-brief">
-          <div className="row1">
-            {project.unregistered ? (
-              <span className="stage-chip unreg">未建档</span>
-            ) : project.stage ? (
-              <span className={`stage-chip${project.delivered ? " done" : ""}`}>
-                {project.stage}
-              </span>
-            ) : null}
-            {project.owner ? <span className="owner">{project.owner}</span> : null}
-            <span className="grow" />
-            {project.last_update ? (
-              <span className="upd" title={`最后更新 ${project.last_update}`}>
-                {relTime(project.last_update)}
-              </span>
-            ) : null}
+          <div className="note" title="档案「当前状态」字段">
+            {project.status_note}
           </div>
-          {project.status_note ? (
-            <div className="note" title="档案「当前状态」字段">
-              {project.status_note}
-            </div>
-          ) : null}
         </div>
-      )}
+      ) : null}
 
       {/* ② 图片区 */}
       <div className="aside-head">
@@ -209,6 +196,17 @@ export default function CompanionColumn({
             {mapped
               ? "项目文件夹里还没有图片。"
               : "关联项目文件夹后,项目里的图会出现在这里。"}
+            {mapped && (
+              <div>
+                <button
+                  className="btn-secondary sm"
+                  data-ui="empty-open-folder"
+                  onClick={() => doOpen()}
+                >
+                  打开文件夹
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="thumb-grid">
@@ -235,7 +233,15 @@ export default function CompanionColumn({
         <div className="aside-empty">
           还没有参考图。
           <br />
-          在对话里发图并说「登记参考图」,会出现在这里。
+          在对话里发图并说「
+          {onPrefillRegRef ? (
+            <button className="link-act inline" data-ui="empty-reg-ref" onClick={onPrefillRegRef}>
+              登记参考图
+            </button>
+          ) : (
+            "登记参考图"
+          )}
+          」,会出现在这里。
         </div>
       ) : (
         <div className="thumb-grid">

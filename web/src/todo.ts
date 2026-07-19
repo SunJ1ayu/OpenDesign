@@ -68,6 +68,28 @@ export function staleDays(stale: StaleItem[], project: string): number | null {
   return hit ? hit.days : null;
 }
 
+// ── 待办「按项目」卡内按空间分小节(track opendesign-frontend-p2-polish 修改单 G1)──
+
+export type SpaceSection = { space: string | null; items: OpenItem[] };
+
+/** 按空间**首现序**分组;无空间(null)条目归一个小节且**恒置末**(即使首现),
+ * 组内保持传入相对序;空输入 = []。契约见 tests/test_todo_spaces.mjs。 */
+export function spaceSections(items: OpenItem[]): SpaceSection[] {
+  const order: (string | null)[] = [];
+  const map = new Map<string | null, OpenItem[]>();
+  for (const it of items) {
+    if (!map.has(it.space)) {
+      map.set(it.space, []);
+      order.push(it.space);
+    }
+    map.get(it.space)!.push(it);
+  }
+  const named = order.filter((s): s is string => s !== null);
+  const sections: SpaceSection[] = named.map((space) => ({ space, items: map.get(space)! }));
+  if (map.has(null)) sections.push({ space: null, items: map.get(null)! });
+  return sections;
+}
+
 // ── 行内编辑(track opendesign-todo-edit T6)──────────────────────────────────
 // 纯逻辑层:编辑态草稿 → POST /api/changes/edit 的请求体装配。DOM/fetch 不在这里,
 // 便于 mjs oracle 直测(tests/test_workbench_p4.mjs test 14)。后端 ds_tools.edit_change
