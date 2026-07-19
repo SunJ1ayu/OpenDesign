@@ -8,6 +8,7 @@ import {
   groupByProject,
   isTerminalStatus,
   sortByDateDesc,
+  spaceSections,
   staleDays,
   STATUS_HINT,
   type EditDraft,
@@ -295,7 +296,7 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
     );
   };
 
-  // 日期批次(todo-v3):两视图共用。批次头可点折叠;最新一批(gi=0)默认展开。
+  // 日期批次(todo-v3):仅「按时间」视图用。批次头可点折叠;最新一批(gi=0)默认展开。
   // 批次头自带日期 → 行内不再重复显示日期。
   const batches = (items: OpenItem[], scope: string, withProject = false) =>
     groupByDate(items).map((dg, gi) => {
@@ -324,6 +325,19 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
         </div>
       );
     });
+
+  // 空间小节(修改单 G1,track opendesign-frontend-p2-polish):「按项目」视图用,
+  // 不折叠、不按日期分批——纯展示分节,小节眉 = 空间名(null →「未分空间」)。
+  const spaceBatches = (items: OpenItem[]) =>
+    spaceSections(items).map((sec, i) => (
+      <div className="space-sect" key={sec.space ?? "@none"}>
+        <div className="space-sect-head" data-ui="todo-space-sect">
+          <span className="nm">{sec.space ?? "未分空间"}</span>
+          <span className="rule" />
+        </div>
+        {sec.items.map((it, j) => row(it, i * 1000 + j))}
+      </div>
+    ));
 
   return (
     <div className="page todo-page">
@@ -372,7 +386,7 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
                     去项目 →
                   </button>
                 </header>
-                {batches(g.items, g.project)}
+                {spaceBatches(g.items)}
               </section>
             );
           })}

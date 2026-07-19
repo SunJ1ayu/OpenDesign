@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Change, Project } from "../api";
 import { addChange, cnDate, createProject, editChange } from "../api";
 import StatusPicker from "../StatusPicker";
+import { isTerminalStatus } from "../todo";
 import type { Filter } from "./changes";
 import { changeCounts, filterChanges, PROGRESS_ORDER } from "./changes";
 
@@ -49,11 +50,17 @@ export default function ChangesColumn({
   const [actionErr, setActionErr] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 「+ 记一条」快捷输入(track opendesign-clickable-actions T3)
+  // 快记单行输入卡(修改单 B,track opendesign-frontend-p2-polish):圆角卡 =
+  // ✎ + 单行 input + 空间 chip(popover:本项目已有空间建议 + 自由输入 + 不指定)
+  // + 主色「记一条」。回车提交;**不做 AI 猜空间**——不选 = 无前缀(拍板见 design.md)。
   const [addText, setAddText] = useState("");
-  const [addSpace, setAddSpace] = useState("");
+  const [addSpace, setAddSpace] = useState(""); // "" = 不指定,提交后恒重置(每条独立选)
   const [addBusy, setAddBusy] = useState(false);
   const [addErr, setAddErr] = useState<string | null>(null);
+  const [spacePopOpen, setSpacePopOpen] = useState(false);
+  const [spaceFreeInput, setSpaceFreeInput] = useState("");
+  const [addToast, setAddToast] = useState<string | null>(null);
+  const quickInputRef = useRef<HTMLInputElement>(null);
   // 变更行正文就地编辑(track opendesign-frontend-p1 §①)
   const [editingCnum, setEditingCnum] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState("");
@@ -64,10 +71,42 @@ export default function ChangesColumn({
     setAddText("");
     setAddSpace("");
     setAddErr(null);
+    setSpacePopOpen(false);
+    setSpaceFreeInput("");
     setEditingCnum(null);
     setEditDraft("");
     setEditErr(null);
   }, [project?.key]);
+
+  // 本项目已出现过的空间(首现序),popover 建议行用。
+  const existingSpaces = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const c of changes ?? []) {
+      if (c.space && !seen.has(c.space)) {
+        seen.add(c.space);
+        out.push(c.space);
+      }
+    }
+    return out;
+  }, [changes]);
+
+  // esc 关空间 popover(全局原则 A3)
+  useEffect(() => {
+    if (!spacePopOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSpacePopOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [spacePopOpen]);
+
+  // toast 2s 自动淡出
+  useEffect(() => {
+    if (!addToast) return;
+    const t = setTimeout(() => setAddToast(null), 2000);
+    return () => clearTimeout(t);
+  }, [addToast]);
 
   async function submitAdd() {
     const content = addText.trim();
@@ -75,15 +114,24 @@ export default function ChangesColumn({
     setAddBusy(true);
     setAddErr(null);
     try {
-      await addChange({ project: project.key, content, space: addSpace.trim() || undefined });
+      const r = await addChange({ project: project.key, content, space: addSpace || undefined });
       setAddText("");
-      setAddSpace("");
+      setAddSpace(""); // 每条独立选空间,提交后恒重置(不沿用上一条)
+      setAddToast(`已记入 ${r.change_id}`);
+      const num = Number(r.change_id.replace(/^C/, ""));
+      if (!Number.isNaN(num)) setHl(num); // 复用 hl-flash 机制(见下方 change-row className)
       onEdited?.();
     } catch (e) {
       setAddErr(addChangeErrMsg((e as Error).message));
     } finally {
       setAddBusy(false);
     }
+  }
+
+  function pickSpace(s: string) {
+    setAddSpace(s);
+    setSpacePopOpen(false);
+    setSpaceFreeInput("");
   }
 
   // 「一键建档」小表单(未建档空态,track opendesign-clickable-actions T4)
@@ -201,7 +249,10 @@ export default function ChangesColumn({
     return (
       <section className="center">
         <div className="center-head">
-          <div className="proj-title">{project.name}</div>
+          <div className="head-row">
+            <div className="proj-title">{project.name}</div>
+            <span className="stage-chip unreg" data-ui="stage-chip">未建档</span>
+          </div>
         </div>
         <div className="center-empty">
           <div className="big">工作区项目,还未建档</div>
@@ -249,7 +300,17 @@ export default function ChangesColumn({
   return (
     <section className="center">
       <div className="center-head">
-        <div className="proj-title">{project.name}</div>
+        <div className="head-row">
+          <div className="proj-title">{project.name}</div>
+          {project.stage && (
+            <span
+              className={`stage-chip${project.delivered ? " done" : ""}`}
+              data-ui="stage-chip"
+            >
+              {project.stage}
+            </span>
+          )}
+        </div>
         {counts.all > 0 && (
           <div className="proj-progress" title="项目进度一览(各状态条数)">
             {PROGRESS_ORDER.filter((s) => counts[s] > 0).map((s) => (
@@ -277,10 +338,14 @@ export default function ChangesColumn({
             ))}
           </div>
         </div>
-        <div className="quick-add-change">
+        {/* 快记单行输入卡(修改单 B):✎ + 单行 input + 空间 chip(popover)+ 主色「记一条」 */}
+        <div className="quicknote-card" data-ui="quicknote-card">
+          <span className="qn-icon">✎</span>
           <input
-            className="edit-text"
-            placeholder="+ 记一条变更…"
+            ref={quickInputRef}
+            className="qn-input"
+            data-ui="quicknote-input"
+            placeholder="记一条变更,如:玄关柜改到 2.4 米,柜顶留检修口…"
             value={addText}
             onChange={(e) => setAddText(e.target.value)}
             onKeyDown={(e) => {
@@ -288,18 +353,52 @@ export default function ChangesColumn({
             }}
             disabled={addBusy}
           />
-          <input
-            className="edit-note qac-space"
-            placeholder="空间(可选)"
-            value={addSpace}
-            onChange={(e) => setAddSpace(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") submitAdd();
-            }}
-            disabled={addBusy}
-          />
+          <div className="qn-space-wrap">
+            <button
+              type="button"
+              className="qn-space-chip"
+              data-ui="quicknote-space"
+              onClick={() => setSpacePopOpen((v) => !v)}
+              title="给这条变更标个空间(可不选)"
+            >
+              {addSpace || "空间"} <span className="caret">⌄</span>
+            </button>
+            {spacePopOpen && (
+              <>
+                <div className="qn-pop-backdrop" onClick={() => setSpacePopOpen(false)} />
+                <div className="qn-space-pop" data-ui="quicknote-space-pop">
+                  {existingSpaces.length > 0 && (
+                    <div className="qn-space-sugg">
+                      {existingSpaces.map((s) => (
+                        <button key={s} className="qn-space-opt" onClick={() => pickSpace(s)}>
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <input
+                    className="qn-space-input"
+                    data-ui="quicknote-space-input"
+                    placeholder="自定义空间…"
+                    value={spaceFreeInput}
+                    onChange={(e) => setSpaceFreeInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const v = spaceFreeInput.trim();
+                        if (v) pickSpace(v);
+                      }
+                    }}
+                  />
+                  <button className="qn-space-clear" onClick={() => pickSpace("")}>
+                    不指定
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
           <button
-            className="btn-save"
+            type="button"
+            className="btn-primary qn-submit"
             disabled={addBusy || !addText.trim()}
             onClick={submitAdd}
           >
@@ -307,6 +406,11 @@ export default function ChangesColumn({
           </button>
         </div>
         {addErr && <div className="error-note sm">{addErr}</div>}
+        {addToast && (
+          <div className="quicknote-toast" data-ui="quicknote-toast">
+            {addToast}
+          </div>
+        )}
       </div>
 
       {error ? (
@@ -323,6 +427,13 @@ export default function ChangesColumn({
             <>
               <div className="big">还没有变更记录</div>
               <div>在右侧对话里说「记一下:玄关柜改到 2.4 米」,会自动记进来。</div>
+              <button
+                className="btn-secondary"
+                data-ui="empty-add-first"
+                onClick={() => quickInputRef.current?.focus()}
+              >
+                记第一条变更
+              </button>
             </>
           ) : (
             <div className="muted">这个筛选下没有条目</div>
@@ -370,18 +481,7 @@ export default function ChangesColumn({
                     {editErr && <div className="error-note sm">{editErr}</div>}
                   </div>
                 ) : (
-                  <div className="txt">
-                    {c.text}
-                    {c.cnum !== null && (
-                      <button
-                        className="edit-trigger"
-                        onClick={() => startEditText(c)}
-                        title="编辑正文"
-                      >
-                        编辑
-                      </button>
-                    )}
-                  </div>
+                  <div className="txt">{c.text}</div>
                 )}
                 <div className="meta">
                   {c.space && <span>{c.space}</span>}
@@ -395,6 +495,30 @@ export default function ChangesColumn({
                   )}
                 </div>
               </div>
+              {/* 修改单 E:hover 图标按钮组 ✎(编辑,保留 .edit-trigger 兼容)+ ✓(标记完成,
+                  仅未办结行出);编辑态下隐藏,让 edit-fields 的保存/取消占位 */}
+              {c.cnum !== null && editingCnum !== c.cnum && (
+                <div className="row-actions">
+                  <button
+                    className="icon-act edit-trigger"
+                    data-ui="change-edit"
+                    onClick={() => startEditText(c)}
+                    title="编辑正文"
+                  >
+                    ✎
+                  </button>
+                  {!isTerminalStatus(c.status) && (
+                    <button
+                      className="icon-act done-btn"
+                      data-ui="change-done"
+                      onClick={() => pickStatus(c, "已完成")}
+                      title="标记完成"
+                    >
+                      ✓
+                    </button>
+                  )}
+                </div>
+              )}
               {c.cnum !== null ? (
                 <StatusPicker status={c.status} onPick={(s) => pickStatus(c, s)} />
               ) : (

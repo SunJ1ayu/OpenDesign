@@ -79,17 +79,6 @@ export default function GalleryPage({ project }: Props) {
   // 改筛选回到相册墙(避免停在一个筛掉后不存在的册)
   useEffect(() => setOpenAlbum(null), [filter]);
 
-  // esc:先关 lightbox,否则退出当前相册
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      if (zoom) setZoom(null);
-      else if (openAlbum) setOpenAlbum(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [zoom, openAlbum]);
-
   const items = useMemo(
     () => (key ? buildGallery(key, refs ?? [], images ?? []) : []),
     [key, refs, images],
@@ -98,6 +87,28 @@ export default function GalleryPage({ project }: Props) {
   const shown = useMemo(() => filterGallery(items, filter), [items, filter]);
   const albums = useMemo(() => groupAlbums(shown), [shown]);
   const current = openAlbum ? albums.find((a) => a.key === openAlbum) ?? null : null;
+
+  // esc:先关 lightbox,否则退出当前相册。←/→(修改单 H):lightbox 打开时在
+  // 当前列表(册内 current.items,或顶层墙面平铺——每张封面代表一格)切换。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (zoom) setZoom(null);
+        else if (openAlbum) setOpenAlbum(null);
+        return;
+      }
+      if (!zoom || (e.key !== "ArrowRight" && e.key !== "ArrowLeft")) return;
+      const list = current ? current.items : albums.map((a) => a.cover);
+      if (list.length === 0) return;
+      const idx = list.findIndex((it) => it.id === zoom.id);
+      if (idx === -1) return;
+      const next =
+        e.key === "ArrowRight" ? (idx + 1) % list.length : (idx - 1 + list.length) % list.length;
+      setZoom(list[next]);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoom, openAlbum, current, albums]);
   const loading = key !== null && (refs === null || images === null);
 
   if (!project) {

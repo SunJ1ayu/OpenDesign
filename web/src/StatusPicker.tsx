@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { isTerminalStatus, STATUS_HINT, STATUSES } from "./todo";
 
 // 可点状态 pill + 快捷菜单(todo-ux2):待办页与项目工作区变更列共用。
@@ -15,11 +15,22 @@ type Props = {
 export default function StatusPicker({ status, onPick }: Props) {
   const [open, setOpen] = useState(false);
   const hint = STATUS_HINT[status as keyof typeof STATUS_HINT] ?? "";
+
+  // 全局原则(修改单 A3):esc 关一切弹层——状态菜单也不例外。
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
   return (
     <span className="st-cell">
       <button
         className={`st-pill st-btn st-${status}${open ? " open" : ""}`}
-        title={`${hint} · 点击改状态`}
+        title={`${hint} · 点击修改状态`}
         onClick={() => setOpen((o) => !o)}
       >
         <span className="d" />

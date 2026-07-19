@@ -428,6 +428,7 @@ export default function App() {
           }
           folders={projects.filter((p) => p.unregistered).map((p) => p.key)}
           onBound={() => setDataEpoch((n) => n + 1)}
+          onPrefillRegRef={() => dispatchCol("我发一张图,帮我登记参考图")}
         />
         <ChatColumn
           session={session}

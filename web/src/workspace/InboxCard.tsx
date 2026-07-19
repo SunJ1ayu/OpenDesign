@@ -22,6 +22,8 @@ export default function InboxCard({ dataEpoch, active }: Props) {
   const [localEpoch, setLocalEpoch] = useState(0); // 确认成功后自刷新
   const [scanning, setScanning] = useState(false);
   const [scanMsg, setScanMsg] = useState(""); // 扫描后的轻量提示(staged/skipped)
+  // 修改单 D1:默认收成一行摘要,点行展开明细(寸土寸金,伴随列减负)。
+  const [expanded, setExpanded] = useState(false);
   const fetched = useRef<string | null>(null);
 
   useEffect(() => {
@@ -95,73 +97,93 @@ export default function InboxCard({ dataEpoch, active }: Props) {
 
   return (
     <div className="inbox-card">
-      <div className="aside-head">
-        <span className="t">收件箱</span>
-        <span className="inbox-count">{d.entries.length}</span>
+      <div
+        className="inbox-summary"
+        data-ui="inbox-summary"
+        role="button"
+        tabIndex={0}
+        onClick={() => setExpanded((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setExpanded((v) => !v);
+          }
+        }}
+      >
+        <span className="t">收件箱 {d.entries.length}</span>
         <span className="grow" />
         <button
-          className="chat-btn"
+          className="btn-secondary sm"
           disabled={scanning}
-          onClick={doScan}
+          onClick={(e) => {
+            e.stopPropagation();
+            doScan();
+          }}
           title="自动认领确定性建议(扩展名/项目名唯一命中),歧义留人工"
         >
           {scanning ? "扫描中…" : "扫描整理"}
         </button>
+        <span className="chev">{expanded ? "▴" : "▾"}</span>
       </div>
-      {scanMsg && <div className="inbox-hint scan-msg">{scanMsg}</div>}
 
-      {plans.map((p) => (
-        <div className="inbox-plan" key={p.planId}>
-          <div className="plan-title">待确认的整理方案({p.count} 项)</div>
-          {p.rows.map((r, i) => (
-            <div className="plan-row" key={`${p.planId}/${i}`}>
-              <span className="src" title={r.src}>{r.src}</span>
-              <span className="arrow">→</span>
-              <span className="dst" title={r.dstDir}>{r.dstDir}</span>
-              <button
-                className="skip-btn"
-                disabled={busy !== null}
-                onClick={() => doSkip(p.planId, i)}
-                title="跳过这一条,其余重新暂存"
-              >
-                跳过
-              </button>
+      {expanded && (
+        <div className="inbox-expanded" data-ui="inbox-expanded">
+          {scanMsg && <div className="inbox-hint scan-msg">{scanMsg}</div>}
+
+          {plans.map((p) => (
+            <div className="inbox-plan" key={p.planId}>
+              <div className="plan-title">待确认的整理方案({p.count} 项)</div>
+              {p.rows.map((r, i) => (
+                <div className="plan-row" key={`${p.planId}/${i}`}>
+                  <span className="src" title={r.src}>{r.src}</span>
+                  <span className="arrow">→</span>
+                  <span className="dst" title={r.dstDir}>{r.dstDir}</span>
+                  <button
+                    className="skip-btn"
+                    disabled={busy !== null}
+                    onClick={() => doSkip(p.planId, i)}
+                    title="跳过这一条,其余重新暂存"
+                  >
+                    跳过
+                  </button>
+                </div>
+              ))}
+              <div className="plan-acts">
+                <button
+                  className="chat-btn primary"
+                  disabled={busy !== null}
+                  onClick={() => doApprove(p.planId)}
+                  title="确认后文件才会真正移动"
+                >
+                  {busy === p.planId ? "执行中…" : "确认执行"}
+                </button>
+                <span className="plan-hint">不对?在对话里说怎么改,助手会重新暂存。</span>
+              </div>
             </div>
           ))}
-          <div className="plan-acts">
-            <button
-              className="chat-btn primary"
-              disabled={busy !== null}
-              onClick={() => doApprove(p.planId)}
-              title="确认后文件才会真正移动"
-            >
-              {busy === p.planId ? "执行中…" : "确认执行"}
-            </button>
-            <span className="plan-hint">不对?在对话里说怎么改,助手会重新暂存。</span>
-          </div>
-        </div>
-      ))}
-      {/* 不断言"文件未动":apply_failed 属部分执行场景,已执行部分在审计日志 */}
-      {err && <div className="aside-empty warn">执行失败:{err}(详见对话或审计日志)</div>}
+          {/* 不断言"文件未动":apply_failed 属部分执行场景,已执行部分在审计日志 */}
+          {err && <div className="aside-empty warn">执行失败:{err}(详见对话或审计日志)</div>}
 
-      {d.entries.length > 0 && (
-        <div className="inbox-list">
-          {d.entries.slice(0, 6).map((e) => (
-            <div className="inbox-row" key={e.name}>
-              <span className="n" title={e.name}>{e.name}</span>
-              <span className="grow" />
-              <span className="sug">{entrySuggestion(e)}</span>
+          {d.entries.length > 0 && (
+            <div className="inbox-list">
+              {d.entries.slice(0, 6).map((e) => (
+                <div className="inbox-row" key={e.name}>
+                  <span className="n" title={e.name}>{e.name}</span>
+                  <span className="grow" />
+                  <span className="sug">{entrySuggestion(e)}</span>
+                </div>
+              ))}
+              {d.entries.length > 6 && (
+                <div className="inbox-row more">…还有 {d.entries.length - 6} 个</div>
+              )}
+              {d.truncated && (
+                <div className="inbox-row more">收件箱文件过多,仅统计前 500 个</div>
+              )}
+              <div className="inbox-hint">
+                在对话里说「整理收件箱」,确认方案后一键归位。
+              </div>
             </div>
-          ))}
-          {d.entries.length > 6 && (
-            <div className="inbox-row more">…还有 {d.entries.length - 6} 个</div>
           )}
-          {d.truncated && (
-            <div className="inbox-row more">收件箱文件过多,仅统计前 500 个</div>
-          )}
-          <div className="inbox-hint">
-            在对话里说「整理收件箱」,确认方案后一键归位。
-          </div>
         </div>
       )}
     </div>
