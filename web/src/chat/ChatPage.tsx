@@ -113,6 +113,27 @@ export default function ChatPage({
   useEffect(() => {
     if (view.kind === "connected") setBannerOpen(false);
   }, [view.kind]);
+  // p3-polish §I5:头部降噪——「退出登录」收进 … 菜单,esc/外点关闭(与设置弹层
+  // 同规矩,全局原则 A3)。
+  const [chatMenuOpen, setChatMenuOpen] = useState(false);
+  useEffect(() => {
+    if (!chatMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const el = e.target as Element | null;
+      if (el && el.closest(".chat-meta-menu, .chat-meta-more")) return;
+      setChatMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [chatMenuOpen]);
+  useEffect(() => {
+    if (!chatMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setChatMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [chatMenuOpen]);
   const [draft, setDraft] = useState("");
   const pwRef = useRef<HTMLInputElement>(null);
   const wsRef = useRef<WebSocket | null>(null); // 当前活连接,send 用
@@ -458,13 +479,26 @@ export default function ChatPage({
       <div className="chat-meta">
         已连接{view.model ? ` · ${view.model}` : ""}
         <button
-          className="icon-btn"
-          style={{ float: "right", fontSize: 11 }}
-          onClick={logout}
-          title="退出登录"
+          className="chat-meta-more"
+          data-ui="chat-meta-more"
+          onClick={() => setChatMenuOpen((v) => !v)}
+          title="更多"
         >
-          退出登录
+          …
         </button>
+        {chatMenuOpen && (
+          <div className="chat-meta-menu" data-ui="chat-meta-menu">
+            <button
+              className="item"
+              onClick={() => {
+                setChatMenuOpen(false);
+                logout();
+              }}
+            >
+              退出登录
+            </button>
+          </div>
+        )}
       </div>
       {transcript.messages.length === 0 ? (
         variant === "home" ? (

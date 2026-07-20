@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Project, Ref } from "./api";
 import { fetchFilesImages, fetchRefs, openFolder } from "./api";
 import {
+  albumKeyOf,
   buildGallery,
   filterGallery,
   galleryFacets,
@@ -52,6 +53,10 @@ export default function GalleryPage({ project }: Props) {
   const [refs, setRefs] = useState<Ref[] | null>(null);
   const [images, setImages] = useState<WsImage[] | null>(null);
   const [filter, setFilter] = useState<GalleryFilter>(EMPTY);
+  // §I1「来源」下拉:按集合文件夹(album key,比 filter.group 的顶层类目更细一级)
+  // 筛选——独立于 filter.group/space/style(那三维交给 filterGallery,群众口径
+  // 不变,回归 test_gallery.mjs 锁死);来源筛选在 filterGallery 之前先收窄。
+  const [sourceKey, setSourceKey] = useState<string | null>(null);
   const [openAlbum, setOpenAlbum] = useState<string | null>(null);
   const [zoom, setZoom] = useState<GalleryItem | null>(null);
 
@@ -61,6 +66,7 @@ export default function GalleryPage({ project }: Props) {
     setRefs(null);
     setImages(null);
     setFilter(EMPTY);
+    setSourceKey(null);
     setOpenAlbum(null);
     setZoom(null);
     if (!key) return;
@@ -77,14 +83,24 @@ export default function GalleryPage({ project }: Props) {
   }, [key]);
 
   // 改筛选回到相册墙(避免停在一个筛掉后不存在的册)
-  useEffect(() => setOpenAlbum(null), [filter]);
+  useEffect(() => setOpenAlbum(null), [filter, sourceKey]);
 
   const items = useMemo(
     () => (key ? buildGallery(key, refs ?? [], images ?? []) : []),
     [key, refs, images],
   );
   const facets = useMemo(() => galleryFacets(items), [items]);
-  const shown = useMemo(() => filterGallery(items, filter), [items, filter]);
+  // 「来源」选项 = 全部集合文件夹(不随当前筛选收缩,与 facets 同规矩:选项池
+  // 固定,选中后才收窄展示)。
+  const sourceOptions = useMemo(
+    () => groupAlbums(items).map((a) => ({ key: a.key, label: a.label })),
+    [items],
+  );
+  const bySource = useMemo(
+    () => (sourceKey === null ? items : items.filter((it) => albumKeyOf(it) === sourceKey)),
+    [items, sourceKey],
+  );
+  const shown = useMemo(() => filterGallery(bySource, filter), [bySource, filter]);
   const albums = useMemo(() => groupAlbums(shown), [shown]);
   const current = openAlbum ? albums.find((a) => a.key === openAlbum) ?? null : null;
 
@@ -131,6 +147,32 @@ export default function GalleryPage({ project }: Props) {
               : `${albums.length} 组 · ${shown.length} 张`}
         </span>
         <span className="grow" />
+        {sourceOptions.length > 0 && (
+          <div className="gallery-source">
+            <select
+              className="gallery-source-select"
+              data-ui="gallery-source"
+              value={sourceKey ?? ""}
+              onChange={(e) => setSourceKey(e.target.value || null)}
+            >
+              <option value="">全部来源</option>
+              {sourceOptions.map((o) => (
+                <option key={o.key} value={o.key}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            {sourceKey !== null && (
+              <button
+                className="gallery-source-clear"
+                title="清除来源筛选"
+                onClick={() => setSourceKey(null)}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        )}
         <button
           className="open-folder"
           title="在资源管理器打开项目文件夹"
@@ -140,12 +182,6 @@ export default function GalleryPage({ project }: Props) {
         </button>
       </header>
 
-      <Chips
-        label="来源"
-        values={facets.groups}
-        active={filter.group}
-        onPick={(v) => setFilter((f) => ({ ...f, group: v }))}
-      />
       <Chips
         label="空间"
         values={facets.spaces}

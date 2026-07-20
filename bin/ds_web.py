@@ -68,7 +68,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.31.0"  # frontend-p2-polish:Claude Design v4 质感收口(纯前端打磨,零后端行为改动)
+VERSION = "0.32.0"  # frontend-p3-polish:修改单 §I 六条(I4 open-folder 加 rel 安全面)
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")

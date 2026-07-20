@@ -276,7 +276,7 @@ export default function ChangesColumn({
               disabled={cpBusy}
             />
             <button
-              className="btn-save"
+              className="btn-primary"
               disabled={cpBusy || !cpName.trim() || !cpClient.trim()}
               onClick={submitCreate}
             >

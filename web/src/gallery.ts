@@ -58,6 +58,16 @@ export function buildGallery(
   return [...a, ...b];
 }
 
+/** 一个图墙条目所属的"集合文件夹"key(ref → 参考图库;ws 图 → 父文件夹路径,
+ * 根散图 → "")。groupAlbums 的分册键与 p3-polish §I1「来源」下拉的选项键
+ * 共用本函数,单一真相源(比 galleryFacets 的 group=顶层类目更细一级)。 */
+export function albumKeyOf(it: GalleryItem): string {
+  if (it.id.startsWith("ref:")) return REF_GROUP;
+  const rel = it.id.slice(3); // "ws:" 前缀固定 3 字符
+  const slash = rel.lastIndexOf("/");
+  return slash < 0 ? "" : rel.slice(0, slash);
+}
+
 // 相册 = 一个"集合文件夹"(一套效果图/一个参考库),封面 + 展开看全部。
 export type Album = {
   key: string; // "参考图库" | ws 图父文件夹路径(如 "05-3DMAX/客厅")| ""(根散图)
@@ -75,17 +85,13 @@ export function groupAlbums(items: GalleryItem[]): Album[] {
   const order: string[] = [];
   const byKey = new Map<string, Album>();
   for (const it of items) {
-    let key: string;
+    const key = albumKeyOf(it);
     let label: string;
     let group: string;
     if (it.id.startsWith("ref:")) {
-      key = REF_GROUP;
       label = REF_GROUP;
       group = REF_GROUP;
     } else {
-      const rel = it.id.slice(3); // "ws:" 前缀固定 3 字符
-      const slash = rel.lastIndexOf("/");
-      key = slash < 0 ? "" : rel.slice(0, slash);
       const seg = key.lastIndexOf("/");
       label = key === "" ? "未分类" : key.slice(seg + 1);
       group = it.group;
