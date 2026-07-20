@@ -59,11 +59,15 @@ const dwgPath = join(ws, folderA, "03-CAD", "平面图.dwg");
 const batPath = join(ws, folderA, "03-CAD", "跑批.bat");
 writeFileSync(dwgPath, "DWG");
 writeFileSync(batPath, "@echo off");
-// I1 素材:图墙要有多个来源(集合文件夹)才谈得上「来源」过滤
+// I1 素材:「来源」= 顶层类目(GalleryItem.group,相册卡底部显示的就是它),
+// 所以夹具必须跨**两个顶层类目**才谈得上来源过滤——只造一个类目会把断言逼成
+// 相册粒度的错误语义(2026-07-20 收货闸③实抓,已修夹具而非改语义)。
 mkdirSync(join(ws, folderA, "06-效果图", "定稿"), { recursive: true });
 mkdirSync(join(ws, folderA, "06-效果图", "初稿"), { recursive: true });
+mkdirSync(join(ws, folderA, "02-参考图"), { recursive: true });
 writeFileSync(join(ws, folderA, "06-效果图", "定稿", "客厅.png"), PNG);
 writeFileSync(join(ws, folderA, "06-效果图", "初稿", "餐厅.png"), PNG);
+writeFileSync(join(ws, folderA, "02-参考图", "沙发.png"), PNG);
 writeFileSync(join(dsRoot, "config", "workspace.json"), JSON.stringify({
   root: ws, projectsDir: ".",
   projects: { [projA]: folderA },
@@ -163,9 +167,13 @@ try {
   const chipRows = await page.locator(".g-chiprow").allInnerTexts();
   check(!chipRows.some((t) => t.trim().startsWith("来源")),
     "I1 顶部「来源」chip 云已移除");
-  // 单选过滤生效
-  const opts = await srcSel.locator("option").allInnerTexts();
-  check(opts.length >= 3, `I1 下拉含全部来源(实际 ${opts.length} 项)`);
+  // 「来源」= 顶层类目(不是相册/子文件夹):两个类目 + 「全部来源」= 3 项
+  const opts = (await srcSel.locator("option").allInnerTexts()).map((t) => t.trim());
+  check(opts.length === 3, `I1 下拉 = 全部来源 + 2 个顶层类目(实际 ${opts.length} 项:${opts})`);
+  check(opts.includes("06-效果图") && opts.includes("02-参考图"),
+    `I1 选项是顶层类目而非子文件夹(实际 ${opts})`);
+  check(!opts.some((t) => t === "定稿" || t === "初稿"),
+    `I1 子文件夹「定稿/初稿」不该出现在来源里(实际 ${opts})`);
 
   // ── I2:未建档页「建档」= 主按钮 ──────────────────────────────────────
   await page.locator(`.proj-list .proj-row[title*="${folderParen}"]`).first().click();
