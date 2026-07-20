@@ -98,6 +98,18 @@ export async function openFolder(key: string, sub?: string): Promise<void> {
   if (!r.ok) throw new Error(`服务返回 ${r.status}`);
 }
 
+/** track p3-polish §I4:打开单个文件(open-folder 同一受控开口,rel 分支)。
+ * 后端白名单外一律 415,前端已按 openTargetFor 分流不该在此传白名单外的 rel,
+ * 但即便传了后端仍会拒——这里不重复判断,失败照样抛错由调用方提示。 */
+export async function openFile(key: string, rel: string): Promise<void> {
+  const r = await fetch("/api/open-folder", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, rel }),
+  });
+  if (!r.ok) throw new Error(`服务返回 ${r.status}`);
+}
+
 /** 第二个非 GET(p7 会话删除针孔):经 session.apiFetch 带鉴权走代理。
  * key 传裸串不 encode(_KEY_RE 无 %,p6 e2e 实抓的坑);字符集本就 URL 安全。 */
 export type DeleteSessionResult = { deleted: boolean; blocked_by_automations?: boolean };

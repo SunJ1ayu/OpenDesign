@@ -1819,10 +1819,14 @@ html, body { overflow: auto; }
   align-items: center;
   gap: 8px;
   padding: 4px 10px;
+  width: 100%;
+  border-radius: 8px;
   font-size: 11.5px;
   color: var(--ink-3);
   min-width: 0;
+  transition: background var(--hover-ease);
 }
+.recent-row:hover { background: var(--paper-hover); }
 .recent-row .n {
   overflow: hidden;
   text-overflow: ellipsis;

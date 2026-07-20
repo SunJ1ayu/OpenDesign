@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { FilesImages, FilesOverview, Project, Ref } from "../api";
+import type { FilesImages, FilesOverview, Project, Ref, WsRecent } from "../api";
 import {
   BindProjectError,
   bindProject,
@@ -7,6 +7,7 @@ import {
   fetchFilesOverview,
   fetchRefs,
   filesImageUrl,
+  openFile,
   openFolder,
   refImageUrl,
 } from "../api";
@@ -18,6 +19,7 @@ import {
   relTimeFromEpoch,
 } from "./cockpit";
 import InboxCard from "./InboxCard";
+import { openTargetFor } from "./projectName";
 
 // 驾驶舱列(track opendesign-cockpit,原"伴随列"升级):速览 → 图片 → 类目 → 最近。
 // 铁律:零模板类目名(照用户现状认);纯逻辑在 cockpit.ts(mjs oracle),组件只渲染。
@@ -122,6 +124,16 @@ export default function CompanionColumn({
     openFolder(projectKey, sub).catch(() => setOpenErr(true));
   };
 
+  /** §I4:「最近更新」行点击 —— 白名单内开该文件本身,白名单外退化为开所在文件夹
+   * (纵深防御,后端仍是权威闸;不留死路,列表里每一行都可点)。 */
+  const doOpenRecent = (r: WsRecent) => {
+    if (!projectKey) return;
+    setOpenErr(false);
+    const target = openTargetFor(r);
+    const p = target.kind === "file" ? openFile(projectKey, target.rel) : openFolder(projectKey, target.sub);
+    p.catch(() => setOpenErr(true));
+  };
+
   const doBind = () => {
     if (!projectKey || !bindFolder) return;
     setBindErr("");
@@ -142,11 +154,12 @@ export default function CompanionColumn({
 
   const list = refs ?? [];
   const projImgs = projectImages(wsImages); // 全部工作区图,mtime 降序,零类目名耦合
-  // 2×2 格:>3 张时第 4 格是「+N 图墙」入口;≤3 张全部直接铺
+  // 3 列格(I3 伴随列 400px 后缩略图 2→3 列):>5 张时最后一格是「+N 图墙」入口;
+  // ≤5 张全部直接铺(showMore 阈值随列宽从 3 提到 5)。
   const pool = tab === "ref" ? list : [];
-  const showMore = (tab === "ref" ? list.length : projImgs.length) > 3;
-  const thumbs = showMore ? pool.slice(0, 3) : pool;
-  const projThumbs = showMore ? projImgs.slice(0, 3) : projImgs;
+  const showMore = (tab === "ref" ? list.length : projImgs.length) > 5;
+  const thumbs = showMore ? pool.slice(0, 5) : pool;
+  const projThumbs = showMore ? projImgs.slice(0, 5) : projImgs;
 
   const fstate = filesState(overview);
   const mapped = fstate === "ok";
@@ -222,7 +235,7 @@ export default function CompanionColumn({
             ))}
             {showMore && (
               <button className="thumb more" title="图墙" onClick={onOpenGallery}>
-                <span className="m">+{projImgs.length - 3} 图墙 →</span>
+                <span className="m">+{projImgs.length - 5} 图墙 →</span>
               </button>
             )}
           </div>
@@ -258,7 +271,7 @@ export default function CompanionColumn({
           ))}
           {showMore && (
             <button className="thumb more" title="图墙" onClick={onOpenGallery}>
-              <span className="m">+{list.length - 3} 图墙 →</span>
+              <span className="m">+{list.length - 5} 图墙 →</span>
             </button>
           )}
         </div>
@@ -390,15 +403,19 @@ export default function CompanionColumn({
             <>
               <div className="file-sub">最近更新</div>
               {recent.map((r) => (
-                <div className="recent-row" key={`${r.category}/${r.name}/${r.mtime}`}>
-                  <span className="n" title={`${r.category}/${r.name}`}>
-                    {r.name}
-                  </span>
+                <button
+                  className="recent-row"
+                  data-ui="recent-row"
+                  key={`${r.category}/${r.name}/${r.mtime}`}
+                  title={r.category ? `${r.category}/${r.name}` : r.name}
+                  onClick={() => doOpenRecent(r)}
+                >
+                  <span className="n">{r.name}</span>
                   <span className="grow" />
                   <span className="m">
                     {fmtSize(r.size)} · {relTimeFromEpoch(r.mtime)}
                   </span>
-                </div>
+                </button>
               ))}
             </>
           )}
