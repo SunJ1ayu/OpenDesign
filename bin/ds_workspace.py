@@ -245,19 +245,21 @@ def overview(proj_dir: str, recent_n: int = 8, max_per_cat: int = MAX_PER_CAT,
              max_depth: int = DEFAULT_MAX_DEPTH):
     """{"categories": [{"name","count","capped","latest_mtime"}...(按名序;
     latest_mtime=类目最新文件 mtime,capped 时 None)],
-    "recent": [{"name","category","mtime","size"}...(mtime 降序,前 recent_n)]}"""
+    "recent": [{"name","category","rel","mtime","size"}...(mtime 降序,前 recent_n;
+    rel=项目内完整相对路径,含子目录 —— 前端「打开该文件」的权威载荷,不许自己拼)]}"""
     cats = _scan(proj_dir, max_per_cat, max_depth)
     # latest_mtime=类目活跃度(cockpit);capped 时名序截断后 max 不可信 → None 宁缺勿假
     categories = [{"name": name, "count": len(c["files"]), "capped": c["capped"],
                    "latest_mtime": (max(f[2] for f in c["files"])
                                     if c["files"] and not c["capped"] else None)}
                   for name, c in sorted(cats.items()) if c["files"] or c["capped"]]
-    allf = [(mtime, name, cat_name, size)
+    allf = [(mtime, name, cat_name, size, rel)
             for cat_name, c in cats.items()
-            for (_rel, name, mtime, size) in c["files"]]
+            for (rel, name, mtime, size) in c["files"]]
     allf.sort(key=lambda t: (-t[0], t[1]))
-    recent = [{"name": name, "category": cat_name, "mtime": mtime, "size": size}
-              for mtime, name, cat_name, size in allf[:recent_n]]
+    recent = [{"name": name, "category": cat_name, "rel": rel,
+               "mtime": mtime, "size": size}
+              for mtime, name, cat_name, size, rel in allf[:recent_n]]
     return {"categories": categories, "recent": recent}
 
 

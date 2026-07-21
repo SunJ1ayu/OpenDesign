@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Project } from "../api";
 import { relTime } from "../api";
+import { displayProjectName } from "./projectName";
 
 // 左侧栏 v2(P3 T3,handoff §1,240px):品牌 / 全局操作组(新对话/搜索/
 // 待办事项/技能)/ 历史对话 / 项目 / 设置弹层。图标沿用定稿的 Unicode 占位
@@ -176,13 +177,13 @@ export default function Sidebar({
               className={`proj-row${card ? " current" : ""}${p.delivered ? " delivered" : ""}${p.unregistered ? " unregistered" : ""}`}
               onClick={() => onSelectProject(p.key)}
               title={p.unregistered
-                ? "工作区文件夹(未建档)——在对话里说「新建项目」即可建档"
-                : p.stage ? `阶段:${p.stage}` : undefined}
+                ? `${p.name} · 工作区文件夹(未建档)——在对话里说「新建项目」即可建档`
+                : p.stage ? `${p.name} · 阶段:${p.stage}` : p.name}
             >
               <span className="ico-col">
                 <span className={dotClass(p, current)} />
               </span>
-              <span className="nm">{p.name}</span>
+              <span className="nm">{displayProjectName(p.name)}</span>
               {p.group ? <span className="n-group">{p.group}</span> : null}
               {p.unregistered ? (
                 <>

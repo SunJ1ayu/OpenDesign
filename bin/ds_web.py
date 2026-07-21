@@ -16,9 +16,12 @@
   GET /api/files/overview/<key>    类目计数+最近文件(未配置/未映射诚实降级)
   GET /api/files/images/<key>      项目图片清单
   GET /api/files/file/<key>/<rel>  项目图片静态服务(三闸同 refs 先例)
-  POST /api/open-folder            {"key","sub"?} → 本机资源管理器打开项目夹。
+  POST /api/open-folder            {"key","sub"?} → 本机资源管理器打开项目夹;
+    或 {"key","rel"?}(track p3-polish §I4)→ 用系统默认程序打开单个文件。
     这是"只读铁律"的首个受控例外(P5 design §3,用户拍板):不写任何数据,
-    仅在 key 映射 + sub 白名单 + realpath within + isdir 全过后执行 OPEN_LAUNCHER;
+    sub 分支仅在 key 映射 + sub 白名单 + realpath within + isdir 全过后执行
+    OPEN_LAUNCHER;rel 分支仅在 key 映射 + relpath_ok + realpath within +
+    扩展名白名单(_OPEN_EXTS)+ isfile 全过后执行;rel/sub 同给 → 400。
     launcher 可注入(测试/e2e 永不真开)。
   POST /api/chat/sessions/<key>/delete  → …/api/sessions/<key>/delete(p7 第二针孔):
     删除历史对话 = 代理 nanobot 原生删除(上游自带"绑定自动化先拒"保护);上游
@@ -65,7 +68,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.31.0"  # frontend-p2-polish:Claude Design v4 质感收口(纯前端打磨,零后端行为改动)
+VERSION = "0.32.0"  # frontend-p3-polish:修改单 §I 六条(I4 open-folder 加 rel 安全面)
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -199,6 +202,16 @@ _PROJ_KEY_RE = ds_workspace.PROJECT_NAME_RE
 _IMG_CTYPES = {
     ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
     ".webp": "image/webp", ".gif": "image/gif",
+}
+
+# open-folder rel 分支的「开文件」扩展名白名单(Gate C,track p3-polish §I4)——
+# 设计师会双击的文档/图纸/图片类型,**无任何可执行/脚本/快捷方式**(design.md §I4,
+# 与 web/src/workspace/projectName.ts 的 OPEN_FILE_EXTS 同集合,前后端各自维护同一份
+# 常量;修改任一份必须同步另一份,否则前端分流与后端安全闸会漂移)。
+_OPEN_EXTS = {
+    ".dwg", ".dxf", ".skp", ".3ds", ".max", ".rvt", ".obj", ".fbx", ".stl",
+    ".pdf", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tif", ".tiff",
+    ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".md", ".csv", ".rtf",
 }
 
 
@@ -607,9 +620,16 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, ctype, body, {"Cache-Control": "public, max-age=3600"})
 
     def _open_folder(self):
-        """唯一非 GET 端点(P5 design §3)。闸序:body 尺寸/JSON → key 白名单+映射
-        (_ws_proj)→ sub 单段白名单+realpath within+isdir(ds_workspace.resolve_sub)
-        → 全过才调 OPEN_LAUNCHER;任何拒绝路径零执行(oracle 断言)。
+        """唯一非 GET 端点(P5 design §3;track p3-polish §I4 拓宽为可选 rel)。
+        闸序:body 尺寸/JSON → key 白名单+映射(_ws_proj)→ 分流:
+          - 无 rel(老行为,不回归):sub 单段白名单+realpath within+isdir
+            (ds_workspace.resolve_sub)
+          - 有 rel(新增,开单个文件):Gate A ds_workspace.relpath_ok(rel) →
+            Gate B realpath+ds_common.within(项目夹)→ Gate D os.path.isfile
+            (目录/不存在 → 404,开目录走 sub 不走 rel)→ Gate C 扩展名 ∈
+            _OPEN_EXTS 白名单(只有真文件才谈得上"扩展名被拒" 415)
+        rel 与 sub 同给(body 同时含两个键)→ 400,不猜意图。
+        全过才调 OPEN_LAUNCHER;任何拒绝路径零执行(oracle 断言)。
         CSRF 硬化:强制 Content-Type application/json——跨站 fetch 带该类型必触发
         preflight,本服务无 OPTIONS 面 → 浏览器拦;text/plain 类 simple request 在此 400。"""
         ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
@@ -636,14 +656,40 @@ class Handler(BaseHTTPRequestHandler):
         if status != "ok":
             self._json(404, {"error": "not found"})
             return
-        sub = body.get("sub")
-        if sub is not None and not isinstance(sub, str):
+        has_rel = "rel" in body
+        has_sub = "sub" in body
+        if has_rel and has_sub:
             self._json(400, {"error": "bad request"})
             return
-        target = ds_workspace.resolve_sub(pd, sub)
-        if target is None:
-            self._json(404, {"error": "not found"})
-            return
+        if has_rel:
+            rel = body.get("rel")
+            if not isinstance(rel, str) or not rel:
+                self._json(400, {"error": "bad request"})
+                return
+            if not ds_workspace.relpath_ok(rel):
+                self._json(404, {"error": "not found"})
+                return
+            target = os.path.realpath(os.path.join(pd, rel))
+            if not ds_common.within(pd, target):
+                self._json(404, {"error": "not found"})
+                return
+            # isfile 先于扩展名闸:目录/不存在一律 404(开目录走 sub,不走 rel),
+            # 只有真文件才谈得上"扩展名被拒"(415)。
+            if not os.path.isfile(target):
+                self._json(404, {"error": "not found"})
+                return
+            if os.path.splitext(target)[1].lower() not in _OPEN_EXTS:
+                self._json(415, {"error": "ext_not_allowed"})
+                return
+        else:
+            sub = body.get("sub")
+            if sub is not None and not isinstance(sub, str):
+                self._json(400, {"error": "bad request"})
+                return
+            target = ds_workspace.resolve_sub(pd, sub)
+            if target is None:
+                self._json(404, {"error": "not found"})
+                return
         try:
             OPEN_LAUNCHER(target)
         except OSError:

@@ -69,7 +69,22 @@ test("嵌套/多组括号:只吃开头那一组", () => {
 
 // ---- openTargetFor(§I4 前端分流)-----------------------------------------
 
-const rec = (name, category = "03-CAD") => ({ name, category, mtime: 1, size: 1 });
+const rec = (name, category = "03-CAD", rel = undefined) => ({
+  name, category, mtime: 1, size: 1,
+  rel: rel ?? (category ? `${category}/${name}` : name),
+});
+
+// p3-polish 收货修复轮:rel 是后端给的**权威全路径**(含子目录),前端不许再拼。
+// 拼 "类目/文件名" 对嵌套文件必然 404,同名不同子目录还会静默开错文件。
+test("嵌套文件:直接用后端给的 rel,不再拼类目/文件名", () => {
+  const r = rec("客厅.png", "06-效果图", "06-效果图/定稿/客厅.png");
+  assert.deepEqual(openTargetFor(r), { kind: "file", rel: "06-效果图/定稿/客厅.png" });
+});
+
+test("嵌套文件 + 白名单外扩展名 → 仍退化为开文件夹,绝不开该文件", () => {
+  const r = rec("跑批.bat", "03-CAD", "03-CAD/旧版/跑批.bat");
+  assert.deepEqual(openTargetFor(r), { kind: "folder", sub: "03-CAD" });
+});
 
 test("白名单内扩展名 → 开文件,rel 带类目前缀", () => {
   const got = openTargetFor(rec("平面.dwg"));
@@ -121,6 +136,8 @@ test("白名单本身:不含任何可执行/脚本/快捷方式扩展名", () =>
     ".exe", ".bat", ".cmd", ".com", ".scr", ".ps1", ".vbs", ".js", ".jse",
     ".wsf", ".msi", ".lnk", ".url", ".reg", ".dll", ".jar", ".sh", ".py",
     ".html", ".htm", ".svg", ".zip", ".rar", ".7z",
+    // Windows 特有的可执行/脚本载体(submimo 补的,后端黑名单测试同集合)
+    ".hta", ".chm", ".wsh", ".msc", ".cpl", ".inf", ".vbe", ".pif", ".gadget",
   ];
   for (const ext of forbidden) {
     assert.ok(

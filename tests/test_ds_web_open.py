@@ -12,8 +12,10 @@
 `_files_file` 先例:
   Gate A  ds_workspace.relpath_ok(rel)         禁 \\ % 控制符与 . / .. 段
   Gate B  realpath + ds_common.within(项目夹)   逃逸权威闸
+  Gate D  os.path.isfile(target)                目录/不存在一律 404(开目录走 sub)
   Gate C  扩展名 ∈ ds_web._OPEN_EXTS 白名单      拒一切可执行/脚本/快捷方式
-  Gate D  os.path.isfile(target)
+(D 先于 C 是有意的:只有确定是真文件才谈得上"扩展名被拒"415,否则目录会拿到
+ 415 这种自相矛盾的码。安全性不受顺序影响——两闸都必须过才调 launcher。)
 全过才调 OPEN_LAUNCHER;**任何拒绝路径 launcher 调用数必须为 0**(本文件的核心断言)。
 rel 与 sub 互斥,同给 → 400(不猜意图)。
 

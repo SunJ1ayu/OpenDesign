@@ -42,7 +42,10 @@ export type Ref = {
 // latest_mtime=类目最新文件 mtime(epoch 秒,活跃度信号);capped 时 null(宁缺勿假)
 export type WsCategory = { name: string; count: number; capped: boolean;
                            latest_mtime: number | null };
-export type WsRecent = { name: string; category: string; mtime: number; size: number };
+// rel = 项目内完整相对路径(含子目录),后端权威载荷;前端「打开该文件」直接用它,
+// 不许拼 `${category}/${name}` —— 嵌套文件会 404,同名不同子目录会开错文件。
+export type WsRecent = { name: string; category: string; rel: string;
+                         mtime: number; size: number };
 export type FilesOverview =
   | { configured: false }
   | { configured: true; mapped: false }
@@ -94,6 +97,18 @@ export async function openFolder(key: string, sub?: string): Promise<void> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(sub ? { key, sub } : { key }),
+  });
+  if (!r.ok) throw new Error(`服务返回 ${r.status}`);
+}
+
+/** track p3-polish §I4:打开单个文件(open-folder 同一受控开口,rel 分支)。
+ * 后端白名单外一律 415,前端已按 openTargetFor 分流不该在此传白名单外的 rel,
+ * 但即便传了后端仍会拒——这里不重复判断,失败照样抛错由调用方提示。 */
+export async function openFile(key: string, rel: string): Promise<void> {
+  const r = await fetch("/api/open-folder", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, rel }),
   });
   if (!r.ok) throw new Error(`服务返回 ${r.status}`);
 }

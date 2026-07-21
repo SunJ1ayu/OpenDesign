@@ -214,8 +214,32 @@ class OverviewTest(unittest.TestCase):
             mt = [r["mtime"] for r in recent]
             self.assertEqual(sorted(mt, reverse=True), mt)
             for r in recent:
-                for k in ("name", "category", "mtime", "size"):
+                for k in ("name", "category", "mtime", "size", "rel"):
                     self.assertIn(k, r)
+
+    # p3-polish 收货修复轮(subkimi 抓的规格级缺陷):recent 必须带完整 rel。
+    # 只回 name+category 时,前端拼出的 "类目/文件名" 对嵌套文件必然 404,
+    # 同名不同子目录还会静默开错文件。
+    def test_recent_carries_nested_rel(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            proj = self._proj(tmp)
+            deep_dir = os.path.join(proj, "06-效果图", "定稿")
+            os.makedirs(deep_dir, exist_ok=True)
+            deep = os.path.join(deep_dir, "客厅.png")
+            with open(deep, "w", encoding="utf-8") as f:
+                f.write("x")
+            os.utime(deep, (2_000_000_000, 2_000_000_000))  # 置顶
+            ov = ds_workspace.overview(proj, recent_n=50)
+            top = ov["recent"][0]
+            self.assertEqual("客厅.png", top["name"])
+            self.assertEqual("06-效果图", top["category"])
+            self.assertEqual("06-效果图/定稿/客厅.png", top["rel"])
+            # rel 对每一条都成立:拼得出真实存在的路径
+            for r in ov["recent"]:
+                self.assertTrue(
+                    os.path.isfile(os.path.join(proj, *r["rel"].split("/"))),
+                    f"recent rel 拼不出真实文件:{r['rel']}",
+                )
 
     def test_cap(self):
         with tempfile.TemporaryDirectory() as tmp:

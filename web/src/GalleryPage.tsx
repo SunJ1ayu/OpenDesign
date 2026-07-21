@@ -131,6 +131,34 @@ export default function GalleryPage({ project }: Props) {
               : `${albums.length} 组 · ${shown.length} 张`}
         </span>
         <span className="grow" />
+        {facets.groups.length > 0 && (
+          <div className="gallery-source">
+            <select
+              className="gallery-source-select"
+              data-ui="gallery-source"
+              value={filter.group ?? ""}
+              onChange={(e) =>
+                setFilter((f) => ({ ...f, group: e.target.value || null }))
+              }
+            >
+              <option value="">全部来源</option>
+              {facets.groups.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
+            {filter.group !== null && (
+              <button
+                className="gallery-source-clear"
+                title="清除来源筛选"
+                onClick={() => setFilter((f) => ({ ...f, group: null }))}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        )}
         <button
           className="open-folder"
           title="在资源管理器打开项目文件夹"
@@ -140,12 +168,6 @@ export default function GalleryPage({ project }: Props) {
         </button>
       </header>
 
-      <Chips
-        label="来源"
-        values={facets.groups}
-        active={filter.group}
-        onPick={(v) => setFilter((f) => ({ ...f, group: v }))}
-      />
       <Chips
         label="空间"
         values={facets.spaces}
