@@ -626,7 +626,36 @@ html, body { overflow: auto; }
 .change-row .meta {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
   margin-top: 5px;
+  font-size: 11.5px;
+  color: var(--ink-4);
+}
+/* 变更行备注(track opendesign-stage-history §9,与待办页 .note-tag 同口径) */
+.change-row .meta .note-tag {
+  font-size: 11px;
+  color: var(--st-doing-fg);
+  background: var(--st-doing-bg);
+  padding: 1px 7px;
+  border-radius: 99px;
+}
+/* 「改过 N 次」入口 + 展开留痕列表 */
+.change-row .meta .history-toggle {
+  font-size: 11.5px;
+  color: var(--terra-deep);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.change-row .meta .history-toggle:hover { color: var(--terra); }
+.history-list {
+  margin-top: 4px;
+  padding-left: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.history-entry {
   font-size: 11.5px;
   color: var(--ink-4);
 }
@@ -882,6 +911,43 @@ html, body { overflow: auto; }
 }
 .stage-chip.done { color: var(--st-done-fg); background: var(--st-done-bg); }
 .stage-chip.unreg { color: var(--st-closed-fg); background: var(--st-closed-bg); }
+/* 切阶段下拉(track opendesign-stage-history §7,同 .st-menu 先例)── */
+.stage-cell { position: relative; display: inline-flex; }
+.stage-chip.stage-btn {
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  transition: filter var(--hover-ease);
+}
+.stage-chip.stage-btn:hover { filter: brightness(0.96); }
+.stage-chip.stage-btn:disabled { cursor: default; opacity: 0.7; }
+.stage-menu-backdrop { position: fixed; inset: 0; z-index: 40; }
+.stage-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 41;
+  min-width: 120px;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--border-main);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 4px;
+}
+.stage-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 12.5px;
+  border-radius: 6px;
+  color: var(--ink-2);
+}
+.stage-menu-item:hover:not(:disabled) { background: var(--paper-side); }
+.stage-menu-item:disabled { cursor: default; }
+.stage-menu-item.current { background: var(--paper-side); font-weight: 600; color: var(--ink); }
 .cockpit-brief .note {
   font-size: 12px;
   color: var(--ink-2);
@@ -2025,3 +2091,28 @@ html, body { overflow: auto; }
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
 }
 .g-light-cap { color: #f3ede2; font-size: 13px; }
+
+/* 参考图标签/备注就地改(track opendesign-stage-history §8),lightbox 内编辑区 */
+.ref-edit {
+  cursor: default; /* 覆盖 .g-light 的 zoom-out,editor 区域点击不应示意"关闭" */
+  width: min(92vw, 480px);
+  background: #fff;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ref-edit-row { display: flex; align-items: flex-start; gap: 10px; }
+.ref-edit-label { flex: none; width: 32px; font-size: 12px; color: var(--ink-4); padding-top: 4px; }
+.ref-edit-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+.ref-edit-note {
+  flex: 1;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border-input, var(--border-main));
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+.ref-edit-note:focus { border-color: var(--terra); }
+.ref-edit-actions { display: flex; gap: 8px; justify-content: flex-end; }

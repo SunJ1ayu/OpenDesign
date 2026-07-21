@@ -17,6 +17,12 @@ export type GalleryItem = {
   space: string[]; // 仅 refs 有;ws 图空数组
   style: string[];
   mtime: number | null;
+  // refs 来源专属(track opendesign-stage-history §8):lightbox 编辑区据此
+  // 定位索引条目(POST /api/refs/update 的 ref_id)与回填备注。ws 图不在索引里,
+  // 两个字段恒 undefined —— 编辑入口据此判断"能不能编辑"(GalleryPage 只在
+  // refId 有值时渲染 [data-ui="ref-edit"])。
+  refId?: string;
+  note?: string;
 };
 
 export const REF_GROUP = "参考图库";
@@ -42,6 +48,8 @@ export function buildGallery(
     space: r.space,
     style: r.style,
     mtime: null,
+    refId: r.id,
+    note: r.note, // 空串也透传(与"没有该字段"区分开,编辑区据此判断"没备注"vs"不可编辑")
   }));
   const b: GalleryItem[] = images
     .slice()
