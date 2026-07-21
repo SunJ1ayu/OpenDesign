@@ -4,7 +4,7 @@ __pycache__/
 *.log
 
 # 前端构建依赖/中间物(锚定仓根;web/dist 是构建产物,反而要进仓 —— 用户机免 Node)
-/web/node_modules/
+/web/node_modules
 /web/.vite/
 
 # 评审工具工作残留(submimo 的 plan 目录)
