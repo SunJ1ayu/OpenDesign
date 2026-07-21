@@ -37,9 +37,11 @@
     独立提到「缺 `阶段` 行的项目 UI 藏了入口」(= 我的 L3)与「`_load_styles` 惰性建
     vocab 文件 = 拒绝路径的磁盘副作用」(新,见下)
   - **subdeepseek**:agent 腿撞 `max turns (40)`,无产出
-  - **subglm**:火山 **CodingPlan 未订阅** → agent 腿 400 直接死(与记忆一致);
-    chat 腿补发中/未回
-  - ⇒ 实际有效 = 1 完卷 + 1 半卷。**这不是四审,记为本单的执行缺口**(不掩饰)。
+  - **subglm**:agent 腿因火山 **CodingPlan 未订阅** 400 直接死(与记忆一致)→
+    **chat 腿补发成功,完卷 PASS + 5 findings**
+  - **subdeepseek**:agent 腿撞 max turns → **chat 腿补发成功,完卷 PASS + 6 findings**
+  - ⇒ 最终 = **3 完卷(submimo / subglm-chat / subdeepseek-chat)+ 1 半卷(subkimi 超时)**。
+    两条 agent 腿的失败已用 chat 腿顶上,四审实质到齐(基础设施缺口另记工具债)。
 - oracle 先跑(`PANEL_ORACLE_CMD`):`test_ds_refs_update` rc=0,记录在
   `panel-stagehist-20260721.oracle.log`。
 
@@ -86,16 +88,47 @@
 - 「bump 断言用子串、缺 style 多值部分未知/全角逗号/空白 note/stage 前后空白/
   delivered flag 等用例」→ 记债,择机补(都不改变本单结论)。
 
-**subkimi 的「`_load_styles` 惰性建 vocab 文件」** → **收为已知取舍**:`add_ref` 早有同样
+**subglm(chat 腿)findings 裁定**:
+
+- 「头段缺 `|` 时只改备注会重建成 `- [rN] |` 静默抹掉风格」→ **真,与我闸③的 M1 同一条**
+  (它评的是修复前的 diff)。**它还补了我漏的子情形:头段多一个 `|`
+  (`奶油风|客厅|多余`)时按前两段重建会静默丢尾巴** → 已收:`malformed_entry` 改判
+  「`tag_part` 必须**恰好**一个 `|`」,oracle 补 1 例。
+- 「`ChangeHistoryEntry.date` 标成 `string` 但运行时按 null 处理」→ 收,改 `string | null`。
+- 「`updateRef` 成功但 `reloadRefs()` 失败会被同一个 catch 报成『保存失败』」→ **真,已修**:
+  两者拆开,写成功先落「已保存」,重拉失败只提示「列表没刷新上」。
+- 「四份 oracle 不在 diff 里所以无法评」→ 非 finding,是 chat 腿的可见性限制(它们在
+  基线 commit `f098b69` 里,`PANEL_DIFF_BASE` 只喂增量)。记工具债:chat 腿应把
+  oracle 一并 INCLUDE。
+- 「`historySummary(c)` 一次渲染调两遍」→ 拒:纯函数、每行一次、列表规模是几十条量级。
+
+**subdeepseek(chat 腿)findings 裁定**:
+
+- 「`style`/`space` 没有 `|` 防护,而 note 有」→ **收(纵深防御)**。词表本身经
+  `add_style` 已禁 `|`,但 `refs-vocab.md` 是**人可手改的纯文本**,手写一条 `- 奶油|风`
+  就能借词表校验把分隔符送进头段。已加:最终标签含 `|` 一律拒;oracle 补 1 例(实测
+  手写词条确实能进词表,拒后索引逐字节不变)。
+- 「`style_unknown` 的提示『刷新页面重试』是死循环」→ **收**,改成「换一个,或先让助手
+  把它加进风格词表」。
+- 「`pickStage` 把裸错误码怼给用户」→ 收,加 `stageErrMsg` 映射(同 `createProjectErrMsg`
+  先例)。
+- 「`.ts` 扩展名导入不标准」→ 拒:全仓既有约定(tsconfig `allowImportingTsExtensions`
+  + `node --test` 原生 strip-types 两头兼容),注释已写明理由。
+
+**subkimi 的「`_load_styles` 惰性建 vocab 文件」**(subdeepseek 独立复述同一条)
+→ **收为已知取舍**:`add_ref` 早有同样
 行为(词表文件缺失时按默认词表创建),拒绝路径不写**索引**这条不变量没破;oracle 的
 「零落盘」断言口径是索引文件,这一点在本 verify 里显式记下。
 
 ### arbitrated verdict(主裁)
 
-**PASS**,但附一条执行缺口:**本单没能真正凑齐四审**(两腿基础设施失败)。我不拿
-「submimo PASS」当通行证 —— 本单两条真问题都是我自己闸③读出来的,与 07-21 上一单
-(subkimi 单腿 BLOCK 成立)恰好互为镜像:**评审腿的价值是补盲点,不是发通行证;
-主审自己的逐行读永远不能省**。
+**PASS**。三腿完卷全 PASS + 一腿半卷无 blocker,但**通行证不是它们发的**:本单两条
+必修(M1/M2)都是我自己闸③逐行读出来的;评审腿的贡献是**在我的修复之外又补了三条我
+漏掉的真东西** —— subglm 的「头段多一个 `|` 也会静默丢数据」(M1 的子情形)、
+subdeepseek 的「标签侧缺 `|` 防护而 vocab 文件人可手改」(纵深防御真缺口)、
+以及两条错误文案确实会把人引到死路。这正是 panel 的正确用法:补盲点,不发通行证。
+
+安全面我独立认可(修复轮之后)
 
 安全面我独立认可:两个针孔 posture 逐条对齐 `_edit_change`(CT json / 尺寸闸 / dict /
 **键白名单**挡掉 `ds_root`·`today`·`file`·`source`·`used` / 类型闸 / 路径精确匹配 /
@@ -104,9 +137,11 @@ Host 闸继承 / GET 无内容面),薄壳没破(ds_web 零文件写),注入面�
 
 ## Accepted deviations
 
-- **四审只到 1.5 腿**(subdeepseek max-turns / subglm 无 CodingPlan 订阅 → chat 腿补发)。
-  记为缺口,不假装齐。GLM 的 CodingPlan 是账号侧问题,已在记忆里;DeepSeek agent 腿
-  的 max-turns 需要调参,记入工具债。
+- **两条 agent 腿失败,由 chat 腿顶上**(subdeepseek 撞 max turns 40;subglm 火山
+  CodingPlan 未订阅)。结论有效,但**工具债三条**:①DeepSeek agent 腿的 max-turns 要调;
+  ②GLM 的 CodingPlan 是账号侧问题(与记忆一致);③**chat 腿只喂增量 diff,看不到基线里的
+  oracle 文件** —— 两家都因此说「测试文件不在 diff 里无法评」,应让 chat 腿把 oracle
+  一并 INCLUDE。
 - **e2e 的风格断言仍是 `||` 弱断言**(见上,记债下一轮收紧)。
 - **`_load_styles` 在拒绝路径可能惰性创建 `refs-vocab.md`**:既有 `add_ref` 同行为,
   「拒绝路径零落盘」的口径限定在**索引文件**。

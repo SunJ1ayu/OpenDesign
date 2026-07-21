@@ -23,7 +23,8 @@ export type Project = {
 
 // 单条留痕(track opendesign-stage-history §9):edit_change 写侧每次改正文都往
 // `## 变更历史` 段记一笔,读侧 ds_tools.parse_history 按 cnum 分桶回传,时序=后端顺序。
-export type ChangeHistoryEntry = { date: string; old: string };
+// date 可为 null:后端留痕行理论上可缺日期,history.ts 运行时也按 null 处理
+export type ChangeHistoryEntry = { date: string | null; old: string };
 
 export type Change = {
   cnum: number | null;

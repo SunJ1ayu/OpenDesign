@@ -324,17 +324,22 @@ def update_ref(ref_id: str, style: str | None = None, space: str | None = None,
         return {"error": "no_fields"}
     num = m.group(1)
 
+    # 标签里不许出现 `|` —— 它是头段 `风格|空间` 的分隔符。词表本身经 add_style 已禁
+    # `|`,但 refs-vocab.md 是人可手改的纯文本,手写一条 `- 奶油|风` 就能借词表校验
+    # 把分隔符送进头段(纵深防御;note 侧对应的是 sanitize_field(ban_pipe=True))。
     new_styles = None
     if style is not None:
         styles_vocab = _load_styles(ds_root)
         new_styles = _split_tags(style)
-        if not new_styles or any(s not in styles_vocab for s in new_styles):
+        if (not new_styles or any(s not in styles_vocab for s in new_styles)
+                or any("|" in s for s in new_styles)):
             return {"error": "style_unknown", "vocab": styles_vocab}
 
     new_spaces = None
     if space is not None:
         new_spaces = _split_tags(space)
-        if not new_spaces or any(s not in SPACES for s in new_spaces):
+        if (not new_spaces or any(s not in SPACES for s in new_spaces)
+                or any("|" in s for s in new_spaces)):
             return {"error": "space_unknown", "vocab": list(SPACES)}
 
     # 备注允许清空(空串)但不许拆段:折行 + 禁竖线(与 add_ref 同一消毒口径)
@@ -357,8 +362,10 @@ def update_ref(ref_id: str, style: str | None = None, space: str | None = None,
         # 头段少了 `|` 也算畸形——否则"只改备注"的调用会把它重建成 `- [rN] |`,
         # 静默抹掉标签(2026-07-21 收货闸③实抓,与本函数"未点名的不动"契约相悖)。
         head_prefix, _, tag_part = segs[0].partition("] ")
+        # 头段必须**恰好**一个 `|`:多一个(`奶油风|客厅|多余`)时按前两段重建会静默
+        # 丢掉尾巴(subglm 补的子情形),少一个则会抹掉标签 —— 两种都不猜,直接拒。
         if (len(segs) != 5 or not segs[4].startswith("备注:")
-                or not head_prefix or "|" not in tag_part):
+                or not head_prefix or tag_part.count("|") != 1):
             box["write"] = False
             return {"error": "malformed_entry"}
         head_prefix += "] "

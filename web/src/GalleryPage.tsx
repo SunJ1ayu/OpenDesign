@@ -138,13 +138,21 @@ export default function GalleryPage({ project }: Props) {
         ...(spaceChanged ? { space: [...editSpaces].join(",") } : {}),
         ...(editNote !== (zoom.note ?? "") ? { note: editNote } : {}),
       });
-      await reloadRefs(); // oracle 钉死:保存后必须重拉,下一次筛选用的是新标签
+      // 写已经成功了:重拉失败只影响"看到的是不是最新",不能报成"保存失败"
+      // (subglm 提的:两者原本同一个 try,一起被当成保存失败)
       setEditSaved("已保存");   // 成功要有反馈(同快记卡 toast 范式),否则人不知道存没存上
+      try {
+        await reloadRefs(); // 保存后必须重拉,否则下一次筛选用的是旧标签
+      } catch {
+        setEditSaved("已保存(列表没刷新上,重开图墙看最新)");
+      }
     } catch (e) {
       const code = (e as Error).message;
       setEditErr(
         code === "style_unknown" || code === "space_unknown"
-          ? "标签不在词表里,刷新页面重试。"
+          // 刷新解决不了:这条标签本来就不在词表里(词表被改过 / 索引是手写的),
+          // 要么改选词表里的词,要么先让助手 add_style 把词加进去(subdeepseek 提的)
+          ? "这个标签不在词表里。换一个,或先让助手把它加进风格词表。"
           : `保存失败(${code})。`,
       );
     } finally {

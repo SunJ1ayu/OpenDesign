@@ -39,6 +39,15 @@ function addChangeErrMsg(code: string): string {
 }
 
 // 「一键建档」错误码 → 中文提示
+// 切阶段的错误码 → 人话(同 createProjectErrMsg 先例;不把裸错误码怼给用户,
+// subdeepseek 提的)
+function stageErrMsg(code: string): string {
+  if (code === "bad_stage") return "这个阶段不在词表里,刷新页面重试。";
+  if (code === "project_not_found") return "项目档案找不到了,刷新页面看看。";
+  if (code === "bad_name" || code === "path_escape") return "项目名不合法,改不了阶段。";
+  return `切阶段失败(${code})。`;
+}
+
 function createProjectErrMsg(code: string): string {
   if (code === "empty_name") return "项目名和业主名都要填。";
   if (code === "bad_stage") return "阶段不在词表里。";
@@ -219,7 +228,7 @@ export default function ChangesColumn({
       setStageMenuOpen(false);
       onEdited?.();
     } catch (e) {
-      setStageErr(`切阶段失败(${(e as Error).message})。`);
+      setStageErr(stageErrMsg((e as Error).message));
     } finally {
       setStageSaving(false);
     }

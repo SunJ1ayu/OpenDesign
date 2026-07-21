@@ -279,6 +279,30 @@ class UpdateRefRejects(UpdateRefBase):
                 self.assertEqual("malformed_entry", r.get("error"), r)
                 self.assertEqual(before, _read(self.index))
 
+    def test_malformed_head_with_extra_pipe(self):
+        """头段多一个 `|`(`奶油风|客厅|多余`)→ malformed_entry:按前两段重建会
+        静默丢尾巴(subglm 补的子情形),不猜不补。"""
+        line = self._line("r1")
+        text = _read(self.index)
+        with open(self.index, "w", encoding="utf-8") as fh:
+            fh.write(text.replace(line, line.replace("奶油风|客厅", "奶油风|客厅|多余", 1), 1))
+        before = _read(self.index)
+        r = ds_refs.update_ref("r1", note="补一个", ds_root=self.ds, today=LATER)
+        self.assertEqual("malformed_entry", r.get("error"), r)
+        self.assertEqual(before, _read(self.index))
+
+    def test_vocab_entry_with_pipe_rejected(self):
+        """refs-vocab.md 是人可手改的纯文本:手写一条带 `|` 的风格,也不许被写进头段
+        (词表校验之外的纵深防御,subdeepseek 提的)。"""
+        vocab_path = os.path.join(self.ds, "refs-vocab.md")
+        with open(vocab_path, "a", encoding="utf-8") as fh:
+            fh.write("- 奶油|风\n")
+        self.assertIn("奶油|风", ds_refs._load_styles(self.ds), "夹具:手写词条应进词表")
+        before = _read(self.index)
+        r = ds_refs.update_ref("r1", style="奶油|风", ds_root=self.ds, today=LATER)
+        self.assertEqual("style_unknown", r.get("error"), r)
+        self.assertEqual(before, _read(self.index), "分隔符绝不许进索引行")
+
     def test_ambiguous_ref(self):
         """索引里手写重复了同一个 id → ambiguous_ref,零落盘(同 link_ref 口径)。"""
         line = self._line("r1")
