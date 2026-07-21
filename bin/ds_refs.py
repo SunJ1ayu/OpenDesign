@@ -304,6 +304,87 @@ def link_ref(ref_id: str, project: str, ds_root: str = DEFAULT_DS_ROOT,
     return {"ok": True, "ref_id": f"r{num}", "line": result}
 
 
+# ── 工具 4 update_ref ───────────────────────────────────────────────────────
+def update_ref(ref_id: str, style: str | None = None, space: str | None = None,
+               note: str | None = None, ds_root: str = DEFAULT_DS_ROOT,
+               today: str | None = None) -> dict:
+    """就地改一条已有索引的标签/备注(track opendesign-stage-history §8)。
+
+    只重写头段(`- [rN] 风格|空间`)与 `备注:` 段;`来源:`/`文件:`/`用于:` 三段
+    逐字节不变(分段重组,不做整行正则替换)。style/space/note 三者缺省=不动;
+    style/space 给了就必须逐项过词表(不自动建词,建词走 add_style);note 给了
+    空串即清空(与"不传=不动"区分开)。"""
+    today = ds_common.today_str(today)
+    # 不 strip:"r1 "(尾随空白)必须被拒,不许被悄悄折成合法 id(与外层 ds_web
+    # 键类型闸的字面值一一对应,同类值经不同调用路径进来结果要一致)。
+    m = re.fullmatch(r"r(\d+)", ref_id or "")
+    if not m:
+        return {"error": "ref_not_found"}
+    if style is None and space is None and note is None:
+        return {"error": "no_fields"}
+    num = m.group(1)
+
+    # 标签里不许出现 `|` —— 它是头段 `风格|空间` 的分隔符。词表本身经 add_style 已禁
+    # `|`,但 refs-vocab.md 是人可手改的纯文本,手写一条 `- 奶油|风` 就能借词表校验
+    # 把分隔符送进头段(纵深防御;note 侧对应的是 sanitize_field(ban_pipe=True))。
+    new_styles = None
+    if style is not None:
+        styles_vocab = _load_styles(ds_root)
+        new_styles = _split_tags(style)
+        if (not new_styles or any(s not in styles_vocab for s in new_styles)
+                or any("|" in s for s in new_styles)):
+            return {"error": "style_unknown", "vocab": styles_vocab}
+
+    new_spaces = None
+    if space is not None:
+        new_spaces = _split_tags(space)
+        if (not new_spaces or any(s not in SPACES for s in new_spaces)
+                or any("|" in s for s in new_spaces)):
+            return {"error": "space_unknown", "vocab": list(SPACES)}
+
+    # 备注允许清空(空串)但不许拆段:折行 + 禁竖线(与 add_ref 同一消毒口径)
+    new_note = ds_common.sanitize_field(note, ban_pipe=True) if note is not None else None
+
+    path = _index_path(ds_root)
+    if not os.path.exists(path):  # 读不到索引不许顺手建一个(与 link_ref 同口径)
+        return {"error": "ref_not_found"}
+
+    line_re = re.compile(rf"^- \[r{num}\]\s")  # 整体锚定,防 r2 误伤 r12
+    with ds_common.locked_rw(path) as box:
+        lines = box["lines"]
+        idx = [i for i, ln in enumerate(lines) if line_re.match(ln)]
+        if len(idx) != 1:
+            box["write"] = False
+            return {"error": "ref_not_found" if not idx else "ambiguous_ref"}
+        i = idx[0]
+        segs = lines[i].split(_SEG_SEP)
+        # 畸形行不猜不补:段数不对/末段不是备注/头段没有 `风格|空间` 分隔即拒。
+        # 头段少了 `|` 也算畸形——否则"只改备注"的调用会把它重建成 `- [rN] |`,
+        # 静默抹掉标签(2026-07-21 收货闸③实抓,与本函数"未点名的不动"契约相悖)。
+        head_prefix, _, tag_part = segs[0].partition("] ")
+        # 头段必须**恰好**一个 `|`:多一个(`奶油风|客厅|多余`)时按前两段重建会静默
+        # 丢掉尾巴(subglm 补的子情形),少一个则会抹掉标签 —— 两种都不猜,直接拒。
+        if (len(segs) != 5 or not segs[4].startswith("备注:")
+                or not head_prefix or tag_part.count("|") != 1):
+            box["write"] = False
+            return {"error": "malformed_entry"}
+        head_prefix += "] "
+        # 头段**只在点名了 style/space 时**才重建;两者都没给就一个字节都不碰
+        # (否则手写的 `奶油风, 客厅|客厅` 会被顺手归一化——同样是没点名却被改)。
+        if new_styles is not None or new_spaces is not None:
+            cur_styles = _split_tags(tag_part.split("|")[0])
+            cur_spaces = _split_tags(tag_part.split("|")[1])
+            final_styles = new_styles if new_styles is not None else cur_styles
+            final_spaces = new_spaces if new_spaces is not None else cur_spaces
+            segs[0] = f"{head_prefix}{','.join(final_styles)}|{','.join(final_spaces)}"
+        if new_note is not None:
+            segs[4] = f"备注:{new_note}"
+        lines[i] = _SEG_SEP.join(segs)
+        ds_common.bump_last_updated(lines, today)
+        result = lines[i]
+    return {"ok": True, "ref_id": f"r{num}", "line": result}
+
+
 # ── stdio MCP server 包装(需 `pip install mcp`;未装不影响核心) ─────────────
 def _build_server(ds_root: str):
     from mcp.server.fastmcp import FastMCP  # 延迟导入
@@ -332,6 +413,15 @@ def _build_server(ds_root: str):
     def add_style_tool(style: str) -> dict:
         """往风格词表新增一个风格。新增前必须先跟设计师确认过。"""
         return add_style(style, ds_root=ds_root)
+
+    @server.tool()
+    def update_ref_tool(ref_id: str, style: str = "", space: str = "",
+                        note: str | None = None) -> dict:
+        """就地改一条已登记参考图(r<n>)的风格/空间/备注。三者都不传则报 no_fields
+        (不接受只 bump 页脚的假写);style/space 给了必须在词表内(可逗号分隔多值,
+        不自动建词);note 传空串会清空备注。没点名的字段(含来源/文件/用于)不动。"""
+        return update_ref(ref_id, style=style or None, space=space or None,
+                          note=note, ds_root=ds_root)
 
     return server
 

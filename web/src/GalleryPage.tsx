@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Project, Ref } from "./api";
-import { fetchFilesImages, fetchRefs, openFolder } from "./api";
+import type { Project, Ref, RefsVocab } from "./api";
+import { fetchFilesImages, fetchRefsData, openFolder, updateRef } from "./api";
 import {
   buildGallery,
+  sameTags,
   filterGallery,
   galleryFacets,
   groupAlbums,
@@ -48,25 +49,50 @@ function Chips({
   );
 }
 
+const EMPTY_VOCAB: RefsVocab = { style: [], space: [] };
+
 export default function GalleryPage({ project }: Props) {
   const [refs, setRefs] = useState<Ref[] | null>(null);
   const [images, setImages] = useState<WsImage[] | null>(null);
+  // 参考图词表(#8):单一真相源经 /api/projects/<key>/refs 的 vocab 下发,
+  // lightbox 编辑区的风格 chip 直接列它,不硬编码副本。
+  const [vocab, setVocab] = useState<RefsVocab>(EMPTY_VOCAB);
   const [filter, setFilter] = useState<GalleryFilter>(EMPTY);
   const [openAlbum, setOpenAlbum] = useState<string | null>(null);
   const [zoom, setZoom] = useState<GalleryItem | null>(null);
+  // 标签/备注编辑区状态(#8):zoom 切到别的图时重新以当前值预填。
+  const [editStyles, setEditStyles] = useState<Set<string>>(new Set());
+  const [editSpaces, setEditSpaces] = useState<Set<string>>(new Set());
+  const [editNote, setEditNote] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editErr, setEditErr] = useState<string | null>(null);
+  const [editSaved, setEditSaved] = useState<string | null>(null); // 保存成功/无改动的轻提示
 
   const key = project?.key ?? null;
+
+  const reloadRefs = () => {
+    if (!key) return Promise.resolve();
+    return fetchRefsData(key).then(({ refs: rs, vocab: v }) => {
+      setRefs(rs);
+      setVocab(v);
+    });
+  };
 
   useEffect(() => {
     setRefs(null);
     setImages(null);
+    setVocab(EMPTY_VOCAB);
     setFilter(EMPTY);
     setOpenAlbum(null);
     setZoom(null);
     if (!key) return;
     let stale = false;
-    fetchRefs(key)
-      .then((rs) => !stale && setRefs(rs))
+    fetchRefsData(key)
+      .then(({ refs: rs, vocab: v }) => {
+        if (stale) return;
+        setRefs(rs);
+        setVocab(v);
+      })
       .catch(() => !stale && setRefs([]));
     fetchFilesImages(key)
       .then((d) => !stale && setImages(d.configured && d.mapped ? d.images : []))
@@ -75,6 +101,72 @@ export default function GalleryPage({ project }: Props) {
       stale = true;
     };
   }, [key]);
+
+  // 切到另一张图(或关闭):编辑区重新以当前值预填,不沿用上一张的草稿。
+  useEffect(() => {
+    setEditStyles(new Set(zoom?.style ?? []));
+    setEditSpaces(new Set(zoom?.space ?? []));
+    setEditNote(zoom?.note ?? "");
+    setEditErr(null);
+    setEditSaved(null);
+  }, [zoom?.id]);
+
+  async function saveRefEdit() {
+    if (!zoom?.refId || editSaving) return;
+    if (editStyles.size === 0 || editSpaces.size === 0) {
+      setEditErr("风格和空间都至少要留一个标签。");
+      return;
+    }
+    if (sameTags(editStyles, zoom.style) && sameTags(editSpaces, zoom.space)
+        && editNote === (zoom.note ?? "")) {
+      setEditErr(null);
+      setEditSaved("没有改动");  // 一个字段都没改就别发请求(核心会判 no_fields)
+      return;
+    }
+    setEditSaving(true);
+    setEditErr(null);
+    setEditSaved(null);
+    try {
+      // **只发真改过的字段**(核心的「缺省=不动」语义):老索引里可能有不在词表里的
+      // 手写标签(词表可扩也可删),原样发回会被核心判 style_unknown,连备注都改不了
+      // ——那条错误还提示"刷新重试",刷新根本没用(2026-07-21 收货闸③实抓)。
+      const styleChanged = !sameTags(editStyles, zoom.style);
+      const spaceChanged = !sameTags(editSpaces, zoom.space);
+      await updateRef({
+        ref_id: zoom.refId,
+        ...(styleChanged ? { style: [...editStyles].join(",") } : {}),
+        ...(spaceChanged ? { space: [...editSpaces].join(",") } : {}),
+        ...(editNote !== (zoom.note ?? "") ? { note: editNote } : {}),
+      });
+      // 写已经成功了:重拉失败只影响"看到的是不是最新",不能报成"保存失败"
+      // (subglm 提的:两者原本同一个 try,一起被当成保存失败)
+      setEditSaved("已保存");   // 成功要有反馈(同快记卡 toast 范式),否则人不知道存没存上
+      try {
+        await reloadRefs(); // 保存后必须重拉,否则下一次筛选用的是旧标签
+      } catch {
+        setEditSaved("已保存(列表没刷新上,重开图墙看最新)");
+      }
+    } catch (e) {
+      const code = (e as Error).message;
+      setEditErr(
+        code === "style_unknown" || code === "space_unknown"
+          // 刷新解决不了:这条标签本来就不在词表里(词表被改过 / 索引是手写的),
+          // 要么改选词表里的词,要么先让助手 add_style 把词加进去(subdeepseek 提的)
+          ? "这个标签不在词表里。换一个,或先让助手把它加进风格词表。"
+          : `保存失败(${code})。`,
+      );
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  function toggleEditTag(set: Set<string>, setSet: (s: Set<string>) => void, v: string) {
+    setEditSaved(null);
+    const next = new Set(set);
+    if (next.has(v)) next.delete(v);
+    else next.add(v);
+    setSet(next);
+  }
 
   // 改筛选回到相册墙(避免停在一个筛掉后不存在的册)
   useEffect(() => setOpenAlbum(null), [filter]);
@@ -233,6 +325,81 @@ export default function GalleryPage({ project }: Props) {
             {zoom.label}
             <span className="g-dim"> · {zoom.group}</span>
           </div>
+          {/* #8:refs 来源的图给标签/备注编辑区;ws 图(不在索引里)零渲染,
+              不是 bug——它压根没有 refId(design.md §8)。stopPropagation:
+              lightbox 背景点任意处关闭,编辑区内的点击不该穿透触发关闭。 */}
+          {zoom.refId !== undefined && (
+            <div className="ref-edit" data-ui="ref-edit" onClick={(e) => e.stopPropagation()}>
+              <div className="ref-edit-row">
+                <span className="ref-edit-label">风格</span>
+                <div className="ref-edit-chips">
+                  {vocab.style.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`g-chip${editStyles.has(s) ? " on" : ""}`}
+                      data-ui="ref-style-option"
+                      disabled={editSaving}
+                      onClick={() => toggleEditTag(editStyles, setEditStyles, s)}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="ref-edit-row">
+                <span className="ref-edit-label">空间</span>
+                <div className="ref-edit-chips">
+                  {vocab.space.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`g-chip${editSpaces.has(s) ? " on" : ""}`}
+                      data-ui="ref-space-option"
+                      disabled={editSaving}
+                      onClick={() => toggleEditTag(editSpaces, setEditSpaces, s)}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="ref-edit-row">
+                <span className="ref-edit-label">备注</span>
+                <input
+                  className="ref-edit-note"
+                  data-ui="ref-note-input"
+                  value={editNote}
+                  onChange={(e) => { setEditSaved(null); setEditNote(e.target.value); }}
+                  disabled={editSaving}
+                  placeholder="备注(可留空)"
+                />
+              </div>
+              {editErr && <div className="error-note sm">{editErr}</div>}
+              {!editErr && editSaved && (
+                <div className="ref-edit-saved" data-ui="ref-edit-saved">{editSaved}</div>
+              )}
+              <div className="ref-edit-actions">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  data-ui="ref-save"
+                  disabled={editSaving}
+                  onClick={saveRefEdit}
+                >
+                  {editSaving ? "保存中…" : "保存"}
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={editSaving}
+                  onClick={() => setZoom(null)}
+                >
+                  关闭
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

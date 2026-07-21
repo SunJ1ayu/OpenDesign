@@ -21,6 +21,11 @@ export type Project = {
   group?: string;
 };
 
+// 单条留痕(track opendesign-stage-history §9):edit_change 写侧每次改正文都往
+// `## 变更历史` 段记一笔,读侧 ds_tools.parse_history 按 cnum 分桶回传,时序=后端顺序。
+// date 可为 null:后端留痕行理论上可缺日期,history.ts 运行时也按 null 处理
+export type ChangeHistoryEntry = { date: string | null; old: string };
+
 export type Change = {
   cnum: number | null;
   status: string; // 待确认 | 进行中 | 已完成 | 已关闭
@@ -28,6 +33,10 @@ export type Change = {
   date: string | null; // YYYY-MM-DD
   space: string | null; // 变更行可选【空间】前缀(p4 T1);旧行 null=未标注
   source: string | null;
+  // 后端 ds_web.py:_changes 早就在返回,history 恒为数组(无历史=空)、
+  // note 可选(有才带该键,与"没备注"和"没有该字段"不必强区分——前端按 undefined 处理)。
+  history: ChangeHistoryEntry[];
+  note?: string;
 };
 
 export type Ref = {
@@ -37,6 +46,11 @@ export type Ref = {
   file: string; // refs/ 下相对路径,取图走 /api/refs/file/<file 去掉 refs/ 前缀>
   note: string;
 };
+
+// 参考图词表(track opendesign-stage-history §8):单一真相源 = 后端
+// ds_refs._load_styles / ds_refs.SPACES,经 GET /api/projects/<key>/refs 下发;
+// 前端(lightbox 编辑区)不许硬编码副本。
+export type RefsVocab = { style: string[]; space: string[] };
 
 // P5 文件工作区(bin/ds_web.py /api/files/*;未配置/未映射诚实降级)
 // latest_mtime=类目最新文件 mtime(epoch 秒,活跃度信号);capped 时 null(宁缺勿假)
@@ -61,18 +75,26 @@ async function getJson<T>(path: string): Promise<T> {
   return (await r.json()) as T;
 }
 
-export const fetchProjects = () =>
-  getJson<{ projects: Project[] }>("/api/projects").then((d) => d.projects);
+// 阶段词表随项目列表一起下发(单一真相源 = 后端 ds_tools.PROJECT_STAGES);
+// fetchProjects 保持既有返回形状(只给数组),要词表用 fetchProjectsData。
+export const fetchProjectsData = () =>
+  getJson<{ projects: Project[]; stages: string[] }>("/api/projects");
+
+export const fetchProjects = () => fetchProjectsData().then((d) => d.projects);
 
 export const fetchChanges = (key: string) =>
   getJson<{ changes: Change[] }>(
     `/api/projects/${encodeURIComponent(key)}/changes`,
   ).then((d) => d.changes);
 
-export const fetchRefs = (key: string) =>
-  getJson<{ refs: Ref[] }>(
+// refs 与 vocab 同一条 GET(避免图墙一次要两个字段却打两次请求);既有调用方
+// (SearchPanel/CompanionColumn)只要 refs 数组,fetchRefs 保持原返回形状不变。
+export const fetchRefsData = (key: string) =>
+  getJson<{ refs: Ref[]; vocab: RefsVocab }>(
     `/api/projects/${encodeURIComponent(key)}/refs`,
-  ).then((d) => d.refs);
+  );
+
+export const fetchRefs = (key: string) => fetchRefsData(key).then((d) => d.refs);
 
 export const fetchTodosOpenCount = () =>
   getJson<{ open: unknown[] }>("/api/todos").then((d) => d.open.length);
@@ -330,6 +352,55 @@ export async function bindProject(project: string, folder: string): Promise<void
       /* 非 JSON 响应:忽略,回落状态码 */
     }
     throw new BindProjectError(code || `服务返回 ${r.status}`, folders);
+  }
+}
+
+/** 第十个非 GET(track opendesign-stage-history 写针孔⑩):切阶段。不做乐观改写
+ * (阶段是档案头部字段,以后端回值为准);成功回传 {stage, prev} 供 UI 播报。
+ * 失败抛错(带后端 error code)由调用方提示。 */
+export type SetStageResult = { ok: true; project: string; stage: string; prev: string | null };
+export async function setStage(project: string, stage: string): Promise<SetStageResult> {
+  const r = await fetch("/api/projects/stage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project, stage }),
+  });
+  if (!r.ok) {
+    let code = "";
+    try {
+      code = ((await r.json()) as { error?: string }).error ?? "";
+    } catch {
+      /* 非 JSON 响应:忽略,回落状态码 */
+    }
+    throw new Error(code || `服务返回 ${r.status}`);
+  }
+  return (await r.json()) as SetStageResult;
+}
+
+/** 第十一个非 GET(track opendesign-stage-history 写针孔⑪):参考图标签/备注就地改。
+ * style/space/note 缺省=不动,给了必须是 str(空串对 note = 清空,对 style/space
+ * 会被核心拒 style_unknown/space_unknown——标签不许清空)。成功后调用方按 design
+ * 约定重拉 refs(下一次筛选用的是新标签)。失败抛错(带后端 error code)。 */
+export type UpdateRefBody = {
+  ref_id: string;
+  style?: string;
+  space?: string;
+  note?: string;
+};
+export async function updateRef(body: UpdateRefBody): Promise<void> {
+  const r = await fetch("/api/refs/update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    let code = "";
+    try {
+      code = ((await r.json()) as { error?: string }).error ?? "";
+    } catch {
+      /* 非 JSON 响应:忽略,回落状态码 */
+    }
+    throw new Error(code || `服务返回 ${r.status}`);
   }
 }
 

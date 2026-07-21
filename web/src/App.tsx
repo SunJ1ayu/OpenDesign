@@ -22,7 +22,7 @@ import {
 import {
   deleteChatSession,
   fetchChanges,
-  fetchProjects,
+  fetchProjectsData,
   fetchTodosOpenCount,
   type Change,
   type Project,
@@ -50,6 +50,9 @@ export default function App() {
 
   // ---- 数据:项目 / 待办计数 / 服务信息 / 历史对话 ----
   const [projects, setProjects] = useState<Project[]>([]);
+  // 阶段词表(track opendesign-stage-history §7):随项目列表一起下发,单一真相源
+  // = 后端 ds_tools.PROJECT_STAGES;ChangesColumn 的 stage-chip 下拉直接用它,不硬编码副本。
+  const [stages, setStages] = useState<string[]>([]);
   const [projErr, setProjErr] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [changes, setChanges] = useState<Change[] | null>(null);
@@ -172,10 +175,11 @@ export default function App() {
 
   // 项目列表 + 待办角标:挂载即拉,dataEpoch 变(每轮回复后)重拉——刷新变更来源
   useEffect(() => {
-    fetchProjects()
-      .then((ps) => {
+    fetchProjectsData()
+      .then(({ projects: ps, stages: st }) => {
         setProjErr(null);
         setProjects(ps);
+        setStages(st);
         setSelectedKey((cur) => {
           if (cur && ps.some((p) => p.key === cur)) return cur;
           // 默认选中:最近更新的未交付已建档项目(设计师"手头项目");
@@ -407,6 +411,7 @@ export default function App() {
             project={selected}
             changes={changes}
             error={changesErr}
+            stages={stages}
             onEdited={() => setDataEpoch((n) => n + 1)}
             onCreated={(key) => {
               setSelectedKey(key);
