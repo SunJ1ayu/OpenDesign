@@ -1,7 +1,7 @@
 # Design: opendesign-frontend-p3-polish
 
 - Change: opendesign-frontend-p3-polish
-- Status: draft
+- Status: done
 - base-ref: e5bac70(ds-web 0.31.0)
 
 > Panel hook:本 track 无开放架构分叉(五条纯打磨 + 一条有标准答案的安全面),

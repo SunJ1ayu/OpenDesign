@@ -136,6 +136,8 @@ test("白名单本身:不含任何可执行/脚本/快捷方式扩展名", () =>
     ".exe", ".bat", ".cmd", ".com", ".scr", ".ps1", ".vbs", ".js", ".jse",
     ".wsf", ".msi", ".lnk", ".url", ".reg", ".dll", ".jar", ".sh", ".py",
     ".html", ".htm", ".svg", ".zip", ".rar", ".7z",
+    // Windows 特有的可执行/脚本载体(submimo 补的,后端黑名单测试同集合)
+    ".hta", ".chm", ".wsh", ".msc", ".cpl", ".inf", ".vbe", ".pif", ".gadget",
   ];
   for (const ext of forbidden) {
     assert.ok(

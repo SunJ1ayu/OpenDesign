@@ -1,7 +1,7 @@
 # Proposal: opendesign-frontend-p3-polish
 
 - Date: 2026-07-20
-- Status: open
+- Status: done
 - Source: 设计交付包 v4 `优化修改单.md` **§I 第二轮(对照 v0.3x 截图)** 六条
   (zip `/root/OpenDesign 室内设计工作台.zip`,2026-07-19 23:44)
 
