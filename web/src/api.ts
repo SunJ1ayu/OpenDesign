@@ -42,7 +42,10 @@ export type Ref = {
 // latest_mtime=类目最新文件 mtime(epoch 秒,活跃度信号);capped 时 null(宁缺勿假)
 export type WsCategory = { name: string; count: number; capped: boolean;
                            latest_mtime: number | null };
-export type WsRecent = { name: string; category: string; mtime: number; size: number };
+// rel = 项目内完整相对路径(含子目录),后端权威载荷;前端「打开该文件」直接用它,
+// 不许拼 `${category}/${name}` —— 嵌套文件会 404,同名不同子目录会开错文件。
+export type WsRecent = { name: string; category: string; rel: string;
+                         mtime: number; size: number };
 export type FilesOverview =
   | { configured: false }
   | { configured: true; mapped: false }

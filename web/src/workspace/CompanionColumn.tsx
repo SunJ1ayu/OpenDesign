@@ -406,8 +406,8 @@ export default function CompanionColumn({
                 <button
                   className="recent-row"
                   data-ui="recent-row"
-                  key={`${r.category}/${r.name}/${r.mtime}`}
-                  title={r.category ? `${r.category}/${r.name}` : r.name}
+                  key={`${r.rel}/${r.mtime}`}
+                  title={r.rel || (r.category ? `${r.category}/${r.name}` : r.name)}
                   onClick={() => doOpenRecent(r)}
                 >
                   <span className="n">{r.name}</span>

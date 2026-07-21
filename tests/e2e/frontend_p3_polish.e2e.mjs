@@ -157,6 +157,17 @@ try {
     `I4 .bat 退化为开所在文件夹(实际 ${opened[1]})`);
   check(!opened.includes(batPath), "I4 .bat 本身绝不允许被启动");
 
+  // 嵌套文件(设计师的 定稿/初稿 子目录是常态):必须开到真实嵌套路径,
+  // 而不是 类目/文件名(2026-07-20 subkimi 抓的规格级缺陷,三份 oracle 原都漏测)
+  const nestedRow = page.locator('[data-ui="recent-row"]:has-text("客厅.png")').first();
+  check((await nestedRow.getAttribute("title")).includes("06-效果图/定稿/客厅.png"),
+    "I4 嵌套行 title 显完整嵌套 rel");
+  await nestedRow.click();
+  opened = await waitOpened(3);
+  check(opened.length === 3, `I4 点嵌套 .png 触发一次启动(实际 ${opened.length})`);
+  check(opened[2] === join(ws, folderA, "06-效果图", "定稿", "客厅.png"),
+    `I4 嵌套文件开的是真实嵌套路径(实际 ${opened[2]})`);
+
   // ── I1:图墙「来源」= 描边下拉,不是 chip 云 ──────────────────────────
   await page.locator('.aside .gallery-link').first().click();
   await page.locator(".gallery-page").waitFor({ timeout: 10000 });

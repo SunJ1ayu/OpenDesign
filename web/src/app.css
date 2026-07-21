@@ -124,7 +124,9 @@ select:focus-visible {
 .workspace {
   display: flex;
   height: 100%;
-  min-width: 1150px; /* 窄窗兜底:出横向滚动,不做响应式重排(design 风险项) */
+  /* 窄窗兜底:出横向滚动,不做响应式重排(design 风险项)。240+400+300=940 固定列,
+     地板随 I3 列宽同步上调,保证中央列不被挤到 ~210px(subkimi #2)。 */
+  min-width: 1260px;
 }
 html, body { overflow: auto; }
 

@@ -43,10 +43,11 @@ function extOf(name: string): string {
 export type OpenTarget = { kind: "file"; rel: string } | { kind: "folder"; sub?: string };
 
 /** §I4 前端分流(纵深防御,不替代后端闸):白名单内扩展名 → 开该文件本身
- * (rel 带类目前缀,无类目则不带);白名单外(含无扩展名/双扩展名按真实末段判)
- * → 退化为开所在文件夹。 */
+ * (rel = 后端给的完整相对路径,含子目录;缺失时才退回类目/文件名);
+ * 白名单外(含无扩展名/双扩展名按真实末段判)→ 退化为开所在文件夹(类目级)。 */
 export function openTargetFor(recent: WsRecent): OpenTarget {
-  const rel = recent.category ? `${recent.category}/${recent.name}` : recent.name;
+  const rel = recent.rel
+    || (recent.category ? `${recent.category}/${recent.name}` : recent.name);
   if (OPEN_FILE_EXTS.includes(extOf(recent.name))) {
     return { kind: "file", rel };
   }
