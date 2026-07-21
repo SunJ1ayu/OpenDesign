@@ -43,6 +43,14 @@
   POST /api/projects/bind          {"project","folder"} 针孔⑨(同上 track):
     项目↔工作区文件夹关联薄壳,直调 ds_tools.bind_project(名字闸/两级匹配/
     原子写全在核心)。
+切阶段/参考图标签就地改/变更历史(track opendesign-stage-history,P2 队列 #7#8#9):
+  POST /api/projects/stage         {"project","stage"} 针孔⑩:薄壳直调
+    ds_tools.set_stage(词表精确匹配/名字闸/锁/页脚 bump 全在核心);GET /api/projects
+    顶层加 stages 词表(单一真相源)。
+  POST /api/refs/update            {"ref_id","style","space","note"} 针孔⑪:薄壳直调
+    ds_refs.update_ref(词表校验/分段重写/锁/页脚 bump 全在核心,只重写头段与备注段,
+    来源/文件/用于逐字节不变);GET /api/projects/<key>/refs 加 vocab 词表。
+  #9 纯前端:/api/projects/<key>/changes 早就返回 history/note,UI 侧渲染。
 
 约束(design.md D2):只绑 127.0.0.1;端口 DS_WEB_PORT(默认 8766),被占明确报错
 退出不静默换口;JSON ensure_ascii=False + charset=utf-8;读期 OSError(Windows
@@ -68,7 +76,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.32.0"  # frontend-p3-polish:修改单 §I 六条(I4 open-folder 加 rel 安全面)
+VERSION = "0.33.0"  # stage-history:切阶段/参考图标签就地改/变更历史(P2 队列 #7#8#9)
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -108,6 +116,8 @@ CREATE_PROJECT_PATH = "/api/projects/create"  # do_POST 写针孔⑥(同上 trac
 INTAKE_SCAN_PATH = "/api/intake/scan"  # do_POST 写针孔⑦(track opendesign-inbox-scan),精确匹配
 INTAKE_AMEND_PATH = "/api/intake/amend"  # do_POST 写针孔⑧(track opendesign-frontend-p1),精确匹配
 BIND_PROJECT_PATH = "/api/projects/bind"  # do_POST 写针孔⑨(同上 track),精确匹配
+STAGE_PATH = "/api/projects/stage"  # do_POST 写针孔⑩(track opendesign-stage-history §7),精确匹配
+REFS_UPDATE_PATH = "/api/refs/update"  # do_POST 写针孔⑪(同上 track §8),精确匹配
 _INTAKE_ALLOWED_KEYS = {"plan_id"}
 _INTAKE_AMEND_ALLOWED_KEYS = {"plan_id", "drop"}
 # 收件箱确认的错误→HTTP 映射:格式/参数错 400,不存在 404,越界 403,状态冲突 409
@@ -164,6 +174,20 @@ _CREATE_ALLOWED_KEYS = {"project", "client", "stage", "address"}
 _CREATE_ERR_STATUS = {
     "empty_name": 400, "bad_stage": 400, "project_exists": 409,
     "bad_name": 404, "path_escape": 404,
+}
+# body 键白名单(写针孔⑩:多余键即拒,防夹带 ds_root/today 走私)
+_STAGE_ALLOWED_KEYS = {"project", "stage"}
+# set_stage error code → HTTP status(词表外 400,项目/名字/逃逸类 404)
+_STAGE_ERR_STATUS = {
+    "bad_stage": 400, "project_not_found": 404,
+    "bad_name": 404, "path_escape": 404,
+}
+# body 键白名单(写针孔⑪:多余键即拒,防夹带 ds_root/today/file/source/used 走私)
+_REFS_UPDATE_ALLOWED_KEYS = {"ref_id", "style", "space", "note"}
+# update_ref error code → HTTP status(校验类 400,资源不存在 404,状态冲突 409)
+_REFS_UPDATE_ERR_STATUS = {
+    "no_fields": 400, "style_unknown": 400, "space_unknown": 400,
+    "ref_not_found": 404, "ambiguous_ref": 409, "malformed_entry": 409,
 }
 
 
@@ -361,6 +385,10 @@ class Handler(BaseHTTPRequestHandler):
             self._intake_amend()
         elif path == BIND_PROJECT_PATH:
             self._bind_project()
+        elif path == STAGE_PATH:
+            self._set_stage()
+        elif path == REFS_UPDATE_PATH:
+            self._refs_update()
         elif (m := _SESSION_DELETE_RE.match(path)):
             self._delete_session(m.group(1))
         else:
@@ -473,7 +501,9 @@ class Handler(BaseHTTPRequestHandler):
             traceback.print_exc()  # 坏编码/写锁窗口读期 OSError:500 自愈,trace 进日志
             self._json(500, {"error": "internal"})
             return
-        self._json(200, {"projects": projects})
+        # 阶段词表(track opendesign-stage-history §7):单一真相源 = ds_tools.PROJECT_STAGES,
+        # 前端 stage-chip 下拉不许硬编码副本;写口不回显词表(少一条外泄面)。
+        self._json(200, {"projects": projects, "stages": list(ds_tools.PROJECT_STAGES)})
 
     def _changes(self, key: str):
         target = self._project_file(key)
@@ -523,7 +553,11 @@ class Handler(BaseHTTPRequestHandler):
         out = [{"id": r["id"], "style": r["style"], "space": r["space"],
                 "file": r["file"], "note": r["note"]}
                for r in refs if _servable_ref_file(r["file"])]
-        self._json(200, {"key": key, "refs": out})
+        # 词表(track opendesign-stage-history §8):单一真相源 = ds_refs._load_styles /
+        # ds_refs.SPACES,前端 lightbox 编辑区不许硬编码副本。
+        vocab = {"style": ds_refs._load_styles(self.server.ds_root),
+                 "space": list(ds_refs.SPACES)}
+        self._json(200, {"key": key, "refs": out, "vocab": vocab})
 
     def _refs_file(self, rel: str):
         """参考图静态服务 —— 本 track 唯一新增文件读出面。三闸串联,每闸独立可验红:
@@ -1132,6 +1166,91 @@ class Handler(BaseHTTPRequestHandler):
         if "folders" in r:  # folder_not_found/folder_ambiguous 候选名单透传
             out["folders"] = r["folders"]
         self._json(_BIND_ERR_STATUS.get(err, 400), out)
+
+    def _set_stage(self):
+        """POST 写针孔⑩(track opendesign-stage-history §7):切阶段。
+        薄壳,posture 逐条照抄 _edit_change:CT application/json →
+        body 0<n≤OPEN_BODY_MAX → JSON dict → 键白名单 {project, stage}(多余键即拒,
+        防夹带 ds_root/today 走私)→ 两键都必须非空 str → ds_tools.set_stage(
+        名字闸/词表精确匹配/锁/页脚 bump 全在核心)。响应体不回显词表(词表走
+        GET /api/projects 的 stages,写口少一条外泄面)。Host 闸由 do_POST 入口继承。"""
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 < n <= OPEN_BODY_MAX:
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "bad request"})
+            return
+        if not isinstance(body, dict) or set(body) - _STAGE_ALLOWED_KEYS:
+            self._json(400, {"error": "bad request"})  # 非对象/多余键 → 拒
+            return
+        project = body.get("project")
+        stage = body.get("stage")
+        if (not isinstance(project, str) or not project
+                or not isinstance(stage, str) or not stage):
+            self._json(400, {"error": "bad request"})
+            return
+        r = ds_tools.set_stage(project, stage, ds_root=self.server.ds_root)
+        if r.get("ok"):
+            self._json(200, r)
+            return
+        err = r.get("error", "internal")
+        self._json(_STAGE_ERR_STATUS.get(err, 400), {"error": err})
+
+    def _refs_update(self):
+        """POST 写针孔⑪(track opendesign-stage-history §8):参考图标签/备注就地改。
+        薄壳,posture 同 ⑩:CT application/json → body 0<n≤OPEN_BODY_MAX →
+        JSON dict → 键白名单 {ref_id, style, space, note}(多余键即拒,防夹带
+        file/source/used 走私)→ ref_id 必须 str → style/space/note 给了必须是 str
+        (缺省=不动,原样交核心区分)→ ds_refs.update_ref(词表/分段重写/锁/页脚 bump
+        全在核心)。Host 闸由 do_POST 入口继承。"""
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 < n <= OPEN_BODY_MAX:
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "bad request"})
+            return
+        if not isinstance(body, dict) or set(body) - _REFS_UPDATE_ALLOWED_KEYS:
+            self._json(400, {"error": "bad request"})  # 非对象/多余键 → 拒
+            return
+        ref_id = body.get("ref_id")
+        if not isinstance(ref_id, str):
+            self._json(400, {"error": "bad request"})
+            return
+        if any(k in body and not isinstance(body[k], str)
+               for k in ("style", "space", "note")):
+            self._json(400, {"error": "bad request"})
+            return
+        r = ds_refs.update_ref(
+            ref_id,
+            style=body.get("style") if "style" in body else None,
+            space=body.get("space") if "space" in body else None,
+            note=body.get("note") if "note" in body else None,
+            ds_root=self.server.ds_root)
+        if r.get("ok"):
+            self._json(200, r)
+            return
+        err = r.get("error", "internal")
+        self._json(_REFS_UPDATE_ERR_STATUS.get(err, 400), {"error": err})
 
     def _proxy(self, up_path: str):
         """白名单转发到本机 nanobot gateway。纯管道:不读不存任何秘密。
