@@ -355,8 +355,10 @@ export default function ChangesColumn({
       <div className="center-head">
         <div className="head-row">
           <div className="proj-title">{project.name}</div>
-          {project.stage && (
-            <span className="stage-cell">
+          {/* 未建档项目在上面的分支已提前 return,这里恒是已建档项目 → chip 恒渲染:
+              档案头部缺 `- 阶段:` 行时显「未设阶段」,点开同一下拉即可补上(核心
+              set_stage 支持缺行补插——收货闸③抓到「唯一需要补插的场景恰好被 UI 藏了」)。 */}
+          <span className="stage-cell">
               {/* innerText 精确等于阶段名(e2e 断言,見 stage_history.e2e.mjs):
                   不塞 caret/图标进按钮文本,可点性靠样式(cursor/hover)传达。 */}
               <button
@@ -367,7 +369,7 @@ export default function ChangesColumn({
                 onClick={() => setStageMenuOpen((o) => !o)}
                 title="点击切换阶段"
               >
-                {project.stage}
+                {project.stage || "未设阶段"}
               </button>
               {stageMenuOpen && (
                 <>
@@ -387,8 +389,7 @@ export default function ChangesColumn({
                   </div>
                 </>
               )}
-            </span>
-          )}
+          </span>
         </div>
         {stageErr && <div className="error-note sm">{stageErr}</div>}
         {counts.all > 0 && (

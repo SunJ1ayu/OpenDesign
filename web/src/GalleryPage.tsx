@@ -3,6 +3,7 @@ import type { Project, Ref, RefsVocab } from "./api";
 import { fetchFilesImages, fetchRefsData, openFolder, updateRef } from "./api";
 import {
   buildGallery,
+  sameTags,
   filterGallery,
   galleryFacets,
   groupAlbums,
@@ -65,6 +66,7 @@ export default function GalleryPage({ project }: Props) {
   const [editNote, setEditNote] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editErr, setEditErr] = useState<string | null>(null);
+  const [editSaved, setEditSaved] = useState<string | null>(null); // 保存成功/无改动的轻提示
 
   const key = project?.key ?? null;
 
@@ -106,6 +108,7 @@ export default function GalleryPage({ project }: Props) {
     setEditSpaces(new Set(zoom?.space ?? []));
     setEditNote(zoom?.note ?? "");
     setEditErr(null);
+    setEditSaved(null);
   }, [zoom?.id]);
 
   async function saveRefEdit() {
@@ -114,16 +117,29 @@ export default function GalleryPage({ project }: Props) {
       setEditErr("风格和空间都至少要留一个标签。");
       return;
     }
+    if (sameTags(editStyles, zoom.style) && sameTags(editSpaces, zoom.space)
+        && editNote === (zoom.note ?? "")) {
+      setEditErr(null);
+      setEditSaved("没有改动");  // 一个字段都没改就别发请求(核心会判 no_fields)
+      return;
+    }
     setEditSaving(true);
     setEditErr(null);
+    setEditSaved(null);
     try {
+      // **只发真改过的字段**(核心的「缺省=不动」语义):老索引里可能有不在词表里的
+      // 手写标签(词表可扩也可删),原样发回会被核心判 style_unknown,连备注都改不了
+      // ——那条错误还提示"刷新重试",刷新根本没用(2026-07-21 收货闸③实抓)。
+      const styleChanged = !sameTags(editStyles, zoom.style);
+      const spaceChanged = !sameTags(editSpaces, zoom.space);
       await updateRef({
         ref_id: zoom.refId,
-        style: [...editStyles].join(","),
-        space: [...editSpaces].join(","),
-        note: editNote,
+        ...(styleChanged ? { style: [...editStyles].join(",") } : {}),
+        ...(spaceChanged ? { space: [...editSpaces].join(",") } : {}),
+        ...(editNote !== (zoom.note ?? "") ? { note: editNote } : {}),
       });
       await reloadRefs(); // oracle 钉死:保存后必须重拉,下一次筛选用的是新标签
+      setEditSaved("已保存");   // 成功要有反馈(同快记卡 toast 范式),否则人不知道存没存上
     } catch (e) {
       const code = (e as Error).message;
       setEditErr(
@@ -137,6 +153,7 @@ export default function GalleryPage({ project }: Props) {
   }
 
   function toggleEditTag(set: Set<string>, setSet: (s: Set<string>) => void, v: string) {
+    setEditSaved(null);
     const next = new Set(set);
     if (next.has(v)) next.delete(v);
     else next.add(v);
@@ -345,12 +362,15 @@ export default function GalleryPage({ project }: Props) {
                   className="ref-edit-note"
                   data-ui="ref-note-input"
                   value={editNote}
-                  onChange={(e) => setEditNote(e.target.value)}
+                  onChange={(e) => { setEditSaved(null); setEditNote(e.target.value); }}
                   disabled={editSaving}
                   placeholder="备注(可留空)"
                 />
               </div>
               {editErr && <div className="error-note sm">{editErr}</div>}
+              {!editErr && editSaved && (
+                <div className="ref-edit-saved" data-ui="ref-edit-saved">{editSaved}</div>
+              )}
               <div className="ref-edit-actions">
                 <button
                   type="button"
@@ -367,7 +387,7 @@ export default function GalleryPage({ project }: Props) {
                   disabled={editSaving}
                   onClick={() => setZoom(null)}
                 >
-                  取消
+                  关闭
                 </button>
               </div>
             </div>

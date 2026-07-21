@@ -17,7 +17,7 @@ import {
   formatHistoryEntry,
   historyEntries,
 } from "../web/src/workspace/history.ts";
-import { buildGallery } from "../web/src/gallery.ts";
+import { buildGallery, sameTags } from "../web/src/gallery.ts";
 
 const change = (over = {}) => ({
   cnum: 3,
@@ -143,4 +143,23 @@ test("既有形状不回归:标签/分组/顺序照旧", () => {
   assert.equal(items[0].group, "参考图库");
   assert.equal(items[0].label, "弧形吊顶");
   assert.equal(items[1].group, "06-效果图");
+});
+
+// ── sameTags:#8 「只发真改过的字段」的判据(2026-07-21 收货闸③ M2)────────────
+test("sameTags:顺序无关的集合等价", () => {
+  assert.equal(sameTags(new Set(["奶油风", "侘寂风"]), ["侘寂风", "奶油风"]), true);
+  assert.equal(sameTags(new Set(["奶油风"]), ["奶油风"]), true);
+  assert.equal(sameTags(new Set([]), []), true);
+});
+
+test("sameTags:多一个/少一个/换一个都算改过", () => {
+  assert.equal(sameTags(new Set(["奶油风", "侘寂风"]), ["奶油风"]), false);
+  assert.equal(sameTags(new Set(["奶油风"]), ["奶油风", "侘寂风"]), false);
+  assert.equal(sameTags(new Set(["侘寂风"]), ["奶油风"]), false);
+  assert.equal(sameTags(new Set([]), ["奶油风"]), false);
+});
+
+test("sameTags:词表外的老标签没动过 → 判为未改(否则原样回发会被核心拒)", () => {
+  // 关键场景:索引里手写了一个已从词表删掉的风格,用户只想改备注
+  assert.equal(sameTags(new Set(["某个已下架的风格"]), ["某个已下架的风格"]), true);
 });

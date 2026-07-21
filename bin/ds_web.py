@@ -1247,7 +1247,9 @@ class Handler(BaseHTTPRequestHandler):
             note=body.get("note") if "note" in body else None,
             ds_root=self.server.ds_root)
         if r.get("ok"):
-            self._json(200, r)
+            # 只回 {ok, ref_id}:核心的 r["line"] 是整行,含读口刻意不外泄的
+            # `来源:`/`用于:`(见 _project_refs 注释)。同一份数据两个口径必须一致。
+            self._json(200, {"ok": True, "ref_id": r.get("ref_id")})
             return
         err = r.get("error", "internal")
         self._json(_REFS_UPDATE_ERR_STATUS.get(err, 400), {"error": err})

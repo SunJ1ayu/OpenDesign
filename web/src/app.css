@@ -2116,3 +2116,8 @@ html, body { overflow: auto; }
 }
 .ref-edit-note:focus { border-color: var(--terra); }
 .ref-edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
+/* 参考图编辑区保存反馈(收货修复轮:成功零反馈,与快记卡 toast 范式不一致)*/
+.ref-edit-saved {
+  font-size: 11.5px;
+  color: var(--st-done-fg);
+}

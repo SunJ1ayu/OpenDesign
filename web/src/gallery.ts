@@ -138,3 +138,13 @@ export function filterGallery(
       (!f.style || i.style.includes(f.style)),
   );
 }
+
+/** 标签集合是否与索引里的当前值等价(顺序无关)——前端据此**只发真改过的字段**:
+ * 老索引可能带不在词表里的手写标签,原样回发会被核心判 style_unknown,连备注都改不了。 */
+export function sameTags(selected: Iterable<string>, current: string[]): boolean {
+  const a = new Set(selected);
+  const b = new Set(current);
+  if (a.size !== b.size) return false;
+  for (const v of a) if (!b.has(v)) return false;
+  return true;
+}

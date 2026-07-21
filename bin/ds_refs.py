@@ -353,17 +353,23 @@ def update_ref(ref_id: str, style: str | None = None, space: str | None = None,
             return {"error": "ref_not_found" if not idx else "ambiguous_ref"}
         i = idx[0]
         segs = lines[i].split(_SEG_SEP)
-        # 畸形行(缺 `备注:` 段)不猜不补:段数不对/末段不是备注即拒
-        if len(segs) != 5 or not segs[4].startswith("备注:"):
+        # 畸形行不猜不补:段数不对/末段不是备注/头段没有 `风格|空间` 分隔即拒。
+        # 头段少了 `|` 也算畸形——否则"只改备注"的调用会把它重建成 `- [rN] |`,
+        # 静默抹掉标签(2026-07-21 收货闸③实抓,与本函数"未点名的不动"契约相悖)。
+        head_prefix, _, tag_part = segs[0].partition("] ")
+        if (len(segs) != 5 or not segs[4].startswith("备注:")
+                or not head_prefix or "|" not in tag_part):
             box["write"] = False
             return {"error": "malformed_entry"}
-        head_prefix, _, tag_part = segs[0].partition("] ")
         head_prefix += "] "
-        cur_styles = _split_tags(tag_part.split("|")[0]) if "|" in tag_part else []
-        cur_spaces = _split_tags(tag_part.split("|")[1]) if "|" in tag_part else []
-        final_styles = new_styles if new_styles is not None else cur_styles
-        final_spaces = new_spaces if new_spaces is not None else cur_spaces
-        segs[0] = f"{head_prefix}{','.join(final_styles)}|{','.join(final_spaces)}"
+        # 头段**只在点名了 style/space 时**才重建;两者都没给就一个字节都不碰
+        # (否则手写的 `奶油风, 客厅|客厅` 会被顺手归一化——同样是没点名却被改)。
+        if new_styles is not None or new_spaces is not None:
+            cur_styles = _split_tags(tag_part.split("|")[0])
+            cur_spaces = _split_tags(tag_part.split("|")[1])
+            final_styles = new_styles if new_styles is not None else cur_styles
+            final_spaces = new_spaces if new_spaces is not None else cur_spaces
+            segs[0] = f"{head_prefix}{','.join(final_styles)}|{','.join(final_spaces)}"
         if new_note is not None:
             segs[4] = f"备注:{new_note}"
         lines[i] = _SEG_SEP.join(segs)

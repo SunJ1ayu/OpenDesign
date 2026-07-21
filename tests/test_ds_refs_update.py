@@ -151,6 +151,20 @@ class UpdateRefPreservesOtherSegments(UpdateRefBase):
         ds_refs.update_ref("r1", note="只改 r1", ds_root=self.ds, today=LATER)
         self.assertEqual(before_r2, self._line("r2"), "改 r1 不许碰 r2")
 
+    def test_note_only_leaves_head_byte_identical(self):
+        """只改备注 → 头段**逐字节**不变(不许顺手归一化人手写的空格/顺序)。
+        2026-07-21 收货闸③实抓:实现原来无条件重建头段。"""
+        line = self._line("r1")
+        hand = line.replace("- [r1] 奶油风|客厅", "- [r1] 奶油风, 客厅|客厅, 主卧", 1)
+        text = _read(self.index)
+        with open(self.index, "w", encoding="utf-8") as fh:
+            fh.write(text.replace(line, hand, 1))
+        r = ds_refs.update_ref("r1", note="只改备注", ds_root=self.ds, today=LATER)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual("- [r1] 奶油风, 客厅|客厅, 主卧",
+                         self._line("r1").split(ds_refs._SEG_SEP)[0],
+                         "没点名 style/space 就不许碰头段")
+
     def test_segment_order_stable(self):
         before = self._line("r1").split(ds_refs._SEG_SEP)
         ds_refs.update_ref("r1", note="换个备注", ds_root=self.ds, today=LATER)
@@ -163,8 +177,9 @@ class UpdateRefPreservesOtherSegments(UpdateRefBase):
         r12 = ("- [r12] 奶油风|餐厅 | 来源:站酷 | "
                "文件:refs/奶油风/客厅/a.jpg | 用于: | 备注:第12条")
         text = _read(self.index)
+        r2_line = self._line("r2")   # 必须在 open(...,"w") 截断之前读(截断后再读得 None)
         with open(self.index, "w", encoding="utf-8") as fh:
-            fh.write(text.replace(self._line("r2"), self._line("r2") + "\n" + r12, 1))
+            fh.write(text.replace(r2_line, r2_line + "\n" + r12, 1))
         self.assertEqual(r12, self._line("r12"), "夹具:r12 应写进索引")
         ds_refs.update_ref("r1", note="只改 r1", ds_root=self.ds, today=LATER)
         self.assertEqual(r12, self._line("r12"), "r12 必须逐字节不变")
@@ -250,6 +265,20 @@ class UpdateRefRejects(UpdateRefBase):
         self.assertEqual("malformed_entry", r.get("error"), r)
         self.assertEqual(before, _read(self.index))
 
+    def test_malformed_head_without_pipe(self):
+        """头段缺 `风格|空间` 的分隔符(手写老条目)→ malformed_entry,零落盘。
+        这条不拦住的话,"只改备注"会把头段重建成 `- [r1] |` 静默抹掉标签。"""
+        line = self._line("r1")
+        text = _read(self.index)
+        with open(self.index, "w", encoding="utf-8") as fh:
+            fh.write(text.replace(line, line.replace("奶油风|客厅", "奶油风", 1), 1))
+        before = _read(self.index)
+        for kwargs in ({"note": "补一个"}, {"style": "侘寂风"}):
+            with self.subTest(kwargs=kwargs):
+                r = ds_refs.update_ref("r1", ds_root=self.ds, today=LATER, **kwargs)
+                self.assertEqual("malformed_entry", r.get("error"), r)
+                self.assertEqual(before, _read(self.index))
+
     def test_ambiguous_ref(self):
         """索引里手写重复了同一个 id → ambiguous_ref,零落盘(同 link_ref 口径)。"""
         line = self._line("r1")
@@ -283,14 +312,20 @@ class UpdateRefWiring(UpdateRefBase):
                       f"update_ref_tool 应注册进 MCP;现有:{sorted(names)}")
 
     def test_parse_roundtrip_after_update(self):
-        ds_refs.add_style("侘寂风", ds_root=self.ds)
-        ds_refs.update_ref("r1", style="侘寂风", space="主卧,客厅", note="回环",
+        # 用一个夹具里没人用过的风格("原木风"),否则 r2 天生带侘寂风,
+        # 命中数会是 2 —— 那是夹具算术错,不是实现错(2026-07-21 执行腿实抓)
+        ds_refs.update_ref("r1", style="原木风", space="主卧,客厅", note="回环",
                            ds_root=self.ds, today=LATER)
-        hits = ds_refs.find_refs(style="侘寂风", ds_root=self.ds).get("hits", [])
+        hits = ds_refs.find_refs(style="原木风", ds_root=self.ds).get("hits", [])
         self.assertEqual(1, len(hits), "改完的行必须能被 find_refs 按新标签检索到")
         p = ds_refs.parse_ref_line(hits[0])
+        self.assertEqual("r1", p["id"])
         self.assertEqual(["主卧", "客厅"], p["space"])
         self.assertEqual("回环", p["note"])
+        # 反向:旧标签不该再命中 r1(改标签 = 换检索维度,不是叠加)
+        old_hits = ds_refs.find_refs(style="奶油风", ds_root=self.ds).get("hits", [])
+        self.assertEqual([], [h for h in old_hits if h.startswith("- [r1] ")],
+                         "改完之后 r1 不该再被旧风格检索到")
 
 
 if __name__ == "__main__":
