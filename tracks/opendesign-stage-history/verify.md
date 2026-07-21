@@ -17,8 +17,13 @@
   - 相邻 e2e:`frontend_p1` / `frontend_p2_polish` / `frontend_p3_polish` / `cockpit` /
     `intake` 全 PASS(`project-thread` 需真 gateway,本单未动聊天链路,略)
 - [x] no secrets / unsafe ops;dist 已重建;`/api/health` → 0.33.0
-- [x] `web/node_modules` 符号链接**误入过一次 commit,已 `git rm --cached` + amend 剔除**
-      (`git ls-files | grep node_modules` 为空)
+- [x] **`web/node_modules` 事故(自捅,已修复+已加护栏)**:执行腿为跑 tsc 在 worktree
+      里建了指向主仓的符号链接,`.gitignore` 的 `/web/node_modules/`(**带尾斜杠只匹配
+      目录**)漏掉它 → 被提交 → merge 时 git 用这条链接**覆盖掉主仓真实的 node_modules
+      目录**,链接变成自指(`Too many levels of symbolic links`)。
+      修:`git rm --cached` 剔除 + `npm install` 重装(168 包)+ **重跑 build 复现出与
+      仓内**逐字节相同的 dist 哈希**(证明恢复完整)+ `.gitignore` 去掉尾斜杠并**实测**
+      同名符号链接不再出现在 `git status`。
 
 ## 收货三硬闸
 
