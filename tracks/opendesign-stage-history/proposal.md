@@ -1,7 +1,7 @@
 # Proposal: opendesign-stage-history
 
 - Date: 2026-07-21
-- Status: open
+- Status: done
 - Source: `docs/frontend-actions-roadmap.md` 🥉 P2 队列 #7 / #8 / #9(用户拍板:三条全做)
 
 ## Goal

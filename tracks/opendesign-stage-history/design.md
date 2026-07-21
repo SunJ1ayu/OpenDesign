@@ -1,7 +1,7 @@
 # Design: opendesign-stage-history
 
 - Change: opendesign-stage-history
-- Status: draft
+- Status: done
 - base-ref: 5b7f40a(ds-web 0.32.0)
 
 > Panel hook:本 track 无开放架构分叉(两个新针孔都有既有先例可逐条照抄,一条纯展示),
