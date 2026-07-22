@@ -76,7 +76,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.33.0"  # stage-history:切阶段/参考图标签就地改/变更历史(P2 队列 #7#8#9)
+VERSION = "0.34.0"  # todo-batch-space:待办批量改状态/单项目时间空间分组/建档标记灰化
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")

@@ -6,13 +6,19 @@ import { isTerminalStatus, STATUS_HINT, STATUSES } from "./todo";
 // 终态(已完成/已关闭).term 次级显眼度(降手滑)。菜单开合 + 点外收起自管(fixed backdrop)。
 // 无写副作用:纯 UI,写口径(editChange)由调用方持有——待办页走撤销 toast,
 // 变更列直接改(全部筛选下不消失,可随时再点回滚)。
+//
+// track opendesign-todo-batch-space T3:批量操作栏复用本组件,无"当前状态"概念
+// (选中项状态各异)→ 传 label 覆盖按钮文案(如「改为…」);status 传空串时
+// STATUSES 均不 disabled。menuUp 供菜单贴底容器(浮动操作栏)向上展开,避免出屏。
 
 type Props = {
   status: string;
   onPick: (next: string) => void;
+  label?: string;
+  menuUp?: boolean;
 };
 
-export default function StatusPicker({ status, onPick }: Props) {
+export default function StatusPicker({ status, onPick, label, menuUp }: Props) {
   const [open, setOpen] = useState(false);
   const hint = STATUS_HINT[status as keyof typeof STATUS_HINT] ?? "";
 
@@ -30,17 +36,17 @@ export default function StatusPicker({ status, onPick }: Props) {
     <span className="st-cell">
       <button
         className={`st-pill st-btn st-${status}${open ? " open" : ""}`}
-        title={`${hint} · 点击修改状态`}
+        title={label ? label : `${hint} · 点击修改状态`}
         onClick={() => setOpen((o) => !o)}
       >
         <span className="d" />
-        {status}
+        {label ?? status}
         <span className="caret">⌄</span>
       </button>
       {open && (
         <>
           <div className="st-menu-backdrop" onClick={() => setOpen(false)} />
-          <div className="st-menu" role="menu">
+          <div className={`st-menu${menuUp ? " up" : ""}`} role="menu">
             {STATUSES.map((s) => (
               <button
                 key={s}

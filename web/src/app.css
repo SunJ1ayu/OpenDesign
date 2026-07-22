@@ -422,19 +422,21 @@ html, body { overflow: auto; }
 .center-toolbar .n { font: 600 11px var(--font-mono); color: var(--ink-4); }
 .center-toolbar .grow { flex: 1; }
 .filter-pills { display: flex; gap: 6px; font-size: 12px; }
-.filter-pills .pill {
+.filter-pills .pill, .group-pills .pill {
   padding: 5px 11px;
   border-radius: 99px;
   border: 1px solid var(--border-input);
   color: var(--ink-2);
   transition: background var(--hover-ease);
 }
-.filter-pills .pill:hover { background: var(--paper-side); }
-.filter-pills .pill.on {
+.filter-pills .pill:hover, .group-pills .pill:hover { background: var(--paper-side); }
+.filter-pills .pill.on, .group-pills .pill.on {
   background: var(--ink);
   color: var(--paper);
   border-color: var(--ink);
 }
+/* 分组切换(track opendesign-todo-batch-space T4):按时间/按空间,紧挨筛选胶囊 */
+.group-pills { display: flex; gap: 6px; font-size: 12px; margin-left: 6px; padding-left: 6px; border-left: 1px solid var(--border-soft); }
 
 /* 快记单行输入卡(修改单 B,track opendesign-frontend-p2-polish):圆角 12 卡 =
    ✎ + 单行 input + 空间 chip(popover)+ 主色「记一条」;取代旧的裸 input 两件套。 */
@@ -567,6 +569,18 @@ html, body { overflow: auto; }
 .create-proj-form .edit-text:focus { border-color: var(--terra); }
 
 .change-scroll { flex: 1; overflow: auto; padding: 6px 28px 20px; }
+/* 按时间/按空间分组分节(track opendesign-todo-batch-space T4):纯展示分节,不折叠 */
+.change-group { padding: 4px 0 2px; }
+.change-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ink-4);
+  padding: 8px 0 3px;
+}
+.change-group-head .nm { font-weight: 600; color: var(--ink-3); white-space: nowrap; }
+.change-group-head .rule { flex: 1; height: 1px; background: #f0ede4; }
 .change-row {
   position: relative;
   display: flex;
@@ -723,6 +737,8 @@ html, body { overflow: auto; }
 .st-menu-item .chip.st-已关闭 { color: var(--st-closed-fg); background: var(--st-closed-bg); }
 .st-menu-item .chip.st-已关闭 .d { background: var(--st-closed-dot); }
 .st-menu-item .hint { font-size: 11px; color: var(--ink-4); margin-left: auto; }
+/* 贴底容器(浮动操作栏)向上展开,避免菜单出屏(track opendesign-todo-batch-space T3) */
+.st-menu.up { top: auto; bottom: calc(100% + 5px); }
 /* 终态(已完成/已关闭)次级显眼度:降低手滑一键落终态(复核修正) */
 .st-menu-item.term { opacity: 0.66; }
 .st-menu-item.term:hover:not(:disabled) { opacity: 1; }
@@ -744,6 +760,7 @@ html, body { overflow: auto; }
 }
 .todo-toast.undo { background: var(--ink); color: #fff; }
 .todo-toast.error { background: var(--st-pending-bg); color: var(--st-pending-fg); border: 1px solid var(--st-pending-dot); }
+.todo-toast.batch { background: var(--ink); color: #fff; }
 .todo-toast .toast-undo {
   font-size: 12.5px; font-weight: 600; color: #fff;
   text-decoration: underline; text-underline-offset: 2px;
@@ -751,6 +768,28 @@ html, body { overflow: auto; }
 .todo-toast.undo .toast-undo:hover { opacity: 0.82; }
 .todo-toast .toast-x { font-size: 11px; opacity: 0.6; margin-left: 2px; }
 .todo-toast .toast-x:hover { opacity: 1; }
+
+/* ── 待办批量浮动操作栏(track opendesign-todo-batch-space T3)───────────────── */
+.todo-batch-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid var(--border-input);
+  box-shadow: var(--shadow-pop);
+  font-size: 13px;
+  z-index: 55;
+}
+.todo-batch-bar .n { font-weight: 600; color: var(--ink-3); white-space: nowrap; }
+.todo-batch-bar .batch-cancel { font-size: 12.5px; color: var(--ink-4); transition: color var(--hover-ease); }
+.todo-batch-bar .batch-cancel:hover { color: var(--terra-deep); }
+.todo-batch-bar .batch-cancel:disabled { opacity: 0.5; cursor: default; }
 
 /* ── 备注乐观回显(todo-ux A3)───────────────────────────────────────────── */
 .todo-row .txt .note-tag {
@@ -1562,10 +1601,17 @@ html, body { overflow: auto; }
   font-size: 11px;
   color: var(--ink-4);
   padding: 5px 0 3px;
+}
+/* T3:批次头拆成"折叠开关"(原整头按钮) + 分隔线 + "全选本组"按钮,不再是单一 <button> */
+.batch-head .batch-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
   cursor: pointer;
   transition: color var(--hover-ease);
 }
-.batch-head:hover { color: var(--terra-deep); }
+.batch-head .batch-toggle:hover { color: var(--terra-deep); }
 .batch-head .chev { font-size: 9px; width: 10px; flex: none; }
 .batch-head .n { color: var(--ink-5); font: 10.5px var(--font-mono); }
 .batch-head .rule { flex: 1; height: 1px; background: #f0ede4; }
@@ -1578,6 +1624,9 @@ html, body { overflow: auto; }
   border-bottom: 1px solid var(--border-soft);
 }
 .todo-row:last-child { border-bottom: none; }
+/* 批量选择(track opendesign-todo-batch-space T3):行首复选框,残缺行(无 cnum)禁用变灰 */
+.todo-row .todo-select { flex: none; margin-top: 4px; width: 14px; height: 14px; accent-color: var(--terra-deep); cursor: pointer; }
+.todo-row .todo-select:disabled { cursor: default; opacity: 0.35; }
 .todo-row .cnum { font: 600 12px var(--font-mono); color: var(--terra-deep); flex: none; padding-top: 2px; }
 .todo-row .txt { flex: 1; min-width: 0; white-space: normal; word-break: break-word; line-height: 1.55; }
 .todo-row .txt .space-chip {
@@ -1608,6 +1657,16 @@ html, body { overflow: auto; }
 }
 .space-sect-head .nm { font-weight: 600; color: var(--ink-3); white-space: nowrap; }
 .space-sect-head .rule { flex: 1; height: 1px; background: #f0ede4; }
+
+/* 分组头「全选本组/取消本组」(track opendesign-todo-batch-space T3):批次头与空间小节头共用 */
+.group-select-btn {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--ink-4);
+  white-space: nowrap;
+  transition: color var(--hover-ease);
+}
+.group-select-btn:hover { color: var(--terra-deep); }
 
 /* 行内编辑(track opendesign-todo-edit T6) */
 .todo-row .meta .edit-btn {
