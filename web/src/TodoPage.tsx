@@ -196,15 +196,19 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
     setApplying(true);
     let okCount = 0;
     let failCount = 0;
-    for (const req of reqs) {
-      try {
-        await editChange(req);
-        okCount++;
-      } catch {
-        failCount++;
+    try {
+      for (const req of reqs) {
+        try {
+          await editChange(req);
+          okCount++;
+        } catch {
+          failCount++;
+        }
       }
+    } finally {
+      // finally 保证任何意外抛出都不会把浮栏卡在 applying(cancel 禁用)态(panel subglm 提)
+      setApplying(false);
     }
-    setApplying(false);
     setSelected(new Set());
     setToast({
       kind: "batch",
