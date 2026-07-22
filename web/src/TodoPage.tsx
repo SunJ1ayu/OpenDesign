@@ -5,6 +5,7 @@ import StatusPicker from "./StatusPicker";
 import {
   batchEditRequests,
   buildEditRequest,
+  dueStatus,
   groupByDate,
   groupByProject,
   isTerminalStatus,
@@ -376,6 +377,13 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
           {note !== undefined && <span className="note-tag">备注:{note}</span>}
         </span>
         <span className="meta">
+          {/* 截止日只读展示(track opendesign-todo-duedate):设置入口留在工作区变更列,
+              待办页只显示,按 dueStatus 着色(与 ChangesColumn .due-tag 同口径)。 */}
+          {it.due && (
+            <span className={`due-tag due-${dueStatus(it.due, data.today)}`}>
+              截止 {cnDate(it.due)}
+            </span>
+          )}
           {withProject && (
             <button className="proj-link" onClick={() => onGoProject(it.project)}>
               {it.project}

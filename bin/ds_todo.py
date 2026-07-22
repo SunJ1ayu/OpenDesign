@@ -28,16 +28,19 @@ LASTUPD_RE = ds_common.LASTUPD_DATE_RE  # 行首锚定:沟通日志句中的"最
 
 def parse_change(line: str) -> dict | None:
     """变更行结构化(单一真相源):ds_todo.collect 与 ds_web changes 端点都吃它。
-    命中返回 {status, cnum, date, space, text}(cnum/date/space 残缺为 None),
-    不命中返回 None。space=内容头部可选【空间】前缀(旧行天然 None,零迁移)。"""
+    命中返回 {status, cnum, date, space, text, due}(cnum/date/space/due 残缺为 None),
+    不命中返回 None。space=内容头部可选【空间】前缀(旧行天然 None,零迁移)。
+    due=正文尾部可选 ⏳YYYY-MM-DD 截止日(ds_common.split_due 切出,text 不含 ⏳)。"""
     m = CHANGE_RE.match(line)
     if not m:
         return None
+    text, due = ds_common.split_due(m.group(5))
     return {"status": m.group(1),
             "cnum": int(m.group(2)) if m.group(2) else None,
             "date": m.group(3),
             "space": m.group(4),
-            "text": m.group(5)}
+            "text": text,
+            "due": due}
 # env DS_ROOT 缺失时基于 __file__ 推导(bin/ 的上一级):Linux/Windows 通用,不硬编码 /root
 DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
@@ -79,6 +82,7 @@ def collect(root: str, stale_days: int = 7, today: date | None = None) -> dict:
                 "date": c["date"],
                 "space": c["space"],
                 "text": c["text"],
+                "due": c["due"],
             })
         dates = LASTUPD_RE.findall(text)
         if not dates:

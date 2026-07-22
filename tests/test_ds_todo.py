@@ -127,7 +127,7 @@ class TestDsTodo(unittest.TestCase):
         self.assertEqual(d["stale_days"], 7)
         self.assertEqual(d["open"], [{
             "project": "a-open", "line": 4, "status": "待确认", "cnum": 1,
-            "date": "2026-06-20", "space": None, "text": "改推拉门",
+            "date": "2026-06-20", "space": None, "text": "改推拉门", "due": None,
             "raw": "- [待确认] C1 2026-06-20 改推拉门",
         }])
         self.assertEqual(d["stale"], [{"project": "b-stale", "days": 13,

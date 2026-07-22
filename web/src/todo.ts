@@ -10,6 +10,7 @@ export type OpenItem = {
   date: string | null; // YYYY-MM-DD
   space: string | null; // 【空间】前缀(T1);旧行 null
   text: string;
+  due: string | null; // 截止日 YYYY-MM-DD(track opendesign-todo-duedate);旧行 null
 };
 
 export type StaleItem = { project: string; days: number; last: string };
@@ -198,4 +199,18 @@ export function buildEditRequest(
     }
   }
   return dirty ? req : null;
+}
+
+// ── 截止日着色(track opendesign-todo-duedate)────────────────────────────────
+// 契约见 tests/test_todo_duedate.mjs(off-limits):due=null→null;
+// due<today→"overdue";==today→"today";>today→"upcoming"。due/today 均 "YYYY-MM-DD",
+// 字符串字典序比较即可(ISO 日期格式下与日期序一致,无需 Date 解析)。
+// 供变更行/待办行截止日着色复用,也是下一 track 日历/今日跟进的基础。
+export type DueStatus = "overdue" | "today" | "upcoming" | null;
+
+export function dueStatus(due: string | null, today: string): DueStatus {
+  if (due === null) return null;
+  if (due < today) return "overdue";
+  if (due === today) return "today";
+  return "upcoming";
 }

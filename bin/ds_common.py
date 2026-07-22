@@ -23,6 +23,23 @@ _LASTUPD_LINE_RE = re.compile(r"^最后更新[:：]")
 # 读侧(ds_todo)用:行首锚定,提取日期
 LASTUPD_DATE_RE = re.compile(r"^最后更新[:：]\s*(\d{4}-\d{2}-\d{2})", re.MULTILINE)
 
+# 变更行尾截止日 token(track opendesign-todo-duedate):行尾锚定,正文中间的
+# ⏳日期 不误伤;读写两侧(ds_todo.parse_change / ds_tools.set_due_date)共用本 helper,
+# 消漂移。
+DUE_SUFFIX_RE = re.compile(r"\s*⏳(\d{4}-\d{2}-\d{2})\s*$")
+
+
+def split_due(text: str) -> tuple[str, str | None]:
+    """把行尾 ⏳YYYY-MM-DD 从正文切出。无则原文返回、due=None。"""
+    m = DUE_SUFFIX_RE.search(text)
+    if not m:
+        return text, None
+    return text[:m.start()], m.group(1)
+
+
+def format_due_suffix(due: str | None) -> str:
+    return f" ⏳{due}" if due else ""
+
 
 def within(base: str, target: str) -> bool:
     """target 是否等于 base 或落在 base 之下。两参都必须已经 realpath。"""
