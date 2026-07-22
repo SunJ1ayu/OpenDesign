@@ -76,7 +76,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.34.0"  # todo-batch-space:待办批量改状态/单项目时间空间分组/建档标记灰化
+VERSION = "0.35.0"  # todo-duedate:每条变更加截止日(账本尾 token + 前端设/清/着色)
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -118,6 +118,7 @@ INTAKE_AMEND_PATH = "/api/intake/amend"  # do_POST 写针孔⑧(track opendesign
 BIND_PROJECT_PATH = "/api/projects/bind"  # do_POST 写针孔⑨(同上 track),精确匹配
 STAGE_PATH = "/api/projects/stage"  # do_POST 写针孔⑩(track opendesign-stage-history §7),精确匹配
 REFS_UPDATE_PATH = "/api/refs/update"  # do_POST 写针孔⑪(同上 track §8),精确匹配
+DUE_DATE_PATH = "/api/changes/due"  # do_POST 写针孔⑫(track opendesign-todo-duedate),精确匹配
 _INTAKE_ALLOWED_KEYS = {"plan_id"}
 _INTAKE_AMEND_ALLOWED_KEYS = {"plan_id", "drop"}
 # 收件箱确认的错误→HTTP 映射:格式/参数错 400,不存在 404,越界 403,状态冲突 409
@@ -188,6 +189,13 @@ _REFS_UPDATE_ALLOWED_KEYS = {"ref_id", "style", "space", "note"}
 _REFS_UPDATE_ERR_STATUS = {
     "no_fields": 400, "style_unknown": 400, "space_unknown": 400,
     "ref_not_found": 404, "ambiguous_ref": 409, "malformed_entry": 409,
+}
+# body 键白名单(写针孔⑫:多余键即拒,防夹带 ds_root/today 走私)
+_DUE_ALLOWED_KEYS = {"project", "cnum", "due"}
+# set_due_date error code → HTTP status(格式/日期非法 400,项目/变更不存在 404,歧义 409)
+_DUE_ERR_STATUS = {
+    "invalid_due": 400, "change_not_found": 404, "project_not_found": 404,
+    "ambiguous_change": 409, "bad_name": 404, "path_escape": 404,
 }
 
 
@@ -389,6 +397,8 @@ class Handler(BaseHTTPRequestHandler):
             self._set_stage()
         elif path == REFS_UPDATE_PATH:
             self._refs_update()
+        elif path == DUE_DATE_PATH:
+            self._set_due_date()
         elif (m := _SESSION_DELETE_RE.match(path)):
             self._delete_session(m.group(1))
         else:
@@ -526,6 +536,7 @@ class Handler(BaseHTTPRequestHandler):
                     # space = 变更行可选【空间】前缀(p4 T1,parse 单一真相源);
                     # source 仍无字段 → 恒 None(读侧宽容,accepted deviation)
                     "space": c["space"], "source": None,
+                    "due": c["due"],  # 截止日(track opendesign-todo-duedate,读侧宽容,旧行=None)
                     "history": h["history"] if h else [],  # 留痕(时序),无则空列表
                 }
                 if h and h["note"] is not None:
@@ -1253,6 +1264,47 @@ class Handler(BaseHTTPRequestHandler):
             return
         err = r.get("error", "internal")
         self._json(_REFS_UPDATE_ERR_STATUS.get(err, 400), {"error": err})
+
+    def _set_due_date(self):
+        """POST 写针孔⑫(track opendesign-todo-duedate design.md):设/清一条变更的截止日。
+        posture 逐条照抄 _edit_change:CT application/json → body 0<n≤OPEN_BODY_MAX →
+        JSON dict → 键白名单 {project, cnum, due}(多余键即拒,防夹带 ds_root/today 走私)→
+        类型闸(due 可为 null/字符串)→ ds_tools.set_due_date(格式校验/定位/锁/页脚 bump
+        全在核心)。Host 闸由 do_POST 入口继承。精确匹配(非前缀)防路径走私。"""
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 < n <= OPEN_BODY_MAX:
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "bad request"})
+            return
+        if not isinstance(body, dict) or set(body) - _DUE_ALLOWED_KEYS:
+            self._json(400, {"error": "bad request"})  # 非对象/多余键 → 拒
+            return
+        project = body.get("project")
+        if not isinstance(project, str) or not project:
+            self._json(400, {"error": "bad request"})
+            return
+        due = body.get("due")
+        if due is not None and not isinstance(due, str):
+            self._json(400, {"error": "bad request"})
+            return
+        # cnum 原样交核心:缺失/非数 → set_due_date 判 change_not_found(同 edit_change 口径)
+        r = ds_tools.set_due_date(project, body.get("cnum"), due, ds_root=self.server.ds_root)
+        if r.get("ok"):
+            self._json(200, r)
+            return
+        err = r.get("error", "internal")
+        self._json(_DUE_ERR_STATUS.get(err, 400), {"error": err})
 
     def _proxy(self, up_path: str):
         """白名单转发到本机 nanobot gateway。纯管道:不读不存任何秘密。

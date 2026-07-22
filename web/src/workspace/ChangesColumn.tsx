@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Change, Project } from "../api";
-import { addChange, cnDate, createProject, editChange, setStage } from "../api";
+import { addChange, cnDate, createProject, editChange, setDueDate, setStage } from "../api";
 import StatusPicker from "../StatusPicker";
-import { isTerminalStatus } from "../todo";
+import { dueStatus, isTerminalStatus } from "../todo";
 import type { Filter } from "./changes";
 import { changeCounts, filterChanges, groupByDate, groupBySpace, PROGRESS_ORDER } from "./changes";
 import { formatHistoryEntry, historyEntries, historySummary } from "./history";
@@ -89,6 +89,13 @@ export default function ChangesColumn({
   const [editDraft, setEditDraft] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editErr, setEditErr] = useState<string | null>(null);
+  // 截止日设/清(track opendesign-todo-duedate):📅 切一个 cnum 的原生日期输入开合,
+  // 不做乐观改写——成功后 onEdited 整列重拉(与切阶段/正文编辑同套服务端为真相源原则)。
+  const [dueEditingCnum, setDueEditingCnum] = useState<number | null>(null);
+  const [dueSaving, setDueSaving] = useState(false);
+  const [dueErr, setDueErr] = useState<string | null>(null);
+  // 行内截止日着色的基准"今天":客户端本地日期即可(纯展示分类,非账本写入)。
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   // 切项目清空快捷输入:防"给 A 打字→切到 B→提交记进 B"的串项目(与建档表单同款重置)
   useEffect(() => {
     setAddText("");
@@ -99,6 +106,8 @@ export default function ChangesColumn({
     setEditingCnum(null);
     setEditDraft("");
     setEditErr(null);
+    setDueEditingCnum(null);
+    setDueErr(null);
     setStageMenuOpen(false);
     setStageErr(null);
     setHistOpen(new Set());
@@ -235,6 +244,22 @@ export default function ChangesColumn({
       setStageErr(stageErrMsg((e as Error).message));
     } finally {
       setStageSaving(false);
+    }
+  }
+
+  // 设/清截止日:value="" = 清除。成功后关编辑态 + onEdited 重拉(due 随行回来)。
+  async function saveDue(c: Change, value: string) {
+    if (!project || c.cnum === null || dueSaving) return;
+    setDueSaving(true);
+    setDueErr(null);
+    try {
+      await setDueDate({ project: project.key, cnum: c.cnum, due: value || null });
+      setDueEditingCnum(null);
+      onEdited?.();
+    } catch (e) {
+      setDueErr(`设置截止日失败(${(e as Error).message})。`);
+    } finally {
+      setDueSaving(false);
     }
   }
 
@@ -419,6 +444,12 @@ export default function ChangesColumn({
                 {c.source ?? ""}
               </span>
             )}
+            {/* 截止日(track opendesign-todo-duedate):有 due 才带该 tag,按 dueStatus 着色 */}
+            {c.due && (
+              <span className={`due-tag due-${dueStatus(c.due, today)}`}>
+                截止 {cnDate(c.due)}
+              </span>
+            )}
             {/* #9 备注(与待办页同口径,note-tag)+「改过 N 次」展开(design.md §9) */}
             {c.note !== undefined && <span className="note-tag">备注:{c.note}</span>}
             {c.cnum !== null && historySummary(c) && (
@@ -441,6 +472,31 @@ export default function ChangesColumn({
               ))}
             </div>
           )}
+          {c.cnum !== null && dueEditingCnum === c.cnum && (
+            <div className="due-editor" data-ui="due-editor">
+              <input
+                type="date"
+                className="due-input"
+                data-ui="due-input"
+                defaultValue={c.due ?? ""}
+                autoFocus
+                disabled={dueSaving}
+                onChange={(e) => saveDue(c, e.target.value)}
+              />
+              {c.due && (
+                <button
+                  type="button"
+                  className="due-clear"
+                  data-ui="due-clear"
+                  disabled={dueSaving}
+                  onClick={() => saveDue(c, "")}
+                >
+                  清除
+                </button>
+              )}
+              {dueErr && <div className="error-note sm">{dueErr}</div>}
+            </div>
+          )}
         </div>
         {/* 修改单 E:hover 图标按钮组 ✎(编辑,保留 .edit-trigger 兼容)+ ✓(标记完成,
             仅未办结行出);编辑态下隐藏,让 edit-fields 的保存/取消占位 */}
@@ -453,6 +509,14 @@ export default function ChangesColumn({
               title="编辑正文"
             >
               ✎
+            </button>
+            <button
+              className="icon-act due-btn"
+              data-ui="change-due"
+              onClick={() => setDueEditingCnum((cur) => (cur === c.cnum ? null : c.cnum))}
+              title="设置截止日"
+            >
+              📅
             </button>
             {!isTerminalStatus(c.status) && (
               <button

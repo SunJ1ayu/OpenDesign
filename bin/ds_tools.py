@@ -22,6 +22,7 @@ import json
 import os
 import re
 import shutil
+from datetime import date
 
 import ds_common  # 共享:防逃逸谓词/字段消毒/页脚锚定/加锁读改写(同目录模块)
 import ds_todo    # 主动提醒核心,同目录模块(list_todos 直调,不走 subprocess)
@@ -197,6 +198,58 @@ def set_change_status(project: str, change_id: str, status: str,
     return {"ok": True, "old_status": old_status, "new_status": status, "line": result_line}
 
 
+# ── 工具 4.1b set_due_date(track opendesign-todo-duedate)────────────────────
+def set_due_date(project: str, cnum, due: str | None,
+                 ds_root: str = DEFAULT_DS_ROOT, today: str | None = None) -> dict:
+    """设/清一条变更的截止日(行尾 ⏳YYYY-MM-DD token)。定位镜像 set_change_status
+    (line_re `C{num}\\b` 命中且唯一)。due=None/"" 视为清除;否则须 YYYY-MM-DD 且
+    date.fromisoformat 合法,非法 → invalid_due。只动尾 token,其余字节不变(用
+    ds_common.DUE_SUFFIX_RE.sub 剥旧尾 + format_due_suffix 补新尾)。no-op(due 与
+    现值相同)不写。"""
+    if due:
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", due):
+            return {"error": "invalid_due"}
+        try:
+            date.fromisoformat(due)
+        except ValueError:
+            return {"error": "invalid_due"}
+    else:
+        due = None  # "" 与 None 同义:清除
+
+    today = ds_common.today_str(today)
+    path, err = _resolve(ds_root, "projects", project)
+    if err:
+        return err
+    if not os.path.exists(path):
+        return {"error": "project_not_found"}
+
+    mo = re.fullmatch(r"C?(\d+)", str(cnum).strip())
+    if not mo:
+        return {"error": "change_not_found"}
+    num = mo.group(1)
+    # 锚定 C<num>\b:与 set_change_status 同口径
+    line_re = re.compile(rf"^(- \[)(?P<old>[^\]]*)(\]\s+C{num}\b)")
+
+    with ds_common.locked_rw(path) as box:
+        lines = box["lines"]
+        hits = [i for i, ln in enumerate(lines) if line_re.match(ln)]
+        if len(hits) != 1:
+            box["write"] = False
+            return {"error": "change_not_found" if not hits else "ambiguous_change"}
+        i = hits[0]
+        _, cur_due = ds_common.split_due(lines[i])
+        if cur_due == due:
+            box["write"] = False  # no-op:文件逐字节不动
+            result_line = lines[i]
+        else:
+            base = ds_common.DUE_SUFFIX_RE.sub("", lines[i]).rstrip()
+            lines[i] = base + ds_common.format_due_suffix(due)
+            ds_common.bump_last_updated(lines, today)
+            result_line = lines[i]
+
+    return {"ok": True, "cnum": int(num), "due": due, "line": result_line}
+
+
 # ── 工具 4.2b edit_change ────────────────────────────────────────────────────
 def _history_bounds(lines: list[str]) -> tuple[int, int] | None:
     """`## 变更历史` 段的 (标题行下标, 段尾下标)。段尾=其后第一条 `## `/`---` 或文件末。
@@ -329,9 +382,10 @@ def edit_change(project: str, cnum, new_status: str | None = None,
 
         if new_text_s is not None:
             pm = _EDIT_PREFIX_RE.match(lines[i])
-            old_text = pm.group("text")
+            old_full = pm.group("text")
+            old_text, due = ds_common.split_due(old_full)  # 截止日不参与比较/留痕
             if new_text_s != old_text:  # no-op(==旧)不留痕,避免 `原:X`==新值噪声
-                lines[i] = pm.group(1) + new_text_s
+                lines[i] = pm.group(1) + new_text_s + ds_common.format_due_suffix(due)
                 _append_history_entry(lines, f"- C{num} 改于 {today}｜原:{old_text}")
                 changed = True
 
@@ -1020,6 +1074,12 @@ def _run_mcp() -> None:
     def set_change_status_tool(project: str, change_id: str, status: str) -> dict:
         """推进某条变更状态。status 必须是:待确认/进行中/已完成/已关闭。"""
         return set_change_status(project, change_id, status, ds_root=ds_root)
+
+    @server.tool()
+    def set_due_date_tool(project: str, cnum, due: str = "") -> dict:
+        """设/清一条变更的截止日。cnum=变更编号(如 3 或 "C3");due=YYYY-MM-DD,
+        传空串清除截止日。"""
+        return set_due_date(project, cnum, due or None, ds_root=ds_root)
 
     @server.tool()
     def log_communication_tool(project: str, text: str, source: str = "") -> dict:

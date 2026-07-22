@@ -33,6 +33,7 @@ export type Change = {
   date: string | null; // YYYY-MM-DD
   space: string | null; // 变更行可选【空间】前缀(p4 T1);旧行 null=未标注
   source: string | null;
+  due: string | null; // 截止日 YYYY-MM-DD(track opendesign-todo-duedate);旧行 null
   // 后端 ds_web.py:_changes 早就在返回,history 恒为数组(无历史=空)、
   // note 可选(有才带该键,与"没备注"和"没有该字段"不必强区分——前端按 undefined 处理)。
   history: ChangeHistoryEntry[];
@@ -389,6 +390,27 @@ export type UpdateRefBody = {
 };
 export async function updateRef(body: UpdateRefBody): Promise<void> {
   const r = await fetch("/api/refs/update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    let code = "";
+    try {
+      code = ((await r.json()) as { error?: string }).error ?? "";
+    } catch {
+      /* 非 JSON 响应:忽略,回落状态码 */
+    }
+    throw new Error(code || `服务返回 ${r.status}`);
+  }
+}
+
+/** 第十二个非 GET(track opendesign-todo-duedate 写针孔⑫):设/清一条变更的截止日。
+ * due=null 清除,否则须 YYYY-MM-DD(非法后端拒 invalid_due)。成功后调用方按 design
+ * 约定重拉 changes(截止日改动即时反映在行内)。失败抛错(带后端 error code)。 */
+export type SetDueDateBody = { project: string; cnum: number; due: string | null };
+export async function setDueDate(body: SetDueDateBody): Promise<void> {
+  const r = await fetch("/api/changes/due", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
