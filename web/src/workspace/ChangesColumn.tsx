@@ -94,8 +94,14 @@ export default function ChangesColumn({
   const [dueEditingCnum, setDueEditingCnum] = useState<number | null>(null);
   const [dueSaving, setDueSaving] = useState(false);
   const [dueErr, setDueErr] = useState<string | null>(null);
-  // 行内截止日着色的基准"今天":客户端本地日期即可(纯展示分类,非账本写入)。
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  // 行内截止日着色的基准"今天":用客户端**本地**日期(纯展示分类,非账本写入)。
+  // 不用 toISOString()——那是 UTC,UTC+8 午夜后 8 小时会比本地早一天,把"今天到期"误标超期。
+  const today = useMemo(() => {
+    const d = new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${d.getFullYear()}-${mm}-${dd}`;
+  }, []);
   // 切项目清空快捷输入:防"给 A 打字→切到 B→提交记进 B"的串项目(与建档表单同款重置)
   useEffect(() => {
     setAddText("");
