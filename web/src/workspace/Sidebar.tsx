@@ -185,12 +185,7 @@ export default function Sidebar({
               </span>
               <span className="nm">{displayProjectName(p.name)}</span>
               {p.group ? <span className="n-group">{p.group}</span> : null}
-              {p.unregistered ? (
-                <>
-                  <span className="reg-link" data-ui="side-reg-link">建档 →</span>
-                  <span className="n-unreg">未建档</span>
-                </>
-              ) : (
+              {p.unregistered ? null : (
                 p.open_count > 0 && <span className="n-open">{p.open_count}</span>
               )}
             </button>

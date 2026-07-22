@@ -124,11 +124,12 @@ try {
   check(!sideTxt.includes("历史对话"), "侧栏:未连接不出「历史对话」组");
   check(!sideTxt.includes("连接聊天后显示"), "侧栏:旧占位提示已删");
 
-  // ── H:侧栏未建档行 hover 出「建档」链接(DOM 常驻,CSS hover 显隐)────
+  // ── H:侧栏未建档行(track opendesign-todo-batch-space T5 起改「建档 →」/「未建档」
+  // 两处文字为纯 .unregistered class 灰化,不再有独立链接/小标 DOM)────
   const unregRow = page.locator(`.proj-list .proj-row:has-text("${folderB}")`).first();
   await unregRow.waitFor({ timeout: 10000 });
-  check(await unregRow.locator('[data-ui="side-reg-link"]').count() === 1,
-    "侧栏未建档行:「建档 →」链接在行内");
+  check(await unregRow.locator('[data-ui="side-reg-link"]').count() === 0,
+    "侧栏未建档行:不再渲染「建档 →」链接(T5 已删除)");
 
   // ── 进 projA 工作区 ────────────────────────────────────────────────────
   await page.locator(`.proj-list .proj-row:has-text("${projA}")`).first().click();

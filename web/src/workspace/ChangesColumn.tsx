@@ -4,7 +4,7 @@ import { addChange, cnDate, createProject, editChange, setStage } from "../api";
 import StatusPicker from "../StatusPicker";
 import { isTerminalStatus } from "../todo";
 import type { Filter } from "./changes";
-import { changeCounts, filterChanges, PROGRESS_ORDER } from "./changes";
+import { changeCounts, filterChanges, groupByDate, groupBySpace, PROGRESS_ORDER } from "./changes";
 import { formatHistoryEntry, historyEntries, historySummary } from "./history";
 
 // 中央变更记录列(handoff §2,flex:1):项目大标题 + 进度一览 + 工具行(筛选胶囊)+ 变更列表。
@@ -59,6 +59,9 @@ export default function ChangesColumn({
   project, changes, error, stages, onEdited, onCreated, highlight,
 }: Props) {
   const [filter, setFilter] = useState<Filter>("open");
+  // 分组切换(track opendesign-todo-batch-space T4):默认按时间;先 filterChanges 再分组渲染,
+  // 分节不折叠(v1 从简)。groupByDate/groupBySpace 见 ./changes(镜像 todo.ts,独立实现)。
+  const [groupMode, setGroupMode] = useState<"time" | "space">("time");
   const [hl, setHl] = useState<number | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -99,6 +102,7 @@ export default function ChangesColumn({
     setStageMenuOpen(false);
     setStageErr(null);
     setHistOpen(new Set());
+    setGroupMode("time");
   }, [project?.key]);
 
   // esc 关阶段下拉(全局原则 A3,同既有 …/状态菜单规矩)
@@ -294,6 +298,13 @@ export default function ChangesColumn({
 
   const counts = useMemo(() => changeCounts(changes), [changes]);
   const shown = useMemo(() => filterChanges(changes, filter), [changes, filter]);
+  // changeKey 的残缺行(cnum===null)分支靠数组下标去重;分组渲染后下标按组重置会撞号,
+  // 故用引用做全局下标查找(groupByDate/groupBySpace 只搬引用不拷贝,identity 保持)。
+  const globalIndex = useMemo(() => {
+    const m = new Map<Change, number>();
+    shown.forEach((c, i) => m.set(c, i));
+    return m;
+  }, [shown]);
 
   if (!project) {
     return (
@@ -350,6 +361,122 @@ export default function ChangesColumn({
       </section>
     );
   }
+
+  // 单条变更行(修改单 E + #9 备注/历史):按时间/按空间分组(T4)后仍复用同一渲染,
+  // 结构与 .change-row 不动;全局下标(globalIndex)供 changeKey 残缺行去重,
+  // 避免分组后每组下标各自从 0 起数导致 key/data-ck 撞号。
+  const renderRow = (c: Change) => {
+    const i = globalIndex.get(c) ?? 0;
+    return (
+      <div
+        className={`change-row st-${c.status}${c.cnum !== null && c.cnum === hl ? " hl-flash" : ""}`}
+        data-ck={changeKey(c, i)}
+        key={changeKey(c, i)}
+      >
+        <span className="cnum">{c.cnum !== null ? `C${c.cnum}` : "C?"}</span>
+        <div className="body">
+          {c.cnum !== null && editingCnum === c.cnum ? (
+            <div className="edit-fields">
+              <input
+                className="edit-text"
+                value={editDraft}
+                autoFocus
+                onChange={(e) => setEditDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveEditText(c);
+                  else if (e.key === "Escape") cancelEditText();
+                }}
+                disabled={editSaving}
+              />
+              <div className="edit-controls">
+                <button
+                  className="btn-save"
+                  disabled={editSaving}
+                  onClick={() => saveEditText(c)}
+                >
+                  {editSaving ? "保存中…" : "保存"}
+                </button>
+                <button
+                  className="btn-cancel"
+                  disabled={editSaving}
+                  onClick={cancelEditText}
+                >
+                  取消
+                </button>
+              </div>
+              {editErr && <div className="error-note sm">{editErr}</div>}
+            </div>
+          ) : (
+            <div className="txt">{c.text}</div>
+          )}
+          <div className="meta">
+            {c.space && <span>{c.space}</span>}
+            {c.space && (c.date || c.source) && <span>·</span>}
+            {(c.date || c.source) && (
+              <span>
+                {cnDate(c.date)}
+                {c.date && c.source ? " " : ""}
+                {c.source ?? ""}
+              </span>
+            )}
+            {/* #9 备注(与待办页同口径,note-tag)+「改过 N 次」展开(design.md §9) */}
+            {c.note !== undefined && <span className="note-tag">备注:{c.note}</span>}
+            {c.cnum !== null && historySummary(c) && (
+              <button
+                type="button"
+                className="history-toggle"
+                data-ui="history-toggle"
+                onClick={() => toggleHistory(c.cnum as number)}
+              >
+                {historySummary(c)}
+              </button>
+            )}
+          </div>
+          {c.cnum !== null && histOpen.has(c.cnum) && (
+            <div className="history-list">
+              {historyEntries(c).map((h, hi) => (
+                <div className="history-entry" data-ui="history-entry" key={hi}>
+                  {formatHistoryEntry(h)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* 修改单 E:hover 图标按钮组 ✎(编辑,保留 .edit-trigger 兼容)+ ✓(标记完成,
+            仅未办结行出);编辑态下隐藏,让 edit-fields 的保存/取消占位 */}
+        {c.cnum !== null && editingCnum !== c.cnum && (
+          <div className="row-actions">
+            <button
+              className="icon-act edit-trigger"
+              data-ui="change-edit"
+              onClick={() => startEditText(c)}
+              title="编辑正文"
+            >
+              ✎
+            </button>
+            {!isTerminalStatus(c.status) && (
+              <button
+                className="icon-act done-btn"
+                data-ui="change-done"
+                onClick={() => pickStatus(c, "已完成")}
+                title="标记完成"
+              >
+                ✓
+              </button>
+            )}
+          </div>
+        )}
+        {c.cnum !== null ? (
+          <StatusPicker status={c.status} onPick={(s) => pickStatus(c, s)} />
+        ) : (
+          <span className={`st-pill st-${c.status}`}>
+            <span className="d" />
+            {c.status}
+          </span>
+        )}
+      </div>
+    );
+  };
 
   const pills: { key: Filter; label: string; n?: number }[] = [
     { key: "open", label: "未办结", n: counts.open },
@@ -426,6 +553,20 @@ export default function ChangesColumn({
                 {p.n !== undefined && p.n > 0 ? ` ${p.n}` : ""}
               </button>
             ))}
+          </div>
+          <div className="group-pills" data-ui="change-group-toggle">
+            <button
+              className={`pill${groupMode === "time" ? " on" : ""}`}
+              onClick={() => setGroupMode("time")}
+            >
+              按时间
+            </button>
+            <button
+              className={`pill${groupMode === "space" ? " on" : ""}`}
+              onClick={() => setGroupMode("space")}
+            >
+              按空间
+            </button>
           </div>
         </div>
         {/* 快记单行输入卡(修改单 B):✎ + 单行 input + 空间 chip(popover)+ 主色「记一条」 */}
@@ -531,115 +672,25 @@ export default function ChangesColumn({
         </div>
       ) : (
         <div className="change-scroll" ref={scrollRef}>
-          {shown.map((c, i) => (
-            <div
-              className={`change-row st-${c.status}${c.cnum !== null && c.cnum === hl ? " hl-flash" : ""}`}
-              data-ck={changeKey(c, i)}
-              key={changeKey(c, i)}
-            >
-              <span className="cnum">{c.cnum !== null ? `C${c.cnum}` : "C?"}</span>
-              <div className="body">
-                {c.cnum !== null && editingCnum === c.cnum ? (
-                  <div className="edit-fields">
-                    <input
-                      className="edit-text"
-                      value={editDraft}
-                      autoFocus
-                      onChange={(e) => setEditDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveEditText(c);
-                        else if (e.key === "Escape") cancelEditText();
-                      }}
-                      disabled={editSaving}
-                    />
-                    <div className="edit-controls">
-                      <button
-                        className="btn-save"
-                        disabled={editSaving}
-                        onClick={() => saveEditText(c)}
-                      >
-                        {editSaving ? "保存中…" : "保存"}
-                      </button>
-                      <button
-                        className="btn-cancel"
-                        disabled={editSaving}
-                        onClick={cancelEditText}
-                      >
-                        取消
-                      </button>
-                    </div>
-                    {editErr && <div className="error-note sm">{editErr}</div>}
+          {groupMode === "time"
+            ? groupByDate(shown).map((g) => (
+                <div className="change-group" key={g.date ?? "@none"}>
+                  <div className="change-group-head" data-ui="change-group-head">
+                    <span className="nm">{g.date ? cnDate(g.date) : "未标注日期"}</span>
+                    <span className="rule" />
                   </div>
-                ) : (
-                  <div className="txt">{c.text}</div>
-                )}
-                <div className="meta">
-                  {c.space && <span>{c.space}</span>}
-                  {c.space && (c.date || c.source) && <span>·</span>}
-                  {(c.date || c.source) && (
-                    <span>
-                      {cnDate(c.date)}
-                      {c.date && c.source ? " " : ""}
-                      {c.source ?? ""}
-                    </span>
-                  )}
-                  {/* #9 备注(与待办页同口径,note-tag)+「改过 N 次」展开(design.md §9) */}
-                  {c.note !== undefined && <span className="note-tag">备注:{c.note}</span>}
-                  {c.cnum !== null && historySummary(c) && (
-                    <button
-                      type="button"
-                      className="history-toggle"
-                      data-ui="history-toggle"
-                      onClick={() => toggleHistory(c.cnum as number)}
-                    >
-                      {historySummary(c)}
-                    </button>
-                  )}
+                  {g.items.map((c) => renderRow(c))}
                 </div>
-                {c.cnum !== null && histOpen.has(c.cnum) && (
-                  <div className="history-list">
-                    {historyEntries(c).map((h, hi) => (
-                      <div className="history-entry" data-ui="history-entry" key={hi}>
-                        {formatHistoryEntry(h)}
-                      </div>
-                    ))}
+              ))
+            : groupBySpace(shown).map((g) => (
+                <div className="change-group" key={g.space ?? "@none"}>
+                  <div className="change-group-head" data-ui="change-group-head">
+                    <span className="nm">{g.space ?? "未分空间"}</span>
+                    <span className="rule" />
                   </div>
-                )}
-              </div>
-              {/* 修改单 E:hover 图标按钮组 ✎(编辑,保留 .edit-trigger 兼容)+ ✓(标记完成,
-                  仅未办结行出);编辑态下隐藏,让 edit-fields 的保存/取消占位 */}
-              {c.cnum !== null && editingCnum !== c.cnum && (
-                <div className="row-actions">
-                  <button
-                    className="icon-act edit-trigger"
-                    data-ui="change-edit"
-                    onClick={() => startEditText(c)}
-                    title="编辑正文"
-                  >
-                    ✎
-                  </button>
-                  {!isTerminalStatus(c.status) && (
-                    <button
-                      className="icon-act done-btn"
-                      data-ui="change-done"
-                      onClick={() => pickStatus(c, "已完成")}
-                      title="标记完成"
-                    >
-                      ✓
-                    </button>
-                  )}
+                  {g.items.map((c) => renderRow(c))}
                 </div>
-              )}
-              {c.cnum !== null ? (
-                <StatusPicker status={c.status} onPick={(s) => pickStatus(c, s)} />
-              ) : (
-                <span className={`st-pill st-${c.status}`}>
-                  <span className="d" />
-                  {c.status}
-                </span>
-              )}
-            </div>
-          ))}
+              ))}
         </div>
       )}
       {actionErr && <div className="change-action-err error-note sm">{actionErr}</div>}

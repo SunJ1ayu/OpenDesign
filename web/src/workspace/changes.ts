@@ -48,3 +48,44 @@ export function filterChanges<T extends ChangeLike>(changes: T[] | null, filter:
   if (filter === "done") return list.filter((c) => DONE_SET.has(c.status));
   return list.filter((c) => c.status === filter);
 }
+
+// ── 单项目变更列 时间/空间 分组(track opendesign-todo-batch-space T2)──────────
+// 语义镜像 web/src/todo.ts 的 groupByDate/spaceSections(日期倒序·null 沉底 /
+// 空间首现序·null 沉底,组内保持传入相对序),但基于 Change 形状独立实现,
+// 不复用 todo.ts(design.md:blast radius 隔离)。契约见 tests/test_change_grouping.mjs(off-limits)。
+
+export type DateGroupLike<T> = { date: string | null; items: T[] };
+export type SpaceGroupLike<T> = { space: string | null; items: T[] };
+
+type Dated = { date: string | null };
+type Spaced = { space: string | null };
+
+/** 按日期分组:日期倒序(字符串序),无日期(null)组恒置末,组内保持传入相对序。 */
+export function groupByDate<T extends Dated>(items: T[]): DateGroupLike<T>[] {
+  const map = new Map<string | null, T[]>();
+  for (const it of items) {
+    const key = it.date;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(it);
+  }
+  const dated = [...map.keys()].filter((d): d is string => d !== null).sort((a, b) => b.localeCompare(a));
+  const tail: (string | null)[] = map.has(null) ? [null] : [];
+  return [...dated, ...tail].map((date) => ({ date, items: map.get(date)! }));
+}
+
+/** 按空间分组:首现序,无空间(null)组恒置末,组内保持传入相对序。 */
+export function groupBySpace<T extends Spaced>(items: T[]): SpaceGroupLike<T>[] {
+  const order: (string | null)[] = [];
+  const map = new Map<string | null, T[]>();
+  for (const it of items) {
+    if (!map.has(it.space)) {
+      map.set(it.space, []);
+      order.push(it.space);
+    }
+    map.get(it.space)!.push(it);
+  }
+  const named = order.filter((s): s is string => s !== null);
+  const sections: SpaceGroupLike<T>[] = named.map((space) => ({ space, items: map.get(space)! }));
+  if (map.has(null)) sections.push({ space: null, items: map.get(null)! });
+  return sections;
+}

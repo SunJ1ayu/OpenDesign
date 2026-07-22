@@ -3,6 +3,7 @@ import type { Project } from "./api";
 import { cnDate, editChange } from "./api";
 import StatusPicker from "./StatusPicker";
 import {
+  batchEditRequests,
   buildEditRequest,
   groupByDate,
   groupByProject,
@@ -37,10 +38,11 @@ type State =
   | { kind: "error"; message: string }
   | { kind: "ready"; data: Todos };
 
-// 页面级瞬时提示:终态变更后的撤销,或一句错误。
+// 页面级瞬时提示:终态变更后的撤销,或一句错误,或批量操作结果。
 type Toast =
   | { kind: "undo"; project: string; cnum: number; label: string; prevStatus: string }
-  | { kind: "error"; message: string };
+  | { kind: "error"; message: string }
+  | { kind: "batch"; message: string };
 
 type Props = {
   projects: Project[];
@@ -92,6 +94,11 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
   const [edited, setEdited] = useState<Record<string, string>>({});
   const [noted, setNoted] = useState<Record<string, string>>({});
 
+  // 批量选择(track opendesign-todo-batch-space T3):选中集与视图无关,键 = `${project}:${line}`
+  // (与 row key 同源,唯一;切视图不清空,两视图各自都能选)。应用中禁止重复点。
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [applying, setApplying] = useState(false);
+
   useEffect(() => {
     let stale = false;
     fetch("/api/todos")
@@ -127,6 +134,87 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
   function reload() {
     setReloadNonce((n) => n + 1);
     onEdited?.();
+  }
+
+  // 批量选择:键 = `${project}:${line}`,残缺行(cnum===null)不可寻址,不参与选择。
+  function selKey(it: OpenItem): string {
+    return `${it.project}:${it.line}`;
+  }
+
+  function toggleSelect(it: OpenItem) {
+    if (it.cnum === null) return;
+    const key = selKey(it);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function selectableKeys(items: OpenItem[]): string[] {
+    return items.filter((it) => it.cnum !== null).map(selKey);
+  }
+
+  function groupAllSelected(items: OpenItem[]): boolean {
+    const keys = selectableKeys(items);
+    return keys.length > 0 && keys.every((k) => selected.has(k));
+  }
+
+  function toggleGroup(items: OpenItem[]) {
+    const keys = selectableKeys(items);
+    const allOn = keys.length > 0 && keys.every((k) => selected.has(k));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const k of keys) {
+        if (allOn) next.delete(k);
+        else next.add(k);
+      }
+      return next;
+    });
+  }
+
+  // 应用批量改状态:batchEditRequests 装配 → 逐条串行 await editChange;
+  // 成功/失败计数;终态且 ≥2 条先 confirm(终态会把项从页面移除,批量不可逐条撤销)。
+  async function applyBatch(newStatus: string) {
+    if (applying || state.kind !== "ready") return;
+    const byKey = new Map(state.data.open.map((it) => [selKey(it), it]));
+    const items = [...selected]
+      .map((k) => byKey.get(k))
+      .filter((it): it is OpenItem => it !== undefined);
+    const reqs = batchEditRequests(items, newStatus);
+    if (reqs.length === 0) {
+      setSelected(new Set());
+      return;
+    }
+    if (isTerminalStatus(newStatus) && reqs.length >= 2) {
+      const ok = window.confirm(
+        `确认把选中的 ${reqs.length} 条改为「${newStatus}」?终态批量不可逐条撤销。`,
+      );
+      if (!ok) return;
+    }
+    setApplying(true);
+    let okCount = 0;
+    let failCount = 0;
+    try {
+      for (const req of reqs) {
+        try {
+          await editChange(req);
+          okCount++;
+        } catch {
+          failCount++;
+        }
+      }
+    } finally {
+      // finally 保证任何意外抛出都不会把浮栏卡在 applying(cancel 禁用)态(panel subglm 提)
+      setApplying(false);
+    }
+    setSelected(new Set());
+    setToast({
+      kind: "batch",
+      message: `已改 ${okCount} 条${failCount > 0 ? ` · ${failCount} 条失败` : ""}`,
+    });
+    reload();
   }
 
   function startEdit(it: OpenItem) {
@@ -268,6 +356,14 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
     const note = eid ? noted[eid] : undefined;
     return (
       <div className="todo-row" key={`${it.project}:${it.line}:${i}`}>
+        <input
+          type="checkbox"
+          className="todo-select"
+          data-ui="todo-select"
+          checked={it.cnum !== null && selected.has(selKey(it))}
+          disabled={it.cnum === null}
+          onChange={() => toggleSelect(it)}
+        />
         <span className="cnum">{it.cnum !== null ? `C${it.cnum}` : "—"}</span>
         <span className="txt">
           {it.space && <span className="space-chip">{it.space}</span>}
@@ -304,23 +400,32 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
       const open = (gi === 0) !== toggled.has(key);
       return (
         <div className="batch-sect" key={key}>
-          <button
-            className="batch-head"
-            aria-expanded={open}
-            onClick={() =>
-              setToggled((prev) => {
-                const next = new Set(prev);
-                if (next.has(key)) next.delete(key);
-                else next.add(key);
-                return next;
-              })
-            }
-          >
-            <span className="chev">{open ? "▾" : "▸"}</span>
-            <span className="d8">{dg.date ? cnDate(dg.date) : "未标注日期"}</span>
-            <span className="n">{dg.items.length} 条</span>
+          <div className="batch-head">
+            <button
+              className="batch-toggle"
+              aria-expanded={open}
+              onClick={() =>
+                setToggled((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(key)) next.delete(key);
+                  else next.add(key);
+                  return next;
+                })
+              }
+            >
+              <span className="chev">{open ? "▾" : "▸"}</span>
+              <span className="d8">{dg.date ? cnDate(dg.date) : "未标注日期"}</span>
+              <span className="n">{dg.items.length} 条</span>
+            </button>
             <span className="rule" />
-          </button>
+            <button
+              className="group-select-btn"
+              data-ui="todo-select-group"
+              onClick={() => toggleGroup(dg.items)}
+            >
+              {groupAllSelected(dg.items) ? "取消本组" : "全选本组"}
+            </button>
+          </div>
           {open && dg.items.map((it, i) => row(it, i, withProject))}
         </div>
       );
@@ -334,6 +439,13 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
         <div className="space-sect-head" data-ui="todo-space-sect">
           <span className="nm">{sec.space ?? "未分空间"}</span>
           <span className="rule" />
+          <button
+            className="group-select-btn"
+            data-ui="todo-select-group"
+            onClick={() => toggleGroup(sec.items)}
+          >
+            {groupAllSelected(sec.items) ? "取消本组" : "全选本组"}
+          </button>
         </div>
         {sec.items.map((it, j) => row(it, i * 1000 + j))}
       </div>
@@ -422,6 +534,20 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
             <span>{toast.message}</span>
           )}
           <button className="toast-x" onClick={() => setToast(null)} aria-label="关闭">✕</button>
+        </div>
+      )}
+
+      {selected.size > 0 && (
+        <div className="todo-batch-bar" data-ui="todo-batch-bar" role="toolbar">
+          <span className="n">已选 {selected.size} 条</span>
+          <StatusPicker status="" label="改为…" menuUp onPick={applyBatch} />
+          <button
+            className="batch-cancel"
+            disabled={applying}
+            onClick={() => setSelected(new Set())}
+          >
+            取消
+          </button>
         </div>
       )}
     </div>

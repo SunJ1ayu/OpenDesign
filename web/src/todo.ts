@@ -134,6 +134,30 @@ export type EditRequest = {
   note?: string;
 };
 
+// ── 批量改状态(track opendesign-todo-batch-space T1)────────────────────────
+// 契约见 tests/test_todo_batch.mjs(off-limits):选中项 → 逐条 /api/changes/edit
+// 请求体,跳过 cnum===null(残缺行不可寻址)与 status===newStatus(空操作),
+// 保持传入相对序,newStatus 非法抛,纯函数不改入参。
+
+export type BatchEditRequest = { project: string; cnum: number; new_status: Status };
+
+/** 选中项 → 逐条批量改状态请求体(客户端串行发,复用既有 /api/changes/edit 写针孔)。 */
+export function batchEditRequests(
+  items: Pick<OpenItem, "project" | "cnum" | "status">[],
+  newStatus: string,
+): BatchEditRequest[] {
+  if (!isValidStatus(newStatus)) {
+    throw new Error(`非法目标状态: ${newStatus}`);
+  }
+  const out: BatchEditRequest[] = [];
+  for (const it of items) {
+    if (it.cnum === null) continue;
+    if (it.status === newStatus) continue;
+    out.push({ project: it.project, cnum: it.cnum, new_status: newStatus });
+  }
+  return out;
+}
+
 /**
  * 草稿 → 请求体。只放"真的变了且合法"的字段:
  *  - new_status:是合法状态且 ≠ 原状态;
