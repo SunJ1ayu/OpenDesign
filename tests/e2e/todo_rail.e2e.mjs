@@ -18,6 +18,10 @@ import { launchBrowser, check } from "./helpers.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PORT = 8800;
+// ⚠️ DS_TODAY 只冻结**服务端**的今天。本 e2e 的「今天高亮 / 超期 N 天」断言之所以稳定,
+// 是因为前端全程用服务端下发的 data.today,没有任何 new Date() 参与
+// (track duedate 就踩过客户端本地日期导致 UTC 午夜偏移的坑)。
+// 若将来有人在前端引入客户端时钟,这些断言会随真实日期漂移 —— 那是信号,不是 flaky。
 const TODAY = "2026-07-22"; // 与设计稿 screenshots/12 同一天
 
 const tmp = mkdtempSync(join(tmpdir(), "trail-e2e-"));
