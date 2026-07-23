@@ -89,8 +89,11 @@ try {
   await rail.waitFor({ timeout: 5000 });
   const railW = await rail.evaluate((el) => el.clientWidth);
   check(railW >= 300 && railW <= 340, `右栏约 320px(实测 ${railW}px)`);
-  const mainCC = await page.locator(".todo-cards").evaluate((el) => getComputedStyle(el).columnCount);
-  check(mainCC === "2", `右栏落地后主区仍多列(column-count=${mainCC})`);
+  // 真实列数只能量子元素左边界:CSS 用 column-width 驱动时,getComputedStyle 的
+  // columnCount 返回的是声明上限而非实际用量(收货时踩到过)。
+  const mainCols = await page.locator(".todo-cards").evaluate((el) =>
+    new Set([...el.children].map((c) => Math.round(c.getBoundingClientRect().left))).size);
+  check(mainCols >= 2, `右栏落地后主区仍多列(实测 ${mainCols} 列)`);
 
   // ── 日程月历 ────────────────────────────────────────────────────────────
   const monthLabel = page.locator('[data-ui="cal-month"]');

@@ -3,7 +3,7 @@
 // 主 agent 亲写,执行腿逐字节 off-limits。
 //
 // 覆盖:
-//   I.7  「按项目」多列瀑布(2 列 @1440 / 3 列 @1700)+ 去 880 限宽 + 卡序 + 闲置项目占位卡;
+//   I.7  「按项目」多列瀑布(2 列 @1440 / 3 列 @1700)+ 无 max-width 限宽/不居中 + 卡序 + 闲置项目占位卡;
 //   I.8  「按时间」保持单列 + 去限宽;
 //   #1/#2 折叠:两视图**同一个**控件(.grp-toggle[data-ui=group-toggle]),chev 字号与
 //         cursor 一致;项目卡可整卡折叠;可点区域不吞掉「去项目 →」/「全选本组」;
@@ -115,20 +115,62 @@ try {
   const cards = page.locator(".todo-cards");
   check(await cards.evaluate((el) => el.classList.contains("by-project")),
     "「按项目」容器带 .by-project 布局 class");
-  const cc1440 = await cards.evaluate((el) => getComputedStyle(el).columnCount);
-  check(cc1440 === "2", `「按项目」@1440 两列(column-count=${cc1440})`);
-  const w = await cards.evaluate((el) => el.clientWidth);
-  check(w > 880, `「按项目」去掉 880 居中限宽(实测宽 ${w}px)`);
+  // 主 agent 修正②(track opendesign-todo-rail 收货):列数不再由视口断言,而是验**不变量**
+  // ——「列宽不低于可读下限、且最多 3 列」。原写法把列数绑在视口宽度上(@1600→3 列),
+  // 待办页加右栏后 1700 视口下三列 = 每列 339px,正文被挤成一列一个字的竖排,
+  // 而 `columnCount === "3"` 照样绿:**对的数字、错的结果**。现在 CSS 用
+  // `columns: 360px 3`(column-width 驱动),列数随可用宽度自适应。
+  // ⚠️ 测量方式:`getComputedStyle().columnCount` 返回的是**声明值**(column-width 驱动时
+  // 那只是上限),浏览器实际用了几列 CSSOM 不暴露 → 只能量子元素的真实左边界,
+  // 有几个不同的 left 就是几列。
+  const MIN_COL = 355; // = CSS 的 360px 下限,留 5px 给取整
+  const colInfo = async () => cards.evaluate((el) => {
+    const lefts = [...el.children].map((c) => Math.round(c.getBoundingClientRect().left));
+    const n = new Set(lefts).size;
+    const gapPx = parseFloat(getComputedStyle(el).columnGap) || 0;
+    return { n, colW: (el.clientWidth - gapPx * (n - 1)) / n, total: el.clientWidth };
+  });
+  const c1440 = await colInfo();
+  check(c1440.n === 2, `「按项目」@1440 两列(实测 ${c1440.n} 列)`);
+  check(c1440.colW >= MIN_COL,
+    `@1440 每列 ${Math.round(c1440.colW)}px ≥ 可读下限 ${MIN_COL}px`);
+  // 主 agent 修正(track opendesign-todo-rail 收货):原断言写的是 `clientWidth > 880`,
+  // 那是**代理断言**——它验的是"去掉 880 限宽"在当时的附带后果,不是性质本身。
+  // 待办页加了 320px 右栏后,1440 视口下主区最宽只能到 1136-320=816,该后果**算术上
+  // 不可能**成立,但"没有 880 居中限宽"这个性质仍然成立。改为直接验性质:
+  // 无 max-width 上限 + 不居中(左右 margin 非 auto)+ 填满可用宽度。
+  const projBox = await cards.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    const parent = el.parentElement;
+    return {
+      maxWidth: cs.maxWidth, ml: cs.marginLeft, mr: cs.marginRight,
+      w: el.clientWidth, parentW: parent ? parent.clientWidth : -1,
+    };
+  });
+  check(projBox.maxWidth === "none", `「按项目」无 max-width 上限(实测 ${projBox.maxWidth})`);
+  check(parseFloat(projBox.ml) === 0 && parseFloat(projBox.mr) === 0,
+    `「按项目」不居中(margin ${projBox.ml}/${projBox.mr})`);
+  check(projBox.w >= projBox.parentW - 1,
+    `「按项目」填满可用宽度(${projBox.w}px / 容器 ${projBox.parentW}px)`);
   const gap = await cards.evaluate((el) => getComputedStyle(el).columnGap);
   check(parseFloat(gap) >= 12, `列间距已设(column-gap=${gap})`);
   const brk = await page.locator(".todo-card").first()
     .evaluate((el) => getComputedStyle(el).breakInside);
   check(brk === "avoid", `卡片 break-inside:avoid(实测 ${brk})`);
 
-  await page.setViewportSize({ width: 1700, height: 900 });
+  // 关键不变量:**任何视口下每列都不许窄过可读下限**(这是 339px 竖排事故的回归防线)。
+  for (const vw of [1280, 1700, 2000, 2560]) {
+    await page.setViewportSize({ width: vw, height: 900 });
+    await page.waitForTimeout(150);
+    const c = await colInfo();
+    check(c.colW >= MIN_COL,
+      `@${vw} 每列 ${Math.round(c.colW)}px ≥ ${MIN_COL}px(${c.n} 列 / 主区 ${c.total}px)`);
+    check(c.n <= 3, `@${vw} 列数封顶 3(实测 ${c.n})`);
+  }
+  // 宽屏确实要能多列(否则"下限"可以靠永远单列来作弊满足)
+  await page.setViewportSize({ width: 2000, height: 900 });
   await page.waitForTimeout(150);
-  const cc1700 = await cards.evaluate((el) => getComputedStyle(el).columnCount);
-  check(cc1700 === "3", `「按项目」@1700 三列(column-count=${cc1700})`);
+  check((await colInfo()).n >= 3, "@2000 宽屏确实铺到 3 列(不是靠永远单列糊弄下限)");
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.waitForTimeout(150);
 
@@ -250,8 +292,18 @@ try {
   const ccTime = await timeCards.evaluate((el) => getComputedStyle(el).columnCount);
   check(ccTime === "auto" || ccTime === "1",
     `「按时间」保持单列(column-count=${ccTime})`);
-  const wTime = await timeCards.evaluate((el) => el.clientWidth);
-  check(wTime > 880, `「按时间」也去掉 880 限宽(实测宽 ${wTime}px)`);
+  const boxTime = await timeCards.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return {
+      maxWidth: cs.maxWidth, ml: cs.marginLeft, mr: cs.marginRight,
+      w: el.clientWidth, parentW: el.parentElement ? el.parentElement.clientWidth : -1,
+    };
+  });
+  check(boxTime.maxWidth === "none", `「按时间」无 max-width 上限(实测 ${boxTime.maxWidth})`);
+  check(parseFloat(boxTime.ml) === 0 && parseFloat(boxTime.mr) === 0,
+    `「按时间」不居中(margin ${boxTime.ml}/${boxTime.mr})`);
+  check(boxTime.w >= boxTime.parentW - 1,
+    `「按时间」填满可用宽度(${boxTime.w}px / 容器 ${boxTime.parentW}px)`);
   check(await page.locator('[data-ui="todo-idle-card"]').count() === 0,
     "「按时间」视图不出现闲置占位卡(项目维度摘要,时间轴里没位置)");
 

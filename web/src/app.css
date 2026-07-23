@@ -1705,16 +1705,20 @@ html, body { overflow: auto; }
 .todo-empty { padding: 60px 0; text-align: center; font-size: 13px; }
 /* 「按项目」多列瀑布 + 「按时间」单列(track opendesign-todo-layout T6):
    去掉修改单 G2 的 880px 居中限宽——两视图各自一个布局 class,不靠覆盖。 */
+/* 列数由**可用宽度**决定,不由视口宽度决定(track opendesign-todo-rail 收货修正)。
+   原写法 `columns:2` + `@media(min-width:1600px){columns:3}` 把列数绑在视口上:
+   待办页加了 320px 右栏后,1700 视口下主区只剩 1048px,三列 = 每列 339px,
+   .todo-row 里固定宽的兄弟节点(复选框/编号/截止日/编辑/状态 pill)把正文挤到几乎为零,
+   **正文被压成一列一个字的竖排**(实测截图)。而 column-count 断言照样是绿的。
+   改用 column-width 表达真实约束「一列至少多宽才读得下去」+ 最多 3 列:
+   浏览器按剩余宽度自己算列数,右栏出现/收起、侧栏变宽都自动正确。 */
 .todo-cards.by-project {
-  columns: 2;
+  columns: 360px 3;
   column-gap: 16px;
   max-width: none;
   margin: 0;
 }
 .todo-cards.by-project > * { break-inside: avoid; margin-bottom: 16px; }
-@media (min-width: 1600px) {
-  .todo-cards.by-project { columns: 3; }
-}
 .todo-cards.by-time { display: flex; flex-direction: column; gap: 14px; max-width: none; margin: 0; }
 .todo-card {
   background: #fff;
