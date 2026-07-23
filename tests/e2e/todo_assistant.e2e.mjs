@@ -104,6 +104,26 @@ try {
   await page.waitForTimeout(700);
   check(todosHits === hitsHidden, "隐藏期间不取数");
 
+  // ── 行为对齐:编辑态不许跨页存活(常驻化之前离开=卸载=丢弃)────────────
+  // 先切回去开一个编辑框,再切走、切回,断言它没了。这条钉住本单自定的规矩:
+  // 「除『对话不丢』外,行为必须与常驻化之前不可区分」。
+  await page.locator('.side-row:has-text("待办事项")').first().click();
+  await page.locator(".todo-page").first().waitFor({ state: "visible", timeout: 5000 });
+  await page.locator(".todo-row .edit-btn").first().click();
+  await page.locator(".todo-row.editing").first().waitFor({ timeout: 5000 });
+  check(true, "打开一个行内编辑框");
+  await page.locator('.side-row:has-text("技能")').first().click();
+  await page.waitForTimeout(400);
+  await page.locator('.side-row:has-text("待办事项")').first().click();
+  await page.locator(".todo-page").first().waitFor({ state: "visible", timeout: 5000 });
+  check(await page.locator(".todo-row.editing").count() === 0,
+    "切走再回来:编辑态已丢弃(与常驻化之前同语义,不留陈旧编辑框)");
+  // 日期过滤是**展示态**,与编辑态不同:它该留着(上面已断言过),这里只是重申两者的区别。
+  check(await page.locator('[data-ui="todo-date-filter"]').count() === 1,
+    "而日期过滤(纯展示态)仍保留——两者刻意不同");
+  await page.locator('.side-row:has-text("技能")').first().click();
+  await page.waitForTimeout(300);
+
   // ── 磁盘上加一条变更(证明回来时是真重拉,不是拿旧数据)──────────────────
   writeFileSync(mdPath, readFileSync(mdPath, "utf-8").replace(
     "## 沟通日志",

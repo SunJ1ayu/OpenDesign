@@ -164,6 +164,19 @@ export default function TodoPage({
     return () => clearTimeout(t);
   }, [toast]);
 
+  // keep-mounted 行为对齐(主 agent 收货,panel subglm 提):常驻化之前,离开待办页
+  // = 组件卸载 = toast 与编辑态一并丢弃。常驻后它们会跨页存活,切回来可能看到一条
+  // 早该过期的 toast,或一个还开着、内容却已被别处改过的编辑框。
+  // 本单自定的规矩是「除『对话不丢』外行为必须不可区分」,所以离开时主动清掉这两样,
+  // 把旧语义原样还回去。(对话不丢是右栏 ChatPage 的事,不受这里影响。)
+  useEffect(() => {
+    if (active) return;
+    setToast(null);
+    setEditing(null);
+    setDraft({});
+    setEditErr(null);
+  }, [active]);
+
   function reload() {
     setReloadNonce((n) => n + 1);
     onEdited?.();

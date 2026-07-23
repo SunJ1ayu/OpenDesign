@@ -213,14 +213,18 @@ export default function TodoRail({
               发送
             </button>
           </div>
-          <button
-            type="button"
-            className="rail-expand-link"
-            data-ui="rail-expand"
-            onClick={() => setExpanded(true)}
-          >
-            展开对话 →
-          </button>
+          {/* 已展开时不再显示(panel subglm 提):那时点它是 no-op,而且和聊天头里的
+              「收起」并排出现,语义打架。 */}
+          {!expanded && (
+            <button
+              type="button"
+              className="rail-expand-link"
+              data-ui="rail-expand"
+              onClick={() => setExpanded(true)}
+            >
+              展开对话 →
+            </button>
+          )}
         </div>
 
         {/* ChatPage 常驻挂载、收起态 CSS 隐藏(卸载=丢对话,与 p3 keep-mounted 同规矩)。
