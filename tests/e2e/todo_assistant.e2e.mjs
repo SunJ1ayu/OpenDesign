@@ -156,10 +156,19 @@ try {
   const TEXT = "C7 业主上次怎么说的";
   await ask.fill(TEXT);
   await page.locator('[data-ui="rail-send"]').click();
-  await page.locator('[data-ui="connect-card"]').first().waitFor({ timeout: 5000 });
-  check(true, "未连接时提交:展开并露出连接卡");
+  // 主 agent 修正①:选择器必须限定在右栏内。App 里 home-pane 常驻着另一个 login 态
+  // ChatPage,它的 connect-card 在 DOM 里更靠前且恒隐藏,裸 `.first()` 会永远锁死在
+  // 那一张上超时(实测 2 张卡:home 的隐藏、rail 的可见)。仓里 frontend_p2_polish.e2e.mjs:113
+  // 早已立下 `.home-pane [data-ui="connect-card"]` 的限定先例,是我没跟。
+  await page.locator('[data-ui="rail-chat"] [data-ui="connect-card"]')
+    .waitFor({ state: "visible", timeout: 5000 });
+  check(true, "未连接时提交:展开并露出**右栏自己的**连接卡");
+  // 主 agent 修正②:原断言只验 inputValue() ——它读隐藏元素照样返回值,
+  // 于是"字留在 DOM 里但用户看不见"也能过。而"看不见"正是这条要防的体验。
+  // 收紧为:输入框必须**可见**且带着原文。
+  check(await ask.isVisible(), "未连接时输入框仍可见(字得让人看得见,不能只留在 DOM 里)");
   check(await ask.inputValue() === TEXT,
-    `未连接时**不清空**输入框,字还看得见(实测「${await ask.inputValue()}」)`);
+    `未连接时**不清空**输入框(实测「${await ask.inputValue()}」)`);
 } catch (e) {
   failures++;
   console.error(String(e));

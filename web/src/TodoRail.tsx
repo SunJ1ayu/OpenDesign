@@ -29,6 +29,11 @@ type Props = {
   // 项目助手(T4):与 home/工作区共享同一 ChatSession——第三个 ChatPage 实例,
   // 结构上同构,不是新架构(design.md)。
   session: ChatSession;
+  // 主 agent 收货补线:一轮对话结束后要能刷新待办数据。少了它,用户在右栏说
+  // 「记一下 XX」,变更已写进档案,而**同一屏**的待办列表纹丝不动,要切走再切回才更新
+  // ——正是 track hardening M5「聊完免 F5」治过的毛病。另两个 ChatPage 实例都接了这条线,
+  // 右栏不接就是半成品。接到 TodoPage 既有的 onEdited(→ App bump dataEpoch → 本页重拉)。
+  onTurnEnd?: () => void;
 };
 
 function ymFromIso(iso: string): [number, number] {
@@ -44,7 +49,9 @@ function daysBetween(due: string, today: string): number {
   return Math.round((d2 - d1) / 86400000);
 }
 
-export default function TodoRail({ items, today, selectedDate, onSelectDate, session }: Props) {
+export default function TodoRail({
+  items, today, selectedDate, onSelectDate, session, onTurnEnd,
+}: Props) {
   const [[year, month], setYm] = useState<[number, number]>(() => ymFromIso(today));
   // 项目助手(T3/T4/T5):expanded=两态切换;connected=ChatPage onConnected 记的
   // 本地 flag;askText=右栏自己的输入(不吞字用);dispatch=程序化发送(nonce 去重,
@@ -57,9 +64,14 @@ export default function TodoRail({ items, today, selectedDate, onSelectDate, ses
     nonce: 0,
   });
 
-  // 提交(不吞字):已连接 → 程序化发送 + 清空;未连接 → 只展开露出连接卡,
-  // 输入框里的字原样留着(design.md——两态互斥,展开态看不见 ask 区不等于字丢了,
-  // 收起回来仍在;真要在未连接时看见字,收起一次即可看到)。
+  // 提交(不吞字):已连接 → 程序化发送 + 清空;未连接 → 展开露出连接卡,
+  // **且 ask 区继续可见、字留在框里**。
+  //
+  // 主 agent 收货修正:原实现让 ask 区在展开时一律 route-hidden,于是未连接提交后
+  // 用户面对一张连接卡、自己刚打的字从画面上消失(实测截图),这正是"不吞字"这条
+  // 要求本来要防的体验;而"字还在 DOM 里、收起一次能看到"不算数——用户不知道要收起。
+  // 判据同样虚(inputValue() 读隐藏元素照样绿),已一并收紧为必须 visible。
+  // 现在的规则只有一条:**ask 区只在"聊天自己有输入框可用"(即已连接)时才让位**。
   function handleAsk() {
     const text = askText.trim();
     if (!text) return;
@@ -180,7 +192,7 @@ export default function TodoRail({ items, today, selectedDate, onSelectDate, ses
         className={`rail-assistant${expanded ? " expanded" : ""}`}
         data-ui="rail-assistant"
       >
-        <div className={`rail-ask-block${expanded ? " route-hidden" : ""}`}>
+        <div className={`rail-ask-block${expanded && connected ? " route-hidden" : ""}`}>
           <p className="rail-ask-hint">
             问项目助手一句,记得带上项目名——比如「翡翠湾-1801,C7 业主上次怎么说的」,
             「记一下」也是靠项目名归档。
@@ -233,6 +245,7 @@ export default function TodoRail({ items, today, selectedDate, onSelectDate, ses
               session={session}
               dispatch={dispatch}
               onConnected={() => setConnected(true)}
+              onTurnEnd={onTurnEnd}
             />
           </div>
         </div>

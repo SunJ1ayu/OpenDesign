@@ -620,6 +620,7 @@ export default function TodoPage({
       </div>
 
       <TodoRail
+        onTurnEnd={onEdited}
         items={data.open}
         today={data.today}
         selectedDate={dateFilter}
