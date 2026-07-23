@@ -195,11 +195,24 @@ try {
     `折叠可点区横跨大半行(触发区 ${togW}px / 行 ${headW}px)——不是只有 9px chev`);
   const cur = await toggle1.evaluate((el) => getComputedStyle(el).cursor);
   check(cur === "pointer", `折叠控件 cursor:pointer(实测 ${cur})`);
-  const bgBefore = await toggle1.evaluate((el) => getComputedStyle(el).backgroundColor);
+  // 主 agent 收货修正:原写法在两次 click 之后直接采样,鼠标还停在按钮上、且 transition
+  // 在途(实测采到 alpha=0.97 的半程色),`bgHover !== bgBefore` 因此是**空断言**——它比的
+  // 是"半程 vs 全程",没证明静止态与 hover 态不同。改成:先把鼠标挪走并等 transition 落定
+  // 采静止态,再 hover 等落定采 hover 态,并直接钉住"静止=完全透明、hover=真上色"。
+  const alphaOf = (c) => {
+    const m = c.match(/rgba?\(([^)]+)\)/);
+    const parts = m ? m[1].split(",").map((x) => parseFloat(x)) : [];
+    return parts.length === 4 ? parts[3] : 1;
+  };
+  await page.mouse.move(5, 5);
+  await page.waitForTimeout(400);
+  const bgRest = await toggle1.evaluate((el) => getComputedStyle(el).backgroundColor);
   await toggle1.hover();
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(400);
   const bgHover = await toggle1.evaluate((el) => getComputedStyle(el).backgroundColor);
-  check(bgHover !== bgBefore, `hover 有底色变化(${bgBefore} → ${bgHover})`);
+  check(alphaOf(bgRest) === 0, `静止态无底色(实测 ${bgRest})`);
+  check(alphaOf(bgHover) > 0.9 && bgHover !== bgRest,
+    `hover 态真上色(${bgRest} → ${bgHover})`);
   const chevSizeProj = await toggle1.locator(".chev")
     .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
   check(chevSizeProj >= 11, `chev 已放大到 ≥11px(实测 ${chevSizeProj}px)`);

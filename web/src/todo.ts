@@ -63,11 +63,9 @@ export function sortByDateDesc(open: OpenItem[]): OpenItem[] {
     .map((x) => x.it);
 }
 
-/** 项目名 → 超期天数(仅当超期);待办卡头「⛑ N 天没动静」用。 */
-export function staleDays(stale: StaleItem[], project: string): number | null {
-  const hit = stale.find((s) => s.project === project);
-  return hit ? hit.days : null;
-}
+// staleDays(项目名 → 超期天数)已删除(track opendesign-todo-layout 收货):
+// 卡头的「⛑ N 天没动静」现在读 orderProjectCards 附在卡上的 stale 字段,
+// 该函数因此零生产调用者。同一个问题不留第二个答案。
 
 // ── 待办「按项目」卡内按空间分小节(track opendesign-frontend-p2-polish 修改单 G1)──
 

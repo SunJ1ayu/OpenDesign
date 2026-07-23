@@ -6,7 +6,6 @@ import {
   groupByProject,
   groupByDate,
   sortByDateDesc,
-  staleDays,
   buildEditRequest,
   isValidStatus,
   isTerminalStatus,
@@ -70,11 +69,8 @@ test("sortByDateDesc:日期倒序、无日期沉底、同日稳定", () => {
   assert.deepEqual(s.map((x) => x.text), ["新1", "新2", "旧", "无日期"]);
 });
 
-test("staleDays:命中给天数,未超期 null", () => {
-  const stale = [{ project: "乙", days: 8, last: "2026-07-04" }];
-  assert.equal(staleDays(stale, "乙"), 8);
-  assert.equal(staleDays(stale, "甲"), null);
-});
+// staleDays 已随 track opendesign-todo-layout 删除(生产调用者归 orderProjectCards,
+// 其契约在 tests/test_todo_layout.mjs「附 stale 天数,无超期为 null」一例)。
 
 // ---- 行内编辑:请求装配(track opendesign-todo-edit T6 / design test 14)------
 
