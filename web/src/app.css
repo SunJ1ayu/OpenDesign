@@ -1592,8 +1592,19 @@ html, body { overflow: auto; }
 .todo-head .sub { font-size: 12px; color: var(--ink-4); }
 .todo-head .grow { flex: 1; }
 .todo-empty { padding: 60px 0; text-align: center; font-size: 13px; }
-/* 修改单 G2:内容区最大宽 ~880px 居中,卡距 14px */
-.todo-cards { display: flex; flex-direction: column; gap: 14px; max-width: 880px; margin: 0 auto; }
+/* 「按项目」多列瀑布 + 「按时间」单列(track opendesign-todo-layout T6):
+   去掉修改单 G2 的 880px 居中限宽——两视图各自一个布局 class,不靠覆盖。 */
+.todo-cards.by-project {
+  columns: 2;
+  column-gap: 16px;
+  max-width: none;
+  margin: 0;
+}
+.todo-cards.by-project > * { break-inside: avoid; margin-bottom: 16px; }
+@media (min-width: 1600px) {
+  .todo-cards.by-project { columns: 3; }
+}
+.todo-cards.by-time { display: flex; flex-direction: column; gap: 14px; max-width: none; margin: 0; }
 .todo-card {
   background: #fff;
   border: 1px solid var(--border-main);
@@ -1614,7 +1625,6 @@ html, body { overflow: auto; }
 .todo-card .card-head .dot.done { background: var(--dot-faded); }
 .todo-card .card-head .nm { font-size: 14px; font-weight: 600; }
 .todo-card .card-head .n-open { font: 10.5px var(--font-mono); color: var(--ink-4); }
-.todo-card .card-head .grow { flex: 1; }
 .stale-badge {
   font-size: 10.5px;
   color: var(--terra-deep);
@@ -1623,7 +1633,7 @@ html, body { overflow: auto; }
   padding: 1px 8px;
   white-space: nowrap;
 }
-.go-link { font-size: 12px; color: var(--terra-deep); transition: color var(--hover-ease); }
+.go-link { font-size: 12px; color: var(--terra-deep); transition: color var(--hover-ease); flex: none; }
 .go-link:hover { color: var(--terra); }
 .batch-sect { padding: 4px 0 2px; }
 .batch-head {
@@ -1635,19 +1645,31 @@ html, body { overflow: auto; }
   color: var(--ink-4);
   padding: 5px 0 3px;
 }
-/* T3:批次头拆成"折叠开关"(原整头按钮) + 分隔线 + "全选本组"按钮,不再是单一 <button> */
-.batch-head .batch-toggle {
+.batch-head .n { color: var(--ink-5); font: 10.5px var(--font-mono); }
+
+/* 共享折叠控件(track opendesign-todo-layout T2/T6):「按时间」日期批次头与
+   「按项目」项目卡头共用同一套样式,不留两份。可见性修复(反馈 #1):.rule 长在
+   按钮内部且 flex:1,可点区域因此横跨整行,与"整行 hover 背景"是同一件事。 */
+.grp-toggle {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border-radius: 8px;
   color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
-  transition: color var(--hover-ease);
+  transition: background-color var(--hover-ease), color var(--hover-ease);
 }
-.batch-head .batch-toggle:hover { color: var(--terra-deep); }
-.batch-head .chev { font-size: 9px; width: 10px; flex: none; }
-.batch-head .n { color: var(--ink-5); font: 10.5px var(--font-mono); }
-.batch-head .rule { flex: 1; height: 1px; background: #f0ede4; }
+.grp-toggle:hover { background-color: #f7f5ef; color: var(--terra-deep); }
+.grp-toggle .chev { font-size: 11px; width: 12px; flex: none; }
+.grp-toggle .rule { flex: 1; height: 1px; background: #f0ede4; }
 .todo-row {
   display: flex;
   align-items: flex-start;
@@ -1675,8 +1697,23 @@ html, body { overflow: auto; }
 .todo-row > .st-pill, .todo-row > .st-cell { margin-top: 1px; }
 .todo-row .meta .proj-link { color: var(--ink-4); transition: color var(--hover-ease); }
 .todo-row .meta .proj-link:hover { color: var(--terra-deep); }
-.todo-rest { font-size: 12px; padding: 12px 2px 0; max-width: 880px; margin: 0 auto; text-align: center; }
+.todo-rest { font-size: 12px; padding: 12px 2px 0; text-align: center; }
 .todo-card.flat { padding-top: 6px; }
+
+/* 闲置项目占位卡(track opendesign-todo-layout T5):「按项目」瀑布末尾一张虚线卡,
+   汇总"有项目但没有未办结事项"的闲置项目——取代旧的「其余 N 个项目…」行。 */
+.todo-card.idle-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 64px;
+  border-style: dashed;
+  border-color: var(--border-main);
+  box-shadow: none;
+  color: var(--ink-4);
+  font-size: 12.5px;
+  text-align: center;
+}
 
 /* 空间小节(修改单 G1):小节眉 = 空间名 + 浅分隔线,不折叠、不按日期分批 */
 .space-sect { padding: 4px 0 2px; }

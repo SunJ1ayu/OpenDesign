@@ -214,3 +214,33 @@ export function dueStatus(due: string | null, today: string): DueStatus {
   if (due === today) return "today";
   return "upcoming";
 }
+
+// ── 「按项目」卡序 + 闲置项目(track opendesign-todo-layout T1)──────────────
+// 契约见 tests/test_todo_layout.mjs(off-limits):四层排序键(超期整体在前 → 组内
+// 天数降序 → 非超期组内条数降序 → 全平局保持传入序,稳定排序);items/project 原样
+// 带过(同引用,不复制不重排组内);不改传入数组;不为 stale 里没有卡的项目凭空造卡。
+
+export type ProjectCard = { project: string; items: OpenItem[]; stale: number | null };
+
+/** I.7 卡序。groups 原样带过(project/items 不改),附 stale 天数。 */
+export function orderProjectCards(groups: ProjectGroup[], stale: StaleItem[]): ProjectCard[] {
+  const staleMap = new Map(stale.map((s) => [s.project, s.days]));
+  return groups
+    .map((g, i) => ({ project: g.project, items: g.items, stale: staleMap.get(g.project) ?? null, i }))
+    .sort((a, b) => {
+      const aStale = a.stale !== null;
+      const bStale = b.stale !== null;
+      if (aStale !== bStale) return aStale ? -1 : 1;
+      if (aStale && bStale && a.stale !== b.stale) return (b.stale as number) - (a.stale as number);
+      if (!aStale && !bStale && a.items.length !== b.items.length) return b.items.length - a.items.length;
+      return a.i - b.i; // 全相等(或同 stale 天数 / 同条数)→ 保持传入序
+    })
+    .map(({ project, items, stale: days }) => ({ project, items, stale: days }));
+}
+
+/** 闲置项目 = 全部项目 − 有卡的 − 已在「⛑ N 天没动静」独立行报过的。保持 allKeys 传入序。 */
+export function idleProjectKeys(allKeys: string[], cardedKeys: string[], staleKeys: string[]): string[] {
+  const carded = new Set(cardedKeys);
+  const stale = new Set(staleKeys);
+  return allKeys.filter((k) => !carded.has(k) && !stale.has(k));
+}

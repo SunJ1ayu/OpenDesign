@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Project } from "./api";
 import { cnDate, editChange } from "./api";
+import GroupToggle from "./GroupToggle";
 import StatusPicker from "./StatusPicker";
 import {
   batchEditRequests,
@@ -8,10 +9,11 @@ import {
   dueStatus,
   groupByDate,
   groupByProject,
+  idleProjectKeys,
   isTerminalStatus,
+  orderProjectCards,
   sortByDateDesc,
   spaceSections,
-  staleDays,
   STATUS_HINT,
   type EditDraft,
   type OpenItem,
@@ -175,6 +177,17 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
     });
   }
 
+  // 折叠开合(共享 GroupToggle 用):反转某 key 的"被点过"标记,复用既有
+  // toggled Set(与 XOR 默认机制同源,时间批次 @time|<date> / 项目卡 @proj|<projectKey>)。
+  function toggleOpen(key: string) {
+    setToggled((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   // 应用批量改状态:batchEditRequests 装配 → 逐条串行 await editChange;
   // 成功/失败计数;终态且 ≥2 条先 confirm(终态会把项从页面移除,批量不可逐条撤销)。
   async function applyBatch(newStatus: string) {
@@ -301,8 +314,16 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
   const { data } = state;
   const groups = groupByProject(data.open);
   const carded = new Set(groups.map((g) => g.project));
-  const restCount = projects.filter((p) => !carded.has(p.key)).length;
   const staleNoCard = data.stale.filter((s) => !carded.has(s.project));
+  // 「按项目」卡序(track opendesign-todo-layout T5):超期天数降序在前、其余未办结数降序在后。
+  const projectCards = orderProjectCards(groups, data.stale);
+  // 闲置项目 = 已建档项目 − 有卡的 − 已被「⛑ N 天没动静」独立行报过的(不重复说同一件事)。
+  const idleKeys = idleProjectKeys(
+    projects.filter((p) => !p.unregistered).map((p) => p.key),
+    [...carded],
+    data.stale.map((s) => s.project),
+  );
+  const idleNames = idleKeys.map((k) => projects.find((p) => p.key === k)?.name ?? k);
 
   const editor = (it: OpenItem) => (
     <div className="todo-row editing" key={`edit:${it.project}:${it.line}`}>
@@ -401,7 +422,8 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
   };
 
   // 日期批次(todo-v3):仅「按时间」视图用。批次头可点折叠;最新一批(gi=0)默认展开。
-  // 批次头自带日期 → 行内不再重复显示日期。
+  // 批次头自带日期 → 行内不再重复显示日期。折叠控件 = 共享 GroupToggle(track
+  // opendesign-todo-layout T3):「全选本组」留在控件外(嵌套 button 非法 + 语义上不是折叠动作)。
   const batches = (items: OpenItem[], scope: string, withProject = false) =>
     groupByDate(items).map((dg, gi) => {
       const key = `${scope}|${dg.date ?? "@none"}`;
@@ -409,23 +431,10 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
       return (
         <div className="batch-sect" key={key}>
           <div className="batch-head">
-            <button
-              className="batch-toggle"
-              aria-expanded={open}
-              onClick={() =>
-                setToggled((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(key)) next.delete(key);
-                  else next.add(key);
-                  return next;
-                })
-              }
-            >
-              <span className="chev">{open ? "▾" : "▸"}</span>
+            <GroupToggle open={open} onToggle={() => toggleOpen(key)}>
               <span className="d8">{dg.date ? cnDate(dg.date) : "未标注日期"}</span>
               <span className="n">{dg.items.length} 条</span>
-            </button>
-            <span className="rule" />
+            </GroupToggle>
             <button
               className="group-select-btn"
               data-ui="todo-select-group"
@@ -488,33 +497,40 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
       )}
 
       {view === "project" && data.open.length > 0 && (
-        <div className="todo-cards">
-          {groups.map((g) => {
-            const p = projects.find((x) => x.key === g.project);
-            const days = staleDays(data.stale, g.project);
+        <div className="todo-cards by-project">
+          {projectCards.map((c) => {
+            const p = projects.find((x) => x.key === c.project);
+            const cardKey = `@proj|${c.project}`;
+            const open = !toggled.has(cardKey); // 项目卡默认全部展开(用户是来看待办的)
             return (
-              <section className="todo-card" key={g.project}>
+              <section className="todo-card" key={c.project}>
                 <header className="card-head">
-                  <span className="ico-col"><span className={dotClass(p)} /></span>
-                  <span className="nm">{p?.name ?? g.project}</span>
-                  <span className="n-open">{g.items.length} 条未办结</span>
-                  {days !== null && (
-                    <span className="stale-badge">⛑ {days} 天没动静</span>
-                  )}
-                  <span className="grow" />
-                  <button className="go-link" onClick={() => onGoProject(g.project)}>
+                  <GroupToggle open={open} onToggle={() => toggleOpen(cardKey)}>
+                    <span className="ico-col"><span className={dotClass(p)} /></span>
+                    <span className="nm">{p?.name ?? c.project}</span>
+                    <span className="n-open">{c.items.length} 条未办结</span>
+                    {c.stale !== null && (
+                      <span className="stale-badge">⛑ {c.stale} 天没动静</span>
+                    )}
+                  </GroupToggle>
+                  <button className="go-link" onClick={() => onGoProject(c.project)}>
                     去项目 →
                   </button>
                 </header>
-                {spaceBatches(g.items)}
+                {open && spaceBatches(c.items)}
               </section>
             );
           })}
+          {idleNames.length > 0 && (
+            <div className="todo-card idle-card" data-ui="todo-idle-card">
+              {idleNames.join("、")} 没有未办结事项
+            </div>
+          )}
         </div>
       )}
 
       {view === "time" && data.open.length > 0 && (
-        <div className="todo-cards">
+        <div className="todo-cards by-time">
           <section className="todo-card flat">
             {batches(sortByDateDesc(data.open), "@time", true)}
           </section>
@@ -527,9 +543,6 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
           {s.days} 天没动静(无未办结条目)
         </div>
       ))}
-      {data.open.length > 0 && restCount > 0 && (
-        <div className="todo-rest muted">其余 {restCount} 个项目没有未办结事项</div>
-      )}
 
       {toast && (
         <div className={`todo-toast ${toast.kind}`} role="status">
