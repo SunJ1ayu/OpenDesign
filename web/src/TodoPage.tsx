@@ -3,6 +3,7 @@ import type { Project } from "./api";
 import { cnDate, editChange } from "./api";
 import GroupToggle from "./GroupToggle";
 import StatusPicker from "./StatusPicker";
+import TodoRail from "./TodoRail";
 import {
   batchEditRequests,
   buildEditRequest,
@@ -101,6 +102,14 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
   // (与 row key 同源,唯一;切视图不清空,两视图各自都能选)。应用中禁止重复点。
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [applying, setApplying] = useState(false);
+
+  // 右栏日历日期过滤(track opendesign-todo-rail T3):点日期是全局意图,两个视图都过滤。
+  // 谓词 = it.due === dateFilter;再点同一日期取消。
+  const [dateFilter, setDateFilter] = useState<string | null>(null);
+
+  function toggleDateFilter(date: string) {
+    setDateFilter((cur) => (cur === date ? null : date));
+  }
 
   useEffect(() => {
     let stale = false;
@@ -325,6 +334,14 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
   );
   const idleNames = idleKeys.map((k) => projects.find((p) => p.key === k)?.name ?? k);
 
+  // 右栏日历日期过滤(T3):谓词 = it.due === dateFilter,两个视图都过滤——只收窄
+  // 主列表本身的展示内容;项目完整性信息(闲置项目 / 「⛑ N 天没动静」独立行)与具体
+  // 日期无关,过滤态下原样保留,不跟着变。
+  const filteredOpen = dateFilter ? data.open.filter((it) => it.due === dateFilter) : data.open;
+  const filteredProjectCards = dateFilter
+    ? orderProjectCards(groupByProject(filteredOpen), data.stale)
+    : projectCards;
+
   const editor = (it: OpenItem) => (
     <div className="todo-row editing" key={`edit:${it.project}:${it.line}`}>
       <span className="cnum">{it.cnum !== null ? `C${it.cnum}` : "—"}</span>
@@ -470,107 +487,123 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
 
   return (
     <div className="page todo-page">
-      <header className="todo-head">
-        <h2 className="serif">待办事项</h2>
-        <span className="sub">
-          {data.open.length} 条未办结 · {groups.length} 个项目
-        </span>
-        <span className="grow" />
-        <div className="filter-pills">
-          <button
-            className={`pill${view === "project" ? " on" : ""}`}
-            onClick={() => setView("project")}
-          >
-            按项目
-          </button>
-          <button
-            className={`pill${view === "time" ? " on" : ""}`}
-            onClick={() => setView("time")}
-          >
-            按时间
-          </button>
-        </div>
-      </header>
+      <div className="todo-main">
+        <header className="todo-head">
+          <h2 className="serif">待办事项</h2>
+          <span className="sub">
+            {data.open.length} 条未办结 · {groups.length} 个项目
+          </span>
+          <span className="grow" />
+          <div className="filter-pills">
+            <button
+              className={`pill${view === "project" ? " on" : ""}`}
+              onClick={() => setView("project")}
+            >
+              按项目
+            </button>
+            <button
+              className={`pill${view === "time" ? " on" : ""}`}
+              onClick={() => setView("time")}
+            >
+              按时间
+            </button>
+          </div>
+        </header>
 
-      {data.open.length === 0 && (
-        <div className="todo-empty muted">所有项目都没有未办结事项,喝口茶吧。</div>
-      )}
+        {dateFilter && (
+          <div className="todo-date-filter" data-ui="todo-date-filter">
+            <span>只看 {cnDate(dateFilter)} 到期的事项</span>
+            <button onClick={() => setDateFilter(null)}>✕ 清除</button>
+          </div>
+        )}
 
-      {view === "project" && data.open.length > 0 && (
-        <div className="todo-cards by-project">
-          {projectCards.map((c) => {
-            const p = projects.find((x) => x.key === c.project);
-            const cardKey = `@proj|${c.project}`;
-            const open = !toggled.has(cardKey); // 项目卡默认全部展开(用户是来看待办的)
-            return (
-              <section className="todo-card" key={c.project}>
-                <header className="card-head">
-                  <GroupToggle open={open} onToggle={() => toggleOpen(cardKey)}>
-                    <span className="ico-col"><span className={dotClass(p)} /></span>
-                    <span className="nm">{p?.name ?? c.project}</span>
-                    <span className="n-open">{c.items.length} 条未办结</span>
-                    {c.stale !== null && (
-                      <span className="stale-badge">⛑ {c.stale} 天没动静</span>
-                    )}
-                  </GroupToggle>
-                  <button className="go-link" onClick={() => onGoProject(c.project)}>
-                    去项目 →
-                  </button>
-                </header>
-                {open && spaceBatches(c.items)}
-              </section>
-            );
-          })}
-          {idleNames.length > 0 && (
-            <div className="todo-card idle-card" data-ui="todo-idle-card">
-              {idleNames.join("、")} 没有未办结事项
-            </div>
-          )}
-        </div>
-      )}
+        {data.open.length === 0 && (
+          <div className="todo-empty muted">所有项目都没有未办结事项,喝口茶吧。</div>
+        )}
 
-      {view === "time" && data.open.length > 0 && (
-        <div className="todo-cards by-time">
-          <section className="todo-card flat">
-            {batches(sortByDateDesc(data.open), "@time", true)}
-          </section>
-        </div>
-      )}
+        {view === "project" && data.open.length > 0 && (
+          <div className="todo-cards by-project">
+            {filteredProjectCards.map((c) => {
+              const p = projects.find((x) => x.key === c.project);
+              const cardKey = `@proj|${c.project}`;
+              const open = !toggled.has(cardKey); // 项目卡默认全部展开(用户是来看待办的)
+              return (
+                <section className="todo-card" key={c.project}>
+                  <header className="card-head">
+                    <GroupToggle open={open} onToggle={() => toggleOpen(cardKey)}>
+                      <span className="ico-col"><span className={dotClass(p)} /></span>
+                      <span className="nm">{p?.name ?? c.project}</span>
+                      <span className="n-open">{c.items.length} 条未办结</span>
+                      {c.stale !== null && (
+                        <span className="stale-badge">⛑ {c.stale} 天没动静</span>
+                      )}
+                    </GroupToggle>
+                    <button className="go-link" onClick={() => onGoProject(c.project)}>
+                      去项目 →
+                    </button>
+                  </header>
+                  {open && spaceBatches(c.items)}
+                </section>
+              );
+            })}
+            {idleNames.length > 0 && (
+              <div className="todo-card idle-card" data-ui="todo-idle-card">
+                {idleNames.join("、")} 没有未办结事项
+              </div>
+            )}
+          </div>
+        )}
 
-      {staleNoCard.map((s) => (
-        <div className="todo-rest muted" key={s.project}>
-          ⛑ {projects.find((p) => p.key === s.project)?.name ?? s.project} —{" "}
-          {s.days} 天没动静(无未办结条目)
-        </div>
-      ))}
+        {view === "time" && data.open.length > 0 && (
+          <div className="todo-cards by-time">
+            <section className="todo-card flat">
+              {batches(sortByDateDesc(filteredOpen), "@time", true)}
+            </section>
+          </div>
+        )}
 
-      {toast && (
-        <div className={`todo-toast ${toast.kind}`} role="status">
-          {toast.kind === "undo" ? (
-            <>
-              <span>已标记「{toast.label}」</span>
-              <button className="toast-undo" onClick={() => undoStatus(toast)}>撤销</button>
-            </>
-          ) : (
-            <span>{toast.message}</span>
-          )}
-          <button className="toast-x" onClick={() => setToast(null)} aria-label="关闭">✕</button>
-        </div>
-      )}
+        {staleNoCard.map((s) => (
+          <div className="todo-rest muted" key={s.project}>
+            ⛑ {projects.find((p) => p.key === s.project)?.name ?? s.project} —{" "}
+            {s.days} 天没动静(无未办结条目)
+          </div>
+        ))}
 
-      {selected.size > 0 && (
-        <div className="todo-batch-bar" data-ui="todo-batch-bar" role="toolbar">
-          <span className="n">已选 {selected.size} 条</span>
-          <StatusPicker status="" label="改为…" menuUp onPick={applyBatch} />
-          <button
-            className="batch-cancel"
-            disabled={applying}
-            onClick={() => setSelected(new Set())}
-          >
-            取消
-          </button>
-        </div>
-      )}
+        {toast && (
+          <div className={`todo-toast ${toast.kind}`} role="status">
+            {toast.kind === "undo" ? (
+              <>
+                <span>已标记「{toast.label}」</span>
+                <button className="toast-undo" onClick={() => undoStatus(toast)}>撤销</button>
+              </>
+            ) : (
+              <span>{toast.message}</span>
+            )}
+            <button className="toast-x" onClick={() => setToast(null)} aria-label="关闭">✕</button>
+          </div>
+        )}
+
+        {selected.size > 0 && (
+          <div className="todo-batch-bar" data-ui="todo-batch-bar" role="toolbar">
+            <span className="n">已选 {selected.size} 条</span>
+            <StatusPicker status="" label="改为…" menuUp onPick={applyBatch} />
+            <button
+              className="batch-cancel"
+              disabled={applying}
+              onClick={() => setSelected(new Set())}
+            >
+              取消
+            </button>
+          </div>
+        )}
+      </div>
+
+      <TodoRail
+        items={data.open}
+        today={data.today}
+        selectedDate={dateFilter}
+        onSelectDate={toggleDateFilter}
+      />
     </div>
   );
 }
