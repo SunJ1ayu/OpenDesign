@@ -5,7 +5,7 @@
 // dueStatus(date, today) → overdue | today | upcoming;本文件只回答
 // 「月历长什么样」「哪些日期有到期事项」「今天该跟进哪些条目」这三个纯派生问题。
 
-import type { OpenItem } from "./todo";
+import { dueStatus, type OpenItem } from "./todo.ts";
 
 export type CalCell = { date: string; inMonth: boolean };
 
@@ -49,11 +49,18 @@ export function dueDates(items: OpenItem[]): string[] {
 }
 
 /** 「需要今天跟进」= 只取 超期 + 今天到期;排序 = 超期在前且越久越前(due 升序),
- * 今天到期垫后(due 恒为选中集合里最大的一个);同 due 保持传入序(稳定)。 */
+ * 今天到期垫后(due 恒为选中集合里最大的一个);同 due 保持传入序(稳定)。
+ *
+ * 筛选**走 dueStatus**而不是自己写 `due <= today`:卡片文案(「超期 N 天」/「今天到期」)
+ * 也是用 dueStatus 判的,若这里另写一遍比较,就成了同一个边界的两处编码——
+ * 哪天 dueStatus 的边界语义变了(比如"今天"改归未来),筛选和文案会各说各话。 */
 export function followUpItems(items: OpenItem[], today: string): OpenItem[] {
   return items
     .map((it, i) => ({ it, i }))
-    .filter(({ it }) => it.due !== null && it.due <= today)
+    .filter(({ it }) => {
+      const s = dueStatus(it.due, today);
+      return s === "overdue" || s === "today";
+    })
     .sort((a, b) => {
       const da = a.it.due as string;
       const db = b.it.due as string;
