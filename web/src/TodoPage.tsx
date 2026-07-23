@@ -4,6 +4,7 @@ import { cnDate, editChange } from "./api";
 import GroupToggle from "./GroupToggle";
 import StatusPicker from "./StatusPicker";
 import TodoRail from "./TodoRail";
+import type { ChatSession } from "./chat/connection";
 import {
   batchEditRequests,
   buildEditRequest,
@@ -52,6 +53,12 @@ type Props = {
   projects: Project[];
   onGoProject: (key: string) => void;
   onEdited?: () => void; // 成功编辑后回调(App bump dataEpoch:刷侧栏角标/项目列表)
+  // track opendesign-todo-assistant T1/T2:keep-mounted 门(隐藏时不取数,
+  // 但保留 DOM/UI 态)+ dataEpoch(与 CompanionColumn 同款依赖,保持约定一致)。
+  active: boolean;
+  dataEpoch: number;
+  // T4:右栏项目助手要挂 ChatPage 真身,session 从 App 经这里透传进 TodoRail。
+  session: ChatSession;
 };
 
 function dotClass(p: Project | undefined): string {
@@ -79,7 +86,14 @@ function editId(it: OpenItem): string | null {
   return it.cnum !== null ? `${it.project}:C${it.cnum}` : null;
 }
 
-export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
+export default function TodoPage({
+  projects,
+  onGoProject,
+  onEdited,
+  active,
+  dataEpoch,
+  session,
+}: Props) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [view, setView] = useState<"project" | "time">("project");
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -111,7 +125,14 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
     setDateFilter((cur) => (cur === date ? null : date));
   }
 
+  // track opendesign-todo-assistant T2:keep-mounted 后照抄 CompanionColumn 的
+  // active 约定——`if (!active) return;` + deps 带 dataEpoch/active。三条性质:
+  // 进入页面必取数(active 由 false→true 即改变依赖数组,effect 必重跑)、
+  // 隐藏期间不取数(早退不发请求)、隐藏时不卸载(state 原样留着,不清空)。
+  // 不做 CompanionColumn 那种 stamp 去重——design.md 明确要求"进入必refetch",
+  // 与今天"卸载重建"的可观察行为一致,这里刻意更简单。
   useEffect(() => {
+    if (!active) return;
     let stale = false;
     fetch("/api/todos")
       .then(async (r) => {
@@ -134,7 +155,7 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
     return () => {
       stale = true;
     };
-  }, [reloadNonce]);
+  }, [reloadNonce, dataEpoch, active]);
 
   // 撤销 toast 自动消失(错误提示也走同一超时);再次变更会覆盖旧 toast。
   useEffect(() => {
@@ -603,6 +624,7 @@ export default function TodoPage({ projects, onGoProject, onEdited }: Props) {
         today={data.today}
         selectedDate={dateFilter}
         onSelectDate={toggleDateFilter}
+        session={session}
       />
     </div>
   );

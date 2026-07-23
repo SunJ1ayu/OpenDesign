@@ -930,6 +930,89 @@ html, body { overflow: auto; }
 .follow-card .txt { color: var(--ink); }
 .follow-card .meta { font-size: 11px; color: var(--ink-4); }
 
+/* ── 右栏项目助手(track opendesign-todo-assistant T3/T4/T5/T6):收起态一句
+   说明+单行输入+发送;展开态 ChatPage 真身占满右栏(①②让位,不卸载)。────── */
+.rail-assistant {
+  background: #fff;
+  border: 1px solid var(--border-main);
+  border-radius: 11px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* 展开态:让第三段吃满右栏剩余高度,ChatPage 内部自己滚动 */
+.rail-assistant.expanded { flex: 1; min-height: 520px; }
+.rail-ask-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+}
+.rail-ask-hint { margin: 0; font-size: 12px; line-height: 1.6; color: var(--ink-3); }
+.rail-ask-row { display: flex; gap: 8px; }
+.rail-ask-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border-input);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 12.5px;
+}
+.rail-ask-input::placeholder { color: var(--ink-5); }
+.rail-send {
+  flex: none;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: var(--terra);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background var(--hover-ease);
+}
+.rail-send:hover { background: var(--terra-deep); }
+.rail-expand-link {
+  align-self: flex-start;
+  font-size: 12px;
+  color: var(--terra-deep);
+  transition: color var(--hover-ease);
+}
+.rail-expand-link:hover { color: var(--terra); }
+
+/* ChatPage 常驻壳(收起时 .route-hidden 隐藏,不卸载——与 .chatcol-body 同规矩) */
+.rail-chat {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+/* 320px 右栏窄于 3a 整片主页:variant="home" 的空态(问候语+620px 大输入卡+三 chip)
+   照搬会太局促,收窄留白/字号;connect-card 本身已有 max-width:calc(100%-32px),
+   这里再顶到 100% 免得在窄栏里显小。 */
+.rail-chat .home-hero { padding: 0 16px 24px; gap: 16px; }
+.rail-chat .home-greet { font-size: 17px; }
+.rail-chat .home-chips { gap: 6px; }
+.rail-chat .connect-card { width: 100%; }
+.rail-chat-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.rail-chat-head .t { font-weight: 600; font-size: 13px; }
+.rail-chat-head .grow { flex: 1; }
+.rail-chat-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 /* ── 备注乐观回显(todo-ux A3)───────────────────────────────────────────── */
 .todo-row .txt .note-tag {
   margin-left: 8px;

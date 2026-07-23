@@ -1,11 +1,23 @@
 import { useState } from "react";
 import { dueStatus, type OpenItem } from "./todo";
 import { dueDates, followUpItems, monthGrid } from "./schedule";
+import ChatPage from "./chat/ChatPage";
+import type { ChatSession } from "./chat/connection";
 
-// 待办页右栏(track opendesign-todo-rail T2):320px,两段——① 日程月历
-// ② 需要今天跟进(③ 项目助手拆到下一单 opendesign-todo-assistant,右栏容器先建好)。
+// 待办页右栏(track opendesign-todo-rail T2 + opendesign-todo-assistant T3/T4/T5):
+// 320px,三段——① 日程月历 ② 需要今天跟进 ③ 项目助手(跨项目入口)。
 // 状态边界:当前显示月份自己持有(纯展示态);选中日期由 props 上提给 TodoPage
 // (因为要过滤主列表——点日期是全局意图,不是这个组件局部的事)。
+//
+// ③ 项目助手两态(design.md):收起态=一句能力说明+单行输入+「发送」;展开态=
+// ChatPage 真身占满右栏,①②让位(route-hidden,不卸载)。ChatPage 常驻挂载、
+// 收起态也只是 CSS 隐藏——卸载就等于丢对话。variant="home":column 变体的登录
+// 卡藏在 bannerOpen 内部 state 后面(ChatPage.tsx 私有,外部够不着),home 变体
+// 登录态直接渲染 connect-card,才能满足「未连接提交 → 立即展开露出连接卡」。
+// 不吞字(design.md 补的约束,设计稿没写):已连接 → dispatch 程序化发送 + 清空
+// 右栏输入框;未连接 → 只展开,右栏输入框里的字原样留着(ChatPage login 态没有
+// 输入框,prefill 会把字落进看不见的地方,读源码后否掉,理由见 design.md)。
+// 连接态由 ChatPage 既有的 onConnected 回调在本组件内记一个本地 flag。
 
 const WEEKDAYS = ["一", "二", "三", "四", "五", "六", "日"];
 
@@ -14,6 +26,9 @@ type Props = {
   today: string;
   selectedDate: string | null;
   onSelectDate: (date: string) => void;
+  // 项目助手(T4):与 home/工作区共享同一 ChatSession——第三个 ChatPage 实例,
+  // 结构上同构,不是新架构(design.md)。
+  session: ChatSession;
 };
 
 function ymFromIso(iso: string): [number, number] {
@@ -29,8 +44,31 @@ function daysBetween(due: string, today: string): number {
   return Math.round((d2 - d1) / 86400000);
 }
 
-export default function TodoRail({ items, today, selectedDate, onSelectDate }: Props) {
+export default function TodoRail({ items, today, selectedDate, onSelectDate, session }: Props) {
   const [[year, month], setYm] = useState<[number, number]>(() => ymFromIso(today));
+  // 项目助手(T3/T4/T5):expanded=两态切换;connected=ChatPage onConnected 记的
+  // 本地 flag;askText=右栏自己的输入(不吞字用);dispatch=程序化发送(nonce 去重,
+  // 复用 CompanionColumn「接入工作区」的既有通道)。
+  const [expanded, setExpanded] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [askText, setAskText] = useState("");
+  const [dispatch, setDispatch] = useState<{ text: string; nonce: number }>({
+    text: "",
+    nonce: 0,
+  });
+
+  // 提交(不吞字):已连接 → 程序化发送 + 清空;未连接 → 只展开露出连接卡,
+  // 输入框里的字原样留着(design.md——两态互斥,展开态看不见 ask 区不等于字丢了,
+  // 收起回来仍在;真要在未连接时看见字,收起一次即可看到)。
+  function handleAsk() {
+    const text = askText.trim();
+    if (!text) return;
+    setExpanded(true);
+    if (connected) {
+      setDispatch((p) => ({ text, nonce: p.nonce + 1 }));
+      setAskText("");
+    }
+  }
 
   function shiftMonth(delta: number) {
     setYm(([y, m]) => {
@@ -53,7 +91,7 @@ export default function TodoRail({ items, today, selectedDate, onSelectDate }: P
 
   return (
     <aside className="todo-rail" data-ui="todo-rail">
-      <section className="rail-cal">
+      <section className={`rail-cal${expanded ? " route-hidden" : ""}`}>
         <header className="cal-head">
           <button
             type="button"
@@ -110,7 +148,7 @@ export default function TodoRail({ items, today, selectedDate, onSelectDate }: P
         </div>
       </section>
 
-      <section className="rail-follow">
+      <section className={`rail-follow${expanded ? " route-hidden" : ""}`}>
         <h3 className="rail-title">需要今天跟进</h3>
         {follow.length === 0 ? (
           <div className="follow-empty" data-ui="follow-empty">
@@ -136,6 +174,68 @@ export default function TodoRail({ items, today, selectedDate, onSelectDate }: P
             })}
           </ol>
         )}
+      </section>
+
+      <section
+        className={`rail-assistant${expanded ? " expanded" : ""}`}
+        data-ui="rail-assistant"
+      >
+        <div className={`rail-ask-block${expanded ? " route-hidden" : ""}`}>
+          <p className="rail-ask-hint">
+            问项目助手一句,记得带上项目名——比如「翡翠湾-1801,C7 业主上次怎么说的」,
+            「记一下」也是靠项目名归档。
+          </p>
+          <div className="rail-ask-row">
+            <input
+              type="text"
+              className="rail-ask-input"
+              data-ui="rail-ask"
+              placeholder="问点什么,或「记一下:…」"
+              value={askText}
+              onChange={(e) => setAskText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAsk();
+              }}
+            />
+            <button type="button" className="rail-send" data-ui="rail-send" onClick={handleAsk}>
+              发送
+            </button>
+          </div>
+          <button
+            type="button"
+            className="rail-expand-link"
+            data-ui="rail-expand"
+            onClick={() => setExpanded(true)}
+          >
+            展开对话 →
+          </button>
+        </div>
+
+        {/* ChatPage 常驻挂载、收起态 CSS 隐藏(卸载=丢对话,与 p3 keep-mounted 同规矩)。
+            跨项目入口,刻意不传 firstSendPrefix(那是工作区列传项目前缀用的,design.md)。 */}
+        <div className={`rail-chat${expanded ? "" : " route-hidden"}`} data-ui="rail-chat">
+          <div className="rail-chat-head">
+            <span className="t">项目助手</span>
+            <span className="grow" />
+            <button
+              type="button"
+              className="icon-btn"
+              data-ui="rail-collapse"
+              title="收起"
+              onClick={() => setExpanded(false)}
+            >
+              收起
+            </button>
+          </div>
+          <div className="rail-chat-body">
+            <ChatPage
+              variant="home"
+              session={session}
+              dispatch={dispatch}
+              onConnected={() => setConnected(true)}
+            />
+          </div>
+        </div>
       </section>
     </aside>
   );

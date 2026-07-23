@@ -35,6 +35,8 @@ import {
 // 实例常驻,非当前路由用 CSS display:none 隐藏、不卸载(transcript/ws 自然
 // 保留;协议每连接一会话,两实例各自独立)。「新对话」/⌘N = 回 3a 现状,
 // 不重置对话(重置 = 亲手复刻"切页丢对话");会话管理是 T7。
+// track opendesign-todo-assistant T1:4a 待办页同款常驻——右栏第三个 ChatPage
+// 实例(项目助手)要求切页对话不丢,「无状态页每次进入重建」的旧取舍作废。
 
 type Route = "home" | "workspace" | "todos" | "skills" | "gallery";
 
@@ -448,14 +450,19 @@ export default function App() {
         />
       </div>
 
-      {/* 无状态页:每次进入重建,无所谓(design.md 取舍) */}
-      {route === "todos" && (
+      {/* 4a 待办页(常驻,非 todos 路由时 CSS 隐藏不卸载;track opendesign-todo-assistant
+          T1——原「无状态页每次进入重建」的取舍已推翻:右栏项目助手要跨页保对话,
+          keep-mounted 是前置地基,写法照抄 home-pane/ws-pane 同款) */}
+      <div className={`todos-pane${route === "todos" ? "" : " route-hidden"}`}>
         <TodoPage
           projects={projects}
           onGoProject={goProject}
           onEdited={() => setDataEpoch((n) => n + 1)}
+          active={route === "todos"}
+          dataEpoch={dataEpoch}
+          session={session}
         />
-      )}
+      </div>
       {route === "skills" && <SkillsPage onUseSkill={useSkill} />}
       {route === "gallery" && <GalleryPage project={selected} />}
 
