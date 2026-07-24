@@ -117,6 +117,13 @@ try {
   check(pin.gapAboveAsst > 40,
     `助手被推到底、与跟进区拉开距离(间隔 ${pin.gapAboveAsst}px)`);
 
+  // 右栏贴屏幕右缘(真机反馈 2026-07-24):待办页要与项目工作区同栅格,右栏永远
+  // 贴右缘、不随内容宽度漂移。回归防线——.todos-pane 若丢了 flex:1,整页缩成内容宽、
+  // 右栏浮在内容后面(实测距右缘曾达 430px)。
+  const flushRight = await rail.evaluate((el) =>
+    Math.round(window.innerWidth - el.getBoundingClientRect().right));
+  check(flushRight <= 2, `右栏贴屏幕右缘(距右缘 ${flushRight}px)`);
+
   // ── 日程月历 ────────────────────────────────────────────────────────────
   const monthLabel = page.locator('[data-ui="cal-month"]');
   check((await monthLabel.innerText()).includes("2026") && (await monthLabel.innerText()).includes("7"),
