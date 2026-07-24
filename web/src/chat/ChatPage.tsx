@@ -11,6 +11,7 @@ import {
   type TranscriptState,
 } from "./transcript";
 import { renderMarkdown } from "./markdown";
+import { inputPlaceholder } from "./inputHint";
 
 // P2 T3:视觉照 handoff §4 重排(用户消息低对比右对齐 / AI 无气泡直排 /
 // 赤陶流式光标 / Claude 式组合输入卡 / 「记一下」chip 预填)。
@@ -22,6 +23,12 @@ const FLUSH_MS = 80;
 
 // 3a 空态三建议 chip(handoff §5,逐字):预填不自动发,发送权在人。
 const HOME_CHIPS = ["新建一个项目", "这周有哪些变更没确认?", "找一张客厅参考图"] as const;
+
+// 项目助手空态快捷入口(设计定案 P3)。第一性:能力归模型,前端只给"发现入口"——
+// chip = 纯预填大白话,点了填进输入框、发送权仍在人;不做数据驱动(不前端算"等几天"、
+// 不自动换),该由模型带工具自己判断。措辞明确指向甲方,与待办页(自己看清单)区分:
+// 这里是"让助手替你干活",产出可直接发给业主的东西。
+const PROJECT_CHIPS = ["催一下没回的业主", "整理这个项目的文件夹", "汇总还没确认的"] as const;
 
 type View =
   | { kind: "login" }
@@ -323,8 +330,8 @@ export default function ChatPage({
               : transcript.busy
                 ? "回复中…"
                 : variant === "home"
-                  ? "聊设计、找东西,或直接说「记一下…」"
-                  : "回复,或直接说「记一下…」"
+                  ? inputPlaceholder("聊设计、找参考")
+                  : inputPlaceholder("问这个项目")
           }
           disabled={view.kind !== "connected"}
           onChange={(e) => setDraft(e.target.value)}
@@ -474,6 +481,20 @@ export default function ChatPage({
     );
   }
 
+  // 预填 chip(首页 + 项目助手空态共用):点了把话递到嘴边、聚焦,发送权留给人。
+  const prefillChip = (c: string) => (
+    <button
+      key={c}
+      className="prefill-chip"
+      onClick={() => {
+        setDraft(c);
+        inputRef.current?.focus();
+      }}
+    >
+      {c}
+    </button>
+  );
+
   return (
     <>
       <div className="chat-meta">
@@ -507,24 +528,13 @@ export default function ChatPage({
           <div className="home-hero">
             <div className="home-greet">今天想聊点什么?</div>
             {inputCard}
-            <div className="home-chips">
-              {HOME_CHIPS.map((c) => (
-                <button
-                  key={c}
-                  className="home-chip"
-                  onClick={() => {
-                    setDraft(c);
-                    inputRef.current?.focus();
-                  }}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
+            <div className="home-chips">{HOME_CHIPS.map(prefillChip)}</div>
           </div>
         ) : (
-          <div className="chat-fill">
-            <p>连接就绪,说点什么吧——比如「记一下:张三家玄关柜改到 2.4 米」。</p>
+          /* P3 项目助手空态:短引导 + 竖排快捷入口(纯预填,替你干活、指向甲方) */
+          <div className="chat-fill col-empty">
+            <p className="col-empty-lead">就着这个项目,让我替你搭把手——</p>
+            <div className="col-chips">{PROJECT_CHIPS.map(prefillChip)}</div>
           </div>
         )
       ) : (

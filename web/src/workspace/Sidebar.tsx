@@ -38,6 +38,14 @@ function dotClass(p: Project, current: boolean): string {
   return "dot idle";
 }
 
+// 圆点语义(⑩ 小圆点没有图例):hover 时给一句解释,新用户不用猜颜色。
+function dotTitle(p: Project, current: boolean): string {
+  if (current) return "当前查看的项目";
+  if (p.delivered) return "已交付";
+  if (p.open_count > 0) return `${p.open_count} 条待办未结`;
+  return "暂无待办";
+}
+
 export default function Sidebar({
   route, projects, selectedKey, onSelectProject, todosOpenCount,
   sessions, sessionTags, onOpenSession, onDeleteSession, onNewChat, onNewProject,
@@ -181,7 +189,7 @@ export default function Sidebar({
                 : p.stage ? `${p.name} · 阶段:${p.stage}` : p.name}
             >
               <span className="ico-col">
-                <span className={dotClass(p, current)} />
+                <span className={dotClass(p, current)} title={dotTitle(p, current)} />
               </span>
               <span className="nm">{displayProjectName(p.name)}</span>
               {p.group ? <span className="n-group">{p.group}</span> : null}

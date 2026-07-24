@@ -263,7 +263,7 @@ try {
   );
 
   // ── I.8「按时间」:单列 + 去限宽 + 无占位卡 ─────────────────────────────
-  await page.locator('.todo-head .pill:has-text("按时间")').click();
+  await page.locator('.todo-head .opt:has-text("按时间")').click();
   await page.locator(".batch-head").first().waitFor({ timeout: 5000 });
   const timeCards = page.locator(".todo-cards");
   check(await timeCards.evaluate((el) => el.classList.contains("by-time")),

@@ -108,10 +108,10 @@ try {
   // ── T4:单项目变更列「按空间」分组切换 ──────────────────────────────────
   await regRow.click();
   await page.locator(".change-row").first().waitFor({ timeout: 10000 });
-  check((await page.locator('[data-ui="change-group-toggle"] .pill.on').innerText()).includes("按时间"),
+  check((await page.locator('[data-ui="change-group-toggle"] .opt.on').innerText()).includes("按时间"),
     "默认按时间分组");
   check((await page.locator(".change-group-head").count()) >= 1, "按时间:出现日期分节头");
-  await page.locator('[data-ui="change-group-toggle"] .pill:has-text("按空间")').click();
+  await page.locator('[data-ui="change-group-toggle"] .opt:has-text("按空间")').click();
   await page.waitForFunction(
     () => Array.from(document.querySelectorAll(".change-group-head .nm"))
       .some((el) => el.textContent?.includes("玄关")),
@@ -127,7 +127,7 @@ try {
   // 免去先点开折叠头这步,选它俩。
   await page.locator('.side-row:has-text("待办事项")').first().click();
   await page.locator(".todo-card").first().waitFor({ timeout: 10000 });
-  await page.locator('.todo-head .pill:has-text("按时间")').click();
+  await page.locator('.todo-head .opt:has-text("按时间")').click();
   await page.locator(".batch-head").first().waitFor({ timeout: 5000 });
   const timeRow1 = page.locator('.todo-row:has-text("卫生间防水加一道")').first();
   const timeRow2 = page.locator('.todo-row:has-text("飘窗台改石材")').first();
@@ -160,7 +160,7 @@ try {
 
   // ── T3:待办页批量改状态——按项目视图(空间小节)────────────────────────
   // 空间小节不折叠,任意条目直接可选;取 C1(玄关)/C2(客厅)两个不同小节各一条。
-  await page.locator('.todo-head .pill:has-text("按项目")').click();
+  await page.locator('.todo-head .opt:has-text("按项目")').click();
   await page.locator('[data-ui="todo-space-sect"]').first().waitFor({ timeout: 5000 });
   const projRow1 = page.locator('.todo-row:has-text("玄关柜改高")').first();
   const projRow2 = page.locator('.todo-row:has-text("沙发靠墙摆")').first();
@@ -182,7 +182,7 @@ try {
   check(projDMd().includes("[进行中] C2"), "落盘:C2 已改为进行中");
 
   // ── T3:全选本组(冒烟)──────────────────────────────────────────────────
-  await page.locator('.todo-head .pill:has-text("按时间")').click();
+  await page.locator('.todo-head .opt:has-text("按时间")').click();
   await page.locator(".batch-head").first().waitFor({ timeout: 5000 });
   await page.locator('[data-ui="todo-select-group"]').first().click();
   await page.locator('[data-ui="todo-batch-bar"]').waitFor({ timeout: 5000 });

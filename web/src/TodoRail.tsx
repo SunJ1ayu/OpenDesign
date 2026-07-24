@@ -3,6 +3,7 @@ import { dueStatus, type OpenItem } from "./todo";
 import { dueDates, followUpItems, monthGrid } from "./schedule";
 import ChatPage from "./chat/ChatPage";
 import type { ChatSession } from "./chat/connection";
+import { inputPlaceholder } from "./chat/inputHint";
 
 // 待办页右栏(track opendesign-todo-rail T2 + opendesign-todo-assistant T3/T4/T5):
 // 320px,三段——① 日程月历 ② 需要今天跟进 ③ 项目助手(跨项目入口)。
@@ -202,7 +203,7 @@ export default function TodoRail({
               type="text"
               className="rail-ask-input"
               data-ui="rail-ask"
-              placeholder="问点什么,或「记一下:…」"
+              placeholder={inputPlaceholder("问待办")}
               value={askText}
               onChange={(e) => setAskText(e.target.value)}
               onKeyDown={(e) => {
