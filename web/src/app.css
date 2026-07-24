@@ -426,26 +426,27 @@ html, body { overflow: auto; }
 .proj-progress .prog-item.st-进行中 .d { background: var(--st-doing-dot); }
 .proj-progress .prog-item.st-已完成 .d { background: var(--st-done-dot); }
 .proj-progress .prog-item.st-已关闭 .d { background: var(--st-closed-dot); }
-.center-toolbar { display: flex; align-items: center; gap: 8px; margin: 18px 0 0; }
+/* flex-wrap:窄列放不下时整排药丸落到第二行(而非每颗被挤成圆);见下方 .pill 的 nowrap */
+.center-toolbar { display: flex; align-items: center; gap: 8px; margin: 18px 0 0; flex-wrap: wrap; row-gap: 8px; }
 .center-toolbar .t { font-weight: 600; font-size: 14px; }
 .center-toolbar .n { font: 600 11px var(--font-mono); color: var(--ink-4); }
 .center-toolbar .grow { flex: 1; }
-.filter-pills { display: flex; gap: 6px; font-size: 12px; }
-.filter-pills .pill, .group-pills .pill {
+/* flex-shrink:0:筛选药丸组作为整体不被压缩,放不下就整组换行,保持每颗药丸原尺寸 */
+.filter-pills { display: flex; gap: 6px; font-size: 12px; flex-shrink: 0; }
+.filter-pills .pill {
   padding: 5px 11px;
   border-radius: 99px;
   border: 1px solid var(--border-input);
   color: var(--ink-2);
+  white-space: nowrap;               /* 标签绝不折行——否则 99px 圆角会把两字压成圆 */
   transition: background var(--hover-ease);
 }
-.filter-pills .pill:hover, .group-pills .pill:hover { background: var(--paper-side); }
-.filter-pills .pill.on, .group-pills .pill.on {
+.filter-pills .pill:hover { background: var(--paper-side); }
+.filter-pills .pill.on {
   background: var(--ink);
   color: var(--paper);
   border-color: var(--ink);
 }
-/* 分组切换(track opendesign-todo-batch-space T4):按时间/按空间,紧挨筛选胶囊 */
-.group-pills { display: flex; gap: 6px; font-size: 12px; margin-left: 6px; padding-left: 6px; border-left: 1px solid var(--border-soft); }
 
 /* 快记单行输入卡(修改单 B,track opendesign-frontend-p2-polish):圆角 12 卡 =
    ✎ + 单行 input + 空间 chip(popover)+ 主色「记一条」;取代旧的裸 input 两件套。 */
@@ -1238,11 +1239,13 @@ html, body { overflow: auto; }
 .aside-head .n { font-size: 11.5px; color: var(--ink-4); }
 .seg {
   display: flex;
+  flex: none;
   background: var(--paper-inset);
   border-radius: 7px;
   padding: 2px;
   font-size: 11px;
 }
+.seg .opt { white-space: nowrap; cursor: pointer; }
 .seg .opt { padding: 3px 9px; color: var(--ink-3); border-radius: 5px; }
 .seg .opt.on {
   background: #fff;
@@ -1535,9 +1538,10 @@ html, body { overflow: auto; }
   transition: background var(--hover-ease);
 }
 .send-btn:hover { background: var(--terra-deep); }
-/* 未连接置灰:同形态、底色 #e8d5cb(不是简单降透明度) */
-.send-btn:disabled { background: #e8d5cb; cursor: default; }
-.send-btn:disabled:hover { background: #e8d5cb; }
+/* 禁用置灰(未连接 / 空输入通用):中性暖灰,与"可发送"的赤陶明确区分——
+   浅粉旧色像"褪色的可点态",用户分不清能不能点(Kimi #2)。 */
+.send-btn:disabled { background: var(--paper-hover); color: var(--ink-5); cursor: default; }
+.send-btn:disabled:hover { background: var(--paper-hover); }
 
 /* 聊天登录/连接/错误(逻辑不变,壳内窄版) */
 .chat-fill {
@@ -1749,16 +1753,24 @@ html, body { overflow: auto; }
 
 /* 三建议 chip(描边胶囊,预填不自动发) */
 .home-chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-.home-chip {
+/* 预填 chip 基础样式(首页横排 + 项目助手竖排共用一套外观) */
+.prefill-chip {
   border: 1px solid var(--border-main);
   border-radius: 99px;
   padding: 6px 14px;
   font-size: 12px;
   color: var(--ink-2);
   background: var(--paper);
-  transition: background var(--hover-ease), border-color var(--hover-ease);
+  transition: background var(--hover-ease), border-color var(--hover-ease), transform var(--hover-ease);
 }
-.home-chip:hover { background: var(--paper-side); border-color: var(--border-input); }
+.prefill-chip:hover { background: var(--paper-side); border-color: var(--border-input); }
+
+/* P3 项目助手空态:短引导 + 竖排快捷入口 */
+.chat-fill.col-empty { gap: 14px; padding: 0 24px; }
+.col-empty-lead { color: var(--ink-3); font-size: 13px; }
+.col-chips { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 260px; }
+.col-chips .prefill-chip { width: 100%; text-align: left; }
+.col-chips .prefill-chip:hover { transform: translateY(-1px); }
 
 /* ================= 占位页(待办/技能,#/todos 等) ================= */
 .page {
@@ -1888,8 +1900,13 @@ html, body { overflow: auto; }
 }
 .todo-row:last-child { border-bottom: none; }
 /* 批量选择(track opendesign-todo-batch-space T3):行首复选框,残缺行(无 cnum)禁用变灰 */
-.todo-row .todo-select { flex: none; margin-top: 4px; width: 14px; height: 14px; accent-color: var(--terra-deep); cursor: pointer; }
-.todo-row .todo-select:disabled { cursor: default; opacity: 0.35; }
+.todo-row .todo-select { flex: none; margin-top: 4px; width: 14px; height: 14px; accent-color: var(--terra-deep); cursor: pointer; opacity: 0; transition: opacity var(--hover-ease); }
+/* J.3 行内降噪:复选框平时藏,行 hover / 聚焦 / 已勾选 / 批量态(本列有勾选)时才现 */
+.todo-row:hover .todo-select,
+.todo-row:focus-within .todo-select,
+.todo-row .todo-select:checked,
+.todo-cards:has(.todo-select:checked) .todo-select { opacity: 1; }
+.todo-row .todo-select:disabled { cursor: default; opacity: 0; }
 .todo-row .cnum { font: 600 12px var(--font-mono); color: var(--terra-deep); flex: none; padding-top: 2px; }
 .todo-row .txt { flex: 1; min-width: 0; white-space: normal; word-break: break-word; line-height: 1.55; }
 .todo-row .txt .space-chip {
@@ -1903,8 +1920,9 @@ html, body { overflow: auto; }
 }
 .todo-row .meta { font-size: 11px; color: var(--ink-5); flex: none; display: flex; gap: 8px; padding-top: 3px; }
 .todo-row > .st-pill, .todo-row > .st-cell { margin-top: 1px; }
-.todo-row .meta .proj-link { color: var(--ink-4); transition: color var(--hover-ease); }
-.todo-row .meta .proj-link:hover { color: var(--terra-deep); }
+/* ⑥a 项目名一直可见(告诉你归属哪个项目),但补链接感:hover 上色 + 下划线 */
+.todo-row .meta .proj-link { color: var(--ink-3); transition: color var(--hover-ease); }
+.todo-row .meta .proj-link:hover { color: var(--terra-deep); text-decoration: underline; }
 .todo-rest { font-size: 12px; padding: 12px 2px 0; text-align: center; }
 .todo-card.flat { padding-top: 6px; }
 
@@ -1937,21 +1955,31 @@ html, body { overflow: auto; }
 .space-sect-head .rule { flex: 1; height: 1px; background: #f0ede4; }
 
 /* 分组头「全选本组/取消本组」(track opendesign-todo-batch-space T3):批次头与空间小节头共用 */
+/* J.3 行内降噪:「全选本组」平时藏,分组头 hover / 聚焦 / 批量态时才现 */
 .group-select-btn {
   flex: none;
   font-size: 10.5px;
   color: var(--ink-4);
   white-space: nowrap;
-  transition: color var(--hover-ease);
+  opacity: 0;
+  transition: color var(--hover-ease), opacity var(--hover-ease);
 }
+.space-sect-head:hover .group-select-btn,
+.space-sect-head:focus-within .group-select-btn,
+.batch-head:hover .group-select-btn,
+.batch-head:focus-within .group-select-btn,
+.todo-cards:has(.todo-select:checked) .group-select-btn { opacity: 1; }
 .group-select-btn:hover { color: var(--terra-deep); }
 
 /* 行内编辑(track opendesign-todo-edit T6) */
+/* J.3 行内降噪:编辑平时藏,行 hover / 聚焦才现 */
 .todo-row .meta .edit-btn {
   color: var(--ink-4);
-  transition: color var(--hover-ease);
+  opacity: 0;
+  transition: color var(--hover-ease), opacity var(--hover-ease);
 }
-.todo-row:hover .meta .edit-btn { color: var(--terra-deep); }
+.todo-row:hover .meta .edit-btn,
+.todo-row:focus-within .meta .edit-btn { color: var(--terra-deep); opacity: 1; }
 .todo-row .txt .edited-tag {
   margin-left: 8px;
   font-size: 11px;

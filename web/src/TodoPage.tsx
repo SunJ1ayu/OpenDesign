@@ -529,15 +529,16 @@ export default function TodoPage({
           {data.open.length} 条未办结 · {groups.length} 个项目
         </span>
         <span className="grow" />
-        <div className="filter-pills">
+        {/* 分组=选视图,全应用统一用 .seg 分段开关(与变更记录、参考/项目图 tab 同款) */}
+        <div className="seg">
           <button
-            className={`pill${view === "project" ? " on" : ""}`}
+            className={`opt${view === "project" ? " on" : ""}`}
             onClick={() => setView("project")}
           >
             按项目
           </button>
           <button
-            className={`pill${view === "time" ? " on" : ""}`}
+            className={`opt${view === "time" ? " on" : ""}`}
             onClick={() => setView("time")}
           >
             按时间

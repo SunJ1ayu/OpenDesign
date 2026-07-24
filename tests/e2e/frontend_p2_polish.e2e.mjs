@@ -259,7 +259,7 @@ try {
   check(sectTxts[2].includes("未分空间"), "无空间条目归「未分空间」置末");
   check((await page.locator(".todo-cards .batch-head").count()) === 0,
     "按项目视图:无日期折叠头(修改单 G1)");
-  await page.locator('.todo-head .pill:has-text("按时间")').click();
+  await page.locator('.todo-head .opt:has-text("按时间")').click();
   await page.locator(".batch-head").first().waitFor({ timeout: 5000 });
   check(true, "按时间视图:日期批次折叠保留");
 

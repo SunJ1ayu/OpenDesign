@@ -608,10 +608,10 @@ export default function ChangesColumn({
             ))}
           </div>
         )}
+        {/* 药丸=选内容(筛选),分段开关=选视图(分组);分组统一用 .seg 且置于右端 */}
         <div className="center-toolbar">
           <span className="t">变更记录</span>
           <span className="n">{counts.all} 条</span>
-          <span className="grow" />
           <div className="filter-pills">
             {pills.map((p) => (
               <button
@@ -624,15 +624,16 @@ export default function ChangesColumn({
               </button>
             ))}
           </div>
-          <div className="group-pills" data-ui="change-group-toggle">
+          <span className="grow" />
+          <div className="seg" data-ui="change-group-toggle">
             <button
-              className={`pill${groupMode === "time" ? " on" : ""}`}
+              className={`opt${groupMode === "time" ? " on" : ""}`}
               onClick={() => setGroupMode("time")}
             >
               按时间
             </button>
             <button
-              className={`pill${groupMode === "space" ? " on" : ""}`}
+              className={`opt${groupMode === "space" ? " on" : ""}`}
               onClick={() => setGroupMode("space")}
             >
               按空间
