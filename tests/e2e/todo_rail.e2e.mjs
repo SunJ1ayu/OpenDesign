@@ -93,11 +93,29 @@ try {
   await rail.waitFor({ timeout: 5000 });
   const railW = await rail.evaluate((el) => el.clientWidth);
   check(railW >= 300 && railW <= 340, `右栏约 320px(实测 ${railW}px)`);
-  // 真实列数只能量子元素左边界:CSS 用 column-width 驱动时,getComputedStyle 的
-  // columnCount 返回的是声明上限而非实际用量(收货时踩到过)。
+  // 真实列数只能量子元素左边界(CSSOM columnCount 不可靠,收货踩过)。
+  // 待办改回竖向单列(真机反馈 2026-07-24):主区所有卡共享同一左边界 = 单列。
   const mainCols = await page.locator(".todo-cards").evaluate((el) =>
     new Set([...el.children].map((c) => Math.round(c.getBoundingClientRect().left))).size);
-  check(mainCols >= 2, `右栏落地后主区仍多列(实测 ${mainCols} 列)`);
+  check(mainCols === 1, `右栏落地后主区竖向单列(实测 ${mainCols} 列)`);
+
+  // ── 项目助手贴右栏底部固定(真机反馈 2026-07-24)────────────────────────────
+  // 助手区底边贴着右栏底边(满高布局 + margin-top:auto 吸收剩余高度),且被推到
+  // 底、和上方「需要今天跟进」拉开距离——不是紧跟其后浮在中间。
+  const pin = await rail.evaluate((el) => {
+    const railBox = el.getBoundingClientRect();
+    const asst = el.querySelector('[data-ui="rail-assistant"]');
+    const follow = el.querySelector(".rail-follow");
+    const aBox = asst.getBoundingClientRect();
+    const fBox = follow.getBoundingClientRect();
+    return {
+      gapToBottom: Math.round(railBox.bottom - aBox.bottom),
+      gapAboveAsst: Math.round(aBox.top - fBox.bottom),
+    };
+  });
+  check(pin.gapToBottom <= 2, `助手贴右栏底边(距底 ${pin.gapToBottom}px)`);
+  check(pin.gapAboveAsst > 40,
+    `助手被推到底、与跟进区拉开距离(间隔 ${pin.gapAboveAsst}px)`);
 
   // ── 日程月历 ────────────────────────────────────────────────────────────
   const monthLabel = page.locator('[data-ui="cal-month"]');

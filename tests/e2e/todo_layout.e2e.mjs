@@ -3,7 +3,7 @@
 // 主 agent 亲写,执行腿逐字节 off-limits。
 //
 // 覆盖:
-//   I.7  「按项目」多列瀑布(2 列 @1440 / 3 列 @1700)+ 无 max-width 限宽/不居中 + 卡序 + 闲置项目占位卡;
+//   I.7  「按项目」竖向单列(真机反馈 2026-07-24 从多列瀑布改回)+ 无 max-width 限宽/不居中 + 卡序 + 闲置项目占位卡;
 //   I.8  「按时间」保持单列 + 去限宽;
 //   #1/#2 折叠:两视图**同一个**控件(.grp-toggle[data-ui=group-toggle]),chev 字号与
 //         cursor 一致;项目卡可整卡折叠;可点区域不吞掉「去项目 →」/「全选本组」;
@@ -111,33 +111,21 @@ try {
   await page.locator('.side-row:has-text("待办事项")').first().click();
   await page.locator(".todo-card").first().waitFor({ timeout: 10000 });
 
-  // ── I.7 多列瀑布 + 去限宽 ────────────────────────────────────────────────
+  // ── I.7 竖向单列 + 去限宽(真机反馈 2026-07-24:多列瀑布看着乱,改回竖排)──────
   const cards = page.locator(".todo-cards");
   check(await cards.evaluate((el) => el.classList.contains("by-project")),
     "「按项目」容器带 .by-project 布局 class");
-  // 主 agent 修正②(track opendesign-todo-rail 收货):列数不再由视口断言,而是验**不变量**
-  // ——「列宽不低于可读下限、且最多 3 列」。原写法把列数绑在视口宽度上(@1600→3 列),
-  // 待办页加右栏后 1700 视口下三列 = 每列 339px,正文被挤成一列一个字的竖排,
-  // 而 `columnCount === "3"` 照样绿:**对的数字、错的结果**。现在 CSS 用
-  // `columns: 360px 3`(column-width 驱动),列数随可用宽度自适应。
-  // ⚠️ 测量方式:`getComputedStyle().columnCount` 返回的是**声明值**(column-width 驱动时
-  // 那只是上限),浏览器实际用了几列 CSSOM 不暴露 → 只能量子元素的真实左边界,
-  // 有几个不同的 left 就是几列。
-  const MIN_COL = 355; // = CSS 的 360px 下限,留 5px 给取整
-  const colInfo = async () => cards.evaluate((el) => {
-    const lefts = [...el.children].map((c) => Math.round(c.getBoundingClientRect().left));
-    const n = new Set(lefts).size;
-    const gapPx = parseFloat(getComputedStyle(el).columnGap) || 0;
-    return { n, colW: (el.clientWidth - gapPx * (n - 1)) / n, total: el.clientWidth };
+  // 单列不变量:所有顶层卡共享同一左边界 → 只有 1 个不同的 left = 单列。
+  // (CSSOM 的 columnCount/flex 都不能可靠反映真实用量,收货踩过,一律量真实左边界。)
+  const colCount = async () => cards.evaluate((el) =>
+    new Set([...el.children].map((c) => Math.round(c.getBoundingClientRect().left))).size);
+  const flex = await cards.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return { display: cs.display, dir: cs.flexDirection };
   });
-  const c1440 = await colInfo();
-  check(c1440.n === 2, `「按项目」@1440 两列(实测 ${c1440.n} 列)`);
-  check(c1440.colW >= MIN_COL,
-    `@1440 每列 ${Math.round(c1440.colW)}px ≥ 可读下限 ${MIN_COL}px`);
-  // 主 agent 修正(track opendesign-todo-rail 收货):原断言写的是 `clientWidth > 880`,
-  // 那是**代理断言**——它验的是"去掉 880 限宽"在当时的附带后果,不是性质本身。
-  // 待办页加了 320px 右栏后,1440 视口下主区最宽只能到 1136-320=816,该后果**算术上
-  // 不可能**成立,但"没有 880 居中限宽"这个性质仍然成立。改为直接验性质:
+  check(flex.display === "flex" && flex.dir === "column",
+    `「按项目」竖向 flex 单列(实测 ${flex.display}/${flex.dir})`);
+  check(await colCount() === 1, `「按项目」@1440 单列(实测 ${await colCount()} 列)`);
   // 无 max-width 上限 + 不居中(左右 margin 非 auto)+ 填满可用宽度。
   const projBox = await cards.evaluate((el) => {
     const cs = getComputedStyle(el);
@@ -152,25 +140,16 @@ try {
     `「按项目」不居中(margin ${projBox.ml}/${projBox.mr})`);
   check(projBox.w >= projBox.parentW - 1,
     `「按项目」填满可用宽度(${projBox.w}px / 容器 ${projBox.parentW}px)`);
-  const gap = await cards.evaluate((el) => getComputedStyle(el).columnGap);
-  check(parseFloat(gap) >= 12, `列间距已设(column-gap=${gap})`);
-  const brk = await page.locator(".todo-card").first()
-    .evaluate((el) => getComputedStyle(el).breakInside);
-  check(brk === "avoid", `卡片 break-inside:avoid(实测 ${brk})`);
+  const gap = await cards.evaluate((el) =>
+    parseFloat(getComputedStyle(el).rowGap) || parseFloat(getComputedStyle(el).gap) || 0);
+  check(gap >= 12, `卡间距已设(gap=${gap}px)`);
 
-  // 关键不变量:**任何视口下每列都不许窄过可读下限**(这是 339px 竖排事故的回归防线)。
+  // 关键不变量:**任何视口下都保持单列**,不再随视口宽度铺成多列(防多列复辟的回归防线)。
   for (const vw of [1280, 1700, 2000, 2560]) {
     await page.setViewportSize({ width: vw, height: 900 });
     await page.waitForTimeout(150);
-    const c = await colInfo();
-    check(c.colW >= MIN_COL,
-      `@${vw} 每列 ${Math.round(c.colW)}px ≥ ${MIN_COL}px(${c.n} 列 / 主区 ${c.total}px)`);
-    check(c.n <= 3, `@${vw} 列数封顶 3(实测 ${c.n})`);
+    check(await colCount() === 1, `@${vw} 仍单列(实测 ${await colCount()} 列)`);
   }
-  // 宽屏确实要能多列(否则"下限"可以靠永远单列来作弊满足)
-  await page.setViewportSize({ width: 2000, height: 900 });
-  await page.waitForTimeout(150);
-  check((await colInfo()).n >= 3, "@2000 宽屏确实铺到 3 列(不是靠永远单列糊弄下限)");
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.waitForTimeout(150);
 
@@ -191,10 +170,10 @@ try {
   check(!idleTxt.includes(P1) && !idleTxt.includes(P3), "占位卡不含有卡项目");
   check(!idleTxt.includes(UNREG), "占位卡不含未建档文件夹(还不是项目)");
   check(await idle.evaluate((el) => el.closest(".todo-cards") !== null),
-    "占位卡在瀑布容器内(参与多列排布)");
+    "占位卡在单列容器内(参与竖排)");
   const lastCard = page.locator(".todo-cards > *").last();
   check(await lastCard.evaluate((el) => el.matches('[data-ui="todo-idle-card"]')),
-    "占位卡排在瀑布末尾");
+    "占位卡排在列表末尾");
   const restTxt = (await page.locator(".todo-rest").allInnerTexts()).join(" | ");
   check(restTxt.includes(P6) && restTxt.includes("天没动静"),
     `超期无卡项目仍有「⛑ N 天没动静」独立行(实测「${restTxt}」)`);
@@ -259,25 +238,25 @@ try {
     .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
   check(chevSizeProj >= 11, `chev 已放大到 ≥11px(实测 ${chevSizeProj}px)`);
 
-  // ── 回归:多列下 StatusPicker 菜单能开且可见 ─────────────────────────────
+  // ── 回归:StatusPicker 菜单能开且可见 ───────────────────────────────────
   await card1.locator(".todo-row").first().locator(".st-btn").click();
   const menuItem = page.locator(".st-menu-item").first();
   await menuItem.waitFor({ state: "visible", timeout: 5000 });
   const box = await menuItem.boundingBox();
   check(box !== null && box.height > 0 && box.width > 0,
-    "多列布局下状态菜单可见(未被 column fragmentation 吞掉)");
+    "状态菜单可见");
   await page.keyboard.press("Escape"); // StatusPicker 自带 Escape 关闭(StatusPicker.tsx:29)
   await page.waitForFunction(
     () => document.querySelectorAll(".st-menu-item").length === 0, { timeout: 5000 },
   );
 
-  // ── 回归:多列下批量勾选仍出浮栏 ─────────────────────────────────────────
+  // ── 回归:批量勾选仍出浮栏 ───────────────────────────────────────────────
   const rows = card1.locator(".todo-row");
   await rows.nth(0).locator('[data-ui="todo-select"]').check();
   await rows.nth(1).locator('[data-ui="todo-select"]').check();
   const bar = page.locator('[data-ui="todo-batch-bar"]');
   await bar.waitFor({ timeout: 5000 });
-  check((await bar.innerText()).includes("已选 2 条"), "多列下批量选择仍工作(已选 2 条)");
+  check((await bar.innerText()).includes("已选 2 条"), "批量选择仍工作(已选 2 条)");
   await page.locator(".todo-batch-bar .batch-cancel").click();
   await page.waitForFunction(
     () => !document.querySelector('[data-ui="todo-batch-bar"]'), { timeout: 5000 },

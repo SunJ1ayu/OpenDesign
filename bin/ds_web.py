@@ -76,7 +76,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.38.0"  # todo-assistant:待办页常驻(keep-mounted)+ 右栏项目助手
+VERSION = "0.39.0"  # todo 竖向单列 + 右栏项目助手贴底固定(真机反馈 2026-07-24)
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")

@@ -850,7 +850,7 @@ html, body { overflow: auto; }
 
 /* ── 待办右栏(track opendesign-todo-rail T2/T4):320px,日程月历 + 需要今天跟进
    (项目助手拆到下一单 opendesign-todo-assistant,右栏容器先建好)。────────────── */
-.todo-rail { flex: none; width: 320px; display: flex; flex-direction: column; gap: 20px; }
+.todo-rail { flex: none; width: 320px; display: flex; flex-direction: column; gap: 20px; min-height: 0; overflow-y: auto; }
 .rail-cal, .rail-follow {
   background: #fff;
   border: 1px solid var(--border-main);
@@ -940,6 +940,9 @@ html, body { overflow: auto; }
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* 贴右栏底部固定(真机反馈 2026-07-24):吸收日历/跟进上方的剩余高度,
+     把助手推到底,和其他页面的项目助手位置对齐。 */
+  margin-top: auto;
 }
 /* 展开态:让第三段吃满右栏剩余高度,ChatPage 内部自己滚动 */
 .rail-assistant.expanded { flex: 1; min-height: 520px; }
@@ -1775,8 +1778,9 @@ html, body { overflow: auto; }
 /* 右栏落地(track opendesign-todo-rail T4):主区 + 320px 右栏并排,既有多列瀑布
    (.todo-cards.by-project 的 column-count)不受影响——它是主区内部布局,与外层
    flex 宽度无关。 */
-.todo-page { display: flex; align-items: flex-start; gap: 28px; }
-.todo-main { flex: 1; min-width: 0; }
+/* 满高布局(真机反馈 2026-07-24):右栏满高,主区自己滚,右栏项目助手才能贴底固定。 */
+.todo-page { display: flex; align-items: stretch; gap: 28px; height: 100%; min-height: 0; }
+.todo-main { flex: 1; min-width: 0; overflow-y: auto; min-height: 0; }
 .todo-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
 .todo-head .serif {
   font: 700 22px var(--font-serif);
@@ -1786,22 +1790,17 @@ html, body { overflow: auto; }
 .todo-head .sub { font-size: 12px; color: var(--ink-4); }
 .todo-head .grow { flex: 1; }
 .todo-empty { padding: 60px 0; text-align: center; font-size: 13px; }
-/* 「按项目」多列瀑布 + 「按时间」单列(track opendesign-todo-layout T6):
-   去掉修改单 G2 的 880px 居中限宽——两视图各自一个布局 class,不靠覆盖。 */
-/* 列数由**可用宽度**决定,不由视口宽度决定(track opendesign-todo-rail 收货修正)。
-   原写法 `columns:2` + `@media(min-width:1600px){columns:3}` 把列数绑在视口上:
-   待办页加了 320px 右栏后,1700 视口下主区只剩 1048px,三列 = 每列 339px,
-   .todo-row 里固定宽的兄弟节点(复选框/编号/截止日/编辑/状态 pill)把正文挤到几乎为零,
-   **正文被压成一列一个字的竖排**(实测截图)。而 column-count 断言照样是绿的。
-   改用 column-width 表达真实约束「一列至少多宽才读得下去」+ 最多 3 列:
-   浏览器按剩余宽度自己算列数,右栏出现/收起、侧栏变宽都自动正确。 */
+/* 两视图都用竖向单列(真机反馈 2026-07-24:多列瀑布看着乱,改回竖排)。
+   两个 class 结构一致(都是 flex 纵列),切换「按项目/按时间」时主区宽度不再跳变
+   ——这同时治掉了「按时间视图中间区域会缩短」的毛病。
+   历史:曾用 `columns:360px 3` 多列瀑布(todo-layout),窄栏下正文被挤成竖排,已弃。 */
 .todo-cards.by-project {
-  columns: 360px 3;
-  column-gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   max-width: none;
   margin: 0;
 }
-.todo-cards.by-project > * { break-inside: avoid; margin-bottom: 16px; }
 .todo-cards.by-time { display: flex; flex-direction: column; gap: 14px; max-width: none; margin: 0; }
 .todo-card {
   background: #fff;
