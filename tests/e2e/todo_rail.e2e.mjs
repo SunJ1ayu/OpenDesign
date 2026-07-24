@@ -117,12 +117,24 @@ try {
   check(pin.gapAboveAsst > 40,
     `助手被推到底、与跟进区拉开距离(间隔 ${pin.gapAboveAsst}px)`);
 
-  // 右栏贴屏幕右缘(真机反馈 2026-07-24):待办页要与项目工作区同栅格,右栏永远
-  // 贴右缘、不随内容宽度漂移。回归防线——.todos-pane 若丢了 flex:1,整页缩成内容宽、
-  // 右栏浮在内容后面(实测距右缘曾达 430px)。
-  const flushRight = await rail.evaluate((el) =>
-    Math.round(window.innerWidth - el.getBoundingClientRect().right));
-  check(flushRight <= 2, `右栏贴屏幕右缘(距右缘 ${flushRight}px)`);
+  // 右栏留白 + 对齐(真机反馈 2026-07-24 第二轮):
+  //  ① .todos-pane 撑满整宽(pane 右缘≈视口右缘)——防「整页缩成内容宽、右栏浮在
+  //     内容后」回归(.todos-pane 丢 flex:1 时实测距右缘曾达 430px);
+  //  ② 右栏不贴死屏幕右缘、留对称页边距(10~60px 呼吸位,非 0 非 430);
+  //  ③ 右栏日历顶边与左边首张待办卡顶边齐平(题头提到整宽后主区+右栏同 y 起)。
+  const geo = await page.evaluate(() => {
+    const top = (sel) => Math.round(document.querySelector(sel).getBoundingClientRect().top);
+    const right = (sel) => Math.round(document.querySelector(sel).getBoundingClientRect().right);
+    return { vw: window.innerWidth, paneR: right(".todos-pane"), railR: right(".todo-rail"),
+             calT: top(".rail-cal"), cardT: top(".todo-card") };
+  });
+  check(geo.vw - geo.paneR <= 2,
+    `待办页撑满整宽(pane 距右缘 ${geo.vw - geo.paneR}px,防浮在内容后回归)`);
+  const railGutter = geo.vw - geo.railR;
+  check(railGutter >= 10 && railGutter <= 60,
+    `右栏留对称呼吸位、不贴死也不漂移(距右缘 ${railGutter}px)`);
+  check(Math.abs(geo.calT - geo.cardT) <= 3,
+    `日历顶边与左首卡顶边齐平(日历 ${geo.calT} / 首卡 ${geo.cardT})`);
 
   // ── 日程月历 ────────────────────────────────────────────────────────────
   const monthLabel = page.locator('[data-ui="cal-month"]');

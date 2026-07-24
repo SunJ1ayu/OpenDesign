@@ -1787,10 +1787,10 @@ html, body { overflow: auto; }
 /* 右栏落地(track opendesign-todo-rail T4):主区 + 320px 右栏并排,既有多列瀑布
    (.todo-cards.by-project 的 column-count)不受影响——它是主区内部布局,与外层
    flex 宽度无关。 */
-/* 满高布局(真机反馈 2026-07-24):右栏满高,主区自己滚,右栏项目助手才能贴底固定。
-   padding-right:0 让 320px 右栏贴屏幕右缘,与项目工作区聊天列同一 x(切页不漂移);
-   主区仍留左/上内边距(来自 .page)。 */
-.todo-page { display: flex; align-items: stretch; gap: 28px; height: 100%; min-height: 0; padding-right: 0; }
+/* 满高纵向布局(真机反馈 2026-07-24):题头占满整宽在上,主区+右栏并排在下、顶边齐平;
+   .page 的对称内边距(24/32)保留 → 右栏不再贴死屏幕右缘、与左边留白对称。 */
+.todo-page { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.todo-body { display: flex; align-items: stretch; gap: 28px; flex: 1; min-height: 0; }
 .todo-main { flex: 1; min-width: 0; overflow-y: auto; min-height: 0; }
 .todo-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
 .todo-head .serif {
