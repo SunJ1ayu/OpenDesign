@@ -940,14 +940,36 @@ class TestCreateProjectPinhole(unittest.TestCase):
         self.assertEqual(st, 400)
         self.assertFalse(self._exists(root, "X-2"))
 
-    def test_create_missing_client_400(self):
-        # create_project 要求 client 非空 → empty_name
+    def test_create_without_client_ok(self):
+        """track opendesign-intake-simplify(真机反馈 2026-07-24 #3):
+        建档表单只填项目名 → body 里根本没有 client 键,必须 200 建成。
+        (旧规格断这里 empty_name = 被用户否掉的过时考卷。)"""
         root = _mkroot({})
         with _serve(root) as port:
-            st, d = _post_json(port, "/api/projects/create", {"project": "X-3", "client": "  "})
+            st, d = _post_json(port, "/api/projects/create", {"project": "X-3"})
+        self.assertEqual(st, 200, d)
+        self.assertTrue(d["ok"])
+        self.assertTrue(self._exists(root, "X-3"))
+        with open(os.path.join(root, "projects", "X-3.md"), encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertNotIn("[[]]", text)   # 空链接 = ds_lint 断链陷阱
+
+    def test_create_blank_client_ok(self):
+        """client 给空白串(前端旧状态残留/手工调用)同样按"没填"处理,不是 400。"""
+        root = _mkroot({})
+        with _serve(root) as port:
+            st, d = _post_json(port, "/api/projects/create",
+                               {"project": "X-3b", "client": "  "})
+        self.assertEqual(st, 200, d)
+        self.assertTrue(self._exists(root, "X-3b"))
+
+    def test_create_empty_project_400(self):
+        """项目名仍必填,且被读门 _valid_proj_key 先拦(400 bad request,零落盘)。"""
+        root = _mkroot({})
+        with _serve(root) as port:
+            st, d = _post_json(port, "/api/projects/create", {"project": "", "client": "李"})
         self.assertEqual(st, 400)
-        self.assertEqual(d["error"], "empty_name")
-        self.assertFalse(self._exists(root, "X-3"))
+        self.assertEqual(d["error"], "bad request")
 
     def test_create_bad_stage_400(self):
         root = _mkroot({})

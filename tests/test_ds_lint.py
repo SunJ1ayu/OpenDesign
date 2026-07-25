@@ -114,6 +114,15 @@ class TestLintPkb(unittest.TestCase):
         self.assertIn("不存在的业主", hits[0]["detail"])
         self.assertIn("幽灵楼盘", hits[0]["target"])
 
+    def test_03b_empty_client_project_is_not_broken_link(self):
+        """track opendesign-intake-simplify:空业主建出来的档案(`- 业主:` 值为空)
+        必须**零** broken_link —— 若 create_project 图省事写成 `- 业主: [[]]`,
+        这条就红。这是"空业主不写链接"这个决定的判据,不是文案偏好。"""
+        r = ds_tools.create_project("云玺台-1203", "", ds_root=self.base,
+                                    today="2026-07-25")
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(_checks(self.lint(), "broken_link"), [])
+
     def test_04_link_to_project_is_valid(self):
         """[[X]] 指向 projects/X.md 或 clients/X.md 都算通(clients 的关联项目链)。"""
         self.assertEqual(_checks(self.lint(), "broken_link"), [])

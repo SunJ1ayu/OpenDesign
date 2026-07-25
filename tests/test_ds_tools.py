@@ -390,14 +390,57 @@ class CreateProjectClient(unittest.TestCase):
         self.assertFalse(any(ln.lstrip().startswith("- [待确认]")
                              for ln in text.splitlines()))            # 无独立的伪造变更行
 
-    # ⑩ 空名拒绝
+    # ⑩ 空名拒绝 —— **项目名**仍必填;业主名自 track opendesign-intake-simplify
+    #    起可空(真机反馈 2026-07-24 #3:建档只填项目名),故不再断"业主空 → empty_name"。
     def test_c10_empty_name(self):
         self.assertEqual(ds_tools.create_project("", "张三", ds_root=self.ds).get("error"),
                          "empty_name")
-        self.assertEqual(ds_tools.create_project("有名", "", ds_root=self.ds).get("error"),
+        self.assertEqual(ds_tools.create_project("", "", ds_root=self.ds).get("error"),
                          "empty_name")
         self.assertEqual(ds_tools.create_client("", ds_root=self.ds).get("error"),
                          "empty_name")
+
+    # ── 空业主建档(track opendesign-intake-simplify,真机反馈 2026-07-24 #3)──────
+    # 用户:「建档表单直接去掉业主名框,只填项目名称即可」。核心因此必须允许空业主,
+    # 且**不能**写成 `- 业主: [[]]`(ds_lint 会把 [[]] 当断链 → 新档案自带体检报错)。
+
+    # ⑪ 只给项目名也能建档,骨架完整,业主字段行在但值为空
+    def test_c11_empty_client_creates_project(self):
+        r = ds_tools.create_project("云玺台-1203", "", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        text = self._proj("云玺台-1203")
+        self.assertIn("## 变更记录", text)              # append_change 定位靠它
+        self.assertIn(f"最后更新: {TODAY}", text)         # ds_todo 判超期靠它
+        # 字段行必须还在(下游 list_projects / cockpit / update_client 都读这行)
+        self.assertTrue(any(ln.startswith("- 业主:") for ln in text.splitlines()),
+                        f"业主字段行不见了:\n{text}")
+        self.assertNotIn("[[]]", text)                  # 空链接 = ds_lint 断链陷阱
+        self.assertNotIn("[[ ]]", text)
+
+    # ⑫ 空业主不建 stub(clients/ 零落盘;不猜业主叫什么)
+    def test_c12_empty_client_no_stub(self):
+        ds_tools.create_project("云玺台-1203", "", ds_root=self.ds, today=TODAY)
+        self.assertEqual(os.listdir(os.path.join(self.ds, "clients")), [])
+
+    # ⑬ 空业主项目的下游不炸:append_change 接得上、list_projects 列得出(client 空串)
+    def test_c13_empty_client_downstream(self):
+        ds_tools.create_project("云玺台-1203", "", ds_root=self.ds, today=TODAY)
+        r = ds_tools.append_change("云玺台-1203", "主卧衣柜改推拉门",
+                                   ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(r["change_id"], "C1")
+        rows = ds_tools.list_projects(ds_root=self.ds)["projects"]
+        row = next((p for p in rows if p["project"] == "云玺台-1203"), None)
+        self.assertIsNotNone(row, rows)
+        self.assertEqual(row["client"], "")             # 空着,不是 "[[]]"、不是占位文案
+
+    # ⑭ 空业主 + 后补业主:update_client 那条路仍走得通(空不是死路)
+    def test_c14_empty_client_can_be_filled_later(self):
+        ds_tools.create_project("云玺台-1203", "", ds_root=self.ds, today=TODAY)
+        self.assertTrue(ds_tools.create_client("赵六", linked="云玺台-1203",
+                                               ds_root=self.ds).get("ok"))
+        r = ds_tools.update_client("赵六", "联系方式", "微信 zhao6", ds_root=self.ds)
+        self.assertTrue(r.get("ok"), r)
 
 
 class EditChangeOracle(unittest.TestCase):
