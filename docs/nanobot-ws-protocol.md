@@ -7,6 +7,9 @@
 - 原则:工作台聊天前端对协议的**全部假设以本文为准**。协议是 nanobot
   内部实现、无版本契约——**升级 nanobot 前必须先跑
   `tests/test_ws_protocol_smoke.py`(见文末升级流程)**。
+- ⚠️ **本文档只记"抓到过的形状",不等于 nanobot 的全部能力** —— 2026-07-26 因此
+  误判过一次(见 `media` 字段一节)。要断言"协议不支持 X",必须去看 nanobot 源码,
+  不能只看本文档没写。
 - 本期前端不用的形状(transcribe_audio、fork_chat、file_edit、
   reasoning 展示等)只记不实现。
 
@@ -52,9 +55,26 @@ ws://127.0.0.1:8765/?client_id=<任意串>&token=<bootstrap 的 token>
 
 ```json
 {"type":"message","chat_id":"…","content":"…","webui":true,"turn_id":"<uuid>"}
+{"type":"message","chat_id":"…","content":"…","media":[{"data_url":"data:image/png;base64,…","name":"客厅.png"}],"webui":true,"turn_id":"<uuid>"}
 {"type":"attach","chat_id":"<旧 chat_id,裸 uuid 无前缀>"}
 {"type":"new_chat"}
 ```
+
+**`media` 字段(2026-07-26 补记 —— 本文档此前漏记,主 agent 据此误判"协议只能传文字")**:
+- 形状 `list[{"data_url": str, "name"?: str}]`,data URL 必须是 `data:<mime>;base64,…`。
+- 服务端限额(`nanobot/channels/websocket.py`):**每条消息 ≤4 张图(单张 8MB)**、
+  ≤1 个视频(20MB);图片白名单 png/jpeg/webp/gif —— **svg 被显式排除**(内嵌脚本 XSS 面)。
+  任一项解码失败 → 整条消息不发布,已写盘的临时文件回滚(不留半截)。
+- 落盘位置 = **nanobot 自己的媒体目录**(`get_media_dir("websocket")`),
+  不是项目工作区 —— 要归档进项目仍需另一步。
+- **模型看不看得见,取决于模型**:2026-07-26 用真 gateway 实测 `mimo-v2.5`
+  → **能看见**(4 块紫/橙/白/粉,颜色与左右顺序全对;换 2 块黄/黑同样答对)。
+  探针脚本形状见本节末注。
+
+> 探针做法(可复现):`/webui/bootstrap` 取 token → ws 连上 → 发带 `media` 的
+> `message` → 收 `delta` 拼接。判据必须用**蒙不中的图**(非常规配色 + 问左右顺序);
+> 首版探针用"红绿蓝三块"= 最容易蒙中的组合,且第二张图块宽不等(1/3 vs 2/3)
+> 导致假阴性 —— **夹具自己错了三次里的第三次**,记此备忘。
 其余 type(fork_chat / set_workspace_scope / transcribe_audio)本期不用。
 - `webui:true` + `turn_id`:一等路径,消息实时进 webui transcript 且
   历史带 `turnId/turnSeq`。**实测不带也能用**(兜底回补进历史,但缺
