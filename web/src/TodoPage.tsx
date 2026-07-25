@@ -505,7 +505,9 @@ export default function TodoPage({
     spaceSections(items).map((sec, i) => (
       <div className="space-sect" key={sec.space ?? "@none"}>
         <div className="space-sect-head" data-ui="todo-space-sect">
-          <span className="nm">{sec.space ?? "未分空间"}</span>
+          {/* 真机反馈 2026-07-24 #6:没空间就不写名字(原来顶着「未分空间」四个字)。
+              分节与「全选本组」保留——去掉的是字,不是功能。 */}
+          {sec.space && <span className="nm">{sec.space}</span>}
           <span className="rule" />
           <button
             className="group-select-btn"

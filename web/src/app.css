@@ -447,6 +447,23 @@ html, body { overflow: auto; }
   color: var(--paper);
   border-color: var(--ink);
 }
+/* 真机反馈 2026-07-24 #5:单一状态的胶囊选中后用该状态的语义色(与行内 st-pill、
+   项目进度条同 token),强化"颜色=状态"这一套统一语言。
+   「未办结」「全部」不带 data-status → 落回上面的中性墨,因为它们不指代单一状态。
+   用 --st-*-fg(同族深一档)而不是 --st-*-dot 打底:pill 文字是纸色小字(12px),
+   压在 dot 色上对比度只有 2.7~3.4:1(糊),换 fg 后 4.4~5.5:1,颜色语言不变。 */
+.filter-pills .pill.on[data-status="待确认"] {
+  background: var(--st-pending-fg);
+  border-color: var(--st-pending-fg);
+}
+.filter-pills .pill.on[data-status="进行中"] {
+  background: var(--st-doing-fg);
+  border-color: var(--st-doing-fg);
+}
+.filter-pills .pill.on[data-status="已办结"] {
+  background: var(--st-done-fg);
+  border-color: var(--st-done-fg);
+}
 
 /* 快记单行输入卡(修改单 B,track opendesign-frontend-p2-polish):圆角 12 卡 =
    ✎ + 单行 input + 空间 chip(popover)+ 主色「记一条」;取代旧的裸 input 两件套。 */
@@ -861,12 +878,13 @@ html, body { overflow: auto; }
 /* ── 待办右栏(track opendesign-todo-rail T2/T4):320px,日程月历 + 需要今天跟进
    (项目助手拆到下一单 opendesign-todo-assistant,右栏容器先建好)。────────────── */
 .todo-rail { flex: none; width: 320px; display: flex; flex-direction: column; gap: 20px; min-height: 0; overflow-y: auto; }
+/* 真机反馈 2026-07-24 #8(参考图):区块本身不再是白卡——白底下沉到"内容"
+   (跟进卡 / 输入卡),标题与日历直接坐在页面底色上,层级才读得出来。 */
 .rail-cal, .rail-follow {
-  background: #fff;
-  border: 1px solid var(--border-main);
-  border-radius: 11px;
-  box-shadow: var(--shadow-card);
-  padding: 14px 16px;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
 }
 .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .cal-head .cal-nav {
@@ -926,16 +944,19 @@ html, body { overflow: auto; }
   margin: 0 0 10px;
 }
 .follow-empty { font-size: 12.5px; color: var(--ink-4); padding: 8px 0; }
-.follow-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.follow-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+/* #8:每条跟进自己就是一张白底卡(参考图),不再靠分隔线切分同一张大卡 */
 .follow-card {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border-soft);
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid var(--border-main);
+  border-radius: 10px;
+  box-shadow: var(--shadow-card);
   font-size: 12.5px;
 }
-.follow-card:last-child { border-bottom: none; padding-bottom: 0; }
 .follow-card .cnum { font: 600 10.5px var(--font-mono); color: var(--ink-4); }
 .follow-card .txt { color: var(--ink); }
 .follow-card .meta { font-size: 11px; color: var(--ink-4); }
@@ -943,10 +964,10 @@ html, body { overflow: auto; }
 /* ── 右栏项目助手(track opendesign-todo-assistant T3/T4/T5/T6):收起态一句
    说明+单行输入+发送;展开态 ChatPage 真身占满右栏(①②让位,不卸载)。────── */
 .rail-assistant {
-  background: #fff;
-  border: 1px solid var(--border-main);
-  border-radius: 11px;
-  box-shadow: var(--shadow-card);
+  /* #8:收起态同样是"纯标题 + 白底输入卡";展开态才整块成卡(下面 .expanded 覆盖) */
+  background: none;
+  border: none;
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -954,16 +975,37 @@ html, body { overflow: auto; }
      把助手推到底,和其他页面的项目助手位置对齐。 */
   margin-top: auto;
 }
-/* 展开态:让第三段吃满右栏剩余高度,ChatPage 内部自己滚动 */
-.rail-assistant.expanded { flex: 1; min-height: 520px; }
+/* 展开态:让第三段吃满右栏剩余高度,ChatPage 内部自己滚动。
+   展开时它是唯一内容,整块恢复成白卡(收起态才是"纯标题+输入卡")。 */
+.rail-assistant.expanded {
+  flex: 1;
+  min-height: 520px;
+  background: #fff;
+  border: 1px solid var(--border-main);
+  border-radius: 11px;
+  box-shadow: var(--shadow-card);
+}
 .rail-ask-block {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 14px 16px;
 }
+.rail-assistant.expanded .rail-ask-block { padding: 14px 16px; }
+/* 标题行:标题左、「展开对话 →」右(参考图) */
+.rail-ask-head { display: flex; align-items: baseline; gap: 8px; }
+.rail-ask-head .rail-title { margin: 0; }
+.rail-ask-head .rail-expand-link { margin-left: auto; }
 .rail-ask-hint { margin: 0; font-size: 12px; line-height: 1.6; color: var(--ink-3); }
-.rail-ask-row { display: flex; gap: 8px; }
+/* #8:输入区自成一张白底卡(参考图里唯一的白块) */
+.rail-ask-row {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid var(--border-main);
+  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+}
 .rail-ask-input {
   flex: 1;
   min-width: 0;
@@ -2363,12 +2405,20 @@ html, body { overflow: auto; }
 .gallery-source-clear:hover { background: var(--paper-hover); color: var(--ink-2); }
 
 /* 瀑布墙:CSS columns,cell 不跨列 */
-.g-wall { columns: 4 200px; column-gap: 10px; margin-top: 12px; }
+/* 真机反馈 2026-07-24 #2:原本 `columns: 4 200px` 是**多列流**——图高不一,
+   列高越积越偏("越往下翻列差越大"),而且阅读序是列优先(第 2 格在第 1 格正下方)。
+   改 grid:行列对齐、阅读序恢复行优先。格子等高靠下面 .g-cell img 的固定比例。 */
+.g-wall {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+  align-items: start;
+}
 .g-cell {
   display: block;
   width: 100%;
-  margin: 0 0 10px;
-  break-inside: avoid;
+  margin: 0;
   border: 1px solid var(--border-main);
   border-radius: 10px;
   overflow: hidden;
@@ -2383,7 +2433,9 @@ html, body { overflow: auto; }
   box-shadow: 0 8px 20px rgba(60, 50, 30, 0.16);
   transform: translateY(-2px);
 }
-.g-cell img { display: block; width: 100%; height: auto; }
+/* 统一 4:3 封面(#2):竖图会被裁上下,换来整墙对齐——用户要的是"排列整齐",
+   且 lightbox 里仍是完整图,信息不丢(design.md 已记的取舍)。 */
+.g-cell img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
 .g-cap {
   display: flex;
   align-items: center;

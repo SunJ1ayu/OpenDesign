@@ -21,6 +21,20 @@ const projRow = (page, name) =>
   page.locator(".proj-row", { hasText: name }).first();
 const threadMap = (page) =>
   page.evaluate(() => JSON.parse(localStorage.getItem("odw.projectThreads") || "{}"));
+/** 等某项目的映射落盘再读。
+ *  记账是异步的:chat_id 从网关回来 → setState → effect 写 localStorage,
+ *  比「已连接」文案晚一两帧(实测 2-4ms)。原来在 .chat-meta 出现后立刻读这个
+ *  瞬间值,margin 薄到前端任何渲染改动都能把它翻红(2026-07-24 前端批实锤:
+ *  同一份代码基线读到、新构建晚 4ms 读不到)。断言强度不变——仍要求映射存在
+ *  且与 A 不同,只是允许它在几秒内到达。 */
+const waitThread = async (page, project, timeout = 10000) => {
+  await page.waitForFunction(
+    (p) => !!JSON.parse(localStorage.getItem("odw.projectThreads") || "{}")[p],
+    project,
+    { timeout },
+  );
+  return threadMap(page);
+};
 
 const browser = await launchBrowser();
 let failed = 0;
@@ -53,7 +67,7 @@ try {
   }
 
   // ④ 映射已记账
-  let map = await threadMap(page);
+  let map = await waitThread(page, PROJ_A);
   check(typeof map[PROJ_A] === "string" && map[PROJ_A].length > 0, "A 项目映射进 localStorage");
   const chatIdA = map[PROJ_A];
 
@@ -61,7 +75,7 @@ try {
   await projRow(page, PROJ_B).click();
   await page.locator(`${COL} .chat-meta`).waitFor({ timeout: 20000 });
   check((await page.locator(`${COL} .msg-user`).count()) === 0, "B 项目转录为空(上下文隔离)");
-  map = await threadMap(page);
+  map = await waitThread(page, PROJ_B);
   check(map[PROJ_B] && map[PROJ_B] !== chatIdA, "B 项目映射独立于 A");
   console.log("step5 B 项目全新上下文");
 
@@ -80,7 +94,7 @@ try {
   //   且映射保持可用(原 id 挂住或自愈换新 id,总之 B 名下有值)
   await projRow(page, PROJ_B).click();
   await page.locator(`${COL} .chat-meta`).waitFor({ timeout: 25000 });
-  map = await threadMap(page);
+  map = await waitThread(page, PROJ_B);
   check(typeof map[PROJ_B] === "string" && map[PROJ_B].length > 0, "B 再入后映射仍可用(挂住或自愈换新)");
   check(map[PROJ_A] === chatIdA, "B 的自愈不误伤 A 的映射");
   console.log("step7 虚会话再入韧性通过");

@@ -34,7 +34,10 @@ export function refLabel(r: Ref): string {
   return bits.join("·") || r.id;
 }
 
-/** 合并两路数据:refs 保持索引序在前,工作区图按 mtime 降序(同刻按 rel)。 */
+/** 合并两路数据:refs 保持索引序在前,工作区图按**路径自然序升序**。
+ *  真机反馈 2026-07-24 #10a:原本按 mtime 降序,而资源管理器默认按文件名升序
+ *  —— 用户按顺序拷进文件夹的图,mtime 与文件名同序,于是整册在图墙里是倒的
+ *  (「文件夹第一张显示成最后一张」)。numeric 让「(2)」排在「(10)」前面。 */
 export function buildGallery(
   projectKey: string,
   refs: Ref[],
@@ -53,7 +56,7 @@ export function buildGallery(
   }));
   const b: GalleryItem[] = images
     .slice()
-    .sort((x, y) => y.mtime - x.mtime || x.rel.localeCompare(y.rel))
+    .sort((x, y) => x.rel.localeCompare(y.rel, "zh", { numeric: true }))
     .map((i) => ({
       id: `ws:${i.rel}`,
       url: filesImageUrl(projectKey, i.rel),
@@ -71,7 +74,7 @@ export type Album = {
   key: string; // "参考图库" | ws 图父文件夹路径(如 "05-3DMAX/客厅")| ""(根散图)
   label: string; // 展示名:父夹末段;根散图="未分类";refs="参考图库"
   group: string; // 来源(顶层类目 / REF_GROUP)
-  cover: GalleryItem; // 册内首项(refs 按索引序、ws 按 mtime 降序 → 最新)
+  cover: GalleryItem; // 册内首项(refs 按索引序、ws 按文件名自然序 → 资源管理器里的第一张)
   items: GalleryItem[];
   count: number;
 };

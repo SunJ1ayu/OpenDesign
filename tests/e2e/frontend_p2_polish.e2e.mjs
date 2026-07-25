@@ -252,11 +252,15 @@ try {
   await page.locator('.side-row:has-text("待办事项")').first().click();
   await page.locator(".todo-card").first().waitFor({ timeout: 10000 });
   const sects = page.locator('.todo-card [data-ui="todo-space-sect"]');
-  check((await sects.count()) === 3, "按项目:玄关/客厅/未分空间 三个小节");
+  check((await sects.count()) === 3, "按项目:玄关/客厅/无空间 三个小节");
   const sectTxts = await sects.allInnerTexts();
   check(sectTxts[0].includes("玄关") && sectTxts[1].includes("客厅"),
     "小节按空间首现序(玄关→客厅)");
-  check(sectTxts[2].includes("未分空间"), "无空间条目归「未分空间」置末");
+  // 真机反馈 2026-07-24 #6 起,无空间那节不再写「未分空间」四个字(分节仍在、
+  // 仍恒置末,「全选本组」也在)。旧断言绑的是被用户否掉的文案 = 过时考卷,
+  // 改断"这一节存在且没有空间名"。同一事实的主判据在 todo_batch_space.e2e.mjs。
+  check(sectTxts[2].replace(/全选本组|取消本组/g, "").trim() === "",
+    `无空间那节恒置末且没有名字(实测「${sectTxts[2]}」)`);
   check((await page.locator(".todo-cards .batch-head").count()) === 0,
     "按项目视图:无日期折叠头(修改单 G1)");
   await page.locator('.todo-head .opt:has-text("按时间")').click();

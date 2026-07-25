@@ -77,10 +77,10 @@ try {
 
   // ── ④ 旧对话没丢:仍能在历史里点回去(清空 ≠ 删除)────────────────────────
   await page.waitForFunction(
-    () => document.querySelectorAll(".session-row").length > 0,
+    () => document.querySelectorAll(".hist-row").length > 0,
     { timeout: 20000 },
   );
-  const sessions = await page.locator(".session-row").count();
+  const sessions = await page.locator(".hist-row").count();
   check(sessions > 0, `旧对话进了历史列表(${sessions} 条)= 清空不是丢失`);
 } catch (e) {
   failed++;

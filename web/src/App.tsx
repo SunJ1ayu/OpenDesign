@@ -46,6 +46,13 @@ function fromHash(): Route {
   return "home";
 }
 
+/** 「新对话」的 resume 目标:空 chatId = 开新会话,nonce 恒递增 = 强制重连清转录。
+ *  真机反馈 2026-07-24 #9:写 null 会在"已经是新对话"时被 React bail-out 吃掉,
+ *  于是点了没反应。三处入口(侧栏按钮 / ⌘N / 删掉当前续聊的会话)共用这一个。 */
+function newChatTarget(prev: { nonce: number } | null) {
+  return { sessionKey: "", chatId: "", nonce: (prev?.nonce ?? 0) + 1 };
+}
+
 export default function App() {
   const [route, setRoute] = useState<Route>(fromHash);
   const session = useMemo(() => new ChatSession(), []);
@@ -259,7 +266,7 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "n") {
         e.preventDefault();
-        setResumeTarget(null); // 与「新对话」同语义(见 newChat 注释)
+        setResumeTarget(newChatTarget); // 与「新对话」同语义(见 newChatTarget)
         window.location.hash = "#/";
       } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -318,7 +325,9 @@ export default function App() {
           );
           return;
         }
-        setResumeTarget((prev) => (prev?.sessionKey === s.key ? null : prev));
+        // 删掉的正是当前续聊目标 → 转成一条干净的新对话(旧实现置 null,已渲染的
+        // 转录留在屏上,用户"删了还看得见" —— 真机反馈 2026-07-24 #9 的第三种复现)
+        setResumeTarget((prev) => (prev?.sessionKey === s.key ? newChatTarget(prev) : prev));
         setSessionsEpoch((n) => n + 1);
       } catch {
         window.alert("删除失败:服务不可用或登录已过期。");
@@ -327,11 +336,16 @@ export default function App() {
     [session],
   );
 
-  // 新对话:回 3a。p3 的「不重置对话」只针对误触丢对话——现在历史对话可点回
-  // (本 track),从续聊态开新对话不再是丢失,所以 resume 态下清目标重连拿新
-  // chat_id;非 resume 态维持 p3 现状(setState(null→null) React bail-out,零重连)。
+  // 新对话:回 3a 并**强制开一条新的**。
+  // 真机反馈 2026-07-24 #9:旧实现写 setResumeTarget(null),人已经在新对话里时
+  // prev 本就是 null → React setState(null→null) bail-out → ChatPage 连接 effect
+  // (依赖 resume?.nonce)不重跑 → keep-mounted 的转录原样留着,"点了没反应"。
+  // 改成永远递增 nonce 的强制新开(与 newProjectChat 同款):chatId 空串 → ChatPage
+  // 走新会话分支,effect 开头 setTranscript(emptyTranscript) 随 nonce 清空。
+  // 旧对话已进「历史对话」可点回,清空≠丢失。helper 在模块作用域(见文件上方
+  // newChatTarget):三处入口共用同一语义,免得再漂移出第二套写法。
   const newChat = useCallback(() => {
-    setResumeTarget(null);
+    setResumeTarget(newChatTarget);
     window.location.hash = "#/";
   }, []);
 

@@ -90,6 +90,7 @@ export default function Sidebar({
       <div className="side-group">
         <button
           className={`side-row${route === "home" ? " current" : ""}`}
+          data-ui="side-new-chat"
           onClick={onNewChat}
           title="总聊天入口,新项目从对话里创建"
         >

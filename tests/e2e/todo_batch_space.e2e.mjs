@@ -125,18 +125,32 @@ try {
   check(!spaceHeads.includes("未分空间"), "按空间:不再出现「未分空间」字样");
   check((await page.locator("body").innerText()).includes("未分空间") === false,
     "整页无「未分空间」残留(含待办页/变更列两处同源文案)");
-  check(spaceHeads[spaceHeads.length - 1].trim() === "",
-    `按空间:无空间那节仍恒置末、只是没了名字(实测末节名「${spaceHeads[spaceHeads.length - 1]}」)`);
+  // 断"意图"而不是"实现":无名分节可以是空 .nm、也可以干脆不渲染 .nm,
+  // 判据取「最后一节的分节头没有任何文字」+「分节本身还在」。
+  const headCount = await page.locator(".change-group-head").count();
+  const lastHead = (await page.locator(".change-group-head").last().innerText()).trim();
+  check(headCount >= 3, `按空间:分节仍在(玄关/客厅/无空间,实测 ${headCount} 节)`);
+  check(lastHead === "", `按空间:无空间那节恒置末且没有名字(实测末节「${lastHead}」)`);
 
   // ── 变更筛选选中态语义色(真机反馈 2026-07-24 #5)────────────────────────
   // 单一状态的胶囊选中后用该状态的语义色(与行内 st-pill 同族);
   // 「未办结」「全部」不是单一状态 → 保持中性墨。
   // 判据取"两两不同 + 非单状态同色",不硬编码色值 —— 换主题不该假红。
+  // 取 RGB 三元组比,不比字符串:background 有过渡动画,同一个颜色在动画收尾时
+  // 会读成 `rgba(44, 42, 38, 0.992)`、静止后读成 `rgb(44, 42, 38)` —— 字符串比会
+  // 随机假红(实测翻过一次)。等到 alpha 收敛(≥0.99)再取,只留色相判据。
   const pillBg = async (label) => {
     await page.locator(`.filter-pills .pill:has-text("${label}")`).first().click();
-    await page.waitForTimeout(120); // 过渡动画
-    return page.locator(`.filter-pills .pill.on:has-text("${label}")`).first()
-      .evaluate((el) => getComputedStyle(el).backgroundColor);
+    const pill = page.locator(`.filter-pills .pill.on:has-text("${label}")`).first();
+    let raw = "";
+    for (let i = 0; i < 30; i++) {
+      await page.waitForTimeout(50);
+      raw = await pill.evaluate((el) => getComputedStyle(el).backgroundColor);
+      const a = Number(raw.match(/[\d.]+\s*\)$/)?.[0].replace(")", "") ?? 1);
+      if (!raw.startsWith("rgba") || a >= 0.99) break;
+    }
+    const [r, g, b] = raw.match(/\d+/g).map(Number);
+    return `${r},${g},${b}`;
   };
   const cPending = await pillBg("待确认");
   const cDoing = await pillBg("进行中");

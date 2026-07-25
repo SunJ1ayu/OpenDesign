@@ -104,7 +104,11 @@ export default function TodoRail({
 
   return (
     <aside className="todo-rail" data-ui="todo-rail">
+      {/* 真机反馈 2026-07-24 #8(参考图):三个区块统一"纯标题 + 内容卡"的层级——
+          标题不带白底,白底只用来划出内容(跟进卡、输入卡);日历本体不再包白卡。
+          标题文案取「日历」而非参考图上印的「日程概览」(用户明确要求)。 */}
       <section className={`rail-cal${expanded ? " route-hidden" : ""}`}>
+        <h3 className="rail-title">日历</h3>
         <header className="cal-head">
           <button
             type="button"
@@ -194,11 +198,26 @@ export default function TodoRail({
         data-ui="rail-assistant"
       >
         <div className={`rail-ask-block${expanded && connected ? " route-hidden" : ""}`}>
+          {/* 标题行:标题 + 「展开对话 →」(参考图款式)。已展开时不显示该链接
+              (那时点它是 no-op,且与聊天头里的「收起」语义打架 —— panel subglm 提过)。 */}
+          <div className="rail-ask-head">
+            <h3 className="rail-title">项目助手</h3>
+            {!expanded && (
+              <button
+                type="button"
+                className="rail-expand-link"
+                data-ui="rail-expand"
+                onClick={() => setExpanded(true)}
+              >
+                展开对话 →
+              </button>
+            )}
+          </div>
           <p className="rail-ask-hint">
             问项目助手一句,记得带上项目名——比如「翡翠湾-1801,C7 业主上次怎么说的」,
             「记一下」也是靠项目名归档。
           </p>
-          <div className="rail-ask-row">
+          <div className="rail-ask-row" data-ui="rail-ask-card">
             <input
               type="text"
               className="rail-ask-input"
@@ -214,18 +233,6 @@ export default function TodoRail({
               发送
             </button>
           </div>
-          {/* 已展开时不再显示(panel subglm 提):那时点它是 no-op,而且和聊天头里的
-              「收起」并排出现,语义打架。 */}
-          {!expanded && (
-            <button
-              type="button"
-              className="rail-expand-link"
-              data-ui="rail-expand"
-              onClick={() => setExpanded(true)}
-            >
-              展开对话 →
-            </button>
-          )}
         </div>
 
         {/* ChatPage 常驻挂载、收起态 CSS 隐藏(卸载=丢对话,与 p3 keep-mounted 同规矩)。

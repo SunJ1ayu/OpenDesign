@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Project, Ref, RefsVocab } from "./api";
 import { fetchFilesImages, fetchRefsData, openFolder, updateRef } from "./api";
 import {
@@ -69,6 +69,8 @@ export default function GalleryPage({ project }: Props) {
   const [editSaved, setEditSaved] = useState<string | null>(null); // 保存成功/无改动的轻提示
 
   const key = project?.key ?? null;
+  const pageRef = useRef<HTMLDivElement>(null); // 滚动容器(.page 自带 overflow-y)
+  const wallScroll = useRef(0); // 进子相册前记下的墙面滚动位置(#10b)
 
   const reloadRefs = () => {
     if (!key) return Promise.resolve();
@@ -168,8 +170,31 @@ export default function GalleryPage({ project }: Props) {
     setSet(next);
   }
 
-  // 改筛选回到相册墙(避免停在一个筛掉后不存在的册)
-  useEffect(() => setOpenAlbum(null), [filter]);
+  // 改筛选回到相册墙(避免停在一个筛掉后不存在的册)。
+  // 顺带把记着的墙面滚动位置清零:筛完是另一批内容,拿旧位置复位等于随机落点。
+  useEffect(() => {
+    wallScroll.current = 0;
+    setOpenAlbum(null);
+  }, [filter]);
+
+  // 真机反馈 2026-07-24 #10b:点进子相册再返回,直接弹回最顶端,翻到一半的位置全丢。
+  // 进册前记下墙面滚动位置,回来时复位。用 useLayoutEffect 而非 useEffect:
+  // 必须在浏览器绘制前落位,否则会看见"先闪到顶再跳回来"。
+  const openAlbumAt = (key: string) => {
+    wallScroll.current = pageRef.current?.scrollTop ?? 0;
+    setOpenAlbum(key);
+  };
+  useLayoutEffect(() => {
+    const el = pageRef.current;
+    if (!el) return;
+    if (openAlbum !== null) {
+      el.scrollTop = 0; // 进册:从册子顶端开始看
+      return;
+    }
+    // 回墙面:回到刚才那一格所在的位置。写 scrollTop 会强制同步重算布局,
+    // 所以这里直接落位就够,不需要 rAF 重试(实测 240 → 240 一次到位)。
+    el.scrollTop = wallScroll.current;
+  }, [openAlbum]);
 
   const items = useMemo(
     () => (key ? buildGallery(key, refs ?? [], images ?? []) : []),
@@ -212,7 +237,7 @@ export default function GalleryPage({ project }: Props) {
   }
 
   return (
-    <div className="page gallery-page">
+    <div className="page gallery-page" ref={pageRef}>
       <header className="page-head">
         <h2 className="serif">图墙 · {project.name}</h2>
         <span className="g-dim">
@@ -305,7 +330,7 @@ export default function GalleryPage({ project }: Props) {
               className="g-cell"
               key={`alb:${a.key}`}
               title={a.label}
-              onClick={() => (a.count > 1 ? setOpenAlbum(a.key) : setZoom(a.cover))}
+              onClick={() => (a.count > 1 ? openAlbumAt(a.key) : setZoom(a.cover))}
             >
               <img src={a.cover.url} alt={a.label} loading="lazy" />
               {a.count > 1 && <span className="g-badge">{a.count}</span>}

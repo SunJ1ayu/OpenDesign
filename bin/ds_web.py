@@ -76,7 +76,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.42.0"  # 前端优化批:筛选/分组分段开关统一 + 提示语单一后缀 + 项目助手空态快捷入口 + 待办行 hover 降噪 + 药丸不再变圆 + 发送按钮中性灰
+VERSION = "0.43.0"  # 07-24 真机反馈前端批:新对话强制清空 + 图墙自然序/返回原位/四列对齐 + 去「未分空间」+ 右栏纯标题款式 + 筛选选中语义色
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")

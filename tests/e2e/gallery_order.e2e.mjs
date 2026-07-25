@@ -85,10 +85,13 @@ writeFileSync(
   JSON.stringify({ root: ws, projects: { [KEY]: PROJ_REL } }),
 );
 
-// 8 个相册 × 各 3 张 = 封面墙 8 格(足够验四列换行);高度刻意参差。
+// 16 个相册 × 各 3 张 = 封面墙 16 格:够验四列换行,也够把墙撑到必须滚动(#10b 的前提)。
 // mtime **与文件名同序**(真实情形:按顺序拷进文件夹)→ mtime 降序恰好是文件名倒序,
 // 与正确答案相反,夹具因此能区分两种实现。
-const ALBUMS = ["主卧", "客厅", "餐厅", "书房", "厨房", "卫生间", "阳台", "玄关"];
+const ALBUMS = [
+  "主卧", "客厅", "餐厅", "书房", "厨房", "卫生间", "阳台", "玄关",
+  "次卧", "衣帽间", "儿童房", "过道", "洗衣房", "露台", "楼梯间", "储藏室",
+];
 const SHAPES = [[400, 300], [400, 640], [400, 260], [400, 520]];
 let stamp = 1_700_000_000;
 for (const [ai, album] of ALBUMS.entries()) {
@@ -152,30 +155,39 @@ try {
   // 「整齐」还可以整齐得没法看:格子不能被压扁成一条
   check(wall[0].h >= 120, `封面格子高度可用(实测 ${wall[0].h}px)`);
 
-  // ── #10b 记录滚动位置 ───────────────────────────────────────────────────
+  // ── #10b 滚到墙面中段,并选一个**当前就在视口里**的相册点进去 ─────────────
+  // ⚠️ 坑(第一版夹具在此翻过车):playwright 点击前会把目标元素滚进视口。
+  //    若点第一格(在视口上方),它会先把页面滚回顶部,应用记下的自然是滚回后的位置,
+  //    再拿点击前的 240 去比 = 我的夹具自己错,不是代码错。
+  //    所以:点一个已经可见的格子,并且**紧挨点击之前**读一次真实位置当期望值。
   const scroller = ".page.gallery-page";
-  const scrolled = await page.evaluate((sel) => {
-    const el = document.querySelector(sel);
-    el.scrollTop = 240;
-    return el.scrollTop;
-  }, scroller);
-  check(scrolled > 0, `封面墙可滚动并已滚到 ${scrolled}(否则 #10b 无从谈起)`);
+  await page.evaluate((sel) => { document.querySelector(sel).scrollTop = 240; }, scroller);
+  const target = page.locator(".g-wall .g-cell").nth(8); // 第 3 行,滚动后在视口内
+  await target.scrollIntoViewIfNeeded();
+  const scrolled = await page.evaluate((sel) => document.querySelector(sel).scrollTop, scroller);
+  check(scrolled > 0, `封面墙可滚动,点进去之前停在 ${scrolled}(否则 #10b 无从谈起)`);
 
   // ── #10a 点进子相册:图序 = 文件名自然升序 ────────────────────────────────
-  await page.locator(".g-wall .g-cell").first().click();
+  // 册序本身也随之变成路径字母序(册序由条目序派生,design.md 已记为接受的副作用),
+  // 所以别把"第一格是哪个相册"写死 —— 读出来再据它算期望值。
+  const firstAlbum = (await target.locator(".g-cap .l").innerText()).trim();
+  check(ALBUMS.includes(firstAlbum), `点进去的是一个真实相册(实测「${firstAlbum}」)`);
+  await target.click();
   await page.locator(".g-back").waitFor({ timeout: 10000 });
   const labels = await page.$$eval(".g-wall .g-cell .g-cap .l", (els) =>
     els.map((e) => e.textContent.trim()));
-  const album0 = ALBUMS[0];
   check(
     JSON.stringify(labels) ===
-      JSON.stringify([1, 2, 10].map((n) => `${KEY} ${album0} (${n}).png`)),
+      JSON.stringify([1, 2, 10].map((n) => `${KEY} ${firstAlbum} (${n}).png`)),
     `子相册按文件名自然序:(1)(2)(10) —— 实测 ${JSON.stringify(labels)}`,
   );
 
   // ── #10b 返回封面墙:滚动位置恢复 ─────────────────────────────────────────
   await page.locator(".g-back").click();
   await page.waitForFunction(() => !document.querySelector(".g-back"), { timeout: 10000 });
+  // 复位可能要等下一帧(墙面高度算完才落得上,见 GalleryPage 注释),给它settle 的时间。
+  // 断的是"用户最终看到的位置",不是某一帧。
+  await page.waitForTimeout(300);
   const back = await page.evaluate((sel) => document.querySelector(sel).scrollTop, scroller);
   check(Math.abs(back - scrolled) <= 2,
     `返回后回到原滚动位置(期望 ≈${scrolled},实测 ${back})`);

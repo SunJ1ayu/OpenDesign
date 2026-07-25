@@ -548,11 +548,12 @@ export default function ChangesColumn({
     );
   };
 
-  const pills: { key: Filter; label: string; n?: number }[] = [
+  // status:该胶囊是否精确对应一个状态(决定选中色);未办结/全部是复合筛选 → 无。
+  const pills: { key: Filter; label: string; n?: number; status?: string }[] = [
     { key: "open", label: "未办结", n: counts.open },
-    { key: "待确认", label: "待确认", n: counts.待确认 },
-    { key: "进行中", label: "进行中", n: counts.进行中 },
-    { key: "done", label: "已办结", n: counts.done },
+    { key: "待确认", label: "待确认", n: counts.待确认, status: "待确认" },
+    { key: "进行中", label: "进行中", n: counts.进行中, status: "进行中" },
+    { key: "done", label: "已办结", n: counts.done, status: "已办结" },
     { key: "all", label: "全部" },
   ];
 
@@ -613,10 +614,14 @@ export default function ChangesColumn({
           <span className="t">变更记录</span>
           <span className="n">{counts.all} 条</span>
           <div className="filter-pills">
+            {/* 真机反馈 2026-07-24 #5:选中态原本一律全黑。只给**单一状态**的胶囊上语义色
+                (与行内 st-pill 同族 token);「未办结」「全部」是复合筛选,保持中性墨
+                —— 颜色只在能唯一指代一个状态时才承载信息。 */}
             {pills.map((p) => (
               <button
                 key={p.key}
                 className={`pill${filter === p.key ? " on" : ""}`}
+                data-status={p.status ?? undefined}
                 onClick={() => setFilter(p.key)}
               >
                 {p.label}
@@ -756,7 +761,8 @@ export default function ChangesColumn({
             : groupBySpace(shown).map((g) => (
                 <div className="change-group" key={g.space ?? "@none"}>
                   <div className="change-group-head" data-ui="change-group-head">
-                    <span className="nm">{g.space ?? "未分空间"}</span>
+                    {/* #6:没空间就不写名字(同待办页,单一语言) */}
+                    {g.space && <span className="nm">{g.space}</span>}
                     <span className="rule" />
                   </div>
                   {g.items.map((c) => renderRow(c))}
