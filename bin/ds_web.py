@@ -59,6 +59,8 @@ unquote → realpath → ds_common.within 防逃逸。
 环境变量:DS_ROOT / DS_WEB_PORT / DS_WEB_DIST(测试注入用)/ DS_NANOBOT_PORT。
 """
 import http.client
+import base64
+import binascii
 import json
 import os
 import re
@@ -66,6 +68,7 @@ import sys
 import threading
 import time
 import traceback
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlsplit
 
@@ -78,7 +81,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.47.0"  # 技能页卡片锁 280-320px(修改单 §J.7);下一轮:图片上传/交付快照/cad-to-3d
+VERSION = "0.48.0"  # 图片上传:网页拖拽进收件箱(写针孔⑬,JSON+base64;名字闸/撞名不覆盖/临时文件回滚)
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -111,12 +114,18 @@ _FILES_IMAGES_RE = re.compile(r"^/api/files/images/([^/]+)$")
 _FILES_FILE_RE = re.compile(r"^/api/files/file/([^/]+)/(.+)$")
 OPEN_FOLDER_PATH = "/api/open-folder"  # do_POST 唯一放行路径,精确匹配
 OPEN_BODY_MAX = 4096  # open-folder 请求体上限(key+sub 远小于此)
+# 上传针孔(track opendesign-image-upload)——**本服务第一个"网页给字节、服务端落盘"的口**。
+# 信封上限比图片上限宽:base64 膨胀 4/3 + JSON 信封,8MB 图 ≈ 10.7MB 编码后。
+UPLOAD_BODY_MAX = 14 * 1024 * 1024   # 请求体上限(Content-Length 闸,读 body 之前判)
+UPLOAD_MAX_BYTES = 8 * 1024 * 1024   # 解码后图片字节上限(与 nanobot 单图上限同档)
+UPLOAD_NAME_MAX = 80                 # 去扩展名后的名字长度上限(Windows 260 全路径预算)
 EDIT_CHANGE_PATH = "/api/changes/edit"  # do_POST 写针孔③(track opendesign-todo-edit),精确匹配
 INTAKE_APPROVE_PATH = "/api/intake/approve"  # do_POST 针孔④(track opendesign-intake),精确匹配
 ADD_CHANGE_PATH = "/api/changes/add"  # do_POST 写针孔⑤(track opendesign-clickable-actions),精确匹配
 CREATE_PROJECT_PATH = "/api/projects/create"  # do_POST 写针孔⑥(同上 track),精确匹配
 INTAKE_SCAN_PATH = "/api/intake/scan"  # do_POST 写针孔⑦(track opendesign-inbox-scan),精确匹配
 INTAKE_AMEND_PATH = "/api/intake/amend"  # do_POST 写针孔⑧(track opendesign-frontend-p1),精确匹配
+UPLOAD_PATH = "/api/upload"  # do_POST 写针孔⑬(track opendesign-image-upload),精确匹配
 BIND_PROJECT_PATH = "/api/projects/bind"  # do_POST 写针孔⑨(同上 track),精确匹配
 STAGE_PATH = "/api/projects/stage"  # do_POST 写针孔⑩(track opendesign-stage-history §7),精确匹配
 REFS_UPDATE_PATH = "/api/refs/update"  # do_POST 写针孔⑪(同上 track §8),精确匹配
@@ -173,6 +182,21 @@ _ADD_ERR_STATUS = {
     "bad_name": 404, "path_escape": 404,
 }
 _CREATE_ALLOWED_KEYS = {"project", "client", "stage", "address"}
+_UPLOAD_ALLOWED_KEYS = {"name", "data_url"}
+# 扩展名 → 允许的 data URL mime(防"名叫 .png、内容声明成别的")。
+# 扩展名白名单**取 ds_workspace.IMG_EXTS**(与图墙读出面同源),不从 taxonomy 推导
+# —— taxonomy.json 是用户可改的数据配置,推导等于让它变成安全配置。
+_UPLOAD_MIME_BY_EXT = {
+    ".png": {"image/png"},
+    ".jpg": {"image/jpeg"}, ".jpeg": {"image/jpeg"},
+    ".webp": {"image/webp"},
+    ".gif": {"image/gif"},
+}
+# Windows 保留设备名:写过去不是文件而是设备 → 表现为"上传成功但文件不见了"。
+# 不改 ds_workspace._SEG_RE(那是全仓共用的枚举闸),只在上传口加这一道。
+_WIN_RESERVED = re.compile(
+    r"^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)", re.IGNORECASE)
+_DATA_URL_HEAD = re.compile(r"^data:([\w.+-]+/[\w.+-]+);base64,", re.ASCII)
 # create_project error code → HTTP status(校验类 400,重复 409)
 _CREATE_ERR_STATUS = {
     "empty_name": 400, "bad_stage": 400, "project_exists": 409,
@@ -388,6 +412,73 @@ def _open_windows(path: str):
         _WIN_FOCUS(path)
 
 
+def _safe_upload_name(name: str) -> str | None:
+    """上传文件名闸(纯函数,便于表驱动 oracle)。放行 → 返回**真正要落盘的名字**
+    (可能被截短);拒绝 → None。
+
+    设计要点(每条都有来由,别随手放宽):
+    - 先 `basename` 剥目录成分,再过 `ds_workspace.PROJECT_NAME_RE`(= 全仓单段名闸)。
+      **复用而不是自研黑名单**:收件箱列举(ds_intake)、指派校验、图墙扫描都用它过滤,
+      不复用就会造出"落盘成功但整条链路看不见"的黑洞(`%` 就是这么漏的)。
+    - 额外四条(上传口专有,不动共用闸):
+      `:` = NTFS 备用数据流面(`evil.exe:x.png` 过扩展名闸却造出 evil.exe);
+      `.` 开头 = 收件箱列举会跳过(同样看不见);
+      尾部 `.`/空格 = Windows 静默剥掉 → 名字对不上;
+      保留设备名 = 写到设备而不是文件。
+    - 扩展名必须在 `ds_workspace.IMG_EXTS`(png/jpg/jpeg/webp/gif;**svg 排除**)。
+    - 超长**截短而不是拒**:不截的话炸点在 apply_plan 移动那一步,用户看到的是
+      "确认执行失败"而不是"名字太长"。
+    """
+    if not isinstance(name, str):
+        return None
+    # **不做 basename 改写**:带目录成分的名字直接拒。悄悄把 `../evil.png` 改写成
+    # `evil.png` 会把"对方想干什么"这条信息抹掉;PROJECT_NAME_RE 本就禁 / 与 \,
+    # 这里只负责不给它"被洗白"的机会。同理不 strip:尾空格要拒,不是要修。
+    if not name or name in (".", ".."):
+        return None
+    if name.startswith("."):
+        return None
+    if name != name.rstrip(". "):          # 尾点/尾空格
+        return None
+    if ":" in name:
+        return None
+    if not ds_workspace.PROJECT_NAME_RE.match(name):
+        return None
+    if _WIN_RESERVED.match(name):
+        return None
+    stem, ext = os.path.splitext(name)
+    ext = ext.lower()
+    if ext not in ds_workspace.IMG_EXTS or not stem:
+        return None
+    if len(stem) > UPLOAD_NAME_MAX:
+        stem = stem[:UPLOAD_NAME_MAX].rstrip(". ")
+        if not stem:
+            return None
+    return stem + ext
+
+
+def _decode_upload_data_url(data_url: str, ext: str) -> bytes | None:
+    """data URL → 字节。mime 必须与扩展名同族,base64 严格解码,超限即拒。"""
+    if not isinstance(data_url, str):
+        return None
+    m = _DATA_URL_HEAD.match(data_url)
+    if not m:
+        return None
+    if m.group(1).lower() not in _UPLOAD_MIME_BY_EXT.get(ext, set()):
+        return None
+    b64 = data_url[m.end():]
+    # 先按编码长度粗筛(4/3 膨胀),避免为超大串真去解码
+    if len(b64) > UPLOAD_MAX_BYTES // 3 * 4 + 8:
+        return None
+    try:
+        blob = base64.b64decode(b64, validate=True)
+    except (ValueError, binascii.Error):
+        return None
+    if not blob or len(blob) > UPLOAD_MAX_BYTES:
+        return None
+    return blob
+
+
 def _default_open_launcher(path: str):
     """本机打开文件夹。Windows=资源管理器(+尽力提到前台);其余平台 xdg-open(列表参数无 shell)。
     DS_OPEN_CMD 覆盖启动命令(e2e 在无桌面 Linux 上注入记录脚本),同样列表参数。"""
@@ -486,6 +577,10 @@ class Handler(BaseHTTPRequestHandler):
     def _send(self, status: int, ctype: str, body: bytes, extra: dict | None = None):
         self.send_response(status)
         self.send_header("Content-Type", ctype)
+        # 浏览器别自作主张嗅探类型:声明 image/png 就当图,不会被当 HTML 跑。
+        # (上传口开放后,盘上可能出现"名叫 .png、内容不是图"的文件;读出面按扩展名
+        #  发类型,加这一行把嗅探那半条路也焊死。)
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Content-Length", str(len(body)))
         for k, v in (extra or {}).items():
             self.send_header(k, v)
@@ -495,6 +590,10 @@ class Handler(BaseHTTPRequestHandler):
     def _json(self, status: int, obj):
         self._send(status, "application/json; charset=utf-8",
                    json.dumps(obj, ensure_ascii=False).encode("utf-8"))
+
+    # 连接级超时(track opendesign-image-upload):上传口的体积上限抬到 14MB 后,
+    # "Content-Length 说 14MB 却只发 1 字节"的连接会把一个工作线程挂死。
+    timeout = 30
 
     def log_message(self, fmt, *args):  # 请求日志走 stdout(design D2 运维面)
         sys.stdout.write("%s - %s\n" % (self.address_string(), fmt % args))
@@ -580,6 +679,8 @@ class Handler(BaseHTTPRequestHandler):
             self._intake_scan()
         elif path == INTAKE_AMEND_PATH:
             self._intake_amend()
+        elif path == UPLOAD_PATH:
+            self._upload()
         elif path == BIND_PROJECT_PATH:
             self._bind_project()
         elif path == STAGE_PATH:
@@ -1318,6 +1419,110 @@ class Handler(BaseHTTPRequestHandler):
             return
         err = r.get("error", "internal")
         self._json(_CREATE_ERR_STATUS.get(err, 400), {"error": err})
+
+    def _upload(self):
+        """POST 写针孔⑬(track opendesign-image-upload):网页拖拽上传图片 → 收件箱。
+
+        **本服务第一个"网页给字节、服务端落盘"的口**,所以闸序写全:
+          CT=application/json(**不收 multipart**:它是 simple content-type、不触发
+          preflight,而本服务全部写针孔的 CSRF 纵深正是"json → 必 preflight → 无
+          do_OPTIONS 面 → 浏览器拦";收 multipart 等于给这个口开 CSRF 洞)
+          → Content-Length ∈ (0, UPLOAD_BODY_MAX](读 body 之前判)
+          → JSON dict → 键白名单 {name,data_url} → 类型闸
+          → _safe_upload_name(名字闸,复用全仓单段闸 + 上传口四条额外闸 + 截长)
+          → 扩展名 ∈ IMG_EXTS(svg 排除)+ data URL mime 与扩展名同族 + 严格 base64
+          → 解码后 ≤ UPLOAD_MAX_BYTES
+          → 收件箱由 ds_intake._find_inbox 解析(taxonomy 四候选、用户可覆盖;
+            自带 islink 拒绝 + within 闸)——**不硬编码 00-收件箱**;缺则 409,
+            且**不自己造目录**(网页在用户工作区凭空建文件夹 = 越权)
+          → realpath + within(纵深)
+          → 落盘:先写 `.upload-<rand>.tmp`(点号开头 → 收件箱列举天然跳过),
+            最终名用 O_EXCL 占位(撞名 `名字 (2).png` 递增,**不覆盖**),再 os.replace;
+            任何异常 finally 清临时文件(半截文件会被「扫描整理」当正常文件归档)
+        响应回显**真正落盘的名字**(可能被截短/换名),前端据此显示"已存为 xxx"。
+        """
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 < n <= UPLOAD_BODY_MAX:
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "bad request"})
+            return
+        if not isinstance(body, dict) or set(body) - _UPLOAD_ALLOWED_KEYS:
+            self._json(400, {"error": "bad request"})
+            return
+        raw_name, data_url = body.get("name"), body.get("data_url")
+        if not isinstance(raw_name, str) or not isinstance(data_url, str):
+            self._json(400, {"error": "bad request"})
+            return
+        safe = _safe_upload_name(raw_name)
+        if not safe:
+            self._json(400, {"error": "bad_name"})
+            return
+        blob = _decode_upload_data_url(data_url, os.path.splitext(safe)[1].lower())
+        if blob is None:
+            self._json(400, {"error": "bad_image"})
+            return
+
+        cfg = ds_workspace.load_config(self.server.ds_root)
+        if not cfg or not cfg.get("root"):
+            self._json(409, {"error": "workspace_not_configured"})
+            return
+        found = ds_intake._find_inbox(cfg, ds_intake.load_taxonomy(self.server.ds_root))
+        if not found:
+            self._json(409, {"error": "inbox_not_found"})
+            return
+        inbox_name, inbox_real = found
+        if not ds_common.within(os.path.realpath(cfg["root"]), inbox_real):
+            self._json(409, {"error": "inbox_not_found"})
+            return
+
+        tmp = os.path.join(inbox_real, f".upload-{uuid.uuid4().hex}.tmp")
+        final = None
+        try:
+            with open(tmp, "xb") as fh:
+                fh.write(blob)
+            stem, ext = os.path.splitext(safe)
+            for i in range(1, 100):
+                cand = safe if i == 1 else f"{stem} ({i}){ext}"
+                target = os.path.join(inbox_real, cand)
+                try:
+                    with open(target, "xb"):      # O_EXCL 占位:撞名不覆盖,无 TOCTOU
+                        pass
+                except FileExistsError:
+                    continue
+                final = (cand, target)
+                break
+            if final is None:
+                self._json(409, {"error": "too_many_duplicates"})
+                return
+            os.replace(tmp, final[1])
+            tmp = None
+        except OSError:
+            traceback.print_exc()            # 磁盘满/权限等:trace 进日志不进响应体
+            if final is not None:
+                try:
+                    os.unlink(final[1])
+                except OSError:
+                    pass
+            self._json(500, {"error": "internal"})
+            return
+        finally:
+            if tmp is not None and os.path.exists(tmp):
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+        self._json(200, {"ok": True, "name": final[0], "inbox": inbox_name})
 
     def _bind_project(self):
         """POST 写针孔⑨(track opendesign-frontend-p1):项目↔工作区文件夹关联。

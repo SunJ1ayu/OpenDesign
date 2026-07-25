@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Project, Ref, RefsVocab } from "./api";
-import { fetchFilesImages, fetchRefsData, openFolder, updateRef } from "./api";
+import { fetchFilesImages, fetchRefsData, fileToDataUrl, openFolder, updateRef,
+         uploadErrMsg, uploadToInbox } from "./api";
 import {
   buildGallery,
   sameTags,
@@ -71,6 +72,37 @@ export default function GalleryPage({ project }: Props) {
   const key = project?.key ?? null;
   const pageRef = useRef<HTMLDivElement>(null); // 滚动容器(.page 自带 overflow-y)
   const wallScroll = useRef(0); // 进子相册前记下的墙面滚动位置(#10b)
+
+  // ── 拖拽上传(track opendesign-image-upload)────────────────────────────────
+  // 落点是**收件箱**,不是当前项目的图墙 —— 直接写项目夹会新开一条"网页可任意写
+  // 工作区"的路,与「暂存 + 人工确认才动文件」这条底线相抵。上传完提示去点
+  // 伴随列的「扫描整理」(网页那条针孔自带 allowed_roots,不依赖任何环境变量)。
+  const [dragOver, setDragOver] = useState(false);
+  const [upMsg, setUpMsg] = useState<string | null>(null);
+  const [upBusy, setUpBusy] = useState(false);
+
+  async function uploadFiles(files: File[]) {
+    const imgs = files.filter((f) => f.type.startsWith("image/"));
+    if (!imgs.length) {
+      setUpMsg("只收图片(png/jpg/webp/gif)。");
+      return;
+    }
+    setUpBusy(true);
+    const stored: string[] = [];
+    try {
+      for (const f of imgs) {
+        const r = await uploadToInbox(f.name, await fileToDataUrl(f));
+        stored.push(r.name);       // 后端回显真实落盘名(可能截短/换名)
+      }
+      // 逐字回显落盘名:名字被改过时用户当场看得见,而不是三天后发现文件"没了"
+      setUpMsg(`已存进收件箱:${stored.join("、")} —— 去伴随列点「扫描整理」归档`);
+    } catch (e) {
+      const done = stored.length ? `已存 ${stored.length} 张;` : "";
+      setUpMsg(done + uploadErrMsg((e as Error).message));
+    } finally {
+      setUpBusy(false);
+    }
+  }
 
   const reloadRefs = () => {
     if (!key) return Promise.resolve();
@@ -240,7 +272,34 @@ export default function GalleryPage({ project }: Props) {
   }
 
   return (
-    <div className="page gallery-page" ref={pageRef}>
+    <div
+      className={`page gallery-page${dragOver ? " drag-over" : ""}`}
+      ref={pageRef}
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes("Files")) return;
+        e.preventDefault();                 // 不 preventDefault 浏览器会直接打开图片
+        setDragOver(true);
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget.contains(e.relatedTarget as Node)) return; // 子元素间移动不算离开
+        setDragOver(false);
+      }}
+      onDrop={(e) => {
+        if (!e.dataTransfer.types.includes("Files")) return;
+        e.preventDefault();
+        setDragOver(false);
+        void uploadFiles(Array.from(e.dataTransfer.files));
+      }}
+      data-ui="gallery-drop"
+    >
+      {(dragOver || upBusy || upMsg) && (
+        <div className="upload-note" data-ui="upload-note">
+          {dragOver ? "松手就存进收件箱" : upBusy ? "上传中…" : upMsg}
+          {!dragOver && !upBusy && upMsg && (
+            <button className="link-act inline" onClick={() => setUpMsg(null)}>知道了</button>
+          )}
+        </div>
+      )}
       <header className="page-head">
         <h2 className="serif">图墙 · {project.name}</h2>
         <span className="g-dim">

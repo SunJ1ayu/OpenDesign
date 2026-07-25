@@ -2542,3 +2542,26 @@ html, body { overflow: auto; }
   font-size: 11.5px;
   color: var(--st-done-fg);
 }
+
+/* ── 拖拽上传(track opendesign-image-upload)────────────────────────────────
+   整个图墙页是投放区:拖进来高亮一圈,松手存进收件箱。提示条常驻页顶(不是浮层
+   toast)—— 它要显示"真正落盘的名字",用户得看得清、能读完再关。 */
+.page.gallery-page.drag-over {
+  outline: 2px dashed var(--terra);
+  outline-offset: -8px;
+  background: var(--paper-hover);
+}
+.upload-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 9px 13px;
+  border: 1px solid var(--border-main);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.upload-note .link-act { margin-left: auto; }

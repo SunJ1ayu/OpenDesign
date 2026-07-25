@@ -455,3 +455,48 @@ export function relTime(iso: string | undefined): string {
   if (day(d) === day(yest)) return "昨天";
   return `${d.getMonth() + 1}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+/** 第十三个非 GET(track opendesign-image-upload,写针孔⑬):拖拽上传图片 → 收件箱。
+ * **body 是 JSON + data URL,不是 multipart** —— 本服务全部写针孔的 CSRF 纵深靠
+ * "必须 application/json → 跨站 fetch 必触发 preflight → 服务无 OPTIONS 面 → 浏览器拦";
+ * multipart 是 simple content-type,不触发 preflight,收它等于给这个"能往用户硬盘
+ * 写字节"的口开一个 CSRF 洞。
+ * 返回**真正落盘的名字**(可能被截短或因撞名换名),调用方据此提示"已存为 xxx"。 */
+export type UploadResult = { ok: true; name: string; inbox: string };
+export async function uploadToInbox(name: string, dataUrl: string): Promise<UploadResult> {
+  const r = await fetch("/api/upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, data_url: dataUrl }),
+  });
+  if (!r.ok) {
+    let code = "";
+    try {
+      code = ((await r.json()) as { error?: string }).error ?? "";
+    } catch {
+      /* 非 JSON 响应:忽略,回落状态码 */
+    }
+    throw new Error(code || `服务返回 ${r.status}`);
+  }
+  return (await r.json()) as UploadResult;
+}
+
+/** 上传错误码 → 人话(不把裸错误码怼给设计师,同 createProjectErrMsg 先例)。 */
+export function uploadErrMsg(code: string): string {
+  if (code === "bad_name") return "这个文件名不行(可能带了特殊符号),改个名再试。";
+  if (code === "bad_image") return "只收 png/jpg/webp/gif,单张不超过 8MB。";
+  if (code === "inbox_not_found") return "工作区里找不到「收件箱」文件夹,先建一个。";
+  if (code === "workspace_not_configured") return "还没接入工作区,先在设置里接一下。";
+  if (code === "too_many_duplicates") return "同名文件太多了,换个名字再传。";
+  return `上传失败(${code})。`;
+}
+
+/** File → data URL(拖拽/粘贴拿到的是 File,针孔要 data URL)。 */
+export function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error("读文件失败"));
+    fr.onload = () => resolve(String(fr.result || ""));
+    fr.readAsDataURL(file);
+  });
+}

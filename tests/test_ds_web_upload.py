@@ -85,15 +85,23 @@ def _serve(ds_root):
 
 
 def _post(port, path, body, ctype="application/json"):
+    """返回 (status, json)。**连接被服务端提前掐断 → (None, None)**:
+    体积闸是在读 body **之前**判的(正确姿态:不能先收 20MB 再说不要),于是客户端
+    还在发、服务端已经关,http.client 抛 BrokenPipe/ConnectionReset。那也是一种
+    "被拒绝",判据照收 —— 但零写盘那条断言仍然要过。"""
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=15)
     headers = {"Content-Type": ctype} if ctype else {}
     data = body if isinstance(body, (bytes, bytearray)) else \
         json.dumps(body, ensure_ascii=False).encode("utf-8")
-    conn.request("POST", path, body=data, headers=headers)
-    r = conn.getresponse()
-    b = r.read()
-    conn.close()
-    return r.status, (json.loads(b.decode("utf-8")) if b else None)
+    try:
+        conn.request("POST", path, body=data, headers=headers)
+        r = conn.getresponse()
+        b = r.read()
+        return r.status, (json.loads(b.decode("utf-8")) if b else None)
+    except (BrokenPipeError, ConnectionResetError, http.client.RemoteDisconnected):
+        return None, None
+    finally:
+        conn.close()
 
 
 def _get(port, path):
@@ -219,7 +227,7 @@ class UploadEndpoint(unittest.TestCase):
     def _reject(self, port, body, ctype="application/json", expect=400):
         before = self.inbox_files()
         st, _d = _post(port, "/api/upload", body, ctype=ctype)
-        self.assertEqual(st, expect)
+        self.assertIn(st, (expect, None))   # None = 服务端在读 body 前就掐断(见 _post)
         self.assertEqual(self.inbox_files(), before, "拒绝路径必须零写盘")
 
     def test_u03_ct_gate(self):
