@@ -78,7 +78,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.44.0"  # 07-24 反馈服务端两条:建档只填项目名(业主可空可后补)+ Windows 打开文件夹尽力提到前台
+VERSION = "0.45.0"  # 打开文件夹置顶 v2:激活升级(AttachThreadInput 借前台权)+ 每次尝试落诊断日志(真机 0.44.0 仍未置顶)
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -276,37 +276,78 @@ def _win_folder_windows():
     return out
 
 
-def _win_activate(hwnd):
-    """Windows-only:三连尽力激活。SW_RESTORE 先把最小化的还原,SwitchToThisWindow
-    (alt-tab 用的那个)比 SetForegroundWindow 宽松,最后再补一次 SetForegroundWindow。"""
-    import ctypes
-    user32 = ctypes.windll.user32
-    user32.ShowWindow(hwnd, 9)              # SW_RESTORE
+def _win_activate(hwnd, *, user32=None, kernel32=None) -> bool:
+    """把窗口拿到前台;**返回是否真的在前台**(不是"调用过了")。
+
+    真机反馈 2026-07-25:0.44.0 装上后仍然没置顶。第一版只做温和三连,
+    而 Windows 的前台权规则本来就会拒绝后台进程 —— 拒绝了也没人知道,因为
+    旧版既不检查结果也不记日志。这版:
+      ① 温和档:SW_RESTORE + SwitchToThisWindow(alt-tab 用的那个)。够了就收手。
+      ② 升级档:仍不在前台 → `AttachThreadInput` 把本线程输入队列绑到**当前前台
+         窗口的线程**上,借它的前台权 BringWindowToTop + SetForegroundWindow。
+         这是 Windows 上的标准做法(不伪造按键、不改系统设置),但**必须成对解绑**
+         ——不解绑会把两个线程的输入队列绑死,那才是真事故。
+      ③ 最后以 `GetForegroundWindow() == hwnd` 为准回报成败,绝不谎报。
+    """
+    if user32 is None or kernel32 is None:
+        import ctypes
+        user32 = user32 or ctypes.windll.user32
+        kernel32 = kernel32 or ctypes.windll.kernel32
+    user32.ShowWindow(hwnd, 9)              # SW_RESTORE:最小化的先还原
     try:
         user32.SwitchToThisWindow(hwnd, True)
     except AttributeError:                  # 极老系统没这个导出
         pass
-    user32.SetForegroundWindow(hwnd)
+    if user32.GetForegroundWindow() == hwnd:
+        return True
+    fg = user32.GetForegroundWindow()
+    fg_tid = user32.GetWindowThreadProcessId(fg, None)
+    cur_tid = kernel32.GetCurrentThreadId()
+    attached = False
+    try:
+        if fg_tid and fg_tid != cur_tid:
+            attached = bool(user32.AttachThreadInput(fg_tid, cur_tid, True))
+        user32.BringWindowToTop(hwnd)
+        user32.SetForegroundWindow(hwnd)
+    finally:
+        if attached:
+            user32.AttachThreadInput(fg_tid, cur_tid, False)
+    return user32.GetForegroundWindow() == hwnd
 
 
 def _win_focus_folder(path: str, *, enumerator=None, activator=None,
-                      attempts: int = 20, delay: float = 0.1, sleep=None) -> bool:
+                      attempts: int = 20, delay: float = 0.1, sleep=None,
+                      log=None) -> bool:
     """等目标文件夹窗口出现(窗口是异步创建的)→ 激活它。成功 True,放弃/失败 False。
     **任何异常都吞掉**:置顶失败绝不能连带把"打开文件夹"这件事搞失败。
-    轮询有上限(默认 20×0.1s=2s),不会因为窗口永不出现就无限转。"""
+    轮询有上限(默认 20×0.1s=2s),不会因为窗口永不出现就无限转。
+
+    **每次尝试都留一行诊断**(真机反馈 2026-07-25 的直接教训:0.44.0 失败后
+    日志里一个字都没有,只能靠猜)。三种结局各自可辨:
+      `hwnd=… activate=True/False` = 找到了窗口,系统给不给焦点看 activate;
+      `no-match seen=[标题…]`      = 压根没找到 —— 标题对不上/Win11 标签页;
+      `error …`                    = 枚举或激活抛了。
+    """
     enumerator = enumerator or _win_folder_windows
     activator = activator or _win_activate
     sleep = sleep or time.sleep
+    log = log or (lambda msg: print(f"[open-front] {msg}", file=sys.stderr, flush=True))
+    seen = []
     for i in range(attempts):
         try:
-            hwnd = _pick_folder_window(enumerator(), path)
+            windows = list(enumerator())
+            seen = [t for _h, cls, t in windows if cls in _FOLDER_WIN_CLASSES]
+            hwnd = _pick_folder_window(windows, path)
             if hwnd is not None:
-                activator(hwnd)
-                return True
-        except Exception:
+                ok = bool(activator(hwnd))
+                log(f"{path!r}: hwnd={hwnd} activate={ok} (第 {i + 1} 轮)")
+                return ok
+        except Exception as e:                     # noqa: BLE001 —— 尽力而为,不炸
+            log(f"{path!r}: error {e!r}(第 {i + 1} 轮)")
             return False
         if i < attempts - 1:
             sleep(delay)
+    log(f"{path!r}: no-match 轮询 {attempts} 次未找到资源管理器窗口 seen={seen!r}")
     return False
 
 

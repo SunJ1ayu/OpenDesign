@@ -104,8 +104,12 @@ class WinFocusFolder(unittest.TestCase):
                 return []
             return [(41, "CabinetWClass", BASE)]
 
+        def activator(hwnd):        # v2 起返回值 = "真的到前台了吗",不是"调用过了"
+            acted.append(hwnd)
+            return True
+
         ok = ds_web._win_focus_folder(
-            FOLDER, enumerator=enumerator, activator=acted.append,
+            FOLDER, enumerator=enumerator, activator=activator,
             attempts=10, delay=0, sleep=lambda _s: None)
         self.assertTrue(ok)
         self.assertEqual(acted, [41])
@@ -248,3 +252,159 @@ class LauncherDispatchUnchanged(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# track opendesign-open-front-v2(真机反馈 2026-07-25:0.44.0 装上后**仍然
+# 没有置顶**)。第一版的病根不只是"没提到前面",而是**失败了什么都不说** ——
+# 异常全吞、成功失败都不落日志,于是真机上只能靠猜。这一轮的判据分两块:
+#   ① 可诊断:每次尝试都要留下一行日志,说清"看见几扇资源管理器窗口、
+#      标题是什么、有没有命中、激活的返回是什么" —— 没有这行,下次还是瞎猜。
+#   ② 激活升级:SwitchToThisWindow 之后若仍不在前台,按 Windows 的标准做法
+#      AttachThreadInput 到当前前台线程再 SetForegroundWindow,并**保证解绑**。
+# 仍然证明不了"真机上窗口真的到前面来了"(见文件头声明),但能把"到底卡在
+# 哪一步"从猜测变成事实。
+# ══════════════════════════════════════════════════════════════════════════
+
+
+class FakeUser32:
+    """够用的 user32 替身:记录调用序列,foreground 可被 SetForegroundWindow 改。"""
+
+    def __init__(self, foreground=999, switch_works=False, set_works=True,
+                 has_switch=True):
+        self.calls = []
+        self.foreground = foreground
+        self.switch_works = switch_works
+        self.set_works = set_works
+        self._has_switch = has_switch
+
+    def ShowWindow(self, hwnd, cmd):
+        self.calls.append(("ShowWindow", hwnd, cmd))
+        return 1
+
+    def __getattr__(self, name):        # SwitchToThisWindow 可缺席(极老系统)
+        if name == "SwitchToThisWindow" and not self._has_switch:
+            raise AttributeError(name)
+        raise AttributeError(name)
+
+    def SwitchToThisWindow(self, hwnd, alt_tab):
+        self.calls.append(("SwitchToThisWindow", hwnd, alt_tab))
+        if self.switch_works:
+            self.foreground = hwnd
+        return 1
+
+    def GetForegroundWindow(self):
+        return self.foreground
+
+    def GetWindowThreadProcessId(self, hwnd, _pid):
+        return 4242 if hwnd == self.foreground else 4243
+
+    def AttachThreadInput(self, a, b, attach):
+        self.calls.append(("AttachThreadInput", a, b, bool(attach)))
+        return 1
+
+    def BringWindowToTop(self, hwnd):
+        self.calls.append(("BringWindowToTop", hwnd))
+        return 1
+
+    def SetForegroundWindow(self, hwnd):
+        self.calls.append(("SetForegroundWindow", hwnd))
+        if self.set_works:
+            self.foreground = hwnd
+            return 1
+        return 0
+
+
+class FakeKernel32:
+    def GetCurrentThreadId(self):
+        return 7777
+
+
+class ActivateEscalation(unittest.TestCase):
+    """_win_activate:温和手段不奏效时才升级,且升级后必须解绑线程输入。"""
+
+    def test_a01_switch_enough_no_escalation(self):
+        u = FakeUser32(switch_works=True)
+        ok = ds_web._win_activate(77, user32=u, kernel32=FakeKernel32())
+        self.assertTrue(ok)
+        names = [c[0] for c in u.calls]
+        self.assertEqual(names[:2], ["ShowWindow", "SwitchToThisWindow"])
+        self.assertNotIn("AttachThreadInput", names)   # 够用就别升级
+
+    def test_a02_escalates_and_always_detaches(self):
+        """SwitchToThisWindow 没把窗口拿到前台(真机现象)→ 绑前台线程再抢,
+        且**无论成败都要解绑**(不解绑会把两个线程的输入队列绑死)。"""
+        u = FakeUser32(switch_works=False, set_works=True)
+        ok = ds_web._win_activate(77, user32=u, kernel32=FakeKernel32())
+        self.assertTrue(ok)
+        names = [c[0] for c in u.calls]
+        self.assertIn("AttachThreadInput", names)
+        self.assertIn("SetForegroundWindow", names)
+        attaches = [c for c in u.calls if c[0] == "AttachThreadInput"]
+        self.assertEqual(len(attaches), 2, "必须成对:绑一次、解一次")
+        self.assertTrue(attaches[0][3] and not attaches[1][3])
+        self.assertEqual(names[-1], "AttachThreadInput")   # 解绑收尾
+
+    def test_a03_reports_failure_when_system_refuses(self):
+        """系统就是不给焦点 → 返回 False(不谎报成功),且仍然解绑。"""
+        u = FakeUser32(switch_works=False, set_works=False)
+        ok = ds_web._win_activate(77, user32=u, kernel32=FakeKernel32())
+        self.assertFalse(ok)
+        attaches = [c for c in u.calls if c[0] == "AttachThreadInput"]
+        self.assertEqual(len(attaches), 2)
+        self.assertTrue(attaches[0][3] and not attaches[1][3])
+
+
+class FocusDiagnostics(unittest.TestCase):
+    """_win_focus_folder:每次尝试都要留下可读的一行诊断 —— 0.44.0 真机失败后
+    无从下手,正是因为这一行不存在。"""
+
+    def test_d01_logs_hit_with_window_inventory(self):
+        logs = []
+        ds_web._win_focus_folder(
+            FOLDER,
+            enumerator=lambda: [(41, "CabinetWClass", BASE),
+                                (42, "CabinetWClass", "下载")],
+            activator=lambda _h: True,
+            attempts=2, delay=0, sleep=lambda _s: None, log=logs.append)
+        joined = "\n".join(logs)
+        self.assertTrue(logs, "命中也要留日志(否则无法确认走到了哪一步)")
+        self.assertIn("hwnd=41", joined)
+        self.assertIn("activate=True", joined)
+
+    def test_d02_logs_miss_with_seen_titles(self):
+        """没命中时**必须把看见的窗口标题列出来** —— 这是下一轮唯一的线索:
+        到底是没找到窗口(标题对不上/Win11 标签页),还是找到了但抢不到焦点。"""
+        logs = []
+        ds_web._win_focus_folder(
+            FOLDER,
+            enumerator=lambda: [(51, "CabinetWClass", "文档"),
+                                (52, "CabinetWClass", "图片")],
+            activator=lambda _h: True,
+            attempts=2, delay=0, sleep=lambda _s: None, log=logs.append)
+        joined = "\n".join(logs)
+        self.assertIn("no-match", joined)
+        self.assertIn("文档", joined)      # 看见的标题要落进日志
+        self.assertIn("图片", joined)
+
+    def test_d03_logs_exception_instead_of_silence(self):
+        logs = []
+        def boom():
+            raise OSError("ctypes 炸了")
+        ok = ds_web._win_focus_folder(
+            FOLDER, enumerator=boom, activator=lambda _h: True,
+            attempts=2, delay=0, sleep=lambda _s: None, log=logs.append)
+        self.assertFalse(ok)
+        self.assertIn("error", "\n".join(logs))
+        self.assertIn("ctypes 炸了", "\n".join(logs))
+
+    def test_d04_activator_false_is_not_reported_as_success(self):
+        """找到了窗口但系统拒绝给焦点 → 整体返回 False,日志写明 activate=False。
+        (0.44.0 把"调用过了"当成功,真机上就表现为"说做了但没动静"。)"""
+        logs = []
+        ok = ds_web._win_focus_folder(
+            FOLDER, enumerator=lambda: [(61, "CabinetWClass", BASE)],
+            activator=lambda _h: False,
+            attempts=2, delay=0, sleep=lambda _s: None, log=logs.append)
+        self.assertFalse(ok)
+        self.assertIn("activate=False", "\n".join(logs))
