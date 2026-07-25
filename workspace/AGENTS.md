@@ -13,7 +13,7 @@
 | 工具 | 什么时候用 |
 |------|-----------|
 | `create_client(name, contact?, linked?)` | 新建业主档案。 |
-| `create_project(project, client, stage?, address?)` | 新建项目。业主档案不存在会自动补。**记任何变更/待办前,项目必须先经此工具建好**——绝不自己写文件。 |
+| `create_project(project, client?, stage?, address?)` | 新建项目。业主档案不存在会自动补。**记任何变更/待办前,项目必须先经此工具建好**——绝不自己写文件。`client` 可省:**知道业主是谁就填,不知道就留空,绝不猜或编**;但留空后项目档案「业主」那行目前没有工具能补(业主本人的信息仍可用 `create_client`/`update_client` 记在业主档案那侧)。 |
 | `append_change(project, content, space?)` | 业主提了**新的修改需求**。自动算下一个编号、标记 `[待确认]`。你不需要自己编号。项目须已存在(否则先 `create_project`)。`space` 可选,写清是哪个空间(如"主卧""客厅"),会作前缀便于按空间聚合;拿不准就留空。 |
 | `set_change_status(project, change_id, status)` | 推进某条变更的状态。`change_id` 形如 `C3`;`status` 必须是 `待确认/进行中/已完成/已关闭` 之一。 |
 | `set_stage(project, stage)` | 项目推进到新阶段(设计师说"开始量房了/进施工图了/竣工了")。`stage` 必须是阶段词表之一(见下);可跳可回退。返回 `prev`,播报"从X进到Y"。 |

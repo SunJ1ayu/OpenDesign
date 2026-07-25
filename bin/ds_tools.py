@@ -1019,7 +1019,14 @@ def create_project(project: str, client: str = "", stage: str = "洽谈", addres
     **业主可空**(track opendesign-intake-simplify,真机反馈 2026-07-24 #3:建档表单
     只填项目名)。空业主时:①不写 `[[链接]]`,只留空字段行 `- 业主: ` —— 写成 `[[]]`
     会被 ds_lint 判 broken_link,等于新档案自带一条体检报错;②不建业主 stub(不猜业主
-    叫什么)。业主可事后用 create_client/update_client 补上。项目名仍必填。
+    叫什么)。项目名仍必填。
+
+    ⚠️ 空业主的**后补边界**(panel subkimi 指出我原先的说法失真,已改正):业主信息本身
+    可以随时用 `create_client(name, linked=项目)` / `update_client` 记在 clients/ 那侧
+    (关联关系从业主档案指回项目);但**项目档案头上这行 `- 业主:` 目前没有任何工具能改**
+    —— `_upsert_header_field` 只被 update_client(业主档案字段)与 set_stage(阶段)调用。
+    也就是说:建档时没填,项目档案里这行就一直空着(界面上目前不渲染该字段,无可见影响)。
+    要让它可补,需要另开一个对称的项目字段写口(follow-up,新写口按规矩走独立四审)。
     """
     today = ds_common.today_str(today)
     project = ds_common.sanitize_field(project)   # 同时作文件名与标题:消毒后一致
@@ -1071,7 +1078,9 @@ def _run_mcp() -> None:
                             address: str = "") -> dict:
         """新建项目(业主不存在会自动补档)。记录任何变更/待办前,项目必须先经此工具建好。
         project=项目slug;client=业主称呼——**知道就填,不知道就留空,绝对不要猜或编**
-        (留空只是档案里那一行空着,之后 update_client 随时补;编一个假名字会污染业主档案);
+        (编一个假名字会污染业主档案)。⚠️ 留空的代价:项目档案里「业主」那行会一直空着,
+        **现在没有工具能事后改它**;业主本人的信息倒是可以随时用 create_client/update_client
+        记在业主档案那侧。所以设计师这次说得出业主名就填上。
         stage=阶段(默认洽谈);address=地址/户型(可选)。"""
         return create_project(project, client, stage=stage, address=address, ds_root=ds_root)
 

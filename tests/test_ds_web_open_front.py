@@ -67,6 +67,18 @@ class PickFolderWindow(unittest.TestCase):
         wins2 = [(63, "CabinetWClass", r"D:\ws\图")]
         self.assertEqual(ds_web._pick_folder_window(wins2, r"D:\ws\图"), 63)
 
+    def test_p05c_same_name_different_drive_is_not_a_match(self):
+        """panel subdeepseek(MEDIUM)提的真问题:标题是**完整路径**时,只比末段
+        会把 `E:\\work` 的窗口当成 `D:\\work` 的。标题带路径就整条比,别只比尾巴。
+        (标题只有裸文件夹名时确实分不出来 —— 那是信息不足,不是判据松。)"""
+        wins = [(71, "CabinetWClass", r"E:\work")]
+        self.assertIsNone(ds_web._pick_folder_window(wins, r"D:\work"))
+        wins2 = [(72, "CabinetWClass", r"D:\work")]
+        self.assertEqual(ds_web._pick_folder_window(wins2, r"D:\work"), 72)
+        # 正斜杠/尾分隔符的写法差异不该影响判断
+        wins3 = [(73, "CabinetWClass", "D:/work/")]
+        self.assertEqual(ds_web._pick_folder_window(wins3, r"D:\work"), 73)
+
     def test_p06_empty_list(self):
         self.assertIsNone(ds_web._pick_folder_window([], FOLDER))
 

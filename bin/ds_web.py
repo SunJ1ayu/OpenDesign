@@ -219,8 +219,11 @@ def _pick_folder_window(windows, path: str):
     """windows = [(hwnd, 类名, 标题)] → 目标文件夹那扇窗的 hwnd,没有则 None。
     判据:类名 ∈ 资源管理器窗口类,且标题命中文件夹名 —— 默认标题就是文件夹名,
     用户开了"标题栏显示完整路径"时标题是整条路径,两种都要认。
-    命中要求**边界对齐**(标题 == 名字,或标题以 `\\名字`/`/名字` 结尾),不是"标题里
-    含这几个字":否则文件夹叫「图」时,「施工图」「图片」这些窗口全会被提到前台。
+    命中两种:①标题 == 文件夹名(默认标题);②标题**整条等于目标路径**(完整路径模式,
+    分隔符/大小写/尾分隔符归一化后比)。不用"标题含这几个字"(文件夹叫「图」会把
+    「施工图」「图片」全认了),也不用"标题以 \\名字 结尾"(panel subdeepseek 提的真问题:
+    那样 `E:\\work` 的窗口会被当成 `D:\\work` 的)。标题只有裸文件夹名时确实分不出
+    同名不同盘 —— 那是信息不足,只能认;真开错窗口的代价也只是"提错了一扇",不写不删。
     多个命中不断言"选哪个"(EnumWindows 的 z-order 不足以判断"刚开的是哪扇"),
     但返回值必须来自命中集合。"""
     # 反斜杠与正斜杠都要认:os.path.basename 在 Linux 上拆不开 Windows 路径
@@ -229,18 +232,23 @@ def _pick_folder_window(windows, path: str):
     if not base:
         return None
     base_l = base.lower()
-    exact, loose = [], []
+
+    def _norm(p: str) -> str:   # 分隔符/尾分隔符/大小写归一,好比整条路径
+        return p.replace("/", "\\").rstrip("\\").lower()
+
+    path_n = _norm(path)
+    exact, byname = [], []
     for hwnd, cls, title in windows:
         if cls not in _FOLDER_WIN_CLASSES:
             continue
-        t = (title or "").strip().lower()
-        if t == base_l:
-            exact.append(hwnd)
-        elif t.endswith("\\" + base_l) or t.endswith("/" + base_l):
-            loose.append(hwnd)   # 完整路径模式的标题
+        t = (title or "").strip()
+        if _norm(t) == path_n:
+            exact.append(hwnd)          # 完整路径模式:整条对上,最可信
+        elif t.lower() == base_l:
+            byname.append(hwnd)         # 只有裸文件夹名:信息不足,认它
     if exact:
         return exact[-1]
-    return loose[-1] if loose else None
+    return byname[-1] if byname else None
 
 
 def _win_folder_windows():
