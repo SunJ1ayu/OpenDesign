@@ -82,7 +82,10 @@ export default function GalleryPage({ project }: Props) {
   const [upBusy, setUpBusy] = useState(false);
 
   async function uploadFiles(files: File[]) {
-    const imgs = files.filter((f) => f.type.startsWith("image/"));
+    // 按**扩展名**过滤,不只看 mime:svg 的 mime 也是 image/svg+xml,只看 mime 会把它
+    // 放到服务端才拒(四审 subkimi F4:那时提示语给的还是错药方)。
+    const OK_EXT = /\.(png|jpe?g|webp|gif)$/i;
+    const imgs = files.filter((f) => OK_EXT.test(f.name));
     if (!imgs.length) {
       setUpMsg("只收图片(png/jpg/webp/gif)。");
       return;

@@ -173,8 +173,10 @@ class SafeUploadName(unittest.TestCase):
         for n in ["脚本.svg", "程序.exe", "图纸.dwg", "文档.pdf", "存档.zip"]:
             self.rejected(n, "扩展名不在图片白名单(svg 也排除)")
 
-    def test_n12_directory_component_is_stripped_not_trusted(self):
-        """即便前端传来带目录的名字,也只取末段(纵深:正则本身也不放行分隔符)。"""
+    def test_n12_directory_component_is_rejected_not_rewritten(self):
+        """带目录成分的名字**直接拒**,不做 basename 改写 —— 悄悄把 `C:\\...\\evil.png`
+        洗成 `evil.png` 会把"对方想干什么"这条信息抹掉(四审 subdeepseek 提的注释失真:
+        原注释写"只取末段",与实现不符)。""" 
         self.assertIsNone(ds_web._safe_upload_name("C:\\Windows\\System32\\evil.png"))
 
 
@@ -310,3 +312,96 @@ class UploadWithoutInbox(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 四审修复轮(2026-07-26):subkimi F1/F4 + subdeepseek 的注释失真。
+# F1 是真缺陷:`ds_intake.load_taxonomy` 坏表返回 None,而 `_find_inbox(cfg, None)`
+# 会 `taxonomy["inboxDirs"]` 抛 TypeError —— 兄弟端点(list_inbox/stage)都优雅降级成
+# `taxonomy_bad` → 409,只有这个新口会**连响应都不给**(浏览器看到 Failed to fetch)。
+# F4 是错误码语义:体积超限走的是通用 `bad request`,前端于是显示"上传失败(bad request)";
+# svg 因 mime 以 image/ 开头能过前端过滤,到服务端却被判 bad_name → 提示"改个名再试"=错药方。
+# ══════════════════════════════════════════════════════════════════════════
+
+
+class DegradesInsteadOfCrashing(unittest.TestCase):
+    """坏 taxonomy → 409 taxonomy_bad(与兄弟端点同款),不是断连接。"""
+
+    def test_u14_bad_taxonomy_degrades(self):
+        ds, ws = _mkroot_with_inbox()
+        self.addCleanup(shutil.rmtree, ds, ignore_errors=True)
+        self.addCleanup(shutil.rmtree, ws, ignore_errors=True)
+        # 用户覆盖表写成坏 JSON → load_taxonomy 返回 None
+        with open(os.path.join(ds, "config", "taxonomy.json"), "w", encoding="utf-8") as fh:
+            fh.write("{ 这不是 JSON")
+        with _serve(ds) as port:
+            st, d = _post(port, "/api/upload",
+                          {"name": "a.png", "data_url": data_url()})
+        self.assertEqual(st, 409, d)          # 不是 None(断连)、不是 500
+        self.assertEqual(d.get("error"), "taxonomy_bad")
+        self.assertEqual(os.listdir(os.path.join(ws, "00-收件箱")), [], "零写盘")
+
+
+class ErrorCodesAreActionable(unittest.TestCase):
+    """错误码要能翻译成对的人话 —— 前端 uploadErrMsg 按码给建议,码不对 = 建议不对。"""
+
+    def setUp(self):
+        self.ds, self.ws = _mkroot_with_inbox()
+        self.addCleanup(shutil.rmtree, self.ds, ignore_errors=True)
+        self.addCleanup(shutil.rmtree, self.ws, ignore_errors=True)
+
+    def test_u15_oversize_says_too_large_not_bad_request(self):
+        """信封超 14MB:要给"图太大"这一族的码,而不是通用 bad request。
+
+        ⚠️ 夹具讲究:真发 20MB 会被服务端在读 body 前掐断 → 客户端 BrokenPipe →
+        断言变成空跑(第一版就是这样,自欺)。改成**声称 20MB、只发几个字节**:
+        体积闸看的是 Content-Length,于是能干净地收到响应。"""
+        with _serve(self.ds) as port:
+            conn = http.client.HTTPConnection("127.0.0.1", port, timeout=15)
+            conn.putrequest("POST", "/api/upload")
+            conn.putheader("Content-Type", "application/json")
+            conn.putheader("Content-Length", str(20 * 1024 * 1024))
+            conn.endheaders()
+            conn.send(b'{"name":')          # 只发一点点,不发完
+            r = conn.getresponse()
+            body = r.read()
+            st, d = r.status, (json.loads(body.decode("utf-8")) if body else None)
+            conn.close()
+        self.assertEqual(st, 413, d)
+        self.assertEqual((d or {}).get("error"), "too_large")
+
+    def test_u16_wrong_type_says_bad_type_not_bad_name(self):
+        """svg/bmp 这类"是图但不收"的:码要说"类型不收",不能说"名字不行"
+        —— 前端按 bad_name 会建议"改个名再试",而改名根本没用。"""
+        with _serve(self.ds) as port:
+            for n in ["脚本.svg", "位图.bmp", "图纸.dwg"]:
+                st, d = _post(port, "/api/upload",
+                              {"name": n, "data_url": data_url()})
+                self.assertEqual(st, 400, d)
+                self.assertEqual((d or {}).get("error"), "bad_type", n)
+
+    def test_u17_bad_name_still_says_bad_name(self):
+        """真·名字问题仍然回 bad_name(别把两类混成一个码)。"""
+        with _serve(self.ds) as port:
+            for n in ["../evil.png", "70%完成.png", "CON.png"]:
+                st, d = _post(port, "/api/upload",
+                              {"name": n, "data_url": data_url()})
+                self.assertEqual(st, 400, d)
+                self.assertEqual((d or {}).get("error"), "bad_name", n)
+
+
+class ResponseHardening(unittest.TestCase):
+    """subkimi F5:nosniff 加了却没判据 —— 补上(它现在是全服务级承诺)。"""
+
+    def test_u18_nosniff_header_present(self):
+        ds, ws = _mkroot_with_inbox()
+        self.addCleanup(shutil.rmtree, ds, ignore_errors=True)
+        self.addCleanup(shutil.rmtree, ws, ignore_errors=True)
+        with _serve(ds) as port:
+            conn = http.client.HTTPConnection("127.0.0.1", port, timeout=15)
+            conn.request("GET", "/api/health")
+            r = conn.getresponse()
+            r.read()
+            hd = {k.lower(): v for k, v in r.getheaders()}
+            conn.close()
+        self.assertEqual(hd.get("x-content-type-options"), "nosniff")

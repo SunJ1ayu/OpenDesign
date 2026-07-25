@@ -1449,7 +1449,12 @@ class Handler(BaseHTTPRequestHandler):
             n = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             n = -1
-        if not 0 < n <= UPLOAD_BODY_MAX:
+        # 超限单独给码:前端要能说"图太大",不能只说"上传失败(bad request)"
+        # (四审 subkimi F4)。体积闸仍在**读 body 之前**,不先收 20MB 再拒。
+        if n > UPLOAD_BODY_MAX:
+            self._json(413, {"error": "too_large"})
+            return
+        if n <= 0:
             self._json(400, {"error": "bad request"})
             return
         try:
@@ -1464,6 +1469,11 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(raw_name, str) or not isinstance(data_url, str):
             self._json(400, {"error": "bad request"})
             return
+        # 类型与名字分两个码:svg/bmp/dwg 是"类型不收",回 bad_name 的话前端会建议
+        # "改个名再试" —— 改名根本没用(四审 subkimi F4)。
+        if os.path.splitext(raw_name)[1].lower() not in ds_workspace.IMG_EXTS:
+            self._json(400, {"error": "bad_type"})
+            return
         safe = _safe_upload_name(raw_name)
         if not safe:
             self._json(400, {"error": "bad_name"})
@@ -1477,7 +1487,14 @@ class Handler(BaseHTTPRequestHandler):
         if not cfg or not cfg.get("root"):
             self._json(409, {"error": "workspace_not_configured"})
             return
-        found = ds_intake._find_inbox(cfg, ds_intake.load_taxonomy(self.server.ds_root))
+        # 坏/缺 taxonomy → load_taxonomy 返回 None,直接喂给 _find_inbox 会
+        # `taxonomy["inboxDirs"]` 抛 TypeError → 连接被掐、浏览器只看到 Failed to fetch。
+        # 兄弟端点(list_inbox / stage)一律降级成 taxonomy_bad,这里对齐(四审 subkimi F1)。
+        taxonomy = ds_intake.load_taxonomy(self.server.ds_root)
+        if taxonomy is None:
+            self._json(409, {"error": "taxonomy_bad"})
+            return
+        found = ds_intake._find_inbox(cfg, taxonomy)
         if not found:
             self._json(409, {"error": "inbox_not_found"})
             return

@@ -484,7 +484,9 @@ export async function uploadToInbox(name: string, dataUrl: string): Promise<Uplo
 /** 上传错误码 → 人话(不把裸错误码怼给设计师,同 createProjectErrMsg 先例)。 */
 export function uploadErrMsg(code: string): string {
   if (code === "bad_name") return "这个文件名不行(可能带了特殊符号),改个名再试。";
-  if (code === "bad_image") return "只收 png/jpg/webp/gif,单张不超过 8MB。";
+  if (code === "bad_type") return "只收 png/jpg/webp/gif(svg 和图纸文件先手动拷进文件夹)。";
+  if (code === "too_large") return "这张图太大了(单张上限 8MB),先压一下再传。";
+  if (code === "bad_image") return "图片读不出来(格式或编码不对),换一张试试。";
   if (code === "inbox_not_found") return "工作区里找不到「收件箱」文件夹,先建一个。";
   if (code === "workspace_not_configured") return "还没接入工作区,先在设置里接一下。";
   if (code === "too_many_duplicates") return "同名文件太多了,换个名字再传。";
