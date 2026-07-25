@@ -78,7 +78,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.45.0"  # 打开文件夹置顶 v2:激活升级(AttachThreadInput 借前台权)+ 每次尝试落诊断日志(真机 0.44.0 仍未置顶)
+VERSION = "0.46.0"  # 打开文件夹置顶 v3:认「<文件夹名> - 文件资源管理器」标题(真机日志实证:窗口早就找到了,是标题带后缀没匹配上)
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -237,15 +237,31 @@ def _pick_folder_window(windows, path: str):
         return p.replace("/", "\\").rstrip("\\").lower()
 
     path_n = _norm(path)
+    # 真机日志(2026-07-25)实证:Windows 给的标题是 `3MDAX - 文件资源管理器`,
+    # 不是裸文件夹名 —— 第一版要求"标题 == 名字"才命中,于是找到了窗口却擦肩而过
+    # (日志原文:no-match … seen=['3MDAX - 文件资源管理器'])。所以标题允许带
+    # ` - <后缀>`(中文"文件资源管理器"/英文"File Explorer"/其它本地化名一律照收),
+    # 但**必须落在 " - " 这个边界上**:`3MDAXX - …` 不算 `3MDAX`,
+    # `施工图 - …` 也不算文件夹「图」(p05b/p05c 两条教训不能被这次放宽推翻)。
+    _SUFFIX = " - "
+
+    def _head(t: str) -> str:
+        """标题去掉资源管理器后缀:只切**最后一个** " - ",文件夹名里自带 " - " 也安全。"""
+        i = t.rfind(_SUFFIX)
+        return t[:i] if i > 0 else t
+
     exact, byname = [], []
     for hwnd, cls, title in windows:
         if cls not in _FOLDER_WIN_CLASSES:
             continue
         t = (title or "").strip()
-        if _norm(t) == path_n:
-            exact.append(hwnd)          # 完整路径模式:整条对上,最可信
-        elif t.lower() == base_l:
-            byname.append(hwnd)         # 只有裸文件夹名:信息不足,认它
+        for cand in (t, _head(t)):      # 原样 + 去后缀,两种都试
+            if _norm(cand) == path_n:
+                exact.append(hwnd)      # 完整路径模式:整条对上,最可信
+                break
+            if cand.lower() == base_l:
+                byname.append(hwnd)     # 只有裸文件夹名:信息不足,认它
+                break
     if exact:
         return exact[-1]
     return byname[-1] if byname else None

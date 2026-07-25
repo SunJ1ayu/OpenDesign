@@ -408,3 +408,48 @@ class FocusDiagnostics(unittest.TestCase):
             attempts=2, delay=0, sleep=lambda _s: None, log=logs.append)
         self.assertFalse(ok)
         self.assertIn("activate=False", "\n".join(logs))
+
+
+class RealWorldExplorerTitle(unittest.TestCase):
+    """真机日志(2026-07-25,用户家里的机器)给出的决定性证据 —— 窗口**找到了**,
+    只是标题带后缀:
+
+        [open-front] 'E:\\YEGU1HONG DESIGN\\3MDAX': no-match 轮询 20 次未找到
+                     资源管理器窗口 seen=['3MDAX - 文件资源管理器']
+
+    我原来的判据要求"标题 == 文件夹名"或"标题 == 完整路径",而 Windows(至少
+    Win11 / 这台机器上)给的是 `<文件夹名> - 文件资源管理器`。这一组判据用日志里
+    的原文做夹具,英文界面的 `- File Explorer` 一并覆盖。
+    """
+
+    REAL_PATH = r"E:\YEGU1HONG DESIGN\3MDAX"
+    REAL_TITLE = "3MDAX - 文件资源管理器"
+
+    def test_r01_real_title_from_user_log(self):
+        wins = [(101, "CabinetWClass", self.REAL_TITLE)]
+        self.assertEqual(ds_web._pick_folder_window(wins, self.REAL_PATH), 101)
+
+    def test_r02_english_ui_suffix(self):
+        wins = [(102, "CabinetWClass", "3MDAX - File Explorer")]
+        self.assertEqual(ds_web._pick_folder_window(wins, self.REAL_PATH), 102)
+
+    def test_r03_full_path_title_with_suffix(self):
+        """开了"标题栏显示完整路径"时:`<完整路径> - 文件资源管理器`。"""
+        wins = [(103, "CabinetWClass", self.REAL_PATH + " - 文件资源管理器")]
+        self.assertEqual(ds_web._pick_folder_window(wins, self.REAL_PATH), 103)
+
+    def test_r04_prefix_must_end_at_a_boundary(self):
+        """后缀匹配不能退化成"标题以文件夹名开头就算":`3MDAXX` 不是 `3MDAX`。"""
+        wins = [(104, "CabinetWClass", "3MDAXX - 文件资源管理器")]
+        self.assertIsNone(ds_web._pick_folder_window(wins, self.REAL_PATH))
+
+    def test_r05_short_name_lesson_still_holds(self):
+        """p05b 的教训不能被这次放宽推翻:文件夹叫「图」,`施工图 - 文件资源管理器`
+        仍然不该命中(它是"以…结尾",不是"以…开头 + 边界")。"""
+        wins = [(105, "CabinetWClass", "施工图 - 文件资源管理器")]
+        self.assertIsNone(ds_web._pick_folder_window(wins, r"D:\ws\图"))
+
+    def test_r06_same_name_different_drive_lesson_still_holds(self):
+        """p05c 的教训也不能被推翻:标题带完整路径时,盘符不同就不是同一个。"""
+        wins = [(106, "CabinetWClass", r"E:\work - 文件资源管理器")]
+        self.assertIsNone(ds_web._pick_folder_window(wins, r"D:\work"))
