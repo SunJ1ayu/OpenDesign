@@ -136,6 +136,42 @@ try {
   check(Math.abs(geo.calT - geo.cardT) <= 3,
     `日历顶边与左首卡顶边齐平(日历 ${geo.calT} / 首卡 ${geo.cardT})`);
 
+  // ── 右栏款式按参考图(真机反馈 2026-07-24 #8)──────────────────────────────
+  // 参考图:三个区块标题是**纯标题**(无白底),白底只用来"划出内容"(跟进卡、聊天框);
+  // 日历本体不再包在白卡里。判据取 computed background-color 而非 class 名。
+  // ⚠️ 这组断言只能挡住一半:"白底没了"有正确的(卡片下沉到内容)和错误的
+  //    (右栏连内容一起变透明=散架)两种,后者只有截图接得住 —— 见 design.md。
+  const railTitles = await page.locator(".todo-rail .rail-title").allInnerTexts();
+  check(
+    JSON.stringify(railTitles.map((t) => t.trim())) ===
+      JSON.stringify(["日历", "需要今天跟进", "项目助手"]),
+    `右栏三个区块标题齐备且日历叫「日历」(实测 ${JSON.stringify(railTitles)})`,
+  );
+  const bg = (sel) =>
+    page.locator(sel).first().evaluate((el) => getComputedStyle(el).backgroundColor);
+  const isWhite = (c) => c === "rgb(255, 255, 255)";
+  const isTransparent = (c) => c === "rgba(0, 0, 0, 0)" || c === "transparent";
+  for (const sel of [".rail-cal", ".rail-follow"]) {
+    check(!isWhite(await bg(sel)), `${sel} 不再是白卡(实测 ${await bg(sel)})`);
+  }
+  check(isTransparent(await bg(".rail-cal")),
+    `日历本体透明、直接坐在页面底色上(实测 ${await bg(".rail-cal")})`);
+  // 内容才有白底:跟进卡 + 聊天输入卡。且要仍然长得像"卡"(有圆角),
+  // 否则"白底还在"可以靠一块直角白布蒙混过关。
+  check(isWhite(await bg('[data-ui="follow-card"]')),
+    `跟进卡仍是白底卡(实测 ${await bg('[data-ui="follow-card"]')})`);
+  const followRadius = await page.locator('[data-ui="follow-card"]').first()
+    .evaluate((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius));
+  check(followRadius >= 6, `跟进卡有卡片圆角(实测 ${followRadius}px)`);
+  check(isWhite(await bg('[data-ui="rail-ask-card"]')),
+    `项目助手输入区仍是白底卡(实测 ${await bg('[data-ui="rail-ask-card"]')})`);
+  // 标题本身绝不能自带白底(参考图:纯标题)
+  for (const t of ["日历", "需要今天跟进", "项目助手"]) {
+    const c = await page.locator(`.todo-rail .rail-title:has-text("${t}")`).first()
+      .evaluate((el) => getComputedStyle(el).backgroundColor);
+    check(!isWhite(c), `「${t}」标题无白底(实测 ${c})`);
+  }
+
   // ── 日程月历 ────────────────────────────────────────────────────────────
   const monthLabel = page.locator('[data-ui="cal-month"]');
   check((await monthLabel.innerText()).includes("2026") && (await monthLabel.innerText()).includes("7"),

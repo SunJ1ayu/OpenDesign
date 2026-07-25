@@ -119,8 +119,36 @@ try {
   );
   const spaceHeads = await page.locator(".change-group-head .nm").allInnerTexts();
   check(spaceHeads.includes("玄关") && spaceHeads.includes("客厅"), "按空间:玄关/客厅分节头出现");
-  check(spaceHeads.includes("未分空间"), "按空间:无空间条目归「未分空间」");
-  check(spaceHeads[spaceHeads.length - 1] === "未分空间", "按空间:未分空间恒置末");
+  // 真机反馈 2026-07-24 #6:「没空间就不写」——分节仍在(条目要分开、全选本组要留),
+  // 但**不再写「未分空间」四个字**。判据 = 页面上任何位置都不出现这四个字,
+  // 且无名分节仍恒置末(次序语义没被顺手改掉)。
+  check(!spaceHeads.includes("未分空间"), "按空间:不再出现「未分空间」字样");
+  check((await page.locator("body").innerText()).includes("未分空间") === false,
+    "整页无「未分空间」残留(含待办页/变更列两处同源文案)");
+  check(spaceHeads[spaceHeads.length - 1].trim() === "",
+    `按空间:无空间那节仍恒置末、只是没了名字(实测末节名「${spaceHeads[spaceHeads.length - 1]}」)`);
+
+  // ── 变更筛选选中态语义色(真机反馈 2026-07-24 #5)────────────────────────
+  // 单一状态的胶囊选中后用该状态的语义色(与行内 st-pill 同族);
+  // 「未办结」「全部」不是单一状态 → 保持中性墨。
+  // 判据取"两两不同 + 非单状态同色",不硬编码色值 —— 换主题不该假红。
+  const pillBg = async (label) => {
+    await page.locator(`.filter-pills .pill:has-text("${label}")`).first().click();
+    await page.waitForTimeout(120); // 过渡动画
+    return page.locator(`.filter-pills .pill.on:has-text("${label}")`).first()
+      .evaluate((el) => getComputedStyle(el).backgroundColor);
+  };
+  const cPending = await pillBg("待确认");
+  const cDoing = await pillBg("进行中");
+  const cDone = await pillBg("已办结");
+  const cOpen = await pillBg("未办结");
+  const cAll = await pillBg("全部");
+  check(new Set([cPending, cDoing, cDone]).size === 3,
+    `三个单状态选中色互不相同(待确认 ${cPending} / 进行中 ${cDoing} / 已办结 ${cDone})`);
+  check(cOpen === cAll, `「未办结」「全部」非单一状态 → 同中性色(${cOpen} / ${cAll})`);
+  check(![cPending, cDoing, cDone].includes(cOpen),
+    `中性色与三个语义色都不同(中性 ${cOpen})`);
+  await page.locator('.filter-pills .pill:has-text("未办结")').first().click(); // 复位,免影响后续断言
 
   // ── T3:待办页批量改状态——按时间视图 ─────────────────────────────────
   // 日期批次默认只展开最新一批(gi===0);C3/C4(2026-07-20)是全场最新日期,
@@ -162,6 +190,14 @@ try {
   // 空间小节不折叠,任意条目直接可选;取 C1(玄关)/C2(客厅)两个不同小节各一条。
   await page.locator('.todo-head .opt:has-text("按项目")').click();
   await page.locator('[data-ui="todo-space-sect"]').first().waitFor({ timeout: 5000 });
+  // #6:待办页同源文案也不写「未分空间」,但**分节与「全选本组」必须还在**
+  // ——用户要的是"别写那四个字",不是"少一个按钮 / 条目混作一堆"。
+  check((await page.locator('[data-ui="todo-space-sect"] .nm:has-text("未分空间")').count()) === 0,
+    "待办页空间小节不再写「未分空间」");
+  check((await page.locator('[data-ui="todo-space-sect"]').count()) >= 1,
+    "空间小节本身仍在(分节没被顺手删掉)");
+  check((await page.locator('[data-ui="todo-select-group"]').count()) >= 1,
+    "「全选本组」仍在(去掉的是字,不是功能)");
   const projRow1 = page.locator('.todo-row:has-text("玄关柜改高")').first();
   const projRow2 = page.locator('.todo-row:has-text("沙发靠墙摆")').first();
   await projRow1.locator('[data-ui="todo-select"]').check();
