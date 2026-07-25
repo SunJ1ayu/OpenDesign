@@ -85,6 +85,9 @@ export default function GalleryPage({ project }: Props) {
     setImages(null);
     setVocab(EMPTY_VOCAB);
     setFilter(EMPTY);
+    wallScroll.current = 0; // 换项目=另一堵墙,别拿上一个项目的位置复位(#10b 的边界:
+    // 开着子相册切项目时 openAlbum→null 会触发复位,而 setFilter(EMPTY) 在本来就没
+    // 筛选时被 React bail-out 吃掉,清零那条路走不到)
     setOpenAlbum(null);
     setZoom(null);
     if (!key) return;
