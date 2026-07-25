@@ -207,7 +207,9 @@ export async function addChange(body: AddChangeBody): Promise<AddChangeResult> {
  * 失败抛错(带后端 error code)由调用方提示。 */
 export type CreateProjectBody = {
   project: string;
-  client: string;
+  /** 业主名。真机反馈 2026-07-24 #3 起**可选**:建档表单只填项目名,业主后补
+   *  (核心 create_project 空业主时不写 `[[链接]]`、不建 stub)。 */
+  client?: string;
   stage?: string;
   address?: string;
 };

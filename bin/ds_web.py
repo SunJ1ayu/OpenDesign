@@ -63,6 +63,8 @@ import json
 import os
 import re
 import sys
+import threading
+import time
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlsplit
@@ -76,7 +78,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.43.0"  # 07-24 真机反馈前端批:新对话强制清空 + 图墙自然序/返回原位/四列对齐 + 去「未分空间」+ 右栏纯标题款式 + 筛选选中语义色
+VERSION = "0.44.0"  # 07-24 反馈服务端两条:建档只填项目名(业主可空可后补)+ Windows 打开文件夹尽力提到前台
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -199,8 +201,130 @@ _DUE_ERR_STATUS = {
 }
 
 
+# ── Windows「把资源管理器窗口提到前台」(真机反馈 2026-07-24 #4)──────────────
+# 用户:点「打开文件夹」,窗口开在浏览器后面,新用户以为没反应。
+# os.startfile 只把请求丢给 shell,z-order 归系统管;而 ds_web 是后台进程、不持前台权,
+# **Windows 的前台权规则可能拒绝它抢焦点**(表现为任务栏闪一下)。所以这里是
+# 「尽力而为 + 永不阻塞 + 失败静默退化」:提不上来就是今天的行为,绝不倒退,
+# 更不用抢焦点的脏招(会被杀软当异常行为)。
+# 结构 = 决策与平台 glue 分离,让 oracle 咬得住(tests/test_ds_web_open_front.py):
+#   _pick_folder_window  纯逻辑:窗口三元组 → 该激活哪个句柄
+#   _win_focus_folder    等窗口出现→激活,注入 enumerator/activator,异常一律吞
+#   _win_folder_windows / _win_activate   Windows-only glue(Linux 上连
+#                        ctypes.WINFUNCTYPE 都没有 → 只能真机验,见 verify UNTESTED 清单)
+_FOLDER_WIN_CLASSES = ("CabinetWClass", "ExploreWClass")
+
+
+def _pick_folder_window(windows, path: str):
+    """windows = [(hwnd, 类名, 标题)] → 目标文件夹那扇窗的 hwnd,没有则 None。
+    判据:类名 ∈ 资源管理器窗口类,且标题命中文件夹名 —— 默认标题就是文件夹名,
+    用户开了"标题栏显示完整路径"时标题是整条路径,两种都要认。
+    命中要求**边界对齐**(标题 == 名字,或标题以 `\\名字`/`/名字` 结尾),不是"标题里
+    含这几个字":否则文件夹叫「图」时,「施工图」「图片」这些窗口全会被提到前台。
+    多个命中不断言"选哪个"(EnumWindows 的 z-order 不足以判断"刚开的是哪扇"),
+    但返回值必须来自命中集合。"""
+    # 反斜杠与正斜杠都要认:os.path.basename 在 Linux 上拆不开 Windows 路径
+    # (整条路径原样返回 → 判据恒不命中),而本函数的 oracle 就跑在 Linux 上。
+    base = re.split(r"[\\/]", path.rstrip("\\/"))[-1]
+    if not base:
+        return None
+    base_l = base.lower()
+    exact, loose = [], []
+    for hwnd, cls, title in windows:
+        if cls not in _FOLDER_WIN_CLASSES:
+            continue
+        t = (title or "").strip().lower()
+        if t == base_l:
+            exact.append(hwnd)
+        elif t.endswith("\\" + base_l) or t.endswith("/" + base_l):
+            loose.append(hwnd)   # 完整路径模式的标题
+    if exact:
+        return exact[-1]
+    return loose[-1] if loose else None
+
+
+def _win_folder_windows():
+    """Windows-only:枚举顶层窗口 → [(hwnd, 类名, 标题)]。Linux 上 ctypes.WINFUNCTYPE
+    不存在,所以整段在函数内构造(导入期不碰),测试用注入的 enumerator 替身。"""
+    import ctypes
+    from ctypes import wintypes
+    user32 = ctypes.windll.user32
+    out = []
+    cb_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+    def _cb(hwnd, _lparam):
+        if not user32.IsWindowVisible(hwnd):
+            return True
+        buf = ctypes.create_unicode_buffer(256)
+        user32.GetClassNameW(hwnd, buf, 256)
+        cls = buf.value
+        n = user32.GetWindowTextLengthW(hwnd)
+        tbuf = ctypes.create_unicode_buffer(n + 1)
+        user32.GetWindowTextW(hwnd, tbuf, n + 1)
+        out.append((hwnd, cls, tbuf.value))
+        return True
+
+    user32.EnumWindows(cb_type(_cb), 0)
+    return out
+
+
+def _win_activate(hwnd):
+    """Windows-only:三连尽力激活。SW_RESTORE 先把最小化的还原,SwitchToThisWindow
+    (alt-tab 用的那个)比 SetForegroundWindow 宽松,最后再补一次 SetForegroundWindow。"""
+    import ctypes
+    user32 = ctypes.windll.user32
+    user32.ShowWindow(hwnd, 9)              # SW_RESTORE
+    try:
+        user32.SwitchToThisWindow(hwnd, True)
+    except AttributeError:                  # 极老系统没这个导出
+        pass
+    user32.SetForegroundWindow(hwnd)
+
+
+def _win_focus_folder(path: str, *, enumerator=None, activator=None,
+                      attempts: int = 20, delay: float = 0.1, sleep=None) -> bool:
+    """等目标文件夹窗口出现(窗口是异步创建的)→ 激活它。成功 True,放弃/失败 False。
+    **任何异常都吞掉**:置顶失败绝不能连带把"打开文件夹"这件事搞失败。
+    轮询有上限(默认 20×0.1s=2s),不会因为窗口永不出现就无限转。"""
+    enumerator = enumerator or _win_folder_windows
+    activator = activator or _win_activate
+    sleep = sleep or time.sleep
+    for i in range(attempts):
+        try:
+            hwnd = _pick_folder_window(enumerator(), path)
+            if hwnd is not None:
+                activator(hwnd)
+                return True
+        except Exception:
+            return False
+        if i < attempts - 1:
+            sleep(delay)
+    return False
+
+
+def _spawn_win_focus(path: str):
+    """把置顶丢进 daemon 线程 —— 同步等 2 秒会把 POST /api/open-folder 的响应拖 2 秒
+    (ThreadingHTTPServer 不至于卡死别的请求,但按钮会转 2 秒,用户以为又没反应)。
+    返回 Thread(仅供 oracle 断言 daemon 属性;调用方不消费)。"""
+    t = threading.Thread(target=_win_focus_folder, args=(path,), daemon=True)
+    t.start()
+    return t
+
+
+_WIN_FOCUS = _spawn_win_focus  # 模块级可注入(oracle 用替身断时序)
+
+
+def _open_windows(path: str):
+    """Windows 分支:先照旧打开(失败照旧向上抛 → 前端看得见),再异步尝试提到前台。
+    **只对目录**做置顶:同一个启动器也用于"用默认程序开单个文件"(rel 分支),那时
+    前台窗口是 CAD/PDF 阅读器,找资源管理器窗口既无意义、又可能认错同名的那扇。"""
+    os.startfile(path)  # noqa: S606 —— 目录路径已过 realpath within 闸
+    if os.path.isdir(path):
+        _WIN_FOCUS(path)
+
+
 def _default_open_launcher(path: str):
-    """本机打开文件夹。Windows=资源管理器;其余平台 xdg-open(列表参数无 shell)。
+    """本机打开文件夹。Windows=资源管理器(+尽力提到前台);其余平台 xdg-open(列表参数无 shell)。
     DS_OPEN_CMD 覆盖启动命令(e2e 在无桌面 Linux 上注入记录脚本),同样列表参数。"""
     cmd = os.environ.get("DS_OPEN_CMD")
     if cmd:
@@ -208,7 +332,7 @@ def _default_open_launcher(path: str):
         subprocess.Popen([cmd, path], stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL)
     elif os.name == "nt":
-        os.startfile(path)  # noqa: S606 —— 目录路径已过 realpath within 闸
+        _open_windows(path)
     else:
         import subprocess
         subprocess.Popen(["xdg-open", path], stdout=subprocess.DEVNULL,

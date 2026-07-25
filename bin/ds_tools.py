@@ -69,7 +69,7 @@ _HISTORY_NOTE_RE = re.compile(r"^- C(\d+) 备注[:：](.*)$")
 # (ds_todo 靠它判超期),否则新项目建出来后 append/提醒都接不上(这正是首用暴露的洞)。
 _PROJECT_TEMPLATE = """# {slug}
 
-- 业主: [[{client}]]
+- 业主: {client}
 - 阶段: {stage}
 - 地址/户型: {address}
 - 开始日期: {today}
@@ -1011,17 +1011,22 @@ def set_stage(project: str, stage: str,
 
 
 # ── 工具 4.6 create_project ─────────────────────────────────────────────────
-def create_project(project: str, client: str, stage: str = "洽谈", address: str = "",
+def create_project(project: str, client: str = "", stage: str = "洽谈", address: str = "",
                    ds_root: str = DEFAULT_DS_ROOT, today: str | None = None) -> dict:
     """新建项目 projects/<project>.md(按 SCHEMA 骨架,含变更记录头+页脚)。已存在则拒绝
     覆盖;业主档案缺失时自动补一个最小 stub,避免悬空 [[链接]]。之后 append_change 可直接接上。
+
+    **业主可空**(track opendesign-intake-simplify,真机反馈 2026-07-24 #3:建档表单
+    只填项目名)。空业主时:①不写 `[[链接]]`,只留空字段行 `- 业主: ` —— 写成 `[[]]`
+    会被 ds_lint 判 broken_link,等于新档案自带一条体检报错;②不建业主 stub(不猜业主
+    叫什么)。业主可事后用 create_client/update_client 补上。项目名仍必填。
     """
     today = ds_common.today_str(today)
     project = ds_common.sanitize_field(project)   # 同时作文件名与标题:消毒后一致
-    client = ds_common.sanitize_field(client)
+    client = ds_common.sanitize_field(client)     # 折行 + strip:空白串等于"没填"
     stage = ds_common.sanitize_field(stage)
     address = ds_common.sanitize_field(address)
-    if not project or not client:
+    if not project:
         return {"error": "empty_name"}
     # stage 词表闸(对齐 set_stage;tool-audit 遗留的不对称):非词表值直接拒、不建文件、
     # 不补业主 stub。sanitize 折行后只有词表字面量能落盘,注入面由构造消灭。
@@ -1032,13 +1037,17 @@ def create_project(project: str, client: str, stage: str = "洽谈", address: st
         return err
     if os.path.exists(path):
         return {"error": "project_exists"}
-    # 业主档案不存在则先补最小 stub(用消毒后的 client 名;逃逸/已存在都安全跳过)
-    cpath, cerr = _resolve(ds_root, "clients", client)
-    if not cerr and not os.path.exists(cpath):
-        create_client(client, linked=project, ds_root=ds_root)
+    # 业主档案不存在则先补最小 stub(用消毒后的 client 名;逃逸/已存在都安全跳过)。
+    # 空业主直接短路:没有名字就没有档案可建,也不编一个。
+    if client:
+        cpath, cerr = _resolve(ds_root, "clients", client)
+        if not cerr and not os.path.exists(cpath):
+            create_client(client, linked=project, ds_root=ds_root)
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    # 有名才写 [[链接]](与 _CLIENT_TEMPLATE 的 linked 同款写法,不发明第二套)
     body = _PROJECT_TEMPLATE.format(
-        slug=project, client=client, stage=stage, address=address, today=today)
+        slug=project, client=(f"[[{client}]]" if client else ""),
+        stage=stage, address=address, today=today)
     with open(path, "x", encoding="utf-8") as fh:
         fh.write(body)
     return {"ok": True, "project": project, "client": client, "stage": stage}
@@ -1058,10 +1067,12 @@ def _run_mcp() -> None:
         return create_client(name, contact=contact, linked=linked, ds_root=ds_root)
 
     @server.tool()
-    def create_project_tool(project: str, client: str, stage: str = "洽谈",
+    def create_project_tool(project: str, client: str = "", stage: str = "洽谈",
                             address: str = "") -> dict:
         """新建项目(业主不存在会自动补档)。记录任何变更/待办前,项目必须先经此工具建好。
-        project=项目slug;client=业主称呼;stage=阶段(默认洽谈);address=地址/户型(可选)。"""
+        project=项目slug;client=业主称呼——**知道就填,不知道就留空,绝对不要猜或编**
+        (留空只是档案里那一行空着,之后 update_client 随时补;编一个假名字会污染业主档案);
+        stage=阶段(默认洽谈);address=地址/户型(可选)。"""
         return create_project(project, client, stage=stage, address=address, ds_root=ds_root)
 
     @server.tool()

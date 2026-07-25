@@ -12,7 +12,9 @@
 跑法: python3 tests/test_ds_web_open_front.py
 """
 import os
+import shutil
 import sys
+import tempfile
 import time
 import unittest
 
@@ -55,6 +57,15 @@ class PickFolderWindow(unittest.TestCase):
             (24, "CabinetWClass", FOLDER),         # 命中(完整路径模式)
         ]
         self.assertIn(ds_web._pick_folder_window(wins, FOLDER), (23, 24))
+
+    def test_p05b_short_name_does_not_match_by_substring(self):
+        """短文件夹名不能靠"标题含这几个字"乱认窗口:文件夹叫「图」,不该把
+        「施工图」「图片」这些窗口提到前台。命中只在"标题 == 名字"或"标题是以
+        路径分隔符结尾于该名字的完整路径"两种情况成立。"""
+        wins = [(61, "CabinetWClass", "施工图"), (62, "CabinetWClass", "图片")]
+        self.assertIsNone(ds_web._pick_folder_window(wins, r"D:\ws\图"))
+        wins2 = [(63, "CabinetWClass", r"D:\ws\图")]
+        self.assertEqual(ds_web._pick_folder_window(wins2, r"D:\ws\图"), 63)
 
     def test_p06_empty_list(self):
         self.assertIsNone(ds_web._pick_folder_window([], FOLDER))
@@ -142,8 +153,22 @@ class OpenWindowsOrdering(unittest.TestCase):
             ds_web.os.startfile = self.orig_startfile
 
     def test_o01_startfile_then_focus(self):
-        ds_web._open_windows(FOLDER)
-        self.assertEqual(self.seq, [("startfile", FOLDER), ("focus", FOLDER)])
+        d = tempfile.mkdtemp(prefix="openfront-")
+        self.addCleanup(shutil.rmtree, d, ignore_errors=True)
+        ds_web._open_windows(d)
+        self.assertEqual(self.seq, [("startfile", d), ("focus", d)])
+
+    def test_o01b_file_open_does_not_chase_explorer_window(self):
+        """同一个启动器也用于"用默认程序开单个文件"(rel 分支):那时前台窗口是
+        CAD/PDF 阅读器,去找资源管理器窗口既无意义、又可能认错同名的那扇 →
+        只对目录做置顶。"""
+        d = tempfile.mkdtemp(prefix="openfront-")
+        self.addCleanup(shutil.rmtree, d, ignore_errors=True)
+        f = os.path.join(d, "平面图.dwg")
+        with open(f, "w", encoding="utf-8") as fh:
+            fh.write("DWG")
+        ds_web._open_windows(f)
+        self.assertEqual(self.seq, [("startfile", f)])   # 开了,但没去抢窗口
 
     def test_o02_startfile_failure_propagates_and_skips_focus(self):
         """打开本身失败要让前端看见(500);置顶不该在没打开的情况下瞎找窗口。"""
@@ -156,7 +181,8 @@ class OpenWindowsOrdering(unittest.TestCase):
 
 
 class SpawnWinFocusNonBlocking(unittest.TestCase):
-    """_spawn_win_focus:必须立刻返回 —— ds_web 是单线程 HTTP,阻塞 2 秒 = 界面卡 2 秒。"""
+    """_spawn_win_focus:必须立刻返回 —— 同步等 2 秒会把 POST /api/open-folder 的响应
+    拖 2 秒(ThreadingHTTPServer 不至于卡死别的请求,但按钮转 2 秒 = 又像没反应)。"""
 
     def setUp(self):
         self.orig = ds_web._win_focus_folder

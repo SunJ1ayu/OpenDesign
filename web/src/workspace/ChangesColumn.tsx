@@ -49,7 +49,7 @@ function stageErrMsg(code: string): string {
 }
 
 function createProjectErrMsg(code: string): string {
-  if (code === "empty_name") return "项目名和业主名都要填。";
+  if (code === "empty_name") return "项目名要填。";
   if (code === "bad_stage") return "阶段不在词表里。";
   if (code === "project_exists") return "这个项目已经建过档了,刷新看看。";
   return `建档失败(${code})。`;
@@ -187,27 +187,26 @@ export default function ChangesColumn({
   }
 
   // 「一键建档」小表单(未建档空态,track opendesign-clickable-actions T4)
+  // 真机反馈 2026-07-24 #3:业主名框整个去掉 —— 建档只填项目名,业主之后用
+  // update_client 补(核心 create_project 空业主时不写 [[链接]]、不建 stub)。
   const [cpName, setCpName] = useState(project?.unregistered ? project.name : "");
-  const [cpClient, setCpClient] = useState("");
   const [cpBusy, setCpBusy] = useState(false);
   const [cpErr, setCpErr] = useState<string | null>(null);
   // 切到另一个未建档文件夹:表单重新预填该项目名(而非留着上一个的残留输入)
   useEffect(() => {
     if (project?.unregistered) {
       setCpName(project.name);
-      setCpClient("");
       setCpErr(null);
     }
   }, [project?.unregistered, project?.key, project?.name]);
 
   async function submitCreate() {
     const proj = cpName.trim();
-    const client = cpClient.trim();
-    if (!proj || !client || cpBusy) return;
+    if (!proj || cpBusy) return;
     setCpBusy(true);
     setCpErr(null);
     try {
-      await createProject({ project: proj, client });
+      await createProject({ project: proj });
       onCreated?.(proj);
     } catch (e) {
       setCpErr(createProjectErrMsg((e as Error).message));
@@ -367,13 +366,6 @@ export default function ChangesColumn({
               placeholder="项目名"
               value={cpName}
               onChange={(e) => setCpName(e.target.value)}
-              disabled={cpBusy}
-            />
-            <input
-              className="edit-text"
-              placeholder="业主名(必填)"
-              value={cpClient}
-              onChange={(e) => setCpClient(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") submitCreate();
               }}
@@ -381,7 +373,7 @@ export default function ChangesColumn({
             />
             <button
               className="btn-primary"
-              disabled={cpBusy || !cpName.trim() || !cpClient.trim()}
+              disabled={cpBusy || !cpName.trim()}
               onClick={submitCreate}
             >
               {cpBusy ? "建档中…" : "建档"}
