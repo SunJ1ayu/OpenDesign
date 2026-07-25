@@ -2196,11 +2196,15 @@ html, body { overflow: auto; }
 }
 
 /* ================= 5b 技能页(p4 T5,handoff §8) ================= */
+/* 卡片锁在 280–320px(Claude Design 修改单 §J.7):原来 minmax(230px, 1fr) 下,
+   窄屏挤成 230px 太局促、宽屏又被 1fr 拉到 400+ 一张卡空得发慌。上限 320 + 左对齐,
+   保证不管多宽,卡片都是同一个舒服的尺寸,多出来的宽度留白而不是摊给卡片。 */
 .skill-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 320px));
+  justify-content: start;
   gap: 14px;
-  max-width: 860px;
+  max-width: 1020px;
 }
 .skill-card {
   display: flex;

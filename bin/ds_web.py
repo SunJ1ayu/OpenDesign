@@ -78,7 +78,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.46.0"  # 打开文件夹置顶 v3:认「<文件夹名> - 文件资源管理器」标题(真机日志实证:窗口早就找到了,是标题带后缀没匹配上)
+VERSION = "0.47.0"  # 技能页卡片锁 280-320px(修改单 §J.7);下一轮:图片上传/交付快照/cad-to-3d
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
