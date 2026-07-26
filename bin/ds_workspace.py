@@ -91,11 +91,20 @@ def load_config(ds_root: str):
         gallery_depth = DEFAULT_MAX_DEPTH
     else:
         gallery_depth = max(DEPTH_MIN, min(DEPTH_MAX, gd))
+    # 可选:structuralDirs(chat-image-p2)——"这些名字是结构目录,不是项目"。
+    # 与 galleryDepth 同款宽容(坏值忽略这一项,不让整份配置下线):它只影响"列不列",
+    # 不参与安全判定;而且它天然是**用户手填/体检卡写入**的地方,一个错字不该让
+    # 整个工作区功能下线。逐项过单段闸,非法项静默丢弃(oracle s06/s07)。
+    raw_struct = raw.get("structuralDirs")
+    structural = [n for n in raw_struct
+                  if isinstance(n, str) and _SEG_RE.match(n)] \
+        if isinstance(raw_struct, list) else []
     root = os.path.realpath(root)
     if not os.path.isdir(root):
         return None
     return {"root": root, "projects": projects, "projectsDir": projects_dir,
-            "projectsDepth": depth, "galleryDepth": gallery_depth}
+            "projectsDepth": depth, "galleryDepth": gallery_depth,
+            "structuralDirs": structural}
 
 
 def project_dir(cfg, key: str):
@@ -141,6 +150,54 @@ def projects_root(cfg):
     return None
 
 
+def _load_taxonomy_for_skip(cfg):
+    """规则表(给 structural_dirs 的回落层用)。**函数内延迟 import**:
+    ds_intake 在模块层 import 本模块,模块层反向 import 会成环;调用期 import 不会
+    (那时 ds_intake 要么已加载、要么可加载)。读不出来 → None,回落层整个不参与。"""
+    try:
+        import ds_intake  # noqa: PLC0415 —— 见上,故意的延迟导入
+        return ds_intake.load_taxonomy(cfg.get("ds_root") or _ds_root_guess())
+    except Exception:
+        return None
+
+
+def _ds_root_guess():
+    """本模块被 ds_web/ds_tools 以 DS_ROOT 驱动,但 cfg 里不带它 ——
+    规则表就在本仓 config/ 下,以本文件位置反推(与 ds_intake.DEFAULT_TAXONOMY_PATH
+    同一份文件,不另立真相源)。"""
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def structural_dirs(cfg, taxonomy=None) -> set:
+    """工作区根下**不算项目**的结构目录名(单段名集合)。
+
+    用户原话:「不要写死目录名,因为用户的目录名不一定跟我的一样」。所以三层,
+    第一层是**用户声明的事实**、不是我猜的名字:
+      ① `workspace.json.structuralDirs` —— 叫「新文件」也照排;
+      ② 回落:规则表候选(inbox/archive/shared)里**确实存在于工作区根**的那几个
+         —— 让今天就能用,不必等用户先去配置;
+      ③ 两层都不中 → 不排除。用户把收件箱叫「新文件」又没声明,它就该出现在待建档
+         列表里 —— **宁可多列一个,不可猜错让人家的真项目从列表里消失**(oracle s04)。
+    坏配置(非列表/非字符串/带路径成分)整条忽略,不崩(全仓"坏配置降级"同款)。
+    """
+    out = set()
+    if cfg is None:
+        return out
+    declared = cfg.get("structuralDirs")
+    if isinstance(declared, list):
+        for name in declared:
+            if isinstance(name, str) and _SEG_RE.match(name):
+                out.add(name)
+    if taxonomy:
+        root = cfg.get("root")
+        for key in ("inboxDirs", "archiveDirs", "sharedDirs"):
+            for name in taxonomy.get(key) or []:
+                if (isinstance(name, str) and _SEG_RE.match(name) and root
+                        and os.path.isdir(os.path.join(root, name))):
+                    out.add(name)
+    return out
+
+
 def _dir_entries(path):
     """path 下可作项目/分组的一级子目录 [(name, DirEntry)] 名序:点号开头跳过
     (同 _scan);名字不过 PROJECT_NAME_RE 者跳过(路由 key 字符集寻址不到,
@@ -173,11 +230,19 @@ def project_folders(cfg):
     proot = projects_root(cfg)
     if proot is None:
         return []
+    # 结构目录(收件箱/归档/共享资源)不是项目。只有当 projects 根 == 工作区根时
+    # 它们才会撞进来(用户真机就是这个布局);项目放在 01-项目 里的用户,结构夹是
+    # 兄弟目录、本来就不在扫描范围,这里也不会误伤(oracle s08)。
+    skip = set()
+    if cfg.get("root") and os.path.realpath(cfg["root"]) == proot:
+        skip = structural_dirs(cfg, _load_taxonomy_for_skip(cfg))
     if cfg.get("projectsDepth", 1) != 2:
         return [(name, os.path.realpath(ent.path))
-                for name, ent in _dir_entries(proot)]
+                for name, ent in _dir_entries(proot) if name not in skip]
     out = []
     for gname, gent in _dir_entries(proot):
+        if gname in skip:
+            continue
         for pname, pent in _dir_entries(gent.path):
             out.append((f"{gname}:{pname}", os.path.realpath(pent.path)))
     return out

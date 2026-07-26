@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ChatPage from "../chat/ChatPage";
+import InboxCard from "./InboxCard";
 import type { ChatSession } from "../chat/connection";
 
 // 聊天列(handoff §4,340px):头部(项目助手 / ≡ / » 收起)+ ChatPage 真身。
@@ -17,17 +18,24 @@ type Props = {
   onChatId?: (chatId: string) => void;
   onAttachFailed?: () => void;
   firstSendPrefix?: string;
+  projectLabel?: string;   // -p2:聊天存图起名用(纯透传)
+  dataEpoch?: number;      // -p2:收件箱卡片搬到本列顶部,沿用同一刷新节拍
+  inboxActive?: boolean;   // -p2:路由门(仅工作区路由拉收件箱数据)
   onNewChat?: () => void; // 清当前项目映射+强制新会话
 };
 
 export default function ChatColumn({
   session, prefill, dispatch, onConnected, onTurnEnd,
-  resume, onChatId, onAttachFailed, firstSendPrefix, onNewChat,
+  resume, onChatId, onAttachFailed, firstSendPrefix, projectLabel, onNewChat,
+  dataEpoch = 0, inboxActive = false,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
     <section className={`chatcol${collapsed ? " collapsed" : ""}`}>
+      {/* ⓪ 收件箱(-p2,用户提的:放项目助手上面,款式对齐左列)。
+          **收起项目助手时它仍在** —— 它不属于聊天,不该跟着聊天一起消失。 */}
+      <InboxCard dataEpoch={dataEpoch} active={inboxActive} />
       {collapsed ? (
         <div className="chat-rail">
           <button className="icon-btn" title="展开项目助手" onClick={() => setCollapsed(false)}>
@@ -59,6 +67,7 @@ export default function ChatColumn({
           onChatId={onChatId}
           onAttachFailed={onAttachFailed}
           firstSendPrefix={firstSendPrefix}
+          projectLabel={projectLabel}
         />
       </div>
     </section>

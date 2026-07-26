@@ -81,7 +81,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.49.0"  # 聊天发图(ws media)+ 气泡「存进收件箱」+ 收件箱缺失可一键建(写针孔⑭)+ 落盘绝对路径回显
+VERSION = "0.50.0"  # 收件箱搬右列+常驻打开 / 结构目录不再当项目(按声明不猜名) / 历史对话显示发过的图 / 聊天存图起可读名
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -1026,7 +1026,34 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, UnicodeDecodeError):
             self._json(400, {"error": "bad request"})
             return
-        key = body.get("key") if isinstance(body, dict) else None
+        if not isinstance(body, dict):
+            self._json(400, {"error": "bad request"})
+            return
+        # inbox 分支(track opendesign-chat-image-p2 D2):「打开收件箱」。
+        # **路径由服务端 _find_inbox 解析,调用方给不了路径** —— 否则这条口就成了
+        # "网页能让 Windows 打开任意目录"。与 key/sub/rel 互斥,同给即 400(不猜意图)。
+        if "inbox" in body:
+            if body.get("inbox") is not True or set(body) != {"inbox"}:
+                self._json(400, {"error": "bad request"})
+                return
+            cfg = ds_workspace.load_config(self.server.ds_root)
+            if not cfg or not cfg.get("root"):
+                self._json(404, {"error": "not found"})
+                return
+            taxonomy = ds_intake.load_taxonomy(self.server.ds_root)
+            found = ds_intake._find_inbox(cfg, taxonomy) if taxonomy else None
+            if not found:
+                self._json(404, {"error": "not found"})
+                return
+            try:
+                OPEN_LAUNCHER(found[1])
+            except OSError:
+                traceback.print_exc()
+                self._json(500, {"error": "internal"})
+                return
+            self._json(200, {"ok": True})
+            return
+        key = body.get("key")
         if not isinstance(key, str) or not key:
             self._json(400, {"error": "bad request"})
             return

@@ -267,6 +267,22 @@ try {
   // ── ⑤ 收件箱卡片要显示它在硬盘哪儿(回工作区路由)────────────────────────
   await page.evaluate(() => { window.location.hash = "#/workspace"; });
   await page.locator('[data-ui="inbox-summary"]').waitFor({ timeout: 15000 });
+
+  // -p2:收件箱**在右列(项目助手上面)**,不在中间那列;且常驻「打开」入口
+  check(await page.locator('.chatcol [data-ui="inbox-summary"]').count() === 1,
+    "收件箱在右列(项目助手上面)");
+  check(await page.locator('.aside [data-ui="inbox-summary"]').count() === 0,
+    "中间伴随列里不再有收件箱(那列 = 纯这个项目的东西)");
+  check(await page.locator('[data-ui="inbox-open"]').count() >= 1, "常驻「打开」入口在");
+  // 收起项目助手(»)→ 收件箱那一行**仍在**(它不属于聊天)
+  await page.locator('.chatcol-head button[title="收起"]').click();
+  await page.waitForFunction(
+    () => document.querySelector(".chatcol.collapsed") !== null, null, { timeout: 5000 });
+  check(await page.locator('.chatcol [data-ui="inbox-summary"]').count() === 1,
+    "收起项目助手后,收件箱仍在");
+  await page.locator('.chat-rail button').click();   // 展开回来,后续断言照旧
+  await page.waitForFunction(
+    () => document.querySelector(".chatcol.collapsed") === null, null, { timeout: 5000 });
   await expandInbox(page);   // 卡片默认收成一行摘要(v4 质感收口),路径在折叠区里
   const whereEl = page.locator('[data-ui="inbox-where"]');
   await whereEl.waitFor({ timeout: 15000 });

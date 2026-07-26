@@ -268,6 +268,17 @@ export type IntakeData =
 
 export const fetchIntake = () => getJson<IntakeData>("/api/intake");
 
+/** 打开收件箱(track -p2):复用 open-folder 唯一开口的 inbox 分支。
+ * **不传路径** —— 收件箱在哪由服务端 _find_inbox 解析,网页给不了路径。 */
+export async function openInbox(): Promise<void> {
+  const r = await fetch("/api/open-folder", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ inbox: true }),
+  });
+  if (!r.ok) throw new Error(`服务返回 ${r.status}`);
+}
+
 /** 第十四个非 GET(track opendesign-chat-image,写针孔⑭):建收件箱夹。
  * 空 body(后端键白名单=空集:名字由规则表定,不由网页点名)。**人工点一下才建** ——
  * 上传口刻意不自己造目录(网页凭空建文件夹=越权),这个按钮是那条规矩下的正当出路。 */

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { IntakeData } from "../api";
 import {
-  amendIntake, approveIntake, createInbox, createInboxErrMsg, fetchIntake, scanInbox,
+  amendIntake, approveIntake, createInbox, createInboxErrMsg, fetchIntake,
+  openInbox, scanInbox,
 } from "../api";
 import { entrySuggestion, intakeState, planPreview } from "./intake";
 
@@ -31,6 +32,13 @@ export default function InboxCard({ dataEpoch, active }: Props) {
   // 消失 —— 用户点了一下、东西没了,对一个不是程序员的人读起来像"坏了";而这一刻
   // 恰恰是最该把路径给他看一次的时候(他原话就是"收件箱在我电脑哪个文件夹")。
   const [created, setCreated] = useState("");
+  const [openErr, setOpenErr] = useState("");
+
+  // 常驻「打开」(-p2):点开资源管理器看那个文件夹。路径不由前端给(见 api.openInbox)。
+  const doOpen = () => {
+    setOpenErr("");
+    openInbox().catch(() => setOpenErr("打开失败,可能是路径被改了或没有桌面环境"));
+  };
   const fetched = useRef<string | null>(null);
 
   useEffect(() => {
@@ -121,7 +129,26 @@ export default function InboxCard({ dataEpoch, active }: Props) {
       </div>
     );
   }
-  if (state === "loading" || state === "empty") {
+  if (state === "empty") {
+    // -p2:空箱不再整卡隐身 —— 用户要的是**常驻**入口("这个常驻的打开收件箱")。
+    // 一行,和左列 .aside-head 同款,不占地方。
+    const dd = data as Extract<IntakeData, { configured: true }>;
+    return (
+      <div className="inbox-card">
+        <div className="inbox-summary" data-ui="inbox-summary">
+          <span className="t">收件箱</span>
+          <button className="gallery-link" data-ui="inbox-open" title={dd.path || ""}
+                  onClick={doOpen}>
+            打开 →
+          </button>
+          <span className="grow" />
+          <span className="inbox-quiet">空的</span>
+        </div>
+        {openErr && <div className="aside-empty warn">{openErr}</div>}
+      </div>
+    );
+  }
+  if (state === "loading") {
     return null;
   }
   const d = data as Extract<IntakeData, { configured: true }>;
@@ -183,6 +210,17 @@ export default function InboxCard({ dataEpoch, active }: Props) {
         }}
       >
         <span className="t">收件箱 {d.entries.length}</span>
+        <button
+          className="gallery-link"
+          data-ui="inbox-open"
+          title="在资源管理器里打开收件箱"
+          onClick={(e) => {
+            e.stopPropagation();
+            doOpen();
+          }}
+        >
+          打开 →
+        </button>
         <span className="grow" />
         <button
           className="btn-secondary sm"
@@ -207,6 +245,7 @@ export default function InboxCard({ dataEpoch, active }: Props) {
               <code>{d.path}</code>
             </div>
           )}
+          {openErr && <div className="aside-empty warn">{openErr}</div>}
           {scanMsg && <div className="inbox-hint scan-msg">{scanMsg}</div>}
 
           {plans.map((p) => (

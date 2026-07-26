@@ -18,7 +18,6 @@ import {
   projectImages,
   relTimeFromEpoch,
 } from "./cockpit";
-import InboxCard from "./InboxCard";
 import { openTargetFor } from "./projectName";
 
 // 驾驶舱列(track opendesign-cockpit,原"伴随列"升级):速览 → 图片 → 类目 → 最近。
@@ -170,9 +169,8 @@ export default function CompanionColumn({
 
   return (
     <section className="aside">
-      {/* ⓪ 收件箱(intake,工作区级,不随选中项目变;没事时隐身) */}
-      <InboxCard dataEpoch={dataEpoch} active={active} />
-
+      {/* ⓪ 收件箱已搬去右列顶部(-p2,用户提的):它是**工作区级**的东西,
+          本来就不该混在"这个项目的图片/文件"中间;搬走后本列 = 纯这个项目。 */}
       {/* ① 项目速览(cockpit,修改单 D2):阶段/业主/相对时间挪走或删——
           阶段挪中央列标题旁(ChangesColumn stage-chip),业主不再展示;
           「当前状态」一句话保留。 */}

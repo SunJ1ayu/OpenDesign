@@ -15,6 +15,7 @@ import { inputPlaceholder } from "./inputHint";
 import {
   MAX_CHAT_IMAGES,
   chatErrorMsg,
+  chatImageName,
   dataUrlBytes,
   isSendableDataUrl,
   MAX_CHAT_IMAGE_BYTES,
@@ -77,6 +78,8 @@ type Props = {
    * 拼上——attach 回放有内容=不是第一句,不拼;回放晚到竞态=多拼一次,无害。
    */
   firstSendPrefix?: string;
+  /** 当前项目的显示名(-p2:聊天存图起名用;首页无项目时不传 —— 不硬凑)。 */
+  projectLabel?: string;
   /**
    * 展示变体(P3 T1,design.md「抽薄不 fork」):column = 2a 右列(默认),
    * home = 3a 新对话页。变体只影响 className 与空态 JSX 与输入卡外层样式;
@@ -103,6 +106,7 @@ export default function ChatPage({
   onChatId,
   onAttachFailed,
   firstSendPrefix,
+  projectLabel,
   variant = "column",
 }: Props) {
   const fallback = useMemo(() => new ChatSession(), []);
@@ -318,15 +322,21 @@ export default function ChatPage({
    * "这个报错截图什么意思"自动进收件箱 = 给设计师造垃圾,而收件箱是他要一条条过的
    * 地方;另外自动双写会多出"media 成了、上传失败"的半成功态。手动按钮天然没有。
    */
-  const saveToInbox = async (m: { id: string; media?: { data_url: string; name: string }[] }) => {
-    if (!m.media || m.media.length === 0) return;
+  const saveToInbox = async (m: { id: string; media?: { src: string; name: string }[] }) => {
+    const savable = (m.media || []).filter((x) => x.src.startsWith("data:"));
+    if (savable.length === 0) return;
     setSavingId(m.id);
     const done: string[] = [];
     let dir = "";
     let bad = "";
-    for (const img of m.media) {
+    const at = new Date();
+    for (let i = 0; i < savable.length; i++) {
+      const img = savable[i];
+      // 名字:哈希名换成人看得懂的,原名有意义则原样保留(media.ts D5)。
+      // 项目上下文取自本列的首句前缀(项目助手才有),没有就不硬凑。
+      const named = chatImageName(img.name, { project: projectLabel, at, index: i });
       try {
-        const r = await uploadToInbox(img.name, img.data_url);
+        const r = await uploadToInbox(named, img.src);
         done.push(r.name);
         // 目录 = 落盘路径剥掉末段名。多张图时提示"目录 + 每张的真实落盘名",
         // 而不是"最后一张的完整路径"(那样另外几张叫什么就没人知道了)。
@@ -344,7 +354,8 @@ export default function ChatPage({
       [m.id]: bad
         ? `${done.length > 0 ? `已存 ${done.length} 张,剩下的没成:` : ""}${bad}`
         // 回显**绝对路径**:用户问过"收件箱是在我电脑哪个文件夹",答案就该在这句里
-        : `已存进 ${dir || "收件箱"}:${done.join("、")} —— 去伴随列点「扫描整理」归档`,
+        : `已存进 ${dir || "收件箱"}:${done.join("、")}`
+          + " —— 去点「扫描整理」归档;名字不合适?跟助手说一声就能改",
     }));
   };
 
@@ -734,12 +745,15 @@ export default function ChatPage({
                 {m.media && m.media.length > 0 && (
                   <div className="msg-imgs">
                     {m.media.map((img, i) => (
-                      <img key={`${m.id}#${i}`} src={img.data_url} alt={img.name}
+                      <img key={`${m.id}#${i}`} src={img.src} alt={img.name}
                            title={img.name} />
                     ))}
                     {/* 归档要走人工:nanobot 把图存在它自己的媒体目录,不在项目工作区
                         ——"看得见但归不了档"的补法就是这颗按钮(design D2)。 */}
+                    {/* 回放的历史图只有签名地址、拿不到字节,存不了 —— 那种气泡
+                        不给按钮(给了点下去必失败,比没有更糟)。 */}
                     <div className="msg-img-acts">
+                      {m.media.some((x) => x.src.startsWith("data:")) && (
                       <button
                         className="btn-secondary sm"
                         data-ui="save-to-inbox"
@@ -749,6 +763,7 @@ export default function ChatPage({
                       >
                         {savingId === m.id ? "存入中…" : "存进收件箱"}
                       </button>
+                      )}
                       {savedNote[m.id] && (
                         <span className="msg-img-note" data-ui="save-to-inbox-note">
                           {savedNote[m.id]}

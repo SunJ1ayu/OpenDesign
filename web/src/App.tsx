@@ -460,6 +460,9 @@ export default function App() {
           onChatId={onColChatId}
           onAttachFailed={onColAttachFailed}
           firstSendPrefix={selected ? projectPrefix(selected.name || selected.key) : undefined}
+          projectLabel={selected ? selected.name || selected.key : undefined}
+          dataEpoch={dataEpoch}
+          inboxActive={route === "workspace"}
           onNewChat={newProjectChat}
         />
       </div>

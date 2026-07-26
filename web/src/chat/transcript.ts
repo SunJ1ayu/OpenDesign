@@ -12,9 +12,9 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   streaming: boolean;
-  /** 本条随手发出去的图(track opendesign-chat-image)。只有本地上屏的用户消息才有:
-   * 历史回放里图是签名链接、形态不同,本期不还原(non-goal)。 */
-  media?: OutboundMedia[];
+  /** 本条带的图(track opendesign-chat-image / -p2)。本地发出的 src=data URL,
+   * 历史回放的 src=网关签名地址(见 BubbleMedia)。 */
+  media?: BubbleMedia[];
 }
 
 export interface TranscriptState {
@@ -31,6 +31,38 @@ export const emptyTranscript: TranscriptState = Object.freeze({
 export interface OutboundMedia {
   data_url: string;
   name: string;
+}
+
+/** 气泡上要显示的图。`src` 两种来源:
+ *  - 本地刚发出的 = data URL(所以「存进收件箱」拿得到字节);
+ *  - 历史回放的 = 网关签名地址(只能看,拿不到字节 → 那条气泡不给存图按钮)。
+ *  判据 h01 锁死回放项恰好是 {src,name} 两个键,别往里加东西。 */
+export interface BubbleMedia {
+  src: string;
+  name: string;
+}
+
+/** 网关地址(与 connection.ts / STOCK_WEBUI 的 8765 同一处硬编码;换端口两处一起改)。 */
+const GATEWAY_ORIGIN = "http://127.0.0.1:8765";
+
+/**
+ * 回放里的附件 → 可渲染的图。**只认 `kind==="image"` 且 url 以 `/api/media/` 开头**
+ * 的签名地址(签名自带鉴权);任意外链一律拒 —— 回放数据虽来自本机网关,也不该让
+ * 任意 URL 进 `<img src>`(判据 h02)。畸形一律跳过,不崩。
+ */
+function replayMedia(raw: unknown): BubbleMedia[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: BubbleMedia[] = [];
+  for (const item of raw) {
+    if (typeof item !== "object" || item === null) continue;
+    const m = item as Record<string, unknown>;
+    if (m.kind !== "image") continue;
+    const url = m.url;
+    if (typeof url !== "string" || !url.startsWith("/api/media/")) continue;
+    const name = typeof m.name === "string" && m.name ? m.name : "图片";
+    out.push({ src: GATEWAY_ORIGIN + url, name });
+  }
+  return out.length > 0 ? out : undefined;
 }
 
 /** 出站信封(协议 §2 入站)。
@@ -86,7 +118,12 @@ export function hydrateFromThread(payload: unknown): TranscriptState | null {
     if (typeof r.content !== "string") continue;
     if (role === "assistant" && !r.content.trim()) continue;
     const id = typeof r.id === "string" && r.id ? r.id : `replay-${i}`;
-    messages.push({ id, role, content: r.content, streaming: false });
+    const msg: ChatMessage = { id, role, content: r.content, streaming: false };
+    // -p2:回放里带着图(网关的签名 URL)。以前这里把它丢了,于是"切走再回来,
+    // 发过的图就没了" —— 图从来没丢,是这一行没接(用户实测报的那条)。
+    const media = replayMedia(r.media);
+    if (media) msg.media = media;
+    messages.push(msg);
   }
   return { messages, busy: false };
 }
@@ -99,7 +136,11 @@ export function appendLocalUser(
   media?: OutboundMedia[],
 ): TranscriptState {
   const msg: ChatMessage = { id, role: "user", content, streaming: false };
-  if (media && media.length > 0) msg.media = media;
+  // 出站信封那份是 {data_url,name}(协议要求),气泡这份统一成 {src,name}:
+  // src 就是同一个 data URL,所以「存进收件箱」照样拿得到字节,不必存两份。
+  if (media && media.length > 0) {
+    msg.media = media.map((m) => ({ src: m.data_url, name: m.name }));
+  }
   return { messages: [...state.messages, msg], busy: true };
 }
 

@@ -2631,3 +2631,6 @@ html, body { overflow: auto; }
   padding: 8px 14px 0;
   overflow-wrap: anywhere;
 }
+/* 收件箱搬到右列顶部(-p2):标题行款式对齐左列 .aside-head */
+.chatcol > .inbox-card { border-bottom: 1px solid var(--border-main); }
+.inbox-quiet { font-size: 11px; color: var(--ink-5); }
