@@ -146,19 +146,33 @@ class StructuralDirsNotProjects(unittest.TestCase):
         got = self._folder_names(ds)
         self.assertEqual(sorted(got), sorted(["新文件", PROJ_A]), got)
 
-    def test_s05_declared_plus_default_are_unioned(self):
-        """声明的 ∪ 规则表里存在的,两层并集(声明了新名字不代表放弃默认名)。"""
+    def test_s05_bad_declaration_still_falls_back_to_defaults(self):
+        """声明写坏(整键类型不对)→ 该层作废,但回落层照常兜底。
+        (与 s10 对照:**合法声明**会关掉回落层,坏声明不算声明。)"""
         ds, _ = self._env(["00-收件箱", "新文件", PROJ_A],
-                          {"structuralDirs": ["新文件"]})
+                          {"structuralDirs": "不是列表"})
         got = self._folder_names(ds)
-        self.assertEqual(got, [PROJ_A], got)
+        self.assertEqual(sorted(got), sorted(["新文件", PROJ_A]), got)
 
-    def test_s06_bad_structuralDirs_type_degrades_not_crashes(self):
-        """配置写坏(不是字符串列表)→ 忽略这一层,不炸;仍走规则表回落。"""
-        for bad in ("00-收件箱", 123, [1, 2], [""], {"a": 1}):
+    def test_s06_non_list_value_is_not_a_declaration_falls_back(self):
+        """**不是列表**(字符串/数字/对象)= 压根没在声明这件事 → 走回落层,不炸。"""
+        for bad in ("00-收件箱", 123, {"a": 1}, None, True):
             ds, _ = self._env(["00-收件箱", PROJ_A], {"structuralDirs": bad})
             got = self._folder_names(ds)
             self.assertEqual(got, [PROJ_A], f"structuralDirs={bad!r} → {got}")
+
+    def test_s06b_list_of_garbage_counts_as_declared_empty(self):
+        """**是列表但内容全非法**([1,2] / [""])= 他确实在声明、只是写错了 →
+        按"声明了空"算,于是一个都不排除。
+        ⚠️ 这条判据是我加了 s09(声明即关闭猜测)之后**回头改的** —— 原本它期望
+        "坏值 → 回落"。改的依据是本单反复讲的那条优先级:**宁可多列一个(用户看得见、
+        能自己收拾),不可猜错让人家的真项目从列表里消失(用户只会觉得东西丢了)**。
+        记在这里是因为"改判据去迁就实现"正是假绿的经典路径,必须留痕给评审看。"""
+        for bad in ([1, 2], [""], [None]):
+            ds, _ = self._env(["00-收件箱", PROJ_A], {"structuralDirs": bad})
+            got = self._folder_names(ds)
+            self.assertEqual(sorted(got), sorted(["00-收件箱", PROJ_A]),
+                             f"structuralDirs={bad!r} → {got}")
 
     def test_s07_structural_names_with_path_parts_ignored(self):
         """声明里混进带路径成分的值 → 忽略那一条(只认单段名),不影响其余。"""
@@ -182,6 +196,55 @@ class StructuralDirsNotProjects(unittest.TestCase):
             json.dump({"root": ws, "projects": {}}, fh, ensure_ascii=False)
         self.assertEqual(self._folder_names(ds), [PROJ_A])
 
+
+    def test_s09_declaring_the_key_at_all_turns_off_the_guessing_layer(self):
+        """**给用户一个关掉猜测的开关**:只要 `structuralDirs` 这个键出现了(哪怕是
+        空列表),就完全按声明算、不再回落到规则表候选。
+        为什么要这条:回落层是按名字猜的,万一某人真有个项目夹叫「归档项目」,
+        它会被静默吃掉 —— 而用户不会来报 bug,只会觉得"我那个项目不见了"。
+        有了这条,他写一行 `"structuralDirs": []` 就能把猜测整层关掉。"""
+        ds, _ = self._env(["00-收件箱", "归档项目", PROJ_A], {"structuralDirs": []})
+        got = self._folder_names(ds)
+        self.assertEqual(sorted(got), sorted(["00-收件箱", "归档项目", PROJ_A]), got)
+
+    def test_s10_explicit_declaration_does_not_silently_add_defaults(self):
+        """声明了「新文件」→ 只排它;同在根下的 00-收件箱 **不再**被自动排除
+        (与 s05 的"并集"相反 —— s05 的前提是没声明键,这里是显式声明)。"""
+        ds, _ = self._env(["00-收件箱", "新文件", PROJ_A],
+                          {"structuralDirs": ["新文件"]})
+        got = self._folder_names(ds)
+        self.assertEqual(sorted(got), sorted(["00-收件箱", PROJ_A]), got)
+
+    def test_s11_user_taxonomy_override_is_honoured_by_the_fallback(self):
+        """**subglm 的 BLOCK 顺出来的真 bug**:回落层要按 **这台机器的 DS_ROOT** 读规则表。
+        我原来用 `__file__` 反推仓根去找 taxonomy —— 于是用户在
+        `<DS_ROOT>/config/taxonomy.json` 里把收件箱改名成「新文件」时,排除逻辑
+        **读不到他的覆盖**,还在按仓库自带的默认名排。那正是"写死"换了个马甲。"""
+        ds, ws = self._env(["新文件", PROJ_A])
+        user_tax = os.path.join(ds, "config", "taxonomy.json")
+        with open(user_tax, "w", encoding="utf-8") as fh:
+            json.dump({"inboxDirs": ["新文件"]}, fh, ensure_ascii=False)
+        got = self._folder_names(ds)
+        self.assertEqual(got, [PROJ_A], f"用户覆盖后的名字要被认出来:{got}")
+
+    def test_s12_excluded_by_guessing_is_reported_not_silent(self):
+        """**两条腿共同指出的**:被"猜"排掉的目录必须让人看得见 ——
+        否则用户只会觉得"我那个文件夹怎么不见了",而他不是程序员、不会去翻配置。
+        显式声明排掉的不报(那是他自己写的,他知道)。"""
+        ds, _ = self._env(["00-收件箱", "03-共享资源", PROJ_A])
+        with _serve(ds) as port:
+            st, r = _get(port, "/api/projects")
+        self.assertEqual(st, 200)
+        self.assertEqual(sorted(r.get("excludedStructural") or []),
+                         ["00-收件箱", "03-共享资源"], r.get("excludedStructural"))
+
+    def test_s13_explicitly_declared_exclusions_are_not_nagged_about(self):
+        ds, _ = self._env(["新文件", PROJ_A], {"structuralDirs": ["新文件"]})
+        with _serve(ds) as port:
+            st, r = _get(port, "/api/projects")
+        self.assertEqual(st, 200)
+        self.assertEqual(r.get("excludedStructural") or [], [],
+                         "自己声明的不用再提醒他")
 
 class OpenInboxBranch(unittest.TestCase):
     """「打开收件箱」:open-folder 的 inbox 分支。

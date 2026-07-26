@@ -95,16 +95,22 @@ def load_config(ds_root: str):
     # 与 galleryDepth 同款宽容(坏值忽略这一项,不让整份配置下线):它只影响"列不列",
     # 不参与安全判定;而且它天然是**用户手填/体检卡写入**的地方,一个错字不该让
     # 整个工作区功能下线。逐项过单段闸,非法项静默丢弃(oracle s06/s07)。
+    # 合法列表 = **显式声明**(哪怕空列表)→ 完全按它算,关掉下面那层"按名字猜";
+    # 缺键/坏类型 = 没声明 → 走回落层。给用户一个把猜测整层关掉的开关(oracle s09):
+    # 回落层毕竟是按名字猜的,万一谁的项目夹真叫「归档项目」,写一行 [] 就能救回来。
     raw_struct = raw.get("structuralDirs")
-    structural = [n for n in raw_struct
-                  if isinstance(n, str) and _SEG_RE.match(n)] \
-        if isinstance(raw_struct, list) else []
+    structural = ([n for n in raw_struct if isinstance(n, str) and _SEG_RE.match(n)]
+                  if isinstance(raw_struct, list) else None)
     root = os.path.realpath(root)
     if not os.path.isdir(root):
         return None
     return {"root": root, "projects": projects, "projectsDir": projects_dir,
             "projectsDepth": depth, "galleryDepth": gallery_depth,
-            "structuralDirs": structural}
+            "structuralDirs": structural,
+            # 规则表(含用户覆盖 <ds_root>/config/taxonomy.json)必须按**本次调用的
+            # DS_ROOT** 读。原来靠 __file__ 反推仓根 → 用户把收件箱改名的覆盖读不到,
+            # 排除逻辑还在按仓库默认名排 = "写死"换了个马甲(oracle s11,四审顺出来的)。
+            "ds_root": ds_root}
 
 
 def project_dir(cfg, key: str):
@@ -162,9 +168,8 @@ def _load_taxonomy_for_skip(cfg):
 
 
 def _ds_root_guess():
-    """本模块被 ds_web/ds_tools 以 DS_ROOT 驱动,但 cfg 里不带它 ——
-    规则表就在本仓 config/ 下,以本文件位置反推(与 ds_intake.DEFAULT_TAXONOMY_PATH
-    同一份文件,不另立真相源)。"""
+    """兜底:调用方自己拼 cfg(不经 load_config)时才会走到这里。
+    正路是 `cfg["ds_root"]` —— 见 load_config 里那段注释。"""
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -173,8 +178,9 @@ def structural_dirs(cfg, taxonomy=None) -> set:
 
     用户原话:「不要写死目录名,因为用户的目录名不一定跟我的一样」。所以三层,
     第一层是**用户声明的事实**、不是我猜的名字:
-      ① `workspace.json.structuralDirs` —— 叫「新文件」也照排;
-      ② 回落:规则表候选(inbox/archive/shared)里**确实存在于工作区根**的那几个
+      ① `workspace.json.structuralDirs` —— 叫「新文件」也照排;**声明过就以它为准,
+         不再往下回落**(写 `[]` = 一个都不排除,是把"猜"整层关掉的开关,oracle s09);
+      ② 没声明时回落:规则表候选(inbox/archive/shared)里**确实存在于工作区根**的那几个
          —— 让今天就能用,不必等用户先去配置;
       ③ 两层都不中 → 不排除。用户把收件箱叫「新文件」又没声明,它就该出现在待建档
          列表里 —— **宁可多列一个,不可猜错让人家的真项目从列表里消失**(oracle s04)。
@@ -185,9 +191,8 @@ def structural_dirs(cfg, taxonomy=None) -> set:
         return out
     declared = cfg.get("structuralDirs")
     if isinstance(declared, list):
-        for name in declared:
-            if isinstance(name, str) and _SEG_RE.match(name):
-                out.add(name)
+        # 显式声明过 → 就按它算,**不再回落**(空列表 = "一个都不排除",是合法意图)
+        return {n for n in declared if isinstance(n, str) and _SEG_RE.match(n)}
     if taxonomy:
         root = cfg.get("root")
         for key in ("inboxDirs", "archiveDirs", "sharedDirs"):
@@ -196,6 +201,21 @@ def structural_dirs(cfg, taxonomy=None) -> set:
                         and os.path.isdir(os.path.join(root, name))):
                     out.add(name)
     return out
+
+
+def excluded_structural(cfg) -> list:
+    """**被"猜"排掉的目录名**(升序);显式声明排掉的不算(那是用户自己写的,他知道)。
+    给 /api/projects 用:被猜掉的必须让人看得见 —— 否则用户只会觉得"我那个文件夹
+    怎么不见了",而他不是程序员、不会去翻配置(四审 submimo + subglm 共同指出)。"""
+    if cfg is None or isinstance(cfg.get("structuralDirs"), list):
+        return []
+    proot = projects_root(cfg)
+    if proot is None or not cfg.get("root"):
+        return []
+    if os.path.realpath(cfg["root"]) != proot:
+        return []
+    names = structural_dirs(cfg, _load_taxonomy_for_skip(cfg))
+    return sorted(n for n in names if os.path.isdir(os.path.join(proot, n)))
 
 
 def _dir_entries(path):

@@ -369,3 +369,11 @@ test("h05 没有 media 的老会话回放,形状与从前逐字节一致(不回�
     { id: "replay-0", role: "user", content: "你好", streaming: false },
   ]);
 });
+
+test("h06 签名 URL 里带 .. 或 // → 拒(浏览器会规范化掉,前缀闸会被绕过)", () => {
+  for (const url of ["/api/media/../../etc/passwd", "/api/media/a/../../x",
+                     "/api/media//evil.example/x.png"]) {
+    const st = hydrateFromThread(threadWith([{ kind: "image", url, name: "x.png" }]));
+    assert.equal(st.messages[0].media, undefined, `应拒:${url}`);
+  }
+});

@@ -846,7 +846,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         # 阶段词表(track opendesign-stage-history §7):单一真相源 = ds_tools.PROJECT_STAGES,
         # 前端 stage-chip 下拉不许硬编码副本;写口不回显词表(少一条外泄面)。
-        self._json(200, {"projects": projects, "stages": list(ds_tools.PROJECT_STAGES)})
+        # excludedStructural:**被"猜"排掉的目录名**,让前端能说一句"这几个当结构目录了"
+        # —— 静默排除正是"用户觉得项目不见了"的成因(-p2 四审)。
+        try:
+            excluded = ds_workspace.excluded_structural(
+                ds_workspace.load_config(self.server.ds_root))
+        except Exception:
+            excluded = []
+        self._json(200, {"projects": projects, "stages": list(ds_tools.PROJECT_STAGES),
+                         "excludedStructural": excluded})
 
     def _changes(self, key: str):
         target = self._project_file(key)

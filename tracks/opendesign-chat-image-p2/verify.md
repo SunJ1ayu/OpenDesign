@@ -1,28 +1,89 @@
 # Verify: opendesign-chat-image-p2
 
 - Date: 2026-07-26
-- Verdict: <PASS | BLOCK | NEEDS_MORE_INFO>
+- Verdict: **PASS**(ds-web 0.50.0,含修复轮)
 
-> Panel hook — 软判断(correctness/security/edge/spec-drift)走 panel-review:
-> 主 agent 先独立审并落 findings,再跑 submimo/subsense/subglm,主 agent 主裁。
-> build/test 跑通是机械检查。lane:full(主+3,高风险)/ fast(主+1,medium)/
-> self(主自审,小改)。
+> 顺序更正:本单**先派发 panel、后写本文件**。上一单我把顺序做反了,subglm 读到了我的
+> verify.md 并直接引用("已在 verify.md 中标记为已修复"),那条腿的独立性作废。今天没重犯。
 
-## Mechanical checks
+## Mechanical checks(主 agent 亲跑)
 
-- [ ] build passes
-- [ ] tests pass
-- [ ] no secrets / unsafe ops
+- [x] `pytest tests/` **679 passed / 8 skipped**(本单新增 19:s01–s13 + o01–o05)
+- [x] `node --test tests/*.mjs` **242/242**(本单新增 14:p01–p08 + h01–h06)
+- [x] `npm run build` 绿;`npx tsc --noEmit` 无输出
+- [x] e2e:首轮 10 条全绿;修复轮后重跑 5 条关键路径全绿
+- [x] **亲眼看截图**:收件箱行与左列「图片」标题行在同一水平线(用户要的"对齐"),
+      项目列表只剩真项目(`/api/projects` 实测 keys 只有那一个真项目)
 
 ## Review
 
-- lane: <full | fast | self>
-- 规格自查(读任何 panel 输出之前先答):<如果规格本身就是错的,会错成什么样、我怎么发现?
-  panel 只验"实现合不合规格",验不了"规格对不对" —— 四腿齐 PASS 不等于题是对的。>
-- findings:
-  - <...>
-- arbitrated verdict (主裁): <...>
+- lane: **full 四审**。到齐 3 腿:submimo(PASS)、subdeepseek-agent(PASS)、
+  subglm-agent(**BLOCK**);subkimi 再次超时 rc=1(日志已读,无新增实质发现)。
+- 主审自评(先于任何 employee 输出):
+  `/root/aiwork/tasks/opendesign-chat-image-p2-review-my-review.md`
+
+### 主审自己抓到并已修的(先于 panel)
+
+1. **给用户一个关掉"猜"的开关**:`structuralDirs` 一旦显式声明(哪怕 `[]`)就以它为准、
+   不再回落到按名字猜(s09/s10)。
+2. **`<img src>` 白名单收紧**:拒 `..` 与 `//` —— 浏览器会先规范化 `/api/media/../../x`
+   再发请求,只查前缀等于没查(h06)。
+3. **改判据留痕**:s06 原本期望"坏值→回落",加了 s09 之后我**回头改了它**
+   (列表里全是垃圾 = 声明了空 = 一个都不排除)。改判据去迁就实现正是假绿的经典路径,
+   所以在 s06b 的 docstring 里写明了改动理由与优先级依据,留给评审看。
+
+### employee findings 逐条仲裁(每条给依据)
+
+**接受并修(2 条,都是 subglm 那条孤腿 BLOCK 顺出来的)**
+
+1. **[真 bug·已修] 回落层读错了规则表**。subglm 质疑 `_ds_root_guess()`(用 `__file__`
+   反推仓根)在真机不可靠。反推本身在两种布局下都成立,但顺着查下去发现**真问题**:
+   用户在 `<DS_ROOT>/config/taxonomy.json` 里把收件箱改名(比如叫「新文件」)时,
+   排除逻辑**读不到他的覆盖**,还在按仓库自带默认名排 —— 那正是用户明令禁止的"写死"
+   换了个马甲。修法:`load_config` 把 `ds_root` 放进 cfg,规则表按**本次调用的 DS_ROOT**
+   读;`_ds_root_guess()` 降级为"调用方自己拼 cfg"时的兜底。判据 s11(先红后绿)。
+   submimo 独立报了同一处的表象(`cfg.get("ds_root")` 恒为 None = 死代码)——
+   **两腿从不同角度指到同一行,这种重合值得优先查**。
+2. **[已修] 被"猜"排掉的目录必须让人看得见**(submimo 与 subglm 共同指出的方向)。
+   `/api/projects` 新增 `excludedStructural`(只报**猜**掉的,自己声明的不啰嗦),
+   侧栏项目区底下一行灰字:「00-收件箱、03-共享资源 当作结构文件夹,没列为项目」。
+   判据 s12/s13。**这条把 BLOCK 的失败模式从"静默消失"降成"看得见、能问"** ——
+   用户不是程序员,静默才是真正致命的那半。
+
+**拒绝(1 条,给依据)**
+
+- **subglm 主张"移除回落层"** → **拒**。移除后,任何没手写过 `structuralDirs` 的机器
+  (包括他将来给同事装的每一台)都会继续把收件箱当项目列出来 —— 那正是本单要修的 bug,
+  等于用"永远不修"换"绝不误伤"。而误伤的前提是**用户把真项目命名成「归档项目」
+  /「共享资源」这类结构词**,与他自己的命名习惯(`20260612 周宁 龙腾世纪 12#1802`)
+  正相反。加上本轮两条缓解(看得见 + 一行 `[]` 关掉猜测),残余风险已低于"不修"的代价。
+  **注:这是我作为主裁的判断,不是"三比一投票"** —— 孤腿 BLOCK 我查了、认了它顺出来的
+  真 bug,只是不接受它开的药方。
+
+**记录不动作**
+
+- submimo:缺一条"回落候选恰好是真项目夹"的判据 → **有道理但无法机器判**(那正是
+  "系统分不清"的场景);已由 s12 的可见性 + s09 的开关覆盖成"人能看见并纠正"。
+- subdeepseek:`GATEWAY_ORIGIN` 8765 三处各自硬编码 → 属实,但**非本单引入**
+  (`connection.ts`/`STOCK_WEBUI` 早就是),不在本单扩大。记入待办。
+
+### arbitrated verdict(主裁)
+
+**PASS**(修复轮后)。
+
+本轮再次印证:**孤腿 BLOCK 才是信号**。三腿里唯一 BLOCK 的 subglm 药方我否了,
+但顺着它的怀疑查下去挖出了本单唯一的真 bug(规则表读错根 = 用户改名不生效)——
+而这恰好是用户今天反复强调的那条("不要写死目录名")在实现里的残留。
 
 ## Accepted deviations
 
-- <接受的非关键偏差 + 原因 + 影响范围,或 None>
+- **回落层保留**(见上仲裁),代价用"可见 + 可关"两条缓解。
+- **历史回放的图不给「存进收件箱」按钮**:回放只有签名地址、拿不到字节(跨源 fetch 读不到),
+  给了按钮点下去必失败。宁可没有。
+
+## UNTESTED on target(Windows 真机)
+
+- 侧栏那行「…当作结构文件夹」的实际观感(只在 Linux 截图里看过)。
+- 历史对话里的图在真机能否加载(签名 URL + 跨端口 8766→8765):**必须真机看一眼**,
+  纯逻辑判据接不住"图裂了"。
+- `00-收件箱` 之外的结构目录(归档/共享资源)用户还没建,回落层在他机器上目前只命中收件箱。

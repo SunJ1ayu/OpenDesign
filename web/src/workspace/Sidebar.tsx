@@ -21,6 +21,8 @@ type Props = {
   onSelectProject: (key: string) => void;
   todosOpenCount: number | null;
   sessions: SessionItem[] | null; // null = 未连接/不可用(隐藏区块内容)
+  /** -p2:被"猜"成结构目录、因此没进列表的文件夹名(显式声明的不报) */
+  excludedStructural?: string[];
   /** project-thread:sessionKey → 项目显示名(命中项目映射的会话加小标) */
   sessionTags?: Record<string, string>;
   onOpenSession: (s: SessionItem) => void; // p6:点历史行 → 首页 attach 续聊
@@ -47,7 +49,7 @@ function dotTitle(p: Project, current: boolean): string {
 }
 
 export default function Sidebar({
-  route, projects, selectedKey, onSelectProject, todosOpenCount,
+  route, projects, selectedKey, onSelectProject, todosOpenCount, excludedStructural,
   sessions, sessionTags, onOpenSession, onDeleteSession, onNewChat, onNewProject,
   onSearch, health,
 }: Props) {
@@ -202,6 +204,14 @@ export default function Sidebar({
         })}
         {projects.length === 0 && (
           <div className="side-empty-hint">还没有项目——在对话里说「新建项目…」</div>
+        )}
+        {/* 被"猜"成结构目录而没列出来的,要说一声(-p2 四审:静默排除 = 用户觉得
+            文件夹不见了,而他不会去翻配置)。自己在配置里声明过的不再啰嗦。 */}
+        {excludedStructural && excludedStructural.length > 0 && (
+          <div className="side-empty-hint" data-ui="excluded-structural"
+               title="这些是工作区的结构文件夹(收件箱/归档/共享资源之类),没当成项目">
+            {excludedStructural.join("、")} 当作结构文件夹,没列为项目
+          </div>
         )}
       </div>
 

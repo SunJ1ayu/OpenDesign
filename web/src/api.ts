@@ -79,7 +79,8 @@ async function getJson<T>(path: string): Promise<T> {
 // 阶段词表随项目列表一起下发(单一真相源 = 后端 ds_tools.PROJECT_STAGES);
 // fetchProjects 保持既有返回形状(只给数组),要词表用 fetchProjectsData。
 export const fetchProjectsData = () =>
-  getJson<{ projects: Project[]; stages: string[] }>("/api/projects");
+  getJson<{ projects: Project[]; stages: string[]; excludedStructural?: string[] }>(
+    "/api/projects");
 
 export const fetchProjects = () => fetchProjectsData().then((d) => d.projects);
 

@@ -62,6 +62,8 @@ export default function App() {
   // 阶段词表(track opendesign-stage-history §7):随项目列表一起下发,单一真相源
   // = 后端 ds_tools.PROJECT_STAGES;ChangesColumn 的 stage-chip 下拉直接用它,不硬编码副本。
   const [stages, setStages] = useState<string[]>([]);
+  // -p2:被"猜"成结构目录而没列出来的文件夹名(侧栏底下说一声,不静默)
+  const [excludedStructural, setExcludedStructural] = useState<string[]>([]);
   const [projErr, setProjErr] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [changes, setChanges] = useState<Change[] | null>(null);
@@ -185,10 +187,11 @@ export default function App() {
   // 项目列表 + 待办角标:挂载即拉,dataEpoch 变(每轮回复后)重拉——刷新变更来源
   useEffect(() => {
     fetchProjectsData()
-      .then(({ projects: ps, stages: st }) => {
+      .then(({ projects: ps, stages: st, excludedStructural: ex }) => {
         setProjErr(null);
         setProjects(ps);
         setStages(st);
+        setExcludedStructural(Array.isArray(ex) ? ex : []);
         setSelectedKey((cur) => {
           if (cur && ps.some((p) => p.key === cur)) return cur;
           // 默认选中:最近更新的未交付已建档项目(设计师"手头项目");
@@ -380,6 +383,7 @@ export default function App() {
     <Sidebar
       route={route}
       projects={projects}
+      excludedStructural={excludedStructural}
       selectedKey={selectedKey}
       onSelectProject={goProject}
       onSearch={() => setSearchOpen(true)}

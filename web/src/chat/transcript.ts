@@ -58,7 +58,10 @@ function replayMedia(raw: unknown): BubbleMedia[] | undefined {
     const m = item as Record<string, unknown>;
     if (m.kind !== "image") continue;
     const url = m.url;
+    // 前缀白名单 + 拒 `..`/`//`:浏览器会在发请求前把 `/api/media/../../x` 规范化成
+    // `/x`,前缀闸就被绕过了(仍指向本机网关,面很小,但没理由留着)。
     if (typeof url !== "string" || !url.startsWith("/api/media/")) continue;
+    if (url.includes("..") || url.includes("//")) continue;
     const name = typeof m.name === "string" && m.name ? m.name : "图片";
     out.push({ src: GATEWAY_ORIGIN + url, name });
   }
