@@ -12,6 +12,9 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   streaming: boolean;
+  /** 本条随手发出去的图(track opendesign-chat-image)。只有本地上屏的用户消息才有:
+   * 历史回放里图是签名链接、形态不同,本期不还原(non-goal)。 */
+  media?: OutboundMedia[];
 }
 
 export interface TranscriptState {
@@ -24,15 +27,37 @@ export const emptyTranscript: TranscriptState = Object.freeze({
   busy: false,
 });
 
-/** 出站信封(协议 §2 入站)。 */
-export function messageEnvelope(chatId: string, content: string, turnId: string) {
-  return {
+/** 一张随消息发出的图(协议 §2 `media`;svg 被上游显式排除,见 chat/media.ts)。 */
+export interface OutboundMedia {
+  data_url: string;
+  name: string;
+}
+
+/** 出站信封(协议 §2 入站)。
+ * `media` 可选:**没图时信封里不出现这个键**(老形状逐字节不变,免得给上游多一个
+ * 待解析字段;空数组同样不出现——空 media 没有任何意义)。 */
+export function messageEnvelope(
+  chatId: string,
+  content: string,
+  turnId: string,
+  media?: OutboundMedia[],
+) {
+  const env: {
+    type: "message";
+    chat_id: string;
+    content: string;
+    webui: true;
+    turn_id: string;
+    media?: OutboundMedia[];
+  } = {
     type: "message" as const,
     chat_id: chatId,
     content,
     webui: true as const,
     turn_id: turnId,
   };
+  if (media && media.length > 0) env.media = media;
+  return env;
 }
 
 /** 出站 attach 信封(p6 续聊:挂回历史会话的 chat_id,协议 §2 入站)。 */
@@ -71,11 +96,11 @@ export function appendLocalUser(
   state: TranscriptState,
   content: string,
   id: string,
+  media?: OutboundMedia[],
 ): TranscriptState {
-  return {
-    messages: [...state.messages, { id, role: "user", content, streaming: false }],
-    busy: true,
-  };
+  const msg: ChatMessage = { id, role: "user", content, streaming: false };
+  if (media && media.length > 0) msg.media = media;
+  return { messages: [...state.messages, msg], busy: true };
 }
 
 /** 入站事件 → 新 state。认不出/畸形的一律原样返回(安全降级)。 */

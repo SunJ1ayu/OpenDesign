@@ -1204,6 +1204,13 @@ html, body { overflow: auto; }
 .inbox-row .sug { color: var(--ink-4); flex: none; white-space: nowrap; }
 .inbox-row.more { color: var(--ink-4); }
 .inbox-hint { font-size: 11px; color: var(--ink-4); padding: 6px 0 2px; }
+/* 收件箱在硬盘哪儿(track opendesign-chat-image):用户问过这个,答案就写在卡片里 */
+.inbox-where { font-size: 11px; color: var(--ink-4); padding: 2px 0 6px; }
+.inbox-where code, .inbox-hint code {
+  font-size: 11px;
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
 .inbox-card > .inbox-hint.scan-msg { padding: 0 16px 6px; }
 
 /* ── 驾驶舱速览(track opendesign-cockpit;修改单 D2 后只剩「当前状态」一句话,
@@ -1453,6 +1460,29 @@ html, body { overflow: auto; }
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }
+/* 用户气泡里的图(track opendesign-chat-image):图在上、文字在下,
+   底下一行是「存进收件箱」+ 结果提示(含绝对路径,可换行不撑破气泡)。 */
+.msg-imgs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.msg-imgs img {
+  /* 亲眼看出来的:180px × 4 张会把用户气泡撑到接近满宽、喧宾夺主(用户消息本来是
+     "低对比右对齐"的配角)。缩到 116px:4 张仍是一行,气泡回到配角位置。 */
+  max-width: 116px;
+  max-height: 116px;
+  border-radius: 10px;
+  border: 1px solid var(--border-main);
+}
+.msg-img-acts {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.msg-img-note {
+  font-size: 11px;
+  color: var(--ink-4);
+  overflow-wrap: anywhere;   /* Windows 绝对路径很长,断得下来才不撑破气泡 */
+}
 .msg-ai {
   font-size: 13.5px;
   line-height: 1.75;
@@ -1523,6 +1553,35 @@ html, body { overflow: auto; }
   transition: border-color var(--hover-ease);
 }
 .chat-card:focus-within { border-color: var(--terra); }
+/* 发图(track opendesign-chat-image):拖到输入卡上的高亮态 + 缩略图条 */
+.chat-card.dropping { border-color: var(--terra); background: var(--paper-inset); }
+.chat-thumbs { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px 0; }
+.chat-thumb { position: relative; width: 56px; height: 56px; }
+.chat-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border-main);
+}
+.chat-thumb .thumb-x {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--border-main);
+  background: #fff;
+  color: var(--ink-3);
+  font-size: 12px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chat-thumb .thumb-x:hover { color: var(--ink); background: var(--paper-side); }
+.chat-media-note { font-size: 11px; color: var(--ink-4); padding: 8px 14px 0; }
 .chat-card textarea {
   display: block;
   width: 100%;

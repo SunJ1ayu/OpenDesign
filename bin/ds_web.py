@@ -81,7 +81,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.48.0"  # 图片上传:网页拖拽进收件箱(写针孔⑬,JSON+base64;名字闸/撞名不覆盖/临时文件回滚)
+VERSION = "0.49.0"  # 聊天发图(ws media)+ 气泡「存进收件箱」+ 收件箱缺失可一键建(写针孔⑭)+ 落盘绝对路径回显
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -126,6 +126,7 @@ CREATE_PROJECT_PATH = "/api/projects/create"  # do_POST 写针孔⑥(同上 trac
 INTAKE_SCAN_PATH = "/api/intake/scan"  # do_POST 写针孔⑦(track opendesign-inbox-scan),精确匹配
 INTAKE_AMEND_PATH = "/api/intake/amend"  # do_POST 写针孔⑧(track opendesign-frontend-p1),精确匹配
 UPLOAD_PATH = "/api/upload"  # do_POST 写针孔⑬(track opendesign-image-upload),精确匹配
+INBOX_CREATE_PATH = "/api/inbox/create"  # do_POST 写针孔⑭(track opendesign-chat-image),精确匹配
 BIND_PROJECT_PATH = "/api/projects/bind"  # do_POST 写针孔⑨(同上 track),精确匹配
 STAGE_PATH = "/api/projects/stage"  # do_POST 写针孔⑩(track opendesign-stage-history §7),精确匹配
 REFS_UPDATE_PATH = "/api/refs/update"  # do_POST 写针孔⑪(同上 track §8),精确匹配
@@ -681,6 +682,8 @@ class Handler(BaseHTTPRequestHandler):
             self._intake_amend()
         elif path == UPLOAD_PATH:
             self._upload()
+        elif path == INBOX_CREATE_PATH:
+            self._inbox_create()
         elif path == BIND_PROJECT_PATH:
             self._bind_project()
         elif path == STAGE_PATH:
@@ -1068,13 +1071,28 @@ class Handler(BaseHTTPRequestHandler):
         工作区外 plan 不进收件箱卡片(那些走 ds-approve CLI)。"""
         try:
             r = ds_intake.list_inbox(self.server.ds_root)
-            if not r.get("ok"):
-                self._json(200, {"configured": False,
-                                 "reason": r.get("error", "unknown"),
-                                 "entries": [], "pending": []})
-                return
             cfg = ds_workspace.load_config(self.server.ds_root)
+            if not r.get("ok"):
+                out = {"configured": False, "reason": r.get("error", "unknown"),
+                       "entries": [], "pending": []}
+                # 没有收件箱夹 → 顺带回**将要建在哪**,「帮我建收件箱」按钮才能在
+                # 点之前就把路径写在提示里(用户按下去之前就知道会发生什么)。
+                if out["reason"] == "inbox_not_found" and cfg and cfg.get("root"):
+                    tax = ds_intake.load_taxonomy(self.server.ds_root)
+                    cands = (tax or {}).get("inboxDirs") or []
+                    if cands and ds_workspace._SEG_RE.match(cands[0]):
+                        out["wouldCreate"] = os.path.join(
+                            os.path.realpath(cfg["root"]), cands[0])
+                self._json(200, out)
+                return
+            # `path` = 收件箱绝对路径,只给网页显示(用户原话「收件箱是在我电脑哪个
+            # 文件夹」)。**刻意只在这一层拼**:ds_intake.list_inbox 同时是 MCP 工具
+            # (list_inbox_tool),往它的返回里塞绝对路径 = 把本机路径喂给 LLM 并上云,
+            # 无谓拓宽模型能看到的内容(ds_tools.py 的铁律)。网页要显示 ≠ 模型要知道。
             self._json(200, {"configured": True, "inbox": r["inbox"],
+                             "path": os.path.join(
+                                 os.path.realpath(cfg["root"]), r["inbox"])
+                             if cfg and cfg.get("root") else None,
                              "entries": r["entries"],
                              "truncated": r["truncated"],
                              "pending": self._pending_plans(cfg)})
@@ -1539,7 +1557,98 @@ class Handler(BaseHTTPRequestHandler):
                     os.unlink(tmp)
                 except OSError:
                     pass
-        self._json(200, {"ok": True, "name": final[0], "inbox": inbox_name})
+        # `path` = 绝对落盘路径。用户原话「收件箱是在我电脑哪个文件夹」——0.48.0 只回
+        # name/inbox,前端只能说"已存进收件箱",他被迫来问人 = 提示不合格。
+        # 不是新的泄漏类:/api/health 早就回 ds_root,且这是 localhost 单机工具、
+        # 路径本来就是机主自己填的。**只给网页 UI,不进任何喂模型的通道。**
+        self._json(200, {"ok": True, "name": final[0], "inbox": inbox_name,
+                         "path": final[1]})
+
+    def _inbox_create(self):
+        """POST 写针孔⑭(track opendesign-chat-image design D3):建收件箱夹。
+
+        为什么有这个口:0.48.0 缺收件箱只回一句"先建一个",把活推回给一个**不是
+        程序员**的用户(他连收件箱在哪个文件夹都得来问)。但 `_upload` 的注释同时
+        钉死了"网页不自己造目录 = 越权",那条过了四腿评审 —— 于是本口的形状是
+        **人工点一下才建**,而不是"上传时顺手建":悄悄造目录和用户按下"帮我建"
+        是两件事,后者与本仓既有规矩(写盘一律人工触发)同源。
+
+        闸序照⑬:
+          CT=application/json(CSRF 纵深:必触发 preflight,本服务无 do_OPTIONS 面)
+          → Content-Length ∈ (0, OPEN_BODY_MAX] → JSON dict → **键白名单 = 空集**
+            (无参可传:名字由规则表定、不由调用方点名,否则等于"网页可任意建目录")
+          → workspace 已配置 → taxonomy 可用(坏表降级 409,同 _upload/list_inbox)
+          → 已经有收件箱 → already_exists(**不重建、不动里面一根头发**)
+          → 候选名必须是**单段**(ds_workspace._SEG_RE:禁 / \\ % 与控制符)——
+            规则表的 _safe_rel_dir 允许多段,但本口只许在工作区根下建**一层**
+          → realpath + within(root) 纵深
+          → 名字被占:符号链接 → inbox_outside_root(不跟随,worktree 链接事故同源
+            教训:链接不是目录);普通文件 → name_taken(不覆盖不删)
+          → os.mkdir(**不是 makedirs**:父目录必须是 root 本身)
+        """
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 < n <= OPEN_BODY_MAX:
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "bad request"})
+            return
+        if not isinstance(body, dict) or body:      # 任何键即拒(无参数可传)
+            self._json(400, {"error": "bad request"})
+            return
+
+        cfg = ds_workspace.load_config(self.server.ds_root)
+        if not cfg or not cfg.get("root"):
+            self._json(409, {"error": "workspace_not_configured"})
+            return
+        taxonomy = ds_intake.load_taxonomy(self.server.ds_root)
+        if taxonomy is None:
+            self._json(409, {"error": "taxonomy_bad"})
+            return
+
+        found = ds_intake._find_inbox(cfg, taxonomy)
+        if found:
+            name, real = found
+            self._json(200, {"ok": True, "status": "already_exists",
+                             "inbox": name, "path": real})
+            return
+
+        cands = taxonomy["inboxDirs"]
+        if not cands or not ds_workspace._SEG_RE.match(cands[0]):
+            self._json(409, {"error": "bad_inbox_name"})
+            return
+        name = cands[0]
+        root_real = os.path.realpath(cfg["root"])
+        target = os.path.join(root_real, name)
+        if not ds_common.within(root_real, os.path.realpath(target)):
+            self._json(409, {"error": "inbox_outside_root"})
+            return
+        if os.path.islink(target):
+            self._json(409, {"error": "inbox_outside_root"})
+            return
+        if os.path.lexists(target):
+            self._json(409, {"error": "name_taken"})
+            return
+        try:
+            os.mkdir(target)                       # 只一层;父目录 = 工作区根
+        except FileExistsError:
+            self._json(409, {"error": "name_taken"})
+            return
+        except OSError:
+            traceback.print_exc()                  # 权限/磁盘满:trace 不进响应体
+            self._json(500, {"error": "internal"})
+            return
+        self._json(200, {"ok": True, "status": "created",
+                         "inbox": name, "path": target})
 
     def _bind_project(self):
         """POST 写针孔⑨(track opendesign-frontend-p1):项目↔工作区文件夹关联。

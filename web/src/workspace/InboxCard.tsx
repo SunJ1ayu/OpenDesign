@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { IntakeData } from "../api";
-import { amendIntake, approveIntake, fetchIntake, scanInbox } from "../api";
+import {
+  amendIntake, approveIntake, createInbox, createInboxErrMsg, fetchIntake, scanInbox,
+} from "../api";
 import { entrySuggestion, intakeState, planPreview } from "./intake";
 
 // 收件箱卡片(track opendesign-intake,design D1/D2):工作区级,不随选中项目变。
@@ -24,6 +26,7 @@ export default function InboxCard({ dataEpoch, active }: Props) {
   const [scanMsg, setScanMsg] = useState(""); // 扫描后的轻量提示(staged/skipped)
   // 修改单 D1:默认收成一行摘要,点行展开明细(寸土寸金,伴随列减负)。
   const [expanded, setExpanded] = useState(false);
+  const [creating, setCreating] = useState(false); // 「帮我建收件箱」进行中
   const fetched = useRef<string | null>(null);
 
   useEffect(() => {
@@ -47,9 +50,54 @@ export default function InboxCard({ dataEpoch, active }: Props) {
     };
   }, [dataEpoch, localEpoch, active]);
 
+  // 建收件箱(针孔⑭):成功即刷新,卡片自然切到正常态(按钮随之消失)。
+  const doCreateInbox = () => {
+    setErr("");
+    setCreating(true);
+    createInbox()
+      .then(() => setLocalEpoch((e) => e + 1))
+      .catch((e: Error) => setErr(createInboxErrMsg(e.message || "unknown")))
+      .finally(() => setCreating(false));
+  };
+
   const state = intakeState(data);
-  // 没配置/空箱 = 无事发生,整卡隐身(收件箱有东西才冒出来)
-  if (state === "loading" || state === "unconfigured" || state === "empty") {
+  // 「收件箱夹根本不存在」不算"无事发生"(track opendesign-chat-image design D3):
+  // 用户原话「每个用户不一定都有这个文件夹」+「收件箱是在我电脑哪个文件夹」——
+  // 0.48.0 里这种情况整卡隐身、上传报一句"先建一个",活就被推回给一个不是程序员的人。
+  // 这里给一条能点的出路,且**点之前就写清会建在哪**。
+  // 只对 inbox_not_found 这一种原因出面:没接工作区/服务不可达是别的病,不在这治。
+  if (state === "unconfigured") {
+    const u = data as Extract<IntakeData, { configured: false }>;
+    if (u.reason !== "inbox_not_found" || !u.wouldCreate) return null;
+    return (
+      <div className="inbox-card">
+        <div className="inbox-summary">
+          <span className="t">收件箱</span>
+        </div>
+        <div className="inbox-expanded">
+          <div className="inbox-hint" data-ui="inbox-missing">
+            还没有收件箱文件夹。点一下我给你建在:<code>{u.wouldCreate}</code>
+            <br />
+            以后拖进来的图、聊天里发的图都先落在这儿,再说「整理收件箱」归档。
+          </div>
+          {err && <div className="aside-empty warn">{err}</div>}
+          <div className="plan-acts">
+            <button
+              className="chat-btn primary"
+              data-ui="inbox-create"
+              disabled={creating}
+              onClick={doCreateInbox}
+              title="在工作区根目录下建一个收件箱文件夹"
+            >
+              {creating ? "建立中…" : "帮我建收件箱"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  // 其余"无事发生"(拉取中/空箱)照旧整卡隐身,伴随列寸土寸金
+  if (state === "loading" || state === "empty") {
     return null;
   }
   const d = data as Extract<IntakeData, { configured: true }>;
@@ -129,6 +177,12 @@ export default function InboxCard({ dataEpoch, active }: Props) {
 
       {expanded && (
         <div className="inbox-expanded" data-ui="inbox-expanded">
+          {/* 它在硬盘哪儿 —— 用户问过「收件箱是在我电脑哪个文件夹」,答案就该写在这。 */}
+          {d.path && (
+            <div className="inbox-where" data-ui="inbox-where" title={d.path}>
+              <code>{d.path}</code>
+            </div>
+          )}
           {scanMsg && <div className="inbox-hint scan-msg">{scanMsg}</div>}
 
           {plans.map((p) => (

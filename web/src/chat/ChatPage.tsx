@@ -12,6 +12,13 @@ import {
 } from "./transcript";
 import { renderMarkdown } from "./markdown";
 import { inputPlaceholder } from "./inputHint";
+import {
+  MAX_CHAT_IMAGES,
+  dataUrlBytes,
+  MAX_CHAT_IMAGE_BYTES,
+  pickChatImages,
+} from "./media";
+import { fileToDataUrl, uploadErrMsg, uploadToInbox } from "../api";
 
 // P2 T3:视觉照 handoff §4 重排(用户消息低对比右对齐 / AI 无气泡直排 /
 // 赤陶流式光标 / Claude 式组合输入卡 / 「记一下」chip 预填)。
@@ -285,18 +292,115 @@ export default function ChatPage({
     setAttempt((n) => n + 1);
   };
 
+  // ── 发图(track opendesign-chat-image)────────────────────────────────────
+  // 挂在这条消息上的图:发出去前放这儿,发出去随消息走并清空。
+  // 限额在前端先拦(见 media.ts):上游任一项不合规会**整条消息不发布**,
+  // 用户看到的就是"消息凭空消失",他不会想到是那张 svg 的问题。
+  const [attached, setAttached] = useState<{ name: string; dataUrl: string }[]>([]);
+  const [mediaNote, setMediaNote] = useState("");
+  const [mediaDrag, setMediaDrag] = useState(false);
+  const attachRef = useRef<HTMLInputElement | null>(null);
+  const reservedRef = useRef(0); // 已占名额(含在途读取);并发拖拽的唯一真相源
+  // 「存进收件箱」的逐条状态:key = 消息 id,值 = 提示文案(成功回显绝对路径)
+  const [savedNote, setSavedNote] = useState<Record<string, string>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  /**
+   * 气泡上的「存进收件箱」(复用上传针孔⑬)。
+   * 为什么不在发图时自动存一份(design D2):发给模型的图**不都是资产** ——
+   * "这个报错截图什么意思"自动进收件箱 = 给设计师造垃圾,而收件箱是他要一条条过的
+   * 地方;另外自动双写会多出"media 成了、上传失败"的半成功态。手动按钮天然没有。
+   */
+  const saveToInbox = async (m: { id: string; media?: { data_url: string; name: string }[] }) => {
+    if (!m.media || m.media.length === 0) return;
+    setSavingId(m.id);
+    const done: string[] = [];
+    let dir = "";
+    let bad = "";
+    for (const img of m.media) {
+      try {
+        const r = await uploadToInbox(img.name, img.data_url);
+        done.push(r.name);
+        // 目录 = 落盘路径剥掉末段名。多张图时提示"目录 + 每张的真实落盘名",
+        // 而不是"最后一张的完整路径"(那样另外几张叫什么就没人知道了)。
+        if (!dir && r.path) {
+          dir = r.path.slice(0, r.path.length - r.name.length).replace(/[/\\]+$/, "");
+        }
+      } catch (e) {
+        bad = uploadErrMsg(e instanceof Error ? e.message : "unknown");
+        break;
+      }
+    }
+    setSavingId(null);
+    setSavedNote((prev) => ({
+      ...prev,
+      [m.id]: bad
+        ? `${done.length > 0 ? `已存 ${done.length} 张,剩下的没成:` : ""}${bad}`
+        // 回显**绝对路径**:用户问过"收件箱是在我电脑哪个文件夹",答案就该在这句里
+        : `已存进 ${dir || "收件箱"}:${done.join("、")} —— 去伴随列点「扫描整理」归档`,
+    }));
+  };
+
+  const addFiles = async (files: File[]) => {
+    if (files.length === 0) return;
+    // 名额**同步占位**(reservedRef):读文件是 async 的,拖两次时第二次若读的是
+    // `attached.length`,两次都会看到旧值 → 加起来能超 4 张,然后被 setAttached 里的
+    // slice 静默截掉。"静默截断"正是限额提示要避免的事(m09 的精神),所以名额在
+    // 进 await 之前就先占,读失败/不合规的再还回去。
+    const { accepted, rejected } = pickChatImages(files, reservedRef.current);
+    reservedRef.current += accepted.length;
+    const notes = rejected.map((r) => `${r.name}:${r.why}`);
+    const ok: { name: string; dataUrl: string }[] = [];
+    for (const f of accepted) {
+      let dataUrl = "";
+      try {
+        dataUrl = await fileToDataUrl(f);
+      } catch {
+        notes.push(`${f.name}:读不出来,换一张试试`);
+        continue;
+      }
+      // 决定上游收不收的是**解码后字节**,不是 File 报的 size;这里按真实字节复核
+      const bytes = dataUrlBytes(dataUrl);
+      if (bytes < 0) {
+        notes.push(`${f.name}:图片编码不对,发不了`);
+        continue;
+      }
+      if (bytes > MAX_CHAT_IMAGE_BYTES) {
+        notes.push(`${f.name}:这张图太大了(单张上限 8MB),先压一下再发`);
+        continue;
+      }
+      ok.push({ name: f.name, dataUrl });
+    }
+    reservedRef.current -= accepted.length - ok.length;   // 没成的名额还回去
+    if (ok.length > 0) setAttached((a) => [...a, ...ok]);
+    setMediaNote(notes.join(";"));
+  };
+
   // 发送单一真相源:按钮/Enter/dispatch 三入口共用,envelope 逻辑只此一份。
   // 项目列首句拼「【当前项目:X】」前缀(transcript 为空=本会话第一句;前缀随消息
   // 上屏,对用户可见=诚实)。
   const sendText = (content: string): boolean => {
     const ws = wsRef.current;
-    if (!content || transcript.busy || view.kind !== "connected" || !ws) return false;
+    // 只有图没文字也算有内容(设计师常"甩张图问一句"甚至一句不说)
+    const media = attached.map((a) => ({ data_url: a.dataUrl, name: a.name }));
+    if ((!content && media.length === 0) || transcript.busy
+        || view.kind !== "connected" || !ws) {
+      return false;
+    }
     const outbound =
       firstSendPrefix && transcript.messages.length === 0
         ? `${firstSendPrefix}${content}`
         : content;
-    ws.send(JSON.stringify(messageEnvelope(view.chatId, outbound, crypto.randomUUID())));
-    setTranscript((s) => appendLocalUser(s, outbound, `local-${crypto.randomUUID()}`));
+    ws.send(JSON.stringify(
+      messageEnvelope(view.chatId, outbound, crypto.randomUUID(), media)));
+    setTranscript((s) =>
+      appendLocalUser(s, outbound, `local-${crypto.randomUUID()}`, media));
+    // 发完必须清空:留着的话下一条会把同一张图再发一遍(e2e 判据锁死)
+    if (media.length > 0) {
+      setAttached([]);
+      reservedRef.current = 0;
+      setMediaNote("");
+    }
     return true;
   };
 
@@ -319,7 +423,45 @@ export default function ChatPage({
   // Claude 式组合输入卡(handoff §4:白底/14px 圆角/聚焦赤陶描边/工具行)
   const inputCard = (
     <div className="chat-inputwrap">
-      <div className="chat-card">
+      <div
+        className={`chat-card${mediaDrag ? " dropping" : ""}`}
+        onDragOver={(e) => {
+          if (!e.dataTransfer.types.includes("Files")) return;
+          e.preventDefault();
+          setMediaDrag(true);
+        }}
+        onDragLeave={() => setMediaDrag(false)}
+        onDrop={(e) => {
+          if (!e.dataTransfer.types.includes("Files")) return;
+          e.preventDefault();
+          setMediaDrag(false);
+          void addFiles([...e.dataTransfer.files]);
+        }}
+      >
+        {attached.length > 0 && (
+          <div className="chat-thumbs" data-ui="chat-thumbs">
+            {attached.map((a, i) => (
+              <div className="chat-thumb" data-ui="chat-thumb" key={`${a.name}#${i}`}>
+                <img src={a.dataUrl} alt={a.name} title={a.name} />
+                <button
+                  className="thumb-x"
+                  data-ui="chat-thumb-remove"
+                  title="不发这张"
+                  onClick={() => {
+                    setAttached((prev) => prev.filter((_, j) => j !== i));
+                    reservedRef.current = Math.max(0, reservedRef.current - 1);
+                    setMediaNote("");
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {mediaNote && (
+          <div className="chat-media-note" data-ui="chat-media-note">{mediaNote}</div>
+        )}
         <textarea
           ref={inputRef}
           rows={2}
@@ -335,6 +477,14 @@ export default function ChatPage({
           }
           disabled={view.kind !== "connected"}
           onChange={(e) => setDraft(e.target.value)}
+          onPaste={(e) => {
+            // 截图直接 Ctrl+V 是设计师最顺手的一步(剪贴板里是 File,没有文件名的
+            // 那种由浏览器给 image.png)。有图就吃掉图,文字粘贴照旧走默认行为。
+            const files = [...(e.clipboardData?.files ?? [])];
+            if (files.length === 0) return;
+            e.preventDefault();
+            void addFiles(files);
+          }}
           onKeyDown={(e) => {
             if (
               shouldSendOnEnter({
@@ -350,7 +500,26 @@ export default function ChatPage({
           }}
         />
         <div className="tools">
-          <button className="tool-sq" title="添加图片或文件(即将支持)">+</button>
+          <input
+            ref={attachRef}
+            type="file"
+            data-ui="chat-attach-input"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            multiple
+            hidden
+            onChange={(e) => {
+              void addFiles([...(e.target.files ?? [])]);
+              e.target.value = ""; // 同一张图连选两次也要触发 change
+            }}
+          />
+          <button
+            className="tool-sq"
+            title={`添加图片(最多 ${MAX_CHAT_IMAGES} 张,单张 8MB;也可直接拖进来或 Ctrl+V)`}
+            disabled={view.kind !== "connected"}
+            onClick={() => attachRef.current?.click()}
+          >
+            +
+          </button>
           <button
             className="tool-chip"
             title="快捷开头:记一下"
@@ -365,7 +534,10 @@ export default function ChatPage({
           <button
             className="send-btn"
             title="发送(Enter)"
-            disabled={view.kind !== "connected" || transcript.busy || !draft.trim()}
+            disabled={
+              view.kind !== "connected" || transcript.busy
+              || (!draft.trim() && attached.length === 0)
+            }
             onClick={send}
           >
             发送
@@ -542,6 +714,32 @@ export default function ChatPage({
           {transcript.messages.map((m) =>
             m.role === "user" ? (
               <div key={m.id} className="msg-user">
+                {m.media && m.media.length > 0 && (
+                  <div className="msg-imgs">
+                    {m.media.map((img, i) => (
+                      <img key={`${m.id}#${i}`} src={img.data_url} alt={img.name}
+                           title={img.name} />
+                    ))}
+                    {/* 归档要走人工:nanobot 把图存在它自己的媒体目录,不在项目工作区
+                        ——"看得见但归不了档"的补法就是这颗按钮(design D2)。 */}
+                    <div className="msg-img-acts">
+                      <button
+                        className="btn-secondary sm"
+                        data-ui="save-to-inbox"
+                        disabled={savingId === m.id}
+                        onClick={() => void saveToInbox(m)}
+                        title="把这张图存进收件箱,之后可以「扫描整理」归档到项目"
+                      >
+                        {savingId === m.id ? "存入中…" : "存进收件箱"}
+                      </button>
+                      {savedNote[m.id] && (
+                        <span className="msg-img-note" data-ui="save-to-inbox-note">
+                          {savedNote[m.id]}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {m.content}
               </div>
             ) : (

@@ -248,16 +248,64 @@ export type IntakeEntry = {
 export type IntakePlanOp = { op: string; src_rel: string; dst_rel: string };
 export type IntakePlan = { plan_id: string; created: string | null; ops: IntakePlanOp[] };
 export type IntakeData =
-  | { configured: false; reason?: string; entries: IntakeEntry[]; pending: IntakePlan[] }
+  | {
+      configured: false;
+      reason?: string;
+      /** 没有收件箱夹时,「帮我建收件箱」会建在哪(绝对路径)——点之前就要写给用户看。 */
+      wouldCreate?: string;
+      entries: IntakeEntry[];
+      pending: IntakePlan[];
+    }
   | {
       configured: true;
       inbox: string;
+      /** 收件箱绝对路径(track opendesign-chat-image):用户问过"在我电脑哪个文件夹"。 */
+      path?: string | null;
       truncated: boolean;
       entries: IntakeEntry[];
       pending: IntakePlan[];
     };
 
 export const fetchIntake = () => getJson<IntakeData>("/api/intake");
+
+/** 第十四个非 GET(track opendesign-chat-image,写针孔⑭):建收件箱夹。
+ * 空 body(后端键白名单=空集:名字由规则表定,不由网页点名)。**人工点一下才建** ——
+ * 上传口刻意不自己造目录(网页凭空建文件夹=越权),这个按钮是那条规矩下的正当出路。 */
+export type CreateInboxResult = {
+  ok: true;
+  status: "created" | "already_exists";
+  inbox: string;
+  path: string;
+};
+export async function createInbox(): Promise<CreateInboxResult> {
+  const r = await fetch("/api/inbox/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (!r.ok) {
+    let code = "";
+    try {
+      code = ((await r.json()) as { error?: string }).error ?? "";
+    } catch {
+      /* 非 JSON 响应:忽略,回落状态码 */
+    }
+    throw new Error(code || `服务返回 ${r.status}`);
+  }
+  return (await r.json()) as CreateInboxResult;
+}
+
+/** 建收件箱的错误码 → 人话(同 uploadErrMsg 先例:不把裸码怼给设计师)。 */
+export function createInboxErrMsg(code: string): string {
+  if (code === "name_taken")
+    return "工作区根目录下已经有个同名的**文件**了(不是文件夹),先把它改个名。";
+  if (code === "inbox_outside_root")
+    return "那个名字被一个快捷方式/软链接占了,指到了工作区外面,没敢动。";
+  if (code === "workspace_not_configured") return "还没接入工作区,先在设置里接一下。";
+  if (code === "taxonomy_bad" || code === "bad_inbox_name")
+    return "整理规则表读不出来(config/taxonomy.json),先修一下它。";
+  return `建收件箱失败(${code})。`;
+}
 
 /** 第四个非 GET(intake 针孔④):收件箱卡片「确认执行」= 人工批准本体,
  * 后端 approve+apply 一气(快照复验/审计在核心)。失败抛错(带后端 error code)。 */
@@ -462,7 +510,8 @@ export function relTime(iso: string | undefined): string {
  * multipart 是 simple content-type,不触发 preflight,收它等于给这个"能往用户硬盘
  * 写字节"的口开一个 CSRF 洞。
  * 返回**真正落盘的名字**(可能被截短或因撞名换名),调用方据此提示"已存为 xxx"。 */
-export type UploadResult = { ok: true; name: string; inbox: string };
+/** `path` = 绝对落盘路径(0.49.0 起):提示条要能回答"东西到我电脑哪儿了"。 */
+export type UploadResult = { ok: true; name: string; inbox: string; path?: string };
 export async function uploadToInbox(name: string, dataUrl: string): Promise<UploadResult> {
   const r = await fetch("/api/upload", {
     method: "POST",

@@ -25,7 +25,7 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
-import { launchBrowser, loginPane, check } from "./helpers.mjs";
+import { launchBrowser, loginPane, expandInbox, check } from "./helpers.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PORT = 8810;
@@ -165,7 +165,9 @@ try {
   const errs = [];
   page.on("pageerror", (e) => errs.push(String(e)));
   await page.addInitScript(STUB);
-  await page.goto(base, { waitUntil: "domcontentloaded" });
+  // 收件箱卡片在**工作区路由**的伴随列(App.tsx:443 `active={route==="workspace"}`),
+  // 不在新对话首页 —— 起初把 ① 写在 `/` 上是我搞错了路由(红检时才发现)。
+  await page.goto(`${base}/#/workspace`, { waitUntil: "domcontentloaded" });
 
   // ── ① 没有收件箱 → 卡片给出路,且**点之前**就告诉你会建在哪 ────────────────
   const createBtn = page.locator('[data-ui="inbox-create"]');
@@ -183,6 +185,8 @@ try {
   check(readdirSync(ws).length === 1, "只建了这一个,没顺手造别的目录");
 
   // ── ② 聊天:两个入口各进一张图 → 缩略图 → svg 被拦 → 撤掉一张 ─────────────
+  await page.evaluate(() => { window.location.hash = "#/"; });
+  await page.locator(HOME).waitFor({ state: "visible", timeout: 10000 });
   await loginPane(page, HOME, PASSWORD);
   const thumbs = page.locator(`${HOME} [data-ui="chat-thumb"]`);
 
@@ -255,8 +259,13 @@ try {
     `提示要回显**绝对路径**(用户问过"收件箱在我电脑哪个文件夹"):${JSON.stringify(saveNote)}`);
   check(saveNote.includes(landed[0]), "提示里的名字 = 真实落盘名");
 
-  // ── ⑤ 收件箱卡片要显示它在硬盘哪儿 ──────────────────────────────────────
-  const where = await page.locator('[data-ui="inbox-where"]').textContent();
+  // ── ⑤ 收件箱卡片要显示它在硬盘哪儿(回工作区路由)────────────────────────
+  await page.evaluate(() => { window.location.hash = "#/workspace"; });
+  await page.locator('[data-ui="inbox-summary"]').waitFor({ timeout: 15000 });
+  await expandInbox(page);   // 卡片默认收成一行摘要(v4 质感收口),路径在折叠区里
+  const whereEl = page.locator('[data-ui="inbox-where"]');
+  await whereEl.waitFor({ timeout: 15000 });
+  const where = await whereEl.textContent();
   check(where.includes(join(ws, INBOX)), `收件箱卡片显示绝对路径:${JSON.stringify(where)}`);
 
   check(errs.length === 0, `全程无 JS 报错:${errs.join(" | ")}`);

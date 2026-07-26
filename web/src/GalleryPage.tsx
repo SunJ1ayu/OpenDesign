@@ -92,13 +92,18 @@ export default function GalleryPage({ project }: Props) {
     }
     setUpBusy(true);
     const stored: string[] = [];
+    let dir = "";
     try {
       for (const f of imgs) {
         const r = await uploadToInbox(f.name, await fileToDataUrl(f));
         stored.push(r.name);       // 后端回显真实落盘名(可能截短/换名)
+        // 落盘目录(绝对路径):0.48.0 只说"已存进收件箱",用户当场问"在我电脑哪个
+        // 文件夹" —— 一个本地工具让人搞不清文件去哪了,是提示不合格。
+        if (!dir && r.path) dir = r.path.slice(0, r.path.length - r.name.length);
       }
       // 逐字回显落盘名:名字被改过时用户当场看得见,而不是三天后发现文件"没了"
-      setUpMsg(`已存进收件箱:${stored.join("、")} —— 去伴随列点「扫描整理」归档`);
+      setUpMsg(`已存进收件箱${dir ? `(${dir})` : ""}:${stored.join("、")}`
+        + " —— 去伴随列点「扫描整理」归档");
     } catch (e) {
       const done = stored.length ? `已存 ${stored.length} 张;` : "";
       setUpMsg(done + uploadErrMsg((e as Error).message));
