@@ -2624,3 +2624,10 @@ html, body { overflow: auto; }
   color: var(--ink-2);
 }
 .upload-note .link-act { margin-left: auto; }
+/* 上游拒了这一轮(多半是图被拒):必须让人看见,否则就是"消息发出去然后没了" */
+.chat-turn-error {
+  font-size: 11.5px;
+  color: var(--terra);
+  padding: 8px 14px 0;
+  overflow-wrap: anywhere;
+}

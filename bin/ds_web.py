@@ -87,6 +87,46 @@ DEFAULT_NANOBOT_PORT = 8765
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
 
 
+def _ensure_inbox_dir(root_real: str, name: str):
+    """在工作区根下建收件箱夹 → ("created"|"already_exists", None) | (None, err)。
+
+    抽成函数是为了让两条**只在竞态之后才看得见**的路径可判据(修复轮,四审 F1/F3):
+    - **F1(subdeepseek + subglm 独立提出)**:候选名是 Windows 保留设备名(CON/NUL/
+      COM1…)→ 在建之前就拒,给明确的 `bad_inbox_name`。真机上 `mkdir CON` 到底怎么
+      失败我在 Linux 上验不了,但"提前拒"与平台无关。复用上传口那道 `_WIN_RESERVED`
+      (不动 ds_workspace._SEG_RE:那是全仓共用的枚举闸)。
+    - **F3(subdeepseek)**:**连点两次「帮我建收件箱」**。第二个请求在 lexists 之后、
+      mkdir 之前被第一个抢先 → FileExistsError。此前一律回 `name_taken`("根目录下有个
+      同名文件"),**对用户撒谎**。现在 EEXIST 之后复查一次:真是目录就回 already_exists。
+    符号链接始终不跟随:`os.mkdir` 对最终段是链接时抛 EEXIST(不会顺着链接在外面
+    建目录,已实测),复查发现是链接 → inbox_outside_root。
+    """
+    if not ds_workspace._SEG_RE.match(name) or _WIN_RESERVED.match(name):
+        return None, "bad_inbox_name"
+    target = os.path.join(root_real, name)
+    if not ds_common.within(root_real, os.path.realpath(target)):
+        return None, "inbox_outside_root"
+    # 顺序要紧:islink 必须在 isdir 之前(指向目录的链接 isdir 也为真)。
+    # 已经是目录 → already_exists 而不是 name_taken:处理器那边虽然有 _find_inbox
+    # 先兜住,但本函数单独也必须诚实(c15/c16 就是分开锁这两种"名字被占")。
+    if os.path.islink(target):
+        return None, "inbox_outside_root"
+    if os.path.isdir(target):
+        return "already_exists", None
+    if os.path.lexists(target):
+        return None, "name_taken"
+    try:
+        os.mkdir(target)                      # 只一层;父目录 = 工作区根
+    except FileExistsError:
+        # 竞态输了或名字刚被占:复查一次再判,别把"别人先建好了"说成"被文件占了"
+        if os.path.islink(target):
+            return None, "inbox_outside_root"
+        if os.path.isdir(target):
+            return "already_exists", None
+        return None, "name_taken"
+    return "created", None
+
+
 def _read_model():
     """当前大脑,解析规则与 nanobot 一致(schema.py:AgentDefaults):modelPreset 设了
     就以它指向的预设为准,悬空/未设才回落 agents.defaults.model —— 只读 model 字段会
@@ -1623,32 +1663,22 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         cands = taxonomy["inboxDirs"]
-        if not cands or not ds_workspace._SEG_RE.match(cands[0]):
+        if not cands:
             self._json(409, {"error": "bad_inbox_name"})
             return
         name = cands[0]
         root_real = os.path.realpath(cfg["root"])
-        target = os.path.join(root_real, name)
-        if not ds_common.within(root_real, os.path.realpath(target)):
-            self._json(409, {"error": "inbox_outside_root"})
-            return
-        if os.path.islink(target):
-            self._json(409, {"error": "inbox_outside_root"})
-            return
-        if os.path.lexists(target):
-            self._json(409, {"error": "name_taken"})
-            return
         try:
-            os.mkdir(target)                       # 只一层;父目录 = 工作区根
-        except FileExistsError:
-            self._json(409, {"error": "name_taken"})
-            return
+            status, err = _ensure_inbox_dir(root_real, name)
         except OSError:
             traceback.print_exc()                  # 权限/磁盘满:trace 不进响应体
             self._json(500, {"error": "internal"})
             return
-        self._json(200, {"ok": True, "status": "created",
-                         "inbox": name, "path": target})
+        if err:
+            self._json(409, {"error": err})
+            return
+        self._json(200, {"ok": True, "status": status,
+                         "inbox": name, "path": os.path.join(root_real, name)})
 
     def _bind_project(self):
         """POST 写针孔⑨(track opendesign-frontend-p1):项目↔工作区文件夹关联。

@@ -297,3 +297,60 @@ class InboxCreatePinhole(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EnsureInboxDir(unittest.TestCase):
+    """建目录那一步单独可测(修复轮):
+    - F1(subdeepseek/subglm 独立提出):候选名是 Windows 保留设备名 → 要在建之前
+      就拒,给明确的 bad_inbox_name;真机上 `mkdir CON` 的表现无法在 Linux 上验,
+      但"提前拒"这件事与平台无关 → 真绿。
+    - F3(subdeepseek):**连点两次「帮我建收件箱」**。第二个请求在 lexists 之后、
+      mkdir 之前那一瞬被第一个抢先建成 → mkdir 抛 FileExistsError,0.49.0 会回
+      409 name_taken(人话是"根目录下有个同名文件") = **对用户撒谎**。
+      竞态本身不好在 HTTP 层复现,所以判据打**竞态之后的状态**:目录已存在时调
+      同一个内部助手,必须回 already_exists 而不是报错。
+    """
+
+    def setUp(self):
+        self.ws = _mkws()
+        self.addCleanup(shutil.rmtree, self.ws, ignore_errors=True)
+
+    def test_c14_windows_reserved_candidate_rejected_before_mkdir(self):
+        for name in ["CON", "nul", "com1", "PRN.收件箱"]:
+            before = set(os.listdir(self.ws))
+            status, err = ds_web._ensure_inbox_dir(self.ws, name)
+            self.assertIsNone(status, f"{name} 应该在建之前就被拒")
+            self.assertEqual(err, "bad_inbox_name")
+            self.assertEqual(set(os.listdir(self.ws)), before, "被拒时零副作用")
+
+    def test_c15_race_lost_reports_already_exists_not_name_taken(self):
+        """竞态输了(别人先建成)≠ 名字被文件占;不能对用户撒谎。"""
+        os.mkdir(os.path.join(self.ws, DEFAULT_INBOX))
+        status, err = ds_web._ensure_inbox_dir(self.ws, DEFAULT_INBOX)
+        self.assertIsNone(err, f"目录已存在不是错误:{err}")
+        self.assertEqual(status, "already_exists")
+
+    def test_c16_real_file_in_the_way_still_name_taken(self):
+        """真的是文件占名 → 仍要 name_taken(别把 c15 的修法用成"一律 already_exists")。"""
+        with open(os.path.join(self.ws, DEFAULT_INBOX), "wb") as fh:
+            fh.write(b"file")
+        status, err = ds_web._ensure_inbox_dir(self.ws, DEFAULT_INBOX)
+        self.assertIsNone(status)
+        self.assertEqual(err, "name_taken")
+
+    def test_c17_symlink_in_the_way_never_followed(self):
+        outside = tempfile.mkdtemp(prefix="inboxc-out2-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        os.symlink(outside, os.path.join(self.ws, DEFAULT_INBOX))
+        status, err = ds_web._ensure_inbox_dir(self.ws, DEFAULT_INBOX)
+        self.assertIsNone(status)
+        self.assertIn(err, ("name_taken", "inbox_outside_root"))
+        self.assertEqual(os.listdir(outside), [], "不许顺着链接往外写")
+
+    def test_c18_happy_path_creates_one_level(self):
+        status, err = ds_web._ensure_inbox_dir(self.ws, DEFAULT_INBOX)
+        self.assertIsNone(err)
+        self.assertEqual(status, "created")
+        p = os.path.join(self.ws, DEFAULT_INBOX)
+        self.assertTrue(os.path.isdir(p))
+        self.assertEqual(os.path.realpath(os.path.dirname(p)), os.path.realpath(self.ws))

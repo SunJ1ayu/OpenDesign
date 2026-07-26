@@ -27,6 +27,10 @@ export default function InboxCard({ dataEpoch, active }: Props) {
   // 修改单 D1:默认收成一行摘要,点行展开明细(寸土寸金,伴随列减负)。
   const [expanded, setExpanded] = useState(false);
   const [creating, setCreating] = useState(false); // 「帮我建收件箱」进行中
+  // 建成后的确认(带绝对路径)。四审 subkimi 的一条:建完卡片会因为"空箱=隐身"整卡
+  // 消失 —— 用户点了一下、东西没了,对一个不是程序员的人读起来像"坏了";而这一刻
+  // 恰恰是最该把路径给他看一次的时候(他原话就是"收件箱在我电脑哪个文件夹")。
+  const [created, setCreated] = useState("");
   const fetched = useRef<string | null>(null);
 
   useEffect(() => {
@@ -55,7 +59,10 @@ export default function InboxCard({ dataEpoch, active }: Props) {
     setErr("");
     setCreating(true);
     createInbox()
-      .then(() => setLocalEpoch((e) => e + 1))
+      .then((r) => {
+        setCreated(r.path);
+        setLocalEpoch((e) => e + 1);
+      })
       .catch((e: Error) => setErr(createInboxErrMsg(e.message || "unknown")))
       .finally(() => setCreating(false));
   };
@@ -96,7 +103,24 @@ export default function InboxCard({ dataEpoch, active }: Props) {
       </div>
     );
   }
-  // 其余"无事发生"(拉取中/空箱)照旧整卡隐身,伴随列寸土寸金
+  // 其余"无事发生"(拉取中/空箱)照旧整卡隐身,伴随列寸土寸金 ——
+  // 唯一例外:刚刚亲手建好收件箱的那一次,留一行确认告诉他建在哪了。
+  if (state === "empty" && created) {
+    return (
+      <div className="inbox-card">
+        <div className="inbox-summary">
+          <span className="t">收件箱</span>
+        </div>
+        <div className="inbox-expanded">
+          <div className="inbox-hint" data-ui="inbox-created">
+            已建好:<code>{created}</code>
+            <br />
+            以后拖进来的图、聊天里发的图都先落这儿,再说「整理收件箱」归档。
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (state === "loading" || state === "empty") {
     return null;
   }

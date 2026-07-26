@@ -14,7 +14,9 @@ import { renderMarkdown } from "./markdown";
 import { inputPlaceholder } from "./inputHint";
 import {
   MAX_CHAT_IMAGES,
+  chatErrorMsg,
   dataUrlBytes,
+  isSendableDataUrl,
   MAX_CHAT_IMAGE_BYTES,
   pickChatImages,
 } from "./media";
@@ -237,6 +239,8 @@ export default function ChatPage({
                 return;
               }
             }
+            const errMsg = chatErrorMsg(m);
+            if (errMsg) setTurnError(errMsg);
             if (m.event === "turn_end") onTurnEnd?.();
             pending.push(m);
             if (timer === null) timer = setTimeout(flush, FLUSH_MS);
@@ -301,6 +305,9 @@ export default function ChatPage({
   const [mediaDrag, setMediaDrag] = useState(false);
   const attachRef = useRef<HTMLInputElement | null>(null);
   const reservedRef = useRef(0); // 已占名额(含在途读取);并发拖拽的唯一真相源
+  // 上游拒了这一轮(最常见:图被拒)。applyEvent 的 error 分支只解锁 busy、不显示
+  // 任何东西 → 用户会看到"气泡在屏上、没有回复、没有解释"。这行就是把话转达出来。
+  const [turnError, setTurnError] = useState("");
   // 「存进收件箱」的逐条状态:key = 消息 id,值 = 提示文案(成功回显绝对路径)
   const [savedNote, setSavedNote] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -365,6 +372,12 @@ export default function ChatPage({
         notes.push(`${f.name}:图片编码不对,发不了`);
         continue;
       }
+      // 上游按 data URL 的 mime 判(不是按名字)。File.type 为空时 data URL 会是
+      // `data:;base64,…` —— 名字再对也会被上游整条拒掉,所以这里用它的判据再过一遍。
+      if (!isSendableDataUrl(dataUrl)) {
+        notes.push(`${f.name}:系统没认出这是哪种图片,换一张(或另存为 png)再试`);
+        continue;
+      }
       if (bytes > MAX_CHAT_IMAGE_BYTES) {
         notes.push(`${f.name}:这张图太大了(单张上限 8MB),先压一下再发`);
         continue;
@@ -395,6 +408,7 @@ export default function ChatPage({
       messageEnvelope(view.chatId, outbound, crypto.randomUUID(), media)));
     setTranscript((s) =>
       appendLocalUser(s, outbound, `local-${crypto.randomUUID()}`, media));
+    setTurnError("");   // 新一轮开始,上一轮的失败提示别赖在屏上
     // 发完必须清空:留着的话下一条会把同一张图再发一遍(e2e 判据锁死)
     if (media.length > 0) {
       setAttached([]);
@@ -461,6 +475,9 @@ export default function ChatPage({
         )}
         {mediaNote && (
           <div className="chat-media-note" data-ui="chat-media-note">{mediaNote}</div>
+        )}
+        {turnError && (
+          <div className="chat-turn-error" data-ui="chat-turn-error">{turnError}</div>
         )}
         <textarea
           ref={inputRef}

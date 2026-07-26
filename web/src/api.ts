@@ -536,7 +536,10 @@ export function uploadErrMsg(code: string): string {
   if (code === "bad_type") return "只收 png/jpg/webp/gif(svg 和图纸文件先手动拷进文件夹)。";
   if (code === "too_large") return "这张图太大了(单张上限 8MB),先压一下再传。";
   if (code === "bad_image") return "图片读不出来(格式或编码不对),换一张试试。";
-  if (code === "inbox_not_found") return "工作区里找不到「收件箱」文件夹,先建一个。";
+  // 0.49.0 起工作区页的收件箱卡片上有「帮我建收件箱」按钮 —— 提示必须指向它,
+  // 否则等于让一个不是程序员的人自己去资源管理器里建文件夹(而按钮就在旁边)。
+  if (code === "inbox_not_found")
+    return "还没有收件箱文件夹 —— 去工作区页的收件箱卡片点「帮我建收件箱」,一下就好。";
   if (code === "workspace_not_configured") return "还没接入工作区,先在设置里接一下。";
   if (code === "too_many_duplicates") return "同名文件太多了,换个名字再传。";
   return `上传失败(${code})。`;

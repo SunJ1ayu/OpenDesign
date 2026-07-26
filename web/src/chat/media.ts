@@ -77,3 +77,52 @@ export function dataUrlBytes(dataUrl: string): number {
   const pad = b64.endsWith("==") ? 2 : b64.endsWith("=") ? 1 : 0;
   return (b64.length / 4) * 3 - pad;
 }
+
+/**
+ * 上游 `error` 事件 → 人话;不是 error 事件 → null。
+ *
+ * 为什么需要它:`applyEvent` 的 `case "error"` 只解锁 busy、**什么都不显示**
+ * (transcript.ts)。而 nanobot 拒图时明明说了理由:
+ * `{"event":"error","detail":"image_rejected","reason":…}`,reason ∈
+ * {too_many_images, too_many_videos, mime, size, decode, malformed}
+ * (实读 `nanobot/channels/websocket.py` 的 `_save_envelope_media` 与 message 分支)。
+ * 不转达的后果:用户的气泡在屏上、没有回复、没有解释 —— 从他的角度就是
+ * "消息发出去然后没了"。上游好好说了话,我们必须翻给人听。
+ */
+export function chatErrorMsg(ev: unknown): string | null {
+  if (typeof ev !== "object" || ev === null) return null;
+  const e = ev as Record<string, unknown>;
+  if (e.event !== "error") return null;
+  if (e.detail === "image_rejected") {
+    const reason = typeof e.reason === "string" ? e.reason : "";
+    if (reason === "too_many_images") {
+      return `图太多了,这条没发出去(一次最多 ${MAX_CHAT_IMAGES} 张)。`;
+    }
+    if (reason === "too_many_videos") return "视频太多了,这条没发出去。";
+    if (reason === "size") return "图太大了,这条没发出去(单张上限 8MB,先压一下)。";
+    if (reason === "mime") return "这种图片格式发不了(只收 png/jpg/webp/gif)。";
+    if (reason === "decode") return "有张图读不出来,这条没发出去,换一张再试。";
+    if (reason === "malformed") return "图片数据不对,这条没发出去。";
+    return "有张图被拒了,这条没发出去。";
+  }
+  if (e.detail === "missing content") return "空消息发不出去,写点什么或带张图。";
+  const d = typeof e.detail === "string" && e.detail ? e.detail : "未知原因";
+  return `这条没发出去(${d})。`;
+}
+
+/** 上游白名单(nanobot `_UPLOAD_MIME_ALLOWED` 的图片半边),照源码抄。 */
+const SENDABLE_MIMES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+
+/**
+ * data URL 的 mime 是否在上游白名单内。
+ *
+ * 为什么不能只看扩展名:**前端按扩展名判,nanobot 按 data URL 里的 mime 判**
+ * (`_extract_data_url_mime` → `_UPLOAD_MIME_ALLOWED`)。两者会分叉 —— 某些环境
+ * `File.type` 是空的,data URL 就成了 `data:;base64,…`,名字再对上游也认不出,
+ * 结果**整条消息被拒**。所以发送前用上游的同一判据再过一遍。
+ */
+export function isSendableDataUrl(dataUrl: string): boolean {
+  const m = /^data:([^,;]+);base64,/.exec(dataUrl || "");
+  if (!m) return false;
+  return SENDABLE_MIMES.includes(m[1].trim().toLowerCase());
+}

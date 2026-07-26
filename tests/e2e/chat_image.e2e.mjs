@@ -183,6 +183,11 @@ try {
     null, { timeout: 15000 });
   check(existsSync(join(ws, INBOX)), "点「帮我建收件箱」后目录真的建出来了");
   check(readdirSync(ws).length === 1, "只建了这一个,没顺手造别的目录");
+  // 建完不能只是"卡片消失"(空箱=隐身),要留一句带路径的确认 —— 点一下东西没了,
+  // 对一个不是程序员的人读起来像"坏了"(四审 subkimi)。
+  const createdNote = await page.locator('[data-ui="inbox-created"]').textContent();
+  check(createdNote.includes(join(ws, INBOX)),
+    `建完要确认且带路径:${JSON.stringify(createdNote)}`);
 
   // ── ② 聊天:两个入口各进一张图 → 缩略图 → svg 被拦 → 撤掉一张 ─────────────
   await page.evaluate(() => { window.location.hash = "#/"; });

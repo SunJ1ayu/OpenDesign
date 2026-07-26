@@ -161,3 +161,87 @@ test("m18 带图但没文字 → content 仍是字符串(空串,不是 undefined
   assert.equal(typeof env.content, "string");
   assert.equal(env.content, "");
 });
+
+// ── 上游拒图时必须说人话(修复轮,track opendesign-chat-image)──────────────
+// 病根:`applyEvent` 的 `case "error"` **只解锁 busy,什么都不显示**
+// (transcript.ts:139-142)。而 nanobot 拒图时是发 `error` 事件 +
+// `detail:"image_rejected"` + `reason∈{too_many_images,too_many_videos,mime,size,
+// decode,malformed}`(实读 nanobot/channels/websocket.py:596-640,724-740)。
+// 于是用户看到的是:自己的气泡在屏上、没有回复、没有解释 —— **这才是真正的
+// "消息静默消失"**(不是限额抄错,而是上游好好说了我们没转达)。
+import { chatErrorMsg } from "../web/src/chat/media.ts";
+
+test("m19 image_rejected 的每个 reason 都翻成人话(不是裸码)", () => {
+  for (const reason of ["too_many_images", "too_many_videos", "mime", "size",
+                        "decode", "malformed"]) {
+    const s = chatErrorMsg({ event: "error", detail: "image_rejected", reason });
+    assert.equal(typeof s, "string");
+    assert.ok(s.length >= 6, `太短:${s}`);
+    assert.ok(/[一-龥]/.test(s), `必须是中文人话:${s}`);
+    assert.ok(!s.includes(reason), `不许把裸 reason 怼给用户:${s}`);
+  }
+});
+
+test("m20 尺寸/张数被拒时,提示要指出是图的问题(用户才知道去删图重发)", () => {
+  assert.match(chatErrorMsg({ event: "error", detail: "image_rejected", reason: "size" }), /图/);
+  assert.match(
+    chatErrorMsg({ event: "error", detail: "image_rejected", reason: "too_many_images" }), /图/);
+});
+
+test("m21 未知 reason 也要给话(协议会长,不认识的不能变成空白)", () => {
+  const s = chatErrorMsg({ event: "error", detail: "image_rejected", reason: "brand_new" });
+  assert.ok(/[一-龥]/.test(s) && s.length >= 6, s);
+});
+
+test("m22 missing content 这类非图错误照样转达", () => {
+  const s = chatErrorMsg({ event: "error", detail: "missing content" });
+  assert.ok(/[一-龥]/.test(s) && s.length >= 4, s);
+});
+
+test("m23 不是 error 事件 → null(调用方据此不显示任何东西)", () => {
+  assert.equal(chatErrorMsg({ event: "turn_end" }), null);
+  assert.equal(chatErrorMsg({ event: "delta", text: "x" }), null);
+  assert.equal(chatErrorMsg(null), null);
+  assert.equal(chatErrorMsg("error"), null);
+});
+
+// ── 修复轮 ②:前端闸的单位必须与上游闸的单位对齐 ────────────────────────────
+// subkimi 的最强一条:前端按**扩展名**判类型,而 nanobot 判的是 **data URL 里的 mime**
+// (`_extract_data_url_mime` → `_UPLOAD_MIME_ALLOWED`,实读 websocket.py:614-621)。
+// 两者会分叉:某些环境下 `File.type` 是空的 → data URL 变成 `data:;base64,…` →
+// 上游 mime 认不出 → `_abort("decode")` → **整条消息被拒**。扩展名再对也没用。
+// ⇒ 判据锁"发出去之前先看 data URL 的 mime",而不是只看名字。
+import { isSendableDataUrl } from "../web/src/chat/media.ts";
+
+test("m24 data URL 的 mime 必须在上游白名单内(与 nanobot 同一判据)", () => {
+  assert.equal(isSendableDataUrl("data:image/png;base64,YWJj"), true);
+  assert.equal(isSendableDataUrl("data:image/jpeg;base64,YWJj"), true);
+  assert.equal(isSendableDataUrl("data:image/webp;base64,YWJj"), true);
+  assert.equal(isSendableDataUrl("data:image/gif;base64,YWJj"), true);
+});
+
+test("m25 mime 缺失(File.type 为空)→ 拒。名字对也不行,上游按 mime 判", () => {
+  assert.equal(isSendableDataUrl("data:;base64,YWJj"), false);
+  assert.equal(isSendableDataUrl("data:base64,YWJj"), false);
+});
+
+test("m26 svg / bmp / 视频 mime → 拒(白名单之外)", () => {
+  for (const u of ["data:image/svg+xml;base64,YWJj", "data:image/bmp;base64,YWJj",
+                   "data:video/mp4;base64,YWJj", "data:application/pdf;base64,YWJj"]) {
+    assert.equal(isSendableDataUrl(u), false, u);
+  }
+});
+
+test("m27 mime 大小写不敏感(浏览器一般给小写,但别赌)", () => {
+  assert.equal(isSendableDataUrl("data:IMAGE/PNG;base64,YWJj"), true);
+});
+
+// ── 修复轮 ③:上传报"没有收件箱"时,要告诉人按钮在哪 ──────────────────────
+// 0.49.0 加了「帮我建收件箱」按钮,但真正撞上 inbox_not_found 的地方(图墙拖拽、
+// 气泡存图)的提示仍是"先建一个" —— 等于让人自己去 F 盘建文件夹,而按钮就在旁边。
+import { uploadErrMsg } from "../web/src/api.ts";
+
+test("m28 inbox_not_found 的提示要指向那个按钮,不是让人自己去建", () => {
+  const s = uploadErrMsg("inbox_not_found");
+  assert.match(s, /帮我建收件箱/);
+});
