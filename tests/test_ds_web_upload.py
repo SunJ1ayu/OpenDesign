@@ -405,3 +405,38 @@ class ResponseHardening(unittest.TestCase):
             hd = {k.lower(): v for k, v in r.getheaders()}
             conn.close()
         self.assertEqual(hd.get("x-content-type-options"), "nosniff")
+
+    # ── track opendesign-chat-image 追加:"东西去哪了" ─────────────────────
+    # 用户原话:「收件箱是在我电脑哪个文件夹」—— 他被迫来问人,就是提示不合格。
+    # 0.48.0 只回 name/inbox,前端只能说"已存进收件箱";这两条要求回**绝对路径**。
+    def test_u19_response_carries_absolute_path(self):
+        ds, ws = _mkroot_with_inbox()
+        self.addCleanup(shutil.rmtree, ds, ignore_errors=True)
+        self.addCleanup(shutil.rmtree, ws, ignore_errors=True)
+        with _serve(ds) as port:
+            st, d = _post(port, "/api/upload",
+                          {"name": "落点.png", "data_url": data_url()})
+        self.assertEqual(st, 200, d)
+        p = d.get("path")
+        self.assertTrue(isinstance(p, str) and os.path.isabs(p), f"要绝对路径:{p!r}")
+        self.assertTrue(os.path.isfile(p), "回的路径必须真指向刚落盘的那个文件")
+        # 与 name/inbox 三者自洽:路径末段 = 真实落盘名,父目录 = 收件箱
+        self.assertEqual(os.path.basename(p), d["name"])
+        self.assertEqual(os.path.realpath(os.path.dirname(p)),
+                         os.path.realpath(os.path.join(ws, d["inbox"])))
+
+    def test_u20_path_stays_inside_inbox_on_collision_rename(self):
+        """撞名换名后 path 仍须指向收件箱内那个新名字(别回旧名的路径)。"""
+        ds, ws = _mkroot_with_inbox()
+        self.addCleanup(shutil.rmtree, ds, ignore_errors=True)
+        self.addCleanup(shutil.rmtree, ws, ignore_errors=True)
+        inbox = os.path.join(ws, "00-收件箱")
+        with _serve(ds) as port:
+            _post(port, "/api/upload", {"name": "撞.png", "data_url": data_url()})
+            st, d = _post(port, "/api/upload",
+                          {"name": "撞.png", "data_url": data_url(png_bytes(rgb=(9, 9, 9)))})
+        self.assertEqual(st, 200, d)
+        self.assertNotEqual(d["name"], "撞.png")
+        self.assertEqual(os.path.basename(d["path"]), d["name"])
+        self.assertEqual(os.path.realpath(os.path.dirname(d["path"])),
+                         os.path.realpath(inbox))

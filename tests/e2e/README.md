@@ -26,3 +26,11 @@ E2E_BASE=http://127.0.0.1:8768 E2E_PASSWORD=e2etest \
   内容(不确定性)。
 - 环境变量:`E2E_BASE`(ds_web 地址)、`E2E_PASSWORD`(enable_webui 设的口令)、
   `E2E_PW_MODULES`(可选,playwright-core 所在 node_modules,缺省用 npx 缓存)。
+
+## 不需要 gateway 的场景(自起 ds_web,直接 `node <file>`)
+
+- `image_upload.e2e.mjs`(8808)、`chat_image.e2e.mjs`(8810)。
+- `chat_image` 需要聊天已连接,但**不用真 gateway**:`page.addInitScript` 里 stub 掉
+  `window.WebSocket` + `/api/chat/bootstrap`,于是能直接断"`ws.send()` 的信封里
+  media 形状对不对"。代价:证明不了 nanobot 会收下 —— 那条靠对真 gateway 的手工冒烟
+  兜(见该 track 的 verify.md),两者缺一不可。
