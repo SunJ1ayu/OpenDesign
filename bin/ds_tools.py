@@ -22,7 +22,9 @@ import json
 import os
 import re
 import shutil
+import stat
 import tempfile
+import threading
 from contextlib import contextmanager
 from datetime import date
 
@@ -528,12 +530,25 @@ def list_todos(stale_days: int = 7, ds_root: str = DEFAULT_DS_ROOT) -> dict:
     return {"ok": True, "text": text}
 
 
+# 重入闸用的 thread-local(见 locked_workspace_json):记本线程已持有哪几份配置的锁。
+_ws_lock_held = threading.local()
+
+
 def _write_workspace_json(cfg_path: str, obj: dict) -> None:
     """workspace.json 原子写(同目录唯一 tmp + os.replace,读者看不到半文件)。
 
     tmp 不能写死成 workspace.json.tmp:即使调用方漏锁,两个写者也不该互相
     replace 掉对方的临时文件。finally 清理失败路径,正常写完不留 .tmp 残骸。
     """
+    # 权限位:NamedTemporaryFile 建的临时文件是 0600,os.replace 之后会整个
+    # 继承过去 —— 于是每写一次就把用户的配置**悄悄收紧**一次(四审 subdeepseek
+    # BLOCK-1 / subkimi L2,实测 0644→0600)。写文件不该顺手改它的权限:
+    # 文件已存在就原样保留它的位,新建才用 0644(= 老实现 open(w) 在默认 umask
+    # 下的结果)。判据 t12。
+    try:
+        mode = stat.S_IMODE(os.stat(cfg_path).st_mode)
+    except OSError:
+        mode = 0o644
     tmp = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -542,6 +557,7 @@ def _write_workspace_json(cfg_path: str, obj: dict) -> None:
             tmp = fh.name
             json.dump(obj, fh, ensure_ascii=False, indent=2)
             fh.write("\n")
+        os.chmod(tmp, mode)
         os.replace(tmp, cfg_path)
         tmp = None
     finally:
@@ -559,11 +575,44 @@ def locked_workspace_json(ds_root: str):
     锁落在 config/ 下的稳定旁路文件,不能锁 workspace.json 本体:后者被
     os.replace 后锁仍挂在旧 inode,下一个写者会绕过互斥。目标 JSON 仍用原子
     替换,所以不持锁的只读侧也只会看到替换前或替换后的完整文件。
+
+    **不可重入,且是故意的。** 嵌套进入同一个 ds_root 会当场抛 RuntimeError,
+    不会挂起。别把它改成可重入 —— 那会让「锁内再调另一个写口」这种真正危险的
+    写法悄悄合法化(锁内调 set_workspace/bind_project 之类,等于把两次独立的
+    读改写焊成一次,语义是错的)。**锁内不许调用任何其他 workspace.json 写口。**
+
+    **平台差异(真机是 Windows,这条要当心)**:Linux 的 fcntl.flock 是无限阻塞
+    排队;Windows 的 msvcrt.locking 每秒重试、约 10 次后**抛 OSError**(见
+    ds_lock 模块头)。也就是说长争用在两个平台上的失败形态不一样 ——
+    Linux 是慢,Windows 是炸。而 bind_project 在锁内要扫整棵项目树,
+    工作区放在慢速外接盘/网络盘时持锁时间可能不短。
     """
     config_dir = os.path.join(ds_root, "config")
     os.makedirs(config_dir, exist_ok=True)
     cfg_path = os.path.join(config_dir, "workspace.json")
     lock_path = os.path.join(config_dir, "workspace.json.lock")
+    # 重入闸(四审 subdeepseek W1 + subkimi M1 两腿独立命中):flock 按 open file
+    # description 计,同线程嵌套 = 第二个 fd 永久阻塞,实测 timeout 直接 124
+    # —— 无超时、无报错、无从恢复,真机表现是 ds-web 那条线程整个挂死。
+    # 编程错误就该当场炸给开发者,而不是变成一个没有任何线索的挂起。判据 t11。
+    held = getattr(_ws_lock_held, "roots", None)
+    if held is None:
+        held = _ws_lock_held.roots = set()
+    key = os.path.realpath(config_dir)
+    if key in held:
+        raise RuntimeError(
+            "locked_workspace_json 不可重入:本线程已经持有这份 workspace.json 的锁。"
+            "锁内不许再调用任何 workspace.json 写口"
+            "(set_workspace / bind_project / rename_project / delete_project)。")
+    held.add(key)
+    try:
+        yield from _locked_workspace_json_inner(cfg_path, lock_path)
+    finally:
+        held.discard(key)
+
+
+def _locked_workspace_json_inner(cfg_path: str, lock_path: str):
+    """locked_workspace_json 的锁体;拆出来是为了让重入闸的 finally 一定跑到。"""
     with open(lock_path, "a+b") as lock_fh, ds_lock.exclusive(lock_fh):
         try:
             with open(cfg_path, encoding="utf-8") as fh:

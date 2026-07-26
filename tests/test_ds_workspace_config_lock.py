@@ -47,6 +47,7 @@ t07 用 `subprocess` 起真子进程复核这一条;t07 绿了,前面几条才�
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -482,6 +483,12 @@ class LockedWorkspaceJson(unittest.TestCase):
         self.assertTrue(blocked,
                         "跨进程没被挡住 —— 用的是进程内锁,真机(MCP + ds-web 两进程)等于没锁")
         self.assertEqual(p.returncode, 0, err.decode("utf-8", "replace"))
+        # 四审补(submimo #3 + subkimi):原来只断言"被挡住 + 退出码 0",
+        # **没验证子进程的写到底落没落盘** —— 一个既被挡住、又静默写失败的实现
+        # 也能让本条变绿。跨进程的"不丢更新"判据缺了这一半。
+        self.assertTrue(json.loads(out.decode("utf-8")).get("ok"),
+                        "子进程必须真的写成功,不是被挡住之后悄悄失败")
+        self.assertEqual(_read_raw(ds)["root"], ws, "子进程释放后那次写必须真的落盘")
 
     def test_t08_lock_does_not_litter_the_user_workspace(self):
         """锁文件是**我们的**实现细节,不许落到用户的项目文件夹里。
@@ -505,6 +512,60 @@ class LockedWorkspaceJson(unittest.TestCase):
         leftovers = [f for f in os.listdir(os.path.join(ds, "config"))
                      if f.endswith(".tmp")]
         self.assertEqual(leftovers, [], "写完不许留 .tmp")
+
+    def test_t11_nested_acquisition_fails_loudly_instead_of_hanging(self):
+        """**四审顺出、主 agent 漏掉的(subdeepseek W1 + subkimi M1 两腿独立命中)。**
+
+        `locked_workspace_json` 不可重入:同一线程嵌套进入同一 ds_root,
+        `flock` 按 open file description 计,第二个 fd 的 `LOCK_EX` **永久阻塞**
+        —— 实测 `timeout 8` 直接 124,无超时、无报错、无从恢复。
+        真机表现:ds-web 那条线程整个挂死,用户点了按钮永远转圈。
+
+        它已经被定位成「阶段二网页写口要接的公共件」,而网页写口最容易
+        在锁内间接调到另一个已经接了锁的入口(比如卡片保存里顺手调 bind_project)。
+
+        判据钉的是**响度不是可重入**:嵌套 = 编程错误,应当**当场炸给开发者**,
+        而不是变成一个没有任何线索的挂起。修法不是让它可重入
+        (那会让「锁内调另一个写口」这种真正危险的写法悄悄合法化)。
+        """
+        ds, _ = self._env()
+        with ds_tools.locked_workspace_json(ds) as outer:
+            outer["write"] = False
+            with self.assertRaises(RuntimeError,
+                                   msg="嵌套获取必须立刻抛,不许挂死"):
+                with ds_tools.locked_workspace_json(ds) as inner:
+                    inner["write"] = False
+        # 外层正常退出后,锁必须已经彻底释放(别把嵌套失败变成锁泄漏)
+        done = threading.Event()
+
+        def worker():
+            with ds_tools.locked_workspace_json(ds) as box:
+                box["write"] = False
+            done.set()
+
+        t = threading.Thread(target=worker, daemon=True)
+        t.start()
+        self.assertTrue(done.wait(GRACE), "嵌套报错之后不许把锁泄漏掉")
+        t.join(GRACE)
+
+    def test_t12_write_preserves_the_files_permission_bits(self):
+        """**四审顺出(subdeepseek BLOCK-1 + subkimi L2)。**
+
+        `tempfile.NamedTemporaryFile` 建的临时文件是 0600,`os.replace` 之后
+        整个继承过去 —— 于是每写一次,`workspace.json` 的权限就被**悄悄收紧**
+        (实测 0644 → 0600)。这是修 tmp 名带来的**非预期副作用**,不是有意设计。
+
+        本机单账号看不出问题,但「写文件顺手改掉它的权限」本身就不该发生:
+        判据钉住「写前是什么,写后还是什么」。
+        """
+        ds, _ = self._env()
+        for mode in (0o644, 0o600, 0o664):
+            with self.subTest(mode=oct(mode)):
+                os.chmod(_cfg_path(ds), mode)
+                with ds_tools.locked_workspace_json(ds) as box:
+                    box["raw"]["structuralDirs"] = ["00-收件箱"]
+                self.assertEqual(stat.S_IMODE(os.stat(_cfg_path(ds)).st_mode), mode,
+                                 "写入不许改动配置文件的权限位")
 
     def test_t10_written_config_is_immediately_usable(self):
         """落盘 ≠ 能用(test_ds_web_upload 第 1 条哲学):写完 load_config 立刻认得。"""
