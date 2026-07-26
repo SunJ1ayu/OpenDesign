@@ -180,6 +180,36 @@ class LockedWorkspaceJson(unittest.TestCase):
             box["raw"] = {"root": ws, "projects": {}}
         self.assertEqual(_read_raw(ds)["root"], ws)
 
+    def test_t02e_never_writes_a_non_dict_over_the_users_config(self):
+        """**闸③亲读 diff 时发现的地雷(GPT 腿实现通过了全部判卷,但漏了这个)。**
+
+        调用方进了块、`raw` 保持 `None`(坏配置)、又忘了置 `write=False` ——
+        实测会往 `workspace.json` 里写进字面量 **`null`**,把用户手写的配置**当场毁掉**。
+
+        四个既有写口目前都各自守住了(所以判卷全绿),但**下一阶段的体检卡写口
+        正是最容易踩这一脚的地方** —— 而「别悄悄毁掉用户的配置」恰恰是本单的立身之本。
+        安全网放在公共件里,只要一行:`raw` 不是 dict 就不落盘。
+
+        判据:块内什么都不做 → 原文一个字节不许变。
+        """
+        ds, _ = self._env()
+        with open(_cfg_path(ds), "w", encoding="utf-8") as fh:
+            fh.write("{ 用户手改坏的 json")
+        with open(_cfg_path(ds), "rb") as fh:
+            before = fh.read()
+        with ds_tools.locked_workspace_json(ds):
+            pass                      # raw=None,write 仍是 True
+        with open(_cfg_path(ds), "rb") as fh:
+            self.assertEqual(fh.read(), before,
+                             "raw 不是 dict 时绝不许落盘(写 null = 毁掉用户的配置)")
+        # 同款:调用方把 raw 换成了非 dict
+        for junk in (None, [], "字符串", 5):
+            with self.subTest(raw=junk):
+                with ds_tools.locked_workspace_json(ds) as box:
+                    box["raw"] = junk
+                with open(_cfg_path(ds), "rb") as fh:
+                    self.assertEqual(fh.read(), before, f"raw={junk!r} 不许落盘")
+
     def test_t02d_exception_inside_block_does_not_write(self):
         """块内抛异常 → 异常照常传出,但文件不许被写成半成品状态。"""
         ds, _ = self._env(projects={"甲": "甲夹"})

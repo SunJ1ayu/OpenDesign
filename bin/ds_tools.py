@@ -22,9 +22,12 @@ import json
 import os
 import re
 import shutil
+import tempfile
+from contextlib import contextmanager
 from datetime import date
 
 import ds_common  # 共享:防逃逸谓词/字段消毒/页脚锚定/加锁读改写(同目录模块)
+import ds_lock    # 跨平台跨进程排他锁(workspace.json 的稳定旁路锁)
 import ds_todo    # 主动提醒核心,同目录模块(list_todos 直调,不走 subprocess)
 import ds_workspace  # PROJECT_NAME_RE 单一真相源(写侧与读侧/web key 闸同一套字符集)
 
@@ -526,13 +529,57 @@ def list_todos(stale_days: int = 7, ds_root: str = DEFAULT_DS_ROOT) -> dict:
 
 
 def _write_workspace_json(cfg_path: str, obj: dict) -> None:
-    """workspace.json 原子写(同目录 tmp + os.replace,崩溃不留半文件)。
-    set_workspace / bind_project 共用的唯一写出口——别再复制第二份。"""
-    tmp = cfg_path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(obj, fh, ensure_ascii=False, indent=2)
-        fh.write("\n")
-    os.replace(tmp, cfg_path)
+    """workspace.json 原子写(同目录唯一 tmp + os.replace,读者看不到半文件)。
+
+    tmp 不能写死成 workspace.json.tmp:即使调用方漏锁,两个写者也不该互相
+    replace 掉对方的临时文件。finally 清理失败路径,正常写完不留 .tmp 残骸。
+    """
+    tmp = None
+    try:
+        with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=os.path.dirname(cfg_path),
+                prefix=".workspace.json.", suffix=".tmp", delete=False) as fh:
+            tmp = fh.name
+            json.dump(obj, fh, ensure_ascii=False, indent=2)
+            fh.write("\n")
+        os.replace(tmp, cfg_path)
+        tmp = None
+    finally:
+        if tmp is not None:
+            try:
+                os.unlink(tmp)
+            except FileNotFoundError:
+                pass
+
+
+@contextmanager
+def locked_workspace_json(ds_root: str):
+    """锁住 workspace.json 的整段读改写;yield {"raw": dict|None, "write": bool}。
+
+    锁落在 config/ 下的稳定旁路文件,不能锁 workspace.json 本体:后者被
+    os.replace 后锁仍挂在旧 inode,下一个写者会绕过互斥。目标 JSON 仍用原子
+    替换,所以不持锁的只读侧也只会看到替换前或替换后的完整文件。
+    """
+    config_dir = os.path.join(ds_root, "config")
+    os.makedirs(config_dir, exist_ok=True)
+    cfg_path = os.path.join(config_dir, "workspace.json")
+    lock_path = os.path.join(config_dir, "workspace.json.lock")
+    with open(lock_path, "a+b") as lock_fh, ds_lock.exclusive(lock_fh):
+        try:
+            with open(cfg_path, encoding="utf-8") as fh:
+                raw = json.load(fh)
+        except (OSError, ValueError):
+            raw = None
+        if not isinstance(raw, dict):
+            raw = None
+        box = {"raw": raw, "write": True}
+        yield box
+        # 安全网:raw 不是 dict 就绝不落盘。调用方进了块、raw 保持 None(坏配置)
+        # 又忘了置 write=False 时,原来会把字面量 `null` 写进去 —— 用户手写的配置
+        # 当场被毁,而读侧对坏 JSON 的反应是整份降级,现象是"我的项目全没了"。
+        # 四个既有写口各自都守住了,但把网收在这里,新写口就不必每个都记得。
+        if box["write"] and isinstance(box["raw"], dict):
+            _write_workspace_json(cfg_path, box["raw"])
 
 
 # ── 工具 4.4b set_workspace(Track B/B1)────────────────────────────────────────
@@ -562,22 +609,22 @@ def set_workspace(root: str, projects_dir: str = "", projects_depth: int = 0,
         return {"error": "root_not_dir"}  # 不回显路径细节
 
     cfg_path = os.path.join(ds_root, "config", "workspace.json")
-    os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
-
-    # 读旧配置保留 projects/projectsDir/projectsDepth;坏 JSON → 先备份 .bak 再写全新(不崩)
-    projects: dict = {}
-    kept_projects_dir = None
-    kept_depth = 0
-    if os.path.exists(cfg_path):
-        try:
-            with open(cfg_path, encoding="utf-8") as fh:
-                old = json.load(fh)
-        except (OSError, ValueError):
-            try:  # 坏 JSON:备份原文,避免静默丢用户手写的映射
+    # 从读旧值到原子替换全程持同一把锁,否则 set_workspace 会用旧 projects
+    # 覆盖并发 bind_project 刚写入的映射。
+    with locked_workspace_json(ds_root) as box:
+        old = box["raw"]
+        # 坏 JSON:备份原文,避免静默丢用户手写的映射。复制也在锁内,保证备份
+        # 对应本轮实际读到的文件;顶层非 dict 同属坏配置,一并保全。
+        if old is None and os.path.exists(cfg_path):
+            try:
                 shutil.copyfile(cfg_path, cfg_path + ".bak")
             except OSError:
                 pass
-            old = None
+
+        # 读旧配置保留 projects/projectsDir/projectsDepth。
+        projects: dict = {}
+        kept_projects_dir = None
+        kept_depth = 0
         if isinstance(old, dict):
             op = old.get("projects")
             if isinstance(op, dict) and all(
@@ -590,17 +637,16 @@ def set_workspace(root: str, projects_dir: str = "", projects_depth: int = 0,
             if not isinstance(odp, bool) and odp in (1, 2):
                 kept_depth = odp
 
-    new_cfg = {"root": real_root, "projects": projects}
-    pd = projects_dir if projects_dir else kept_projects_dir  # 显式传优先,否则保留旧值
-    if pd:
-        new_cfg["projectsDir"] = pd
-    # depth 同款语义:显式传优先(1=回默认,清字段不落盘;写不写等价,文件保持最小),
-    # 0=不传保留旧值
-    depth = projects_depth if projects_depth else kept_depth
-    if depth == 2:
-        new_cfg["projectsDepth"] = 2
-
-    _write_workspace_json(cfg_path, new_cfg)
+        new_cfg = {"root": real_root, "projects": projects}
+        pd = projects_dir if projects_dir else kept_projects_dir  # 显式传优先,否则保留旧值
+        if pd:
+            new_cfg["projectsDir"] = pd
+        # depth 同款语义:显式传优先(1=回默认,清字段不落盘;写不写等价,文件保持最小),
+        # 0=不传保留旧值
+        depth = projects_depth if projects_depth else kept_depth
+        if depth == 2:
+            new_cfg["projectsDepth"] = 2
+        box["raw"] = new_cfg
 
     # folder_count 走与前端同一条解析(每请求现读,写完即时生效,无需重启)
     reloaded = ds_workspace.load_config(ds_root)
@@ -624,38 +670,31 @@ def bind_project(project: str, folder: str, ds_root: str = DEFAULT_DS_ROOT) -> d
         return err
     if not os.path.exists(path):
         return {"error": "project_not_found"}
-    # 闸② workspace 必须已配置
-    cfg = ds_workspace.load_config(ds_root)
-    if cfg is None:
-        return {"error": "workspace_not_configured"}
-    # 闸③ folder 只认已发现的文件夹(不开第二条路径解析面)。两级匹配:
-    # 精确 key → 纯名唯一命中(侧栏把 `组:名` 拆成"名+组标"两段展示,用户念的
-    # 是纯名;唯一才绑,撞名不猜)。失败/歧义把候选名单还给助手=自愈回路
-    # (助手没有枚举文件夹的工具,不给名单它只能瞎猜)。
-    folders = ds_workspace.project_folders(cfg)
-    matches = [(n, p) for n, p in folders if n == folder]
-    if not matches:
-        matches = [(n, p) for n, p in folders
-                   if ":" in n and n.split(":", 1)[1] == folder]
-    if len(matches) != 1:
-        return {"error": "folder_ambiguous" if matches else "folder_not_found",
-                "folders": [n for n, _ in folders][:50]}
-    folder, target = matches[0]
-    rel = os.path.relpath(target, cfg["root"]).replace(os.sep, "/")
-    # 闸④ 写:原 JSON 整 dict 原样保留,只动 projects[project];原子写
-    cfg_path = os.path.join(ds_root, "config", "workspace.json")
-    try:
-        with open(cfg_path, encoding="utf-8") as fh:
-            raw = json.load(fh)
-    except (OSError, ValueError):
-        # load_config 刚成功,到这多半是竞态;宁拒不猜
-        return {"error": "workspace_not_configured"}
-    if not isinstance(raw, dict):  # 顶层非 dict(外部进程写坏):同竞态待遇,不崩
-        return {"error": "workspace_not_configured"}
-    if not isinstance(raw.get("projects"), dict):
-        raw["projects"] = {}
-    raw["projects"][project] = rel
-    _write_workspace_json(cfg_path, raw)
+    # 闸②~④连同原始 JSON 的读改写都在锁内:folder 的解析根与最终写回的
+    # 配置必须来自同一快照,且并发写者不能在两者之间插入更新。
+    with locked_workspace_json(ds_root) as box:
+        raw = box["raw"]
+        cfg = ds_workspace.load_config(ds_root)
+        if cfg is None or raw is None:
+            box["write"] = False
+            return {"error": "workspace_not_configured"}
+        # folder 只认已发现的文件夹(不开第二条路径解析面)。两级匹配:
+        # 精确 key → 纯名唯一命中(侧栏把 `组:名` 拆成"名+组标"两段展示,
+        # 用户念的是纯名;唯一才绑,撞名不猜)。
+        folders = ds_workspace.project_folders(cfg)
+        matches = [(n, p) for n, p in folders if n == folder]
+        if not matches:
+            matches = [(n, p) for n, p in folders
+                       if ":" in n and n.split(":", 1)[1] == folder]
+        if len(matches) != 1:
+            box["write"] = False
+            return {"error": "folder_ambiguous" if matches else "folder_not_found",
+                    "folders": [n for n, _ in folders][:50]}
+        folder, target = matches[0]
+        rel = os.path.relpath(target, cfg["root"]).replace(os.sep, "/")
+        if not isinstance(raw.get("projects"), dict):
+            raw["projects"] = {}
+        raw["projects"][project] = rel
     return {"ok": True, "project": project, "folder": folder, "rel": rel}
 
 
@@ -751,18 +790,14 @@ def rename_project(old: str, new: str, ds_root: str = DEFAULT_DS_ROOT,
             updated["refs"] = changed
 
     # ③ workspace.json:映射键 old→new(值不动;无配置/无该键=跳过)
-    cfg_path = os.path.join(ds_root, "config", "workspace.json")
-    if os.path.isfile(cfg_path):
-        try:
-            with open(cfg_path, encoding="utf-8") as fh:
-                raw = json.load(fh)
-        except (OSError, ValueError):
-            raw = None
+    with locked_workspace_json(ds_root) as box:
+        raw = box["raw"]
         if isinstance(raw, dict) and isinstance(raw.get("projects"), dict) \
                 and old in raw["projects"]:
             raw["projects"][new] = raw["projects"].pop(old)
-            _write_workspace_json(cfg_path, raw)
             updated["workspace"] = True
+        else:
+            box["write"] = False
 
     # ④ 档案本体:首标题恰好 `# old` 才改(自定义 title 不动);os.replace=提交点
     # (body 已在闸后预读,fail fast)
@@ -793,18 +828,14 @@ def delete_project(project: str, ds_root: str = DEFAULT_DS_ROOT,
     # =档案还在+映射掉了(可见的重复行态,重跑 delete 或 bind 都能修);反序的
     # 残局=档案没了+映射悬空(文件夹被悬空映射吃掉,从列表里隐形)。
     mapping_removed = False
-    cfg_path = os.path.join(ds_root, "config", "workspace.json")
-    if os.path.isfile(cfg_path):
-        try:
-            with open(cfg_path, encoding="utf-8") as fh:
-                raw = json.load(fh)
-        except (OSError, ValueError):
-            raw = None  # 坏 config 不硬修,映射留给人;删除本体照走
+    with locked_workspace_json(ds_root) as box:
+        raw = box["raw"]
         if (isinstance(raw, dict) and isinstance(raw.get("projects"), dict)
                 and project in raw["projects"]):
             del raw["projects"][project]
-            _write_workspace_json(cfg_path, raw)
             mapping_removed = True
+        else:
+            box["write"] = False
 
     trash_dir = os.path.join(ds_root, "projects", ".trash")
     os.makedirs(trash_dir, exist_ok=True)
