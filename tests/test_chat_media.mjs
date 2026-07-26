@@ -245,3 +245,127 @@ test("m28 inbox_not_found 的提示要指向那个按钮,不是让人自己去�
   const s = uploadErrMsg("inbox_not_found");
   assert.match(s, /帮我建收件箱/);
 });
+
+// ═══ track opendesign-chat-image-p2 ═══════════════════════════════════════
+// 真机实测(2026-07-26,用户机):Windows 上粘贴的截图,浏览器给的文件名是**哈希**
+// (`b62e4473467453d9959ee406f6044657.png`)—— 不是我以为的 `image.png`。
+// 后果:①三张天生不撞名,所以"自动改名"根本没轮到上场(不是 bug);
+//       ②收件箱里躺着一堆哈希名,人看不懂,「扫描整理」也匹配不到任何项目。
+// ⇒ 从聊天存进收件箱时改用可读名。**只做一层薄默认,不猜图里是什么**
+//   (不看图内容、不猜空间/类目):用户不满意就跟助手说一句改名(stage_plan 支持
+//   rename,已核实工具真实存在)。
+import { chatImageName, isMeaninglessName } from "../web/src/chat/media.ts";
+
+const AT = new Date(2026, 6, 26, 14, 32); // 2026-07-26 14:32(月份 0-based)
+
+test("p01 哈希名 → 可读名:项目 + 聊天图 + 8 位日期-时分", () => {
+  const got = chatImageName("b62e4473467453d9959ee406f6044657.png",
+    { project: "龙腾世纪 12#1802", at: AT });
+  assert.equal(got, "龙腾世纪 12#1802 聊天图 20260726-1432.png");
+});
+
+test("p02 没有项目上下文(首页新对话)→ 不硬凑项目名", () => {
+  assert.equal(chatImageName("b62e4473467453d9959ee406f6044657.png", { at: AT }),
+    "聊天图 20260726-1432.png");
+});
+
+test("p03 同一条消息多张 → 加序号,互不覆盖", () => {
+  const a = chatImageName("aaaa1111bbbb2222cccc3333dddd4444.png", { at: AT, index: 0 });
+  const b = chatImageName("bbbb2222cccc3333dddd4444eeee5555.png", { at: AT, index: 1 });
+  const c = chatImageName("cccc3333dddd4444eeee5555ffff6666.png", { at: AT, index: 2 });
+  assert.equal(a, "聊天图 20260726-1432.png");
+  assert.equal(b, "聊天图 20260726-1432-2.png");
+  assert.equal(c, "聊天图 20260726-1432-3.png");
+});
+
+test("p04 **有意义的原名一律保留**(从文件夹拖进来的图不许被改名)", () => {
+  for (const n of ["客厅现场.png", "翡翠湾 主卧 参考.jpg", "sofa-detail.webp",
+                   "20260612 龙腾世纪 量房.png"]) {
+    assert.equal(chatImageName(n, { project: "龙腾世纪 12#1802", at: AT }), n);
+  }
+});
+
+test("p05 扩展名跟着原名走(jpg 不许被改成 png)", () => {
+  assert.match(chatImageName("aaaa1111bbbb2222cccc3333dddd4444.jpg", { at: AT }),
+    /\.jpg$/);
+  assert.match(chatImageName("aaaa1111bbbb2222cccc3333dddd4444.WEBP", { at: AT }),
+    /\.webp$/);
+});
+
+test("p06 哪些名字算「没意义」——只认死板的几类,不做聪明判断", () => {
+  for (const n of ["b62e4473467453d9959ee406f6044657", "0123456789abcdef0123",
+                   "image", "IMAGE", "未命名", "download", "屏幕截图"]) {
+    assert.equal(isMeaninglessName(n), true, n);
+  }
+  for (const n of ["客厅", "sofa", "C12 主卧改动", "2026 客厅", "a1b2"]) {
+    assert.equal(isMeaninglessName(n), false, n);
+  }
+});
+
+test("p07 生成的名字必须过服务端单段闸(否则存进去 = 白存)", () => {
+  // 服务端 _safe_upload_name 的等价规则:无 / \ % 与控制符、不以点开头、
+  // 不以点或空格结尾、不是 . / ..
+  const got = chatImageName("b62e4473467453d9959ee406f6044657.png",
+    { project: "融侨外滩D区1#2604", at: AT, index: 3 });
+  assert.ok(!/[/\\%]/.test(got), got);
+  assert.ok(!got.startsWith("."), got);
+  assert.ok(!/[. ]$/.test(got), got);
+});
+
+test("p08 项目名里若带路径字符,不能带进文件名(项目名是外部输入)", () => {
+  const got = chatImageName("b62e4473467453d9959ee406f6044657.png",
+    { project: "a/b\\c%d", at: AT });
+  assert.ok(!/[/\\%]/.test(got), got);
+});
+
+// ── 历史对话里要能看见发过的图 ─────────────────────────────────────────────
+// 用户实测:"发了图片之后切别的地方,回到历史对话就看不到之前发的图片了"。
+// 查过网关:回放数据里**带图**(webui-thread 的 user 消息含
+// `media:[{kind,url,name}]`,url 形如 `/api/media/<签名>/<载荷>`,自带签名鉴权)。
+// 所以不是丢了,是前端 hydrateFromThread 把它丢了。
+import { hydrateFromThread } from "../web/src/chat/transcript.ts";
+
+const threadWith = (media) => ({
+  messages: [{ role: "user", content: "这个客厅怎么改?", media }],
+});
+
+test("h01 回放带图 → 还原到气泡上(签名 URL 补成网关绝对地址)", () => {
+  const st = hydrateFromThread(threadWith(
+    [{ kind: "image", url: "/api/media/sig/payload", name: "客厅.png" }]));
+  assert.equal(st.messages.length, 1);
+  assert.deepEqual(st.messages[0].media,
+    [{ src: "http://127.0.0.1:8765/api/media/sig/payload", name: "客厅.png" }]);
+});
+
+test("h02 只认 /api/media/ 开头的签名 URL —— 任意外链不许进 img src", () => {
+  for (const url of ["http://evil.example/x.png", "//evil.example/x.png",
+                     "javascript:alert(1)", "/etc/passwd", "data:image/png;base64,YWJj"]) {
+    const st = hydrateFromThread(threadWith([{ kind: "image", url, name: "x.png" }]));
+    assert.equal(st.messages[0].media, undefined, `应拒:${url}`);
+  }
+});
+
+test("h03 非图片附件(视频/文件)本期不渲染,但不许崩", () => {
+  const st = hydrateFromThread(threadWith([
+    { kind: "video", url: "/api/media/a/b", name: "v.mp4" },
+    { kind: "image", url: "/api/media/c/d", name: "ok.png" },
+  ]));
+  assert.equal(st.messages[0].media.length, 1);
+  assert.equal(st.messages[0].media[0].name, "ok.png");
+});
+
+test("h04 畸形 media(缺 url / 不是数组 / 元素不是对象)→ 安全降级为无图", () => {
+  for (const bad of [[{ kind: "image", name: "x.png" }], "media", 42,
+                     [null], [{}], []]) {
+    const st = hydrateFromThread(threadWith(bad));
+    assert.equal(st.messages.length, 1, JSON.stringify(bad));
+    assert.equal(st.messages[0].media, undefined, JSON.stringify(bad));
+  }
+});
+
+test("h05 没有 media 的老会话回放,形状与从前逐字节一致(不回归)", () => {
+  const st = hydrateFromThread({ messages: [{ role: "user", content: "你好" }] });
+  assert.deepEqual(st.messages, [
+    { id: "replay-0", role: "user", content: "你好", streaming: false },
+  ]);
+});
