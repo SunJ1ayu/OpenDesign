@@ -23,7 +23,7 @@
       - 复用 `ds_lock.exclusive`(跨平台已有件),别再造第二把锁
 - [x] T2 修 `_write_workspace_json` 的**固定 tmp 名** —— 并发下会交错写同一个临时文件,
       导致 `FileNotFoundError` + 配置被写成非法 JSON。tmp 名唯一化
-- [ ] T3 四个写口全部接到锁上,**一个都不许漏**:
+- [x] T3 四个写口全部接到锁上,**一个都不许漏**:
       `set_workspace` / `bind_project` / `rename_project` / `delete_project`
       (读也要在锁内 —— 光把写包起来还是丢更新)
 - [x] T4 oracle 一 全绿 + 全量回归绿 → 独立 commit
