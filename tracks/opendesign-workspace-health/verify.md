@@ -15,9 +15,9 @@
 
 ### Mechanical checks
 
-- [x] 判卷一 `test_ds_workspace_config_lock.py` 15/15 绿(**unittest 复核过**,
-      防 pytest subtests 顶层假绿)
-- [x] 全量回归 694 passed / 8 skipped / 0 failed(基线 679 + 新增 15)
+- [x] 判卷一 `test_ds_workspace_config_lock.py` 17/17 绿(**unittest 复核过**,
+      防 pytest subtests 顶层假绿;四审后补 t02e/t11/t12,故由 15 增至 17)
+- [x] 全量回归 698 passed / 8 skipped / 0 failed(基线 679 + 判卷一 17 + 判卷二已绿的 2)
 - [x] 判卷二按计划仍红(阶段二的活,`ds_web.py` 未被碰)
 - [x] build:本阶段纯 Python,`web/` 零改动,不涉及前端构建
 - [x] no secrets / unsafe ops:无新增依赖、无 push/merge、无删文件
@@ -156,7 +156,8 @@
 
 ## 阶段二(体检卡本体)
 
-未开始。判卷二 `test_ds_web_folder_visibility.py` 28/28 红,等实现。
+未开始。判卷二 `test_ds_web_folder_visibility.py` **35 failed / 2 passed**,等实现
+(2 条绿的是不依赖新写口的既有面,不算已完成)。
 
 ## 真机验收(两条都没做,**接口全绿 ≠ 做对了**)
 
