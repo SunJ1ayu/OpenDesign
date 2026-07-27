@@ -269,6 +269,62 @@ export type IntakeData =
 
 export const fetchIntake = () => getJson<IntakeData>("/api/intake");
 
+// ── 工作区体检卡(track opendesign-workspace-health)────────────────────────
+/** 一行 = 工作区根下的一个文件夹。
+ *  `currentlyHidden` 是**事实**(它现在有没有被排除,含被程序猜掉的);
+ *  `preselect` 是**开关初值**,只有 `reason==="declared"` 才为真 ——
+ *  猜出来的绝不预勾,否则用户随手一点保存就把猜测固化成了正式声明。 */
+export type FolderRow = {
+  name: string;
+  reason: "declared" | "guessed" | "default";
+  currentlyHidden: boolean;
+  preselect: boolean;
+  missing: boolean;
+};
+export type WorkspaceHealth =
+  | { configured: false; applicable: false; folders: []; projectCount: number; reviewId: string }
+  | {
+      configured: true;
+      applicable: boolean;
+      declared?: boolean;
+      root?: string;
+      projectsRoot?: string;
+      projectCount: number;
+      folders: FolderRow[];
+      reviewId: string;
+    };
+
+export const fetchWorkspaceHealth = () =>
+  getJson<WorkspaceHealth>("/api/workspace/health");
+
+/** 一次存**整份**「不显示」清单(不是一次改一个名字 —— 增量写口会在声明第一个
+ *  名字的瞬间让回落语义整层关闭,其他被猜掉的目录突然全冒出来)。
+ *  `review_id` 绑「配置内容 + 目录快照」:你开着卡片时在资源管理器里新建了文件夹,
+ *  按旧快照保存会静默把它藏掉 —— 所以服务端会回 409 `stale_review`,要求重看一遍。 */
+export type SaveVisibilityError =
+  | "stale_review" | "not_applicable" | "workspace_not_configured" | "bad_request";
+export async function saveFolderVisibility(
+  reviewId: string, hidden: string[],
+): Promise<{ ok: true } | { ok: false; code: SaveVisibilityError }> {
+  const r = await fetch("/api/workspace/folder-visibility", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ review_id: reviewId, hidden }),
+  });
+  if (r.ok) return { ok: true };
+  let code = "";
+  try {
+    code = ((await r.json()) as { error?: string }).error || "";
+  } catch {
+    /* 服务端异常时没有 JSON 体,按通用失败处理 */
+  }
+  const known: SaveVisibilityError[] =
+    ["stale_review", "not_applicable", "workspace_not_configured"];
+  return { ok: false,
+           code: known.includes(code as SaveVisibilityError)
+             ? (code as SaveVisibilityError) : "bad_request" };
+}
+
 /** 打开收件箱(track -p2):复用 open-folder 唯一开口的 inbox 分支。
  * **不传路径** —— 收件箱在哪由服务端 _find_inbox 解析,网页给不了路径。 */
 export async function openInbox(): Promise<void> {

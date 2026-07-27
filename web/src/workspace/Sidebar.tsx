@@ -209,8 +209,11 @@ export default function Sidebar({
             文件夹不见了,而他不会去翻配置)。自己在配置里声明过的不再啰嗦。 */}
         {excludedStructural && excludedStructural.length > 0 && (
           <div className="side-empty-hint" data-ui="excluded-structural"
-               title="这些是工作区的结构文件夹(收件箱/归档/共享资源之类),没当成项目">
-            {excludedStructural.join("、")} 当作结构文件夹,没列为项目
+               title="这些文件夹没有列进项目列表。到右边的「工作区文件夹」卡片里可以改。">
+            {excludedStructural.join("、")} 没列进项目列表
+            <span className="side-hint-cta">
+              少了你的项目?到右边「工作区文件夹」卡片里改
+            </span>
           </div>
         )}
       </div>

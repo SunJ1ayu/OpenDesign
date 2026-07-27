@@ -468,6 +468,7 @@ export default function App() {
           dataEpoch={dataEpoch}
           inboxActive={route === "workspace"}
           onNewChat={newProjectChat}
+          onVisibilitySaved={() => setDataEpoch((n) => n + 1)}
         />
       </div>
 
