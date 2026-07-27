@@ -2473,7 +2473,9 @@ html, body { overflow: auto; }
    改 grid:行列对齐、阅读序恢复行优先。格子等高靠下面 .g-cell img 的固定比例。 */
 .g-wall {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  /* 缩放(真机反馈 2026-07-27):列数由用户定(--wall-cols,3~7),不再是"能塞几个塞几个"
+     —— 用户要的是"放大看封面",那就得是确定的一行几个。窄窗兜底见下面的 media。 */
+  grid-template-columns: repeat(var(--wall-cols, 7), minmax(0, 1fr));
   gap: 10px;
   margin-top: 12px;
   align-items: start;
@@ -2634,3 +2636,69 @@ html, body { overflow: auto; }
 /* 收件箱搬到右列顶部(-p2):标题行款式对齐左列 .aside-head */
 .chatcol > .inbox-card { border-bottom: 1px solid var(--border-main); }
 .inbox-quiet { font-size: 11px; color: var(--ink-5); }
+
+/* ── 工作区体检卡(track opendesign-workspace-health T8)──────────────────
+   被程序猜掉的文件夹的纠正入口。款式对齐 .inbox-card:同一列、同样默认收一行。 */
+.fvis-card {
+  margin: 12px 12px 0;
+  border: 1px solid var(--border-main);
+  border-radius: 10px;
+  background: var(--paper-side);
+  box-shadow: var(--shadow-card);
+  padding-bottom: 8px;
+}
+.chatcol > .fvis-card { border-bottom: 1px solid var(--border-main); }
+.fvis-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.fvis-head .t { font-weight: 600; font-size: 13px; }
+.fvis-sum { flex: 1; font-size: 11.5px; color: var(--ink-5); }
+.fvis-caret { color: var(--ink-5); font-size: 11px; }
+.fvis-body { padding: 0 14px; }
+.fvis-why { font-size: 11.5px; color: var(--ink-5); margin: 0 0 8px; line-height: 1.55; }
+.fvis-list { list-style: none; margin: 0 0 10px; padding: 0; }
+.fvis-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-soft, rgba(0, 0, 0, .06));
+}
+.fvis-list li:last-child { border-bottom: 0; }
+.fvis-list label { display: flex; align-items: center; gap: 7px; flex: 1; cursor: pointer; }
+.fvis-name { font-size: 12.5px; overflow-wrap: anywhere; }
+/* 取消勾选=不会出现在项目列表:名字压暗,一眼看出"这行是关着的" */
+.fvis-list li.off .fvis-name { color: var(--ink-5); text-decoration: line-through; }
+.fvis-tag { font-size: 10.5px; color: var(--ink-5); white-space: nowrap; }
+.fvis-preview {
+  font-size: 11.5px;
+  color: var(--ink-5);
+  line-height: 1.6;
+  margin: 0 0 8px;
+  padding: 7px 9px;
+  border-radius: 7px;
+  background: var(--paper-sunk, rgba(0, 0, 0, .03));
+}
+.fvis-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-bottom: 4px; }
+.fvis-ok { font-size: 11.5px; color: var(--ink-5); }
+.fvis-err { font-size: 11.5px; color: var(--danger, #b4432f); line-height: 1.5; }
+/* 侧栏那句提示不再是死路一条:告诉用户去哪儿改 */
+.side-hint-cta { display: block; margin-top: 2px; color: var(--ink-6, var(--ink-5)); }
+
+/* 图墙缩放控件 */
+.g-zoom { display: inline-flex; align-items: center; gap: 4px; }
+.g-zoom-n { font-size: 11.5px; color: var(--ink-5); min-width: 42px; text-align: center; }
+/* 窄窗兜底:再怎么选,格子也不该被压成邮票 */
+@media (max-width: 1100px) {
+  .g-wall { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}

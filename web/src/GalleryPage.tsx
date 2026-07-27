@@ -77,6 +77,19 @@ export default function GalleryPage({ project }: Props) {
   // 落点是**收件箱**,不是当前项目的图墙 —— 直接写项目夹会新开一条"网页可任意写
   // 工作区"的路,与「暂存 + 人工确认才动文件」这条底线相抵。上传完提示去点
   // 伴随列的「扫描整理」(网页那条针孔自带 allowed_roots,不依赖任何环境变量)。
+  // 缩放(真机反馈 2026-07-27):放大看封面 = 一行少几个,缩小 = 回到密排。
+  // 用**列数**而不是像素:用户说的就是"一行 3 个 / 一行 7 个"。记住选择,下次还是它。
+  const COLS_MIN = 3, COLS_MAX = 7;
+  const [cols, setCols] = useState<number>(() => {
+    const raw = Number(localStorage.getItem("ds.gallery.cols"));
+    return raw >= COLS_MIN && raw <= COLS_MAX ? raw : COLS_MAX;
+  });
+  const setColsPersist = (n: number) => {
+    const v = Math.min(COLS_MAX, Math.max(COLS_MIN, n));
+    setCols(v);
+    try { localStorage.setItem("ds.gallery.cols", String(v)); } catch { /* 隐私模式 */ }
+  };
+
   const [dragOver, setDragOver] = useState(false);
   const [upMsg, setUpMsg] = useState<string | null>(null);
   const [upBusy, setUpBusy] = useState(false);
@@ -318,6 +331,13 @@ export default function GalleryPage({ project }: Props) {
               : `${albums.length} 组 · ${shown.length} 张`}
         </span>
         <span className="grow" />
+        <div className="g-zoom" data-ui="gallery-zoom" title="放大/缩小封面">
+          <button className="icon-btn" onClick={() => setColsPersist(cols + 1)}
+                  disabled={cols >= COLS_MAX} aria-label="缩小(一行放更多)">−</button>
+          <span className="g-zoom-n">一行 {cols}</span>
+          <button className="icon-btn" onClick={() => setColsPersist(cols - 1)}
+                  disabled={cols <= COLS_MIN} aria-label="放大(一行放更少)">+</button>
+        </div>
         {facets.groups.length > 0 && (
           <div className="gallery-source">
             <select
@@ -383,7 +403,7 @@ export default function GalleryPage({ project }: Props) {
           这个筛选组合下没有图(工作区图片没有空间/风格标签)。
         </div>
       ) : current ? (
-        <div className="g-wall">
+        <div className="g-wall" style={{ ["--wall-cols" as string]: cols }}>
           {current.items.map((it) => (
             <button className="g-cell" key={it.id} title={it.label} onClick={() => setZoom(it)}>
               <img src={it.url} alt={it.label} loading="lazy" />
@@ -394,7 +414,7 @@ export default function GalleryPage({ project }: Props) {
           ))}
         </div>
       ) : (
-        <div className="g-wall">
+        <div className="g-wall" style={{ ["--wall-cols" as string]: cols }}>
           {albums.map((a) => (
             <button
               className="g-cell"
