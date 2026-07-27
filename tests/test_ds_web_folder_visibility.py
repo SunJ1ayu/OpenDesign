@@ -260,6 +260,39 @@ class RequestShape(FolderVisibilityBase):
         self.assertEqual(self._raw_bytes(ds), before)
 
 
+    def test_v20_a_real_sized_whole_list_still_saves(self):
+        """**整份清单**的请求体不能被「打开文件夹」那口的 4096 上限卡死。
+
+        写口的语义是 A2「一次存整份」——用户过去声明过的名字**每次保存都要原样重报**。
+        所以请求体大小与「已声明目录数」线性相关,而 `OPEN_BODY_MAX` 是给 open-folder
+        (两个短字段)定的。真机是设计师的工作区,中文长目录名 ~34 字节:
+        120 个就撑爆 4096,用户从此存不进去,拿到的还是一句无差别的 400。
+        """
+        names = [f"{i:03d}-归档 龙腾世纪项目资料" for i in range(120)]
+        ds, _ = self._env(names)
+        with _serve(ds) as port:
+            h = self._health(port)
+            st, r = _post(port, SAVE, {"review_id": h["reviewId"], "hidden": names})
+        self.assertEqual(st, 200, r)
+        self.assertEqual(sorted(self._read_cfg(ds)["structuralDirs"]), sorted(names))
+
+    def test_v21_absurd_name_count_is_refused_by_an_explicit_cap(self):
+        """design 明写「`hidden` 有**数量**与请求体上限」两条闸,不能只有后者。
+
+        数量闸必须是**显式**的:靠请求体字节数间接封顶,等于把「能存几个目录」
+        绑死在「名字有多长」上——中文名和 ASCII 名的上限会差三倍,而且 v20 一放宽
+        请求体,这条就彻底没有了。
+        """
+        ds, _ = self._env(["00-收件箱"])
+        before = self._raw_bytes(ds)
+        with _serve(ds) as port:
+            h = self._health(port)
+            huge = {"review_id": h["reviewId"], "hidden": [f"n{i}" for i in range(5000)]}
+            st, _ = _post(port, SAVE, huge)
+        self.assertIn(st, (400, 413, None))
+        self.assertEqual(self._raw_bytes(ds), before)
+
+
 class ServerIssuedSet(FolderVisibilityBase):
     """读口:卡片显示什么、下发集合是什么。"""
 
