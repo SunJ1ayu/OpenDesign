@@ -61,6 +61,7 @@ unquote → realpath → ds_common.within 防逃逸。
 import http.client
 import base64
 import binascii
+import hashlib
 import json
 import os
 import re
@@ -168,6 +169,7 @@ INTAKE_AMEND_PATH = "/api/intake/amend"  # do_POST 写针孔⑧(track opendesign
 UPLOAD_PATH = "/api/upload"  # do_POST 写针孔⑬(track opendesign-image-upload),精确匹配
 INBOX_CREATE_PATH = "/api/inbox/create"  # do_POST 写针孔⑭(track opendesign-chat-image),精确匹配
 BIND_PROJECT_PATH = "/api/projects/bind"  # do_POST 写针孔⑨(同上 track),精确匹配
+FOLDER_VISIBILITY_PATH = "/api/workspace/folder-visibility"  # 阶段二:整份存结构目录声明
 STAGE_PATH = "/api/projects/stage"  # do_POST 写针孔⑩(track opendesign-stage-history §7),精确匹配
 REFS_UPDATE_PATH = "/api/refs/update"  # do_POST 写针孔⑪(同上 track §8),精确匹配
 DUE_DATE_PATH = "/api/changes/due"  # do_POST 写针孔⑫(track opendesign-todo-duedate),精确匹配
@@ -189,6 +191,7 @@ _INTAKE_ERR_STATUS = {
 # 状态冲突 409;folder_not_found/folder_ambiguous 时核心回传的 folders 候选
 # 名单原样透传(前端提示用)。
 _BIND_ALLOWED_KEYS = {"project", "folder"}
+_FOLDER_VISIBILITY_ALLOWED_KEYS = {"review_id", "hidden"}
 _BIND_ERR_STATUS = {
     "bad_name": 400, "project_not_found": 404,
     "workspace_not_configured": 409, "folder_not_found": 404,
@@ -594,6 +597,83 @@ def _title(text: str) -> str:
     """取首个 `# 标题` 作项目显示名;无则空串(调用方回落 key)。"""
     m = re.search(r"^#\s+(.+)$", text, re.MULTILINE)
     return m.group(1).strip() if m else ""
+
+
+def _workspace_config_bytes(ds_root: str) -> bytes:
+    """workspace.json 原文字节;缺失/不可读按空串进 reviewId。"""
+    try:
+        with open(os.path.join(ds_root, ds_workspace.CONFIG_REL), "rb") as fh:
+            return fh.read()
+    except OSError:
+        return b""
+
+
+def _workspace_top_dirs(root: str) -> list[str]:
+    """工作区根下可由网页声明的一层目录名:非点号、非符号链接、过单段名闸。"""
+    return [name for name, _ent in ds_workspace._dir_entries(root)]
+
+
+def _workspace_review_id(config_bytes: bytes, top_dirs: list[str]) -> str:
+    """reviewId 绑定配置原文 + 根目录一层快照;任一侧变化都会过期。"""
+    payload = {
+        "config": hashlib.sha256(config_bytes).hexdigest(),
+        "topDirs": sorted(top_dirs),
+    }
+    blob = json.dumps(payload, ensure_ascii=False, sort_keys=True,
+                      separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(blob).hexdigest()
+
+
+def _workspace_health_state(ds_root: str) -> dict:
+    """GET /api/workspace/health 的领域数据;不写盘、不自动修配置。"""
+    config_bytes = _workspace_config_bytes(ds_root)
+    cfg = ds_workspace.load_config(ds_root)
+    if cfg is None:
+        return {
+            "configured": False,
+            "applicable": False,
+            "folders": [],
+            "projectCount": 0,
+            "reviewId": _workspace_review_id(config_bytes, []),
+        }
+    proot = ds_workspace.projects_root(cfg)
+    root_real = os.path.realpath(cfg["root"])
+    projects_real = os.path.realpath(proot) if proot else ""
+    applicable = bool(projects_real and root_real == projects_real)
+    top_dirs = _workspace_top_dirs(root_real) if applicable else []
+    declared = isinstance(cfg.get("structuralDirs"), list)
+    declared_names = set(cfg.get("structuralDirs") or []) if declared else set()
+    guessed_names = set()
+    if applicable and not declared:
+        guessed_names = ds_workspace.structural_dirs(
+            cfg, ds_intake.load_taxonomy(ds_root) or {})
+    current = set(top_dirs)
+    folders = []
+    if applicable:
+        for name in sorted(current | declared_names):
+            if name in declared_names:
+                reason = "declared"
+            elif name in guessed_names:
+                reason = "guessed"
+            else:
+                reason = "default"
+            folders.append({
+                "name": name,
+                "reason": reason,
+                "currentlyHidden": reason in ("declared", "guessed"),
+                "preselect": reason == "declared",
+                "missing": name not in current,
+            })
+    return {
+        "configured": True,
+        "applicable": applicable,
+        "declared": declared,
+        "root": root_real,
+        "projectsRoot": projects_real,
+        "projectCount": len(ds_workspace.project_folders(cfg)),
+        "folders": folders,
+        "reviewId": _workspace_review_id(config_bytes, top_dirs),
+    }
 DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DEFAULT_DIST = os.path.join(DEFAULT_DS_ROOT, "web", "dist")
 DEFAULT_PORT = 8766
@@ -677,6 +757,8 @@ class Handler(BaseHTTPRequestHandler):
             self._intake()
         elif path == "/api/projects":
             self._projects()
+        elif path == "/api/workspace/health":
+            self._workspace_health()
         elif (m := _CHANGES_RE.match(path)):
             self._changes(unquote(m.group(1)))
         elif (m := _PROJ_REFS_RE.match(path)):
@@ -726,6 +808,8 @@ class Handler(BaseHTTPRequestHandler):
             self._inbox_create()
         elif path == BIND_PROJECT_PATH:
             self._bind_project()
+        elif path == FOLDER_VISIBILITY_PATH:
+            self._folder_visibility()
         elif path == STAGE_PATH:
             self._set_stage()
         elif path == REFS_UPDATE_PATH:
@@ -855,6 +939,21 @@ class Handler(BaseHTTPRequestHandler):
             excluded = []
         self._json(200, {"projects": projects, "stages": list(ds_tools.PROJECT_STAGES),
                          "excludedStructural": excluded})
+
+    def _workspace_health(self):
+        """GET /api/workspace/health:工作区体检卡当前事实 + 本轮 reviewId。
+
+        读口短暂拿 workspace.json 旁路锁,只为让配置字节、解析结果和目录快照来自
+        同一瞬间;`write=False` 保证坏配置/旧格式不会被读口重写。
+        """
+        try:
+            with ds_tools.locked_workspace_json(self.server.ds_root) as box:
+                box["write"] = False
+                data = _workspace_health_state(self.server.ds_root)
+            self._json(200, data)
+        except Exception:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
 
     def _changes(self, key: str):
         target = self._project_file(key)
@@ -1762,6 +1861,79 @@ class Handler(BaseHTTPRequestHandler):
         if "folders" in r:  # folder_not_found/folder_ambiguous 候选名单透传
             out["folders"] = r["folders"]
         self._json(_BIND_ERR_STATUS.get(err, 400), out)
+
+    def _folder_visibility(self):
+        """POST /api/workspace/folder-visibility:一次存整份「不显示」清单。
+
+        posture 照抄写针孔⑨:CT application/json → body 0<n≤OPEN_BODY_MAX →
+        JSON dict → 键白名单 {review_id, hidden} → 类型/值域闸。写盘只在
+        locked_workspace_json 内进行,且只改 raw["structuralDirs"] 一个键。
+        """
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 < n <= OPEN_BODY_MAX:
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "bad request"})
+            return
+        if not isinstance(body, dict) or set(body) - _FOLDER_VISIBILITY_ALLOWED_KEYS:
+            self._json(400, {"error": "bad request"})
+            return
+        review_id = body.get("review_id")
+        hidden = body.get("hidden")
+        if not isinstance(review_id, str) or not review_id:
+            self._json(400, {"error": "bad request"})
+            return
+        if not isinstance(hidden, list):
+            self._json(400, {"error": "bad request"})
+            return
+        seen = set()
+        for name in hidden:
+            if (not isinstance(name, str) or not name
+                    or not ds_workspace._SEG_RE.match(name) or name in seen):
+                self._json(400, {"error": "bad request"})
+                return
+            seen.add(name)
+
+        try:
+            with ds_tools.locked_workspace_json(self.server.ds_root) as box:
+                box["write"] = False
+                raw = box["raw"]
+                cfg = ds_workspace.load_config(self.server.ds_root)
+                if raw is None or cfg is None:
+                    self._json(409, {"error": "workspace_not_configured"})
+                    return
+                proot = ds_workspace.projects_root(cfg)
+                if not proot or os.path.realpath(cfg["root"]) != os.path.realpath(proot):
+                    self._json(409, {"error": "not_applicable"})
+                    return
+                top_dirs = _workspace_top_dirs(os.path.realpath(cfg["root"]))
+                current_rid = _workspace_review_id(
+                    _workspace_config_bytes(self.server.ds_root), top_dirs)
+                if review_id != current_rid:
+                    self._json(409, {"error": "stale_review"})
+                    return
+                declared = (cfg.get("structuralDirs")
+                            if isinstance(cfg.get("structuralDirs"), list) else [])
+                issued = set(top_dirs) | set(declared)
+                if any(name not in issued for name in hidden):
+                    self._json(400, {"error": "bad request"})
+                    return
+                raw["structuralDirs"] = list(hidden)
+                box["write"] = True
+            self._json(200, {"ok": True})
+        except Exception:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
 
     def _set_stage(self):
         """POST 写针孔⑩(track opendesign-stage-history §7):切阶段。
