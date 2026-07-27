@@ -130,19 +130,44 @@ class TestStageAdoption(_Fixture):
                                        allowed_roots=[self.ws])
 
     def test_01_stages_auto_only(self):
+        """存量整理只暂存**留在项目夹内**的 auto 类目。
+
+        2026-07-27 真机反馈改判:原来这里断言 `灵感.jpg` 也被暂存,dst 是工作区级的
+        `03-共享资源/参考图库` —— 即**把用户项目里的图片搬出项目**。用户的原话是
+        「项目文件夹其他的图片会突然出现在收件箱」。
+        判据翻面的理由(不是为了让实现好过):**收养处理的是用户从没要求过任何人
+        动的存量文件**,而「所有图片=参考图」这个分类只看后缀,分不出「通用参考图」
+        和「这个项目自己的效果图/现场照」。在分不清的地方自动搬 = 拿猜测动用户文件,
+        猜错的代价(项目图片失联)远大于收益(省一次点击)。
+        收件箱那条路**刻意不动**:那里的文件是用户主动放进暂存区的,自动归位合理。
+        守门判据在 `test_ds_intake.py::test_workspace_scope_needs_no_project`
+        —— 改坏它就等于把用户的正常流程也一起关了,那条必须始终绿。
+        """
         r = self.stage()
         self.assertTrue(r.get("ok"), r)
         staged_srcs = [op["src_rel"] for op in r["staged"]]
-        self.assertEqual(len(staged_srcs), 2)
+        self.assertEqual(len(staged_srcs), 1, f"只该暂存户型图.pdf,实际 {staged_srcs}")
         self.assertTrue(any("户型图.pdf" in s for s in staged_srcs))
-        self.assertTrue(any("灵感.jpg" in s for s in staged_srcs))
+        self.assertFalse(any("灵感.jpg" in s for s in staged_srcs),
+                         "项目夹里的图片不许被自动搬走")
         dst_by_src = {op["src_rel"]: op["dst_rel"] for op in r["staged"]}
         pdf_dst = next(v for k, v in dst_by_src.items() if "户型图" in k)
-        jpg_dst = next(v for k, v in dst_by_src.items() if "灵感" in k)
         self.assertIn("01-资料", pdf_dst)
         self.assertIn(self.folder, pdf_dst)          # 项目内类目
-        self.assertIn("参考图库", jpg_dst)            # 工作区级共享真身
-        self.assertNotIn(self.folder, jpg_dst)
+
+    def test_01b_workspace_scoped_never_leaves_the_project(self):
+        """通则,不只是图片:**任何 workspace 级类目在存量整理里都只给建议**。
+        判据打在「会不会离开项目夹」这条线上,而不是打在「参考图」这个名字上 ——
+        以后规则表新增一个工作区级类目,这条闸自动罩住它。"""
+        r = self.stage()
+        self.assertTrue(any("灵感.jpg" in a["file"] for a in r["advice"]),
+                        f"图片该进 advice 口头建议,实际 advice={r['advice']}")
+        for op in r["staged"]:
+            self.assertIn(self.folder, op["dst_rel"],
+                          f"存量整理的落点必须留在项目夹内:{op}")
+        # 文件还在原处,一个字节都没动
+        self.assertTrue(os.path.exists(
+            os.path.join(self.ws, "01-项目", self.folder, "灵感.jpg")))
 
     def test_02_suggest_goes_to_advice_not_plan(self):
         r = self.stage()
