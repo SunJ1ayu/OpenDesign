@@ -16,17 +16,17 @@
 
 - [x] T0 主 agent 写 oracle 一 `tests/test_ds_workspace_config_lock.py` + 红检
       (14/14 红;t05/t05b 是打在**当前真 bug** 上的红,不是 AttributeError)
-- [ ] T1 实现 `ds_tools.locked_workspace_json(ds_root)` 加锁读改写公共件
+- [x] T1 实现 `ds_tools.locked_workspace_json(ds_root)` 加锁读改写公共件
       - 契约见 oracle 的 `LockedWorkspaceJson` docstring
       - **锁必须活过 `os.replace`**(旁挂锁文件;锁在目标文件上会留在被 unlink 的旧 inode)
       - **锁必须跨进程**(真机是 MCP server + ds-web 两个进程;`threading.Lock` 等于没锁)
       - 复用 `ds_lock.exclusive`(跨平台已有件),别再造第二把锁
-- [ ] T2 修 `_write_workspace_json` 的**固定 tmp 名** —— 并发下会交错写同一个临时文件,
+- [x] T2 修 `_write_workspace_json` 的**固定 tmp 名** —— 并发下会交错写同一个临时文件,
       导致 `FileNotFoundError` + 配置被写成非法 JSON。tmp 名唯一化
 - [ ] T3 四个写口全部接到锁上,**一个都不许漏**:
       `set_workspace` / `bind_project` / `rename_project` / `delete_project`
       (读也要在锁内 —— 光把写包起来还是丢更新)
-- [ ] T4 oracle 一 全绿 + 全量回归绿 → 独立 commit
+- [x] T4 oracle 一 全绿 + 全量回归绿 → 独立 commit
 
 ## 阶段二:体检卡本体
 
@@ -47,9 +47,9 @@
 
 ## 收货三闸(执行腿自述一概不作数)
 
-- [ ] 闸① 对 oracle 原始 commit 逐字节 diff = 空
-- [ ] 闸② 主 agent 亲跑 oracle + 全量回归 + build
-- [ ] 闸③ 主 agent 亲读 diff(安全面逐行;盯 `create mode 120000` 符号链接)
+- [x] 闸① 对 oracle 原始 commit 逐字节 diff = 空
+- [x] 闸② 主 agent 亲跑 oracle + 全量回归 + build
+- [x] 闸③ 主 agent 亲读 diff(安全面逐行;盯 `create mode 120000` 符号链接)
 
 ## 验收(**接口全绿 ≠ 做对了**)
 
