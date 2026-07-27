@@ -31,19 +31,19 @@
 ## 阶段二:体检卡本体
 
 - [x] T5 主 agent 写 oracle 二 `tests/test_ds_web_folder_visibility.py` + 红检(28/28 红)
-- [ ] T6 服务端读口 `GET /api/workspace/health`
+- [x] T6 服务端读口 `GET /api/workspace/health`
       - 下发集合 = 根下可见一级目录 ∪ 已声明但当前不存在的名字
       - 每行:`reason`(declared/guessed/default)+ `currentlyHidden` + `preselect` + `missing`
       - `reviewId` 绑「配置内容 + 目录快照」
       - `applicable=false`(projects_root != root)时不出确认区
-- [ ] T7 服务端写口 `POST /api/workspace/folder-visibility`
+- [x] T7 服务端写口 `POST /api/workspace/folder-visibility`
       - posture 照抄既有写针孔⑨/⑭;键白名单 `{review_id, hidden}`
       - 名字只能来自本次下发集合;快照变了 → 409 `stale_review`
       - 只动 `structuralDirs`,其余键原样保留;**走 T1 那把锁**
 - [ ] T8 前端卡片,入口取代 `web/src/workspace/Sidebar.tsx:208` 的被动提示
       - 措辞只能是「显示 / 不显示在项目列表」,**绝不能**说成「设为收件箱」(盲点①)
       - 保存前给一句结果预览
-- [ ] T9 oracle 二 全绿 + 全量回归绿 + build 绿 → commit
+- [x] T9 oracle 二 全绿 + 全量回归绿 + build 绿 → commit
 
 ## 收货三闸(执行腿自述一概不作数)
 
