@@ -221,7 +221,11 @@ def excluded_structural(cfg) -> list:
 def _dir_entries(path):
     """path 下可作项目/分组的一级子目录 [(name, DirEntry)] 名序:点号开头跳过
     (同 _scan);名字不过 PROJECT_NAME_RE 者跳过(路由 key 字符集寻址不到,
-    列了也点不开);symlink 目录跳过(follow_symlinks=False,外指零风险)。"""
+    列了也点不开);symlink 目录跳过(follow_symlinks=False,外指零风险)。
+
+    **模块外调用方**:`ds_web._workspace_top_dirs`(工作区体检卡的下发集合)。
+    体检卡必须与项目列表同源 —— 这里少列一个名字,那边就是「用户的真项目
+    从列表里永久消失」,且接口层测试全绿。动本函数语义时两边一起看。"""
     try:
         entries = sorted(os.scandir(path), key=lambda e: e.name)
     except OSError:

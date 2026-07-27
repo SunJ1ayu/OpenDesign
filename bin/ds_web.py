@@ -192,6 +192,13 @@ _INTAKE_ERR_STATUS = {
 # 名单原样透传(前端提示用)。
 _BIND_ALLOWED_KEYS = {"project", "folder"}
 _FOLDER_VISIBILITY_ALLOWED_KEYS = {"review_id", "hidden"}
+# 体检卡写口是「一次存整份清单」(A2),请求体与**已声明目录数**线性相关 ——
+# 不能复用 OPEN_BODY_MAX(那是给 open-folder 的两个短字段定的 4096:中文长目录名
+# 约 34 字节,120 个就爆,用户从此存不进去)。两条闸各管一件事:
+#   数量闸  —— 显式封顶,与名字长度无关(design.md:39 明写的两条之一)
+#   请求体闸 —— 500 个名字即使全是长中文名也放得下,再大就是异常流量
+_FOLDER_VISIBILITY_MAX_NAMES = 500
+_FOLDER_VISIBILITY_BODY_MAX = 64 * 1024
 _BIND_ERR_STATUS = {
     "bad_name": 400, "project_not_found": 404,
     "workspace_not_configured": 409, "folder_not_found": 404,
@@ -609,7 +616,12 @@ def _workspace_config_bytes(ds_root: str) -> bytes:
 
 
 def _workspace_top_dirs(root: str) -> list[str]:
-    """工作区根下可由网页声明的一层目录名:非点号、非符号链接、过单段名闸。"""
+    """工作区根下可由网页声明的一层目录名:非点号、非符号链接、过单段名闸。
+
+    **刻意复用 `ds_workspace._dir_entries`(项目列表用的同一个函数)**:体检卡的
+    下发集合与项目列表必须同源,否则漏算一个目录 = 用户的真项目从列表里永久消失,
+    而接口层测试会全绿。改 `_dir_entries` 的语义时,这里是第二个调用方。
+    """
     return [name for name, _ent in ds_workspace._dir_entries(root)]
 
 
@@ -943,13 +955,17 @@ class Handler(BaseHTTPRequestHandler):
     def _workspace_health(self):
         """GET /api/workspace/health:工作区体检卡当前事实 + 本轮 reviewId。
 
-        读口短暂拿 workspace.json 旁路锁,只为让配置字节、解析结果和目录快照来自
-        同一瞬间;`write=False` 保证坏配置/旧格式不会被读口重写。
+        **刻意不拿锁**(主 agent 仲裁,panel 四审 subdeepseek 提出锁范围过大):
+        ① 读不到半截文件已由写侧的原子替换保证(阶段一 `_write_workspace_json`
+           唯一 tmp 名 + `os.replace`),锁在这里不再买到防撕裂;
+        ② 「配置字节与目录快照同一瞬间」本来就不成立 —— 目录不受这把锁保护;
+           真正的保证是写口在锁内**复核 reviewId**,快照过期就 409。
+        ③ 而代价在 Windows 上是实的:`ds_lock` 是重试式锁,约 10 次重试后
+           **抛 OSError 而非排队**(阶段一四审记录),读口持锁跑一遍目录扫描 +
+           taxonomy 读取,会实打实抬高并发保存直接失败的概率。真机就是 Windows。
         """
         try:
-            with ds_tools.locked_workspace_json(self.server.ds_root) as box:
-                box["write"] = False
-                data = _workspace_health_state(self.server.ds_root)
+            data = _workspace_health_state(self.server.ds_root)
             self._json(200, data)
         except Exception:
             traceback.print_exc()
@@ -1877,7 +1893,7 @@ class Handler(BaseHTTPRequestHandler):
             n = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             n = -1
-        if not 0 < n <= OPEN_BODY_MAX:
+        if not 0 < n <= _FOLDER_VISIBILITY_BODY_MAX:
             self._json(400, {"error": "bad request"})
             return
         try:
@@ -1893,7 +1909,7 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(review_id, str) or not review_id:
             self._json(400, {"error": "bad request"})
             return
-        if not isinstance(hidden, list):
+        if not isinstance(hidden, list) or len(hidden) > _FOLDER_VISIBILITY_MAX_NAMES:
             self._json(400, {"error": "bad request"})
             return
         seen = set()
@@ -1904,36 +1920,41 @@ class Handler(BaseHTTPRequestHandler):
                 return
             seen.add(name)
 
+        # 锁内**只算出**要回什么,出锁再发 —— 响应虽小,但在锁内写 socket 等于
+        # 让一个慢客户端占住 workspace.json 的排他锁,而该锁在 Windows 上争用
+        # 会抛 OSError 而非排队(阶段一四审记录)。
         try:
             with ds_tools.locked_workspace_json(self.server.ds_root) as box:
                 box["write"] = False
                 raw = box["raw"]
                 cfg = ds_workspace.load_config(self.server.ds_root)
                 if raw is None or cfg is None:
-                    self._json(409, {"error": "workspace_not_configured"})
-                    return
-                proot = ds_workspace.projects_root(cfg)
-                if not proot or os.path.realpath(cfg["root"]) != os.path.realpath(proot):
-                    self._json(409, {"error": "not_applicable"})
-                    return
-                top_dirs = _workspace_top_dirs(os.path.realpath(cfg["root"]))
-                current_rid = _workspace_review_id(
-                    _workspace_config_bytes(self.server.ds_root), top_dirs)
-                if review_id != current_rid:
-                    self._json(409, {"error": "stale_review"})
-                    return
-                declared = (cfg.get("structuralDirs")
-                            if isinstance(cfg.get("structuralDirs"), list) else [])
-                issued = set(top_dirs) | set(declared)
-                if any(name not in issued for name in hidden):
-                    self._json(400, {"error": "bad request"})
-                    return
-                raw["structuralDirs"] = list(hidden)
-                box["write"] = True
-            self._json(200, {"ok": True})
+                    reply = (409, {"error": "workspace_not_configured"})
+                else:
+                    reply = self._folder_visibility_apply(box, cfg, review_id, hidden)
         except Exception:
             traceback.print_exc()
-            self._json(500, {"error": "internal"})
+            reply = (500, {"error": "internal"})
+        self._json(*reply)
+
+    def _folder_visibility_apply(self, box, cfg, review_id, hidden):
+        """在已持锁的前提下复核快照并落盘;→ (status, payload),不自己发响应。"""
+        proot = ds_workspace.projects_root(cfg)
+        if not proot or os.path.realpath(cfg["root"]) != os.path.realpath(proot):
+            return 409, {"error": "not_applicable"}
+        top_dirs = _workspace_top_dirs(os.path.realpath(cfg["root"]))
+        current_rid = _workspace_review_id(
+            _workspace_config_bytes(self.server.ds_root), top_dirs)
+        if review_id != current_rid:
+            return 409, {"error": "stale_review"}
+        declared = (cfg.get("structuralDirs")
+                    if isinstance(cfg.get("structuralDirs"), list) else [])
+        issued = set(top_dirs) | set(declared)
+        if any(name not in issued for name in hidden):
+            return 400, {"error": "bad request"}
+        box["raw"]["structuralDirs"] = list(hidden)
+        box["write"] = True
+        return 200, {"ok": True}
 
     def _set_stage(self):
         """POST 写针孔⑩(track opendesign-stage-history §7):切阶段。
