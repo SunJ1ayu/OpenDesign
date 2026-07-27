@@ -53,6 +53,7 @@ import sys
 import tempfile
 import threading
 import time
+from unittest import mock
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -557,7 +558,16 @@ class LockedWorkspaceJson(unittest.TestCase):
 
         本机单账号看不出问题,但「写文件顺手改掉它的权限」本身就不该发生:
         判据钉住「写前是什么,写后还是什么」。
+
+        **Windows 上跳过(2026-07-27 用户真机实测,判据自己的错)**:
+        Windows 没有 POSIX 权限位 —— `os.chmod` 只认只读标志,`os.stat` 对任何
+        可写文件一律回 `0o666`(实测三个子条目全报 `438 != …`,438 就是 0o666)。
+        在那儿断言「写前是什么写后还是什么」测的是操作系统,不是本仓的代码。
+        **不是把判据放水**:POSIX 上照旧逐位钉死,只是这条断言在 Windows 上
+        本来就没有可测的对象。
         """
+        if os.name == "nt":
+            self.skipTest("Windows 无 POSIX 权限位:os.stat 恒回 0o666,无从断言")
         ds, _ = self._env()
         for mode in (0o644, 0o600, 0o664):
             with self.subTest(mode=oct(mode)):
@@ -566,6 +576,48 @@ class LockedWorkspaceJson(unittest.TestCase):
                     box["raw"]["structuralDirs"] = ["00-收件箱"]
                 self.assertEqual(stat.S_IMODE(os.stat(_cfg_path(ds)).st_mode), mode,
                                  "写入不许改动配置文件的权限位")
+
+    def test_t13_replace_survives_a_windows_style_permission_error(self):
+        """**Windows 真机抓到的真 bug**(2026-07-27,判据 t06 在用户机器上红)。
+
+        POSIX 上 rename 覆盖一个"正被读的文件"完全合法,所以这条在 Linux 上
+        **永远绿**;Windows 上只要有任何人把 `workspace.json` 打开着(哪怕只是
+        `load_config` 那零点几毫秒),写者的 `os.replace` 就当场
+        `PermissionError(13, '拒绝访问。')`。真机是 MCP server + ds-web 两进程、
+        ds-web 自己还是多线程 —— 用户看到的现象是**保存莫名其妙失败**。
+
+        本条在 Linux 上**注入**那个异常,把重试逻辑本身钉住:
+        否则修复代码在开发机上一行都跑不到,等于又发一份没验过的东西上 Windows。
+        """
+        ds, _ = self._env()
+        real_replace = os.replace
+        calls = []
+
+        def flaky(src, dst, *a, **kw):
+            calls.append(1)
+            if len(calls) <= 3:                      # 前 3 次模拟"目标被别人开着"
+                raise PermissionError(13, "拒绝访问。")
+            return real_replace(src, dst, *a, **kw)
+
+        with mock.patch.object(os, "replace", flaky):
+            with ds_tools.locked_workspace_json(ds) as box:
+                box["raw"]["structuralDirs"] = ["00-收件箱"]
+        self.assertGreater(len(calls), 3, "重试没发生")
+        cfg = ds_workspace.load_config(ds)
+        self.assertEqual(cfg["structuralDirs"], ["00-收件箱"], "重试后必须真的写进去")
+
+    def test_t13b_replace_gives_up_loudly_instead_of_silently_losing_the_write(self):
+        """一直失败就必须**照抛**。吞掉异常 = 用户以为存上了,其实没有 ——
+        比直接报错坏得多(本 track 的立身之本就是"别悄悄动/悄悄不动用户的东西")。"""
+        ds, _ = self._env()
+
+        def always_denied(src, dst, *a, **kw):
+            raise PermissionError(13, "拒绝访问。")
+
+        with mock.patch.object(os, "replace", always_denied):
+            with self.assertRaises(PermissionError):
+                with ds_tools.locked_workspace_json(ds) as box:
+                    box["raw"]["structuralDirs"] = ["00-收件箱"]
 
     def test_t10_written_config_is_immediately_usable(self):
         """落盘 ≠ 能用(test_ds_web_upload 第 1 条哲学):写完 load_config 立刻认得。"""

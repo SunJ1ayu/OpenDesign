@@ -82,7 +82,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.51.0"  # 工作区体检卡(可自己改哪些文件夹列进项目列表) / 存量整理不再把项目里的图片搬走 / workspace.json 并发写加锁
+VERSION = "0.51.1"  # Windows 真机修复:workspace.json 原子替换撞上"文件正被读"时重试(否则保存莫名失败)
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")

@@ -25,6 +25,7 @@ import shutil
 import stat
 import tempfile
 import threading
+import time
 from contextlib import contextmanager
 from datetime import date
 
@@ -534,6 +535,33 @@ def list_todos(stale_days: int = 7, ds_root: str = DEFAULT_DS_ROOT) -> dict:
 _ws_lock_held = threading.local()
 
 
+def _replace_with_retry(src: str, dst: str, attempts: int = 20,
+                        pause: float = 0.02) -> None:
+    """`os.replace` 的 Windows 加固:目标被别人打开着时重试若干次再放弃。
+
+    **2026-07-27 用户 Windows 真机实测抓到的**(判据 t06,Linux 上永远绿):
+    POSIX 上 rename 覆盖一个"正被读的文件"完全合法;**Windows 上直接
+    `PermissionError(13, '拒绝访问。')`** —— 只要有任何人把 workspace.json
+    打开着(哪怕只是 `load_config` 那零点几毫秒),写者的原子替换就当场炸。
+    真机是 MCP server + ds-web 两进程、ds-web 自己还是多线程,撞上不是小概率。
+    用户看到的现象=**保存莫名其妙失败**,而锁一点忙都帮不上:读者根本不拿锁。
+
+    为什么不是"让读者也拿锁":读遍布全仓(每次 `load_config` 都是一次读),
+    全部上锁既贵又会把 Windows 那条「重试约 10 次后抛 OSError」的争用面放大。
+    重试是标准解:读者的打开窗口是毫秒级,20 次 × 20ms ≈ 0.4s 足够跨过去。
+
+    最后一次仍失败就照抛 —— 不吞异常,写失败必须让调用方知道。
+    """
+    for i in range(attempts):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if i == attempts - 1:
+                raise
+            time.sleep(pause)
+
+
 def _write_workspace_json(cfg_path: str, obj: dict) -> None:
     """workspace.json 原子写(同目录唯一 tmp + os.replace,读者看不到半文件)。
 
@@ -558,7 +586,7 @@ def _write_workspace_json(cfg_path: str, obj: dict) -> None:
             json.dump(obj, fh, ensure_ascii=False, indent=2)
             fh.write("\n")
         os.chmod(tmp, mode)
-        os.replace(tmp, cfg_path)
+        _replace_with_retry(tmp, cfg_path)
         tmp = None
     finally:
         if tmp is not None:
