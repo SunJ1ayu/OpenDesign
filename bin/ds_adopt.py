@@ -176,10 +176,13 @@ def _read_staged(ds_root: str, plan_id: str) -> list[dict]:
 def stage_adoption(project_key: str, ds_root: str = DEFAULT_DS_ROOT,
                    allowed_roots=None) -> dict:
     """某已绑定项目【项目夹根一层】的散文件按 taxonomy 暂存归位。
-    auto → stage_plan(root=工作区根;项目类目 dst 在项目夹内,workspace 级类目
-    如参考图库 dst 在工作区级共享夹——故 plan root 用工作区根、src/dst 均相对
-    工作区根,plan root=项目夹时 dst 出不了夹);suggest → advice(口头,不进
-    plan);未知扩展名 → skipped。"""
+    **project 级 + auto** → stage_plan(dst 在项目夹内);
+    **suggest 或 workspace 级** → advice(口头建议,永不进 plan);
+    未知扩展名 → skipped。
+
+    **铁律:存量整理绝不把文件搬出项目夹**(2026-07-27 真机反馈,见下方注释)。
+    plan root 仍用工作区根、src/dst 均相对工作区根 —— 保持与 stage_plan 的
+    校验闸一致,不因为落点都在夹内就改成项目夹根。"""
     cfg = ds_workspace.load_config(ds_root)
     if cfg is None:
         return {"error": "workspace_not_configured"}
@@ -216,7 +219,16 @@ def stage_adoption(project_key: str, ds_root: str = DEFAULT_DS_ROOT,
         # 目标目录(相对工作区根):project 级在项目夹内,workspace 级在共享夹
         dst_dir = (os.path.join(proj_rel, cat["dir"])
                    if cat["scope"] == "project" else cat["dir"])
-        if cat["mode"] == "suggest":          # 被引用类目:口头建议,永不进 plan
+        # 存量整理**绝不把文件搬出项目夹** —— workspace 级类目一律降级为口头建议。
+        # 2026-07-27 真机反馈:「项目文件夹其他的图片会突然出现在收件箱」。
+        # 机制是必然的:规则表里「参考图」= 所有图片扩展名 + scope=workspace +
+        # mode=auto,于是项目夹第一层的散图被自动搬进 03-共享资源/参考图库。
+        # 根因不在配置在这里:**收养处理的是用户从没要求过任何人动的存量文件**,
+        # 而「所有图片=参考图」只看后缀,分不出通用参考图和这个项目自己的效果图。
+        # 在分不清的地方自动搬 = 拿猜测动用户文件,猜错(项目图片失联)远重于
+        # 收益(省一次点击)。收件箱那条路刻意不变:那里的文件是用户主动放进
+        # 暂存区等着归位的,自动归位合理(ds_intake.stage_inbox_auto)。
+        if cat["mode"] == "suggest" or cat["scope"] != "project":
             advice.append({"file": name, "category": cat["id"], "dir": dst_dir})
             continue
         operations.append({"op": "move",
