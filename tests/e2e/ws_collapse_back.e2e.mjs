@@ -6,6 +6,9 @@
 //   #2 收起「项目助手」后前端观感 —— 用户截图实证:`.chatcol.collapsed` 只有 36px,
 //      而收件箱卡 / 体检卡仍按原尺寸渲染在里面,被压成**一字一行的竖排**并溢出到
 //      视口右缘之外(截图最右侧被切掉的「收/件/箱」「工/作/区/文/件/夹」)。
+//      ⚠️ 2026-07-28 体检卡按用户要求挪进了「设置」(判据见 settings_fvis.e2e.mjs),
+//      所以本文件改用**收件箱卡**钉同一组不变量 —— 断言的对象换了,
+//      **要守的性质一个没减**:竖条里的东西不许被压扁、不许越界、不许被卸载。
 //      断言打在**几何**上(元素右边界 / 文档横向溢出),不断言"某个 class 在不在"——
 //      史料(07-24)`columnCount==="3"` 数字全绿而正文被压成竖排,教训 = 断人眼看到的位置。
 //   #3 图墙没有回到项目工作区的入口 —— 进得去出不来。注意与既有 `.g-back`(子相册
@@ -18,7 +21,7 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
-import { launchBrowser, check } from "./helpers.mjs";
+import { launchBrowser, check, expandInbox } from "./helpers.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PORT = 8803;
@@ -70,6 +73,8 @@ mkdirSync(join(dsRoot, "config"), { recursive: true });
 // 收件箱(空箱也渲染一行常驻卡)+ 一个会被"猜"成结构目录的共享夹 → 体检卡有行可列。
 // 两张卡都要在场:用户截图里溢出的正是这两张。
 mkdirSync(join(ws, "00-收件箱"), { recursive: true });
+// 收件箱里放一张真图:空箱只渲染一行摘要、没有可展开区,钉不住"收起只是隐藏、没卸载"
+writeFileSync(join(ws, "00-收件箱", "业主发来的参考图.png"), png(400, 300));
 mkdirSync(join(ws, "03-共享资源"), { recursive: true });
 for (const n of [1, 2, 3]) {
   const p = join(projDir, "05-3DMAX", "客厅", `${KEY} 客厅 (${n}).png`);
@@ -139,19 +144,18 @@ try {
   await step("#2 收起「项目助手」后不溢出、不留竖排残片", async () => {
     await page.goto(`${base}/#/workspace`, { waitUntil: "domcontentloaded" });
     await page.locator(".chatcol").waitFor({ timeout: 15000 });
-    // 两张卡都要真的在场,否则这一段测了个寂寞(假绿的经典形态)
+    // 卡片要真的在场,否则这一段测了个寂寞(假绿的经典形态)
     await page.locator(".inbox-card").waitFor({ timeout: 15000 });
-    await page.locator('[data-ui="folder-visibility"]').waitFor({ timeout: 15000 });
     check(await page.locator(".inbox-card").isVisible(), "前提:展开态收件箱卡可见");
-    check(await page.locator('[data-ui="folder-visibility"]').isVisible(),
-      "前提:展开态体检卡可见");
+    // 体检卡已挪进设置,不该再出现在这一列(挪走要挪干净)
+    expect(await page.locator('[data-ui="folder-visibility"]').count() === 0,
+      "体检卡不在聊天列里(已挪进设置)");
 
-    // 体检卡先展开:后面要验"收起整列只是藏起来、没把卡的状态毁掉"
-    await page.locator(".fvis-head").click();
-    await page.locator('[data-ui="folder-visibility"] .fvis-body').waitFor({ timeout: 5000 })
-      .catch(() => {}); // 展开区选择器随实现,拿不到不作为失败依据,只影响下面的宽松判定
+    // 收件箱卡先展开:后面要验"收起整列只是藏起来、没把卡的状态毁掉"
+    await expandInbox(page);
+    await page.locator('[data-ui="inbox-expanded"]').waitFor({ timeout: 5000 });
     const expandedInnerH = await page.evaluate(() =>
-      document.querySelector('[data-ui="folder-visibility"]').getBoundingClientRect().height);
+      document.querySelector(".inbox-card").getBoundingClientRect().height);
 
     await page.locator('.chatcol-head .icon-btn[title="收起"]').click();
     await page.locator(".chatcol.collapsed").waitFor({ timeout: 5000 });
@@ -188,20 +192,18 @@ try {
     //   "还渲染着"和"看得过去"在这个宽度上不可兼得 —— 收起时它们必须让位。
     expect(!(await page.locator(".inbox-card").isVisible()),
       "收起态:收件箱卡不可见(不再被压成竖排)");
-    expect(!(await page.locator('[data-ui="folder-visibility"]').isVisible()),
-      "收起态:体检卡不可见(不再被压成竖排)");
 
     // 展开回去:两张卡回来,且**体检卡仍是展开态** = 只是 CSS 隐藏、没有卸载重建
     // (keep-mounted 是全仓红线,卸载 = 用户刚点开的东西被吞掉)。
     await page.locator('.chat-rail .icon-btn').click();
     await page.locator(".chatcol:not(.collapsed)").waitFor({ timeout: 5000 });
     expect(await page.locator(".inbox-card").isVisible(), "展开回来:收件箱卡回到画面");
-    expect(await page.locator('[data-ui="folder-visibility"]').isVisible(),
-      "展开回来:体检卡回到画面");
+    expect(await page.locator('[data-ui="inbox-expanded"]').count() > 0,
+      "展开回来:收件箱卡仍是展开态 = 只是 CSS 隐藏、没有卸载重建");
     const backInnerH = await page.evaluate(() =>
-      document.querySelector('[data-ui="folder-visibility"]').getBoundingClientRect().height);
+      document.querySelector(".inbox-card").getBoundingClientRect().height);
     expect(Math.abs(backInnerH - expandedInnerH) <= 2,
-      `展开回来:体检卡保持刚才的展开态(期望 ≈${expandedInnerH}px,实测 ${backInnerH}px)`);
+      `展开回来:收件箱卡高度分毫不差(期望 ≈${expandedInnerH}px,实测 ${backInnerH}px)`);
   });
 
   // ── #3 图墙回到项目工作区 ─────────────────────────────────────────────────
