@@ -37,7 +37,11 @@ export default function ChatColumn({
   return (
     <section className={`chatcol${collapsed ? " collapsed" : ""}`}>
       {/* ⓪ 收件箱(-p2,用户提的:放项目助手上面,款式对齐左列)。
-          **收起项目助手时它仍在** —— 它不属于聊天,不该跟着聊天一起消失。 */}
+          原先刻意让它在收起态也留着(理由:它不属于聊天,不该跟着聊天消失)——
+          **2026-07-27 真机截图推翻了这条**:36px 竖条里它只能被压成一字一行的竖排、
+          还顶出视口右缘,"留着"等于留一片看不懂的残字。改成随收起一起 CSS 隐藏
+          (app.css `.chatcol.collapsed > .inbox-card`),仍然不卸载。
+          代价记账:收起期间看不到收件箱提示;collapsed 不持久化,刷新即回展开态。 */}
       <InboxCard dataEpoch={dataEpoch} active={inboxActive} />
       {/* 工作区体检卡(track opendesign-workspace-health T8):被程序猜掉的
           文件夹的**纠正入口**。同 InboxCard:没事整卡不渲染。 */}

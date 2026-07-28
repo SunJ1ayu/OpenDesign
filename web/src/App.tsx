@@ -486,7 +486,14 @@ export default function App() {
         />
       </div>
       {route === "skills" && <SkillsPage onUseSkill={useSkill} />}
-      {route === "gallery" && <GalleryPage project={selected} />}
+      {route === "gallery" && (
+        <GalleryPage
+          project={selected}
+          // 图墙是从伴随列「打开图墙」进来的一层,返回 = 回原来那个项目的工作区
+          // (选中项目不变,所以直接切路由即可,不用走 goProject)
+          onBack={() => { window.location.hash = "#/workspace"; }}
+        />
+      )}
 
       {/* 5a 搜索命令面板(⌘K 浮层,盖在当前页上) */}
       <SearchPanel

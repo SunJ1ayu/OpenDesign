@@ -18,7 +18,10 @@ import {
 // 两层:相册墙(每个集合文件夹一张封面)→ 点开看该册全部图 → 点图 lightbox。
 // 合并/facets/筛选/分册逻辑全在 gallery.ts(mjs oracle);此处纯展示。
 
-type Props = { project: Project | null };
+/** onBack:回到这个项目的工作区。图墙是从伴随列「打开图墙」进来的一层,
+ *  自己不提供出口就是"进得去出不来"(真机反馈 2026-07-27 #3)。
+ *  与页内的 `.g-back`(子相册 → 封面墙)是**两个层级**,判据里钉了不许互相顶替。 */
+type Props = { project: Project | null; onBack: () => void };
 
 const EMPTY: GalleryFilter = { group: null, space: null, style: null };
 
@@ -52,7 +55,7 @@ function Chips({
 
 const EMPTY_VOCAB: RefsVocab = { style: [], space: [] };
 
-export default function GalleryPage({ project }: Props) {
+export default function GalleryPage({ project, onBack }: Props) {
   const [refs, setRefs] = useState<Ref[] | null>(null);
   const [images, setImages] = useState<WsImage[] | null>(null);
   // 参考图词表(#8):单一真相源经 /api/projects/<key>/refs 的 vocab 下发,
@@ -287,6 +290,10 @@ export default function GalleryPage({ project }: Props) {
   if (!project) {
     return (
       <div className="page gallery-page">
+        {/* 没选中项目这一支同样要有出口 —— 空页面比有内容的页面更容易把人困住 */}
+        <button className="g-back-ws" data-ui="gallery-back-ws" onClick={onBack}>
+          ← 项目工作区
+        </button>
         <p className="muted">先在侧栏选一个项目,图墙按项目展示。</p>
       </div>
     );
@@ -322,6 +329,11 @@ export default function GalleryPage({ project }: Props) {
         </div>
       )}
       <header className="page-head">
+        {/* 出口摆在标题左边(阅读顺序的第一个位置),不塞进右边那排功能键里 */}
+        <button className="g-back-ws" data-ui="gallery-back-ws" onClick={onBack}
+                title="回到这个项目的工作区">
+          ← 项目工作区
+        </button>
         <h2 className="serif">图墙 · {project.name}</h2>
         <span className="g-dim">
           {loading
