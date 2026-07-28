@@ -92,7 +92,9 @@ try {
   check(tag.includes("渲染输出"), "项目图:非模板类目的图上屏+类目小标");
 
   // ④ 图墙常驻入口(<4 张图也可达)→ GalleryPage
-  await page.locator(".gallery-link").click();
+  // 同 frontend_p2_polish:限定伴随列。本夹具目前碰巧只有一个 .gallery-link,
+  // 但那是夹具的运气,不是选择器对 —— 一样收紧。
+  await page.locator(".aside .gallery-link").first().click();
   await page.locator(".gallery-page, .gallery-grid, .gallery-empty").first()
     .waitFor({ timeout: 10000 });
   check(page.url().includes("#/gallery"), "图墙:常驻入口可达(图少也能进)");

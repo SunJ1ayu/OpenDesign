@@ -269,7 +269,9 @@ try {
 
   // ── H:图墙 lightbox 方向键切换 + esc 关 ───────────────────────────────
   await page.locator(`.proj-list .proj-row:has-text("${projA}")`).first().click();
-  await page.locator(".gallery-link").click();
+  // 限定在伴随列:`.gallery-link` 是共用款式,收件箱卡的「打开 →」也在用它
+  // (playwright strict mode 命中 2 个即报错)。仓里 frontend_p3_polish:172 早有此先例。
+  await page.locator(".aside .gallery-link").first().click();
   const album = page.locator(".g-cell:has(.g-badge)").first();
   await album.waitFor({ timeout: 10000 });
   await album.click();
