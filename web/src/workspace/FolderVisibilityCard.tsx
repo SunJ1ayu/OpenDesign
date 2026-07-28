@@ -17,15 +17,26 @@ import { fetchWorkspaceHealth, saveFolderVisibility } from "../api";
 //     用户在这里的选择只影响列不列出来,不改变那个文件夹的任何用途;
 //     说成「设为收件箱」会让人以为自己在给文件夹分类,那是另一回事。
 //
-// 款式对齐 InboxCard:没事(不适用/没有可调的行)整卡不渲染;默认收成一行摘要。
+// 位置(用户 2026-07-28 拍板):**在「设置」里**,不在工作区伴随列。
+// 理由是他自己说的用法——偶尔校一次,不是天天翻;常驻一张低频卡片是占地方。
+// 代价照记:少了"撞见即可改"的机会,所以侧栏那句"少了你的项目?"必须把人**指到设置**,
+// 否则纠正入口就真的没人找得到了(这一单的立身之本就是"用户得有纠正入口")。
+//
+// 两种形态:
+//   card(旧)     —— 没事整卡不渲染、默认收成一行摘要。目前无人使用,保留是因为
+//                    "收件箱旁边顺手改"这个位置将来可能还要,砍了再长回来不划算。
+//   settings(新) —— 专程点进来的,所以**默认展开**、且**不适用时也要说句话**
+//                    (整卡不渲染会让人对着空浮层发愣,以为坏了)。
 
 type Props = {
   /** 每轮聊天回复后 bump:agent 刚改过工作区时即刻反映。 */
   dataEpoch: number;
-  /** 路由门:仅工作区路由可见时拉数据。 */
+  /** 取数门:card 形态=路由可见时;settings 形态=浮层打开时。 */
   active: boolean;
   /** 存成功后通知外层刷新项目列表(藏/显直接改变左侧列表)。 */
   onSaved?: () => void;
+  /** 见上;缺省 card 以免改到既有调用点的行为。 */
+  variant?: "card" | "settings";
 };
 
 const REASON_LABEL: Record<FolderRow["reason"], string> = {
@@ -34,9 +45,12 @@ const REASON_LABEL: Record<FolderRow["reason"], string> = {
   default: "显示中",
 };
 
-export default function FolderVisibilityCard({ dataEpoch, active, onSaved }: Props) {
+export default function FolderVisibilityCard({
+  dataEpoch, active, onSaved, variant = "card",
+}: Props) {
+  const settings = variant === "settings";
   const [data, setData] = useState<WorkspaceHealth | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(settings);
   /** 用户当前勾选的「不显示」集合。null = 还没从服务端数据初始化过。 */
   const [hidden, setHidden] = useState<Set<string> | null>(null);
   const [busy, setBusy] = useState(false);
@@ -67,9 +81,20 @@ export default function FolderVisibilityCard({ dataEpoch, active, onSaved }: Pro
     };
   }, [active, dataEpoch, localEpoch]);
 
-  if (!data || !data.configured || !data.applicable) return null;
+  // 「没有可调的」在两种形态下是两种正确反应:伴随列里安静消失(寸土寸金),
+  // 设置里必须说明白为什么是空的 —— 专程点进来看到一片空白只会让人以为坏了。
+  const blank = (why: string) =>
+    settings ? (
+      <div className="fvis-card settings" data-ui="folder-visibility">
+        <p className="fvis-why">{why}</p>
+      </div>
+    ) : null;
+  if (!data || !data.configured) return blank("还没连上工作区,这里暂时没有可调的。");
+  if (!data.applicable)
+    return blank("你的项目放在子文件夹里,不会被误藏,这里没有需要调的。");
   const rows = data.folders;
-  if (rows.length === 0 || hidden === null) return null;
+  if (rows.length === 0 || hidden === null)
+    return blank("工作区根目录下还没有文件夹。");
 
   const nowHidden = rows.filter((f) => f.currentlyHidden);
   // 「保存后会变成什么样」——落差只按开关的当前状态算,不看 reason
@@ -121,16 +146,29 @@ export default function FolderVisibilityCard({ dataEpoch, active, onSaved }: Pro
   };
 
   return (
-    <div className="card fvis-card" data-ui="folder-visibility">
-      <button className="fvis-head" onClick={() => setExpanded((v) => !v)}>
-        <span className="t">工作区文件夹</span>
-        <span className="fvis-sum">
-          {nowHidden.length > 0
-            ? `${nowHidden.length} 个没列进项目列表`
-            : "全部都列在项目列表里"}
-        </span>
-        <span className="fvis-caret">{expanded ? "▾" : "▸"}</span>
-      </button>
+    <div className={`card fvis-card${settings ? " settings" : ""}`}
+         data-ui="folder-visibility">
+      {/* 设置形态下标题不是开关(专程点进来的,再要求点一次展开是多余的一层) */}
+      {settings ? (
+        <div className="fvis-head static">
+          <span className="t">工作区文件夹</span>
+          <span className="fvis-sum">
+            {nowHidden.length > 0
+              ? `${nowHidden.length} 个没列进项目列表`
+              : "全部都列在项目列表里"}
+          </span>
+        </div>
+      ) : (
+        <button className="fvis-head" onClick={() => setExpanded((v) => !v)}>
+          <span className="t">工作区文件夹</span>
+          <span className="fvis-sum">
+            {nowHidden.length > 0
+              ? `${nowHidden.length} 个没列进项目列表`
+              : "全部都列在项目列表里"}
+          </span>
+          <span className="fvis-caret">{expanded ? "▾" : "▸"}</span>
+        </button>
+      )}
 
       {expanded && (
         <div className="fvis-body">

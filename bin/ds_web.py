@@ -82,7 +82,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.52.0"  # 真机反馈:收起项目助手不再留竖排残字 + 图墙加「← 项目工作区」出口
+VERSION = "0.53.0"  # 体检卡挪进「设置 → 工作区文件夹」;图墙默认回到一行 4 个
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")

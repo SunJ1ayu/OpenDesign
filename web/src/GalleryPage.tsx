@@ -82,10 +82,14 @@ export default function GalleryPage({ project, onBack }: Props) {
   // 伴随列的「扫描整理」(网页那条针孔自带 allowed_roots,不依赖任何环境变量)。
   // 缩放(真机反馈 2026-07-27):放大看封面 = 一行少几个,缩小 = 回到密排。
   // 用**列数**而不是像素:用户说的就是"一行 3 个 / 一行 7 个"。记住选择,下次还是它。
-  const COLS_MIN = 3, COLS_MAX = 7;
+  // 默认 4:缩放之前是 `auto-fill minmax(200px,1fr)`,1280 视口下正好一行 4 个。
+  // 0.51.0 加旋钮时默认取了 COLS_MAX=7(最密),等于顺手把所有人的默认观感改了
+  // ——**加"可调+记住选择"的旋钮时,默认值就是一次行为变更**,不能随手取端点值。
+  // 已经存过偏好的照旧听用户的(下面 localStorage 优先),改默认只影响没调过的人。
+  const COLS_MIN = 3, COLS_MAX = 7, COLS_DEFAULT = 4;
   const [cols, setCols] = useState<number>(() => {
     const raw = Number(localStorage.getItem("ds.gallery.cols"));
-    return raw >= COLS_MIN && raw <= COLS_MAX ? raw : COLS_MAX;
+    return raw >= COLS_MIN && raw <= COLS_MAX ? raw : COLS_DEFAULT;
   });
   const setColsPersist = (n: number) => {
     const v = Math.min(COLS_MAX, Math.max(COLS_MIN, n));

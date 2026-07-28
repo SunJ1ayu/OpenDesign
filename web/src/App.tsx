@@ -8,6 +8,7 @@ import TodoPage from "./TodoPage";
 import SkillsPage from "./SkillsPage";
 import GalleryPage from "./GalleryPage";
 import SearchPanel from "./SearchPanel";
+import FolderVisibilityCard from "./workspace/FolderVisibilityCard";
 import { ChatSession } from "./chat/connection";
 import {
   loadThreadMap,
@@ -74,6 +75,9 @@ export default function App() {
   >(null);
   const [sessions, setSessions] = useState<SessionItem[] | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  // 工作区体检卡浮层(2026-07-28 用户拍板:挪进设置)。计数器兼作 key:
+  // 每次打开都重挂一次 = 拿到当下最新的工作区状态,不会拿上次打开时的旧快照当真。
+  const [fvisOpen, setFvisOpen] = useState(0);
   // 搜索回车直达:中央列滚动定位+闪烁(nonce 驱动,cnum=null 只跳项目)
   const [colHighlight, setColHighlight] = useState<{ cnum: number | null; nonce: number }>({
     cnum: null,
@@ -375,6 +379,16 @@ export default function App() {
     [prefillHome],
   );
 
+  // esc 关体检卡浮层(全局原则 A3:esc 关一切弹层;搜索面板自己也有一份同款)
+  useEffect(() => {
+    if (!fvisOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); setFvisOpen(0); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fvisOpen]);
+
   const selected = projects.find((p) => p.key === selectedKey) ?? null;
   // 历史行项目小标:命中项目映射的会话标上项目名
   const sessionTags = useMemo(() => sessionLabels(projThreads, projects), [projThreads, projects]);
@@ -387,6 +401,7 @@ export default function App() {
       selectedKey={selectedKey}
       onSelectProject={goProject}
       onSearch={() => setSearchOpen(true)}
+      onOpenFolderVisibility={() => setFvisOpen((n) => n + 1)}
       todosOpenCount={todosCount}
       sessions={sessions}
       sessionTags={sessionTags}
@@ -468,7 +483,6 @@ export default function App() {
           dataEpoch={dataEpoch}
           inboxActive={route === "workspace"}
           onNewChat={newProjectChat}
-          onVisibilitySaved={() => setDataEpoch((n) => n + 1)}
         />
       </div>
 
@@ -493,6 +507,24 @@ export default function App() {
           // (选中项目不变,所以直接切路由即可,不用走 goProject)
           onBack={() => { window.location.hash = "#/workspace"; }}
         />
+      )}
+
+      {/* 工作区体检卡浮层(设置 → 工作区文件夹)。遮罩样式复用连接卡那套,
+          点遮罩关闭、点卡片内部不关(与 connect-modal 同规矩)。 */}
+      {fvisOpen > 0 && (
+        <div className="connect-modal-mask" data-ui="fvis-modal"
+             onClick={() => setFvisOpen(0)}>
+          <div className="fvis-modal" onClick={(e) => e.stopPropagation()}>
+            <FolderVisibilityCard
+              key={fvisOpen}
+              variant="settings"
+              dataEpoch={dataEpoch}
+              active
+              onSaved={() => setDataEpoch((n) => n + 1)}
+            />
+            <button className="fvis-close" onClick={() => setFvisOpen(0)}>关闭</button>
+          </div>
+        </div>
       )}
 
       {/* 5a 搜索命令面板(⌘K 浮层,盖在当前页上) */}

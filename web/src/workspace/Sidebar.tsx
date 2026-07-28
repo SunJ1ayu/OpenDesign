@@ -30,6 +30,8 @@ type Props = {
   onNewChat: () => void;
   onNewProject: () => void;
   onSearch: () => void;
+  /** 设置弹层里的「工作区文件夹」入口(体检卡 2026-07-28 挪进设置,浮层由 App 渲染)。 */
+  onOpenFolderVisibility: () => void;
   health: { version: string; ds_root: string; model: string | null } | null;
 };
 
@@ -50,6 +52,7 @@ function dotTitle(p: Project, current: boolean): string {
 
 export default function Sidebar({
   route, projects, selectedKey, onSelectProject, todosOpenCount, excludedStructural,
+  onOpenFolderVisibility,
   sessions, sessionTags, onOpenSession, onDeleteSession, onNewChat, onNewProject,
   onSearch, health,
 }: Props) {
@@ -212,7 +215,9 @@ export default function Sidebar({
                title="这些文件夹没有列进项目列表。到右边的「工作区文件夹」卡片里可以改。">
             {excludedStructural.join("、")} 没列进项目列表
             <span className="side-hint-cta">
-              少了你的项目?到右边「工作区文件夹」卡片里改
+              {/* 体检卡 2026-07-28 挪进设置后,这句是唯一把人带到纠正入口的指路 ——
+                  它要是还指着"右边卡片",入口就等于不存在了(判据钉了这条)。 */}
+              少了你的项目?到左下角「设置 → 工作区文件夹」里改
             </span>
           </div>
         )}
@@ -238,6 +243,18 @@ export default function Sidebar({
           <button className="item">
             <span className="lbl">数据与备份</span>
             <span className="val mono">{health ? health.ds_root : "~/OpenDesign"}</span>
+          </button>
+          <button
+            className="item"
+            data-ui="settings-folder-visibility"
+            title="选哪些文件夹要出现在左边的项目列表里"
+            onClick={() => {
+              setSettingsOpen(false);
+              onOpenFolderVisibility();
+            }}
+          >
+            <span className="lbl">工作区文件夹</span>
+            <span className="val">哪些算项目 ›</span>
           </button>
           <button className="item" title="⌘N 新对话 · ⌘K 搜索">
             <span className="lbl">快捷键</span>
