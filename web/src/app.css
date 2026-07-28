@@ -693,27 +693,115 @@ html, body { overflow: auto; }
 .due-tag.due-overdue { color: var(--terra-deep); background: var(--terra-pill-bg); }
 .due-tag.due-today { color: var(--st-pending-fg); background: var(--st-pending-bg); }
 .due-tag.due-upcoming { color: var(--ink-4); }
-.due-editor {
+/* 截止日标签当按钮用(track opendesign-due-picker):入口就在日期该在的位置。
+   .due-tag 的观感一个字不改 —— 它现在是 <button>,得把浏览器默认的按钮外观抹掉。 */
+button.due-tag { border: none; background: none; cursor: pointer; font: inherit; }
+button.due-tag.due-overdue { background: var(--terra-pill-bg); }
+button.due-tag.due-today { background: var(--st-pending-bg); }
+button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
+/* 还没有截止日的那条:平时不占视觉,鼠标移到行上才露出来(行本身够挤了) */
+.due-add {
+  font-size: 11px;
+  padding: 1px 5px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--hover-ease), background-color var(--hover-ease);
+}
+.todo-row:hover .due-add, .due-add:focus-visible { opacity: 0.75; }
+.due-add:hover { opacity: 1; background: var(--paper-side); }
+
+/* ── 截止日弹出日历(track opendesign-due-picker)──────────────────────────
+   position:fixed + 挂在 body 上(见 DuePicker.tsx ①):待办行/变更行都在
+   overflow:auto 的滚动容器里,留在原地会被祖先裁掉。落点由纯函数算,这里只给外观。
+   **刻意与右栏的 .cal-* 月历不同款**:那个是"筛选"(点日期=只看那天到期的),
+   这个是"修改"。同一个东西两个意思是乱的开始 —— 所以这个有白底浮层+投影,
+   看上去就是"一个要你做选择的东西",那个是嵌在栏里的一块。 */
+.due-pop {
+  position: fixed;
+  z-index: 60;
+  width: 244px;
+  padding: 10px 12px 8px;
+  border: 1px solid var(--border-main);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: var(--shadow-pop, 0 6px 20px rgba(60, 50, 30, 0.14));
+}
+.due-pop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.due-pop-head .due-nav {
+  border: none;
+  background: none;
+  color: var(--ink-4);
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color var(--hover-ease), color var(--hover-ease);
+}
+.due-pop-head .due-nav:hover { background: var(--paper-side); color: var(--terra-deep); }
+.due-month { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.due-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  font-size: 10.5px;
+  color: var(--ink-4);
+  text-align: center;
+  margin-bottom: 3px;
+}
+.due-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.due-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 30px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  font-size: 11.5px;
+  color: var(--ink-5);
+  cursor: pointer;
+  transition: background-color var(--hover-ease), color var(--hover-ease);
+}
+.due-cell.in-month { color: var(--ink-2); }
+.due-cell:hover:not(:disabled) { background: var(--paper-side); }
+.due-cell:disabled { cursor: default; }
+.due-cell.today { color: #fff; background: var(--terra); }
+.due-cell.today:hover:not(:disabled) { background: var(--terra-deep); }
+/* 当前这条自己的截止日:描边而不是填充 —— 填充会跟"今天"抢,两个都填就分不出谁是谁 */
+.due-cell.sel { box-shadow: inset 0 0 0 2px var(--terra-deep); }
+.due-daynum { line-height: 1; }
+.due-dot { width: 5px; height: 5px; border-radius: 50%; }
+.due-dot.dot-overdue { background: var(--terra-deep); }
+.due-dot.dot-today { background: var(--terra); }
+.due-dot.dot-upcoming { background: var(--ink-5); }
+.due-pop-foot {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-end;
+  min-height: 20px;
   margin-top: 6px;
 }
-.due-editor .due-input {
-  font-size: 12px;
-  padding: 3px 6px;
-  border: 1px solid var(--border-input);
-  border-radius: 6px;
-  color: var(--ink);
-  background: #fff;
-}
-.due-editor .due-clear {
+.due-foot-hint { font-size: 11px; color: var(--ink-5); }
+.due-clear {
   font-size: 11.5px;
   color: var(--terra-deep);
+  border: none;
+  background: none;
+  cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.due-editor .due-clear:hover { color: var(--terra); }
+.due-clear:hover { color: var(--terra); }
+
+/* 正在设截止日的那条高亮、其余压暗(用户拍板:一眼看清在给谁设)。
+   压暗只在浮层开着时存在,关掉即撤销 —— 判据 duedate_picker C 段两头都钉了。 */
+.todo-row.due-dim { opacity: 0.45; transition: opacity var(--hover-ease); }
+.todo-row.due-editing { background: var(--st-pending-bg); border-radius: 8px; }
 /* 「改过 N 次」入口 + 展开留痕列表 */
 .change-row .meta .history-toggle {
   font-size: 11.5px;

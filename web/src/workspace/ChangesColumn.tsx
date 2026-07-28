@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Change, Project } from "../api";
 import { addChange, cnDate, createProject, editChange, setDueDate, setStage } from "../api";
+import DuePicker from "../DuePicker";
 import StatusPicker from "../StatusPicker";
 import { dueStatus, isTerminalStatus } from "../todo";
 import type { Filter } from "./changes";
@@ -89,9 +90,14 @@ export default function ChangesColumn({
   const [editDraft, setEditDraft] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editErr, setEditErr] = useState<string | null>(null);
-  // 截止日设/清(track opendesign-todo-duedate):📅 切一个 cnum 的原生日期输入开合,
+  // 截止日设/清(track opendesign-todo-duedate → due-picker):📅 切一个 cnum 的
+  // **弹出日历**开合。原先是原生 <input type=date>:要用户翻月历点格子,而用户嘴里
+  // 说的是"周六""周天前"。2026-07-28 换成与待办页**同一个** DuePicker ——
+  // 用户的要求是"同一个东西一个交互",不做两套(判据 duedate_picker.e2e.mjs G 段
+  // 钉住原生输入框真的没了)。anchor 存触发按钮,浮层贴着它弹。
   // 不做乐观改写——成功后 onEdited 整列重拉(与切阶段/正文编辑同套服务端为真相源原则)。
   const [dueEditingCnum, setDueEditingCnum] = useState<number | null>(null);
+  const [dueAnchor, setDueAnchor] = useState<HTMLElement | null>(null);
   const [dueSaving, setDueSaving] = useState(false);
   const [dueErr, setDueErr] = useState<string | null>(null);
   // 行内截止日着色的基准"今天":用客户端**本地**日期(纯展示分类,非账本写入)。
@@ -113,6 +119,7 @@ export default function ChangesColumn({
     setEditDraft("");
     setEditErr(null);
     setDueEditingCnum(null);
+    setDueAnchor(null);
     setDueErr(null);
     setStageMenuOpen(false);
     setStageErr(null);
@@ -252,13 +259,14 @@ export default function ChangesColumn({
     }
   }
 
-  // 设/清截止日:value="" = 清除。成功后关编辑态 + onEdited 重拉(due 随行回来)。
-  async function saveDue(c: Change, value: string) {
+  // 设/清截止日:null = 清除。成功后关浮层 + onEdited 重拉(due 随行回来)。
+  async function saveDue(c: Change, value: string | null) {
     if (!project || c.cnum === null || dueSaving) return;
     setDueSaving(true);
     setDueErr(null);
     try {
       await setDueDate({ project: project.key, cnum: c.cnum, due: value || null });
+      setDueAnchor(null);
       setDueEditingCnum(null);
       onEdited?.();
     } catch (e) {
@@ -470,30 +478,21 @@ export default function ChangesColumn({
               ))}
             </div>
           )}
-          {c.cnum !== null && dueEditingCnum === c.cnum && (
-            <div className="due-editor" data-ui="due-editor">
-              <input
-                type="date"
-                className="due-input"
-                data-ui="due-input"
-                defaultValue={c.due ?? ""}
-                autoFocus
-                disabled={dueSaving}
-                onChange={(e) => saveDue(c, e.target.value)}
-              />
-              {c.due && (
-                <button
-                  type="button"
-                  className="due-clear"
-                  data-ui="due-clear"
-                  disabled={dueSaving}
-                  onClick={() => saveDue(c, "")}
-                >
-                  清除
-                </button>
-              )}
-              {dueErr && <div className="error-note sm">{dueErr}</div>}
-            </div>
+          {c.cnum !== null && dueEditingCnum === c.cnum && dueAnchor && (
+            <DuePicker
+              anchor={dueAnchor}
+              value={c.due ?? null}
+              today={today}
+              // 同项目其它条目的截止日 → 格子上打点(用户:免得把三件活约到同一天)。
+              // 这里 changes 是**全量**(含已办结),打点也照打:那天有事就是有事。
+              otherDues={(changes ?? [])
+                .filter((o) => o.cnum !== c.cnum && o.due)
+                .map((o) => o.due as string)}
+              busy={dueSaving}
+              error={dueErr}
+              onPick={(d) => saveDue(c, d)}
+              onClose={() => { setDueEditingCnum(null); setDueAnchor(null); }}
+            />
           )}
         </div>
         {/* 修改单 E:hover 图标按钮组 ✎(编辑,保留 .edit-trigger 兼容)+ ✓(标记完成,
@@ -511,7 +510,11 @@ export default function ChangesColumn({
             <button
               className="icon-act due-btn"
               data-ui="change-due"
-              onClick={() => setDueEditingCnum((cur) => (cur === c.cnum ? null : c.cnum))}
+              onClick={(e) => {
+                const el = e.currentTarget;
+                setDueEditingCnum((cur) => (cur === c.cnum ? null : c.cnum));
+                setDueAnchor((cur) => (dueEditingCnum === c.cnum && cur ? null : el));
+              }}
               title="设置截止日"
             >
               📅

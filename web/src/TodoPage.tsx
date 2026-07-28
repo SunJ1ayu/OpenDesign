@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Project } from "./api";
-import { cnDate, editChange } from "./api";
+import { cnDate, editChange, setDueDate } from "./api";
+import DuePicker from "./DuePicker";
 import GroupToggle from "./GroupToggle";
 import StatusPicker from "./StatusPicker";
 import TodoRail from "./TodoRail";
@@ -180,6 +181,37 @@ export default function TodoPage({
   function reload() {
     setReloadNonce((n) => n + 1);
     onEdited?.();
+  }
+
+  // ── 截止日弹出日历(track opendesign-due-picker)────────────────────────────
+  // 用户 2026-07-28:「我没法手动设置待办事项的截止日期」。写口 set_due_date 本来
+  // 就有,入口原先只在工作区变更栏 —— 而待办页才是他"开始做的时候看"的地方。
+  // 开合键 = `${project}:C${cnum}`(与 editId 同源);anchor 存 DOM 节点供浮层贴位。
+  const [duePick, setDuePick] = useState<{ key: string; anchor: HTMLElement } | null>(null);
+  const [dueBusy, setDueBusy] = useState(false);
+  const [dueErr, setDueErr] = useState<string | null>(null);
+
+  function openDuePicker(it: OpenItem, el: HTMLElement) {
+    const key = editId(it);
+    if (key === null) return; // 残缺行没有 C 号,后端寻址不到,不给入口
+    setDueErr(null);
+    setDuePick((cur) => (cur && cur.key === key ? null : { key, anchor: el }));
+  }
+
+  async function saveDue(it: OpenItem, due: string | null) {
+    if (it.cnum === null) return;
+    setDueBusy(true);
+    setDueErr(null);
+    try {
+      await setDueDate({ project: it.project, cnum: it.cnum, due });
+      setDuePick(null);
+      reload();
+    } catch (e) {
+      // 不关浮层:关掉等于把错误一起吞了,用户只会看到"点了没反应"
+      setDueErr(`设置截止日失败(${(e as Error).message})。`);
+    } finally {
+      setDueBusy(false);
+    }
   }
 
   // 批量选择:键 = `${project}:${line}`,残缺行(cnum===null)不可寻址,不参与选择。
@@ -427,8 +459,14 @@ export default function TodoPage({
     if (eid && editing === eid) return editor(it);
     const oldText = eid ? edited[eid] : undefined;
     const note = eid ? noted[eid] : undefined;
+    // 正在设截止日的那条高亮、其余压暗(用户拍板:"一眼看清在给谁设")。
+    const dueOpen = duePick !== null;
+    const dueTarget = dueOpen && eid !== null && duePick.key === eid;
     return (
-      <div className="todo-row" key={`${it.project}:${it.line}:${i}`}>
+      <div
+        className={`todo-row${dueTarget ? " due-editing" : ""}${dueOpen && !dueTarget ? " due-dim" : ""}`}
+        key={`${it.project}:${it.line}:${i}`}
+      >
         <input
           type="checkbox"
           className="todo-select"
@@ -449,12 +487,43 @@ export default function TodoPage({
           {note !== undefined && <span className="note-tag">备注:{note}</span>}
         </span>
         <span className="meta">
-          {/* 截止日只读展示(track opendesign-todo-duedate):设置入口留在工作区变更列,
-              待办页只显示,按 dueStatus 着色(与 ChangesColumn .due-tag 同口径)。 */}
-          {it.due && (
-            <span className={`due-tag due-${dueStatus(it.due, data.today)}`}>
-              截止 {cnDate(it.due)}
-            </span>
+          {/* 截止日(track opendesign-due-picker):**入口就在日期该在的位置** ——
+              已经有日期的,那个标签自己就是按钮;还没有的,悬停出一个日历图标。
+              原先这里只读、设置入口只在工作区变更栏,而待办页才是用户开工前看的地方。
+              着色仍走 dueStatus(与 ChangesColumn .due-tag 同口径)。 */}
+          {it.cnum === null ? (
+            it.due && (
+              <span className={`due-tag due-${dueStatus(it.due, data.today)}`}>
+                截止 {cnDate(it.due)}
+              </span>
+            )
+          ) : (
+            <button
+              type="button"
+              className={it.due ? `due-tag due-${dueStatus(it.due, data.today)}` : "due-add"}
+              data-ui="due-trigger"
+              title={it.due ? "改截止日" : "设截止日"}
+              onClick={(e) => openDuePicker(it, e.currentTarget)}
+            >
+              {/* 空态**不用图标**:截图里 📅 在缺字形的环境下渲染成豆腐块(□),
+                  而且图标要用户先学会它是什么意思。用字最稳,也跟有日期时的
+                  「截止 7月30日」是同一个词。 */}
+              {it.due ? `截止 ${cnDate(it.due)}` : "＋截止"}
+            </button>
+          )}
+          {dueTarget && (
+            <DuePicker
+              anchor={duePick.anchor}
+              value={it.due}
+              today={data.today}
+              otherDues={data.open
+                .filter((o) => o.project === it.project && o.line !== it.line && o.due)
+                .map((o) => o.due as string)}
+              busy={dueBusy}
+              error={dueErr}
+              onPick={(d) => saveDue(it, d)}
+              onClose={() => setDuePick(null)}
+            />
           )}
           {withProject && (
             <button className="proj-link" onClick={() => onGoProject(it.project)}>

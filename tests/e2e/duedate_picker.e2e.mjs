@@ -83,6 +83,19 @@ function expect(cond, label) {
 
 const fileHas = (s) => readFileSync(projPath, "utf-8").includes(s);
 
+/** 等 opacity 过渡稳定后再读:连续两次取样相同即认为落定(上限 ~2s)。
+ *  直接读会读到动画中途的值,断言就变成了"动了一下"而不是"压暗了"。 */
+async function stableOpacity(locator) {
+  let prev = null;
+  for (let i = 0; i < 20; i++) {
+    const v = await locator.evaluate((el) => parseFloat(getComputedStyle(el).opacity));
+    if (prev !== null && v === prev) return v;
+    prev = v;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return prev;
+}
+
 /** 弹层四边是否都在视口内(用户看得见的那条)。 */
 const popInViewport = (page) =>
   page.evaluate(() => {
@@ -157,11 +170,15 @@ try {
 
     expect(await rows().nth(1).evaluate((el) => el.classList.contains("due-editing")),
       "被设的那一条挂上了 due-editing");
-    const dim = await rows().nth(4).evaluate((el) => parseFloat(getComputedStyle(el).opacity));
-    expect(dim < 1, `别的条目压暗了(实测 opacity=${dim})`);
+    // ⚠️ 这里原本写的是 `opacity < 1`,实测量到 0.92 —— 那是**过渡动画中途**的值。
+    // 于是这条断言等于"只要动了一点点就算压暗",一个肉眼看不出来的 0.99 照样能过。
+    // 改成:先等过渡稳定,再钉一个**用户看得出来**的阈值。
+    // 同一个根因第 N 次:数字对、结果错。
+    const settled = await stableOpacity(rows().nth(4));
+    expect(settled <= 0.7, `别的条目**明显**压暗了(稳定后 opacity=${settled},期望 ≤0.7)`);
     await page.keyboard.press("Escape");
-    const back = await rows().nth(4).evaluate((el) => parseFloat(getComputedStyle(el).opacity));
-    expect(back === 1, `关掉后压暗要撤销(实测 opacity=${back})`);
+    const back = await stableOpacity(rows().nth(4));
+    expect(back === 1, `关掉后压暗要撤销(稳定后 opacity=${back})`);
   });
 
   // ── D 清除 ────────────────────────────────────────────────────────────────
