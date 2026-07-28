@@ -1102,21 +1102,24 @@ html, body { overflow: auto; }
   border-right: 1px solid var(--border-soft);
   overflow: auto;
 }
-/* ── 收件箱卡片(track opendesign-intake)─────────────────────────────── */
+/* ── 收件箱(track opendesign-intake;2026-07-28 由「卡片」改「分节」)──────
+   真机反馈第三批:用户要它「和左边图片对齐,底色和背景一样」。伴随列的「图片」
+   就是分节 —— 一个小标题 + 内容直接坐在列底色上,没有框。收件箱原先是卡片
+   (边框 + --paper-side 底色 + 阴影 + `.chatcol >` 那条下边线),同屏两套语言。
+   现在:不设自己的底色(透出 .chatcol 的 --paper)、无框、无阴影。
+   内边距用 --inbox-pad 单点定义,取同列 .chatcol-head 的 20px ——
+   它现在是这一列的一个分节,参照物就是这一列的其它分节头,不再自己另立一套。
+   判据 tests/e2e/inbox_pad_gallery.e2e.mjs C 段(量的是计算样式与几何,不是声明)。 */
 .inbox-card {
-  margin: 12px 12px 0;
-  border: 1px solid var(--border-main);
-  border-radius: 10px;
-  background: var(--paper-side);
-  box-shadow: var(--shadow-card);
-  padding-bottom: 8px;
+  --inbox-pad: 20px;
+  padding: 6px 0 8px;   /* 6 + .inbox-summary 的 10 = 16,与 .chatcol-head 上边距同 */
 }
 /* 修改单 D1:默认收成一行摘要,点行展开(扫描整理按钮 stopPropagation 不触发展开) */
 .inbox-summary {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 10px var(--inbox-pad);
   cursor: pointer;
   transition: background var(--hover-ease);
 }
@@ -1126,10 +1129,12 @@ html, body { overflow: auto; }
 .inbox-summary .chev { color: var(--ink-5); font-size: 10px; }
 .inbox-expanded { padding-bottom: 4px; }
 .inbox-plan {
-  margin: 4px 12px 8px;
+  margin: 4px var(--inbox-pad) 8px;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
-  background: var(--paper);
+  /* 外层不再是 --paper-side 卡片、而是透出列底(--paper),这里再用 --paper 就跟
+     背景同色、只剩一圈细线。换成 --paper-side 让它继续读成"一块要你拍板的东西"。 */
+  background: var(--paper-side);
   padding: 8px 10px;
 }
 .inbox-plan .plan-title {
@@ -1187,15 +1192,15 @@ html, body { overflow: auto; }
 .inbox-plan .plan-hint { font-size: 11px; color: var(--ink-4); }
 /* 「帮我建收件箱」那一态的按钮行:它**不在** .inbox-plan 里,所以上面那条
    `.inbox-plan .plan-acts` 一条都吃不到 —— 截图里按钮顶在卡片左边线上就是这么来的。
-   用户拍板放右边(2026-07-28)。左右 12px 与同卡其它行同一条边界。 */
+   用户拍板放右边(2026-07-28)。左右与同一块里的其它行同一条边界(--inbox-pad)。 */
 .inbox-expanded > .plan-acts {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  padding: 2px 12px 4px;
+  padding: 2px var(--inbox-pad) 4px;
 }
-.inbox-list { padding: 0 12px; }
+.inbox-list { padding: 0 var(--inbox-pad); }
 .inbox-row {
   display: flex;
   align-items: baseline;
@@ -1216,13 +1221,16 @@ html, body { overflow: auto; }
 .inbox-hint { font-size: 11px; color: var(--ink-4); padding: 6px 0 2px; }
 /* 收件箱在硬盘哪儿(track opendesign-chat-image):用户问过这个,答案就写在卡片里 */
 .inbox-where { font-size: 11px; color: var(--ink-4); padding: 2px 0 6px; }
-/* 真机反馈 2026-07-28(用户截图):**直接挂在卡片里**的那几行小字原先左右 padding
-   是 0,顶在边框上 —— 用户原话「跟左右太贴了,都快喘不过气了」。12px = 这张卡
-   自己的标题行(.inbox-summary)用的值,对齐它而不是另挑一个,卡片内部才是一套规范。
-   **只给直接子代**:.inbox-list / .inbox-plan 里面那几处已经由容器出了 12px,
-   一起加会变成 24px、比同一块里的邻居更靠里。 */
+/* 真机反馈 2026-07-28(用户截图):**直接挂在里面**的那几行小字原先左右 padding
+   是 0,顶在边框上 —— 用户原话「跟左右太贴了,都快喘不过气了」。取 --inbox-pad
+   = 标题行(.inbox-summary)用的值,对齐它而不是另挑一个,这一块内部才是一套规范。
+   **只给直接子代**:.inbox-list / .inbox-plan 里面那几处已经由容器出了这一份,
+   一起加会翻倍、比同一块里的邻居更靠里。 */
 .inbox-expanded > .inbox-hint,
-.inbox-expanded > .inbox-where { padding-left: 12px; padding-right: 12px; }
+.inbox-expanded > .inbox-where {
+  padding-left: var(--inbox-pad);
+  padding-right: var(--inbox-pad);
+}
 .inbox-where code, .inbox-hint code {
   font-size: 11px;
   color: var(--ink-3);
@@ -2666,8 +2674,9 @@ html, body { overflow: auto; }
   padding: 8px 14px 0;
   overflow-wrap: anywhere;
 }
-/* 收件箱搬到右列顶部(-p2):标题行款式对齐左列 .aside-head */
-.chatcol > .inbox-card { border-bottom: 1px solid var(--border-main); }
+/* 收件箱搬到右列顶部(-p2)。原先这里补了一条下边线 —— 2026-07-28 真机反馈第三批
+   删掉:用户要它跟伴随列的「图片」一样是分节,而那边两个分节之间靠留白分,不画线。
+   (判据 C 段四边一起量,就是为了盯住这条"第二处规则"。) */
 .inbox-quiet { font-size: 11px; color: var(--ink-5); }
 
 /* ── 工作区体检卡(track opendesign-workspace-health T8)──────────────────
