@@ -12,6 +12,17 @@
 //   A' 按钮**靠右**(用户拍板:「帮我建收件箱这个按钮我感觉在右边合适一点」)。
 //     钉法 = 右边距在 8~16px 之间 **且左边距明显大于右边距** —— 只钉右边距的话,
 //     一个撑满整行的按钮也能过(两边都贴着,右边距同样是 12),那不是"靠右"。
+//   C(真机反馈第三批,2026-07-28 晚)收件箱**不再是一张卡片,而是一个分节**。
+//     用户原话「收件箱的框的款式我感觉可以和左边图片对齐,也就是说底色和背景是一样的」。
+//     左边那列(伴随列)的「图片」就是分节:一个小标题 + 内容直接坐在列底色上,没有框。
+//     收件箱却是卡片(边框 + 另一个底色 --paper-side + 阴影 + 下边线)→ **同屏两套语言**。
+//     ⚠️ 断言打在**渲染出来的样子**(计算样式 + 几何),不断言"某条 CSS 删了没":
+//        删了声明也可能被别处的规则补回来(`.chatcol > .inbox-card` 那条下边线就是
+//        后加的第二处),量最终值才是用户眼睛看到的东西。
+//     ⚠️ 背景那条的正确形式是「**透出列底** 或 **与列同色**」二选一,不是"等于某个色值":
+//        transparent 计算出来是 rgba(0,0,0,0),写死等于列色会把正确实现判红。
+//     并钉住**列内自洽**:标题「收件箱」与同列「项目助手」标题同一条左边界 ——
+//     它现在是这一列的一个分节,参照物就该是这一列的其它分节头。
 //   B 伴随列「图片」标题旁不再有「图墙 →」小字(用户:点图片就进去了,这条多余)。
 //     ⚠️ 这条**推翻了 cockpit.e2e.mjs 里原先的产品要求**「图墙常驻入口(<4 张图也可达)」。
 //     所以本文件必须把"入口还在不在"接过来钉住:**缩略图仍然点得进图墙**,
@@ -163,10 +174,54 @@ try {
 
     const btnR = Math.round(card.right - btn.right);
     const btnL = Math.round(btn.left - card.left);
+    const titleL = Math.round(title.left - card.left);
     expect(btn.right <= card.right, `按钮不越出卡片右缘(按钮 ${Math.round(btn.right)} / 卡片 ${Math.round(card.right)})`);
-    expect(btnR >= 8 && btnR <= 16, `按钮右边留出边距(实测 ${btnR}px,期望 8~16)`);
+    // 原先写的是 `btnR 在 8~16 之间` —— 那是把**当时的内边距**(12px)钉成了判据。
+    // C 段要把收件箱从"卡片"改成"分节",内边距要跟同列的 .chatcol-head 对齐,
+    // 这个魔数范围就会把正确的实现判红。改成表达意图:**左右留白是同一套**
+    // (按钮右边距 == 标题左边距)。不贴边这层没丢:上面已钉 小字左边距 ≥10,
+    // 而小字与标题同一条左边界 → titleL ≥10 传递性成立,btnR 跟着 ≥10。
+    expect(Math.abs(btnR - titleL) <= 1,
+      `按钮右留白与标题左留白同宽(右 ${btnR}px / 左 ${titleL}px)`);
     // 只钉右边距的话,撑满整行的按钮也能过 —— 必须钉"左边空得比右边多"才叫靠右。
     expect(btnL > btnR, `按钮真的靠右(左空 ${btnL}px > 右空 ${btnR}px)`);
+  });
+
+  // ── C 收件箱是「分节」不是「卡片」:没框、没自己的底色、没阴影,列内对齐 ──────
+  await step("C 收件箱=分节:底色透出列底、无边框无阴影、与「项目助手」同左边界", async () => {
+    await page.goto(`${base}/#/workspace`, { waitUntil: "domcontentloaded" });
+    await page.locator('[data-ui="inbox-missing"]').waitFor({ timeout: 15000 });
+
+    const st = await page.evaluate(() => {
+      const card = document.querySelector(".inbox-card");
+      const col = document.querySelector(".chatcol");
+      if (!card || !col) return null;
+      const cs = getComputedStyle(card);
+      return {
+        bg: cs.backgroundColor,
+        colBg: getComputedStyle(col).backgroundColor,
+        bw: [cs.borderTopWidth, cs.borderRightWidth, cs.borderBottomWidth, cs.borderLeftWidth],
+        shadow: cs.boxShadow,
+      };
+    });
+    check(st, "前提:.inbox-card 与 .chatcol 都在场");
+
+    // 「底色和背景是一样的」的正确形式:透出列底(transparent)**或**与列同色。
+    const seeThrough = st.bg === "rgba(0, 0, 0, 0)" || st.bg === "transparent";
+    expect(seeThrough || st.bg === st.colBg,
+      `收件箱底色与所在列一致(卡 ${st.bg} / 列 ${st.colBg})`);
+    // 四边一起量:下边线是 `.chatcol > .inbox-card` 那条**第二处规则**加的,
+    // 只看 border 简写或只看某一边会漏掉它。
+    expect(st.bw.every((w) => parseFloat(w) === 0),
+      `四边都没有边框(实测 上/右/下/左 = ${st.bw.join(" / ")})`);
+    expect(st.shadow === "none", `没有阴影(实测 ${st.shadow})`);
+
+    // 列内自洽:它现在是这一列的一个分节,左边界该和同列「项目助手」那个分节头齐。
+    const inboxT = await textBox(page, ".inbox-card .inbox-summary .t");
+    const colT = await textBox(page, ".chatcol-head .t");
+    check(inboxT && colT, "前提:「收件箱」与「项目助手」两个标题都量得到");
+    expect(Math.abs(inboxT.left - colT.left) <= 1,
+      `与「项目助手」同一条左边界(收件箱 ${Math.round(inboxT.left)} / 项目助手 ${Math.round(colT.left)})`);
   });
 
   // ── B 伴随列不再有「图墙 →」小字,但进图墙的路没堵死 ───────────────────────
