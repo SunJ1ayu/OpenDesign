@@ -135,14 +135,16 @@ try {
   await page.locator(`.proj-list .proj-row:has-text("${projA}")`).first().click();
   await page.locator(".change-row").first().waitFor({ timeout: 10000 });
 
-  // D:阶段 chip 挪中央列标题旁;伴随列不再展示业主,当前状态保留
+  // D:阶段 chip 挪中央列标题旁;伴随列不再展示业主,**当前状态 2026-07-28 也删了**
+  //   (它没有写口,永远是模板默认值 —— 详见 cockpit.e2e.mjs ③ 与 CompanionColumn 注释)
   const headTxt = await page.locator(".center-head").innerText();
   check(headTxt.includes("施工跟进"), "中央列:标题旁 stage-chip");
   check(await page.locator('.center-head [data-ui="stage-chip"]').count() === 1,
     "中央列:stage-chip 落点契约");
   const asideTxt = await page.locator(".aside").innerText();
   check(!asideTxt.includes("李四"), "伴随列:速览行删掉(业主不再展示)");
-  check(asideTxt.includes("等瓦工进场"), "伴随列:当前状态一句话保留");
+  // 夹具档案里「当前状态: 等瓦工进场」那行是**留着**的 —— 有内容也不显示,才叫删干净。
+  check(!asideTxt.includes("等瓦工进场"), "伴随列:当前状态那句话已删掉");
 
   // C:工作区聊天列 = 横幅,不放表单;点开 modal;esc 关
   const wsPane = page.locator(".ws-pane");

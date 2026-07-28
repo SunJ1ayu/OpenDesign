@@ -262,18 +262,26 @@ class TestProjects(unittest.TestCase):
         keys = sorted(p["key"] for p in d["projects"])
         self.assertEqual(keys, ["翡翠湾-1801"])
 
-    # ── cockpit:速览字段(owner/status_note)+ 已建档 group(偿 depth2 deviation)──
-    def test_projects_owner_status_note(self):
+    # ── cockpit 速览字段(owner/status_note)**已整条下线**(2026-07-28)────────
+    # 两个字段都只有一个消费者 = 伴随列速览块,而那个块已按用户要求删掉:
+    #   · status_note(档案「当前状态」):17 个 MCP 工具**没有一个写它**,建档时由模板
+    #     填「新建,待完善」,之后永不变 —— 界面上是个永久摆设。
+    #   · owner:更早的 v4 质感收口(D2)就把展示删了,**生产者却留着** —— 同一个病。
+    # 读侧不再生产它们。断言用 assertNotIn 而不是"等于空串":留个空字段等于把坑保温,
+    # 下一个人照样会拿它去渲染。**夹具档案里两行字都还在** —— 有内容也不产出,才叫下线干净。
+    def test_projects_drops_dead_cockpit_fields(self):
         root = _mkroot({"保利中央公园.md": PROJ_A, "光头项目.md": PROJ_BARE})
         with _serve(root) as port:
             _, _, d = _get_json(port, "/api/projects")
         by_key = {p["key"]: p for p in d["projects"]}
         a = by_key["保利中央公园"]
-        self.assertEqual(a["owner"], "张伟")            # [[ ]] 已剥
-        self.assertEqual(a["status_note"], "玄关柜待业主确认")
+        self.assertIn("- 业主: [[张伟]]", PROJ_A)          # 前提:档案里确实有这两行
+        self.assertIn("- 当前状态: 玄关柜待业主确认", PROJ_A)
+        self.assertNotIn("owner", a)
+        self.assertNotIn("status_note", a)
         bare = by_key["光头项目"]
-        self.assertEqual(bare["owner"], "")              # 缺字段=空串,读侧宽容
-        self.assertEqual(bare["status_note"], "")
+        self.assertNotIn("owner", bare)
+        self.assertNotIn("status_note", bare)
 
     def test_projects_registered_group_depth2(self):
         root = _mkroot({"翡翠湾-1801.md": PROJ_DELIVERED})

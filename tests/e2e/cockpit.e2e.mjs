@@ -66,16 +66,21 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await page.goto(base, { waitUntil: "domcontentloaded" });
 
-  // ① 侧栏点开项目 → 阶段 chip + 当前状态可见。
-  // v4 质感收口(frontend-p2-polish)把阶段 chip 从速览块挪到中央列标题旁、删业主行,
-  // 此处按"改前改后都绿"中性化:阶段在速览或中央列头任一处即可;业主断言删除
-  // (严格版落点断言在 frontend_p2_polish.e2e.mjs);当前状态留在伴随列。
+  // ① 侧栏点开项目 → 阶段 chip 可见。
+  // v4 质感收口(frontend-p2-polish)把阶段 chip 从速览块挪到中央列标题旁、删业主行。
+  // **2026-07-28 用户拍板:整条速览块删掉** —— 它唯一的内容「当前状态」自建档以来
+  // **没有任何写口**(17 个 MCP 工具没一个写它),界面上永远显示模板默认值「新建,待完善」。
+  // 详见下面 ③ 的反面断言。
   await page.locator(`.proj-list .proj-row:has-text("${proj}")`).first().click();
-  await page.locator(".cockpit-brief").waitFor({ timeout: 10000 });
-  const brief = await page.locator(".cockpit-brief").innerText();
+  await page.locator(".center-head").waitFor({ timeout: 10000 });
   const centerHead = await page.locator(".center-head").innerText().catch(() => "");
-  check((brief + centerHead).includes("施工跟进"), "阶段 chip 可见(速览或中央列头)");
-  check(brief.includes("等瓦工进场"), "速览:当前状态一句话");
+  check(centerHead.includes("施工跟进"), "阶段 chip 可见(中央列头)");
+
+  // ③ 速览块整条不存在 —— **夹具档案里「当前状态: 等瓦工进场」那行照留**,
+  // 才证明是"有内容也不显示",而不是夹具没写所以看不见(后者什么都没证明)。
+  check(await page.locator(".cockpit-brief").count() === 0, "速览块已删除(.cockpit-brief 不存在)");
+  const asideAll = await page.locator(".aside").innerText();
+  check(!asideAll.includes("等瓦工进场"), "伴随列不再显示「当前状态」那句话");
 
   // ② 类目行:非模板类目名可见(照现状认判卷)+ 活跃度列
   const rows = page.locator(".cat-row");
