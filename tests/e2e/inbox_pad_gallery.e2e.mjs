@@ -120,6 +120,21 @@ const box = (page, sel) =>
     return { left: b.left, right: b.right, top: b.top, bottom: b.bottom };
   }, sel);
 
+/** **文字本身**的边界(Range),不是元素盒子。
+ *  ⚠️ 这条是本文件红检时踩出来的:块级 div 的 getBoundingClientRect() **永远**撑满整行,
+ *  padding 加没加它都一个样 —— 拿它量"字贴不贴边"是量不出来的(padding 已生效、
+ *  断言照红)。用户看到的是**字**在哪,所以量字。同一个根因第 N 次:数字对、结果错。 */
+const textBox = (page, sel) =>
+  page.evaluate((s) => {
+    const el = document.querySelector(s);
+    if (!el) return null;
+    const r = document.createRange();
+    r.selectNodeContents(el);
+    const b = r.getBoundingClientRect();
+    if (b.width === 0 && b.height === 0) return null;
+    return { left: b.left, right: b.right, top: b.top, bottom: b.bottom };
+  }, sel);
+
 let browser = null;
 try {
   browser = await launchBrowser();
@@ -133,8 +148,8 @@ try {
       "前提:「帮我建收件箱」那一态在场(夹具没建收件箱夹)");
 
     const card = await box(page, ".inbox-card");
-    const title = await box(page, ".inbox-card .inbox-summary .t");
-    const hint = await box(page, '[data-ui="inbox-missing"]');
+    const title = await textBox(page, ".inbox-card .inbox-summary .t");
+    const hint = await textBox(page, '[data-ui="inbox-missing"]');
     const btn = await box(page, '[data-ui="inbox-create"]');
     check(card && title && hint && btn, "前提:卡片/标题/小字/按钮四个盒子都量得到");
 
