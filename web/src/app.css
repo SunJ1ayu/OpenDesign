@@ -1185,6 +1185,16 @@ html, body { overflow: auto; }
   margin-top: 8px;
 }
 .inbox-plan .plan-hint { font-size: 11px; color: var(--ink-4); }
+/* 「帮我建收件箱」那一态的按钮行:它**不在** .inbox-plan 里,所以上面那条
+   `.inbox-plan .plan-acts` 一条都吃不到 —— 截图里按钮顶在卡片左边线上就是这么来的。
+   用户拍板放右边(2026-07-28)。左右 12px 与同卡其它行同一条边界。 */
+.inbox-expanded > .plan-acts {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 2px 12px 4px;
+}
 .inbox-list { padding: 0 12px; }
 .inbox-row {
   display: flex;
@@ -1206,6 +1216,13 @@ html, body { overflow: auto; }
 .inbox-hint { font-size: 11px; color: var(--ink-4); padding: 6px 0 2px; }
 /* 收件箱在硬盘哪儿(track opendesign-chat-image):用户问过这个,答案就写在卡片里 */
 .inbox-where { font-size: 11px; color: var(--ink-4); padding: 2px 0 6px; }
+/* 真机反馈 2026-07-28(用户截图):**直接挂在卡片里**的那几行小字原先左右 padding
+   是 0,顶在边框上 —— 用户原话「跟左右太贴了,都快喘不过气了」。12px = 这张卡
+   自己的标题行(.inbox-summary)用的值,对齐它而不是另挑一个,卡片内部才是一套规范。
+   **只给直接子代**:.inbox-list / .inbox-plan 里面那几处已经由容器出了 12px,
+   一起加会变成 24px、比同一块里的邻居更靠里。 */
+.inbox-expanded > .inbox-hint,
+.inbox-expanded > .inbox-where { padding-left: 12px; padding-right: 12px; }
 .inbox-where code, .inbox-hint code {
   font-size: 11px;
   color: var(--ink-3);

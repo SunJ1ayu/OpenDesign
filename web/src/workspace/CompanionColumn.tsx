@@ -185,9 +185,12 @@ export default function CompanionColumn({
       {/* ② 图片区 */}
       <div className="aside-head">
         <span className="t">图片</span>
-        <button className="gallery-link" onClick={onOpenGallery} title="打开图墙">
-          图墙 →
-        </button>
+        {/* 这里原先有一条「图墙 →」小字。**2026-07-28 用户拍板删掉**:
+            「点图片就进去了,这个没必要吧」—— 缩略图和「+N 图墙 →」溢出砖本来就都
+            通向图墙,标题旁再挂一条是同一件事说三遍。
+            ⚠️ 这推翻了 cockpit.e2e.mjs 里原先那条产品要求「图墙常驻入口(图少也可达)」。
+            入口没堵死:缩略图仍是入口(新判据 inbox_pad_gallery.e2e.mjs 钉了)。
+            已知代价、用户已知情:一张图都没有时进不去图墙 —— 那时图墙本来也是空的。 */}
         <span className="grow" />
         <div className="seg">
           <button className={`opt${tab === "ref" ? " on" : ""}`} onClick={() => setTab("ref")}>
