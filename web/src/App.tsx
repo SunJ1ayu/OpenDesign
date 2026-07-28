@@ -457,7 +457,6 @@ export default function App() {
         )}
         <CompanionColumn
           projectKey={selectedKey}
-          project={selected}
           dataEpoch={dataEpoch}
           active={route === "workspace"}
           onOpenGallery={() => {

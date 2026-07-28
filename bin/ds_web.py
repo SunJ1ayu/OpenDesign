@@ -82,7 +82,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.54.0"  # 收件箱卡小字不再贴边、建收件箱按钮靠右;伴随列「图墙 →」小字删掉
+VERSION = "0.55.0"  # 删掉「当前状态」速览行(没有写口的永久摆设)及其整条链路
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -882,16 +882,14 @@ class Handler(BaseHTTPRequestHandler):
                     continue
                 stage = _field(text, "阶段")
                 dates = ds_common.LASTUPD_DATE_RE.findall(text)
-                # cockpit 速览:业主剥 [[ ]](链接语法是档案内部事,不外泄给 UI)
-                owner = _field(text, "业主")
-                if owner.startswith("[[") and owner.endswith("]]"):
-                    owner = owner[2:-2]
+                # 这里曾产出 owner / status_note 供伴随列「速览块」用。
+                # **2026-07-28 速览块删了 ⇒ 两个字段没有消费者,一并下线。**
+                # status_note(档案「当前状态」)另有一层:它**没有任何写口**,
+                # 建档时由模板填「新建,待完善」后永不变 —— 详见 ds_tools._PROJECT_TEMPLATE。
                 projects.append({
                     "key": key,
                     "name": _title(text) or key,
                     "stage": stage,
-                    "owner": owner,
-                    "status_note": _field(text, "当前状态"),
                     "open_count": counts.get(key, 0),
                     "delivered": stage in DELIVERED_STAGES,
                     "last_update": dates[-1] if dates else None,

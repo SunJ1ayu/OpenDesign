@@ -1232,12 +1232,6 @@ html, body { overflow: auto; }
 
 /* ── 驾驶舱速览(track opendesign-cockpit;修改单 D2 后只剩「当前状态」一句话,
    阶段/业主/相对时间挪走或删)──────────────────────────────────────────── */
-.cockpit-brief {
-  padding: 18px 16px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
 /* stage-chip(修改单 D2):现挂在中央列标题旁(.center-head .head-row),
    这里的类定义供两处共用 */
 .stage-chip {
@@ -1288,11 +1282,6 @@ html, body { overflow: auto; }
 .stage-menu-item:hover:not(:disabled) { background: var(--paper-side); }
 .stage-menu-item:disabled { cursor: default; }
 .stage-menu-item.current { background: var(--paper-side); font-weight: 600; color: var(--ink); }
-.cockpit-brief .note {
-  font-size: 12px;
-  color: var(--ink-2);
-  line-height: 1.5;
-}
 /* 文字链接(修改单 A2):一律 #a04f2e */
 .gallery-link { font-size: 11.5px; color: var(--terra-deep); white-space: nowrap; transition: color var(--hover-ease); }
 .gallery-link:hover { color: var(--terra); }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { FilesImages, FilesOverview, Project, Ref, WsRecent } from "../api";
+import type { FilesImages, FilesOverview, Ref, WsRecent } from "../api";
 import {
   BindProjectError,
   bindProject,
@@ -32,8 +32,9 @@ function fmtSize(n: number): string {
 
 type Props = {
   projectKey: string | null;
-  /** 速览块数据源(App 的 projects 列表选中项;未建档条目也来)。 */
-  project: Project | null;
+  // 这里曾有 `project: Project | null`,唯一用途是速览块显示「当前状态」。
+  // 速览块 2026-07-28 删掉后它就没有读者了 —— tsc 的 TS6133 当场点名,顺手拆干净,
+  // 不留一个「传进来但没人看」的 prop(那正是下一次误以为这里能拿到项目对象的起点)。
   /** M5 缺口偿还:每轮聊天回复后 bump → 重拉 refs/overview/images
       (agent 刚登记的参考图/刚接入的工作区即刻上屏,免切项目)。 */
   dataEpoch: number;
@@ -55,7 +56,6 @@ type Props = {
 
 export default function CompanionColumn({
   projectKey,
-  project,
   dataEpoch,
   active,
   onOpenGallery,
@@ -171,16 +171,13 @@ export default function CompanionColumn({
     <section className="aside">
       {/* ⓪ 收件箱已搬去右列顶部(-p2,用户提的):它是**工作区级**的东西,
           本来就不该混在"这个项目的图片/文件"中间;搬走后本列 = 纯这个项目。 */}
-      {/* ① 项目速览(cockpit,修改单 D2):阶段/业主/相对时间挪走或删——
-          阶段挪中央列标题旁(ChangesColumn stage-chip),业主不再展示;
-          「当前状态」一句话保留。 */}
-      {project && project.status_note ? (
-        <div className="cockpit-brief">
-          <div className="note" title="档案「当前状态」字段">
-            {project.status_note}
-          </div>
-        </div>
-      ) : null}
+      {/* ① 项目速览块(cockpit)**已整条删除**(2026-07-28,用户拍板)。
+          它最后只剩「当前状态」一句话,而那个字段**没有任何写口** —— 建档时由
+          `_PROJECT_TEMPLATE` 填一次「新建,待完善」,17 个 MCP 工具没一个改得动它,
+          于是这行小字永远显示模板默认值,占着项目工作区最显眼的位置当摆设。
+          根因不是"忘了做修改功能":**读侧挑显示对象时没人问过"这个字段谁来维护"**,
+          而模板的默认值把"没人维护"伪装成了"有内容"(留空的话这里的守卫本会隐身)。
+          要复活它就得先有写口(set_status 工具),不是把展示加回来。 */}
 
       {/* ② 图片区 */}
       <div className="aside-head">

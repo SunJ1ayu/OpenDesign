@@ -6,10 +6,9 @@ export type Project = {
   key: string;
   name: string;
   stage: string;
-  // cockpit 速览:业主(已剥 [[ ]])与「当前状态」一句话;缺字段=空串。
-  // 未建档条目不带这两个字段。
-  owner?: string;
-  status_note?: string;
+  // 这里曾有 owner / status_note(cockpit 速览块)。**2026-07-28 整条下线**:
+  // 速览块删了 ⇒ 没有消费者;而 status_note 那个档案字段本来就没有任何写口。
+  // 故意不留成可选字段 —— 留着等于把坑保温,下一个人照样会拿它去渲染。
   open_count: number;
   delivered: boolean;
   last_update: string | null;
