@@ -91,13 +91,14 @@ try {
   const tag = await page.locator(".thumb .tag").first().innerText();
   check(tag.includes("渲染输出"), "项目图:非模板类目的图上屏+类目小标");
 
-  // ④ 图墙常驻入口(<4 张图也可达)→ GalleryPage
-  // 同 frontend_p2_polish:限定伴随列。本夹具目前碰巧只有一个 .gallery-link,
-  // 但那是夹具的运气,不是选择器对 —— 一样收紧。
-  await page.locator(".aside .gallery-link").first().click();
+  // ④ 图墙入口(<4 张图也可达)→ GalleryPage
+  // **载体换了**:2026-07-28 用户拍板删掉「图片」标题旁那条「图墙 →」小字
+  // (「点图片就进去了,这个没必要吧」),所以这里改点缩略图。
+  // 要守的性质没变 —— 图少也进得去;新判据 inbox_pad_gallery.e2e.mjs 里钉了同一条。
+  await page.locator(".aside .thumb-grid .thumb:not(.more)").first().click();
   await page.locator(".gallery-page, .gallery-grid, .gallery-empty").first()
     .waitFor({ timeout: 10000 });
-  check(page.url().includes("#/gallery"), "图墙:常驻入口可达(图少也能进)");
+  check(page.url().includes("#/gallery"), "图墙:点缩略图可达(图少也能进)");
 } catch (e) {
   failures++;
   console.error(String(e));

@@ -169,7 +169,9 @@ try {
     `I4 嵌套文件开的是真实嵌套路径(实际 ${opened[2]})`);
 
   // ── I1:图墙「来源」= 描边下拉,不是 chip 云 ──────────────────────────
-  await page.locator('.aside .gallery-link').first().click();
+  // 直接走路由进图墙:本段验的是「来源」下拉的形态,不是入口(「图墙 →」小字
+  // 2026-07-28 按用户要求删掉;入口另有 inbox_pad_gallery.e2e.mjs 钉)。
+  await page.evaluate(() => { window.location.hash = "#/gallery"; });
   await page.locator(".gallery-page").waitFor({ timeout: 10000 });
   const srcSel = page.locator('[data-ui="gallery-source"]');
   await srcSel.waitFor({ timeout: 10000 });

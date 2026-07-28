@@ -174,7 +174,9 @@ try {
     "#9 再点收起");
 
   // ── #8 参考图标签/备注就地改(图墙 lightbox)───────────────────────────
-  await page.locator(".aside .gallery-link").first().click();
+  // 直接走路由进图墙:本段验的是 lightbox 里改标签/备注,不是入口(「图墙 →」小字
+  // 2026-07-28 按用户要求删掉;入口另有 inbox_pad_gallery.e2e.mjs 钉)。
+  await page.evaluate(() => { window.location.hash = "#/gallery"; });
   await page.locator(".gallery-page").waitFor({ timeout: 10000 });
   // 相册墙:参考图库那册只有一张 → 点封面直接放大(既有语义,p2-polish 定的)
   await page.locator('.gallery-page .g-cell:has(.g-cap .g:text-is("参考"))')
