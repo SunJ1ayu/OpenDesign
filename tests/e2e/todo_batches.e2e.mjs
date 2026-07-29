@@ -123,7 +123,10 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 
   const sects = () => page.locator('.todo-page .batch-sect');
-  const sect = (date) => page.locator(`.todo-page .batch-sect[data-date="${date}"]`);
+  // A–G 量的是**没有名字的那个日期组**;07-26 现在同一天还有李宅的命名批次
+  // (I 段要用),所以这里必须 :not([data-batch]) 精确到无名组,否则数到两组的行。
+  const sect = (date) =>
+    page.locator(`.todo-page .batch-sect[data-date="${date}"]:not([data-batch])`);
   const bsect = (id) => page.locator(`.todo-page .batch-sect[data-batch="${id}"]`);
   const bhead = (id) => bsect(id).locator('[data-ui="group-toggle"]');
   const brows = (id) => bsect(id).locator(".todo-row");
