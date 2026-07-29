@@ -31,7 +31,18 @@
       压过默认」这套写法,T4 的批次折叠持久化可以照抄(顺便把 `TodoPage.tsx` 的
       `toggled` 也接上,那是 T3 判据里点名的旧债)。
 
-- [ ] **T4 待办批次折叠 + 助手起标题** —— ⚠️ **新写口 → lane: full,不打折**
+> **T4 已拆两半(07-29 晚,主 agent 拍板)**:
+> - **T4a 折叠规则 + 兜底标题** —— 纯前端、**后端一字未动**、无新写口 → lane: self。
+>   判据:`tests/test_todo_batches.mjs` + `tests/e2e/todo_batches.e2e.mjs`。
+>   新增 `web/src/todoBatches.ts`(批次纯逻辑)+ `web/src/boolPrefs.ts`(与 T3 的
+>   `loadStagePrefs` 合并成一份实现)。**折叠状态落 localStorage,还上 tasks.md 点名的
+>   「TodoPage 的 toggled 是 useState、刷新即忘」那笔旧债**(只落时间批次;项目卡
+>   仍是会话级,不改默认视图行为)。
+> - **T4b 助手记录时起名** —— 开新写口 + 动档案格式 → **lane: full,不打折**。未开始。
+> 拆的理由:兜底标题在纯前端就能把「7月28日 · 3条」换成人话,先交付可见价值;
+> 风险最高的写口那半独立走全审。
+
+- [ ] **T4b 助手起标题** —— ⚠️ **新写口 → lane: full,不打折**
       「按时间」视图**已有**日期分批折叠(`TodoPage.tsx` 的 `batches()`),批次头现在是
       「7月28日 · 3条」。要把它换成一句人话(「效果图修改」)。
       **关键设计已与用户敲定**:

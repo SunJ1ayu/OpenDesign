@@ -2096,7 +2096,18 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   color: var(--ink-4);
   padding: 5px 0 3px;
 }
-.batch-head .n { color: var(--ink-5); font: 10.5px var(--font-mono); }
+/* 批次标题(T4a):一句人话,是批次头的主角 —— 日期退成次要信息。
+   `.batch-head .n`(原来的「N 条」)已随本单删除:条数并进了标题「… 等 N 条」。
+   单行省略兜住极端长内容(batchTitle 已截断,这里是第二道保险,防窄屏挤走条数)。 */
+.batch-head .batch-title {
+  color: var(--ink-3);
+  font-size: 11.5px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.batch-head .d8 { color: var(--ink-5); flex: none; }
 
 /* 共享折叠控件(track opendesign-todo-layout T2/T6):「按时间」日期批次头与
    「按项目」项目卡头共用同一套样式,不留两份。可见性修复(反馈 #1):.rule 长在

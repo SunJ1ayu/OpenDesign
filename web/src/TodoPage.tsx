@@ -6,6 +6,13 @@ import GroupToggle from "./GroupToggle";
 import StatusPicker from "./StatusPicker";
 import TodoRail from "./TodoRail";
 import type { ChatSession } from "./chat/connection";
+import { loadBoolPrefs, type BoolPrefs } from "./boolPrefs";
+import {
+  batchKey,
+  batchTitle,
+  isBatchOpen,
+  TODO_BATCH_STORAGE_KEY,
+} from "./todoBatches";
 import {
   batchEditRequests,
   buildEditRequest,
@@ -98,9 +105,17 @@ export default function TodoPage({
   const [state, setState] = useState<State>({ kind: "loading" });
   const [view, setView] = useState<"project" | "time">("project");
   const [reloadNonce, setReloadNonce] = useState(0);
-  // 日期批次折叠(todo-v3):记"被点过反转"的批次 key,展开态 = 默认(最新一批开) XOR 反转。
-  // 会话级不持久化;数据重拉后同 key 沿用用户的开合选择。
-  const [toggled, setToggled] = useState<Set<string>>(new Set());
+  // 折叠偏好(T4a):只记**用户显式点过**的键 → true/false,没点过的走各自默认规则。
+  // 原来是 XOR 一个 useState Set —— 刷新即忘,tasks.md 点名的旧债,这里还上。
+  // 落盘只落时间批次(@time|<date>);项目卡(@proj|<key>)沿用"默认全展开、不落盘",
+  // 本单不动它(改默认视图的行为不在 T4a 的判据里)。
+  const [foldPrefs, setFoldPrefs] = useState<BoolPrefs>(() => {
+    try {
+      return loadBoolPrefs(localStorage.getItem(TODO_BATCH_STORAGE_KEY));
+    } catch {
+      return {}; // 隐私模式/禁用 storage:偏好丢了也不许白屏
+    }
+  });
 
   // 行内编辑态
   const [editing, setEditing] = useState<string | null>(null);
@@ -252,13 +267,21 @@ export default function TodoPage({
     });
   }
 
-  // 折叠开合(共享 GroupToggle 用):反转某 key 的"被点过"标记,复用既有
-  // toggled Set(与 XOR 默认机制同源,时间批次 @time|<date> / 项目卡 @proj|<projectKey>)。
-  function toggleOpen(key: string) {
-    setToggled((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+  // 折叠开合(共享 GroupToggle 用):把这个键的当前展开态取反、记成**显式偏好**。
+  // 当前态由调用方算(各有各的默认规则),所以要传进来 —— 不在这里猜默认。
+  // 只把时间批次写进 localStorage:项目卡的开合仍是会话级(见 foldPrefs 注释)。
+  function toggleOpen(key: string, currentlyOpen: boolean) {
+    setFoldPrefs((prev) => {
+      const next = { ...prev, [key]: !currentlyOpen };
+      try {
+        const persisted: BoolPrefs = {};
+        for (const [k, v] of Object.entries(next)) {
+          if (k.startsWith("@time|")) persisted[k] = v;
+        }
+        localStorage.setItem(TODO_BATCH_STORAGE_KEY, JSON.stringify(persisted));
+      } catch {
+        /* 存不进去就只在本会话生效,不影响界面 */
+      }
       return next;
     });
   }
@@ -541,19 +564,21 @@ export default function TodoPage({
     );
   };
 
-  // 日期批次(todo-v3):仅「按时间」视图用。批次头可点折叠;最新一批(gi=0)默认展开。
-  // 批次头自带日期 → 行内不再重复显示日期。折叠控件 = 共享 GroupToggle(track
-  // opendesign-todo-layout T3):「全选本组」留在控件外(嵌套 button 非法 + 语义上不是折叠动作)。
+  // 日期批次(todo-v3;T4a 改标题与折叠规则):仅「按时间」视图用。
+  // 批次头 = 日期 + **一句人话**(batchTitle 兜底「首条内容 等 N 条」,T4b 换成助手起的名)。
+  // 默认开合走 isBatchOpen(≤2 条开 / ≥3 条收 / 有过期强制开),用户点过就以偏好为准并落盘。
+  // 折叠控件 = 共享 GroupToggle(track opendesign-todo-layout T3):「全选本组」留在控件外
+  // (嵌套 button 非法 + 语义上不是折叠动作)。
   const batches = (items: OpenItem[], scope: string, withProject = false) =>
-    groupByDate(items).map((dg, gi) => {
-      const key = `${scope}|${dg.date ?? "@none"}`;
-      const open = (gi === 0) !== toggled.has(key);
+    groupByDate(items).map((dg) => {
+      const key = batchKey(scope, dg.date);
+      const open = isBatchOpen(dg, foldPrefs, data.today, scope);
       return (
-        <div className="batch-sect" key={key}>
+        <div className="batch-sect" key={key} data-date={dg.date ?? "@none"}>
           <div className="batch-head">
-            <GroupToggle open={open} onToggle={() => toggleOpen(key)}>
+            <GroupToggle open={open} onToggle={() => toggleOpen(key, open)}>
               <span className="d8">{dg.date ? cnDate(dg.date) : "未标注日期"}</span>
-              <span className="n">{dg.items.length} 条</span>
+              <span className="batch-title">{batchTitle(dg.items)}</span>
             </GroupToggle>
             <button
               className="group-select-btn"
@@ -634,12 +659,14 @@ export default function TodoPage({
             <div className="todo-cards by-project">
               {filteredProjectCards.map((c) => {
                 const p = projects.find((x) => x.key === c.project);
-                const cardKey = `@proj|${c.project}`;
-                const open = !toggled.has(cardKey); // 项目卡默认全部展开(用户是来看待办的)
+                const cardKey = batchKey("@proj", c.project);
+                // 项目卡默认全部展开(用户是来看待办的);点过就以偏好为准。
+                // @proj 键不落盘 —— 保持原来的会话级行为,T4a 不改默认视图。
+                const open = foldPrefs[cardKey] ?? true;
                 return (
                   <section className="todo-card" key={c.project}>
                     <header className="card-head">
-                      <GroupToggle open={open} onToggle={() => toggleOpen(cardKey)}>
+                      <GroupToggle open={open} onToggle={() => toggleOpen(cardKey, open)}>
                         <span className="ico-col"><span className={dotClass(p)} /></span>
                         <span className="nm">{p?.name ?? c.project}</span>
                         <span className="n-open">{c.items.length} 条未办结</span>
