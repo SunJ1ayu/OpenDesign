@@ -224,9 +224,12 @@ try {
     }
     expect(await allRows().count() === TOTAL,
       `全展开后待办行数 = ${TOTAL}(实测 ${await allRows().count()})`);
-    const sum = (await Promise.all(BATCHES.map((b) => rowsIn(b.date).count())))
-      .reduce((a, b) => a + b, 0);
-    expect(sum === TOTAL, `各批次行数之和 = ${TOTAL}(实测 ${sum})`);
+    // 求和要遍历**页面上所有分组**(含李宅那两个命名批次),不能只数 BATCHES 那三个日期
+    // —— 否则"总数"与"分组之和"量的根本不是同一批东西。
+    const perGroup = await sects().evaluateAll(
+      (els) => els.map((e) => e.querySelectorAll(".todo-row").length));
+    const sum = perGroup.reduce((a, b) => a + b, 0);
+    expect(sum === TOTAL, `各分组行数之和 = ${TOTAL}(实测 ${sum})`);
   });
 
   // ── H 助手起的名(T4b)─────────────────────────────────────────────────────
