@@ -217,8 +217,8 @@ test("往返:点收 → 存盘 → 重新解析 → 仍是收着(刷新不忘)",
 //      否则收一个另一个跟着收。
 import { groupByBatch, groupHeading } from "../web/src/todoBatches.ts";
 
-const bItem = (text, batch = null, date = "2026-07-28", due = null) => ({
-  ...item(text, due), date, batch,
+const bItem = (text, batch = null, date = "2026-07-28", due = null, project = "张宅") => ({
+  ...item(text, due), date, batch, project,
 });
 const B1 = { id: "C1-C2", title: "效果图修改" };
 const B2 = { id: "C3-C3", title: "水电改动" };
@@ -305,4 +305,59 @@ test("折叠规则对命名批次照旧生效(≥3 收起 / 过期强制展开)"
     bItem("a", B1), bItem("b", B1), bItem("c", B1, "2026-07-28", "2026-07-01"),
   ])[0];
   assert.equal(isBatchOpen(overdue, {}, TODAY), true);
+});
+
+// ── T4b 收货修复轮:四审 subkimi 孤腿 BLOCK(成立)+ subdeepseek 跨天(成立)────
+// C 编号是**每个项目各自**从 1 起编的(ds_tools._max_change_num 只扫单文件),
+// 而「按时间」视图把所有项目混在一起。所以批次身份必须带项目维度,
+// 否则两个项目同一天各有一批 C1-C2 会被并成一组、张冠李戴。
+// 判据里原来的 item() 把 project 写死成"张宅" —— 正是这个盲点让它漏网。
+
+test("跨项目:两个项目同一天各有 C1-C2,必须是两组,各归各的名", () => {
+  const gs = groupByBatch([
+    bItem("张宅的甲", { id: "C1-C2", title: "效果图修改" }, "2026-07-28", null, "张宅"),
+    bItem("李宅的甲", { id: "C1-C2", title: "水电改动" }, "2026-07-28", null, "李宅"),
+    bItem("张宅的乙", { id: "C1-C2", title: "效果图修改" }, "2026-07-28", null, "张宅"),
+  ]);
+  assert.equal(gs.length, 2, "同 id 不同项目绝不能并成一组");
+  const zhang = gs.find((g) => g.items[0].project === "张宅");
+  const li = gs.find((g) => g.items[0].project === "李宅");
+  assert.equal(zhang.items.length, 2);
+  assert.equal(li.items.length, 1);
+  assert.equal(groupHeading(zhang), "效果图修改 等 2 条");
+  assert.equal(groupHeading(li), "水电改动");
+  // 一组里的条目必须同项目(不许混)
+  for (const g of gs) {
+    assert.equal(new Set(g.items.map((it) => it.project)).size, 1,
+      "一个批次组里不许混两个项目的条目(「全选本组」会跨项目批量改状态)");
+  }
+});
+
+test("跨项目:折叠键不许撞(收一个不能带走另一个)", () => {
+  const gs = groupByBatch([
+    bItem("张", { id: "C1-C2", title: "甲" }, "2026-07-28", null, "张宅"),
+    bItem("李", { id: "C1-C2", title: "乙" }, "2026-07-28", null, "李宅"),
+  ]);
+  const k = (g) => batchKey("@time", g.date, g.foldId);
+  assert.notEqual(k(gs[0]), k(gs[1]));
+});
+
+test("折叠键锚在区间起点:区间延长后用户的展开选择不作废", () => {
+  // subkimi #2:助手再记一条 → C1-C2 延成 C1-C3。若键跟着 id 变,
+  // 用户刚点开的那批会变回默认(≥3 条收起),体感 = "我明明点开了它自己合上了"。
+  const before = groupByBatch([
+    bItem("甲", { id: "C1-C2", title: "效果图修改" }),
+    bItem("乙", { id: "C1-C2", title: "效果图修改" }),
+  ])[0];
+  const after = groupByBatch([
+    bItem("甲", { id: "C1-C3", title: "效果图修改" }),
+    bItem("乙", { id: "C1-C3", title: "效果图修改" }),
+    bItem("丙", { id: "C1-C3", title: "效果图修改" }),
+  ])[0];
+  assert.equal(batchKey("@time", before.date, before.foldId),
+               batchKey("@time", after.date, after.foldId),
+               "区间延长不许换折叠键");
+  // 而且延长后用户"点开过"的偏好仍然生效(3 条本该默认收起)
+  const prefs = { [batchKey("@time", before.date, before.foldId)]: true };
+  assert.equal(isBatchOpen(after, prefs, TODAY), true);
 });

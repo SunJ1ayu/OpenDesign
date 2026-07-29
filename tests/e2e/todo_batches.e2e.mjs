@@ -43,7 +43,7 @@ const BATCHES = [
   { date: "2026-07-26", texts: ["客厅吊顶改平顶", "电视墙留白", "地板换木色", "玄关做柜"],
     due: { 0: "2026-07-01" } }, // 第 1 条过期
 ];
-const TOTAL = BATCHES.reduce((n, b) => n + b.texts.length, 0) + 4; // +4 = 李宅的两个命名批次
+const TOTAL = BATCHES.reduce((n, b) => n + b.texts.length, 0) + 6; // +6 = 李宅四条命名 + 两条 07-26 命名
 
 const lines = [];
 let cn = 0;
@@ -81,9 +81,13 @@ writeFileSync(join(dsRoot, "projects", "李宅-0808.md"), `# 李宅-0808
 - [待确认] C3 2026-07-25 【厨房】加净水器点位
 - [待确认] C4 2026-07-25 【阳台】洗衣机位留水口
 
+- [待确认] C5 2026-07-26 【主卧】床头灯改壁灯
+- [待确认] C6 2026-07-26 【主卧】插座下移
+
 ## 批次
 - C1-C2 2026-07-25 效果图修改
 - C3-C4 2026-07-25 水电改动
+- C5-C6 2026-07-26 主卧微调
 
 ## 沟通日志
 
@@ -253,6 +257,29 @@ try {
     expect(await brows("C3-C4").count() === 2, "第二批不受影响(折叠键分开了)");
     await gotoTodo();
     expect(await brows("C1-C2").count() === 0, "刷新后第一批仍收着");
+  });
+
+
+  // ── I 跨项目(四审 subkimi 孤腿 BLOCK)──────────────────────────────────────
+  await step("I 同一天里两个项目各有批次 → 各自成组,不许张冠李戴", async () => {
+    await gotoTodo();
+    // 07-26:张宅有 4 条无名条目(含过期),李宅有命名批次「主卧微调」
+    const li = page.locator('.todo-page .batch-sect[data-date="2026-07-26"]',
+      { hasText: "主卧微调" });
+    expect(await li.count() === 1, "李宅的命名批次在 07-26 自成一组");
+    const liRows = li.locator(".todo-row");
+    expect(await liRows.count() === 2, "组里只有李宅那 2 条");
+    const projs = await liRows.locator(".proj-tag, .proj").allInnerTexts()
+      .catch(() => []);
+    if (projs.length) {
+      expect(new Set(projs.map((t) => t.trim())).size === 1,
+        `一组里不许混两个项目(实测 ${JSON.stringify(projs)})`);
+    }
+    // 张宅那 4 条仍在它们自己的无名组里
+    const zhang = page.locator('.todo-page .batch-sect[data-date="2026-07-26"]')
+      .filter({ hasNot: page.locator("text=主卧微调") });
+    expect(await zhang.locator(".todo-row").count() === 4,
+      "张宅 07-26 的 4 条不受影响");
   });
 
 } finally {

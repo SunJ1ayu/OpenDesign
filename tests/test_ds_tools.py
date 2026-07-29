@@ -1911,5 +1911,26 @@ class BatchTitleOracle(unittest.TestCase):
         self.assertEqual(r2.get("error"), "empty_content")
         self.assertEqual(self._batch_lines(), [], "报错的调用不许留下批次行")
 
+    # ⑪ 跨天不许延段(四审 subdeepseek 挑出;根因在我的规格):
+    #    「一批 = 一次记录动作」,换了一天就是另一次记录动作。原实现只看
+    #    "标题相同 + 号连续",会把昨天那批延到今天,且批次行日期停留在昨天 ——
+    #    前端按 (日期, 批次) 分组时同一个 id 会裂成两组、顶着同一个名字。
+    def test_b14_new_day_starts_new_batch(self):
+        self._add("甲", title="效果图修改")           # C2,TODAY
+        r = ds_tools.append_change(self.slug, "乙", ds_root=self.ds,
+                                   today="2026-07-02", batch_title="效果图修改")  # C3,次日
+        self.assertEqual(r.get("change_id"), "C3")
+        self.assertEqual(self._batch_lines(), [
+            f"- C2-C2 {TODAY} 效果图修改",
+            "- C3-C3 2026-07-02 效果图修改",
+        ], "跨天必须新起一行,不许把昨天那批延过来")
+
+    # ⑫ 同一天、同标题、连号 → 仍然延段(上一条不许误伤正常路径)
+    def test_b15_same_day_still_extends(self):
+        self._add("甲", title="效果图修改")
+        self._add("乙", title="效果图修改")
+        self.assertEqual(self._batch_lines(), [f"- C2-C3 {TODAY} 效果图修改"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -129,6 +129,7 @@ class TestDsTodo(unittest.TestCase):
             "project": "a-open", "line": 4, "status": "待确认", "cnum": 1,
             "date": "2026-06-20", "space": None, "text": "改推拉门", "due": None,
             "raw": "- [待确认] C1 2026-06-20 改推拉门",
+            "batch": None,  # T4b:没有 `## 批次` 段的旧档案 → 恒 None(零迁移)
         }])
         self.assertEqual(d["stale"], [{"project": "b-stale", "days": 13,
                                        "last": "2026-06-20"}])
