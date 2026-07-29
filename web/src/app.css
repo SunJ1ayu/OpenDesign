@@ -283,6 +283,25 @@ html, body { overflow: auto; }
   overflow: auto;
   min-height: 48px;
 }
+/* 项目按阶段分堆(track opendesign-due-picker T3):堆头复用共享折叠控件 .grp-toggle,
+   不另起第二套折叠语言;只把字号/留白收到与 .side-sect 小标题同一档,免得 240px 窄栏
+   里两级标题打架。已交付的堆默认收着 —— 分堆就是为了它们别占地方。 */
+.stage-group { display: flex; flex-direction: column; gap: 2px; }
+.stage-group + .stage-group { margin-top: 6px; }
+.stage-head { display: flex; align-items: center; padding: 5px 10px 1px; }
+.stage-head .grp-toggle {
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ink-4);
+  letter-spacing: 0.06em;
+}
+.stage-head .grp-toggle .chev { width: 9px; font-size: 9px; color: var(--ink-5); }
+.stage-head .grp-toggle .nm { flex: none; }
+.stage-head .grp-toggle .n-count {
+  flex: none;
+  font: 600 10px var(--font-mono);
+  color: var(--ink-5);
+}
 .proj-row {
   display: flex;
   align-items: center;

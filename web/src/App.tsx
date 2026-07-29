@@ -397,6 +397,7 @@ export default function App() {
     <Sidebar
       route={route}
       projects={projects}
+      stages={stages}
       excludedStructural={excludedStructural}
       selectedKey={selectedKey}
       onSelectProject={goProject}

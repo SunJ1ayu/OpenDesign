@@ -1,7 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Project } from "../api";
 import { relTime } from "../api";
 import { displayProjectName } from "./projectName";
+import GroupToggle from "../GroupToggle";
+import {
+  groupProjectsByStage, isStageGroupOpen, loadStagePrefs, revealStage,
+  SIDE_STAGE_STORAGE_KEY, type StageGroup, type StagePrefs,
+} from "./projectGroups";
 
 // 左侧栏 v2(P3 T3,handoff §1,240px):品牌 / 全局操作组(新对话/搜索/
 // 待办事项/技能)/ 历史对话 / 项目 / 设置弹层。图标沿用定稿的 Unicode 占位
@@ -17,6 +22,8 @@ export type SessionItem = { key: string; title?: string; preview?: string; updat
 type Props = {
   route: "home" | "workspace" | "todos" | "skills" | "gallery";
   projects: Project[];
+  /** 阶段词表(/api/projects 下发,单一真相源 = 后端 PROJECT_STAGES):项目分堆的排序依据 */
+  stages: string[];
   selectedKey: string | null;
   onSelectProject: (key: string) => void;
   todosOpenCount: number | null;
@@ -51,12 +58,38 @@ function dotTitle(p: Project, current: boolean): string {
 }
 
 export default function Sidebar({
-  route, projects, selectedKey, onSelectProject, todosOpenCount, excludedStructural,
+  route, projects, stages, selectedKey, onSelectProject, todosOpenCount, excludedStructural,
   onOpenFolderVisibility,
   sessions, sessionTags, onOpenSession, onDeleteSession, onNewChat, onNewProject,
   onSearch, health,
 }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // 项目按阶段分堆(T3,用户 07-28 拍板)。折叠状态**落 localStorage**:待办页的
+  // toggled 是 useState、刷新即忘,这里不重蹈覆辙(判据 D 段钉死)。
+  const groups = useMemo(() => groupProjectsByStage(projects, stages), [projects, stages]);
+  const [stagePrefs, setStagePrefs] = useState<StagePrefs>(() =>
+    loadStagePrefs(typeof localStorage === "undefined"
+      ? null : localStorage.getItem(SIDE_STAGE_STORAGE_KEY)));
+
+  const writeStagePrefs = (next: StagePrefs) => {
+    setStagePrefs(next);
+    try { localStorage.setItem(SIDE_STAGE_STORAGE_KEY, JSON.stringify(next)); }
+    catch { /* 隐私模式:记不住就算了,不该让侧栏崩 */ }
+  };
+
+  // 从别处选中的项目(待办「去项目 →」/ 搜索直达)若落在收着的堆里,把那堆展开。
+  // 只在**选中项变了**的那一次做:写成渲染期覆盖、或每次 prefs 变都重算,
+  // 都会让"选中着的那堆"收不起来 —— 折叠键变死键(判据 E 段最后一条钉死)。
+  const revealedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selectedKey || revealedFor.current === selectedKey) return;
+    const g = groups.find((x) => x.projects.some((p) => p.key === selectedKey));
+    if (!g) return; // 项目列表还没到:不记账,等它到了再试
+    revealedFor.current = selectedKey;
+    const next = revealStage(stagePrefs, g);
+    if (next !== stagePrefs) writeStagePrefs(next);
+  }, [selectedKey, groups, stagePrefs]);
 
   // 弹层外点击收起(设置行自身的 toggle 在 onClick 里处理)
   useEffect(() => {
@@ -82,6 +115,50 @@ export default function Sidebar({
   }, [settingsOpen]);
 
   const recent = (sessions ?? []).slice(0, 2);
+
+  const projRow = (p: Project) => {
+    const current = p.key === selectedKey;
+    // 白底卡片当前态只在 2a(workspace)呈现;3a 等页选中项目仅保留赤陶圆点
+    const card = current && route === "workspace";
+    return (
+      <button
+        key={p.key}
+        className={`proj-row${card ? " current" : ""}${p.delivered ? " delivered" : ""}${p.unregistered ? " unregistered" : ""}`}
+        onClick={() => onSelectProject(p.key)}
+        title={p.unregistered
+          ? `${p.name} · 工作区文件夹(未建档)——在对话里说「新建项目」即可建档`
+          : p.stage ? `${p.name} · 阶段:${p.stage}` : p.name}
+      >
+        <span className="ico-col">
+          <span className={dotClass(p, current)} title={dotTitle(p, current)} />
+        </span>
+        <span className="nm">{displayProjectName(p.name)}</span>
+        {p.group ? <span className="n-group">{p.group}</span> : null}
+        {p.unregistered ? null : (
+          p.open_count > 0 && <span className="n-open">{p.open_count}</span>
+        )}
+      </button>
+    );
+  };
+
+  // 一堆 = 阶段头(共享折叠控件,与待办页同一套折叠语言)+ 展开时的项目行
+  const stageGroup = (g: StageGroup) => {
+    const open = isStageGroupOpen(g, stagePrefs);
+    return (
+      <div className="stage-group" data-ui="stage-group" data-stage={g.stage} key={g.stage}>
+        <div className="stage-head">
+          <GroupToggle
+            open={open}
+            onToggle={() => writeStagePrefs({ ...stagePrefs, [g.stage]: !open })}
+          >
+            <span className="nm">{g.stage}</span>
+            <span className="n-count">{g.projects.length}</span>
+          </GroupToggle>
+        </div>
+        {open && g.projects.map(projRow)}
+      </div>
+    );
+  };
 
   return (
     <nav className="side">
@@ -181,30 +258,7 @@ export default function Sidebar({
         </button>
       </div>
       <div className="proj-list">
-        {projects.map((p) => {
-          const current = p.key === selectedKey;
-          // 白底卡片当前态只在 2a(workspace)呈现;3a 等页选中项目仅保留赤陶圆点
-          const card = current && route === "workspace";
-          return (
-            <button
-              key={p.key}
-              className={`proj-row${card ? " current" : ""}${p.delivered ? " delivered" : ""}${p.unregistered ? " unregistered" : ""}`}
-              onClick={() => onSelectProject(p.key)}
-              title={p.unregistered
-                ? `${p.name} · 工作区文件夹(未建档)——在对话里说「新建项目」即可建档`
-                : p.stage ? `${p.name} · 阶段:${p.stage}` : p.name}
-            >
-              <span className="ico-col">
-                <span className={dotClass(p, current)} title={dotTitle(p, current)} />
-              </span>
-              <span className="nm">{displayProjectName(p.name)}</span>
-              {p.group ? <span className="n-group">{p.group}</span> : null}
-              {p.unregistered ? null : (
-                p.open_count > 0 && <span className="n-open">{p.open_count}</span>
-              )}
-            </button>
-          );
-        })}
+        {groups.map(stageGroup)}
         {projects.length === 0 && (
           <div className="side-empty-hint">还没有项目——在对话里说「新建项目…」</div>
         )}
