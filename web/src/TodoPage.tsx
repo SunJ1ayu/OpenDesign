@@ -9,7 +9,8 @@ import type { ChatSession } from "./chat/connection";
 import { loadBoolPrefs, type BoolPrefs } from "./boolPrefs";
 import {
   batchKey,
-  batchTitle,
+  groupByBatch,
+  groupHeading,
   isBatchOpen,
   TODO_BATCH_STORAGE_KEY,
 } from "./todoBatches";
@@ -17,7 +18,6 @@ import {
   batchEditRequests,
   buildEditRequest,
   dueStatus,
-  groupByDate,
   groupByProject,
   idleProjectKeys,
   isTerminalStatus,
@@ -570,15 +570,23 @@ export default function TodoPage({
   // 折叠控件 = 共享 GroupToggle(track opendesign-todo-layout T3):「全选本组」留在控件外
   // (嵌套 button 非法 + 语义上不是折叠动作)。
   const batches = (items: OpenItem[], scope: string, withProject = false) =>
-    groupByDate(items).map((dg) => {
-      const key = batchKey(scope, dg.date);
+    groupByBatch(items).map((dg) => {
+      // 两个键分开:React 的 key 认"这是哪一组"(用会变的区间 id 也无妨),
+      // 折叠偏好认 foldId(带项目、锚在区间起点,延长区间不换键)。
+      // **写偏好和读偏好必须用同一个键** —— 用错就是点了没反应的死键。
+      const foldKey = batchKey(scope, dg.date, dg.foldId);
       const open = isBatchOpen(dg, foldPrefs, data.today, scope);
       return (
-        <div className="batch-sect" key={key} data-date={dg.date ?? "@none"}>
+        <div
+          className="batch-sect"
+          key={`${dg.date ?? "@none"}|${dg.id ?? "@loose"}`}
+          data-date={dg.date ?? "@none"}
+          {...(dg.id ? { "data-batch": dg.id } : {})}
+        >
           <div className="batch-head">
-            <GroupToggle open={open} onToggle={() => toggleOpen(key, open)}>
+            <GroupToggle open={open} onToggle={() => toggleOpen(foldKey, open)}>
               <span className="d8">{dg.date ? cnDate(dg.date) : "未标注日期"}</span>
-              <span className="batch-title">{batchTitle(dg.items)}</span>
+              <span className="batch-title">{groupHeading(dg)}</span>
             </GroupToggle>
             <button
               className="group-select-btn"

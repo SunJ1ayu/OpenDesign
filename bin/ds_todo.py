@@ -24,6 +24,36 @@ CHANGE_RE = re.compile(
     r"(?:\s+C(\d+)\b)?(?:\s+(\d{4}-\d{2}-\d{2}))?\s*"
     r"(?:【([^【】\s][^【】]{0,15})】\s*)?(.*)$")  # 可选【空间】前缀(track p4):1-16字,空/超长落回正文
 LASTUPD_RE = ds_common.LASTUPD_DATE_RE  # 行首锚定:沟通日志句中的"最后更新"不再误认
+# T4b 批次行:与写侧共用 ds_common 的那一份(不设第二个命中正则)。
+# 缺 `[状态]` ⇒ CHANGE_RE 命中不了 ⇒ 批次行永远不会被收成待办。
+BATCH_RE = ds_common.BATCH_LINE_RE
+
+
+def parse_batches(text: str) -> list[tuple[int, int, str]]:
+    """抽出全部批次区间 [(起, 止, 标题)],按文件出现序。坏行只跳过,不拖垮 collect
+    (与 M1「一个坏文件不该让端点全灭」同哲学)。标题为空的行视为坏行。"""
+    out = []
+    for ln in text.split("\n"):
+        m = BATCH_RE.match(ln)
+        if not m:
+            continue
+        lo, hi = int(m.group("from")), int(m.group("to"))
+        title = m.group("title").strip()
+        if title and lo <= hi:
+            out.append((lo, hi, title))
+    return out
+
+
+def _batch_of(batches: list[tuple[int, int, str]], cnum: int | None) -> dict | None:
+    """cnum 落在哪个批次里。区间重叠(手写坏档案)时**后写的赢** —— 与"最后一次命名
+    说了算"一致,且绝不抛。没有 cnum 的残缺行天然无批次。"""
+    if cnum is None:
+        return None
+    hit = None
+    for lo, hi, title in batches:
+        if lo <= cnum <= hi:
+            hit = {"id": f"C{lo}-C{hi}", "title": title}
+    return hit
 
 
 def parse_change(line: str) -> dict | None:
@@ -71,6 +101,7 @@ def collect(root: str, stale_days: int = 7, today: date | None = None) -> dict:
             errors.append(f)  # 一个坏文件不该让 todos/projects 双端点全灭
             continue
         name = f[:-3]
+        batches = parse_batches(text)  # T4b:助手记录时起的名(段不存在 = 空表 = 全 None)
         for i, ln in enumerate(text.split("\n"), 1):
             c = parse_change(ln)
             if c is None or c["status"] not in OPEN_STATUS:
@@ -83,6 +114,7 @@ def collect(root: str, stale_days: int = 7, today: date | None = None) -> dict:
                 "space": c["space"],
                 "text": c["text"],
                 "due": c["due"],
+                "batch": _batch_of(batches, c["cnum"]),
             })
         dates = LASTUPD_RE.findall(text)
         if not dates:

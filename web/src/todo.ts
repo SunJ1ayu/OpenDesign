@@ -11,6 +11,9 @@ export type OpenItem = {
   space: string | null; // 【空间】前缀(T1);旧行 null
   text: string;
   due: string | null; // 截止日 YYYY-MM-DD(track opendesign-todo-duedate);旧行 null
+  // T4b:助手记录时给这一批起的名(ds_todo.collect 附;没有 `## 批次` 段的旧档案恒 null)。
+  // 写进类型是为了后端改名时前端有编译期告警 —— 靠 `as` 强取会静默退回兜底分组。
+  batch?: { id: string; title: string } | null;
 };
 
 export type StaleItem = { project: string; days: number; last: string };

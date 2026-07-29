@@ -53,6 +53,10 @@ DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 _CHANGE_RE = re.compile(r"^- \[(?P<status>[^\]]*)\]\s+C(?P<num>\d+)\b")
 _CHANGE_HEADER = "## 变更记录"
 _HISTORY_HEADER = "## 变更历史"  # edit_change 的留痕/备注独立段(不匹配 _CHANGE_RE ⇒ 不成待办)
+_BATCH_HEADER = "## 批次"       # T4b:一次记录动作的名字(同样不匹配 _CHANGE_RE ⇒ 不成待办)
+# 批次行正则:单一真相源在 ds_common,读写共用(不设第二份,见那里的注释)。
+_BATCH_RE = ds_common.BATCH_LINE_RE
+_BATCH_TITLE_MAX = 24
 
 # 改正文时"只替尾段、绝不重拼主行"的前缀捕获正则(BLOCK-2):group(1)=状态/C号/日期/
 # 【空间】前缀(逐字节保留),group(2)=正文尾段。
@@ -135,9 +139,50 @@ def _max_change_num(lines: list[str]) -> int:
     return m
 
 
+def _clean_batch_title(title: str) -> str:
+    """批次标题消毒:折单行(sanitize_field 只做这个,不剥前缀 —— 别指望它代劳)→
+    剥【】(防伪造空间前缀)→ 剥行首的 - / [ / # / >(防伪造成变更行或段头)→ 截 24。
+    标题写在行尾,行首恒为 `- C{n}-C{m} `,所以这层剥离是纵深防御不是唯一防线。"""
+    t = ds_common.sanitize_field(title).replace("【", "").replace("】", "")
+    t = re.sub(r"^[-\[\]#>\s]+", "", t)
+    return t[:_BATCH_TITLE_MAX].strip()
+
+
+def _upsert_batch_line(lines: list[str], cnum: int, title: str, today: str) -> None:
+    """把 cnum 归进 `## 批次` 段。段末那行**标题相同且区间末尾+1 == cnum** → 末尾延一格;
+    否则新起一行。段缺失则补建到页脚 `---` 之前(与 log_communication 同策略)——
+    **绝不插进 `## 变更记录` 中间**:append_change 找插入点以下一个 `## ` 为界,
+    插错位置会让后续变更掉进批次段(oracle test_b11 钉这条)。"""
+    hdr = next((i for i, ln in enumerate(lines) if ln.startswith(_BATCH_HEADER)), None)
+    if hdr is None:
+        foot = next((i for i in range(len(lines) - 1, -1, -1)
+                     if lines[i].startswith("---")), len(lines))
+        lines[foot:foot] = [_BATCH_HEADER, f"- C{cnum}-C{cnum} {today} {title}", ""]
+        return
+    end = next((j for j in range(hdr + 1, len(lines))
+                if lines[j].startswith("## ") or lines[j].startswith("---")), len(lines))
+    last = None
+    for i in range(hdr + 1, end):
+        if _BATCH_RE.match(lines[i]):
+            last = i
+    if last is not None:
+        m = _BATCH_RE.match(lines[last])
+        # 三条件全中才延段:同标题 + 号相连 + **同一天**。
+        # 「一批 = 一次记录动作」,换了一天就是另一次记录动作 —— 少了日期这条,
+        # 昨天那批会被延到今天,而批次行日期停在昨天,前端按(日期,批次)分组时
+        # 同一个 id 会裂成两组、顶着同一个名字(四审 subdeepseek 挑出,根因在规格)。
+        if (m.group("title") == title and int(m.group("to")) + 1 == cnum
+                and m.group("date") == today):
+            lines[last] = f"- C{m.group('from')}-C{cnum} {today} {title}"
+            return
+    insert_at = (last + 1) if last is not None else hdr + 1
+    lines.insert(insert_at, f"- C{cnum}-C{cnum} {today} {title}")
+
+
 # ── 工具 4.1 append_change ──────────────────────────────────────────────────
 def append_change(project: str, content: str, ds_root: str = DEFAULT_DS_ROOT,
-                  today: str | None = None, space: str = "") -> dict:
+                  today: str | None = None, space: str = "",
+                  batch_title: str = "") -> dict:
     today = ds_common.today_str(today)
     content = ds_common.sanitize_field(content)  # 折换行:单行契约的物理保证
     if not content:
@@ -171,6 +216,11 @@ def append_change(project: str, content: str, ds_root: str = DEFAULT_DS_ROOT,
                 last_change = i
         insert_at = (last_change + 1) if last_change is not None else hdr + 1
         lines.insert(insert_at, new_line)
+
+        # T4b:带标题才动批次段。空标题(或消毒后空)= 一行都不写,前端走兜底。
+        clean_title = _clean_batch_title(batch_title)
+        if clean_title:
+            _upsert_batch_line(lines, next_num, clean_title, today)
 
         ds_common.bump_last_updated(lines, today)
 
@@ -1200,10 +1250,19 @@ def _run_mcp() -> None:
         return create_project(project, client, stage=stage, address=address, ds_root=ds_root)
 
     @server.tool()
-    def append_change_tool(project: str, content: str, space: str = "") -> dict:
+    def append_change_tool(project: str, content: str, space: str = "",
+                           batch_title: str = "") -> dict:
         """追加一条业主新提的修改需求(自动编号,标记 [待确认])。项目须已存在(见 create_project)。
-        space=所属空间(可选但尽量带,如 玄关/客厅/主卧/厨房/卫生间/阳台;听得出就填)。"""
-        return append_change(project, content, ds_root=ds_root, space=space)
+        space=所属空间(可选但尽量带,如 玄关/客厅/主卧/厨房/卫生间/阳台;听得出就填)。
+
+        batch_title=这一批的主题(可选,4-10 字的人话,如「效果图修改」「水电改动」)。
+        设计师一次贴进来的一段业主原话往往包含好几条修改——**把它们当作一批,
+        每一条都传完全相同的 batch_title**,待办页就会用这句话当这批的小标题,
+        而不是干巴巴的日期。
+        同一段原话里如果明显是两件不相干的事(比如既说效果图又说水电),
+        就分成两批、各用各的标题。不传 = 不起名,界面会自动拿第一条内容凑一个。"""
+        return append_change(project, content, ds_root=ds_root, space=space,
+                             batch_title=batch_title)
 
     @server.tool()
     def set_change_status_tool(project: str, change_id: str, status: str) -> dict:

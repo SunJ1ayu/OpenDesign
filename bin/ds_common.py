@@ -23,6 +23,13 @@ _LASTUPD_LINE_RE = re.compile(r"^最后更新[:：]")
 # 读侧(ds_todo)用:行首锚定,提取日期
 LASTUPD_DATE_RE = re.compile(r"^最后更新[:：]\s*(\d{4}-\d{2}-\d{2})", re.MULTILINE)
 
+# T4b 批次行 `- C{起}-C{止} {日期} {标题}` 的唯一定义 —— 读侧(ds_todo.collect)与
+# 写侧(ds_tools._upsert_batch_line)共用这一份。本项目自己立过"同一个命中不设第二个
+# 正则,双正则会漂移"的规矩(见 ds_todo 顶部),批次行不破例。
+# 行首是 `- C` 而非 `- [状态]`,所以变更行正则永远命中不了它(反之亦然)。
+BATCH_LINE_RE = re.compile(
+    r"^- C(?P<from>\d+)-C(?P<to>\d+) (?P<date>\d{4}-\d{2}-\d{2}) (?P<title>.*)$")
+
 # 变更行尾截止日 token(track opendesign-todo-duedate):行尾锚定,正文中间的
 # ⏳日期 不误伤;读写两侧(ds_todo.parse_change / ds_tools.set_due_date)共用本 helper,
 # 消漂移。
