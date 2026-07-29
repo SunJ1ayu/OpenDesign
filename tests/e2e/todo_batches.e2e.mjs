@@ -43,7 +43,7 @@ const BATCHES = [
   { date: "2026-07-26", texts: ["客厅吊顶改平顶", "电视墙留白", "地板换木色", "玄关做柜"],
     due: { 0: "2026-07-01" } }, // 第 1 条过期
 ];
-const TOTAL = BATCHES.reduce((n, b) => n + b.texts.length, 0);
+const TOTAL = BATCHES.reduce((n, b) => n + b.texts.length, 0) + 4; // +4 = 李宅的两个命名批次
 
 const lines = [];
 let cn = 0;
@@ -62,6 +62,28 @@ writeFileSync(join(dsRoot, "projects", "张宅-1101.md"), `# 张宅-1101
 
 ## 变更记录
 ${lines.join("\n")}
+
+## 沟通日志
+
+---
+最后更新: ${TODAY}
+`);
+// T4b 夹具:第二个项目带 `## 批次` 段(助手起的名)。**故意用新日期 07-25**,
+// 不打扰上面 A–G 三批的默认态断言。同一天里两个命名批次,验"各自成组、各自折叠"。
+writeFileSync(join(dsRoot, "projects", "李宅-0808.md"), `# 李宅-0808
+
+- 业主: [[李先生]]
+- 阶段: 效果图
+
+## 变更记录
+- [待确认] C1 2026-07-25 【客厅】沙发背景墙改护墙板
+- [待确认] C2 2026-07-25 【客厅】灯带改暗藏
+- [待确认] C3 2026-07-25 【厨房】加净水器点位
+- [待确认] C4 2026-07-25 【阳台】洗衣机位留水口
+
+## 批次
+- C1-C2 2026-07-25 效果图修改
+- C3-C4 2026-07-25 水电改动
 
 ## 沟通日志
 
@@ -98,12 +120,13 @@ try {
 
   const sects = () => page.locator('.todo-page .batch-sect');
   const sect = (date) => page.locator(`.todo-page .batch-sect[data-date="${date}"]`);
+  const bsect = (id) => page.locator(`.todo-page .batch-sect[data-batch="${id}"]`);
+  const bhead = (id) => bsect(id).locator('[data-ui="group-toggle"]');
+  const brows = (id) => bsect(id).locator(".todo-row");
   const head = (date) => sect(date).locator('[data-ui="group-toggle"]');
   const rowsIn = (date) => sect(date).locator(".todo-row");
   const allRows = () => page.locator(".todo-page .todo-row");
 
-  // 待办页默认是「按项目」视图,批次只在「按时间」下存在 —— 每次进页面都要切一下。
-  // (视图选择本身不落盘,与本单要验的批次折叠持久化是两回事,别混。)
   // hash 路由是 `#/todos`(App.tsx fromHash 只认 workspace|todos|skills|gallery,
   // 写错会静默退回首页 —— 别改成 #/todo)。
   // 待办页默认「按项目」视图,批次只在「按时间」下存在:每次进页面都要切一下。
@@ -205,6 +228,30 @@ try {
       .reduce((a, b) => a + b, 0);
     expect(sum === TOTAL, `各批次行数之和 = ${TOTAL}(实测 ${sum})`);
   });
+
+  // ── H 助手起的名(T4b)─────────────────────────────────────────────────────
+  await step("H 档案里有 ## 批次 → 批次头显示助手起的名,同日两批各自成组各自折叠", async () => {
+    await gotoTodo();
+    expect(await bsect("C1-C2").count() === 1, "命名批次 C1-C2 自成一组");
+    expect(await bsect("C3-C4").count() === 1, "命名批次 C3-C4 自成一组");
+
+    const t1 = (await bhead("C1-C2").innerText()).replace(/\s+/g, "");
+    expect(t1.includes("效果图修改"), `头上是助手起的名(实测「${t1}」)`);
+    expect(!t1.includes("沙发背景墙"), "有名字就不该再退回首条内容兜底");
+    const t2 = (await bhead("C3-C4").innerText()).replace(/\s+/g, "");
+    expect(t2.includes("水电改动"), `第二批用自己的名字(实测「${t2}」)`);
+
+    // 两批各 2 条 → 都默认展开;收其中一个不许带走另一个(折叠键必须分开)
+    expect(await brows("C1-C2").count() === 2, "C1-C2 默认展开,2 条都在");
+    expect(await brows("C3-C4").count() === 2, "C3-C4 默认展开,2 条都在");
+    await bhead("C1-C2").click();
+    await page.waitForTimeout(150);
+    expect(await brows("C1-C2").count() === 0, "收起第一批");
+    expect(await brows("C3-C4").count() === 2, "第二批不受影响(折叠键分开了)");
+    await gotoTodo();
+    expect(await brows("C1-C2").count() === 0, "刷新后第一批仍收着");
+  });
+
 } finally {
   if (browser) await browser.close();
   srv.kill();

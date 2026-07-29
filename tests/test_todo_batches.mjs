@@ -203,3 +203,106 @@ test("往返:点收 → 存盘 → 重新解析 → 仍是收着(刷新不忘)",
   const reloaded = loadBoolPrefs(JSON.stringify(prefs));
   assert.equal(isBatchOpen(b, reloaded, TODAY), false);
 });
+
+// ── T4b:助手起的名 + 按(日期, 批次)分组 ───────────────────────────────────
+// 主 agent 亲写,执行腿逐字节 off-limits。设计见 tracks/.../design-t4b.md。
+//
+// 契约(web/src/todoBatches.ts 续):
+//   ⑥ groupByBatch(items) —— 先按日期倒序(沿用 groupByDate 的序,无日期沉底),
+//      **同一天里按批次 id 再分组**:同 id 的连成一组、没有批次(null)的合成一组且
+//      排在该日期各命名批次之后。组内保持传入相对序,**一条都不许丢**。
+//   ⑦ groupHeading(group) —— 有助手起的名就用它(仍带「等 N 条」),没有走 T4a 兜底。
+//   ⑧ batchKey(scope, date, batchId) —— 第三个参数可选;不传 = T4a 的老键(向后兼容,
+//      上面 T4a 那批断言必须继续绿)。同一天两个批次**必须拿到不同的折叠键**,
+//      否则收一个另一个跟着收。
+import { groupByBatch, groupHeading } from "../web/src/todoBatches.ts";
+
+const bItem = (text, batch = null, date = "2026-07-28", due = null) => ({
+  ...item(text, due), date, batch,
+});
+const B1 = { id: "C1-C2", title: "效果图修改" };
+const B2 = { id: "C3-C3", title: "水电改动" };
+
+test("同一天两个批次分成两组,顺序按首次出现", () => {
+  const gs = groupByBatch([
+    bItem("效果图改浅色", B1),
+    bItem("餐桌换圆桌", B1),
+    bItem("厨房加插座", B2),
+  ]);
+  assert.equal(gs.length, 2);
+  assert.equal(gs[0].id, "C1-C2");
+  assert.equal(gs[0].items.length, 2);
+  assert.equal(gs[1].id, "C3-C3");
+  assert.equal(gs[1].items.length, 1);
+});
+
+test("没批次的条目合成一组,且排在同一天的命名批次之后", () => {
+  const gs = groupByBatch([
+    bItem("散的一条", null),
+    bItem("效果图改浅色", B1),
+    bItem("又一条散的", null),
+  ]);
+  assert.equal(gs.length, 2);
+  assert.equal(gs[0].id, "C1-C2", "命名批次在前");
+  assert.equal(gs[1].id, null);
+  assert.equal(gs[1].items.length, 2, "两条散的合成一组");
+});
+
+test("跨日期:日期倒序在先,批次分组在后;无日期沉底", () => {
+  const gs = groupByBatch([
+    bItem("旧的", B2, "2026-07-26"),
+    bItem("新的", B1, "2026-07-28"),
+    bItem("没日期", null, null),
+  ]);
+  assert.deepEqual(gs.map((g) => g.date), ["2026-07-28", "2026-07-26", null]);
+});
+
+test("一条都不丢", () => {
+  const items = [
+    bItem("a", B1), bItem("b", B2), bItem("c", null),
+    bItem("d", B1, "2026-07-27"), bItem("e", null, null),
+  ];
+  const gs = groupByBatch(items);
+  assert.equal(gs.reduce((n, g) => n + g.items.length, 0), items.length);
+});
+
+test("标题:有助手起的名就用它,仍带「等 N 条」", () => {
+  const g = groupByBatch([bItem("效果图改浅色", B1), bItem("餐桌换圆桌", B1)])[0];
+  assert.equal(groupHeading(g), "效果图修改 等 2 条");
+});
+
+test("标题:单条命名批次不加「等 N 条」", () => {
+  const g = groupByBatch([bItem("厨房加插座", B2)])[0];
+  assert.equal(groupHeading(g), "水电改动");
+});
+
+test("标题:没名字的组走 T4a 兜底(首条内容 等 N 条)", () => {
+  const g = groupByBatch([bItem("散的一条", null), bItem("又一条", null)])[0];
+  assert.equal(groupHeading(g), "散的一条 等 2 条");
+});
+
+test("助手起的名也要截断,不许撑爆批次头", () => {
+  const long = { id: "C9-C9", title: "业主今天在微信上一口气说了很多关于效果图的意见" };
+  const g = groupByBatch([bItem("甲", long)])[0];
+  assert.ok(groupHeading(g).length <= BATCH_TITLE_MAX + 2, `实际:${groupHeading(g)}`);
+  assert.ok(groupHeading(g).includes("…"));
+});
+
+test("折叠键:同一天两个批次拿到不同的键(收一个不许带走另一个)", () => {
+  assert.notEqual(batchKey("@time", "2026-07-28", "C1-C2"),
+                  batchKey("@time", "2026-07-28", "C3-C3"));
+});
+
+test("折叠键:不传批次 id 时与 T4a 的老键逐字节相同(向后兼容)", () => {
+  assert.equal(batchKey("@time", "2026-07-28", null), batchKey("@time", "2026-07-28"));
+  assert.equal(batchKey("@time", null, null), batchKey("@time", null));
+});
+
+test("折叠规则对命名批次照旧生效(≥3 收起 / 过期强制展开)", () => {
+  const three = groupByBatch([bItem("a", B1), bItem("b", B1), bItem("c", B1)])[0];
+  assert.equal(isBatchOpen(three, {}, TODAY), false);
+  const overdue = groupByBatch([
+    bItem("a", B1), bItem("b", B1), bItem("c", B1, "2026-07-28", "2026-07-01"),
+  ])[0];
+  assert.equal(isBatchOpen(overdue, {}, TODAY), true);
+});

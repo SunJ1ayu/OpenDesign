@@ -194,6 +194,74 @@ class TestDsTodo(unittest.TestCase):
         self.assertIn("error", r)
         self.assertIn("boom", r["error"])
 
+# ── T4b 读侧:collect 把批次附到每条待办上 ────────────────────────────────────
+# 主 agent 亲写,执行腿逐字节 off-limits。设计见
+# tracks/opendesign-due-picker/design-t4b.md。
+#
+# 契约:解析可选段 `## 批次` 的 `- C{起}-C{止} {日期} {标题}` 行,给每个 open item 附
+#   batch = {"id": "C2-C4", "title": "效果图修改"};不在任何区间里的条目 batch=None。
+#   段不存在(旧档案)= 全部 None,零迁移。坏行忽略,不许拖垮整个 collect。
+
+BATCH_DOC = """# p1
+
+- 业主: [[张三]]
+
+## 变更记录
+- [待确认] C1 2026-07-28 效果图改浅色
+- [待确认] C2 2026-07-28 餐桌换圆桌
+- [进行中] C3 2026-07-28 厨房加插座
+- [待确认] C4 2026-07-28 没人认领的一条
+
+## 批次
+- C1-C2 2026-07-28 效果图修改
+- C3-C3 2026-07-28 水电改动
+
+---
+最后更新: 2026-07-28
+"""
+
+
+class TestBatchSection(unittest.TestCase):
+
+    def _open(self, doc="p1.md", text=BATCH_DOC):
+        root = _mkroot({doc: text})
+        return {it["cnum"]: it for it in ds_todo.collect(root, 7, TODAY)["open"]}
+
+    def test_b01_items_get_their_batch(self):
+        got = self._open()
+        self.assertEqual(got[1]["batch"], {"id": "C1-C2", "title": "效果图修改"})
+        self.assertEqual(got[2]["batch"], {"id": "C1-C2", "title": "效果图修改"})
+        self.assertEqual(got[3]["batch"], {"id": "C3-C3", "title": "水电改动"})
+
+    def test_b02_item_outside_any_range_is_none(self):
+        self.assertIsNone(self._open()[4]["batch"], "没被任何批次覆盖的条目 batch=None")
+
+    def test_b03_no_section_means_all_none(self):
+        text = BATCH_DOC.split("## 批次")[0] + "---\n最后更新: 2026-07-28\n"
+        got = self._open("old.md", text)
+        self.assertTrue(all(it["batch"] is None for it in got.values()),
+                        "旧档案没有批次段 → 全 None,零迁移")
+
+    def test_b04_bad_lines_ignored_not_fatal(self):
+        text = BATCH_DOC.replace("- C3-C3 2026-07-28 水电改动",
+                                 "- C第三-C啥 不是日期 坏行\n- C3-C3 2026-07-28 水电改动")
+        got = self._open("bad.md", text)
+        self.assertEqual(got[3]["batch"]["title"], "水电改动", "坏行只被跳过,好行照读")
+
+    def test_b05_batch_line_is_not_a_change(self):
+        # 批次行绝不能被当成待办收进来(否则待办页会冒出假条目)
+        got = self._open()
+        self.assertEqual(sorted(got), [1, 2, 3, 4])
+
+    def test_b06_later_range_wins_on_overlap(self):
+        # 手写坏档案可能让区间重叠;取**后写的那条**(与"最后一次命名说了算"一致),
+        # 且绝不许抛异常。
+        text = BATCH_DOC.replace("- C3-C3 2026-07-28 水电改动",
+                                 "- C1-C4 2026-07-28 全都算一批")
+        got = self._open("ovl.md", text)
+        self.assertEqual(got[1]["batch"]["title"], "全都算一批")
+        self.assertEqual(got[4]["batch"]["title"], "全都算一批")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

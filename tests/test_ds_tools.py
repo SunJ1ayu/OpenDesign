@@ -1767,5 +1767,149 @@ class UpdateClientOracle(unittest.TestCase):
         self.assertEqual(r.get("error"), "bad_name")
 
 
+# ── T4b 批次起名(track opendesign-due-picker)────────────────────────────────
+# 主 agent 亲写,执行腿逐字节 off-limits。设计与三方向对账见
+# tracks/opendesign-due-picker/design-t4b.md。
+#
+# 契约:append_change 多一个可选参数 batch_title。带标题时在 `## 批次` 段维护
+#   `- C{起}-C{止} {日期} {标题}` 一行:
+#     · 段末那行标题相同 **且** 区间末尾 +1 == 本次新号 → 把末尾延一格;
+#     · 否则新起一行(标题不同 / 号不连 / 段不存在);
+#     · 不带标题 → 一行都不写(前端走 T4a 兜底)。
+#   段缺失时补建到页脚 `---` 之前(与 log_communication 同策略),
+#   **绝不插进 `## 变更记录` 中间** —— append_change 找插入点以下一个 `## ` 为界,
+#   插错位置会让后续变更掉进批次段。
+class BatchTitleOracle(unittest.TestCase):
+    def setUp(self):
+        self.ds = tempfile.mkdtemp(prefix="dsbatch-")
+        self.slug = "翡翠湾-1801"
+        self.path = _write_project(self.ds, self.slug, [
+            "- [待确认] C1 2026-06-20 主卧衣柜改推拉门",
+        ])
+        self.addCleanup(shutil.rmtree, self.ds, ignore_errors=True)
+
+    def _add(self, content, title="", space=""):
+        return ds_tools.append_change(self.slug, content, ds_root=self.ds,
+                                      today=TODAY, space=space, batch_title=title)
+
+    def _batch_lines(self):
+        text = _read(self.path)
+        if "## 批次" not in text:
+            return []
+        return [ln for ln in _section(text, "## 批次").split("\n")
+                if ln.startswith("- C")]
+
+    # ① 不带标题 = 零副作用(旧调用逐字节不变)
+    def test_b01_no_title_writes_no_batch_section(self):
+        before = _read(self.path)
+        self._add("客厅吊顶改平顶")
+        text = _read(self.path)
+        self.assertNotIn("## 批次", text, "没给标题就不许凭空造段")
+        # 变更行本身与不带该参数时完全一致(向后兼容)
+        self.assertIn("- [待确认] C2 2026-07-01 客厅吊顶改平顶", text)
+        self.assertNotEqual(before, text)
+
+    # ② 一批三条 = 一行,区间连续延伸
+    def test_b02_same_title_consecutive_extends_range(self):
+        self._add("效果图改浅色", title="效果图修改")
+        self._add("餐桌换圆桌", title="效果图修改")
+        self._add("主卧加衣柜", title="效果图修改")
+        self.assertEqual(self._batch_lines(),
+                         [f"- C2-C4 {TODAY} 效果图修改"])
+
+    # ③ 单条批次也要成行(区间起止相同)
+    def test_b03_single_item_batch(self):
+        self._add("阳台封窗", title="阳台")
+        self.assertEqual(self._batch_lines(), [f"- C2-C2 {TODAY} 阳台"])
+
+    # ④ **一次原文拆两批**(panel 挑出的场景):同日同项目、号连续,中途换标题 → 两段
+    def test_b04_two_batches_same_day_split_by_title(self):
+        self._add("效果图改浅色", title="效果图修改")
+        self._add("餐桌换圆桌", title="效果图修改")
+        self._add("厨房加插座", title="水电改动")
+        self._add("客厅加地插", title="水电改动")
+        self.assertEqual(self._batch_lines(), [
+            f"- C2-C3 {TODAY} 效果图修改",
+            f"- C4-C5 {TODAY} 水电改动",
+        ])
+
+    # ⑤ 号不连(中间夹了一条无标题的)→ 即使标题相同也必须新起一行,
+    #    否则区间会把不属于这批的变更吞进来
+    def test_b05_gap_forces_new_line_even_if_title_same(self):
+        self._add("效果图改浅色", title="效果图修改")
+        self._add("顺手记一条", title="")          # C3 无标题
+        self._add("餐桌换圆桌", title="效果图修改")  # C4
+        self.assertEqual(self._batch_lines(), [
+            f"- C2-C2 {TODAY} 效果图修改",
+            f"- C4-C4 {TODAY} 效果图修改",
+        ])
+
+    # ⑥ 消毒:标题不许换行、不许伪造【空间】、不许伪造成变更行/段头
+    def test_b06_title_sanitized(self):
+        self._add("甲", title="第一行\n- [待确认] C99 假的")
+        line = self._batch_lines()[0]
+        self.assertEqual(len(line.split("\n")), 1, "标题必须折成单行")
+        self.assertNotIn("\n", line)
+        # 折行后原文里的 `- [待确认]` 变成行内文本,不在行首 ⇒ 解析不成变更行
+        self.assertIsNone(ds_tools._CHANGE_RE.match(line))
+
+    def test_b07_title_strips_leading_dash_and_bracket(self):
+        self._add("甲", title="- [待确认] C99 冒充")
+        line = self._batch_lines()[0]
+        self.assertIsNone(ds_tools._CHANGE_RE.match(line),
+                          "批次行绝不能被写侧正则认成变更行")
+        import ds_todo  # 读侧正则同样不许命中
+        self.assertIsNone(ds_todo.parse_change(line))
+
+    def test_b08_title_truncated(self):
+        long = "效" * 80
+        self._add("甲", title=long)
+        line = self._batch_lines()[0]
+        self.assertLess(len(line), 60, f"标题该被截断,实际整行:{line}")
+
+    def test_b09_empty_title_after_sanitize_writes_nothing(self):
+        self._add("甲", title="   ")
+        self.assertEqual(self._batch_lines(), [], "全空白标题视同没给")
+
+    # ⑦ 段位置:补建在页脚之前,且**不在变更记录段内**
+    def test_b10_section_created_before_footer_not_inside_changes(self):
+        self._add("甲", title="批一")
+        text = _read(self.path)
+        lines = text.split("\n")
+        i_chg = lines.index("## 变更记录")
+        i_batch = lines.index("## 批次")
+        i_foot = next(j for j in range(len(lines) - 1, -1, -1)
+                      if lines[j].startswith("---"))
+        self.assertGreater(i_batch, i_chg)
+        self.assertLess(i_batch, i_foot, "批次段必须在页脚分隔线之前")
+        # 变更记录段里一行批次行都不许有
+        self.assertNotIn("- C2-C2", _section(text, "## 变更记录"))
+
+    # ⑧ 加了批次段之后,后续变更仍然进变更记录段(插入点没被带偏)—— 本单最危险的回归
+    def test_b11_later_changes_still_land_in_change_section(self):
+        self._add("甲", title="批一")
+        self._add("乙", title="批一")
+        text = _read(self.path)
+        chg = _section(text, "## 变更记录")
+        self.assertIn("- [待确认] C2 ", chg)
+        self.assertIn("- [待确认] C3 ", chg)
+        self.assertEqual(_change_count(_section(text, "## 批次")), 0)
+
+    # ⑨ 已有批次段(手写/历史)也能续,不重复建段
+    def test_b12_existing_section_reused(self):
+        self._add("甲", title="批一")
+        self._add("乙", title="批二")
+        text = _read(self.path)
+        self.assertEqual(text.count("## 批次"), 1)
+
+    # ⑩ 项目不存在 / 空内容 等既有错误路径不受影响
+    def test_b13_errors_unchanged(self):
+        r = ds_tools.append_change("不存在的项目", "甲", ds_root=self.ds,
+                                   today=TODAY, batch_title="批一")
+        self.assertEqual(r.get("error"), "project_not_found")
+        r2 = self._add("", title="批一")
+        self.assertEqual(r2.get("error"), "empty_content")
+        self.assertEqual(self._batch_lines(), [], "报错的调用不许留下批次行")
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
