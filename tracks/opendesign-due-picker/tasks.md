@@ -1,7 +1,7 @@
 # Tasks: opendesign-due-picker
 
 - base-ref: `12d9e30`(本批开工时的 HEAD,0.55.0)
-- 已交付到:`bf51894`(0.57.0,**已 push**)→ T3 落在 0.58.0(见下,**未 push**)
+- 已交付到:`c87a772`(0.58.0,**已 push**)
 
 > 委托 submimo fix 时:主 agent 先写失败测试(oracle)并 commit,再把窄范围实现
 > 交给它;oracle/测试文件对它 off-limits;~2 次红了收回主 agent。
@@ -87,6 +87,9 @@ Ctrl+F5 → **先核对 `/api/health` = `0.58.0` 再看界面**(盘上和运行�
 
 - [x] 本 track 补建(修掉 6 处悬空引用)
 - [x] verify.md 回填,lane 判断落纸
-- [ ] `CLAUDE.md` 加 `self` 这一档 + 「bump 版本必须有 track」触发器 —— **等用户拍板**
+- [x] `CLAUDE.md` 加 `self` 档 + 「bump 必挂 track」触发器(07-28 已上;07-29 晚
+      又做了硬/软归位:full 清单落 verify 模板现场、新增 `派给:` 字段、
+      pre-commit 守卫 `track-guard` 已装本仓并红绿验证。sub Claude 评审 PASS-with-changes,
+      7 条全采纳;用户授权主 agent 拍板)
 - [ ] 第二意见给的 fast-lane 历史数据(称历史阻断性发现=0、出过一次假清白)
       **主 agent 未核**;若要据此改规矩,先核。
