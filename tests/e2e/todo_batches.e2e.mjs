@@ -1,0 +1,215 @@
+// 待办「按时间」批次:人话标题 + 折叠规则 e2e(真 chromium + 真 ds_web)。
+// 主 agent 亲写,执行腿逐字节 off-limits。
+//
+// 用户拍板(tasks.md T4):批次头现在是「7月28日 · 3条」,要换成一句人话;
+// 「1~2 条不折;≥3 条默认折起;有过了截止日的自动展开」;折叠状态持久化(同 T3)。
+// 本单 T4a 只做**兜底标题**(第一条内容 等 N 条)—— 助手起名是 T4b。
+// 纯逻辑那半由 tests/test_todo_batches.mjs 钉;这里钉用户看得见的那半。
+//
+// 覆盖:
+//   A 批次头是**人话**:含首条内容,不再是光秃秃的「N 条」;日期仍在(找得回时间)。
+//   B 默认态:2 条的批次展开、3 条的批次收起。
+//   C 含**过期**条目的批次即使 4 条也默认展开(急压过整洁)。
+//   D 点批次头收得起也放得回来。
+//   E **刷新后折叠状态还在** —— ⚠️ 本单重点:现有 toggled 是 useState、刷新即忘,
+//     tasks.md 明写"别重蹈覆辙"(T3 已在左栏还过一次债,这里是待办页那笔)。
+//   F **用户点收了就得收着,过期不许把它顶开** —— 折叠键不许变死键(T3 教训)。
+//   G 一条都不丢:全部展开后待办行数 == 条目总数。
+//
+// 跑法:node tests/e2e/todo_batches.e2e.mjs(自起 ds_web 于 8814)
+import { spawn } from "node:child_process";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { launchBrowser, check } from "./helpers.mjs";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const PORT = 8814;
+const TODAY = "2026-07-29";
+
+const tmp = mkdtempSync(join(tmpdir(), "todobatch-e2e-"));
+const dsRoot = join(tmp, "ds");
+mkdirSync(join(dsRoot, "projects"), { recursive: true });
+mkdirSync(join(dsRoot, "config"), { recursive: true });
+
+// 三个日期批次(按时间视图按日期分批):
+//   07-28:3 条,无过期 → 默认收起(≥3)
+//   07-27:2 条,无过期 → 默认展开(≤2)
+//   07-26:4 条,其中 1 条过了截止日 → 默认展开(急压过整洁)
+const BATCHES = [
+  { date: "2026-07-28", texts: ["效果图改浅色", "餐桌换圆桌", "主卧加衣柜"], due: {} },
+  { date: "2026-07-27", texts: ["阳台封窗", "厨房加插座"], due: {} },
+  { date: "2026-07-26", texts: ["客厅吊顶改平顶", "电视墙留白", "地板换木色", "玄关做柜"],
+    due: { 0: "2026-07-01" } }, // 第 1 条过期
+];
+const TOTAL = BATCHES.reduce((n, b) => n + b.texts.length, 0);
+
+const lines = [];
+let cn = 0;
+for (const b of BATCHES) {
+  b.texts.forEach((t, i) => {
+    cn++;
+    // 截止日格式 = 正文尾部 ⏳YYYY-MM-DD(ds_common.split_due 切;别自造第二种写法)
+    const due = b.due[i] ? ` ⏳${b.due[i]}` : "";
+    lines.push(`- [待确认] C${cn} ${b.date} 【主卧】${t}${due}`);
+  });
+}
+writeFileSync(join(dsRoot, "projects", "张宅-1101.md"), `# 张宅-1101
+
+- 业主: [[王女士]]
+- 阶段: 施工跟进
+
+## 变更记录
+${lines.join("\n")}
+
+## 沟通日志
+
+---
+最后更新: ${TODAY}
+`);
+writeFileSync(join(dsRoot, "config", "workspace.json"), JSON.stringify({ projects: {} }));
+
+const srv = spawn("python3", [join(ROOT, "bin", "ds_web.py")], {
+  env: { ...process.env, DS_ROOT: dsRoot, DS_WEB_PORT: String(PORT), DS_TODAY: TODAY },
+  stdio: ["ignore", "inherit", "inherit"],
+});
+const base = `http://127.0.0.1:${PORT}`;
+for (let i = 0; ; i++) {
+  try { await fetch(`${base}/api/health`); break; }
+  catch { if (i > 50) throw new Error("ds_web 起不来"); await new Promise((r) => setTimeout(r, 200)); }
+}
+
+let failures = 0;
+async function step(name, fn) {
+  console.log(`\n== ${name}`);
+  try { await fn(); } catch (e) { failures++; console.error(String(e)); }
+}
+function expect(cond, label) {
+  if (cond) { console.log(`  ok - ${label}`); return; }
+  failures++;
+  console.error(`  FAIL: ${label}`);
+}
+
+let browser = null;
+try {
+  browser = await launchBrowser();
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+
+  const sects = () => page.locator('.todo-page .batch-sect');
+  const sect = (date) => page.locator(`.todo-page .batch-sect[data-date="${date}"]`);
+  const head = (date) => sect(date).locator('[data-ui="group-toggle"]');
+  const rowsIn = (date) => sect(date).locator(".todo-row");
+  const allRows = () => page.locator(".todo-page .todo-row");
+
+  // 待办页默认是「按项目」视图,批次只在「按时间」下存在 —— 每次进页面都要切一下。
+  // (视图选择本身不落盘,与本单要验的批次折叠持久化是两回事,别混。)
+  // hash 路由是 `#/todos`(App.tsx fromHash 只认 workspace|todos|skills|gallery,
+  // 写错会静默退回首页 —— 别改成 #/todo)。
+  // 待办页默认「按项目」视图,批次只在「按时间」下存在:每次进页面都要切一下。
+  // (视图选择本身不落盘,与本单要验的批次折叠持久化是两回事,别混。)
+  const gotoTodo = async () => {
+    await page.goto(`${base}/#/todos`, { waitUntil: "domcontentloaded" });
+    await page.locator(".todo-head .seg .opt", { hasText: "按时间" }).click();
+    await sects().first().waitFor({ timeout: 15000 });
+  };
+
+  // ── A 批次头是人话 ───────────────────────────────────────────────────────
+  await step("A 批次头写的是人话(首条内容 等 N 条),不是光秃秃的「N 条」", async () => {
+    await gotoTodo();
+    for (const b of BATCHES) {
+      const txt = (await head(b.date).innerText()).replace(/\s+/g, "");
+      expect(txt.includes(b.texts[0].slice(0, 6)),
+        `「${b.date}」批次头含首条内容「${b.texts[0]}」(实测「${txt}」)`);
+      expect(txt.includes(String(b.texts.length)),
+        `「${b.date}」批次头仍带条数 ${b.texts.length}`);
+    }
+    // 日期不能丢:人话标题替掉的是"只有日期",不是把时间线抹了
+    const first = (await head("2026-07-28").innerText()).replace(/\s+/g, "");
+    expect(/7月28日|07-28|7\/28/.test(first), `批次头仍找得回日期(实测「${first}」)`);
+  });
+
+  // ── B 默认态:条数规则 ───────────────────────────────────────────────────
+  await step("B 默认:2 条的批次展开,3 条的批次收起", async () => {
+    await gotoTodo();
+    expect(await rowsIn("2026-07-27").count() === 2, "07-27(2 条)默认展开着");
+    expect(await head("2026-07-27").getAttribute("aria-expanded") === "true",
+      "07-27 批次头 aria-expanded=true");
+    expect(await rowsIn("2026-07-28").count() === 0, "07-28(3 条)默认收着");
+    expect(await head("2026-07-28").getAttribute("aria-expanded") === "false",
+      "07-28 批次头 aria-expanded=false");
+  });
+
+  // ── C 过期压过条数 ───────────────────────────────────────────────────────
+  await step("C 含过期条目的批次(4 条)默认展开 —— 急压过整洁", async () => {
+    await gotoTodo();
+    expect(await rowsIn("2026-07-26").count() === 4,
+      "07-26 有一条过了截止日,4 条也默认全展开");
+  });
+
+  // ── D 点得动 ─────────────────────────────────────────────────────────────
+  await step("D 点批次头收得起、也放得回来", async () => {
+    await gotoTodo();
+    await head("2026-07-27").click();
+    await page.waitForTimeout(150);
+    expect(await rowsIn("2026-07-27").count() === 0, "点一下:收起来了");
+    await head("2026-07-27").click();
+    await page.waitForTimeout(150);
+    expect(await rowsIn("2026-07-27").count() === 2, "再点一下:又回来了");
+  });
+
+  // ── E 刷新后还在(本单重点)─────────────────────────────────────────────
+  await step("E 刷新后折叠状态还在(useState 实现在这里必红)", async () => {
+    await gotoTodo();
+    await head("2026-07-28").click(); // 默认收着 → 点开
+    await page.waitForTimeout(150);
+    check(await rowsIn("2026-07-28").count() === 3, "前提:07-28 已被点开");
+    await gotoTodo(); // 刷新
+    expect(await rowsIn("2026-07-28").count() === 3,
+      "刷新后 07-28 仍是展开的 —— 折叠状态落了盘");
+
+    await head("2026-07-27").click(); // 默认展开 → 点收
+    await page.waitForTimeout(150);
+    await gotoTodo();
+    expect(await rowsIn("2026-07-27").count() === 0,
+      "刷新后 07-27 仍是收着的 —— 两个方向都记住");
+  });
+
+  // ── F 用户显式收起压过「过期自动展开」──────────────────────────────────
+  await step("F 用户点收了含过期条目的批次 → 刷新后仍收着(折叠键不许变死键)", async () => {
+    await gotoTodo();
+    check(await rowsIn("2026-07-26").count() === 4, "前提:07-26 因过期默认展开");
+    await head("2026-07-26").click();
+    await page.waitForTimeout(150);
+    expect(await rowsIn("2026-07-26").count() === 0, "点一下收得起来(过期不许顶住)");
+    await gotoTodo();
+    expect(await rowsIn("2026-07-26").count() === 0,
+      "刷新后仍收着 —— 显式偏好压过过期规则");
+  });
+
+  // ── G 一条都不丢 ─────────────────────────────────────────────────────────
+  await step("G 全部展开后一条都不丢", async () => {
+    // 清掉本轮攒下的偏好,回默认态再逐个展开
+    await page.goto(`${base}/#/todos`, { waitUntil: "domcontentloaded" });
+    await page.evaluate(() => localStorage.removeItem("ds.todo.batchOpen"));
+    await gotoTodo();
+    for (const b of BATCHES) {
+      if (await rowsIn(b.date).count() === 0) {
+        await head(b.date).click();
+        await page.waitForTimeout(120);
+      }
+    }
+    expect(await allRows().count() === TOTAL,
+      `全展开后待办行数 = ${TOTAL}(实测 ${await allRows().count()})`);
+    const sum = (await Promise.all(BATCHES.map((b) => rowsIn(b.date).count())))
+      .reduce((a, b) => a + b, 0);
+    expect(sum === TOTAL, `各批次行数之和 = ${TOTAL}(实测 ${sum})`);
+  });
+} finally {
+  if (browser) await browser.close();
+  srv.kill();
+  rmSync(tmp, { recursive: true, force: true });
+}
+
+console.log(failures === 0 ? "\n全部通过" : `\n${failures} 条失败`);
+process.exit(failures === 0 ? 0 : 1);
