@@ -91,5 +91,9 @@ Ctrl+F5 → **先核对 `/api/health` = `0.58.0` 再看界面**(盘上和运行�
       又做了硬/软归位:full 清单落 verify 模板现场、新增 `派给:` 字段、
       pre-commit 守卫 `track-guard` 已装本仓并红绿验证。sub Claude 评审 PASS-with-changes,
       7 条全采纳;用户授权主 agent 拍板)
-- [ ] 第二意见给的 fast-lane 历史数据(称历史阻断性发现=0、出过一次假清白)
-      **主 agent 未核**;若要据此改规矩,先核。
+- [x] 第二意见给的 fast-lane 历史数据 —— **07-29 晚已核,两条都属实**:
+      全库 24 track 中 fast 约 16 单,+1 腿(submimo)全 PASS、零阻断性发现,真修复
+      全部来自主审自查;假清白 = 07-18 clickable-actions/inbox-scan(错编进 oracle,
+      详见 panel-review-trust-calibration 记忆)。**裁决:不改规矩**——假清白根因是
+      "新写口误走 fast",该硬规矩当天已立且现已落到 verify 模板填空现场;fast 的 +1
+      成本极低,留作中风险保险。fast 的 +1 价值=确认性不是侦测性,主审不得倚仗它。
