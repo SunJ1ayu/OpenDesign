@@ -273,3 +273,58 @@ TodoPage 里 `toggleOpen` 仍用 `id` 算键、`isBatchOpen` 已改用 `foldId` 
    写口层面就不支持把备注抹成空。**改它要动后端 = 换 lane,不在本单范围。**
    用户能写、能改写,但删不掉(只能改成一个短的)。**如果他真按这个用,再单独起一单。**
 2. **备注仍只有一行输入框**,长备注不折行显示 —— 与待办页同款,本单不动。
+
+---
+
+## 0.62.0 待办页第三个看法「按阶段」(C,判据 `2b70385`)
+
+用户 07-30 真机原话:「待办事项可以区分一下进度,比如平面图阶段的、效果图阶段的、
+施工图阶段的……这样不只是待办清单,也相当于是一眼能知道项目在哪个阶段、差什么东西」。
+
+**开工前定死的拆分(tasks.md 里已写,别重议)**:这句话里其实有**两个轴**。
+阶段 = 时间线,答「在哪个阶段」,项目已有字段 ⇒ 就是本单 C,零新字段;
+十系统 = 内容维度,答「差什么东西」,仓库里零处引用 ⇒ 是 D,**新写面 + 动档案格式,
+单独起 track 走 full**,刻意不和 C 搅在一起。
+
+- lane: **self**(纯前端、零新字段、**后端零改动**,只 bump VERSION)
+- 派给: **主 agent 直接干** —— 判卷要起 ds_web + 真 chromium(codex 沙箱禁网跑不了);
+  且改动落在我自己写的 TodoPage 折叠/分组逻辑里,交接成本高于自己写。
+- **判据先单独 commit 并红检**:`2b70385` → **7 条全红**。
+  ⚠️ B–F 五段是卡在「切到按阶段」那一步失败的(按构造必然:整个功能就是这个看法),
+  所以另外**单独验了夹具**:同一份夹具起 ds_web 后 `/api/projects` 回 4 个项目、
+  阶段字段正确(含一个空阶段)、`stages` 词表 11 项,`/api/todos` 回 7 条
+  ⇒ 红的原因确实是功能不存在,不是夹具坏。A 段本身也实测到了切换器现有的两个看法。
+
+### 落地要点
+
+1. **分堆复用左栏 T3 的 `groupProjectsByStage(projects, stages)`**,不在待办页造第二份
+   阶段分组规则 —— 堆序=后端词表序、词表外阶段跟在后面、未建档垫底、一个项目都不丢,
+   全部是它已经被 `tests/test_project_groups.mjs` 锁住的契约。
+   阶段词表仍走 `/api/projects` 的 `stages`(App 新传一个 prop),**前端不硬编码副本**。
+2. **项目卡抽成共用的 `projectCard(c)`**:「按项目」和「按阶段」渲染的是同一张卡
+   (同一套 `.todo-card` / `card-head` / `go-link` / 空间小节)。判据 B 段那条
+   「卡片没换成第二种语言」和 F 段「去项目 → 没退化」就是锁这个的。
+3. **折叠键 `@stage|<阶段>` 挂进既有 `foldPrefs`**,并把落盘白名单从 `@time|`
+   扩成 `@time|`/`@stage|` —— 不新起第二个 localStorage 键、不新起第二份偏好状态。
+4. 堆眉借 `.space-sect-head` 的视觉语言(细横线 + 灰小标题),层级
+   「阶段堆 > 项目卡 > 空间小节」靠字重/字号递减,不再多一种边框。
+
+### Mechanical checks(主 agent 亲跑,2026-07-30)
+
+- [x] build passes(`tsc -b` + `vite build`)
+- [x] `todo_stage_view` e2e **A–F 六段全绿**(红 → 绿两次都是我亲跑的)
+- [x] mjs 单测 20 份**零失败**;pytest **750 passed / 8 skipped**
+- [x] 碰待办页的 e2e 全量回归 **9 份 ALL PASS**(grep `todo-page|todo-head|todo-card|todo-row`
+      选出来的:duedate_picker / frontend_p2_polish / new_chat / side_stage_groups /
+      todo_assistant / todo_batches / todo_batch_space / todo_rail / todo_layout)
+- [x] no secrets / unsafe ops —— 亲读 diff;`git diff --summary` 无 `create mode 120000`;
+      后端零改动、零新写口
+
+### Accepted deviations(C)
+
+1. **默认全展开,刻意不抄左栏 `isStageGroupOpen` 的「整堆已交付则默认收起」**:
+   待办页的卡只在还有未办结条目时才出现,「已交付项目还挂着待办」恰恰最该被看见。
+   与项目卡「默认全展开(用户是来看待办的)」同一条理由。
+2. **看法本身不落盘**:关掉网页再开还是回到「按项目」(与原来两个看法同款,本单不动)。
+3. **堆眉只报「N 个项目 · M 条未办结」,不报阶段的其他信息**(没有"这个阶段该有什么"
+   的概念——那正是 D 要回答的问题)。

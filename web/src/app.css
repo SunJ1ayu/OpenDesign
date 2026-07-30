@@ -2056,6 +2056,14 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   margin: 0;
 }
 .todo-cards.by-time { display: flex; flex-direction: column; gap: 14px; max-width: none; margin: 0; }
+/* 「按阶段」(C,07-30 反馈):与另两个看法同为竖向单列,切换时主区宽度不跳变。
+   堆眉借 .space-sect-head 的语言(细横线 + 灰小标题),比项目卡头轻一级 ——
+   层级是「阶段堆 > 项目卡 > 空间小节」,靠字重/字号递减区分,不再多一种边框。 */
+.todo-cards.by-stage { display: flex; flex-direction: column; gap: 18px; max-width: none; margin: 0; }
+.stage-sect { display: flex; flex-direction: column; gap: 12px; }
+.stage-sect-head .grp-toggle { width: 100%; }
+.stage-sect-head .nm { font-size: 13px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.stage-sect-head .n-open { font: 10.5px var(--font-mono); color: var(--ink-4); white-space: nowrap; }
 .todo-card {
   background: #fff;
   border: 1px solid var(--border-main);
