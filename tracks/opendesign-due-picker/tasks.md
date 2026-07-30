@@ -82,7 +82,10 @@
 
 **主 agent 已查过代码,结论定死如下(下午别重查):**
 
-- [ ] **A. 工作区变更列加备注框** —— 纯前端,**后端零改动**,lane self。
+- [x] **A. 工作区变更列加备注框** —— **已交付 0.61.0(07-30 下午)**,判据 `9688f0c`
+      (A–F 六段,红检 7 条全红)。lane self / 派给 主 agent。落地要点与
+      accepted deviations(**清空备注做不到**,写口层面 `if note_s:` 就不支持)见 verify.md。
+      纯前端,**后端零改动**,lane self。
       诊断:不是漏写口,是**一个写口两个读侧只接了一个**。后端 `note` 早在
       `/api/changes/edit` 白名单里(`bin/ds_web.py:221`),待办页有输入框
       (`TodoPage.tsx` 的 `edit-note`),但 `ChangesColumn.tsx:460` 只

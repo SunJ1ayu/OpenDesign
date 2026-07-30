@@ -225,3 +225,51 @@ TodoPage 里 `toggleOpen` 仍用 `id` 算键、`isBatchOpen` 已改用 `foldId` 
 4. **标题漂移会把一批劈成两批**:助手第 2 次把「效果图修改」写成「效果图调整」时。
    只在工具说明里约束、不写代码闸(用户定的调子)。失败后果温和(两个近义名字,
    不丢数据)。**这条该由 T6 那类"助手行为考卷"来测,已记进 T6 的账。**
+
+---
+
+## 0.61.0 工作区变更列的备注可写可改(A,判据 `9688f0c`)
+
+用户 07-30 真机原话:「项目工作区的待办里的备注无法修改,没有用户自己写入的通道」。
+
+**诊断(开工前查代码定死,别再重查):不是「字段没人写」那类病** ——
+后端 `note` 早在 `/api/changes/edit` 白名单里(`ds_web.py` `_EDIT_ALLOWED_KEYS`),
+待办页也有输入框(`TodoPage` 的 `.edit-note`),
+但工作区 `ChangesColumn.tsx` 的行内编辑器只接了 `new_text`,备注那行是纯只读的
+`<span class="note-tag">`。**一个写口两个读侧只接了一个** ⇒ 怪圈「待办页写、
+工作区看、工作区改不了」,而用户天天待的是工作区。
+⚠️ **与 07-28「当前状态」那次不同类**(那次是字段压根没有写口),别套那次的诊断。
+
+- lane: **self**
+- 派给: **主 agent 直接干** —— 判卷要起 ds_web(浏览器判卷,codex 沙箱禁网跑不了);
+  且改动落在我自己上一轮写的编辑器里,交接成本高于自己写。
+- **判据先单独 commit 并红检**:`9688f0c` → **7 条全红**,且 A–F **六段都跑到了**
+  (导航/夹具/`.edit-text` 等待全绿)⇒ 红的原因确实是"没有备注框",不是夹具坏了。
+
+### 落地要点
+
+1. **脏字段判定复用待办页那份纯逻辑 `todo.ts buildEditRequest`**,不在工作区造第二套
+   diff 规则(同 `GroupToggle` / `boolPrefs` 那条纪律)。直接的好处是判据 D 段那条:
+   只改备注时 `new_text` 不会被无脑带上 ⇒ 档案里不会多出假的「C1 改于…｜原:…」留痕。
+2. **备注预填走 `c.note`(服务端载荷),不学待办页的会话级 `noted` 映射**。
+   待办页那份是乐观回显,因为它的数据源(`/api/todos`)不带 note;工作区的
+   `/api/changes` 带,照抄会白白引入一份会刷新即忘的第二真相源。
+3. 备注框复用同一个 `.edit-note` class —— `app.css` 里它挂在 `.edit-fields` 下、
+   本来就没被 `.todo-row` 圈住,样式零改动即生效。
+
+### Mechanical checks(主 agent 亲跑,2026-07-30)
+
+- [x] build passes(`tsc -b` + `vite build`)
+- [x] `ws_change_note` e2e **A–F 六段全绿**(红 → 绿两次都是我亲跑的)
+- [x] mjs 单测全量**零失败**;pytest **750 passed / 8 skipped**
+- [x] 会点行内编辑器的两份 e2e 回归:`frontend_p1` / `frontend_p2_polish` **ALL PASS**
+      (选出来的理由:全库只有这两份 grep 得到 `edit-trigger|edit-fields|note-tag`)
+- [x] no secrets / unsafe ops —— 亲读 diff;`git diff --summary` 无 `create mode 120000`;
+      **后端零改动、零新写口**(只 bump `VERSION`)
+
+### Accepted deviations(A)
+
+1. **清空备注做不到**:`ds_tools.edit_change` 是 `if note_s:`(空备注视同不带),
+   写口层面就不支持把备注抹成空。**改它要动后端 = 换 lane,不在本单范围。**
+   用户能写、能改写,但删不掉(只能改成一个短的)。**如果他真按这个用,再单独起一单。**
+2. **备注仍只有一行输入框**,长备注不折行显示 —— 与待办页同款,本单不动。
