@@ -17,14 +17,20 @@
 //   D 【陷阱】「去项目」**不许被压缩**:它长在项目卡头的 flex 行里,原 class 带 `flex: none`。
 //   E 【陷阱】「展开对话」**不许被拉伸**,且**仍贴着标题行右端**:原 class 带
 //     `align-self: flex-start`,另有上下文规则 `.rail-ask-head ... { margin-left: auto }`。
-//   F 【护栏】任何按钮的文字不许被裁掉(scrollWidth ≤ clientWidth),页面不许横向溢出。
+//   F 【护栏】任何按钮的**内容装得下它自己**:横向不许被裁(scrollWidth ≤ clientWidth),
+//     纵向不许溢出(scrollHeight ≤ clientHeight)。**后者是补上来的**:收货截图抓到
+//     「确认执行」被挤成两行、撑破 `.btn-primary` 的固定 30px 高 —— 而"换行"不是"被裁",
+//     原来那条 scrollWidth 断言对它永远是绿的。
+//   G 【补覆盖】**整理方案那一处**(收件箱待确认方案里的「确认执行」)也得体。
+//     design 里我自己写明过这条路由行为判据够不着、只能靠截图 —— 结果就漏在这儿。
+//     现在另起一个**带收件箱的 ds_web**(PORT+1)把它逼出来判。
 //
 // ⚠️ 本判据接不住的:**"全都一致了,但整体更难看"**。一致性断言对此永远是绿的
 //    ⇒ 收货必须截图,且要截到聊天区与整理方案两处(见 verify 的已知缺口)。
 //
 // 跑法:node tests/e2e/button_roles.e2e.mjs(自起 ds_web 于 8824)
 import { spawn } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -66,14 +72,36 @@ writeFileSync(
   JSON.stringify({ root: ws, projectsDir: ".", projects: { [PROJ]: FOLDER } }),
 );
 
-const srv = spawn("python3", [join(ROOT, "bin", "ds_web.py")], {
-  env: { ...process.env, DS_ROOT: dsRoot, DS_WEB_PORT: String(PORT), DS_TODAY: TODAY },
+// G 段专用的第二套档案库:**有收件箱、且里面放着能被自动认领的文件**
+// ⇒ 点「扫描整理」后会出现「待确认的整理方案」,那一处的「确认执行」才渲染得出来。
+// 主夹具刻意没有收件箱(为了逼出「帮我建收件箱」),两者互斥,只能各起一个。
+const planRoot = join(tmp, "plan-ds");
+const planWs = join(tmp, "plan-ws");
+mkdirSync(join(planRoot, "projects"), { recursive: true });
+mkdirSync(join(planRoot, "config"), { recursive: true });
+mkdirSync(join(planWs, FOLDER, "01-资料"), { recursive: true });
+mkdirSync(join(planWs, "00-收件箱"), { recursive: true });
+// 文件名照 tests/e2e/intake.e2e.mjs 里验证过的形状(能被自动认领)
+writeFileSync(join(planWs, "00-收件箱", "翡翠湾户型图.dwg"), "DWG");
+writeFileSync(join(planWs, "00-收件箱", "翡翠湾玄关参考.png"), "P");
+writeFileSync(join(planRoot, "projects", `${PROJ}.md`),
+  readFileSync(join(dsRoot, "projects", `${PROJ}.md`), "utf8"));
+writeFileSync(join(planRoot, "config", "workspace.json"),
+  JSON.stringify({ root: planWs, projectsDir: ".", projects: { [PROJ]: FOLDER } }));
+
+const spawnWeb = (root, port) => spawn("python3", [join(ROOT, "bin", "ds_web.py")], {
+  env: { ...process.env, DS_ROOT: root, DS_WEB_PORT: String(port), DS_TODAY: TODAY },
   stdio: ["ignore", "inherit", "inherit"],
 });
+const srv = spawnWeb(dsRoot, PORT);
+const planSrv = spawnWeb(planRoot, PORT + 1);
 const base = `http://127.0.0.1:${PORT}`;
-for (let i = 0; ; i++) {
-  try { await fetch(`${base}/api/health`); break; }
-  catch { if (i > 50) throw new Error("ds_web 起不来"); await new Promise((r) => setTimeout(r, 200)); }
+const planBase = `http://127.0.0.1:${PORT + 1}`;
+for (const b of [base, planBase]) {
+  for (let i = 0; ; i++) {
+    try { await fetch(`${b}/api/health`); break; }
+    catch { if (i > 50) throw new Error(`ds_web 起不来:${b}`); await new Promise((r) => setTimeout(r, 200)); }
+  }
 }
 
 let failures = 0;
@@ -112,6 +140,8 @@ try {
                s.backgroundColor, s.fontSize, s.fontWeight, s.color].join(" | "),
         w: Math.round(r.width), left: Math.round(r.left), right: Math.round(r.right),
         clipped: b.scrollWidth > b.clientWidth + 1,
+        // 纵向装不下 = 文字换行撑破了固定高度(截图抓到过,scrollWidth 那条接不住)
+        overflowY: b.scrollHeight > b.clientHeight + 1,
       };
     };
     const de = document.documentElement;
@@ -165,6 +195,8 @@ try {
     // 每个按钮的文字都不许被裁
     const clipped = all.filter((b) => b.clipped).map((b) => `${b.text}(${b.cls})`);
     expect(clipped.length === 0, `没有按钮的文字被裁掉(被裁:${clipped.join("、") || "无"})`);
+    const burst = all.filter((b) => b.overflowY).map((b) => `${b.text}(${b.cls})`);
+    expect(burst.length === 0, `没有按钮被文字撑破(撑破:${burst.join("、") || "无"})`);
   });
 
   // ── C 逐点钉死目标角色 ───────────────────────────────────────────────────
@@ -223,9 +255,39 @@ try {
     expect(g.gapRight <= 2,
       `仍贴着标题行右端(距右端 ${g.gapRight}px —— 上下文规则 margin-left:auto 不许丢)`);
   });
+  // ── G 【补覆盖】整理方案那一处的「确认执行」也得体 ────────────────────────
+  await step("G 待确认整理方案里的「确认执行」不被挤变形", async () => {
+    await page.goto(`${planBase}/#/workspace`, { waitUntil: "domcontentloaded" });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.locator('[data-ui="inbox-summary"]').waitFor({ timeout: 15000 });
+    await page.locator('[data-ui="inbox-summary"]').click();
+    await page.locator('button:has-text("扫描整理")').first().click();
+    await page.locator(".inbox-plan").waitFor({ timeout: 20000 });
+
+    const g = await page.evaluate(() => {
+      const b = [...document.querySelectorAll(".inbox-plan .plan-acts button")]
+        .find((x) => x.innerText.trim().startsWith("确认执行"));
+      if (!b) return null;
+      const s = getComputedStyle(b);
+      return { cls: b.className, h: Math.round(b.getBoundingClientRect().height),
+               scrollH: b.scrollHeight, clientH: b.clientHeight,
+               scrollW: b.scrollWidth, clientW: b.clientWidth,
+               lineH: parseFloat(s.lineHeight) || 16 };
+    });
+    check(g !== null, "前提:「确认执行」渲染出来了(夹具真造出了待确认方案)");
+    expect(/\bbtn-primary\b/.test(g.cls),
+      `「确认执行」= btn-primary(实测 ${JSON.stringify(g.cls)})`);
+    expect(g.scrollH <= g.clientH + 1,
+      `文字没把按钮撑破(内容高 ${g.scrollH} ≤ 可视高 ${g.clientH})`);
+    expect(g.scrollW <= g.clientW + 1,
+      `文字没被横向裁掉(内容宽 ${g.scrollW} ≤ 可视宽 ${g.clientW})`);
+    expect(g.h <= g.lineH * 1.9,
+      `没换成两行(按钮高 ${g.h} / 行高 ${g.lineH})`);
+  });
 } finally {
   if (browser) await browser.close();
   srv.kill();
+  planSrv.kill();
   rmSync(tmp, { recursive: true, force: true });
 }
 
