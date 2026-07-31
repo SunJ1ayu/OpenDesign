@@ -137,9 +137,9 @@ export default function InboxCard({ dataEpoch, active }: Props) {
       <div className="inbox-card">
         <div className="inbox-summary" data-ui="inbox-summary">
           <span className="t">收件箱</span>
-          <button className="gallery-link" data-ui="inbox-open" title={dd.path || ""}
+          <button className="link-act" data-ui="inbox-open" title={dd.path || ""}
                   onClick={doOpen}>
-            打开 →
+            打开
           </button>
           <span className="grow" />
           <span className="inbox-quiet">空的</span>
@@ -210,8 +210,14 @@ export default function InboxCard({ dataEpoch, active }: Props) {
         }}
       >
         <span className="t">收件箱 {d.entries.length}</span>
+        {/* 文字按钮档(`.link-act`),**比同一行的「扫描整理」低一级** —— 那才是这张卡的
+            主动作。原来挂的是 `.gallery-link`:从图墙「图墙 →」那条链接抄来的,而那条
+            链接用户 0.54.0 已经让我删了,class 却留下来长在了收件箱上 —— **按位置命名的
+            class 一被复制,名字就开始撒谎**。箭头也去掉(用户 07-31:「不需要箭头」);
+            顺带说,它开的是资源管理器 = 离开这个软件,`→` 本来就表示"应用内往前一步",
+            方向感一直是反的。判据 inbox_open_button.e2e.mjs。 */}
         <button
-          className="gallery-link"
+          className="link-act"
           data-ui="inbox-open"
           title="在资源管理器里打开收件箱"
           onClick={(e) => {
@@ -219,7 +225,7 @@ export default function InboxCard({ dataEpoch, active }: Props) {
             doOpen();
           }}
         >
-          打开 →
+          打开
         </button>
         <span className="grow" />
         <button

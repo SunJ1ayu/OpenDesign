@@ -1398,8 +1398,11 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 .stage-menu-item:disabled { cursor: default; }
 .stage-menu-item.current { background: var(--paper-side); font-weight: 600; color: var(--ink); }
 /* 文字链接(修改单 A2):一律 #a04f2e */
-.gallery-link { font-size: 11.5px; color: var(--terra-deep); white-space: nowrap; transition: color var(--hover-ease); }
-.gallery-link:hover { color: var(--terra); }
+/* `.gallery-link` 已删(真机反馈 2026-07-31):它本是图墙「图墙 →」那条链接的样式,
+   链接 0.54.0 就按用户要求删了,class 却留下来长在了收件箱的「打开」上 ——
+   按位置命名的 class 一被复制到别处,名字就开始撒谎。收件箱那个已改用共享的
+   `.link-act`(文字按钮档)。全应用其余同类复制品的清点是单独一单,见
+   tracks/opendesign-due-picker/tasks.md 的 H。 */
 .cat-row .act { font-size: 11px; color: var(--ink-4); white-space: nowrap; }
 
 .aside-head { display: flex; align-items: center; gap: 8px; padding: 22px 16px 10px; }

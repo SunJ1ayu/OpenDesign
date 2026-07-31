@@ -393,13 +393,15 @@ export default function GalleryPage({ project, onBack }: Props) {
         >
           打开文件夹
         </button>
+        {/* 文字就是「返回」,**不带箭头**(用户 07-31:「不需要箭头,太傻了」)。
+            去哪由 title 说明,不靠符号暗示。判据 gallery_head_buttons F 段整类挡箭头。 */}
         <button
           className="btn-secondary"
           data-ui="gallery-back-ws"
           onClick={onBack}
           title="回到这个项目的工作区"
         >
-          ← 项目工作区
+          返回
         </button>
       </header>
 
