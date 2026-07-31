@@ -676,13 +676,18 @@ export default function TodoPage({
   return (
     <div className="page todo-page">
       {/* 题头提到顶部占满整宽(真机反馈 2026-07-24):下面主区+右栏并排、顶边齐平,
-          日历白卡与左边首张待办卡从同一 y 起。 */}
+          日历白卡与左边首张待办卡从同一 y 起。
+          ⚠️ 题头虽整宽,切换器**必须紧跟副标题左对齐**(真机反馈 2026-07-31):
+          这里曾有个 `.grow` 弹簧把 .seg 顶到题头最右端,题头一改整宽,它就被甩到整个
+          视口的右上角 = 右栏 TodoRail 的正上方,离用户在看的卡片最远。别再加回来 ——
+          要它靠右,得先解决"靠谁的右"(主区的右缘,不是视口的)。
+          判据 tests/e2e/todo_view_switcher.e2e.mjs 的 A/B 段盯这件事,C/D 段盯上面那条
+          齐平修复不许因此回归。 */}
       <header className="todo-head">
         <h2 className="serif">待办事项</h2>
         <span className="sub">
           {data.open.length} 条未办结 · {groups.length} 个项目
         </span>
-        <span className="grow" />
         {/* 分组=选视图,全应用统一用 .seg 分段开关(与变更记录、参考/项目图 tab 同款) */}
         <div className="seg">
           <button

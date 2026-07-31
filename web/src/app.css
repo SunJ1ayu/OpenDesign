@@ -2042,7 +2042,8 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   color: var(--ink);
 }
 .todo-head .sub { font-size: 12px; color: var(--ink-4); }
-.todo-head .grow { flex: 1; }
+/* 这里刻意**没有** `.grow` 弹簧:题头是整宽的(横跨主区+右栏),弹簧会把看法切换器
+   顶到视口最右上角、骑在右栏头上(真机反馈 2026-07-31)。切换器紧跟副标题左对齐。 */
 .todo-empty { padding: 60px 0; text-align: center; font-size: 13px; }
 /* 两视图都用竖向单列(真机反馈 2026-07-24:多列瀑布看着乱,改回竖排)。
    两个 class 结构一致(都是 flex 纵列),切换「按项目/按时间」时主区宽度不再跳变
