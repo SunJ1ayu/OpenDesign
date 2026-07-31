@@ -223,36 +223,38 @@ try {
     expect(await page.locator(".chatcol").isVisible(), "回来的是完整工作区三列,不是空壳");
   });
 
-  await step("#3b 子相册里两级返回不混淆", async () => {
+  // ⚠️ **规格变更(2026-07-31,用户第三次拍板)**:本段原来钉的是相反的行为 ——
+  // 「册内两个返回并存,点『返回工作区』要一步到位出去,不是先退回封面墙」。
+  // 用户原话:「我觉得一个返回就好了,按一下默认返回上一级,如果用户想返回的是项目
+  // 工作区,直接点左边栏的目录就可以了」。两个返回合并成一个层级键,`.g-back` 已删。
+  // **这是明确的规格改写,不是为了让实现过关而放松断言** —— 新断言比旧的更严
+  // (旧的只要求两个控件不互相顶替,新的要求全页有且仅有一个返回控件)。
+  await step("#3b 全页只有一个返回,按一下回上一级", async () => {
     await page.goto(`${base}/#/gallery`, { waitUntil: "domcontentloaded" });
     await page.locator(".g-wall .g-cell").first().waitFor({ timeout: 15000 });
     await page.locator(".g-wall .g-cell").first().click();
-    await page.locator(".g-back").waitFor({ timeout: 10000 });
+    await page.waitForFunction(
+      () => document.querySelector(".gallery-page")?.getAttribute("data-album"),
+      { timeout: 10000 });
 
-    // 两个返回同时在场,且**不是同一个元素**:一个回封面墙,一个回工作区。
     const wsBack = page.locator('[data-ui="gallery-back-ws"]');
-    check(await wsBack.count() > 0, "子相册里仍有返回工作区的按钮");
-    const same = await page.evaluate(() => {
-      const a = document.querySelector('[data-ui="gallery-back-ws"]');
-      const b = document.querySelector(".g-back");
-      return !!a && !!b && (a === b || a.contains(b) || b.contains(a));
-    });
-    expect(!same, "两级返回是两个独立控件(不是一个顶替另一个)");
+    check(await wsBack.count() === 1, "子相册里有且仅有一个返回按钮");
+    expect(await page.locator(".g-back").count() === 0,
+      "旧的第二个返回控件 .g-back 已经不存在");
 
-    // 册内点返回工作区 = 直接回工作区,不是先退回封面墙(用户要的是出去,不是退一步)
+    // 册内点它 = 回封面墙(上一级),**不离开图墙**
+    await wsBack.first().click();
+    await page.waitForFunction(
+      () => !document.querySelector(".gallery-page")?.getAttribute("data-album"),
+      { timeout: 10000 });
+    expect(await page.evaluate(() => location.hash) === "#/gallery",
+      "册内点返回 = 回封面墙,不把人踢出图墙");
+
+    // 在封面墙再点一下才回工作区 —— 一个键,层层往上
     await wsBack.first().click();
     await page.waitForFunction(() => location.hash === "#/workspace", { timeout: 5000 });
     expect(await page.locator(".ws-pane:not(.route-hidden)").isVisible(),
-      "子相册里点返回工作区 = 一步到位回工作区");
-
-    // 而 .g-back 仍然只管相册层级:回图墙后进册、点 .g-back → 回封面墙,不离开图墙
-    await page.goto(`${base}/#/gallery`, { waitUntil: "domcontentloaded" });
-    await page.locator(".g-wall .g-cell").first().waitFor({ timeout: 15000 });
-    await page.locator(".g-wall .g-cell").first().click();
-    await page.locator(".g-back").click();
-    await page.waitForFunction(() => !document.querySelector(".g-back"), { timeout: 10000 });
-    expect(await page.evaluate(() => location.hash) === "#/gallery",
-      ".g-back 只回封面墙,不把人踢出图墙");
+      "封面墙上再点一下才回工作区(层层往上)");
   });
 
   const rightOfChat = await rightEdge(page, ".chatcol");

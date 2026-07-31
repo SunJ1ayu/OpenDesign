@@ -173,7 +173,12 @@ try {
   const firstAlbum = (await target.locator(".g-cap .l").innerText()).trim();
   check(ALBUMS.includes(firstAlbum), `点进去的是一个真实相册(实测「${firstAlbum}」)`);
   await target.click();
-  await page.locator(".g-back").waitFor({ timeout: 10000 });
+  // 「进了某个相册」的信号:页面根节点的 data-album(2026-07-31 起)。
+  // 原来靠 `.g-back`(「← 返回相册 · X」)在不在判断,那个控件已被合并进题头唯一的
+  // 「返回」键(用户拍板:一个返回,按一下回上一级)—— 本文件的 #10a/#10b 语义未变。
+  await page.waitForFunction(
+    () => document.querySelector(".gallery-page")?.getAttribute("data-album"),
+    { timeout: 10000 });
   const labels = await page.$$eval(".g-wall .g-cell .g-cap .l", (els) =>
     els.map((e) => e.textContent.trim()));
   check(
@@ -183,8 +188,10 @@ try {
   );
 
   // ── #10b 返回封面墙:滚动位置恢复 ─────────────────────────────────────────
-  await page.locator(".g-back").click();
-  await page.waitForFunction(() => !document.querySelector(".g-back"), { timeout: 10000 });
+  await page.locator('[data-ui="gallery-back-ws"]').click();
+  await page.waitForFunction(
+    () => !document.querySelector(".gallery-page")?.getAttribute("data-album"),
+    { timeout: 10000 });
   // 复位可能要等下一帧(墙面高度算完才落得上,见 GalleryPage 注释),给它settle 的时间。
   // 断的是"用户最终看到的位置",不是某一帧。
   await page.waitForTimeout(300);

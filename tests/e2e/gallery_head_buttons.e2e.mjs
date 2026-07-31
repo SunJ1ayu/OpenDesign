@@ -19,8 +19,9 @@
 //   B 两者**外观同款**:取 computed style 比(高/圆角/边框/底色/字号),不比 class 名
 //     —— class 名相同不代表看起来一样,反之亦然(仓库既有做法,见 todo_rail 款式段)。
 //   C 题头仍是**单行**、不换行、不越界 —— 往右边那组塞按钮最可能的真 bug 就是挤爆。
-//   D 【护栏】返回仍然一步回工作区(`ws_collapse_back` 的契约不许因挪位置退化)。
-//   E 【护栏】册内两级返回仍是**两个独立控件**,且 `.g-back` 仍只回封面墙。
+//   D 在封面墙上点「返回」= 回项目工作区。
+//   E **全页只有一个返回控件,按一下回上一级**(用户 07-31 第三次拍板,见下)。
+//   G 「没选中项目」那一支也有同款「返回」按钮、同样不带箭头。
 //   F 按钮上**没有箭头**,文字就是「返回」(用户 07-31 追加:「不需要箭头」「太傻了
 //     就写返回就可以了」)。箭头字符整类都挡掉(← → ↗ ⇦ ⧉ …),不是只挡当时那一个 ——
 //     否则下次换个箭头符号照样溜进来。
@@ -110,14 +111,28 @@ for (const album of ["主卧", "客厅", "书房"]) {
   }
 }
 
+// G 段专用的**空档案库**:一个项目都没有 ⇒ GalleryPage 才会走「没选中项目」那一支
+// (只要有项目,App 就自动选中一个,那一支在主夹具下永远进不去)。
+const bareRoot = join(tmp, "bare");
+mkdirSync(join(bareRoot, "projects"), { recursive: true });
+mkdirSync(join(bareRoot, "config"), { recursive: true });
+writeFileSync(join(bareRoot, "config", "workspace.json"), JSON.stringify({ projects: {} }));
+
 const srv = spawn("python3", [join(ROOT, "bin", "ds_web.py")], {
   env: { ...process.env, DS_ROOT: dsRoot, DS_WEB_PORT: String(PORT) },
   stdio: ["ignore", "inherit", "inherit"],
 });
+const bareSrv = spawn("python3", [join(ROOT, "bin", "ds_web.py")], {
+  env: { ...process.env, DS_ROOT: bareRoot, DS_WEB_PORT: String(PORT + 1) },
+  stdio: ["ignore", "inherit", "inherit"],
+});
 const base = `http://127.0.0.1:${PORT}`;
-for (let i = 0; ; i++) {
-  try { await fetch(`${base}/api/health`); break; }
-  catch { if (i > 50) throw new Error("ds_web 起不来"); await new Promise((r) => setTimeout(r, 200)); }
+const bareBase = `http://127.0.0.1:${PORT + 1}`;
+for (const b of [base, bareBase]) {
+  for (let i = 0; ; i++) {
+    try { await fetch(`${b}/api/health`); break; }
+    catch { if (i > 50) throw new Error(`ds_web 起不来:${b}`); await new Promise((r) => setTimeout(r, 200)); }
+  }
 }
 
 // 箭头**整类**,不是只挡当时那一个符号:← → ↑ ↓ 及各种变体、全角箭头、外链方框。
@@ -146,8 +161,14 @@ try {
 
   const gotoGallery = async () => {
     await page.goto(`${base}/#/gallery`, { waitUntil: "domcontentloaded" });
+    await page.reload({ waitUntil: "domcontentloaded" });
     await page.locator(".g-wall .g-cell").first().waitFor({ timeout: 15000 });
   };
+  const back = () => page.locator('[data-ui="gallery-back-ws"]');
+  // 「在不在某个相册里」的信号:页面根节点的 data-album(册内=相册 key,封面墙=空)。
+  // 原来靠 `.g-back` 这个元素在不在来判断,但那个控件本轮已被合并掉了。
+  const inAlbum = () => page.evaluate(
+    () => !!document.querySelector(".gallery-page")?.getAttribute("data-album"));
 
   // 两个按钮的**看得见的事实**一次量全:位置 + computed 外观。
   // 比 computed style 而不是 class 名 —— "做成一样的按钮"是观感诉求,
@@ -223,42 +244,115 @@ try {
       `题头没有元素被挤出题头右缘(最右 ${g.kidMaxRight} / 题头右缘 ${g.head.right} / 视口 ${g.vw})`);
   });
 
-  // ── D 【护栏】返回仍一步回工作区 ─────────────────────────────────────────
-  await step("D 【护栏】挪了位置换了样式,点了照样一步回工作区", async () => {
+  // ── D 封面墙上点「返回」= 回工作区 ───────────────────────────────────────
+  await step("D 在封面墙上点「返回」= 回项目工作区", async () => {
     await gotoGallery();
-    await page.locator('[data-ui="gallery-back-ws"]').click();
+    expect(await inAlbum() === false, "前提:现在在封面墙,不在某个相册里");
+    await back().click();
     await page.waitForFunction(() => location.hash === "#/workspace", { timeout: 5000 });
     expect(await page.locator(".ws-pane:not(.route-hidden)").isVisible(),
       "点了就回到项目工作区");
   });
 
-  // ── E 【护栏】册内两级返回仍不混淆 ───────────────────────────────────────
-  await step("E 【护栏】册内两级返回仍是两个独立控件", async () => {
+  // ── E 全页只有一个返回,按一下回上一级 ───────────────────────────────────
+  await step("E 全页只有一个返回控件,按一下回上一级", async () => {
     await gotoGallery();
     await page.locator(".g-wall .g-cell").first().click();
-    await page.locator(".g-back").waitFor({ timeout: 10000 });
-    const same = await page.evaluate(() => {
-      const a = document.querySelector('[data-ui="gallery-back-ws"]');
-      const b = document.querySelector(".g-back");
-      return !!a && !!b && (a === b || a.contains(b) || b.contains(a));
-    });
-    expect(!same, "两级返回是两个独立控件");
-    await page.locator(".g-back").click();
-    await page.waitForFunction(() => !document.querySelector(".g-back"), { timeout: 10000 });
+    await page.waitForFunction(
+      () => document.querySelector(".gallery-page")?.getAttribute("data-album"),
+      { timeout: 10000 });
+
+    // ① 册内不许再有第二个返回控件(`.g-back`「← 返回相册 · X」已删)
+    expect(await page.locator(".g-back").count() === 0,
+      `册内没有第二个返回控件(实测 .g-back ${await page.locator(".g-back").count()} 个)`);
+    expect(await back().count() === 1,
+      `全页只有一个返回按钮(实测 ${await back().count()} 个)`);
+
+    // ② 册内点它 = 回封面墙,**不离开图墙**(上一级是封面墙,不是工作区)
+    await back().click();
+    await page.waitForFunction(
+      () => !document.querySelector(".gallery-page")?.getAttribute("data-album"),
+      { timeout: 10000 });
     expect(await page.evaluate(() => location.hash) === "#/gallery",
-      ".g-back 仍然只回封面墙,不把人踢出图墙");
+      "册内点返回 = 回封面墙,没被踢出图墙");
+
+    // ③ 再点一下才回工作区 —— 一个键、两级,层层往上
+    await back().click();
+    await page.waitForFunction(() => location.hash === "#/workspace", { timeout: 5000 });
+    expect(await page.locator(".ws-pane:not(.route-hidden)").isVisible(),
+      "在封面墙再点一下才回工作区(一个键、层层往上)");
   });
 
   // ── F 没有箭头,就写「返回」 ─────────────────────────────────────────────
   await step("F 返回按钮不带箭头,文字就是「返回」", async () => {
     await gotoGallery();
-    const txt = (await page.locator('[data-ui="gallery-back-ws"]').innerText()).trim();
+    const txt = (await back().innerText()).trim();
     expect(txt === "返回", `按钮文字是「返回」(实测 ${JSON.stringify(txt)})`);
     expect(!ARROWS.test(txt), `按钮文字不含任何箭头字符(实测 ${JSON.stringify(txt)})`);
+    // 册内也是同一个按钮、同样的字(它变的是去哪,不是长相)
+    await page.locator(".g-wall .g-cell").first().click();
+    await page.waitForFunction(
+      () => document.querySelector(".gallery-page")?.getAttribute("data-album"),
+      { timeout: 10000 });
+    const t2 = (await back().innerText()).trim();
+    expect(t2 === "返回", `册内文字也是「返回」(实测 ${JSON.stringify(t2)})`);
+  });
+
+  // ── G 「没选中项目」那一支也别落下 ───────────────────────────────────────
+  // 这一支是 0.64/0.65 两轮**漏改的地方**:主分支改了、空态没改,于是那里还留着
+  // 「← 项目工作区」,而且它挂的 `.g-back-ws` 样式类当时已经被我删了 = 无样式裸按钮。
+  // 判据没覆盖到的分支就是会漏 —— 补上。
+  await step("G 「没选中项目」那一支也是同款「返回」、不带箭头", async () => {
+    // 只要档案库里有项目,App 就会自动选中一个 ⇒ 这一支在主夹具下永远进不去。
+    // 所以另起**一个空档案库的 ds_web**,专门把这一支逼出来。
+    // (第一版想靠清 localStorage 把它逼出来,结果整段被 skip 掉 —— **跳过的判据
+    //  等于没判**,这正是 0.64/0.65 漏改这一支的原因,不能用同样的方式再放它一马。)
+    await page.goto(`${bareBase}/#/gallery`, { waitUntil: "domcontentloaded" });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    const empty = page.locator(".gallery-page .muted");
+    await empty.waitFor({ timeout: 15000 });
+    check(await empty.count() === 1, "前提:确实进了「先在侧栏选一个项目」那一支");
+    const b = back();
+    expect(await b.count() === 1, "空态也有返回按钮(空页面比有内容的页面更容易困住人)");
+    const txt = (await b.innerText()).trim();
+    expect(txt === "返回", `空态按钮文字也是「返回」(实测 ${JSON.stringify(txt)})`);
+    expect(!ARROWS.test(txt), "空态按钮也不含箭头");
+    const cls = await b.getAttribute("class");
+    expect(/\bbtn-secondary\b/.test(cls ?? ""),
+      `空态按钮也用共享的 .btn-secondary(实测 ${JSON.stringify(cls)})`);
+  });
+
+  // ── H 全应用「打开文件夹」统一成同一个白框按钮 ───────────────────────────
+  // 用户 07-31:「你说的打开文件夹我觉得也统一一下就好了,都用一样的白框然后里面字」。
+  // 病历:同一个动作此前有三种写法 —— `.open-folder`(伴随列题头)/
+  // `.btn-secondary sm`(伴随列空态)/ `.btn-secondary`(图墙)。
+  await step("H 全应用「打开文件夹」外观一致,且一次性 class .open-folder 已不存在", async () => {
+    const looks = [];
+    for (const hash of ["#/workspace", "#/gallery"]) {
+      await page.goto(`${base}/${hash}`, { waitUntil: "domcontentloaded" });
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(1500);
+      expect(await page.locator(".open-folder").count() === 0,
+        `${hash}:一次性 class .open-folder 已不存在`);
+      const got = await page.evaluate(() =>
+        [...document.querySelectorAll("button")]
+          .filter((b) => b.innerText.trim() === "打开文件夹")
+          .map((b) => {
+            const s = getComputedStyle(b);
+            return [s.height, s.borderTopWidth, s.borderTopStyle, s.borderTopColor,
+                    s.borderRadius, s.backgroundColor, s.fontSize, s.color].join(" | ");
+          }));
+      looks.push(...got);
+    }
+    check(looks.length >= 2, `前提:至少量到 2 个「打开文件夹」按钮(实测 ${looks.length} 个)`);
+    const uniq = [...new Set(looks)];
+    expect(uniq.length === 1,
+      `所有「打开文件夹」外观完全一致(实测 ${uniq.length} 种:${JSON.stringify(uniq)})`);
   });
 } finally {
   if (browser) await browser.close();
   srv.kill();
+  bareSrv.kill();
   rmSync(tmp, { recursive: true, force: true });
 }
 
