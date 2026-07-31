@@ -2708,18 +2708,10 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 /* 图墙 → 项目工作区(真机反馈 2026-07-27 #3)。刻意**不长成 .g-back 的样子**:
    同屏可能两个返回并存(册内),长得一样等于逼用户猜哪个是哪个 ——
    这个是跨页出口(文字链接款、贴在标题左边),.g-back 是页内层级(描边按钮款)。 */
-.g-back-ws {
-  align-self: center;
-  padding: 2px 2px 2px 0;
-  font-size: 12px;
-  color: var(--terra-deep);
-  background: none;
-  border: 0;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color var(--hover-ease);
-}
-.g-back-ws:hover { color: var(--terra); text-decoration: underline; }
+/* `.g-back-ws` 已删(真机反馈 2026-07-31):「← 项目工作区」不再是文字链接款,
+   改用共享的 .btn-secondary,和「打开文件夹」并排成一组「离开这一页」的动作。
+   它和册内 `.g-back`(← 返回相册)不混淆,靠的是位置(题头 / chips 下面)与标签,
+   不再靠款式差 —— 判据 gallery_head_buttons.e2e.mjs E 段。 */
 
 /* lightbox:点图放大,点任意处/Esc 关 */
 .g-light {

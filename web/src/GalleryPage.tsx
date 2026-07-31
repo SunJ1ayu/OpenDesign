@@ -333,11 +333,6 @@ export default function GalleryPage({ project, onBack }: Props) {
         </div>
       )}
       <header className="page-head">
-        {/* 出口摆在标题左边(阅读顺序的第一个位置),不塞进右边那排功能键里 */}
-        <button className="g-back-ws" data-ui="gallery-back-ws" onClick={onBack}
-                title="回到这个项目的工作区">
-          ← 项目工作区
-        </button>
         <h2 className="serif">图墙 · {project.name}</h2>
         <span className="g-dim">
           {loading
@@ -382,12 +377,29 @@ export default function GalleryPage({ project, onBack }: Props) {
             )}
           </div>
         )}
+        {/* 题头最右边是一组「离开这一页」的动作(真机反馈 2026-07-31):
+            打开文件夹 = 去资源管理器,← 项目工作区 = 回工作区。两者同款 .btn-secondary
+            —— 共享次按钮,不各自造一份(`.open-folder` 原本就是 .btn-secondary 的
+            一次性复制品,仅 26px vs 28px 之差,本次收编掉)。
+            ⚠️ 「← 项目工作区」曾是文字链接款(`86cf466`),理由是要和册内的
+            `.g-back`(← 返回相册)区分开。那理由站不住:两者从不相邻、标签也完全不同,
+            而文字链接混在按钮排里读起来是"次要"—— 对整页唯一的出口是错的信号。
+            两级返回不混淆由 gallery_head_buttons 的 E 段 + ws_collapse_back #3b 继续锁。 */}
         <button
-          className="open-folder"
+          className="btn-secondary"
+          data-ui="gallery-open-folder"
           title="在资源管理器打开项目文件夹"
           onClick={() => openFolder(project.key).catch(() => {})}
         >
           打开文件夹
+        </button>
+        <button
+          className="btn-secondary"
+          data-ui="gallery-back-ws"
+          onClick={onBack}
+          title="回到这个项目的工作区"
+        >
+          ← 项目工作区
         </button>
       </header>
 
