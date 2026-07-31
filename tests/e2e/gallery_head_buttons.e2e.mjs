@@ -21,6 +21,9 @@
 //   C 题头仍是**单行**、不换行、不越界 —— 往右边那组塞按钮最可能的真 bug 就是挤爆。
 //   D 【护栏】返回仍然一步回工作区(`ws_collapse_back` 的契约不许因挪位置退化)。
 //   E 【护栏】册内两级返回仍是**两个独立控件**,且 `.g-back` 仍只回封面墙。
+//   F 按钮上**没有箭头**,文字就是「返回」(用户 07-31 追加:「不需要箭头」「太傻了
+//     就写返回就可以了」)。箭头字符整类都挡掉(← → ↗ ⇦ ⧉ …),不是只挡当时那一个 ——
+//     否则下次换个箭头符号照样溜进来。
 //
 // 跑法:node tests/e2e/gallery_head_buttons.e2e.mjs(自起 ds_web 于 8819)
 import { spawn } from "node:child_process";
@@ -116,6 +119,14 @@ for (let i = 0; ; i++) {
   try { await fetch(`${base}/api/health`); break; }
   catch { if (i > 50) throw new Error("ds_web 起不来"); await new Promise((r) => setTimeout(r, 200)); }
 }
+
+// 箭头**整类**,不是只挡当时那一个符号:← → ↑ ↓ 及各种变体、全角箭头、外链方框。
+// 用户 07-31:「不需要箭头」「太傻了就写返回就可以了」。
+// 用码位区间写,免得靠肉眼比对字形:
+//   2190–21FF 箭头 · 2794–27BF 装饰箭头 · 27F0–27FF 补充箭头A · 2900–297F 补充箭头B
+//   2B00–2BFF 杂项符号与箭头 · FFE9–FFEC 全角箭头 · 29C9 外链方框(⧉)
+const ARROWS =
+  /[←-⇿➔-➿⟰-⟿⤀-⥿⬀-⯿￩-￬⧉]/u;
 
 let failures = 0;
 async function step(name, fn) {
@@ -236,6 +247,14 @@ try {
     await page.waitForFunction(() => !document.querySelector(".g-back"), { timeout: 10000 });
     expect(await page.evaluate(() => location.hash) === "#/gallery",
       ".g-back 仍然只回封面墙,不把人踢出图墙");
+  });
+
+  // ── F 没有箭头,就写「返回」 ─────────────────────────────────────────────
+  await step("F 返回按钮不带箭头,文字就是「返回」", async () => {
+    await gotoGallery();
+    const txt = (await page.locator('[data-ui="gallery-back-ws"]').innerText()).trim();
+    expect(txt === "返回", `按钮文字是「返回」(实测 ${JSON.stringify(txt)})`);
+    expect(!ARROWS.test(txt), `按钮文字不含任何箭头字符(实测 ${JSON.stringify(txt)})`);
   });
 } finally {
   if (browser) await browser.close();
