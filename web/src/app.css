@@ -1102,8 +1102,11 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 .rail-ask-head { display: flex; align-items: baseline; gap: 8px; }
 .rail-ask-head .rail-title { margin: 0; }
 /* `.rail-expand-link` 已删:「展开对话」现在归入 `.link-act` 文字按钮档;
-   标题行右贴边是该位置的布局需求,保留在容器上下文里。 */
-.rail-ask-head .link-act { margin-left: auto; }
+   标题行右贴边是该位置的布局需求,保留在容器上下文里。
+   ⚠️ 用**直接子**选择器,与下面那条 align-self 写法一致(评审 NIT + 主 agent 自审
+   独立命中同一处):两条规则针对同一个元素,一条后代一条直接子,将来标题行里嵌一层
+   容器就会一条生效一条失效 —— 那种不一致最难查。 */
+.rail-ask-head > .link-act { margin-left: auto; }
 .rail-ask-hint { margin: 0; font-size: 12px; line-height: 1.6; color: var(--ink-3); }
 /* #8:输入区自成一张白底卡(参考图里唯一的白块) */
 .rail-ask-row {

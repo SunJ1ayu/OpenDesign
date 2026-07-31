@@ -1,7 +1,7 @@
 # Tasks: opendesign-button-roles
 
 - base-ref: cd3047c523396add08c4fa80879f1d04916edbd8(0.66.0)
-- 状态:**判据已红、已 commit;实现派给 codex `gpt-5.5` 执行腿**
+- 状态:**DONE,交付 0.67.0**(执行腿 codex `gpt-5.5`,2 轮,自身实现错误 0 处)
 
 > 委托规矩:主 agent 先写失败测试(oracle)并 commit,再把窄范围实现交给它;
 > oracle/测试文件对它 off-limits;~2 次红了收回主 agent。
@@ -20,15 +20,15 @@
 
 ## 待做
 
-- [ ] **T1 九个使用点换成角色 class + 删三条 CSS 规则** —— 已派 codex `gpt-5.5`,
+- [x] **T1 九个使用点换成角色 class + 删三条 CSS 规则** —— 已派 codex `gpt-5.5`,
       清单见 design.md 的表。
-- [ ] **T2 收货三闸**:① oracle 逐字节 diff 必须为空 ② 主 agent 亲跑判据 + 全量回归 + build
+- [x] **T2 收货三闸**:① oracle 逐字节 diff 必须为空 ② 主 agent 亲跑判据 + 全量回归 + build
       ③ 亲读 diff(含盯 `create mode 120000`)
-- [ ] **T3 截图** —— **必须截到聊天区与整理方案两处**。判据只钉一致性,钉不住
+- [x] **T3 截图** —— **必须截到聊天区与整理方案两处**。判据只钉一致性,钉不住
       "整体更难看",而那两处正是最可能变难看、又最难截到的。
-- [ ] **T4 fast lane 评审**(主审 + 1 腿)
-- [ ] **T5 merge + bump 版本 + push + 归档**;真机待验清单加一条
-- [ ] **T6 返工率记账**(本单的第二目的,别忘)
+- [x] **T4 fast lane 评审**(主审 + 1 腿)
+- [x] **T5 merge + bump 版本 + push + 归档**;真机待验清单加一条
+- [x] **T6 返工率记账**(本单的第二目的,别忘)
 
 ## 真机验收要问用户的一句话
 

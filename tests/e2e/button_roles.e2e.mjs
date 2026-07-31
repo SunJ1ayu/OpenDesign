@@ -283,6 +283,22 @@ try {
       `文字没被横向裁掉(内容宽 ${g.scrollW} ≤ 可视宽 ${g.clientW})`);
     expect(g.h <= g.lineH * 1.9,
       `没换成两行(按钮高 ${g.h} / 行高 ${g.lineH})`);
+
+    // 评审(submimo,MEDIUM)质疑执行腿自己加的 `.inbox-plan .plan-hint{min-width:0}`:
+    // 说它"允许收缩,与修病初衷相反",失败路径是"提示文字被压成每行几个字的竖排"。
+    // **主 agent 裁决:驳回该推理**——对一段**文字**来说,允许收缩→换行正是要的;
+    // 07-27 那次的病是**卡片**被塞进 36px 竖条,不是同一件事。按钮已有 flex:none,
+    // 不会被它挤到。**但不空口驳回:在真实列宽下量一次,证明提示文字没退化。**
+    const hint = await page.evaluate(() => {
+      const h = document.querySelector(".inbox-plan .plan-hint");
+      if (!h) return null;
+      const r = h.getBoundingClientRect();
+      const lh = parseFloat(getComputedStyle(h).lineHeight) || 15;
+      return { w: Math.round(r.width), lines: Math.round(r.height / lh) };
+    });
+    check(hint !== null, "前提:量得到方案区的提示文字");
+    expect(hint.w >= 80, `提示文字没被压成窄条(实测宽 ${hint.w}px)`);
+    expect(hint.lines <= 3, `提示文字没被压成竖排(实测约 ${hint.lines} 行)`);
   });
 } finally {
   if (browser) await browser.close();
