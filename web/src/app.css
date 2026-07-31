@@ -1101,7 +1101,9 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 /* 标题行:标题左、「展开对话 →」右(参考图) */
 .rail-ask-head { display: flex; align-items: baseline; gap: 8px; }
 .rail-ask-head .rail-title { margin: 0; }
-.rail-ask-head .rail-expand-link { margin-left: auto; }
+/* `.rail-expand-link` 已删:「展开对话」现在归入 `.link-act` 文字按钮档;
+   标题行右贴边是该位置的布局需求,保留在容器上下文里。 */
+.rail-ask-head .link-act { margin-left: auto; }
 .rail-ask-hint { margin: 0; font-size: 12px; line-height: 1.6; color: var(--ink-3); }
 /* #8:输入区自成一张白底卡(参考图里唯一的白块) */
 .rail-ask-row {
@@ -1137,13 +1139,9 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   transition: background var(--hover-ease);
 }
 .rail-send:hover { background: var(--terra-deep); }
-.rail-expand-link {
-  align-self: flex-start;
-  font-size: 12px;
-  color: var(--terra-deep);
-  transition: color var(--hover-ease);
-}
-.rail-expand-link:hover { color: var(--terra); }
+/* `.rail-expand-link` 已删:视觉与 hover 改用共享 `.link-act`;
+   只把原本防止 flex/stretch 的对齐规则迁到标题行上下文。 */
+.rail-ask-head > .link-act { align-self: flex-start; }
 
 /* ChatPage 常驻壳(收起时 .route-hidden 隐藏,不卸载——与 .chatcol-body 同规矩) */
 .rail-chat {
@@ -1808,18 +1806,8 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 }
 .chat-login input:focus { border-color: var(--terra); outline: none; }
 .chat-login-error { color: var(--terra-deep); font-size: 12px; }
-.chat-btn {
-  font-size: 12.5px;
-  padding: 5px 12px;
-  border: 1px solid var(--border-input);
-  border-radius: 8px;
-  background: #fff;
-  color: var(--ink-2);
-  transition: background var(--hover-ease);
-}
-.chat-btn:hover { background: var(--paper-side); }
-.chat-btn.primary { background: var(--terra); color: #fff; border-color: var(--terra); }
-.chat-btn.primary:hover { background: var(--terra-deep); }
+/* `.chat-btn` 已删:聊天/伴随列/收件箱动作已收编到 `.btn-secondary`;
+   原 `.chat-btn.primary` 已收编到 `.btn-primary`,不再保留位置命名按钮。 */
 .chat-note {
   display: flex;
   align-items: center;
@@ -2096,8 +2084,9 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   padding: 1px 8px;
   white-space: nowrap;
 }
-.go-link { font-size: 12px; color: var(--terra-deep); transition: color var(--hover-ease); flex: none; }
-.go-link:hover { color: var(--terra); }
+/* `.go-link` 已删:项目卡「去项目」现在归入 `.link-act` 文字按钮档;
+   `flex: none` 是卡头布局需求,保留在项目卡上下文里避免按钮被压缩。 */
+.todo-card .card-head .link-act { flex: none; }
 .batch-sect { padding: 4px 0 2px; }
 .batch-head {
   display: flex;

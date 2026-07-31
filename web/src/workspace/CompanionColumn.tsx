@@ -333,14 +333,14 @@ export default function CompanionColumn({
               <div className="acts">
                 <button
                   type="submit"
-                  className="chat-btn primary"
+                  className="btn-primary"
                   disabled={!connectPath.trim()}
                 >
                   发给助手
                 </button>
                 <button
                   type="button"
-                  className="chat-btn"
+                  className="btn-secondary"
                   onClick={() => setConnectOpen(false)}
                 >
                   取消
@@ -370,7 +370,7 @@ export default function CompanionColumn({
                   ))}
                 </select>
                 <button
-                  className="chat-btn primary"
+                  className="btn-primary"
                   disabled={!bindFolder || binding}
                   onClick={doBind}
                 >

@@ -664,7 +664,7 @@ export default function TodoPage({
             <span className="n-open">{c.items.length} 条未办结</span>
             {c.stale !== null && <span className="stale-badge">⛑ {c.stale} 天没动静</span>}
           </GroupToggle>
-          <button className="go-link" onClick={() => onGoProject(c.project)}>
+          <button className="link-act" onClick={() => onGoProject(c.project)}>
             去项目 →
           </button>
         </header>

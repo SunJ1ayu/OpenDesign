@@ -98,7 +98,7 @@ export default function InboxCard({ dataEpoch, active }: Props) {
           {err && <div className="aside-empty warn">{err}</div>}
           <div className="plan-acts">
             <button
-              className="chat-btn primary"
+              className="btn-primary"
               data-ui="inbox-create"
               disabled={creating}
               onClick={doCreateInbox}
@@ -274,7 +274,7 @@ export default function InboxCard({ dataEpoch, active }: Props) {
               ))}
               <div className="plan-acts">
                 <button
-                  className="chat-btn primary"
+                  className="btn-primary"
                   disabled={busy !== null}
                   onClick={() => doApprove(p.planId)}
                   title="确认后文件才会真正移动"

@@ -663,10 +663,10 @@ export default function ChatPage({
         <div className="chat-note">
           <span>{view.msg}。请确认 nanobot gateway 已启动。</span>
           <span className="acts">
-            <button className="chat-btn" onClick={() => setAttempt((n) => n + 1)}>
+            <button className="btn-secondary" onClick={() => setAttempt((n) => n + 1)}>
               重试
             </button>
-            <button className="chat-btn" onClick={logout}>
+            <button className="btn-secondary" onClick={logout}>
               退出登录
             </button>
           </span>
