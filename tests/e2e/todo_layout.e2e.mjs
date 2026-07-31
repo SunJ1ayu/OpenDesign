@@ -202,8 +202,10 @@ try {
   check(true, "再点一次恢复展开");
 
   // ── 折叠控件不吞掉同头部的其它按钮(嵌套 button 非法 + 语义) ───────────
-  check(await card1.locator(".card-head .go-link").count() === 1, "卡头「去项目 →」仍在");
-  check(await card1.locator(".card-head .go-link")
+  // 按文案选,不按 class 名(2026-08-01 `.go-link` 已并入共享 `.link-act`)。
+  check(await card1.locator('.card-head button:has-text("去项目")').count() === 1,
+        "卡头「去项目 →」仍在");
+  check(await card1.locator('.card-head button:has-text("去项目")')
     .evaluate((el) => el.closest('[data-ui="group-toggle"]') === null),
     "「去项目 →」不在折叠控件内部(不被吞)");
   check(await card1.locator('[data-ui="group-toggle"] button').count() === 0,

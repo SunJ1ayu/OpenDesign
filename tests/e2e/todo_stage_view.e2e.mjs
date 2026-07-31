@@ -165,7 +165,8 @@ try {
   // ── F 「去项目 →」没退化 ─────────────────────────────────────────────────
   await step("F 「去项目 →」在按阶段看法里照样点得到", async () => {
     await gotoTodo();
-    const go = sect("效果图").locator(".go-link");
+    // 按文案选,不按 class 名(2026-08-01 `.go-link` 已并入共享 `.link-act`)。
+    const go = sect("效果图").locator('button:has-text("去项目")');
     expect(await go.count() === 1, "效果图堆里的卡片有「去项目 →」");
     await go.click();
     await page.locator(".change-scroll").waitFor({ timeout: 15000 });

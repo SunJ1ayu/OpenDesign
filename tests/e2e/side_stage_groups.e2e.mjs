@@ -177,7 +177,10 @@ try {
     await page.locator(".todo-page .opt", { hasText: "按项目" }).click();
     const card = page.locator(".todo-card", { hasText: "松涛苑-0101" }).first();
     await card.waitFor({ timeout: 15000 });
-    await card.locator(".go-link").click();
+    // 按**用户看得见的文案**选,不按 class 名(2026-08-01 按钮角色收编:`.go-link`
+    // 并入共享的 `.link-act`,原来钉在 class 名上的选择器全断了)。文案选择器对
+    // 下一次改 class 免疫,而这一段本来要验的就是"这个入口点得到",不是它叫什么。
+    await card.locator('button:has-text("去项目")').click();
 
     await groups().first().waitFor({ timeout: 15000 });
     expect(await row("松涛苑-0101").count() === 1,
