@@ -205,7 +205,7 @@ export default function TodoRail({
             {!expanded && (
               <button
                 type="button"
-                className="rail-expand-link"
+                className="link-act"
                 data-ui="rail-expand"
                 onClick={() => setExpanded(true)}
               >
