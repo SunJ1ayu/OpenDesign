@@ -253,6 +253,8 @@ try {
     // 在封面墙再点一下才回工作区 —— 一个键,层层往上
     await wsBack.first().click();
     await page.waitForFunction(() => location.hash === "#/workspace", { timeout: 5000 });
+    // hash 先变、工作区面板后渲染 —— 等它现形再断言
+    await page.locator(".ws-pane:not(.route-hidden)").waitFor({ timeout: 10000 });
     expect(await page.locator(".ws-pane:not(.route-hidden)").isVisible(),
       "封面墙上再点一下才回工作区(层层往上)");
   });

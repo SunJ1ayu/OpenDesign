@@ -20,7 +20,10 @@ import {
 
 /** onBack:回到这个项目的工作区。图墙是从伴随列「打开图墙」进来的一层,
  *  自己不提供出口就是"进得去出不来"(真机反馈 2026-07-27 #3)。
- *  与页内的 `.g-back`(子相册 → 封面墙)是**两个层级**,判据里钉了不许互相顶替。 */
+ *  ⚠️ 2026-07-31 起题头只有**一个**「返回」键,语义是**回上一级**:
+ *  册内 → 封面墙,封面墙 → 调用 onBack 回工作区。原来那个页内的
+ *  `.g-back`(「← 返回相册 · X」)已删。用户原话:「一个返回就好了,按一下默认返回
+ *  上一级,如果用户想返回的是项目工作区,直接点左边栏的目录就可以了」。 */
 type Props = { project: Project | null; onBack: () => void };
 
 const EMPTY: GalleryFilter = { group: null, space: null, style: null };
@@ -294,9 +297,13 @@ export default function GalleryPage({ project, onBack }: Props) {
   if (!project) {
     return (
       <div className="page gallery-page">
-        {/* 没选中项目这一支同样要有出口 —— 空页面比有内容的页面更容易把人困住 */}
-        <button className="g-back-ws" data-ui="gallery-back-ws" onClick={onBack}>
-          ← 项目工作区
+        {/* 没选中项目这一支同样要有出口 —— 空页面比有内容的页面更容易把人困住。
+            ⚠️ 0.64/0.65 两轮只改了主分支、漏了这一支,于是这里一度留着旧文案 +
+            已被删掉的样式类(= 无样式裸按钮)。判据 gallery_head_buttons G 段现在
+            专门起一个空档案库的 ds_web 把这一支逼出来判。 */}
+        <button className="btn-secondary" data-ui="gallery-back-ws" onClick={onBack}
+                title="回到项目工作区">
+          返回
         </button>
         <p className="muted">先在侧栏选一个项目,图墙按项目展示。</p>
       </div>
@@ -306,6 +313,9 @@ export default function GalleryPage({ project, onBack }: Props) {
   return (
     <div
       className={`page gallery-page${dragOver ? " drag-over" : ""}`}
+      // 「当前在不在某个相册里」的对外信号(册内=相册 key,封面墙=空)。
+      // 合并成一个返回键之后,判据不能再靠 `.g-back` 这个元素在不在来判断层级。
+      data-album={current ? current.key : ""}
       ref={pageRef}
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes("Files")) return;
@@ -382,7 +392,7 @@ export default function GalleryPage({ project, onBack }: Props) {
             —— 共享次按钮,不各自造一份(`.open-folder` 原本就是 .btn-secondary 的
             一次性复制品,仅 26px vs 28px 之差,本次收编掉)。
             ⚠️ 「← 项目工作区」曾是文字链接款(`86cf466`),理由是要和册内的
-            `.g-back`(← 返回相册)区分开。那理由站不住:两者从不相邻、标签也完全不同,
+            `.g-back`(← 返回相册)区分开 —— 那个控件 07-31 已被合并掉,
             而文字链接混在按钮排里读起来是"次要"—— 对整页唯一的出口是错的信号。
             两级返回不混淆由 gallery_head_buttons 的 E 段 + ws_collapse_back #3b 继续锁。 */}
         <button
@@ -394,12 +404,14 @@ export default function GalleryPage({ project, onBack }: Props) {
           打开文件夹
         </button>
         {/* 文字就是「返回」,**不带箭头**(用户 07-31:「不需要箭头,太傻了」)。
-            去哪由 title 说明,不靠符号暗示。判据 gallery_head_buttons F 段整类挡箭头。 */}
+            **一个键、回上一级**:册内 → 封面墙;封面墙 → 项目工作区。
+            去哪由 title 说明(会跟着层级变),不靠符号暗示。
+            与 Esc 的行为对齐(Esc 本来就是"先关大图,否则退出当前相册")。 */}
         <button
           className="btn-secondary"
           data-ui="gallery-back-ws"
-          onClick={onBack}
-          title="回到这个项目的工作区"
+          onClick={() => (current ? setOpenAlbum(null) : onBack())}
+          title={current ? "回到封面墙" : "回到这个项目的工作区"}
         >
           返回
         </button>
@@ -417,12 +429,6 @@ export default function GalleryPage({ project, onBack }: Props) {
         active={filter.style}
         onPick={(v) => setFilter((f) => ({ ...f, style: v }))}
       />
-
-      {current && (
-        <button className="g-back" onClick={() => setOpenAlbum(null)}>
-          ← 返回相册 · {current.group === REF_GROUP ? "参考" : current.group}
-        </button>
-      )}
 
       {!loading && items.length === 0 ? (
         <div className="aside-empty" style={{ marginTop: 18 }}>

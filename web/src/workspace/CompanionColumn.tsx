@@ -210,7 +210,7 @@ export default function CompanionColumn({
             {mapped && (
               <div>
                 <button
-                  className="btn-secondary sm"
+                  className="btn-secondary"
                   data-ui="empty-open-folder"
                   onClick={() => doOpen()}
                 >
@@ -279,9 +279,13 @@ export default function CompanionColumn({
       <div className="aside-head files">
         <span className="t">项目文件</span>
         <span className="grow" />
+        {/* 全应用「打开文件夹」统一成同一个次按钮(真机反馈 2026-07-31:
+            「都用一样的白框然后里面字」)。原来这里是一次性的 `.open-folder`
+            (与 .btn-secondary 只差 26px vs 28px),同一个动作却有三种写法。
+            判据 gallery_head_buttons H 段量的是 computed 外观全等,不是 class 名。 */}
         {mapped && (
           <button
-            className="open-folder"
+            className="btn-secondary"
             title="在资源管理器打开项目文件夹"
             onClick={() => doOpen()}
           >

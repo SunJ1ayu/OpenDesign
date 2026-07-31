@@ -2471,17 +2471,10 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 
 /* 伴随列文件区:类目行(可点=打开资源管理器)+ 最近更新 */
 /* 次按钮(修改单 A2):白底描边,hover 底 #f3f1ea */
-.open-folder {
-  height: 26px;
-  padding: 0 12px;
-  font-size: 11.5px;
-  border: 1px solid var(--border-input);
-  border-radius: 8px;
-  color: var(--ink-2);
-  background: #fff;
-  transition: background var(--hover-ease);
-}
-.open-folder:hover { background: var(--paper-side); }
+/* `.open-folder` 已删(真机反馈 2026-07-31:「打开文件夹也统一一下,都用一样的白框
+   然后里面字」)。它本就是 `.btn-secondary` 的一次性复制品(只差 26px vs 28px),
+   同一个动作因此在全应用有三种写法。三处已统一到 `.btn-secondary`,
+   判据 gallery_head_buttons H 段量 computed 外观全等 + 断言本 class 不再存在。 */
 /* B4:文件区未接入空态的「接入工作区」按钮 */
 .connect-workspace {
   margin: 10px 8px 0;
@@ -2695,26 +2688,14 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
-.g-back {
-  margin: 10px 0 0;
-  padding: 4px 10px;
-  font-size: 12px;
-  color: var(--ink-3);
-  background: none;
-  border: 1px solid var(--border-main);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: border-color var(--hover-ease);
-}
-.g-back:hover { border-color: var(--terra); }
+/* `.g-back`(「← 返回相册 · X」)已删(真机反馈 2026-07-31):图墙不再有第二个返回,
+   题头那个「返回」变成层级键 —— 册内回封面墙,封面墙回项目工作区。用户原话:
+   「一个返回就好了,按一下默认返回上一级」。层级信号见页面根节点的 data-album。 */
 
-/* 图墙 → 项目工作区(真机反馈 2026-07-27 #3)。刻意**不长成 .g-back 的样子**:
-   同屏可能两个返回并存(册内),长得一样等于逼用户猜哪个是哪个 ——
-   这个是跨页出口(文字链接款、贴在标题左边),.g-back 是页内层级(描边按钮款)。 */
 /* `.g-back-ws` 已删(真机反馈 2026-07-31):「← 项目工作区」不再是文字链接款,
-   改用共享的 .btn-secondary,和「打开文件夹」并排成一组「离开这一页」的动作。
-   它和册内 `.g-back`(← 返回相册)不混淆,靠的是位置(题头 / chips 下面)与标签,
-   不再靠款式差 —— 判据 gallery_head_buttons.e2e.mjs E 段。 */
+   改用共享的 .btn-secondary,和「打开文件夹」并排在题头右边。
+   同一轮里册内那个 `.g-back` 也被合并掉了 ⇒ 现在全页只有一个「返回」,
+   语义 = 回上一级 —— 判据 gallery_head_buttons.e2e.mjs E 段。 */
 
 /* lightbox:点图放大,点任意处/Esc 关 */
 .g-light {
