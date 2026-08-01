@@ -4,6 +4,7 @@ import {
   amendIntake, approveIntake, createInbox, createInboxErrMsg, fetchIntake,
   openInbox, scanInbox,
 } from "../api";
+import { useInboxDrop } from "../inboxDrop";
 import { entrySuggestion, intakeState, planPreview } from "./intake";
 
 // 收件箱卡片(track opendesign-intake,design D1/D2):工作区级,不随选中项目变。
@@ -39,6 +40,22 @@ export default function InboxCard({ dataEpoch, active }: Props) {
     setOpenErr("");
     openInbox().catch(() => setOpenErr("打开失败,可能是路径被改了或没有桌面环境"));
   };
+  const inboxDrop = useInboxDrop({
+    rejectMessage: "只收图片(png/jpg/webp/gif)。图纸、PDF 或其它文件请点「打开」到文件夹里自己放。",
+    successTail: " —— 点「扫描整理」归档",
+    onUploaded: () => setLocalEpoch((e) => e + 1),
+  });
+  const inboxCardClass = `inbox-card${inboxDrop.dragOver ? " drag-over" : ""}`;
+  const dropNote = (inboxDrop.dragOver || inboxDrop.upBusy || inboxDrop.upMsg) && (
+    <div className="upload-note inbox-upload-note" data-ui="inbox-upload-note">
+      {inboxDrop.dragOver ? "松手就存进收件箱" : inboxDrop.upBusy ? "上传中…" : inboxDrop.upMsg}
+      {!inboxDrop.dragOver && !inboxDrop.upBusy && inboxDrop.upMsg && (
+        <button className="link-act inline" onClick={() => inboxDrop.setUpMsg(null)}>
+          知道了
+        </button>
+      )}
+    </div>
+  );
   const fetched = useRef<string | null>(null);
 
   useEffect(() => {
@@ -85,10 +102,11 @@ export default function InboxCard({ dataEpoch, active }: Props) {
     const u = data as Extract<IntakeData, { configured: false }>;
     if (u.reason !== "inbox_not_found" || !u.wouldCreate) return null;
     return (
-      <div className="inbox-card">
+      <div className={inboxCardClass} data-ui="inbox-drop" {...inboxDrop.dropProps}>
         <div className="inbox-summary">
           <span className="t">收件箱</span>
         </div>
+        {dropNote}
         <div className="inbox-expanded">
           <div className="inbox-hint" data-ui="inbox-missing">
             还没有收件箱文件夹。点一下我给你建在:<code>{u.wouldCreate}</code>
@@ -115,10 +133,11 @@ export default function InboxCard({ dataEpoch, active }: Props) {
   // 唯一例外:刚刚亲手建好收件箱的那一次,留一行确认告诉他建在哪了。
   if (state === "empty" && created) {
     return (
-      <div className="inbox-card">
+      <div className={inboxCardClass} data-ui="inbox-drop" {...inboxDrop.dropProps}>
         <div className="inbox-summary">
           <span className="t">收件箱</span>
         </div>
+        {dropNote}
         <div className="inbox-expanded">
           <div className="inbox-hint" data-ui="inbox-created">
             已建好:<code>{created}</code>
@@ -134,16 +153,17 @@ export default function InboxCard({ dataEpoch, active }: Props) {
     // 一行,和左列 .aside-head 同款,不占地方。
     const dd = data as Extract<IntakeData, { configured: true }>;
     return (
-      <div className="inbox-card">
+      <div className={inboxCardClass} data-ui="inbox-drop" {...inboxDrop.dropProps}>
         <div className="inbox-summary" data-ui="inbox-summary">
           <span className="t">收件箱</span>
-          <button className="link-act" data-ui="inbox-open" title={dd.path || ""}
+          <button className="btn-secondary" data-ui="inbox-open" title={dd.path || ""}
                   onClick={doOpen}>
             打开
           </button>
           <span className="grow" />
-          <span className="inbox-quiet">空的</span>
+          <span className="inbox-quiet">空的,可拖图片进来</span>
         </div>
+        {dropNote}
         {openErr && <div className="aside-empty warn">{openErr}</div>}
       </div>
     );
@@ -195,7 +215,7 @@ export default function InboxCard({ dataEpoch, active }: Props) {
   };
 
   return (
-    <div className="inbox-card">
+    <div className={inboxCardClass} data-ui="inbox-drop" {...inboxDrop.dropProps}>
       <div
         className="inbox-summary"
         data-ui="inbox-summary"
@@ -210,14 +230,9 @@ export default function InboxCard({ dataEpoch, active }: Props) {
         }}
       >
         <span className="t">收件箱 {d.entries.length}</span>
-        {/* 文字按钮档(`.link-act`),**比同一行的「扫描整理」低一级** —— 那才是这张卡的
-            主动作。原来挂的是 `.gallery-link`:从图墙「图墙 →」那条链接抄来的,而那条
-            链接用户 0.54.0 已经让我删了,class 却留下来长在了收件箱上 —— **按位置命名的
-            class 一被复制,名字就开始撒谎**。箭头也去掉(用户 07-31:「不需要箭头」);
-            顺带说,它开的是资源管理器 = 离开这个软件,`→` 本来就表示"应用内往前一步",
-            方向感一直是反的。判据 inbox_open_button.e2e.mjs。 */}
+        {/* 打开收件箱和左列「打开文件夹」同属资源管理器动作,统一用 .btn-secondary。 */}
         <button
-          className="link-act"
+          className="btn-secondary"
           data-ui="inbox-open"
           title="在资源管理器里打开收件箱"
           onClick={(e) => {
@@ -229,7 +244,7 @@ export default function InboxCard({ dataEpoch, active }: Props) {
         </button>
         <span className="grow" />
         <button
-          className="btn-secondary sm"
+          className="btn-secondary"
           disabled={scanning}
           onClick={(e) => {
             e.stopPropagation();
@@ -242,6 +257,7 @@ export default function InboxCard({ dataEpoch, active }: Props) {
         </button>
         <span className="chev">{expanded ? "▴" : "▾"}</span>
       </div>
+      {dropNote}
 
       {expanded && (
         <div className="inbox-expanded" data-ui="inbox-expanded">
