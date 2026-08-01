@@ -42,20 +42,22 @@ NOW_LINE = f"Current Time: {FAKE_TODAY} 10:30 (Tuesday) (Asia/Shanghai, UTC+08:0
 PROJECT = "翡翠湾-1801"
 MAX_TURNS = 8
 
-# want_dues = 跑完后档案里应有的截止日(多重集合,顺序无关)。
+# want_dues = 跑完后档案里应有的截止日,每项 (日期, 该日期必须挂在哪条上的关键词候选)。
+#   日期集合要完全相等(多设、少设、设错日期都红),**并且**每个日期所在那行的正文
+#   必须命中它的关键词之一 —— 光对日期不查挂在哪条,是第一版的洞(见 dated_lines 注释)。
 # min_changes = 至少落下几条变更行(只在"一批多条"那题用得上)。
 CASES = [
     {
         "say": f"{PROJECT} 业主刚说:主卧衣柜改成到顶的,8 月 10 号之前要看到效果图。",
-        "want_dues": ["2026-08-10"],
+        "want_dues": [("2026-08-10", ("衣柜", "效果图"))],
     },
     {
         "say": f"{PROJECT} 业主说客厅电视墙的石材换成木饰面,这周五之前改好发给他。",
-        "want_dues": ["2026-08-07"],
+        "want_dues": [("2026-08-07", ("电视墙", "石材", "木饰面"))],
     },
     {
         "say": f"{PROJECT} 业主要把儿童房的书桌加长到 1.5 米,下周五前给他方案。",
-        "want_dues": ["2026-08-14"],
+        "want_dues": [("2026-08-14", ("书桌",))],
     },
     {
         # 反例:催促不是期限。编一个日期比空着更糟——待办页会把不存在的死线排到最前面。
@@ -73,13 +75,13 @@ CASES = [
         # 一批三条只有一条带期限:不许把期限扩散到整批,也不许漏掉那一条。
         "say": (f"{PROJECT} 业主发来一段:①主卧床头背景板改造型;②客厅窗帘换成双层的;"
                 "③效果图这周五之前要看到。"),
-        "want_dues": ["2026-08-07"],
+        "want_dues": [("2026-08-07", ("效果图",))],
         "min_changes": 3,
     },
     {
         "probe": True,
         "say": f"{PROJECT} 业主说月底前把全套图纸整理出来给他。",
-        "want_dues": ["2026-08-31"],
+        "want_dues": [("2026-08-31", ("图纸",))],
     },
     {
         # 探针:"下个月初"本身就模糊——记录模型是编一个日期还是不设。
@@ -157,17 +159,23 @@ def system_prompt() -> str:
             + read("workspace", "AGENTS.md"))
 
 
-def due_dates(ds_root: str) -> list[str]:
-    """档案里所有变更行尾的截止日(⏳)——这就是待办页硬轨的内容。"""
+def dated_lines(ds_root: str) -> list[tuple[str, str]]:
+    """档案里带截止日的变更行 → [(日期, 该行正文)]。
+
+    ⚠️ 为什么要连正文一起收(2026-08-02 补强,gpt-5.6-sol 发散时点破的洞):
+    第一版只收"整份档案出现了哪些日期",**根本没查日期挂在哪一条上**。
+    模型把「这周五」挂到窗帘那条、而不是效果图那条,照样判绿 ——
+    而待办页会拿着这条错挂的日期一脸自信地展示,比偶尔漏设更危险。
+    """
     path = os.path.join(ds_root, "projects", f"{PROJECT}.md")
     if not os.path.exists(path):
         return []
     found = []
     for ln in open(path, encoding="utf-8").read().splitlines():
         if ds_tools._CHANGE_RE.match(ln):
-            _, due = ds_common.split_due(ln)
+            text, due = ds_common.split_due(ln)
             if due:
-                found.append(due)
+                found.append((due, text))
     return sorted(found)
 
 
@@ -203,10 +211,10 @@ def run_case(case: dict, tools: list[dict]) -> dict:
                 trace.append(f"{name}({args.get('due') or args.get('content', '')[:12]})")
                 messages.append({"role": "tool", "tool_call_id": c["id"],
                                  "content": json.dumps(res, ensure_ascii=False)})
-        return {"dues": due_dates(ds_root), "changes": change_lines(ds_root),
+        return {"dated": dated_lines(ds_root), "changes": change_lines(ds_root),
                 "trace": trace, "error": None}
     except Exception as e:  # noqa: BLE001 —— 上游/环境错走环境码,不冒充失分
-        return {"dues": [], "changes": 0, "trace": [], "error": f"{type(e).__name__}: {e}"}
+        return {"dated": [], "changes": 0, "trace": [], "error": f"{type(e).__name__}: {e}"}
     finally:
         shutil.rmtree(ds_root, ignore_errors=True)
 
@@ -227,8 +235,15 @@ def main() -> int:
         bad = []
         if r["error"]:
             bad.append(f"跑挂了:{r['error']}")
-        if r["dues"] != sorted(case["want_dues"]):
-            bad.append(f"档案里的截止日 {r['dues'] or '无'},期望 {sorted(case['want_dues']) or '无'}")
+        got_dates = sorted(d for d, _ in r["dated"])
+        want_dates = sorted(d for d, _ in case["want_dues"])
+        if got_dates != want_dates:
+            bad.append(f"档案里的截止日 {got_dates or '无'},期望 {want_dates or '无'}")
+        else:
+            for date, keys in case["want_dues"]:      # 日期对了,再查挂在哪一条上
+                line = next((t for d, t in r["dated"] if d == date), "")
+                if not any(k in line for k in keys):
+                    bad.append(f"{date} 挂错了条目:挂在「{line[:24]}」,应是含 {'/'.join(keys)} 的那条")
         if r["changes"] < case.get("min_changes", 1):
             bad.append(f"只落下 {r['changes']} 条变更行,期望 ≥{case.get('min_changes', 1)}")
         probe = case.get("probe", False)
