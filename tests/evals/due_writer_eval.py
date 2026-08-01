@@ -1,0 +1,247 @@
+#!/usr/bin/env python3
+"""due-writer eval:助手会不会把业主说的期限**真的写进档案**(track opendesign-due-writer)。
+
+与 resolver_eval 的分工:那份问「这句话该选哪个工具」(单选路由,不执行);
+本份**真跑一遍工具循环** —— 把 ds_tools 的工具原样交给模型(schema 从 AST 抽,
+与真部署同源),模型调什么就在一个临时 DS_ROOT 上真执行什么,最后**读档案文件**,
+断言那条变更行尾上有没有 `⏳YYYY-MM-DD`。
+
+为什么必须执行、不能只看"计划":设截止日是**两步**(append_change 拿到 `C7` →
+set_due_date 用这个号)。只问计划,模型可以先编一个 `C1` 蒙对格式;只有真跑,
+才知道它会不会读返回值、会不会把号记串。**用户眼里的成功 = 档案里有截止日**,
+这份考卷判的就是这个,不是判它嘴上说要设。
+
+跑法:python3 tests/evals/due_writer_eval.py   (需 /root/.local/share/mimocode/auth.json;
+     不进 pytest——有网络与 key 依赖,单次约 3-6 分钟。改助手职责说明/工具 docstring 后必跑。)
+退出码:0=全过(探针不计),1=有失配,2=环境/上游不可用。
+"""
+import ast
+import concurrent.futures as futures
+import inspect
+import json
+import os
+import shutil
+import sys
+import tempfile
+import urllib.request
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(ROOT, "bin"))
+
+from resolver_eval import API, AUTH, MODEL  # noqa: E402  —— 端点/模型/key 路径单一来源
+import ds_tools  # noqa: E402
+import ds_common  # noqa: E402
+
+# nanobot 每轮注入的格式(nanobot/agent/context.py:143 → utils/helpers.py:250)。
+# 固定成 2026-08-04 周二:相对期限才有唯一正确答案——不选周日,周日说"这周五"
+# 中文本身就有歧义,歧义题不拿来当计分题。
+FAKE_TODAY = "2026-08-04"
+NOW_LINE = f"Current Time: {FAKE_TODAY} 10:30 (Tuesday) (Asia/Shanghai, UTC+08:00)"
+PROJECT = "翡翠湾-1801"
+MAX_TURNS = 8
+
+# want_dues = 跑完后档案里应有的截止日(多重集合,顺序无关)。
+# min_changes = 至少落下几条变更行(只在"一批多条"那题用得上)。
+CASES = [
+    {
+        "say": f"{PROJECT} 业主刚说:主卧衣柜改成到顶的,8 月 10 号之前要看到效果图。",
+        "want_dues": ["2026-08-10"],
+    },
+    {
+        "say": f"{PROJECT} 业主说客厅电视墙的石材换成木饰面,这周五之前改好发给他。",
+        "want_dues": ["2026-08-07"],
+    },
+    {
+        "say": f"{PROJECT} 业主要把儿童房的书桌加长到 1.5 米,下周五前给他方案。",
+        "want_dues": ["2026-08-14"],
+    },
+    {
+        # 反例:催促不是期限。编一个日期比空着更糟——待办页会把不存在的死线排到最前面。
+        # (题面不许出现"那条":指代已有条目时,助手先 read_project 去找是合理的,
+        #  那样红的是我的题面不是它的行为——第一次跑就栽在这上面。)
+        "say": f"{PROJECT} 业主催得急,厨房吊柜高度降到 2.2 米,尽快改。",
+        "want_dues": [],
+    },
+    {
+        # 反例:普通一条修改意见,一个字都没提时间。
+        "say": f"{PROJECT} 业主说玄关柜的门板颜色换成浅一点的橡木色。",
+        "want_dues": [],
+    },
+    {
+        # 一批三条只有一条带期限:不许把期限扩散到整批,也不许漏掉那一条。
+        "say": (f"{PROJECT} 业主发来一段:①主卧床头背景板改造型;②客厅窗帘换成双层的;"
+                "③效果图这周五之前要看到。"),
+        "want_dues": ["2026-08-07"],
+        "min_changes": 3,
+    },
+    {
+        "probe": True,
+        "say": f"{PROJECT} 业主说月底前把全套图纸整理出来给他。",
+        "want_dues": ["2026-08-31"],
+    },
+    {
+        # 探针:"下个月初"本身就模糊——记录模型是编一个日期还是不设。
+        # min_changes=0:"再定"是待议不是改动,一条都不落也说得通,这里只看它编不编日期。
+        "probe": True,
+        "say": f"{PROJECT} 业主说下个月初再定阳台的方案。",
+        "want_dues": [],
+        "min_changes": 0,
+    },
+]
+
+_PY_TYPES = {"int": "integer", "bool": "boolean", "float": "number"}
+
+
+def tool_schemas() -> list[dict]:
+    """从 bin/ds_tools.py 的 *_tool 定义抽 OpenAI function schema(与真部署同源)。"""
+    tree = ast.parse(open(os.path.join(ROOT, "bin", "ds_tools.py"), encoding="utf-8").read())
+    out = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.FunctionDef) and node.name.endswith("_tool")):
+            continue
+        args = node.args.args
+        ndef = len(node.args.defaults)
+        required = [a.arg for a in args[:len(args) - ndef]]
+        props = {}
+        for a in args:
+            ann = getattr(a.annotation, "id", None) if a.annotation else None
+            props[a.arg] = {"type": _PY_TYPES.get(ann, "string")}
+        out.append({"type": "function", "function": {
+            "name": node.name[:-5],
+            "description": " ".join((ast.get_docstring(node) or "").split()),
+            "parameters": {"type": "object", "properties": props, "required": required},
+        }})
+    return out
+
+
+def run_tool(name: str, args: dict, ds_root: str) -> dict:
+    """在临时 DS_ROOT 上真执行。未知工具/未知参数照真部署的样子报错回去,让模型自己纠。"""
+    fn = getattr(ds_tools, name, None)
+    if fn is None or not callable(fn):
+        return {"error": f"unknown_tool: {name}"}
+    accepted = inspect.signature(fn).parameters
+    unknown = [k for k in args if k not in accepted]
+    if unknown:
+        return {"error": f"unexpected_argument: {', '.join(unknown)}"}
+    kwargs = dict(args)
+    if "ds_root" in accepted:
+        kwargs["ds_root"] = ds_root
+    if "today" in accepted:
+        kwargs["today"] = FAKE_TODAY      # 与 NOW_LINE 对齐,记录日期不跟考题打架
+    try:
+        return fn(**kwargs)
+    except Exception as e:  # noqa: BLE001 —— 工具异常也是模型该看到的现实
+        return {"error": f"{type(e).__name__}: {e}"}
+
+
+def chat(messages: list[dict], tools: list[dict]) -> dict:
+    key = json.load(open(AUTH))["xiaomi"]["key"]
+    body = json.dumps({
+        # MiMo 是 reasoning 模型:思考也计 max_tokens,给足额度防 content 被吃空
+        # (6000 就会被吃空——本卷第一版栽过,输出全空)
+        "model": MODEL, "temperature": 0, "max_tokens": 20000,
+        "messages": messages, "tools": tools,
+    }, ensure_ascii=False).encode()
+    req = urllib.request.Request(API, data=body, headers={
+        "Authorization": f"Bearer {key}", "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=300) as r:
+        return json.load(r)["choices"][0]["message"]
+
+
+def system_prompt() -> str:
+    def read(*p):
+        return open(os.path.join(ROOT, *p), encoding="utf-8").read()
+    return (f"{NOW_LINE}\n\n" + read("workspace", "SOUL.md") + "\n\n"
+            + read("workspace", "AGENTS.md"))
+
+
+def due_dates(ds_root: str) -> list[str]:
+    """档案里所有变更行尾的截止日(⏳)——这就是待办页硬轨的内容。"""
+    path = os.path.join(ds_root, "projects", f"{PROJECT}.md")
+    if not os.path.exists(path):
+        return []
+    found = []
+    for ln in open(path, encoding="utf-8").read().splitlines():
+        if ds_tools._CHANGE_RE.match(ln):
+            _, due = ds_common.split_due(ln)
+            if due:
+                found.append(due)
+    return sorted(found)
+
+
+def change_lines(ds_root: str) -> int:
+    path = os.path.join(ds_root, "projects", f"{PROJECT}.md")
+    if not os.path.exists(path):
+        return 0
+    return sum(1 for ln in open(path, encoding="utf-8").read().splitlines()
+               if ds_tools._CHANGE_RE.match(ln))
+
+
+def run_case(case: dict, tools: list[dict]) -> dict:
+    ds_root = tempfile.mkdtemp(prefix="due-eval-")
+    try:
+        ds_tools.create_project(PROJECT, client="王姐", ds_root=ds_root, today=FAKE_TODAY)
+        messages = [{"role": "system", "content": system_prompt()},
+                    {"role": "user", "content": case["say"]}]
+        trace = []
+        for _ in range(MAX_TURNS):
+            msg = chat(messages, tools)
+            calls = msg.get("tool_calls") or []
+            messages.append({"role": "assistant", "content": msg.get("content") or "",
+                             "tool_calls": calls})
+            if not calls:
+                break
+            for c in calls:
+                name = c["function"]["name"]
+                try:
+                    args = json.loads(c["function"]["arguments"] or "{}")
+                except ValueError:
+                    args = {}
+                res = run_tool(name, args, ds_root)
+                trace.append(f"{name}({args.get('due') or args.get('content', '')[:12]})")
+                messages.append({"role": "tool", "tool_call_id": c["id"],
+                                 "content": json.dumps(res, ensure_ascii=False)})
+        return {"dues": due_dates(ds_root), "changes": change_lines(ds_root),
+                "trace": trace, "error": None}
+    except Exception as e:  # noqa: BLE001 —— 上游/环境错走环境码,不冒充失分
+        return {"dues": [], "changes": 0, "trace": [], "error": f"{type(e).__name__}: {e}"}
+    finally:
+        shutil.rmtree(ds_root, ignore_errors=True)
+
+
+def main() -> int:
+    tools = tool_schemas()
+    print(f"工具 {len(tools)} 个;{len(CASES)} 题(每题一个临时 DS_ROOT,真执行)…\n")
+    with futures.ThreadPoolExecutor(max_workers=3) as pool:
+        results = list(pool.map(lambda c: run_case(c, tools), CASES))
+
+    if all(r["error"] for r in results):
+        print(f"上游/环境不可用:{results[0]['error']}", file=sys.stderr)
+        return 2
+
+    fails = 0
+    scored = sum(1 for c in CASES if not c.get("probe"))
+    for case, r in zip(CASES, results):
+        bad = []
+        if r["error"]:
+            bad.append(f"跑挂了:{r['error']}")
+        if r["dues"] != sorted(case["want_dues"]):
+            bad.append(f"档案里的截止日 {r['dues'] or '无'},期望 {sorted(case['want_dues']) or '无'}")
+        if r["changes"] < case.get("min_changes", 1):
+            bad.append(f"只落下 {r['changes']} 条变更行,期望 ≥{case.get('min_changes', 1)}")
+        probe = case.get("probe", False)
+        mark = "ok  " if not bad else ("probe" if probe else "FAIL")
+        if bad and not probe:
+            fails += 1
+        print(f"{mark} {case['say'][:36]}…")
+        print(f"      调用: {' → '.join(r['trace']) or '(没调工具)'}")
+        if bad:
+            print(f"      失配: {'; '.join(bad)}")
+    print(f"\n{'ALL PASS' if fails == 0 else f'{fails} FAIL'} / {scored} 计分用例")
+    return 1 if fails else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
