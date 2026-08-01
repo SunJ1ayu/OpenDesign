@@ -269,3 +269,62 @@ test("latestRecordAge:未来日期(手写错的档案)不返回负数,钳到 0",
 test("STALE_AFTER_DAYS = 7,与后端 ds_todo 的阈值同源", () => {
   assert.equal(STALE_AFTER_DAYS, 7);
 });
+
+// ── 批次小标题(2026-08-01 追加:用户拍板方案 1)────────────────────────────
+// 背景:0.60.0「助手记录时给这一批起名」原来只在「按时间」看法里显示,本单砍掉那个
+// 看法后它会变成**有人写、没人看**的字段 —— 正是本项目反复栽的那类病。
+// 用户拍板搬进项目卡,主 agent 选了最轻的形态:**不加折叠层,只在同一批的第一条
+// 上方加一行小标题**,且**只有助手真起过名的批次才显示**(没名字的老条目不显示,
+// 否则满屏都是"首条内容 等 N 条"的噪音)。
+//
+// 能这么轻是因为一个巧合:同一批的条目**记录日期相同**,而软轨按记录日期排
+// ⇒ 同一批天生挨着,加标题不打乱任何顺序。
+import { batchCaption } from "../web/src/todoBatches.ts";
+
+const withBatch = (id, title, over = {}) => ({
+  ...it_(over.cnum ?? 1, over), batch: id === null ? null : { id, title },
+});
+
+test("batchCaption:一批的第一条给标题", () => {
+  assert.equal(batchCaption(withBatch("b1", "效果图改浅色"), null), "效果图改浅色");
+});
+
+test("batchCaption:同一批的后续条目不再重复标题", () => {
+  const a = withBatch("b1", "效果图改浅色", { cnum: 1 });
+  const b = withBatch("b1", "效果图改浅色", { cnum: 2 });
+  assert.equal(batchCaption(b, a), null);
+});
+
+test("batchCaption:换了一批就重新给标题", () => {
+  const a = withBatch("b1", "效果图改浅色", { cnum: 1 });
+  const b = withBatch("b2", "水电点位确认", { cnum: 2 });
+  assert.equal(batchCaption(b, a), "水电点位确认");
+});
+
+test("batchCaption:没有名字的批次不给标题(不制造噪音)", () => {
+  assert.equal(batchCaption(withBatch("b1", ""), null), null);
+  assert.equal(batchCaption({ ...it_(1), batch: null }, null), null);
+  assert.equal(batchCaption(it_(1), null), null);
+});
+
+test("batchCaption:从有名字批次回到无名条目,不残留上一条的标题", () => {
+  const a = withBatch("b1", "效果图改浅色", { cnum: 1 });
+  const b = { ...it_(2), batch: null };
+  assert.equal(batchCaption(b, a), null);
+});
+
+test("batchCaption:同名但不同批(两次沟通碰巧起了同名)仍各自给标题", () => {
+  const a = withBatch("b1", "改灯", { cnum: 1 });
+  const b = withBatch("b2", "改灯", { cnum: 2 });
+  assert.equal(batchCaption(b, a), "改灯", "认的是批次 id,不是标题字面");
+});
+
+test("batchCaption:过长标题截断加省略号(复用 BATCH_TITLE_MAX=14)", () => {
+  const long = "一二三四五六七八九十一二三四五六";
+  assert.equal(batchCaption(withBatch("b1", long), null), "一二三四五六七八九十一二三四…");
+});
+
+test("batchCaption:不含条数 —— 卡内看得见行,不需要「等 N 条」", () => {
+  const cap = batchCaption(withBatch("b1", "效果图改浅色"), null);
+  assert.ok(!/等\s*\d+\s*条/.test(cap), `小标题里不该有"等 N 条"(实测 ${cap})`);
+});
