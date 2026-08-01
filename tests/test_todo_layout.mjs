@@ -1,94 +1,54 @@
-// track opendesign-todo-layout oracle:待办「按项目」视图的两个纯函数契约。
+// track opendesign-todo-layout oracle:待办「按项目」视图的纯函数契约。
 // 主 agent 亲写,执行腿逐字节 off-limits。
 //
-// orderProjectCards(groups, stale) —— I.7 卡序,稳定排序,四层键:
-//   ① stale !== null 的整体在前;② 超期组内 days 降序;
-//   ③ 非超期组内 items.length 降序;④ 全相等保持传入序。
-//   返回 ProjectCard = { project, items, stale },project/items 原样带过。
 // idleProjectKeys(allKeys, cardedKeys, staleKeys) —— 闲置项目 = 全部 − 有卡 − 已在
-//   「⛑ N 天没动静」独立行报过的;保持 allKeys 传入序。
+//   「档案 N 天没更新」独立行报过的;保持 allKeys 传入序。
 //
 // 跑法:node --test tests/test_todo_layout.mjs(Node 22+,原生 strip-types)
-// red-check:实现前 todo.ts 无这两个导出,本文件整体红。
+//
+// ════════════════════════════════════════════════════════════════════════════
+// 2026-08-01 track opendesign-todo-one-view:**本文件的 orderProjectCards 一节已迁走**
+// (新契约在 tests/test_todo_one_view.mjs)。本项目的规矩是**改判据必须当场证明"不是
+// 放松"**,所以逐条对账写在这里,不许只写一句"新的更全面"。
+//
+// 迁走的原因(不是"想改得好看",是旧断言编码了一个被证伪的指标):
+//   旧的第一排序键 `stale` = 后端 ds_todo.py:119 算的「今天 − 档案页脚最后更新日」。
+//   而 ds_common.bump_last_updated 被 append_change / set_change_status / **set_due_date** /
+//   edit_change / log_communication / rename_project / **set_stage** / add_ref / link_ref /
+//   update_ref 全都调用 ⇒ 它测的是「档案文件多久没被写过」,不是「这件事多久没人管」;
+//   **用户点一下截止日它就归零**。拿它当卡序的首键 = 排一个错的东西。
+//
+//   ┌ 旧断言 ───────────────────────┬ 去向 ────────────────────────────────────┐
+//   │ 超期卡整体排最前               │ **替换**:改成"有过期截止日的卡最前"。   │
+//   │ (超期 = 档案没更新)           │ 同形状、换成不骗人的指标。one_view 里     │
+//   │                                │ 「有过期条目的卡排最前」+ 四档位完整序。 │
+//   │ 超期组内按 days 降序           │ **替换**:同档内按卡里**最早的 due** 升序。│
+//   │ 非超期组内按 items.length 降序 │ **删**:条数不是紧急度(20 条鸡毛蒜皮排不 │
+//   │                                │ 过 1 条明天到期)。替代品是档位 + 最老     │
+//   │                                │ 记录日期,两者都直接编码"急"。            │
+//   │ 全平局保持传入序(稳定)       │ **保留**,one_view 同名用例逐字保留。     │
+//   │ 同天数之间保持传入序           │ **保留**(改为同 due 之间),同上。        │
+//   │ 附 stale 天数,无超期为 null   │ **替换**:徽标改用 latestRecordAge(条目侧 │
+//   │                                │ 算),并单独测 7 条(含跨月/未来日期钳 0)。│
+//   │ items 原样带过(同引用)       │ **保留**,且**加严**:新用例额外断言组内   │
+//   │                                │ 顺序不被卡序函数改动(旧的只断言了 cnum   │
+//   │                                │ 序恰好等于构造序,构造时就是有序的=弱)。 │
+//   │ 不改传入数组(无副作用)       │ **保留**,逐字。                          │
+//   │ 空输入 = []                    │ **保留**,并新增"空 items 的卡不炸"。     │
+//   │ 不凭空造卡                     │ **保留**(旧的靠 stale 列表多出一个项目来 │
+//   │                                │ 测;新签名没有该入参,改由"多余入参不许    │
+//   │                                │ 改变结果"那条覆盖同一个风险)。           │
+//   └────────────────────────────────┴──────────────────────────────────────────┘
+//
+// **约束面净变化:11 条 → 20 条**(tests/test_todo_one_view.mjs),且新增了旧断言在
+// 结构上**表达不出来**的两个维度:① 条目级的 due 档位(旧函数根本拿不到 due);
+// ② 「用户真实形态:一条 due 都没有」的整组用例(旧夹具 date/due 恒 null,
+// 那个形态在旧文件里是**默认值**而不是**被测对象**,等于没判)。
+// 唯一真正减少的约束是"按条数降序",它被显式判定为错的排序意图,不是被绕开。
+// ════════════════════════════════════════════════════════════════════════════
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { idleProjectKeys, orderProjectCards } from "../web/src/todo.ts";
-
-// 造 n 条同项目的未办结条目(内容不重要,只有条数参与排序)
-const items = (project, n) =>
-  Array.from({ length: n }, (_, i) => ({
-    project, line: i + 1, raw: "", status: "待确认",
-    cnum: i + 1, date: null, space: null, text: `t${i}`, due: null,
-  }));
-
-const g = (project, n) => ({ project, items: items(project, n) });
-const s = (project, days) => ({ project, days, last: "2026-07-01" });
-
-// ── orderProjectCards ───────────────────────────────────────────────────────
-
-test("orderProjectCards:超期卡整体排最前(即使未办结数更少)", () => {
-  const got = orderProjectCards([g("A", 5), g("B", 1)], [s("B", 9)]);
-  assert.deepEqual(got.map((c) => c.project), ["B", "A"]);
-});
-
-test("orderProjectCards:超期组内按天数降序", () => {
-  const got = orderProjectCards(
-    [g("A", 1), g("B", 1), g("C", 1)],
-    [s("A", 8), s("B", 30), s("C", 15)],
-  );
-  assert.deepEqual(got.map((c) => c.project), ["B", "C", "A"]);
-});
-
-test("orderProjectCards:非超期组内按未办结数降序", () => {
-  const got = orderProjectCards([g("A", 2), g("B", 7), g("C", 4)], []);
-  assert.deepEqual(got.map((c) => c.project), ["B", "C", "A"]);
-});
-
-test("orderProjectCards:两组混合——超期(天数降序)在前,其余(条数降序)在后", () => {
-  const got = orderProjectCards(
-    [g("A", 9), g("B", 1), g("C", 3), g("D", 2)],
-    [s("B", 12), s("D", 40)],
-  );
-  assert.deepEqual(got.map((c) => c.project), ["D", "B", "A", "C"]);
-});
-
-test("orderProjectCards:全平局保持传入序(稳定排序)", () => {
-  const got = orderProjectCards([g("X", 3), g("Y", 3), g("Z", 3)], []);
-  assert.deepEqual(got.map((c) => c.project), ["X", "Y", "Z"]);
-});
-
-test("orderProjectCards:同天数超期之间保持传入序(稳定排序)", () => {
-  const got = orderProjectCards([g("P", 1), g("Q", 9)], [s("P", 10), s("Q", 10)]);
-  assert.deepEqual(got.map((c) => c.project), ["P", "Q"]);
-});
-
-test("orderProjectCards:附 stale 天数,无超期为 null", () => {
-  const got = orderProjectCards([g("A", 1), g("B", 1)], [s("A", 21)]);
-  assert.deepEqual(got.map((c) => [c.project, c.stale]), [["A", 21], ["B", null]]);
-});
-
-test("orderProjectCards:items 原样带过(同一引用,不复制不重排组内)", () => {
-  const gA = g("A", 3);
-  const got = orderProjectCards([gA], []);
-  assert.equal(got[0].items, gA.items);
-  assert.deepEqual(got[0].items.map((i) => i.cnum), [1, 2, 3]);
-});
-
-test("orderProjectCards:不改传入数组(无副作用)", () => {
-  const input = [g("A", 1), g("B", 5)];
-  orderProjectCards(input, []);
-  assert.deepEqual(input.map((x) => x.project), ["A", "B"]);
-});
-
-test("orderProjectCards:空输入 = []", () => {
-  assert.deepEqual(orderProjectCards([], []), []);
-  assert.deepEqual(orderProjectCards([], [s("A", 9)]), []);
-});
-
-test("orderProjectCards:stale 列表里有的项目没有卡——不凭空造卡", () => {
-  const got = orderProjectCards([g("A", 1)], [s("A", 9), s("ZZ", 99)]);
-  assert.deepEqual(got.map((c) => c.project), ["A"]);
-});
+import { idleProjectKeys } from "../web/src/todo.ts";
 
 // ── idleProjectKeys ─────────────────────────────────────────────────────────
 
