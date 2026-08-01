@@ -6,15 +6,7 @@ import GroupToggle from "./GroupToggle";
 import StatusPicker from "./StatusPicker";
 import TodoRail from "./TodoRail";
 import type { ChatSession } from "./chat/connection";
-import { loadBoolPrefs, type BoolPrefs } from "./boolPrefs";
-import { groupProjectsByStage } from "./workspace/projectGroups";
-import {
-  batchKey,
-  groupByBatch,
-  groupHeading,
-  isBatchOpen,
-  TODO_BATCH_STORAGE_KEY,
-} from "./todoBatches";
+import { batchKey } from "./todoBatches";
 import {
   batchEditRequests,
   buildEditRequest,
@@ -22,18 +14,19 @@ import {
   groupByProject,
   idleProjectKeys,
   isTerminalStatus,
+  latestRecordAge,
+  orderItems,
   orderProjectCards,
-  sortByDateDesc,
+  STALE_AFTER_DAYS,
   type ProjectCard,
-  spaceSections,
   STATUS_HINT,
   type EditDraft,
   type OpenItem,
   type StaleItem,
 } from "./todo";
 
-// 4a 待办事项页(track p4 T3 + todo-edit T6 + todo-ux + todo-v3):项目卡 + 日期批次
-// 折叠(最新一批默认展开)+ 超期标签 + 按项目/按时间切换 + 行内直接编辑
+// 4a 待办事项页(track p4 T3 + todo-edit T6 + todo-ux + todo-v3):单一项目卡视图
+// + 两轨排序 + 超期标签 + 行内直接编辑
 // + 状态 pill 一键改(快捷菜单)+ 终态撤销 toast。空间为行内标签。
 // 数据 = /api/todos(ds_todo.collect 单一真相源;只含未办结=待确认/进行中)。
 // 分组/排序/请求装配在 ./todo.ts(纯函数,oracle 直测),本文件只管摆 + 调 editChange 针孔。
@@ -61,8 +54,6 @@ type Toast =
 
 type Props = {
   projects: Project[];
-  // 阶段词表(后端 ds_tools.PROJECT_STAGES 经 /api/projects 下发):「按阶段」看法的堆序。
-  stages: string[];
   onGoProject: (key: string) => void;
   onEdited?: () => void; // 成功编辑后回调(App bump dataEpoch:刷侧栏角标/项目列表)
   // track opendesign-todo-assistant T1/T2:keep-mounted 门(隐藏时不取数,
@@ -100,7 +91,6 @@ function editId(it: OpenItem): string | null {
 
 export default function TodoPage({
   projects,
-  stages,
   onGoProject,
   onEdited,
   active,
@@ -108,19 +98,9 @@ export default function TodoPage({
   session,
 }: Props) {
   const [state, setState] = useState<State>({ kind: "loading" });
-  const [view, setView] = useState<"project" | "time" | "stage">("project");
   const [reloadNonce, setReloadNonce] = useState(0);
-  // 折叠偏好(T4a):只记**用户显式点过**的键 → true/false,没点过的走各自默认规则。
-  // 原来是 XOR 一个 useState Set —— 刷新即忘,tasks.md 点名的旧债,这里还上。
-  // 落盘只落时间批次(@time|<date>);项目卡(@proj|<key>)沿用"默认全展开、不落盘",
-  // 本单不动它(改默认视图的行为不在 T4a 的判据里)。
-  const [foldPrefs, setFoldPrefs] = useState<BoolPrefs>(() => {
-    try {
-      return loadBoolPrefs(localStorage.getItem(TODO_BATCH_STORAGE_KEY));
-    } catch {
-      return {}; // 隐私模式/禁用 storage:偏好丢了也不许白屏
-    }
-  });
+  // 项目卡默认全部展开;用户点过后只在本会话记住。
+  const [foldPrefs, setFoldPrefs] = useState<Record<string, boolean>>({});
 
   // 行内编辑态
   const [editing, setEditing] = useState<string | null>(null);
@@ -133,8 +113,8 @@ export default function TodoPage({
   const [edited, setEdited] = useState<Record<string, string>>({});
   const [noted, setNoted] = useState<Record<string, string>>({});
 
-  // 批量选择(track opendesign-todo-batch-space T3):选中集与视图无关,键 = `${project}:${line}`
-  // (与 row key 同源,唯一;切视图不清空,两视图各自都能选)。应用中禁止重复点。
+  // 批量选择(track opendesign-todo-batch-space T3):键 = `${project}:${line}`
+  // (与 row key 同源,唯一)。应用中禁止重复点。
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [applying, setApplying] = useState(false);
 
@@ -250,45 +230,9 @@ export default function TodoPage({
     });
   }
 
-  function selectableKeys(items: OpenItem[]): string[] {
-    return items.filter((it) => it.cnum !== null).map(selKey);
-  }
-
-  function groupAllSelected(items: OpenItem[]): boolean {
-    const keys = selectableKeys(items);
-    return keys.length > 0 && keys.every((k) => selected.has(k));
-  }
-
-  function toggleGroup(items: OpenItem[]) {
-    const keys = selectableKeys(items);
-    const allOn = keys.length > 0 && keys.every((k) => selected.has(k));
-    setSelected((prev) => {
-      const next = new Set(prev);
-      for (const k of keys) {
-        if (allOn) next.delete(k);
-        else next.add(k);
-      }
-      return next;
-    });
-  }
-
   // 折叠开合(共享 GroupToggle 用):把这个键的当前展开态取反、记成**显式偏好**。
-  // 当前态由调用方算(各有各的默认规则),所以要传进来 —— 不在这里猜默认。
-  // 只把时间批次与阶段堆写进 localStorage:项目卡的开合仍是会话级(见 foldPrefs 注释)。
   function toggleOpen(key: string, currentlyOpen: boolean) {
-    setFoldPrefs((prev) => {
-      const next = { ...prev, [key]: !currentlyOpen };
-      try {
-        const persisted: BoolPrefs = {};
-        for (const [k, v] of Object.entries(next)) {
-          if (k.startsWith("@time|") || k.startsWith("@stage|")) persisted[k] = v;
-        }
-        localStorage.setItem(TODO_BATCH_STORAGE_KEY, JSON.stringify(persisted));
-      } catch {
-        /* 存不进去就只在本会话生效,不影响界面 */
-      }
-      return next;
-    });
+    setFoldPrefs((prev) => ({ ...prev, [key]: !currentlyOpen }));
   }
 
   // 应用批量改状态:batchEditRequests 装配 → 逐条串行 await editChange;
@@ -418,9 +362,8 @@ export default function TodoPage({
   const groups = groupByProject(data.open);
   const carded = new Set(groups.map((g) => g.project));
   const staleNoCard = data.stale.filter((s) => !carded.has(s.project));
-  // 「按项目」卡序(track opendesign-todo-layout T5):超期天数降序在前、其余未办结数降序在后。
-  const projectCards = orderProjectCards(groups, data.stale);
-  // 闲置项目 = 已建档项目 − 有卡的 − 已被「⛑ N 天没动静」独立行报过的(不重复说同一件事)。
+  const projectCards = orderProjectCards(groups, data.today);
+  // 闲置项目 = 已建档项目 − 有卡的 − 已被「档案 N 天没更新」独立行报过的(不重复说同一件事)。
   const idleKeys = idleProjectKeys(
     projects.filter((p) => !p.unregistered).map((p) => p.key),
     [...carded],
@@ -433,27 +376,8 @@ export default function TodoPage({
   // 日期无关,过滤态下原样保留,不跟着变。
   const filteredOpen = dateFilter ? data.open.filter((it) => it.due === dateFilter) : data.open;
   const filteredProjectCards = dateFilter
-    ? orderProjectCards(groupByProject(filteredOpen), data.stale)
+    ? orderProjectCards(groupByProject(filteredOpen), data.today)
     : projectCards;
-
-  // 「按阶段」看法(C):卡不变,只是外面多一层阶段堆。分堆/堆序/未建档垫底全部复用
-  // 左栏那份纯逻辑(阶段词表仍是后端 /api/projects 下发的 stages,前端不硬编码副本)。
-  // 没在 /api/projects 里的项目(未建档文件夹里冒出来的卡)照 stage:"" 处理 → 未建档堆,
-  // **一个项目都不丢**。
-  const cardByKey = new Map(filteredProjectCards.map((c) => [c.project, c]));
-  const cardProjects: Project[] = filteredProjectCards.map(
-    (c) =>
-      projects.find((p) => p.key === c.project) ?? {
-        key: c.project,
-        name: c.project,
-        stage: "",
-        open_count: c.items.length,
-        delivered: false,
-        last_update: "",
-        unregistered: true,
-      },
-  );
-  const stageSections = groupProjectsByStage(cardProjects, stages);
 
   const editor = (it: OpenItem) => (
     <div className="todo-row editing" key={`edit:${it.project}:${it.line}`}>
@@ -588,87 +512,33 @@ export default function TodoPage({
     );
   };
 
-  // 日期批次(todo-v3;T4a 改标题与折叠规则):仅「按时间」视图用。
-  // 批次头 = 日期 + **一句人话**(batchTitle 兜底「首条内容 等 N 条」,T4b 换成助手起的名)。
-  // 默认开合走 isBatchOpen(≤2 条开 / ≥3 条收 / 有过期强制开),用户点过就以偏好为准并落盘。
-  // 折叠控件 = 共享 GroupToggle(track opendesign-todo-layout T3):「全选本组」留在控件外
-  // (嵌套 button 非法 + 语义上不是折叠动作)。
-  const batches = (items: OpenItem[], scope: string, withProject = false) =>
-    groupByBatch(items).map((dg) => {
-      // 两个键分开:React 的 key 认"这是哪一组"(用会变的区间 id 也无妨),
-      // 折叠偏好认 foldId(带项目、锚在区间起点,延长区间不换键)。
-      // **写偏好和读偏好必须用同一个键** —— 用错就是点了没反应的死键。
-      const foldKey = batchKey(scope, dg.date, dg.foldId);
-      const open = isBatchOpen(dg, foldPrefs, data.today, scope);
-      return (
-        <div
-          className="batch-sect"
-          key={`${dg.date ?? "@none"}|${dg.id ?? "@loose"}`}
-          data-date={dg.date ?? "@none"}
-          {...(dg.id ? { "data-batch": dg.id } : {})}
-        >
-          <div className="batch-head">
-            <GroupToggle open={open} onToggle={() => toggleOpen(foldKey, open)}>
-              <span className="d8">{dg.date ? cnDate(dg.date) : "未标注日期"}</span>
-              <span className="batch-title">{groupHeading(dg)}</span>
-            </GroupToggle>
-            <button
-              className="group-select-btn"
-              data-ui="todo-select-group"
-              onClick={() => toggleGroup(dg.items)}
-            >
-              {groupAllSelected(dg.items) ? "取消本组" : "全选本组"}
-            </button>
-          </div>
-          {open && dg.items.map((it, i) => row(it, i, withProject))}
-        </div>
-      );
-    });
-
-  // 空间小节(修改单 G1,track opendesign-frontend-p2-polish):「按项目」视图用,
-  // 不折叠、不按日期分批——纯展示分节,小节眉 = 空间名(null →「未分空间」)。
-  const spaceBatches = (items: OpenItem[]) =>
-    spaceSections(items).map((sec, i) => (
-      <div className="space-sect" key={sec.space ?? "@none"}>
-        <div className="space-sect-head" data-ui="todo-space-sect">
-          {/* 真机反馈 2026-07-24 #6:没空间就不写名字(原来顶着「未分空间」四个字)。
-              分节与「全选本组」保留——去掉的是字,不是功能。 */}
-          {sec.space && <span className="nm">{sec.space}</span>}
-          <span className="rule" />
-          <button
-            className="group-select-btn"
-            data-ui="todo-select-group"
-            onClick={() => toggleGroup(sec.items)}
-          >
-            {groupAllSelected(sec.items) ? "取消本组" : "全选本组"}
-          </button>
-        </div>
-        {sec.items.map((it, j) => row(it, i * 1000 + j))}
-      </div>
-    ));
-
-  // 项目卡(「按项目」与「按阶段」共用同一份 —— 后者只是把它装进阶段堆里,
-  // 不另起第二种卡片语言)。
+  // 项目卡:单一看法。阶段降为卡头标签,条目直接按两轨排序渲染。
   const projectCard = (c: ProjectCard) => {
     const p = projects.find((x) => x.key === c.project);
     const cardKey = batchKey("@proj", c.project);
     // 项目卡默认全部展开(用户是来看待办的);点过就以偏好为准。
     // @proj 键不落盘 —— 保持原来的会话级行为,T4a 不改默认视图。
     const open = foldPrefs[cardKey] ?? true;
+    const age = latestRecordAge(c.items, data.today);
     return (
       <section className="todo-card" key={c.project}>
         <header className="card-head">
           <GroupToggle open={open} onToggle={() => toggleOpen(cardKey, open)}>
             <span className="ico-col"><span className={dotClass(p)} /></span>
             <span className="nm">{p?.name ?? c.project}</span>
+            {p?.stage && <span className="card-stage" data-ui="card-stage">{p.stage}</span>}
             <span className="n-open">{c.items.length} 条未办结</span>
-            {c.stale !== null && <span className="stale-badge">⛑ {c.stale} 天没动静</span>}
+            {age !== null && age >= STALE_AFTER_DAYS && (
+              <span className="card-recency" data-ui="card-recency">
+                最近记录 {age} 天前
+              </span>
+            )}
           </GroupToggle>
           <button className="link-act" onClick={() => onGoProject(c.project)}>
             去项目
           </button>
         </header>
-        {open && spaceBatches(c.items)}
+        {open && orderItems(c.items, data.today).map((it, i) => row(it, i))}
       </section>
     );
   };
@@ -676,39 +546,12 @@ export default function TodoPage({
   return (
     <div className="page todo-page">
       {/* 题头提到顶部占满整宽(真机反馈 2026-07-24):下面主区+右栏并排、顶边齐平,
-          日历白卡与左边首张待办卡从同一 y 起。
-          ⚠️ 题头虽整宽,切换器**必须紧跟副标题左对齐**(真机反馈 2026-07-31):
-          这里曾有个 `.grow` 弹簧把 .seg 顶到题头最右端,题头一改整宽,它就被甩到整个
-          视口的右上角 = 右栏 TodoRail 的正上方,离用户在看的卡片最远。别再加回来 ——
-          要它靠右,得先解决"靠谁的右"(主区的右缘,不是视口的)。
-          判据 tests/e2e/todo_view_switcher.e2e.mjs 的 A/B 段盯这件事,C/D 段盯上面那条
-          齐平修复不许因此回归。 */}
+          日历白卡与左边首张待办卡从同一 y 起。 */}
       <header className="todo-head">
         <h2 className="serif">待办事项</h2>
         <span className="sub">
           {data.open.length} 条未办结 · {groups.length} 个项目
         </span>
-        {/* 分组=选视图,全应用统一用 .seg 分段开关(与变更记录、参考/项目图 tab 同款) */}
-        <div className="seg">
-          <button
-            className={`opt${view === "project" ? " on" : ""}`}
-            onClick={() => setView("project")}
-          >
-            按项目
-          </button>
-          <button
-            className={`opt${view === "time" ? " on" : ""}`}
-            onClick={() => setView("time")}
-          >
-            按时间
-          </button>
-          <button
-            className={`opt${view === "stage" ? " on" : ""}`}
-            onClick={() => setView("stage")}
-          >
-            按阶段
-          </button>
-        </div>
       </header>
 
       <div className="todo-body">
@@ -724,7 +567,7 @@ export default function TodoPage({
             <div className="todo-empty muted">所有项目都没有未办结事项,喝口茶吧。</div>
           )}
 
-          {view === "project" && data.open.length > 0 && (
+          {data.open.length > 0 && (
             <div className="todo-cards by-project">
               {filteredProjectCards.map(projectCard)}
               {idleNames.length > 0 && (
@@ -735,58 +578,10 @@ export default function TodoPage({
             </div>
           )}
 
-          {/* 「按阶段」(C,07-30 真机反馈):不是第三种卡片语言,只是把同一批项目卡
-              装进阶段堆里 —— 分堆逻辑复用左栏那份 groupProjectsByStage(零新字段)。 */}
-          {view === "stage" && data.open.length > 0 && (
-            <div className="todo-cards by-stage">
-              {stageSections.map((g) => {
-                const sectKey = batchKey("@stage", g.stage);
-                // 默认全展开,与项目卡同一条理由(用户是来看待办的)。
-                // **刻意不抄左栏 isStageGroupOpen 的「整堆已交付则默认收起」**:
-                // 这里的卡只在有未办结条目时才出现,已交付项目还挂着待办恰恰最该被看见。
-                const open = foldPrefs[sectKey] ?? true;
-                const n = g.projects.reduce(
-                  (sum, p) => sum + (cardByKey.get(p.key)?.items.length ?? 0),
-                  0,
-                );
-                return (
-                  <section className="stage-sect" data-stage={g.stage} key={g.stage}>
-                    <div className="stage-sect-head">
-                      <GroupToggle open={open} onToggle={() => toggleOpen(sectKey, open)}>
-                        <span className="nm">{g.stage}</span>
-                        <span className="n-open">
-                          {g.projects.length} 个项目 · {n} 条未办结
-                        </span>
-                      </GroupToggle>
-                    </div>
-                    {open &&
-                      g.projects.map((p) => {
-                        const c = cardByKey.get(p.key);
-                        return c ? projectCard(c) : null;
-                      })}
-                  </section>
-                );
-              })}
-              {idleNames.length > 0 && (
-                <div className="todo-card idle-card" data-ui="todo-idle-card">
-                  {idleNames.join("、")} 没有未办结事项
-                </div>
-              )}
-            </div>
-          )}
-
-          {view === "time" && data.open.length > 0 && (
-            <div className="todo-cards by-time">
-              <section className="todo-card flat">
-                {batches(sortByDateDesc(filteredOpen), "@time", true)}
-              </section>
-            </div>
-          )}
-
           {staleNoCard.map((s) => (
             <div className="todo-rest muted" key={s.project}>
               ⛑ {projects.find((p) => p.key === s.project)?.name ?? s.project} —{" "}
-              {s.days} 天没动静(无未办结条目)
+              档案 {s.days} 天没更新(无未办结条目)
             </div>
           ))}
 
