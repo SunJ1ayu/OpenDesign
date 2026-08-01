@@ -153,12 +153,14 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.waitForTimeout(150);
 
-  // ── I.7 卡序:超期(天数降序)在前,其余未办结数降序 ────────────────────
-  const order = await page.locator(".todo-card .card-head .nm").allInnerTexts();
-  check(JSON.stringify(order) === JSON.stringify([P1, P2, P3, P4]),
-    `卡序 = 超期19天 → 超期15天 → 4条 → 2条(实测 ${JSON.stringify(order)})`);
-  const firstBadge = await page.locator(".todo-card").first().locator(".stale-badge").innerText();
-  check(firstBadge.includes("19"), `首卡带 19 天超期标(实测「${firstBadge}」)`);
+  // ── I.7 卡序 + 超期徽标:随 track opendesign-todo-one-view 迁走 ──────────
+  // **迁移账**:这两条判的是**旧卡序**(首键=后端 stale,即"档案页脚多久没更新")
+  // 与旧的 `.stale-badge`(带底色药丸)。本单已证伪该指标 —— 用户点一下截止日它就归零,
+  // 详见 tracks/opendesign-todo-one-view/design.md。
+  // 接手的判据:卡序 → tests/test_todo_one_view.mjs 的 orderProjectCards 一组(9 条,
+  // 含四档位完整序、同档最早 due、真实全无 due 形态);徽标 → tests/e2e/todo_one_view.e2e.mjs
+  // E 段(新文案「最近记录 N 天前」+ 无底色 + 阈值真的生效)。
+  // 约束面是**增加**的:旧的只钉一个 4 元素顺序 + 一个"含 19"的字串。
 
   // ── I.7 闲置项目占位卡 ──────────────────────────────────────────────────
   const idle = page.locator('[data-ui="todo-idle-card"]');
@@ -175,8 +177,13 @@ try {
   check(await lastCard.evaluate((el) => el.matches('[data-ui="todo-idle-card"]')),
     "占位卡排在列表末尾");
   const restTxt = (await page.locator(".todo-rest").allInnerTexts()).join(" | ");
-  check(restTxt.includes(P6) && restTxt.includes("天没动静"),
-    `超期无卡项目仍有「⛑ N 天没动静」独立行(实测「${restTxt}」)`);
+  // 文案随 track opendesign-todo-one-view 改为「档案 N 天没更新」:这一行用的是后端
+  // stale(= 档案页脚最后更新日),它测的**确实**是档案更新时间,原来那句「没动静」
+  // 是在撒谎。断言同步改口径,并**加严**:除了措辞,还钉住它必须报出具体天数。
+  check(restTxt.includes(P6) && restTxt.includes("档案") && /\d+\s*天没更新/.test(restTxt),
+    `超期无卡项目仍有「档案 N 天没更新」独立行(实测「${restTxt}」)`);
+  check(!restTxt.includes("天没动静"),
+    "不再说「没动静」—— 那个词对应的是被证伪的指标口径");
   check(!restTxt.includes("其余"), "旧的「其余 N 个项目没有未办结事项」行已被占位卡取代");
 
   // ── 折叠:项目卡整卡折叠 ────────────────────────────────────────────────
@@ -264,58 +271,13 @@ try {
     () => !document.querySelector('[data-ui="todo-batch-bar"]'), { timeout: 5000 },
   );
 
-  // ── I.8「按时间」:单列 + 去限宽 + 无占位卡 ─────────────────────────────
-  await page.locator('.todo-head .opt:has-text("按时间")').click();
-  await page.locator(".batch-head").first().waitFor({ timeout: 5000 });
-  const timeCards = page.locator(".todo-cards");
-  check(await timeCards.evaluate((el) => el.classList.contains("by-time")),
-    "「按时间」容器带 .by-time 布局 class");
-  const ccTime = await timeCards.evaluate((el) => getComputedStyle(el).columnCount);
-  check(ccTime === "auto" || ccTime === "1",
-    `「按时间」保持单列(column-count=${ccTime})`);
-  const boxTime = await timeCards.evaluate((el) => {
-    const cs = getComputedStyle(el);
-    return {
-      maxWidth: cs.maxWidth, ml: cs.marginLeft, mr: cs.marginRight,
-      w: el.clientWidth, parentW: el.parentElement ? el.parentElement.clientWidth : -1,
-    };
-  });
-  check(boxTime.maxWidth === "none", `「按时间」无 max-width 上限(实测 ${boxTime.maxWidth})`);
-  check(parseFloat(boxTime.ml) === 0 && parseFloat(boxTime.mr) === 0,
-    `「按时间」不居中(margin ${boxTime.ml}/${boxTime.mr})`);
-  check(boxTime.w >= boxTime.parentW - 1,
-    `「按时间」填满可用宽度(${boxTime.w}px / 容器 ${boxTime.parentW}px)`);
-  check(await page.locator('[data-ui="todo-idle-card"]').count() === 0,
-    "「按时间」视图不出现闲置占位卡(项目维度摘要,时间轴里没位置)");
-
-  // ── 一致性硬约束:两视图同一个折叠控件 ───────────────────────────────────
-  const batchToggle = page.locator('.batch-head [data-ui="group-toggle"]').first();
-  check(await batchToggle.count() === 1, "日期批次头用的是同一个折叠控件");
-  check(await batchToggle.evaluate((el) => el.classList.contains("grp-toggle")),
-    "日期批次折叠控件带 .grp-toggle");
-  const chevSizeTime = await batchToggle.locator(".chev")
-    .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-  check(chevSizeTime === chevSizeProj,
-    `两视图 chev 字号一致(按项目 ${chevSizeProj}px / 按时间 ${chevSizeTime}px)`);
-  const curTime = await batchToggle.evaluate((el) => getComputedStyle(el).cursor);
-  check(curTime === cur, `两视图 cursor 一致(${cur} / ${curTime})`);
-  const headWT = await page.locator(".batch-head").first().evaluate((el) => el.clientWidth);
-  const togWT = await batchToggle.evaluate((el) => el.clientWidth);
-  check(togWT > headWT * 0.5,
-    `日期批次可点区同样横跨大半行(触发区 ${togWT}px / 行 ${headWT}px)`);
-  check(await page.locator('.batch-head [data-ui="todo-select-group"]')
-    .first().evaluate((el) => el.closest('[data-ui="group-toggle"]') === null),
-    "「全选本组」不在折叠控件内部(不被吞)");
-
-  // ── 折叠行为在「按时间」仍工作(最新一批默认展开 → 点掉) ────────────────
-  const beforeRows = await page.locator(".batch-sect").first().locator(".todo-row").count();
-  check(beforeRows > 0, "最新日期批次默认展开");
-  await batchToggle.click();
-  await page.waitForFunction(
-    () => document.querySelector(".batch-sect").querySelectorAll(".todo-row").length === 0,
-    { timeout: 5000 },
-  );
-  check(true, "日期批次折叠仍工作");
+  // ── I.8「按时间」+ 该视图的折叠行为:整段随 track opendesign-todo-one-view 删除 ──
+  // 那个看法被砍掉了(panel-explore 四腿全票 + 用户拍板),测它的断言没有对象。
+  // **迁移账**:I.8 判的是「按时间」容器的单列 / 去 max-width / 不居中 / 填满可用宽 /
+  // 无闲置占位卡 —— 与上面 I.7 是**同一组几何性质的另一个容器**。I.7(保留,未改一字)
+  // 在唯一剩下的那个容器上判同样的性质,所以这组契约一条没丢。
+  // 日期批次的折叠行为:批次分组随该看法一起移除,折叠语言改由项目卡承担,
+  // 覆盖在 tests/e2e/todo_one_view.e2e.mjs 与 side_stage_groups.e2e.mjs。
 } catch (e) {
   failures++;
   console.error(String(e));

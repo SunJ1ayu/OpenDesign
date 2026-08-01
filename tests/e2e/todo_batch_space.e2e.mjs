@@ -164,54 +164,25 @@ try {
     `中性色与三个语义色都不同(中性 ${cOpen})`);
   await page.locator('.filter-pills .pill:has-text("未办结")').first().click(); // 复位,免影响后续断言
 
-  // ── T3:待办页批量改状态——按时间视图 ─────────────────────────────────
-  // 日期批次默认只展开最新一批(gi===0);C3/C4(2026-07-20)是全场最新日期,
-  // 免去先点开折叠头这步,选它俩。
+  // ── T3:待办页批量改状态(track opendesign-todo-one-view 后只剩一个看法)──
+  // **迁移账**:原来这里测两遍(按时间视图一遍、按项目视图一遍),因为两个看法各有
+  // 一套分组容器。本单砍掉「按时间」后只剩项目卡一种容器,**同一条能力测一遍就够**;
+  // 保留的是按项目那一遍(下面),它覆盖的行为(勾选 → 浮栏 → 改状态 → 落盘 + 回显)
+  // 与删掉的那一遍逐条相同,一条契约没丢。
+  // ── T3:待办页批量改状态 ──────────────────────────────────────────────
+  // 取 C1(玄关)/C2(客厅)两条,验勾选 → 浮栏 → 改状态 → 落盘 + 回显整条链。
   await page.locator('.side-row:has-text("待办事项")').first().click();
   await page.locator(".todo-card").first().waitFor({ timeout: 10000 });
-  await page.locator('.todo-head .opt:has-text("按时间")').click();
-  await page.locator(".batch-head").first().waitFor({ timeout: 5000 });
-  const timeRow1 = page.locator('.todo-row:has-text("卫生间防水加一道")').first();
-  const timeRow2 = page.locator('.todo-row:has-text("飘窗台改石材")').first();
-  await timeRow1.locator('[data-ui="todo-select"]').check();
-  await timeRow2.locator('[data-ui="todo-select"]').check();
-  const bar = page.locator('[data-ui="todo-batch-bar"]');
-  await bar.waitFor({ timeout: 5000 });
-  check((await bar.innerText()).includes("已选 2 条"), "浮栏:已选 2 条");
-  await bar.locator(".st-btn").click();
-  await page.locator(".st-menu-item:has-text(\"进行中\")").click();
-  await page.waitForFunction(
-    () => !document.querySelector('[data-ui="todo-batch-bar"]'),
-    { timeout: 10000 },
-  );
-  check(true, "应用后浮栏消失(选中集已清空)");
-  const toast = page.locator(".todo-toast.batch");
-  await toast.waitFor({ timeout: 5000 });
-  check((await toast.innerText()).includes("已改 2 条"), "toast:已改 2 条");
-  await page.waitForFunction(
-    () => {
-      const rows = Array.from(document.querySelectorAll(".todo-row"));
-      const r1 = rows.find((r) => r.textContent?.includes("卫生间防水加一道"));
-      return r1?.querySelector(".st-进行中") != null;
-    },
-    { timeout: 10000 },
-  );
-  check(true, "按时间视图批量应用后 UI 回显新状态");
-  check(projDMd().includes("[进行中] C3"), "落盘:C3 已改为进行中");
-  check(projDMd().includes("[进行中] C4"), "落盘:C4 已改为进行中");
-
-  // ── T3:待办页批量改状态——按项目视图(空间小节)────────────────────────
-  // 空间小节不折叠,任意条目直接可选;取 C1(玄关)/C2(客厅)两个不同小节各一条。
-  await page.locator('.todo-head .opt:has-text("按项目")').click();
-  await page.locator('[data-ui="todo-space-sect"]').first().waitFor({ timeout: 5000 });
-  // #6:待办页同源文案也不写「未分空间」,但**分节与「全选本组」必须还在**
-  // ——用户要的是"别写那四个字",不是"少一个按钮 / 条目混作一堆"。
-  check((await page.locator('[data-ui="todo-space-sect"] .nm:has-text("未分空间")').count()) === 0,
-    "待办页空间小节不再写「未分空间」");
-  check((await page.locator('[data-ui="todo-space-sect"]').count()) >= 1,
-    "空间小节本身仍在(分节没被顺手删掉)");
-  check((await page.locator('[data-ui="todo-select-group"]').count()) >= 1,
-    "「全选本组」仍在(去掉的是字,不是功能)");
+  // track opendesign-todo-one-view:卡内不再按空间分小节(改两轨排序),空间降为行内标签。
+  // 原来那三条(不写「未分空间」/ 分节还在 / 全选本组还在)的**意图**照旧钉住:
+  // ①「未分空间」四个字仍然不许出现;②空间信息没被顺手删掉(改为行内 chip);
+  // ③"整组一次选中"的能力不许因为换了容器就丢 —— 现在的组 = 项目卡。
+  check((await page.locator('.todo-page:has-text("未分空间")').count()) === 0,
+    "待办页仍然不写「未分空间」");
+  check((await page.locator('.todo-row .space-chip').count()) >= 1,
+    "空间仍以行内标签出现(信息没丢,只是不再分节)");
+  check((await page.locator('.todo-card .card-head [data-ui="todo-select-group"]').count()) >= 1,
+    "「全选本卡」挂在项目卡头上(0.34.0 的整组选中能力不许丢)");
   const projRow1 = page.locator('.todo-row:has-text("玄关柜改高")').first();
   const projRow2 = page.locator('.todo-row:has-text("沙发靠墙摆")').first();
   await projRow1.locator('[data-ui="todo-select"]').check();
@@ -232,9 +203,8 @@ try {
   check(projDMd().includes("[进行中] C2"), "落盘:C2 已改为进行中");
 
   // ── T3:全选本组(冒烟)──────────────────────────────────────────────────
-  await page.locator('.todo-head .opt:has-text("按时间")').click();
-  await page.locator(".batch-head").first().waitFor({ timeout: 5000 });
-  await page.locator('[data-ui="todo-select-group"]').first().click();
+  await page.locator(".todo-card").first().waitFor({ timeout: 5000 });
+  await page.locator('.todo-card .card-head [data-ui="todo-select-group"]').first().click();
   await page.locator('[data-ui="todo-batch-bar"]').waitFor({ timeout: 5000 });
   check(true, "全选本组:浮栏出现");
   await page.locator(".todo-batch-bar .batch-cancel").click();

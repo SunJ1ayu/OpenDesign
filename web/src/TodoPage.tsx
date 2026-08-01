@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type { Project } from "./api";
 import { cnDate, editChange, setDueDate } from "./api";
 import DuePicker from "./DuePicker";
@@ -6,7 +6,7 @@ import GroupToggle from "./GroupToggle";
 import StatusPicker from "./StatusPicker";
 import TodoRail from "./TodoRail";
 import type { ChatSession } from "./chat/connection";
-import { batchKey } from "./todoBatches";
+import { batchCaption, batchKey } from "./todoBatches";
 import {
   batchEditRequests,
   buildEditRequest,
@@ -226,6 +226,32 @@ export default function TodoPage({
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      return next;
+    });
+  }
+
+  // ── 全选本卡(track opendesign-todo-one-view)────────────────────────────
+  // ⚠️ 收货闸③抓到的能力回归:「全选本组」原来挂在空间小节/日期批次头上,
+  // 那两个分组头本单被删,按钮跟着没了 —— 但**分组本身没消失,它变成了项目卡**。
+  // 0.34.0 交付的"整组一次选中"不能因为换了容器就丢,所以挂回卡头。
+  function selectableKeys(items: OpenItem[]): string[] {
+    return items.filter((it) => it.cnum !== null).map(selKey);
+  }
+
+  function groupAllSelected(items: OpenItem[]): boolean {
+    const keys = selectableKeys(items);
+    return keys.length > 0 && keys.every((k) => selected.has(k));
+  }
+
+  function toggleGroup(items: OpenItem[]) {
+    const keys = selectableKeys(items);
+    const allOn = keys.length > 0 && keys.every((k) => selected.has(k));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const k of keys) {
+        if (allOn) next.delete(k);
+        else next.add(k);
+      }
       return next;
     });
   }
@@ -534,11 +560,33 @@ export default function TodoPage({
               </span>
             )}
           </GroupToggle>
+          <button
+            className="group-select-btn"
+            data-ui="todo-select-group"
+            onClick={() => toggleGroup(c.items)}
+          >
+            {groupAllSelected(c.items) ? "取消本卡" : "全选本卡"}
+          </button>
           <button className="link-act" onClick={() => onGoProject(c.project)}>
             去项目
           </button>
         </header>
-        {open && orderItems(c.items, data.today).map((it, i) => row(it, i))}
+        {/* 批次小标题(用户 08-01 拍板):0.60.0「助手记录时给这一批起名」原来只在
+            被砍掉的「按时间」看法里显示,不接回来它就成了有人写没人看的字段。
+            **刻意选最轻的形态**——不加折叠层,只在同一批的第一条上方加一行小字;
+            没名字的批次不显示。同一批记录日期相同、软轨按记录日期排 ⇒ 天生挨着,
+            所以这行标题不打乱两轨顺序、也不需要重新分组。 */}
+        {open && orderItems(c.items, data.today).map((it, i, arr) => {
+          const cap = batchCaption(it, i === 0 ? null : arr[i - 1]);
+          return (
+            <Fragment key={`${it.project}:${it.line}`}>
+              {cap && (
+                <div className="batch-cap" data-ui="batch-cap">{cap}</div>
+              )}
+              {row(it, i)}
+            </Fragment>
+          );
+        })}
       </section>
     );
   };

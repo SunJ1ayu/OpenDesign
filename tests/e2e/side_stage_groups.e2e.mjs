@@ -174,7 +174,8 @@ try {
     expect(await rowsIn("竣工验收").count() === 0, "前提:竣工验收默认收着");
 
     await page.goto(`${base}/#/todos`, { waitUntil: "domcontentloaded" });
-    await page.locator(".todo-page .opt", { hasText: "按项目" }).click();
+    // 2026-08-01 track opendesign-todo-one-view:看法切换器已撤,待办页只有一种形态,
+    // 原来这里那一下「按项目」点击不再需要(也不再存在)。断言一字未动。
     const card = page.locator(".todo-card", { hasText: "松涛苑-0101" }).first();
     await card.waitFor({ timeout: 15000 });
     // 按**用户看得见的文案**选,不按 class 名(2026-08-01 按钮角色收编:`.go-link`

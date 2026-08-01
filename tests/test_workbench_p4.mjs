@@ -5,7 +5,6 @@ import assert from "node:assert/strict";
 import {
   groupByProject,
   groupByDate,
-  sortByDateDesc,
   buildEditRequest,
   isValidStatus,
   isTerminalStatus,
@@ -44,12 +43,15 @@ test("groupByDate:日期倒序分批,无日期(null)恒沉底", () => {
   assert.equal(g[2].items[0].text, "无日期");
 });
 
-test("groupByDate:组内保持传入相对序(时间视图先 sortByDateDesc 再分组不乱序)", () => {
-  const sorted = sortByDateDesc([
-    item("乙", null, "2026-07-10", "b1"),
+test("groupByDate:组内保持传入相对序(调用方先排好序再分组,不许乱序)", () => {
+  // 原来这里借 sortByDateDesc 造输入,那个函数已随「按时间」看法删除。
+  // groupByDate 本身仍被 workspace/changes.ts 用着,**覆盖不能丢** ——
+  // 改成直接写出"已排序"的输入,断言一字未动(约束面不变)。
+  const sorted = [
     item("甲", null, "2026-07-16", "a1"),
     item("乙", null, "2026-07-16", "b2"),
-  ]);
+    item("乙", null, "2026-07-10", "b1"),
+  ];
   const g = groupByDate(sorted);
   assert.deepEqual(g.map((x) => x.date), ["2026-07-16", "2026-07-10"]);
   assert.deepEqual(g[0].items.map((x) => x.text), ["a1", "b2"]);
@@ -59,15 +61,9 @@ test("groupByDate:空表回空,不炸", () => {
   assert.deepEqual(groupByDate([]), []);
 });
 
-test("sortByDateDesc:日期倒序、无日期沉底、同日稳定", () => {
-  const s = sortByDateDesc([
-    item("甲", null, "2026-07-01", "旧"),
-    item("甲", null, null, "无日期"),
-    item("甲", null, "2026-07-10", "新1"),
-    item("甲", null, "2026-07-10", "新2"),
-  ]);
-  assert.deepEqual(s.map((x) => x.text), ["新1", "新2", "旧", "无日期"]);
-});
+// sortByDateDesc 及其用例已随 track opendesign-todo-one-view 删除:
+// 唯一调用者是被砍掉的「按时间」看法,函数零生产调用者。
+// (与下面 staleDays 同一条规矩:不留没人调用、判据还在发合格证的代码。)
 
 // staleDays 已随 track opendesign-todo-layout 删除(生产调用者归 orderProjectCards,
 // 其契约在 tests/test_todo_layout.mjs「附 stale 天数,无超期为 null」一例)。

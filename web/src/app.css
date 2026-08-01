@@ -2106,6 +2106,15 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 /* `.go-link` 已删:项目卡「去项目」现在归入 `.link-act` 文字按钮档;
    `flex: none` 是卡头布局需求,保留在项目卡上下文里避免按钮被压缩。 */
 .todo-card .card-head .link-act { flex: none; }
+/* 批次小标题(track opendesign-todo-one-view):同一批的第一条上方一行小字。
+   刻意做得**比条目正文更轻** —— 它是出处注记,不是标题层级;用户这一轮抱怨的
+   就是层次太多,所以不给底色、不给边框、不加缩进层。 */
+.batch-cap {
+  font-size: 11px;
+  color: var(--ink-4);
+  padding: 6px 0 2px 24px;
+  letter-spacing: 0.02em;
+}
 .batch-sect { padding: 4px 0 2px; }
 .batch-head {
   display: flex;
@@ -2226,10 +2235,10 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   opacity: 0;
   transition: color var(--hover-ease), opacity var(--hover-ease);
 }
-.space-sect-head:hover .group-select-btn,
-.space-sect-head:focus-within .group-select-btn,
-.batch-head:hover .group-select-btn,
-.batch-head:focus-within .group-select-btn,
+/* track opendesign-todo-one-view:分组头换成了项目卡头(空间小节/日期批次头已删),
+   显形规则跟着搬,行为一字不改 —— 平时藏,卡头 hover/聚焦 或已有勾选时现。 */
+.card-head:hover .group-select-btn,
+.card-head:focus-within .group-select-btn,
 .todo-cards:has(.todo-select:checked) .group-select-btn { opacity: 1; }
 .group-select-btn:hover { color: var(--terra-deep); }
 

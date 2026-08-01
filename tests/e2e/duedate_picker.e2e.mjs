@@ -117,6 +117,13 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   const rows = () => page.locator('.todo-page .todo-row');
   const trigger = (i) => rows().nth(i).locator('[data-ui="due-trigger"]');
+  // ⚠️ 2026-08-01 track opendesign-todo-one-view:待办行的顺序变成了**按紧急度排**
+  // (有截止日的在前、按截止日升序),位置不再等于身份。原来 A/C 两段用 nth(0)/nth(1)
+  // 指认条目 —— 那是**拿位置当身份的代理断言**,新排序下 nth(0) 正好落到 C3
+  // (截止日最早的那条),A 段于是把 C3 的截止日覆盖掉,D 段的前提就塌了。
+  // 改成按正文指认(身份),约束更严:它同时钉住了"被操作的确实是那一条"。
+  const rowOf = (text) => page.locator('.todo-page .todo-row', { hasText: text }).first();
+  const triggerOf = (text) => rowOf(text).locator('[data-ui="due-trigger"]');
   const pop = page.locator('[data-ui="due-pop"]');
 
   // ── A 待办页能设,而且真写进了档案 ──────────────────────────────────────────
@@ -125,7 +132,7 @@ try {
     await rows().first().waitFor({ timeout: 15000 });
     check(await rows().count() >= 12, `前提:12 条未办结都在(实测 ${await rows().count()})`);
 
-    await trigger(0).click();
+    await triggerOf("第 1 条待办").click();
     await pop.waitFor({ timeout: 8000 });
     // 点"今天"这一格 —— 日期是算出来的,不写死,换年换月不会红
     await page.locator(`[data-ui="due-cell"][data-date="${TODAY}"]`).click();
@@ -134,7 +141,8 @@ try {
     expect(fileHas(`⏳${TODAY}`), "档案里真的写上了截止日(不是只改了界面)");
     await page.reload({ waitUntil: "domcontentloaded" });
     await rows().first().waitFor({ timeout: 15000 });
-    const txt = await rows().first().innerText();
+    // 设完截止日,那条会从软轨挪进硬轨 —— 位置必然变,所以按正文找它。
+    const txt = await rowOf("第 1 条待办").innerText();
     expect(txt.includes("截止"), `刷新后那一行还带着截止日(实测 ${JSON.stringify(txt)})`);
   });
 
@@ -165,19 +173,19 @@ try {
   await step("C 正在设的那条高亮、其余压暗", async () => {
     await page.goto(`${base}/#/todos`, { waitUntil: "domcontentloaded" });
     await rows().first().waitFor({ timeout: 15000 });
-    await trigger(1).click();
+    await triggerOf("第 2 条待办").click();
     await pop.waitFor({ timeout: 8000 });
 
-    expect(await rows().nth(1).evaluate((el) => el.classList.contains("due-editing")),
+    expect(await rowOf("第 2 条待办").evaluate((el) => el.classList.contains("due-editing")),
       "被设的那一条挂上了 due-editing");
     // ⚠️ 这里原本写的是 `opacity < 1`,实测量到 0.92 —— 那是**过渡动画中途**的值。
     // 于是这条断言等于"只要动了一点点就算压暗",一个肉眼看不出来的 0.99 照样能过。
     // 改成:先等过渡稳定,再钉一个**用户看得出来**的阈值。
     // 同一个根因第 N 次:数字对、结果错。
-    const settled = await stableOpacity(rows().nth(4));
+    const settled = await stableOpacity(rowOf("第 5 条待办"));
     expect(settled <= 0.7, `别的条目**明显**压暗了(稳定后 opacity=${settled},期望 ≤0.7)`);
     await page.keyboard.press("Escape");
-    const back = await stableOpacity(rows().nth(4));
+    const back = await stableOpacity(rowOf("第 5 条待办"));
     expect(back === 1, `关掉后压暗要撤销(稳定后 opacity=${back})`);
   });
 

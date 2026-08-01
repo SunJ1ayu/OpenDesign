@@ -49,22 +49,8 @@ export function groupByDate(items: OpenItem[]): DateGroup[] {
   return [...dated, ...tail].map((date) => ({ date, items: map.get(date)! }));
 }
 
-/** 按时间视图:日期倒序平铺;无日期沉底;同日期保持原相对序(稳定排序)。 */
-export function sortByDateDesc(open: OpenItem[]): OpenItem[] {
-  return open
-    .map((it, i) => ({ it, i }))
-    .sort((a, b) => {
-      const da = a.it.date ?? "";
-      const db = b.it.date ?? "";
-      if (da !== db) {
-        if (da === "") return 1; // 无日期沉底
-        if (db === "") return -1;
-        return db.localeCompare(da);
-      }
-      return a.i - b.i;
-    })
-    .map((x) => x.it);
-}
+// sortByDateDesc 已删(track opendesign-todo-one-view):唯一调用者是被砍掉的
+// 「按时间」看法。同一个问题不留第二个答案,更不留没人调用的死代码。
 
 // staleDays(项目名 → 超期天数)已删除(track opendesign-todo-layout 收货)。
 // track opendesign-todo-one-view 又进一步证伪了后端 stale 作为卡序/卡徽标指标:

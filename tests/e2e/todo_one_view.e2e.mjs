@@ -80,7 +80,10 @@ const FIXTURE = [
       "- [待确认] C2 2026-07-10 【主卧】老意见没截止日",       // 软轨,老
       "- [待确认] C3 2026-07-20 【厨房】未来到期 ⏳2026-08-20", // 硬轨,未来
       "- [待确认] C4 2026-07-22 【阳台】已经过期 ⏳2026-07-25", // 硬轨,过期
+      "- [待确认] C5 2026-07-10 【书房】效果图整体调浅一档",   // 软轨,与 C2 同日=同一批
     ],
+    // 助手起过名的批次(格式与 ds_common.BATCH_LINE_RE 同源):C2 与 C5 同属这一批
+    batch: "- C2-C5 2026-07-10 效果图这轮改浅色",
   },
   {
     key: "02李宅-0808", stage: "平面方案",
@@ -95,6 +98,7 @@ for (const p of FIXTURE) {
 - 业主: [[某先生]]
 - 阶段: ${p.stage}
 
+${p.batch ? `## 批次\n${p.batch}\n` : ""}
 ## 变更记录
 ${p.rows.join("\n")}
 
@@ -164,14 +168,14 @@ try {
   await step("B 有截止日的整体在前,过期的最靠前", async () => {
     await gotoTodo();
     const rows = await rowTexts(0);
-    expect(rows.length === 4, `张宅卡里 4 行(实测 ${rows.length})`);
+    expect(rows.length === 5, `张宅卡里 5 行(实测 ${rows.length})`);
     const idx = (kw) => rows.findIndex((t) => t.includes(kw));
     const iOverdue = idx("已经过期"), iFuture = idx("未来到期");
     const iOld = idx("老意见"), iNew = idx("新意见");
     expect(iOverdue === 0, `过期那条排第 1(实测第 ${iOverdue + 1})`);
     expect(iFuture === 1, `未来到期那条排第 2(实测第 ${iFuture + 1})`);
     expect(iOverdue < iOld && iFuture < iOld && iFuture < iNew,
-      "两条有截止日的都排在两条无截止日的前面");
+      "两条有截止日的都排在无截止日的前面");
   });
 
   // ── C 软轨最久在前(不是倒序)─────────────────────────────────────────────
@@ -217,8 +221,13 @@ try {
   // ── E 徽标改文案 + 去底色 ────────────────────────────────────────────────
   await step("E 「最近记录 N 天前」小字,没有底色", async () => {
     await gotoTodo();
+    // ⚠️ 必须**限定到张宅那张卡**:卡序按紧急度排,张宅(有过期条目)排第一但没有徽标,
+    // 裸 document.querySelector 会抓到李宅那个 15 天的徽标 —— 断言查的对象就不是它
+    // 声称的对象了(收货时实测踩到,是我这条断言写错,不是实现错)。
     const b = await page.evaluate(() => {
-      const el = document.querySelector("[data-ui=card-recency]");
+      const cards = [...document.querySelectorAll(".todo-card")];
+      const card = cards.find((c) => (c.textContent || "").includes("张宅"));
+      const el = card && card.querySelector("[data-ui=card-recency]");
       if (!el) return { exists: false };
       const cs = getComputedStyle(el);
       return {
@@ -250,6 +259,29 @@ try {
     expect(li.exists && b.exists === false,
       `张宅最近记录才 2 天(< 阈值 ${7} 天),徽标不该出现` +
       `(实测 ${b.exists ? b.text : "不存在"});此断言以李宅徽标存在为前提`);
+  });
+
+  // ── J 批次小标题真的渲染出来 ─────────────────────────────────────────────
+  // ⚠️ 这段是**收尾截图时补的**:原来批次小标题只有纯函数判据(batchCaption),
+  // 渲染这一层没有任何断言盯着 —— 纯函数全绿而页面上一个字都不出现是完全可能的。
+  // 本项目第 N 次同一教训:数字对、页面错。
+  await step("J 助手起名的批次,在该批第一条上方显示一行小标题", async () => {
+    await gotoTodo();
+    const caps = await page.locator("[data-ui=batch-cap]").allInnerTexts();
+    expect(caps.length === 1, `整页恰好一行批次小标题(实测 ${caps.length} 行)`);
+    expect(caps[0] && caps[0].includes("效果图这轮改浅色"),
+      `小标题文案是助手起的名(实测 ${JSON.stringify(caps[0])})`);
+    // 位置:必须紧贴在**该批在渲染顺序里的第一条**之前,不是飘在卡顶或卡尾。
+    // ⚠️ 这一批是 C2-C5,里面 C4 是过期条目 ⇒ 它在硬轨最前 ⇒ 小标题落在 C4 上方,
+    // 不是档案里编号最小的 C2。(第一版断言按"编号最小"写,实测红 —— 我算错了,
+    // 不是实现错;顺手把这条推理写进注释,免得日后又按直觉改回去。)
+    const okPos = await page.evaluate(() => {
+      const cap = document.querySelector("[data-ui=batch-cap]");
+      const next = cap && cap.nextElementSibling;
+      return !!next && next.classList.contains("todo-row")
+        && (next.textContent || "").includes("已经过期");
+    });
+    expect(okPos, "小标题紧跟着的就是该批在渲染顺序里的第一条");
   });
 
   // ── F 一条都不丢 ─────────────────────────────────────────────────────────
