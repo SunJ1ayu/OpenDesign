@@ -665,7 +665,7 @@ export default function TodoPage({
             {c.stale !== null && <span className="stale-badge">⛑ {c.stale} 天没动静</span>}
           </GroupToggle>
           <button className="link-act" onClick={() => onGoProject(c.project)}>
-            去项目 →
+            去项目
           </button>
         </header>
         {open && spaceBatches(c.items)}

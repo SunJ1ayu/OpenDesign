@@ -209,7 +209,7 @@ export default function TodoRail({
                 data-ui="rail-expand"
                 onClick={() => setExpanded(true)}
               >
-                展开对话 →
+                展开对话
               </button>
             )}
           </div>

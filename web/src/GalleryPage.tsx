@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Project, Ref, RefsVocab } from "./api";
-import { fetchFilesImages, fetchRefsData, fileToDataUrl, openFolder, updateRef,
-         uploadErrMsg, uploadToInbox } from "./api";
+import { fetchFilesImages, fetchRefsData, openFolder, updateRef } from "./api";
 import {
   buildGallery,
   sameTags,
@@ -13,6 +12,7 @@ import {
   type GalleryItem,
   type WsImage,
 } from "./gallery";
+import { useInboxDrop } from "./inboxDrop";
 
 // 图墙(P5 T5,一等面):refs 索引(空间/风格标签)∪ 工作区项目图片。
 // 两层:相册墙(每个集合文件夹一张封面)→ 点开看该册全部图 → 点图 lightbox。
@@ -100,40 +100,7 @@ export default function GalleryPage({ project, onBack }: Props) {
     try { localStorage.setItem("ds.gallery.cols", String(v)); } catch { /* 隐私模式 */ }
   };
 
-  const [dragOver, setDragOver] = useState(false);
-  const [upMsg, setUpMsg] = useState<string | null>(null);
-  const [upBusy, setUpBusy] = useState(false);
-
-  async function uploadFiles(files: File[]) {
-    // 按**扩展名**过滤,不只看 mime:svg 的 mime 也是 image/svg+xml,只看 mime 会把它
-    // 放到服务端才拒(四审 subkimi F4:那时提示语给的还是错药方)。
-    const OK_EXT = /\.(png|jpe?g|webp|gif)$/i;
-    const imgs = files.filter((f) => OK_EXT.test(f.name));
-    if (!imgs.length) {
-      setUpMsg("只收图片(png/jpg/webp/gif)。");
-      return;
-    }
-    setUpBusy(true);
-    const stored: string[] = [];
-    let dir = "";
-    try {
-      for (const f of imgs) {
-        const r = await uploadToInbox(f.name, await fileToDataUrl(f));
-        stored.push(r.name);       // 后端回显真实落盘名(可能截短/换名)
-        // 落盘目录(绝对路径):0.48.0 只说"已存进收件箱",用户当场问"在我电脑哪个
-        // 文件夹" —— 一个本地工具让人搞不清文件去哪了,是提示不合格。
-        if (!dir && r.path) dir = r.path.slice(0, r.path.length - r.name.length);
-      }
-      // 逐字回显落盘名:名字被改过时用户当场看得见,而不是三天后发现文件"没了"
-      setUpMsg(`已存进收件箱${dir ? `(${dir})` : ""}:${stored.join("、")}`
-        + " —— 去伴随列点「扫描整理」归档");
-    } catch (e) {
-      const done = stored.length ? `已存 ${stored.length} 张;` : "";
-      setUpMsg(done + uploadErrMsg((e as Error).message));
-    } finally {
-      setUpBusy(false);
-    }
-  }
+  const { dragOver, upBusy, upMsg, setUpMsg, dropProps } = useInboxDrop();
 
   const reloadRefs = () => {
     if (!key) return Promise.resolve();
@@ -317,21 +284,7 @@ export default function GalleryPage({ project, onBack }: Props) {
       // 合并成一个返回键之后,判据不能再靠 `.g-back` 这个元素在不在来判断层级。
       data-album={current ? current.key : ""}
       ref={pageRef}
-      onDragOver={(e) => {
-        if (!e.dataTransfer.types.includes("Files")) return;
-        e.preventDefault();                 // 不 preventDefault 浏览器会直接打开图片
-        setDragOver(true);
-      }}
-      onDragLeave={(e) => {
-        if (e.currentTarget.contains(e.relatedTarget as Node)) return; // 子元素间移动不算离开
-        setDragOver(false);
-      }}
-      onDrop={(e) => {
-        if (!e.dataTransfer.types.includes("Files")) return;
-        e.preventDefault();
-        setDragOver(false);
-        void uploadFiles(Array.from(e.dataTransfer.files));
-      }}
+      {...dropProps}
       data-ui="gallery-drop"
     >
       {(dragOver || upBusy || upMsg) && (

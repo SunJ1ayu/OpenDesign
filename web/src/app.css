@@ -1128,8 +1128,10 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   background: #fff;
   color: var(--ink);
   font-size: 12.5px;
+  outline: none;
 }
 .rail-ask-input::placeholder { color: var(--ink-5); }
+.rail-ask-input:focus { border-color: var(--terra); outline: none; }
 .rail-send {
   flex: none;
   height: 32px;
@@ -1221,6 +1223,11 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 .inbox-card {
   --inbox-pad: 20px;
   padding: 6px 0 8px;   /* 6 + .inbox-summary 的 10 = 16,与 .chatcol-head 上边距同 */
+}
+.inbox-card.drag-over {
+  outline: 2px dashed var(--terra);
+  outline-offset: -6px;
+  background: var(--paper-hover);
 }
 /* 修改单 D1:默认收成一行摘要,点行展开(扫描整理按钮 stopPropagation 不触发展开) */
 .inbox-summary {
@@ -1353,6 +1360,7 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   overflow-wrap: anywhere;
 }
 .inbox-card > .inbox-hint.scan-msg { padding: 0 16px 6px; }
+.upload-note.inbox-upload-note { margin: 0 var(--inbox-pad) 8px; }
 
 /* ── 驾驶舱速览(track opendesign-cockpit;修改单 D2 后只剩「当前状态」一句话,
    阶段/业主/相对时间挪走或删)──────────────────────────────────────────── */
@@ -2739,8 +2747,9 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   border: 1px solid var(--border-input, var(--border-main));
   border-radius: 8px;
   font-size: 12.5px;
+  outline: none;
 }
-.ref-edit-note:focus { border-color: var(--terra); }
+.ref-edit-note:focus { border-color: var(--terra); outline: none; }
 .ref-edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
 /* 参考图编辑区保存反馈(收货修复轮:成功零反馈,与快记卡 toast 范式不一致)*/
 .ref-edit-saved {
