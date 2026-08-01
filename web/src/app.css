@@ -1360,7 +1360,16 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   overflow-wrap: anywhere;
 }
 .inbox-card > .inbox-hint.scan-msg { padding: 0 16px 6px; }
-.upload-note.inbox-upload-note { margin: 0 var(--inbox-pad) 8px; }
+/* 收件箱那条列很窄,提示语必然折成三四行。沿用图墙那边的**横排**会把「知道了」
+   甩到文字正中间(flex 行垂直居中)—— 读起来像插进了句子里。窄列改上下堆叠。
+   收货截图看出来的;判据只接得住"竖排三行"那种硬伤,这一层靠眼睛。 */
+.upload-note.inbox-upload-note {
+  margin: 0 var(--inbox-pad) 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.upload-note.inbox-upload-note .link-act { margin-left: 0; }
 
 /* ── 驾驶舱速览(track opendesign-cockpit;修改单 D2 后只剩「当前状态」一句话,
    阶段/业主/相对时间挪走或删)──────────────────────────────────────────── */
@@ -2778,7 +2787,10 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   font-size: 12.5px;
   color: var(--ink-2);
 }
-.upload-note .link-act { margin-left: auto; }
+/* `flex: none` + nowrap 不是装饰:提示条是 flex 行,这个按钮在**窄列**(收件箱那条)
+   里会被压到比一个字还窄,「知/道/了」竖排三行。图墙那边有整页宽度,同一份 CSS
+   一直看不出来 —— 收货截图才现的原形。判据 inbox_drop.e2e.mjs D2 段。 */
+.upload-note .link-act { margin-left: auto; flex: none; white-space: nowrap; }
 /* 上游拒了这一轮(多半是图被拒):必须让人看见,否则就是"消息发出去然后没了" */
 .chat-turn-error {
   font-size: 11.5px;
