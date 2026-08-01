@@ -2061,13 +2061,8 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   color: var(--ink);
 }
 .todo-head .sub { font-size: 12px; color: var(--ink-4); }
-/* 这里刻意**没有** `.grow` 弹簧:题头是整宽的(横跨主区+右栏),弹簧会把看法切换器
-   顶到视口最右上角、骑在右栏头上(真机反馈 2026-07-31)。切换器紧跟副标题左对齐。 */
 .todo-empty { padding: 60px 0; text-align: center; font-size: 13px; }
-/* 两视图都用竖向单列(真机反馈 2026-07-24:多列瀑布看着乱,改回竖排)。
-   两个 class 结构一致(都是 flex 纵列),切换「按项目/按时间」时主区宽度不再跳变
-   ——这同时治掉了「按时间视图中间区域会缩短」的毛病。
-   历史:曾用 `columns:360px 3` 多列瀑布(todo-layout),窄栏下正文被挤成竖排,已弃。 */
+/* 单一项目容器视图:竖向单列。历史上曾用多列瀑布(todo-layout),窄栏下正文被挤成竖排,已弃。 */
 .todo-cards.by-project {
   display: flex;
   flex-direction: column;
@@ -2075,15 +2070,6 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   max-width: none;
   margin: 0;
 }
-.todo-cards.by-time { display: flex; flex-direction: column; gap: 14px; max-width: none; margin: 0; }
-/* 「按阶段」(C,07-30 反馈):与另两个看法同为竖向单列,切换时主区宽度不跳变。
-   堆眉借 .space-sect-head 的语言(细横线 + 灰小标题),比项目卡头轻一级 ——
-   层级是「阶段堆 > 项目卡 > 空间小节」,靠字重/字号递减区分,不再多一种边框。 */
-.todo-cards.by-stage { display: flex; flex-direction: column; gap: 18px; max-width: none; margin: 0; }
-.stage-sect { display: flex; flex-direction: column; gap: 12px; }
-.stage-sect-head .grp-toggle { width: 100%; }
-.stage-sect-head .nm { font-size: 13px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
-.stage-sect-head .n-open { font: 10.5px var(--font-mono); color: var(--ink-4); white-space: nowrap; }
 .todo-card {
   background: #fff;
   border: 1px solid var(--border-main);
@@ -2104,12 +2090,17 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 .todo-card .card-head .dot.done { background: var(--dot-faded); }
 .todo-card .card-head .nm { font-size: 14px; font-weight: 600; }
 .todo-card .card-head .n-open { font: 10.5px var(--font-mono); color: var(--ink-4); }
-.stale-badge {
-  font-size: 10.5px;
-  color: var(--terra-deep);
-  background: #f4e3db;
-  border-radius: 99px;
-  padding: 1px 8px;
+.todo-card .card-head [data-ui=card-stage] {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.todo-card .card-head [data-ui=card-recency] {
+  font: 10.5px var(--font-mono);
+  color: var(--ink-4);
+  background: transparent;
+  padding: 0;
   white-space: nowrap;
 }
 /* `.go-link` 已删:项目卡「去项目」现在归入 `.link-act` 文字按钮档;

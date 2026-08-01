@@ -66,9 +66,36 @@ export function sortByDateDesc(open: OpenItem[]): OpenItem[] {
     .map((x) => x.it);
 }
 
-// staleDays(项目名 → 超期天数)已删除(track opendesign-todo-layout 收货):
-// 卡头的「⛑ N 天没动静」现在读 orderProjectCards 附在卡上的 stale 字段,
-// 该函数因此零生产调用者。同一个问题不留第二个答案。
+// staleDays(项目名 → 超期天数)已删除(track opendesign-todo-layout 收货)。
+// track opendesign-todo-one-view 又进一步证伪了后端 stale 作为卡序/卡徽标指标:
+// 项目卡改用 due/date 排序和 latestRecordAge;后端 stale 只留给无未办结条目的独立行。
+
+// ── 待办「按项目」卡内排序(track opendesign-todo-one-view A)───────────────
+
+/** 卡内两轨排序:有 due 的硬轨整体在前并按 due 升序;无 due 的软轨按记录日期
+ * 升序(最久在前),date=null 沉底。稳定、纯函数、不改传入数组。 */
+export function orderItems(items: OpenItem[], today: string): OpenItem[] {
+  void today; // due 是 ISO 日期,due 升序本身已覆盖过期→今天→未来。
+  return items
+    .map((it, i) => ({ it, i }))
+    .sort((a, b) => {
+      const aDue = a.it.due !== null;
+      const bDue = b.it.due !== null;
+      if (aDue !== bDue) return aDue ? -1 : 1;
+      if (aDue && bDue && a.it.due !== b.it.due) {
+        return (a.it.due as string).localeCompare(b.it.due as string);
+      }
+      const ad = a.it.date;
+      const bd = b.it.date;
+      if (ad !== bd) {
+        if (ad === null) return 1;
+        if (bd === null) return -1;
+        return ad.localeCompare(bd);
+      }
+      return a.i - b.i;
+    })
+    .map((x) => x.it);
+}
 
 // ── 待办「按项目」卡内按空间分小节(track opendesign-frontend-p2-polish 修改单 G1)──
 
@@ -216,30 +243,67 @@ export function dueStatus(due: string | null, today: string): DueStatus {
   return "upcoming";
 }
 
-// ── 「按项目」卡序 + 闲置项目(track opendesign-todo-layout T1)──────────────
-// 契约见 tests/test_todo_layout.mjs(off-limits):四层排序键(超期整体在前 → 组内
-// 天数降序 → 非超期组内条数降序 → 全平局保持传入序,稳定排序);items/project 原样
-// 带过(同引用,不复制不重排组内);不改传入数组;不为 stale 里没有卡的项目凭空造卡。
+// ── 「按项目」卡序 + 记录年龄 + 闲置项目(track opendesign-todo-one-view)────
 
-export type ProjectCard = { project: string; items: OpenItem[]; stale: number | null };
+export const STALE_AFTER_DAYS = 7;
 
-/** I.7 卡序。groups 原样带过(project/items 不改),附 stale 天数。 */
-export function orderProjectCards(groups: ProjectGroup[], stale: StaleItem[]): ProjectCard[] {
-  const staleMap = new Map(stale.map((s) => [s.project, s.days]));
-  return groups
-    .map((g, i) => ({ project: g.project, items: g.items, stale: staleMap.get(g.project) ?? null, i }))
-    .sort((a, b) => {
-      const aStale = a.stale !== null;
-      const bStale = b.stale !== null;
-      if (aStale !== bStale) return aStale ? -1 : 1;
-      if (aStale && bStale && a.stale !== b.stale) return (b.stale as number) - (a.stale as number);
-      if (!aStale && !bStale && a.items.length !== b.items.length) return b.items.length - a.items.length;
-      return a.i - b.i; // 全相等(或同 stale 天数 / 同条数)→ 保持传入序
-    })
-    .map(({ project, items, stale: days }) => ({ project, items, stale: days }));
+export type ProjectCard = { project: string; items: OpenItem[] };
+
+function dateToUtcDay(date: string): number {
+  const [y, m, d] = date.split("-").map(Number);
+  return Date.UTC(y, m - 1, d);
 }
 
-/** 闲置项目 = 全部项目 − 有卡的 − 已在「⛑ N 天没动静」独立行报过的。保持 allKeys 传入序。 */
+/** 今天 − 项目条目里最新记录日期;无日期=null;未来日期钳到 0。 */
+export function latestRecordAge(items: OpenItem[], today: string): number | null {
+  let latest: string | null = null;
+  for (const it of items) {
+    if (it.date !== null && (latest === null || it.date > latest)) latest = it.date;
+  }
+  if (latest === null) return null;
+  const days = Math.floor((dateToUtcDay(today) - dateToUtcDay(latest)) / 86_400_000);
+  return Math.max(0, days);
+}
+
+function projectUrgency(items: OpenItem[], today: string): { tier: number; earliestDue: string | null; oldestDate: string | null } {
+  let tier = 3;
+  let earliestDue: string | null = null;
+  let oldestDate: string | null = null;
+  for (const it of items) {
+    const status = dueStatus(it.due, today);
+    if (status !== null) {
+      const itemTier = status === "overdue" ? 0 : status === "today" ? 1 : 2;
+      tier = Math.min(tier, itemTier);
+      if (earliestDue === null || (it.due as string) < earliestDue) earliestDue = it.due;
+    } else if (it.date !== null && (oldestDate === null || it.date < oldestDate)) {
+      oldestDate = it.date;
+    }
+  }
+  return { tier, earliestDue, oldestDate };
+}
+
+/** 卡序。groups 原样带过(project/items 不改),不读旧 stale 入参。 */
+export function orderProjectCards(groups: ProjectGroup[], today: string): ProjectCard[] {
+  return groups
+    .map((g, i) => ({ project: g.project, items: g.items, ...projectUrgency(g.items, today), i }))
+    .sort((a, b) => {
+      if (a.tier !== b.tier) return a.tier - b.tier;
+      if (a.tier < 3 && a.earliestDue !== b.earliestDue) {
+        if (a.earliestDue === null) return 1;
+        if (b.earliestDue === null) return -1;
+        return a.earliestDue.localeCompare(b.earliestDue);
+      }
+      if (a.tier === 3 && a.oldestDate !== b.oldestDate) {
+        if (a.oldestDate === null) return 1;
+        if (b.oldestDate === null) return -1;
+        return a.oldestDate.localeCompare(b.oldestDate);
+      }
+      return a.i - b.i;
+    })
+    .map(({ project, items }) => ({ project, items }));
+}
+
+/** 闲置项目 = 全部项目 − 有卡的 − 已在「档案 N 天没更新」独立行报过的。保持 allKeys 传入序。 */
 export function idleProjectKeys(allKeys: string[], cardedKeys: string[], staleKeys: string[]): string[] {
   const carded = new Set(cardedKeys);
   const stale = new Set(staleKeys);

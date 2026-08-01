@@ -492,7 +492,6 @@ export default function App() {
       <div className={`todos-pane${route === "todos" ? "" : " route-hidden"}`}>
         <TodoPage
           projects={projects}
-          stages={stages}
           onGoProject={goProject}
           onEdited={() => setDataEpoch((n) => n + 1)}
           active={route === "todos"}
