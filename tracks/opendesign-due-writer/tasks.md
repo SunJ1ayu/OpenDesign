@@ -6,16 +6,16 @@
 
 - [x] **判据先行**:`tests/evals/due_writer_eval.py` —— 真跑工具循环、读档案断言 `⏳`
       (主 agent 亲自写)。**先红检**:1 FAIL / 6,红在"一批三条"那题(见 verify.md)
-- [ ] A `set_due_date_tool` / `append_change_tool` 的 docstring:从功能描述改成职责描述
+- [x] A `set_due_date_tool` / `append_change_tool` 的 docstring:从功能描述改成职责描述
       (什么时候主动设、相对期限自己按 `Current Time` 算、**没给期限不许编**、
       **一批里带期限的那条记完立刻补**)
-- [ ] B `workspace/AGENTS.md`:工具表补 `set_due_date` 一行;操作契约加"期限也要记"一条
-- [ ] C `bin/start.ps1`:启动时幂等同步 `workspace\AGENTS.md`+`SOUL.md`+`skills\*`
+- [x] B `workspace/AGENTS.md`:工具表补 `set_due_date` 一行;操作契约加"期限也要记"一条
+- [x] C `bin/start.ps1`:启动时幂等同步 `workspace\AGENTS.md`+`SOUL.md`+`skills\*`
       到 `%USERPROFILE%\.nanobot\workspace`(补上"改了契约不重装就到不了真机"的洞),
       失败只警告不阻断启动,并打印一行"已同步助手契约"
-- [ ] 收货:考卷**连跑两遍**都绿(模型有方差,一遍不算)+ resolver_eval 不退化
-      + pytest/mjs/build 回归
-- [ ] verify.md 落 findings 与主裁
+- [x] 收货:考卷**跑了三遍**(两绿一红,靶心 2/3;逐跑账在 verify.md)+ resolver_eval 27/27
+      + pytest 750/8skip + node fail 0 + build 绿
+- [x] verify.md 落 findings 与主裁(**PASS 限本单范围;升档触发器已触发**)
 
 ## 👉 接下来给用户的话(别忘了说)
 

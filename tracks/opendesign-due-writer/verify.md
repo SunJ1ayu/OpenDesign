@@ -1,7 +1,8 @@
 # Verify: opendesign-due-writer
 
 - Date: 2026-08-02
-- Verdict: <填于收货时>
+- Verdict: **PASS(本单范围内)+ 升档触发器已触发**(说明书这半到此为止;
+  真治法是给 `append_change` 加 `due` 参数,**另起一单走 full**,不在本单顺手加)
 
 > Panel hook — 软判断(correctness/security/edge/spec-drift)走 panel-review:
 > 主 agent 先独立审并落 findings,再跑 panel-review 的全部评审腿,主 agent 主裁。
@@ -9,10 +10,14 @@
 
 ## Mechanical checks
 
-- [ ] `python3 tests/evals/due_writer_eval.py`(本单 oracle)
-- [ ] `python3 tests/evals/resolver_eval.py`(旧考卷:动了 docstring 就可能改路由,必跑)
-- [ ] pytest 全量 / `node --test tests/*.mjs` / build(本单不碰代码逻辑,做回归兜底)
-- [ ] no secrets / unsafe ops
+- [x] `python3 tests/evals/due_writer_eval.py`(本单 oracle)—— **跑了三遍,见下方逐跑账**
+- [x] `python3 tests/evals/resolver_eval.py` —— **27/27 ALL PASS**
+      (动了 docstring 就可能带偏路由,这条是必跑的回归;没退化)
+- [x] pytest **750 passed / 8 skipped**;`node --test tests/*.mjs` **fail 0**;
+      `npm run build` 绿、dist 无变动(本单一行前端代码都没碰,build 只是兜底)
+- [x] no secrets / unsafe ops:diff 逐行读过,只有中文说明书文字 + 一段拷文件的 PowerShell;
+      拷贝范围锁死在 `workspace\{AGENTS.md,SOUL.md}` 与 `skills\*`,
+      运行目录的 `memory/ sessions/ cron/ config.json` 一个不碰
 
 ## 判据先行:改任何说明书之前的红检(2026-08-02)
 
@@ -73,9 +78,36 @@ probe⑦"月底前"           → log_communication → update_client   (这一�
   是不是业主真说过的**。考卷全绿也证明不了这一条,已写进 tasks.md 的待验清单。
   第二种错:考卷题面全是"一句话一件事"的干净口语,真机上的微信原文夹着闲聊、改口、
   "算了不改了"——**考卷绿而真机空**是本单最可能的死法。
-- findings:
-  - <收货时填>
-- arbitrated verdict (主裁): <收货时填>
+- findings(主 agent 自审,按重要性):
+  1. **【本单最重要的一条】两步调用在批量时仍然不稳 —— 升档触发器已触发。**
+     改完说明书后同一份考卷跑三遍:
+
+     | 跑 | ⑥一批三条(靶心) | ③下周五=8/14 | 其余 | 结果 |
+     |---|---|---|---|---|
+     | 基线(改之前) | ❌ 期限写进正文、0 个截止日 | ✅ | 全绿 | 1 FAIL / 6 |
+     | 改后 R1 | ✅ | ❌ **算成了 8/07(本周五)** | 全绿 | 1 FAIL / 6 |
+     | 改后 R2 | ✅ | ✅ | 全绿 | **ALL PASS** |
+     | 改后 R3 | ❌ **只记了 2 条、第三条(带期限那条)整条丢了** | ✅ | 全绿 | 1 FAIL / 6 |
+
+     说明书**确实起作用了**(靶心从 0/1 变成 2/3),但**没治本**:
+     一次贴一大段的时候,助手要么忘记回头补日期,要么连那条意见本身都漏掉。
+     design.md 里**开工前就写死**的规则是"只要有计分用例挂就升档、不许在本单调措辞凑绿"
+     —— 触发了,**就此收手**。真治法 = `append_change` 加可选 `due` 参数(一次调用、
+     原子、与 T4b 的 `batch_title` 完全同形),那是写口改动 ⇒ **另起一单,lane full**。
+  2. **模型会算错相对日期**(R1 把"下周五"算成本周五)。写错的日期比空着更糟,
+     而考卷只能抽查几种说法。→ 已在 AGENTS.md 1c 要求助手**把设了期限的条目回报给
+     设计师**(「C7 排到 8/7」),让人眼当兜底;真机验收时抽查一条(已进待验清单)。
+     **不为此加代码闸**(用户定调:不给 llm 加锁)。
+  3. **`start.ps1` 那段在 Linux 上验不了**,本机没有 pwsh。动作与 install.ps1 Step 8
+     逐字同形(真机跑过的先例)、包了 try/catch、失败只警告。
+     **真机首跑必须看到那行「已同步助手契约 → …」**,看不到 = BLOCK。
+  4. **6 题里 5 题基线就绿**(单条意见带期限时助手本来就会设),再说一遍:
+     这 5 条不是本单的功劳,别拿它们当"交付了什么"。
+- arbitrated verdict (主裁): **PASS(限本单范围)**。
+  A/B/C 三件都落地、回归全绿、判据从红到"靶心两绿一红";
+  但**本单的目标(硬轨里真有东西)没有被证明达成** —— 它只能由真机上跑几天来判,
+  且已知批量场景仍会掉。**下一步不是继续改措辞,是起 `append_change` 加 `due` 那一单
+  (full)**,这条已按预先写死的规则执行,不是事后找补。
 
 ## Accepted deviations
 
