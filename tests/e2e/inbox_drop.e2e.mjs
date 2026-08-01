@@ -222,6 +222,31 @@ try {
       `非图片没有落盘(实测 ${JSON.stringify(inboxFiles())})`);
   });
 
+  // ── D2 提示条里的「知道了」不许被压成竖排 ────────────────────────────────
+  // 🔴 **收货截图抓到的**,不是事前想到的:提示条是 `display:flex`,「知道了」没有
+  // `flex: none`,在收件箱这条**窄列**里被压到比一个字还窄 ⇒ 「知/道/了」竖排三行。
+  // 图墙那边有整页宽度,同一份 CSS 一直看不出来 —— **同一个组件换了个窄容器就现原形**,
+  // 和 07-27「确认执行被挤成两行」是同一种病(button_roles F 段)。
+  // ⇒ 观感类改动收尾必须截图,这条判据是把那次肉眼发现固化下来。
+  await step("D2 提示里的「知道了」不被压成竖排(窄列里也装得下)", async () => {
+    const g = await page.evaluate(() => {
+      const b = [...document.querySelectorAll('.inbox-card .upload-note button')]
+        .find((x) => x.innerText.trim() === "知道了");
+      if (!b) return null;
+      const cs = getComputedStyle(b);
+      return {
+        h: Math.round(b.getBoundingClientRect().height),
+        lineH: parseFloat(cs.lineHeight) || 16,
+        scrollW: b.scrollWidth, clientW: b.clientWidth,
+      };
+    });
+    check(g !== null, "前提:「知道了」渲染出来了(D 段刚拖过一个非图片)");
+    expect(g.scrollW <= g.clientW + 1,
+      `文字没被横向裁掉(内容宽 ${g.scrollW} ≤ 可视宽 ${g.clientW})`);
+    expect(g.h <= g.lineH * 1.9,
+      `没被压成两行以上(按钮高 ${g.h} / 行高 ${g.lineH})`);
+  });
+
   // ── E 空箱那一态也把入口说出来 ──────────────────────────────────────────
   await step("E 空箱态那一行有「拖」字提示(两处代码别只改一处)", async () => {
     for (const f of inboxFiles()) rmSync(join(INBOX, f), { force: true });
