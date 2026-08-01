@@ -1260,7 +1260,13 @@ def _run_mcp() -> None:
         每一条都传完全相同的 batch_title**,待办页就会用这句话当这批的小标题,
         而不是干巴巴的日期。
         同一段原话里如果明显是两件不相干的事(比如既说效果图又说水电),
-        就分成两批、各用各的标题。不传 = 不起名,界面会自动拿第一条内容凑一个。"""
+        就分成两批、各用各的标题。不传 = 不起名,界面会自动拿第一条内容凑一个。
+
+        **哪条带期限,记完立刻用 set_due_date 补上**(track opendesign-due-writer):
+        一段原话里常常只有其中一条说了"这周五之前""8 月 10 号前"。
+        本工具**不收截止日**,返回里的 `change_id` 就是给你接着调 set_due_date 用的。
+        一批记好几条时最容易在这里掉链子——**记完这一批,回头看哪条有期限,
+        一条一条把日期设上**;期限只写在正文里等于没记,待办页看不见。"""
         return append_change(project, content, ds_root=ds_root, space=space,
                              batch_title=batch_title)
 
@@ -1271,8 +1277,18 @@ def _run_mcp() -> None:
 
     @server.tool()
     def set_due_date_tool(project: str, cnum, due: str = "") -> dict:
-        """设/清一条变更的截止日。cnum=变更编号(如 3 或 "C3");due=YYYY-MM-DD,
-        传空串清除截止日。"""
+        """给一条变更设/清截止日。cnum=变更编号(如 3 或 "C3",就是 append_change 返回的
+        change_id);due=YYYY-MM-DD,传空串清除。
+
+        **业主话里出现期限,就是你的活**(track opendesign-due-writer):
+        「8 月 10 号之前」「这周五之前」「下周五前」「月底前」——记完那条变更,
+        **紧接着**用它的编号把日期设上,别只把期限写进正文,写进正文的日期
+        待办页看不见,那条待办仍然算"没有截止日"。
+        相对说法你自己换算成具体日期:上下文最上面那行 `Current Time` 就是今天几号、
+        星期几,按它算。
+        ⚠️ **业主没给期限就别设**:「尽快」「催得急」「有空改一下」不是期限,
+        **编一个日期比空着更糟**——待办页会把这条不存在的死线排到所有事情最前面。
+        真拿不准是哪天,就问设计师一句,别猜。"""
         return set_due_date(project, cnum, due or None, ds_root=ds_root)
 
     @server.tool()

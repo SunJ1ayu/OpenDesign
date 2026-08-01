@@ -73,6 +73,26 @@ if ($args.Count -ge 1 -and $args[0] -eq "stop") {
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 Write-Host "OpenDesign 启动(仓库:$Root):"
 
+# 腿 0:把助手契约同步进运行目录(install.ps1 Step 8 的幂等版)。
+# 为什么非在这不可:AGENTS.md/SOUL.md/skills **只有装机时拷过一次**,`git pull` 更新的是
+# 仓库、动不了运行目录 —— 改了契约不重装,运行中的助手看到的还是老版本。
+# (2026-08-02 track opendesign-due-writer 查出来的:本机运行目录里的 AGENTS.md
+#  比仓库旧了三周,没人发现。盘上和运行时对不上 = BLOCK,不是警告。)
+# 只覆盖这三样(都是本仓的产物);运行目录里的 memory/sessions/cron/config.json 一个不碰。
+$Ws = Join-Path $env:USERPROFILE ".nanobot\workspace"
+try {
+    New-Item -ItemType Directory -Force -Path (Join-Path $Ws "skills") | Out-Null
+    Copy-Item (Join-Path $Root "workspace\AGENTS.md"), (Join-Path $Root "workspace\SOUL.md") $Ws -Force
+    Copy-Item (Join-Path $Root "skills\*") (Join-Path $Ws "skills\") -Recurse -Force
+    Write-Host "  已同步助手契约 → $Ws(AGENTS.md / SOUL.md / skills)"
+    if ((Test-PortListen 8765) -or (Test-PortListen 18790)) {
+        Write-Warning "  gateway 已经在跑:新契约要等它重启才生效(先 start.ps1 stop 再起)"
+    }
+} catch {
+    # 同步失败不许连带把启动打死($ErrorActionPreference=Stop 是本文件全局设的)
+    Write-Warning "  同步助手契约失败(不影响启动,但助手用的还是旧契约):$($_.Exception.Message)"
+}
+
 # 腿 1:gateway(大脑 + MCP 工具 + WebSocket 通道)
 if (Test-PortListen 8765) {
     Write-Host "  gateway 已在跑(:8765),跳过"
