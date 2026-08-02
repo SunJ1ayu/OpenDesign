@@ -55,6 +55,23 @@ def _build_graph() -> dict[str, set[str]]:
     return graph
 
 
+def _canon(cycle: list[str]) -> tuple[str, ...]:
+    """把一条环路径归一化成**与起点无关**的表示。
+
+    ⚠️ 2026-08-02 踩到:DFS 报出来的环是「一条路径」,起点取决于遍历顺序。
+    删掉一个**不相干**的死 import 后,`ds_intake→ds_organize→ds_intake` 变成了
+    `ds_organize→ds_intake→ds_organize` —— 同一个环、不同写法,白名单按字面比对
+    就把它误判成"新引入的环"。
+    归一化 = 去掉重复的末节点,再旋转到字典序最小的节点开头。
+    (subkimi 在 panel-review 里点了这个方向:DFS 的环枚举依赖遍历顺序。)
+    """
+    nodes = cycle[:-1] if len(cycle) > 1 and cycle[0] == cycle[-1] else cycle[:]
+    if not nodes:
+        return ()
+    i = nodes.index(min(nodes))
+    return tuple(nodes[i:] + nodes[:i])
+
+
 def _find_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
     """返回所有环(每个环一条路径),DFS + 栈回溯。"""
     cycles, stack, on_stack, seen = [], [], set(), set()
@@ -85,20 +102,21 @@ def _find_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
 # 本单只杀 taxonomy 那一个(它的成因不同:公共配置表寄居在 ds_intake)。
 #
 # ⚠️ 这份白名单**只许缩短,不许加长**。加一行 = 新引入了一个环,那是 BLOCK。
+# 均为 `_canon` 归一化形式(与起点无关),三条的**反向边**都在登记处:
 KNOWN_REMAINING = {
-    ("ds_adopt", "ds_intake", "ds_organize", "ds_adopt"),   # ds_organize:365 登记处
-    ("ds_intake", "ds_organize", "ds_intake"),              # ds_organize:346 登记处
-    ("ds_tools", "ds_lint", "ds_tools"),                    # ds_tools:1369 登记处
+    ("ds_adopt", "ds_organize"),    # ds_organize:365 登记处反向 import ds_adopt
+    ("ds_intake", "ds_organize"),   # ds_organize:346 登记处反向 import ds_intake
+    ("ds_lint", "ds_tools"),        # ds_tools:1369(_run_mcp 内)反向 import ds_lint
 }
-# 本单必须杀掉的那个(taxonomy 错位):
-TARGET_CYCLE = ("ds_intake", "ds_workspace", "ds_intake")
+# 本单必须杀掉的那个(taxonomy 错位),同为归一化形式:
+TARGET_CYCLE = ("ds_intake", "ds_workspace")
 
 
 class NoImportCycles(unittest.TestCase):
 
     def test_01_本单目标环已消失(self):
         """taxonomy 那个环必须死 —— 这是本单第 ① 刀的通过条件。"""
-        cycles = {tuple(c) for c in _find_cycles(_build_graph())}
+        cycles = {_canon(c) for c in _find_cycles(_build_graph())}
         self.assertNotIn(
             TARGET_CYCLE, cycles,
             "`ds_intake ⇄ ds_workspace` 仍成环 —— taxonomy 还没搬出去")
@@ -109,7 +127,7 @@ class NoImportCycles(unittest.TestCase):
         注意这条**不是**"无环"。本单只杀一个环,拿"全无环"当通过条件是自欺:
         它永远红,红了也说明不了本单做没做对。
         """
-        cycles = {tuple(c) for c in _find_cycles(_build_graph())}
+        cycles = {_canon(c) for c in _find_cycles(_build_graph())}
         unexpected = cycles - KNOWN_REMAINING - {TARGET_CYCLE}
         pretty = ["  " + " → ".join(c) for c in sorted(unexpected)]
         self.assertEqual(unexpected, set(),

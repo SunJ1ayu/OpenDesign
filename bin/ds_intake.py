@@ -29,7 +29,6 @@ import ds_organize
 import ds_taxonomy
 import ds_workspace
 
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 MAX_INBOX_ENTRIES = 500  # 收件箱一屏拿不下 500 个也没意义,诚实置 truncated
 
 _SEG_RE = ds_workspace.PROJECT_NAME_RE  # 单段名闸,单一真相源

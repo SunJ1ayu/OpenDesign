@@ -46,9 +46,18 @@ def _iter_files():
 class NoStaleRefs(unittest.TestCase):
 
     def test_01_旧模块的旧名字零残留(self):
-        """`ds_intake.load_taxonomy` / `ds_web._win_activate` 这类限定引用必须清零。"""
-        patterns = [(f"{src}.{name}", re.compile(rf"\b{src}\.{name}\b"))
-                    for src, _dst, name in sm.MOVES]
+        """`ds_intake.load_taxonomy` / `ds_web._win_activate` 这类引用必须清零。
+
+        两种形态都查(2026-08-02 panel-review subdeepseek 指出:原来只查限定引用,
+        `from ds_intake import load_taxonomy` 这种漏网 —— 实测当前零命中,
+        但判据不该有这个缺口)。
+        """
+        patterns = []
+        for src, _dst, name in sm.MOVES:
+            patterns.append((f"{src}.{name}", re.compile(rf"\b{src}\.{name}\b")))
+            # from ds_intake import load_taxonomy[, x][ as y]
+            patterns.append((f"from {src} import …{name}",
+                             re.compile(rf"\bfrom\s+{src}\s+import\b[^\n#]*\b{name}\b")))
         hits = []
         for rel, path in _iter_files():
             with open(path, encoding="utf-8", errors="replace") as fh:
