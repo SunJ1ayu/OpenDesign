@@ -2,19 +2,16 @@
 
 > ## 👉 从这里接(2026-08-02 深夜)
 >
-> **全流程已走完并 merge 进 main(`268d282`,ds-web 0.70.0)。未 push。**
+> **全流程已走完、merge 进 main(`268d282`,ds-web 0.70.0)、并已 push
+> (远端最新 `a51929e`)。收尾杂务(worktree + `stage-timer` 分支)也已清掉。**
 >
-> 剩下的只有两件,都要用户点头:
-> 1. **push 到远端**(私有仓 github.com/SunJ1ayu/OpenDesign)
-> 2. **G6 装机验证** —— 用户在 Windows 上 `git pull` → 重启 `bin\start.ps1` → Ctrl+F5
->    → 核对 `/api/health` 回显 `0.70.0`,**且待办页真的看得到天数**。
->    **盘上和运行时对不上 = BLOCK,不是警告**(一周内栽过两次)。
-> 3. 装机后按 verify.md 的**真机待验清单**抽查 5 条(第 1、2 条是 accepted deviations
->    的观察点,第 4 条是规格证伪点)。
->
-> **收尾杂务**:worktree `/root/aiwork/worktrees/stage-timer` 与分支 `stage-timer`
-> 可以删了(里面我 `cp -a` 过一份真的 `web/node_modules`,**不是符号链接**,故意的);
-> track 归档等真机验收之后再做。
+> **只剩一件,在用户那边:**
+> - **G6 装机验证** —— 在 Windows 上 `git pull` → 重启 `bin\start.ps1` → Ctrl+F5
+>   → 核对 `/api/health` 回显 `0.70.0`,**且待办页真的看得到天数**。
+>   **盘上和运行时对不上 = BLOCK,不是警告**(一周内栽过两次)。
+> - 装机后按 verify.md 的**真机待验清单**抽查 5 条(第 1、2 条是 accepted deviations
+>   的观察点,第 4 条是规格证伪点)。
+> - 真机验收通过后再 `track archive opendesign-stage-timer`。
 >
 > **遗留债(不拦路)**:`ds_web._field()` 注释说"取项目头"实为**全文搜索**
 > (`ds_web.py:597`,gpt-5.6-sol 规划双出点出的)—— 与本单不撞车,记债不修。
