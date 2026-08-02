@@ -3,6 +3,20 @@
 聊天链路的端到端验证,需要**活的 nanobot gateway + ds_web**,不进 `tests/*.mjs`
 常规回归(glob 扫不到本目录,CI/无 gateway 环境不误红)。
 
+## ⭐ 先看这个:总跑开关 `run-all.sh`
+
+```bash
+tests/e2e/run-all.sh                  # 全部可无人值守的场景(约 2.5 分钟)
+tests/e2e/run-all.sh --with-gateway   # 连下面那两条需要活 gateway 的也跑
+tests/e2e/run-all.sh todo focus_ring  # 只跑名字含这些子串的
+```
+
+**改完东西请跑一遍。**本目录 30 个 e2e 谁都不归 `unittest discover` 管
+(文件名不匹配 `test_*.py`),2026-08-02 之前全靠人记得手跑 —— 结果
+`adoption.e2e.py`(`38da0ac` 之后)和 `frontend_p2_polish.e2e.mjs`(`549472d` 之后)
+**各自红了好几天没人发现**,两次都是"实现刻意改了、判据漏改"。
+开关第一次跑就把后者揪出来了。`SKIP` 单独列、**永不算作 PASS**。
+
 ## 跑法(Linux 开发机)
 
 ```bash
