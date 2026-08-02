@@ -46,6 +46,9 @@ function stageErrMsg(code: string): string {
   if (code === "bad_stage") return "这个阶段不在词表里,刷新页面重试。";
   if (code === "project_not_found") return "项目档案找不到了,刷新页面看看。";
   if (code === "bad_name" || code === "path_escape") return "项目名不合法,改不了阶段。";
+  if (code === "invalid_since") return "日期格式不对。";
+  if (code === "since_in_future") return "起始日不能是将来的日子。";
+  if (code === "since_before_prev") return "这个日期比上一个阶段还早,检查一下。";
   return `切阶段失败(${code})。`;
 }
 
@@ -71,6 +74,7 @@ export default function ChangesColumn({
   const [stageMenuOpen, setStageMenuOpen] = useState(false);
   const [stageSaving, setStageSaving] = useState(false);
   const [stageErr, setStageErr] = useState<string | null>(null);
+  const [stageSinceDraft, setStageSinceDraft] = useState("");
   // 变更行「改过 N 次」展开态(#9):cnum 集合,纯 UI 状态不进 history.ts。
   const [histOpen, setHistOpen] = useState<Set<number>>(new Set());
 
@@ -125,9 +129,10 @@ export default function ChangesColumn({
     setDueErr(null);
     setStageMenuOpen(false);
     setStageErr(null);
+    setStageSinceDraft(project?.stage_since ?? "");
     setHistOpen(new Set());
     setGroupMode("time");
-  }, [project?.key]);
+  }, [project?.key, project?.stage_since]);
 
   // esc 关阶段下拉(全局原则 A3,同既有 …/状态菜单规矩)
   useEffect(() => {
@@ -252,6 +257,21 @@ export default function ChangesColumn({
     setStageErr(null);
     try {
       await setStage(project.key, next);
+      setStageMenuOpen(false);
+      onEdited?.();
+    } catch (e) {
+      setStageErr(stageErrMsg((e as Error).message));
+    } finally {
+      setStageSaving(false);
+    }
+  }
+
+  async function saveStageSince() {
+    if (!project || !project.stage || stageSaving) return;
+    setStageSaving(true);
+    setStageErr(null);
+    try {
+      await setStage(project.key, project.stage, stageSinceDraft);
       setStageMenuOpen(false);
       onEdited?.();
     } catch (e) {
@@ -593,11 +613,19 @@ export default function ChangesColumn({
                 className={`stage-chip stage-btn${project.delivered ? " done" : ""}`}
                 data-ui="stage-chip"
                 disabled={stageSaving}
-                onClick={() => setStageMenuOpen((o) => !o)}
+                onClick={() => {
+                  setStageSinceDraft(project.stage_since ?? "");
+                  setStageMenuOpen((o) => !o);
+                }}
                 title="点击切换阶段"
               >
                 {project.stage || "未设阶段"}
               </button>
+              {project.stage_days !== null && (
+                <span className="stage-days" data-ui="stage-days">
+                  {project.stage_days} 天
+                </span>
+              )}
               {stageMenuOpen && (
                 <>
                   <div className="stage-menu-backdrop" onClick={() => setStageMenuOpen(false)} />
@@ -613,6 +641,26 @@ export default function ChangesColumn({
                         {s}
                       </button>
                     ))}
+                    <div className="stage-since-row">
+                      <span className="stage-since-label">
+                        进入这个阶段:{project.stage_since ?? "未记录"}
+                      </span>
+                      <input
+                        type="date"
+                        data-ui="stage-since-input"
+                        value={stageSinceDraft}
+                        disabled={stageSaving || !project.stage}
+                        onChange={(e) => setStageSinceDraft(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        data-ui="stage-since-save"
+                        disabled={stageSaving || !project.stage}
+                        onClick={saveStageSince}
+                      >
+                        {project.stage_since ? "改" : "设"}
+                      </button>
+                    </div>
                   </div>
                 </>
               )}

@@ -5,7 +5,7 @@ Karpathy LLM-Wiki 九条自查第 VIII 条(健康检查)的确定性实现:只�
 修复动作永远走既有工具(改名/删除/organize 确认闸),lint 不碰盘——这是刻意的:
 自动修复=第二个能改 PKB 的写面,与"PKB 只经 MCP 工具读写"的铁律相悖。
 
-八项检查 + 坏编码隔离(与 ds_todo.collect 的 M1 先例同哲学:逐文件 try,一个坏文件
+十项检查 + 坏编码隔离(与 ds_todo.collect 的 M1 先例同哲学:逐文件 try,一个坏文件
 计一条 unreadable finding 而不拖垮整轮):
   broken_link              [[X]] 既不是项目也不是业主档案
   duplicate_content        两份档案逐字节相同(07-16 改名事故的形状)
@@ -15,6 +15,8 @@ Karpathy LLM-Wiki 九条自查第 VIII 条(健康检查)的确定性实现:只�
   refs_missing_file        refs 索引「文件:」段指向不存在的文件
   workspace_dangling_mapping  workspace.json 显式映射指向不存在的文件夹
   deprecated_index         ds_root 下残留废弃的 index.md
+  bad_stage_history        `## 阶段历史` 行格式/词表/乱序/未来日期(档案人可手改,写口拦不到)
+  stage_history_mismatch   头部 `- 阶段:` 与阶段历史末条对不上 ⇒ 起始日不可信
 
 词表/正则一律复用单一真相源,不自造第二份:
   - 阶段词表/头部字段解析 → ds_tools.PROJECT_STAGES / ds_tools._read_header_field
@@ -29,6 +31,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+from datetime import date
 
 import ds_common     # within(workspace 映射逃逸检查)
 import ds_refs       # refs 索引行分段解析(parse_ref_line)
@@ -114,6 +117,43 @@ def lint_pkb(ds_root: str = DEFAULT_DS_ROOT) -> dict:
                 findings.append(_finding(
                     "bad_stage", f"projects/{slug}",
                     f"阶段「{stage}」不在词表(应为 {'/'.join(ds_tools.PROJECT_STAGES)} 之一)"))
+
+            bounds = ds_tools._section_bounds(lines, ds_tools._STAGE_HISTORY_HEADER)
+            if bounds is not None:
+                hidx, end = bounds
+                valid_entries = []
+                prev_date = None
+                for ln in lines[hidx + 1:end]:
+                    if not ln.strip():
+                        continue
+                    m = ds_tools._STAGE_HISTORY_RE.match(ln)
+                    bad_detail = None
+                    if not m:
+                        bad_detail = f"阶段历史行格式不对:{ln}"
+                    else:
+                        d, hist_stage = m.group(1), m.group(2)
+                        try:
+                            date.fromisoformat(d)
+                        except ValueError:
+                            bad_detail = f"阶段历史日期不合法:{ln}"
+                        if bad_detail is None and hist_stage not in ds_tools.PROJECT_STAGES:
+                            bad_detail = f"阶段历史阶段「{hist_stage}」不在词表:{ln}"
+                        if bad_detail is None and prev_date is not None and d < prev_date:
+                            bad_detail = f"阶段历史日期乱序:{ln}"
+                        # 未来日期:写口拦得住,**手改拦不住**。不报的话用户只能从
+                        # 界面上一个诡异的天数去猜(读侧现在会归"未记录",更没线索)。
+                        if bad_detail is None and d > ds_common.today_str(None):
+                            bad_detail = f"阶段历史日期在未来:{ln}"
+                        if bad_detail is None:
+                            prev_date = d
+                            valid_entries.append({"date": d, "stage": hist_stage})
+                    if bad_detail is not None:
+                        findings.append(_finding(
+                            "bad_stage_history", f"projects/{slug}", bad_detail))
+                if valid_entries and stage and valid_entries[-1]["stage"] != stage:
+                    findings.append(_finding(
+                        "stage_history_mismatch", f"projects/{slug}",
+                        f"头部阶段「{stage}」与阶段历史末条「{valid_entries[-1]['stage']}」不一致"))
 
             # duplicate_anchor:同档案内 C<n> 撞车(锚定域=单文件;parse_change 单一真相源)
             seen: dict[int, int] = {}

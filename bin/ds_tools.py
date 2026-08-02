@@ -53,6 +53,7 @@ DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 _CHANGE_RE = re.compile(r"^- \[(?P<status>[^\]]*)\]\s+C(?P<num>\d+)\b")
 _CHANGE_HEADER = "## 变更记录"
 _HISTORY_HEADER = "## 变更历史"  # edit_change 的留痕/备注独立段(不匹配 _CHANGE_RE ⇒ 不成待办)
+_STAGE_HISTORY_HEADER = "## 阶段历史"
 _BATCH_HEADER = "## 批次"       # T4b:一次记录动作的名字(同样不匹配 _CHANGE_RE ⇒ 不成待办)
 # 批次行正则:单一真相源在 ds_common,读写共用(不设第二份,见那里的注释)。
 _BATCH_RE = ds_common.BATCH_LINE_RE
@@ -74,6 +75,7 @@ _EDIT_PREFIX_RE = re.compile(
 #   备注:  - C{n} 备注:{内容}
 _HISTORY_EDIT_RE = re.compile(r"^- C(\d+) 改于 (\d{4}-\d{2}-\d{2})｜原:(.*)$")
 _HISTORY_NOTE_RE = re.compile(r"^- C(\d+) 备注[:：](.*)$")
+_STAGE_HISTORY_RE = re.compile(r"^- (\d{4}-\d{2}-\d{2}) (.+)$")
 
 # 新建骨架模板 —— 必须含 `## 变更记录` 头(append_change 靠它定位)与 `最后更新:` 页脚
 # (ds_todo 靠它判超期),否则新项目建出来后 append/提醒都接不上(这正是首用暴露的洞)。
@@ -91,6 +93,10 @@ _PROJECT_TEMPLATE = """# {slug}
 - 阶段: {stage}
 - 地址/户型: {address}
 - 开始日期: {today}
+
+## 阶段历史
+
+- {today} {stage}
 
 ## 变更记录
 
@@ -314,15 +320,76 @@ def set_due_date(project: str, cnum, due: str | None,
 
 
 # ── 工具 4.2b edit_change ────────────────────────────────────────────────────
-def _history_bounds(lines: list[str]) -> tuple[int, int] | None:
-    """`## 变更历史` 段的 (标题行下标, 段尾下标)。段尾=其后第一条 `## `/`---` 或文件末。
+def _section_bounds(lines: list[str], header: str) -> tuple[int, int] | None:
+    """指定二级段的 (标题行下标, 段尾下标)。段尾=其后第一条 `## `/`---` 或文件末。
     段缺失返回 None。"""
-    hidx = next((i for i, l in enumerate(lines) if l.startswith(_HISTORY_HEADER)), None)
+    hidx = next((i for i, l in enumerate(lines) if l.startswith(header)), None)
     if hidx is None:
         return None
     end = next((j for j in range(hidx + 1, len(lines))
                 if lines[j].startswith("## ") or lines[j].startswith("---")), len(lines))
     return hidx, end
+
+
+def _history_bounds(lines: list[str]) -> tuple[int, int] | None:
+    return _section_bounds(lines, _HISTORY_HEADER)
+
+
+def _valid_stage_history_line(ln: str) -> dict | None:
+    m = _STAGE_HISTORY_RE.match(ln)
+    if not m:
+        return None
+    d, stage = m.group(1), m.group(2)
+    try:
+        date.fromisoformat(d)
+    except ValueError:
+        return None
+    if stage not in PROJECT_STAGES:
+        return None
+    return {"date": d, "stage": stage}
+
+
+def _stage_history_entries_with_lines(lines: list[str]) -> list[dict]:
+    b = _section_bounds(lines, _STAGE_HISTORY_HEADER)
+    if b is None:
+        return []
+    hidx, end = b
+    out = []
+    for i in range(hidx + 1, end):
+        e = _valid_stage_history_line(lines[i])
+        if e is not None:
+            out.append({**e, "line_index": i})
+    return out
+
+
+def parse_stage_history(text: str) -> list[dict]:
+    """解析 `## 阶段历史` 段。坏行/词表外阶段跳过,不拖垮整段。"""
+    return [
+        {"date": e["date"], "stage": e["stage"]}
+        for e in _stage_history_entries_with_lines(text.split("\n"))
+    ]
+
+
+def stage_timer(text: str, today: str | None = None) -> dict:
+    """当前阶段起始日与已停留天数。算不准时返回 None,不拿其它日期顶替。"""
+    lines = text.split("\n")
+    entries = parse_stage_history(text)
+    if not entries:
+        return {"since": None, "days": None}
+    last = entries[-1]
+    if last["stage"] != _read_header_field(lines, "阶段"):
+        return {"since": None, "days": None}
+    today_s = ds_common.today_str(today)
+    try:
+        days = (date.fromisoformat(today_s) - date.fromisoformat(last["date"])).days
+    except ValueError:
+        return {"since": None, "days": None}
+    # 段末在未来 ⇒ 起始日不可信,说"不知道"。写口拒未来日期,但档案是人可手改的
+    # 纯文本(refs-vocab 那单栽过),手改/时钟漂移就能造出来。负天数是**算出来的
+    # 假数字**,看起来像真的,比「未记录」更糟 —— 与"算不准就说不知道"同一条口径。
+    if days < 0:
+        return {"since": None, "days": None}
+    return {"since": last["date"], "days": days}
 
 
 def parse_history(text: str) -> dict:
@@ -517,14 +584,18 @@ def log_communication(project: str, text: str, source: str = "",
 
 
 # ── 工具 4.3 read_project ───────────────────────────────────────────────────
-def read_project(name: str, ds_root: str = DEFAULT_DS_ROOT) -> dict:
+def read_project(name: str, ds_root: str = DEFAULT_DS_ROOT,
+                 today: str | None = None) -> dict:
     path, err = _resolve(ds_root, "projects", name)
     if err:
         return err
     if not os.path.exists(path):
         return {"error": "project_not_found"}
     with open(path, encoding="utf-8") as fh:
-        return {"ok": True, "content": fh.read()}
+        text = fh.read()
+    timer = stage_timer(text, today=today)
+    return {"ok": True, "content": text,
+            "stage_since": timer["since"], "stage_days": timer["days"]}
 
 
 # ── 工具 4.3b list_projects ─────────────────────────────────────────────────
@@ -535,7 +606,7 @@ def read_project(name: str, ds_root: str = DEFAULT_DS_ROOT) -> dict:
 _LINK_RE = re.compile(r"^\[\[(.+?)\]\]$")
 
 
-def list_projects(ds_root: str = DEFAULT_DS_ROOT) -> dict:
+def list_projects(ds_root: str = DEFAULT_DS_ROOT, today: str | None = None) -> dict:
     """枚举所有项目:project/client/stage/last_updated,按项目名排序。
     坏编码文件进 errors(不拖垮整表,M1 先例);目录缺失/空 → 空表。"""
     proj_dir = os.path.join(ds_root, "projects")
@@ -557,9 +628,11 @@ def list_projects(ds_root: str = DEFAULT_DS_ROOT) -> dict:
         client = m.group(1) if m else raw_client        # `[[张三]]` → 张三;裸值原样
         stage = _read_header_field(lines, "阶段")
         dates = ds_common.LASTUPD_DATE_RE.findall(text)  # 行首锚定、取最后一处(页脚)
+        timer = stage_timer(text, today=today)
         projects.append({
             "project": slug, "client": client, "stage": stage,
             "last_updated": dates[-1] if dates else "",
+            "stage_since": timer["since"], "stage_days": timer["days"],
         })
     projects.sort(key=lambda p: p["project"])
     return {"ok": True, "projects": projects, "errors": errors}
@@ -1150,11 +1223,50 @@ def update_client(name: str, field: str, value: str,
     return {"ok": True, "client": name, "field": field, "action": action}
 
 
+def _validate_since(since: str | None, today: str) -> tuple[str | None, str | None]:
+    if since in (None, ""):
+        return None, None
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", since):
+        return None, "invalid_since"
+    try:
+        date.fromisoformat(since)
+        today_d = date.fromisoformat(today)
+    except ValueError:
+        return None, "invalid_since"
+    if date.fromisoformat(since) > today_d:
+        return None, "since_in_future"
+    return since, None
+
+
+def _create_stage_history_section(lines: list[str], entry: str) -> None:
+    """补建 `## 阶段历史`:优先落在第一个二级段前,也就是 `## 变更记录` 之前。"""
+    pos = next((i for i, ln in enumerate(lines) if ln.startswith("## ")), None)
+    if pos is None:
+        pos = next((i for i in range(len(lines) - 1, -1, -1)
+                    if lines[i].startswith("---")), len(lines))
+    block = [_STAGE_HISTORY_HEADER, "", entry, ""]
+    if pos > 0 and lines[pos - 1].strip():
+        block = [""] + block
+    lines[pos:pos] = block
+
+
+def _append_stage_history_entry(lines: list[str], entry: str) -> None:
+    b = _section_bounds(lines, _STAGE_HISTORY_HEADER)
+    if b is None:
+        _create_stage_history_section(lines, entry)
+        return
+    hidx, end = b
+    last = hidx
+    for i in range(hidx + 1, end):
+        if lines[i].strip():
+            last = i
+    lines.insert(last + 1, entry)
+
+
 def set_stage(project: str, stage: str,
+              since: str | None = None,
               ds_root: str = DEFAULT_DS_ROOT, today: str | None = None) -> dict:
-    """推进项目阶段:词表(PROJECT_STAGES)精确匹配,头部 `- 阶段:` 行替换
-    (缺行补插,同 update_client 先例)+ 页脚 bump(推进=有动静,超期计时重置)。
-    注入面由构造消灭:sanitize 折行后不在词表即拒,只有词表字面量能落盘。"""
+    """推进/补录项目阶段。`## 阶段历史` 是当前阶段起始日的唯一真相源。"""
     today = ds_common.today_str(today)
     stage = ds_common.sanitize_field(stage)
     path, err = _resolve(ds_root, "projects", project)
@@ -1162,17 +1274,43 @@ def set_stage(project: str, stage: str,
         return err
     if stage not in PROJECT_STAGES:
         return {"error": "bad_stage", "stages": list(PROJECT_STAGES)}
+    since, err_code = _validate_since(since, today)
+    if err_code:
+        return {"error": err_code}
     if not os.path.exists(path):
         return {"error": "project_not_found"}
 
-    prev = None
     with ds_common.locked_rw(path) as box:
         lines = box["lines"]
-        # 头部字段 upsert 单一实现(与 update_client 同源);返回旧值原文→strip 或空即 None
-        raw = _upsert_header_field(lines, "阶段", stage)
-        prev = (raw or "").strip() or None
+        prev = _read_header_field(lines, "阶段") or None
+        current_same = prev == stage
+        entries = _stage_history_entries_with_lines(lines)
+
+        if current_same and since is None:
+            box["write"] = False
+            timer = stage_timer("\n".join(lines), today=today)
+            return {"ok": True, "project": project, "stage": stage, "prev": prev,
+                    "since": timer["since"], "days": timer["days"]}
+
+        if current_same and since is not None and entries and entries[-1]["stage"] == stage:
+            lower = entries[-2]["date"] if len(entries) >= 2 else None
+            if lower is not None and since < lower:
+                box["write"] = False
+                return {"error": "since_before_prev"}
+            lines[entries[-1]["line_index"]] = f"- {since} {stage}"
+        else:
+            lower = entries[-1]["date"] if entries else None
+            entry_date = since or today
+            if lower is not None and entry_date < lower:
+                box["write"] = False
+                return {"error": "since_before_prev"}
+            else:
+                _upsert_header_field(lines, "阶段", stage)
+                _append_stage_history_entry(lines, f"- {entry_date} {stage}")
         ds_common.bump_last_updated(lines, today)
-    return {"ok": True, "project": project, "stage": stage, "prev": prev}
+        timer = stage_timer("\n".join(lines), today=today)
+    return {"ok": True, "project": project, "stage": stage, "prev": prev,
+            "since": timer["since"], "days": timer["days"]}
 
 
 # ── 工具 4.6 create_project ─────────────────────────────────────────────────
@@ -1309,12 +1447,12 @@ def _run_mcp() -> None:
         return read_project(name, ds_root=ds_root)
 
     @server.tool()
-    def set_stage_tool(project: str, stage: str) -> dict:
-        """项目推进到新阶段时用:设计师说到"开始量房了/进施工图了/竣工了"这类话,
-        就把项目档案的阶段字段改过来。stage 必须是词表之一:洽谈/量房/平面方案/
+    def set_stage_tool(project: str, stage: str, since: str = "") -> dict:
+        """项目已经进入某阶段时改阶段。stage 必须是词表之一:洽谈/量房/平面方案/
         方案深化/效果图/施工图/施工交底/施工跟进/软装/竣工验收/售后。
-        可以跳阶段也可以回退(返工很正常)。返回 prev=原阶段,播报"从X进到Y"。"""
-        return set_stage(project, stage, ds_root=ds_root)
+        若说了进入日期(含上周三/7 月 20 号等相对说法),换算成 YYYY-MM-DD 传 since。
+        拿不准就问,不要猜日期。"准备进/打算进/下周进"表示还没进,不许调用。"""
+        return set_stage(project, stage, since=since or None, ds_root=ds_root)
 
     @server.tool()
     def read_client_tool(name: str) -> dict:

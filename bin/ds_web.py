@@ -82,7 +82,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.69.0"  # 待办页收敛成单一项目容器视图
+VERSION = "0.70.0"  # 阶段历史 + 阶段计时
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -254,10 +254,11 @@ _CREATE_ERR_STATUS = {
     "bad_name": 404, "path_escape": 404,
 }
 # body 键白名单(写针孔⑩:多余键即拒,防夹带 ds_root/today 走私)
-_STAGE_ALLOWED_KEYS = {"project", "stage"}
+_STAGE_ALLOWED_KEYS = {"project", "stage", "since"}
 # set_stage error code → HTTP status(词表外 400,项目/名字/逃逸类 404)
 _STAGE_ERR_STATUS = {
     "bad_stage": 400, "project_not_found": 404,
+    "invalid_since": 400, "since_in_future": 400, "since_before_prev": 400,
     "bad_name": 404, "path_escape": 404,
 }
 # body 键白名单(写针孔⑪:多余键即拒,防夹带 ds_root/today/file/source/used 走私)
@@ -868,6 +869,7 @@ class Handler(BaseHTTPRequestHandler):
             files = sorted(f for f in (os.listdir(proj_dir) if os.path.isdir(proj_dir)
                                        else []) if f.endswith(".md"))
             projects = []
+            today = os.environ.get("DS_TODAY")
             for f in files:
                 key = f[:-3]
                 # 与 _project_file 同一把闸:projects/ 里指向外部的 symlink .md
@@ -882,6 +884,7 @@ class Handler(BaseHTTPRequestHandler):
                     continue
                 stage = _field(text, "阶段")
                 dates = ds_common.LASTUPD_DATE_RE.findall(text)
+                timer = ds_tools.stage_timer(text, today=today)
                 # 这里曾产出 owner / status_note 供伴随列「速览块」用。
                 # **2026-07-28 速览块删了 ⇒ 两个字段没有消费者,一并下线。**
                 # status_note(档案「当前状态」)另有一层:它**没有任何写口**,
@@ -893,6 +896,8 @@ class Handler(BaseHTTPRequestHandler):
                     "open_count": counts.get(key, 0),
                     "delivered": stage in DELIVERED_STAGES,
                     "last_update": dates[-1] if dates else None,
+                    "stage_since": timer["since"],
+                    "stage_days": timer["days"],
                     "unregistered": False,
                     "group": "",
                 })
@@ -932,6 +937,7 @@ class Handler(BaseHTTPRequestHandler):
                         "key": name, "name": disp, "stage": "",
                         "open_count": 0, "delivered": False,
                         "last_update": None, "unregistered": True,
+                        "stage_since": None, "stage_days": None,
                         "group": group,
                     })
         except Exception:
@@ -1957,8 +1963,9 @@ class Handler(BaseHTTPRequestHandler):
     def _set_stage(self):
         """POST 写针孔⑩(track opendesign-stage-history §7):切阶段。
         薄壳,posture 逐条照抄 _edit_change:CT application/json →
-        body 0<n≤OPEN_BODY_MAX → JSON dict → 键白名单 {project, stage}(多余键即拒,
-        防夹带 ds_root/today 走私)→ 两键都必须非空 str → ds_tools.set_stage(
+        body 0<n≤OPEN_BODY_MAX → JSON dict → 键白名单 {project, stage, since}(多余键即拒,
+        防夹带 ds_root/today 走私)→ project/stage 必须非空 str;since 可缺省或 null,
+        给了就必须是 str(空串即拒)→ ds_tools.set_stage(
         名字闸/词表精确匹配/锁/页脚 bump 全在核心)。响应体不回显词表(词表走
         GET /api/projects 的 stages,写口少一条外泄面)。Host 闸由 do_POST 入口继承。"""
         ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
@@ -1982,11 +1989,18 @@ class Handler(BaseHTTPRequestHandler):
             return
         project = body.get("project")
         stage = body.get("stage")
+        since = body.get("since")
         if (not isinstance(project, str) or not project
                 or not isinstance(stage, str) or not stage):
             self._json(400, {"error": "bad request"})
             return
-        r = ds_tools.set_stage(project, stage, ds_root=self.server.ds_root)
+        if since is not None and not isinstance(since, str):
+            self._json(400, {"error": "bad request"})
+            return
+        if since == "":
+            self._json(400, {"error": "invalid_since"})
+            return
+        r = ds_tools.set_stage(project, stage, since=since, ds_root=self.server.ds_root)
         if r.get("ok"):
             self._json(200, r)
             return
