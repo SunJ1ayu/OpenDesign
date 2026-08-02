@@ -1,0 +1,195 @@
+# Design: opendesign-stage-timer
+
+- Change: opendesign-stage-timer
+- Status: draft
+- base-ref: `0033746`(ds-web 0.69.0)
+- lane: **full**(动档案格式 = 数据一致性;写口 `set_stage` 语义扩张。硬规矩不打折)
+
+> Panel hook:**这不是开放架构分叉**,不跑 panel-explore。存储位置只有一个站得住的
+> 答案(项目档案自身 —— 全仓的既有存储哲学,用户也点名「每个项目分开记录」),
+> 真正的分叉「只存当前起始日 vs 存流水账」已经**由用户当面拍板**(「当然是一起记上」)。
+> 花 panel 是浪费。
+
+## Approach
+
+### D1 单一真相源:`## 阶段历史` 段,别处不再存第二份
+
+项目档案 `projects/<项目>.md` 新增一段,**append-only**:
+
+```
+## 阶段历史
+
+- 2026-06-01 洽谈
+- 2026-07-20 方案深化
+- 2026-08-02 效果图
+```
+
+- **当前阶段起始日 = 段内最后一条有效行的日期**。
+- **头部不加 `- 阶段起始:` 字段。** 同一个事实存两处,早晚只更新其中一处 —— 那正是
+  用户说的屎山起点,也是本机记忆 [[memory-points-drawer-owns]] 记着的老教训
+  (「把事实复制到第二个地方,只更新其中一个」,同一天犯过三次)。
+- 头部既有的 `- 阶段:` 保留不动(它是 `list_projects`/`ds_lint`/前端的现役字段,
+  本单不动它 = 不做无关重构)。它与段的一致性由**同一把锁内同一次写**保证,
+  外加一道读侧诚实闸(D4)。
+
+**行格式**:`- YYYY-MM-DD 阶段名`,阶段名必须是 `PROJECT_STAGES` 词表字面量。
+**不会与既有解析撞车**(已逐条核过):
+- `ds_tools._CHANGE_RE` / `ds_todo.CHANGE_RE` 都要求 `- [` 开头 ⇒ 不会被收成待办;
+- `_read_header_field` 只扫首个 `## ` 之前 ⇒ 段内容不会被当头部字段;
+- `LASTUPD_RE` 行首锚定 `最后更新` ⇒ 不受影响;
+- `ds_common.BATCH_LINE_RE` 需 `[状态]` ⇒ 不命中。
+
+**段位置**:`## 变更记录` **之前**(阶段是项目元信息,档案打开就该看到脉络)。
+补建落点:第一个 `## ` 之前;文件无任何 `## ` 时落到页脚 `---` 之前;都没有则文件末。
+
+### D2 不造第四套段落解析(用户硬约束「不要屎山」的落点)
+
+仓里**已经有三处**在各自就地找段边界:`_history_bounds`(变更历史)、
+`log_communication`(沟通日志)、`update_client`(备注)。本单**不许再抄第四份**。
+
+做法 = 把 `_history_bounds(lines)` **最小泛化**成 `_section_bounds(lines, header)`
+(段尾口径原样:其后第一条 `## ` / `---` / 文件末),既有调用点传 `_HISTORY_HEADER`。
+**零行为变化 ⇒ 现有全套测试即回归 oracle。**
+`log_communication` / `update_client` 那两处**本单不碰**(不重构没坏的东西);
+它们该不该收编是另一笔债,记进 verify.md 的 debt,不在本单做。
+
+同理,**日期校验不自己写**:复用 `set_due_date` 已立的口径
+(`re.fullmatch(r"\d{4}-\d{2}-\d{2}")` + `date.fromisoformat`)。
+
+### D3 写侧:`set_stage(project, stage, since=None)` 的完整语义表
+
+`since` 是**补录/纠正**用的可选日期(旧项目、或助手把相对日期算错了要改)。
+`""` 与 `None` 同义(照 `set_due_date` 的既有口径)。
+
+`since` 校验(按序,先校验后开锁):
+1. 非 `YYYY-MM-DD` 或 `date.fromisoformat` 失败 → `invalid_since`
+2. 晚于今天(本地日期,`ds_common.today_str`)→ `since_in_future`
+   —— 未来的起始日会算出负天数,是**显然错**的数据;这是格式闸,不是给 LLM 加行为锁。
+   ⚠️ 必须本地日期,**不许 UTC**:0.35 那单在着色上栽过同一个坑。
+3. 早于段内**上一条**的日期(会造成乱序,让"最后一条"不再等于"最新")→ `since_before_prev`
+
+| 头部 `- 阶段:` vs 新 stage | since | 行为 |
+|---|---|---|
+| **不同** | 无 | 换头部 + 追加 `- {today} {stage}` + bump 页脚 |
+| **不同** | 有 | 换头部 + 追加 `- {since} {stage}` + bump 页脚 |
+| **相同** | 无 | **流水账一个字不动**(头部照旧 upsert + bump 页脚 = 维持既有行为)。<br>**这一格是防误点的:重复点同一个阶段绝不能重置计时。** |
+| **相同** | 有 | **改段内最后一条的日期**(那条的阶段名须 == stage);<br>段缺失/无有效行 → 追加一条。+ bump 页脚。**这就是补录入口。** |
+
+返回值加两个字段:`{"ok", "project", "stage", "prev", "since", "days"}`
+(`since`/`days` = 写完之后的当前值,让助手能直接播报「已记下:7 月 20 号进的方案深化,
+到今天 13 天」)。
+
+`create_project`:模板加 `## 阶段历史` 段 + 建档当天一条 `- {today} {stage}`。
+**这是真事实不是编造** —— 项目就是这天以该阶段建的档。
+
+### D4 读侧:一处算,两处用;算不准就说"不知道",不给假数字
+
+新纯函数(`ds_tools`,读写同源):
+
+- `parse_stage_history(text) -> list[{"date": str, "stage": str}]`
+  只扫段内;**行格式不合/阶段名不在词表 ⇒ 跳过该行**(单行坏不拖垮整段,`collect` 同哲学)。
+- `stage_timer(text, today=None) -> {"since": str|None, "days": int|None}`
+  = 取最后一条 → **诚实闸**:该条的阶段名 ≠ 头部 `- 阶段:` 值 ⇒ 返回 `(None, None)`。
+  (有人手改过头部、或档案被手工编辑过 ⇒ 起始日不可信。**宁可显示「未记录」,
+  也不显示一个错的天数** —— 这是本项目反复吃过的亏:数字对不上不如没数字。)
+  段缺失/无有效行 ⇒ 同样 `(None, None)`。
+
+消费者(**都调 `stage_timer`,不许各自解析**):
+- `ds_tools.list_projects` → 每项加 `stage_since` / `stage_days`
+- `ds_tools.read_project` → 同上(助手要能回答「这项目在方案深化多久了」)
+- `ds_web._projects`(它自己读文件、不走 `list_projects`,是**既有**的第二条读路径,
+  本单不合并它 —— 但它必须调 `ds_tools.stage_timer`,**不许出现第三份解析**)
+
+`list_projects` 加 `today: str | None = None` 参数(纯为可测,照 `ds_todo.collect` 先例)。
+
+### D5 写口:`POST /api/projects/stage` 加一个可选 `since`,不新开端点
+
+照 I4 给 `/api/open-folder` 加可选 `rel` 的先例。
+- `_STAGE_ALLOWED_KEYS` = `{"project", "stage", "since"}`(多余键仍即拒)
+- 类型闸:`since` 可为 `null` 或 `str`(镜像 `_set_due_date` 对 `due` 的写法)
+- `_STAGE_ERR_STATUS` 加 `invalid_since` / `since_in_future` / `since_before_prev` → **400**
+- posture 其余逐条不动(CT 闸 / body 上限 / Host 闸继承)
+
+### D6 助手:`set_stage_tool(project, stage, since="")`
+
+职责说明要写清三件事(照 `set_due_date_tool` 的写法,**描述职责不描述功能** ——
+这是 0.69 due-writer 单验证过有效的那一招):
+1. 设计师说「进效果图了」→ 照旧,`since` 不用给(默认今天)。
+2. 设计师说「这个项目是上周三进的方案深化」/「7 月 20 号进的」→ **用 `since` 补录**。
+   相对说法自己按上下文 `Current Time` 换算成具体日期。
+3. **拿不准就问,别猜日期**(与 due 那条同源:编一个日期比空着更糟)。
+
+### D7 界面(只动工作区 stage-chip 一处)
+
+- chip 文字:`方案深化 · 12 天`;`stage_days == null` 时只显示 `方案深化`(不显示占位数字)。
+- 下拉菜单底部加一行:`进入这个阶段:2026-07-20 [改]`,或 `进入这个阶段:未记录 [设]`。
+  点开 = 一个 `<input type="date">` → 提交调同一个 `/api/projects/stage`(带 `since`,
+  `stage` 传当前阶段 ⇒ 命中 D3 第四格 = 纯改日期)。
+- 错误文案要给出路,不能把人引到死路(stage-history 那单的教训):
+  `since_in_future` → 「起始日不能是将来的日子」;`since_before_prev` → 「这个日期比上一个
+  阶段还早,检查一下」;`invalid_since` → 「日期格式不对」。
+
+## Key trade-offs / risks
+
+- **风险①(最大):既有档案全部没有这一段 ⇒ 上线当天所有项目显示「未记录」。**
+  这与 0.69 截止日那一轨上线恒空是同一个病,**已当面告知用户并由他拍板**接受
+  (补录入口 = 助手一句话 / 界面点一下)。**不自动回填** —— 建档日期顶替会把
+  「建档三个月、中间换过两次阶段」的项目算成 90 天,假数字比没数字更坏。
+- **风险②:泛化 `_history_bounds` 碰了既有代码。** 缓解 = 签名加参、口径一字不改、
+  既有调用点全量传原 header;既有全套 py 测试即回归 oracle,**一条都不许改**。
+- **风险③:并发。** `set_stage` 已在 `ds_common.locked_rw` 内读-改-写,本单新增的
+  段追加**必须落在同一个 `with` 内**(0.30 那单 `amend_plan` 不持锁的教训)。
+- **代价(明说):`## 阶段历史` 段暂时没有界面消费者**(只喂天数,不渲染流水账)。
+  这与 [[field-needs-a-writer-before-ui]] 的「有 UI 没写者」是**反过来**的:
+  本段**有写者、有明确读者(天数)**,留痕本身是目的(数据不可逆)。不是摆设。
+
+## Alternatives considered
+
+- **头部单字段 `- 阶段起始:`**(最小方案)。否决理由 = 每切一次阶段就覆盖旧值,
+  **阶段耗时数据永久丢失**,而代码以后能改、丢掉的日期补不回来。用户拍板一起记。
+- **头部字段 + 流水账双写**(我一度打算这么干)。**用户「不要屎山」当场否掉** ——
+  两处存同一事实必然分叉。改为段单一真相源 + 读侧诚实闸。
+- **全局阶段变更日志文件**。否决:违背「每个项目分开记录」(用户原话)与全仓
+  「项目档案 = 单一真相源」的存储哲学,还多一个并发写热点。
+- **在待办页项目卡上也显示天数**。不做 —— 用户 07-30 明确拍板「项目行先别挂阶段小字」,
+  那条决定没被推翻(详见 proposal Non-goals)。
+
+## Test strategy (oracle)
+
+**主 agent 亲写、先单独 commit,再 commit 实现。判卷文件全部进 `--protect`。**
+
+1. **`tests/test_ds_stage_timer.py`(新)** —— D3 语义表逐格 + 校验闸 + 读侧:
+   - 四格各一例(不同/无 since、不同/有 since、**相同/无 since ⇒ 流水账逐字节不变**、
+     相同/有 since ⇒ 改最后一条而非追加第二条)
+   - `invalid_since` / `since_in_future` / `since_before_prev` 各一例(且**文件逐字节不变**)
+   - 段缺失自动补建 + 落点在 `## 变更记录` 之前
+   - `parse_stage_history` 跳过坏行/词表外阶段名
+   - `stage_timer` 诚实闸:段末阶段名 ≠ 头部阶段 ⇒ `(None, None)`
+   - `stage_days` 用**本地**今天(注入 `today` 断言,不依赖机器时区)
+   - **旧档案零迁移**:无该段的档案,读侧返回 `(None,None)` 且**读不改文件**
+2. **`tests/test_ds_web_stage.py`(既有,扩)** —— D5 写口:`since` 键放行、多余键仍拒、
+   `since` 非 str 非 null → 400、三个新错误码 → 400、成功回 `since`/`days`。
+3. **`tests/test_ds_lint.py`(既有,扩)** —— 两个新码 `bad_stage_history`(格式/词表/乱序)
+   与 `stage_history_mismatch`。
+4. **`tests/e2e/stage_timer.e2e.mjs`(新,真 chromium + 真 ds_web)** —— chip 显示
+   `阶段 · N 天`;未记录时**不出现**「天」字(assertNotIn,防占位数字);
+   下拉里改起始日 → chip 天数当场变。
+5. **回归**:全量 py 套件 + 全量 mjs + `tsc` + `build` + 相邻 e2e。
+   `_history_bounds` 泛化的回归 oracle = 既有全套,**一条不许改**。
+
+**这个 oracle 能被什么骗过?**
+
+- **「数字对、结果错」** —— 这是本项目栽得最狠的一类(07-24 `columnCount==="3"` 全绿而
+  正文被压成竖排;08-01 又抓到一次)。这里的对应形态:`stage_days` 断言全绿,
+  但 chip 上那段文字在窄列里**被截断成「方案深化 …」天数看不见**,或者跟
+  「⛑ N 天没动静」并排显示,**两个都是天数、用户根本分不清谁是谁**。
+  e2e 断言接不住"两个数字打架"。→ **收货时必须真截图看 chip 那一行**,
+  尤其是长项目名 + 长阶段名(「施工交底」)+ 两位数天数的组合。
+- **「我的判据自己虚」** —— 累计四次真发现的根因都在我的规格/夹具
+  ([[panel-review-trust-calibration]])。这里最可能虚的是**「相同/无 since ⇒ 不动」那一格**:
+  如果夹具里段末那条的日期恰好就是 today,那么"追加了一条"和"没动"**产出的文件长得
+  一模一样**,断言照绿而实现是错的。→ **夹具必须让段末日期 ≠ today**(取一个明显的
+  过去日期),并断言**逐字节相等**,不是断言"天数没变"。
+- **真机才接得住的**:助手到底会不会在设计师说「上周三进的方案深化」时**用** `since`
+  —— 那是 D6 职责说明的效果,是语义判断,判据接不住(0.69 due-writer 单已经证过
+  一遍这类东西只能靠真机跑几天)。→ 装机后抽查一条,记进待验清单,**不为它加代码闸**。
