@@ -29,6 +29,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+from datetime import date
 
 import ds_common     # within(workspace 映射逃逸检查)
 import ds_refs       # refs 索引行分段解析(parse_ref_line)
@@ -114,6 +115,39 @@ def lint_pkb(ds_root: str = DEFAULT_DS_ROOT) -> dict:
                 findings.append(_finding(
                     "bad_stage", f"projects/{slug}",
                     f"阶段「{stage}」不在词表(应为 {'/'.join(ds_tools.PROJECT_STAGES)} 之一)"))
+
+            bounds = ds_tools._section_bounds(lines, ds_tools._STAGE_HISTORY_HEADER)
+            if bounds is not None:
+                hidx, end = bounds
+                valid_entries = []
+                prev_date = None
+                for ln in lines[hidx + 1:end]:
+                    if not ln.strip():
+                        continue
+                    m = ds_tools._STAGE_HISTORY_RE.match(ln)
+                    bad_detail = None
+                    if not m:
+                        bad_detail = f"阶段历史行格式不对:{ln}"
+                    else:
+                        d, hist_stage = m.group(1), m.group(2)
+                        try:
+                            date.fromisoformat(d)
+                        except ValueError:
+                            bad_detail = f"阶段历史日期不合法:{ln}"
+                        if bad_detail is None and hist_stage not in ds_tools.PROJECT_STAGES:
+                            bad_detail = f"阶段历史阶段「{hist_stage}」不在词表:{ln}"
+                        if bad_detail is None and prev_date is not None and d < prev_date:
+                            bad_detail = f"阶段历史日期乱序:{ln}"
+                        if bad_detail is None:
+                            prev_date = d
+                            valid_entries.append({"date": d, "stage": hist_stage})
+                    if bad_detail is not None:
+                        findings.append(_finding(
+                            "bad_stage_history", f"projects/{slug}", bad_detail))
+                if valid_entries and stage and valid_entries[-1]["stage"] != stage:
+                    findings.append(_finding(
+                        "stage_history_mismatch", f"projects/{slug}",
+                        f"头部阶段「{stage}」与阶段历史末条「{valid_entries[-1]['stage']}」不一致"))
 
             # duplicate_anchor:同档案内 C<n> 撞车(锚定域=单文件;parse_change 单一真相源)
             seen: dict[int, int] = {}

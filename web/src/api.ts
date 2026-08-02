@@ -12,6 +12,8 @@ export type Project = {
   open_count: number;
   delivered: boolean;
   last_update: string | null;
+  stage_since: string | null;
+  stage_days: number | null;
   // p7:true = 工作区自动发现的未建档文件夹(key=文件夹名;文件区/图墙可用,
   // changes/refs 不请求,建档走对话)
   unregistered: boolean;
@@ -476,12 +478,24 @@ export async function bindProject(project: string, folder: string): Promise<void
 /** 第十个非 GET(track opendesign-stage-history 写针孔⑩):切阶段。不做乐观改写
  * (阶段是档案头部字段,以后端回值为准);成功回传 {stage, prev} 供 UI 播报。
  * 失败抛错(带后端 error code)由调用方提示。 */
-export type SetStageResult = { ok: true; project: string; stage: string; prev: string | null };
-export async function setStage(project: string, stage: string): Promise<SetStageResult> {
+export type SetStageResult = {
+  ok: true;
+  project: string;
+  stage: string;
+  prev: string | null;
+  since: string | null;
+  days: number | null;
+};
+export async function setStage(
+  project: string,
+  stage: string,
+  since?: string | null,
+): Promise<SetStageResult> {
+  const body = since === undefined ? { project, stage } : { project, stage, since };
   const r = await fetch("/api/projects/stage", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ project, stage }),
+    body: JSON.stringify(body),
   });
   if (!r.ok) {
     let code = "";

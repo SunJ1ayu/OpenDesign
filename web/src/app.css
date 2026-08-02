@@ -1387,7 +1387,7 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 .stage-chip.done { color: var(--st-done-fg); background: var(--st-done-bg); }
 .stage-chip.unreg { color: var(--st-closed-fg); background: var(--st-closed-bg); }
 /* 切阶段下拉(track opendesign-stage-history §7,同 .st-menu 先例)── */
-.stage-cell { position: relative; display: inline-flex; }
+.stage-cell { position: relative; display: inline-flex; align-items: center; gap: 6px; }
 .stage-chip.stage-btn {
   border: none;
   cursor: pointer;
@@ -1396,6 +1396,11 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 }
 .stage-chip.stage-btn:hover { filter: brightness(0.96); }
 .stage-chip.stage-btn:disabled { cursor: default; opacity: 0.7; }
+.stage-days {
+  font: 11px var(--font-mono);
+  color: var(--ink-4);
+  white-space: nowrap;
+}
 .stage-menu-backdrop { position: fixed; inset: 0; z-index: 40; }
 .stage-menu {
   position: absolute;
@@ -1423,6 +1428,32 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 .stage-menu-item:hover:not(:disabled) { background: var(--paper-side); }
 .stage-menu-item:disabled { cursor: default; }
 .stage-menu-item.current { background: var(--paper-side); font-weight: 600; color: var(--ink); }
+.stage-since-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 6px;
+  border-top: 1px solid var(--border-soft);
+  margin-top: 4px;
+  padding: 8px 6px 4px;
+}
+.stage-since-label { font-size: 11.5px; color: var(--ink-4); white-space: nowrap; }
+.stage-since-row input {
+  width: 128px;
+  border: 1px solid var(--border-input);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font: 11.5px var(--font-sans);
+}
+.stage-since-row button {
+  border: none;
+  border-radius: 6px;
+  background: var(--ink);
+  color: #fff;
+  padding: 5px 8px;
+  font-size: 11.5px;
+}
+.stage-since-row button:disabled { opacity: 0.55; }
 /* 文字链接(修改单 A2):一律 #a04f2e */
 /* `.gallery-link` 已删(真机反馈 2026-07-31):它本是图墙「图墙 →」那条链接的样式,
    链接 0.54.0 就按用户要求删了,class 却留下来长在了收件箱的「打开」上 ——
@@ -2094,6 +2125,11 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   font-size: 12px;
   font-weight: 600;
   color: var(--ink-3);
+  white-space: nowrap;
+}
+.todo-card .card-head [data-ui=card-stage-days] {
+  font: 10.5px var(--font-mono);
+  color: var(--ink-4);
   white-space: nowrap;
 }
 .todo-card .card-head [data-ui=card-recency] {

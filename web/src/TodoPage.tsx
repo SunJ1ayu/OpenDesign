@@ -553,6 +553,11 @@ export default function TodoPage({
             <span className="ico-col"><span className={dotClass(p)} /></span>
             <span className="nm">{p?.name ?? c.project}</span>
             {p?.stage && <span className="card-stage" data-ui="card-stage">{p.stage}</span>}
+            {p?.stage_days !== null && p?.stage_days !== undefined && (
+              <span className="card-stage-days" data-ui="card-stage-days">
+                {p.stage_days} 天
+              </span>
+            )}
             <span className="n-open">{c.items.length} 条未办结</span>
             {age !== null && age >= STALE_AFTER_DAYS && (
               <span className="card-recency" data-ui="card-recency">
