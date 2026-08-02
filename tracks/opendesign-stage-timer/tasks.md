@@ -34,7 +34,8 @@
       - `resolver_eval.py` → 参数级 4 题红 3(第 4 题是护栏);既有 27 题仍 ALL PASS
       - 其余 29 个 py 套件回归全绿;`test_ws_protocol_smoke` 是**跳过**
         (要 gateway 在跑),单独跑一样,与本单无关
-- [ ] O6 判据单独 commit + 更新哈希存档
+- [x] O6 判据单独 commit(`3735942`)+ 哈希存档
+      `/root/aiwork/logs/stage-timer-oracle-hashes.txt`(aiwork `0eb50dc`,5 份全列)
 
 ## 实现(派出去)
 
