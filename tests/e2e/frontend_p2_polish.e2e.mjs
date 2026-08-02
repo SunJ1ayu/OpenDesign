@@ -250,26 +250,29 @@ try {
   await page.locator('.aside [data-ui="empty-open-folder"]').waitFor({ timeout: 5000 });
   check(true, "项目图空态(已映射):「打开文件夹」次按钮");
 
-  // ── G:待办页——按项目=空间小节(无日期折叠),按时间=日期折叠 ─────────
-  await page.locator('.side-row:has-text("待办事项")').first().click();
-  await page.locator(".todo-card").first().waitFor({ timeout: 10000 });
-  const sects = page.locator('.todo-card [data-ui="todo-space-sect"]');
-  check((await sects.count()) === 3, "按项目:玄关/客厅/无空间 三个小节");
-  const sectTxts = await sects.allInnerTexts();
-  check(sectTxts[0].includes("玄关") && sectTxts[1].includes("客厅"),
-    "小节按空间首现序(玄关→客厅)");
-  // 真机反馈 2026-07-24 #6 起,无空间那节不再写「未分空间」四个字(分节仍在、
-  // 仍恒置末,「全选本组」也在)。旧断言绑的是被用户否掉的文案 = 过时考卷,
-  // 改断"这一节存在且没有空间名"。同一事实的主判据在 todo_batch_space.e2e.mjs。
-  check(sectTxts[2].replace(/全选本组|取消本组/g, "").trim() === "",
-    `无空间那节恒置末且没有名字(实测「${sectTxts[2]}」)`);
-  check((await page.locator(".todo-cards .batch-head").count()) === 0,
-    "按项目视图:无日期折叠头(修改单 G1)");
-  await page.locator('.todo-head .opt:has-text("按时间")').click();
-  await page.locator(".batch-head").first().waitFor({ timeout: 5000 });
-  check(true, "按时间视图:日期批次折叠保留");
+  // ── G:【已删,2026-08-02】待办页的「按项目/按时间」看法断言 ─────────────
+  //
+  // **判据迁移账**(本项目规矩:改/删判据必须当场证明"不是放松",逐条指名)。
+  // `549472d`(0.69.0,track opendesign-todo-one-view)把待办页收敛成**单一看法**:
+  // 看法切换器整个移除,空间小节 `[data-ui="todo-space-sect"]` 随之删除
+  // (空间改为行内标签),「全选本组」从小节头挪到项目卡头。那一单写了迁移账、
+  // 也删了另外两份 e2e,但**漏了这一份的 G 段** —— 于是它从 08-02 起一直红着,
+  // 直到 `tests/e2e/run-all.sh` 第一次把 30 个 e2e 全跑一遍才暴露。
+  //
+  //   G1 按项目:三个空间小节        → 功能移除(待办页不再有空间小节)。
+  //   G2 小节按空间首现序(玄关→客厅) → 待办页移除;**同一事实在「变更列」仍存在**,
+  //                                    由 todo_batch_space.e2e.mjs:121 钉住。
+  //   G3 无空间那节恒置末且没名字     → **carry over**,todo_batch_space.e2e.mjs:133,
+  //                                    且那边更强(:126 断整页无「未分空间」残留)。
+  //   G4 按项目视图无日期折叠头        → 功能移除(看法切换器不存在了)。
+  //   G5 按时间视图日期批次折叠保留    → 功能移除(同上)。
+  //   附:「整组一次选中」这条 0.34.0 的能力没丢,挂到了卡头,
+  //       由 todo_batch_space.e2e.mjs:185「全选本卡」钉住。
+  //
+  // ⇒ 五条里三条是功能被刻意移除,两条已在别处有更强的判据。**没有护栏净损失。**
 
   // ── H:图墙 lightbox 方向键切换 + esc 关 ───────────────────────────────
+  // (G 段删掉后页面仍停在 F 段的项目页,下一行的 .proj-list 直接可用,无需先导航回去)
   await page.locator(`.proj-list .proj-row:has-text("${projA}")`).first().click();
   // 直接走路由进图墙:本段验的是 lightbox 方向键/esc,**不是**"怎么进来的"。
   // (2026-07-28「图墙 →」小字按用户要求删了;进图墙的入口本身另有判据
