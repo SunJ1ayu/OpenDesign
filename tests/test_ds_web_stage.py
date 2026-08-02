@@ -28,6 +28,7 @@ from contextlib import contextmanager
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bin"))
+import ds_common  # noqa: E402
 import ds_tools  # noqa: E402
 import ds_web  # noqa: E402
 
@@ -249,6 +250,189 @@ class StagePinholeSurface(unittest.TestCase):
             conn.close()
         self.assertNotEqual(200, st, "外部 Host 必须被拒(DNS rebinding)")
         self.assertEqual(before, _md(root))
+
+
+# ══ track opendesign-stage-timer 追加(D5:可选 `since`)══════════════════════
+# 契约扩张:键白名单 {project, stage} → {project, stage, since};since 可为
+# null 或 `YYYY-MM-DD` 字符串。新错误码 invalid_since / since_in_future /
+# since_before_prev 全部 400。**不新开端点。**
+# red-check:未实现前 since 被当多余键 → 400,happy 组全红;
+#           /api/projects 无 stage_since 键 → 透出组红。
+
+PROJ_WITH_HIST_MD = """# 翡翠湾-1801
+
+- 业主: [[李四]]
+- 阶段: 方案深化
+
+## 阶段历史
+
+- 2026-06-01 洽谈
+- 2026-07-20 方案深化
+
+## 变更记录
+
+- [待确认] C1 2026-07-01 主卧灯位右移
+
+---
+最后更新: 2026-07-01
+"""
+
+
+def _mkroot_hist() -> str:
+    d = tempfile.mkdtemp(prefix="ds_web_stage_hist_")
+    os.makedirs(os.path.join(d, "projects"), exist_ok=True)
+    with open(os.path.join(d, "projects", f"{KEY}.md"), "w", encoding="utf-8") as fh:
+        fh.write(PROJ_WITH_HIST_MD)
+    return d
+
+
+class StagePinholeSince(unittest.TestCase):
+    """`since` 放行 + 三个新错误码 + 回传 since/days。"""
+
+    def test_since_key_is_allowed_and_lands_on_disk(self):
+        root = _mkroot_hist()
+        with _serve(root) as port:
+            st, body = _post(port, {"project": KEY, "stage": "施工图",
+                                    "since": "2026-07-25"})
+            self.assertEqual(200, st, body)
+            self.assertTrue(body.get("ok"), body)
+            self.assertEqual("2026-07-25", body.get("since"), body)
+        self.assertIn("- 2026-07-25 施工图", _md(root),
+                      "补录的日期必须真落盘,不是只在响应里")
+
+    def test_since_null_is_same_as_absent(self):
+        """`null` 等价"没给" ⇒ 走默认今天那条路,不许 400。"""
+        root = _mkroot_hist()
+        with _serve(root) as port:
+            st, body = _post(port, {"project": KEY, "stage": "施工图",
+                                    "since": None})
+            self.assertEqual(200, st, body)
+            self.assertEqual(ds_common.today_str(), body.get("since"), body)
+
+    def test_days_is_zero_when_since_is_today(self):
+        """days 由服务器按**本地**今天算 —— 用同一个 today_str 取基准,
+        不写死日期,这条判据才不会隔天自己红。"""
+        root = _mkroot_hist()
+        with _serve(root) as port:
+            st, body = _post(port, {"project": KEY, "stage": "施工图",
+                                    "since": ds_common.today_str()})
+            self.assertEqual(200, st, body)
+            self.assertEqual(0, body.get("days"), body)
+
+    def test_same_stage_with_since_is_the_backfill_path(self):
+        """界面「设起始日」走的就是这条:阶段传当前值 + 给日期 = 纯补录。"""
+        root = _mkroot_hist()
+        with _serve(root) as port:
+            st, body = _post(port, {"project": KEY, "stage": "方案深化",
+                                    "since": "2026-07-10"})
+            self.assertEqual(200, st, body)
+            self.assertEqual("2026-07-10", body.get("since"), body)
+        text = _md(root)
+        self.assertIn("- 2026-07-10 方案深化", text)
+        self.assertNotIn("- 2026-07-20 方案深化", text, "补录是改末条,不是追加")
+
+    def test_since_bad_type_is_400(self):
+        """类型闸:非 str 非 null 一律 400(镜像 due 的写法)。
+
+        ⚠️ **这条现在就是绿的,而且实现后也绿 —— 它是护栏,不是判别式。**
+        原因:壳层类型闸和"多余键"闸返回同一个通用 `bad request`,分不开。
+        它的价值在实现之后(防类型闸被漏写),红检阶段不指望它红。
+        真正把这一组钉住的是同类里那条会红的 happy 路径。"""
+        for bad in (1, [], {}, True, 20260725):
+            with self.subTest(bad=bad):
+                root = _mkroot_hist()
+                before = _md(root)
+                with _serve(root) as port:
+                    st, _ = _post(port, {"project": KEY, "stage": "施工图",
+                                         "since": bad})
+                self.assertEqual(400, st, f"since={bad!r} 应 400")
+                self.assertEqual(before, _md(root), "类型不对必须零落盘")
+
+    def _reject_hist(self, since, code, msg, stage="施工图"):
+        """⚠️ **必须断言具体错误码,不能只断言 400。**
+        只断 400 的话,今天 `since` 会被"多余键"闸拒掉 → 照样 400 → 判据**假绿**,
+        实现完了也分不出"日期闸真的生效"还是"键闸顺手挡了"。
+        断错误码就红得对:现在返回的是 `bad request`,不是 `invalid_since`。"""
+        root = _mkroot_hist()
+        before = _md(root)
+        with _serve(root) as port:
+            st, body = _post(port, {"project": KEY, "stage": stage, "since": since})
+        self.assertEqual(400, st, msg)
+        self.assertEqual(code, (body or {}).get("error"),
+                         f"{msg}:错误码必须是 {code},不能被通用 bad request 顶替")
+        self.assertEqual(before, _md(root), f"{msg}:拒绝路径必须零落盘")
+
+    def test_invalid_since_is_400(self):
+        for bad in ("2026-7-25", "25-07-2026", "2026/07/25", "昨天", "",
+                    "2026-13-01", "2026-02-30", "2026-07-25T00:00"):
+            with self.subTest(bad=bad):
+                self._reject_hist(bad, "invalid_since", f"{bad!r} 应 invalid_since")
+
+    def test_since_in_future_is_400(self):
+        self._reject_hist("2099-01-01", "since_in_future", "未来的起始日应被拒")
+
+    def test_since_before_prev_is_400(self):
+        """比段末那条(2026-07-20)还早 ⇒ 乱序,拒。"""
+        self._reject_hist("2026-07-19", "since_before_prev", "早于上一条应被拒")
+
+    def test_since_cannot_smuggle_injection(self):
+        """日期字段同样是写口:换行/字段注入必须被**格式闸**挡死
+        (而不是被别的闸碰巧挡住 —— 所以同样断错误码)。"""
+        for bad in ("2026-07-25\n- 阶段: 售后", "2026-07-25\r\n最后更新: 2099-01-01",
+                    "2026-07-25 施工图"):
+            with self.subTest(bad=bad):
+                self._reject_hist(bad, "invalid_since", f"注入 {bad!r} 应被格式闸拒")
+
+    def test_extra_keys_still_rejected_alongside_since(self):
+        """放行一个新键不等于放松白名单:走私键照旧即拒。"""
+        root = _mkroot_hist()
+        before = _md(root)
+        with _serve(root) as port:
+            st, _ = _post(port, {"project": KEY, "stage": "施工图",
+                                 "since": "2026-07-25", "today": "2099-01-01"})
+        self.assertEqual(400, st, "夹带 today 应 400")
+        self.assertEqual(before, _md(root))
+
+
+class StageTimerExposure(unittest.TestCase):
+    """读侧透出:`/api/projects` 每项带 stage_since / stage_days。
+    **必须调 ds_tools.stage_timer,不许第三份解析**(D4)。"""
+
+    def test_projects_exposes_stage_timer_fields(self):
+        root = _mkroot_hist()
+        with _serve(root) as port:
+            st, body = _get(port, "/api/projects")
+        self.assertEqual(200, st)
+        p = next(x for x in body["projects"] if x["key"] == KEY)
+        self.assertEqual("2026-07-20", p.get("stage_since"), p)
+        self.assertIsInstance(p.get("stage_days"), int, p)
+
+    def test_legacy_project_is_null_not_zero(self):
+        """没有阶段历史段的旧档案 ⇒ 两个字段**存在且为 null**。
+        **不是 0** —— 0 会在界面上显示成「0 天」,是个假数字。
+
+        ⚠️ 必须先断言**键存在**再断言值:只写 `.get(...) is None` 的话,
+        "字段压根没实现"也会照绿(键不存在,`.get` 同样返回 None)。"""
+        root = _mkroot()          # 无 `## 阶段历史` 段的旧格式
+        with _serve(root) as port:
+            st, body = _get(port, "/api/projects")
+        self.assertEqual(200, st)
+        p = next(x for x in body["projects"] if x["key"] == KEY)
+        self.assertIn("stage_since", p, "字段必须存在(哪怕值是 null)")
+        self.assertIn("stage_days", p, "字段必须存在(哪怕值是 null)")
+        self.assertIsNone(p["stage_since"], p)
+        self.assertIsNone(p["stage_days"], p)
+
+    def test_matches_ds_tools_stage_timer_exactly(self):
+        """锚断言:网页那条读路径与 ds_tools 的算法必须给出同一个答案。
+        没有这条,「两边各自解析、一起错成同一个值」会照绿。"""
+        root = _mkroot_hist()
+        with _serve(root) as port:
+            _, body = _get(port, "/api/projects")
+        p = next(x for x in body["projects"] if x["key"] == KEY)
+        want = ds_tools.stage_timer(_md(root))
+        self.assertEqual(want["since"], p.get("stage_since"))
+        self.assertEqual(want["days"], p.get("stage_days"))
 
 
 class StageVocabDelivery(unittest.TestCase):

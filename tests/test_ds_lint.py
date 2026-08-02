@@ -238,6 +238,124 @@ class TestLintPkb(unittest.TestCase):
         self.assertEqual([f for f in r["findings"] if f["check"] != "unreadable"], [])
 
 
+# ══ track opendesign-stage-timer 追加(D1/D4:`## 阶段历史` 段的体检)═════════
+# 档案是**人可以手改的纯文本**(refs-vocab 那单栽过),所以段的格式要有体检。
+# 两个新码:
+#   bad_stage_history      —— 段内行格式不合 / 阶段名不在词表 / 日期乱序
+#   stage_history_mismatch —— 段末那条的阶段名 != 头部 `- 阶段:`(起始日不可信)
+# red-check:未实现前 ds_lint 不认识这两个码 → 期望命中的用例全红。
+
+PROJECT_WITH_HIST = """# {slug}
+
+- 业主: [[{client}]]
+- 阶段: {stage}
+- 开始日期: 2026-07-01
+
+## 阶段历史
+
+{history}
+
+## 变更记录
+
+## 沟通日志
+
+---
+最后更新: 2026-07-01
+"""
+
+
+class TestLintStageHistory(unittest.TestCase):
+    """⚠️ 本组里所有「**不该报**」的用例(legacy/空段/同天/合法段/缺段不算不一致)
+    **红检阶段天然是绿的** —— ds_lint 现在还不认识这两个码,自然一条也不报。
+    它们是护栏(防实现后误报把体检淹掉),不是判别式。
+    真正证明这份判据活着的是那 5 条「**该报**」的用例,现在全红。"""
+
+    def setUp(self):
+        self.base = _mk_pkb(tempfile.mkdtemp(prefix="dslint-sh-"))
+        self.addCleanup(shutil.rmtree, self.base, ignore_errors=True)
+
+    def lint(self):
+        return ds_lint.lint_pkb(self.base)
+
+    def _write(self, slug, stage, history):
+        _w(self.base, f"projects/{slug}.md", PROJECT_WITH_HIST.format(
+            slug=slug, client="张三", stage=stage, history=history))
+
+    # ── 不报的情况(比报得准更要紧)────────────────────────────────────
+    def test_legacy_file_without_section_is_not_a_finding(self):
+        """★ 旧档案**没有**这一段是正常的,不许报。
+
+        上线当天全仓都是旧档案 —— 这条要是错了,体检结果会被几十条噪音淹掉,
+        用户从此不看体检。**这是本组最重要的一条。**"""
+        self.assertEqual([], _checks(self.lint(), "bad_stage_history"))
+        self.assertEqual([], _checks(self.lint(), "stage_history_mismatch"))
+
+    def test_wellformed_section_is_clean(self):
+        self._write("干净", "方案深化",
+                    "- 2026-06-01 洽谈\n- 2026-07-20 方案深化")
+        r = self.lint()
+        self.assertEqual([], _checks(r, "bad_stage_history"), r)
+        self.assertEqual([], _checks(r, "stage_history_mismatch"), r)
+
+    def test_empty_section_is_not_a_finding(self):
+        """段建了但还没有条目(补建后的中间态)⇒ 读侧当"未记录",体检不报。"""
+        self._write("空段", "方案深化", "")
+        self.assertEqual([], _checks(self.lint(), "bad_stage_history"))
+
+    # ── bad_stage_history ────────────────────────────────────────────
+    def test_malformed_line_is_reported(self):
+        self._write("坏行", "方案深化",
+                    "- 2026-6-1 洽谈\n- 2026-07-20 方案深化")
+        hits = _checks(self.lint(), "bad_stage_history")
+        self.assertEqual(1, len(hits), hits)
+        self.assertIn("2026-6-1", hits[0]["detail"],
+                      "detail 要指出是哪一行,否则用户不知道去改什么")
+
+    def test_stage_not_in_vocab_is_reported(self):
+        self._write("词表外", "方案深化",
+                    "- 2026-06-01 开工大吉\n- 2026-07-20 方案深化")
+        hits = _checks(self.lint(), "bad_stage_history")
+        self.assertEqual(1, len(hits), hits)
+        self.assertIn("开工大吉", hits[0]["detail"])
+
+    def test_out_of_order_dates_are_reported(self):
+        """乱序 ⇒ "最后一条"不再等于"最新",天数会算错 —— 必须报。"""
+        self._write("乱序", "方案深化",
+                    "- 2026-07-20 洽谈\n- 2026-06-01 方案深化")
+        hits = _checks(self.lint(), "bad_stage_history")
+        self.assertEqual(1, len(hits), hits)
+
+    def test_same_date_twice_is_not_out_of_order(self):
+        """边界:同一天连推两个阶段是真事(量房当天出平面),不许报。"""
+        self._write("同天", "平面方案",
+                    "- 2026-07-20 量房\n- 2026-07-20 平面方案")
+        self.assertEqual([], _checks(self.lint(), "bad_stage_history"))
+
+    # ── stage_history_mismatch ───────────────────────────────────────
+    def test_header_and_section_tail_mismatch_is_reported(self):
+        """头部说效果图、段末说方案深化 ⇒ 起始日不可信,读侧会显示"未记录"。
+        体检要把这种档案指出来,否则用户只看到天数消失、不知道为什么。"""
+        self._write("对不上", "效果图",
+                    "- 2026-06-01 洽谈\n- 2026-07-20 方案深化")
+        hits = _checks(self.lint(), "stage_history_mismatch")
+        self.assertEqual(1, len(hits), hits)
+        self.assertIn("效果图", hits[0]["detail"])
+        self.assertIn("方案深化", hits[0]["detail"],
+                      "两边的值都要写出来,用户才知道该改哪一边")
+
+    def test_mismatch_not_reported_when_section_absent(self):
+        """没段就没有"对不上"可言(旧档案)—— 不许把缺段说成不一致。"""
+        self.assertEqual([], _checks(self.lint(), "stage_history_mismatch"))
+
+    def test_mismatch_and_bad_line_are_separate_codes(self):
+        """两个码各管各的,不许一个吞掉另一个(否则修完一个另一个还在藏)。"""
+        self._write("双错", "效果图",
+                    "- 2026-6-1 洽谈\n- 2026-07-20 方案深化")
+        r = self.lint()
+        self.assertEqual(1, len(_checks(r, "bad_stage_history")), r)
+        self.assertEqual(1, len(_checks(r, "stage_history_mismatch")), r)
+
+
 class TestListProjects(unittest.TestCase):
     def setUp(self):
         self.base = _mk_pkb(tempfile.mkdtemp(prefix="dslist-"))

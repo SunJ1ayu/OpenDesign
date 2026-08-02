@@ -57,6 +57,29 @@ CASES = [
     ("把翡翠湾项目文件夹根目录那些散文件归归位", "stage_adoption"),
 ]
 
+# ══ 参数级用例(track opendesign-stage-timer)═══════════════════════════════
+# 上面那组只判**选没选对工具**。set_stage 加了可选 `since` 之后,D6 职责说明的
+# 全部效果都在"助手到底传不传、算不算得对参数"上 —— 而原来一道题都没有。
+# (这个空白是 gpt-5.6-sol 规划双出点出来的。)
+#
+# 断言口径:(说法, 期望工具, 期望 args 的子集)。**只查子集**,不要求逐键相等 ——
+# 模型多传一个 project 名是正常的,少传/传错 since 才是要抓的。
+# `None` 值 = 该键**必须不出现或为空**(用来钉"说了将来 ≠ 已经进入")。
+EVAL_TODAY = "2026-08-02"          # 星期日;上周三 = 2026-07-22,本周三 = 2026-07-29
+PARAM_CASES = [
+    # ① 相对日期要换算 —— 这是 D6 第 2 条的核心
+    ("翡翠湾上周三进的方案深化", "set_stage",
+     {"stage": "方案深化", "since": "2026-07-22"}),
+    # ② 同阶段 + 明确日期 = 补录路径(界面「设起始日」的等价说法)
+    ("翡翠湾还是方案深化,不过其实 7 月 10 号就进了", "set_stage",
+     {"stage": "方案深化", "since": "2026-07-10"}),
+    # ③ 说的是将来 ⇒ **不许现在就改档案**。编一个未来的起始日比空着更糟:
+    #    待办页会把假死线/假计时排最前(due-writer 单已吃过这个亏)。
+    ("翡翠湾下周准备进效果图", None, {}),
+    # ④ 没说日期就别猜 —— 默认今天,不许自作主张填一个过去的日子
+    ("万科城今天开始量房了", "set_stage", {"stage": "量房", "since": None}),
+]
+
 
 def extract_tools():
     """从三个 MCP 文件抽 *_tool 函数名+docstring(与真部署同源的路由信号)。"""
@@ -124,7 +147,65 @@ def main() -> int:
             kind = "(假阴性:该触发没触发)" if got == "none" else "(假阳性:触发错)"
         print(f"{mark} #{i+1:2d} {case.lstrip('?')!r} -> {got} (期望 {want}) {kind}")
     print(f"\n{'ALL PASS' if fails == 0 else f'{fails} FAIL'} / {sum(1 for c in CASES if not c[0].startswith('?'))} 计分用例")
+
+    fails += run_param_cases(listing)
     return 1 if fails else 0
+
+
+def run_param_cases(listing: str) -> int:
+    """参数级:不只问"调哪个工具",还要它把 args 填出来。
+
+    red-check(实现前该红成什么样):`set_stage_tool` 的签名/docstring 里还没有
+    `since`,模型无从传起 ⇒ ①②必红;③④取决于模型,可能天然绿(它们是护栏)。
+    """
+    print("\n── 参数级用例(stage-timer)" + "─" * 40)
+    numbered = "\n".join(f"{i+1}. {c[0]}" for i, c in enumerate(PARAM_CASES))
+    prompt = (
+        "你是室内设计师助手的工具路由器。工具清单(含参数说明):\n" + listing +
+        f"\n\n当前时间:{EVAL_TODAY}(星期日)。"
+        "\n\n对下面每条设计师的话,输出该调用的工具名和参数。"
+        "\n只输出 JSON 对象,键为题号字符串,值为 {\"tool\": 工具名, \"args\": {...}};"
+        "没有合适工具就写 {\"tool\": \"none\", \"args\": {}}。不要任何其他文字。"
+        "\n\n" + numbered
+    )
+    for attempt in range(3):
+        try:
+            raw = call_mimo(prompt)
+            break
+        except Exception as e:  # noqa: BLE001
+            if attempt == 2:
+                print(f"上游不可用: {e}", file=sys.stderr)
+                return 1
+    s, e = raw.find("{"), raw.rfind("}")
+    try:
+        picked = json.loads(raw[s:e + 1]) if s >= 0 <= e else json.loads(raw)
+    except ValueError:
+        print(f"模型输出非 JSON:\n{raw[:500]}", file=sys.stderr)
+        return 1
+
+    fails = 0
+    for i, (case, want_tool, want_args) in enumerate(PARAM_CASES):
+        got = picked.get(str(i + 1)) or {}
+        tool = str(got.get("tool", "<缺>")).strip()
+        args = got.get("args") if isinstance(got.get("args"), dict) else {}
+        want = want_tool or "none"
+        probs = []
+        if tool != want:
+            probs.append(f"工具 {tool}(期望 {want})")
+        for k, v in want_args.items():
+            actual = args.get(k)
+            if v is None:
+                if actual not in (None, ""):
+                    probs.append(f"{k} 应留空,实得 {actual!r}(猜日期比空着更糟)")
+            elif str(actual).strip() != v:
+                probs.append(f"{k}={actual!r}(期望 {v!r})")
+        if probs:
+            fails += 1
+            print(f"FAIL #{i+1} {case!r}: " + "; ".join(probs))
+        else:
+            print(f"ok   #{i+1} {case!r} -> {tool} {args}")
+    print(f"{'ALL PASS' if fails == 0 else f'{fails} FAIL'} / {len(PARAM_CASES)} 参数级用例")
+    return fails
 
 
 if __name__ == "__main__":

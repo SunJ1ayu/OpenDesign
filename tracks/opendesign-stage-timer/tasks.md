@@ -11,16 +11,29 @@
 - [x] O1 `tests/test_ds_stage_timer.py` 新建 —— D3 语义表四格 + 三个校验闸 +
       段补建落点 + `parse_stage_history` 坏行跳过 + `stage_timer` 诚实闸 + 旧档案零迁移
       ✅ 已写、已红检(34 例,仅 1 例天然绿=护栏题)
-- [ ] O1b **规划双出后的补强**(gpt-5.6-sol 点出,design 已收):
-      严格 no-op 那格改断**整个文件**逐字节不变(不止段)+ 跨月/跨年/闰日/当天 4 个边界
-- [ ] O2 `tests/test_ds_web_stage.py` 扩 —— `since` 键放行/多余键仍拒/类型闸/三个新错误码
-- [ ] O3 `tests/test_ds_lint.py` 扩 —— `bad_stage_history` + `stage_history_mismatch`
-- [ ] O4 `tests/e2e/stage_timer.e2e.mjs` 新建 —— 工作区 chip 天数 / 未记录不出现「天」/
+- [x] O1b **规划双出后的补强**(gpt-5.6-sol 点出,design 已收):
+      严格 no-op 那格改断**整个文件**逐字节不变(不止段)+ 跨月/跨年/闰日/当天 6 个边界
+- [x] O2 `tests/test_ds_web_stage.py` 扩 —— `since` 键放行/多余键仍拒/类型闸/三个新错误码
+      ⚠️ 写的时候抓到自己两处**假绿**:①只断 400 会被"多余键"闸顶替 ⇒ 改断具体错误码;
+      ②`.get()` 让"字段没实现"和"字段是 null"分不开 ⇒ 先断键存在
+- [x] O3 `tests/test_ds_lint.py` 扩 —— `bad_stage_history` + `stage_history_mismatch`
+      (5 条「该报」全红;4 条「不该报」是护栏,天然绿,已在类 docstring 里声明)
+- [x] O4 `tests/e2e/stage_timer.e2e.mjs` 新建 —— 工作区 chip 天数 / 未记录不出现「天」/
       改起始日后当场变 + **整页刷新仍在**;**待办页卡头天数 / 未记录时该元素不渲染**
-- [ ] O4b `tests/evals/resolver_eval.py` 扩 —— **参数级**三题(上周三补录 / 同阶段补录 /
-      「下周准备进」不许提前改档案)。现状只判工具名,D6 全靠它
-- [ ] O5 **红检**:O1–O4b 对着未改的实现全部跑一遍,确认**该红的真红**
-      (没红过的 oracle 不算 oracle)
+      ⚠️ 写的时候撞出**设计错误**:原 D7 把「· 12 天」塞进 chip,会撞既有判据
+      `stage_history.e2e.mjs:121`(断言 chip 文字**精确等于**阶段名)⇒ design 已改成
+      chip 外的兄弟元素 `[data-ui=stage-days]`
+- [x] O4b `tests/evals/resolver_eval.py` 扩 —— **参数级**四题。现状只判工具名,D6 全靠它
+      ⚠️ **实测抓到真问题**:MiMo 对「下周准备进效果图」直接选 `set_stage`
+      ⇒ 会把没发生的阶段变更写进档案。已写进 D6 第 4 条
+- [x] O5 **红检**:全部跑过,该红的真红
+      - `test_ds_stage_timer.py` 40 例 → 仅 1 条护栏题绿
+      - `test_ds_web_stage.py` 31 例 → 新增两组仅 2 条声明过的护栏题绿
+      - `test_ds_lint.py` → 5 条「该报」全红
+      - `stage_timer.e2e.mjs` → A/C/D/E 全红(元素不存在),B 护栏绿
+      - `resolver_eval.py` → 参数级 4 题红 3(第 4 题是护栏);既有 27 题仍 ALL PASS
+      - 其余 29 个 py 套件回归全绿;`test_ws_protocol_smoke` 是**跳过**
+        (要 gateway 在跑),单独跑一样,与本单无关
 - [ ] O6 判据单独 commit + 更新哈希存档
 
 ## 实现(派出去)
