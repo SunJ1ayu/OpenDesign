@@ -175,12 +175,26 @@ try {
   // ── B 与「打开文件夹」外观全等 ───────────────────────────────────────────
   // 用户 08-01 原话:「应该是一个白底的按钮,**和左边项目文件夹的打开文件夹一样的按钮**」。
   // 「一样」= 渲染值逐字段相同,不是"也是个按钮"。
+  // ⚠️ 竞态修复(2026-08-02):`gotoWs()` 之后**直接取快照**,没等右侧 CompanionColumn
+  // 把「打开文件夹」渲染出来 —— 于是"前提:页面上有「打开文件夹」可比"约每 4 次红 1 次。
+  // 实测既有失败率:改动前(0.70.0)3/12、改动后(0.71.0)4/12 ⇒ **是既有偶发,
+  // 不是 structure-debt 引入的**(两组差异在 n=12 上是噪声)。
+  // 但它必须修:`tests/e2e/run-all.sh` 刚上线,一条三成概率无故变红的判据会让
+  // 整套开关的"绿"不值钱 —— 那等于把刚建的护栏自己废掉。
+  const waitFolders = async () => {
+    await page.waitForFunction(
+      () => [...document.querySelectorAll("button")]
+        .some((b) => b.innerText.trim() === "打开文件夹"),
+      null, { timeout: 10000 });
+  };
+
   const SHAPE_KEYS = ["border", "radius", "bg", "color", "fontSize", "height", "padding"];
   const fingerprint = (o) => JSON.stringify(Object.fromEntries(
     SHAPE_KEYS.map((k) => [k, o[k]])));
 
   await step("B 「打开」与页面上每一个「打开文件夹」外观全等", async () => {
     await gotoWs();
+    await waitFolders();          // 见上方竞态修复说明
     const g = await look();
     check(g.folders.length >= 1, `前提:页面上有「打开文件夹」可比(实测 ${g.folders.length} 个)`);
     // 先确认「打开文件夹」自己是白框按钮 —— 否则"两边一样"可能是**一起错**
@@ -231,6 +245,7 @@ try {
       `前提:后端已是空箱(entries ${api.entries.length} / pending ${api.pending.length})`);
     await gotoWs();
     await page.locator(".inbox-quiet").waitFor({ timeout: 15000 }); // 「空的」= 这一态的标志
+    await waitFolders();          // 同一个竞态,这一段只是概率低些(见上方说明)
     const g = await look();
     expect(g.open.text === "打开", `空箱态文字也是「打开」(实测 ${JSON.stringify(g.open.text)})`);
     expect(!ARROWS.test(g.open.text), "空箱态也不含箭头");
