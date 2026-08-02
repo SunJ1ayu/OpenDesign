@@ -1,29 +1,25 @@
 # Tasks: opendesign-stage-timer
 
-> ## 👉 明天从这里接(2026-08-02 傍晚断点)
+> ## 👉 从这里接(2026-08-02 深夜)
 >
-> **实现已完成并通过收货三闸,停在四审之前。** 用户出门,主动叫停。
+> **全流程已走完并 merge 进 main(`268d282`,ds-web 0.70.0)。未 push。**
 >
-> - **代码在哪**:worktree `/root/aiwork/worktrees/stage-timer`,分支 `stage-timer`,
->   提交 `41f8aa6`(执行腿两轮都没自己 commit,我代为落盘)。**未 merge、未 push。**
-> - **判据在哪**:main 分支,`c472397`(三次改动,哈希存档
->   `/root/aiwork/logs/stage-timer-oracle-hashes.txt` 已同步重生成)。
-> - **下一步 = G4 截图 → G5 四审 → 主裁 → merge → G6 装机验证。**
->   四审要花额度,**开跑前先问用户**(已跟他说好)。
-> - 派 panel 时判卷文件仍全部 off-limits;`panel-review` 的 diff 取
->   `git -C /root/aiwork/worktrees/stage-timer diff c472397..41f8aa6`。
+> 剩下的只有两件,都要用户点头:
+> 1. **push 到远端**(私有仓 github.com/SunJ1ayu/OpenDesign)
+> 2. **G6 装机验证** —— 用户在 Windows 上 `git pull` → 重启 `bin\start.ps1` → Ctrl+F5
+>    → 核对 `/api/health` 回显 `0.70.0`,**且待办页真的看得到天数**。
+>    **盘上和运行时对不上 = BLOCK,不是警告**(一周内栽过两次)。
+> 3. 装机后按 verify.md 的**真机待验清单**抽查 5 条(第 1、2 条是 accepted deviations
+>    的观察点,第 4 条是规格证伪点)。
 >
-> **已知遗留(不是拦路条,但四审/主裁时要摆出来)**:
-> 1. 参数级 eval #1「上周三进的方案深化」**仍红**:MiMo 三次分别给 07-27 / 07-29 / 07-28,
->    只有 07-29 落在合法读法内。这是**模型算相对日期的老毛病**(due-writer 单已证过一次),
->    不是实现缺陷;D6 已写「拿不准就问」。**判据留红,当真机抽查项,不为它加代码闸。**
-> 2. `""` 的口径两层不一致:核心 `set_stage` 把 `""` 当 None,网页写口把 `""` 判
->    `invalid_since` 400。两层各自都合我的判据,但界面上"清空日期再保存"会得到
->    「日期格式不对」——**文案不算错但路有点死**,记为 accepted deviation 候选。
-> 3. `ds_web._field()` 注释说"取项目头"实为**全文搜索**(`ds_web.py:597`)。
->    与本单不撞车,**记债不修**。
-> 4. worktree 里我 `cp -a` 了一份真的 `web/node_modules`(**不是符号链接**,故意的)。
->    归档时连 worktree 一起删掉即可。
+> **收尾杂务**:worktree `/root/aiwork/worktrees/stage-timer` 与分支 `stage-timer`
+> 可以删了(里面我 `cp -a` 过一份真的 `web/node_modules`,**不是符号链接**,故意的);
+> track 归档等真机验收之后再做。
+>
+> **遗留债(不拦路)**:`ds_web._field()` 注释说"取项目头"实为**全文搜索**
+> (`ds_web.py:597`,gpt-5.6-sol 规划双出点出的)—— 与本单不撞车,记债不修。
+> 参数级 eval #1「上周三」仍红,是**模型算相对日期的老毛病**、不是实现缺陷,
+> 判据留红当真机抽查项。
 
 - base-ref: 00337463c1748b84c92d634d35b4b73abf4847c2
 - 交付到:**ds-web 0.70.0**
@@ -64,25 +60,25 @@
 
 ## 实现(派出去)
 
-- [ ] T1 `ds_tools`:`_history_bounds` → `_section_bounds(lines, header)` 最小泛化
+- [x] T1 `ds_tools`:`_history_bounds` → `_section_bounds(lines, header)` 最小泛化
       (既有调用点传 `_HISTORY_HEADER`,**零行为变化**)
-- [ ] T2 `ds_tools`:`_STAGE_HISTORY_HEADER` + `parse_stage_history` + `stage_timer`
+- [x] T2 `ds_tools`:`_STAGE_HISTORY_HEADER` + `parse_stage_history` + `stage_timer`
       (纯函数,读写同源)
-- [ ] T3 `ds_tools.set_stage(project, stage, since=None)`:D3 语义表四格 + 三个校验闸;
+- [x] T3 `ds_tools.set_stage(project, stage, since=None)`:D3 语义表四格 + 三个校验闸;
       **段追加必须在既有 `locked_rw` 的同一个 `with` 内**
-- [ ] T4 `ds_tools._PROJECT_TEMPLATE` + `create_project`:建档写 `## 阶段历史` 首条
-- [ ] T5 `ds_tools.list_projects`(加 `today` 参数)/ `read_project`:透出
+- [x] T4 `ds_tools._PROJECT_TEMPLATE` + `create_project`:建档写 `## 阶段历史` 首条
+- [x] T5 `ds_tools.list_projects`(加 `today` 参数)/ `read_project`:透出
       `stage_since` / `stage_days`
-- [ ] T6 `ds_web._projects`:同样两个字段,**调 `ds_tools.stage_timer`,不许第三份解析**
-- [ ] T7 `ds_web` 写口⑩:`_STAGE_ALLOWED_KEYS` 加 `since` + 类型闸 + 三个错误码 → 400
-- [ ] T8 `ds_tools.set_stage_tool(project, stage, since="")`:职责说明按 D6 三条
-- [ ] T9 `ds_lint`:`bad_stage_history` + `stage_history_mismatch`
-- [ ] T10 前端①:`Project` 类型两字段 + ChangesColumn stage-chip 天数 + 下拉改起始日
+- [x] T6 `ds_web._projects`:同样两个字段,**调 `ds_tools.stage_timer`,不许第三份解析**
+- [x] T7 `ds_web` 写口⑩:`_STAGE_ALLOWED_KEYS` 加 `since` + 类型闸 + 三个错误码 → 400
+- [x] T8 `ds_tools.set_stage_tool(project, stage, since="")`:职责说明按 D6 三条
+- [x] T9 `ds_lint`:`bad_stage_history` + `stage_history_mismatch`
+- [x] T10 前端①:`Project` 类型两字段 + ChangesColumn stage-chip 天数 + 下拉改起始日
       + 三条错误文案(D7①)
-- [ ] T10b 前端②:**TodoPage 项目卡头 `card-stage` 旁加只读天数**(D7②);
+- [x] T10b 前端②:**TodoPage 项目卡头 `card-stage` 旁加只读天数**(D7②);
       `stage_days == null` ⇒ 整个元素不渲染;**不许改 `[data-ui=card-stage]` 节点本身**
       (既有 e2e 锁着它)
-- [ ] T11 `ds_web.VERSION` → `0.70.0`
+- [x] T11 `ds_web.VERSION` → `0.70.0`
 
 ## 收货(主 agent,一道都不省)
 
@@ -94,9 +90,10 @@
       (要 gateway 在跑),与基线一致、与本单无关
 - [x] G3 闸③:亲读 diff —— **抓到三条并已退回修完**(详见 verify.md「收货第 1 轮」);
       无符号链接(`create mode 120000` 检查为空)
-- [ ] G4 **真截图看两处**:①工作区 chip 那一行(长项目名 + 「施工交底」+ 两位数天数;
+- [x] G4 **真截图看两处**:①工作区 chip 那一行(长项目名 + 「施工交底」+ 两位数天数;
       确认它与「⛑ N 天没动静」不打架);②**待办页项目卡头**(一屏多卡,确认天数不挤、
       未记录的卡不留空洞)—— design 里点名的"数字对结果错"面
-- [ ] G5 lane full 四审 → 主裁
-- [ ] G6 **部署验证**:装机后 `/api/health` 回显 `0.70.0`,且**待办页真的看到天数**
+- [x] G5 lane full 四审 → 主裁 **PASS** —— MiMo/Kimi/DeepSeek 全 PASS(GLM 腿环境失败),
+      接受两腿命中的 N1 并修;逐条对账见 verify.md
+- [ ] G6 **部署验证(欠用户装机)**:装机后 `/api/health` 回显 `0.70.0`,且**待办页真的看到天数**
       (盘上和运行时对不上 = BLOCK)
