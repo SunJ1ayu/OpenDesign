@@ -103,12 +103,13 @@ def _find_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
 #
 # ⚠️ 这份白名单**只许缩短,不许加长**。加一行 = 新引入了一个环,那是 BLOCK。
 # 均为 `_canon` 归一化形式(与起点无关),三条的**反向边**都在登记处:
-KNOWN_REMAINING = {
-    ("ds_adopt", "ds_organize"),    # ds_organize:365 登记处反向 import ds_adopt
-    ("ds_intake", "ds_organize"),   # ds_organize:346 登记处反向 import ds_intake
-    ("ds_lint", "ds_tools"),        # ds_tools:1369(_run_mcp 内)反向 import ds_lint
-}
-# 本单必须杀掉的那个(taxonomy 错位),同为归一化形式:
+# 🔴 2026-08-02 track opendesign-mcp-registry(方向 R)**清空这份清单**。
+# 用户在三条路里选了 R(一次做对):登记层移出业务模块 + 统一入口 bin/ds_mcp.py,
+# config 改一次。⇒ 三条反向边全部消失,**残留应为空集**。
+# 选 D(只搬登记层、保留旧入口)会留下 3 个「入口 ⇄ 自己的 server」自环 ——
+# 我实测验证过(subdeepseek 说"归零"是错的);R 没有这个尾巴,因为入口不再是业务模块。
+KNOWN_REMAINING: set[tuple[str, ...]] = set()
+# 第①刀杀掉的那个(taxonomy 错位),留作回归护栏 —— 它不许复活:
 TARGET_CYCLE = ("ds_intake", "ds_workspace")
 
 
@@ -133,12 +134,16 @@ class NoImportCycles(unittest.TestCase):
         self.assertEqual(unexpected, set(),
                          "引入了新的循环依赖:\n" + "\n".join(pretty))
 
-    def test_02b_白名单不许加长(self):
-        """护栏:防止"把新环加进白名单"变成通过判据的捷径。"""
-        self.assertLessEqual(
-            len(KNOWN_REMAINING), 3,
-            "KNOWN_REMAINING 被加长了 —— 加白名单不是修环的办法,"
-            "新环是 BLOCK;第 ③ 刀做完后这份清单应该缩到空")
+    def test_02b_白名单必须是空的(self):
+        """护栏:方向 R 做完后这份清单就该是空集,**再往里加一行都是 BLOCK**。
+
+        (第①②刀时它是"≤3";R 的全部卖点就是把那 3 条清零 ——
+        如果实现改不动它,那说明选 R 没拿到该拿的东西,应该退回去重选方向。)
+        """
+        self.assertEqual(
+            KNOWN_REMAINING, set(),
+            "KNOWN_REMAINING 非空 —— 方向 R 的通过条件就是它为空;"
+            "加白名单不是修环的办法")
 
     def test_02c_ds_workspace_不再有延迟import的辩解注释(self):
         """环解开之后,这段注释就必须消失 —— 它描述的机制已经不存在了。"""

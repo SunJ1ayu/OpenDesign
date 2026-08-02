@@ -1,0 +1,650 @@
+{
+  "design-studio": [
+    {
+      "description": "追加一条业主新提的修改需求(自动编号,标记 [待确认])。项目须已存在(见 create_project)。\n        space=所属空间(可选但尽量带,如 玄关/客厅/主卧/厨房/卫生间/阳台;听得出就填)。\n\n        batch_title=这一批的主题(可选,4-10 字的人话,如「效果图修改」「水电改动」)。\n        设计师一次贴进来的一段业主原话往往包含好几条修改——**把它们当作一批,\n        每一条都传完全相同的 batch_title**,待办页就会用这句话当这批的小标题,\n        而不是干巴巴的日期。\n        同一段原话里如果明显是两件不相干的事(比如既说效果图又说水电),\n        就分成两批、各用各的标题。不传 = 不起名,界面会自动拿第一条内容凑一个。\n\n        **哪条带期限,记完立刻用 set_due_date 补上**(track opendesign-due-writer):\n        一段原话里常常只有其中一条说了\"这周五之前\"\"8 月 10 号前\"。\n        本工具**不收截止日**,返回里的 `change_id` 就是给你接着调 set_due_date 用的。\n        一批记好几条时最容易在这里掉链子——**记完这一批,回头看哪条有期限,\n        一条一条把日期设上**;期限只写在正文里等于没记,待办页看不见。",
+      "inputSchema": {
+        "properties": {
+          "batch_title": {
+            "default": "",
+            "title": "Batch Title",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "project": {
+            "title": "Project",
+            "type": "string"
+          },
+          "space": {
+            "default": "",
+            "title": "Space",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "content"
+        ],
+        "title": "append_change_toolArguments",
+        "type": "object"
+      },
+      "name": "append_change_tool"
+    },
+    {
+      "description": "把已建档项目与工作区文件夹关联(合并项目列表里的重复条目)。\n        用户说\"那个文件夹就是 XX 项目\"、或项目列表出现同名两行(一个建档一个\n        未建档)时用。project=项目档案名;folder=用户念的文件夹名即可(纯名唯一\n        就绑;按年份分组撞名/没找到时,返回里有 folders 候选名单,从中挑准确的\n        `组:名` 重试一次,别自己编)。重绑=覆盖,绑错再绑一次即可。",
+      "inputSchema": {
+        "properties": {
+          "folder": {
+            "title": "Folder",
+            "type": "string"
+          },
+          "project": {
+            "title": "Project",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "folder"
+        ],
+        "title": "bind_project_toolArguments",
+        "type": "object"
+      },
+      "name": "bind_project_tool"
+    },
+    {
+      "description": "新建业主档案。name=业主称呼;contact=联系方式(可选);linked=关联项目slug(可选)。",
+      "inputSchema": {
+        "properties": {
+          "contact": {
+            "default": "",
+            "title": "Contact",
+            "type": "string"
+          },
+          "linked": {
+            "default": "",
+            "title": "Linked",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "create_client_toolArguments",
+        "type": "object"
+      },
+      "name": "create_client_tool"
+    },
+    {
+      "description": "新建项目(业主不存在会自动补档)。记录任何变更/待办前,项目必须先经此工具建好。\n        project=项目slug;client=业主称呼——**知道就填,不知道就留空,绝对不要猜或编**\n        (编一个假名字会污染业主档案)。⚠️ 留空的代价:项目档案里「业主」那行会一直空着,\n        **现在没有工具能事后改它**;业主本人的信息倒是可以随时用 create_client/update_client\n        记在业主档案那侧。所以设计师这次说得出业主名就填上。\n        stage=阶段(默认洽谈);address=地址/户型(可选)。",
+      "inputSchema": {
+        "properties": {
+          "address": {
+            "default": "",
+            "title": "Address",
+            "type": "string"
+          },
+          "client": {
+            "default": "",
+            "title": "Client",
+            "type": "string"
+          },
+          "project": {
+            "title": "Project",
+            "type": "string"
+          },
+          "stage": {
+            "default": "洽谈",
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project"
+        ],
+        "title": "create_project_toolArguments",
+        "type": "object"
+      },
+      "name": "create_project_tool"
+    },
+    {
+      "description": "删除项目档案。设计师要求删除某个项目档案时用——**典型场景:清理误建的\n        重复档案**(\"把重复的删掉\"就是在叫这个工具)。回收站式:移入 projects/.trash/,\n        不真删,删错可捞回。**纪律:调用前先复述项目名得到设计师确认**;设计师没提出\n        删除时,绝不主动提议或自作主张删任何档案。删完把返回里的 trashed 路径和\n        refs_remaining(业主/索引里残留的引用数)报给设计师。",
+      "inputSchema": {
+        "properties": {
+          "project": {
+            "title": "Project",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project"
+        ],
+        "title": "delete_project_toolArguments",
+        "type": "object"
+      },
+      "name": "delete_project_tool"
+    },
+    {
+      "description": "给项目/业主档案做一次体检(健康检查):设计师问\"检查一下档案/有没有问题/\n        帮我体检/档案还正常吗/有没有重复或断链\"时用。确定性只读扫描,只报告不改动,\n        查:断链、重复档案、坏阶段、C 编号撞车、参考图索引悬挂/丢文件、工作区映射悬挂、\n        废弃 index.md 残留、坏编码文件。返回 findings 清单(每条含 check/target/detail),\n        照它逐条播报,修复动作仍走对应工具(改名/删除/organize 闸),别自己手改文件。",
+      "inputSchema": {
+        "properties": {},
+        "title": "lint_pkb_toolArguments",
+        "type": "object"
+      },
+      "name": "lint_pkb_tool"
+    },
+    {
+      "description": "列出手上所有项目:被问\"有哪些项目/项目列表/所有项目/一共几个项目/都在做什么\"\n        时用。返回每个项目的 业主/阶段/最后更新,按项目名排序。只读,回答项目盘点问题\n        先调这个,不要凭记忆报。",
+      "inputSchema": {
+        "properties": {},
+        "title": "list_projects_toolArguments",
+        "type": "object"
+      },
+      "name": "list_projects_tool"
+    },
+    {
+      "description": "列出所有项目的未关闭事项 + 超期未更新项目。",
+      "inputSchema": {
+        "properties": {
+          "stale_days": {
+            "default": 7,
+            "title": "Stale Days",
+            "type": "integer"
+          }
+        },
+        "title": "list_todos_toolArguments",
+        "type": "object"
+      },
+      "name": "list_todos_tool"
+    },
+    {
+      "description": "把业主的原话逐字存进项目「沟通日志」(多行原样保留)。\n        设计师贴来一段业主的修改意见/聊天记录时,按三步走:\n        ①先用本工具存原文(text=原话原样,别改写;source=来源,如 微信/电话/现场,可选);\n        ②其中**确定要做的**,逐条总结成短句 append_change(一条一件事,去掉客套和废话,\n        能听出空间就带 space);\n        ③业主**还在摇摆/没拍板的**,不要记变更——把那几句原文引用贴回对话,请设计师定,\n        定了再 append_change。\n        回复设计师时报清楚:存了原文、落了哪几条(C 编号)、哪几句在等拍板。",
+      "inputSchema": {
+        "properties": {
+          "project": {
+            "title": "Project",
+            "type": "string"
+          },
+          "source": {
+            "default": "",
+            "title": "Source",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "text"
+        ],
+        "title": "log_communication_toolArguments",
+        "type": "object"
+      },
+      "name": "log_communication_tool"
+    },
+    {
+      "description": "读取业主档案(联系方式/关联项目/预算区间/风格偏好/关键约束/决策习惯/备注)。\n        被问某业主的情况、或聊到一个项目想先回顾业主偏好和雷区时用。\n        name=业主称呼(clients/ 下的档案名)。回答业主相关问题一律先读档案,不要凭记忆猜。",
+      "inputSchema": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "read_client_toolArguments",
+        "type": "object"
+      },
+      "name": "read_client_tool"
+    },
+    {
+      "description": "读取某个项目的完整记录(业主、阶段、变更、沟通日志)。",
+      "inputSchema": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "read_project_toolArguments",
+        "type": "object"
+      },
+      "name": "read_project_tool"
+    },
+    {
+      "description": "项目改名(档案/业主链接/参考图索引/工作区映射五处一致更新)。\n        设计师要求改项目名、或项目名与文件夹名对齐时用。old=现在的项目名,\n        new=新名。变更历史正文里的旧名不改(账本,历史读起来是当时的名字,正常)。\n        返回 updated 清单,照它播报改了哪些地方。",
+      "inputSchema": {
+        "properties": {
+          "new": {
+            "title": "New",
+            "type": "string"
+          },
+          "old": {
+            "title": "Old",
+            "type": "string"
+          }
+        },
+        "required": [
+          "old",
+          "new"
+        ],
+        "title": "rename_project_toolArguments",
+        "type": "object"
+      },
+      "name": "rename_project_tool"
+    },
+    {
+      "description": "推进某条变更状态。status 必须是:待确认/进行中/已完成/已关闭。",
+      "inputSchema": {
+        "properties": {
+          "change_id": {
+            "title": "Change Id",
+            "type": "string"
+          },
+          "project": {
+            "title": "Project",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "change_id",
+          "status"
+        ],
+        "title": "set_change_status_toolArguments",
+        "type": "object"
+      },
+      "name": "set_change_status_tool"
+    },
+    {
+      "description": "给一条变更设/清截止日。cnum=变更编号(如 3 或 \"C3\",就是 append_change 返回的\n        change_id);due=YYYY-MM-DD,传空串清除。\n\n        **业主话里出现期限,就是你的活**(track opendesign-due-writer):\n        「8 月 10 号之前」「这周五之前」「下周五前」「月底前」——记完那条变更,\n        **紧接着**用它的编号把日期设上,别只把期限写进正文,写进正文的日期\n        待办页看不见,那条待办仍然算\"没有截止日\"。\n        相对说法你自己换算成具体日期:上下文最上面那行 `Current Time` 就是今天几号、\n        星期几,按它算。\n        ⚠️ **业主没给期限就别设**:「尽快」「催得急」「有空改一下」不是期限,\n        **编一个日期比空着更糟**——待办页会把这条不存在的死线排到所有事情最前面。\n        真拿不准是哪天,就问设计师一句,别猜。",
+      "inputSchema": {
+        "properties": {
+          "cnum": {
+            "title": "cnum",
+            "type": "string"
+          },
+          "due": {
+            "default": "",
+            "title": "Due",
+            "type": "string"
+          },
+          "project": {
+            "title": "Project",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "cnum"
+        ],
+        "title": "set_due_date_toolArguments",
+        "type": "object"
+      },
+      "name": "set_due_date_tool"
+    },
+    {
+      "description": "项目已经进入某阶段时改阶段。stage 必须是词表之一:洽谈/量房/平面方案/\n        方案深化/效果图/施工图/施工交底/施工跟进/软装/竣工验收/售后。\n        若说了进入日期(含上周三/7 月 20 号等相对说法),换算成 YYYY-MM-DD 传 since。\n        拿不准就问,不要猜日期。\"准备进/打算进/下周进\"表示还没进,不许调用。",
+      "inputSchema": {
+        "properties": {
+          "project": {
+            "title": "Project",
+            "type": "string"
+          },
+          "since": {
+            "default": "",
+            "title": "Since",
+            "type": "string"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "stage"
+        ],
+        "title": "set_stage_toolArguments",
+        "type": "object"
+      },
+      "name": "set_stage_tool"
+    },
+    {
+      "description": "把工作台接到用户电脑的项目文件夹根目录(以后能直接看文件和参考图)。\n        root=项目文件夹根的绝对路径(直接传用户说的路径即可,反斜杠不用转义);\n        projects_dir=可选,项目夹所在子目录(相对 root);若接上后 folder_count=0 且用户说\n        项目就直接放在这个文件夹里,再传 projects_dir=\".\"。\n        projects_depth=可选:项目夹直接摆在 projects_dir 下不用传;用户的项目按\n        年份/客户等先分了一层文件夹(如 2026/0315 某项目)再传 2,所有分组下的项目\n        会一起认出。返回 folder_count=认出的项目夹数(depth=2 时为跨分组总数)。",
+      "inputSchema": {
+        "properties": {
+          "projects_depth": {
+            "default": 0,
+            "title": "Projects Depth",
+            "type": "integer"
+          },
+          "projects_dir": {
+            "default": "",
+            "title": "Projects Dir",
+            "type": "string"
+          },
+          "root": {
+            "title": "Root",
+            "type": "string"
+          }
+        },
+        "required": [
+          "root"
+        ],
+        "title": "set_workspace_toolArguments",
+        "type": "object"
+      },
+      "name": "set_workspace_tool"
+    },
+    {
+      "description": "更新业主档案。业主信息有变(改预算/换电话/偏好变了),或听到值得记住的\n        性格、雷区、沟通要点时用。field 必须是其一:联系方式/预算区间/风格偏好/\n        关键约束/决策习惯(=整字段改成新值 value)或 备注(=追加一条带日期的记录,\n        原有备注不动;性格雷区类零碎观察记这档)。业主关联哪个项目是机器维护的字段,\n        建项目/项目改名时自动更新。",
+      "inputSchema": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "field",
+          "value"
+        ],
+        "title": "update_client_toolArguments",
+        "type": "object"
+      },
+      "name": "update_client_tool"
+    }
+  ],
+  "design-studio-organize": [
+    {
+      "description": "接管我的工作区 / 盘点工作区 / 首装 / 看看工作区什么情况 / 采纳现状:\n        一次只读盘点整个工作区——识别收件箱/项目根/归档/共享结构,列出每个项目夹的\n        绑定状态、类目、根层散文件数,以及有档案却没绑文件夹的项目。零改动。据此\n        引导设计师逐个 bind_project,再对项目内散文件调 stage_adoption。",
+      "inputSchema": {
+        "properties": {},
+        "title": "adopt_workspace_toolArguments",
+        "type": "object"
+      },
+      "name": "adopt_workspace_tool"
+    },
+    {
+      "description": "执行一份已经人工批准的方案。未批准会被拒绝——请用户在终端跑\n        `ds-approve <plan_id>`,聊天里说\"确认\"不算数。",
+      "inputSchema": {
+        "properties": {
+          "plan_id": {
+            "title": "Plan Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan_id"
+        ],
+        "title": "apply_plan_toolArguments",
+        "type": "object"
+      },
+      "name": "apply_plan_tool"
+    },
+    {
+      "description": "看收件箱:设计师问\"收件箱里有什么/有没有新文件/帮我整理收件箱\"时先调\n        这个——列出工作区 00-收件箱 里的文件,带确定性建议(扩展名→类目,文件名\n        含项目名→建议项目;歧义留空,要问用户别猜)。只读零改动,放心调。",
+      "inputSchema": {
+        "properties": {},
+        "title": "list_inbox_toolArguments",
+        "type": "object"
+      },
+      "name": "list_inbox_tool"
+    },
+    {
+      "description": "整理文件夹的第一步:设计师说\"帮我整理/归类这个文件夹/批量改名/归档旧文件\"\n        时先调这个——只读列出 root 下的文件/子目录(相对路径、类型、大小、修改时间),\n        看清现状再 stage_plan 出方案。本身零改动,放心调。",
+      "inputSchema": {
+        "properties": {
+          "root": {
+            "title": "Root",
+            "type": "string"
+          }
+        },
+        "required": [
+          "root"
+        ],
+        "title": "scan_dir_toolArguments",
+        "type": "object"
+      },
+      "name": "scan_dir_tool"
+    },
+    {
+      "description": "把某个已绑定项目【项目夹根一层】的散文件按 taxonomy 暂存归位(零改动):\n        auto 类目(资料/参考图)进方案,suggest 类目(CAD/SU/MAX/PSD 被引用风险)\n        只在 advice 里口头建议、永不自动动,未知扩展名进 skipped。返回 plan_id;\n        真正移动要设计师在工作台卡片点「确认执行」,你不能替他确认也别自己调\n        apply_plan_tool。",
+      "inputSchema": {
+        "properties": {
+          "project_key": {
+            "title": "Project Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_key"
+        ],
+        "title": "stage_adoption_toolArguments",
+        "type": "object"
+      },
+      "name": "stage_adoption_tool"
+    },
+    {
+      "description": "把收件箱文件的归类指派暂存成方案(零改动):设计师确认了\"这个文件归\n        哪个项目哪个类目\"之后调用。assignments=[{name: 收件箱内文件名,\n        project: 项目名(参考图等工作区级类目可为 null), category: 类目 id}]。\n        返回 plan_id;真正移动要用户在工作台收件箱卡片点「确认执行」,\n        聊天里说\"确认\"不算数,也不要自己调 apply_plan_tool 替用户确认。",
+      "inputSchema": {
+        "properties": {
+          "assignments": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Assignments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "assignments"
+        ],
+        "title": "stage_intake_toolArguments",
+        "type": "object"
+      },
+      "name": "stage_intake_tool"
+    },
+    {
+      "description": "暂存一份整理方案(零改动)。operations=[{op: move|rename, src, dst}],\n        路径相对 root。返回 plan_id + 给人看的清单;需用户在终端 ds-approve 批准。",
+      "inputSchema": {
+        "properties": {
+          "operations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Operations",
+            "type": "array"
+          },
+          "root": {
+            "title": "Root",
+            "type": "string"
+          }
+        },
+        "required": [
+          "root",
+          "operations"
+        ],
+        "title": "stage_plan_toolArguments",
+        "type": "object"
+      },
+      "name": "stage_plan_tool"
+    }
+  ],
+  "design-studio-refs": [
+    {
+      "description": "登记一张参考图到索引。file=refs/ 下相对路径(文件须已存在);\n        style/space 须在词表内(可逗号分隔多值);source 如 小红书/Pinterest/Behance。",
+      "inputSchema": {
+        "properties": {
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "source": {
+            "default": "",
+            "title": "Source",
+            "type": "string"
+          },
+          "space": {
+            "title": "Space",
+            "type": "string"
+          },
+          "style": {
+            "title": "Style",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "style",
+          "space"
+        ],
+        "title": "add_ref_toolArguments",
+        "type": "object"
+      },
+      "name": "add_ref_tool"
+    },
+    {
+      "description": "往风格词表新增一个风格。新增前必须先跟设计师确认过。",
+      "inputSchema": {
+        "properties": {
+          "style": {
+            "title": "Style",
+            "type": "string"
+          }
+        },
+        "required": [
+          "style"
+        ],
+        "title": "add_style_toolArguments",
+        "type": "object"
+      },
+      "name": "add_style_tool"
+    },
+    {
+      "description": "按风格/空间/用过的项目/关键词查参考图,条件 AND,全空=全量。",
+      "inputSchema": {
+        "properties": {
+          "keyword": {
+            "default": "",
+            "title": "Keyword",
+            "type": "string"
+          },
+          "project": {
+            "default": "",
+            "title": "Project",
+            "type": "string"
+          },
+          "space": {
+            "default": "",
+            "title": "Space",
+            "type": "string"
+          },
+          "style": {
+            "default": "",
+            "title": "Style",
+            "type": "string"
+          }
+        },
+        "title": "find_refs_toolArguments",
+        "type": "object"
+      },
+      "name": "find_refs_tool"
+    },
+    {
+      "description": "记录某张参考图(r<n>)用在了某个项目。",
+      "inputSchema": {
+        "properties": {
+          "project": {
+            "title": "Project",
+            "type": "string"
+          },
+          "ref_id": {
+            "title": "Ref Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref_id",
+          "project"
+        ],
+        "title": "link_ref_toolArguments",
+        "type": "object"
+      },
+      "name": "link_ref_tool"
+    },
+    {
+      "description": "就地改一条已登记参考图(r<n>)的风格/空间/备注。三者都不传则报 no_fields\n        (不接受只 bump 页脚的假写);style/space 给了必须在词表内(可逗号分隔多值,\n        不自动建词);note 传空串会清空备注。没点名的字段(含来源/文件/用于)不动。",
+      "inputSchema": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Note"
+          },
+          "ref_id": {
+            "title": "Ref Id",
+            "type": "string"
+          },
+          "space": {
+            "default": "",
+            "title": "Space",
+            "type": "string"
+          },
+          "style": {
+            "default": "",
+            "title": "Style",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref_id"
+        ],
+        "title": "update_ref_toolArguments",
+        "type": "object"
+      },
+      "name": "update_ref_tool"
+    }
+  ]
+}
