@@ -64,20 +64,28 @@ CASES = [
 #
 # 断言口径:(说法, 期望工具, 期望 args 的子集)。**只查子集**,不要求逐键相等 ——
 # 模型多传一个 project 名是正常的,少传/传错 since 才是要抓的。
-# `None` 值 = 该键**必须不出现或为空**(用来钉"说了将来 ≠ 已经进入")。
+# 值的三种写法:
+#   None      该键**必须不出现或为空**
+#   "字符串"   必须精确等于
+#   ("a","b") 命中其一即可;成员 "" 表示"留空也行"
 EVAL_TODAY = "2026-08-02"          # 星期日;上周三 = 2026-07-22,本周三 = 2026-07-29
 PARAM_CASES = [
-    # ① 相对日期要换算 —— 这是 D6 第 2 条的核心
+    # ① 相对日期要换算 —— 这是 D6 第 2 条的核心。
+    #    ⚠️ 「上周三」在中文里本来就有两读(上一周的周三 07-22 / 最近过去的那个周三
+    #    07-29),两个都认。**这不是为了让它变绿而放水**:实测 MiMo 给的是 07-27,
+    #    那天是星期一,**两种读法都不成立**,照样红。
     ("翡翠湾上周三进的方案深化", "set_stage",
-     {"stage": "方案深化", "since": "2026-07-22"}),
+     {"stage": "方案深化", "since": ("2026-07-22", "2026-07-29")}),
     # ② 同阶段 + 明确日期 = 补录路径(界面「设起始日」的等价说法)
     ("翡翠湾还是方案深化,不过其实 7 月 10 号就进了", "set_stage",
      {"stage": "方案深化", "since": "2026-07-10"}),
     # ③ 说的是将来 ⇒ **不许现在就改档案**。编一个未来的起始日比空着更糟:
     #    待办页会把假死线/假计时排最前(due-writer 单已吃过这个亏)。
     ("翡翠湾下周准备进效果图", None, {}),
-    # ④ 没说日期就别猜 —— 默认今天,不许自作主张填一个过去的日子
-    ("万科城今天开始量房了", "set_stage", {"stage": "量房", "since": None}),
+    # ④ 设计师说的就是「今天」⇒ 留空(走默认今天)或显式传今天,**语义等价,都算对**。
+    #    原来我只认"留空",那是过严:实测 MiMo 传了 2026-08-02,那是对的行为,
+    #    是我的期望写错了。真正要抓的是"没说日期却编一个过去的日子"。
+    ("万科城今天开始量房了", "set_stage", {"stage": "量房", "since": ("", EVAL_TODAY)}),
 ]
 
 
@@ -194,10 +202,14 @@ def run_param_cases(listing: str) -> int:
             probs.append(f"工具 {tool}(期望 {want})")
         for k, v in want_args.items():
             actual = args.get(k)
+            got_s = "" if actual is None else str(actual).strip()
             if v is None:
-                if actual not in (None, ""):
+                if got_s:
                     probs.append(f"{k} 应留空,实得 {actual!r}(猜日期比空着更糟)")
-            elif str(actual).strip() != v:
+            elif isinstance(v, tuple):
+                if got_s not in v:
+                    probs.append(f"{k}={actual!r}(期望 {' 或 '.join(x or '留空' for x in v)})")
+            elif got_s != v:
                 probs.append(f"{k}={actual!r}(期望 {v!r})")
         if probs:
             fails += 1
