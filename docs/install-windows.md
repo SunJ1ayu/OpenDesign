@@ -10,7 +10,7 @@
 Python 用官网安装器的话勾 Add to PATH;装完**新开** PowerShell)。然后:
 
 ```powershell
-git clone https://github.com/SunJ1ayu/OpenDesign.git C:\OpenDesign   # 首次弹浏览器授权 GitHub
+git clone https://github.com/SunJ1ayu/OpenDesign.git C:\OpenDesign   # 公开仓,不用登录 GitHub
 powershell -ExecutionPolicy Bypass -File C:\OpenDesign\bin\install.ps1
 ```
 
@@ -26,8 +26,7 @@ config 合并(`bin/ds_merge_config.py`,channels 段不碰)、workspace/skills �
 
 - Windows 10/11,Python 3.10+(`python --version` 确认;装官方版勾 Add to PATH)。
 - Git(可选:装了以后更新走 `git pull`;不装则每次更新重拷仓库文件,见 deploy-security §7)。
-- 取仓库(私有仓,需先在目标机登录 GitHub:装 [Git for Windows](https://git-scm.com) 后
-  `gh auth login` 或首次 clone 时按提示用浏览器授权):
+- 取仓库(**公开仓,不需要登录 GitHub**,装了 [Git for Windows](https://git-scm.com) 直接 clone):
   ```powershell
   git clone https://github.com/SunJ1ayu/OpenDesign.git C:\OpenDesign
   ```
