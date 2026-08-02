@@ -325,6 +325,22 @@ class TestLintStageHistory(unittest.TestCase):
         hits = _checks(self.lint(), "bad_stage_history")
         self.assertEqual(1, len(hits), hits)
 
+    def test_future_date_is_reported(self):
+        """★ 未来日期是**只能靠手改产生**的脏数据,而写口拦不到手改 ——
+        体检不查它,用户就只能从界面上一个诡异的天数去猜。
+        (2026-08-02 四审两腿独立命中我这个盲区。)"""
+        self._write("未来", "方案深化",
+                    "- 2026-06-01 洽谈\n- 2099-01-01 方案深化")
+        hits = _checks(self.lint(), "bad_stage_history")
+        self.assertEqual(1, len(hits), hits)
+        self.assertIn("2099-01-01", hits[0]["detail"])
+
+    def test_today_is_not_reported_as_future(self):
+        """边界:今天不算未来。用真实的今天,免得判据隔天自己红。"""
+        import ds_common
+        self._write("今天", "方案深化", f"- 2026-06-01 洽谈\n- {ds_common.today_str(None)} 方案深化")
+        self.assertEqual([], _checks(self.lint(), "bad_stage_history"))
+
     def test_same_date_twice_is_not_out_of_order(self):
         """边界:同一天连推两个阶段是真事(量房当天出平面),不许报。"""
         self._write("同天", "平面方案",
