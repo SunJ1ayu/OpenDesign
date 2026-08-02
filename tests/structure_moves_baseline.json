@@ -1,0 +1,67 @@
+{
+  "ds_openfolder._default_open_launcher": {
+    "from": "ds_web",
+    "lines": 14,
+    "sha256": "770cc61424e6f561e9780d9b865a50443e83107e539df1a98945cce378889f1b"
+  },
+  "ds_openfolder._open_windows": {
+    "from": "ds_web",
+    "lines": 7,
+    "sha256": "efc0d6829c03bf9ad6e5ff4cb3e76ea97ce2fdaf30859ef6c66784cec37036c2"
+  },
+  "ds_openfolder._pick_folder_window": {
+    "from": "ds_web",
+    "lines": 50,
+    "sha256": "09b11266b0086dfd2e952e6f1cb5f436d0c4302a077872fb225bf3213641c9fb"
+  },
+  "ds_openfolder._spawn_win_focus": {
+    "from": "ds_web",
+    "lines": 7,
+    "sha256": "8383de5fee28161a4bec4e04ae6b2f29a1ef90e3da2e5a38bd5adaea8ab00e79"
+  },
+  "ds_openfolder._win_activate": {
+    "from": "ds_web",
+    "lines": 37,
+    "sha256": "864bfd2e91b5110e7dda84383d005d2eb54451a3fa94ecffbc8ca4e08f30ed7c"
+  },
+  "ds_openfolder._win_focus_folder": {
+    "from": "ds_web",
+    "lines": 34,
+    "sha256": "51619155659a647d9507fb19ae64dd8d23b5d13aa12a0c5eed1db262a3e0cb9b"
+  },
+  "ds_openfolder._win_folder_windows": {
+    "from": "ds_web",
+    "lines": 23,
+    "sha256": "4cfc6e2089708e3b0d581069af7257d5b5875c2b50810f9b4384cb4bd3c570b3"
+  },
+  "ds_taxonomy.DEFAULT_TAXONOMY_PATH": {
+    "from": "ds_intake",
+    "lines": 1,
+    "sha256": "dad9bdc6ed4956256f2fec93d8f6e406364983a72b4a6df35ec835e5552f79e2"
+  },
+  "ds_taxonomy.USER_TAXONOMY_REL": {
+    "from": "ds_intake",
+    "lines": 1,
+    "sha256": "edacdf67c9ffd945311c1f9745775c32c8ac954f595d0741d1454bf5ccf737cb"
+  },
+  "ds_taxonomy._safe_rel_dir": {
+    "from": "ds_intake",
+    "lines": 7,
+    "sha256": "76d72a823db2f783996b1e392e6755ff870c4d225fc132580f60bf798a3fc2cd"
+  },
+  "ds_taxonomy._valid_taxonomy": {
+    "from": "ds_intake",
+    "lines": 33,
+    "sha256": "375e358c024d31ede6760d1c0f2a4155af3ce3e2829b4abb653b88b4b95e7c98"
+  },
+  "ds_taxonomy.load_taxonomy": {
+    "from": "ds_intake",
+    "lines": 23,
+    "sha256": "ca36277c5eb85919f54a5a5f0bd04efbc4dc653c5ba20cce9fc4151802f6fe38"
+  },
+  "ds_taxonomy.suggest_category": {
+    "from": "ds_intake",
+    "lines": 10,
+    "sha256": "42b9ee5469a4e3c05d902759a150ea38baaaa9535a3389e4893c63eb54dfe2ba"
+  }
+}
