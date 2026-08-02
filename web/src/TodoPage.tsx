@@ -552,10 +552,18 @@ export default function TodoPage({
           <GroupToggle open={open} onToggle={() => toggleOpen(cardKey, open)}>
             <span className="ico-col"><span className={dotClass(p)} /></span>
             <span className="nm">{p?.name ?? c.project}</span>
-            {p?.stage && <span className="card-stage" data-ui="card-stage">{p.stage}</span>}
-            {p?.stage_days !== null && p?.stage_days !== undefined && (
-              <span className="card-stage-days" data-ui="card-stage-days">
-                {p.stage_days} 天
+            {/* 阶段 + 本阶段天数绑成一个视觉单元(G4 截图发现:三个小灰字
+                「28 天」「2 条未办结」「最近记录 43 天前」同字号同色排一行,
+                串成一片,而「28 天」还没有标签)。card-stage 节点本身不动 ——
+                todo_one_view.e2e.mjs:199 锁着它的文字。 */}
+            {p?.stage && (
+              <span className="card-stage-cell">
+                <span className="card-stage" data-ui="card-stage">{p.stage}</span>
+                {p?.stage_days !== null && p?.stage_days !== undefined && (
+                  <span className="card-stage-days" data-ui="card-stage-days">
+                    {p.stage_days} 天
+                  </span>
+                )}
               </span>
             )}
             <span className="n-open">{c.items.length} 条未办结</span>

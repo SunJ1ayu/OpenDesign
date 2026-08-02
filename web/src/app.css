@@ -2127,11 +2127,28 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   color: var(--ink-3);
   white-space: nowrap;
 }
+/* 阶段 + 天数 = 一个视觉单元。G4 收货截图发现的问题:卡头一行里有两个天数
+   (本阶段天数 / 「最近记录 N 天前」)外加「N 条未办结」,三者同字号同色,
+   而本阶段天数还没标签 ⇒ 读起来是「28 天 2 条未办结 最近记录 43 天前」一片。
+   绑定靠三件小事:紧挨阶段、中间用本仓通用的 `·`、后面拉开距离。 */
+.todo-card .card-head .card-stage-cell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
 .todo-card .card-head [data-ui=card-stage-days] {
   font: 10.5px var(--font-mono);
   color: var(--ink-4);
   white-space: nowrap;
 }
+.todo-card .card-head [data-ui=card-stage-days]::before {
+  content: "·";
+  margin-right: 4px;
+  color: var(--ink-5, var(--ink-4));
+}
+/* 与后面的计数拉开,别再和天数连读 */
+.todo-card .card-head .card-stage-cell + .n-open { margin-left: 6px; }
 .todo-card .card-head [data-ui=card-recency] {
   font: 10.5px var(--font-mono);
   color: var(--ink-4);
