@@ -41,8 +41,26 @@
   > 是 `ds_workspace` 不该用它。**这两条 panel 全票 PASS 也不能证伪** ——
   > panel 只验"实现合不合规格",验不了"规格对不对"(记忆 [[panel-review-trust-calibration]])。
   > 我怎么发现?③ 刀那单开工时若发现边界又要重画,就是本单画错了的证据。
-- findings:
-  - <主 agent 独立审,读 panel 前落这里>
+- findings(**主 agent 独立审,读任何 panel 输出之前落盘**):
+  - **F1 我自己的规格错(不是执行腿的错)** —— 任务书让它「删掉
+    `ds_workspace._load_taxonomy_for_skip`」,它照办了,于是同样 4 行的
+    `try/except → load_taxonomy` 被**原地复制了两遍**(`excluded_structural`
+    与 `project_folders`)。但删那个函数的**理由**是里面那行延迟 import,
+    不是这个薄封装本身 —— 正确的题应该是「去掉延迟 import,保留封装」。
+    影响:8 行重复,零行为差异。**记忆里已有同类史料:真漏的根因反复是我自己的
+    规格/夹具错。** 处置见下。
+  - **F2 `bin/ds_taxonomy.py` 的模块 docstring 是英文**
+    (`"""Taxonomy loading and category suggestions for OpenDesign."""`),
+    全仓其余模块 docstring 均为中文。执行腿看不到本机说明书,这类风格约定
+    不写进任务书就等于不存在 —— **又一次是任务书的洞,不是它的错**。
+  - **F3 两个新模块都加了 `from __future__ import annotations`**,原文件没有。
+    Python 3.12 上这两个模块用的 `str | None` 原生就支持,该行多余。
+    零行为影响,但它是"搬运单里出现了原文件没有的行" —— 形态上属于夹带,
+    虽然无害,仍应记账。
+  - **零 BLOCK 级发现**:闸① 判卷文件逐字节未动;闸③ 无符号链接、
+    四份被改的判据文件经机械核验(把模块名换回去后与原版逐字节相同)
+    **全是纯改调用点,无一条断言/期望值被动**;两个新模块内容 = 搬来的定义
+    + 必要 import + 跟随的两个常量(内容逐字节原样),无夹带。
 - arbitrated verdict (主裁): <...>
 
 ## Accepted deviations
