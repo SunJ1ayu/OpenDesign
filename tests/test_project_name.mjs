@@ -20,15 +20,15 @@ import {
 
 test("括号开头:优先显示右括号之后的内容", () => {
   assert.equal(
-    displayProjectName("(20260612)周宁 龙腾世纪 12#1802"),
-    "周宁 龙腾世纪 12#1802",
+    displayProjectName("(20260612)周宁 云栖佳苑 12#1802"),
+    "周宁 云栖佳苑 12#1802",
   );
 });
 
 test("全角括号开头:同规则", () => {
   assert.equal(
-    displayProjectName("（20260612）周宁 龙腾世纪"),
-    "周宁 龙腾世纪",
+    displayProjectName("（20260612）周宁 云栖佳苑"),
+    "周宁 云栖佳苑",
   );
 });
 

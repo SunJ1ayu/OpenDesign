@@ -48,7 +48,7 @@ class _Fixture(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.base, ignore_errors=True)
         self.addCleanup(shutil.rmtree, self.ws, ignore_errors=True)
         # 工作区骨架(taxonomy v1.0 命名)
-        self.folder = "20260612 周宁 龙腾世纪 12#1802"
+        self.folder = "20260612 周宁 云栖佳苑 12#1802"
         for d in ("00-收件箱", f"01-项目/{self.folder}",
                   "01-项目/20260101 城南 老盘 3#301",
                   "02-归档项目/2026", "03-共享资源/参考图库"):

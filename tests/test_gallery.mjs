@@ -22,7 +22,7 @@ const IMGS = [
 ];
 
 test("buildGallery:refs 索引序在前,ws 按路径自然序升序(对齐资源管理器)", () => {
-  const g = buildGallery("龙腾世纪-1802", REFS, IMGS);
+  const g = buildGallery("云栖佳苑-1802", REFS, IMGS);
   assert.deepEqual(
     g.map((i) => i.id),
     ["ref:r1", "ref:r2", "ws:02-参考图/冻结.jpg",
@@ -52,12 +52,12 @@ test("buildGallery:按文件名自然序升序,不受 mtime 影响(#10a 判据)"
 });
 
 test("buildGallery:url 路由正确且逐段编码", () => {
-  const g = buildGallery("龙腾世纪-1802", REFS, IMGS);
+  const g = buildGallery("云栖佳苑-1802", REFS, IMGS);
   assert.equal(g[0].url, "/api/refs/file/a.jpg");
   const ws = g.find((i) => i.id === "ws:02-参考图/冻结.jpg");
   assert.equal(
     ws.url,
-    `/api/files/file/${encodeURIComponent("龙腾世纪-1802")}/` +
+    `/api/files/file/${encodeURIComponent("云栖佳苑-1802")}/` +
       `${encodeURIComponent("02-参考图")}/${encodeURIComponent("冻结.jpg")}`,
   );
 });

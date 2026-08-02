@@ -27,7 +27,7 @@ const TODAY = "2026-07-22"; // 与设计稿 screenshots/12 同一天
 const tmp = mkdtempSync(join(tmpdir(), "trail-e2e-"));
 const dsRoot = join(tmp, "ds");
 const P1 = "翡翠湾-1801";
-const P2 = "云山名城-2302";
+const P2 = "星河名邸-2302";
 mkdirSync(join(dsRoot, "projects"), { recursive: true });
 
 // 到期分布(相对 DS_TODAY=2026-07-22):

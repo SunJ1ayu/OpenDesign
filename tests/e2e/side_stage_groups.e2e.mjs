@@ -35,7 +35,7 @@ mkdirSync(join(dsRoot, "config"), { recursive: true });
 // 「未建档」这堆用的是**头部没有「- 阶段:」行**的档案 —— 与工作区自动发现的
 // 未建档文件夹(stage="")同一条前端路径,免得 e2e 还得摆一套工作区根目录。
 const PROJ = [
-  { key: "云山名城-2302", stage: "施工跟进", open: 1 },
+  { key: "星河名邸-2302", stage: "施工跟进", open: 1 },
   { key: "翡翠湾-1801", stage: "施工跟进", open: 2 },
   { key: "江畔花园-0705", stage: "效果图", open: 1 },
   { key: "松涛苑-0101", stage: "竣工验收", open: 1 }, // 已交付但仍有未办结 → E 段从待办页进得来

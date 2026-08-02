@@ -33,8 +33,8 @@ sys.path.insert(0, os.path.join(ROOT, "bin"))
 import ds_web  # noqa: E402
 import ds_workspace  # noqa: E402
 
-PROJ_A = "20260612 周宁 龙腾世纪 12#1802"
-PROJ_B = "20260619 福州 融侨外滩D区1#2604"
+PROJ_A = "20260612 周宁 云栖佳苑 12#1802"
+PROJ_B = "20260619 福州 江畔雅苑D区1#2604"
 
 
 def _mkenv(dirs, cfg_extra=None):

@@ -22,7 +22,7 @@ def chk(cond, msg):
 base = tempfile.mkdtemp(prefix="adopt-e2e-pkb-")
 ws = tempfile.mkdtemp(prefix="adopt-e2e-ws-")
 try:
-    folder = "20260612 周宁 龙腾世纪 12#1802"
+    folder = "20260612 周宁 云栖佳苑 12#1802"
     for d in ("00-收件箱", f"01-项目/{folder}", "02-归档项目/2026", "03-共享资源/参考图库"):
         os.makedirs(os.path.join(ws, d))
     proj = os.path.join(ws, "01-项目", folder)

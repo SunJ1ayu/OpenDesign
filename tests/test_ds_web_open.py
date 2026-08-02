@@ -41,8 +41,8 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bin"))
 import ds_web  # noqa: E402
 
-KEY = "龙腾世纪-1802"
-PROJ_REL = "01-项目/20260612 周宁 龙腾世纪 12#1802"
+KEY = "云栖佳苑-1802"
+PROJ_REL = "01-项目/20260612 周宁 云栖佳苑 12#1802"
 PNG = b"\x89PNG\r\n\x1a\n"
 
 # 白名单内(设计师会双击的图纸/文档/图片)

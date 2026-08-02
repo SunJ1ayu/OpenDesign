@@ -268,7 +268,7 @@ class RequestShape(FolderVisibilityBase):
         (两个短字段)定的。真机是设计师的工作区,中文长目录名 ~34 字节:
         120 个就撑爆 4096,用户从此存不进去,拿到的还是一句无差别的 400。
         """
-        names = [f"{i:03d}-归档 龙腾世纪项目资料" for i in range(120)]
+        names = [f"{i:03d}-归档 云栖佳苑项目资料" for i in range(120)]
         ds, _ = self._env(names)
         with _serve(ds) as port:
             h = self._health(port)
@@ -303,8 +303,8 @@ class ServerIssuedSet(FolderVisibilityBase):
         且**不含**点号开头目录(.git 之类)、符号链接目录(不跟随,worktree 事故同源)、
         普通文件。多一个少一个都是红。
         """
-        real = [DEFAULT_INBOX, "01 平面方案", "周宁 龙腾世纪 12#1802",
-                "融侨外滩(D区)", "共享素材"]
+        real = [DEFAULT_INBOX, "01 平面方案", "周宁 云栖佳苑 12#1802",
+                "江畔雅苑(D区)", "共享素材"]
         ds, ws = self._env(real)
         os.makedirs(os.path.join(ws, ".git"))               # 点号目录:不列
         outside = tempfile.mkdtemp(prefix="fvis-out-")

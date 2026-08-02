@@ -42,7 +42,7 @@ inbox = os.path.join(ws, "00-收件箱")
 ref_lib = os.path.join(ws, "03-共享资源", "参考图库")
 try:
     os.makedirs(inbox)
-    os.makedirs(os.path.join(ws, "01-项目", "20260612 周宁 龙腾世纪 12#1802"))
+    os.makedirs(os.path.join(ws, "01-项目", "20260612 周宁 云栖佳苑 12#1802"))
     os.makedirs(ref_lib)
     os.makedirs(os.path.join(ds, "config"))
     json.dump({"root": ws, "projects": {}},

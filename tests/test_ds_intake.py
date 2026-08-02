@@ -31,7 +31,7 @@ def _write(path, content="x"):
         fh.write(content)
 
 
-PROJ_A = "20260612 周宁 龙腾世纪 12#1802"
+PROJ_A = "20260612 周宁 云栖佳苑 12#1802"
 PROJ_B = "20260701 陈晨 万科城 3#601"
 
 
@@ -97,27 +97,27 @@ class TaxonomyOracle(IntakeBase):
 
 class ListInboxOracle(IntakeBase):
     def test_05_lists_files_with_suggestions(self):
-        _write(os.path.join(self.inbox, "龙腾世纪玄关参考.jpg"))
+        _write(os.path.join(self.inbox, "云栖佳苑玄关参考.jpg"))
         _write(os.path.join(self.inbox, "户型图.dwg"))
         _write(os.path.join(self.inbox, "神秘文件.xyz"))
         r = ds_intake.list_inbox(self.ds)
         self.assertTrue(r.get("ok"), r)
         self.assertEqual(r["inbox"], "00-收件箱")
         by = {e["name"]: e for e in r["entries"]}
-        self.assertEqual(by["龙腾世纪玄关参考.jpg"]["category"]["id"], "参考图")
-        # 项目 token 唯一命中(龙腾世纪只在 PROJ_A)
-        self.assertEqual(by["龙腾世纪玄关参考.jpg"]["project"], PROJ_A)
+        self.assertEqual(by["云栖佳苑玄关参考.jpg"]["category"]["id"], "参考图")
+        # 项目 token 唯一命中(云栖佳苑只在 PROJ_A)
+        self.assertEqual(by["云栖佳苑玄关参考.jpg"]["project"], PROJ_A)
         self.assertEqual(by["户型图.dwg"]["category"]["id"], "CAD")
         self.assertIsNone(by["户型图.dwg"]["project"])  # 无 token 命中=留空
         self.assertIsNone(by["神秘文件.xyz"]["category"])
 
     def test_06_project_token_ambiguity_stays_empty(self):
         # "周宁" 只在 A;造一个同地点项目让它歧义
-        os.makedirs(os.path.join(self.ws, "01-项目", "20260801 周宁 龙腾世纪 5#301"))
-        _write(os.path.join(self.inbox, "龙腾世纪客厅.jpg"))
+        os.makedirs(os.path.join(self.ws, "01-项目", "20260801 周宁 云栖佳苑 5#301"))
+        _write(os.path.join(self.inbox, "云栖佳苑客厅.jpg"))
         r = ds_intake.list_inbox(self.ds)
         e = r["entries"][0]
-        self.assertIsNone(e["project"])  # 两个项目都含"龙腾世纪"→歧义不猜
+        self.assertIsNone(e["project"])  # 两个项目都含"云栖佳苑"→歧义不猜
 
     def test_07_dirs_listed_without_category(self):
         os.makedirs(os.path.join(self.inbox, "业主发来的一批图"))
@@ -298,8 +298,8 @@ class StageInboxAutoOracle(IntakeBase):
     否则(未知扩展/歧义项目/目录)进 skipped 留人工。至少一条 → 过 stage_intake 落 plan。"""
 
     def test_confident_project_file_staged(self):
-        # 龙腾世纪户型.pdf → 资料(auto,project 级)+ 唯一命中 PROJ_A → 自动暂存
-        _write(os.path.join(self.inbox, "龙腾世纪户型.pdf"))
+        # 云栖佳苑户型.pdf → 资料(auto,project 级)+ 唯一命中 PROJ_A → 自动暂存
+        _write(os.path.join(self.inbox, "云栖佳苑户型.pdf"))
         r = ds_intake.stage_inbox_auto(self.allowed, self.ds)
         self.assertTrue(r["ok"])
         self.assertEqual(r["staged"], 1)
@@ -325,10 +325,10 @@ class StageInboxAutoOracle(IntakeBase):
     def test_suggest_mode_never_auto_staged(self):
         # 四审回归:CAD/SU/MAX/PSD(mode=suggest 被引用类目)即使唯一命中项目也永不自动暂存,
         # 留 referenced_type 交人工(挪一动就断 xref/贴图链)。
-        _write(os.path.join(self.inbox, "龙腾世纪平面.dwg"))   # CAD,唯一命中 PROJ_A
-        _write(os.path.join(self.inbox, "龙腾世纪.skp"))       # SU
-        _write(os.path.join(self.inbox, "龙腾世纪.max"))       # 3DMAX
-        _write(os.path.join(self.inbox, "龙腾世纪.psd"))       # PS源
+        _write(os.path.join(self.inbox, "云栖佳苑平面.dwg"))   # CAD,唯一命中 PROJ_A
+        _write(os.path.join(self.inbox, "云栖佳苑.skp"))       # SU
+        _write(os.path.join(self.inbox, "云栖佳苑.max"))       # 3DMAX
+        _write(os.path.join(self.inbox, "云栖佳苑.psd"))       # PS源
         r = ds_intake.stage_inbox_auto(self.allowed, self.ds)
         self.assertEqual(r["staged"], 0)
         self.assertIsNone(r["plan_id"])
@@ -350,7 +350,7 @@ class StageInboxAutoOracle(IntakeBase):
 
     def test_mixed_batch(self):
         # 一把混合:2 确定(dwg+jpg)+ 2 skip(歧义 dwg + 未知 xyz)
-        _write(os.path.join(self.inbox, "龙腾世纪立面.pdf"))   # 资料 → PROJ_A
+        _write(os.path.join(self.inbox, "云栖佳苑立面.pdf"))   # 资料 → PROJ_A
         _write(os.path.join(self.inbox, "参考.png"))            # 参考图 → 参考图库
         _write(os.path.join(self.inbox, "平面.pdf"))            # 资料,歧义
         _write(os.path.join(self.inbox, "x.xyz"))              # 未知

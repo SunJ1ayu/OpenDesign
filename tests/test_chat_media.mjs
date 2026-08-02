@@ -260,8 +260,8 @@ const AT = new Date(2026, 6, 26, 14, 32); // 2026-07-26 14:32(月份 0-based)
 
 test("p01 哈希名 → 可读名:项目 + 聊天图 + 8 位日期-时分", () => {
   const got = chatImageName("b62e4473467453d9959ee406f6044657.png",
-    { project: "龙腾世纪 12#1802", at: AT });
-  assert.equal(got, "龙腾世纪 12#1802 聊天图 20260726-1432.png");
+    { project: "云栖佳苑 12#1802", at: AT });
+  assert.equal(got, "云栖佳苑 12#1802 聊天图 20260726-1432.png");
 });
 
 test("p02 没有项目上下文(首页新对话)→ 不硬凑项目名", () => {
@@ -280,8 +280,8 @@ test("p03 同一条消息多张 → 加序号,互不覆盖", () => {
 
 test("p04 **有意义的原名一律保留**(从文件夹拖进来的图不许被改名)", () => {
   for (const n of ["客厅现场.png", "翡翠湾 主卧 参考.jpg", "sofa-detail.webp",
-                   "20260612 龙腾世纪 量房.png"]) {
-    assert.equal(chatImageName(n, { project: "龙腾世纪 12#1802", at: AT }), n);
+                   "20260612 云栖佳苑 量房.png"]) {
+    assert.equal(chatImageName(n, { project: "云栖佳苑 12#1802", at: AT }), n);
   }
 });
 
@@ -306,7 +306,7 @@ test("p07 生成的名字必须过服务端单段闸(否则存进去 = 白存)",
   // 服务端 _safe_upload_name 的等价规则:无 / \ % 与控制符、不以点开头、
   // 不以点或空格结尾、不是 . / ..
   const got = chatImageName("b62e4473467453d9959ee406f6044657.png",
-    { project: "融侨外滩D区1#2604", at: AT, index: 3 });
+    { project: "江畔雅苑D区1#2604", at: AT, index: 3 });
   assert.ok(!/[/\\%]/.test(got), got);
   assert.ok(!got.startsWith("."), got);
   assert.ok(!/[. ]$/.test(got), got);

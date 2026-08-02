@@ -14,7 +14,7 @@ import {
 const BASE = process.env.E2E_BASE || "http://127.0.0.1:8768";
 const PASSWORD = process.env.E2E_PASSWORD || "e2etest";
 const PROJ_A = "翡翠湾-1801";
-const PROJ_B = "云山名城-2302";
+const PROJ_B = "星河名邸-2302";
 const COL = ".chatcol"; // 工作区聊天列
 
 const projRow = (page, name) =>

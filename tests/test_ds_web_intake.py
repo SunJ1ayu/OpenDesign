@@ -27,7 +27,7 @@ import ds_intake    # noqa: E402
 import ds_organize  # noqa: E402
 import ds_web       # noqa: E402
 
-PROJ = "20260612 周宁 龙腾世纪 12#1802"
+PROJ = "20260612 周宁 云栖佳苑 12#1802"
 
 
 def _write(path, content="x"):
@@ -91,15 +91,15 @@ class TestIntakeGet(unittest.TestCase):
         self.inbox = os.path.join(self.ws, "00-收件箱")
 
     def test_get_entries_and_suggestions(self):
-        _write(os.path.join(self.inbox, "龙腾世纪玄关.jpg"))
+        _write(os.path.join(self.inbox, "云栖佳苑玄关.jpg"))
         _write(os.path.join(self.inbox, "户型图.dwg"))
         with _serve(self.ds) as port:
             st, r = _get_json(port, "/api/intake")
         self.assertEqual(st, 200)
         self.assertTrue(r["configured"])
         by = {e["name"]: e for e in r["entries"]}
-        self.assertEqual(by["龙腾世纪玄关.jpg"]["category"]["id"], "参考图")
-        self.assertEqual(by["龙腾世纪玄关.jpg"]["project"], PROJ)
+        self.assertEqual(by["云栖佳苑玄关.jpg"]["category"]["id"], "参考图")
+        self.assertEqual(by["云栖佳苑玄关.jpg"]["project"], PROJ)
         self.assertEqual(r["pending"], [])
 
     def test_get_pending_plans_workspace_only(self):
@@ -261,9 +261,9 @@ class TestIntakeScanPinhole(unittest.TestCase):
         return r.status
 
     def test_scan_stages_confident(self):
-        # 龙腾世纪户型.pdf → 资料(auto,project 唯一命中);参考.jpg → 参考图(auto,workspace)
+        # 云栖佳苑户型.pdf → 资料(auto,project 唯一命中);参考.jpg → 参考图(auto,workspace)
         # (dwg/CAD 是 mode=suggest 被引用类目,永不自动暂存——见 test_ds_intake 回归)
-        _write(os.path.join(self.inbox, "龙腾世纪户型.pdf"))
+        _write(os.path.join(self.inbox, "云栖佳苑户型.pdf"))
         _write(os.path.join(self.inbox, "参考.jpg"))
         _write(os.path.join(self.inbox, "未知.xyz"))
         with _serve(self.ds) as port:

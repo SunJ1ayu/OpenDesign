@@ -16,12 +16,12 @@ const it = (project, cnum, status) => ({ project, cnum, status });
 
 test("batchEditRequests:选中项 → 逐条请求体,保持序", () => {
   const got = batchEditRequests(
-    [it("翡翠湾-1801", 5, "待确认"), it("云山名城-2302", 3, "进行中")],
+    [it("翡翠湾-1801", 5, "待确认"), it("星河名邸-2302", 3, "进行中")],
     "已完成",
   );
   assert.deepEqual(got, [
     { project: "翡翠湾-1801", cnum: 5, new_status: "已完成" },
-    { project: "云山名城-2302", cnum: 3, new_status: "已完成" },
+    { project: "星河名邸-2302", cnum: 3, new_status: "已完成" },
   ]);
 });
 

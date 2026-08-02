@@ -29,7 +29,7 @@ const ws = join(tmp, "ws");
 const projA = "翡翠湾-1801";
 const folderA = "20260601 平湖 翡翠湾 3#1801";
 // I6:括号开头的长编号名(未建档行,直接由工作区发现)
-const folderParen = "(20260612)周宁 龙腾世纪 12#1802";
+const folderParen = "(20260612)周宁 云栖佳苑 12#1802";
 mkdirSync(join(dsRoot, "projects"), { recursive: true });
 mkdirSync(join(dsRoot, "refs"), { recursive: true });
 mkdirSync(join(dsRoot, "config"), { recursive: true });
@@ -114,7 +114,7 @@ try {
   const parenRow = page.locator(`.proj-list .proj-row[title*="${folderParen}"]`).first();
   await parenRow.waitFor({ timeout: 10000 });
   const nmTxt = (await parenRow.locator(".nm").innerText()).trim();
-  check(nmTxt === "周宁 龙腾世纪 12#1802",
+  check(nmTxt === "周宁 云栖佳苑 12#1802",
     `I6 侧栏名显括号后内容(实际:${nmTxt})`);
   const nmTitle = await parenRow.getAttribute("title");
   check(nmTitle.includes(folderParen), "I6 title 含完整原名");

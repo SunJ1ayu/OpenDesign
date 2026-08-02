@@ -66,7 +66,7 @@
       所有会点 `.proj-row` 的场景)。
       ⚠️ 要真 gateway 的 2 份(`new_chat` / `project-thread`)**没跑** —— 本机没起 gateway。
       逐字读过:`new_chat` 不碰侧栏;`project-thread` 点 `.proj-row`,但它用的是本仓
-      真实档案(翡翠湾-1801=方案深化、云山名城-2302=洽谈),两个都不是已交付阶段
+      真实档案(翡翠湾-1801=方案深化、星河名邸-2302=洽谈),两个都不是已交付阶段
       ⇒ 默认展开,选择器照旧命中。**这是推断不是实测,记账。**
 - [x] no secrets / unsafe ops —— 亲读 diff;`git diff --summary` 无 `create mode 120000`;
       零后端改动、零新写口(只多了一个前端 localStorage 键)

@@ -27,8 +27,8 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bin"))
 import ds_workspace  # noqa: E402
 
-PROJ_REL = "01-项目/20260612 周宁 龙腾世纪 12#1802"
-KEY = "龙腾世纪-1802"
+PROJ_REL = "01-项目/20260612 周宁 云栖佳苑 12#1802"
+KEY = "云栖佳苑-1802"
 
 
 def _touch(path, mtime=None):
@@ -426,7 +426,7 @@ class AutoDiscoveryTest(unittest.TestCase):
             os.makedirs(os.path.join(pdir, ".回收"))           # 点号开头不列
             os.symlink(tmp, os.path.join(pdir, "外链夹"))       # symlink 不列
             names = [n for n, _ in ds_workspace.project_folders(cfg)]
-            self.assertEqual(names, ["20260612 周宁 龙腾世纪 12#1802",
+            self.assertEqual(names, ["20260612 周宁 云栖佳苑 12#1802",
                                      "20260701 平湖 翡翠湾 3#1801"])
 
     def test_project_folders_charset(self):
@@ -448,21 +448,21 @@ class AutoDiscoveryTest(unittest.TestCase):
     def test_project_dir_direct_name(self):
         with tempfile.TemporaryDirectory() as tmp:
             cfg, ws_root = self._cfg(tmp)
-            name = "20260612 周宁 龙腾世纪 12#1802"
+            name = "20260612 周宁 云栖佳苑 12#1802"
             self.assertEqual(ds_workspace.project_dir(cfg, name),
                              os.path.realpath(os.path.join(ws_root, "01-项目", name)))
 
     def test_project_dir_token_unique(self):
         with tempfile.TemporaryDirectory() as tmp:
-            cfg, ws_root = self._cfg(tmp)  # 无映射:靠 token 龙腾世纪+1802 唯一命中
+            cfg, ws_root = self._cfg(tmp)  # 无映射:靠 token 云栖佳苑+1802 唯一命中
             self.assertEqual(
                 ds_workspace.project_dir(cfg, KEY),
                 os.path.realpath(os.path.join(
-                    ws_root, "01-项目", "20260612 周宁 龙腾世纪 12#1802")))
+                    ws_root, "01-项目", "20260612 周宁 云栖佳苑 12#1802")))
 
     def test_project_dir_token_ambiguous(self):
         with tempfile.TemporaryDirectory() as tmp:
-            cfg, _ = self._cfg(tmp, extra_folders=("20270101 周宁 龙腾世纪 12#1802 二期",))
+            cfg, _ = self._cfg(tmp, extra_folders=("20270101 周宁 云栖佳苑 12#1802 二期",))
             self.assertIsNone(ds_workspace.project_dir(cfg, KEY))
 
     def test_project_dir_no_match(self):

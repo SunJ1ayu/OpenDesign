@@ -10,7 +10,7 @@
 - 新配置 `config/workspace.json`(DS_ROOT 下,gitignored 同业主数据待遇):
   ```json
   { "root": "D:\\设计工作区",
-    "projects": { "<PKB项目key>": "01-项目/20260612 周宁 龙腾世纪 12#1802" } }
+    "projects": { "<PKB项目key>": "01-项目/20260612 周宁 云栖佳苑 12#1802" } }
   ```
 - 解析逻辑进 `bin/ds_workspace.py` 新模块(纯函数为主,可单测):load 配置、
   key→绝对路径解析(realpath + within(root) 权威闸)、类目扫描、图片列举。

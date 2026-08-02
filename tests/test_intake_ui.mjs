@@ -46,8 +46,8 @@ test("suggestion:类目+项目、仅类目、待认领三态", () => {
     entrySuggestion({ name: "x.dwg", type: "file", size: 1, mtime: 1,
                       category: { id: "CAD", scope: "project",
                                   dir: "03-CAD", mode: "suggest" },
-                      project: "20260612 周宁 龙腾世纪 12#1802" }),
-    "→ 龙腾世纪 12#1802 · CAD",
+                      project: "20260612 周宁 云栖佳苑 12#1802" }),
+    "→ 云栖佳苑 12#1802 · CAD",
   );
   assert.equal(
     entrySuggestion({ name: "x.xyz", type: "file", size: 1, mtime: 1,
@@ -81,7 +81,7 @@ test("preview_rows:src 取文件名,dst 取目录;多 plan 保序", () => {
         { op: "move", src_rel: "00-收件箱/参考.jpg",
           dst_rel: "03-共享资源/参考图库/参考.jpg" },
         { op: "move", src_rel: "00-收件箱/户型图.dwg",
-          dst_rel: "01-项目/20260612 周宁 龙腾世纪 12#1802/03-CAD/户型图.dwg" },
+          dst_rel: "01-项目/20260612 周宁 云栖佳苑 12#1802/03-CAD/户型图.dwg" },
       ] },
     { plan_id: "20260717-2", created: "2026-07-17T11:00:00", ops: [] },
   ]);
@@ -90,7 +90,7 @@ test("preview_rows:src 取文件名,dst 取目录;多 plan 保序", () => {
   assert.deepEqual(got[0].rows, [
     { src: "参考.jpg", dstDir: "03-共享资源/参考图库" },
     { src: "户型图.dwg",
-      dstDir: "01-项目/20260612 周宁 龙腾世纪 12#1802/03-CAD" },
+      dstDir: "01-项目/20260612 周宁 云栖佳苑 12#1802/03-CAD" },
   ]);
   assert.equal(got[0].count, 2);
 });
