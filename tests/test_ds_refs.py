@@ -213,7 +213,10 @@ class RefsOracle(unittest.TestCase):
         self.assertEqual(r.get("error"), "project_not_found")
         self.assertNotIn("../index", _read(self.index))
 
-    # ⑫ MCP 表面恰好 4 工具(venv 有 mcp 才跑)
+    # ⑫ MCP 表面恰好这 5 个工具(venv 有 mcp 才跑)
+    #   2026-08-02 更正:原断言写死 4,而 update_ref_tool 在 3d70b6d 就作为第 5 个
+    #   工具挂上了(skills/refs/SKILL.md 列为 #5,是有意的),这条从那时起一直红着。
+    #   顺手改成断言**名字集合**:比数个数严,漏挂/改名/多挂都能抓到。
     def test_12_mcp_surface(self):
         try:
             import asyncio
@@ -221,7 +224,10 @@ class RefsOracle(unittest.TestCase):
         except ImportError:
             self.skipTest("mcp not installed")
         tools = asyncio.run(server.list_tools())
-        self.assertEqual(len({t.name for t in tools}), 4)
+        self.assertEqual({t.name for t in tools}, {
+            "add_ref_tool", "find_refs_tool", "link_ref_tool",
+            "add_style_tool", "update_ref_tool",
+        })
 
 
 class InjectionOracle(unittest.TestCase):
