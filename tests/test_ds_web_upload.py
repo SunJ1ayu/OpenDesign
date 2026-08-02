@@ -316,7 +316,7 @@ if __name__ == "__main__":
 
 # ══════════════════════════════════════════════════════════════════════════
 # 四审修复轮(2026-07-26):subkimi F1/F4 + subdeepseek 的注释失真。
-# F1 是真缺陷:`ds_intake.load_taxonomy` 坏表返回 None,而 `_find_inbox(cfg, None)`
+# F1 是真缺陷:`ds_taxonomy.load_taxonomy` 坏表返回 None,而 `_find_inbox(cfg, None)`
 # 会 `taxonomy["inboxDirs"]` 抛 TypeError —— 兄弟端点(list_inbox/stage)都优雅降级成
 # `taxonomy_bad` → 409,只有这个新口会**连响应都不给**(浏览器看到 Failed to fetch)。
 # F4 是错误码语义:体积超限走的是通用 `bad request`,前端于是显示"上传失败(bad request)";

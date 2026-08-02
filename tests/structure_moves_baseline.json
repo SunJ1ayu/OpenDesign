@@ -1,4 +1,14 @@
 {
+  "ds_openfolder._FOLDER_WIN_CLASSES": {
+    "from": "ds_web",
+    "lines": 1,
+    "sha256": "b339c9faad367f272445d5badda63417bc16acb7051544405418403ae53d823d"
+  },
+  "ds_openfolder._WIN_FOCUS": {
+    "from": "ds_web",
+    "lines": 1,
+    "sha256": "a2ba34b64231e75c7a3eb00896d6d7cfd7238b7962ba1acac4bd165b0550acad"
+  },
   "ds_openfolder._default_open_launcher": {
     "from": "ds_web",
     "lines": 14,

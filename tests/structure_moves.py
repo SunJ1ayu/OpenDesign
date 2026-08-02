@@ -31,6 +31,14 @@ MOVES = [
     # 理由:纯操作系统交互,与 HTTP 无关;且是全项目最难测的一块。
     # ⚠️ `Handler._open_folder` **不在清单里** —— 它是 HTTP 层(解析/鉴权/拼响应),
     # 留在 ds_web。边界画在「HTTP 语义 vs 操作系统语义」,不按行数切。
+    #
+    # 下面这两个"跟随常量"是 2026-08-02 panel-review 补进来的:subdeepseek 与 subkimi
+    # **两腿独立命中**同一个洞 —— 它们随代码搬走了,却不在本清单里,于是逐字节闸和
+    # "原模块不留副本"两条都不覆盖它们:实现者若改错这两行,三条判据全抓不住。
+    # 补录时基线哈希取自**搬运前的 commit `39e7f4c`**(git show),不是取自搬完的工作树,
+    # 否则又成了"实现的复印件"。
+    ("ds_web", "ds_openfolder", "_FOLDER_WIN_CLASSES"),
+    ("ds_web", "ds_openfolder", "_WIN_FOCUS"),
     ("ds_web", "ds_openfolder", "_pick_folder_window"),
     ("ds_web", "ds_openfolder", "_win_folder_windows"),
     ("ds_web", "ds_openfolder", "_win_activate"),

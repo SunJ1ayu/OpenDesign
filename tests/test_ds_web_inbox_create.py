@@ -33,6 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bin"))
 import ds_intake  # noqa: E402
+import ds_taxonomy  # noqa: E402
 import ds_web  # noqa: E402
 
 DEFAULT_INBOX = "00-收件箱"      # config/taxonomy.default.json 的 inboxDirs[0]
@@ -152,7 +153,7 @@ class InboxCreatePinhole(unittest.TestCase):
     def test_c04_bad_taxonomy_degrades_409(self):
         """坏规则表 → taxonomy_bad(与 _upload / list_inbox 同款降级,不崩)。"""
         ds, ws = self._env()
-        user_tax = os.path.join(ds, ds_intake.USER_TAXONOMY_REL)
+        user_tax = os.path.join(ds, ds_taxonomy.USER_TAXONOMY_REL)
         os.makedirs(os.path.dirname(user_tax), exist_ok=True)
         with open(user_tax, "w", encoding="utf-8") as fh:
             fh.write("{ 坏 json")
@@ -182,7 +183,7 @@ class InboxCreatePinhole(unittest.TestCase):
     def test_c06_does_not_create_nested_dirs(self):
         """收件箱名若被覆盖成多层(a/b),视为坏表拒掉,不许 makedirs 造出中间层。"""
         ds, ws = self._env()
-        user_tax = os.path.join(ds, ds_intake.USER_TAXONOMY_REL)
+        user_tax = os.path.join(ds, ds_taxonomy.USER_TAXONOMY_REL)
         os.makedirs(os.path.dirname(user_tax), exist_ok=True)
         with open(user_tax, "w", encoding="utf-8") as fh:
             json.dump({"inboxDirs": ["深/收件箱"]}, fh, ensure_ascii=False)
@@ -214,7 +215,7 @@ class InboxCreatePinhole(unittest.TestCase):
         """用户覆盖首候选 → 建的是覆盖后的名字。硬编码 00-收件箱 会建出孤儿目录:
         列举认的是覆盖后那个,用户传的图从此看不见。"""
         ds, ws = self._env()
-        user_tax = os.path.join(ds, ds_intake.USER_TAXONOMY_REL)
+        user_tax = os.path.join(ds, ds_taxonomy.USER_TAXONOMY_REL)
         os.makedirs(os.path.dirname(user_tax), exist_ok=True)
         with open(user_tax, "w", encoding="utf-8") as fh:
             json.dump({"inboxDirs": ["收件箱"]}, fh, ensure_ascii=False)
