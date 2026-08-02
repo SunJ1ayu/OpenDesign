@@ -26,7 +26,7 @@ try:
     for d in ("00-收件箱", f"01-项目/{folder}", "02-归档项目/2026", "03-共享资源/参考图库"):
         os.makedirs(os.path.join(ws, d))
     proj = os.path.join(ws, "01-项目", folder)
-    # 项目根散文件:auto-project(pdf) / auto-workspace(jpg) / suggest(dwg) / 未知(xyz)
+    # 项目根散文件:project级auto(pdf) / workspace级(jpg,须降级) / suggest(dwg) / 未知(xyz)
     w(proj, "户型量房单.pdf", "measure")
     w(proj, "业主收藏客厅.jpg", "img")
     w(proj, "施工平面.dwg", "cad")
@@ -44,13 +44,20 @@ try:
     chk(sorted(os.listdir(proj)) == sorted(["户型量房单.pdf","业主收藏客厅.jpg","施工平面.dwg","随手.xyz"]),
         "scan 后项目夹散文件原样未动")
 
-    print("② stage_adoption 分流(auto→plan / suggest→advice / 未知→skipped)")
+    print("② stage_adoption 分流(project级auto→plan / suggest或workspace级→advice / 未知→skipped)")
     st = ds_adopt.stage_adoption("翡翠湾-1801", ds_root=base, allowed_roots=[ws])
     chk(st.get("ok") is True, "stage 返回 ok")
     plan_id = st.get("plan_id")
     staged_names = {os.path.basename(o["src_rel"]) for o in st.get("staged", [])}
-    chk(staged_names == {"户型量房单.pdf", "业主收藏客厅.jpg"}, "plan 只含 2 个 auto 文件(pdf+jpg)")
-    chk([a["file"] for a in st.get("advice", [])] == ["施工平面.dwg"], "dwg → advice(不进 plan)")
+    chk(staged_names == {"户型量房单.pdf"}, "plan 只含 1 个 project级auto 文件(pdf)")
+    # 铁律:存量整理绝不把文件搬出项目夹(38da0ac,07-27 真机反馈)。
+    # jpg 命中「参考图」= scope:workspace,**必须降级为口头建议**,不许进 plan。
+    chk({a["file"] for a in st.get("advice", [])} == {"业主收藏客厅.jpg", "施工平面.dwg"},
+        "jpg(workspace级)与 dwg(suggest)双双降级为 advice,都不进 plan")
+    # dst 只是"建议去处",advice 永不落地 —— 这里同时钉死建议内容,防降级降成空话
+    adv = {a["file"]: a for a in st.get("advice", [])}
+    chk(adv.get("业主收藏客厅.jpg", {}).get("dir") == "03-共享资源/参考图库",
+        "jpg 的建议去处仍是工作区级参考图库(只是不自动搬)")
     chk(st.get("skipped") == ["随手.xyz"], "未知扩展名 xyz → skipped")
     # stage 零写:apply 前文件仍在原处
     chk(os.path.exists(os.path.join(proj, "户型量房单.pdf")), "stage 阶段零移动(pdf 仍在项目根)")
@@ -69,8 +76,10 @@ try:
     ap = ds_organize.apply_plan(plan_id, allowed_roots=[ws], ds_root=base)
     chk(ap.get("ok") is True, "apply 返回 ok")
     chk(os.path.exists(os.path.join(proj, "01-资料", "户型量房单.pdf")), "pdf 落到项目内 01-资料/")
-    chk(os.path.exists(os.path.join(ws, "03-共享资源/参考图库", "业主收藏客厅.jpg")),
-        "jpg 落到工作区级 03-共享资源/参考图库/(workspace scope)")
+    # 铁律的落地面:jpg 一步没动,且共享图库里不许凭空出现它(这一条是真机 bug 的复现闸)
+    chk(os.path.exists(os.path.join(proj, "业主收藏客厅.jpg")), "jpg 岿然不动(留在项目根)")
+    chk(not os.path.exists(os.path.join(ws, "03-共享资源/参考图库", "业主收藏客厅.jpg")),
+        "jpg **没有**被搬进工作区级参考图库(存量整理绝不把文件搬出项目夹)")
     chk(not os.path.exists(os.path.join(proj, "户型量房单.pdf")), "pdf 原位已清空")
     chk(os.path.exists(os.path.join(proj, "施工平面.dwg")), "被引用 dwg 岿然不动(留在项目根)")
     chk(os.path.exists(os.path.join(proj, "随手.xyz")), "未知 xyz 未被碰")
