@@ -1,7 +1,7 @@
 # Verify: opendesign-structure-debt
 
 - Date: 2026-08-02
-- Verdict: **PASS(代码层面)** —— ⚠️ G3 真机未验,**本单不归档**
+- Verdict: **PASS** —— 代码三闸全过 + 三腿 PASS + **G3 真机 08-02 已验过**,可归档
 
 > Panel hook — 软判断(correctness/security/edge/spec-drift)走 panel-review:
 > 主 agent 先独立审并落 findings,再跑 panel-review 的全部评审腿,主 agent 主裁。
@@ -121,5 +121,6 @@
 
 ## 真机待验(用户 Windows,主 agent 无法代跑)
 
-- [ ] **G3 「打开文件夹」真的弹窗并切前台**(见 tasks.md G3)。
-      **在他验之前本单不许宣布完成、不许归档。**
+- [x] **G3 「打开文件夹」真的弹窗并切前台** —— **2026-08-02 用户家里机(D:\AI\OpenDesign)
+      验过,原话「没什么问题 挺好的」。** 0.71.0 装机 + 点击均正常。
+      ⇒ 本单唯一"判据和 panel 都证明不了"的那一条已由真机接住,可归档。
