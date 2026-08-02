@@ -19,6 +19,7 @@ import re
 import stat
 
 import ds_common
+import ds_taxonomy
 
 CONFIG_REL = os.path.join("config", "workspace.json")
 # 图片扩展白名单(与 ds_web 参考图 Gate C 同集合;svg 排除=直开可执行脚本)
@@ -156,21 +157,23 @@ def projects_root(cfg):
     return None
 
 
-def _load_taxonomy_for_skip(cfg):
-    """规则表(给 structural_dirs 的回落层用)。**函数内延迟 import**:
-    ds_intake 在模块层 import 本模块,模块层反向 import 会成环;调用期 import 不会
-    (那时 ds_intake 要么已加载、要么可加载)。读不出来 → None,回落层整个不参与。"""
-    try:
-        import ds_intake  # noqa: PLC0415 —— 见上,故意的延迟导入
-        return ds_intake.load_taxonomy(cfg.get("ds_root") or _ds_root_guess())
-    except Exception:
-        return None
-
-
 def _ds_root_guess():
     """兜底:调用方自己拼 cfg(不经 load_config)时才会走到这里。
     正路是 `cfg["ds_root"]` —— 见 load_config 里那段注释。"""
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _taxonomy_for_skip(cfg):
+    """规则表(给 structural_dirs 的回落层用);读不出来 → None,回落层整个不参与。
+
+    原名 `_load_taxonomy_for_skip`,曾经为绕开 ds_intake ⇄ ds_workspace 的环而
+    在函数体里做导入;环已被 `ds_taxonomy` 拆掉(track opendesign-structure-debt),
+    那套绕法整个删了。封装本身留着:**"读不出规则表就整层降级"是既有契约**,
+    留个名字比让两个调用点各抄一份同样的 try/except 好。"""
+    try:
+        return ds_taxonomy.load_taxonomy(cfg.get("ds_root") or _ds_root_guess())
+    except Exception:
+        return None
 
 
 def structural_dirs(cfg, taxonomy=None) -> set:
@@ -214,7 +217,7 @@ def excluded_structural(cfg) -> list:
         return []
     if os.path.realpath(cfg["root"]) != proot:
         return []
-    names = structural_dirs(cfg, _load_taxonomy_for_skip(cfg))
+    names = structural_dirs(cfg, _taxonomy_for_skip(cfg))
     return sorted(n for n in names if os.path.isdir(os.path.join(proot, n)))
 
 
@@ -259,7 +262,7 @@ def project_folders(cfg):
     # 兄弟目录、本来就不在扫描范围,这里也不会误伤(oracle s08)。
     skip = set()
     if cfg.get("root") and os.path.realpath(cfg["root"]) == proot:
-        skip = structural_dirs(cfg, _load_taxonomy_for_skip(cfg))
+        skip = structural_dirs(cfg, _taxonomy_for_skip(cfg))
     if cfg.get("projectsDepth", 1) != 2:
         return [(name, os.path.realpath(ent.path))
                 for name, ent in _dir_entries(proot) if name not in skip]

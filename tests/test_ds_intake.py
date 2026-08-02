@@ -23,6 +23,7 @@ ROOT = os.path.dirname(HERE)  # design-studio/
 sys.path.insert(0, os.path.join(ROOT, "bin"))
 import ds_intake    # noqa: E402
 import ds_organize  # noqa: E402
+import ds_taxonomy  # noqa: E402
 
 
 def _write(path, content="x"):
@@ -58,41 +59,41 @@ class IntakeBase(unittest.TestCase):
 
 class TaxonomyOracle(IntakeBase):
     def test_01_default_taxonomy_loads(self):
-        tax = ds_intake.load_taxonomy(self.ds)
+        tax = ds_taxonomy.load_taxonomy(self.ds)
         self.assertIsNotNone(tax)
         ids = {c["id"] for c in tax["categories"]}
         self.assertIn("参考图", ids)
         self.assertIn("CAD", ids)
 
     def test_02_suggest_by_extension(self):
-        tax = ds_intake.load_taxonomy(self.ds)
-        cat = ds_intake.suggest_category("玄关参考.JPG", tax)  # 大小写不敏感
+        tax = ds_taxonomy.load_taxonomy(self.ds)
+        cat = ds_taxonomy.suggest_category("玄关参考.JPG", tax)  # 大小写不敏感
         self.assertEqual(cat["id"], "参考图")
         self.assertEqual(cat["scope"], "workspace")
-        cat = ds_intake.suggest_category("平面图.dwg", tax)
+        cat = ds_taxonomy.suggest_category("平面图.dwg", tax)
         self.assertEqual(cat["id"], "CAD")
         self.assertEqual(cat["mode"], "suggest")  # 被引用类目
-        self.assertIsNone(ds_intake.suggest_category("奇怪文件.xyz", tax))
-        self.assertIsNone(ds_intake.suggest_category("无扩展名", tax))
+        self.assertIsNone(ds_taxonomy.suggest_category("奇怪文件.xyz", tax))
+        self.assertIsNone(ds_taxonomy.suggest_category("无扩展名", tax))
 
     def test_03_user_overlay_replaces_toplevel_key(self):
         _write(os.path.join(self.ds, "config", "taxonomy.json"),
                json.dumps({"categories": [
                    {"id": "只有一类", "scope": "project", "dir": "99-其他",
                     "extensions": [".xyz"], "mode": "auto"}]}, ensure_ascii=False))
-        tax = ds_intake.load_taxonomy(self.ds)
+        tax = ds_taxonomy.load_taxonomy(self.ds)
         self.assertEqual([c["id"] for c in tax["categories"]], ["只有一类"])
         # 未覆盖的顶层键保默认
         self.assertIn("00-收件箱", tax["inboxDirs"])
-        self.assertEqual(ds_intake.suggest_category("a.xyz", tax)["id"], "只有一类")
+        self.assertEqual(ds_taxonomy.suggest_category("a.xyz", tax)["id"], "只有一类")
 
     def test_04_bad_user_overlay_degrades_whole(self):
         _write(os.path.join(self.ds, "config", "taxonomy.json"), "{broken json")
-        self.assertIsNone(ds_intake.load_taxonomy(self.ds))
+        self.assertIsNone(ds_taxonomy.load_taxonomy(self.ds))
         # 结构不对同样降级(categories 不是 list)
         _write(os.path.join(self.ds, "config", "taxonomy.json"),
                json.dumps({"categories": "nope"}))
-        self.assertIsNone(ds_intake.load_taxonomy(self.ds))
+        self.assertIsNone(ds_taxonomy.load_taxonomy(self.ds))
 
 
 class ListInboxOracle(IntakeBase):

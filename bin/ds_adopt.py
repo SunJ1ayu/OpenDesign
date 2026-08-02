@@ -6,7 +6,7 @@
 (stage_adoption)。intake 覆盖「增量」(00-收件箱新文件),本模块覆盖「存量」。
 
 本模块自己不发明任何执行路径,单一真相源全部复用:
-  - 类目建议 = ds_intake.suggest_category / load_taxonomy;
+  - 类目建议 = ds_taxonomy.suggest_category / load_taxonomy;
   - 工作区解析 = ds_workspace(load_config / project_dir / projects_root /
     project_folders);
   - PKB 项目枚举 = ds_tools.list_projects;
@@ -32,6 +32,7 @@ import os
 import ds_common
 import ds_intake
 import ds_organize
+import ds_taxonomy
 import ds_tools
 import ds_workspace
 
@@ -111,7 +112,7 @@ def adopt_scan(ds_root: str = DEFAULT_DS_ROOT) -> dict:
     root = cfg["root"]
     # 坏 taxonomy(默认表永远有效,仅默认表损坏才 None)→ 结构候选整体退化为空,
     # 不炸盘点:结构识别不到 = null,项目/未绑定照常报。
-    taxonomy = ds_intake.load_taxonomy(ds_root) or {}
+    taxonomy = ds_taxonomy.load_taxonomy(ds_root) or {}
 
     structure = {
         "inbox": _find_struct_dir(root, taxonomy.get("inboxDirs", [])),
@@ -186,7 +187,7 @@ def stage_adoption(project_key: str, ds_root: str = DEFAULT_DS_ROOT,
     cfg = ds_workspace.load_config(ds_root)
     if cfg is None:
         return {"error": "workspace_not_configured"}
-    taxonomy = ds_intake.load_taxonomy(ds_root)
+    taxonomy = ds_taxonomy.load_taxonomy(ds_root)
     if taxonomy is None:
         return {"error": "taxonomy_bad"}
     proj_dir = ds_workspace.project_dir(cfg, project_key)
@@ -212,7 +213,7 @@ def stage_adoption(project_key: str, ds_root: str = DEFAULT_DS_ROOT,
         except OSError:
             continue
         name = ent.name
-        cat = ds_intake.suggest_category(name, taxonomy)
+        cat = ds_taxonomy.suggest_category(name, taxonomy)
         if cat is None:                       # 未知扩展名 → 诚实 skipped
             skipped.append(name)
             continue
