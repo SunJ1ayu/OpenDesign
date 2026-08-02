@@ -170,6 +170,25 @@ class StageTimer(unittest.TestCase):
         self.assertIsNone(r["since"])
         self.assertIsNone(r["days"])
 
+    def test_future_entry_is_unknown_not_negative_days(self):
+        """★ 段末日期在未来 ⇒ 说"不知道",**绝不能显示负天数**。
+
+        由来(2026-08-02 四审,Kimi 与 DeepSeek 两腿独立命中,我自审时漏了):
+        写口拒未来日期,但**档案是人可以手改的纯文本**(refs-vocab 那单栽过),
+        手改或时钟漂移就能造出未来条目 ⇒ 实测界面显示「效果图 · -44 天」。
+        负天数是**算出来的假数字**,与 D4「算不准就说不知道,不给假数字」直接冲突,
+        比「未记录」更糟 —— 它看起来像个真数字。"""
+        text = PROJ_WITH_HIST.replace(f"- {HIST_LAST} 方案深化", "- 2026-09-15 方案深化")
+        r = ds_tools.stage_timer(text, today=TODAY)
+        self.assertIsNone(r["days"], "未来日期必须归 None,不许返回负数")
+        self.assertIsNone(r["since"], "起始日同样不可信")
+
+    def test_today_boundary_is_not_treated_as_future(self):
+        """边界:段末 == today 是合法的 0 天,不许被未来闸误伤。"""
+        r = ds_tools.stage_timer(_doc(TODAY), today=TODAY)
+        self.assertEqual(TODAY, r["since"])
+        self.assertEqual(0, r["days"])
+
     def test_never_falls_back_to_start_date(self):
         """**不许拿建档日期顶替**(proposal Non-goals 的硬约束):
         旧档案有 `- 开始日期: 2026-06-01`,读侧绝不能把它当阶段起始日。"""
