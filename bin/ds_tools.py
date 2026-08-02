@@ -384,6 +384,11 @@ def stage_timer(text: str, today: str | None = None) -> dict:
         days = (date.fromisoformat(today_s) - date.fromisoformat(last["date"])).days
     except ValueError:
         return {"since": None, "days": None}
+    # 段末在未来 ⇒ 起始日不可信,说"不知道"。写口拒未来日期,但档案是人可手改的
+    # 纯文本(refs-vocab 那单栽过),手改/时钟漂移就能造出来。负天数是**算出来的
+    # 假数字**,看起来像真的,比「未记录」更糟 —— 与"算不准就说不知道"同一条口径。
+    if days < 0:
+        return {"since": None, "days": None}
     return {"since": last["date"], "days": days}
 
 

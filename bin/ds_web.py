@@ -1964,7 +1964,8 @@ class Handler(BaseHTTPRequestHandler):
         """POST 写针孔⑩(track opendesign-stage-history §7):切阶段。
         薄壳,posture 逐条照抄 _edit_change:CT application/json →
         body 0<n≤OPEN_BODY_MAX → JSON dict → 键白名单 {project, stage, since}(多余键即拒,
-        防夹带 ds_root/today 走私)→ 两键都必须非空 str → ds_tools.set_stage(
+        防夹带 ds_root/today 走私)→ project/stage 必须非空 str;since 可缺省或 null,
+        给了就必须是 str(空串即拒)→ ds_tools.set_stage(
         名字闸/词表精确匹配/锁/页脚 bump 全在核心)。响应体不回显词表(词表走
         GET /api/projects 的 stages,写口少一条外泄面)。Host 闸由 do_POST 入口继承。"""
         ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
