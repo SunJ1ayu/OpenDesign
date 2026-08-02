@@ -1,7 +1,13 @@
 # Verify: opendesign-workspace-health
 
 - Date: 2026-07-27
-- Verdict: **阶段一 收货三闸 PASS,尚未过 full 评审、尚未 merge**
+- Verdict: **PASS(阶段一 + 阶段二均已交付并 merge)**
+  > ⚠️ **2026-08-02 更正**:这一行此前一直写着「尚未过 full 评审、尚未 merge」,
+  > **是过期的**。git 里白纸黑字:`ea470f2 合并阶段一:workspace.json 并发锁
+  > (full 四审 + 修复轮,主裁 PASS)`,07-27 就合了;阶段二体检卡也已交付
+  > (`FolderVisibilityCard.tsx`,07-28 按用户拍板挪进「设置」)。
+  > 又一次「事实抄到第二个地方、只更新其中一个」——工件没跟着代码走。
+  > **只剩真机验证。**
 
 > Panel hook — 软判断(correctness/security/edge/spec-drift)走 panel-review:
 > 主 agent 先独立审并落 findings,再跑 submimo/subdeepseek/subglm/subkimi,主 agent 主裁。

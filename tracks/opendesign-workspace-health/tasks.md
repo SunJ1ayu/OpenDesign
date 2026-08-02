@@ -40,7 +40,8 @@
       - posture 照抄既有写针孔⑨/⑭;键白名单 `{review_id, hidden}`
       - 名字只能来自本次下发集合;快照变了 → 409 `stale_review`
       - 只动 `structuralDirs`,其余键原样保留;**走 T1 那把锁**
-- [ ] T8 前端卡片,入口取代 `web/src/workspace/Sidebar.tsx:208` 的被动提示
+- [x] T8 前端卡片(`FolderVisibilityCard.tsx`)—— **已交付**;07-28 用户拍板从工作区
+      挪进「设置」浮层,`Sidebar.tsx:272` 留了指路句(2026-08-02 据代码更正)
       - 措辞只能是「显示 / 不显示在项目列表」,**绝不能**说成「设为收件箱」(盲点①)
       - 保存前给一句结果预览
 - [x] T9 oracle 二 全绿 + 全量回归绿 + build 绿 → commit

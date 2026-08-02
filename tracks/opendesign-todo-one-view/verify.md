@@ -1,7 +1,14 @@
 # Verify: opendesign-todo-one-view
 
 - Date: 2026-08-01
-- Verdict: <PASS | BLOCK | NEEDS_MORE_INFO>
+- Verdict: **⚠️ 空着 = 没判过(2026-08-02 清理时发现)**
+  > 这一单的活**做完了也 merge 了**(0.69.0,待办页收敛成单一看法),
+  > 但这一行**从模板起就没填过** —— 按本机规矩「空着 = 没判过」,
+  > 所以**不能事后补一个 PASS 上去充数**,那是自述不是证据。
+  > 已知客观事实:实现走的是 codex gpt-5.5(分层还账第 2 单),
+  > 收货三闸走过,e2e/pytest 当时全绿,用户 08-01 验收 0.68 时未对它提异议。
+  > **缺的是我那一遍独立评审的留痕。** 处置:track 暂不归档;
+  > 真机验收 0.69/0.70 时一并把这条看掉,那时再据实填。
 
 > Panel hook — 软判断(correctness/security/edge/spec-drift)走 panel-review:
 > 主 agent 先独立审并落 findings,再跑 panel-review 的全部评审腿,主 agent 主裁。
