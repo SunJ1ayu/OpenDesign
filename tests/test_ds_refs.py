@@ -15,6 +15,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)  # design-studio/
 sys.path.insert(0, os.path.join(ROOT, "bin"))
 import ds_refs  # noqa: E402
+import ds_refs_server  # noqa: E402
 
 TODAY = "2026-07-02"
 
@@ -220,7 +221,7 @@ class RefsOracle(unittest.TestCase):
     def test_12_mcp_surface(self):
         try:
             import asyncio
-            server = ds_refs._build_server(self.ds)
+            server = ds_refs_server.build(self.ds)
         except ImportError:
             self.skipTest("mcp not installed")
         tools = asyncio.run(server.list_tools())

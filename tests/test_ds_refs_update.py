@@ -28,6 +28,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)  # design-studio/
 sys.path.insert(0, os.path.join(ROOT, "bin"))
 import ds_refs  # noqa: E402
+import ds_refs_server  # noqa: E402
 
 TODAY = "2026-07-21"
 LATER = "2026-07-22"
@@ -325,7 +326,7 @@ class UpdateRefWiring(UpdateRefBase):
     def test_mcp_tool_registered(self):
         """MCP 工具与核心同源(聊天里也能改),缺 mcp 包时跳过。"""
         try:
-            server = ds_refs._build_server(self.ds)
+            server = ds_refs_server.build(self.ds)
         except ImportError:
             self.skipTest("mcp 未安装")
         names = set()

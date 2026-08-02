@@ -48,7 +48,7 @@
       // stdio MCP server:必须用 design-studio venv 的 python(它才有 mcp SDK)。
       "design-studio": {
         "command": "/root/.venvs/design-studio/bin/python",
-        "args": ["/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py"],
+        "args": ["/root/.openclaw/workspace/projects/design-studio/bin/ds_mcp.py", "tools"],
         "env": { "DS_ROOT": "/root/.openclaw/workspace/projects/design-studio" }
       },
       // 文件整理三工具(scan/stage/apply)。批准闸不在这里:`.approved` 只能由人在
@@ -57,7 +57,7 @@
       //    部署到目标机器时按实际要整理的目录填(例:C 盘某文件夹 / ~/Downloads)。
       "design-studio-organize": {
         "command": "/root/.venvs/design-studio/bin/python",
-        "args": ["/root/.openclaw/workspace/projects/design-studio/bin/ds_organize.py"],
+        "args": ["/root/.openclaw/workspace/projects/design-studio/bin/ds_mcp.py", "organize"],
         "env": {
           "DS_ROOT": "/root/.openclaw/workspace/projects/design-studio",
           "DS_ORGANIZE_ROOTS": ""
@@ -67,7 +67,7 @@
       // 不碰图片文件;词表=空间锁死+风格半开放(refs-vocab.md,首次使用自动生成)。
       "design-studio-refs": {
         "command": "/root/.venvs/design-studio/bin/python",
-        "args": ["/root/.openclaw/workspace/projects/design-studio/bin/ds_refs.py"],
+        "args": ["/root/.openclaw/workspace/projects/design-studio/bin/ds_mcp.py", "refs"],
         "env": { "DS_ROOT": "/root/.openclaw/workspace/projects/design-studio" }
       }
     }
