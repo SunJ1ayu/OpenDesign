@@ -39,7 +39,10 @@
 - findings / 四审对账(2026-08-02,lane full):
 
   腿:**submimo PASS(无发现)/ subkimi PASS(1中4低)/ subdeepseek PASS(1中3低)/
-  subglm 失败**(回落腿撞 MiMo 额度「余额不足」,环境问题非评审结论;日志已读,无内容)。
+  subglm 失败**(**智谱 bigmodel 账户余额不足**,agent 腿 429 `[1113]`、回落 chat 腿同因;
+  环境问题非评审结论,日志已读、无内容。⚠️ 回落腿的报错把上游写成 "Mimo endpoint",
+  是**错误归因** —— 同轮 submimo 腿 rc=0 好好的,1113 是智谱的码。已记进
+  [[review-tooling-debt-queue]])。
   **全票 PASS 不降低我自己的标准** —— 下面每条都由我逐条对代码验证过。
 
   | # | 来源 | 处置 | 依据 |
