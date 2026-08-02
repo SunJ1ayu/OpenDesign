@@ -402,10 +402,19 @@ class HeaderSectionInvariant(unittest.TestCase):
     def test_sequence_of_writes_never_desyncs(self):
         """任意一串写之后,`stage_timer` 都不该因 mismatch 返回 None ——
         头部 `- 阶段:` 与段末条目的阶段名由同一次写保证一致。
-        (这是锚断言:没有它,"头部和段一起写错成同一个错值"会照绿。)"""
+        (这是锚断言:没有它,"头部和段一起写错成同一个错值"会照绿。)
+
+        ⚠️ **这串序列本身必须是自洽的**(2026-08-02 修):原版最后一步是
+        `("软装", "2026-08-01")` —— 但上一步「施工交底」是今天(08-02)自动记的,
+        所以那是在说"软装比施工交底更早开始",**数据自相矛盾**,而我却断言它必须
+        `ok`。执行腿为了满足这条断言,发明了"替换掉今天那条自动记录"的补救逻辑,
+        结果**把「施工交底」这次阶段变更静默删掉了** —— 正是本单要防的不可逆丢失。
+        根因是我的判据,不是它的实现。矛盾的输入应该被 `since_before_prev` 拒掉,
+        由 `test_earlier_append_never_deletes_an_entry` 钉死。
+        """
         root = _mkroot(PROJ_LEGACY)
         seq = [("施工图", None), ("施工图", "2026-07-15"), ("施工交底", None),
-               ("施工交底", None), ("软装", "2026-08-01")]
+               ("施工交底", None), ("软装", TODAY)]
         for stage, since in seq:
             r = ds_tools.set_stage(KEY, stage, since=since, ds_root=root, today=TODAY)
             self.assertTrue(r.get("ok"), (stage, since, r))
@@ -420,6 +429,46 @@ class HeaderSectionInvariant(unittest.TestCase):
         # 时序单调(校验闸的累积效果)
         dates = [e["date"] for e in ds_tools.parse_stage_history(_md(root))]
         self.assertEqual(sorted(dates), dates, "流水账日期必须非递减")
+
+
+    def test_earlier_append_never_deletes_an_entry(self):
+        """★ **流水账是 append-only:任何一次写都不许让已有条目变少。**
+
+        补这条的由来(2026-08-02 收货时实测):执行腿为了满足上面那条锚断言里
+        我写错的矛盾序列,发明了「新日期比段末早时,就把段末那条替换掉」的补救,
+        于是「今天进施工交底」这次变更被静默删掉。数据不可逆是本单存在的理由,
+        **宁可拒绝这次写,也不许悄悄抹掉一次真实发生过的阶段变更。**
+
+        正确行为:矛盾输入 → `since_before_prev` + 文件逐字节不变。"""
+        root = _mkroot()      # 段末 = 2026-07-20 方案深化
+        # 先换到效果图(今天),让段末变成"今天自动记的那条"
+        r = ds_tools.set_stage(KEY, "效果图", ds_root=root, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        before = _md(root)
+        n_before = len(_entries(before))
+        self.assertEqual(3, n_before)
+
+        # 再说"软装是昨天开始的" —— 比刚记的效果图还早,自相矛盾
+        r2 = ds_tools.set_stage(KEY, "软装", since="2026-08-01",
+                                ds_root=root, today=TODAY)
+        self.assertEqual("since_before_prev", r2.get("error"), r2)
+        after = _md(root)
+        self.assertEqual(before, after, "拒绝的写必须零落盘")
+        self.assertEqual(n_before, len(_entries(after)), "条目数不许变少")
+        self.assertTrue(any(e["stage"] == "效果图" for e in _entries(after)),
+                        "已经记下的阶段变更,任何情况下都不许被抹掉")
+
+    def test_entry_count_never_shrinks_across_a_write_sequence(self):
+        """同一不变量的扫射版:一串真实用法跑下来,条目数只增不减。"""
+        root = _mkroot(PROJ_LEGACY)
+        seen = 0
+        for stage, since in [("施工图", None), ("施工图", "2026-07-15"),
+                             ("施工交底", None), ("软装", TODAY),
+                             ("软装", "2026-08-01"), ("竣工验收", None)]:
+            ds_tools.set_stage(KEY, stage, since=since, ds_root=root, today=TODAY)
+            n = len(_entries(_md(root)))
+            self.assertGreaterEqual(n, seen, f"写 {stage}/{since} 之后条目变少了")
+            seen = n
 
 
 # ── 建档:create_project 写首条 ─────────────────────────────────────────────

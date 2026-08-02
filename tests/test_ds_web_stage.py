@@ -307,7 +307,7 @@ class StagePinholeSince(unittest.TestCase):
             st, body = _post(port, {"project": KEY, "stage": "施工图",
                                     "since": None})
             self.assertEqual(200, st, body)
-            self.assertEqual(ds_common.today_str(), body.get("since"), body)
+            self.assertEqual(ds_common.today_str(None), body.get("since"), body)
 
     def test_days_is_zero_when_since_is_today(self):
         """days 由服务器按**本地**今天算 —— 用同一个 today_str 取基准,
@@ -315,7 +315,7 @@ class StagePinholeSince(unittest.TestCase):
         root = _mkroot_hist()
         with _serve(root) as port:
             st, body = _post(port, {"project": KEY, "stage": "施工图",
-                                    "since": ds_common.today_str()})
+                                    "since": ds_common.today_str(None)})
             self.assertEqual(200, st, body)
             self.assertEqual(0, body.get("days"), body)
 
