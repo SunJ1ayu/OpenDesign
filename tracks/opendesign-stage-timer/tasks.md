@@ -1,5 +1,30 @@
 # Tasks: opendesign-stage-timer
 
+> ## 👉 明天从这里接(2026-08-02 傍晚断点)
+>
+> **实现已完成并通过收货三闸,停在四审之前。** 用户出门,主动叫停。
+>
+> - **代码在哪**:worktree `/root/aiwork/worktrees/stage-timer`,分支 `stage-timer`,
+>   提交 `41f8aa6`(执行腿两轮都没自己 commit,我代为落盘)。**未 merge、未 push。**
+> - **判据在哪**:main 分支,`c472397`(三次改动,哈希存档
+>   `/root/aiwork/logs/stage-timer-oracle-hashes.txt` 已同步重生成)。
+> - **下一步 = G4 截图 → G5 四审 → 主裁 → merge → G6 装机验证。**
+>   四审要花额度,**开跑前先问用户**(已跟他说好)。
+> - 派 panel 时判卷文件仍全部 off-limits;`panel-review` 的 diff 取
+>   `git -C /root/aiwork/worktrees/stage-timer diff c472397..41f8aa6`。
+>
+> **已知遗留(不是拦路条,但四审/主裁时要摆出来)**:
+> 1. 参数级 eval #1「上周三进的方案深化」**仍红**:MiMo 三次分别给 07-27 / 07-29 / 07-28,
+>    只有 07-29 落在合法读法内。这是**模型算相对日期的老毛病**(due-writer 单已证过一次),
+>    不是实现缺陷;D6 已写「拿不准就问」。**判据留红,当真机抽查项,不为它加代码闸。**
+> 2. `""` 的口径两层不一致:核心 `set_stage` 把 `""` 当 None,网页写口把 `""` 判
+>    `invalid_since` 400。两层各自都合我的判据,但界面上"清空日期再保存"会得到
+>    「日期格式不对」——**文案不算错但路有点死**,记为 accepted deviation 候选。
+> 3. `ds_web._field()` 注释说"取项目头"实为**全文搜索**(`ds_web.py:597`)。
+>    与本单不撞车,**记债不修**。
+> 4. worktree 里我 `cp -a` 了一份真的 `web/node_modules`(**不是符号链接**,故意的)。
+>    归档时连 worktree 一起删掉即可。
+
 - base-ref: 00337463c1748b84c92d634d35b4b73abf4847c2
 - 交付到:**ds-web 0.70.0**
 
@@ -61,9 +86,14 @@
 
 ## 收货(主 agent,一道都不省)
 
-- [ ] G1 闸①:对 oracle commit 逐字节 diff = 空
-- [ ] G2 闸②:亲跑 oracle + 全量 py + 全量 mjs + tsc + build + 相邻 e2e
-- [ ] G3 闸③:亲读 diff(安全面逐行 + 盯 `create mode 120000`)
+- [x] G1 闸①:两轮都 PASS —— 五份判卷题哈希与存档逐字节一致,既有测试一个没碰
+- [x] G2 闸②:亲跑全绿 —— 29 个 py 套件 + `test_ds_stage_timer` 42 例 +
+      `test_ds_web_stage` 31 例 + `test_ds_lint` 35 例 + `stage_timer.e2e.mjs` 5 段
+      ALL PASS + `tsc --noEmit` 干净 + `npm run build` 通过(dist 已重打并入库)
+      + 路由 eval 27/27。**唯一红的 `test_ws_protocol_smoke` 是环境跳过**
+      (要 gateway 在跑),与基线一致、与本单无关
+- [x] G3 闸③:亲读 diff —— **抓到三条并已退回修完**(详见 verify.md「收货第 1 轮」);
+      无符号链接(`create mode 120000` 检查为空)
 - [ ] G4 **真截图看两处**:①工作区 chip 那一行(长项目名 + 「施工交底」+ 两位数天数;
       确认它与「⛑ N 天没动静」不打架);②**待办页项目卡头**(一屏多卡,确认天数不挤、
       未记录的卡不留空洞)—— design 里点名的"数字对结果错"面
