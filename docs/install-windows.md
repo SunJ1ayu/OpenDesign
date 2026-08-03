@@ -186,5 +186,19 @@ python "<DS_ROOT>\tests\test_ds_web.py"
 - **更新的生效边界**:MCP 工具直接从 `<DS_ROOT>\bin\*.py` 运行,`git pull` 后**重启
   gateway 即生效**;但 `workspace\AGENTS.md`/`SOUL.md`/`skills\` 是**部署副本**,
   更新后要重拷(重跑 `install.ps1` 第 8 步,或手动 `Copy-Item`)。
+  **例外(2026-08-03 起,只影响这次之前就装好的机器):MCP 入口换成了统一的
+  `bin\ds_mcp.py <tools|organize|refs>`**,而入口路径写在
+  `%USERPROFILE%\.nanobot\config.json` 里 —— 那个文件**不在仓库里,`git pull` 改不到它**。
+  所以这一次拉更新后**必须重跑一次装机脚本**,否则助手会**一个工具都调不到**:
+
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File <DS_ROOT>\bin\install.ps1
+  ```
+
+  (只想合配置也行:`python <DS_ROOT>\bin\ds_merge_config.py <DS_ROOT>\config\nanobot.config.windows.jsonc %USERPROFILE%\.nanobot\config.json`;
+  会自动备份原 config,已完成的步骤自动跳过。)
+  **怎么确认没漏做**:重启 gateway 后问一句"有什么待办",能返回 = 通了;
+  忘了重跑的话,旧入口现在会**明确报错说"本文件不再是 MCP 入口"**并让你重跑本步骤
+  (报错在 gateway 日志 `%USERPROFILE%\.openDesign\logs\gateway.log` 里)。
 - **启动脚本读的配置**:`ds-nanobot.ps1` 用默认 `%USERPROFILE%\.nanobot\config.json`;
   排查"改了配置没生效"先确认改的是这个文件。key 在 `%USERPROFILE%\.openDesign\key.txt`。

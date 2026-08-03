@@ -97,8 +97,14 @@ _PY_TYPES = {"int": "integer", "bool": "boolean", "float": "number"}
 
 
 def tool_schemas() -> list[dict]:
-    """从 bin/ds_tools.py 的 *_tool 定义抽 OpenAI function schema(与真部署同源)。"""
-    tree = ast.parse(open(os.path.join(ROOT, "bin", "ds_tools.py"), encoding="utf-8").read())
+    """从 bin/ds_tools_server.py 的 *_tool 定义抽 OpenAI function schema(与真部署同源)。
+
+    2026-08-03(track opendesign-mcp-registry):登记层搬到 `bin/ds_tools_server.py`,
+    这里跟着改;**执行仍打在业务模块 `ds_tools` 上**(下面 `call_tool` 的 getattr),
+    因为搬走的只是 `@server.tool()` 那层壳,纯 Python 核心没动。
+    """
+    tree = ast.parse(
+        open(os.path.join(ROOT, "bin", "ds_tools_server.py"), encoding="utf-8").read())
     out = []
     for node in ast.walk(tree):
         if not (isinstance(node, ast.FunctionDef) and node.name.endswith("_tool")):

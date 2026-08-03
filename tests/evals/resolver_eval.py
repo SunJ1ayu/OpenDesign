@@ -90,9 +90,15 @@ PARAM_CASES = [
 
 
 def extract_tools():
-    """从三个 MCP 文件抽 *_tool 函数名+docstring(与真部署同源的路由信号)。"""
+    """从三个 MCP 登记层抽 *_tool 函数名+docstring(与真部署同源的路由信号)。
+
+    2026-08-03(track opendesign-mcp-registry):登记层从业务模块搬到
+    `bin/ds_*_server.py`,这里跟着改。**搬家当天这份 eval 没跟上,抽到的是空表**
+    —— 它不进 pytest,所以没有任何测试会因此变红(闸 `EvalHarnessesFollowedTheMove`
+    就是为这个补的)。改这里的文件名前先看那条闸。
+    """
     tools = []
-    for f in ("ds_tools.py", "ds_organize.py", "ds_refs.py"):
+    for f in ("ds_tools_server.py", "ds_organize_server.py", "ds_refs_server.py"):
         tree = ast.parse(open(os.path.join(ROOT, "bin", f), encoding="utf-8").read())
         for node in ast.walk(tree):
             if isinstance(node, ast.FunctionDef) and node.name.endswith("_tool"):

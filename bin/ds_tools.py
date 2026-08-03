@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """design-studio 工具层 — spec docs/spec.md §4/§5 的实现。
 
-两层:
-  1) 纯 Python 核心(下面的 append_change/set_change_status/read_project/list_todos),
-     只依赖标准库,可被 tests/ 直接调用做 oracle 验证。
-  2) 末尾的 stdio MCP server 包装(需 `pip install mcp`,未装则不影响核心与测试)。
+本文件**只剩纯 Python 核心**(append_change/set_change_status/read_project/list_todos …),
+只依赖标准库,可被 tests/ 直接调用做 oracle 验证。
+MCP 登记层已搬到 `bin/ds_tools_server.py`,进程入口是 `bin/ds_mcp.py tools`
+(track opendesign-mcp-registry;末尾只留一个报错桩,给还没更新 config 的存量机器看)。
 
 契约铁律(spec §3):
   - 变更行:`- [状态] C<n> YYYY-MM-DD 【空间】内容`,状态 ∈ STATUSES;【空间】可选
@@ -1361,3 +1361,21 @@ def create_project(project: str, client: str = "", stage: str = "洽谈", addres
     with open(path, "x", encoding="utf-8") as fh:
         fh.write(body)
     return {"ok": True, "project": project, "client": client, "stage": stage}
+
+
+# ── 旧入口留下的报错桩(track opendesign-mcp-registry) ─────────────────────
+# 本文件**曾经**是 `design-studio` 这个 MCP server 的进程入口,登记层已搬到
+# `bin/ds_tools_server.py`,入口统一成 `bin/ds_mcp.py tools`。
+# 桩留在这里的唯一理由:**存量机器上那份 `~/.nanobot/config.json` 不在仓库里,
+# `git pull` 更新不到它**。没有这个桩,旧 config 拉起本文件会静默退出 0、零输出,
+# 表现成"助手突然什么都不会做了"却查不出原因(2026-08-03 panel 三腿同时命中)。
+# 不 import mcp、也不 import 登记层 —— 承重墙与无环闸都不许被这个桩破坏。
+if __name__ == "__main__":
+    raise SystemExit(
+        "本文件不再是 MCP 入口(登记层已搬到 bin/ds_tools_server.py)。\n"
+        "正确入口:python bin/ds_mcp.py tools\n"
+        "你的 ~/.nanobot/config.json 还是旧的 —— 重跑装机脚本更新它:\n"
+        "  Windows:  powershell -ExecutionPolicy Bypass -File bin\\install.ps1\n"
+        "  或只合配置:python bin/ds_merge_config.py config/nanobot.config.windows.jsonc "
+        "%USERPROFILE%/.nanobot/config.json\n"
+        "(会自动备份原 config;详见 docs/install-windows.md「更新的生效边界」)")
