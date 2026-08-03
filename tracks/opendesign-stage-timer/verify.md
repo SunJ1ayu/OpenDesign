@@ -1,7 +1,12 @@
 # Verify: opendesign-stage-timer
 
 - Date: 2026-08-02
-- Verdict: <PASS | BLOCK | NEEDS_MORE_INFO>
+- Verdict: **PASS**(限本单范围,带 3 条 accepted deviations —— 主裁原文见下面
+  「arbitrated verdict」那条;已 merge `268d282`,ds-web 0.70.0,已 push)
+  > 2026-08-04 补填。这一格从头到尾没人回填,而这单已经合并上线、记忆里写着
+  > 「全流程走完」—— 空着 = 没判过,而它其实判过了,只是判断没落在该落的地方。
+  > 同一格上一次空掉是 todo-one-view(靠人工清理才发现)。**两个月两次**,
+  > 所以 08-04 给 `track-guard` 加了归档闸、给 `track list` 加了 ⚠️ 提示。
 
 > Panel hook — 软判断(correctness/security/edge/spec-drift)走 panel-review:
 > 主 agent 先独立审并落 findings,再跑 panel-review 的全部评审腿,主 agent 主裁。
