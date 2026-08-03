@@ -19,6 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)  # design-studio/
 sys.path.insert(0, os.path.join(ROOT, "bin"))
 import ds_organize  # noqa: E402
+import ds_organize_server  # noqa: E402
 
 
 def _write(path, content="x"):
@@ -290,7 +291,7 @@ class OrganizeOracle(unittest.TestCase):
     def test_15_mcp_surface(self):
         try:
             import asyncio
-            server = ds_organize._build_server(self.ds, self.allowed)
+            server = ds_organize_server.build(self.ds, self.allowed)
         except ImportError:
             self.skipTest("mcp not installed")
         tools = asyncio.run(server.list_tools())

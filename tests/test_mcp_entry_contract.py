@@ -40,6 +40,7 @@ class EntryContract(unittest.TestCase):
 
     @unittest.skipIf(_mcp_missing(), "未装 mcp 包")
     def test_02_三个key都建得出server(self):
+        ms._ensure_env()            # 单跑本文件时 bin/ 还不在 sys.path(2026-08-03 补)
         import ds_mcp
         for key, name in sorted(ms.SERVER_KEYS.items()):
             with self.subTest(key=key):
@@ -48,6 +49,7 @@ class EntryContract(unittest.TestCase):
     def test_03_坏key不许静默给个空server(self):
         """诚实闸:拼错 key 必须炸,不能给个没有工具的 server ——
         那会表现成"助手突然什么都不会了"却没人知道为什么。"""
+        ms._ensure_env()
         import ds_mcp
         with self.assertRaises(Exception):
             ds_mcp.build("nope")
@@ -97,6 +99,124 @@ class EntryContract(unittest.TestCase):
                 with self.subTest(template=rel, server=name):
                     self.assertIn(f'"{name}"', text)
 
+    def test_07_模板里每条args都带对了key(self):
+        """panel(subdeepseek)补的洞:test_05 只查"文本里有 ds_mcp.py、没有旧名",
+        模板写成 `args:[".../ds_mcp.py"]` **漏掉 key** 一样能绿,
+        而真起进程时 argparse 立刻报错退出 —— 又是一次"我这边全绿、用户那边全废"。
+        ⇒ 真解析 JSONC,逐条比对 args。"""
+        sys.path.insert(0, ms.BIN)
+        import ds_merge_config
+        for rel in TEMPLATES:
+            cfg = json.loads(ds_merge_config.strip_jsonc(
+                open(os.path.join(ms.REPO, rel), encoding="utf-8").read()))
+            servers = cfg["tools"]["mcpServers"]
+            for key, name in sorted(ms.SERVER_KEYS.items()):
+                with self.subTest(template=rel, server=name):
+                    args = servers[name]["args"]
+                    self.assertEqual(len(args), 2,
+                                     f"{rel} 的 {name}.args 应为 [入口, key],实为 {args}")
+                    self.assertTrue(args[0].endswith("bin/ds_mcp.py"),
+                                    f"{rel} 的 {name} 入口不是 bin/ds_mcp.py:{args[0]}")
+                    self.assertEqual(args[1], key,
+                                     f"{rel} 的 {name} 少了/写错了 key")
+
+
+class OldEntriesFailLoudly(unittest.TestCase):
+    """存量机器上那份没更新的 config 仍指着旧入口 —— 它必须**响亮地**失败。
+
+    2026-08-03 panel 三腿(subdeepseek/submimo/subkimi)与主 agent 独立同时命中:
+    三个业务模块的 `__main__` 整块删掉之后,`python bin/ds_tools.py` 会
+    **退出码 0、零输出**。机主不是程序员,他看到的只是"助手突然什么都不会做了",
+    而 nanobot 那边只看到 stdio 对端干净退出,**没有任何线索指向"重跑装机脚本"**。
+
+    这条闸钉的是:旧入口被当 MCP 入口拉起时,**必须非零退出并说人话**。
+    (shim 不许 import mcp,也不许 import server 层 —— 否则承重墙/无环闸会红。)
+    """
+
+    def test_01_三个旧入口都必须非零退出并指向新入口(self):
+        for mod in OLD_ENTRIES:
+            with self.subTest(entry=mod):
+                r = subprocess.run([sys.executable, os.path.join(ms.REPO, mod)],
+                                   capture_output=True, text=True, timeout=60)
+                self.assertNotEqual(r.returncode, 0,
+                                    f"{mod} 被当入口跑时静默退出 0 —— "
+                                    f"存量 config 会表现成'助手什么都不会了'却查不出原因")
+                out = r.stdout + r.stderr
+                self.assertIn("ds_mcp.py", out, f"{mod} 的报错没告诉人新入口在哪")
+                self.assertIn("install", out.lower(),
+                              f"{mod} 的报错没告诉人怎么修(重跑装机脚本)")
+
+
+class NoStaleEntryReferences(unittest.TestCase):
+    """**同一件事写在两个地方、只更新其中一个** —— 本仓反复记账的那条债。
+
+    2026-08-03 panel(subkimi/submimo/subdeepseek)与主 agent 共命中三处:
+    `docs/spec.md` 的"可抄 config 骨架"、`docs/install-windows.md` 的"更新的生效边界"、
+    三个业务模块的模块头。判据原来只钉了 `config/*.jsonc` 两份模板,**没钉文档**。
+    """
+
+    def test_01_docs里不许再出现指向旧入口的启动配置(self):
+        docs = os.path.join(ms.REPO, "docs")
+        bad = []
+        for fn in sorted(os.listdir(docs)):
+            if not fn.endswith(".md"):
+                continue
+            for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+                if "args" not in line and "command" not in line:
+                    continue
+                for old in OLD_ENTRIES:
+                    if os.path.basename(old) in line:
+                        bad.append(f"{fn}:{i} {line.strip()[:90]}")
+        self.assertEqual(bad, [], "文档里的启动配置仍指向旧入口(照抄即装坏):\n  "
+                                  + "\n  ".join(bad))
+
+    def test_02_装机文档的更新边界必须提到新入口(self):
+        """`docs/install-windows.md` 是**存量机器唯一会读的耐用文档**。
+        本单之后"git pull + 重启"不再等于生效(config 里的 args 变了),
+        它必须自己说得出 `ds_mcp.py` 与"要重跑装机脚本"。"""
+        text = open(os.path.join(ms.REPO, "docs/install-windows.md"),
+                    encoding="utf-8").read()
+        self.assertIn("ds_mcp.py", text,
+                      "装机/更新文档没提新入口 —— 存量机器按它操作会静默失去全部工具")
+
+    def test_03_业务模块头不许再声称自己带着MCP包装(self):
+        """注释撒谎是这个仓库已经记在账上的债(见 test_no_import_cycles 的同类闸)。"""
+        bad = []
+        for mod in OLD_ENTRIES:
+            head = open(os.path.join(ms.REPO, mod), encoding="utf-8").read()[:1200]
+            for claim in ("stdio MCP server 包装", "stdio FastMCP 包装"):
+                if claim in head:
+                    bad.append(f"{mod}: 模块头仍写着「{claim}」,但那层已搬到 *_server.py")
+        self.assertEqual(bad, [], "\n  " + "\n  ".join(bad))
+
+
+class EvalHarnessesFollowedTheMove(unittest.TestCase):
+    """两份 eval 从 AST 抽工具表,自称"与真部署同源" —— 搬家后它们抽到的是**空表**。
+
+    2026-08-03 submimo 与 subkimi 独立命中,**主 agent 漏了**。
+    它们不进 pytest(要 key + 网络),所以搬家不会让任何测试变红:
+    典型的"静默退化"。这条闸只查**抽取结果**,不跑模型,零依赖。
+    """
+
+    def _load(self, name):
+        sys.path.insert(0, os.path.join(ms.REPO, "tests", "evals"))
+        return __import__(name)
+
+    def test_01_resolver_eval仍抽得到29个工具(self):
+        mod = self._load("resolver_eval")
+        tools = mod.extract_tools()
+        self.assertEqual(len(tools), 29,
+                         "resolver_eval 抽到的工具表不是 29 个 —— 它还在扫旧文件")
+        self.assertIn("adopt_workspace", [t[0] for t in tools])
+
+    def test_02_due_writer_eval仍抽得到ds_tools的17个工具(self):
+        mod = self._load("due_writer_eval")
+        schemas = mod.tool_schemas()
+        self.assertEqual(len(schemas), 17,
+                         "due_writer_eval 抽到的 schema 不是 17 个 —— 它还在扫旧文件")
+        self.assertIn("set_due_date",
+                      [s["function"]["name"] for s in schemas])
+
 
 class BusinessModulesStayMcpFree(unittest.TestCase):
     """O3:业务模块在**没装 mcp** 的环境里仍然要能 import。
@@ -107,8 +227,16 @@ class BusinessModulesStayMcpFree(unittest.TestCase):
     则**测试永远绿、隐患直到上线才炸**。所以要静态查,不能靠"能不能 import"。
     """
 
+    # 2026-08-03 panel(subkimi)补:原名单漏了 ds_common/ds_lock/ds_todo/ds_model ——
+    # 它们是所有业务模块的地基,谁在那儿把 mcp 提到模块层,承重墙一样塌。
     BUSINESS = ("ds_tools", "ds_organize", "ds_refs", "ds_adopt",
-                "ds_intake", "ds_lint", "ds_workspace", "ds_taxonomy")
+                "ds_intake", "ds_lint", "ds_workspace", "ds_taxonomy",
+                "ds_common", "ds_lock", "ds_todo", "ds_model")
+
+    # 登记层自己也不许在模块层 import mcp:`ds_tools_server` **没有任何测试无条件
+    # import 它**(只经 ds_mcp.build,而那条在没装 mcp 时整块 skip),
+    # ⇒ 真出了这个错,装了 mcp 的机器上永远绿、没装的机器上永远 skip。(subkimi 命中)
+    SERVER_LAYER = ("ds_mcp", "ds_tools_server", "ds_organize_server", "ds_refs_server")
 
     def test_01_业务模块里不许出现mcp的模块层import(self):
         import ast
@@ -128,6 +256,27 @@ class BusinessModulesStayMcpFree(unittest.TestCase):
                     if n == "mcp" or n.startswith("mcp."):
                         bad.append(f"{mod}.py:{node.lineno} 模块层 import {n}")
         self.assertEqual(bad, [], "\n  " + "\n  ".join(bad))
+
+    def test_03_登记层也不许在模块层import_mcp(self):
+        """`if TYPE_CHECKING:` 里的那句不算(运行期不执行,`ds_mcp.py` 就是这么写的)——
+        只查真正会在 import 时执行的模块层语句。"""
+        import ast
+        bad = []
+        for mod in self.SERVER_LAYER:
+            path = os.path.join(ms.BIN, mod + ".py")
+            tree = ast.parse(open(path, encoding="utf-8").read())
+            for node in tree.body:                      # 只看模块层(TYPE_CHECKING 块是嵌套的)
+                names = []
+                if isinstance(node, ast.Import):
+                    names = [a.name for a in node.names]
+                elif isinstance(node, ast.ImportFrom):
+                    names = [node.module or ""]
+                for n in names:
+                    if n == "mcp" or n.startswith("mcp."):
+                        bad.append(f"{mod}.py:{node.lineno} 模块层 import {n}")
+        self.assertEqual(bad, [], "登记层把 mcp 提到了模块层 —— 没装 mcp 的机器上"
+                                  "`import ds_*_server` 会炸,而本机装了就永远绿:\n  "
+                                  + "\n  ".join(bad))
 
     def test_02_业务模块不许依赖server层(self):
         """方向 R 的核心:依赖必须**单向**(入口/server → 业务),不许反过来。"""

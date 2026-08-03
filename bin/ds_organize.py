@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """design-studio 文件整理工具层 — track opendesign-file-organizer design.md 的实现。
 
-两层(同 ds_tools.py):
-  1) 纯 Python 核心(scan_dir/stage_plan/apply_plan/approve_plan),只依赖标准库,
-     可被 tests/ 直接调用做 oracle 验证。
-  2) 末尾的 stdio MCP server 包装(需 `pip install mcp`,未装则不影响核心)。
+本文件**只剩纯 Python 核心**(scan_dir/stage_plan/apply_plan/approve_plan,同 ds_tools.py),
+只依赖标准库,可被 tests/ 直接调用做 oracle 验证。
+MCP 登记层已搬到 `bin/ds_organize_server.py`,进程入口是 `bin/ds_mcp.py organize`
+(track opendesign-mcp-registry;末尾只留一个报错桩)。
 
 契约铁律:
   - LLM 提方案 / 工具管校验+执行。MCP 只暴露 scan/stage/apply 三工具。
@@ -317,80 +317,19 @@ def apply_plan(plan_id: str, allowed_roots: list[str] | None,
     return {"ok": True, "plan_id": plan_id, "applied": applied}
 
 
-# ── stdio MCP server 包装(需 `pip install mcp`;未装不影响以上核心) ────────
-def _build_server(ds_root: str, allowed_roots: list[str]):
-    from mcp.server.fastmcp import FastMCP  # 延迟导入
-
-    server = FastMCP("design-studio-organize")
-
-    @server.tool()
-    def scan_dir_tool(root: str) -> dict:
-        """整理文件夹的第一步:设计师说"帮我整理/归类这个文件夹/批量改名/归档旧文件"
-        时先调这个——只读列出 root 下的文件/子目录(相对路径、类型、大小、修改时间),
-        看清现状再 stage_plan 出方案。本身零改动,放心调。"""
-        return scan_dir(root, allowed_roots=allowed_roots)
-
-    @server.tool()
-    def stage_plan_tool(root: str, operations: list[dict]) -> dict:
-        """暂存一份整理方案(零改动)。operations=[{op: move|rename, src, dst}],
-        路径相对 root。返回 plan_id + 给人看的清单;需用户在终端 ds-approve 批准。"""
-        return stage_plan(root, operations, allowed_roots=allowed_roots,
-                          ds_root=ds_root)
-
-    @server.tool()
-    def apply_plan_tool(plan_id: str) -> dict:
-        """执行一份已经人工批准的方案。未批准会被拒绝——请用户在终端跑
-        `ds-approve <plan_id>`,聊天里说"确认"不算数。"""
-        return apply_plan(plan_id, allowed_roots=allowed_roots, ds_root=ds_root)
-
-    import ds_intake  # 同目录模块;收件箱认领两工具(track opendesign-intake)
-
-    @server.tool()
-    def list_inbox_tool() -> dict:
-        """看收件箱:设计师问"收件箱里有什么/有没有新文件/帮我整理收件箱"时先调
-        这个——列出工作区 00-收件箱 里的文件,带确定性建议(扩展名→类目,文件名
-        含项目名→建议项目;歧义留空,要问用户别猜)。只读零改动,放心调。"""
-        return ds_intake.list_inbox(ds_root)
-
-    @server.tool()
-    def stage_intake_tool(assignments: list[dict]) -> dict:
-        """把收件箱文件的归类指派暂存成方案(零改动):设计师确认了"这个文件归
-        哪个项目哪个类目"之后调用。assignments=[{name: 收件箱内文件名,
-        project: 项目名(参考图等工作区级类目可为 null), category: 类目 id}]。
-        返回 plan_id;真正移动要用户在工作台收件箱卡片点「确认执行」,
-        聊天里说"确认"不算数,也不要自己调 apply_plan_tool 替用户确认。"""
-        return ds_intake.stage_intake(assignments, allowed_roots=allowed_roots,
-                                      ds_root=ds_root)
-
-    import ds_adopt  # 同目录模块;采纳引擎两工具(track opendesign-adoption)
-
-    @server.tool()
-    def adopt_workspace_tool() -> dict:
-        """接管我的工作区 / 盘点工作区 / 首装 / 看看工作区什么情况 / 采纳现状:
-        一次只读盘点整个工作区——识别收件箱/项目根/归档/共享结构,列出每个项目夹的
-        绑定状态、类目、根层散文件数,以及有档案却没绑文件夹的项目。零改动。据此
-        引导设计师逐个 bind_project,再对项目内散文件调 stage_adoption。"""
-        return ds_adopt.adopt_scan(ds_root)
-
-    @server.tool()
-    def stage_adoption_tool(project_key: str) -> dict:
-        """把某个已绑定项目【项目夹根一层】的散文件按 taxonomy 暂存归位(零改动):
-        auto 类目(资料/参考图)进方案,suggest 类目(CAD/SU/MAX/PSD 被引用风险)
-        只在 advice 里口头建议、永不自动动,未知扩展名进 skipped。返回 plan_id;
-        真正移动要设计师在工作台卡片点「确认执行」,你不能替他确认也别自己调
-        apply_plan_tool。"""
-        return ds_adopt.stage_adoption(project_key, allowed_roots=allowed_roots,
-                                       ds_root=ds_root)
-
-    return server
-
-
-def _run_mcp() -> None:
-    ds_root = os.environ.get("DS_ROOT", DEFAULT_DS_ROOT)
-    # os.pathsep:Linux 冒号 / Windows 分号(Windows 路径自带盘符冒号,不能拿冒号切)
-    allowed = [p for p in os.environ.get("DS_ORGANIZE_ROOTS", "").split(os.pathsep) if p]
-    _build_server(ds_root, allowed).run()
-
-
+# ── 旧入口留下的报错桩(track opendesign-mcp-registry) ─────────────────────
+# 本文件**曾经**是 `design-studio-organize` 这个 MCP server 的进程入口,登记层已搬到
+# `bin/ds_organize_server.py`,入口统一成 `bin/ds_mcp.py organize`。
+# 桩留在这里的唯一理由:**存量机器上那份 `~/.nanobot/config.json` 不在仓库里,
+# `git pull` 更新不到它**。没有这个桩,旧 config 拉起本文件会静默退出 0、零输出,
+# 表现成"助手突然什么都不会做了"却查不出原因(2026-08-03 panel 三腿同时命中)。
+# 不 import mcp、也不 import 登记层 —— 承重墙与无环闸都不许被这个桩破坏。
 if __name__ == "__main__":
-    _run_mcp()
+    raise SystemExit(
+        "本文件不再是 MCP 入口(登记层已搬到 bin/ds_organize_server.py)。\n"
+        "正确入口:python bin/ds_mcp.py organize\n"
+        "你的 ~/.nanobot/config.json 还是旧的 —— 重跑装机脚本更新它:\n"
+        "  Windows:  powershell -ExecutionPolicy Bypass -File bin\\install.ps1\n"
+        "  或只合配置:python bin/ds_merge_config.py config/nanobot.config.windows.jsonc "
+        "%USERPROFILE%/.nanobot/config.json\n"
+        "(会自动备份原 config;详见 docs/install-windows.md「更新的生效边界」)")

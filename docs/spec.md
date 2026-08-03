@@ -93,7 +93,8 @@
 - **工具挂载 = stdio MCP server(已决)**。nanobot 自定义工具一等路径是 MCP
   (`tools.mcpServers`,stdio `command`+`args` 或 http `url`);docs 未暴露轻量原生
   Python 工具 API(`my-tool.md` 是内置自省工具,非自写)。→ 4 工具写成一个 stdio
-  MCP server(Python 官方 `mcp` SDK),nanobot `command: python args:[ds_tools.py]` 拉起。
+  MCP server(Python 官方 `mcp` SDK),nanobot `command: python args:[bin/ds_mcp.py, tools]`
+  拉起(2026-08-03 起统一入口;登记层在 `bin/ds_*_server.py`,业务模块不再当入口)。
   利好:MCP server 可移植(挂任何 MCP 宿主),工具层也不锁 nanobot。
 - **飞书 = WebSocket 长连接(已决)**,不需公网 IP。配 `channels.feishu`(见 §9)。
 - **起步 provider/model(仍待用户拍)**:Claude 或 GLM,给 `apiBase+model+key`。
@@ -118,7 +119,12 @@
   "agents": { "defaults": { "modelPreset": "primary" } },
   "tools": {
     "mcpServers": {
-      "design-studio": { "command": "python", "args": ["/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py"] }
+      // 三个 server 共用一个入口 bin/ds_mcp.py,靠第二个参数(tools/organize/refs)分流。
+      // ⚠️ 少写那个 key 会让 server 起不来(argparse 直接退出);完整版见
+      //    config/nanobot.config*.jsonc(带 env 段与整理白名单说明),那两份才是装机用的模板。
+      "design-studio":          { "command": "python", "args": [".../design-studio/bin/ds_mcp.py", "tools"] },
+      "design-studio-organize": { "command": "python", "args": [".../design-studio/bin/ds_mcp.py", "organize"] },
+      "design-studio-refs":     { "command": "python", "args": [".../design-studio/bin/ds_mcp.py", "refs"] }
     }
   },
   "channels": {

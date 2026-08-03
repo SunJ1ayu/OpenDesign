@@ -58,7 +58,7 @@
       // 正斜杠在 Windows 的 CreateProcess/Python 下均可用,避免 JSON 反斜杠转义。
       "design-studio": {
         "command": "${USERPROFILE}/.venvs/design-studio/Scripts/python.exe",
-        "args": ["${DS_ROOT}/bin/ds_tools.py"],
+        "args": ["${DS_ROOT}/bin/ds_mcp.py", "tools"],
         "env": { "DS_ROOT": "${DS_ROOT}" }
       },
       // 批准闸同 Linux:`.approved` 只能由人在终端跑 python bin/ds-approve 创建。
@@ -70,7 +70,7 @@
       //    "...;C:/Users/<机主>/Documents/设计资料;D:/项目归档"
       "design-studio-organize": {
         "command": "${USERPROFILE}/.venvs/design-studio/Scripts/python.exe",
-        "args": ["${DS_ROOT}/bin/ds_organize.py"],
+        "args": ["${DS_ROOT}/bin/ds_mcp.py", "organize"],
         "env": {
           "DS_ROOT": "${DS_ROOT}",
           "DS_ORGANIZE_ROOTS": "${USERPROFILE}/Desktop;${USERPROFILE}/Downloads"
@@ -78,7 +78,7 @@
       },
       "design-studio-refs": {
         "command": "${USERPROFILE}/.venvs/design-studio/Scripts/python.exe",
-        "args": ["${DS_ROOT}/bin/ds_refs.py"],
+        "args": ["${DS_ROOT}/bin/ds_mcp.py", "refs"],
         "env": { "DS_ROOT": "${DS_ROOT}" }
       }
     }

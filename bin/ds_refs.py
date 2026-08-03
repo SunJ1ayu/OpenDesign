@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """design-studio 参考图索引工具层 — track opendesign-ref-images design.md 的实现。
 
-两层(同 ds_tools.py):纯 Python 核心 + 末尾 stdio FastMCP 包装(未装 mcp 不影响核心)。
+本文件**只剩纯 Python 核心**(同 ds_tools.py);MCP 登记层已搬到 `bin/ds_refs_server.py`,
+进程入口是 `bin/ds_mcp.py refs`(track opendesign-mcp-registry;末尾只留一个报错桩)。
 
 契约铁律:
   - 工具只写索引 refs-index.md,**永远不碰图片文件本身**(移动图片走 organize 确认闸)。
@@ -385,50 +386,19 @@ def update_ref(ref_id: str, style: str | None = None, space: str | None = None,
     return {"ok": True, "ref_id": f"r{num}", "line": result}
 
 
-# ── stdio MCP server 包装(需 `pip install mcp`;未装不影响核心) ─────────────
-def _build_server(ds_root: str):
-    from mcp.server.fastmcp import FastMCP  # 延迟导入
-
-    server = FastMCP("design-studio-refs")
-
-    @server.tool()
-    def add_ref_tool(file: str, style: str, space: str, source: str = "",
-                     note: str = "") -> dict:
-        """登记一张参考图到索引。file=refs/ 下相对路径(文件须已存在);
-        style/space 须在词表内(可逗号分隔多值);source 如 小红书/Pinterest/Behance。"""
-        return add_ref(file, style, space, source, note, ds_root=ds_root)
-
-    @server.tool()
-    def find_refs_tool(style: str = "", space: str = "", project: str = "",
-                       keyword: str = "") -> dict:
-        """按风格/空间/用过的项目/关键词查参考图,条件 AND,全空=全量。"""
-        return find_refs(style, space, project, keyword, ds_root=ds_root)
-
-    @server.tool()
-    def link_ref_tool(ref_id: str, project: str) -> dict:
-        """记录某张参考图(r<n>)用在了某个项目。"""
-        return link_ref(ref_id, project, ds_root=ds_root)
-
-    @server.tool()
-    def add_style_tool(style: str) -> dict:
-        """往风格词表新增一个风格。新增前必须先跟设计师确认过。"""
-        return add_style(style, ds_root=ds_root)
-
-    @server.tool()
-    def update_ref_tool(ref_id: str, style: str = "", space: str = "",
-                        note: str | None = None) -> dict:
-        """就地改一条已登记参考图(r<n>)的风格/空间/备注。三者都不传则报 no_fields
-        (不接受只 bump 页脚的假写);style/space 给了必须在词表内(可逗号分隔多值,
-        不自动建词);note 传空串会清空备注。没点名的字段(含来源/文件/用于)不动。"""
-        return update_ref(ref_id, style=style or None, space=space or None,
-                          note=note, ds_root=ds_root)
-
-    return server
-
-
-def _run_mcp() -> None:
-    _build_server(os.environ.get("DS_ROOT", DEFAULT_DS_ROOT)).run()
-
-
+# ── 旧入口留下的报错桩(track opendesign-mcp-registry) ─────────────────────
+# 本文件**曾经**是 `design-studio-refs` 这个 MCP server 的进程入口,登记层已搬到
+# `bin/ds_refs_server.py`,入口统一成 `bin/ds_mcp.py refs`。
+# 桩留在这里的唯一理由:**存量机器上那份 `~/.nanobot/config.json` 不在仓库里,
+# `git pull` 更新不到它**。没有这个桩,旧 config 拉起本文件会静默退出 0、零输出,
+# 表现成"助手突然什么都不会做了"却查不出原因(2026-08-03 panel 三腿同时命中)。
+# 不 import mcp、也不 import 登记层 —— 承重墙与无环闸都不许被这个桩破坏。
 if __name__ == "__main__":
-    _run_mcp()
+    raise SystemExit(
+        "本文件不再是 MCP 入口(登记层已搬到 bin/ds_refs_server.py)。\n"
+        "正确入口:python bin/ds_mcp.py refs\n"
+        "你的 ~/.nanobot/config.json 还是旧的 —— 重跑装机脚本更新它:\n"
+        "  Windows:  powershell -ExecutionPolicy Bypass -File bin\\install.ps1\n"
+        "  或只合配置:python bin/ds_merge_config.py config/nanobot.config.windows.jsonc "
+        "%USERPROFILE%/.nanobot/config.json\n"
+        "(会自动备份原 config;详见 docs/install-windows.md「更新的生效边界」)")
