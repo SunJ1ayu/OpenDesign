@@ -82,7 +82,10 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.71.0"  # 结构整理:ds_taxonomy / ds_openfolder 拆出(纯搬运,0 行为改动)
+VERSION = "0.72.0"  # MCP 登记层抽出 + 统一入口 ds_mcp.py(结构整理第③刀)。
+                    # ⚠️ 这一版**存量机器必须重跑装机脚本**:入口路径写在仓库外的
+                    # ~/.nanobot/config.json 里,git pull 改不到它。详见
+                    # docs/install-windows.md「更新的生效边界」。
 DEFAULT_NANOBOT_PORT = 8765
 # nanobot config 路径(model 回显用):env 可覆盖(测试/非常规安装),默认 ~/.nanobot/config.json
 DEFAULT_NANOBOT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
