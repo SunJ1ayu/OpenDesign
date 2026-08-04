@@ -287,6 +287,26 @@ try {
   check(await page.locator(`${pane} .msg-user:has-text("${BEFORE_TEXT}")`).count() === 1,
     "⑨ 对账不许把消息弄重(每条只出现一次)");
 
+  // ── 四审补强 P1(DeepSeek 孤发现):重连之后**还能不能再发一条消息** ──────────
+  //   这是本单的主场景,而原来 23 条判据从头到尾没有在重连后再发过消息 ——
+  //   于是整轮判据都跑在"聊天已死锁"的状态上还全绿。**判据的绿只覆盖它问过的事。**
+  await page.evaluate(() => { window.__silent = false; });
+  const AFTER_TEXT = "重连之后再说一句";
+  await page.locator(`${pane} textarea`).fill(AFTER_TEXT);
+  // **先查状态再点**:P1 的症状就是发送键永久 disabled,直接点会抛超时把整轮判据
+  // 打断(第一次红检就是这样),那样报出来的是"异常"不是"哪条断言错了"。
+  check(await until(async () =>
+    !(await page.locator(`${pane} .send-btn`).isDisabled()), 8000),
+    "㉒ 重连之后发送键是可用的(不是能打字发不出去)");
+  if (!(await page.locator(`${pane} .send-btn`).isDisabled())) {
+    await page.locator(`${pane} .send-btn`).click();
+    check(await until(() =>
+      page.locator(`${pane} .msg-user:has-text("${AFTER_TEXT}")`).isVisible(), 10000),
+      "㉓ 而且这条真的发出去并上屏了");
+  } else {
+    check(false, "㉓ 而且这条真的发出去并上屏了(发送键锁着,没得发)");
+  }
+
   // ── 攻题补强 1:历史请求打的是**真实那条代理路径**,且发生在 attach 之后 ──────
   //   (原来 stub 用 includes("/thread") 模糊放行 ⇒ 照设计文字写错地址也能全绿)
   check(await until(async () => {

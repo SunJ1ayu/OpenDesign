@@ -171,6 +171,10 @@ export default function ChatPage({
   // 记住"原来那个会话"、把浏览器事件喂进去。
   const rcRef = useRef<ReconnectState>(initialReconnect);
   const rcTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 下一轮连接 effect 是不是"自愈重连"触发的。由退避定时器置位、effect 消费即清。
+   *  用它而不是 `!resume`:项目列的 `resume` 恒非 null,拿 resume 判会让那一栏
+   *  永远走不到自愈(四审 P2)。 */
+  const autoRetryRef = useRef(false);
   /** 已经连上过的 chat_id:重连时要 attach 回它,而不是用新连接给的 ready id。
    *  协议 §4 第 2 步;丢了它 = 重连成功但挂到一个空会话上,断线消息永远补不回来。 */
   const liveChatIdRef = useRef<string | null>(null);
@@ -200,8 +204,13 @@ export default function ChatPage({
       setView({ kind: "reconnecting", failures: state.failures });
       rcTimerRef.current = setTimeout(() => {
         rcTimerRef.current = null;
+        autoRetryRef.current = true;   // 下一轮 effect = 自愈重连(不是切项目/新会话)
         setAttempt((n) => n + 1);
       }, action.delayMs);
+    } else if (ev.type === "connected") {
+      // 连上了 ⇒ 还挂着的退避定时器必须撤(四审 P4):手动「立即重试」或切项目
+      // 成功之后,旧的 15s 定时器会到点再跑一次完整的假重连。
+      clearRcTimer();
     } else if (action.kind === "login") {
       clearRcTimer();
       session.clearPassword();
@@ -253,8 +262,20 @@ export default function ChatPage({
     // 自愈重连**不清屏**:清了的话,断线瞬间本地发出、服务端没记上的那句会先没,
     // 后面的对账再也补不回来(它只存在于本地)。判据 ⑧ 就是抓这个的 —— 第一版
     // 实现真的踩了。显式续聊/新会话仍照旧清空。
-    const selfHeal = liveChatIdRef.current !== null && !resume;
-    setView({ kind: selfHeal ? "reconnecting" : "connecting", failures: 0 } as View);
+    //
+    // 🔴 四审 P2(Kimi 孤发现):这里原来写的是 `liveChatIdRef.current !== null && !resume`,
+    // 而**项目列(ChatColumn)的 `resume` 恒非 null** ⇒ 机主最常用的那一栏永远
+    // 走不到自愈路径,每次断线照旧清屏 + 「正在连接聊天服务…」。招牌体验在主战场没生效。
+    // 改成看**这一轮 effect 是不是重连定时器触发的**(与 resume 无关),
+    // 由 `dispatchRc` 排重试时置位、effect 消费一次即清 —— 这才是"自愈"的真定义。
+    const selfHeal = autoRetryRef.current;
+    autoRetryRef.current = false;
+    // 展示用的计数取真实值(四审 P6):写死 0 会让"连接不上 + 立即重试"在每轮
+    // 建连尝试期间闪烁消失 —— 真实计数一直在 rcRef 里,只是展示层对不上。
+    setView({
+      kind: selfHeal ? "reconnecting" : "connecting",
+      failures: rcRef.current.failures,
+    } as View);
     if (!selfHeal) setTranscript(emptyTranscript);
     // p6 续聊:本轮 effect 的恢复目标(闭包捕获;null/空 chatId = 新对话走 ready 即连上
     // ——空串是 project-thread 的「强制新会话」信号,只借 nonce 触发重连,不 attach)
@@ -262,7 +283,7 @@ export default function ChatPage({
     // 协议 §4 第 2 步。丢了它 = 重连"成功"但挂在一个新的空会话上,
     // 断线期间的消息永远补不回来,而界面看不出任何异常。
     const selfResume =
-      liveChatIdRef.current !== null
+      selfHeal && liveChatIdRef.current !== null
         ? {
             sessionKey: `websocket:${liveChatIdRef.current}`,
             chatId: liveChatIdRef.current,
@@ -290,13 +311,26 @@ export default function ChatPage({
               return { ...s, messages: [...replay.messages, ...s.messages] };
             }
             // 对账:服务端历史为底,把本地独有的消息按原顺序补回尾部。
+            // ⚠️ **必须清 busy**(四审 P1,DeepSeek 孤发现):被掐断那轮的
+            // `turn_end` 按协议 §4 永远不会重发,而 `busy` 只由 turn_end/error 清 ⇒
+            // 不在这里清,重连之后输入框能打字、发送键永久 disabled,只能刷新。
+            // thinking/activity 同理:它们属于那条已经断掉的连接。
             // 身份判断是**启发式**(文本 + 角色)——本地 id 与服务端 id 不同源,
             // 信封的 turn_id 也没存进本地消息(见 design.md「判为成立但本单不做」)。
             const seen = new Set(replay.messages.map((m) => `${m.role}\u0000${m.content}`));
+            // 只补**用户**消息(四审 P3):断线若发生在答案流中途,本地会留一条
+            // 半截 assistant 气泡(content 是前缀、streaming 还挂着),它与服务端
+            // 完整版文本不全等 ⇒ 会被当成"本地独有"追加到尾部,变成重复 + 一条
+            // 永远转圈的半截回复,顺序还错。助手侧一律以服务端为准。
             const localOnly = s.messages.filter(
-              (m) => !seen.has(`${m.role}\u0000${m.content}`),
+              (m) => m.role === "user" && !seen.has(`${m.role}\u0000${m.content}`),
             );
-            return { ...s, messages: [...replay.messages, ...localOnly] };
+            return {
+              messages: [...replay.messages, ...localOnly],
+              busy: false,
+              thinking: false,
+              activity: [],
+            };
           });
         })
         .catch(() => {});
@@ -394,6 +428,11 @@ export default function ChatPage({
     if (!pw) return;
     setLoginError("");
     session.setPassword(pw);
+    // 复位重连策略(四审 P5):口令失效时策略进了 `stopped`,而 `stopped` 会**吞掉
+    // 所有事件**。不复位的话,重新登录后若因非口令原因失败(gateway 没起),
+    // 失败被吞 ⇒ 无横幅、无定时器,永远卡在"正在连接",只能刷新。
+    rcRef.current = initialReconnect;
+    clearRcTimer();
     setAttempt((n) => n + 1);
   };
 
