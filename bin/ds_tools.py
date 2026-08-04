@@ -30,6 +30,7 @@ from contextlib import contextmanager
 from datetime import date
 
 import ds_common  # 共享:防逃逸谓词/字段消毒/页脚锚定/加锁读改写(同目录模块)
+import ds_dates   # 相对日期换算(确定性;助手不许心算,见契约 1c)
 import ds_lock    # 跨平台跨进程排他锁(workspace.json 的稳定旁路锁)
 import ds_todo    # 主动提醒核心,同目录模块(list_todos 直调,不走 subprocess)
 import ds_workspace  # PROJECT_NAME_RE 单一真相源(写侧与读侧/web key 闸同一套字符集)
@@ -581,6 +582,17 @@ def log_communication(project: str, text: str, source: str = "",
         ds_common.bump_last_updated(lines, today)
 
     return {"ok": True, "project": project, "date": today, "lines": len(entry)}
+
+
+# ── 工具 4.2d resolve_date(track opendesign-date-arithmetic)────────────────
+def resolve_date(expr: str, anchor: str = "", today: str | None = None) -> dict:
+    """相对日期换算的**唯一入口**(纯只读,零副作用)。真实现在 `ds_dates`。
+
+    这一层只做一件事:把 `today`(测试/考卷注入的假今天)翻译成 anchor 缺省值。
+    业务逻辑一律不许在这里长 —— 长在这里就没有穷举判据罩得住了
+    (`tests/test_ds_dates.py` 打的是 `ds_dates.resolve`)。
+    """
+    return ds_dates.resolve(expr, anchor or (today or ""))
 
 
 # ── 工具 4.3 read_project ───────────────────────────────────────────────────

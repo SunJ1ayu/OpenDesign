@@ -202,20 +202,44 @@ class EvalHarnessesFollowedTheMove(unittest.TestCase):
         sys.path.insert(0, os.path.join(ms.REPO, "tests", "evals"))
         return __import__(name)
 
-    def test_01_resolver_eval仍抽得到29个工具(self):
+    # ⚠️ 2026-08-04 改判定方式(track opendesign-date-arithmetic):
+    # 原来这两条把"harness 有没有扫错文件"焊成**魔数**(29 / 17)。
+    # 加一个合法的新工具(resolve_date)就假红,而且失败信息还会撒谎
+    # ——它会说"它还在扫旧文件",其实文件扫对了、只是多了一个工具。
+    # **一条会撒谎的失败信息比没有这条闸更糟**:下一个人照着它去查文件路径,查不到东西。
+    # 改成:用**另一种方法**(源码正则)数同一批文件,和 harness 的 AST 抽取对账。
+    # 这比魔数强 —— 魔数只在"数目恰好变了"时响,对账在**任何**不一致时都响,
+    # 而且加工具时不需要有人记得回来改数字(没人会记得)。
+    def _count_tool_defs(self, *files):
+        """用正则数 `def xxx_tool(` —— 故意和 harness 的 AST 路径不同源。"""
+        n = 0
+        for f in files:
+            src = open(os.path.join(ms.REPO, "bin", f), encoding="utf-8").read()
+            n += len(re.findall(r"^\s*def\s+\w+_tool\s*\(", src, re.M))
+        return n
+
+    def test_01_resolver_eval抽到的工具表与源码对得上(self):
         mod = self._load("resolver_eval")
         tools = mod.extract_tools()
-        self.assertEqual(len(tools), 29,
-                         "resolver_eval 抽到的工具表不是 29 个 —— 它还在扫旧文件")
+        want = self._count_tool_defs("ds_tools_server.py", "ds_organize_server.py",
+                                     "ds_refs_server.py")
+        self.assertGreater(want, 20, "源码里的 *_tool 定义少得离谱,先查源码不是查这条闸")
+        self.assertEqual(len(tools), want,
+                         f"resolver_eval 抽到 {len(tools)} 个,源码里有 {want} 个 "
+                         "—— 它扫的文件跟真部署对不上了")
         self.assertIn("adopt_workspace", [t[0] for t in tools])
 
-    def test_02_due_writer_eval仍抽得到ds_tools的17个工具(self):
+    def test_02_due_writer_eval抽到的schema与源码对得上(self):
         mod = self._load("due_writer_eval")
         schemas = mod.tool_schemas()
-        self.assertEqual(len(schemas), 17,
-                         "due_writer_eval 抽到的 schema 不是 17 个 —— 它还在扫旧文件")
-        self.assertIn("set_due_date",
-                      [s["function"]["name"] for s in schemas])
+        want = self._count_tool_defs("ds_tools_server.py")
+        self.assertGreater(want, 10, "源码里的 *_tool 定义少得离谱,先查源码不是查这条闸")
+        self.assertEqual(len(schemas), want,
+                         f"due_writer_eval 抽到 {len(schemas)} 个,源码里有 {want} 个 "
+                         "—— 它扫的文件跟真部署对不上了")
+        names = [s["function"]["name"] for s in schemas]
+        self.assertIn("set_due_date", names)
+        self.assertIn("resolve_date", names)   # 助手拿不到它 = 又回去心算
 
 
 class BusinessModulesStayMcpFree(unittest.TestCase):
