@@ -111,18 +111,129 @@ test("turn_end:解锁输入 + 兜底定稿所有仍 streaming 的消息", () => 
 
 // ---- 安全降级:协议会长,未知的不崩 -------------------------------------
 
-test("reasoning_delta / goal_status / session_updated / tool_hint 全部忽略,state 原样", () => {
-  const s1 = applyEvent(emptyTranscript, {
-    event: "reasoning_delta",
-    text: "思考中",
-    turn_phase: "reasoning",
+// ⚠️ 2026-08-04 改题面(track opendesign-chat-reconnect / T5b),说明为什么:
+// 这条原本断言 reasoning_delta / goal_status / message(tool_hint|progress) **全部忽略**。
+// 那是 T5 期「本期不做」的记录,不是产品该有的样子 —— 实测正是这四类事件被丢掉,
+// 才让"发出去到出字"的几十秒里界面完全没有反应(看着像卡死)。
+// 本单**故意**让其中三类产生可见反馈 ⇒ 旧断言与新规格直接冲突,必须改。
+// 按规矩「断言要搬到问得出的地方、而且更强」:
+//   - 仍然该忽略的(session_updated / 未知事件)留在这条,一字不放松;
+//   - 三类新行为搬进下面 §T5b 的专门用例,断言比原来强得多(还断言了不许出现什么)。
+// 另记一笔:旧断言里的 tool_hint 样本写的是 `{kind:"tool_hint", content:"调工具中"}`
+// —— **那个形状是当时凭空想的**,真帧里没有 `content` 这个键(实抓见
+// docs/nanobot-ws-protocol.md §2)。新用例一律用实抓样本。
+test("session_updated / 未知事件仍然一律忽略,state 原样(老约定不许退化)", () => {
+  const s1 = applyEvent(emptyTranscript, { event: "session_updated", scope: "thread" });
+  const s2 = applyEvent(s1, { event: "将来才有的新事件" });
+  const s3 = applyEvent(s2, { event: "reasoning_end", turn_seq: 7 });
+  assert.deepEqual(s3, emptyTranscript);
+});
+
+// ---- §T5b 助手干活时的界面反馈(判据按 2026-08-04 实抓的真帧写)-----------
+
+// 实抓样本(docs/nanobot-ws-protocol.md §2;原始帧存 track 的 evidence/):
+// text 是空串、没有 content 键、有信息的是 tool_events[].name,phase 只见过 end。
+const REAL_PROGRESS_FRAME = {
+  event: "message",
+  kind: "progress",
+  chat_id: "<uuid>",
+  turn_id: "<uuid>",
+  turn_phase: "activity",
+  turn_seq: 23,
+  text: "",
+  tool_events: [
+    {
+      version: 1,
+      phase: "end",
+      call_id: "<call_…>",
+      name: "mcp_design-studio_list_todos_tool",
+      arguments: { stale_days: 7 },
+      result: "{…}",
+      error: null,
+      files: [],
+      embeds: [],
+    },
+  ],
+};
+
+test("等待态:goal_status:running 与 reasoning_delta 都开启「正在思考」", () => {
+  const a = applyEvent(emptyTranscript, { event: "goal_status", status: "running" });
+  assert.equal(a.thinking, true);
+  const b = applyEvent(emptyTranscript, {
+    event: "reasoning_delta", text: "思考中", turn_phase: "reasoning",
   });
-  const s2 = applyEvent(s1, { event: "goal_status", status: "running" });
-  const s3 = applyEvent(s2, { event: "session_updated", scope: "thread" });
-  const s4 = applyEvent(s3, { event: "message", kind: "tool_hint", content: "调工具中" });
-  const s5 = applyEvent(s4, { event: "message", kind: "progress", content: "50%" });
-  const s6 = applyEvent(s5, { event: "将来才有的新事件" });
-  assert.deepEqual(s6, emptyTranscript);
+  assert.equal(b.thinking, true, "等待期间真正在流的就是它,忽略它 = 界面死着");
+});
+
+test("等待态:第一个答案 delta 一到就关掉(别和正文一起挂着)", () => {
+  let s = applyEvent(emptyTranscript, { event: "goal_status", status: "running" });
+  s = applyEvent(s, { event: "delta", stream_id: "s1", text: "你好" });
+  assert.equal(s.thinking, false);
+  assert.equal(s.messages.length, 1);
+});
+
+test("等待态:turn_end 收尾一定关掉(哪怕一个 delta 都没来过)", () => {
+  let s = applyEvent(emptyTranscript, { event: "goal_status", status: "running" });
+  s = applyEvent(s, { event: "turn_end", latency_ms: 1 });
+  assert.equal(s.thinking, false);
+});
+
+test("reasoning 正文一个字都不许进气泡(那是没定稿的草稿,不是给用户看的结论)", () => {
+  const s = applyEvent(emptyTranscript, {
+    event: "reasoning_delta", text: "用户可能是想问…先假设他要的是 X", turn_phase: "reasoning",
+  });
+  assert.deepEqual(s.messages, []);
+  assert.ok(!JSON.stringify(s.messages).includes("先假设"));
+});
+
+test("活动回执:真帧 ⇒ 落一条人话,且**不进 messages[] 气泡**", () => {
+  const s = applyEvent(emptyTranscript, REAL_PROGRESS_FRAME);
+  assert.deepEqual(s.messages, [], "工具回执是临时行,不是对话内容");
+  assert.equal(s.activity.length, 1);
+  assert.equal(s.activity[0], "查了待办清单");
+});
+
+test("活动回执:认不出的工具名 ⇒ 通用文案,**绝不把工具原名甩给机主**", () => {
+  const frame = {
+    ...REAL_PROGRESS_FRAME,
+    tool_events: [{ ...REAL_PROGRESS_FRAME.tool_events[0], name: "mcp_design-studio_某个新工具_tool" }],
+  };
+  const s = applyEvent(emptyTranscript, frame);
+  assert.equal(s.activity.length, 1);
+  const line = s.activity[0];
+  assert.ok(!line.includes("mcp_"), `不许出现原始工具名:${line}`);
+  assert.ok(!line.includes("_tool"), `不许出现原始工具名:${line}`);
+  assert.ok(line.length > 0);
+});
+
+test("活动回执:kind:\"tool_hint\" 同样收下(本轮没抓到,但不许因此崩)", () => {
+  const s = applyEvent(emptyTranscript, { ...REAL_PROGRESS_FRAME, kind: "tool_hint" });
+  assert.equal(s.activity.length, 1);
+});
+
+test("活动回执:一轮里多次调工具 ⇒ 按顺序累积,不去重成一条", () => {
+  let s = applyEvent(emptyTranscript, REAL_PROGRESS_FRAME);
+  s = applyEvent(s, REAL_PROGRESS_FRAME);
+  assert.equal(s.activity.length, 2);
+});
+
+test("活动回执:turn_end 清空(下一轮不该顶着上一轮的尾巴)", () => {
+  let s = applyEvent(emptyTranscript, REAL_PROGRESS_FRAME);
+  s = applyEvent(s, { event: "turn_end", latency_ms: 1 });
+  assert.deepEqual(s.activity, []);
+});
+
+test("活动回执:畸形 tool_events 一律不崩、不落空行", () => {
+  for (const te of [undefined, null, [], "x", [{}], [{ name: 123 }], [null]]) {
+    const s = applyEvent(emptyTranscript, { ...REAL_PROGRESS_FRAME, tool_events: te });
+    assert.ok(Array.isArray(s.activity), `tool_events=${JSON.stringify(te)}`);
+    for (const line of s.activity) assert.ok(line.trim().length > 0, "不许落空行");
+  }
+});
+
+test("emptyTranscript 自带这两个新字段,且是冻结的(别让调用方靠 undefined 判断)", () => {
+  assert.equal(emptyTranscript.thinking, false);
+  assert.deepEqual(emptyTranscript.activity, []);
 });
 
 test("畸形输入不崩:非对象 / 缺字段 / text 非字符串,一律原样返回", () => {
@@ -191,6 +302,32 @@ test("XSS 闸:javascript:/data: 链接的 href 被剥空(默认 urlTransform,谁
   // 正常链接不误伤
   const ok = renderToStaticMarkup(renderMarkdown("[官网](https://example.com)"));
   assert.match(ok, /href="https:\/\/example\.com"/);
+});
+
+// ---- §T5b 链接在新标签页打开(track opendesign-chat-reconnect)------------
+// 为什么算在断线自愈这一单里:今天点助手给的外链会**顶掉工作台本页**,
+// 回来要重新连一次 —— 它自己就是一次人为断线。
+
+test("外链带 target=_blank(点了不顶掉工作台)", () => {
+  const html = renderToStaticMarkup(renderMarkdown("[官网](https://example.com)"));
+  assert.match(html, /target="_blank"/, `外链必须开新标签:${html}`);
+});
+
+test("外链带 rel,且必须含 noreferrer(新标签页拿不到 window.opener)", () => {
+  const html = renderToStaticMarkup(renderMarkdown("[官网](https://example.com)"));
+  const m = html.match(/rel="([^"]*)"/);
+  assert.ok(m, `必须有 rel 属性:${html}`);
+  assert.ok(m[1].includes("noreferrer"), `rel 必须含 noreferrer,得到 ${m[1]}`);
+});
+
+test("加了 components.a 之后,XSS 闸一条都不许松(href 剥空的仍然剥空)", () => {
+  // 覆盖 a 组件最容易顺手把 href 原样透传回去 —— 那会把上面那条 javascript: 闸打穿
+  const js = renderToStaticMarkup(renderMarkdown("[点我](javascript:alert(1))"));
+  assert.ok(!/javascript:/i.test(js), `href 不得保留 javascript::${js}`);
+  const data = renderToStaticMarkup(renderMarkdown("[点我](data:text/html,x)"));
+  assert.ok(!/href="data:/i.test(data), `href 不得保留 data::${data}`);
+  // 链接文字仍在(别把整个链接吞掉)
+  assert.match(js, /点我/);
 });
 
 test("GFM:表格渲染为 <table>(remark-gfm 真的挂上了)", () => {
