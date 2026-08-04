@@ -132,7 +132,8 @@
 - P6 ⇒ 横幅用 `rcRef` 里的真实失败计数。
 
 **修完的判据面**:O1 15/15、O3+O4 36/36、**O2 25/25 ALL PASS**;tsc 通过、build 通过。
-全量回归见上面 Mechanical checks(修复后重跑的数)。
+**修复后重跑的全量回归**:python `866 passed / 0 failed / 14 skipped`(EXIT=0)、
+e2e 总跑 `32 PASS / 0 FAIL / 2 SKIP`(EXIT=0)。
 
 ⇒ **Verdict 改判见文件顶部**。仍欠的只有**真机冒烟**(只有机主能做)。
   > 腿死了/降级了不用在这里再抄一遍:08-03 起每份评审日志**自带身份牌**
