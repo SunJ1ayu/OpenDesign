@@ -52,6 +52,20 @@ docs/nanobot-ws-protocol.md            ← 协议事实,不许被实现"顺手�
 「reasoning 正文不许进气泡」与「加了 `components.a` 之后 XSS 闸不许松」——
 现在该绿,实现之后**还得绿**。
 
+### O2 `tests/e2e/chat_reconnect.e2e.mjs` —— 12 条
+
+实跑 **11 红 / 2 绿**。2 绿是前置条件(一条连接 + 断线前消息已上屏)与「全程无页面级
+JS 报错」—— 后者是**反误报基线**:实现之后它还得绿,不许靠抛异常把用例"跑过去"。
+
+夹具的三处刻意设计(每一处都对应一条已知的假绿路线):
+- `window.__killWS(code)` 遥控掐断 ⇒ 不用真停服务,时序可控可复现;
+- `window.__thread` 里那条 `GAP_TEXT`**只存在于 stub 的历史响应里**,客户端永远不会
+  从 ws 收到它 ⇒ "补缺口"做没做,只看它出不出现,本地缓存满足不了这条;
+- `window.__silent` 让某条消息"服务端没记上" ⇒ 专门验对账不会把本地那句吃掉。
+
+⚠️ 跑之前先确认 8813 没被占:第一次跑撞上上一轮残留的 ds_web(`Address already in use`),
+两轮结果虽然一致,但**那种情况下连的是别人的服务** —— 记在这里,收货时别踩。
+
 ### 改题面一处(按规矩留痕)
 
 原来那条断言 `reasoning_delta / goal_status / tool_hint / progress` **全部忽略**。
@@ -68,7 +82,7 @@ docs/nanobot-ws-protocol.md            ← 协议事实,不许被实现"顺手�
 - [x] 协议前提实证(§4 已有 T0 实抓;§2 的 progress 形状本单补齐)
 - [x] O1 判据 + 红检(用临时错实现验咬合)
 - [x] O3/O4 判据 + 红检
-- [ ] O2 e2e 判据 + 红检(stub ws 掐断 → 自愈 → 拉历史补缺口 → 401 回登录)
+- [x] O2 e2e 判据 + 红检 —— **11 红 / 2 绿**
 - [ ] 派活:纯逻辑层 `reconnect.ts` → `codex -m gpt-5.6-sol`(分层还账第 7 单;`--protect` 见上)
 - [ ] 主 agent 亲干:`ChatPage` 接线 + `transcript.ts` / `markdown.ts` 改动
 - [ ] 收货三闸 + full lane 四审(智谱腿可能仍死,verify 里如实写少了哪条腿)
