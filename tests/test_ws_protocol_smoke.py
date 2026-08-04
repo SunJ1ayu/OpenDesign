@@ -145,11 +145,28 @@ class TestWsProtocolSmoke(unittest.TestCase):
         self.assertEqual(st, 401)
 
         # §3 webui-thread(拿已有会话验形状;没有会话则跳过此小节)
-        if body["sessions"]:
-            key = body["sessions"][0]["key"]
-            self.assertTrue(key.startswith("websocket:"))
-            st, th = _get(f"/api/sessions/{key}/webui-thread?limit=1"
+        #
+        # ⚠️ 2026-08-04 修夹具:原来直接取 sessions[0](按 updated_at 倒序 = 最新那个),
+        # 于是**本脚本自己上一段 ws_leg 刚建的那条空会话**往往就是 sessions[0] ——
+        # 连上但没发过消息的会话**没有 webui thread**,端点如实回 404
+        # ("webui thread not found"),脚本就红在自己的夹具上。
+        # 实测(08-04,活 gateway,122 条会话):前 25 条里 24 条 200 / 1 条 404,
+        # 那 1 条正是最新的空会话 ⇒ **端点没坏,是取样取错了**。
+        # 改成:往下找第一条真有 thread 的会话;一条都没有才跳过这一小节。
+        # (顺带记下:每次 ws 连接都会产生一条会话,空连接也算 —— 这条事实对
+        #  track opendesign-chat-reconnect 的自动重连有直接影响,已写进那份 design.md。)
+        keys = [s["key"] for s in body["sessions"]]
+        for k in keys:
+            self.assertTrue(k.startswith("websocket:"))
+        picked = None
+        for k in keys[:25]:
+            st, th = _get(f"/api/sessions/{k}/webui-thread?limit=1"
                           f"&direction=latest", boot["token"])
+            if st == 200:
+                picked = k
+                break
+        if picked:
+            key = picked
             self.assertEqual(st, 200)
             self.assertIn("messages", th)
             self.assertEqual(th.get("sessionKey"), key)
