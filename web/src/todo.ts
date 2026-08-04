@@ -268,7 +268,14 @@ function projectUrgency(items: OpenItem[], today: string): { tier: number; earli
   return { tier, earliestDue, oldestDate };
 }
 
-/** 卡序。groups 原样带过(project/items 不改),不读旧 stale 入参。 */
+/** 卡序。groups 原样带过(project/items 不改),不读旧 stale 入参。
+ *
+ * 排序键**分两支**(2026-08-04 补做评审时把这条写清楚,原来只在 commit message 里
+ * 写成「档位 → 最早 due → 最老记录日期」,读起来像对所有卡都生效的三级链条,不是):
+ *   有 due 的档(过期/今天/未来):档位 → 卡内最早 due → 传入序
+ *   无 due 的档:                档位 → 卡内最老记录日期 → 传入序
+ * `oldestDate` 只从**没有 due 的条目**里取,所以它天然只在无 due 那一档有意义。
+ */
 export function orderProjectCards(groups: ProjectGroup[], today: string): ProjectCard[] {
   return groups
     .map((g, i) => ({ project: g.project, items: g.items, ...projectUrgency(g.items, today), i }))
