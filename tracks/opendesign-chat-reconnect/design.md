@@ -74,10 +74,28 @@ ws 握手层的 401(token 一次性、被消费过)和 bootstrap 层的 401(口�
 
 ### D. T5b 两小项(判据与 commit 分开)
 
-- **tool_hint / progress 降级显示**:`transcript.ts` 顶部注释白纸黑字写着这两个事件
-  「一律忽略」⇒ 助手在后台调工具时界面零反馈。降级显示 = 一行灰字「正在查资料…」,
-  `turn_end`/`stream_end` 时清掉。**不做进度条**(上游 progress 的语义没实抓过,
-  照着猜画进度条就是在编数据 —— 与 D4「算不准就说不知道」同一条规矩)。
+- **助手干活时的界面反馈**。⚠️ **08-04 实抓推翻了这一项的原方案**(抓包记录已补进
+  `docs/nanobot-ws-protocol.md` §2,原来那里只有一句话、没有任何字段):
+
+  原方案是「收到 tool_hint/progress → 显示一行『正在查资料…』」。真抓一次发现:
+  1. 那一帧的 `tool_events[].phase` 是 **`"end"`** —— **工具已经跑完才发**。
+     照原方案做,那行「正在查资料…」会在用户**等完之后**才出现,等于没做。
+  2. 它的 `text` 是**空字符串**,拿不出文案;有信息的是 `tool_events[].name`。
+  3. 这一轮实测 `kind:"tool_hint"` **一帧都没出现**,只有 `progress`。
+
+  **等待期间真正在流的信号是 `reasoning_delta`(思考中一直在发)和 `goal_status:running`**,
+  而前端今天把 `reasoning_*` 全忽略 ⇒ **从按下发送到第一个字出来,界面确实是死的,
+  但病根不在 tool_hint,在这两个被忽略的事件上。**
+
+  ⇒ 改后的方案(两条,都从实抓来):
+  - **等待态**:`goal_status:running` 或收到第一个 `reasoning_delta` ⇒ 显示「正在思考…」,
+    第一个答案 `delta` 到达即清掉。**不展示 reasoning 正文**(那是模型的草稿,
+    展示它等于把没定稿的话当结论给用户看)。
+  - **活动回执**:`message`/`kind∈{progress,tool_hint}` ⇒ 按 `tool_events[].name`
+    映射成一句人话(`list_todos` → 「查了待办清单」),作为**事后**的灰字活动行。
+    映射表里没有的工具名 ⇒ 通用文案「查了一下资料」,**不许把工具原名甩给用户**
+    (`mcp_design-studio_list_todos_tool` 那种字符串对机主是噪音)。
+  - **不做进度条**:`phase` 只见过 `end`,没见过 `start`;画进度条就是编数据。
 - **链接 target**:`markdown.ts` 加 `components.a` → `target="_blank" rel="noreferrer"`。
   它和 T6 直接相关:今天点助手给的外链会**顶掉工作台本页**,回来还要重连一次。
   ⚠️ `markdown.ts` 头上焊着 XSS 铁律(禁 raw HTML),这次只加 `components`,
@@ -153,8 +171,13 @@ stub 的 ws 能被判据**主动 close**,并能数出**新 WebSocket 被构造�
 ⑤ 断线瞬间本地发出的那句话**没有被对账吃掉**;
 ⑥ bootstrap 返 401 ⇒ 回登录框,**不是**无声转圈。
 
-**O3 `tests/test_chat_transcript.mjs` 增补** —— tool_hint/progress 进降级显示、
-`turn_end` 清掉;未知事件仍然一律忽略不崩(老约定不许退化)。
+**O3 `tests/test_chat_transcript.mjs` 增补**(判据按 08-04 实抓的真形状写,不按我猜的)——
+`goal_status:running`/首个 `reasoning_delta` ⇒ 等待态开;首个答案 `delta` ⇒ 等待态关;
+`message`/`kind:"progress"`(`text` 为空、`tool_events[0].phase==="end"` 的真样本)
+⇒ 落一条活动回执且**不进 messages[] 气泡**;未知工具名 ⇒ 通用文案、
+**断言渲染结果里不出现 `mcp_` 前缀的原始工具名**;`kind:"tool_hint"` 同样收下
+(本轮没抓到,但不许因此崩);`turn_end` 清掉等待态与活动行;
+未知事件仍然一律忽略不崩(老约定不许退化);**reasoning 正文一个字都不许出现在 messages[] 里**。
 
 **O4 markdown 渲染断言** —— 外链带 `target="_blank" rel="noreferrer"`;
 **XSS 闸原样全绿**(react-dom/server 直测,已有先例)。

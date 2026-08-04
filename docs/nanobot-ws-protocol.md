@@ -99,6 +99,38 @@ ws://127.0.0.1:8765/?client_id=<任意串>&token=<bootstrap 的 token>
 `stream_end` 定稿 → `turn_end` 收尾解锁输入**;`reasoning_*` 本期忽略;
 `message` 事件带 `kind: tool_hint|progress` 的中间态安全降级;
 未知 event 一律忽略不崩(协议会长)。
+
+#### `message` / `kind:"progress"` 的实抓形状(2026-08-04,track opendesign-chat-reconnect)
+
+此前这里只有上面那一句话、**没有字段**,于是 T5b 差点照猜的形状写判据。真抓一次
+(本机活 gateway,问「有什么待办」逼它调 `list_todos`),完整时序:
+
+```
+ready → goal_status(running) → reasoning_delta×19 → reasoning_end → stream_end
+      → message(kind:"progress")          ← 就这一帧
+      → reasoning_delta×5 → reasoning_end → delta×79 → stream_end → turn_end
+```
+
+```jsonc
+{"event":"message","kind":"progress","chat_id":"…","turn_id":"…",
+ "turn_phase":"activity","turn_seq":23,
+ "text":"",                      // ← **空字符串**,别指望拿它当提示文案
+ "tool_events":[{"version":1,"phase":"end",     // ← 只见 end,没见 start
+                 "call_id":"call_…","name":"mcp_design-studio_list_todos_tool",
+                 "arguments":{"stale_days":7},"result":"{…工具原始返回…}",
+                 "embeds":…,"error":…,"files":…}]}
+```
+
+**三条会决定前端怎么做的事实**:
+1. **它是"事后回执"不是"进度"** —— `phase:"end"`,工具**已经跑完**才发。
+   拿它显示「正在查资料…」,那行字会在用户等完之后才出现,等于没有。
+2. `text` 是空的;有信息量的是 `tool_events[].name` 与 `arguments`。
+3. **等待期间真正有信号的是 `reasoning_delta`(思考中就在流)和 `goal_status:running`**
+   —— 前端今天把 `reasoning_*` 全忽略,所以从发出到出字的那几十秒界面是死的。
+   要做"活着的反馈",信号得从这两个来,不是从 `message/progress` 来。
+
+⚠️ `kind:"tool_hint"` 这一次**一帧都没出现**(只有 `progress`)。它是否还存在、
+什么条件下发,**未实抓** ⇒ 前端按"两种都可能、都当活动事件"处理,不许断言必然出现。
 注意:echo 回来的 `turn_id` 只在**带 webui:true 的信封**那轮出现。
 
 ## 3. HTTP API(经 ds_web 代理,鉴权同一张 token)

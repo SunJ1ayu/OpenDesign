@@ -1,0 +1,24 @@
+{
+  "event": "message",
+  "chat_id": "<uuid>",
+  "text": "",
+  "tool_events": [
+    {
+      "version": 1,
+      "phase": "end",
+      "call_id": "<call_…>",
+      "name": "mcp_design-studio_list_todos_tool",
+      "arguments": {
+        "stale_days": 7
+      },
+      "result": "<string,已整段剔除:工具原始返回含业主档案内容,仓库是 public。形状 = JSON 字符串 {ok:bool, text:string}>",
+      "error": null,
+      "files": [],
+      "embeds": []
+    }
+  ],
+  "kind": "progress",
+  "turn_id": "ea5bf327-2568-4b7c-83a5-52d87e31b8b2",
+  "turn_phase": "activity",
+  "turn_seq": 23
+}

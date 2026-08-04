@@ -1,0 +1,2 @@
+实抓时序(问「有什么待办」,本机活 gateway,2026-08-04):
+ready → goal_status → reasoning_delta×19 → reasoning_end → stream_end → message → reasoning_delta×5 → reasoning_end → delta×79 → stream_end → turn_end
