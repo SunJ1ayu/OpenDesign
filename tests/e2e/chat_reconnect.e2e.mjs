@@ -145,8 +145,11 @@ const STUB = () => {
             return;
           }
           if (window.__holdAttached) { window.__pendingAttach = m.chat_id; return; }
-          this.#emit({ event: "attached", chat_id: m.chat_id });
+          // ⚠️ 顺序要紧:#emit 是同步的,客户端会在它里面同步发起拉历史 ——
+          // 先 emit 再置位,拉历史那一刻读到的还是 false(夹具自己的时序 bug,
+          // 08-04 第一次跑实现时被 ⑦ 抓出来)。
           window.__threadReady = true; // attached 之后历史里才有断线期间那条
+          this.#emit({ event: "attached", chat_id: m.chat_id });
         }, 10);
         return;
       }

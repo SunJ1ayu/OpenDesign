@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChatSession, PasswordRejected, type BootstrapInfo } from "./connection";
+import { ChatSession, type BootstrapInfo } from "./connection";
 import {
   emptyTranscript,
   appendLocalUser,
@@ -10,6 +10,11 @@ import {
   shouldSendOnEnter,
   type TranscriptState,
 } from "./transcript";
+import {
+  initialReconnect,
+  reduceReconnect,
+  type ReconnectState,
+} from "./reconnect";
 import { renderMarkdown } from "./markdown";
 import { inputPlaceholder } from "./inputHint";
 import {
@@ -43,6 +48,7 @@ const PROJECT_CHIPS = ["催一下没回的业主", "整理这个项目的文件�
 type View =
   | { kind: "login" }
   | { kind: "connecting" }
+  | { kind: "reconnecting"; failures: number }
   | { kind: "connected"; chatId: string; model?: string }
   | { kind: "error"; msg: string };
 
@@ -160,6 +166,68 @@ export default function ChatPage({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // ── 断线自愈(T6)────────────────────────────────────────────────────────
+  // 策略在 reconnect.ts(纯逻辑、可离线单测);这里只做三件事:执行它给的动作、
+  // 记住"原来那个会话"、把浏览器事件喂进去。
+  const rcRef = useRef<ReconnectState>(initialReconnect);
+  const rcTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 已经连上过的 chat_id:重连时要 attach 回它,而不是用新连接给的 ready id。
+   *  协议 §4 第 2 步;丢了它 = 重连成功但挂到一个空会话上,断线消息永远补不回来。 */
+  const liveChatIdRef = useRef<string | null>(null);
+
+  const clearRcTimer = () => {
+    if (rcTimerRef.current !== null) {
+      clearTimeout(rcTimerRef.current);
+      rcTimerRef.current = null;
+    }
+  };
+
+  /** 把一个连接事件喂给策略层,并执行它返回的动作。
+   *  事件形状与 `reduceReconnect` 的判据一致(tests/test_chat_reconnect.mjs)。 */
+  type RcEvent =
+    | { type: "closed"; code?: number }
+    | { type: "failed"; error: unknown }
+    | { type: "connected" }
+    | { type: "online" }
+    | { type: "visible" };
+  const dispatchRc = (ev: RcEvent) => {
+    const { state, action } = reduceReconnect(rcRef.current, ev);
+    rcRef.current = state;
+    if (action.kind === "schedule") {
+      // 立即重试(online/回前台)也走这里 ⇒ 旧定时器必须先取消,
+      // 否则"清零并立刻试一次"会变成"额外再启动一次,旧的稍后又来一次"
+      clearRcTimer();
+      setView({ kind: "reconnecting", failures: state.failures });
+      rcTimerRef.current = setTimeout(() => {
+        rcTimerRef.current = null;
+        setAttempt((n) => n + 1);
+      }, action.delayMs);
+    } else if (action.kind === "login") {
+      clearRcTimer();
+      session.clearPassword();
+      setLoginError("口令未通过验证,请重新输入");
+      setView({ kind: "login" });
+    }
+  };
+
+  // 网络回来 / 页面回到前台 ⇒ 退避清零、立刻试一次(合盖恢复是主路径)
+  useEffect(() => {
+    const onOnline = () => dispatchRc({ type: "online" });
+    const onVisible = () => {
+      if (document.visibilityState === "visible") dispatchRc({ type: "visible" });
+    };
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+    // dispatchRc 只读 ref,不入依赖(与本文件既有 effect 同约定)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => () => clearRcTimer(), []);
+
   // 预填联动:nonce 变化 → 覆盖 draft 并聚焦(不自动发送,发送权在人)
   useEffect(() => {
     if (!prefill || prefill.nonce === 0) return;
@@ -182,27 +250,60 @@ export default function ChatPage({
       pending = [];
       setTranscript((s) => batch.reduce(applyEvent, s));
     };
-    setView({ kind: "connecting" });
-    setTranscript(emptyTranscript);
+    // 自愈重连**不清屏**:清了的话,断线瞬间本地发出、服务端没记上的那句会先没,
+    // 后面的对账再也补不回来(它只存在于本地)。判据 ⑧ 就是抓这个的 —— 第一版
+    // 实现真的踩了。显式续聊/新会话仍照旧清空。
+    const selfHeal = liveChatIdRef.current !== null && !resume;
+    setView({ kind: selfHeal ? "reconnecting" : "connecting", failures: 0 } as View);
+    if (!selfHeal) setTranscript(emptyTranscript);
     // p6 续聊:本轮 effect 的恢复目标(闭包捕获;null/空 chatId = 新对话走 ready 即连上
     // ——空串是 project-thread 的「强制新会话」信号,只借 nonce 触发重连,不 attach)
-    const target = resume && resume.chatId ? resume : null;
+    // T6:没有显式续聊目标时,若本页已经连上过某个会话,重连要 attach 回它 ——
+    // 协议 §4 第 2 步。丢了它 = 重连"成功"但挂在一个新的空会话上,
+    // 断线期间的消息永远补不回来,而界面看不出任何异常。
+    const selfResume =
+      liveChatIdRef.current !== null
+        ? {
+            sessionKey: `websocket:${liveChatIdRef.current}`,
+            chatId: liveChatIdRef.current,
+            nonce: 0,
+          }
+        : null;
+    const target = resume && resume.chatId ? resume : resume ? null : selfResume;
     let attached = false;
-    if (target) {
-      // thread 回放与建连并行;回放消息一律「前插」——无论先后到,都不覆盖
-      // attach 后用户已发的新消息。失败静默降级(attach 仍成立,从空开始)。
-      // key 走裸串:ds_web 代理的 _KEY_RE 白名单是 [A-Za-z0-9_:.-](含冒号、
-      // 不含 %),encodeURIComponent 会把 websocket: 编成 %3A 被代理拒(e2e 实抓)
+    /** 拉一次服务端历史并合进本地。
+     *  `mode="prepend"` = 老的续聊回放(前插,不覆盖 attach 后用户已发的新消息);
+     *  `mode="reconcile"` = T6 断线自愈对账:以服务端为准,但**保留本地有、服务端
+     *  没有的消息**(断线瞬间发出、服务端没记上的那句;丢了它 = 用户的话凭空消失)。
+     *  ⚠️ 401/404 一律当"没历史"静默降级 —— 新建的空会话拉历史必然 404(实测),
+     *  而历史接口的 401 **不是**口令失效(connection.ts 会把重签后仍 401 也抛成
+     *  PasswordRejected,来源在那里被抹掉了),不许因此把用户踹回登录框。 */
+    const pullThread = (sessionKey: string, mode: "prepend" | "reconcile") =>
       session
-        .apiFetch(`/api/chat/sessions/${target.sessionKey}/thread`)
+        .apiFetch(`/api/chat/sessions/${sessionKey}/thread`)
         .then(async (r) => (r.status === 200 ? r.json() : null))
         .then((p) => {
           const replay = p === null ? null : hydrateFromThread(p);
           if (cancelled || !replay || replay.messages.length === 0) return;
-          setTranscript((s) => ({ ...s, messages: [...replay.messages, ...s.messages] }));
+          setTranscript((s) => {
+            if (mode === "prepend") {
+              return { ...s, messages: [...replay.messages, ...s.messages] };
+            }
+            // 对账:服务端历史为底,把本地独有的消息按原顺序补回尾部。
+            // 身份判断是**启发式**(文本 + 角色)——本地 id 与服务端 id 不同源,
+            // 信封的 turn_id 也没存进本地消息(见 design.md「判为成立但本单不做」)。
+            const seen = new Set(replay.messages.map((m) => `${m.role}\u0000${m.content}`));
+            const localOnly = s.messages.filter(
+              (m) => !seen.has(`${m.role}\u0000${m.content}`),
+            );
+            return { ...s, messages: [...replay.messages, ...localOnly] };
+          });
         })
         .catch(() => {});
-    }
+
+    // 显式续聊(点历史会话):沿用老路子——回放与建连并行、前插。
+    // 自愈重连不走这里,它要等 attached(见下),否则可能拿到还没写进断线消息的旧快照。
+    if (target && !selfResume) pullThread(target.sessionKey, "prepend");
 
     session
       .openSocket()
@@ -224,6 +325,8 @@ export default function ChatPage({
                 ws?.send(JSON.stringify(attachEnvelope(target.chatId)));
                 return;
               }
+              liveChatIdRef.current = m.chat_id;
+              dispatchRc({ type: "connected" });
               setView({ kind: "connected", chatId: m.chat_id, model: info?.model_name });
               onChatId?.(m.chat_id);
               onConnected?.();
@@ -232,9 +335,13 @@ export default function ChatPage({
             if (target && !attached) {
               if (m.event === "attached" && m.chat_id === target.chatId) {
                 attached = true;
+                liveChatIdRef.current = target.chatId;
+                dispatchRc({ type: "connected" });
                 setView({ kind: "connected", chatId: target.chatId, model: info?.model_name });
                 onChatId?.(target.chatId);
                 onConnected?.();
+                // T6 §4 第 3 步:挂回去之后再补缺口(**在这里,不在建连时**)
+                if (selfResume) pullThread(target.sessionKey, "reconcile");
                 return;
               }
               if (m.event === "error") {
@@ -252,19 +359,17 @@ export default function ChatPage({
             /* 非 JSON 帧忽略(协议会长,未知的不崩) */
           }
         };
-        ws.onclose = () => {
-          if (!cancelled) setView({ kind: "error", msg: "连接已断开" });
+        // T6:断开不再是死胡同 —— 交给策略层排下一次重连(关闭码一律不看,
+        // 浏览器侧本来也看不到握手层的 HTTP 状态;把码当口令失效判 = 把功能做反)
+        ws.onclose = (e) => {
+          if (!cancelled) dispatchRc({ type: "closed", code: (e as CloseEvent)?.code });
         };
       })
       .catch((e: unknown) => {
         if (cancelled) return;
-        if (e instanceof PasswordRejected) {
-          session.clearPassword();
-          setLoginError("口令未通过验证,请重新输入");
-          setView({ kind: "login" });
-        } else {
-          setView({ kind: "error", msg: e instanceof Error ? e.message : String(e) });
-        }
+        // 只有**建连这条路**上的 PasswordRejected 才算口令失效(它来自 bootstrap 自己
+        // 返 401);历史接口那条路的 401 在 pullThread 里被吞掉,不会走到这里。
+        dispatchRc({ type: "failed", error: e });
       });
 
     return () => {
@@ -695,32 +800,56 @@ export default function ChatPage({
     </button>
   );
 
+  // T6:重连中和已连接**走同一条渲染路径** —— 断线前的对话必须留在眼前。
+  // 做成结构性的而不是靠自觉:reconnecting 只是多一条提示条、把头部换成状态字,
+  // 下面那张消息列表一个字都不动(整页 reload 那种"自愈"会把它冲掉,判据锁了这条)。
+  const reconnecting = view.kind === "reconnecting";
   return (
     <>
-      <div className="chat-meta">
-        已连接{view.model ? ` · ${view.model}` : ""}
-        <button
-          className="chat-meta-more"
-          data-ui="chat-meta-more"
-          onClick={() => setChatMenuOpen((v) => !v)}
-          title="更多"
-        >
-          …
-        </button>
-        {chatMenuOpen && (
-          <div className="chat-meta-menu" data-ui="chat-meta-menu">
-            <button
-              className="item"
-              onClick={() => {
-                setChatMenuOpen(false);
-                logout();
-              }}
-            >
-              退出登录
-            </button>
-          </div>
-        )}
-      </div>
+      {reconnecting && (
+        <div className="chat-note chat-reconnecting" data-ui="chat-reconnecting">
+          <span>
+            {view.failures >= 5
+              ? "连接不上,gateway 可能没在跑;还在后台继续重试。"
+              : "正在重连…"}
+          </span>
+          {view.failures >= 5 && (
+            <span className="acts">
+              <button className="btn-secondary" onClick={() => setAttempt((n) => n + 1)}>
+                立即重试
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+      {/* 头部只在**真的连上**时出现。重连中挂着它 = 界面在撒谎说"已连接",
+          而且 e2e 正是拿 .chat-meta 判"连上没有" —— 那会变成我自己造的假绿。 */}
+      {!reconnecting && (
+        <div className="chat-meta">
+          已连接{view.model ? ` · ${view.model}` : ""}
+          <button
+            className="chat-meta-more"
+            data-ui="chat-meta-more"
+            onClick={() => setChatMenuOpen((v) => !v)}
+            title="更多"
+          >
+            …
+          </button>
+          {chatMenuOpen && (
+            <div className="chat-meta-menu" data-ui="chat-meta-menu">
+              <button
+                className="item"
+                onClick={() => {
+                  setChatMenuOpen(false);
+                  logout();
+                }}
+              >
+                退出登录
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       {transcript.messages.length === 0 ? (
         variant === "home" ? (
           /* 3a 空态(handoff §5):问候语 + 620px 大输入卡 + 三建议 chip,
