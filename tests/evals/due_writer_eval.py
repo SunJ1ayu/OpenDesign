@@ -104,6 +104,30 @@ CASES = [
     },
 ]
 
+# 多步用例(2026-08-04,track opendesign-date-arithmetic):除了「档案里的日期对不对」,
+# 还要**看调用轨迹里有没有真的调那个工具**。
+#
+# 为什么这几道非放这份不可:相对日期改完之后是**两步**(resolve_date 算 → set_due_date 落)。
+# `resolver_eval` 是单选路由器,只让答一个工具名,**结构上问不出两步行为**
+# (那边试过三遍全红,红的是题面不是模型,已在那边留痕搬走)。
+# 这份真跑工具循环、trace 全在手里,是唯一能判"它到底心算了没有"的地方。
+MULTI_STEP_CASES = [
+    {
+        "name": "相对期限:必须先调 resolve_date,不许心算",
+        "say": (f"{PROJECT} 业主说主卧衣柜改到顶,这周五之前要看到效果图。"),
+        "must_call": "resolve_date",
+        "want_dues": [("2026-08-07", ("衣柜", "效果图"))],
+    },
+    {
+        # 护栏:确切日期不许绕道。新工具最典型的副作用是"逢日期必调",
+        # 把最常见的路径凭空变慢一倍。
+        "name": "护栏:确切日期直接落,不许绕 resolve_date",
+        "say": f"{PROJECT} 业主说玄关柜门板换浅橡木色,2026-08-20 之前改完。",
+        "must_not_call": "resolve_date",
+        "want_dues": [("2026-08-20", ("玄关", "门板"))],
+    },
+]
+
 _PY_TYPES = {"int": "integer", "bool": "boolean", "float": "number"}
 
 
@@ -210,7 +234,7 @@ def run_case(case: dict, tools: list[dict]) -> dict:
         ds_tools.create_project(PROJECT, client="王姐", ds_root=ds_root, today=FAKE_TODAY)
         messages = [{"role": "system", "content": system_prompt()},
                     {"role": "user", "content": case["say"]}]
-        trace = []
+        trace, called = [], set()   # called:工具名集合,给 must_call / must_not_call 用
         for _ in range(MAX_TURNS):
             msg = chat(messages, tools)
             calls = msg.get("tool_calls") or []
@@ -225,15 +249,64 @@ def run_case(case: dict, tools: list[dict]) -> dict:
                 except ValueError:
                     args = {}
                 res = run_tool(name, args, ds_root)
+                called.add(name)
                 trace.append(f"{name}({args.get('due') or args.get('content', '')[:12]})")
                 messages.append({"role": "tool", "tool_call_id": c["id"],
                                  "content": json.dumps(res, ensure_ascii=False)})
         return {"dated": dated_lines(ds_root), "changes": change_lines(ds_root),
-                "trace": trace, "error": None}
+                "trace": trace, "called": called, "error": None}
     except Exception as e:  # noqa: BLE001 —— 上游/环境错走环境码,不冒充失分
-        return {"dated": [], "changes": 0, "trace": [], "error": f"{type(e).__name__}: {e}"}
+        return {"dated": [], "changes": 0, "trace": [], "called": set(),
+                "error": f"{type(e).__name__}: {e}"}
     finally:
         shutil.rmtree(ds_root, ignore_errors=True)
+
+
+def check_dues(case: dict, r: dict) -> list[str]:
+    """两份用例共用的「档案里的截止日对不对」判定。"""
+    bad = []
+    if r["error"]:
+        bad.append(f"跑挂了:{r['error']}")
+    got_dates = sorted(d for d, _ in r["dated"])
+    want_dates = sorted(d for d, _ in case["want_dues"])
+    if got_dates != want_dates:
+        bad.append(f"档案里的截止日 {got_dates or '无'},期望 {want_dates or '无'}")
+    else:
+        for date, keys in case["want_dues"]:      # 日期对了,再查挂在哪一条上
+            line = next((t for d, t in r["dated"] if d == date), "")
+            if not any(k in line for k in keys):
+                bad.append(f"{date} 挂错了条目:挂在「{line[:24]}」,应是含 {'/'.join(keys)} 的那条")
+    if r["changes"] < case.get("min_changes", 1):
+        bad.append(f"只落下 {r['changes']} 条变更行,期望 ≥{case.get('min_changes', 1)}")
+    return bad
+
+
+def run_multi_step(tools: list[dict]) -> int:
+    """多步用例:除了判档案,还判**调用轨迹里有没有调那个工具**。
+
+    这是 resolver_eval 判不了的那一半 —— 那份是单选路由器,问不出两步行为。
+    """
+    print("\n── 多步用例(date-arithmetic:判轨迹,不只判档案)" + "─" * 20)
+    with futures.ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda c: run_case(c, tools), MULTI_STEP_CASES))
+    fails = 0
+    for case, r in zip(MULTI_STEP_CASES, results):
+        bad = check_dues(case, r)
+        must = case.get("must_call")
+        if must and must not in r["called"]:
+            bad.append(f"没调 {must} —— 日期是心算出来的(算对了也不算数:"
+                       f"下次就未必对,而下游没有任何一道闸看得出来)")
+        never = case.get("must_not_call")
+        if never and never in r["called"]:
+            bad.append(f"多绕了一趟 {never}:话里已经是确切日期,直接落就行")
+        if bad:
+            fails += 1
+        print(f"{'ok  ' if not bad else 'FAIL'} {case['name']}")
+        print(f"      调用: {' → '.join(r['trace']) or '(没调工具)'}")
+        if bad:
+            print(f"      失配: {'; '.join(bad)}")
+    print(f"{'ALL PASS' if fails == 0 else f'{fails} FAIL'} / {len(MULTI_STEP_CASES)} 多步用例")
+    return fails
 
 
 def main() -> int:
@@ -249,20 +322,7 @@ def main() -> int:
     fails = 0
     scored = sum(1 for c in CASES if not c.get("probe"))
     for case, r in zip(CASES, results):
-        bad = []
-        if r["error"]:
-            bad.append(f"跑挂了:{r['error']}")
-        got_dates = sorted(d for d, _ in r["dated"])
-        want_dates = sorted(d for d, _ in case["want_dues"])
-        if got_dates != want_dates:
-            bad.append(f"档案里的截止日 {got_dates or '无'},期望 {want_dates or '无'}")
-        else:
-            for date, keys in case["want_dues"]:      # 日期对了,再查挂在哪一条上
-                line = next((t for d, t in r["dated"] if d == date), "")
-                if not any(k in line for k in keys):
-                    bad.append(f"{date} 挂错了条目:挂在「{line[:24]}」,应是含 {'/'.join(keys)} 的那条")
-        if r["changes"] < case.get("min_changes", 1):
-            bad.append(f"只落下 {r['changes']} 条变更行,期望 ≥{case.get('min_changes', 1)}")
+        bad = check_dues(case, r)
         probe = case.get("probe", False)
         mark = "ok  " if not bad else ("probe" if probe else "FAIL")
         if bad and not probe:
@@ -272,6 +332,7 @@ def main() -> int:
         if bad:
             print(f"      失配: {'; '.join(bad)}")
     print(f"\n{'ALL PASS' if fails == 0 else f'{fails} FAIL'} / {scored} 计分用例")
+    fails += run_multi_step(tools)
     return 1 if fails else 0
 
 
