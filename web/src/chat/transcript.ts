@@ -20,12 +20,49 @@ export interface ChatMessage {
 export interface TranscriptState {
   messages: ChatMessage[];
   busy: boolean; // 发出消息 → turn_end 期间锁输入
+  /** 「正在思考…」。由 goal_status:running 与 reasoning_delta 驱动 —— 等待期间
+   *  真正在流的就是这两个,而它们从 T5 起一直被忽略,所以从按下发送到出第一个字
+   *  的那几十秒界面是死的(2026-08-04 实抓:那一轮光 reasoning_delta 就 24 帧)。
+   *  第一个答案 delta 到达即关掉。 */
+  thinking: boolean;
+  /** 工具活动回执(人话),**不是气泡**。协议给的是事后回执不是进度:
+   *  `tool_events[].phase` 实测只有 `"end"` ⇒ 不做进度条,不编数据。
+   *  turn_end 清空。 */
+  activity: string[];
 }
 
 export const emptyTranscript: TranscriptState = Object.freeze({
   messages: [],
   busy: false,
+  thinking: false,
+  activity: [],
 });
+
+/** 工具原名 → 给机主看的一句人话。
+ *  映射不到的一律给通用文案:`mcp_design-studio_list_todos_tool` 这种字符串
+ *  对一个室内设计师是纯噪音,**不许直接甩到界面上**(判据钉死)。 */
+const TOOL_LABELS: Record<string, string> = {
+  list_todos: "查了待办清单",
+  read_project: "翻了项目档案",
+  append_change: "记了一条变更",
+  set_change_status: "更新了事项状态",
+  set_due_date: "记了截止日",
+  resolve_date: "算了日期",
+  list_inbox: "看了收件箱",
+  stage_intake: "整理了收件箱",
+  set_stage: "更新了项目阶段",
+  create_project: "建了项目档案",
+};
+
+/** 从 `mcp_design-studio_list_todos_tool` 这类原名里剥出中间的工具名。 */
+function bareToolName(name: string): string {
+  return name.replace(/^mcp_[^_]+(?:-[^_]+)*_/, "").replace(/_tool$/, "");
+}
+
+export function activityLabel(name: unknown): string {
+  if (typeof name !== "string" || !name.trim()) return "查了一下资料";
+  return TOOL_LABELS[bareToolName(name)] ?? "查了一下资料";
+}
 
 /** 一张随消息发出的图(协议 §2 `media`;svg 被上游显式排除,见 chat/media.ts)。 */
 export interface OutboundMedia {
@@ -128,7 +165,7 @@ export function hydrateFromThread(payload: unknown): TranscriptState | null {
     if (media) msg.media = media;
     messages.push(msg);
   }
-  return { messages, busy: false };
+  return { messages, busy: false, thinking: false, activity: [] };
 }
 
 /** 用户消息本地上屏 + 锁输入(回显不靠 ws,协议不回放自己的消息)。 */
@@ -144,7 +181,8 @@ export function appendLocalUser(
   if (media && media.length > 0) {
     msg.media = media.map((m) => ({ src: m.data_url, name: m.name }));
   }
-  return { messages: [...state.messages, msg], busy: true };
+  // 新发一轮:上一轮的活动回执清掉(它属于上一轮),等待态交给事件去开
+  return { ...state, messages: [...state.messages, msg], busy: true, activity: [] };
 }
 
 /** 入站事件 → 新 state。认不出/畸形的一律原样返回(安全降级)。 */
@@ -152,8 +190,30 @@ export function applyEvent(state: TranscriptState, ev: unknown): TranscriptState
   if (typeof ev !== "object" || ev === null) return state;
   const e = ev as Record<string, unknown>;
   switch (e.event) {
+    case "goal_status":
+      // 等待态开:running 之外的状态(idle 等)不动它
+      return e.status === "running" && !state.thinking
+        ? { ...state, thinking: true }
+        : state;
+    case "reasoning_delta":
+      // 只取"它还活着"这一个信号,**正文一个字都不进 messages[]** ——
+      // 那是没定稿的草稿,展示它等于把草稿当结论给用户看(判据钉死)
+      return state.thinking ? state : { ...state, thinking: true };
+    case "message": {
+      if (e.kind !== "progress" && e.kind !== "tool_hint") return state;
+      const raw = Array.isArray(e.tool_events) ? e.tool_events : [];
+      const lines: string[] = [];
+      for (const t of raw) {
+        if (typeof t !== "object" || t === null) continue;
+        lines.push(activityLabel((t as Record<string, unknown>).name));
+      }
+      if (lines.length === 0) return state;
+      return { ...state, activity: [...state.activity, ...lines] };
+    }
     case "delta": {
       if (typeof e.stream_id !== "string" || typeof e.text !== "string") return state;
+      // 第一个答案字一出来就收掉「正在思考」(别和正文一起挂着)
+      state = state.thinking ? { ...state, thinking: false } : state;
       // role 守卫:stream_id 万一撞上本地用户消息 id(服务端 bug),不往用户气泡里拼
       const i = state.messages.findIndex(
         (m) => m.role === "assistant" && m.id === e.stream_id,
@@ -185,9 +245,12 @@ export function applyEvent(state: TranscriptState, ev: unknown): TranscriptState
       // busy 会死锁到刷新。error 一律解锁(attach 场景的 error 到 T7 才有)。
       return state.busy ? { ...state, busy: false } : state;
     case "turn_end":
-      // 收尾:解锁输入,兜底定稿所有仍在流的消息(stream_end 丢了也不卡界面)
+      // 收尾:解锁输入,兜底定稿所有仍在流的消息(stream_end 丢了也不卡界面),
+      // 并清掉本轮的等待态与活动回执(下一轮不该顶着上一轮的尾巴)
       return {
         busy: false,
+        thinking: false,
+        activity: [],
         messages: state.messages.map((m) =>
           m.streaming ? { ...m, streaming: false } : m,
         ),

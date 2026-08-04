@@ -780,11 +780,21 @@ export default function ChatPage({
               </div>
             ),
           )}
-          {/* 思考中(connect-ux):发出→首个 delta 之间的信号真空。纯派生:
-              busy 且末条还是用户消息 = 助手在想;流式一开始末条变 assistant,
-              指示自然消失。无新状态、无定时器。 */}
-          {transcript.busy &&
-            transcript.messages[transcript.messages.length - 1]?.role === "user" && (
+          {/* 工具活动回执(T5b):协议给的是**事后**回执(tool_events[].phase 实测只有
+              "end"),所以这里说的是"刚才干了什么",不是进度。turn_end 清空。 */}
+          {transcript.activity.map((line, i) => (
+            <div className="msg-activity" data-ui="chat-activity" key={`act-${i}`}>
+              {line}
+            </div>
+          ))}
+          {/* 思考中(connect-ux):发出→首个 delta 之间的信号真空。原本是纯派生:
+              busy 且末条还是用户消息 = 助手在想。T5b 起**取或**:再加上事件驱动的
+              transcript.thinking(goal_status:running / reasoning_delta)——
+              派生条件在"没有前置用户消息就开始干活"和"重连后 busy 已清"两种情况下不亮。
+              只增不减:类名 .thinking 不动,既有 e2e(waitAssistantDone)照旧。 */}
+          {(transcript.thinking ||
+            (transcript.busy &&
+              transcript.messages[transcript.messages.length - 1]?.role === "user")) && (
               <div className="msg-ai thinking" aria-label="助手思考中">
                 <span className="tdot" />
                 <span className="tdot" />
