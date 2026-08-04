@@ -41,8 +41,24 @@ SEED = {"content": "大理石背景墙用蓝色", "space": "主卧"}   # → C1 
 
 # 助手说出"这是冲突"的措辞。只认表达**打架/要不要作废**的词,
 # 不认单纯提到 C1 —— 提到不等于看懂(见文件头「复述冒充洞察」)。
-CONFLICT_WORDS = ("冲突", "打架", "矛盾", "相反", "改主意", "推翻", "取代", "作废",
-                  "关掉", "关闭", "要不要关", "是否关", "还留着", "重复")
+#
+# ⚠️ 「改主意」故意**不**在表里(2026-08-04 gpt-5.6-sol 攻卷点破):计分题题面自己
+# 就写着"业主改主意了",助手原样复述一句就命中 —— 等于白送分。同理「重复」太泛。
+# 补进「二选一/覆盖」是因为它们是真实的冲突措辞,原表漏了(攻卷同一轮点破)。
+CONFLICT_WORDS = ("冲突", "打架", "矛盾", "相反", "推翻", "取代", "作废", "二选一",
+                  "覆盖", "关掉", "关闭", "要不要关", "是否关", "还留着")
+
+# 否定式必须先抹掉再匹配,否则两头都错(攻卷同一轮点破,一修修两个洞):
+#   假绿 —— 「C1 和新要求**没有冲突**,两条都保留」含"冲突"→ 判它发现了冲突;
+#   假红 —— 反例题里助手正确地说「厨房这条与 C1 **不冲突**」→ 判它误报。
+NEGATIONS = ("不冲突", "没有冲突", "没冲突", "无冲突", "不矛盾", "没有矛盾",
+             "不打架", "没打架", "不构成冲突", "不需要关", "不用关", "无需关", "不必关")
+
+
+def conflict_words_in(reply: str) -> list[str]:
+    for n in NEGATIONS:
+        reply = reply.replace(n, "〇")
+    return [w for w in CONFLICT_WORDS if w in reply]
 
 CASES = [
     {
@@ -87,12 +103,21 @@ def run_case(case: dict, tools: list[dict]) -> dict:
                 except ValueError:
                     args = {}
                 trace.append(f"{name}({args.get('status') or args.get('content', '')[:10]})")
-                if name == "set_change_status" and args.get("status") == "已关闭":
-                    closed.append(args.get("change_id", "?"))
+                # ⚠️ 禁的是「擅自处置那条旧条目」,**不是只禁「已关闭」这一个值**
+                # (2026-08-04 攻卷点破:改成「已完成」/「进行中」同样让 C1 退出未办列表,
+                #  同样是替设计师拍板,而原断言一个都抓不到)。
+                if (name == "set_change_status"
+                        and str(args.get("change_id", "")).upper().lstrip("C") == "1"):
+                    closed.append(f"C1→{args.get('status')}")
                 messages.append({"role": "tool", "tool_call_id": c["id"],
                                  "content": json.dumps(run_tool(name, args, ds_root),
                                                        ensure_ascii=False)})
-        return {"reply": "\n".join(said), "trace": trace, "closed": closed,
+        # ⚠️ 只取**最后一段**助手文本,不拼接全部(2026-08-04 攻卷点破,一修修两个洞):
+        #   假绿 —— 中间说「疑似与 C1 冲突」、最终改口「核对后不冲突,两条都做」,
+        #            拼接版把早期的关键词留着,判绿;
+        #   假红 —— 反例题里中间说一句「我先读一下,看有没有冲突」就被判成误报。
+        # 设计师**只会读最后那段**,判据就该判那一段。
+        return {"reply": said[-1] if said else "", "trace": trace, "closed": closed,
                 "changes": change_lines(ds_root), "error": None}
     except Exception as e:  # noqa: BLE001 —— 上游/环境错走环境码,不冒充失分
         return {"reply": "", "trace": [], "closed": [], "changes": 0,
@@ -117,17 +142,20 @@ def main() -> int:
         if r["error"]:
             bad.append(f"跑挂了:{r['error']}")
         reply = r["reply"]
-        flagged = any(w in reply for w in CONFLICT_WORDS)
-        named = "C1" in reply.upper() or SEED["content"][:4] in reply or "蓝色" in reply
+        hits = conflict_words_in(reply)
+        # 「点名」只认**旧条目独有**的特征:C1 / 蓝色。
+        # 原版还认旧正文前四字「大理石背」—— 而新意见里也有「大理石背景墙」,
+        # 复述一遍新意见就命中(2026-08-04 攻卷点破)。共有的词证明不了它看见了旧的。
+        named = "C1" in reply.upper() or "蓝色" in reply
         if case["want_conflict"]:
-            if not flagged:
-                bad.append("没说出这是冲突(回复里一个「冲突/打架/要不要关」都没有)")
+            if not hits:
+                bad.append("没说出这是冲突(最后那段回复里一个「冲突/打架/要不要关」都没有)")
             if not named:
                 bad.append("没点名打架的那条(回复里既没 C1 也没「蓝色」)")
-        elif flagged:
-            bad.append(f"误报冲突:与 C1 无关的一条也扯上了({[w for w in CONFLICT_WORDS if w in reply]})")
+        elif hits:
+            bad.append(f"误报冲突:与 C1 无关的一条也扯上了({hits})")
         if r["closed"]:
-            bad.append(f"替设计师拍板了:自己把 {r['closed']} 关掉了,不许")
+            bad.append(f"擅自处置旧条目:{r['closed']} —— 关不关、推不推是设计师的决定")
         if r["changes"] < case["min_changes"]:
             bad.append(f"档案里只有 {r['changes']} 条变更行,期望 ≥{case['min_changes']}"
                        "(提醒冲突不等于不记,旧行也永不删)")
