@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""OS folder-opening helpers for ds_web."""
+"""ds_openfolder —— 「在资源管理器里打开这个文件夹」的平台实现(track opendesign-structure-debt)。
+
+从 ds_web 搬出:这是**唯一一段真正碰操作系统窗口**的代码(Windows 下还要 ctypes 枚举
+顶层窗口、把窗口提到前台),混在 HTTP 处理里既看不清边界,也让 oracle 咬不住。
+边界:它只管"把某个已存在的目录交给系统打开、尽力提到前台";**不管**路径合不合法、
+用户有没有权限看这个目录 —— 那些闸在 ds_web 的调用点(越权判断不能下放到平台层)。
+
+⚠️ 主路径只在 Windows 真机上跑得到(Linux 上连 ctypes.WINFUNCTYPE 都没有),
+所以这里的判据是"注入替身测决策逻辑",真行为要靠真机验收 —— 改这个文件,
+verify 的 UNTESTED 清单就得跟着更新。
+"""
 from __future__ import annotations
 
 import os
