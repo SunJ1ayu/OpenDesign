@@ -1,51 +1,111 @@
 # Verify: opendesign-turn-id
 
 - Date: 2026-08-05
-- Verdict: <PASS | BLOCK | NEEDS_MORE_INFO>
+- Verdict: **PASS(代码/判据面)—— 欠真机**。真机清单 `docs/accept-0.76.0.md`
+  与 tasks.md R1–R4 没走完**不许归档**。
 
-> Panel hook — 软判断(correctness/security/edge/spec-drift)走 panel-review:
-> 主 agent 先独立审并落 findings,再跑 panel-review 的全部评审腿,主 agent 主裁。
+> Panel hook — 软判断走 panel-review:主 agent 先独立审并落 findings,再跑评审腿,主 agent 主裁。
 > build/test 跑通是机械检查。
 
-## Mechanical checks
+## Mechanical checks(全部主 agent 亲跑,不采信任何执行腿自述)
 
-- [ ] build passes(`npm run build` in web/ + `tsc`)
-- [ ] tests pass(python 全量 + `tests/e2e/run-all.sh --with-gateway`,**不许留 SKIP**)
-- [ ] no secrets / unsafe ops
+- [x] build passes:`npx tsc --noEmit` 干净;`npm run build` 通过,`web/dist` 已入库同步
+- [x] tests pass:
+      - `node --test tests/*.mjs` → **342 / 342**
+      - `python -m unittest discover -s tests`(**venv 解释器**)→ **866,OK**
+      - `tests/mcp-gate.sh` → 全绿(16 + 5 + 4)
+      - `tests/e2e/run-all.sh --with-gateway` → **34 PASS / 0 FAIL / 0 SKIP**
+        (那两条历来 SKIP 的活 gateway 场景,08-05 起真跑;`chat_reconnect` 41 条断言)
+      - 协议探针 `evidence/probe_turnid.py` → 对活 gateway 实跑,①② 均 ✅
+- [x] no secrets / unsafe ops:diff 逐行读过;无新增外发、无新写口、无凭证;
+      合并后无 `create mode 120000`(符号链接事故的例行检查)
 
 ## Review
 
 - lane: **full**
   > 判据:这段代码决定**用户说过的话在断线后还在不在** = 数据一致性面,硬规矩不打折。
-  > 佐证不是我的感觉:同一段代码上一单(chat-reconnect)走 full,四审判过 BLOCK、
-  > 两条 HIGH 都出在这里(P1 busy 永久锁死、P3 半截 assistant 气泡),
-  > 而它们**纯逻辑判据全绿**照样漏。本单动的正是那段。
+  > 佐证不是感觉:同一段代码上一单(chat-reconnect)走 full,四审判过 BLOCK、
+  > 两条 HIGH 都出在这里。**事后看这一档选对了** —— 三条腿全指向同一处规格错误
+  > (见 findings F7),而我自审时把它当"接受的取舍"记账放过了。
   > (智谱腿欠费默认关闭 ⇒ 实际三腿;这是腿的现状,不是降档。)
-- 派给: **codex / gpt-5.5**(worktree) —— 规格已经写死到判定表级别、判据先行且红检过两个
-  方向,剩下的是"照着红考卷写绿",不需要 frontier 脑;Claude 额度留给判卷/四审/仲裁。
-  判卷要不要起服务:**要**(O2/O3 是 chromium + 本机端口),按 delegate 抽屉的默认路子
-  **主 agent 当测试机**(有界 2 轮),不为一个本地端口给它开网络。
-  O1(`node --test`)它自己就能跑,交货前必须自己跑绿。
-  > 分层还账账本:本单是 GPT 腿第 ? 单 —— 数字**收货时从工件数,不从记忆抄**;
-  > 返工轮数与自身错误数在下面 findings 段据实记。
-- 规格自查(读任何 panel 输出之前先答):
-  1. **规格可能错在"以为丢字的主因是对账"**。真机上更常见的是整页刷新(本地 state 全丢),
-     那和 turnId 一点关系没有。若真是它,本单全绿而用户照样说"我的话没了" ——
-     发现方式只有真机 R1/R2,已列进 tasks.md。
-  2. **规格可能错在退路留反了**:我让"本地无 turnId ⇒ 退回文本启发式"以求不倒退,
-     但老会话混排时这条退路会把**真正独有的一句**误判成"服务端已有"而丢掉 ——
-     这是我明知留下的口子(design.md 记账)。判据⑤锁的是"不误判成没有",
-     反方向(误判成有)判据接不住,只能靠真机 R1 顺带看。
-  3. **规格可能错在发送口判太严**:把"能发出去的"拦下来,用户眼里=按了没反应。
-     所以只认 `readyState !== OPEN` 和 `send()` 真抛两种确定失败,不加任何猜测;
-     判据㉘ 锁"失败之后不许锁死输入"。真机 R3 兜。
+- 派给: **codex / gpt-5.5**(worktree `/root/aiwork/worktrees/turn-id`)——
+  规格已写到判定表级别、判据先行且两个方向红检过,剩下是"照着红考卷写绿"。
+  判卷要起服务(chromium + 本机端口)⇒ 按 delegate 抽屉默认路子**主 agent 当测试机**,
+  不为一个本地端口给它开网络。
+  **本单账实录**:返工 **0 轮**;自身错误 **0 处**(交货即通过三道闸);
+  它跑不了的 e2e 由我跑,第一次跑红的两条经查是**我判据的 bug**,不是它的实现。
+  它按 brief 里那句"顺手攻一遍我的 oracle"回了一条:
+  `turnId: undefined` 显式写上去也能骗过我的断言(要 `Object.hasOwn` 才咬得死)——
+  成立但影响为零(两种写法在对账里等价),记在 Accepted deviations。
+- 规格自查(读任何 panel 输出之前先答,原文保留不修饰):
+  1. 规格可能错在"以为丢字的主因是对账"。真机上更常见的是整页刷新(本地 state 全丢)。
+     发现方式只有真机 R1/R2。**结论:仍成立,已进真机清单。**
+  2. 规格可能错在"退路留反了":本地有 turnId、服务端行没有时会退回文本比对,
+     可能把真正独有的一句误判成"服务端已有"而丢掉。我当时判为**接受**。
+     **⚠️ 事后看这条自查写对了、判断做错了** —— 三条腿全部指到这里,见 F7。
+  3. 规格可能错在发送口判太严(把能发的拦下来)。**结论:没有发生**,
+     只认 `readyState !== OPEN` 与 `send()` 真抛;㉘/㉙ 咬住。
 - findings:
-  - <待填>
-  > 腿死了/降级了不用在这里再抄一遍:每份评审日志自带身份牌(降级横幅 + 视野边界),
-  > 查日志不查自述。这里只写发现。
-- arbitrated verdict (主裁): <待填>
-  > **归档时这一条和顶部的 `Verdict:` 都不许还是占位符**,`track-guard` 规矩3 会挡。
+
+  **我自审先落盘的(`/root/aiwork/tasks/opendesign-turn-id-review-my-review.md`):**
+  - F1 两份 ws 替身都缺 `WebSocket.OPEN` 常量 ⇒ 实现按标准写法判连接时恒判"没连上"。
+    **红的是判据不是实现。**两份都补齐并重新红检。(`6dd21cb` / `4bc508a`)
+  - F2 `__sendThrows` 把重连的 `attach` 也弄挂 ⇒ 同一份代码一次红一次绿。
+    **判据自己制造的抖动**,已限定只让"发消息"抛。(`b0aae34`)
+  - F3 工具表快照闸从 08-04 起一直是红的,而收货记录写着"python 866/0" ——
+    根因是回归用的**系统 python3 没装 mcp**,4 条判据整块 SKIP、汇总照印 OK;
+    `tests/mcp-gate.sh` 早就建好却没有任何总跑会调它。已刷基线 + 记规矩。(`234d089`)
+  - F4 turnId 缺失时的文本退路仍可能吃掉消息 —— **我当时判"接受"。见 F7,判错了。**
+  - F5 `send()` 成功 ≠ 服务端收到(协议无 ack)。接受,靠对账兜。
+  - F6 程序化发送失败时"预填+聚焦"与 turnError 叠加,略啰嗦,不是错。
+
+  **评审腿点出、我漏了或判错的(panel 的主要价值):**
+  - **F7(MEDIUM,采纳并已修)三腿共同命中**:"本地有 turnId 时还拿文本兜一层"
+    会把**用户今天又说了一遍的那句上周的话**当成上周那条吃掉 —— 本单要消灭的病
+    换了个入口回来。DeepSeek 还补了最狠的一刀:**纯图消息 content 为空**,
+    key 一律 `user\0`,老会话里只要有一条无 turnId 的纯图行,新发的纯图消息会**集体**被丢;
+    而我的 e2e ㉕ 恰好把这条错规则**焊死**了。
+    评审内部有分歧:MiMo 判 LOW「不改也是对的」,Kimi/DeepSeek 判 MEDIUM 建议改。
+    **我按证据采纳后者**:实测 gateway 每条 user 行都写 turn_id(抽样 7 会话 7/7)⇒
+    "服务端记下了却没有 turnId"现实中不发生;而万一发生,**多一个气泡远好于少一句话**。
+    已改:对账"有 turnId"分支只看 turnId;判据 ⑤ 反过来写 + 新增 ⑤b;
+    e2e 夹具改成真机形状(服务端 user 行都带真 turn_id)。(`80d2d23` / `c31ab44`)
+  - **F8(MEDIUM,采纳并已修)DeepSeek 孤发现**:规范里 `send()` 只在
+    CONNECTING/CLOSING/CLOSED 抛,而这三种都被 readyState 预检先拦了 ⇒
+    **㉖ 测的是兜底分支,㉙ 才是生产上真正走的那条**;OPEN 的 socket 即使对端已死也只静默排队。
+    **最要命的后果在验收清单上**:B 组按"只有一种结果"写,机主拔网线会看到
+    气泡照常上屏、没有提示,和"该看到"正好相反,会当成 bug 报回来。
+    已按两种断法分表重写 `docs/accept-0.76.0.md` B 组,并在判据注释里写死这条规范事实。(`5325853`)
+  - **F9(LOW,采纳并已修)DeepSeek**:重连成功后那句"没发出去"的提示不会消失,
+    界面在说一件不再为真的事。两处 `setView(connected)` 前清掉;e2e ㉚ 咬住。(`413d219`)
+  - **F10(LOW,采纳并已修)DeepSeek**:整套对账押在一条**外部契约**上
+    (gateway 逐字节回显 turn_id 与原文),而判据里的 turnId 全是夹具自己填的、
+    照不出上游漂移;探针是唯一证据。已给探针加"原文逐字节一致"断言,
+    并在 `docs/nanobot-ws-protocol.md` §5 升级流程加第 5 步(升级后必须复跑探针)。(`413d219`)
+  - **驳回 1 条(MiMo INFO)**:它说缺"本地有 turnId + 服务端无 turnId + 同文本"的直接用例,
+    并给了一条建议补的测试 —— 已核 `tests/test_chat_transcript.mjs` 对账⑤,
+    那**就是**同一个用例(它当时还是"去重"语义)。不成立。
+  - **我自己发现、评审腿没提但依然成立的**:F1/F2/F3 三条判据面的 bug 三条腿都没提
+    (它们默认判据是对的);**F3 更是这次唯一影响到"别的单子的收货记录"的一条。**
+  - **腿的身份牌**:Kimi 这条腿**没有出最终报告**(日志停在分析中途,无结论段);
+    但它在途中的分析里独立推到了 F7 的核心("退路的收益是推测的,代价是真的丢字"),
+    这段被我采纳了。**失败腿的日志值得读**,这次又验证了一遍。
+
+- arbitrated verdict (主裁): **PASS(代码/判据面),欠真机验收。**
+  三条腿一致 PASS,但**不是因为他们说 PASS 我才 PASS**:合并前我把 F7–F10 全部改完
+  并重新红检(把实现退回 `611dd49` 再 build,㉔/㉗/㉙/㉙b/⑫ 五条红),
+  再跑一遍全量(342 + 866 + 34/0/0 + mcp-gate + 探针)。
+  **本单最该记住的一条**:三条腿指向的那个错误,我在自审里**写对了现象、判错了取舍**
+  (规格自查第 2 条)。判据一旦把错的取舍焊死,后面全绿也只是在证明"我做的正是我说的错事"。
 
 ## Accepted deviations
 
-- <待填>
+- **协议无 ack** ⇒ `send()` 成功不等于服务端收到;拔网线那种断法浏览器不知情、
+  消息静默排队、气泡照常上屏。**本版不做"发送中/已送达"角标**(产品决定,要机主先拍板),
+  靠重连对账兜。验收清单 B 组已按两种结果分开写,不给机主一个错的预期。
+- **`turnId: undefined` 显式写上也能骗过断言**(codex 攻我判据时提的):
+  要 `Object.hasOwn` 才咬得死。两种写法在 `reconcileThread` 里完全等价,不修。
+- **本单全部判据都跑在 stub 的 ws 上**;真浏览器 + 真 gateway 的断线自愈只有真机验得到。
+- **`tests/e2e/chat_reconnect.e2e.mjs` 与 `chat_image.e2e.mjs` 依赖本机夹具**这件事本单没动;
+  另外那两条活 gateway 的 e2e(`new_chat` / `project-thread`)**要手工准备 PKB 项目 +
+  workspace 映射**才跑得起来(08-05 我是手工搭的)。**这是下一单的债,已记在这里。**
