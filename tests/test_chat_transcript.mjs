@@ -415,11 +415,20 @@ test("hydrateFromThread:全被过滤 → 空消息列表(仍是合法 state,非 
 // 判定规则(这段就是规格,实现照它写):
 //   服务端已记 = replay 里 role==="user" 的行
 //   本地一条 user 消息算"服务端已记上":
-//     · 本地有 turnId → turnId ∈ 服务端 turnId 集合;
-//       否则退一步:文本命中**服务端那些没有 turnId 的行**(老会话混排)
+//     · 本地有 turnId → **只看 turnId**:turnId ∈ 服务端 turnId 集合
 //     · 本地没有 turnId → 老启发式:文本命中服务端**任意** user 行(行为不倒退)
 //   本地 assistant 一律丢弃(半截气泡以服务端为准)
 //   输出顺序 = [...服务端历史, ...本地独有]
+//
+// ⚠️ 「本地有 turnId 时还要拿文本兜一层」那条**曾经写在这里,08-05 四审后删掉了**。
+// 删的理由是证据不是口味:
+//   ① 实测 gateway 把我们发的 turn_id 原样写进每一条 user 行(抽样 7 个会话,
+//      带 turnId 7 / 不带 0),协议 §2 也把它列为出站信封的一等字段 ⇒
+//      "服务端记下了这条、却没有它的 turnId" 这种状态在现实里没出现过;
+//   ② 而那层文本兜底有确定的代价:**用户重复说一句上周说过的话、正好断线**,
+//      新说的那句会被当成老那条而消失 —— 正是本单要消灭的病,换了个入口回来;
+//   ③ 万一 ① 的假设哪天不成立,两种错法里 **"多一个气泡" 远好于 "少一句话"**。
+// (MiMo 判它 LOW「不改也对」,Kimi 判 MEDIUM 建议改;我按 ①②③ 采纳后者。)
 
 import { reconcileThread } from "../web/src/chat/transcript.ts";
 
@@ -465,9 +474,20 @@ test("对账④:本地消息没有 turnId ⇒ 退回文本启发式,老行为不
   assert.deepEqual(reconcileThread(local, replay).map((m) => m.id), ["u-0"]);
 });
 
-test("对账⑤:服务端行没有 turnId(老会话)⇒ 也退回文本启发式,不误判成'服务端没有'", () => {
+test("对账⑤:本地有 turnId、服务端旧行没有 turnId 且文本一样 ⇒ **本地那条要留住**", () => {
+  // 场景:用户上周说过「上周聊过的那句」(服务端那条老记录没有 turnId),
+  // 今天又说了一遍、正好断线、服务端没记上。这两条是**不同的消息**,
+  // 而"服务端记下了却没写 turnId"这种状态实测不存在(见本节顶部 ①)⇒
+  // 按文本把今天这句吃掉,就是本单要消灭的那个病换了个入口回来。
   const local = [u("l1", "上周聊过的那句", "t-7")];
   const replay = [u("u-0", "上周聊过的那句")];              // 服务端无 turnId
+  assert.deepEqual(reconcileThread(local, replay).map((m) => m.id), ["u-0", "l1"]);
+});
+
+test("对账⑤b:服务端旧行没有 turnId、本地那条也没有 ⇒ 仍按文本去重(老行为不倒退)", () => {
+  // 前插回放进来的本地消息就是这种:它的字段全部来自服务端,没有 turnId。
+  const local = [u("l1", "上周聊过的那句")];
+  const replay = [u("u-0", "上周聊过的那句")];
   assert.deepEqual(reconcileThread(local, replay).map((m) => m.id), ["u-0"]);
 });
 

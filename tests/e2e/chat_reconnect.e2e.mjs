@@ -347,29 +347,35 @@ try {
   await sendMessage(page, pane, DUP_TEXT);
   await page.locator(`${pane} .msg-user:has-text("${DUP_TEXT}")`).first()
     .waitFor({ timeout: 15000 });
-  const dupTurnId = await page.evaluate((text) => {
+  /** 从 stub 记下的**真信封**里取某句话的 turn_id(不是我们自己编一个)。 */
+  const sentTurnId = (text) => page.evaluate((t) => {
     for (const raw of window.__sent) {
       try {
         const m = JSON.parse(raw);
-        if (m.type === "message" && String(m.content).includes(text)) return m.turn_id;
+        if (m.type === "message" && String(m.content).includes(t)) return m.turn_id;
       } catch { /* 非 JSON 跳过 */ }
     }
     return null;
-  }, DUP_TEXT);
+  }, text);
+  const dupTurnId = await sentTurnId(DUP_TEXT);
+  const beforeTurnId = await sentTurnId(BEFORE_TEXT);
   check(typeof dupTurnId === "string" && dupTurnId.length > 0,
     "㉔a 前置:出站信封里确实带了 turn_id(协议 §2 一等路径)");
 
   // 服务端这一侧:记上了第一遍(带真 turn_id),**没记上**第二遍。
-  // 前面那几条故意不带 turnId —— 老会话混排,顺带验"服务端没 id 时退回文本启发式"。
-  await page.evaluate(({ before, gap, dup, turnId }) => {
+  // 老消息那行也按真机的样子带上它自己的 turn_id —— 实测 gateway 每条 user 行都有
+  // (抽样 7 个会话,带 7 / 不带 0)。夹具里凭空造一条"没有 turnId 的服务端行"
+  // 等于在问一道现实里不存在的题,08-05 四审后改掉。
+  await page.evaluate(({ before, beforeId, gap, dup, turnId }) => {
     window.__thread = { schemaVersion: 3, sessionKey: "websocket:chat-e2e", messages: [
-      { id: "u-1", role: "user", content: before },
+      { id: "u-1", role: "user", content: before, turnId: beforeId, turnPhase: "user" },
       { id: "a-1", role: "assistant", content: "收到" },
       { id: "a-2", role: "assistant", content: gap },
       { id: "u-dup", role: "user", content: dup, turnId, turnPhase: "user" },
     ] };
     window.__silent = true;   // 第二遍服务端不回也不记
-  }, { before: BEFORE_TEXT, gap: GAP_TEXT, dup: DUP_TEXT, turnId: dupTurnId });
+  }, { before: BEFORE_TEXT, beforeId: beforeTurnId, gap: GAP_TEXT,
+       dup: DUP_TEXT, turnId: dupTurnId });
 
   await sendMessage(page, pane, DUP_TEXT);
   check(await until(async () =>
@@ -414,6 +420,21 @@ try {
   check(await until(async () => !(await page.locator(`${pane} .send-btn`).isDisabled()), 5000),
     "㉘ 失败之后输入没被永久锁住(还能再试)");
   await page.evaluate(() => { window.__sendThrows = false; });
+
+  // ── ㉙:socket 还没死透(CLOSING)时点发送 —— 另一条失败路径 ─────────────────
+  //   ㉖ 走的是"send() 抛异常";实现里还有一条**更早**的闸:`readyState !== OPEN`
+  //   就直接不发。两条腿(MiMo/Kimi)都点出这条分支判据没覆盖 ——
+  //   只有 try/catch 没有预检的实现,㉖ 照样全绿。这一幕专门问它。
+  const CLOSING_TEXT = "socket 正在关的时候发的";
+  await page.locator(`${pane} textarea`).fill(CLOSING_TEXT);
+  await page.evaluate(() => { window.__ws.readyState = 2; });   // CLOSING,且 send 不抛
+  await page.locator(`${pane} .send-btn`).click();
+  await new Promise((r) => setTimeout(r, 500));
+  check((await page.locator(`${pane} .msg-user:has-text("${CLOSING_TEXT}")`).count()) === 0,
+    "㉙ readyState 不是 OPEN 时点发送 ⇒ 不上屏假气泡(不靠异常兜)");
+  check(await page.evaluate((t) => !window.__sent.some((s) => s.includes(t)), CLOSING_TEXT),
+    "㉙b 而且**一个字节都没往外发**(不是发出去了只是没上屏)");
+  await page.evaluate(() => { window.__ws.readyState = 1; });   // 复原,后面几幕还要用
 
   // ── 攻题补强 1:历史请求打的是**真实那条代理路径**,且发生在 attach 之后 ──────
   //   (原来 stub 用 includes("/thread") 模糊放行 ⇒ 照设计文字写错地址也能全绿)
