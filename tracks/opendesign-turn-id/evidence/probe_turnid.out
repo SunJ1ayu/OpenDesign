@@ -1,0 +1,9 @@
+我发出去的 turn_id = e4436641-e91a-4f15-aa68-846d5b0885c6
+chat_id = 78103bb5-201a-4bfb-a504-2f6dcff02ea3
+事件序列: ['goal_status', 'reasoning_delta', 'reasoning_delta', 'reasoning_delta', 'reasoning_delta', 'reasoning_delta', 'reasoning_delta', 'reasoning_delta', 'reasoning_delta', 'reasoning_delta', 'reasoning_delta', 'reasoning_delta'] …
+
+--- 回放 messages ---
+{"id": "u-0-dd17c8ec", "role": "user", "turnId": "e4436641-e91a-4f15-aa68-846d5b0885c6", "turnPhase": "user", "turnSeq": 1, "kind": null} | content: '探针:请只回复「收到」两个字,不要调用任何工具'
+{"id": "as-1-c080e621", "role": "assistant", "turnId": "e4436641-e91a-4f15-aa68-846d5b0885c6", "turnPhase": "answer", "turnSeq": 15, "kind": null} | content: '收到'
+
+结论:回放 user.turnId == 我发的 turn_id ? ✅ 是 | 回放值 = e4436641-e91a-4f15-aa68-846d5b0885c6
