@@ -399,3 +399,122 @@ test("hydrateFromThread:全被过滤 → 空消息列表(仍是合法 state,非 
   assert.deepEqual(s.messages, []);
   assert.equal(s.busy, false);
 });
+
+// ── track opendesign-turn-id:重连对账的「真身份」 ────────────────────────────
+// 主 agent 亲写,执行腿逐字节 off-limits。
+//
+// 病根(chat-reconnect 四审 P3/F4 记过账、design.md 明写「本单不做」):
+// 重连后合并服务端历史与本地消息,判"哪条是本地独有"用的是 `role\0content` 启发式
+// ⇒ **同一句话说两遍、中间断了线,第二遍会被当成第一遍而消失**(用户的话凭空没了)。
+//
+// 地基是实抓的(scratchpad/probe_turnid.py,08-05 对活 gateway 实跑):
+// webui-thread 回放里 user 行的 `turnId` **逐字节等于**我们出站信封里填的 `turn_id`。
+// 但同一 turn 的 assistant 行**带同一个 turnId** ⇒ turnId 不是消息级唯一键,
+// 只能用来认 **user 侧**(与 P3「助手侧一律以服务端为准」的既有结论一致)。
+//
+// 判定规则(这段就是规格,实现照它写):
+//   服务端已记 = replay 里 role==="user" 的行
+//   本地一条 user 消息算"服务端已记上":
+//     · 本地有 turnId → turnId ∈ 服务端 turnId 集合;
+//       否则退一步:文本命中**服务端那些没有 turnId 的行**(老会话混排)
+//     · 本地没有 turnId → 老启发式:文本命中服务端**任意** user 行(行为不倒退)
+//   本地 assistant 一律丢弃(半截气泡以服务端为准)
+//   输出顺序 = [...服务端历史, ...本地独有]
+
+import { reconcileThread } from "../web/src/chat/transcript.ts";
+
+const u = (id, content, turnId) => ({
+  id, role: "user", content, streaming: false, ...(turnId ? { turnId } : {}),
+});
+const a = (id, content, streaming = false) => ({
+  id, role: "assistant", content, streaming,
+});
+
+test("对账①:同一句话说两遍、服务端只记上第一遍 ⇒ 两条都还在(本单要修的那个 bug)", () => {
+  const local = [u("l1", "帮我改一下玄关柜", "t-1"), u("l2", "帮我改一下玄关柜", "t-2")];
+  const replay = [u("u-0", "帮我改一下玄关柜", "t-1"), a("as-1", "好的")];
+  const out = reconcileThread(local, replay);
+  assert.equal(
+    out.filter((m) => m.role === "user" && m.content === "帮我改一下玄关柜").length,
+    2,
+    "第二遍是断线时发出、服务端没记上的 —— 吃掉它就是把用户说的话弄丢了",
+  );
+  // 顺序:服务端历史在前,本地独有的补在尾部
+  assert.deepEqual(out.map((m) => m.id), ["u-0", "as-1", "l2"]);
+});
+
+test("对账②:服务端已经记上的不重复追加(turnId 命中)", () => {
+  const local = [u("l1", "量房定在周三", "t-9")];
+  const replay = [u("u-0", "量房定在周三", "t-9"), a("as-1", "记下了")];
+  const out = reconcileThread(local, replay);
+  assert.deepEqual(out.map((m) => m.id), ["u-0", "as-1"]);
+});
+
+test("对账③:本地 assistant 半截气泡一律丢弃(以服务端完整版为准)", () => {
+  const local = [u("l1", "问题", "t-1"), a("as-local", "正在回答的半", true)];
+  const replay = [u("u-0", "问题", "t-1"), a("as-1", "正在回答的半截话已经说完了")];
+  const out = reconcileThread(local, replay);
+  assert.equal(out.some((m) => m.id === "as-local"), false,
+    "留着它 = 一条永远转圈的重复回复,顺序还错(四审 P3)");
+  assert.deepEqual(out.map((m) => m.id), ["u-0", "as-1"]);
+});
+
+test("对账④:本地消息没有 turnId ⇒ 退回文本启发式,老行为不倒退", () => {
+  const local = [u("l1", "老会话里前插进来的一句")];        // 无 turnId
+  const replay = [u("u-0", "老会话里前插进来的一句", "t-5")];
+  assert.deepEqual(reconcileThread(local, replay).map((m) => m.id), ["u-0"]);
+});
+
+test("对账⑤:服务端行没有 turnId(老会话)⇒ 也退回文本启发式,不误判成'服务端没有'", () => {
+  const local = [u("l1", "上周聊过的那句", "t-7")];
+  const replay = [u("u-0", "上周聊过的那句")];              // 服务端无 turnId
+  assert.deepEqual(reconcileThread(local, replay).map((m) => m.id), ["u-0"]);
+});
+
+test("对账⑥:turnId 不同但文本不同 ⇒ 本地那条照常保留(别把不同的话合并掉)", () => {
+  const local = [u("l1", "第一句", "t-1"), u("l2", "第二句", "t-2")];
+  const replay = [u("u-0", "第一句", "t-1")];
+  assert.deepEqual(reconcileThread(local, replay).map((m) => m.content),
+    ["第一句", "第二句"]);
+});
+
+test("对账⑦:空本地 / 空回放不崩,且不凭空造消息", () => {
+  assert.deepEqual(reconcileThread([], [u("u-0", "只有服务端", "t-1")]).map((m) => m.id),
+    ["u-0"]);
+  assert.deepEqual(reconcileThread([u("l1", "只有本地", "t-1")], []).map((m) => m.id),
+    ["l1"]);
+  assert.deepEqual(reconcileThread([], []), []);
+});
+
+test("对账⑧:不改动入参(纯函数,原数组与原对象都不许被动)", () => {
+  const local = [u("l1", "本地独有", "t-2")];
+  const replay = [u("u-0", "服务端的", "t-1")];
+  const localCopy = JSON.parse(JSON.stringify(local));
+  const replayCopy = JSON.parse(JSON.stringify(replay));
+  reconcileThread(local, replay);
+  assert.deepEqual(local, localCopy);
+  assert.deepEqual(replay, replayCopy);
+});
+
+test("hydrateFromThread:回放的 turnId 读回本地消息(对账的地基)", () => {
+  const s = hydrateFromThread({
+    messages: [
+      { id: "u-0", role: "user", content: "你好", turnId: "t-1", turnPhase: "user" },
+      { id: "as-1", role: "assistant", content: "在", turnId: "t-1", turnPhase: "answer" },
+      { id: "u-2", role: "user", content: "老会话没有这个字段" },
+      { id: "u-3", role: "user", content: "空的不算", turnId: "" },
+      { id: "u-4", role: "user", content: "非字符串不算", turnId: 42 },
+    ],
+  });
+  assert.ok(s);
+  assert.deepEqual(s.messages.map((m) => m.turnId),
+    ["t-1", "t-1", undefined, undefined, undefined]);
+});
+
+test("appendLocalUser:存得住 turnId,且必须是**发出去的那一个**", () => {
+  const s = appendLocalUser(emptyTranscript, "发出去的话", "local-1", undefined, "turn-abc");
+  assert.equal(s.messages[0].turnId, "turn-abc");
+  // 不给 turnId 时不许凭空造一个(老调用方行为不变)
+  const s2 = appendLocalUser(emptyTranscript, "没给 id", "local-2");
+  assert.equal(s2.messages[0].turnId, undefined);
+});

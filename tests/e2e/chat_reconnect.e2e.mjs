@@ -57,6 +57,7 @@ const STUB = () => {
   window.__threadStatus = 200;
   window.__threadFetches = [];
   window.__silent = false; // true = 发出去的消息服务端不回(模拟"没记上")
+  window.__sendThrows = false;    // true = ws.send() 抛(socket 已死,界面还没反应过来)
   window.__firstReadyId = null;   // 第一条连接拿到的 chat_id = "原来那个"
   window.__lastReadyId = null;
   window.__attachIds = [];
@@ -132,6 +133,13 @@ const STUB = () => {
     }
     #emit(o) { this.onmessage?.({ data: JSON.stringify(o) }); }
     send(data) {
+      // track opendesign-turn-id:模拟"socket 已经死了但界面还没反应过来" ——
+      // 真浏览器在 CLOSING/CLOSED 上 send() 会抛 InvalidStateError。
+      // 抛之前**不记进 __sent**:没发出去就是没发出去。
+      if (window.__sendThrows) {
+        throw new DOMException("stub: socket is already in CLOSING or CLOSED state",
+                               "InvalidStateError");
+      }
       window.__sent.push(data);
       let m = null;
       try { m = JSON.parse(data); } catch { return; }
@@ -306,6 +314,79 @@ try {
   } else {
     check(false, "㉓ 而且这条真的发出去并上屏了(发送键锁着,没得发)");
   }
+
+  // ── track opendesign-turn-id ㉔:同一句话说两遍,断线后两条都得还在 ──────────
+  //   旧实现在这里必红:对账靠 `role\0content` 猜身份 ⇒ 第二遍被当成第一遍吃掉,
+  //   用户打过的字凭空消失。真身份 = 出站信封里的 turn_id(gateway 会原样写回历史,
+  //   08-05 探针实抓)。夹具**从 window.__sent 里取真信封的 turn_id** 塞进 stub 历史,
+  //   所以"本地 turnId 和信封 turn_id 是两个不同 uuid"的假实现也会被照出来。
+  const DUP_TEXT = "同一句话说两遍";
+  await sendMessage(page, pane, DUP_TEXT);
+  await page.locator(`${pane} .msg-user:has-text("${DUP_TEXT}")`).first()
+    .waitFor({ timeout: 15000 });
+  const dupTurnId = await page.evaluate((text) => {
+    for (const raw of window.__sent) {
+      try {
+        const m = JSON.parse(raw);
+        if (m.type === "message" && String(m.content).includes(text)) return m.turn_id;
+      } catch { /* 非 JSON 跳过 */ }
+    }
+    return null;
+  }, DUP_TEXT);
+  check(typeof dupTurnId === "string" && dupTurnId.length > 0,
+    "㉔a 前置:出站信封里确实带了 turn_id(协议 §2 一等路径)");
+
+  // 服务端这一侧:记上了第一遍(带真 turn_id),**没记上**第二遍。
+  // 前面那几条故意不带 turnId —— 老会话混排,顺带验"服务端没 id 时退回文本启发式"。
+  await page.evaluate(({ before, gap, dup, turnId }) => {
+    window.__thread = { schemaVersion: 3, sessionKey: "websocket:chat-e2e", messages: [
+      { id: "u-1", role: "user", content: before },
+      { id: "a-1", role: "assistant", content: "收到" },
+      { id: "a-2", role: "assistant", content: gap },
+      { id: "u-dup", role: "user", content: dup, turnId, turnPhase: "user" },
+    ] };
+    window.__silent = true;   // 第二遍服务端不回也不记
+  }, { before: BEFORE_TEXT, gap: GAP_TEXT, dup: DUP_TEXT, turnId: dupTurnId });
+
+  await sendMessage(page, pane, DUP_TEXT);
+  check(await until(async () =>
+    (await page.locator(`${pane} .msg-user:has-text("${DUP_TEXT}")`).count()) === 2, 10000),
+    "㉔b 前置:断线前屏幕上确实有两条一模一样的话");
+
+  await page.evaluate(() => window.__killWS(1006));
+  check(await until(() => page.locator(`${pane} .chat-meta`).isVisible(), 25000),
+    "㉔c 掐断后自己连回来");
+  check(await until(async () =>
+    (await page.evaluate(() => window.__threadUrls.length)) > 0, 10000),
+    "㉔d 前置:重连后确实拉了一次历史(对账真的发生过)");
+  // 本条就是本 track 的主判据
+  const dupCount = await page.locator(`${pane} .msg-user:has-text("${DUP_TEXT}")`).count();
+  check(dupCount === 2,
+    `㉔ 对账后两条一样的话都还在(服务端记上的 + 本地独有的),实得 ${dupCount} 条`);
+  const beforeCount = await page.locator(`${pane} .msg-user:has-text("${BEFORE_TEXT}")`).count();
+  check(beforeCount === 1,
+    `㉕ 服务端那几条老消息(没有 turnId)不许被对账弄重,实得 ${beforeCount} 条`);
+  await page.evaluate(() => { window.__silent = false; });
+
+  // ── track opendesign-turn-id ㉖:发不出去就别说发出去了 ──────────────────────
+  //   socket 已死而界面还没反应过来时,ws.send() 会抛;旧实现照样把气泡贴上屏 ⇒
+  //   用户以为说过了,其实一个字都没送到。
+  const LOST_TEXT = "这句根本没送出去";
+  await page.evaluate(() => { window.__sendThrows = true; });
+  await page.locator(`${pane} textarea`).fill(LOST_TEXT);
+  check(await until(async () => !(await page.locator(`${pane} .send-btn`).isDisabled()), 8000),
+    "㉖a 前置:发送键此刻是可用的(不然下面点不动,判的就不是这件事)");
+  await page.locator(`${pane} .send-btn`).click();
+  await new Promise((r) => setTimeout(r, 500));   // 给它一点时间去做错事
+  check((await page.locator(`${pane} .msg-user:has-text("${LOST_TEXT}")`).count()) === 0,
+    "㉖ 发送失败 ⇒ **不上屏假气泡**(界面不许说它发出去了)");
+  const errText = await page.locator('[data-ui="chat-turn-error"]').innerText()
+    .catch(() => "");
+  check(errText.trim().length > 0,
+    `㉗ 而且屏上有一句提示,不是静默吞掉(实得:${JSON.stringify(errText)})`);
+  check(await until(async () => !(await page.locator(`${pane} .send-btn`).isDisabled()), 5000),
+    "㉘ 失败之后输入没被永久锁住(还能再试)");
+  await page.evaluate(() => { window.__sendThrows = false; });
 
   // ── 攻题补强 1:历史请求打的是**真实那条代理路径**,且发生在 attach 之后 ──────
   //   (原来 stub 用 includes("/thread") 模糊放行 ⇒ 照设计文字写错地址也能全绿)
