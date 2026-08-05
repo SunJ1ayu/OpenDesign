@@ -17,6 +17,7 @@ HOST, PORT = "127.0.0.1", 8765
 BASE = f"http://{HOST}:{PORT}"
 PASSWORD = json.load(open(os.path.expanduser("~/.nanobot/config.json")))[
     "channels"]["websocket"]["token"]
+CONTENT = "探针:请只回复「收到」两个字,不要调用任何工具"
 
 
 def http_get(path, token):
@@ -43,7 +44,7 @@ async def main():
         print("chat_id =", chat_id)
         await ws.send(json.dumps({
             "type": "message", "chat_id": chat_id,
-            "content": "探针:请只回复「收到」两个字,不要调用任何工具",
+            "content": CONTENT,
             "webui": True, "turn_id": my_turn,
         }))
         seen_events = []
@@ -64,10 +65,18 @@ async def main():
                          ensure_ascii=False),
               "| content:", repr(m.get("content", ""))[:40])
     users = [m for m in thread["messages"] if m.get("role") == "user"]
-    ok = bool(users) and users[0].get("turnId") == my_turn
-    print("\n结论:回放 user.turnId == 我发的 turn_id ?", "✅ 是" if ok else "❌ 否",
+    id_ok = bool(users) and users[0].get("turnId") == my_turn
+    # 四审 DeepSeek 发现 4:对账不只押在 turnId 上 —— 文本退路(本地没有 turnId 时)
+    # 隐含"服务端存的就是我们发的原文"。一起验,免得哪天上游偷偷改写内容。
+    text_ok = bool(users) and users[0].get("content") == CONTENT
+    print("\n结论:")
+    print("  ① 回放 user.turnId == 我发的 turn_id ?", "✅ 是" if id_ok else "❌ 否",
           "| 回放值 =", users[0].get("turnId") if users else "(没有 user 消息)")
-    return 0 if ok else 1
+    print("  ② 回放 user.content 与我发的原文逐字节一致 ?", "✅ 是" if text_ok else "❌ 否")
+    if not text_ok and users:
+        print("     我发的:", repr(CONTENT))
+        print("     回放的:", repr(users[0].get("content")))
+    return 0 if (id_ok and text_ok) else 1
 
 
 sys.exit(asyncio.run(main()))

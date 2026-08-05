@@ -174,3 +174,8 @@ GET /api/sessions/<key>/webui-thread[?limit=N&direction=latest&before=…]
 1. 改版本前先跑 `python tests/test_ws_protocol_smoke.py`(gateway 在跑,
    基线绿);2. 升级;3. 再跑,红了逐条对本文档核对差异并更新文档+前端;
 4. install.ps1 钉的版本号同步改。冒烟 skip(gateway 没跑)不算通过。
+5. **再跑一次 `tracks/opendesign-turn-id/evidence/probe_turnid.py`**(2026-08-05 加):
+   重连对账整套押在**一条外部契约**上 —— gateway 把我们发的 `turn_id` 与消息原文
+   逐字节写回 `webui-thread`。这条契约一旦漂移,前端不会报错,而是**每次重连都把全部
+   本地消息当成"服务端没有"再追加一遍**(满屏重复气泡)。单测与 e2e 的 turnId 都是
+   夹具自己填的,**照不出上游行为变化**,只有这个探针能。红了先改前端别改探针。

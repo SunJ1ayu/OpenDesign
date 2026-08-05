@@ -354,6 +354,9 @@ export default function ChatPage({
               }
               liveChatIdRef.current = m.chat_id;
               dispatchRc({ type: "connected" });
+              // 连上了,上一条"没发出去"的提示就不再为真(四审 DeepSeek 发现 3):
+              // 挂着它 = 界面在说一件已经不成立的事,用户以为还没好、不敢再发。
+              setTurnError("");
               setView({ kind: "connected", chatId: m.chat_id, model: info?.model_name });
               onChatId?.(m.chat_id);
               onConnected?.();
@@ -364,6 +367,7 @@ export default function ChatPage({
                 attached = true;
                 liveChatIdRef.current = target.chatId;
                 dispatchRc({ type: "connected" });
+                setTurnError("");   // 同上:连上了就别再挂着"没发出去"那句
                 setView({ kind: "connected", chatId: target.chatId, model: info?.model_name });
                 onChatId?.(target.chatId);
                 onConnected?.();
