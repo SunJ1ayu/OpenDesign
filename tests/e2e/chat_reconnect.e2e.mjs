@@ -410,8 +410,13 @@ try {
   await page.evaluate(() => { window.__silent = false; });
 
   // ── track opendesign-turn-id ㉖:发不出去就别说发出去了 ──────────────────────
-  //   socket 已死而界面还没反应过来时,ws.send() 会抛;旧实现照样把气泡贴上屏 ⇒
-  //   用户以为说过了,其实一个字都没送到。
+  //   ⚠️ **规范事实(08-05 四审 DeepSeek 指正,写在这里免得后人再误解)**:
+  //   真浏览器的 `send()` 只在 CONNECTING/CLOSING/CLOSED 抛 InvalidStateError,
+  //   而这三种状态都被实现里那行 readyState 预检先拦下了(㉙ 才是生产上真正走的那条);
+  //   OPEN 的 socket 即使对端已经死了也**只会静默排队,不抛**。
+  //   所以本幕测的是**兜底分支**:留着它是因为运行时不止浏览器一种(polyfill/未来变更),
+  //   代价一行 try/catch;但**别拿本幕的绿去证明"真机上断网点发送一定有提示"** ——
+  //   拔网线那种断法根本不触发它(验收清单 B 组已按两种结果分开写)。
   const LOST_TEXT = "这句根本没送出去";
   // 先等回到已连接态**再**动输入框:输入框是灰的时候 fill 会抛超时,
   // 报出来的是"异常"而不是"哪条断言错了"(㉒ 那条踩过同一个坑)。
@@ -447,6 +452,18 @@ try {
   check(await page.evaluate((t) => !window.__sent.some((s) => s.includes(t)), CLOSING_TEXT),
     "㉙b 而且**一个字节都没往外发**(不是发出去了只是没上屏)");
   await page.evaluate(() => { window.__ws.readyState = 1; });   // 复原,后面几幕还要用
+
+  // ── ㉚:连回来之后,那句"没发出去"的提示要自己消失(四审 DeepSeek 发现 3)──────
+  //   否则连接明明好了,屏上还挂着"等它重新连接后再点一次发送",
+  //   用户会以为还没好 —— 界面在说一件不再为真的事。
+  check((await page.locator('[data-ui="chat-turn-error"]').count()) > 0,
+    "㉚a 前置:此刻屏上确实还挂着那句失败提示");
+  await page.evaluate(() => window.__killWS(1006));
+  check(await until(() => page.locator(`${pane} .chat-meta`).isVisible(), 25000),
+    "㉚b 前置:又自己连回来了");
+  check(await until(async () =>
+    (await page.locator('[data-ui="chat-turn-error"]').count()) === 0, 8000),
+    "㉚ 重连成功后那句失败提示自己消失了");
 
   // ── 攻题补强 1:历史请求打的是**真实那条代理路径**,且发生在 attach 之后 ──────
   //   (原来 stub 用 includes("/thread") 模糊放行 ⇒ 照设计文字写错地址也能全绿)
