@@ -109,9 +109,22 @@ const STUB = () => {
   };
 
   class StubWS {
+    // ⚠️ 真 WebSocket 的 readyState 常量既在**类上**也在**实例上**
+    // (`WebSocket.OPEN` / `ws.OPEN`,都是 1)。08-05 这份 stub 少了它们,
+    // 于是实现里标准的 `ws.readyState !== WebSocket.OPEN` 读到 `undefined`、
+    // 恒判"没连上",**一条消息都发不出去** —— 红的是判据不是实现:
+    // 替身缺了它所替代的那个 API 的一部分,等于在问一道现实里不存在的题。
+    static CONNECTING = 0;
+    static OPEN = 1;
+    static CLOSING = 2;
+    static CLOSED = 3;
     constructor(url) {
       this.url = url;
       this.readyState = 0;
+      this.CONNECTING = 0;
+      this.OPEN = 1;
+      this.CLOSING = 2;
+      this.CLOSED = 3;
       window.__wsCount += 1;
       window.__wsTimes.push(Date.now());
       window.__ws = this;
