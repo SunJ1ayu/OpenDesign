@@ -7,6 +7,7 @@ import {
   attachEnvelope,
   hydrateFromThread,
   messageEnvelope,
+  reconcileThread,
   shouldSendOnEnter,
   type TranscriptState,
 } from "./transcript";
@@ -315,18 +316,10 @@ export default function ChatPage({
             // `turn_end` 按协议 §4 永远不会重发,而 `busy` 只由 turn_end/error 清 ⇒
             // 不在这里清,重连之后输入框能打字、发送键永久 disabled,只能刷新。
             // thinking/activity 同理:它们属于那条已经断掉的连接。
-            // 身份判断是**启发式**(文本 + 角色)——本地 id 与服务端 id 不同源,
-            // 信封的 turn_id 也没存进本地消息(见 design.md「判为成立但本单不做」)。
-            const seen = new Set(replay.messages.map((m) => `${m.role}\u0000${m.content}`));
-            // 只补**用户**消息(四审 P3):断线若发生在答案流中途,本地会留一条
-            // 半截 assistant 气泡(content 是前缀、streaming 还挂着),它与服务端
-            // 完整版文本不全等 ⇒ 会被当成"本地独有"追加到尾部,变成重复 + 一条
-            // 永远转圈的半截回复,顺序还错。助手侧一律以服务端为准。
-            const localOnly = s.messages.filter(
-              (m) => m.role === "user" && !seen.has(`${m.role}\u0000${m.content}`),
-            );
+            // 身份判断交给 transcript.ts 的纯函数:优先用 turn_id 真身份,只有老会话缺
+            // turnId 时才退回文本启发式,避免同一句话说两遍时把第二遍误删。
             return {
-              messages: [...replay.messages, ...localOnly],
+              messages: reconcileThread(s.messages, replay.messages),
               busy: false,
               thinking: false,
               activity: [],
@@ -559,10 +552,19 @@ export default function ChatPage({
       firstSendPrefix && transcript.messages.length === 0
         ? `${firstSendPrefix}${content}`
         : content;
-    ws.send(JSON.stringify(
-      messageEnvelope(view.chatId, outbound, crypto.randomUUID(), media)));
+    if (ws.readyState !== WebSocket.OPEN) {
+      setTurnError("聊天连接刚断开,这句话还没发出去。等它重新连接后,再点一次发送。");
+      return false;
+    }
+    const turnId = crypto.randomUUID();
+    try {
+      ws.send(JSON.stringify(messageEnvelope(view.chatId, outbound, turnId, media)));
+    } catch {
+      setTurnError("聊天连接刚断开,这句话还没发出去。等它重新连接后,再点一次发送。");
+      return false;
+    }
     setTranscript((s) =>
-      appendLocalUser(s, outbound, `local-${crypto.randomUUID()}`, media));
+      appendLocalUser(s, outbound, `local-${crypto.randomUUID()}`, media, turnId));
     setTurnError("");   // 新一轮开始,上一轮的失败提示别赖在屏上
     // 发完必须清空:留着的话下一条会把同一张图再发一遍(e2e 判据锁死)
     if (media.length > 0) {

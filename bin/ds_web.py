@@ -82,7 +82,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.75.0"  # 断线自愈:自动重连 + 重连后对账补缺口;助手活动回执;外链开新标签。
+VERSION = "0.76.0"  # 重连对账认准真实消息身份;聊天没发出去时明确告诉你,不假装已发送。
                     # ⚠️ 0.73.0 起的改动**大半在 workspace/AGENTS.md(助手契约)里**,
                     # 光 git pull 不生效:契约要靠 start.ps1 同步给助手,
                     # 起服务时看到"已同步助手契约"那行才算到了真机。

@@ -12,6 +12,10 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   streaming: boolean;
+  /** 出站信封里的 `turn_id`。gateway 会把它原样写进历史回放的 `turnId` 字段
+   *  (2026-08-05 对活 gateway 实抓确认过),重连对账必须用这个真身份,否则同一句话
+   *  说两遍时只能靠文本猜,会把用户断线时发出的第二遍吃掉。 */
+  turnId?: string;
   /** 本条带的图(track opendesign-chat-image / -p2)。本地发出的 src=data URL,
    * 历史回放的 src=网关签名地址(见 BubbleMedia)。 */
   media?: BubbleMedia[];
@@ -159,6 +163,7 @@ export function hydrateFromThread(payload: unknown): TranscriptState | null {
     if (role === "assistant" && !r.content.trim()) continue;
     const id = typeof r.id === "string" && r.id ? r.id : `replay-${i}`;
     const msg: ChatMessage = { id, role, content: r.content, streaming: false };
+    if (typeof r.turnId === "string" && r.turnId !== "") msg.turnId = r.turnId;
     // -p2:回放里带着图(网关的签名 URL)。以前这里把它丢了,于是"切走再回来,
     // 发过的图就没了" —— 图从来没丢,是这一行没接(用户实测报的那条)。
     const media = replayMedia(r.media);
@@ -174,8 +179,10 @@ export function appendLocalUser(
   content: string,
   id: string,
   media?: OutboundMedia[],
+  turnId?: string,
 ): TranscriptState {
   const msg: ChatMessage = { id, role: "user", content, streaming: false };
+  if (turnId) msg.turnId = turnId;
   // 出站信封那份是 {data_url,name}(协议要求),气泡这份统一成 {src,name}:
   // src 就是同一个 data URL,所以「存进收件箱」照样拿得到字节,不必存两份。
   if (media && media.length > 0) {
@@ -183,6 +190,42 @@ export function appendLocalUser(
   }
   // 新发一轮:上一轮的活动回执清掉(它属于上一轮),等待态交给事件去开
   return { ...state, messages: [...state.messages, msg], busy: true, activity: [] };
+}
+
+/**
+ * 重连后把服务端历史与本地残留对账。服务端历史排在前面,只把服务端还没记上的
+ * 本地 user 补到尾部;assistant 一律丢弃,因为断线时本地只可能留下半截回复,
+ * 完整答案必须以服务端回放为准。
+ */
+export function reconcileThread(
+  local: ChatMessage[],
+  replay: ChatMessage[],
+): ChatMessage[] {
+  const replayUserTurnIds = new Set<string>();
+  const replayUserTexts = new Set<string>();
+  const replayUserTextsWithoutTurnId = new Set<string>();
+  for (const m of replay) {
+    if (m.role !== "user") continue;
+    const key = `${m.role}\u0000${m.content}`;
+    replayUserTexts.add(key);
+    if (m.turnId) {
+      replayUserTurnIds.add(m.turnId);
+    } else {
+      // 老历史没有 turnId;本地新消息带 turnId 但服务端旧行没有时,只能退回文本判重,
+      // 否则混排会把已经存在的老消息误补一遍。
+      replayUserTextsWithoutTurnId.add(key);
+    }
+  }
+
+  const localOnly = local.filter((m) => {
+    if (m.role !== "user") return false;
+    const key = `${m.role}\u0000${m.content}`;
+    if (m.turnId) {
+      return !replayUserTurnIds.has(m.turnId) && !replayUserTextsWithoutTurnId.has(key);
+    }
+    return !replayUserTexts.has(key);
+  });
+  return [...replay, ...localOnly];
 }
 
 /** 入站事件 → 新 state。认不出/畸形的一律原样返回(安全降级)。 */
