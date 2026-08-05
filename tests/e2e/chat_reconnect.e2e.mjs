@@ -260,6 +260,17 @@ try {
     window.__sent.map((s) => { try { return JSON.parse(s); } catch { return null; } })
       .filter(Boolean));
 
+  /** 从 stub 记下的**真信封**里取某句话的 turn_id(不是我们自己编一个)。 */
+  const sentTurnId = (text) => page.evaluate((t) => {
+    for (const raw of window.__sent) {
+      try {
+        const m = JSON.parse(raw);
+        if (m.type === "message" && String(m.content).includes(t)) return m.turn_id;
+      } catch { /* 非 JSON 跳过 */ }
+    }
+    return null;
+  }, text);
+
   // ── 铺场景:先正常聊一句,留下"断线前"的痕迹 ─────────────────────────────
   await sendMessage(page, pane, BEFORE_TEXT);
   await page.locator(`${pane} .msg-user:has-text("${BEFORE_TEXT}")`).waitFor({ timeout: 15000 });
@@ -267,14 +278,20 @@ try {
 
   // 服务端这一侧:历史里有前面那轮 + 一条**客户端没收到过**的缺口消息;
   // 之后再发的消息服务端"没记上"(__silent)
-  await page.evaluate(({ before, gap }) => {
+  // 服务端历史:user 行带**真实 turn_id**(实测 gateway 每条 user 行都写,7/7)。
+  // 凭空造一条"没有 turnId 的服务端行"等于在问现实里不存在的题;
+  // "两边都没有 turnId 时按文本去重"那条老行为由单测 ⑤b 咬住。
+  const beforeTurnId0 = await sentTurnId(BEFORE_TEXT);
+  check(typeof beforeTurnId0 === "string" && beforeTurnId0.length > 0,
+    "前置:断线前那条的出站信封里有 turn_id");
+  await page.evaluate(({ before, beforeId, gap }) => {
     window.__thread = { schemaVersion: 3, sessionKey: "websocket:chat-e2e", messages: [
-      { id: "u-1", role: "user", content: before },
+      { id: "u-1", role: "user", content: before, turnId: beforeId, turnPhase: "user" },
       { id: "a-1", role: "assistant", content: "收到" },
       { id: "a-2", role: "assistant", content: gap, __gap: true },
     ] };
     window.__silent = true;
-  }, { before: BEFORE_TEXT, gap: GAP_TEXT });
+  }, { before: BEFORE_TEXT, beforeId: beforeTurnId0, gap: GAP_TEXT });
 
   await sendMessage(page, pane, PENDING_TEXT);
   await page.locator(`${pane} .msg-user:has-text("${PENDING_TEXT}")`).waitFor({ timeout: 15000 });
@@ -347,16 +364,6 @@ try {
   await sendMessage(page, pane, DUP_TEXT);
   await page.locator(`${pane} .msg-user:has-text("${DUP_TEXT}")`).first()
     .waitFor({ timeout: 15000 });
-  /** 从 stub 记下的**真信封**里取某句话的 turn_id(不是我们自己编一个)。 */
-  const sentTurnId = (text) => page.evaluate((t) => {
-    for (const raw of window.__sent) {
-      try {
-        const m = JSON.parse(raw);
-        if (m.type === "message" && String(m.content).includes(t)) return m.turn_id;
-      } catch { /* 非 JSON 跳过 */ }
-    }
-    return null;
-  }, text);
   const dupTurnId = await sentTurnId(DUP_TEXT);
   const beforeTurnId = await sentTurnId(BEFORE_TEXT);
   check(typeof dupTurnId === "string" && dupTurnId.length > 0,
@@ -366,16 +373,21 @@ try {
   // 老消息那行也按真机的样子带上它自己的 turn_id —— 实测 gateway 每条 user 行都有
   // (抽样 7 个会话,带 7 / 不带 0)。夹具里凭空造一条"没有 turnId 的服务端行"
   // 等于在问一道现实里不存在的题,08-05 四审后改掉。
-  await page.evaluate(({ before, beforeId, gap, dup, turnId }) => {
+  // MARK2 = **只存在于这一轮回放里**的记号:它出现在屏幕上 = 本轮对账真的落地了。
+  // (原来这里靠 `__threadUrls.length > 0` 当前置 —— 那个从前面几幕起就是真,
+  //  于是数气泡时对账可能还没跑,旧实现照样能"绿"。判据自己的时序洞,08-05 补。)
+  const MARK2 = "第二轮回放的记号";
+  await page.evaluate(({ before, beforeId, gap, dup, turnId, mark }) => {
     window.__thread = { schemaVersion: 3, sessionKey: "websocket:chat-e2e", messages: [
       { id: "u-1", role: "user", content: before, turnId: beforeId, turnPhase: "user" },
       { id: "a-1", role: "assistant", content: "收到" },
       { id: "a-2", role: "assistant", content: gap },
       { id: "u-dup", role: "user", content: dup, turnId, turnPhase: "user" },
+      { id: "a-3", role: "assistant", content: mark },
     ] };
     window.__silent = true;   // 第二遍服务端不回也不记
   }, { before: BEFORE_TEXT, beforeId: beforeTurnId, gap: GAP_TEXT,
-       dup: DUP_TEXT, turnId: dupTurnId });
+       dup: DUP_TEXT, turnId: dupTurnId, mark: MARK2 });
 
   await sendMessage(page, pane, DUP_TEXT);
   check(await until(async () =>
@@ -385,16 +397,16 @@ try {
   await page.evaluate(() => window.__killWS(1006));
   check(await until(() => page.locator(`${pane} .chat-meta`).isVisible(), 25000),
     "㉔c 掐断后自己连回来");
-  check(await until(async () =>
-    (await page.evaluate(() => window.__threadUrls.length)) > 0, 10000),
-    "㉔d 前置:重连后确实拉了一次历史(对账真的发生过)");
+  check(await until(() => page.locator(pane).innerText()
+    .then((t) => t.includes(MARK2)), 20000),
+    "㉔d 前置:**本轮**回放已经落到屏幕上(只有这一轮的历史里才有这个记号)");
   // 本条就是本 track 的主判据
   const dupCount = await page.locator(`${pane} .msg-user:has-text("${DUP_TEXT}")`).count();
   check(dupCount === 2,
     `㉔ 对账后两条一样的话都还在(服务端记上的 + 本地独有的),实得 ${dupCount} 条`);
   const beforeCount = await page.locator(`${pane} .msg-user:has-text("${BEFORE_TEXT}")`).count();
   check(beforeCount === 1,
-    `㉕ 服务端那几条老消息(没有 turnId)不许被对账弄重,实得 ${beforeCount} 条`);
+    `㉕ 服务端记过的老消息不许被对账弄重,实得 ${beforeCount} 条`);
   await page.evaluate(() => { window.__silent = false; });
 
   // ── track opendesign-turn-id ㉖:发不出去就别说发出去了 ──────────────────────

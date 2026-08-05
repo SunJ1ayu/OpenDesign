@@ -196,6 +196,15 @@ export function appendLocalUser(
  * 重连后把服务端历史与本地残留对账。服务端历史排在前面,只把服务端还没记上的
  * 本地 user 补到尾部;assistant 一律丢弃,因为断线时本地只可能留下半截回复,
  * 完整答案必须以服务端回放为准。
+ *
+ * 认人的规矩:**本地那条有 turnId 就只看 turnId**(gateway 把我们发的 turn_id
+ * 原样写进每一条 user 行,2026-08-05 抽样实测 7 个会话 7/7);只有本地那条根本
+ * 没有 turnId 时——比如它本身就是从服务端回放前插进来的——才退回老的"文本+角色"启发式。
+ *
+ * ⚠️ 曾经在"有 turnId"这一支上还兜了一层文本比对,08-05 四审后删掉:它会把
+ * **用户今天又说了一遍的那句上周的话**当成上周那条吃掉 —— 正是本单要消灭的病
+ * 换了个入口回来。万一"服务端记下了却没写 turnId"真的发生,后果是多一个气泡,
+ * 那远好于少一句话。
  */
 export function reconcileThread(
   local: ChatMessage[],
@@ -203,27 +212,16 @@ export function reconcileThread(
 ): ChatMessage[] {
   const replayUserTurnIds = new Set<string>();
   const replayUserTexts = new Set<string>();
-  const replayUserTextsWithoutTurnId = new Set<string>();
   for (const m of replay) {
     if (m.role !== "user") continue;
-    const key = `${m.role}\u0000${m.content}`;
-    replayUserTexts.add(key);
-    if (m.turnId) {
-      replayUserTurnIds.add(m.turnId);
-    } else {
-      // 老历史没有 turnId;本地新消息带 turnId 但服务端旧行没有时,只能退回文本判重,
-      // 否则混排会把已经存在的老消息误补一遍。
-      replayUserTextsWithoutTurnId.add(key);
-    }
+    replayUserTexts.add(`${m.role}\u0000${m.content}`);
+    if (m.turnId) replayUserTurnIds.add(m.turnId);
   }
 
   const localOnly = local.filter((m) => {
     if (m.role !== "user") return false;
-    const key = `${m.role}\u0000${m.content}`;
-    if (m.turnId) {
-      return !replayUserTurnIds.has(m.turnId) && !replayUserTextsWithoutTurnId.has(key);
-    }
-    return !replayUserTexts.has(key);
+    if (m.turnId) return !replayUserTurnIds.has(m.turnId);
+    return !replayUserTexts.has(`${m.role}\u0000${m.content}`);
   });
   return [...replay, ...localOnly];
 }
