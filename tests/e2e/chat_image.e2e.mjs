@@ -79,9 +79,21 @@ const STUB = () => {
     return origFetch(url, init);
   };
   class StubWS {
+    // 真 WebSocket 的 readyState 常量在类上和实例上都有(`WebSocket.OPEN` / `ws.OPEN`)。
+    // 替身漏掉它们 ⇒ 实现里标准的 `ws.readyState !== WebSocket.OPEN` 读到 undefined、
+    // 恒判"没连上",一条消息都发不出去(2026-08-05 track opendesign-turn-id 实测:
+    // 本仓两份 ws 替身**都**漏了同一处 —— 新写替身照着真 API 抄常量,别只抄用到的字段)。
+    static CONNECTING = 0;
+    static OPEN = 1;
+    static CLOSING = 2;
+    static CLOSED = 3;
     constructor(url) {
       this.url = url;
       this.readyState = 0;
+      this.CONNECTING = 0;
+      this.OPEN = 1;
+      this.CLOSING = 2;
+      this.CLOSED = 3;
       setTimeout(() => {
         this.readyState = 1;
         this.onopen?.({});
