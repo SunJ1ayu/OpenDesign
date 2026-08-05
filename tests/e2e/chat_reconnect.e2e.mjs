@@ -149,9 +149,19 @@ const STUB = () => {
       // track opendesign-turn-id:模拟"socket 已经死了但界面还没反应过来" ——
       // 真浏览器在 CLOSING/CLOSED 上 send() 会抛 InvalidStateError。
       // 抛之前**不记进 __sent**:没发出去就是没发出去。
+      //
+      // ⚠️ **只让"发消息"这一种 send 抛**(判据本身的坑,08-05 实测):
+      // 一视同仁地抛会把重连时的 `attach` 也弄挂 ⇒ 界面永远回不到已连接态,
+      // 于是这一幕变成"输入框是灰的",判的不再是"发送失败怎么表现"。
+      // 那次表现为**同一份代码一次红一次绿**(取决于这期间有没有正好在重连)——
+      // 判据自己制造的抖动,比它要抓的 bug 还难查。
       if (window.__sendThrows) {
-        throw new DOMException("stub: socket is already in CLOSING or CLOSED state",
-                               "InvalidStateError");
+        let kind = null;
+        try { kind = JSON.parse(data).type; } catch { /* 非 JSON 当普通发送 */ }
+        if (kind !== "attach") {
+          throw new DOMException("stub: socket is already in CLOSING or CLOSED state",
+                                 "InvalidStateError");
+        }
       }
       window.__sent.push(data);
       let m = null;
@@ -385,10 +395,14 @@ try {
   //   socket 已死而界面还没反应过来时,ws.send() 会抛;旧实现照样把气泡贴上屏 ⇒
   //   用户以为说过了,其实一个字都没送到。
   const LOST_TEXT = "这句根本没送出去";
+  // 先等回到已连接态**再**动输入框:输入框是灰的时候 fill 会抛超时,
+  // 报出来的是"异常"而不是"哪条断言错了"(㉒ 那条踩过同一个坑)。
+  check(await until(async () =>
+    (await page.locator(`${pane} .chat-meta`).isVisible())
+    && !(await page.locator(`${pane} textarea`).isDisabled()), 25000),
+    "㉖a 前置:此刻是已连接、输入框可用(不然判的就不是「发送失败」这件事)");
   await page.evaluate(() => { window.__sendThrows = true; });
   await page.locator(`${pane} textarea`).fill(LOST_TEXT);
-  check(await until(async () => !(await page.locator(`${pane} .send-btn`).isDisabled()), 8000),
-    "㉖a 前置:发送键此刻是可用的(不然下面点不动,判的就不是这件事)");
   await page.locator(`${pane} .send-btn`).click();
   await new Promise((r) => setTimeout(r, 500));   // 给它一点时间去做错事
   check((await page.locator(`${pane} .msg-user:has-text("${LOST_TEXT}")`).count()) === 0,
