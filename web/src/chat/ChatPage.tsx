@@ -306,7 +306,22 @@ export default function ChatPage({
         .then(async (r) => (r.status === 200 ? r.json() : null))
         .then((p) => {
           const replay = p === null ? null : hydrateFromThread(p);
-          if (cancelled || !replay || replay.messages.length === 0) return;
+          if (cancelled) return;
+          // ⚠️ **拉不到历史也要把 busy 放掉**(对账模式)。
+          // 0.75.0 那次只修了"成功那条路":清 busy 写在下面的早退之后,而上面那行注释
+          // 自己就写着「新建的空会话拉历史必然 404」⇒ **最常见的那条路径整条绕过它**:
+          // 新会话发第一句 → busy=true → socket 死在 turn_end 之前 → 重连 attach 成功
+          // → 拉历史 404 → 早退 → busy 永久 true,发送键永久 disabled,只能刷新。
+          // 被掐断那轮的 turn_end 按协议 §4 永远不会重发,busy 只由 turn_end/error 清;
+          // 所以"有没有历史"和"要不要解锁输入"是两件事,不许绑在一起判。
+          if (!replay || replay.messages.length === 0) {
+            if (mode === "reconcile") {
+              setTranscript((s) => (s.busy || s.thinking || s.activity.length
+                ? { ...s, busy: false, thinking: false, activity: [] }
+                : s));
+            }
+            return;
+          }
           setTranscript((s) => {
             if (mode === "prepend") {
               return { ...s, messages: [...replay.messages, ...s.messages] };

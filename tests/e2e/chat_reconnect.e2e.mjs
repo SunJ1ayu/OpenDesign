@@ -514,7 +514,8 @@ try {
   //   重连回来输入框能打字、**发送键永久 disabled,只能刷新**。
   //   发现渠道:08-05 那条超时无结论的 Kimi 腿的日志(又一次印证"失败腿的日志也要读")。
   //   此刻 __threadStatus 仍是 404(上一幕留下的),正是要问的那个形状。
-  await page.evaluate(() => { window.__silent = true; });   // 服务端不回 ⇒ turn_end 永远不来
+  // 显式声明这一幕要的形状,不靠上一幕的残留(fast lane 评审建议:跨幕依赖难维护)
+  await page.evaluate(() => { window.__threadStatus = 404; window.__silent = true; });
   await sendMessage(page, pane, "断线时还在等回复的那句");
   check(await until(async () => await page.locator(`${pane} .send-btn`).isDisabled(), 8000),
     "㉜a 前置:发出去还没回 ⇒ 此刻确实是忙(发送键 disabled)");
