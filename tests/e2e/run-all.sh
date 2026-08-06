@@ -85,5 +85,11 @@ if [ "$fail" -gt 0 ]; then
   echo "   日志在 $log_dir"
   exit 1
 fi
+# 有 SKIP 时**不许**说"全绿" —— 上一行刚写完"不算通过",下一行又说全绿,
+# 就是同页自相矛盾(08-06 修)。总跑 tests/run-all.sh 靠上面那行汇总数 SKIP。
+if [ "$skip" -gt 0 ]; then
+  echo "   没有红的,但有 ${skip} 条没跑 —— 不算通过。"
+  exit 0
+fi
 rm -rf "$log_dir"
 echo "   全绿。"

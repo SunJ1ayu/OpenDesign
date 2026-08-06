@@ -3,6 +3,9 @@
 聊天链路的端到端验证,需要**活的 nanobot gateway + ds_web**,不进 `tests/*.mjs`
 常规回归(glob 扫不到本目录,CI/无 gateway 环境不误红)。
 
+> **收货前请跑仓库级总跑 `tests/run-all.sh`**(node 单测 + python 全量 + MCP 闸 + 本目录 e2e,
+> 四段一条命令)。本文件说的是其中第四段;单独调试 e2e 时才直接用下面的 `tests/e2e/run-all.sh`。
+
 ## ⭐ 先看这个:总跑开关 `run-all.sh`
 
 ```bash
