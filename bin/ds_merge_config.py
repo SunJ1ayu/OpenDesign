@@ -79,8 +79,28 @@ def main() -> int:
         print(f"ds_merge_config: {args.target} 不是合法 JSON({e}),不动它", file=sys.stderr)
         return 1
 
+    # ── 已经装过的机器:**不许把机主选好的大脑重置回模板默认**(2026-08-06)──────
+    # 形状:装完之后机主用 `/model` 或 `set_model.py` 换了大脑;下次更新再合一次配置,
+    # 不带 --model 时模板的 MiMo 示例默认会把 apiBase / modelPreset 原样盖回去。
+    # **静默发生**,而机主不是程序员 —— 他看到的只是"助手突然变笨了",不会去翻配置。
+    # 规则:显式给了 --api-base/--model 就照做;没给就以**目标里已有的**为准;
+    #      目标里也没有(全新装机)才落模板默认。
+    # 模板的**预设清单**照旧合进来(更新的意义就在这儿),只是不动"默认指向哪一个"。
     if args.api_base:
         tpl["providers"]["custom"]["apiBase"] = args.api_base
+    else:
+        existing_base = (cfg.get("providers", {}).get("custom", {}) or {}).get("apiBase")
+        if existing_base:
+            tpl["providers"]["custom"]["apiBase"] = existing_base
+
+    if not args.model:
+        existing_preset = (cfg.get("agents", {}).get("defaults", {}) or {}).get("modelPreset")
+        # 机主的默认预设必须真的存在(自有的,或模板带来的),否则等于指向空气 ——
+        # 那种情况下宁可用模板默认,也不留一个起不来的配置。
+        known = set(tpl["model_presets"]) | set(cfg.get("model_presets", {}) or {})
+        if existing_preset and existing_preset in known:
+            tpl["agents"]["defaults"]["modelPreset"] = existing_preset
+
     if args.model:
         # 换端点 = 模板的 MiMo 示例预设全部作废:替换成机主模型的单一预设
         # (预设 key 直接用模型名,与模板"/model 列表显示模型名"的约定一致),
@@ -113,10 +133,15 @@ def main() -> int:
     deep_merge(cfg, wanted)
     args.target.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
+    # 汇总印**落地文件里的值**,不是模板的值。
+    # 修好上面那条之后两者会不一样 —— 还照印模板,就成了"屏幕说大脑是 MiMo、
+    # 盘上其实是机主的模型"。这台机器的规矩:盘上和回显对不上 = BLOCK。
+    landed_base = cfg["providers"]["custom"]["apiBase"]
+    landed_preset = cfg["agents"]["defaults"]["modelPreset"]
+    landed_model = (cfg.get("model_presets", {}).get(landed_preset, {}) or {}).get("model", "?")
     print(f"ds_merge_config: 已合并 4 段进 {args.target}(备份: {backup.name})")
-    print(f"  apiBase = {tpl['providers']['custom']['apiBase']}")
-    default_preset = tpl["agents"]["defaults"]["modelPreset"]
-    print(f"  model   = {tpl['model_presets'][default_preset]['model']}(默认预设 {default_preset})")
+    print(f"  apiBase = {landed_base}")
+    print(f"  model   = {landed_model}(默认预设 {landed_preset})")
     return 0
 
 
