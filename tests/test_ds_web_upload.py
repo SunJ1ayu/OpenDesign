@@ -440,3 +440,116 @@ class ResponseHardening(unittest.TestCase):
         self.assertEqual(os.path.basename(d["path"]), d["name"])
         self.assertEqual(os.path.realpath(os.path.dirname(d["path"])),
                          os.path.realpath(inbox))
+
+
+# ── track inbox-accepts-docs(2026-08-06):收件箱不再只收图片 ──────────────────
+# 用户原话:「收件箱肯定要覆盖别的格式的 **特别是 pdf 和 dwg**」。
+# 分类表(config/taxonomy.default.json)**早就给这些格式定好了归宿**,堵的只有入口。
+# 放宽写口 = 安全面,所以这组判据盯三件事:
+#   ① 白名单与分类表**不许漂移**(以后加了格式却忘了开入口 / 反之,当场红);
+#   ② 收不收**看内容签名不看 mime** —— 浏览器给 .dwg 的 mime 常是空或 octet-stream,
+#      拿 mime 当判据等于没判;把 PNG 改名成 .pdf 必须拒;
+#   ③ 每条拒绝路径照旧**零写盘**。
+PDF_BYTES = b"%PDF-1.7\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"
+DWG_BYTES = b"AC1032" + b"\x00" * 64          # 真 DWG 头:AC10xx 版本号
+DXF_BYTES = b"  0\nSECTION\n  2\nHEADER\n  0\nENDSEC\n  0\nEOF\n"
+OOXML_BYTES = b"PK\x03\x04" + b"\x00" * 64   # docx/xlsx/pptx 都是 zip
+OLE_BYTES = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 64  # 老 doc/xls/max
+PSD_BYTES = b"8BPS" + b"\x00" * 64
+SKP_BYTES = b"\xff\xfeS\x00k\x00e\x00t\x00c\x00h\x00U\x00p\x00" + b"\x00" * 32
+
+
+def raw_data_url(blob: bytes, mime: str = "application/octet-stream") -> str:
+    return "data:" + mime + ";base64," + base64.b64encode(blob).decode("ascii")
+
+
+class InboxAcceptsDocs(unittest.TestCase):
+    """收件箱收 PDF/DWG 等格式(track inbox-accepts-docs)。"""
+
+    def setUp(self):
+        self.ds, self.ws = _mkroot_with_inbox()
+        self.inbox = os.path.join(self.ws, "00-收件箱")
+        self.addCleanup(shutil.rmtree, self.ds, ignore_errors=True)
+        self.addCleanup(shutil.rmtree, self.ws, ignore_errors=True)
+
+    def inbox_files(self):
+        return sorted(os.listdir(self.inbox))
+
+    def intake_names(self, port):
+        st, d = _get(port, "/api/intake")
+        self.assertEqual(st, 200, d)
+        return sorted(e.get("name") for e in (d.get("entries") or []))
+
+    # ① 入口白名单 ↔ 分类表:两边任一漂移就红
+    def test_d01_whitelist_matches_default_taxonomy(self):
+        tax = json.load(open(os.path.join(ROOT, "config", "taxonomy.default.json"),
+                             encoding="utf-8"))
+        want = {e.lower() for c in tax["categories"] for e in c["extensions"]}
+        got = set(ds_web._INBOX_UPLOAD)
+        self.assertEqual(got, want,
+                         "上传口白名单与默认分类表漂移了:"
+                         f"分类表有而入口没有={sorted(want - got)};"
+                         f"入口有而分类表没有={sorted(got - want)}")
+
+    # ② 真文件收得下,而且**收件箱界面里看得见**(落盘 ≠ 能用)
+    def test_d02_real_docs_land_and_are_visible(self):
+        cases = [
+            ("平面图.pdf", PDF_BYTES, "application/pdf"),
+            ("平面图.dwg", DWG_BYTES, "application/octet-stream"),   # 浏览器常给这个
+            ("平面图.dxf", DXF_BYTES, ""),                            # 也常常什么都不给
+            ("清单.xlsx", OOXML_BYTES, ""),
+            ("说明.doc", OLE_BYTES, ""),
+            ("贴图.psd", PSD_BYTES, ""),
+            ("模型.skp", SKP_BYTES, ""),
+            ("备注.txt", "现场量房备注\n".encode("utf-8"), "text/plain"),
+        ]
+        with _serve(self.ds) as port:
+            for name, blob, mime in cases:
+                with self.subTest(name=name):
+                    url = raw_data_url(blob, mime) if mime else \
+                        "data:;base64," + base64.b64encode(blob).decode("ascii")
+                    st, d = _post(port, "/api/upload", {"name": name, "data_url": url})
+                    self.assertEqual(st, 200, f"{name} 应当收下:{d}")
+                    self.assertIn(name, self.intake_names(port), f"{name} 收下了却看不见")
+
+    # ③ 改名伪装:内容签名对不上就拒(mime 说得再好听也不算)
+    def test_d03_disguised_content_rejected(self):
+        with _serve(self.ds) as port:
+            for name, blob, mime in [
+                ("假的.pdf", png_bytes(), "application/pdf"),      # PNG 改名成 pdf
+                ("假的.dwg", png_bytes(), "application/acad"),
+                ("假的.xlsx", b"not a zip at all", ""),
+                ("假的.txt", b"\x00\x01\x02\xff\xfe", "text/plain"),  # 二进制冒充文本
+            ]:
+                with self.subTest(name=name):
+                    before = self.inbox_files()
+                    st, _ = _post(port, "/api/upload",
+                                  {"name": name, "data_url": raw_data_url(blob, mime)})
+                    self.assertIn(st, (400, None), f"{name} 应当被拒")
+                    self.assertEqual(self.inbox_files(), before, "拒绝路径必须零写盘")
+
+    # ④ 超限不是干瘪的失败:收件箱是真文件夹,提示要告诉他直接拷进去
+    def test_d04_too_big_says_copy_into_the_folder(self):
+        big = b"%PDF-1.7\n" + b"\x00" * (40 * 1024 * 1024)
+        with _serve(self.ds) as port:
+            before = self.inbox_files()
+            st, d = _post(port, "/api/upload",
+                          {"name": "巨图.pdf", "data_url": raw_data_url(big, "application/pdf")})
+            self.assertIn(st, (400, None))
+            self.assertEqual(self.inbox_files(), before, "拒绝路径必须零写盘")
+            if d:  # 服务端没掐断连接时,错误信息要有用
+                msg = json.dumps(d, ensure_ascii=False)
+                self.assertIn("收件箱", msg, f"超限提示要告诉他直接拷进收件箱:{msg}")
+
+    # ⑤ 既有图片行为一条不许退化
+    def test_d05_image_rules_do_not_regress(self):
+        with _serve(self.ds) as port:
+            before = self.inbox_files()
+            st, _ = _post(port, "/api/upload", {"name": "x.svg", "data_url": data_url()})
+            self.assertIn(st, (400, None), "svg 仍然要拒")
+            st, _ = _post(port, "/api/upload",
+                          {"name": "a.png", "data_url": data_url(mime="image/gif")})
+            self.assertIn(st, (400, None), "图片的 mime 同族闸不许退化")
+            self.assertEqual(self.inbox_files(), before, "拒绝路径必须零写盘")
+            st, d = _post(port, "/api/upload", {"name": "真图.png", "data_url": data_url()})
+            self.assertEqual(st, 200, d)
