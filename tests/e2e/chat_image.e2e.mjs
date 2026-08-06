@@ -26,6 +26,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { launchBrowser, loginPane, expandInbox, check } from "./helpers.mjs";
+import { WS_STUB_BASE } from "./_ws-stub.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PORT = 8810;
@@ -78,29 +79,17 @@ const STUB = () => {
     }
     return origFetch(url, init);
   };
-  class StubWS {
-    // 真 WebSocket 的 readyState 常量在类上和实例上都有(`WebSocket.OPEN` / `ws.OPEN`)。
-    // 替身漏掉它们 ⇒ 实现里标准的 `ws.readyState !== WebSocket.OPEN` 读到 undefined、
-    // 恒判"没连上",一条消息都发不出去(2026-08-05 track opendesign-turn-id 实测:
-    // 本仓两份 ws 替身**都**漏了同一处 —— 新写替身照着真 API 抄常量,别只抄用到的字段)。
-    static CONNECTING = 0;
-    static OPEN = 1;
-    static CLOSING = 2;
-    static CLOSED = 3;
+  // readyState 常量由底座从**真** WebSocket 派生(见 _ws-stub.mjs 的文件头:
+  // 这两份替身各手抄过一遍,然后同一处漏了两遍)。这里只写本场景的行为。
+  class StubWS extends window.__BaseStubWS {
     constructor(url) {
-      this.url = url;
-      this.readyState = 0;
-      this.CONNECTING = 0;
-      this.OPEN = 1;
-      this.CLOSING = 2;
-      this.CLOSED = 3;
+      super(url);
       setTimeout(() => {
-        this.readyState = 1;
+        this.readyState = StubWS.OPEN;
         this.onopen?.({});
-        this.#emit({ event: "ready", chat_id: "chat-e2e" });
+        this._emit({ event: "ready", chat_id: "chat-e2e" });
       }, 10);
     }
-    #emit(o) { this.onmessage?.({ data: JSON.stringify(o) }); }
     send(data) {
       window.__sent.push(data);
       let m = null;
@@ -108,14 +97,13 @@ const STUB = () => {
       if (m?.type !== "message") return;
       setTimeout(() => {
         const sid = "stub-stream";
-        this.#emit({ event: "delta", text: "收到", stream_id: sid,
+        this._emit({ event: "delta", text: "收到", stream_id: sid,
                      turn_id: m.turn_id, turn_phase: "answer", turn_seq: 1 });
-        this.#emit({ event: "stream_end", stream_id: sid, turn_seq: 2 });
-        this.#emit({ event: "turn_end", turn_phase: "complete", turn_seq: 3,
+        this._emit({ event: "stream_end", stream_id: sid, turn_seq: 2 });
+        this._emit({ event: "turn_end", turn_phase: "complete", turn_seq: 3,
                      goal_state: { active: false } });
       }, 10);
     }
-    close() { this.readyState = 3; }
   }
   window.WebSocket = StubWS;
 };
@@ -176,6 +164,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
   const errs = [];
   page.on("pageerror", (e) => errs.push(String(e)));
+  await page.addInitScript(WS_STUB_BASE);   // 先装底座(常量从真 WebSocket 派生)
   await page.addInitScript(STUB);
   // 收件箱卡片在**工作区路由**的伴随列(App.tsx:443 `active={route==="workspace"}`),
   // 不在新对话首页 —— 起初把 ① 写在 `/` 上是我搞错了路由(红检时才发现)。

@@ -22,6 +22,7 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { launchBrowser, loginPane, sendMessage } from "./helpers.mjs";
+import { WS_STUB_BASE } from "./_ws-stub.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PORT = 8813;
@@ -108,43 +109,31 @@ const STUB = () => {
     return origFetch(url, init);
   };
 
-  class StubWS {
-    // ⚠️ 真 WebSocket 的 readyState 常量既在**类上**也在**实例上**
-    // (`WebSocket.OPEN` / `ws.OPEN`,都是 1)。08-05 这份 stub 少了它们,
-    // 于是实现里标准的 `ws.readyState !== WebSocket.OPEN` 读到 `undefined`、
-    // 恒判"没连上",**一条消息都发不出去** —— 红的是判据不是实现:
-    // 替身缺了它所替代的那个 API 的一部分,等于在问一道现实里不存在的题。
-    static CONNECTING = 0;
-    static OPEN = 1;
-    static CLOSING = 2;
-    static CLOSED = 3;
+  // readyState 常量由底座从**真** WebSocket 派生(见 _ws-stub.mjs 文件头:
+  // 这两份替身各手抄过一遍,08-05 同一处漏了两遍、隔 39 分钟修了两次)。
+  // 这里只写本场景的行为。
+  class StubWS extends window.__BaseStubWS {
     constructor(url) {
-      this.url = url;
-      this.readyState = 0;
-      this.CONNECTING = 0;
-      this.OPEN = 1;
-      this.CLOSING = 2;
-      this.CLOSED = 3;
+      super(url);
       window.__wsCount += 1;
       window.__wsTimes.push(Date.now());
       window.__ws = this;
       setTimeout(() => {
-        if (this.readyState === 3) return;
+        if (this.readyState === StubWS.CLOSED) return;
         if (window.__failConnect) {   // 一建就断:模拟 gateway 没起
-          this.readyState = 3;
+          this.readyState = StubWS.CLOSED;
           this.onclose?.({ code: 1006, reason: "stub fail", wasClean: false });
           return;
         }
-        this.readyState = 1;
+        this.readyState = StubWS.OPEN;
         this.onopen?.({});
         // 协议:每条新连接都发新 chat_id,前端弃用它、再 attach 回旧的
         const id = `chat-new-${window.__wsCount}`;
         if (window.__firstReadyId === null) window.__firstReadyId = id;
         window.__lastReadyId = id;
-        this.#emit({ event: "ready", chat_id: id });
+        this._emit({ event: "ready", chat_id: id });
       }, 10);
     }
-    #emit(o) { this.onmessage?.({ data: JSON.stringify(o) }); }
     send(data) {
       // track opendesign-turn-id:模拟"socket 已经死了但界面还没反应过来" ——
       // 真浏览器在 CLOSING/CLOSED 上 send() 会抛 InvalidStateError。
@@ -172,29 +161,28 @@ const STUB = () => {
         // 否则"随便 attach 个什么都算成功"的实现也能全绿
         setTimeout(() => {
           if (m.chat_id !== window.__firstReadyId) {
-            this.#emit({ event: "error", detail: "invalid chat_id" });
+            this._emit({ event: "error", detail: "invalid chat_id" });
             return;
           }
           if (window.__holdAttached) { window.__pendingAttach = m.chat_id; return; }
-          // ⚠️ 顺序要紧:#emit 是同步的,客户端会在它里面同步发起拉历史 ——
+          // ⚠️ 顺序要紧:_emit 是同步的,客户端会在它里面同步发起拉历史 ——
           // 先 emit 再置位,拉历史那一刻读到的还是 false(夹具自己的时序 bug,
           // 08-04 第一次跑实现时被 ⑦ 抓出来)。
           window.__threadReady = true; // attached 之后历史里才有断线期间那条
-          this.#emit({ event: "attached", chat_id: m.chat_id });
+          this._emit({ event: "attached", chat_id: m.chat_id });
         }, 10);
         return;
       }
       if (m.type !== "message" || window.__silent) return;
       setTimeout(() => {
         const sid = `stub-stream-${window.__sent.length}`;
-        this.#emit({ event: "delta", text: "收到", stream_id: sid,
+        this._emit({ event: "delta", text: "收到", stream_id: sid,
                      turn_id: m.turn_id, turn_phase: "answer", turn_seq: 1 });
-        this.#emit({ event: "stream_end", stream_id: sid, turn_seq: 2 });
-        this.#emit({ event: "turn_end", turn_phase: "complete", turn_seq: 3,
+        this._emit({ event: "stream_end", stream_id: sid, turn_seq: 2 });
+        this._emit({ event: "turn_end", turn_phase: "complete", turn_seq: 3,
                      goal_state: { active: false } });
       }, 10);
     }
-    close() { this.readyState = 3; }
   }
   window.WebSocket = StubWS;
 
@@ -250,6 +238,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
   const errs = [];
   page.on("pageerror", (e) => errs.push(String(e)));
+  await page.addInitScript(WS_STUB_BASE);   // 先装底座(常量从真 WebSocket 派生)
   await page.addInitScript(STUB);
   await page.goto(`${base}/#/`, { waitUntil: "domcontentloaded" });
   await page.locator(pane).waitFor({ state: "visible", timeout: 10000 });
