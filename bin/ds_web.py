@@ -163,8 +163,8 @@ OPEN_FOLDER_PATH = "/api/open-folder"  # do_POST 唯一放行路径,精确匹配
 OPEN_BODY_MAX = 4096  # open-folder 请求体上限(key+sub 远小于此)
 # 上传针孔(track opendesign-image-upload)——**本服务第一个"网页给字节、服务端落盘"的口**。
 # 信封上限比图片上限宽:base64 膨胀 4/3 + JSON 信封,8MB 图 ≈ 10.7MB 编码后。
-UPLOAD_BODY_MAX = 44 * 1024 * 1024   # 请求体上限(Content-Length 闸,读 body 之前判)
-# 44MB = 32MB 文档上限的 base64 膨胀(4/3)+ JSON 信封。**它同时是内存峰值的闸** ——
+UPLOAD_BODY_MAX = 88 * 1024 * 1024   # 请求体上限(Content-Length 闸,读 body 之前判)
+# 88MB = 64MB 图纸上限的 base64 膨胀(4/3)+ JSON 信封。**它同时是内存峰值的闸** ——
 # 想再抬之前先想清楚这台机器要同时吃下 base64 串和解码后的字节。
 # 更大的文件本来就该直接拷进收件箱文件夹(它是机主机器上的真目录),超限提示会这么说。
 UPLOAD_MAX_BYTES = 8 * 1024 * 1024   # 解码后图片字节上限(与 nanobot 单图上限同档)
@@ -259,6 +259,10 @@ _UPLOAD_ALLOWED_KEYS = {"name", "data_url"}
 # 提示里会这么说。上限也决定了内存峰值,不能为了"更大更好"随手抬。
 _IMG_MAX = 8 * 1024 * 1024
 _DOC_MAX = 32 * 1024 * 1024
+# 图纸/模型单独一档:真实项目里 >32MB 的 DWG 很常见,而"特别是 dwg"正是这次的核心诉求。
+# design.md 原写 CAD 64MB / SU-MAX-PSD 128MB;128MB 这档**没做**(见 verify 的已接受偏差):
+# 这条路是 base64 走 JSON,128MB 解码前后要同时吃进内存,不值当 —— 更大的直接拷进文件夹。
+_CAD_MAX = 64 * 1024 * 1024
 _OOXML = (b"PK\x03\x04",)                      # docx/xlsx/pptx 都是 zip
 _OLE = (b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1",)  # 老式 doc/xls/ppt、3dsmax
 _INBOX_UPLOAD = {
@@ -279,14 +283,14 @@ _INBOX_UPLOAD = {
     ".txt":  {"mimes": {"text/plain"}, "magic": None, "text": True, "max": _DOC_MAX},
     ".csv":  {"mimes": {"text/csv", "text/plain"}, "magic": None, "text": True, "max": _DOC_MAX},
     # 图纸/模型:签名收得住的收,收不住的(dxf 是纯文本 DXF 标签流)按文本兜
-    ".dwg":  {"mimes": set(), "magic": (b"AC10", b"AC1.", b"MC0.0"), "max": _DOC_MAX},
-    ".dxf":  {"mimes": set(), "magic": None, "text": True, "max": _DOC_MAX},
-    ".skp":  {"mimes": set(), "magic": (b"\xff\xfeS\x00k\x00", b"SketchUp"), "max": _DOC_MAX},
-    ".max":  {"mimes": set(), "magic": _OLE, "max": _DOC_MAX},
-    ".psd":  {"mimes": set(), "magic": (b"8BPS",), "max": _DOC_MAX},
+    ".dwg":  {"mimes": set(), "magic": (b"AC10", b"AC1.", b"MC0.0"), "max": _CAD_MAX},
+    ".dxf":  {"mimes": set(), "magic": None, "text": True, "max": _CAD_MAX},
+    ".skp":  {"mimes": set(), "magic": (b"\xff\xfeS\x00k\x00", b"SketchUp"), "max": _CAD_MAX},
+    ".max":  {"mimes": set(), "magic": _OLE, "max": _CAD_MAX},
+    ".psd":  {"mimes": set(), "magic": (b"8BPS",), "max": _CAD_MAX},
 }
-# 老名字保留给既有代码路径引用(值等价于图片那几项的 mimes)
-_UPLOAD_MIME_BY_EXT = {e: v["mimes"] for e, v in _INBOX_UPLOAD.items() if v.get("strict_mime")}
+# (2026-08-06:老表 `_UPLOAD_MIME_BY_EXT` 已随白名单合并删除 —— 四审实测全仓零引用,
+#  留着只会让下一个人以为还有别的路径在用它。)
 # Windows 保留设备名:写过去不是文件而是设备 → 表现为"上传成功但文件不见了"。
 # 不改 ds_workspace._SEG_RE(那是全仓共用的枚举闸),只在上传口加这一道。
 _WIN_RESERVED = re.compile(
@@ -377,6 +381,14 @@ def _content_ok(blob: bytes, spec: dict) -> bool:
     if magic:
         return any(blob.startswith(sig) for sig in magic)
     if spec.get("text"):
+        # UTF-16 的正文里**满是 NUL**,所以先认 BOM,再谈"文本里不该有 NUL"
+        # (四审 subdeepseek:中文 Windows 记事本默认存 UTF-16,一刀切会把真文件误杀)。
+        if blob[:2] in (b"\xff\xfe", b"\xfe\xff"):
+            try:
+                blob[: 4096 & ~1].decode("utf-16")
+                return True
+            except UnicodeDecodeError:
+                return False
         if b"\x00" in blob[:4096]:          # 文本里不该有 NUL
             return False
         for enc in ("utf-8", "gbk"):
@@ -389,8 +401,13 @@ def _content_ok(blob: bytes, spec: dict) -> bool:
     return True
 
 
-def _decode_upload_data_url(data_url: str, ext: str) -> bytes | None:
-    """data URL → 字节。MIME 加分、**签名判定**、base64 严格解码,超限即拒。"""
+def _decode_upload_data_url(data_url: str, ext: str, *, why: list | None = None) -> bytes | None:
+    """data URL → 字节。MIME 加分、**签名判定**、base64 严格解码,超限即拒。
+
+    `why`:给上层区分**为什么**失败。四审 subdeepseek 抓到的洞:32–33MB 的真 PDF
+    过得了信封闸、解码成功、然后撞单文件上限 —— 上层只知道"None",于是回 bad_image,
+    用户看到的是"你这是个改名伪装的文件"。**完全说反了。**
+    """
     if not isinstance(data_url, str):
         return None
     spec = _INBOX_UPLOAD.get(ext)
@@ -416,12 +433,18 @@ def _decode_upload_data_url(data_url: str, ext: str) -> bytes | None:
     limit = spec.get("max", UPLOAD_MAX_BYTES)
     # 先按编码长度粗筛(4/3 膨胀),避免为超大串真去解码
     if len(b64) > limit // 3 * 4 + 8:
+        if why is not None:
+            why.append("too_large")
         return None
     try:
         blob = base64.b64decode(b64, validate=True)
     except (ValueError, binascii.Error):
         return None
-    if not blob or len(blob) > limit:
+    if not blob:
+        return None
+    if len(blob) > limit:
+        if why is not None:
+            why.append("too_large")
         return None
     if not _content_ok(blob, spec):     # 签名/文本校验 —— 改名伪装在这里被挡下
         return None
@@ -1523,7 +1546,7 @@ class Handler(BaseHTTPRequestHandler):
           → Content-Length ∈ (0, UPLOAD_BODY_MAX](读 body 之前判)
           → JSON dict → 键白名单 {name,data_url} → 类型闸
           → _safe_upload_name(名字闸,复用全仓单段闸 + 上传口四条额外闸 + 截长)
-          → 扩展名 ∈ IMG_EXTS(svg 排除)+ data URL mime 与扩展名同族 + 严格 base64
+          → 扩展名 ∈ _INBOX_UPLOAD(svg 排除)+ 内容签名校验 + 严格 base64 + 分档体积上限
           → 解码后 ≤ UPLOAD_MAX_BYTES
           → 收件箱由 ds_intake._find_inbox 解析(taxonomy 四候选、用户可覆盖;
             自带 islink 拒绝 + within 闸)——**不硬编码 00-收件箱**;缺则 409,
@@ -1571,9 +1594,11 @@ class Handler(BaseHTTPRequestHandler):
         if not safe:
             self._json(400, {"error": "bad_name"})
             return
-        blob = _decode_upload_data_url(data_url, os.path.splitext(safe)[1].lower())
+        why: list[str] = []
+        blob = _decode_upload_data_url(data_url, os.path.splitext(safe)[1].lower(), why=why)
         if blob is None:
-            self._json(400, {"error": "bad_image"})
+            # 超限要说"太大",不能说"内容对不上"(后者在指控用户伪装文件)
+            self._json(400, {"error": "too_large" if "too_large" in why else "bad_image"})
             return
 
         cfg = ds_workspace.load_config(self.server.ds_root)

@@ -618,8 +618,8 @@ export function uploadErrMsg(code: string): string {
     return "这个格式收不了。可以传:图片、PDF、Word/Excel/PPT、CAD(dwg/dxf)、SU、3ds Max、PSD;"
       + "别的请点「打开」到文件夹里自己放。";
   if (code === "too_large")
-    return "这个文件太大了(图片上限 8MB、其它 32MB)。太大的直接拷进收件箱文件夹更快 ——"
-      + "点「打开」就到那个文件夹。";
+    return "这个文件太大了(图片 8MB、文档 32MB、图纸/模型 64MB)。"
+      + "再大的直接拷进收件箱文件夹更快 —— 点「打开」就到那个文件夹。";
   if (code === "bad_image")
     return "这个文件读不出来:内容和扩展名对不上(比如把图片改名成 .pdf),或者编码不对。";
   // 0.49.0 起工作区页的收件箱卡片上有「帮我建收件箱」按钮 —— 提示必须指向它,

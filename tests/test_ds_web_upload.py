@@ -368,7 +368,7 @@ class ErrorCodesAreActionable(unittest.TestCase):
             conn = http.client.HTTPConnection("127.0.0.1", port, timeout=15)
             conn.putrequest("POST", "/api/upload")
             conn.putheader("Content-Type", "application/json")
-            conn.putheader("Content-Length", str(60 * 1024 * 1024))
+            conn.putheader("Content-Length", str(120 * 1024 * 1024))
             conn.endheaders()
             conn.send(b'{"name":')          # 只发一点点,不发完
             r = conn.getresponse()
