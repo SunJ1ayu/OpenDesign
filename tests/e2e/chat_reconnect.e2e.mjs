@@ -506,6 +506,27 @@ try {
     return !t.includes("连接已断开") && !t.includes("404");
   }, 25000), "⑩ 拉历史 404(空会话的真实形状)⇒ 照常连上,不把 404 弹给用户");
 
+  // ── ㉜:断线时正忙 + 重连后拉历史 404 ⇒ 发送键**必须**能再用 ────────────────
+  //   0.75.0 四审判 BLOCK 的那条 P1 当时只修了"成功那条路":对账里清 busy 的那行
+  //   写在 `if (!replay || messages.length === 0) return;` **之后**,而
+  //   ChatPage.tsx:300 的注释自己就写着「新建的空会话拉历史必然 404,实测」——
+  //   于是最常见的那条路径(新会话发第一句就断线)整条绕过清 busy:
+  //   重连回来输入框能打字、**发送键永久 disabled,只能刷新**。
+  //   发现渠道:08-05 那条超时无结论的 Kimi 腿的日志(又一次印证"失败腿的日志也要读")。
+  //   此刻 __threadStatus 仍是 404(上一幕留下的),正是要问的那个形状。
+  await page.evaluate(() => { window.__silent = true; });   // 服务端不回 ⇒ turn_end 永远不来
+  await sendMessage(page, pane, "断线时还在等回复的那句");
+  check(await until(async () => await page.locator(`${pane} .send-btn`).isDisabled(), 8000),
+    "㉜a 前置:发出去还没回 ⇒ 此刻确实是忙(发送键 disabled)");
+  await page.evaluate(() => window.__killWS(1006));
+  check(await until(() => page.locator(`${pane} .chat-meta`).isVisible(), 25000),
+    "㉜b 前置:又连回来了(且这一轮拉历史是 404)");
+  await page.locator(`${pane} textarea`).fill("重连之后我还想说话");
+  check(await until(async () => !(await page.locator(`${pane} .send-btn`).isDisabled()), 8000),
+    "㉜ 断线时正忙 + 重连后拉历史 404 ⇒ 发送键恢复可用(不是永久变灰只能刷新)");
+  await page.evaluate(() => { window.__silent = false; });
+  await page.locator(`${pane} textarea`).fill("");
+
   // ── 口令真失效 ⇒ 回登录框(本单最容易做反的地方)─────────────────────────
   await page.evaluate(() => { window.__bootstrap401 = true; window.__killWS(1006); });
   check(await until(() =>
