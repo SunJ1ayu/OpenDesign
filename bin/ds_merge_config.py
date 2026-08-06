@@ -7,7 +7,8 @@
 只合并模板里的四段(TARGET 先备份为 TARGET.bak-<时间戳>):
     providers.custom / model_presets / agents.defaults / tools.mcpServers
 channels 段永远不碰 —— websocket 归 `nanobot onboard` 管,feishu 是可选通道不预填。
---api-base/--model 不给时保持模板默认(MiMo 示例端点)。
+--api-base/--model 不给时:**以目标配置里已有的为准**(不重置机主选好的大脑),
+目标里也没有才落模板默认(MiMo 示例端点)。
 """
 
 import argparse
@@ -95,11 +96,18 @@ def main() -> int:
 
     if not args.model:
         existing_preset = (cfg.get("agents", {}).get("defaults", {}) or {}).get("modelPreset")
+        own_presets = cfg.get("model_presets", {}) or {}
         # 机主的默认预设必须真的存在(自有的,或模板带来的),否则等于指向空气 ——
-        # 那种情况下宁可用模板默认,也不留一个起不来的配置。
-        known = set(tpl["model_presets"]) | set(cfg.get("model_presets", {}) or {})
+        # nanobot 对这种配置**直接拒绝加载**(schema.py 的 model validator 会抛),
+        # 也就是说留着它 = 机器起不来。所以要回落。
+        known = set(tpl["model_presets"]) | set(own_presets)
         if existing_preset and existing_preset in known:
             tpl["agents"]["defaults"]["modelPreset"] = existing_preset
+        elif own_presets:
+            # 悬空了,但机主自己还有别的预设 ⇒ 用他自己的第一个,别落回模板默认:
+            # 那会产出「模板的模型 @ 机主的端点」这种自相矛盾态(四审 subdeepseek MEDIUM)——
+            # 模型名在机主的端点上根本不存在,聊天时才炸。
+            tpl["agents"]["defaults"]["modelPreset"] = next(iter(own_presets))
 
     if args.model:
         # 换端点 = 模板的 MiMo 示例预设全部作废:替换成机主模型的单一预设

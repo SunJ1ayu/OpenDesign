@@ -112,7 +112,7 @@ if (Test-Path $KeyFile) {
 
 Step 7 "合并 config(providers/model_presets/agents/mcpServers 四段;channels 不动)"
 Write-Host "  模板默认大脑 = MiMo(https://token-plan-cn.xiaomimimo.com/v1, mimo-v2.5)。"
-$apiBase = Read-Host "  用别家 LLM 就填它的 OpenAI 兼容 base URL,直接回车 = 用 MiMo 默认"
+$apiBase = Read-Host "  用别家 LLM 就填它的 OpenAI 兼容 base URL;直接回车 = 保留这台机器上已有的设置(全新装机则用 MiMo 默认)"
 $model   = ""
 while ($apiBase.Trim() -and -not $model.Trim()) {
     $model = Read-Host "  对应的 model 名(换了端点就必须填)"
