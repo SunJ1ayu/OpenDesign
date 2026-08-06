@@ -7,7 +7,10 @@ type InboxDropOptions = {
   onUploaded?: () => void;
 };
 
-const OK_EXT = /\.(png|jpe?g|webp|gif)$/i;
+// 与后端 `_INBOX_UPLOAD`(bin/ds_web.py)同一组扩展名 —— 分类表认识什么,入口就收什么。
+// 两边各存一份是刻意的:前端这份只为**提示才对症**(先拦掉才能说清"不收什么"),
+// 真正的闸在后端;后端那份有判据钉住它与分类表不漂移。
+const OK_EXT = /\.(png|jpe?g|webp|gif|pdf|docx?|xlsx?|pptx?|txt|csv|dwg|dxf|skp|max|psd)$/i;
 
 function hasFiles(e: DragEvent<HTMLElement>) {
   return e.dataTransfer.types.includes("Files");
@@ -15,7 +18,7 @@ function hasFiles(e: DragEvent<HTMLElement>) {
 
 /** 收件箱上传的唯一前端拖放写法:图墙和收件箱卡共用同一个入口。 */
 export function useInboxDrop({
-  rejectMessage = "只收图片(png/jpg/webp/gif)。",
+  rejectMessage = "这个格式收不了。可以拖:图片、PDF、Word/Excel/PPT、CAD(dwg/dxf)、SU、3ds Max、PSD。",
   successTail = " —— 去伴随列点「扫描整理」归档",
   onUploaded,
 }: InboxDropOptions = {}) {
@@ -24,7 +27,8 @@ export function useInboxDrop({
   const [upBusy, setUpBusy] = useState(false);
 
   async function uploadFiles(files: File[]) {
-    // 后端只收 png/jpg/webp/gif。这里先按扩展名拦掉 svg/pdf/dwg,提示才对症。
+    // 后端白名单见 ds_web.py 的 _INBOX_UPLOAD。这里先按扩展名拦一道,提示才对症
+    // (svg/exe/zip 这类仍然不收)。
     const imgs = files.filter((f) => OK_EXT.test(f.name));
     if (!imgs.length) {
       setUpMsg(rejectMessage);
@@ -42,7 +46,7 @@ export function useInboxDrop({
       setUpMsg(`已存进收件箱${dir ? `(${dir})` : ""}:${stored.join("、")}` + successTail);
       onUploaded?.();
     } catch (e) {
-      const done = stored.length ? `已存 ${stored.length} 张;` : "";
+      const done = stored.length ? `已存 ${stored.length} 个;` : "";
       setUpMsg(done + uploadErrMsg((e as Error).message));
     } finally {
       setUpBusy(false);

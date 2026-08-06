@@ -157,20 +157,24 @@ try {
   check(fileAt(dstRel, fileName),
     `文件真的落到方案说的那个位置(${dstRel}/${fileName})`);
 
-  // ── ⑥ 非图片被拒(前端就拦住,不打服务端)────────────────────────────────
+  // ── ⑥ 收不了的类型被拒(前端就拦住,不打服务端)──────────────────────────
+  // 2026-08-06:dwg/pdf 已改为收(它们会进收件箱,只是不进图墙),
+  // 所以这一幕换成 svg —— 仍然不收的那一类。
   await page.goto(`${base}/#/gallery`, { waitUntil: "domcontentloaded" });
   await page.locator('[data-ui="gallery-drop"]').waitFor({ timeout: 15000 });
   await page.evaluate(() => {
     const dt = new DataTransfer();
-    dt.items.add(new File([new Uint8Array([1, 2, 3])], "图纸.dwg", { type: "application/acad" }));
+    dt.items.add(new File([new Uint8Array([60, 115, 118, 103, 62])], "脚本.svg",
+      { type: "image/svg+xml" }));
     const el = document.querySelector('[data-ui="gallery-drop"]');
     el.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
   });
   await page.waitForFunction(
-    () => (document.querySelector('[data-ui="upload-note"]')?.textContent || "").includes("只收图片"),
+    () => /PDF|CAD|图片/.test(
+      document.querySelector('[data-ui="upload-note"]')?.textContent || ""),
     { timeout: 10000 });
-  check(true, "非图片:提示「只收图片」且零上传");
-  check(!inboxFiles().includes("图纸.dwg"), "非图片没有落盘");
+  check(true, "收不了的类型:提示说清收什么,且零上传");
+  check(!inboxFiles().includes("脚本.svg"), "收不了的类型没有落盘");
 
   console.log(failures ? `IMAGE-UPLOAD E2E: ${failures} FAIL` : "IMAGE-UPLOAD E2E: ALL PASS");
 } catch (e) {

@@ -203,23 +203,47 @@ try {
       `drop 之后不再有拖拽边框(实测 ${after.border})`);
   });
 
-  // ── D 非图片:说清楚,且不落盘 ──────────────────────────────────────────
-  await step("D 拖非图片进来 → 说清「只收图片」+ 一条出路,且不落盘", async () => {
+  // ── D 收不了的类型:说清楚,且不落盘 ────────────────────────────────────
+  // 2026-08-06(track inbox-accepts-docs):**dwg/pdf 已改为收**,所以这一幕换成
+  // 真正不收的类型(svg = 可直开的脚本载体)。断言一条没弱:仍然要"说清 + 给出路 + 零落盘"。
+  await step("D 拖收不了的类型进来 → 说清收什么 + 一条出路,且不落盘", async () => {
     await gotoWs();
     const before = inboxFiles();
-    const dt = await makeDT("户型图.dwg", "application/octet-stream", [1, 2, 3]);
+    const dt = await makeDT("脚本.svg", "image/svg+xml", [60, 115, 118, 103, 62]);
     await page.dispatchEvent(CARD, "dragenter", { dataTransfer: dt });
     await page.dispatchEvent(CARD, "dragover", { dataTransfer: dt });
     await page.dispatchEvent(CARD, "drop", { dataTransfer: dt });
     await page.waitForTimeout(800);
     const txt = (await cardLook()).text;
-    expect(/图片/.test(txt), `提示语说到"只收图片"(实测卡片文案 ${JSON.stringify(txt)})`);
+    expect(/PDF|CAD|图片/.test(txt),
+      `提示语说清了收什么(实测卡片文案 ${JSON.stringify(txt)})`);
     // ⚠️ 别写成 /打开/ —— 静止文案里本来就有「打开」两字,那样这条**永远是绿的**
     //(红检当场抓到的假绿)。要的是"出路"这层新增信息,静止态没有的词才算数。
     expect(/文件夹|资源管理器/.test(txt),
       `提示语给了一条出路(自己打开文件夹放进去)(实测 ${JSON.stringify(txt)})`);
     expect(JSON.stringify(inboxFiles()) === JSON.stringify(before),
-      `非图片没有落盘(实测 ${JSON.stringify(inboxFiles())})`);
+      `收不了的类型没有落盘(实测 ${JSON.stringify(inboxFiles())})`);
+  });
+
+  // ── D3 真 PDF / 真 DWG:收得下,而且**收件箱界面里看得见**(落盘 ≠ 能用)────
+  // 这一幕是本 track 的正面判据:python 判据只能证明"服务端收下了",
+  // 界面上看不看得见、整理链路认不认得,只有端到端能问(design.md 里写明了这条)。
+  await step("D3 拖真 PDF / 真 DWG 进来 → 落盘且界面看得见", async () => {
+    await gotoWs();
+    // 真签名:PDF 以 %PDF- 开头;DWG 以 AC10xx 开头
+    const pdf = await makeDT("平面图.pdf", "application/pdf",
+      [...Buffer.from("%PDF-1.7\n%%EOF\n")]);
+    await page.dispatchEvent(CARD, "drop", { dataTransfer: pdf });
+    const dwg = await makeDT("户型图.dwg", "application/octet-stream",
+      [...Buffer.from("AC1032"), 0, 0, 0, 0]);
+    await page.dispatchEvent(CARD, "drop", { dataTransfer: dwg });
+    await page.waitForTimeout(1500);
+    const files = inboxFiles();
+    expect(files.includes("平面图.pdf"), `PDF 落盘了(实测 ${JSON.stringify(files)})`);
+    expect(files.includes("户型图.dwg"), `DWG 落盘了(实测 ${JSON.stringify(files)})`);
+    const txt = (await cardLook()).text;
+    expect(/平面图\.pdf|户型图\.dwg/.test(txt),
+      `收件箱卡片上看得见新收的文件(实测 ${JSON.stringify(txt)})`);
   });
 
   // ── D2 提示条里的「知道了」不许被压成竖排 ────────────────────────────────

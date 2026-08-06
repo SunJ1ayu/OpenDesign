@@ -614,9 +614,14 @@ export async function uploadToInbox(name: string, dataUrl: string): Promise<Uplo
 /** 上传错误码 → 人话(不把裸错误码怼给设计师,同 createProjectErrMsg 先例)。 */
 export function uploadErrMsg(code: string): string {
   if (code === "bad_name") return "这个文件名不行(可能带了特殊符号),改个名再试。";
-  if (code === "bad_type") return "只收 png/jpg/webp/gif(svg 和图纸文件先手动拷进文件夹)。";
-  if (code === "too_large") return "这张图太大了(单张上限 8MB),先压一下再传。";
-  if (code === "bad_image") return "图片读不出来(格式或编码不对),换一张试试。";
+  if (code === "bad_type")
+    return "这个格式收不了。可以传:图片、PDF、Word/Excel/PPT、CAD(dwg/dxf)、SU、3ds Max、PSD;"
+      + "别的请点「打开」到文件夹里自己放。";
+  if (code === "too_large")
+    return "这个文件太大了(图片上限 8MB、其它 32MB)。太大的直接拷进收件箱文件夹更快 ——"
+      + "点「打开」就到那个文件夹。";
+  if (code === "bad_image")
+    return "这个文件读不出来:内容和扩展名对不上(比如把图片改名成 .pdf),或者编码不对。";
   // 0.49.0 起工作区页的收件箱卡片上有「帮我建收件箱」按钮 —— 提示必须指向它,
   // 否则等于让一个不是程序员的人自己去资源管理器里建文件夹(而按钮就在旁边)。
   if (code === "inbox_not_found")

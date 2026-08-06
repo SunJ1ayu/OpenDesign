@@ -41,7 +41,8 @@ export default function InboxCard({ dataEpoch, active }: Props) {
     openInbox().catch(() => setOpenErr("打开失败,可能是路径被改了或没有桌面环境"));
   };
   const inboxDrop = useInboxDrop({
-    rejectMessage: "只收图片(png/jpg/webp/gif)。图纸、PDF 或其它文件请点「打开」到文件夹里自己放。",
+    rejectMessage: "这个格式收不了。可以拖:图片、PDF、Word/Excel/PPT、"
+      + "CAD(dwg/dxf)、SU、3ds Max、PSD;别的请点「打开」到文件夹里自己放。",
     successTail: " —— 点「扫描整理」归档",
     onUploaded: () => setLocalEpoch((e) => e + 1),
   });
@@ -111,7 +112,7 @@ export default function InboxCard({ dataEpoch, active }: Props) {
           <div className="inbox-hint" data-ui="inbox-missing">
             还没有收件箱文件夹。点一下我给你建在:<code>{u.wouldCreate}</code>
             <br />
-            以后拖进来的图、聊天里发的图都先落在这儿,再说「整理收件箱」归档。
+            以后拖进来的图纸、文件、聊天里发的图都先落在这儿,再说「整理收件箱」归档。
           </div>
           {err && <div className="aside-empty warn">{err}</div>}
           <div className="plan-acts">
@@ -142,7 +143,7 @@ export default function InboxCard({ dataEpoch, active }: Props) {
           <div className="inbox-hint" data-ui="inbox-created">
             已建好:<code>{created}</code>
             <br />
-            以后拖进来的图、聊天里发的图都先落这儿,再说「整理收件箱」归档。
+            以后拖进来的图纸、文件、聊天里发的图都先落这儿,再说「整理收件箱」归档。
           </div>
         </div>
       </div>
@@ -161,7 +162,7 @@ export default function InboxCard({ dataEpoch, active }: Props) {
             打开
           </button>
           <span className="grow" />
-          <span className="inbox-quiet">空的,可拖图片进来</span>
+          <span className="inbox-quiet">空的,可拖图纸/PDF/图片进来</span>
         </div>
         {dropNote}
         {openErr && <div className="aside-empty warn">{openErr}</div>}

@@ -82,7 +82,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.78.0"  # 更新时合配置不再把你选好的大脑重置回默认。
+VERSION = "0.79.0"  # 收件箱不再只收图片:PDF、CAD 图纸、Word/Excel 都能拖进去。
                     # ⚠️ 0.73.0 起的改动**大半在 workspace/AGENTS.md(助手契约)里**,
                     # 光 git pull 不生效:契约要靠 start.ps1 同步给助手,
                     # 起服务时看到"已同步助手契约"那行才算到了真机。
@@ -163,7 +163,10 @@ OPEN_FOLDER_PATH = "/api/open-folder"  # do_POST 唯一放行路径,精确匹配
 OPEN_BODY_MAX = 4096  # open-folder 请求体上限(key+sub 远小于此)
 # 上传针孔(track opendesign-image-upload)——**本服务第一个"网页给字节、服务端落盘"的口**。
 # 信封上限比图片上限宽:base64 膨胀 4/3 + JSON 信封,8MB 图 ≈ 10.7MB 编码后。
-UPLOAD_BODY_MAX = 14 * 1024 * 1024   # 请求体上限(Content-Length 闸,读 body 之前判)
+UPLOAD_BODY_MAX = 44 * 1024 * 1024   # 请求体上限(Content-Length 闸,读 body 之前判)
+# 44MB = 32MB 文档上限的 base64 膨胀(4/3)+ JSON 信封。**它同时是内存峰值的闸** ——
+# 想再抬之前先想清楚这台机器要同时吃下 base64 串和解码后的字节。
+# 更大的文件本来就该直接拷进收件箱文件夹(它是机主机器上的真目录),超限提示会这么说。
 UPLOAD_MAX_BYTES = 8 * 1024 * 1024   # 解码后图片字节上限(与 nanobot 单图上限同档)
 UPLOAD_NAME_MAX = 80                 # 去扩展名后的名字长度上限(Windows 260 全路径预算)
 EDIT_CHANGE_PATH = "/api/changes/edit"  # do_POST 写针孔③(track opendesign-todo-edit),精确匹配
@@ -241,14 +244,49 @@ _ADD_ERR_STATUS = {
 _CREATE_ALLOWED_KEYS = {"project", "client", "stage", "address"}
 _UPLOAD_ALLOWED_KEYS = {"name", "data_url"}
 # 扩展名 → 允许的 data URL mime(防"名叫 .png、内容声明成别的")。
-# 扩展名白名单**取 ds_workspace.IMG_EXTS**(与图墙读出面同源),不从 taxonomy 推导
-# —— taxonomy.json 是用户可改的数据配置,推导等于让它变成安全配置。
-_UPLOAD_MIME_BY_EXT = {
-    ".png": {"image/png"},
-    ".jpg": {"image/jpeg"}, ".jpeg": {"image/jpeg"},
-    ".webp": {"image/webp"},
-    ".gif": {"image/gif"},
+# 上传口白名单(track inbox-accepts-docs,2026-08-06 从"只收图片"扩到"分类表认识的格式")。
+#
+# **硬编码,绝不从 taxonomy.json 推导** —— 那是用户可改的数据配置,推导等于让用户
+# 能给自己开安全闸。但判据(tests/test_ds_web_upload.py 的 d01)钉住它与
+# `config/taxonomy.default.json` **不漂移**:以后往分类表加格式却忘了开入口,当场红。
+#
+# 每项三样东西:
+#   mimes  浏览器声明的 MIME **只作加分**:实测 .dwg/.dxf 常常是空或 octet-stream,
+#          拿它当判据等于没判。给了就必须在集合里,没给(空/octet-stream)照样往下走。
+#   magic  内容签名,**这才是主判据**。把 PNG 改名成 .pdf 必须拒。
+#   text   没有签名的那一类(txt/csv):要求内容能按 UTF-8/GBK 解码,挡住二进制冒充。
+# 上限:图片沿用 8MB;其余 32MB —— 更大的直接拷进收件箱文件夹更快(它就是个真文件夹),
+# 提示里会这么说。上限也决定了内存峰值,不能为了"更大更好"随手抬。
+_IMG_MAX = 8 * 1024 * 1024
+_DOC_MAX = 32 * 1024 * 1024
+_OOXML = (b"PK\x03\x04",)                      # docx/xlsx/pptx 都是 zip
+_OLE = (b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1",)  # 老式 doc/xls/ppt、3dsmax
+_INBOX_UPLOAD = {
+    # 图片(既有行为一条不动:mime 必须同族,svg 不在表里 = 不收)
+    ".png":  {"mimes": {"image/png"},  "magic": (b"\x89PNG\r\n\x1a\n",), "max": _IMG_MAX, "strict_mime": True},
+    ".jpg":  {"mimes": {"image/jpeg"}, "magic": (b"\xff\xd8\xff",),         "max": _IMG_MAX, "strict_mime": True},
+    ".jpeg": {"mimes": {"image/jpeg"}, "magic": (b"\xff\xd8\xff",),         "max": _IMG_MAX, "strict_mime": True},
+    ".webp": {"mimes": {"image/webp"}, "magic": (b"RIFF",),                   "max": _IMG_MAX, "strict_mime": True},
+    ".gif":  {"mimes": {"image/gif"},  "magic": (b"GIF87a", b"GIF89a"),       "max": _IMG_MAX, "strict_mime": True},
+    # 资料
+    ".pdf":  {"mimes": {"application/pdf"}, "magic": (b"%PDF-",), "max": _DOC_MAX},
+    ".doc":  {"mimes": {"application/msword"}, "magic": _OLE, "max": _DOC_MAX},
+    ".xls":  {"mimes": {"application/vnd.ms-excel"}, "magic": _OLE, "max": _DOC_MAX},
+    ".ppt":  {"mimes": {"application/vnd.ms-powerpoint"}, "magic": _OLE, "max": _DOC_MAX},
+    ".docx": {"mimes": set(), "magic": _OOXML, "max": _DOC_MAX},
+    ".xlsx": {"mimes": set(), "magic": _OOXML, "max": _DOC_MAX},
+    ".pptx": {"mimes": set(), "magic": _OOXML, "max": _DOC_MAX},
+    ".txt":  {"mimes": {"text/plain"}, "magic": None, "text": True, "max": _DOC_MAX},
+    ".csv":  {"mimes": {"text/csv", "text/plain"}, "magic": None, "text": True, "max": _DOC_MAX},
+    # 图纸/模型:签名收得住的收,收不住的(dxf 是纯文本 DXF 标签流)按文本兜
+    ".dwg":  {"mimes": set(), "magic": (b"AC10", b"AC1.", b"MC0.0"), "max": _DOC_MAX},
+    ".dxf":  {"mimes": set(), "magic": None, "text": True, "max": _DOC_MAX},
+    ".skp":  {"mimes": set(), "magic": (b"\xff\xfeS\x00k\x00", b"SketchUp"), "max": _DOC_MAX},
+    ".max":  {"mimes": set(), "magic": _OLE, "max": _DOC_MAX},
+    ".psd":  {"mimes": set(), "magic": (b"8BPS",), "max": _DOC_MAX},
 }
+# 老名字保留给既有代码路径引用(值等价于图片那几项的 mimes)
+_UPLOAD_MIME_BY_EXT = {e: v["mimes"] for e, v in _INBOX_UPLOAD.items() if v.get("strict_mime")}
 # Windows 保留设备名:写过去不是文件而是设备 → 表现为"上传成功但文件不见了"。
 # 不改 ds_workspace._SEG_RE(那是全仓共用的枚举闸),只在上传口加这一道。
 _WIN_RESERVED = re.compile(
@@ -296,7 +334,7 @@ def _safe_upload_name(name: str) -> str | None:
       `.` 开头 = 收件箱列举会跳过(同样看不见);
       尾部 `.`/空格 = Windows 静默剥掉 → 名字对不上;
       保留设备名 = 写到设备而不是文件。
-    - 扩展名必须在 `ds_workspace.IMG_EXTS`(png/jpg/jpeg/webp/gif;**svg 排除**)。
+    - 扩展名必须在 `_INBOX_UPLOAD`(图片 + 分类表认识的文档/图纸;**svg 排除**)。
     - 超长**截短而不是拒**:不截的话炸点在 apply_plan 移动那一步,用户看到的是
       "确认执行失败"而不是"名字太长"。
     """
@@ -319,7 +357,7 @@ def _safe_upload_name(name: str) -> str | None:
         return None
     stem, ext = os.path.splitext(name)
     ext = ext.lower()
-    if ext not in ds_workspace.IMG_EXTS or not stem:
+    if ext not in _INBOX_UPLOAD or not stem:
         return None
     if len(stem) > UPLOAD_NAME_MAX:
         stem = stem[:UPLOAD_NAME_MAX].rstrip(". ")
@@ -328,24 +366,64 @@ def _safe_upload_name(name: str) -> str | None:
     return stem + ext
 
 
+def _content_ok(blob: bytes, spec: dict) -> bool:
+    """内容校验:有签名的按签名,没签名的(txt/csv/dxf)要求能当文本解码。
+
+    **签名才是主判据**:浏览器给 .dwg/.dxf 的 MIME 常常是空或 octet-stream,
+    拿 MIME 当判据等于没判;而"把 PNG 改名成 .pdf"正是要挡的那一类。
+    宁可误杀(用户还能直接把文件拷进收件箱文件夹),不可放行伪装。
+    """
+    magic = spec.get("magic")
+    if magic:
+        return any(blob.startswith(sig) for sig in magic)
+    if spec.get("text"):
+        if b"\x00" in blob[:4096]:          # 文本里不该有 NUL
+            return False
+        for enc in ("utf-8", "gbk"):
+            try:
+                blob[:4096].decode(enc)
+                return True
+            except UnicodeDecodeError:
+                continue
+        return False
+    return True
+
+
 def _decode_upload_data_url(data_url: str, ext: str) -> bytes | None:
-    """data URL → 字节。mime 必须与扩展名同族,base64 严格解码,超限即拒。"""
+    """data URL → 字节。MIME 加分、**签名判定**、base64 严格解码,超限即拒。"""
     if not isinstance(data_url, str):
+        return None
+    spec = _INBOX_UPLOAD.get(ext)
+    if spec is None:
         return None
     m = _DATA_URL_HEAD.match(data_url)
     if not m:
+        # 浏览器对 .dwg 这类常常给不出 mime,data URL 头会退化成 `data:;base64,`
+        if not data_url.startswith("data:;base64,") or spec.get("strict_mime"):
+            return None
+        declared = ""
+        b64_start = len("data:;base64,")
+    else:
+        declared = m.group(1).lower()
+        b64_start = m.end()
+    if spec.get("strict_mime"):
+        if declared not in spec["mimes"]:
+            return None
+    elif declared and spec["mimes"] and declared not in spec["mimes"] \
+            and declared != "application/octet-stream":
         return None
-    if m.group(1).lower() not in _UPLOAD_MIME_BY_EXT.get(ext, set()):
-        return None
-    b64 = data_url[m.end():]
+    b64 = data_url[b64_start:]
+    limit = spec.get("max", UPLOAD_MAX_BYTES)
     # 先按编码长度粗筛(4/3 膨胀),避免为超大串真去解码
-    if len(b64) > UPLOAD_MAX_BYTES // 3 * 4 + 8:
+    if len(b64) > limit // 3 * 4 + 8:
         return None
     try:
         blob = base64.b64decode(b64, validate=True)
     except (ValueError, binascii.Error):
         return None
-    if not blob or len(blob) > UPLOAD_MAX_BYTES:
+    if not blob or len(blob) > limit:
+        return None
+    if not _content_ok(blob, spec):     # 签名/文本校验 —— 改名伪装在这里被挡下
         return None
     return blob
 
@@ -1486,7 +1564,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         # 类型与名字分两个码:svg/bmp/dwg 是"类型不收",回 bad_name 的话前端会建议
         # "改个名再试" —— 改名根本没用(四审 subkimi F4)。
-        if os.path.splitext(raw_name)[1].lower() not in ds_workspace.IMG_EXTS:
+        if os.path.splitext(raw_name)[1].lower() not in _INBOX_UPLOAD:
             self._json(400, {"error": "bad_type"})
             return
         safe = _safe_upload_name(raw_name)

@@ -170,8 +170,15 @@ class SafeUploadName(unittest.TestCase):
         self.assertLessEqual(len(got), 100, f"应截短,实测 {len(got)}")
 
     def test_n11_extension_whitelist(self):
-        for n in ["脚本.svg", "程序.exe", "图纸.dwg", "文档.pdf", "存档.zip"]:
-            self.rejected(n, "扩展名不在图片白名单(svg 也排除)")
+        # 2026-08-06(track inbox-accepts-docs):白名单从"只收图片"扩到"分类表认识的格式",
+        # 所以 .dwg/.pdf **从这条移到 d02 正面问**(它们现在该收)。
+        # 这条留下的是**仍然不收**的那些 —— 断言一条没弱:
+        #   svg = 可直开的脚本载体;exe = 可执行;zip = 分类表不认识、且是套娃载体。
+        for n in ["脚本.svg", "程序.exe", "存档.zip", "批处理.bat", "快捷方式.lnk"]:
+            self.rejected(n, "扩展名不在上传口白名单")
+        for n in ["图纸.dwg", "文档.pdf"]:
+            self.assertIsNotNone(ds_web._safe_upload_name(n),
+                                 f"分类表认识的格式现在应当放行:{n}")
 
     def test_n12_directory_component_is_rejected_not_rewritten(self):
         """带目录成分的名字**直接拒**,不做 basename 改写 —— 悄悄把 `C:\\...\\evil.png`
@@ -351,7 +358,8 @@ class ErrorCodesAreActionable(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.ws, ignore_errors=True)
 
     def test_u15_oversize_says_too_large_not_bad_request(self):
-        """信封超 14MB:要给"图太大"这一族的码,而不是通用 bad request。
+        """信封超上限:要给"太大"这一族的码,而不是通用 bad request。
+        (2026-08-06:上限随文档上传从 14MB 抬到 44MB,夹具跟着声称 60MB。)
 
         ⚠️ 夹具讲究:真发 20MB 会被服务端在读 body 前掐断 → 客户端 BrokenPipe →
         断言变成空跑(第一版就是这样,自欺)。改成**声称 20MB、只发几个字节**:
@@ -360,7 +368,7 @@ class ErrorCodesAreActionable(unittest.TestCase):
             conn = http.client.HTTPConnection("127.0.0.1", port, timeout=15)
             conn.putrequest("POST", "/api/upload")
             conn.putheader("Content-Type", "application/json")
-            conn.putheader("Content-Length", str(20 * 1024 * 1024))
+            conn.putheader("Content-Length", str(60 * 1024 * 1024))
             conn.endheaders()
             conn.send(b'{"name":')          # 只发一点点,不发完
             r = conn.getresponse()
@@ -374,7 +382,7 @@ class ErrorCodesAreActionable(unittest.TestCase):
         """svg/bmp 这类"是图但不收"的:码要说"类型不收",不能说"名字不行"
         —— 前端按 bad_name 会建议"改个名再试",而改名根本没用。"""
         with _serve(self.ds) as port:
-            for n in ["脚本.svg", "位图.bmp", "图纸.dwg"]:
+            for n in ["脚本.svg", "位图.bmp", "存档.zip"]:   # dwg 已改为收(见 d02)
                 st, d = _post(port, "/api/upload",
                               {"name": n, "data_url": data_url()})
                 self.assertEqual(st, 400, d)

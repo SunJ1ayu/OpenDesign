@@ -67,6 +67,14 @@ function png(w, h, byte = 0x77) {
   ]);
 }
 
+// ⚠️ **真 JPEG,不是改名的 PNG**(2026-08-06 track inbox-accepts-docs 抓到的)。
+// 原来这里给 `主卧.jpg` 塞的是 `png(30,20)` 的字节 —— 名字说 jpg、内容是 png。
+// 上传口以前只比对 MIME 与扩展名,内容没人看,于是这个"撒谎的夹具"一直全绿;
+// 加了内容签名校验之后它当场红 —— **红的是判据自己,不是实现**。
+// 判据里的假货会让真闸看起来像 bug,所以这里放一张真的(PIL 生成、640 字节的 30x20)。
+const JPEG_B64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCAAUAB4DASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDiqKKK9I88KKKKACiiigAooooA/9k=";
+function jpegBytes() { return Buffer.from(JPEG_B64, "base64"); }
+
 // ── 页面注入:stub ws + bootstrap,把 send() 的原始字符串攒进 window.__sent ──
 const STUB = () => {
   window.__sent = [];
@@ -201,7 +209,7 @@ try {
   check((await thumbs.count()) === 1, "粘贴一张 → 缩略图 1 个");
 
   await page.locator(`${HOME} [data-ui="chat-attach-input"]`)
-    .setInputFiles({ name: "主卧.jpg", mimeType: "image/jpeg", buffer: png(30, 20, 0x22) });
+    .setInputFiles({ name: "主卧.jpg", mimeType: "image/jpeg", buffer: jpegBytes() });
   await page.waitForFunction(
     (sel) => document.querySelectorAll(`${sel} [data-ui="chat-thumb"]`).length === 2,
     HOME, { timeout: 10000 });
