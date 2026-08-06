@@ -1,7 +1,7 @@
 # Verify: inbox-accepts-docs
 
 - Date: 2026-08-06
-- Verdict: <PASS | BLOCK | NEEDS_MORE_INFO>
+- Verdict: PASS(修复轮之后;真机验收欠机主)
 
 > Panel hook — 软判断(correctness/security/edge/spec-drift)走 panel-review:
 > 主 agent 先独立审并落 findings,再跑 panel-review 的全部评审腿,主 agent 主裁。
@@ -9,9 +9,9 @@
 
 ## Mechanical checks
 
-- [ ] build passes
-- [ ] tests pass
-- [ ] no secrets / unsafe ops
+- [x] build passes(vite build;**dist 与源码同步**已上机械闸)
+- [x] tests pass(仓库级总跑五段全绿;上传判据 39 条)
+- [x] no secrets / unsafe ops(写口放宽,签名+体积+文件名三道闸;四审确认无新漏洞)
 
 ## Review
 
@@ -22,20 +22,50 @@
   > 限纯前端/纯观感、后端一字未动、只新增已过审针孔的调用方。
 - 派给: 主 agent 直接干 —— 判卷要起 ds_web 真进程 + 造各种签名的假文件,
   窄范围说不清;而且这是安全面,外包收货成本高于自己写。
-- 规格自查(读任何 panel 输出之前先答):<如果规格本身就是错的,会错成什么样、我怎么发现?
-  panel 只验"实现合不合规格",验不了"规格对不对" —— 四腿齐 PASS 不等于题是对的。>
-- 腿的花名册: <把 `<日志前缀>.roster` 里那一行**原样粘过来**,别手写>
+- 规格自查(读腿之前落盘,全文在 scratchpad 的 my-review):
+  我把"覆盖别的格式"翻译成了**"分类表认识什么就收什么"** —— 如果这个翻译错了,
+  用户想要的是"什么都能拖"(.rvt/.3ds/.tif),那他会撞墙,而且提示只说"可以拖这几种",
+  不说"为什么不收你那种"。另外我当时就写下:签名校验会误杀(老版 DWG、加密 OOXML、
+  UTF-16 文本),**而用户分不清自己撞的是误杀还是真不支持**。
+  ⇒ 四审果然在 UTF-16 那条上打中(已修)。
+- 腿的花名册: `submimo=PASS subdeepseek=PASS subglm=off subkimi=FAIL(rc=1)`
+  (原样粘自 `logs/panel-inbox-docs.roster`。**进程 rc 不等于裁决**:
+  实际是 submimo PASS / **subdeepseek BLOCK** / subkimi 撞额度上限 403 死在半路。)
   > panel-review 收尾自己写这个文件(off / FAIL(rc) / 降级 都在里面)。
   > 08-06 立这条的理由:08-05 我在这里手写了"三条腿一致 PASS",而 Kimi 根本没出结论
   > (同一页第 90 行我自己还写着它没出报告)—— 手抄一份终端上的东西,抄错那次没人会发现。
 - findings:
-  - <...>
+  - **subdeepseek BLOCK,五条,我逐条核过全是真的、已全修**:
+    ① **我的 d04 是死断言** —— 40MB 信封让服务端在读 body 前掐断,`if d:` 永不成立,
+       那句 assert 一次没跑过。**同一个文件的 u15 注释早就点名禁止这种写法,我又犯了一遍。**
+    ② 签名判据只覆盖 4 种格式,其余 10 种**删掉签名仍全绿** ⇒ 改表驱动逐个问。
+    ③ design 写 CAD 64MB、实现全 32MB 的**规格漂移**,而 >32MB 的 DWG 正是用户核心场景。
+    ④ 32–33MB 的真 PDF 拿到的是"内容和扩展名对不上"(在指控用户伪装)⇒ 该给 too_large。
+    ⑤ UTF-16 的 txt/csv 被误杀(中文 Windows 记事本默认之一)。
+  - **subkimi 撞额度上限死在半路,但它残缺的日志里有一条真发现**:
+    入库的 `web/dist` **是旧的** —— 我改完 `api.ts` 的错误文案没重新 build,
+    而 e2e 恰好没断言那几句。本机铁律"盘上和运行时对不上 = BLOCK" 被它抓到。
+    ⇒ 已重建,并上了一道**机械闸**(总跑第④段:重新 build 后 git 对 web/dist 必须无话可说)。
+    上闸前实测它有牙(拿旧 dist 跑会报三行差异),提交前它还真响了一次。
+    **"失败腿的日志也要读"今天第二次兑现。**
+  - submimo PASS(无 blocker)。
   > 只写发现。腿的身份/降级不在这儿抄第二遍:日志自带身份牌(降级横幅 + 视野边界),
   > 花名册在上一格,查工件不查自述。
-- arbitrated verdict (主裁): <...>
+- arbitrated verdict (主裁): **PASS(代码面)**。BLOCK 的五条全修 + 判据补强(修复前 3 处红),
+  外加一道机械闸。**欠真机**:拖一张真 dwg 和一份真 PDF 进去,看落盘 + 卡片可见 +
+  「扫描整理」认得出类目。
   > **归档时这一条和顶部的 `Verdict:` 都不许还是占位符**,`track-guard` 规矩3 会挡;
   > 没归档但已经合并上线的,`track list` 会打 ⚠️(stage-timer 就这么漏了两个月)。
 
 ## Accepted deviations
 
-- <接受的非关键偏差 + 原因 + 影响范围,或 None>
+- **design 写的 SU/MAX/PSD 128MB 没做**,统一到 64MB:这条路是 base64 走 JSON,
+  128MB 要同时吃下编码串和解码字节;而真正的大文件本来就该直接拷进收件箱文件夹
+  (它是机主机器上的真目录),超限提示就是这么说的。**这是知情偏差,不是遗漏。**
+- **签名校验仍会误杀**:老版 DWG(AC1006 之前)、加密的 OOXML。误杀的代价是"拖不进去、
+  自己拷",比放行伪装文件轻;但**用户分不清误杀和不支持** —— 提示没说这层。
+- **`.txt/.csv/.dxf` 只靠"能否解码"兜**:改名成 .txt 的脚本照收(落进收件箱是惰性的,
+  不执行),`01-资料` 里混进脚本的下游影响我没推演。
+- **`_INBOX_UPLOAD`(能传)与 `_OPEN_EXTS`(能双击开)两张表不一致**(.rvt/.3ds 能开不能传,
+  .psd 能传不能开)。是职责不同的自然结果,但没有判据钉住它们的关系。
+- **聊天 `+` 附件仍只收图片**:助手读不了 PDF,能附等于界面撒谎。等 anydoc 那条线。
