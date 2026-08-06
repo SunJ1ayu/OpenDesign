@@ -1,0 +1,10 @@
+# 死断言闸的放行清单(tests/dead_assertions.py)。
+# 格式:<文件>:<行号>  # 理由
+# **必须写理由** —— 没理由的一行不生效(等于把闸关掉的那种例外,机器不认)。
+# 每加一条都是在说"我知道这条断言没跑,而且我能说清为什么" —— 别把它当垃圾桶。
+
+# 这份判据在没有活 gateway 时**整份 SKIP**(它自己的文件头就写着"SKIP 不算通过")。
+# 所以它里面的断言在默认总跑里必然没跑过 —— 这不是死断言,是"这台机器上没条件问"。
+# 要让它们真的跑:先起 gateway,再 tests/run-all.sh --with-gateway。
+tests/test_ws_protocol_smoke.py:119  # 要活 gateway;默认总跑整份 SKIP(见该文件头)
+tests/test_ws_protocol_smoke.py:139  # 同上,且这一条还是 token 恰好过期时的补签分支

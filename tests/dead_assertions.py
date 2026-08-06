@@ -41,7 +41,10 @@ import sys
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+# 判据目录可被 `DEAD_ASSERT_TESTS_DIR` 覆盖 —— **这个接缝是为了这道闸自己能被判**:
+# 不给接缝的话,它的判据只能拿真判据目录跑,那就没法造一条"确定是死的"断言来问它。
+_SELF = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.abspath(os.environ.get("DEAD_ASSERT_TESTS_DIR") or _SELF)
 ROOT = os.path.dirname(HERE)
 ALLOW_FILE = os.path.join(HERE, "dead_assertions.allow")
 
@@ -62,7 +65,19 @@ def assertion_lines(path: str) -> dict[int, str]:
         if ln:
             out[ln] = (src[ln - 1].strip() if ln <= len(src) else why)[:120]
 
+    # `except` 里的断言是**错误路径的兜底**(`self.fail("并发把配置写坏了")` 那种):
+    # 健康的时候它本来就不该跑,拿"没执行过"去报它就是纯误报。先把这些行标出来跳过。
+    in_handler: set[int] = set()
     for node in ast.walk(tree):
+        if isinstance(node, ast.ExceptHandler):
+            for sub in ast.walk(node):
+                ln = getattr(sub, "lineno", None)
+                if ln:
+                    in_handler.add(ln)
+
+    for node in ast.walk(tree):
+        if getattr(node, "lineno", None) in in_handler:
+            continue
         if isinstance(node, ast.Assert):
             note(node, "assert")
         elif isinstance(node, ast.Call):
@@ -77,8 +92,13 @@ def assertion_lines(path: str) -> dict[int, str]:
     return out
 
 
-def run_suite_recording_lines() -> set[tuple[str, int]]:
-    """跑一遍 python 判据,记下 tests/ 下真正执行过的行。"""
+def run_suite_recording_lines() -> tuple[set[tuple[str, int]], bool, str]:
+    """跑一遍 python 判据,记下 tests/ 下真正执行过的行。
+
+    返回 (执行过的行, 判据是否全绿, 判据的原始输出)。
+    **它是总跑里 python 那一段的替身**(一次跑、两个信号),所以判据本身红了
+    必须能报出来,汇总行也要原样透出去 —— 否则总跑数不出"跑了多少条/跳过多少条"。
+    """
     executed: set[tuple[str, int]] = set()
     mon = sys.monitoring
     tool_id = mon.PROFILER_ID
@@ -94,15 +114,21 @@ def run_suite_recording_lines() -> set[tuple[str, int]]:
     mon.set_events(tool_id, mon.events.LINE)
     try:
         loader = unittest.TestLoader()
-        suite = loader.discover(HERE, top_level_dir=ROOT)
+        # 真判据目录用 ROOT 当顶层(各文件自己往 sys.path 塞 bin/);
+        # 被覆盖成临时夹具目录时它不可导入 ⇒ 退回以自身为顶层。
+        try:
+            suite = loader.discover(HERE, top_level_dir=ROOT)
+        except ImportError:
+            sys.path.insert(0, HERE)
+            suite = loader.discover(HERE, top_level_dir=HERE)
         # 判据自己的输出不进这份报告(它只关心"哪一行跑过了")
         buf = io.StringIO()
         with redirect_stdout(buf), redirect_stderr(buf):
-            unittest.TextTestRunner(stream=buf, verbosity=0).run(suite)
+            result = unittest.TextTestRunner(stream=buf, verbosity=0).run(suite)
     finally:
         mon.set_events(tool_id, 0)
         mon.free_tool_id(tool_id)
-    return executed
+    return executed, result.wasSuccessful(), buf.getvalue()
 
 
 def load_allow() -> dict[tuple[str, int], str]:
@@ -119,9 +145,12 @@ def load_allow() -> dict[tuple[str, int], str]:
             continue      # 没写理由的例外**不生效** —— 例外必须说得出为什么
         f, _, ln = loc.rpartition(":")
         try:
-            allow[(os.path.realpath(os.path.join(ROOT, f)), int(ln))] = why.strip()
+            n = int(ln)
         except ValueError:
             continue
+        # 路径既接受"相对仓库根"(报告里印的那种),也接受"相对判据目录"
+        for base in (ROOT, HERE):
+            allow[(os.path.realpath(os.path.join(base, f)), n)] = why.strip()
     return allow
 
 
@@ -140,17 +169,20 @@ def main() -> int:
             print(f"{rel}:{ln}  {src}")
         return 0
 
-    executed = run_suite_recording_lines()
+    executed, suite_ok, suite_out = run_suite_recording_lines()
+    print(suite_out, end="")          # 判据自己的汇总行原样透出(总跑要解析它)
     allow = load_allow()
     dead = [(k, v) for k, v in sorted(wanted.items())
             if k not in executed and k not in allow]
 
     print("=== 死断言检查(断言在那儿、却从没被执行过)===")
+    if not suite_ok:
+        print("  ⚠️ 判据本身有红的 —— 先修那个;下面的死断言统计在红的判据上没有意义。")
     print(f"  扫了 {len(files)} 个判据文件、{len(wanted)} 条断言;"
           f"放行清单 {len(allow)} 条")
     if not dead:
         print("  ✅ 没有从没跑过的断言。")
-        return 0
+        return 0 if suite_ok else 1
     print(f"  ❌ {len(dead)} 条断言一次都没执行过 —— 它们看起来是绿的,其实什么都没问:")
     for (_f, ln), (rel, src) in dead:
         print(f"     {rel}:{ln}  {src}")

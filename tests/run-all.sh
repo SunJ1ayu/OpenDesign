@@ -70,11 +70,16 @@ _todo=$(grep -m1 '^# todo '   "$_l" | awk '{print $3}'); _todo="${_todo:-0}"
 note_last "${_pass} 通过 / ${_skp} 跳过 / ${_todo} todo" $((_skp + _todo))
 
 # ── ② python 全量(解释器写死,见文件头形态②)────────────────────────
-run_seg "python 全量($PY)" py-full "$PY" -m unittest discover -s tests
+# python 全量 **走死断言闸的替身**(一次跑、两个信号,2026-08-07):
+# 它在 sys.monitoring 下跑同一套判据,顺带记下"哪条断言从没被执行过" ——
+# 那是判据最阴的一种失效(断言在那儿、却压根没被问出口,而每一层看到的都是绿的)。
+# 单独当一段要多花 4 分半,而**慢到会被跳过的检查等于没有**,所以合并进这一段。
+run_seg "python 全量 + 死断言闸($PY)" py-full "$PY" tests/dead_assertions.py
 _l="$LAST_LOG"
 _ran=$(grep -oE '^Ran [0-9]+ test' "$_l" | tail -1 | awk '{print $2}'); _ran="${_ran:-?}"
 _skp=$(grep -oE 'skipped=[0-9]+' "$_l" | tail -1 | cut -d= -f2); _skp="${_skp:-0}"
-note_last "${_ran} 跑过 / ${_skp} 跳过" "$_skp"
+_dead=$(grep -oE '[0-9]+ 条断言一次都没执行过' "$_l" | head -1 | awk '{print $1}')
+note_last "${_ran} 跑过 / ${_skp} 跳过${_dead:+ / ⚠️ ${_dead} 条死断言}" "$_skp"
 
 # ── ③ MCP 契约闸(没装 mcp 直接红,不静默跳)──────────────────────────
 run_seg "MCP 契约闸" mcp-gate tests/mcp-gate.sh
