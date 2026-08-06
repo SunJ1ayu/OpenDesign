@@ -73,6 +73,23 @@ class DeadAssertionGate(unittest.TestCase):
         r = run_tool(self.dir)
         self.assertEqual(r.returncode, 0, f"写了理由的例外应当放行:{r.stdout}")
 
+    def test_reports_suite_result_and_fails_with_it(self):
+        """它要**替代**总跑里的 python 那一段(一次跑、两个信号),所以:
+        判据本身红了它必须非零,而且要把 unittest 的汇总行原样透出来 ——
+        否则总跑解析不到"跑了多少条/跳过多少条",汇总会变成瞎子。"""
+        with open(os.path.join(self.dir, "test_fixture.py"), "w", encoding="utf-8") as fh:
+            fh.write(textwrap.dedent("""
+                import unittest
+
+                class Broken(unittest.TestCase):
+                    def test_red(self):
+                        self.assertEqual(1, 2, "故意红")
+            """))
+        r = run_tool(self.dir)
+        self.assertNotEqual(r.returncode, 0, "判据红了它必须非零(不能只报死断言)")
+        self.assertIn("Ran 1 test", r.stdout + r.stderr,
+                      f"要透出 unittest 的汇总行:{r.stdout}{r.stderr}")
+
     def test_clean_suite_passes(self):
         """一份干净的判据不许被判红(否则这道闸就是噪音发生器)。"""
         with open(os.path.join(self.dir, "test_fixture.py"), "w", encoding="utf-8") as fh:
