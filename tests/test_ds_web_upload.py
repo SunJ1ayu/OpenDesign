@@ -520,34 +520,61 @@ class InboxAcceptsDocs(unittest.TestCase):
                     self.assertEqual(st, 200, f"{name} 应当收下:{d}")
                     self.assertIn(name, self.intake_names(port), f"{name} 收下了却看不见")
 
-    # ③ 改名伪装:内容签名对不上就拒(mime 说得再好听也不算)
+    # ③ 改名伪装:内容签名对不上就拒 —— **每种格式都要问一遍**
+    #    四审 subdeepseek:原来只问了 pdf/dwg/xlsx/txt,
+    #    剩下 doc/xls/ppt/max/skp/psd/webp/gif/csv/dxf 的签名**删掉仍全绿**。
     def test_d03_disguised_content_rejected(self):
+        wrong = b"THIS-IS-NOT-THE-RIGHT-FORMAT-AT-ALL\n" + b"\x00" * 32
         with _serve(self.ds) as port:
-            for name, blob, mime in [
-                ("假的.pdf", png_bytes(), "application/pdf"),      # PNG 改名成 pdf
-                ("假的.dwg", png_bytes(), "application/acad"),
-                ("假的.xlsx", b"not a zip at all", ""),
-                ("假的.txt", b"\x00\x01\x02\xff\xfe", "text/plain"),  # 二进制冒充文本
-            ]:
-                with self.subTest(name=name):
+            for ext in sorted(ds_web._INBOX_UPLOAD):
+                with self.subTest(ext=ext):
                     before = self.inbox_files()
                     st, _ = _post(port, "/api/upload",
-                                  {"name": name, "data_url": raw_data_url(blob, mime)})
-                    self.assertIn(st, (400, None), f"{name} 应当被拒")
+                                  {"name": f"假的{ext}", "data_url": raw_data_url(wrong)})
+                    self.assertIn(st, (400, None), f"{ext}:内容对不上必须拒")
                     self.assertEqual(self.inbox_files(), before, "拒绝路径必须零写盘")
+            # 具体几种最容易被"看起来像"骗过去的,单独再问一次
+            for name, blob in [("假的.pdf", png_bytes()),
+                               ("假的.dwg", png_bytes()),
+                               ("假的.txt", b"\x00\x01\x02\xff\xfe")]:
+                with self.subTest(name=name):
+                    st, _ = _post(port, "/api/upload",
+                                  {"name": name, "data_url": raw_data_url(blob)})
+                    self.assertIn(st, (400, None), f"{name} 应当被拒")
 
-    # ④ 超限不是干瘪的失败:收件箱是真文件夹,提示要告诉他直接拷进去
-    def test_d04_too_big_says_copy_into_the_folder(self):
-        big = b"%PDF-1.7\n" + b"\x00" * (40 * 1024 * 1024)
+    # ④ 超限:**码要说"太大",不能说"内容对不上"**
+    #    原来这一幕是**死断言**:夹具造 40MB → 信封超上限 → 服务端在读 body 前就掐断
+    #    ⇒ `if d:` 永不成立,那句 assert 一次都没跑过。同一个文件的 u15 注释早就点名
+    #    禁止这种写法(四审 subdeepseek 抓到我又犯了一遍)。
+    #    改成造一个**刚过单文件上限、但没超信封上限**的文件:能拿到响应,码才问得出来。
+    def test_d04_over_per_file_limit_says_too_large(self):
+        over = b"%PDF-1.7\n" + b"\x00" * (33 * 1024 * 1024)   # >32MB 但 base64 后 <44MB 信封
         with _serve(self.ds) as port:
             before = self.inbox_files()
             st, d = _post(port, "/api/upload",
-                          {"name": "巨图.pdf", "data_url": raw_data_url(big, "application/pdf")})
-            self.assertIn(st, (400, None))
+                          {"name": "巨图.pdf", "data_url": raw_data_url(over, "application/pdf")})
             self.assertEqual(self.inbox_files(), before, "拒绝路径必须零写盘")
-            if d:  # 服务端没掐断连接时,错误信息要有用
-                msg = json.dumps(d, ensure_ascii=False)
-                self.assertIn("收件箱", msg, f"超限提示要告诉他直接拷进收件箱:{msg}")
+            self.assertIsNotNone(d, "这一档必须能拿到响应体(拿不到 = 这条断言又空跑了)")
+            self.assertEqual(st, 400, d)
+            self.assertEqual(d.get("error"), "too_large",
+                             f"超限要给 too_large,不能给 bad_image(那句话在说'你伪装文件'):{d}")
+
+    def test_d04b_cad_gets_a_bigger_budget(self):
+        """>32MB 的 DWG 是这次的**核心场景**(用户原话:特别是 dwg),不能被文档档位挡掉。"""
+        big_dwg = b"AC1032" + b"\x00" * (40 * 1024 * 1024)
+        with _serve(self.ds) as port:
+            st, d = _post(port, "/api/upload",
+                          {"name": "大图纸.dwg", "data_url": raw_data_url(big_dwg)})
+            self.assertEqual(st, 200, f"40MB 的 dwg 应当收得下:{d}")
+            self.assertIn("大图纸.dwg", self.intake_names(port))
+
+    # ④c UTF-16 的 txt/csv 不许误杀(中文 Windows 记事本存出来就是这个)
+    def test_d04c_utf16_text_is_accepted(self):
+        blob = "现场量房备注\n客厅 4.2m\n".encode("utf-16")     # 带 BOM
+        with _serve(self.ds) as port:
+            st, d = _post(port, "/api/upload",
+                          {"name": "备注.txt", "data_url": raw_data_url(blob, "text/plain")})
+            self.assertEqual(st, 200, f"UTF-16 文本应当收得下:{d}")
 
     # ⑤ 既有图片行为一条不许退化
     def test_d05_image_rules_do_not_regress(self):

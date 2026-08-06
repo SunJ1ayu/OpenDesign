@@ -80,6 +80,17 @@ note_last "${_ran} 跑过 / ${_skp} 跳过" "$_skp"
 run_seg "MCP 契约闸" mcp-gate tests/mcp-gate.sh
 note_last "$([ "$LAST_RC" -eq 0 ] && echo '三条闸全绿' || echo '见日志')"
 
+# ── ④ dist 新鲜度:入库的前端产物必须与源码同步 ────────────────────────
+# 2026-08-06 两次被它咬:一次是 vite 产物按内容改名导致恢复不干净;
+# 一次是我改完 api.ts 的错误文案**没重新 build**,而 e2e 恰好没断言那几句话 ——
+# 入库的 dist 里根本没有新文案(是一条撞了额度上限、日志只写到一半的评审腿抓到的)。
+# 本机铁律:**盘上和运行时对不上 = BLOCK**。这里就是那道闸:重新 build,
+# 然后要求 git 对 web/dist 无话可说。
+run_seg "dist 新鲜度(重新 build 后 git 应无差异)" dist-fresh \
+  bash -c 'cd web && npm run build >/dev/null 2>&1 && cd .. && \
+           test -z "$(git status --porcelain -- web/dist)"'
+note_last "$([ "$LAST_RC" -eq 0 ] && echo "与源码同步" || echo "**入库的 dist 是旧的** —— 跑一次 npm run build 再提交")"
+
 # ── ④ e2e 总跑 ─────────────────────────────────────────────────────────
 e2e_args=(); [ "$with_gateway" -eq 1 ] && e2e_args+=(--with-gateway)
 run_seg "e2e 总跑$([ "$with_gateway" -eq 1 ] && echo '(含 gateway)')" e2e tests/e2e/run-all.sh ${e2e_args[@]+"${e2e_args[@]}"}
