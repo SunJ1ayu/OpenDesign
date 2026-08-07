@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-"""ds_documents -- read-only document access for a project's ``01-资料`` folder."""
+"""助手读项目 `01-资料` 里的文档 —— **只读**,在一堵有来历的墙上开的一条缝。
+
+墙的来历:`bin/disable_builtin_file_tools.py` 特意关掉了底座自带的文件工具
+(助手曾用 `edit_file` 绕过安全层写错地方)。所以这个模块的一多半代码不是"读",
+是"读不到不该读的东西":路径闸、后缀白名单、内容签名 —— **全部在调用转换器之前**。
+
+一条必须一直成立的顺序:`_resolve_document()` 拒掉的东西,`_convert()` 一次都不许碰。
+判据里有一组断言专门盯这个(拒绝路径上转换器调用数必须为 0)。
+"""
 from __future__ import annotations
 
-import hashlib
 import os
 import re
 import zipfile
@@ -15,6 +22,12 @@ import ds_workspace
 DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DOCS_DIR_NAME = "01-资料"
 CHUNK_CHARS = 16000
+# 列表上限:资料夹里几百个文件时整份倒给助手 = 把它的上下文吃光。
+# 截断本身不是问题,**不说出来才是** —— 所以返回里带 truncated。
+MAX_FILES = 200
+MAX_DEPTH = 4
+# 输入上限:转换会把整份内容读进内存。沿用上传口的 32MB 档,不另立标准。
+MAX_BYTES = ds_web._DOC_MAX
 
 DOC_EXTS = frozenset({
     ext for ext in ds_web._INBOX_UPLOAD
@@ -47,12 +60,14 @@ def _rel_from_docs(docs_dir: str, path: str) -> str:
 
 
 def _file_version(path: str) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
-            h.update(chunk)
+    """"列的时候和读的时候是不是同一份"的令牌。
+
+    **故意不做整文件 sha256**:列一次目录要把每个 PDF 整个读一遍,
+    真实项目夹里几十份几十兆的文件,列一次就是几秒。
+    mtime_ns + size 足够回答这个问题(它只需要"变没变过",不需要抗碰撞)。
+    """
     st = os.stat(path)
-    return f"sha256:{h.hexdigest()}:size:{st.st_size}"
+    return f"mtime:{st.st_mtime_ns}:size:{st.st_size}"
 
 
 def _filename_date(name: str) -> str | None:
@@ -145,18 +160,28 @@ def list_documents(project, ds_root=DEFAULT_DS_ROOT) -> dict:
         return {"ok": False, "error": err}
 
     documents = []
-    skipped = {"unsupported": 0, "unsafe": 0, "not_a_file": 0}
+    skipped = {"unsupported": 0, "unsafe": 0, "not_a_file": 0, "too_deep": 0}
+    truncated = False
     if not os.path.isdir(docs_dir):
         return {
             "ok": True,
             "project": project,
             "documents": documents,
             "skipped": skipped,
-            "date_basis": "文件名日期优先；没有文件名日期时使用文件系统修改时间，文件系统时间不等于业务版本。",
+            "truncated": False,
+            "date_basis": "文件名日期优先;没有文件名日期时用文件修改时间,而文件时间不等于业务版本。",
         }
 
     for root, dirs, files in os.walk(docs_dir, followlinks=False):
         dirs[:] = [d for d in dirs if not d.startswith(".")]
+        depth = 0 if root == docs_dir else _rel_from_docs(docs_dir, root).count("/") + 1
+        if depth >= MAX_DEPTH:
+            # 太深的**记数**再剪枝 —— 静默剪掉等于告诉助手"这儿没有东西"
+            skipped["too_deep"] += sum(
+                1 for _r, _d, fs in os.walk(root) for f in fs
+                if os.path.splitext(f)[1].lower() in DOC_EXTS)
+            dirs[:] = []
+            continue
         for filename in files:
             if filename.startswith("."):
                 continue
@@ -178,13 +203,17 @@ def list_documents(project, ds_root=DEFAULT_DS_ROOT) -> dict:
                 continue
             documents.append(_document_entry(docs_dir, real))
 
+    if len(documents) > MAX_FILES:
+        truncated = True
     documents.sort(key=lambda d: (d["date"], d["mtime"], d["rel"]), reverse=True)
+    del documents[MAX_FILES:]
     return {
         "ok": True,
         "project": project,
         "documents": documents,
         "skipped": skipped,
-        "date_basis": "文件名日期优先；没有文件名日期时使用文件系统修改时间，文件系统时间不等于业务版本。",
+        "truncated": truncated,
+        "date_basis": "文件名日期优先;没有文件名日期时用文件修改时间,而文件时间不等于业务版本。",
     }
 
 
@@ -203,6 +232,8 @@ def _resolve_document(project: str, rel: str, ds_root: str):
         return docs_dir, None, "path_escape"
     if not os.path.isfile(path):
         return docs_dir, None, "not_a_file"
+    if os.path.getsize(path) > MAX_BYTES:
+        return docs_dir, None, "too_large"
     if not _content_gate(path, ext):
         return docs_dir, None, "unsupported_ext"
     return docs_dir, path, None
@@ -288,8 +319,7 @@ def read_document(project, rel, cursor=0, version="", ds_root=DEFAULT_DS_ROOT) -
             "end": end,
             "total": len(text),
         },
-        "source": {
-            "rel": rel,
-            "root": docs_dir,
-        },
+        # **不回绝对路径**:助手同时握着 set_workspace(能改工作区根),
+        # 给它一条业主电脑上的真实路径 = 给那条提权链递了一半材料(闸③ 读出来的)。
+        "source": {"rel": rel, "project": project},
     }
