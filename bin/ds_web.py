@@ -82,7 +82,10 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.79.0"  # 收件箱不再只收图片:PDF、CAD 图纸、Word/Excel 都能拖进去。
+VERSION = "0.80.0"  # 助手第一次能自己读 01-资料 里的文档(合同/报价/意见)。
+                    # 装机脚本要装 firecrawl-anydoc==0.1.6;/api/health 的
+                    # doc_reader 字段会说它在不在(track opendesign-anydoc)。
+                    # 0.79.0  收件箱不再只收图片:PDF、CAD 图纸、Word/Excel 都能拖进去。
                     # ⚠️ 0.73.0 起的改动**大半在 workspace/AGENTS.md(助手契约)里**,
                     # 光 git pull 不生效:契约要靠 start.ps1 同步给助手,
                     # 起服务时看到"已同步助手契约"那行才算到了真机。
