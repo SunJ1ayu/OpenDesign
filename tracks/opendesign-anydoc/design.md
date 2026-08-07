@@ -53,6 +53,77 @@
 `bin/install.ps1:65` 那行加 `firecrawl-anydoc==<钉死版本>`。
 不 vendoring:它是 Rust 编译的 wheel,入库等于维护两份平台二进制。
 
+## 已核实的真实接口(2026-08-07 本机真装真跑,不是查文档)
+
+**先更正 design 里两处我写错的假设**:
+
+1. ~~"我本地网络是关的,真转换库我这边一次都跑不了"~~ —— **错的**。
+   断网那条规矩管的是**外派执行腿的沙箱**,不是我自己的 shell。
+   PyPI 有 `manylinux_x86_64` wheel,我在一次性 venv 里**真装了、真转了一份 CSV**。
+   ⇒ **判据不必只靠替身,可以对真库跑。** 本单最大的判据风险(替身跟真库不一样)
+   因此大幅下降 —— 但**不是消失**:Windows 上仍是另一份 wheel,首次真跑仍在真机。
+2. 版本不是记忆里的 0.1.4,**现在是 0.1.6**(零依赖、`>=3.10`、有 `win_amd64` wheel)。
+
+真实接口(`import anydoc`):
+
+```
+to_markdown(path)                    -> str      # 内容探测格式,扩展名兜底
+to_markdown_bytes(data, format=None) -> str
+to_document(data, format=None)                   # PDF 不支持这个
+format_from_extension(ext)           -> str|None
+```
+
+异常类型:`ConvertError` / `EncryptedError` / `MalformedError` /
+`MissingPartError` / `ResourceLimitError` / `UnsupportedError`;
+文件不存在抛 `FileNotFoundError`;假的 .docx 抛 `MalformedError`(实测)。
+
+**`EncryptedError` 是我原来完全没想到的失败模式** —— 业主的合同可能带密码。
+`ResourceLimitError` 说明库自己有大文件保护。这两个都要有明确回执,不能吞。
+
+### ⚠️ 一条真的坑:`.txt` 这个库不认
+
+taxonomy 把 `.txt` 归进 `01-资料`,而 `format_from_extension('.txt')` 返回 **None**。
+实测这一栏:
+
+| 后缀 | anydoc | |
+|---|---|---|
+| .pdf .doc .docx .xls .xlsx .ppt .pptx .csv | 认 | |
+| **.txt** | **不认** | ⇒ 我们自己按纯文本读,不走这个库 |
+
+另:`.xls` 被扩展名映射成 `xlsx`(老二进制 xls 和 xlsx 不是一个格式)。
+`to_markdown` 以**内容**探测为主、扩展名兜底,所以真 `.xls` 大概率仍能对;
+但这是个要专门写一条判据钉住的地方,不能假设。
+
+### 扫描件:库自己认得,比我假设的好
+
+实测(手搓一个没有任何文字的 PDF):
+
+```
+UnsupportedError: unsupported input: PDF has no extractable text (Scanned, 1 pages): OCR is required
+```
+
+**它不会静默返回空**。所以 design 里"不许返回空字符串让助手自己发挥"那条,
+落地成"把这个异常翻译成人话",而不是我们自己去猜是不是扫描件。
+
+### 判据夹具:代码现造,仓库不塞二进制
+
+实测用 `zipfile` 手搓一个最小 `.docx`(三个 XML 部件),真库转出来是:
+
+```
+王姐家装修合同
+
+工期:45个工作日
+```
+
+⇒ **判据不需要往仓库里提交任何二进制样本文件**,现造即可。
+(往仓库塞 .docx/.pdf 样本会让 diff 变成不可读的二进制,闸③亲读 diff 就瞎了。)
+
+### 复用现成的白名单,不开第二张表
+
+`bin/ds_web.py` 已有一张按后缀的上传白名单(每个后缀带 mime + 文件头魔数 + 大小上限),
+`01-资料` 那几个后缀全在里面。**读口沿用这张表,不新建第二张** ——
+两张表迟早会不一致,而不一致的那一边就是洞。
+
 ## Key trade-offs / risks
 
 - **两台 Windows 各要重跑一次装机脚本**(现更新流程 git pull + 重启**不装新包**)。
