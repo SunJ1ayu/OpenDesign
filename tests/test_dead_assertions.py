@@ -188,6 +188,65 @@ class DeadAssertionGate(unittest.TestCase):
                          f"skip 不许把同一份里的真死断言一起豁免:{r.stdout}{r.stderr}")
         self.assertIn("收件箱", r.stdout)
 
+    # ── 2026-08-07 收口时我自己攻这轮修复,又抓到两个 —— 上一格那条"防后门"判据
+    #    防的是**我想得到的那种后门**(同一个文件)。以下两条是它漏掉的形状。
+
+    def test_skip_exemption_stays_in_its_own_file(self):
+        """skip 豁免**不许跨文件圈错行** —— 会把正在跑的判据里的真死断言吞掉。
+
+        `inspect.getsourcefile(cls)` 给的是**子类**所在的文件,
+        `inspect.getsourcelines(meth)` 给的是方法**真正定义处**(可能是别的文件)的行号。
+        两个拼在一起 = 在错误的文件上圈了一段豁免区;真死断言正好落在里面就被静默吞掉,
+        而且往**多豁免**(危险的一侧)错,不是往噪音错。
+        """
+        with open(os.path.join(self.dir, "mixin_base.py"), "w", encoding="utf-8") as fh:
+            # 方法故意写长:它的行范围会被原样套到子类文件上,要能盖住下面那条死断言
+            body = "\n".join("        self.assertEqual(1, 1)" for _ in range(20))
+            fh.write("import unittest\n\n\nclass Mixin:\n"
+                     "    def test_inherited(self):\n" + body + "\n")
+        self._write('''
+            import os
+            import sys
+            import unittest
+
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            from mixin_base import Mixin
+
+            class Live(unittest.TestCase):
+                def test_dead(self):
+                    got = None
+                    if got:
+                        self.assertIn("收件箱", got)
+
+            @unittest.skipIf(True, "这台机器上没条件跑")
+            class Child(Mixin, unittest.TestCase):
+                pass
+        ''')
+        r = run_tool(self.dir)
+        self.assertEqual(r.returncode, 1,
+                         f"别的文件里的 skip 不许豁免这个文件里的真死断言:{r.stdout}{r.stderr}")
+        self.assertIn("收件箱", r.stdout)
+
+    def test_flags_short_circuit_guarded_assertion(self):
+        """`got and self.assertIn(...)` —— `if got:` 的等价写法,只是它是**一条**语句。
+
+        单行守卫那条判法数的是"一行上起了几条语句",这种写法只有一条,
+        于是从缝里漏过去:LINE 事件照常触发(短路的取值就是第一条字节码),
+        断言一次没跑,闸却说干净。
+        """
+        self._write('''
+            import unittest
+
+            class Fixture(unittest.TestCase):
+                def test_dead_shortcircuit(self):
+                    got = None
+                    got and self.assertIn("收件箱", got)
+        ''')
+        r = run_tool(self.dir)
+        self.assertEqual(r.returncode, 1,
+                         f"短路里的断言机器问不出来,必须当场报:{r.stdout}{r.stderr}")
+        self.assertIn("收件箱", r.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
