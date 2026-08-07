@@ -137,12 +137,16 @@ def build(ds_root: str | None = None):
         return log_communication(project, text, source=source, ds_root=ds_root)
 
     @server.tool()
+    # 这一段 docstring **就是模型每一轮读到的工具说明**,不是给人看的注释 ——
+    # 所以里面只写"助手该怎么做",评审轮次/内部代号这类留痕一律用 `#` 写在外面。
+    # (2026-08-07:引导「档案里没有就接着去资料夹」原来只写在 AGENTS.md 散文里,
+    #  而模型选工具时看的是本说明,所以搬进来;搬的时候顺手把出处那句话留在了
+    #  docstring 里,等于每轮给模型多塞一句和他无关的话。)
     def read_project_tool(name: str) -> dict:
         """读取某个项目的完整记录(业主、阶段、变更、沟通日志)。
         **档案里没有那条具体事实时,不要停在这儿** —— 接着调
         `list_project_documents` 去项目资料夹里找。合同/意见/报价这类东西
-        常常只写在文档里,档案里没有很正常,**不等于"这件事还没定"**。
-        (二轮四审 M4:这句引导原来只写在 AGENTS.md 散文里,而模型选工具时看的是本说明。)"""
+        常常只写在文档里,档案里没有很正常,**不等于"这件事还没定"**。"""
         return read_project(name, ds_root=ds_root)
 
     @server.tool()

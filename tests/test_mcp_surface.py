@@ -32,6 +32,10 @@ track opendesign-mcp-registry。**主 agent 亲写,执行腿逐字节 off-limits
 同一单第二次刷新(二轮四审 M4):`read_project` 的 description 加了一句
 "档案里没有那条具体事实时接着去资料夹" —— 那句引导原来只写在 AGENTS.md 散文里,
 而模型选工具时看的是本表。diff **恰好 1 行改动**,工具数不变(仍是 32)。
+同一单第三次刷新(闸③ 亲读 diff 时我自己读出来的):上面那次搬运,把出处
+"(二轮四审 M4:…)" 也留在了 docstring 里 —— **docstring 就是模型每轮读到的话**,
+评审轮次对助手毫无意义,等于每轮多塞一句噪音。删掉那一句。
+diff **恰好 1 行改动**,工具数不变(仍是 32)。
 """
 import unittest
 
