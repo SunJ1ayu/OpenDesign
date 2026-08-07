@@ -29,6 +29,9 @@ track opendesign-mcp-registry。**主 agent 亲写,执行腿逐字节 off-limits
 → **32**(2026-08-07 新增 `list_project_documents` / `read_project_document`,
 出自 track opendesign-anydoc —— 助手第一次能读到 `01-资料` 里的文档)。
 刷新那次逐条读过 diff:**纯新增 49 行、只有这两个工具**,没有一条现有 description 被动。
+同一单第二次刷新(二轮四审 M4):`read_project` 的 description 加了一句
+"档案里没有那条具体事实时接着去资料夹" —— 那句引导原来只写在 AGENTS.md 散文里,
+而模型选工具时看的是本表。diff **恰好 1 行改动**,工具数不变(仍是 32)。
 """
 import unittest
 
