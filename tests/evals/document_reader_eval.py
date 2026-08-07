@@ -271,11 +271,16 @@ def main() -> int:
             if nope in r["answer"]:
                 bad.append(f"**编了内容**:答复里出现了 {nope}")
         print(("  PASS  " if not bad else "  FAIL  ") + case["name"])
+        # **过了也把它到底说了什么打出来。** 2026-08-07 二轮四审 M5:上一轮
+        # 「6 遍里有 1 遍 1 条红」查不下去,因为过的那几遍什么都没留 ——
+        # 而 want_in 是 any-of 的近义词清单,擦边过和稳稳过在屏幕上长得一样
+        # (它说"两份"就过、说"两版"就红,清单枚举不完中文的说法)。
+        # 留下这一行,下次抖起来能直接对着看是"模型变了"还是"清单不够"。
+        print(f"          轨迹={sorted(r['called'])}  答复={r['answer'][:160]}")
         if bad:
             fails += 1
             for b in bad:
                 print(f"          {b}")
-            print(f"          轨迹={sorted(r['called'])}  答复={r['answer'][:160]}")
     print(f"\n{len(CASES) - fails} 过 / {fails} 失")
     return 1 if fails else 0
 
