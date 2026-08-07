@@ -104,6 +104,90 @@ class DeadAssertionGate(unittest.TestCase):
         self.assertEqual(r.returncode, 0, f"干净判据应当全绿:{r.stdout}")
         self.assertIn("没有从没跑过的断言", r.stdout)
 
+    # ── 2026-08-07 评审(DeepSeek 腿)抓到的两个洞,以下四条是它们的判据 ────────
+
+    def _write(self, body: str) -> None:
+        with open(os.path.join(self.dir, "test_fixture.py"), "w", encoding="utf-8") as fh:
+            fh.write(textwrap.dedent(body))
+
+    def test_flags_single_line_guarded_assertion(self):
+        """**同一个事故,写成一行就躲过去了** —— 这是 08-07 评审抓到的第一个洞。
+
+        `sys.monitoring` 的 LINE 事件是在这一行的**第一条字节码**上触发的,而
+        `if got:` 的取值就是第一条 —— 于是这一行"执行过"了,里面那条从没跑过的
+        断言却因此被判成活的。行粒度天然问不出这件事,所以这种写法必须当场报。
+        """
+        self._write('''
+            import unittest
+
+            class Fixture(unittest.TestCase):
+                def test_dead_oneline(self):
+                    got = None
+                    if got: self.assertIn("收件箱", got)
+        ''')
+        r = run_tool(self.dir)
+        self.assertEqual(r.returncode, 1,
+                         f"单行守卫里的断言机器问不出来,必须当场报:{r.stdout}{r.stderr}")
+        self.assertIn("收件箱", r.stdout, "报告要点名那一行,不能只给个数字")
+
+    def test_does_not_flag_assertRaises_context(self):
+        """防止上一条修过头:`with self.assertRaises(...)` 的断言**就在头部**,
+        这一行跑过了就是真问过了,一条都不许误报(本仓库现有 7 处这种写法)。"""
+        self._write('''
+            import unittest
+
+            class Fixture(unittest.TestCase):
+                def test_raises(self):
+                    with self.assertRaises(ValueError):
+                        raise ValueError("boom")
+        ''')
+        r = run_tool(self.dir)
+        self.assertEqual(r.returncode, 0, f"assertRaises 上下文被误报了:{r.stdout}")
+
+    def test_skipped_test_is_not_a_dead_assertion(self):
+        """**跳过 ≠ 死** —— 08-07 评审抓到的第二个洞。
+
+        被 skip 的判据里的断言当然没跑过,但那是"这台机器上没条件问",
+        不是"断言没被问出口"。把两者混成一个红,总跑在没起 gateway 的机器上
+        就会因为 16 条 SKIP 变红 —— 而 `run-all.sh` 自己的规矩是
+        「SKIP 不是 PASS,但它是 exit 3,不是 exit 1」。
+        要求:不算红,但**必须单独印出来**(静默吞掉就成了新的假绿)。
+        """
+        self._write('''
+            import unittest
+
+            @unittest.skipIf(True, "这台机器上没条件跑")
+            class Fixture(unittest.TestCase):
+                def test_skipped(self):
+                    self.assertIn("收件箱", "收件箱里有东西")
+        ''')
+        r = run_tool(self.dir)
+        self.assertEqual(r.returncode, 0,
+                         f"跳过的判据不该被算成死断言:{r.stdout}{r.stderr}")
+        self.assertIn("跳过", r.stdout, f"跳过的断言必须单独印出来,不许静默吞掉:{r.stdout}")
+
+    def test_skip_does_not_hide_a_real_dead_assertion(self):
+        """防止上一条变成新后门:同一份判据里既有 skip、也有真死断言时,
+        真死的那条**照样要红** —— 否则"整份 skip 掉"就成了关闸的万能钥匙。"""
+        self._write('''
+            import unittest
+
+            @unittest.skipIf(True, "这台机器上没条件跑")
+            class Skipped(unittest.TestCase):
+                def test_skipped(self):
+                    self.assertIn("跳过的那条", "跳过的那条")
+
+            class Live(unittest.TestCase):
+                def test_dead(self):
+                    got = None
+                    if got:
+                        self.assertIn("收件箱", got)
+        ''')
+        r = run_tool(self.dir)
+        self.assertEqual(r.returncode, 1,
+                         f"skip 不许把同一份里的真死断言一起豁免:{r.stdout}{r.stderr}")
+        self.assertIn("收件箱", r.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
