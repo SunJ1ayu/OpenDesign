@@ -179,6 +179,17 @@ def run_tool(name: str, args: dict, ds_root: str) -> dict:
         return {"error": f"{type(e).__name__}: {e}"}
 
 
+class Truncated(RuntimeError):
+    """这一遍**作废**,不是行为红 —— 要和普通异常分开,否则守卫只做了一半。
+
+    2026-08-07 三轮四审 subdeepseek F4:上一版抛的是裸 `RuntimeError`,
+    被 `run_case` 的兜底 `except Exception` 收走 → `check_dues` 记成"跑挂了" → **算失分**,
+    只有**全部**用例都截断时 `main()` 才走 `return 2`。也就是说这条守卫
+    恰恰在最要命的那种情况(只有一两道题被吃空)下不起作用 —— 而那正是它要治的病。
+    单独一个类型,让 `main()` 认得出:任何一道题截断 ⇒ 整遍作废(exit 2)。
+    """
+
+
 def chat(messages: list[dict], tools: list[dict]) -> dict:
     key = json.load(open(AUTH))["xiaomi"]["key"]
     body = json.dumps({
@@ -198,7 +209,7 @@ def chat(messages: list[dict], tools: list[dict]) -> dict:
     # 于是"契约压垮了旧行为"和"这一遍被截断了"会混成同一条红。
     # 这里让它自己说出来:这一遍作废,不是行为退化。
     if choice.get("finish_reason") == "length":
-        raise RuntimeError(
+        raise Truncated(
             "模型输出被 max_tokens 截断(finish_reason=length)—— 这一遍作废,"
             "**不是**行为红。要么调大 max_tokens,要么把系统提示词缩短。")
     return choice["message"]
@@ -266,6 +277,8 @@ def run_case(case: dict, tools: list[dict]) -> dict:
                                  "content": json.dumps(res, ensure_ascii=False)})
         return {"dated": dated_lines(ds_root), "changes": change_lines(ds_root),
                 "trace": trace, "called": called, "error": None}
+    except Truncated:
+        raise           # 作废整遍,**不许**被下面那行收编成"这道题失分"(三轮 subdeepseek F4)
     except Exception as e:  # noqa: BLE001 —— 上游/环境错走环境码,不冒充失分
         return {"dated": [], "changes": 0, "trace": [], "called": set(),
                 "error": f"{type(e).__name__}: {e}"}
@@ -348,4 +361,11 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Truncated as e:
+        # 退出码 2 = 环境/上游不可用,**不是** 1(有失配)。
+        # 对比跑基线时,"这一遍作废"必须能和"这一遍红了"分开数,否则
+        # 一遍被吃空会被记进"劣化"那一栏,而那正是这条守卫要防的事。
+        print(f"这一遍作废:{e}", file=sys.stderr)
+        sys.exit(2)
