@@ -204,8 +204,10 @@ def run_tool(name: str, args: dict, ds_root: str):
         pos = (kw.pop("project", PROJECT),) + ((kw.pop("rel", ""),) if "rel" in kw
                                                or name.startswith("read") else ())
         return fn(*pos, ds_root=ds_root, **kw)
-    if name in DANGEROUS:
-        # 只记不做:真执行会把夹具改掉,而这道题问的就是"它调没调"
+    if name not in READ_ONLY:
+        # 只记不做:真执行会把夹具改掉,而这道题问的就是"它调没调"。
+        # 判据也是"只读白名单之外一律算写工具" —— 和 must_not_call 同一个真相源,
+        # 不许两边各写一份(手抄清单漏掉 stage_plan 就是这么来的)。
         return {"ok": True, "note": "eval:危险工具已记录,未执行"}
     fn = getattr(ds_tools, name, None)
     if fn is None:
