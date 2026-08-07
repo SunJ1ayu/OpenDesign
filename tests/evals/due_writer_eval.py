@@ -190,7 +190,18 @@ def chat(messages: list[dict], tools: list[dict]) -> dict:
     req = urllib.request.Request(API, data=body, headers={
         "Authorization": f"Bearer {key}", "Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=300) as r:
-        return json.load(r)["choices"][0]["message"]
+        choice = json.load(r)["choices"][0]
+    # **截断不许伪装成"模型选择什么都不做"。** 2026-08-07:一遍跑里两道题
+    # 判成"没调工具",而 MiMo 是 reasoning 模型、思考也计 max_tokens ——
+    # 被吃空和"它决定不动手"在返回里长得一模一样(本卷第一版就栽过一次,
+    # 那次是 max_tokens=6000)。契约每长一点,这个坑就更近一点,
+    # 于是"契约压垮了旧行为"和"这一遍被截断了"会混成同一条红。
+    # 这里让它自己说出来:这一遍作废,不是行为退化。
+    if choice.get("finish_reason") == "length":
+        raise RuntimeError(
+            "模型输出被 max_tokens 截断(finish_reason=length)—— 这一遍作废,"
+            "**不是**行为红。要么调大 max_tokens,要么把系统提示词缩短。")
+    return choice["message"]
 
 
 def system_prompt() -> str:
