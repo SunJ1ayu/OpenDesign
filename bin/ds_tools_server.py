@@ -138,7 +138,11 @@ def build(ds_root: str | None = None):
 
     @server.tool()
     def read_project_tool(name: str) -> dict:
-        """读取某个项目的完整记录(业主、阶段、变更、沟通日志)。"""
+        """读取某个项目的完整记录(业主、阶段、变更、沟通日志)。
+        **档案里没有那条具体事实时,不要停在这儿** —— 接着调
+        `list_project_documents` 去项目资料夹里找。合同/意见/报价这类东西
+        常常只写在文档里,档案里没有很正常,**不等于"这件事还没定"**。
+        (二轮四审 M4:这句引导原来只写在 AGENTS.md 散文里,而模型选工具时看的是本说明。)"""
         return read_project(name, ds_root=ds_root)
 
     @server.tool()

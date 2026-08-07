@@ -30,8 +30,12 @@ MAX_FILES = 200
 MAX_DEPTH = 4
 # 输入上限:转换会把整份内容读进内存。沿用上传口的 32MB 档,不另立标准。
 MAX_BYTES = ds_web._DOC_MAX
-# 少于这么多字 = "少得可疑",单独标一档(不是错,但助手不该当成全文)
-_LOW_TEXT_CHARS = 20
+# 「少得可疑」= **文件不小、抠出来的字却极少**(三十页扫描件只抠出页码那种)。
+# ⚠️ 不许写成"少于 N 个字就报":中文一句话常常就 5-15 字,
+# 我自己行为考卷里的夹具「工期:45个工作日」只有 9 个字 —— 一刀切会把正常短文
+# 全标成可疑,助手于是对正确答案起疑(二轮 subdeepseek M2)。
+_LOW_TEXT_MIN_BYTES = 100 * 1024
+_LOW_TEXT_CHARS = 100
 
 DOC_EXTS = frozenset({
     ext for ext in ds_web._INBOX_UPLOAD
@@ -323,7 +327,10 @@ def read_document(project, rel, cursor=0, version="", ds_root=DEFAULT_DS_ROOT) -
 
     if not isinstance(text, str) or not text.strip():
         return {"ok": False, "error": "no_extractable_text"}
-    if cursor > len(text):
+    # `>=`:`cursor == len(text)` 也要拒。二轮 subdeepseek B1 —— 我上一轮拿
+    # "正常续读不会走到那儿"把它放过了,那是侧门:助手一旦自己按 CHUNK_CHARS 加
+    # 而不是用 next_cursor,就会拿到 ok=True + 空正文,读成"文档里没写"。
+    if cursor >= len(text) and cursor > 0:
         return {"ok": False, "error": "bad_cursor"}
 
     end = min(len(text), cursor + CHUNK_CHARS)
@@ -339,7 +346,9 @@ def read_document(project, rel, cursor=0, version="", ds_root=DEFAULT_DS_ROOT) -
     warnings = []
     # 「少得可疑」单独一档(design 采纳 5;四审 subkimi F1 指出实现里整条没做)。
     # 三十页的 PDF 只抠出两个字,和"文档里就写了两个字"在返回里长得一模一样。
-    if complete and cursor == 0 and len(text.strip()) < _LOW_TEXT_CHARS:
+    if (complete and cursor == 0
+            and os.path.getsize(path) >= _LOW_TEXT_MIN_BYTES
+            and len(text.strip()) < _LOW_TEXT_CHARS):
         warnings.append("low_text_yield")
     return {
         "ok": True,
