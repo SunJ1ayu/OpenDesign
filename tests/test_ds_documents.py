@@ -295,6 +295,60 @@ class PromptInjection(Base):
                       "原文不许被偷偷删改 —— 该做的是标注它是资料,不是审查它")
 
 
+class GateThreeFindings(Base):
+    """闸③(主 agent 亲读 diff)读出来的三条 —— 其中两条是**我判据自己的洞**:
+    我在 tasks 里列了"递归深度与数量上限""输入大小上限",却一条判据都没写,
+    于是执行腿也没做。**任务书里写了不等于判据里问了。**"""
+
+    def test_result_leaks_no_absolute_path(self):
+        """返回里不许出现业主电脑上的**绝对路径**。
+
+        这条不是洁癖:助手手里同时握着 `set_workspace`(能改工作区根)。
+        把一条真实绝对路径塞进它的上下文,等于给那条提权链递了一半的材料。
+        """
+        make_docx(os.path.join(self.docs, "合同.docx"), "工期45天")
+        r = self.read("合同.docx")
+        blob = repr(r)
+        self.assertNotIn(self.work, blob, f"返回里带了工作区绝对路径:{blob[:300]}")
+        self.assertNotIn(self.docs, blob, "返回里带了资料夹绝对路径")
+
+    def test_listing_is_capped_and_says_so(self):
+        """资料夹里几百个文件时不许整份倒给助手 —— **但截断必须说出来**。"""
+        for i in range(ds_documents.MAX_FILES + 20):
+            make_docx(os.path.join(self.docs, f"资料{i:04d}.docx"), f"第{i}份")
+        r = self.ls()
+        self.assertTrue(r.get("ok"), r)
+        self.assertLessEqual(len(r["documents"]), ds_documents.MAX_FILES)
+        self.assertTrue(r.get("truncated"), "截断了却没说,助手会以为这就是全部")
+
+    def test_too_deep_is_counted_not_silently_dropped(self):
+        """套太深的层级可以不看,但**要记数**,不能装作不存在。"""
+        deep = self.docs
+        for i in range(ds_documents.MAX_DEPTH + 2):
+            deep = os.path.join(deep, f"第{i}层")
+        make_docx(os.path.join(deep, "藏得很深.docx"), "深处的内容")
+        r = self.ls()
+        rels = [d["rel"] for d in r["documents"]]
+        self.assertNotIn("藏得很深.docx", [os.path.basename(x) for x in rels])
+        self.assertGreaterEqual(r["skipped"]["too_deep"], 1,
+                                f"太深的文件被静默丢掉了:{r['skipped']}")
+
+    def test_oversized_file_is_refused_before_conversion(self):
+        """超大文件在**转换之前**就拒 —— 转换会把整份内容读进内存。"""
+        big = os.path.join(self.docs, "巨无霸.txt")
+        with open(big, "wb") as fh:
+            fh.seek(ds_documents.MAX_BYTES + 1024)
+            fh.write(b"x")
+        calls = []
+        real = ds_documents._convert
+        ds_documents._convert = lambda p, *a, **k: (calls.append(p), real(p))[1]
+        self.addCleanup(setattr, ds_documents, "_convert", real)
+        r = self.read("巨无霸.txt")
+        self.assertFalse(r.get("ok"), r)
+        self.assertEqual(r.get("error"), "too_large", r)
+        self.assertEqual(calls, [], "超大文件被拒了,但转换器已经被调过")
+
+
 class ReadOnly(Base):
     def test_reading_does_not_touch_the_project_folder(self):
         """只读:读一遍之后,项目夹里的文件和它们的时间戳一个都不许变。"""
