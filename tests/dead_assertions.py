@@ -35,6 +35,7 @@
 from __future__ import annotations
 
 import ast
+import inspect
 import io
 import os
 import sys
@@ -92,10 +93,65 @@ def assertion_lines(path: str) -> dict[int, str]:
     return out
 
 
-def run_suite_recording_lines() -> tuple[set[tuple[str, int]], bool, str]:
+def same_line_guarded(path: str) -> dict[int, str]:
+    """断言**和它的守卫写在同一行**的那些行 —— 行粒度天然问不出它们。
+
+    `if got: self.assertIn(...)` 里,LINE 事件是在这一行的**第一条字节码**
+    (`got` 的取值)上触发的:这一行"执行过"了,而那条断言一次没跑。
+    于是 08-06 那个事故换个换行位置就能躲过整道闸(2026-08-07 评审抓到)。
+
+    判法:一行上起了**两条以上语句**,且其中有断言 ⇒ 这一行的执行记录不可信。
+    `with self.assertRaises(...):` 不在此列 —— 断言在 with 的**头部**,
+    这一行跑过了就是真问过了(本仓库现有 7 处这种写法,一条都不许误报)。
+    """
+    try:
+        tree = ast.parse(open(path, encoding="utf-8").read(), filename=path)
+    except SyntaxError:
+        return {}
+    src = open(path, encoding="utf-8").read().splitlines()
+    starts: dict[int, int] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.stmt):
+            starts[node.lineno] = starts.get(node.lineno, 0) + 1
+    crowded = {ln for ln, n in starts.items() if n > 1}
+    return {ln: src[ln - 1].strip()[:120]
+            for ln in sorted(crowded & set(assertion_lines(path)))
+            if ln <= len(src)}
+
+
+def skipped_method_ranges(skipped) -> list[tuple[str, int, int]]:
+    """被 skip 掉的判据方法的源码行范围。
+
+    **跳过 ≠ 死**:被 skip 的方法里的断言当然没跑过,但那是"这台机器上没条件问",
+    不是"断言没被问出口"。总跑自己的规矩就是「SKIP 不是 PASS,但它是 exit 3
+    不是 exit 1」—— 把两者混成一个红,没起 gateway 的机器上这一段就会
+    因为 16 条 SKIP 变红(2026-08-07 评审抓到,当场复现过)。
+
+    只取**方法**的范围,不取整个类:类级 `@skipIf` 时 unittest 仍会把每个
+    方法各报一条,方法范围就够;而按类取会把同类里跑过的方法一起豁免掉。
+    """
+    out: list[tuple[str, int, int]] = []
+    for entry in skipped:
+        test = entry[0] if isinstance(entry, tuple) else entry
+        cls = type(test)
+        meth = getattr(cls, getattr(test, "_testMethodName", ""), None)
+        if meth is None:
+            continue
+        try:
+            src_file = inspect.getsourcefile(cls)
+            lines, start = inspect.getsourcelines(meth)
+        except (OSError, TypeError):
+            continue
+        if src_file:
+            out.append((os.path.realpath(src_file), start, start + len(lines) - 1))
+    return out
+
+
+def run_suite_recording_lines() -> tuple[set[tuple[str, int]], bool, str,
+                                         list[tuple[str, int, int]]]:
     """跑一遍 python 判据,记下 tests/ 下真正执行过的行。
 
-    返回 (执行过的行, 判据是否全绿, 判据的原始输出)。
+    返回 (执行过的行, 判据是否全绿, 判据的原始输出, 被 skip 的方法的行范围)。
     **它是总跑里 python 那一段的替身**(一次跑、两个信号),所以判据本身红了
     必须能报出来,汇总行也要原样透出去 —— 否则总跑数不出"跑了多少条/跳过多少条"。
     """
@@ -128,7 +184,8 @@ def run_suite_recording_lines() -> tuple[set[tuple[str, int]], bool, str]:
     finally:
         mon.set_events(tool_id, 0)
         mon.free_tool_id(tool_id)
-    return executed, result.wasSuccessful(), buf.getvalue()
+    return (executed, result.wasSuccessful(), buf.getvalue(),
+            skipped_method_ranges(result.skipped))
 
 
 def load_allow() -> dict[tuple[str, int], str]:
@@ -148,9 +205,15 @@ def load_allow() -> dict[tuple[str, int], str]:
             n = int(ln)
         except ValueError:
             continue
-        # 路径既接受"相对仓库根"(报告里印的那种),也接受"相对判据目录"
+        # 路径既接受"相对仓库根"(报告里印的那种),也接受"相对判据目录"。
+        # **只登记真实存在的那一个** —— 两个都登记会让报告里的"放行清单 N 条"翻倍
+        # (2026-08-07 实测:清单 2 条印成 4 条)。一个会撒谎的机器输出,
+        # 恰恰长在"别信自述、信机器打印的"这道闸身上。
         for base in (ROOT, HERE):
-            allow[(os.path.realpath(os.path.join(base, f)), n)] = why.strip()
+            cand = os.path.realpath(os.path.join(base, f))
+            if os.path.exists(cand):
+                allow[(cand, n)] = why.strip()
+                break
     return allow
 
 
@@ -160,34 +223,65 @@ def main() -> int:
         if f.startswith("test_") and f.endswith(".py")
     )
     wanted: dict[tuple[str, int], tuple[str, str]] = {}
+    ambiguous: dict[tuple[str, int], tuple[str, str]] = {}
     for f in files:
+        rel = os.path.relpath(f, ROOT)
         for ln, src in assertion_lines(f).items():
-            wanted[(os.path.realpath(f), ln)] = (os.path.relpath(f, ROOT), src)
+            wanted[(os.path.realpath(f), ln)] = (rel, src)
+        for ln, src in same_line_guarded(f).items():
+            ambiguous[(os.path.realpath(f), ln)] = (rel, src)
 
     if "--list" in sys.argv:
         for (f, ln), (rel, src) in sorted(wanted.items()):
             print(f"{rel}:{ln}  {src}")
         return 0
 
-    executed, suite_ok, suite_out = run_suite_recording_lines()
+    executed, suite_ok, suite_out, skip_ranges = run_suite_recording_lines()
     print(suite_out, end="")          # 判据自己的汇总行原样透出(总跑要解析它)
     allow = load_allow()
-    dead = [(k, v) for k, v in sorted(wanted.items())
-            if k not in executed and k not in allow]
+
+    def in_skipped(key: tuple[str, int]) -> bool:
+        f, ln = key
+        return any(f == sf and lo <= ln <= hi for sf, lo, hi in skip_ranges)
+
+    missing = [(k, v) for k, v in sorted(wanted.items())
+               if k not in executed and k not in allow]
+    skipped = [(k, v) for k, v in missing if in_skipped(k)]
+    dead = [(k, v) for k, v in missing if not in_skipped(k) and k not in ambiguous]
 
     print("=== 死断言检查(断言在那儿、却从没被执行过)===")
     if not suite_ok:
         print("  ⚠️ 判据本身有红的 —— 先修那个;下面的死断言统计在红的判据上没有意义。")
     print(f"  扫了 {len(files)} 个判据文件、{len(wanted)} 条断言;"
           f"放行清单 {len(allow)} 条")
-    if not dead:
+
+    # 跳过的**必须印出来**(静默吞掉就是新的假绿),但它不算红:
+    # 「SKIP 不是 PASS」由总跑那一层管,它是 exit 3 不是 exit 1。
+    if skipped:
+        print(f"  ⏭️ {len(skipped)} 条断言在**被跳过的判据**里 —— 这台机器上没条件问,"
+              f"不算死断言(要真跑它们,见对应文件头的前置条件):")
+        for (_f, ln), (rel, src) in skipped[:10]:
+            print(f"     {rel}:{ln}  {src}")
+        if len(skipped) > 10:
+            print(f"     …… 还有 {len(skipped) - 10} 条")
+
+    if ambiguous:
+        print(f"  ❌ {len(ambiguous)} 条断言**和它的守卫写在同一行** —— "
+              f"行粒度问不出它跑没跑过,等于这道闸对它是瞎的:")
+        for (_f, ln), (rel, src) in sorted(ambiguous.items()):
+            print(f"     {rel}:{ln}  {src}")
+        print("  拆成两行(守卫一行、断言一行)这道闸才看得见它。")
+
+    if dead:
+        print(f"  ❌ {len(dead)} 条断言一次都没执行过 —— 它们看起来是绿的,其实什么都没问:")
+        for (_f, ln), (rel, src) in dead:
+            print(f"     {rel}:{ln}  {src}")
+        print("  要么把断言搬到问得出的地方,要么写进 tests/dead_assertions.allow"
+              "(**必须写理由**)。")
+
+    if not dead and not ambiguous:
         print("  ✅ 没有从没跑过的断言。")
-        return 0 if suite_ok else 1
-    print(f"  ❌ {len(dead)} 条断言一次都没执行过 —— 它们看起来是绿的,其实什么都没问:")
-    for (_f, ln), (rel, src) in dead:
-        print(f"     {rel}:{ln}  {src}")
-    print("  要么把断言搬到问得出的地方,要么写进 tests/dead_assertions.allow(**必须写理由**)。")
-    return 1
+    return 0 if (suite_ok and not dead and not ambiguous) else 1
 
 
 if __name__ == "__main__":

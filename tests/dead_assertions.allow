@@ -3,8 +3,9 @@
 # **必须写理由** —— 没理由的一行不生效(等于把闸关掉的那种例外,机器不认)。
 # 每加一条都是在说"我知道这条断言没跑,而且我能说清为什么" —— 别把它当垃圾桶。
 
-# 这份判据在没有活 gateway 时**整份 SKIP**(它自己的文件头就写着"SKIP 不算通过")。
-# 所以它里面的断言在默认总跑里必然没跑过 —— 这不是死断言,是"这台机器上没条件问"。
-# 要让它们真的跑:先起 gateway,再 tests/run-all.sh --with-gateway。
-tests/test_ws_protocol_smoke.py:119  # 要活 gateway;默认总跑整份 SKIP(见该文件头)
-tests/test_ws_protocol_smoke.py:139  # 同上,且这一条还是 token 恰好过期时的补签分支
+# 2026-08-07 更正:这两条原先写的理由是"默认总跑整份 SKIP" —— **那是错的**。
+# 整份 SKIP 的情况现在由闸自己认(被 skip 的方法里的断言归 ⏭️ 那一档,不算死),
+# 根本不需要放行清单。这两条是**网关活着、判据真跑了**的时候仍然不执行的分支,
+# 那才是它们要写在这里的原因。理由写错了机器看不出来 —— 这一条就是活证。
+tests/test_ws_protocol_smoke.py:119  # 只在 DS_SMOKE_LLM=1 时才跑的完整消息链(默认不烧 LLM)
+tests/test_ws_protocol_smoke.py:139  # bootstrap token 恰好过期时才走的补签分支,正常跑不到
