@@ -94,29 +94,70 @@ def assertion_lines(path: str) -> dict[int, str]:
 
 
 def same_line_guarded(path: str) -> dict[int, str]:
-    """断言**和它的守卫写在同一行**的那些行 —— 行粒度天然问不出它们。
+    """**行粒度问不出跑没跑过**的那些断言 —— 这道闸对它们是瞎的,所以当场报。
 
     `if got: self.assertIn(...)` 里,LINE 事件是在这一行的**第一条字节码**
     (`got` 的取值)上触发的:这一行"执行过"了,而那条断言一次没跑。
     于是 08-06 那个事故换个换行位置就能躲过整道闸(2026-08-07 评审抓到)。
 
-    判法:一行上起了**两条以上语句**,且其中有断言 ⇒ 这一行的执行记录不可信。
-    `with self.assertRaises(...):` 不在此列 —— 断言在 with 的**头部**,
-    这一行跑过了就是真问过了(本仓库现有 7 处这种写法,一条都不许误报)。
+    该问的**不是"这一行挤了几条语句"**,是:
+    **排在这条断言前面的东西,能不能把它绕过去。**
+    (第一版问的是前者,于是把"会分流"和"只是挤在一行"混成一件事 ——
+    单行 `with self.assertRaises(X): raise X()` 和 `x = f(); self.assertX(...)`
+    都被误报,而它们的断言明明必然跑过。2026-08-07 第二轮评审两腿同时打在这。)
+
+    两种绕得过去的形状:
+    ① 断言在一个**会跳过自己 body 的头部**(`if` / `for` / `while`)的同一行上
+       —— `if got: self.assertIn(...)`,08-06 那个事故的单行写法;
+    ② 断言**不在语句位上**,而是嵌在表达式里(`got and self.assertX(...)`、
+       三元、推导式、未被调用的 lambda)—— 它只有一条语句,躲过形状①,
+       但短路 / 空序列时同样一次不跑。
+
+    反过来这些**不算**(断言必然随该行一起跑):`self.assertX(...)` 独占一行、
+    `with self.assertRaises(...)` 的头部(with/try 不会跳过 body)、
+    `x = f(); self.assertX(...)` 这种同行但不分流的写法。
     """
     try:
         tree = ast.parse(open(path, encoding="utf-8").read(), filename=path)
     except SyntaxError:
         return {}
     src = open(path, encoding="utf-8").read().splitlines()
-    starts: dict[int, int] = {}
+    asserts = set(assertion_lines(path))
+
+    # 形状①:会跳过 body 的头部,且 body 的第一条语句和它挤在同一行。
+    # 只看**那条 body 语句自己的子树**,不看整行 —— 否则头部里的断言
+    # (`with self.assertRaises(X):`)会被自己的 body 连累。
+    guarded: set[int] = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.stmt):
-            starts[node.lineno] = starts.get(node.lineno, 0) + 1
-    crowded = {ln for ln, n in starts.items() if n > 1}
+        if not isinstance(node, (ast.If, ast.For, ast.AsyncFor, ast.While)):
+            continue
+        for child in list(node.body) + list(getattr(node, "orelse", []) or []):
+            if getattr(child, "lineno", None) != node.lineno:
+                continue
+            for sub in ast.walk(child):
+                ln = getattr(sub, "lineno", None)
+                if ln == node.lineno and ln in asserts:
+                    guarded.add(ln)
+
+    # 形状②:"在语句位上"= 整条语句就是这个调用,或它是 `with` 的头部。
+    plain: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+            plain.add(id(node.value))
+        elif isinstance(node, ast.withitem) and isinstance(node.context_expr, ast.Call):
+            plain.add(id(node.context_expr))
+
+    embedded: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and id(node) not in plain:
+            fn = node.func
+            name = fn.attr if isinstance(fn, ast.Attribute) else (
+                fn.id if isinstance(fn, ast.Name) else "")
+            if name.startswith(_ASSERT_PREFIXES) or name == "check":
+                embedded.add(node.lineno)
+
     return {ln: src[ln - 1].strip()[:120]
-            for ln in sorted(crowded & set(assertion_lines(path)))
-            if ln <= len(src)}
+            for ln in sorted(guarded | embedded) if ln <= len(src)}
 
 
 def skipped_method_ranges(skipped) -> list[tuple[str, int, int]]:
@@ -138,7 +179,11 @@ def skipped_method_ranges(skipped) -> list[tuple[str, int, int]]:
         if meth is None:
             continue
         try:
-            src_file = inspect.getsourcefile(cls)
+            # 文件和行号**必须来自同一个来源(方法自己)**:方法可能是从别的模块里
+            # 继承来的,那时 `getsourcefile(cls)` 是子类的文件、`getsourcelines(meth)`
+            # 是基类的行号 —— 拼起来就是在错误的文件上圈了一段豁免区,
+            # 把正在跑的判据里的真死断言静默吞掉(2026-08-07 收口时自攻发现并复现)。
+            src_file = inspect.getsourcefile(meth)
             lines, start = inspect.getsourcelines(meth)
         except (OSError, TypeError):
             continue

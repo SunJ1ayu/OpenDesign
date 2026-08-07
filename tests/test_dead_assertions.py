@@ -168,7 +168,14 @@ class DeadAssertionGate(unittest.TestCase):
 
     def test_skip_does_not_hide_a_real_dead_assertion(self):
         """防止上一条变成新后门:同一份判据里既有 skip、也有真死断言时,
-        真死的那条**照样要红** —— 否则"整份 skip 掉"就成了关闸的万能钥匙。"""
+        真死的那条**照样要红**。
+
+        **这条判据证明的事没有它的名字听起来那么大**(第二轮评审两腿都点了这里):
+        它只证明"skip 不会溢出到**别的方法**",证明不了"skip 不能当关闸的万能钥匙"——
+        把死断言塞进**被 skip 的那个方法自己**,照样豁免。那是设计取舍不是 bug
+        (跳过的测试本来就没条件问),兜底在于 skip 数进总跑的 n_skip ⇒ exit 3,
+        关闸这个动作是看得见的。别再把这条读成"后门已堵死"。
+        """
         self._write('''
             import unittest
 
