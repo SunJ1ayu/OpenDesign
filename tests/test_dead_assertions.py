@@ -247,6 +247,65 @@ class DeadAssertionGate(unittest.TestCase):
                          f"短路里的断言机器问不出来,必须当场报:{r.stdout}{r.stderr}")
         self.assertIn("收件箱", r.stdout)
 
+    # ── 第二轮评审(DeepSeek + Kimi 双腿 BLOCK)抓到的:**误报那一侧**。
+    #    "一行上起了两条以上语句" 这条判法把「会分流」和「只是挤在一行」混成了一件事。
+    #    真正该问的是:**排在这条断言前面的东西,能不能把它绕过去**。
+
+    def test_does_not_flag_one_line_assertRaises(self):
+        """单行 `with self.assertRaises(X): raise X()` —— 断言在 with 的**头部**,
+        这一行跑了就是真问过了,报它就是误报。
+
+        Kimi 指出:文件头声称"assertRaises 不在此列",而实现里**根本没有这个排除** ——
+        现有 7 处不误报纯粹因为它们都写成两行(body 在下一行)。
+        排除是格式上的巧合,不是判据声称的机制。
+        """
+        self._write('''
+            import unittest
+
+            class Fixture(unittest.TestCase):
+                def test_raises_oneline(self):
+                    with self.assertRaises(ValueError): raise ValueError("boom")
+        ''')
+        r = run_tool(self.dir)
+        self.assertEqual(r.returncode, 0,
+                         f"单行 assertRaises 的断言在头部,跑过了就是问过了:{r.stdout}")
+
+    def test_does_not_flag_sequential_same_line(self):
+        """`x = f(); self.assertEqual(...)` —— 同一行两条语句,但**没有任何分流**,
+        行跑了两条必然都跑。报它是把排版风格执法包装成认知判断(Kimi L1)。"""
+        self._write('''
+            import unittest
+
+            class Fixture(unittest.TestCase):
+                def test_sequential(self):
+                    got = "收件箱"; self.assertIn("收", got)
+        ''')
+        r = run_tool(self.dir)
+        self.assertEqual(r.returncode, 0,
+                         f"同一行但不分流的断言必然跑过,不许报:{r.stdout}")
+
+    def test_flags_ternary_and_comprehension_guarded(self):
+        """短路之外的同族形状:三元、单行推导式。
+
+        (这两条写下来时已经是绿的 —— 上一轮我把判法从"补一个 BoolOp"改成了
+        "断言没在语句位上就算问不出",三元/推导式/lambda 一并盖住。
+        **它们没红过,是覆盖不是红检**,这里写清楚,别让后来的人以为红检过。)
+        """
+        for body in ('self.assertIn("收件箱", got) if got else None',
+                     '[self.assertIn("收件箱", x) for x in []]'):
+            with self.subTest(body=body):
+                self._write(f'''
+                    import unittest
+
+                    class Fixture(unittest.TestCase):
+                        def test_dead_expr(self):
+                            got = None
+                            {body}
+                ''')
+                r = run_tool(self.dir)
+                self.assertEqual(r.returncode, 1,
+                                 f"表达式里的断言机器问不出来,必须当场报:{r.stdout}")
+
 
 if __name__ == "__main__":
     unittest.main()
