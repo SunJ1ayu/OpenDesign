@@ -146,6 +146,21 @@ def _read_model():
             return ds_model.resolve_model(json.load(fh))
     except Exception:
         return None
+def _doc_reader_status():
+    """助手能不能读 `01-资料` 里的文档 —— 回显给健康探针。
+
+    存在的理由是部署规矩:`install.ps1` 装的包**不会**被 `git pull + 重启` 带上去,
+    老机器很容易变成"仓库是新的、包是旧的"。让运行中的进程自己说一句,
+    比任何人凭记忆断言都可靠(盘上有 ≠ 跑起来有)。
+    只读、每请求现读、失败绝不牵连探针本体(与 _read_model 同哲学)。
+    """
+    try:
+        import importlib.metadata as _md
+        return {"available": True, "converter": _md.version("firecrawl-anydoc")}
+    except Exception:
+        return {"available": False, "converter": None}
+
+
 # 与上游 _decode_api_key 同字符集;不含 % 和 / ⇒ 原样转发也无路径走私
 _KEY_RE = re.compile(r"^[A-Za-z0-9_:.-]{1,128}$")
 _THREAD_RE = re.compile(r"^/api/chat/sessions/([^/]+)/thread$")
@@ -657,7 +672,10 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/health":
             self._json(200, {"ok": True, "version": VERSION,
                              "ds_root": self.server.ds_root,
-                             "model": _read_model()})
+                             "model": _read_model(),
+                             # 文档转换器装没装:业主刷一下 /api/health 就看得见,
+                             # 不用开命令行(部署规矩:盘上有 ≠ 跑起来有)。
+                             "doc_reader": _doc_reader_status()})
         elif path == "/api/todos":
             self._todos()
         elif path == "/api/chat/bootstrap":

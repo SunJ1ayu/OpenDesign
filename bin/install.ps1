@@ -62,10 +62,22 @@ if (-not (Test-Path $VPython)) {
 }
 # 钉版本:工作台 P1 要对 nanobot 内部 websocket 协议编程,升级前先跑协议冒烟
 # (track opendesign-workbench design.md D3-P1);升版本 = 改这一行 + 冒烟过再推
-& $VPython -m pip install nanobot-ai==0.2.2 mcp==1.28.1
+# firecrawl-anydoc:助手读 01-资料 里的文档(Word/PDF/Excel/PPT/CSV → 文字)。
+# **版本钉死到补丁位**:它才发布两个月、还在 0.1.x,浮动版本等于让两台机器跑不同的东西。
+# 零依赖 + 有 win_amd64 wheel(不用装 Rust 工具链)。
+# ⚠️ 这个包是 2026-08-07 加的:老机器只 git pull + 重启**不会装它**,必须重跑本脚本。
+& $VPython -m pip install nanobot-ai==0.2.2 mcp==1.28.1 firecrawl-anydoc==0.1.6
 if ($LASTEXITCODE -ne 0) { Write-Error "pip install 失败,报错见上(常见:网络;可加 -i 镜像源重试)" }
 & $VPython -m pip check
 if ($LASTEXITCODE -ne 0) { Write-Host "  ⚠ pip check 报依赖冲突(见上),通常仍可用;把输出发回部署者" }
+
+# 文档转换器的**真转换**冒烟:`pip check` 只证明"包装上了",证明不了"这台机器上转得动"
+# (win_amd64 是另一份二进制,首次真跑就在这儿)。本机铁律:盘上有 ≠ 跑起来有。
+& $VPython -c "import anydoc, importlib.metadata as m, tempfile, os; p=os.path.join(tempfile.mkdtemp(),'a.csv'); open(p,'w',encoding='utf-8').write('项目,工期\n王姐家,45天\n'); md=anydoc.to_markdown(p); assert '45天' in md, md; print('  OK 文档转换器 firecrawl-anydoc ' + m.version('firecrawl-anydoc') + ' 真转过一份 CSV')"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  ⚠ 文档转换器装上了但转不动 —— 助手读资料的功能会返回 converter_unavailable;"
+    Write-Host "    其余功能不受影响。把上面的报错发回部署者。"
+}
 
 Step 4 "nanobot onboard(交互向导,生成基础配置)"
 if (Test-Path $ConfigJson) {

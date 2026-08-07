@@ -1,4 +1,4 @@
-"""O1 工具表快照闸:助手看到的 30 个工具**一个字不许悄悄变**。
+"""O1 工具表快照闸:助手看到的 32 个工具**一个字不许悄悄变**。
 
 track opendesign-mcp-registry。**主 agent 亲写,执行腿逐字节 off-limits。**
 
@@ -25,7 +25,10 @@ track opendesign-mcp-registry。**主 agent 亲写,执行腿逐字节 off-limits
 3. 刷完把下面两处数字一起改,并在这里记一句谁把它从几改到了几。
 
 数量沿革:29(改造前基线)→ **30**(2026-08-05 补记 `resolve_date`,
-出自 track opendesign-date-arithmetic / 0.74.0)。
+出自 track opendesign-date-arithmetic / 0.74.0)
+→ **32**(2026-08-07 新增 `list_project_documents` / `read_project_document`,
+出自 track opendesign-anydoc —— 助手第一次能读到 `01-资料` 里的文档)。
+刷新那次逐条读过 diff:**纯新增 49 行、只有这两个工具**,没有一条现有 description 被动。
 """
 import unittest
 
@@ -62,19 +65,20 @@ class McpSurfaceUnchanged(unittest.TestCase):
                     f"`{name}` 的工具表变了 —— 本单是纯结构改动,"
                     f"助手看到的东西不许动一个字")
 
-    def test_03_工具总数仍是30(self):
+    def test_03_工具总数仍是32(self):
         """冗余但便宜的一条:总数对不上时报出来的信息比逐 server diff 好读。
 
-        29 → 30 是 2026-08-05 补记的(0.74.0 新增 resolve_date),见模块头「数量沿革」。
+        29 → 30 是 2026-08-05 补记的(0.74.0 新增 resolve_date);
+        30 → 32 是 2026-08-07(anydoc 两个读文档工具)。见模块头「数量沿革」。
         """
         actual = ms.snapshot_via_new_entry()
-        self.assertEqual(sum(len(v) for v in actual.values()), 30)
+        self.assertEqual(sum(len(v) for v in actual.values()), 32)
 
     def test_04_基线自身没被改小(self):
-        """护栏:防"把基线删几行让自己变绿"。30 是 2026-08-05 实测的事实
-        (改造前是 29,沿革见模块头)。"""
+        """护栏:防"把基线删几行让自己变绿"。32 是 2026-08-07 实测的事实
+        (改造前是 29 → 30,沿革见模块头)。"""
         base = ms.load_baseline()
-        self.assertEqual(sum(len(v) for v in base.values()), 30,
+        self.assertEqual(sum(len(v) for v in base.values()), 32,
                          "基线被改小了 —— 基线只在故意改助手契约的那一单里刷新,"
                          "而且要跟着改这里的数字(模块头「数量沿革」),不是可调参数")
 
