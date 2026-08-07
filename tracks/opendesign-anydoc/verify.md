@@ -13,11 +13,26 @@
 - [x] tests pass
 - [x] no secrets / unsafe ops —— 本单只读;新增的两个工具没有任何写路径
 
-**机器打印的那一行**(不是我打字的自述):
+**机器打印的那几行**(不是我打字的自述;在 `890f79f` 的树上跑的):
 
 ```
-<tests/run-all.sh 的汇总行原样粘在这里>
+════ 总跑汇总 ════
+  PASS  node 单测(tests/*.mjs)           342 通过 / 0 跳过 / 0 todo
+  PASS  python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python) 928 跑过 / 0 跳过
+  PASS  MCP 契约闸                      三条闸全绿
+  PASS  dist 新鲜度(重新 build 后 git 应无差异) 与源码同步
+  PASS  e2e 总跑                         32 PASS / 0 FAIL / 2 SKIP
+
+没有红的,但有 2 条没跑 —— 不算通过。
+run-all rc=3
 ```
+
+> **`rc=3` 照抄进来,不许四舍五入成"全绿"。** 没跑的两条是
+> `new_chat.e2e.mjs` / `project-thread.e2e.mjs`,要活 gateway。
+> 我起了一次,撞上 8765 被一个**从 08-04 就在跑的 gateway 进程**占着 ——
+> 那个进程里装的是三天前的代码,拿它跑等于验了个假的;而把它踢掉重启是对
+> 一台正在跑 cron 的活服务动手,**不是我该背着机主做的事**。所以照实记 SKIP。
+> (这两条与本单改动无关:它们验的是聊天链路,本单一行没碰。)
 
 工具表快照闸单独确认(总跑里它容易整块 SKIP,08-05 就是这么假绿的):
 
