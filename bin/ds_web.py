@@ -82,7 +82,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.80.0"  # 助手第一次能自己读 01-资料 里的文档(合同/报价/意见)。
+VERSION = "0.81.0"  # 待办能真的删掉了(回收站式,带二次确认);助手契约补两条(建档前先核对、工具够不着要先说)。
                     # 装机脚本要装 firecrawl-anydoc==0.1.6;/api/health 的
                     # doc_reader 字段会说它在不在(track opendesign-anydoc)。
                     # 0.79.0  收件箱不再只收图片:PDF、CAD 图纸、Word/Excel 都能拖进去。
