@@ -1517,6 +1517,107 @@ class DeleteProjectOracle(unittest.TestCase):
         self.assertEqual(projs.get("error"), "project_not_found")
 
 
+class DeleteChangeOracle(unittest.TestCase):
+    """delete_change oracle — track opendesign-owner-review-0808 design.md「C」。
+
+    单条变更软删除:定位镜像 set_change_status(同一个 line_re,C<num>\\b 命中且唯一),
+    只改 `[状态]` 位为字面量 `已删除`,不删行、不动其余字节。`已删除` 是 delete_change
+    专用出口,**不进 STATUSES**(set_change_status/edit_change 校验的那个词表)——
+    见 test_dc06。"""
+
+    def setUp(self):
+        self.ds = tempfile.mkdtemp(prefix="dstest-")
+        self.slug = "翡翠湾-1801"
+        self.default_changes = [
+            "- [待确认] C1 2026-06-20 主卧衣柜改推拉门",
+            "- [进行中] C2 2026-06-19 玄关增加到顶储物柜",
+        ]
+        self.path = _write_project(self.ds, self.slug, self.default_changes)
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+
+    # ① 正常:只改方括号,其余字节(C号/日期/正文)逐字节不变
+    def test_dc01_normal(self):
+        r = ds_tools.delete_change(self.slug, "C1", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(r["old_status"], "待确认")
+        text = _read(self.path)
+        self.assertIn("- [已删除] C1 2026-06-20 主卧衣柜改推拉门", text)
+        self.assertIn("- [进行中] C2 2026-06-19 玄关增加到顶储物柜", text)  # 邻行不动
+
+    # ② 行还在:不是物理删除,只是状态位改写(回收站式,呼应 delete_project 同心智模型)。
+    # `_change_count` 用的 ds_tools._CHANGE_RE 状态位是 `[^\]]*`(词表无关,只认
+    # `- [任意内容] C<n>` 结构),所以「已删除」行结构完好时计数应与改前**相等**——
+    # 数字往下掉才说明行被误删/结构被破坏。
+    def test_dc02_line_structurally_intact(self):
+        before_count = _change_count(_read(self.path))
+        ds_tools.delete_change(self.slug, "C1", ds_root=self.ds, today=TODAY)
+        self.assertEqual(_change_count(_read(self.path)), before_count)
+        self.assertIn("C1", _read(self.path))  # C1 这行原样还在文件里
+
+    # ③ 项目不存在
+    def test_dc03_missing_project(self):
+        r = ds_tools.delete_change("不存在的项目", "C1", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "project_not_found")
+
+    # ④ change_id 不存在:文件不动
+    def test_dc04_missing_change(self):
+        before = _read(self.path)
+        r = ds_tools.delete_change(self.slug, "C99", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "change_not_found")
+        self.assertEqual(_read(self.path), before)
+
+    # ⑤ C2 不误伤 C12/C20(同 set_change_status test_07 口径)
+    def test_dc05_anchor(self):
+        _write_project(self.ds, self.slug, [
+            "- [待确认] C2 2026-06-20 目标行",
+            "- [待确认] C12 2026-06-20 不该被碰",
+            "- [待确认] C20 2026-06-20 也不该被碰",
+        ])
+        r = ds_tools.delete_change(self.slug, "C2", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        text = _read(self.path)
+        self.assertIn("- [已删除] C2 2026-06-20 目标行", text)
+        self.assertIn("- [待确认] C12 2026-06-20 不该被碰", text)
+        self.assertIn("- [待确认] C20 2026-06-20 也不该被碰", text)
+
+    # ⑥ 「已删除」不进 STATUSES:agent 走 set_change_status/edit_change 够不到这个状态,
+    # 只有专用工具 delete_change 能写(design.md「为什么单开工具」的行为锁)
+    def test_dc06_not_reachable_via_set_status(self):
+        before = _read(self.path)
+        r = ds_tools.set_change_status(self.slug, "C1", "已删除", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "invalid_status")
+        self.assertEqual(_read(self.path), before)
+        self.assertNotIn("已删除", ds_tools.STATUSES)
+
+    # ⑦ 命中多行(重复 id)→ 歧义,文件不动
+    def test_dc07_ambiguous(self):
+        _write_project(self.ds, self.slug, [
+            "- [待确认] C2 2026-06-20 第一条",
+            "- [进行中] C2 2026-06-19 重复的编号",
+        ])
+        before = _read(self.path)
+        r = ds_tools.delete_change(self.slug, "C2", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("error"), "ambiguous_change")
+        self.assertEqual(_read(self.path), before)
+
+    # ⑧ 页脚「最后更新」跟着 bump(与其它写口同口径)
+    def test_dc08_bumps_footer(self):
+        r = ds_tools.delete_change(self.slug, "C1", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r["ok"])
+        self.assertIn(f"最后更新: {TODAY}", _read(self.path))
+
+    # ⑨ 删掉的这条从 ds_todo 的未办结列表消失(展示层跟着改,design.md「展示层」)
+    def test_dc09_gone_from_open_list(self):
+        import ds_todo
+        ds_tools.delete_change(self.slug, "C1", ds_root=self.ds, today=TODAY)
+        got = ds_todo.collect(self.ds)
+        self.assertEqual([o for o in got["open"] if o.get("cnum") == 1], [])
+        # C2(进行中,没删)还在未办结里——不是整份都被清空
+        self.assertEqual(len([o for o in got["open"] if o.get("cnum") == 2]), 1)
+
+
 class SetStageOracle(unittest.TestCase):
     """set_stage oracle — 项目阶段推进(tool-audit 空格②,原字段建档后冻结)。"""
 

@@ -183,6 +183,40 @@ class TestDsTodo(unittest.TestCase):
         self.assertEqual(d["open"][0]["space"], "客厅")
         self.assertEqual(d["open"][0]["text"], "电视墙改岩板")
 
+    # ⑪ track opendesign-owner-review-0808:第五态「已删除」(delete_change 专用出口,
+    # 不进 STATUSES,只在 ds_todo 这层的解析词表里)。正则必须认得它——不认得就等于
+    # 这一行对全仓所有扫描它的代码"隐形"(不是被过滤掉,是解析直接失败),design.md
+    # 明确要求"可见但被过滤",不是"对解析器隐形"。
+    def test_11_deleted_status_recognized_by_parser(self):
+        c = ds_todo.parse_change("- [已删除] C9 2026-07-01 【玄关】误建的一条")
+        self.assertIsNotNone(c, "已删除 状态必须能被 parse_change 命中")
+        self.assertEqual(c["status"], "已删除")
+        self.assertEqual(c["cnum"], 9)
+        self.assertEqual(c["date"], "2026-07-01")
+        self.assertEqual(c["space"], "玄关")
+        self.assertEqual(c["text"], "误建的一条")
+        self.assertIn("已删除", ds_todo.STATUS_WORDS)
+
+    # ⑫ 已删除的条目不出现在 list_todos 的未办结列表里(哪怕它是唯一一行)
+    def test_12_deleted_excluded_from_open(self):
+        root = _mkroot({"only-deleted.md":
+                        "# only-deleted\n\n## 变更记录\n"
+                        "- [已删除] C1 2026-07-01 误建的一条\n"
+                        "\n---\n最后更新: 2026-07-01\n"})
+        d = ds_todo.collect(root, 7, TODAY)
+        self.assertEqual(d["open"], [])  # 全项目唯一一行也是已删除 → 未办结空表,不报错
+
+    # ⑬ 混合场景:已删除与其它状态并存,只有已删除被过滤,其余照常
+    def test_13_deleted_mixed_with_open(self):
+        root = _mkroot({"mix.md":
+                        "# mix\n\n## 变更记录\n"
+                        "- [待确认] C1 2026-07-01 正常待办\n"
+                        "- [已删除] C2 2026-07-01 误建的一条\n"
+                        "\n---\n最后更新: 2026-07-01\n"})
+        d = ds_todo.collect(root, 7, TODAY)
+        cnums = [it["cnum"] for it in d["open"]]
+        self.assertEqual(cnums, [1])
+
     # ⑥ list_todos 错误路径:核心崩溃 → 显式 error,不得静默 ok:true
     def test_06_list_todos_error(self):
         orig = ds_todo.render

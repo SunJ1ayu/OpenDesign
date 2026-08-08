@@ -390,6 +390,19 @@ class TestChanges(unittest.TestCase):
             st, _, _ = _req(port, "/api/projects/" + quote("不存在的项目") + "/changes")
         self.assertEqual(st, 404)
 
+    # track opendesign-owner-review-0808:软删除的行**不出现**在全量端点里
+    # (design.md「展示层」——注释曾说"四状态全量",产品决定后是"全量减已删除")。
+    # 其余四态原样都在,专门锁"过滤掉已删除,不是过滤掉别的"。
+    def test_changes_excludes_deleted(self):
+        root = _mkroot({"保利中央公园.md": PROJ_A.replace(
+            "## 沟通日志",
+            "- [已删除] C99 2026-07-01 误建的一条\n\n## 沟通日志")})
+        with _serve(root) as port:
+            _, _, d = _get_json(port, "/api/projects/" + quote("保利中央公园") + "/changes")
+        cnums = [c["cnum"] for c in d["changes"]]
+        self.assertNotIn(99, cnums)
+        self.assertEqual(set(cnums), {12, 11, 8, 7, None})  # 其余五条(含残缺行)原样都在
+
 
 # ── /api/projects/<key>/changes 历史/备注扩展(track opendesign-todo-edit T3)────
 PROJ_HIST = """# 编辑历史项目
@@ -606,6 +619,118 @@ class TestEditRoundtrip(unittest.TestCase):
             c2_open = [it for it in t["open"]
                        if it["project"] == "编辑历史项目" and it["cnum"] == 2]
             self.assertEqual(c2_open, [])
+
+
+# ── POST 写针孔 /api/changes/delete(track opendesign-owner-review-0808)───────
+# posture 逐条照抄 TestEditChangePinhole(同一套 CT/body/键白名单/精确匹配/Host 闸)。
+class TestDeleteChangePinhole(unittest.TestCase):
+
+    def _root(self):
+        return _mkroot({"编辑历史项目.md": PROJ_HIST})
+
+    def _proj_text(self, root):
+        with open(os.path.join(root, "projects", "编辑历史项目.md"),
+                  encoding="utf-8") as fh:
+            return fh.read()
+
+    def _post(self, port, path, body, ctype="application/json",
+              method="POST", host=None):
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+        headers = {}
+        if ctype is not None:
+            headers["Content-Type"] = ctype
+        if host is not None:
+            headers["Host"] = host
+        data = None
+        if body is not None:
+            data = body if isinstance(body, (bytes, bytearray)) else \
+                json.dumps(body, ensure_ascii=False).encode("utf-8")
+        conn.request(method, path, body=data, headers=headers)
+        r = conn.getresponse()
+        b = r.read()
+        conn.close()
+        return r.status, (json.loads(b.decode("utf-8")) if b else None)
+
+    # 正常:200,该行状态变已删除,其余行/字节不动
+    def test_delete_happy_path(self):
+        root = self._root()
+        with _serve(root) as port:
+            st, d = self._post(port, "/api/changes/delete",
+                               {"project": "编辑历史项目", "cnum": 2})
+        self.assertEqual(st, 200)
+        self.assertTrue(d["ok"])
+        text = self._proj_text(root)
+        self.assertIn("- [已删除] C2 2026-06-19 玄关改到顶鞋柜", text)
+        self.assertIn("- [已完成] C5 2026-06-18 【客厅】客厅吊顶改回平顶", text)  # 邻行不动
+
+    # 删除后:全量 changes 端点看不到这条了(与 TestChanges.test_changes_excludes_deleted
+    # 同一断言,这里锁的是"经这个写口删的也一样"这条集成路径)
+    def test_delete_then_gone_from_changes_endpoint(self):
+        root = self._root()
+        with _serve(root) as port:
+            self._post(port, "/api/changes/delete", {"project": "编辑历史项目", "cnum": 2})
+            _, _, d = _get_json(port, "/api/projects/" + quote("编辑历史项目") + "/changes")
+        self.assertNotIn(2, [c["cnum"] for c in d["changes"]])
+        self.assertIn(5, [c["cnum"] for c in d["changes"]])
+
+    # CT 非 json → 400,文件逐字节不动
+    def test_delete_ct_gate_rejects_and_no_write(self):
+        root = self._root()
+        before = self._proj_text(root)
+        with _serve(root) as port:
+            st, _ = self._post(port, "/api/changes/delete",
+                               {"project": "编辑历史项目", "cnum": 2}, ctype="text/plain")
+        self.assertEqual(st, 400)
+        self.assertEqual(self._proj_text(root), before)
+
+    # 缺 cnum → change_not_found(404),文件不动
+    def test_delete_missing_cnum(self):
+        root = self._root()
+        before = self._proj_text(root)
+        with _serve(root) as port:
+            st, d = self._post(port, "/api/changes/delete", {"project": "编辑历史项目"})
+        self.assertEqual(st, 404)
+        self.assertEqual(d["error"], "change_not_found")
+        self.assertEqual(self._proj_text(root), before)
+
+    # 项目不存在 → 404
+    def test_delete_unknown_project(self):
+        root = self._root()
+        with _serve(root) as port:
+            st, d = self._post(port, "/api/changes/delete",
+                               {"project": "不存在的项目", "cnum": 2})
+        self.assertEqual(st, 404)
+        self.assertEqual(d["error"], "project_not_found")
+
+    # 键白名单:夹带 ds_root 走私 → 400,零执行
+    def test_delete_extra_key_rejected(self):
+        root = self._root()
+        before = self._proj_text(root)
+        with _serve(root) as port:
+            st, _ = self._post(port, "/api/changes/delete",
+                               {"project": "编辑历史项目", "cnum": 2, "ds_root": "/etc"})
+        self.assertEqual(st, 400)
+        self.assertEqual(self._proj_text(root), before)
+
+    # 精确匹配防走私 + 未白名单 POST 路径仍 405,零副作用
+    def test_delete_exact_match_and_405_invariant(self):
+        root = self._root()
+        before = self._proj_text(root)
+        payload = {"project": "编辑历史项目", "cnum": 2}
+        with _serve(root) as port:
+            for p in ("/api/changes/deletex", "/api/changes/delete/",
+                      "/api/changes/delete/2", "/api/changes", "/api/todos"):
+                st, _ = self._post(port, p, payload)
+                self.assertEqual(st, 405, f"{p} 应 405")
+        self.assertEqual(self._proj_text(root), before)
+
+    # Host 闸继承:恶意 Host → 403 先于业务逻辑
+    def test_delete_host_gate_inherited(self):
+        root = self._root()
+        with _serve(root) as port:
+            st, _ = self._post(port, "/api/changes/delete",
+                               {"project": "编辑历史项目", "cnum": 2}, host="evil.example")
+        self.assertEqual(st, 403)
 
 
 # ── /api/projects/<key>/refs ─────────────────────────────────────────────────
