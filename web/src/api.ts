@@ -536,6 +536,30 @@ export async function updateRef(body: UpdateRefBody): Promise<void> {
   }
 }
 
+/** 第十五个非 GET(track opendesign-owner-review-0808 写针孔⑮):删除一条待办/变更。
+ * 回收站式(后端 delete_change 只改状态位为"已删除",不物理删行)——前端这层只管
+ * 调用方在按下确定后再叫它:**二次确认(确定/取消弹窗)是调用方的责任**,本函数
+ * 收到调用就直接发请求,不再重复问一遍。成功后调用方按其它写口约定重拉列表
+ * (被删的那条会从 /api/projects/<key>/changes 与 /api/todos 里消失)。
+ * 失败抛错(带后端 error code)由调用方提示。 */
+export type DeleteChangeBody = { project: string; cnum: number };
+export async function deleteChange(body: DeleteChangeBody): Promise<void> {
+  const r = await fetch("/api/changes/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    let code = "";
+    try {
+      code = ((await r.json()) as { error?: string }).error ?? "";
+    } catch {
+      /* 非 JSON 响应:忽略,回落状态码 */
+    }
+    throw new Error(code || `服务返回 ${r.status}`);
+  }
+}
+
 /** 第十二个非 GET(track opendesign-todo-duedate 写针孔⑫):设/清一条变更的截止日。
  * due=null 清除,否则须 YYYY-MM-DD(非法后端拒 invalid_due)。成功后调用方按 design
  * 约定重拉 changes(截止日改动即时反映在行内)。失败抛错(带后端 error code)。 */

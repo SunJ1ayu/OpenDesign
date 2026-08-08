@@ -2322,6 +2322,16 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 }
 .todo-row:hover .meta .edit-btn,
 .todo-row:focus-within .meta .edit-btn { color: var(--terra-deep); opacity: 1; }
+
+/* 删除(track opendesign-owner-review-0808):同一套"平时藏,行 hover/聚焦才现"降噪,
+   hover 色用既有 --danger 而不是 --terra-deep —— 删除是破坏性动作,不该和"编辑"撞色。 */
+.todo-row .meta .delete-btn {
+  color: var(--ink-4);
+  opacity: 0;
+  transition: color var(--hover-ease), opacity var(--hover-ease);
+}
+.todo-row:hover .meta .delete-btn,
+.todo-row:focus-within .meta .delete-btn { color: var(--danger, #b4432f); opacity: 1; }
 .todo-row .txt .edited-tag {
   margin-left: 8px;
   font-size: 11px;

@@ -1,7 +1,7 @@
 # Verify: opendesign-owner-review-0808
 
 - Date: 2026-08-08
-- Verdict: <PASS | BLOCK | NEEDS_MORE_INFO>
+- Verdict: PENDING(等主 agent 裁决——本轮执行方只写证据,不下最终结论,见下方说明)
 
 > Panel hook — 软判断(correctness/security/edge/spec-drift)走 panel-review:
 > 主 agent 先独立审并落 findings,再跑 panel-review 的全部评审腿,主 agent 主裁。

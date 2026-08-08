@@ -36,6 +36,9 @@ track opendesign-mcp-registry。**主 agent 亲写,执行腿逐字节 off-limits
 "(二轮四审 M4:…)" 也留在了 docstring 里 —— **docstring 就是模型每轮读到的话**,
 评审轮次对助手毫无意义,等于每轮多塞一句噪音。删掉那一句。
 diff **恰好 1 行改动**,工具数不变(仍是 32)。
+→ **33**(2026-08-08 新增 `delete_change`,出自 track opendesign-owner-review-0808
+——业主真机验收发现单条待办没有删除能力,agent 只能拿"改状态"悄悄顶替。刷新前
+逐条读过 diff:**纯新增 22 行,只有这一个工具**,没有一条现有 description 被动)。
 """
 import unittest
 
@@ -72,20 +75,21 @@ class McpSurfaceUnchanged(unittest.TestCase):
                     f"`{name}` 的工具表变了 —— 本单是纯结构改动,"
                     f"助手看到的东西不许动一个字")
 
-    def test_03_工具总数仍是32(self):
+    def test_03_工具总数仍是33(self):
         """冗余但便宜的一条:总数对不上时报出来的信息比逐 server diff 好读。
 
         29 → 30 是 2026-08-05 补记的(0.74.0 新增 resolve_date);
-        30 → 32 是 2026-08-07(anydoc 两个读文档工具)。见模块头「数量沿革」。
+        30 → 32 是 2026-08-07(anydoc 两个读文档工具);
+        32 → 33 是 2026-08-08(delete_change)。见模块头「数量沿革」。
         """
         actual = ms.snapshot_via_new_entry()
-        self.assertEqual(sum(len(v) for v in actual.values()), 32)
+        self.assertEqual(sum(len(v) for v in actual.values()), 33)
 
     def test_04_基线自身没被改小(self):
-        """护栏:防"把基线删几行让自己变绿"。32 是 2026-08-07 实测的事实
+        """护栏:防"把基线删几行让自己变绿"。33 是 2026-08-08 实测的事实
         (改造前是 29 → 30,沿革见模块头)。"""
         base = ms.load_baseline()
-        self.assertEqual(sum(len(v) for v in base.values()), 32,
+        self.assertEqual(sum(len(v) for v in base.values()), 33,
                          "基线被改小了 —— 基线只在故意改助手契约的那一单里刷新,"
                          "而且要跟着改这里的数字(模块头「数量沿革」),不是可调参数")
 

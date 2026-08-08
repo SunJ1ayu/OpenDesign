@@ -15,12 +15,17 @@ import ds_common  # 页脚锚定语义的唯一定义(与写侧 bump_last_update
 
 # 变更行的唯一闸门 + 结构化提取(SCHEMA 变更行 `- [状态] C<n> 日期 内容`):
 # 单正则,不设第二个"命中"正则 —— 双正则会漂移(panel 7-06 GLM 指出的缺陷类)。
-# 四状态全覆盖(ds_web /api/.../changes 要全量,ds_todo 只取未办结 → 读侧过滤,
-# 同一正则单一真相源);C/日期残缺时各组为 None;\b 防 "C5面板" 无空格粘连误拆。
-STATUS_WORDS = ("待确认", "进行中", "已完成", "已关闭")
+# 五状态全覆盖(ds_web /api/.../changes 要全量减已删除,ds_todo 只取未办结 → 读侧
+# 过滤,同一正则单一真相源);C/日期残缺时各组为 None;\b 防 "C5面板" 无空格粘连误拆。
+# `已删除`(track opendesign-owner-review-0808)是 delete_change 专用的第五态,不在
+# ds_tools.STATUSES 里(那是词表内四态互转用的)——**这里必须认得它**,不认得就等于
+# 这一行对全仓所有扫描 CHANGE_RE 的代码隐形(不是"被过滤",是"解析直接失败");
+# design.md 明确要求"可见但被过滤",过滤动作在读侧各自做(OPEN_STATUS 天然不含它;
+# ds_web._changes 显式排除)。
+STATUS_WORDS = ("待确认", "进行中", "已完成", "已关闭", "已删除")
 OPEN_STATUS = ("待确认", "进行中")  # 未办结 = ds_todo 主动提醒的范围
 CHANGE_RE = re.compile(
-    r"^- \[(待确认|进行中|已完成|已关闭)\]"
+    r"^- \[(待确认|进行中|已完成|已关闭|已删除)\]"
     r"(?:\s+C(\d+)\b)?(?:\s+(\d{4}-\d{2}-\d{2}))?\s*"
     r"(?:【([^【】\s][^【】]{0,15})】\s*)?(.*)$")  # 可选【空间】前缀(track p4):1-16字,空/超长落回正文
 LASTUPD_RE = ds_common.LASTUPD_DATE_RE  # 行首锚定:沟通日志句中的"最后更新"不再误认

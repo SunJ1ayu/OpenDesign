@@ -12,6 +12,7 @@ from ds_tools import (
     bind_project,
     create_client,
     create_project,
+    delete_change,
     delete_project,
     list_projects,
     list_todos,
@@ -174,6 +175,22 @@ def build(ds_root: str | None = None):
         原有备注不动;性格雷区类零碎观察记这档)。业主关联哪个项目是机器维护的字段,
         建项目/项目改名时自动更新。"""
         return update_client(name, field, value, ds_root=ds_root)
+
+    @server.tool()
+    def delete_change_tool(project: str, change_id: str) -> dict:
+        """删除一条变更/待办。设计师明确说"删掉/删除这条待办/这条记录"时用——**不是
+        "改状态"的另一种说法**,状态推进(待确认/进行中/已完成/已关闭)一律走
+        set_change_status,别拿这个工具顶。change_id 形如 "C3"。
+
+        回收站式:不物理删行,只把状态改成"已删除",从待办列表和项目变更栏消失,
+        但档案文件里那一行原样留着(C 编号/日期/正文都不动),删错了能找回来。
+
+        **纪律同 delete_project**:只在设计师明确要求删除、且你复述这条内容
+        (「删掉 C3『XXX』这条」)得到确认后才调;绝不因为"看着像误建的/多余的"
+        自作主张删。⚠️ **这个工具存在之前**,遇到"删除"要求时不许拿
+        set_change_status 悄悄改个状态顶上再回报"删掉了"——现在有了专用工具,
+        更不该绕开它去顶替。"""
+        return delete_change(project, change_id, ds_root=ds_root)
 
     @server.tool()
     def delete_project_tool(project: str) -> dict:

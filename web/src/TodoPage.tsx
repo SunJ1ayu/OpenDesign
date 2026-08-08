@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import type { Project } from "./api";
-import { cnDate, editChange, setDueDate } from "./api";
+import { cnDate, deleteChange, editChange, setDueDate } from "./api";
 import DuePicker from "./DuePicker";
 import GroupToggle from "./GroupToggle";
 import StatusPicker from "./StatusPicker";
@@ -346,6 +346,21 @@ export default function TodoPage({
     }
   }
 
+  // track opendesign-owner-review-0808:删除按钮。二次确认在这里做(原生 confirm,
+  // 与本文件其它终态批量操作/App.tsx 会话删除同一套惯例,不新引入弹窗组件)——
+  // 点取消直接返回,不发请求;点确定才调回收站式的 deleteChange。
+  async function handleDelete(it: OpenItem) {
+    if (it.cnum === null) return; // 残缺行(没有 cnum)定位不到,不给删除入口
+    const ok = window.confirm(`删除这条待办「${it.text}」?删除后在列表里看不到,但记录仍保留、能找回来。`);
+    if (!ok) return;
+    try {
+      await deleteChange({ project: it.project, cnum: it.cnum });
+      reload();
+    } catch (e) {
+      setToast({ kind: "error", message: editErrMsg((e as Error).message) });
+    }
+  }
+
   async function save(it: OpenItem) {
     const eid = editId(it);
     const req = buildEditRequest(it, draft, (eid && noted[eid]) || "");
@@ -530,6 +545,11 @@ export default function TodoPage({
           {it.cnum !== null && (
             <button className="edit-btn" onClick={() => startEdit(it)}>
               编辑
+            </button>
+          )}
+          {it.cnum !== null && (
+            <button className="delete-btn" data-ui="delete-btn" onClick={() => handleDelete(it)}>
+              删除
             </button>
           )}
         </span>

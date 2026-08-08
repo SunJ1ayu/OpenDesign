@@ -200,6 +200,7 @@ FOLDER_VISIBILITY_PATH = "/api/workspace/folder-visibility"  # 阶段二:整份�
 STAGE_PATH = "/api/projects/stage"  # do_POST 写针孔⑩(track opendesign-stage-history §7),精确匹配
 REFS_UPDATE_PATH = "/api/refs/update"  # do_POST 写针孔⑪(同上 track §8),精确匹配
 DUE_DATE_PATH = "/api/changes/due"  # do_POST 写针孔⑫(track opendesign-todo-duedate),精确匹配
+DELETE_CHANGE_PATH = "/api/changes/delete"  # do_POST 写针孔⑮(track opendesign-owner-review-0808),精确匹配
 _INTAKE_ALLOWED_KEYS = {"plan_id"}
 _INTAKE_AMEND_ALLOWED_KEYS = {"plan_id", "drop"}
 # 收件箱确认的错误→HTTP 映射:格式/参数错 400,不存在 404,越界 403,状态冲突 409
@@ -339,6 +340,13 @@ _DUE_ALLOWED_KEYS = {"project", "cnum", "due"}
 # set_due_date error code → HTTP status(格式/日期非法 400,项目/变更不存在 404,歧义 409)
 _DUE_ERR_STATUS = {
     "invalid_due": 400, "change_not_found": 404, "project_not_found": 404,
+    "ambiguous_change": 409, "bad_name": 404, "path_escape": 404,
+}
+# body 键白名单(写针孔⑮:多余键即拒,防夹带 ds_root/today 走私)
+_DELETE_ALLOWED_KEYS = {"project", "cnum"}
+# delete_change error code → HTTP status(项目/变更不存在 404,歧义 409,与其它变更类写口同口径)
+_DELETE_ERR_STATUS = {
+    "change_not_found": 404, "project_not_found": 404,
     "ambiguous_change": 409, "bad_name": 404, "path_escape": 404,
 }
 
@@ -754,6 +762,8 @@ class Handler(BaseHTTPRequestHandler):
             self._refs_update()
         elif path == DUE_DATE_PATH:
             self._set_due_date()
+        elif path == DELETE_CHANGE_PATH:
+            self._delete_change()
         elif (m := _SESSION_DELETE_RE.match(path)):
             self._delete_session(m.group(1))
         else:
@@ -911,9 +921,9 @@ class Handler(BaseHTTPRequestHandler):
             hist = ds_tools.parse_history(text)  # {cnum: {note, history[]}},按 cnum 分桶
             changes = []
             for ln in text.split("\n"):
-                c = ds_todo.parse_change(ln)  # 四状态全量,单一真相源
-                if c is None:
-                    continue
+                c = ds_todo.parse_change(ln)  # 五状态全量减已删除,单一真相源
+                if c is None or c["status"] == "已删除":
+                    continue  # 软删除(delete_change)的行:文件里留着,这个端点不吐出去
                 h = hist.get(c["cnum"]) if c["cnum"] is not None else None
                 item = {
                     "cnum": c["cnum"], "status": c["status"],
@@ -2022,6 +2032,45 @@ class Handler(BaseHTTPRequestHandler):
             return
         err = r.get("error", "internal")
         self._json(_DUE_ERR_STATUS.get(err, 400), {"error": err})
+
+    def _delete_change(self):
+        """POST 写针孔⑮(track opendesign-owner-review-0808):待办「删除」按钮。
+        posture 逐条照抄 _set_due_date:CT application/json → body 0<n≤OPEN_BODY_MAX →
+        JSON dict → 键白名单 {project, cnum}(多余键即拒,防夹带 ds_root/today 走私)→
+        ds_tools.delete_change(定位/校验/锁/页脚 bump 全在核心;写的是字面量"已删除",
+        不经 STATUSES 词表)。前端二次确认(确定/取消弹窗)在浏览器那一侧,这里不重复
+        问一遍——已经收到这个请求就等于用户点了"确定"。Host 闸由 do_POST 入口继承。
+        精确匹配(非前缀)防路径走私。"""
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 < n <= OPEN_BODY_MAX:
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "bad request"})
+            return
+        if not isinstance(body, dict) or set(body) - _DELETE_ALLOWED_KEYS:
+            self._json(400, {"error": "bad request"})  # 非对象/多余键 → 拒
+            return
+        project = body.get("project")
+        if not isinstance(project, str) or not project:
+            self._json(400, {"error": "bad request"})
+            return
+        # cnum 原样交核心:缺失/非数 → delete_change 判 change_not_found(同 set_due_date 口径)
+        r = ds_tools.delete_change(project, body.get("cnum"), ds_root=self.server.ds_root)
+        if r.get("ok"):
+            self._json(200, r)
+            return
+        err = r.get("error", "internal")
+        self._json(_DELETE_ERR_STATUS.get(err, 400), {"error": err})
 
     def _proxy(self, up_path: str):
         """白名单转发到本机 nanobot gateway。纯管道:不读不存任何秘密。

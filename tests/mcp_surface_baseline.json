@@ -114,6 +114,28 @@
       "name": "create_project_tool"
     },
     {
+      "description": "删除一条变更/待办。设计师明确说\"删掉/删除这条待办/这条记录\"时用——**不是\n        \"改状态\"的另一种说法**,状态推进(待确认/进行中/已完成/已关闭)一律走\n        set_change_status,别拿这个工具顶。change_id 形如 \"C3\"。\n\n        回收站式:不物理删行,只把状态改成\"已删除\",从待办列表和项目变更栏消失,\n        但档案文件里那一行原样留着(C 编号/日期/正文都不动),删错了能找回来。\n\n        **纪律同 delete_project**:只在设计师明确要求删除、且你复述这条内容\n        (「删掉 C3『XXX』这条」)得到确认后才调;绝不因为\"看着像误建的/多余的\"\n        自作主张删。⚠️ **这个工具存在之前**,遇到\"删除\"要求时不许拿\n        set_change_status 悄悄改个状态顶上再回报\"删掉了\"——现在有了专用工具,\n        更不该绕开它去顶替。",
+      "inputSchema": {
+        "properties": {
+          "change_id": {
+            "title": "Change Id",
+            "type": "string"
+          },
+          "project": {
+            "title": "Project",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "change_id"
+        ],
+        "title": "delete_change_toolArguments",
+        "type": "object"
+      },
+      "name": "delete_change_tool"
+    },
+    {
       "description": "删除项目档案。设计师要求删除某个项目档案时用——**典型场景:清理误建的\n        重复档案**(\"把重复的删掉\"就是在叫这个工具)。回收站式:移入 projects/.trash/,\n        不真删,删错可捞回。**纪律:调用前先复述项目名得到设计师确认**;设计师没提出\n        删除时,绝不主动提议或自作主张删任何档案。删完把返回里的 trashed 路径和\n        refs_remaining(业主/索引里残留的引用数)报给设计师。",
       "inputSchema": {
         "properties": {

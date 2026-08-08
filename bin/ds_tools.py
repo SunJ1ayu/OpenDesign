@@ -7,12 +7,15 @@ MCP 登记层已搬到 `bin/ds_tools_server.py`,进程入口是 `bin/ds_mcp.py t
 (track opendesign-mcp-registry;末尾只留一个报错桩,给还没更新 config 的存量机器看)。
 
 契约铁律(spec §3):
-  - 变更行:`- [状态] C<n> YYYY-MM-DD 【空间】内容`,状态 ∈ STATUSES;【空间】可选
-    (1-16字,space 参数写入,值内全角括号剥除防伪造闭合)。
+  - 变更行:`- [状态] C<n> YYYY-MM-DD 【空间】内容`,状态 ∈ STATUSES ∪ {已删除};
+    【空间】可选(1-16字,space 参数写入,值内全角括号剥除防伪造闭合)。**`已删除`
+    不在 STATUSES 里**——那是词表内四态间互转用的(set_change_status/edit_change
+    校验它),`已删除` 只有 `delete_change` 这一个专用出口能写(track
+    opendesign-owner-review-0808),ds_todo 的解析词表另有 STATUS_WORDS 认它。
   - 内容是单行:换行在写入口折叠(ds_common.sanitize_field)——多行 content 等于
     伪造任意账本行,词表/锚定/页脚三条铁律会一起被打穿。
   - 末行:`最后更新: YYYY-MM-DD`,每次写动作更新为今天(行首锚定、最后一处)。
-  - 不删变更行(取消用 [已关闭])。
+  - 不删变更行(取消用 [已关闭];软删除用 [已删除],同样不删行,见 delete_change)。
 
 安全(spec §5):realpath allowlist 防路径逃逸 + 排他锁写串行化 + 状态词表校验 + 不删行。
 """
@@ -235,17 +238,12 @@ def append_change(project: str, content: str, ds_root: str = DEFAULT_DS_ROOT,
 
 
 # ── 工具 4.2 set_change_status ──────────────────────────────────────────────
-def set_change_status(project: str, change_id: str, status: str,
-                      ds_root: str = DEFAULT_DS_ROOT, today: str | None = None) -> dict:
-    if status not in STATUSES:
-        return {"error": "invalid_status"}
-    today = ds_common.today_str(today)
-    path, err = _resolve(ds_root, "projects", project)
-    if err:
-        return err
-    if not os.path.exists(path):
-        return {"error": "project_not_found"}
-
+def _rewrite_change_status(path: str, change_id: str, new_status: str,
+                           today: str) -> dict:
+    """定位 `C<change_id>` 那一行,只把 `[状态]` 位改写成 `new_status`,其余字节不动。
+    set_change_status / delete_change 共用的落地步骤——**词表校验各自在调用方做**,
+    这里不管 `new_status` 是不是词表内的值(delete_change 就是靠这点才能写
+    `已删除` 这个不进 STATUSES 的字面量)。"""
     m = re.fullmatch(r"C(\d+)", change_id.strip())
     if not m:
         return {"error": "change_not_found"}
@@ -261,11 +259,57 @@ def set_change_status(project: str, change_id: str, status: str,
             return {"error": "change_not_found" if not hits else "ambiguous_change"}
         i = hits[0]
         old_status = line_re.match(lines[i]).group("old")
-        lines[i] = line_re.sub(rf"\g<1>{status}\g<3>", lines[i], count=1)
+        lines[i] = line_re.sub(rf"\g<1>{new_status}\g<3>", lines[i], count=1)
         ds_common.bump_last_updated(lines, today)
         result_line = lines[i]
 
-    return {"ok": True, "old_status": old_status, "new_status": status, "line": result_line}
+    return {"ok": True, "old_status": old_status, "new_status": new_status,
+            "line": result_line, "cnum": int(num)}
+
+
+def set_change_status(project: str, change_id: str, status: str,
+                      ds_root: str = DEFAULT_DS_ROOT, today: str | None = None) -> dict:
+    if status not in STATUSES:
+        return {"error": "invalid_status"}
+    today = ds_common.today_str(today)
+    path, err = _resolve(ds_root, "projects", project)
+    if err:
+        return err
+    if not os.path.exists(path):
+        return {"error": "project_not_found"}
+    r = _rewrite_change_status(path, change_id, status, today)
+    r.pop("cnum", None)  # 原契约不回 cnum,保持返回形状不变(锁在 oracle 里)
+    return r
+
+
+# ── 工具 4.2d delete_change(track opendesign-owner-review-0808)─────────────
+def delete_change(project: str, cnum,
+                  ds_root: str = DEFAULT_DS_ROOT, today: str | None = None) -> dict:
+    """单条变更/待办的软删除:回收站式,与 `delete_project` 同一个心智模型的最小版本
+    ——**不删行、不改其余字节**,只把 `[状态]` 位改写成字面量 `已删除`(design.md
+    「为什么单开工具,不直接开放 set_change_status(status=已删除)」:这个状态不进
+    STATUSES,`set_change_status`/`edit_change` 校验不了它,只有这个工具能写)。
+
+    `cnum` 容差同 set_due_date/edit_change(接受 3 / "3" / "C3")——这个工具和它们一样
+    是**双面工具**:MCP 侧 agent 传"C3",web 侧前端删除按钮传裸数字 cnum,不该逼前端
+    自己拼字符串。**不是**照抄 set_change_status 那套严格 `C<n>` 校验(那个只有 MCP
+    一个调用方,agent 会照工具说明传"C3",不用兼容裸数字)。
+
+    展示层跟着这个状态走:`ds_todo.OPEN_STATUS` 不含它 → 待办页自动不显示;
+    `ds_web._changes` 显式过滤它 → 项目变更栏也看不见。文件里这一行原样留着,
+    C 编号/日期/正文/【空间】前缀一个字节都不动,想找回去手改状态字即可
+    (与 delete_project 现状一致:没有对应的一键"restore"工具)。
+    """
+    today = ds_common.today_str(today)
+    path, err = _resolve(ds_root, "projects", project)
+    if err:
+        return err
+    if not os.path.exists(path):
+        return {"error": "project_not_found"}
+    mo = re.fullmatch(r"C?(\d+)", str(cnum).strip())
+    if not mo:
+        return {"error": "change_not_found"}
+    return _rewrite_change_status(path, f"C{mo.group(1)}", "已删除", today)
 
 
 # ── 工具 4.1b set_due_date(track opendesign-todo-duedate)────────────────────
