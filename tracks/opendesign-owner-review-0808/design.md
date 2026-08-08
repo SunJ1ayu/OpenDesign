@@ -31,8 +31,12 @@ scope)。
 
 **唯一真相源的两处解析必须同步改**(否则出现"两份状态词表"分裂,ds_todo 7-06 panel
 已经踩过这类坑):
-- `bin/ds_tools.py:39` `STATUSES` 加 `"已删除"`(`set_change_status` 校验用,虽然本次
-  不打算让 agent 直接调 `set_change_status(status="已删除")`——见下"为什么单开工具"）。
+- `bin/ds_tools.py:39` `STATUSES` **不加** `"已删除"` —— 那个词表是 `set_change_status`/
+  `edit_change` 的校验面(词表内四态互转),`已删除` 只有 `delete_change` 一个专用出口
+  能写。见下"为什么单开工具",以及锁死这条的 `test_dc06`。
+  > (2026-08-08 四审 DeepSeek/Kimi 双腿同时指出:这一行原来写的是"`STATUSES` 加
+  > `已删除`",与下面第 49 行"不加"自相矛盾。实现跟的是"不加"这一侧并有判据锁定,
+  > 是这一行的文字错了,不是实现漂移 —— 照原文去改代码会当场被 test_dc06 打脸。)
 - `bin/ds_todo.py:20-25` `STATUS_WORDS`/`CHANGE_RE` 加 `已删除`,否则打上这个状态的行
   在 `parse_change` 眼里直接"不存在"(正则不命中,C 编号、日期全部读不出来),
   会连带破坏 `_changes` 端点的"四状态全量"承诺和其他扫描该行的代码(哪怕当前没有,
@@ -58,7 +62,11 @@ scope)。
   项目不存在 → `project_not_found`。
 - 把该行 `[状态]` 位改写成 `[已删除]`,**不删行、不改行内其余内容**(C 编号/日期/
   正文原样保留,和其它状态转换的写法完全对称)。
-- 返回 `{"ok": True, "project", "change_id"}`。
+- 返回 `{"ok": True, "old_status", "new_status", "line", "cnum"}`(= 与
+  `set_change_status`/`set_due_date` 同族的返回形状,因为落地那一步是共用的
+  `_rewrite_change_status`)。
+  > (2026-08-08 四审 Kimi 指出:这一行原来写的是 `{"ok", "project", "change_id"}`,
+  > 与实现不符。实现的形状与相邻写口一致、更自洽,是这份设计稿写岔了。)
 
 **展示层跟着改**(否则"删了"但列表里还看得见,等于没删):
 - `bin/ds_todo.py` `OPEN_STATUS` 不用动(`已删除`本来就不在"未办结"里,`list_todos`
