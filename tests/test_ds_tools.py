@@ -1617,6 +1617,19 @@ class DeleteChangeOracle(unittest.TestCase):
         # C2(进行中,没删)还在未办结里——不是整份都被清空
         self.assertEqual(len([o for o in got["open"] if o.get("cnum") == 2]), 1)
 
+    # ⑩ 找回路径:set_change_status 能把"已删除"改回真实状态(design.md 没另开
+    # "恢复"工具,靠的就是这条——set_change_status 只校验*目标*状态在不在 STATUSES,
+    # 不校验*当前*状态是什么,所以能把"已删除"改回"待确认"。这条不是原 T0 oracle
+    # 的一部分,是实现完之后核对"设计师说'找回来'时 agent 有没有路可走"时才发现的
+    # 既有能力——补一条锁住它,防止以后有人"加固" set_change_status 去校验旧状态、
+    # 把这条隐性通路堵死却没人发现(AGENTS.md 已经明写了这条路径,堵了就是文档说谎)。
+    def test_dc10_restorable_via_set_change_status(self):
+        ds_tools.delete_change(self.slug, "C1", ds_root=self.ds, today=TODAY)
+        r = ds_tools.set_change_status(self.slug, "C1", "待确认", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(r["old_status"], "已删除")
+        self.assertIn("- [待确认] C1 2026-06-20 主卧衣柜改推拉门", _read(self.path))
+
 
 class SetStageOracle(unittest.TestCase):
     """set_stage oracle — 项目阶段推进(tool-audit 空格②,原字段建档后冻结)。"""
