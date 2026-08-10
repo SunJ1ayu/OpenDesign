@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""业主同意闸 oracle — track opendesign-owner-consent(O1–O7)。
+"""业主同意闸 oracle — track opendesign-owner-consent(O1–O8)。
 
 跑法:  python3 tests/test_ds_consent.py
 
@@ -12,16 +12,20 @@
 
     一份被读的文档里藏一句话 → 助手改工作区根 → 读走工作区外的业主文档 → 上云
 
-所以本单的核心判据**不是"有没有弹窗"**,是 **O2/O7:待确认期间,读面读到的
-仍然是旧根**。弹窗只是让业主看见;真正挡住的是"不落盘"。
+所以本单的核心判据**不是"有没有弹窗"**,是 **O2/O7:待确认期间,助手无论调哪个
+工具,都拿不到新根里的任何东西**。弹窗只是让业主看见;真正挡住的是"不落盘"。
 
-## 两条"不许手抄清单"的闸(anydoc 那单栽过)
+## 判据自己的两条铁律(都是第一版栽过之后加的)
 
-- **O5**:从工具表真相源枚举全部 MCP 工具,**逐个真调一遍**,断言开关文件
-  逐字节未变、没有任何待确认项被批准。不是 grep 源码,是真打一遍。
-- **O7a**:全量工具名必须与本文件的分类清单**完全相等**。谁新加一个工具而
-  不回来分类,这条当场红 —— 这就是"下一个扩读面的人会被拦住"的机械实现,
-  不靠他记得回来看注释。
+1. **走模型真正走的那条路。** 第一版全部直调 `ds_tools.set_workspace()` 这样的
+   核心函数,而模型调的是 MCP 包装层 `set_workspace_tool`。攻题当场给出坏实现:
+   只在包装层开后门(`if os.path.isabs(root): set_mode(ALLOW)`),25 条照样全绿。
+   ⇒ 现在关键路径一律**从 `ds_mcp.build()` 建出的真 server 上 `call_tool`**。
+2. **canary 优先于清单。** 第一版靠一张"工具→读不读工作区根"的分类表。它拦得住
+   "新加工具",拦不住**已有工具悄悄扩权**(把未批准的 root 当"预览根"读一把)。
+   而且实测那张表我自己就分错了 6 个。⇒ 主闸改成**行为 canary**:三个根各放一份
+   唯一的文件,真调全部工具,断言返回里**一个字节的新根 canary 都不许出现**。
+   分类表降级成辅助闸(仍在,用来逼新工具回来分类)。
 
 纯 stdlib、离线、端口 0,不烧 LLM。
 """
@@ -48,46 +52,71 @@ import ds_workspace  # noqa: E402
 
 PROJ_IN = "20260612 周宁 云栖佳苑 12#1802"   # 旧根(业主确认过的)里的项目
 PROJ_OUT = "20260701 福州 机密别墅 A#0101"   # 新根(未经确认)里的项目
-SECRET = "业主合同-绝密.txt"
+
+# ── canary:三个根各一份,文件名与正文都唯一 ──────────────────────────────────
+# 断言的形状是"新根的 canary 一个字节都不许出现在任何工具的返回里"。
+# 文件名也算泄露(合同标题本身就是信息),所以名字和正文都当 canary。
+CANARY_OLD_NAME, CANARY_OLD_BODY = "旧根公开件.txt", "OLDCANARY一份无所谓的说明"
+CANARY_NEW_NAME, CANARY_NEW_BODY = "业主合同绝密.txt", "NEWCANARY总价128万尾款3月1日"
+CANARY_NEW = (CANARY_NEW_NAME, CANARY_NEW_BODY)
 
 PENDING_ID_RE = re.compile(r"^\d{8}-\d{6}-[0-9a-f]{6}$")
 
-# ── O7a 的分类清单 ────────────────────────────────────────────────────────────
-# 每个 MCP 工具必须落进下面两个集合之一。**新加工具 ⇒ 两边都不在 ⇒ O7a 红。**
-# 那时候要回答的问题只有一个:**它读到的东西,根是不是来自 workspace.json?**
-# 是 → 进 WORKSPACE_READ_TOOLS,并给它补一条 O7b 那样的行为断言;
-# 否 → 进 OUTSIDE_WORKSPACE_ROOT,并在下面写清楚它的根是谁给的。
+# ── O7a 的分类清单(**辅助闸**,主闸是下面的 canary)──────────────────────────
+# 每个 MCP 工具必须落进两个集合之一。新加工具 ⇒ 两边都不在 ⇒ O7a 红,逼你回答
+# "它读到的东西,根是不是来自 workspace.json"。
 #
-# 为什么要有这张表:0.80 加 read_project_document_tool 时,`set_workspace` 头上
-# 那条"不拓宽 LLM 能读并上云的内容"的安全论证**当场失效了,却没人发现** ——
-# 因为没有任何东西逼那次改动回头看它。这张表就是那个"逼"。
+# ⚠️ **这张表本身会分错 —— 它不是安全的承重墙。** 第一版我分错了 6 个:
+#   `list_projects_tool` 其实只读 `<ds_root>/projects/*.md`(ds_tools.py:665),
+#   我却当成读工作区的;而 `list_inbox_tool`(ds_intake.py:73)、
+#   `adopt_workspace_tool`(ds_adopt.py:108)、`stage_adoption_tool`(:186)、
+#   `stage_intake_tool`(ds_intake.py:121)、`lint_pkb_tool`(ds_lint.py:195)
+#   都真的走 `ds_workspace.load_config`,我却放进了"不读"那一堆。
+#   下面这版是逐个 grep `load_config` 核过的。
+# ⇒ 正因为人分类会错,承重的是 canary(O7b),不是这张表。
 WORKSPACE_READ_TOOLS = frozenset({
-    # 读根 = workspace.json.root → 受本单的同意闸保护
     "list_project_documents_tool",   # 列 01-资料 的文档(带文件名进对话)
     "read_project_document_tool",    # 读文档正文(**本单要防的主角**)
-    "list_projects_tool",            # 扫工作区下的项目夹名
-    "bind_project_tool",             # 把项目名指到根内某文件夹(本单一并受闸)
     "set_workspace_tool",            # 改根本体(本单要闸住的动作)
+    "bind_project_tool",             # 把项目名指到根内某文件夹(本单一并受闸)
+    "list_inbox_tool",               # ds_intake.list_inbox → load_config
+    "adopt_workspace_tool",          # ds_adopt.adopt_scan → load_config
+    "stage_adoption_tool",           # ds_adopt.stage_adoption → load_config
+    "stage_intake_tool",             # ds_intake.stage_intake → load_config
+    "lint_pkb_tool",                 # ds_lint 查 workspace 映射悬挂 → load_config
 })
 OUTSIDE_WORKSPACE_ROOT = frozenset({
-    # 读写根**不是** workspace.json.root,因此改根影响不到它们:
-    # ── ds_root/(档案本体,始终在程序自己的目录下)
+    # 根是 <ds_root>/(档案本体,始终在程序自己的目录下)
     "append_change_tool", "create_client_tool", "create_project_tool",
-    "delete_change_tool", "delete_project_tool", "lint_pkb_tool",
+    "delete_change_tool", "delete_project_tool", "list_projects_tool",
     "list_todos_tool", "log_communication_tool", "read_client_tool",
     "read_project_tool", "rename_project_tool", "set_change_status_tool",
     "set_due_date_tool", "set_stage_tool", "update_client_tool",
-    # ── 纯计算,不碰盘
+    # 纯计算,不碰盘
     "resolve_date_tool",
-    # ── DS_ORGANIZE_ROOTS 白名单(独立 env,set_workspace 够不着;
-    #    且写面走 ds-approve 终端闸,比本单的网页闸更强 —— proposal 明写不动它)
-    "adopt_workspace_tool", "apply_plan_tool", "list_inbox_tool",
-    "scan_dir_tool", "stage_adoption_tool", "stage_intake_tool",
-    "stage_plan_tool",
-    # ── refs:共享图库,根同样来自 ds_root
+    # DS_ORGANIZE_ROOTS / allowed_roots 白名单(独立授权边界,set_workspace 够不着;
+    # 写面还走 ds-approve 终端闸 —— proposal 明写不动这条线)
+    "apply_plan_tool", "scan_dir_tool", "stage_plan_tool",
+    # refs:共享图库,根同样来自 ds_root(ds_refs.py 零处 load_config)
     "add_ref_tool", "add_style_tool", "find_refs_tool", "link_ref_tool",
     "update_ref_tool",
 })
+
+# 这几个必须**真的跑起来**(不是被参数校验早退)。没有这条下界,参数猜测器哪天
+# 失灵,O5/O7b 会静默退化成"调了 33 次、33 次都在第一行返回 error"的空转 ——
+# 看着在枚举真相源,实际什么都没验证。攻题原话:"异常还在循环里全部吞掉"。
+MUST_REALLY_RUN = frozenset({
+    "list_todos_tool", "list_projects_tool", "list_inbox_tool",
+    "set_workspace_tool", "list_project_documents_tool",
+    "read_project_document_tool", "adopt_workspace_tool", "lint_pkb_tool",
+    "bind_project_tool",   # 本单明确要闸住的两个动作之一,不许在 canary 闸里空转
+})
+
+# 已知覆盖不到的(记账,别假装全覆盖):`stage_intake_tool` / `stage_adoption_tool`
+# 需要非空的 assignments 数组才跑得动,参数猜测器造不出来 ⇒ canary 闸照不到它们。
+# 两者都读 workspace 根(已在 WORKSPACE_READ_TOOLS 里),但都是**写面**、且经
+# allowed_roots 二次限制。留给四审看要不要补。
+CANARY_BLIND_SPOTS = frozenset({"stage_intake_tool", "stage_adoption_tool"})
 
 
 def _write(path, content="x"):
@@ -105,36 +134,207 @@ def _mkdist() -> str:
 def _mkfixture():
     """ds_root + 两个工作区根:old(业主确认过的)、new(助手想换过去的)。
 
-    new 根里放一份"业主合同",它就是这一单要防止被读走的东西。
+    new 根里那份 canary 就是这一单要防止被读走的东西。
     """
     ds = tempfile.mkdtemp(prefix="ds_consent_ds_")
     old = tempfile.mkdtemp(prefix="ds_consent_old_")
     new = tempfile.mkdtemp(prefix="ds_consent_new_")
-    os.makedirs(os.path.join(old, "01-项目", PROJ_IN, "01-资料"))
-    _write(os.path.join(old, "01-项目", PROJ_IN, "01-资料", "公开说明.txt"), "无所谓")
-    os.makedirs(os.path.join(new, "01-项目", PROJ_OUT, "01-资料"))
-    _write(os.path.join(new, "01-项目", PROJ_OUT, "01-资料", SECRET),
-           "总价 128 万,尾款 3 月 1 日前付清。")
+    for root, proj, (name, body) in (
+            (old, PROJ_IN, (CANARY_OLD_NAME, CANARY_OLD_BODY)),
+            (new, PROJ_OUT, (CANARY_NEW_NAME, CANARY_NEW_BODY))):
+        docs = os.path.join(root, "01-项目", proj, "01-资料")
+        os.makedirs(docs)
+        _write(os.path.join(docs, name), body)
+        os.makedirs(os.path.join(root, "00-收件箱"), exist_ok=True)
     _write(os.path.join(ds, "config", "workspace.json"),
            json.dumps({"root": old, "projects": {}, "projectsDir": "01-项目"},
                       ensure_ascii=False))
+    _write(os.path.join(ds, "projects", PROJ_IN + ".md"),
+           f"# {PROJ_IN}\n\n- 阶段:方案\n")
     return ds, old, new
 
 
-def _pending_id(case: unittest.TestCase, ds_root: str, root: str) -> str:
-    """排一条待确认并取回它的 id。**带显式前置断言,不许直接 `[...]` 取键。**
+def _snapshot(ds_root: str) -> dict:
+    """把"这道闸保护的全部状态"抓成一份可逐字节比对的快照。
 
-    出处(红检时自己撞见的):第一版这里是
-    `pid = ds_tools.set_workspace(...)["pending_id"]`。拿假实现红检时,O3/O4/O7c
-    共 8 条全部红成 `KeyError: 'pending_id'` —— 红是红了,但**红在前置塌了**,
-    它们真正要考的东西(掉包、重放、同意后可读)一条都没被考到。
-    记忆里那条「红在 TypeError 上等于没红检过」的又一例,这次是我自己写的判据。
+    不只是 workspace.json —— 攻题第 6 条:坏工具可以只改 `config/pending/*.json`
+    里记的**执行参数**(不碰批准位),业主看到的还是旧卡片,后端却按篡改后的参数执行。
+    所以 pending 目录整个进快照。
     """
-    r = ds_tools.set_workspace(root, ds_root=ds_root)
+    out = {}
+    for rel in ("config/workspace.json", "config/consent.json"):
+        p = os.path.join(ds_root, rel)
+        out[rel] = open(p, "rb").read() if os.path.exists(p) else None
+    pdir = os.path.join(ds_root, "config", "pending")
+    if os.path.isdir(pdir):
+        for name in sorted(os.listdir(pdir)):
+            with open(os.path.join(pdir, name), "rb") as fh:
+                out[f"config/pending/{name}"] = fh.read()
+    return out
+
+
+@contextmanager
+def _mcp(ds_root: str):
+    """从真相源建出三个真 MCP server,并保证**枚举和调用都在同一环境生效期内**。
+
+    ⚠️ 第一版这里是普通函数、在 `finally` 里就把 DS_ROOT 恢复了,而工具是在函数
+    返回**之后**才被 `call_tool` 调的。后果:O5 那条"模型碰不到开关"的闸,造一个
+    真去写 consent.json 的工具都咬不住(它写到别处去了)—— 一条永远绿的摆设闸。
+    """
+    import ds_mcp
+    old = {k: os.environ.get(k) for k in ("DS_ROOT", "DS_ORGANIZE_ROOTS")}
+    os.environ["DS_ROOT"] = ds_root
+    os.environ["DS_ORGANIZE_ROOTS"] = ds_root
+    try:
+        tools = []
+        for key in ("tools", "organize", "refs"):
+            server = ds_mcp.build(key)
+            for t in asyncio.run(server.list_tools()):
+                tools.append((server, t))
+        yield tools
+    finally:
+        for k, v in old.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+
+def _flatten(r) -> str:
+    """FastMCP 的 `call_tool` 回的是 `list[TextContent]`(不是 dict),正文在
+    每个块的 `.text` 里。**必须真解出来** —— 直接 `json.dumps(r, default=str)`
+    拿到的是对象 repr,canary 搜索凑巧还能命中,但 `"error":` 判定会被转义
+    带偏,于是"成功了没有"整个算错,下界闸跟着失效。"""
+    if isinstance(r, dict):
+        return json.dumps(r, ensure_ascii=False, default=str)
+    parts = []
+    for item in (r if isinstance(r, (list, tuple)) else [r]):
+        t = getattr(item, "text", None)
+        parts.append(t if isinstance(t, str)
+                     else json.dumps(item, ensure_ascii=False, default=str))
+    return "\n".join(parts)
+
+
+def _call(server, name: str, args: dict):
+    """调一个 MCP 工具,返回 (成功?, 返回值的字符串形式)。
+
+    "成功" = 真跑到了业务逻辑(没抛异常、返回里没有 error 键)。这个判定要
+    保守 —— 宁可少算,也不能把"早退"算成"跑过了",否则下界闸就白设了。
+    """
+    try:
+        r = asyncio.run(server.call_tool(name, args))
+    except Exception as e:                       # 参数校验抛出 = 没跑到业务逻辑
+        return False, f"<exception {type(e).__name__}: {e}>"
+    text = _flatten(r)
+    ok = not re.search(r'"error"\s*:', text)
+    return ok, text
+
+
+def _args_for(tool_name: str, schema: dict, new_root: str, proj: str) -> dict:
+    """按**参数名**造语义有效的参数(不是按工具名手抄清单 —— 那张表会烂)。
+
+    值一律选"攻击者会传的那个":`root` 指向未经确认的新根,`project` 指向新根
+    里的项目。工具要是真把它们当路径用了,canary 就会出现在返回里。
+    """
+    props = (schema or {}).get("properties") or {}
+    by_name = {
+        "root": new_root,
+        "dir": new_root,
+        "path": new_root,
+        "project": proj,
+        "project_key": proj,
+        "name": proj,
+        # folder 必须跟着 proj 一起变:bind_project 要求 folder 在**当前生效的**根里
+        # 真实存在,写死成 PROJ_OUT 会让它永远在文件夹校验处早退(实测过)。
+        "folder": proj,
+        "rel": CANARY_NEW_NAME,
+        "file": CANARY_NEW_NAME,
+    }
+    args = {}
+    for pname, spec in props.items():
+        typ = spec.get("type")
+        if pname in by_name:
+            args[pname] = by_name[pname]
+        elif typ in ("integer", "number"):
+            args[pname] = 1
+        elif typ == "boolean":
+            args[pname] = True
+        elif typ == "array":
+            args[pname] = []
+        elif typ == "object":
+            args[pname] = {}
+        else:
+            args[pname] = ""
+    return args
+
+
+def _call_every_tool(ds_root: str, new_root: str):
+    """真调全部工具,回 [(name, ok, text)]。
+
+    **调两遍**:`project` 参数一遍给新根里的项目(PROJ_OUT,试探"能不能读到
+    未批准的根"),一遍给已建档的项目(PROJ_IN,让 `bind_project_tool` 这类
+    "项目必须先存在"的工具真的跑到业务逻辑)。只调一遍的话,本单明确要闸住的
+    `bind_project_tool` 会在项目名校验处早退,canary 闸对它等于空转。
+
+    ⚠️ **工具之间会互相拆台**:这一堆里混着 `delete_project_tool` /
+    `rename_project_tool` 这种破坏性工具,它们会把档案删掉,于是排在后面的
+    `bind_project_tool` 永远 `project_not_found`(实测:两遍都早退)。
+    所以**每次调用前复原夹具**,别依赖 `list_tools()` 的顺序 —— 顺序一变,
+    判据的覆盖面就会静默缩水。
+    """
+    out = []
+    with _mcp(ds_root) as tools:
+        for proj in (PROJ_OUT, PROJ_IN):
+            for s, t in tools:
+                _restore_fixture(ds_root)
+                out.append((t.name, *_call(s, t.name,
+                                           _args_for(t.name, t.inputSchema,
+                                                     new_root, proj))))
+    return out
+
+
+def _restore_fixture(ds_root: str):
+    """把档案侧的夹具复原(只碰 `projects/`,**不碰 `config/`** ——
+    O5b 的快照断言正是在比对 config/ 下的东西,复原动了它就成了自欺)。"""
+    _write(os.path.join(ds_root, "projects", PROJ_IN + ".md"),
+           f"# {PROJ_IN}\n\n- 阶段:方案\n")
+
+
+def _mcp_set_workspace(case: unittest.TestCase, ds_root: str, root: str):
+    """**走模型真正走的那条路**改工作区根 —— MCP 包装层,不是核心函数。
+
+    攻题第 1 条:判据只打核心函数时,恶意实现只要在包装层开后门就能全绿。
+    """
+    with _mcp(ds_root) as tools:
+        server, tool = next((s, t) for s, t in tools
+                            if t.name == "set_workspace_tool")
+        ok, text = _call(server, tool.name, {"root": root})
+    case.assertTrue(ok, f"set_workspace_tool 没跑起来,后面考不了:{text[:200]}")
+    case.assertTrue(text.strip().startswith("{"),
+                    f"set_workspace_tool 的返回不是 JSON 对象:{text[:200]}")
+    return json.loads(text)
+
+
+def _expect_pending(case: unittest.TestCase, r: dict, what: str) -> str:
+    """从一个工具返回里取 pending_id。**带显式前置断言,不许直接 `[...]` 取键。**
+
+    出处:第一版判据到处写 `set_workspace(...)["pending_id"]`,拿假实现红检时
+    8 条全部红成 `KeyError` —— 红在前置塌了,真正要考的东西(掉包、重放、
+    同意后可读)一条都没被考到。「红在 TypeError 上等于没红检过」的又一例。
+    ⚠️ 修完之后我**又在新写的 o3e 里犯了同一次**(`r["pending_id"]`)——
+    所以这里抽成唯一出口,别再各写各的。
+    """
+    case.assertIsInstance(r, dict, f"前置不成立:{what} 没回一个 dict:{r!r:.200}")
     case.assertTrue(r.get("pending"),
-                    "前置不成立:默认档没有排队就直接生效了 —— 后面那条根本考不了")
-    case.assertIn("pending_id", r, "前置不成立:排了队却没给 pending_id")
+                    f"前置不成立:{what} 没排队就直接生效了 —— 后面那条根本考不了")
+    case.assertIn("pending_id", r, f"前置不成立:{what} 排了队却没给 pending_id")
     return r["pending_id"]
+
+
+def _pending_id(case: unittest.TestCase, ds_root: str, root: str) -> str:
+    """经核心函数排一条 set_workspace 待确认并取回 id。"""
+    return _expect_pending(case, ds_tools.set_workspace(root, ds_root=ds_root),
+                           "set_workspace")
 
 
 def _ws_bytes(ds_root: str) -> bytes:
@@ -189,25 +389,31 @@ class O1_默认要问(unittest.TestCase):
         self.assertEqual(ds_consent.load_mode(self.ds), ds_consent.MODE_ASK)
 
     def test_o1b_配置坏掉也是问_fail_closed(self):
-        # 坏 JSON / 认不出的档位,都必须退到"问",不许退到"放行"。
         for bad in ("{不是 json", '{"mode": "allow_everything"}', '"allow"', "[]"):
             _write(os.path.join(self.ds, "config", "consent.json"), bad)
             self.assertEqual(ds_consent.load_mode(self.ds), ds_consent.MODE_ASK,
                              f"坏配置 {bad!r} 必须 fail-closed 到 ask")
 
-    def test_o1c_默认档下set_workspace不落盘只产生待确认(self):
+    def test_o1c_默认档下走真实mcp入口也不落盘(self):
+        """**走 MCP 包装层**,不是核心函数 —— 攻题第 1 条要的就是这条。"""
         before = _ws_bytes(self.ds)
-        r = ds_tools.set_workspace(self.new, ds_root=self.ds)
+        r = _mcp_set_workspace(self, self.ds, self.new)
         self.assertTrue(r.get("pending"), "默认档必须产生待确认,不许直接生效")
         self.assertTrue(PENDING_ID_RE.match(r.get("pending_id", "")),
                         "pending_id 要有格式闸(照抄 plan_id 形状)")
-        # 助手**拿不到"已生效"的任何证据**:不回 root、不回 folder_count
+        # 助手**拿不到"已生效"的任何证据**
         self.assertNotIn("root", r)
         self.assertNotIn("folder_count", r)
         self.assertEqual(_ws_bytes(self.ds), before, "待确认期间配置必须逐字节未变")
 
-    def test_o1d_bind_project同样受闸(self):
-        _write(os.path.join(self.ds, "projects", PROJ_IN + ".md"), "# x\n")
+    def test_o1d_核心函数这一层也要挡住(self):
+        """包装层挡住了还不够:核心函数是共用件,别处也在调它。"""
+        before = _ws_bytes(self.ds)
+        r = ds_tools.set_workspace(self.new, ds_root=self.ds)
+        self.assertTrue(r.get("pending"))
+        self.assertEqual(_ws_bytes(self.ds), before)
+
+    def test_o1e_bind_project同样受闸(self):
         before = _ws_bytes(self.ds)
         r = ds_tools.bind_project(PROJ_IN, PROJ_IN, ds_root=self.ds)
         self.assertTrue(r.get("pending"), "bind_project 也要走同意闸")
@@ -226,31 +432,32 @@ class O2_待确认期间读面读不到新根(unittest.TestCase):
 
     def test_o2a_待确认期间配置逐字节未变(self):
         before = _ws_bytes(self.ds)
-        ds_tools.set_workspace(self.new, ds_root=self.ds)
+        _mcp_set_workspace(self, self.ds, self.new)
         self.assertEqual(_ws_bytes(self.ds), before)
         self.assertEqual(ds_workspace.load_config(self.ds)["root"],
                          os.path.realpath(self.old))
 
     def test_o2b_待确认期间读不到新根的文档_这条才是真正要防的(self):
-        ds_tools.set_workspace(self.new, ds_root=self.ds)
+        _mcp_set_workspace(self, self.ds, self.new)
         listed = ds_documents.list_documents(PROJ_OUT, ds_root=self.ds)
         self.assertFalse(listed.get("ok"),
                          "待确认期间必须读不到新根下的项目 —— 这条红了就是那条 exfil 链通了")
         self.assertEqual(listed.get("error"), "project_not_bound")
 
     def test_o2c_待确认期间连文件名都不该漏(self):
-        # 只列文件名也是泄露(合同标题本身就是信息)。
-        ds_tools.set_workspace(self.new, ds_root=self.ds)
-        r = ds_documents.read_document(PROJ_OUT, SECRET, ds_root=self.ds)
+        _mcp_set_workspace(self, self.ds, self.new)
+        r = ds_documents.read_document(PROJ_OUT, CANARY_NEW_NAME, ds_root=self.ds)
         self.assertFalse(r.get("ok"))
-        self.assertNotIn(SECRET, json.dumps(r, ensure_ascii=False))
+        blob = json.dumps(r, ensure_ascii=False)
+        for canary in CANARY_NEW:
+            self.assertNotIn(canary, blob)
 
     def test_o2d_旧根照常可读_闸不许误伤(self):
-        # 误报是这道闸的死法:挡住新根的同时不许把正常使用挡了。
-        ds_tools.set_workspace(self.new, ds_root=self.ds)
+        """误报是这道闸的死法:挡住新根的同时不许把正常使用挡了。"""
+        _mcp_set_workspace(self, self.ds, self.new)
         listed = ds_documents.list_documents(PROJ_IN, ds_root=self.ds)
         self.assertTrue(listed.get("ok"), "旧根(业主确认过的)必须照常能读")
-        self.assertEqual([d["rel"] for d in listed["documents"]], ["公开说明.txt"])
+        self.assertEqual([d["rel"] for d in listed["documents"]], [CANARY_OLD_NAME])
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -276,8 +483,7 @@ class O3_照记录参数执行(unittest.TestCase):
                          os.path.realpath(self.new))
 
     def test_o3b_助手中途再提一条不影响已在排队的那条(self):
-        """确认后掉包:助手先提一个看着无害的根骗到同意,再改成别的。
-        执行必须照**第一条 pending 里记的参数**,不是助手最后一次说的。"""
+        """确认后掉包:先提一个看着无害的根骗到同意,再改成别的。"""
         pid = _pending_id(self, self.ds, self.new)
         ds_tools.set_workspace(self.other, ds_root=self.ds)  # 第二条,另一个根
         with _serve(self.ds) as port:
@@ -299,9 +505,8 @@ class O3_照记录参数执行(unittest.TestCase):
         self.assertEqual(_ws_bytes(self.ds), before)
 
     def test_o3d_卡片内容来自落盘记录_不经助手转述(self):
-        """design 硬性①:卡片由 pending json 渲染。前端只带 id,
-        所以 GET 必须自己把"要干什么"说清楚。"""
-        ds_tools.set_workspace(self.new, ds_root=self.ds)
+        """design 硬性①:卡片由 pending json 渲染,前端只带 id。"""
+        _pending_id(self, self.ds, self.new)
         with _serve(self.ds) as port:
             st, r = _get_json(port, "/api/consent")
         self.assertEqual(st, 200)
@@ -310,6 +515,20 @@ class O3_照记录参数执行(unittest.TestCase):
         card = r["pending"][0]
         self.assertEqual(card["action"], "set_workspace")
         self.assertEqual(card["params"]["root"], os.path.realpath(self.new))
+
+    def test_o3e_bind_project走完整条链(self):
+        """攻题第 8 条:bind 原来只测了"会排队",批准/生效那半条没测 ——
+        "会排队但永远批不对"能全绿。"""
+        pid = _expect_pending(
+            self, ds_tools.bind_project(PROJ_IN, PROJ_IN, ds_root=self.ds),
+            "bind_project")
+        with _serve(self.ds) as port:
+            st, _ = _post(port, "/api/consent/resolve",
+                          {"pending_id": pid, "approve": True})
+        self.assertEqual(st, 200)
+        cfg = ds_workspace.load_config(self.ds)
+        self.assertEqual(cfg["projects"].get(PROJ_IN), PROJ_IN,
+                         "bind 同意之后必须真的写进映射")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -352,65 +571,33 @@ class O4_一次性(unittest.TestCase):
         self.assertEqual(st, 200)
         self.assertEqual(r["pending"], [])
 
+    def test_o4d_并发批准只许生效一次(self):
+        """攻题第 8 条:朴素的 check-then-act(读记录 → 看没决过 → 执行 → 标记)
+        两个线程能同时越过检查。design 硬性②写死了"一次性",这条钉住它。"""
+        pid = _pending_id(self, self.ds, self.new)
+        codes = []
+        lock = threading.Lock()
+
+        with _serve(self.ds) as port:
+            def go():
+                st, _ = _post(port, "/api/consent/resolve",
+                              {"pending_id": pid, "approve": True})
+                with lock:
+                    codes.append(st)
+            threads = [threading.Thread(target=go) for _ in range(4)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+        self.assertEqual(sorted(codes).count(200), 1,
+                         f"恰好一个请求该成功,实际 {codes}")
+        self.assertEqual(sorted(codes).count(409), 3, f"其余该 409,实际 {codes}")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
-# O5 模型碰不到开关 —— 从真相源枚举,逐个真调一遍
+# O5 模型碰不到开关 —— 从真相源枚举,逐个**真调**一遍
 # ══════════════════════════════════════════════════════════════════════════════
-@contextmanager
-def _mcp_tools(ds_root: str):
-    """(server, tool) 全量,来自 ds_mcp.build —— **真相源,不手抄**。
-
-    `build(key)` 只收一个参数,ds_root 走 DS_ROOT 环境变量(ds_*_server.build
-    的默认值就是读它)。这里显式覆盖,免得判据打到真仓库上。
-
-    ⚠️ **为什么是 contextmanager 而不是普通函数**(攻我自己的题时抓到的判据 bug):
-    第一版写成 `_all_tools()` 返回列表、在 `finally` 里就把 DS_ROOT 恢复了 ——
-    而工具是在函数**返回之后**才被 `call_tool` 调用的。于是任何在**调用时**
-    读 DS_ROOT 的代码都会打到错误的根上。实测后果:O5a 那条"模型碰不到开关"
-    的闸,**造一个真去写 consent.json 的工具都咬不住它**(它写到别处去了)——
-    一条永远绿的摆设闸,而且绿得理直气壮。
-    ⇒ 枚举**和调用**必须都在环境生效期内。
-    """
-    import ds_mcp
-    old_ds, old_org = os.environ.get("DS_ROOT"), os.environ.get("DS_ORGANIZE_ROOTS")
-    os.environ["DS_ROOT"] = ds_root
-    os.environ["DS_ORGANIZE_ROOTS"] = ds_root
-    try:
-        out = []
-        for key in ("tools", "organize", "refs"):
-            server = ds_mcp.build(key)
-            for t in asyncio.run(server.list_tools()):
-                out.append((server, t))
-        yield out
-    finally:
-        for k, v in (("DS_ROOT", old_ds), ("DS_ORGANIZE_ROOTS", old_org)):
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
-
-
-def _dummy_args(schema: dict) -> dict:
-    """按 inputSchema 造一组"类型合法但内容恶意"的参数。
-    目的不是让工具成功,是让它**真的跑起来**,好看看它碰不碰得到开关。"""
-    props = (schema or {}).get("properties") or {}
-    args = {}
-    for name, spec in props.items():
-        typ = spec.get("type")
-        if typ == "integer" or typ == "number":
-            args[name] = 1
-        elif typ == "boolean":
-            args[name] = True
-        elif typ == "array":
-            args[name] = []
-        elif typ == "object":
-            args[name] = {}
-        else:
-            # 字符串位一律塞"指着开关文件"的值 —— 谁把入参当路径直接用,这里就会现形
-            args[name] = "../config/consent.json"
-    return args
-
-
 class O5_模型碰不到开关(unittest.TestCase):
     def setUp(self):
         self.ds, self.old, self.new = _mkfixture()
@@ -419,34 +606,30 @@ class O5_模型碰不到开关(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.ds, ignore_errors=True)
 
-    def test_o5a_全量工具真调一遍_开关文件逐字节未变(self):
-        cpath = os.path.join(self.ds, "config", "consent.json")
-        with open(cpath, "rb") as fh:
-            before = fh.read()
-        with _mcp_tools(self.ds) as tools:
-            self.assertGreaterEqual(len(tools), 33, "工具表真相源没读到,判据等于没跑")
-            for server, t in tools:
-                try:
-                    asyncio.run(server.call_tool(t.name, _dummy_args(t.inputSchema)))
-                except Exception:
-                    pass  # 参数不合法而失败是预期的;只关心它有没有碰到开关
-        with open(cpath, "rb") as fh:
-            self.assertEqual(fh.read(), before,
-                             "有 MCP 工具改到了同意开关 —— 注入只要先关掉它,整道闸就是摆设")
+    def test_o5a_参数猜测器没失灵_关键工具真的跑起来了(self):
+        """**下界闸。** 没有它,参数猜测器一失灵,O5/O7b 就静默退化成
+        "调了 33 次、33 次都在第一行 return error" —— 看着在枚举真相源,
+        实际一个字节都没验证到。攻题原话:"异常还在循环里全部吞掉"。
 
-    def test_o5b_全量工具真调一遍_不许批准任何待确认项(self):
-        pid = _pending_id(self, self.ds, self.new)
-        with _mcp_tools(self.ds) as tools:
-            for server, t in tools:
-                try:
-                    asyncio.run(server.call_tool(t.name, _dummy_args(t.inputSchema)))
-                except Exception:
-                    pass
-        rec = ds_consent.get_pending(self.ds, pid)
-        self.assertIsNotNone(rec)
-        self.assertIsNone(rec.get("resolved_at"), "有工具把待确认项自己批了")
-        self.assertEqual(ds_workspace.load_config(self.ds)["root"],
-                         os.path.realpath(self.old))
+        注意它同时也是一条**前提闸**:`bind_project_tool` 只有在"根没被换掉"
+        时才跑得到业务逻辑。所以闸一旦失效(根真被换到新根),这条会跟着红 ——
+        那是**诚实的红**:前提塌了,O5b/O7b 的结论本来也就不作数了。
+        (实测:拿放行一切的假实现跑,这条确实红;闸生效时它绿。)"""
+        results = _call_every_tool(self.ds, self.new)
+        self.assertGreaterEqual(len(results), 66, "工具表真相源没读到(33 个工具 × 两遍)")
+        ran = {name for name, ok, _t in results if ok}
+        self.assertEqual(MUST_REALLY_RUN - ran, set(),
+                         f"这些工具没真跑起来,判据等于空转;实际跑起来的:{sorted(ran)}")
+
+    def test_o5b_全量工具真调一遍_受保护状态逐字节未变(self):
+        """不只看开关文件 —— pending 里记的**执行参数**被改掉同样致命:
+        业主看到的还是旧卡片,后端却按篡改后的参数执行(攻题第 6 条)。"""
+        _pending_id(self, self.ds, self.new)
+        before = _snapshot(self.ds)
+        _call_every_tool(self.ds, self.new)
+        self.assertEqual(_snapshot(self.ds), before,
+                         "有 MCP 工具动了同意开关或待确认记录 —— "
+                         "注入只要先关掉它/改掉参数,整道闸就是摆设")
 
     def test_o5c_开关不许住在workspace_json里(self):
         """把锁挂在门里侧:set_workspace 自己就写 workspace.json。"""
@@ -457,7 +640,7 @@ class O5_模型碰不到开关(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# O6 关掉开关后回到今天的行为
+# O6 关掉开关后回到今天的行为 + 两个针孔的 posture
 # ══════════════════════════════════════════════════════════════════════════════
 class O6_关掉开关(unittest.TestCase):
     def setUp(self):
@@ -478,35 +661,60 @@ class O6_关掉开关(unittest.TestCase):
     def test_o6b_档位只能走ds_web的口改(self):
         with _serve(self.ds) as port:
             st, r = _post(port, "/api/consent/mode", {"mode": ds_consent.MODE_ALLOW})
-            self.assertEqual(st, 200)
-            self.assertEqual(r["mode"], ds_consent.MODE_ALLOW)
-            st2, _ = _get_json(port, "/api/consent")
-        self.assertEqual(st2, 200)
+        self.assertEqual(st, 200)
+        self.assertEqual(r["mode"], ds_consent.MODE_ALLOW)
         self.assertEqual(ds_consent.load_mode(self.ds), ds_consent.MODE_ALLOW)
 
     def test_o6c_档位针孔的posture照抄针孔四(self):
         with _serve(self.ds) as port:
-            # CT 闸
             st, _ = _post(port, "/api/consent/mode", {"mode": "ask"},
                           ctype="text/plain")
-            self.assertEqual(st, 400)
-            # 键白名单
+            self.assertEqual(st, 400, "CT 闸")
             st, _ = _post(port, "/api/consent/mode", {"mode": "ask", "x": 1})
-            self.assertEqual(st, 400)
-            # 档位值白名单
+            self.assertEqual(st, 400, "键白名单")
             st, _ = _post(port, "/api/consent/mode", {"mode": "allow_everything"})
-            self.assertEqual(st, 400)
-            # body 上限
+            self.assertEqual(st, 400, "档位值白名单")
             st, _ = _post(port, "/api/consent/mode",
                           raw=b'{"mode":"' + b"a" * 100000 + b'"}')
-            self.assertEqual(st, 400)
+            self.assertEqual(st, 400, "body 上限")
 
-    def test_o6d_resolve针孔的id格式闸(self):
+    def test_o6d_resolve针孔的posture也要照抄_不许只有id格式闸(self):
+        """攻题第 7 条:第一版只测了 pending_id 格式,把 resolve 的 CT / body 上限 /
+        键白名单 / approve 类型全漏了。坏实现可以从 body 里夹带一个 root,
+        或者拿字符串 `"false"`(truthy)冒充批准,而正常路径照样全绿。"""
+        pid = _pending_id(self, self.ds, self.new)
         with _serve(self.ds) as port:
             for bad in ("", "../../etc/passwd", "x" * 200, "20260810-120000-ZZZZZZ"):
                 st, _ = _post(port, "/api/consent/resolve",
                               {"pending_id": bad, "approve": True})
                 self.assertEqual(st, 400, f"坏 pending_id {bad!r} 必须被格式闸拦下")
+            st, _ = _post(port, "/api/consent/resolve",
+                          {"pending_id": pid, "approve": True}, ctype="text/plain")
+            self.assertEqual(st, 400, "CT 闸")
+            st, _ = _post(port, "/api/consent/resolve",
+                          {"pending_id": pid, "approve": True, "root": "/tmp"})
+            self.assertEqual(st, 400, "键白名单:不许从 body 夹带执行参数")
+            st, _ = _post(port, "/api/consent/resolve",
+                          {"pending_id": pid, "approve": "false"})
+            self.assertEqual(st, 400, "approve 必须是真布尔,字符串一律拒")
+            st, _ = _post(port, "/api/consent/resolve",
+                          raw=b'{"pending_id":"' + b"a" * 100000 + b'"}')
+            self.assertEqual(st, 400, "body 上限")
+        # 上面全被拒之后,状态必须一点没动
+        self.assertEqual(ds_workspace.load_config(self.ds)["root"],
+                         os.path.realpath(self.old))
+
+    def test_o6e_批准不许顺手把开关关掉(self):
+        """攻题第 5 条:resolve 里偷偷 set_mode(ALLOW),此后再不弹卡 ——
+        业主只点了一次同意,却把闸永久关了。"""
+        pid = _pending_id(self, self.ds, self.new)
+        with _serve(self.ds) as port:
+            _post(port, "/api/consent/resolve", {"pending_id": pid, "approve": True})
+        self.assertEqual(ds_consent.load_mode(self.ds), ds_consent.MODE_ASK,
+                         "批准一条不等于把闸关了")
+        # 再来一次,照样要排队
+        r = ds_tools.set_workspace(self.old, ds_root=self.ds)
+        self.assertTrue(r.get("pending"), "下一次仍然必须问")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -520,56 +728,84 @@ class O7_读面不许绕过同意闸(unittest.TestCase):
         shutil.rmtree(self.ds, ignore_errors=True)
 
     def test_o7a_每个工具都必须被分类_新工具会让这条红(self):
-        """**这条就是"下一个扩读面的人会被拦住"的机械实现。**
-
-        0.80 加读文档能力时,`set_workspace` 头上那条"不拓宽 LLM 能读并上云的
-        内容"的论证当场失效却没人发现 —— 因为没有任何东西逼那次改动回头看它。
-        现在有了:新工具不在下面两个集合里,这条当场红。
-        """
-        with _mcp_tools(self.ds) as tools:
+        """**辅助闸**(主闸是 o7b 的 canary)。它拦得住"新加工具",拦不住
+        "已有工具悄悄扩权" —— 而且这张表我自己就分错过 6 个。别高估它。"""
+        with _mcp(self.ds) as tools:
             actual = {t.name for _s, t in tools}
         classified = WORKSPACE_READ_TOOLS | OUTSIDE_WORKSPACE_ROOT
         self.assertEqual(
             actual - classified, set(),
             "有新 MCP 工具没被分类。回答一个问题:它读到的东西,根是不是来自 "
-            "workspace.json?是 → 加进 WORKSPACE_READ_TOOLS 并补一条行为断言;"
+            "workspace.json?是 → 加进 WORKSPACE_READ_TOOLS 并给它补 canary 断言;"
             "否 → 加进 OUTSIDE_WORKSPACE_ROOT 并写清它的根是谁给的。")
-        self.assertEqual(
-            classified - actual, set(),
-            "分类清单里有已经不存在的工具 —— 清单比代码旧了,删掉它。")
+        self.assertEqual(classified - actual, set(),
+                         "分类清单里有已经不存在的工具 —— 清单比代码旧了,删掉它。")
 
-    def test_o7b_不变量_读到的根必须是业主确认过的根(self):
-        """不变量一句话:**「read_document 能读到的根」⊆「业主确认过的根」。**
+    def test_o7b_主闸_待确认期间任何工具都不许吐出新根的canary(self):
+        """**不变量:「助手能读到的根」⊆「业主确认过的根」。**
 
-        这里逐个走一遍 WORKSPACE_READ_TOOLS 里的读面,断言待确认期间它们
-        看到的都还是旧根。"""
-        ds_tools.set_workspace(self.new, ds_root=self.ds)
-        confirmed = os.path.realpath(self.old)
-        # 读面一:列文档
-        self.assertFalse(ds_documents.list_documents(PROJ_OUT, ds_root=self.ds)["ok"])
-        # 读面二:读文档正文
-        self.assertFalse(ds_documents.read_document(
-            PROJ_OUT, SECRET, ds_root=self.ds)["ok"])
-        # 读面三:列项目(扫的是根下的文件夹名)
-        cfg = ds_workspace.load_config(self.ds)
-        self.assertEqual(cfg["root"], confirmed)
-        # project_folders 回的是 [(key, realpath)] 元组序,**不是名字序** ——
-        # 直接 assertNotIn(名字, 元组序) 永远通过,那是一条假绿断言(写这份判据
-        # 时我第一版就是这么写的,核 API 时抓到)。必须先解包出 key 再断言。
-        keys = [k for k, _path in ds_workspace.project_folders(cfg)]
-        self.assertIn(PROJ_IN, keys, "旧根的项目该在(证明这条断言真的看得见东西)")
-        self.assertNotIn(PROJ_OUT, keys,
-                         "未经确认的新根下的项目夹名不许出现在任何读面上")
+        这条不依赖"我有没有把工具分类分对" —— 它真调全部工具,逐个搜返回值。
+        谁把未批准的 root 当"预览根"读一把(攻题第 3 条的坏实现),当场现形。
+        """
+        _mcp_set_workspace(self, self.ds, self.new)
+        results = _call_every_tool(self.ds, self.new)
+        ran = {name for name, ok, _t in results if ok}
+        self.assertEqual(MUST_REALLY_RUN - ran, set(),
+                         "关键工具没真跑起来 —— 这条 canary 闸等于空转")
+        for name, _ok, text in results:
+            for canary in CANARY_NEW:
+                self.assertNotIn(
+                    canary, text,
+                    f"{name} 的返回里出现了**未经业主确认的新根**里的东西"
+                    f"({canary!r})—— 那条 exfil 链就是从这儿通的")
 
     def test_o7c_业主点头之后才读得到(self):
-        """闸不许把正常使用也挡死:业主同意了就该能读 —— 这也是这道闸的边界
-        (它挡不住"业主自己点了同意",只把攻击成本抬到"得骗过眼皮底下一张卡")。"""
+        """闸的边界:它挡不住"业主自己点了同意",只把攻击成本抬到
+        "得骗过业主眼皮底下的一张卡"。也顺带证明这道闸不是把功能焊死了。"""
         pid = _pending_id(self, self.ds, self.new)
         with _serve(self.ds) as port:
             _post(port, "/api/consent/resolve", {"pending_id": pid, "approve": True})
         listed = ds_documents.list_documents(PROJ_OUT, ds_root=self.ds)
         self.assertTrue(listed.get("ok"))
-        self.assertEqual([d["rel"] for d in listed["documents"]], [SECRET])
+        self.assertEqual([d["rel"] for d in listed["documents"]], [CANARY_NEW_NAME])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# O8 网页那一侧:GET 必须是纯展示
+# ══════════════════════════════════════════════════════════════════════════════
+class O8_GET不许有副作用(unittest.TestCase):
+    def setUp(self):
+        self.ds, self.old, self.new = _mkfixture()
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+
+    def test_o8a_反复取卡片不许改变任何状态(self):
+        """攻题第 2 条(严重):`_get_consent` 里顺手把所有卡片 approve 掉、
+        再把执行**之前**抓到的列表返回出去 —— O3d 那种"只看返回 JSON"的断言
+        完全看不见,而现实中网页轮询一轮就已经换了根,业主一次都没点。"""
+        _pending_id(self, self.ds, self.new)
+        before = _snapshot(self.ds)
+        with _serve(self.ds) as port:
+            for _ in range(3):
+                st, r = _get_json(port, "/api/consent")
+                self.assertEqual(st, 200)
+                self.assertEqual(len(r["pending"]), 1, "取一次就少一张卡?")
+        self.assertEqual(_snapshot(self.ds), before,
+                         "GET /api/consent 改动了状态 —— 它必须是纯展示")
+        self.assertEqual(ds_workspace.load_config(self.ds)["root"],
+                         os.path.realpath(self.old))
+
+    def test_o8b_只读铁律没被这两个针孔破坏(self):
+        """新开两个 POST 针孔,不许把别的写方法一起放开。"""
+        with _serve(self.ds) as port:
+            for path in ("/api/consent", "/api/consent/mode", "/api/consent/resolve"):
+                conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+                conn.request("PUT", path, body=b"{}",
+                             headers={"Content-Type": "application/json"})
+                st = conn.getresponse().status
+                conn.close()
+                self.assertEqual(st, 405, f"PUT {path} 必须维持 405")
 
 
 if __name__ == "__main__":
