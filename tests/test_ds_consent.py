@@ -102,21 +102,21 @@ OUTSIDE_WORKSPACE_ROOT = frozenset({
     "update_ref_tool",
 })
 
-# 这几个必须**真的跑起来**(不是被参数校验早退)。没有这条下界,参数猜测器哪天
-# 失灵,O5/O7b 会静默退化成"调了 33 次、33 次都在第一行返回 error"的空转 ——
-# 看着在枚举真相源,实际什么都没验证。攻题原话:"异常还在循环里全部吞掉"。
-MUST_REALLY_RUN = frozenset({
-    "list_todos_tool", "list_projects_tool", "list_inbox_tool",
-    "set_workspace_tool", "list_project_documents_tool",
-    "read_project_document_tool", "adopt_workspace_tool", "lint_pkb_tool",
-    "bind_project_tool",   # 本单明确要闸住的两个动作之一,不许在 canary 闸里空转
-})
-
-# 已知覆盖不到的(记账,别假装全覆盖):`stage_intake_tool` / `stage_adoption_tool`
-# 需要非空的 assignments 数组才跑得动,参数猜测器造不出来 ⇒ canary 闸照不到它们。
-# 两者都读 workspace 根(已在 WORKSPACE_READ_TOOLS 里),但都是**写面**、且经
-# allowed_roots 二次限制。留给四审看要不要补。
+# 已知覆盖不到的(记账,别假装全覆盖):这两个要非空的 assignments 数组才跑得动,
+# 参数猜测器造不出来 ⇒ canary 闸照不到它们。两者都读 workspace 根,但都是**写面**、
+# 且经 allowed_roots 二次限制。留给四审看要不要补。
 CANARY_BLIND_SPOTS = frozenset({"stage_intake_tool", "stage_adoption_tool"})
+
+# 必须**真的跑到业务逻辑**的工具(不是被参数校验早退)。没有这条下界,参数猜测器
+# 哪天失灵,O5/O7b 会静默退化成"调了 66 次、66 次都在第一行返回 error"的空转 ——
+# 看着在枚举真相源,实际什么都没验证。攻题原话:"异常还在循环里全部吞掉"。
+#
+# ⚠️ **不手抄。** 第一版这里是一张手写的 9 个工具的名单 —— 那就是又一张会烂的表,
+# 而且烂法是**静默的**:某个真实读面既不在名单里、又跑不起来,canary 闸对它空转
+# 而没有任何人会知道。现在直接由分类表减去明账盲区推出来:
+# 「凡是我认定读工作区根的工具,都必须真被调到」。
+# 于是两张表只剩一个真相源 —— O7a 保证分类完整,这条保证读面都真被打过。
+MUST_REALLY_RUN = WORKSPACE_READ_TOOLS - CANARY_BLIND_SPOTS
 
 
 def _write(path, content="x"):
@@ -590,9 +590,18 @@ class O4_一次性(unittest.TestCase):
             for t in threads:
                 t.join()
 
-        self.assertEqual(sorted(codes).count(200), 1,
-                         f"恰好一个请求该成功,实际 {codes}")
-        self.assertEqual(sorted(codes).count(409), 3, f"其余该 409,实际 {codes}")
+        # 断言形状要**咬得住"一次性"、又不制造抖动**:核心是"恰好生效一次",
+        # 不是"其余三个必须正好是 409"。后者把 HTTP 状态码的细节焊死进判据,
+        # 实现换个错误码、或某个线程撞上锁超时回 500,都会让这条无缘无故地红 ——
+        # 判据自己造抖动,比没有这条更糟(记忆:「判据自己会造抖动」)。
+        self.assertEqual(codes.count(200), 1, f"恰好一个请求该成功,实际 {codes}")
+        self.assertNotIn(200, codes[codes.index(200) + 1:],
+                         f"只许有一个 200,实际 {codes}")
+        # 而"只生效了一次"的真正证据在状态里,不在状态码里
+        self.assertEqual(ds_workspace.load_config(self.ds)["root"],
+                         os.path.realpath(self.new))
+        rec = ds_consent.get_pending(self.ds, pid)
+        self.assertIsNotNone(rec.get("resolved_at"), "批准之后必须落一次已决标记")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -631,9 +640,21 @@ class O5_模型碰不到开关(unittest.TestCase):
                          "有 MCP 工具动了同意开关或待确认记录 —— "
                          "注入只要先关掉它/改掉参数,整道闸就是摆设")
 
-    def test_o5c_开关不许住在workspace_json里(self):
-        """把锁挂在门里侧:set_workspace 自己就写 workspace.json。"""
+    def test_o5c_开关必须住在约定的位置_且不许在workspace_json里(self):
+        """两件事一起钉:
+
+        ① 不许把锁挂在门里侧 —— `set_workspace` 自己就写 `workspace.json`;
+        ② **开关必须真的落在 `config/consent.json`**。这条不是形式主义:
+           O5b 那道"调完全部工具、config/ 快照逐字节不变"的闸,如果实现把档位
+           藏到 `config/` 以外(快照照不到的地方),前后都是 None、断言照样绿 ——
+           一个"藏别处"的实现能同时骗过 O5b 和 O5c 第一半。"""
         ds_consent.set_mode(self.ds, ds_consent.MODE_ALLOW)
+        cpath = os.path.join(self.ds, "config", "consent.json")
+        self.assertTrue(os.path.exists(cpath),
+                        "档位必须落在 config/consent.json —— 藏别处会让 O5b 那道"
+                        "快照闸整个照不到")
+        self.assertIn("allow", open(cpath, encoding="utf-8").read(),
+                      "consent.json 要能反映当前档位,不能是个空壳")
         raw = json.loads(_ws_bytes(self.ds).decode("utf-8"))
         self.assertNotIn("consent", raw)
         self.assertNotIn("mode", raw)
