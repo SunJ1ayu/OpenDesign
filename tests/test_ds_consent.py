@@ -817,6 +817,110 @@ class O7_读面不许绕过同意闸(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# O9 锁序:不许出现 AB-BA 死锁
+# ══════════════════════════════════════════════════════════════════════════════
+class O9_锁序不许成环(unittest.TestCase):
+    """四审 subdeepseek **孤腿 BLOCK**(2026-08-11)—— 我自己审 diff 时没看出来。
+
+    本单一下子有了两把锁,而它们被两条路径以**相反的顺序**获取:
+
+      resolve_pending: pending.lock → (apply_fn) → workspace.lock
+      bind_project   : workspace.lock → (create_pending) → pending.lock
+
+    经典 AB-BA。Linux 的 flock 无限阻塞、`resolve_pending` 又没有超时 ⇒
+    **两边永久挂死**,而且挂死的那条 ds_web 线程从此占死 pending.lock,
+    之后所有待确认的创建与批准全部卡住,只能重启。
+
+    为什么不能当"罕见竞态"放过:威胁模型里的助手是**被注入控制**的,
+    它可以连续狂调 `bind_project_tool`,只要在业主点卡的那几百毫秒里抢到一次
+    workspace.lock 就死锁 —— **窗口小,但攻击者可以让它必然撞上**。
+    这把"业主点头"这个唯一的人工通道变成了可被 DoS 的目标。
+
+    判据形状:不去真的制造死锁(那会让判据自己挂住),而是钉**结构不变量**:
+    `create_pending` 永远不许在持有 workspace 锁的时候被调用。
+    """
+
+    def setUp(self):
+        self.ds, self.old, self.new = _mkfixture()
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+
+    def _held_roots(self):
+        """当前线程持有的 workspace 锁(ds_tools 的重入闸用的那个 thread-local)。"""
+        return set(getattr(ds_tools._ws_lock_held, "roots", set()) or set())
+
+    def test_o9a_bind排队时不许还攥着workspace锁(self):
+        seen = {}
+        real = ds_consent.create_pending
+
+        def spy(ds_root, action, params):
+            seen["held"] = self._held_roots()
+            return real(ds_root, action, params)
+
+        ds_consent.create_pending = spy
+        try:
+            r = ds_tools.bind_project(PROJ_IN, PROJ_IN, ds_root=self.ds)
+        finally:
+            ds_consent.create_pending = real
+        self.assertTrue(r.get("pending"), f"前置不成立:没排队,这条考不了({r})")
+        self.assertEqual(
+            seen.get("held"), set(),
+            "bind 在**持着 workspace 锁**的时候去拿 pending 锁 —— 与 resolve_pending "
+            "的锁序正好相反,构成 AB-BA 死锁(Linux 上是永久挂死)")
+
+    def test_o9b_set_workspace排队时同样不许攥着锁(self):
+        seen = {}
+        real = ds_consent.create_pending
+
+        def spy(ds_root, action, params):
+            seen["held"] = self._held_roots()
+            return real(ds_root, action, params)
+
+        ds_consent.create_pending = spy
+        try:
+            r = ds_tools.set_workspace(self.new, ds_root=self.ds)
+        finally:
+            ds_consent.create_pending = real
+        self.assertTrue(r.get("pending"), f"前置不成立:没排队({r})")
+        self.assertEqual(seen.get("held"), set(),
+                         "set_workspace 排队时攥着 workspace 锁")
+
+    def test_o9c_两条路径真并发跑不许挂死(self):
+        """结构闸之外再来一发行为闸:一边狂调 bind、一边批准,限时跑完。
+
+        真挂死的话这条会**超时红**(不是永远挂住:用带 timeout 的 join 判定)。
+        """
+        pid = _pending_id(self, self.ds, self.new)
+        stop = threading.Event()
+        errors = []
+
+        def hammer():                      # 模拟被注入的助手连续触发受闸工具
+            while not stop.is_set():
+                try:
+                    ds_tools.bind_project(PROJ_IN, PROJ_IN, ds_root=self.ds)
+                except Exception as e:     # noqa: BLE001
+                    errors.append(repr(e))
+                    return
+
+        def approve():
+            with _serve(self.ds) as port:
+                _post(port, "/api/consent/resolve",
+                      {"pending_id": pid, "approve": True})
+
+        t1 = threading.Thread(target=hammer, daemon=True)
+        t2 = threading.Thread(target=approve, daemon=True)
+        t1.start()
+        t2.start()
+        t2.join(timeout=25)
+        alive = t2.is_alive()
+        stop.set()
+        t1.join(timeout=10)
+        self.assertFalse(alive, "批准那条线程 25 秒没回来 —— 锁序成环挂死了")
+        self.assertEqual(errors, [], f"并发里出了异常:{errors}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # O8 网页那一侧:GET 必须是纯展示
 # ══════════════════════════════════════════════════════════════════════════════
 class O8_GET不许有副作用(unittest.TestCase):
