@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ChatPage from "../chat/ChatPage";
+import ConsentCard from "./ConsentCard";
 import InboxCard from "./InboxCard";
 import type { ChatSession } from "../chat/connection";
 
@@ -39,6 +40,11 @@ export default function ChatColumn({
           还顶出视口右缘,"留着"等于留一片看不懂的残字。改成随收起一起 CSS 隐藏
           (app.css `.chatcol.collapsed > .inbox-card`),仍然不卸载。
           代价记账:收起期间看不到收件箱提示;collapsed 不持久化,刷新即回展开态。 */}
+      {/* 业主同意卡(track opendesign-owner-consent):**排在收件箱上面**。
+          理由:收件箱是"有东西等你归类",这张是"助手要扩大自己能看到的范围,
+          等你点头" —— 后者不处理就一直卡着助手,而且是安全动作,该先看见。
+          没有待确认时它自己不渲染,不占地方。 */}
+      <ConsentCard dataEpoch={dataEpoch} active={inboxActive} />
       <InboxCard dataEpoch={dataEpoch} active={inboxActive} />
       {/* 工作区体检卡曾经在这里(T8)。**2026-07-28 用户拍板挪进「设置」** ——
           他自己说的用法是"偶尔校一次",常驻一张低频卡片是占地方。

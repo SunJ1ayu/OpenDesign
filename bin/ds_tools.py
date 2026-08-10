@@ -957,6 +957,27 @@ def _apply_bind_project(project: str, folder: str,
     return _bind_project_impl(project, folder, ds_root=ds_root, require_consent=False)
 
 
+def apply_pending(action: str, params: dict, ds_root: str) -> dict:
+    """业主点了同意之后,照 pending 里**记下的参数**执行那个动作。
+
+    由 `ds_web` 在批准针孔里传给 `ds_consent.resolve_pending` 当执行器。
+    执行器住在这一侧(而不是 ds_consent 自己 import ds_tools)是为了不造
+    `ds_consent ↔ ds_tools` 的循环依赖 —— 第一版就是那么写的,
+    `tests/test_no_import_cycles.py` 当场红。依赖方向只有一条:
+    **ds_tools → ds_consent**,反过来永远不许。
+    """
+    if action == "set_workspace":
+        return _apply_set_workspace(
+            params.get("root"),
+            projects_dir=params.get("projects_dir", ""),
+            projects_depth=params.get("projects_depth", 0),
+            ds_root=ds_root)
+    if action == "bind_project":
+        return _apply_bind_project(
+            params.get("project"), params.get("folder"), ds_root=ds_root)
+    return {"error": "bad_pending"}
+
+
 def _bind_project_impl(project: str, folder: str, ds_root: str,
                        require_consent: bool) -> dict:
     # 闸① project 必须是已建档项目(_resolve=H1 咽喉:within+字符集)

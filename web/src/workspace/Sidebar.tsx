@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Project } from "../api";
+import type { ConsentMode, Project } from "../api";
 import { relTime } from "../api";
 import { displayProjectName } from "./projectName";
 import GroupToggle from "../GroupToggle";
@@ -39,6 +39,9 @@ type Props = {
   onSearch: () => void;
   /** 设置弹层里的「工作区文件夹」入口(体检卡 2026-07-28 挪进设置,浮层由 App 渲染)。 */
   onOpenFolderVisibility: () => void;
+  /** 业主同意闸档位(track opendesign-owner-consent)。null = 还没拉到。 */
+  consentMode: ConsentMode | null;
+  onSetConsentMode: (mode: ConsentMode) => void;
   health: { version: string; ds_root: string; model: string | null } | null;
 };
 
@@ -59,7 +62,7 @@ function dotTitle(p: Project, current: boolean): string {
 
 export default function Sidebar({
   route, projects, stages, selectedKey, onSelectProject, todosOpenCount, excludedStructural,
-  onOpenFolderVisibility,
+  onOpenFolderVisibility, consentMode, onSetConsentMode,
   sessions, sessionTags, onOpenSession, onDeleteSession, onNewChat, onNewProject,
   onSearch, health,
 }: Props) {
@@ -309,6 +312,31 @@ export default function Sidebar({
           >
             <span className="lbl">工作区文件夹</span>
             <span className="val">哪些算项目 ›</span>
+          </button>
+          {/* 业主同意闸的档位(track opendesign-owner-consent)。
+              业主原话:「让用户选择弹或者都不弹,就像 Claude Code 和 Codex 这些 agent」。
+              **这里是全机唯一能改这个档位的入口** —— 任何 MCP 工具都写不了
+              config/consent.json,判据 O5 从工具表真相源枚举 33 个工具逐个真调验过。
+              关掉是降低安全性的动作,所以只有关的方向要二次确认(开不用)。 */}
+          <button
+            className="item"
+            data-ui="settings-consent-mode"
+            title="助手想扩大它能看到的文件范围时(改工作区根、绑项目文件夹),要不要先问你"
+            onClick={() => {
+              if (consentMode === null) return;
+              const next = consentMode === "ask" ? "allow" : "ask";
+              if (next === "allow" && !window.confirm(
+                "关掉之后,助手改工作区根目录、绑定项目文件夹**不再问你**,立即生效。\n\n"
+                + "这意味着:它读到的一份文档里如果藏了指令,就可能让它把工作区指到别处、"
+                + "读走那边的资料,而你不会看到任何提示。\n\n确定要关掉吗?")) return;
+              onSetConsentMode(next);
+            }}
+          >
+            <span className="lbl">危险动作确认</span>
+            <span className="val">
+              {consentMode === null ? "…"
+                : consentMode === "ask" ? "每次问我 ›" : "不用问 ›"}
+            </span>
           </button>
           <button className="item" title="⌘N 新对话 · ⌘K 搜索">
             <span className="lbl">快捷键</span>

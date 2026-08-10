@@ -664,3 +664,51 @@ export function fileToDataUrl(file: File): Promise<string> {
     fr.readAsDataURL(file);
   });
 }
+
+// ── 业主同意闸(track opendesign-owner-consent)────────────────────────────────
+// 助手想扩大自己能看到的范围(改工作区根 / 绑项目文件夹)时,后端不落盘、只排一条
+// 待确认,由业主在这里点头。**前端只带 pending_id,绝不带"要执行什么"** ——
+// 执行参数一律由后端从落盘记录读(design 装包前向兼容第 2 条:否则换外壳要重写
+// 这套逻辑,而且开一个"确认后掉包"的洞)。
+export type ConsentMode = "ask" | "allow";
+export type ConsentPending = {
+  pending_id: string;
+  action: "set_workspace" | "bind_project";
+  params: Record<string, unknown>;
+  created: string;
+};
+export type ConsentState = { mode: ConsentMode; pending: ConsentPending[] };
+
+/** GET /api/consent —— 纯展示。后端那一侧有判据钉着它不许有副作用(O8a)。 */
+export async function fetchConsent(): Promise<ConsentState> {
+  const r = await fetch("/api/consent");
+  if (!r.ok) throw new Error(`服务返回 ${r.status}`);
+  return (await r.json()) as ConsentState;
+}
+
+async function consentPost(path: string, body: unknown): Promise<void> {
+  const r = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    let code = "";
+    try {
+      code = ((await r.json()) as { error?: string }).error ?? "";
+    } catch {
+      /* 非 JSON 响应:忽略,回落状态码 */
+    }
+    throw new Error(code || `服务返回 ${r.status}`);
+  }
+}
+
+/** 设置页两档开关。默认 ask;这是**唯一**能改档位的入口(任何 MCP 工具都写不了)。 */
+export function setConsentMode(mode: ConsentMode): Promise<void> {
+  return consentPost("/api/consent/mode", { mode });
+}
+
+/** 同意 / 拒绝一条待确认。一次性:批过或拒过的再点会被后端 409。 */
+export function resolveConsent(pendingId: string, approve: boolean): Promise<void> {
+  return consentPost("/api/consent/resolve", { pending_id: pendingId, approve });
+}

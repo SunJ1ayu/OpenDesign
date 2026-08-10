@@ -2987,3 +2987,51 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 @media (max-width: 1100px) {
   .g-wall { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 }
+
+/* ── 业主同意卡(track opendesign-owner-consent)────────────────────────────────
+   位置:聊天列顶部、收件箱卡上面。没有待确认时组件整卡不渲染,这里不占位。
+   视觉上要比收件箱**重一点** —— 它是安全闸,不是待归类的杂物;但也不能做成
+   刺眼的红色警告框:改工作区根是装机时的正常操作,一年弹不了几次,吓人反而
+   会让业主养成"闭眼点掉"的习惯。用左侧赤陶竖条 + 纸底,和仓里其它卡同族。 */
+.consent-card {
+  margin: 6px 12px 10px;
+  padding: 10px 14px 12px;
+  border: 1px solid var(--border-main);
+  border-left: 3px solid var(--terra);
+  border-radius: 8px;
+  background: var(--paper);
+}
+.consent-head .t {
+  font-weight: 600;
+  font-size: 13px;
+}
+.consent-item + .consent-item {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-main);
+}
+.consent-title {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-all;   /* 路径可能很长(D:\ 下的深目录),别撑破窄列 */
+}
+.consent-impact {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+/* 按钮竖排:聊天列只有 340px,横排会把两个按钮挤成两行半(收件箱那条提示语
+   踩过同一个坑,见 .upload-note.inbox-upload-note 的注释)。 */
+.consent-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.consent-actions > button { flex: 1; }
+.consent-err {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--terra-deep);
+}

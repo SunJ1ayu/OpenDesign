@@ -83,7 +83,7 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.81.0"  # 待办能真的删掉了(回收站式,带二次确认);助手契约补两条(建档前先核对、工具够不着要先说)。
+VERSION = "0.82.0"  # 助手要扩大自己能看到的文件范围(改工作区根/绑项目文件夹)时,先弹卡问你;设置里可关。
                     # 装机脚本要装 firecrawl-anydoc==0.1.6;/api/health 的
                     # doc_reader 字段会说它在不在(track opendesign-anydoc)。
                     # 0.79.0  收件箱不再只收图片:PDF、CAD 图纸、Word/Excel 都能拖进去。
@@ -1334,7 +1334,10 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": "bad request"})
             return
         try:
-            r = ds_consent.resolve_pending(self.server.ds_root, pending_id, approve)
+            # 执行器由这一侧注入(design:业主点同意 → **ds_web 后端**照 pending
+            # 里记的参数执行)。ds_consent 自己不 import ds_tools —— 那是循环依赖。
+            r = ds_consent.resolve_pending(self.server.ds_root, pending_id, approve,
+                                           apply_fn=ds_tools.apply_pending)
             if r.get("ok"):
                 self._json(200, r)
                 return

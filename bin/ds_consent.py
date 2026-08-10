@@ -176,22 +176,22 @@ def get_pending(ds_root: str, pending_id: str) -> dict | None:
     return rec
 
 
-def _apply(action: str, params: dict, ds_root: str) -> dict:
-    import ds_tools
+def resolve_pending(ds_root: str, pending_id: str, approve: bool,
+                    apply_fn=None) -> dict:
+    """批准/拒绝一条待确认。**批准时由调用方传进来的 `apply_fn` 执行。**
 
-    if action == "set_workspace":
-        return ds_tools._apply_set_workspace(
-            params.get("root"),
-            projects_dir=params.get("projects_dir", ""),
-            projects_depth=params.get("projects_depth", 0),
-            ds_root=ds_root)
-    if action == "bind_project":
-        return ds_tools._apply_bind_project(
-            params.get("project"), params.get("folder"), ds_root=ds_root)
-    return {"error": "bad_pending"}
+    ⚠️ **为什么执行器是注入的,而不是本模块自己 import ds_tools**:
+    第一版在这里写了 `import ds_tools`(函数内延迟导入),而 `ds_tools` 顶部又
+    `import ds_consent`(它要在写口上插闸)—— 一个新的循环依赖。
+    `tests/test_no_import_cycles.py` 当场抓到,**人眼审 diff 时我没看出来**
+    (那道闸的立身之本就是这个:结构问题肉眼不完备)。
 
+    注入还更贴 design:那里写的就是「业主点同意 → **ds_web 后端**照 pending 里
+    记的参数执行」。所以执行器本来就该来自 ds_web 那一侧。
 
-def resolve_pending(ds_root: str, pending_id: str, approve: bool) -> dict:
+    `apply_fn(action, params, ds_root) -> dict`;没给就**不执行**(fail-closed),
+    绝不因为"没人告诉我怎么执行"而把它当成批准。
+    """
     if not is_valid_pending_id(pending_id):
         return {"error": "bad_pending_id"}
     if not isinstance(approve, bool):
@@ -208,7 +208,11 @@ def resolve_pending(ds_root: str, pending_id: str, approve: bool) -> dict:
         if action not in GUARDED_ACTIONS or not isinstance(params, dict):
             return {"error": "bad_pending"}
         if approve:
-            applied = _apply(action, params, ds_root)
+            if apply_fn is None:
+                # fail-closed:没有执行器就不执行,也不标已决 —— 卡片留着,
+                # 业主下次还能点。绝不把"我不知道怎么执行"当成批准。
+                return {"error": "no_applier"}
+            applied = apply_fn(action, params, ds_root)
             if not applied.get("ok"):
                 return applied
         rec["resolved_at"] = _now()

@@ -23,9 +23,12 @@ import {
 import {
   deleteChatSession,
   fetchChanges,
+  fetchConsent,
   fetchProjectsData,
   fetchTodosOpenCount,
+  setConsentMode as apiSetConsentMode,
   type Change,
+  type ConsentMode,
   type Project,
 } from "./api";
 
@@ -78,6 +81,10 @@ export default function App() {
   // 工作区体检卡浮层(2026-07-28 用户拍板:挪进设置)。计数器兼作 key:
   // 每次打开都重挂一次 = 拿到当下最新的工作区状态,不会拿上次打开时的旧快照当真。
   const [fvisOpen, setFvisOpen] = useState(0);
+  // 业主同意闸档位(track opendesign-owner-consent):设置里那一行的当前值。
+  // null = 还没拉到(那时那一行显示「…」而不是猜一个默认值 —— 显示错的档位
+  // 比显示"不知道"危险:业主会以为闸开着)。
+  const [consentMode, setConsentMode] = useState<ConsentMode | null>(null);
   // 搜索回车直达:中央列滚动定位+闪烁(nonce 驱动,cnum=null 只跳项目)
   const [colHighlight, setColHighlight] = useState<{ cnum: number | null; nonce: number }>({
     cnum: null,
@@ -219,6 +226,17 @@ export default function App() {
       .then((d) => d && setHealth({ version: d.version, ds_root: d.ds_root, model: d.model ?? null }))
       .catch(() => setHealth(null));
   }, []);
+
+  // 业主同意闸档位:跟着 dataEpoch 重拉(助手刚排的队 / 另一个窗口改过档位,
+  // 下一拍就对上)。拉不到时**保持 null** —— 设置里那一行显示「…」,
+  // 不猜一个默认值:显示错的档位比显示"不知道"危险。
+  useEffect(() => {
+    let stale = false;
+    fetchConsent()
+      .then((st) => { if (!stale) setConsentMode(st.mode); })
+      .catch(() => { if (!stale) setConsentMode(null); });
+    return () => { stale = true; };
+  }, [dataEpoch]);
 
   // 选中项目变化 → 拉全量变更(未建档项目没有档案,不请求,由中央列给引导)
   useEffect(() => {
@@ -403,6 +421,15 @@ export default function App() {
       onSelectProject={goProject}
       onSearch={() => setSearchOpen(true)}
       onOpenFolderVisibility={() => setFvisOpen((n) => n + 1)}
+      consentMode={consentMode}
+      onSetConsentMode={(m) => {
+        // 乐观更新会在失败时把界面停在错的档位上 —— 这一格宁可慢一拍,
+        // 也要显示后端**真实**的值(它决定的是助手能不能不打招呼就换根)。
+        apiSetConsentMode(m)
+          .then(() => fetchConsent())
+          .then((st) => setConsentMode(st.mode))
+          .catch(() => { /* 失败就不动:下次打开设置会重新拉 */ });
+      }}
       todosOpenCount={todosCount}
       sessions={sessions}
       sessionTags={sessionTags}
