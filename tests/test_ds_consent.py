@@ -527,8 +527,16 @@ class O3_照记录参数执行(unittest.TestCase):
                           {"pending_id": pid, "approve": True})
         self.assertEqual(st, 200)
         cfg = ds_workspace.load_config(self.ds)
-        self.assertEqual(cfg["projects"].get(PROJ_IN), PROJ_IN,
-                         "bind 同意之后必须真的写进映射")
+        self.assertIn(PROJ_IN, cfg["projects"], "bind 同意之后必须真的写进映射")
+        # 断言**寻址得到**,不是断言映射里存的那个字符串长什么样。
+        # (我第一版写死成 `== PROJ_IN`,红了 —— 而 bind_project 本来就存的是
+        # 相对工作区根的 rel(`01-项目/<名>`)。**这是判据的期望值错,不是实现的 bug**;
+        # 按"红了先问是不是真 bug"查了既有行为才认出来。顺手把断言提到语义层:
+        # 内部表示以后要是变了,这条不该跟着红。)
+        self.assertEqual(
+            ds_workspace.project_dir(cfg, PROJ_IN),
+            os.path.realpath(os.path.join(self.old, "01-项目", PROJ_IN)),
+            "bind 生效之后必须能寻址到旧根里那个真实文件夹")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
