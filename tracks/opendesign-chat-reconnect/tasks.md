@@ -93,6 +93,11 @@ JS 报错」—— 后者是**反误报基线**:实现之后它还得绿,不许�
 - [x] O2 e2e 判据 + 红检 —— 首版 **11 红 / 2 绿**;攻题补强后 **19 红 / 4 绿**
 - [x] 攻我自己的题(gpt-5.6-sol 只读)—— 12 条我判 9 条成立,**其中 2 条是判据自己的 bug**
 - [x] 派活:`reconnect.ts` → codex gpt-5.6-sol,**收货三闸全过,自身错误 0 / 返工 0**
-- [ ] 主 agent 亲干:`ChatPage` 接线 + `transcript.ts` / `markdown.ts` 改动
-- [ ] 收货三闸 + full lane 四审(智谱腿可能仍死,verify 里如实写少了哪条腿)
+- [x] 主 agent 亲干:`ChatPage` 接线 + `transcript.ts` / `markdown.ts` 改动
+      ✅ **08-10 回勾:这条早就做完了**,清单一直没更新。证据在 verify.md 正文
+      (四审改判 BLOCK 的两条 HIGH 就长在 `ChatPage` 的 busy 状态和项目列自愈路径上,
+      六条全修后判据补到 25 条全绿)。
+- [x] 收货三闸 + full lane 四审(智谱腿可能仍死,verify 里如实写少了哪条腿)
+      ✅ **08-10 回勾:同上,四审真跑过**且改判过 BLOCK —— 那是本单最值钱的部分。
 - [ ] 真机手工冒烟(**只有机主能做**):聊着天 `start.ps1 stop` 再起,看它自己回来
+      → **08-10 已移交 `docs/accept-0.75.0.md`**(现成清单,不随本 track 归档)。

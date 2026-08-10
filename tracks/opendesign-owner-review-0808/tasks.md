@@ -28,8 +28,10 @@ codex/gpt-5.5,开工时改判 —— 理由写在 verify.md 的「派给」格�
 - [x] T6. 全量跑判据:`tests/run-all.sh` 总跑,收据进 evidence/(见 verify.md)。
 - [x] T7. 收货三闸(diff / 亲跑 / 亲读)+ full 四审 → 三腿(MiMo/DeepSeek/Kimi)
       全 PASS,GLM 那条腿是 off;四审抓到的 4 条见 verify.md findings。
-- [ ] T8. verify.md 收口,版本号 bump(ds-web),挂在本 track 下(track-guard 会查)。
+- [x] T8. verify.md 收口,版本号 bump(ds-web),挂在本 track 下(track-guard 会查)。
       **留给主 agent** —— 本轮执行方不下最终裁决、不 bump 版本、不归档。
+      ✅ **08-10 回勾:08-08 当天就做完了** —— `51a0668`(主裁修 + bump 0.81.0)、
+      `73da804`(主裁 PASS 收口),只是清单没勾。
 
 ## 备注
 

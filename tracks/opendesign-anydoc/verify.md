@@ -260,3 +260,16 @@ MiMo 是 reasoning 模型、思考也计 `max_tokens`,**被吃空和"它决定�
   按 `size` 与产出的实际分布重新定档**,别在没有数据的时候拍。
 - **`subglm` 三轮全 off**(智谱欠费),`subkimi` 二轮撞额度,`submimo` 三轮超时。
   实际是两到三腿轮转,不是四审。
+
+---
+
+## 归档说明(2026-08-10)
+
+- 无机器证据:本单完工于 `runlog` 收据机制上线(2026-08-08)之前,判据结果是我手工转述进
+  上面正文的。**不补跑也不追认** —— 今天补跑出来的收据对应今天的代码,证明不了当时那一遍。
+- **归档时真机验收仍未做**,已移交 `docs/accept-0.81.0.md` **第 0 节 + A 组**
+  (两台 Windows 真装 `firecrawl-anydoc` wheel、`doc_reader.available=true`、
+  真合同问出处、真 97-2003 `.doc`/`.xls`)。这是本批里最可能装不上的一件,单独盯。
+- 本单 tasks.md「另开一单」那条(`set_workspace_tool` / `bind_project_tool` 要业主确认)
+  **已经有自己的 track**:`tracks/opendesign-owner-consent/`,不随本单归档。
+  那条同时是目前**唯一敞着的安全洞**(`bin/ds_tools.py:851` 的安全论证在 0.80 之后已失效)。
