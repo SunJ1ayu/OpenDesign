@@ -817,6 +817,73 @@ class O7_读面不许绕过同意闸(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# O10 卡片显示的 = 实际执行的(跨卡片版)
+# ══════════════════════════════════════════════════════════════════════════════
+class O10_排队期间根变了就不许再照原样执行(unittest.TestCase):
+    """四审 subdeepseek 中危发现(2026-08-11)。design 硬性②说的是「执行时用
+    pending 里记的参数」,但 `bind_project` 的参数是**文件夹名**,而名字要靠
+    当时的工作区根才解析得成路径。
+
+    于是两张卡同时排队时:先批 set_workspace(根换了)→ 再批 bind,
+    bind 会拿**新根**去解析那个名字 —— 新根里恰好有同名夹就绑到**物理上另一个
+    文件夹**,而业主在卡上只看见过一个名字。这正是本单要防的
+    「卡片显示的和实际执行的不是一回事」,只是发生在两张卡之间。
+
+    定的规矩:pending 记下它被创建时的工作区根;批准时根若已经变了,
+    **拒绝执行**(`stale_pending`),让业主重新提一次 —— 重提的成本很低,
+    而"绑错文件夹"是静默的。
+    """
+
+    def setUp(self):
+        self.ds, self.old, self.new = _mkfixture()
+        # 新根里也放一个**同名**项目夹:这就是"名字一样、物理上是另一个"的陷阱
+        os.makedirs(os.path.join(self.new, "01-项目", PROJ_IN, "01-资料"))
+        _write(os.path.join(self.new, "01-项目", PROJ_IN, "01-资料", "冒牌件.txt"), "X")
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+
+    def test_o10a_根换掉之后旧的bind卡不许再执行(self):
+        bind_pid = _expect_pending(
+            self, ds_tools.bind_project(PROJ_IN, PROJ_IN, ds_root=self.ds), "bind_project")
+        ws_pid = _pending_id(self, self.ds, self.new)
+        with _serve(self.ds) as port:
+            st, _ = _post(port, "/api/consent/resolve",
+                          {"pending_id": ws_pid, "approve": True})
+            self.assertEqual(st, 200, "前置:换根那张卡该批得过")
+            st2, r2 = _post(port, "/api/consent/resolve",
+                            {"pending_id": bind_pid, "approve": True})
+        self.assertNotEqual(st2, 200,
+                            "根都换了,这张卡上的文件夹名已经指向另一个地方,不许照批")
+        self.assertEqual((r2 or {}).get("error"), "stale_pending")
+        cfg = ds_workspace.load_config(self.ds)
+        self.assertNotIn(PROJ_IN, cfg.get("projects", {}),
+                         "不许把项目绑到新根里那个同名的冒牌文件夹")
+
+    def test_o10b_根没变时照常批得过_不许误伤(self):
+        """误报是这道闸的死法:没换根的正常情形必须一路畅通。"""
+        pid = _expect_pending(
+            self, ds_tools.bind_project(PROJ_IN, PROJ_IN, ds_root=self.ds), "bind_project")
+        with _serve(self.ds) as port:
+            st, _ = _post(port, "/api/consent/resolve", {"pending_id": pid, "approve": True})
+        self.assertEqual(st, 200)
+        cfg = ds_workspace.load_config(self.ds)
+        self.assertEqual(ds_workspace.project_dir(cfg, PROJ_IN),
+                         os.path.realpath(os.path.join(self.old, "01-项目", PROJ_IN)))
+
+    def test_o10c_过期的卡也不许被拒绝以外的方式留着(self):
+        """过期 ≠ 卡死:业主还得能把它拒掉清屏。"""
+        bind_pid = _expect_pending(
+            self, ds_tools.bind_project(PROJ_IN, PROJ_IN, ds_root=self.ds), "bind_project")
+        ws_pid = _pending_id(self, self.ds, self.new)
+        with _serve(self.ds) as port:
+            _post(port, "/api/consent/resolve", {"pending_id": ws_pid, "approve": True})
+            st, _ = _post(port, "/api/consent/resolve",
+                          {"pending_id": bind_pid, "approve": False})
+        self.assertEqual(st, 200, "过期的卡必须还能被拒绝掉")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # O9 锁序:不许出现 AB-BA 死锁
 # ══════════════════════════════════════════════════════════════════════════════
 class O9_锁序不许成环(unittest.TestCase):
