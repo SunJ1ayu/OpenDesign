@@ -247,8 +247,11 @@ def _args_for(tool_name: str, schema: dict, new_root: str, proj: str) -> dict:
         # folder 必须跟着 proj 一起变:bind_project 要求 folder 在**当前生效的**根里
         # 真实存在,写死成 PROJ_OUT 会让它永远在文件夹校验处早退(实测过)。
         "folder": proj,
-        "rel": CANARY_NEW_NAME,
-        "file": CANARY_NEW_NAME,
+        # rel 也跟着 proj 走:PROJ_IN 那遍要读**旧根里真实存在**的那份,
+        # 好让 read_project_document_tool 真跑到业务逻辑(下界闸要的就是这个);
+        # PROJ_OUT 那遍指向新根的机密件,试探"闸挡不挡得住"。
+        "rel": CANARY_OLD_NAME if proj == PROJ_IN else CANARY_NEW_NAME,
+        "file": CANARY_OLD_NAME if proj == PROJ_IN else CANARY_NEW_NAME,
     }
     args = {}
     for pname, spec in props.items():
@@ -644,9 +647,23 @@ class O5_模型碰不到开关(unittest.TestCase):
         _pending_id(self, self.ds, self.new)
         before = _snapshot(self.ds)
         _call_every_tool(self.ds, self.new)
-        self.assertEqual(_snapshot(self.ds), before,
-                         "有 MCP 工具动了同意开关或待确认记录 —— "
-                         "注入只要先关掉它/改掉参数,整道闸就是摆设")
+        after = _snapshot(self.ds)
+        # 开关与工作区配置:**逐字节不变**
+        for key in ("config/consent.json", "config/workspace.json"):
+            self.assertEqual(after.get(key), before.get(key),
+                             f"有 MCP 工具动了 {key} —— 注入只要先关掉开关,"
+                             f"整道闸就是摆设")
+        # 待确认记录:**已存在的一条都不许被改**(攻题第 6 条:只改执行参数、
+        # 不碰批准位,业主看到的还是旧卡片,后端却按篡改后的参数执行)。
+        # ⚠️ 但**允许新增** —— `set_workspace_tool` 本来就是合法产生 pending 的工具。
+        # 第一版这里写的是整份快照全等,把"合法排队"也算成违规;执行腿为了让它绿,
+        # 加了一条"已有未决卡就不再追加新卡"的逻辑 —— **那是我的判据逼出来的行为**,
+        # 而且它会让第二次请求静默返回别人的 pending_id。判据错在先,已改。
+        for key, val in before.items():
+            if key.startswith("config/pending/"):
+                self.assertEqual(after.get(key), val,
+                                 f"有 MCP 工具改了已在排队的 {key} —— "
+                                 f"业主看到的卡片和真正会执行的东西就对不上了")
 
     def test_o5c_开关必须住在约定的位置_且不许在workspace_json里(self):
         """两件事一起钉:
