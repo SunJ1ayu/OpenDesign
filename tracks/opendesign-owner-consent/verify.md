@@ -9,9 +9,9 @@
 
 ## Mechanical checks
 
-- [ ] build passes
-- [ ] tests pass
-- [ ] no secrets / unsafe ops
+- [x] build passes(`npm run build` 干净;总跑第③遍「dist 新鲜度」段绿)
+- [x] tests pass(node 342 · python 981 · MCP 契约闸三条全绿 · e2e 34 PASS/0 FAIL)
+- [x] no secrets / unsafe ops(未碰密钥/生产系统/依赖安装;全部改动在本地历史,未 push)
 
 **机器打印的**(不是我的转述)—— 判据用 `runlog` 跑,收据行原样粘在这里:
 
@@ -19,7 +19,37 @@
 runlog -t opendesign-owner-consent --repo . -- tests/run-all.sh
 ```
 
-<收据行待填>
+**跑了三遍,红的一遍都不藏**(规矩 5b):
+
+**第①遍 —— 红的**。三段红,其中一条是**真 bug**:`ds_consent ↔ ds_tools` 循环依赖
+(`test_no_import_cycles` 抓到,我人眼审 diff 没看出来 → findings F7);
+MCP 契约闸跟着它一起红;dist 那段是产物没提交:
+```
+runlog: run-all rc=1 commit=bca62e9 dirty=yes at=2026-08-10T15:18:48Z file=tracks/opendesign-owner-consent/evidence/20260810T151848Z-01-run-all.txt
+```
+
+**第②遍 —— 还是红的**。循环依赖已修(python 981 / MCP 闸转绿、e2e 从 33 涨到 34
+= 新增的同意卡那条),但 dist 那段仍红。**原因不是产物旧**:重新 build 出来的哈希
+与暂存的逐字节相同,是那道闸查的 `git status --porcelain -- web/dist` 非空 ——
+我的 dist 改动只暂存了、还没 commit。"入库"要求的是进库,暂存不算:
+```
+runlog: run-all rc=1 commit=bca62e9 dirty=yes at=2026-08-10T15:46:23Z file=tracks/opendesign-owner-consent/evidence/20260810T154623Z-01-run-all.txt
+```
+
+**第③遍(权威的一遍,覆盖真实 HEAD、工作树干净)** —— 五段全 PASS:
+```
+runlog: run-all rc=3 commit=b43109c dirty=no at=2026-08-10T16:00:46Z file=tracks/opendesign-owner-consent/evidence/20260810T160046Z-01-run-all.txt
+```
+> `rc=3` **不是判据红了**。五段全 `PASS`;`3` 来自总跑自己的口径:
+> 「没有红的,但有 2 条没跑 —— 不算通过」。那 2 条(`new_chat` / `project-thread`)
+> 要起活的 nanobot gateway,`tests/run-all.sh` 默认就不跑它们,与本单改动无关。
+> **照抄不四舍五入。**
+
+汇总数字(以第③遍为准,供人眼核对,**权威仍是收据文件本身**):
+node 342 通过 / 0 跳过 · python **981 跑过 / 0 跳过**(死断言闸:0 条从未执行)·
+MCP 契约闸三条全绿 · dist 与源码同步 · e2e **34 PASS / 0 FAIL / 2 SKIP**。
+
+oracle-first commit:`74dbda6`(判据先行,`--stat` 只有 tests/,零实现文件)。
 
 ## Review
 
