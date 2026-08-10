@@ -33,6 +33,7 @@ from contextlib import contextmanager
 from datetime import date
 
 import ds_common  # 共享:防逃逸谓词/字段消毒/页脚锚定/加锁读改写(同目录模块)
+import ds_consent  # 业主同意闸:set_workspace/bind_project 默认先暂存
 import ds_dates   # 相对日期换算(确定性;助手不许心算,见契约 1c)
 import ds_lock    # 跨平台跨进程排他锁(workspace.json 的稳定旁路锁)
 import ds_todo    # 主动提醒核心,同目录模块(list_todos 直调,不走 subprocess)
@@ -848,10 +849,12 @@ def _locked_workspace_json_inner(cfg_path: str, lock_path: str):
 # ── 工具 4.4b set_workspace(Track B/B1)────────────────────────────────────────
 # 让用户不碰 JSON、不找开发者就能把工作台接到自己电脑的项目文件夹。写/更新
 # <ds_root>/config/workspace.json 的 root(+可选 projectsDir),保留已有 projects 映射。
-# 安全(design.md B5):此 root 只 scope 只读文件视图(ds_web 文件/图墙 + open-folder),
-# 不拓宽 LLM 能读并上云的内容。铁律不变量:workspace.json.root 与 DS_ORGANIZE_ROOTS
-# 永远独立——ds_organize(能碰任意机器文件的写/搬面)由独立 env 白名单管、走 ds-approve;
-# 本工具够不到它。谁把两者绑一起 = 把 set_workspace 变成真 exfil 杠杆。
+# 安全:0.80 加了 read_document 后,workspace.json.root 会影响助手可读文档面。
+# 现在靠业主同意闸保证待确认期间不落盘;回归判据见
+# tests/test_ds_consent.py::O7_读面不许绕过同意闸。铁律不变量:
+# workspace.json.root 与 DS_ORGANIZE_ROOTS 永远独立——ds_organize(能碰任意
+# 机器文件的写/搬面)由独立 env 白名单管、走 ds-approve;本工具够不到它。
+# 谁把两者绑一起 = 把 set_workspace 变成真 exfil 杠杆。
 def set_workspace(root: str, projects_dir: str = "", projects_depth: int = 0,
                   ds_root: str = DEFAULT_DS_ROOT) -> dict:
     """把工作台接到用户电脑的项目文件夹根目录。
@@ -870,6 +873,25 @@ def set_workspace(root: str, projects_dir: str = "", projects_depth: int = 0,
     real_root = os.path.realpath(root)
     if not os.path.isdir(real_root):
         return {"error": "root_not_dir"}  # 不回显路径细节
+
+    params = {"root": real_root, "projects_dir": projects_dir,
+              "projects_depth": projects_depth}
+    if ds_consent.load_mode(ds_root) == ds_consent.MODE_ASK:
+        return ds_consent.create_pending(ds_root, "set_workspace", params)
+    return _apply_set_workspace(real_root, projects_dir=projects_dir,
+                                projects_depth=projects_depth, ds_root=ds_root)
+
+
+def _apply_set_workspace(root: str, projects_dir: str = "", projects_depth: int = 0,
+                         ds_root: str = DEFAULT_DS_ROOT) -> dict:
+    if not isinstance(root, str) or not os.path.isabs(root):
+        return {"error": "root_not_absolute"}
+    if isinstance(projects_depth, bool) or not isinstance(projects_depth, int) \
+            or projects_depth not in (0, 1, 2):
+        return {"error": "depth_invalid"}
+    real_root = os.path.realpath(root)
+    if not os.path.isdir(real_root):
+        return {"error": "root_not_dir"}
 
     cfg_path = os.path.join(ds_root, "config", "workspace.json")
     # 从读旧值到原子替换全程持同一把锁,否则 set_workspace 会用旧 projects
@@ -927,6 +949,16 @@ def bind_project(project: str, folder: str, ds_root: str = DEFAULT_DS_ROOT) -> d
     """把已建档项目与工作区文件夹关联(合并项目列表里的重复条目)。
     project=项目档案 key;folder=项目列表里未建档条目的名字(按年份/客户分组时
     形如 `2026:0315 某项目`,平铺时就是文件夹名)。重绑=覆盖旧映射。"""
+    return _bind_project_impl(project, folder, ds_root=ds_root, require_consent=True)
+
+
+def _apply_bind_project(project: str, folder: str,
+                        ds_root: str = DEFAULT_DS_ROOT) -> dict:
+    return _bind_project_impl(project, folder, ds_root=ds_root, require_consent=False)
+
+
+def _bind_project_impl(project: str, folder: str, ds_root: str,
+                       require_consent: bool) -> dict:
     # 闸① project 必须是已建档项目(_resolve=H1 咽喉:within+字符集)
     path, err = _resolve(ds_root, "projects", project)
     if err:
@@ -955,6 +987,10 @@ def bind_project(project: str, folder: str, ds_root: str = DEFAULT_DS_ROOT) -> d
                     "folders": [n for n, _ in folders][:50]}
         folder, target = matches[0]
         rel = os.path.relpath(target, cfg["root"]).replace(os.sep, "/")
+        if require_consent and ds_consent.load_mode(ds_root) == ds_consent.MODE_ASK:
+            box["write"] = False
+            return ds_consent.create_pending(
+                ds_root, "bind_project", {"project": project, "folder": folder})
         if not isinstance(raw.get("projects"), dict):
             raw["projects"] = {}
         raw["projects"][project] = rel

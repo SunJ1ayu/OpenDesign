@@ -72,6 +72,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlsplit
 
 import ds_common
+import ds_consent
 import ds_intake    # 收件箱清单/建议(track opendesign-intake)
 import ds_model
 import ds_openfolder
@@ -201,7 +202,11 @@ STAGE_PATH = "/api/projects/stage"  # do_POST 写针孔⑩(track opendesign-stag
 REFS_UPDATE_PATH = "/api/refs/update"  # do_POST 写针孔⑪(同上 track §8),精确匹配
 DUE_DATE_PATH = "/api/changes/due"  # do_POST 写针孔⑫(track opendesign-todo-duedate),精确匹配
 DELETE_CHANGE_PATH = "/api/changes/delete"  # do_POST 写针孔⑮(track opendesign-owner-review-0808),精确匹配
+CONSENT_MODE_PATH = "/api/consent/mode"  # 业主同意闸档位设置,只收 {"mode"}
+CONSENT_RESOLVE_PATH = "/api/consent/resolve"  # 业主同意闸批准/拒绝,只收 id+bool
 _INTAKE_ALLOWED_KEYS = {"plan_id"}
+_CONSENT_MODE_ALLOWED_KEYS = {"mode"}
+_CONSENT_RESOLVE_ALLOWED_KEYS = {"pending_id", "approve"}
 _INTAKE_AMEND_ALLOWED_KEYS = {"plan_id", "drop"}
 # 收件箱确认的错误→HTTP 映射:格式/参数错 400,不存在 404,越界 403,状态冲突 409
 _INTAKE_ERR_STATUS = {
@@ -701,6 +706,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(404, {"error": "bad key"})
         elif path == "/api/intake":
             self._intake()
+        elif path == "/api/consent":
+            self._consent()
         elif path == "/api/projects":
             self._projects()
         elif path == "/api/workspace/health":
@@ -764,6 +771,10 @@ class Handler(BaseHTTPRequestHandler):
             self._set_due_date()
         elif path == DELETE_CHANGE_PATH:
             self._delete_change()
+        elif path == CONSENT_MODE_PATH:
+            self._consent_mode()
+        elif path == CONSENT_RESOLVE_PATH:
+            self._consent_resolve()
         elif (m := _SESSION_DELETE_RE.match(path)):
             self._delete_session(m.group(1))
         else:
@@ -1262,6 +1273,88 @@ class Handler(BaseHTTPRequestHandler):
             except (OSError, ValueError, KeyError, TypeError):
                 continue
         return out
+
+    def _consent(self):
+        """GET /api/consent:纯展示同意档位与未决卡片,不改任何状态。"""
+        try:
+            self._json(200, {"mode": ds_consent.load_mode(self.server.ds_root),
+                             "pending": ds_consent.list_pending(self.server.ds_root)})
+        except Exception:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
+
+    def _consent_json_body(self, allowed_keys: set):
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return None
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 < n <= OPEN_BODY_MAX:
+            self._json(400, {"error": "bad request"})
+            return None
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "bad request"})
+            return None
+        if not isinstance(body, dict) or set(body) - allowed_keys:
+            self._json(400, {"error": "bad request"})
+            return None
+        return body
+
+    def _consent_mode(self):
+        """POST /api/consent/mode:业主设置 ask/allow,模型无 MCP 入口。"""
+        body = self._consent_json_body(_CONSENT_MODE_ALLOWED_KEYS)
+        if body is None:
+            return
+        mode = body.get("mode")
+        if mode not in (ds_consent.MODE_ASK, ds_consent.MODE_ALLOW):
+            self._json(400, {"error": "mode_invalid"})
+            return
+        try:
+            self._json(200, ds_consent.set_mode(self.server.ds_root, mode))
+        except Exception:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
+
+    def _consent_resolve(self):
+        """POST /api/consent/resolve:前端只带 pending_id 和真布尔 approve。"""
+        body = self._consent_json_body(_CONSENT_RESOLVE_ALLOWED_KEYS)
+        if body is None:
+            return
+        pending_id = body.get("pending_id")
+        approve = body.get("approve")
+        if not ds_consent.is_valid_pending_id(pending_id):
+            self._json(400, {"error": "bad_pending_id"})
+            return
+        if not isinstance(approve, bool):
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            r = ds_consent.resolve_pending(self.server.ds_root, pending_id, approve)
+            if r.get("ok"):
+                self._json(200, r)
+                return
+            err = r.get("error", "internal")
+            if err == "already_resolved":
+                self._json(409, {"error": err})
+            elif err == "pending_not_found":
+                self._json(404, {"error": err})
+            elif err in {"bad_pending_id", "bad_approve", "bad_pending",
+                         "root_not_absolute", "depth_invalid"}:
+                self._json(400, {"error": err})
+            elif err in {"root_not_dir", "project_not_found", "folder_not_found"}:
+                self._json(404, {"error": err})
+            elif err in {"workspace_not_configured", "folder_ambiguous"}:
+                self._json(409, {"error": err})
+            else:
+                self._json(500, {"error": err})
+        except Exception:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
 
     def _intake_approve(self):
         """POST 针孔④(track opendesign-intake design D1):收件箱卡片「确认执行」。
@@ -1809,7 +1902,15 @@ class Handler(BaseHTTPRequestHandler):
         if not _valid_proj_key(project):
             self._json(400, {"error": "bad request"})
             return
-        r = ds_tools.bind_project(project, folder, ds_root=self.server.ds_root)
+        # 业主同意闸**不装在这道门上**(track opendesign-owner-consent,主 agent 收货时修)。
+        # 那道闸要拦的是**模型**擅自扩大自己能看到的范围;而这个针孔是**业主本人**
+        # 在浏览器里点的按钮 —— 让它弹一张"请业主确认"的卡,是让业主确认业主自己,
+        # 荒谬且会把项目列表的合并功能直接卡死(test_ds_web_api 那条红就是它)。
+        # 走 _apply_* 绕过闸是安全的,靠的是 design 已经写死并要在装包时重验的三条:
+        # ① ds_web 只绑 127.0.0.1;② Host 白名单挡 DNS rebinding;
+        # ③ 模型没有 exec/网络能力(ds_merge_config 把 tools.exec/file.enable 合成 false)
+        # ⇒ 模型够不到这个 HTTP 口。**这三条哪条塌了,这一行就得回来重想。**
+        r = ds_tools._apply_bind_project(project, folder, ds_root=self.server.ds_root)
         if r.get("ok"):
             self._json(200, r)
             return

@@ -59,6 +59,7 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bin"))
+import ds_consent  # noqa: E402  ← 本文件测锁,不测业主同意闸
 import ds_tools  # noqa: E402
 import ds_workspace  # noqa: E402
 
@@ -78,6 +79,11 @@ def _mkenv(projects=None, extra=None):
     cfg = {"root": ws, "projects": projects or {}, "projectsDir": "."}
     cfg.update(extra or {})
     _write_raw(ds, cfg)
+    # 本文件测的是**四个写口都得走那把锁**。track opendesign-owner-consent 之后
+    # set_workspace/bind_project 默认排队不落盘 —— 不落盘自然也不取锁,t04 会报
+    # "裸写"、t05 报"丢更新",而那是**假红**:它们测的写路径根本没被走到。
+    # 切到「不用问」档,让写口真的写,锁的判据才问得出东西。
+    ds_consent.set_mode(ds, ds_consent.MODE_ALLOW)
     return ds, ws
 
 

@@ -15,6 +15,7 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)  # design-studio/
 sys.path.insert(0, os.path.join(ROOT, "bin"))
+import ds_consent  # noqa: E402  ← 这两个 Oracle 类要显式声明「我测的是不用问档」
 import ds_tools  # noqa: E402
 
 TODAY = "2026-07-01"
@@ -798,6 +799,11 @@ class SetWorkspaceOracle(unittest.TestCase):
     def setUp(self):
         self.ds = tempfile.mkdtemp(prefix="dsws-")
         os.makedirs(os.path.join(self.ds, "config"), exist_ok=True)
+        # 本类测的是 set_workspace/bind_project 的**既有语义**(锁、原子写、
+        # 映射保留、名字闸)。track opendesign-owner-consent 之后这两个函数
+        # 默认要业主点头才落盘 —— 那条新行为由 tests/test_ds_consent.py 测,
+        # 本类显式切到「不用问」档,免得每条都卡在待确认上。
+        ds_consent.set_mode(self.ds, ds_consent.MODE_ALLOW)
         self.ws = tempfile.mkdtemp(prefix="dswsroot-")  # 用户真实工作区根
         self.cfg_path = os.path.join(self.ds, "config", "workspace.json")
 
@@ -960,6 +966,11 @@ class BindProjectOracle(unittest.TestCase):
     def setUp(self):
         self.ds = tempfile.mkdtemp(prefix="dsbind-")
         os.makedirs(os.path.join(self.ds, "config"), exist_ok=True)
+        # 本类测的是 set_workspace/bind_project 的**既有语义**(锁、原子写、
+        # 映射保留、名字闸)。track opendesign-owner-consent 之后这两个函数
+        # 默认要业主点头才落盘 —— 那条新行为由 tests/test_ds_consent.py 测,
+        # 本类显式切到「不用问」档,免得每条都卡在待确认上。
+        ds_consent.set_mode(self.ds, ds_consent.MODE_ALLOW)
         os.makedirs(os.path.join(self.ds, "projects"), exist_ok=True)
         self.ws = tempfile.mkdtemp(prefix="dsbindws-")
         self.cfg_path = os.path.join(self.ds, "config", "workspace.json")

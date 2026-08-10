@@ -25,6 +25,7 @@ import zipfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "bin"))
 
+import ds_consent            # noqa: E402  ← 夹具要显式关掉业主同意闸
 import ds_documents          # noqa: E402  ← 本单要造的模块
 import ds_tools              # noqa: E402
 import ds_web                # noqa: E402
@@ -91,6 +92,11 @@ class Base(unittest.TestCase):
         self.docs = os.path.join(self.proj, "01-资料")
         os.makedirs(self.docs)
         # 用真 API 搭夹具,不手写 workspace.json —— 手写的夹具会跟真实结构漂移
+        # 本文件测的是**读文档**,不是业主同意闸(track opendesign-owner-consent)。
+        # 那一单之后 set_workspace/bind_project 默认要业主点头才落盘,夹具会卡在
+        # 待确认上 ⇒ 这里显式声明"我不测那道闸"。**别删这行改成手写 json** ——
+        # 上一行那句注释就是为了防那个。
+        ds_consent.set_mode(self.ds, ds_consent.MODE_ALLOW)
         r = ds_tools.create_project(PROJECT, ds_root=self.ds)
         self.assertTrue(r.get("ok"), f"夹具:建项目应成功 {r}")
         r = ds_tools.set_workspace(self.work, projects_dir=".", ds_root=self.ds)
