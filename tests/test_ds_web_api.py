@@ -505,6 +505,30 @@ class TestEditChangePinhole(unittest.TestCase):
         self.assertIn("- C2 备注:最终确认", text)          # 备注被替换
         self.assertNotIn("业主微信确认了", text)
 
+    # 清空备注(track opendesign-note-clear,业主 2026-08-11 报):note="" 走完整 HTTP 面
+    # → 备注行删除,且**读侧 /changes 不再带 note 键**(写口与读侧一起验,只验磁盘不够:
+    #   读侧若还吐一个空 note,页面上就是一个空的「备注:」标签)
+    def test_edit_note_clear_removes_note(self):
+        root = self._root()
+        with _serve(root) as port:
+            st, d = self._post(port, "/api/changes/edit", {
+                "project": "编辑历史项目", "cnum": 2, "note": ""})
+            self.assertEqual(st, 200, d)
+            self.assertTrue(d["ok"])
+            st2, _, got = _get_json(
+                port, "/api/projects/" + quote("编辑历史项目") + "/changes")
+        text = self._proj_text(root)
+        self.assertNotIn("业主微信确认了", text)
+        self.assertEqual(sum(1 for l in text.splitlines()
+                             if l.startswith("- C2 备注")), 0)
+        self.assertIn("- C2 改于 2026-07-01｜原:玄关改鞋柜", text)   # 留痕不受牵连
+        self.assertIn("- C5 改于 2026-07-02｜原:客厅吊顶改平顶", text)
+        self.assertIn("- [进行中] C2 2026-06-19 玄关改到顶鞋柜", text)  # 正文一字未动
+        self.assertEqual(st2, 200)
+        by = {c["cnum"]: c for c in got["changes"]}
+        self.assertNotIn("note", by[2])
+        self.assertEqual(len(by[2]["history"]), 1)                  # 留痕读侧照旧
+
     # CT 非 json → 400,文件逐字节不动
     def test_edit_ct_gate_rejects_and_no_write(self):
         root = self._root()

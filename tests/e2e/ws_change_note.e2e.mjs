@@ -19,6 +19,12 @@
 //   E 备注 + 正文一起改 → 两者都落盘,正文那条留痕照常。
 //   F 取消 → 一个字都不写。
 //
+// 2026-08-11 追加(track opendesign-note-clear,业主真机报「删掉原来的备注但还是之前的
+// 备注」)—— 这两组连后端一起验,不再是纯前端:
+//   G 工作区**清空**备注 → 磁盘那行真删掉 + 行上标签消失(邻居/留痕锚:只删备注)。
+//   H 待办页写了再清 → 磁盘那行没了,且**不许留一个空的「备注:」标签**
+//     (待办页的 tag 走会话级 noted 映射,存空串就会渲染成空标签)。
+//
 // 跑法:node tests/e2e/ws_change_note.e2e.mjs(自起 ds_web 于 8816)
 import { spawn } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
@@ -176,6 +182,65 @@ try {
     expect(md() === before, "取消后档案逐字节不变");
     expect(!md().includes("这条不该被保存"), "草稿没有泄漏到磁盘");
   });
+  // ── G 清空备注 = 真的删掉(track opendesign-note-clear)────────────────────
+  // 业主 2026-08-11 真机原话:「我原本待办事项里备注的 我去修改删掉原来的备注但是
+  // 还是之前的备注」。两层各吃掉一次:前端把"空"当成"没改"⇒ 不发请求;后端把 note=""
+  // 当成"没给"⇒ 旧行留着还回 ok。**磁盘断言是这一组的锚**(页面标签会话级不算数)。
+  await step("G 清空备注:磁盘那行真没了,行上标签消失(不是留个空标签)", async () => {
+    await openProject();
+    await startEdit("吊顶改平顶");
+    expect(await noteBox().inputValue() === "业主书面确认",
+      `前置:C1 现在有备注(实测「${await noteBox().inputValue()}」)`);
+    await noteBox().fill("");
+    await page.locator(".change-scroll .edit-fields .btn-save").click();
+    await page.locator(".change-scroll .edit-fields")
+      .waitFor({ state: "detached", timeout: 10000 });   // 编辑器关掉 = 这一轮写完
+    await page.waitForTimeout(300);
+    const m = md();
+    expect(!/^- C1 备注[:：]/m.test(m), "磁盘 `## 变更历史` 段里 C1 那行备注已删除");
+    expect(!m.includes("业主书面确认"), "备注内容真没了");
+    expect(await row("吊顶改平顶").locator(".note-tag").count() === 0,
+      "行上「备注:…」标签整个消失(不是渲染成一个空的「备注:」)");
+    expect(m.includes("【客厅】吊顶改平顶"), "正文一字未动");
+    expect(m.includes("- C3 备注:水电交底前定"), "邻居锚:C3 的备注一个字没动");
+    expect(/- C3 改于 /.test(m), "留痕锚:正文留痕行原样还在(删的只是备注)");
+  });
+
+  // ── H 待办页同样能清掉,且不留空标签 ─────────────────────────────────────
+  // 待办页那个 tag 走会话级 noted 映射(数据源不带 note),**乐观回显里存空串就会
+  // 渲染出一个空的「备注:」** —— 这一组专门接住那个形状。
+  await step("H 待办页:写了再清 → 标签消失且磁盘那行没了", async () => {
+    await page.goto(base, { waitUntil: "domcontentloaded" });
+    await page.locator('.side-row:has-text("待办事项")').first().click();
+    await page.locator(".todo-card").first().waitFor({ timeout: 15000 });
+    const trow = page.locator('.todo-row:has-text("衣柜加到顶")').first();
+    await trow.waitFor({ timeout: 10000 });
+    await trow.hover();
+    await trow.locator(".edit-btn").click();
+    const tnote = page.locator(".todo-row.editing .edit-note");
+    await tnote.waitFor({ timeout: 5000 });
+    await tnote.fill("待办页写的备注");
+    await page.locator(".todo-row.editing .btn-save").click();
+    await page.locator('.todo-row:has-text("衣柜加到顶") .note-tag')
+      .waitFor({ timeout: 10000 });
+    expect(md().includes("- C2 备注:待办页写的备注"), "前置:待办页写的备注已落盘");
+
+    const trow2 = page.locator('.todo-row:has-text("衣柜加到顶")').first();
+    await trow2.hover();
+    await trow2.locator(".edit-btn").click();
+    const tnote2 = page.locator(".todo-row.editing .edit-note");
+    await tnote2.waitFor({ timeout: 5000 });
+    expect(await tnote2.inputValue() === "待办页写的备注", "编辑态预填了既有备注");
+    await tnote2.fill("");
+    await page.locator(".todo-row.editing .btn-save").click();
+    await page.locator(".todo-row.editing").waitFor({ state: "detached", timeout: 10000 });
+    await page.waitForTimeout(300);
+    expect(!md().includes("待办页写的备注"), "磁盘上那条备注真没了");
+    expect(await page.locator('.todo-row:has-text("衣柜加到顶") .note-tag').count() === 0,
+      "待办行上不许留一个空的「备注:」标签");
+  });
+
+
 } finally {
   if (browser) await browser.close();
   srv.kill();

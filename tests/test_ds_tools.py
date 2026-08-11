@@ -537,6 +537,132 @@ class EditChangeOracle(unittest.TestCase):
         self.assertEqual(sum(1 for l in text2.splitlines()
                              if l.startswith("- C2 备注")), 1)
 
+    # ── 清空备注(track opendesign-note-clear;业主 2026-08-11 真机原话:
+    #    「我原本待办事项里备注的 我去修改删掉原来的备注但是还是之前的备注」)──
+    #    契约:note 缺省=不动;note 给了空串(含纯空白)=删掉这条备注行。
+    def _fixture_with_notes(self):
+        """备注行**故意夹在两条留痕行中间**:只删段内第一行 / 只删段尾那种实现要在这儿红。
+        C12 是邻居锚(清 C1 的正则不许误伤 C12);C3 无备注,给 no-op 用。"""
+        slug = "云山名城-1002"
+        path = _write_project(self.ds, slug, [
+            "- [待确认] C1 2026-06-20 主卧衣柜改推拉门",
+            "- [进行中] C12 2026-06-19 玄关增加到顶储物柜",
+            "- [待确认] C3 2026-06-18 阳台加洗衣柜",
+        ])
+        text = _read(path).replace("## 沟通日志", "\n".join([
+            "",
+            "## 变更历史",
+            "- C1 改于 2026-06-25｜原:主卧衣柜改平开门",
+            "- C1 备注:业主还在犹豫",
+            "- C12 备注:邻居锚,一个字都不许动",
+            "- C1 改于 2026-06-28｜原:主卧衣柜改折叠门",
+            "",
+            "## 沟通日志",
+        ]), 1)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        return slug, path
+
+    # ⑤b 清空:备注行真的消失,且**只**消失它
+    def test_e05b_note_clear_removes_the_line(self):
+        slug, path = self._fixture_with_notes()
+        r = ds_tools.edit_change(slug, 1, note="", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        text = _read(path)
+        self.assertNotIn("业主还在犹豫", text)                     # 备注内容真没了
+        self.assertEqual(sum(1 for l in text.splitlines()
+                             if l.startswith("- C1 备注")), 0)
+        self.assertIn("- C12 备注:邻居锚,一个字都不许动", text)     # 邻居锚:C1 不许误伤 C12
+        self.assertIn("- C1 改于 2026-06-25｜原:主卧衣柜改平开门", text)  # 留痕锚:只删备注
+        self.assertIn("- C1 改于 2026-06-28｜原:主卧衣柜改折叠门", text)
+        self.assertIn("- [待确认] C1 2026-06-20 主卧衣柜改推拉门", text)  # 变更主行逐字节不变
+        self.assertEqual(_change_count(text), 3)
+        self.assertIn(f"最后更新: {TODAY}", text)                  # 真写了 ⇒ 页脚 bump
+
+    # ⑤c 纯空白 == 空串(与前端 trim 口径一致,别让一个空格救活旧备注)
+    def test_e05c_note_clear_accepts_whitespace(self):
+        slug, path = self._fixture_with_notes()
+        r = ds_tools.edit_change(slug, 1, note="   ", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        self.assertNotIn("业主还在犹豫", _read(path))
+
+    # ⑤d 没备注可删 = 纯 no-op:仍回 ok,但文件**逐字节不动**
+    #     (两种形态都测:连 `## 变更历史` 段都没有 / 段在但该 cnum 没备注)
+    def test_e05d_note_clear_when_absent_is_byte_noop(self):
+        before = _read(self.path)                 # SAMPLE 无 `## 变更历史` 段
+        r = ds_tools.edit_change(self.slug, 1, note="", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(_read(self.path), before)  # 不建段、不 bump 页脚
+        slug, path = self._fixture_with_notes()   # 段在,但 C3 没备注
+        before2 = _read(path)
+        r2 = ds_tools.edit_change(slug, 3, note="", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r2.get("ok"), r2)
+        self.assertEqual(_read(path), before2)
+
+    # ⑤e 清空之后还能再写回来(删不是把这条变更的备注能力焊死)
+    def test_e05e_note_can_be_written_again_after_clear(self):
+        slug, path = self._fixture_with_notes()
+        ds_tools.edit_change(slug, 1, note="", ds_root=self.ds, today=TODAY)
+        ds_tools.edit_change(slug, 1, note="业主改主意了", ds_root=self.ds, today=TODAY)
+        text = _read(path)
+        self.assertEqual(sum(1 for l in text.splitlines()
+                             if l.startswith("- C1 备注")), 1)
+        self.assertIn("- C1 备注:业主改主意了", text)
+
+    # ⑤f 档案里有**两行**同一 cnum 的备注(纯文本档案,手改/助手写都可能造出来):
+    #     旧写侧只替换第一条、而读侧 parse_history 是"最后一条获胜" ⇒ 改了备注读出来
+    #     还是旧的 —— 与业主原话「我去修改…还是之前的备注」同一个症状,第二个根因。
+    #     契约:写 = 归一成恰好一条(留第一条的位置),清 = 一条不剩。
+    def _fixture_duplicate_notes(self):
+        slug = "重复备注-1101"
+        path = _write_project(self.ds, slug, [
+            "- [待确认] C3 2026-06-20 阳台加洗衣柜",
+        ])
+        text = _read(path).replace("## 沟通日志", "\n".join([
+            "",
+            "## 变更历史",
+            "- C3 备注:较早的备注",
+            "- C3 改于 2026-06-21｜原:阳台加柜子",
+            "- C3 备注:后来的旧备注",
+            "",
+            "## 沟通日志",
+        ]), 1)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        return slug, path
+
+    def test_e05f_duplicate_notes_normalized_on_write(self):
+        slug, path = self._fixture_duplicate_notes()
+        ds_tools.edit_change(slug, 3, note="业主刚说的新备注", ds_root=self.ds, today=TODAY)
+        text = _read(path)
+        self.assertEqual(sum(1 for l in text.splitlines()
+                             if l.startswith("- C3 备注")), 1)     # 归一
+        self.assertNotIn("后来的旧备注", text)
+        self.assertNotIn("较早的备注", text)
+        # 读侧(单一真相源)必须给出新值 —— 这条才是业主眼里的"改成功了"
+        self.assertEqual(ds_tools.parse_history(text)[3]["note"], "业主刚说的新备注")
+        self.assertIn("- C3 改于 2026-06-21｜原:阳台加柜子", text)  # 留痕不受牵连
+
+    def test_e05g_duplicate_notes_all_removed_on_clear(self):
+        slug, path = self._fixture_duplicate_notes()
+        ds_tools.edit_change(slug, 3, note="", ds_root=self.ds, today=TODAY)
+        text = _read(path)
+        self.assertEqual(sum(1 for l in text.splitlines()
+                             if l.startswith("- C3 备注")), 0)     # 一条不剩
+        self.assertIsNone(ds_tools.parse_history(text)[3]["note"])
+        self.assertIn("- C3 改于 2026-06-21｜原:阳台加柜子", text)
+
+    # ⑤h 全角冒号的旧备注(写侧一直写半角,但读侧正则收两种)照样清得掉
+    def test_e05h_note_clear_fullwidth_colon(self):
+        slug = "全角冒号-1102"
+        path = _write_project(self.ds, slug, ["- [待确认] C4 2026-06-20 主卫改干湿分离"])
+        text = _read(path).replace("## 沟通日志", "\n".join([
+            "", "## 变更历史", "- C4 备注：全角冒号写的旧备注", "", "## 沟通日志"]), 1)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        ds_tools.edit_change(slug, 4, note="", ds_root=self.ds, today=TODAY)
+        self.assertNotIn("全角冒号写的旧备注", _read(path))
+
     # ⑩ 非法:未知 cnum→change_not_found;非法 status→invalid_status;空 new_text→empty_text;错误路径不碰文件
     def test_e10_invalid(self):
         before = _read(self.path)

@@ -110,6 +110,28 @@ test("buildEditRequest:备注==原备注(预填没动)→ 不重写(todo-ux2)", 
     { project: "翡翠湾", cnum: 3, note: "业主书面确认" });
 });
 
+// 清空备注(track opendesign-note-clear;业主 2026-08-11 真机报:「删掉原来的备注但
+// 还是之前的备注」)。根因之一就在这个纯函数:`if (n && …)` 把"清空"当成"没改",
+// 于是若这次只清了备注,整个请求都不发 —— 界面关了,盘上一字未动。
+test("buildEditRequest:清空备注(原来有)→ 带 note:\"\",这是一次真改动", () => {
+  assert.deepEqual(buildEditRequest(editable(), { note: "" }, "业主确认"),
+    { project: "翡翠湾", cnum: 3, note: "" });
+  // 全删成空格也算清空(与后端 sanitize/trim 同口径,别让一个空格救活旧备注)
+  assert.deepEqual(buildEditRequest(editable(), { note: "   " }, "业主确认"),
+    { project: "翡翠湾", cnum: 3, note: "" });
+});
+
+test("buildEditRequest:本来就没备注 + 草稿也空 → 仍是 null(不发无谓写)", () => {
+  assert.equal(buildEditRequest(editable(), { note: "" }, ""), null);
+  assert.equal(buildEditRequest(editable(), { note: "  " }), null);
+});
+
+test("buildEditRequest:清空备注 + 同时改正文 → 两个字段都带", () => {
+  assert.deepEqual(
+    buildEditRequest(editable(), { text: "客厅吊顶改弧形", note: "" }, "业主确认"),
+    { project: "翡翠湾", cnum: 3, new_text: "客厅吊顶改弧形", note: "" });
+});
+
 test("buildEditRequest:三字段同改 → 全带", () => {
   const r = buildEditRequest(editable(), {
     status: "已完成", text: "客厅吊顶改弧形", note: "拍板",
