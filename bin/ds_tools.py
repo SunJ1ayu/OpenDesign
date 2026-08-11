@@ -492,22 +492,36 @@ def _append_history_entry(lines: list[str], entry: str) -> None:
     lines.insert(last + 1, entry)
 
 
-def _upsert_note(lines: list[str], num: str, note_line: str) -> None:
-    """按 cnum 键在 `## 变更历史` 段内追加/替换该变更的备注行,同时归一重复行(只保留第一条)。"""
-    note_re = re.compile(rf"^- C{num} 备注[:：]")
+def _note_re(num: str) -> re.Pattern:
+    """该 cnum 的备注行锚(写侧唯一定义,`_upsert_note`/`_delete_note` 共用)。
+    `C{num}` 后必须是一个空格 ⇒ 清 C1 不会误伤 C12;全角冒号与读侧
+    `_HISTORY_NOTE_RE` 同口径(读侧收两种,写侧只写半角)。"""
+    return re.compile(rf"^- C{num} 备注[:：]")
+
+
+def _upsert_note(lines: list[str], num: str, note_line: str) -> bool:
+    """按 cnum 键在 `## 变更历史` 段内追加/替换该变更的备注行,同时归一重复行(只保留第一条)。
+
+    返回**是否真的改动了文件内容**:值一样且没有重复行 → False(纯 no-op,页脚不 bump)。
+    「最后更新」是项目活跃度/超期排序的输入,写同值也 bump 会污染排序(四审 LOW-1)。
+    """
+    note_re = _note_re(num)
     b = _history_bounds(lines)
     if b is None:
         _create_history_section(lines, [note_line])
-        return
+        return True
     hidx, end = b
     first_hit = None
     to_remove: list[int] = []
     last = hidx
+    changed = False
     for k in range(hidx + 1, end):
         if note_re.match(lines[k]):
             if first_hit is None:
                 first_hit = k
-                lines[k] = note_line
+                if lines[k] != note_line:
+                    lines[k] = note_line
+                    changed = True
             else:
                 to_remove.append(k)
         elif lines[k].strip():
@@ -516,11 +530,13 @@ def _upsert_note(lines: list[str], num: str, note_line: str) -> None:
         del lines[k]
     if first_hit is None:
         lines.insert(last + 1, note_line)
+        return True
+    return changed or bool(to_remove)   # 归一掉重复行本身就是真改动
 
 
 def _delete_note(lines: list[str], num: str) -> bool:
     """删除 `## 变更历史` 段内该 cnum 的所有备注行。返回是否有行被删除。"""
-    note_re = re.compile(rf"^- C{num} 备注[:：]")
+    note_re = _note_re(num)
     b = _history_bounds(lines)
     if b is None:
         return False
@@ -589,10 +605,10 @@ def edit_change(project: str, cnum, new_status: str | None = None,
                 _append_history_entry(lines, f"- C{num} 改于 {today}｜原:{old_text}")
                 changed = True
 
-        if note is not None:
+        if note is not None:   # 缺省=不动;空串/纯空白=删除;非空=设置(并归一重复行)
             if note_s:
-                _upsert_note(lines, num, f"- C{num} 备注:{note_s}")
-                changed = True
+                if _upsert_note(lines, num, f"- C{num} 备注:{note_s}"):
+                    changed = True
             elif _delete_note(lines, num):
                 changed = True
 
