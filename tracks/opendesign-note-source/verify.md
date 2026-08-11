@@ -24,8 +24,13 @@ runlog: oracle-red-after-attack rc=1 commit=c5855d9 dirty=yes at=2026-08-11T06:5
 runlog: e2e-I-red rc=0 commit=5614905 dirty=yes at=2026-08-11T06:30:46Z file=tracks/opendesign-note-source/evidence/20260811T063046Z-01-e2e-I-red.txt
 runlog: e2e-I-red-honest-rc rc=1 commit=5614905 dirty=yes at=2026-08-11T06:32:50Z file=tracks/opendesign-note-source/evidence/20260811T063250Z-01-e2e-I-red-honest-rc.txt
 runlog: e2e-I5-I6-red rc=1 commit=c5855d9 dirty=yes at=2026-08-11T06:51:49Z file=tracks/opendesign-note-source/evidence/20260811T065149Z-01-e2e-I5-I6-red.txt
+runlog: e2e-I7-anchor rc=1 commit=6988bc7 dirty=yes at=2026-08-11T06:58:41Z file=tracks/opendesign-note-source/evidence/20260811T065841Z-01-e2e-I7-anchor.txt
 runlog: e2e-I8-final rc=1 commit=6988bc7 dirty=yes at=2026-08-11T07:04:05Z file=tracks/opendesign-note-source/evidence/20260811T070405Z-01-e2e-I8-final.txt
 ```
+> 这五份的 rc=1 都是**判据在旧实现下该红**;每一份里 A–H 全绿、红的只有 I 组
+> (`e2e-I7-anchor` 那份里 I7 自己是绿的 —— 它是防坑锚不是红检证据,性质写在文件里)。
+> **这份收据是 `track archive` 的 5b 闸替我找出来的**:我漏引了它,守卫拒绝归档。
+> 它挡的正是"只贴好看的那几份"。
 > ⚠️ 第一份 `rc=0` **是假的**:我给命令接了 `| tail -45`,管道把 e2e 的 `process.exit(1)`
 > 吃掉了,收据正文里明明白白写着"6 条不通过"。留着不删。
 
