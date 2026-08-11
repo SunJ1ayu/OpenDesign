@@ -229,8 +229,13 @@ export default function ChangesColumn({
   }
 
   // 行内改状态(可随时把已完成/已关闭点回待确认等)。全部筛选下条目不消失,无需撤销 toast。
+  // `next === c.status` 那道前端同值跳过在 track opendesign-note-source 去掉了:
+  // 手里这个 status 是上一次重拉的快照,可能已过期 —— 拿它替档案做主,正是这一单要
+  // 消灭的"第二个判官"。后端对同值状态是逐字节 no-op(判据 test_e06d)。
+  // **这处改动可观察行为不变**(以前不发请求、现在发一次后端不写盘),没有判据能咬,
+  // 是纪律性清理,靠闸③人读 —— 如实记在 verify 里,不装作它被判据保着。
   async function pickStatus(c: Change, next: string) {
-    if (!project || c.cnum === null || next === c.status) return;
+    if (!project || c.cnum === null) return;
     setActionErr(null);
     try {
       await editChange({ project: project.key, cnum: c.cnum, new_status: next });
@@ -495,7 +500,7 @@ export default function ChangesColumn({
               </span>
             )}
             {/* #9 备注(与待办页同口径,note-tag)+「改过 N 次」展开(design.md §9) */}
-            {c.note !== undefined && <span className="note-tag">备注:{c.note}</span>}
+            {c.note ? <span className="note-tag">备注:{c.note}</span> : null}
             {c.cnum !== null && historySummary(c) && (
               <button
                 type="button"

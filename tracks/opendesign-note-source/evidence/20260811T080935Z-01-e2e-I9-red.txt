@@ -1,0 +1,246 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    e2e-I9-red
+cmd:     node tests/e2e/ws_change_note.e2e.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  8f2737c
+dirty:   no(跑之前采的;含未跟踪文件)
+started: 2026-08-11T08:09:35Z
+---------------- 输出开始 ----------------
+
+== A 工作区行内编辑器有备注输入框(复用待办页 .edit-note)
+  ok - 编辑态里有且只有一个 .edit-note 输入框
+  ok - 备注框可见
+
+== B 写备注保存:行上出现「备注:…」,且磁盘变更历史段真落了
+  ok - 行上备注已上屏(实测「备注:业主要求柜门做长虹玻璃」)
+  ok - 磁盘 `## 变更历史` 段已落 C2 备注(真写口,不是乐观 tag)
+
+== C 再点编辑:备注框预填既有备注(在原文上改,不是重打)
+  ok - C1 备注框预填了既有备注(实测「业主口头确认」)
+  ok - 正文框同样预填(既有行为不许退化)
+
+== D 只改备注:正文原样,且不产生假的「改过」留痕
+  ok - C1 备注已改写(upsert,不是追加第二行)
+  ok - 旧备注已被替换掉
+  ok - 正文一字未动
+  ok - 没有假的「C1 改于 …｜原:…」留痕(正文没改就别留痕)
+
+== E 备注与正文同改:两者都落盘,正文留痕照常
+  ok - 新正文已落盘
+  ok - 新备注已落盘
+  ok - 正文那条留痕照常写
+
+== F 取消:一个字都不写
+  ok - 取消后档案逐字节不变
+  ok - 草稿没有泄漏到磁盘
+
+== G 清空备注:磁盘那行真没了,行上标签消失(不是留个空标签)
+  ok - 前置:C1 现在有备注(实测「业主书面确认」)
+  ok - 磁盘 `## 变更历史` 段里 C1 那行备注已删除
+  ok - 备注内容真没了
+  ok - 行上「备注:…」标签整个消失(不是渲染成一个空的「备注:」)
+  ok - 正文一字未动
+  ok - 邻居锚:C3 的备注一个字没动
+  ok - 留痕锚:正文留痕行原样还在(删的只是备注)
+
+== H 待办页:写了再清 → 标签消失且磁盘那行没了
+  ok - 前置:待办页写的备注已落盘
+  ok - 编辑态预填了既有备注
+  ok - 磁盘上那条备注真没了
+  ok - 待办行上不许留一个空的「备注:」标签
+
+== I1 冷启动:档案里已有的备注,待办页第一次打开就显示并预填
+  ok - 前置:磁盘上确实有这条
+ds-web 0.84.0: http://127.0.0.1:8816/  (DS_ROOT=/tmp/wsnote-e2e-4v4a6R/ds)
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET / HTTP/1.1" 200 -
+127.0.0.1 - "GET /assets/index-Ss7MVZky.css HTTP/1.1" 200 -
+127.0.0.1 - "GET /assets/index-8GkLMk8s.js HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/images/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET / HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/images/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/images/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET / HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/images/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "GET / HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/images/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/images/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET / HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/images/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/images/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET / HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/images/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET / HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/images/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/images/%E5%BC%A0%E5%AE%85-1101 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET / HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET / HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+  ok - 待办行上有「备注:」标签(浏览器这次会话从没写过它 ⇒ 只能是从档案读的)
+  ok - 标签里是档案里那句话
+  ok - 编辑框预填的也是档案里那句
+
+== I2 刷新:待办页写的备注,F5 之后还在
+  ok - 前置:落盘了
+  ok - 刷新后标签还在(今天必红)
+  ok - 刷新后显示的还是那句话
+
+== I3 清空之后刷新:标签没了,磁盘那行也没了
+  ok - 编辑框预填的是档案里的现值
+  ok - 刷新后标签不再出现
+  ok - 磁盘那行真没了
+
+== I4 跨面一致:工作区改的备注,待办页看到的是新值
+  ok - 前置:工作区写进去了
+  ok - 两个页面同一个真相源
+
+== I5 只改正文保存:别人这期间改的备注不许被盖回去
+  ok - 前置:编辑框预填的是档案里的现值
+  ok - 前置:别人经写口改了备注({"ok":true,"cnum":2,"line":"- [待确认] C2 2026-07-28 【主卧】衣柜加到顶","changed_fields":["note"]})
+  ok - 别人写的备注还在(没被旧值盖回去)
+  ok - 打开编辑器时的旧备注没有被回发
+  ok - 他改的正文照常落盘
+
+== I6 正文改了又改回原值:不许冒出「改过 · 看原文」
+  ok - 没有假的「改过 · 看原文」标记(以服务端 changed_fields 为准)
+  ok - 磁盘上也不许留假留痕
+
+== I7 正文真改了:「改过 · 看原文」必须出现
+  ok - 正文真改了 ⇒ 行上出现「改过 · 看原文」
+  ok - 磁盘上正文真的变成了新值
+  ok - 磁盘上也留了真留痕
+
+== I8 前端旧值与档案现值打架:以档案为准(不许出现「改过」)
+  ok - 前置:别人把正文改成了 X({"ok":true,"cnum":3,"line":"- [待确认] C3 2026-07-28 【厨房】加净水器和前置过滤点位(已定在阳台)","changed_fields":["text"]})
+  ok - 业主这次保存前后,档案逐字节不变(他改成的正是现值)
+  ok - 不许出现「改过 · 看原文」—— 前端拿自己手里的旧值比,就会在这条上露馅
+
+== I9 手写的空备注标记:两个页面都不许渲染出一个空的「备注:」
+  FAIL: 待办页:空备注标记不许渲染成一个空的「备注:」标签
+  FAIL: 工作区同样不许(这条毛病它一直有,顺手一起堵)
+
+2 条不通过
+---------------- 输出结束 ----------------
+runlog: e2e-I9-red rc=1 commit=8f2737c dirty=no at=2026-08-11T08:09:35Z file=tracks/opendesign-note-source/evidence/20260811T080935Z-01-e2e-I9-red.txt

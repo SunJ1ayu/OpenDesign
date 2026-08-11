@@ -130,7 +130,9 @@ def _today() -> date:
 def collect(root: str, stale_days: int = 7, today: date | None = None) -> dict:
     """结构化核心(唯一真相源):render 与 ds_web /api/todos 都吃这个。
     返回 {"today", "stale_days", "open": [...], "stale": [...]};open 条目含
-    project/line/status/cnum/date/text/raw,残缺行 cnum/date 为 None。"""
+    project/line/status/cnum/date/text/raw/space/due/batch;残缺行 cnum/date 为 None。
+    另有**可选** `note`:档案 `## 变更历史` 段里该 cnum 的备注,**有才带这个键**
+    (与 /changes 端点同约定;track opendesign-note-source)。"""
     if today is None:
         today = _today()
     proj = os.path.join(root, "projects")

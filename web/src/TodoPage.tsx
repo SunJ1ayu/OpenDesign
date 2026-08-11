@@ -491,7 +491,10 @@ export default function TodoPage({
               改过 · 看原文
             </span>
           )}
-          {note !== undefined && <span className="note-tag">备注:{note}</span>}
+          {/* 空串不渲染:手写老档案里的 `- Cn 备注:`(冒号后为空)读出来是 ""
+              ⇒ 渲染条件用 truthy,不用 !== undefined,免得长出一个空的「备注:」
+              (四审 LOW-3;判据 e2e I9) */}
+          {note ? <span className="note-tag">备注:{note}</span> : null}
         </span>
         <span className="meta">
           {/* 截止日(track opendesign-due-picker):**入口就在日期该在的位置** ——
