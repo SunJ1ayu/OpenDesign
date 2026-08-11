@@ -117,6 +117,22 @@ def _find_same_unresolved(ds_root: str, action: str, params: dict) -> dict | Non
     return None
 
 
+def _current_root(ds_root: str):
+    """当前生效的工作区根(realpath);读不出来回 None。
+
+    只用来判"这张卡排队之后根有没有被换掉"(判据 O10),不参与任何授权判断。
+    本模块不 import ds_workspace 以外的业务模块 —— 依赖方向单向,别造环
+    (`ds_consent → ds_tools` 那个环已经栽过一次,判据 O9)。
+    """
+    try:
+        import ds_workspace
+        cfg = ds_workspace.load_config(ds_root)
+        root = (cfg or {}).get("root")
+        return os.path.realpath(root) if isinstance(root, str) and root else None
+    except Exception:      # noqa: BLE001 —— 判不出来就说判不出来,不猜
+        return None
+
+
 def create_pending(ds_root: str, action: str, params: dict) -> dict:
     if action not in GUARDED_ACTIONS or not isinstance(params, dict):
         return {"error": "bad_pending"}
@@ -135,6 +151,11 @@ def create_pending(ds_root: str, action: str, params: dict) -> dict:
             "action": action,
             "params": params,
             "created": _now(),
+            # 记下**排队那一刻**的工作区根(判据 O10)。批准时根若已经变了,
+            # 这张卡上的文件夹名就可能指向另一个地方 —— 业主看到的和实际会执行的
+            # 不是一回事。记下来才判得出"过期"。读不到配置时记 None,
+            # 那种情况下不拿它当过期依据(见 resolve_pending)。
+            "cfg_root": _current_root(ds_root),
             "resolved_at": None,
         }
         _write_json(path, rec)
@@ -208,6 +229,20 @@ def resolve_pending(ds_root: str, pending_id: str, approve: bool,
         if action not in GUARDED_ACTIONS or not isinstance(params, dict):
             return {"error": "bad_pending"}
         if approve:
+            # 过期闸(判据 O10):排队时的根 ≠ 现在的根 ⇒ 这张卡上的名字已经
+            # 指向别的地方了,**拒绝执行**,让业主重新提一次。重提成本很低,
+            # 而"绑到同名的另一个文件夹"是静默的。
+            # 只在两边都确切知道时才判过期:记的是 None(当时读不出配置)就不拿它说事,
+            # 否则会把"我不知道"变成"你过期了",误伤正常路径。
+            # **刻意不按动作分档**:set_workspace 的参数是绝对路径、其实不受根变化
+            # 影响,所以这里对它是**过度拒绝**(两张换根卡同时排队时,批完第一张,
+            # 第二张要重提)。仍然选宽的一边 —— 这张卡的既定哲学就是"拿不准就拒绝,
+            # 重提成本很低";而窄一档就要在这里长一张"哪些动作的参数与根无关"的表,
+            # 那种表会烂,且烂法是静默的。
+            was = rec.get("cfg_root")
+            now = _current_root(ds_root)
+            if was is not None and now is not None and was != now:
+                return {"error": "stale_pending"}
             if apply_fn is None:
                 # fail-closed:没有执行器就不执行,也不标已决 —— 卡片留着,
                 # 业主下次还能点。绝不把"我不知道怎么执行"当成批准。

@@ -1342,7 +1342,9 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, r)
                 return
             err = r.get("error", "internal")
-            if err == "already_resolved":
+            if err in ("already_resolved", "stale_pending"):
+                # stale_pending:排队之后工作区根被换过了,这张卡上的名字已经指向
+                # 别的地方 —— 状态冲突,同 409(判据 O10)。
                 self._json(409, {"error": err})
             elif err == "pending_not_found":
                 self._json(404, {"error": err})
@@ -1912,7 +1914,13 @@ class Handler(BaseHTTPRequestHandler):
         # 走 _apply_* 绕过闸是安全的,靠的是 design 已经写死并要在装包时重验的三条:
         # ① ds_web 只绑 127.0.0.1;② Host 白名单挡 DNS rebinding;
         # ③ 模型没有 exec/网络能力(ds_merge_config 把 tools.exec/file.enable 合成 false)
-        # ⇒ 模型够不到这个 HTTP 口。**这三条哪条塌了,这一行就得回来重想。**
+        # ④(四审 subdeepseek 补的第四条):**网页不能把助手的内容当可执行 HTML 透传**
+        #    —— 否则被注入的助手一句话就能在业主浏览器里同源 fetch 打这个口。
+        #    现状由另一套机制撑着:markdown 禁 raw HTML(`web/src/chat/markdown.ts`,
+        #    `test_chat_transcript.mjs` 的 XSS 闸钉着)+ 写口一律 application/json
+        #    ⇒ 跨源要 preflight ⇒ 本服务没有 OPTIONS 面 ⇒ 浏览器自己拦下。
+        #    哪天有人给 markdown 加 rehype-raw、或新增一个 text/plain 写口,这条就塌了。
+        # ⇒ 模型够不到这个 HTTP 口。**这四条哪条塌了,这一行就得回来重想。**
         r = ds_tools._apply_bind_project(project, folder, ds_root=self.server.ds_root)
         if r.get("ok"):
             self._json(200, r)

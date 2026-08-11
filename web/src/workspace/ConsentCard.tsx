@@ -27,6 +27,22 @@ type Props = {
   active: boolean;
 };
 
+/** 后端 `resolve_pending` 能回的每个错误码 → 一句人话。
+ *
+ * 业主不写代码,屏幕上不该出现 `stale_pending` 这种东西。**新增错误码必须在这里
+ * 补一句** —— `tests/test_consent_messages.mjs`(判据 O12)从 `ds_consent.py` 现取
+ * 码表机械核对,漏一个就红,不靠谁记得回来看这段注释。
+ */
+const ERR_MSG: Record<string, string> = {
+  already_resolved: "这一条已经处理过了(可能在另一个窗口点过)。",
+  stale_pending: "这条请求排队之后,工作区被换过了 —— 卡片上写的文件夹名现在可能指向别的地方,所以没有执行。让助手重新提一次。",
+  pending_not_found: "这一条已经不在了(可能刚被处理掉或清理掉)。",
+  bad_pending: "这一条的内容读不出来,什么都没做。让助手重新提一次。",
+  bad_pending_id: "这一条的编号不对,什么都没做。刷新页面后再试一次。",
+  bad_approve: "请求格式不对,什么都没做。刷新页面后再试一次。",
+  no_applier: "工作台这一侧没能执行它,什么都没做 —— 卡片还留着,可以再点一次。",
+};
+
 /** 把一条待确认翻译成人话:【它想干什么】+【同意之后会怎样】。
  *
  * 第二句是重点 —— 业主关心的不是"调用了哪个工具",是"我点了之后,它就能看到什么"。
@@ -47,8 +63,10 @@ function describe(p: ConsentPending): { title: string; impact: string } {
     const folder = String(params.folder ?? "");
     return {
       title: `助手想把项目「${project}」关联到文件夹「${folder}」`,
+      // 第二句是四审提的:业主点完会看到项目列表少一行(两条重复条目合并了)。
+      // 那不是安全后果,但不说他会困惑"我是不是批了别的事"。
       impact: `同意之后,助手就能读取那个文件夹里 01-资料 的文档,`
-        + "内容会随对话上传到大模型。",
+        + "内容会随对话上传到大模型;项目列表里那两条重复的条目也会合并成一条。",
     };
   }
   // 认不出的动作:**不猜**。宁可说不出所以然,也不能给一个可能是错的解释 ——
@@ -89,9 +107,10 @@ export default function ConsentCard({ dataEpoch, active }: Props) {
       .then(() => setLocalEpoch((e) => e + 1))
       .catch((e: Error) => {
         const code = e.message || "";
-        setErr(code === "already_resolved"
-          ? "这一条已经处理过了(可能在另一个窗口点过)。"
-          : `没能提交:${code}`);
+        // 兜底那一支是给 apply 阶段冒出来的业务错误码用的(比如批准时那个文件夹
+        // 刚好被改名了)。它们不在 ERR_MSG 的管辖范围内,但也不能让界面白屏 ——
+        // 留着码是为了业主截图给我看时还查得出来,前面那句话保证他知道"没改成"。
+        setErr(ERR_MSG[code] || `这件事没能完成,工作区没有被改动(${code})。`);
         setLocalEpoch((e2) => e2 + 1); // 无论如何重拉一次,别让界面停在旧状态
       })
       .finally(() => setBusy(null));
@@ -102,7 +121,9 @@ export default function ConsentCard({ dataEpoch, active }: Props) {
   return (
     <div className="consent-card" data-ui="consent-card">
       <div className="consent-head">
-        <span className="t">需要你确认</span>
+        <span className="t">
+          需要你确认{pending.length > 1 ? `(${pending.length} 项)` : ""}
+        </span>
       </div>
       {pending.map((p) => {
         const { title, impact } = describe(p);

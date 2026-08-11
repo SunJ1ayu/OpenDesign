@@ -1009,12 +1009,24 @@ def _bind_project_impl(project: str, folder: str, ds_root: str,
         folder, target = matches[0]
         rel = os.path.relpath(target, cfg["root"]).replace(os.sep, "/")
         if require_consent and ds_consent.load_mode(ds_root) == ds_consent.MODE_ASK:
+            # ⚠️ **锁内只做决定,排队要出了锁再排**(判据 O9a 钉死)。
+            # 曾经这里直接 `return ds_consent.create_pending(...)` —— 那是在**持着
+            # workspace 锁**的时候去拿 pending 锁,而 resolve_pending 的顺序正相反
+            # (pending 锁 → apply → workspace 锁)⇒ 教科书式 AB-BA 死锁。
+            # Linux 的 flock 无限阻塞、resolve 又没超时 ⇒ 永久挂死,且挂死的那条
+            # ds_web 线程从此占死 pending 锁,整个批准通道报废,只能重启。
+            # 被注入的助手可以狂调本工具去抢那个窗口 ——「业主点头」这唯一的人工
+            # 通道会变成可被 DoS 的目标。四审 subdeepseek 孤腿 BLOCK 抓到的,
+            # 我自己审 diff 没看出来。**别把 create_pending 挪回锁里。**
             box["write"] = False
-            return ds_consent.create_pending(
-                ds_root, "bind_project", {"project": project, "folder": folder})
-        if not isinstance(raw.get("projects"), dict):
-            raw["projects"] = {}
-        raw["projects"][project] = rel
+            pending_args = {"project": project, "folder": folder}
+        else:
+            pending_args = None
+            if not isinstance(raw.get("projects"), dict):
+                raw["projects"] = {}
+            raw["projects"][project] = rel
+    if pending_args is not None:          # ← 已出锁
+        return ds_consent.create_pending(ds_root, "bind_project", pending_args)
     return {"ok": True, "project": project, "folder": folder, "rel": rel}
 
 
