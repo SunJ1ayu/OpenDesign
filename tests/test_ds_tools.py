@@ -749,12 +749,15 @@ class EditChangeOracle(unittest.TestCase):
         self.assertEqual(r.get("changed_fields"), [])
         self.assertEqual(_read(path), before)
 
-    # ⑥e 顺序固定 status→text→note(三样一起真改)
-    def test_e06e_field_order_is_fixed(self):
+    # ⑥e 三样一起真改 ⇒ 三个字段都在。
+    #    【攻题后放宽】原本写死了顺序 status→text→note。攻题点破那是**过度约束**:
+    #    changed_fields 的语义是**集合**(消费者只问"含不含 text"),写死顺序会把
+    #    合理实现判红。改成按集合比 —— 判据该咬语义,不该咬排列。
+    def test_e06e_all_three_reported(self):
         slug, _ = self._fixture_with_notes()
         r = ds_tools.edit_change(slug, 1, new_status="进行中", new_text="主卧衣柜改折叠门",
                                  note="全都改一遍", ds_root=self.ds, today=TODAY)
-        self.assertEqual(r.get("changed_fields"), ["status", "text", "note"])
+        self.assertEqual(sorted(r.get("changed_fields")), ["note", "status", "text"])
 
     # ⑥f 归一重复备注行本身算 note 真改动(⑤j 的延伸:别把归一算成 no-op)
     def test_e06f_normalizing_duplicates_counts_as_change(self):

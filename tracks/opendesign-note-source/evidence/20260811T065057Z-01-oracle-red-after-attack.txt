@@ -1,0 +1,20 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    oracle-red-after-attack
+cmd:     bash -c $'\nset -o pipefail\nrc=0\necho "== python 定向"\n/root/.venvs/design-studio/bin/python -m unittest tests.test_ds_todo tests.test_ds_tools tests.test_ds_web_api 2>&1 | tail -3 || rc=1\necho\necho "== node 定向"\nnode --test tests/test_workbench_p4.mjs tests/test_todo_batch.mjs 2>&1 | grep -E "^# (tests|pass|fail)" || rc=1\n[ $rc -eq 0 ] && echo "(全绿 —— 判据没红)" || echo "(有红)"\nexit $rc'
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  c5855d9
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-11T06:50:57Z
+---------------- 输出开始 ----------------
+== python 定向
+FAILED (failures=9, errors=9)
+127.0.0.1 - "GET /api/projects/%E5%A4%87%E6%B3%A8%E7%9C%9F%E7%9B%B8%E6%BA%90/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+
+== node 定向
+# tests 33
+# pass 22
+# fail 11
+(有红)
+---------------- 输出结束 ----------------
+runlog: oracle-red-after-attack rc=1 commit=c5855d9 dirty=yes at=2026-08-11T06:50:57Z file=tracks/opendesign-note-source/evidence/20260811T065057Z-01-oracle-red-after-attack.txt

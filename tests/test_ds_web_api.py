@@ -697,6 +697,7 @@ class TestTodosNoteSource(unittest.TestCase):
             self.assertEqual(self._todo(port, 1)["note"], "业主书面确认")
 
     # ② 没备注的条目**没有 note 键**(与 /changes 同约定:有才带)
+    #    ⚠️ 旧实现下也绿(旧载荷从不带 note)⇒ 回归锚,不是本轮红检证据。
     def test_t02_absent_when_no_note(self):
         root = self._root()
         with _serve(root) as port:
@@ -711,6 +712,7 @@ class TestTodosNoteSource(unittest.TestCase):
             self.assertEqual(self._todo(port, 1)["note"], "业主书面确认")
 
     # ④ note:"" ⇒ 删除(与 ds_refs.update_ref 的既有先例同一种语言)
+    #    ⚠️ 删除行为是上一单 0.83.0 就做对的 ⇒ 回归锚,只有 `_todo` 那半句是新的。
     def test_t04_empty_string_clears(self):
         root = self._root()
         with _serve(root) as port:

@@ -356,6 +356,8 @@ class TestCollectNote(unittest.TestCase):
         self.assertEqual(self._by(items, "n1", 1)["note"], "业主书面确认")
 
     # ② 无备注 ⇒ **没有 note 键**(不是 None、不是空串;与 /changes 同约定)
+    #    ⚠️ 这条在旧实现下也绿(旧 collect 对谁都不带 note)⇒ 它是**回归锚**,
+    #    不是"判据先行"的证据。攻题时点破,如实标注。
     def test_n02_absent_when_no_note(self):
         _, items = self._open()
         self.assertNotIn("note", self._by(items, "n1", 3))
@@ -372,6 +374,7 @@ class TestCollectNote(unittest.TestCase):
         self.assertEqual(self._by(items, "n2", 1)["note"], "这条属于 n2,不属于 n1")
 
     # ⑤ 残缺行(cnum=None)不许认领任何备注
+    #    ⚠️ 同 ②:旧实现下也绿,回归锚。
     def test_n05_partial_line_claims_nothing(self):
         _, items = self._open()
         broken = [it for it in items if it["cnum"] is None]
@@ -397,22 +400,11 @@ class TestCollectNote(unittest.TestCase):
         self.assertEqual(hist[12]["note"], "邻居锚,不许被 C1 的正则误伤")
         self.assertEqual(hist[12]["history"], [])   # C12 有备注、无留痕
 
-    # ⑧ 每个项目文件只解析一次历史段(别写成对每条变更行各解析一遍 = O(n²))
-    def test_n08_parses_history_once_per_file(self):
-        root = _mkroot({"n1.md": NOTE_DOC})
-        calls = []
-        real = ds_todo.parse_history
-
-        def counting(text):
-            calls.append(len(text))
-            return real(text)
-
-        ds_todo.parse_history = counting
-        try:
-            ds_todo.collect(root, 7, TODAY)
-        finally:
-            ds_todo.parse_history = real
-        self.assertEqual(len(calls), 1, f"n1.md 里有 4 条变更行,历史段只该解析 1 次(实际 {len(calls)})")
+    # ⑧ 【攻题后删除】原本有一条用猴补丁数 `parse_history` 被调用几次的用例。
+    #    攻题(gpt-5.6-sol,只读)点破:它测的是**函数接缝**不是复杂度性质 ——
+    #    把变更行和历史段合成一次线性扫描 `parse_project(text)` 的合理实现会被它判红,
+    #    而"调一次 parse_history、随后另做 O(n²)"照样绿。**误伤真实现的判据不留。**
+    #    "每文件只解析一次"退回 design 里当实现指引,不当断言。
 
 
 if __name__ == "__main__":

@@ -30,6 +30,9 @@
 //   I1 冷启动:备注经 HTTP 直接写进档案(浏览器这次会话从没写过)→ 待办页第一次
 //      打开就该显示并预填。**这一条是本组最强的**:会话映射对它一无所知。
 //   I2 刷新后仍在;I3 清空后刷新彻底消失(标签 + 磁盘);I4 工作区改的,待办页看得见。
+//   I5 只改正文保存时,**没碰过的备注不许被回发**(否则会盖掉别人这期间刚写的);
+//   I6 正文改了又改回原值 ⇒ 不许冒出假的「改过 · 看原文」(考 changed_fields 的消费者)。
+//   ——(I1 改成绕开服务直接写磁盘、I5/I6 整条,都是"派活前先攻自己的题"抓出来补的)
 //
 // 跑法:node tests/e2e/ws_change_note.e2e.mjs(自起 ds_web 于 8816)
 import { spawn } from "node:child_process";
@@ -267,9 +270,18 @@ try {
   const todoRow = (t) => page.locator(`.todo-row:has-text("${t}")`).first();
   const todoTag = (t) => page.locator(`.todo-row:has-text("${t}") .note-tag`);
 
+  // 【攻题后加强】原来这里用 HTTP 写入,攻题(gpt-5.6-sol)点破:同一个服务进程里
+  // 写完再读,**一份进程内缓存也能让它全绿** —— 它证明了"值对得上",没证明
+  // "真相源是档案"。改成**绕开服务、直接改磁盘文件**:任何缓存都会在这条上露馅。
+  const writeNoteOnDisk = (cnum, note) => {
+    const lines = md().split("\n").filter((l) => !l.startsWith(`- C${cnum} 备注`));
+    const i = lines.indexOf("## 变更历史");
+    lines.splice(i + 1, 0, `- C${cnum} 备注:${note}`);
+    writeFileSync(join(dsRoot, "projects", `${PROJ}.md`), lines.join("\n"));
+  };
+
   await step("I1 冷启动:档案里已有的备注,待办页第一次打开就显示并预填", async () => {
-    const r = await editViaApi({ cnum: 3, note: "冷启动也要看得见" });
-    expect(r.ok === true, `前置:直接经 API 写进档案(${JSON.stringify(r)})`);
+    writeNoteOnDisk(3, "冷启动也要看得见");     // 绕开服务,直接落盘
     expect(md().includes("- C3 备注:冷启动也要看得见"), "前置:磁盘上确实有这条");
 
     await openTodoPage();
@@ -338,6 +350,71 @@ try {
     await todoRow("吊顶改平顶").waitFor({ timeout: 10000 });
     expect((await todoTag("吊顶改平顶").innerText()).includes("工作区改的,待办页也该看见"),
       "两个页面同一个真相源");
+  });
+
+  // 【攻题后新增】I5/I6 —— 攻题给出的那份"全绿但业主仍会丢数据/看到假标记"的实现,
+  // 就是靠这两条接住的。它们考的不是请求装配函数,是**页面真的怎么用它**。
+  //
+  // ⚠️ 老实说清它俩的性质:**今天(旧实现)它们的主断言基本是绿的** ——
+  // 旧 buildEditRequest 会把"与原值相同"的字段整个丢掉,所以既不会回发没碰过的备注,
+  // 也不会给原样保存打上"改过"。它们**不是红检证据**,是**防坑锚**:
+  // 本单把那道"值比较"拆掉之后,坑才会出现,而这两条守在坑口。
+  // (I5 里唯一今天就红的是那句前置——待办页现在根本预填不出档案里的备注。)
+
+  // I5:业主没碰过的字段,不许被回发。
+  // 场景(攻题原话的复现):他打开编辑器 → 这期间助手/另一台电脑改了备注 →
+  // 他只改正文就保存 ⇒ 如果编辑器把"打开时预填的旧备注"一起发回去,
+  // 后端会诚实地把别人刚写的新备注**盖回旧值**。业主眼里:我只改了正文,
+  // 备注怎么变回去了。("陈旧编辑保护"是另一单,但这一单不许把窗口开大。)
+  await step("I5 只改正文保存:别人这期间改的备注不许被盖回去", async () => {
+    writeNoteOnDisk(2, "现场待定");
+    await openTodoPage();
+    const trow = todoRow("衣柜加到顶");
+    await trow.waitFor({ timeout: 10000 });
+    await trow.hover();
+    await trow.locator(".edit-btn").click();
+    const box = page.locator(".todo-row.editing .edit-note");
+    await box.waitFor({ timeout: 5000 });
+    expect(await box.inputValue() === "现场待定", "前置:编辑框预填的是档案里的现值");
+
+    // 编辑器开着的时候,别人改了备注(走真写口,和助手/另一台电脑同一条路)
+    const r = await editViaApi({ cnum: 2, note: "业主确认取消" });
+    expect(r.ok === true, `前置:别人经写口改了备注(${JSON.stringify(r)})`);
+
+    // 他只碰正文
+    const textbox = page.locator(".todo-row.editing .edit-text");
+    await textbox.fill("衣柜加到顶并做见光板");
+    await page.locator(".todo-row.editing .btn-save").click();
+    await page.locator(".todo-row.editing").waitFor({ state: "detached", timeout: 10000 });
+    await page.waitForTimeout(300);
+
+    const m = md();
+    expect(m.includes("- C2 备注:业主确认取消"), "别人写的备注还在(没被旧值盖回去)");
+    expect(!m.includes("现场待定"), "打开编辑器时的旧备注没有被回发");
+    expect(m.includes("衣柜加到顶并做见光板"), "他改的正文照常落盘");
+  });
+
+  // I6:改了又改回原值 ⇒ 不许出现「改过 · 看原文」。
+  // 这一条考的是 changed_fields 的**消费者**:后端算得再对,前端要是还看
+  // "请求里带没带 new_text",原样保存也会被标成改过。
+  await step("I6 正文改了又改回原值:不许冒出「改过 · 看原文」", async () => {
+    await openTodoPage();
+    const trow = todoRow("前置过滤");
+    await trow.waitFor({ timeout: 10000 });
+    await trow.hover();
+    await trow.locator(".edit-btn").click();
+    const textbox = page.locator(".todo-row.editing .edit-text");
+    await textbox.waitFor({ timeout: 5000 });
+    const original = await textbox.inputValue();
+    await textbox.fill("先改成别的");
+    await textbox.fill(original);                     // 又改回来
+    await page.locator(".todo-row.editing .btn-save").click();
+    await page.locator(".todo-row.editing").waitFor({ state: "detached", timeout: 10000 });
+    await page.waitForTimeout(300);
+    expect(await page.locator('.todo-row:has-text("前置过滤") .edited-tag').count() === 0,
+      "没有假的「改过 · 看原文」标记(以服务端 changed_fields 为准)");
+    expect(!/- C3 改于 .*原:加净水器和前置过滤点位/.test(md()),
+      "磁盘上也不许留假留痕");
   });
 
 
