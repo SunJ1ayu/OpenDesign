@@ -663,6 +663,46 @@ class EditChangeOracle(unittest.TestCase):
         ds_tools.edit_change(slug, 4, note="", ds_root=self.ds, today=TODAY)
         self.assertNotIn("全角冒号写的旧备注", _read(path))
 
+    # ⑤i 写一条**和现在一模一样**的备注 = 纯 no-op(四审 subdeepseek LOW-1:
+    #     实现无条件置 changed ⇒ 会重写文件并 bump 页脚,而「最后更新」是项目活跃度/
+    #     超期排序的输入 —— 假 bump 会把排序污染掉。与「改成同样的正文不留痕」同一条契约)
+    def test_e05i_note_same_value_is_byte_noop(self):
+        slug, path = self._fixture_with_notes()
+        before = _read(path)                       # 页脚停在 2026-06-20,TODAY 是 07-01
+        r = ds_tools.edit_change(slug, 1, note="业主还在犹豫", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(_read(path), before)      # 逐字节不动,页脚不 bump
+
+    # ⑤j 值虽相同、但档案里有重复备注行 ⇒ 归一本身就是真改动,该写该 bump
+    def test_e05j_same_value_with_duplicates_still_normalizes(self):
+        slug, path = self._fixture_duplicate_notes()
+        ds_tools.edit_change(slug, 3, note="较早的备注", ds_root=self.ds, today=TODAY)
+        text = _read(path)
+        self.assertEqual(sum(1 for l in text.splitlines()
+                             if l.startswith("- C3 备注")), 1)
+        self.assertIn("- C3 备注:较早的备注", text)
+        self.assertNotIn("后来的旧备注", text)
+        self.assertIn(f"最后更新: {TODAY}", text)
+
+    # ⑤k `## 变更历史` 段在、但**一条留痕行都没有**时的插入路径(四审 submimo 建议:
+    #     ⑤d 只测了"段在且有留痕行",`last = hidx` 那条分支没人踩过)
+    def test_e05k_upsert_into_empty_history_section(self):
+        slug = "空历史段-1103"
+        path = _write_project(self.ds, slug, ["- [待确认] C7 2026-06-20 主卫加地暖"])
+        text = _read(path).replace("## 沟通日志", "\n".join([
+            "", "## 变更历史", "", "## 沟通日志"]), 1)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        ds_tools.edit_change(slug, 7, note="业主要地暖", ds_root=self.ds, today=TODAY)
+        lines = _read(path).split("\n")
+        i = lines.index("## 变更历史")
+        self.assertEqual(lines[i + 1], "- C7 备注:业主要地暖")   # 紧跟段头
+        self.assertEqual(sum(1 for l in lines if l.startswith("- C7 备注")), 1)
+        ds_tools.edit_change(slug, 7, note="", ds_root=self.ds, today=TODAY)
+        text2 = _read(path)
+        self.assertNotIn("业主要地暖", text2)
+        self.assertIn("## 变更历史", text2)                     # 段本身不许被删掉
+
     # ⑩ 非法:未知 cnum→change_not_found;非法 status→invalid_status;空 new_text→empty_text;错误路径不碰文件
     def test_e10_invalid(self):
         before = _read(self.path)
