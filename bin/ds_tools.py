@@ -57,7 +57,6 @@ DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 # 变更行:  - [状态] C<n> ...   （前缀空格后 `- [`,ds-todo 也认这个前缀）
 _CHANGE_RE = re.compile(r"^- \[(?P<status>[^\]]*)\]\s+C(?P<num>\d+)\b")
 _CHANGE_HEADER = "## 变更记录"
-_HISTORY_HEADER = "## 变更历史"  # edit_change 的留痕/备注独立段(不匹配 _CHANGE_RE ⇒ 不成待办)
 _STAGE_HISTORY_HEADER = "## 阶段历史"
 _BATCH_HEADER = "## 批次"       # T4b:一次记录动作的名字(同样不匹配 _CHANGE_RE ⇒ 不成待办)
 # 批次行正则:单一真相源在 ds_common,读写共用(不设第二份,见那里的注释)。
@@ -75,11 +74,6 @@ _EDIT_PREFIX_RE = re.compile(
     r"(?:\s+C\d+\b)?(?:\s+\d{4}-\d{2}-\d{2})?\s*"
     r"(?:【[^【】\s][^【】]{0,15}】\s*)?)(?P<text>.*)$")
 
-# `## 变更历史` 段两类行的读侧正则(与 edit_change 的写侧格式同处定义,防漂移):
-#   留痕:  - C{n} 改于 {date}｜原:{旧正文}
-#   备注:  - C{n} 备注:{内容}
-_HISTORY_EDIT_RE = re.compile(r"^- C(\d+) 改于 (\d{4}-\d{2}-\d{2})｜原:(.*)$")
-_HISTORY_NOTE_RE = re.compile(r"^- C(\d+) 备注[:：](.*)$")
 _STAGE_HISTORY_RE = re.compile(r"^- (\d{4}-\d{2}-\d{2}) (.+)$")
 
 # 新建骨架模板 —— 必须含 `## 变更记录` 头(append_change 靠它定位)与 `最后更新:` 页脚
@@ -367,18 +361,8 @@ def set_due_date(project: str, cnum, due: str | None,
 
 # ── 工具 4.2b edit_change ────────────────────────────────────────────────────
 def _section_bounds(lines: list[str], header: str) -> tuple[int, int] | None:
-    """指定二级段的 (标题行下标, 段尾下标)。段尾=其后第一条 `## `/`---` 或文件末。
-    段缺失返回 None。"""
-    hidx = next((i for i, l in enumerate(lines) if l.startswith(header)), None)
-    if hidx is None:
-        return None
-    end = next((j for j in range(hidx + 1, len(lines))
-                if lines[j].startswith("## ") or lines[j].startswith("---")), len(lines))
-    return hidx, end
-
-
-def _history_bounds(lines: list[str]) -> tuple[int, int] | None:
-    return _section_bounds(lines, _HISTORY_HEADER)
+    """→ `ds_common.section_bounds`(单一真相源)。名字留着:`ds_lint` 按这个名字调它。"""
+    return ds_common.section_bounds(lines, header)
 
 
 def _valid_stage_history_line(ln: str) -> dict | None:
@@ -438,31 +422,6 @@ def stage_timer(text: str, today: str | None = None) -> dict:
     return {"since": last["date"], "days": days}
 
 
-def parse_history(text: str) -> dict:
-    """解析 `## 变更历史` 段,按 cnum 分桶(读侧单一真相源:ds_web changes 端点吃它)。
-
-    返回 {cnum(int): {"note": str|None, "history": [{"date","old"}, …]}}。只扫历史段内的行
-    (遇下一 `## `/`---` 即止 ⇒ 隔离天然);段缺失或无匹配行返回空/缺桶。留痕按出现顺序(=时序)。
-    """
-    lines = text.split("\n")
-    b = _history_bounds(lines)
-    if b is None:
-        return {}
-    hidx, end = b
-    out: dict[int, dict] = {}
-    for ln in lines[hidx + 1:end]:
-        m = _HISTORY_EDIT_RE.match(ln)
-        if m:
-            bucket = out.setdefault(int(m.group(1)), {"note": None, "history": []})
-            bucket["history"].append({"date": m.group(2), "old": m.group(3)})
-            continue
-        m = _HISTORY_NOTE_RE.match(ln)
-        if m:
-            bucket = out.setdefault(int(m.group(1)), {"note": None, "history": []})
-            bucket["note"] = m.group(2)
-    return out
-
-
 def _create_history_section(lines: list[str], entries: list[str]) -> None:
     """建 `## 变更历史` 段并写入 entries,置于 `## 变更记录` 段之后(其后第一条 `## `/`---` 前)。
     保证 append_change 的段边界(遇下一个 `## ` 即止)不被破坏。"""
@@ -472,7 +431,7 @@ def _create_history_section(lines: list[str], entries: list[str]) -> None:
     else:
         pos = next((j for j in range(hdr + 1, len(lines))
                     if lines[j].startswith("## ") or lines[j].startswith("---")), len(lines))
-    block = [_HISTORY_HEADER] + entries + [""]
+    block = [ds_todo.HISTORY_HEADER] + entries + [""]
     if pos > 0 and lines[pos - 1].strip():  # 与上一段之间补一空行(源文件无空行时)
         block = [""] + block
     lines[pos:pos] = block
@@ -480,7 +439,7 @@ def _create_history_section(lines: list[str], entries: list[str]) -> None:
 
 def _append_history_entry(lines: list[str], entry: str) -> None:
     """向 `## 变更历史` 段末追加一行(段缺则先建)。"""
-    b = _history_bounds(lines)
+    b = ds_todo.history_bounds(lines)
     if b is None:
         _create_history_section(lines, [entry])
         return
@@ -492,21 +451,14 @@ def _append_history_entry(lines: list[str], entry: str) -> None:
     lines.insert(last + 1, entry)
 
 
-def _note_re(num: str) -> re.Pattern:
-    """该 cnum 的备注行锚(写侧唯一定义,`_upsert_note`/`_delete_note` 共用)。
-    `C{num}` 后必须是一个空格 ⇒ 清 C1 不会误伤 C12;全角冒号与读侧
-    `_HISTORY_NOTE_RE` 同口径(读侧收两种,写侧只写半角)。"""
-    return re.compile(rf"^- C{num} 备注[:：]")
-
-
 def _upsert_note(lines: list[str], num: str, note_line: str) -> bool:
     """按 cnum 键在 `## 变更历史` 段内追加/替换该变更的备注行,同时归一重复行(只保留第一条)。
 
     返回**是否真的改动了文件内容**:值一样且没有重复行 → False(纯 no-op,页脚不 bump)。
     「最后更新」是项目活跃度/超期排序的输入,写同值也 bump 会污染排序(四审 LOW-1)。
     """
-    note_re = _note_re(num)
-    b = _history_bounds(lines)
+    note_re = ds_todo.note_line_re(num)
+    b = ds_todo.history_bounds(lines)
     if b is None:
         _create_history_section(lines, [note_line])
         return True
@@ -536,8 +488,8 @@ def _upsert_note(lines: list[str], num: str, note_line: str) -> bool:
 
 def _delete_note(lines: list[str], num: str) -> bool:
     """删除 `## 变更历史` 段内该 cnum 的所有备注行。返回是否有行被删除。"""
-    note_re = _note_re(num)
-    b = _history_bounds(lines)
+    note_re = ds_todo.note_line_re(num)
+    b = ds_todo.history_bounds(lines)
     if b is None:
         return False
     hidx, end = b
@@ -591,10 +543,14 @@ def edit_change(project: str, cnum, new_status: str | None = None,
             return {"error": "change_not_found" if not hits else "ambiguous_change"}
         i = hits[0]
         changed = False
+        changed_fields: set[str] = set()
 
         if new_status is not None:
-            lines[i] = line_re.sub(rf"\g<1>{new_status}\g<3>", lines[i], count=1)
-            changed = True
+            sm = line_re.match(lines[i])
+            if sm and new_status != sm.group("old"):
+                lines[i] = line_re.sub(rf"\g<1>{new_status}\g<3>", lines[i], count=1)
+                changed = True
+                changed_fields.add("status")
 
         if new_text_s is not None:
             pm = _EDIT_PREFIX_RE.match(lines[i])
@@ -604,13 +560,16 @@ def edit_change(project: str, cnum, new_status: str | None = None,
                 lines[i] = pm.group(1) + new_text_s + ds_common.format_due_suffix(due)
                 _append_history_entry(lines, f"- C{num} 改于 {today}｜原:{old_text}")
                 changed = True
+                changed_fields.add("text")
 
         if note is not None:   # 缺省=不动;空串/纯空白=删除;非空=设置(并归一重复行)
             if note_s:
                 if _upsert_note(lines, num, f"- C{num} 备注:{note_s}"):
                     changed = True
+                    changed_fields.add("note")
             elif _delete_note(lines, num):
                 changed = True
+                changed_fields.add("note")
 
         if changed:
             ds_common.bump_last_updated(lines, today)
@@ -619,7 +578,10 @@ def edit_change(project: str, cnum, new_status: str | None = None,
             box["write"] = False  # 纯 no-op:文件逐字节不动
             result_line = lines[i]
 
-    return {"ok": True, "cnum": int(num), "line": result_line}
+    # 顺序固定 status→text→note:语义是集合(判据按集合比),但 API 每次跑出不同顺序
+    # 会让日志/回归对不上 —— set 的迭代序在 CPython 里是哈希序,跨进程会变。
+    return {"ok": True, "cnum": int(num), "line": result_line,
+            "changed_fields": [f for f in ("status", "text", "note") if f in changed_fields]}
 
 
 # ── 工具 4.2c log_communication(owner-feedback track)──────────────────────────

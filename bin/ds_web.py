@@ -80,10 +80,12 @@ import ds_organize  # 针孔④ approve+apply 直调核心(锁/复验/审计全�
 import ds_refs
 import ds_taxonomy
 import ds_todo
-import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
+import ds_tools
 import ds_workspace
 
-VERSION = "0.83.0"  # 待办/变更的备注:清空能真的清掉了(以前删了还是显示旧的);
+VERSION = "0.84.0"  # 待办页的备注改成从项目档案读:刷新、换台电脑都还在(以前刷一下就没了);
+                    # 「这次到底改了没有」只由后端说了算,前端不再自己判一遍。
+                    # 0.83.0  待办/变更的备注:清空能真的清掉了(以前删了还是显示旧的);
                     # 档案里若有重复备注行,写读两侧不再各认一条(改了读出来还是旧的)。
                     # 0.82.0  助手要扩大自己能看到的文件范围(改工作区根/绑项目文件夹)时,先弹卡问你;设置里可关。
                     # 装机脚本要装 firecrawl-anydoc==0.1.6;/api/health 的
@@ -931,7 +933,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             with open(target, encoding="utf-8") as fh:
                 text = fh.read()
-            hist = ds_tools.parse_history(text)  # {cnum: {note, history[]}},按 cnum 分桶
+            hist = ds_todo.parse_history(text)  # {cnum: {note, history[]}},按 cnum 分桶
             changes = []
             for ln in text.split("\n"):
                 c = ds_todo.parse_change(ln)  # 五状态全量减已删除,单一真相源
@@ -1561,9 +1563,12 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(project, str) or not project:
             self._json(400, {"error": "bad request"})
             return
+        if any(k in body and body[k] is None for k in ("new_status", "new_text", "note")):
+            self._json(400, {"error": "bad request"})
+            return
         new_status = body.get("new_status")
         new_text = body.get("new_text")
-        note = body.get("note")
+        note = body["note"] if "note" in body else None
         if any(v is not None and not isinstance(v, str)
                for v in (new_status, new_text, note)):
             self._json(400, {"error": "bad request"})

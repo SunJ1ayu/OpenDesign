@@ -32,6 +32,9 @@ LASTUPD_RE = ds_common.LASTUPD_DATE_RE  # 行首锚定:沟通日志句中的"最
 # T4b 批次行:与写侧共用 ds_common 的那一份(不设第二个命中正则)。
 # 缺 `[状态]` ⇒ CHANGE_RE 命中不了 ⇒ 批次行永远不会被收成待办。
 BATCH_RE = ds_common.BATCH_LINE_RE
+HISTORY_HEADER = "## 变更历史"
+HISTORY_EDIT_RE = re.compile(r"^- C(\d+) 改于 (\d{4}-\d{2}-\d{2})｜原:(.*)$")
+HISTORY_NOTE_RE = re.compile(r"^- C(\d+) 备注[:：](.*)$")
 
 
 def parse_batches(text: str) -> list[tuple[int, int, str]]:
@@ -76,6 +79,45 @@ def parse_change(line: str) -> dict | None:
             "space": m.group(4),
             "text": text,
             "due": due}
+
+
+def history_bounds(lines: list[str]) -> tuple[int, int] | None:
+    """`## 变更历史` 段边界(通用扫描器在 ds_common,读写两侧共用同一份)。"""
+    return ds_common.section_bounds(lines, HISTORY_HEADER)
+
+
+def parse_history(text: str) -> dict:
+    """解析 `## 变更历史` 段,按 cnum 分桶(读侧单一真相源:ds_web changes 端点吃它)。
+
+    返回 {cnum(int): {"note": str|None, "history": [{"date","old"}, …]}}。只扫历史段内的行
+    (遇下一 `## `/`---` 即止 ⇒ 隔离天然);段缺失或无匹配行返回空/缺桶。留痕按出现顺序(=时序)。
+    """
+    lines = text.split("\n")
+    b = history_bounds(lines)
+    if b is None:
+        return {}
+    hidx, end = b
+    out: dict[int, dict] = {}
+    for ln in lines[hidx + 1:end]:
+        m = HISTORY_EDIT_RE.match(ln)
+        if m:
+            bucket = out.setdefault(int(m.group(1)), {"note": None, "history": []})
+            bucket["history"].append({"date": m.group(2), "old": m.group(3)})
+            continue
+        m = HISTORY_NOTE_RE.match(ln)
+        if m:
+            bucket = out.setdefault(int(m.group(1)), {"note": None, "history": []})
+            bucket["note"] = m.group(2)
+    return out
+
+
+def note_line_re(num: str) -> re.Pattern:
+    """该 cnum 的备注行锚(写侧唯一定义,`_upsert_note`/`_delete_note` 共用)。
+    `C{num}` 后必须是一个空格 ⇒ 清 C1 不会误伤 C12;全角冒号与读侧
+    `HISTORY_NOTE_RE` 同口径(读侧收两种,写侧只写半角)。"""
+    return re.compile(rf"^- C{num} 备注[:：]")
+
+
 # env DS_ROOT 缺失时基于 __file__ 推导(bin/ 的上一级):Linux/Windows 通用,不硬编码 /root
 DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
@@ -107,11 +149,12 @@ def collect(root: str, stale_days: int = 7, today: date | None = None) -> dict:
             continue
         name = f[:-3]
         batches = parse_batches(text)  # T4b:助手记录时起的名(段不存在 = 空表 = 全 None)
+        history = parse_history(text)
         for i, ln in enumerate(text.split("\n"), 1):
             c = parse_change(ln)
             if c is None or c["status"] not in OPEN_STATUS:
                 continue  # collect 只收未办结;全量交给 changes 端点
-            open_items.append({
+            item = {
                 "project": name, "line": i, "raw": ln,
                 "status": c["status"],
                 "cnum": c["cnum"],
@@ -120,7 +163,11 @@ def collect(root: str, stale_days: int = 7, today: date | None = None) -> dict:
                 "text": c["text"],
                 "due": c["due"],
                 "batch": _batch_of(batches, c["cnum"]),
-            })
+            }
+            h = history.get(c["cnum"]) if c["cnum"] is not None else None
+            if h and h["note"] is not None:
+                item["note"] = h["note"]
+            open_items.append(item)
         dates = LASTUPD_RE.findall(text)
         if not dates:
             continue

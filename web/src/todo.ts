@@ -11,6 +11,7 @@ export type OpenItem = {
   space: string | null; // 【空间】前缀(T1);旧行 null
   text: string;
   due: string | null; // 截止日 YYYY-MM-DD(track opendesign-todo-duedate);旧行 null
+  note?: string;
   // T4b:助手记录时给这一批起的名(ds_todo.collect 附;没有 `## 批次` 段的旧档案恒 null)。
   // 写进类型是为了后端改名时前端有编译期告警 —— 靠 `as` 强取会静默退回兜底分组。
   batch?: { id: string; title: string } | null;
@@ -140,7 +141,7 @@ export type EditDraft = {
   note?: string; // 备注输入(未 trim)
 };
 
-/** POST /api/changes/edit 请求体(仅含实际要改的字段;后端按缺省跳过)。 */
+/** POST /api/changes/edit 请求体(仅含用户碰过的字段;后端按缺省跳过)。 */
 export type EditRequest = {
   project: string;
   cnum: number;
@@ -151,7 +152,7 @@ export type EditRequest = {
 
 // ── 批量改状态(track opendesign-todo-batch-space T1)────────────────────────
 // 契约见 tests/test_todo_batch.mjs(off-limits):选中项 → 逐条 /api/changes/edit
-// 请求体,跳过 cnum===null(残缺行不可寻址)与 status===newStatus(空操作),
+// 请求体,只跳过 cnum===null(残缺行不可寻址),
 // 保持传入相对序,newStatus 非法抛,纯函数不改入参。
 
 export type BatchEditRequest = { project: string; cnum: number; new_status: Status };
@@ -167,52 +168,35 @@ export function batchEditRequests(
   const out: BatchEditRequest[] = [];
   for (const it of items) {
     if (it.cnum === null) continue;
-    if (it.status === newStatus) continue;
     out.push({ project: it.project, cnum: it.cnum, new_status: newStatus });
   }
   return out;
 }
 
 /**
- * 草稿 → 请求体。只放"真的变了且合法"的字段:
- *  - new_status:是合法状态且 ≠ 原状态;
- *  - new_text:trim 后非空且 ≠ 原正文(no-op 不发,免后端写 `原:X`==新值噪声);
- *  - note:trim 后非空**且 ≠ 原备注**(todo-ux2:编辑时备注预填,没动就不重写)。
- * cnum 缺失(残缺行)不可编辑 → null;都无有效改动 → null(无可提交)。
- * originalNote:编辑框预填的既有备注(缺省空串=新加备注场景,行为不变)。
+ * 草稿 → 请求体。只放用户碰过的字段:
+ *  - new_status:碰过且是合法状态;
+ *  - new_text:碰过就 trim 后照发,空串交给后端报 empty_text;
+ *  - note:碰过就 trim 后照发,空串=删除备注。
+ * cnum 缺失(残缺行)不可编辑 → null。
  */
 export function buildEditRequest(
-  item: Pick<OpenItem, "project" | "cnum" | "status" | "text">,
+  item: Pick<OpenItem, "project" | "cnum">,
   draft: EditDraft,
-  originalNote = "",
 ): EditRequest | null {
   if (item.cnum === null) return null;
   const req: EditRequest = { project: item.project, cnum: item.cnum };
-  let dirty = false;
 
-  if (
-    draft.status !== undefined &&
-    isValidStatus(draft.status) &&
-    draft.status !== item.status
-  ) {
+  if (draft.status !== undefined && isValidStatus(draft.status)) {
     req.new_status = draft.status;
-    dirty = true;
   }
   if (draft.text !== undefined) {
-    const t = draft.text.trim();
-    if (t && t !== item.text) {
-      req.new_text = t;
-      dirty = true;
-    }
+    req.new_text = draft.text.trim();
   }
   if (draft.note !== undefined) {
-    const n = draft.note.trim();
-    if (n !== originalNote.trim()) {
-      req.note = n;
-      dirty = true;
-    }
+    req.note = draft.note.trim();
   }
-  return dirty ? req : null;
+  return req;
 }
 
 // ── 截止日着色(track opendesign-todo-duedate)────────────────────────────────

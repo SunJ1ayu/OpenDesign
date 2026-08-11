@@ -31,8 +31,8 @@ import {
 // 数据 = /api/todos(ds_todo.collect 单一真相源;只含未办结=待确认/进行中)。
 // 分组/排序/请求装配在 ./todo.ts(纯函数,oracle 直测),本文件只管摆 + 调 editChange 针孔。
 // 编辑写口:POST /api/changes/edit → ds_tools.edit_change(保格式 + 向变更历史段留痕)。
-// 乐观回显(本会话):改正文后「改过·看原文」、加备注后「备注:…」;持久留痕在工作台变更列
-// (/changes 端点带 history)——待办页数据源不带 history/note,accepted deviation。
+// 乐观回显(本会话):改正文后「改过·看原文」;持久留痕在工作台变更列
+// (/changes 端点带 history),备注直接来自 /api/todos。
 
 type Todos = {
   today: string;
@@ -109,9 +109,8 @@ export default function TodoPage({
   const [editErr, setEditErr] = useState<string | null>(null);
   // 页面级瞬时提示(撤销 / 错误)
   const [toast, setToast] = useState<Toast | null>(null);
-  // 本会话乐观留痕:editId → 旧正文(「改过·看原文」)/ editId → 备注(「备注:…」)
+  // 本会话乐观留痕:editId → 旧正文(「改过·看原文」)
   const [edited, setEdited] = useState<Record<string, string>>({});
-  const [noted, setNoted] = useState<Record<string, string>>({});
 
   // 批量选择(track opendesign-todo-batch-space T3):键 = `${project}:${line}`
   // (与 row key 同源,唯一)。应用中禁止重复点。
@@ -307,8 +306,7 @@ export default function TodoPage({
   function startEdit(it: OpenItem) {
     const eid = editId(it);
     setEditing(eid);
-    // 备注预填既有值(todo-ux2:在原文上改,不是重打);来源=本会话乐观留痕。
-    setDraft({ text: it.text, note: (eid && noted[eid]) || "" });
+    setDraft({});
     setEditErr(null);
   }
 
@@ -321,7 +319,7 @@ export default function TodoPage({
   // A1:状态 pill 快捷菜单直接改(不进编辑态)。A2:改到终态 → 弹撤销 toast。
   async function quickSetStatus(it: OpenItem, next: string) {
     const req = buildEditRequest(it, { status: next });
-    if (!req) return; // no-op(==原状态)
+    if (!req) return; // 残缺行没有 cnum,不可寻址
     try {
       await editChange(req);
       setToast(
@@ -363,28 +361,17 @@ export default function TodoPage({
 
   async function save(it: OpenItem) {
     const eid = editId(it);
-    const req = buildEditRequest(it, draft, (eid && noted[eid]) || "");
+    const req = buildEditRequest(it, draft);
     if (!req) {
       cancelEdit();
-      return; // 无有效改动:直接关
+      return;
     }
     setSaving(true);
     setEditErr(null);
     try {
-      await editChange(req);
-      if (eid && req.new_text !== undefined) {
+      const result = await editChange(req);
+      if (eid && result.changed_fields.includes("text")) {
         setEdited((m) => ({ ...m, [eid]: it.text })); // 记旧正文供看原文
-      }
-      if (eid && req.note !== undefined) {
-        if (req.note) {
-          setNoted((m) => ({ ...m, [eid]: req.note! }));
-        } else {
-          setNoted((m) => {
-            const next = { ...m };
-            delete next[eid];
-            return next;
-          });
-        }
       }
       setEditing(null);
       setDraft({});
@@ -434,7 +421,7 @@ export default function TodoPage({
       <div className="edit-fields">
         <input
           className="edit-text"
-          value={draft.text ?? ""}
+          value={draft.text ?? it.text}
           autoFocus
           onChange={(e) => setDraft((d) => ({ ...d, text: e.target.value }))}
           onKeyDown={(e) => {
@@ -446,7 +433,7 @@ export default function TodoPage({
           <input
             className="edit-note"
             placeholder="加备注(可选)"
-            value={draft.note ?? ""}
+            value={draft.note ?? it.note ?? ""}
             onChange={(e) => setDraft((d) => ({ ...d, note: e.target.value }))}
           />
           <button className="btn-save" disabled={saving} onClick={() => save(it)}>
@@ -478,7 +465,7 @@ export default function TodoPage({
     const eid = editId(it);
     if (eid && editing === eid) return editor(it);
     const oldText = eid ? edited[eid] : undefined;
-    const note = eid ? noted[eid] : undefined;
+    const note = it.note;
     // 正在设截止日的那条高亮、其余压暗(用户拍板:"一眼看清在给谁设")。
     const dueOpen = duePick !== null;
     const dueTarget = dueOpen && eid !== null && duePick.key === eid;

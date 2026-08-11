@@ -48,6 +48,22 @@ def format_due_suffix(due: str | None) -> str:
     return f" ⏳{due}" if due else ""
 
 
+def section_bounds(lines: list[str], header: str) -> tuple[int, int] | None:
+    """指定二级段的 (标题行下标, 段尾下标)。段尾=其后第一条 `## `/`---` 或文件末。
+    段缺失返回 None。
+
+    单一真相源:`ds_tools`(阶段历史/变更历史写侧)与 `ds_todo`(变更历史读侧)共用。
+    track opendesign-note-source 把读模型搬进 ds_todo 时,这个通用扫描器一度在两个
+    模块里各留了一份 —— 一件事两处定义,正是这一单要消灭的形状,所以收到这儿。
+    """
+    hidx = next((i for i, l in enumerate(lines) if l.startswith(header)), None)
+    if hidx is None:
+        return None
+    end = next((j for j in range(hidx + 1, len(lines))
+                if lines[j].startswith("## ") or lines[j].startswith("---")), len(lines))
+    return hidx, end
+
+
 def within(base: str, target: str) -> bool:
     """target 是否等于 base 或落在 base 之下。两参都必须已经 realpath。"""
     return target == base or target.startswith(base + os.sep)

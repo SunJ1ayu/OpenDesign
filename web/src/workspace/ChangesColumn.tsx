@@ -4,6 +4,7 @@ import { addChange, cnDate, createProject, editChange, setDueDate, setStage } fr
 import DuePicker from "../DuePicker";
 import StatusPicker from "../StatusPicker";
 import { buildEditRequest, dueStatus, isTerminalStatus } from "../todo";
+import type { EditDraft } from "../todo";
 import type { Filter } from "./changes";
 import { changeCounts, filterChanges, groupByDate, groupBySpace, PROGRESS_ORDER } from "./changes";
 import { formatHistoryEntry, historyEntries, historySummary } from "./history";
@@ -91,8 +92,7 @@ export default function ChangesColumn({
   const quickInputRef = useRef<HTMLInputElement>(null);
   // 变更行正文就地编辑(track opendesign-frontend-p1 §①)+ 备注(due-picker A)
   const [editingCnum, setEditingCnum] = useState<number | null>(null);
-  const [editDraft, setEditDraft] = useState("");
-  const [editNote, setEditNote] = useState("");
+  const [editDraft, setEditDraft] = useState<EditDraft>({});
   const [editSaving, setEditSaving] = useState(false);
   const [editErr, setEditErr] = useState<string | null>(null);
   // 截止日设/清(track opendesign-todo-duedate → due-picker):📅 切一个 cnum 的
@@ -121,8 +121,7 @@ export default function ChangesColumn({
     setSpacePopOpen(false);
     setSpaceFreeInput("");
     setEditingCnum(null);
-    setEditDraft("");
-    setEditNote("");
+    setEditDraft({});
     setEditErr(null);
     setDueEditingCnum(null);
     setDueAnchor(null);
@@ -309,30 +308,24 @@ export default function ChangesColumn({
 
   // 行内就地编辑(track opendesign-frontend-p1 §①,due-picker A 起连备注一起改):
   // Enter 保存 / Esc 取消,服务端为真相源不做乐观 tag——onEdited 整列重拉。
-  // 备注(due-picker A):写口 /api/changes/edit 的 note 早就有,只是这一侧没接
-  // ——「待办页写、工作区看、工作区改不了」。**预填走 c.note**(服务端载荷),
-  // 不学待办页那份会话级 noted 映射:那边数据源不带 note 才只能乐观回显,这边带。
+  // 草稿只记录用户碰过的字段;输入框显示值从 c.text/c.note 兜底。
   function startEditText(c: Change) {
     if (c.cnum === null) return;
     setEditingCnum(c.cnum);
-    setEditDraft(c.text);
-    setEditNote(c.note ?? "");
+    setEditDraft({});
     setEditErr(null);
   }
   function cancelEditText() {
     setEditingCnum(null);
-    setEditDraft("");
-    setEditNote("");
+    setEditDraft({});
     setEditErr(null);
   }
   async function saveEditText(c: Change) {
     if (!project || c.cnum === null || editSaving) return;
-    // 脏字段判定复用待办页那份纯逻辑(todo.ts buildEditRequest),不在这里造第二套
-    // diff 规则:没改的字段不带 ⇒ 只改备注时正文不会产生假的「改于…原:…」留痕。
+    // 请求装配复用待办页纯逻辑:没碰过的字段不带,后端统一判断到底有没有真改。
     const req = buildEditRequest(
-      { project: project.key, cnum: c.cnum, status: c.status, text: c.text },
-      { text: editDraft, note: editNote },
-      c.note ?? "",
+      { project: project.key, cnum: c.cnum },
+      editDraft,
     );
     if (!req) {
       cancelEditText(); // 无有效改动:直接关,不发请求
@@ -443,9 +436,9 @@ export default function ChangesColumn({
             <div className="edit-fields">
               <input
                 className="edit-text"
-                value={editDraft}
+                value={editDraft.text ?? c.text}
                 autoFocus
-                onChange={(e) => setEditDraft(e.target.value)}
+                onChange={(e) => setEditDraft((d) => ({ ...d, text: e.target.value }))}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") saveEditText(c);
                   else if (e.key === "Escape") cancelEditText();
@@ -457,8 +450,8 @@ export default function ChangesColumn({
                 <input
                   className="edit-note"
                   placeholder="加备注(可选)"
-                  value={editNote}
-                  onChange={(e) => setEditNote(e.target.value)}
+                  value={editDraft.note ?? c.note ?? ""}
+                  onChange={(e) => setEditDraft((d) => ({ ...d, note: e.target.value }))}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") saveEditText(c);
                     else if (e.key === "Escape") cancelEditText();
