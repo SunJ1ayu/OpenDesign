@@ -174,8 +174,13 @@ def _snapshot(ds_root: str) -> dict:
 
 
 @contextmanager
-def _mcp(ds_root: str):
+def _mcp(ds_root: str, organize_roots: str | None = None):
     """从真相源建出三个真 MCP server,并保证**枚举和调用都在同一环境生效期内**。
+
+    `organize_roots` 默认指到 ds_root(= organize 系工具够不着两个工作区根,
+    绝大多数用例要的就是这个)。O11 要复现的是**生产形态**:真机白名单是
+    `Desktop;Downloads`,新根很可能就落在里面 —— 那种形态下 organize 系能做什么,
+    必须真调一遍才算数,不能靠夹具把它屏蔽掉再宣布"验过了"。
 
     ⚠️ 第一版这里是普通函数、在 `finally` 里就把 DS_ROOT 恢复了,而工具是在函数
     返回**之后**才被 `call_tool` 调的。后果:O5 那条"模型碰不到开关"的闸,造一个
@@ -184,7 +189,7 @@ def _mcp(ds_root: str):
     import ds_mcp
     old = {k: os.environ.get(k) for k in ("DS_ROOT", "DS_ORGANIZE_ROOTS")}
     os.environ["DS_ROOT"] = ds_root
-    os.environ["DS_ORGANIZE_ROOTS"] = ds_root
+    os.environ["DS_ORGANIZE_ROOTS"] = organize_roots or ds_root
     try:
         tools = []
         for key in ("tools", "organize", "refs"):
@@ -1023,6 +1028,74 @@ class O8_GET不许有副作用(unittest.TestCase):
                 st = conn.getresponse().status
                 conn.close()
                 self.assertEqual(st, 405, f"PUT {path} 必须维持 405")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# O11 生产形态下的 organize 白名单:文件名枚举得到,正文一个字都不许
+# ══════════════════════════════════════════════════════════════════════════════
+class O11_organize白名单是一条明账边界(unittest.TestCase):
+    """四审 subdeepseek 的 Q1/Q3:**别的用例把这个形状屏蔽掉了**。
+
+    其余用例的夹具把 `DS_ORGANIZE_ROOTS` 设成 ds_root(一个与两个工作区根都无关的
+    临时目录)⇒ `scan_dir_tool(新根)` 必然 `root_not_allowed` 早退,canary 闸对它
+    **空转**。而真机模板 `config/nanobot.config.windows.jsonc` 的白名单是
+    `Desktop;Downloads` —— 业主的设计项目文件夹十有八九就在里面。
+
+    所以这道闸不复现生产形态就等于没验。复现之后,事实是两句话:
+
+    - **文件名/大小/修改时间:枚举得到。** organize 是**另一条独立授权线**
+      (白名单 + 终端 `ds-approve`),proposal 明写这一单不动它。
+      于是"待确认期间新根一个字都读不到"这句话,**准确说法是"正文一个字都读不到"**。
+      这是本单**接受的边界**,写在 verify.md 的 Accepted deviations 里。
+    - **正文:一个字都不许。** 这条是承重的 —— 哪天有人给 scan_dir 加个"顺手预览
+      前 200 字"的好意,o11b 当场红。
+
+    ⚠️ o11a 断言的是**今天接受的边界**(名字确实列得出来)。哪天把 organize 也纳入
+    同意闸,它会红 —— **那是好消息**:改断言,并在 verify 里记一笔边界收窄了。
+    """
+
+    def setUp(self):
+        self.ds, self.old, self.new = _mkfixture()
+        # 生产白名单是 Desktop 这类**祖先目录**,不是新根本身。用父目录才复现得出
+        # "新根恰好落在白名单里"的形状。
+        self.desk = os.path.dirname(os.path.realpath(self.new))
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+
+    def _scan_new_root_while_pending(self):
+        """排一条待确认(闸还没放行),然后在生产白名单下真调一次 scan_dir_tool。"""
+        _mcp_set_workspace(self, self.ds, self.new)
+        self.assertEqual(ds_workspace.load_config(self.ds)["root"],
+                         os.path.realpath(self.old),
+                         "前置不成立:根已经换过去了,这条考的就不是待确认期间")
+        with _mcp(self.ds, organize_roots=self.desk) as tools:
+            server, tool = next((s, t) for s, t in tools if t.name == "scan_dir_tool")
+            return _call(server, tool.name, {"root": self.new})
+
+    def test_o11a_明账边界_白名单覆盖到新根时文件名枚举得到(self):
+        ok, text = self._scan_new_root_while_pending()
+        self.assertTrue(ok, f"前置不成立:scan_dir_tool 没跑到业务逻辑:{text[:200]}")
+        self.assertIn(CANARY_NEW_NAME, text,
+                      "这条断言钉的是**今天接受的边界**。它红了通常意味着 organize "
+                      "也被纳入了同意闸 —— 那是好消息:改这条断言,并在 verify.md "
+                      "的 Accepted deviations 里把这条边界划掉。")
+
+    def test_o11b_承重_scan_dir只回名字_正文一个字都不许(self):
+        ok, text = self._scan_new_root_while_pending()
+        self.assertTrue(ok, f"前置不成立:scan_dir_tool 没跑到业务逻辑:{text[:200]}")
+        self.assertNotIn(
+            CANARY_NEW_BODY, text,
+            "scan_dir 把**未经业主确认的新根**里的文件正文吐出来了 —— "
+            "同意闸挡的就是这条链,organize 那条独立授权线不许在这里破口")
+
+    def test_o11c_同意闸本身没塌_正经读面仍然读不到新根(self):
+        """把 o11a/o11b 摆在一起才有意义:名字列得出来 ≠ 闸塌了。"""
+        self._scan_new_root_while_pending()
+        r = ds_documents.read_document(PROJ_OUT, CANARY_NEW_NAME, ds_root=self.ds)
+        self.assertFalse(r.get("ok"), f"待确认期间读到了新根的文档:{r!r:.200}")
+        for canary in CANARY_NEW:
+            self.assertNotIn(canary, json.dumps(r, ensure_ascii=False, default=str))
 
 
 if __name__ == "__main__":
