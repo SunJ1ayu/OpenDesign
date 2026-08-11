@@ -16,6 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)  # design-studio/
 sys.path.insert(0, os.path.join(ROOT, "bin"))
 import ds_consent  # noqa: E402  ← 这两个 Oracle 类要显式声明「我测的是不用问档」
+import ds_todo   # noqa: E402  `## 变更历史` 读侧解析的新家(track opendesign-note-source)
 import ds_tools  # noqa: E402
 
 TODAY = "2026-07-01"
@@ -640,7 +641,8 @@ class EditChangeOracle(unittest.TestCase):
         self.assertNotIn("后来的旧备注", text)
         self.assertNotIn("较早的备注", text)
         # 读侧(单一真相源)必须给出新值 —— 这条才是业主眼里的"改成功了"
-        self.assertEqual(ds_tools.parse_history(text)[3]["note"], "业主刚说的新备注")
+        # 读侧解析在 track opendesign-note-source 搬去了 ds_todo(写读同源,依赖不成环)
+        self.assertEqual(ds_todo.parse_history(text)[3]["note"], "业主刚说的新备注")
         self.assertIn("- C3 改于 2026-06-21｜原:阳台加柜子", text)  # 留痕不受牵连
 
     def test_e05g_duplicate_notes_all_removed_on_clear(self):
@@ -649,7 +651,7 @@ class EditChangeOracle(unittest.TestCase):
         text = _read(path)
         self.assertEqual(sum(1 for l in text.splitlines()
                              if l.startswith("- C3 备注")), 0)     # 一条不剩
-        self.assertIsNone(ds_tools.parse_history(text)[3]["note"])
+        self.assertIsNone(ds_todo.parse_history(text)[3]["note"])
         self.assertIn("- C3 改于 2026-06-21｜原:阳台加柜子", text)
 
     # ⑤h 全角冒号的旧备注(写侧一直写半角,但读侧正则收两种)照样清得掉
