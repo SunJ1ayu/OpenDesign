@@ -207,7 +207,7 @@ export function buildEditRequest(
   }
   if (draft.note !== undefined) {
     const n = draft.note.trim();
-    if (n && n !== originalNote.trim()) {
+    if (n !== originalNote.trim()) {
       req.note = n;
       dirty = true;
     }

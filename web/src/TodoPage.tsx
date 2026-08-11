@@ -376,7 +376,15 @@ export default function TodoPage({
         setEdited((m) => ({ ...m, [eid]: it.text })); // 记旧正文供看原文
       }
       if (eid && req.note !== undefined) {
-        setNoted((m) => ({ ...m, [eid]: req.note! })); // A3:备注乐观回显
+        if (req.note) {
+          setNoted((m) => ({ ...m, [eid]: req.note! }));
+        } else {
+          setNoted((m) => {
+            const next = { ...m };
+            delete next[eid];
+            return next;
+          });
+        }
       }
       setEditing(null);
       setDraft({});

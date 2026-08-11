@@ -493,21 +493,45 @@ def _append_history_entry(lines: list[str], entry: str) -> None:
 
 
 def _upsert_note(lines: list[str], num: str, note_line: str) -> None:
-    """按 cnum 键在 `## 变更历史` 段内追加/替换该变更的备注行(BLOCK-3:非位置扫描)。"""
+    """按 cnum 键在 `## 变更历史` 段内追加/替换该变更的备注行,同时归一重复行(只保留第一条)。"""
     note_re = re.compile(rf"^- C{num} 备注[:：]")
     b = _history_bounds(lines)
     if b is None:
         _create_history_section(lines, [note_line])
         return
     hidx, end = b
+    first_hit = None
+    to_remove: list[int] = []
     last = hidx
     for k in range(hidx + 1, end):
         if note_re.match(lines[k]):
-            lines[k] = note_line
-            return
-        if lines[k].strip():
+            if first_hit is None:
+                first_hit = k
+                lines[k] = note_line
+            else:
+                to_remove.append(k)
+        elif lines[k].strip():
             last = k
-    lines.insert(last + 1, note_line)
+    for k in reversed(to_remove):
+        del lines[k]
+    if first_hit is None:
+        lines.insert(last + 1, note_line)
+
+
+def _delete_note(lines: list[str], num: str) -> bool:
+    """删除 `## 变更历史` 段内该 cnum 的所有备注行。返回是否有行被删除。"""
+    note_re = re.compile(rf"^- C{num} 备注[:：]")
+    b = _history_bounds(lines)
+    if b is None:
+        return False
+    hidx, end = b
+    to_remove: list[int] = []
+    for k in range(hidx + 1, end):
+        if note_re.match(lines[k]):
+            to_remove.append(k)
+    for k in reversed(to_remove):
+        del lines[k]
+    return len(to_remove) > 0
 
 
 def edit_change(project: str, cnum, new_status: str | None = None,
@@ -565,9 +589,12 @@ def edit_change(project: str, cnum, new_status: str | None = None,
                 _append_history_entry(lines, f"- C{num} 改于 {today}｜原:{old_text}")
                 changed = True
 
-        if note_s:  # 空备注视同不带(不写 `- Cn 备注:` 空行)
-            _upsert_note(lines, num, f"- C{num} 备注:{note_s}")
-            changed = True
+        if note is not None:
+            if note_s:
+                _upsert_note(lines, num, f"- C{num} 备注:{note_s}")
+                changed = True
+            elif _delete_note(lines, num):
+                changed = True
 
         if changed:
             ds_common.bump_last_updated(lines, today)

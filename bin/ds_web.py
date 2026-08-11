@@ -83,7 +83,9 @@ import ds_todo
 import ds_tools  # parse_history:`## 变更历史` 段读侧解析(与写侧 edit_change 同源)
 import ds_workspace
 
-VERSION = "0.82.0"  # 助手要扩大自己能看到的文件范围(改工作区根/绑项目文件夹)时,先弹卡问你;设置里可关。
+VERSION = "0.83.0"  # 待办/变更的备注:清空能真的清掉了(以前删了还是显示旧的);
+                    # 档案里若有重复备注行,写读两侧不再各认一条(改了读出来还是旧的)。
+                    # 0.82.0  助手要扩大自己能看到的文件范围(改工作区根/绑项目文件夹)时,先弹卡问你;设置里可关。
                     # 装机脚本要装 firecrawl-anydoc==0.1.6;/api/health 的
                     # doc_reader 字段会说它在不在(track opendesign-anydoc)。
                     # 0.79.0  收件箱不再只收图片:PDF、CAD 图纸、Word/Excel 都能拖进去。
