@@ -1,0 +1,239 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck
+cmd:     /root/aiwork/bin/redcheck --base d22f8a2 --impl bin/ds_tools.py --impl web/src/todo.ts --impl web/src/TodoPage.tsx --oracle /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_tools\ tests.test_ds_web_api\ 2\>\&1\ \|\ tail\ -3\ \&\&\ node\ --test\ tests/test_workbench_p4.mjs --must-fail 业主还在犹豫\|业主微信确认了\|note
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  f7541e3
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-11T04:01:02Z
+---------------- 输出开始 ----------------
+redcheck: repo=/root/.openclaw/workspace/projects/design-studio
+  实现退回 d22f8a2acc78(判卷留在 HEAD f7541e3e593f)
+  实现:bin/ds_tools.py web/src/todo.ts web/src/TodoPage.tsx
+  跑判据 ...
+     | 127.0.0.1 - "PUT /api/refs/file/a.png HTTP/1.1" 405 -
+     | 127.0.0.1 - "DELETE /api/refs/file/a.png HTTP/1.1" 405 -
+     | 127.0.0.1 - "PATCH /api/refs/file/a.png HTTP/1.1" 405 -
+     | TAP version 13
+     | # Subtest: groupByProject:遇见序稳定,同项目聚一起
+     | ok 1 - groupByProject:遇见序稳定,同项目聚一起
+     |   ---
+     |   duration_ms: 2.687927
+     |   type: 'test'
+     |   ...
+     | # Subtest: groupByDate:日期倒序分批,无日期(null)恒沉底
+     | ok 2 - groupByDate:日期倒序分批,无日期(null)恒沉底
+     |   ---
+     |   duration_ms: 7.155135
+     |   type: 'test'
+     |   ...
+     | # Subtest: groupByDate:组内保持传入相对序(调用方先排好序再分组,不许乱序)
+     | ok 3 - groupByDate:组内保持传入相对序(调用方先排好序再分组,不许乱序)
+     |   ---
+     |   duration_ms: 0.290224
+     |   type: 'test'
+     |   ...
+     | # Subtest: groupByDate:空表回空,不炸
+     | ok 4 - groupByDate:空表回空,不炸
+     |   ---
+     |   duration_ms: 0.157246
+     |   type: 'test'
+     |   ...
+     | # Subtest: buildEditRequest:改状态 → 仅带 new_status
+     | ok 5 - buildEditRequest:改状态 → 仅带 new_status
+     |   ---
+     |   duration_ms: 0.244075
+     |   type: 'test'
+     |   ...
+     | # Subtest: buildEditRequest:状态 no-op(==原状态)不带
+     | ok 6 - buildEditRequest:状态 no-op(==原状态)不带
+     |   ---
+     |   duration_ms: 0.131707
+     |   type: 'test'
+     |   ...
+     | # Subtest: buildEditRequest:非法状态被剔除
+     | ok 7 - buildEditRequest:非法状态被剔除
+     |   ---
+     |   duration_ms: 0.096498
+     |   type: 'test'
+     |   ...
+     | # Subtest: buildEditRequest:改正文 trim 后 ≠ 原 → 带 new_text
+     | ok 8 - buildEditRequest:改正文 trim 后 ≠ 原 → 带 new_text
+     |   ---
+     |   duration_ms: 0.213555
+     |   type: 'test'
+     |   ...
+     | # Subtest: buildEditRequest:正文 no-op / 空白 不带
+     | ok 9 - buildEditRequest:正文 no-op / 空白 不带
+     |   ---
+     |   duration_ms: 0.389041
+     |   type: 'test'
+     |   ...
+     | # Subtest: buildEditRequest:备注非空 → 带 note;空白不带
+     | ok 10 - buildEditRequest:备注非空 → 带 note;空白不带
+     |   ---
+     |   duration_ms: 0.367941
+     |   type: 'test'
+     |   ...
+     | # Subtest: buildEditRequest:备注==原备注(预填没动)→ 不重写(todo-ux2)
+     | ok 11 - buildEditRequest:备注==原备注(预填没动)→ 不重写(todo-ux2)
+     |   ---
+     |   duration_ms: 0.214295
+     |   type: 'test'
+     |   ...
+     | # Subtest: buildEditRequest:清空备注(原来有)→ 带 note:"",这是一次真改动
+     | not ok 12 - buildEditRequest:清空备注(原来有)→ 带 note:"",这是一次真改动
+     |   ---
+     |   duration_ms: 1.603873
+     |   type: 'test'
+     |   location: '/root/.openclaw/workspace/projects/design-studio/tests/test_workbench_p4.mjs:116:1'
+     |   failureType: 'testCodeFailure'
+     |   error: |-
+     |     Expected values to be strictly deep-equal:
+     |     + actual - expected
+     |     
+     |     + null
+     |     - {
+     |     -   cnum: 3,
+     |     -   note: '',
+     |     -   project: '翡翠湾'
+     |     - }
+     |     
+     |   code: 'ERR_ASSERTION'
+     |   name: 'AssertionError'
+     |   expected:
+     |     project: '翡翠湾'
+     |     cnum: 3
+     |     note: ''
+     |   actual: ~
+     |   operator: 'deepStrictEqual'
+     |   stack: |-
+     |     TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_workbench_p4.mjs:117:10)
+     |     Test.runInAsyncScope (node:async_hooks:214:14)
+     |     Test.run (node:internal/test_runner/test:1047:25)
+     |     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+     |     Test.postRun (node:internal/test_runner/test:1173:19)
+     |     Test.run (node:internal/test_runner/test:1101:12)
+     |     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+     |   ...
+     | # Subtest: buildEditRequest:本来就没备注 + 草稿也空 → 仍是 null(不发无谓写)
+     | ok 13 - buildEditRequest:本来就没备注 + 草稿也空 → 仍是 null(不发无谓写)
+     |   ---
+     |   duration_ms: 0.111486
+     |   type: 'test'
+     |   ...
+     | # Subtest: buildEditRequest:清空备注 + 同时改正文 → 两个字段都带
+     | not ok 14 - buildEditRequest:清空备注 + 同时改正文 → 两个字段都带
+     |   ---
+     |   duration_ms: 0.487979
+     |   type: 'test'
+     |   location: '/root/.openclaw/workspace/projects/design-studio/tests/test_workbench_p4.mjs:129:1'
+     |   failureType: 'testCodeFailure'
+     |   error: |-
+     |     Expected values to be strictly deep-equal:
+     |     + actual - expected
+     |     
+     |       {
+     |         cnum: 3,
+     |         new_text: '客厅吊顶改弧形',
+     |     -   note: '',
+     |         project: '翡翠湾'
+     |       }
+     |     
+     |   code: 'ERR_ASSERTION'
+     |   name: 'AssertionError'
+     |   expected:
+     |     project: '翡翠湾'
+     |     cnum: 3
+     |     new_text: '客厅吊顶改弧形'
+     |     note: ''
+     |   actual:
+     |     project: '翡翠湾'
+     |     cnum: 3
+     |     new_text: '客厅吊顶改弧形'
+     |   operator: 'deepStrictEqual'
+     |   stack: |-
+     |     TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_workbench_p4.mjs:130:10)
+     |     Test.runInAsyncScope (node:async_hooks:214:14)
+     |     Test.run (node:internal/test_runner/test:1047:25)
+     |     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+     |     Test.postRun (node:internal/test_runner/test:1173:19)
+     |     Test.run (node:internal/test_runner/test:1101:12)
+     |     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+     |   ...
+     | # Subtest: buildEditRequest:三字段同改 → 全带
+     | ok 15 - buildEditRequest:三字段同改 → 全带
+     |   ---
+     |   duration_ms: 0.135256
+     |   type: 'test'
+     |   ...
+     | # Subtest: buildEditRequest:残缺行(cnum=null)不可编辑 → null
+     | ok 16 - buildEditRequest:残缺行(cnum=null)不可编辑 → null
+     |   ---
+     |   duration_ms: 0.081358
+     |   type: 'test'
+     |   ...
+     | # Subtest: buildEditRequest:无任何有效改动 → null
+     | ok 17 - buildEditRequest:无任何有效改动 → null
+     |   ---
+     |   duration_ms: 0.068079
+     |   type: 'test'
+     |   ...
+     | # Subtest: isValidStatus:四状态通过,其余拒
+     | ok 18 - isValidStatus:四状态通过,其余拒
+     |   ---
+     |   duration_ms: 0.139286
+     |   type: 'test'
+     |   ...
+     | # Subtest: isTerminalStatus:已完成/已关闭为终态,两开放态非终态
+     | ok 19 - isTerminalStatus:已完成/已关闭为终态,两开放态非终态
+     |   ---
+     |   duration_ms: 0.081217
+     |   type: 'test'
+     |   ...
+     | # Subtest: STATUS_HINT:覆盖全部四状态且非空
+     | ok 20 - STATUS_HINT:覆盖全部四状态且非空
+     |   ---
+     |   duration_ms: 0.116918
+     |   type: 'test'
+     |   ...
+     | # Subtest: filterDocs:空 query 空结果(不倾倒全库)
+     | ok 21 - filterDocs:空 query 空结果(不倾倒全库)
+     |   ---
+     |   duration_ms: 0.110216
+     |   type: 'test'
+     |   ...
+     | # Subtest: filterDocs:关键词命中变更与图片;tab 过滤
+     | ok 22 - filterDocs:关键词命中变更与图片;tab 过滤
+     |   ---
+     |   duration_ms: 0.166887
+     |   type: 'test'
+     |   ...
+     | # Subtest: filterDocs:空间/编号/项目名也算命中面
+     | ok 23 - filterDocs:空间/编号/项目名也算命中面
+     |   ---
+     |   duration_ms: 0.111457
+     |   type: 'test'
+     |   ...
+     | # Subtest: splitHighlight:命中段标 hit,重组还原原文,多处命中
+     | ok 24 - splitHighlight:命中段标 hit,重组还原原文,多处命中
+     |   ---
+     |   duration_ms: 0.190546
+     |   type: 'test'
+     |   ...
+     | 1..24
+     | # tests 24
+     | # suites 0
+     | # pass 22
+     | # fail 2
+     | # cancelled 0
+     | # skipped 0
+     | # todo 0
+     | # duration_ms 176.879089
+  ✅ 红在目标断言上(命中 /业主还在犹豫|业主微信确认了|note/)。
+
+  ✅ 红检通过:旧实现下判据是红的(rc=1)。这份判据确实在问本轮的改动。
+
+redcheck: 恢复实现到 HEAD ...
+  ✅ 已恢复,工作树干净(git 说的,不是我说的)。
+---------------- 输出结束 ----------------
+runlog: redcheck rc=0 commit=f7541e3 dirty=yes at=2026-08-11T04:01:02Z file=tracks/opendesign-note-clear/evidence/20260811T040102Z-01-redcheck.txt

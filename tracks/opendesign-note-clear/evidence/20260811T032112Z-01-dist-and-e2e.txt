@@ -1,0 +1,36 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    dist-and-e2e
+cmd:     bash -c cd\ web\ \&\&\ npm\ run\ build\ \>/dev/null\ 2\>\&1\ \&\&\ cd\ ..\ \&\&\ test\ -z\ \"\$\(git\ status\ --porcelain\ --\ web/dist\)\"\ \&\&\ echo\ \"dist\ 新鲜度:与源码同步\"\ \&\&\ node\ tests/e2e/ws_change_note.e2e.mjs\ 2\>\&1\ \|\ tail\ -25
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  1d4e0b4
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-11T03:21:12Z
+---------------- 输出开始 ----------------
+dist 新鲜度:与源码同步
+== E 备注与正文同改:两者都落盘,正文留痕照常
+  ok - 新正文已落盘
+  ok - 新备注已落盘
+  ok - 正文那条留痕照常写
+
+== F 取消:一个字都不写
+  ok - 取消后档案逐字节不变
+  ok - 草稿没有泄漏到磁盘
+
+== G 清空备注:磁盘那行真没了,行上标签消失(不是留个空标签)
+  ok - 前置:C1 现在有备注(实测「业主书面确认」)
+  ok - 磁盘 `## 变更历史` 段里 C1 那行备注已删除
+  ok - 备注内容真没了
+  ok - 行上「备注:…」标签整个消失(不是渲染成一个空的「备注:」)
+  ok - 正文一字未动
+  ok - 邻居锚:C3 的备注一个字没动
+  ok - 留痕锚:正文留痕行原样还在(删的只是备注)
+
+== H 待办页:写了再清 → 标签消失且磁盘那行没了
+  ok - 前置:待办页写的备注已落盘
+  ok - 编辑态预填了既有备注
+  ok - 磁盘上那条备注真没了
+  ok - 待办行上不许留一个空的「备注:」标签
+
+全部通过
+---------------- 输出结束 ----------------
+runlog: dist-and-e2e rc=0 commit=1d4e0b4 dirty=yes at=2026-08-11T03:21:12Z file=tracks/opendesign-note-clear/evidence/20260811T032112Z-01-dist-and-e2e.txt
