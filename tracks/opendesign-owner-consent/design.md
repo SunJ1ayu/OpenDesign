@@ -94,11 +94,23 @@ ds-approve**」。就是收件箱卡上的「确认执行」。本单是把这�
    否则换外壳要重写这套逻辑,且开一个"确认后掉包"的洞。
 
 **装包时必须重新验的一条**(现在成立不代表那时成立):
-今天"模型碰不到批准口"靠三件事撑着 —— ① ds_web 只绑 `127.0.0.1`(design D2);
+今天"模型碰不到批准口"靠这几件事撑着 —— ① ds_web 只绑 `127.0.0.1`(design D2);
 ② Host 白名单挡 DNS rebinding(`ds_web.py:658`,07-13 盲评加的);
 ③ 模型没有 exec / 网络能力(`ds_merge_config.py` 把 `tools.exec.enable`、
 `tools.file.enable` 合成 false)。**装包一旦引入新外壳、新端口或任何远程访问,
 这三条要逐条重验。**
+
+**四审(2026-08-11)又补了两条,一起进这张重验清单:**
+
+④ **网页不许把助手的内容当可执行 HTML 透传**(subdeepseek)。否则被注入的助手
+一句话就能在业主自己的浏览器里同源 fetch 打这两个针孔 —— ①②③ 全成立也没用,
+因为请求是从**业主的页面**发出去的。现状由另一套机制撑着:markdown 禁 raw HTML
+(`web/src/chat/markdown.ts`,`test_chat_transcript.mjs` 的 XSS 闸钉着)+ 写口
+一律 `application/json` ⇒ 跨源要 preflight ⇒ 本服务没有 OPTIONS 面 ⇒ 浏览器自己拦。
+**哪天有人给 markdown 加 `rehype-raw`、或新增一个 `text/plain` 写口,这条就塌了。**
+
+⑤ **不许有别的进程把 ds_web 的端口转发到外部**(submimo:ngrok / frp 这类)。
+端口一转发,① 的"只绑 127.0.0.1"就名存实亡。装包文档里要写明这句。
 
 ## 有意偏离一条现有原则(说明,不藏着)
 

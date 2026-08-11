@@ -1,7 +1,7 @@
 # Verify: opendesign-owner-consent
 
-- Date: 2026-08-08(开工)/ 2026-08-10(实现与收口)
-- Verdict: <PASS | BLOCK | NEEDS_MORE_INFO>
+- Date: 2026-08-08(开工)/ 2026-08-10(实现与收口)/ 2026-08-11(四审与修复)
+- Verdict: **PASS**(主裁;ds-web 0.82.0。**欠两台 Windows 真机验收** —— 见 T7)
 
 > Panel hook — 软判断(correctness/security/edge/spec-drift)走 panel-review:
 > 主 agent 先独立审并落 findings,再跑 panel-review 的全部评审腿,主 agent 主裁。
@@ -45,11 +45,21 @@ runlog: run-all rc=3 commit=b43109c dirty=no at=2026-08-10T16:00:46Z file=tracks
 > 要起活的 nanobot gateway,`tests/run-all.sh` 默认就不跑它们,与本单改动无关。
 > **照抄不四舍五入。**
 
-汇总数字(以第③遍为准,供人眼核对,**权威仍是收据文件本身**):
-node 342 通过 / 0 跳过 · python **981 跑过 / 0 跳过**(死断言闸:0 条从未执行)·
+**第④遍(四审的四条修完之后,权威的一遍)** —— 五段全 PASS:
+```
+runlog: run-all rc=3 commit=873692e dirty=no at=2026-08-11T01:31:43Z file=tracks/opendesign-owner-consent/evidence/20260811T013143Z-01-run-all.txt
+```
+> `rc=3` 同上:五段全 `PASS`,3 来自那 2 条要起 gateway 的 e2e 没跑(与本单无关)。
+
+汇总数字(以第④遍为准,供人眼核对,**权威仍是收据文件本身**):
+node **345** 通过 / 0 跳过 · python **990 跑过 / 0 跳过**(死断言闸:0 条从未执行)·
 MCP 契约闸三条全绿 · dist 与源码同步 · e2e **34 PASS / 0 FAIL / 2 SKIP**。
+> 数字比第③遍多的 9 条 = 四审之后补的判据:O9 三条 + O10 三条(python)、
+> O11 三条(python)、O12 三条(node)。python 981 → 990,node 342 → 345。
 
 oracle-first commit:`74dbda6`(判据先行,`--stat` 只有 tests/,零实现文件)。
+四审之后补的判据同样先行单独入库:`726e77b`(O9)、`6969c05`(O10)、
+`d51a2d9`(O11+O12),修复在 `873692e` —— **三笔判据都在修复之前,git 里查得到**。
 
 ## Review
 
@@ -82,7 +92,16 @@ oracle-first commit:`74dbda6`(判据先行,`--stat` 只有 tests/,零实现文�
   **它自己会分错**(第一版我分错 6 个)—— 所以承重的其实是 canary,
   分类表只是提醒器。这层区别值得四审替我再看一眼。
 
-- 腿的花名册: <待填,原样粘 roster>
+- 腿的花名册(原样粘,2026-08-11 00:22):
+  ```
+  submimo=PASS subdeepseek=PASS subglm=off subkimi=FAIL(rc=1)
+  ```
+  > `PASS` = 进程 rc=0,**不等于给了裁决**。实际拿到裁决的只有两条腿:
+  > **submimo 判 PASS、subdeepseek 判 BLOCK**。
+  > `subglm=off` 是**智谱欠费**(不是"通过");`subkimi` rc=1 挂在额度。
+  > 所以这是一次 **2/4 腿**的 full 审 —— 比规矩要求的薄,记在这里不粉饰。
+  > 而这一轮最值钱的东西恰恰来自那条孤腿(见 F9),又一次印证
+  > 「孤腿 BLOCK 才是信号」;要是它也欠费,高危那条就漏网了。
 - findings:
 
   **我自己先审出来的(写在读任何 panel 输出之前)**
@@ -145,7 +164,58 @@ oracle-first commit:`74dbda6`(判据先行,`--stat` 只有 tests/,零实现文�
   - **判据自己的工具会互相拆台**:`delete_project_tool` 把夹具删了,后面的
     `bind_project_tool` 永远早退,覆盖面随 `list_tools()` 顺序静默缩水。
 
-- arbitrated verdict (主裁): <待四审后填>
+  **四审抓到的(2026-08-11,两条腿给了裁决)**
+
+  - **F9 🔴 锁序成环 ⇒ 「业主点头」这条唯一人工通道可被 DoS**(subdeepseek 孤腿
+    BLOCK,高危,**本轮唯一的高危发现**)。`bind_project` 在**持着 workspace 锁**时
+    调 `create_pending` 去拿 pending 锁,而 `resolve_pending` 的顺序正相反
+    (pending 锁 → apply → workspace 锁)—— 教科书式 AB-BA。Linux 的 flock 无限阻塞、
+    resolve 又没有超时 ⇒ **永久挂死**,而且挂死的那条 ds_web 线程从此占死 pending 锁,
+    之后所有待确认的创建与批准全卡住,只能重启。
+    **不能按"罕见竞态"放过**:威胁模型里的助手是被注入控制的,它可以连续狂调
+    `bind_project_tool` 去撞那个窗口。
+    判据 O9(`726e77b`)钉的是**结构不变量**(`create_pending` 永不在持 workspace 锁时
+    被调用),外加一条带 timeout 的并发行为闸兜底 —— 不去真造死锁,那会让判据自己挂住。
+    已修(锁内只做决定,排队出了锁再排)。**我自己逐行读过那份 diff,没看出来。**
+  - **F10 跨卡片的「显示≠执行」**(subdeepseek,中危)。design 硬性②说的是"执行时用
+    pending 里记的参数",但 `bind_project` 的参数是**文件夹名**,名字要靠当时的根才
+    解析得成路径。两张卡同时排队:先批 `set_workspace`(根换了)→ 再批 bind,
+    bind 拿新根解析那个名字 ⇒ 绑到物理上另一个文件夹,而业主只看见过一个名字。
+    **这正是 F1 记账的那个形状,只是发生在两张卡之间** —— F1 我当时判"影响面小、
+    记账不修",四审把它推到了一个我没想到的、够得着的场景。已修(pending 记下排队时的
+    根,批准时根变了就 `stale_pending`,判据 O10 `6969c05`)。
+  - **F11 判据自己把生产形态屏蔽掉了**(subdeepseek Q1/Q3)。夹具把
+    `DS_ORGANIZE_ROOTS` 设成 ds_root ⇒ `scan_dir_tool(新根)` 必然早退,canary 闸对
+    organize 那三个工具**空转**;而真机白名单是 `Desktop;Downloads`,业主的项目夹
+    十有八九就在里面。补了判据 O11 复现生产形态,结论是**边界要改口径**:
+    正文一个字读不到(承重、o11b 钉住),**但文件名/大小/时间枚举得到** ——
+    见 Accepted deviations 新增的那条。
+  - **F12 「针孔绕过闸」的注释漏了第四条前提**(subdeepseek)+ **第五条**(submimo)。
+    ④ 网页不许把助手内容当可执行 HTML 透传(否则请求从**业主自己的页面**发出,
+    前三条全成立也白搭);⑤ 不许有别的进程把端口转发到外部(ngrok/frp)。
+    两条都已写进 `ds_web.py` 那段注释 + design 的装包重验清单。
+  - **两处文案**(两腿都提):bind 卡没说"同意后项目列表那两条重复条目会合并"
+    (不是安全后果,但业主会困惑"我是不是批了别的事");多条待确认时标题不说数量。
+    已改。
+
+  **我修四审的东西时自己捅出来的(O12 抓到)**
+
+  - **F13 新错误码没人翻译,业主会看到英文。** 修 F10 时后端新增 `stale_pending`,
+    前端只认识 `already_resolved` ⇒ 屏幕上会出现 `没能提交:stale_pending`。
+    业主不写代码,这就是这道闸"文案即强度"的反面。已补 `ERR_MSG` 码表,
+    并加判据 O12:**码表从 `ds_consent.py` 现取、不手抄**,漏一个当场红。
+
+- arbitrated verdict (主裁): **PASS**
+  > 两条腿一 PASS 一 BLOCK,BLOCK 那条(F9)成立且已修,判据先行、红检留痕、
+  > 第④遍收据五段全绿。四条发现全部落地为**会红的判据**(O9/O10/O11/O12),
+  > 不是靠注释提醒下一个人。
+  >
+  > **主裁不降标准的两笔账,写在这里别被"全绿"盖过去:**
+  > ① 这次实际只有 **2/4 腿**给了裁决(智谱欠费 + Kimi 额度),而高危那条恰好只有
+  > 孤腿看见 —— 结论是"这一轮够了",不是"两腿够用了"。
+  > ② F10 是 **F1 的升级版**:F1 是我自己审出来的、当时判"影响面小,记账不修"。
+  > 四审把同一个形状放到一个我没想到的场景里,它就够得着了。
+  > **"影响面小"这个判断本身要带上"我想不到的场景"这一项** —— 记进教训。
 
 ## Accepted deviations
 
@@ -156,8 +226,20 @@ oracle-first commit:`74dbda6`(判据先行,`--stat` 只有 tests/,零实现文�
 - **`/api/projects/bind` 针孔绕过同意闸**(F4)。安全性依赖 design 写死的三条:
   ① ds_web 只绑 127.0.0.1;② Host 白名单挡 DNS rebinding;③ 模型无 exec/网络能力。
   **装包引入新外壳/新端口时这三条要逐条重验**,否则这个绕过就变成洞。
-- **F1 未修**:bind 批准时按当时的工作区状态重解析 folder。影响面小(不扩大根),
-  但确实是"确认后掉包"的一个变体。
+- ~~**F1 未修**~~ —— **08-11 已修**。四审(F10)把同一个形状放进"两张卡同时排队"
+  的场景,它就够得着了:根一换,卡上那个文件夹名指向的就是另一个地方。
+  现在批准时根变过就回 `stale_pending`,让业主重新提。
+- **`stale_pending` 是刻意的过度拒绝**:`set_workspace` 的参数是绝对路径,其实不受
+  根变化影响,但这道闸不按动作分档 —— 两张换根卡同时排队时,批完第一张,第二张要
+  重提一次。选宽的一边,理由是这张卡的既定哲学("拿不准就拒绝,重提成本很低"),
+  而窄一档就要长一张"哪些动作的参数与根无关"的表,那种表会烂且烂法是静默的。
+- 🔴 **口径要改**:「待确认期间新根**一个字**都读不到」的准确说法是
+  「**正文**一个字都读不到」。organize 那条独立授权线(`DS_ORGANIZE_ROOTS`,
+  真机白名单 `Desktop;Downloads`)在新根落进白名单时,`scan_dir_tool`
+  **列得出文件名/大小/修改时间**。proposal 明写这一单不动 ds_organize,
+  所以这是**接受的边界**,不是漏洞 —— 但判据 O11 现在把它钉成了明账:
+  o11a 钉住"今天名字确实列得出来"(它红 = organize 也进闸了 = 好消息),
+  o11b 钉住"正文一个字都不许"(承重那条)。
 - **F2 两个 canary 盲区未补**:`stage_intake_tool` / `stage_adoption_tool`。
 - **浏览器级测试只覆盖了"不许自动批准"这一条**(e2e B 组)。同意路径的
   端到端(点同意 → 根真的换了)由 python 判据 O3a/O7c 覆盖,没在浏览器里再走一遍。
