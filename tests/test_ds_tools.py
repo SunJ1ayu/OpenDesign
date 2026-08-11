@@ -703,6 +703,84 @@ class EditChangeOracle(unittest.TestCase):
         self.assertNotIn("业主要地暖", text2)
         self.assertIn("## 变更历史", text2)                     # 段本身不许被删掉
 
+    # ── changed_fields:后端是"变没变"的唯一判官(track opendesign-note-source)──
+    # 前端从此只报"用户碰了哪个框",不再自己比较新旧值 ⇒ 后端必须把**事实**说回去,
+    # 否则待办页的「改过·看原文」会把"原样保存"也标成改过(规划双出点破的假标记)。
+    # 契约:changed_fields ⊆ {"status","text","note"},**锁内与盘上当前值比较后**产生,
+    # 顺序固定 status→text→note(判据要能逐字节比,不许看心情排)。
+
+    # ⑥a 三个字段全给同值 ⇒ [] 且文件逐字节不动(页脚也不 bump)
+    def test_e06a_all_same_values_change_nothing(self):
+        slug, path = self._fixture_with_notes()
+        before = _read(path)
+        r = ds_tools.edit_change(slug, 1, new_status="待确认",
+                                 new_text="主卧衣柜改推拉门", note="业主还在犹豫",
+                                 ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(r.get("changed_fields"), [])
+        self.assertEqual(_read(path), before)
+
+    # ⑥b 只改备注 ⇒ ["note"],且**正文不许留假留痕**
+    def test_e06b_only_note_changed(self):
+        slug, path = self._fixture_with_notes()
+        r = ds_tools.edit_change(slug, 1, new_text="主卧衣柜改推拉门", note="业主改口了",
+                                 ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("changed_fields"), ["note"])
+        text = _read(path)
+        self.assertIn("- C1 备注:业主改口了", text)
+        self.assertNotIn("原:主卧衣柜改推拉门", text)   # 同值正文不留痕
+
+    # ⑥c 只改状态 ⇒ ["status"]
+    def test_e06c_only_status_changed(self):
+        slug, _ = self._fixture_with_notes()
+        r = ds_tools.edit_change(slug, 1, new_status="进行中",
+                                 note="业主还在犹豫", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("changed_fields"), ["status"])
+
+    # ⑥d 🔴 状态给**同值** ⇒ [] 且页脚不 bump。
+    #     今天必红:`if new_status is not None: … changed = True` 是无条件的
+    #     —— 与 0.83.0 修的 LOW-1(同值备注假 bump)同一个形状,换了个字段。
+    #     前端不再预判之后,业主点一下"还是待确认"就会污染项目活跃度/超期排序。
+    def test_e06d_same_status_is_byte_noop(self):
+        slug, path = self._fixture_with_notes()
+        before = _read(path)
+        r = ds_tools.edit_change(slug, 1, new_status="待确认", ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(r.get("changed_fields"), [])
+        self.assertEqual(_read(path), before)
+
+    # ⑥e 顺序固定 status→text→note(三样一起真改)
+    def test_e06e_field_order_is_fixed(self):
+        slug, _ = self._fixture_with_notes()
+        r = ds_tools.edit_change(slug, 1, new_status="进行中", new_text="主卧衣柜改折叠门",
+                                 note="全都改一遍", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("changed_fields"), ["status", "text", "note"])
+
+    # ⑥f 归一重复备注行本身算 note 真改动(⑤j 的延伸:别把归一算成 no-op)
+    def test_e06f_normalizing_duplicates_counts_as_change(self):
+        slug, _ = self._fixture_duplicate_notes()
+        r = ds_tools.edit_change(slug, 3, note="较早的备注", ds_root=self.ds, today=TODAY)
+        self.assertEqual(r.get("changed_fields"), ["note"])
+
+    # ⑥g 什么字段都不给 ⇒ ok、[]、文件逐字节不动(前端"一个框都没碰"就是这种请求)
+    def test_e06g_empty_request_is_addressable_noop(self):
+        slug, path = self._fixture_with_notes()
+        before = _read(path)
+        r = ds_tools.edit_change(slug, 1, ds_root=self.ds, today=TODAY)
+        self.assertTrue(r.get("ok"), r)
+        self.assertEqual(r.get("changed_fields"), [])
+        self.assertEqual(_read(path), before)
+
+    # ⑥h 清空备注也是一次真改动 ⇒ ["note"];已经没有备注可清 ⇒ []
+    def test_e06h_clearing_note_is_a_change_but_clearing_nothing_is_not(self):
+        slug, _ = self._fixture_with_notes()
+        self.assertEqual(
+            ds_tools.edit_change(slug, 1, note="", ds_root=self.ds,
+                                 today=TODAY).get("changed_fields"), ["note"])
+        self.assertEqual(
+            ds_tools.edit_change(slug, 1, note="", ds_root=self.ds,
+                                 today=TODAY).get("changed_fields"), [])
+
     # ⑩ 非法:未知 cnum→change_not_found;非法 status→invalid_status;空 new_text→empty_text;错误路径不碰文件
     def test_e10_invalid(self):
         before = _read(self.path)

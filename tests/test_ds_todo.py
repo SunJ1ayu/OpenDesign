@@ -298,5 +298,122 @@ class TestBatchSection(unittest.TestCase):
         self.assertEqual(got[4]["batch"]["title"], "全都算一批")
 
 
+# ── 备注的唯一真相源 = 档案(track opendesign-note-source)──────────────────────
+# 业主 08-11:「我觉得还是直接按第一性原理整理掉」。在这之前待办页的备注来自浏览器
+# 会话里的 `noted` 映射 —— 刷新就没。契约:`collect()` 的每个未办结条目,若档案的
+# `## 变更历史` 段里有它的备注行,就带 `note` 键(**有才带**,与 /changes 同约定)。
+#
+# 判据写死**具体字符串**,不写成"等于 parse_history 的结果" —— 后者是同源相等题,
+# 两边一起漏掉 note 它照样全绿(规划双出点破的假绿形状)。
+
+NOTE_DOC = """# n1
+
+## 变更记录
+- [待确认] C1 2026-07-01 主卧衣柜改推拉门
+- [进行中] C12 2026-07-01 玄关增加到顶储物柜
+- [待确认] C3 2026-07-01 阳台加洗衣柜
+- [进行中] 没编号的残缺行
+
+## 变更历史
+- C1 改于 2026-07-02｜原:主卧衣柜改平开门
+- C1 备注:业主书面确认
+- C12 备注:邻居锚,不许被 C1 的正则误伤
+- C1 改于 2026-07-02｜原:主卧衣柜改折叠门
+
+---
+最后更新: 2026-07-03
+"""
+
+# 另一个项目里**同样有 C1 且同样有备注** —— 备注必须按项目内的 cnum 关联,不许串号。
+OTHER_DOC = """# n2
+
+## 变更记录
+- [待确认] C1 2026-07-01 另一个项目的第一条
+
+## 变更历史
+- C1 备注:这条属于 n2,不属于 n1
+
+---
+最后更新: 2026-07-03
+"""
+
+
+class TestCollectNote(unittest.TestCase):
+    """`/api/todos` 的载荷带持久备注 —— 待办页刷新后还看得见的根据。"""
+
+    def _open(self, files=None):
+        root = _mkroot(files or {"n1.md": NOTE_DOC, "n2.md": OTHER_DOC})
+        return root, ds_todo.collect(root, 7, TODAY)["open"]
+
+    def _by(self, items, project, cnum):
+        hit = [it for it in items if it["project"] == project and it["cnum"] == cnum]
+        self.assertEqual(len(hit), 1, f"{project} C{cnum} 应恰好一条")
+        return hit[0]
+
+    # ① 有备注 ⇒ 带 note,且等于档案里那行的具体内容
+    def test_n01_note_from_archive(self):
+        _, items = self._open()
+        self.assertEqual(self._by(items, "n1", 1)["note"], "业主书面确认")
+
+    # ② 无备注 ⇒ **没有 note 键**(不是 None、不是空串;与 /changes 同约定)
+    def test_n02_absent_when_no_note(self):
+        _, items = self._open()
+        self.assertNotIn("note", self._by(items, "n1", 3))
+
+    # ③ 邻居锚:C1 的备注不许被 C12 认领,反之亦然(`C1\b` 不匹配 C12)
+    def test_n03_neighbour_cnum_not_confused(self):
+        _, items = self._open()
+        self.assertEqual(self._by(items, "n1", 12)["note"], "邻居锚,不许被 C1 的正则误伤")
+
+    # ④ 跨项目同号不串:n1 的 C1 和 n2 的 C1 各拿各的
+    def test_n04_no_cross_project_bleed(self):
+        _, items = self._open()
+        self.assertEqual(self._by(items, "n1", 1)["note"], "业主书面确认")
+        self.assertEqual(self._by(items, "n2", 1)["note"], "这条属于 n2,不属于 n1")
+
+    # ⑤ 残缺行(cnum=None)不许认领任何备注
+    def test_n05_partial_line_claims_nothing(self):
+        _, items = self._open()
+        broken = [it for it in items if it["cnum"] is None]
+        self.assertEqual(len(broken), 1)
+        self.assertNotIn("note", broken[0])
+
+    # ⑥ 清空之后读不到了 —— 0.83.0 修的"存得进去"与本单修的"读得出来"接上
+    def test_n06_cleared_note_disappears_from_collect(self):
+        root, items = self._open()
+        self.assertEqual(self._by(items, "n1", 1)["note"], "业主书面确认")
+        r = ds_tools.edit_change("n1", 1, note="", ds_root=root, today="2026-07-03")
+        self.assertTrue(r.get("ok"), r)
+        again = ds_todo.collect(root, 7, TODAY)["open"]
+        self.assertNotIn("note", self._by(again, "n1", 1))
+
+    # ⑦ 读模型住在 ds_todo:`parse_history` 从这儿导出(ds_todo 不许 import ds_tools,
+    #    那是环;test_no_import_cycles 会红)。这条锚住"新家在哪",搬回去就红。
+    def test_n07_parse_history_lives_here(self):
+        hist = ds_todo.parse_history(NOTE_DOC)
+        self.assertEqual(hist[1]["note"], "业主书面确认")
+        self.assertEqual([h["old"] for h in hist[1]["history"]],
+                         ["主卧衣柜改平开门", "主卧衣柜改折叠门"])
+        self.assertEqual(hist[12]["note"], "邻居锚,不许被 C1 的正则误伤")
+        self.assertEqual(hist[12]["history"], [])   # C12 有备注、无留痕
+
+    # ⑧ 每个项目文件只解析一次历史段(别写成对每条变更行各解析一遍 = O(n²))
+    def test_n08_parses_history_once_per_file(self):
+        root = _mkroot({"n1.md": NOTE_DOC})
+        calls = []
+        real = ds_todo.parse_history
+
+        def counting(text):
+            calls.append(len(text))
+            return real(text)
+
+        ds_todo.parse_history = counting
+        try:
+            ds_todo.collect(root, 7, TODAY)
+        finally:
+            ds_todo.parse_history = real
+        self.assertEqual(len(calls), 1, f"n1.md 里有 4 条变更行,历史段只该解析 1 次(实际 {len(calls)})")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

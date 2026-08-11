@@ -25,6 +25,12 @@
 //   H 待办页写了再清 → 磁盘那行没了,且**不许留一个空的「备注:」标签**
 //     (待办页的 tag 走会话级 noted 映射,存空串就会渲染成空标签)。
 //
+// 2026-08-11 再追加(track opendesign-note-source,业主「按第一性原理整理掉」)——
+// 备注的唯一真相源必须是档案,不是浏览器会话:
+//   I1 冷启动:备注经 HTTP 直接写进档案(浏览器这次会话从没写过)→ 待办页第一次
+//      打开就该显示并预填。**这一条是本组最强的**:会话映射对它一无所知。
+//   I2 刷新后仍在;I3 清空后刷新彻底消失(标签 + 磁盘);I4 工作区改的,待办页看得见。
+//
 // 跑法:node tests/e2e/ws_change_note.e2e.mjs(自起 ds_web 于 8816)
 import { spawn } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
@@ -238,6 +244,100 @@ try {
     expect(!md().includes("待办页写的备注"), "磁盘上那条备注真没了");
     expect(await page.locator('.todo-row:has-text("衣柜加到顶") .note-tag').count() === 0,
       "待办行上不许留一个空的「备注:」标签");
+  });
+
+  // ── I 备注的唯一真相源 = 档案(track opendesign-note-source)────────────────
+  // 业主 08-11:「我觉得还是直接按第一性原理整理掉」。此前待办页的备注来自组件里
+  // 一份**只活在当前网页会话**的映射(TodoPage 的 noted):刷新一下、换台电脑,
+  // 备注就看不见了(工作区那侧一直是从档案读的)。这一组把它钉死在档案上。
+  //
+  // I1 是最强的一条:备注**不是这个浏览器会话写的**(直接打 HTTP 写进档案),
+  // 页面第一次打开就该看见 —— 会话映射对它一无所知,今天必红。
+  const editViaApi = (body) =>
+    fetch(`${base}/api/changes/edit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project: PROJ, ...body }),
+    }).then((r) => r.json());
+  const openTodoPage = async () => {
+    await page.goto(base, { waitUntil: "domcontentloaded" });
+    await page.locator('.side-row:has-text("待办事项")').first().click();
+    await page.locator(".todo-card").first().waitFor({ timeout: 15000 });
+  };
+  const todoRow = (t) => page.locator(`.todo-row:has-text("${t}")`).first();
+  const todoTag = (t) => page.locator(`.todo-row:has-text("${t}") .note-tag`);
+
+  await step("I1 冷启动:档案里已有的备注,待办页第一次打开就显示并预填", async () => {
+    const r = await editViaApi({ cnum: 3, note: "冷启动也要看得见" });
+    expect(r.ok === true, `前置:直接经 API 写进档案(${JSON.stringify(r)})`);
+    expect(md().includes("- C3 备注:冷启动也要看得见"), "前置:磁盘上确实有这条");
+
+    await openTodoPage();
+    await todoRow("前置过滤").waitFor({ timeout: 10000 });
+    expect(await todoTag("前置过滤").count() === 1,
+      "待办行上有「备注:」标签(浏览器这次会话从没写过它 ⇒ 只能是从档案读的)");
+    expect((await todoTag("前置过滤").innerText()).includes("冷启动也要看得见"),
+      "标签里是档案里那句话");
+
+    const trow = todoRow("前置过滤");
+    await trow.hover();
+    await trow.locator(".edit-btn").click();
+    const box = page.locator(".todo-row.editing .edit-note");
+    await box.waitFor({ timeout: 5000 });
+    expect(await box.inputValue() === "冷启动也要看得见", "编辑框预填的也是档案里那句");
+    await page.locator(".todo-row.editing .btn-cancel").click().catch(() => {});
+  });
+
+  await step("I2 刷新:待办页写的备注,F5 之后还在", async () => {
+    await openTodoPage();
+    const trow = todoRow("衣柜加到顶");
+    await trow.hover();
+    await trow.locator(".edit-btn").click();
+    const box = page.locator(".todo-row.editing .edit-note");
+    await box.waitFor({ timeout: 5000 });
+    await box.fill("刷新之后还得在");
+    await page.locator(".todo-row.editing .btn-save").click();
+    await page.locator(".todo-row.editing").waitFor({ state: "detached", timeout: 10000 });
+    expect(md().includes("- C2 备注:刷新之后还得在"), "前置:落盘了");
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.locator(".todo-card").first().waitFor({ timeout: 15000 });
+    await todoRow("衣柜加到顶").waitFor({ timeout: 10000 });
+    expect(await todoTag("衣柜加到顶").count() === 1, "刷新后标签还在(今天必红)");
+    expect((await todoTag("衣柜加到顶").innerText()).includes("刷新之后还得在"),
+      "刷新后显示的还是那句话");
+  });
+
+  await step("I3 清空之后刷新:标签没了,磁盘那行也没了", async () => {
+    const trow = todoRow("衣柜加到顶");
+    await trow.hover();
+    await trow.locator(".edit-btn").click();
+    const box = page.locator(".todo-row.editing .edit-note");
+    await box.waitFor({ timeout: 5000 });
+    expect(await box.inputValue() === "刷新之后还得在", "编辑框预填的是档案里的现值");
+    await box.fill("");
+    await page.locator(".todo-row.editing .btn-save").click();
+    await page.locator(".todo-row.editing").waitFor({ state: "detached", timeout: 10000 });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.locator(".todo-card").first().waitFor({ timeout: 15000 });
+    await todoRow("衣柜加到顶").waitFor({ timeout: 10000 });
+    expect(await todoTag("衣柜加到顶").count() === 0, "刷新后标签不再出现");
+    expect(!md().includes("刷新之后还得在"), "磁盘那行真没了");
+  });
+
+  await step("I4 跨面一致:工作区改的备注,待办页看到的是新值", async () => {
+    await openProject();
+    await startEdit("吊顶改平顶");
+    await noteBox().fill("工作区改的,待办页也该看见");
+    await page.locator(".change-scroll .edit-fields .btn-save").click();
+    await page.locator(".change-scroll .edit-fields")
+      .waitFor({ state: "detached", timeout: 10000 });
+    expect(md().includes("- C1 备注:工作区改的,待办页也该看见"), "前置:工作区写进去了");
+
+    await openTodoPage();
+    await todoRow("吊顶改平顶").waitFor({ timeout: 10000 });
+    expect((await todoTag("吊顶改平顶").innerText()).includes("工作区改的,待办页也该看见"),
+      "两个页面同一个真相源");
   });
 
 

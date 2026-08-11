@@ -645,6 +645,116 @@ class TestEditRoundtrip(unittest.TestCase):
             self.assertEqual(c2_open, [])
 
 
+# ── 备注的唯一真相源(track opendesign-note-source)────────────────────────────
+# 业主 08-11「按第一性原理整理掉」。三件事在 HTTP 面各钉一条:
+#   ① /api/todos 的载荷带持久 note(待办页刷新后还看得见的根据);
+#   ② 写口的三态必须分得开:**没有这个键**=不动 / `""`=删除 / `null`=400;
+#   ③ 响应带 changed_fields —— 后端是"变没变"的唯一判官,前端拿它当事实。
+NOTE_SRC_DOC = """# 备注真相源
+
+- 业主: [[赵六]]
+
+## 变更记录
+- [待确认] C1 2026-07-01 主卧衣柜改推拉门
+- [进行中] C3 2026-07-01 阳台加洗衣柜
+
+## 变更历史
+- C1 改于 2026-07-02｜原:主卧衣柜改平开门
+- C1 备注:业主书面确认
+
+## 沟通日志
+- 2026-07-01 微信
+
+---
+最后更新: 2026-07-03
+"""
+
+
+class TestTodosNoteSource(unittest.TestCase):
+
+    def _root(self):
+        return _mkroot({"备注真相源.md": NOTE_SRC_DOC})
+
+    def _md(self, root):
+        with open(os.path.join(root, "projects", "备注真相源.md"), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _todo(self, port, cnum):
+        _, _, t = _get_json(port, "/api/todos")
+        hit = [it for it in t["open"] if it["cnum"] == cnum]
+        self.assertEqual(len(hit), 1, f"C{cnum} 应恰好一条未办结")
+        return hit[0]
+
+    def _edit(self, port, body):
+        return _post_json(port, "/api/changes/edit",
+                          dict({"project": "备注真相源"}, **body))
+
+    # ① /api/todos 带 note,**断言具体值**(不写成"等于 collect()" —— 那是同源相等题,
+    #    两边一起漏掉 note 它照样全绿)
+    def test_t01_todos_carries_note(self):
+        root = self._root()
+        with _serve(root) as port:
+            self.assertEqual(self._todo(port, 1)["note"], "业主书面确认")
+
+    # ② 没备注的条目**没有 note 键**(与 /changes 同约定:有才带)
+    def test_t02_absent_when_no_note(self):
+        root = self._root()
+        with _serve(root) as port:
+            self.assertNotIn("note", self._todo(port, 3))
+
+    # ③ body 里**没有** note 键 ⇒ 既有备注一个字不动(缺省 ≠ 空)
+    def test_t03_missing_key_leaves_note_alone(self):
+        root = self._root()
+        with _serve(root) as port:
+            st, rb = self._edit(port, {"cnum": 1, "new_status": "进行中"})
+            self.assertEqual(st, 200, rb)
+            self.assertEqual(self._todo(port, 1)["note"], "业主书面确认")
+
+    # ④ note:"" ⇒ 删除(与 ds_refs.update_ref 的既有先例同一种语言)
+    def test_t04_empty_string_clears(self):
+        root = self._root()
+        with _serve(root) as port:
+            st, rb = self._edit(port, {"cnum": 1, "note": ""})
+            self.assertEqual(st, 200, rb)
+            self.assertNotIn("note", self._todo(port, 1))
+            self.assertNotIn("业主书面确认", self._md(root))
+
+    # ⑤ note:null ⇒ **400 且文件逐字节不动**。
+    #    今天它会被 `body.get("note")` 悄悄读成"不动" —— 那就是同一个状态有了两个拼法,
+    #    正是这一单要消灭的东西。三个可写字段统一这条。
+    def test_t05_explicit_null_is_rejected(self):
+        root = self._root()
+        with _serve(root) as port:
+            for key in ("note", "new_text", "new_status"):
+                before = self._md(root)
+                st, rb = self._edit(port, {"cnum": 1, key: None})
+                self.assertEqual(st, 400, f"{key}: null 应 400,实际 {st} {rb}")
+                self.assertEqual(self._md(root), before, f"{key}: null 不许碰文件")
+
+    # ⑥ 响应带 changed_fields;同值请求 ⇒ [] 且文件逐字节不动
+    def test_t06_changed_fields_reported(self):
+        root = self._root()
+        with _serve(root) as port:
+            st, rb = self._edit(port, {"cnum": 1, "note": "业主改口了"})
+            self.assertEqual(st, 200, rb)
+            self.assertEqual(rb.get("changed_fields"), ["note"])
+            before = self._md(root)
+            st2, rb2 = self._edit(port, {"cnum": 1, "new_status": "待确认",
+                                         "new_text": "主卧衣柜改推拉门",
+                                         "note": "业主改口了"})
+            self.assertEqual(st2, 200, rb2)
+            self.assertEqual(rb2.get("changed_fields"), [])
+            self.assertEqual(self._md(root), before)
+
+    # ⑦ 加固(不是主断言):同一条 cnum,两个读端点给出同一个 note
+    def test_t07_two_read_endpoints_agree(self):
+        root = self._root()
+        with _serve(root) as port:
+            _, _, d = _get_json(port, "/api/projects/" + quote("备注真相源") + "/changes")
+            by = {c["cnum"]: c for c in d["changes"]}
+            self.assertEqual(by[1]["note"], self._todo(port, 1)["note"])
+
+
 # ── POST 写针孔 /api/changes/delete(track opendesign-owner-review-0808)───────
 # posture 逐条照抄 TestEditChangePinhole(同一套 CT/body/键白名单/精确匹配/Host 闸)。
 class TestDeleteChangePinhole(unittest.TestCase):

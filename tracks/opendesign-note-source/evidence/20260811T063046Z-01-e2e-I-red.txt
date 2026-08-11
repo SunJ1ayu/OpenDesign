@@ -1,0 +1,55 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    e2e-I-red
+cmd:     bash -c node\ tests/e2e/ws_change_note.e2e.mjs\ 2\>\&1\ \|\ tail\ -45
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  5614905
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-11T06:30:46Z
+---------------- 输出开始 ----------------
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET / HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%BC%A0%E5%AE%85-1101/changes HTTP/1.1" 200 -
+TimeoutError: locator.waitFor: Timeout 10000ms exceeded.
+Call log:
+[2m  - waiting for locator('.todo-row:has-text("加净水器点位")').first() to be visible[22m
+
+
+== I2 刷新:待办页写的备注,F5 之后还在
+  ok - 前置:落盘了
+  FAIL: 刷新后标签还在(今天必红)
+TimeoutError: locator.innerText: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('.todo-row:has-text("衣柜加到顶") .note-tag')[22m
+
+
+== I3 清空之后刷新:标签没了,磁盘那行也没了
+  FAIL: 编辑框预填的是档案里的现值
+  ok - 刷新后标签不再出现
+  FAIL: 磁盘那行真没了
+
+== I4 跨面一致:工作区改的备注,待办页看到的是新值
+  ok - 前置:工作区写进去了
+TimeoutError: locator.innerText: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('.todo-row:has-text("吊顶改平顶") .note-tag')[22m
+
+
+6 条不通过
+---------------- 输出结束 ----------------
+runlog: e2e-I-red rc=0 commit=5614905 dirty=yes at=2026-08-11T06:30:46Z file=tracks/opendesign-note-source/evidence/20260811T063046Z-01-e2e-I-red.txt

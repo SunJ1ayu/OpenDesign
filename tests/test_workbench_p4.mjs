@@ -74,61 +74,75 @@ const editable = (over = {}) => ({
   project: "翡翠湾", cnum: 3, status: "进行中", text: "客厅吊顶改平顶", ...over,
 });
 
-test("buildEditRequest:改状态 → 仅带 new_status", () => {
+// ⚠️ 契约在 track opendesign-note-source 改过(业主 08-11「按第一性原理整理掉」):
+// **这个函数不再判断"变没变"**,它只把"用户碰过哪个输入框"装配成请求。
+//   - `draft` 里出现某个键 = 用户碰过它 ⇒ 照发,哪怕值和原来一样;
+//   - "变没变"是事实,只有档案说了算 ⇒ 后端在文件锁里判,回 changed_fields;
+//   - 前端只保留**校验**:cnum 缺失不可寻址、非法状态词剔除。
+//   - `originalNote` 参数**已删除** —— 它是"值比较"的最后一个入口,留着就是留个后门。
+// 被推翻的六条旧断言(全是「没有实质改动 ⇒ null」)逐条换成了下面更强的版本:
+// 旧的只说"是 null",新的说清楚"请求里到底有什么、没有什么"。
+
+test("buildEditRequest:碰了状态 → 带 new_status", () => {
   const r = buildEditRequest(editable(), { status: "已完成" });
   assert.deepEqual(r, { project: "翡翠湾", cnum: 3, new_status: "已完成" });
 });
 
-test("buildEditRequest:状态 no-op(==原状态)不带", () => {
-  assert.equal(buildEditRequest(editable(), { status: "进行中" }), null);
+test("buildEditRequest:碰了状态但值==原状态 → 照发(后端判 no-op)", () => {
+  assert.deepEqual(buildEditRequest(editable(), { status: "进行中" }),
+    { project: "翡翠湾", cnum: 3, new_status: "进行中" });
 });
 
-test("buildEditRequest:非法状态被剔除", () => {
-  assert.equal(buildEditRequest(editable(), { status: "done" }), null);
+test("buildEditRequest:非法状态被剔除(校验保留),请求本身仍返回", () => {
+  assert.deepEqual(buildEditRequest(editable(), { status: "done" }),
+    { project: "翡翠湾", cnum: 3 });
 });
 
-test("buildEditRequest:改正文 trim 后 ≠ 原 → 带 new_text", () => {
-  const r = buildEditRequest(editable(), { text: "  客厅吊顶改弧形  " });
-  assert.deepEqual(r, { project: "翡翠湾", cnum: 3, new_text: "客厅吊顶改弧形" });
+test("buildEditRequest:碰了正文 → 带 trim 后的 new_text", () => {
+  assert.deepEqual(buildEditRequest(editable(), { text: "  客厅吊顶改弧形  " }),
+    { project: "翡翠湾", cnum: 3, new_text: "客厅吊顶改弧形" });
 });
 
-test("buildEditRequest:正文 no-op / 空白 不带", () => {
-  assert.equal(buildEditRequest(editable(), { text: "客厅吊顶改平顶" }), null);
-  assert.equal(buildEditRequest(editable(), { text: "   " }), null);
+test("buildEditRequest:碰了正文但值==原正文 → 照发", () => {
+  assert.deepEqual(buildEditRequest(editable(), { text: "客厅吊顶改平顶" }),
+    { project: "翡翠湾", cnum: 3, new_text: "客厅吊顶改平顶" });
 });
 
-test("buildEditRequest:备注非空 → 带 note;空白不带", () => {
+// 空正文照发、由后端回 empty_text(ds_tools.py 早就有这个错误码)。
+// 前端悄悄吞掉 = "清空正文点保存,什么也没发生也不报错" —— 那是把错误藏起来,不是校验。
+test("buildEditRequest:碰了正文且清空了 → 带 new_text:\"\",交后端拒", () => {
+  assert.deepEqual(buildEditRequest(editable(), { text: "   " }),
+    { project: "翡翠湾", cnum: 3, new_text: "" });
+});
+
+test("buildEditRequest:碰了备注 → 带 trim 后的 note", () => {
   assert.deepEqual(buildEditRequest(editable(), { note: " 业主确认 " }),
     { project: "翡翠湾", cnum: 3, note: "业主确认" });
-  assert.equal(buildEditRequest(editable(), { note: "  " }), null);
 });
 
-test("buildEditRequest:备注==原备注(预填没动)→ 不重写(todo-ux2)", () => {
-  assert.equal(buildEditRequest(editable(), { note: "业主确认" }, "业主确认"), null);
-  assert.equal(buildEditRequest(editable(), { note: " 业主确认 " }, "业主确认"), null);
-  assert.deepEqual(buildEditRequest(editable(), { note: "业主书面确认" }, "业主确认"),
-    { project: "翡翠湾", cnum: 3, note: "业主书面确认" });
+test("buildEditRequest:碰了备注但值==原备注 → 照发(不再比较,也没得比)", () => {
+  assert.deepEqual(buildEditRequest(editable({ note: "业主确认" }), { note: "业主确认" }),
+    { project: "翡翠湾", cnum: 3, note: "业主确认" });
 });
 
 // 清空备注(track opendesign-note-clear;业主 2026-08-11 真机报:「删掉原来的备注但
-// 还是之前的备注」)。根因之一就在这个纯函数:`if (n && …)` 把"清空"当成"没改",
-// 于是若这次只清了备注,整个请求都不发 —— 界面关了,盘上一字未动。
-test("buildEditRequest:清空备注(原来有)→ 带 note:\"\",这是一次真改动", () => {
-  assert.deepEqual(buildEditRequest(editable(), { note: "" }, "业主确认"),
+// 还是之前的备注」)。空串就是"我要它变成没有备注",后端据此删行。
+test("buildEditRequest:清空备注 → 带 note:\"\"", () => {
+  assert.deepEqual(buildEditRequest(editable({ note: "业主确认" }), { note: "" }),
     { project: "翡翠湾", cnum: 3, note: "" });
   // 全删成空格也算清空(与后端 sanitize/trim 同口径,别让一个空格救活旧备注)
-  assert.deepEqual(buildEditRequest(editable(), { note: "   " }, "业主确认"),
+  assert.deepEqual(buildEditRequest(editable({ note: "业主确认" }), { note: "   " }),
     { project: "翡翠湾", cnum: 3, note: "" });
 });
 
-test("buildEditRequest:本来就没备注 + 草稿也空 → 仍是 null(不发无谓写)", () => {
-  assert.equal(buildEditRequest(editable(), { note: "" }, ""), null);
-  assert.equal(buildEditRequest(editable(), { note: "  " }), null);
+test("buildEditRequest:本来就没备注、用户碰了又清空 → 仍带 note:\"\"(后端判 no-op)", () => {
+  assert.deepEqual(buildEditRequest(editable(), { note: "" }),
+    { project: "翡翠湾", cnum: 3, note: "" });
 });
 
 test("buildEditRequest:清空备注 + 同时改正文 → 两个字段都带", () => {
   assert.deepEqual(
-    buildEditRequest(editable(), { text: "客厅吊顶改弧形", note: "" }, "业主确认"),
+    buildEditRequest(editable({ note: "业主确认" }), { text: "客厅吊顶改弧形", note: "" }),
     { project: "翡翠湾", cnum: 3, new_text: "客厅吊顶改弧形", note: "" });
 });
 
@@ -142,12 +156,20 @@ test("buildEditRequest:三字段同改 → 全带", () => {
   });
 });
 
-test("buildEditRequest:残缺行(cnum=null)不可编辑 → null", () => {
+test("buildEditRequest:残缺行(cnum=null)不可编辑 → null(校验,不是判定)", () => {
   assert.equal(buildEditRequest(editable({ cnum: null }), { status: "已完成" }), null);
 });
 
-test("buildEditRequest:无任何有效改动 → null", () => {
-  assert.equal(buildEditRequest(editable(), {}), null);
+test("buildEditRequest:一个框都没碰 → 仍返回可寻址请求(只有 project+cnum)", () => {
+  assert.deepEqual(buildEditRequest(editable(), {}), { project: "翡翠湾", cnum: 3 });
+});
+
+// `originalNote` 那个参数已经删了。多传一个实参在 JS 里不会报错,所以这条断言问的是
+// **行为**:第三个参数不许再影响结果(它一旦被重新接上,这条就红)。
+test("buildEditRequest:多传第三个实参也不改变结果(originalNote 已删)", () => {
+  const withExtra = buildEditRequest(editable({ note: "业主确认" }),
+    { note: "业主确认" }, "业主确认");
+  assert.deepEqual(withExtra, { project: "翡翠湾", cnum: 3, note: "业主确认" });
 });
 
 test("isValidStatus:四状态通过,其余拒", () => {
