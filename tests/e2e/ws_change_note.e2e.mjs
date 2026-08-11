@@ -31,7 +31,9 @@
 //      打开就该显示并预填。**这一条是本组最强的**:会话映射对它一无所知。
 //   I2 刷新后仍在;I3 清空后刷新彻底消失(标签 + 磁盘);I4 工作区改的,待办页看得见。
 //   I5 只改正文保存时,**没碰过的备注不许被回发**(否则会盖掉别人这期间刚写的);
-//   I6 正文改了又改回原值 ⇒ 不许冒出假的「改过 · 看原文」(考 changed_fields 的消费者)。
+//   I6 正文改了又改回原值 ⇒ 不许冒出假的「改过 · 看原文」(考 changed_fields 的消费者);
+//   I7 是 I6 的正向锚:正文真改了,标记就必须出现(否则"把功能删掉"也能让 I6 绿);
+//   I8 让前端手里的旧值与档案现值打架 —— 只有真的看服务端 changed_fields 才过得去。
 //   ——(I1 改成绕开服务直接写磁盘、I5/I6 整条,都是"派活前先攻自己的题"抓出来补的)
 //
 // 跑法:node tests/e2e/ws_change_note.e2e.mjs(自起 ds_web 于 8816)
@@ -272,7 +274,10 @@ try {
 
   // 【攻题后加强】原来这里用 HTTP 写入,攻题(gpt-5.6-sol)点破:同一个服务进程里
   // 写完再读,**一份进程内缓存也能让它全绿** —— 它证明了"值对得上",没证明
-  // "真相源是档案"。改成**绕开服务、直接改磁盘文件**:任何缓存都会在这条上露馅。
+  // "真相源是档案"。改成**绕开服务、直接改磁盘文件**。
+  // 说清它到底证明了什么(第二轮攻题让我别说过头):它证明**这次待办页的读取
+  // 能观察到一次绕过服务的磁盘修改**;按 mtime 失效的一致性缓存仍能通过 ——
+  // 但那种缓存不产生业主可见的错误,不是这条要防的东西。
   const writeNoteOnDisk = (cnum, note) => {
     const lines = md().split("\n").filter((l) => !l.startsWith(`- C${cnum} 备注`));
     const i = lines.indexOf("## 变更历史");
@@ -415,6 +420,67 @@ try {
       "没有假的「改过 · 看原文」标记(以服务端 changed_fields 为准)");
     expect(!/- C3 改于 .*原:加净水器和前置过滤点位/.test(md()),
       "磁盘上也不许留假留痕");
+  });
+
+  // I7:I6 的**正向锚**。第二轮攻题点破 I6 只是负向的 ——
+  // 把「改过 · 看原文」这个功能整个删掉,I6 照样绿。所以再钉一条:
+  // 正文**真的改了**,标记就必须出现。两条一起才等于"以 changed_fields 为准"。
+  await step("I7 正文真改了:「改过 · 看原文」必须出现", async () => {
+    await openTodoPage();
+    const trow = todoRow("前置过滤");
+    await trow.waitFor({ timeout: 10000 });
+    await trow.hover();
+    await trow.locator(".edit-btn").click();
+    const textbox = page.locator(".todo-row.editing .edit-text");
+    await textbox.waitFor({ timeout: 5000 });
+    await textbox.fill("加净水器和前置过滤点位(位置待定)");
+    await page.locator(".todo-row.editing .btn-save").click();
+    await page.locator(".todo-row.editing").waitFor({ state: "detached", timeout: 10000 });
+    await page.waitForTimeout(300);
+    expect(await page.locator('.todo-row:has-text("位置待定") .edited-tag').count() === 1,
+      "正文真改了 ⇒ 行上出现「改过 · 看原文」");
+    expect(md().includes("- [待确认] C3 2026-07-28 【厨房】加净水器和前置过滤点位(位置待定)"),
+      "磁盘上正文真的变成了新值");
+    expect(/- C3 改于 .*原:加净水器和前置过滤点位/.test(md()),
+      "磁盘上也留了真留痕");
+  });
+
+  // I8:把"到底谁说了算"钉死。第三轮攻题指出 I6+I7 还不够 ——
+  // 前端只要拿"提交值 vs 打开编辑器时看到的旧值"自己比一遍,也能让 I6/I7 都绿,
+  // **根本不看服务端的 changed_fields**。要拆穿它,得让两边的判断打架:
+  //   编辑器开着 → 别人把正文改成 X → 业主也正好把正文改成 X 并保存。
+  // 前端手里的旧值是 X 之前那个,自己比 ⇒ "改了" ⇒ 会打上「改过」;
+  // 而档案里本来就已经是 X ⇒ 服务端 changed_fields=[] ⇒ 标记不该出现,也不该留痕。
+  await step("I8 前端旧值与档案现值打架:以档案为准(不许出现「改过」)", async () => {
+    await openTodoPage();
+    const trow = todoRow("位置待定");
+    await trow.waitFor({ timeout: 10000 });
+    await trow.hover();
+    await trow.locator(".edit-btn").click();
+    const textbox = page.locator(".todo-row.editing .edit-text");
+    await textbox.waitFor({ timeout: 5000 });
+
+    // 别人先把正文改成了 X(走真写口)
+    const X = "加净水器和前置过滤点位(已定在阳台)";
+    const r = await editViaApi({ cnum: 3, new_text: X });
+    expect(r.ok === true, `前置:别人把正文改成了 X(${JSON.stringify(r)})`);
+
+    // 【第四轮攻题抓到我这条自己的两个 bug,已修】
+    // ① 原来断言"不许有 `原:…(位置待定)` 这条留痕"——**必然失败**:别人改成 X
+    //    那一次本来就会合法地留下它。正确的锚是**业主这次保存前后档案逐字节不变**。
+    // ② 原来保存完只等 300ms 就对还没渲染出来的行做 count()===0 —— 行没出来也会绿。
+    //    改成先等行出现再看标记。
+    const snap = md();          // 别人改完之后的档案快照 = 业主这次保存的期望值
+
+    // 业主也正好改成同一个 X —— 他手里的旧值是过期的
+    await textbox.fill(X);
+    await page.locator(".todo-row.editing .btn-save").click();
+    await page.locator(".todo-row.editing").waitFor({ state: "detached", timeout: 10000 });
+    await todoRow("已定在阳台").waitFor({ timeout: 10000 });   // 先等行真的刷出来
+
+    expect(md() === snap, "业主这次保存前后,档案逐字节不变(他改成的正是现值)");
+    expect(await page.locator('.todo-row:has-text("已定在阳台") .edited-tag').count() === 0,
+      "不许出现「改过 · 看原文」—— 前端拿自己手里的旧值比,就会在这条上露馅");
   });
 
 
