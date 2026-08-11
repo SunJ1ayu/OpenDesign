@@ -1,0 +1,26 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck
+cmd:     /root/aiwork/bin/redcheck --base 6b41e58 --impl bin/ds_todo.py --impl bin/ds_tools.py --impl bin/ds_web.py --impl bin/ds_common.py --impl web/src/todo.ts --impl web/src/api.ts --impl web/src/TodoPage.tsx --impl web/src/workspace/ChangesColumn.tsx --oracle /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_todo\ tests.test_ds_tools\ tests.test_ds_web_api\ 2\>\&1\ \|\ tail\ -3\ \&\&\ node\ --test\ tests/test_workbench_p4.mjs\ tests/test_todo_batch.mjs\ 2\>\&1\ \|\ grep\ -E\ \"\^#\ \(pass\|fail\)\" --must-fail changed_fields\|note\|parse_history
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  0c3a6d0
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-11T07:46:42Z
+---------------- 输出开始 ----------------
+redcheck: repo=/root/.openclaw/workspace/projects/design-studio
+  实现退回 6b41e5882e39(判卷留在 HEAD 0c3a6d0d41b4)
+  实现:bin/ds_todo.py bin/ds_tools.py bin/ds_web.py bin/ds_common.py web/src/todo.ts web/src/api.ts web/src/TodoPage.tsx web/src/workspace/ChangesColumn.tsx
+  跑判据 ...
+     | FAILED (failures=9, errors=11)
+     | 127.0.0.1 - "GET /api/projects/%E5%A4%87%E6%B3%A8%E7%9C%9F%E7%9B%B8%E6%BA%90/changes HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+     | # pass 22
+     | # fail 11
+
+  ❌ 旧实现下判据**仍然绿** —— 这份判据证明不了任何事:
+     它在没有本轮改动的代码上也过,说明有恒真断言 / 前置永远成立 /
+     断言问的根本不是这次改的东西。**先修判据,别派活。**
+
+redcheck: 恢复实现到 HEAD ...
+  ✅ 已恢复,工作树干净(git 说的,不是我说的)。
+---------------- 输出结束 ----------------
+runlog: redcheck rc=1 commit=0c3a6d0 dirty=yes at=2026-08-11T07:46:42Z file=tracks/opendesign-note-source/evidence/20260811T074642Z-01-redcheck.txt

@@ -1,0 +1,334 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-honest-rc
+cmd:     /root/aiwork/bin/redcheck --base 6b41e58 --impl bin/ds_todo.py --impl bin/ds_tools.py --impl bin/ds_web.py --impl bin/ds_common.py --impl web/src/todo.ts --impl web/src/api.ts --impl web/src/TodoPage.tsx --impl web/src/workspace/ChangesColumn.tsx --oracle /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_todo\ tests.test_ds_tools\ tests.test_ds_web_api\ \&\&\ node\ --test\ tests/test_workbench_p4.mjs\ tests/test_todo_batch.mjs --must-fail changed_fields\|note\|parse_history
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  0c3a6d0
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-11T07:47:39Z
+---------------- 输出开始 ----------------
+redcheck: repo=/root/.openclaw/workspace/projects/design-studio
+  实现退回 6b41e5882e39(判卷留在 HEAD 0c3a6d0d41b4)
+  实现:bin/ds_todo.py bin/ds_tools.py bin/ds_web.py bin/ds_common.py web/src/todo.ts web/src/api.ts web/src/TodoPage.tsx web/src/workspace/ChangesColumn.tsx
+  跑判据 ...
+     | ......E.EE.EE.................................................................................EE....FFFFEFFF......................................................................................................................................................................................E.E.F127.0.0.1 - "POST /api/changes/add HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/changes/add HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/changes/add HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/changes/addx HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/changes/add/ HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/changes/add/1 HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/changes/add HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/changes/add HTTP/1.1" 200 -
+     | 127.0.0.1 - "POST /api/changes/add HTTP/1.1" 403 -
+     | 127.0.0.1 - "POST /api/changes/add HTTP/1.1" 404 -
+     | 127.0.0.1 - "POST /api/changes/add HTTP/1.1" 200 -
+     | 127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/projects/bindx HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/projects/bind/ HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/projects/bind/1 HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 409 -
+     | 127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 404 -
+     | 127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 200 -
+     | 127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 403 -
+     | 127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 404 -
+     | 127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 409 -
+     | 127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/changes HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects/../changes HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/projects/%2e%2e/changes HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/projects/a%2fb/changes HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/projects/a%2f%2e%2e%2fSECRET/changes HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/projects/%2e%2e%2fSECRET/changes HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/projects/x%00y/changes HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/projects/a%5cb/changes HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/projects//changes HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/changes HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/changes HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects/%E4%B8%8D%E5%AD%98%E5%9C%A8%E7%9A%84%E9%A1%B9%E7%9B%AE/changes HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/projects/%E7%BC%96%E8%BE%91%E5%8E%86%E5%8F%B2%E9%A1%B9%E7%9B%AE/changes HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/changes HTTP/1.1" 200 -
+     | 127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/projects/create HTTP/1.1" 200 -
+     | 127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/projects/create HTTP/1.1" 409 -
+     | 127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/projects/createx HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/projects/create/ HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/projects HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/projects/create HTTP/1.1" 200 -
+     | 127.0.0.1 - "POST /api/projects/create HTTP/1.1" 403 -
+     | 127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/projects/create HTTP/1.1" 200 -
+     | 127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/changes/deletex HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/changes/delete/ HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/changes/delete/2 HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/changes HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/todos HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 200 -
+     | 127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 403 -
+     | 127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 404 -
+     | 127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects/%E7%BC%96%E8%BE%91%E5%8E%86%E5%8F%B2%E9%A1%B9%E7%9B%AE/changes HTTP/1.1" 200 -
+     | 127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 404 -
+     | 127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/changes/editx HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/changes/edit/ HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/changes/edit/2 HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/changes HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/todos HTTP/1.1" 405 -
+     | 127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+     | 127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 403 -
+     | 127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 404 -
+     | 127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects/%E7%BC%96%E8%BE%91%E5%8E%86%E5%8F%B2%E9%A1%B9%E7%9B%AE/changes HTTP/1.1" 200 -
+     | 127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+     | 127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects/%E7%BC%96%E8%BE%91%E5%8E%86%E5%8F%B2%E9%A1%B9%E7%9B%AE/changes HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/files/overview/2026%3A0315%20%E6%9F%90%E9%A1%B9%E7%9B%AE HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+     | 127.0.0.1 - "POST /api/projects HTTP/1.1" 405 -
+     | 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/files/overview/20260701%20%E6%96%B0%E7%AD%BE%20%E4%BA%91%E7%92%9F%E5%8F%B0%203%23301 HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects/../refs HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/projects/%2e%2e/refs HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/projects/a%2fb/refs HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/refs HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/refs HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/refs HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/refs/file/12%231802-%E5%AE%A2%E5%8E%85.jpg HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/refs/file/%E5%AE%A2%E5%8E%85%EF%BC%88%E5%A4%8D%E5%B0%BA%EF%BC%89%26%E7%BB%88.jpg HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/refs HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/refs/file/bad%25x.png HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/refs/file/%E7%8E%84%E5%85%B3%E6%95%88%E6%9E%9C%E5%9B%BE.png HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/refs/file/notes.txt HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/refs/file/nope.png HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/refs/file/a.jpg HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/refs/file/sub/x.gif HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/refs/file/escape.png HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/refs/file/a.png%0A HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/refs/file/../outer.png HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/refs/file/%2e%2e/outer.png HTTP/1.1" 404 -
+     | 127.0.0.1 - "GET /api/refs/file/sub/../../outer.png HTTP/1.1" 404 -
+     | 127.0.0.1 - "POST /api/refs/file/a.png HTTP/1.1" 405 -
+     | 127.0.0.1 - "PUT /api/refs/file/a.png HTTP/1.1" 405 -
+     | 127.0.0.1 - "DELETE /api/refs/file/a.png HTTP/1.1" 405 -
+     | 127.0.0.1 - "PATCH /api/refs/file/a.png HTTP/1.1" 405 -
+     | 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+     | 127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+     | 127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+     | 127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+     | 127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+     | FE
+     | ======================================================================
+     | ERROR: test_n01_note_from_archive (tests.test_ds_todo.TestCollectNote.test_n01_note_from_archive)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_todo.py", line 356, in test_n01_note_from_archive
+     |     self.assertEqual(self._by(items, "n1", 1)["note"], "业主书面确认")
+     |                      ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+     | KeyError: 'note'
+     | 
+     | ======================================================================
+     | ERROR: test_n03_neighbour_cnum_not_confused (tests.test_ds_todo.TestCollectNote.test_n03_neighbour_cnum_not_confused)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_todo.py", line 368, in test_n03_neighbour_cnum_not_confused
+     |     self.assertEqual(self._by(items, "n1", 12)["note"], "邻居锚,不许被 C1 的正则误伤")
+     |                      ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+     | KeyError: 'note'
+     | 
+     | ======================================================================
+     | ERROR: test_n04_no_cross_project_bleed (tests.test_ds_todo.TestCollectNote.test_n04_no_cross_project_bleed)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_todo.py", line 373, in test_n04_no_cross_project_bleed
+     |     self.assertEqual(self._by(items, "n1", 1)["note"], "业主书面确认")
+     |                      ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+     | KeyError: 'note'
+     | 
+     | ======================================================================
+     | ERROR: test_n06_cleared_note_disappears_from_collect (tests.test_ds_todo.TestCollectNote.test_n06_cleared_note_disappears_from_collect)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_todo.py", line 387, in test_n06_cleared_note_disappears_from_collect
+     |     self.assertEqual(self._by(items, "n1", 1)["note"], "业主书面确认")
+     |                      ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+     | KeyError: 'note'
+     | 
+     | ======================================================================
+     | ERROR: test_n07_parse_history_lives_here (tests.test_ds_todo.TestCollectNote.test_n07_parse_history_lives_here)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_todo.py", line 396, in test_n07_parse_history_lives_here
+     |     hist = ds_todo.parse_history(NOTE_DOC)
+     |            ^^^^^^^^^^^^^^^^^^^^^
+     | AttributeError: module 'ds_todo' has no attribute 'parse_history'
+     | 
+     | ======================================================================
+     | ERROR: test_e05f_duplicate_notes_normalized_on_write (tests.test_ds_tools.EditChangeOracle.test_e05f_duplicate_notes_normalized_on_write)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_tools.py", line 645, in test_e05f_duplicate_notes_normalized_on_write
+     |     self.assertEqual(ds_todo.parse_history(text)[3]["note"], "业主刚说的新备注")
+     |                      ^^^^^^^^^^^^^^^^^^^^^
+     | AttributeError: module 'ds_todo' has no attribute 'parse_history'
+     | 
+     | ======================================================================
+     | ERROR: test_e05g_duplicate_notes_all_removed_on_clear (tests.test_ds_tools.EditChangeOracle.test_e05g_duplicate_notes_all_removed_on_clear)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_tools.py", line 654, in test_e05g_duplicate_notes_all_removed_on_clear
+     |     self.assertIsNone(ds_todo.parse_history(text)[3]["note"])
+     |                       ^^^^^^^^^^^^^^^^^^^^^
+     | AttributeError: module 'ds_todo' has no attribute 'parse_history'
+     | 
+     | ======================================================================
+     | ERROR: test_e06e_all_three_reported (tests.test_ds_tools.EditChangeOracle.test_e06e_all_three_reported)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_tools.py", line 762, in test_e06e_all_three_reported
+     |     self.assertEqual(sorted(r.get("changed_fields")), ["note", "status", "text"])
+     |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     | TypeError: 'NoneType' object is not iterable
+     | 
+     | ======================================================================
+     | ERROR: test_t01_todos_carries_note (tests.test_ds_web_api.TestTodosNoteSource.test_t01_todos_carries_note)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_api.py", line 697, in test_t01_todos_carries_note
+     |     self.assertEqual(self._todo(port, 1)["note"], "业主书面确认")
+     |                      ~~~~~~~~~~~~~~~~~~~^^^^^^^^
+     | KeyError: 'note'
+     | 
+     | ======================================================================
+     | ERROR: test_t03_missing_key_leaves_note_alone (tests.test_ds_web_api.TestTodosNoteSource.test_t03_missing_key_leaves_note_alone)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_api.py", line 712, in test_t03_missing_key_leaves_note_alone
+     |     self.assertEqual(self._todo(port, 1)["note"], "业主书面确认")
+     |                      ~~~~~~~~~~~~~~~~~~~^^^^^^^^
+     | KeyError: 'note'
+     | 
+     | ======================================================================
+     | ERROR: test_t07_two_read_endpoints_agree (tests.test_ds_web_api.TestTodosNoteSource.test_t07_two_read_endpoints_agree)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_api.py", line 757, in test_t07_two_read_endpoints_agree
+     |     self.assertEqual(by[1]["note"], self._todo(port, 1)["note"])
+     |                                     ~~~~~~~~~~~~~~~~~~~^^^^^^^^
+     | KeyError: 'note'
+     | 
+     | ======================================================================
+     | FAIL: test_e06a_all_same_values_change_nothing (tests.test_ds_tools.EditChangeOracle.test_e06a_all_same_values_change_nothing)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_tools.py", line 722, in test_e06a_all_same_values_change_nothing
+     |     self.assertEqual(r.get("changed_fields"), [])
+     | AssertionError: None != []
+     | 
+     | ======================================================================
+     | FAIL: test_e06b_only_note_changed (tests.test_ds_tools.EditChangeOracle.test_e06b_only_note_changed)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_tools.py", line 730, in test_e06b_only_note_changed
+     |     self.assertEqual(r.get("changed_fields"), ["note"])
+     | AssertionError: None != ['note']
+     | 
+     | ======================================================================
+     | FAIL: test_e06c_only_status_changed (tests.test_ds_tools.EditChangeOracle.test_e06c_only_status_changed)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_tools.py", line 740, in test_e06c_only_status_changed
+     |     self.assertEqual(r.get("changed_fields"), ["status"])
+     | AssertionError: None != ['status']
+     | 
+     | ======================================================================
+     | FAIL: test_e06d_same_status_is_byte_noop (tests.test_ds_tools.EditChangeOracle.test_e06d_same_status_is_byte_noop)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_tools.py", line 751, in test_e06d_same_status_is_byte_noop
+     |     self.assertEqual(r.get("changed_fields"), [])
+     | AssertionError: None != []
+     | 
+     | ======================================================================
+     | FAIL: test_e06f_normalizing_duplicates_counts_as_change (tests.test_ds_tools.EditChangeOracle.test_e06f_normalizing_duplicates_counts_as_change)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_tools.py", line 768, in test_e06f_normalizing_duplicates_counts_as_change
+     |     self.assertEqual(r.get("changed_fields"), ["note"])
+     | AssertionError: None != ['note']
+     | 
+     | ======================================================================
+     | FAIL: test_e06g_empty_request_is_addressable_noop (tests.test_ds_tools.EditChangeOracle.test_e06g_empty_request_is_addressable_noop)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_tools.py", line 776, in test_e06g_empty_request_is_addressable_noop
+     |     self.assertEqual(r.get("changed_fields"), [])
+     | AssertionError: None != []
+     | 
+     | ======================================================================
+     | FAIL: test_e06h_clearing_note_is_a_change_but_clearing_nothing_is_not (tests.test_ds_tools.EditChangeOracle.test_e06h_clearing_note_is_a_change_but_clearing_nothing_is_not)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_tools.py", line 782, in test_e06h_clearing_note_is_a_change_but_clearing_nothing_is_not
+     |     self.assertEqual(
+     | AssertionError: None != ['note']
+     | 
+     | ======================================================================
+     | FAIL: test_t05_explicit_null_is_rejected (tests.test_ds_web_api.TestTodosNoteSource.test_t05_explicit_null_is_rejected)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_api.py", line 733, in test_t05_explicit_null_is_rejected
+     |     self.assertEqual(st, 400, f"{key}: null 应 400,实际 {st} {rb}")
+     | AssertionError: 200 != 400 : note: null 应 400,实际 200 {'ok': True, 'cnum': 1, 'line': '- [待确认] C1 2026-07-01 主卧衣柜改推拉门'}
+     | 
+     | ======================================================================
+     | FAIL: test_t06_changed_fields_reported (tests.test_ds_web_api.TestTodosNoteSource.test_t06_changed_fields_reported)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_api.py", line 742, in test_t06_changed_fields_reported
+     |     self.assertEqual(rb.get("changed_fields"), ["note"])
+     | AssertionError: None != ['note']
+     | 
+     | ----------------------------------------------------------------------
+     | Ran 297 tests in 45.520s
+     | 
+     | FAILED (failures=9, errors=11)
+     | 127.0.0.1 - "GET /api/projects/%E5%A4%87%E6%B3%A8%E7%9C%9F%E7%9B%B8%E6%BA%90/changes HTTP/1.1" 200 -
+     | 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+  ✅ 红在目标断言上(命中 /changed_fields|note|parse_history/)。
+
+  ✅ 红检通过:旧实现下判据是红的(rc=1)。这份判据确实在问本轮的改动。
+
+redcheck: 恢复实现到 HEAD ...
+  ✅ 已恢复,工作树干净(git 说的,不是我说的)。
+---------------- 输出结束 ----------------
+runlog: redcheck-honest-rc rc=0 commit=0c3a6d0 dirty=yes at=2026-08-11T07:47:39Z file=tracks/opendesign-note-source/evidence/20260811T074739Z-01-redcheck-honest-rc.txt

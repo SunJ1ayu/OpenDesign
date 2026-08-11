@@ -33,7 +33,8 @@
 //   I5 只改正文保存时,**没碰过的备注不许被回发**(否则会盖掉别人这期间刚写的);
 //   I6 正文改了又改回原值 ⇒ 不许冒出假的「改过 · 看原文」(考 changed_fields 的消费者);
 //   I7 是 I6 的正向锚:正文真改了,标记就必须出现(否则"把功能删掉"也能让 I6 绿);
-//   I8 让前端手里的旧值与档案现值打架 —— 只有真的看服务端 changed_fields 才过得去。
+//   I8 让前端手里的旧值与档案现值打架 —— 只有真的看服务端 changed_fields 才过得去;
+//   I9 手写的空备注标记(`- Cn 备注:`)在两个页面都不许渲染成空标签(四审 LOW-3)。
 //   ——(I1 改成绕开服务直接写磁盘、I5/I6 整条,都是"派活前先攻自己的题"抓出来补的)
 //
 // 跑法:node tests/e2e/ws_change_note.e2e.mjs(自起 ds_web 于 8816)
@@ -55,7 +56,8 @@ mkdirSync(join(dsRoot, "projects"), { recursive: true });
 mkdirSync(join(dsRoot, "config"), { recursive: true });
 
 // C1 = 已有备注(验预填);C2/C3 = 无备注(验新写入)。
-// 备注行格式与写侧同处定义:`## 变更历史` 段内 `- C{n} 备注:{内容}`(ds_tools._HISTORY_NOTE_RE)。
+// 备注行格式与写侧同处定义:`## 变更历史` 段内 `- C{n} 备注:{内容}`
+// (读侧 ds_todo.HISTORY_NOTE_RE —— track opendesign-note-source 从 ds_tools 搬来的)。
 writeFileSync(join(dsRoot, "projects", `${PROJ}.md`), `# ${PROJ}
 
 - 业主: [[王女士]]
@@ -483,6 +485,27 @@ try {
       "不许出现「改过 · 看原文」—— 前端拿自己手里的旧值比,就会在这条上露馅");
   });
 
+
+  // I9(四审 subdeepseek LOW-3):**手写的空备注标记**。老档案里可能有一行
+  // `- C2 备注:`(冒号后什么都没有)—— 写侧永远不产生它(清空是删行,不是置空),
+  // 只可能来自人手改档案。读侧会解析出 note:"",于是"有这个键"⇒ 页面渲染出一个
+  // 空的「备注:」标签。上一单刚在待办页消灭过空标签(H 组),这一单又给待办页
+  // **新开了一个能长出它的面**(备注现在来自服务端载荷)⇒ 两个页面都不许渲染它。
+  await step("I9 手写的空备注标记:两个页面都不许渲染出一个空的「备注:」", async () => {
+    const lines = md().split("\n").filter((l) => !l.startsWith("- C2 备注"));
+    const hi = lines.indexOf("## 变更历史");
+    lines.splice(hi + 1, 0, "- C2 备注:");        // 冒号后为空,手写档案才有的形状
+    writeFileSync(join(dsRoot, "projects", `${PROJ}.md`), lines.join("\n"));
+
+    await openTodoPage();
+    await todoRow("衣柜加到顶").waitFor({ timeout: 10000 });
+    expect(await todoTag("衣柜加到顶").count() === 0,
+      "待办页:空备注标记不许渲染成一个空的「备注:」标签");
+
+    await openProject();
+    expect(await row("衣柜加到顶").locator(".note-tag").count() === 0,
+      "工作区同样不许(这条毛病它一直有,顺手一起堵)");
+  });
 
 } finally {
   if (browser) await browser.close();
