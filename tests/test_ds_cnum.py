@@ -324,6 +324,30 @@ class NoCollateralDamage(CnumBase):
         self.assertEqual(_read(path), before,
                          "同值保存必须逐字节不写(含页脚「最后更新」不许 bump)")
 
+    def test_n8_hand_written_status_tolerance_is_uniform(self):
+        """主 agent 亲读 diff 抓到的回归(腿没提,判据原先也问不出):
+
+        业主手写的**非词表状态**行(`- [搁置] C3 …`),改动前 `delete_change` /
+        `set_change_status` / `edit_change` 三个写口**都够得着**;改动后只有
+        `edit_change` 还够得着(它单独加了回退),共用的 `_rewrite_change_status` 没加
+        ⇒ 同一次改动里三个写口的容差自相矛盾,而且**收紧的正是"手写档案"这条路** ——
+        恰恰是本单要救的那类档案。这里钉的是"三个写口容差一致",不是"该不该容忍"。
+        """
+        line = "- [搁置] C3 2026-08-01 客厅刷白"
+        for op in ("edit", "status", "delete"):
+            with self.subTest(op=op):
+                path = _write_project(self.root, [line])
+                if op == "edit":
+                    r = ds_tools.edit_change(SLUG, 3, new_text="客厅刷米白",
+                                             ds_root=self.root, today=TODAY)
+                elif op == "status":
+                    r = ds_tools.set_change_status(SLUG, "C3", "已完成",
+                                                   ds_root=self.root, today=TODAY)
+                else:
+                    r = ds_tools.delete_change(SLUG, 3, ds_root=self.root, today=TODAY)
+                self.assertNotIn("error", r,
+                                 f"{op} 够不着手写状态行 —— 三个写口容差必须一致:{r}")
+
     def test_n7_read_and_write_agree_on_suffixed_numbers(self):
         """`C03-1` 这种带后缀的形状:钉的不是"它合不合法",而是**两侧给同一个答案**。
 
