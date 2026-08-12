@@ -1,0 +1,372 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-v2
+cmd:     /root/aiwork/bin/redcheck --base 02e0435 --impl bin/ds_tools.py bin/ds_todo.py bin/ds_web.py --oracle /root/.venvs/design-studio/bin/python\ tests/test_ds_cnum.py --must-fail 清空之后档案里不该还留着备注行
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  1454d6f
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-12T02:49:45Z
+---------------- 输出开始 ----------------
+redcheck: repo=/root/.openclaw/workspace/projects/design-studio
+  实现退回 02e04357c1eb(判卷留在 HEAD 1454d6f77383)
+  实现:bin/ds_tools.py bin/ds_todo.py bin/ds_web.py
+  跑判据 ...
+     | test_a4_every_input_form_is_ambiguous (__main__.AmbiguityTable.test_a4_every_input_form_is_ambiguous) ... 
+     |   test_a4_every_input_form_is_ambiguous (__main__.AmbiguityTable.test_a4_every_input_form_is_ambiguous) (cnum=3) ... FAIL
+     |   test_a4_every_input_form_is_ambiguous (__main__.AmbiguityTable.test_a4_every_input_form_is_ambiguous) (cnum='3') ... FAIL
+     |   test_a4_every_input_form_is_ambiguous (__main__.AmbiguityTable.test_a4_every_input_form_is_ambiguous) (cnum='03') ... FAIL
+     |   test_a4_every_input_form_is_ambiguous (__main__.AmbiguityTable.test_a4_every_input_form_is_ambiguous) (cnum='C3') ... FAIL
+     |   test_a4_every_input_form_is_ambiguous (__main__.AmbiguityTable.test_a4_every_input_form_is_ambiguous) (cnum='C03') ... FAIL
+     |   test_a4_every_input_form_is_ambiguous (__main__.AmbiguityTable.test_a4_every_input_form_is_ambiguous) (cnum=' C03 ') ... FAIL
+     | test_a4b_every_input_form_reaches_the_single_change (__main__.AmbiguityTable.test_a4b_every_input_form_reaches_the_single_change)
+     | 反过来:只有一行时,同样这些入参**都得够得着它**(等价性)。 ... 
+     |   test_a4b_every_input_form_reaches_the_single_change (__main__.AmbiguityTable.test_a4b_every_input_form_reaches_the_single_change) (cnum='03')
+     | 反过来:只有一行时,同样这些入参**都得够得着它**(等价性)。 ... FAIL
+     |   test_a4b_every_input_form_reaches_the_single_change (__main__.AmbiguityTable.test_a4b_every_input_form_reaches_the_single_change) (cnum='C03')
+     | 反过来:只有一行时,同样这些入参**都得够得着它**(等价性)。 ... FAIL
+     | test_a4c_delete_and_due_date_share_the_same_tolerance (__main__.AmbiguityTable.test_a4c_delete_and_due_date_share_the_same_tolerance)
+     | 另外两个双面工具(删除按钮 / 截止日)入参口径必须一致。 ... 
+     |   test_a4c_delete_and_due_date_share_the_same_tolerance (__main__.AmbiguityTable.test_a4c_delete_and_due_date_share_the_same_tolerance) (cnum='03')
+     | 另外两个双面工具(删除按钮 / 截止日)入参口径必须一致。 ... FAIL
+     |   test_a4c_delete_and_due_date_share_the_same_tolerance (__main__.AmbiguityTable.test_a4c_delete_and_due_date_share_the_same_tolerance) (cnum='C03')
+     | 另外两个双面工具(删除按钮 / 截止日)入参口径必须一致。 ... FAIL
+     | test_a3_delete_change (__main__.ChangeLineAnchor.test_a3_delete_change)
+     | 界面上的**删除按钮**(攻题发现 3:我原先的 scope 漏了这第五个写口)。 ... FAIL
+     | test_a3_due_date (__main__.ChangeLineAnchor.test_a3_due_date) ... FAIL
+     | test_a3_note (__main__.ChangeLineAnchor.test_a3_note) ... FAIL
+     | test_a3_set_change_status (__main__.ChangeLineAnchor.test_a3_set_change_status)
+     | MCP 那条老路径(与删除按钮共用 `_rewrite_change_status`)。 ... FAIL
+     | test_a3_status (__main__.ChangeLineAnchor.test_a3_status) ... FAIL
+     | test_a3_text (__main__.ChangeLineAnchor.test_a3_text) ... FAIL
+     | test_a5_read_side_already_treats_it_as_3 (__main__.FullWidthDigits.test_a5_read_side_already_treats_it_as_3) ... ok
+     | test_a5b_write_side_reaches_it (__main__.FullWidthDigits.test_a5b_write_side_reaches_it) ... FAIL
+     | test_a5c_ambiguous_with_ascii_sibling (__main__.FullWidthDigits.test_a5c_ambiguous_with_ascii_sibling) ... FAIL
+     | test_a5d_note_line_with_full_width_digits (__main__.FullWidthDigits.test_a5d_note_line_with_full_width_digits) ... FAIL
+     | test_n1_does_not_touch_c13 (__main__.NoCollateralDamage.test_n1_does_not_touch_c13) ... ok
+     | test_n2_does_not_touch_c30 (__main__.NoCollateralDamage.test_n2_does_not_touch_c30) ... ok
+     | test_n2b_note_anchor_does_not_touch_c30 (__main__.NoCollateralDamage.test_n2b_note_anchor_does_not_touch_c30) ... ok
+     | test_n3_reaches_c003 (__main__.NoCollateralDamage.test_n3_reaches_c003) ... FAIL
+     | test_n4_change_line_bytes_preserved (__main__.NoCollateralDamage.test_n4_change_line_bytes_preserved)
+     | BLOCK-2 铁律:改状态时,状态词以外的字节逐字节不变 —— ... FAIL
+     | test_n5_read_side_unchanged (__main__.NoCollateralDamage.test_n5_read_side_unchanged)
+     | 读侧本来就是对的那一半,这一单不许动它。 ... ok
+     | test_n6_same_value_is_still_a_noop (__main__.NoCollateralDamage.test_n6_same_value_is_still_a_noop)
+     | 攻题 Q4:保存同值 ⇒ 不写、不 bump「最后更新」、不谎报 changed_fields。 ... FAIL
+     | test_n7_read_and_write_agree_on_suffixed_numbers (__main__.NoCollateralDamage.test_n7_read_and_write_agree_on_suffixed_numbers)
+     | `C03-1` 这种带后缀的形状:钉的不是"它合不合法",而是**两侧给同一个答案**。 ... FAIL
+     | test_n8_hand_written_status_tolerance_is_uniform (__main__.NoCollateralDamage.test_n8_hand_written_status_tolerance_is_uniform)
+     | 主 agent 亲读 diff 抓到的回归(腿没提,判据原先也问不出): ... ok
+     | test_n9_write_must_round_trip (__main__.NoCollateralDamage.test_n9_write_must_round_trip)
+     | 🔴 四审 subdeepseek(孤腿 BLOCK)抓到的:**写完必须还读得回来。** ... FAIL
+     | test_n9b_normal_text_edit_still_works (__main__.NoCollateralDamage.test_n9b_normal_text_edit_still_works)
+     | 反面:正常行的改正文一个都不许被这道保险误伤(含【空间】前缀与截止日)。 ... ok
+     | test_a1_upsert_hits_zero_padded_note_and_keeps_its_bytes (__main__.NoteAnchor.test_a1_upsert_hits_zero_padded_note_and_keeps_its_bytes)
+     | 改备注:只剩一行、值是新的,**且那行的前缀字节没被动过**。 ... FAIL
+     | test_a1b_full_width_colon_note (__main__.NoteAnchor.test_a1b_full_width_colon_note)
+     | 手写档案还可能用**全角冒号**(读侧收两种),前缀同样保字节。 ... FAIL
+     | test_a1c_mixed_duplicates_collapse_to_one (__main__.NoteAnchor.test_a1c_mixed_duplicates_collapse_to_one)
+     | 脏数据归一:同一条变更的三种写法并存 ⇒ 改完只剩一行(0.83.0 那道归一化的本意)。 ... FAIL
+     | test_a1d_mixed_duplicates_all_cleared (__main__.NoteAnchor.test_a1d_mixed_duplicates_all_cleared) ... FAIL
+     | test_a2_clear_removes_zero_padded_note (__main__.NoteAnchor.test_a2_clear_removes_zero_padded_note)
+     | 清空备注:那行**真的没了**,而且接口说自己改了 note。 ... FAIL
+     | 
+     | ======================================================================
+     | FAIL: test_a4_every_input_form_is_ambiguous (__main__.AmbiguityTable.test_a4_every_input_form_is_ambiguous) (cnum=3)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 209, in test_a4_every_input_form_is_ambiguous
+     |     self.assertEqual(r.get("error"), "ambiguous_change",
+     | AssertionError: None != 'ambiguous_change' : 入参 3 该判歧义,实际:{'ok': True, 'cnum': 3, 'line': '- [进行中] C3 2026-08-01 客厅刷白', 'changed_fields': ['status']}
+     | 
+     | ======================================================================
+     | FAIL: test_a4_every_input_form_is_ambiguous (__main__.AmbiguityTable.test_a4_every_input_form_is_ambiguous) (cnum='3')
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 209, in test_a4_every_input_form_is_ambiguous
+     |     self.assertEqual(r.get("error"), "ambiguous_change",
+     | AssertionError: None != 'ambiguous_change' : 入参 '3' 该判歧义,实际:{'ok': True, 'cnum': 3, 'line': '- [进行中] C3 2026-08-01 客厅刷白', 'changed_fields': ['status']}
+     | 
+     | ======================================================================
+     | FAIL: test_a4_every_input_form_is_ambiguous (__main__.AmbiguityTable.test_a4_every_input_form_is_ambiguous) (cnum='03')
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 209, in test_a4_every_input_form_is_ambiguous
+     |     self.assertEqual(r.get("error"), "ambiguous_change",
+     | AssertionError: None != 'ambiguous_change' : 入参 '03' 该判歧义,实际:{'ok': True, 'cnum': 3, 'line': '- [进行中] C03 2026-08-02 主卧换灯', 'changed_fields': ['status']}
+     | 
+     | ======================================================================
+     | FAIL: test_a4_every_input_form_is_ambiguous (__main__.AmbiguityTable.test_a4_every_input_form_is_ambiguous) (cnum='C3')
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 209, in test_a4_every_input_form_is_ambiguous
+     |     self.assertEqual(r.get("error"), "ambiguous_change",
+     | AssertionError: None != 'ambiguous_change' : 入参 'C3' 该判歧义,实际:{'ok': True, 'cnum': 3, 'line': '- [进行中] C3 2026-08-01 客厅刷白', 'changed_fields': ['status']}
+     | 
+     | ======================================================================
+     | FAIL: test_a4_every_input_form_is_ambiguous (__main__.AmbiguityTable.test_a4_every_input_form_is_ambiguous) (cnum='C03')
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 209, in test_a4_every_input_form_is_ambiguous
+     |     self.assertEqual(r.get("error"), "ambiguous_change",
+     | AssertionError: None != 'ambiguous_change' : 入参 'C03' 该判歧义,实际:{'ok': True, 'cnum': 3, 'line': '- [进行中] C03 2026-08-02 主卧换灯', 'changed_fields': ['status']}
+     | 
+     | ======================================================================
+     | FAIL: test_a4_every_input_form_is_ambiguous (__main__.AmbiguityTable.test_a4_every_input_form_is_ambiguous) (cnum=' C03 ')
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 209, in test_a4_every_input_form_is_ambiguous
+     |     self.assertEqual(r.get("error"), "ambiguous_change",
+     | AssertionError: None != 'ambiguous_change' : 入参 ' C03 ' 该判歧义,实际:{'ok': True, 'cnum': 3, 'line': '- [进行中] C03 2026-08-02 主卧换灯', 'changed_fields': ['status']}
+     | 
+     | ======================================================================
+     | FAIL: test_a4b_every_input_form_reaches_the_single_change (__main__.AmbiguityTable.test_a4b_every_input_form_reaches_the_single_change) (cnum='03')
+     | 反过来:只有一行时,同样这些入参**都得够得着它**(等价性)。
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 220, in test_a4b_every_input_form_reaches_the_single_change
+     |     self.assertNotIn("error", r, f"入参 {arg!r} 该够得着 C3:{r}")
+     | AssertionError: 'error' unexpectedly found in {'error': 'change_not_found'} : 入参 '03' 该够得着 C3:{'error': 'change_not_found'}
+     | 
+     | ======================================================================
+     | FAIL: test_a4b_every_input_form_reaches_the_single_change (__main__.AmbiguityTable.test_a4b_every_input_form_reaches_the_single_change) (cnum='C03')
+     | 反过来:只有一行时,同样这些入参**都得够得着它**(等价性)。
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 220, in test_a4b_every_input_form_reaches_the_single_change
+     |     self.assertNotIn("error", r, f"入参 {arg!r} 该够得着 C3:{r}")
+     | AssertionError: 'error' unexpectedly found in {'error': 'change_not_found'} : 入参 'C03' 该够得着 C3:{'error': 'change_not_found'}
+     | 
+     | ======================================================================
+     | FAIL: test_a4c_delete_and_due_date_share_the_same_tolerance (__main__.AmbiguityTable.test_a4c_delete_and_due_date_share_the_same_tolerance) (cnum='03')
+     | 另外两个双面工具(删除按钮 / 截止日)入参口径必须一致。
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 228, in test_a4c_delete_and_due_date_share_the_same_tolerance
+     |     self.assertNotIn("error", ds_tools.set_due_date(
+     | AssertionError: 'error' unexpectedly found in {'error': 'change_not_found'}
+     | 
+     | ======================================================================
+     | FAIL: test_a4c_delete_and_due_date_share_the_same_tolerance (__main__.AmbiguityTable.test_a4c_delete_and_due_date_share_the_same_tolerance) (cnum='C03')
+     | 另外两个双面工具(删除按钮 / 截止日)入参口径必须一致。
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 228, in test_a4c_delete_and_due_date_share_the_same_tolerance
+     |     self.assertNotIn("error", ds_tools.set_due_date(
+     | AssertionError: 'error' unexpectedly found in {'error': 'change_not_found'}
+     | 
+     | ======================================================================
+     | FAIL: test_a3_delete_change (__main__.ChangeLineAnchor.test_a3_delete_change)
+     | 界面上的**删除按钮**(攻题发现 3:我原先的 scope 漏了这第五个写口)。
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 187, in test_a3_delete_change
+     |     self.assertNotIn("error", r, f"删除按钮够不着 C03:{r}")
+     | AssertionError: 'error' unexpectedly found in {'error': 'change_not_found'} : 删除按钮够不着 C03:{'error': 'change_not_found'}
+     | 
+     | ======================================================================
+     | FAIL: test_a3_due_date (__main__.ChangeLineAnchor.test_a3_due_date)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 173, in test_a3_due_date
+     |     self.assertNotIn("error", r, f"设截止日够不着 C03:{r}")
+     | AssertionError: 'error' unexpectedly found in {'error': 'change_not_found'} : 设截止日够不着 C03:{'error': 'change_not_found'}
+     | 
+     | ======================================================================
+     | FAIL: test_a3_note (__main__.ChangeLineAnchor.test_a3_note)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 166, in test_a3_note
+     |     self.assertNotIn("error", r, f"加备注够不着 C03:{r}")
+     | AssertionError: 'error' unexpectedly found in {'error': 'change_not_found'} : 加备注够不着 C03:{'error': 'change_not_found'}
+     | 
+     | ======================================================================
+     | FAIL: test_a3_set_change_status (__main__.ChangeLineAnchor.test_a3_set_change_status)
+     | MCP 那条老路径(与删除按钮共用 `_rewrite_change_status`)。
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 180, in test_a3_set_change_status
+     |     self.assertNotIn("error", r, f"set_change_status 够不着 C03:{r}")
+     | AssertionError: 'error' unexpectedly found in {'error': 'change_not_found'} : set_change_status 够不着 C03:{'error': 'change_not_found'}
+     | 
+     | ======================================================================
+     | FAIL: test_a3_status (__main__.ChangeLineAnchor.test_a3_status)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 154, in test_a3_status
+     |     self.assertNotIn("error", r, f"改状态够不着 C03:{r}")
+     | AssertionError: 'error' unexpectedly found in {'error': 'change_not_found'} : 改状态够不着 C03:{'error': 'change_not_found'}
+     | 
+     | ======================================================================
+     | FAIL: test_a3_text (__main__.ChangeLineAnchor.test_a3_text)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 160, in test_a3_text
+     |     self.assertNotIn("error", r, f"改正文够不着 C03:{r}")
+     | AssertionError: 'error' unexpectedly found in {'error': 'change_not_found'} : 改正文够不着 C03:{'error': 'change_not_found'}
+     | 
+     | ======================================================================
+     | FAIL: test_a5b_write_side_reaches_it (__main__.FullWidthDigits.test_a5b_write_side_reaches_it)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 248, in test_a5b_write_side_reaches_it
+     |     self.assertNotIn("error", r, f"写侧够不着全角数字的 C０３:{r}")
+     | AssertionError: 'error' unexpectedly found in {'error': 'change_not_found'} : 写侧够不着全角数字的 C０３:{'error': 'change_not_found'}
+     | 
+     | ======================================================================
+     | FAIL: test_a5c_ambiguous_with_ascii_sibling (__main__.FullWidthDigits.test_a5c_ambiguous_with_ascii_sibling)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 256, in test_a5c_ambiguous_with_ascii_sibling
+     |     self.assertEqual(r.get("error"), "ambiguous_change",
+     | AssertionError: None != 'ambiguous_change' : 两行都被读成 3 号,写侧就必须判歧义:{'ok': True, 'cnum': 3, 'line': '- [进行中] C3 2026-08-01 客厅刷白', 'changed_fields': ['status']}
+     | 
+     | ======================================================================
+     | FAIL: test_a5d_note_line_with_full_width_digits (__main__.FullWidthDigits.test_a5d_note_line_with_full_width_digits)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 264, in test_a5d_note_line_with_full_width_digits
+     |     self.assertEqual(_note_lines(_read(path)), [], "全角数字的备注行也得被清掉")
+     | AssertionError: Lists differ: ['- C０３ 备注:老备注'] != []
+     | 
+     | First list contains 1 additional elements.
+     | First extra element 0:
+     | '- C０３ 备注:老备注'
+     | 
+     | - ['- C０３ 备注:老备注']
+     | + [] : 全角数字的备注行也得被清掉
+     | 
+     | ======================================================================
+     | FAIL: test_n3_reaches_c003 (__main__.NoCollateralDamage.test_n3_reaches_c003)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 292, in test_n3_reaches_c003
+     |     self.assertNotIn("error", r, f"C003 也是 3 号:{r}")
+     | AssertionError: 'error' unexpectedly found in {'error': 'change_not_found'} : C003 也是 3 号:{'error': 'change_not_found'}
+     | 
+     | ======================================================================
+     | FAIL: test_n4_change_line_bytes_preserved (__main__.NoCollateralDamage.test_n4_change_line_bytes_preserved)
+     | BLOCK-2 铁律:改状态时,状态词以外的字节逐字节不变 ——
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 301, in test_n4_change_line_bytes_preserved
+     |     self.assertIn(line.replace("待确认", "进行中"), _read(path),
+     | AssertionError: '- [进行中] C03 2026-08-01 【客厅】客厅刷白 ⏳2026-09-01' not found in '# 张三家\n\n- 业主: [[张三]]\n- 阶段: 方案深化\n\n## 变更记录\n- [待确认] C03 2026-08-01 【客厅】客厅刷白 ⏳2026-09-01\n\n## 沟通日志\n- 2026-08-01 微信:太太提改推拉门\n\n---\n最后更新: 2026-08-01\n' : 除状态词外整行必须逐字节不变
+     | 
+     | ======================================================================
+     | FAIL: test_n6_same_value_is_still_a_noop (__main__.NoCollateralDamage.test_n6_same_value_is_still_a_noop)
+     | 攻题 Q4:保存同值 ⇒ 不写、不 bump「最后更新」、不谎报 changed_fields。
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 322, in test_n6_same_value_is_still_a_noop
+     |     self.assertNotIn("note", r.get("changed_fields", []),
+     | AssertionError: 'note' unexpectedly found in ['note'] : 值没变就不该说自己改了 note:{'ok': True, 'cnum': 3, 'line': '- [待确认] C3 2026-08-01 客厅刷白', 'changed_fields': ['note']}
+     | 
+     | ======================================================================
+     | FAIL: test_n7_read_and_write_agree_on_suffixed_numbers (__main__.NoCollateralDamage.test_n7_read_and_write_agree_on_suffixed_numbers)
+     | `C03-1` 这种带后缀的形状:钉的不是"它合不合法",而是**两侧给同一个答案**。
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 396, in test_n7_read_and_write_agree_on_suffixed_numbers
+     |     self.assertNotIn("error", r, f"读侧认它是 3 号,写侧就得够得着:{r}")
+     | AssertionError: 'error' unexpectedly found in {'error': 'change_not_found'} : 读侧认它是 3 号,写侧就得够得着:{'error': 'change_not_found'}
+     | 
+     | ======================================================================
+     | FAIL: test_n9_write_must_round_trip (__main__.NoCollateralDamage.test_n9_write_must_round_trip)
+     | 🔴 四审 subdeepseek(孤腿 BLOCK)抓到的:**写完必须还读得回来。**
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 345, in test_n9_write_must_round_trip
+     |     self.assertNotEqual(r.get("error"), "change_not_found",
+     | AssertionError: 'change_not_found' == 'change_not_found' : 错误话术要指得出真原因,不许again说'找不到'(本单 proposal 就在骂这个)
+     | 
+     | ======================================================================
+     | FAIL: test_a1_upsert_hits_zero_padded_note_and_keeps_its_bytes (__main__.NoteAnchor.test_a1_upsert_hits_zero_padded_note_and_keeps_its_bytes)
+     | 改备注:只剩一行、值是新的,**且那行的前缀字节没被动过**。
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 102, in test_a1_upsert_hits_zero_padded_note_and_keeps_its_bytes
+     |     self.assertEqual(notes, ["- C03 备注:新备注"],
+     | AssertionError: Lists differ: ['- C03 备注:老备注', '- C3 备注:新备注'] != ['- C03 备注:新备注']
+     | 
+     | First differing element 0:
+     | '- C03 备注:老备注'
+     | '- C03 备注:新备注'
+     | 
+     | First list contains 1 additional elements.
+     | First extra element 1:
+     | '- C3 备注:新备注'
+     | 
+     | - ['- C03 备注:老备注', '- C3 备注:新备注']
+     | + ['- C03 备注:新备注'] : 命中的那行只换值,前缀字节(含 C03)原样留着;且不许多出第二行
+     | 
+     | ======================================================================
+     | FAIL: test_a1b_full_width_colon_note (__main__.NoteAnchor.test_a1b_full_width_colon_note)
+     | 手写档案还可能用**全角冒号**(读侧收两种),前缀同样保字节。
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 110, in test_a1b_full_width_colon_note
+     |     self.assertEqual(_note_lines(_read(path)), ["- C03 备注：新备注"],
+     | AssertionError: Lists differ: ['- C03 备注：老备注', '- C3 备注:新备注'] != ['- C03 备注：新备注']
+     | 
+     | First differing element 0:
+     | '- C03 备注：老备注'
+     | '- C03 备注：新备注'
+     | 
+     | First list contains 1 additional elements.
+     | First extra element 1:
+     | '- C3 备注:新备注'
+     | 
+     | - ['- C03 备注：老备注', '- C3 备注:新备注']
+     | + ['- C03 备注：新备注'] : 全角冒号那行也要被认出来、只换值,不许留成第二行
+     | 
+     | ======================================================================
+     | FAIL: test_a1c_mixed_duplicates_collapse_to_one (__main__.NoteAnchor.test_a1c_mixed_duplicates_collapse_to_one)
+     | 脏数据归一:同一条变更的三种写法并存 ⇒ 改完只剩一行(0.83.0 那道归一化的本意)。
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 120, in test_a1c_mixed_duplicates_collapse_to_one
+     |     self.assertEqual(len(notes), 1, f"三行重复备注该归一成一行,现在:{notes}")
+     | AssertionError: 3 != 1 : 三行重复备注该归一成一行,现在:['- C03 备注:第一次', '- C3 备注:最终备注', '- C003 备注：第三次']
+     | 
+     | ======================================================================
+     | FAIL: test_a1d_mixed_duplicates_all_cleared (__main__.NoteAnchor.test_a1d_mixed_duplicates_all_cleared)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 128, in test_a1d_mixed_duplicates_all_cleared
+     |     self.assertEqual(_note_lines(_read(path)), [], "清空要把三行全带走,不能只删认得的那一行")
+     | AssertionError: Lists differ: ['- C03 备注:第一次', '- C003 备注：第三次'] != []
+     | 
+     | First list contains 2 additional elements.
+     | First extra element 0:
+     | '- C03 备注:第一次'
+     | 
+     | - ['- C03 备注:第一次', '- C003 备注：第三次']
+     | + [] : 清空要把三行全带走,不能只删认得的那一行
+     | 
+     | ======================================================================
+     | FAIL: test_a2_clear_removes_zero_padded_note (__main__.NoteAnchor.test_a2_clear_removes_zero_padded_note)
+     | 清空备注:那行**真的没了**,而且接口说自己改了 note。
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_cnum.py", line 139, in test_a2_clear_removes_zero_padded_note
+     |     self.assertEqual(_note_lines(_read(path)), [], "清空之后档案里不该还留着备注行")
+     | AssertionError: Lists differ: ['- C03 备注:老备注'] != []
+     | 
+     | First list contains 1 additional elements.
+     | First extra element 0:
+     | '- C03 备注:老备注'
+     | 
+     | - ['- C03 备注:老备注']
+     | + [] : 清空之后档案里不该还留着备注行
+     | 
+     | ----------------------------------------------------------------------
+     | Ran 29 tests in 0.032s
+     | 
+     | FAILED (failures=29)
+  ✅ 红在目标断言上(命中 /清空之后档案里不该还留着备注行/)。
+
+  ✅ 红检通过:旧实现下判据是红的(rc=1)。这份判据确实在问本轮的改动。
+
+redcheck: 恢复实现到 HEAD ...
+  ✅ 已恢复,工作树干净(git 说的,不是我说的)。
+---------------- 输出结束 ----------------
+runlog: redcheck-v2 rc=0 commit=1454d6f dirty=yes at=2026-08-12T02:49:45Z file=tracks/opendesign-cnum-zeropad/evidence/20260812T024945Z-01-redcheck-v2.txt
