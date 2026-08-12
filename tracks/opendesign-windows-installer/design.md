@@ -44,6 +44,16 @@ zip 压缩后估计 100–150MB。
 > S0 用 `._pth` 那种(装机后不依赖环境变量,更接近成品形态)。**它红了不代表方案死**,
 > 只代表要换成带完整 Python —— 所以 spike 要能把"到底哪一步断的"打印清楚。
 
+## S0 顺手挖出来的、S1 必须处理的两件(别到时候重新发现)
+
+1. **MCP 启动命令写死了 venv 路径**:`config/nanobot.config.windows.jsonc:60` 是
+   `${USERPROFILE}/.venvs/design-studio/Scripts/python.exe`。安装器**必须改写这三处**
+   指向包内 python,否则三个工具服务一个都起不来。spike 的 S4d 测的就是这个真机制
+   (不是为了让判据过而打的补丁)。
+2. **`._pth` 会忽略 `PYTHONPATH`**,而 ds 的模块之间是平级 import
+   (`ds_web.py` 直接 `import ds_common`)⇒ `ds/bin` 必须**写死进 `._pth`**,
+   靠环境变量注入是无效的。已写进 `check-package.sh` 当机械检查。
+
 ## Key trade-offs / risks
 
 - **355MB 解压体积**换"用户不装 Python"。可接受:一次性,且业主机器上装的 3D 软件
@@ -78,9 +88,21 @@ zip 压缩后估计 100–150MB。
 4. **S4 脚本化配置生成成立** —— 原样跑 `enable_webui.py` + `ds_merge_config.py`,
    再用 nanobot 自己的 loader 读回来,含**今晚补强过的那两问**
    (设了 key 解析出真值 / 没设当场 fail closed)。
-5. **S5 网关真起来了,而且是我们这个** —— 起 gateway,`/health` 回显 version,
-   且 3 个 MCP server 全部 connected。**这是"在使用现场验证"那条规矩的落点:
-   运行中的目标自己打印身份,不是"文件躺在盘上"。**
+5. **S5 网关 + ds-web 真起来了,而且是我们这一份** —— **这是"在使用现场验证"那条规矩的
+   落点:运行中的目标自己打印身份,不是"文件躺在盘上"。**
+   - 5a nanobot gateway:从**我们自己子进程的管道**里读到它的开机横幅
+     (`Starting nanobot gateway version 0.2.2 on port 18795`)+ 3 个 ds MCP server
+     全部 `connected` + `Agent loop started`;`GET /health` 回 `{"status":"ok"}`。
+   - 5b ds-web:`GET /api/health` 回 `version` == 仓库里的 `VERSION`(0.85.0)
+     且 `doc_reader.available` 为真 —— **运行中的进程自己报版本**。
+
+   > ⚠️ **写这条判据时当场纠正了我自己的规格**:design 初稿写的是"`/health` 回显 version
+   > 且 pid == 子进程 pid"。查了 `cli/commands.py:1111` —— nanobot 的 `/health`
+   > **只回 `{"status": "ok"}`,既没有 version 也没有 pid**。断言写在不存在的字段上,
+   > 跑起来会红在 KeyError 上,那等于**没红检过**(08-02 栽过同款)。
+   > 身份改由上面两个真实存在的出口来证。
+   > 另:`doc_reader` 走的是 `importlib.metadata`,**只证明包的元数据在,不证明它能用** ⇒
+   > 它是弱证人,真证人是 S3 那次真转换。两个都留,别混为一谈。
 6. **S6 能干净关掉** —— 收到停止信号后进程退出,端口释放。
 
 ### 这个 oracle 能被什么骗过?
@@ -92,9 +114,11 @@ zip 压缩后估计 100–150MB。
   `sys.executable` 和 `sys.prefix`,并**断言它们在本文件夹内**,不在就当场红。
 - **骗法2:包导入的是业主机器上已有的 site-packages** ⇒ 假绿。
   焊:打印每个关键模块的 `__file__` 并**断言路径在本文件夹内**;同时打印完整 `sys.path`。
-- **骗法3:`/health` 回的是别的进程**(8765 被业主已经在跑的 OpenDesign 占着)⇒ 假绿。
-  焊:spike 用**非常规端口**(18795,和今晚探针同款),且断言 health 回的 `pid` ==
-  我们刚起的那个子进程 pid。
+- **骗法3:应答的是别的进程**(业主自己那份 OpenDesign 正开着,占着 8765/8766)⇒ 假绿。
+  焊三层:① 用**非常规端口**(gateway 18795 / ds-web 18796);② **起之前先探一次**,
+  端口已被占就**当场红并说清楚**(而不是把别人的应答当成我们的绿);③ 开机横幅与版本号
+  从**我们自己子进程的 stdout 管道**里读 —— 别的进程再怎么应答也进不了这根管子;
+  ④ 关掉之后再探一次,必须不再应答。
 - **骗法4:管道吃掉退出码**(我 08-11 一天犯两次,坏收据都还留在 evidence 里)。
   焊:`.bat` 和 `spike.py` 里**任何命令后面都不接管道**;子进程一律
   `subprocess.run(...)` 后显式判 `returncode`;总判由累计的 `failures` 列表算出,

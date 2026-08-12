@@ -17,12 +17,16 @@
 - [x] 摸底:119 依赖全部有 Windows 轮子、0 源码包
 - [x] 摸底:离线装配 payload 成立(rc=0,355MB)
 - [x] 摸底:embeddable Python 3.12.10 存在且版本对得上
-- [ ] 写 `spike.py`(判据本体,六问 + 七个防骗焊点)—— **先单独 commit,再动别的**
-- [ ] 红检:把 spike.py 对着**故意坏掉的输入**跑一遍,证明它咬得动
-      (至少:假装 sys.executable 在包外 → 必须红;anydoc 断言改错 → 必须红)
-- [ ] 组包:embeddable python + `._pth` 放开 + payload + ds 文件 + `跑一下.bat`
-- [ ] 本机能验的部分先验掉(zip 结构完整性、`._pth` 内容、文件齐不齐、体积)
-- [ ] 出 zip + 写三句话操作说明
+- [x] 写 `spike.py`(判据本体,六问 + 七个防骗焊点)—— 已单独 commit(`0eed36e`)
+- [x] 判据自己先在 Linux 台架上跑通(真起网关、3 个 MCP 全连上、ds-web 自报 0.85.0);
+      **跑的过程中判据自曝一个 bug**:`inside_root` 用 `resolve()` 跟穿软链接 ⇒ 会假红,
+      已修(`8227223`)。29 PASS / 2 FAIL,两条红都是台架≠真包的真实差异。
+- [x] 红检:六条变异逐条指定靶子,**6 咬住 / 0 漏网**(`mutation-test.sh`)
+- [x] 组包:embeddable 3.12.10 + `._pth`(放开 site + 写死 `..\ds\bin`)+ 119 包 payload
+      + ds 文件 + `跑一下.bat`(CRLF)
+- [x] 本机能验的部分验掉(`check-package.sh`,0 条不合格):无 Linux `.so` 泄漏、
+      86 个 `.pyd`、`._pth` 三项、关键包齐、版本号锚一致、无字节码残留
+- [x] 出 zip:**79MB**,回读校验无坏文件,6 个关键入口逐个点名在
 - [ ] **业主真机跑一趟**(只有他能做)→ 收 `收据.txt`
 
 ## S1 —— 安装器(等 S0 结果,现在不展开)

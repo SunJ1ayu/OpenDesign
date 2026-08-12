@@ -1,0 +1,85 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    spike-on-linux-rig
+cmd:     env -C /tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig ./python/bin/python spike.py
+cwd:     .(仓根)
+commit:  8227223
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-12T14:00:29Z
+---------------- 输出开始 ----------------
+====================================================================
+OpenDesign Windows 探路包 —— 只回答一件事:免装 Python 跑不跑得动
+时间:2026-08-12 22:00:29   包根目录:/tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig
+这个包只读、不装、不改你的机器;删掉这个文件夹就等于没来过。
+====================================================================
+
+[S0] 我用的是谁的 Python、谁的包
+  sys.executable = /tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig/python/bin/python
+  sys.prefix     = /tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig/python
+  包根目录        = /tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig
+  [PASS] S0a 解释器在本包内(不是机器上装的那个) —— /tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig/python/bin/python
+  sys.path:
+    - /tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig
+    - /usr/lib/python312.zip   <<< 包外!
+    - /usr/lib/python3.12   <<< 包外!
+    - /usr/lib/python3.12/lib-dynload   <<< 包外!
+    - /tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig/python/lib/python3.12/site-packages
+  [FAIL] S0b sys.path 没有指向包外的条目 —— 包外条目 ['/usr/lib/python312.zip', '/usr/lib/python3.12', '/usr/lib/python3.12/lib-dynload']
+
+[S1] 免装 Python 起得来
+  [FAIL] S1 版本 == 3.12.10 —— 实际 3.12.3
+
+[S2] native 扩展真能用(每个都真做一次运算)
+  [PASS] S2a pydantic_core 真校验 —— n=3
+  [PASS] S2b cryptography 真加解密
+  [PASS] S2c lxml 真解析 XML
+  [PASS] S2d Pillow 真存真读一张图
+  [PASS] S2e msgpack 真打包解包
+  [PASS] S2-loc-nanobot nanobot 从包内加载 —— /tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig/python/lib/python3.12/site-packages/nanobot/__init__.py
+  [PASS] S2-loc-mcp mcp 从包内加载 —— /tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig/python/lib/python3.12/site-packages/mcp/__init__.py
+  [PASS] S2-loc-anydoc anydoc 从包内加载 —— /tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig/python/lib/python3.12/site-packages/anydoc/__init__.py
+  [PASS] S2-loc-pydantic_core pydantic_core 从包内加载 —— /tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig/python/lib/python3.12/site-packages/pydantic_core/__init__.py
+  [PASS] S2-loc-lxml lxml 从包内加载 —— /tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig/python/lib/python3.12/site-packages/lxml/__init__.py
+  [PASS] S2-loc-PIL PIL 从包内加载 —— /tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig/python/lib/python3.12/site-packages/PIL/__init__.py
+  [PASS] S2-loc-cryptography cryptography 从包内加载 —— /tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig/python/lib/python3.12/site-packages/cryptography/__init__.py
+
+[S3] 文档转换器真转一份 CSV(它没在 Windows 上真跑过)
+  [PASS] S3 CSV 转出来的文字里有「45天」 —— firecrawl-anydoc 0.1.6;转出 40 字
+
+[S4] 不跑向导,用脚本把配置生成出来
+  [PASS] S4a 生成 base config(替代 onboard 向导) —— 4302 字节
+        > OK 写回确认 -> enabled=True host=127.0.0.1 port=8765 token='spike-passwd'
+        > 备份: /tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig/fakehome/.nanobot/config.json.bak
+  [PASS] S4b enable_webui.py(原脚本零改动) —— 退出码 0
+        > ds_merge_config: 已合并 4 段进 /tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig/fakehome/.nanobot/config.json(备份: config.json.bak-20260812-220029)
+        >   apiBase = https://token-plan-cn.xiaomimimo.com/v1
+        >   model   = mimo-v2.5(默认预设 mimo-v2.5)
+  [PASS] S4c ds_merge_config.py(原脚本零改动) —— 退出码 0
+  [PASS] S4d 改写 MCP 启动命令指向包内 python —— 3 个:['design-studio', 'design-studio-organize', 'design-studio-refs']
+  [PASS] S4e 填了 key → 解析出真值(不是占位符) —— 读回 'sk-real-value-42'
+  [PASS] S4f 没填 key → 当场拒绝启动(报错说人话) —— Environment variable 'DS_LLM_KEY' referenced in config is not set
+
+[S5] 真把它启起来,让它自己报身份
+  [PASS] S5-pre 开跑前端口是空的 —— 18795 / 18796
+  [PASS] S5a 网关自己打印了版本和端口 —— 要找 'Starting nanobot gateway version 0.2.2 on port 18795';进程还活着
+  [PASS] S5b 3 个工具服务全连上 + agent loop 起来 —— connected×3
+  [PASS] S5c 网关 /health 应答 —— 200 {"status": "ok"}
+  [PASS] S5d ds-web 自己报出版本号 —— 回 200;version='0.85.0';应为 '0.85.0'
+  [PASS] S5e ds-web 说文档转换器在位 —— doc_reader={'available': True, 'converter': '0.1.6'}(弱证人:只看元数据;真证人是 S3)
+
+[S6] 关掉,并确认端口真的放开了
+  [PASS] S6-gateway gateway 已退出 —— rc=0
+  [PASS] S6-ds-web ds-web 已退出 —— rc=-15
+  [PASS] S6-port 端口已放开
+
+====================================================================
+结论:红了 —— 2 条没过:
+   - S0b sys.path 没有指向包外的条目(包外条目 ['/usr/lib/python312.zip', '/usr/lib/python3.12', '/usr/lib/python3.12/lib-dynload'])
+   - S1 版本 == 3.12.10(实际 3.12.3)
+
+最先断的那一关:S0b sys.path 没有指向包外的条目(包外条目 ['/usr/lib/python312.zip', '/usr/lib/python3.12', '/usr/lib/python3.12/lib-dynload'])
+把这份 收据.txt 整个发回来就行,不用你判断是什么问题。
+====================================================================
+
+收据已写到:/tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/rig/收据.txt
+---------------- 输出结束 ----------------
+runlog: spike-on-linux-rig rc=1 commit=8227223 dirty=yes at=2026-08-12T14:00:29Z file=tracks/opendesign-windows-installer/evidence/20260812T140029Z-01-spike-on-linux-rig.txt

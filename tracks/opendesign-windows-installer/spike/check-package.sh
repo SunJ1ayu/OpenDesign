@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# 组包后的结构检查 —— 本机(Linux)能验的那一半,别把结构性错误留给业主去发现。
+# 验不了的那一半(embeddable Python 真跑不跑得动)正是探路包本身要回答的问题。
+#
+# 用法:check-package.sh <包目录>
+
+set -u
+B="${1:?用法: check-package.sh <包目录>}"
+bad=0
+ok()  { echo "  [PASS] $1"; }
+no()  { echo "  [FAIL] $1"; bad=$((bad+1)); }
+
+echo "== 包结构检查:$B =="
+
+[ -f "$B/python/python.exe" ] && ok "包内 python.exe 在" || no "包内 python.exe 缺失"
+
+# 装错平台的轮子是最容易犯又最难当场看出的错:Linux 的 .so 一个都不许有。
+n_so=$(find "$B/python/Lib/site-packages" -name '*.so' 2>/dev/null | wc -l)
+n_pyd=$(find "$B/python/Lib/site-packages" -name '*.pyd' 2>/dev/null | wc -l)
+[ "$n_so" -eq 0 ] && ok "没有 Linux .so 泄漏(0 个)" || no "混进了 $n_so 个 Linux .so —— 装成了本机平台的轮子"
+[ "$n_pyd" -gt 50 ] && ok "Windows .pyd 有 $n_pyd 个" || no "Windows .pyd 只有 $n_pyd 个,不像装全了"
+
+# ._pth 是全包最脆的一环:不放开 site,site-packages 根本不进 sys.path。
+P="$B/python/python312._pth"
+if [ -f "$P" ]; then
+  grep -q '^import site' "$P"            && ok "._pth 放开了 site"          || no "._pth 没放开 site ⇒ site-packages 不会进 sys.path"
+  grep -q 'Lib\\site-packages' "$P"      && ok "._pth 列了 site-packages"   || no "._pth 没列 site-packages"
+  # ._pth 会**忽略 PYTHONPATH**,而 ds 的模块之间是平级 import(ds_web 直接 import ds_common)
+  # ⇒ ds/bin 必须写死进 ._pth,否则子进程起不来。
+  grep -q '\.\.\\ds\\bin' "$P"           && ok "._pth 写死了 ds/bin(._pth 会忽略 PYTHONPATH)" || no "._pth 缺 ds/bin ⇒ ds_web/ds_mcp 会 import 不到同级模块"
+else
+  no "._pth 文件缺失"
+fi
+
+for p in nanobot mcp anydoc pydantic_core lxml PIL cryptography; do
+  [ -e "$B/python/Lib/site-packages/$p" ] && ok "关键包 $p 在" || no "关键包 $p 缺"
+done
+[ -f "$B/python/Lib/site-packages/anydoc/_anydoc.pyd" ] && ok "anydoc 的 Windows 原生件在" || no "anydoc 的 .pyd 缺"
+
+for f in ds/bin/ds_web.py ds/bin/ds_mcp.py ds/bin/enable_webui.py ds/bin/ds_merge_config.py \
+         ds/config/nanobot.config.windows.jsonc ds/web/dist/index.html ds/版本号.txt \
+         spike.py 跑一下.bat; do
+  [ -f "$B/$f" ] && ok "$f 在" || no "$f 缺"
+done
+
+# 版本号是 S5d 的锚:包里带的必须等于仓库里 ds_web.py 的 VERSION,否则那条断言在问空气。
+REPO_V=$(grep -oP '^VERSION = "\K[^"]+' "$(dirname "$0")/../../../bin/ds_web.py" 2>/dev/null)
+PKG_V=$(cat "$B/ds/版本号.txt" 2>/dev/null | tr -d '[:space:]')
+[ -n "$REPO_V" ] && [ "$REPO_V" = "$PKG_V" ] && ok "版本号锚一致($PKG_V)" || no "版本号锚对不上:仓库 '$REPO_V' vs 包内 '$PKG_V'"
+
+# cmd.exe 读 LF 的 .bat 会出怪事
+file -b "$B/跑一下.bat" | grep -q CRLF && ok ".bat 是 CRLF 换行" || no ".bat 不是 CRLF ⇒ cmd 可能读出怪东西"
+
+n_cache=$(find "$B" \( -name '__pycache__' -o -name '*.pyc' \) 2>/dev/null | wc -l)
+[ "$n_cache" -eq 0 ] && ok "没有本机编译的字节码残留" || no "残留 $n_cache 个 __pycache__/.pyc(会造成缓存骗人那类怪问题)"
+
+echo "== 结构检查结束:$bad 条不合格 =="
+[ "$bad" -eq 0 ] || exit 1

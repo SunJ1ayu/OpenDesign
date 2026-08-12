@@ -9,9 +9,14 @@
 
 ## Mechanical checks
 
-- [ ] build passes
-- [ ] tests pass
-- [ ] no secrets / unsafe ops
+- [x] 判据自己先跑通(Linux 台架,真起网关 + 真起 ds-web)
+- [x] 红检:六条变异,靶子逐条指定
+- [x] 组包后的结构检查
+- [ ] **业主 Windows 真机跑一趟** —— 只有他能做,S0 的结论全压在这一趟上
+- [x] no secrets:包里不含任何 key。`DS_LLM_KEY` 全程是占位符,探针自己用的是
+      `sk-spike-not-a-real-key`;真 key 从头到尾没进过这个包。
+- [x] unsafe ops:包只读、不装、不改机器 —— HOME/USERPROFILE 指向包内 fakehome,
+      不写注册表、不进 PATH、不碰 `%USERPROFILE%\.nanobot`,删文件夹即消失。
 
 **机器打印的**(不是我的转述)—— 判据用 `runlog` 跑,把它打印的收据行原样粘进来:
 
@@ -20,11 +25,20 @@ runlog -t opendesign-windows-installer -- <判据命令>
 ```
 
 ```
-<粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
- **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
- 收据得进 git(5d)。一份收据都没有的话,写一行
- 「- 无机器证据:<理由>」认账 —— 沉默不算理由(5c)。>
+runlog: spike-redcheck rc=0 commit=8227223 dirty=yes at=2026-08-12T13:56:00Z file=tracks/opendesign-windows-installer/evidence/20260812T135600Z-01-spike-redcheck.txt
+runlog: spike-on-linux-rig rc=1 commit=8227223 dirty=yes at=2026-08-12T14:00:29Z file=tracks/opendesign-windows-installer/evidence/20260812T140029Z-01-spike-on-linux-rig.txt
+runlog: package-structure rc=0 commit=8227223 dirty=yes at=2026-08-12T14:01:11Z file=tracks/opendesign-windows-installer/evidence/20260812T140111Z-01-package-structure.txt
 ```
+
+**那份 `rc=1` 不是藏起来的失败,是台架的真实差异**(5b:跑红的一份都不许藏):
+
+- 红的两条是 `S0b`(sys.path 有包外条目)和 `S1`(版本 3.12.3 ≠ 3.12.10)。
+- 台架是 Linux venv:标准库在 `/usr/lib` 与系统共享、解释器是系统的 3.12.3。
+  **真包里这两样都在包内**(标准库 = 包里的 `python312.zip`,解释器 = 3.12.10)。
+- 也就是说这两条红**正是判据咬对了**:它确实分得清"包里的"和"机器上的"。
+  台架上其余 29 条全绿(含真起网关、3 个 MCP 全连上、ds-web 自报 0.85.0)。
+- **别把台架的 29 绿当成 S0 通过** —— 台架跑的是普通 venv,而 S0 要问的恰恰是
+  embeddable。台架只证明了**判据本身能用**,没证明结论。
 
 ## Review
 
