@@ -324,6 +324,40 @@ class NoCollateralDamage(CnumBase):
         self.assertEqual(_read(path), before,
                          "同值保存必须逐字节不写(含页脚「最后更新」不许 bump)")
 
+    def test_n9_write_must_round_trip(self):
+        """🔴 四审 subdeepseek(孤腿 BLOCK)抓到的:**写完必须还读得回来。**
+
+        `- [待确认] C03-1 …` 这种带后缀的行,读侧把正文切在 `-1` 那里(界面上就这么显示),
+        写侧切在同一个位置 —— 边界一致没问题。**坏在结果行**:替换完变成
+        `- [待确认] C03客厅刷米白`(C 号与正文之间的空格被吃掉),再读回来
+        **`cnum` 是 None** ⇒ 这条变更从此没有编号,任何工具都再也定位不到它。
+        改动前这条路是安全拒写的(旧锚 `C3\b` 够不着 `C03-1`),是本单放开的。
+
+        钉的是一条**通用不变量**:任何写口写完之后,这一行必须还能被读侧读成同一条变更;
+        保证不了就 fail closed、档案逐字节不动。不是"给这一种形状打补丁"。
+        """
+        line = "- [待确认] C03-1 2026-08-01 厨房插座第一小项"
+        path = _write_project(self.root, [line])
+        before = _read(path)
+        r = ds_tools.edit_change(SLUG, 3, new_text="客厅刷米白",
+                                 ds_root=self.root, today=TODAY)
+        self.assertIn("error", r, f"保证不了读得回来就必须拒写,不许静默毁行:{r}")
+        self.assertNotEqual(r.get("error"), "change_not_found",
+                            "错误话术要指得出真原因,不许again说'找不到'(本单 proposal 就在骂这个)")
+        self.assertEqual(_read(path), before, "拒写就得逐字节不动")
+
+    def test_n9b_normal_text_edit_still_works(self):
+        """反面:正常行的改正文一个都不许被这道保险误伤(含【空间】前缀与截止日)。"""
+        line = "- [待确认] C3 2026-08-01 【客厅】客厅刷白 ⏳2026-09-01"
+        path = _write_project(self.root, [line])
+        r = ds_tools.edit_change(SLUG, 3, new_text="客厅刷米白",
+                                 ds_root=self.root, today=TODAY)
+        self.assertNotIn("error", r, f"正常行的改正文不该被误伤:{r}")
+        txt = _read(path)
+        self.assertIn("- [待确认] C3 2026-08-01 【客厅】客厅刷米白 ⏳2026-09-01", txt)
+        self.assertEqual(ds_todo.parse_change(
+            [l for l in txt.split("\n") if l.startswith("- [")][0])["cnum"], 3)
+
     def test_n8_hand_written_status_tolerance_is_uniform(self):
         """主 agent 亲读 diff 抓到的回归(腿没提,判据原先也问不出):
 
@@ -361,6 +395,8 @@ class NoCollateralDamage(CnumBase):
         r = ds_tools.edit_change(SLUG, 3, new_status="进行中", ds_root=self.root, today=TODAY)
         self.assertNotIn("error", r, f"读侧认它是 3 号,写侧就得够得着:{r}")
         self.assertIn("- [进行中] C03-1", _read(path))
+        # ⚠️ 只有"改状态/改截止日/删除/改备注"这几口是够得着的(它们不重写正文段)。
+        #    **改正文**这一口对这种行必须拒写 —— 见 N9(四审孤腿 BLOCK 抓到的毁行路径)。
 
 
 if __name__ == "__main__":
