@@ -1,0 +1,20 @@
+（业主 Windows 真机 2026-08-12 23:39 第二跑,原样存档;结论:全绿 31 PASS / 0 FAIL / 0 SKIP）
+
+S0a  PASS 解释器 = C:\Users\PC\Desktop\OpenDesign-探路包\python\python.exe
+S0b  PASS sys.path 七条全在包内(含 ._pth 写死的 ds\bin 与 pywin32 三条)
+S1   PASS 3.12.10
+S2a-e PASS pydantic_core / cryptography / lxml / Pillow / msgpack 全部真运算
+S2-loc × 7 PASS 全部从包内加载(mcp 这次过了 —— 上一跑就是它先炸的)
+S3   PASS anydoc 真转 CSV「45天」
+S4a-f PASS 脚本化配置全过:base config 4523 字节 / enable_webui rc=0 / merge rc=0 /
+          改写 3 个 MCP 命令 / 填了 key 解析出真值 / 没填 key 当场拒绝
+S5-pre PASS 端口 18795、18796 开跑前是空的
+S5a  PASS 网关自报 "Starting nanobot gateway version 0.2.2 on port 18795"
+S5b  PASS 3 个工具服务全 connected + Agent loop started
+S5c  PASS /health 200 {"status": "ok"}
+S5d  PASS ds-web 自报 version=0.85.0(= 包内版本号锚)
+S5e  PASS doc_reader available,converter 0.1.6
+S6   PASS 两个进程都退出(rc=1 —— Windows 上 terminate 即退出码 1,Linux 是 -15)、端口放开
+
+⇒ S0 结论:**免装 Python(embeddable 3.12.10)能跑起 OpenDesign 这一整套**,
+   包括 3 个 MCP 子进程与 ds-web。单文件安装器方案的运行时形态确认为 embeddable。
