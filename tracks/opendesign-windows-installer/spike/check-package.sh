@@ -43,6 +43,23 @@ for f in ds/bin/ds_web.py ds/bin/ds_mcp.py ds/bin/enable_webui.py ds/bin/ds_merg
   [ -f "$B/$f" ] && ok "$f 在" || no "$f 缺"
 done
 
+# 这个包是要**公开发布**的(OpenDesign 是 public 仓)。ds/ 里每一个文件都必须是仓库里
+# 本来就有的 —— 否则就是把机器上的本地文件(工作区配置、key、业主数据)顺手公开了出去。
+# 立这条的由来:第一版包里就混进了 `config/workspace.json`(.gitignore 明确排除的
+# 本地工作区配置),是发布前扫出来的。**别指望下次记得,交给机器查。**
+REPO_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+leak=0
+while IFS= read -r f; do
+  rel="${f#$B/ds/}"
+  [ "$rel" = "版本号.txt" ] && continue
+  if ! ( cd "$REPO_DIR" && git ls-files --error-unmatch "$rel" >/dev/null 2>&1 ); then
+    echo "         ↳ 非仓库文件:$rel"
+    leak=$((leak+1))
+  fi
+done < <(find "$B/ds" -type f)
+[ "$leak" -eq 0 ] && ok "ds/ 里没有仓库外的文件(不会把本地数据发出去)" \
+                  || no "ds/ 里混进了 $leak 个仓库外的文件 —— 这个包要公开发布,不许带"
+
 # 版本号是 S5d 的锚:包里带的必须等于仓库里 ds_web.py 的 VERSION,否则那条断言在问空气。
 REPO_V=$(grep -oP '^VERSION = "\K[^"]+' "$(dirname "$0")/../../../bin/ds_web.py" 2>/dev/null)
 PKG_V=$(cat "$B/ds/版本号.txt" 2>/dev/null | tr -d '[:space:]')

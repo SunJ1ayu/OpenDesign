@@ -1,0 +1,39 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    package-structure-clean
+cmd:     tracks/opendesign-windows-installer/spike/check-package.sh /tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/pkg/OpenDesign-探路包
+cwd:     .(仓根)
+commit:  f555cd9
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-12T14:22:53Z
+---------------- 输出开始 ----------------
+== 包结构检查:/tmp/claude-0/-root/5accf551-812f-4654-a441-f282188d2a54/scratchpad/pkg/OpenDesign-探路包 ==
+  [PASS] 包内 python.exe 在
+  [PASS] 没有 Linux .so 泄漏(0 个)
+  [PASS] Windows .pyd 有 86 个
+  [PASS] ._pth 放开了 site
+  [PASS] ._pth 列了 site-packages
+  [PASS] ._pth 写死了 ds/bin(._pth 会忽略 PYTHONPATH)
+  [PASS] 关键包 nanobot 在
+  [PASS] 关键包 mcp 在
+  [PASS] 关键包 anydoc 在
+  [PASS] 关键包 pydantic_core 在
+  [PASS] 关键包 lxml 在
+  [PASS] 关键包 PIL 在
+  [PASS] 关键包 cryptography 在
+  [PASS] anydoc 的 Windows 原生件在
+  [PASS] ds/bin/ds_web.py 在
+  [PASS] ds/bin/ds_mcp.py 在
+  [PASS] ds/bin/enable_webui.py 在
+  [PASS] ds/bin/ds_merge_config.py 在
+  [PASS] ds/config/nanobot.config.windows.jsonc 在
+  [PASS] ds/web/dist/index.html 在
+  [PASS] ds/版本号.txt 在
+  [PASS] spike.py 在
+  [PASS] 跑一下.bat 在
+  [PASS] ds/ 里没有仓库外的文件(不会把本地数据发出去)
+  [PASS] 版本号锚一致(0.85.0)
+  [PASS] .bat 是 CRLF 换行
+  [PASS] 没有本机编译的字节码残留
+== 结构检查结束:0 条不合格 ==
+---------------- 输出结束 ----------------
+runlog: package-structure-clean rc=0 commit=f555cd9 dirty=yes at=2026-08-12T14:22:53Z file=tracks/opendesign-windows-installer/evidence/20260812T142253Z-01-package-structure-clean.txt

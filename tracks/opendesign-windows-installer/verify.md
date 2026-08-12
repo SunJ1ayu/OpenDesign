@@ -28,7 +28,18 @@ runlog -t opendesign-windows-installer -- <判据命令>
 runlog: spike-redcheck rc=0 commit=8227223 dirty=yes at=2026-08-12T13:56:00Z file=tracks/opendesign-windows-installer/evidence/20260812T135600Z-01-spike-redcheck.txt
 runlog: spike-on-linux-rig rc=1 commit=8227223 dirty=yes at=2026-08-12T14:00:29Z file=tracks/opendesign-windows-installer/evidence/20260812T140029Z-01-spike-on-linux-rig.txt
 runlog: package-structure rc=0 commit=8227223 dirty=yes at=2026-08-12T14:01:11Z file=tracks/opendesign-windows-installer/evidence/20260812T140111Z-01-package-structure.txt
+runlog: package-structure-clean rc=0 commit=f555cd9 dirty=yes at=2026-08-12T14:22:53Z file=tracks/opendesign-windows-installer/evidence/20260812T142253Z-01-package-structure-clean.txt
 ```
+
+**发布前抓到一个真泄漏(这条最值钱)**:第一版包里混进了 `config/workspace.json` ——
+`.gitignore` 明确排除的**本机工作区配置**。而这个包是要往 **public 仓**发布的。
+内容本身轻(Linux 路径 + 一个测试项目名,不是业主 Windows 上的真数据),但它属于
+「业主数据不进仓」那一类,不该出现在公开发布物里。
+- 根因:我拷的是 `bin/ config/ workspace/` **整个目录**,想当然认为"目录里的都是仓库里的"。
+- 修法不是"下次记得":`check-package.sh` 加了一道机械闸 —— **ds/ 里每个文件都必须
+  `git ls-files` 得到**。加完**先拿还没清理的包红检了一遍**(如期红在这条上),再清理、
+  重验、重打包。
+- 移掉之后 ds-web 照常起(`workspace.json` 缺失是"未配置"优雅降级),台架仍 29 PASS / 2 FAIL。
 
 **那份 `rc=1` 不是藏起来的失败,是台架的真实差异**(5b:跑红的一份都不许藏):
 
