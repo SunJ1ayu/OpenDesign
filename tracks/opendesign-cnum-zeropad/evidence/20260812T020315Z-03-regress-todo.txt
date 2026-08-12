@@ -1,0 +1,41 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    regress-todo
+cmd:     /root/.venvs/design-studio/bin/python tests/test_ds_todo.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  0a6e943
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-12T02:03:15Z
+---------------- 输出开始 ----------------
+test_b01_items_get_their_batch (__main__.TestBatchSection.test_b01_items_get_their_batch) ... ok
+test_b02_item_outside_any_range_is_none (__main__.TestBatchSection.test_b02_item_outside_any_range_is_none) ... ok
+test_b03_no_section_means_all_none (__main__.TestBatchSection.test_b03_no_section_means_all_none) ... ok
+test_b04_bad_lines_ignored_not_fatal (__main__.TestBatchSection.test_b04_bad_lines_ignored_not_fatal) ... ok
+test_b05_batch_line_is_not_a_change (__main__.TestBatchSection.test_b05_batch_line_is_not_a_change) ... ok
+test_b06_later_range_wins_on_overlap (__main__.TestBatchSection.test_b06_later_range_wins_on_overlap) ... ok
+test_n01_note_from_archive (__main__.TestCollectNote.test_n01_note_from_archive) ... ok
+test_n02_absent_when_no_note (__main__.TestCollectNote.test_n02_absent_when_no_note) ... ok
+test_n03_neighbour_cnum_not_confused (__main__.TestCollectNote.test_n03_neighbour_cnum_not_confused) ... ok
+test_n04_no_cross_project_bleed (__main__.TestCollectNote.test_n04_no_cross_project_bleed) ... ok
+test_n05_partial_line_claims_nothing (__main__.TestCollectNote.test_n05_partial_line_claims_nothing) ... ok
+test_n06_cleared_note_disappears_from_collect (__main__.TestCollectNote.test_n06_cleared_note_disappears_from_collect) ... ok
+test_n07_parse_history_lives_here (__main__.TestCollectNote.test_n07_parse_history_lives_here) ... ok
+test_01_golden_mixed (__main__.TestDsTodo.test_01_golden_mixed) ... ok
+test_02_golden_clean (__main__.TestDsTodo.test_02_golden_clean) ... ok
+test_03_golden_open_only (__main__.TestDsTodo.test_03_golden_open_only) ... ok
+test_04_cli_entry (__main__.TestDsTodo.test_04_cli_entry) ... ok
+test_05_list_todos_ok (__main__.TestDsTodo.test_05_list_todos_ok) ... ok
+test_06_list_todos_error (__main__.TestDsTodo.test_06_list_todos_error) ... ok
+test_07_collect_structured (__main__.TestDsTodo.test_07_collect_structured) ... ok
+test_08_collect_partial_line (__main__.TestDsTodo.test_08_collect_partial_line) ... ok
+test_09_parse_space (__main__.TestDsTodo.test_09_parse_space) ... ok
+test_10_space_structure (__main__.TestDsTodo.test_10_space_structure) ... ok
+test_11_deleted_status_recognized_by_parser (__main__.TestDsTodo.test_11_deleted_status_recognized_by_parser) ... ok
+test_12_deleted_excluded_from_open (__main__.TestDsTodo.test_12_deleted_excluded_from_open) ... ok
+test_13_deleted_mixed_with_open (__main__.TestDsTodo.test_13_deleted_mixed_with_open) ... ok
+
+----------------------------------------------------------------------
+Ran 26 tests in 0.038s
+
+OK
+---------------- 输出结束 ----------------
+runlog: regress-todo rc=0 commit=0a6e943 dirty=yes at=2026-08-12T02:03:15Z file=tracks/opendesign-cnum-zeropad/evidence/20260812T020315Z-03-regress-todo.txt
