@@ -56,6 +56,7 @@ DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 # 变更行:  - [状态] C<n> ...   （前缀空格后 `- [`,ds-todo 也认这个前缀）
 _CHANGE_RE = re.compile(r"^- \[(?P<status>[^\]]*)\]\s+C(?P<num>\d+)\b")
+_STATUS_PREFIX_RE = re.compile(r"^(- \[)(?P<old>[^\]]*)(\])")
 _CHANGE_HEADER = "## 变更记录"
 _STAGE_HISTORY_HEADER = "## 阶段历史"
 _BATCH_HEADER = "## 批次"       # T4b:一次记录动作的名字(同样不匹配 _CHANGE_RE ⇒ 不成待办)
@@ -65,8 +66,8 @@ _BATCH_TITLE_MAX = 24
 
 # 改正文时"只替尾段、绝不重拼主行"的前缀捕获正则(BLOCK-2):group(1)=状态/C号/日期/
 # 【空间】前缀(逐字节保留),group(2)=正文尾段。
-# 状态类用 `[^\]]*`(非 4 词集):line_re 定位的是任意 `- [x] C{n}` 主行,若这里钉死 4 词集,
-# 对非标准状态的手改行(只改正文、不带 new_status 时)会 match=None → 崩(main-agent finding A)。
+# 状态类用 `[^\]]*`(非 4 词集):edit_change 仍允许非标准状态的手改行只改正文;
+# 若这里钉死 4 词集,会 match=None → 崩(main-agent finding A)。
 # 空间子模式**镜像 parse_change** 的 `【[^【】\s][^【】]{0,15}】`:更松会把畸形 `【 】` 当前缀吞掉,
 # 与读侧拆分漂移(finding B)。两处对齐 ⇒ old_text 与读侧/前端逐字节一致。
 _EDIT_PREFIX_RE = re.compile(
@@ -233,33 +234,50 @@ def append_change(project: str, content: str, ds_root: str = DEFAULT_DS_ROOT,
 
 
 # ── 工具 4.2 set_change_status ──────────────────────────────────────────────
+def _parse_target_cnum(value) -> int | None:
+    """入口 C 号归一:3/"3"/"03"/"C3"/"C03" 都按整数 3 处理。"""
+    m = re.fullmatch(r"C?(\d+)", str(value).strip())
+    if not m:
+        return None
+    return int(m.group(1))
+
+
+def _change_line_cnum_for_edit(line: str) -> int | None:
+    """主变更行 C 号。先走读侧 CHANGE_RE;保留 edit_change 对非标准状态行改正文的旧能力。"""
+    cnum = ds_todo.change_line_cnum(line)
+    if cnum is not None:
+        return cnum
+    m = _CHANGE_RE.match(line)
+    if not m:
+        return None
+    return int(m.group("num"))
+
+
 def _rewrite_change_status(path: str, change_id: str, new_status: str,
                            today: str) -> dict:
-    """定位 `C<change_id>` 那一行,只把 `[状态]` 位改写成 `new_status`,其余字节不动。
+    """按数定位目标 C 号,只把 `[状态]` 位改写成 `new_status`,其余字节不动。
     set_change_status / delete_change 共用的落地步骤——**词表校验各自在调用方做**,
     这里不管 `new_status` 是不是词表内的值(delete_change 就是靠这点才能写
     `已删除` 这个不进 STATUSES 的字面量)。"""
-    m = re.fullmatch(r"C(\d+)", change_id.strip())
-    if not m:
+    num = _parse_target_cnum(change_id)
+    if num is None:
         return {"error": "change_not_found"}
-    num = m.group(1)
-    # 锚定 C<num>\b:`\b` 防 C2 误伤 C12/C20;`\s+` 与 _CHANGE_RE 同容差
-    line_re = re.compile(rf"^(- \[)(?P<old>[^\]]*)(\]\s+C{num}\b)")
 
     with ds_common.locked_rw(path) as box:
         lines = box["lines"]
-        hits = [i for i, ln in enumerate(lines) if line_re.match(ln)]
+        hits = [i for i, ln in enumerate(lines) if ds_todo.change_line_cnum(ln) == num]
         if len(hits) != 1:
             box["write"] = False
             return {"error": "change_not_found" if not hits else "ambiguous_change"}
         i = hits[0]
-        old_status = line_re.match(lines[i]).group("old")
-        lines[i] = line_re.sub(rf"\g<1>{new_status}\g<3>", lines[i], count=1)
+        sm = _STATUS_PREFIX_RE.match(lines[i])
+        old_status = sm.group("old")
+        lines[i] = _STATUS_PREFIX_RE.sub(rf"\g<1>{new_status}\g<3>", lines[i], count=1)
         ds_common.bump_last_updated(lines, today)
         result_line = lines[i]
 
     return {"ok": True, "old_status": old_status, "new_status": new_status,
-            "line": result_line, "cnum": int(num)}
+            "line": result_line, "cnum": num}
 
 
 def set_change_status(project: str, change_id: str, status: str,
@@ -301,17 +319,17 @@ def delete_change(project: str, cnum,
         return err
     if not os.path.exists(path):
         return {"error": "project_not_found"}
-    mo = re.fullmatch(r"C?(\d+)", str(cnum).strip())
-    if not mo:
+    num = _parse_target_cnum(cnum)
+    if num is None:
         return {"error": "change_not_found"}
-    return _rewrite_change_status(path, f"C{mo.group(1)}", "已删除", today)
+    return _rewrite_change_status(path, num, "已删除", today)
 
 
 # ── 工具 4.1b set_due_date(track opendesign-todo-duedate)────────────────────
 def set_due_date(project: str, cnum, due: str | None,
                  ds_root: str = DEFAULT_DS_ROOT, today: str | None = None) -> dict:
-    """设/清一条变更的截止日(行尾 ⏳YYYY-MM-DD token)。定位镜像 set_change_status
-    (line_re `C{num}\\b` 命中且唯一)。due=None/"" 视为清除;否则须 YYYY-MM-DD 且
+    """设/清一条变更的截止日(行尾 ⏳YYYY-MM-DD token)。按读侧 C 号解析口径定位且唯一。
+    due=None/"" 视为清除;否则须 YYYY-MM-DD 且
     date.fromisoformat 合法,非法 → invalid_due。只动尾 token,其余字节不变(用
     ds_common.DUE_SUFFIX_RE.sub 剥旧尾 + format_due_suffix 补新尾)。no-op(due 与
     现值相同)不写。"""
@@ -332,16 +350,13 @@ def set_due_date(project: str, cnum, due: str | None,
     if not os.path.exists(path):
         return {"error": "project_not_found"}
 
-    mo = re.fullmatch(r"C?(\d+)", str(cnum).strip())
-    if not mo:
+    num = _parse_target_cnum(cnum)
+    if num is None:
         return {"error": "change_not_found"}
-    num = mo.group(1)
-    # 锚定 C<num>\b:与 set_change_status 同口径
-    line_re = re.compile(rf"^(- \[)(?P<old>[^\]]*)(\]\s+C{num}\b)")
 
     with ds_common.locked_rw(path) as box:
         lines = box["lines"]
-        hits = [i for i, ln in enumerate(lines) if line_re.match(ln)]
+        hits = [i for i, ln in enumerate(lines) if ds_todo.change_line_cnum(ln) == num]
         if len(hits) != 1:
             box["write"] = False
             return {"error": "change_not_found" if not hits else "ambiguous_change"}
@@ -356,7 +371,7 @@ def set_due_date(project: str, cnum, due: str | None,
             ds_common.bump_last_updated(lines, today)
             result_line = lines[i]
 
-    return {"ok": True, "cnum": int(num), "due": due, "line": result_line}
+    return {"ok": True, "cnum": num, "due": due, "line": result_line}
 
 
 # ── 工具 4.2b edit_change ────────────────────────────────────────────────────
@@ -451,14 +466,15 @@ def _append_history_entry(lines: list[str], entry: str) -> None:
     lines.insert(last + 1, entry)
 
 
-def _upsert_note(lines: list[str], num: str, note_line: str) -> bool:
+def _upsert_note(lines: list[str], num: int, note: str) -> bool:
     """按 cnum 键在 `## 变更历史` 段内追加/替换该变更的备注行,同时归一重复行(只保留第一条)。
 
     返回**是否真的改动了文件内容**:值一样且没有重复行 → False(纯 no-op,页脚不 bump)。
     「最后更新」是项目活跃度/超期排序的输入,写同值也 bump 会污染排序(四审 LOW-1)。
+    已有备注行只替换冒号后的值,保留原 C 号写法和半/全角冒号;新插入才写规范 `- Cn 备注:`。
     """
-    note_re = ds_todo.note_line_re(num)
     b = ds_todo.history_bounds(lines)
+    note_line = f"- C{num} 备注:{note}"
     if b is None:
         _create_history_section(lines, [note_line])
         return True
@@ -468,11 +484,13 @@ def _upsert_note(lines: list[str], num: str, note_line: str) -> bool:
     last = hidx
     changed = False
     for k in range(hidx + 1, end):
-        if note_re.match(lines[k]):
+        m = ds_todo.HISTORY_NOTE_RE.match(lines[k])
+        if m and int(m.group(1)) == num:
             if first_hit is None:
                 first_hit = k
-                if lines[k] != note_line:
-                    lines[k] = note_line
+                new_line = lines[k][:m.start(2)] + note
+                if lines[k] != new_line:
+                    lines[k] = new_line
                     changed = True
             else:
                 to_remove.append(k)
@@ -486,16 +504,15 @@ def _upsert_note(lines: list[str], num: str, note_line: str) -> bool:
     return changed or bool(to_remove)   # 归一掉重复行本身就是真改动
 
 
-def _delete_note(lines: list[str], num: str) -> bool:
+def _delete_note(lines: list[str], num: int) -> bool:
     """删除 `## 变更历史` 段内该 cnum 的所有备注行。返回是否有行被删除。"""
-    note_re = ds_todo.note_line_re(num)
     b = ds_todo.history_bounds(lines)
     if b is None:
         return False
     hidx, end = b
     to_remove: list[int] = []
     for k in range(hidx + 1, end):
-        if note_re.match(lines[k]):
+        if ds_todo.history_note_line_cnum(lines[k]) == num:
             to_remove.append(k)
     for k in reversed(to_remove):
         del lines[k]
@@ -507,15 +524,13 @@ def edit_change(project: str, cnum, new_status: str | None = None,
                 ds_root: str = DEFAULT_DS_ROOT, today: str | None = None) -> dict:
     """行内编辑一条变更:改状态 / 改正文(保前缀字节 + 向 `## 变更历史` 段留痕) / 加改备注。
 
-    只读铁律的受控写口。定位复用 set_change_status 口径(CHANGE_RE 命中且 cnum 相等);
+    只读铁律的受控写口。定位为捕获行内 C 号后按整数比对,命中且唯一才写;
     改正文用前缀捕获正则只替尾段(状态/C号/日期/【空间】逐字节不变,BLOCK-2)。全程 locked_rw。
     """
     today = ds_common.today_str(today)
-    # cnum 容差:接受 3 / "3" / "C3"
-    mo = re.fullmatch(r"C?(\d+)", str(cnum).strip())
-    if not mo:
+    num = _parse_target_cnum(cnum)
+    if num is None:
         return {"error": "change_not_found"}
-    num = mo.group(1)
 
     if new_status is not None and new_status not in STATUSES:
         return {"error": "invalid_status"}
@@ -532,12 +547,9 @@ def edit_change(project: str, cnum, new_status: str | None = None,
     if not os.path.exists(path):
         return {"error": "project_not_found"}
 
-    # 定位主变更行(与 set_change_status 同锚:C<num>\b 防 C2 误伤 C12/C20)
-    line_re = re.compile(rf"^(- \[)(?P<old>[^\]]*)(\]\s+C{num}\b)")
-
     with ds_common.locked_rw(path) as box:
         lines = box["lines"]
-        hits = [i for i, ln in enumerate(lines) if line_re.match(ln)]
+        hits = [i for i, ln in enumerate(lines) if _change_line_cnum_for_edit(ln) == num]
         if len(hits) != 1:
             box["write"] = False
             return {"error": "change_not_found" if not hits else "ambiguous_change"}
@@ -546,9 +558,9 @@ def edit_change(project: str, cnum, new_status: str | None = None,
         changed_fields: set[str] = set()
 
         if new_status is not None:
-            sm = line_re.match(lines[i])
+            sm = _STATUS_PREFIX_RE.match(lines[i])
             if sm and new_status != sm.group("old"):
-                lines[i] = line_re.sub(rf"\g<1>{new_status}\g<3>", lines[i], count=1)
+                lines[i] = _STATUS_PREFIX_RE.sub(rf"\g<1>{new_status}\g<3>", lines[i], count=1)
                 changed = True
                 changed_fields.add("status")
 
@@ -564,7 +576,7 @@ def edit_change(project: str, cnum, new_status: str | None = None,
 
         if note is not None:   # 缺省=不动;空串/纯空白=删除;非空=设置(并归一重复行)
             if note_s:
-                if _upsert_note(lines, num, f"- C{num} 备注:{note_s}"):
+                if _upsert_note(lines, num, note_s):
                     changed = True
                     changed_fields.add("note")
             elif _delete_note(lines, num):
@@ -580,7 +592,7 @@ def edit_change(project: str, cnum, new_status: str | None = None,
 
     # 顺序固定 status→text→note:语义是集合(判据按集合比),但 API 每次跑出不同顺序
     # 会让日志/回归对不上 —— set 的迭代序在 CPython 里是哈希序,跨进程会变。
-    return {"ok": True, "cnum": int(num), "line": result_line,
+    return {"ok": True, "cnum": num, "line": result_line,
             "changed_fields": [f for f in ("status", "text", "note") if f in changed_fields]}
 
 

@@ -81,6 +81,14 @@ def parse_change(line: str) -> dict | None:
             "due": due}
 
 
+def change_line_cnum(line: str) -> int | None:
+    """按读侧 `CHANGE_RE` 口径从主变更行取 C 号;没有 C 号或不命中返回 None。"""
+    m = CHANGE_RE.match(line)
+    if not m or not m.group(2):
+        return None
+    return int(m.group(2))
+
+
 def history_bounds(lines: list[str]) -> tuple[int, int] | None:
     """`## 变更历史` 段边界(通用扫描器在 ds_common,读写两侧共用同一份)。"""
     return ds_common.section_bounds(lines, HISTORY_HEADER)
@@ -111,11 +119,12 @@ def parse_history(text: str) -> dict:
     return out
 
 
-def note_line_re(num: str) -> re.Pattern:
-    """该 cnum 的备注行锚(写侧唯一定义,`_upsert_note`/`_delete_note` 共用)。
-    `C{num}` 后必须是一个空格 ⇒ 清 C1 不会误伤 C12;全角冒号与读侧
-    `HISTORY_NOTE_RE` 同口径(读侧收两种,写侧只写半角)。"""
-    return re.compile(rf"^- C{num} 备注[:：]")
+def history_note_line_cnum(line: str) -> int | None:
+    """按读侧 `HISTORY_NOTE_RE` 口径从备注行取 C 号;不命中返回 None。"""
+    m = HISTORY_NOTE_RE.match(line)
+    if not m:
+        return None
+    return int(m.group(1))
 
 
 # env DS_ROOT 缺失时基于 __file__ 推导(bin/ 的上一级):Linux/Windows 通用,不硬编码 /root
