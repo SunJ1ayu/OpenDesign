@@ -54,6 +54,36 @@ zip 压缩后估计 100–150MB。
    (`ds_web.py` 直接 `import ds_common`)⇒ `ds/bin` 必须**写死进 `._pth`**,
    靠环境变量注入是无效的。已写进 `check-package.sh` 当机械检查。
 
+## 体积构成(量出来的,不是估的)
+
+包 251MB / zip 79MB。`site-packages` 228MB,其中 **93MB(41%)是 OpenDesign 一个都不用的东西**:
+
+| 白带的 | 大小 | 是什么 |
+|---|---|---|
+| lark_oapi | 45MB | 飞书 |
+| botocore + boto3 + s3transfer + jmespath | 32MB | AWS |
+| anthropic | 7MB | 另一家 LLM 客户端(我们走 openai 兼容口连 MiMo) |
+| telegram / slack_sdk / botpy / dingtalk_stream / slackify_markdown | 9MB | Telegram / Slack / QQ / 钉钉 |
+
+都是 nanobot 自带的聊天平台接口,而 OpenDesign 只开 websocket 一条通道
+(模板里飞书那段本来就写死 `enabled: false`)。
+
+**实测可砍**:台架上把这 11 个卸掉后 spike 仍 29 PASS(网关照起、3 个 MCP 照连、
+ds-web 照报 0.85.0)⇒ 不是启动期强依赖。S1 砍掉大约能到 **160MB / zip 50MB 上下**。
+⚠️ 这是在 Linux 上量的**导入关系**,Windows 上要再验一次;S0 探路包**故意不砍** ——
+先动依赖会把结论搅浑,红了分不清是 embeddable 的问题还是我删坏了。
+
+## 依赖必须锁精确版本(还原台架时踩出来的)
+
+出货包里是 `lark_oapi==1.5.5`。不带版本重装会拿到 **1.7.2,它要求 `websockets<16`,
+而 nanobot 要 `>=16`** —— 直接互斥。也就是说**同一份 requirements 在不同日期装出来的
+东西可能根本起不来**。
+
+⇒ S1 的安装器必须携带**精确版本的离线 payload**(本单 `pip download` 出来的那 119 个
+就是一个已解析好的自洽集合),不许在用户机器上现场解析。
+**这反过来是离线方案的一个额外优点**,不只是"装机不联网"那么简单。
+(若 S1 砍掉 lark-oapi,这个特定冲突自然消失,但"锁版本"这条不因此作废。)
+
 ## Key trade-offs / risks
 
 - **355MB 解压体积**换"用户不装 Python"。可接受:一次性,且业主机器上装的 3D 软件
