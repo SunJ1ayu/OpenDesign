@@ -1,0 +1,18 @@
+（业主 Windows 真机 2026-08-12 22:59 第一跑,原样存档;结论:红,2 条）
+C:\Users\PC\Desktop\OpenDesign-探路包
+
+S0a PASS 解释器在本包内   C:\Users\PC\Desktop\OpenDesign-探路包\python\python.exe
+S0b PASS sys.path 四条全在包内(含 ._pth 写死的 ds\bin —— 那一手是对的)
+S1  PASS 3.12.10
+S2a-e PASS pydantic_core / cryptography / lxml / Pillow / msgpack 全部真运算通过
+S3  PASS anydoc 真转 CSV,「45天」在(**它头一回在 Windows 上真跑**)
+S2-loc-mcp  FAIL ModuleNotFoundError: No module named 'pywintypes'
+                 mcp/os/win32/utilities.py:22 import pywintypes
+S4a         FAIL ModuleNotFoundError: No module named 'win32_setctime'
+                 loguru/_ctime_functions.py:57 load_ctime_functions()
+S5/S6       SKIP （S4 没过,起不了 —— 不是 PASS）
+
+根因(事后查证):pip download --platform win_amd64 只按标签挑轮子,
+sys_platform=='win32' 这类环境标记仍按本机(Linux)判 ⇒ 仅 Windows 需要的依赖被静默丢掉。
+机械审计扫出共 4 个:colorama / pywin32 / tzdata / win32-setctime
+（真机只炸出前 2 个,tzdata 会在起网关那步才炸）。

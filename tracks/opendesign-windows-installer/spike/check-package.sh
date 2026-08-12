@@ -28,8 +28,25 @@ if [ -f "$P" ]; then
   # ._pth 会**忽略 PYTHONPATH**,而 ds 的模块之间是平级 import(ds_web 直接 import ds_common)
   # ⇒ ds/bin 必须写死进 ._pth,否则子进程起不来。
   grep -q '\.\.\\ds\\bin' "$P"           && ok "._pth 写死了 ds/bin(._pth 会忽略 PYTHONPATH)" || no "._pth 缺 ds/bin ⇒ ds_web/ds_mcp 会 import 不到同级模块"
+  # pywin32 靠一个 .pth 文件把 win32\lib 挂上路径,而 embeddable + ._pth 下 .pth 会不会被
+  # 处理我在 Linux 上验不了 ⇒ 写死进 ._pth,不赌。
+  grep -q 'Lib\\site-packages\\win32\\lib' "$P" && ok "._pth 写死了 pywin32 的 win32\\lib" || no "._pth 缺 win32\\lib ⇒ import pywintypes 可能仍然失败"
 else
   no "._pth 文件缺失"
+fi
+
+# 只在 Windows 上才需要的依赖,在 Linux 上解析时会被**静默丢掉**(pip --platform 只管
+# 挑轮子,sys_platform 标记还是拿本机判的)。2026-08-12 真机第一跑就炸在这上面。
+AUDIT="$(dirname "$0")/win-deps-audit.py"
+if [ -f "$AUDIT" ]; then
+  if python3 "$AUDIT" "$B/python/Lib/site-packages" > /tmp/win-deps-audit.out 2>&1; then
+    ok "没有漏掉的 Windows 条件依赖($(grep -oP '带 Windows 条件的必需依赖 \K\d+' /tmp/win-deps-audit.out) 个全在)"
+  else
+    no "漏掉了只在 Windows 上才需要的依赖:"
+    grep '缺!!' /tmp/win-deps-audit.out | sed 's/^/         /'
+  fi
+else
+  no "找不到 win-deps-audit.py"
 fi
 
 for p in nanobot mcp anydoc pydantic_core lxml PIL cryptography; do
