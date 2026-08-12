@@ -258,7 +258,7 @@ _SCAN_ERR_STATUS = {
 _EDIT_ALLOWED_KEYS = {"project", "cnum", "new_status", "new_text", "note"}
 # edit_change error code → HTTP status(校验类 400,资源类 404,重复 409;名字/逃逸闸不回显细节)
 _EDIT_ERR_STATUS = {
-    "invalid_status": 400, "empty_text": 400,
+    "invalid_status": 400, "empty_text": 400, "malformed_change_line": 409,
     "change_not_found": 404, "project_not_found": 404, "ambiguous_change": 409,
     "bad_name": 404, "path_escape": 404,
 }

@@ -310,10 +310,12 @@ def delete_change(project: str, cnum,
     「为什么单开工具,不直接开放 set_change_status(status=已删除)」:这个状态不进
     STATUSES,`set_change_status`/`edit_change` 校验不了它,只有这个工具能写)。
 
-    `cnum` 容差同 set_due_date/edit_change(接受 3 / "3" / "C3")——这个工具和它们一样
-    是**双面工具**:MCP 侧 agent 传"C3",web 侧前端删除按钮传裸数字 cnum,不该逼前端
-    自己拼字符串。**不是**照抄 set_change_status 那套严格 `C<n>` 校验(那个只有 MCP
-    一个调用方,agent 会照工具说明传"C3",不用兼容裸数字)。
+    `cnum` 容差同 set_due_date/edit_change(接受 3 / "3" / "03" / "C3" / "C03")——
+    这个工具是**双面工具**:MCP 侧 agent 传"C3",web 侧前端删除按钮传裸数字 cnum,
+    不该逼前端自己拼字符串。
+    ⚠️ 2026-08-12(track opendesign-cnum-zeropad)起,`set_change_status` 也走同一个
+    `_parse_target_cnum`,它那套"严格 `C<n>`"的校验**已经不存在了** ——
+    别再照着这句旧话去区分两者(四审 subdeepseek finding 2:这句当时已经是假的)。
 
     展示层跟着这个状态走:`ds_todo.OPEN_STATUS` 不含它 → 待办页自动不显示;
     `ds_web._changes` 显式过滤它 → 项目变更栏也看不见。文件里这一行原样留着,
@@ -576,7 +578,20 @@ def edit_change(project: str, cnum, new_status: str | None = None,
             old_full = pm.group("text")
             old_text, due = ds_common.split_due(old_full)  # 截止日不参与比较/留痕
             if new_text_s != old_text:  # no-op(==旧)不留痕,避免 `原:X`==新值噪声
-                lines[i] = pm.group(1) + new_text_s + ds_common.format_due_suffix(due)
+                candidate = pm.group(1) + new_text_s + ds_common.format_due_suffix(due)
+                # 写完必须还读得回来(四审 subdeepseek 孤腿 BLOCK,判据 N9):
+                # `- [待确认] C03-1 …` 这种行,正文段从 `-1` 起算(读写两侧一致),
+                # 但替换后 C 号与正文之间的分隔没了 ⇒ `- [待确认] C03客厅刷米白`,
+                # 读回来 cnum=None,**这条变更从此没有编号、再也定位不到**。
+                # 通用不变量:任何重写正文的写入,读侧必须仍能把它读成同一条变更;
+                # 保证不了就 fail closed,档案逐字节不动(本仓铁律:坏一次是真的坏)。
+                # 用**和定位同一把尺**(`_change_line_cnum`),不是读侧 `parse_change`:
+                # 后者不认非词表状态(`- [搁置] C3 …`),拿它当保险会把那条一直支持的
+                # 手写路径一起拒掉 —— 首版就这么写、被 N8 和现成回归 test_e12 双双红检出来。
+                if _change_line_cnum(candidate) != num:
+                    box["write"] = False
+                    return {"error": "malformed_change_line"}
+                lines[i] = candidate
                 _append_history_entry(lines, f"- C{num} 改于 {today}｜原:{old_text}")
                 changed = True
                 changed_fields.add("text")

@@ -141,6 +141,20 @@ mutate "W8 拆掉手写状态行的回退" bin/ds_tools.py \
     return int(m.group("num"))' \
   '    return ds_todo.change_line_cnum(line)'
 
+# W9 把"写完读得回来"那道保险拆掉 —— 四审孤腿 BLOCK 抓到的毁行路径本身。期望 N9 红。
+mutate "W9 拆掉写完读得回来的保险" bin/ds_tools.py \
+  '                if _change_line_cnum(candidate) != num:
+                    box["write"] = False
+                    return {"error": "malformed_change_line"}
+                lines[i] = candidate' \
+  '                lines[i] = candidate'
+
+# W10 那道保险改用读侧 parse_change(=我首版写错的样子)。期望 N8/N9b 红。
+mutate "W10 保险用错尺(读侧 parse_change)" bin/ds_tools.py \
+  '                if _change_line_cnum(candidate) != num:' \
+  '                _b = ds_todo.parse_change(candidate)
+                if _b is None or _b["cnum"] != num:'
+
 echo
 echo "=== 变异测试:${bitten} 处被咬住,${escaped} 处漏网 ==="
 [ "$escaped" -eq 0 ]
