@@ -76,14 +76,36 @@ def skip(cid: str, name: str, why: str) -> None:
     skipped.append(f"{cid} {name}({why})")
 
 
+ROOT_RAW = Path(__file__).absolute().parent   # 不跟穿软链接的那一份
+
+
 def inside_root(p: str | os.PathLike[str] | None) -> bool:
+    """判"这个路径是不是本包里的",**两种写法命中一种就算**。
+
+    只用 resolve() 会跟穿软链接 ⇒ **假红**:台架上 venv 的 `bin/python` 是指向系统
+    解释器的软链,被判成"包外";Windows 上更现实的踩法是业主把包解压在 OneDrive
+    重定向目录或映射盘下(路径经 junction),`__file__` 解析出的真路径和启动时的路径
+    对不上,整包当场假红 —— 而我会据此得出"免装 Python 不行"这个完全错误的结论。
+    **假报警和假绿一样坏**(08-11 变异脚本三次自己坏了那次的账)。
+
+    反过来也不能因此把闸放空:机器上装的 `C:\\Python312\\python.exe` 两种写法都不在
+    包内,照样红。这里放宽的只是"同一个东西的两种叫法",不是"别人家的东西"。
+    """
     if not p:
         return False
+    q = Path(p)
     try:
-        Path(p).resolve().relative_to(ROOT)
-        return True
+        cands = (Path(os.path.abspath(q)), q.resolve())
     except Exception:
-        return False
+        cands = (Path(os.path.abspath(q)), )
+    for base in (ROOT_RAW, ROOT):
+        for cand in cands:
+            try:
+                cand.relative_to(base)
+                return True
+            except ValueError:
+                pass
+    return False
 
 
 def port_open(port: int, timeout: float = 1.0) -> bool:
