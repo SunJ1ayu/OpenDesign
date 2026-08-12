@@ -242,8 +242,15 @@ def _parse_target_cnum(value) -> int | None:
     return int(m.group(1))
 
 
-def _change_line_cnum_for_edit(line: str) -> int | None:
-    """主变更行 C 号。先走读侧 CHANGE_RE;保留 edit_change 对非标准状态行改正文的旧能力。"""
+def _change_line_cnum(line: str) -> int | None:
+    """主变更行 C 号 —— **五个写口共用这一个定义**。
+
+    先走读侧 `CHANGE_RE`(词表内状态);miss 了再走 `_CHANGE_RE`(状态位 `[^\]]*`)。
+    这一层回退是**旧行为的原样保留**,不是新容差:改动前五处写口的锚都是
+    `^(- \[)([^\]]*)(\]\s+C{num}\b)`,业主手写的 `- [搁置] C3 …` 一直改得动、删得掉。
+    只给 edit_change 保、不给 set_change_status/delete_change 保,会让同一次改动里
+    三个写口的容差自相矛盾,而且收紧的正好是"手写档案"这条路 —— 本单要救的正是它(判据 N8)。
+    """
     cnum = ds_todo.change_line_cnum(line)
     if cnum is not None:
         return cnum
@@ -265,7 +272,7 @@ def _rewrite_change_status(path: str, change_id: str, new_status: str,
 
     with ds_common.locked_rw(path) as box:
         lines = box["lines"]
-        hits = [i for i, ln in enumerate(lines) if ds_todo.change_line_cnum(ln) == num]
+        hits = [i for i, ln in enumerate(lines) if _change_line_cnum(ln) == num]
         if len(hits) != 1:
             box["write"] = False
             return {"error": "change_not_found" if not hits else "ambiguous_change"}
@@ -356,7 +363,7 @@ def set_due_date(project: str, cnum, due: str | None,
 
     with ds_common.locked_rw(path) as box:
         lines = box["lines"]
-        hits = [i for i, ln in enumerate(lines) if ds_todo.change_line_cnum(ln) == num]
+        hits = [i for i, ln in enumerate(lines) if _change_line_cnum(ln) == num]
         if len(hits) != 1:
             box["write"] = False
             return {"error": "change_not_found" if not hits else "ambiguous_change"}
@@ -549,7 +556,7 @@ def edit_change(project: str, cnum, new_status: str | None = None,
 
     with ds_common.locked_rw(path) as box:
         lines = box["lines"]
-        hits = [i for i, ln in enumerate(lines) if _change_line_cnum_for_edit(ln) == num]
+        hits = [i for i, ln in enumerate(lines) if _change_line_cnum(ln) == num]
         if len(hits) != 1:
             box["write"] = False
             return {"error": "change_not_found" if not hits else "ambiguous_change"}

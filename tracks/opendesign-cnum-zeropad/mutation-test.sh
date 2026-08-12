@@ -68,7 +68,7 @@ mutate "W2 删备注退回字符串匹配" bin/ds_tools.py \
 
 # W3 截止日那处漏改(五处只改四处的典型形态)。期望 A3_due_date / A4c 红。
 mutate "W3 set_due_date 漏改" bin/ds_tools.py \
-  '        hits = [i for i, ln in enumerate(lines) if ds_todo.change_line_cnum(ln) == num]
+  '        hits = [i for i, ln in enumerate(lines) if _change_line_cnum(ln) == num]
         if len(hits) != 1:
             box["write"] = False
             return {"error": "change_not_found" if not hits else "ambiguous_change"}
@@ -95,11 +95,19 @@ mutate "W4 入口不归一(返回字符串)" bin/ds_tools.py \
 
 # W5 歧义检查被拆掉(fail closed 变成"取第一条")。期望 A4/A5c 红。
 mutate "W5 歧义不再 fail closed" bin/ds_tools.py \
-  '        hits = [i for i, ln in enumerate(lines) if _change_line_cnum_for_edit(ln) == num]
-        if len(hits) != 1:' \
-  '        hits = [i for i, ln in enumerate(lines) if _change_line_cnum_for_edit(ln) == num]
+  '        hits = [i for i, ln in enumerate(lines) if _change_line_cnum(ln) == num]
+        if len(hits) != 1:
+            box["write"] = False
+            return {"error": "change_not_found" if not hits else "ambiguous_change"}
+        i = hits[0]
+        changed = False' \
+  '        hits = [i for i, ln in enumerate(lines) if _change_line_cnum(ln) == num]
         hits = hits[:1] if hits else hits
-        if len(hits) != 1:'
+        if len(hits) != 1:
+            box["write"] = False
+            return {"error": "change_not_found" if not hits else "ambiguous_change"}
+        i = hits[0]
+        changed = False'
 
 # W6 改状态时重拼整行(破 BLOCK-2 字节铁律:C03 被规范化成 C3)。期望 N4/A3_status 红。
 mutate "W6 改状态时重拼主行" bin/ds_tools.py \
@@ -121,6 +129,17 @@ mutate "W7 读侧改成 ASCII-only" bin/ds_todo.py \
     if not m or not m.group(1).isascii():
         return None
     return int(m.group(1))'
+
+# W8 把"非词表状态行"的回退拆掉 —— 这就是闸③抓到的那个回归本身。期望 N8 红。
+mutate "W8 拆掉手写状态行的回退" bin/ds_tools.py \
+  '    cnum = ds_todo.change_line_cnum(line)
+    if cnum is not None:
+        return cnum
+    m = _CHANGE_RE.match(line)
+    if not m:
+        return None
+    return int(m.group("num"))' \
+  '    return ds_todo.change_line_cnum(line)'
 
 echo
 echo "=== 变异测试:${bitten} 处被咬住,${escaped} 处漏网 ==="
