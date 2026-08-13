@@ -65,8 +65,8 @@
 ## 已经摸完的底(2026-08-12 夜,全部我自己跑的机器结果)
 
 1. **向导可被脚本完全替代** —— 探针 6/6,且用脚本生成的 config **真把网关启起来了**
-   (3 个 MCP server 全连上、agent loop 起来)。日志在
-   `/tmp/claude-0/-root/b5644742-.../scratchpad/gw.log`。
+   (3 个 MCP server 全连上、agent loop 起来)。日志:`evidence/S0-gateway-boot.log`
+   (2026-08-13 从会话临时目录搬进仓 —— 原路径在会话 scratchpad 下,会话一断就是死指针)。 [仓外不承重]
    顺带查出探针自己的一个假绿口:判据 C 只问了 `apiKey` 非空,而 `${DS_LLM_KEY}`
    这个**占位符本身就非空** ⇒ 补强成两问(设了 key 解析出真值 / 没设当场 fail closed
    且报错说得出人话),重跑两向全绿。
