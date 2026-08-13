@@ -144,10 +144,15 @@ class PickPort(unittest.TestCase):
 
 # =========================================================== B 单实例 + 唤醒
 LOCK_CHILD = r"""
-import json, sys, time
+import json, os, sys, time
 sys.path.insert(0, sys.argv[1])
 import ds_shell_core as core
 marker = sys.argv[4]
+# argv[5] 是"发令枪":两个实例都先在这里等,等文件出现才一起冲 ——
+# 没有它,Popen 是一前一后起的,永远撞不出并发那个窗口(=靠运气的绿)。
+if len(sys.argv) > 5:
+    while not os.path.exists(sys.argv[5]):
+        time.sleep(0.002)
 lock = core.InstanceLock(base_port=int(sys.argv[2]), span=int(sys.argv[3]),
                          on_show=lambda: open(marker, "w").write("SHOWN"))
 got = lock.acquire()
@@ -272,22 +277,26 @@ class SingleInstance(unittest.TestCase):
         两份都先扫完整段、都认定"没有旧的",然后一个绑 base、一个绑 base+1,
         **两份都以为自己是唯一的**。真机上就是两个窗口、两套后台、抢同一批端口。
         """
-        base = free_port()
-        procs = [subprocess.Popen(
-            [sys.executable, "-c", LOCK_CHILD, BIN, str(base), "5",
-             str(self.marker.parent / f"shown{i}.txt")],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) for i in range(2)]
-        for p in procs:
-            self.addCleanup(self.reap, p)
-        got = []
-        for p in procs:
-            line = p.stdout.readline()
-            if not line.strip():
-                self.fail(f"实例没吭声就退了;stderr={p.stderr.read()[:500]}")
-            got.append(json.loads(line))
-        winners = [r for r in got if r["acquired"]]
-        self.assertEqual(len(winners), 1,
-                         f"同时起两份,{len(winners)} 份都认为自己是唯一实例:{got}")
+        for round_no in range(6):     # 竞态要多打几遍才现形,单次绿说明不了什么
+            base = free_port()
+            go = self.marker.parent / f"发令枪{round_no}"
+            procs = [subprocess.Popen(
+                [sys.executable, "-c", LOCK_CHILD, BIN, str(base), "5",
+                 str(self.marker.parent / f"shown{round_no}-{i}.txt"), str(go)],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) for i in range(2)]
+            for p in procs:
+                self.addCleanup(self.reap, p)
+            time.sleep(0.3)           # 让两个解释器都起好、都堵在发令枪前
+            go.write_text("go", encoding="utf-8")
+            got = []
+            for p in procs:
+                line = p.stdout.readline()
+                if not line.strip():
+                    self.fail(f"实例没吭声就退了;stderr={p.stderr.read()[:500]}")
+                got.append(json.loads(line))
+            winners = [r for r in got if r["acquired"]]
+            self.assertEqual(len(winners), 1,
+                             f"第 {round_no} 轮同时起两份,{len(winners)} 份都认为自己是唯一实例:{got}")
 
     def test_b9_a_silent_client_cannot_wedge_the_lock(self):
         """攻题二轮 HIGH#2:端口扫描器(或任何连上就不说话的东西)连住锁位。
@@ -347,13 +356,18 @@ BIND_AND_WAIT = (
 )
 
 # 孩子再生一个孙子,孙子占着哨兵端口 —— nanobot 就是这个形状(它自己拉起 3 个 MCP)。
+#   %(sentinel)s = 孙子占的哨兵端口   %(live)s = **父进程**自己活多久
+# ⚠️ 别用 str.replace 去改这里的 sleep:"time.sleep(300)" 在这段里出现两次
+# (一次是孙子的、一次是父亲的),replace 会**两个一起改** ⇒ 孙子自己死掉,
+# "孙进程有没有被收干净"那条考卷就变成了假绿。2026-08-13 我真写出过这个 bug。
 SPAWN_GRANDCHILD = (
     "import socket,subprocess,sys,time\n"
     "g=subprocess.Popen([sys.executable,'-c',"
-    "\"import socket,time;s=socket.socket();s.bind(('127.0.0.1',%s));s.listen(4);time.sleep(300)\"])\n"
+    "\"import socket,time;s=socket.socket();s.bind(('127.0.0.1',%(sentinel)s));"
+    "s.listen(4);time.sleep(300)\"])\n"
     "s=socket.socket();s.bind(('127.0.0.1',int(sys.argv[1])));s.listen(4)\n"
     "print('listening',flush=True)\n"
-    "time.sleep(300)\n"
+    "time.sleep(%(live)s)\n"
 )
 
 # 赖着不走:忽略 SIGTERM(Windows 上等价形态是不响应 WM_CLOSE / CTRL_BREAK)
@@ -397,7 +411,9 @@ class Supervise(unittest.TestCase):
         (Linux 这边验的是 POSIX 进程组;Windows 的 Job 对象只有真机验得了。)
         """
         port, sentinel = free_port(), free_port()
-        self.sup.start([self.svc("有孙子的腿", SPAWN_GRANDCHILD % sentinel, port)])
+        self.sup.start([self.svc("有孙子的腿",
+                                 SPAWN_GRANDCHILD % {"sentinel": sentinel, "live": 300},
+                                 port)])
         deadline = time.time() + 10
         while not core.port_listening(sentinel) and time.time() < deadline:
             time.sleep(0.1)
@@ -519,8 +535,8 @@ class Supervise(unittest.TestCase):
         业主机器上从此躺着几个占着端口的孤儿,而且看不出是谁。
         """
         port, sentinel = free_port(), free_port()
-        # 父进程:拉起孙子 → 开自己的端口 → 2 秒后自己退掉(孙子继续活)
-        code = (SPAWN_GRANDCHILD % sentinel).replace("time.sleep(300)", "time.sleep(2.0)")
+        # 父进程:拉起孙子 → 开自己的端口 → 2 秒后自己退掉(**孙子继续活 300 秒**)
+        code = SPAWN_GRANDCHILD % {"sentinel": sentinel, "live": 2.0}
         self.sup.start([self.svc("会先走的父进程", code, port)])
         deadline = time.time() + 10
         while not core.port_listening(sentinel) and time.time() < deadline:
@@ -905,19 +921,36 @@ class ShellState(unittest.TestCase):
         slow.destroy = lazy_destroy
         stopped = []
         st = core.ShellState(ui=slow, on_stop=lambda: stopped.append(1))
-        ready = threading.Barrier(2)
+        ready = threading.Barrier(4)
 
         def quit_now():
-            ready.wait(timeout=5)
+            ready.wait(timeout=10)
             st.on_quit()
 
-        ts = [threading.Thread(target=quit_now) for _ in range(2)]
+        ts = [threading.Thread(target=quit_now) for _ in range(4)]
         for t in ts:
             t.start()
         for t in ts:
-            t.join(timeout=10)
-        self.assertEqual(stopped, [1], "两个线程同时点退出,后台被收了两遍")
-        self.assertEqual(slow.calls.count("destroy"), 1, "窗口被销毁了两遍")
+            t.join(timeout=15)
+        self.assertEqual(stopped, [1], "多个线程同时点退出,后台被收了不止一遍")
+        self.assertEqual(slow.calls.count("destroy"), 1, "窗口被销毁了不止一遍")
+
+    def test_f9_the_check_and_set_in_on_quit_is_not_two_steps(self):
+        """f8 打的是真线程,但"检查 exiting"和"置位 exiting"之间那条缝极窄,
+        真线程未必每次都插得进去 —— **单次绿说明不了什么**。这里把那条缝直接撑开:
+        让 on_stop 自己再叫一次 on_quit(重入),没有原子性的实现会当场收两遍。
+        """
+        ui = FakeUI()
+        stopped = []
+        st = None
+
+        def on_stop():
+            stopped.append(1)
+            st.on_quit()          # 重入:真机上托盘线程和 UI 线程就会这样打架
+        st = core.ShellState(ui=ui, on_stop=on_stop)
+        st.on_quit()
+        self.assertEqual(stopped, [1], "on_quit 可重入 ⇒ 后台被收两遍")
+        self.assertEqual(ui.calls.count("destroy"), 1, "窗口被销毁两遍")
 
     def test_f7_a_late_show_after_quit_is_a_no_op(self):
         """攻题 HIGH#12:退出途中第二个实例发来的 SHOW 会打在已销毁的窗口上。
