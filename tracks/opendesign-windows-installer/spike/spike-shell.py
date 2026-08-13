@@ -24,7 +24,41 @@ import threading
 import traceback
 from pathlib import Path
 
+# Windows 的 cmd 默认不是 UTF-8。不焊这一下,打印中文会 UnicodeEncodeError ⇒ **假红**。
+# (这一手是从 S0 的 spike.py 抄来的;我第一版漏了它,等于给自己埋了一个假失败。)
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 HERE = Path(__file__).resolve().parent
+RECEIPT = HERE / "收据.txt"
+
+
+class _Tee:
+    """屏幕和收据文件各写一份 —— 业主直接把 收据.txt 发回来,不用截图。
+
+    与 S0 的约定保持一致(他已经熟悉这个流程了,别在同一个项目里换第二套习惯)。
+    """
+
+    def __init__(self, stream, fh):
+        self._s, self._f = stream, fh
+
+    def write(self, data):
+        self._s.write(data)
+        self._f.write(data)
+        self._f.flush()
+        return len(data)
+
+    def flush(self):
+        self._s.flush()
+        self._f.flush()
+
+
+_fh = open(RECEIPT, "w", encoding="utf-8")
+_REAL_STDOUT = sys.stdout          # 收尾时要换回去,见文件末尾那段注释
+sys.stdout = _Tee(sys.stdout, _fh)
 PASS = 0
 FAIL = 0
 SKIP = 0
@@ -233,5 +267,15 @@ else:
     print("    把上面的报错原样发回来,我据此定。")
 print()
 print("  注:这一跑不写注册表、不改 PATH、不碰你已装的 OpenDesign。删掉这个文件夹即可清除。")
+print(f"\n  这份内容已经存成 {RECEIPT.name} —— 把那个文件整个发回来就行,不用你判断是什么问题。")
 
-sys.exit(1 if FAIL else 0)
+# 收尾顺序是有讲究的,写错会**污染退出码**:
+# 第一版是「先 close(_fh) 再 sys.exit」,于是解释器收尾时去 flush sys.stdout(=_Tee),
+# _Tee 又去 flush 一个已经关掉的文件 ⇒ 抛异常 ⇒ **rc 变成 120**,
+# 一次本该全绿的跑会以 rc=120 收场并吐一段报错。判据自己造假红,是最难看的一种。
+# (2026-08-13 在 Linux 上真跑才发现 —— 读代码没读出来。)
+sys.stdout.flush()
+_code = 1 if FAIL else 0
+sys.stdout = _REAL_STDOUT
+_fh.close()
+sys.exit(_code)
