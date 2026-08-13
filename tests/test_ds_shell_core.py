@@ -169,13 +169,24 @@ class SingleInstance(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.marker = Path(self.tmp.name) / "shown.txt"
 
+    def reap(self, p):
+        p.kill()
+        p.wait(timeout=10)
+        for f in (p.stdout, p.stderr):
+            if f:
+                f.close()
+
     def start_first(self, base, span=5):
         p = subprocess.Popen([sys.executable, "-c", LOCK_CHILD, BIN, str(base), str(span),
                               str(self.marker)],
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        self.addCleanup(p.kill)
+        self.addCleanup(self.reap, p)
         line = p.stdout.readline()
-        self.assertTrue(line.strip(), f"第一个实例没吭声就退了;stderr={p.stderr.read()[:800]}")
+        # ⚠️ 别写成 assertTrue(line, f"...{p.stderr.read()}") —— 消息串是**先算后传**的,
+        # 而 stderr.read() 要等子进程关掉管道才返回 ⇒ 每条用例白等到子进程 sleep 完。
+        # 2026-08-13 第一次跑就栽在这:整份考卷卡死在 b 组,看着像实现挂了,其实是考卷自己。
+        if not line.strip():
+            self.fail(f"第一个实例没吭声就退了;stderr={p.stderr.read()[:800]}")
         return p, json.loads(line)
 
     def test_b1_first_instance_acquires(self):
