@@ -309,9 +309,13 @@ class SingleInstance(unittest.TestCase):
         self.addCleanup(first.release)
         self.assertTrue(first.acquire())
 
-        mute = socket.create_connection(("127.0.0.1", first.port), timeout=5)
-        self.addCleanup(mute.close)
-        time.sleep(0.2)  # 让服务端确实收下这条连接
+        # 放**多条**哑巴连接:只放一条的话,第二实例复扫锁位时会自己重试成功,
+        # 于是串行处理的实现照样全绿(红检 M5 抓到的洞)。多条会把串行的那条路彻底堵死。
+        mutes = [socket.create_connection(("127.0.0.1", first.port), timeout=5)
+                 for _ in range(4)]
+        for m in mutes:
+            self.addCleanup(m.close)
+        time.sleep(0.3)  # 让服务端确实收下这些连接
 
         second = core.InstanceLock(base_port=base, span=5)
         self.addCleanup(second.release)
@@ -769,6 +773,9 @@ class ChildEnv(unittest.TestCase):
         "SystemRoot": r"C:\Windows", "TEMP": r"C:\Temp", "PATH": r"C:\Windows\System32",
         "LOCALAPPDATA": r"C:\Users\业主\AppData\Local", "COMSPEC": r"C:\Windows\cmd.exe",
         "PYTHONPATH": "/机器上别人的路径", "PYTHONHOME": r"C:\Python311",
+        # 业主机器上这两个**一定**是有值的 —— 少了它们,一个"有就沿用继承值"的
+        # 实现会照样全绿(红检 M12 抓到的洞:网关会去读业主原来那份 ~/.nanobot)
+        "HOME": r"C:\Users\业主", "USERPROFILE": r"C:\Users\业主",
         "DS_LLM_KEY": "sk-业主上一次装的旧key", "DS_ROOT": r"D:\旧的\OpenDesign",
         "DS_WEB_PORT": "9999",
     }
