@@ -1,0 +1,89 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    S1b
+cmd:     bash tracks/opendesign-windows-installer/spike/build-package.sh /root/opendesign-spike-s1b --s1b
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  3c7de12
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-13T15:15:00Z
+---------------- 输出开始 ----------------
+
+[1m== 1/6 免装 Python 3.12.10[0m
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100 10.6M  100 10.6M    0     0  95.0M      0 --:--:-- --:--:-- --:--:-- 94.8M100 10.6M  100 10.6M    0     0  94.7M      0 --:--:-- --:--:-- --:--:-- 94.8M
+
+[1m== 2/6 装配依赖(仅 Windows 轮子,源码包一律拒收)[0m
+ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+mootdx 0.11.7 requires httpx<0.26.0,>=0.25.0, but you have httpx 0.28.1 which is incompatible.
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+
+[1m== 2b/6 外壳依赖(S1a)[0m
+  例外核准:proxy_tools-0.1.0-py3-none-any.whl(平台无关)
+WARNING: Target directory /root/opendesign-spike-s1b/pkg/python/Lib/site-packages/pillow-12.3.0.dist-info already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/opendesign-spike-s1b/pkg/python/Lib/site-packages/pycparser already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/opendesign-spike-s1b/pkg/python/Lib/site-packages/typing_extensions.py already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/opendesign-spike-s1b/pkg/python/Lib/site-packages/typing_extensions-4.16.0.dist-info already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/opendesign-spike-s1b/pkg/python/Lib/site-packages/_cffi_backend.cp312-win_amd64.pyd already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/opendesign-spike-s1b/pkg/python/Lib/site-packages/PIL already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/opendesign-spike-s1b/pkg/python/Lib/site-packages/cffi already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/opendesign-spike-s1b/pkg/python/Lib/site-packages/six.py already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/opendesign-spike-s1b/pkg/python/Lib/site-packages/pycparser-3.0.dist-info already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/opendesign-spike-s1b/pkg/python/Lib/site-packages/six-1.17.0.dist-info already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/opendesign-spike-s1b/pkg/python/Lib/site-packages/cffi-2.1.1.dist-info already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/opendesign-spike-s1b/pkg/python/Lib/site-packages/bin already exists. Specify --upgrade to force replacement.
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+
+[1m== 3/6 闸 A:Windows 条件依赖有没有被静默丢掉(F1 的机械版)[0m
+  缺:colorama pywin32 tzdata win32-setctime —— 补装
+WARNING: Target directory /root/opendesign-spike-s1b/pkg/python/Lib/site-packages/bin already exists. Specify --upgrade to force replacement.
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+  补装后复扫:干净
+
+[1m== 4/6 ds 文件[0m
+  ds-web 版本 0.85.0
+
+[1m== 5/6 入口 跑一下.bat(CRLF)[0m
+  入口考卷:spike-shell2.py
+
+[1m== 6/6 闸 B:成品结构检查[0m
+== 包结构检查:/root/opendesign-spike-s1b/pkg ==
+  [PASS] 包内 python.exe 在
+  [PASS] 没有 Linux .so 泄漏(0 个)
+  [PASS] Windows .pyd 有 135 个
+  [PASS] ._pth 放开了 site
+  [PASS] ._pth 列了 site-packages
+  [PASS] ._pth 写死了 ds/bin(._pth 会忽略 PYTHONPATH)
+  [PASS] ._pth 写死了 pywin32 的 win32\lib
+  [PASS] 没有漏掉的 Windows 条件依赖(5 个全在)
+  [PASS] 关键包 nanobot 在
+  [PASS] 关键包 mcp 在
+  [PASS] 关键包 anydoc 在
+  [PASS] 关键包 pydantic_core 在
+  [PASS] 关键包 lxml 在
+  [PASS] 关键包 PIL 在
+  [PASS] 关键包 cryptography 在
+  [PASS] anydoc 的 Windows 原生件在
+  [PASS] ds/bin/ds_web.py 在
+  [PASS] ds/bin/ds_mcp.py 在
+  [PASS] ds/bin/enable_webui.py 在
+  [PASS] ds/bin/ds_merge_config.py 在
+  [PASS] ds/config/nanobot.config.windows.jsonc 在
+  [PASS] ds/web/dist/index.html 在
+  [PASS] ds/版本号.txt 在
+  [PASS] 跑一下.bat 在
+  [PASS] 包里有且只有一张考卷(spike-shell2.py)
+  [PASS] 跑一下.bat 指向的就是它
+  [PASS] ds/bin/ds_shell.py 在(外壳形态)
+  [PASS] ds/bin/ds_shell_core.py 在(外壳形态)
+  [PASS] ds/ 里没有仓库外的文件(不会把本地数据发出去)
+  [PASS] 版本号锚一致(0.85.0)
+  [PASS] .bat 是 CRLF 换行
+  [PASS] 没有本机编译的字节码残留
+== 结构检查结束:0 条不合格 ==
+
+[1m✅ 组包完成[0m
+  包目录: /root/opendesign-spike-s1b/pkg (273M)
+  zip   : /root/opendesign-spike-s1b/OpenDesign-spike.zip (86M)
+  外壳依赖: 已含(S1a)
+---------------- 输出结束 ----------------
+runlog: S1b rc=0 commit=3c7de12 dirty=yes at=2026-08-13T15:15:00Z file=tracks/opendesign-windows-installer/evidence/20260813T151500Z-01-S1b.txt

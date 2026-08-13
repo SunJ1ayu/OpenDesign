@@ -12,16 +12,16 @@
 #   闸 B:成品结构合不合格(check-package.sh,fail closed)
 #   闸 C:只允许 Windows 轮子进包(--only-binary + --platform,任何源码包直接失败)
 #
-# 用法:build-package.sh <输出目录> [--with-shell]
-#   --with-shell:额外装桌面外壳依赖(S1a 探路包用;S0 不需要)
+# 用法:build-package.sh <输出目录> [--with-shell|--s1b]
+#   (不给)      :S0 形态,考卷 spike.py —— 只问"免装 Python 跑不跑得动"
+#   --with-shell:S1a,加外壳依赖,考卷 spike-shell.py —— 只问"窗口/托盘起不起得来"
+#   --s1b       :S1b,加外壳依赖,考卷 spike-shell2.py —— 问"外壳 + **真后端**"那一组
 #
 # 产出:<输出目录>/pkg/ 与 <输出目录>/OpenDesign-spike.zip
 
 set -euo pipefail
 
-OUT="${1:?用法: build-package.sh <输出目录> [--with-shell]}"
-WITH_SHELL=0
-[ "${2:-}" = "--with-shell" ] && WITH_SHELL=1
+OUT="${1:?用法: build-package.sh <输出目录> [--with-shell|--s1b]}"
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../../.." && pwd)"          # design-studio 仓根
@@ -48,6 +48,18 @@ SP="$PKG/python/Lib/site-packages"
 
 say() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 die() { printf '\n🔴 %s\n' "$*" >&2; exit 1; }
+
+# 形态与考卷是一对一的 —— **别让它默认成某一张**:组包时选错考卷,业主会拿着一张
+# 答非所问的卷子跑一趟真机,而收据看起来照样"全绿"。不认识的参数直接 fail closed。
+WITH_SHELL=0
+SPIKE=spike.py
+case "${2:-}" in
+  "")           ;;
+  --with-shell) WITH_SHELL=1; SPIKE=spike-shell.py  ;;
+  --s1b)        WITH_SHELL=1; SPIKE=spike-shell2.py ;;
+  *)            die "不认识的参数 '${2}'(只认 --with-shell / --s1b)" ;;
+esac
+[ -f "$HERE/$SPIKE" ] || die "考卷 $SPIKE 不在 $HERE 里"
 
 mkdir -p "$CACHE"
 rm -rf "$PKG"; mkdir -p "$PKG"
@@ -143,9 +155,9 @@ cp "$REPO"/bin/*.py "$PKG/ds/bin/"
 cp "$REPO"/config/nanobot.config.windows.jsonc "$PKG/ds/config/"
 cp -r "$REPO/web/dist" "$PKG/ds/web/"
 [ -d "$REPO/workspace" ] && cp -r "$REPO/workspace" "$PKG/ds/"
-cp "$HERE/spike.py" "$PKG/spike.py"
-# 外壳包跑的是另一张考卷(S1a 只问外壳,不重考 S0 已经答过的)
-[ "$WITH_SHELL" = 1 ] && cp "$HERE/spike-shell.py" "$PKG/spike-shell.py"
+# 只放**这一形态要跑的那一张**考卷。多放几张 = 业主可能双击到错的那张,
+# 而错的那张同样会打印一份看起来很像样的收据。
+cp "$HERE/$SPIKE" "$PKG/$SPIKE"
 
 # 版本号锚:判据要拿它跟 ds-web 自报的版本对一遍(两边对不上 = 包里混了两个版本的代码)。
 # **单一来源是 bin/ds_web.py 的 VERSION**,这里只是抄过去,不许手写。
@@ -158,11 +170,9 @@ echo "  ds-web 版本 $DSVER"
 say "5/6 入口 跑一下.bat(CRLF)"
 # CRLF 是硬要求:LF 结尾的 .bat 在 cmd.exe 下会有诡异行为。
 # **不接管道** —— 管道会吃掉 rc,业主看到的"跑完了"可能是假的(本机为这条记过三次账)。
-ENTRY=spike.py
-[ "$WITH_SHELL" = 1 ] && ENTRY=spike-shell.py
-printf '@echo off\r\nchcp 65001 >nul\r\ncd /d "%%~dp0"\r\npython\\python.exe %s\r\necho.\r\necho ==== 跑完了,把上面的内容截图发回来 ====\r\npause\r\n' \
-  "$ENTRY" > "$PKG/跑一下.bat"
-echo "  入口考卷:$ENTRY"
+printf '@echo off\r\nchcp 65001 >nul\r\ncd /d "%%~dp0"\r\npython\\python.exe %s\r\necho.\r\necho ==== 跑完了,把 收据.txt 发回来 ====\r\npause\r\n' \
+  "$SPIKE" > "$PKG/跑一下.bat"
+echo "  入口考卷:$SPIKE"
 
 # ---------------------------------------------------------------- 6. 闸 B + 出 zip
 say "6/6 闸 B:成品结构检查"
@@ -192,4 +202,8 @@ sys.exit(f'坏文件: {bad}' if bad else 0)
 printf '\n\033[1m✅ 组包完成\033[0m\n'
 printf '  包目录: %s (%s)\n' "$PKG" "$(du -sh "$PKG" | cut -f1)"
 printf '  zip   : %s (%s)\n' "$ZIP" "$(du -sh "$ZIP" | cut -f1)"
-printf '  外壳依赖: %s\n' "$([ "$WITH_SHELL" = 1 ] && echo '已含(S1a)' || echo '未含(S0 形态)')"
+# 这一行印的是**这个包是什么**,所以只能从 $SPIKE 推,不许写死某一档的名字:
+# 上一版写死了"已含(S1a)",于是 S1b 的组包收据上白纸黑字写着 S1a ——
+# 收据里的一句假话,日后一定会被当真。
+printf '  形态: %s(考卷 %s)\n' \
+  "$([ "$WITH_SHELL" = 1 ] && echo '含外壳依赖' || echo 'S0:不含外壳依赖')" "$SPIKE"

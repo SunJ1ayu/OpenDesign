@@ -56,9 +56,34 @@ done
 
 for f in ds/bin/ds_web.py ds/bin/ds_mcp.py ds/bin/enable_webui.py ds/bin/ds_merge_config.py \
          ds/config/nanobot.config.windows.jsonc ds/web/dist/index.html ds/版本号.txt \
-         spike.py 跑一下.bat; do
+         跑一下.bat; do
   [ -f "$B/$f" ] && ok "$f 在" || no "$f 缺"
 done
+
+# 考卷与入口必须对得上。**不写死 spike.py 的名字**:三种形态(S0/S1a/S1b)各有各的考卷,
+# 写死一张会让另外两种形态的包永远红。这里查的是更该查的那件事 ——
+# 包里有且只有一张考卷,且 `跑一下.bat` 指向的正是它。
+# 挡的是:入口指向一张**不在包里**的考卷(业主双击后一闪而过,什么都没有),
+# 或者包里塞了两张、业主跑到了答非所问的那一张(而它照样会打印一份像样的收据)。
+spikes=$(cd "$B" && ls spike*.py 2>/dev/null || true)
+n=$(printf '%s\n' "$spikes" | grep -c . || true)
+if [ "$n" = 1 ]; then
+  ok "包里有且只有一张考卷($spikes)"
+  if grep -qF "$spikes" "$B/跑一下.bat"; then
+    ok "跑一下.bat 指向的就是它"
+  else
+    no "跑一下.bat 没指向 $spikes ⇒ 业主双击会跑空"
+  fi
+else
+  no "包里的考卷有 $n 张(应为 1):$(printf '%s' "$spikes" | tr '\n' ' ')"
+fi
+
+# 外壳形态(S1a/S1b)必须带上外壳自己那两个文件 —— 少了任何一个,业主那趟真机白跑。
+if [ -f "$B/spike-shell.py" ] || [ -f "$B/spike-shell2.py" ]; then
+  for f in ds/bin/ds_shell.py ds/bin/ds_shell_core.py; do
+    [ -f "$B/$f" ] && ok "$f 在(外壳形态)" || no "$f 缺 —— 外壳形态的包必须带它"
+  done
+fi
 
 # 这个包是要**公开发布**的(OpenDesign 是 public 仓)。ds/ 里每一个文件都必须是仓库里
 # 本来就有的 —— 否则就是把机器上的本地文件(工作区配置、key、业主数据)顺手公开了出去。

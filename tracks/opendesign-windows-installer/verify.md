@@ -60,7 +60,12 @@ runlog: package-structure-clean rc=0 commit=f555cd9 dirty=yes at=2026-08-12T14:2
 runlog: S1b rc=0 commit=b5082d7 dirty=no at=2026-08-13T14:24:52Z file=tracks/opendesign-windows-installer/evidence/20260813T142452Z-01-S1b.txt
 runlog: e2e-two-legs rc=0 commit=b5082d7 dirty=yes at=2026-08-13T14:25:33Z file=tracks/opendesign-windows-installer/evidence/20260813T142533Z-01-e2e-two-legs.txt
 runlog: redcheck rc=0 commit=b5082d7 dirty=yes at=2026-08-13T14:53:51Z file=tracks/opendesign-windows-installer/evidence/20260813T145351Z-01-redcheck.txt
+runlog: build-s1b rc=0 commit=3c7de12 dirty=yes at=2026-08-13T15:16:53Z file=tracks/opendesign-windows-installer/evidence/20260813T151653Z-01-build-s1b.txt
 ```
+
+> 上面第 4 行是**组包**(不是判据):`build-package.sh --s1b`,闸 A/B/C 全过、结构检查
+> 0 条不合格。同一个 slug `S1b` 在 evidence/ 里出现过两次(14:24 那份是判据、15:15 那份是
+> 被它取代的头一次组包)—— 名字撞了但不影响守卫,它按文件名时间序取最后一份。
 
 - 七组 56 条:常规一跑 `OK (skipped=1)`;`DS_SHELL_E2E=1` 那跑把跳过的那条也跑了(56 OK),
   用外壳自己的监管 + env **真把两条后端腿起起来**,让它自己报身份。
