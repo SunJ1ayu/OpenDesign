@@ -38,6 +38,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 import urllib.request
@@ -264,6 +265,67 @@ class SingleInstance(unittest.TestCase):
         self.assertEqual(lock._sock.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR), 0,
                          "锁 socket 开了 SO_REUSEADDR ⇒ Windows 上这把锁能被偷")
 
+    def test_b8_two_instances_racing_at_the_same_moment_still_yield_one(self):
+        """🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。
+
+        b2/b4 都是"等第一份完全监听好了才起第二份",漏掉的正是双击最典型的那个窗口:
+        两份都先扫完整段、都认定"没有旧的",然后一个绑 base、一个绑 base+1,
+        **两份都以为自己是唯一的**。真机上就是两个窗口、两套后台、抢同一批端口。
+        """
+        base = free_port()
+        procs = [subprocess.Popen(
+            [sys.executable, "-c", LOCK_CHILD, BIN, str(base), "5",
+             str(self.marker.parent / f"shown{i}.txt")],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) for i in range(2)]
+        for p in procs:
+            self.addCleanup(self.reap, p)
+        got = []
+        for p in procs:
+            line = p.stdout.readline()
+            if not line.strip():
+                self.fail(f"实例没吭声就退了;stderr={p.stderr.read()[:500]}")
+            got.append(json.loads(line))
+        winners = [r for r in got if r["acquired"]]
+        self.assertEqual(len(winners), 1,
+                         f"同时起两份,{len(winners)} 份都认为自己是唯一实例:{got}")
+
+    def test_b9_a_silent_client_cannot_wedge_the_lock(self):
+        """攻题二轮 HIGH#2:端口扫描器(或任何连上就不说话的东西)连住锁位。
+
+        如果服务端是单线程、且要为这个哑巴客户端阻塞 1 秒,而第二实例只等 0.35 秒 ⇒
+        第二实例会**握手假失败**,把真实例当成陌生人,自己另占一格 ⇒ 两份并存。
+        """
+        base = free_port()
+        first = core.InstanceLock(base_port=base, span=5, on_show=lambda: None)
+        self.addCleanup(first.release)
+        self.assertTrue(first.acquire())
+
+        mute = socket.create_connection(("127.0.0.1", first.port), timeout=5)
+        self.addCleanup(mute.close)
+        time.sleep(0.2)  # 让服务端确实收下这条连接
+
+        second = core.InstanceLock(base_port=base, span=5)
+        self.addCleanup(second.release)
+        self.assertFalse(second.acquire(),
+                         "一个连上不说话的客户端就把锁堵住了 ⇒ 会开出第二份 OpenDesign")
+
+    def test_b10_a_handshake_split_across_packets_is_still_recognised(self):
+        """TCP 没有消息边界。握手被拆成两个包发,服务端若只 recv 一次就会认不出来 ——
+        本机回环上很难拆包,所以这里**手动拆**,把这条路走一遍。"""
+        base = free_port()
+        woken = threading.Event()
+        lock = core.InstanceLock(base_port=base, span=5, on_show=woken.set)
+        self.addCleanup(lock.release)
+        self.assertTrue(lock.acquire())
+
+        with socket.create_connection(("127.0.0.1", lock.port), timeout=5) as s:
+            s.settimeout(5)
+            s.sendall(core.InstanceLock._HELLO[:10])
+            time.sleep(0.15)
+            s.sendall(core.InstanceLock._HELLO[10:] + core.InstanceLock._SHOW)
+            self.assertEqual(s.recv(32), core.InstanceLock._OK, "分片握手没被认出来")
+        self.assertTrue(woken.wait(5), "分片握手回了 OK,却没把窗口叫到前台")
+
     def test_b7_windows_branch_asks_for_exclusive_bind(self):
         """Windows 那条分支在 Linux 上跑不了,但"它打算设哪些 socket 选项"是纯数据,
         问得出来 —— 把"我以为它会设"变成一条会红的断言。
@@ -419,6 +481,75 @@ class Supervise(unittest.TestCase):
         self.assertFalse(core.port_listening(good),
                          "起失败了却先把异常抛了,好腿变成孤儿进程")
 
+    def test_c11_a_leg_that_dies_while_the_next_one_boots_fails_the_whole_start(self):
+        """🔴 攻题二轮 HIGH#3:网关先就绪、随后崩掉,而这时监管者只盯着第二条腿。
+
+        ds-web 一就绪 start() 就高高兴兴返回,窗口照开 —— 业主看到界面正常,
+        但聊天**永远连不上**,而且没有任何报错。启动这件事必须是"全体活着"才算成。
+        """
+        first, second = free_port(), free_port()
+        die_soon = BIND_AND_WAIT.replace("time.sleep(300)", "time.sleep(1.0)")
+        slow = "import socket,sys,time\ntime.sleep(4)\n" + BIND_AND_WAIT
+        with self.assertRaises(core.StartupFailed) as cm:
+            self.sup.start([
+                self.svc("先就绪后崩的腿", die_soon, first, timeout=20),
+                self.svc("慢腿", slow, second, timeout=20),
+            ])
+        self.assertIn("先就绪后崩的腿", str(cm.exception), "报错没点名是哪条腿掉的")
+
+    def test_c12_a_non_startupfailed_error_also_rolls_back(self):
+        """攻题二轮 HIGH#4:第二条腿连日志都开不出来(路径不可用)会抛 OSError,
+        它不是 StartupFailed ⇒ 回滚那段 except 接不住 ⇒ 第一条腿变成孤儿。
+        任何异常都得先把兄弟腿收掉再往外抛。
+        """
+        good = free_port()
+        bad = core.Service(name="日志开不出来的腿", argv=[sys.executable, "-c", "pass"],
+                           env=dict(os.environ), ready_port=free_port(),
+                           # 拿一个**文件**当目录用 ⇒ 建日志目录必然失败
+                           log_path=self.dir / "我是文件" / "x.log", ready_timeout=5)
+        (self.dir / "我是文件").write_text("不是目录", encoding="utf-8")
+        with self.assertRaises(core.StartupFailed):
+            self.sup.start([self.svc("好腿", BIND_AND_WAIT, good), bad])
+        self.assertFalse(core.port_listening(good), "第二条腿抛了别的异常,好腿被丢在那儿没人收")
+
+    def test_c13_grandchildren_are_reaped_even_if_the_parent_died_first(self):
+        """攻题二轮 HIGH#4 的第二条:nanobot 父进程自己先崩了,3 个 MCP 孙进程还活着。
+
+        收摊时若看到 `poll() != None` 就直接 return,那整个进程组永远没人杀 ——
+        业主机器上从此躺着几个占着端口的孤儿,而且看不出是谁。
+        """
+        port, sentinel = free_port(), free_port()
+        # 父进程:拉起孙子 → 开自己的端口 → 2 秒后自己退掉(孙子继续活)
+        code = (SPAWN_GRANDCHILD % sentinel).replace("time.sleep(300)", "time.sleep(2.0)")
+        self.sup.start([self.svc("会先走的父进程", code, port)])
+        deadline = time.time() + 10
+        while not core.port_listening(sentinel) and time.time() < deadline:
+            time.sleep(0.1)
+        self.assertTrue(core.port_listening(sentinel), "孙进程没起来,这条考卷问不出东西")
+        deadline = time.time() + 10
+        while self.sup.poll_dead() != ["会先走的父进程"] and time.time() < deadline:
+            time.sleep(0.1)
+        self.sup.shutdown()
+        self.assertFalse(core.port_listening(sentinel),
+                         "父进程先死了,孙进程就没人收 ⇒ 机器上留下占着端口的孤儿")
+
+    def test_c14_readiness_can_demand_an_identity_not_just_a_listener(self):
+        """攻题二轮 HIGH#5:开跑前端口是空的,不代表就绪那一刻听端口的是**我们的孩子**。
+
+        给 Service 一个可选的身份探针:端口在听 **且** 探针认账才算就绪。
+        (ds-web 用 /api/health 自报版本 —— "让运行中的目标自己打印身份"那条规矩。)
+        """
+        port = free_port()
+        svc = self.svc("冒牌腿", BIND_AND_WAIT, port, timeout=4)
+        svc.ready_probe = lambda p: False       # 端口在听,但身份对不上
+        with self.assertRaises(core.StartupFailed):
+            self.sup.start([svc])
+
+        port2 = free_port()
+        ok = self.svc("正牌腿", BIND_AND_WAIT, port2, timeout=12)
+        ok.ready_probe = lambda p: core.port_listening(p)
+        self.sup.start([ok])                     # 探针认账 ⇒ 正常起
+
     def test_c10_poll_dead_names_the_leg_and_keeps_saying_so(self):
         port = free_port()
         code = BIND_AND_WAIT.replace("time.sleep(300)", "time.sleep(1.0)")
@@ -452,16 +583,20 @@ BASE_CFG = {
         "file": {"enable": False},
         "exec": {"enable": False},
         "mcpServers": {
+            # OpenDesign 自己的三个(名字照抄 config/nanobot.config.windows.jsonc)
             "design-studio": {"command": "${USERPROFILE}/.venvs/x/Scripts/python.exe",
                               "args": ["a.py"], "env": {"DS_ROOT": "${DS_ROOT}"}},
-            "ds-refs": {"command": "${USERPROFILE}/.venvs/x/Scripts/python.exe",
-                        "args": ["b.py"]},
-            "ds-organize": {"command": "${USERPROFILE}/.venvs/x/Scripts/python.exe",
-                            "args": ["c.py"], "env": {}},
+            "design-studio-refs": {"command": "${USERPROFILE}/.venvs/x/Scripts/python.exe",
+                                   "args": ["b.py"]},
+            "design-studio-organize": {"command": "${USERPROFILE}/.venvs/x/Scripts/python.exe",
+                                       "args": ["c.py"], "env": {}},
+            # 机主自己装的第三方 MCP —— 不是我们的,一个字都不许动
+            "某个别人家的工具": {"command": "npx", "args": ["-y", "@someone/mcp"]},
         },
     },
     "以后版本加的我不认识的字段": {"随便": [1, 2, {"深": "值"}]},
 }
+OURS = ("design-studio", "design-studio-refs", "design-studio-organize")
 
 
 def flatten(obj, prefix=""):
@@ -501,14 +636,34 @@ class PatchConfig(unittest.TestCase):
         self.assertEqual(d["gateway"]["port"], 18801)
         self.assertEqual(d["channels"]["websocket"]["port"], 18802)
 
-    def test_d2_every_mcp_command_points_into_the_package(self):
+    def test_d2_our_own_mcps_point_into_the_package(self):
         exe = r"C:\OD\python\python.exe"
         d = self.patched(python_exe=exe)
         cmds = {n: s["command"] for n, s in d["tools"]["mcpServers"].items()}
-        self.assertEqual(set(cmds.values()), {exe}, f"还有 MCP 指着机器上别的 python:{cmds}")
-        self.assertEqual(len(cmds), 3, "改写时把某个 MCP 弄丢了")
+        for name in OURS:
+            self.assertEqual(cmds[name], exe, f"{name} 还指着机器上别的 python")
+        self.assertEqual(len(cmds), 4, "改写时把某个 MCP 弄丢了")
 
-    def test_d3_only_the_ports_and_the_mcp_commands_may_change(self):
+    def test_d3_a_third_party_mcp_is_left_completely_alone(self):
+        """攻题二轮 MED#8:上一版写的是"every MCP 都要改成包内 python",
+        于是**把机主自己装的第三方 MCP(npx/别的 exe)一起改坏**,而断言反过来
+        把这个 bug 写成了契约。只许动我们自己那三个。
+        """
+        d = self.patched()
+        self.assertEqual(d["tools"]["mcpServers"]["某个别人家的工具"],
+                         BASE_CFG["tools"]["mcpServers"]["某个别人家的工具"],
+                         "把机主自己装的第三方 MCP 改坏了")
+
+    def test_d3b_a_missing_own_mcp_is_refused(self):
+        """三个自有 MCP 少一个 ⇒ 装出来的东西是残的(工具调不动、界面报错很难懂),
+        必须当场拒绝,而不是安安静静放行。"""
+        cfg = json.loads(json.dumps(BASE_CFG))
+        del cfg["tools"]["mcpServers"]["design-studio-refs"]
+        self.write(cfg)
+        with self.assertRaises(core.ConfigUnusable):
+            self.patched()
+
+    def test_d3c_only_the_ports_and_our_mcp_commands_may_change(self):
         """攻题 HIGH#6:上一版只点名查了五片叶子 ⇒ 一个"重建一份最小 JSON"的实现
         能把 apiBase、model_presets、通道口令、MCP 的 env/args 全冲掉而照样全绿。
         改成**整棵差分**:只允许这几个位置变,别的一个字都不许动。
@@ -516,8 +671,10 @@ class PatchConfig(unittest.TestCase):
         before = flatten(json.loads(self.cfg.read_text(encoding="utf-8")))
         after = flatten(self.patched(gateway_port=18801, ws_port=18802))
         changed = {k for k in set(before) | set(after) if before.get(k) != after.get(k)}
+        # 允许集合是**写死的三个自有 server**,不是"夹具里所有 server" ——
+        # 后者会让"把第三方 MCP 也改掉"这个 bug 自动合法(攻题二轮 MED#8)。
         allowed = {"/gateway/port", "/channels/websocket/port"} | {
-            f"/tools/mcpServers/{n}/command" for n in BASE_CFG["tools"]["mcpServers"]}
+            f"/tools/mcpServers/{n}/command" for n in OURS}
         self.assertEqual(changed - allowed, set(), f"动了不该动的地方:{sorted(changed - allowed)}")
         self.assertEqual(allowed - changed, set(), f"该改的没改到:{sorted(allowed - changed)}")
 
@@ -533,25 +690,57 @@ class PatchConfig(unittest.TestCase):
         注意方向:是拒绝,不是"顺手替它打开" —— 没口令就打开通道 = 开了一个不要密码的
         本地入口,那是把可用性问题换成安全问题(deploy-security §1)。
         """
-        for broken, why in (({"enabled": False, "token": "x", "host": "127.0.0.1", "port": 8765}, "没开"),
-                            ({"enabled": True, "token": "", "host": "127.0.0.1", "port": 8765}, "没口令")):
-            cfg = dict(BASE_CFG)
+        cases = (
+            ({"enabled": False, "token": "abc", "host": "127.0.0.1", "port": 8765}, "没开"),
+            ({"enabled": True, "token": "", "host": "127.0.0.1", "port": 8765}, "没口令"),
+            # 🔴 中文口令(攻题二轮 HIGH#7):网关会正常起来、两条腿全绿,而业主的
+            # 第一句话永远发不出去 —— 前端 web/src/chat/connection.ts:85 明确拒收
+            # 非 Latin-1 口令(fetch 的 header 值只收 Latin-1)。装机时不拦,
+            # 业主就会带着一个"看起来装好了"的机器来问我为什么不能聊天。
+            ({"enabled": True, "token": "我的口令", "host": "127.0.0.1", "port": 8765}, "口令是中文"),
+        )
+        for broken, why in cases:
+            cfg = json.loads(json.dumps(BASE_CFG))
             cfg["channels"] = {"websocket": broken}
             self.write(cfg)
             with self.assertRaises(core.ConfigUnusable, msg=f"通道{why}却放行了") as cm:
                 self.patched()
-            self.assertTrue(re.search(r"[通道口令登录]", str(cm.exception)),
+            # 上一版写的是 r"[通道口令登录]" —— 那是**字符类**,报错里只要有一个"通"字
+            # 就算过(攻题二轮自己揪出来的)。要的是整词。
+            self.assertTrue(re.search(r"(通道|口令|登录)", str(cm.exception)),
                             f"报错不说人话:{cm.exception}")
 
-    def test_d6_is_written_by_replacing_the_file_not_truncating_it(self):
-        """攻题 MED#7:原地 write_text 在写到一半断电/被杀,盘上会留半份 JSON,
-        业主从此双击就打不开、还查不出原因。必须"写临时文件 → 原子替换"。
-        (Linux 上用 inode 变没变来机械地问这件事;Windows 的 os.replace 同样是原子的。)
+    def test_d6_a_reader_never_sees_a_half_written_config(self):
+        """断言名只说它问得出的那件事(攻题二轮 MED#10 把上一版"证明了原子替换"
+        这个过大的名字揪出来了 —— `unlink` 再 `write_text` 同样能让 inode 变)。
+
+        这里真正问的是**外部可观测的那条**:改写全程,另一个读者要么读到完整的旧的、
+        要么读到完整的新的,**永远不会读到半份或读不到**。断电/被杀留下半份 JSON 的话,
+        业主从此双击就打不开,而且查不出原因。
         """
-        before = self.cfg.stat().st_ino
-        self.patched()
-        self.assertNotEqual(self.cfg.stat().st_ino, before,
-                            "配置是原地截断改写的 ⇒ 断电会留下半份文件")
+        stop = threading.Event()
+        seen: list[str] = []
+
+        def reader():
+            while not stop.is_set():
+                try:
+                    json.loads(self.cfg.read_text(encoding="utf-8"))
+                except FileNotFoundError:
+                    seen.append("文件一度不存在")
+                except json.JSONDecodeError:
+                    seen.append("读到半份 JSON")
+                except OSError:
+                    pass
+
+        t = threading.Thread(target=reader, daemon=True)
+        t.start()
+        try:
+            for i in range(30):
+                self.patched(gateway_port=18800 + i, ws_port=18900 + i)
+        finally:
+            stop.set()
+            t.join(timeout=5)
+        self.assertEqual(seen, [], f"改写过程中被外部读者撞见了中间状态:{set(seen)}")
         leftovers = [p.name for p in self.dir.iterdir() if p.name != "config.json"]
         self.assertEqual(leftovers, [], f"改完留了垃圾文件:{leftovers}")
 
@@ -701,6 +890,35 @@ class ShellState(unittest.TestCase):
         self.st.on_quit()
         self.assertTrue(self.st.on_close_requested(), "已经在退出了,还拦着不让关 ⇒ 窗口关不掉")
 
+    def test_f8_two_threads_quitting_at_once_only_stop_the_backend_once(self):
+        """攻题二轮 MED#9:真实事件来自三个线程(锁的监听线程、托盘线程、UI 线程)。
+        两个 `on_quit()` 同时越过 `if self.exiting` ⇒ 后台被收两遍、窗口被销毁两遍。
+        用一个"慢 UI"把那个窗口撑开,让竞态真的发生。
+        """
+        slow = FakeUI()
+        real_destroy = slow.destroy
+
+        def lazy_destroy():
+            time.sleep(0.3)     # 撑开临界区
+            real_destroy()
+
+        slow.destroy = lazy_destroy
+        stopped = []
+        st = core.ShellState(ui=slow, on_stop=lambda: stopped.append(1))
+        ready = threading.Barrier(2)
+
+        def quit_now():
+            ready.wait(timeout=5)
+            st.on_quit()
+
+        ts = [threading.Thread(target=quit_now) for _ in range(2)]
+        for t in ts:
+            t.start()
+        for t in ts:
+            t.join(timeout=10)
+        self.assertEqual(stopped, [1], "两个线程同时点退出,后台被收了两遍")
+        self.assertEqual(slow.calls.count("destroy"), 1, "窗口被销毁了两遍")
+
     def test_f7_a_late_show_after_quit_is_a_no_op(self):
         """攻题 HIGH#12:退出途中第二个实例发来的 SHOW 会打在已销毁的窗口上。
         FakeUI 的 assert 会当场炸 —— 真机上那是崩溃,业主看到的是"点了退出反而报错"。"""
@@ -798,8 +1016,18 @@ class RealBackend(unittest.TestCase):
 
         gw_port, ws_port, web_port = core.pick_ports([free_port(), free_port(), free_port()])
         d = Config().model_dump(mode="json", by_alias=True, exclude_none=True)
+        cfg.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+        # 从**真实模板**合并出配置(装机时走的就是这条路),而不是自己捏一份 ——
+        # 攻题二轮 HIGH#6:空白 Config() 里根本没有那三个 MCP,却照样能让两条腿全绿。
+        merged = subprocess.run(
+            [sys.executable, str(Path(BIN) / "ds_merge_config.py"),
+             str(Path(ROOT) / "config" / "nanobot.config.windows.jsonc"), str(cfg)],
+            capture_output=True, text=True)
+        self.assertEqual(merged.returncode, 0, f"合并真实模板失败:{merged.stderr[:600]}")
+        d = json.loads(cfg.read_text(encoding="utf-8"))
+        # 口令必须是**前端发得出去的** ASCII(connection.ts:85 拒收非 Latin-1)
         d.setdefault("channels", {}).setdefault("websocket", {}).update(
-            {"enabled": True, "token": "考卷口令", "host": "127.0.0.1", "port": 1})
+            {"enabled": True, "token": "kaojuan-pass", "host": "127.0.0.1", "port": 1})
         d.setdefault("providers", {})["custom"] = {"apiKey": "sk-考卷用的假key",
                                                    "apiBase": "http://127.0.0.1:1/v1"}
         cfg.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -820,15 +1048,15 @@ class RealBackend(unittest.TestCase):
         ])
         # 网关真的在我们改写的那个通道端口上 ⇒ 证明它读的是我们刚落盘的配置
         self.assertTrue(core.port_listening(ws_port))
-        # ds-web 的聊天代理真的够得着上游(能拿到应答就够,内容由上游决定)
-        req = urllib.request.Request(f"http://127.0.0.1:{web_port}/api/chat/bootstrap")
-        try:
-            with urllib.request.urlopen(req, timeout=30) as r:
-                status = r.status
-        except urllib.error.HTTPError as e:
-            status = e.code
-        self.assertNotEqual(status, 502,
-                            "ds-web 说够不着上游通道 ⇒ DS_NANOBOT_PORT 或通道配置接错了")
+        # 经 ds-web 代理去够上游通道,**带上口令**(前端就是这么发的)。
+        # 攻题二轮 HIGH#7:上一版没带 Authorization 且只排除 502 ⇒ 401/404/500 全绿,
+        # 等于什么都没问。这里要的是真的 200 + bootstrap 该有的字段。
+        req = urllib.request.Request(f"http://127.0.0.1:{web_port}/api/chat/bootstrap",
+                                     headers={"Authorization": "Bearer kaojuan-pass"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            self.assertEqual(r.status, 200)
+            info = json.loads(r.read().decode("utf-8"))
+        self.assertTrue(info, f"bootstrap 回了个空的:{info!r}")
         sup.shutdown()
         for p in (gw_port, ws_port, web_port):
             self.assertFalse(core.port_listening(p), f"收摊后 {p} 还有人听")
