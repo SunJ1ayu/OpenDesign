@@ -35,6 +35,12 @@ PY_URL="https://www.python.org/ftp/python/${PY_VER}/${PY_ZIP}"
 PINS=(nanobot-ai==0.2.2 mcp==1.28.1 firecrawl-anydoc==0.1.6)
 # 外壳依赖(S1a 才用):裁决 pywebview 路线跑不跑得起来
 SHELL_PINS=(pywebview==5.4 pystray==0.19.5 pythonnet==3.0.5)
+# 闸 C 的**显式例外**:PyPI 上只有源码包、但确实是纯 Python 的依赖。
+# 为什么要显式列而不是让 pip 自动回退到源码包:自动回退会把闸 C 悄悄拆掉 ——
+# 下一个需要现场编译的包会一声不响地混进来,等装到业主机器上才炸在缺编译器。
+# 这里每加一个名字,都要在构建机上打成轮子并**机械核对它是 `-none-any.whl`**
+# (平台无关 = 没编译任何东西);核不过就 fail closed。
+PURE_SDIST=(proxy_tools)
 
 PKG="$OUT/pkg"
 CACHE="$OUT/cache"
@@ -89,9 +95,24 @@ python3 -m pip install \
 
 if [ "$WITH_SHELL" = 1 ]; then
   say "2b/6 外壳依赖(S1a)"
+  # 先把"纯 Python 但只有源码包"的那几个,在**构建机**上打成轮子
+  WH="$OUT/wheelhouse"; rm -rf "$WH"; mkdir -p "$WH"
+  for pkg in "${PURE_SDIST[@]}"; do
+    python3 -m pip wheel --no-deps --wheel-dir "$WH" --quiet "$pkg" \
+      || die "在构建机上打 $pkg 的轮子失败"
+    # 机械核对:必须是平台无关轮子。若打出来带平台标签,说明它编译了东西 ⇒
+    # 那就不是"纯 Python 例外",闸 C 必须继续拦。
+    found=$(find "$WH" -name "${pkg}-*.whl" | head -1)
+    [ -n "$found" ] || die "打完没找到 $pkg 的轮子"
+    case "$found" in
+      *-none-any.whl) echo "  例外核准:$(basename "$found")(平台无关)" ;;
+      *) die "闸 C:$pkg 打出来的是 $(basename "$found") —— 带平台标签 = 编译过东西,不许进包" ;;
+    esac
+  done
   python3 -m pip install \
     --target "$SP" --platform win_amd64 --python-version "${PY_VER%.*}" \
     --only-binary=:all: --no-compile --quiet \
+    --find-links "$WH" \
     "${SHELL_PINS[@]}" || die "外壳依赖装配失败"
 fi
 
@@ -123,6 +144,8 @@ cp "$REPO"/config/nanobot.config.windows.jsonc "$PKG/ds/config/"
 cp -r "$REPO/web/dist" "$PKG/ds/web/"
 [ -d "$REPO/workspace" ] && cp -r "$REPO/workspace" "$PKG/ds/"
 cp "$HERE/spike.py" "$PKG/spike.py"
+# 外壳包跑的是另一张考卷(S1a 只问外壳,不重考 S0 已经答过的)
+[ "$WITH_SHELL" = 1 ] && cp "$HERE/spike-shell.py" "$PKG/spike-shell.py"
 
 # 版本号锚:判据要拿它跟 ds-web 自报的版本对一遍(两边对不上 = 包里混了两个版本的代码)。
 # **单一来源是 bin/ds_web.py 的 VERSION**,这里只是抄过去,不许手写。
@@ -135,8 +158,11 @@ echo "  ds-web 版本 $DSVER"
 say "5/6 入口 跑一下.bat(CRLF)"
 # CRLF 是硬要求:LF 结尾的 .bat 在 cmd.exe 下会有诡异行为。
 # **不接管道** —— 管道会吃掉 rc,业主看到的"跑完了"可能是假的(本机为这条记过三次账)。
-printf '@echo off\r\nchcp 65001 >nul\r\ncd /d "%%~dp0"\r\npython\\python.exe spike.py\r\necho.\r\necho ==== 跑完了,把上面的内容截图发回来 ====\r\npause\r\n' \
-  > "$PKG/跑一下.bat"
+ENTRY=spike.py
+[ "$WITH_SHELL" = 1 ] && ENTRY=spike-shell.py
+printf '@echo off\r\nchcp 65001 >nul\r\ncd /d "%%~dp0"\r\npython\\python.exe %s\r\necho.\r\necho ==== 跑完了,把上面的内容截图发回来 ====\r\npause\r\n' \
+  "$ENTRY" > "$PKG/跑一下.bat"
+echo "  入口考卷:$ENTRY"
 
 # ---------------------------------------------------------------- 6. 闸 B + 出 zip
 say "6/6 闸 B:成品结构检查"
@@ -144,8 +170,24 @@ bash "$HERE/check-package.sh" "$PKG" || die "闸 B:成品结构不合格"
 
 ZIP="$OUT/OpenDesign-spike.zip"
 rm -f "$ZIP"
-( cd "$PKG" && zip -qr "$ZIP" . )
-unzip -qt "$ZIP" || die "出 zip 后回读校验失败"
+# 用 python 的 zipfile,不依赖系统 zip —— 2026-08-13 第一跑就栽在这台机器没装 zip 上。
+# 构建机的工具集不该成为交付的隐性前提。
+python3 - "$PKG" "$ZIP" <<'PYZIP' || die "打 zip 失败"
+import sys, zipfile
+from pathlib import Path
+src, out = Path(sys.argv[1]), Path(sys.argv[2])
+with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
+    for f in sorted(src.rglob("*")):
+        if f.is_file():
+            z.write(f, f.relative_to(src))
+PYZIP
+# 回读校验:不是"打出来了"就算数,要能原样读回来
+python3 -c "
+import sys, zipfile
+z = zipfile.ZipFile(sys.argv[1])
+bad = z.testzip()
+sys.exit(f'坏文件: {bad}' if bad else 0)
+" "$ZIP" || die "出 zip 后回读校验失败"
 
 printf '\n\033[1m✅ 组包完成\033[0m\n'
 printf '  包目录: %s (%s)\n' "$PKG" "$(du -sh "$PKG" | cut -f1)"
