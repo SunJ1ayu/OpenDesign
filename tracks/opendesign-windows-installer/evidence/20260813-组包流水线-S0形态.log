@@ -1,0 +1,57 @@
+
+[1m== 1/6 免装 Python 3.12.10[0m
+
+[1m== 2/6 装配依赖(仅 Windows 轮子,源码包一律拒收)[0m
+ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+mootdx 0.11.7 requires httpx<0.26.0,>=0.25.0, but you have httpx 0.28.1 which is incompatible.
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+
+[1m== 3/6 闸 A:Windows 条件依赖有没有被静默丢掉(F1 的机械版)[0m
+  缺:colorama pywin32 tzdata win32-setctime —— 补装
+WARNING: Target directory /root/ds-build/pkg/python/Lib/site-packages/bin already exists. Specify --upgrade to force replacement.
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+  补装后复扫:干净
+
+[1m== 4/6 ds 文件[0m
+  ds-web 版本 0.85.0
+
+[1m== 5/6 入口 跑一下.bat(CRLF)[0m
+
+[1m== 6/6 闸 B:成品结构检查[0m
+== 包结构检查:/root/ds-build/pkg ==
+  [PASS] 包内 python.exe 在
+  [PASS] 没有 Linux .so 泄漏(0 个)
+  [PASS] Windows .pyd 有 135 个
+  [PASS] ._pth 放开了 site
+  [PASS] ._pth 列了 site-packages
+  [PASS] ._pth 写死了 ds/bin(._pth 会忽略 PYTHONPATH)
+  [PASS] ._pth 写死了 pywin32 的 win32\lib
+  [PASS] 没有漏掉的 Windows 条件依赖(4 个全在)
+  [PASS] 关键包 nanobot 在
+  [PASS] 关键包 mcp 在
+  [PASS] 关键包 anydoc 在
+  [PASS] 关键包 pydantic_core 在
+  [PASS] 关键包 lxml 在
+  [PASS] 关键包 PIL 在
+  [PASS] 关键包 cryptography 在
+  [PASS] anydoc 的 Windows 原生件在
+  [PASS] ds/bin/ds_web.py 在
+  [PASS] ds/bin/ds_mcp.py 在
+  [PASS] ds/bin/enable_webui.py 在
+  [PASS] ds/bin/ds_merge_config.py 在
+  [PASS] ds/config/nanobot.config.windows.jsonc 在
+  [PASS] ds/web/dist/index.html 在
+  [PASS] ds/版本号.txt 在
+  [PASS] spike.py 在
+  [PASS] 跑一下.bat 在
+  [PASS] ds/ 里没有仓库外的文件(不会把本地数据发出去)
+  [PASS] 版本号锚一致(0.85.0)
+  [PASS] .bat 是 CRLF 换行
+  [PASS] 没有本机编译的字节码残留
+== 结构检查结束:0 条不合格 ==
+
+[1m✅ 组包完成[0m
+  包目录: /root/ds-build/pkg (269M)
+  zip   : /root/ds-build/OpenDesign-spike.zip (85M)
+  外壳依赖: 未含(S0 形态)
+真实 rc=0

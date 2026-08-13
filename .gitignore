@@ -3,6 +3,14 @@ __pycache__/
 *.pyc
 *.log
 
+# ⚠️ 例外:track 的证据日志必须进仓。
+# 08-13 实证:上面那条 *.log 把 5 份 evidence 静默吞了(含 S0 网关启动日志、组包流水线
+# 两次实跑收据、外壳考卷降级验证、规划双出 B 卷全文),而 commit 信息和 tasks.md 都白纸
+# 黑字写着"已进 evidence"。`git add` 对被忽略的文件是**静默跳过、不报错**的 ⇒ 工件指着
+# 一个仓里根本不存在的文件,换台机器就全没了。与 pip --platform 静默丢依赖同一种病。
+!tracks/**/evidence/**/*.log
+!tracks/**/evidence/*.log
+
 # 前端构建依赖/中间物(锚定仓根;web/dist 是构建产物,反而要进仓 —— 用户机免 Node)
 /web/node_modules
 /web/.vite/

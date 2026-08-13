@@ -1,0 +1,56 @@
+
+==============================================================
+0. 现场(先证明这是我以为的那个运行时,不是机器上别的 Python)
+==============================================================
+  python  : 3.12.3
+  可执行  : /usr/bin/python3
+  工作目录: /root/ds-build-shell/pkg
+  [FAIL] 跑的是包内的免装 Python
+         凭据: /usr/bin/python3.12 不在包目录 /root/ds-build-shell/pkg 下 —— 这一跑的结论对成品无效,先弄清为什么
+  [FAIL] `._pth` 在起作用
+         凭据: 找不到 ._pth —— 这不是 embeddable 形态,结论不可移植
+
+==============================================================
+1. 三个外壳组件在 embeddable 下导不导得进来(最可能死在这)
+==============================================================
+  [FAIL] import clr_loader
+         凭据: ModuleNotFoundError: No module named 'clr_loader'  <- 它管:pythonnet 的加载器,它找不到 .NET 运行时就整条路线作废
+  [FAIL] import pythonnet
+         凭据: ModuleNotFoundError: No module named 'pythonnet'  <- 它管:pywebview 的 Windows(EdgeChromium)后端靠它调 .NET
+  [FAIL] import webview
+         凭据: ModuleNotFoundError: No module named 'webview'  <- 它管:窗口本体
+  [FAIL] import pystray
+         凭据: ModuleNotFoundError: No module named 'pystray'  <- 它管:托盘
+  [PASS] import PIL
+         凭据: 版本 12.2.0;来自 /usr/local/lib/python3.12/dist-packages/PIL/__init__.py
+
+==============================================================
+2. 这台机器上有没有 pywebview 需要的东西(缺了要靠安装器补)
+==============================================================
+  [SKIP] 能挂上 .NET 运行时
+         原因: clr_loader 没导进来
+  [FAIL] WebView2 运行时在
+         凭据: ModuleNotFoundError: No module named 'winreg'
+
+==============================================================
+3. 真开一个无地址栏窗口(带超时,绝不挂住)
+==============================================================
+  [SKIP] 能开出一个无地址栏窗口
+         原因: webview 没导进来
+
+==============================================================
+4. 托盘图标能不能常驻(关窗不退出全靠它)
+==============================================================
+  [SKIP] 托盘图标能创建并显示
+         原因: pystray 或 PIL 没导进来
+
+==============================================================
+收据
+==============================================================
+  PASS 1   FAIL 7   SKIP 3
+
+  ⇒ 有红或跳过的项。**这不代表项目卡住** —— 规划双出时已经把 Electron 那条路
+    完整设计好了(design.md「对差异」第 8 条),红了就直接落那一条,不返工。
+    把上面的报错原样发回来,我据此定。
+
+  注:这一跑不写注册表、不改 PATH、不碰你已装的 OpenDesign。删掉这个文件夹即可清除。
