@@ -74,8 +74,14 @@ def pick_ports(preferred: list[int], *, span: int = 20) -> list[int]:
 
 
 def lock_sockopts(platform: str) -> list[tuple[str, int]]:
+    """这个平台上,单实例锁的 socket 该设哪些选项。纯数据 —— 好让考卷问得出来。
+
+    ⚠️ 兜底值必须是 Windows 上的真值 `-5`(= ~SO_REUSEADDR),**不能随手写 4**:
+    4 在 Linux 上正好是 SO_REUSEADDR —— 恰恰是这把锁一辈子都不许设的那一个
+    (Windows 上它允许后来者抢走监听端口 ⇒ 锁会被偷)。兜底写错方向 = 埋雷。
+    """
     if platform.startswith("win"):
-        return [("SO_EXCLUSIVEADDRUSE", int(getattr(socket, "SO_EXCLUSIVEADDRUSE", 4)))]
+        return [("SO_EXCLUSIVEADDRUSE", int(getattr(socket, "SO_EXCLUSIVEADDRUSE", -5)))]
     return []
 
 
@@ -97,7 +103,8 @@ class InstanceLock:
         self._released = threading.Event()
 
     def acquire(self) -> bool:
-        # 第一份可能落在备用锁位上，所以先扫完整段握手，再尝试占新锁。
+        """True = 我是唯一实例(并已开始监听);False = 已有实例(SHOW 已送到)。"""
+        # 第一份可能落在备用锁位上,所以先扫完整段握手,再尝试占新锁。
         for port in self._ports():
             if self._send_show(port):
                 self.port = port
@@ -119,50 +126,133 @@ class InstanceLock:
             self.port = port
             self._thread = threading.Thread(target=self._serve, name="ds-shell-lock", daemon=True)
             self._thread.start()
+
+            # 🔴 并发裁决(业主快速双击两下走的就是这里)。
+            # 上面那轮扫描解决不了同时启动:两份都会扫到"没人",然后一个绑 base、
+            # 一个绑 base+1,**两份都以为自己是唯一的**。
+            # 绑完再回头扫一次比自己**更靠前**的锁位:能应答的说明有人比我先站住了,
+            # 我让位。因为"最靠前的那一格"只可能被一个人占住,所以恰好活下来一个,
+            # 也不会两边互相让(让位只朝一个方向)。
+            if self._someone_ahead_of(port):
+                self.release()
+                self.port = port
+                return False
             return True
 
         raise PortBusy(f"单实例锁端口段 {self.base_port}..{self.base_port + self.span} 全部被占")
 
+    def _someone_ahead_of(self, mine: int) -> bool:
+        for port in self._ports():
+            if port >= mine:
+                return False
+            if self._send_show(port):
+                return True
+        return False
+
     def release(self) -> None:
+        """放开锁,并且**立刻**不再应答握手。
+
+        只 close() 是不够的:服务线程这时正阻塞在旧 socket 的 accept() 里,而关掉一个
+        正被 accept 阻塞的 socket 并不保证把它叫醒(Linux 实测不醒,Windows 同样不保证)。
+        于是下一次握手连进来时 accept 才返回、线程照样回了个 OK ⇒ **锁已经放开了,
+        新实例却被告知"已有一份在跑"**,业主看到的是双击图标没反应。
+
+        叫醒的办法:先 shutdown() 断开监听,再自连一次把可能仍阻塞的 accept 顶出来。
+        """
         self._released.set()
         sock = self._sock
+        port = self.port
         self._sock = None
-        if sock is not None:
-            try:
-                sock.close()
+        self.port = None
+        if sock is None:
+            return
+        try:
+            sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass          # 监听 socket 上 shutdown 在有的平台直接报错,不影响下一步
+        if port:
+            try:          # 自连一次:把仍卡在 accept 里的线程顶出来(它一醒就看见 _released)
+                with socket.create_connection(("127.0.0.1", port), timeout=0.2):
+                    pass
             except OSError:
                 pass
-        self.port = None
+        try:
+            sock.close()
+        except OSError:
+            pass
+        if self._thread is not None:
+            self._thread.join(timeout=2.0)
+            self._thread = None
 
     def _ports(self):
         return range(self.base_port, self.base_port + self.span + 1)
 
     def _send_show(self, port: int) -> bool:
+        """连上去握一次手。对上了 = 那边是另一份 OpenDesign(SHOW 已送到)。
+
+        收发都**循环读到整行**:TCP 没有消息边界,一次 recv 恰好等于整帧只是回环上的
+        运气;分片就把真实例认成陌生人 ⇒ 开出第二份。
+        """
         try:
-            with socket.create_connection(("127.0.0.1", port), timeout=0.35) as s:
-                s.settimeout(0.35)
+            with socket.create_connection(("127.0.0.1", port), timeout=1.5) as s:
+                s.settimeout(1.5)
                 s.sendall(self._HELLO + self._SHOW)
-                return s.recv(32) == self._OK
+                return self._recv_line(s, deadline=time.monotonic() + 1.5) == self._OK.strip()
         except OSError:
             return False
 
-    def _serve(self) -> None:
-        assert self._sock is not None
-        while not self._released.is_set():
+    @staticmethod
+    def _recv_line(sock: socket.socket, deadline: float, limit: int = 4096) -> bytes:
+        """读到第一个换行为止(不含换行);超时或对端关闭就返回已经读到的。"""
+        buf = b""
+        while b"\n" not in buf and len(buf) < limit:
+            remain = deadline - time.monotonic()
+            if remain <= 0:
+                break
+            sock.settimeout(remain)
             try:
-                conn, _ = self._sock.accept()
+                chunk = sock.recv(limit)
             except OSError:
                 break
-            with conn:
-                try:
-                    conn.settimeout(1.0)
-                    data = conn.recv(1024)
-                    if data.startswith(self._HELLO) and self._SHOW in data:
-                        conn.sendall(self._OK)
-                        if self.on_show is not None:
-                            self.on_show()
-                except OSError:
-                    pass
+            if not chunk:
+                break
+            buf += chunk
+        return buf.split(b"\n", 1)[0]
+
+    def _serve(self) -> None:
+        # 捞一份本地引用:release() 会把 self._sock 置 None,再用 self._sock 就是 AttributeError。
+        sock = self._sock
+        if sock is None:
+            return
+        while not self._released.is_set():
+            try:
+                conn, _ = sock.accept()
+            except OSError:
+                break
+            # 醒来之后**再问一次**:release() 的自连就是来顶醒我的,
+            # 而这一刻锁已经放开了 —— 这时候还回 OK,就等于替一把不存在的锁挡人。
+            if self._released.is_set():
+                conn.close()
+                break
+            # 每条连接单独一个线程处理。**不许在主循环里同步处理**:
+            # 端口扫描器(或任何连上就不说话的东西)会把这个循环堵住,而这段时间里
+            # 第二个实例握手会超时、把真实例当成陌生人 ⇒ 开出第二份 OpenDesign。
+            threading.Thread(target=self._handle, args=(conn,),
+                             name="ds-shell-lock-conn", daemon=True).start()
+
+    def _handle(self, conn: socket.socket) -> None:
+        with conn:
+            try:
+                line = self._recv_line(conn, deadline=time.monotonic() + 2.0)
+                if not line.startswith(self._HELLO.strip()):
+                    return
+                if self._released.is_set():
+                    return
+                conn.sendall(self._OK)
+            except OSError:
+                return
+        if self.on_show is not None:
+            self.on_show()
 
 
 @dataclass
@@ -173,6 +263,10 @@ class Service:
     ready_port: int
     log_path: Path
     ready_timeout: float = 60.0
+    # 可选的身份探针:收到 ready_port 后再问一句"听这个端口的真是你吗"。
+    # "端口有人听"只说明有人听 —— 陌生进程抢在中间那一瞬占了端口,一样是绿的。
+    # ds-web 用 /api/health 自报版本;不给探针就退化成只看端口。
+    ready_probe: Any = None
 
 
 @dataclass
@@ -181,6 +275,7 @@ class _Managed:
     proc: subprocess.Popen
     log_file: Any
     job_handle: Any = None
+    pgid: int | None = None      # POSIX:开跑时记下进程组,别等父进程死了才去问
 
 
 class Supervisor:
@@ -201,7 +296,16 @@ class Supervisor:
                 child = self._spawn(svc)
                 self._children.append(child)
                 self._wait_ready(child)
-        except StartupFailed:
+            # 全部就绪之后再点一次名:等后面那条腿的这段时间里,前面的可能已经崩了。
+            # 少了这一下,业主看到的是"窗口正常打开、聊天永远连不上、而且没有任何报错"。
+            dead = self.poll_dead()
+            if dead:
+                raise StartupFailed(self._failure_message(
+                    self._by_name(dead[0]).service, "起来之后又退出了",
+                    self._by_name(dead[0]).proc.poll()))
+        except BaseException:
+            # 不只接 StartupFailed:建日志目录失败之类会抛 OSError,
+            # 接不住就把已经起好的腿丢在那儿变成孤儿(业主下次打开撞端口,还查不出是谁)。
             self.shutdown()
             raise
 
@@ -221,7 +325,9 @@ class Supervisor:
                 time.sleep(0.05)
 
             for child in children:
-                if child.proc.poll() is None:
+                # posix 上即使父进程已经死了也要再 KILL 一遍进程组:
+                # 活着的可能只剩孙进程,而 poll() 问的只是父进程。
+                if child.proc.poll() is None or child.pgid or child.job_handle:
                     self._kill_tree(child)
 
             final_deadline = time.monotonic() + 4.0
@@ -231,6 +337,15 @@ class Supervisor:
                     child.proc.wait(timeout=remaining)
                 except subprocess.TimeoutExpired:
                     pass
+
+            # 直接子进程死了 ≠ 收干净了:孙进程(nanobot 的 3 个 MCP)还要一会儿才落地,
+            # 而它们手里攥着端口。这里等**整个进程组**真的空掉再返回 ——
+            # 否则业主点完"退出"马上再双击,新的一份会撞在还没放开的端口上。
+            group_deadline = time.monotonic() + 3.0
+            while time.monotonic() < group_deadline:
+                if all(self._group_gone(c) for c in children):
+                    break
+                time.sleep(0.05)
 
             for child in children:
                 self._close_job(child)
@@ -243,10 +358,32 @@ class Supervisor:
     def poll_dead(self) -> list[str]:
         return [child.service.name for child in self._children if child.proc.poll() is not None]
 
+    @staticmethod
+    def _group_gone(child: _Managed) -> bool:
+        """这条腿的进程组是不是真的空了(信号 0 = 只探不杀)。
+
+        Windows 没有便宜的等价问法(Job 关掉就算数),那边只看直接子进程。
+        """
+        if os.name != "posix" or not child.pgid:
+            return child.proc.poll() is not None
+        try:
+            os.killpg(child.pgid, 0)
+            return False
+        except OSError:
+            return True
+
+    def _by_name(self, name: str) -> _Managed:
+        return next(c for c in self._children if c.service.name == name)
+
     def _spawn(self, svc: Service) -> _Managed:
         log_path = Path(svc.log_path)
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        log_file = log_path.open("ab")
+        try:
+            # 开日志也会失败(路径被占、没权限)。包成 StartupFailed,
+            # 免得调用方只接 StartupFailed 时漏掉这条路,把兄弟腿丢成孤儿。
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_file = log_path.open("ab")
+        except OSError as exc:
+            raise StartupFailed(f"{svc.name} 起不来:日志写不了({log_path}):{exc}") from exc
         kwargs: dict[str, Any] = {
             "stdout": log_file,
             "stderr": subprocess.STDOUT,
@@ -265,7 +402,15 @@ class Supervisor:
                 pass
             raise StartupFailed(f"{svc.name} 启动失败: {exc}") from exc
         child = _Managed(service=svc, proc=proc, log_file=log_file)
-        if os.name == "nt":
+        if os.name == "posix":
+            # 开跑时就把进程组记下来。等到收摊时才去问就晚了:
+            # 组长(nanobot 父进程)可能已经死了,而它的 3 个 MCP 孙进程还活着 ——
+            # 那时候 os.getpgid(pid) 已经问不到,进程组就永远没人收。
+            try:
+                child.pgid = os.getpgid(proc.pid)
+            except OSError:
+                child.pgid = proc.pid
+        elif os.name == "nt":
             child.job_handle = self._assign_windows_job(proc)
         return child
 
@@ -273,15 +418,28 @@ class Supervisor:
         svc = child.service
         deadline = time.monotonic() + float(svc.ready_timeout)
         while True:
-            code = child.proc.poll()
-            if code is not None:
-                raise StartupFailed(self._failure_message(svc, f"退出码 {code}", code))
-            if port_listening(int(svc.ready_port)):
+            # 盯的是**所有**已起的腿,不只当前这条:前面那条先就绪、随后崩掉的话,
+            # 只盯当前这条会让 start() 一路绿到底(攻题二轮 HIGH#3)。
+            for other in self._children:
+                code = other.proc.poll()
+                if code is not None:
+                    raise StartupFailed(self._failure_message(
+                        other.service, f"退出码 {code}", code))
+            if port_listening(int(svc.ready_port)) and self._probe_ok(svc):
                 return
             now = time.monotonic()
             if now >= deadline:
                 raise StartupFailed(self._failure_message(svc, "启动超时", None))
             time.sleep(min(0.1, max(0.0, deadline - now)))
+
+    @staticmethod
+    def _probe_ok(svc: Service) -> bool:
+        if svc.ready_probe is None:
+            return True
+        try:
+            return bool(svc.ready_probe(int(svc.ready_port)))
+        except Exception:
+            return False      # 探针自己炸了 = 还没就绪,不是就绪
 
     def _failure_message(self, svc: Service, reason: str, code: int | None) -> str:
         tail = self._log_tail(Path(svc.log_path))
@@ -303,41 +461,51 @@ class Supervisor:
         except OSError:
             return "(读不到日志)"
 
+    # 🔴 下面两个**不许**因为 "poll() 非 None 就直接 return"。
+    # 父进程先死、孙进程还活着,是 nanobot 最真实的一种残局(它自己拉起 3 个 MCP):
+    # 那时候整个进程组还在,而"父进程已经死了"恰恰让收割整段被跳过 ⇒
+    # 业主机器上留下几个占着端口的孤儿,看不出是谁,下次打开就撞端口。
     def _terminate_tree(self, child: _Managed) -> None:
+        if os.name == "posix":
+            if child.pgid:
+                try:
+                    os.killpg(child.pgid, signal.SIGTERM)
+                except OSError:
+                    pass          # 组已经空了:正常
+            return
+        if child.proc.poll() is None:
+            try:
+                child.proc.terminate()
+            except Exception:
+                pass
+
+    def _kill_tree(self, child: _Managed) -> None:
+        if os.name == "posix":
+            if child.pgid:
+                try:
+                    os.killpg(child.pgid, signal.SIGKILL)
+                except OSError:
+                    pass
+            return
+        # Windows:关掉 Job 就等于收掉整棵树(KILL_ON_JOB_CLOSE)——
+        # 父进程已经死了也照关,道理同上(孙进程还在这个 Job 里)。
+        if child.job_handle:
+            self._close_job(child)
+            return
         if child.proc.poll() is not None:
             return
         try:
-            if os.name == "posix":
-                os.killpg(child.proc.pid, signal.SIGTERM)
-            else:
-                child.proc.terminate()
+            # 没挂上 Job 时的退路:taskkill /T 连子孙一起杀
+            subprocess.run(
+                ["taskkill", "/T", "/F", "/PID", str(child.proc.pid)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=10,
+                check=False,
+            )
+            return
         except Exception:
             pass
-
-    def _kill_tree(self, child: _Managed) -> None:
-        if child.proc.poll() is not None:
-            return
-        if os.name == "posix":
-            try:
-                os.killpg(child.proc.pid, signal.SIGKILL)
-                return
-            except Exception:
-                pass
-        else:
-            if child.job_handle:
-                self._close_job(child)
-                return
-            try:
-                subprocess.run(
-                    ["taskkill", "/T", "/F", "/PID", str(child.proc.pid)],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    timeout=10,
-                    check=False,
-                )
-                return
-            except Exception:
-                pass
         try:
             child.proc.kill()
         except Exception:
@@ -351,6 +519,20 @@ class Supervisor:
             from ctypes import wintypes
 
             kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            # ⚠️ 必须显式声明 HANDLE 的类型。ctypes 默认把返回值当 c_int(32 位),
+            # 而 64 位 Windows 上句柄是 64 位 ⇒ **句柄被静默截断**,后面
+            # AssignProcessToJobObject / CloseHandle 打在一个不存在的句柄上,
+            # 于是"整棵进程树跟着一起收"这条防线悄悄失效,而且一声不响。
+            # 这一处 Linux 上一行都跑不到,只能靠读代码抓(闸③),已进真机考卷。
+            kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+            kernel32.CreateJobObjectW.argtypes = [wintypes.LPVOID, wintypes.LPCWSTR]
+            kernel32.SetInformationJobObject.restype = wintypes.BOOL
+            kernel32.SetInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int,
+                                                        wintypes.LPVOID, wintypes.DWORD]
+            kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
+            kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+            kernel32.CloseHandle.restype = wintypes.BOOL
+            kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
             job = kernel32.CreateJobObjectW(None, None)
             if not job:
                 return None
@@ -408,11 +590,23 @@ class Supervisor:
             return
         try:
             import ctypes
+            from ctypes import wintypes
 
-            ctypes.WinDLL("kernel32", use_last_error=True).CloseHandle(child.job_handle)
+            # 同上:不声明 argtypes,64 位句柄会被截成 32 位 ⇒ 关的是别的东西,
+            # 而 KILL_ON_JOB_CLOSE 那条命就白挂了(这一处是第二个现场,别只修一个)。
+            k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            k32.CloseHandle.restype = wintypes.BOOL
+            k32.CloseHandle.argtypes = [wintypes.HANDLE]
+            k32.CloseHandle(child.job_handle)
         except Exception:
             pass
         child.job_handle = None
+
+
+# OpenDesign 自己的三个 MCP(名字与 config/nanobot.config.windows.jsonc 一致)。
+# 只有它们的 command 会被改写指向包内 python —— 机主自己装的第三方 MCP
+# (npx / 别的 exe)一个字都不许动,改了就是把人家的工具弄坏。
+OUR_MCP = ("design-studio", "design-studio-organize", "design-studio-refs")
 
 
 def patch_config(path, *, gateway_port: int, ws_port: int, python_exe: str) -> None:
@@ -422,18 +616,31 @@ def patch_config(path, *, gateway_port: int, ws_port: int, python_exe: str) -> N
 
     ws = cfg.get("channels", {}).get("websocket", {})
     if ws.get("enabled") is not True:
-        raise ConfigUnusable("websocket 通道未开启，请登录并启用带口令的通道后再启动")
-    if not ws.get("token"):
-        raise ConfigUnusable("websocket 通道缺少口令，请登录后生成口令再启动")
+        raise ConfigUnusable("聊天通道没打开,请重新运行安装程序设置登录口令")
+    token = ws.get("token")
+    if not token:
+        raise ConfigUnusable("聊天通道缺少登录口令,请重新运行安装程序设置")
+    # 🔴 口令必须是浏览器发得出去的。前端把它放进 HTTP 头,而 fetch 的头值只收
+    # Latin-1(web/src/chat/connection.ts:85 已经明确拒收)⇒ 中文口令会让两条腿
+    # 全部正常起来、界面也正常,**唯独第一句话永远发不出去**。
+    # 这里 fail closed:宁可现在报一句人话,也不要业主拿着一台"看着装好了"的机器来问。
+    try:
+        str(token).encode("latin-1")
+    except UnicodeEncodeError:
+        raise ConfigUnusable(
+            "登录口令里有中文或特殊字符,浏览器发不出去 —— 请改成字母数字口令") from None
+
+    servers = cfg.get("tools", {}).get("mcpServers")
+    if not isinstance(servers, dict):
+        raise ConfigUnusable("配置里没有工具服务(mcpServers),这份配置是残的")
+    missing = [n for n in OUR_MCP if not isinstance(servers.get(n), dict)]
+    if missing:
+        raise ConfigUnusable(f"配置里缺少 OpenDesign 自己的工具服务:{'、'.join(missing)}")
 
     cfg.setdefault("gateway", {})["port"] = int(gateway_port)
     ws["port"] = int(ws_port)
-
-    servers = cfg.get("tools", {}).get("mcpServers", {})
-    if isinstance(servers, dict):
-        for server in servers.values():
-            if isinstance(server, dict):
-                server["command"] = str(python_exe)
+    for name in OUR_MCP:
+        servers[name]["command"] = str(python_exe)
 
     tmp_name: str | None = None
     try:
@@ -501,24 +708,31 @@ class ShellState:
         self.on_stop = on_stop
         self.visible = True
         self.exiting = False
+        # 事件从三个方向来:锁的监听线程(第二次双击)、托盘线程、UI 线程。
+        # 没有这把锁,"检查 exiting 再置位"是两步 —— 两个线程能一起穿过去,
+        # 后台被收两遍、窗口被销毁两遍。锁只护**状态判定**,不护 UI 调用本身。
+        self._lock = threading.RLock()
 
     def on_close_requested(self) -> bool:
-        if self.exiting:
-            return True
+        with self._lock:
+            if self.exiting:
+                return True
+            self.visible = False
         self.ui.hide_window()
-        self.visible = False
         return False
 
     def on_show(self) -> None:
-        if self.exiting:
-            return
+        with self._lock:
+            if self.exiting:
+                return
+            self.visible = True
         self.ui.show_window()
-        self.visible = True
 
     def on_quit(self) -> None:
-        if self.exiting:
-            return
-        self.exiting = True
-        self.visible = False
+        with self._lock:
+            if self.exiting:
+                return
+            self.exiting = True
+            self.visible = False
         self.on_stop()
         self.ui.destroy()

@@ -592,7 +592,8 @@ BASE_CFG = {
                           "model": "mimo-v2.5-pro", "maxTokens": 8192},
     },
     "agents": {"defaults": {"modelPreset": "mimo-v2.5"}},
-    "channels": {"websocket": {"enabled": True, "token": "业主的口令",
+    # 口令用 ASCII —— 中文口令是**产品明确要拒绝**的(见 d5),夹具不能拿它当正常值
+    "channels": {"websocket": {"enabled": True, "token": "yezhu-de-kouling",
                                "host": "127.0.0.1", "port": 8765}},
     "gateway": {"port": 18790},
     "tools": {
