@@ -219,3 +219,89 @@ dream 干的事(`templates/agent/dream.md` + `agent/memory.py:482`):读最近 20
 
 **这个 oracle 答不了的**(明账,别当它答了):装/卸/开始菜单/更新路径/SmartScreen/
 第二台机器的差异。那些是 S1 的事。
+
+---
+
+# S1 设计:安装器 + 桌面外壳 + 应用内更新
+
+## 规划双出 · A 卷(主 agent)—— **落盘于读 B 卷之前**
+
+> 双出规矩:我先独立出方案并 commit,再让 `gpt-5.6-sol` 在隔离目录对同一份**中立需求书**
+> 独立出 B 卷,然后逐条对差异。B 卷是证据不是决定。
+
+### A1. 桌面外壳选型 —— 选 **pywebview + pystray**(留在现有 Python 运行时里)
+
+业主要的是:自己的窗口 / 自己的任务栏图标 / 没有地址栏 / 关窗不退出 / 托盘才是真退出,
+**且界面不重做**(ds-web 已经在 8766 上跑着)。
+
+| 选项 | 判 |
+|---|---|
+| **pywebview + pystray** ✅ | 复用包内 Python,不引第二套运行时/工具链;Win10/11 自带 Edge ⇒ WebView2 基本都在 |
+| Electron | +150MB 和一整套 Node 工具链 —— 我们正在为砍 32MB 费劲,方向相反 |
+| Tauri | 成品只有几 MB,但要 Rust 工具链且从 Linux 交叉编译到 Windows 很痛 |
+| C# + WebView2 | exe 极小(Win 自带 .NET Framework),但引入第二种语言和第二条构建链 |
+| 浏览器 `--app=` 模式 | **业主明确否掉**(「不是弹浏览器」),且任务栏图标是 Edge 的 |
+
+**代价说清楚**:pywebview 在 Windows 上要 `pythonnet`(native cp312 轮子)+ WebView2 运行时。
+这是**新的仅 Windows 依赖**,tasks.md 已写死「必须先进探路包再跑一趟真机」。
+⇒ **S1a = 外壳探路包**,不是直接写安装器。WebView2 若缺,安装器带官方 Evergreen 引导程序兜底。
+
+### A2. 装到哪 —— **每用户安装 `%LOCALAPPDATA%\Programs\OpenDesign`,不要 Program Files**
+
+这条是 S1 最硬的一个岔路,理由链:
+
+1. 业主要**应用内一键更新**。装进 `Program Files` ⇒ 写自己的目录要管理员权限
+   ⇒ 每次更新弹 UAC,或者干脆写不进去。
+2. 每用户安装 ⇒ Inno Setup `PrivilegesRequired=lowest`,**装的时候就不需要管理员**,
+   更新时也不需要。开机自启写 `HKCU\...\Run`,同样不需要管理员。
+3. 代价:不出现在"为所有用户安装"的语义里。这台机器是单人用,**代价为零**。
+
+⇒ **数据与代码同树但分目录**:`app\`(会被更新替换)、`data\`(更新一个字节都不碰)。
+`data\` 放:记忆 / 对话历史 / 工作区配置 / key 与口令。
+> S0 已按 `bin/start.ps1:79-94` 核准过"更新只覆盖 AGENTS.md / SOUL.md / skills\*"的口径,
+> 这里把它升级成**目录级隔离**,而不是继续靠一份"哪些文件能覆盖"的清单 ——
+> 清单会漏,目录边界不会。
+
+### A3. 更新:两层 + 清单 + 可回滚
+
+- **层一 `code`(~1.1MB,常改)**:`ds\bin\*.py`、config 模板、ds-web dist、skills、AGENTS.md/SOUL.md。
+- **层二 `runtime`(~269MB,几乎不动)**:`python\` + `site-packages\`。
+- **GitHub Releases 里放一份 `manifest.json`**:
+  `{code_version, runtime_version, min_runtime, code_url, sha256}`。
+- 启动时查一次:
+  - `runtime_version > 本机 runtime` ⇒ **不自动下**,明说"这次要重装完整包"并给链接(业主已拍板)。
+  - 否则只下那 1.1MB,校验 sha256,解到 `app.new\`,**下次启动时原子换名**:
+    `app` → `app.old`,`app.new` → `app`。
+- **回滚**:换完之后跑一次冒烟自检(能起 ds-web 且 `/api/health` 报出预期版本);
+  失败就把 `app.old` 换回来并告诉业主。`app.old` 保留一份。
+- **数据不碰**:更新只动 `app\`,`data\` 在另一个目录 ⇒ 由 A2 的目录边界机械保证。
+
+### A4. 进程模型 —— 外壳当爹
+
+`OpenDesign.exe`(= 包内 python 跑 `shell.py`)负责:
+1. **单实例**:命名互斥体;第二次双击 ⇒ 把已有窗口叫到前台,不再起一份。
+2. 拉起两个子进程:nanobot 网关、ds-web。**它们的生命周期挂在外壳上**,托盘退出时一起收。
+3. **端口冲突**:8766 被占 ⇒ 探测后换端口,并把真实端口传给 webview,不要硬写死。
+4. 关窗口 = 隐藏到托盘;托盘菜单里"退出"才是真退出(业主明确要的常驻式)。
+
+### A5. 顺序(每一步都能单独交付,不做大爆炸)
+
+- **S1a 外壳探路包**:pywebview + pythonnet + pystray 塞进 embeddable Python,真机跑一趟。
+  **这是 S1 唯一"可能推翻方案形状"的未知**,和 S0 同一个道理,先测量。
+- S1b Inno Setup 脚本 + 在本机构建 `.exe`(每用户装、图标、卸载、开机自启勾选)。
+- S1c 首次启动向导(key + 口令,写进 `data\`)。
+- S1d 应用内更新(manifest + 换名 + 冒烟回滚)。
+- S1e 砍 AWS 32MB —— **在 Windows 上重验一次导入关系**(Linux 上量的不算数)。
+
+### A6. 我自己看得见的风险(写下来,别等 B 卷来提)
+
+1. **pythonnet 在 embeddable Python 里可能装不起来** —— 它要找 .NET 运行时,而 `._pth`
+   写死 sys.path 的环境下行为未验证。这就是 S1a 存在的理由。
+2. **WebView2 不在的老机器**:Win10 早期版本可能没有。安装器要带 Evergreen 引导程序。
+3. **杀软**:自制未签名 exe + 后台常驻 + 开机自启,很容易被 Defender/360 拦。
+   签名要花钱(业主已知"签名待定")。**这条我控制不了,但要在交付说明里写清楚**。
+4. **换名更新在 Windows 上会被文件占用打败**:`app\` 里的 .pyd 正被自己加载着 ⇒
+   换名可能失败。所以**换名必须发生在启动早期、加载 app 之前**,不能在运行中做。
+5. **开机自启 + 常驻**会把 design.md 上面记的 dream 问题放大到 24 小时。
+   业主已拍板"dream 留着、SOUL.md 撞车记 backlog、本单不动" ⇒ 本单不动,但
+   **交付说明里要提一句**,别让它变成没人知道的事。
