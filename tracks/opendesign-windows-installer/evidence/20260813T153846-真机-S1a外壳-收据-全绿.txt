@@ -1,0 +1,101 @@
+业主真机回传(第二台机器:C:\Users\msi —— S0 那两跑是 C:\Users\PC,这台此前没跑过)
+包:OpenDesign-Windows-Spike-S1a.zip(GitHub 预发布 spike-windows-s1a,90039021 字节)
+解压位置:C:\Users\msi\Desktop\OpenDesign-Windows-Spike-S1a
+收到时间:2026-08-13 15:38(本地)
+以下为业主贴回的 收据.txt 原文,一字未改。
+
+==============================================================
+0. 现场(先证明这是我以为的那个运行时,不是机器上别的 Python)
+==============================================================
+  python  : 3.12.10
+  可执行  : C:\Users\msi\Desktop\OpenDesign-Windows-Spike-S1a\python\python.exe
+  工作目录: C:\Users\msi\Desktop\OpenDesign-Windows-Spike-S1a
+  [PASS] 跑的是包内的免装 Python
+         凭据: C:\Users\msi\Desktop\OpenDesign-Windows-Spike-S1a\python\python.exe 在包目录 C:\Users\msi\Desktop\OpenDesign-Windows-Spike-S1a 下
+  [PASS] `._pth` 在起作用
+         凭据: python312._pth;sys.path 前三项 = ['C:\\Users\\msi\\Desktop\\OpenDesign-Windows-Spike-S1a\\python\\python312.zip', 'C:\\Users\\msi\\Desktop\\OpenDesign-Windows-Spike-S1a\\python', 'C:\\Users\\msi\\Desktop\\OpenDesign-Windows-Spike-S1a\\python\\Lib\\site-packages']
+
+==============================================================
+1. 三个外壳组件在 embeddable 下导不导得进来(最可能死在这)
+==============================================================
+  [PASS] import clr_loader
+         凭据: 版本 (无版本号);来自 C:\Users\msi\Desktop\OpenDesign-Windows-Spike-S1a\python\Lib\site-packages\clr_loader\__init__.py
+  [PASS] import pythonnet
+         凭据: 版本 (无版本号);来自 C:\Users\msi\Desktop\OpenDesign-Windows-Spike-S1a\python\Lib\site-packages\pythonnet\__init__.py
+  [PASS] import webview
+         凭据: 版本 (无版本号);来自 C:\Users\msi\Desktop\OpenDesign-Windows-Spike-S1a\python\Lib\site-packages\webview\__init__.py
+  [PASS] import pystray
+         凭据: 版本 (无版本号);来自 C:\Users\msi\Desktop\OpenDesign-Windows-Spike-S1a\python\Lib\site-packages\pystray\__init__.py
+  [PASS] import PIL
+         凭据: 版本 12.3.0;来自 C:\Users\msi\Desktop\OpenDesign-Windows-Spike-S1a\python\Lib\site-packages\PIL\__init__.py
+
+==============================================================
+2. 这台机器上有没有 pywebview 需要的东西(缺了要靠安装器补)
+==============================================================
+  [PASS] 能挂上 .NET 运行时
+         凭据: import clr 成功 ⇒ pythonnet 找到了 CLR
+  [PASS] WebView2 运行时在
+         凭据: 注册表报版本 151.0.4129.78
+
+==============================================================
+3. 真开一个无地址栏窗口(带超时,绝不挂住)
+==============================================================
+  [PASS] 能开出一个无地址栏窗口
+         凭据: 窗口标题 = 'OpenDesign 外壳探路',已自动关闭
+
+==============================================================
+4. 托盘图标能不能常驻(关窗不退出全靠它)
+==============================================================
+  [PASS] 托盘图标能创建并显示
+         凭据: pystray 报告 visible=True,2 秒后自动收掉
+
+==============================================================
+收据
+==============================================================
+  PASS 11   FAIL 0   SKIP 0
+
+  ⇒ 轻方案(pywebview + pystray)在这台机器上成立。
+    省下 ~150MB 与一条 Node 工具链;安装器按这条路走。
+
+  注:这一跑不写注册表、不改 PATH、不碰你已装的 OpenDesign。删掉这个文件夹即可清除。
+
+  这份内容已经存成 收据.txt —— 把那个文件整个发回来就行,不用你判断是什么问题。
+
+
+==============================================================
+主 agent 判读(亲读,不采信 PASS 计数)
+==============================================================
+
+裁决:**轻方案成立,外壳选型定为 pywebview + pystray**,Electron 那条路封存不走。
+分歧点(`pywebview + pythonnet` 在 embeddable + `._pth` 下跑不跑得起来)已被测量答掉。
+
+但 11/0/0 只覆盖了下面第一组,第二组是这一跑**没有**证明的,不许拿这张收据当它们的绿:
+
+## 真证明了的
+1. 跑的确实是包内那个免装 Python,`._pth` 生效 —— 现场闸没被绕过,后面 9 条才作数。
+2. 四个外壳组件在 embeddable + `._pth` 下全导得进(这是设计里判定"最可能死"的地方)。
+3. pythonnet 挂上了 CLR;这台机器有 WebView2(151.0.4129.78)。
+4. `webview.start()` 真起了窗口、拿得到标题、`destroy()` 后正常退出 —— 没崩、没挂死。
+5. pystray 能创建图标并报 visible=True,`stop()` 后正常收回。
+
+## 这一跑没有证明的(逐条已进 tasks.md,别让它们混进"已验证")
+1. 🔴 **"无地址栏"这四个字考卷其实没验** —— 断言名比它问的强。`create_window()` 没传
+   `frameless=True`,也没有任何检查窗口有没有地址栏。pywebview 本来就不是浏览器、不带
+   地址栏,所以事实大概率对,但**这是我自己写的考卷的一处 overclaim,记在账上**。
+   它真正证明的是"窗口起得来并能正常退出",而那已经足够裁决选型 —— 外观是参数问题,
+   不是运行时可行性问题。⇒ 结论不变,措辞收窄。
+2. **WebView2 只证明了"这台机器有"**。考卷注释自己写了"Win10/11 通常自带但不保证"。
+   ⇒ 安装器必须带微软官方 WebView2 Bootstrapper 并在装机时检测补装,不能赌。
+3. **.NET 同理** —— 这台挂上了,不代表老机器。首启动要给出可读错误,不能只抛 CLR 栈。
+4. **窗口里没有加载 ds-web**。考卷故意只喂自带 HTML(注释写明了理由,这个取舍是对的:
+   不把"窗口起不起得来"和"后端行不行"混进一问)。⇒ "外壳 + 真实后端"这个组合仍未跑过。
+5. **"常驻"和"关窗不退出"没验**。tasks.md 里 S1a 原本写的是"托盘能不能常驻 / 关窗不退出",
+   考卷实际只答了"图标能创建并显示"。常驻与关窗行为属于 S1b 实现时的事。
+6. **砍 AWS 32MB 后仍能起** —— 考卷里根本没有这一项,这一跑与它无关。那条待办仍欠着。
+7. **这台机器(msi)没跑过 S0**,所以"这台上整套后端能不能起"仍未知。S1a 包里虽有全套
+   后端文件,但考卷没考它。
+
+## 顺带一处考卷小瑕疵(不影响结论)
+`getattr(mod, "__version__", ...)` 对 clr_loader / pythonnet / webview / pystray 全取不到,
+四行都印"(无版本号)"。凭据靠 `__file__` 路径已经够用(证明来自包内),但版本这一栏
+形同虚设。真要修应改读 `importlib.metadata.version()`。已记 tasks.md,不返工这一跑。
