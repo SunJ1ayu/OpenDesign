@@ -51,6 +51,24 @@ runlog: package-structure-clean rc=0 commit=f555cd9 dirty=yes at=2026-08-12T14:2
 - **别把台架的 29 绿当成 S0 通过** —— 台架跑的是普通 venv,而 S0 要问的恰恰是
   embeddable。台架只证明了**判据本身能用**,没证明结论。
 
+## S1b 机器收据(桌面外壳内核 —— **进行中,未判**)
+
+> 放这儿是为了别让收据成孤儿。**这不是 S1 的判决** —— S1 的 lane 是 full,
+> 评审一轮都还没跑,业主真机也一趟没跑。下面三行只说明"考卷跑过、且咬得动"。
+
+```
+runlog: S1b rc=0 commit=b5082d7 dirty=no at=2026-08-13T14:24:52Z file=tracks/opendesign-windows-installer/evidence/20260813T142452Z-01-S1b.txt
+runlog: e2e-two-legs rc=0 commit=b5082d7 dirty=yes at=2026-08-13T14:25:33Z file=tracks/opendesign-windows-installer/evidence/20260813T142533Z-01-e2e-two-legs.txt
+runlog: redcheck rc=0 commit=b5082d7 dirty=yes at=2026-08-13T14:53:51Z file=tracks/opendesign-windows-installer/evidence/20260813T145351Z-01-redcheck.txt
+```
+
+- 七组 56 条:常规一跑 `OK (skipped=1)`;`DS_SHELL_E2E=1` 那跑把跳过的那条也跑了(56 OK),
+  用外壳自己的监管 + env **真把两条后端腿起起来**,让它自己报身份。
+- 红检 13 条变异**逐条指定靶子**,13 咬住 / 0 漏网,脚本收尾自查"被测文件已原样还回(哈希一致)"。
+- ⚠️ **红检这份是重跑的**:22:26 那次跑到 M5/13 被会话断线砍断,收据残缺(无汇总行)。
+  残收据**没有**留在 `evidence/` 里 —— 一份看起来像绿的半截收据,比没有收据更危险。
+- ⚠️ **`bin/ds_shell.py`(Windows 胶水层)一条自动考卷都没有**,上面这三行**不覆盖它**。
+
 ## Review
 
 - lane: **S0 = self;S1 = full**
