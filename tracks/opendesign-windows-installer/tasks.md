@@ -41,7 +41,10 @@
 
 ### 🔴 S1 开工前必须先还的账(08-13 发现)
 
-- [ ] **写 `spike/build-package.sh`(组包流水线进仓)**。
+- [x] **写 `spike/build-package.sh`(组包流水线进仓)**(`1332c7d` + `89334dd`)。
+      两次实跑收据在 `evidence/组包流水线-{S0形态,S1a外壳}.log`:S0 那个已验证的包
+      **现在一条命令可重建**;`win-deps-audit.py` 已接成硬闸并**真响了**(四个依赖被静默丢掉,
+      比当初真机炸出来的多两个)。**原始理由留档如下**:
       现状:仓里有**验包**(`check-package.sh`)和**查漏依赖**(`win-deps-audit.py`),
       **唯独没有组包**。S0 那次的组包是在一个已经消失的会话里手工做的,
       而且**素材(wheels / embeddable python / 成品包)现在盘上一个都不剩**。
@@ -54,10 +57,19 @@
 
 ### S1a —— 外壳探路包(裁决 Electron vs pywebview,只有真机能答)
 
-- [ ] 在 build-package.sh 之上加外壳依赖(pywebview + pythonnet + pystray)
-- [ ] spike 问题:pythonnet 在 embeddable + `._pth` 下起不起得来 / WebView2 在不在 /
-      能不能开出无地址栏窗口 / 托盘能不能常驻 / 关窗不退出
-- [ ] **业主真机跑一趟** ⇒ 跑通=省 150MB 与一条 Node 工具链;跑不通=直接落 B 卷 Electron
+- [x] 在 build-package.sh 之上加外壳依赖(pywebview 5.4 + pythonnet 3.0.5 + pystray 0.19.5)——
+      成品包内四个 dist-info 已逐个点名核对在;闸 C 拦下 `proxy_tools` 只有源码包,
+      查证是纯 Python 后加**显式例外**(没让 pip 自动回退,那等于把闸 C 悄悄拆掉)
+- [x] 写考卷 `spike-shell.py`(四问:三组件导不导得进 / WebView2 在不在 / 真开一个无地址栏窗口 /
+      真放一个托盘图标),全部带超时绝不挂住;**空环境降级验证已跑**(七红三跳不崩、
+      每支都打印原因、rc=1)⇒ 无论真机什么结果我都拿得到信息。
+      真跑中补了两处焊点(`55bbaf1`):漏抄的 UTF-8 焊点会让中文打印假红、
+      收据功能自身的退出码污染会把 rc 变成 120
+- [x] 组包 + 出 zip(86MB,结构检查 29 项 0 不合格)+ 发 GitHub 预发布 `spike-windows-s1a`
+      (release 上的 asset 大小与盘上一致:90039021 字节;只比了大小,没做逐字节校验)
+- [ ] 👉 **业主真机跑一趟**(唯一的堵点,只有他能做):下 zip → 解压 → 双击 `跑一下.bat`
+      → 把 `收据.txt` 发回来。⇒ 跑通=省 150MB 与一条 Node 工具链;跑不通=直接落 B 卷 Electron
+- [ ] 收到收据后:判读 → 定外壳选型 → 把结论写回 design.md 末尾「外壳选型」那格
 - [ ] 顺带在 Windows 上重验"砍掉 AWS 32MB 后仍能起"(Linux 上量的导入关系不算数)
 
 ### S1b 起(架构已定稿,照 design.md 末尾执行)
