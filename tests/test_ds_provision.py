@@ -251,5 +251,54 @@ class TestBrokenInputs(ProvisionTestBase):
         self.assertEqual(self.config_path().read_text(encoding="utf-8"), "{ 这不是 JSON")
 
 
+class TestMalformedButParseable(ProvisionTestBase):
+    """四审(subdeepseek F2/F3)抓到的两种:配置能被 json 解析、但形状不对。"""
+
+    def test_e1_null_channels_does_not_throw_a_stack_at_the_owner(self):
+        """`{"channels": null}` —— 合法 JSON,但 setdefault 拿到 None 再 .setdefault 就炸。
+
+        本模块的规矩是"不许把 Python 栈甩给业主"(他没有终端、也不是程序员)。
+        这一条盯的正是那句承诺,而不是"会不会崩"。
+        """
+        self.config_path().parent.mkdir(parents=True, exist_ok=True)
+        self.config_path().write_text('{"channels": null}', encoding="utf-8")
+        r = self.run_provision()
+        out = r.stdout + r.stderr
+        self.assertNotIn("Traceback", out, "给业主看的不该是 Python 栈")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("配置", out)
+
+    def test_e2_websocket_of_wrong_type_is_refused_in_human_words(self):
+        """`channels.websocket` 是个字符串 —— 同上,而且更像"被别的工具写坏了"。"""
+        self.config_path().parent.mkdir(parents=True, exist_ok=True)
+        self.config_path().write_text('{"channels": {"websocket": "开"}}', encoding="utf-8")
+        r = self.run_provision()
+        out = r.stdout + r.stderr
+        self.assertNotIn("Traceback", out)
+        self.assertNotEqual(r.returncode, 0)
+
+    def test_e3_a_failing_merge_leaves_no_half_config_behind(self):
+        """合并失败时,盘上不许留下一份"开了通道但没有工具服务"的半成品配置。
+
+        本模块自己写着"半份配置比没有配置更坏"(外壳会拿着它去起后台,然后死在别处),
+        而原来的顺序是**先落盘再合并** ⇒ 合并炸了就正好留下那种半成品。
+        (subdeepseek F3。它指出的是"承诺与实现对不上",不是崩溃。)
+        """
+        # 模板是合法文件但不是合法 JSONC ⇒ 前置存在性检查过得去,合并这一步才炸
+        (self.ds_root / "config" / TEMPLATE.name).write_text("{ 这不是 JSON", encoding="utf-8")
+        r = self.run_provision()
+        self.assertNotEqual(r.returncode, 0, "合并失败应当非零退出")
+        self.assertFalse(self.config_path().exists(),
+                         "合并失败却留下了一份半成品配置")
+
+    def test_e4_a_failing_merge_does_not_damage_an_existing_config(self):
+        """已经装过的机器上合并失败:他原来那份必须**一个字节都没变**。"""
+        self.assertEqual(self.run_provision().returncode, 0)
+        before = self.config_path().read_bytes()
+        (self.ds_root / "config" / TEMPLATE.name).write_text("{ 坏了", encoding="utf-8")
+        self.assertNotEqual(self.run_provision().returncode, 0)
+        self.assertEqual(self.config_path().read_bytes(), before, "把他原来的配置改坏了")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
