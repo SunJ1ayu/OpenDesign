@@ -1,0 +1,31 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-h6h9
+cmd:     /root/.venvs/design-studio/bin/python /tmp/claude-0/-root/20b202fe-42e0-41c7-adf0-a01ea51e8744/scratchpad/mutate-h6h9.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  3e8a365
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-14T04:43:27Z
+---------------- 输出开始 ----------------
+基线:未变异 ⇒ 绿 ✅
+
+✅ M1 两条指令说反:咬住(靶子 ['h6', 'h7'])
+     FAIL: test_h6_a_missing_key_tells_him_the_file_to_put_it_in (__main__.MissingEnvRefs.test_h6_a_missing_key_tells_him_the_file_to_put_it_in)
+     FAIL: test_h7_anything_else_missing_means_the_install_is_broken (__main__.MissingEnvRefs.test_h7_anything_else_missing_means_the_install_is_broken)
+     FAIL: test_h8_both_kinds_get_both_instructions_and_nothing_is_dropped (__main__.MissingEnvRefs.test_h8_both_kinds_get_both_instructions_and_nothing_is_dropped)
+✅ M2 缺 key 时不念文件路径:咬住(靶子 ['h6', 'h8'])
+     FAIL: test_h6_a_missing_key_tells_him_the_file_to_put_it_in (__main__.MissingEnvRefs.test_h6_a_missing_key_tells_him_the_file_to_put_it_in)
+     FAIL: test_h8_both_kinds_get_both_instructions_and_nothing_is_dropped (__main__.MissingEnvRefs.test_h8_both_kinds_get_both_instructions_and_nothing_is_dropped)
+✅ M3 缺别的时不点名是哪个:咬住(靶子 ['h7', 'h8'])
+     FAIL: test_h7_anything_else_missing_means_the_install_is_broken (__main__.MissingEnvRefs.test_h7_anything_else_missing_means_the_install_is_broken)
+     FAIL: test_h8_both_kinds_get_both_instructions_and_nothing_is_dropped (__main__.MissingEnvRefs.test_h8_both_kinds_get_both_instructions_and_nothing_is_dropped)
+✅ M4 没缺东西也弹一段话(业主永远打不开):咬住(靶子 ['h9'])
+     FAIL: test_h9_nothing_missing_says_nothing (__main__.MissingEnvRefs.test_h9_nothing_missing_says_nothing)
+✅ M5 只说 key,别的整个吞掉:咬住(靶子 ['h7', 'h8'])
+     FAIL: test_h7_anything_else_missing_means_the_install_is_broken (__main__.MissingEnvRefs.test_h7_anything_else_missing_means_the_install_is_broken)
+     FAIL: test_h8_both_kinds_get_both_instructions_and_nothing_is_dropped (__main__.MissingEnvRefs.test_h8_both_kinds_get_both_instructions_and_nothing_is_dropped)
+
+---- 汇总(机器写的)----
+变异 5 条:咬住 5 / 漏网 0 / 无效 0
+源码已恢复,与备份逐字节相同 ✅
+---------------- 输出结束 ----------------
+runlog: redcheck-h6h9 rc=0 commit=3e8a365 dirty=yes at=2026-08-14T04:43:27Z file=tracks/opendesign-windows-installer/evidence/20260814T044327Z-01-redcheck-h6h9.txt

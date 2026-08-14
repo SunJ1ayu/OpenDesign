@@ -156,18 +156,10 @@ def start_backend(home: Path):
             missing = core.missing_env_refs(json.load(f), env)
     except (OSError, ValueError) as e:
         die(f"配置读不出来:{e}\n\n请重新运行安装程序。")
-    if missing:
-        # 分开说而不是笼统一句"配置有问题":缺 key 是业主自己补得上的(放个文件),
-        # 缺别的是装机没装好(得重跑安装程序)—— 两件事该给两种指令。
-        tips = []
-        if "DS_LLM_KEY" in missing:
-            tips.append("· 还没填大模型的 key。请把 key 放进这个文件(没有就新建一个):\n"
-                        f"    {key_file(home)}")
-        others = [n for n in missing if n != "DS_LLM_KEY"]
-        if others:
-            tips.append(f"· 配置里还用到了这些没设好的东西:{'、'.join(others)}\n"
-                        "    请重新运行安装程序。")
-        die(f"{APP} 起不来,还差点东西:\n\n" + "\n\n".join(tips) + "\n\n补好之后重新打开就行。")
+    # 说什么话在 core 里(判据 H6~H9 咬着);这一层只剩"有就弹"。
+    trouble = core.missing_env_message(missing, app=APP, key_path=str(key_file(home)))
+    if trouble:
+        die(trouble)
 
     logs = Path(os.environ.get("LOCALAPPDATA", Path.home())) / APP / "Logs"
     sup = core.Supervisor()

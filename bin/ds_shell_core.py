@@ -708,6 +708,30 @@ def missing_env_refs(config: Any, env: dict) -> list[str]:
     return list(found)
 
 
+def missing_env_message(missing: list[str], *, app: str, key_path: str) -> str:
+    """`missing_env_refs()` 的结果 → 念给业主听的那段话(没缺就返回空串)。
+
+    住在这里而不是 ds_shell.py,是因为**这段话是业主唯一会看见的输出**,而那一层
+    在 Linux 上一条考卷都跑不了 ⇒ 放在那儿等于没人验。判据 H6~H9。
+
+    分两种缺法说,不是为了话好听 —— 两种缺法**该做的事完全不同**:
+      · 缺 key   :业主自己补得上(往那个文件里放一行),路径必须原样念出来;
+      · 缺别的   :装机没装好,他补不了,只能重跑安装程序。
+    说反或者笼统成一句"配置有问题",他就会去做解决不了问题的那件事。
+    """
+    if not missing:
+        return ""
+    tips = []
+    if "DS_LLM_KEY" in missing:
+        tips.append("· 还没填大模型的 key。请把 key 放进这个文件(没有就新建一个):\n"
+                    f"    {key_path}")
+    others = [n for n in missing if n != "DS_LLM_KEY"]
+    if others:
+        tips.append(f"· 配置里还用到了这些没设好的东西:{'、'.join(others)}\n"
+                    "    请重新运行安装程序。")
+    return f"{app} 起不来,还差点东西:\n\n" + "\n\n".join(tips) + "\n\n补好之后重新打开就行。"
+
+
 def child_env(
     base_env: dict,
     *,
