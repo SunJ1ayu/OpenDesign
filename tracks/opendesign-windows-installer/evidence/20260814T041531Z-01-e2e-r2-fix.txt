@@ -1,0 +1,117 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    e2e-r2-fix
+cmd:     env DS_SHELL_E2E=1 /root/.venvs/design-studio/bin/python -W ignore tests/test_ds_shell_core.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  a83d036
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-14T04:15:31Z
+---------------- 输出开始 ----------------
+test_e1_dsweb_talks_to_the_websocket_port_not_the_gateway_port (__main__.ChildEnv.test_e1_dsweb_talks_to_the_websocket_port_not_the_gateway_port)
+🔴 这一条来自读代码时抓到的真坑。 ... ok
+test_e2_host_python_paths_do_not_leak_in (__main__.ChildEnv.test_e2_host_python_paths_do_not_leak_in)
+业主机器上很可能本来就装着 Python。PYTHONPATH/PYTHONHOME 漏进来 ⇒ 包内 ... ok
+test_e3_system_keys_survive (__main__.ChildEnv.test_e3_system_keys_survive)
+攻题 HIGH#9 的反方向:一个"只返回三个 DS_ 键"的实现能过 E1/E2/E4, ... ok
+test_e4_inherited_ds_keys_are_wiped_not_inherited (__main__.ChildEnv.test_e4_inherited_ds_keys_are_wiped_not_inherited)
+攻题 HIGH#9:业主机器上**已经装过**老版 OpenDesign ⇒ 环境里可能有旧的 ... ok
+test_e5_home_points_at_our_own_data_dir (__main__.ChildEnv.test_e5_home_points_at_our_own_data_dir)
+攻题 HIGH#8:nanobot 从 ~/.nanobot/config.json 读配置。HOME/USERPROFILE ... ok
+test_e6_key_is_passed_only_when_there_is_one (__main__.ChildEnv.test_e6_key_is_passed_only_when_there_is_one) ... ok
+test_e7_every_value_is_a_string (__main__.ChildEnv.test_e7_every_value_is_a_string)
+焊点:env 里混进 int,subprocess 在 Windows 上会直接 TypeError —— ... ok
+test_h1_a_referenced_but_unset_variable_is_named (__main__.MissingEnvRefs.test_h1_a_referenced_but_unset_variable_is_named) ... ok
+test_h2_a_variable_that_is_set_is_not_reported (__main__.MissingEnvRefs.test_h2_a_variable_that_is_set_is_not_reported) ... ok
+test_h3_it_looks_all_the_way_down_and_says_each_name_once (__main__.MissingEnvRefs.test_h3_it_looks_all_the_way_down_and_says_each_name_once) ... ok
+test_h4_the_real_windows_config_after_patching_lacks_exactly_the_key (__main__.MissingEnvRefs.test_h4_the_real_windows_config_after_patching_lacks_exactly_the_key)
+真机那次的复现:**真模板 → 真 patch_config → 真 child_env**,不捏假配置。 ... ok
+test_h5_the_gateway_really_refuses_to_start_without_the_key (__main__.MissingEnvRefs.test_h5_the_gateway_really_refuses_to_start_without_the_key)
+把「没 key 也能起来看待办」这句话**证伪一次并留下证据**。 ... ok
+test_d1_ports_are_written (__main__.PatchConfig.test_d1_ports_are_written) ... ok
+test_d2_our_own_mcps_point_into_the_package (__main__.PatchConfig.test_d2_our_own_mcps_point_into_the_package) ... ok
+test_d3_a_third_party_mcp_is_left_completely_alone (__main__.PatchConfig.test_d3_a_third_party_mcp_is_left_completely_alone)
+攻题二轮 MED#8:上一版写的是"every MCP 都要改成包内 python", ... ok
+test_d3b_a_missing_own_mcp_is_refused (__main__.PatchConfig.test_d3b_a_missing_own_mcp_is_refused)
+三个自有 MCP 少一个 ⇒ 装出来的东西是残的(工具调不动、界面报错很难懂), ... ok
+test_d3c_only_the_ports_and_our_mcp_commands_may_change (__main__.PatchConfig.test_d3c_only_the_ports_and_our_mcp_commands_may_change)
+攻题 HIGH#6:上一版只点名查了五片叶子 ⇒ 一个"重建一份最小 JSON"的实现 ... ok
+test_d4_is_idempotent (__main__.PatchConfig.test_d4_is_idempotent) ... ok
+test_d5_refuses_a_config_whose_channel_is_off (__main__.PatchConfig.test_d5_refuses_a_config_whose_channel_is_off)
+攻题 HIGH#8:通道没开(或没口令),网关会起来但聊天永远连不上, ... ok
+test_d6_a_reader_never_sees_a_half_written_config (__main__.PatchConfig.test_d6_a_reader_never_sees_a_half_written_config)
+断言名只说它问得出的那件事(攻题二轮 MED#10 把上一版"证明了原子替换" ... ok
+test_a1_preferred_when_free (__main__.PickPort.test_a1_preferred_when_free) ... ok
+test_a2_moves_off_a_busy_port (__main__.PickPort.test_a2_moves_off_a_busy_port) ... ok
+test_a3_whole_span_busy_fails_loudly (__main__.PickPort.test_a3_whole_span_busy_fails_loudly)
+全段被占 ⇒ 必须抛人话异常,不许静默返回 0 / 随机端口。 ... ok
+test_a4_returned_port_is_actually_bindable (__main__.PickPort.test_a4_returned_port_is_actually_bindable)
+焊点:探测"看着空"和"绑得住"是两件事。 ... ok
+test_a5_a_bound_but_not_listening_port_counts_as_busy (__main__.PickPort.test_a5_a_bound_but_not_listening_port_counts_as_busy)
+攻题 HIGH#1:只用 connect 探测的实现,会把"已 bind 未 listen"看成空端口, ... ok
+test_a6_group_allocation_never_hands_out_the_same_port_twice (__main__.PickPort.test_a6_group_allocation_never_hands_out_the_same_port_twice)
+攻题 HIGH#1 的第二条路线:网关 / 通道 / ds-web 三个端口是**分别**挑的, ... ok
+test_g1_ds_web_smoke_and_it_reads_the_data_root_we_gave_it (__main__.RealBackend.test_g1_ds_web_smoke_and_it_reads_the_data_root_we_gave_it)
+名字只说它问得出的那件事:这是 **ds-web 启动冒烟**,不是"两腿联跑" ... ok
+test_g2_gateway_and_ds_web_really_talk_to_each_other (__main__.RealBackend.test_g2_gateway_and_ds_web_really_talk_to_each_other)
+攻题 HIGH#8 + HIGH#11 的正面回答:同一套 Supervisor / child_env / 落盘配置, ... ok
+test_f1_closing_the_window_hides_instead_of_quitting (__main__.ShellState.test_f1_closing_the_window_hides_instead_of_quitting)
+业主明确要的常驻式(像 openclaw):关窗口 ≠ 退出。 ... ok
+test_f2_tray_open_shows_it_again (__main__.ShellState.test_f2_tray_open_shows_it_again) ... ok
+test_f3_tray_quit_is_the_only_real_exit (__main__.ShellState.test_f3_tray_quit_is_the_only_real_exit) ... ok
+test_f4_second_launch_raises_a_hidden_window (__main__.ShellState.test_f4_second_launch_raises_a_hidden_window) ... ok
+test_f5_quit_is_idempotent (__main__.ShellState.test_f5_quit_is_idempotent) ... ok
+test_f6_close_after_quit_does_not_resurrect (__main__.ShellState.test_f6_close_after_quit_does_not_resurrect)
+退出过程中 pywebview 还会再发一次 closing ⇒ 那一次必须放行,否则关不掉。 ... ok
+test_f7_a_late_show_after_quit_is_a_no_op (__main__.ShellState.test_f7_a_late_show_after_quit_is_a_no_op)
+攻题 HIGH#12:退出途中第二个实例发来的 SHOW 会打在已销毁的窗口上。 ... ok
+test_f8_two_threads_quitting_at_once_only_stop_the_backend_once (__main__.ShellState.test_f8_two_threads_quitting_at_once_only_stop_the_backend_once)
+攻题二轮 MED#9:真实事件来自三个线程(锁的监听线程、托盘线程、UI 线程)。 ... ok
+test_f9_the_check_and_set_in_on_quit_is_not_two_steps (__main__.ShellState.test_f9_the_check_and_set_in_on_quit_is_not_two_steps)
+f8 打的是真线程,但"检查 exiting"和"置位 exiting"之间那条缝极窄, ... ok
+test_b10_a_handshake_split_across_packets_is_still_recognised (__main__.SingleInstance.test_b10_a_handshake_split_across_packets_is_still_recognised)
+TCP 没有消息边界。握手被拆成两个包发,服务端若只 recv 一次就会认不出来 —— ... ok
+test_b1_first_instance_acquires (__main__.SingleInstance.test_b1_first_instance_acquires) ... ok
+test_b2_second_instance_is_refused_and_wakes_the_first (__main__.SingleInstance.test_b2_second_instance_is_refused_and_wakes_the_first) ... ok
+test_b3_a_stranger_on_the_port_is_not_mistaken_for_us (__main__.SingleInstance.test_b3_a_stranger_on_the_port_is_not_mistaken_for_us)
+陌生程序占了锁位 ⇒ 不许误判成"已有实例"而拒绝启动。 ... ok
+test_b4_second_instance_finds_the_first_even_on_a_fallback_slot (__main__.SingleInstance.test_b4_second_instance_finds_the_first_even_on_a_fallback_slot)
+攻题 HIGH#2 的第二条路线:陌生程序占了 base,第一份落在 base+1; ... ok
+test_b5_lock_is_released_on_exit (__main__.SingleInstance.test_b5_lock_is_released_on_exit) ... ok
+test_b6_lock_socket_does_not_set_so_reuseaddr (__main__.SingleInstance.test_b6_lock_socket_does_not_set_so_reuseaddr)
+断言名只说它问得出的那件事(攻题 HIGH#3 把上一版的 overclaim 揪出来了)。 ... ok
+test_b7_windows_branch_asks_for_exclusive_bind (__main__.SingleInstance.test_b7_windows_branch_asks_for_exclusive_bind)
+Windows 那条分支在 Linux 上跑不了,但"它打算设哪些 socket 选项"是纯数据, ... ok
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (__main__.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... ok
+test_b9_a_silent_client_cannot_wedge_the_lock (__main__.SingleInstance.test_b9_a_silent_client_cannot_wedge_the_lock)
+攻题二轮 HIGH#2:端口扫描器(或任何连上就不说话的东西)连住锁位。 ... ok
+test_c10_poll_dead_names_the_leg_and_keeps_saying_so (__main__.Supervise.test_c10_poll_dead_names_the_leg_and_keeps_saying_so) ... ok
+test_c11_a_leg_that_dies_while_the_next_one_boots_fails_the_whole_start (__main__.Supervise.test_c11_a_leg_that_dies_while_the_next_one_boots_fails_the_whole_start)
+🔴 攻题二轮 HIGH#3:网关先就绪、随后崩掉,而这时监管者只盯着第二条腿。 ... ok
+test_c12_a_non_startupfailed_error_also_rolls_back (__main__.Supervise.test_c12_a_non_startupfailed_error_also_rolls_back)
+攻题二轮 HIGH#4:第二条腿连日志都开不出来(路径不可用)会抛 OSError, ... ok
+test_c13_grandchildren_are_reaped_even_if_the_parent_died_first (__main__.Supervise.test_c13_grandchildren_are_reaped_even_if_the_parent_died_first)
+攻题二轮 HIGH#4 的第二条:nanobot 父进程自己先崩了,3 个 MCP 孙进程还活着。 ... ok
+test_c14_readiness_can_demand_an_identity_not_just_a_listener (__main__.Supervise.test_c14_readiness_can_demand_an_identity_not_just_a_listener)
+攻题二轮 HIGH#5:开跑前端口是空的,不代表就绪那一刻听端口的是**我们的孩子**。 ... ok
+test_c1_started_children_are_really_killed (__main__.Supervise.test_c1_started_children_are_really_killed) ... ok
+test_c2_the_whole_process_tree_goes_down (__main__.Supervise.test_c2_the_whole_process_tree_goes_down)
+攻题 HIGH#5:nanobot 自己会拉起 3 个 MCP 子进程。只 terminate 直接子进程, ... ok
+test_c3_a_stubborn_child_gets_force_killed (__main__.Supervise.test_c3_a_stubborn_child_gets_force_killed)
+优雅退出要有期限,过期强杀。否则托盘点"退出"之后程序像卡死了。 ... ok
+test_c4_a_child_that_dies_is_reported_fast_and_readably (__main__.Supervise.test_c4_a_child_that_dies_is_reported_fast_and_readably)
+子进程自己崩了 ⇒ 立刻报"谁崩了 / 退出码 / 日志尾巴",不许傻等到超时。 ... ok
+test_c5_a_slow_leg_is_not_killed_early (__main__.Supervise.test_c5_a_slow_leg_is_not_killed_early)
+攻题 HIGH#4:真网关冷启动要好几秒。"先短轮询、没开口就报超时"的实现 ... ok
+test_c6_timeout_is_not_reported_before_the_deadline (__main__.Supervise.test_c6_timeout_is_not_reported_before_the_deadline) ... ok
+test_c7_a_port_someone_else_already_holds_is_not_our_green (__main__.Supervise.test_c7_a_port_someone_else_already_holds_is_not_our_green)
+攻题 HIGH#4 的另一半:先查端口再查死活的实现,会把**陌生进程**的监听 ... ok
+test_c8_shutdown_is_idempotent (__main__.Supervise.test_c8_shutdown_is_idempotent) ... ok
+test_c9_a_failed_start_takes_its_siblings_down_before_it_returns (__main__.Supervise.test_c9_a_failed_start_takes_its_siblings_down_before_it_returns)
+第二条腿起不来 ⇒ 已经起好的第一条腿必须**在异常抛出之前**收掉。 ... ok
+
+----------------------------------------------------------------------
+Ran 61 tests in 35.835s
+
+OK
+---------------- 输出结束 ----------------
+runlog: e2e-r2-fix rc=0 commit=a83d036 dirty=yes at=2026-08-14T04:15:31Z file=tracks/opendesign-windows-installer/evidence/20260814T041531Z-01-e2e-r2-fix.txt

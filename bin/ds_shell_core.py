@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import signal
 import socket
 import subprocess
@@ -665,6 +666,46 @@ def patch_config(path, *, gateway_port: int, ws_port: int, python_exe: str) -> N
                 os.unlink(tmp_name)
             except OSError:
                 pass
+
+
+# nanobot 会把配置里的 `${VAR}` 换成环境变量,而**任何一个没设的都会让网关整个拒绝启动**
+# (nanobot/config/loader.py:143-149 抛 ValueError)。下面这条正则与它逐字一致。
+#
+# 🔴 为什么要有这一段(2026-08-14 业主真机实证,不是推演):
+# 没放 key 那一跑,外壳照着我的注释「没 key 也能看待办」把网关拉了起来,网关一秒后
+# 自己退出,业主拿到的是一句英文 `Environment variable 'DS_LLM_KEY' … is not set`。
+# 提前扫一遍,是把那句英文换成人话、并且**省掉起后台那段等待**。
+#
+# 抄这条正则是有代价的:nanobot 换了写法我们就跟丢。所以它只当"提前一步的报错"用,
+# 不承担正确性 —— 跟丢的最坏后果是退回今天这个样子(网关自己报错),不会更坏。
+# nanobot 版本 pin 在 bin/install.ps1(nanobot-ai==0.2.2)。
+_ENV_REF = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def missing_env_refs(config: Any, env: dict) -> list[str]:
+    """配置里引用了、但 `env` 里没给的环境变量名(按出现顺序,去重)。
+
+    与 nanobot 对齐的两处,都关系到**会不会造出假红**(假红 = 业主装好的机器打不开,
+    和漏判一样坏):
+      · 值为空串算"设了"(它判的是 `os.environ.get() is None`);
+      · **只看字典的值,不看键** —— nanobot 的解析器不碰键,跟着它。
+    """
+    found: dict[str, None] = {}
+
+    def walk(node: Any) -> None:
+        if isinstance(node, str):
+            for name in _ENV_REF.findall(node):
+                if name not in env:
+                    found[name] = None
+        elif isinstance(node, dict):
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, (list, tuple)):
+            for value in node:
+                walk(value)
+
+    walk(config)
+    return list(found)
 
 
 def child_env(

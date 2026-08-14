@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import ctypes
+import json
 import os
 import sys
 import threading
@@ -86,14 +87,18 @@ def python_exe() -> Path:
     return install_root() / "python" / "python.exe"
 
 
-def read_key(home: Path) -> str | None:
-    """机主自备的 LLM key(deploy-security D1:部署者不发 key)。
+def key_file(home: Path) -> Path:
+    """机主自备的 LLM key 放在哪儿(deploy-security D1:部署者不发 key)。
 
     路径与现有部署一致(ds-nanobot.ps1:20),只是 USERPROFILE 换成了应用自己的数据目录。
+    **报错文案要把这个路径原样念给业主听**,所以它得是个能被引用的单一来源。
     """
-    f = home / ".openDesign" / "key.txt"
+    return home / ".openDesign" / "key.txt"
+
+
+def read_key(home: Path) -> str | None:
     try:
-        return f.read_text(encoding="utf-8").strip() or None
+        return key_file(home).read_text(encoding="utf-8").strip() or None
     except OSError:
         return None
 
@@ -138,10 +143,31 @@ def start_backend(home: Path):
 
     env = core.child_env(dict(os.environ), ds_root=str(install_root() / "ds"),
                          user_home=str(home), dsweb_port=web, ws_port=ws, key=read_key(home))
-    if "DS_LLM_KEY" not in env:
-        # 不当场退出:业主可能只是想看看待办(ds-web 是只读的,不需要 key),
-        # 聊天那半会自己报错。首启动向导(S1c)会把这一步接过去。
-        log("[警告] 没找到 key.txt,聊天会连不上大模型")
+
+    # 🔴 08-14 业主真机红出来的那一条,别再写回去:
+    # 上一版这里只 log 一句「没找到 key.txt,聊天会连不上大模型」就继续往下走,理由是
+    # 「业主可能只是想看看待办,ds-web 是只读的、不需要 key」。**那句话是假的** ——
+    # 配置里 "apiKey": "${DS_LLM_KEY}",nanobot 解析到没设的 ${VAR} 就整个拒绝启动,
+    # 于是业主等来的是网关的一句英文 `Environment variable … is not set`。
+    # (tests/test_ds_shell_core.py H5 真起了一次网关把这件事钉死,别再靠注释。)
+    # 所以现在:起任何后台之前先扫一遍配置,缺什么当场说清楚、说该往哪儿放。
+    try:
+        with cfg.open("r", encoding="utf-8") as f:
+            missing = core.missing_env_refs(json.load(f), env)
+    except (OSError, ValueError) as e:
+        die(f"配置读不出来:{e}\n\n请重新运行安装程序。")
+    if missing:
+        # 分开说而不是笼统一句"配置有问题":缺 key 是业主自己补得上的(放个文件),
+        # 缺别的是装机没装好(得重跑安装程序)—— 两件事该给两种指令。
+        tips = []
+        if "DS_LLM_KEY" in missing:
+            tips.append("· 还没填大模型的 key。请把 key 放进这个文件(没有就新建一个):\n"
+                        f"    {key_file(home)}")
+        others = [n for n in missing if n != "DS_LLM_KEY"]
+        if others:
+            tips.append(f"· 配置里还用到了这些没设好的东西:{'、'.join(others)}\n"
+                        "    请重新运行安装程序。")
+        die(f"{APP} 起不来,还差点东西:\n\n" + "\n\n".join(tips) + "\n\n补好之后重新打开就行。")
 
     logs = Path(os.environ.get("LOCALAPPDATA", Path.home())) / APP / "Logs"
     sup = core.Supervisor()
