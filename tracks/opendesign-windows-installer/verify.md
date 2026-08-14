@@ -73,6 +73,58 @@ runlog: build-s1b rc=0 commit=3c7de12 dirty=yes at=2026-08-13T15:16:53Z file=tra
 - ⚠️ **红检这份是重跑的**:22:26 那次跑到 M5/13 被会话断线砍断,收据残缺(无汇总行)。
   残收据**没有**留在 `evidence/` 里 —— 一份看起来像绿的半截收据,比没有收据更危险。
 - ⚠️ **`bin/ds_shell.py`(Windows 胶水层)一条自动考卷都没有**,上面这三行**不覆盖它**。
+  （08-14 更正:这句话现在**小了一点点** —— 那一层的文案分流已下沉到 core,见下。
+  剩下的窗口/托盘/Job 接线仍然一条考卷都没有。）
+
+### 08-14 r2:业主真机红 → 根因 → 已修 → 重发(**仍未判**)
+
+业主跑了 S1b 探路包:**2 PASS / 1 FAIL / 5 SKIP**,第 1 问红(外壳自己 rc=1 退出),
+后面 5 问按 `SHELL_UP` 分流全 SKIP(那条分流是台架预演过的,分对了)。
+
+**根因不在代码,在我写在 `ds_shell.py` 里的一句话**:「没找到 key 也不当场退出,
+业主可能只是想看看待办」。那句是假的 —— 配置里 `"apiKey": "${DS_LLM_KEY}"`,
+nanobot 解析到**任何一个**没设的 `${VAR}` 就整个拒绝启动(loader.py:143-149)。
+
+**为什么两张考卷都没问出来**(这条比 bug 本身值钱):Linux 的 G2 **给了假 key**,
+Windows 的 S1b **故意不给 key** —— 两张卷子对同一个前提做了**相反的假设**,
+而**没有一张去问那个前提本身**。
+
+```
+runlog: S1b-r2-fix rc=0 commit=a83d036 dirty=yes at=2026-08-14T04:14:43Z file=tracks/opendesign-windows-installer/evidence/20260814T041443Z-01-S1b-r2-fix.txt
+runlog: e2e-r2-fix rc=0 commit=a83d036 dirty=yes at=2026-08-14T04:15:31Z file=tracks/opendesign-windows-installer/evidence/20260814T041531Z-01-e2e-r2-fix.txt
+runlog: redcheck-h6h9 rc=0 commit=3e8a365 dirty=yes at=2026-08-14T04:43:27Z file=tracks/opendesign-windows-installer/evidence/20260814T044327Z-01-redcheck-h6h9.txt
+runlog: S1b-r2-msg rc=0 commit=3e8a365 dirty=yes at=2026-08-14T04:44:56Z file=tracks/opendesign-windows-installer/evidence/20260814T044456Z-01-S1b-r2-msg.txt
+runlog: build-s1b-r2 rc=0 commit=dd467b1 dirty=no at=2026-08-14T05:23:47Z file=tracks/opendesign-windows-installer/evidence/20260814T052347Z-01-build-s1b-r2.txt
+```
+
+- 判据两轮都**先单独 commit 再修**(`a83d036`→`5abe66d`,`3e8a365`→`dbedd52`)。
+- 第一轮 H1~H5:H5 **真起了一次网关、不给 key**,它死在**退出码**上而不是超时 ⇒
+  「没 key 也能起来看待办」这句话被**证伪一次并留下证据**,不再靠注释。
+- 第二轮 H6~H9 把**业主唯一会看见的那段话**也变成可判定的:它原本写在 `ds_shell.py`
+  里,而那一层在 Linux 上一条考卷都跑不了 —— **等于把最该验的东西放在验不了的地方**。
+- 红检 5 条定点变异(说反指令 / 不念路径 / 不点名 / 没缺也弹 / 吞掉别的)⇒ **5 咬住 /
+  0 漏网**,每条红在指定靶子上。脚本自验"变异真打上了"(锚点没命中算无效,不算咬住)
+  和"跑完逐字节恢复" —— 上一版红检脚本自己坏过三次,这两条是为它加的。
+  ⚠️ 判据先行那次红在 `AttributeError` 上(函数还不存在),**那种红只证明"函数没了会响"**,
+  所以才另跑这一轮证明"函数在、但写错也会响"。
+- 全套:常规 61/0(2 skip),`DS_SHELL_E2E=1` 下 **65/0/0**。
+
+**顺带还了 08-14 那次真机暴露的两笔证据账**(不是判据+修复的关系,是同一件事的两半):
+收据里第 1 问红只说「外壳自己退出了,日志在 …」,而业主发回来的是 `收据.txt` ⇒
+「后台没起来」和「窗口那层炸了」在我这儿长得**一模一样**;外壳日志又没有时间戳 ⇒
+「一起来就崩」和「等满 300s 超时」事后也分不出。现在收据**自带日志尾巴**、日志**带时间戳**。
+
+台架降级验证(`evidence/20260814-S1b外壳考卷r2-台架降级验证.log`;日志正文里的路径是
+scratchpad 的 `[仓外不承重]`):2 PASS / 2 FAIL / 5 SKIP,两条红都是**已知台架差异**
+(不是包内 python;台架没有 webview)。**它当场演了一遍这次改动的价值** —— 收据自己
+写明外壳死在 `No module named 'webview'`(= 病 b),时间戳显示 13:18:47→13:18:48
+一秒就退。上一版的收据这两件事**一件都说不出来**。第 8 问在台架上就真绿了。
+
+**已重发预发布 `spike-windows-s1b-r2`**(指向 `5000391`,已 push 并回读远端确认)。
+包里 / 仓里三个关键文件逐字节相同;**下回来的 zip 与本地 `cmp` 逐字节相同**
+(sha256 `7e8bb536…`)⇒ 业主拿到的确实是这一版。
+
+⏳ **等业主真机跑 r2。这一节仍然不是判决** —— S1 的 lane 是 full,评审一轮都没跑。
 
 ## Review
 
