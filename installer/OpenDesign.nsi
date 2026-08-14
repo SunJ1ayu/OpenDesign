@@ -77,6 +77,9 @@ VIAddVersionKey "LegalCopyright"  "OpenDesign"
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_COMPONENTS
+; 目录页要有人守:卸载时会把安装目录**整棵**删掉,所以不能让业主随手指到一个
+; 本来就有东西的文件夹(见 CheckDirEmpty)。
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE CheckDirEmpty
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 
@@ -86,6 +89,9 @@ VIAddVersionKey "LegalCopyright"  "OpenDesign"
 第一次打开时,如果还没填过大模型的 API key,它会告诉你要把 key 放在哪个文件里。"
 !insertmacro MUI_PAGE_FINISH
 
+; 程序在跑的时候文件是锁着的,而 `RMDir /r` 删不掉会**悄悄**跳过 ——
+; 卸载器会显示"完成",盘上却剩半棵树。所以先提醒。
+!define MUI_UNCONFIRMPAGE_TEXT_TOP "如果 ${APP} 正在运行,请先在右下角托盘图标上点“退出”,再继续卸载。$\r$\n$\r$\n你的资料(备忘、对话、工作区设置)默认**不会**被删除。"
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_COMPONENTS
 !insertmacro MUI_UNPAGE_INSTFILES
@@ -152,7 +158,38 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SecAutorun} "开机后自动把 ${APP} 挂到右下角托盘里。"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
-; ─────────────────────────────────────────────────────────────── 装机时的两件事
+; ─────────────────────────────────────────────────────────────── 装机时的三件事
+
+Function CheckDirEmpty
+  ; 🔴 卸载时会 `RMDir /r "$INSTDIR"` —— 整棵删。所以"装到哪儿"这件事,
+  ; 一旦业主把路径改成一个本来就有东西的文件夹(`D:\文档` 这种),卸载就会把他的东西
+  ; 一起删光。**G6 那个哨兵挡不住这一种**:装完之后哨兵文件就在那儿了,它会说"是我们的"。
+  ;
+  ; 所以在这里拦:目录存在、非空、又不是上一次装的 OpenDesign ⇒ 让他确认一次。
+  ; 不直接禁止 —— 他可能真的想装回一个自己清理过的文件夹。
+  IfFileExists "$INSTDIR\${SENTINEL}" ok        ; 上一次装的就是这儿,覆盖安装,放行
+  IfFileExists "$INSTDIR\*.*" 0 ok              ; 目录不存在 ⇒ 新建,放行
+
+  FindFirst $0 $1 "$INSTDIR\*.*"
+  loop:
+    StrCmp $1 "" done
+    StrCmp $1 "." next
+    StrCmp $1 ".." next
+    ; 找到了第一个真实条目 ⇒ 非空
+    FindClose $0
+    MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION \
+      "这个文件夹里已经有别的东西了:$\n$INSTDIR$\n$\n\
+卸载 ${APP} 的时候会把**整个文件夹**删掉,里面原有的东西也会一起没。$\n$\n\
+建议换一个空文件夹(比如默认的那个)。一定要用这里的话,点“确定”。" \
+      IDOK ok
+    Abort
+  next:
+    FindNext $0 $1
+    Goto loop
+  done:
+  FindClose $0
+  ok:
+FunctionEnd
 
 Function EnsureWebView2
   ; S1a 的账:两台机器上 WebView2 都在,但那只证明了**那两台**。缺了的话窗口根本开不出来,
@@ -188,8 +225,9 @@ Function ProvisionConfig
   ; 而且幂等(已经装过一次的机器,他自己的设置原样留着)。细节全在
   ; bin/ds_provision.py,那边有 15 条判据 + 12 条红检盯着。
   DetailPrint "正在准备配置…"
-  nsExec::ExecToLog '"$INSTDIR\python\python.exe" "$INSTDIR\ds\bin\ds_provision.py" \
---home "${DATA_ROOT}\UserData" --ds-root "$INSTDIR\ds"'
+  ; **一行写完,不用续行**:NSIS 的续行拼出来到底是什么样,我在 Linux 上验不了,
+  ; 而"命令拼歪了"的表现是装机时静默失败 —— 少一个验不了的机制比省几个字重要。
+  nsExec::ExecToLog '"$INSTDIR\python\python.exe" "$INSTDIR\ds\bin\ds_provision.py" --home "${DATA_ROOT}\UserData" --ds-root "$INSTDIR\ds"'
   Pop $0
   ${If} $0 != 0
     ; 不 Abort:文件已经铺好了,而外壳自己会把"到底缺什么"说得比这里清楚
