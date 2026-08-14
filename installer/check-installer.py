@@ -399,7 +399,15 @@ def launcher_checks(nsi: Nsi, rep: Report) -> None:
 
 # ---------------------------------------------------------------- 成品闸
 
-_FILE_RE = re.compile(r'^File: "(?P<name>[^"]+)" \[compress\]\s+(?P<size>\d+)/?')
+# makensis -V4 的清单行有两种形态,**都要认**:
+#   File: "x.py" 1511 bytes                 (整包压缩 /SOLID:只有原始大小)
+#   File: "x.py" [compress] 640/1511 bytes  (逐文件压缩:压缩后/原始)
+# 第一版只认第二种,于是清单解析出 0 个文件、P4 报"少了 21969 个" ——
+# **闸红得对但理由是假的**,差点让我去查 File /r 而不是查自己的正则。
+_FILE_RE = re.compile(
+    r'^File: "(?P<name>[^"]+)"(?: \[(?:no )?compress\])?\s+(?:\d+/)?(?P<size>\d+) bytes')
+# "Descending/Returning to" 给的是**完整相对路径**(不是一层层的名字),
+# 所以直接记住"当前在哪个目录"就行,别拿栈去猜嵌套。
 _DESC_RE = re.compile(r'^File: Descending to: "(?P<dir>[^"]+)"')
 _RET_RE = re.compile(r'^File: Returning to: "(?P<dir>[^"]+)"')
 
@@ -412,22 +420,16 @@ def manifest_from_log(log_text: str, payload_name: str) -> dict[str, int]:
     不靠我复述的证据。
     """
     files: dict[str, int] = {}
-    stack: list[str] = []
+    cur = payload_name
     for line in log_text.splitlines():
         line = line.strip()
-        m = _DESC_RE.match(line)
+        m = _DESC_RE.match(line) or _RET_RE.match(line)
         if m:
-            stack.append(m.group("dir").replace("\\", "/").strip("/"))
-            continue
-        m = _RET_RE.match(line)
-        if m:
-            if stack:
-                stack.pop()
+            cur = m.group("dir").replace("\\", "/").strip("/")
             continue
         m = _FILE_RE.match(line)
         if m:
-            base = stack[-1] if stack else payload_name
-            rel = f"{base}/{m.group('name')}".replace("\\", "/")
+            rel = f"{cur}/{m.group('name')}".replace("\\", "/")
             # 去掉 payload 根前缀,只留包内相对路径
             for prefix in (payload_name + "/", "./" + payload_name + "/"):
                 if rel.startswith(prefix):
