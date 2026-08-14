@@ -1103,5 +1103,132 @@ class RealBackend(unittest.TestCase):
             self.assertFalse(core.port_listening(p), f"收摊后 {p} 还有人听")
 
 
+# =========================================================== H 配置里的环境变量引用
+class MissingEnvRefs(unittest.TestCase):
+    """🔴 这一组是 **2026-08-14 业主真机红出来的那一条**,不是推演。
+
+    真机收据:第 1 问红,外壳 rc=1,日志里是
+        `网关 启动失败: 退出码 1 … Error: Environment variable 'DS_LLM_KEY'
+         referenced in config is not set`
+
+    根因不在代码,在**我写在 ds_shell.py 里的一句话**:「没找到 key 也不当场退出,
+    业主可能只是想看看待办(ds-web 是只读的,不需要 key)」。
+    这句话是假的 —— 配置里写着 `"apiKey": "${DS_LLM_KEY}"`,而 nanobot 解析到
+    任何一个没设的 `${VAR}` 就**整个网关拒绝启动**(loader.py:143-149)。
+    ⇒ 业主看到的是:等 5 分钟,然后一句英文。
+
+    为什么两张考卷都没问出来(这才是要记住的):
+      · Linux 的 G2 **给了假 key**(`key="sk-考卷用的假key"`);
+      · Windows 的 S1b 考卷**故意不给 key**(「这一跑不考聊天」)。
+      两张卷子对同一个前提做了**相反的假设**,而**没有一张去问那个前提本身**。
+      同类:[[behavior-evals-are-sampling]] —— 红了先问是不是真 bug。
+
+    所以这一组问的是那个前提:**配置引用了、而 env 里没有的变量,必须在起任何
+    子进程之前就被点名**。H4 是真机那次的复现,H5 让"没 key 网关就是起不来"这件事
+    有据可查(而不是再靠我记忆里的一句注释)。
+    """
+
+    def test_h1_a_referenced_but_unset_variable_is_named(self):
+        self.assertEqual(
+            core.missing_env_refs({"providers": {"custom": {"apiKey": "${DS_LLM_KEY}"}}}, {}),
+            ["DS_LLM_KEY"])
+
+    def test_h2_a_variable_that_is_set_is_not_reported(self):
+        cfg = {"a": "${FOO}"}
+        self.assertEqual(core.missing_env_refs(cfg, {"FOO": "x"}), [])
+        # 空串**也算设了** —— nanobot 判的是 os.environ.get() is None(loader.py:145)。
+        # 这里写死成"空串算缺"就会造出一个假红:配置本来跑得起来,外壳却拒绝启动。
+        self.assertEqual(core.missing_env_refs(cfg, {"FOO": ""}), [])
+
+    def test_h3_it_looks_all_the_way_down_and_says_each_name_once(self):
+        cfg = {"tools": {"mcpServers": {
+            "a": {"args": ["${DS_ROOT}/bin/x.py", "--home=${USERPROFILE}"]},
+            "b": {"args": ["${DS_ROOT}/bin/y.py"]}}}}
+        self.assertEqual(core.missing_env_refs(cfg, {}), ["DS_ROOT", "USERPROFILE"])
+
+    def test_h4_the_real_windows_config_after_patching_lacks_exactly_the_key(self):
+        """真机那次的复现:**真模板 → 真 patch_config → 真 child_env**,不捏假配置。
+
+        断言写成"恰好等于 [DS_LLM_KEY]"而不是 assertIn:
+        多点名一个变量 = 一次假红 = 业主装好的机器打不开,那和漏判一样坏。
+        """
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        cfg_path = Path(tmp.name) / "config.json"
+        cfg_path.write_text("{}", encoding="utf-8")
+        merged = subprocess.run(
+            [sys.executable, str(Path(BIN) / "ds_merge_config.py"),
+             str(Path(ROOT) / "config" / "nanobot.config.windows.jsonc"), str(cfg_path)],
+            capture_output=True, text=True)
+        self.assertEqual(merged.returncode, 0, f"合并真实模板失败:{merged.stderr[:600]}")
+        d = json.loads(cfg_path.read_text(encoding="utf-8"))
+        d.setdefault("channels", {}).setdefault("websocket", {}).update(
+            {"enabled": True, "token": "kaojuan-pass"})
+        cfg_path.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+        core.patch_config(cfg_path, gateway_port=18790, ws_port=8765,
+                          python_exe=r"C:\OD\python\python.exe")
+        final = json.loads(cfg_path.read_text(encoding="utf-8"))
+
+        def env(key):
+            return core.child_env(base_env={}, ds_root=r"C:\OD\ds",
+                                  user_home=r"C:\OD\UserData", dsweb_port=8766,
+                                  ws_port=8765, key=key)
+
+        self.assertEqual(core.missing_env_refs(final, env(key=None)), ["DS_LLM_KEY"],
+                         "没放 key 时,必须**在起网关之前**就点名 DS_LLM_KEY")
+        self.assertEqual(core.missing_env_refs(final, env(key="sk-x")), [],
+                         "放了 key 还报缺 = 假红,业主会被挡在门外")
+
+    @unittest.skipUnless(os.environ.get("DS_SHELL_E2E") == "1",
+                         "要真起 nanobot(慢、要装 nanobot):DS_SHELL_E2E=1 才跑")
+    def test_h5_the_gateway_really_refuses_to_start_without_the_key(self):
+        """把「没 key 也能起来看待办」这句话**证伪一次并留下证据**。
+
+        H1~H4 只证明"我们点得出这个名字";这一条证明**点名是必要的** ——
+        真起一次网关、不给 key,它必须死。少了这条,下次又会有人(我)在注释里
+        写一句"没 key 应该也能跑吧",而没有任何机器拦得住。
+        默认 SKIP —— **SKIP 不是 PASS**。
+        """
+        try:
+            from nanobot.config.schema import Config
+        except ImportError:
+            self.skipTest("这个解释器没装 nanobot")
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        base = Path(tmp.name)
+        home = base / "home"
+        (home / ".nanobot").mkdir(parents=True)
+        cfg = home / ".nanobot" / "config.json"
+        cfg.write_text(json.dumps(Config().model_dump(mode="json", by_alias=True,
+                                                      exclude_none=True)), encoding="utf-8")
+        merged = subprocess.run(
+            [sys.executable, str(Path(BIN) / "ds_merge_config.py"),
+             str(Path(ROOT) / "config" / "nanobot.config.windows.jsonc"), str(cfg)],
+            capture_output=True, text=True)
+        self.assertEqual(merged.returncode, 0, f"合并真实模板失败:{merged.stderr[:600]}")
+        d = json.loads(cfg.read_text(encoding="utf-8"))
+        d.setdefault("channels", {}).setdefault("websocket", {}).update(
+            {"enabled": True, "token": "kaojuan-pass", "host": "127.0.0.1", "port": 1})
+        cfg.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+        gw_port, ws_port = core.pick_ports([free_port(), free_port()])
+        core.patch_config(cfg, gateway_port=gw_port, ws_port=ws_port, python_exe=sys.executable)
+
+        env = core.child_env(base_env=dict(os.environ), ds_root=str(make_ds_root(base)),
+                             user_home=str(home), dsweb_port=free_port(), ws_port=ws_port,
+                             key=None)          # ← 就是真机那一跑的样子
+        self.assertNotIn("DS_LLM_KEY", env)
+        sup = core.Supervisor()
+        self.addCleanup(sup.shutdown)
+        with self.assertRaises(core.StartupFailed) as caught:
+            sup.start([core.Service(name="gateway",
+                                    argv=[sys.executable, "-m", "nanobot", "gateway"],
+                                    env=env, ready_port=ws_port,
+                                    log_path=base / "gateway.log", ready_timeout=90)])
+        # 死法也要对上:必须是**它自己退出**,不是我们等超时 ——
+        # "超时"会把这条证据变成"可能只是慢",而那正是我这次差点走的岔路。
+        self.assertIn("退出码", str(caught.exception), f"死法不对:{caught.exception}")
+        self.assertIn("DS_LLM_KEY", (base / "gateway.log").read_text(encoding="utf-8"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

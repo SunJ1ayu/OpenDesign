@@ -10,6 +10,21 @@ S1a 只问了"窗口和托盘这套东西在这台机器上跑不跑得起来",�
   4. 收摊之后两条后台腿**没有变成孤儿进程**
   5. 装坏了(配置缺失)时给的是**人话**,不是一堆英文栈
 
+## r2(2026-08-14):第一版栽在**这张考卷自己的前提**上
+
+第一版第 1 问红了,业主日志里是:
+    `网关 启动失败: 退出码 1 … Environment variable 'DS_LLM_KEY' referenced in config is not set`
+
+不是外壳的接线错了 —— 是**这张考卷不放 key**(理由:「这一跑不考聊天」),而
+配置里写着 `"apiKey": "${DS_LLM_KEY}"`,nanobot 解析到任何一个没设的 `${VAR}`
+就**整个网关拒绝启动**。S0 那张考卷放了假 key,所以从没撞上。
+
+r2 改两处:
+  · 准备阶段**放一把假 key**(与 S0 同一条路子)—— 假 key 足够让网关起来,
+    因为它到第一次真调用模型才会用到,而这一跑本来就不考聊天。
+  · 新增第 8 问:**没放 key 的时候必须当场说人话**(而不是等 5 分钟给一句英文)。
+    这一问机器自己判,业主只需要点掉弹窗。
+
 判卷规则(与 S0/S1a 同一套,别在同一个项目里换第二套习惯):
 - **只读、不装、不改机器**:外壳本来要写 `%LOCALAPPDATA%\\OpenDesign`,这张考卷把
   `LOCALAPPDATA` 整个改指到**包内** `fakelocal\\`。删掉这个文件夹 = 完全消失。
@@ -42,6 +57,10 @@ for _s in (sys.stdout, sys.stderr):
         _s.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
+
+# 考卷自己的版本号。收据上必须印出来 —— 上一版红了之后我改了考卷,
+# 若两份收据长得一样,日后就分不清哪张收据出自哪张卷子。
+EXAM_REV = "S1b-r2(2026-08-14,补上假 key + 第 8 问)"
 
 HERE = Path(__file__).resolve().parent
 RECEIPT = HERE / "收据.txt"
@@ -164,6 +183,7 @@ def shell_env() -> dict:
 # ═══════════════════════════════════════════════════════════ 0. 现场
 head("0. 现场(先证明这是我以为的那个运行时)")
 
+print(f"  考卷版本: {EXAM_REV}")
 print(f"  python  : {sys.version.split()[0]}")
 print(f"  可执行  : {sys.executable}")
 
@@ -224,8 +244,16 @@ try:
                            env=env, timeout=180)
         if r.returncode != 0:
             raise RuntimeError(f"{what} rc={r.returncode}: {(r.stderr or r.stdout)[:400]}")
+    # 🔴 r2 补的:放一把**假** key(与 S0 同一条路子)。
+    # 第一版没放,于是网关一起来就自己退出 —— 因为配置里 `"apiKey": "${DS_LLM_KEY}"`,
+    # 而 nanobot 解析到没设的 ${VAR} 就整个拒绝启动。**这不是"聊天不通",是"起不来"**。
+    # 假 key 够用:它要到第一次真调用模型时才会被拿去用,而这一跑不考聊天。
+    KEYFILE = USERDATA / ".openDesign" / "key.txt"
+    KEYFILE.parent.mkdir(parents=True, exist_ok=True)
+    KEYFILE.write_text("sk-这是考卷用的假key-不会真去调模型\n", encoding="utf-8")
     print(f"  ✅ 配置就绪:{CFG}({CFG.stat().st_size} 字节)")
-    print("  注:**没有放真 key** —— 这一跑不考聊天,聊天连不上大模型是预期的。")
+    print(f"  ✅ 假 key 已放:{KEYFILE}")
+    print("  注:**是假 key** —— 这一跑不考聊天,点开聊天发不出去是预期的。")
 except Exception as exc:
     _prep_ok = False
     print(f"  🔴 准备阶段就失败了:{err_detail(exc)}")
@@ -408,7 +436,8 @@ else:
 # ═══════════════════════════════════════════════════════════ 7. 装坏了要说人话
 head("7. 装坏了的时候,给的是**人话**还是一堆英文栈")
 print("  这一问故意把配置文件藏起来,看它怎么报错。")
-print("  ⚠️ 会弹出一个错误对话框 —— **那是预期的**,看一眼上面写的是不是中文人话,再点确定。")
+print("  ⚠️ 接下来第 7、8 两问会**各弹一个错误对话框,一共两个** —— 都是故意造出来的,")
+print("     看一眼上面写的是不是中文人话,各点一次「确定」就行。")
 ask("准备好了按回车:")
 
 BROKEN = HERE / "fakelocal-broken"
@@ -441,6 +470,56 @@ finally:
     shutil.rmtree(BROKEN, ignore_errors=True)
 
 
+# ═══════════════════════════════════════════════════════════ 8. 没填 key
+head("8. 还没填 key 的时候,要**当场**说人话(r2 新增,这一问机器自己判)")
+print("  这一问是 08-14 那次红的正面回答:第一版没放 key,业主等到网关自己退出,")
+print("  拿到的是一句英文 `Environment variable 'DS_LLM_KEY' … is not set`。")
+print("  现在要的是:**在起任何后台之前**就说清楚缺什么、该往哪儿放。")
+print("  ⚠️ 这就是刚才说的第二个对话框,看一眼再点确定。")
+
+NOKEY = HERE / "fakelocal-nokey"
+shutil.rmtree(NOKEY, ignore_errors=True)
+try:
+    # 只搬配置、**不搬 key** —— 造出「装好了但还没填 key」这个真实状态。
+    nk_nanobot = NOKEY / "OpenDesign" / "UserData" / ".nanobot"
+    nk_nanobot.mkdir(parents=True, exist_ok=True)
+    if not _prep_ok or not CFG.exists():
+        skip("没填 key 时当场说人话", "准备阶段就没造出配置,这一问问不出东西")
+    else:
+        shutil.copy2(CFG, nk_nanobot / "config.json")
+        env = shell_env()
+        env["LOCALAPPDATA"] = str(NOKEY)
+        r = subprocess.run([str(PYEXE), str(SHELL)], env=env, cwd=str(HERE),
+                           capture_output=True, text=True, encoding="utf-8", timeout=180)
+        nlog = NOKEY / "OpenDesign" / "Logs" / "外壳.log"
+        text = nlog.read_text("utf-8") if nlog.exists() else ""
+        said_human = "key" in text and ("还没填" in text or "放进" in text)
+        # 🔴 这一条才是真正的断言:业主 08-14 看到的**那句英文**不许再出现。
+        # 它只可能来自网关的日志尾巴 ⇒ 它在,就说明外壳仍然先把网关拉起来才发现缺 key。
+        leaked_english = "Environment variable" in text or "referenced in config" in text
+        leaked_stack = "Traceback (most recent call last)" in (r.stderr or "")
+        if r.returncode == 0:
+            no("没填 key 时当场说人话", "缺 key 竟然 rc=0 —— 它把一个起不来的状态当成正常了")
+        elif leaked_english:
+            no("没填 key 时当场说人话",
+               "日志里仍然出现了网关那句英文 —— 说明它还是先起网关、等它自己死,"
+               "而不是提前拦下(这正是 08-14 那次的形状)")
+        elif said_human and not leaked_stack:
+            ok("没填 key 时当场说人话",
+               f"rc={r.returncode},弹窗文案进了日志且点名了 key 该放哪儿,终端没有裸栈")
+        elif said_human:
+            no("没填 key 时当场说人话", f"人话有了,但 stderr 漏了一段栈:{(r.stderr or '')[:200]}")
+        else:
+            no("没填 key 时当场说人话",
+               f"rc={r.returncode},但日志里找不到那句人话。日志内容:{text[:300] or '(空)'}")
+except subprocess.TimeoutExpired:
+    no("没填 key 时当场说人话", "缺 key 时它挂住了 3 分钟不退出 —— 业主会以为电脑死了")
+except Exception as exc:
+    no("没填 key 时当场说人话", err_detail(exc))
+finally:
+    shutil.rmtree(NOKEY, ignore_errors=True)
+
+
 # ═══════════════════════════════════════════════════════════ 收据
 head("收据")
 print(f"  PASS {PASS}   FAIL {FAIL}   SKIP {SKIP}")
@@ -448,7 +527,7 @@ print()
 print("  这一跑**没有**覆盖到的(别拿这张收据当它们的绿):")
 print("   · WebView2 / .NET **缺失**时的表现 —— 你这台机器上它们都在,验不了。")
 print("     安装器要带微软官方引导程序兜底,那是 S1c 的事。")
-print("   · 聊天(没放 key)。ds-web 是只读的,不需要 key 就能看。")
+print("   · 聊天(放的是**假** key,一次真模型调用都没发生)——「窗口打开了」不等于「聊得起来」。")
 print("   · 开机自启、卸载、开始菜单 —— 都还没做。")
 print()
 if FAIL == 0 and SKIP == 0:
