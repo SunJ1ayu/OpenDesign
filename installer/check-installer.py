@@ -214,10 +214,21 @@ def under(child: str, parent: str) -> bool:
 
 def static_checks(nsi: Nsi, rep: Report) -> None:
     d = nsi.defines()
-    data_root = nsi.expand(d.get("DATA_ROOT", ""))
     install_dir = ""
     for _ln, t, _un, _blk in nsi.cmd("InstallDir"):
         install_dir = nsi.expand(t[1]) if len(t) > 1 else ""
+
+    def resolve(s: str) -> str:
+        """展开 `${...}` **并且**把 `$INSTDIR` 还原成它实际指的那个目录。
+
+        🔴 少了后半句这份闸就有个洞:把数据目录写成 `$INSTDIR\\data` 时,
+        纯字符串比较看不出它在安装根**里面**,G3/G4 会放行 —— 而那恰恰是这两条闸
+        存在的理由(卸载时整棵删安装根 = 把业主的资料一起删了)。
+        这个洞是红检 M3 找出来的,不是我看出来的。
+        """
+        return nsi.expand(s).replace("$INSTDIR", install_dir)
+
+    data_root = resolve(d.get("DATA_ROOT", ""))
 
     # G1 ── 事故:装到 Program Files ⇒ 每次应用内更新都要管理员,业主的一键更新直接废掉。
     levels = [t[1].lower() for _ln, t, _un, _blk in nsi.cmd("RequestExecutionLevel") if len(t) > 1]
@@ -246,7 +257,7 @@ def static_checks(nsi: Nsi, rep: Report) -> None:
             continue
         targets = [a for a in t[1:] if not a.startswith("/")]
         for tgt in targets:
-            if data_root and under(nsi.expand(tgt), data_root) and blk not in optional_un_sections:
+            if data_root and under(resolve(tgt), data_root) and blk not in optional_un_sections:
                 offenders.append(f"{ln}: {' '.join(t)}")
     rep.add("G4 默认卸载路径不碰业主数据", not offenders, "; ".join(offenders))
 
@@ -254,7 +265,7 @@ def static_checks(nsi: Nsi, rep: Report) -> None:
     #        B 卷原话:删数据必须是卸载器里单独的、默认不勾的选项。
     wipes = [blk for ln, t, un, blk in nsi.rows()
              if un and t[0].lower() in _DELETE_CMDS
-             and any(data_root and under(nsi.expand(a), data_root) for a in t[1:])]
+             and any(data_root and under(resolve(a), data_root) for a in t[1:])]
     rep.add("G5 删数据是单独的、默认不勾的可选段",
             bool(wipes) and all(b in optional_un_sections for b in wipes),
             f"删数据的段={sorted(set(wipes)) or '没有'} / 默认不勾的段={sorted(optional_un_sections)}")
@@ -374,9 +385,16 @@ def launcher_checks(nsi: Nsi, rep: Report) -> None:
     rep.add("L5 起完就退(Exec 不是 ExecWait)",
             not any(t[0].lower() == "execwait" for _ln, t, _un, _blk in nsi.rows()))
     # 装坏了要说人话 —— 这是 S1b 真机红教的:业主没有终端,不弹窗等于没报错。
-    rep.add("L6 组件缺失时弹中文提示",
-            any(t[0].lower() == "iffileexists" for _ln, t, _un, _blk in nsi.rows())
-            and any(t[0].lower() == "messagebox" for _ln, t, _un, _blk in nsi.rows()))
+    #
+    # 🔴 第一版写的是"有 IfFileExists 且有 MessageBox",红检 M18 当场证明它太松:
+    # 启动器里有**两处**存在性检查,拆掉其中一处的提示,这条照样绿 —— 而那一处正好是
+    # 业主最可能遇到的(杀软吃掉 python\)。真正的契约是**每一处检查都要有对应的提示**,
+    # 所以改成数量关系。同类账见 tasks.md「断言名比它问的强」。
+    checks = [ln for ln, t, _un, _blk in nsi.rows() if t[0].lower() == "iffileexists"]
+    alerts = [ln for ln, t, _un, _blk in nsi.rows() if t[0].lower() == "messagebox"]
+    rep.add("L6 每一处组件检查都配一句中文提示",
+            bool(checks) and len(alerts) >= len(checks),
+            f"{len(checks)} 处检查 / {len(alerts)} 句提示")
 
 
 # ---------------------------------------------------------------- 成品闸
