@@ -142,11 +142,22 @@ class TestFreshInstall(ProvisionTestBase):
         """与 S1b-r2 真机已验证的行为对齐:没放 key 时,**恰好**点名 DS_LLM_KEY。
 
         多报 = 业主被吓到;少报 = 网关自己死掉甩英文(就是 08-14 那一跑)。
+
+        🔴 **这条的题面改过一次,理由记在这儿**:第一版拿 `{}` 当环境去问,红了 ——
+        报出来的是 `DS_LLM_KEY / USERPROFILE / DS_ROOT` 三个。查下来不是 bug 而是
+        **问法本身问不出这件事**:外壳起后台用的环境永远是 `core.child_env()` 造的,
+        那里面 DS_ROOT / USERPROFILE 一定在,空环境这个前提现实中不存在。
+        改成用真的 `child_env` 之后这条**变强了** —— 将来 child_env 少设一个变量,
+        网关会整个拒绝启动,而这条会当场红;空环境那版永远发现不了。
         """
         self.assertEqual(self.run_provision().returncode, 0)
         cfg = self.load_config()
-        self.assertEqual(core.missing_env_refs(cfg, {}), ["DS_LLM_KEY"])
-        self.assertEqual(core.missing_env_refs(cfg, {"DS_LLM_KEY": "sk-x"}), [])
+        env_no_key = core.child_env({}, ds_root=str(self.ds_root), user_home=str(self.home),
+                                    dsweb_port=8766, ws_port=8765, key=None)
+        env_with_key = core.child_env({}, ds_root=str(self.ds_root), user_home=str(self.home),
+                                      dsweb_port=8766, ws_port=8765, key="sk-假的")
+        self.assertEqual(core.missing_env_refs(cfg, env_no_key), ["DS_LLM_KEY"])
+        self.assertEqual(core.missing_env_refs(cfg, env_with_key), [])
 
 
 class TestIdempotence(ProvisionTestBase):
