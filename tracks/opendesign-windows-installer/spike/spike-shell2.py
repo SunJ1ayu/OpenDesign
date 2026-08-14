@@ -60,7 +60,7 @@ for _s in (sys.stdout, sys.stderr):
 
 # 考卷自己的版本号。收据上必须印出来 —— 上一版红了之后我改了考卷,
 # 若两份收据长得一样,日后就分不清哪张收据出自哪张卷子。
-EXAM_REV = "S1b-r2(2026-08-14,补上假 key + 第 8 问)"
+EXAM_REV = "S1b-r2(2026-08-14,补上假 key + 第 8 问 + 收据自带外壳日志)"
 
 HERE = Path(__file__).resolve().parent
 RECEIPT = HERE / "收据.txt"
@@ -121,6 +121,27 @@ def skip(q: str, why: str) -> None:
 def err_detail(e: BaseException) -> str:
     """把真实报错原样带出来 —— 「启动失败」这四个字对我毫无用处。"""
     return f"{type(e).__name__}: {e}"
+
+
+def log_tail(path: Path, n: int = 40) -> str:
+    """外壳日志的最后 n 行。**收据里必须自带它。**
+
+    🔴 08-14 实证:上一跑第 1 问红,收据只写了「外壳自己退出了 rc=1,日志在 …」。
+    而业主发回来的是 收据.txt —— 日志在他机器上。于是两种病在我这儿长得一模一样:
+      (a) 后台没起来(网关/ds-web 崩或超时);
+      (b) 后台起来了,**窗口那层**炸了(webview/.NET/WebView2)。
+    分不出来 ⇒ 只能再去问他要一次日志,等于半趟真机白跑。
+    要业主多做一个动作,不如让收据自己带上。
+    """
+    try:
+        lines = path.read_text("utf-8", errors="replace").splitlines()
+    except OSError as e:
+        return f"(读不到日志 {path}:{e})"
+    if not lines:
+        return f"(日志是空的:{path})"
+    kept = lines[-n:]
+    head_note = f"(日志最后 {len(kept)} 行,共 {len(lines)} 行:{path})"
+    return "\n".join([head_note] + [f"    | {ln}" for ln in kept])
 
 
 def ask(prompt: str) -> str | None:
@@ -292,15 +313,18 @@ else:
             time.sleep(2.0)
 
         if proc.poll() is not None:
+            # 日志**当场贴进来**:这一句红分不出「后台没起来」和「窗口那层炸了」,
+            # 而日志一眼就能分开(见 log_tail 的注释)。
             no("外壳能把真实后端拉起来",
-               f"外壳自己退出了,rc={proc.returncode}。它应该已经弹过一个说明原因的对话框;"
-               f"日志:{SHELLLOG}")
+               f"外壳自己退出了,rc={proc.returncode}。它应该已经弹过一个说明原因的对话框。\n"
+               f"         {log_tail(SHELLLOG, 25)}")
         else:
             WEB = WEB or scan_web_port()
             h = health(WEB) if WEB else None
             if not h:
                 no("外壳能把真实后端拉起来",
-                   f"等了 6 分钟,ds-web 仍然不应答(日志里读到的端口={WEB});日志:{SHELLLOG}")
+                   f"等了 6 分钟,ds-web 仍然不应答(日志里读到的端口={WEB})。\n"
+                   f"         {log_tail(SHELLLOG, 25)}")
             else:
                 got = str(h.get("version", "?"))
                 why = f"127.0.0.1:{WEB}/api/health 自报 version={got}"
@@ -536,6 +560,10 @@ if FAIL == 0 and SKIP == 0:
 else:
     print("  ⇒ 有红或跳过的项。把 收据.txt 整个发回来就行,不用你判断是什么问题。")
     print(f"    外壳自己的日志在:{SHELLLOG}")
+    # 日志随收据一起走。业主只需要发一个文件,而我这边不用再问第二遍。
+    print()
+    print("  ---- 外壳日志(自动附上,免得还要再问你要一次)----")
+    print(log_tail(SHELLLOG, 60))
 print()
 print("  注:这一跑不写注册表、不改 PATH、不碰你已装的那套 OpenDesign。")
 print("      所有产生的东西都在这个文件夹内(fakelocal\\),删掉文件夹即可清除。")

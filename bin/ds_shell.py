@@ -23,6 +23,7 @@ import json
 import os
 import sys
 import threading
+import time
 import traceback
 from pathlib import Path
 
@@ -45,9 +46,19 @@ def _log_path() -> Path:
 
 
 def log(msg: str) -> None:
+    """带时间戳写一行。
+
+    🔴 时间戳是 08-14 那次真机红补上的:那份日志没有时间,于是「一起来就崩」和
+    「等满 300s 超时」在事后长得一模一样,只能回头问业主等了多久。
+    证据要自带能对账的东西 —— 一个 strftime 换的是一趟真机。
+    """
+    stamp = time.strftime("%H:%M:%S")
     try:
         with _log_path().open("a", encoding="utf-8") as f:
-            f.write(msg.rstrip() + "\n")
+            for i, line in enumerate(msg.rstrip().splitlines() or [""]):
+                # 多行文案(弹窗那种)只给第一行盖戳,其余缩进对齐 —— 免得每行都盖,
+                # 反而看不出哪里是一条记录的开头。
+                f.write(f"{stamp} {line}\n" if i == 0 else f"         {line}\n")
     except OSError:
         pass
 
