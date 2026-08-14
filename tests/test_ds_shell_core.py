@@ -1146,6 +1146,49 @@ class MissingEnvRefs(unittest.TestCase):
             "b": {"args": ["${DS_ROOT}/bin/y.py"]}}}}
         self.assertEqual(core.missing_env_refs(cfg, {}), ["DS_ROOT", "USERPROFILE"])
 
+    # ---- 缺了之后**跟业主怎么说** ------------------------------------------
+    # H1~H4 只管"点得出名字",而业主真正看见的是那段话。上一版这段话写在
+    # ds_shell.py 里 —— 那一层在 Linux 上一条考卷都跑不了(要 pywebview/.NET),
+    # 于是**业主唯一会看见的输出零判据**。真机一趟很贵(S0 用掉两趟),不值得
+    # 拿一趟去验一个 f-string。⇒ 文案下沉到 core,由下面三条咬住。
+    #
+    # 咬的是"两种缺法要给两种指令",不是遣词造句:
+    #   · 缺 key      = 业主自己补得上(放个文件)⇒ 必须报出那个文件的完整路径
+    #   · 缺别的      = 装机没装好          ⇒ 必须让他重跑安装程序
+    # 把两者说反或说成同一句,业主就会去做错的那件事 —— 那正是这一单的病根。
+
+    def test_h6_a_missing_key_tells_him_the_file_to_put_it_in(self):
+        msg = core.missing_env_message(["DS_LLM_KEY"], app="OpenDesign",
+                                       key_path=r"C:\OD\UserData\.openDesign\key.txt")
+        self.assertIn(r"C:\OD\UserData\.openDesign\key.txt", msg,
+                      "缺 key 必须把那个文件的完整路径念给他听,不能只说'缺 key'")
+        self.assertNotIn("重新运行安装程序", msg,
+                         "只缺 key 时让他重装 = 支使他做一件解决不了问题的事")
+
+    def test_h7_anything_else_missing_means_the_install_is_broken(self):
+        msg = core.missing_env_message(["DS_ROOT"], app="OpenDesign",
+                                       key_path=r"C:\OD\UserData\.openDesign\key.txt")
+        self.assertIn("DS_ROOT", msg, "缺的东西必须点名,否则我事后也查不出是哪个")
+        self.assertIn("重新运行安装程序", msg)
+        self.assertNotIn("key.txt", msg,
+                         "不缺 key 却让他去建 key.txt = 把他支去改一个没坏的东西")
+
+    def test_h8_both_kinds_get_both_instructions_and_nothing_is_dropped(self):
+        msg = core.missing_env_message(["DS_LLM_KEY", "DS_ROOT"], app="OpenDesign",
+                                       key_path=r"C:\OD\UserData\.openDesign\key.txt")
+        for expected in (r"C:\OD\UserData\.openDesign\key.txt", "DS_ROOT",
+                         "重新运行安装程序"):
+            self.assertIn(expected, msg, f"两种缺法同时出现时漏了:{expected}")
+
+    def test_h9_nothing_missing_says_nothing(self):
+        """焊点:没缺东西时它必须闭嘴。
+
+        少了这条,一个"永远返回一段话"的实现能过 H6~H8,而外壳只要照着
+        `if msg: die(msg)` 接线,**每次启动都会弹一个错误框**——业主永远打不开。
+        """
+        self.assertFalse(core.missing_env_message([], app="OpenDesign",
+                                                  key_path=r"C:\x\key.txt"))
+
     def test_h4_the_real_windows_config_after_patching_lacks_exactly_the_key(self):
         """真机那次的复现:**真模板 → 真 patch_config → 真 child_env**,不捏假配置。
 
