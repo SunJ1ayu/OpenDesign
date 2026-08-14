@@ -2,10 +2,14 @@
 # 组包后的结构检查 —— 本机(Linux)能验的那一半,别把结构性错误留给业主去发现。
 # 验不了的那一半(embeddable Python 真跑不跑得动)正是探路包本身要回答的问题。
 #
-# 用法:check-package.sh <包目录>
+# 用法:check-package.sh <包目录> [--app]
+#   (不给):考卷形态(S0/S1a/S1b)—— 包里要有且只有一张考卷,且 跑一下.bat 指向它
+#   --app  :出货形态(S1c)—— 装到业主机器上的那棵树,不带考卷,要带外壳与图标
 
 set -u
-B="${1:?用法: check-package.sh <包目录>}"
+B="${1:?用法: check-package.sh <包目录> [--app]}"
+APP_MODE=0
+[ "${2:-}" = "--app" ] && APP_MODE=1
 bad=0
 ok()  { echo "  [PASS] $1"; }
 no()  { echo "  [FAIL] $1"; bad=$((bad+1)); }
@@ -54,9 +58,16 @@ for p in nanobot mcp anydoc pydantic_core lxml PIL cryptography; do
 done
 [ -f "$B/python/Lib/site-packages/anydoc/_anydoc.pyd" ] && ok "anydoc 的 Windows 原生件在" || no "anydoc 的 .pyd 缺"
 
-for f in ds/bin/ds_web.py ds/bin/ds_mcp.py ds/bin/enable_webui.py ds/bin/ds_merge_config.py \
-         ds/config/nanobot.config.windows.jsonc ds/web/dist/index.html ds/版本号.txt \
-         跑一下.bat; do
+NEED="ds/bin/ds_web.py ds/bin/ds_mcp.py ds/bin/enable_webui.py ds/bin/ds_merge_config.py
+      ds/config/nanobot.config.windows.jsonc ds/web/dist/index.html ds/版本号.txt"
+if [ "$APP_MODE" = 1 ]; then
+  # 出货形态多要四样:外壳两件、配置就绪脚本、托盘图标。
+  # 少任何一件业主都装得上、打不开 —— 而"装得上"看起来就像成功了。
+  NEED="$NEED ds/bin/ds_shell.py ds/bin/ds_shell_core.py ds/bin/ds_provision.py ds/assets/图标.png"
+else
+  NEED="$NEED 跑一下.bat"
+fi
+for f in $NEED; do
   [ -f "$B/$f" ] && ok "$f 在" || no "$f 缺"
 done
 
@@ -65,6 +76,13 @@ done
 # 包里有且只有一张考卷,且 `跑一下.bat` 指向的正是它。
 # 挡的是:入口指向一张**不在包里**的考卷(业主双击后一闪而过,什么都没有),
 # 或者包里塞了两张、业主跑到了答非所问的那一张(而它照样会打印一份像样的收据)。
+if [ "$APP_MODE" = 1 ]; then
+  # 出货形态**一张考卷都不许有**:业主拿到的是产品,不是卷子。
+  stray=$(cd "$B" && ls spike*.py 跑一下.bat 2>/dev/null || true)
+  n=$(printf '%s\n' "$stray" | grep -c . || true)
+  [ "$n" = 0 ] && ok "出货形态里没有混进考卷/考卷入口" \
+                || no "出货形态里混进了考卷或它的入口:$(printf '%s' "$stray" | tr '\n' ' ')"
+else
 spikes=$(cd "$B" && ls spike*.py 2>/dev/null || true)
 n=$(printf '%s\n' "$spikes" | grep -c . || true)
 if [ "$n" = 1 ]; then
@@ -77,9 +95,10 @@ if [ "$n" = 1 ]; then
 else
   no "包里的考卷有 $n 张(应为 1):$(printf '%s' "$spikes" | tr '\n' ' ')"
 fi
+fi
 
 # 外壳形态(S1a/S1b)必须带上外壳自己那两个文件 —— 少了任何一个,业主那趟真机白跑。
-if [ -f "$B/spike-shell.py" ] || [ -f "$B/spike-shell2.py" ]; then
+if [ -f "$B/spike-shell.py" ] || [ -f "$B/spike-shell2.py" ] || [ "$APP_MODE" = 1 ]; then
   for f in ds/bin/ds_shell.py ds/bin/ds_shell_core.py; do
     [ -f "$B/$f" ] && ok "$f 在(外壳形态)" || no "$f 缺 —— 外壳形态的包必须带它"
   done
@@ -108,7 +127,9 @@ PKG_V=$(cat "$B/ds/版本号.txt" 2>/dev/null | tr -d '[:space:]')
 [ -n "$REPO_V" ] && [ "$REPO_V" = "$PKG_V" ] && ok "版本号锚一致($PKG_V)" || no "版本号锚对不上:仓库 '$REPO_V' vs 包内 '$PKG_V'"
 
 # cmd.exe 读 LF 的 .bat 会出怪事
-file -b "$B/跑一下.bat" | grep -q CRLF && ok ".bat 是 CRLF 换行" || no ".bat 不是 CRLF ⇒ cmd 可能读出怪东西"
+if [ "$APP_MODE" = 0 ]; then
+  file -b "$B/跑一下.bat" | grep -q CRLF && ok ".bat 是 CRLF 换行" || no ".bat 不是 CRLF ⇒ cmd 可能读出怪东西"
+fi
 
 n_cache=$(find "$B" \( -name '__pycache__' -o -name '*.pyc' \) 2>/dev/null | wc -l)
 [ "$n_cache" -eq 0 ] && ok "没有本机编译的字节码残留" || no "残留 $n_cache 个 __pycache__/.pyc(会造成缓存骗人那类怪问题)"

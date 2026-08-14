@@ -119,7 +119,10 @@ def tray_image():
     """托盘图标。装机时安装器会放一份 图标.png 进来;没有就画一个,不为图标崩掉。"""
     from PIL import Image, ImageDraw
 
-    png = install_root() / "ds" / "图标.png"
+    # 安装器铺的是 ds\assets\图标.png(仓库里的 assets/图标.png,由 installer/make-icon.py
+    # 与程序图标 opendesign.ico **同一份形状**生成)。路径挑在 assets\ 下是因为包里的 ds\
+    # 是仓库根的镜像 —— 组包时那道"ds/ 里每个文件都必须是仓库里的"闸按这个对应关系查。
+    png = install_root() / "ds" / "assets" / "图标.png"
     if png.exists():
         try:
             return Image.open(png)

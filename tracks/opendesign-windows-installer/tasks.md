@@ -159,9 +159,55 @@
         (仍欠的是自动断言,复用考卷前要焊上 `frameless=True` 的检查。)
       - 收据**完整、未截断**:全绿时考卷按设计不附外壳日志(`spike-shell2.py:557`
         只在 FAIL/SKIP 时附)—— 核过实现才入的库,不是想当然。
-- [ ] 安装器脚本(倾向 **Inno Setup**,VS Code 同款;NSIS 备选)+ 在本机构建 .exe
-- [ ] 首次启动向导:问 key + 登录口令
-- [ ] 应用内更新:查版本 / 只下 1.1MB 那层 / 失败回滚
+### S1c —— 安装器本体(08-14 开工)
+
+> 两个对上文定稿的修正,理由在 design.md 的「S1c 设计」:
+> ① 工具 **Inno Setup → NSIS**(ISCC.exe 只有 Windows 版,本机 wine 建不起 prefix;
+>    makensis 原生可跑、零系统改动。**特意核过:两条路在 Linux 上都只能静态验 + 真机跑,
+>    换工具没有降低可验证性**)。
+> ② **装扁平树**(与 S1b 真机全绿那份结构一致),版本化组件 + 指针推迟到 S1d ——
+>    那套结构唯一的消费者是还不存在的应用内更新,而代价是零(S1c 这版本来就没有
+>    应用内更新,升 S1d 无论如何都要再双击一次安装器)。
+
+- [x] **判据先行**:`installer/check-installer.py` —— 静态闸 G1~G14(不要管理员 /
+      装在 LOCALAPPDATA / 数据在安装根之外 / 默认卸载不碰数据 / 删数据必须默认不勾 /
+      递归删 $INSTDIR 前先验哨兵 / 不往 HKLM 写 / 卸载删自启项与卸载条目 /
+      WebView2 检测+官方引导程序 / 不经手凭据 / Unicode / 快捷方式不直指 python /
+      开机自启默认不勾)+ 启动器 L1~L6 + 成品闸 P1~P6。
+      **P4/P5 最值钱**:清单从 `makensis -V4` 自己打印的输出还原,逐个文件对字节数 ——
+      `File /r` 的 glob 写歪一个字母时**编译照样成功、包照样出得来,只是少了半棵树**。
+- [x] **红检:18 条定点变异 18 咬住 / 0 漏网**(`installer/mutation-installer.sh`)。
+      **它逼出了闸自己的两个洞**(都不是我看出来的):
+      G3 拿字符串比,把数据目录写成 `$INSTDIR\data` 就看不出它在安装根**里面**;
+      L6 只问"有没有 MessageBox",而启动器里有**两处**存在性检查,拆掉一处照样绿。
+      另有两条变异**没打在契约上**(锚点命中了文件头注释里的同名字样)—— 变异没打上去
+      和漏网一样坏,harness 报 [BAD] 是对的。
+- [x] **装完之后配置到不到位**:`bin/ds_provision.py`(非交互、幂等)+ 15 条判据
+      + 12 条红检(12 咬住 / 0 漏网)。
+      这是绕不开的一步:光把文件铺到盘上,业主双击只会看到"还没装好:找不到配置文件"。
+      路子不是新发明的 —— S1b 考卷 `spike-shell2.py` 就是这么准备配置的,已在真机跑绿;
+      这里补上考卷不需要、真装机才需要的三件:**幂等 / 不碰业主自己那份 `~/.nanobot` /
+      坏配置不覆盖**。
+      🔴 红检抓到**我判据自己的一处 overclaim**:a3 断言名说"生成器只产 latin-1 安全的
+      口令",实际只看一把随机口令 —— 字母表混进非 ASCII 时,16 位里抽中它的概率才四成。
+      已改成对生成器本身下断言。同类账:S1a 的"无地址栏"。
+- [x] `installer/OpenDesign.nsi` + `installer/launcher.nsi` + `installer/make-icon.py`
+      (图标一份形状两个出口:托盘 png + 程序 ico,形状抄 `ds_shell.tray_image()` 的兜底图形)
+- [x] `installer/build-installer.sh`:组包(build-package.sh 新增 `--app` 出货形态,
+      不带考卷)→ 编启动器 → 下 WebView2 引导程序 → 四道闸 fail closed → 编安装器
+- [ ] 编出真 exe 并过成品闸
+- [ ] 发 GitHub 预发布 + 下回来逐字节比对
+- [ ] **业主真机装一趟**(只有他能做)
+- [ ] verify(lane **full** —— 碰装机/权限/凭据)
+
+### 本单没做、明确留给后面的
+
+- [ ] **S1d 首次打开引导页**(业主 08-14 口述,规格在 design.md):选 MiMo 官方 /
+      DeepSeek 官方 → 填 API key。⚠️ DeepSeek 的模型名开工时**再核一次**
+      (官方 07-25 已下架 deepseek-chat / deepseek-reasoner)。
+      连带要判的:让 ds-web 把口令交给自己的前端 = **安全面改动,必须单独 full 审**。
+- [ ] 应用内更新:查版本 / 只下 1.1MB 那层 / 失败回滚(版本化组件 + 指针在这一单落地)
 - [ ] 砍 AWS 那 32MB(**聊天平台 9MB 全留 —— QQ 在里面**)
-- [ ] 卸载、开始菜单、桌面图标
-- [ ] verify(lane 见 verify.md;**碰装机/权限/key ⇒ 预计 full**)
+- [ ] 🔴 **归档前**:把组包流水线(`build-package.sh` / `check-package.sh` /
+      `win-deps-audit.py`)搬出 `tracks/*/spike/` —— 它们是**长期的构建工具**,
+      而 track 一归档路径就变,`build-installer.sh` 会当场断。考卷本身留在 track 里。

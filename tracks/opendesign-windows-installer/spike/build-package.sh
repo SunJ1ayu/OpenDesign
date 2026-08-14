@@ -16,6 +16,7 @@
 #   (不给)      :S0 形态,考卷 spike.py —— 只问"免装 Python 跑不跑得动"
 #   --with-shell:S1a,加外壳依赖,考卷 spike-shell.py —— 只问"窗口/托盘起不起得来"
 #   --s1b       :S1b,加外壳依赖,考卷 spike-shell2.py —— 问"外壳 + **真后端**"那一组
+#   --app       :S1c 出货形态,加外壳依赖,**不带考卷**(装机包不是考卷,别混)
 #
 # 产出:<输出目录>/pkg/ 与 <输出目录>/OpenDesign-spike.zip
 
@@ -53,13 +54,18 @@ die() { printf '\n🔴 %s\n' "$*" >&2; exit 1; }
 # 答非所问的卷子跑一趟真机,而收据看起来照样"全绿"。不认识的参数直接 fail closed。
 WITH_SHELL=0
 SPIKE=spike.py
+APP_MODE=0
 case "${2:-}" in
   "")           ;;
   --with-shell) WITH_SHELL=1; SPIKE=spike-shell.py  ;;
   --s1b)        WITH_SHELL=1; SPIKE=spike-shell2.py ;;
-  *)            die "不认识的参数 '${2}'(只认 --with-shell / --s1b)" ;;
+  # 出货形态:装到业主机器上的就是这棵树。**故意不带考卷** ——
+  # 考卷是问"跑不跑得动"的,装机包是"跑得动之后给他用的",混在一起会让业主
+  # 双击到一张答非所问的卷子,而它照样打印一份像样的收据。
+  --app)        WITH_SHELL=1; APP_MODE=1; SPIKE="" ;;
+  *)            die "不认识的参数 '${2}'(只认 --with-shell / --s1b / --app)" ;;
 esac
-[ -f "$HERE/$SPIKE" ] || die "考卷 $SPIKE 不在 $HERE 里"
+[ "$APP_MODE" = 1 ] || [ -f "$HERE/$SPIKE" ] || die "考卷 $SPIKE 不在 $HERE 里"
 
 mkdir -p "$CACHE"
 rm -rf "$PKG"; mkdir -p "$PKG"
@@ -155,9 +161,17 @@ cp "$REPO"/bin/*.py "$PKG/ds/bin/"
 cp "$REPO"/config/nanobot.config.windows.jsonc "$PKG/ds/config/"
 cp -r "$REPO/web/dist" "$PKG/ds/web/"
 [ -d "$REPO/workspace" ] && cp -r "$REPO/workspace" "$PKG/ds/"
-# 只放**这一形态要跑的那一张**考卷。多放几张 = 业主可能双击到错的那张,
-# 而错的那张同样会打印一份看起来很像样的收据。
-cp "$HERE/$SPIKE" "$PKG/$SPIKE"
+if [ "$APP_MODE" = 1 ]; then
+  # 托盘图标。与程序图标 installer/opendesign.ico 是**同一份形状**(installer/make-icon.py
+  # 一起生成)—— 少了它 ds_shell 会当场画一个兜底的,不会崩,但两处图标就长得不一样了。
+  mkdir -p "$PKG/ds/assets"
+  [ -f "$REPO/assets/图标.png" ] || die "找不到 $REPO/assets/图标.png(先跑 installer/make-icon.py)"
+  cp "$REPO/assets/图标.png" "$PKG/ds/assets/"
+else
+  # 只放**这一形态要跑的那一张**考卷。多放几张 = 业主可能双击到错的那张,
+  # 而错的那张同样会打印一份看起来很像样的收据。
+  cp "$HERE/$SPIKE" "$PKG/$SPIKE"
+fi
 
 # 版本号锚:判据要拿它跟 ds-web 自报的版本对一遍(两边对不上 = 包里混了两个版本的代码)。
 # **单一来源是 bin/ds_web.py 的 VERSION**,这里只是抄过去,不许手写。
@@ -167,18 +181,24 @@ printf '%s\n' "$DSVER" > "$PKG/ds/版本号.txt"
 echo "  ds-web 版本 $DSVER"
 
 # ---------------------------------------------------------------- 5. 入口
-say "5/6 入口 跑一下.bat(CRLF)"
+say "5/6 入口"
+if [ "$APP_MODE" = 1 ]; then
+  echo "  出货形态:入口是 OpenDesign.exe(由 installer/build-installer.sh 放进来),不写 .bat"
+else
 # CRLF 是硬要求:LF 结尾的 .bat 在 cmd.exe 下会有诡异行为。
 # **不接管道** —— 管道会吃掉 rc,业主看到的"跑完了"可能是假的(本机为这条记过三次账)。
 printf '@echo off\r\nchcp 65001 >nul\r\ncd /d "%%~dp0"\r\npython\\python.exe %s\r\necho.\r\necho ==== 跑完了,把 收据.txt 发回来 ====\r\npause\r\n' \
   "$SPIKE" > "$PKG/跑一下.bat"
 echo "  入口考卷:$SPIKE"
+fi
 
 # ---------------------------------------------------------------- 6. 闸 B + 出 zip
 say "6/6 闸 B:成品结构检查"
-bash "$HERE/check-package.sh" "$PKG" || die "闸 B:成品结构不合格"
+CHECK_MODE=""; [ "$APP_MODE" = 1 ] && CHECK_MODE="--app"
+bash "$HERE/check-package.sh" "$PKG" $CHECK_MODE || die "闸 B:成品结构不合格"
 
 ZIP="$OUT/OpenDesign-spike.zip"
+if [ "$APP_MODE" = 1 ]; then echo "  出货形态:不打 zip,payload 在 $PKG"; exit 0; fi
 rm -f "$ZIP"
 # 用 python 的 zipfile,不依赖系统 zip —— 2026-08-13 第一跑就栽在这台机器没装 zip 上。
 # 构建机的工具集不该成为交付的隐性前提。
