@@ -114,6 +114,16 @@ class TestFreshInstall(ProvisionTestBase):
         token.encode("latin-1")  # 抛 UnicodeEncodeError 即失败
         self.assertGreaterEqual(len(token), 12, "口令太短")
 
+        # 🔴 上面三行**只是抽样**:字母表里混进一个非 ASCII 字符时,16 位口令恰好抽中它的
+        # 概率才四成 —— 红检 M1 当场证明了这一点(变异打上去,这条照样绿)。
+        # 断言名说的是"生成器只产 latin-1 安全的口令",那就得**对生成器本身**下断言。
+        # 同类账:S1a 那份考卷把"无地址栏"写进断言名却没验。
+        import ds_provision
+        self.assertTrue(ds_provision._ALPHABET.isascii(),
+                        f"口令字母表里有非 ASCII 字符:{ds_provision._ALPHABET!r}")
+        for _ in range(200):
+            ds_provision.new_token().encode("latin-1")
+
     def test_a4_owner_can_find_the_token(self):
         """口令是随机生成的 ⇒ **业主必须能看到它**,否则聊天永远登不进去。"""
         self.assertEqual(self.run_provision().returncode, 0)

@@ -1,0 +1,45 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    provision
+cmd:     /root/.venvs/design-studio/bin/python tests/test_ds_provision.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  e44e545
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-14T14:43:42Z
+---------------- 输出开始 ----------------
+test_c1_does_not_touch_the_machines_own_nanobot (__main__.TestBlastRadius.test_c1_does_not_touch_the_machines_own_nanobot)
+**只写自己那棵树**。 ... ok
+test_c2_writes_nothing_outside_the_home (__main__.TestBlastRadius.test_c2_writes_nothing_outside_the_home)
+跑完之后,数据目录之外一个新文件都不该多出来。 ... ok
+test_d1_says_human_words_when_the_template_is_missing (__main__.TestBrokenInputs.test_d1_says_human_words_when_the_template_is_missing)
+包装坏了(模板没铺进去)⇒ 说人话并非零退出,不许静默产出半份配置。 ... ok
+test_d2_leaves_a_corrupt_config_alone (__main__.TestBrokenInputs.test_d2_leaves_a_corrupt_config_alone)
+已有配置是坏 JSON:不许当成"没有配置"覆盖掉 —— 那可能是业主唯一的一份。 ... ok
+test_a1_fresh_home_gets_a_config (__main__.TestFreshInstall.test_a1_fresh_home_gets_a_config)
+全新装机:什么都没有 → 跑一次 → 配置在那儿,而且是合法 JSON。 ... ok
+test_a2_the_shell_accepts_what_provision_produced (__main__.TestFreshInstall.test_a2_the_shell_accepts_what_provision_produced)
+**本文件最值钱的一条**:外壳的 `patch_config` 认不认这份配置。 ... ok
+test_a3_token_is_latin1_safe (__main__.TestFreshInstall.test_a3_token_is_latin1_safe)
+自动生成的口令必须是浏览器发得出去的。 ... ok
+test_a4_owner_can_find_the_token (__main__.TestFreshInstall.test_a4_owner_can_find_the_token)
+口令是随机生成的 ⇒ **业主必须能看到它**,否则聊天永远登不进去。 ... ok
+test_a5_mcp_servers_are_wired (__main__.TestFreshInstall.test_a5_mcp_servers_are_wired)
+三个工具服务缺任何一个,助手就"什么都不会做"了,而业主自己修不好。 ... ok
+test_a6_no_credential_lands_in_the_config (__main__.TestFreshInstall.test_a6_no_credential_lands_in_the_config)
+凭据只走环境变量。配置是要进日志、进截图、进我这边的收据的。 ... ok
+test_a7_missing_key_is_named_exactly (__main__.TestFreshInstall.test_a7_missing_key_is_named_exactly)
+与 S1b-r2 真机已验证的行为对齐:没放 key 时,**恰好**点名 DS_LLM_KEY。 ... ok
+test_b1_second_run_keeps_the_token (__main__.TestIdempotence.test_b1_second_run_keeps_the_token)
+业主记下来的口令,不许被第二次跑(修复安装 / 装新版)悄悄换掉。 ... ok
+test_b2_owner_chosen_token_survives (__main__.TestIdempotence.test_b2_owner_chosen_token_survives)
+他自己设过的口令(老装法 install.ps1 问过一次)必须原样留着。 ... ok
+test_b3_explicit_token_wins (__main__.TestIdempotence.test_b3_explicit_token_wins)
+给了 --token 就照做(将来的首启动向导会用这条口子改口令)。 ... ok
+test_b4_refuses_a_token_the_browser_cannot_send (__main__.TestIdempotence.test_b4_refuses_a_token_the_browser_cannot_send)
+显式给的口令也要过 latin-1 闸,而且要**当场**说清楚,不能等到聊天时才炸。 ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 6.998s
+
+OK
+---------------- 输出结束 ----------------
+runlog: provision rc=0 commit=e44e545 dirty=yes at=2026-08-14T14:43:42Z file=tracks/opendesign-windows-installer/evidence/20260814T144342Z-01-provision.txt
