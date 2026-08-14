@@ -131,6 +131,10 @@ mutate_and_expect M13 G13 "$NSI" \
 mutate_and_expect M14 G14 "$NSI" \
   'Section /o "开机时自动启动"' 'Section "开机时自动启动"'
 
+# M19 目录页的守卫被拆成空壳 —— 装进非空目录时没人拦,卸载时把业主的东西一起删
+mutate_and_expect M19 G15 "$NSI" \
+  '  FindFirst $0 $1 "$INSTDIR\*.*"' '  ; 不数了'
+
 # M15 启动器变成会弹安装界面的东西
 mutate_and_expect M15 L1 "$LAU" '
 SilentInstall silent' '

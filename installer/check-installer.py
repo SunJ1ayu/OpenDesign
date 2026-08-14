@@ -372,7 +372,10 @@ def _check_dir_page_guard(nsi: Nsi) -> tuple[bool, str]:
     if not leave:
         return False, "没有目录页的离开回调 ⇒ 装进非空目录时没人拦"
     fn = leave[0].lower()
-    counted = any(blk.lower() == fn and t[0].lower() in {"findfirst", "findnext"}
+    # 只认 FindFirst:它才是**开始枚举**的那一条。光有 FindNext 是坏代码
+    # (对着没打开的句柄取下一个),而第一版把两者都算数 ⇒ 拆掉 FindFirst 这条闸照样绿。
+    # 红检 M19 当场证明了这一点。
+    counted = any(blk.lower() == fn and t[0].lower() == "findfirst"
                   for _ln, t, _un, blk in nsi.rows())
     warned = any(blk.lower() == fn and t[0].lower() == "messagebox"
                  for _ln, t, _un, blk in nsi.rows())
