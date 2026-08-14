@@ -327,6 +327,11 @@ def static_checks(nsi: Nsi, rep: Report) -> None:
     rep.add("G13 快捷方式指向启动器而不是 python.exe",
             bool(links) and not bad_links, "; ".join(bad_links) or f"{len(links)} 个快捷方式")
 
+    # G15 ── 装进一个本来就有别的东西的文件夹 ⇒ 卸载时把那些东西一起删掉。
+    #         G6 的哨兵挡不住这一种(装完之后哨兵就在那儿了)。自审时补的。
+    ok_dir, detail_dir = _check_dir_page_guard(nsi)
+    rep.add("G15 装进非空目录时会拦一下", ok_dir, detail_dir)
+
     # G14 ── 业主自己拍的板:开机自启做成**选项**。所以它必须是可取消的段,
     #         而且默认不勾(常驻+自启会把 dream 放大到 24 小时,design 已记账)。
     autorun_sections = [name for _ln, t, un, name in nsi.rows()
@@ -343,6 +348,36 @@ def static_checks(nsi: Nsi, rep: Report) -> None:
             bool(autorun_blocks) and autorun_blocks <= optional_sections,
             f"写自启的段={sorted(autorun_blocks)} / 默认不勾的段={sorted(optional_sections)}"
             + (f" / {autorun_sections}" if autorun_sections else ""))
+
+
+def _check_dir_page_guard(nsi: Nsi) -> tuple[bool, str]:
+    r"""装到一个**本来就有别的东西**的文件夹 ⇒ 卸载时把那些东西一起删掉。
+
+    这条是自审时想出来的、G6 的哨兵**挡不住**的一种:哨兵问的是"这是不是我们装的地方",
+    而业主要是把路径改成 `D:\文档`,装完之后哨兵文件就在那儿了 —— 哨兵会说"是我们的",
+    然后 `RMDir /r` 把他的文档全删了。概率低,后果不可逆。
+
+    ⇒ 要求存在一个**目录页的离开回调**,并且它真的去数了目录里有什么
+    (FindFirst)。只查"有没有这个函数"不够:空壳函数照样过。
+    """
+    leave = [name for _ln, t, _un, name in nsi.rows()
+             if t[0].lower() == "function" and len(t) > 1
+             and t[1].lower() in {".ondirleave", "dirleave", "instdirleave"}]
+    if not leave:
+        # MUI 的目录页离开回调是靠 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE 指定的
+        for _ln, t, _un, _blk in nsi.cmd("!define"):
+            if len(t) > 2 and t[1].upper() == "MUI_PAGE_CUSTOMFUNCTION_LEAVE":
+                leave = [t[2]]
+                break
+    if not leave:
+        return False, "没有目录页的离开回调 ⇒ 装进非空目录时没人拦"
+    fn = leave[0].lower()
+    counted = any(blk.lower() == fn and t[0].lower() in {"findfirst", "findnext"}
+                  for _ln, t, _un, blk in nsi.rows())
+    warned = any(blk.lower() == fn and t[0].lower() == "messagebox"
+                 for _ln, t, _un, blk in nsi.rows())
+    return (counted and warned,
+            f"回调 {leave[0]}:数了目录内容={counted} 会提醒={warned}")
 
 
 def _check_instdir_guard(nsi: Nsi) -> tuple[bool, str]:
