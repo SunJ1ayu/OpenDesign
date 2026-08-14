@@ -153,6 +153,26 @@ mutate_and_expect M18 L6 "$LAU" \
   '    MessageBox MB_ICONSTOP "${APP} 好像没装完整:找不到$\n$EXEDIR\python\pythonw.exe' \
   '    DetailPrint "no python$\n'
 
+# M20 🔴 subkimi 抓到的真洞:用 NSIS 续行把删数据的目标藏到下一行。
+#     闸原来按物理行切词 ⇒ 这条删除的目标整个看不见,G4 绿、G6 还会说"没有递归删"。
+#     修法是拼行再分析(不是禁用续行 —— 文案里正大量用着)。
+mutate_and_expect M20 G4 "$NSI" \
+  '  DeleteRegValue HKCU "${RUN_KEY}" "${APP}"' \
+  '  RMDir /r \
+    "${DATA_ROOT}"
+  DeleteRegValue HKCU "${RUN_KEY}" "${APP}"'
+
+# M21 快捷方式改到"所有用户"上下文 ⇒ 每用户身份写不进也删不掉,卸载后永远留在开始菜单
+mutate_and_expect M21 G16 "$NSI" \
+  'Section "在桌面上放一个图标" SecDesktop
+  SetShellVarContext current' \
+  'Section "在桌面上放一个图标" SecDesktop
+  SetShellVarContext all'
+
+# M22 不生成卸载器 ⇒ 编译照样成功,卸载条目指向一个不存在的 exe
+mutate_and_expect M22 G17 "$NSI" \
+  '  WriteUninstaller "$INSTDIR\卸载.exe"' '  ; 不生成卸载器了'
+
 restore
 A1="$(sha256sum "$NSI" | cut -d' ' -f1)"; A2="$(sha256sum "$LAU" | cut -d' ' -f1)"
 echo

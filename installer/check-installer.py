@@ -102,7 +102,11 @@ class Nsi:
         in_un = False
         block = ""
         in_block_comment = False
-        for raw in self.raw.splitlines():
+        physical = self.raw.splitlines()
+        for i, raw in enumerate(physical):
+            pending = physical[i + 1:]
+            if self.lines and len(self.lines) > i:
+                continue   # 这一行已经被上一条逻辑行吃掉了(续行)
             text = raw
             # /* */ 块注释:NSIS 支持,别让藏在里面的东西被当成正文
             if in_block_comment:
@@ -119,6 +123,16 @@ class Nsi:
                     text = head
                     in_block_comment = True
             text = strip_comment(text)
+            # 🔴 NSIS 的行尾 `\` 是**续行**。闸原来按物理行切词 ⇒ 谁把
+            #    `RMDir /r \`↵`"$INSTDIR"` 写进卸载段,G4/G5/G6 就全看不见那个目标,
+            #    G6 还会报"没有对 $INSTDIR 的递归删(不需要哨兵)"= 绿。
+            #    这条是 subkimi 评审抓到的,本文件自己的哲学(每种事故变一道闸)漏了它。
+            #    修法是**拼行再分析**,不是禁用续行 —— 文案里正大量用着它。
+            #    行号仍记第一物理行(报告要指得回去),被吞掉的行留空占位保持对齐。
+            eaten = 0
+            while text.rstrip().endswith("\\") and eaten < len(pending):
+                text = text.rstrip()[:-1] + pending[eaten]
+                eaten += 1
             t = tokenize(text)
             if t:
                 head = t[0].lower()
@@ -142,6 +156,11 @@ class Nsi:
             self.toks.append(t)
             self.uninst.append(in_un)
             self.block.append(block)
+            for _ in range(eaten):        # 被吃掉的物理行留空占位,保持行号对齐
+                self.lines.append("")
+                self.toks.append([])
+                self.uninst.append(in_un)
+                self.block.append(block)
 
     def rows(self):
         for i, t in enumerate(self.toks):
@@ -327,6 +346,31 @@ def static_checks(nsi: Nsi, rep: Report) -> None:
     rep.add("G13 快捷方式指向启动器而不是 python.exe",
             bool(links) and not bad_links, "; ".join(bad_links) or f"{len(links)} 个快捷方式")
 
+    # G16 ── 事故:`SetShellVarContext all` 会把 $SMPROGRAMS/$DESKTOP 指到"所有用户",
+    #         那里每用户身份**写不进去也删不掉**(要管理员)。而 CreateShortcut 失败
+    #         不报错 ⇒ 装的时候一切正常,卸载后快捷方式永远留在开始菜单里。
+    #         现在四段都写了 current,但一行改动就能毁掉,而别的闸全罩不住(subkimi 提)。
+    ctx = [f"{ln}: {' '.join(t)}" for ln, t, _un, _blk in nsi.rows()
+           if t[0].lower() == "setshellvarcontext" and len(t) > 1 and t[1].lower() != "current"]
+    makes_link = [blk for _ln, t, _un, blk in nsi.rows() if t[0].lower() == "createshortcut"]
+    ctx_blocks = {blk for _ln, t, _un, blk in nsi.rows()
+                  if t[0].lower() == "setshellvarcontext" and len(t) > 1 and t[1].lower() == "current"}
+    rep.add("G16 快捷方式只在每用户上下文里动",
+            not ctx and all(b in ctx_blocks for b in makes_link),
+            "; ".join(ctx) or f"建快捷方式的段={sorted(set(makes_link))} 设了 current 的段={sorted(ctx_blocks)}")
+
+    # G17 ── 事故:卸载条目指向一个不存在的卸载器。删掉 WriteUninstaller 那一行,
+    #         编译照样成功、装出来照样"有卸载条目",点下去什么也没有。
+    #         P4/P5 看不见它(卸载器是安装时生成的,不在 payload 清单里)(subkimi 提)。
+    written = [nsi.expand(t[1]) for _ln, t, _un, _blk in nsi.cmd("WriteUninstaller") if len(t) > 1]
+    unstr = [nsi.expand(a) for _ln, t, _un, _blk in nsi.rows()
+             if t[0].lower() == "writeregstr" and "UninstallString" in t
+             for a in t[1:]]
+    pointed = [u for u in unstr if ".exe" in u.lower()]
+    rep.add("G17 卸载器真会被生成,且卸载条目指的就是它",
+            bool(written) and any(norm_path(w).strip('"') in norm_path(pt) for w in written for pt in pointed),
+            f"生成={written} 指向={pointed}")
+
     # G15 ── 装进一个本来就有别的东西的文件夹 ⇒ 卸载时把那些东西一起删掉。
     #         G6 的哨兵挡不住这一种(装完之后哨兵就在那儿了)。自审时补的。
     ok_dir, detail_dir = _check_dir_page_guard(nsi)
@@ -500,6 +544,14 @@ def product_checks(exe: Path, log: Path, payload: Path, version: str, rep: Repor
     mismatched = [k for k in set(want) & set(got) if want[k] != got[k]]
     rep.add("P5 每个文件的字节数逐个对得上", not mismatched,
             f"{len(mismatched)} 个对不上:{mismatched[:5]}")
+
+    # P7 ── 事故:构建时掉了 `-INPUTCHARSET UTF8`,.nsi 里的中文按本地编码解 ⇒ 全乱码,
+    #        而所有静态闸照样绿(G12 只钉脚本里的 Unicode 指令,管不着构建命令)。
+    #        所以查**真构建日志**:makensis 自己会打印它按什么编码读的脚本。
+    log_text = log.read_text(encoding="utf-8", errors="replace")
+    rep.add("P7 编译时按 UTF-8 读的脚本(中文才不会乱码)",
+            "(UTF8)" in log_text,
+            "构建日志里没有 `Processing script file: … (UTF8)`")
 
     # 版本号锚:唯一来源是 bin/ds_web.py 的 VERSION。名字里印错版本 = 业主装完
     # 报的版本和我以为发的不是一回事,而这正是"在使用现场验证"那条规矩要防的。
