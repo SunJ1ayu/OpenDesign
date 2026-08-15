@@ -74,7 +74,11 @@ note_last "${_pass} 通过 / ${_skp} 跳过 / ${_todo} todo" $((_skp + _todo))
 # 它在 sys.monitoring 下跑同一套判据,顺带记下"哪条断言从没被执行过" ——
 # 那是判据最阴的一种失效(断言在那儿、却压根没被问出口,而每一层看到的都是绿的)。
 # 单独当一段要多花 4 分半,而**慢到会被跳过的检查等于没有**,所以合并进这一段。
-run_seg "python 全量 + 死断言闸($PY)" py-full "$PY" tests/dead_assertions.py
+# `DS_SHELL_E2E=1`:S1b 给 `test_ds_shell_core.py` 加的两条**两腿真联跑**判据默认 skip
+# (慢、要起 nanobot)。08-15 发现它们从 08-13 落地起就没被任何总跑叫起来过 ——
+# 12 条断言一次没执行,而死断言闸每次都在喊,只是没人跑总跑所以没人听见。
+# 这正是这个脚本文件头列的第 ③ 次复发:**默认关掉的检查等于没有检查**。
+run_seg "python 全量 + 死断言闸($PY)" py-full env DS_SHELL_E2E=1 "$PY" tests/dead_assertions.py
 _l="$LAST_LOG"
 _ran=$(grep -oE '^Ran [0-9]+ test' "$_l" | tail -1 | awk '{print $2}'); _ran="${_ran:-?}"
 _skp=$(grep -oE 'skipped=[0-9]+' "$_l" | tail -1 | cut -d= -f2); _skp="${_skp:-0}"

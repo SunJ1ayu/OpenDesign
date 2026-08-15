@@ -48,11 +48,28 @@ TEMPLATE = REPO / "config" / "nanobot.config.windows.jsonc"
 # 内存里还是旧口令 ⇒ `test_ws_protocol_smoke` 红了整整一天,而我昨天以为红检"跑绿了"。
 # 靶子红是对的,**但破坏不许真的发生**:变异测试的整个前提是"跑完机器和跑前一样"。
 #
-# 放在模块级、不放在 setUp:这道防线要挡的正是"某条测试忘了伪造 HOME"。
+# 放在 setUpModule 而不是 import 时:第一版写在模块级,当场串味 —— 全量跑是**一个进程
+# 导入所有判据**,`test_ws_protocol_smoke` 在 import 期就按 HOME 找 gateway 口令,
+# 于是它整块 SKIP 了(而 SKIP 看起来很像绿)。改错一道防线的代价就是这个形状。
 # 同源规矩见 [[judging-must-have-no-egress]] —— 那次是判据自己会花钱,这次是判据自己会改机器。
-_JUDGE_HOME = tempfile.mkdtemp(prefix="ds-provision-判据假家-")
-os.environ["HOME"] = _JUDGE_HOME
-os.environ["USERPROFILE"] = _JUDGE_HOME
+_JUDGE_HOME = None
+_REAL_HOME: dict[str, str | None] = {}
+
+
+def setUpModule():
+    global _JUDGE_HOME
+    _JUDGE_HOME = tempfile.mkdtemp(prefix="ds-provision-判据假家-")
+    for k in ("HOME", "USERPROFILE"):
+        _REAL_HOME[k] = os.environ.get(k)
+        os.environ[k] = _JUDGE_HOME
+
+
+def tearDownModule():
+    for k, v in _REAL_HOME.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
 
 
 def has_nanobot() -> bool:

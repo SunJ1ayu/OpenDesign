@@ -54,9 +54,26 @@ import ds_shell_core as core  # noqa: E402
 # 那道同名防线一样(2026-08-15 实证:红检把真机 gateway 口令换了),**但这份更贵**:
 # 这里的 M12 变异专门打掉 HOME 接管,而一旦漏过去,起来的就是**拿我真配置的真网关** ——
 # 那份配置里有真 key。同源账见 [[judging-must-have-no-egress]](判据自己会花钱)。
-_JUDGE_HOME = tempfile.mkdtemp(prefix="ds-shell-core-判据假家-")
-os.environ["HOME"] = _JUDGE_HOME
-os.environ["USERPROFILE"] = _JUDGE_HOME
+# 放 setUpModule 不放 import 时:全量跑是一个进程导入所有判据,import 期改 HOME
+# 会让别的判据(test_ws_protocol_smoke 按 HOME 找 gateway 口令)整块 SKIP。
+_JUDGE_HOME = None
+_REAL_HOME = {}
+
+
+def setUpModule():
+    global _JUDGE_HOME
+    _JUDGE_HOME = tempfile.mkdtemp(prefix="ds-shell-core-判据假家-")
+    for k in ("HOME", "USERPROFILE"):
+        _REAL_HOME[k] = os.environ.get(k)
+        os.environ[k] = _JUDGE_HOME
+
+
+def tearDownModule():
+    for k, v in _REAL_HOME.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
 
 
 def listen_on(port: int = 0) -> tuple[socket.socket, int]:
