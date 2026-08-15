@@ -420,6 +420,26 @@ class SingleInstance(unittest.TestCase):
         self.assertFalse(restarted.is_set(),
                          "'RESTART' 这种近似词被当成了重启 —— 动词必须精确匹配")
 
+    def test_b14_a_verb_in_a_second_packet_is_still_read(self):
+        """🔴 红检 M4 逼出来的。b10 对 HELLO 验过分片,**没人对动词验过** ——
+        于是把"读满两行"改成"读满一行"照样全绿:同包到达时缓冲里本来就有第二行,
+        只有分片分得出来。而分片正是 TCP 的常态(b10 的注释已经写过一遍)。"""
+        base = free_port()
+        shown, restarted = threading.Event(), threading.Event()
+        lock = core.InstanceLock(base_port=base, span=5,
+                                 on_show=shown.set, on_restart=restarted.set)
+        self.addCleanup(lock.release)
+        self.assertTrue(lock.acquire())
+
+        with socket.create_connection(("127.0.0.1", lock.port), timeout=5) as s:
+            s.settimeout(5)
+            s.sendall(core.InstanceLock._HELLO)
+            time.sleep(0.15)                      # 在 _recv_frame 的宽限之内
+            s.sendall(core.InstanceLock._RESTART)
+            self.assertEqual(s.recv(32), core.InstanceLock._OK)
+        self.assertTrue(restarted.wait(5), "动词晚到一个包就被丢了 ⇒ 填完 key 不会重启")
+        self.assertFalse(shown.is_set(), "退回成了唤醒窗口 —— 窗口闪一下,key 却没生效")
+
     def test_b7_windows_branch_asks_for_exclusive_bind(self):
         """Windows 那条分支在 Linux 上跑不了,但"它打算设哪些 socket 选项"是纯数据,
         问得出来 —— 把"我以为它会设"变成一条会红的断言。
