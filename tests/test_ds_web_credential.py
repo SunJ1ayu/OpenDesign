@@ -35,7 +35,11 @@ import ds_credential  # noqa: E402
 import ds_web  # noqa: E402
 
 FAKE_KEY = "sk-oracle-do-not-ship-0123456789abcdef0123456789"
-PASSWORD = "口令不许经过浏览器"          # 故意用中文:它只该在服务端出现
+# 口令必须是 latin-1 能编码的:它要进 HTTP 头。第一版我在这儿写了中文,
+# **当场炸出一个真问题** —— 代理会在 header 编码上抛 UnicodeEncodeError 而不是降级
+# (patch_config 早就在装机那一侧拦了中文口令,但 ds-web 这一侧没有兜底)。
+# ⇒ 夹具改 ASCII,而"非 latin-1 口令不许把代理搞崩"单独立一条(j3)。
+PASSWORD = "pw-only-on-the-server-side"
 
 _JUDGE_HOME = None
 _SAVED: dict[str, str | None] = {}
@@ -233,6 +237,20 @@ class TestPasswordNeverReachesTheBrowser(Rig):
                 auth = up.requests[-1].get("authorization", "")
                 self.assertIn(PASSWORD, auth,
                               "ds-web 没有替前端补上口令 —— 业主还得自己输")
+
+    def test_j3_a_non_latin1_password_degrades_instead_of_exploding(self):
+        """判据自己的夹具炸出来的:口令进 HTTP 头,非 latin-1 会抛编码错。
+        装机那侧(patch_config)拦得住,但 ds-web 这侧也不许因此把请求打崩。"""
+        with open(self.cfg_path, encoding="utf-8") as fh:
+            cfg = json.load(fh)
+        cfg["channels"]["websocket"]["token"] = "中文口令"
+        with open(self.cfg_path, "w", encoding="utf-8") as fh:
+            json.dump(cfg, fh, ensure_ascii=False)
+        with _upstream() as up:
+            with self.serve(nanobot_port=up.server_address[1]) as port:
+                st, _, raw = self.req(port, "GET", "/api/chat/bootstrap")
+                self.assertIn(st, (200, 401, 502),
+                              f"非 latin-1 口令把代理搞崩了:{st} {raw[:120]}")
 
     def test_j2_the_password_itself_never_comes_back(self):
         with _upstream() as up:

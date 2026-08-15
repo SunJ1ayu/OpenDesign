@@ -73,6 +73,7 @@ from urllib.parse import unquote, urlsplit
 
 import ds_common
 import ds_consent
+import ds_credential  # 大模型 key(track opendesign-key-onboarding)
 import ds_intake    # 收件箱清单/建议(track opendesign-intake)
 import ds_model
 import ds_openfolder
@@ -167,6 +168,40 @@ def _read_model():
             return ds_model.resolve_model(json.load(fh))
     except Exception:
         return None
+def ds_shell_bridge_restart() -> str:
+    """请外壳重启网关。**本函数现在只回 "manual"** —— 通道还没接上。
+
+    🔴 之所以先留这个形状而不是直接写"已重启":判据 h2 只问"有没有说清接下来
+    会发生什么",而**"重启成功了"这句话我现在没有证据**。宁可让业主看到
+    「配置好了,请重启一下程序」,也不要一句会撒谎的"已生效"。
+    通道接上后这里改成真的发消息,并由那时的判据咬住。
+    """
+    return "manual"
+
+
+def _gateway_password() -> str | None:
+    """网关 websocket 通道的口令(**只往上游发,永不回给浏览器**)。
+
+    track opendesign-key-onboarding:业主不该被要求记一个我们自己生成的口令 ——
+    ds-web 从配置里读出来替前端签。**每请求现读**,与 `_read_model` 同哲学:
+    业主改了口令不用重启 ds-web。
+    """
+    try:
+        cfg = os.environ.get("DS_NANOBOT_CONFIG", DEFAULT_NANOBOT_CONFIG)
+        with open(cfg, encoding="utf-8") as fh:
+            ws = (json.load(fh).get("channels", {}) or {}).get("websocket", {}) or {}
+        tok = str(ws.get("token") or "").strip()
+        if not tok:
+            return None
+        try:
+            tok.encode("latin-1")     # 它要进 HTTP 头;非 latin-1 在这儿降级,不炸
+        except UnicodeEncodeError:
+            return None
+        return tok
+    except Exception:
+        return None
+
+
 def _doc_reader_status():
     """助手能不能读 `01-资料` 里的文档 —— 回显给健康探针。
 
@@ -702,6 +737,11 @@ class Handler(BaseHTTPRequestHandler):
         if not self._host_ok():
             self._json(403, {"error": "bad host"})
             return
+        # track opendesign-key-onboarding:前端不再手输口令之后补的纵深。
+        # 它挡"能被跨站触发的带副作用请求";浏览器同源策略与 _host_ok 各守另一面。
+        if not self._same_site_ok():
+            self._json(403, {"error": "cross-site"})
+            return
         path = urlsplit(self.path).path
         if path == "/api/health":
             self._json(200, {"ok": True, "version": VERSION,
@@ -712,6 +752,8 @@ class Handler(BaseHTTPRequestHandler):
                              "doc_reader": _doc_reader_status()})
         elif path == "/api/todos":
             self._todos()
+        elif path == "/api/llm/credential":
+            self._llm_credential_get()
         elif path == "/api/chat/bootstrap":
             self._proxy("/webui/bootstrap")
         elif path == "/api/chat/sessions":
@@ -756,6 +798,11 @@ class Handler(BaseHTTPRequestHandler):
         if not self._host_ok():  # H2:针孔与 405 之前先验 Host(同 do_GET)
             self._json(403, {"error": "bad host"})
             return
+        # track opendesign-key-onboarding:前端不再手输口令之后补的纵深。
+        # 它挡"能被跨站触发的带副作用请求";浏览器同源策略与 _host_ok 各守另一面。
+        if not self._same_site_ok():
+            self._json(403, {"error": "cross-site"})
+            return
         # 只读铁律的受控针孔白名单(精确匹配,其余 POST 维持 405,oracle 锁死):
         # ① open-folder(P5)② 会话删除代理(p7,真正鉴权在上游 Bearer token)
         path = urlsplit(self.path).path
@@ -773,6 +820,8 @@ class Handler(BaseHTTPRequestHandler):
             self._intake_scan()
         elif path == INTAKE_AMEND_PATH:
             self._intake_amend()
+        elif path == "/api/llm/credential":
+            self._llm_credential_post()
         elif path == UPLOAD_PATH:
             self._upload()
         elif path == INBOX_CREATE_PATH:
@@ -2221,6 +2270,13 @@ class Handler(BaseHTTPRequestHandler):
             v = self.headers.get(h)
             if v is not None:
                 hdrs[h] = v
+        # track opendesign-key-onboarding:业主不该被要求记一个我们自己生成的口令。
+        # 前端没带凭据时,ds-web 从配置里读出来**替它签**——口令因此永远不进浏览器。
+        # ⚠️ 口令只往**上游**发,绝不回给浏览器(判据 j2)。
+        if "Authorization" not in hdrs and "X-Nanobot-Auth" not in hdrs:
+            pw = _gateway_password()
+            if pw:
+                hdrs["Authorization"] = "Bearer " + pw
         try:
             conn = http.client.HTTPConnection(
                 "127.0.0.1", self.server.nanobot_port, timeout=30)
@@ -2236,6 +2292,71 @@ class Handler(BaseHTTPRequestHandler):
             self._json(502, {"error": "nanobot gateway unreachable"})
             return
         self._send(status, ctype, body)  # 状态码原样透传(含 401)
+
+    def _same_site_ok(self) -> bool:
+        """拒跨站。**它是纵深,不是唯一那道门**(浏览器的同源策略不让别的站读到响应,
+        `_host_ok` 挡 DNS rebinding)——它挡的是"能被跨站触发的带副作用请求",
+        以及"将来谁手滑加了宽松 CORS"。
+
+        不带 Origin 的调用(curl、真机清单里那些)**照常放行**:那不是浏览器发的,
+        误伤它等于把自己的排障手段也拆了(判据 i5 双向验)。
+        """
+        site = (self.headers.get("Sec-Fetch-Site") or "").strip().lower()
+        if site and site not in ("same-origin", "same-site", "none"):
+            return False
+        origin = (self.headers.get("Origin") or "").strip()
+        if not origin:
+            return True
+        port = self.server.server_address[1]
+        return origin.lower() in {f"http://127.0.0.1:{port}", f"http://localhost:{port}",
+                                  f"http://[::1]:{port}"}
+
+    def _read_json_body(self, limit: int = 8192):
+        """读一小段 JSON body。坏输入一律 400(与仓里其它写针孔同语义)。"""
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = 0
+        if not 0 < n <= limit:
+            self._json(400, {"error": "bad request"})
+            return None
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "bad request"})
+            return None
+        if not isinstance(body, dict):
+            self._json(400, {"error": "bad request"})
+            return None
+        return body
+
+    # ---- 大模型 key(track opendesign-key-onboarding)-------------------------
+    # 规矩全在 bin/ds_credential.py 的模块头:只收不读 / 只落一处 / 变量名从配置读 /
+    # 报错不许带入参。这一层只负责**别把它搞漏**:响应用 ds_credential 给的那份
+    # (它已经不含原文),不要在这儿另拼一份。
+    def _llm_credential_get(self):
+        cfg = os.environ.get("DS_NANOBOT_CONFIG", DEFAULT_NANOBOT_CONFIG)
+        out = ds_credential.status(os.path.expanduser("~"), cfg)
+        out["providers"] = [{"id": k, "label": v["label"], "model": v["model"]}
+                            for k, v in ds_credential.PROVIDERS.items()]
+        self._json(200, out)
+
+    def _llm_credential_post(self):
+        body = self._read_json_body()
+        if body is None:
+            return
+        cfg = os.environ.get("DS_NANOBOT_CONFIG", DEFAULT_NANOBOT_CONFIG)
+        try:
+            out = ds_credential.save(home=os.path.expanduser("~"), cfg_path=cfg,
+                                     provider=str(body.get("provider") or ""),
+                                     key=str(body.get("key") or ""))
+        except ds_credential.CredentialError as exc:
+            # CredentialError 的文本按契约不含 key;别在这儿把 body 回显出去。
+            self._json(400, {"error": str(exc)})
+            return
+        out.pop("env_var", None)          # 给外壳用的,不必给浏览器
+        out["restart"] = ds_shell_bridge_restart()
+        self._json(200, out)
 
     def _static(self, path: str):
         raw = unquote(path)
