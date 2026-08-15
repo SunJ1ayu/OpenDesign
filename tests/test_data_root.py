@@ -320,6 +320,26 @@ class TestShellPassesTheEnv(Rig):
         self.assertNotEqual(os.path.realpath(env[ENV_VAR]), os.path.realpath(self.ds_root),
                             "外壳把数据根指回了安装目录")
 
+    def test_d3_the_shell_prepares_the_data_root_for_itself_too(self):
+        """🔴 我自己修 F1 时当场造出来的 bug,h3 那种静态接线判据**看不见**:
+
+        外壳只把 `DS_DATA_ROOT` 塞进**子进程**的环境,它自己那个进程里没有 ⇒
+        在外壳里调 `migrate_legacy_data` 时 `data_root()` 返回 ds_root 本身,
+        目标==来源,迁移直接空转返回。接线在、调用真发生了、判据全绿,**而什么都没搬**。
+
+        ⇒ 这条问真行为:外壳那层准备完之后,数据根必须已经指到安装目录之外,
+        且遗留数据真的搬过去了。
+        """
+        import ds_shell_core as core
+        os.environ.pop(ENV_VAR, None)
+        report = core.prepare_data_root(user_home=os.path.join(self.state_root, "UserData"),
+                                        ds_root=self.ds_root)
+        got = os.path.realpath(ds_common.data_root(self.ds_root))
+        self.assertNotEqual(got, os.path.realpath(self.ds_root),
+                            "外壳准备完之后,它自己看到的数据根还是安装目录")
+        self.assertTrue(os.path.isfile(os.path.join(got, "projects", "老项目-1801.md")),
+                        f"外壳那层的迁移空转了(报告:{report})")
+
     def test_d2_the_data_root_sits_outside_the_install_dir(self):
         import ds_shell_core as core
         env = core.child_env({}, ds_root=self.ds_root,
