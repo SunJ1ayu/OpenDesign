@@ -42,6 +42,29 @@ class DataRootError(Exception):
     """数据根不可用。"""
 
 
+# 装出来的形态才有的东西(启动器 exe 与包内 python 都在 ds/ 的**同级**)。
+# 用它来判"上一级到底是不是安装目录"。
+_INSTALL_MARKERS = ("OpenDesign.exe", os.path.join("python", "pythonw.exe"))
+
+
+def _deletable_roots(ds_root: str) -> list[str]:
+    """卸载/更新会整棵删掉的地方 —— 业主的东西一样都不许落在这里面。
+
+    - `ds_root` 本身:更新时整棵替换,永远危险。
+    - 它的上一级:**只在装出来的形态下**才是安装目录($INSTDIR 底下还有 python\\ 和
+      启动器 exe)。开发仓 / 考卷台架里上一级只是个无辜目录,拦它就是误报 ——
+      而 2026-08-15 实测,这个误报当场把两条真联跑考卷打红,并且把我引向了
+      一个根本没发生的"实现写错了"。**误报和假绿一样坏。**
+    """
+    real = os.path.realpath(ds_root)
+    roots = [real]
+    parent = os.path.dirname(real)
+    if parent and parent != real and any(
+            os.path.exists(os.path.join(parent, m)) for m in _INSTALL_MARKERS):
+        roots.append(parent)
+    return roots
+
+
 def data_root(ds_root: str) -> str:
     """返回业主数据根。
 
@@ -57,11 +80,10 @@ def data_root(ds_root: str) -> str:
 
     try:
         resolved = os.path.realpath(configured)
-        # 安装包中 ds_root = <INSTDIR>/ds;无效路径在创建前先拒绝,
-        # 连空目录也不留在安装树。
-        install_root = os.path.realpath(os.path.dirname(os.path.realpath(ds_root)))
-        if within(os.path.normcase(install_root), os.path.normcase(resolved)):
-            raise DataRootError(f"数据根不能放在安装目录中: {resolved}")
+        # 无效路径在创建前先拒绝,连空目录也不留在会被删掉的地方。
+        for danger in _deletable_roots(ds_root):
+            if within(os.path.normcase(danger), os.path.normcase(resolved)):
+                raise DataRootError(f"数据根不能放在会被卸载删掉的地方: {resolved}")
         os.makedirs(resolved, exist_ok=True)
     except DataRootError:
         raise

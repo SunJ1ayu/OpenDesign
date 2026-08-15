@@ -33,6 +33,7 @@ B5 断言名(「不可偷」)比它实际问的(SO_REUSEADDR==0)强 —— 与 S
 import json
 import os
 import re
+import shutil
 import signal
 import socket
 import subprocess
@@ -1027,6 +1028,12 @@ class RealBackend(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         root = make_ds_root(Path(tmp.name))
+        # 2026-08-15(track opendesign-data-outside-install):业主的档案从此不住在
+        # 代码根里,而在外壳指定的**数据根**下 —— 所以 canary 要放在外壳真会用的那个
+        # 位置(child_env 把它设成 <user_home 的上一级>/Data),否则这条问的是空气。
+        # 这一改**加强**了它:现在它证明的是"运行中的 ds-web 真的从安装目录之外读档案"。
+        seeded = make_ds_root(Path(tmp.name) / "seed")
+        shutil.copytree(seeded, Path(tmp.name) / "Data", dirs_exist_ok=True)
         port = core.pick_port(free_port(), span=10)
         sup = core.Supervisor()
         self.addCleanup(sup.shutdown)

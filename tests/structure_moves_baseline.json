@@ -67,7 +67,8 @@
   "ds_taxonomy.load_taxonomy": {
     "from": "ds_intake",
     "lines": 23,
-    "sha256": "ca36277c5eb85919f54a5a5f0bd04efbc4dc653c5ba20cce9fc4151802f6fe38"
+    "sha256": "e94c021fbecf04a135a2f1a571d6db812444a95c836dfeaea68328fc1bb73130",
+    "note": "2026-08-15 track opendesign-data-outside-install:用户表改从数据根读(config/taxonomy.json 不再住在会被卸载删掉的安装目录里)。旧基线 ca36277c5eb8。**这是本闸唯一允许的更新方式:说清楚哪一单改的、为什么。**"
   },
   "ds_taxonomy.suggest_category": {
     "from": "ds_intake",
