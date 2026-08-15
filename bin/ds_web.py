@@ -824,7 +824,7 @@ class Handler(BaseHTTPRequestHandler):
             counts = {}  # 未办结计数单一真相源 = ds_todo.collect(与 /api/todos 同源)
             for it in ds_todo.collect(root)["open"]:
                 counts[it["project"]] = counts.get(it["project"], 0) + 1
-            proj_dir = os.path.realpath(os.path.join(root, "projects"))
+            proj_dir = os.path.realpath(os.path.join(ds_common.data_root(root), "projects"))
             files = sorted(f for f in (os.listdir(proj_dir) if os.path.isdir(proj_dir)
                                        else []) if f.endswith(".md"))
             projects = []

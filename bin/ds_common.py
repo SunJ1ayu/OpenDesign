@@ -12,7 +12,10 @@
 """
 from __future__ import annotations
 
+import errno
 import os
+import shutil
+import time
 import re
 from contextlib import contextmanager
 from datetime import date
@@ -142,7 +145,19 @@ def _move_legacy_entry(source: str, target: str, relative: str, report: dict) ->
         return
     try:
         os.makedirs(os.path.dirname(target), exist_ok=True)
-        os.rename(source, target)  # 两边都在 %LOCALAPPDATA%,同卷直接搬。
+        try:
+            os.rename(source, target)  # 同卷:一步到位,原子。
+        except OSError as exc:
+            # 🔴 跨卷(业主把程序装到别的盘)时 rename 抛 EXDEV。上一版把它记进 failed,
+            # 而外壳和 ds-web 都会因为 failed 拒绝启动 ⇒ **应用永久打不开**,
+            # 数据安全但人被锁在门外(四审 subdeepseek)。这里退化成"拷过去再删原件":
+            # 先拷完并落盘,确认目标在,才删来源 —— 中途断电最坏是留一份副本,不丢东西。
+            if exc.errno != errno.EXDEV:
+                raise
+            shutil.copy2(source, target)
+            if not os.path.exists(target):
+                raise
+            os.unlink(source)
         report["moved"].append(rel)
     except OSError as exc:
         report["failed"].append({"path": rel, "error": str(exc)})
@@ -229,7 +244,36 @@ def migrate_legacy_data(ds_root: str) -> dict:
             )
 
     report["unknown"] = _unknown_legacy_entries(legacy_root)
+    _write_migration_note(target_root, report)
     return report
+
+
+def _write_migration_note(data_root_path: str, report: dict) -> None:
+    """把这次搬运写成一份**业主看得见**的记录。
+
+    🔴 四审两腿同时点名:`unknown`/`skipped` 只进返回值,而生产路径只查 `failed`
+    ⇒ 那张"没认识的东西"的网**没接电** —— 将来新加一种数据种类,它留在安装目录里
+    被卸载删掉,而所有判据照样绿。design 3b 自己写着"搬完在日志里记一行",这就是那一行。
+    """
+    if not (report["moved"] or report["skipped"] or report["unknown"] or report["failed"]):
+        return
+    try:
+        os.makedirs(data_root_path, exist_ok=True)
+        with open(os.path.join(data_root_path, "迁移记录.txt"), "a", encoding="utf-8") as fh:
+            fh.write(f"—— {time.strftime('%Y-%m-%d %H:%M:%S')} 从旧位置搬运 ——\n")
+            fh.write(f"搬过来 {len(report['moved'])} 项;"
+                     f"同名跳过 {len(report['skipped'])} 项;"
+                     f"没认识的 {len(report['unknown'])} 项;"
+                     f"失败 {len(report['failed'])} 项\n")
+            for label, key in (("同名跳过(旧的那份还在原处)", "skipped"),
+                               ("没认识的东西(留在原处,卸载会删掉,发给我看看)", "unknown"),
+                               ("失败", "failed")):
+                if report[key]:
+                    fh.write(f"  {label}:\n")
+                    for item in report[key][:50]:
+                        fh.write(f"    {item}\n")
+    except OSError:
+        pass
 
 
 def split_due(text: str) -> tuple[str, str | None]:

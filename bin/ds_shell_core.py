@@ -612,7 +612,8 @@ class Supervisor:
 OUR_MCP = ("design-studio", "design-studio-organize", "design-studio-refs")
 
 
-def patch_config(path, *, gateway_port: int, ws_port: int, python_exe: str) -> None:
+def patch_config(path, *, gateway_port: int, ws_port: int, python_exe: str,
+                 data_root: str | None = None) -> None:
     cfg_path = Path(path)
     with cfg_path.open("r", encoding="utf-8") as f:
         cfg = json.load(f)
@@ -644,6 +645,14 @@ def patch_config(path, *, gateway_port: int, ws_port: int, python_exe: str) -> N
     ws["port"] = int(ws_port)
     for name in OUR_MCP:
         servers[name]["command"] = str(python_exe)
+        # 🔴 三个 MCP **不是外壳起的** —— 网关按这里的 env 块起它们,而 MCP SDK 的
+        # stdio 客户端只继承一份固定白名单,DS_DATA_ROOT 不在里面。不写进来的话:
+        # 助手(聊天侧)建的档案全部落回安装目录 = 卸载会删的地方,而工作台读数据根
+        # ⇒ 同一份档案两个世界,重启时迁移再把它搬走,来回翻。
+        # 四审 subkimi 抓的 BLOCK;判据 d4 咬着。写绝对路径,不用 ${VAR}:
+        # 那要 loader 展开,而它只在网关自己的 env 里查得到。
+        if data_root:
+            servers[name].setdefault("env", {})[ds_common.DATA_ROOT_ENV] = str(data_root)
 
     tmp_name: str | None = None
     try:

@@ -150,7 +150,8 @@ def start_backend(home: Path):
         die(f"找不到可用的端口:{e}\n\n多半是有别的程序占着这几段端口,重启电脑再试一次。")
 
     try:
-        core.patch_config(cfg, gateway_port=gw, ws_port=ws, python_exe=str(python_exe()))
+        core.patch_config(cfg, gateway_port=gw, ws_port=ws, python_exe=str(python_exe()),
+                          data_root=core.data_root_for(str(home)))
     except core.ConfigUnusable as e:
         die(f"配置没法用:{e}\n\n请重新运行安装程序。")
     except OSError as e:
