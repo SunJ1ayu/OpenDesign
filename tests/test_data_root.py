@@ -129,9 +129,13 @@ class Rig(unittest.TestCase):
         ds_tools.append_change("星河名邸-2302", "客厅改推拉门", ds_root=self.ds_root)
         ds_tools.log_communication("星河名邸-2302", "微信:太太确认", ds_root=self.ds_root)
         ds_tools.set_stage("星河名邸-2302", "方案深化", ds_root=self.ds_root)
+        # ⚠️ 默认是"要点确认"(MODE_ASK)⇒ set_workspace 只落一份 pending,
+        #    `config/workspace.json` 根本不会被写。先切 ALLOW 才真的走到那个写口。
+        #    (这是 b3 替我抓出来的:第一版 exercise_writes 从没碰过 workspace.json。)
+        ds_consent.set_mode(self.ds_root, ds_consent.MODE_ALLOW)
         ds_tools.set_workspace(self.workdir(), ds_root=self.ds_root)
         ds_refs.add_style("侘寂", ds_root=self.ds_root)
-        ds_consent.set_mode(ds_consent.MODE_ASK, ds_root=self.ds_root)
+        ds_consent.set_mode(self.ds_root, ds_consent.MODE_ASK)   # 位置参数,别写成 kwarg
         ds_consent.create_pending(self.ds_root, "set_workspace", {"root": self.workdir()})
         ds_tools.delete_project("老项目-1801", ds_root=self.ds_root)   # 走 projects/.trash
 
@@ -173,6 +177,22 @@ class TestDefaultUnchanged(Rig):
         ds_tools.create_project("翡翠湾-1801", ds_root=self.ds_root)
         self.assertTrue(os.path.isfile(os.path.join(self.ds_root, "projects", "翡翠湾-1801.md")))
 
+    def test_b3_without_env_the_whole_shape_is_unchanged(self):
+        """🔴 我自攻 M7:b2 只看一个文件 —— 实现要是把落点统一成 `ds_root/data/…`,
+        b2 照样绿,而 git-pull 那两台机器的档案**原地失踪**(它们的档案就在仓库工作树里)。
+        这一条比的是**整棵树的形状**:每一样东西都必须还在它原来的相对位置。"""
+        os.environ.pop(ENV_VAR, None)
+        self.exercise_writes()
+        must_exist = [
+            os.path.join("projects", "星河名邸-2302.md"),
+            os.path.join("clients", "王五.md"),
+            os.path.join("config", "workspace.json"),
+            os.path.join("config", "consent.json"),
+            "refs-vocab.md",
+        ]
+        missing = [r for r in must_exist if not os.path.exists(os.path.join(self.ds_root, r))]
+        self.assertEqual(missing, [], f"没设 env 时这些东西离开了原位(git-pull 那两台会失踪):{missing}")
+
 
 class TestFailClosed(Rig):
     """C 组:设了但不可用 ⇒ **拒绝**,绝不静默回退安装目录(规划双出 B 卷)。
@@ -203,6 +223,24 @@ class TestFailClosed(Rig):
             return                      # 拒绝 = 正确
         self.assertNotEqual(os.path.realpath(got), os.path.realpath(self.ds_root),
                             "env 不可用时悄悄回退到了安装目录 —— 这正是最危险的那种绿")
+
+
+    def test_c3_a_bogus_env_does_not_end_up_writing_into_the_install_dir(self):
+        """🔴 我自攻 M5:c1/c2 只问 `data_root()` 自己抛不抛错 —— 调用方一句
+        `except Exception: root = ds_root` 就把 fail closed 拆了,而那两条仍然绿。
+        这一条问的是**端到端的事实**:env 坏掉时,业主的东西不许落进安装目录。"""
+        bogus = os.path.join(self.tmp, "我是个文件3")
+        with open(bogus, "w", encoding="utf-8") as fh:
+            fh.write("x")
+        os.environ[ENV_VAR] = bogus
+        before = tree_hash(self.ds_root)
+        try:
+            ds_tools.create_project("坏env-项目", ds_root=self.ds_root)
+        except Exception:
+            pass                        # 炸掉是可以接受的结果;悄悄写进安装目录不是
+        after = tree_hash(self.ds_root)
+        changed = sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k))
+        self.assertEqual(changed, [], f"数据根坏掉时回退写进了安装目录:{changed}")
 
 
 class TestShellPassesTheEnv(Rig):
@@ -286,6 +324,19 @@ class TestReadOnlyUserData(Rig):
         r = ds_refs.add_ref(img, "侘寂", "客厅", ds_root=self.ds_root)
         self.assertFalse(r.get("error"), f"数据根下的图片没被认出来:{r}")
 
+    def test_f3_the_index_lands_next_to_the_images(self):
+        """🔴 我自攻 M3:只把 `refs_base` 搬走就能让 f1 绿,而 `refs-index.md`
+        仍写安装目录 ⇒ 卸载后**图还在、索引没了**,业主看到的是"图库全空"。"""
+        refs = os.path.join(self.data_root, "refs")
+        os.makedirs(refs, exist_ok=True)
+        img = os.path.join(refs, "带索引的.png")
+        with open(img, "wb") as fh:
+            fh.write(b"PNG")
+        ds_refs.add_style("侘寂", ds_root=self.ds_root)
+        ds_refs.add_ref(img, "侘寂", "客厅", ds_root=self.ds_root)
+        self.assertTrue(os.path.isfile(os.path.join(self.data_root, "refs-index.md")),
+                        "图片搬走了,索引还留在安装目录")
+
     def test_f2_an_image_left_in_the_install_dir_is_not_the_supported_home(self):
         """反面:安装目录里的图片不该被当成图库正主(它会被卸载删掉)。"""
         refs = os.path.join(self.ds_root, "refs")
@@ -333,25 +384,70 @@ class TestStaticGate(unittest.TestCase):
     实扫依据(2026-08-15):`bin/*.py` 里 `os.path.join(<…ds_root…>, …)` 共 47 处、
     11 个文件,**47 处全是数据**;`ds_root` 唯一的代码用途在 `ds_provision.py`。
     ⇒ 规则:数据一律走 `data_root(ds_root)`,`join(ds_root, …)` 一处都不该再有。
+
+    🔴 **走 AST 不走正则**(我自攻 M2:第一版只认 `os.path.join(ds_root,` 这一种写法,
+    而 `root = ds_root` 后再 join、`Path(ds_root) / "projects"`、`join(ds_root, *parts)`
+    全能绕过 —— 而且这些都不是使坏,是自然写法)。
     """
 
     ALLOW = {"ds_provision.py"}   # 装机脚本读的是模板与 ds_merge_config.py,那是代码
 
-    def test_h1_no_module_joins_data_paths_onto_ds_root(self):
-        import re
-        pat = re.compile(r'os\.path\.join\(\s*(?:self\.server\.)?ds_root\s*,')
+    @staticmethod
+    def _is_ds_root(node, aliases):
+        import ast
+        if isinstance(node, ast.Name):
+            return node.id == "ds_root" or node.id in aliases
+        if isinstance(node, ast.Attribute):
+            return node.attr == "ds_root"
+        if isinstance(node, ast.Starred):
+            return False
+        return False
+
+    def test_h1_no_module_builds_data_paths_on_ds_root(self):
+        import ast
         offenders = []
         for fn in sorted(os.listdir(os.path.join(ROOT, "bin"))):
             if not fn.endswith(".py") or fn in self.ALLOW:
                 continue
             path = os.path.join(ROOT, "bin", fn)
-            with open(path, encoding="utf-8") as fh:
-                for i, line in enumerate(fh, 1):
-                    if pat.search(line):
-                        offenders.append(f"{fn}:{i}")
-        self.assertEqual(offenders, [],
+            src = open(path, encoding="utf-8").read()
+            tree = ast.parse(src, filename=fn)
+
+            # 别名:`root = ds_root` 之后 root 也算(M2)
+            aliases = set()
+            for n in ast.walk(tree):
+                if isinstance(n, ast.Assign) and len(n.targets) == 1 \
+                        and isinstance(n.targets[0], ast.Name) \
+                        and isinstance(n.value, ast.Name) and n.value.id == "ds_root":
+                    aliases.add(n.targets[0].id)
+
+            for n in ast.walk(tree):
+                # os.path.join(ds_root, …) / Path(ds_root)
+                if isinstance(n, ast.Call):
+                    f = n.func
+                    joinish = (isinstance(f, ast.Attribute) and f.attr == "join") or \
+                              (isinstance(f, ast.Name) and f.id == "Path")
+                    if joinish and n.args and self._is_ds_root(n.args[0], aliases):
+                        offenders.append(f"{fn}:{n.lineno}")
+                # ds_root / "projects"
+                if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Div) \
+                        and self._is_ds_root(n.left, aliases):
+                    offenders.append(f"{fn}:{n.lineno}")
+        self.assertEqual(sorted(set(offenders)), [],
                          "这些地方还把业主的东西往安装目录里拼(应走 data_root):\n  "
-                         + "\n  ".join(offenders))
+                         + "\n  ".join(sorted(set(offenders))))
+
+    def test_h2_migration_is_actually_wired_into_a_startup_path(self):
+        """🔴 我自攻 M1(本文件最容易造出的假绿):G 组**直接调**迁移函数 ——
+        实现只要把函数写出来就全绿,而真机上没有任何启动路径叫它 ⇒
+        业主升级后档案还留在旧目录,下次卸载照样没。"""
+        callers = []
+        for fn in ("ds_web.py", "ds_shell.py", "ds_shell_core.py", "ds_mcp.py"):
+            path = os.path.join(ROOT, "bin", fn)
+            if os.path.isfile(path) and "migrate_legacy_data" in open(path, encoding="utf-8").read():
+                callers.append(fn)
+        self.assertTrue(callers, "没有任何启动路径调用 migrate_legacy_data —— "
+                                 "迁移函数写了也白写,G 组那三条绿是假的")
 
 
 if __name__ == "__main__":
