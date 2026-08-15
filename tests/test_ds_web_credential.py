@@ -167,6 +167,17 @@ class TestCredentialEndpoints(Rig):
             self.assertIn(d.get("restart"), ("requested", "manual"),
                           f"没说清接下来会发生什么:{d}")
 
+    def test_h5_without_a_shell_it_says_manual_instead_of_pretending(self):
+        """降级诚实(design 四组之四)。**这条是红检 M10 逼出来的**:h2 只问
+        "restart 是那两个值之一",于是把桩改成恒回 "requested" 照样全绿 ——
+        规格里写着"不假装成功",判据里却没有。判据环境没有外壳(锁端口没人听),
+        ⇒ 必须**恰好**是 manual。将来通道接通了,这条仍成立:连不上就得说连不上。"""
+        with self.serve() as port:
+            _, d, _ = self.req(port, "POST", "/api/llm/credential",
+                               {"provider": "deepseek", "key": FAKE_KEY})
+            self.assertEqual(d.get("restart"), "manual",
+                             "没有外壳却说重启已安排 —— 业主会干等一件不会发生的事")
+
     def test_h3_a_bad_provider_is_refused_in_human_words(self):
         with self.serve() as port:
             st, d, raw = self.req(port, "POST", "/api/llm/credential",
@@ -210,6 +221,26 @@ class TestCrossSiteIsRefused(Rig):
                                 headers={"Origin": "https://evil.example",
                                          "Sec-Fetch-Site": "cross-site"})
             self.assertEqual(st, 403)
+
+    def test_i6_a_cross_site_origin_alone_is_enough_to_refuse(self):
+        """🔴 红检 M1/M2 逼出来的:i1~i3 每一条都**同时**带 Origin 和 Sec-Fetch-Site,
+        于是拆掉其中任意一道检查判据都照样绿(另一道接住了)——**两道防线只被合起来
+        验过一次**,谁悄悄坏掉都没人知道。这条只带 Origin:**老浏览器不发
+        Sec-Fetch-Site**,那种机器上顶着的就只有 Origin 白名单。"""
+        with self.serve() as port:
+            st, _, _ = self.req(port, "POST", "/api/llm/credential",
+                                {"provider": "mimo", "key": FAKE_KEY},
+                                headers={"Origin": "https://evil.example"})
+            self.assertEqual(st, 403, "只看 Sec-Fetch-Site 的话,不发那个头的浏览器就失守")
+
+    def test_i7_a_cross_site_fetch_marker_alone_is_enough_to_refuse(self):
+        """i6 的另一半:只带 Sec-Fetch-Site,不带 Origin。
+        (浏览器在某些跨站导航/表单里不发 Origin,但 Sec-Fetch-Site 仍是 cross-site。)"""
+        with self.serve() as port:
+            st, _, _ = self.req(port, "POST", "/api/llm/credential",
+                                {"provider": "mimo", "key": FAKE_KEY},
+                                headers={"Sec-Fetch-Site": "cross-site"})
+            self.assertEqual(st, 403, "只看 Origin 白名单的话,不带 Origin 的跨站请求就进来了")
 
     def test_i4_same_origin_still_works(self):
         with self.serve() as port:
