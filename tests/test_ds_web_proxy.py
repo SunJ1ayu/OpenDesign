@@ -35,6 +35,24 @@ sys.path.insert(0, os.path.join(ROOT, "bin"))
 import ds_web  # noqa: E402
 
 
+# 🔴 隔离(2026-08-15):ds-web 现在会从配置里读网关口令替前端签
+# ⇒ 不隔离的话,这份判据会把**我这台机器的真口令**发给 mock 上游。
+# 今早刚在 tests/test_data_root.py 立过同一条规矩:**判据不许够得着我的真家。**
+_ISOLATED_TOKEN = "proxy-oracle-token"
+_ISOLATED_DIR = tempfile.mkdtemp(prefix="ds-proxy-判据配置-")
+
+
+def setUpModule():
+    cfg = os.path.join(_ISOLATED_DIR, "config.json")
+    with open(cfg, "w", encoding="utf-8") as fh:
+        json.dump({"channels": {"websocket": {"enabled": True, "token": _ISOLATED_TOKEN}}}, fh)
+    os.environ["DS_NANOBOT_CONFIG"] = cfg
+
+
+def tearDownModule():
+    os.environ.pop("DS_NANOBOT_CONFIG", None)
+
+
 # ---------- 记录型 mock 上游 ----------
 
 class _UpHandler(BaseHTTPRequestHandler):
@@ -215,9 +233,17 @@ class TestChatProxy(unittest.TestCase):
             self.assertEqual(h.get("x-nanobot-auth"), "w")
             for k in ("cookie", "x-evil", "referer"):
                 self.assertNotIn(k, h, f"{k} 不得透传")
-            # 不带 Authorization 时,上游也不得凭空收到
+            # 🔴 2026-08-15 题面改了(track opendesign-key-onboarding):
+            # 上一版这里断言"不带 Authorization 时上游也不得凭空收到" ——
+            # 那锁的是"ds-web 是纯管道"。本单**故意**改了这个契约:业主不该被要求
+            # 记一个我们自己生成的口令,所以前端不带凭据时由 ds-web 从**配置里**替它签。
+            # 新断言比旧的**更强**:不是"有没有",而是"**必须恰好是配置里那一个**"
+            # —— 随便注入点别的照样红。口令不许回给浏览器那一条在
+            # tests/test_ds_web_credential.py 的 j1/j2。
             _req(port, "/api/chat/sessions")
-            self.assertNotIn("authorization", up.requests[1]["headers"])
+            self.assertEqual(up.requests[1]["headers"].get("authorization"),
+                             "Bearer " + _ISOLATED_TOKEN,
+                             "ds-web 没有替前端签,或者签的不是配置里那一个")
 
 
 _JSON_CT = {"Content-Type": "application/json"}
