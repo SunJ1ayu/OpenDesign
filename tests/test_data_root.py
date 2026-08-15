@@ -266,6 +266,31 @@ class TestFailClosed(Rig):
         with self.assertRaises(ds_common.DataRootError):
             ds_common.data_root(self.ds_root)
 
+    def test_c6_in_a_real_install_the_whole_install_dir_is_off_limits(self):
+        """c4 拦的是"数据根在 ds/ 里面"。真正的危险区比那大一圈:卸载删的是**整个
+        $INSTDIR**(ds/ 只是它的一个子目录)⇒ `$INSTDIR\\Data` 这种同级位置也得拦。
+
+        ⚠️ 但"上一级就是安装目录"只在**装出来的形态**下成立;开发仓 / 考卷台架里
+        上一级是个无辜目录,拦它就是误报 —— 而误报会让两条真联跑考卷莫名其妙地红
+        (2026-08-15 实测:第一版就是这么把 test_ds_shell_core 的 g1/g2 打红的)。
+        ⇒ 认**装出来的标志**(启动器 exe 与包内 python 在 ds/ 的同级)。
+        """
+        with open(os.path.join(self.install, "OpenDesign.exe"), "w", encoding="utf-8") as fh:
+            fh.write("MZ")                      # 装出来的形态才有这个
+        sibling = os.path.join(self.install, "Data")
+        os.makedirs(sibling, exist_ok=True)
+        os.environ[ENV_VAR] = sibling
+        with self.assertRaises(ds_common.DataRootError):
+            ds_common.data_root(self.ds_root)
+
+    def test_c7_a_dev_checkout_does_not_get_false_alarms(self):
+        """双向验:没有"装出来的标志"时,ds_root 的同级目录是无辜的,不许拦。"""
+        sibling = os.path.join(self.install, "Data")   # 此时 install 下没有 OpenDesign.exe
+        os.makedirs(sibling, exist_ok=True)
+        os.environ[ENV_VAR] = sibling
+        self.assertEqual(os.path.realpath(ds_common.data_root(self.ds_root)),
+                         os.path.realpath(sibling))
+
     def test_c5_an_empty_env_value_is_not_treated_as_unset(self):
         """攻题腿第 5 条 —— **"缺席被当成通过"家族的第四个**,我请它专门找的就是这个。
 
