@@ -431,6 +431,30 @@ class TestLegacyMigration(Rig):
                       json.dumps(r, ensure_ascii=False).replace("\\\\", "/"),
                       f"没认识的东西被无声吞了:{r}")
 
+    def test_g4_the_unknown_report_is_not_drowned_in_code(self):
+        """🔴 闸③ 亲读实现时实测出来的:`unknown` 把**每一个代码文件**都报进去了
+        (bin/*.py、web/dist/**、assets/、workspace/SOUL.md、版本号.txt……)。
+        真安装包里那是几千条 ⇒ canary 淹在噪音里,等于"报了但没人看"
+        (攻题腿点名的同一个形状)。**一份谁都不会读的报告不算报告。**"""
+        for rel in ("bin/ds_web.py", "web/dist/index.html", "assets/图标.png",
+                    "workspace/SOUL.md", "版本号.txt"):
+            p = os.path.join(self.ds_root, *rel.split("/"))
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write("x")
+        canary = os.path.join(self.ds_root, "future-kind", "canary.bin")
+        os.makedirs(os.path.dirname(canary), exist_ok=True)
+        with open(canary, "wb") as fh:
+            fh.write(b"canary")
+
+        unknown = ds_common.migrate_legacy_data(self.ds_root).get("unknown", [])
+        noise = [u for u in unknown
+                 if u.split("/")[0] in {"bin", "web", "assets", "workspace"}
+                 or u == "版本号.txt" or u.startswith("config/nanobot.config")]
+        self.assertEqual(noise, [], f"代码文件被报成"没认识的数据",canary 会被淹掉:{noise[:8]}")
+        self.assertTrue(any("canary.bin" in u for u in unknown),
+                        f"噪音清掉之后 canary 也没了:{unknown}")
+
 
 class TestStaticGate(unittest.TestCase):
     """H 组:静态闸 —— 兜住"写口没跑到"那种漏网(骗法一)。
