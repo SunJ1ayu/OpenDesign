@@ -126,9 +126,21 @@ def _move_legacy_entry(source: str, target: str, relative: str, report: dict) ->
         report["failed"].append({"path": rel, "error": str(exc)})
 
 
+# 装什么样就该一直是什么样的那些 —— 它们**不是**"没认识的数据",报出来只会淹掉真货。
+# (闸③ 实测:不排除的话,真安装包里 unknown 是几千条 bin/*.py 与 web/dist/**,
+#  而 canary 就在里面。一份谁都不会读的报告不算报告。)
+_CODE_TOP = ("bin", "web", "assets", "workspace", "installer", "docs", "schema", "skills")
+_CODE_FILES = ("版本号.txt", "README.md")
+_CODE_CONFIG_PREFIX = ("nanobot.config", "taxonomy.default.json", "workspace.example.json")
+
+
 def _unknown_legacy_entries(legacy_root: str) -> list[str]:
-    """列出迁移清单未覆盖的文件,避免未来新数据种类被静默遗忘。"""
-    known_top = set(_LEGACY_DATA_DIRS) | set(_LEGACY_DATA_FILES)
+    """列出迁移清单未覆盖的文件,避免未来新数据种类被静默遗忘。
+
+    **只报数据形状的东西**:代码那一份按上面的名单排除掉,否则 canary 会被噪音淹掉。
+    """
+    known_top = set(_LEGACY_DATA_DIRS) | set(_LEGACY_DATA_FILES) \
+        | set(_CODE_TOP) | set(_CODE_FILES)
     known_config = set(_LEGACY_CONFIG_ENTRIES)
     unknown: list[str] = []
     try:
@@ -145,7 +157,8 @@ def _unknown_legacy_entries(legacy_root: str) -> list[str]:
                 rel_base = os.path.relpath(base, top_path)
                 if rel_base == ".":
                     dirs[:] = [d for d in dirs if d not in known_config]
-                    files = [f for f in files if f not in known_config]
+                    files = [f for f in files if f not in known_config
+                             and not f.startswith(_CODE_CONFIG_PREFIX)]
                 for name in files:
                     rel = os.path.relpath(os.path.join(base, name), legacy_root)
                     unknown.append(rel.replace(os.sep, "/"))

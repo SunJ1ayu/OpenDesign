@@ -451,7 +451,7 @@ class TestLegacyMigration(Rig):
         noise = [u for u in unknown
                  if u.split("/")[0] in {"bin", "web", "assets", "workspace"}
                  or u == "版本号.txt" or u.startswith("config/nanobot.config")]
-        self.assertEqual(noise, [], f"代码文件被报成"没认识的数据",canary 会被淹掉:{noise[:8]}")
+        self.assertEqual(noise, [], f"代码文件被报成「没认识的数据」,canary 会被淹掉:{noise[:8]}")
         self.assertTrue(any("canary.bin" in u for u in unknown),
                         f"噪音清掉之后 canary 也没了:{unknown}")
 
