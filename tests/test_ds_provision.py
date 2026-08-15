@@ -40,6 +40,20 @@ import ds_shell_core as core  # noqa: E402
 PROVISION = BIN / "ds_provision.py"
 TEMPLATE = REPO / "config" / "nanobot.config.windows.jsonc"
 
+# 🔴 跑这份判据的进程,不许够得着我这台机器的真家。
+#
+# 2026-08-15 实证(不是推演):红检的 M7 **故意**把写口改成 `expanduser("~")`,
+# 而红检对每条变异都跑**整份**判据 —— 只有 c1/c2 自己伪造了 HOME,其余十几条
+# 就这么把 `~/.nanobot/config.json` 的 gateway 口令换掉了。08-08 起的 gateway
+# 内存里还是旧口令 ⇒ `test_ws_protocol_smoke` 红了整整一天,而我昨天以为红检"跑绿了"。
+# 靶子红是对的,**但破坏不许真的发生**:变异测试的整个前提是"跑完机器和跑前一样"。
+#
+# 放在模块级、不放在 setUp:这道防线要挡的正是"某条测试忘了伪造 HOME"。
+# 同源规矩见 [[judging-must-have-no-egress]] —— 那次是判据自己会花钱,这次是判据自己会改机器。
+_JUDGE_HOME = tempfile.mkdtemp(prefix="ds-provision-判据假家-")
+os.environ["HOME"] = _JUDGE_HOME
+os.environ["USERPROFILE"] = _JUDGE_HOME
+
 
 def has_nanobot() -> bool:
     try:

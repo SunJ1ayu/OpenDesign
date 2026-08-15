@@ -50,6 +50,14 @@ BIN = os.path.join(ROOT, "bin")
 sys.path.insert(0, BIN)
 import ds_shell_core as core  # noqa: E402
 
+# 🔴 跑这份判据的进程,不许够得着我这台机器的真家。理由与 tests/test_ds_provision.py
+# 那道同名防线一样(2026-08-15 实证:红检把真机 gateway 口令换了),**但这份更贵**:
+# 这里的 M12 变异专门打掉 HOME 接管,而一旦漏过去,起来的就是**拿我真配置的真网关** ——
+# 那份配置里有真 key。同源账见 [[judging-must-have-no-egress]](判据自己会花钱)。
+_JUDGE_HOME = tempfile.mkdtemp(prefix="ds-shell-core-判据假家-")
+os.environ["HOME"] = _JUDGE_HOME
+os.environ["USERPROFILE"] = _JUDGE_HOME
+
 
 def listen_on(port: int = 0) -> tuple[socket.socket, int]:
     """占住一个回环端口并真的 listen —— 返回 (socket, 端口)。"""
