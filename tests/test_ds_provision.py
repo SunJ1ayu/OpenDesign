@@ -195,8 +195,13 @@ class TestFreshInstall(ProvisionTestBase):
         cfg = self.load_config()
         env_no_key = core.child_env({}, ds_root=str(self.ds_root), user_home=str(self.home),
                                     dsweb_port=8766, ws_port=8765, key=None)
+        # 变量名从**这份刚装出来的真配置**读(T3 起 child_env 不许写死它)。
+        # 于是这条顺带回答了一件 e8 问不到的事:env_var_name() 读出来的,
+        # 和装机脚本写进去的,是不是同一个名字 —— 对不上,下面那条 assert 当场红。
+        import ds_credential
         env_with_key = core.child_env({}, ds_root=str(self.ds_root), user_home=str(self.home),
-                                      dsweb_port=8766, ws_port=8765, key="sk-假的")
+                                      dsweb_port=8766, ws_port=8765, key="sk-假的",
+                                      key_var=ds_credential.env_var_name(cfg))
         self.assertEqual(core.missing_env_refs(cfg, env_no_key), ["DS_LLM_KEY"])
         self.assertEqual(core.missing_env_refs(cfg, env_with_key), [])
 

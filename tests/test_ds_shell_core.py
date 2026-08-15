@@ -1280,14 +1280,21 @@ class RealBackend(unittest.TestCase):
         # 口令必须是**前端发得出去的** ASCII(connection.ts:85 拒收非 Latin-1)
         d.setdefault("channels", {}).setdefault("websocket", {}).update(
             {"enabled": True, "token": "kaojuan-pass", "host": "127.0.0.1", "port": 1})
-        d.setdefault("providers", {})["custom"] = {"apiKey": "sk-考卷用的假key",
+        # apiKey 保持 **${变量} 形态**(模板里本来就是这样),只把 apiBase 指到死地址。
+        # 上一版这里写死成 "sk-考卷用的假key",等于绕开了真机唯一走的那条路:
+        # 配置引用变量 → child_env 设那个变量 → 网关启动时解析。T3 之后这条链路
+        # 多了一环(变量名从配置读),写死的话它整段都不会被走到。
+        d.setdefault("providers", {})["custom"] = {"apiKey": "${DS_LLM_KEY}",
                                                    "apiBase": "http://127.0.0.1:1/v1"}
         cfg.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
         core.patch_config(cfg, gateway_port=gw_port, ws_port=ws_port,
                           python_exe=sys.executable)
 
+        import ds_credential   # 变量名从刚 patch 完的真配置读(T3 起不许写死)
         env = core.child_env(base_env=dict(os.environ), ds_root=str(root), user_home=str(home),
-                             dsweb_port=web_port, ws_port=ws_port, key="sk-考卷用的假key")
+                             dsweb_port=web_port, ws_port=ws_port, key="sk-考卷用的假key",
+                             key_var=ds_credential.env_var_name(
+                                 json.loads(cfg.read_text(encoding="utf-8"))))
         sup = core.Supervisor()
         self.addCleanup(sup.shutdown)
         sup.start([
