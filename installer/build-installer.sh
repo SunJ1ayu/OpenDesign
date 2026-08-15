@@ -14,7 +14,7 @@
 # 可验证性只有"闸 + 业主真机一趟"。所以任何一道闸红了就停,不许"打印一行让人自己看见"：
 #   闸 A/C  组包时的依赖闸(build-package.sh 自带,曾经真响过)
 #   闸 B    成品结构(check-package.sh --app)
-#   闸 静态  .nsi 的 20 条(check-installer.py static)
+#   闸 静态  .nsi 与启动器的 23 条(check-installer.py static)
 #   闸 成品  编出来的 exe:清单逐个文件对字节数(check-installer.py product)
 
 set -euo pipefail
@@ -46,6 +46,11 @@ mkdir -p "$CACHE"
 # 业主装完自报的版本就和我以为发出去的不是一回事。
 APPVER="$(grep -oP '^VERSION = "\K[^"]+' "$REPO/bin/ds_web.py")"
 [ -n "$APPVER" ] || die "从 bin/ds_web.py 读不出 VERSION"
+# NSIS 的 VIProductVersion 只收四段数字。将来版本号带上 -beta 之类的后缀,
+# `${APPVER}.0` 会让编译当场报错 —— 与其那时候现查,不如现在就说清楚(四审 submimo)。
+case "$APPVER" in
+  *[!0-9.]*|*..*) die "版本号 '$APPVER' 不是 X.Y.Z 形式,NSIS 的 VIProductVersion 收不了" ;;
+esac
 say "0/6 版本 $APPVER"
 
 # ---------------------------------------------------------------- 1. makensis
@@ -63,9 +68,16 @@ if [ ! -x "$MAKENSIS" ]; then
 fi
 [ -x "$MAKENSIS" ] || die "makensis 没解出来"
 export NSISDIR="$NSIS_ROOT/usr/share/nsis"
+# 🔴 这里原来是 `[ ... ] || echo`:期望串算错了(拼出 v3.09-1,实际 v3.09-4),
+# 于是那行"提示"每次都打印,而构建**永远不会因此失败** —— 正是"看着像检查项、
+# 其实问不出东西"的那一类(四审 subdeepseek F4 / subkimi 同时点名)。
+# 现在写死期望串并 fail closed;顺带堵掉缓存里躺着旧 makensis 的情形
+# (bump NSIS_VER 时 `-x` 短路会静默沿用旧编译器)。
+NSIS_VER_STRING="v3.09-4"
 GOT_VER="$("$MAKENSIS" -VERSION)"
 echo "  makensis $GOT_VER"
-[ "$GOT_VER" = "v${NSIS_VER%%-*}-${NSIS_VER##*ubuntu}" ] || echo "  (版本串 $GOT_VER,与包名 $NSIS_VER 对应)"
+[ "$GOT_VER" = "$NSIS_VER_STRING" ] \
+  || die "makensis 版本不对:期望 $NSIS_VER_STRING,实际 $GOT_VER(缓存里可能是旧的,删掉 $NSIS_ROOT 重来)"
 
 # ---------------------------------------------------------------- 2. 图标
 say "2/6 图标(托盘 png + 程序 ico,同一份形状)"
@@ -105,6 +117,13 @@ echo "  WebView2 引导程序 $(stat -c%s "$PKG/$WV2_EXE") 字节  sha256=$(sha2
 # ---------------------------------------------------------------- 5. 三道闸
 say "5/6 闸:成品结构 + .nsi 静态"
 bash "$SPIKE_DIR/check-package.sh" "$PKG" --app || die "闸 B:成品结构不合格"
+# 包根上的三件:启动器、WebView2 引导程序、pythonw。闸 B 查的是 ds/ 那棵树,
+# 这三个谁都没查过 —— 少了任何一个都是"装得上、打不开"或"老机器上窗口开不出来",
+# 而且全都装完才发现(四审 subdeepseek F1)。
+for f in OpenDesign.exe "$WV2_EXE" python/pythonw.exe; do
+  [ -f "$PKG/$f" ] || die "出货包里缺 $f"
+done
+echo "  出货三件齐:启动器 / WebView2 引导程序 / pythonw.exe"
 python3 "$HERE/check-installer.py" static "$HERE/OpenDesign.nsi" --launcher "$HERE/launcher.nsi" \
   || die "静态闸:.nsi 不合格"
 

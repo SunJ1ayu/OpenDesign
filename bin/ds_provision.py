@@ -124,6 +124,20 @@ def load_existing(cfg_path: Path) -> dict | None:
             "请把这个文件发给我看看,或者把它改名后重新运行安装程序。") from None
     if not isinstance(data, dict):
         raise Trouble(f"已有的配置不是一份配置:{cfg_path}")
+    # 合法 JSON ≠ 形状对。`{"channels": null}` 解析得动,但 setdefault 拿到 None
+    # 再 .setdefault 就 AttributeError ⇒ 业主收到一个 Python 栈,而本模块承诺过不给他栈。
+    # (四审 subdeepseek F2。低概率,但它盯的正是这句承诺。)
+    for path in (("channels",), ("channels", "websocket"), ("tools",), ("providers",)):
+        node = data
+        for key in path:
+            if key not in node:
+                break
+            node = node[key]
+            if not isinstance(node, dict):
+                raise Trouble(
+                    f"已有的配置里 `{'.'.join(path)}` 不是一段配置(而是 {type(node).__name__}),"
+                    f"为安全起见没有动它:\n{cfg_path}\n"
+                    "请把这个文件发给我看看,或者把它改名后重新运行安装程序。")
     return data
 
 
@@ -201,9 +215,23 @@ def provision(home: Path, ds_root: Path, token: str | None, python_exe: str) -> 
         final = new_token()
         why = "自动生成了一个口令"
 
+    # 🔴 顺序是**先在一份临时配置上做完所有事,最后一步才原子换名**。
+    # 原来是"先落盘再合并" ⇒ 合并炸了就正好留下一份"开了通道但没有工具服务"的半成品,
+    # 而本模块自己写着"半份配置比没有配置更坏"(外壳会拿着它去起后台,然后死在别处)。
+    # 承诺与实现对不上,是四审 subdeepseek F3 指出来的。
     set_websocket(cfg, final)
-    write_json(cfg_path, cfg)
-    merge_template(python_exe, ds_root, cfg_path)
+    staging = cfg_path.with_name(cfg_path.name + ".new")
+    try:
+        write_json(staging, cfg)
+        merge_template(python_exe, ds_root, staging)
+        os.replace(staging, cfg_path)
+    finally:
+        # 合并脚本会在目标旁边留一份 .bak-<时间戳>;临时目标的那些备份是垃圾,清掉。
+        for junk in list(cfg_path.parent.glob(staging.name + ".bak-*")) + [staging]:
+            try:
+                junk.unlink()
+            except OSError:
+                pass
     note = write_token_note(home, final)
 
     print(f"配置就绪:{cfg_path}")

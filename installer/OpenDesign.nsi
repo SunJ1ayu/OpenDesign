@@ -17,7 +17,7 @@
 ; 这东西在业主的机器上以他的身份跑,而**我一次也跑不了它**(makensis 在 Linux 上能编,
 ; 编出来的 PE 只有 Windows 能执行)。可验证性只有两处:那份静态闸 + 他真机装一趟。
 ; NSIS 的经典事故全都是静态可判的(卸载删数据、$INSTDIR 空串递归删、写 HKLM 要管理员),
-; 所以它们逐条变成了 G1~G14。**改这个文件之后必须跑一遍那份闸。**
+; 所以它们逐条变成了 G1~G17。**改这个文件之后必须跑一遍那份闸。**
 
 Unicode true
 
@@ -91,7 +91,7 @@ VIAddVersionKey "LegalCopyright"  "OpenDesign"
 
 ; 程序在跑的时候文件是锁着的,而 `RMDir /r` 删不掉会**悄悄**跳过 ——
 ; 卸载器会显示"完成",盘上却剩半棵树。所以先提醒。
-!define MUI_UNCONFIRMPAGE_TEXT_TOP "如果 ${APP} 正在运行,请先在右下角托盘图标上点“退出”,再继续卸载。$\r$\n$\r$\n你的资料(备忘、对话、工作区设置)默认**不会**被删除。"
+!define MUI_UNCONFIRMPAGE_TEXT_TOP "如果 ${APP} 正在运行,请先在右下角托盘图标上点“退出”,再继续卸载。$\r$\n$\r$\n你的资料(备忘、对话、工作区设置)默认不会被删除。"
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_COMPONENTS
 !insertmacro MUI_UNPAGE_INSTFILES
@@ -167,8 +167,11 @@ Function CheckDirEmpty
   ;
   ; 所以在这里拦:目录存在、非空、又不是上一次装的 OpenDesign ⇒ 让他确认一次。
   ; 不直接禁止 —— 他可能真的想装回一个自己清理过的文件夹。
+  ; NSIS 的 `IfFileExists 文件 有则跳 [无则跳]`;`0` = "不跳,往下走"(标准惯用法)。
+  ; 把语义写在这儿是因为它属于"Linux 上验不了、写反了也没有闸看得出来"的那一类
+  ; (四审 subdeepseek F6 点名的最后一处不可验控制流)。
   IfFileExists "$INSTDIR\${SENTINEL}" ok        ; 上一次装的就是这儿,覆盖安装,放行
-  IfFileExists "$INSTDIR\*.*" 0 ok              ; 目录不存在 ⇒ 新建,放行
+  IfFileExists "$INSTDIR\*.*" 0 ok              ; 有 ⇒ 往下数内容;没有(新目录)⇒ 放行
 
   FindFirst $0 $1 "$INSTDIR\*.*"
   loop:
@@ -179,7 +182,7 @@ Function CheckDirEmpty
     FindClose $0
     MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION \
       "这个文件夹里已经有别的东西了:$\n$INSTDIR$\n$\n\
-卸载 ${APP} 的时候会把**整个文件夹**删掉,里面原有的东西也会一起没。$\n$\n\
+卸载 ${APP} 的时候会把整个文件夹删掉,里面原有的东西也会一起没。$\n$\n\
 建议换一个空文件夹(比如默认的那个)。一定要用这里的话,点“确定”。" \
       IDOK ok
     Abort
@@ -209,7 +212,15 @@ Function EnsureWebView2
   ${EndIf}
 
   DetailPrint "这台电脑上没有 WebView2 运行时,正在装微软官方的那一份(要联网)…"
+  ; ⚠️ 这条路径**在业主的两台机器上都不会被走到**(WebView2 都在),所以它没有真机证据。
+  ;    另:微软的引导程序装的是"每机器"运行时 ⇒ **这一步会弹 UAC**,
+  ;    "全程不要管理员"那句承诺在缺 WebView2 的机器上不成立。已写进真机清单。
+  ClearErrors
   ExecWait '"$INSTDIR\MicrosoftEdgeWebview2Setup.exe" /silent /install' $1
+  ; 起都没起来(被杀软秒删、文件损坏)时 ExecWait 置 error flag,而 $1 此时不可信 ——
+  ; 不查的话会错印"装好了"(四审 subkimi F4)。
+  IfErrors 0 +2
+    StrCpy $1 "启动失败"
   ${If} $1 != 0
     ; 装不上不拦住整个安装:业主可能只是暂时没网。第一次打开时外壳会再说一次人话。
     MessageBox MB_ICONEXCLAMATION "没能装上微软的 WebView2 运行时(错误码 $1)。$\n$\n\
