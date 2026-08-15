@@ -1,0 +1,24 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    bash
+cmd:     bash tests/mutation-ds-web-credential.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  d05c37f
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-15T16:31:47Z
+---------------- 输出开始 ----------------
+== 红检开始(接口层)==
+  [OK]   M1 -> 靶子 test_i7_a_cross_site_fetch_marker_alone_is_enough_to_refuse 如期红了
+  [OK]   M2 -> 靶子 test_i6_a_cross_site_origin_alone_is_enough_to_refuse 如期红了
+  [OK]   M3 -> 靶子 test_i5_a_plain_request_without_origin_still_works 如期红了
+  [OK]   M4 -> 靶子 test_j1_proxy_signs_with_the_configured_password 如期红了
+  [OK]   M5 -> 靶子 test_09_header_allowlist 如期红了
+  [OK]   M6 -> 靶子 test_j2_the_password_itself_never_comes_back 如期红了
+  [OK]   M7 -> 靶子 test_h2_saving_returns_no_key_and_says_what_happens_next 如期红了
+  [OK]   M8 -> 靶子 test_h3_a_bad_provider_is_refused_in_human_words 如期红了
+  [OK]   M9 -> 靶子 test_h4_the_key_never_shows_up_in_a_later_read 如期红了
+  [OK]   M10 -> 靶子 test_h5_without_a_shell_it_says_manual_instead_of_pretending 如期红了
+
+被测文件原样还回(1 个哈希一致)
+== 红检结束:咬住 10 条,漏网 0 条 ==
+---------------- 输出结束 ----------------
+runlog: bash rc=0 commit=d05c37f dirty=yes at=2026-08-15T16:31:47Z file=tracks/opendesign-key-onboarding/evidence/20260815T163147Z-01-bash.txt

@@ -35,8 +35,15 @@ mutate_and_expect() {
 import sys, pathlib
 p = pathlib.Path(sys.argv[1]); s = p.read_text(encoding="utf-8")
 old, new = sys.argv[2], sys.argv[3]
-if old not in s:
+n = s.count(old)
+if n == 0:
     sys.exit(f"变异锚点找不到: {old!r}")
+# 🔴 锚点必须唯一。M2 首跑就栽在这:`port = self.server.server_address[1]` 在
+# _host_ok 和 _same_site_ok 里各有一处,replace(...,1) 把变异打进了**前一个函数**
+# ⇒ 判据当然全绿,而脚本报的是"判据瞎"。**假报警和假绿一样坏**,而且这种坏更贵:
+# 它会指着一份好判据让我去改它。⇒ 不唯一直接拒,别让人工核对当防线。
+if n > 1:
+    sys.exit(f"变异锚点不唯一(出现 {n} 次),会打错位置: {old!r}")
 p.write_text(s.replace(old, new, 1), encoding="utf-8")
 PYEOF
   timeout 300 "$PY" -W ignore "$oracle" > "$out" 2>&1
@@ -67,8 +74,12 @@ mutate_and_expect M1 test_i7_a_cross_site_fetch_marker_alone_is_enough_to_refuse
 
 # M2 拆掉 Origin 白名单这一道(Sec-Fetch-Site 还在)⇒ 不发那个头的老浏览器就失守
 mutate_and_expect M2 test_i6_a_cross_site_origin_alone_is_enough_to_refuse "$CRED" \
-  '        port = self.server.server_address[1]' \
-  '        return True
+  '        if not origin:
+            return True
+        port = self.server.server_address[1]' \
+  '        if not origin:
+            return True
+        return True
         port = self.server.server_address[1]'
 
 # M3 反向:恒拒 ⇒ 误伤同源页面和我自己的 curl(判据 i4/i5 是这条的双向验)
