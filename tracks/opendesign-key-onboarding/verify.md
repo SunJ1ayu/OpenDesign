@@ -20,11 +20,17 @@ runlog -t opendesign-key-onboarding -- <判据命令>
 ```
 
 ```
-<粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
- **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
- 收据得进 git(5d)。一份收据都没有的话,写一行
- 「- 无机器证据:<理由>」认账 —— 沉默不算理由(5c)。>
+runlog: regression-http rc=1 commit=5acf226 dirty=no at=2026-08-15T15:03:05Z file=tracks/opendesign-key-onboarding/evidence/20260815T150305Z-01-regression-http.txt
+runlog: regression-http-v2 rc=3 commit=89ca1e7 dirty=yes at=2026-08-15T15:26:02Z file=tracks/opendesign-key-onboarding/evidence/20260815T152602Z-01-regression-http-v2.txt
 ```
+
+- 第一遍 `rc=1` **是真红**,不藏(5b):python 段红在 `test_ds_web_proxy` —— 代理注入
+  Authorization 之后它不再是「纯管道」,是**判据题面旧了**,不是实现坏了。
+  已在 `89ca1e7` 把断言改强(而不是删掉),并给那份判据加隔离。
+- 第二遍 `rc=3` **也不算通过**:node 350 / python 1197 / MCP 契约 / dist 新鲜度 /
+  e2e 34 PASS 0 FAIL 全绿,但**有 2 条 e2e 是 SKIP**(没带 `--with-gateway`)。
+  ⇒ T5 收口时必须带开关重跑一遍,把这 2 条变成真跑。**SKIP 不是绿。**
+- `dirty=yes` = 当时 evidence/ 两份收据还没进 git(本次提交补上,5d)。
 
 ## Review
 
