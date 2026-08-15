@@ -507,6 +507,41 @@ class TestLegacyMigration(Rig):
                       json.dumps(r, ensure_ascii=False).replace("\\\\", "/"),
                       f"没认识的东西被无声吞了:{r}")
 
+    def test_g5_a_cross_volume_install_still_migrates(self):
+        """🔴 四审 subdeepseek:`os.rename` 跨卷抛 `EXDEV` ⇒ 报告进 `failed` ⇒
+        外壳和 ds-web 都 die ⇒ **业主装在 D 盘的机器升级后再也打不开**
+        (数据是安全的,但应用永久砖掉,而且没有"跳过迁移"的出口)。
+        判据全在同一个 tmpfs 上跑,测不出来 —— 所以这里把 EXDEV 造出来。
+        """
+        import errno
+        real_rename = os.rename
+
+        def cross_volume(src, dst):
+            raise OSError(errno.EXDEV, "Invalid cross-device link")
+
+        os.rename = cross_volume
+        try:
+            r = ds_common.migrate_legacy_data(self.ds_root)
+        finally:
+            os.rename = real_rename
+        self.assertEqual(r["failed"], [], f"跨卷时迁移放弃了 —— 业主的应用会打不开:{r['failed']}")
+        self.assertTrue(os.path.isfile(os.path.join(self.data_root, "projects", "老项目-1801.md")),
+                        "跨卷时没搬过去")
+
+    def test_g6_the_report_reaches_a_place_the_owner_can_see(self):
+        """🔴 四审两腿同时点名(subkimi F2 / subdeepseek 5):`unknown`/`skipped` 只进
+        返回值,生产路径只查 `failed` ⇒ **canary 那张网没接电**。
+        design 3b 自己写着"搬完在日志里记一行",没实现。"""
+        canary = os.path.join(self.ds_root, "future-kind", "canary.bin")
+        os.makedirs(os.path.dirname(canary), exist_ok=True)
+        with open(canary, "wb") as fh:
+            fh.write(b"canary")
+        ds_common.migrate_legacy_data(self.ds_root)
+        note = os.path.join(self.data_root, "迁移记录.txt")
+        self.assertTrue(os.path.isfile(note), "迁移没留下任何业主看得见的记录")
+        body = open(note, encoding="utf-8").read()
+        self.assertIn("canary.bin", body, f"没认识的东西没写进那份记录:{body[:300]}")
+
     def test_g4_the_unknown_report_is_not_drowned_in_code(self):
         """🔴 闸③ 亲读实现时实测出来的:`unknown` 把**每一个代码文件**都报进去了
         (bin/*.py、web/dist/**、assets/、workspace/SOUL.md、版本号.txt……)。
