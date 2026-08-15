@@ -144,7 +144,7 @@ def collect(root: str, stale_days: int = 7, today: date | None = None) -> dict:
     (与 /changes 端点同约定;track opendesign-note-source)。"""
     if today is None:
         today = _today()
-    proj = os.path.join(root, "projects")
+    proj = os.path.join(ds_common.data_root(root), "projects")
     files = sorted(f for f in (os.listdir(proj) if os.path.isdir(proj) else [])
                    if f.endswith(".md"))
 

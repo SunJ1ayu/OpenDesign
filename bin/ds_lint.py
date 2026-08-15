@@ -60,8 +60,9 @@ def lint_pkb(ds_root: str = DEFAULT_DS_ROOT) -> dict:
     """PKB 全量体检。返回 {"ok": True, "findings": [{check,target,detail}...]}。
     只读:不写任何文件(oracle test_02 逐字节校验)。"""
     findings: list[dict] = []
-    proj_dir = os.path.join(ds_root, "projects")
-    client_dir = os.path.join(ds_root, "clients")
+    data = ds_common.data_root(ds_root)
+    proj_dir = os.path.join(data, "projects")
+    client_dir = os.path.join(data, "clients")
     proj_files = _md_files(proj_dir)
     client_files = _md_files(client_dir)
     # 链接可达性判据:[[X]] 命中 projects/X.md 或 clients/X.md 任一即算通
@@ -169,7 +170,7 @@ def lint_pkb(ds_root: str = DEFAULT_DS_ROOT) -> dict:
                         f"C{cnum} 出现 {cnt} 次(编号应唯一)"))
 
     # ── refs 索引:refs_dangling / refs_missing_file(parse_ref_line 单一真相源)──
-    refs_path = os.path.join(ds_root, "refs-index.md")
+    refs_path = os.path.join(data, "refs-index.md")
     if os.path.isfile(refs_path):
         try:
             with open(refs_path, encoding="utf-8") as fh:
@@ -186,7 +187,7 @@ def lint_pkb(ds_root: str = DEFAULT_DS_ROOT) -> dict:
                         "refs_dangling", parsed["id"],
                         f"用于:{proj} —— 该项目不存在"))
             rel = parsed["file"]
-            if rel and not os.path.isfile(os.path.join(ds_root, rel)):
+            if rel and not os.path.isfile(os.path.join(data, rel)):
                 findings.append(_finding(
                     "refs_missing_file", parsed["id"],
                     f"文件:{rel} —— 图片文件不存在"))
@@ -194,16 +195,16 @@ def lint_pkb(ds_root: str = DEFAULT_DS_ROOT) -> dict:
     # ── workspace 映射悬挂:显式映射指向不存在的文件夹(load_config 单一真相源)────
     cfg = ds_workspace.load_config(ds_root)
     if cfg is not None:
-        root = cfg["root"]
+        workspace_root = cfg["root"]
         for key, rel in cfg["projects"].items():
-            target = os.path.realpath(os.path.join(root, rel))
-            if not ds_common.within(root, target) or not os.path.isdir(target):
+            target = os.path.realpath(os.path.join(workspace_root, rel))
+            if not ds_common.within(workspace_root, target) or not os.path.isdir(target):
                 findings.append(_finding(
                     "workspace_dangling_mapping", key,
                     f"映射到「{rel}」—— 该文件夹不存在(或逃逸工作区根)"))
 
     # ── 废弃 index.md 残留 ────────────────────────────────────────────────────
-    if os.path.isfile(os.path.join(ds_root, "index.md")):
+    if os.path.isfile(os.path.join(data, "index.md")):
         findings.append(_finding(
             "deprecated_index", "index.md",
             "index.md 已废弃(无人维护;项目盘点改用 list_projects),建议删除"))

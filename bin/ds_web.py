@@ -556,7 +556,8 @@ def _title(text: str) -> str:
 def _workspace_config_bytes(ds_root: str) -> bytes:
     """workspace.json 原文字节;缺失/不可读按空串进 reviewId。"""
     try:
-        with open(os.path.join(ds_root, ds_workspace.CONFIG_REL), "rb") as fh:
+        with open(os.path.join(ds_common.data_root(ds_root), ds_workspace.CONFIG_REL),
+                  "rb") as fh:
             return fh.read()
     except OSError:
         return b""
@@ -810,7 +811,8 @@ class Handler(BaseHTTPRequestHandler):
         字符集白名单先拦(纵深),realpath + within(projects) 是权威闸,零文件读走私。"""
         if not _valid_proj_key(key):
             return None
-        base = os.path.realpath(os.path.join(self.server.ds_root, "projects"))
+        base = os.path.realpath(os.path.join(
+            ds_common.data_root(self.server.ds_root), "projects"))
         target = os.path.realpath(os.path.join(base, key + ".md"))
         if not ds_common.within(base, target) or not os.path.isfile(target):
             return None
@@ -995,7 +997,8 @@ class Handler(BaseHTTPRequestHandler):
         if not ds_workspace.relpath_ok(rel):
             self._json(404, {"error": "not found"})
             return
-        base = os.path.realpath(os.path.join(self.server.ds_root, "refs"))
+        base = os.path.realpath(os.path.join(
+            ds_common.data_root(self.server.ds_root), "refs"))
         target = os.path.realpath(os.path.join(base, rel))
         # Gate B —— realpath 前缀:裸 ../ 与 symlink 逃逸展开后必须仍落在 refs/ 内
         if not ds_common.within(base, target):
@@ -1255,7 +1258,8 @@ class Handler(BaseHTTPRequestHandler):
         """organize/plans/ 里未 applied 且 root 在工作区根内的 plan,按 created 序。
         单个坏 plan 文件跳过不拖死清单(只读视图宁缺勿炸)。"""
         out = []
-        plans_dir = os.path.join(self.server.ds_root, "organize", "plans")
+        plans_dir = os.path.join(ds_common.data_root(self.server.ds_root),
+                                 "organize", "plans")
         try:
             names = sorted(os.listdir(plans_dir))
         except OSError:
@@ -1407,8 +1411,8 @@ class Handler(BaseHTTPRequestHandler):
             if cfg is None:
                 self._json(403, {"error": "not_intake_plan"})
                 return
-            plan_path = os.path.join(self.server.ds_root, "organize", "plans",
-                                     f"plan_{plan_id}.json")
+            plan_path = os.path.join(ds_common.data_root(self.server.ds_root),
+                                     "organize", "plans", f"plan_{plan_id}.json")
             if not os.path.exists(plan_path):
                 self._json(404, {"error": "plan_not_found"})
                 return
@@ -1516,8 +1520,8 @@ class Handler(BaseHTTPRequestHandler):
             if cfg is None:
                 self._json(403, {"error": "not_intake_plan"})
                 return
-            plan_path = os.path.join(self.server.ds_root, "organize", "plans",
-                                     f"plan_{plan_id}.json")
+            plan_path = os.path.join(ds_common.data_root(self.server.ds_root),
+                                     "organize", "plans", f"plan_{plan_id}.json")
             if not os.path.exists(plan_path):
                 self._json(404, {"error": "plan_not_found"})
                 return
@@ -2273,12 +2277,21 @@ def main() -> int:
               f"(cd web && npm run build)或 git pull 取最新", file=sys.stderr)
         return 2
     try:
+        migration = ds_common.migrate_legacy_data(ds_root)
+    except ds_common.DataRootError as exc:
+        print(f"ds-web: 数据目录不可用({exc})", file=sys.stderr)
+        return 2
+    if migration["failed"]:
+        print(f"ds-web: 遗留数据搬运失败: {migration['failed']}", file=sys.stderr)
+        return 2
+    try:
         httpd = make_server(ds_root, dist, port=port, nanobot_port=nanobot_port)
     except OSError as e:
         print(f"ds-web: 端口 {port} 起不来({e});被占用请设 DS_WEB_PORT 换端口",
               file=sys.stderr)
         return 2
-    print(f"ds-web {VERSION}: http://127.0.0.1:{port}/  (DS_ROOT={ds_root})")
+    print(f"ds-web {VERSION}: http://127.0.0.1:{port}/  "
+          f"(DS_DATA_ROOT={ds_common.data_root(ds_root)})")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

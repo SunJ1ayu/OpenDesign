@@ -124,7 +124,7 @@ def _resolve(ds_root: str, subdir: str, name: str) -> tuple[str | None, dict | N
 
     返回 (path, None) 或 (None, error_dict)。防 `../../etc/passwd` 之类逃逸。
     """
-    base = os.path.realpath(os.path.join(ds_root, subdir))
+    base = os.path.realpath(os.path.join(ds_common.data_root(ds_root), subdir))
     target = os.path.realpath(os.path.join(base, f"{name}.md"))
     if not ds_common.within(base, target):
         return None, {"error": "path_escape"}
@@ -705,7 +705,7 @@ _LINK_RE = re.compile(r"^\[\[(.+?)\]\]$")
 def list_projects(ds_root: str = DEFAULT_DS_ROOT, today: str | None = None) -> dict:
     """枚举所有项目:project/client/stage/last_updated,按项目名排序。
     坏编码文件进 errors(不拖垮整表,M1 先例);目录缺失/空 → 空表。"""
-    proj_dir = os.path.join(ds_root, "projects")
+    proj_dir = os.path.join(ds_common.data_root(ds_root), "projects")
     files = sorted(f for f in (os.listdir(proj_dir) if os.path.isdir(proj_dir) else [])
                    if f.endswith(".md"))
     projects = []
@@ -841,7 +841,7 @@ def locked_workspace_json(ds_root: str):
     Linux 是慢,Windows 是炸。而 bind_project 在锁内要扫整棵项目树,
     工作区放在慢速外接盘/网络盘时持锁时间可能不短。
     """
-    config_dir = os.path.join(ds_root, "config")
+    config_dir = os.path.join(ds_common.data_root(ds_root), "config")
     os.makedirs(config_dir, exist_ok=True)
     cfg_path = os.path.join(config_dir, "workspace.json")
     lock_path = os.path.join(config_dir, "workspace.json.lock")
@@ -894,6 +894,39 @@ def _locked_workspace_json_inner(cfg_path: str, lock_path: str):
 # workspace.json.root 与 DS_ORGANIZE_ROOTS 永远独立——ds_organize(能碰任意
 # 机器文件的写/搬面)由独立 env 白名单管、走 ds-approve;本工具够不到它。
 # 谁把两者绑一起 = 把 set_workspace 变成真 exfil 杠杆。
+def _workspace_location_error(real_root: str, ds_root: str) -> dict | None:
+    """工作区不得与安装目录或应用状态根双向重叠。"""
+    try:
+        owner_data_root = os.path.realpath(ds_common.data_root(ds_root))
+    except ds_common.DataRootError as exc:
+        return {"error": f"数据目录不可用: {exc}"}
+
+    real_ds_root = os.path.realpath(ds_root)
+    install_root = (os.path.realpath(os.path.dirname(real_ds_root))
+                    if ds_common.DATA_ROOT_ENV in os.environ else real_ds_root)
+    local_appdata = os.environ.get("LOCALAPPDATA")
+    if local_appdata:
+        state_root = os.path.realpath(os.path.join(local_appdata, "OpenDesign"))
+    elif ds_common.DATA_ROOT_ENV in os.environ:
+        # 外壳契约:<应用状态根>/Data,判据的跨平台仿真也走这条。
+        state_root = os.path.dirname(owner_data_root)
+    else:
+        state_root = install_root
+
+    candidate = os.path.normcase(real_root)
+    for label, protected in (("安装目录", install_root),
+                             ("应用状态目录", state_root)):
+        guarded = os.path.normcase(protected)
+        if ds_common.within(guarded, candidate) or ds_common.within(candidate, guarded):
+            return {
+                "error": (
+                    f"工作区路径 {real_root} 与{label} {protected} 重叠;"
+                    "请选择一个彼此独立的项目目录"
+                )
+            }
+    return None
+
+
 def set_workspace(root: str, projects_dir: str = "", projects_depth: int = 0,
                   ds_root: str = DEFAULT_DS_ROOT) -> dict:
     """把工作台接到用户电脑的项目文件夹根目录。
@@ -912,6 +945,9 @@ def set_workspace(root: str, projects_dir: str = "", projects_depth: int = 0,
     real_root = os.path.realpath(root)
     if not os.path.isdir(real_root):
         return {"error": "root_not_dir"}  # 不回显路径细节
+    location_error = _workspace_location_error(real_root, ds_root)
+    if location_error:
+        return location_error
 
     params = {"root": real_root, "projects_dir": projects_dir,
               "projects_depth": projects_depth}
@@ -931,8 +967,11 @@ def _apply_set_workspace(root: str, projects_dir: str = "", projects_depth: int 
     real_root = os.path.realpath(root)
     if not os.path.isdir(real_root):
         return {"error": "root_not_dir"}
+    location_error = _workspace_location_error(real_root, ds_root)
+    if location_error:
+        return location_error
 
-    cfg_path = os.path.join(ds_root, "config", "workspace.json")
+    cfg_path = os.path.join(ds_common.data_root(ds_root), "config", "workspace.json")
     # 从读旧值到原子替换全程持同一把锁,否则 set_workspace 会用旧 projects
     # 覆盖并发 bind_project 刚写入的映射。
     with locked_workspace_json(ds_root) as box:
@@ -1112,12 +1151,13 @@ def rename_project(old: str, new: str, ds_root: str = DEFAULT_DS_ROOT,
 
     # ① clients/*.md + index.md:[[old]] → [[new]](精确定界,散文里的链接也跟走)
     link_old, link_new = f"[[{old}]]", f"[[{new}]]"
-    client_dir = os.path.join(ds_root, "clients")
+    root = ds_common.data_root(ds_root)
+    client_dir = os.path.join(root, "clients")
     targets = []
     if os.path.isdir(client_dir):
         targets = [os.path.join(client_dir, f) for f in sorted(os.listdir(client_dir))
                    if f.endswith(".md")]
-    index_path = os.path.join(ds_root, "index.md")
+    index_path = os.path.join(root, "index.md")
     if os.path.isfile(index_path):
         targets.append(index_path)
     for path in targets:
@@ -1137,7 +1177,7 @@ def rename_project(old: str, new: str, ds_root: str = DEFAULT_DS_ROOT,
 
     # ② refs-index.md:"用于:"段逗号列表精确项替换(复用 ds_refs 分段真相源,
     # 不子串误伤"锦修外滩二期")
-    refs_path = os.path.join(ds_root, "refs-index.md")
+    refs_path = os.path.join(root, "refs-index.md")
     if os.path.isfile(refs_path):
         import ds_refs
         with ds_common.locked_rw(refs_path) as box:
@@ -1189,6 +1229,12 @@ def delete_project(project: str, ds_root: str = DEFAULT_DS_ROOT,
     """回收站式删除:档案移 projects/.trash/<name>-<ts>.md(**不真删**,删错可整文件
     捞回);workspace 映射指向该项目则一并摘除(防悬空);clients/index/refs 里的
     [[引用]] **只清点不改动**(账本语义,残留计数返回给助手播报)。"""
+    root = ds_common.data_root(ds_root)
+    trash_dir = os.path.join(root, "projects", ".trash")
+    if os.path.realpath(root) != os.path.realpath(ds_root):
+        # 外置根首次启用就建立回收站结构;未设 env 的旧模式不增加副作用。
+        os.makedirs(trash_dir, exist_ok=True)
+
     path, err = _resolve(ds_root, "projects", project)
     if err:
         return err
@@ -1208,7 +1254,6 @@ def delete_project(project: str, ds_root: str = DEFAULT_DS_ROOT,
         else:
             box["write"] = False
 
-    trash_dir = os.path.join(ds_root, "projects", ".trash")
     os.makedirs(trash_dir, exist_ok=True)
     if now is None:
         from datetime import datetime
@@ -1225,7 +1270,7 @@ def delete_project(project: str, ds_root: str = DEFAULT_DS_ROOT,
     # "翡翠湾-1801二期"这类超串,与 rename ② 同口径)
     link = f"[[{project}]]"
     refs_remaining = {"clients": 0, "index": 0, "refs": 0}
-    client_dir = os.path.join(ds_root, "clients")
+    client_dir = os.path.join(root, "clients")
     if os.path.isdir(client_dir):
         for f in sorted(os.listdir(client_dir)):
             if not f.endswith(".md"):
@@ -1235,14 +1280,14 @@ def delete_project(project: str, ds_root: str = DEFAULT_DS_ROOT,
                     refs_remaining["clients"] += fh.read().count(link)
             except (OSError, UnicodeDecodeError):
                 continue  # 坏编码单文件跳过(M1 同哲学)
-    index_path = os.path.join(ds_root, "index.md")
+    index_path = os.path.join(root, "index.md")
     if os.path.isfile(index_path):
         try:
             with open(index_path, encoding="utf-8") as fh:
                 refs_remaining["index"] = fh.read().count(link)
         except (OSError, UnicodeDecodeError):
             pass
-    refs_path = os.path.join(ds_root, "refs-index.md")
+    refs_path = os.path.join(root, "refs-index.md")
     if os.path.isfile(refs_path):
         import ds_refs
         try:
@@ -1254,7 +1299,7 @@ def delete_project(project: str, ds_root: str = DEFAULT_DS_ROOT,
         except (OSError, UnicodeDecodeError):
             pass
 
-    rel = os.path.relpath(dest, ds_root).replace(os.sep, "/")
+    rel = os.path.relpath(dest, root).replace(os.sep, "/")
     return {"ok": True, "project": project, "trashed": rel,
             "mapping_removed": mapping_removed, "refs_remaining": refs_remaining}
 

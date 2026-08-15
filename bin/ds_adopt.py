@@ -163,7 +163,8 @@ def adopt_scan(ds_root: str = DEFAULT_DS_ROOT) -> dict:
 # ── 工具 2 stage_adoption(项目根散文件 → staged plan) ─────────────────────
 def _read_staged(ds_root: str, plan_id: str) -> list[dict]:
     """从落盘的 plan 读回权威 ops(src_rel/dst_rel 由 stage_plan 算),给报告用。"""
-    plan_path = os.path.join(ds_root, "organize", "plans", f"plan_{plan_id}.json")
+    plan_path = os.path.join(ds_common.data_root(ds_root), "organize", "plans",
+                             f"plan_{plan_id}.json")
     try:
         with open(plan_path, encoding="utf-8") as fh:
             plan = json.load(fh)

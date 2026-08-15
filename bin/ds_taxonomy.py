@@ -11,6 +11,8 @@ import json
 import os
 import posixpath
 
+import ds_common
+
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DEFAULT_TAXONOMY_PATH = os.path.join(REPO_ROOT, "config", "taxonomy.default.json")
 USER_TAXONOMY_REL = os.path.join("config", "taxonomy.json")
@@ -71,7 +73,7 @@ def load_taxonomy(ds_root: str):
         return None
     if not _valid_taxonomy(tax) or "inboxDirs" not in tax or "categories" not in tax:
         return None
-    user_path = os.path.join(ds_root, USER_TAXONOMY_REL)
+    user_path = os.path.join(ds_common.data_root(ds_root), USER_TAXONOMY_REL)
     if os.path.exists(user_path):
         try:
             with open(user_path, encoding="utf-8") as fh:
@@ -96,4 +98,3 @@ def suggest_category(name: str, taxonomy) -> dict | None:
             return {"id": c["id"], "scope": c["scope"],
                     "dir": c["dir"], "mode": c["mode"]}
     return None
-

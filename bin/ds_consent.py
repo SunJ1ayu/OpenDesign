@@ -9,6 +9,7 @@ import secrets
 import tempfile
 from datetime import datetime
 
+import ds_common
 import ds_lock
 
 MODE_ASK = "ask"
@@ -19,7 +20,7 @@ _PENDING_ID_RE = re.compile(r"^\d{8}-\d{6}-[0-9a-f]{6}$")
 
 
 def _config_dir(ds_root: str) -> str:
-    return os.path.join(ds_root, "config")
+    return os.path.join(ds_common.data_root(ds_root), "config")
 
 
 def _consent_path(ds_root: str) -> str:
