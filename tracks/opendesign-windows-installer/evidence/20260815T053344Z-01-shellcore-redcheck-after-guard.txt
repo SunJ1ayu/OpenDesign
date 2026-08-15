@@ -1,0 +1,27 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    shellcore-redcheck-after-guard
+cmd:     bash tests/mutation-ds-shell-core.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  e45959e
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-15T05:33:44Z
+---------------- 输出开始 ----------------
+== 红检开始(每条变异都要咬住指定的那一条)==
+  [OK]   M1 -> 靶子 test_a5_a_bound_but_not_listening_port_counts_as_busy 如期红了
+  [OK]   M2 -> 靶子 test_a6_group_allocation_never_hands_out_the_same_port_twice 如期红了
+  [OK]   M3 -> 靶子 test_b8_two_instances_racing_at_the_same_moment_still_yield_one 如期红了
+  [OK]   M4 -> 靶子 test_b10_a_handshake_split_across_packets_is_still_recognised 如期红了
+  [OK]   M5 -> 靶子 test_b9_a_silent_client_cannot_wedge_the_lock 如期红了
+  [OK]   M6 -> 靶子 test_c11_a_leg_that_dies_while_the_next_one_boots_fails_the_whole_start 如期红了
+  [OK]   M7 -> 靶子 test_c13_grandchildren_are_reaped_even_if_the_parent_died_first 如期红了
+  [OK]   M8 -> 靶子 test_d3_a_third_party_mcp_is_left_completely_alone 如期红了
+  [OK]   M9 -> 靶子 test_d5_refuses_a_config_whose_channel_is_off 如期红了
+  [OK]   M10 -> 靶子 test_d6_a_reader_never_sees_a_half_written_config 如期红了
+  [OK]   M11 -> 靶子 test_e4_inherited_ds_keys_are_wiped_not_inherited 如期红了
+  [OK]   M12 -> 靶子 test_e5_home_points_at_our_own_data_dir 如期红了
+  [OK]   M13 -> 靶子 test_f9_the_check_and_set_in_on_quit_is_not_two_steps 如期红了
+
+被测文件已原样还回(哈希一致 32339c915caf)
+== 红检结束:咬住 13 条 / 漏网 0 条 ==
+---------------- 输出结束 ----------------
+runlog: shellcore-redcheck-after-guard rc=0 commit=e45959e dirty=yes at=2026-08-15T05:33:44Z file=tracks/opendesign-windows-installer/evidence/20260815T053344Z-01-shellcore-redcheck-after-guard.txt

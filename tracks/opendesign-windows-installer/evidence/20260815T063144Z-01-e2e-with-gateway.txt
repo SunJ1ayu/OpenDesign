@@ -1,0 +1,52 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    e2e-with-gateway
+cmd:     bash tests/e2e/run-all.sh --with-gateway
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  5684153
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-15T06:31:44Z
+---------------- 输出开始 ----------------
+== e2e 总跑(仓库根 /root/.openclaw/workspace/projects/design-studio)
+
+  [32mPASS[0m  adoption.e2e.py                      0s
+  [32mPASS[0m  clickable_actions.e2e.py             1s
+  [32mPASS[0m  inbox_scan.e2e.py                    1s
+  [32mPASS[0m  button_roles.e2e.mjs                17s
+  [32mPASS[0m  chat_image.e2e.mjs                   2s
+  [32mPASS[0m  chat_reconnect.e2e.mjs              16s
+  [32mPASS[0m  cockpit.e2e.mjs                      2s
+  [32mPASS[0m  consent_card.e2e.mjs                 4s
+  [32mPASS[0m  duedate.e2e.mjs                      0s
+  [32mPASS[0m  duedate_picker.e2e.mjs               3s
+  [32mPASS[0m  focus_ring.e2e.mjs                   3s
+  [32mPASS[0m  frontend_p1.e2e.mjs                  3s
+  [32mPASS[0m  frontend_p2_polish.e2e.mjs           3s
+  [32mPASS[0m  frontend_p3_polish.e2e.mjs           2s
+  [32mPASS[0m  gallery_head_buttons.e2e.mjs         6s
+  [32mPASS[0m  gallery_order.e2e.mjs                3s
+  [32mPASS[0m  image_upload.e2e.mjs                 2s
+  [32mPASS[0m  inbox_drop.e2e.mjs                   5s
+  [32mPASS[0m  inbox_open_button.e2e.mjs            2s
+  [32mPASS[0m  inbox_pad_gallery.e2e.mjs            3s
+  [32mPASS[0m  intake.e2e.mjs                       2s
+  [32mPASS[0m  intake_simplify.e2e.mjs              2s
+  [32mPASS[0m  new_chat.e2e.mjs                     7s
+  [31mFAIL[0m  project-thread.e2e.mjs              36s   /tmp/ds-e2e-Xmu9wL/project-thread.e2e.mjs.log
+  [32mPASS[0m  settings_fvis.e2e.mjs                3s
+  [32mPASS[0m  side_stage_groups.e2e.mjs            2s
+  [32mPASS[0m  stage_history.e2e.mjs                3s
+  [32mPASS[0m  stage_timer.e2e.mjs                  2s
+  [32mPASS[0m  todo_assistant.e2e.mjs               6s
+  [32mPASS[0m  todo_batch_space.e2e.mjs             3s
+  [32mPASS[0m  todo_delete.e2e.mjs                  2s
+  [32mPASS[0m  todo_layout.e2e.mjs                  4s
+  [32mPASS[0m  todo_one_view.e2e.mjs                2s
+  [32mPASS[0m  todo_rail.e2e.mjs                    2s
+  [32mPASS[0m  ws_change_note.e2e.mjs              10s
+  [32mPASS[0m  ws_collapse_back.e2e.mjs             2s
+
+== 汇总:35 PASS / 1 FAIL / 0 SKIP
+   红的:project-thread.e2e.mjs
+   日志在 /tmp/ds-e2e-Xmu9wL
+---------------- 输出结束 ----------------
+runlog: e2e-with-gateway rc=1 commit=5684153 dirty=yes at=2026-08-15T06:31:44Z file=tracks/opendesign-windows-installer/evidence/20260815T063144Z-01-e2e-with-gateway.txt
