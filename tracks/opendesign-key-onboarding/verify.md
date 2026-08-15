@@ -22,7 +22,21 @@ runlog -t opendesign-key-onboarding -- <判据命令>
 ```
 runlog: regression-http rc=1 commit=5acf226 dirty=no at=2026-08-15T15:03:05Z file=tracks/opendesign-key-onboarding/evidence/20260815T150305Z-01-regression-http.txt
 runlog: regression-http-v2 rc=3 commit=89ca1e7 dirty=yes at=2026-08-15T15:26:02Z file=tracks/opendesign-key-onboarding/evidence/20260815T152602Z-01-regression-http-v2.txt
+runlog: bash rc=1 commit=d05c37f dirty=no at=2026-08-15T16:28:33Z file=tracks/opendesign-key-onboarding/evidence/20260815T162833Z-01-bash.txt
+runlog: bash rc=0 commit=d05c37f dirty=yes at=2026-08-15T16:31:47Z file=tracks/opendesign-key-onboarding/evidence/20260815T163147Z-01-bash.txt
+runlog: bash rc=0 commit=1ff644a dirty=no at=2026-08-15T16:34:46Z file=tracks/opendesign-key-onboarding/evidence/20260815T163446Z-01-bash.txt
 ```
+
+**红检(接口层,后三份)**——断线砍掉的一步,补跑:
+
+- `rc=1` 首跑 **7 咬住 / 3 漏网**,三条分两型:M1/M2 是**变异等价**(两道来源检查各自
+  都挡得住,拆一道另一道接住);M10 是**真洞**(h2 只问"是那两个值之一",
+  规格里"不假装成功"没进判据)。⇒ 补 i6 / i7 / h5 三条。
+- 中间那份 `rc=0 dirty=yes` **不作数**:跑的是还没进 git 的脚本,复现不了。
+  留着是因为 5b(跑过的不藏),**收口以最后那份为准**。
+- `rc=0 commit=1ff644a dirty=no` **10 咬住 / 0 漏网** —— 这份才是收据。
+  其中 M2 那次"漏网"最后查明是**红检脚本自己打错了位置**(锚点在两个函数里各有一处),
+  已改成"锚点不唯一直接拒";加上这道闸之后其余 9 条一条没被拒 ⇒ 它们原先的绿是真的。
 
 - 第一遍 `rc=1` **是真红**,不藏(5b):python 段红在 `test_ds_web_proxy` —— 代理注入
   Authorization 之后它不再是「纯管道」,是**判据题面旧了**,不是实现坏了。
