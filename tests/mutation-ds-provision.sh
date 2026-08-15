@@ -131,6 +131,22 @@ mutate_and_expect M12 test_c2_writes_nothing_outside_the_home \
   '    note = home / ".openDesign" / "登录口令.txt"' \
   '    note = home.parent / "别动我" / "登录口令.txt"'
 
+# M13 形状检查拆掉 ⇒ {"channels": null} 直接 AttributeError,业主收到一个 Python 栈
+mutate_and_expect M13 test_e1_null_channels_does_not_throw_a_stack_at_the_owner \
+  '            if not isinstance(node, dict):' \
+  '            if False:'
+
+# M14 退回"先落盘再合并" ⇒ 合并失败时留下一份开了通道却没有工具服务的半成品配置
+# ⚠️ 第一版变异把 staging 直接换成 cfg_path,结果 finally 把**正式配置**删了 ——
+#    破坏的比契约多,红在别处。变异要精确地只还原"顺序"这一件事。
+mutate_and_expect M14 test_e3_a_failing_merge_leaves_no_half_config_behind \
+  '        write_json(staging, cfg)
+        merge_template(python_exe, ds_root, staging)
+        os.replace(staging, cfg_path)' \
+  '        write_json(staging, cfg)
+        os.replace(staging, cfg_path)
+        merge_template(python_exe, ds_root, cfg_path)'
+
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"
 echo
