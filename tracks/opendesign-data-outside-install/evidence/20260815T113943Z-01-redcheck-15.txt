@@ -1,0 +1,29 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-15
+cmd:     bash tests/mutation-data-root.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  55e242b
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-15T11:39:43Z
+---------------- 输出开始 ----------------
+== 红检开始(每条变异都要咬住指定的那一条)==
+  [OK]   M1 -> 靶子 test_a2_writes_do_not_touch_the_install_tree 如期红了
+  [OK]   M2 -> 靶子 test_c5_an_empty_env_value_is_not_treated_as_unset 如期红了
+  [OK]   M3 -> 靶子 test_c4_env_pointing_inside_the_install_dir_is_refused 如期红了
+  [OK]   M4 -> 靶子 test_c7_a_dev_checkout_does_not_get_false_alarms 如期红了
+  [OK]   M5 -> 靶子 test_g1_legacy_data_moves_into_the_data_root 如期红了
+  [OK]   M6 -> 靶子 test_g2_never_overwrites_something_already_there 如期红了
+  [OK]   M7 -> 靶子 test_g4_the_unknown_report_is_not_drowned_in_code 如期红了
+  [OK]   M8 -> 靶子 test_d1_child_env_carries_the_data_root 如期红了
+  [OK]   M12 -> 靶子 test_d4_the_three_mcp_servers_get_the_data_root_too 如期红了
+  [OK]   M13 -> 靶子 test_g5_a_cross_volume_install_still_migrates 如期红了
+  [OK]   M14 -> 靶子 test_g6_the_report_reaches_a_place_the_owner_can_see 如期红了
+  [OK]   M15 -> 靶子 test_h1_no_module_builds_data_paths_on_ds_root 如期红了
+  [OK]   M9 -> 靶子 test_e1_refuses_the_install_dir_itself 如期红了
+  [OK]   M10 -> 靶子 test_f4_a_hand_edited_taxonomy_is_read_from_the_data_root 如期红了
+  [OK]   M11 -> 靶子 test_f3_the_index_lands_next_to_the_images 如期红了
+
+被测文件全部原样还回(6 个文件哈希一致)
+== 红检结束:咬住 15 条,漏网 0 条 ==
+---------------- 输出结束 ----------------
+runlog: redcheck-15 rc=0 commit=55e242b dirty=yes at=2026-08-15T11:39:43Z file=tracks/opendesign-data-outside-install/evidence/20260815T113943Z-01-redcheck-15.txt
