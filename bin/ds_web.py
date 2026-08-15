@@ -83,7 +83,13 @@ import ds_todo
 import ds_tools
 import ds_workspace
 
-VERSION = "0.86.0"  # Windows 安装器(track opendesign-windows-installer / S1c)。功能上和 0.85.0
+VERSION = "0.87.0"  # 你的东西搬出安装目录了(track opendesign-data-outside-install):
+                    # 项目档案、客户备忘、共享参考图库(真图片)、总索引、整理审计、工作区设置
+                    # 以前都住在程序目录里 —— **卸载一次就全没了**,而卸载页上写着不会删。
+                    # 现在它们在 %LOCALAPPDATA%\OpenDesign\Data 下,卸载和更新都碰不到;
+                    # 老版本装过的机器第一次打开会自动搬过去(同名不覆盖,搬完留一份迁移记录)。
+                    # 顺带:项目文件夹不许再设在会被删掉的地方(以前没人拦)。
+                    # 0.86.0  Windows 安装器(track opendesign-windows-installer / S1c)。功能上和 0.85.0
                     # 一样 —— bump 是为了**让你装完能自己看出装的是哪一版**:安装器文件名和
                     # /api/health 都取这个号,而 08-14 那个安装器和这个若同叫 0.85.0,
                     # 我就没法确认你机器上跑的是不是含四审修复的那一版(盘上≠运行时,栽过两次)。
