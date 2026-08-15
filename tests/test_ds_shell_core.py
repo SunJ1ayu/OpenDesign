@@ -930,6 +930,20 @@ class ChildEnv(unittest.TestCase):
         self.assertEqual(e["MIMO_TP_KEY"], "sk-abc")
         self.assertNotIn("DS_LLM_KEY", e, "另设了一个写死的名字 ⇒ 两个来源迟早对不上")
 
+    def test_e10_the_web_is_told_where_the_lock_is(self):
+        """🔴 这条防的是"接线测试证明不了接上了"。
+
+        k 组(ds-web 那侧)自己往 env 里塞了 DS_SHELL_LOCK_PORT,于是它们全绿 ——
+        但**没有一条问过外壳到底有没有把这个号告诉 ds-web**。不告诉的话,
+        整条重启链路空转,而两侧判据都是绿的。
+        同款事故已经吃过两次:data-outside 那单的三个 MCP 拿不到 DS_DATA_ROOT,
+        47 处改动等于没改;h3 看得见调用、看不见空转。
+        """
+        e = self.env(lock_port=18788)
+        self.assertEqual(e["DS_SHELL_LOCK_PORT"], "18788")
+        self.assertNotIn("DS_SHELL_LOCK_PORT", self.env(),
+                         "没有锁的时候不许留一个假号 —— ds-web 会拿它去连别人")
+
     def test_e9_forgetting_the_variable_name_is_loud(self):
         """有 key 却没说设哪个变量 ⇒ 抛,不许悄悄退回写死的默认名。
         **失败没有声音**是这个项目栽过最多次的病(pip 静默丢依赖、git add 静默跳过)。"""
