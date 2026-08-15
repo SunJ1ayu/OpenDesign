@@ -354,6 +354,37 @@ class TestShellPassesTheEnv(Rig):
                          f"数据根落在安装目录里面,卸载照样删:{got}")
 
 
+    def test_d4_the_three_mcp_servers_get_the_data_root_too(self):
+        """🔴 四审 subkimi 的 BLOCK,而**我自己的 design 里就写着**这一条该问
+        ("三个 MCP 与 ds-web 四份 env 都要问到")—— D 组只问了 child_env 一份。
+
+        三个 MCP 不是外壳起的,是**网关按配置里的 `env` 块**起的,那几块只列了 `DS_ROOT`;
+        MCP SDK 的 stdio 客户端也只继承一份白名单,`DS_DATA_ROOT` 不在里面。
+        ⇒ 聊天侧(助手建档案、加参考图、整理文件)**全部仍然读写安装目录**,
+        而工作台读数据根 —— 同一份档案两个世界,重启时迁移再把它搬走,来回翻。
+        本单要防的事在**主路径**上原样发生,新卸载文案也再次变成假话。
+        """
+        import ds_shell_core as core
+        cfg_path = os.path.join(self.tmp, "config.json")
+        with open(cfg_path, "w", encoding="utf-8") as fh:
+            json.dump({
+                "channels": {"websocket": {"enabled": True, "token": "abc", "port": 1}},
+                "tools": {"mcpServers": {n: {"command": "x", "args": [], "env": {"DS_ROOT": "y"}}
+                                         for n in core.OUR_MCP}},
+            }, fh, ensure_ascii=False)
+        core.patch_config(cfg_path, gateway_port=18790, ws_port=8765,
+                          python_exe="py.exe", data_root=self.data_root)
+        got = json.load(open(cfg_path, encoding="utf-8"))["tools"]["mcpServers"]
+        for name in core.OUR_MCP:
+            env = got[name].get("env") or {}
+            self.assertIn(ENV_VAR, env, f"工具服务 {name} 拿不到数据根 —— "
+                                        f"助手写的东西还会落在会被卸载删掉的地方")
+            self.assertFalse(
+                ds_common.within(os.path.realpath(self.install),
+                                 os.path.realpath(env[ENV_VAR])),
+                f"{name} 的数据根指回了安装目录:{env[ENV_VAR]}")
+
+
 class TestWorkspaceGuard(Rig):
     """E 组:业主的项目夹不许设在"删得掉的地方"。双向重叠都要拦(B 卷补的)。"""
 
@@ -550,9 +581,13 @@ class TestStaticGate(unittest.TestCase):
             # 别名:`root = ds_root` 之后 root 也算(M2);函数默认参数同理(攻题腿补的)
             aliases = set()
             for n in ast.walk(tree):
+                # 🔴 四审 subdeepseek 的 BLOCK:第一版只认 `x = ds_root`(Name),
+                #    而 `ds_web._projects` 写的是 `root = self.server.ds_root`(Attribute)
+                #    ⇒ 闸看不见,装出来之后**项目列表恒空**(数据没丢,但业主看到"项目没了",
+                #    正是本单要消灭的那个症状)。别名的来源认 `_is_ds_root` 认得出的一切。
                 if isinstance(n, ast.Assign) and len(n.targets) == 1 \
                         and isinstance(n.targets[0], ast.Name) \
-                        and isinstance(n.value, ast.Name) and n.value.id == "ds_root":
+                        and self._is_ds_root(n.value, set()):
                     aliases.add(n.targets[0].id)
                 if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     args = n.args
