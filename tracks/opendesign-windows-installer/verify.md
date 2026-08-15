@@ -321,6 +321,44 @@ scratchpad 的 `[仓外不承重]`):2 PASS / 2 FAIL / 5 SKIP,两条红都是**�
   Windows 独有的行为(装、卸、开机自启、开始菜单、WebView2 缺失、UAC)全靠业主装那一趟。
   **在他装完之前,本 track 的最终判决保持敞着。**
 
+### 🔴 08-15 收口时抓到的三件(都不在四审的十二条里)
+
+四审收完、以为只剩"重编+发布"的时候,例行全量回归红了。**三件都不是安装器的 bug,
+但每一件都比十二条里的大半条更该记**:
+
+1. **我的红检把这台机器改了。** `mutation-ds-provision.sh` 的 M7 变异**故意**把写口指向
+   `expanduser("~")`,而红检对每条变异都跑**整份**判据 —— 只有 c1/c2 自己伪造了 HOME,
+   其余十几条就这么把 `~/.nanobot/config.json` 的 gateway 口令从 `e2etest…` 换成了
+   `Chosen999…`。08-08 起的 gateway 内存里还是旧口令 ⇒ `test_ws_protocol_smoke` 401,
+   **红了整整一天没人知道**(昨晚我跑完红检只看了"14 咬住 0 漏网"就收工了)。
+   - **靶子红是对的,但破坏不许真的发生** —— 变异测试的整个前提就是"跑完机器和跑前一样"。
+   - 更难看的是:**我这一轮的修复让破坏变得更安静**了 —— 合并改跑在临时文件上之后,
+     `.bak-时间戳` 被我的 finally 清掉,盘上连痕迹都不留。
+   - 已上机械防线(`5684153` / `d0ab8b6`),验的方式也是机械的:两份红检各跑一遍,
+     前后比 `~/.nanobot/config.json` 的 sha256 —— **零字节改动**。
+   - 同源:[[judging-must-have-no-egress]](判据自己会花钱)。这次是判据自己会改机器。
+2. **防线第一版当场串味。** 假 HOME 写在 import 期 ⇒ 全量跑是一个进程导入所有判据,
+   `test_ws_protocol_smoke` 在 import 期就按 HOME 找口令,**整块 SKIP 了**(而 SKIP 看着像绿)。
+   改成 `setUpModule/tearDownModule`。**修一道防线的手滑,长的就是"假绿"这个形状。**
+3. **S1b 加的两条"两腿真联跑"判据,从 08-13 落地起没被任何总跑叫起来过。**
+   12 条断言一次没执行,死断言闸每次都在喊,只是没人跑总跑所以没人听见 ——
+   `run-all.sh` 文件头自己列的同一种病**第 ③ 次复发**。已让总跑带上 `DS_SHELL_E2E=1`。
+   连带发现 `--with-gateway` 那两条在本机**从来跑不起来**(e2e 夹具不进 git,
+   本机档案里是 `云山名城-2302`、判据写死 `星河名邸-2302`)⇒ 夹具已补齐,已记 backlog。
+
+**收口后的机器收据**(四段全跑、`--with-gateway`、**0 跳过**):
+
+```
+runlog: regression-0.86.0 rc=0 commit=5684153 dirty=yes at=2026-08-15T06:43:58Z file=tracks/opendesign-windows-installer/evidence/20260815T064358Z-01-regression-0.86.0.txt
+runlog: shellcore-redcheck-after-guard rc=0 commit=e45959e dirty=yes at=2026-08-15T05:33:44Z file=tracks/opendesign-windows-installer/evidence/20260815T053344Z-01-shellcore-redcheck-after-guard.txt
+runlog: build-installer-0.86.0 rc=0 commit=30eb227 dirty=yes at=2026-08-15T06:58:32Z file=tracks/opendesign-windows-installer/evidence/20260815T065832Z-01-build-installer-0.86.0.txt
+```
+
+内容:node 350 / python 1136(0 跳过、0 死断言)/ MCP 三闸 / dist 新鲜度 /
+e2e **36 PASS 0 FAIL 0 SKIP**;shell-core 红检 13 咬住 0 漏网且真家零改动;
+`OpenDesign-Setup-0.86.0.exe` 59.7MB,静态 23/0 + 成品 7/0。
+发布物 sha256 `14726a27…`,**下回来 `cmp` 逐字节一致**。
+
 ## Accepted deviations
 
 - **`write_json` 的 OSError 会以裸 traceback 进 nsExec 日志**(subkimi F5 后半)。
