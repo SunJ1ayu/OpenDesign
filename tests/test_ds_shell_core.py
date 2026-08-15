@@ -561,6 +561,79 @@ class Supervise(unittest.TestCase):
             self.sup.start([self.svc("撞车腿", BIND_AND_WAIT, port, timeout=8)])
         self.assertIn(str(port), str(cm.exception), "报错没说是哪个端口被占了")
 
+    # ---- 只换掉一条腿(track opendesign-key-onboarding T3)---------------------
+    # 业主填完 key ⇒ 网关必须重来一次才认新 env。但**ds-web 不能跟着断** ——
+    # 他正看着的那个页面就是 ds-web 发的,一起重启的话他会看见界面白掉。
+    # Supervisor 今天只有 start / shutdown(design 硬约束 2),这是新写口。
+
+    ECHO_AND_WAIT = (
+        "import os,socket,sys,time\n"
+        "open(sys.argv[2],'a',encoding='utf-8')"
+        ".write(f\"{os.getpid()} {os.environ.get('DS_TEST_TOKEN','')}\\n\")\n"
+        "s=socket.socket();s.bind(('127.0.0.1',int(sys.argv[1])));s.listen(4)\n"
+        "print('listening',flush=True)\n"
+        "time.sleep(300)\n"
+    )
+
+    def echo_svc(self, name, port, token, trace):
+        env = dict(os.environ)
+        env["DS_TEST_TOKEN"] = token
+        return core.Service(
+            name=name,
+            argv=[sys.executable, "-c", self.ECHO_AND_WAIT, str(port), str(trace)],
+            env=env, ready_port=port, log_path=self.dir / f"{name}.log",
+            ready_timeout=20,
+        )
+
+    def read_trace(self, trace):
+        return [ln.split(" ", 1) for ln in
+                Path(trace).read_text(encoding="utf-8").strip().splitlines()]
+
+    def test_c15_restart_replaces_only_the_named_leg(self):
+        ga, wa = free_port(), free_port()
+        tg, tw = self.dir / "网关.trace", self.dir / "web.trace"
+        self.sup.start([self.echo_svc("网关", ga, "old", tg),
+                        self.echo_svc("工作台", wa, "web", tw)])
+
+        self.sup.restart([self.echo_svc("网关", ga, "old", tg)])
+
+        g = self.read_trace(tg)
+        self.assertEqual(len(g), 2, "网关没被换掉")
+        self.assertNotEqual(g[0][0], g[1][0], "换上来的还是同一个进程 ⇒ 它不会重读 env")
+        self.assertEqual(len(self.read_trace(tw)), 1,
+                         "工作台跟着重启了 —— 业主正看着的页面会白掉")
+        self.assertTrue(core.port_listening(wa), "工作台被顺手带走了")
+
+    def test_c16_the_replacement_really_gets_the_new_env(self):
+        """🔴 本单的命门。重启网关的**唯一目的**就是让它读到新 key;
+        新进程要是继承了老 env,业主填完 key 照样不能聊天,而判据全是绿的。"""
+        ga = free_port()
+        tg = self.dir / "网关.trace"
+        self.sup.start([self.echo_svc("网关", ga, "还没填key", tg)])
+        self.sup.restart([self.echo_svc("网关", ga, "sk-业主刚填的", tg)])
+
+        rows = self.read_trace(tg)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[1][1], "sk-业主刚填的",
+                         "新进程拿的还是老 env ⇒ 填了 key 也白填")
+
+    def test_c17_a_failed_restart_does_not_take_the_others_down(self):
+        """重启失败要响,但**不许连坐**:界面还在,他才看得到"重启失败,请手动重开"。
+        (start() 那条路是失败就 shutdown 全部 —— 这里故意不一样,别照抄。)"""
+        ga, wa = free_port(), free_port()
+        tg, tw = self.dir / "网关.trace", self.dir / "web.trace"
+        self.sup.start([self.echo_svc("网关", ga, "old", tg),
+                        self.echo_svc("工作台", wa, "web", tw)])
+
+        bad = core.Service(name="网关", argv=[sys.executable, "-c", "raise SystemExit(3)"],
+                           env=dict(os.environ), ready_port=ga,
+                           log_path=self.dir / "网关.log", ready_timeout=5)
+        with self.assertRaises(core.StartupFailed):
+            self.sup.restart([bad])
+
+        self.assertTrue(core.port_listening(wa), "一条腿重启失败,把业主的界面也带走了")
+        self.assertEqual(len(self.read_trace(tw)), 1, "工作台被重启了")
+
     def test_c8_shutdown_is_idempotent(self):
         port = free_port()
         self.sup.start([self.svc("legE", BIND_AND_WAIT, port)])
@@ -1331,9 +1404,14 @@ class MissingEnvRefs(unittest.TestCase):
         final = json.loads(cfg_path.read_text(encoding="utf-8"))
 
         def env(key):
+            # 变量名**从这份真配置里读**(不是照抄字面量)。这样这条判据顺带回答了
+            # e8 问不到的那半:env_var_name() 读出来的,和真 Windows 模板引用的,
+            # 是不是同一个名字 —— 对不上的话下面那条 assert 会当场红。
+            import ds_credential
             return core.child_env(base_env={}, ds_root=r"C:\OD\ds",
                                   user_home=r"C:\OD\UserData", dsweb_port=8766,
-                                  ws_port=8765, key=key)
+                                  ws_port=8765, key=key,
+                                  key_var=ds_credential.env_var_name(final) if key else None)
 
         self.assertEqual(core.missing_env_refs(final, env(key=None)), ["DS_LLM_KEY"],
                          "没放 key 时,必须**在起网关之前**就点名 DS_LLM_KEY")
