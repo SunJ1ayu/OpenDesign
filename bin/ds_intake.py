@@ -220,7 +220,8 @@ def stage_inbox_auto(allowed_roots, ds_root: str) -> dict:
 
 # ── 单条纠偏:剔除 staged plan 里的某几行,剩余重新暂存 ──────────────────
 def _plan_path(ds_root: str, plan_id: str) -> str:
-    return os.path.join(ds_root, "organize", "plans", f"plan_{plan_id}.json")
+    return os.path.join(ds_common.data_root(ds_root), "organize", "plans",
+                        f"plan_{plan_id}.json")
 
 
 def _valid_drop(drop, n: int) -> bool:
@@ -252,7 +253,7 @@ def amend_plan(plan_id, drop, allowed_roots, ds_root: str) -> dict:
     # approve+apply 交错——amend 读到 applied_at=None,apply 落盘后 amend 把内存里
     # 的旧 dict 整体回写,applied_at 被抹掉(plan 档案与 audit.log 矛盾);两个并发
     # amend 也会各自 stage 出重复新案。锁内重读拿最新状态,already_applied 诚实拒。
-    lock_path = os.path.join(ds_root, "organize", ".apply.lock")
+    lock_path = os.path.join(ds_common.data_root(ds_root), "organize", ".apply.lock")
     with open(lock_path, "a") as lockfh, ds_lock.exclusive(lockfh):
         with open(plan_path, encoding="utf-8") as fh:
             plan = json.load(fh)

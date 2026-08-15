@@ -57,7 +57,7 @@ def load_config(ds_root: str):
     """读 <ds_root>/config/workspace.json →
     {"root": <realpath>, "projects": {key: rel}};缺文件/坏 json/结构不对/
     root 非目录 → None(功能整体降级,调用方按"未配置"处理)。"""
-    path = os.path.join(ds_root, CONFIG_REL)
+    path = os.path.join(ds_common.data_root(ds_root), CONFIG_REL)
     try:
         with open(path, encoding="utf-8") as fh:
             raw = json.load(fh)

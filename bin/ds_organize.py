@@ -47,11 +47,11 @@ def _now() -> str:
 
 
 def _plans_dir(ds_root: str) -> str:
-    return os.path.join(ds_root, "organize", "plans")
+    return os.path.join(ds_common.data_root(ds_root), "organize", "plans")
 
 
 def _audit_path(ds_root: str) -> str:
-    return os.path.join(ds_root, "organize", "audit.log")
+    return os.path.join(ds_common.data_root(ds_root), "organize", "audit.log")
 
 
 # ── 安全:根白名单 + 路径解析 ──────────────────────────────────────────────
@@ -72,7 +72,7 @@ def _resolve_in_root(root_real: str, rel: str, ds_root: str) -> str | None:
     target = os.path.realpath(raw)
     if not ds_common.within(root_real, target):
         return None
-    org = os.path.realpath(os.path.join(ds_root, "organize"))
+    org = os.path.realpath(os.path.join(ds_common.data_root(ds_root), "organize"))
     if ds_common.within(org, target):
         return None
     return target
@@ -254,7 +254,7 @@ def apply_plan(plan_id: str, allowed_roots: list[str] | None,
             # 整体复验,任一失败零执行。plan 文件不作免检信任:containment/
             # organize 排除/casefold 查重都在这里重跑一遍(stage 时校验过,
             # 但 apply 只应依赖自己看得见的当下状态)。
-            org = os.path.realpath(os.path.join(ds_root, "organize"))
+            org = os.path.realpath(os.path.join(ds_common.data_root(ds_root), "organize"))
             all_cf = [p.casefold() for op in plan["operations"]
                       for p in (op["src"], op["dst"])]
             if len(set(all_cf)) != len(all_cf):

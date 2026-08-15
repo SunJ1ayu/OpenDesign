@@ -54,11 +54,11 @@ _VOCAB_TEMPLATE = """# 参考图词表(ds_refs 工具读写)
 
 
 def _index_path(ds_root: str) -> str:
-    return os.path.join(ds_root, "refs-index.md")
+    return os.path.join(ds_common.data_root(ds_root), "refs-index.md")
 
 
 def _vocab_path(ds_root: str) -> str:
-    return os.path.join(ds_root, "refs-vocab.md")
+    return os.path.join(ds_common.data_root(ds_root), "refs-vocab.md")
 
 
 # ── 词表 ────────────────────────────────────────────────────────────────────
@@ -197,13 +197,14 @@ def add_ref(file: str, style: str, space: str, source: str = "",
         return {"error": "space_unknown", "vocab": list(SPACES)}
 
     # 文件:必须真实存在于 DS_ROOT/refs/ 内(realpath 防逃逸 + 防手误)
-    refs_base = os.path.realpath(os.path.join(ds_root, "refs"))
-    target = os.path.realpath(os.path.join(ds_root, file))
+    root = ds_common.data_root(ds_root)
+    refs_base = os.path.realpath(os.path.join(root, "refs"))
+    target = os.path.realpath(os.path.join(root, file))
     if not ds_common.within(refs_base, target):
         return {"error": "path_escape"}
     if not os.path.isfile(target):
         return {"error": "file_not_found", "file": file}
-    rel = os.path.relpath(target, ds_root).replace(os.sep, "/")  # 统一 / 分隔符
+    rel = os.path.relpath(target, root).replace(os.sep, "/")  # 统一 / 分隔符
 
     path = _ensure_index(ds_root, today)
     with ds_common.locked_rw(path) as box:
@@ -273,7 +274,7 @@ def link_ref(ref_id: str, project: str, ds_root: str = DEFAULT_DS_ROOT,
     project = ds_common.sanitize_field(project, ban_pipe=True)
     # M3(07-13 盲评):存在性检查走 realpath+within,不给 `../` 逃逸。裸 join 时
     # `../index` 会命中 ds_root/index.md(PKB 里真存在)并被收进"用于:"段。
-    pbase = os.path.realpath(os.path.join(ds_root, "projects"))
+    pbase = os.path.realpath(os.path.join(ds_common.data_root(ds_root), "projects"))
     ptarget = os.path.realpath(os.path.join(pbase, f"{project}.md"))
     if (not project or not ds_common.within(pbase, ptarget)
             or not os.path.isfile(ptarget)):

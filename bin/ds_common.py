@@ -35,6 +35,167 @@ BATCH_LINE_RE = re.compile(
 # 消漂移。
 DUE_SUFFIX_RE = re.compile(r"\s*⏳(\d{4}-\d{2}-\d{2})\s*$")
 
+DATA_ROOT_ENV = "DS_DATA_ROOT"
+
+
+class DataRootError(Exception):
+    """数据根不可用。"""
+
+
+def data_root(ds_root: str) -> str:
+    """返回业主数据根。
+
+    环境变量缺席时保持旧行为;显式配置错误时 fail closed,
+    绝不回退到安装目录。
+    """
+    if DATA_ROOT_ENV not in os.environ:
+        return ds_root
+
+    configured = os.environ[DATA_ROOT_ENV]
+    if configured == "":
+        raise DataRootError(f"{DATA_ROOT_ENV} 已设置但是空串")
+
+    try:
+        resolved = os.path.realpath(configured)
+        # 安装包中 ds_root = <INSTDIR>/ds;无效路径在创建前先拒绝,
+        # 连空目录也不留在安装树。
+        install_root = os.path.realpath(os.path.dirname(os.path.realpath(ds_root)))
+        if within(os.path.normcase(install_root), os.path.normcase(resolved)):
+            raise DataRootError(f"数据根不能放在安装目录中: {resolved}")
+        os.makedirs(resolved, exist_ok=True)
+    except DataRootError:
+        raise
+    except (OSError, TypeError, ValueError) as exc:
+        raise DataRootError(f"数据根无法创建或访问: {configured}: {exc}") from exc
+
+    if not os.path.isdir(resolved):
+        raise DataRootError(f"数据根不是目录: {resolved}")
+    return resolved
+
+
+_LEGACY_DATA_DIRS = ("projects", "clients", "refs", "organize")
+_LEGACY_DATA_FILES = ("index.md", "refs-index.md", "refs-vocab.md")
+_LEGACY_CONFIG_ENTRIES = (
+    "workspace.json",
+    "workspace.json.lock",
+    "workspace.json.bak",
+    "consent.json",
+    "pending.lock",
+    "pending",
+    "taxonomy.json",
+)
+
+
+def _move_legacy_entry(source: str, target: str, relative: str, report: dict) -> None:
+    """同名不覆盖的同卷递归搬运。"""
+    rel = relative.replace(os.sep, "/")
+    if os.path.isdir(source) and not os.path.islink(source):
+        if os.path.lexists(target) and (not os.path.isdir(target)
+                                           or os.path.islink(target)):
+            report["skipped"].append(rel)
+            return
+        try:
+            os.makedirs(target, exist_ok=True)
+            names = sorted(os.listdir(source))
+        except OSError as exc:
+            report["failed"].append({"path": rel, "error": str(exc)})
+            return
+        if not names:
+            report["moved"].append(rel + "/")
+        for name in names:
+            _move_legacy_entry(
+                os.path.join(source, name),
+                os.path.join(target, name),
+                os.path.join(relative, name),
+                report,
+            )
+        try:
+            os.rmdir(source)  # 只删已搬空的目录;有跳过/失败项时会自然保留。
+        except OSError:
+            pass
+        return
+
+    if os.path.lexists(target):
+        report["skipped"].append(rel)
+        return
+    try:
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        os.rename(source, target)  # 两边都在 %LOCALAPPDATA%,同卷直接搬。
+        report["moved"].append(rel)
+    except OSError as exc:
+        report["failed"].append({"path": rel, "error": str(exc)})
+
+
+def _unknown_legacy_entries(legacy_root: str) -> list[str]:
+    """列出迁移清单未覆盖的文件,避免未来新数据种类被静默遗忘。"""
+    known_top = set(_LEGACY_DATA_DIRS) | set(_LEGACY_DATA_FILES)
+    known_config = set(_LEGACY_CONFIG_ENTRIES)
+    unknown: list[str] = []
+    try:
+        top_names = sorted(os.listdir(legacy_root))
+    except OSError as exc:
+        return [f"<scan failed: {exc}>"]
+
+    for top in top_names:
+        if top in known_top:
+            continue
+        top_path = os.path.join(legacy_root, top)
+        if top == "config" and os.path.isdir(top_path):
+            for base, dirs, files in os.walk(top_path):
+                rel_base = os.path.relpath(base, top_path)
+                if rel_base == ".":
+                    dirs[:] = [d for d in dirs if d not in known_config]
+                    files = [f for f in files if f not in known_config]
+                for name in files:
+                    rel = os.path.relpath(os.path.join(base, name), legacy_root)
+                    unknown.append(rel.replace(os.sep, "/"))
+            continue
+        if os.path.isdir(top_path) and not os.path.islink(top_path):
+            found = False
+            for base, _dirs, files in os.walk(top_path):
+                for name in files:
+                    found = True
+                    rel = os.path.relpath(os.path.join(base, name), legacy_root)
+                    unknown.append(rel.replace(os.sep, "/"))
+            if not found:
+                unknown.append(top.replace(os.sep, "/") + "/")
+        else:
+            unknown.append(top.replace(os.sep, "/"))
+    return unknown
+
+
+def migrate_legacy_data(ds_root: str) -> dict:
+    """当数据根已外置时,把 ds_root 下的遗留业主数据幂等搬过去。"""
+    target_root = data_root(ds_root)
+    report = {
+        "data_root": target_root,
+        "moved": [],
+        "skipped": [],
+        "unknown": [],
+        "failed": [],
+    }
+    legacy_root = os.path.realpath(ds_root)
+    if os.path.realpath(target_root) == legacy_root:
+        return report
+
+    for name in _LEGACY_DATA_DIRS + _LEGACY_DATA_FILES:
+        source = os.path.join(legacy_root, name)
+        if os.path.lexists(source):
+            _move_legacy_entry(source, os.path.join(target_root, name), name, report)
+
+    for name in _LEGACY_CONFIG_ENTRIES:
+        source = os.path.join(legacy_root, "config", name)
+        if os.path.lexists(source):
+            _move_legacy_entry(
+                source,
+                os.path.join(target_root, "config", name),
+                os.path.join("config", name),
+                report,
+            )
+
+    report["unknown"] = _unknown_legacy_entries(legacy_root)
+    return report
+
 
 def split_due(text: str) -> tuple[str, str | None]:
     """把行尾 ⏳YYYY-MM-DD 从正文切出。无则原文返回、due=None。"""

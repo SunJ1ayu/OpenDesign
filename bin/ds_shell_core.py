@@ -752,6 +752,8 @@ def child_env(
     env.update(
         {
             "DS_ROOT": str(ds_root),
+            "DS_DATA_ROOT": os.path.join(
+                os.path.dirname(os.path.realpath(user_home)), "Data"),
             "DS_WEB_PORT": str(dsweb_port),
             "DS_NANOBOT_PORT": str(ws_port),
             "HOME": str(user_home),
