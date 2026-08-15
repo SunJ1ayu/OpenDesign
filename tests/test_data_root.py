@@ -623,7 +623,9 @@ class TestStaticGate(unittest.TestCase):
             if isinstance(n, ast.Call):
                 f = n.func
                 name = f.attr if isinstance(f, ast.Attribute) else getattr(f, "id", "")
-                if name == "migrate_legacy_data" and migrate_line is None:
+                # 认两个名字:直接搬,或走 core 那个"准备数据根+搬"的包装
+                # (逻辑下沉到 core 是对的 —— ds_shell.py 这一层在 Linux 上跑不了判据)。
+                if name in ("migrate_legacy_data", "prepare_data_root") and migrate_line is None:
                     migrate_line = n.lineno
                 if name == "start" and start_line is None:
                     start_line = n.lineno

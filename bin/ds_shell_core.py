@@ -15,6 +15,8 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
+
+import ds_common
 from typing import Any
 
 
@@ -732,6 +734,25 @@ def missing_env_message(missing: list[str], *, app: str, key_path: str) -> str:
     return f"{app} 起不来,还差点东西:\n\n" + "\n\n".join(tips) + "\n\n补好之后重新打开就行。"
 
 
+def data_root_for(user_home: str) -> str:
+    """装出来那一份的数据根:`<应用状态根>\\Data`(user_home 是它下面的 UserData)。
+
+    **单一来源** —— child_env 与外壳自己都从这里取。分成两处算的代价我付过:
+    外壳只给子进程设了 env、自己没设,于是它那次迁移空转了(判据 d3)。
+    """
+    return os.path.join(os.path.dirname(os.path.realpath(user_home)), "Data")
+
+
+def prepare_data_root(user_home: str, ds_root: str) -> dict:
+    """起任何服务之前:把数据根**给本进程也设上**,然后把遗留数据搬过去。
+
+    为什么在 core 里而不在 ds_shell.py:那一层在 Linux 上一条判据都跑不了
+    (pywebview/pystray/WebView2 全是 Windows 独有),而这段逻辑是可判定的。
+    """
+    os.environ[ds_common.DATA_ROOT_ENV] = data_root_for(user_home)
+    return ds_common.migrate_legacy_data(ds_root)
+
+
 def child_env(
     base_env: dict,
     *,
@@ -752,8 +773,7 @@ def child_env(
     env.update(
         {
             "DS_ROOT": str(ds_root),
-            "DS_DATA_ROOT": os.path.join(
-                os.path.dirname(os.path.realpath(user_home)), "Data"),
+            "DS_DATA_ROOT": data_root_for(str(user_home)),
             "DS_WEB_PORT": str(dsweb_port),
             "DS_NANOBOT_PORT": str(ws_port),
             "HOME": str(user_home),

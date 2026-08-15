@@ -29,6 +29,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+import ds_common  # noqa: E402
 import ds_shell_core as core  # noqa: E402
 
 APP = "OpenDesign"
@@ -174,6 +175,19 @@ def start_backend(home: Path):
     trouble = core.missing_env_message(missing, app=APP, key_path=str(key_file(home)))
     if trouble:
         die(trouble)
+
+    # 🔴 迁移必须在**起任何服务之前**(判据 h3)。网关是第一个起来的,它带着三个 MCP
+    # 工具服务;老版本装过的机器上,档案还躺在安装目录里,而新的数据根是空的 ——
+    # 那一刻业主问"我有哪些项目",助手会回"一个都没有",甚至在新根里建一个重名的。
+    # ds_web 自己也会迁移一次(幂等),但它是**第二个**起来的,来不及。
+    try:
+        migration = core.prepare_data_root(user_home=str(home),
+                                           ds_root=str(install_root() / "ds"))
+    except ds_common.DataRootError as exc:
+        die(f"数据目录不可用({exc})。\n\n请重新运行安装程序。")
+    if migration["failed"]:
+        die(f"你的资料从旧位置搬过来时出错了,先没有继续启动:\n{migration['failed']}\n\n"
+            f"把这段发给我看看 —— 东西还在原处,没有丢。")
 
     logs = Path(os.environ.get("LOCALAPPDATA", Path.home())) / APP / "Logs"
     sup = core.Supervisor()
