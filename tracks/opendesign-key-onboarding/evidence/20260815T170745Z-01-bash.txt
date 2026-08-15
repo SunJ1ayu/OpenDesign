@@ -1,0 +1,29 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    bash
+cmd:     bash tests/mutation-shell-restart.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  e99adc6
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-15T17:07:45Z
+---------------- 输出开始 ----------------
+== 红检开始(T3 重启链路)==
+  [OK]   M1 -> 靶子 test_b11_the_restart_verb_restarts_and_does_not_raise_the_window 如期红了
+  [OK]   M2 -> 靶子 test_b12_a_frame_without_a_verb_still_means_show 如期红了
+  [OK]   M3 -> 靶子 test_b13_an_unknown_verb_never_means_restart 如期红了
+  [OK]   M4 -> 靶子 test_b14_a_verb_in_a_second_packet_is_still_read 如期红了
+  [OK]   M5 -> 靶子 test_e10_the_web_is_told_where_the_lock_is 如期红了
+  [OK]   M6 -> 靶子 test_e9_forgetting_the_variable_name_is_loud 如期红了
+  [OK]   M7 -> 靶子 test_e8_the_variable_name_comes_from_the_config_not_from_this_file 如期红了
+  [OK]   M8 -> 靶子 test_c15_restart_replaces_only_the_named_leg 如期红了
+  [OK]   M9 -> 靶子 test_c15_restart_replaces_only_the_named_leg 如期红了
+  [OK]   M10 -> 靶子 test_c17_a_failed_restart_does_not_take_the_others_down 如期红了
+  [OK]   M11 -> 靶子 test_k2_a_stranger_on_that_port_is_not_our_shell 如期红了
+  [OK]   M12 -> 靶子 test_k3_a_real_shell_gets_the_restart_verb_not_show 如期红了
+  [OK]   M13 -> 靶子 test_k4_a_wedged_shell_does_not_hang_the_save 如期红了
+  [OK]   M14 -> 靶子 test_w1_child_env_is_told_the_lock_port 如期红了
+  [OK]   M15 -> 靶子 test_w3_the_lock_carries_a_restart_callback 如期红了
+
+被测文件原样还回(3 个哈希一致)
+== 红检结束:咬住 15 条,漏网 0 条 ==
+---------------- 输出结束 ----------------
+runlog: bash rc=0 commit=e99adc6 dirty=yes at=2026-08-15T17:07:45Z file=tracks/opendesign-key-onboarding/evidence/20260815T170745Z-01-bash.txt

@@ -27,7 +27,21 @@ runlog: bash rc=0 commit=d05c37f dirty=yes at=2026-08-15T16:31:47Z file=tracks/o
 runlog: bash rc=0 commit=1ff644a dirty=no at=2026-08-15T16:34:46Z file=tracks/opendesign-key-onboarding/evidence/20260815T163446Z-01-bash.txt
 ```
 
-**红检(接口层,后三份)**——断线砍掉的一步,补跑:
+**T3(重启链路)**:
+```
+runlog: bash rc=1 commit=a044263 dirty=yes at=2026-08-15T17:16:41Z file=tracks/opendesign-key-onboarding/evidence/20260815T171641Z-01-bash.txt
+runlog: bash rc=3 commit=0adc038 dirty=yes at=2026-08-15T17:28:01Z file=tracks/opendesign-key-onboarding/evidence/20260815T172801Z-01-bash.txt
+```
+- 红检 15 条定点变异 **15 咬住 / 0 漏网**(收据 `20260815T170745Z`)。
+  首跑 13/2,两条"漏网"**都是等价变异**:M4 改的循环条件在同包到达时没有行为差异,
+  M13 锚在 `create_connection` 的 timeout 上而真正管读超时的是 `recv_line` 的 deadline。
+  M4 照出真洞 ⇒ 补 b14(动词晚到一个包)。
+- `rc=1` 那遍是全量回归打红 a7 / g2 两条既有判据(T3 契约变更的连带,不是新 bug)。
+  **g2 那条修得最值**:它原来把 apiKey 写死成假 key,等于绕开真机唯一走的那条路。
+- `rc=3` 全绿(node 350 / python 1219 / MCP 契约 / dist 新鲜度 / e2e 34 PASS 0 FAIL),
+  仍有 **2 条 e2e SKIP** ⇒ T5 收口必须带 `--with-gateway` 重跑。**SKIP 不是绿。**
+
+**红检(接口层,前三份)**——断线砍掉的一步,补跑:
 
 - `rc=1` 首跑 **7 咬住 / 3 漏网**,三条分两型:M1/M2 是**变异等价**(两道来源检查各自
   都挡得住,拆一道另一道接住);M10 是**真洞**(h2 只问"是那两个值之一",

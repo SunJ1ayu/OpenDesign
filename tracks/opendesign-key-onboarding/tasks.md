@@ -22,13 +22,16 @@
 
 ## 待办
 
-- [ ] **T3 外壳重启通道**(主 agent 自己写,涉及 IPC 与进程管理)。
-      今天 `ds_web.ds_shell_bridge_restart()` 是**桩,恒回 `"manual"`**(:171)——
-      诚实但没接通。按 design 第三节:给外壳单实例锁端口(`ds_shell.py:LOCK_PORT=18788`)
-      **已有的唤醒握手**加一条 `restart-backend` 消息,**不新开端口、不新造 IPC**。
-      没有外壳的形态(git-pull 那两台)通道连不上 ⇒ 仍如实回 `manual`,不假装成功。
-      > 判据先行,且必须双向验:接得上→`restarted`,接不上→`manual`。
-      > 🔴 **「真的重启完还能聊天」判据答不了**(design 骗法三)⇒ 进真机清单,别在这声称。
+- [x] **T3 外壳重启通道**(主 agent 自己写)。判据先行 `d09ee2f`/`88af99a`/`47bc1a6`/`e99adc6`
+      → 实现 `a044263` → 判据跟随 `0adc038`;红检 15 条 **15 咬住 / 0 漏网**。
+      锁通道加动词 `RESTART-BACKEND`(不新开端口)、`Supervisor.restart()` 只换点名的腿、
+      `child_env` 的 key 变量名改成从配置读、缺 key 不再 die 改问 `startup_plan`。
+      **顺带发现三件断线时没记的**:锁协议的第二行**从来没被读过**;
+      `child_env` 里变量名是写死的(design 对差异 #1 第二次露头);
+      `ds_shell.py` 压根没接 `startup_plan` ⇒ 引导页原本永远出不来。
+      > 🔴 **仍未验**:「真的重启完还能聊天」判据答不了(design 骗法三)⇒ 已进真机清单。
+      > `ds_shell.py` 那层只有静态接线闸(`test_ds_shell_wiring.py`),
+      > 它证明"写了"、证明不了"跑起来对"。
 - [ ] **T4 前端模态框**(派 codex 腿;oracle 我先写并单独 commit)。
       一个组件两个入口(首次打开 / 设置里),选厂商 → 填 key → 保存;
       **key 只写不回显**(HTML/aria/console 都不许出现原文);
