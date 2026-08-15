@@ -91,7 +91,11 @@ VIAddVersionKey "LegalCopyright"  "OpenDesign"
 
 ; 程序在跑的时候文件是锁着的,而 `RMDir /r` 删不掉会**悄悄**跳过 ——
 ; 卸载器会显示"完成",盘上却剩半棵树。所以先提醒。
-!define MUI_UNCONFIRMPAGE_TEXT_TOP "如果 ${APP} 正在运行,请先在右下角托盘图标上点“退出”,再继续卸载。$\r$\n$\r$\n你的资料(备忘、对话、工作区设置)默认不会被删除。"
+; ⚠️ 这句话在 0.86.0 之前是**假的**:项目档案、客户备忘、共享参考图库、工作区设置
+; 当时都住在 $INSTDIR\ds 里,普通卸载(RMDir /r $INSTDIR)照样删。
+; track opendesign-data-outside-install 把它们搬到了 $LOCALAPPDATA\${APP}\Data 之后,
+; 这句才成立。**改这句之前先确认实现真的搬完了**(判据 tests/test_data_root.py)。
+!define MUI_UNCONFIRMPAGE_TEXT_TOP "如果 ${APP} 正在运行,请先在右下角托盘图标上点“退出”,再继续卸载。$\r$\n$\r$\n你的项目档案、参考图库、和助手的对话、工作区设置都放在别处,默认不会被删除。$\r$\n你自己的设计文件(CAD/SU/效果图)本来就在你自己的文件夹里,卸载完全不碰。"
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_COMPONENTS
 !insertmacro MUI_UNPAGE_INSTFILES
@@ -287,5 +291,5 @@ SectionEnd
 
 !insertmacro MUI_UNFUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SecUnMain} "卸载 ${APP} 程序本体(你的资料不会被删)。"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecUnData} "连同备忘、对话记录、工作区设置一起删掉。删了就找不回来了。"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecUnData} "连同项目档案、参考图库、对话记录、工作区设置一起删掉。删了就找不回来了。(你自己的设计文件不在这儿,不受影响。)"
 !insertmacro MUI_UNFUNCTION_DESCRIPTION_END
