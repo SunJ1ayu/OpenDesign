@@ -88,18 +88,49 @@ def lock_sockopts(platform: str) -> list[tuple[str, int]]:
     return []
 
 
+# 锁通道的线上协议。**公开常量,因为 ds_web 也要发这个帧** ——
+# 两处各抄一份的代价我付过(见 ports_for 那段注释),这里只留一个真相源。
+LOCK_HELLO = b"OpenDesign.ds_shell_core.lock.v1\n"
+LOCK_SHOW = b"SHOW\n"
+LOCK_RESTART = b"RESTART-BACKEND\n"     # 业主填完 key ⇒ 网关得重来一次才认新 env
+LOCK_OK = b"OK\n"
+
+
+def recv_line(sock: socket.socket, deadline: float, limit: int = 4096) -> bytes:
+    """读到第一个换行为止(不含换行);超时或对端关闭就返回已经读到的。
+
+    模块级是因为 ds_web 那侧发完重启帧也要读这一行应答 —— 收发行的规矩只留一份。
+    """
+    buf = b""
+    while b"\n" not in buf and len(buf) < limit:
+        remain = deadline - time.monotonic()
+        if remain <= 0:
+            break
+        sock.settimeout(remain)
+        try:
+            chunk = sock.recv(limit)
+        except OSError:
+            break
+        if not chunk:
+            break
+        buf += chunk
+    return buf.split(b"\n", 1)[0]
+
+
 class InstanceLock:
-    _HELLO = b"OpenDesign.ds_shell_core.lock.v1\n"
-    _SHOW = b"SHOW\n"
-    _OK = b"OK\n"
+    _HELLO = LOCK_HELLO
+    _SHOW = LOCK_SHOW
+    _RESTART = LOCK_RESTART
+    _OK = LOCK_OK
 
     port: int | None
     _sock: socket.socket | None
 
-    def __init__(self, base_port: int, span: int = 5, on_show=None):
+    def __init__(self, base_port: int, span: int = 5, on_show=None, on_restart=None):
         self.base_port = int(base_port)
         self.span = int(span)
         self.on_show = on_show
+        self.on_restart = on_restart
         self.port = None
         self._sock = None
         self._thread: threading.Thread | None = None
@@ -204,23 +235,7 @@ class InstanceLock:
         except OSError:
             return False
 
-    @staticmethod
-    def _recv_line(sock: socket.socket, deadline: float, limit: int = 4096) -> bytes:
-        """读到第一个换行为止(不含换行);超时或对端关闭就返回已经读到的。"""
-        buf = b""
-        while b"\n" not in buf and len(buf) < limit:
-            remain = deadline - time.monotonic()
-            if remain <= 0:
-                break
-            sock.settimeout(remain)
-            try:
-                chunk = sock.recv(limit)
-            except OSError:
-                break
-            if not chunk:
-                break
-            buf += chunk
-        return buf.split(b"\n", 1)[0]
+    _recv_line = staticmethod(recv_line)
 
     def _serve(self) -> None:
         # 捞一份本地引用:release() 会把 self._sock 置 None,再用 self._sock 就是 AttributeError。
@@ -243,19 +258,55 @@ class InstanceLock:
             threading.Thread(target=self._handle, args=(conn,),
                              name="ds-shell-lock-conn", daemon=True).start()
 
+    @classmethod
+    def _recv_frame(cls, sock: socket.socket, deadline: float,
+                    settle: float = 0.35, limit: int = 4096) -> tuple[bytes, bytes]:
+        """读一整帧:第一行 HELLO,第二行动词(**可能没有**)。
+
+        🔴 为什么不能连着调两次 `_recv_line`:那个函数每次都从 socket 重新读,
+        **把同一个包里多出来的部分丢掉**。而 HELLO 和动词几乎总在同一个包里到达
+        ⇒ 分两次读会把动词连缓冲一起扔了,然后干等第二行到超时。
+
+        只发了 HELLO 的老实例(以及升级瞬间还在跑的那份)必须照常工作:
+        第一行到手后只再宽限 `settle`,拿不到动词就按"没有动词"处理。
+        """
+        buf = b""
+        grace: float | None = None
+        while len(buf) < limit and buf.count(b"\n") < 2:
+            now = time.monotonic()
+            if buf.count(b"\n") >= 1 and grace is None:
+                grace = now + settle
+            remain = (min(deadline, grace) if grace is not None else deadline) - now
+            if remain <= 0:
+                break
+            sock.settimeout(remain)
+            try:
+                chunk = sock.recv(limit)
+            except OSError:
+                break
+            if not chunk:
+                break
+            buf += chunk
+        parts = buf.split(b"\n")
+        return parts[0], (parts[1] if len(parts) > 1 else b"")
+
     def _handle(self, conn: socket.socket) -> None:
+        verb = b""
         with conn:
             try:
-                line = self._recv_line(conn, deadline=time.monotonic() + 2.0)
-                if not line.startswith(self._HELLO.strip()):
+                head, verb = self._recv_frame(conn, deadline=time.monotonic() + 2.0)
+                if not head.startswith(self._HELLO.strip()):
                     return
                 if self._released.is_set():
                     return
                 conn.sendall(self._OK)
             except OSError:
                 return
-        if self.on_show is not None:
-            self.on_show()
+        # 动词分派。**认不出的一律退回 SHOW**:重启会掐断他正在进行的对话,
+        # 而把窗口叫到前台最多是打扰一下 ⇒ 拿不准时选那个不伤人的。
+        cb = self.on_restart if verb.strip() == self._RESTART.strip() else self.on_show
+        if cb is not None:
+            cb()
 
 
 @dataclass
@@ -311,6 +362,47 @@ class Supervisor:
             # 接不住就把已经起好的腿丢在那儿变成孤儿(业主下次打开撞端口,还查不出是谁)。
             self.shutdown()
             raise
+
+    def restart(self, services: list[Service]) -> None:
+        """把点名的几条腿换成新的(通常只是换了 env),**其余腿一动不动**。
+
+        业主填完 key 之后要走的就是这条路:网关只在启动时读一次环境变量,
+        不换一个新进程就永远认不到新 key。而 ds-web **不能**跟着换 ——
+        他正看着的那个页面就是 ds-web 发的。
+
+        与 `start()` 的差别是故意的,别照抄那边:start 半路失败会把已起的全停掉
+        (半拉子启动没有意义);这里失败**不许连坐** —— 界面没有理由陪葬,
+        而且他得看得见"重启失败"这句话。
+        """
+        names = {s.name for s in services}
+        old = [c for c in self._children if c.service.name in names]
+        for child in old:
+            self._terminate_tree(child)
+        deadline = time.monotonic() + 4.0
+        while time.monotonic() < deadline:
+            if all(c.proc.poll() is not None for c in old):
+                break
+            time.sleep(0.05)
+        self._children = [c for c in self._children if c not in old]
+
+        for svc in services:
+            # 端口得**真的还回来**再起新的。少这一步,新进程 bind 失败,
+            # 而业主看到的症状是"点了保存,什么也没发生"。
+            port_deadline = time.monotonic() + 5.0
+            while not port_free(int(svc.ready_port)):
+                if time.monotonic() > port_deadline:
+                    raise StartupFailed(
+                        f"{svc.name} 的端口 {svc.ready_port} 一直没释放,没能重启")
+                time.sleep(0.05)
+            child = self._spawn(svc)
+            self._children.append(child)
+            try:
+                self._wait_ready(child)
+            except BaseException:
+                # 只收自己这一条,别动别人(上面那段 docstring 的"不连坐"就在这儿落地)
+                self._terminate_tree(child)
+                self._children = [c for c in self._children if c is not child]
+                raise
 
     def shutdown(self) -> None:
         with self._shutdown_lock:
@@ -783,6 +875,8 @@ def child_env(
     dsweb_port: int,
     ws_port: int,
     key: str | None = None,
+    key_var: str | None = None,
+    lock_port: int | None = None,
 ) -> dict:
     env: dict[str, str] = {}
     for k, v in base_env.items():
@@ -803,8 +897,17 @@ def child_env(
             "PYTHONIOENCODING": "utf-8",
         }
     )
+    if lock_port:
+        # ds-web 拿它去请外壳重启网关(业主填完 key 那一下)。没有锁就**什么都不留** ——
+        # 留个假号的话 ds-web 会拿它去连别人。
+        env["DS_SHELL_LOCK_PORT"] = str(lock_port)
     if key:
-        env["DS_LLM_KEY"] = str(key)
+        # 变量名从配置的 apiKey 引用里读(ds_credential.env_var_name),**不许写死**:
+        # Linux 那份引用的就是 ${MIMO_TP_KEY}。忘了传就抛 —— 悄悄退回一个默认名的话,
+        # 症状是"填了 key 还是不能聊天",最难往这儿查。
+        if not key_var:
+            raise ValueError("有 key 却没说该设哪个环境变量(从配置的 apiKey 引用里读)")
+        env[str(key_var)] = str(key)
     return env
 
 

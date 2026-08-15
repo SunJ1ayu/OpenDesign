@@ -30,6 +30,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import ds_common  # noqa: E402
+import ds_credential  # noqa: E402  变量名从配置的 apiKey 引用里读,不许写死
 import ds_shell_core as core  # noqa: E402
 
 APP = "OpenDesign"
@@ -137,8 +138,14 @@ def tray_image():
 
 
 # ---------------------------------------------------------------- 主流程
-def start_backend(home: Path):
-    """挑端口 → 改配置 → 拉起两条腿。返回 (supervisor, web_port)。"""
+def start_backend(home: Path, lock_port: int | None = None):
+    """挑端口 → 改配置 → 按计划拉起后台。返回 (supervisor, web_port, restart_gateway)。
+
+    **缺 key 不再是死路**(track opendesign-key-onboarding):界面无条件起,
+    网关等着 —— 业主要在界面里填 key,而那个界面正是 ds-web 发的。
+    填完之后 ds-web 通过锁通道回来叫 `restart_gateway`。
+    这一层只剩接线,"起哪几条"由 core.startup_plan 判(判据 d1/d2 咬着)。
+    """
     cfg = home / ".nanobot" / "config.json"
     if not cfg.exists():
         die(f"还没装好:找不到配置文件\n{cfg}\n\n请重新运行安装程序。")
@@ -157,8 +164,22 @@ def start_backend(home: Path):
     except OSError as e:
         die(f"写配置失败:{e}")
 
-    env = core.child_env(dict(os.environ), ds_root=str(install_root() / "ds"),
-                         user_home=str(home), dsweb_port=web, ws_port=ws, key=read_key(home))
+    def build_env():
+        """每次都**现读** key 和配置:重启网关那一下走的就是这里,
+        读到的必须是业主刚填进去的那份,不是启动时缓存的。"""
+        key = read_key(home)
+        key_var = None
+        if key:
+            try:
+                with cfg.open("r", encoding="utf-8") as f:
+                    key_var = ds_credential.env_var_name(json.load(f))
+            except (OSError, ValueError, ds_credential.CredentialError) as e:
+                die(f"配置里没写清楚 key 该放进哪个变量({e})。\n\n请重新运行安装程序。")
+        return key, core.child_env(
+            dict(os.environ), ds_root=str(install_root() / "ds"), user_home=str(home),
+            dsweb_port=web, ws_port=ws, key=key, key_var=key_var, lock_port=lock_port)
+
+    key, env = build_env()
 
     # 🔴 08-14 业主真机红出来的那一条,别再写回去:
     # 上一版这里只 log 一句「没找到 key.txt,聊天会连不上大模型」就继续往下走,理由是
@@ -167,15 +188,20 @@ def start_backend(home: Path):
     # 于是业主等来的是网关的一句英文 `Environment variable … is not set`。
     # (tests/test_ds_shell_core.py H5 真起了一次网关把这件事钉死,别再靠注释。)
     # 所以现在:起任何后台之前先扫一遍配置,缺什么当场说清楚、说该往哪儿放。
-    try:
-        with cfg.open("r", encoding="utf-8") as f:
-            missing = core.missing_env_refs(json.load(f), env)
-    except (OSError, ValueError) as e:
-        die(f"配置读不出来:{e}\n\n请重新运行安装程序。")
-    # 说什么话在 core 里(判据 H6~H9 咬着);这一层只剩"有就弹"。
-    trouble = core.missing_env_message(missing, app=APP, key_path=str(key_file(home)))
-    if trouble:
-        die(trouble)
+    plan = core.startup_plan(has_key=bool(key))
+
+    # 缺 key **不再是错误**,是"该去填了" ⇒ 只有真要起网关时才拦缺变量。
+    # (没有这个 if,业主永远走不到引导页:网关会死在缺变量上,而这一层直接 die。)
+    if "网关" in plan["start"]:
+        try:
+            with cfg.open("r", encoding="utf-8") as f:
+                missing = core.missing_env_refs(json.load(f), env)
+        except (OSError, ValueError) as e:
+            die(f"配置读不出来:{e}\n\n请重新运行安装程序。")
+        # 说什么话在 core 里(判据 H6~H9 咬着);这一层只剩"有就弹"。
+        trouble = core.missing_env_message(missing, app=APP, key_path=str(key_file(home)))
+        if trouble:
+            die(trouble)
 
     # 🔴 迁移必须在**起任何服务之前**(判据 h3)。网关是第一个起来的,它带着三个 MCP
     # 工具服务;老版本装过的机器上,档案还躺在安装目录里,而新的数据根是空的 ——
@@ -191,22 +217,49 @@ def start_backend(home: Path):
             f"把这段发给我看看 —— 东西还在原处,没有丢。")
 
     logs = Path(os.environ.get("LOCALAPPDATA", Path.home())) / APP / "Logs"
+
+    def gateway_service(e):
+        return core.Service(name="网关", argv=[str(python_exe()), "-m", "nanobot", "gateway"],
+                            env=e, ready_port=ws, log_path=logs / "网关.log",
+                            # 冷启动要连 3 个 MCP 子进程,S0 真机上见过接近 4 分钟
+                            ready_timeout=300)
+
+    def web_service(e):
+        return core.Service(name="工作台", argv=[str(python_exe()),
+                                                 str(install_root() / "ds" / "bin" / "ds_web.py")],
+                            env=e, ready_port=web, log_path=logs / "工作台.log",
+                            ready_timeout=60)
+
+    # plan 里那两个名字是 core 的说法("ds-web"/"网关");Service 名是业主看得见的
+    # 中文名("工作台"),watchdog 和报错都用它。别把两套名字混着用。
+    services = ([gateway_service(env)] if "网关" in plan["start"] else []) + [web_service(env)]
+
     sup = core.Supervisor()
     try:
-        sup.start([
-            core.Service(name="网关", argv=[str(python_exe()), "-m", "nanobot", "gateway"],
-                         env=env, ready_port=ws, log_path=logs / "网关.log",
-                         # 冷启动要连 3 个 MCP 子进程,S0 真机上见过接近 4 分钟
-                         ready_timeout=300),
-            core.Service(name="工作台", argv=[str(python_exe()),
-                                              str(install_root() / "ds" / "bin" / "ds_web.py")],
-                         env=env, ready_port=web, log_path=logs / "工作台.log",
-                         ready_timeout=60),
-        ])
+        sup.start(services)
     except core.StartupFailed as e:
         sup.shutdown()
         die(f"{APP} 没能启动。\n\n{e}\n\n详细日志:{logs}")
-    return sup, web
+
+    def restart_gateway():
+        """业主在界面里填完 key ⇒ ds-web 通过锁通道叫到这里。
+
+        **现读**一遍 key 和配置(build_env 就是干这个的),把网关换成新进程;
+        界面那条腿一动不动 —— 他正看着的页面就是它发的。
+        """
+        k, fresh = build_env()
+        if not k:
+            log("[重启网关] 收到请求,但 key.txt 还是空的 —— 不动")
+            return
+        try:
+            sup.restart([gateway_service(fresh)])
+            log("[重启网关] 完成")
+        except Exception as exc:      # 回调跑在锁的线程里:炸出去会把那条线程带走
+            log(f"[重启网关] 失败:{exc}")
+            alert(f"key 已经存好了,但后台没能自己重启:\n{exc}\n\n"
+                  f"请退出 {APP} 再打开一次。")
+
+    return sup, web, restart_gateway
 
 
 class Shell:
@@ -285,9 +338,13 @@ def main() -> int:
     shell_holder: list[Shell] = []
 
     # ① 单实例。第二次双击走到这里就退出了,窗口由第一份自己叫到前台。
+    #    这把锁同时是 ds-web 回来找我们的**唯一通道**(填完 key 请求重启网关)——
+    #    所以它必须在起后台之前就位:锁端口要随 env 交给 ds-web。
+    restart_holder: list = []
     lock = core.InstanceLock(
         base_port=LOCK_PORT, span=5,
-        on_show=lambda: shell_holder and shell_holder[0].state.on_show())
+        on_show=lambda: shell_holder and shell_holder[0].state.on_show(),
+        on_restart=lambda: restart_holder and restart_holder[0]())
     try:
         if not lock.acquire():
             log("已有一份在跑,把它叫到前台,自己退出")
@@ -297,7 +354,8 @@ def main() -> int:
 
     try:
         home = user_home()
-        sup, web = start_backend(home)
+        sup, web, restart_gateway = start_backend(home, lock_port=lock.port)
+        restart_holder.append(restart_gateway)
         shell = Shell(sup, web, lock)
         shell_holder.append(shell)
 

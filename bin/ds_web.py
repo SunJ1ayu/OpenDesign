@@ -65,7 +65,9 @@ import hashlib
 import json
 import os
 import re
+import socket
 import sys
+import time
 import traceback
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -79,6 +81,7 @@ import ds_model
 import ds_openfolder
 import ds_organize  # 针孔④ approve+apply 直调核心(锁/复验/审计全在核心)
 import ds_refs
+import ds_shell_core     # 只取锁通道的协议常量与读行:帧格式两处各抄一份迟早对不上
 import ds_taxonomy
 import ds_todo
 import ds_tools
@@ -169,14 +172,28 @@ def _read_model():
     except Exception:
         return None
 def ds_shell_bridge_restart() -> str:
-    """请外壳重启网关。**本函数现在只回 "manual"** —— 通道还没接上。
+    """请外壳重启网关(网关只在启动时读一次 env,不重来就认不到新 key)。
 
-    🔴 之所以先留这个形状而不是直接写"已重启":判据 h2 只问"有没有说清接下来
-    会发生什么",而**"重启成功了"这句话我现在没有证据**。宁可让业主看到
-    「配置好了,请重启一下程序」,也不要一句会撒谎的"已生效"。
-    通道接上后这里改成真的发消息,并由那时的判据咬住。
+    走**外壳单实例锁那条已有的通道**:不新开端口、不新造 IPC(design 第三节)。
+    外壳把锁端口写在 `DS_SHELL_LOCK_PORT` 里交给我们(ds_shell_core.child_env)。
+
+    🔴 这个函数的全部难点是**不许撒谎**:回 "requested" 就意味着帧真的送到了外壳
+    并且它认了。任何一步不确定 —— 没有外壳、端口上没人、占着那个号的是别的程序、
+    它不吭声 —— 一律回 "manual",前端就说「配置好了,请重启一下程序」。
+    宁可让他多点一下,也不要一句会撒谎的"已生效"。
+    (git-pull 那两台本来就没有外壳,走的正是 manual 这条路。)
     """
-    return "manual"
+    raw = (os.environ.get("DS_SHELL_LOCK_PORT") or "").strip()
+    if not raw.isdigit():
+        return "manual"
+    try:
+        with socket.create_connection(("127.0.0.1", int(raw)), timeout=3) as s:
+            s.sendall(ds_shell_core.LOCK_HELLO + ds_shell_core.LOCK_RESTART)
+            reply = ds_shell_core.recv_line(s, deadline=time.monotonic() + 3)
+    except (OSError, ValueError):
+        return "manual"
+    # 只有对上暗号才算数:端口是全机器共用的,占着那个号的完全可能是别的程序。
+    return "requested" if reply == ds_shell_core.LOCK_OK.strip() else "manual"
 
 
 def _gateway_password() -> str | None:
