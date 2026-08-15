@@ -157,11 +157,24 @@ class TestInstallDirIsReadOnly(Rig):
         self.assertEqual(changed, [], f"业主的东西写进了安装目录(卸载会删掉它们):{changed}")
 
     def test_a3_the_writes_actually_landed_somewhere(self):
-        """双向验:上面那条不能靠"什么都没写"过关。"""
+        """双向验:上面那条不能靠"什么都没写"过关。
+
+        ⚠️ 第一版只问"有没有一个 projects 文件" —— 攻题腿点破:
+        `append_change` / `log_communication` / `set_stage` / `delete_project`
+        全都返回 `{"ok": True}` 但不落盘,a2/a3/b3 照样绿,而**业主的变更记录静默全丢**。
+        ⇒ 这条现在读内容,不只数文件。
+        """
         self.exercise_writes()
         landed = tree_hash(self.data_root)
         self.assertTrue(any(k.startswith("projects") for k in landed),
                         f"数据根里没有档案,那 a2 的绿是假的:{sorted(landed)}")
+        doc = open(os.path.join(self.data_root, "projects", "星河名邸-2302.md"),
+                   encoding="utf-8").read()
+        self.assertIn("客厅改推拉门", doc, "变更记录空转了(写口返回 ok 但没落盘)")
+        self.assertIn("太太确认", doc, "沟通日志空转了")
+        self.assertIn("方案深化", doc, "阶段没写进去")
+        self.assertTrue(os.path.isdir(os.path.join(self.data_root, "projects", ".trash")),
+                        "删除项目没走数据根下的回收站")
 
 
 class TestDefaultUnchanged(Rig):
@@ -241,6 +254,27 @@ class TestFailClosed(Rig):
         after = tree_hash(self.ds_root)
         changed = sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k))
         self.assertEqual(changed, [], f"数据根坏掉时回退写进了安装目录:{changed}")
+
+
+    def test_c4_env_pointing_inside_the_install_dir_is_refused(self):
+        """攻题腿第 4 条:c1~c3 都拿**一个文件**当坏 env。若 `DS_DATA_ROOT` 被设成
+        安装目录里的一个**合法目录**,按"是不是目录"的契约它照收 ⇒ 数据写回安装目录、卸载删。
+        数据根的定义里就该有"必须在安装目录之外"。"""
+        inside = os.path.join(self.ds_root, "data")
+        os.makedirs(inside, exist_ok=True)
+        os.environ[ENV_VAR] = inside
+        with self.assertRaises(ds_common.DataRootError):
+            ds_common.data_root(self.ds_root)
+
+    def test_c5_an_empty_env_value_is_not_treated_as_unset(self):
+        """攻题腿第 5 条 —— **"缺席被当成通过"家族的第四个**,我请它专门找的就是这个。
+
+        `os.environ.get(K) or ds_root` 这种懒写法把空串当"没设",于是子进程静默
+        退回写安装目录。空串是**设错了**,不是没设 ⇒ 必须 fail closed。
+        """
+        os.environ[ENV_VAR] = ""
+        with self.assertRaises(ds_common.DataRootError):
+            ds_common.data_root(self.ds_root)
 
 
 class TestShellPassesTheEnv(Rig):
@@ -337,6 +371,20 @@ class TestReadOnlyUserData(Rig):
         self.assertTrue(os.path.isfile(os.path.join(self.data_root, "refs-index.md")),
                         "图片搬走了,索引还留在安装目录")
 
+    def test_f4_a_hand_edited_taxonomy_is_read_from_the_data_root(self):
+        """攻题腿第 7 条:本文件开头点名了 `config/taxonomy.json` 是"只读的用户数据",
+        F 组却只测了 refs。`ds_taxonomy.load_taxonomy` 若仍从安装目录读用户表,
+        业主手工改的分类规则卸载即失。"""
+        import ds_taxonomy
+        cfg = os.path.join(self.data_root, "config")
+        os.makedirs(cfg, exist_ok=True)
+        overlay = {"categories": [{"id": "我自己加的类目", "scope": "workspace",
+                                   "dir": "09-我的", "extensions": [".xyz"], "mode": "auto"}]}
+        with open(os.path.join(cfg, "taxonomy.json"), "w", encoding="utf-8") as fh:
+            json.dump(overlay, fh, ensure_ascii=False)
+        got = json.dumps(ds_taxonomy.load_taxonomy(self.ds_root), ensure_ascii=False)
+        self.assertIn("我自己加的类目", got, "业主手工放在数据根的分类表没被读到")
+
     def test_f2_an_image_left_in_the_install_dir_is_not_the_supported_home(self):
         """反面:安装目录里的图片不该被当成图库正主(它会被卸载删掉)。"""
         refs = os.path.join(self.ds_root, "refs")
@@ -353,9 +401,15 @@ class TestLegacyMigration(Rig):
     """G 组:已经产生过数据的机器,升级之后不许"看起来数据没了"。"""
 
     def test_g1_legacy_data_moves_into_the_data_root(self):
+        """⚠️ 第一版只断言 `projects/老项目-1801.md` 一个文件 —— 攻题腿点破:
+        实现只搬 projects 一种,`refs/老图.png`、`index.md` 全留在安装目录,
+        g1/g2/g3 照样全绿而卸载把它们删光。**迁移的完整性必须逐条问。**"""
         ds_common.migrate_legacy_data(self.ds_root)
-        self.assertTrue(os.path.isfile(os.path.join(self.data_root, "projects", "老项目-1801.md")),
-                        "遗留档案没搬过来")
+        for rel in (os.path.join("projects", "老项目-1801.md"),
+                    os.path.join("refs", "老图.png"),
+                    "index.md"):
+            self.assertTrue(os.path.isfile(os.path.join(self.data_root, rel)),
+                            f"遗留数据没搬过来:{rel}(卸载会删掉它)")
 
     def test_g2_never_overwrites_something_already_there(self):
         p = os.path.join(self.data_root, "projects", "老项目-1801.md")
@@ -394,13 +448,24 @@ class TestStaticGate(unittest.TestCase):
 
     @staticmethod
     def _is_ds_root(node, aliases):
+        """认得出"这个表达式就是安装目录"。
+
+        攻题腿(subdeepseek)指出第一版只认 Name/Attribute,以下全漏:
+        `os.sep.join([ds_root, …])`(第一个参数是 List)、`f"{ds_root}/projects"`、
+        `open(f"{ds_root}/x.md","w")`。⇒ 这里认 List/Tuple 的元素和 f-string 的插值。
+        """
         import ast
         if isinstance(node, ast.Name):
             return node.id == "ds_root" or node.id in aliases
         if isinstance(node, ast.Attribute):
             return node.attr == "ds_root"
+        if isinstance(node, (ast.List, ast.Tuple)):
+            return any(TestStaticGate._is_ds_root(e, aliases) for e in node.elts)
         if isinstance(node, ast.Starred):
-            return False
+            return TestStaticGate._is_ds_root(node.value, aliases)
+        if isinstance(node, ast.JoinedStr):        # f"{ds_root}/projects"
+            return any(TestStaticGate._is_ds_root(v.value, aliases)
+                       for v in node.values if isinstance(v, ast.FormattedValue))
         return False
 
     def test_h1_no_module_builds_data_paths_on_ds_root(self):
@@ -413,40 +478,64 @@ class TestStaticGate(unittest.TestCase):
             src = open(path, encoding="utf-8").read()
             tree = ast.parse(src, filename=fn)
 
-            # 别名:`root = ds_root` 之后 root 也算(M2)
+            # 别名:`root = ds_root` 之后 root 也算(M2);函数默认参数同理(攻题腿补的)
             aliases = set()
             for n in ast.walk(tree):
                 if isinstance(n, ast.Assign) and len(n.targets) == 1 \
                         and isinstance(n.targets[0], ast.Name) \
                         and isinstance(n.value, ast.Name) and n.value.id == "ds_root":
                     aliases.add(n.targets[0].id)
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    args = n.args
+                    for a, d in zip(args.args[-len(args.defaults):] if args.defaults else [],
+                                    args.defaults):
+                        if isinstance(d, ast.Name) and d.id == "ds_root":
+                            aliases.add(a.arg)
 
             for n in ast.walk(tree):
-                # os.path.join(ds_root, …) / Path(ds_root)
+                # os.path.join(ds_root, …) / os.sep.join([ds_root, …]) / Path(ds_root)
                 if isinstance(n, ast.Call):
                     f = n.func
                     joinish = (isinstance(f, ast.Attribute) and f.attr == "join") or \
                               (isinstance(f, ast.Name) and f.id == "Path")
                     if joinish and n.args and self._is_ds_root(n.args[0], aliases):
                         offenders.append(f"{fn}:{n.lineno}")
+                    # open(f"{ds_root}/x.md", "w") —— 连 join 都不经过
+                    if isinstance(f, ast.Name) and f.id == "open" and n.args \
+                            and self._is_ds_root(n.args[0], aliases):
+                        offenders.append(f"{fn}:{n.lineno}")
                 # ds_root / "projects"
                 if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Div) \
                         and self._is_ds_root(n.left, aliases):
+                    offenders.append(f"{fn}:{n.lineno}")
+                # f"{ds_root}/…" 直接当路径用(赋值右边就算)
+                if isinstance(n, ast.JoinedStr) and self._is_ds_root(n, aliases):
                     offenders.append(f"{fn}:{n.lineno}")
         self.assertEqual(sorted(set(offenders)), [],
                          "这些地方还把业主的东西往安装目录里拼(应走 data_root):\n  "
                          + "\n  ".join(sorted(set(offenders))))
 
-    def test_h2_migration_is_actually_wired_into_a_startup_path(self):
-        """🔴 我自攻 M1(本文件最容易造出的假绿):G 组**直接调**迁移函数 ——
-        实现只要把函数写出来就全绿,而真机上没有任何启动路径叫它 ⇒
-        业主升级后档案还留在旧目录,下次卸载照样没。"""
+    def test_h2_migration_is_actually_called_not_just_mentioned(self):
+        """🔴 我自攻 M1 + 攻题腿的第 1 条:G 组**直接调**迁移函数 ——
+        实现只要把函数写出来就全绿,而真机上没有任何启动路径叫它。
+
+        ⚠️ 第一版这条查的是**字符串出现**,攻题腿当场点破:在 `ds_shell.py` 里加一句
+        注释 `# 记得调 migrate_legacy_data` 就能喂饱它 —— **把门槛从"函数存在"抬到
+        "字符串出现",门还是没关上**。现在查 AST 里真的有一次 `Call`。
+        """
+        import ast
         callers = []
         for fn in ("ds_web.py", "ds_shell.py", "ds_shell_core.py", "ds_mcp.py"):
             path = os.path.join(ROOT, "bin", fn)
-            if os.path.isfile(path) and "migrate_legacy_data" in open(path, encoding="utf-8").read():
-                callers.append(fn)
-        self.assertTrue(callers, "没有任何启动路径调用 migrate_legacy_data —— "
+            if not os.path.isfile(path):
+                continue
+            for n in ast.walk(ast.parse(open(path, encoding="utf-8").read(), filename=fn)):
+                if isinstance(n, ast.Call):
+                    f = n.func
+                    name = f.attr if isinstance(f, ast.Attribute) else getattr(f, "id", "")
+                    if name == "migrate_legacy_data":
+                        callers.append(f"{fn}:{n.lineno}")
+        self.assertTrue(callers, "没有任何启动路径**真的调用** migrate_legacy_data —— "
                                  "迁移函数写了也白写,G 组那三条绿是假的")
 
 
