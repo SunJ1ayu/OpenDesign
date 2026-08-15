@@ -16,7 +16,7 @@ cd "$(dirname "$0")/.."
 PY="${PY:-/root/.venvs/design-studio/bin/python}"
 ORACLE=tests/test_data_root.py
 WORK="$(mktemp -d)"
-SRCS=(bin/ds_common.py bin/ds_shell_core.py bin/ds_tools.py bin/ds_taxonomy.py bin/ds_refs.py)
+SRCS=(bin/ds_common.py bin/ds_shell_core.py bin/ds_tools.py bin/ds_taxonomy.py bin/ds_refs.py bin/ds_web.py)
 
 declare -A BEFORE
 for s in "${SRCS[@]}"; do
@@ -106,9 +106,31 @@ mutate_and_expect M7 test_g4_the_unknown_report_is_not_drowned_in_code bin/ds_co
 
 # M8 外壳不把数据根传给子进程 ⇒ 三个 MCP 与 ds-web 全都回到老行为
 mutate_and_expect M8 test_d1_child_env_carries_the_data_root bin/ds_shell_core.py \
-  '            "DS_DATA_ROOT": os.path.join(
-                os.path.dirname(os.path.realpath(user_home)), "Data"),' \
+  '            "DS_DATA_ROOT": data_root_for(str(user_home)),' \
   ''
+
+# M12 三个 MCP 的 env 不注入 ⇒ 聊天侧全部读写回安装目录(四审 subkimi 的 BLOCK)
+mutate_and_expect M12 test_d4_the_three_mcp_servers_get_the_data_root_too bin/ds_shell_core.py \
+  '        if data_root:
+            servers[name].setdefault("env", {})[ds_common.DATA_ROOT_ENV] = str(data_root)' \
+  '        if False:
+            servers[name].setdefault("env", {})[ds_common.DATA_ROOT_ENV] = str(data_root)'
+
+# M13 跨卷退回"直接失败" ⇒ 装在别的盘的机器升级后永久打不开
+mutate_and_expect M13 test_g5_a_cross_volume_install_still_migrates bin/ds_common.py \
+  '            if exc.errno != errno.EXDEV:
+                raise' \
+  '            raise'
+
+# M14 不写迁移记录 ⇒ canary 那张网没接电(两腿同时点名)
+mutate_and_expect M14 test_g6_the_report_reaches_a_place_the_owner_can_see bin/ds_common.py \
+  '    _write_migration_note(target_root, report)' \
+  '    pass'
+
+# M15 工作台的项目列表读回安装目录 ⇒ 装出来之后"项目全没了"(四审 subdeepseek 的 BLOCK)
+mutate_and_expect M15 test_h1_no_module_builds_data_paths_on_ds_root bin/ds_web.py \
+  '            proj_dir = os.path.realpath(os.path.join(ds_common.data_root(root), "projects"))' \
+  '            proj_dir = os.path.realpath(os.path.join(root, "projects"))'
 
 # M9 拆掉工作区重叠拦截 ⇒ 业主可以把项目夹设在会被删的地方
 mutate_and_expect M9 test_e1_refuses_the_install_dir_itself bin/ds_tools.py \
@@ -132,6 +154,6 @@ for s in "${SRCS[@]}"; do
   now="$(sha256sum "$s" | cut -d' ' -f1)"
   [ "$now" = "${BEFORE[$s]}" ] || { echo "🔴 $s 没还原干净"; bad=1; }
 done
-[ "$bad" -eq 0 ] && echo "被测文件全部原样还回(5 个文件哈希一致)"
+[ "$bad" -eq 0 ] && echo "被测文件全部原样还回(6 个文件哈希一致)"
 echo "== 红检结束:咬住 $pass 条,漏网 $fail 条 =="
 [ "$fail" -eq 0 ] && [ "$bad" -eq 0 ] && exit 0 || exit 1
