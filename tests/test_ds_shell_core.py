@@ -365,6 +365,61 @@ class SingleInstance(unittest.TestCase):
             self.assertEqual(s.recv(32), core.InstanceLock._OK, "分片握手没被认出来")
         self.assertTrue(woken.wait(5), "分片握手回了 OK,却没把窗口叫到前台")
 
+    # ---- 动词分派(track opendesign-key-onboarding T3)----------------------
+    # 业主在界面里填完 key,网关必须重来一次才认(它只在启动时读一次 env)。
+    # 通道**复用这把锁**:不新开端口、不新造 IPC(design 第三节)。
+    # 🔴 今天 _handle 只读第一行就回 OK ——**第二行 SHOW 从来没被读过**,
+    # "协议里有个动词"一直只是我以为。加动词之前先把这三条钉住。
+
+    def _send_frame(self, port: int, verb: bytes) -> bytes:
+        with socket.create_connection(("127.0.0.1", port), timeout=5) as s:
+            s.settimeout(5)
+            s.sendall(core.InstanceLock._HELLO + verb)
+            return s.recv(32)
+
+    def test_b11_the_restart_verb_restarts_and_does_not_raise_the_window(self):
+        """业主点"保存 key"时不该顺带被弹一个窗口到前台 —— 他人就在窗口里。"""
+        base = free_port()
+        shown, restarted = threading.Event(), threading.Event()
+        lock = core.InstanceLock(base_port=base, span=5,
+                                 on_show=shown.set, on_restart=restarted.set)
+        self.addCleanup(lock.release)
+        self.assertTrue(lock.acquire())
+
+        self.assertEqual(self._send_frame(lock.port, b"RESTART-BACKEND\n"),
+                         core.InstanceLock._OK, "重启动词没被认出来")
+        self.assertTrue(restarted.wait(5), "发了重启动词,后端却没被叫起来")
+        self.assertFalse(shown.wait(0.5), "重启顺带把窗口弹到了前台 —— 他正在里面填 key")
+
+    def test_b12_a_frame_without_a_verb_still_means_show(self):
+        """兼容:今天在跑的那份(以及任何只发 HELLO 的老实例)必须照旧唤醒窗口。
+        **加动词不许把双击图标弄坏** —— 那是这把锁本来的活。"""
+        base = free_port()
+        shown, restarted = threading.Event(), threading.Event()
+        lock = core.InstanceLock(base_port=base, span=5,
+                                 on_show=shown.set, on_restart=restarted.set)
+        self.addCleanup(lock.release)
+        self.assertTrue(lock.acquire())
+
+        self.assertEqual(self._send_frame(lock.port, b""), core.InstanceLock._OK)
+        self.assertTrue(shown.wait(5), "没有动词的老握手不再唤醒窗口了 ⇒ 双击图标没反应")
+        self.assertFalse(restarted.is_set(), "没有动词却重启了后端 —— 聊天会平白断一次")
+
+    def test_b13_an_unknown_verb_never_means_restart(self):
+        """陌生动词退回 SHOW(**不是**重启)。重启会掐断聊天 ⇒ 拿不准时选那个不伤人的。"""
+        base = free_port()
+        shown, restarted = threading.Event(), threading.Event()
+        lock = core.InstanceLock(base_port=base, span=5,
+                                 on_show=shown.set, on_restart=restarted.set)
+        self.addCleanup(lock.release)
+        self.assertTrue(lock.acquire())
+
+        self.assertEqual(self._send_frame(lock.port, b"RESTART\n"), core.InstanceLock._OK,
+                         "认不出的动词不该把连接搞崩")
+        self.assertTrue(shown.wait(5))
+        self.assertFalse(restarted.is_set(),
+                         "'RESTART' 这种近似词被当成了重启 —— 动词必须精确匹配")
+
     def test_b7_windows_branch_asks_for_exclusive_bind(self):
         """Windows 那条分支在 Linux 上跑不了,但"它打算设哪些 socket 选项"是纯数据,
         问得出来 —— 把"我以为它会设"变成一条会红的断言。
@@ -860,9 +915,26 @@ class ChildEnv(unittest.TestCase):
         self.assertEqual(e["HOME"], home)
 
     def test_e6_key_is_passed_only_when_there_is_one(self):
+        # 题面随契约变更(T3):变量名从写死变成显式参数,断言本身没放松 ——
+        # "有 key 才设、设的值原样" 三条一条没少,只是现在得说清设的是**哪个**变量。
         self.assertNotIn("DS_LLM_KEY", self.env(key=None))
         self.assertNotIn("DS_LLM_KEY", self.env(key=""))
-        self.assertEqual(self.env(key="sk-abc")["DS_LLM_KEY"], "sk-abc")
+        self.assertEqual(self.env(key="sk-abc", key_var="DS_LLM_KEY")["DS_LLM_KEY"], "sk-abc")
+
+    def test_e8_the_variable_name_comes_from_the_config_not_from_this_file(self):
+        """🔴 规划双出 B 卷抓到的那条,第二次露头:配置引用的**不一定**叫 DS_LLM_KEY
+        (Linux 那份就是 ${MIMO_TP_KEY})。写死的话,变量名一改,网关拿不到 key ——
+        而它的症状是"填了 key 还是不能聊天",最难往这儿查。
+        ds_credential.env_var_name() 已经会从配置读出来了,这里必须真用上它给的值。"""
+        e = self.env(key="sk-abc", key_var="MIMO_TP_KEY")
+        self.assertEqual(e["MIMO_TP_KEY"], "sk-abc")
+        self.assertNotIn("DS_LLM_KEY", e, "另设了一个写死的名字 ⇒ 两个来源迟早对不上")
+
+    def test_e9_forgetting_the_variable_name_is_loud(self):
+        """有 key 却没说设哪个变量 ⇒ 抛,不许悄悄退回写死的默认名。
+        **失败没有声音**是这个项目栽过最多次的病(pip 静默丢依赖、git add 静默跳过)。"""
+        with self.assertRaises(ValueError):
+            self.env(key="sk-abc")
 
     def test_e7_every_value_is_a_string(self):
         """焊点:env 里混进 int,subprocess 在 Windows 上会直接 TypeError ——

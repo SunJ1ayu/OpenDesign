@@ -20,9 +20,11 @@ import http.client
 import json
 import os
 import shutil
+import socket
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -290,6 +292,109 @@ class TestPasswordNeverReachesTheBrowser(Rig):
                 self.assertNotIn(PASSWORD, raw.decode("utf-8"),
                                  "口令被回给浏览器了 —— 那等于把它交出去")
                 self.assertEqual(d.get("token"), "短票-一次性")
+
+
+@contextmanager
+def _fake_shell(answer: bytes = b"OK\n", stall: float = 0.0):
+    """假外壳:在锁端口上听着,记下收到的整帧,按需回 OK。
+
+    **手写协议、不复用 InstanceLock** —— 判据要钉住线上那几个字节。
+    和实现抄同一处的话,两边一起改就没人发现(design 骗法四)。
+    """
+    got: list[bytes] = []
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(4)
+
+    def loop():
+        while True:
+            try:
+                conn, _ = srv.accept()
+            except OSError:
+                return
+            with conn:
+                conn.settimeout(3)
+                data = b""
+                try:
+                    while data.count(b"\n") < 2 and len(data) < 4096:
+                        chunk = conn.recv(4096)
+                        if not chunk:
+                            break
+                        data += chunk
+                except OSError:
+                    pass
+                got.append(data)
+                if stall:
+                    time.sleep(stall)
+                if answer:
+                    try:
+                        conn.sendall(answer)
+                    except OSError:
+                        pass
+
+    threading.Thread(target=loop, daemon=True).start()
+    try:
+        yield srv.getsockname()[1], got
+    finally:
+        srv.close()
+
+
+class TestTheRestartBridgeIsHonest(Rig):
+    """填完 key 得让网关重来一次(它只在启动时读 env)。
+    这一组全部围绕**一句话不许撒谎**:说"已安排重启"就必须真的送到了外壳。"""
+
+    def bridge_port(self, port):
+        os.environ["DS_SHELL_LOCK_PORT"] = str(port)
+        self.addCleanup(os.environ.pop, "DS_SHELL_LOCK_PORT", None)
+
+    def save(self, port):
+        _, d, _ = self.req(port, "POST", "/api/llm/credential",
+                           {"provider": "mimo", "key": FAKE_KEY})
+        return d
+
+    def test_k1_nobody_listening_means_manual(self):
+        """git-pull 那两台没有外壳 ⇒ 端口上没人。如实说"请重启一下",不假装。"""
+        with socket.socket() as probe:          # 借一个端口号,随即关掉 ⇒ 保证没人听
+            probe.bind(("127.0.0.1", 0))
+            dead = probe.getsockname()[1]
+        self.bridge_port(dead)
+        with self.serve() as port:
+            self.assertEqual(self.save(port).get("restart"), "manual")
+
+    def test_k2_a_stranger_on_that_port_is_not_our_shell(self):
+        """🔴 端口是全机器共用的。别的程序恰好占着那个号,不能就当成外壳报"已重启" ——
+        那正是 b3 在锁那一侧防的同一件事,只是方向反过来。"""
+        with _fake_shell(answer=b"HTTP/1.1 200 OK\r\n") as (lp, _):
+            self.bridge_port(lp)
+            with self.serve() as port:
+                self.assertEqual(self.save(port).get("restart"), "manual",
+                                 "把一个陌生程序当成了外壳")
+
+    def test_k3_a_real_shell_gets_the_restart_verb_not_show(self):
+        with _fake_shell() as (lp, got):
+            self.bridge_port(lp)
+            with self.serve() as port:
+                self.assertEqual(self.save(port).get("restart"), "requested")
+            self.assertTrue(got, "根本没往外壳发东西")
+            frame = got[-1]
+            self.assertTrue(frame.startswith(b"OpenDesign.ds_shell_core.lock.v1\n"),
+                            f"帧头不对,外壳不会理它:{frame!r}")
+            self.assertIn(b"RESTART-BACKEND\n", frame, f"发的不是重启动词:{frame!r}")
+            self.assertNotIn(b"SHOW\n", frame,
+                             "顺手把窗口弹到了前台 —— 他正在窗口里填 key")
+
+    def test_k4_a_wedged_shell_does_not_hang_the_save(self):
+        """外壳卡住时,业主点"保存"必须还能拿到回应。
+        没有这一条,最坏情况是他以为程序死了 —— 而 key 其实已经存好了。"""
+        with _fake_shell(stall=30.0) as (lp, _):
+            self.bridge_port(lp)
+            with self.serve() as port:
+                t0 = time.monotonic()
+                d = self.save(port)
+                self.assertLess(time.monotonic() - t0, 10,
+                                "外壳不吭声就把保存接口拖住了")
+                self.assertEqual(d.get("restart"), "manual", "等不到应答就不许说已安排")
+                self.assertTrue(d.get("configured"), "重启没谈拢,但 key 该存的还是要存")
 
 
 if __name__ == "__main__":
