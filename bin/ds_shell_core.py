@@ -743,6 +743,19 @@ def missing_env_message(missing: list[str], *, app: str, key_path: str) -> str:
     return f"{app} 起不来,还差点东西:\n\n" + "\n\n".join(tips) + "\n\n补好之后重新打开就行。"
 
 
+def startup_plan(has_key: bool) -> dict:
+    """起哪几条腿。
+
+    🔴 规划双出 B 卷抓到的:上一版是"缺 key 就整个 `die()`",而那发生在**开窗口之前**
+    ⇒ 业主永远看不到填 key 的引导页,只看到一个弹窗然后程序没了。
+    正确形状:**界面(ds-web)无条件起**,网关**有 key 才起** ——
+    网关缺 `${VAR}` 会自己拒绝启动,让它带着缺失去起本来就只会换来一句英文。
+    """
+    if has_key:
+        return {"start": ["ds-web", "网关"], "wait": []}
+    return {"start": ["ds-web"], "wait": ["网关"]}
+
+
 def data_root_for(user_home: str) -> str:
     """装出来那一份的数据根:`<应用状态根>\\Data`(user_home 是它下面的 UserData)。
 

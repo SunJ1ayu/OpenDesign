@@ -41,8 +41,10 @@ import ds_credential  # noqa: E402
 TEMPLATE = os.path.join(ROOT, "config", "nanobot.config.windows.jsonc")
 LINUX_TEMPLATE = os.path.join(ROOT, "config", "nanobot.config.jsonc")
 
-# 一把长得像真 key 的串:形状要能被"截断/变形"检测抓到(见 A 组骗法)
-FAKE_KEY = "sk-判据用的假key-0123456789abcdef0123456789abcdef"
+# 一把长得像真 key 的串。**必须是纯 ASCII** —— 第一版我在里面写了中文,
+# 被实现自己的 latin-1 闸拦下了(那道闸是对的:key 要经 HTTP 头和环境变量,
+# 非 latin-1 的东西一路走不通)。**实现挡住了判据的夹具,这次是判据错。**
+FAKE_KEY = "sk-oracle-do-not-ship-0123456789abcdef0123456789"
 
 # 判据自己不许够得着这台机器的真家(08-15 那笔账的机械版)
 _JUDGE_HOME = None
