@@ -1,4 +1,6 @@
-// design-studio × Nanobot —— Windows 变体(⚠️ UNTESTED 草稿,2026-07-03,无目标机)
+// design-studio × Nanobot —— Windows 变体(2026-07-03 起草;08-12/08-14 已在业主真机跑过:
+// S0 探路包 31/0、S1b 外壳 r2 10/0,网关与三个 MCP 都是拿这份模板起来的。
+// ⚠️ 仍没验过的一件:那两趟全程用假 key,**一次真的模型调用都没发生**。)
 // 与 Linux 版(nanobot.config.jsonc)同结构;差异只有三处:
 //   1) 路径全走 ${USERPROFILE}/${DS_ROOT} 环境变量(nanobot config 对所有字符串字段
 //      做 ${VAR} 展开,已核 config/loader.py;引用了未设的变量会直接报错 —— 所以

@@ -176,7 +176,10 @@
       开机自启默认不勾)+ 启动器 L1~L6 + 成品闸 P1~P6。
       **P4/P5 最值钱**:清单从 `makensis -V4` 自己打印的输出还原,逐个文件对字节数 ——
       `File /r` 的 glob 写歪一个字母时**编译照样成功、包照样出得来,只是少了半棵树**。
-- [x] **红检:18 条定点变异 18 咬住 / 0 漏网**(`installer/mutation-installer.sh`)。
+- [x] **红检:22 条定点变异 22 咬住 / 0 漏网**(`installer/mutation-installer.sh`)。
+      收据 `20260815T045005Z-01-installer-redcheck.txt`。🔴 **补跑于 08-15,四审逼出来的**:
+      写下"18 条"那天既没留机器收据、后来又补过 M19~M22,数字自己就漂了 ——
+      **本单最承重的那句声明,偏偏是我打字打出来的**(subkimi F2)。
       **它逼出了闸自己的两个洞**(都不是我看出来的):
       G3 拿字符串比,把数据目录写成 `$INSTDIR\data` 就看不出它在安装根**里面**;
       L6 只问"有没有 MessageBox",而启动器里有**两处**存在性检查,拆掉一处照样绿。
@@ -195,7 +198,8 @@
       (图标一份形状两个出口:托盘 png + 程序 ico,形状抄 `ds_shell.tray_image()` 的兜底图形)
 - [x] `installer/build-installer.sh`:组包(build-package.sh 新增 `--app` 出货形态,
       不带考卷)→ 编启动器 → 下 WebView2 引导程序 → 四道闸 fail closed → 编安装器
-- [ ] 编出真 exe 并过成品闸
+- [x] 编出真 exe 并过成品闸(`OpenDesign-Setup-0.85.0.exe` 59.7MB;静态 23/0 + 成品 7/0,
+      收据 `20260815T045047Z-01-build-installer-v3.txt` —— 这一版含四审的四条修复)
 - [ ] 发 GitHub 预发布 + 下回来逐字节比对
 - [ ] **业主真机装一趟**(只有他能做)
 - [ ] verify(lane **full** —— 碰装机/权限/凭据)

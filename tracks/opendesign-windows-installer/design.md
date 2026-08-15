@@ -464,7 +464,7 @@ pystray 报 visible=True。⇒ 省下 ~150MB 与一整条 Node 工具链。
   OpenDesign.exe        启动器 stub(自有图标;Exec 后台的 pythonw + ds_shell.py)
   python\               免装 Python 3.12.10 + 全部依赖(S0/S1a/S1b 已验)
   ds\bin\ ds\config\ ds\web\ ds\workspace\  应用代码(= 仓库里那份)
-  ds\图标.png           托盘图标(ds_shell.tray_image() 已经在找它)
+  ds\assets\图标.png    托盘图标(ds_shell.py:125 就是在这儿找它)
   卸载.exe
 %LOCALAPPDATA%\OpenDesign\                 ← 业主数据(卸载默认**不**碰)
   UserData\  Logs\  Cache\

@@ -1,0 +1,36 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    installer-redcheck
+cmd:     bash installer/mutation-installer.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  123c72a
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-15T04:50:05Z
+---------------- 输出开始 ----------------
+== 安装器静态闸红检 ==
+  [OK]   M1 -> 靶子 G1 如期红了
+  [OK]   M2 -> 靶子 G2 如期红了
+  [OK]   M3 -> 靶子 G3 如期红了
+  [OK]   M4 -> 靶子 G4 如期红了
+  [OK]   M5 -> 靶子 G5 如期红了
+  [OK]   M6 -> 靶子 G6 如期红了
+  [OK]   M7 -> 靶子 G7 如期红了
+  [OK]   M8 -> 靶子 G8 如期红了
+  [OK]   M9 -> 靶子 G9 如期红了
+  [OK]   M10 -> 靶子 G10 如期红了
+  [OK]   M11 -> 靶子 G11 如期红了
+  [OK]   M12 -> 靶子 G12 如期红了
+  [OK]   M13 -> 靶子 G13 如期红了
+  [OK]   M14 -> 靶子 G14 如期红了
+  [OK]   M19 -> 靶子 G15 如期红了
+  [OK]   M15 -> 靶子 L1 如期红了
+  [OK]   M16 -> 靶子 L4 如期红了
+  [OK]   M17 -> 靶子 L5 如期红了
+  [OK]   M18 -> 靶子 L6 如期红了
+  [OK]   M20 -> 靶子 G4 如期红了
+  [OK]   M21 -> 靶子 G16 如期红了
+  [OK]   M22 -> 靶子 G17 如期红了
+
+两份 .nsi 已原样还回(sha256 一致)
+== 红检结束:咬住 22 条,漏网 0 条 ==
+---------------- 输出结束 ----------------
+runlog: installer-redcheck rc=0 commit=123c72a dirty=yes at=2026-08-15T04:50:05Z file=tracks/opendesign-windows-installer/evidence/20260815T045005Z-01-installer-redcheck.txt
