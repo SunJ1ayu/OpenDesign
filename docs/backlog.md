@@ -183,3 +183,12 @@
 ⇒ 建议的补法(未做):闸再加一问 —— 工件里形如 `evidence/...` 的路径,
 逐个 `git ls-files --error-unmatch` 确认真在库里,不在就 BLOCK。
 成本很低,而它挡的是"证据链看起来完整、实际上是空的"这种最难自查的情况。
+
+## `write_json` 的 OSError 会以裸 traceback 甩给业主(2026-08-15,S1c 四审 subkimi F5)
+
+`bin/ds_provision.py` 通篇用 `Trouble` 把错误翻译成人话,理由写在文件顶上:
+**业主看不懂 Python 栈**。但 `write_json` 本身的 `OSError`(重装时配置正被运行中的
+程序锁住、盘满、权限)没有包 —— 它会原样冒出来,进 nsExec 的安装日志。
+
+不在 S1c 修的理由:安装仍会完成,首次打开时外壳那层会说人话;概率低。
+真要修就一行 try/except 翻译成 Trouble,顺带把"是不是程序还开着"这句提示带上。

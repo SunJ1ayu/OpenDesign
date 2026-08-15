@@ -1,7 +1,9 @@
 # Verify: opendesign-windows-installer
 
 - Date: 2026-08-12
-- Verdict: **S0 = PASS**(2026-08-12 业主真机第二跑全绿;S1 未开工)
+- Verdict: **S0 / S1a / S1b = PASS**(业主真机 31/0、11/0、10/0);
+  **S1c = 代码面 PASS**(四审 3 腿 + 主裁,2026-08-15);
+  **本 track 最终判决仍敞着 —— 欠业主真机装一趟**(那份 PE 我一次也执行不了)
 
 > Panel hook — 软判断(correctness/security/edge/spec-drift)走 panel-review:
 > 主 agent 先独立审并落 findings,再跑 panel-review 的全部评审腿,主 agent 主裁。
@@ -231,6 +233,103 @@ scratchpad 的 `[仓外不承重]`):2 PASS / 2 FAIL / 5 SKIP,两条红都是**�
   > **归档时这一条和顶部的 `Verdict:` 都不许还是占位符**,`track-guard` 规矩3 会挡;
   > 没归档但已经合并上线的,`track list` 会打 ⚠️(stage-timer 就这么漏了两个月)。
 
+## Review —— S1c 安装器本体(lane **full**,2026-08-15)
+
+- lane: **full**,S1 开工前就写死在上面那一格,没降档。碰装机 / 写 `%LOCALAPPDATA%` /
+  经手业主的 LLM key ⇒ 命中权限 + auth 两条。
+- 派给: **主 agent 自己写的,而"到那一步再判分层"这句我没兑现** —— tasks.md 白纸黑字
+  写着「真正值得重新评估分层的是 S1 的 NSIS 脚本,到那一步再判」,我到那一步直接开写,
+  **没有留下任何判断记录**。这是 [[self-narrated-fields-dont-guard]] 那个洞的第 N 次:
+  自由填空的字段挡不住惯性。现在补的是账,不是理由:
+  事后看这单确实不该外包(判据 `check-installer.py` + 两份 mutation 就是全部工作量的大头,
+  而 oracle 不外包;剩下的 `.nsi` 我一行也跑不了,只能靠闸 —— 派出去等于让腿写我验不了的东西),
+  **但"事后看站得住"和"当时判过"是两回事**,后者没发生。
+- 规格自查: ⚠️ **这一格是读完 panel 之后补写的**,不合"读任何 panel 输出之前先答"的规矩。
+  当时真做过的只有派卷时列的**三处我最不放心的地方**(原文在三条腿日志里,可回查):
+  ① 卸载会不会把业主资料删了 ② `ds_provision.py` 会不会碰坏他已有的 nanobot 配置
+  ③ 静态闸是不是"看着像检查项、其实问不出东西"。
+  S1c 的规格可能错在哪:**它把"装得上"当成了交付,而业主要的是"装完能用"** ——
+  这一版打开会停在"缺 key"(S1d 才做引导页),真机清单里已如实写明。
+- 腿的花名册:
+  ```
+  submimo=PASS subdeepseek=PASS subglm=off subkimi=PASS
+  # ⚠️ 评审期间 HEAD 从 791ee85 移到 aaa8de5 —— 各腿未必评的同一棵树。
+  ```
+  两条要说清:
+  - **只有 3/4 腿**(subglm=off,智谱欠费,已是连续第四轮)。**off 不许读成通过。**
+  - 那条 HEAD 移动的警告**我核过了,这次不承重**:`git diff 791ee85 aaa8de5` 只有一份
+    收据文件(194 行新增),**被评审的源码一个字节没变**。核过才敢说,不是"应该没事"。
+- findings(S1c;主 agent 主裁,处置逐条可查 commit):
+  - **subdeepseek F1(中)出货三件没人查** → 修 `525ea20`。闸 B 查的是 `ds/` 那棵树,
+    包根上的启动器 / WebView2 引导程序 / `pythonw.exe` **谁都没查过**;少任何一个都是
+    "装得上、打不开",而且要装完才发现。这是本轮**最值钱**的一条。
+  - **subdeepseek F2(低)坏形状配置甩业主一个 Python 栈** → 判据 `7c669c2` + 修 `525ea20`。
+  - **subdeepseek F3(低)先落盘再合并 ⇒ 留半成品配置** → 同上。这条打的是模块**自己写下的
+    那句承诺**("半份配置比没有配置更坏"),而实现和承诺对不上。
+  - **subdeepseek F4 / subkimi F3(两腿独立命中)版本闸是装饰性的** → 修 `525ea20`。
+    `[ ... ] || echo` 永远不会让构建失败,而且期望串本身还算错了(拼出 v3.09-1、
+    实际 v3.09-4)⇒ **每次构建都在打印一行"提示",而我每次都当它是通过的**。
+    正是我派卷时担心的第 ③ 类,由腿当场抓出实物。
+  - **subdeepseek F5(低)没有闸看守 `-INPUTCHARSET UTF8`** → 已上 P7 闸(`39db17e`):
+    查**真构建日志**里 makensis 自报的编码,不是查脚本里的指令。
+  - **subdeepseek F6(说明)`IfFileExists ... 0 ok` 的 `0` 写反了没有闸看得出来** →
+    语义写进注释(`525ea20`),归入"Linux 上验不了"那一桶,真机清单已列。
+  - **subkimi F1(中)静态闸看不懂 NSIS 续行** → 上闸(`39db17e`)。
+    **这条与我自己的发现刚好互补,值得记**:我 pre-panel 那轮手工把那条命令的续行去掉了
+    (`791ee85`),kimi 指出的是**没有任何闸拦着下一个人再写回来** —— 靠自觉,
+    与这份闸自己的哲学(每条事故变一道闸)相悖。**手工修掉一次 ≠ 修好**。
+  - **subkimi F2(中)红检没有收据 + 计数已漂移** → 补跑并落收据(`d568d87`),
+    22 咬住 / 0 漏网,三处计数对齐。**本单最承重的那句声明("闸问得出东西"),
+    偏偏是我打字打出来的** —— 同 [[machine-evidence-gate-track]] 立那道闸的理由一模一样,
+    而我在自己立完闸之后又犯了一次。
+  - **subkimi F4(低)`ExecWait` 没查 error flag** → 修 `525ea20`。
+  - **subkimi F5(低)`ds_merge_config` 直写非原子 / `write_json` 的 OSError 裸栈**:
+    前半**被 F3 的修法顺带化解**(合并现在跑在临时文件上,炸了不碰正式配置);
+    后半(配置被运行中的程序锁住 ⇒ 裸 traceback 进 nsExec 日志)**接受并记账**,见下。
+  - **subkimi F6(低)没有闸看守 `SetShellVarContext`** → 上闸 G16(`39db17e`)。
+    写成 `all` 会把快捷方式写进 All Users、卸载时删不掉,而所有闸照样绿。
+  - **subkimi F7(低)没有闸确认 `WriteUninstaller` 存在** → 上闸 G17(`39db17e`)。
+    删掉那一行**编译照样成功**,装出来的卸载条目指向一个不存在的 `卸载.exe`。
+  - **subkimi F8(观感)文档漂移** → 修 `d568d87`(design.md 图标路径、Windows 配置模板
+    顶上那句已经不成立的"UNTESTED、无目标机")。
+  - **subkimi F9(说明)`#` 当注释符,NSIS 并没有** → 当前文件无此形态,记账不动。
+  - **submimo:零 P0/P1,三处担心逐条给了机制层面的回答,没有新发现。**
+    如实记:这一轮它的净贡献是"没找到别人没找到的东西",不是"背书"。
+- **本轮的形状(比任何单条发现都值钱)**:12 条发现里,**7 条打的不是代码,是"闸问不出东西"**
+  (F1/F5/F6 · kimi F1/F2/F6/F7)。而我 pre-panel 那一轮自攻抓到的三条(非空目录不拦、
+  卸载确认页没提醒先退出、续行)**全是代码层的**。
+  ⇒ **我攻的是"这段代码会不会错",腿攻的是"我的闸看不看得见它错"** —— 两边不重叠,
+  这正是 [[panel-review-trust-calibration]] 里"panel 是盲点网"的实物。
+  同一形状 08-12 记过一次(事前攻题 vs 事后四审抓的东西完全不重叠),**这次是第二次复现**。
+- arbitrated verdict (主裁,S1c 代码面): **PASS**。
+  三腿 PASS、零 P0/P1;12 条发现**全部落地**(9 条改了代码或加了闸,2 条记账接受,1 条说明)。
+  **机器打印的收据行**(逐字节粘的;上面那些数字都出自这四份文件,不是我转述的):
+
+  ```
+  runlog: installer-redcheck rc=0 commit=123c72a dirty=yes at=2026-08-15T04:50:05Z file=tracks/opendesign-windows-installer/evidence/20260815T045005Z-01-installer-redcheck.txt
+  runlog: build-installer-v3 rc=1 commit=123c72a dirty=yes at=2026-08-15T04:50:17Z file=tracks/opendesign-windows-installer/evidence/20260815T045017Z-01-build-installer-v3.txt
+  runlog: build-installer-v3 rc=0 commit=123c72a dirty=yes at=2026-08-15T04:50:47Z file=tracks/opendesign-windows-installer/evidence/20260815T045047Z-01-build-installer-v3.txt
+  runlog: provision-oracle-v2 rc=0 commit=d568d87 dirty=yes at=2026-08-15T05:02:59Z file=tracks/opendesign-windows-installer/evidence/20260815T050259Z-01-provision-oracle-v2.txt
+  runlog: provision-redcheck-v2 rc=0 commit=d568d87 dirty=yes at=2026-08-15T05:03:11Z file=tracks/opendesign-windows-installer/evidence/20260815T050311Z-01-provision-redcheck-v2.txt
+  ```
+
+  内容:判据 19/19、provision 红检 14 咬住 0 漏网、安装器红检 22 咬住 0 漏网、
+  静态闸 23 条 0 不合格、成品闸 7 条 0 不合格、`OpenDesign-Setup-0.85.0.exe` 59.7MB。
+  > 上面那条 **rc=1 的收据留着不删**:它记的是我忘了给输出目录、脚本当场拒绝跑 ——
+  > 一个没跑成的构建长什么样,和跑成的一样该留档。删掉它就是在修剪自己的历史。
+  **但"代码面 PASS"离交付还差一整趟真机** —— 这份 PE 我一次也执行不了,
+  Windows 独有的行为(装、卸、开机自启、开始菜单、WebView2 缺失、UAC)全靠业主装那一趟。
+  **在他装完之前,本 track 的最终判决保持敞着。**
+
 ## Accepted deviations
 
-- <接受的非关键偏差 + 原因 + 影响范围,或 None>
+- **`write_json` 的 OSError 会以裸 traceback 进 nsExec 日志**(subkimi F5 后半)。
+  触发条件:重装时配置正被运行中的程序锁住。不修的理由:安装仍会完成,首次打开时
+  外壳那层会说人话;而这个模块"不许把栈甩给业主"的承诺针对的是**它自己判得出的错**。
+  影响面:业主可能在安装日志里看到一段英文栈。**已记 `docs/backlog.md`。**
+- **`check-installer.py` 把 `#` 当注释符,而 NSIS 并没有 `#` 注释**(subkimi F9)。
+  当前两份 `.nsi` 里不存在这种形态;真出现时闸看到的和编译器看到的会不一样。记账不修。
+- **S1a 那笔"无地址栏"的 overclaim,自动断言仍然欠着**(人眼补过一半)。
+  复用 `spike-shell.py` 前必须焊上 `frameless=True` 检查。
+- **subglm 连续第四轮 off(智谱欠费)** ⇒ 本单的 full 实际只有 3 条腿。
+  不当作通过,也不因此降低主裁标准。
