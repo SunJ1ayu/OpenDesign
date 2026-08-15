@@ -587,6 +587,32 @@ class TestStaticGate(unittest.TestCase):
         self.assertTrue(callers, "没有任何启动路径**真的调用** migrate_legacy_data —— "
                                  "迁移函数写了也白写,G 组那三条绿是假的")
 
+    def test_h3_the_shell_migrates_before_it_starts_anything(self):
+        """🔴 主 agent 自审 F1:迁移只挂在 `ds_web.main()` 上,而 `ds_shell.py` 里
+        **网关先起、工作台(ds-web)后起**(`ds_shell.py` 的 Service 顺序)。
+
+        ⇒ 装了旧数据的机器上,网关和它的三个 MCP 工具服务会**先**读到一个空数据根;
+        业主那一刻问"我有哪些项目",助手回"一个都没有",甚至可能在新根里建一个重名的。
+        迁移必须发生在**外壳起任何服务之前** —— 外壳才是装出来那一份的唯一入口。
+        """
+        import ast
+        src = open(os.path.join(ROOT, "bin", "ds_shell.py"), encoding="utf-8").read()
+        tree = ast.parse(src)
+        migrate_line = start_line = None
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Call):
+                f = n.func
+                name = f.attr if isinstance(f, ast.Attribute) else getattr(f, "id", "")
+                if name == "migrate_legacy_data" and migrate_line is None:
+                    migrate_line = n.lineno
+                if name == "start" and start_line is None:
+                    start_line = n.lineno
+        self.assertIsNotNone(migrate_line, "外壳自己没有调用 migrate_legacy_data —— "
+                                           "网关会先于 ds-web 读到一个空数据根")
+        if start_line is not None:
+            self.assertLess(migrate_line, start_line,
+                            "迁移写在起服务之后了:网关和三个 MCP 仍会先读到空数据根")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
