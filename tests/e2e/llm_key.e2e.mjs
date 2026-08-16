@@ -108,6 +108,11 @@ const srv = spawn("python3", [join(ROOT, "bin", "ds_web.py")], {
   env: {
     ...process.env,
     HOME: home, USERPROFILE: home,
+    // 🔴 显式清掉配置引用的那个变量:`...process.env` 会把开发机的环境整个带进来,
+    //    而 status 现在**认 env 这一层**(E 组)⇒ 开发机上恰好设了它的话,A1
+    //    「没配 key 时首屏自动弹卡」就会红,而红的理由跟被测代码毫无关系。
+    //    同族教训:HOME 也是这么泄进来的(08-16 那 29 条 e2e)。空串=不存在。
+    MIMO_TP_KEY: "",
     DS_ROOT: dsRoot, DS_WEB_PORT: String(PORT),
     DS_NANOBOT_CONFIG: cfgPath,
     DS_WEB_DIST: dist,
@@ -509,6 +514,36 @@ try {
   // C5 故意排在最后:`pagehide` / `visibilitychange` / 卸载时才发的 beacon,
   //     在 C 组那个时点根本还没发生。E1 的 reload 会真正触发一次卸载,
   //     所以要等它之后再清点"这一整趟里到底有多少东西带着 key 飞出去过"。
+  // H —— key 由环境变量供着时,这一格必须**提前**变成只读
+  //
+  // 对照 DeepSeek Harness 的 credentials seam:`describe()` 把「由当前进程环境供值」
+  // 的引用报成 `writable: false`,**界面据此提前渲染为只读**。我们的后端已经会拒绝
+  // 这种写入(E 组),但那是业主填完、点了保存才撞上的 —— 那一次白填本可以避免。
+  //
+  // 这一问用接口 stub 造场景:后端算得对不对由 tests/test_credential.py 的 E 组管
+  // (还过了红检),这里只问「前端拿到 writable=false 之后长什么样」。分工别混。
+  await run("H1 key 由环境变量供着 ⇒ 输入框只读,并说清为什么", async () => {
+    await page.route("**/api/llm/credential", async (route) => {
+      if (route.request().method() !== "GET") { await route.continue(); return; }
+      const res = await route.fetch();
+      const body = await res.json();
+      await route.fulfill({ json: { ...body, configured: true, source: "env",
+                                    writable: false, hint: "sk-e…ENV9" } });
+    });
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    // configured=true ⇒ 不会自动弹,从设置里打开
+    await page.locator(".side-footer .side-row").click();
+    await page.locator('[data-ui="settings-llm-key"]').click();
+    await card.waitFor({ timeout: 8000 });
+    if (await page.locator('[data-ui="llm-key-input"]').isEnabled()) {
+      throw new Error("被环境变量遮蔽,输入框却还能填 —— 业主会白填一次才被后端拒绝");
+    }
+    const shown = (await card.innerText()) + "\n" + String(await card.ariaSnapshot());
+    if (!shown.includes("环境变量")) {
+      throw new Error(`没告诉业主为什么改不了:「${(await card.innerText()).slice(0, 140)}」`);
+    }
+  });
+
   await runIfSaved("C5 出站带 key 的请求:每一条都必须是那次保存,且不在 URL / 头里", async () => {
     // 不锁"恰好一条"——失败重试一次是合理实现,契约里也没禁。要守的是两件:
     //   ① 真的发生过(否则这一问在空转);② **每一条**都得是那个保存请求。
