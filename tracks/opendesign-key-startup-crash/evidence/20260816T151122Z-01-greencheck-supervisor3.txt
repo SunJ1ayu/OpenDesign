@@ -1,0 +1,27 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    greencheck-supervisor3
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_ds_shell_core tests.test_ds_shell_wiring tests.test_ds_shell_startup tests.test_shipped_names
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  c4adb42
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-16T15:11:22Z
+---------------- 输出开始 ----------------
+..............s...................s............................../usr/lib/python3.12/traceback.py:241: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/tmpwn4inolp/网关.log'>
+  tb.tb_frame.clear()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+................./root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py:1659: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_shell.py' mode='r' encoding='utf-8'>
+  body = open(os.path.join(ROOT, "bin", "ds_shell.py"), encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+................./root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+  """主变更行 C 号 —— **五个写口共用这一个定义**。
+./root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+  """主变更行 C 号 —— **五个写口共用这一个定义**。
+/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+  """主变更行 C 号 —— **五个写口共用这一个定义**。
+.
+----------------------------------------------------------------------
+Ran 101 tests in 37.042s
+
+OK (skipped=2)
+---------------- 输出结束 ----------------
+runlog: greencheck-supervisor3 rc=0 commit=c4adb42 dirty=yes at=2026-08-16T15:11:22Z file=tracks/opendesign-key-startup-crash/evidence/20260816T151122Z-01-greencheck-supervisor3.txt

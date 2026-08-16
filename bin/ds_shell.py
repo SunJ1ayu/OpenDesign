@@ -334,9 +334,15 @@ class Shell:
             while not self.state.exiting:
                 dead = self.sup.poll_dead()
                 if dead:
-                    log(f"[后台退出] {dead}")
+                    # 🔴 2026-08-16:这里原来只打了一句 `[后台退出] ['网关']`。
+                    # 业主那晚网关死了,两份日志摆在我面前也答不了「是被杀的还是自己崩的」
+                    # —— 因为**退出码从来没被打印过**。现在每条腿都把退出码和它自己
+                    # 日志的尾巴写进外壳日志(判据 c20);弹窗仍然只说人话。
+                    for report in self.sup.dead_reports():
+                        log(f"[后台退出] {report}")
                     alert(f"{'、'.join(dead)} 意外退出了。\n\n"
-                          f"请退出后重新打开 {APP};日志在:\n{_log_path().parent}")
+                          f"请退出后重新打开 {APP};日志在:\n{_log_path().parent}\n\n"
+                          f"（把 外壳.log 发给我,里面有它的退出码和最后几句话。）")
                     return
                 self._stop_watch.wait(3.0)
         threading.Thread(target=loop, name="ds-shell-watchdog", daemon=True).start()

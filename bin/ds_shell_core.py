@@ -384,6 +384,11 @@ class Supervisor:
         """
         names = {s.name for s in services}
         old = [c for c in self._children if c.service.name in names]
+        # 🔴 **先除名,再动手**(判据 c19)。反过来写会留下一个窗口:旧腿已经被杀、
+        # 却还挂在名册上 —— 看门狗每 3 秒问一次 `poll_dead()`,问在这个窗口里就会
+        # 弹「网关意外退出了,请退出后重新打开」,而那一刻其实是**正常重启**,
+        # 而且那句指令(退出后重开)恰好会打断正在进行的重启。
+        self._children = [c for c in self._children if c not in old]
         for child in old:
             self._terminate_tree(child)
         deadline = time.monotonic() + 4.0
@@ -391,7 +396,18 @@ class Supervisor:
             if all(c.proc.poll() is not None for c in old):
                 break
             time.sleep(0.05)
-        self._children = [c for c in self._children if c not in old]
+        # 🔴 收尸要走**和 shutdown 同一套**(判据 c18)。少了这一步,Windows 上
+        # `_terminate_tree` 只 terminate 了 nanobot 本尊,它带的 3 个 MCP 工具服务
+        # 留在 Job 里没人收 —— 关 Job(KILL_ON_JOB_CLOSE)才是那边收整棵树的机制。
+        # Linux 看不出来:那边 `_terminate_tree` 打的是整个进程组,孙子跟着一起走。
+        # 业主每按一次"保存 key",机器上就多 3 个孤儿。
+        for child in old:
+            self._kill_tree(child)
+            self._close_job(child)
+            try:
+                child.log_file.close()
+            except Exception:
+                pass
 
         for svc in services:
             # 端口得**真的还回来**再起新的。少这一步,新进程 bind 失败,
@@ -460,6 +476,23 @@ class Supervisor:
 
     def poll_dead(self) -> list[str]:
         return [child.service.name for child in self._children if child.proc.poll() is not None]
+
+    def dead_reports(self) -> list[str]:
+        """死掉的腿**为什么**死 —— 每条一段人话:退出码 + 那条腿日志的尾巴。
+
+        🔴 2026-08-16 业主真机欠的就是这个。当时外壳只说了一句
+        「网关 意外退出了。请退出后重新打开」,而网关自己的日志最后一句是
+        `Agent loop started`,之后什么都没有。两份日志摆在面前,我也答不了
+        「它是被杀的还是自己崩的」—— 因为**退出码从来没被打印过**。
+        退出码分得清这两件事(被杀 vs 自己退),日志尾巴给的是崩在哪。
+        """
+        out = []
+        for child in self._children:
+            code = child.proc.poll()
+            if code is None:
+                continue
+            out.append(self._failure_message(child.service, "", code, what="意外退出了"))
+        return out
 
     @staticmethod
     def _group_gone(child: _Managed) -> bool:
@@ -544,9 +577,10 @@ class Supervisor:
         except Exception:
             return False      # 探针自己炸了 = 还没就绪,不是就绪
 
-    def _failure_message(self, svc: Service, reason: str, code: int | None) -> str:
+    def _failure_message(self, svc: Service, reason: str, code: int | None,
+                         what: str = "启动失败") -> str:
         tail = self._log_tail(Path(svc.log_path))
-        parts = [f"{svc.name} 启动失败: {reason}"]
+        parts = [f"{svc.name} {what}: {reason}" if reason else f"{svc.name} {what}"]
         if code is not None:
             parts.append(f"退出码: {code}")
         parts.append(f"日志尾巴:\n{tail}")

@@ -85,6 +85,13 @@ class ShellWiring(unittest.TestCase):
         判断本身在 core.startup_plan(判据 d1/d2),这里只查外壳真的问过它。"""
         self.find("startup_plan")
 
+    def test_w6_the_watchdog_asks_why_a_leg_died_not_just_that_it_did(self):
+        """08-16 现场:外壳只打了 `[后台退出] ['网关']`,一个退出码都没有 ⇒
+        拿到两份真机日志也答不了「它是被杀的还是自己崩的」。
+        `dead_reports()`(判据 c20)带的是退出码 + 那条腿日志的尾巴;
+        这一条只查外壳**真的问了它** —— 光在 core 里做好没人用,等于没做。"""
+        self.find("dead_reports")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
