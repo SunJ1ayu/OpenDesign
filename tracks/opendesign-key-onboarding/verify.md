@@ -95,3 +95,43 @@ runlog: bash rc=3 commit=0adc038 dirty=yes at=2026-08-15T17:28:01Z file=tracks/o
 ## Accepted deviations
 
 - <接受的非关键偏差 + 原因 + 影响范围,或 None>
+
+---
+
+# lane=full 四审(2026-08-16 收口)
+
+```
+submimo=PASS subdeepseek=PASS subglm=off subkimi=PASS
+```
+> 花名册里的 `PASS` 是**进程 rc=0,不等于给了通过裁决**;`off` = 这条腿压根没派。
+> subglm 两条腿都挂:agent 腿 `[claude-code:unrecognized_model] {"model":"glm-4.6v"}`
+> (**模型名失效,不是欠费** —— 我一度凭记忆说成欠费,是错的),chat 腿被反锚定闸挡下。
+> ⚠️ 评审期间我提交了三笔(收据 / backlog / 真机清单),HEAD 从 `2606f90` 移到 `3795d42`
+> ⇒ 各腿未必读的同一棵树。**这是我的操作失误**(工具明确警告过);好在那三笔都不是
+> 代码,代码面全程没动。
+
+**主 agent 自审在派发之前写好并放在仓外**(`/root/aiwork/tasks/keyonb-full-review-my-review.md`),
+裁决是**代码面 PASS**。⇒ **我错了,两腿的 BLOCK 成立。**
+
+## 逐条对账
+
+| # | 来源 | 结论 | 依据 |
+|---|------|------|------|
+| 1 | deepseek B / kimi 1 | **接受·已修** | 外壳把同一份 env 给两条腿 ⇒ ds-web 也拿到 key ⇒ `status()` 把**自注入**误判成外部遮蔽 ⇒ 装好的应用重启后改 key 卡片**永久只读**,还让业主去清一个他没设过的变量。核实属实(`ds_shell.py:235`)。修:`core.service_envs()` 只给网关(`2dba7ec`),判据 J 组先行(`4cc8f6d`)+ 红检 Q1/Q2 咬住。 |
+| 2 | kimi 3 | **接受·已修** | `OK` 在动词分派**之前**发出 ⇒ 老外壳回 OK 后去唤醒窗口,ds-web 却报 `requested`。核实属实(`ds_shell_core.py:302`)。修:应答点名动词 + `_restart_verdict()` 只认它(`b051c3f`),判据 K 组 + k3b(老外壳必须降级)。 |
+| 3 | kimi 4 / deepseek 注记 | **接受·已修** | 「已经自动应用新配置」超出 `requested` 的定义(帧送达+认了动词 ≠ 重启成功),与外壳失败告警互相打脸。改成"正在自动重启…若仍连不上请手动重启"。 |
+| 4 | deepseek A / kimi 2 | **接受·不修(主裁)** | Linux 的 `ds-nanobot` 从 auth.json 取 key、只导给子进程 ⇒ 本模块两层都够不着,界面在开发机上会撒谎。**属实**。但业主机器是 Windows(装好的 `ds_shell` 注入 / git-pull 的 `ds-nanobot.ps1`)两条路都在管辖内;为开发机引入"去读 auth.json"的平台特化探测,风险大于收益。⇒ **把边界写死进模块头 + backlog**(`8b84bdb`),并写明将来的正确形状是给 `status()` 第三种回答 `source="unmanaged"`,而不是继续在 `configured` 上撒谎。 |
+| 5 | kimi 6 | **接受·记账** | `save()` 两次原子写之间有半成品窗口(新端点 + 旧 key)。窗口窄、两个方向都存在,现顺序是刻意选的。记 backlog。 |
+| 6 | kimi 5 / submimo LOW2 / 我自审 | **接受·记账** | `slot` 身份"三个挂载点不重建"只是注释,无机械闸。三方一致(我自审也写了)。 |
+| 7 | submimo LOW1 | **部分驳回** | 它说 `null` 会变成 `"None"` 字符串并通过空检查 —— **实测不成立**(`None or ""` 得空串,被拒)。但**方向对**:`{"key": 123}` 会被写成 `"123"`。⇒ 驳回其例证,接受其结论,记 backlog(LOW,可恢复)。 |
+| 8 | submimo LOW3 | **接受·不修** | `LlmKeyCard` 的 effect 依赖稳定 `onStatus`(靠调用方 `useCallback`),脆弱。我自审里也列了同款(F1)。不阻断。 |
+
+## 🔴 这次四审最值钱的不是任何单条发现
+
+**submimo 判五个不变量全 PASS / 0 BLOCK,而另两腿各自独立判 BLOCK。**
+差别在问法:submimo 问的是「代码合不合规格」,deepseek/kimi 问的是「规格在真实形状下
+成立吗」。而**真漏的两条都在后者**——它们打的都是我写的规格本身(我假定"env 里有 key
+就是业主设的",而外壳自己会注入;我假定"回了 OK 就是认了重启",而老外壳也回 OK)。
+
+⇒ 又一次印证:**过审只证明合乎规格,不证明规格对**;以及**别把腿的结论取平均**。
+若按票数(1 PASS vs 2 BLOCK)或按"最详细的那份"(submimo 的表格最漂亮)来判,都会错。

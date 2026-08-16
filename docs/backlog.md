@@ -288,3 +288,11 @@ git-pull 的 `ds-nanobot.ps1`)都在管辖内;为开发机引入"去读 auth.jso
 
 正确形状是两份一起落或一起不落(临时文件 + 双 rename,或失败时回滚配置)。
 失败窗口很窄(两次 `_atomic_write` 之间),本单不修。
+
+## POST /api/llm/credential 不校验 key 的类型(2026-08-16 四审 submimo LOW)
+
+`str(body.get("key") or "")`:`{"key": 123}` 会被写成字符串 `"123"` 当 key 用。
+业主会看到"已配置"然后聊天失败,重填即可恢复,故列 LOW。加 `isinstance` + 400 更干净。
+
+⚠️ submimo 报的理由是「`null` 会变成 `"None"` 字符串并通过空检查」——**核实不成立**:
+`None or ""` 得到空串,被空检查拒绝(实测)。**方向对、例子错**,记账时别抄它的例子。
