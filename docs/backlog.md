@@ -278,3 +278,13 @@ git-pull 的 `ds-nanobot.ps1`)都在管辖内;为开发机引入"去读 auth.jso
 **将来要修的正确形状**(deepseek 腿给的):给 `status()` 第三种回答 ——
 `source="unmanaged"`(这把 key 由启动器管理、我看不见),`save()` 对这种形状拒绝。
 **别让它在 `configured` 上继续撒谎。**
+
+## save() 的半成品窗口:先写配置、后写 key(2026-08-16 四审 kimi Finding 6,窄)
+
+`ds_credential.save()` 先原子写配置、再原子写 key.txt。若**第二步失败**,配置已经指向
+新厂商的端点,而 key.txt 还是旧 key ⇒ 下次网关起来是「新端点 + 旧 key」。
+反过来(先 key 后配置)则是「新 key + 旧端点」——两个方向都有半成品,现在的顺序是
+刻意选的(docstring 有写),但**没有做到原子**。
+
+正确形状是两份一起落或一起不落(临时文件 + 双 rename,或失败时回滚配置)。
+失败窗口很窄(两次 `_atomic_write` 之间),本单不修。

@@ -108,7 +108,11 @@ export async function saveKey(
 
 export function restartNotice(restart: unknown): string {
   if (restart === "requested") {
-    return "已保存,系统已经自动应用新配置,稍等片刻即可继续使用。";
+    // 🔴 措辞只能说到"已请求"。`requested` 的定义是**帧送到了外壳、它认了这个动词**
+    //    (ds_web._restart_verdict),不是"重启成功了" —— 外壳随后失败会自己弹告警,
+    //    而界面若已经说了"已经自动应用",两句话就互相打脸(2026-08-16 四审 kimi
+    //    Finding 4 / deepseek 同款措辞注记)。
+    return "已保存,正在自动重启后台服务,稍等片刻即可继续使用;若稍后仍连不上,请手动重启 OpenDesign。";
   }
   return "已保存。当前环境不能自动应用新配置,请手动重启 OpenDesign 后再继续使用。";
 }
