@@ -263,3 +263,18 @@
 注意 `C4 整页刷新后仍在` 是**绿**的 ⇒ 数据确实落盘了,红的是**档案里的形态**
 (疑与变更号/末条改写有关,见 opendesign-cnum-zeropad 那一单)。谁接手先做基线对照,
 别又当成自己改坏的 —— 08-16 我在另一条判据上正是这么误判了三轮。
+
+## 凭据模块看不见"启动器自己取的 key"(2026-08-16 四审 BLOCK,主裁决定不修)
+
+`ds_credential` 只看 `key.txt` + **ds-web 自己进程的 env**。Linux 的 `bin/ds-nanobot`
+从 `~/.local/share/mimocode/auth.json` 取 key 并**只**导给 nanobot 子进程 ⇒ 在开发机上
+`status()` 既报错"未配置"(催填不需要的 key),业主若真填了还会显示"已配置"而网关
+继续用旧 key ——**界面在那台机器上会撒谎**。
+
+**本单不修的理由**:业主机器是 Windows,两条真实路径(装好的 `ds_shell` 注入 /
+git-pull 的 `ds-nanobot.ps1`)都在管辖内;为开发机引入"去读 auth.json"的平台特化
+探测,会把平台判断塞进凭据模块,风险大于收益。
+
+**将来要修的正确形状**(deepseek 腿给的):给 `status()` 第三种回答 ——
+`source="unmanaged"`(这把 key 由启动器管理、我看不见),`save()` 对这种形状拒绝。
+**别让它在 `configured` 上继续撒谎。**

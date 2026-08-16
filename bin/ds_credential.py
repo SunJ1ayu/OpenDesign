@@ -11,6 +11,28 @@
    **Linux 那份引用 `${MIMO_TP_KEY}`**。写死就等于在两台 git-pull 机器上把网关搞死。
    (这条是规划双出 B 卷替我抓到的,我原本要写死。)
 4. **报错不许带入参**:坏路径是最容易把 key 回显出去的地方。
+
+## 🔴 这个模块管得到哪儿(2026-08-16 四审 deepseek 腿 BLOCK 的那条)
+
+它只看得见**两层**:`<home>/.openDesign/key.txt`,以及**ds-web 自己进程的环境变量**。
+
+**看不见的**:网关的 key 若来自别处,这里一无所知。现实中就有这么一条 ——
+Linux 的 `bin/ds-nanobot` 从 `~/.local/share/mimocode/auth.json` 读 key、
+`export MIMO_TP_KEY` **只给它 exec 出来的 nanobot 子进程**,既不进 ds-web 的环境、
+也从不碰 key.txt。在那台机器上:
+
+- 网关明明能聊天,`status()` 却报 `configured=False` ⇒ 界面催业主填一把他不需要的 key;
+- 业主若真填了,`save()` 照写 key.txt(遮蔽检查看不到 auth.json,不会拒绝),
+  界面显示「已配置」和新 key 的末四位,**而网关继续用 auth.json 里那把旧的**。
+
+**这是已知边界,本单不修**,理由:业主的机器是 Windows(装好的形态走 `ds_shell`
+注入、或 git-pull 那两台走 `ds-nanobot.ps1` 的 env/key.txt 两层),两条路都在本模块
+管辖内;而为 Linux 开发机引入平台特化的探测(去读 auth.json)会把平台判断塞进凭据
+模块,风险大于收益。**已记 docs/backlog.md。**
+
+⚠️ 别把这条读成"Linux 不支持":ds-web 在 Linux 上照常跑,只是**界面上的 key 状态
+在那台机器上不可信**。谁将来要在 Linux 上支持界面配 key,得先给 `status()` 一个
+"这把 key 由启动器管理、我看不见"的第三种回答,而不是让它在 `configured` 上撒谎。
 """
 from __future__ import annotations
 
