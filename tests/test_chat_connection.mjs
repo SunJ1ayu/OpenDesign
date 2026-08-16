@@ -355,3 +355,24 @@ test("openSocket 顺手刷新 api token:随后 apiFetch 不再额外签发", asy
   const last = fetchFn.calls[fetchFn.calls.length - 1];
   assert.equal(authHeader(last), "Bearer nbwt_ws");
 });
+
+// ---- 连接身份(slot):判据/诊断按它寻址 -------------------------------------
+// 2026-08-16:判据一直只能看**全局**计数,于是「掐断当前连接」掐错了列,四条断线
+// 自愈判据一起红,我据此三次改错了状态机。身份是那次的根治。
+
+test("openSocket(slot) 把身份挂到 socket 对象上,而**不进 ws URL**", async () => {
+  const { s, opened } = makeSession({ handler: () => jsonRes(200, boot("nbwt_ws")) });
+  s.setPassword("pw1");
+  const { socket } = await s.openSocket("home");
+  assert.equal(socket.__dsSlot, "home", "标签没挂上 ⇒ 判据分不出这条连接属于哪一列");
+  // 🔴 不许塞进 URL:query 会原样打到真 gateway,那是拿生产协议迁就测试。
+  assert.ok(!opened[0].url.includes("home"), `身份泄进了 ws URL:${opened[0].url}`);
+  assert.ok(!opened[0].url.includes("slot"), `身份泄进了 ws URL:${opened[0].url}`);
+});
+
+test("不给 slot 也能开连(老调用点不被强制改),但那条连接就是无身份的", async () => {
+  const { s } = makeSession({ handler: () => jsonRes(200, boot("nbwt_ws")) });
+  s.setPassword("pw1");
+  const { socket } = await s.openSocket();
+  assert.equal(socket.__dsSlot, undefined);
+});
