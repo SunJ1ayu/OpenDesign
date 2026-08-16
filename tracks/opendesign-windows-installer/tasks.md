@@ -211,10 +211,21 @@
 
 ### 本单没做、明确留给后面的
 
-- [ ] **S1d 首次打开引导页**(业主 08-14 口述,规格在 design.md):选 MiMo 官方 /
-      DeepSeek 官方 → 填 API key。⚠️ DeepSeek 的模型名开工时**再核一次**
-      (官方 07-25 已下架 deepseek-chat / deepseek-reasoner)。
-      连带要判的:让 ds-web 把口令交给自己的前端 = **安全面改动,必须单独 full 审**。
+- [x] **S1d 首次打开引导页** —— 已在独立 track `opendesign-key-onboarding` 交付并归档
+      (0.88.0,lane=full 四审跑过、两腿 BLOCK 成立并已修,主裁代码面 PASS)。
+      安全面那条按规矩单独 full 审了(ds-web 替前端代签口令)。
+
+- [x] **打包 0.88.0(08-16 晚)** —— `installer/build-installer.sh` 一条命令重跑,
+      23 条静态闸 + 7 条成品闸 **0 条不合格**,产物 `OpenDesign-Setup-0.88.0.exe` 59.7 MB。
+      已发预发布 **`win-installer-0.88.0`**,**下回来 `cmp` 逐字节一致**。
+      sha256 `88bf5bf3b12b4302408d42bcb8d7f960e11e6f755df6da74431d27a6f2ecaf79`。
+      包内实核过(不是只看文件名):`ds/bin/ds_web.py` = 0.88.0、`ds_credential.py` 在、
+      前端 dist 里有填 key 的界面。
+      > 🔴 **差点漏掉的一步**:key-onboarding 那单归档时我对业主说"装一次 0.88.0 走三份清单",
+      > 而**那个包当时并不存在**(最新是 0.87.0)—— 仓里 bump 了版本 ≠ 业主装得到。
+      > 这正是 CLAUDE.md「在使用现场验证」那条规矩的形状:**新文件躺在盘上不算部署**。
+      > ⇒ 三份清单已合并成 `真机清单-0.88.0-合并版.md`(19 条必做 + 6 条可选),
+      > 旧的三份作废;同一份也做成了网页给业主照着点。
 - [ ] 应用内更新:查版本 / 只下 1.1MB 那层 / 失败回滚(版本化组件 + 指针在这一单落地)
 - [ ] 砍 AWS 那 32MB(**聊天平台 9MB 全留 —— QQ 在里面**)
 - [ ] 🔴 **归档前**:把组包流水线(`build-package.sh` / `check-package.sh` /
