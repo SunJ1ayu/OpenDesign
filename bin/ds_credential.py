@@ -92,10 +92,33 @@ def read_key(home: str) -> str | None:
         return None
 
 
+def _env_key(cfg: dict) -> str | None:
+    """配置引用的那个环境变量**当前有没有值**。空串视为没有。
+
+    为什么 status 必须看这一层:`bin/ds-nanobot.ps1` 是 **env 优先**
+    (`if (-not $env:DS_LLM_KEY) { 读 key.txt }`),只看 key.txt 会让界面报告的状态
+    和**真正生效的 key** 变成两回事 —— 业主要么被催填一把他不需要的 key,要么
+    填完看见"新的末四位"而网关还在用旧那把。
+
+    形状抄自 DeepSeek Harness 的 credentials seam(`docs/subsystems/credentials.zh.md`):
+    `describe()` 报告**来源层**与 `writable`,且**空的存储值在任何地方都视为不存在**。
+    """
+    try:
+        var = env_var_name(cfg)
+    except CredentialError:
+        return None                              # 配置里没有 ${引用} —— C 组管这件事
+    return (os.environ.get(var) or "").strip() or None
+
+
 def status(home: str, cfg_path: str | None = None) -> dict:
-    """业主视角的当前状态。**永远不含 key 原文。**"""
+    """业主视角的当前状态。**永远不含 key 原文。**
+
+    `source` / `writable` 回答的是"这把 key 从哪来、在这儿改得动吗",让界面能提前
+    把被遮蔽的那一格渲染成只读,而不是让业主白填一次(见 `_env_key` 的说明)。
+    """
     key = read_key(home)
     provider = None
+    env_key = None
     if cfg_path and os.path.isfile(cfg_path):
         try:
             cfg = json.load(open(cfg_path, encoding="utf-8"))
@@ -104,10 +127,16 @@ def status(home: str, cfg_path: str | None = None) -> dict:
                 if base and base == preset["apiBase"]:
                     provider = name
                     break
+            env_key = _env_key(cfg)
         except (OSError, ValueError):
             provider = None
-    return {"configured": key is not None, "provider": provider,
-            "hint": _hint(key) if key else None}
+    # 启动脚本 env 优先 ⇒ **真正生效的是 env 那把**,hint 也必须报它,
+    # 否则业主换完 key 会看见新的末四位、用着旧的 key,且无从发现。
+    live = env_key or key
+    return {"configured": live is not None, "provider": provider,
+            "hint": _hint(live) if live else None,
+            "source": "env" if env_key else ("file" if key else None),
+            "writable": env_key is None}
 
 
 def _atomic_write(path: str, body: str) -> None:
@@ -157,6 +186,16 @@ def save(home: str, cfg_path: str, provider: str, key: str) -> dict:
         raise CredentialError(f"配置读不出来:{cfg_path}({exc.__class__.__name__})") from None
 
     var = env_var_name(cfg)                      # 会抛 CredentialError,由调用方翻译
+
+    # 🔴 被环境变量遮蔽时**直接拒绝**,不许"表面成功":启动脚本 env 优先,
+    #    写进 key.txt 根本不会生效,而界面会显示新 key 的末四位 —— 业主以为换好了。
+    #    DSH 的 credentials seam 也是这么选的(那样的写入"表面成功而解析持续返回
+    #    遮蔽值",所以直接拒绝)。放在改配置**之前**:拒绝就不该留下任何痕迹。
+    if _env_key(cfg):
+        raise CredentialError(
+            f"当前的 key 由环境变量 {var} 提供,写在这里不会生效"
+            f"(启动脚本读 {var} 优先于 key.txt)。要在界面里改,请先清掉那个环境变量。")
+
     custom = cfg.setdefault("providers", {}).setdefault("custom", {})
     custom["apiBase"] = preset["apiBase"]
     custom["apiKey"] = "${%s}" % var             # 只留引用形态,原文永不进配置
