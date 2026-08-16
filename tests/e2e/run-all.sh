@@ -90,8 +90,22 @@ log_dir="$(mktemp -d -t ds-e2e-XXXXXX)"
 # 🔴 单独跑某一条时不经过这里 ⇒ 会被卡片挡住。要单跑就自己带上:
 #      HOME=$(mktemp -d) 且在里面放 .openDesign/key.txt
 E2E_HOME="$(mktemp -d -t ds-e2e-home-XXXXXX)"
-mkdir -p "$E2E_HOME/.openDesign"
+mkdir -p "$E2E_HOME/.openDesign" "$E2E_HOME/.cache"
 printf 'sk-e2e-fixture-not-a-real-key\n' > "$E2E_HOME/.openDesign/key.txt"
+
+# 🔴 chromium 缓存必须接回真实家目录,否则上面这个隔离**自己造出一场大面积假红**:
+#    `helpers.chromiumPath()` 用 `os.homedir()` 找 `~/.cache/ms-playwright`,
+#    换了 HOME 就是 ENOENT ⇒ 31 条 e2e 在 1 秒内全挂。
+#    2026-08-16 实测,那份收据看起来极像"整个前端崩了"——**它第一次就骗到了我**。
+#    (辨认特征:每条耗时都 <2s,而真跑一条要几十秒;用真实 HOME 的那两条却是绿的。)
+ln -s "$HOME/.cache/ms-playwright" "$E2E_HOME/.cache/ms-playwright" 2>/dev/null || true
+# 接不上就**当场喊停**,不许静默滑过去 —— 静默失败正是这次假红的形状
+# (同族:`pip --platform` 静默丢依赖、`git add` 对被忽略的文件静默跳过)。
+if [ ! -e "$E2E_HOME/.cache/ms-playwright" ]; then
+  printf '\033[31m✗\033[0m 接不上 chromium 缓存(%s/.cache/ms-playwright)——\n' "$HOME" >&2
+  printf '   照跑下去会是 31 条 e2e 秒挂的假红,不是真劣化。先装 playwright 浏览器。\n' >&2
+  exit 2
+fi
 
 run_one() {                          # $1=文件路径  $2=解释器  $3=1 表示要真实 HOME
   local file="$1" runner="$2" real_home="${3:-0}" name; name="$(basename "$file")"
