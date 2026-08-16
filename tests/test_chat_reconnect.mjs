@@ -176,3 +176,27 @@ test("认不出的事件原样返回,不崩(协议会长,老约定不许退化)"
     assert.deepEqual(r.state, initialReconnect);
   }
 });
+
+// ── 2026-08-16:stopped 要**幂等地**再答一次口令失效 ───────────────────────
+// 上面那条「stopped 之后不许自己复活」守的是"别再重连";但它当时把 **failed 也一并
+// 吞了**,而那会造出一个业主可见的死角:
+//   ChatPage 每一轮 effect 开头都 `setView(connecting)`(ChatPage.tsx:275),而 effect
+//   会因 props 变化重跑。第一轮 401 → login(横幅出来了);第二轮又设 connecting,
+//   这次 failed 被 stopped 吞掉 ⇒ **视图被永久按在「正在连接聊天服务…」上**,
+//   业主再也看不到「未连接」横幅,也就找不到填 key 的入口。
+//   而"没填 key ⇒ 网关不起 ⇒ 连不上"正是他装完第一次打开的样子。
+// ⇒ 口令失效这件事要**幂等**:再问一次,还是同一个答案。别的事件照旧吞掉。
+test("stopped 之后再收到口令失效:幂等地再答一次 login(不然视图回不到登录态)", () => {
+  const stopped = step(initialReconnect, { type: "failed", error: new PasswordRejected() }).state;
+  assert.equal(stopped.mode, "stopped");
+  const again = step(stopped, { type: "failed", error: new PasswordRejected() });
+  assert.equal(again.action.kind, "login",
+    "被吞掉的话,视图就永久停在「正在连接聊天服务…」——08-16 frontend_p2_polish 实测");
+  assert.equal(again.state.mode, "stopped", "但状态不该变 —— 是幂等,不是重新开始");
+});
+
+test("stopped 态里,**不是**口令失效的失败仍然吞掉(别把幂等做成重连的后门)", () => {
+  const stopped = step(initialReconnect, { type: "failed", error: new PasswordRejected() }).state;
+  const r = step(stopped, { type: "failed", error: new Error("gateway 没起") });
+  assert.equal(r.action.kind, "none", "普通失败在 stopped 里排队 = 停下来那条规矩白立了");
+});
