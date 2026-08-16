@@ -1,0 +1,30 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    mutation-t4
+cmd:     tests/mutation-llm-key.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  37714ac
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-16T05:29:01Z
+---------------- 输出开始 ----------------
+== 红检:T4 前端(每条都要重新 build,慢是应该的)
+  [咬住] M1  saveKey 改用 GET ⇒ a3 该红
+  [BAD]  M3 build 没过 —— 这条不算数(见 /tmp/tmp.6aNe7zeLxB/build.log)
+  [咬住] M4  manual 不提重启 ⇒ d1/d3 该红
+  [咬住] M5  未知值倒向 requested ⇒ d3 该红(保守方向反了)
+  [BAD]  M7 build 没过 —— 这条不算数(见 /tmp/tmp.6aNe7zeLxB/build.log)
+  [咬住] M17  没口令时瞎编一个 Bearer ⇒ 代签断言该红
+  [咬住] M9  输入框改明文 ⇒ A3 该红
+  [咬住] M10  去掉 autocomplete ⇒ A3 该红
+  [咬住] M11  保存后不清空输入框 ⇒ C10 该红
+  [咬住] M12  顺手把 key 存进 localStorage ⇒ C9 该红
+  [咬住] M13  把 key 写进页面标题 ⇒ C1 该红
+  [咬住] M14  已配置时也自动弹 ⇒ E1 该红
+  [咬住] M18  遮罩上的 onClick 没了 ⇒ 卡片关不掉,业主被锁在门外 ⇒ A5 该红
+  [咬住] M19  卡片藏起来但遮罩留着继续吃点击 ⇒ A5 绿而 A6 该红
+  [咬住] M20  关掉一次就再也不提醒 ⇒ 业主永远填不上 key ⇒ A7 该红
+  [咬住] M16  把教人敲命令行的提示放回去 ⇒ F3 该红
+
+== 红检小结:14 咬住 / 2 漏网
+(已还原源码并重新 build)
+---------------- 输出结束 ----------------
+runlog: mutation-t4 rc=1 commit=37714ac dirty=yes at=2026-08-16T05:29:01Z file=tracks/opendesign-key-onboarding/evidence/20260816T052901Z-01-mutation-t4.txt
