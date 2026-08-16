@@ -44,6 +44,7 @@ import time
 import unittest
 import urllib.request
 from pathlib import Path
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -656,6 +657,107 @@ class Supervise(unittest.TestCase):
 
         self.assertTrue(core.port_listening(wa), "一条腿重启失败,把业主的界面也带走了")
         self.assertEqual(len(self.read_trace(tw)), 1, "工作台被重启了")
+
+    # ── 2026-08-16 业主真机那一晚挖出来的三条 ────────────────────────────
+    # 现场:填完 key → 外壳重启网关两次(都"完成")→ 26 秒后弹「网关意外退出了」。
+    # 网关自己的日志最后一句是 `Agent loop started`,**之后什么都没有** ——
+    # 它有能力打异常栈(同一份日志里就有两条完整的 traceback),所以它不是自己崩的。
+    # 而外壳那句 `[后台退出] ['网关']` 连退出码都没有 ⇒ **没人答得了"谁杀的"**。
+    # 下面三条:c18 收树、c19 别误报、c20 死了要说清楚。
+
+    def test_c18_restarting_a_leg_reaps_its_whole_old_tree(self):
+        """重启只 terminate 了直接子进程 ⇒ 它的 3 个 MCP 孙进程活了下来。
+
+        c2 已经证明 **shutdown** 会收整棵树。重启走的是另一条路(`restart`),
+        它没有复用那套收尸,于是业主每按一次"保存 key"就在机器上留下 3 个孤儿。
+        同一件事在两条路上要各问一遍 —— 这正是 c2 全绿而现场出事的原因。
+        """
+        port, old_sentinel = free_port(), free_port()
+        self.sup.start([self.svc("网关",
+                                 SPAWN_GRANDCHILD % {"sentinel": old_sentinel, "live": 300},
+                                 port)])
+        deadline = time.time() + 10
+        while not core.port_listening(old_sentinel) and time.time() < deadline:
+            time.sleep(0.1)
+        self.assertTrue(core.port_listening(old_sentinel), "孙进程没起来,这条考卷问不出东西")
+
+        new_sentinel = free_port()
+        # 🔴 **这条 assert 在 Linux 上问不出真 bug,别被它的绿骗了。**
+        # POSIX 上 `_terminate_tree` 打的是整个进程组(killpg),孙子跟着一起走;
+        # 而现场那台是 Windows —— 那边 `_terminate_tree` 只有 `proc.terminate()`,
+        # 收整棵树靠的是**关 Job**(`_kill_tree` → `_close_job`,KILL_ON_JOB_CLOSE)。
+        # 所以真正要问的是下面那句:重启收旧腿,走没走和 shutdown 同一套强杀。
+        forced: list[str] = []
+        with mock.patch.object(core.Supervisor, "_kill_tree",
+                               lambda sup_self, child: forced.append(child.service.name)):
+            self.sup.restart([self.svc("网关",
+                                       SPAWN_GRANDCHILD % {"sentinel": new_sentinel, "live": 300},
+                                       port)])
+        self.assertTrue(core.port_listening(port), "新网关没起来,这条考卷问不出东西")
+        self.assertFalse(core.port_listening(old_sentinel),
+                         "旧网关的孙进程活了下来 ⇒ 每重启一次,机器上多 3 个孤儿工具服务")
+        self.assertEqual(["网关"], forced,
+                         "重启没走强杀那一步 ⇒ **Windows 上 Job 不会被关**,"
+                         "旧网关的 3 个 MCP 全变成孤儿(Linux 这边被进程组盖住了,看不出来)")
+
+    def test_c19_a_leg_being_restarted_is_never_reported_as_a_crash(self):
+        """看门狗每 3 秒问一次 `poll_dead()`;它答"网关死了",业主就会收到
+        「网关意外退出了,请退出后重新打开」。
+
+        重启时旧腿本来就该死 —— 但它在被杀之后、被移出名册之前还挂在名册上,
+        那一刻问过去,答案是"网关死了"。**正常重启被报成崩溃**,而且给的指令
+        (退出后重开)恰好会打断正在进行的重启。
+        这里用探针把"看门狗刚好在最坏的时刻问了一次"变成确定性的:
+        真杀完、等它死透,立刻替看门狗问一次。
+        """
+        seen: list = []
+        original = core.Supervisor._terminate_tree
+
+        def spy(sup_self, child):
+            original(sup_self, child)
+            try:
+                child.proc.wait(timeout=5)       # 等它真的死透 = 最坏的那一刻
+            except Exception:
+                pass
+            seen.append(sup_self.poll_dead())
+            return None
+
+        ga = free_port()
+        self.sup.start([self.svc("网关", BIND_AND_WAIT, ga)])
+        with mock.patch.object(core.Supervisor, "_terminate_tree", spy):
+            self.sup.restart([self.svc("网关", BIND_AND_WAIT, ga)])
+
+        self.assertTrue(seen, "探针没被调到,这条考卷问不出东西")
+        self.assertEqual([[]], seen,
+                         f"重启途中看门狗会看到 {seen} ⇒ 弹「网关意外退出了」,而一切正常")
+
+    def test_c20_a_dead_leg_says_why_not_just_that_it_died(self):
+        """08-16 现场卡死在这里:网关死了,而外壳只说了"它退出了"。
+
+        退出码分得清"被人杀的"和"自己崩的";日志尾巴给的是崩在哪。
+        两样都没有 ⇒ 业主把日志发过来,我也答不了,只能猜。
+        """
+        port = free_port()
+        code = (
+            "import socket,sys,time\n"
+            "s=socket.socket();s.bind(('127.0.0.1',int(sys.argv[1])));s.listen(4)\n"
+            "print('listening',flush=True)\n"
+            "time.sleep(0.5)\n"
+            "print('我崩在这一句上',flush=True)\n"
+            "sys.exit(7)\n"
+        )
+        self.sup.start([self.svc("网关", code, port)])
+        deadline = time.time() + 10
+        while self.sup.poll_dead() != ["网关"] and time.time() < deadline:
+            time.sleep(0.1)
+        self.assertEqual(["网关"], self.sup.poll_dead(), "腿死了没人发现")
+
+        reports = self.sup.dead_reports()
+        self.assertEqual(1, len(reports), "死了一条腿,却不是一条报告")
+        said = reports[0]
+        self.assertIn("网关", said, "没说是哪条腿")
+        self.assertIn("7", said, "**没带退出码** —— 分不出是被杀的还是自己崩的")
+        self.assertIn("我崩在这一句上", said, "没带日志尾巴,业主拿到的还是一句没线索的话")
 
     def test_c8_shutdown_is_idempotent(self):
         port = free_port()

@@ -1,0 +1,91 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-supervisor3
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_ds_shell_core.Supervise -v
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  25133bf
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-16T15:07:58Z
+---------------- 输出开始 ----------------
+test_c10_poll_dead_names_the_leg_and_keeps_saying_so (tests.test_ds_shell_core.Supervise.test_c10_poll_dead_names_the_leg_and_keeps_saying_so) ... ok
+test_c11_a_leg_that_dies_while_the_next_one_boots_fails_the_whole_start (tests.test_ds_shell_core.Supervise.test_c11_a_leg_that_dies_while_the_next_one_boots_fails_the_whole_start)
+🔴 攻题二轮 HIGH#3:网关先就绪、随后崩掉,而这时监管者只盯着第二条腿。 ... ok
+test_c12_a_non_startupfailed_error_also_rolls_back (tests.test_ds_shell_core.Supervise.test_c12_a_non_startupfailed_error_also_rolls_back)
+攻题二轮 HIGH#4:第二条腿连日志都开不出来(路径不可用)会抛 OSError, ... ok
+test_c13_grandchildren_are_reaped_even_if_the_parent_died_first (tests.test_ds_shell_core.Supervise.test_c13_grandchildren_are_reaped_even_if_the_parent_died_first)
+攻题二轮 HIGH#4 的第二条:nanobot 父进程自己先崩了,3 个 MCP 孙进程还活着。 ... ok
+test_c14_readiness_can_demand_an_identity_not_just_a_listener (tests.test_ds_shell_core.Supervise.test_c14_readiness_can_demand_an_identity_not_just_a_listener)
+攻题二轮 HIGH#5:开跑前端口是空的,不代表就绪那一刻听端口的是**我们的孩子**。 ... ok
+test_c15_restart_replaces_only_the_named_leg (tests.test_ds_shell_core.Supervise.test_c15_restart_replaces_only_the_named_leg) ... /root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py:622: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/tmpuu4xg16i/网关.log'>
+  self.sup.restart([self.echo_svc("网关", ga, "old", tg)])
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_c16_the_replacement_really_gets_the_new_env (tests.test_ds_shell_core.Supervise.test_c16_the_replacement_really_gets_the_new_env)
+🔴 本单的命门。重启网关的**唯一目的**就是让它读到新 key; ... /root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py:637: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/tmpu9sizohh/网关.log'>
+  self.sup.restart([self.echo_svc("网关", ga, "sk-业主刚填的", tg)])
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_c17_a_failed_restart_does_not_take_the_others_down (tests.test_ds_shell_core.Supervise.test_c17_a_failed_restart_does_not_take_the_others_down)
+重启失败要响,但**不许连坐**:界面还在,他才看得到"重启失败,请手动重开"。 ... /usr/lib/python3.12/traceback.py:241: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/tmpnz4d3m1h/网关.log'>
+  tb.tb_frame.clear()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_c18_restarting_a_leg_reaps_its_whole_old_tree (tests.test_ds_shell_core.Supervise.test_c18_restarting_a_leg_reaps_its_whole_old_tree)
+重启只 terminate 了直接子进程 ⇒ 它的 3 个 MCP 孙进程活了下来。 ... /root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py:685: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/tmpc0kr7anr/网关.log'>
+  self.sup.restart([self.svc("网关",
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_c19_a_leg_being_restarted_is_never_reported_as_a_crash (tests.test_ds_shell_core.Supervise.test_c19_a_leg_being_restarted_is_never_reported_as_a_crash)
+看门狗每 3 秒问一次 `poll_dead()`;它答"网关死了",业主就会收到 ... /root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py:717: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/tmpzwn1a6xl/网关.log'>
+  self.sup.restart([self.svc("网关", BIND_AND_WAIT, ga)])
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+FAIL
+test_c1_started_children_are_really_killed (tests.test_ds_shell_core.Supervise.test_c1_started_children_are_really_killed) ... ok
+test_c20_a_dead_leg_says_why_not_just_that_it_died (tests.test_ds_shell_core.Supervise.test_c20_a_dead_leg_says_why_not_just_that_it_died)
+08-16 现场卡死在这里:网关死了,而外壳只说了"它退出了"。 ... ERROR
+test_c2_the_whole_process_tree_goes_down (tests.test_ds_shell_core.Supervise.test_c2_the_whole_process_tree_goes_down)
+攻题 HIGH#5:nanobot 自己会拉起 3 个 MCP 子进程。只 terminate 直接子进程, ... ok
+test_c3_a_stubborn_child_gets_force_killed (tests.test_ds_shell_core.Supervise.test_c3_a_stubborn_child_gets_force_killed)
+优雅退出要有期限,过期强杀。否则托盘点"退出"之后程序像卡死了。 ... ok
+test_c4_a_child_that_dies_is_reported_fast_and_readably (tests.test_ds_shell_core.Supervise.test_c4_a_child_that_dies_is_reported_fast_and_readably)
+子进程自己崩了 ⇒ 立刻报"谁崩了 / 退出码 / 日志尾巴",不许傻等到超时。 ... ok
+test_c5_a_slow_leg_is_not_killed_early (tests.test_ds_shell_core.Supervise.test_c5_a_slow_leg_is_not_killed_early)
+攻题 HIGH#4:真网关冷启动要好几秒。"先短轮询、没开口就报超时"的实现 ... ok
+test_c6_timeout_is_not_reported_before_the_deadline (tests.test_ds_shell_core.Supervise.test_c6_timeout_is_not_reported_before_the_deadline) ... ok
+test_c7_a_port_someone_else_already_holds_is_not_our_green (tests.test_ds_shell_core.Supervise.test_c7_a_port_someone_else_already_holds_is_not_our_green)
+攻题 HIGH#4 的另一半:先查端口再查死活的实现,会把**陌生进程**的监听 ... ok
+test_c8_shutdown_is_idempotent (tests.test_ds_shell_core.Supervise.test_c8_shutdown_is_idempotent) ... ok
+test_c9_a_failed_start_takes_its_siblings_down_before_it_returns (tests.test_ds_shell_core.Supervise.test_c9_a_failed_start_takes_its_siblings_down_before_it_returns)
+第二条腿起不来 ⇒ 已经起好的第一条腿必须**在异常抛出之前**收掉。 ... ok
+
+======================================================================
+ERROR: test_c20_a_dead_leg_says_why_not_just_that_it_died (tests.test_ds_shell_core.Supervise.test_c20_a_dead_leg_says_why_not_just_that_it_died)
+08-16 现场卡死在这里:网关死了,而外壳只说了"它退出了"。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py", line 744, in test_c20_a_dead_leg_says_why_not_just_that_it_died
+    reports = self.sup.dead_reports()
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Supervisor' object has no attribute 'dead_reports'
+
+======================================================================
+FAIL: test_c19_a_leg_being_restarted_is_never_reported_as_a_crash (tests.test_ds_shell_core.Supervise.test_c19_a_leg_being_restarted_is_never_reported_as_a_crash)
+看门狗每 3 秒问一次 `poll_dead()`;它答"网关死了",业主就会收到
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py", line 720, in test_c19_a_leg_being_restarted_is_never_reported_as_a_crash
+    self.assertEqual([[]], seen,
+AssertionError: Lists differ: [[]] != [['网关']]
+
+First differing element 0:
+[]
+['网关']
+
+- [[]]
++ [['网关']] : 重启途中看门狗会看到 [['网关']] ⇒ 弹「网关意外退出了」,而一切正常
+
+----------------------------------------------------------------------
+Ran 20 tests in 24.415s
+
+FAILED (failures=1, errors=1)
+---------------- 输出结束 ----------------
+runlog: redcheck-supervisor3 rc=1 commit=25133bf dirty=yes at=2026-08-16T15:07:58Z file=tracks/opendesign-key-startup-crash/evidence/20260816T150758Z-01-redcheck-supervisor3.txt

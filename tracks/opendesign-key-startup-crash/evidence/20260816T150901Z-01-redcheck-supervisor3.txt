@@ -1,0 +1,72 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-supervisor3
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_ds_shell_core.Supervise
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  25133bf
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-16T15:09:01Z
+---------------- 输出开始 ----------------
+...../root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py:622: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/tmpfy_9354o/网关.log'>
+  self.sup.restart([self.echo_svc("网关", ga, "old", tg)])
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py:637: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/tmp9nxidnt9/网关.log'>
+  self.sup.restart([self.echo_svc("网关", ga, "sk-业主刚填的", tg)])
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./usr/lib/python3.12/traceback.py:241: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/tmpms9c32bj/网关.log'>
+  tb.tb_frame.clear()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py:693: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/tmpzcp08ag0/网关.log'>
+  self.sup.restart([self.svc("网关",
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+F/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py:728: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/tmp0mz7hada/网关.log'>
+  self.sup.restart([self.svc("网关", BIND_AND_WAIT, ga)])
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+F.E........
+======================================================================
+ERROR: test_c20_a_dead_leg_says_why_not_just_that_it_died (tests.test_ds_shell_core.Supervise.test_c20_a_dead_leg_says_why_not_just_that_it_died)
+08-16 现场卡死在这里:网关死了,而外壳只说了"它退出了"。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py", line 755, in test_c20_a_dead_leg_says_why_not_just_that_it_died
+    reports = self.sup.dead_reports()
+              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Supervisor' object has no attribute 'dead_reports'
+
+======================================================================
+FAIL: test_c18_restarting_a_leg_reaps_its_whole_old_tree (tests.test_ds_shell_core.Supervise.test_c18_restarting_a_leg_reaps_its_whole_old_tree)
+重启只 terminate 了直接子进程 ⇒ 它的 3 个 MCP 孙进程活了下来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py", line 699, in test_c18_restarting_a_leg_reaps_its_whole_old_tree
+    self.assertEqual(["网关"], forced,
+AssertionError: Lists differ: ['网关'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'网关'
+
+- ['网关']
++ [] : 重启没走强杀那一步 ⇒ **Windows 上 Job 不会被关**,旧网关的 3 个 MCP 全变成孤儿(Linux 这边被进程组盖住了,看不出来)
+
+======================================================================
+FAIL: test_c19_a_leg_being_restarted_is_never_reported_as_a_crash (tests.test_ds_shell_core.Supervise.test_c19_a_leg_being_restarted_is_never_reported_as_a_crash)
+看门狗每 3 秒问一次 `poll_dead()`;它答"网关死了",业主就会收到
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py", line 731, in test_c19_a_leg_being_restarted_is_never_reported_as_a_crash
+    self.assertEqual([[]], seen,
+AssertionError: Lists differ: [[]] != [['网关']]
+
+First differing element 0:
+[]
+['网关']
+
+- [[]]
++ [['网关']] : 重启途中看门狗会看到 [['网关']] ⇒ 弹「网关意外退出了」,而一切正常
+
+----------------------------------------------------------------------
+Ran 20 tests in 24.408s
+
+FAILED (failures=2, errors=1)
+---------------- 输出结束 ----------------
+runlog: redcheck-supervisor3 rc=1 commit=25133bf dirty=yes at=2026-08-16T15:09:01Z file=tracks/opendesign-key-startup-crash/evidence/20260816T150901Z-01-redcheck-supervisor3.txt
