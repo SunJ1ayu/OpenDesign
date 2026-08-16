@@ -120,6 +120,15 @@ const STUB = () => {
       window.__wsCount += 1;
       window.__wsTimes.push(Date.now());
       window.__ws = this;
+      // 🔴 `__ws` 是**单数**,只记得最后建的那条。T4 之前只有首页那列会自动连,
+      //    掐断它就等于掐断"业主眼前那条";T4 之后**首页与工作区两列都自动连**
+      //    ⇒ `__ws` 可能指着工作区那条,`__killWS` 就掐错了对象:判据盯着
+      //    `.home-pane` 等「正在重连」,而断的是另一列 —— ①⑦㉒㉓ 一起红,
+      //    看起来像"断线自愈坏了",实际上**那一列压根没断过**。
+      //    (2026-08-16 用状态机日志抓到:`[RC] column closed`,home 一声没吭。
+      //     这也解释了中途那次不可复现的全绿 —— 那一跑 column 恰好没连上。)
+      // ⇒ 记全部,掐断掐全部。
+      (window.__wsAll ??= []).push(this);
       setTimeout(() => {
         if (this.readyState === StubWS.CLOSED) return;
         if (window.__failConnect) {   // 一建就断:模拟 gateway 没起
@@ -201,10 +210,12 @@ const STUB = () => {
 
   // 判据用的遥控器:掐断当前连接
   window.__killWS = (code = 1006) => {
-    const ws = window.__ws;
-    if (!ws) return false;
-    ws.readyState = 3;
-    ws.onclose?.({ code, reason: "e2e kill", wasClean: false });
+    const all = (window.__wsAll ?? []).filter((w) => w && w.readyState !== 3);
+    if (all.length === 0) return false;
+    for (const ws of all) {
+      ws.readyState = 3;
+      ws.onclose?.({ code, reason: "e2e kill", wasClean: false });
+    }
     return true;
   };
 };
@@ -311,8 +322,9 @@ try {
   // 哪天多一列自动连接就能让这一问不劳而获地绿 —— 那是假绿。
   check(await until(async () => (await wsCount()) >= wsBase + 1, 20000),
     "④ 到点自己又建了一条连接(纯逻辑层真的被接上了)");
-  check(await wsCount() <= wsBase + 1,
-    "④b 只重连了一次(退避没把它连成一串)");
+  // ~~④b 只重连了一次~~ **撤掉(2026-08-16)**:我加它时以为"多出一条"是常量,
+  // 实际掐断会打到**每一列**(现在两列),各自重连 ⇒ 全局多出的是列数,不是 1。
+  // 这条在两列场景下**结构上就问不出**;不放宽成 `<= wsBase*2` 那种糊弄写法。
   check(await until(() => page.locator(`${pane} .chat-meta`).isVisible(), 20000),
     "⑤ 回到已连接态");
   // ⚠️ 这条原来写反了(2026-08-04 攻题抓到,是**判据的 bug 不是实现的**):
