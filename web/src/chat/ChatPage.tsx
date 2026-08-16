@@ -118,9 +118,7 @@ export default function ChatPage({
 }: Props) {
   const fallback = useMemo(() => new ChatSession(), []);
   const session = sessionProp ?? fallback;
-  const [view, setView] = useState<View>(() =>
-    session.hasPassword() ? { kind: "connecting" } : { kind: "login" },
-  );
+  const [view, setView] = useState<View>({ kind: "connecting" });
   const [loginError, setLoginError] = useState("");
   const [attempt, setAttempt] = useState(0); // 递增触发重连 effect
   // 修改单 C(视图层,不动连接逻辑):工作区聊天列未连接时不放裸表单,顶部琥珀横幅
@@ -246,7 +244,6 @@ export default function ChatPage({
   }, [prefill]);
 
   useEffect(() => {
-    if (!session.hasPassword()) return;
     let cancelled = false;
     let ws: WebSocket | null = null;
     let info: BootstrapInfo | null = null;

@@ -1965,6 +1965,108 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 .connect-card .cc-submit { width: 100%; }
 .connect-card .cc-hint { margin: 10px 0 0; font-size: 11px; color: var(--ink-4); text-align: center; }
 
+/* ── 大模型 key 卡片(T4):首次启动与设置入口共用同一个组件 ─────────────── */
+.llm-key-card {
+  width: 420px;
+  max-width: calc(100vw - 40px);
+  background: #fff;
+  border: 1px solid var(--border-input);
+  border-radius: 14px;
+  box-shadow: var(--shadow-pop);
+  padding: 20px;
+  text-align: left;
+}
+.llm-key-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.llm-key-head h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: var(--ink);
+}
+.llm-key-head p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+.llm-key-current {
+  margin-left: auto;
+  flex: none;
+  max-width: 150px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--paper-side);
+}
+.llm-key-current span {
+  display: block;
+  font-size: 10.5px;
+  color: var(--ink-5);
+}
+.llm-key-current strong {
+  display: block;
+  margin-top: 2px;
+  font: 600 12px var(--font-mono);
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.llm-key-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.llm-key-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.llm-key-form select,
+.llm-key-form input {
+  width: 100%;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--border-input);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  outline: none;
+}
+.llm-key-form select:focus,
+.llm-key-form input:focus { border-color: var(--terra); }
+.llm-key-provider-note {
+  margin: -2px 0 2px;
+  font-size: 11.5px;
+  color: var(--ink-5);
+}
+.llm-key-error,
+.llm-key-notice {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.llm-key-error {
+  color: var(--terra-deep);
+  background: rgba(196, 106, 74, 0.08);
+}
+.llm-key-notice {
+  color: var(--st-done-fg);
+  background: var(--st-done-bg);
+}
+.llm-key-save {
+  width: 100%;
+  margin-top: 2px;
+}
+
 /* home(3a):整片区域居中呈现连接卡 */
 .home-pane-login {
   flex: 1;

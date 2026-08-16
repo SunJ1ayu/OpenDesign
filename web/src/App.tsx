@@ -9,7 +9,9 @@ import SkillsPage from "./SkillsPage";
 import GalleryPage from "./GalleryPage";
 import SearchPanel from "./SearchPanel";
 import FolderVisibilityCard from "./workspace/FolderVisibilityCard";
+import LlmKeyCard from "./LlmKeyCard";
 import { ChatSession } from "./chat/connection";
+import { fetchKeyStatus, type KeyStatus } from "./llmKey";
 import {
   loadThreadMap,
   projectPrefix,
@@ -81,6 +83,8 @@ export default function App() {
   // 工作区体检卡浮层(2026-07-28 用户拍板:挪进设置)。计数器兼作 key:
   // 每次打开都重挂一次 = 拿到当下最新的工作区状态,不会拿上次打开时的旧快照当真。
   const [fvisOpen, setFvisOpen] = useState(0);
+  const [llmKeyOpen, setLlmKeyOpen] = useState(false);
+  const [llmKeyStatus, setLlmKeyStatus] = useState<KeyStatus | null>(null);
   // 业主同意闸档位(track opendesign-owner-consent):设置里那一行的当前值。
   // null = 还没拉到(那时那一行显示「…」而不是猜一个默认值 —— 显示错的档位
   // 比显示"不知道"危险:业主会以为闸开着)。
@@ -227,6 +231,21 @@ export default function App() {
       .catch(() => setHealth(null));
   }, []);
 
+  // 大模型 key 状态:首次打开只拉一次。没配就自动弹卡;已配只记录状态,不打扰。
+  useEffect(() => {
+    let stale = false;
+    fetchKeyStatus(fetch)
+      .then((st) => {
+        if (stale) return;
+        setLlmKeyStatus(st);
+        if (!st.configured) setLlmKeyOpen(true);
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, []);
+
   // 业主同意闸档位:跟着 dataEpoch 重拉(助手刚排的队 / 另一个窗口改过档位,
   // 下一拍就对上)。拉不到时**保持 null** —— 设置里那一行显示「…」,
   // 不猜一个默认值:显示错的档位比显示"不知道"危险。
@@ -264,13 +283,9 @@ export default function App() {
     };
   }, [selectedKey, projects]);
 
-  // 历史对话:已登录才拉(经 ds_web 白名单代理,失败静默为 null)
+  // 历史对话:经 ds_web 白名单代理拉;没手输口令时由 ds_web 代签,失败静默为 null。
   useEffect(() => {
     let stale = false;
-    if (!session.hasPassword()) {
-      setSessions(null);
-      return;
-    }
     session
       .apiFetch("/api/chat/sessions?limit=10&direction=latest")
       .then(async (r) => {
@@ -406,10 +421,19 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [fvisOpen]);
+  useEffect(() => {
+    if (!llmKeyOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); setLlmKeyOpen(false); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [llmKeyOpen]);
 
   const selected = projects.find((p) => p.key === selectedKey) ?? null;
   // 历史行项目小标:命中项目映射的会话标上项目名
   const sessionTags = useMemo(() => sessionLabels(projThreads, projects), [projThreads, projects]);
+  const updateLlmKeyStatus = useCallback((st: KeyStatus) => setLlmKeyStatus(st), []);
 
   const sidebar = (
     <Sidebar
@@ -421,6 +445,7 @@ export default function App() {
       onSelectProject={goProject}
       onSearch={() => setSearchOpen(true)}
       onOpenFolderVisibility={() => setFvisOpen((n) => n + 1)}
+      onOpenLlmKey={() => setLlmKeyOpen(true)}
       consentMode={consentMode}
       onSetConsentMode={(m) => {
         // 乐观更新会在失败时把界面停在错的档位上 —— 这一格宁可慢一拍,
@@ -551,6 +576,12 @@ export default function App() {
             />
             <button className="fvis-close" onClick={() => setFvisOpen(0)}>关闭</button>
           </div>
+        </div>
+      )}
+
+      {llmKeyOpen && (
+        <div className="connect-modal-mask" onClick={() => setLlmKeyOpen(false)}>
+          <LlmKeyCard initialStatus={llmKeyStatus} onStatus={updateLlmKeyStatus} />
         </div>
       )}
 

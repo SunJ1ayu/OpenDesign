@@ -75,19 +75,21 @@ export class ChatSession {
     this.apiToken = null;
   }
 
-  /** 用口令签一张新 token(ws 握手 + HTTP API 双用),并缓存作 api token。 */
+  /** 签一张新 token(ws 握手 + HTTP API 双用),并缓存作 api token。
+   *  有手输口令时继续用 Bearer 兜底;没有口令时不带 Authorization,交给 ds_web 代签。 */
   async bootstrap(): Promise<BootstrapInfo> {
     const pw = this.storage.getItem(PASSWORD_KEY);
-    if (!pw) throw new PasswordRejected("尚未登录");
-    // fetch 的 header 值只收 Latin-1;中文等字符会抛 TypeError,被误读成
-    // "服务故障"。提前转成登录错误,给用户可行动的提示。
-    // eslint-disable-next-line no-control-regex
-    if (/[^\x20-\xFF]/.test(pw)) {
-      throw new PasswordRejected("口令含中文或特殊字符,浏览器无法发送——请在 nanobot 配置里换成字母数字口令");
+    const init: { headers?: Record<string, string> } = {};
+    if (pw) {
+      // fetch 的 header 值只收 Latin-1;中文等字符会抛 TypeError,被误读成
+      // "服务故障"。提前转成登录错误,给用户可行动的提示。
+      // eslint-disable-next-line no-control-regex
+      if (/[^\x20-\xFF]/.test(pw)) {
+        throw new PasswordRejected("口令含中文或特殊字符,浏览器无法发送——请在 nanobot 配置里换成字母数字口令");
+      }
+      init.headers = { Authorization: `Bearer ${pw}` };
     }
-    const res = await this.fetchFn("/api/chat/bootstrap", {
-      headers: { Authorization: `Bearer ${pw}` },
-    });
+    const res = await this.fetchFn("/api/chat/bootstrap", init);
     if (res.status === 401) throw new PasswordRejected();
     if (res.status !== 200) {
       throw new Error(`bootstrap 失败:HTTP ${res.status}(gateway 未启动?)`);
