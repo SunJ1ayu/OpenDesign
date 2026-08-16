@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 红检 —— 证明「连接身份(slot)」那套判据咬得动(track opendesign-key-onboarding)。
+# 红检 —— 连接层:「连接身份(slot)」+「认证失效后的视图」(track opendesign-key-onboarding)。
 #
 # 为什么必须单独跑一轮:判据先行时它们红的是「每列都查不到连接」,那种红只证明
 # **标签不存在会响**,不证明**标签打错了会响**。而"打错"恰恰是这次的真实风险:
@@ -13,7 +13,8 @@
 set -u
 cd "$(dirname "$0")/.."
 WORK="$(mktemp -d)"
-SRCS=(web/src/chat/connection.ts web/src/workspace/ChatColumn.tsx web/src/TodoRail.tsx)
+SRCS=(web/src/chat/connection.ts web/src/workspace/ChatColumn.tsx web/src/TodoRail.tsx
+      web/src/chat/ChatPage.tsx)
 for s in "${SRCS[@]}"; do cp "$s" "$WORK/$(basename "$s").orig"; done
 restore() { for s in "${SRCS[@]}"; do cp "$WORK/$(basename "$s").orig" "$s"; done; }
 
@@ -31,6 +32,7 @@ wanted() { [ ${#only[@]} -eq 0 ] && return 0; for x in "${only[@]}"; do [ "$x" =
 
 RC_E2E="env HOME=$E2E_HOME USERPROFILE=$E2E_HOME timeout 220 node tests/e2e/chat_reconnect.e2e.mjs"
 UNIT="node --test tests/test_chat_connection.mjs"
+FP_E2E="env HOME=$E2E_HOME USERPROFILE=$E2E_HOME timeout 220 node tests/e2e/frontend_p2_polish.e2e.mjs"
 
 # mutate <id> <文件> <老串> <新串> <判据命令> <该红在哪一问> <说明>
 mutate() {
@@ -60,7 +62,7 @@ PY
   fi
 }
 
-echo "== 红检:连接身份(slot)"
+echo "== 红检:连接层(身份 + 未连接时的视图)"
 
 # P1 标签根本不挂 ⇒ 判据回到"分不出哪一列"的老状态
 mutate P1 web/src/chat/connection.ts \
@@ -84,6 +86,16 @@ mutate P3 web/src/chat/connection.ts \
   '      client_id: this.randomId(), slot: slot ?? "",' \
   "$UNIT" \
   "身份泄进了 ws URL" "把 slot 塞进 query ⇒ 单测该红"
+
+# 🔴 P4 守的是本单最贵的那个 bug:业主没填 key 时,工作区聊天列会不会永远
+#    停在「正在连接聊天服务…」而不出「未连接」横幅 —— 那一列正是他找填 key
+#    入口的地方。把 stopped 分支去掉就回到病态。
+#    (这个修法我一度被坏判据误导、判它"失败"过三轮;P4 就是防止再退回去。)
+mutate P4 web/src/chat/ChatPage.tsx \
+  'setView(rcRef.current.mode === "stopped"' \
+  'setView(false' \
+  "$FP_E2E" \
+  "connect-banner" "认证失效后视图又被打回 connecting ⇒ 横幅出不来 ⇒ 该红"
 
 echo
 echo "== 红检小结:${pass} 咬住 / ${fail} 漏网"
