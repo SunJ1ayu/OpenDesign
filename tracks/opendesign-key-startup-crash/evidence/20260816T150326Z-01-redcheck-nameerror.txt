@@ -1,0 +1,69 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-nameerror
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_shipped_names tests.test_ds_shell_startup
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  08de4ac
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-16T15:03:26Z
+---------------- 输出开始 ----------------
+./root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+  """主变更行 C 号 —— **五个写口共用这一个定义**。
+./root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+  """主变更行 C 号 —— **五个写口共用这一个定义**。
+/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+  """主变更行 C 号 —— **五个写口共用这一个定义**。
+F.E.E..
+======================================================================
+ERROR: test_s1_with_a_key_both_legs_come_up_and_only_the_gateway_gets_it (tests.test_ds_shell_startup.StartBackend.test_s1_with_a_key_both_legs_come_up_and_only_the_gateway_gets_it)
+**08-16 那次开不了机就死在这一条上**:有 key ⇒ 走缺变量检查那个分支。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_startup.py", line 126, in test_s1_with_a_key_both_legs_come_up_and_only_the_gateway_gets_it
+    sup, web_port, restart = self.start()
+                             ^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_startup.py", line 115, in start
+    return shell.start_backend(self.home, lock_port=18788)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/bin/ds_shell.py", line 202, in start_backend
+    missing = core.missing_env_refs(json.load(f), env)
+                                                  ^^^
+NameError: name 'env' is not defined. Did you mean: 'envs'?
+
+======================================================================
+ERROR: test_s3_a_key_plus_some_other_unset_variable_stops_with_a_sentence (tests.test_ds_shell_startup.StartBackend.test_s3_a_key_plus_some_other_unset_variable_stops_with_a_sentence)
+配置里引用了别的没设的 ${VAR} ⇒ 现在就说人话,别让网关死在英文报错上。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_startup.py", line 161, in test_s3_a_key_plus_some_other_unset_variable_stops_with_a_sentence
+    self.start()
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_startup.py", line 115, in start
+    return shell.start_backend(self.home, lock_port=18788)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/bin/ds_shell.py", line 202, in start_backend
+    missing = core.missing_env_refs(json.load(f), env)
+                                                  ^^^
+NameError: name 'env' is not defined
+
+======================================================================
+FAIL: test_n3_every_name_read_by_shipped_code_exists (tests.test_shipped_names.ShippedNamesExist.test_n3_every_name_read_by_shipped_code_exists)
+这一条就是 08-16 真机那次开不了机。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_shipped_names.py", line 115, in test_n3_every_name_read_by_shipped_code_exists
+    self.assertEqual([], bad, "发货代码里有读不到的名字(执行到就是 NameError):\n"
+AssertionError: Lists differ: [] != ['bin/ds_shell.py: start_backend() 里读了 `env`,但这个名字不存在']
+
+Second list contains 1 additional elements.
+First extra element 0:
+'bin/ds_shell.py: start_backend() 里读了 `env`,但这个名字不存在'
+
+- []
++ ['bin/ds_shell.py: start_backend() 里读了 `env`,但这个名字不存在'] : 发货代码里有读不到的名字(执行到就是 NameError):
+bin/ds_shell.py: start_backend() 里读了 `env`,但这个名字不存在
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.419s
+
+FAILED (failures=1, errors=2)
+---------------- 输出结束 ----------------
+runlog: redcheck-nameerror rc=1 commit=08de4ac dirty=yes at=2026-08-16T15:03:26Z file=tracks/opendesign-key-startup-crash/evidence/20260816T150326Z-01-redcheck-nameerror.txt
