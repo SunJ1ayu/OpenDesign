@@ -230,6 +230,10 @@ try {
   });
 
   // C —— 🔴 主断言:KEY 的全机器足迹
+  //
+  // 扫之前先静置一会儿:保存一返回就扫 = **扫得太早**,一个 500ms 之后才发出去的
+  // 上报会整个漏掉,而判据全绿。这一秒半买的是"迟到的那一发也算数"。
+  if (SAVED) await page.waitForTimeout(1500);
   await runIfSaved("C1 页面 HTML 里没有 key 原文", async () => {
     const html = await page.content();
     if (html.includes(KEY)) throw new Error("key 出现在 DOM 里");
@@ -302,8 +306,15 @@ try {
 
   // E —— 存完之后再打开
   await runIfSaved("E1 已配置时不再自己弹卡片(别打扰他)", async () => {
+    // 🔴 不许用"死等 N 秒然后看它没弹"来判 —— 实现拉状态慢一点,
+    //    「不弹」就变成「还没弹」,而这是假绿。
+    //    正确的等法:等到**它确实已经知道自己配好了**(状态响应到达)再看。
+    const got = page.waitForResponse(
+      (r) => r.url().endsWith("/api/llm/credential") && r.status() === 200,
+      { timeout: 15000 });
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(2500);
+    await got;                       // 状态已经到手
+    await page.waitForTimeout(1200); // 再给它足够时间"弹"(要弹早弹了)
     if (await card.count() > 0) throw new Error("配好了还弹");
   });
   await runIfSaved("E2 状态接口只回末四位提示,永不回原文", async () => {
@@ -345,9 +356,15 @@ try {
     await page.locator('[data-ui="settings-llm-key"]').click();
     await card.waitFor({ timeout: 8000 });
     // 已配置时进来必须能看见"当前是哪把",否则业主不知道自己在改什么
+    // 文本节点 or placeholder 都算"显示了" —— 只认 innerText 会把
+    // 「placeholder 里写末四位」这种合理实现判红(误报)。
     const txt = await card.innerText();
-    if (!txt.includes(KEY.slice(-4))) throw new Error(`卡片没显示末四位:「${txt.slice(0, 120)}」`);
-    if (txt.includes(KEY)) throw new Error("卡片把 key 原文显示出来了");
+    const aria = String(await card.ariaSnapshot());
+    const shown = txt + "\n" + aria;
+    if (!shown.includes(KEY.slice(-4))) {
+      throw new Error(`卡片没显示末四位:「${txt.slice(0, 120)}」`);
+    }
+    if (shown.includes(KEY)) throw new Error("卡片把 key 原文显示出来了");
   });
 } catch (e) {
   fail("流程本身", e);
