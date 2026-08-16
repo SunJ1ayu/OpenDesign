@@ -99,6 +99,47 @@ bad=0
 for s in "${SRCS[@]}"; do
   now="$(sha256sum "$s" | cut -d' ' -f1)"
   [ "$now" = "${BEFORE[$s]}" ] || { echo "🔴 $s 没还原干净"; bad=1; }
+
+# ── E 组(来源层 / writable):2026-08-16 对照 DSH 的 credentials seam 补的 ──────
+# 这几条判据先行时红的是 **KeyError: 'source'**(字段不存在),那种红只证明
+# "没有就会响" —— 下面才是"写错了会不会响"。
+
+# N1 ~~空串当成有值~~ **等价变异,已撤**:去掉 `.strip() or None` 之后返回的是 `""`,
+#    而下游全程用 truthiness(`env_key or key`、`if env_key else`)⇒ 空串照样被排除,
+#    行为一字不差。**单点变异违反不了 e5**。
+#    e5 因此咬不动 —— 但它不是废条:它防的是未来有人把下游改成 `is not None`
+#    (那时空串就会冒充成一把配好的 key)。**红检咬不动 ≠ 判据没价值**,
+#    同 T3 那两条等价变异的处理。
+
+# N2 🔴 最该咬住的一条:报 key.txt 那把而不是真正生效的 env 那把
+#    ⇒ 业主换完 key 看见"新的末四位",网关还在用旧的
+mutate_and_expect N2 test_e4_when_both_exist_it_reports_the_one_that_actually_wins bin/ds_credential.py \
+  '    live = env_key or key' \
+  '    live = key or env_key'
+
+# N3 来源层认反 ⇒ 界面把"环境变量供的"说成"文件供的"
+# 🔴 第一版变异打偏了:`"file" if key else ("env" if env_key else None)` 在
+#    「只有 env、没有 key.txt」时**结果一模一样**,红的是 e4 不是 e2。
+#    脚本的"靶子核对"当场把它记成 [BAD] —— 那道核对是对的,不然我会以为 e2 有牙。
+mutate_and_expect N3 test_e2_env_supplied_reports_its_layer bin/ds_credential.py \
+  '            "source": "env" if env_key else ("file" if key else None),' \
+  '            "source": "file" if env_key else ("file" if key else None),'
+
+# N4 恒可写 ⇒ 被遮蔽那一格照样让业主填,白填一次
+mutate_and_expect N4 test_e6_env_supplied_is_not_writable bin/ds_credential.py \
+  '            "writable": env_key is None}' \
+  '            "writable": True}'
+
+# N5 拿掉遮蔽拒绝 ⇒ 写入"表面成功"(DSH 明确点名的那个病)
+mutate_and_expect N5 test_e8_saving_while_shadowed_is_refused_and_says_which_variable bin/ds_credential.py \
+  '    if _env_key(cfg):' \
+  '    if False:'
+
+# N6 configured 退回只看 key.txt ⇒ 装完就弹一张不该弹的卡
+mutate_and_expect N6 test_e1_env_supplied_counts_as_configured bin/ds_credential.py \
+  '    return {"configured": live is not None, "provider": provider,' \
+  '    return {"configured": key is not None, "provider": provider,'
+
 done
 [ "$bad" -eq 0 ] && echo "被测文件原样还回(${#SRCS[@]} 个哈希一致)"
 echo "== 红检结束:咬住 $pass 条,漏网 $fail 条 =="
