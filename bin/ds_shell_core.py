@@ -911,6 +911,39 @@ def child_env(
     return env
 
 
+def service_envs(
+    base_env: dict,
+    *,
+    ds_root: str,
+    user_home: str,
+    dsweb_port: int,
+    ws_port: int,
+    key: str | None = None,
+    key_var: str | None = None,
+    lock_port: int | None = None,
+) -> dict[str, dict]:
+    """两条腿各自的环境:**key 只进网关,不进 ds-web。**
+
+    🔴 为什么必须分开(2026-08-16 四审 BLOCK,两条评审腿各自独立命中):
+    ds-web **不消费**这把 key —— 只有网关按配置里的 `${VAR}` 解析它。可上一版把
+    同一份 env 给了两条腿,于是 ds-web 自己的 `os.environ` 里也有了它,而
+    `ds_credential.status()` 分不出**外壳自注入**和**业主真设过**,判成
+    `source="env" / writable=False` ⇒ 装好的应用第一次重启后,设置里那张改 key 的
+    卡片**永久只读**,还让业主去清一个他从没设过的变量。
+    「改 key / 换厂商」是 in-scope 功能,那条路在主形状上直接死了。
+
+    拿掉之后,H1 的只读态回到它该有的语义:**只有业主自己真设过的环境变量**才让
+    那一格变灰。(在装好的形状里那几乎不会发生 —— `child_env` 剥掉继承的 `DS_*`
+    —— 但在 git-pull 那两台、以及业主手工设过变量的机器上仍然成立。)
+    """
+    common = dict(ds_root=ds_root, user_home=user_home, dsweb_port=dsweb_port,
+                  ws_port=ws_port, lock_port=lock_port)
+    return {
+        "网关": child_env(base_env, key=key, key_var=key_var, **common),
+        "ds-web": child_env(base_env, key=None, key_var=None, **common),
+    }
+
+
 class ShellState:
     visible: bool
     exiting: bool

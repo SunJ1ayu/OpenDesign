@@ -50,16 +50,21 @@ class ShellWiring(unittest.TestCase):
     def kwargs(self, call):
         return {k.arg for k in call.keywords if k.arg}
 
+    # 2026-08-16:接线口从 `child_env` 换成了 `service_envs`(key 只进网关那条腿,
+    # 四审 BLOCK 的第一条)。**这两条守的东西没变** —— 锁端口和变量名仍然必须一路传
+    # 下去,只是现在经由 service_envs 转交。⇒ 题面跟着实现搬,不是放宽。
+    # 顺带比原来强了一点:`find()` 只认这一个入口,谁绕过 service_envs 自己拼 env
+    # 就会让这两条空转 —— 那种情况由 test_ds_shell_core 的 J5 接线闸兜着。
     def test_w1_child_env_is_told_the_lock_port(self):
         """不传的话 ds-web 那侧的 DS_SHELL_LOCK_PORT 永远是空的 ⇒ 它只会回 manual,
         业主每次填完 key 都被要求手动重启程序 —— 而 k 组判据全绿(它们自己塞了 env)。"""
-        for call in self.find("child_env"):
+        for call in self.find("service_envs"):
             self.assertIn("lock_port", self.kwargs(call),
-                          "child_env 没拿到锁端口 ⇒ 填完 key 自动重启这条路整条空转")
+                          "service_envs 没拿到锁端口 ⇒ 填完 key 自动重启这条路整条空转")
 
     def test_w2_child_env_is_told_which_variable_to_set(self):
         """key_var 不传 + 有 key ⇒ child_env 直接抛(e9)。这条是提前把它挡在启动之前。"""
-        for call in self.find("child_env"):
+        for call in self.find("service_envs"):
             self.assertIn("key_var", self.kwargs(call),
                           "变量名没传 ⇒ 有 key 时外壳会在启动阶段抛 ValueError")
 

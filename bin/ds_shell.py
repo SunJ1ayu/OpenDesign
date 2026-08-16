@@ -175,11 +175,15 @@ def start_backend(home: Path, lock_port: int | None = None):
                     key_var = ds_credential.env_var_name(json.load(f))
             except (OSError, ValueError, ds_credential.CredentialError) as e:
                 die(f"配置里没写清楚 key 该放进哪个变量({e})。\n\n请重新运行安装程序。")
-        return key, core.child_env(
+        # 🔴 **key 只进网关那条腿**(core.service_envs)。上一版把同一份 env 给了
+        #    两条腿,ds-web 也拿到 key ⇒ status() 把外壳自注入误判成"外部遮蔽" ⇒
+        #    装好的应用重启后,设置里改 key 的卡片永久只读,还让业主去清一个他
+        #    从没设过的变量。(2026-08-16 四审 BLOCK,判据 J 组钉住。)
+        return key, core.service_envs(
             dict(os.environ), ds_root=str(install_root() / "ds"), user_home=str(home),
             dsweb_port=web, ws_port=ws, key=key, key_var=key_var, lock_port=lock_port)
 
-    key, env = build_env()
+    key, envs = build_env()
 
     # 🔴 08-14 业主真机红出来的那一条,别再写回去:
     # 上一版这里只 log 一句「没找到 key.txt,聊天会连不上大模型」就继续往下走,理由是
@@ -232,7 +236,8 @@ def start_backend(home: Path, lock_port: int | None = None):
 
     # plan 里那两个名字是 core 的说法("ds-web"/"网关");Service 名是业主看得见的
     # 中文名("工作台"),watchdog 和报错都用它。别把两套名字混着用。
-    services = ([gateway_service(env)] if "网关" in plan["start"] else []) + [web_service(env)]
+    services = (([gateway_service(envs["网关"])] if "网关" in plan["start"] else [])
+                + [web_service(envs["ds-web"])])
 
     sup = core.Supervisor()
     try:
@@ -247,12 +252,12 @@ def start_backend(home: Path, lock_port: int | None = None):
         **现读**一遍 key 和配置(build_env 就是干这个的),把网关换成新进程;
         界面那条腿一动不动 —— 他正看着的页面就是它发的。
         """
-        k, fresh = build_env()
+        k, fresh = build_env()      # fresh 是两条腿各自的 env,重启只换网关那条
         if not k:
             log("[重启网关] 收到请求,但 key.txt 还是空的 —— 不动")
             return
         try:
-            sup.restart([gateway_service(fresh)])
+            sup.restart([gateway_service(fresh["网关"])])
             log("[重启网关] 完成")
         except Exception as exc:      # 回调跑在锁的线程里:炸出去会把那条线程带走
             log(f"[重启网关] 失败:{exc}")
