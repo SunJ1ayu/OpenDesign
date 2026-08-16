@@ -1553,8 +1553,14 @@ class TestOnlyTheGatewayGetsTheKey(unittest.TestCase):
         交给两条腿 —— 否则上面四条全绿而真机照样锁死(「接线测试证明不了接上了」)。"""
         body = open(os.path.join(ROOT, "bin", "ds_shell.py"), encoding="utf-8").read()
         self.assertIn("service_envs", body, "ds_shell 没用 service_envs ⇒ J 组等于没接电")
-        self.assertNotIn("web_service(env)", body,
-                         "ds-web 还在拿那份带 key 的 env(web_service(env))")
+        # 🔴 **正向**断言:必须把 ds-web 那份交给 ds-web。
+        #    第一版写的是「不含 `web_service(env)`」—— 那是"没找到坏东西"型断言,
+        #    换个写法(`web_service(envs["网关"])`)就绕过去了,红检 Q2 当场漏网。
+        #    负向断言挡不住变形,正向的才钉得住。
+        self.assertIn('web_service(envs["ds-web"])', body,
+                      "ds-web 拿的不是它自己那份 env ⇒ 逻辑层全绿而真机照样锁死")
+        self.assertIn('gateway_service(envs["网关"])', body,
+                      "网关拿的不是带 key 的那份 ⇒ 它会拒绝启动")
 
 
 if __name__ == "__main__":

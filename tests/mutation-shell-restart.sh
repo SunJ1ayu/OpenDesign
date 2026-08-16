@@ -156,6 +156,20 @@ mutate_and_expect M15 test_w3_the_lock_carries_a_restart_callback "$WIRE" "$S" \
 
 restore
 echo
+# ---- J 组:key 只进网关那条腿(2026-08-16 四审 BLOCK 的第一条)----
+
+# Q1 ds-web 那份也塞 key ⇒ 回到病态:装好的应用重启后,改 key 的卡片永久只读,
+#    还让业主去清一个外壳自己注入、他从没设过的变量。
+mutate_and_expect Q1 test_j2_ds_web_does_not "$CORE" "$C" \
+  '        "ds-web": child_env(base_env, key=None, key_var=None, **common),' \
+  '        "ds-web": child_env(base_env, key=key, key_var=key_var, **common),'
+
+# Q2 接线层把网关那份交给 ds-web ⇒ 逻辑层四条全绿而真机照样锁死。
+#    这条专门验 J5 那道接线闸(「接线测试证明不了接上了」)。
+mutate_and_expect Q2 test_j5_the_shell_really_uses_it "$CORE" "$S" \
+  '                + [web_service(envs["ds-web"])])' \
+  '                + [web_service(envs["网关"])])'
+
 bad=0
 for s in "${SRCS[@]}"; do
   now="$(sha256sum "$s" | cut -d' ' -f1)"
