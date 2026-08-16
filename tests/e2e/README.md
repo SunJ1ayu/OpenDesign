@@ -23,25 +23,35 @@ tests/e2e/run-all.sh todo focus_ring  # 只跑名字含这些子串的
 ## 跑法(Linux 开发机)
 
 ```bash
-# 1. 临时开 WebSocket 通道(自动备份 ~/.nanobot/config.json -> .bak)
-python3 bin/enable_webui.py e2etest
+# 1. WebSocket 通道:配置里 channels.websocket.token 非空就已经开着,**别再跑
+#    enable_webui.py** —— 它会改 ~/.nanobot/config.json,而改坏真机 gateway 口令
+#    这件事已经害人查了一整天(见记忆 judging-must-have-no-egress)。先只读地查:
+python3 -c 'import json,pathlib;print(bool((json.loads((pathlib.Path.home()/".nanobot"/"config.json").read_text()).get("channels",{}).get("websocket",{}) or {}).get("token")))'
 
-# 2. 起 gateway(MiMo key 从 mimocode auth.json 取)+ ds_web
+# 2. 起 gateway(MiMo key 从 mimocode auth.json 取)
 bin/ds-nanobot gateway &            # 记 PID,勿 pkill -f(自杀坑,见记忆)
-DS_WEB_PORT=8768 python3 bin/ds_web.py &
 
-# 3. 跑场景(playwright-core 用 npx 缓存,chromium 用 ms-playwright 缓存)
-E2E_BASE=http://127.0.0.1:8768 E2E_PASSWORD=e2etest \
-  node tests/e2e/project-thread.e2e.mjs
+# 3. 起 ds_web —— **家目录要隔离,而且必须显式指回真配置**(2026-08-16):
+#    · HOME 隔离 + 放一把假 key.txt ⇒ 否则 T4 的 key 卡片会自动弹出来,
+#      遮罩吃掉所有点击(29 条 e2e 一起红就是这么来的);
+#    · DS_NANOBOT_CONFIG 指回真配置 ⇒ ds_web 要从那儿读口令替前端代签,
+#      HOME 一隔离它就找不着了。两个需求指向不同目录,所以要分开给。
+H=$(mktemp -d); mkdir -p "$H/.openDesign"; echo sk-e2e-fixture > "$H/.openDesign/key.txt"
+env HOME="$H" USERPROFILE="$H" DS_NANOBOT_CONFIG="$HOME/.nanobot/config.json" \
+  DS_WEB_PORT=8768 python3 bin/ds_web.py &
 
-# 4. 还原:kill 两个 PID;cp ~/.nanobot/config.json.bak ~/.nanobot/config.json
+# 4. 跑场景(playwright-core 用 npx 缓存,chromium 用 ms-playwright 缓存)
+#    **不用给口令**:T2 起 ds-web 替前端代签,给了也没人读。
+E2E_BASE=http://127.0.0.1:8768 node tests/e2e/project-thread.e2e.mjs
+
+# 5. 还原:kill 两个 PID;rm -rf "$H"。配置一个字都没动过,不需要还原。
 ```
 
 - `helpers.mjs`:找 chromium 可执行、登录、等待选择器等公共件(O1 工具债沉淀,
   新 e2e 场景 import 它,别再手搓)。
 - 断言原则:断协议与 UI 事实(前缀/转录隔离/回放/localStorage),不断言 LLM 回复
   内容(不确定性)。
-- 环境变量:`E2E_BASE`(ds_web 地址)、`E2E_PASSWORD`(enable_webui 设的口令)、
+- 环境变量:`E2E_BASE`(ds_web 地址;口令不用给 —— 见 `helpers.waitConnected`)、
   `E2E_PW_MODULES`(可选,playwright-core 所在 node_modules,缺省用 npx 缓存)。
 
 ## 不需要 gateway 的场景(自起 ds_web,直接 `node <file>`)

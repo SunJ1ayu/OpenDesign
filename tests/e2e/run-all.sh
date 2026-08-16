@@ -17,7 +17,8 @@ cd "$(dirname "$0")/../.."          # 仓库根
 PY="${PY:-python3}"
 NODE="${NODE:-node}"
 
-# 需要外部活 gateway 的场景:它们读 E2E_BASE/E2E_PASSWORD 连一个别人起好的服务,
+# 需要外部活 gateway 的场景:它们读 E2E_BASE 连一个别人起好的服务(口令不用给 ——
+# T2 起 ds-web 替前端代签,见 helpers.waitConnected),
 # 没有 gateway 时会红在"连不上"而不是真缺陷 —— 默认跳过,并在汇总里如实报数。
 NEEDS_GATEWAY="new_chat.e2e.mjs project-thread.e2e.mjs"
 

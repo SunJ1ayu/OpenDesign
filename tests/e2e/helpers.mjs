@@ -43,6 +43,36 @@ export async function loginPane(page, scope, password, timeout = 20000) {
   await page.locator(`${scope} .chat-meta`).waitFor({ timeout });
 }
 
+/** 等到已连接(.chat-meta 出现)—— **全程不手输口令**。
+ *
+ * track opendesign-key-onboarding(2026-08-16):T2 起 ds-web 用后端口令替前端签
+ * (`_gateway_password()`),业主不该被要求记一个我们自己生成的口令。
+ * 于是 `loginPane` 那条路在**有代签的环境里根本走不到** —— 登录框压根不出现。
+ *
+ * 🔴 断言方向是这一条的全部价值:不是「没有登录框就跳过」,而是
+ *    **连上了 + 登录框一次都没露面**。写成「有登录框就填、没有就算了」的话,
+ *    代签哪天坏掉,判据照样绿 —— 而那正是这条主路从 T2.5 到今天
+ *    **没有任何一条自动判据走通过**的原因(tasks.md T5 记的第三条)。
+ *
+ * 🔴 两种病必须分得开:连不上时,「回落到要口令」和「压根没连上」是不同的病,
+ *    报同一句话会让我从头查错方向(08-14 那一夜的代价就在这儿)。
+ *
+ * 口令兜底路径仍然活着、仍然被测 —— 那是 `loginPane` 的活儿(自起 ds_web 的场景
+ * 拿不到代签口令,登录框照常出现)。两条路各有各的判据,别合并。
+ */
+export async function waitConnected(page, scope, timeout = 20000) {
+  try {
+    await page.locator(`${scope} .chat-meta`).waitFor({ timeout });
+  } catch (e) {
+    const login = await page.locator(`${scope} .chat-login`).count();
+    throw new Error(login > 0
+      ? `代签主路没走通:界面回落到「请业主手输口令」了(T2 起前端不该再持有口令)`
+      : `没连上,而且登录框也没出现 —— 是另一种病(后端没起来?):${e.message}`);
+  }
+  const login = await page.locator(`${scope} .chat-login`).count();
+  if (login !== 0) throw new Error("已连接了但登录框还在,状态自相矛盾");
+}
+
 /** 在 scope 内发一条消息(textarea + 发送键)。 */
 export async function sendMessage(page, scope, text) {
   await page.locator(`${scope} textarea`).fill(text);

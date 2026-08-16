@@ -10,10 +10,11 @@
 // 没坏(它早就是 nonce 递增),拿它来测会绿得毫无意义 —— design.md 记的假绿之一。
 // 不等 AI 回复:发出去的瞬间本地就先落一条 .msg-user(appendLocalUser),
 // 这已经足够证明"转录非空 → 点新对话 → 转录空",还免掉模型不确定性与 key 依赖。
-import { launchBrowser, loginPane, sendMessage, check } from "./helpers.mjs";
+import { launchBrowser, waitConnected, sendMessage, check } from "./helpers.mjs";
 
 const BASE = process.env.E2E_BASE || "http://127.0.0.1:8768";
-const PASSWORD = process.env.E2E_PASSWORD || "e2etest";
+// 口令常量已删(2026-08-16):T2 起 ds-web 替前端代签,这两条**不再手输口令**。
+// 留个死变量在这儿会让人以为还要设 E2E_PASSWORD —— 见 helpers.waitConnected。
 const HOME = ".home-pane";
 
 const userMsgs = (page) => page.locator(`${HOME} .msg-user`).count();
@@ -24,7 +25,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   page.on("dialog", (d) => d.accept()); // 删除历史对话的 confirm
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
-  await loginPane(page, HOME, PASSWORD);
+  await waitConnected(page, HOME);
 
   const newChatBtn = page.locator('[data-ui="side-new-chat"]');
   check((await newChatBtn.count()) === 1, "侧栏「新对话」按钮可精确定位");

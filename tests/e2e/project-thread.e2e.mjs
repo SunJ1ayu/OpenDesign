@@ -5,14 +5,15 @@
 // 前置:gateway(8765)+ds_web 在跑,见 tests/e2e/README.md。
 import {
   launchBrowser,
-  loginPane,
+  waitConnected,
   sendMessage,
   waitAssistantDone,
   check,
 } from "./helpers.mjs";
 
 const BASE = process.env.E2E_BASE || "http://127.0.0.1:8768";
-const PASSWORD = process.env.E2E_PASSWORD || "e2etest";
+// 口令常量已删(2026-08-16):T2 起 ds-web 替前端代签,这两条**不再手输口令**。
+// 留个死变量在这儿会让人以为还要设 E2E_PASSWORD —— 见 helpers.waitConnected。
 const PROJ_A = "翡翠湾-1801";
 const PROJ_B = "星河名邸-2302";
 const COL = ".chatcol"; // 工作区聊天列
@@ -43,7 +44,7 @@ try {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
 
   // ① 首页登录(home 实例;口令进 localStorage,后续列实例共享凭据)
-  await loginPane(page, ".home-pane", PASSWORD);
+  await waitConnected(page, ".home-pane");
   console.log("step1 home 登录已连接");
 
   // ② 进项目 A:登录后选项目 → colResume nonce 变 → 列实例自动连上(不用二次登录)
