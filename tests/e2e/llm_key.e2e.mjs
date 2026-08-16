@@ -190,9 +190,12 @@ try {
     if (t !== "password") throw new Error(`type=${t}`);
   });
   await runIfCard("A4 厂商选项由后端给,后端有几家就是几家", async () => {
-    const opts = await page.locator('[data-ui="llm-key-provider"] option').count();
-    if (opts !== PROVIDER_IDS.length) {
-      throw new Error(`后端 ${PROVIDER_IDS.length} 家,界面 ${opts} 个选项`);
+    // 问"每一家都在不在",不锁总数 —— 锁总数会把合理的「请选择…」占位项判成红,
+    // 而误报和假绿一样坏。
+    const values = await page.locator('[data-ui="llm-key-provider"] option')
+      .evaluateAll((os) => os.map((o) => o.value));
+    for (const id of PROVIDER_IDS) {
+      if (!values.includes(id)) throw new Error(`后端有 ${id},界面选项里没有:${JSON.stringify(values)}`);
     }
   });
 
@@ -206,7 +209,7 @@ try {
   });
   await runIfSaved("D1 没有外壳 ⇒ 那句话必须叫业主自己重启,不许假装已生效", async () => {
     const txt = (await page.locator('[data-ui="llm-key-notice"]').innerText()).trim();
-    if (!txt.includes("重启")) throw new Error(`没让他重启:「${txt}」`);
+    if (!/重启|重新启动/.test(txt)) throw new Error(`没让他重启:「${txt}」`);
   });
 
   // B2/B3 —— 落盘落对地方(值从后端真相源来,不在这儿抄第二遍)
@@ -232,8 +235,12 @@ try {
     if (html.includes(KEY)) throw new Error("key 出现在 DOM 里");
   });
   await runIfSaved("C2 无障碍树里没有 key 原文(密码框挡得住眼睛,挡不住读屏)", async () => {
-    const snap = await page.accessibility.snapshot({ interestingOnly: false });
-    if (JSON.stringify(snap ?? {}).includes(KEY)) throw new Error("key 出现在 aria 树里");
+    // ⚠️ 不要用 page.accessibility.snapshot():**playwright 1.60 里它已经不存在了**,
+    //    写成那样这条会红在 TypeError 上 —— 而"红在 TypeError 上等于没红检过"。
+    //    探针实测:ariaSnapshot() 连 type=password 里**当前输入的值**都会吐出来,
+    //    所以这条顺带盖住了"输入框没清空"那一面。
+    const snap = await page.locator("body").ariaSnapshot();
+    if (String(snap).includes(KEY)) throw new Error("key 出现在 aria 树里");
   });
   await runIfSaved("C3 控制台一句都没漏(调试语句是最常见的漏法)", async () => {
     const hit = consoleLines.filter((l) => l.includes(KEY));
@@ -258,6 +265,30 @@ try {
   await runIfSaved("C6 ds_web 自己的日志里没有 key", async () => {
     const log = srvOut.join("");
     if (log.includes(KEY)) throw new Error("服务端日志带 key");
+  });
+  await runIfSaved("C9 浏览器存储里没有 key(localStorage / sessionStorage 全量扫)", async () => {
+    // 🔴 这条补的是我自攻抓到的最大一个洞:C 组原本扫的是 HTML / aria / console /
+    //    响应体 / 服务端日志 —— **一个前端存储都没查**。组件"顺手记一下方便下次改 key"
+    //    就能全绿地把原文留在业主磁盘上。
+    //    (未覆盖:IndexedDB / Cache Storage。写在这儿是为了不假装扫全了。)
+    const dump = await page.evaluate(() => {
+      const out = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i); out["ls:" + k] = localStorage.getItem(k);
+      }
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i); out["ss:" + k] = sessionStorage.getItem(k);
+      }
+      return JSON.stringify(out);
+    });
+    if (dump.includes(KEY)) {
+      const where = Object.entries(JSON.parse(dump)).filter(([, v]) => String(v).includes(KEY));
+      throw new Error(`key 存进了浏览器存储:${where.map(([k]) => k).join(", ")}`);
+    }
+  });
+  await runIfSaved("C10 保存成功后输入框已清空(别让 key 一直躺在页面里)", async () => {
+    const v = await page.locator('[data-ui="llm-key-input"]').inputValue();
+    if (v !== "") throw new Error(`输入框里还留着 ${v.length} 个字符`);
   });
   await run("C7 页面上也不许出现网关口令(T2 拿掉手输之后,它更不该露面)", async () => {
     const html = await page.content();
