@@ -39,6 +39,8 @@ type Props = {
   onSearch: () => void;
   /** 设置弹层里的「工作区文件夹」入口(体检卡 2026-07-28 挪进设置,浮层由 App 渲染)。 */
   onOpenFolderVisibility: () => void;
+  /** 设置弹层里的「AI 模型」入口(大模型 key 卡片由 App 渲染)。 */
+  onOpenLlmKey: () => void;
   /** 业主同意闸档位(track opendesign-owner-consent)。null = 还没拉到。 */
   consentMode: ConsentMode | null;
   onSetConsentMode: (mode: ConsentMode) => void;
@@ -62,7 +64,7 @@ function dotTitle(p: Project, current: boolean): string {
 
 export default function Sidebar({
   route, projects, stages, selectedKey, onSelectProject, todosOpenCount, excludedStructural,
-  onOpenFolderVisibility, consentMode, onSetConsentMode,
+  onOpenFolderVisibility, onOpenLlmKey, consentMode, onSetConsentMode,
   sessions, sessionTags, onOpenSession, onDeleteSession, onNewChat, onNewProject,
   onSearch, health,
 }: Props) {
@@ -292,10 +294,15 @@ export default function Sidebar({
           </button>
           <button
             className="item"
-            title="切换模型:python bin/set_model.py <模型id>,然后重启 gateway"
+            data-ui="settings-llm-key"
+            title="设置大模型 API key"
+            onClick={() => {
+              setSettingsOpen(false);
+              onOpenLlmKey();
+            }}
           >
             <span className="lbl">AI 模型</span>
-            <span className="val mono">{health?.model ?? "未连接"}</span>
+            <span className="val mono">{health?.model ?? "配置 key ›"}</span>
           </button>
           <button className="item">
             <span className="lbl">数据与备份</span>
