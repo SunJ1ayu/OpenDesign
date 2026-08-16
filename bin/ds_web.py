@@ -87,7 +87,15 @@ import ds_todo
 import ds_tools
 import ds_workspace
 
-VERSION = "0.88.0"  # 业主可以在界面里填大模型 key 了(track opendesign-key-onboarding):
+VERSION = "0.89.0"  # 填完 key 之后开不了机那个坑填了(track opendesign-key-startup-crash):
+                    # 0.88.0 有一行读了个不存在的名字,而那一行**只有填过 key 的机器才执行**
+                    # ⇒ 业主填完 key 之后每次打开都 NameError,一直崩。顺带三件:
+                    # 重启网关时整棵树一起收(以前每按一次保存多 3 个孤儿工具服务)、
+                    # 重启途中不再被看门狗误报成"意外退出"、腿死了要打退出码和日志尾巴
+                    # (08-16 那晚两份真机日志摆在面前也答不了"谁杀的",就是因为没有它)。
+                    # 窗口也换了:去掉系统标题栏(它那个 OpenDesign 和我们前端的标题重了),
+                    # 最小化/最大化/关闭改成右上角自己画,拖动和改大小用原生窗口消息接回来。
+                    # 0.88.0  业主可以在界面里填大模型 key 了(track opendesign-key-onboarding):
                     # 首启动自动弹卡、设置里同一张卡改 key;key 只写不回显、只落 key.txt 一处;
                     # 填完由外壳重启网关(重启不许撒谎);没填 key 时界面要给得出入口。  # 你的东西搬出安装目录了(track opendesign-data-outside-install):
                     # 项目档案、客户备忘、共享参考图库(真图片)、总索引、整理审计、工作区设置

@@ -15,12 +15,17 @@ tests/test_ws_protocol_smoke.py:139  # bootstrap token 恰好过期时才走的�
 # 而实现正常时它本来就不该被执行。同上面两条一个道理:判据真跑了、仍然不执行。
 # ⚠️ 行号会随文件漂:这份清单按 <文件>:<行号> 认,改动 test_ds_shell_core.py 上半部分
 #    要回来核一遍(这条已经漂过一次:203/303 → 220/320)。
-tests/test_ds_shell_core.py:221  # 单实例锁:第一个实例没吭声就退了才走这句,正常跑不到
-tests/test_ds_shell_core.py:321  # 同上(唤醒握手那组的同一条报错分支)
+tests/test_ds_shell_core.py:222  # 单实例锁:第一个实例没吭声就退了才走这句,正常跑不到
+tests/test_ds_shell_core.py:322  # 同上(唤醒握手那组的同一条报错分支)
 
 # 2026-08-15(track opendesign-data-outside-install):
 # c2 的兜底断言 —— 实现正确时 data_root() 一定抛 DataRootError,于是 except 分支 return,
 # 这句永远不执行。它守的是"万一将来有人把抛错改成返回值,也不许返回安装目录"。
 # 行号又漂了一次(我给 test_ds_shell_core 加了一行 import shutil,220/320 → 221/321)——
 # 这份清单按行号认,**每次改判据上半部分都要回来核**。
+# 2026-08-16 第三次漂(加了一行 `from unittest import mock`,221/321 → 222/322)。
+# 三次全是同一个原因:**清单认的是行号,而行号不是那条断言的身份**。
+# 每次都红在无辜的地方、修法都是改数字 —— 这是"报警器指错门"的形状。
+# 下一个动这里的人:考虑改成按"文件 + 那一行的内容"认(内容变了才该重新过问),
+# 别再加第四条漂移注释。
 tests/test_data_root.py:237  # data_root 正确时必抛错 ⇒ 这句兜底永远不执行,但它守着"不许回退安装目录"

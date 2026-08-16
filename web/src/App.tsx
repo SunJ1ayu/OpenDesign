@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Sidebar, { type SessionItem } from "./workspace/Sidebar";
+import WindowChrome from "./workspace/WindowChrome";
 import ChangesColumn from "./workspace/ChangesColumn";
 import CompanionColumn from "./workspace/CompanionColumn";
 import ChatColumn from "./workspace/ChatColumn";
@@ -471,6 +472,8 @@ export default function App() {
 
   return (
     <div className="workspace">
+      {/* 自己画的窗口栏:只在桌面外壳里渲染,浏览器里整块不存在 */}
+      <WindowChrome />
       {sidebar}
 
       {/* 3a 新对话页(常驻,非 home 路由时 CSS 隐藏不卸载) */}

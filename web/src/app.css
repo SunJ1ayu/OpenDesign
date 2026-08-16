@@ -169,6 +169,35 @@ html, body { overflow: auto; }
   border-right: 1px solid var(--border-main);
   position: relative;
 }
+/* ── 自己画的窗口栏(只在桌面外壳里出现,见 WindowChrome.tsx)────────────
+   无边框窗口把系统标题栏连同"拖边缘改大小"一起收走了,这里补回来。
+   高度 30px ≈ 原来那条系统标题栏 —— 净空间不变,少一个重复的 OpenDesign 标题。 */
+body.has-window-chrome { padding-top: 30px; }
+.win-bar {
+  position: fixed; top: 0; left: 0; right: 0; height: 30px; z-index: 60;
+  background: var(--paper-side); border-bottom: 1px solid var(--border-soft);
+  display: flex; align-items: center; justify-content: flex-end;
+  user-select: none; -webkit-user-select: none;
+}
+.win-btns { display: flex; height: 100%; }
+.win-btn {
+  width: 44px; height: 100%; display: grid; place-items: center;
+  border: 0; background: transparent; color: var(--ink-2); cursor: default;
+  transition: background var(--hover-ease), color var(--hover-ease);
+}
+.win-btn:hover { background: var(--paper-hover); color: var(--ink); }
+.win-btn-close:hover { background: var(--terra); color: #fff; }
+/* 八个透明把手。5px 宽,压在最上层 —— 窗口边缘那一线的点击让给"改大小"。 */
+.win-grip { position: fixed; z-index: 70; }
+.win-grip-top    { top: 0; left: 6px; right: 6px; height: 5px; }
+.win-grip-bottom { bottom: 0; left: 6px; right: 6px; height: 5px; }
+.win-grip-left   { left: 0; top: 6px; bottom: 6px; width: 5px; }
+.win-grip-right  { right: 0; top: 6px; bottom: 6px; width: 5px; }
+.win-grip-topleft     { top: 0; left: 0; width: 6px; height: 6px; }
+.win-grip-topright    { top: 0; right: 0; width: 6px; height: 6px; }
+.win-grip-bottomleft  { bottom: 0; left: 0; width: 6px; height: 6px; }
+.win-grip-bottomright { bottom: 0; right: 0; width: 6px; height: 6px; }
+
 .side-brand { display: flex; align-items: baseline; padding: 18px 20px 12px; }
 .side-brand .brand {
   font-weight: 700;
@@ -176,7 +205,6 @@ html, body { overflow: auto; }
   letter-spacing: 0.01em;
   color: var(--ink);
 }
-.side-brand .brand em { font-style: normal; color: var(--terra); }
 
 .side-group { display: flex; flex-direction: column; gap: 1px; padding: 4px 8px 0; }
 .side-row {

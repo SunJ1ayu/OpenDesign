@@ -271,6 +271,122 @@ def start_backend(home: Path, lock_port: int | None = None):
     return sup, web, restart_gateway
 
 
+class WindowApi:
+    """前端那条窗口栏按下去之后走到的地方(pywebview 的 js_api)。
+
+    2026-08-16 业主:「为什么不能不要外面那个框,只留我们原来的前端仅仅加上
+    右上角的缩小放大和退出按钮」。窗口于是改成 frameless —— 而 Windows 把
+    **拖边缘改大小**也一起收走了,所以这里除了三个按钮还得接回"拖动"和"改大小"。
+
+    做法是给窗口发一条**原生**消息(`WM_NCLBUTTONDOWN` + 命中码):之后整个拖拽
+    /缩放循环由 Windows 自己跑,手感与系统边框完全一致(吸附也在)。自己算坐标
+    去 move 窗口是另一条路,那条会飘、会掉帧,而且没有吸附。
+
+    ⚠️ **这整个类在 Linux 上一行都跑不到**(要 WebView2 + WinForms 窗口)。
+    能判的都推到别处了:边名和前端那份名单对表在
+    tests/test_shell_window_contract.py;剩下的"按下去到底动不动"只有真机答得了,
+    已进真机清单。每个方法都吞异常 —— 窗口栏坏掉不该让业主的界面跟着炸,
+    托盘的「退出」永远是保底出口。
+    """
+
+    # 名字必须和 web/src/shellWindow.ts 的 RESIZE_EDGES 一字不差(判据对表)。
+    HIT = {
+        "caption": 2,
+        "left": 10, "right": 11, "top": 12,
+        "topleft": 13, "topright": 14,
+        "bottom": 15, "bottomleft": 16, "bottomright": 17,
+    }
+    _WM_NCLBUTTONDOWN = 0x00A1
+
+    def __init__(self, shell: "Shell"):
+        self._shell = shell
+        self._restore = None       # 最大化之前的窗口位置/大小
+
+    # --- 内部 ---------------------------------------------------------
+    def _form(self):
+        """pywebview 的 WinForms Form 本体(它在窗口建好之后挂上 `native`)。"""
+        window = getattr(self._shell, "window", None)
+        return getattr(window, "native", None) if window else None
+
+    def _on_ui(self, fn):
+        """回到**拥有窗口的那个线程**再动窗口。
+
+        js_api 的调用跑在 pywebview 自己的工作线程上,而 `ReleaseCapture()`
+        只对**调用它的线程**有效、改 Bounds 也只在 UI 线程上才算数 ——
+        在别的线程上做这两件事会安静地不生效(最难查的那一类)。
+        """
+        form = self._form()
+        if form is None:
+            return None
+        box: list = []
+        try:
+            from System import Action        # pythonnet(pywebview 的 Windows 依赖)
+
+            form.Invoke(Action(lambda: box.append(fn(form))))
+        except Exception:
+            try:
+                box.append(fn(form))         # 拿不到 .NET 就直接跑,总比什么都不做强
+            except Exception:
+                return None
+        return box[0] if box else None
+
+    def _hit(self, form, code: int) -> None:
+        user32 = ctypes.windll.user32
+        user32.ReleaseCapture()
+        user32.SendMessageW(int(form.Handle.ToInt64()), self._WM_NCLBUTTONDOWN, code, 0)
+
+    def _work_area(self, form):
+        from System.Windows.Forms import Screen
+
+        return Screen.FromHandle(form.Handle).WorkingArea
+
+    def _is_max(self, form) -> bool:
+        area = self._work_area(form)
+        return (form.Left == area.X and form.Top == area.Y
+                and form.Width == area.Width and form.Height == area.Height)
+
+    # --- 前端叫得到的 ---------------------------------------------------
+    def begin_drag(self):
+        self._on_ui(lambda form: self._hit(form, self.HIT["caption"]))
+
+    def begin_resize(self, edge: str):
+        code = self.HIT.get(str(edge))
+        if code is None:
+            log(f"[窗口] 不认识的方向:{edge}")     # 前后端名单对不上了,别静默
+            return
+        self._on_ui(lambda form: self._hit(form, code))
+
+    def minimize(self):
+        def go(form):
+            from System.Windows.Forms import FormWindowState
+
+            form.WindowState = FormWindowState.Minimized
+        self._on_ui(go)
+
+    def toggle_maximize(self):
+        def go(form):
+            from System.Drawing import Rectangle
+
+            if self._is_max(form) and self._restore:
+                x, y, w, h = self._restore
+                form.Bounds = Rectangle(x, y, w, h)
+                return False
+            self._restore = (form.Left, form.Top, form.Width, form.Height)
+            area = self._work_area(form)
+            # 🔴 用**工作区**而不是 WindowState.Maximized:无边框窗口最大化会连
+            #    任务栏一起盖住(FormBorderStyle=None 没有系统边框帮它留位置)。
+            form.Bounds = Rectangle(area.X, area.Y, area.Width, area.Height)
+            return True
+        return {"maximized": bool(self._on_ui(go))}
+
+    def window_state(self):
+        return {"maximized": bool(self._on_ui(self._is_max))}
+
+    def close_window(self):
+        """关 = 收进托盘,和以前点系统那个 × 一模一样(不是退出程序)。"""
+        self._shell.state.on_close_requested()
+
+
 class Shell:
     """把 core 的状态机接到 pywebview / pystray 上。"""
 
@@ -379,10 +495,13 @@ def main() -> int:
         shell.window = webview.create_window(
             APP, f"http://127.0.0.1:{web}/",
             width=1280, height=860, min_size=(960, 640),
-            # 自己的窗口边框(有最小化/最大化/关闭),**不是浏览器** ⇒ 没有地址栏。
-            # S1a 那份考卷把"无地址栏"写进了断言名却没验,这里不重复那个错:
-            # 这一条由 Windows 真机考卷用眼睛验(截图)。
-            frameless=False, easy_drag=False,
+            # 🔴 2026-08-16 业主:系统标题栏那个 "OpenDesign" 和我们前端自己的标题
+            #    撞了 ⇒ 不要那个框,窗口按钮我们自己画在右上角(WindowChrome.tsx)。
+            #    代价说清楚:frameless 之后 Windows 把"拖边缘改大小"也一起收走了,
+            #    由 WindowApi 用原生窗口消息接回来。
+            #    `easy_drag=False` 是关键:开着的话**整个页面**按哪儿都能拖窗口 ——
+            #    选不了字、拖不动滚动条。拖动只认我们那条栏。
+            frameless=True, easy_drag=False, js_api=WindowApi(shell),
         )
         # 关窗口 = 收进托盘。pywebview 的 closing 回调返回 False 表示"别关"。
         shell.window.events.closing += lambda: shell.state.on_close_requested()

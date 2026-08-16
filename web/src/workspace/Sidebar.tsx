@@ -168,9 +168,7 @@ export default function Sidebar({
   return (
     <nav className="side">
       <div className="side-brand">
-        <span className="brand">
-          OpenDesign<em>.</em>
-        </span>
+        <span className="brand">OpenDesign</span>
       </div>
 
       {/* 全局操作组(v2:无日历行、无快捷键角标;技能收进本组) */}
