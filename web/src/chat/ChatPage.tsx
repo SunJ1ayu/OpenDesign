@@ -93,6 +93,12 @@ type Props = {
    * 连接 effect、send、节流缓冲、Enter 判定的代码路径逐字不变(硬约束)。
    */
   variant?: "column" | "home";
+  /** 这一列聊天的稳定身份,用于把连接归属到列(判据/诊断按它寻址)。
+   *  ⚠️ **不能用 `variant` 代替**:待办页那个实例传的也是 `variant="home"`
+   *  (TodoRail.tsx),两者会撞名 —— 2026-08-16 kimi 腿抓到的坑。
+   *  三处挂载点当前都没有 `key`,实例不随项目切换重建,所以固定串就够;
+   *  哪天给它们加了 key,这里要改成带 project 的身份(gpt 腿提的)。 */
+  slot?: string;
 };
 
 function StockLink() {
@@ -115,6 +121,7 @@ export default function ChatPage({
   firstSendPrefix,
   projectLabel,
   variant = "column",
+  slot,
 }: Props) {
   const fallback = useMemo(() => new ChatSession(), []);
   const session = sessionProp ?? fallback;
@@ -345,7 +352,7 @@ export default function ChatPage({
     if (target && !selfResume) pullThread(target.sessionKey, "prepend");
 
     session
-      .openSocket()
+      .openSocket(slot)
       .then((r) => {
         if (cancelled) {
           (r.socket as WebSocket).close();

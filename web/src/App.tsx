@@ -477,6 +477,7 @@ export default function App() {
       <section className={`home-pane${route === "home" ? "" : " route-hidden"}`}>
         <ChatPage
           variant="home"
+          slot="home"
           session={session}
           prefill={homePrefill}
           onConnected={onConnected}

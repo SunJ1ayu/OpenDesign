@@ -71,6 +71,7 @@ export default function ChatColumn({
       )}
       <div className={`chatcol-body${collapsed ? " route-hidden" : ""}`}>
         <ChatPage
+          slot="workspace"
           session={session}
           prefill={prefill}
           dispatch={dispatch}

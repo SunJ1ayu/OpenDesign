@@ -254,6 +254,7 @@ export default function TodoRail({
           <div className="rail-chat-body">
             <ChatPage
               variant="home"
+              slot="todo"
               session={session}
               dispatch={dispatch}
               onConnected={() => setConnected(true)}

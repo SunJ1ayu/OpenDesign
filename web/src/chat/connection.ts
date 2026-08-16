@@ -127,7 +127,15 @@ export class ChatSession {
    * 开一条 ws:每次都新签(握手 token 一次性消费,复用必 401)。
    * 地址 = ws_path + 已知端口自拼;ws_url 按上游 Host 头生成,不作依据。
    */
-  async openSocket(): Promise<{ socket: unknown; info: BootstrapInfo }> {
+  /** 建一条连接。`slot` 是**这一列聊天**的稳定身份(home / workspace / todo)。
+   *
+   * 🔴 标签挂在 socket 对象上,**不进 ws URL** —— query 会原样打到真 gateway,
+   *    那是拿生产协议迁就测试。挂 expando 则生产行为零变化,而判据(和将来的
+   *    诊断)能回答「这条连接是哪一列的」。
+   *    2026-08-16:判据一直只能看全局计数,于是「掐断当前连接」掐错了列,
+   *    四条断线自愈判据一起红,我据此三次改错了状态机。身份是那次的根治。
+   */
+  async openSocket(slot?: string): Promise<{ socket: unknown; info: BootstrapInfo }> {
     const info = await this.bootstrap();
     const path = info.ws_path?.startsWith("/") ? info.ws_path : "/";
     const q = new URLSearchParams({
@@ -135,6 +143,8 @@ export class ChatSession {
       token: info.token,
     });
     const url = `ws://127.0.0.1:${this.nanobotPort}${path}?${q}`;
-    return { socket: this.wsFactory(url), info };
+    const socket = this.wsFactory(url);
+    if (slot) (socket as { __dsSlot?: string }).__dsSlot = slot;
+    return { socket, info };
   }
 }
