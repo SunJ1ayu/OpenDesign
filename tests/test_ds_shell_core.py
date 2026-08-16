@@ -1496,5 +1496,66 @@ class MissingEnvRefs(unittest.TestCase):
         self.assertIn("DS_LLM_KEY", (base / "gateway.log").read_text(encoding="utf-8"))
 
 
+class TestOnlyTheGatewayGetsTheKey(unittest.TestCase):
+    """J 组:**key 只进网关那条腿的环境,不进 ds-web 的**(2026-08-16 四审 BLOCK)。
+
+    两条评审腿各自独立命中同一处:装好的应用第一次重启之后,设置里那张改 key 的卡片
+    会**永久变成只读**,并且提示业主「请先清掉那个环境变量」—— 而那个变量是**外壳
+    自己注入的**,业主从来没设过。
+
+    链条:`ds_shell.py` 把 `child_env(...key=...)` 造出来的**同一份 env** 同时交给
+    网关和 ds-web ⇒ ds-web 自己的 `os.environ` 里就有了 key 变量 ⇒
+    `ds_credential.status()` 判成 `source="env" / writable=False` ⇒ 卡片锁死、
+    `save()` 永远拒绝。**改 key / 换厂商这个 in-scope 功能在主形状上直接死亡。**
+
+    🔴 更难看的一点(kimi 腿指出):e2e 的 G1「换 key」之所以是绿的,只因为它**直接
+    起 ds-web** 且那个变量是空的 —— **装好的那套接线从来没有判据走过**。
+
+    ⇒ ds-web 是代理,它**不消费**这把 key(只有网关按配置里的 `${VAR}` 解析它)。
+    把 key 塞进 ds-web 的 env 是这次误判的唯一来源,拿掉它,H1 的只读态就回到它
+    该有的语义:只有**业主自己真设过**的环境变量才会让那一格变灰。
+    """
+
+    BASE = {"PATH": "/usr/bin", "HOME": "/home/x"}
+
+    def _envs(self, key):
+        return core.service_envs(
+            self.BASE, ds_root="/ds", user_home="/home/x",
+            dsweb_port=8766, ws_port=8765,
+            key=key, key_var="DS_LLM_KEY" if key else None, lock_port=18800)
+
+    def test_j1_gateway_gets_the_key(self):
+        envs = self._envs("sk-real-key")
+        self.assertEqual(envs["网关"].get("DS_LLM_KEY"), "sk-real-key",
+                         "网关拿不到 key ⇒ 它会拒绝启动(配置里是 ${DS_LLM_KEY})")
+
+    def test_j2_ds_web_does_not(self):
+        """🔴 本组的全部理由。ds-web 拿到它,业主就再也改不了 key。"""
+        envs = self._envs("sk-real-key")
+        self.assertNotIn("DS_LLM_KEY", envs["ds-web"],
+                         "ds-web 的 env 里有 key ⇒ status() 会把外壳自注入误判成外部遮蔽 "
+                         "⇒ 设置里那张卡片永久只读,而它让业主去清一个自己没设过的变量")
+
+    def test_j3_no_key_means_neither_leg_has_it(self):
+        envs = self._envs(None)
+        for leg in ("网关", "ds-web"):
+            self.assertNotIn("DS_LLM_KEY", envs[leg])
+
+    def test_j4_both_legs_still_get_the_rest(self):
+        """只拿掉 key,别把别的也一起拿掉 —— 两条腿仍然要拿到端口/根目录/锁端口。"""
+        envs = self._envs("sk-real-key")
+        for leg in ("网关", "ds-web"):
+            self.assertEqual(envs[leg].get("DS_WEB_PORT"), "8766", f"{leg} 少了 DS_WEB_PORT")
+            self.assertTrue(envs[leg].get("DS_ROOT"), f"{leg} 少了 DS_ROOT")
+
+    def test_j5_the_shell_really_uses_it(self):
+        """接线闸:`ds_shell.py` 必须**通过 service_envs 分发**,不能自己再拼一份 env
+        交给两条腿 —— 否则上面四条全绿而真机照样锁死(「接线测试证明不了接上了」)。"""
+        body = open(os.path.join(ROOT, "bin", "ds_shell.py"), encoding="utf-8").read()
+        self.assertIn("service_envs", body, "ds_shell 没用 service_envs ⇒ J 组等于没接电")
+        self.assertNotIn("web_service(env)", body,
+                         "ds-web 还在拿那份带 key 的 env(web_service(env))")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
