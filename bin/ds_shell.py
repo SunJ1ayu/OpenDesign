@@ -199,7 +199,11 @@ def start_backend(home: Path, lock_port: int | None = None):
     if "网关" in plan["start"]:
         try:
             with cfg.open("r", encoding="utf-8") as f:
-                missing = core.missing_env_refs(json.load(f), env)
+                # 拿**网关那条腿**的 env 去比,不是别的:key 只进它(service_envs),
+                # 拿 ds-web 那份去比会说"DS_LLM_KEY 没设",而它本来就不该有。
+                # (08-16 业主真机:这里写的是已经不存在的 `env` —— 有 key 的机器
+                #  每次开机 NameError。判据 tests/test_shipped_names.py 咬着。)
+                missing = core.missing_env_refs(json.load(f), envs["网关"])
         except (OSError, ValueError) as e:
             die(f"配置读不出来:{e}\n\n请重新运行安装程序。")
         # 说什么话在 core 里(判据 H6~H9 咬着);这一层只剩"有就弹"。
