@@ -60,6 +60,9 @@ export default function LlmKeyCard({ initialStatus = null, onStatus }: Props) {
   }, [onStatus]);
 
   const selected = status?.providers.find((p) => p.id === provider) ?? null;
+  // 被环境变量遮蔽 ⇒ 这一格在这个界面里改不动(后端也会拒绝,见 ds_credential.save)。
+  // 提前变只读,业主就不用填一次才知道 —— 形状来自 DSH 的 describe().writable。
+  const shadowed = status?.writable === false;
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -75,6 +78,9 @@ export default function LlmKeyCard({ initialStatus = null, onStatus }: Props) {
         configured: outcome.configured,
         provider: outcome.provider,
         hint: outcome.hint,
+        // 刚写进 key.txt 才会走到这里(被 env 遮蔽时后端直接拒绝,进不了 ok 分支)
+        source: outcome.configured ? "file" : null,
+        writable: true,
         providers: status?.providers ?? [],
       };
       setStatus(next);
@@ -136,10 +142,19 @@ export default function LlmKeyCard({ initialStatus = null, onStatus }: Props) {
             data-ui="llm-key-input"
             type="password"
             autoComplete="off"
-            placeholder={status?.configured ? "粘贴新 key 可覆盖当前配置" : "粘贴 API key"}
-            disabled={loading || saving}
+            placeholder={shadowed
+              ? "这台机器的 key 由环境变量提供"
+              : status?.configured ? "粘贴新 key 可覆盖当前配置" : "粘贴 API key"}
+            disabled={loading || saving || shadowed}
           />
         </label>
+
+        {shadowed && (
+          <p className="llm-key-note" data-ui="llm-key-readonly">
+            当前的 key 由环境变量提供,启动时它优先于本机的 key.txt ——
+            在这里改不会生效。要改成在这里填,请先清掉那个环境变量再重开程序。
+          </p>
+        )}
 
         {error && <p className="llm-key-error">{error}</p>}
         {notice && (
@@ -152,7 +167,7 @@ export default function LlmKeyCard({ initialStatus = null, onStatus }: Props) {
           type="submit"
           className="btn-primary llm-key-save"
           data-ui="llm-key-save"
-          disabled={loading || saving || !provider}
+          disabled={loading || saving || !provider || shadowed}
         >
           {saving ? "保存中…" : "保存"}
         </button>

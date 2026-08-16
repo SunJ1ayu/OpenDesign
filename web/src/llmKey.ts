@@ -3,6 +3,10 @@ export const CREDENTIAL_PATH = "/api/llm/credential";
 export type Provider = { id: string; label: string; model: string };
 export type KeyStatus = {
   configured: boolean; provider: string | null; hint: string | null; providers: Provider[];
+  /** 这把 key 现在由哪一层供着:"env"=进程环境变量、"file"=key.txt、null=没配。 */
+  source: "env" | "file" | null;
+  /** 在这个界面里改得动吗。env 供值时为 false —— 启动脚本 env 优先,写 key.txt 不生效。 */
+  writable: boolean;
 };
 export type SaveOutcome =
   | { ok: true; configured: boolean; provider: string | null; hint: string | null; restart: string }
@@ -37,6 +41,11 @@ function asStatus(v: unknown): KeyStatus {
     configured: r.configured === true,
     provider: typeof r.provider === "string" ? r.provider : null,
     hint: typeof r.hint === "string" ? r.hint : null,
+    source: r.source === "env" || r.source === "file" ? r.source : null,
+    // 🔴 缺省成 true(可写)而不是 false:上游万一没给这个字段,宁可让业主填得动
+    //    也不要把一个正常的界面锁死。锁死是不可自救的,填了不生效后端还会拦
+    //    (E 组 save 那道)。**两个方向的坏,选可恢复的那个。**
+    writable: r.writable !== false,
     providers,
   };
 }
