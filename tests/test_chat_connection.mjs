@@ -121,11 +121,60 @@ test("中文口令 → PasswordRejected 明确提示且零网络(fetch header �
   assert.equal(fetchFn.calls.length, 0);
 });
 
-test("没有口令就动手 → PasswordRejected 且零网络请求", async () => {
-  const { s, fetchFn } = makeSession({});
-  await assert.rejects(() => s.apiFetch("/api/chat/sessions"), PasswordRejected);
-  await assert.rejects(() => s.openSocket(), PasswordRejected);
-  assert.equal(fetchFn.calls.length, 0);
+// ---- 没口令 = 主路(track opendesign-key-onboarding T4)-------------------
+//
+// 🔴 **题面 2026-08-16 改过,原断言是「没有口令 → 零网络请求」。**
+//    改的理由不是它红了,是它**结构上已经问不出该问的事**:ds-web 现在会替前端签
+//    (bin/ds_web.py `_proxy`,判据 j1 咬着),业主从此不必手输口令 ⇒
+//    "没有口令"从异常路变成了**主路**,再断言"零网络"等于禁止主路发生。
+//    断言没有删,是搬到问得出的地方,而且问得更细:没口令时**不许自己瞎编一个
+//    Authorization**(那会把一个假 Bearer 送到上游)、只发一次、被拒了才回登录框。
+//    ——「改题面前必须说清这份考卷问不出这件事,并把断言搬到问得出的地方」。
+
+test("没口令 = 代签主路:照发 bootstrap,但**一个 Authorization 都不许带**", async () => {
+  const { s, fetchFn } = makeSession({ handler: () => jsonRes(200, boot("nbwt_signed")) });
+  assert.equal(s.hasPassword(), false);
+  const info = await s.bootstrap();
+  assert.equal(info.token, "nbwt_signed");
+  assert.equal(fetchFn.calls.length, 1, "没口令时该发且只发一次");
+  assert.equal(fetchFn.calls[0].url, "/api/chat/bootstrap");
+  // 关键:头必须**缺席**。带一个空的 / "Bearer null" / "Bearer undefined" 都算漏 ——
+  // 上游会拿它当口令去比,而我们等的是"ds-web 认出没带、替我签"这条路。
+  assert.equal(authHeader(fetchFn.calls[0]), null,
+               `没口令却带了 Authorization:${authHeader(fetchFn.calls[0])}`);
+});
+
+test("没口令时 apiFetch / openSocket 都能走通(代签路是主路,不是兜底)", async () => {
+  const { s, fetchFn, opened } = makeSession({
+    handler: (url) => (url === "/api/chat/bootstrap"
+      ? jsonRes(200, boot("nbwt_signed"))
+      : jsonRes(200, { ok: true })),
+  });
+  const r = await s.apiFetch("/api/chat/sessions");
+  assert.equal(r.status, 200);
+  await s.openSocket();
+  assert.equal(opened.length, 1);
+  for (const c of fetchFn.calls.filter((c) => c.url === "/api/chat/bootstrap")) {
+    assert.equal(authHeader(c), null, "代签路上不许出现 Authorization");
+  }
+});
+
+test("没口令且服务端也拒(401)→ PasswordRejected 弹回登录,且不重试", async () => {
+  // 代签失败(配置里没口令 / 口令错)时,手输那条兜底路必须还在 —— 这正是
+  // design 里「保留手输为兜底,删了就没有退路」那一条。
+  const { s, fetchFn } = makeSession({ handler: () => jsonRes(401) });
+  await assert.rejects(() => s.bootstrap(), PasswordRejected);
+  // 消息双向写:0 和 2 是**两种病**,写死一种会把人引去查没发生的事
+  // (同类教训:判据里"红是对的但理由是假的")。
+  assert.equal(fetchFn.calls.length, 1,
+               `bootstrap 该恰好发一次:0 = 根本没走代签路(还在要口令),>1 = 被拒了还反复签`);
+});
+
+test("有口令时仍用它签:兜底路没被拿掉", async () => {
+  const { s, fetchFn } = makeSession({ handler: () => jsonRes(200, boot("nbwt_pw")) });
+  s.setPassword("pw1");
+  await s.bootstrap();
+  assert.equal(authHeader(fetchFn.calls[0]), "Bearer pw1");
 });
 
 test("gateway 不可达(bootstrap 502)≠ 口令错:抛错但不是 PasswordRejected", async () => {
