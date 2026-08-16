@@ -166,6 +166,19 @@ mutate M20 web/src/App.tsx \
   "$E2E" \
   "FAIL - A7" "关掉一次就再也不提醒 ⇒ 业主永远填不上 key ⇒ A7 该红"
 
+# ── H 组(被环境变量遮蔽时只读)────────────────────────────────────────────
+mutate M21 web/src/LlmKeyCard.tsx \
+  'disabled={loading || saving || shadowed}' \
+  'disabled={loading || saving}' \
+  "$E2E" \
+  "FAIL - H1" "遮蔽时输入框照样能填 ⇒ 业主白填一次才被后端拒绝 ⇒ H1 该红"
+
+mutate M22 web/src/LlmKeyCard.tsx \
+  'const shadowed = status?.writable === false;' \
+  'const shadowed = false;' \
+  "$E2E" \
+  "FAIL - H1" "整个只读态失效(既不禁用也不说明)⇒ H1 该红"
+
 mutate M16 web/src/workspace/Sidebar.tsx \
   'title="设置大模型 API key"' \
   'title="切换模型:python bin/set_model.py <模型id>"' \
