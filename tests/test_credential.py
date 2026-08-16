@@ -232,6 +232,127 @@ class TestShellStartsTheUiEvenWithoutAKey(unittest.TestCase):
         self.assertEqual(plan["wait"], [])
 
 
+class TestWhichLayerActuallySuppliesTheKey(Rig):
+    """E 组:**界面说的「已配置」必须和真正生效的那把 key 是同一件事。**
+
+    2026-08-16 对照 DeepSeek Harness 的 credentials seam 补的
+    (`docs/subsystems/credentials.zh.md`:`describe()` 报告**来源层**与 `writable`,
+    并把「由当前进程环境供值」的引用标成不可写 —— 因为那样的写入
+    **表面成功而解析持续返回遮蔽值**,所以它选择直接拒绝)。
+
+    我们这边的实际形状:`bin/ds-nanobot.ps1` 是 **env 优先**
+    (`if (-not $env:DS_LLM_KEY) { 读 key.txt }`),而 `status()` **只看 key.txt**。
+    两边看的不是同一个地方,于是有两个业主会踩的坑:
+
+    - **误弹卡片**:机器预设了环境变量、没有 key.txt ⇒ 网关明明能用,界面却报
+      「没配」并自动弹卡催他填。**这台开发机就是这个情况**(key 走 mimocode 的
+      auth.json)—— 08-16 那 29 条 e2e 被遮罩挡住,根子就在这儿,当时我只是用
+      「给测试塞一把假 key.txt」绕开了症状。
+    - **表面成功**(更坏):预设了环境变量时业主填新 key ⇒ 写进 key.txt、界面显示
+      **新 key 的末四位**;重启后启动脚本看见 env 已有值就不读 key.txt,网关继续用
+      旧的那把。**业主从界面上完全查不出来。**
+
+    ⚠️ 本组只问「报告得对不对」。「网关真的用了哪把」只有真机能答 —— 已进真机清单。
+    """
+
+    VAR = "DS_LLM_KEY"          # Rig 的 cfg 引用的就是它(变量名仍从配置读,见 C 组)
+
+    def _env(self, value: str | None) -> None:
+        old = os.environ.get(self.VAR)
+
+        def restore() -> None:
+            if old is None:
+                os.environ.pop(self.VAR, None)
+            else:
+                os.environ[self.VAR] = old
+
+        self.addCleanup(restore)
+        if value is None:
+            os.environ.pop(self.VAR, None)
+        else:
+            os.environ[self.VAR] = value
+
+    def test_e1_env_supplied_counts_as_configured(self):
+        """没有 key.txt 但环境变量有值 ⇒ 已配置。报"没配"就会催业主填一把他根本不需要的 key。"""
+        self._env(FAKE_KEY)
+        st = ds_credential.status(self.home, self.cfg_path)
+        self.assertTrue(st["configured"],
+                        "环境变量供着 key,界面却说没配 ⇒ 装完就弹一张不该弹的卡")
+
+    def test_e2_env_supplied_reports_its_layer(self):
+        self._env(FAKE_KEY)
+        st = ds_credential.status(self.home, self.cfg_path)
+        self.assertEqual(st["source"], "env")
+
+    def test_e3_file_supplied_reports_its_layer(self):
+        self._env(None)
+        ds_credential.save(home=self.home, cfg_path=self.cfg_path,
+                           provider="deepseek", key=FAKE_KEY)
+        st = ds_credential.status(self.home, self.cfg_path)
+        self.assertTrue(st["configured"])
+        self.assertEqual(st["source"], "file")
+
+    def test_e4_when_both_exist_it_reports_the_one_that_actually_wins(self):
+        """🔴 本组最该守的一条:两边都有值时,报告的必须是**真正生效**的那把。
+
+        启动脚本 env 优先 ⇒ 生效的是 env。若 hint 报的是 key.txt 那把的末四位,
+        业主换完 key 会看见"新的末四位"、用着旧的 key,而且无从发现。
+        """
+        env_key = FAKE_KEY[:-4] + "EEEE"
+        file_key = FAKE_KEY[:-4] + "FFFF"
+        self._env(None)
+        ds_credential.save(home=self.home, cfg_path=self.cfg_path,
+                           provider="deepseek", key=file_key)
+        self._env(env_key)
+        st = ds_credential.status(self.home, self.cfg_path)
+        self.assertEqual(st["source"], "env")
+        # 期望值从实现自己的 hint 函数现读,不在这儿拼第二份格式(骗法四)
+        self.assertEqual(st["hint"], ds_credential._hint(env_key))
+        self.assertNotEqual(st["hint"], ds_credential._hint(file_key),
+                            "报的是 key.txt 那把 ⇒ 业主看见的末四位是假的")
+
+    def test_e5_empty_env_is_absent_not_configured(self):
+        """DSH 的 seam 级规则:空的存储值在任何地方都视为不存在。
+        启动脚本那句 `if (-not $env:DS_LLM_KEY)` 对空串同样成立 ⇒ 空串该回落到 key.txt。"""
+        self._env("")
+        st = ds_credential.status(self.home, self.cfg_path)
+        self.assertFalse(st["configured"],
+                         "空串被当成配好了 ⇒ 界面不弹卡,而网关起不来")
+        self.assertIsNone(st["source"])
+
+    def test_e6_env_supplied_is_not_writable(self):
+        """写 key.txt 改不动 env 供的值 ⇒ 必须提前把这一格标成只读,别让业主白填一次。"""
+        self._env(FAKE_KEY)
+        st = ds_credential.status(self.home, self.cfg_path)
+        self.assertFalse(st["writable"])
+
+    def test_e7_without_env_it_is_writable(self):
+        self._env(None)
+        st = ds_credential.status(self.home, self.cfg_path)
+        self.assertTrue(st["writable"], "没人遮蔽的时候必须能写,否则业主永远填不上")
+        self.assertFalse(st["configured"])
+        self.assertIsNone(st["source"])
+
+    def test_e8_saving_while_shadowed_is_refused_and_says_which_variable(self):
+        """DSH 选择直接拒绝,我们照做:让它"成功"就是在骗业主。
+        错误话里必须点名那个变量,否则他不知道该去改哪儿。"""
+        self._env(FAKE_KEY)
+        with self.assertRaises(ds_credential.CredentialError) as ctx:
+            ds_credential.save(home=self.home, cfg_path=self.cfg_path,
+                               provider="deepseek", key=FAKE_KEY[:-4] + "NEWK")
+        self.assertIn(self.VAR, str(ctx.exception))
+
+    def test_e9_the_launcher_really_is_env_first(self):
+        """锚定前提:上面整组都建立在"启动脚本 env 优先"上。哪天它改成 file 优先,
+        这一条先红,提醒下一个人回来把 E 组的理由重写,而不是让理由悄悄过期
+        (同 C 组 c2 的手法)。"""
+        ps1 = os.path.join(ROOT, "bin", "ds-nanobot.ps1")
+        with open(ps1, encoding="utf-8") as fh:
+            body = fh.read()
+        self.assertIn("if (-not $env:DS_LLM_KEY)", body,
+                      "启动脚本不再是 env 优先 —— E 组的理由要重写")
+
+
 def _load_jsonc(path: str) -> dict:
     """出货模板是 jsonc(带注释)。复用实现那一份读法,别自己写第二个解析器。"""
     return ds_credential.load_jsonc(path)
