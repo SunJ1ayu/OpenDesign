@@ -1563,5 +1563,60 @@ class TestOnlyTheGatewayGetsTheKey(unittest.TestCase):
                       "网关拿的不是带 key 的那份 ⇒ 它会拒绝启动")
 
 
+class TestTheAckNamesTheVerb(unittest.TestCase):
+    """K 组:**应答要点名动词** —— 否则"已重启"会撒谎(2026-08-16 四审 kimi 腿)。
+
+    旧形状:`conn.sendall(self._OK)` 发生在**动词分派之前**,任何一帧都回同一个 `OK`。
+    于是**认不出 RESTART 的老外壳**(它只会把窗口叫到前台)也回 `OK` ⇒ ds-web 判成
+    `restart="requested"` ⇒ 界面告诉业主"已经自动应用新配置",而网关**一动没动**,
+    他填的新 key 根本没生效。这正面违反本单的不变量 4「不许撒谎的重启」。
+
+    ⇒ 应答带上动词:认出重启回 `OK RESTART-BACKEND`,其余照旧回 `OK`。
+    新 ds-web 只认前者 ⇒ 碰上老外壳时**正确降级**成"请手动重启",而不是撒谎。
+    (老 ds-web 碰上新外壳:它只比对 `OK` 前缀,`startswith` 仍成立,不弄坏双击图标。)
+    """
+
+    def _send(self, port: int, tail: bytes) -> bytes:
+        with socket.create_connection(("127.0.0.1", port), timeout=3) as c:
+            c.sendall(core.InstanceLock._HELLO + tail)
+            return core.recv_line(c, deadline=time.monotonic() + 3)
+
+    def test_k1_restart_ack_names_the_verb(self):
+        base = free_port()
+        restarted = threading.Event()
+        lock = core.InstanceLock(base_port=base, span=5,
+                                 on_show=lambda: None, on_restart=restarted.set)
+        self.addCleanup(lock.release)
+        self.assertTrue(lock.acquire())
+        ack = self._send(lock.port, b"RESTART-BACKEND\n")
+        self.assertEqual(ack, b"OK RESTART-BACKEND",
+                         "应答没点名动词 ⇒ 分不出「它真认了重启」和「它只是回了个 OK」")
+        self.assertTrue(restarted.wait(5))
+
+    def test_k2_plain_show_still_gets_a_bare_ok(self):
+        """双击图标那条路一个字都不许变(老实例只发 HELLO,也只该收到 OK)。"""
+        base = free_port()
+        shown = threading.Event()
+        lock = core.InstanceLock(base_port=base, span=5,
+                                 on_show=shown.set, on_restart=lambda: None)
+        self.addCleanup(lock.release)
+        self.assertTrue(lock.acquire())
+        self.assertEqual(self._send(lock.port, b""), b"OK")
+        self.assertTrue(shown.wait(5))
+
+    def test_k3_ds_web_only_believes_the_named_ack(self):
+        """ds-web 侧:只有点名动词的应答才算 requested;裸 OK(老外壳)必须回 manual。
+
+        这条是不变量 4 的机械化:**宁可让他多点一下,也不要一句会撒谎的"已生效"**。
+        """
+        import ds_web
+        for reply, want in ((b"OK RESTART-BACKEND", "requested"),
+                            (b"OK", "manual"),
+                            (b"", "manual"),
+                            (b"NOPE", "manual")):
+            with self.subTest(reply=reply):
+                self.assertEqual(ds_web._restart_verdict(reply), want)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
