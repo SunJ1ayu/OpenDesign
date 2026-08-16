@@ -11,6 +11,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -31,19 +32,31 @@ function walkSrc(dir) {
 
 
 test("b2 端点/模型值不许在**整个前端**里第二次硬编码(两边一起错时判据也一起绿)", () => {
-  // 🔴 第一版只扫 llmKey.ts 一个文件 —— 那是半恒真的:把厂商端点抄进**组件**
-  //    就照样全绿(我自攻时抓到的 A-1)。所以扫整棵源码树。
-  //    实测过零命中,扩到全树不会误伤。
-  const files = walkSrc(join(ROOT, "web", "src"));
-  for (const f of files) {
+  // 🔴 这条闸自己栽过一次:第一版把要扫的串**写死在判据里**
+  //    (`["api.deepseek.com","deepseek-v4",…]`)—— 那正是它要防的那个毛病。
+  //    后端哪天改端点,它扫的还是旧串,前端抄**新**值照样全绿。
+  //    ⇒ 要扫什么,现从后端的真相源 `ds_credential.PROVIDERS` 读出来。
+  const raw = spawnSync("python3", ["-c", `
+import sys, json; sys.path.insert(0, ${JSON.stringify(join(ROOT, "bin"))})
+import ds_credential
+print(json.dumps(ds_credential.PROVIDERS, ensure_ascii=False))
+`], { encoding: "utf-8" });
+  const providers = JSON.parse(raw.stdout || "{}");
+  const ids = Object.keys(providers);
+  assert.ok(ids.length >= 2, `读不到后端 PROVIDERS(拿到 ${ids.length} 家):${raw.stderr}`);
+
+  const needles = [];
+  for (const p of Object.values(providers)) {
+    needles.push(new URL(p.apiBase).host);   // api.deepseek.com / token-plan-cn.xiaomimimo.com
+    needles.push(p.model);                   // deepseek-v4-flash / mimo-v2.5
+  }
+  for (const f of walkSrc(join(ROOT, "web", "src"))) {
     const src = readFileSync(f, "utf-8");
-    // 这些值的唯一出处是出货模板 + bin/ds_credential.py 的 PROVIDERS。
-    for (const v of ["api.deepseek.com", "xiaomimimo.com", "deepseek-v4", "mimo-v2"]) {
+    for (const v of needles) {
       assert.ok(!src.includes(v), `${f.slice(ROOT.length + 1)} 里抄了一份后端的值:${v}`);
     }
   }
 });
-
 
 /** 读 llmKey.ts;还没落地时给一句人话,别甩 ENOENT。 */
 function readImpl() {
