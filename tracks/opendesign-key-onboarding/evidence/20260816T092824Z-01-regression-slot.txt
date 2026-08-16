@@ -9,3 +9,22 @@ started: 2026-08-16T09:28:24Z
 [1m== node 单测(tests/*.mjs)[0m
    [32m完成[0m  4s
 [1m== python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python)[0m
+   [32m完成[0m  388s
+[1m== MCP 契约闸[0m
+   [32m完成[0m  6s
+[1m== dist 新鲜度(重新 build 后 git 应无差异)[0m
+   [32m完成[0m  8s
+[1m== e2e 总跑(含 gateway)[0m
+   [31m有红[0m  150s
+
+════ 总跑汇总 ════
+  [32mPASS[0m  node 单测(tests/*.mjs)           371 通过 / 0 跳过 / 0 todo
+  [32mPASS[0m  python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python) 1228 跑过 / 0 跳过
+  [32mPASS[0m  MCP 契约闸                      三条闸全绿
+  [32mPASS[0m  dist 新鲜度(重新 build 后 git 应无差异) 与源码同步
+  [31mFAIL[0m  e2e 总跑(含 gateway)            36 PASS / 1 FAIL / 0 SKIP
+
+有 1 段红了,日志在 /tmp/ds-all-6wo9jF
+   e2e 总跑(含 gateway) → /tmp/ds-all-6wo9jF/e2e.log
+---------------- 输出结束 ----------------
+runlog: regression-slot rc=1 commit=ff2466e dirty=no at=2026-08-16T09:28:24Z file=tracks/opendesign-key-onboarding/evidence/20260816T092824Z-01-regression-slot.txt
