@@ -386,8 +386,10 @@ class SingleInstance(unittest.TestCase):
         self.addCleanup(lock.release)
         self.assertTrue(lock.acquire())
 
+        # 2026-08-16:应答改成**点名动词**(K 组)。这里跟着搬,而且比原来强 ——
+        # 原来只问"回了个 OK",现在问"它回的是**认了重启**的那个 OK"。
         self.assertEqual(self._send_frame(lock.port, b"RESTART-BACKEND\n"),
-                         core.InstanceLock._OK, "重启动词没被认出来")
+                         core.InstanceLock._OK_RESTART, "重启动词没被认出来")
         self.assertTrue(restarted.wait(5), "发了重启动词,后端却没被叫起来")
         self.assertFalse(shown.wait(0.5), "重启顺带把窗口弹到了前台 —— 他正在里面填 key")
 
@@ -436,7 +438,8 @@ class SingleInstance(unittest.TestCase):
             s.sendall(core.InstanceLock._HELLO)
             time.sleep(0.15)                      # 在 _recv_frame 的宽限之内
             s.sendall(core.InstanceLock._RESTART)
-            self.assertEqual(s.recv(32), core.InstanceLock._OK)
+            # 应答点名动词(K 组):动词分两个包到达时,认出来的仍然要点名
+            self.assertEqual(s.recv(32), core.InstanceLock._OK_RESTART)
         self.assertTrue(restarted.wait(5), "动词晚到一个包就被丢了 ⇒ 填完 key 不会重启")
         self.assertFalse(shown.is_set(), "退回成了唤醒窗口 —— 窗口闪一下,key 却没生效")
 

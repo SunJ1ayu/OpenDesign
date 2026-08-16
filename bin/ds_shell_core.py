@@ -94,6 +94,11 @@ LOCK_HELLO = b"OpenDesign.ds_shell_core.lock.v1\n"
 LOCK_SHOW = b"SHOW\n"
 LOCK_RESTART = b"RESTART-BACKEND\n"     # 业主填完 key ⇒ 网关得重来一次才认新 env
 LOCK_OK = b"OK\n"
+# 🔴 应答**点名动词**:老外壳认不出 RESTART 也会回裸 OK,ds-web 就会把
+#    "什么都没重启"报成 requested,界面对业主说「已自动应用新配置」——
+#    正面违反「不许撒谎的重启」。带上动词,新 ds-web 碰上老外壳时才能
+#    **正确降级**成"请手动重启"。(老 ds-web 碰上新外壳无碍:它比对的是前缀。)
+LOCK_OK_RESTART = b"OK RESTART-BACKEND\n"
 
 
 def recv_line(sock: socket.socket, deadline: float, limit: int = 4096) -> bytes:
@@ -122,6 +127,7 @@ class InstanceLock:
     _SHOW = LOCK_SHOW
     _RESTART = LOCK_RESTART
     _OK = LOCK_OK
+    _OK_RESTART = LOCK_OK_RESTART
 
     port: int | None
     _sock: socket.socket | None
@@ -299,12 +305,14 @@ class InstanceLock:
                     return
                 if self._released.is_set():
                     return
-                conn.sendall(self._OK)
+                # 先认动词再决定回什么 —— 回裸 OK 就等于说"我收到了"而不说"我认了什么"
+                is_restart = verb.strip() == self._RESTART.strip()
+                conn.sendall(self._OK_RESTART if is_restart else self._OK)
             except OSError:
                 return
         # 动词分派。**认不出的一律退回 SHOW**:重启会掐断他正在进行的对话,
         # 而把窗口叫到前台最多是打扰一下 ⇒ 拿不准时选那个不伤人的。
-        cb = self.on_restart if verb.strip() == self._RESTART.strip() else self.on_show
+        cb = self.on_restart if is_restart else self.on_show
         if cb is not None:
             cb()
 

@@ -295,7 +295,11 @@ class TestPasswordNeverReachesTheBrowser(Rig):
 
 
 @contextmanager
-def _fake_shell(answer: bytes = b"OK\n", stall: float = 0.0):
+# 2026-08-16(四审 kimi 腿 Finding 3):替身默认回**点名动词**的应答。
+# 旧默认是裸 `OK\n` —— 那正是老外壳的应答:它收下帧、然后去把窗口叫到前台,
+# 根本没重启。判据用它当"真外壳",于是"撒谎的重启"这条路一直没人问。
+# 想演老外壳,显式传 answer=b"OK\n"(k3b 就是干这个的)。
+def _fake_shell(answer: bytes = b"OK RESTART-BACKEND\n", stall: float = 0.0):
     """假外壳:在锁端口上听着,记下收到的整帧,按需回 OK。
 
     **手写协议、不复用 InstanceLock** —— 判据要钉住线上那几个字节。
@@ -382,6 +386,19 @@ class TestTheRestartBridgeIsHonest(Rig):
             self.assertIn(b"RESTART-BACKEND\n", frame, f"发的不是重启动词:{frame!r}")
             self.assertNotIn(b"SHOW\n", frame,
                              "顺手把窗口弹到了前台 —— 他正在窗口里填 key")
+
+    def test_k3b_an_old_shell_that_only_says_ok_must_degrade_to_manual(self):
+        """老外壳认不出 RESTART:它照样回裸 `OK`,然后把窗口叫到前台。
+
+        把那种情况报成 `requested`,界面就对业主说「已经自动应用新配置」而网关一动
+        没动 —— 他填的新 key 根本没生效。**宁可让他多点一下。**(不变量 4)
+        """
+        with _fake_shell(answer=b"OK\n") as (lp, got):
+            self.bridge_port(lp)
+            with self.serve() as port:
+                self.assertEqual(self.save(port).get("restart"), "manual",
+                                 "老外壳只回了 OK,却被当成「已经重启了」")
+            self.assertTrue(got, "根本没往外壳发东西")
 
     def test_k4_a_wedged_shell_does_not_hang_the_save(self):
         """外壳卡住时,业主点"保存"必须还能拿到回应。

@@ -171,6 +171,16 @@ def _read_model():
             return ds_model.resolve_model(json.load(fh))
     except Exception:
         return None
+def _restart_verdict(reply: bytes) -> str:
+    """把外壳的应答翻译成给业主看的那句话。**只有点名了动词的应答才算数。**
+
+    裸 `OK` 是老外壳的应答 —— 它收下了帧,但它做的是"把窗口叫到前台",不是重启。
+    把那种情况报成 `requested`,界面就会说「已经自动应用新配置」而网关一动没动。
+    ⇒ 宁可让业主多点一下(`manual`),也不要一句会撒谎的"已生效"。
+    """
+    return "requested" if reply == ds_shell_core.LOCK_OK_RESTART.strip() else "manual"
+
+
 def ds_shell_bridge_restart() -> str:
     """请外壳重启网关(网关只在启动时读一次 env,不重来就认不到新 key)。
 
@@ -193,7 +203,7 @@ def ds_shell_bridge_restart() -> str:
     except (OSError, ValueError):
         return "manual"
     # 只有对上暗号才算数:端口是全机器共用的,占着那个号的完全可能是别的程序。
-    return "requested" if reply == ds_shell_core.LOCK_OK.strip() else "manual"
+    return _restart_verdict(reply)
 
 
 def _gateway_password() -> str | None:
