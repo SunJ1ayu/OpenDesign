@@ -242,6 +242,42 @@ try {
     }
   });
 
+  // A5~A7 —— 这张卡片挡在业主和整个界面之间,所以「关得掉」「关掉不留残余」
+  // 跟「弹得出来」同等重要。
+  //
+  // 🔴 补这三条的直接原因(2026-08-16,别把它当锦上添花删掉):T4 合入后的全量回归
+  //    **29 条 e2e 一起红**,形态全是 `connect-modal-mask intercepts pointer events`
+  //    —— 遮罩吃掉了所有点击。那次的根因确实在夹具(开发机没 key ⇒ 每条 e2e 一开页面
+  //    就被自动弹的卡片挡住),已在 tests/e2e/run-all.sh 修掉。**但那个修法是给每条
+  //    e2e 预置一把假 key,等于把「没配 key 的那个界面」从所有 e2e 的视野里挪走了**
+  //    —— 而那恰恰是业主装完第一次打开时看到的界面。⇒ 挪走之后,谁哪天删掉
+  //    App.tsx 里遮罩的 onClick,判据将**一条都不红**,而业主会被一张关不掉的卡片
+  //    锁在门外。这三条就是补上那个洞:夹具让别的场景绕开它,这里正面问它。
+  let CARD_DISMISSED = false;
+  await runIfCard("A5 点卡片外面能把它关掉(业主可以先不填,先看看)", async () => {
+    // 点遮罩左上角:离卡片最远,不会误点到卡片自己身上。
+    await page.locator(".connect-modal-mask").click({ position: { x: 5, y: 5 } });
+    await card.waitFor({ state: "hidden", timeout: 8000 });
+    CARD_DISMISSED = true;
+  });
+  const runIfDismissed = async (label, fn) => {
+    if (!CARD_DISMISSED) { failed++; console.log(`  FAIL - ${label}: 卡片(A5)就没关掉 —— 这一问此刻问不出东西,不许算绿`); return; }
+    await run(label, fn);
+  };
+  await runIfDismissed("A6 关掉之后点得动别的东西(遮罩不许留下来吃点击)", async () => {
+    // 🔴 「卡片不见了」证明不了「不挡了」:遮罩完全可以留在 DOM 里透明地继续拦点击,
+    //    肉眼和 waitFor(hidden) 都看不出来 —— 上面那 29 条红正是这个形态。
+    //    所以这一问必须**真点一次别的东西,并且看见它有反应**。
+    await page.locator(".side-footer .side-row").click({ timeout: 5000 });
+    await page.locator(".settings-pop").waitFor({ timeout: 8000 });
+  });
+  await run("A7 关掉不等于「以后别再提醒我」:重开页面照样弹(否则他永远填不上)", async () => {
+    // 这一问还兼着**恢复现场**:B 组要用这张卡片填 key,而 A5 把它关掉了。
+    // 未配置状态下重开必弹(A1 的机制)⇒ 删掉这一问会让 B 组莫名其妙全红。
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await card.waitFor({ timeout: 15000 });
+  });
+
   // B/D —— 填一把 key、挑非默认厂商、保存
   await runIfCard("B1 选厂商 + 填 key + 保存,界面给出结果", async () => {
     await page.locator('[data-ui="llm-key-provider"]').selectOption(PICK);
