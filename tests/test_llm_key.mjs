@@ -122,7 +122,10 @@ test("a5 后端拒绝(400):把**它的**人话原样端出来,不许自己另编
   const f = recFetch(() => jsonRes(400, { error: "API key 里有中文或特殊字符,请检查是不是复制多了" }));
   const r = await saveKey(f, "mimo", "中文key");
   assert.equal(r.ok, false);
-  assert.equal(r.error, "API key 里有中文或特殊字符,请检查是不是复制多了");
+  // 要的是"后端那句话到得了业主眼前",不是"一个字都不许多" ——
+  // 实现加个「保存失败:」前缀完全合理,逐字相等会把它冤枉掉。
+  assert.ok(r.error.includes("API key 里有中文或特殊字符,请检查是不是复制多了"),
+            `后端的人话没端出来:${r.error}`);
 });
 
 test("a6 服务不可达(fetch 抛)不许静默成功,也不许把 key 带进错误里", async () => {
@@ -175,7 +178,7 @@ test("c2 后端要是把 key 回显了,前端也不许原样端出去", async ()
 test("d1 manual = 得业主自己重启,那句话里必须有「重启」", () => {
   const s = restartNotice("manual");
   assert.ok(s && s.length > 0);
-  assert.ok(/重启|重新启动/.test(s), `manual 却没说要重启:${s}`);
+  assert.ok(/重启|重新启动|重新打开/.test(s), `manual 却没说要重启:${s}`);
 });
 
 test("d2 requested = 已经替他重启了,不许再叫他去重启", () => {
@@ -189,7 +192,7 @@ test("d2 requested = 已经替他重启了,不许再叫他去重启", () => {
 test("d3 没见过的 restart 值往保守那边倒(宁可让他多点一下)", () => {
   for (const v of ["", "unknown", undefined, null]) {
     const s = restartNotice(v);
-    assert.ok(s && /重启|重新启动/.test(s),
+    assert.ok(s && /重启|重新启动|重新打开/.test(s),
               `restart=${JSON.stringify(v)} 时没有让业主自己重启:${s}`);
   }
 });

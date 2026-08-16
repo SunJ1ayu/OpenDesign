@@ -20,7 +20,7 @@
 //
 // 跑法:node tests/e2e/llm_key.e2e.mjs(自起 ds_web 于 8837;需要 web/dist 是新的)
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,6 +32,15 @@ const BASE = `http://127.0.0.1:${PORT}`;
 
 // 长得像真 key、且在任何文本里都好搜的串。**全篇唯一的秘密。**
 const KEY = "sk-e2e-ORACLE-0123456789abcdef-TAIL9999";
+// 🔴 只对**整串**过敏的判据挡不住"部分泄漏":实现回显前 20 个字符,
+//    每一条 `.includes(KEY)` 都是绿的。所以同时扫一段前缀。
+//    取前 12 是安全的:后端的 hint 形态是「前4…后4」,不含前 12。
+const KEY_HEAD = KEY.slice(0, 12);
+// 而且不能只找原样的串:base64 一下、URL 编码一下,同样是泄漏。
+const KEY_B64 = Buffer.from(KEY, "utf-8").toString("base64");
+const KEY_URI = encodeURIComponent(KEY);
+const FORMS = [KEY, KEY_HEAD, KEY_B64, KEY_B64.slice(0, 16), KEY_URI];
+const leaked = (text) => { const t = String(text ?? ""); return FORMS.some((f) => t.includes(f)); };
 const PASSWORD = "pw-only-on-the-server-side";   // 业主永远不该看见它(T2 代签)
 
 // ---- 夹具:一份干净的假家 + 一份真结构的 nanobot 配置 ----------------------
@@ -56,6 +65,23 @@ const dist = join(ROOT, "web", "dist");
 if (!existsSync(join(dist, "index.html"))) {
   console.error("web/dist 里没有 index.html —— 先 npm run build(dist 新鲜度闸也管这个)");
   process.exit(1);
+}
+// 🔴 这一份 e2e 跑的是**打包产物**,而静态面判据扫的是**源码** ——
+//    不核对新鲜度的话,"源码里干干净净、dist 里是另一套"能骗过两边。
+{
+  const newest = (dir) => {
+    let t = 0;
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.name === "node_modules") continue;
+      const p2 = join(dir, e.name);
+      t = Math.max(t, e.isDirectory() ? newest(p2) : statSync(p2).mtimeMs);
+    }
+    return t;
+  };
+  if (newest(join(ROOT, "web", "src")) > newest(dist)) {
+    console.error("web/dist 比 web/src 旧 —— 先 npm run build,否则这一趟验的不是你改的那份代码");
+    process.exit(1);
+  }
 }
 
 // 期望值的**唯一出处**是后端的 PROVIDERS(骗法四:两边各抄一份就会一起错)。
@@ -157,18 +183,26 @@ try {
   page.on("console", (m) => consoleLines.push(`${m.type()}: ${m.text()}`));
   page.on("pageerror", (e) => pageErrors.push(String(e)));
   page.on("request", (req) => {
-    const post = req.postData() ?? "";
+    // postData() 对二进制 body 返回 null ⇒ Blob / FormData / sendBeacon 发出去的
+    // key 会整个逃掉。用 buffer 兜底。
+    let post = req.postData() ?? "";
+    if (!post) { try { post = (req.postDataBuffer() ?? Buffer.alloc(0)).toString("utf-8"); } catch { post = ""; } }
     const hdr = JSON.stringify(req.headers() ?? {});
-    if (req.url().includes(KEY) || post.includes(KEY) || hdr.includes(KEY)) {
+    if (leaked(req.url()) || leaked(post) || leaked(hdr)) {
       requestsWithKey.push({ url: req.url(), method: req.method(),
-                             inUrl: req.url().includes(KEY), inHeader: hdr.includes(KEY) });
+                             inUrl: leaked(req.url()), inHeader: leaked(hdr) });
     }
   });
   page.on("response", async (res) => {
+    // 头一起收:`Set-Cookie: llm_key=<KEY>` 这条路只看 body 是看不见的。
+    let headers = {};
+    try { headers = await res.allHeaders(); } catch { /* 拿不到就算了 */ }
     try {
       const body = await res.text();
-      responses.push({ url: res.url(), body });
-    } catch { /* 重定向/无体,忽略 */ }
+      responses.push({ url: res.url(), body, headers: JSON.stringify(headers) });
+    } catch {
+      responses.push({ url: res.url(), body: "", headers: JSON.stringify(headers) });
+    }
   });
 
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
@@ -180,14 +214,23 @@ try {
     CARD_UP = true;
   });
   await runIfCard("A2 卡片里有厂商选择、key 输入框、保存按钮", async () => {
+    // 数**看得见的**那一个:两个入口都常驻 DOM、靠 CSS 显隐,是合理实现,
+    // 按总数判会把它冤枉掉。业主眼前只该有一个,这才是要守的东西。
     for (const ui of ["llm-key-provider", "llm-key-input", "llm-key-save"]) {
-      const n = await page.locator(`[data-ui="${ui}"]`).count();
-      if (n !== 1) throw new Error(`[data-ui="${ui}"] 应恰好 1 个,实为 ${n}`);
+      const n = await page.locator(`[data-ui="${ui}"]:visible`).count();
+      if (n !== 1) throw new Error(`屏幕上看得见的 [data-ui="${ui}"] 应恰好 1 个,实为 ${n}`);
     }
   });
   await runIfCard("A3 key 输入框是密码框(肩后偷看是最原始的那一面)", async () => {
-    const t = await page.locator('[data-ui="llm-key-input"]').getAttribute("type");
+    const inp = page.locator('[data-ui="llm-key-input"]');
+    const t = await inp.getAttribute("type");
     if (t !== "password") throw new Error(`type=${t}`);
+    // 不加 autocomplete=off,浏览器会把这把 key 记进自己的凭据库 ——
+    // 那是 key.txt 之外的第二个持久副本,而且 C9 扫不到它。
+    const ac = (await inp.getAttribute("autocomplete") || "").toLowerCase();
+    if (ac !== "off" && ac !== "new-password") {
+      throw new Error(`autocomplete=${ac || "(没设)"} —— 浏览器会记住这把 key`);
+    }
   });
   await runIfCard("A4 厂商选项由后端给,后端有几家就是几家", async () => {
     // 问"每一家都在不在",不锁总数 —— 锁总数会把合理的「请选择…」占位项判成红,
@@ -209,7 +252,7 @@ try {
   });
   await runIfSaved("D1 没有外壳 ⇒ 那句话必须叫业主自己重启,不许假装已生效", async () => {
     const txt = (await page.locator('[data-ui="llm-key-notice"]').innerText()).trim();
-    if (!/重启|重新启动/.test(txt)) throw new Error(`没让他重启:「${txt}」`);
+    if (!/重启|重新启动|重新打开/.test(txt)) throw new Error(`没让他重启:「${txt}」`);
   });
 
   // B2/B3 —— 落盘落对地方(值从后端真相源来,不在这儿抄第二遍)
@@ -217,6 +260,25 @@ try {
     const p = join(home, ".openDesign", "key.txt");
     const got = readFileSync(p, "utf-8").trim();
     if (got !== KEY) throw new Error(`key.txt 内容对不上:${JSON.stringify(got.slice(0, 12))}…`);
+  });
+  await runIfSaved("B2b 落盘的地方**有且只有** key.txt(别处再写一份就等于多一个副本)", async () => {
+    // design 声称的是「secret 恰好只在 key.txt 一处」——那是个全称命题,
+    // 而"读一下 key.txt 对不对"证明不了它。扫整棵临时家目录树。
+    const hits = [];
+    const walk = (dir) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const f = join(dir, e.name);
+        if (e.isDirectory()) { walk(f); continue; }
+        let body = "";
+        try { body = readFileSync(f, "utf-8"); } catch { continue; }  // 二进制跳过
+        if (leaked(body)) hits.push(f);
+      }
+    };
+    walk(tmp);
+    const expected = join(home, ".openDesign", "key.txt");
+    const extra = hits.filter((f) => f !== expected);
+    if (extra.length) throw new Error(`key 还写进了别处:${extra.join(", ")}`);
+    if (!hits.includes(expected)) throw new Error("key.txt 里反而没有 —— 前提坏了");
   });
   await runIfSaved("B3 选中的厂商落进配置(端点+模型),而 apiKey 仍只是 ${变量} 引用", async () => {
     const cfg = JSON.parse(readFileSync(cfgPath, "utf-8"));
@@ -227,6 +289,10 @@ try {
     }
     const preset = cfg.agents?.defaults?.modelPreset;
     if (preset !== PICK_MODEL) throw new Error(`默认模型=${preset},应为 ${PICK_MODEL}`);
+    // 🔴 全称版:规格说的是「配置里不含 key」,不是「apiKey 字段里不含 key」。
+    //    只挑字段验的话,塞进 notes / label / 任何新字段都全绿。逐字节扫整份文件。
+    const rawCfg = readFileSync(cfgPath, "utf-8");
+    if (leaked(rawCfg)) throw new Error("配置文件里出现了 key(哪怕不在 apiKey 字段上)");
   });
 
   // C —— 🔴 主断言:KEY 的全机器足迹
@@ -235,47 +301,28 @@ try {
   // 上报会整个漏掉,而判据全绿。这一秒半买的是"迟到的那一发也算数"。
   if (SAVED) await page.waitForTimeout(1500);
   await runIfSaved("C1 页面 HTML 里没有 key 原文", async () => {
-    const html = await page.content();
-    if (html.includes(KEY)) throw new Error("key 出现在 DOM 里");
-  });
-  await runIfSaved("C2 无障碍树里没有 key 原文(密码框挡得住眼睛,挡不住读屏)", async () => {
-    // ⚠️ 不要用 page.accessibility.snapshot():**playwright 1.60 里它已经不存在了**,
-    //    写成那样这条会红在 TypeError 上 —— 而"红在 TypeError 上等于没红检过"。
-    //    探针实测:ariaSnapshot() 连 type=password 里**当前输入的值**都会吐出来,
-    //    所以这条顺带盖住了"输入框没清空"那一面。
-    const snap = await page.locator("body").ariaSnapshot();
-    if (String(snap).includes(KEY)) throw new Error("key 出现在 aria 树里");
+    if (leaked(await page.content())) throw new Error("key 出现在 DOM 里");
   });
   await runIfSaved("C3 控制台一句都没漏(调试语句是最常见的漏法)", async () => {
-    const hit = consoleLines.filter((l) => l.includes(KEY));
+    const hit = consoleLines.filter((l) => leaked(l));
     if (hit.length) throw new Error(`console 里有 key:${hit[0].slice(0, 80)}`);
   });
   await runIfSaved("C4 服务器回给浏览器的每一份响应体里都没有 key", async () => {
-    const hit = responses.filter((r) => r.body.includes(KEY));
-    if (hit.length) throw new Error(`响应体带 key:${hit.map((h) => h.url).join(", ")}`);
-  });
-  await runIfSaved("C5 出站带 key 的请求**恰好一条**,就是那次保存;且不在 URL / 头里", async () => {
-    if (requestsWithKey.length !== 1) {
-      throw new Error(`带 key 的出站请求 ${requestsWithKey.length} 条:`
-        + JSON.stringify(requestsWithKey.map((r) => `${r.method} ${r.url}`)));
+    const hit = responses.filter((r) => leaked(r.body) || leaked(r.headers));
+    if (hit.length) {
+      const how = leaked(hit[0].body) ? "body" : "响应头(Set-Cookie 之类)";
+      throw new Error(`响应${how}带 key:${hit.map((h) => h.url).join(", ")}`);
     }
-    const only = requestsWithKey[0];
-    if (only.method !== "POST" || !only.url.endsWith("/api/llm/credential")) {
-      throw new Error(`带 key 的那条不是保存请求:${only.method} ${only.url}`);
-    }
-    if (only.inUrl) throw new Error("key 进了 URL(会落进 access log / 浏览器历史)");
-    if (only.inHeader) throw new Error("key 进了请求头");
   });
   await runIfSaved("C6 ds_web 自己的日志里没有 key", async () => {
-    const log = srvOut.join("");
-    if (log.includes(KEY)) throw new Error("服务端日志带 key");
+    if (leaked(srvOut.join(""))) throw new Error("服务端日志带 key");
   });
-  await runIfSaved("C9 浏览器存储里没有 key(localStorage / sessionStorage 全量扫)", async () => {
-    // 🔴 这条补的是我自攻抓到的最大一个洞:C 组原本扫的是 HTML / aria / console /
-    //    响应体 / 服务端日志 —— **一个前端存储都没查**。组件"顺手记一下方便下次改 key"
+  await runIfSaved("C9 浏览器存储里没有 key(localStorage / sessionStorage / cookie / IndexedDB / Cache)", async () => {
+    // 🔴 这条补的是原本整块盲区:C 组扫的是 HTML / aria / console / 响应体 /
+    //    服务端日志 —— **一个前端存储都没查**。组件"顺手记一下方便下次改 key"
     //    就能全绿地把原文留在业主磁盘上。
-    //    (未覆盖:IndexedDB / Cache Storage。写在这儿是为了不假装扫全了。)
-    const dump = await page.evaluate(() => {
+    //    第二轮(攻题腿)又指出 cookie / IndexedDB / Cache Storage 也在盲区里,已一并扫。
+    const dump = await page.evaluate(async () => {
       const out = {};
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i); out["ls:" + k] = localStorage.getItem(k);
@@ -283,16 +330,58 @@ try {
       for (let i = 0; i < sessionStorage.length; i++) {
         const k = sessionStorage.key(i); out["ss:" + k] = sessionStorage.getItem(k);
       }
+      out["cookie"] = document.cookie;
+      out["location"] = location.href;      // pushState("#"+key) 会进地址栏、历史、后续 Referer
+      out["window.name"] = window.name;     // 跨页面存活的老牌藏身处
+      try {
+        const dbs = (await indexedDB.databases?.()) ?? [];
+        for (const { name } of dbs) {
+          const db = await new Promise((res, rej) => {
+            const rq = indexedDB.open(name); rq.onsuccess = () => res(rq.result); rq.onerror = () => rej();
+          });
+          for (const store of Array.from(db.objectStoreNames)) {
+            const rows = await new Promise((res) => {
+              const rq = db.transaction(store, "readonly").objectStore(store).getAll();
+              rq.onsuccess = () => res(rq.result); rq.onerror = () => res([]);
+            });
+            out[`idb:${name}/${store}`] = JSON.stringify(rows);
+          }
+          db.close();
+        }
+      } catch (e) { out["idb:错误"] = String(e); }
+      try {
+        for (const name of await caches.keys()) {
+          const c = await caches.open(name);
+          for (const req of await c.keys()) {
+            out[`cache:${name}/${req.url}`] = await (await c.match(req))?.text?.() ?? "";
+          }
+        }
+      } catch (e) { out["cache:错误"] = String(e); }
       return JSON.stringify(out);
     });
-    if (dump.includes(KEY)) {
-      const where = Object.entries(JSON.parse(dump)).filter(([, v]) => String(v).includes(KEY));
+    if (leaked(dump)) {
+      const where = Object.entries(JSON.parse(dump)).filter(([, v]) => leaked(v));
       throw new Error(`key 存进了浏览器存储:${where.map(([k]) => k).join(", ")}`);
     }
   });
   await runIfSaved("C10 保存成功后输入框已清空(别让 key 一直躺在页面里)", async () => {
-    const v = await page.locator('[data-ui="llm-key-input"]').inputValue();
+    // 两种都算对:① 表单还在但已清空;② 保存成功后整张卡片/表单直接卸载(更保守)。
+    // 只认①会把②冤枉掉,而②恰恰是更安全的做法。
+    const inp = page.locator('[data-ui="llm-key-input"]');
+    if (await inp.count() === 0) return;                 // 卸载了,更好
+    const v = await inp.inputValue();
     if (v !== "") throw new Error(`输入框里还留着 ${v.length} 个字符`);
+  });
+  // ⚠️ 顺序有意义:C2 必须跑在 C10(输入框已清空)**之后**。
+  //    ariaSnapshot 连密码框的当前值都吐,B1 刚填完就扫 ⇒ 读屏树里本来就该有 key,
+  //    「关闭卡片时才清空」这种同样正确的实现会被冤枉。误报会推着人去调钝报警器,
+  //    那比漏报更贵 —— 所以把"该清空"单独问(C10),清空之后再问"读屏树干不干净"。
+  await runIfSaved("C2 无障碍树里没有 key 原文(密码框挡得住眼睛,挡不住读屏)", async () => {
+    // ⚠️ 不要用 page.accessibility.snapshot():**playwright 1.60 里它已经不存在了**,
+    //    写成那样这条会红在 TypeError 上 —— 而"红在 TypeError 上等于没红检过"。
+    //    探针实测:ariaSnapshot() 连 type=password 里**当前输入的值**都会吐出来,
+    //    所以这条顺带盖住了"输入框没清空"那一面。
+    if (leaked(await page.locator("body").ariaSnapshot())) throw new Error("key 出现在 aria 树里");
   });
   await run("C7 页面上也不许出现网关口令(T2 拿掉手输之后,它更不该露面)", async () => {
     const html = await page.content();
@@ -315,14 +404,18 @@ try {
     await page.reload({ waitUntil: "domcontentloaded" });
     await got;                       // 状态已经到手
     await page.waitForTimeout(1200); // 再给它足够时间"弹"(要弹早弹了)
-    if (await card.count() > 0) throw new Error("配好了还弹");
+    if (await card.isVisible().catch(() => false)) throw new Error("配好了还弹");
   });
   await runIfSaved("E2 状态接口只回末四位提示,永不回原文", async () => {
     const d = await (await fetch(`${BASE}/api/llm/credential`)).json();
     if (d.configured !== true) throw new Error(`configured=${d.configured}`);
-    if (JSON.stringify(d).includes(KEY)) throw new Error("状态接口把 key 回显了");
+    if (leaked(JSON.stringify(d))) throw new Error("状态接口把 key 回显了");
     if (!d.hint || !String(d.hint).includes(KEY.slice(-4))) {
       throw new Error(`hint 认不出是哪把:${d.hint}`);
+    }
+    // 「不含整串」不等于「没泄漏」:回显前 20 个字符同样是泄漏。钉死它的规模。
+    if (leaked(d.hint) || String(d.hint).length > 16) {
+      throw new Error(`hint 给多了(${String(d.hint).length} 字符):${d.hint}`);
     }
   });
 
@@ -365,6 +458,32 @@ try {
       throw new Error(`卡片没显示末四位:「${txt.slice(0, 120)}」`);
     }
     if (shown.includes(KEY)) throw new Error("卡片把 key 原文显示出来了");
+  });
+  // G —— 换一把 key 再存一次(原来只问了"第一次填")
+  await runIfSaved("G1 换 key:key.txt 被**覆盖**,旧的那把不许留在里面", async () => {
+    const KEY2 = "sk-e2e-SECOND-abcdefghijklmn-TAIL0002";
+    await page.locator('[data-ui="llm-key-input"]').fill(KEY2);
+    await page.locator('[data-ui="llm-key-save"]').click();
+    await page.waitForTimeout(1200);
+    const body = readFileSync(join(home, ".openDesign", "key.txt"), "utf-8");
+    if (body.includes(KEY)) throw new Error("旧 key 还在文件里 —— 是追加不是覆盖");
+    if (body.trim() !== KEY2) throw new Error(`换完之后内容不对:${JSON.stringify(body.slice(0, 20))}…`);
+    if (body.trim().split("\n").length !== 1) throw new Error("key.txt 变成多行了");
+  });
+  // C5 故意排在最后:`pagehide` / `visibilitychange` / 卸载时才发的 beacon,
+  //     在 C 组那个时点根本还没发生。E1 的 reload 会真正触发一次卸载,
+  //     所以要等它之后再清点"这一整趟里到底有多少东西带着 key 飞出去过"。
+  await runIfSaved("C5 出站带 key 的请求:每一条都必须是那次保存,且不在 URL / 头里", async () => {
+    // 不锁"恰好一条"——失败重试一次是合理实现,契约里也没禁。要守的是两件:
+    //   ① 真的发生过(否则这一问在空转);② **每一条**都得是那个保存请求。
+    if (requestsWithKey.length === 0) throw new Error("一条带 key 的请求都没有 —— 保存根本没发出去");
+    for (const r of requestsWithKey) {
+      if (r.method !== "POST" || !r.url.endsWith("/api/llm/credential")) {
+        throw new Error(`key 被发去了别处:${r.method} ${r.url}`);
+      }
+      if (r.inUrl) throw new Error("key 进了 URL(会落进 access log / 浏览器历史)");
+      if (r.inHeader) throw new Error("key 进了请求头");
+    }
   });
 } catch (e) {
   fail("流程本身", e);

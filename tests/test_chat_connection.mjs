@@ -73,8 +73,17 @@ function makeSession({ handler, storage = memStorage(), port } = {}) {
   return { s, fetchFn, opened, storage };
 }
 
-const authHeader = (call) =>
-  (call.init.headers ?? {})["Authorization"] ?? null;
+// 兼容 plain object 与 Headers 实例:只认前者的话,实现换成 `new Headers(...)`
+// 之后这个取值恒为 null ⇒ "没带 Authorization" 那几条断言全变成假绿。
+const authHeader = (call) => {
+  const h = call.init.headers;
+  if (!h) return null;
+  if (typeof h.get === "function") return h.get("Authorization") ?? null;
+  for (const [k, v] of Object.entries(h)) {
+    if (k.toLowerCase() === "authorization") return v;
+  }
+  return null;
+};
 
 // ---- 口令持久化 --------------------------------------------------------
 
