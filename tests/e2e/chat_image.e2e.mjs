@@ -25,12 +25,14 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
-import { launchBrowser, loginPane, expandInbox, check } from "./helpers.mjs";
+import { launchBrowser, waitConnected, expandInbox, check } from "./helpers.mjs";
 import { WS_STUB_BASE } from "./_ws-stub.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PORT = 8810;
-const PASSWORD = "e2etest";
+// 口令常量已删(2026-08-16):T4 起前端不等口令就发 bootstrap,stub 后端直接
+// 回 token ⇒ 登录框根本不出现,loginPane 那条路在这里走不到。改用 waitConnected
+// 正面断言「不手输口令就连上」——见 helpers.waitConnected 的说明。
 const HOME = ".home-pane";
 const INBOX = "00-收件箱";
 
@@ -201,7 +203,7 @@ try {
   // ── ② 聊天:两个入口各进一张图 → 缩略图 → svg 被拦 → 撤掉一张 ─────────────
   await page.evaluate(() => { window.location.hash = "#/"; });
   await page.locator(HOME).waitFor({ state: "visible", timeout: 10000 });
-  await loginPane(page, HOME, PASSWORD);
+  await waitConnected(page, HOME);
   const thumbs = page.locator(`${HOME} [data-ui="chat-thumb"]`);
 
   await pasteFile(page, `${HOME} textarea`, "客厅现场.png", png(40, 30).toString("base64"));

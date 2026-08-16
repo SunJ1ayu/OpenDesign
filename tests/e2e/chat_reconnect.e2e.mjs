@@ -21,12 +21,14 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchBrowser, loginPane, sendMessage } from "./helpers.mjs";
+import { launchBrowser, waitConnected, sendMessage } from "./helpers.mjs";
 import { WS_STUB_BASE } from "./_ws-stub.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PORT = 8813;
-const PW = "e2e-pw";
+// 口令常量已删(2026-08-16):T4 起前端不等口令就发 bootstrap,stub 后端直接
+// 回 token ⇒ 登录框根本不出现,loginPane 那条路在这里走不到。改用 waitConnected
+// 正面断言「不手输口令就连上」——见 helpers.waitConnected 的说明。
 
 // 断线期间服务端多出来的那条 —— **客户端永远不会从 ws 收到它**,
 // 只可能通过"重连后拉历史"看到。补缺口做没做,全看它出不出现。
@@ -242,7 +244,7 @@ try {
   await page.addInitScript(STUB);
   await page.goto(`${base}/#/`, { waitUntil: "domcontentloaded" });
   await page.locator(pane).waitFor({ state: "visible", timeout: 10000 });
-  await loginPane(page, pane, PW);
+  await waitConnected(page, pane);
 
   const wsCount = () => page.evaluate(() => window.__wsCount);
   const sent = () => page.evaluate(() =>
