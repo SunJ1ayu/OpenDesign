@@ -244,24 +244,6 @@ export default function ChatPage({
   }, [prefill]);
 
   useEffect(() => {
-    // 认证已判定失效(策略层 mode="stopped")⇒ 不再发起连接,视图留在登录态。
-    //
-    // 🔴 T4 之前这里是 `if (!session.hasPassword()) return;`。把初始视图改成**恒定
-    //    connecting**(代签主路下前端不知道自己有没有口令,得先试)之后,那条早退
-    //    没了 —— 而本 effect 会因 props 变化反复重跑,**每重跑一次就把视图打回
-    //    「正在连接聊天服务…」**,业主永远等不到「未连接」横幅,也就找不到填 key
-    //    的入口。而"没填 key ⇒ 网关不起 ⇒ 连不上"正是业主装完第一次打开的样子。
-    //    工作区那列的 props(dataEpoch/resume/…)本来就常变,所以每次都中招;
-    //    首页那列 props 稳定、侥幸没露馅 —— 同一个 bug 的两种表现,别只修一处。
-    //    (2026-08-16,frontend_p2_polish 的 connect-banner 断言抓到;
-    //     现象是 bootstrap 连发 4 次 401 却始终不转 login。)
-    //
-    // 手动登录会 `rcRef.current = initialReconnect` 复位(见 login()),所以这条
-    // 早退挡不住业主自己点「连接」;stopped 态下可见的动作只有那一个。
-    if (rcRef.current.mode === "stopped") {
-      setView((v) => (v.kind === "login" ? v : { kind: "login" }));
-      return;
-    }
     let cancelled = false;
     let ws: WebSocket | null = null;
     let info: BootstrapInfo | null = null;
