@@ -120,6 +120,10 @@ const STUB = () => {
       window.__wsCount += 1;
       window.__wsTimes.push(Date.now());
       window.__ws = this;
+      // 每条连接记下自己的**建连尝试时刻**。注意 slot 标签不是这里打的 ——
+      // 它由实现侧在 `session.openSocket(slot)` 里挂到 socket 对象上,那发生在
+      // 构造函数返回**之后**。所以这里只记时刻,分桶留到查询时按 `__dsSlot` 过滤。
+      this.__createdAt = Date.now();
       // 🔴 `__ws` 是**单数**,只记得最后建的那条。T4 之前只有首页那列会自动连,
       //    掐断它就等于掐断"业主眼前那条";T4 之后**首页与工作区两列都自动连**
       //    ⇒ `__ws` 可能指着工作区那条,`__killWS` 就掐错了对象:判据盯着
@@ -209,8 +213,17 @@ const STUB = () => {
   };
 
   // 判据用的遥控器:掐断当前连接
-  window.__killWS = (code = 1006) => {
-    const all = (window.__wsAll ?? []).filter((w) => w && w.readyState !== 3);
+  // 判据用的遥控器:**必须显式说掐哪一列**。
+  //
+  // 🔴 「掐断当前连接」这个操作**没有确定的语义** —— 它一直只掐最后建的那条,
+  //    T4 之后两列都自动连,于是掐到了工作区那条,而判据盯着首页等「正在重连」,
+  //    ①⑦㉒㉓ 一起红。我据此三次去改重连状态机,三次都错(真因在这儿)。
+  //    ⇒ 现在必须点名:`__killWS("home")` 掐首页那列,`__killWS("*")` 掐全部
+  //      (整个 gateway 宕机才用后者)。**没有无参数版本。**
+  window.__killWS = (slot, code = 1006) => {
+    if (!slot) throw new Error("__killWS 必须点名 slot(或 '*');不点名正是当初掐错列的根源");
+    const all = (window.__wsAll ?? []).filter(
+      (w) => w && w.readyState !== 3 && (slot === "*" || w.__dsSlot === slot));
     if (all.length === 0) return false;
     for (const ws of all) {
       ws.readyState = 3;
@@ -218,6 +231,14 @@ const STUB = () => {
     }
     return true;
   };
+
+  // 按列取「建连尝试时刻」序列 —— 退避是**每条连接自己的**行为,全局数组会把
+  // 几列交错在一起,量出 [14ms, 865ms, 2ms] 这种不可能来自退避序列的数。
+  window.__slotMark = {};
+  window.__slotReset = (slot) => { window.__slotMark[slot] = Date.now(); };
+  window.__slotTimes = (slot) => (window.__wsAll ?? [])
+    .filter((w) => w.__dsSlot === slot && (w.__createdAt ?? 0) >= (window.__slotMark[slot] ?? 0))
+    .map((w) => w.__createdAt);
 };
 
 // ── 夹具 ────────────────────────────────────────────────────────────────────
@@ -257,7 +278,8 @@ try {
   await page.locator(pane).waitFor({ state: "visible", timeout: 10000 });
   await waitConnected(page, pane);
 
-  const wsCount = () => page.evaluate(() => window.__wsCount);
+  // (`window.__wsCount` 仍在 stub 里递增,用来生成 chat_id 与数总量 ——
+  //  但**不再作为任何会话级断言**:它分不出是哪一列。按列问用 `__slotTimes(slot)`。)
   const sent = () => page.evaluate(() =>
     window.__sent.map((s) => { try { return JSON.parse(s); } catch { return null; } })
       .filter(Boolean));
@@ -276,15 +298,12 @@ try {
   // ── 铺场景:先正常聊一句,留下"断线前"的痕迹 ─────────────────────────────
   await sendMessage(page, pane, BEFORE_TEXT);
   await page.locator(`${pane} .msg-user:has-text("${BEFORE_TEXT}")`).waitFor({ timeout: 15000 });
-  // 🔴 原来这里断言 `=== 1`(**全局**连接数)。T4 之后首页与工作区两列都会自动
-  //    建连 ⇒ 实测是 2,这条从 T4 合入起就红了(基线 9a641d2 上是绿的)。
-  //    但那个 `1` 是**旧架构的副产物**,不是本问要守的东西:界面上有几列聊天、
-  //    各自连不连,跟"断线自愈"无关,而全局计数**分不出是哪一列连的** ——
-  //    这份考卷结构上问不出"这一列连了几次"。
-  // ⇒ 断言搬到问得出、而且**更强**的地方:记下基线,后面只问"多了几条"。
-  //    它问的是「这次断线只重连了一次」,跟界面上有几列无关。
-  const wsBase = await wsCount();
-  check(wsBase >= 1, "前置:连接已建立,断线前的消息已上屏");
+  // 🔴 一度改成过「全局计数的相对增量」,那是**被迫**的:当时分不出哪一列连的。
+  //    现在每条连接带着自己的 slot 标签,可以问回**精确**的那句 ——
+  //    而且比 T4 之前更强:那时全局只有一列在连,`=== 1` 是碰巧成立;
+  //    现在问的是"首页这一列恰好一条",第四个聊天入口哪天加进来也不用再削它。
+  const homeConns = () => page.evaluate(() => window.__slotTimes("home").length);
+  check(await homeConns() === 1, "前置:首页那列恰好一条连接,断线前的消息已上屏");
 
   // 服务端这一侧:历史里有前面那轮 + 一条**客户端没收到过**的缺口消息;
   // 之后再发的消息服务端"没记上"(__silent)
@@ -307,7 +326,7 @@ try {
   await page.locator(`${pane} .msg-user:has-text("${PENDING_TEXT}")`).waitFor({ timeout: 15000 });
 
   // ── 掐断 ────────────────────────────────────────────────────────────────
-  await page.evaluate(() => window.__killWS(1006));
+  await page.evaluate(() => window.__killWS("home", 1006));
 
   check(await until(() => page.locator('[data-ui="chat-reconnecting"]').isVisible(), 5000),
     "① 掐断后出现「正在重连」提示");
@@ -318,13 +337,11 @@ try {
     "③ 重连期间断线前的气泡还在(锁死「其实是整页 reload」)");
 
   // ── 自己回来 ────────────────────────────────────────────────────────────
-  // 相对增量(见前置那条的说明):**只该多出一条**。写死 `>= 2` 的话,
-  // 哪天多一列自动连接就能让这一问不劳而获地绿 —— 那是假绿。
-  check(await until(async () => (await wsCount()) >= wsBase + 1, 20000),
+  check(await until(async () => (await homeConns()) >= 2, 20000),
     "④ 到点自己又建了一条连接(纯逻辑层真的被接上了)");
-  // ~~④b 只重连了一次~~ **撤掉(2026-08-16)**:我加它时以为"多出一条"是常量,
-  // 实际掐断会打到**每一列**(现在两列),各自重连 ⇒ 全局多出的是列数,不是 1。
-  // 这条在两列场景下**结构上就问不出**;不放宽成 `<= wsBase*2` 那种糊弄写法。
+  // ④b **复活**(2026-08-16):它曾被我撤掉,理由是"全局多出的是列数不是 1,
+  // 结构上问不出"。那个理由随分桶失效了 —— 按列问,「只重连一次」重新可判。
+  check(await homeConns() === 2, "④b 首页那列只重连了一次(退避没把它连成一串)");
   check(await until(() => page.locator(`${pane} .chat-meta`).isVisible(), 20000),
     "⑤ 回到已连接态");
   // ⚠️ 这条原来写反了(2026-08-04 攻题抓到,是**判据的 bug 不是实现的**):
@@ -409,7 +426,7 @@ try {
     (await page.locator(`${pane} .msg-user:has-text("${DUP_TEXT}")`).count()) === 2, 10000),
     "㉔b 前置:断线前屏幕上确实有两条一模一样的话");
 
-  await page.evaluate(() => window.__killWS(1006));
+  await page.evaluate(() => window.__killWS("home", 1006));
   check(await until(() => page.locator(`${pane} .chat-meta`).isVisible(), 25000),
     "㉔c 掐断后自己连回来");
   check(await until(() => page.locator(pane).innerText()
@@ -473,7 +490,7 @@ try {
   //   用户会以为还没好 —— 界面在说一件不再为真的事。
   check((await page.locator('[data-ui="chat-turn-error"]').count()) > 0,
     "㉚a 前置:此刻屏上确实还挂着那句失败提示");
-  await page.evaluate(() => window.__killWS(1006));
+  await page.evaluate(() => window.__killWS("home", 1006));
   check(await until(() => page.locator(`${pane} .chat-meta`).isVisible(), 25000),
     "㉚b 前置:又自己连回来了");
   check(await until(async () =>
@@ -490,7 +507,7 @@ try {
 
   // ── 攻题补强 2:没收到 attached 之前**不算连上** ─────────────────────────────
   //   在 ready 就宣告成功 ⇒ 输入框已可用,消息发往还没挂好的会话
-  await page.evaluate(() => { window.__holdAttached = true; window.__killWS(1006); });
+  await page.evaluate(() => { window.__holdAttached = true; window.__killWS("home", 1006); });
   check(await until(async () => (await page.evaluate(() => window.__attachIds.length)) >= 2, 20000),
     "⑭ 前置:重连后又发了一次 attach");
   check(!(await page.locator(`${pane} .chat-meta`).isVisible()),
@@ -501,12 +518,12 @@ try {
 
   // ── 攻题补强 3:退避真的在涨(接线层不许每轮都从 500ms 重来)─────────────────
   await page.evaluate(() => {
-    window.__failConnect = true; window.__wsTimes = []; window.__killWS(1006);
+    window.__failConnect = true; window.__slotReset("home"); window.__killWS("home", 1006);
   });
-  check(await until(async () => (await page.evaluate(() => window.__wsTimes.length)) >= 4, 30000),
+  check(await until(async () => (await page.evaluate(() => window.__slotTimes("home").length)) >= 4, 30000),
     "⑰ 前置:连续失败下攒到 4 次重连尝试");
   const gaps = await page.evaluate(() => {
-    const t = window.__wsTimes;
+    const t = window.__slotTimes("home");
     return t.slice(1).map((x, i) => x - t[i]);
   });
   check(gaps.length >= 3 && gaps[1] > gaps[0] * 1.3 && gaps[2] > gaps[1] * 1.3,
@@ -517,7 +534,7 @@ try {
 
   // ── 攻题补强 4:拉历史 401 **不是**口令失效,不许踹回登录框 ───────────────────
   //   connection.ts:116 在"重签后仍 401"时也抛 PasswordRejected —— 来源被抹掉了
-  await page.evaluate(() => { window.__thread401 = true; window.__killWS(1006); });
+  await page.evaluate(() => { window.__thread401 = true; window.__killWS("home", 1006); });
   check(await until(() => page.locator(`${pane} .chat-meta`).isVisible(), 25000),
     "⑳ 历史接口 401 ⇒ 照常连上");
   check(!(await page.locator(`${pane} .chat-login input[type=password]`).isVisible()),
@@ -525,7 +542,7 @@ try {
   await page.evaluate(() => { window.__thread401 = false; });
 
   // ── 空会话拉历史 = 404,当"没历史"处理,不弹错 ───────────────────────────
-  await page.evaluate(() => { window.__threadStatus = 404; window.__killWS(1006); });
+  await page.evaluate(() => { window.__threadStatus = 404; window.__killWS("home", 1006); });
   check(await until(async () => {
     if (!(await page.locator(`${pane} .chat-meta`).isVisible())) return false;
     const t = await page.locator(pane).innerText();
@@ -545,7 +562,7 @@ try {
   await sendMessage(page, pane, "断线时还在等回复的那句");
   check(await until(async () => await page.locator(`${pane} .send-btn`).isDisabled(), 8000),
     "㉜a 前置:发出去还没回 ⇒ 此刻确实是忙(发送键 disabled)");
-  await page.evaluate(() => window.__killWS(1006));
+  await page.evaluate(() => window.__killWS("home", 1006));
   check(await until(() => page.locator(`${pane} .chat-meta`).isVisible(), 25000),
     "㉜b 前置:又连回来了(且这一轮拉历史是 404)");
   await page.locator(`${pane} textarea`).fill("重连之后我还想说话");
@@ -555,7 +572,7 @@ try {
   await page.locator(`${pane} textarea`).fill("");
 
   // ── 口令真失效 ⇒ 回登录框(本单最容易做反的地方)─────────────────────────
-  await page.evaluate(() => { window.__bootstrap401 = true; window.__killWS(1006); });
+  await page.evaluate(() => { window.__bootstrap401 = true; window.__killWS("home", 1006); });
   check(await until(() =>
     page.locator(`${pane} .chat-login input[type=password]`).isVisible(), 25000),
     "⑪ bootstrap 401(口令真失效)⇒ 回登录框,不是无声转圈");
