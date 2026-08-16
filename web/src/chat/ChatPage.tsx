@@ -277,10 +277,16 @@ export default function ChatPage({
     autoRetryRef.current = false;
     // 展示用的计数取真实值(四审 P6):写死 0 会让"连接不上 + 立即重试"在每轮
     // 建连尝试期间闪烁消失 —— 真实计数一直在 rcRef 里,只是展示层对不上。
-    setView({
-      kind: selfHeal ? "reconnecting" : "connecting",
-      failures: rcRef.current.failures,
-    } as View);
+    // 🔴 `stopped` = 策略层已经判定**认证失效**(不是网络抖动)。这一轮 effect 照样
+    //    去连一次(nonce 变了本就该重连),但**视图不许退回「正在连接」**:
+    //    退回去之后,这一轮的 failed 会被 stopped 吞掉(reconnect.ts 那条早退),
+    //    视图就**永久停在「正在连接聊天服务…」**,业主再也看不到「未连接」横幅、
+    //    找不到填 key 的入口 —— 而"没填 key ⇒ 网关不起 ⇒ 连不上"正是他装完
+    //    第一次打开的样子。(frontend_p2_polish 的 connect-banner 断言盯的就是它。)
+    setView(rcRef.current.mode === "stopped"
+      ? { kind: "login" }
+      : ({ kind: selfHeal ? "reconnecting" : "connecting",
+           failures: rcRef.current.failures } as View));
     if (!selfHeal) setTranscript(emptyTranscript);
     // p6 续聊:本轮 effect 的恢复目标(闭包捕获;null/空 chatId = 新对话走 ready 即连上
     // ——空串是 project-thread 的「强制新会话」信号,只借 nonce 触发重连,不 attach)
