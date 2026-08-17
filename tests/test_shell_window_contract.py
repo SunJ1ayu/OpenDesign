@@ -131,7 +131,11 @@ class WindowContract(unittest.TestCase):
         """双击最小化/关闭按钮,dblclick 会冒泡到栏上的 `onDoubleClick={toggle}` ⇒
         **该做的事做了,还白送一次最大化**。按钮区已经挡了 mousedown,
         漏挡的是 dblclick(08-17 四审 subdeepseek F1)。"""
-        m = re.search(r'<div\s+className="win-btns"(.*?)>', _read(TSX_CHROME), re.S)
+        # 🔴 别拿 `>` 当属性区的终点:`onMouseDown={(e) => …}` 里的箭头就是一个 `>`,
+        #    第一版正则在那儿就停了,只截到 `onMouseDown={(e) =` —— 它**红对了结论、
+        #    错了理由**(以为没挡 onDoubleClick,其实是根本没看到那一行)。
+        #    改用第一个子元素 `<button` 当终点。
+        m = re.search(r'className="win-btns"(.*?)<button', _read(TSX_CHROME), re.S)
         self.assertIsNotNone(m, "按钮区不见了(或写法变了,这道闸问不出东西)")
         attrs = m.group(1)
         for ev in ("onMouseDown", "onDoubleClick"):

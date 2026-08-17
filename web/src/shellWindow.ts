@@ -21,8 +21,13 @@ export const RESIZE_EDGES = [
 
 export type ResizeEdge = (typeof RESIZE_EDGES)[number];
 
-/** 边缘感应带的宽度(CSS px)。太窄抓不住,太宽会吃掉贴边内容的点击。 */
-export const GRIP = 6;
+// 🔴 这里原来还有 `GRIP` 和 `resizeEdgeAt(x, y, w, h)` —— 一个按坐标算"鼠标在哪条边上"
+// 的纯函数,外加**五条**围着它转的判据。2026-08-17 四审时发现:`WindowChrome.tsx`
+// 一次都没调用过它。真正决定"能不能拖边"的是 app.css 里那八个 `.win-grip-*` 的定位,
+// 而那边一条判据都没有 —— **五条全绿的考卷,问的是一段没上线的代码。**
+// ⇒ 函数和那五条判据一起删掉,断言搬到 `test_shell_window_contract.py` 的 x7/x8
+// (咬 CSS 里真实生效的那套:把手名单要和方向名单一一对应、且不许盖住按钮)。
+// 教训同 [[field-needs-a-writer-before-ui]]:先问"谁在用它",再问"它对不对"。
 
 /** 我们是不是跑在桌面外壳里(而不是普通浏览器)。
  *
@@ -32,28 +37,6 @@ export const GRIP = 6;
 export function inDesktopShell(win: unknown = globalThis): boolean {
   const w = win as { pywebview?: { api?: unknown } } | null;
   return !!(w && w.pywebview && w.pywebview.api);
-}
-
-/** 鼠标落在窗口的哪条边/哪个角上;都不在就返回 null。
- *
- *  角优先于边(在左上角 6×6 那一小块里,业主想要的是斜着拉,不是只拉左边)。 */
-export function resizeEdgeAt(
-  x: number, y: number, width: number, height: number, grip: number = GRIP,
-): ResizeEdge | null {
-  const left = x <= grip;
-  const right = x >= width - grip;
-  const top = y <= grip;
-  const bottom = y >= height - grip;
-
-  if (top && left) return "topleft";
-  if (top && right) return "topright";
-  if (bottom && left) return "bottomleft";
-  if (bottom && right) return "bottomright";
-  if (top) return "top";
-  if (bottom) return "bottom";
-  if (left) return "left";
-  if (right) return "right";
-  return null;
 }
 
 /** 每条边配的鼠标指针(CSS cursor)。没有它,业主看不出哪儿能拉。 */
