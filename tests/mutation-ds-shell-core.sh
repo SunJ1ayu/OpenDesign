@@ -230,6 +230,15 @@ mutate_and_expect M19 test_every_spawn_site_goes_through_the_one_source \
   '        kwargs.update(spawn_kwargs())' \
   '        kwargs.update({"start_new_session": True} if os.name == "posix" else {})'
 
+# M20 换一种写法起进程,让静态闸**看不见**这个调用点(闸① 的射程本身)。
+#     选 `from subprocess import Popen` 而不是改掉现有调用:模块照常能 import、
+#     其它判据一条不动 ⇒ 红的只会是"闸自己瞎了"这一条。
+#     这条堵的失效方式和别的都不同:**闸不是报错,是安静地扫不到,表现为全绿。**
+mutate_and_expect M20 test_the_gate_can_see_every_spawn_site \
+  'import subprocess' \
+  'import subprocess
+from subprocess import Popen  # 变异:换个写法,扫描器就瞎了'
+
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"
 echo

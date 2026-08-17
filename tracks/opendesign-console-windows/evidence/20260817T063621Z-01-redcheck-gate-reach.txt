@@ -1,0 +1,38 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-gate-reach
+cmd:     /root/.venvs/design-studio/bin/python -W ignore -m unittest tests.test_no_console_window -v
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  bacc2c1
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-17T06:36:21Z
+---------------- 输出开始 ----------------
+test_every_spawn_site_goes_through_the_one_source (tests.test_no_console_window.NoConsoleWindow.test_every_spawn_site_goes_through_the_one_source)
+每个子进程创建点,平台参数都必须来自那个唯一来源 `spawn_kwargs()`。 ... ok
+test_the_flag_values_are_the_real_windows_ones (tests.test_no_console_window.NoConsoleWindow.test_the_flag_values_are_the_real_windows_ones)
+数值必须是 Windows 真值,而且写死在实现里。 ... ok
+test_the_gate_can_see_every_spawn_site (tests.test_no_console_window.NoConsoleWindow.test_the_gate_can_see_every_spawn_site)
+守**上面那条闸自己的射程**:`bin/` 里不许有它看不见的起进程写法。 ... FAIL
+
+======================================================================
+FAIL: test_the_gate_can_see_every_spawn_site (tests.test_no_console_window.NoConsoleWindow.test_the_gate_can_see_every_spawn_site)
+守**上面那条闸自己的射程**:`bin/` 里不许有它看不见的起进程写法。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_no_console_window.py", line 172, in test_the_gate_can_see_every_spawn_site
+    self.assertEqual([], blind,
+AssertionError: Lists differ: [] != ['ds_openfolder.py:205  ——  os.startfile 交给 shell 去开,弹不弹窗口不归我们决定 —— 要逐个说清楚']
+
+Second list contains 1 additional elements.
+First extra element 0:
+'ds_openfolder.py:205  ——  os.startfile 交给 shell 去开,弹不弹窗口不归我们决定 —— 要逐个说清楚'
+
+- []
++ ['ds_openfolder.py:205  ——  os.startfile 交给 shell 去开,弹不弹窗口不归我们决定 —— 要逐个说清楚'] : 这些写法让「每个创建点都走唯一来源」那条闸看不见对应的调用点,而看不见的表现是**全绿**:
+  ds_openfolder.py:205  ——  os.startfile 交给 shell 去开,弹不弹窗口不归我们决定 —— 要逐个说清楚
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.096s
+
+FAILED (failures=1)
+---------------- 输出结束 ----------------
+runlog: redcheck-gate-reach rc=1 commit=bacc2c1 dirty=yes at=2026-08-17T06:36:21Z file=tracks/opendesign-console-windows/evidence/20260817T063621Z-01-redcheck-gate-reach.txt

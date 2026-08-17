@@ -22,6 +22,13 @@
   · 它只扫 `bin/*.py` 的字面调用;经由第三方库拉起的进程(nanobot 的 3 个 MCP 工具服务)
     不在射程内。那 3 个由 MCP 库自己带 `CREATE_NO_WINDOW`(`mcp/os/win32/utilities.py`),
     **是别人替我们守的,不是我们守的** —— 换了库要重新确认。
+    2026-08-17 亲读那份库确认:主路径带(第 173 行),但它有**两层 fallback 会把这一位
+    丢掉**(第 182 行 `except Exception` 整个不带标志重来、第 219 行同理)。
+    触发面很窄(带标志的 CreateProcess 得先抛异常),但"别人替我们守"守的是什么形状,
+    到此为止是查清楚的,不是推的。
+
+  · 而"扫得到"本身有前提:扫描器只认字面的 `subprocess.X(`。**换个写法它就瞎了**,
+    而瞎了的表现是**全绿**(不是报警)—— 所以下面第三条闸专门守它自己的射程。
 """
 from __future__ import annotations
 
@@ -44,6 +51,22 @@ SPAWN_CALL = re.compile(r"subprocess\.(Popen|run|call|check_call|check_output)\s
 #    查不出错位。远处按序号索引的名单是埋着等人踩的东西。
 #    写在调用点旁边则:不可能错位、理由就在读代码的人眼前、也不存在"过期条目"。
 EXEMPT_MARK = "no-console-exempt:"
+
+# 扫描器看不见的起进程写法。**它们不是"另一种风格",是让上面那条闸静静地变瞎的写法** ——
+# 而瞎掉的表现是全绿。所以把"别用这些写法"本身立成不变量,谁要用就在调用点旁边说理由。
+#
+# 发现渠道:2026-08-17 那轮四审里 subkimi 断线前的半截日志(它正要问"闸的射程到哪儿")。
+# 又一次印证「失败腿的日志也要读」—— 这条不在任何一份交上来的裁决里。
+BLIND_FORMS = (
+    (re.compile(r"^\s*from\s+subprocess\s+import\b", re.M),
+     "`from subprocess import Popen` ⇒ 之后写 `Popen(...)`,扫描器认的是 `subprocess.` 前缀"),
+    (re.compile(r"^\s*import\s+subprocess\s+as\s+\w+", re.M),
+     "`import subprocess as sp` ⇒ 之后写 `sp.Popen(...)`,同上"),
+    (re.compile(r"\bos\.(system|popen|spawn\w*)\s*\("),
+     "os.system / os.popen / os.spawn* 会自己起进程,而上面那条闸一个字都看不见"),
+    (re.compile(r"\bos\.startfile\s*\("),
+     "os.startfile 交给 shell 去开,弹不弹窗口不归我们决定 —— 要逐个说清楚"),
+)
 
 
 def _sources() -> list[str]:
@@ -120,6 +143,35 @@ class NoConsoleWindow(unittest.TestCase):
                          "这些子进程创建点没走 spawn_kwargs() ⇒ 平台标志又回到各调用点"
                          "自己拼了,Windows 上漏一位就是一个黑窗口,而业主关掉它"
                          "就杀掉那个进程:\n  " + "\n  ".join(naked))
+
+    def test_the_gate_can_see_every_spawn_site(self):
+        """守**上面那条闸自己的射程**:`bin/` 里不许有它看不见的起进程写法。
+
+        为什么单立一条:上面那条闸失效的方式不是报错,是**安静地扫不到**。
+        `from subprocess import Popen` 之后的 `Popen(...)`、`os.system(...)`、
+        `os.spawnv(...)` —— 每一条都能起出一个黑窗口,而闸①一声不吭地全绿。
+        **一个查不到东西的检查和一个通过的检查,在收据上长得一模一样。**
+
+        豁免用的是同一个标记(调用点旁边写理由),所以真需要时不会把人堵死,
+        但**必须逐个说清楚为什么它弹不出窗口**。
+        """
+        blind = []
+        for name in _sources():
+            with open(os.path.join(BIN, name), encoding="utf-8") as fh:
+                src = fh.read()
+            lines = src.splitlines()
+            for pat, why in BLIND_FORMS:
+                for m in pat.finditer(src):
+                    lineno = src.count("\n", 0, m.start())      # 0 起
+                    near = "\n".join(lines[max(0, lineno - 3):lineno + 1])
+                    if EXEMPT_MARK in near:
+                        reason = near.split(EXEMPT_MARK, 1)[1].strip()
+                        self.assertTrue(reason, f"{name}:{lineno + 1} 的豁免标记没写理由")
+                        continue
+                    blind.append(f"{name}:{lineno + 1}  ——  {why}")
+        self.assertEqual([], blind,
+                         "这些写法让「每个创建点都走唯一来源」那条闸看不见对应的调用点,"
+                         "而看不见的表现是**全绿**:\n  " + "\n  ".join(blind))
 
     def test_the_flag_values_are_the_real_windows_ones(self):
         """数值必须是 Windows 真值,而且写死在实现里。
