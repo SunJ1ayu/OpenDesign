@@ -381,6 +381,13 @@ class Supervisor:
         与 `start()` 的差别是故意的,别照抄那边:start 半路失败会把已起的全停掉
         (半拉子启动没有意义);这里失败**不许连坐** —— 界面没有理由陪葬,
         而且他得看得见"重启失败"这句话。
+        
+        🔴 **不持 `_shutdown_lock` 是有意的取舍**(08-17 四审两腿都提):
+        托盘"退出"和这里交错时,新起的网关可能落在 `shutdown()` 的名册快照之后
+        ⇒ 理论上留一个孤儿。没加锁是因为 `shutdown()` 持的是同一把,重启途中
+        点退出会让业主干等到 300s 超时 —— 这个仓库有过"重入即永久挂死"的先例。
+        Windows 上外壳退出时 Job 的 KILL_ON_JOB_CLOSE 会兜底,窗口只有毫秒宽。
+        **下一个想加锁的人:先把 shutdown 那侧的等待改成可中断的,再动这里。**
         """
         names = {s.name for s in services}
         old = [c for c in self._children if c.service.name in names]
@@ -423,8 +430,18 @@ class Supervisor:
             try:
                 self._wait_ready(child)
             except BaseException:
-                # 只收自己这一条,别动别人(上面那段 docstring 的"不连坐"就在这儿落地)
-                self._terminate_tree(child)
+                # 只收自己这一条,别动别人(上面那段 docstring 的"不连坐"就在这儿落地)。
+                # 🔴 08-17(四审 subkimi F-2,判据 c22):收尸要走**和上面收旧腿
+                # 完全同一套**。这里原来只有 `_terminate_tree` —— Windows 上那等于
+                # 只杀了 nanobot 本尊,它带的 3 个 MCP 留在 Job 里没人收
+                # (KILL_ON_JOB_CLOSE 不触发),外壳里每失败一次还漏一个日志句柄。
+                # 同一个函数里两条路不一致,c18 只钉住了旧腿那一半。
+                self._kill_tree(child)
+                self._close_job(child)
+                try:
+                    child.log_file.close()
+                except Exception:
+                    pass
                 self._children = [c for c in self._children if c is not child]
                 raise
 

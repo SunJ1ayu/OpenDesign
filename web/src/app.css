@@ -184,8 +184,14 @@ body.has-window-chrome { padding-top: 30px; }
 }
 /* 按钮要在把手**上面**:把手是全宽的一条,原来压着三个按钮的上沿 5px、
    右上角还压掉 6×6 ⇒ 点关闭按钮的顶部是"改窗口大小",不是关闭(判据 x8)。
-   按钮只有 30px 高,被吃掉的是六分之一。 */
-.win-btns { display: flex; height: 100%; position: relative; z-index: 220; }
+   按钮只有 30px 高,被吃掉的是六分之一。
+   🔴 必须是**根级 fixed**、不能待在 .win-bar 里:栏自己是 fixed+z-index,
+      它开了一个 stacking context,里面的层号在根上下文里不算数,把手照样盖上来。
+      (这一条 08-17 四审 subkimi 逮到,我第一版就是放在栏里的。) */
+.win-btns {
+  position: fixed; top: 0; right: 0; height: 30px; z-index: 220;
+  display: flex;
+}
 .win-btn {
   width: 44px; height: 100%; display: grid; place-items: center;
   border: 0; background: transparent; color: var(--ink-2); cursor: default;

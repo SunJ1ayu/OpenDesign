@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import {
   RESIZE_EDGES,
   cursorFor,
@@ -35,13 +35,20 @@ export default function WindowChrome() {
   const [shell] = useState(inDesktopShell);
   const [maximized, setMaximized] = useState(false);
 
+  // 🔴 用 useLayoutEffect 而不是 useEffect:这条 class 决定整个界面往下让 30px,
+  //    而窗口栏在**首帧**就画出来了。放在 useEffect 里等于"先画一帧压着内容的,
+  //    再跳下去" —— 业主每次开窗口都会看见那一跳(08-17 四审 subdeepseek)。
+  useLayoutEffect(() => {
+    if (!shell) return;
+    // 让整个界面往下让出这条栏的高度 —— 用绝对定位盖上去的话,顶部那一条里的东西
+    // (侧栏标题、各列顶端)会被一条看不见的带子挡住点不着。
+    document.body.classList.add("has-window-chrome");
+    return () => document.body.classList.remove("has-window-chrome");
+  }, [shell]);
+
   useEffect(() => {
     if (!shell) return;
-    // 加一条 body class,让整个界面往下让出这条栏的高度 —— 用绝对定位盖上去的话,
-    // 顶部那一条里的东西(侧栏标题、各列顶端)会被一条看不见的带子挡住点不着。
-    document.body.classList.add("has-window-chrome");
     api()?.window_state().then((st) => st && setMaximized(!!st.maximized)).catch(() => {});
-    return () => document.body.classList.remove("has-window-chrome");
   }, [shell]);
 
   if (!shell) return null;
@@ -71,17 +78,21 @@ export default function WindowChrome() {
         className="win-bar"
         data-ui="window-bar"
         onMouseDown={(e) => {
-          // 只有在栏本身的空白处按下才算拖窗口;按在按钮上不算(按钮自己 stopPropagation)。
+          // 只有在栏本身的空白处按下才算拖窗口;按在按钮上不算 —— 按钮区是这条栏的
+          // **兄弟节点**且压在它上面(见下),点击根本到不了这里。
           if (e.button !== 0) return;
           api()?.begin_drag().catch(() => {});
         }}
         onDoubleClick={toggle}
-      >
-        {/* 两个都要挡:mousedown 挡的是"按按钮顺带拖窗口",dblclick 挡的是
-            "双击按钮顺带最大化" —— 后者漏了一版(08-17 四审 F1,判据 x6)。 */}
-        <div className="win-btns"
-             onMouseDown={(e) => e.stopPropagation()}
-             onDoubleClick={(e) => e.stopPropagation()}>
+      />
+      {/* 🔴 按钮区**不能放进窗口栏里**(08-17 四审 subkimi F-1)。
+          栏是 `position:fixed` + `z-index`,它自己就是一个 stacking context ——
+          按钮放在里面,层号再高也只在栏内部有效,根上下文里参与比较的是
+          整个栏的层号。于是把手(层号比栏高)照样盖在按钮上沿。
+          抬成栏的兄弟节点,200 < 210 < 220 才真的成立。判据 x8 现在先问结构。
+          顺带:不再是父子 ⇒ 点/双击按钮本来就不会冒泡到栏,那两个
+          stopPropagation 是白留的,一起去掉(x6 跟着改成问结构)。 */}
+      <div className="win-btns">
           <button className="win-btn" data-ui="window-min" title="最小化"
                   onClick={() => api()?.minimize().catch(() => {})}>
             <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
@@ -109,7 +120,6 @@ export default function WindowChrome() {
                     strokeWidth="1.2" />
             </svg>
           </button>
-        </div>
       </div>
       {RESIZE_EDGES.map(grip)}
     </>

@@ -97,7 +97,8 @@ VERSION = "0.89.0"  # 填完 key 之后开不了机那个坑填了(track opendes
                     # 最小化/最大化/关闭改成右上角自己画,拖动和改大小用原生窗口消息接回来。
                     # 0.88.0  业主可以在界面里填大模型 key 了(track opendesign-key-onboarding):
                     # 首启动自动弹卡、设置里同一张卡改 key;key 只写不回显、只落 key.txt 一处;
-                    # 填完由外壳重启网关(重启不许撒谎);没填 key 时界面要给得出入口。  # 你的东西搬出安装目录了(track opendesign-data-outside-install):
+                    # 填完由外壳重启网关(重启不许撒谎);没填 key 时界面要给得出入口。
+                    # 0.87.0  你的东西搬出安装目录了(track opendesign-data-outside-install):
                     # 项目档案、客户备忘、共享参考图库(真图片)、总索引、整理审计、工作区设置
                     # 以前都住在程序目录里 —— **卸载一次就全没了**,而卸载页上写着不会删。
                     # 现在它们在 %LOCALAPPDATA%\OpenDesign\Data 下,卸载和更新都碰不到;

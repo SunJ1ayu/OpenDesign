@@ -296,3 +296,15 @@ git-pull 的 `ds-nanobot.ps1`)都在管辖内;为开发机引入"去读 auth.jso
 
 ⚠️ submimo 报的理由是「`null` 会变成 `"None"` 字符串并通过空检查」——**核实不成立**:
 `None or ""` 得到空串,被空检查拒绝(实测)。**方向对、例子错**,记账时别抄它的例子。
+
+## 无边框窗口:把手与页面内容抢边缘(2026-08-17 四审)
+
+- **右把手 vs 最右列滚动条**(subdeepseek MEDIUM):`.win-grip-right` 占窗口最右 5px,
+  聊天列的滚动条也贴着那条边 ⇒ 拖滚动条滑块可能变成"改窗口大小"。滚轮/键盘不受影响。
+  修法是最右列内收几像素(动布局,单独一单);已进真机清单 D12 让业主先判断碍不碍事。
+- **`inDesktopShell` 只求值一次**(F4):若 pywebview 注入晚于 React 首渲,窗口栏永不出现
+  —— 无边框下那等于没有出口。稳妥做法是监听 `pywebviewready` 再定一次。
+- **`maximized` 状态会过时**:Aero 贴边/Win+Up 最大化不走 `toggle_maximize`,按钮图标会画反。
+  外观级,已在真机清单 G1 声明。
+- **`restart()` 不持 `_shutdown_lock`**:取舍与前提已写进它的 docstring;
+  要动的话先把 shutdown 那侧的等待改成可中断的。

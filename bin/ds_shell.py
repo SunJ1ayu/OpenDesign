@@ -323,11 +323,15 @@ class WindowApi:
             from System import Action        # pythonnet(pywebview 的 Windows 依赖)
 
             form.Invoke(Action(lambda: box.append(fn(form))))
-        except Exception:
-            try:
-                box.append(fn(form))         # 拿不到 .NET 就直接跑,总比什么都不做强
-            except Exception:
-                return None
+        except Exception as exc:
+            # 🔴 这里原来会"退而求其次"地在**当前线程**上再跑一遍 fn,注释写着
+            # 「总比什么都不做强」—— 那句是错的(08-17 四审两腿各自命中)。
+            # `ReleaseCapture()` 只对调用它的线程有效、改 `Bounds` 也只在 UI 线程上
+            # 才算数:在工作线程上跑它们**安静地不生效**,而这正是本函数存在的理由。
+            # 业主看到的是"点了没反应",日志里一个字都没有 —— 比什么都不做更难查。
+            # 宁可留一句话。
+            log(f"[窗口] 回不到 UI 线程,这次窗口操作没做:{exc.__class__.__name__}")
+            return None
         return box[0] if box else None
 
     def _hit(self, form, code: int) -> None:
