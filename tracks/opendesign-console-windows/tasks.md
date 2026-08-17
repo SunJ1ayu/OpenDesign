@@ -12,7 +12,10 @@
 - [x] 总跑五段:**0 跳过全绿**(补起 gateway 才跑得动那两条 e2e,见 backlog)
 - [x] full 四审 + 逐条仲裁(1 条真红已修 / 3 条闸精度洞已修 / 1 条驳回)
 - [x] 编安装器(23+7 条闸全绿,59.7 MB)
-- [ ] 发 pre-release
+- [x] 发 pre-release `win-installer-0.90.0`(**回读远端确认**:state=uploaded,
+      远端 digest `sha256:d149f403abb4ee18a5e4e3bf35d652bffb47075a992a406c476e752d1265aa71`
+      与本地构建逐字节一致;62557452 字节)
+      <https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.90.0>
 - [ ] **业主真机**:打开软件,**一个黑窗口都不许有**
 - [ ] 归档 + push
 
