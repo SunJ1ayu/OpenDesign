@@ -16,7 +16,11 @@ set -u
 cd "$(dirname "$0")/.."
 PY="${PY:-/root/.venvs/design-studio/bin/python}"
 SRC=bin/ds_shell_core.py
-ORACLE=tests/test_ds_shell_core.py
+# 判据入口是**一组模块**,不是一个文件:有的契约由行为判据和静态闸共同保证
+# (2026-08-17 的"子进程不许弹黑窗口"就是 —— 行为那半在 test_ds_shell_core,
+# "每个创建点都走唯一来源"那半在 test_no_console_window)。
+# 只跑一个文件的话,静态闸永远没人证明它咬得动。
+ORACLE_MODULES="tests.test_ds_shell_core tests.test_no_console_window"
 WORK="$(mktemp -d)"
 BEFORE="$(sha256sum "$SRC" | cut -d' ' -f1)"
 cp "$SRC" "$WORK/原件.py"
@@ -52,7 +56,7 @@ for old, new in zip(args[0::2], args[1::2]):
     s = s.replace(old, new, 1)
 p.write_text(s, encoding="utf-8")
 PYEOF
-  timeout 600 "$PY" -W ignore "$ORACLE" > "$out" 2>&1
+  timeout 600 "$PY" -W ignore -m unittest $ORACLE_MODULES > "$out" 2>&1
   local rc=$?
   if [ "$rc" -eq 0 ]; then
     echo "  [BAD]  $id -> 判据全绿:这条变异下它是瞎的(靶子 $target)"
@@ -194,6 +198,31 @@ mutate_and_expect M15 test_c22_a_new_leg_that_cannot_come_up_is_reaped_the_same_
                 self._children = [c for c in self._children if c is not child]' \
   '                self._terminate_tree(child)
                 self._children = [c for c in self._children if c is not child]'
+
+# ── 2026-08-17:子进程不许弹黑窗口(track opendesign-console-windows)──────────
+# 业主真机撞的:开软件冒两个黑窗口,**关掉一个就杀掉一条腿**。
+
+# M16 唯一来源里把"别开窗口"那一位摘掉 —— 真机上就是业主看见的那两个黑窗口
+mutate_and_expect M16 test_c23_a_child_on_windows_never_pops_a_console_window \
+  '        return {"creationflags": WINDOWS_SPAWN_FLAGS}' \
+  '        return {"creationflags": CREATE_NEW_PROCESS_GROUP}'
+
+# M17 收尸兜底的 taskkill 不走那个来源 —— 每收一次尸闪一个黑窗口
+mutate_and_expect M17 test_c24_the_taskkill_fallback_never_pops_a_console_window \
+  '                **spawn_kwargs("nt"),' \
+  '                # 这一行被变异摘掉了'
+
+# M18 `_spawn` 干脆不要平台参数 —— POSIX 那半边的进程组也跟着没了(收尸收不干净)
+mutate_and_expect M18 test_c23b_the_spawn_really_uses_that_one_source \
+  '        kwargs.update(spawn_kwargs())' \
+  '        kwargs.update({})'
+
+# M19 `_spawn` 自己手拼一份平台参数(行为一模一样,只是绕开了唯一来源)——
+#     **行为判据抓不到它**(POSIX 那半边完全等价),靶子必须是静态闸:
+#     这正是"各写各的"这个病复发的样子,下一个人就是这么漏掉 Windows 那一位的
+mutate_and_expect M19 test_every_spawn_site_goes_through_the_one_source \
+  '        kwargs.update(spawn_kwargs())' \
+  '        kwargs.update({"start_new_session": True} if os.name == "posix" else {})'
 
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"
