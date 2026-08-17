@@ -87,9 +87,12 @@ mutate_and_expect M3 test_b8_two_instances_racing_at_the_same_moment_still_yield
   '            if False and self._someone_ahead_of(port):'
 
 # M4 握手退回"只 recv 一次" —— 分片就认不出来
+# 🔴 08-17:这条的锚点**过期了两个版本**(实现从 `_recv_line` 换成了 `_recv_frame`),
+#    于是它一直报"变异没打上去" —— 而那条契约实际上早就没有红检覆盖了。
+#    「变异脚本自己坏了」这件事已经是第四次;锚点尽量挑**不容易改的那一行**。
 mutate_and_expect M4 test_b10_a_handshake_split_across_packets_is_still_recognised \
-  '                line = self._recv_line(conn, deadline=time.monotonic() + 2.0)' \
-  '                line = conn.recv(4096).split(b"\\n", 1)[0]'
+  '        while len(buf) < limit and buf.count(b"\n") < 2:' \
+  '        for _only_once in range(1):'
 
 # M5 每条连接单开线程退回同步处理 —— 哑巴客户端能把锁堵住
 mutate_and_expect M5 test_b9_a_silent_client_cannot_wedge_the_lock \
@@ -162,6 +165,35 @@ mutate_and_expect M13 test_f9_the_check_and_set_in_on_quit_is_not_two_steps \
         self.on_stop()
         self.exiting = True
         self.visible = False'
+
+# M14 「谁死了」和「为什么死」退回分两眼看 —— 两眼之间业主存了 key 触发重启,
+#     名册一变就是「名字有、原因空」:c20 刚消灭的没线索弹窗换个入口又长回来
+mutate_and_expect M14 test_c21_who_died_and_why_come_from_one_look \
+  '        out = []
+        for child in list(self._children):
+            code = child.proc.poll()
+            if code is None:
+                continue
+            out.append((child.service.name,
+                        self._failure_message(child.service, "", code, what="意外退出了")))
+        return out' \
+  '        names = [c.service.name for c in list(self._children) if c.proc.poll() is not None]
+        said = [self._failure_message(c.service, "", c.proc.poll(), what="意外退出了")
+                for c in list(self._children) if c.proc.poll() is not None]
+        return list(zip(names, said))'
+
+# M15 重启时**新**腿起不来,收尸退回只 terminate —— Windows 上 Job 不关,
+#     那条腿的 3 个 MCP 孙子留在机器上(c18 只钉住了旧腿那一半)
+mutate_and_expect M15 test_c22_a_new_leg_that_cannot_come_up_is_reaped_the_same_way \
+  '                self._kill_tree(child)
+                self._close_job(child)
+                try:
+                    child.log_file.close()
+                except Exception:
+                    pass
+                self._children = [c for c in self._children if c is not child]' \
+  '                self._terminate_tree(child)
+                self._children = [c for c in self._children if c is not child]'
 
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"

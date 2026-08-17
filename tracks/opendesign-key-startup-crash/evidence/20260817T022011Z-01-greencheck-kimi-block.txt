@@ -1,0 +1,20 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    greencheck-kimi-block
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_shell_window_contract\ 2\>\&1\ \|\ tail\ -5\;\ rc=\$\?\;\ /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_shell_core.Supervise\ 2\>\&1\ \|\ tail\ -5\;\ exit\ \$\(\(rc\ +\ \$\?\)\)
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  5615be2
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-17T02:20:11Z
+---------------- 输出开始 ----------------
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.016s
+
+FAILED (failures=1)
+.........
+----------------------------------------------------------------------
+Ran 22 tests in 27.136s
+
+OK
+---------------- 输出结束 ----------------
+runlog: greencheck-kimi-block rc=0 commit=5615be2 dirty=yes at=2026-08-17T02:20:11Z file=tracks/opendesign-key-startup-crash/evidence/20260817T022011Z-01-greencheck-kimi-block.txt

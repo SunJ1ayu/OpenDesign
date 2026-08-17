@@ -1,0 +1,42 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    greencheck-kimi-block-r2
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_shell_window_contract -v
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  5615be2
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-17T02:20:49Z
+---------------- 输出开始 ----------------
+test_x1_the_edge_names_match_on_both_sides (tests.test_shell_window_contract.WindowContract.test_x1_the_edge_names_match_on_both_sides)
+前端的 RESIZE_EDGES ↔ Python 的 HIT(去掉标题区那一项)。 ... ok
+test_x2_every_button_calls_a_method_that_really_exists (tests.test_shell_window_contract.WindowContract.test_x2_every_button_calls_a_method_that_really_exists)
+pywebview 按**方法名**把 `pywebview.api.xxx()` 接到 Python 上。 ... ok
+test_x3_the_three_buttons_are_all_wired (tests.test_shell_window_contract.WindowContract.test_x3_the_three_buttons_are_all_wired)
+业主要的就是这三个。少接一个 = 少一个按钮,而界面上看不出来。 ... ok
+test_x4_the_chrome_never_shows_up_in_a_plain_browser (tests.test_shell_window_contract.WindowContract.test_x4_the_chrome_never_shows_up_in_a_plain_browser)
+浏览器里没有窗口可关,画出来就是三个按下去没反应的按钮。 ... ok
+test_x5_nothing_is_allowed_to_cover_the_window_bar (tests.test_shell_window_contract.WindowContract.test_x5_nothing_is_allowed_to_cover_the_window_bar)
+🔴 **业主装完第一次打开必然撞上**:填 key 的连接弹窗 ... ok
+test_x6_clicking_a_window_button_never_also_moves_the_window (tests.test_shell_window_contract.WindowContract.test_x6_clicking_a_window_button_never_also_moves_the_window)
+点/双击三个按钮,不许连带触发窗口栏自己的动作(拖窗口 / 最大化)。 ... ok
+test_x7_the_css_grips_match_the_edge_list (tests.test_shell_window_contract.WindowContract.test_x7_the_css_grips_match_the_edge_list)
+🔴 **判据自己咬空过**:`shellWindow.ts` 里有个 `resizeEdgeAt()` 被五条判据 ... ok
+test_x8_the_grips_never_eat_the_buttons (tests.test_shell_window_contract.WindowContract.test_x8_the_grips_never_eat_the_buttons)
+把手不许压在三个按钮身上(点关闭按钮的上沿必须是关闭,不是"改窗口大小")。 ... FAIL
+test_x9_every_grip_actually_sits_on_its_edge (tests.test_shell_window_contract.WindowContract.test_x9_every_grip_actually_sits_on_its_edge)
+把手的**几何**:贴边、且有厚度。 ... ok
+
+======================================================================
+FAIL: test_x8_the_grips_never_eat_the_buttons (tests.test_shell_window_contract.WindowContract.test_x8_the_grips_never_eat_the_buttons)
+把手不许压在三个按钮身上(点关闭按钮的上沿必须是关闭,不是"改窗口大小")。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_shell_window_contract.py", line 181, in test_x8_the_grips_never_eat_the_buttons
+    self.assertNotIn('className="win-btns"', bar.group(2) or "",
+AssertionError: 'className="win-btns"' unexpectedly found in '{\n          // 只有在栏本身的空白处按下才算拖窗口;按在按钮上不算 —— 按钮区是这条栏的\n          // **兄弟节点**且压在它上面(见下),点击根本到不了这里。\n          if (e.button !== 0) return;\n          api()?.begin_drag().catch(() => {});\n        }}\n        onDoubleClick={toggle}\n      />\n      {/* 🔴 按钮区**不能放进窗口栏里**(08-17 四审 subkimi F-1)。\n          栏是 `position:fixed` + `z-index`,它自己就是一个 stacking context ——\n          按钮放在里面,层号再高也只在栏内部有效,根上下文里参与比较的是\n          整个栏的层号。于是把手(层号比栏高)照样盖在按钮上沿。\n          抬成栏的兄弟节点,200 < 210 < 220 才真的成立。判据 x8 现在先问结构。\n          顺带:不再是父子 ⇒ 点/双击按钮本来就不会冒泡到栏,那两个\n          stopPropagation 是白留的,一起去掉(x6 跟着改成问结构)。 */}\n      <div className="win-btns">\n          <button className="win-btn" data-ui="window-min" title="最小化"\n                  onClick={() => api()?.minimize().catch(() => {})}>\n            <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">\n              <path d="M0 5h10" stroke="currentColor" strokeWidth="1.2" />\n            </svg>\n          </button>\n          <button className="win-btn" data-ui="window-max"\n                  title={maximized ? "还原" : "最大化"} onClick={toggle}>\n            {maximized ? (\n              <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">\n                <path d="M2.5 0.5h7v7h-2M0.5 2.5h7v7h-7z" fill="none"\n                      stroke="currentColor" strokeWidth="1.1" />\n              </svg>\n            ) : (\n              <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">\n                <rect x="0.5" y="0.5" width="9" height="9" fill="none"\n                      stroke="currentColor" strokeWidth="1.1" />\n              </svg>\n            )}\n          </button>\n          <button className="win-btn win-btn-close" data-ui="window-close" title="关闭"\n                  onClick={() => api()?.close_window().catch(() => {})}>\n            <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">\n              <path d="M0.7 0.7l8.6 8.6M9.3 0.7l-8.6 8.6" stroke="currentColor"\n                    strokeWidth="1.2" />\n            </svg>\n          </button>\n      </div>\n      ' : 按钮区还嵌在窗口栏里 ⇒ 栏的 z-index 给它盖了一个 stacking context,它自己那个层号在根上下文里**不算数**,把手照样吃掉按钮上沿
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.020s
+
+FAILED (failures=1)
+---------------- 输出结束 ----------------
+runlog: greencheck-kimi-block-r2 rc=1 commit=5615be2 dirty=yes at=2026-08-17T02:20:49Z file=tracks/opendesign-key-startup-crash/evidence/20260817T022049Z-01-greencheck-kimi-block-r2.txt

@@ -49,6 +49,33 @@ def _zindex(body: str) -> int | None:
     return int(v) if v and v.lstrip("-").isdigit() else None
 
 
+def _jsx_tag_is_self_closing(src: str, class_name: str) -> bool:
+    """`className="<class_name>"` 那个 JSX 标签是不是自闭合(`/>`)。
+
+    🔴 **别用正则找标签的结束**:`onMouseDown={(e) => …}` 里的箭头就是一个 `>`,
+    非贪婪匹配会停在那儿。x6 的第一版栽过一次、x8 的第一版又栽了同一次 ——
+    所以这里老老实实扫一遍,数着 `{}` 的深度、跳过字符串,只认深度为 0 的那个收尾。
+    """
+    i = src.index(f'className="{class_name}"')
+    i = src.rindex("<", 0, i)                     # 回到这个标签的开头
+    depth, quote = 0, ""
+    while i < len(src):
+        c = src[i]
+        if quote:
+            if c == quote:
+                quote = ""
+        elif c in "\"'":
+            quote = c
+        elif c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+        elif depth == 0 and c == ">":
+            return src[i - 1] == "/"
+        i += 1
+    raise AssertionError(f"没找到 {class_name} 标签的收尾 —— 这道闸问不出东西")
+
+
 def _z_of(selector: str) -> int | None:
     """某个类自己声明的 z-index(取最后一次声明 —— 后面的赢)。"""
     found = None
@@ -127,21 +154,24 @@ class WindowContract(unittest.TestCase):
                          f"这些浮层压在窗口栏(z-index {bar})上面或同层:{over} ⇒ "
                          "它们一出现,业主就关不掉窗口了")
 
-    def test_x6_double_clicking_a_window_button_does_not_also_toggle_maximize(self):
-        """双击最小化/关闭按钮,dblclick 会冒泡到栏上的 `onDoubleClick={toggle}` ⇒
-        **该做的事做了,还白送一次最大化**。按钮区已经挡了 mousedown,
-        漏挡的是 dblclick(08-17 四审 subdeepseek F1)。"""
-        # 🔴 别拿 `>` 当属性区的终点:`onMouseDown={(e) => …}` 里的箭头就是一个 `>`,
-        #    第一版正则在那儿就停了,只截到 `onMouseDown={(e) =` —— 它**红对了结论、
-        #    错了理由**(以为没挡 onDoubleClick,其实是根本没看到那一行)。
-        #    改用第一个子元素 `<button` 当终点。
-        m = re.search(r'className="win-btns"(.*?)<button', _read(TSX_CHROME), re.S)
-        self.assertIsNotNone(m, "按钮区不见了(或写法变了,这道闸问不出东西)")
-        attrs = m.group(1)
-        for ev in ("onMouseDown", "onDoubleClick"):
-            self.assertRegex(
-                attrs, rf"{ev}=\{{[^}}]*stopPropagation",
-                f"按钮区没挡住 {ev} ⇒ 点/双击按钮会连带触发窗口栏自己的动作")
+    def test_x6_clicking_a_window_button_never_also_moves_the_window(self):
+        """点/双击三个按钮,不许连带触发窗口栏自己的动作(拖窗口 / 最大化)。
+
+        栏上挂着 `onMouseDown=拖窗口` 和 `onDoubleClick=最大化`。按钮**曾经**是栏的
+        子元素,于是双击关闭按钮会白送一次最大化(08-17 四审 subdeepseek F1);
+        当时的修法是在按钮区 stopPropagation 两个事件。
+
+        第二轮把按钮区**抬成了栏的兄弟节点**(subkimi F-1,stacking context)——
+        不再是父子,事件根本不冒泡过去,那两个 stopPropagation 成了白留的。
+        ⇒ 这一条跟着改问**结构**:两者不许是父子。**比原来强** ——
+        原来只挡住了两个点名的事件,现在整类都不可能发生。
+        (结构断言由 x8 咬同一件事的层序一面。)
+        """
+        tsx = _read(TSX_CHROME)
+        self.assertIn('className="win-btns"', tsx, "按钮区不见了")
+        self.assertTrue(
+            _jsx_tag_is_self_closing(tsx, "win-bar"),
+            "按钮区又回到窗口栏里了 ⇒ 点按钮会冒泡成拖窗口、双击会白送一次最大化")
 
     def test_x7_the_css_grips_match_the_edge_list(self):
         """🔴 **判据自己咬空过**:`shellWindow.ts` 里有个 `resizeEdgeAt()` 被五条判据
@@ -172,12 +202,12 @@ class WindowContract(unittest.TestCase):
         必须是**同一层的兄弟**,谁也不许被谁的 stacking context 关起来。
         """
         tsx = _read(TSX_CHROME)
-        bar = re.search(r'<div\s+className="win-bar"(.*?)/?>\s*(.*?)(?=\{RESIZE_EDGES|</>)',
-                        tsx, re.S)
-        self.assertIsNotNone(bar, "窗口栏不见了(或写法变了,这道闸问不出东西)")
-        self.assertNotIn('className="win-btns"', bar.group(2) or "",
-                         "按钮区还嵌在窗口栏里 ⇒ 栏的 z-index 给它盖了一个 stacking "
-                         "context,它自己那个层号在根上下文里**不算数**,把手照样吃掉按钮上沿")
+        self.assertIn('className="win-btns"', tsx, "按钮区不见了")
+        self.assertTrue(
+            _jsx_tag_is_self_closing(tsx, "win-bar"),
+            "窗口栏里装了东西 ⇒ 栏是 fixed+z-index、自己就是一个 stacking context,"
+            "装在里面的层号在根上下文里**不算数**,把手照样吃掉按钮上沿。"
+            "栏必须是空的纯拖动区,按钮区做它的兄弟节点。")
 
         bar_z, grip, btns = _z_of(".win-bar"), _z_of(".win-grip"), _z_of(".win-btns")
         for name, z in (("窗口栏", bar_z), ("把手", grip), ("按钮区", btns)):
