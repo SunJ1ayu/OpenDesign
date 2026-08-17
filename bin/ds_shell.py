@@ -331,9 +331,20 @@ class WindowApi:
         return box[0] if box else None
 
     def _hit(self, form, code: int) -> None:
+        from ctypes import wintypes            # Windows 才有(core 那边同一写法)
+
         user32 = ctypes.windll.user32
+        # 🔴 不声明 argtypes,ctypes 按 c_int(32 位)传 —— 64 位 Windows 上 HWND
+        # 一旦超过 2³¹ 就被静默截断,消息发给一个不存在的窗口:**拖不动、改不了
+        # 大小,而且哪儿都不报错**。`ds_shell_core` 里的 Job 句柄早为同一件事补过
+        # 声明(那段注释还在),这里漏了同一处 —— 08-17 四审 subdeepseek F2,
+        # 判据 tests/test_win_ctypes_decls.py 现在机械地查每一个 windll 调用点。
+        user32.SendMessageW.argtypes = [wintypes.HWND, ctypes.c_uint,
+                                        ctypes.c_size_t, ctypes.c_ssize_t]
+        user32.SendMessageW.restype = ctypes.c_ssize_t
         user32.ReleaseCapture()
-        user32.SendMessageW(int(form.Handle.ToInt64()), self._WM_NCLBUTTONDOWN, code, 0)
+        user32.SendMessageW(wintypes.HWND(int(form.Handle.ToInt64())),
+                            self._WM_NCLBUTTONDOWN, code, 0)
 
     def _work_area(self, form):
         from System.Windows.Forms import Screen
@@ -448,13 +459,18 @@ class Shell:
 
         def loop():
             while not self.state.exiting:
-                dead = self.sup.poll_dead()
-                if dead:
-                    # 🔴 2026-08-16:这里原来只打了一句 `[后台退出] ['网关']`。
-                    # 业主那晚网关死了,两份日志摆在我面前也答不了「是被杀的还是自己崩的」
-                    # —— 因为**退出码从来没被打印过**。现在每条腿都把退出码和它自己
-                    # 日志的尾巴写进外壳日志(判据 c20);弹窗仍然只说人话。
-                    for report in self.sup.dead_reports():
+                # 🔴 2026-08-16:这里原来只打了一句 `[后台退出] ['网关']`。
+                # 业主那晚网关死了,两份日志摆在我面前也答不了「是被杀的还是自己崩的」
+                # —— 因为**退出码从来没被打印过**。现在每条腿都把退出码和它自己
+                # 日志的尾巴写进外壳日志(判据 c20);弹窗仍然只说人话。
+                #
+                # 🔴 08-17(F5,判据 c21/w7):**只看一眼**。原来先问 `poll_dead()`
+                # 拿名字、再问 `dead_reports()` 拿原因,两问之间业主若正好存了 key
+                # 触发重启,名册就变了 ⇒ 弹窗照弹、原因是空的。
+                found = self.sup.take_dead()
+                if found:
+                    dead = [name for name, _ in found]
+                    for _, report in found:
                         log(f"[后台退出] {report}")
                     alert(f"{'、'.join(dead)} 意外退出了。\n\n"
                           f"请退出后重新打开 {APP};日志在:\n{_log_path().parent}\n\n"

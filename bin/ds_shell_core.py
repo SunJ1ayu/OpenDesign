@@ -474,8 +474,30 @@ class Supervisor:
                     pass
             self._children.clear()
 
+    def take_dead(self) -> list[tuple[str, str]]:
+        """死掉的腿:**名字和死因一次拿全**(判据 c21)。
+
+        看门狗以前分两眼看 —— 先 `poll_dead()` 问"谁死了",再 `dead_reports()`
+        问"为什么"。两眼之间名册会变(业主恰好在这一刻存了 key、触发重启),
+        于是第一眼有名字、第二眼没了原因 ⇒ 弹窗照弹「网关意外退出了」,
+        日志里一个原因都没有 —— **c20 刚消灭掉的那种没线索的弹窗,换个入口又长回来。**
+        (08-17 四审 subdeepseek F5。)
+
+        修法不是加锁:`shutdown()` 持的是 `_shutdown_lock`,重启途中再互等
+        风险更大。一次遍历、一份快照就够 —— 名册的**那一瞬**是自洽的。
+        `list(...)` 是同一件事的另一半:遍历途中被 restart 改名册不许抛。
+        """
+        out = []
+        for child in list(self._children):
+            code = child.proc.poll()
+            if code is None:
+                continue
+            out.append((child.service.name,
+                        self._failure_message(child.service, "", code, what="意外退出了")))
+        return out
+
     def poll_dead(self) -> list[str]:
-        return [child.service.name for child in self._children if child.proc.poll() is not None]
+        return [name for name, _ in self.take_dead()]
 
     def dead_reports(self) -> list[str]:
         """死掉的腿**为什么**死 —— 每条一段人话:退出码 + 那条腿日志的尾巴。
@@ -485,13 +507,12 @@ class Supervisor:
         `Agent loop started`,之后什么都没有。两份日志摆在面前,我也答不了
         「它是被杀的还是自己崩的」—— 因为**退出码从来没被打印过**。
         退出码分得清这两件事(被杀 vs 自己退),日志尾巴给的是崩在哪。
+
+        看门狗现在走 `take_dead()`(名字和原因同一眼);这个留给只要原因的调用方。
         """
         out = []
-        for child in self._children:
-            code = child.proc.poll()
-            if code is None:
-                continue
-            out.append(self._failure_message(child.service, "", code, what="意外退出了"))
+        for _, said in self.take_dead():
+            out.append(said)
         return out
 
     @staticmethod

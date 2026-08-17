@@ -173,13 +173,19 @@ html, body { overflow: auto; }
    无边框窗口把系统标题栏连同"拖边缘改大小"一起收走了,这里补回来。
    高度 30px ≈ 原来那条系统标题栏 —— 净空间不变,少一个重复的 OpenDesign 标题。 */
 body.has-window-chrome { padding-top: 30px; }
+/* 🔴 层号必须压过所有 inset:0 的浮层(判据 x5)。原来窗口栏在 60、连接弹窗的
+   遮罩在 70 ⇒ **业主装完第一次打开、填 key 的弹窗一出现,三个窗口按钮全点不动、
+   窗口也拖不动**。无边框把这三个按钮变成了唯一的出口,盖住它=只能去任务管理器。 */
 .win-bar {
-  position: fixed; top: 0; left: 0; right: 0; height: 30px; z-index: 60;
+  position: fixed; top: 0; left: 0; right: 0; height: 30px; z-index: 200;
   background: var(--paper-side); border-bottom: 1px solid var(--border-soft);
   display: flex; align-items: center; justify-content: flex-end;
   user-select: none; -webkit-user-select: none;
 }
-.win-btns { display: flex; height: 100%; }
+/* 按钮要在把手**上面**:把手是全宽的一条,原来压着三个按钮的上沿 5px、
+   右上角还压掉 6×6 ⇒ 点关闭按钮的顶部是"改窗口大小",不是关闭(判据 x8)。
+   按钮只有 30px 高,被吃掉的是六分之一。 */
+.win-btns { display: flex; height: 100%; position: relative; z-index: 220; }
 .win-btn {
   width: 44px; height: 100%; display: grid; place-items: center;
   border: 0; background: transparent; color: var(--ink-2); cursor: default;
@@ -187,8 +193,9 @@ body.has-window-chrome { padding-top: 30px; }
 }
 .win-btn:hover { background: var(--paper-hover); color: var(--ink); }
 .win-btn-close:hover { background: var(--terra); color: #fff; }
-/* 八个透明把手。5px 宽,压在最上层 —— 窗口边缘那一线的点击让给"改大小"。 */
-.win-grip { position: fixed; z-index: 70; }
+/* 八个透明把手。5px 宽,压在浮层之上、按钮之下 —— 窗口边缘那一线的点击
+   让给"改大小",但**不许吃掉按钮**(见 .win-btns 的层号)。 */
+.win-grip { position: fixed; z-index: 210; }
 .win-grip-top    { top: 0; left: 6px; right: 6px; height: 5px; }
 .win-grip-bottom { bottom: 0; left: 6px; right: 6px; height: 5px; }
 .win-grip-left   { left: 0; top: 6px; bottom: 6px; width: 5px; }

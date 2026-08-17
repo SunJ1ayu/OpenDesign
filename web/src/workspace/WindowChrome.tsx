@@ -77,7 +77,11 @@ export default function WindowChrome() {
         }}
         onDoubleClick={toggle}
       >
-        <div className="win-btns" onMouseDown={(e) => e.stopPropagation()}>
+        {/* 两个都要挡:mousedown 挡的是"按按钮顺带拖窗口",dblclick 挡的是
+            "双击按钮顺带最大化" —— 后者漏了一版(08-17 四审 F1,判据 x6)。 */}
+        <div className="win-btns"
+             onMouseDown={(e) => e.stopPropagation()}
+             onDoubleClick={(e) => e.stopPropagation()}>
           <button className="win-btn" data-ui="window-min" title="最小化"
                   onClick={() => api()?.minimize().catch(() => {})}>
             <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">

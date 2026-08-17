@@ -1,0 +1,32 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    mutation-panel-findings
+cmd:     bash /tmp/claude-0/-root/d3fb715a-fbb9-4d09-8a82-82cc94e57791/scratchpad/mutate.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  165870a
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-17T01:40:44Z
+---------------- 输出开始 ----------------
+== 变异测试:08-17 四审那批判据 ==
+  [咬住] M1 take_dead 改成分两眼看(c21)
+  [咬住] M2 按钮区不挡双击(x6)
+  [咬住] M3 窗口栏层号退回浮层之下(x5)
+  [咬住] M4 按钮区没有自己的层号(x8)
+  [咬住] M5 少一个把手(x7)
+  [咬住] M6 SendMessageW 不声明 argtypes(ctypes 闸)
+  [咬住] M7 看门狗退回问两遍(w7)
+
+咬住 7 / 漏网 0
+== 还原后复验(必须全绿)==
+Ran 17 tests in 0.039s
+
+OK
+ bin/ds_shell.py                     | 32 ++++++++++++++++++------
+ bin/ds_shell_core.py                | 33 ++++++++++++++++++++-----
+ tests/test_shell_window.mjs         | 49 +++++--------------------------------
+ tests/test_shell_window_contract.py |  6 ++++-
+ web/src/app.css                     | 15 +++++++++---
+ web/src/shellWindow.ts              | 31 ++++++-----------------
+ web/src/workspace/WindowChrome.tsx  |  6 ++++-
+ 7 files changed, 85 insertions(+), 87 deletions(-)
+---------------- 输出结束 ----------------
+runlog: mutation-panel-findings rc=0 commit=165870a dirty=yes at=2026-08-17T01:40:44Z file=tracks/opendesign-key-startup-crash/evidence/20260817T014044Z-01-mutation-panel-findings.txt
