@@ -12,12 +12,15 @@
 - [x] full 四审**第二轮**(在最终代码上重跑;subkimi BLOCK 成立,F-1 是真 bug)
 - [x] 判据修判据 + 修 F-1/F-2/F-3/F-4/F-6/D-3/D-4/D-5(`eb3bb4d` / `36aefe8`)
 - [x] 变异重跑:窗口 8 咬 0 漏、core 15 咬 0 漏
-- [ ] 总跑五段(在最终代码上再跑一遍)
-- [ ] **重**编安装器 `OpenDesign-Setup-0.89.0.exe` —— ⚠️ 08-16 那份编在**上个会话的
-      临时目录**里、而且比这两轮修复**旧**,作废重编
-- [ ] 发布 pre-release `win-installer-0.89.0`(前七版都是这么发给业主的)
+- [x] 总跑五段(在最终代码上再跑一遍):0 红,python 1268,e2e 35/0/2SKIP,rc=3
+- [x] **重**编安装器 `OpenDesign-Setup-0.89.0.exe` —— ⚠️ 08-16 那份编在会话临时目录里、
+      而且比这两轮修复**旧**,已作废重编(23 条静态闸 + 7 条成品闸全过,59.7 MB)
+- [x] 亲自核对包里装的是**修完之后**的前端:
+      `.win-btns{position:fixed;top:0;right:0;height:30px;z-index:220}` 在 exe 的 CSS 里
+- [x] 发布 pre-release `win-installer-0.89.0`(回读远端:asset 已 uploaded)
+- [x] push(`4abb02e`,已 fetch 回读确认)
 - [ ] **业主真机走一趟**(`真机清单-0.89.0.md`,A~G 七组)← 只有他做得了
-- [ ] 归档 + push
+- [x] 归档
 
 > ⚠️ 08-16 那版 tasks.md 上「full 四审」和「编安装器」两个勾是**提前打的**
 > (打勾时 panel 才跑了 3 分钟、subkimi 被断线砍成半截)。已作废重来。
