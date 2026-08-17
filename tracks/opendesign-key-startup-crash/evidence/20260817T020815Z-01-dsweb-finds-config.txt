@@ -1,0 +1,30 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    dsweb-finds-config
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_dsweb_finds_config -v
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  cba802d
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-17T02:08:15Z
+---------------- 输出开始 ----------------
+test_g1_ds_web_finds_the_password_with_only_what_the_shell_gave_it (tests.test_dsweb_finds_config.DsWebFindsTheConfig.test_g1_ds_web_finds_the_password_with_only_what_the_shell_gave_it)
+**只给外壳给的那些变量**(clear=True),ds-web 必须能读出口令。 ... ok
+test_g2_the_explicit_override_still_wins (tests.test_dsweb_finds_config.DsWebFindsTheConfig.test_g2_the_explicit_override_still_wins)
+`DS_NANOBOT_CONFIG` 显式给时必须优先 —— e2e 和 git-pull 那两台靠它。 ... FAIL
+test_g3_no_token_means_no_signing_not_a_crash (tests.test_dsweb_finds_config.DsWebFindsTheConfig.test_g3_no_token_means_no_signing_not_a_crash)
+配置里没口令时回 None(交给前端的手输兜底),不许抛 —— 抛了整个页面就白了。 ... ok
+
+======================================================================
+FAIL: test_g2_the_explicit_override_still_wins (tests.test_dsweb_finds_config.DsWebFindsTheConfig.test_g2_the_explicit_override_still_wins)
+`DS_NANOBOT_CONFIG` 显式给时必须优先 —— e2e 和 git-pull 那两台靠它。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_dsweb_finds_config.py", line 91, in test_g2_the_explicit_override_still_wins
+    self.assertEqual("别处的口令", ds_web._gateway_password())
+AssertionError: '别处的口令' != None
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.016s
+
+FAILED (failures=1)
+---------------- 输出结束 ----------------
+runlog: dsweb-finds-config rc=1 commit=cba802d dirty=yes at=2026-08-17T02:08:15Z file=tracks/opendesign-key-startup-crash/evidence/20260817T020815Z-01-dsweb-finds-config.txt
