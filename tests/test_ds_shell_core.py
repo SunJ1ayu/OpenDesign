@@ -869,6 +869,93 @@ class Supervise(unittest.TestCase):
         self.assertFalse(core.port_listening(good),
                          "起失败了却先把异常抛了,好腿变成孤儿进程")
 
+    def test_c23_a_child_on_windows_never_pops_a_console_window(self):
+        """业主真机 0.89.0 实撞:打开软件冒出**两个黑窗口**(网关一个、工作台一个),
+        而且**关掉一个就等于杀掉一条腿** —— 他关掉网关那个,界面当场报"断开连接"。
+
+        根因:外壳自己是没有控制台的 `pythonw.exe`,却用 `python.exe`(控制台程序)起腿。
+        **没有控制台的进程去起控制台程序,Windows 会为它新开一个控制台窗口。**
+
+        🔴 问的是那个**唯一来源**的纯函数,不是把全局 `os.name` 顶成 "nt" 再跑一遍
+        `_spawn`。第一版就是那么写的,结果 `pathlib` 跟着切成 WindowsPath、
+        当场 NotImplementedError —— **红在了它自己身上,一个断言都没跑到**
+        (「红在 TypeError 上等于没红检过」)。函数纯了,这道闸才问得干净。
+
+        🔴 两个数值**写死在判据里**,不从被测模块导入:导入的话,实现把常量改成 0、
+        判据跟着读到 0,**两边一起错还全绿**(08-12 栽过这个形状)。
+        """
+        CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW = 0x00000200, 0x08000000
+
+        win = core.spawn_kwargs("nt")
+        flags = win.get("creationflags")
+        self.assertIsNotNone(flags, "Windows 上起子进程根本没给 creationflags")
+        self.assertTrue(flags & CREATE_NO_WINDOW,
+                        f"creationflags={flags:#x} 里没有 CREATE_NO_WINDOW ⇒ "
+                        "业主每开一次软件就多一个黑窗口,而且关掉它就杀掉这条腿")
+        self.assertTrue(flags & CREATE_NEW_PROCESS_GROUP,
+                        f"creationflags={flags:#x} 里没有 CREATE_NEW_PROCESS_GROUP ⇒ "
+                        "这一位原来是对的,别修坏")
+
+        posix = core.spawn_kwargs("posix")
+        self.assertTrue(posix.get("start_new_session"),
+                        "POSIX 那半边被改坏了 —— 进程组没了,收尸就收不干净")
+        self.assertNotIn("creationflags", posix,
+                         "POSIX 上传 creationflags,Popen 会直接抛 ValueError")
+
+    def test_c23b_the_spawn_really_uses_that_one_source(self):
+        """光有那个纯函数不够 —— `_spawn` 得真的用它。
+
+        这条问的是**接线**:在 Linux 上起一条真腿,它拿到的 kwargs 必须和
+        `spawn_kwargs("posix")` 说的一致。(Windows 那半边只有静态闸和真机管得了,
+        见 tests/test_no_console_window.py 和真机清单。)
+        """
+        seen: dict = {}
+        real = core.subprocess.Popen
+
+        def spy(argv, **kwargs):
+            seen.update(kwargs)
+            return real(argv, **kwargs)
+
+        port = free_port()
+        with mock.patch.object(core.subprocess, "Popen", spy):
+            self.sup.start([self.svc("legA", BIND_AND_WAIT, port)])
+        for key, want in core.spawn_kwargs("posix").items():
+            self.assertEqual(want, seen.get(key),
+                             f"_spawn 没有把 spawn_kwargs 的 {key} 传下去 ⇒ "
+                             "那个'唯一来源'是摆设,真机上照样弹黑窗口")
+
+    def test_c24_the_taskkill_fallback_never_pops_a_console_window(self):
+        """收尸的兜底路 `taskkill /T /F` 也是控制台程序 —— 同一个病:
+        每兜底一次闪一个黑窗口。只在没挂上 Job 时才走,但**一类病要一次修完**。
+        """
+        CREATE_NO_WINDOW = 0x08000000
+        seen: dict = {}
+
+        def fake_run(argv, **kwargs):
+            seen["argv"] = argv
+            seen.update(kwargs)
+
+        class FakeProc:
+            pid = 4242
+
+            def poll(self):
+                return None
+
+            def kill(self):
+                pass
+
+        child = core._Managed(service=self.svc("网关", "pass", 0),
+                              proc=FakeProc(), log_file=None, job_handle=None)
+        with mock.patch.object(core.os, "name", "nt"), \
+             mock.patch.object(core.subprocess, "run", fake_run):
+            self.sup._kill_tree(child)
+
+        self.assertEqual("taskkill", seen.get("argv", [None])[0],
+                         "没走到 taskkill 那条兜底路 ⇒ 这道闸问不出东西")
+        self.assertTrue((seen.get("creationflags") or 0) & CREATE_NO_WINDOW,
+                        f"taskkill 的 creationflags={seen.get('creationflags')} ⇒ "
+                        "每收一次尸闪一个黑窗口")
+
     def test_c11_a_leg_that_dies_while_the_next_one_boots_fails_the_whole_start(self):
         """🔴 攻题二轮 HIGH#3:网关先就绪、随后崩掉,而这时监管者只盯着第二条腿。
 

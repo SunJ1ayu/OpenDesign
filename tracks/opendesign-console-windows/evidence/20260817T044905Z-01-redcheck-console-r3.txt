@@ -1,0 +1,71 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-console-r3
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_no_console_window tests.test_ds_shell_core.Supervise.test_c23_a_child_on_windows_never_pops_a_console_window tests.test_ds_shell_core.Supervise.test_c23b_the_spawn_really_uses_that_one_source tests.test_ds_shell_core.Supervise.test_c24_the_taskkill_fallback_never_pops_a_console_window
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  ec84897
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-17T04:49:05Z
+---------------- 输出开始 ----------------
+F.FEEF
+======================================================================
+ERROR: test_c23_a_child_on_windows_never_pops_a_console_window (tests.test_ds_shell_core.Supervise.test_c23_a_child_on_windows_never_pops_a_console_window)
+业主真机 0.89.0 实撞:打开软件冒出**两个黑窗口**(网关一个、工作台一个),
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py", line 889, in test_c23_a_child_on_windows_never_pops_a_console_window
+    win = core.spawn_kwargs("nt")
+          ^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_shell_core' has no attribute 'spawn_kwargs'
+
+======================================================================
+ERROR: test_c23b_the_spawn_really_uses_that_one_source (tests.test_ds_shell_core.Supervise.test_c23b_the_spawn_really_uses_that_one_source)
+光有那个纯函数不够 —— `_spawn` 得真的用它。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py", line 922, in test_c23b_the_spawn_really_uses_that_one_source
+    for key, want in core.spawn_kwargs("posix").items():
+                     ^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_shell_core' has no attribute 'spawn_kwargs'
+
+======================================================================
+FAIL: test_every_spawn_site_goes_through_the_one_source (tests.test_no_console_window.NoConsoleWindow.test_every_spawn_site_goes_through_the_one_source)
+每个子进程创建点,平台参数都必须来自那个唯一来源 `spawn_kwargs()`。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_no_console_window.py", line 117, in test_every_spawn_site_goes_through_the_one_source
+    self.assertEqual([], naked,
+AssertionError: Lists differ: [] != ['ds_shell_core.py 第 1 个 subprocess 调用', 'ds_shell_core.py 第 2 个 subprocess 调用']
+
+Second list contains 2 additional elements.
+First extra element 0:
+'ds_shell_core.py 第 1 个 subprocess 调用'
+
+- []
++ ['ds_shell_core.py 第 1 个 subprocess 调用', 'ds_shell_core.py 第 2 个 subprocess 调用'] : 这些子进程创建点没走 spawn_kwargs() ⇒ 平台标志又回到各调用点自己拼了,Windows 上漏一位就是一个黑窗口,而业主关掉它就杀掉那个进程:
+  ds_shell_core.py 第 1 个 subprocess 调用
+  ds_shell_core.py 第 2 个 subprocess 调用
+
+======================================================================
+FAIL: test_the_flag_values_are_the_real_windows_ones (tests.test_no_console_window.NoConsoleWindow.test_the_flag_values_are_the_real_windows_ones)
+数值必须是 Windows 真值,而且写死在实现里。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_no_console_window.py", line 135, in test_the_flag_values_are_the_real_windows_ones
+    self.assertEqual(want, got,
+AssertionError: 134217728 != None : CREATE_NO_WINDOW = None,应为 0x8000000。取 0 或缺失都会让本机全绿而真机照弹黑窗口
+
+======================================================================
+FAIL: test_c24_the_taskkill_fallback_never_pops_a_console_window (tests.test_ds_shell_core.Supervise.test_c24_the_taskkill_fallback_never_pops_a_console_window)
+收尸的兜底路 `taskkill /T /F` 也是控制台程序 —— 同一个病:
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py", line 955, in test_c24_the_taskkill_fallback_never_pops_a_console_window
+    self.assertTrue((seen.get("creationflags") or 0) & CREATE_NO_WINDOW,
+AssertionError: 0 is not true : taskkill 的 creationflags=None ⇒ 每收一次尸闪一个黑窗口
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.176s
+
+FAILED (failures=3, errors=2)
+---------------- 输出结束 ----------------
+runlog: redcheck-console-r3 rc=1 commit=ec84897 dirty=yes at=2026-08-17T04:49:05Z file=tracks/opendesign-console-windows/evidence/20260817T044905Z-01-redcheck-console-r3.txt
