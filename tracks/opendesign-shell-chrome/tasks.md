@@ -24,7 +24,9 @@
 - [x] T11 真机清单-0.91.0(把 0.89 的 A~G 与 0.90 的 A~D 合并成一趟)
 - [x] T8 总跑五段(最终代码 `c82dcbc` + 活 gateway,**0 跳过**;第一遍红两段已查清并重跑)
 - [x] T9 编安装器(`OpenDesign-Setup-0.91.0.exe`,59.7 MB,7 条成品闸 0 不合格)
-- [ ] T10 发 pre-release `win-installer-0.91.0`(**回读远端确认** state=uploaded +
-      远端 digest 与本地构建逐字节一致)
+- [x] T10 发 pre-release `win-installer-0.91.0`(**回读远端确认**:state=uploaded,
+      远端 digest `sha256:789187706602be19bafe9c50cdf1948f38a89c56379a67dfe98b24b8367a0377`
+      与本地构建逐字节一致;62571357 字节)
+      <https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.91.0>
 - [ ] **业主真机**:B 组(三个按钮 + 拖动带)是这一趟的主角
 - [ ] T12 归档 + push + 回读远端确认
