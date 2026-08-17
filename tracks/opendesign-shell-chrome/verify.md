@@ -65,6 +65,12 @@ runlog: runall-0.91.0-final-r2 rc=0 commit=c82dcbc dirty=yes at=2026-08-17T14:46
   **e2e 38 PASS 0 FAIL 0 SKIP**,38 里含本单新增那份)。
   按 [[behavior-evals-are-sampling]]:再红一次就当真 bug 查,别再记一次"负载"。
 
+**安装器(闸 7 条 0 不合格,59.7 MB):**
+
+```
+runlog: installer-0.91.0 rc=0 commit=4b8fcb4 dirty=no at=2026-08-17T14:58:56Z file=tracks/opendesign-shell-chrome/evidence/20260817T145856Z-01-installer-0.91.0.txt
+```
+
 ## Review
 
 - lane: **fast**(主 + 1 腿)

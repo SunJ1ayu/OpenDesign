@@ -1,0 +1,203 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    installer-0.91.0
+cmd:     installer/build-installer.sh /root/aiwork/out/opendesign-0.91.0
+cwd:     .(仓根)
+commit:  4b8fcb4
+dirty:   no(跑之前采的;含未跟踪文件)
+started: 2026-08-17T14:58:56Z
+---------------- 输出开始 ----------------
+
+[1m== 0/6 版本 0.91.0[0m
+
+[1m== 1/6 准备 NSIS 3.09-4ubuntu1(解到构建缓存,不动系统)[0m
+  makensis v3.09-4
+
+[1m== 2/6 图标(托盘 png + 程序 ico,同一份形状)[0m
+托盘图标 → /root/.openclaw/workspace/projects/design-studio/assets/图标.png  (1060 字节)
+程序图标 → /root/.openclaw/workspace/projects/design-studio/installer/opendesign.ico  (3424 字节)
+
+[1m== 3/6 组包(出货形态:带外壳、不带考卷)[0m
+
+[1m== 1/6 免装 Python 3.12.10[0m
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0 88 10.6M   88 9581k    0     0  66.0M      0 --:--:-- --:--:-- --:--:-- 65.8M100 10.6M  100 10.6M    0     0  72.5M      0 --:--:-- --:--:-- --:--:-- 72.2M
+
+[1m== 2/6 装配依赖(仅 Windows 轮子,源码包一律拒收)[0m
+ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+mootdx 0.11.7 requires httpx<0.26.0,>=0.25.0, but you have httpx 0.28.1 which is incompatible.
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+
+[1m== 2b/6 外壳依赖(S1a)[0m
+  例外核准:proxy_tools-0.1.0-py3-none-any.whl(平台无关)
+WARNING: Target directory /root/aiwork/out/opendesign-0.91.0/pkg/python/Lib/site-packages/pillow-12.3.0.dist-info already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/aiwork/out/opendesign-0.91.0/pkg/python/Lib/site-packages/pycparser already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/aiwork/out/opendesign-0.91.0/pkg/python/Lib/site-packages/typing_extensions.py already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/aiwork/out/opendesign-0.91.0/pkg/python/Lib/site-packages/typing_extensions-4.16.0.dist-info already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/aiwork/out/opendesign-0.91.0/pkg/python/Lib/site-packages/_cffi_backend.cp312-win_amd64.pyd already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/aiwork/out/opendesign-0.91.0/pkg/python/Lib/site-packages/PIL already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/aiwork/out/opendesign-0.91.0/pkg/python/Lib/site-packages/cffi already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/aiwork/out/opendesign-0.91.0/pkg/python/Lib/site-packages/six.py already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/aiwork/out/opendesign-0.91.0/pkg/python/Lib/site-packages/pycparser-3.0.dist-info already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/aiwork/out/opendesign-0.91.0/pkg/python/Lib/site-packages/six-1.17.0.dist-info already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/aiwork/out/opendesign-0.91.0/pkg/python/Lib/site-packages/cffi-2.1.1.dist-info already exists. Specify --upgrade to force replacement.
+WARNING: Target directory /root/aiwork/out/opendesign-0.91.0/pkg/python/Lib/site-packages/bin already exists. Specify --upgrade to force replacement.
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+
+[1m== 3/6 闸 A:Windows 条件依赖有没有被静默丢掉(F1 的机械版)[0m
+  缺:colorama pywin32 tzdata win32-setctime —— 补装
+WARNING: Target directory /root/aiwork/out/opendesign-0.91.0/pkg/python/Lib/site-packages/bin already exists. Specify --upgrade to force replacement.
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+  补装后复扫:干净
+
+[1m== 4/6 ds 文件[0m
+  ds-web 版本 0.91.0
+
+[1m== 5/6 入口[0m
+  出货形态:入口是 OpenDesign.exe(由 installer/build-installer.sh 放进来),不写 .bat
+
+[1m== 6/6 闸 B:成品结构检查[0m
+== 包结构检查:/root/aiwork/out/opendesign-0.91.0/pkg ==
+  [PASS] 包内 python.exe 在
+  [PASS] 没有 Linux .so 泄漏(0 个)
+  [PASS] Windows .pyd 有 135 个
+  [PASS] ._pth 放开了 site
+  [PASS] ._pth 列了 site-packages
+  [PASS] ._pth 写死了 ds/bin(._pth 会忽略 PYTHONPATH)
+  [PASS] ._pth 写死了 pywin32 的 win32\lib
+  [PASS] 没有漏掉的 Windows 条件依赖(5 个全在)
+  [PASS] 关键包 nanobot 在
+  [PASS] 关键包 mcp 在
+  [PASS] 关键包 anydoc 在
+  [PASS] 关键包 pydantic_core 在
+  [PASS] 关键包 lxml 在
+  [PASS] 关键包 PIL 在
+  [PASS] 关键包 cryptography 在
+  [PASS] anydoc 的 Windows 原生件在
+  [PASS] ds/bin/ds_web.py 在
+  [PASS] ds/bin/ds_mcp.py 在
+  [PASS] ds/bin/enable_webui.py 在
+  [PASS] ds/bin/ds_merge_config.py 在
+  [PASS] ds/config/nanobot.config.windows.jsonc 在
+  [PASS] ds/web/dist/index.html 在
+  [PASS] ds/版本号.txt 在
+  [PASS] ds/bin/ds_shell.py 在
+  [PASS] ds/bin/ds_shell_core.py 在
+  [PASS] ds/bin/ds_provision.py 在
+  [PASS] ds/assets/图标.png 在
+  [PASS] 出货形态里没有混进考卷/考卷入口
+  [PASS] ds/bin/ds_shell.py 在(外壳形态)
+  [PASS] ds/bin/ds_shell_core.py 在(外壳形态)
+  [PASS] ds/ 里没有仓库外的文件(不会把本地数据发出去)
+  [PASS] 版本号锚一致(0.91.0)
+  [PASS] 没有本机编译的字节码残留
+== 结构检查结束:0 条不合格 ==
+  出货形态:不打 zip,payload 在 /root/aiwork/out/opendesign-0.91.0/pkg
+
+[1m== 4/6 启动器 + WebView2 引导程序[0m
+  启动器 102983 字节
+  WebView2 引导程序 1780952 字节  sha256=be695eb3732a94e1…
+
+[1m== 5/6 闸:成品结构 + .nsi 静态[0m
+== 包结构检查:/root/aiwork/out/opendesign-0.91.0/pkg ==
+  [PASS] 包内 python.exe 在
+  [PASS] 没有 Linux .so 泄漏(0 个)
+  [PASS] Windows .pyd 有 135 个
+  [PASS] ._pth 放开了 site
+  [PASS] ._pth 列了 site-packages
+  [PASS] ._pth 写死了 ds/bin(._pth 会忽略 PYTHONPATH)
+  [PASS] ._pth 写死了 pywin32 的 win32\lib
+  [PASS] 没有漏掉的 Windows 条件依赖(5 个全在)
+  [PASS] 关键包 nanobot 在
+  [PASS] 关键包 mcp 在
+  [PASS] 关键包 anydoc 在
+  [PASS] 关键包 pydantic_core 在
+  [PASS] 关键包 lxml 在
+  [PASS] 关键包 PIL 在
+  [PASS] 关键包 cryptography 在
+  [PASS] anydoc 的 Windows 原生件在
+  [PASS] ds/bin/ds_web.py 在
+  [PASS] ds/bin/ds_mcp.py 在
+  [PASS] ds/bin/enable_webui.py 在
+  [PASS] ds/bin/ds_merge_config.py 在
+  [PASS] ds/config/nanobot.config.windows.jsonc 在
+  [PASS] ds/web/dist/index.html 在
+  [PASS] ds/版本号.txt 在
+  [PASS] ds/bin/ds_shell.py 在
+  [PASS] ds/bin/ds_shell_core.py 在
+  [PASS] ds/bin/ds_provision.py 在
+  [PASS] ds/assets/图标.png 在
+  [PASS] 出货形态里没有混进考卷/考卷入口
+  [PASS] ds/bin/ds_shell.py 在(外壳形态)
+  [PASS] ds/bin/ds_shell_core.py 在(外壳形态)
+  [PASS] ds/ 里没有仓库外的文件(不会把本地数据发出去)
+  [PASS] 版本号锚一致(0.91.0)
+  [PASS] 没有本机编译的字节码残留
+== 结构检查结束:0 条不合格 ==
+  出货三件齐:启动器 / WebView2 引导程序 / pythonw.exe
+
+==== 静态闸 ====
+[PASS] G1 不要管理员权限(RequestExecutionLevel user)
+        实际:['user']
+[PASS] G2 装在 $LOCALAPPDATA\Programs 下,且全文不出现 $PROGRAMFILES
+        InstallDir=$LOCALAPPDATA\Programs\OpenDesign
+[PASS] G3 数据目录在安装根之外
+        DATA_ROOT=$LOCALAPPDATA\OpenDesign / INSTALL=$LOCALAPPDATA\Programs\OpenDesign
+[PASS] G4 默认卸载路径不碰业主数据
+[PASS] G5 删数据是单独的、默认不勾的可选段
+        删数据的段=['un.连我的资料一起删掉(不可恢复)'] / 默认不勾的段=['un.连我的资料一起删掉(不可恢复)']
+[PASS] G6 递归删安装目录之前先验哨兵文件
+        1 处递归删,每处之前都有哨兵
+[PASS] G7 不往 HKLM 写任何东西(读可以)
+[PASS] G8 卸载时删掉开机自启项
+        RUN_KEY=Software\Microsoft\Windows\CurrentVersion\Run
+[PASS] G9 写卸载条目、卸载时删掉它
+        UNINST_KEY=Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenDesign 写=True 删=True
+[PASS] G10 检测 WebView2 并在缺失时跑官方引导程序
+        读注册表=True 跑引导程序=True
+[PASS] G11 安装器不经手 key / 口令
+        出现了:[]
+[PASS] G12 Unicode true
+[PASS] G13 快捷方式指向启动器而不是 python.exe
+        3 个快捷方式
+[PASS] G16 快捷方式只在每用户上下文里动
+        建快捷方式的段=['${APP} 主程序', '在桌面上放一个图标'] 设了 current 的段=['${APP} 主程序', 'un.${APP}', 'un.连我的资料一起删掉(不可恢复)', '在桌面上放一个图标', '开机时自动启动']
+[PASS] G17 卸载器真会被生成,且卸载条目指的就是它
+        生成=['$INSTDIR\\卸载.exe'] 指向=['"$INSTDIR\\卸载.exe"']
+[PASS] G15 装进非空目录时会拦一下
+        回调 CheckDirEmpty:数了目录内容=True 会提醒=True
+[PASS] G14 开机自启是默认不勾的可选段
+        写自启的段=['开机时自动启动'] / 默认不勾的段=['开机时自动启动']
+[PASS] L1 静默启动(SilentInstall silent)
+[PASS] L2 不要管理员权限
+[PASS] L3 有自己的图标
+[PASS] L4 用 pythonw.exe 起(不留黑窗口)
+        Exec "$EXEDIR\python\pythonw.exe" "$EXEDIR\ds\bin\ds_shell.py"
+[PASS] L5 起完就退(Exec 不是 ExecWait)
+[PASS] L6 每一处组件检查都配一句中文提示
+        2 处检查 / 2 句提示
+---- 合计 23 条,0 条不合格 ----
+
+[1m== 6/6 编安装器[0m
+
+==== 成品闸 ====
+[PASS] P1 安装器 .exe 出得来
+        /root/aiwork/out/opendesign-0.91.0/OpenDesign-Setup-0.91.0.exe
+[PASS] P2 是个 PE 可执行文件
+        头两字节=b'MZ'
+[PASS] P3 体积在合理区间(40MB–250MB)
+        59.7 MB
+[PASS] P4 编进去的文件 == payload 树(不多不少)
+        少了 0 个 [] / 多了 0 个 []
+[PASS] P5 每个文件的字节数逐个对得上
+        0 个对不上:[]
+[PASS] P7 编译时按 UTF-8 读的脚本(中文才不会乱码)
+        构建日志里没有 `Processing script file: … (UTF8)`
+[PASS] P6 文件名里的版本号 == ds_web 的 VERSION
+        OpenDesign-Setup-0.91.0.exe 里应含 0.91.0
+---- 合计 7 条,0 条不合格 ----
+
+[1m== 成了:/root/aiwork/out/opendesign-0.91.0/OpenDesign-Setup-0.91.0.exe(59.7 MB)[0m
+构建日志:/root/aiwork/out/opendesign-0.91.0/makensis.log
+---------------- 输出结束 ----------------
+runlog: installer-0.91.0 rc=0 commit=4b8fcb4 dirty=no at=2026-08-17T14:58:56Z file=tracks/opendesign-shell-chrome/evidence/20260817T145856Z-01-installer-0.91.0.txt
