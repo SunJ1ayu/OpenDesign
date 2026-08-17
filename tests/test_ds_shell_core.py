@@ -804,6 +804,50 @@ class Supervise(unittest.TestCase):
                       "**名字有、原因没了** ⇒ 两次问答案不一致,业主拿到的又是一句没线索的话")
         self.assertIn("我崩在这一句上", said, "没带日志尾巴")
 
+    def test_c22_a_new_leg_that_cannot_come_up_is_reaped_the_same_way(self):
+        """重启时**新**腿起不来 ⇒ 它也得走和 shutdown 同一套收尸。
+
+        c18 钉的是 `restart()` 的前一半(收**旧**腿)。同一个函数的后一半 ——
+        新腿 `_wait_ready` 失败的那条路 —— 只做了 `_terminate_tree`,
+        **没有 `_kill_tree` / `_close_job` / 关日志句柄**。
+        Windows 上那等于只杀了 nanobot 本尊,它带的 3 个 MCP 留在 Job 里没人收
+        (KILL_ON_JOB_CLOSE 不触发),外壳进程里每失败一次还漏一个日志句柄。
+        触发条件是真实的:新网关起来了但没在超时内就绪,或者启动途中自己崩掉。
+        (08-17 四审 subkimi F-2 —— **两腿里只有它看见**。)
+
+        考卷用 spy 记录"谁被强杀过":旧腿必须在里面(c18 已有),
+        **新腿也必须在里面**(这一条问的就是它)。
+        """
+        port = free_port()
+        self.sup.start([self.svc("网关", BIND_AND_WAIT, port)])
+
+        killed: list[str] = []
+        closed: list[str] = []
+        kill_orig, close_orig = core.Supervisor._kill_tree, core.Supervisor._close_job
+
+        def kill_spy(sup_self, child):
+            killed.append(child.service.name)
+            return kill_orig(sup_self, child)
+
+        def close_spy(sup_self, child):
+            closed.append(child.service.name)
+            return close_orig(sup_self, child)
+
+        # 起得来、但永远不监听那个端口 ⇒ 走 _wait_ready 超时那条失败路
+        never_ready = "import time\ntime.sleep(300)\n"
+        with mock.patch.object(core.Supervisor, "_kill_tree", kill_spy), \
+             mock.patch.object(core.Supervisor, "_close_job", close_spy):
+            with self.assertRaises(core.StartupFailed):
+                self.sup.restart([self.svc("网关", never_ready, port, timeout=2)])
+
+        self.assertEqual(2, len(killed),
+                         f"强杀了 {killed} —— 旧腿和新腿各该有一次;"
+                         "少的那次就是**新腿起不来时它的 MCP 孙子没人收**")
+        self.assertEqual(2, len(closed),
+                         f"关 Job 只发生了 {len(closed)} 次 ⇒ Windows 上 "
+                         "KILL_ON_JOB_CLOSE 不触发,那条腿的整棵树留在机器上")
+        self.assertFalse(core.port_listening(port), "失败的新腿把端口占着走了")
+
     def test_c8_shutdown_is_idempotent(self):
         port = free_port()
         self.sup.start([self.svc("legE", BIND_AND_WAIT, port)])

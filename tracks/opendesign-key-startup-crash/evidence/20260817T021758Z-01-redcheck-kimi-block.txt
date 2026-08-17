@@ -1,0 +1,44 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-kimi-block
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_shell_window_contract\ 2\>\&1\;\ rc=\$\?\;\ /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_shell_core.Supervise.test_c22_a_new_leg_that_cannot_come_up_is_reaped_the_same_way\ 2\>\&1\;\ exit\ \$\(\(rc\ +\ \$\?\)\)
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  c5e83e5
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-17T02:17:58Z
+---------------- 输出开始 ----------------
+.......F.
+======================================================================
+FAIL: test_x8_the_grips_never_eat_the_buttons (tests.test_shell_window_contract.WindowContract.test_x8_the_grips_never_eat_the_buttons)
+把手不许压在三个按钮身上(点关闭按钮的上沿必须是关闭,不是"改窗口大小")。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_shell_window_contract.py", line 178, in test_x8_the_grips_never_eat_the_buttons
+    self.assertNotIn('className="win-btns"', bar.group(2) or "",
+AssertionError: 'className="win-btns"' unexpectedly found in '{\n          // 只有在栏本身的空白处按下才算拖窗口;按在按钮上不算(按钮自己 stopPropagation)。\n          if (e.button !== 0) return;\n          api()?.begin_drag().catch(() => {});\n        }}\n        onDoubleClick={toggle}\n      >\n        {/* 两个都要挡:mousedown 挡的是"按按钮顺带拖窗口",dblclick 挡的是\n            "双击按钮顺带最大化" —— 后者漏了一版(08-17 四审 F1,判据 x6)。 */}\n        <div className="win-btns"\n             onMouseDown={(e) => e.stopPropagation()}\n             onDoubleClick={(e) => e.stopPropagation()}>\n          <button className="win-btn" data-ui="window-min" title="最小化"\n                  onClick={() => api()?.minimize().catch(() => {})}>\n            <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">\n              <path d="M0 5h10" stroke="currentColor" strokeWidth="1.2" />\n            </svg>\n          </button>\n          <button className="win-btn" data-ui="window-max"\n                  title={maximized ? "还原" : "最大化"} onClick={toggle}>\n            {maximized ? (\n              <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">\n                <path d="M2.5 0.5h7v7h-2M0.5 2.5h7v7h-7z" fill="none"\n                      stroke="currentColor" strokeWidth="1.1" />\n              </svg>\n            ) : (\n              <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">\n                <rect x="0.5" y="0.5" width="9" height="9" fill="none"\n                      stroke="currentColor" strokeWidth="1.1" />\n              </svg>\n            )}\n          </button>\n          <button className="win-btn win-btn-close" data-ui="window-close" title="关闭"\n                  onClick={() => api()?.close_window().catch(() => {})}>\n            <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">\n              <path d="M0.7 0.7l8.6 8.6M9.3 0.7l-8.6 8.6" stroke="currentColor"\n                    strokeWidth="1.2" />\n            </svg>\n          </button>\n        </div>\n      </div>\n      ' : 按钮区还嵌在窗口栏里 ⇒ 栏的 z-index 给它盖了一个 stacking context,它自己那个层号在根上下文里**不算数**,把手照样吃掉按钮上沿
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.044s
+
+FAILED (failures=1)
+/usr/lib/python3.12/subprocess.py:1127: ResourceWarning: subprocess 3625158 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.12/traceback.py:241: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/tmpw0z3cphp/网关.log'>
+  tb.tb_frame.clear()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+F
+======================================================================
+FAIL: test_c22_a_new_leg_that_cannot_come_up_is_reaped_the_same_way (tests.test_ds_shell_core.Supervise.test_c22_a_new_leg_that_cannot_come_up_is_reaped_the_same_way)
+重启时**新**腿起不来 ⇒ 它也得走和 shutdown 同一套收尸。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py", line 843, in test_c22_a_new_leg_that_cannot_come_up_is_reaped_the_same_way
+    self.assertEqual(2, len(killed),
+AssertionError: 2 != 1 : 强杀了 ['网关'] —— 旧腿和新腿各该有一次;少的那次就是**新腿起不来时它的 MCP 孙子没人收**
+
+----------------------------------------------------------------------
+Ran 1 test in 2.191s
+
+FAILED (failures=1)
+---------------- 输出结束 ----------------
+runlog: redcheck-kimi-block rc=2 commit=c5e83e5 dirty=yes at=2026-08-17T02:17:58Z file=tracks/opendesign-key-startup-crash/evidence/20260817T021758Z-01-redcheck-kimi-block.txt

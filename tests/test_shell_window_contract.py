@@ -158,14 +158,54 @@ class WindowContract(unittest.TestCase):
                          f"多了 {sorted(in_css - edges)} ⇒ 那几条边拖了没反应")
 
     def test_x8_the_grips_never_eat_the_buttons(self):
-        """把手压在最上层(z-index 70)而窗口栏在 60 ⇒ 顶部那 5px、右上角那 6×6
-        **压在三个按钮身上**:点关闭按钮的上沿是"改窗口大小",不是关闭。
-        按钮只有 30px 高,被吃掉的是六分之一(08-17 四审 F7)。"""
-        btns, grip = _z_of(".win-btns"), _z_of(".win-grip")
-        self.assertIsNotNone(grip, "把手没有 z-index")
-        self.assertIsNotNone(btns, "按钮区没有自己的 z-index ⇒ 它压在把手下面")
-        self.assertGreater(btns, grip,
-                           "把手盖在按钮上 ⇒ 按钮上沿点下去是改大小,不是按按钮")
+        """把手不许压在三个按钮身上(点关闭按钮的上沿必须是关闭,不是"改窗口大小")。
+
+        🔴 **这一条的第一版是假绿,而且犯的正是本版一直在治的那种病。**
+        它当时只比 `.win-btns`(220) > `.win-grip`(210) 两个**声明数字**,
+        判绿。可 `.win-bar` 是 `position:fixed` + `z-index:200` ——
+        **它自己就是一个 stacking context**;`.win-btns` 是它的 DOM 子元素,
+        那个 220 只在栏内部有效。根上下文里参与比较的是**整个栏的 200**
+        对把手的 210 ⇒ 把手照样画在按钮上面,F7 原样没修。
+        (08-17 四审 subkimi F-1;另一条腿在同一处判了"properly fixed"。)
+
+        ⇒ 层号自己说明不了问题,**得先问结构**:要参与根层序比较的三者
+        必须是**同一层的兄弟**,谁也不许被谁的 stacking context 关起来。
+        """
+        tsx = _read(TSX_CHROME)
+        bar = re.search(r'<div\s+className="win-bar"(.*?)/?>\s*(.*?)(?=\{RESIZE_EDGES|</>)',
+                        tsx, re.S)
+        self.assertIsNotNone(bar, "窗口栏不见了(或写法变了,这道闸问不出东西)")
+        self.assertNotIn('className="win-btns"', bar.group(2) or "",
+                         "按钮区还嵌在窗口栏里 ⇒ 栏的 z-index 给它盖了一个 stacking "
+                         "context,它自己那个层号在根上下文里**不算数**,把手照样吃掉按钮上沿")
+
+        bar_z, grip, btns = _z_of(".win-bar"), _z_of(".win-grip"), _z_of(".win-btns")
+        for name, z in (("窗口栏", bar_z), ("把手", grip), ("按钮区", btns)):
+            self.assertIsNotNone(z, f"{name}没有 z-index ⇒ 层序无从谈起")
+        self.assertLess(bar_z, grip, "把手要压过栏,否则整条顶边改不了大小")
+        self.assertLess(grip, btns, "按钮要压过把手,否则按钮上沿点下去是改大小")
+
+    def test_x9_every_grip_actually_sits_on_its_edge(self):
+        """把手的**几何**:贴边、且有厚度。
+
+        x7 只问名字、x8 只问层序 —— 把某个把手挪到屏幕中间、或把厚度改成 0,
+        两条都照绿,而业主那边"这条边拖不动"(08-17 四审 subdeepseek 记的覆盖缺口)。
+        """
+        css = _read(CSS)
+        for edge in ("top", "bottom", "left", "right",
+                     "topleft", "topright", "bottomleft", "bottomright"):
+            m = re.search(rf"\.win-grip-{edge}\s*\{{([^}}]*)\}}", css)
+            self.assertIsNotNone(m, f".win-grip-{edge} 不见了")
+            body = m.group(1)
+            # 贴边:名字里的每个方向,对应的 offset 必须是 0
+            for side in ("top", "bottom", "left", "right"):
+                if side in edge:
+                    self.assertRegex(body, rf"{side}\s*:\s*0(?![.\d])",
+                                     f".win-grip-{edge} 没贴住 {side} 边 ⇒ 那儿拖不动")
+            # 有厚度:宽或高至少有一个是正数(0 = 一条抓不住的线)
+            sizes = [int(v) for v in re.findall(r"(?:width|height)\s*:\s*(\d+)px", body)]
+            self.assertTrue(sizes and all(v > 0 for v in sizes),
+                            f".win-grip-{edge} 的尺寸是 {sizes} —— 0 像素的把手抓不住")
 
     def test_x4_the_chrome_never_shows_up_in_a_plain_browser(self):
         """浏览器里没有窗口可关,画出来就是三个按下去没反应的按钮。
