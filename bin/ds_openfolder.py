@@ -202,6 +202,8 @@ def _open_windows(path: str):
     """Windows 分支:先照旧打开(失败照旧向上抛 → 前端看得见),再异步尝试提到前台。
     **只对目录**做置顶:同一个启动器也用于"用默认程序开单个文件"(rel 分支),那时
     前台窗口是 CAD/PDF 阅读器,找资源管理器窗口既无意义、又可能认错同名的那扇。"""
+    # no-console-exempt: os.startfile 不创建进程,它把请求交给 shell(ShellExecute),
+    # 由资源管理器/关联程序自己以 GUI 形态打开 —— 没有控制台可弹。
     os.startfile(path)  # noqa: S606 —— 目录路径已过 realpath within 闸
     if os.path.isdir(path):
         _WIN_FOCUS(path)
@@ -214,7 +216,7 @@ def _default_open_launcher(path: str):
     if cmd:
         import subprocess
         # no-console-exempt: 只给 e2e 在无桌面 Linux 上注入记录脚本用,业主机器上
-        # DS_OPEN_CMD 是空的,这条路走不到。
+        # 根本没有 DS_OPEN_CMD 这个变量(取到的是 None),这条路走不到。
         subprocess.Popen([cmd, path], stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL)
     elif os.name == "nt":
