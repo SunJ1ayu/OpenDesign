@@ -29,14 +29,35 @@ export type ResizeEdge = (typeof RESIZE_EDGES)[number];
 // (咬 CSS 里真实生效的那套:把手名单要和方向名单一一对应、且不许盖住按钮)。
 // 教训同 [[field-needs-a-writer-before-ui]]:先问"谁在用它",再问"它对不对"。
 
+/** 外壳打开页面时在地址里带的标记 —— **前端这边唯一的字面量**。
+ *
+ *  `bin/ds_shell.py` 有一个同名常量,两边必须一字不差
+ *  (tests/test_shell_window_contract.py x10 逐字对表)。对不上的后果和 x1/x2
+ *  一样:窗口栏整块不画,而哪儿都不报错。 */
+export const SHELL_MARK = "shell=1";
+
 /** 我们是不是跑在桌面外壳里(而不是普通浏览器)。
  *
  *  🔴 判据 s-w1:浏览器里**一个窗口按钮都不许出现** —— 那边没有窗口可以关,
- *  按下去只会是"点了没反应"。pywebview 会把 `window.pywebview` 注进页面,
- *  这是外壳与浏览器唯一可靠的分界。 */
+ *  按下去只会是"点了没反应"。
+ *
+ *  🔴 **2026-08-17:这里原来问的是 `window.pywebview.api` 在不在,那是错的。**
+ *  业主装完 0.90.0:「这个页面为什么我拖不动 / 右上角还是没有缩小放大和退出」——
+ *  三个按钮、拖动带、八个把手一起没画出来。因为 pywebview 5.4 的 Windows 后端是在
+ *  **`on_navigation_completed` 之后**才把 `window.pywebview` 注进页面的
+ *  (webview/platforms/edgechromium.py:314;`finish.js` 还要再晚一个线程,
+ *  它才 `_createApi` 并派 `pywebviewready` 事件)—— 也就是页面脚本**早就跑完了**。
+ *  React 挂载那一刻问它,答案必然是 false ⇒ 窗口栏永远不画。
+ *
+ *  ⇒ 分界换成"外壳自己在地址里报身份":地址在**第一帧**就定了,和注入时机无关。
+ *  (没走 pywebview 官方推荐的"听 `pywebviewready` 再画":那样每次开窗口界面会
+ *  往下跳 30px,而且 Linux 上一条判据都跑不了 —— 完整取舍见 track 的 design.md。) */
 export function inDesktopShell(win: unknown = globalThis): boolean {
-  const w = win as { pywebview?: { api?: unknown } } | null;
-  return !!(w && w.pywebview && w.pywebview.api);
+  const w = win as { location?: { search?: string } } | null;
+  const [key, value] = SHELL_MARK.split("=");
+  // 用 URLSearchParams 而不是 `search.includes(SHELL_MARK)`:子串匹配会让
+  // `?noshell=1` 假命中(判据 s-w2c)。
+  return new URLSearchParams(w?.location?.search ?? "").get(key) === value;
 }
 
 /** 每条边配的鼠标指针(CSS cursor)。没有它,业主看不出哪儿能拉。 */

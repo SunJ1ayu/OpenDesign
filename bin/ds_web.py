@@ -87,7 +87,15 @@ import ds_todo
 import ds_tools
 import ds_workspace
 
-VERSION = "0.90.0"  # 打开软件不再冒黑窗口(track opendesign-console-windows):
+VERSION = "0.91.0"  # 右上角那三个按钮和拖动带真的画出来了(track opendesign-shell-chrome):
+                    # 无边框窗口把系统标题栏拿掉了,三个按钮 + 30px 拖动带 + 八个把手
+                    # 改由前端自己画 —— 而它们在业主机器上**一样都没出现**
+                    # (「拖不动 / 右上角还是没有缩小放大和退出」,0.89、0.90 两版都是)。
+                    # 病根:分界问的是 window.pywebview 注没注进来,而 pywebview 在
+                    # on_navigation_completed 之后才注入(页面脚本早跑完了)⇒ 首帧永远答 false。
+                    # 改成外壳打开页面时在地址里报身份(?shell=1),第一帧就定;
+                    # 顺带把"这条栏会不会被画出来"变成 Linux 上考得了的题(新 e2e shell_chrome)。
+                    # 0.90.0  打开软件不再冒黑窗口(track opendesign-console-windows):
                     # 外壳是无控制台的 pythonw,却用 python.exe 起腿 ⇒ Windows 给每条腿
                     # 新开一个控制台窗口,而业主关掉它就等于杀掉那条腿(他亲手复现过)。
                     # 子进程的平台参数收进唯一来源 spawn_kwargs(),调用点不许自己拼;

@@ -34,6 +34,14 @@ import ds_credential  # noqa: E402  变量名从配置的 apiKey 引用里读,�
 import ds_shell_core as core  # noqa: E402
 
 APP = "OpenDesign"
+# 外壳打开页面时在地址里报的身份。前端靠它决定要不要画那条窗口栏
+# (无边框之后三个按钮 + 拖动带 + 八个把手全是我们自己画的)。
+# **唯一来源是 web/src/shellWindow.ts 的同名常量**,两边一字不差
+# (tests/test_shell_window_contract.py x10 对表)。
+# 为什么不用"pywebview 有没有把 api 注进页面"来判:它在 on_navigation_completed
+# 之后才注入(页面脚本早跑完了)⇒ 前端首帧问它永远答 false,窗口栏整块不画。
+# 0.89/0.90 两版就是这么发出去的(业主:「拖不动 / 右上角还是没有」)。
+SHELL_MARK = "shell=1"
 # 锁位挑在一段不常用的高位端口上。它只是锁 + 唤醒通道,不承载数据。
 LOCK_PORT = 18788
 # 首选端口沿用现有部署(docs/install-windows.md / start.ps1),被占了会自动往后挪。
@@ -513,7 +521,8 @@ def main() -> int:
         import webview
 
         shell.window = webview.create_window(
-            APP, f"http://127.0.0.1:{web}/",
+            # 地址里带上 SHELL_MARK = 外壳自报身份,前端第一帧就知道要画窗口栏。
+            APP, f"http://127.0.0.1:{web}/?{SHELL_MARK}",
             width=1280, height=860, min_size=(960, 640),
             # 🔴 2026-08-16 业主:系统标题栏那个 "OpenDesign" 和我们前端自己的标题
             #    撞了 ⇒ 不要那个框,窗口按钮我们自己画在右上角(WindowChrome.tsx)。

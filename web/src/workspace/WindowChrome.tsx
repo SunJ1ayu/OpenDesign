@@ -31,7 +31,10 @@ function api(): ShellApi | null {
 }
 
 export default function WindowChrome() {
-  // 一次定死:pywebview 的注入发生在页面加载那一刻,之后不会变。
+  // 一次定死:分界读的是**地址**,首帧就定了,之后也不会变 —— 前端没有任何
+  // `history.pushState/replaceState`(路由走 hash),外壳也从不 `load_url`。
+  // 🔴 这行原来的注释写着「pywebview 的注入发生在页面加载那一刻」,那是错的,
+  //    而且 0.89/0.90 两版的窗口栏就是因此整块没画出来(见 shellWindow.ts)。
   const [shell] = useState(inDesktopShell);
   const [maximized, setMaximized] = useState(false);
 
