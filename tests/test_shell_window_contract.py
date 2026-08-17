@@ -76,6 +76,46 @@ def _jsx_tag_is_self_closing(src: str, class_name: str) -> bool:
     raise AssertionError(f"没找到 {class_name} 标签的收尾 —— 这道闸问不出东西")
 
 
+def _call_args(src: str, func: str) -> str:
+    """`func(...)` 括号里那一段(**数括号深度,不用正则找边界**)。
+
+    🔴 「用正则找边界」这个坑本仓已经踩了四次(JSX 标签里的 `=>`、
+    参数里的 `min_size=(960, 640)` 都会让非贪婪匹配停错地方)。老实扫。
+    """
+    i = src.index(func + "(") + len(func)
+    start, depth, quote = i + 1, 0, ""
+    while i < len(src):
+        c = src[i]
+        if quote:
+            if c == quote and src[i - 1] != "\\":
+                quote = ""
+        elif c in "\"'":
+            quote = c
+        elif c == "#":                      # 行内注释里的括号不算
+            i = src.find("\n", i)
+            if i < 0:
+                break
+            continue
+        elif c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                return src[start:i]
+        i += 1
+    raise AssertionError(f"没找到 {func}( 的收尾 —— 这道闸问不出东西")
+
+
+def _ts_code_only(src: str) -> str:
+    """把 TS 源码里的注释剥掉(块注释 + 行注释)。
+
+    🔴 不剥就是一场**误报**:这个文件的注释里必然要讲 pywebview 那段历史,
+    而 x11 问的是"代码里还读不读它"。误报和假绿一样坏(08-13 记过)。
+    """
+    src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
+    return "\n".join(line.split("//")[0] for line in src.splitlines())
+
+
 def _z_of(selector: str) -> int | None:
     """某个类自己声明的 z-index(取最后一次声明 —— 后面的赢)。"""
     found = None
@@ -242,6 +282,53 @@ class WindowContract(unittest.TestCase):
         分界必须走 inDesktopShell(判据 s-w1/s-w2 咬着它的行为)。"""
         self.assertIn("inDesktopShell", _read(TSX_CHROME),
                       "窗口栏没问过'我是不是在外壳里' ⇒ 浏览器里也会画出来")
+
+    def test_x10_the_shell_really_tells_the_page_who_it_is(self):
+        """🔴 **业主机器上窗口栏整块没画出来**(0.89.0/0.90.0 两版,2026-08-17)。
+
+        病根:前端原来靠 `window.pywebview.api` 在不在来判断"我在外壳里吗",而
+        pywebview 5.4 的 Windows 后端是在 `on_navigation_completed` 里才注入那个对象
+        (webview/platforms/edgechromium.py:314)—— **页面脚本早就跑完了**。
+        那一问在真机上永远答 false ⇒ 三个按钮、拖动带、八个把手一起不画,
+        而系统标题栏已经被 `frameless=True` 拿掉了:窗口既拖不动也关不掉。
+
+        改成外壳打开页面时在**地址里**报身份(第一帧就在,与注入时机无关)。
+        于是又多了一条跨语言的字符串契约,和 x1/x2 一样的坏法:
+        **对不上就是"窗口栏又没了",而且哪儿都不报错。** 这道闸问两件事:
+          ① 两边的标记一字不差;
+          ② 打开窗口那行**引用的是常量**,不是自己拼一个 `?shell=1`
+             (硬编码能过 ①,然后常量改了它不跟着改)。
+        """
+        ts = _read(TS_EDGES)
+        m = re.search(r'SHELL_MARK\s*=\s*"([^"]+)"', ts)
+        self.assertIsNotNone(m, "前端那个标记常量没找到 —— 名字或写法变了")
+        self.assertEqual(
+            m.group(1), ds_shell.SHELL_MARK,
+            f"两边的标记对不上:前端认 {m.group(1)!r}、外壳发 {ds_shell.SHELL_MARK!r} "
+            "⇒ 前端判定'我不在外壳里',窗口栏整块不画")
+        self.assertRegex(ds_shell.SHELL_MARK, r"^[A-Za-z_][\w-]*=[^&?#\s]+$",
+                         "标记得是一个正常的 query 参数(key=value),否则拼进地址里没意义")
+
+        args = _call_args(_read(os.path.join(ROOT, "bin", "ds_shell.py")), "create_window")
+        self.assertIn("SHELL_MARK", args,
+                      "开窗口的地址里没有引用 SHELL_MARK ⇒ 要么忘了带标记(窗口栏不画)、"
+                      "要么硬编码了一份(常量改了它不跟着改)")
+        self.assertIn("127.0.0.1", args,
+                      "开窗口那处的地址变样了 —— 这道闸八成在看别的东西了")
+
+    def test_x11_the_shell_flag_is_the_only_gate(self):
+        """分界不许再回到 `window.pywebview` 上(x10 那个病的入口)。
+
+        e2e(tests/e2e/shell_chrome.e2e.mjs)从行为面咬同一件事:真 chromium 里
+        `/?shell=1` 必须画出三个按钮 —— 那边没有 pywebview,谁把它加回判断里就红。
+        这里补一条静态的,理由是**读起来一眼看得见**:这个文件里出现
+        `pywebview` 只能是在讲那段历史(注释),不能是代码。
+        """
+        code = _ts_code_only(_read(TS_EDGES))
+        self.assertIn("SHELL_MARK", code, "这道闸问不出东西:剥完注释连常量都没了")
+        self.assertNotIn("pywebview", code,
+                         "分界又读 pywebview 了 ⇒ 注入发生在页面脚本之后,"
+                         "这个问法在真机上永远答 false(窗口栏整块不画)")
 
 
 if __name__ == "__main__":

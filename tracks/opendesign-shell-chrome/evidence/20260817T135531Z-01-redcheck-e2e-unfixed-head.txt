@@ -1,0 +1,37 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-e2e-unfixed-head
+cmd:     env HOME=/root/.cache/ds-e2e-home USERPROFILE=/root/.cache/ds-e2e-home node tests/e2e/shell_chrome.e2e.mjs
+cwd:     .(仓根)
+commit:  58d7cb6
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-17T13:55:31Z
+---------------- 输出开始 ----------------
+
+== A 外壳里(地址带标记):三个按钮 + 拖动带 + 八个把手都在
+  FAIL: 最小化按钮在场
+  FAIL: 最小化按钮看得见
+  FAIL: 最大化按钮在场
+  FAIL: 最大化按钮看得见
+  FAIL: 关闭按钮在场
+  FAIL: 关闭按钮看得见
+  FAIL: 顶部拖动带在场(系统标题栏已经没有了,这是唯一能拖的地方)
+  FAIL: 八个边角把手都在(实测 0 个)
+  FAIL: 界面往下让出 30px(实测 0px)
+
+== C 命中测试:按钮/把手/拖动带各自点得到
+Error: FAIL: 前提:量到了关闭按钮的位置
+
+== D 没有界面元素躲在拖动带底下(压住 = 看得见但点不着)
+  FAIL: 没有界面元素被压在拖动带底下(实测:["nav.side top=0","div.side-brand top=0","span.brand top=18","div.ws-pane top=0","section.center top=0","div.center-head top=0","div.head-row top=22","div.proj-title top=22"])
+
+== B 普通浏览器(地址没标记):一个窗口按钮都没有
+  ok - 最小化按钮不在(浏览器里没有窗口可关,画出来就是死按钮)
+  ok - 最大化按钮不在(浏览器里没有窗口可关,画出来就是死按钮)
+  ok - 关闭按钮不在(浏览器里没有窗口可关,画出来就是死按钮)
+  ok - 拖动带也不在
+  ok - 把手也不在
+  ok - body 不许白让出那 30px(实测 0px)
+
+❌ shell_chrome e2e 有 11 条失败
+---------------- 输出结束 ----------------
+runlog: redcheck-e2e-unfixed-head rc=1 commit=58d7cb6 dirty=yes at=2026-08-17T13:55:31Z file=tracks/opendesign-shell-chrome/evidence/20260817T135531Z-01-redcheck-e2e-unfixed-head.txt

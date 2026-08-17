@@ -9,9 +9,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   RESIZE_EDGES,
+  SHELL_MARK,
   cursorFor,
   inDesktopShell,
 } from "../web/src/shellWindow.ts";
+
+/** 造一个假 window:只有地址栏(和可选的 pywebview)。 */
+const win = (search, extra = {}) => ({ location: { search }, ...extra });
 
 // 🔴 2026-08-17:这里原来还有五条(s-w3~s-w6、s-w8)围着 `resizeEdgeAt()` 转 ——
 // 而生产代码从来没调用过那个函数。**五条全绿,问的是一段没上线的代码。**
@@ -19,16 +23,39 @@ import {
 // tests/test_shell_window_contract.py 的 x7/x8(它们咬的是真实生效的那套)。
 // 删判据是敏感动作,所以把理由留在这儿:不是"它红了所以删",是"它问的东西不存在"。
 
-// ── ① 浏览器里一个按钮都不许出现 ─────────────────────────────────────
-test("s-w1 普通浏览器里不算在外壳里 —— 那边没有窗口可关", () => {
-  assert.equal(inDesktopShell({}), false);
+// ── ① 外壳自己在地址里报身份 ─────────────────────────────────────────
+// 🔴 2026-08-17 改写这两条,证据方向说清楚(改判据是敏感动作):
+//    不是"它们红了所以改",是它们**问的东西在真运行时里问不出来**。
+//    旧版把「`window.pywebview.api` 在不在」当成「我在不在外壳里」,而
+//    pywebview 5.4 的 Windows 后端在 `on_navigation_completed` 里才注入
+//    (webview/platforms/edgechromium.py:314,`finish.js` 还要再晚一个线程)——
+//    也就是**页面脚本跑完之后**。React 挂载那一刻问它,答案必然是 false ⇒
+//    业主机器上窗口栏整块没画出来(0.89.0/0.90.0 两版都带着这个病发出去了)。
+//    所以分界换成"外壳打开页面时在地址里带的标记",它在第一帧就在。
+test("s-w1 地址里没标记 = 不在外壳里(浏览器里一个窗口按钮都不许出现)", () => {
+  assert.equal(inDesktopShell(win("")), false);
+  assert.equal(inDesktopShell({}), false);          // 连 location 都没有
   assert.equal(inDesktopShell(null), false);
-  // 有 pywebview 但 api 还没注进来(注入有先后)⇒ 这时候画按钮,按下去会炸
-  assert.equal(inDesktopShell({ pywebview: {} }), false);
 });
 
-test("s-w2 外壳里(pywebview.api 已就位)才算", () => {
-  assert.equal(inDesktopShell({ pywebview: { api: {} } }), true);
+test("s-w2 地址里带标记才算在外壳里", () => {
+  assert.equal(inDesktopShell(win(`?${SHELL_MARK}`)), true);
+  // 外壳将来往地址里加别的参数,也得照样认
+  assert.equal(inDesktopShell(win(`?foo=bar&${SHELL_MARK}`)), true);
+});
+
+test("s-w2b 只有 pywebview 注进来、地址没标记 ⇒ 仍然不算(本单的病根标本)", () => {
+  // 真机上这个条件在首帧**永远不成立**,拿它当分界等于窗口栏永远不画。
+  // 这一条钉住"别再把它当依据"——将来谁把 pywebview 加回判断里,它会响。
+  assert.equal(inDesktopShell(win("", { pywebview: { api: {} } })), false);
+});
+
+test("s-w2c 长得像的参数不许假命中(别用子串匹配)", () => {
+  // `search.includes("shell=1")` 会让下面三个全变 true:业主的界面无所谓,
+  // 但那意味着分界是"地址里恰好有这几个字",不是"外壳报了身份"。
+  assert.equal(inDesktopShell(win("?shell=0")), false);
+  assert.equal(inDesktopShell(win("?shellx=1")), false);
+  assert.equal(inDesktopShell(win("?noshell=1")), false);
 });
 
 // ── ③ 名单本身 ──────────────────────────────────────────────────────
