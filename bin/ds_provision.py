@@ -167,6 +167,8 @@ def merge_template(python_exe: str, ds_root: Path, cfg_path: Path) -> None:
     merger = ds_root / "bin" / "ds_merge_config.py"
     if not merger.is_file():
         raise Trouble(f"这份安装包不完整:找不到 {merger.name}\n请重新运行安装程序。")
+    # no-console-exempt: 装机时由安装器的 nsExec 调用,跑在安装器自己的控制台里、
+    # 装完就没了 —— 不是业主日常打开软件的路径。
     r = subprocess.run([python_exe, str(merger), str(template), str(cfg_path)],
                        capture_output=True, text=True, encoding="utf-8", timeout=180)
     if r.returncode != 0:

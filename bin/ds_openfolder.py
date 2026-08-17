@@ -213,12 +213,16 @@ def _default_open_launcher(path: str):
     cmd = os.environ.get("DS_OPEN_CMD")
     if cmd:
         import subprocess
+        # no-console-exempt: 只给 e2e 在无桌面 Linux 上注入记录脚本用,业主机器上
+        # DS_OPEN_CMD 是空的,这条路走不到。
         subprocess.Popen([cmd, path], stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL)
     elif os.name == "nt":
         _open_windows(path)
     else:
         import subprocess
+        # no-console-exempt: Linux 分支。Windows 走上面的 `_open_windows`(os.startfile),
+        # 到不了这儿 —— 而 Linux 上根本没有"控制台窗口"这回事。
         subprocess.Popen(["xdg-open", path], stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL)
 
