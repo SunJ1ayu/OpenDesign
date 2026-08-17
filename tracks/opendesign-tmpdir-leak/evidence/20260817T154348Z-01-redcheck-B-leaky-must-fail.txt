@@ -1,0 +1,206 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-B-leaky-must-fail
+cmd:     tests/tmpdir-leak-gate.sh -- /root/.venvs/design-studio/bin/python -m unittest tests.test_ds_web_api
+cwd:     .(仓根)
+commit:  5d8c991
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-17T15:43:48Z
+---------------- 输出开始 ----------------
+............................................................................................127.0.0.1 - "POST /api/changes/add HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/add HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/add HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/addx HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/add/ HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/add/1 HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/add HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/add HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/add HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/changes/add HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/changes/add HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bindx HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/projects/bind/ HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/projects/bind/1 HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 409 -
+127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/../changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/%2e%2e/changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/a%2fb/changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/a%2f%2e%2e%2fSECRET/changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/%2e%2e%2fSECRET/changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/x%00y/changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/a%5cb/changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects//changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E4%B8%8D%E5%AD%98%E5%9C%A8%E7%9A%84%E9%A1%B9%E7%9B%AE/changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/%E7%BC%96%E8%BE%91%E5%8E%86%E5%8F%B2%E9%A1%B9%E7%9B%AE/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/changes HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/createx HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/projects/create/ HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/projects HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/deletex HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/delete/ HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/delete/2 HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/todos HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E7%BC%96%E8%BE%91%E5%8E%86%E5%8F%B2%E9%A1%B9%E7%9B%AE/changes HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/editx HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/edit/ HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/edit/2 HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/todos HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E7%BC%96%E8%BE%91%E5%8E%86%E5%8F%B2%E9%A1%B9%E7%9B%AE/changes HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E7%BC%96%E8%BE%91%E5%8E%86%E5%8F%B2%E9%A1%B9%E7%9B%AE/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/2026%3A0315%20%E6%9F%90%E9%A1%B9%E7%9B%AE HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects HTTP/1.1" 405 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/20260701%20%E6%96%B0%E7%AD%BE%20%E4%BA%91%E7%92%9F%E5%8F%B0%203%23301 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/../refs HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/%2e%2e/refs HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/a%2fb/refs HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/refs/file/12%231802-%E5%AE%A2%E5%8E%85.jpg HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/refs/file/%E5%AE%A2%E5%8E%85%EF%BC%88%E5%A4%8D%E5%B0%BA%EF%BC%89%26%E7%BB%88.jpg HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/refs/file/bad%25x.png HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/refs/file/%E7%8E%84%E5%85%B3%E6%95%88%E6%9E%9C%E5%9B%BE.png HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/refs/file/notes.txt HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/refs/file/nope.png HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/refs/file/a.jpg HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/refs/file/sub/x.gif HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/refs/file/escape.png HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/refs/file/a.png%0A HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/refs/file/../outer.png HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/refs/file/%2e%2e/outer.png HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/refs/file/sub/../../outer.png HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/refs/file/a.png HTTP/1.1" 405 -
+127.0.0.1 - "PUT /api/refs/file/a.png HTTP/1.1" 405 -
+127.0.0.1 - "DELETE /api/refs/file/a.png HTTP/1.1" 405 -
+127.0.0.1 - "PATCH /api/refs/file/a.png HTTP/1.1" 405 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+...
+----------------------------------------------------------------------
+Ran 95 tests in 44.740s
+
+OK
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%A4%87%E6%B3%A8%E7%9C%9F%E7%9B%B8%E6%BA%90/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+
+════ 临时目录泄漏闸:台面上剩了 201 个(45 种前缀)════
+     76 ds_web_api_dist_
+     75 ds_web_api_
+      8 ds_web_bind_ws_
+      1 ds_web_bind_ws_sdhd_
+      1 ds_web_bind_ws_l8_
+      1 ds_web_bind_ws_56alsdt_
+      1 ds_web_api_yl60_
+      1 ds_web_api_xk9lumr_
+      1 ds_web_api_x9j482k_
+      1 ds_web_api_wy_
+      1 ds_web_api_sdpidp_
+      1 ds_web_api_q0w0_
+      1 ds_web_api__q__
+      1 ds_web_api_p32irw_
+      1 ds_web_api_od_
+      1 ds_web_api_nssyy0_
+      1 ds_web_api_m_
+      1 ds_web_api_l_
+      1 ds_web_api_kciyw_
+      1 ds_web_api_dist_xnpja_
+      1 ds_web_api_dist_w_
+      1 ds_web_api_dist_v_
+      1 ds_web_api_dist_u2j55b_
+      1 ds_web_api_dist_t2gv7_
+      1 ds_web_api_dist_sqccmk_
+      1 ds_web_api_dist_ootbn1v_
+      1 ds_web_api_dist_nozm_
+      1 ds_web_api_dist_n8hxgb_
+      1 ds_web_api_dist_mx32_
+      1 ds_web_api_dist_jnzsj_
+      1 ds_web_api_dist_iyc6lh8_
+      1 ds_web_api_dist_e_
+      1 ds_web_api_dist_dhx_
+      1 ds_web_api_dist_cq_
+      1 ds_web_api_dist_a4lwdng_
+      1 ds_web_api_dist_4p_
+      1 ds_web_api_dist_4j8idy__
+      1 ds_web_api_dist__
+      1 ds_web_api_bo6s_
+      1 ds_web_api_bb0me6h_
+  …还有 5 种前缀没列出来
+
+  这些是判据建了又没收的东西。按前缀去 tests/ 里搜就能找到调用点。
+  ⚠️ 未必都是 mkdtemp 建的目录 —— 也可能是**直接落在 TMPDIR 上的文件**
+     (实例:test_ds_web.py 的逃逸诱饵 `secret-*`,搜 mkdtemp 永远找不到它)。
+  python:  self.addCleanup(shutil.rmtree, <目录>, ignore_errors=True)
+  node:    process.on("exit", () => rmSync(<目录>, {recursive:true, force:true}))
+  shell:   trap 'rm -rf "$DIR"' EXIT
+---------------- 输出结束 ----------------
+runlog: redcheck-B-leaky-must-fail rc=9 commit=5d8c991 dirty=yes at=2026-08-17T15:43:48Z file=tracks/opendesign-tmpdir-leak/evidence/20260817T154348Z-01-redcheck-B-leaky-must-fail.txt

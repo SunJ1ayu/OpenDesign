@@ -73,7 +73,11 @@ matches_filter() {                   # 无 filter 时全收
 
 pass=0; fail=0; skip=0
 failed_names=(); skipped_names=()
-log_dir="$(mktemp -d -t ds-e2e-XXXXXX)"
+# 名字里带 -log- 是**故意的**:这个目录在红/有跳过时会被留下给人看(见文件尾),
+# 是"故意保留",不是泄漏,所以泄漏闸放行它。而同目录下的 `ds-e2e-home-`(E2E_HOME)
+# 是真漏、必须被闸咬住 —— 两者要是共用 `ds-e2e-` 前缀,放行一个就会连另一个一起放过,
+# 那道闸就对 E2E_HOME 永远瞎了。改名的唯一目的就是让放行范围咬得准。
+log_dir="$(mktemp -d -t ds-e2e-log-XXXXXX)"
 
 # ── 隔离家目录(2026-08-16,track opendesign-key-onboarding)────────────────
 # 起因:T4 起 ds-web 在「没配大模型 key」时会自动弹一张模态卡片,遮罩盖住整个界面。

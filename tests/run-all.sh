@@ -50,16 +50,45 @@ run_seg() {
   local name="$1" slug="$2"; shift 2
   local log="$log_dir/$slug.log" t0=$SECONDS rc
   printf '\033[1m== %s\033[0m\n' "$name"
-  "$@" >"$log" 2>&1; rc=$?
+  # 每段都跑在**一块空的临时台面**上,跑完台面必须剩 0(见 tests/tmpdir-leak-gate.sh)。
+  #
+  # 2026-08-17 立这道闸的理由:业主报「磁盘满了」。`/tmp` 205,666 个条目 / 6.5G,
+  # 几乎全是本仓库判据建了没收的空壳目录 —— 光一轮本脚本就新增约 1.7 万个。
+  # 清理只是止血,不装闸的话一两个月又满回来。
+  #
+  # 为什么**套在各段外面**而不是新开第六段:各段本来就要跑,套上去零额外跑时。
+  # 本文件头自己写着「慢到会被跳过的检查等于没有」,08-15 刚实证过一次
+  # (S1b 两条判据默认 skip,落地两天没被任何总跑叫起来)—— 不给它复发的机会。
+  #
+  # --allow node-compile-:Node 运行时自己的编译缓存,**固定名复用、不累积**
+  #   (清理前全 /tmp 普查里只有 1 个),不是判据建的、判据也收不掉。
+  #   放行清单**目前只有这一条**;再加一条都要在 track 里写清"它凭什么该被留下" ——
+  #   放行清单一旦当垃圾桶用,这道闸就废了。
+  # SEG_ALLOW:某一段额外要放行的前缀(空格分隔),调用处**必须写明理由**。
+  local allow_args=(--allow node-compile-) a
+  for a in ${SEG_ALLOW:-}; do allow_args+=(--allow "$a"); done
+  tests/tmpdir-leak-gate.sh "${allow_args[@]}" -- "$@" >"$log" 2>&1; rc=$?
+  # rc=9 是闸自己的红(命令绿了但漏了),和被测命令的失败码分得开 —— 混用 1 的话,
+  # 汇总里分不清"判据挂了"和"判据漏目录",两件事修法完全不同。
+  LAST_LEAK=""
+  [ "$rc" -eq 9 ] && LAST_LEAK="$(grep -oE '剩了 [0-9]+ 个' "$log" | tail -1 | grep -oE '[0-9]+')"
   names+=("$name"); rcs+=("$rc"); logs+=("$log")
   LAST_RC=$rc; LAST_LOG="$log"
   printf '   %s  %ds\n' "$([ $rc -eq 0 ] && printf '\033[32m完成\033[0m' || printf '\033[31m有红\033[0m')" $((SECONDS - t0))
   [ $rc -ne 0 ] && n_fail=$((n_fail + 1))
+  # bash 里 `VAR=x 函数名` 的赋值**调用结束后仍然留着**(和外部命令不一样),
+  # 不清掉就会渗给下一段,把某一段的放行悄悄扩大到全体。这里显式清空。
+  SEG_ALLOW=""
   return 0
 }
 
 # 每段跑完各自解析"这段有没有没跑的",结果记进 notes(与 names 同下标)。
-note_last() { notes+=("$1"); [ -n "${2:-}" ] && n_skip=$((n_skip + $2)); return 0; }
+note_last() {
+  local n="$1"
+  # 漏了就把数字挂在这一段的汇总行上,别让人对着一个光秃秃的 FAIL 猜是判据挂了还是漏目录。
+  [ -n "${LAST_LEAK:-}" ] && n="${n} / ⚠️ 漏了 ${LAST_LEAK} 个临时目录"
+  notes+=("$n"); [ -n "${2:-}" ] && n_skip=$((n_skip + $2)); return 0
+}
 
 # ── ① node 单测 ────────────────────────────────────────────────────────
 run_seg "node 单测(tests/*.mjs)" node-unit $NODE --test tests/*.mjs
@@ -102,6 +131,11 @@ note_last "$([ "$LAST_RC" -eq 0 ] && echo "与源码同步" || echo "**入库的
 
 # ── ④ e2e 总跑 ─────────────────────────────────────────────────────────
 e2e_args=(); [ "$with_gateway" -eq 1 ] && e2e_args+=(--with-gateway)
+# SEG_ALLOW=ds-e2e-log-:e2e 自己的日志目录。它在**红或有跳过**时故意留着给人看
+# (tests/e2e/run-all.sh 文件尾),不是泄漏。不放行的话,默认跑法(不带 --with-gateway)
+# 必有 2 条 SKIP ⇒ 日志目录必被留下 ⇒ 闸**每次都误报** —— 而一道天天喊狼来了的闸,
+# 和没有闸是一回事。放行范围只到 `-log-`,咬不到同前缀的 `ds-e2e-home-`(那个是真漏)。
+SEG_ALLOW="ds-e2e-log-" \
 run_seg "e2e 总跑$([ "$with_gateway" -eq 1 ] && echo '(含 gateway)')" e2e tests/e2e/run-all.sh ${e2e_args[@]+"${e2e_args[@]}"}
 _l="$LAST_LOG"
 _sum=$(grep -m1 '^== 汇总:' "$_l" | sed 's/^== 汇总://')

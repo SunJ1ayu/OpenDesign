@@ -1,0 +1,15 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-A-clean-must-pass
+cmd:     tests/tmpdir-leak-gate.sh -- /root/.venvs/design-studio/bin/python -m unittest tests.test_ds_organize
+cwd:     .(仓根)
+commit:  5d8c991
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-17T15:43:40Z
+---------------- 输出开始 ----------------
+......................
+----------------------------------------------------------------------
+Ran 22 tests in 1.106s
+
+OK
+---------------- 输出结束 ----------------
+runlog: redcheck-A-clean-must-pass rc=0 commit=5d8c991 dirty=yes at=2026-08-17T15:43:40Z file=tracks/opendesign-tmpdir-leak/evidence/20260817T154340Z-01-redcheck-A-clean-must-pass.txt
