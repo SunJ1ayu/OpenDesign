@@ -13,9 +13,9 @@
 (见 `tests/test_win_ctypes_decls.py` 的开头)。
 
 ⇒ 这道闸不看谁写得对,只机械地问:**`bin/` 下每个子进程创建点,是不是走了那个
-   唯一来源 `spawn_kwargs()`。** 走不了的必须写进下面的豁免名单,
-   并写清楚**为什么它弹不出窗口**。
-   (问"走没走唯一来源"而不是"带没带某个标志:带没带是结果,各写各的才是病。)
+   唯一来源 `spawn_kwargs()`。** 走不了的要在**调用点旁边**写一行
+   `# no-console-exempt: <为什么它弹不出窗口>`。
+   (问"走没走唯一来源"而不是"带没带某个标志":带没带是结果,各写各的才是病。)
 
 射程边界(说清楚,免得被当成比它强的东西):
   · 它问的是"标志有没有传",**不是"Windows 有没有听我的"** —— 后者只有真机答得了;
@@ -36,19 +36,14 @@ BIN = os.path.join(ROOT, "bin")
 # 所以这里全都扫,不做"反正它内部会走 Popen"的推理。
 SPAWN_CALL = re.compile(r"subprocess\.(Popen|run|call|check_call|check_output)\s*\(")
 
-# 豁免名单:`(文件名, 调用序号从 1 起)` -> 为什么它弹不出窗口。
-# 🔴 **双向验**(见下面 test_exemptions_are_still_real):名单上有、源码里已经没有的条目
-#    也算红。否则名单会变成一张过期的免死金牌 —— 一个调用点删掉之后,
-#    它的豁免会静静地留在这儿,等着盖到下一个不该豁免的调用点头上。
-EXEMPT = {
-    ("ds_openfolder.py", 1):
-        "Linux 分支:文件管理器。Windows 走的是上面的 os.startfile,到不了这儿。",
-    ("ds_openfolder.py", 2):
-        "Linux 分支:xdg-open。同上。",
-    ("ds_provision.py", 1):
-        "装机时由安装器的 nsExec 调用,跑在安装器自己的控制台里,装完就没了 —— "
-        "不是业主日常打开软件的路径。",
-}
+# 豁免标记:写在**调用点自己那一行(或紧邻的注释里)**,不放在远处的名单里。
+#
+# 🔴 第一版是个 `{(文件名, 第几个调用): 理由}` 的字典 —— **自审当场毙掉**:
+#    谁在前面插一个新的 subprocess 调用,序号就整体后移,豁免会静静地盖到
+#    下一个**不该**豁免的调用点头上;而"双向验"只查得出"名单比代码多",
+#    查不出错位。远处按序号索引的名单是埋着等人踩的东西。
+#    写在调用点旁边则:不可能错位、理由就在读代码的人眼前、也不存在"过期条目"。
+EXEMPT_MARK = "no-console-exempt:"
 
 
 def _sources() -> list[str]:
@@ -104,16 +99,23 @@ class NoConsoleWindow(unittest.TestCase):
         为什么这么问而不是问"带没带 CREATE_NO_WINDOW":带没带是**结果**,
         各写各的才是**病**。只要还允许调用点自己拼,下一个人就会漏一位,
         而漏了本机一条判据都不会红(那一位只在 Windows 上有意义)。
+
+        豁免:在调用点上方 3 行内写 `# no-console-exempt: <为什么它弹不出窗口>`。
         """
         naked = []
         for name in _sources():
             with open(os.path.join(BIN, name), encoding="utf-8") as fh:
                 src = fh.read()
-            for n, m in enumerate(SPAWN_CALL.finditer(src), start=1):
-                if (name, n) in EXEMPT:
+            lines = src.splitlines()
+            for m in SPAWN_CALL.finditer(src):
+                lineno = src.count("\n", 0, m.start())          # 0 起
+                near = "\n".join(lines[max(0, lineno - 3):lineno + 1])
+                if EXEMPT_MARK in near:
+                    reason = near.split(EXEMPT_MARK, 1)[1].strip()
+                    self.assertTrue(reason, f"{name}:{lineno + 1} 的豁免标记没写理由")
                     continue
                 if "spawn_kwargs" not in _enclosing_def(src, m.start()):
-                    naked.append(f"{name} 第 {n} 个 subprocess 调用")
+                    naked.append(f"{name}:{lineno + 1}")
         self.assertEqual([], naked,
                          "这些子进程创建点没走 spawn_kwargs() ⇒ 平台标志又回到各调用点"
                          "自己拼了,Windows 上漏一位就是一个黑窗口,而业主关掉它"
@@ -135,26 +137,6 @@ class NoConsoleWindow(unittest.TestCase):
             self.assertEqual(want, got,
                              f"{attr} = {got!r},应为 {want:#x}。"
                              "取 0 或缺失都会让本机全绿而真机照弹黑窗口")
-
-    def test_exemptions_are_still_real(self):
-        """豁免名单双向验:名单上的条目必须还对得上一个真实调用点。
-
-        单向验的名单会烂:调用点删掉之后豁免还留着,下一个调用点挪到那个序号上
-        就白捡一张免死金牌。ctypes 那道闸就是这么写的,照抄。
-        """
-        stale = []
-        for (name, n) in EXEMPT:
-            path = os.path.join(BIN, name)
-            if not os.path.exists(path):
-                stale.append(f"{name}(文件都没了)")
-                continue
-            with open(path, encoding="utf-8") as fh:
-                sites = list(SPAWN_CALL.finditer(fh.read()))
-            if n > len(sites):
-                stale.append(f"{name} 第 {n} 个(那里已经没有 subprocess 调用了)")
-        self.assertEqual([], stale,
-                         "豁免名单过期了 —— 过期的豁免会盖到下一个不该豁免的调用点上:\n  "
-                         + "\n  ".join(stale))
 
 
 if __name__ == "__main__":
