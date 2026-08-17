@@ -87,7 +87,12 @@ import ds_todo
 import ds_tools
 import ds_workspace
 
-VERSION = "0.89.0"  # 填完 key 之后开不了机那个坑填了(track opendesign-key-startup-crash):
+VERSION = "0.90.0"  # 打开软件不再冒黑窗口(track opendesign-console-windows):
+                    # 外壳是无控制台的 pythonw,却用 python.exe 起腿 ⇒ Windows 给每条腿
+                    # 新开一个控制台窗口,而业主关掉它就等于杀掉那条腿(他亲手复现过)。
+                    # 子进程的平台参数收进唯一来源 spawn_kwargs(),调用点不许自己拼;
+                    # 一道静态闸机械查"每个创建点都走它",豁免名单双向验。
+                    # 0.89.0  填完 key 之后开不了机那个坑填了(track opendesign-key-startup-crash):
                     # 0.88.0 有一行读了个不存在的名字,而那一行**只有填过 key 的机器才执行**
                     # ⇒ 业主填完 key 之后每次打开都 NameError,一直崩。顺带三件:
                     # 重启网关时整棵树一起收(以前每按一次保存多 3 个孤儿工具服务)、
