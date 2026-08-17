@@ -20,6 +20,37 @@ import ds_common
 from typing import Any
 
 
+# ── 子进程创建的平台参数:唯一来源 ──────────────────────────────────────
+#
+# 业主 2026-08-17 装完 0.89.0:「为什么打开这个软件还会跳出命令行呢」——
+# 两个黑窗口(网关一个、工作台一个),而且**关掉一个就等于杀掉一条腿**。
+# 外壳自己是没有控制台的 `pythonw.exe`,却用 `python.exe`(控制台程序)起腿:
+# **没有控制台的进程去起控制台程序,Windows 会为它新开一个控制台窗口。**
+#
+# 🔴 数值写死,不用 `getattr(subprocess, "CREATE_NO_WINDOW", 0)`:
+#    Linux 的 subprocess **没有**这两个常量,getattr 会退化成 0,
+#    而 0 和"没设"一模一样 ⇒ 本机判据永远问不出东西(假绿)。
+CREATE_NEW_PROCESS_GROUP = 0x00000200
+CREATE_NO_WINDOW = 0x08000000
+WINDOWS_SPAWN_FLAGS = CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
+
+
+def spawn_kwargs(os_name: str = "") -> dict[str, Any]:
+    """起子进程时要额外传给 `subprocess` 的平台参数 —— **唯一来源**。
+
+    调用点不许自己拼:漏一位的代价是真机上冒一个业主关得掉的黑窗口,
+    而本机一条判据都不会红(那一位只在 Windows 上有意义)。
+    `tests/test_no_console_window.py` 机械地查"每个创建点是不是走了这儿"。
+    """
+    name = os_name or os.name
+    if name == "posix":
+        # 自成会话 ⇒ 收尸时按进程组收,孙进程跑不掉(c1/c2/c13 咬的就是它)
+        return {"start_new_session": True}
+    if name == "nt":
+        return {"creationflags": WINDOWS_SPAWN_FLAGS}
+    return {}
+
+
 class PortBusy(RuntimeError):
     """端口段全被占。"""
 
@@ -563,10 +594,7 @@ class Supervisor:
             "stderr": subprocess.STDOUT,
             "env": {str(k): str(v) for k, v in svc.env.items()},
         }
-        if os.name == "posix":
-            kwargs["start_new_session"] = True
-        elif os.name == "nt":
-            kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        kwargs.update(spawn_kwargs())
         try:
             proc = subprocess.Popen([str(x) for x in svc.argv], **kwargs)
         except Exception as exc:
@@ -670,13 +698,15 @@ class Supervisor:
         if child.proc.poll() is not None:
             return
         try:
-            # 没挂上 Job 时的退路:taskkill /T 连子孙一起杀
+            # 没挂上 Job 时的退路:taskkill /T 连子孙一起杀。
+            # 它也是控制台程序 ⇒ 平台参数走同一个来源,否则每收一次尸闪一个黑窗口。
             subprocess.run(
                 ["taskkill", "/T", "/F", "/PID", str(child.proc.pid)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 timeout=10,
                 check=False,
+                **spawn_kwargs("nt"),
             )
             return
         except Exception:
