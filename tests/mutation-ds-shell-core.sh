@@ -212,10 +212,16 @@ mutate_and_expect M17 test_c24_the_taskkill_fallback_never_pops_a_console_window
   '                **spawn_kwargs("nt"),' \
   '                # 这一行被变异摘掉了'
 
-# M18 `_spawn` 干脆不要平台参数 —— POSIX 那半边的进程组也跟着没了(收尸收不干净)
+# M18 `_spawn` 把平台参数取错了平台(refactor 时最容易犯的一种)
+#     ⇒ POSIX 上 Popen 直接拒收 creationflags,起不来,c23b 当场红。
+#
+# 🔴 这条的第一版是「干脆不要平台参数」(`kwargs.update({})`),**它把判据进程自己杀了**:
+#    没有 start_new_session,子进程就和判据进程同一个进程组,`_terminate_tree` 那下
+#    `killpg` 连测试进程一起收 ⇒ 整轮没有任何 FAIL 行、rc 非零,报成"红在别处"。
+#    变异要问的是"判据咬不咬得动",不是"能不能把跑判据的人干掉"。
 mutate_and_expect M18 test_c23b_the_spawn_really_uses_that_one_source \
   '        kwargs.update(spawn_kwargs())' \
-  '        kwargs.update({})'
+  '        kwargs.update(spawn_kwargs("nt"))'
 
 # M19 `_spawn` 自己手拼一份平台参数(行为一模一样,只是绕开了唯一来源)——
 #     **行为判据抓不到它**(POSIX 那半边完全等价),靶子必须是静态闸:
