@@ -1,0 +1,30 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    runall-0.91.0
+cmd:     tests/run-all.sh
+cwd:     .(仓根)
+commit:  4f4f5c0
+dirty:   no(跑之前采的;含未跟踪文件)
+started: 2026-08-17T13:59:49Z
+---------------- 输出开始 ----------------
+[1m== node 单测(tests/*.mjs)[0m
+   [32m完成[0m  4s
+[1m== python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python)[0m
+   [32m完成[0m  416s
+[1m== MCP 契约闸[0m
+   [32m完成[0m  4s
+[1m== dist 新鲜度(重新 build 后 git 应无差异)[0m
+   [31m有红[0m  9s
+[1m== e2e 总跑[0m
+   [32m完成[0m  155s
+
+════ 总跑汇总 ════
+  [32mPASS[0m  node 单测(tests/*.mjs)           376 通过 / 0 跳过 / 0 todo
+  [32mPASS[0m  python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python) 1276 跑过 / 0 跳过
+  [32mPASS[0m  MCP 契约闸                      三条闸全绿
+  [31mFAIL[0m  dist 新鲜度(重新 build 后 git 应无差异) **入库的 dist 是旧的** —— 跑一次 npm run build 再提交
+  [32mPASS[0m  e2e 总跑                         36 PASS / 0 FAIL / 2 SKIP
+
+有 1 段红了,日志在 /tmp/ds-all-nbZ2Fk
+   dist 新鲜度(重新 build 后 git 应无差异) → /tmp/ds-all-nbZ2Fk/dist-fresh.log
+---------------- 输出结束 ----------------
+runlog: runall-0.91.0 rc=1 commit=4f4f5c0 dirty=no at=2026-08-17T13:59:49Z file=tracks/opendesign-shell-chrome/evidence/20260817T135949Z-01-runall-0.91.0.txt

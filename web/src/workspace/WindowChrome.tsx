@@ -49,9 +49,21 @@ export default function WindowChrome() {
     return () => document.body.classList.remove("has-window-chrome");
   }, [shell]);
 
+  // 「我现在是不是最大化」只有 Python 那边知道,而 `pywebview.api` 到位得**比这一帧晚**
+  // (注入发生在 on_navigation_completed 之后,见 shellWindow.ts)。
+  // 🔴 窗口栏本身**不等它**(靠地址,首帧就画);但这一问必须等 —— 不等的话
+  //    `api()` 是 null,这个 effect 就成了一句好看的空话(0.91.0 之前它正是如此:
+  //    整个组件都没渲染过,所以没人发现)。
+  //    pywebview 注完 finish.js 会派 `pywebviewready`;它可能在我们挂上监听**之前**
+  //    就派过了(页面重挂、热更新),所以两条路都要走。
   useEffect(() => {
     if (!shell) return;
-    api()?.window_state().then((st) => st && setMaximized(!!st.maximized)).catch(() => {});
+    const sync = () => {
+      api()?.window_state().then((st) => st && setMaximized(!!st.maximized)).catch(() => {});
+    };
+    if (api()) { sync(); return; }
+    window.addEventListener("pywebviewready", sync, { once: true });
+    return () => window.removeEventListener("pywebviewready", sync);
   }, [shell]);
 
   if (!shell) return null;

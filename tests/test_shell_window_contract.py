@@ -283,6 +283,24 @@ class WindowContract(unittest.TestCase):
         self.assertIn("inDesktopShell", _read(TSX_CHROME),
                       "窗口栏没问过'我是不是在外壳里' ⇒ 浏览器里也会画出来")
 
+    def test_x12_asking_python_anything_has_to_wait_for_the_api(self):
+        """问 Python「我是不是最大化」的那一问,必须等 `pywebview.api` 到位。
+
+        窗口栏本身**不等**(靠地址标记,首帧就画);但 `window_state()` 这类
+        **要 Python 回答**的调用不等就是一句空话:挂载那一刻 `api()` 是 null,
+        Promise 根本不会发出去。0.91.0 之前它正是如此,只是整个组件都没渲染过,
+        所以这句空话没人看见 —— 同族的病见 [[field-needs-a-writer-before-ui]]。
+        ⇒ 谁把这个等待去掉,这条会响。
+        """
+        tsx = _read(TSX_CHROME)
+        # 无条件问,不用 skipTest:条件式跳过正是"整块 SKIP 混成 PASS"那个形状。
+        self.assertIn("window_state()", tsx,
+                      "挂载时不再问窗口状态了 ⇒ 最大化/还原的图标可能一直画反;"
+                      "真要去掉,连 0.89 真机清单 G2 那笔偏差一起重新想清楚")
+        self.assertIn("pywebviewready", tsx,
+                      "挂载时问了 window_state(),却没等 pywebview 把 api 注进来 ⇒ "
+                      "那一问发不出去(api() 是 null),effect 成了装饰")
+
     def test_x10_the_shell_really_tells_the_page_who_it_is(self):
         """🔴 **业主机器上窗口栏整块没画出来**(0.89.0/0.90.0 两版,2026-08-17)。
 
@@ -309,12 +327,14 @@ class WindowContract(unittest.TestCase):
         self.assertRegex(ds_shell.SHELL_MARK, r"^[A-Za-z_][\w-]*=[^&?#\s]+$",
                          "标记得是一个正常的 query 参数(key=value),否则拼进地址里没意义")
 
+        # ② 不 grep 字面量,**直接叫那个唯一来源**,再查开窗口那行走的是它。
+        self.assertEqual(f"http://127.0.0.1:8766/?{ds_shell.SHELL_MARK}",
+                         ds_shell.window_url(8766),
+                         "外壳开的那个地址不带标记了 ⇒ 前端判定'我不在外壳里',窗口栏整块不画")
         args = _call_args(_read(os.path.join(ROOT, "bin", "ds_shell.py")), "create_window")
-        self.assertIn("SHELL_MARK", args,
-                      "开窗口的地址里没有引用 SHELL_MARK ⇒ 要么忘了带标记(窗口栏不画)、"
-                      "要么硬编码了一份(常量改了它不跟着改)")
-        self.assertIn("127.0.0.1", args,
-                      "开窗口那处的地址变样了 —— 这道闸八成在看别的东西了")
+        self.assertIn("window_url(", args,
+                      "开窗口没走 window_url() ⇒ 那儿自己拼了一个地址,"
+                      "标记改了它不跟着改(0.90 的 spawn_kwargs 是同一种病)")
 
     def test_x11_the_shell_flag_is_the_only_gate(self):
         """分界不许再回到 `window.pywebview` 上(x10 那个病的入口)。

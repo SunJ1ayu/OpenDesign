@@ -42,6 +42,18 @@ APP = "OpenDesign"
 # 之后才注入(页面脚本早跑完了)⇒ 前端首帧问它永远答 false,窗口栏整块不画。
 # 0.89/0.90 两版就是这么发出去的(业主:「拖不动 / 右上角还是没有」)。
 SHELL_MARK = "shell=1"
+
+
+def window_url(port: int) -> str:
+    """外壳打开的那个地址。**唯一来源** —— 开窗口和写日志都叫它。
+
+    分开写两遍的代价已经付过一次:日志里印的地址少了标记,而那份
+    `外壳.log` 正是业主报"没按钮"时我唯一的现场。
+    (判据 x10 直接调它,不是去源码里 grep 字面量。)
+    """
+    return f"http://127.0.0.1:{port}/?{SHELL_MARK}"
+
+
 # 锁位挑在一段不常用的高位端口上。它只是锁 + 唤醒通道,不承载数据。
 LOCK_PORT = 18788
 # 首选端口沿用现有部署(docs/install-windows.md / start.ps1),被占了会自动往后挪。
@@ -521,8 +533,9 @@ def main() -> int:
         import webview
 
         shell.window = webview.create_window(
-            # 地址里带上 SHELL_MARK = 外壳自报身份,前端第一帧就知道要画窗口栏。
-            APP, f"http://127.0.0.1:{web}/?{SHELL_MARK}",
+            # 地址带 SHELL_MARK = 外壳自报身份,前端第一帧就知道要画窗口栏
+            # (window_url 是唯一来源,日志里印的也是它)。
+            APP, window_url(web),
             width=1280, height=860, min_size=(960, 640),
             # 🔴 2026-08-16 业主:系统标题栏那个 "OpenDesign" 和我们前端自己的标题
             #    撞了 ⇒ 不要那个框,窗口按钮我们自己画在右上角(WindowChrome.tsx)。
@@ -537,7 +550,7 @@ def main() -> int:
 
         shell.run_tray()
         shell.run_watchdog()
-        log(f"窗口打开:http://127.0.0.1:{web}/")
+        log(f"窗口打开:{window_url(web)}")
         webview.start()          # 阻塞,直到窗口 destroy
         shell.state.on_quit()    # 走正常关闭时也要把后台收干净
         return 0
