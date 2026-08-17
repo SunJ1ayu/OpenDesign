@@ -32,6 +32,7 @@
 """
 from __future__ import annotations
 
+import ast
 import os
 import re
 import unittest
@@ -42,6 +43,7 @@ BIN = os.path.join(ROOT, "bin")
 # 子进程创建点。`Popen` 之外的几个最终都走 Popen,但**豁免要逐个说**,
 # 所以这里全都扫,不做"反正它内部会走 Popen"的推理。
 SPAWN_CALL = re.compile(r"subprocess\.(Popen|run|call|check_call|check_output)\s*\(")
+SPAWN_ATTRS = {"Popen", "run", "call", "check_call", "check_output"}
 
 # 豁免标记:写在**调用点自己那一行(或紧邻的注释里)**,不放在远处的名单里。
 #
@@ -66,6 +68,16 @@ BLIND_FORMS = (
      "os.system / os.popen / os.spawn* 会自己起进程,而上面那条闸一个字都看不见"),
     (re.compile(r"\bos\.startfile\s*\("),
      "os.startfile 交给 shell 去开,弹不弹窗口不归我们决定 —— 要逐个说清楚"),
+    # ↓ 三条腿各自补上来的(两条独立命中前两项)。它们**长得像自己人**:
+    #   `subprocess.getoutput` 明明带 `subprocess.` 前缀,却不在闸① 的五个函数名里,
+    #   于是两道闸都不管它 —— 而它在 Windows 上经 cmd.exe 起进程,照弹。
+    (re.compile(r"\bsubprocess\.(getoutput|getstatusoutput)\s*\("),
+     "subprocess.getoutput/getstatusoutput 走 shell(Windows 上是 cmd.exe),"
+     "却不在闸① 认的五个函数名里 —— 两道闸中间的缝"),
+    (re.compile(r"\basyncio\.create_subprocess_(exec|shell)\s*\("),
+     "asyncio 那套起进程接口,闸① 的 `subprocess.` 前缀完全看不见"),
+    (re.compile(r"\bos\.(execv?[lpe]*|posix_spawn\w*)\s*\("),
+     "os.exec*/posix_spawn:Windows 上没有真正的 exec 语义,CPython 用起新进程实现"),
 )
 
 
@@ -89,30 +101,69 @@ def _load_core():
     return ds_shell_core
 
 
-def _enclosing_def(src: str, pos: int) -> str:
-    """包住 `pos` 这个调用点的那个 `def` 的整段函数体。
+def _exemption(lines: list[str], lineno: int) -> str | None:
+    """这个调用点的豁免理由;没有标记返回 `None`,标记没写理由返回 `""`。
 
-    🔴 闸的第一版问的是**调用点的实参里有没有 `creationflags=`** —— 它红在了
-    已经写对的代码上:`_spawn` 是把参数塞进一个 dict 再 `**kwargs` 展开的,
-    调用点上一个字都看不见。**闸要问的是"有没有走那个唯一来源",不是"有没有把字
-    打在这一行上"** —— 后者是在规定代码长什么样,不是在守不变量。
+    🔴 三审同时指出的两个洞,病根是同一个"就近 3 行"窗口:
+      ① **豁免会串到隔壁调用点** —— 一行标记会顺带豁免它下方 3 行内的**另一个**
+         创建点。这正是本文件开头自述"按序号索引的名单"被毙掉的那个病,
+         被 3 行窗口缩小后请了回来。
+      ② **`no-console-exempt:` 后面一个字不写也能过** —— 老实现拿的是
+         "窗口里标记之后的全部文本",里面还有下一行代码,`.strip()` 当然非空。
+         **判据自己在撒谎:它写着"必须给理由",实际上不给也放行。**
+    ⇒ 现在只认两处:调用点**自己那一行**的行尾注释,或**紧贴其上**的连续注释块
+      (遇到第一个非注释行就停)。两者之间隔着任何一行代码,豁免就够不着。
     """
-    head = src.rfind("\ndef ", 0, pos)
-    method = src.rfind("\n    def ", 0, pos)
-    at = max(head, method)
-    if at < 0:
-        return src[:pos]
-    indent = len(src[at + 1:src.index("def ", at)])
-    j = at + 1
-    while True:
-        nl = src.find("\n", j)
-        if nl < 0:
-            return src[at:]
-        line = src[j:nl]
-        if j > at + 1 and line.strip() and (len(line) - len(line.lstrip())) <= indent \
-                and line.lstrip().startswith(("def ", "class ", "@")):
-            return src[at:j]
-        j = nl + 1
+    own = lines[lineno]
+    block: list[str] = []
+    i = lineno - 1
+    while i >= 0 and lines[i].lstrip().startswith("#"):
+        block.append(lines[i])
+        i -= 1
+    for text in (own, "\n".join(reversed(block))):
+        if EXEMPT_MARK in text:
+            tail = text.split(EXEMPT_MARK, 1)[1]
+            return tail.replace("#", " ").strip()
+    return None
+
+
+def _uses_the_one_source(call: ast.Call, func: ast.AST | None, src: str) -> bool:
+    """**这一次调用**的平台参数是不是来自 `spawn_kwargs()`。
+
+    🔴 三条评审腿独立命中同一处:老实现问的是"包住它的那个 def 里出现过
+    `spawn_kwargs` 这几个字吗"。于是**同一个函数里再加一个裸调用就白拿豁免**
+    (第一个合法调用替它作了保),函数外的模块级调用点更是拿到整段文件头、
+    永远绿。**闸问的必须是这次调用,不是它的邻居。**
+
+    实现用 `ast` 而不是正则找边界:今天已经栽过两次"正则找不准边界"
+    (箭头函数的 `>`),Python 有现成的、精确的答案就别再猜。
+
+    🔴 更早还栽过一次相反方向的:**第一版问的是"调用点实参里有没有
+    `creationflags=`"**,于是红在了已经写对的代码上(`_spawn` 把参数塞进 dict 再
+    `**kwargs` 展开,调用点上一个字都看不见)。所以这里对 `**名字` 要回到函数里
+    追一步 —— 既不能只看这一行的字面,也不能宽到"函数里提过就算"。
+    """
+    seg = ast.get_source_segment(src, call) or ""
+    if "spawn_kwargs" in seg:
+        return True
+    # `subprocess.Popen(argv, **kwargs)` 这种:去它所在的函数里看 kwargs 喂过什么。
+    star = [kw.value.id for kw in call.keywords
+            if kw.arg is None and isinstance(kw.value, ast.Name)]
+    if not star or func is None:
+        return False
+    fsrc = ast.get_source_segment(src, func) or ""
+    return any("spawn_kwargs" in line and name in line
+               for name in star for line in fsrc.splitlines())
+
+
+def _walk_with_owner(tree: ast.AST):
+    """产出 (节点, 包住它的函数节点或 None)。"""
+    def rec(node, owner):
+        for child in ast.iter_child_nodes(node):
+            nxt = child if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) else owner
+            yield child, owner
+            yield from rec(child, nxt)
+    yield from rec(tree, None)
 
 
 class NoConsoleWindow(unittest.TestCase):
@@ -123,21 +174,27 @@ class NoConsoleWindow(unittest.TestCase):
         各写各的才是**病**。只要还允许调用点自己拼,下一个人就会漏一位,
         而漏了本机一条判据都不会红(那一位只在 Windows 上有意义)。
 
-        豁免:在调用点上方 3 行内写 `# no-console-exempt: <为什么它弹不出窗口>`。
+        豁免:在调用点自己那一行、或紧贴它上方的注释块里写
+        `# no-console-exempt: <为什么它弹不出窗口>`(理由不许空着)。
         """
         naked = []
         for name in _sources():
             with open(os.path.join(BIN, name), encoding="utf-8") as fh:
                 src = fh.read()
             lines = src.splitlines()
-            for m in SPAWN_CALL.finditer(src):
-                lineno = src.count("\n", 0, m.start())          # 0 起
-                near = "\n".join(lines[max(0, lineno - 3):lineno + 1])
-                if EXEMPT_MARK in near:
-                    reason = near.split(EXEMPT_MARK, 1)[1].strip()
+            for node, func in _walk_with_owner(ast.parse(src)):
+                if not (isinstance(node, ast.Call)
+                        and isinstance(node.func, ast.Attribute)
+                        and node.func.attr in SPAWN_ATTRS
+                        and isinstance(node.func.value, ast.Name)
+                        and node.func.value.id == "subprocess"):
+                    continue
+                lineno = node.lineno - 1                        # 0 起
+                reason = _exemption(lines, lineno)
+                if reason is not None:
                     self.assertTrue(reason, f"{name}:{lineno + 1} 的豁免标记没写理由")
                     continue
-                if "spawn_kwargs" not in _enclosing_def(src, m.start()):
+                if not _uses_the_one_source(node, func, src):
                     naked.append(f"{name}:{lineno + 1}")
         self.assertEqual([], naked,
                          "这些子进程创建点没走 spawn_kwargs() ⇒ 平台标志又回到各调用点"
@@ -163,9 +220,8 @@ class NoConsoleWindow(unittest.TestCase):
             for pat, why in BLIND_FORMS:
                 for m in pat.finditer(src):
                     lineno = src.count("\n", 0, m.start())      # 0 起
-                    near = "\n".join(lines[max(0, lineno - 3):lineno + 1])
-                    if EXEMPT_MARK in near:
-                        reason = near.split(EXEMPT_MARK, 1)[1].strip()
+                    reason = _exemption(lines, lineno)
+                    if reason is not None:
                         self.assertTrue(reason, f"{name}:{lineno + 1} 的豁免标记没写理由")
                         continue
                     blind.append(f"{name}:{lineno + 1}  ——  {why}")

@@ -239,6 +239,14 @@ mutate_and_expect M20 test_the_gate_can_see_every_spawn_site \
   'import subprocess
 from subprocess import Popen  # 变异:换个写法,扫描器就瞎了'
 
+# M21 在**已经合规**的那个函数里再插一个裸调用(三条评审腿独立命中的那个洞)。
+#     老闸问的是"这个 def 里出现过 spawn_kwargs 吗" ⇒ 第一个合法调用替它作保,
+#     **这条变异在老闸下是全绿的**。新闸问"这次调用用了吗",才咬得住。
+mutate_and_expect M21 test_every_spawn_site_goes_through_the_one_source \
+  '            proc = subprocess.Popen([str(x) for x in svc.argv], **kwargs)' \
+  '            subprocess.run(["cmd", "/c", "echo hi"])
+            proc = subprocess.Popen([str(x) for x in svc.argv], **kwargs)'
+
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"
 echo
