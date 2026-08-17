@@ -170,17 +170,34 @@ class WindowContract(unittest.TestCase):
         盖住它 = 业主只能去任务管理器。
 
         所以窗口栏必须在**所有**全屏遮罩之上。这道闸不点名任何一个遮罩,
-        它问的是层序本身 —— 将来谁再加一个 `inset:0` 的浮层,这里会自己响。
+        它问的是层序本身 —— 将来谁再加一个铺满屏幕的浮层,这里会自己响。
+
+        🔴 **2026-08-17 补盲区**(评审 F3):原来只认 `inset: 0` 那一种写法。
+        今天 app.css 里三个遮罩恰好都这么写,所以它是绿的 —— 但换成
+        `top:0;left:0;right:0;bottom:0` 或 `width:100vw;height:100vh`,
+        这道闸会**静默漏掉**它,而漏掉的后果正是它存在的全部理由(任务管理器陷阱)。
+        ⇒ 三种写法都认。
         """
         bar = _z_of(".win-bar")
         self.assertIsNotNone(bar, "窗口栏没有 z-index ⇒ 层序无从谈起")
+
+        def _covers_screen(body: str) -> bool:
+            inset = _prop(body, "inset")
+            if inset and inset.split()[0] == "0":
+                return True
+            # 四个 offset 各写一遍(等价于 inset:0)
+            if all((_prop(body, s) or "").startswith("0")
+                   for s in ("top", "right", "bottom", "left")):
+                return True
+            # 视口尺寸铺满
+            return ((_prop(body, "width") or "").startswith("100v")
+                    and (_prop(body, "height") or "").startswith("100v"))
 
         masks = []
         for sel, body in _css_rules():
             if "fixed" not in (_prop(body, "position") or ""):
                 continue
-            inset = _prop(body, "inset")
-            if not (inset and inset.split()[0] == "0"):
+            if not _covers_screen(body):
                 continue
             if ".win-" in sel:
                 continue

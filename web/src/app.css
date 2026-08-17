@@ -207,6 +207,11 @@ body.has-window-chrome { padding-top: 30px; }
 .win-grip-left   { left: 0; top: 6px; bottom: 6px; width: 5px; }
 .win-grip-right  { right: 0; top: 6px; bottom: 6px; width: 5px; }
 .win-grip-topleft     { top: 0; left: 0; width: 6px; height: 6px; }
+/* ⚠️ 这一个**点不到**:它 6×6 全落在三个按钮那 132×30 里,而按钮层号更高
+   (那是有意的,见上;否则点关闭按钮的上沿会变成改大小)。
+   ⇒ 右上角这个斜角改不了大小;上边(按钮左侧)和右边(栏以下)照样能拖。
+   2026-08-17 e2e shell_chrome 的 E 段用真鼠标钉住了这个事实(按下去命中关闭按钮),
+   业主真机清单 B7/F4 也照这个写。留着这条规则是为了名单完整 + 将来按钮若移位就自然复活。 */
 .win-grip-topright    { top: 0; right: 0; width: 6px; height: 6px; }
 .win-grip-bottomleft  { bottom: 0; left: 0; width: 6px; height: 6px; }
 .win-grip-bottomright { bottom: 0; right: 0; width: 6px; height: 6px; }
