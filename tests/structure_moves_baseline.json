@@ -12,13 +12,14 @@
   "ds_openfolder._default_open_launcher": {
     "from": "ds_web",
     "lines": 18,
-    "sha256": "c13af362f6fec48ee9abdd3b56f5477b1758ec44b2164f90032381680c2715a0",
-    "note": "2026-08-17 track opendesign-console-windows:两个 subprocess 调用点各加了两行 `# no-console-exempt:` 注释(说明为什么它们不走 spawn_kwargs)。**只加注释,零行为改动** —— 该 commit 的 diff 里只有 4 行 `+`,全是注释。旧基线 770cc61424e6(取自搬运前的 commit,它证明的是那一单搬得忠实,那件事已经证完)。**这是本闸唯一允许的更新方式:说清楚哪一单改的、为什么。**"
+    "sha256": "9bbfc896461f84bed4d9c7bceaaa620899be2f077142139cba8b95d538881178",
+    "note": "2026-08-17 track opendesign-console-windows:两个 subprocess 调用点各加了两行 `# no-console-exempt:` 注释(说明为什么它们不走 spawn_kwargs)。**只加注释,零行为改动** —— 该 commit 的 diff 里只有 4 行 `+`,全是注释。旧基线 770cc61424e6(取自搬运前的 commit,它证明的是那一单搬得忠实,那件事已经证完)。**这是本闸唯一允许的更新方式:说清楚哪一单改的、为什么。** 同日第二次(cc071cf):把其中一条豁免理由说准 —— DS_OPEN_CMD 在业主机器上是**不存在**(取到 None),不是\"空的\";仍是只改注释,旧基线 c13af362f6fe。"
   },
   "ds_openfolder._open_windows": {
     "from": "ds_web",
-    "lines": 7,
-    "sha256": "efc0d6829c03bf9ad6e5ff4cb3e76ea97ce2fdaf30859ef6c66784cec37036c2"
+    "lines": 9,
+    "sha256": "1177e6d93929b39a5b9b033be792803b4f37a8616aad2f8b494639a475c15c00",
+    "note": "2026-08-17 track opendesign-console-windows(第二刀):`os.startfile` 那个调用点加了两行 `# no-console-exempt:` —— 新的「守闸自己的射程」那条闸红在这儿,理由必须写在调用点旁边。**只加注释,零行为改动**(`git diff 13a3304..HEAD -- bin/ds_openfolder.py` 只有 `+` 注释行)。旧基线 efc0d6829c03。"
   },
   "ds_openfolder._pick_folder_window": {
     "from": "ds_web",
