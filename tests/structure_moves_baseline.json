@@ -11,8 +11,9 @@
   },
   "ds_openfolder._default_open_launcher": {
     "from": "ds_web",
-    "lines": 14,
-    "sha256": "770cc61424e6f561e9780d9b865a50443e83107e539df1a98945cce378889f1b"
+    "lines": 18,
+    "sha256": "c13af362f6fec48ee9abdd3b56f5477b1758ec44b2164f90032381680c2715a0",
+    "note": "2026-08-17 track opendesign-console-windows:两个 subprocess 调用点各加了两行 `# no-console-exempt:` 注释(说明为什么它们不走 spawn_kwargs)。**只加注释,零行为改动** —— 该 commit 的 diff 里只有 4 行 `+`,全是注释。旧基线 770cc61424e6(取自搬运前的 commit,它证明的是那一单搬得忠实,那件事已经证完)。**这是本闸唯一允许的更新方式:说清楚哪一单改的、为什么。**"
   },
   "ds_openfolder._open_windows": {
     "from": "ds_web",
