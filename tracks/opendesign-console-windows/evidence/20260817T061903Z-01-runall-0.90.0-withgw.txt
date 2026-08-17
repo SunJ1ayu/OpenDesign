@@ -1,0 +1,30 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    runall-0.90.0-withgw
+cmd:     tests/run-all.sh --with-gateway
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  bacc2c1
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-17T06:19:03Z
+---------------- 输出开始 ----------------
+[1m== node 单测(tests/*.mjs)[0m
+   [32m完成[0m  4s
+[1m== python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python)[0m
+   [32m完成[0m  403s
+[1m== MCP 契约闸[0m
+   [32m完成[0m  5s
+[1m== dist 新鲜度(重新 build 后 git 应无差异)[0m
+   [32m完成[0m  9s
+[1m== e2e 总跑(含 gateway)[0m
+   [31m有红[0m  161s
+
+════ 总跑汇总 ════
+  [32mPASS[0m  node 单测(tests/*.mjs)           374 通过 / 0 跳过 / 0 todo
+  [32mPASS[0m  python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python) 1273 跑过 / 0 跳过
+  [32mPASS[0m  MCP 契约闸                      三条闸全绿
+  [32mPASS[0m  dist 新鲜度(重新 build 后 git 应无差异) 与源码同步
+  [31mFAIL[0m  e2e 总跑(含 gateway)            36 PASS / 1 FAIL / 0 SKIP
+
+有 1 段红了,日志在 /tmp/ds-all-AkUixP
+   e2e 总跑(含 gateway) → /tmp/ds-all-AkUixP/e2e.log
+---------------- 输出结束 ----------------
+runlog: runall-0.90.0-withgw rc=1 commit=bacc2c1 dirty=yes at=2026-08-17T06:19:03Z file=tracks/opendesign-console-windows/evidence/20260817T061903Z-01-runall-0.90.0-withgw.txt

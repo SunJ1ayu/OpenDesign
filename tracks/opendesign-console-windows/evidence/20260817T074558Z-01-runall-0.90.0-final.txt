@@ -1,0 +1,29 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    runall-0.90.0-final
+cmd:     tests/run-all.sh --with-gateway
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  8cbcd44
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-17T07:45:58Z
+---------------- 输出开始 ----------------
+[1m== node 单测(tests/*.mjs)[0m
+   [32m完成[0m  4s
+[1m== python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python)[0m
+   [32m完成[0m  409s
+[1m== MCP 契约闸[0m
+   [32m完成[0m  4s
+[1m== dist 新鲜度(重新 build 后 git 应无差异)[0m
+   [32m完成[0m  9s
+[1m== e2e 总跑(含 gateway)[0m
+   [32m完成[0m  194s
+
+════ 总跑汇总 ════
+  [32mPASS[0m  node 单测(tests/*.mjs)           374 通过 / 0 跳过 / 0 todo
+  [32mPASS[0m  python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python) 1274 跑过 / 0 跳过
+  [32mPASS[0m  MCP 契约闸                      三条闸全绿
+  [32mPASS[0m  dist 新鲜度(重新 build 后 git 应无差异) 与源码同步
+  [32mPASS[0m  e2e 总跑(含 gateway)            37 PASS / 0 FAIL / 0 SKIP
+
+四段全跑,全绿。
+---------------- 输出结束 ----------------
+runlog: runall-0.90.0-final rc=0 commit=8cbcd44 dirty=yes at=2026-08-17T07:45:58Z file=tracks/opendesign-console-windows/evidence/20260817T074558Z-01-runall-0.90.0-final.txt

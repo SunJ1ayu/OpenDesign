@@ -1,0 +1,18 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    greencheck-console
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_no_console_window tests.test_ds_shell_core.Supervise
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  1504ae9
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-17T04:51:18Z
+---------------- 输出开始 ----------------
+................/usr/lib/python3.12/subprocess.py:1127: ResourceWarning: subprocess 3740415 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+............
+----------------------------------------------------------------------
+Ran 28 tests in 27.163s
+
+OK
+---------------- 输出结束 ----------------
+runlog: greencheck-console rc=0 commit=1504ae9 dirty=yes at=2026-08-17T04:51:18Z file=tracks/opendesign-console-windows/evidence/20260817T045118Z-01-greencheck-console.txt
