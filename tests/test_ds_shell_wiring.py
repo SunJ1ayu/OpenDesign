@@ -88,9 +88,27 @@ class ShellWiring(unittest.TestCase):
     def test_w6_the_watchdog_asks_why_a_leg_died_not_just_that_it_did(self):
         """08-16 现场:外壳只打了 `[后台退出] ['网关']`,一个退出码都没有 ⇒
         拿到两份真机日志也答不了「它是被杀的还是自己崩的」。
-        `dead_reports()`(判据 c20)带的是退出码 + 那条腿日志的尾巴;
-        这一条只查外壳**真的问了它** —— 光在 core 里做好没人用,等于没做。"""
-        self.find("dead_reports")
+        带退出码 + 日志尾巴的是 `take_dead()`(判据 c20/c21);
+        这一条只查外壳**真的问了它** —— 光在 core 里做好没人用,等于没做。
+
+        08-17:入口从 `dead_reports()` 换成 `take_dead()`(F5 只看一眼)。
+        **题面跟着实现搬,不是放宽** —— 守的仍是"死了要说清为什么",
+        而且由下面的 w7 补上了更强的一问:不许分两次看。"""
+        self.find("take_dead")
+
+    def test_w7_the_watchdog_looks_once_not_twice(self):
+        """F5:先问「谁死了」再问「为什么」,两问之间名册会变(业主恰好存了 key
+        触发重启)⇒ 弹窗照弹、原因是空的 —— c20 消灭掉的那种没线索的弹窗
+        换个入口又长出来。行为面由 c21 咬着,这一条守的是**外壳这侧不许再问两遍**。"""
+        fn = next((n for n in ast.walk(self.tree)
+                   if isinstance(n, ast.FunctionDef) and n.name == "run_watchdog"), None)
+        self.assertIsNotNone(fn, "看门狗没了 —— 腿死了没人说话")
+        names = {_name_of(c) for c in _calls(fn)}
+        self.assertIn("take_dead", names, "看门狗没用单次快照")
+        for two_step in ("poll_dead", "dead_reports"):
+            self.assertNotIn(two_step, names,
+                             f"看门狗还在调 {two_step}() ⇒ 又变成分两眼看,"
+                             "两眼之间名册一变就是「名字有、原因空」")
 
 
 if __name__ == "__main__":

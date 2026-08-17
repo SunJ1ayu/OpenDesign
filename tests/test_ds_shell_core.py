@@ -759,6 +759,51 @@ class Supervise(unittest.TestCase):
         self.assertIn("7", said, "**没带退出码** —— 分不出是被杀的还是自己崩的")
         self.assertIn("我崩在这一句上", said, "没带日志尾巴,业主拿到的还是一句没线索的话")
 
+    def test_c21_who_died_and_why_come_from_one_look(self):
+        """"谁死了"和"它为什么死"必须是**同一眼看到的**。
+
+        08-17 四审(subdeepseek F5):看门狗先问 `poll_dead()` → 答「网关」,
+        再问 `dead_reports()` → 答空(业主恰好在这两句中间存了 key,重启
+        把网关移出了名册)。于是弹窗照弹「网关意外退出了」,日志里却一个
+        原因都没有 —— **c20 刚消灭掉的那种没线索的弹窗,换个入口又长出来了。**
+
+        修法不是加锁(shutdown 也持那把锁,重启途中互等的风险更大),
+        是只看一眼:`take_dead()` 一次遍历同时给出名字和原因。
+
+        考卷怎么把"问了两遍"变成确定性的:把那条腿的 `poll()` 换成
+        **第一次答 7、之后答 None** —— 问一遍的实现看到的是一具带退出码的
+        尸体;问两遍的实现第二遍会看到"它还活着",于是名字有、原因没了。
+        """
+        port = free_port()
+        code = ("import socket,sys,time\n"
+                "s=socket.socket();s.bind(('127.0.0.1',int(sys.argv[1])));s.listen(4)\n"
+                "print('listening',flush=True)\n"
+                "time.sleep(0.3)\n"
+                "print('我崩在这一句上',flush=True)\n"
+                "sys.exit(7)\n")
+        self.sup.start([self.svc("网关", code, port)])
+        deadline = time.time() + 10
+        while self.sup.poll_dead() != ["网关"] and time.time() < deadline:
+            time.sleep(0.1)
+        self.assertEqual(["网关"], self.sup.poll_dead(), "腿死了没人发现")
+
+        child = self.sup._children[0]
+        answers = iter([7])
+
+        def poll_once_then_alive():
+            return next(answers, None)     # 第一次 7,之后 None(= 名册在两问之间变了)
+
+        with mock.patch.object(child.proc, "poll", poll_once_then_alive):
+            pairs = self.sup.take_dead()
+
+        self.assertEqual(1, len(pairs),
+                         f"一条腿死了,take_dead 给了 {len(pairs)} 条 ⇒ 它问了不止一遍")
+        name, said = pairs[0]
+        self.assertEqual("网关", name, "没说是哪条腿")
+        self.assertIn("7", said,
+                      "**名字有、原因没了** ⇒ 两次问答案不一致,业主拿到的又是一句没线索的话")
+        self.assertIn("我崩在这一句上", said, "没带日志尾巴")
+
     def test_c8_shutdown_is_idempotent(self):
         port = free_port()
         self.sup.start([self.svc("legE", BIND_AND_WAIT, port)])

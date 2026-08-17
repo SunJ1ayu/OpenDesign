@@ -1,0 +1,119 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-panel-findings
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_shell_window_contract tests.test_win_ctypes_decls tests.test_ds_shell_wiring -v
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  23387d8
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-17T01:31:52Z
+---------------- 输出开始 ----------------
+test_x1_the_edge_names_match_on_both_sides (tests.test_shell_window_contract.WindowContract.test_x1_the_edge_names_match_on_both_sides)
+前端的 RESIZE_EDGES ↔ Python 的 HIT(去掉标题区那一项)。 ... ok
+test_x2_every_button_calls_a_method_that_really_exists (tests.test_shell_window_contract.WindowContract.test_x2_every_button_calls_a_method_that_really_exists)
+pywebview 按**方法名**把 `pywebview.api.xxx()` 接到 Python 上。 ... ok
+test_x3_the_three_buttons_are_all_wired (tests.test_shell_window_contract.WindowContract.test_x3_the_three_buttons_are_all_wired)
+业主要的就是这三个。少接一个 = 少一个按钮,而界面上看不出来。 ... ok
+test_x4_the_chrome_never_shows_up_in_a_plain_browser (tests.test_shell_window_contract.WindowContract.test_x4_the_chrome_never_shows_up_in_a_plain_browser)
+浏览器里没有窗口可关,画出来就是三个按下去没反应的按钮。 ... ok
+test_x5_nothing_is_allowed_to_cover_the_window_bar (tests.test_shell_window_contract.WindowContract.test_x5_nothing_is_allowed_to_cover_the_window_bar)
+🔴 **业主装完第一次打开必然撞上**:填 key 的连接弹窗 ... FAIL
+test_x6_double_clicking_a_window_button_does_not_also_toggle_maximize (tests.test_shell_window_contract.WindowContract.test_x6_double_clicking_a_window_button_does_not_also_toggle_maximize)
+双击最小化/关闭按钮,dblclick 会冒泡到栏上的 `onDoubleClick={toggle}` ⇒ ... FAIL
+test_x7_the_css_grips_match_the_edge_list (tests.test_shell_window_contract.WindowContract.test_x7_the_css_grips_match_the_edge_list)
+🔴 **判据自己咬空过**:`shellWindow.ts` 里有个 `resizeEdgeAt()` 被五条判据 ... ok
+test_x8_the_grips_never_eat_the_buttons (tests.test_shell_window_contract.WindowContract.test_x8_the_grips_never_eat_the_buttons)
+把手压在最上层(z-index 70)而窗口栏在 60 ⇒ 顶部那 5px、右上角那 6×6 ... FAIL
+test_every_windll_call_declares_its_argtypes (tests.test_win_ctypes_decls.WinCtypesDecls.test_every_windll_call_declares_its_argtypes) ... FAIL
+test_the_exemption_list_is_not_a_back_door (tests.test_win_ctypes_decls.WinCtypesDecls.test_the_exemption_list_is_not_a_back_door)
+豁免清单里的名字必须**真的还在被调用** —— 不然它就是一张空头支票, ... FAIL
+test_w1_child_env_is_told_the_lock_port (tests.test_ds_shell_wiring.ShellWiring.test_w1_child_env_is_told_the_lock_port)
+不传的话 ds-web 那侧的 DS_SHELL_LOCK_PORT 永远是空的 ⇒ 它只会回 manual, ... ok
+test_w2_child_env_is_told_which_variable_to_set (tests.test_ds_shell_wiring.ShellWiring.test_w2_child_env_is_told_which_variable_to_set)
+key_var 不传 + 有 key ⇒ child_env 直接抛(e9)。这条是提前把它挡在启动之前。 ... ok
+test_w3_the_lock_carries_a_restart_callback (tests.test_ds_shell_wiring.ShellWiring.test_w3_the_lock_carries_a_restart_callback)
+只接 on_show 的话,ds-web 发来的 RESTART-BACKEND 会被当成"叫窗口到前台" —— ... ok
+test_w4_start_backend_receives_the_lock_port (tests.test_ds_shell_wiring.ShellWiring.test_w4_start_backend_receives_the_lock_port) ... ok
+test_w5_the_gateway_is_started_from_the_plan_not_unconditionally (tests.test_ds_shell_wiring.ShellWiring.test_w5_the_gateway_is_started_from_the_plan_not_unconditionally)
+缺 key 时网关不许起(它会死在缺变量上,而业主要的是那个引导页)。 ... ok
+test_w6_the_watchdog_asks_why_a_leg_died_not_just_that_it_did (tests.test_ds_shell_wiring.ShellWiring.test_w6_the_watchdog_asks_why_a_leg_died_not_just_that_it_did)
+08-16 现场:外壳只打了 `[后台退出] ['网关']`,一个退出码都没有 ⇒ ... FAIL
+test_w7_the_watchdog_looks_once_not_twice (tests.test_ds_shell_wiring.ShellWiring.test_w7_the_watchdog_looks_once_not_twice)
+F5:先问「谁死了」再问「为什么」,两问之间名册会变(业主恰好存了 key ... FAIL
+
+======================================================================
+FAIL: test_x5_nothing_is_allowed_to_cover_the_window_bar (tests.test_shell_window_contract.WindowContract.test_x5_nothing_is_allowed_to_cover_the_window_bar)
+🔴 **业主装完第一次打开必然撞上**:填 key 的连接弹窗
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_shell_window_contract.py", line 126, in test_x5_nothing_is_allowed_to_cover_the_window_bar
+    self.assertEqual([], over,
+AssertionError: Lists differ: [] != [('.connect-modal-mask', 70), ('.sp-mask', 60), ('.g-light', 60)]
+
+Second list contains 3 additional elements.
+First extra element 0:
+('.connect-modal-mask', 70)
+
+- []
++ [('.connect-modal-mask', 70), ('.sp-mask', 60), ('.g-light', 60)] : 这些浮层压在窗口栏(z-index 60)上面或同层:[('.connect-modal-mask', 70), ('.sp-mask', 60), ('.g-light', 60)] ⇒ 它们一出现,业主就关不掉窗口了
+
+======================================================================
+FAIL: test_x6_double_clicking_a_window_button_does_not_also_toggle_maximize (tests.test_shell_window_contract.WindowContract.test_x6_double_clicking_a_window_button_does_not_also_toggle_maximize)
+双击最小化/关闭按钮,dblclick 会冒泡到栏上的 `onDoubleClick={toggle}` ⇒
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_shell_window_contract.py", line 138, in test_x6_double_clicking_a_window_button_does_not_also_toggle_maximize
+    self.assertRegex(
+AssertionError: Regex didn't match: 'onMouseDown=\\{[^}]*stopPropagation' not found in ' onMouseDown={(e) =' : 按钮区没挡住 onMouseDown ⇒ 点/双击按钮会连带触发窗口栏自己的动作
+
+======================================================================
+FAIL: test_x8_the_grips_never_eat_the_buttons (tests.test_shell_window_contract.WindowContract.test_x8_the_grips_never_eat_the_buttons)
+把手压在最上层(z-index 70)而窗口栏在 60 ⇒ 顶部那 5px、右上角那 6×6
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_shell_window_contract.py", line 162, in test_x8_the_grips_never_eat_the_buttons
+    self.assertIsNotNone(btns, "按钮区没有自己的 z-index ⇒ 它压在把手下面")
+AssertionError: unexpectedly None : 按钮区没有自己的 z-index ⇒ 它压在把手下面
+
+======================================================================
+FAIL: test_every_windll_call_declares_its_argtypes (tests.test_win_ctypes_decls.WinCtypesDecls.test_every_windll_call_declares_its_argtypes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_win_ctypes_decls.py", line 52, in test_every_windll_call_declares_its_argtypes
+    self.assertTrue(called, f"{os.path.basename(path)} 一个 windll 调用都没扫到 "
+AssertionError: set() is not true : ds_shell_core.py 一个 windll 调用都没扫到 —— 这道闸问不出东西了(写法变了?)
+
+======================================================================
+FAIL: test_the_exemption_list_is_not_a_back_door (tests.test_win_ctypes_decls.WinCtypesDecls.test_the_exemption_list_is_not_a_back_door)
+豁免清单里的名字必须**真的还在被调用** —— 不然它就是一张空头支票,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_win_ctypes_decls.py", line 68, in test_the_exemption_list_is_not_a_back_door
+    self.assertEqual(set(), EXEMPT - called,
+AssertionError: Items in the second set but not the first:
+'ReleaseCapture' : 豁免清单里有已经不存在的调用:['ReleaseCapture'] ⇒ 该删掉
+
+======================================================================
+FAIL: test_w6_the_watchdog_asks_why_a_leg_died_not_just_that_it_did (tests.test_ds_shell_wiring.ShellWiring.test_w6_the_watchdog_asks_why_a_leg_died_not_just_that_it_did)
+08-16 现场:外壳只打了 `[后台退出] ['网关']`,一个退出码都没有 ⇒
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_wiring.py", line 97, in test_w6_the_watchdog_asks_why_a_leg_died_not_just_that_it_did
+    self.find("take_dead")
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_wiring.py", line 47, in find
+    self.assertTrue(hits, f"ds_shell.py 里根本没有调用 {name}()")
+AssertionError: [] is not true : ds_shell.py 里根本没有调用 take_dead()
+
+======================================================================
+FAIL: test_w7_the_watchdog_looks_once_not_twice (tests.test_ds_shell_wiring.ShellWiring.test_w7_the_watchdog_looks_once_not_twice)
+F5:先问「谁死了」再问「为什么」,两问之间名册会变(业主恰好存了 key
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_wiring.py", line 107, in test_w7_the_watchdog_looks_once_not_twice
+    self.assertIn("take_dead", names, "看门狗没用单次快照")
+AssertionError: 'take_dead' not found in {'dead_reports', 'wait', 'Event', 'poll_dead', 'alert', '_log_path', 'join', 'log', 'start', 'Thread'} : 看门狗没用单次快照
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.055s
+
+FAILED (failures=7)
+---------------- 输出结束 ----------------
+runlog: redcheck-panel-findings rc=1 commit=23387d8 dirty=yes at=2026-08-17T01:31:52Z file=tracks/opendesign-key-startup-crash/evidence/20260817T013152Z-01-redcheck-panel-findings.txt

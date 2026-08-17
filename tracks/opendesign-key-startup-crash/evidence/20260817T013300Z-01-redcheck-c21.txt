@@ -1,0 +1,25 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-c21
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_ds_shell_core.Supervise.test_c21_who_died_and_why_come_from_one_look
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  23387d8
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-17T01:33:00Z
+---------------- 输出开始 ----------------
+E
+======================================================================
+ERROR: test_c21_who_died_and_why_come_from_one_look (tests.test_ds_shell_core.Supervise.test_c21_who_died_and_why_come_from_one_look)
+"谁死了"和"它为什么死"必须是**同一眼看到的**。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py", line 797, in test_c21_who_died_and_why_come_from_one_look
+    pairs = self.sup.take_dead()
+            ^^^^^^^^^^^^^^^^^^
+AttributeError: 'Supervisor' object has no attribute 'take_dead'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.411s
+
+FAILED (errors=1)
+---------------- 输出结束 ----------------
+runlog: redcheck-c21 rc=1 commit=23387d8 dirty=yes at=2026-08-17T01:33:00Z file=tracks/opendesign-key-startup-crash/evidence/20260817T013300Z-01-redcheck-c21.txt

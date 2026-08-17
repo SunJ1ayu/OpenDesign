@@ -25,11 +25,39 @@ import ds_shell  # noqa: E402
 
 TS_EDGES = os.path.join(ROOT, "web", "src", "shellWindow.ts")
 TSX_CHROME = os.path.join(ROOT, "web", "src", "workspace", "WindowChrome.tsx")
+CSS = os.path.join(ROOT, "web", "src", "app.css")
 
 
 def _read(path: str) -> str:
     with open(path, encoding="utf-8") as fh:
         return fh.read()
+
+
+def _css_rules() -> list[tuple[str, str]]:
+    """(选择器, 规则体) 的粗切分。够用就好 —— 这里只问 position/inset/z-index。"""
+    text = re.sub(r"/\*.*?\*/", "", _read(CSS), flags=re.S)
+    return [(sel.strip(), body) for sel, body in re.findall(r"([^{}]+)\{([^{}]*)\}", text, re.S)]
+
+
+def _prop(body: str, name: str) -> str | None:
+    m = re.search(rf"(?:^|;|\s){name}\s*:\s*([^;}}]+)", body)
+    return m.group(1).strip() if m else None
+
+
+def _zindex(body: str) -> int | None:
+    v = _prop(body, "z-index")
+    return int(v) if v and v.lstrip("-").isdigit() else None
+
+
+def _z_of(selector: str) -> int | None:
+    """某个类自己声明的 z-index(取最后一次声明 —— 后面的赢)。"""
+    found = None
+    for sel, body in _css_rules():
+        if re.search(rf"(^|,|\s){re.escape(selector)}(?![\w-])", sel):
+            z = _zindex(body)
+            if z is not None:
+                found = z
+    return found
 
 
 class WindowContract(unittest.TestCase):
@@ -62,6 +90,78 @@ class WindowContract(unittest.TestCase):
         for ui, what in (("window-min", "最小化"), ("window-max", "最大化"),
                          ("window-close", "关闭")):
             self.assertIn(f'data-ui="{ui}"', tsx, f"{what}按钮没了")
+
+    # ── 2026-08-17 四审之后补的四条 ──────────────────────────────────────
+    # 上面 x1~x4 问的都是"名字对不对得上"。这一版真正会让业主骂人的四件事,
+    # 一条都不在那四问的射程里 —— 补在下面。
+
+    def test_x5_nothing_is_allowed_to_cover_the_window_bar(self):
+        """🔴 **业主装完第一次打开必然撞上**:填 key 的连接弹窗
+        (`.connect-modal-mask`,`inset:0` + z-index 70)盖在窗口栏(z-index 60)上面
+        ⇒ 那一刻最小化/最大化/关闭三个按钮全点不动,窗口也拖不动。
+        无边框窗口把这三个按钮变成了**唯一**的出口 —— 系统标题栏已经没有了,
+        盖住它 = 业主只能去任务管理器。
+
+        所以窗口栏必须在**所有**全屏遮罩之上。这道闸不点名任何一个遮罩,
+        它问的是层序本身 —— 将来谁再加一个 `inset:0` 的浮层,这里会自己响。
+        """
+        bar = _z_of(".win-bar")
+        self.assertIsNotNone(bar, "窗口栏没有 z-index ⇒ 层序无从谈起")
+
+        masks = []
+        for sel, body in _css_rules():
+            if "fixed" not in (_prop(body, "position") or ""):
+                continue
+            inset = _prop(body, "inset")
+            if not (inset and inset.split()[0] == "0"):
+                continue
+            if ".win-" in sel:
+                continue
+            masks.append((sel.split("{")[-1].strip(), _zindex(body) or 0))
+
+        self.assertGreaterEqual(len(masks), 3,
+                                f"只扫到 {len(masks)} 个全屏遮罩 —— 这道闸八成解析坏了,"
+                                "它现在问不出东西(app.css 里的写法变了?)")
+        over = [(s, z) for s, z in masks if z >= bar]
+        self.assertEqual([], over,
+                         f"这些浮层压在窗口栏(z-index {bar})上面或同层:{over} ⇒ "
+                         "它们一出现,业主就关不掉窗口了")
+
+    def test_x6_double_clicking_a_window_button_does_not_also_toggle_maximize(self):
+        """双击最小化/关闭按钮,dblclick 会冒泡到栏上的 `onDoubleClick={toggle}` ⇒
+        **该做的事做了,还白送一次最大化**。按钮区已经挡了 mousedown,
+        漏挡的是 dblclick(08-17 四审 subdeepseek F1)。"""
+        m = re.search(r'<div\s+className="win-btns"(.*?)>', _read(TSX_CHROME), re.S)
+        self.assertIsNotNone(m, "按钮区不见了(或写法变了,这道闸问不出东西)")
+        attrs = m.group(1)
+        for ev in ("onMouseDown", "onDoubleClick"):
+            self.assertRegex(
+                attrs, rf"{ev}=\{{[^}}]*stopPropagation",
+                f"按钮区没挡住 {ev} ⇒ 点/双击按钮会连带触发窗口栏自己的动作")
+
+    def test_x7_the_css_grips_match_the_edge_list(self):
+        """🔴 **判据自己咬空过**:`shellWindow.ts` 里有个 `resizeEdgeAt()` 被五条判据
+        围着测,而 `WindowChrome.tsx` 一次都没用过它 —— 真正决定"能不能拖边"的是
+        `app.css` 里那八个 `.win-grip-*` 的定位,那边一条判据都没有。
+        (08-17 四审 subkimi 在被断线砍断之前正好摸到这一条。)
+        ⇒ 把断言搬到问得出的地方:CSS 里的把手名单必须和方向名单一一对应。
+        """
+        block = re.search(r"RESIZE_EDGES\s*=\s*\[(.*?)\]", _read(TS_EDGES), re.S)
+        edges = set(re.findall(r'"([a-z]+)"', block.group(1)))
+        in_css = set(re.findall(r"\.win-grip-([a-z]+)\b", _read(CSS)))
+        self.assertEqual(edges, in_css,
+                         f"CSS 里的把手和方向名单对不上:少了 {sorted(edges - in_css)}、"
+                         f"多了 {sorted(in_css - edges)} ⇒ 那几条边拖了没反应")
+
+    def test_x8_the_grips_never_eat_the_buttons(self):
+        """把手压在最上层(z-index 70)而窗口栏在 60 ⇒ 顶部那 5px、右上角那 6×6
+        **压在三个按钮身上**:点关闭按钮的上沿是"改窗口大小",不是关闭。
+        按钮只有 30px 高,被吃掉的是六分之一(08-17 四审 F7)。"""
+        btns, grip = _z_of(".win-btns"), _z_of(".win-grip")
+        self.assertIsNotNone(grip, "把手没有 z-index")
+        self.assertIsNotNone(btns, "按钮区没有自己的 z-index ⇒ 它压在把手下面")
+        self.assertGreater(btns, grip,
+                           "把手盖在按钮上 ⇒ 按钮上沿点下去是改大小,不是按按钮")
 
     def test_x4_the_chrome_never_shows_up_in_a_plain_browser(self):
         """浏览器里没有窗口可关,画出来就是三个按下去没反应的按钮。
