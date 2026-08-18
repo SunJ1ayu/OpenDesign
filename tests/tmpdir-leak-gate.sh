@@ -52,6 +52,30 @@ done
 
 probe="$(mktemp -d -t ds-leakprobe-XXXXXX)"        # 台面本身建在外面的 TMPDIR 里
 
+# ── 量具开工前先量一次自己(2026-08-18,四审两腿各自独立指到这里)──────────
+# 两条失败路径都会让这道闸**无声地永远绿**,而它守的正是"盘要满了"这种场景:
+#   ① `mktemp -d` 失败(盘满 / TMPDIR 不可写)⇒ $probe 是空串 ⇒ TMPDIR="" 回落真 /tmp
+#      ⇒ `find ""` 报错被 2>/dev/null 吞掉 ⇒ 数出 0 个 ⇒ 报"干净"。
+#   ② 数台面用的 `find -printf`/`-mindepth` 是 GNU 扩展、`mapfile` 要 bash≥4。
+#      换个用户态(BSD/macOS)它们直接报错,stderr 同样被吞 ⇒ 同样数出 0 个。
+# 一道会无声瞎掉的闸比没有闸更坏 —— 它让每一次真泄漏都变成"看着挺绿的"。
+# 所以:先放一个哨兵,确认这套数法真的数得出来,数不出来就**拒跑**(rc=2,不是绿)。
+if [ -z "$probe" ] || [ ! -d "$probe" ]; then
+  echo "✗ 泄漏闸:台面没建起来(mktemp 失败?盘满了?)—— 拒跑。" >&2
+  echo "  '数不出来' 不等于 '干净',这道闸不许在瞎的时候放行。" >&2
+  exit 2
+fi
+mkdir -p "$probe/.ds-leak-sentinel"
+mapfile -t _selfcheck < <(find "$probe" -mindepth 1 -maxdepth 1 -printf '%f\n' 2>/dev/null | sort)
+if [ "${#_selfcheck[@]}" -ne 1 ] || [ "${_selfcheck[0]:-}" != ".ds-leak-sentinel" ]; then
+  echo "✗ 泄漏闸自检没过:这台机器上数不出台面里的东西" >&2
+  echo "  (find -printf / find -mindepth / mapfile —— 都是 GNU + bash≥4 才有的)。" >&2
+  echo "  照跑下去它会对一切泄漏说「剩 0」—— 拒跑,rc=2。" >&2
+  rm -rf "$probe"
+  exit 2
+fi
+rmdir "$probe/.ds-leak-sentinel"
+
 # 收台面 —— 但**被测命令红了就不收**。
 # 2026-08-17 头一次真跑就栽在这:e2e 段红了两条,而它的详细日志正落在台面里
 # (它自己故意在失败时保留日志给人看),台面一收,**排查线索当场没了**,

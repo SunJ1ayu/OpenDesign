@@ -71,7 +71,10 @@ def assertion_lines(path: str) -> dict[int, str]:
     def note(node: ast.AST, why: str) -> None:
         ln = getattr(node, "lineno", None)
         if ln:
-            out[ln] = (src[ln - 1].strip() if ln <= len(src) else why)[:120]
+            full = src[ln - 1].strip() if ln <= len(src) else why
+            # 截断要留记号:放行清单按**整行内容**认,而有人会直接从报告里复制这一行。
+            # 不留记号的话他复制到的是半句,清单当场对不上 ⇒ 误红 ⇒ 他会去改那条无辜的断言。
+            out[ln] = full if len(full) <= 120 else full[:120] + " …(截断,写进 allow 要用整行)"
 
     # `except` 里的断言是**错误路径的兜底**(`self.fail("并发把配置写坏了")` 那种):
     # 健康的时候它本来就不该跑,拿"没执行过"去报它就是纯误报。先把这些行标出来跳过。
@@ -290,8 +293,11 @@ def load_allow() -> tuple[dict[tuple[str, int], str], list[str]]:
         if not hits:
             stale.append(line)
             continue
-        # 一条目盖住不止一行时**说出来**:内容相同的断言可能在别处也有一份,
-        # 那份未必适用同一个理由。不拦(拦了也没别的写法可用),但不许悄悄变宽。
+        # 一条目盖住不止一行 ⇒ **红**。内容相同的断言可能在别处也有一份,而那一份
+        # 未必适用同一个理由;放行清单一旦能一条盖两处,它就开始变成垃圾桶。
+        # 2026-08-18 四审两腿各自指出:原来这里只打印一行 ⚠️、不进退出码,而总跑的
+        # 汇总行只抠"N 条死断言" ⇒ 那行告警**在总跑里根本不可见** = 等于静默放行。
+        # 本仓库自己的规矩就是"静默吞掉就是新的假绿",所以改成拦。
         if len(hits) > 1:
             ALLOW_WIDE.append((line, len(hits)))
         for n in hits:
@@ -362,10 +368,12 @@ def main() -> int:
               "(**必须写理由**)。")
 
     if ALLOW_WIDE:
-        print(f"  ⚠️ 放行清单里有 {len(ALLOW_WIDE)} 条**盖住了不止一行**"
+        print(f"  ❌ 放行清单里有 {len(ALLOW_WIDE)} 条**盖住了不止一行**"
               f"(同样的源码在同一个文件里出现多次):")
         for line, n in ALLOW_WIDE:
-            print(f"     {n} 行 ← {line}")
+            print(f"     盖住 {n} 行 ← {line}")
+        print("  一条理由放行两处 = 另一处即使是真死断言也没人问过它。")
+        print("  给其中一行加个尾注释让它认得出来,或者给每一处各写一条。")
 
     if stale_allow:
         # 清单指着一条文件里已经不存在的断言。可能是那条断言被改了/删了/挪走了 ——
@@ -375,9 +383,10 @@ def main() -> int:
             print(f"     {line}")
         print("  改成那一行现在的源码,或者删掉它 —— 别让清单指着不存在的东西。")
 
-    if not dead and not ambiguous and not stale_allow:
+    if not dead and not ambiguous and not stale_allow and not ALLOW_WIDE:
         print("  ✅ 没有从没跑过的断言。")
-    return 0 if (suite_ok and not dead and not ambiguous and not stale_allow) else 1
+    return 0 if (suite_ok and not dead and not ambiguous
+                 and not stale_allow and not ALLOW_WIDE) else 1
 
 
 if __name__ == "__main__":

@@ -136,7 +136,7 @@ run_seg "dist 新鲜度(重新 build 后 git 应无差异)" dist-fresh \
            test -z "$(git status --porcelain -- web/dist)"'
 note_last "$([ "$LAST_RC" -eq 0 ] && echo "与源码同步" || echo "**入库的 dist 是旧的** —— 跑一次 npm run build 再提交")"
 
-# ── ④ e2e 总跑 ─────────────────────────────────────────────────────────
+# ── ⑤ e2e 总跑 ─────────────────────────────────────────────────────────
 e2e_args=(); [ "$with_gateway" -eq 1 ] && e2e_args+=(--with-gateway)
 # SEG_ALLOW=ds-e2e-log-:e2e 自己的日志目录。它在**红或有跳过**时故意留着给人看
 # (tests/e2e/run-all.sh 文件尾),不是泄漏。不放行的话,默认跑法(不带 --with-gateway)
@@ -165,9 +165,13 @@ if [ "$n_fail" -gt 0 ]; then
 fi
 if [ "$n_skip" -gt 0 ]; then
   # 这里**故意**不说"全绿":没跑的东西不许算通过(文件头形态①)。
+  # 日志目录**收掉**:一条红的都没有,那堆日志里没有任何要查的东西,留着只是往 /tmp
+  # 添垃圾 —— 而默认跑法必有 2 条 gateway e2e 跳过 ⇒ 每跑一次留一个。
+  # 2026-08-18 四审抓到的就是它:收据上那个"净增 1"是这么来的。
+  # (红的时候仍然留,见上面那一支:那时候日志是唯一的排查线索。)
+  rm -rf "$log_dir"
   echo "没有红的,但有 ${n_skip} 条没跑 —— 不算通过。"
   echo "   要跑那两条 e2e:先按 tests/e2e/README.md 起 gateway,再 tests/run-all.sh --with-gateway"
-  echo "   日志在 $log_dir"
   exit 3
 fi
 rm -rf "$log_dir"

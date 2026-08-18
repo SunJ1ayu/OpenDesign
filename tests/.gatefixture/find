@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# 【判据夹具,不是工具】假装是一个不认识 GNU 扩展的 find(BSD/macOS 就是这样)。
+# 用途:tests/test-tmpdir-leak-gate.sh 的 ⑫ —— 证明"数不出台面"时闸会拒跑而不是报绿。
+# 它的行为就是真 BSD find 遇到 -printf 时的行为:报错到 stderr,什么都不输出。
+echo "find: unknown primary or operator -- -printf" >&2
+exit 1

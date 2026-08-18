@@ -1,0 +1,32 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-F-gate-blindness
+cmd:     bash -c $'\nset -uo pipefail\nG=tests/tmpdir-leak-gate.sh; T=tests/test-tmpdir-leak-gate.sh\nbak=$(mktemp -t gbak-XXXXXX); cp "$G" "$bak"\ntrap "cp \\"$bak\\" \\"$G\\"; rm -f \\"$bak\\"" EXIT\nbad=0\nshow() { grep -E "⑫|⑬|全过|条红了"; }\nhit() { printf "%s\\n" "$1" | grep -qE "$2.*期望 rc"; }\n\necho "=== 对照组:闸带自检 → ⑫⑬ 必须绿 ==="\nout=$("$T" 2>&1); rc=$?\nprintf "%s\\n" "$out" | show\n[ $rc -eq 0 ] || { echo "!! 对照组自己红了,红检不算数"; bad=1; }\n\necho\necho "=== 变异:把闸退回 04f97f2(没有开工自检的那一版)==="\ngit show 04f97f2:$G > "$G"\nout=$("$T" 2>&1)\nprintf "%s\\n" "$out" | show\nhit "$out" ⑫ && echo "✓ ⑫ 咬住了(find 瞎了,旧闸报绿)" || { echo "!! ⑫ 没咬住"; bad=1; }\nhit "$out" ⑬ && echo "✓ ⑬ 咬住了(台面没建起来,旧闸报绿)" || { echo "!! ⑬ 没咬住"; bad=1; }\nfor k in ① ② ③ ⑨ ⑩ ⑪; do hit "$out" "$k" && { echo "!! $k 被误伤"; bad=1; }; done\necho "✓ 其余各条没被误伤"\n\necho\necho "=== 恢复复查 ==="\ncp "$bak" "$G"; "$T" >/dev/null 2>&1 || { echo "!! 恢复后还是红的"; bad=1; }\necho "恢复后 13 条全过"\n\necho\necho "=== 顺带:死断言闸的判据(多行放行改成拦)==="\nPY=/root/.venvs/design-studio/bin/python\n$PY -m unittest tests.test_dead_assertions 2>&1 | tail -3\n\necho\n[ $bad -eq 0 ] && echo "红检结论:⑫⑬ 各自咬住了旧闸的无声瞎掉,且不误伤其余十一条。" || echo "红检结论:有问题,见 !! 行"\nexit $bad\n'
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  04f97f2
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-18T01:52:59Z
+---------------- 输出开始 ----------------
+=== 对照组:闸带自检 → ⑫⑬ 必须绿 ===
+  [32mPASS[0m  ⑫ 数台面的 find 坏了 → 拒跑 rc=2,不许当成'干净' (rc=2)
+  [32mPASS[0m  ⑬ 台面建不起来(TMPDIR 不可写)→ 拒跑 rc=2 (rc=2)
+泄漏闸自测:13 条全过。
+
+=== 变异:把闸退回 04f97f2(没有开工自检的那一版)===
+  [31mFAIL[0m  ⑫ 数台面的 find 坏了 → 拒跑 rc=2,不许当成'干净' —— 期望 rc=2,实得 rc=0
+  [31mFAIL[0m  ⑬ 台面建不起来(TMPDIR 不可写)→ 拒跑 rc=2 —— 期望 rc=2,实得 rc=0
+泄漏闸自测:2 条红了。
+✓ ⑫ 咬住了(find 瞎了,旧闸报绿)
+✓ ⑬ 咬住了(台面没建起来,旧闸报绿)
+✓ 其余各条没被误伤
+
+=== 恢复复查 ===
+恢复后 13 条全过
+
+=== 顺带:死断言闸的判据(多行放行改成拦)===
+Ran 17 tests in 0.985s
+
+OK
+
+红检结论:⑫⑬ 各自咬住了旧闸的无声瞎掉,且不误伤其余十一条。
+---------------- 输出结束 ----------------
+runlog: redcheck-F-gate-blindness rc=0 commit=04f97f2 dirty=yes at=2026-08-18T01:52:59Z file=tracks/opendesign-tmpdir-leak/evidence/20260818T015259Z-01-redcheck-F-gate-blindness.txt

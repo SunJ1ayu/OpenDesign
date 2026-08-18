@@ -91,6 +91,16 @@ check_left ⑩ "命令红了、台面是空的 → 照样收掉,不添垃圾" 0 
 check_left ⑪ "命令绿了、漏了 → 前缀已报全,不留现场" 0 \
   $G -- bash -c 'mktemp -d >/dev/null; exit 0'
 
+# ⑫⑬ —— 量具自己瞎了的时候必须**拒跑**,不许报绿。
+# 2026-08-18 四审两腿各自独立指到这里:数台面用的 `find -printf`/`-mindepth`/`mapfile`
+# 都是 GNU + bash≥4 才有的,换个用户态就报错,而 stderr 被吞 ⇒ 数出 0 个 ⇒ **永远绿**;
+# `mktemp -d` 在盘满时失败 ⇒ 台面是空串 ⇒ 同样数出 0 个。
+# 两条路都指向同一个后果:**这道闸在最该响的时候(盘要满了)最安静**。
+check ⑫ "数台面的 find 坏了 → 拒跑 rc=2,不许当成'干净'" 2 \
+  env PATH="$PWD/tests/.gatefixture:$PATH" $G -- bash -c 'mktemp -d >/dev/null; exit 0'
+check ⑬ "台面建不起来(TMPDIR 不可写)→ 拒跑 rc=2" 2 \
+  env TMPDIR=/proc/nonexistent-dir $G -- true
+
 echo
 if [ "$fail" -eq 0 ]; then echo "泄漏闸自测:${total} 条全过。"; exit 0; fi
 echo "泄漏闸自测:${fail} 条红了。"; exit 1

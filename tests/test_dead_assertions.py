@@ -106,11 +106,12 @@ class DeadAssertionGate(unittest.TestCase):
         self.assertEqual(r.returncode, 1, "过期条目必须让闸红")
         self.assertIn("清单过期", r.stdout, f"要说清是清单过期,别让人去改无辜的断言:{r.stdout}")
 
-    def test_allow_covering_two_lines_says_so(self):
-        """一条目盖住不止一行时要吭声 —— 同样的源码在别处未必适用同一个理由。
+    def test_allow_covering_two_lines_is_red(self):
+        """一条目盖住不止一行 ⇒ **红**。同样的源码在别处未必适用同一个理由。
 
-        不拦(按内容认就没有别的写法可用),但**不许悄悄变宽**:放行清单一旦
-        变成垃圾桶,这道闸就废了。
+        2026-08-18 四审两腿各自指出:原来这里只打印一行 ⚠️ 不进退出码,而总跑的汇总
+        只抠"N 条死断言" ⇒ 那行告警在总跑里根本看不见 = 等于静默放行。
+        本仓库自己的规矩是"静默吞掉就是新的假绿",所以这里要求它**拦**。
         """
         self._write_allow(self.ALLOW_OK)
         with open(os.path.join(self.dir, "test_fixture.py"), "w", encoding="utf-8") as fh:
@@ -122,7 +123,8 @@ class DeadAssertionGate(unittest.TestCase):
                             self.assertIn("收件箱", got)  # 死的:一次都不会跑
             '''))
         r = run_tool(self.dir)
-        self.assertIn("盖住了不止一行", r.stdout, f"放行变宽了却没吭声:{r.stdout}")
+        self.assertEqual(r.returncode, 1, f"放行悄悄变宽了却是绿的:{r.stdout}")
+        self.assertIn("盖住了不止一行", r.stdout, f"红了却没说清为什么:{r.stdout}")
 
     def test_reports_suite_result_and_fails_with_it(self):
         """它要**替代**总跑里的 python 那一段(一次跑、两个信号),所以:
