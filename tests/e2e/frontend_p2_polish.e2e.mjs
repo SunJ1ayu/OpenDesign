@@ -1,5 +1,8 @@
 // track opendesign-frontend-p2-polish e2e:Claude Design v4 质感收口的**行为面**契约
-// (真 chromium + 真 ds_web,无 gateway——未连接态本身就是被测对象)。
+// (真 chromium + 真 ds_web,**不需要 gateway**——未连接态本身就是被测对象:
+//  未连接态由**拦 bootstrap 回 401** 造出来,见下方 page.route 那段的说明。
+//  08-18 之前这里写的是「无 gateway」,那句话是错的 —— 它真正要的是
+//  「有一个会拒绝口令的 gateway」,于是在没起 gateway 的机器上长期假红。)
 // 覆盖修改单:B 快记单行输入卡(空间 chip popover/toast/顶部高亮/不猜空间)、
 // C 连接卡两处(新对话页居中卡 + 工作区横幅→modal→esc)、发送按钮文字化、
 // D 收件箱摘要行 + stage-chip 挪中央列 + 伴随列去业主、E 变更行 ✎/✓ 图标钮、
@@ -107,6 +110,18 @@ let browser = null;
 try {
   browser = await launchBrowser();
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+
+  // ── 让页面进入「未连接」态:拦 bootstrap 回 401 ────────────────────────────
+  // 连接卡只在 view.kind==="login" 时渲染(ChatPage.tsx:753),而进入 login 的**唯一**
+  // 路径是 reduceReconnect 收到 PasswordRejected(reconnect.ts:88),它**唯一**的来源
+  // 又是 /api/chat/bootstrap 回 401(connection.ts:93)。
+  // 此前这一步是白拿的:开发机上常年有个真 gateway 在跑,它对没口令的请求正好回 401。
+  // 于是这两条 e2e **悄悄依赖了机器上有没有起 gateway** —— 谁没起谁见两条假红,
+  // 而红的原因("等 connect-card 超时")完全不指向真因。08-18 实测:
+  // 无 gateway 时页面走的是重连路径(8s 后显示「连接不上,gateway 可能没在跑」),
+  // 连接卡永不出现 —— 那是**正确的产品行为**,是判据问错了问题。
+  await page.route("**/api/chat/bootstrap", (route) =>
+    route.fulfill({ status: 401, contentType: "application/json", body: "{}" }));
   await page.goto(base, { waitUntil: "domcontentloaded" });
 
   // ── C:新对话页(默认首页,未连接)= 居中连接卡,不是裸表单 ────────────

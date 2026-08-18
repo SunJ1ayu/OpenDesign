@@ -1,5 +1,7 @@
 // track opendesign-todo-assistant e2e:待办页 keep-mounted 改造 + 右栏项目助手。
-// 真 chromium + 真 ds_web,**无 gateway**(真正的发送链路交装机验收)。
+// 真 chromium + 真 ds_web,**不需要 gateway**(真正的发送链路交装机验收)。
+// 未连接态由**拦 bootstrap 回 401** 造出来,见下方 page.route 那段的说明。
+// 08-18 之前这里写的是「无 gateway」,那句话是错的(详见 frontend_p2_polish 同段)。
 // 主 agent 亲写,执行腿逐字节 off-limits。
 //
 // 覆盖:
@@ -57,6 +59,18 @@ let browser = null;
 try {
   browser = await launchBrowser();
   const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+
+  // ── 让页面进入「未连接」态:拦 bootstrap 回 401 ────────────────────────────
+  // 连接卡只在 view.kind==="login" 时渲染(ChatPage.tsx:753),而进入 login 的**唯一**
+  // 路径是 reduceReconnect 收到 PasswordRejected(reconnect.ts:88),它**唯一**的来源
+  // 又是 /api/chat/bootstrap 回 401(connection.ts:93)。
+  // 此前这一步是白拿的:开发机上常年有个真 gateway 在跑,它对没口令的请求正好回 401。
+  // 于是这两条 e2e **悄悄依赖了机器上有没有起 gateway** —— 谁没起谁见两条假红,
+  // 而红的原因("等 connect-card 超时")完全不指向真因。08-18 实测:
+  // 无 gateway 时页面走的是重连路径(8s 后显示「连接不上,gateway 可能没在跑」),
+  // 连接卡永不出现 —— 那是**正确的产品行为**,是判据问错了问题。
+  await page.route("**/api/chat/bootstrap", (route) =>
+    route.fulfill({ status: 401, contentType: "application/json", body: "{}" }));
 
   // /api/todos 请求计数(性质④用)。注意:不能断言"没进过待办页时为 0"——
   // api.ts:101 侧栏未办结角标也拉这个口,App 挂载即拉,那样写会因合法原因红。

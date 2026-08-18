@@ -1,0 +1,18 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    green-nogateway
+cmd:     tests/e2e/run-all.sh frontend_p2_polish todo_assistant
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  aafd008
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-18T06:42:26Z
+---------------- 输出开始 ----------------
+== e2e 总跑(仓库根 /root/.openclaw/workspace/projects/design-studio)
+   只跑名字含:frontend_p2_polish todo_assistant
+
+  [32mPASS[0m  frontend_p2_polish.e2e.mjs           6s
+  [32mPASS[0m  todo_assistant.e2e.mjs               7s
+
+== 汇总:2 PASS / 0 FAIL / 0 SKIP
+   全绿。
+---------------- 输出结束 ----------------
+runlog: green-nogateway rc=0 commit=aafd008 dirty=yes at=2026-08-18T06:42:26Z file=tracks/e2e-gateway-dependency/evidence/20260818T064226Z-01-green-nogateway.txt
