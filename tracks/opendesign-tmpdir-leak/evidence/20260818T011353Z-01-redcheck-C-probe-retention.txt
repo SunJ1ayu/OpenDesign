@@ -1,0 +1,41 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-C-probe-retention
+cmd:     bash -c $'\nset -uo pipefail\nG=tests/tmpdir-leak-gate.sh\nT=tests/test-tmpdir-leak-gate.sh\nbak=$(mktemp -t gatebak-XXXXXX); cp "$G" "$bak"\ntrap "cp \\"$bak\\" \\"$G\\"; rm -f \\"$bak\\"" EXIT\nbad=0\nshow() { grep -E "⑨|⑩|⑪|全过|条红了"; }\nhit() { printf "%s\\n" "$1" | grep -qE "$2.*期望台面剩"; }\n\necho "=== 对照组:闸原样 → ⑨⑩⑪ 必须全绿(只跑变异那一半不算红检)==="\nout=$("$T" 2>&1); crc=$?\nprintf "%s\\n" "$out" | show\n[ $crc -eq 0 ] || { echo "!! 对照组自己就红了 ⇒ 这次红检不算数"; bad=1; }\n\necho; echo "=== 变异 A:把 cleanup_probe 退回 3228525 的旧写法(不管红绿一律收台面)==="\ngit show 3228525:$G > "$G"\nout=$("$T" 2>&1)\nprintf "%s\\n" "$out" | show\nhit "$out" ⑨ && echo "✓ ⑨ 咬住了(排查线索被销毁)" || { echo "!! ⑨ 没咬住 —— 这条判据证明不了任何事"; bad=1; }\nhit "$out" ⑩ && { echo "!! ⑩ 误报了"; bad=1; } || echo "✓ ⑩ 无误报"\nhit "$out" ⑪ && { echo "!! ⑪ 误报了"; bad=1; } || echo "✓ ⑪ 无误报"\n\necho; echo "=== 变异 B:cleanup_probe 整个变成空操作(红了绿了都留着 ⇒ 往 /tmp 添垃圾)==="\ncp "$bak" "$G"\nsed -i "s|^cleanup_probe() {$|cleanup_probe() { return 0   # 变异 B:空操作|" "$G"\ngrep -q "变异 B" "$G" || { echo "!! 变异 B 没打上 ⇒ 量具坏了,不是被测物绿了"; bad=1; }\nout=$("$T" 2>&1)\nprintf "%s\\n" "$out" | show\nhit "$out" ⑩ && echo "✓ ⑩ 咬住了(空台面被留在 /tmp)" || { echo "!! ⑩ 没咬住"; bad=1; }\nhit "$out" ⑪ && echo "✓ ⑪ 咬住了(绿了但漏了还留现场)" || { echo "!! ⑪ 没咬住"; bad=1; }\nhit "$out" ⑨ && { echo "!! ⑨ 误报了"; bad=1; } || echo "✓ ⑨ 无误报"\n\necho; echo "=== 恢复后复查:必须回到全绿 ==="\ncp "$bak" "$G"\nout=$("$T" 2>&1); rrc=$?\nprintf "%s\\n" "$out" | show\n[ $rrc -eq 0 ] || { echo "!! 恢复后还是红的"; bad=1; }\n\necho\n[ $bad -eq 0 ] && echo "红检结论:三条新判据各自咬住了它该咬的变异,且互不误报。" || echo "红检结论:有问题,见上面的 !! 行"\nexit $bad\n'
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  3228525
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-18T01:13:53Z
+---------------- 输出开始 ----------------
+=== 对照组:闸原样 → ⑨⑩⑪ 必须全绿(只跑变异那一半不算红检)===
+  [32mPASS[0m  ⑨ 命令红了、漏了 → 台面留着供排查 (台面剩 1)
+  [32mPASS[0m  ⑩ 命令红了、台面是空的 → 照样收掉,不添垃圾 (台面剩 0)
+  [32mPASS[0m  ⑪ 命令绿了、漏了 → 前缀已报全,不留现场 (台面剩 0)
+泄漏闸自测:11 条全过。
+
+=== 变异 A:把 cleanup_probe 退回 3228525 的旧写法(不管红绿一律收台面)===
+  [31mFAIL[0m  ⑨ 命令红了、漏了 → 台面留着供排查 —— 期望台面剩 1,实得 0
+  [32mPASS[0m  ⑩ 命令红了、台面是空的 → 照样收掉,不添垃圾 (台面剩 0)
+  [32mPASS[0m  ⑪ 命令绿了、漏了 → 前缀已报全,不留现场 (台面剩 0)
+泄漏闸自测:1 条红了。
+✓ ⑨ 咬住了(排查线索被销毁)
+✓ ⑩ 无误报
+✓ ⑪ 无误报
+
+=== 变异 B:cleanup_probe 整个变成空操作(红了绿了都留着 ⇒ 往 /tmp 添垃圾)===
+  [32mPASS[0m  ⑨ 命令红了、漏了 → 台面留着供排查 (台面剩 1)
+  [31mFAIL[0m  ⑩ 命令红了、台面是空的 → 照样收掉,不添垃圾 —— 期望台面剩 0,实得 1
+  [31mFAIL[0m  ⑪ 命令绿了、漏了 → 前缀已报全,不留现场 —— 期望台面剩 0,实得 1
+泄漏闸自测:2 条红了。
+✓ ⑩ 咬住了(空台面被留在 /tmp)
+✓ ⑪ 咬住了(绿了但漏了还留现场)
+✓ ⑨ 无误报
+
+=== 恢复后复查:必须回到全绿 ===
+  [32mPASS[0m  ⑨ 命令红了、漏了 → 台面留着供排查 (台面剩 1)
+  [32mPASS[0m  ⑩ 命令红了、台面是空的 → 照样收掉,不添垃圾 (台面剩 0)
+  [32mPASS[0m  ⑪ 命令绿了、漏了 → 前缀已报全,不留现场 (台面剩 0)
+泄漏闸自测:11 条全过。
+
+红检结论:三条新判据各自咬住了它该咬的变异,且互不误报。
+---------------- 输出结束 ----------------
+runlog: redcheck-C-probe-retention rc=0 commit=3228525 dirty=yes at=2026-08-18T01:13:53Z file=tracks/opendesign-tmpdir-leak/evidence/20260818T011353Z-01-redcheck-C-probe-retention.txt

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 【总跑开关】一条命令跑完本仓库全部四套自动检查。改完东西、收货前跑这一条就够。
+# 【总跑开关】一条命令跑完本仓库全部自动检查。改完东西、收货前跑这一条就够。
 #
 # 存在的理由(2026-08-06):在此之前本仓库有两个 runner(`tests/e2e/run-all.sh`、
 # `tests/mcp-gate.sh`),**互不调用**,也都不跑 `node --test` 和 python 全量 ——
@@ -19,11 +19,11 @@
 #    不给系统 python3 留门;要换解释器只能显式 `PY=... tests/run-all.sh`。
 #
 # 用法:
-#   tests/run-all.sh                 # 四段全跑(约 6 分钟);两条要活 gateway 的 e2e 记 SKIP
+#   tests/run-all.sh                 # 各段全跑(约 6 分钟);两条要活 gateway 的 e2e 记 SKIP
 #   tests/run-all.sh --with-gateway  # 连那两条也跑(先按 tests/e2e/README.md 把 gateway 起起来)
 #   PY=<python> tests/run-all.sh     # 换 python(Windows 真机:...\Scripts\python.exe)
 #
-# 退出码:0 = 四段全跑且全绿   1 = 有红   3 = 没红,但有没跑的(**不算通过**)
+# 退出码:0 = 各段全跑且全绿   1 = 有红   3 = 没红,但有没跑的(**不算通过**)
 set -uo pipefail
 
 cd "$(dirname "$0")/.."                   # 仓库根
@@ -44,7 +44,7 @@ names=(); rcs=(); notes=(); logs=()
 n_fail=0; n_skip=0
 
 # run_seg <显示名> <日志文件名> <命令...>
-# 跑完不早退 —— 四段各自的结果一次看全,比"红在第一段就停"更有用。
+# 跑完不早退 —— 各段的结果一次看全,比"红在第一段就停"更有用。
 # 跑完把这一段的 rc 和日志路径留在 LAST_RC / LAST_LOG 里,给下面的解析用。
 run_seg() {
   local name="$1" slug="$2"; shift 2
@@ -89,6 +89,13 @@ note_last() {
   [ -n "${LAST_LEAK:-}" ] && n="${n} / ⚠️ 漏了 ${LAST_LEAK} 个临时目录"
   notes+=("$n"); [ -n "${2:-}" ] && n_skip=$((n_skip + $2)); return 0
 }
+
+# ── ⓪ 泄漏闸自己的判据 ─────────────────────────────────────────────────
+# 放在最前面:下面每一段的"漏没漏"都是这道闸说了算,**它自己坏了就全盘不算数**。
+# 而 08-05 刚栽过一次同形态的病:`tests/mcp-gate.sh` 是个没人调的孤儿脚本,烂了两天
+# 才被发现。这份自测在 08-17 建成时同样没有任何总跑叫它 —— 现在接上。
+run_seg "泄漏闸自测(判据的判据)" leak-gate-self tests/test-tmpdir-leak-gate.sh
+note_last "$(grep -m1 -oE '[0-9]+ 条全过|[0-9]+ 条红了' "$LAST_LOG" || echo '数不出条数')"
 
 # ── ① node 单测 ────────────────────────────────────────────────────────
 run_seg "node 单测(tests/*.mjs)" node-unit $NODE --test tests/*.mjs
@@ -164,4 +171,5 @@ if [ "$n_skip" -gt 0 ]; then
   exit 3
 fi
 rm -rf "$log_dir"
-echo "四段全跑,全绿。"
+# 段数从数组里数,别写死 —— 08-18 加第 6 段时才发现这句话从 5 段起就一直写着"四段"。
+echo "${#names[@]} 段全跑,全绿。"

@@ -1,0 +1,21 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    gate-selftest-v2
+cmd:     tests/test-tmpdir-leak-gate.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  3228525
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-18T01:11:51Z
+---------------- 输出开始 ----------------
+== 泄漏闸自测 ==
+  [32mPASS[0m  ① 命令红了、没漏 → 透传命令 rc (rc=7)
+  [32mPASS[0m  ② 命令绿了、漏了 → 闸红 rc=9 (rc=9)
+  [32mPASS[0m  ③ 命令红了、也漏了 → 透传命令 rc(先修红的) (rc=7)
+  [32mPASS[0m  ⑧ 命令自己 rc=1、没漏 → 透传 1,不许被闸的码盖掉 (rc=1)
+  [32mPASS[0m  ④ --allow 放行指定前缀 → 绿 (rc=0)
+  [32mPASS[0m  ⑤ --allow 不放行别的前缀 → 红 (rc=9)
+  [32mPASS[0m  ⑥ 什么都没建 → 绿 (rc=0)
+  [32mPASS[0m  ⑦ 没给命令 → rc=2 (rc=2)
+
+泄漏闸自测:八条全过。
+---------------- 输出结束 ----------------
+runlog: gate-selftest-v2 rc=0 commit=3228525 dirty=yes at=2026-08-18T01:11:51Z file=tracks/opendesign-tmpdir-leak/evidence/20260818T011151Z-01-gate-selftest-v2.txt

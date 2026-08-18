@@ -51,7 +51,23 @@ done
 [ $# -eq 0 ] && { echo "没给要跑的命令:tmpdir-leak-gate.sh [--allow 前缀]... -- <命令...>" >&2; exit 2; }
 
 probe="$(mktemp -d -t ds-leakprobe-XXXXXX)"        # 台面本身建在外面的 TMPDIR 里
-cleanup_probe() { [ "$keep" -eq 1 ] || rm -rf "$probe"; }
+
+# 收台面 —— 但**被测命令红了就不收**。
+# 2026-08-17 头一次真跑就栽在这:e2e 段红了两条,而它的详细日志正落在台面里
+# (它自己故意在失败时保留日志给人看),台面一收,**排查线索当场没了**,
+# 汇总里那两行日志路径全指向已经不存在的目录。
+# 一道会毁掉现场的闸,比没有闸更坏 —— 它让每次真失败都变难查。
+cleanup_probe() {
+  [ "$keep" -eq 1 ] && return 0
+  # 空台面一律收掉 —— 哪怕命令红了。留一个空目录只是给 /tmp 添新垃圾,
+  # 而这道闸的全部意义就是别往 /tmp 添垃圾。
+  if [ -z "$(ls -A "$probe" 2>/dev/null)" ]; then rm -rf "$probe"; return 0; fi
+  if [ "${cmd_rc:-0}" -ne 0 ]; then
+    echo "  (被测命令红了,台面留着供排查:$probe)" >&2
+    return 0
+  fi
+  rm -rf "$probe"                                  # 命令绿了但漏了:上面已把前缀报全,不留现场
+}
 
 # 跑被测命令。**rc 必须原样接住** —— 本仓库栽过四次"管道吃掉退出码"造出假绿收据,
 # 所以这里不接管道、不套 `; echo rc=$?`,直接赋值。
