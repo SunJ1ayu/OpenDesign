@@ -218,6 +218,30 @@ class DeadAssertionGate(unittest.TestCase):
         self.assertIn("…(截断,写进 allow 要用整行)", r.stdout,
                       f"这一节的长行被静默截断了,复制进 allow 会对不上:{r.stdout}")
 
+    def test_short_lines_carry_no_truncation_marker(self):
+        """反向的一半:**没被截断的行不许挂记号**。
+
+        上一条只钉了"长行要有记号",于是一个**过度修**的实现(无条件给每行都加)
+        照样全绿 —— 而那种实现会把记号变成噪音:每一行都写着"要用整行",
+        真正被截断的那一行反而再也认不出来了,这条记号也就白立了。
+        2026-08-18 四审 subdeepseek 指出上一条的这个缺口,这里补上反面。
+        """
+        self._write('''
+            import unittest
+
+            class Fixture(unittest.TestCase):
+                def test_dead_oneline(self):
+                    got = None
+                    if got: self.assertIn("收件箱", got)
+        ''')
+        r = run_tool(self.dir)
+        self.assertEqual(r.returncode, 1,
+                         f"单行守卫本来就该报红:{r.stdout}{r.stderr}")
+        self.assertIn("和它的守卫写在同一行", r.stdout,
+                      f"这一行该落在'同一行守卫'那一节:{r.stdout}")
+        self.assertNotIn("…(截断,写进 allow 要用整行)", r.stdout,
+                         f"这行根本没超 120,记号却挂上了 —— 记号一泛滥就等于没有:{r.stdout}")
+
     def test_does_not_flag_assertRaises_context(self):
         """防止上一条修过头:`with self.assertRaises(...)` 的断言**就在头部**,
         这一行跑过了就是真问过了,一条都不许误报(本仓库现有 7 处这种写法)。"""
