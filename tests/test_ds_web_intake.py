@@ -23,6 +23,8 @@ from contextlib import contextmanager
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)  # design-studio/
 sys.path.insert(0, os.path.join(ROOT, "bin"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/ 自己
+import _tmpreg  # noqa: E402  临时目录登记表,见 tests/_tmpreg.py
 import ds_intake    # noqa: E402
 import ds_organize  # noqa: E402
 import ds_web       # noqa: E402
@@ -37,15 +39,15 @@ def _write(path, content="x"):
 
 
 def _mkdist() -> str:
-    d = tempfile.mkdtemp(prefix="ds_web_intake_dist_")
+    d = _tmpreg.mkdtemp("ds_web_intake_dist_")
     _write(os.path.join(d, "index.html"), "<!doctype html><div>x</div>")
     return d
 
 
 def _mkfixture():
     """ds_root(config/plans 落这)+ 工作区(收件箱/项目/共享资源)。"""
-    ds = tempfile.mkdtemp(prefix="ds_web_intake_ds_")
-    ws = tempfile.mkdtemp(prefix="ds_web_intake_ws_")
+    ds = _tmpreg.mkdtemp("ds_web_intake_ds_")
+    ws = _tmpreg.mkdtemp("ds_web_intake_ws_")
     os.makedirs(os.path.join(ws, "00-收件箱"))
     os.makedirs(os.path.join(ws, "01-项目", PROJ))
     os.makedirs(os.path.join(ws, "03-共享资源", "参考图库"))
@@ -109,7 +111,7 @@ class TestIntakeGet(unittest.TestCase):
             allowed_roots=[self.ws], ds_root=self.ds)
         pid = r["plan_id"]
         # 一份工作区外的 plan(比如 Desktop 清理)不该出现在收件箱卡片里
-        other = tempfile.mkdtemp(prefix="ds_web_intake_other_")
+        other = _tmpreg.mkdtemp("ds_web_intake_other_")
         _write(os.path.join(other, "z.txt"))
         ds_organize.stage_plan(other, [{"op": "move", "src": "z.txt",
                                         "dst": "y.txt"}],
@@ -180,7 +182,7 @@ class TestIntakeApprove(unittest.TestCase):
 
     def test_approve_rejects_non_workspace_plan(self):
         """针孔只批工作区内的 plan:Desktop 清理 plan 走 ds-approve CLI,不走网页。"""
-        other = tempfile.mkdtemp(prefix="ds_web_intake_other_")
+        other = _tmpreg.mkdtemp("ds_web_intake_other_")
         _write(os.path.join(other, "z.txt"))
         r = ds_organize.stage_plan(other, [{"op": "move", "src": "z.txt",
                                             "dst": "y.txt"}],

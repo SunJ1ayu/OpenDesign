@@ -32,6 +32,8 @@ from contextlib import contextmanager
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bin"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/ 自己
+import _tmpreg  # noqa: E402  临时目录登记表,见 tests/_tmpreg.py
 import ds_intake  # noqa: E402
 import ds_taxonomy  # noqa: E402
 import ds_web  # noqa: E402
@@ -57,7 +59,7 @@ def _mkws():
 
 
 def _mkdist():
-    d = tempfile.mkdtemp(prefix="inboxc-dist-")
+    d = _tmpreg.mkdtemp("inboxc-dist-")
     with open(os.path.join(d, "index.html"), "w", encoding="utf-8") as fh:
         fh.write("<!doctype html><div>x</div>")
     return d

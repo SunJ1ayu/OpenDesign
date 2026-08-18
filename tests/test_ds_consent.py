@@ -44,6 +44,8 @@ from contextlib import contextmanager
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)  # design-studio/
 sys.path.insert(0, os.path.join(ROOT, "bin"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/ 自己
+import _tmpreg  # noqa: E402  临时目录登记表,见 tests/_tmpreg.py
 import ds_consent    # noqa: E402  ← 本单新增;判据先行时它还不存在,整份红是对的
 import ds_documents  # noqa: E402
 import ds_tools      # noqa: E402
@@ -126,7 +128,7 @@ def _write(path, content="x"):
 
 
 def _mkdist() -> str:
-    d = tempfile.mkdtemp(prefix="ds_consent_dist_")
+    d = _tmpreg.mkdtemp("ds_consent_dist_")
     _write(os.path.join(d, "index.html"), "<!doctype html><div>x</div>")
     return d
 
@@ -137,8 +139,8 @@ def _mkfixture():
     new 根里那份 canary 就是这一单要防止被读走的东西。
     """
     ds = tempfile.mkdtemp(prefix="ds_consent_ds_")
-    old = tempfile.mkdtemp(prefix="ds_consent_old_")
-    new = tempfile.mkdtemp(prefix="ds_consent_new_")
+    old = _tmpreg.mkdtemp("ds_consent_old_")
+    new = _tmpreg.mkdtemp("ds_consent_new_")
     for root, proj, (name, body) in (
             (old, PROJ_IN, (CANARY_OLD_NAME, CANARY_OLD_BODY)),
             (new, PROJ_OUT, (CANARY_NEW_NAME, CANARY_NEW_BODY))):

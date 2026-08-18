@@ -9,12 +9,13 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SCRIPT = os.path.join(ROOT, "bin", "set_model.py")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/ 自己
+import _tmpreg  # noqa: E402  临时目录登记表,见 tests/_tmpreg.py
 
 
 def _run(*args):
@@ -23,7 +24,7 @@ def _run(*args):
 
 
 def _mkcfg(payload) -> str:
-    d = tempfile.mkdtemp(prefix="set_model_test_")
+    d = _tmpreg.mkdtemp("set_model_test_")
     p = os.path.join(d, "config.json")
     with open(p, "w", encoding="utf-8") as fh:
         if isinstance(payload, str):
@@ -52,7 +53,7 @@ class TestSetModel(unittest.TestCase):
 
     # ② config 缺失 → 非零退出,不创建文件
     def test_02_missing_config(self):
-        missing = os.path.join(tempfile.mkdtemp(prefix="set_model_test_"), "nope.json")
+        missing = os.path.join(_tmpreg.mkdtemp("set_model_test_"), "nope.json")
         r = _run("m/x", "--config", missing)
         self.assertNotEqual(r.returncode, 0)
         self.assertFalse(os.path.exists(missing))

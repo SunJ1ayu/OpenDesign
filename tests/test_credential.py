@@ -35,6 +35,8 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bin"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/ 自己
+import _tmpreg  # noqa: E402  临时目录登记表,见 tests/_tmpreg.py
 
 import ds_credential  # noqa: E402
 
@@ -53,7 +55,7 @@ _SAVED: dict[str, str | None] = {}
 
 def setUpModule():
     global _JUDGE_HOME
-    _JUDGE_HOME = tempfile.mkdtemp(prefix="ds-credential-判据假家-")
+    _JUDGE_HOME = _tmpreg.mkdtemp("ds-credential-判据假家-")
     for k in ("HOME", "USERPROFILE"):
         _SAVED[k] = os.environ.get(k)
         os.environ[k] = _JUDGE_HOME

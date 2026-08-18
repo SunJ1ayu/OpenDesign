@@ -8,7 +8,6 @@ DS_TODAY 注入冻结"今天",保证跨日稳定。
 import os
 import subprocess
 import sys
-import tempfile
 import unittest
 from datetime import date
 
@@ -16,6 +15,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)  # design-studio/
 BIN = os.path.join(ROOT, "bin")
 sys.path.insert(0, BIN)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/ 自己
+import _tmpreg  # noqa: E402  临时目录登记表,见 tests/_tmpreg.py
 import ds_todo  # noqa: E402
 import ds_tools  # noqa: E402
 
@@ -72,7 +73,7 @@ GOLDEN_OPEN_ONLY = """== 未关闭事项(待确认 / 进行中) ==
 
 
 def _mkroot(files: dict) -> str:
-    d = tempfile.mkdtemp(prefix="ds_todo_test_")
+    d = _tmpreg.mkdtemp("ds_todo_test_")
     proj = os.path.join(d, "projects")
     os.makedirs(proj)
     for name, text in files.items():

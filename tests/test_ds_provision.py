@@ -34,6 +34,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 BIN = REPO / "bin"
 sys.path.insert(0, str(BIN))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/ 自己
+import _tmpreg  # noqa: E402  临时目录登记表,见 tests/_tmpreg.py
 
 import ds_shell_core as core  # noqa: E402
 
@@ -58,7 +60,7 @@ _REAL_HOME: dict[str, str | None] = {}
 
 def setUpModule():
     global _JUDGE_HOME
-    _JUDGE_HOME = tempfile.mkdtemp(prefix="ds-provision-判据假家-")
+    _JUDGE_HOME = _tmpreg.mkdtemp("ds-provision-判据假家-")
     for k in ("HOME", "USERPROFILE"):
         _REAL_HOME[k] = os.environ.get(k)
         os.environ[k] = _JUDGE_HOME

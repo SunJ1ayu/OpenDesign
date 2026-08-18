@@ -26,12 +26,13 @@ red-check(未实现前该红成什么样):
 """
 import os
 import sys
-import tempfile
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bin"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/ 自己
+import _tmpreg  # noqa: E402  临时目录登记表,见 tests/_tmpreg.py
 import ds_tools  # noqa: E402
 
 TODAY = "2026-08-02"
@@ -83,7 +84,7 @@ PROJ_LEGACY = f"""# {KEY}
 
 
 def _mkroot(body: str = PROJ_WITH_HIST, key: str = KEY) -> str:
-    d = tempfile.mkdtemp(prefix="ds_stage_timer_")
+    d = _tmpreg.mkdtemp("ds_stage_timer_")
     os.makedirs(os.path.join(d, "projects"), exist_ok=True)
     with open(os.path.join(d, "projects", f"{key}.md"), "w", encoding="utf-8") as fh:
         fh.write(body)
@@ -493,7 +494,7 @@ class HeaderSectionInvariant(unittest.TestCase):
 # ── 建档:create_project 写首条 ─────────────────────────────────────────────
 class CreateProjectWritesFirstEntry(unittest.TestCase):
     def test_new_project_has_section_with_today(self):
-        d = tempfile.mkdtemp(prefix="ds_stage_timer_new_")
+        d = _tmpreg.mkdtemp("ds_stage_timer_new_")
         r = ds_tools.create_project("新项目-101", client="赵六", stage="洽谈",
                                     ds_root=d, today=TODAY)
         self.assertTrue(r.get("ok"), r)
@@ -507,7 +508,7 @@ class CreateProjectWritesFirstEntry(unittest.TestCase):
         self.assertEqual(0, t["days"])
 
     def test_non_default_stage_is_recorded(self):
-        d = tempfile.mkdtemp(prefix="ds_stage_timer_new2_")
+        d = _tmpreg.mkdtemp("ds_stage_timer_new2_")
         ds_tools.create_project("新项目-102", stage="施工图", ds_root=d, today=TODAY)
         self.assertEqual([{"date": TODAY, "stage": "施工图"}],
                          ds_tools.parse_stage_history(_md(d, "新项目-102")))

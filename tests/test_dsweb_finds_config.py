@@ -26,6 +26,7 @@ from __future__ import annotations
 import importlib
 import json
 import os
+import shutil
 import sys
 import tempfile
 import unittest
@@ -44,7 +45,10 @@ PASSWORD = "e2e-fixture-password-9"
 class DsWebFindsTheConfig(unittest.TestCase):
 
     def setUp(self):
-        self.home = tempfile.mkdtemp()
+        # 前缀 + 收摊:原来是裸 mkdtemp() 且 tearDown 只 reload 不删目录,
+        # 四条用例一轮漏四个。裸目录连前缀普查都归不了类,所以顺手补上前缀。
+        self.home = tempfile.mkdtemp(prefix="ds-web-finds-cfg-")
+        self.addCleanup(shutil.rmtree, self.home, ignore_errors=True)
         # 外壳改写的就是这一份(ds_shell.py:149 `home / ".nanobot" / "config.json"`)
         self.cfg = Path(self.home) / ".nanobot" / "config.json"
         self.cfg.parent.mkdir(parents=True, exist_ok=True)

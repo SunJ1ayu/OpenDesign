@@ -30,7 +30,6 @@ import http.client
 import json
 import os
 import sys
-import tempfile
 import threading
 import unittest
 from contextlib import contextmanager
@@ -39,6 +38,8 @@ from urllib.parse import quote
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bin"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/ 自己
+import _tmpreg  # noqa: E402  临时目录登记表,见 tests/_tmpreg.py
 import ds_web  # noqa: E402
 
 KEY = "云栖佳苑-1802"
@@ -78,7 +79,7 @@ def _touch(path, data=b"x"):
 
 
 def _mkroot() -> str:
-    d = tempfile.mkdtemp(prefix="ds_web_open_")
+    d = _tmpreg.mkdtemp("ds_web_open_")
     ws = os.path.join(d, "ws")
     proj = os.path.join(ws, *PROJ_REL.split("/"))
     for rel in OK_FILES + BAD_EXT_FILES:
@@ -98,7 +99,7 @@ def _mkroot() -> str:
 
 
 def _mkdist() -> str:
-    d = tempfile.mkdtemp(prefix="ds_web_open_dist_")
+    d = _tmpreg.mkdtemp("ds_web_open_dist_")
     with open(os.path.join(d, "index.html"), "w", encoding="utf-8") as fh:
         fh.write("<!doctype html><div>x</div>")
     return d

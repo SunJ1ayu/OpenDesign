@@ -17,7 +17,7 @@
 //
 // 跑法:node tests/e2e/chat_reconnect.e2e.mjs(自起 ds_web 于 8813;不需要 nanobot)
 import { spawn } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -584,6 +584,7 @@ try {
 } finally {
   if (browser) await browser.close();
   if (srv) srv.kill();
+  rmSync(tmp, { recursive: true, force: true });   // 收摊,别留给 /tmp
 }
 
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILED`);

@@ -94,6 +94,16 @@ log_dir="$(mktemp -d -t ds-e2e-log-XXXXXX)"
 # 🔴 单独跑某一条时不经过这里 ⇒ 会被卡片挡住。要单跑就自己带上:
 #      HOME=$(mktemp -d) 且在里面放 .openDesign/key.txt
 E2E_HOME="$(mktemp -d -t ds-e2e-home-XXXXXX)"
+# 收摊。2026-08-17:这个假家目录从来没人收,清理前 /tmp 里堆了 62 个。
+# trap 紧贴 mktemp 而不是写在文件尾 —— 下面那个"接不上 chromium 缓存就 exit 2"
+# 的早退路径也得收干净,写在尾巴上它就漏了。
+#
+# ⚠️ 看着危险其实不危险:下面会往 $E2E_HOME/.cache 里放一个**指向真实
+#    ~/.cache/ms-playwright 的符号链接**。`rm -rf` 删的是链接本身,不会跟着链接
+#    进去删掉那 641M 的真缓存(POSIX 语义:rm 不递归进符号链接)。
+#    本机在这上面栽过一次(worktree 里的 node_modules 链接被 merge 带回主仓
+#    **覆盖掉真目录**),所以这句话必须留在这儿,别让下一个人再验一遍。
+trap 'rm -rf "$E2E_HOME"' EXIT
 mkdir -p "$E2E_HOME/.openDesign" "$E2E_HOME/.cache"
 printf 'sk-e2e-fixture-not-a-real-key\n' > "$E2E_HOME/.openDesign/key.txt"
 

@@ -50,6 +50,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 BIN = os.path.join(ROOT, "bin")
 sys.path.insert(0, BIN)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/ 自己
+import _tmpreg  # noqa: E402  临时目录登记表,见 tests/_tmpreg.py
 import ds_shell_core as core  # noqa: E402
 
 # 🔴 跑这份判据的进程,不许够得着我这台机器的真家。理由与 tests/test_ds_provision.py
@@ -64,7 +66,7 @@ _REAL_HOME = {}
 
 def setUpModule():
     global _JUDGE_HOME
-    _JUDGE_HOME = tempfile.mkdtemp(prefix="ds-shell-core-判据假家-")
+    _JUDGE_HOME = _tmpreg.mkdtemp("ds-shell-core-判据假家-")
     for k in ("HOME", "USERPROFILE"):
         _REAL_HOME[k] = os.environ.get(k)
         os.environ[k] = _JUDGE_HOME

@@ -9,7 +9,6 @@ import http.client
 import json
 import os
 import sys
-import tempfile
 import threading
 import unittest
 from contextlib import contextmanager
@@ -19,6 +18,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)  # design-studio/
 BIN = os.path.join(ROOT, "bin")
 sys.path.insert(0, BIN)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/ 自己
+import _tmpreg  # noqa: E402  临时目录登记表,见 tests/_tmpreg.py
 import ds_todo  # noqa: E402
 import ds_web  # noqa: E402
 
@@ -36,7 +37,7 @@ PROJ_CN = """# 翡翠湾-1801
 
 
 def _mkroot(files: dict) -> str:
-    d = tempfile.mkdtemp(prefix="ds_web_test_")
+    d = _tmpreg.mkdtemp("ds_web_test_")
     proj = os.path.join(d, "projects")
     os.makedirs(proj)
     for name, text in files.items():
@@ -48,14 +49,19 @@ def _mkroot(files: dict) -> str:
 
 
 def _mkdist() -> str:
-    d = tempfile.mkdtemp(prefix="ds_web_dist_")
+    d = _tmpreg.mkdtemp("ds_web_dist_")
     with open(os.path.join(d, "index.html"), "w", encoding="utf-8") as fh:
         fh.write('<!doctype html><div id="root">OpenDesign</div>')
     os.makedirs(os.path.join(d, "assets"))
     with open(os.path.join(d, "assets", "app-abc123.js"), "w", encoding="utf-8") as fh:
         fh.write("console.log('ok')")
     # dist 隔壁放一个"不该被读到"的文件,供逃逸测试
-    with open(os.path.join(os.path.dirname(d), "secret-" + os.path.basename(d)), "w") as fh:
+    # 它直接落在 TMPDIR 上、不在任何临时目录里面 ⇒ 收目录收不到它,
+    # 按 mkdtemp 做的静态普查也找不到它(清理前 /tmp 里堆了 3766 个)。
+    # 是泄漏闸自己抓出来的 —— 所以单独登记一下。
+    secret = _tmpreg.register(
+        os.path.join(os.path.dirname(d), "secret-" + os.path.basename(d)))
+    with open(secret, "w") as fh:
         fh.write("LEAK")
     return d
 
@@ -208,7 +214,7 @@ class TestDsWeb(unittest.TestCase):
 
     # ⑦ health.model(track p4 T2):读 nanobot config 的 agents.defaults.model
     def test_11_health_model(self):
-        cfg = os.path.join(tempfile.mkdtemp(prefix="nb_cfg_"), "config.json")
+        cfg = os.path.join(_tmpreg.mkdtemp("nb_cfg_"), "config.json")
         with open(cfg, "w", encoding="utf-8") as fh:
             json.dump({"agents": {"defaults": {"model": "xiaomi/mimo-v2.5-pro"}}}, fh)
         os.environ["DS_NANOBOT_CONFIG"] = cfg
@@ -225,7 +231,7 @@ class TestDsWeb(unittest.TestCase):
     #    (nanobot 里 preset 优先于 model 字段;install.ps1 合并模板后真机就是这形态,
     #    只读 model 字段会回显假值 —— 07-13 发现的雷);指针悬空 → 回落 model 字段
     def test_11b_health_model_preset_wins(self):
-        cfg = os.path.join(tempfile.mkdtemp(prefix="nb_cfg_"), "config.json")
+        cfg = os.path.join(_tmpreg.mkdtemp("nb_cfg_"), "config.json")
         layout = {
             "agents": {"defaults": {"modelPreset": "mimo-v2.5", "model": "stale/ignored"}},
             "model_presets": {"mimo-v2.5": {"provider": "custom", "model": "mimo-v2.5"}},
@@ -251,7 +257,7 @@ class TestDsWeb(unittest.TestCase):
 
     # ⑧ health.model 健壮:config 缺失/损坏 → 探针仍 200,model=null(不炸)
     def test_12_health_model_bad_config(self):
-        bad = os.path.join(tempfile.mkdtemp(prefix="nb_cfg_"), "config.json")
+        bad = os.path.join(_tmpreg.mkdtemp("nb_cfg_"), "config.json")
         with open(bad, "w", encoding="utf-8") as fh:
             fh.write("{broken json")
         for cfgpath in (bad, "/nonexistent/config.json"):
@@ -267,7 +273,7 @@ class TestDsWeb(unittest.TestCase):
     # ⑨ health.model 类型守卫:model 非字符串 / 空串 → null(isinstance 守卫的红检;
     #    panel p4 submimo/subglm 共同点名的最高优先测试缺口)
     def test_13_health_model_type_guard(self):
-        d = tempfile.mkdtemp(prefix="nb_cfg_")
+        d = _tmpreg.mkdtemp("nb_cfg_")
         cfg = os.path.join(d, "config.json")
         for weird in (123, True, [], None, ""):
             with open(cfg, "w", encoding="utf-8") as fh:

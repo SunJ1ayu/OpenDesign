@@ -23,7 +23,6 @@ import json
 import os
 import socket
 import sys
-import tempfile
 import threading
 import unittest
 from contextlib import contextmanager
@@ -32,6 +31,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)  # design-studio/
 sys.path.insert(0, os.path.join(ROOT, "bin"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/ 自己
+import _tmpreg  # noqa: E402  临时目录登记表,见 tests/_tmpreg.py
 import ds_web  # noqa: E402
 
 
@@ -39,7 +40,7 @@ import ds_web  # noqa: E402
 # ⇒ 不隔离的话,这份判据会把**我这台机器的真口令**发给 mock 上游。
 # 今早刚在 tests/test_data_root.py 立过同一条规矩:**判据不许够得着我的真家。**
 _ISOLATED_TOKEN = "proxy-oracle-token"
-_ISOLATED_DIR = tempfile.mkdtemp(prefix="ds-proxy-判据配置-")
+_ISOLATED_DIR = _tmpreg.mkdtemp("ds-proxy-判据配置-")
 
 
 def setUpModule():
@@ -93,7 +94,7 @@ def _upstream(script=None):
 # ---------- 被测服务 ----------
 
 def _mkdist() -> str:
-    d = tempfile.mkdtemp(prefix="ds_web_proxy_dist_")
+    d = _tmpreg.mkdtemp("ds_web_proxy_dist_")
     with open(os.path.join(d, "index.html"), "w", encoding="utf-8") as fh:
         fh.write("<!doctype html><div>x</div>")
     return d
@@ -101,7 +102,7 @@ def _mkdist() -> str:
 
 @contextmanager
 def _serve(nanobot_port: int):
-    root = tempfile.mkdtemp(prefix="ds_web_proxy_root_")
+    root = _tmpreg.mkdtemp("ds_web_proxy_root_")
     os.makedirs(os.path.join(root, "projects"))
     httpd = ds_web.make_server(root, _mkdist(), port=0, nanobot_port=nanobot_port)
     t = threading.Thread(target=httpd.serve_forever, daemon=True)

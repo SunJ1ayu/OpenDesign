@@ -19,7 +19,6 @@ import http.client
 import json
 import os
 import sys
-import tempfile
 import threading
 import unittest
 from contextlib import contextmanager
@@ -28,6 +27,8 @@ from urllib.parse import quote
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)  # design-studio/
 sys.path.insert(0, os.path.join(ROOT, "bin"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/ 自己
+import _tmpreg  # noqa: E402  临时目录登记表,见 tests/_tmpreg.py
 import ds_todo  # noqa: E402
 import ds_web   # noqa: E402
 
@@ -72,7 +73,7 @@ PROJ_BARE = """# 光头项目
 
 
 def _mkroot(files: dict, refs_index: str | None = None) -> str:
-    d = tempfile.mkdtemp(prefix="ds_web_api_")
+    d = _tmpreg.mkdtemp("ds_web_api_")
     proj = os.path.join(d, "projects")
     os.makedirs(proj)
     for name, text in files.items():
@@ -88,7 +89,7 @@ def _mkroot(files: dict, refs_index: str | None = None) -> str:
 
 
 def _mkdist() -> str:
-    d = tempfile.mkdtemp(prefix="ds_web_api_dist_")
+    d = _tmpreg.mkdtemp("ds_web_api_dist_")
     with open(os.path.join(d, "index.html"), "w", encoding="utf-8") as fh:
         fh.write("<!doctype html><div>x</div>")
     return d
@@ -1292,7 +1293,7 @@ class TestCreateProjectPinhole(unittest.TestCase):
 def _mkws(ds_root: str, folders: list[str], depth: int = 1) -> str:
     """临时工作区:01-项目/ 下建 folders(depth=2 时 folders 形如 "2026/夹名"),
     并把 workspace.json 写进 ds_root/config。返回 ws 根。"""
-    ws = tempfile.mkdtemp(prefix="ds_web_bind_ws_")
+    ws = _tmpreg.mkdtemp("ds_web_bind_ws_")
     for f in folders:
         os.makedirs(os.path.join(ws, "01-项目", *f.split("/")))
     cfg = {"root": ws, "projects": {}}

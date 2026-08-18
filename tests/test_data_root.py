@@ -35,6 +35,8 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "bin"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/ 自己
+import _tmpreg  # noqa: E402  临时目录登记表,见 tests/_tmpreg.py
 
 import ds_common  # noqa: E402
 import ds_consent  # noqa: E402
@@ -50,7 +52,7 @@ _SAVED: dict[str, str | None] = {}
 
 def setUpModule():
     global _JUDGE_HOME
-    _JUDGE_HOME = tempfile.mkdtemp(prefix="ds-dataroot-判据假家-")
+    _JUDGE_HOME = _tmpreg.mkdtemp("ds-dataroot-判据假家-")
     for k in ("HOME", "USERPROFILE", ENV_VAR):
         _SAVED[k] = os.environ.get(k)
     os.environ["HOME"] = _JUDGE_HOME

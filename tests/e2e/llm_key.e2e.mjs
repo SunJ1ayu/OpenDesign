@@ -20,7 +20,7 @@
 //
 // 跑法:node tests/e2e/llm_key.e2e.mjs(自起 ds_web 于 8837;需要 web/dist 是新的)
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, statSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, statSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -561,6 +561,7 @@ try {
 } finally {
   if (browser) await browser.close().catch(() => {});
   srv.kill("SIGTERM");
+  rmSync(tmp, { recursive: true, force: true });   // 收摊,别留给 /tmp
 }
 
 console.log(failed === 0 ? "\nllm_key e2e: 全绿" : `\nllm_key e2e: ${failed} 条红`);
