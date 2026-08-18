@@ -141,12 +141,21 @@ runlog: runall-authoritative rc=1 commit=7d6d132 dirty=no at=2026-08-18T05:26:59
   > **补一笔诚实账(08-18 收口时才发现)**:「它们依赖活 gateway」这个定性,在今天之前
   > **从来没有被验证过** —— 是我从报错现象推出来的。今天我试着起 gateway 去证实它,
   > **没起成**:`bin/ds-nanobot gateway` 报 `Environment variable 'DS_LLM_KEY' … is not set`。
-  > 这本身不是 bug(`bin/ds_shell.py:223` 早写明:本机 `~/.nanobot/config.json` 是**业主部署
-  > 那份形状**、引用 `${DS_LLM_KEY}`,而开发脚本走的是 MiMo 官方 key `MIMO_TP_KEY`,
-  > 两套形状不同)。**我就此停手,没有去给它凑 key** —— 那等于给判据接一个真 LLM 后端,
+  > **⚠️ 我第一遍把这条判错了,当场更正(留着错判的过程,因为它本身是教训)。**
+  > 我原先写的是"这不是 bug,两套 config 形状不同而已"。**错。** `bin/ds_credential.py:10-11`
+  > 写死了这条不变量:**Windows 那份引用 `${DS_LLM_KEY}`,Linux 那份引用 `${MIMO_TP_KEY}`**。
+  > 而本机 `~/.nanobot/config.json` 实测引用的是 `${DS_LLM_KEY}`,MCP server 的路径还是
+  > `${USERPROFILE}/.venvs/design-studio/Scripts/python.exe`(Windows 路径),mtime 停在
+  > **08-15 13:24**。也就是说:**这台 Linux 机上装着的是 Windows 那一份配置** —— 这是
+  > 上一单归档时就记下、至今**没有根因**的一笔敞着的账(疑似判据改了我的机器,
+  > 见 tmpdir-leak 那单的「还敞着的两笔账」)。gateway 在这台机器上起不来是**那笔账的后果**,
+  > 不是正常状态。**这个区别很要紧**:照我第一遍的错判,下一轮会以为"Linux 起不来天经地义"
+  > 而不去查那份被换掉的配置。
+  > **我就此停手,没有去给它凑 key** —— 那等于给判据接一个真 LLM 后端,
   > 正撞上更硬的那条规矩(判据不许有外网出口;08-10 判据自己去叫 kimi、一上午烧光额度)。
   > 所以到今天为止,这条定性仍是**未经实测的假设**。那"单独一单"要做的第一件事是**先证实它**,
-  > 别直接照着假设去改判据。
+  > 别直接照着假设去改判据 —— 而证实它的**前置条件**已经清楚了:先把本机那份被换成 Windows
+  > 形状的 `~/.nanobot/config.json` 恢复成 Linux 那份(引用 `${MIMO_TP_KEY}`),gateway 才起得来。
 
 - **python 段那 `1 跳过` 的身份:`tests/test_ws_protocol_smoke.py`(整类 SKIP,连带 16 条断言没被问到)。**
   跳过原因:`gateway 未在 127.0.0.1:8765 运行`。**必须点名的理由**:这个文件头自己写着
