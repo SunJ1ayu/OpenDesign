@@ -4,10 +4,12 @@
 这道闸要抓的是"断言在那儿、却从没被执行过"(2026-08-06 我自己犯的:
 `if d:` 里的 assert 因为 d 恒为 None,一次没跑过,而每一层看到的都是绿的)。
 
-所以这份判据必须问清三件事:
+所以这份判据必须问清这几件事:
   1. **真的死断言要被抓到**(不然这道闸是摆设);
   2. **活着的断言不许被误报**(误报的闸活不过一周);
-  3. **放行清单要有理由才生效** —— 没理由的例外等于把闸关掉。
+  3. **放行清单要有理由才生效** —— 没理由的例外等于把闸关掉;
+  4. (2026-08-18)**放行认的是那一行的源码,不是行号** —— 行号漂过四次,
+     四次都红在无辜的断言上;过期条目要当场响,盖住多行要吭声。
 """
 import os
 import subprocess
@@ -60,18 +62,67 @@ class DeadAssertionGate(unittest.TestCase):
         self.assertNotIn("assertEqual(1, 1)", r.stdout,
                          f"活着的断言被误报了:{r.stdout}")
 
+    # 放行清单的一行长这样(2026-08-18 起按**内容**认,不按行号):
+    #   <文件> :: <那一行 strip 后的源码>  # 理由
+    DEAD_LINE = 'self.assertIn("收件箱", got)  # 死的:一次都不会跑'
+    ALLOW_OK = f"test_fixture.py :: {DEAD_LINE}  # 夹具:这条本来就是用来演示死断言的\n"
+
+    def _write_allow(self, text: str) -> None:
+        with open(os.path.join(self.dir, "dead_assertions.allow"), "w", encoding="utf-8") as fh:
+            fh.write(text)
+
     def test_allow_needs_a_reason(self):
-        allow = os.path.join(self.dir, "dead_assertions.allow")
         # ① 没写理由的例外**不生效**
-        with open(allow, "w", encoding="utf-8") as fh:
-            fh.write("test_fixture.py:11\n")
+        self._write_allow(f"test_fixture.py :: {self.DEAD_LINE}\n")
         r = run_tool(self.dir)
         self.assertEqual(r.returncode, 1, "没写理由的例外不许生效")
         # ② 写了理由才放行
-        with open(allow, "w", encoding="utf-8") as fh:
-            fh.write("test_fixture.py:11  # 夹具:这条本来就是用来演示死断言的\n")
+        self._write_allow(self.ALLOW_OK)
         r = run_tool(self.dir)
         self.assertEqual(r.returncode, 0, f"写了理由的例外应当放行:{r.stdout}")
+
+    def test_allow_survives_line_drift(self):
+        """行号漂了,放行**必须还在** —— 这就是 2026-08-18 那一刀要买的东西。
+
+        在那之前清单按 `<文件>:<行号>` 认,而行号漂过四次(每次都是有人往文件
+        上半部分加了一行 import),四次都红在**无辜的断言**上,四次修法都是把数字改大。
+        报警器指错门和报警器被调钝一样坏,所以这条钉死:**只要那一行的源码没变,
+        它上面加多少行都不许改变放行结论。**
+        """
+        self._write_allow(self.ALLOW_OK)
+        with open(os.path.join(self.dir, "test_fixture.py"), "w", encoding="utf-8") as fh:
+            fh.write("import os  # 上面多出来的一行,把下面所有行号推下去\n" + FIXTURE)
+        r = run_tool(self.dir)
+        self.assertEqual(r.returncode, 0, f"行号漂了就不放行了 ⇒ 又回到按行号认:{r.stdout}")
+
+    def test_stale_allow_entry_is_loud(self):
+        """清单指着一条**文件里已经不存在**的断言时,必须当场红。
+
+        沉默地少放行一条 = 那条断言以"死断言"的身份红出来,而人会去改那条无辜的断言;
+        沉默地放过 = 清单变成垃圾桶。两头都不许,所以这里要求它**点名那一条**。
+        """
+        self._write_allow("test_fixture.py :: self.assertIn(\"不存在的断言\", got)  # 早就删掉了\n")
+        r = run_tool(self.dir)
+        self.assertEqual(r.returncode, 1, "过期条目必须让闸红")
+        self.assertIn("清单过期", r.stdout, f"要说清是清单过期,别让人去改无辜的断言:{r.stdout}")
+
+    def test_allow_covering_two_lines_says_so(self):
+        """一条目盖住不止一行时要吭声 —— 同样的源码在别处未必适用同一个理由。
+
+        不拦(按内容认就没有别的写法可用),但**不许悄悄变宽**:放行清单一旦
+        变成垃圾桶,这道闸就废了。
+        """
+        self._write_allow(self.ALLOW_OK)
+        with open(os.path.join(self.dir, "test_fixture.py"), "w", encoding="utf-8") as fh:
+            fh.write(FIXTURE + textwrap.dedent('''
+                class Fixture2(unittest.TestCase):
+                    def test_dead2(self):
+                        got = None
+                        if got:
+                            self.assertIn("收件箱", got)  # 死的:一次都不会跑
+            '''))
+        r = run_tool(self.dir)
+        self.assertIn("盖住了不止一行", r.stdout, f"放行变宽了却没吭声:{r.stdout}")
 
     def test_reports_suite_result_and_fails_with_it(self):
         """它要**替代**总跑里的 python 那一段(一次跑、两个信号),所以:

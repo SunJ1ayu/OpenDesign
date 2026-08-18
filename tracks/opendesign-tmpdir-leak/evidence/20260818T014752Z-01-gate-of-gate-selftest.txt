@@ -1,0 +1,47 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    gate-of-gate-selftest
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_dead_assertions -v
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  d27a5c0
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-18T01:47:52Z
+---------------- 输出开始 ----------------
+test_allow_covering_two_lines_says_so (tests.test_dead_assertions.DeadAssertionGate.test_allow_covering_two_lines_says_so)
+一条目盖住不止一行时要吭声 —— 同样的源码在别处未必适用同一个理由。 ... ok
+test_allow_needs_a_reason (tests.test_dead_assertions.DeadAssertionGate.test_allow_needs_a_reason) ... ok
+test_allow_survives_line_drift (tests.test_dead_assertions.DeadAssertionGate.test_allow_survives_line_drift)
+行号漂了,放行**必须还在** —— 这就是 2026-08-18 那一刀要买的东西。 ... ok
+test_clean_suite_passes (tests.test_dead_assertions.DeadAssertionGate.test_clean_suite_passes)
+一份干净的判据不许被判红(否则这道闸就是噪音发生器)。 ... ok
+test_does_not_flag_assertRaises_context (tests.test_dead_assertions.DeadAssertionGate.test_does_not_flag_assertRaises_context)
+防止上一条修过头:`with self.assertRaises(...)` 的断言**就在头部**, ... ok
+test_does_not_flag_live_assertions (tests.test_dead_assertions.DeadAssertionGate.test_does_not_flag_live_assertions)
+误报会让这道闸活不过一周 —— 活着的断言一条都不许出现在报告里。 ... ok
+test_does_not_flag_one_line_assertRaises (tests.test_dead_assertions.DeadAssertionGate.test_does_not_flag_one_line_assertRaises)
+单行 `with self.assertRaises(X): raise X()` —— 断言在 with 的**头部**, ... ok
+test_does_not_flag_sequential_same_line (tests.test_dead_assertions.DeadAssertionGate.test_does_not_flag_sequential_same_line)
+`x = f(); self.assertEqual(...)` —— 同一行两条语句,但**没有任何分流**, ... ok
+test_flags_short_circuit_guarded_assertion (tests.test_dead_assertions.DeadAssertionGate.test_flags_short_circuit_guarded_assertion)
+`got and self.assertIn(...)` —— `if got:` 的等价写法,只是它是**一条**语句。 ... ok
+test_flags_single_line_guarded_assertion (tests.test_dead_assertions.DeadAssertionGate.test_flags_single_line_guarded_assertion)
+**同一个事故,写成一行就躲过去了** —— 这是 08-07 评审抓到的第一个洞。 ... ok
+test_flags_ternary_and_comprehension_guarded (tests.test_dead_assertions.DeadAssertionGate.test_flags_ternary_and_comprehension_guarded)
+短路之外的同族形状:三元、单行推导式。 ... ok
+test_flags_the_dead_assertion (tests.test_dead_assertions.DeadAssertionGate.test_flags_the_dead_assertion) ... ok
+test_reports_suite_result_and_fails_with_it (tests.test_dead_assertions.DeadAssertionGate.test_reports_suite_result_and_fails_with_it)
+它要**替代**总跑里的 python 那一段(一次跑、两个信号),所以: ... ok
+test_skip_does_not_hide_a_real_dead_assertion (tests.test_dead_assertions.DeadAssertionGate.test_skip_does_not_hide_a_real_dead_assertion)
+防止上一条变成新后门:同一份判据里既有 skip、也有真死断言时, ... ok
+test_skip_exemption_stays_in_its_own_file (tests.test_dead_assertions.DeadAssertionGate.test_skip_exemption_stays_in_its_own_file)
+skip 豁免**不许跨文件圈错行** —— 会把正在跑的判据里的真死断言吞掉。 ... ok
+test_skipped_test_is_not_a_dead_assertion (tests.test_dead_assertions.DeadAssertionGate.test_skipped_test_is_not_a_dead_assertion)
+**跳过 ≠ 死** —— 08-07 评审抓到的第二个洞。 ... ok
+test_stale_allow_entry_is_loud (tests.test_dead_assertions.DeadAssertionGate.test_stale_allow_entry_is_loud)
+清单指着一条**文件里已经不存在**的断言时,必须当场红。 ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.911s
+
+OK
+---------------- 输出结束 ----------------
+runlog: gate-of-gate-selftest rc=0 commit=d27a5c0 dirty=yes at=2026-08-18T01:47:52Z file=tracks/opendesign-tmpdir-leak/evidence/20260818T014752Z-01-gate-of-gate-selftest.txt
