@@ -3,8 +3,12 @@
 聊天链路的端到端验证,需要**活的 nanobot gateway + ds_web**,不进 `tests/*.mjs`
 常规回归(glob 扫不到本目录,CI/无 gateway 环境不误红)。
 
-> **收货前请跑仓库级总跑 `tests/run-all.sh`**(node 单测 + python 全量 + MCP 闸 + 本目录 e2e,
-> 四段一条命令)。本文件说的是其中第四段;单独调试 e2e 时才直接用下面的 `tests/e2e/run-all.sh`。
+> **收货前请跑仓库级总跑 `tests/run-all.sh`**(泄漏闸自测 + node 单测 + python 全量 +
+> MCP 闸 + dist 新鲜度 + 本目录 e2e,六段一条命令)。本文件说的是其中 **e2e 那一段**;
+> 单独调试 e2e 时才直接用下面的 `tests/e2e/run-all.sh`。
+>
+> ⚠️ 这里**故意不写第几段**:原来写的是「四段…其中第四段」,总跑插进新段之后就成了假话
+> (2026-08-18 四审 submimo 抓到)。按名字指,插多少段都不会漂。
 
 ## ⭐ 先看这个:总跑开关 `run-all.sh`
 
