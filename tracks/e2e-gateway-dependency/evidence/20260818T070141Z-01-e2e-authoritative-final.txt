@@ -1,0 +1,55 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    e2e-authoritative-final
+cmd:     tests/e2e/run-all.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  b726b57
+dirty:   no(跑之前采的;含未跟踪文件)
+started: 2026-08-18T07:01:41Z
+---------------- 输出开始 ----------------
+== e2e 总跑(仓库根 /root/.openclaw/workspace/projects/design-studio)
+
+  [32mPASS[0m  adoption.e2e.py                      0s
+  [32mPASS[0m  clickable_actions.e2e.py             1s
+  [32mPASS[0m  inbox_scan.e2e.py                    1s
+  [32mPASS[0m  button_roles.e2e.mjs                24s
+  [32mPASS[0m  chat_image.e2e.mjs                   6s
+  [32mPASS[0m  chat_reconnect.e2e.mjs              28s
+  [32mPASS[0m  cockpit.e2e.mjs                     70s
+  [31mFAIL[0m  consent_card.e2e.mjs                69s   /tmp/ds-e2e-log-xkfEuP/consent_card.e2e.mjs.log
+  [32mPASS[0m  duedate.e2e.mjs                      1s
+  [31mFAIL[0m  duedate_picker.e2e.mjs             161s   /tmp/ds-e2e-log-xkfEuP/duedate_picker.e2e.mjs.log
+  [31mFAIL[0m  focus_ring.e2e.mjs                 239s   /tmp/ds-e2e-log-xkfEuP/focus_ring.e2e.mjs.log
+  [31mFAIL[0m  frontend_p1.e2e.mjs                174s   /tmp/ds-e2e-log-xkfEuP/frontend_p1.e2e.mjs.log
+  [32mPASS[0m  frontend_p2_polish.e2e.mjs         134s
+  [31mFAIL[0m  frontend_p3_polish.e2e.mjs         106s   /tmp/ds-e2e-log-xkfEuP/frontend_p3_polish.e2e.mjs.log
+  [32mPASS[0m  gallery_head_buttons.e2e.mjs       117s
+  [31mFAIL[0m  gallery_order.e2e.mjs               58s   /tmp/ds-e2e-log-xkfEuP/gallery_order.e2e.mjs.log
+  [32mPASS[0m  image_upload.e2e.mjs                23s
+  [32mPASS[0m  inbox_drop.e2e.mjs                  36s
+  [32mPASS[0m  inbox_open_button.e2e.mjs            9s
+  [32mPASS[0m  inbox_pad_gallery.e2e.mjs           10s
+  [32mPASS[0m  intake.e2e.mjs                       5s
+  [32mPASS[0m  intake_simplify.e2e.mjs             11s
+  [31mFAIL[0m  llm_key.e2e.mjs                     27s   /tmp/ds-e2e-log-xkfEuP/llm_key.e2e.mjs.log
+  [33mSKIP[0m  new_chat.e2e.mjs                         需要活 gateway,加 --with-gateway 才跑
+  [33mSKIP[0m  project-thread.e2e.mjs                   需要活 gateway,加 --with-gateway 才跑
+  [32mPASS[0m  settings_fvis.e2e.mjs                9s
+  [32mPASS[0m  shell_chrome.e2e.mjs                15s
+  [32mPASS[0m  side_stage_groups.e2e.mjs           15s
+  [32mPASS[0m  stage_history.e2e.mjs               11s
+  [32mPASS[0m  stage_timer.e2e.mjs                 11s
+  [32mPASS[0m  todo_assistant.e2e.mjs              10s
+  [32mPASS[0m  todo_batch_space.e2e.mjs             6s
+  [32mPASS[0m  todo_delete.e2e.mjs                 10s
+  [32mPASS[0m  todo_layout.e2e.mjs                  7s
+  [32mPASS[0m  todo_one_view.e2e.mjs                3s
+  [32mPASS[0m  todo_rail.e2e.mjs                    3s
+  [32mPASS[0m  ws_change_note.e2e.mjs              40s
+  [32mPASS[0m  ws_collapse_back.e2e.mjs            17s
+
+== 汇总:29 PASS / 7 FAIL / 2 SKIP
+   未跑(不算通过):new_chat.e2e.mjs project-thread.e2e.mjs
+   红的:consent_card.e2e.mjs duedate_picker.e2e.mjs focus_ring.e2e.mjs frontend_p1.e2e.mjs frontend_p3_polish.e2e.mjs gallery_order.e2e.mjs llm_key.e2e.mjs
+   日志在 /tmp/ds-e2e-log-xkfEuP
+---------------- 输出结束 ----------------
+runlog: e2e-authoritative-final rc=1 commit=b726b57 dirty=no at=2026-08-18T07:01:41Z file=tracks/e2e-gateway-dependency/evidence/20260818T070141Z-01-e2e-authoritative-final.txt

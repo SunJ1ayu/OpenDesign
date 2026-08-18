@@ -18,7 +18,36 @@ runlog: redcheck-B-mutant-connectcard rc=1 commit=aafd008 dirty=yes at=2026-08-1
 runlog: green-after-mutation-restore rc=0 commit=aafd008 dirty=yes at=2026-08-18T06:43:52Z file=tracks/e2e-gateway-dependency/evidence/20260818T064352Z-01-green-after-mutation-restore.txt
 runlog: green-with-gateway rc=0 commit=aafd008 dirty=yes at=2026-08-18T06:44:19Z file=tracks/e2e-gateway-dependency/evidence/20260818T064419Z-01-green-with-gateway.txt
 runlog: green-after-findings rc=0 commit=6dabd15 dirty=yes at=2026-08-18T06:59:38Z file=tracks/e2e-gateway-dependency/evidence/20260818T065938Z-01-green-after-findings.txt
+runlog: e2e-authoritative-final rc=1 commit=b726b57 dirty=no at=2026-08-18T07:01:41Z file=tracks/e2e-gateway-dependency/evidence/20260818T070141Z-01-e2e-authoritative-final.txt
+runlog: e2e-authoritative-final-2 rc=1 commit=b726b57 dirty=yes at=2026-08-18T07:30:09Z file=tracks/e2e-gateway-dependency/evidence/20260818T073009Z-01-e2e-authoritative-final-2.txt
+runlog: diag-flaky-eight rc=0 commit=b726b57 dirty=yes at=2026-08-18T07:37:03Z file=tracks/e2e-gateway-dependency/evidence/20260818T073703Z-01-diag-flaky-eight.txt
 ```
+
+### 收尾这三份必须逐条交代(红的一份都不许藏,5b)
+
+最后那两遍**全套** e2e 都 rc=1,而**红的都不是本单这两条**。分型过程如下:
+
+| 遍次 | 结果 | 红的是谁 |
+|---|---|---|
+| `e2e-authoritative`(07:01 前,06:46) | 36 PASS / 0 FAIL | 无 |
+| `e2e-authoritative-final`(07:01) | 29 PASS / **7 FAIL** | consent_card, duedate_picker, focus_ring, frontend_p1, frontend_p3_polish, gallery_order, llm_key |
+| `e2e-authoritative-final-2`(07:30) | 35 PASS / **1 FAIL** | button_roles |
+| `diag-flaky-eight`(07:37) | **8 PASS / 0 FAIL** | 把上面两批红过的 8 条单独拎出来跑 —— **全绿** |
+
+**判它是环境不是回归,依据四条(不是"它只是抖"这句舒服话)**:
+1. **两批红不重叠**(7 条与 1 条无交集)。真回归不会每次换一批。
+2. **那 8 条单独跑全绿**(`diag-flaky-eight` rc=0)。它们不坏。
+3. **失败症状是资源型**:`focus_ring` 红在 `ds_web.py:760` 的 `BrokenPipeError`
+   (客户端提前断开),不是断言不成立。
+4. **机器条件**:本机内存 **1 GB**、`load average 9~20` 是常态;07:01 那遍正撞在
+   panel 两条腿(headless Claude Code + MiMo)刚跑完、负载没退的窗口上。
+5. **本单这两条 `frontend_p2_polish` / `todo_assistant` 在上面每一遍里都绿。**
+
+> **这里必须说一句不好听的**:这四条成立,不代表"资源"是个可以随手拿来用的解释 ——
+> 它恰恰是最舒服的那种解释。所以我没有停在推理上,而是**跑了 `diag-flaky-eight` 去证伪它**
+> (如果那 8 条单独跑还红,本单就得停下来查真因)。08-04 我把 resolver_eval 的抖动
+> 归成噪音、准备"重复跑取多数",被业主一句「抖动实际上是我们的 bug」掰回来 —— 那次的
+> 教训不是"别怀疑判据",是**得拿证据分型,不能拿方便的故事结案**。
 
 | 收据 | rc | 它证明什么 |
 |---|---|---|
@@ -110,6 +139,15 @@ runlog: e2e-authoritative rc=0 commit=ccb3a5c dirty=no at=2026-08-18T06:46:41Z f
   **两条腿一致 PASS 不构成我降低标准的理由** —— 我自己的孤发现(page 级 route)照样记账。
 
 ## Accepted deviations
+
+- **🔴 本机 e2e 总跑本身不是稳定判据(本单挖出来的新账,不在本单修)。**
+  36 条并发跑在 **1 GB 内存**的机器上会**随机**红几条,每次一批不同的
+  (实测两遍:7 条 / 1 条,无交集;单独跑全绿)。影响面比本单大得多:
+  **所有单的收口都在拿"e2e 总跑全绿"当门槛,而这个门槛在这台机器上会随机自己变红。**
+  后果是双向的 —— 假红让人习惯"那几条本来就红"(判据失去报警能力,正是本单刚修完的病),
+  而"重跑到绿为止"则是把报警器调钝。**修法方向**(要单独一单):让 run-all 串行或限并发、
+  或给单条失败自动重试一次并**在汇总里如实标记"重试过"**(不许静默重试)。
+  本单没修,记成明账。
 
 - **`redcheck-B` 变异的是 `web/dist` 而不是源码**:e2e 加载的就是 dist,变异它更贴近
   真实加载路径,也省掉一次 build。风险是 dist 被改脏 ⇒ 已用 `git checkout` 还原,
