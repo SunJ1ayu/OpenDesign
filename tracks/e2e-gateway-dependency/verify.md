@@ -6,7 +6,8 @@
 ## Mechanical checks
 
 - [x] build passes(无 build:只改 `tests/e2e/`;变异用的是 dist,已 `git checkout` 还原并核对)
-- [x] tests pass —— e2e 总跑 36 PASS / 0 FAIL / 2 SKIP(rc=0)
+- [x] tests pass —— 本单两条:**每一遍都绿**(4 份收据)。全套 e2e 总跑 rc=1,
+      红的是本机资源导致的随机项、与本单无关(已分型证明,见下)。**不写「全绿」**。
 - [x] no secrets / unsafe ops(改动=一段 `page.route` + 注释,产品代码零改动)
 
 **机器打印的**(不是我的转述)——四种条件的收据,逐字节:
@@ -61,12 +62,27 @@ runlog: diag-flaky-eight rc=0 commit=b726b57 dirty=yes at=2026-08-18T07:37:03Z f
 **权威的那一遍(默认口径 e2e 总跑,不带 `--with-gateway`)**:
 
 ```
-runlog: e2e-authoritative rc=0 commit=ccb3a5c dirty=no at=2026-08-18T06:46:41Z file=tracks/e2e-gateway-dependency/evidence/20260818T064641Z-01-e2e-authoritative.txt
+runlog: e2e-authoritative-final rc=1 commit=b726b57 dirty=no at=2026-08-18T07:01:41Z file=tracks/e2e-gateway-dependency/evidence/20260818T070141Z-01-e2e-authoritative-final.txt
 ```
 
-**36 PASS / 0 FAIL / 2 SKIP**,跑在干净树上(`dirty=no`)。对比**同口径的改前**
-(08-18 上午 tmpdir-gate-followup 那单的权威收据):**34 PASS / 2 FAIL / 2 SKIP**
-—— 差的正是本单这两条,从红转绿,**没有靠跳过换来的**(SKIP 数没变,仍是 2)。
+> **为什么权威的是这份 rc=1,而不是那份好看的 rc=0。**
+> `e2e-authoritative`(06:46,**36 PASS / 0 FAIL**)跑在 `ccb3a5c` 上,
+> 而收完两条腿的发现后我又改了代码(`b726b57`:注释 + glob 加 `*`)——
+> **那份绿收据跑在最后一次编辑之前,按本机规矩作废**,不许拿它交差。
+> (08-18 同一天已经栽过一次:上午那单的"最终收据"停在改代码之前,是孤腿抓出来的。)
+> `b726b57` 之后跑的是 `-final`(dirty=no)与 `-final-2`,两遍都 rc=1,
+> **红的都不是本单这两条** —— 逐条分型见下。
+> **我没有再刷第三遍去求一份绿的收据**:那正是我在 Accepted deviations 里
+> 写下的"把报警器调钝"。三份收据摆在这里,比一份运气好的绿诚实。
+
+`e2e-authoritative-final` 跑在干净树上(`dirty=no` @ `b726b57`):**29 PASS / 7 FAIL / 2 SKIP**。
+**这个数字不好看,但它比"36/0"诚实** —— 那 7 条红经分型证明是本机资源导致的随机项
+(下表 + 四条依据),与本单无关;本单这两条在**每一遍**里都绿。
+
+**本单真正的对比,要看这两条自己**(而不是总跑的总分,总分被随机项污染了):
+- 改前(08-18 上午同口径权威收据):`frontend_p2_polish` / `todo_assistant` **2 FAIL**
+- 改后(本 track 四份收据:无 gateway / 有 gateway / 变异还原后 / 收完发现后):**每遍 2 PASS**
+- **SKIP 数始终是 2**,没有靠把自己塞进 `NEEDS_GATEWAY` 换绿。
 
 > 那 2 SKIP 是 `NEEDS_GATEWAY` 名单里的 `new_chat` / `project-thread`,设计上就跳过。
 > 总跑汇总自己如实印了「没有红的,但有 2 条没跑 —— **不算通过**」。本单没有动这个名单,
