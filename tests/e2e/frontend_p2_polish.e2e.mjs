@@ -112,15 +112,23 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 
   // ── 让页面进入「未连接」态:拦 bootstrap 回 401 ────────────────────────────
-  // 连接卡只在 view.kind==="login" 时渲染(ChatPage.tsx:753),而进入 login 的**唯一**
-  // 路径是 reduceReconnect 收到 PasswordRejected(reconnect.ts:88),它**唯一**的来源
-  // 又是 /api/chat/bootstrap 回 401(connection.ts:93)。
+  // 连接卡只在 view.kind==="login" 时渲染(ChatPage.tsx:753)。
+  // **本场景(全新加载)下**进入 login 的路径是:reduceReconnect 收到 PasswordRejected
+  // (reconnect.ts:88)⇒ dispatchRc 落 setView login(ChatPage.tsx:224);
+  // 而 PasswordRejected 唯一的来源是 /api/chat/bootstrap 回 401(connection.ts:93)。
+  // **别把它读成"全局唯一路径"**(08-18 评审 subdeepseek 指出,核实成立):
+  // 全仓还有两处能产生 login 视图 —— ChatPage.tsx:287(effect 起步时 mode 已是
+  // "stopped",而 stopped 本身只在 PasswordRejected 之后才可达)与 :464(业主主动登出)。
+  // 两处都到不了这条 e2e 的全新加载场景,但"唯一"这个词本身是错的。
   // 此前这一步是白拿的:开发机上常年有个真 gateway 在跑,它对没口令的请求正好回 401。
   // 于是这两条 e2e **悄悄依赖了机器上有没有起 gateway** —— 谁没起谁见两条假红,
   // 而红的原因("等 connect-card 超时")完全不指向真因。08-18 实测:
   // 无 gateway 时页面走的是重连路径(8s 后显示「连接不上,gateway 可能没在跑」),
   // 连接卡永不出现 —— 那是**正确的产品行为**,是判据问错了问题。
-  await page.route("**/api/chat/bootstrap", (route) =>
+  // 尾部 `*`:playwright 的 glob 是**全串锚定**的,不带它的话将来谁给这个请求加个
+  // query(`?x=1`)就会**静默**不再命中 ⇒ 这两条 e2e 悄悄退回"看机器上有没有 gateway",
+  // 而症状和 08-18 修掉的那次一模一样。多一个字符,换掉一整类无声回归。
+  await page.route("**/api/chat/bootstrap*", (route) =>
     route.fulfill({ status: 401, contentType: "application/json", body: "{}" }));
   await page.goto(base, { waitUntil: "domcontentloaded" });
 
