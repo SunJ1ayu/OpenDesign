@@ -183,6 +183,32 @@ class DeadAssertionGate(unittest.TestCase):
                          f"单行守卫里的断言机器问不出来,必须当场报:{r.stdout}{r.stderr}")
         self.assertIn("收件箱", r.stdout, "报告要点名那一行,不能只给个数字")
 
+    def test_truncation_marker_on_guarded_lines_too(self):
+        """超 120 字符的截断记号,**两节都要有** —— 少一边人就会复制到半句。
+
+        放行清单按**整行内容**认。`note()`(dead_assertions.py:77)超长会补
+        "…(截断,写进 allow 要用整行)";而"同一行守卫"那一节(:169)是**静默**
+        `[:120]`。于是从后者复制一行进 allow ⇒ 拿到的是半句 ⇒ 清单对不上 ⇒
+        红成"过期条目",而报告不会告诉他是被截断害的。
+        2026-08-18 四审 subkimi 指出:这个记号此前**没有任何判据钉它**。
+        """
+        long_msg = "收件箱" + "补" * 160         # 整行 ~193 字符,稳过 120 那道线
+        self._write(f'''
+            import unittest
+
+            class Fixture(unittest.TestCase):
+                def test_dead_oneline(self):
+                    got = None
+                    if got: self.assertIn("{long_msg}", got)
+        ''')
+        r = run_tool(self.dir)
+        self.assertEqual(r.returncode, 1,
+                         f"单行守卫本来就该报红:{r.stdout}{r.stderr}")
+        self.assertIn("和它的守卫写在同一行", r.stdout,
+                      f"这一行该落在'同一行守卫'那一节:{r.stdout}")
+        self.assertIn("…(截断,写进 allow 要用整行)", r.stdout,
+                      f"这一节的长行被静默截断了,复制进 allow 会对不上:{r.stdout}")
+
     def test_does_not_flag_assertRaises_context(self):
         """防止上一条修过头:`with self.assertRaises(...)` 的断言**就在头部**,
         这一行跑过了就是真问过了,一条都不许误报(本仓库现有 7 处这种写法)。"""

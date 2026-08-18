@@ -101,6 +101,16 @@ check ⑫ "数台面的 find 坏了 → 拒跑 rc=2,不许当成'干净'" 2 \
 check ⑬ "台面建不起来(TMPDIR 不可写)→ 拒跑 rc=2" 2 \
   env TMPDIR=/proc/nonexistent-dir $G -- true
 
+# ⑭ —— `mapfile` 不在的时候必须**也是 rc=2**,不许是 rc=1。
+# 2026-08-18 四审两腿在这条上说法相反:subdeepseek 说 `${#未赋值数组[@]}` 在 set -u 下
+# 会 abort(它以为只在 bash<4.4),subkimi 说"取长度是安全的"。我在本机 bash 5.2 实测:
+# **当场就是 unbound variable**,不分版本 —— subkimi 错。
+# 后果不是"古董机器体验差",而是这道闸在自己瞎掉时吐 **rc=1**,
+# 而 rc=1 是被测命令最常见的失败码(本闸文件头第 32 行自己警告过)⇒
+# 「闸瞎了」会被读成「被测命令红了」,修的方向当场就错。
+check ⑭ "mapfile 没有 → 拒跑 rc=2(不许退化成 rc=1,那会被当成命令自己红)" 2 \
+  env BASH_ENV="$PWD/tests/.gatefixture/no-mapfile.bash" $G -- true
+
 echo
 if [ "$fail" -eq 0 ]; then echo "泄漏闸自测:${total} 条全过。"; exit 0; fi
 echo "泄漏闸自测:${fail} 条红了。"; exit 1
