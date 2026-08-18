@@ -200,3 +200,38 @@ runlog: runall-final-0818-v3 rc=0 commit=bdbf485 dirty=no at=2026-08-18T01:54:31
 - **`--allow` 现在是两条**:全局 `node-compile-`(Node 自己的编译缓存,固定名复用、不累积)
   + e2e 那一段的 `ds-e2e-log-`(红了故意留现场)。两条都在调用处写了理由。
   tasks.md 里写的"清单仍只有 1 条"是当时的说法,以这里为准。
+
+## 归档之后的补账(2026-08-18,业主一句「都是第一性原理吗 没有埋下屎山吧」逼出来的)
+
+业主问完之后我把这一单重新过了一遍,查出**三件我自己漏掉的**,都在这儿:
+
+**补1. 一条 `--allow` 的理由过期了。** `tests/run-all.sh` 里写着 e2e 的日志目录
+"在**红或有跳过**时故意留着给人看" —— 而这一单我刚把 e2e 改成**只跳过就收掉**。
+改动和描述它的注释没同步 ⇒ 那句话变成假的。已改正,并写清这条放行现在**只为红那条路存在**。
+
+**补2. 我改的"只跳过就收拾"那条路,最终那份绿收据根本没走过。**
+最终收据是 `--with-gateway` 跑的、**0 跳过** ⇒ 走的是全绿那条分支。
+而"只有跳过、没有红"正是业主平时最常走的默认路径。补跑两遍:
+
+```
+runlog: runall-default-skip-path rc=1 commit=367143e dirty=yes at=2026-08-18T02:16:54Z file=tracks/archive/opendesign-tmpdir-leak/evidence/20260818T021654Z-01-runall-default-skip-path.txt
+runlog: runall-skiponly-path rc=3 commit=367143e dirty=yes at=2026-08-18T02:29:36Z file=tracks/archive/opendesign-tmpdir-leak/evidence/20260818T022936Z-01-runall-skiponly-path.txt
+```
+
+第一遍(网关没起)红在 e2e 两条上 ⇒ 走的是**红**那条路,没验到目标(见补3)。
+第二遍(网关活着、但不带 `--with-gateway`)拿到了要的那条:
+**没有红的 / 2 条跳过 / rc=3 / `/tmp` 净增 0** —— 日志目录在只跳过时确实被收掉了。
+
+**补3.(不是这一单的问题,但是这一单挖出来的)两条 e2e 悄悄依赖"机器上有没有活网关"。**
+`frontend_p2_polish.e2e.mjs` 与 `todo_assistant.e2e.mjs` 都在等
+`[data-ui="connect-card"]`(未连接提示卡)出现;网关没起时这张卡不出现 ⇒ 两条超时红,
+**而红的原因和它们要测的东西毫无关系**。它们**不在 `NEEDS_GATEWAY` 名单里**,
+所以默认跑法照跑不误 ⇒ 谁的机器上没开网关,谁就见两条假红。
+
+- **不是本单改坏的,已证**:把树退回 base `5d8c991`(独立 worktree)、同样条件跑,
+  两条**照样红,报错一字不差**。
+- 这也解释了 08-17 那两遍红:那会儿网关刚死(`DS_LLM_KEY` 起不来),我一度以为是修复的锅。
+- 反向印证:网关活着时 e2e 是 36 PASS / 0 FAIL / 2 SKIP,与本单记录的**修改前基准逐字一致**。
+- **不在本单修**(它是判卷层的另一处独立缺陷,该单独走一单)。修法方向不是把它们塞进
+  `NEEDS_GATEWAY`(那等于默认少测两条),而是让它们别再依赖机器上碰巧有什么 ——
+  同仓已有先例:`chat_image.e2e.mjs` 用 `addInitScript` 把 WebSocket 和 bootstrap 都 stub 掉。

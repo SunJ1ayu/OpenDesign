@@ -138,10 +138,13 @@ note_last "$([ "$LAST_RC" -eq 0 ] && echo "与源码同步" || echo "**入库的
 
 # ── ⑤ e2e 总跑 ─────────────────────────────────────────────────────────
 e2e_args=(); [ "$with_gateway" -eq 1 ] && e2e_args+=(--with-gateway)
-# SEG_ALLOW=ds-e2e-log-:e2e 自己的日志目录。它在**红或有跳过**时故意留着给人看
-# (tests/e2e/run-all.sh 文件尾),不是泄漏。不放行的话,默认跑法(不带 --with-gateway)
-# 必有 2 条 SKIP ⇒ 日志目录必被留下 ⇒ 闸**每次都误报** —— 而一道天天喊狼来了的闸,
-# 和没有闸是一回事。放行范围只到 `-log-`,咬不到同前缀的 `ds-e2e-home-`(那个是真漏)。
+# SEG_ALLOW=ds-e2e-log-:e2e 自己的日志目录,**红了才留**(tests/e2e/run-all.sh 文件尾),
+# 那是故意的保留、不是泄漏,所以放行。
+# ⚠️ 这条理由 2026-08-18 变过一次,别照旧版记:原来 e2e 在"只有跳过"时也留着日志目录,
+#    于是默认跑法(不带 --with-gateway)必有 2 条 SKIP ⇒ 每跑一次都留一个 ⇒ 闸每次都误报。
+#    现在只跳过就收掉了,所以这条放行**只为红的那条路存在** —— 红的时候闸照样透传命令的 rc,
+#    放行只是别把"故意留的现场"写成"漏了 N 个",省得人对着假泄漏去查。
+# 放行范围只到 `-log-`,咬不到同前缀的 `ds-e2e-home-`(那个是真漏)。
 SEG_ALLOW="ds-e2e-log-" \
 run_seg "e2e 总跑$([ "$with_gateway" -eq 1 ] && echo '(含 gateway)')" e2e tests/e2e/run-all.sh ${e2e_args[@]+"${e2e_args[@]}"}
 _l="$LAST_LOG"
