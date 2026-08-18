@@ -125,6 +125,15 @@ class DeadAssertionGate(unittest.TestCase):
         r = run_tool(self.dir)
         self.assertEqual(r.returncode, 1, f"放行悄悄变宽了却是绿的:{r.stdout}")
         self.assertIn("盖住了不止一行", r.stdout, f"红了却没说清为什么:{r.stdout}")
+        # 2026-08-18 四审两腿各自指出:光说"盖住 N 行"、不说是哪几行,人只能自己 grep,
+        # 而他很可能挑错那一行下手 —— 当年行号版被换掉正是因为"报警器指错门"。
+        self.assertIn("命中:", r.stdout, f"没点名冲突在哪几行:{r.stdout}")
+        self.assertRegex(r.stdout, r"命中:.*test_fixture\.py:\d+.*test_fixture\.py:\d+",
+                         f"两处冲突要各带一个 file:line:{r.stdout}")
+        # 这句消歧建议对**逐字相同**的两行根本不成立(写几条都还是同时盖住它们),
+        # 印出来就是把人支向一条走不通的路。
+        self.assertNotIn("给每一处各写一条", r.stdout,
+                         f"又在建议一个办不到的消歧法:{r.stdout}")
 
     def test_reports_suite_result_and_fails_with_it(self):
         """它要**替代**总跑里的 python 那一段(一次跑、两个信号),所以:

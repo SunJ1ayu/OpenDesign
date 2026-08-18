@@ -54,7 +54,22 @@ HERE = os.path.abspath(os.environ.get("DEAD_ASSERT_TESTS_DIR") or _SELF)
 ROOT = os.path.dirname(HERE)
 ALLOW_FILE = os.path.join(HERE, "dead_assertions.allow")
 # 一条放行条目匹配到多行时记在这里(报告要印出来,见 load_allow)
-ALLOW_WIDE: list[tuple[str, int]] = []
+ALLOW_WIDE: list[tuple[str, list[int], str]] = []
+
+_CLIP_LIMIT = 120
+_CLIP_MARK = " …(截断,写进 allow 要用整行)"
+
+
+def clip(full: str) -> str:
+    """报告里的源码行超长就截断 —— 但**必须留记号**。
+
+    放行清单按**整行内容**认,而人会直接从报告里复制这一行。不留记号的话他复制到的
+    是半句,清单当场对不上 ⇒ 误红成"过期条目" ⇒ 他会去改那条无辜的断言。
+    2026-08-18 四审 subkimi 3:这个记号原来只加在 note()(死断言那一节),
+    "同一行守卫"那一节是静默 `[:120]` —— 而两节的行都一样会被人复制。
+    抽到这里是为了**下一节也别再漏**:要截断就走这个函数。
+    """
+    return full if len(full) <= _CLIP_LIMIT else full[:_CLIP_LIMIT] + _CLIP_MARK
 
 _ASSERT_PREFIXES = ("assert", "fail")
 
@@ -72,9 +87,7 @@ def assertion_lines(path: str) -> dict[int, str]:
         ln = getattr(node, "lineno", None)
         if ln:
             full = src[ln - 1].strip() if ln <= len(src) else why
-            # 截断要留记号:放行清单按**整行内容**认,而有人会直接从报告里复制这一行。
-            # 不留记号的话他复制到的是半句,清单当场对不上 ⇒ 误红 ⇒ 他会去改那条无辜的断言。
-            out[ln] = full if len(full) <= 120 else full[:120] + " …(截断,写进 allow 要用整行)"
+            out[ln] = clip(full)          # 截断必须留记号,理由见 clip()
 
     # `except` 里的断言是**错误路径的兜底**(`self.fail("并发把配置写坏了")` 那种):
     # 健康的时候它本来就不该跑,拿"没执行过"去报它就是纯误报。先把这些行标出来跳过。
@@ -166,7 +179,8 @@ def same_line_guarded(path: str) -> dict[int, str]:
             if name.startswith(_ASSERT_PREFIXES) or name == "check":
                 embedded.add(node.lineno)
 
-    return {ln: src[ln - 1].strip()[:120]
+    # 走 clip():这一节原来是**静默** `[:120]`,从这儿复制长行进 allow 会拿到半句。
+    return {ln: clip(src[ln - 1].strip())
             for ln in sorted(guarded | embedded) if ln <= len(src)}
 
 
@@ -299,7 +313,7 @@ def load_allow() -> tuple[dict[tuple[str, int], str], list[str]]:
         # 汇总行只抠"N 条死断言" ⇒ 那行告警**在总跑里根本不可见** = 等于静默放行。
         # 本仓库自己的规矩就是"静默吞掉就是新的假绿",所以改成拦。
         if len(hits) > 1:
-            ALLOW_WIDE.append((line, len(hits)))
+            ALLOW_WIDE.append((line, hits, path))
         for n in hits:
             allow[(path, n)] = why.strip()
     return allow, stale
@@ -370,10 +384,17 @@ def main() -> int:
     if ALLOW_WIDE:
         print(f"  ❌ 放行清单里有 {len(ALLOW_WIDE)} 条**盖住了不止一行**"
               f"(同样的源码在同一个文件里出现多次):")
-        for line, n in ALLOW_WIDE:
-            print(f"     盖住 {n} 行 ← {line}")
+        for line, hits, path in ALLOW_WIDE:
+            rel = os.path.relpath(path, ROOT)
+            print(f"     盖住 {len(hits)} 行 ← {line}")
+            # 不点名就等于让人自己去 grep,而他很可能挑错那一行下手 —— 当年行号版
+            # 被换掉,正是因为"报警器指错门"。(2026-08-18 四审两腿各自指到这里)
+            print(f"       命中:{', '.join(f'{rel}:{n}' for n in hits)}")
         print("  一条理由放行两处 = 另一处即使是真死断言也没人问过它。")
-        print("  给其中一行加个尾注释让它认得出来,或者给每一处各写一条。")
+        # ── E:原来这句写着"或者给每一处各写一条" —— 对**逐字相同**的两行根本不成立
+        #    (写几条都还是同时盖住它们)。四审两腿各自指出这句在指错路。
+        print("  消歧只有一条路:**给其中一行加个尾注释**,让两行不再逐字相同;")
+        print("  改完记得把 allow 里那条也跟着改成带注释的整行。")
 
     if stale_allow:
         # 清单指着一条文件里已经不存在的断言。可能是那条断言被改了/删了/挪走了 ——

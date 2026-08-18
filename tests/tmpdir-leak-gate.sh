@@ -22,7 +22,7 @@
 # 不留"允许少量残留"的余量 —— 留了余量,漏就能藏在余量里慢慢长。
 #
 # 用法:
-#   tests/tmpdir-leak-gate.sh -- <命令...>              # 跑完必须剩 0,否则 rc=1
+#   tests/tmpdir-leak-gate.sh -- <命令...>              # 跑完必须剩 0,否则 rc=9
 #   tests/tmpdir-leak-gate.sh --allow foo- -- <命令...> # 放行前缀 foo-(要写理由,见下)
 #   tests/tmpdir-leak-gate.sh --keep -- <命令...>       # 红了保留台面供排查
 #
@@ -65,7 +65,26 @@ if [ -z "$probe" ] || [ ! -d "$probe" ]; then
   echo "  '数不出来' 不等于 '干净',这道闸不许在瞎的时候放行。" >&2
   exit 2
 fi
-mkdir -p "$probe/.ds-leak-sentinel"
+# mkdir 单独判:它失败是**另一种病**(台面建起来了但写不进去 —— 只读挂载、配额满、
+# SELinux),和"数法不管用"的修法完全不同。混在下面那条里报,会把人支到 find/mapfile
+# 那条死路上去查。(2026-08-18 四审 subkimi 6)
+if ! mkdir -p "$probe/.ds-leak-sentinel" 2>/dev/null; then
+  echo "✗ 泄漏闸:台面建起来了、却往里写不进东西($probe)—— 拒跑。" >&2
+  echo "  只读挂载?配额满?这跟「数法不管用」是两种病,别去查 find/mapfile。" >&2
+  rm -rf "$probe" 2>/dev/null
+  exit 2
+fi
+
+# ⚠️ `_selfcheck=()` 这一行**不是多余的防御**,少了它这道闸会**报绿**。
+# 2026-08-18 红检实测(判据 ⑭):`mapfile` 内建不在的时候 ——
+#   ① mapfile 报 command not found,`_selfcheck` 从没被赋过值;
+#   ② `${#_selfcheck[@]}` 在 set -u 下确实报 unbound variable,**但它长在 `if [ ]`
+#      的条件里,没能让脚本停下**,只被当成"条件为假";
+#   ③ 控制流于是穿过整个自检,落到下面正常流程的 `mapfile -t left`,
+#      而那里的 `${left[@]+"${left[@]}"}` 守卫把"数不出来"安静地当成"台面上什么都没有";
+#   ④ n=0 ⇒ 干净 ⇒ **rc=0**。
+# 上一轮四审三腿一致说这个洞"堵上了" —— 堵住的只是 mktemp 那条,这条从没堵住过。
+_selfcheck=()
 mapfile -t _selfcheck < <(find "$probe" -mindepth 1 -maxdepth 1 -printf '%f\n' 2>/dev/null | sort)
 if [ "${#_selfcheck[@]}" -ne 1 ] || [ "${_selfcheck[0]:-}" != ".ds-leak-sentinel" ]; then
   echo "✗ 泄漏闸自检没过:这台机器上数不出台面里的东西" >&2
