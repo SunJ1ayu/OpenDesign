@@ -11,4 +11,5 @@
 - [x] 5. 绿:**有 gateway** 下两条也全过(证明不再受环境摆布)
 - [x] 6. e2e 总跑一遍(默认口径,不带 --with-gateway)
 - [x] 7. fast lane 两条腿(submimo/subdeepseek)+ 逐条仲裁,2 条 Low 全收并重跑绿
-- [ ] 8. 最终权威收据(最后一次编辑之后那一遍)+ 归档 + push
+- [x] 8. 最终权威收据(跑在最后一次编辑 `b726b57` **之后**,rc=1 —— 红的是本机随机项,
+      已用 `diag-flaky-eight` 8 PASS/0 FAIL 证伪「资源」这个舒服解释)+ 归档 `0a510b8` + 已 push
