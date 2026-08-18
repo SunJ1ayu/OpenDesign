@@ -1,0 +1,33 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-B-truncation-marker
+cmd:     python3 -m unittest tests.test_dead_assertions.DeadAssertionGate.test_truncation_marker_on_guarded_lines_too
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  a4e1e46
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-18T03:28:03Z
+---------------- 输出开始 ----------------
+F
+======================================================================
+FAIL: test_truncation_marker_on_guarded_lines_too (tests.test_dead_assertions.DeadAssertionGate.test_truncation_marker_on_guarded_lines_too)
+超 120 字符的截断记号,**两节都要有** —— 少一边人就会复制到半句。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_dead_assertions.py", line 209, in test_truncation_marker_on_guarded_lines_too
+    self.assertIn("…(截断,写进 allow 要用整行)", r.stdout,
+AssertionError: '…(截断,写进 allow 要用整行)' not found in '----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nOK\n=== 死断言检查(断言在那儿、却从没被执行过)===\n  扫了 1 个判据文件、1 条断言;放行清单 0 条\n  ❌ 1 条断言**和它的守卫写在同一行** —— 行粒度问不出它跑没跑过,等于这道闸对它是瞎的:\n     tmpxy__njk3/test_fixture.py:7  if got: self.assertIn("收件箱补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补\n  拆成两行(守卫一行、断言一行)这道闸才看得见它。\n' : 这一节的长行被静默截断了,复制进 allow 会对不上:----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+=== 死断言检查(断言在那儿、却从没被执行过)===
+  扫了 1 个判据文件、1 条断言;放行清单 0 条
+  ❌ 1 条断言**和它的守卫写在同一行** —— 行粒度问不出它跑没跑过,等于这道闸对它是瞎的:
+     tmpxy__njk3/test_fixture.py:7  if got: self.assertIn("收件箱补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补补
+  拆成两行(守卫一行、断言一行)这道闸才看得见它。
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.091s
+
+FAILED (failures=1)
+---------------- 输出结束 ----------------
+runlog: redcheck-B-truncation-marker rc=1 commit=a4e1e46 dirty=yes at=2026-08-18T03:28:03Z file=tracks/opendesign-tmpdir-gate-followup/evidence/20260818T032803Z-01-redcheck-B-truncation-marker.txt

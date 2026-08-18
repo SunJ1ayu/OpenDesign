@@ -1,0 +1,33 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-C-marker-overfix
+cmd:     python3 -m unittest tests.test_dead_assertions.DeadAssertionGate.test_short_lines_carry_no_truncation_marker
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  b550dc5
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-18T04:03:23Z
+---------------- 输出开始 ----------------
+F
+======================================================================
+FAIL: test_short_lines_carry_no_truncation_marker (tests.test_dead_assertions.DeadAssertionGate.test_short_lines_carry_no_truncation_marker)
+反向的一半:**没被截断的行不许挂记号**。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_dead_assertions.py", line 242, in test_short_lines_carry_no_truncation_marker
+    self.assertNotIn("…(截断,写进 allow 要用整行)", r.stdout,
+AssertionError: '…(截断,写进 allow 要用整行)' unexpectedly found in '----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nOK\n=== 死断言检查(断言在那儿、却从没被执行过)===\n  扫了 1 个判据文件、1 条断言;放行清单 0 条\n  ❌ 1 条断言**和它的守卫写在同一行** —— 行粒度问不出它跑没跑过,等于这道闸对它是瞎的:\n     tmpqu0ukkte/test_fixture.py:7  if got: self.assertIn("收件箱", got) …(截断,写进 allow 要用整行)\n  拆成两行(守卫一行、断言一行)这道闸才看得见它。\n' : 这行根本没超 120,记号却挂上了 —— 记号一泛滥就等于没有:----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+OK
+=== 死断言检查(断言在那儿、却从没被执行过)===
+  扫了 1 个判据文件、1 条断言;放行清单 0 条
+  ❌ 1 条断言**和它的守卫写在同一行** —— 行粒度问不出它跑没跑过,等于这道闸对它是瞎的:
+     tmpqu0ukkte/test_fixture.py:7  if got: self.assertIn("收件箱", got) …(截断,写进 allow 要用整行)
+  拆成两行(守卫一行、断言一行)这道闸才看得见它。
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.057s
+
+FAILED (failures=1)
+---------------- 输出结束 ----------------
+runlog: redcheck-C-marker-overfix rc=1 commit=b550dc5 dirty=yes at=2026-08-18T04:03:23Z file=tracks/opendesign-tmpdir-gate-followup/evidence/20260818T040323Z-01-redcheck-C-marker-overfix.txt

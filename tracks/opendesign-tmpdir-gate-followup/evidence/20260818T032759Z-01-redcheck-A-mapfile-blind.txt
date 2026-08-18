@@ -1,0 +1,27 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-A-mapfile-blind
+cmd:     bash tests/test-tmpdir-leak-gate.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  a4e1e46
+dirty:   no(跑之前采的;含未跟踪文件)
+started: 2026-08-18T03:27:59Z
+---------------- 输出开始 ----------------
+== 泄漏闸自测 ==
+  [32mPASS[0m  ① 命令红了、没漏 → 透传命令 rc (rc=7)
+  [32mPASS[0m  ② 命令绿了、漏了 → 闸红 rc=9 (rc=9)
+  [32mPASS[0m  ③ 命令红了、也漏了 → 透传命令 rc(先修红的) (rc=7)
+  [32mPASS[0m  ⑧ 命令自己 rc=1、没漏 → 透传 1,不许被闸的码盖掉 (rc=1)
+  [32mPASS[0m  ④ --allow 放行指定前缀 → 绿 (rc=0)
+  [32mPASS[0m  ⑤ --allow 不放行别的前缀 → 红 (rc=9)
+  [32mPASS[0m  ⑥ 什么都没建 → 绿 (rc=0)
+  [32mPASS[0m  ⑦ 没给命令 → rc=2 (rc=2)
+  [32mPASS[0m  ⑨ 命令红了、漏了 → 台面留着供排查 (台面剩 1)
+  [32mPASS[0m  ⑩ 命令红了、台面是空的 → 照样收掉,不添垃圾 (台面剩 0)
+  [32mPASS[0m  ⑪ 命令绿了、漏了 → 前缀已报全,不留现场 (台面剩 0)
+  [32mPASS[0m  ⑫ 数台面的 find 坏了 → 拒跑 rc=2,不许当成'干净' (rc=2)
+  [32mPASS[0m  ⑬ 台面建不起来(TMPDIR 不可写)→ 拒跑 rc=2 (rc=2)
+  [31mFAIL[0m  ⑭ mapfile 没有 → 拒跑 rc=2(不许退化成 rc=1,那会被当成命令自己红) —— 期望 rc=2,实得 rc=0
+
+泄漏闸自测:1 条红了。
+---------------- 输出结束 ----------------
+runlog: redcheck-A-mapfile-blind rc=1 commit=a4e1e46 dirty=no at=2026-08-18T03:27:59Z file=tracks/opendesign-tmpdir-gate-followup/evidence/20260818T032759Z-01-redcheck-A-mapfile-blind.txt
