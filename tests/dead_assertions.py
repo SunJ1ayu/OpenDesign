@@ -25,8 +25,13 @@
 
 ## 例外怎么办
 
-`tests/dead_assertions.allow` 一行一个 `文件:行号  # 理由`。**必须写理由** ——
-没理由的例外就是把这道闸关掉。
+`tests/dead_assertions.allow` 一行一个 `文件 :: 那一行的源码  # 理由`。
+**必须写理由** —— 没理由的例外就是把这道闸关掉。
+
+⚠️ 认的是**内容不是行号**(2026-08-18 改)。原来按 `文件:行号` 认,而行号漂了四次
+(203/303 → 220/320 → 221/321 → 222/322 → 224/324),四次都是有人往文件上半部分
+加了一行 import,四次都红在无辜的地方、修法都是把数字改大。**行号不是一条断言的身份。**
+清单里某一条在文件里找不到对应的行 ⇒ **当场红**(清单过期了,不许静默放过)。
 
 用法:
     python3 tests/dead_assertions.py          # 报告 + 退出码(0 干净 / 1 有死断言)
@@ -48,6 +53,8 @@ _SELF = os.path.dirname(os.path.abspath(__file__))
 HERE = os.path.abspath(os.environ.get("DEAD_ASSERT_TESTS_DIR") or _SELF)
 ROOT = os.path.dirname(HERE)
 ALLOW_FILE = os.path.join(HERE, "dead_assertions.allow")
+# 一条放行条目匹配到多行时记在这里(报告要印出来,见 load_allow)
+ALLOW_WIDE: list[tuple[str, int]] = []
 
 _ASSERT_PREFIXES = ("assert", "fail")
 
@@ -233,33 +240,63 @@ def run_suite_recording_lines() -> tuple[set[tuple[str, int]], bool, str,
             skipped_method_ranges(result.skipped))
 
 
-def load_allow() -> dict[tuple[str, int], str]:
+def load_allow() -> tuple[dict[tuple[str, int], str], list[str]]:
+    """读放行清单,返回 ({(文件, 行号): 理由}, [过期条目的原文])。
+
+    格式 `<文件> :: <那一行 strip 后的源码>  # 理由`。**按内容认,不按行号** ——
+    行号会随上面加一行 import 就漂,而漂动和"这条断言变了"是两回事
+    (2026-08-18 之前漂过四次,每次都红在无辜的地方,每次修法都是改数字)。
+
+    - 一条目在文件里匹配到多行:全部放行 —— 同一份理由对逐字节相同的代码同样成立。
+    - 匹配到 **0 行**:算**过期条目**,由调用方报红。清单指着一条不存在的断言时,
+      沉默地少放行一条正是"报警器指错门"的形状,必须响。
+    """
     allow: dict[tuple[str, int], str] = {}
+    stale: list[str] = []
+    global ALLOW_WIDE
+    ALLOW_WIDE = []
     if not os.path.exists(ALLOW_FILE):
-        return allow
+        return allow, stale
     for raw in open(ALLOW_FILE, encoding="utf-8"):
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
-        head, _, why = line.partition("#")
-        loc = head.strip()
-        if ":" not in loc or not why.strip():
+        # 理由用 `  #`(两个空格加井号)分隔:源码里出现的 `#` 多半没有前导双空格,
+        # 而万一切错了,结果是"这条匹配不上" ⇒ 报成过期条目,响,而不是静默放行。
+        head, sep, why = line.rpartition("  #")
+        if not sep or not why.strip():
             continue      # 没写理由的例外**不生效** —— 例外必须说得出为什么
-        f, _, ln = loc.rpartition(":")
-        try:
-            n = int(ln)
-        except ValueError:
+        f, sep2, want = head.partition(" :: ")
+        if not sep2 or not want.strip():
+            stale.append(line)
             continue
+        f, want = f.strip(), want.strip()
         # 路径既接受"相对仓库根"(报告里印的那种),也接受"相对判据目录"。
         # **只登记真实存在的那一个** —— 两个都登记会让报告里的"放行清单 N 条"翻倍
         # (2026-08-07 实测:清单 2 条印成 4 条)。一个会撒谎的机器输出,
         # 恰恰长在"别信自述、信机器打印的"这道闸身上。
+        path = ""
         for base in (ROOT, HERE):
             cand = os.path.realpath(os.path.join(base, f))
             if os.path.exists(cand):
-                allow[(cand, n)] = why.strip()
+                path = cand
                 break
-    return allow
+        if not path:
+            stale.append(line)
+            continue
+        hits = [i for i, src in enumerate(
+            open(path, encoding="utf-8").read().splitlines(), start=1)
+            if src.strip() == want]
+        if not hits:
+            stale.append(line)
+            continue
+        # 一条目盖住不止一行时**说出来**:内容相同的断言可能在别处也有一份,
+        # 那份未必适用同一个理由。不拦(拦了也没别的写法可用),但不许悄悄变宽。
+        if len(hits) > 1:
+            ALLOW_WIDE.append((line, len(hits)))
+        for n in hits:
+            allow[(path, n)] = why.strip()
+    return allow, stale
 
 
 def main() -> int:
@@ -283,7 +320,7 @@ def main() -> int:
 
     executed, suite_ok, suite_out, skip_ranges = run_suite_recording_lines()
     print(suite_out, end="")          # 判据自己的汇总行原样透出(总跑要解析它)
-    allow = load_allow()
+    allow, stale_allow = load_allow()
 
     def in_skipped(key: tuple[str, int]) -> bool:
         f, ln = key
@@ -324,9 +361,23 @@ def main() -> int:
         print("  要么把断言搬到问得出的地方,要么写进 tests/dead_assertions.allow"
               "(**必须写理由**)。")
 
-    if not dead and not ambiguous:
+    if ALLOW_WIDE:
+        print(f"  ⚠️ 放行清单里有 {len(ALLOW_WIDE)} 条**盖住了不止一行**"
+              f"(同样的源码在同一个文件里出现多次):")
+        for line, n in ALLOW_WIDE:
+            print(f"     {n} 行 ← {line}")
+
+    if stale_allow:
+        # 清单指着一条文件里已经不存在的断言。可能是那条断言被改了/删了/挪走了 ——
+        # 三种都意味着"当初写的那个理由还成不成立"要重新过问一次,不许顺手放过。
+        print(f"  ❌ 放行清单里有 {len(stale_allow)} 条对不上任何一行(清单过期了):")
+        for line in stale_allow:
+            print(f"     {line}")
+        print("  改成那一行现在的源码,或者删掉它 —— 别让清单指着不存在的东西。")
+
+    if not dead and not ambiguous and not stale_allow:
         print("  ✅ 没有从没跑过的断言。")
-    return 0 if (suite_ok and not dead and not ambiguous) else 1
+    return 0 if (suite_ok and not dead and not ambiguous and not stale_allow) else 1
 
 
 if __name__ == "__main__":

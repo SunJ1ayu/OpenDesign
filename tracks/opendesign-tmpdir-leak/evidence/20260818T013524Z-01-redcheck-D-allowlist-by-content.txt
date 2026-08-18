@@ -1,0 +1,35 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-D-allowlist-by-content
+cmd:     python3 -
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  1309b7e
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-18T01:35:24Z
+---------------- 输出开始 ----------------
+=== 对照组:清单原样 ===
+  解析出 5 条放行 / 0 条过期 / 0 条盖住多行
+  OK  五条全部对上实际的行(实得 5)
+  OK  没有过期条目
+  OK  tests/test_data_root.py 那条兜底断言被放行(命中行 [239])—— 今天总跑报红的就是它
+  OK  tests/test_ds_shell_core.py 那条兜底断言被放行(命中行 [224, 324])—— 今天总跑报红的就是它
+
+=== 变异 A:往文件顶上插一行(今天红的就是这个病:行号漂了 +2)===
+  OK  行号漂了照样全部对上(旧的按行号认在这里必红)
+  OK  命中行自己跟着漂到 240(实得 [240])
+
+=== 变异 B:把那条断言的内容改掉 ===
+  OK  内容变了就报成过期条目、当场响(实得 1)
+  OK  那一条不再被放行 ⇒ 会以死断言身份红出来(实得放行 4)
+
+=== 变异 C:清单指着一个不存在的文件 ===
+  OK  文件不在了 ⇒ 过期条目(实得 1)
+
+=== 变异 D:同一份源码在文件里出现两次时,放行会变宽 —— 要吭声 ===
+  OK  盖住 2 行时报出告警(实得 1 条)
+
+=== 已恢复 ===
+  OK  恢复后回到 5 条放行 / 0 条过期
+
+红检结论:按内容认咬得住行号漂移,也咬得住内容被改/指错文件,且放行变宽会吭声。
+---------------- 输出结束 ----------------
+runlog: redcheck-D-allowlist-by-content rc=0 commit=1309b7e dirty=yes at=2026-08-18T01:35:24Z file=tracks/opendesign-tmpdir-leak/evidence/20260818T013524Z-01-redcheck-D-allowlist-by-content.txt

@@ -24,28 +24,41 @@ git 历史里就再也证明不了「它红过」** —— 而一道从没红过
   - [x] 段① node 单测 → 0
   - [x] 段③ MCP 闸 → 0
   - [x] 段④ 前端构建 → 1 个 `node-compile-`(Node 自己的缓存,固定名复用,普查里只有 1 个)
-  - [ ] 段② python 全量 / 段⑤ e2e → 跑中
-- [ ] 5. 锁定基准数字(修改前),这是事后判"有没有把判据改坏"的唯一依据
+  - [x] 段② python 全量 / 段⑤ e2e → 各 0(修完之后的总跑收据)
+- [x] 5. 锁定基准数字(修改前),这是事后判"有没有把判据改坏"的唯一依据
   - [x] node:376 用例 / 0 跳过 / 0 todo
-  - [ ] python:用例数 / 死断言数
-- [ ] 6. 闸接进 `tests/run-all.sh`(套在现有各段外面,**不新增跑时**)
-- [ ] 7. **commit ①:只有闸,不含修复** —— 此时总跑必须是红的,收据存进 evidence
+  - [x] python:1277 用例 / 0 跳过,一次跑漏 945 个
+- [x] 6. 闸接进 `tests/run-all.sh`(套在现有各段外面,**不新增跑时**)
+- [x] 7. **commit ①:只有闸,不含修复**(`3228525`)—— 收据在 evidence/
 
 ## 修复(commit ① 之后才动)
 
-- [ ] 8. python 44 处 / 21 文件
-  - [ ] 建 `tests/_tmpreg.py`:模块级辅助函数用的登记表 + `atexit` 统一收
+- [x] 8. python 44 处 / 21 文件
+  - [x] 建 `tests/_tmpreg.py`:模块级辅助函数用的登记表 + `atexit` 统一收
     > 为什么不用仓库现成的 `self.addCleanup`:那 60 处干净的调用点都在 setUp/用例里、
     > 手上有 `self`;这 44 处全在**模块级辅助函数**里,拿不到 `self` —— 这正是它们漏的原因。
     > 更要紧的是 `addCleanup` 会把目录存活期从"整个模块"缩到"单条用例",
     > 那是**改判据的隔离语义**(design 里的头号风险)。`atexit` 让它活得和现在一样长,
     > 只在进程退出时收 ⇒ 跑动期间行为**逐字节不变**。
-  - [ ] 44 处 `tempfile.mkdtemp(prefix=X)` → `_tmpreg.mkdtemp(X)`
-- [ ] 9. node e2e 2 处:`chat_reconnect.e2e.mjs`、`llm_key.e2e.mjs`
+  - [x] 44 处 `tempfile.mkdtemp(prefix=X)` → `_tmpreg.mkdtemp(X)`(前缀逐字节对账过)
+- [x] 9. node e2e 2 处:`chat_reconnect.e2e.mjs`、`llm_key.e2e.mjs`
   > 判别法是实测出来的:干净的 31 个都 import 了 `rmSync`,这两个没有
-- [ ] 10. shell 1 处:`tests/e2e/run-all.sh` 的 `E2E_HOME` 加 trap
+- [x] 10. shell 1 处:`tests/e2e/run-all.sh` 的 `E2E_HOME` 加 trap(rm 不跟随符号链接:实测过,不是信注释)
   > 同文件的 `log_dir` **不要动** —— 它全绿时已经 `rm -rf`,红了故意留着给人看
-- [ ] 11. **commit ②:修复** —— 总跑五段全绿
+- [x] 11. **commit ②:修复**(`1309b7e`)
+
+## 断线之后补的(2026-08-18)
+
+> 08-18 00:13 会话断线,断在"修完第一处 import、正在重跑总跑"这一步。
+> 半截收据一律作废重跑;下面三件是重跑前先堵掉的窟窿。
+
+- [x] A. `test_ds_shell_core.py` 少一行 `import _tmpreg` ⇒ `setUpModule` NameError,
+      整个模块 91 条用例没跑成(汇总里表现为"1186 跑过 / 215 条死断言")。断线前已补,未验。
+- [x] B. `test_dsweb_finds_config.py` 裸 `mkdtemp()` 漏 4 个 —— **闸自己抓出来的**,
+      不在事前普查的 46 处名单里(裸目录没前缀,按前缀的普查归不了它的类)。
+- [x] C. 闸自己的两个洞(见 `6df6a7a`):
+  - [x] 新加的"红了留台面"行为**没有任何判据在问** ⇒ 补 ⑨⑩⑪ + 变异红检(A/B 各咬各的)
+  - [x] 闸的自测是**孤儿脚本**,没有任何总跑调它 ⇒ 接成 `run-all.sh` 第 ⓪ 段
 
 ## 收口
 
