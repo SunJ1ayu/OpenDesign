@@ -45,7 +45,14 @@ runlog: redcheck-F-gate-blindness rc=0 commit=04f97f2 dirty=yes at=2026-08-18T01
 "台面没建起来"这两种情形下,旧闸会一路放行,而那正是盘要满时最可能发生的两种。
 
 **两份不算数的收据,留着不删**(它们记录的是量具坏了,不是被测物的结论):
-- `20260818T013455Z-…-redcheck-D…`(rc=1):我那份红检脚本自己写了个语法错。
+
+```
+runlog: redcheck-D-allowlist-by-content rc=1 commit=1309b7e dirty=yes at=2026-08-18T01:34:55Z file=tracks/opendesign-tmpdir-leak/evidence/20260818T013455Z-01-redcheck-D-allowlist-by-content.txt
+```
+
+- 上面这一份 rc=1:**我那份红检脚本自己写了个语法错**(`def报(...)` 少个空格),
+  一行被测代码都没跑到。它不算"红检红了",它算"量具还没上工就掉了"。
+  重写后的那一份(rc=0,01:35:24)才是这条判据的红检结论。
 - `20260818T014843Z-…-runall-final-0818-v2`(半截):我用 `pkill -f` 收上一轮时,
   模式把**我自己这条命令**也匹配进去了(仓库 README 写着的"自杀坑",我照着踩了一遍)。
   这一遍作废,重跑成 v3。
