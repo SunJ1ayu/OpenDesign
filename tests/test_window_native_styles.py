@@ -103,6 +103,15 @@ def _int_literals(tree: ast.Module) -> set[int]:
             and not isinstance(n.value, bool)}
 
 
+def _body_without_docstring(fn: ast.FunctionDef) -> list[ast.stmt]:
+    body = fn.body
+    if (body and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)):
+        body = body[1:]
+    return body
+
+
 def _find_call(tree: ast.Module, name: str) -> ast.Call | None:
     for call in _calls(tree):
         if _callee_name(call) == name:
@@ -290,21 +299,39 @@ class WindowNativeStyles(unittest.TestCase):
         `CreateParams` 重算窗口样式 —— 我们加的位会被安静地刷掉。补位很便宜
         (两次系统调用),所以每次最小化之前都确保一遍,坏不了、也不会被刷没。
         """
-        setcall = _find_call(self.tree, "SetWindowLongPtrW")
-        self.assertIsNotNone(setcall, "样式位根本没在补")
-        ensure = _owning_func(self.tree, setcall)
-        self.assertIsNotNone(ensure)
-
         fn = self.funcs.get("minimize")
         self.assertIsNotNone(fn, "WindowApi.minimize 不见了?")
 
-        # 顺序也用行号问(同 s5:文本位置会被注释骗)。
-        ensure_at = next((c.lineno for c in _calls(fn)
-                          if _callee_name(c) == ensure.name), None)
+        # 🔴 第一版把「做 SetWindowLongPtrW 的那个函数」直接当成「minimize 该叫的
+        #    那个函数」——**自审 F-G 把补位拆成「兜异常的外层 + 干活的内层」之后
+        #    这个假设当场不成立了**,判据红在一个完全正确的实现上。
+        #    ⇒ 别锚在某一个函数名上,问的是**可达性**:minimize 叫的那个入口,
+        #      顺着调用链走得到 SetWindowLongPtrW 就行,拆几层都不关判据的事。
+        entry_at, entry_name = None, None
+        for call in _calls(fn):
+            name = _callee_name(call)
+            if "native_styles" in name:
+                entry_at, entry_name = call.lineno, name
+                break
         self.assertIsNotNone(
-            ensure_at,
-            f"minimize 里没有先叫一次 {ensure.name}() ⇒ 只要 pywebview 那边重算过"
+            entry_at,
+            "minimize 里没有先叫一次补样式位的函数 ⇒ 只要 pywebview 那边重算过"
             "一次窗口样式,我们补的位就没了,而业主看到的是「有时有动画有时没有」。")
+
+        reached: set[str] = set()
+        frontier = [entry_name]
+        while frontier:
+            name = frontier.pop()
+            if name in reached:
+                continue
+            reached.add(name)
+            f = self.funcs.get(name)
+            if f is not None:
+                frontier += [_callee_name(c) for c in _calls(f)]
+        self.assertIn(
+            "SetWindowLongPtrW", reached,
+            f"minimize 叫的 {entry_name}() 顺着调用链走不到 SetWindowLongPtrW ——"
+            "它没有在补样式位,只是名字像。")
 
         minimize_at = next(
             (n.lineno for n in ast.walk(fn)
@@ -313,9 +340,56 @@ class WindowNativeStyles(unittest.TestCase):
             None)
         self.assertIsNotNone(minimize_at, "minimize 里没有把 WindowState 设成 Minimized?")
         self.assertLess(
-            ensure_at, minimize_at,
+            entry_at, minimize_at,
             "确保样式位写在**真正最小化之后**了 —— 顺序反了等于没补:"
             "这一次最小化仍然没有动画。")
+
+
+    # ── s7 贴样式位绝不能拖累「最小化」本身 ─────────────────────
+    def test_s7_applying_styles_can_never_break_minimize_itself(self):
+        """**自审 F-G。** minimize() 是先叫一遍补位、再设 WindowState=Minimized。
+
+        补位那一句要是把异常抛出去,后面那行就跑不到 ⇒ **业主按下缩小按钮毫无反应**。
+        拿「缩小」这个功能本身去赌「缩小的动画」,是这一单最不该犯的错 ——
+        新加的那点好处,不许把本来好用的东西弄坏。
+
+        `_on_ui` 那层的 except 也不算数:它印的是「回不到 UI 线程」,而这里失败的
+        原因五花八门(缺 API / 句柄没了 / 权限),那句话只会把真机排查带偏。
+        """
+        setcall = _find_call(self.tree, "SetWindowLongPtrW")
+        self.assertIsNotNone(setcall, "样式位根本没在补")
+
+        fn = self.funcs.get("minimize")
+        self.assertIsNotNone(fn, "WindowApi.minimize 不见了?")
+        called = {_callee_name(c) for c in _calls(fn)}
+        entry_names = [n for n in called if "native_styles" in n]
+        self.assertTrue(
+            entry_names,
+            "minimize 里没有叫任何补样式位的函数(s6 应该已经红了)")
+
+        entry = self.funcs.get(entry_names[0])
+        self.assertIsNotNone(entry, f"找不到 {entry_names[0]} 的定义")
+
+        body = _body_without_docstring(entry)
+        self.assertEqual(
+            1, len(body),
+            f"{entry.name} 的函数体不是「整个包在一个 try 里」—— 只要有一条语句"
+            "落在 try 外面,它就可能把异常抛给 minimize,那一次缩小就没了。")
+        self.assertIsInstance(
+            body[0], ast.Try,
+            f"{entry.name} 的函数体没有包在 try 里 ⇒ 贴样式位失败会连带把"
+            "「缩小」本身弄坏(按下去毫无反应)。")
+
+        caught = []
+        for h in body[0].handlers:
+            if h.type is None:
+                caught.append("bare")
+            elif isinstance(h.type, ast.Name):
+                caught.append(h.type.id)
+        self.assertTrue(
+            any(c in ("bare", "Exception", "BaseException") for c in caught),
+            f"{entry.name} 的 except 只接住了 {caught} —— 接不住的那些照样会"
+            "把「缩小」带走。这里要的就是宽口径地兜住。")
 
 
 if __name__ == "__main__":

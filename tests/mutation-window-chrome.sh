@@ -209,6 +209,25 @@ mutate_and_expect N6b bin/ds_shell.py "$STYLES" \
   '            form.WindowState = FormWindowState.Minimized
             self._apply_native_styles(form)'
 
+# N7 把补位那层的 try 拆掉 —— 贴样式位一失败,`form.WindowState = Minimized`
+#    那行就跑不到:**业主按下缩小按钮毫无反应**。拿"缩小"去赌"缩小的动画"。
+mutate_and_expect N7 bin/ds_shell.py "$STYLES" \
+  test_s7_applying_styles_can_never_break_minimize_itself \
+  '        try:
+            self._apply_native_styles_unsafe(form)
+        except Exception as exc:
+            # 贴不上就算了,窗口该干什么还干什么 —— 只是没有那段动画。
+            log(f"[窗口] 贴系统样式位失败(缩小照常,只是没动画):{exc!r}")' \
+  '        self._apply_native_styles_unsafe(form)'
+
+# N7b except 收窄成接不住的类型 —— 看着有 try,实际照样把缩小带走
+mutate_and_expect N7b bin/ds_shell.py "$STYLES" \
+  test_s7_applying_styles_can_never_break_minimize_itself \
+  '        except Exception as exc:
+            # 贴不上就算了,窗口该干什么还干什么 —— 只是没有那段动画。' \
+  '        except KeyError as exc:
+            # 贴不上就算了,窗口该干什么还干什么 —— 只是没有那段动画。'
+
 restore
 echo
 bad=0
