@@ -610,6 +610,32 @@ class WindowApi:
         self._hooked_hwnd = int(hwnd.value or 0)
         log("[窗口] 已接管非客户区(WM_NCCALCSIZE)")
 
+    def uninstall_wndproc(self) -> None:
+        """把窗口过程还回去。**窗口销毁之前必须叫。**
+
+        不还的话:我们的回调对象随 Python 对象一起走,而 Windows 可能还在给
+        这个 hwnd 发最后几条消息(`WM_DESTROY` / `WM_NCDESTROY`)——
+        那时回调进的是一片已经没人管的内存。这一条静态判据问不出来,
+        是 panel(submimo)标的 P1,我自审时也记了"从来没解挂过"。
+        """
+        if self._wndproc_hook is None or not self._old_wndproc:
+            return
+        try:
+            from ctypes import wintypes
+
+            self._user32.SetWindowLongPtrW(
+                wintypes.HWND(self._hooked_hwnd), GWLP_WNDPROC,
+                self._old_wndproc)
+            log("[窗口] 已把窗口过程还回去")
+        except Exception as exc:
+            log(f"[窗口] 还原窗口过程失败:{exc!r}")
+        finally:
+            # 🔴 无论还成没还成都清干净:留着一个指向已销毁窗口的旧 proc,
+            #    下次挂载时会被当成"还挂着"而跳过。
+            self._wndproc_hook = None
+            self._old_wndproc = 0
+            self._hooked_hwnd = 0
+
     def _apply_native_styles_and_frame(self, form) -> None:
         """两件事一起做,**顺序要紧**。
 
@@ -745,6 +771,9 @@ class Shell:
             except Exception:
                 pass
         if self.window:
+            # 🔴 先把窗口过程还回去,再销毁窗口 —— 顺序反了的话,
+            #    销毁过程中那几条消息会走进一个即将消失的 Python 回调。
+            self.window_api.uninstall_wndproc()
             try:
                 self.window.destroy()
             except Exception:
