@@ -228,6 +228,19 @@ mutate_and_expect N7b bin/ds_shell.py "$STYLES" \
   '        except KeyError as exc:
             # 贴不上就算了,窗口该干什么还干什么 —— 只是没有那段动画。'
 
+# N8 panel(submimo)逮到的那条:restype 被拿掉 ⇒ 返回值按 c_int 截断,
+#    读出来的旧样式就是错的,或上新位写回去 = 窗口变形(s2 拦不到这条路)
+mutate_and_expect N8 bin/ds_shell.py "$CTYPES" \
+  test_functions_that_declare_argtypes_also_declare_restype \
+  '        user32.GetWindowLongPtrW.restype = ctypes.c_ssize_t' \
+  '        pass'
+
+# N8b 更阴的一种:声明了,但写成窄类型 —— 看起来"声明过了"
+mutate_and_expect N8b bin/ds_shell.py "$CTYPES" \
+  test_pointer_width_apis_return_a_pointer_wide_type \
+  '        user32.SetWindowLongPtrW.restype = ctypes.c_ssize_t' \
+  '        user32.SetWindowLongPtrW.restype = ctypes.c_int'
+
 restore
 echo
 bad=0

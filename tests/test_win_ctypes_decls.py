@@ -35,6 +35,7 @@ SOURCES = [
 HANDLE_VAR = re.compile(r"(\w+)\s*=\s*ctypes\.(?:windll\.\w+|WinDLL\s*\()")
 DIRECT_CALL = re.compile(r"ctypes\.windll\.\w+\.(\w+)\s*\(")
 DECL = re.compile(r"(\w+)\.argtypes\s*=")
+RESTYPE = re.compile(r"(\w+)\.restype\s*=\s*([\w.]+)")
 
 
 def _called_win_apis(src: str) -> set[str]:
@@ -81,6 +82,52 @@ class WinCtypesDecls(unittest.TestCase):
                 called |= _called_win_apis(fh.read())
         self.assertEqual(set(), EXEMPT - called,
                          f"豁免清单里有已经不存在的调用:{sorted(EXEMPT - called)} ⇒ 该删掉")
+
+
+    def test_functions_that_declare_argtypes_also_declare_restype(self):
+        """**只声明 argtypes 是半截活。**
+
+        ctypes 的默认 `restype` 是 `c_int`(32 位有符号)。返回句柄、指针、或者
+        窗口样式那种 64 位值的 API,不声明 restype 就会被**静默截断** ——
+        和这道闸原本要防的 argtypes 截断是同一种坏法,只是走的返回那一路。
+
+        2026-08-23 panel(submimo)逮到的:`GetWindowLongPtrW` 的返回值就是窗口
+        现有的样式,截断了就等于读错;读错的样式再或上新位写回去 ⇒ **窗口变形**,
+        而那正是 `test_window_native_styles.py` 的 s2 拼命想防住的后果 ——
+        它从另一条路溜进来了,s2 拦不着。
+
+        规则做成通用的:**声明了 argtypes 的,也必须声明 restype。**
+        (返回 BOOL/void 的函数写 restype 也不亏 —— 显式比默认可靠。)
+        """
+        missing = []
+        for path in SOURCES:
+            with open(path, encoding="utf-8") as fh:
+                src = fh.read()
+            declared_args = set(DECL.findall(src))
+            declared_ret = {name for name, _ in RESTYPE.findall(src)}
+            for fn in sorted(declared_args - declared_ret):
+                missing.append(f"{os.path.basename(path)}: {fn}")
+        self.assertEqual([], missing,
+                         "这些 API 声明了 argtypes 却没声明 restype ⇒ 返回值按 c_int "
+                         "取,64 位的值被静默截断(读错的样式写回去 = 窗口变形):\n  "
+                         + "\n  ".join(missing))
+
+    def test_pointer_width_apis_return_a_pointer_wide_type(self):
+        """`...LongPtrW` 这一族按定义返回**指针宽度**,restype 必须跟上。
+
+        写成 `c_int` 就是上一条说的那种截断,而且它看起来"声明过了" ——
+        比压根不声明更难发现。
+        """
+        wrong = []
+        for path in SOURCES:
+            with open(path, encoding="utf-8") as fh:
+                src = fh.read()
+            for name, rt in RESTYPE.findall(src):
+                if "LongPtr" in name and rt not in ("ctypes.c_ssize_t", "ctypes.c_size_t"):
+                    wrong.append(f"{os.path.basename(path)}: {name}.restype = {rt}")
+        self.assertEqual([], wrong,
+                         "指针宽度的 API 用了窄类型当 restype ⇒ 64 位上截断:\n  "
+                         + "\n  ".join(wrong))
 
 
 if __name__ == "__main__":
