@@ -140,14 +140,28 @@ EXPECTED_CONSTS = {
     "SWP_FRAMECHANGED": 0x0020,
 }
 
-# 🔴 **本单的边界,机械化。** 这几位会真的改变窗口的非客户区尺寸
-# (Windows 要给边框留位置)⇒ 内容会被挤、边缘可能冒出一条线。
-# 那是方案 B(接管 WM_NCCALCSIZE)的活,不是这一单的。
-# 这一单对业主的承诺是"外观一个像素都不变",而那个承诺只有在
-# **只贴不影响绘制的位**时才成立 —— 所以越界必须是红的,不是"顺手多修一条"。
+# 🔴 **2026-08-23 修订(track opendesign-native-frame):`WS_THICKFRAME` 与
+# `WS_CAPTION` 从这份禁止清单里移出去了。** 这是动判卷防线,理由必须留在这儿:
+#
+#   原来禁它们,是因为 0.92.0 对业主的承诺是"外观一个像素都不变",而当时
+#   我认定那个承诺只有"只贴不影响绘制的位"才成立。**真机把这个规格证伪了**:
+#   位确实贴上了(业主机器 STYLE=0x360B0000 逐位对得上),动画一点没有 ——
+#   因为动画恰恰归 CAPTION/THICKFRAME 那一族管。
+#
+#   三条独立证据(tracks/opendesign-native-frame/evidence/):Electron 2014 PR #800
+#   与它今天的代码都是 CAPTION 打底且与 THICKFRAME 同生共死;WinFormedge(同栈)
+#   接管 WM_NCCALCSIZE;业主机器上 5 个有动画的窗口两位全有。
+#
+#   ⚠️ **这不是放水。** 保护"外观零变化"的责任**搬到了更强的地方**:
+#   tests/test_window_native_frame.py 的 n2(五个位一个都不能少)与
+#   n3(加了 CAPTION 就必须接管 NCCALCSIZE,否则标题栏会真的画出来)。
+#   原来这条只能一刀切禁止,**问不出"加了位但忘了抵消"这个真实的失败形态**;
+#   n3 问得出。
+#
+# 下面留下的三个仍然该禁:它们是 CAPTION 的**拆散写法或过宽写法**,
+# 用它们等于绕开 n2 那份显式清单(WS_OVERLAPPEDWINDOW 一把带进 5 个位,
+# 谁都看不出到底要了哪些)。
 FORBIDDEN_STYLES = {
-    "WS_THICKFRAME": 0x00040000,
-    "WS_CAPTION": 0x00C00000,
     "WS_BORDER": 0x00800000,
     "WS_DLGFRAME": 0x00400000,
     "WS_OVERLAPPEDWINDOW": 0x00CF0000,
@@ -229,7 +243,11 @@ class WindowNativeStyles(unittest.TestCase):
 
     # ── s3 本单的边界 ───────────────────────────────────────────
     def test_s3_does_not_touch_styles_that_resize_the_non_client_area(self):
-        """越界就作废「外观零变化」那句承诺 —— 那是方案 B 的活。"""
+        """禁止 CAPTION 的拆散/过宽写法 —— 要哪几位必须显式列出来,由 n2 对表。
+
+        (2026-08-23:CAPTION/THICKFRAME 本身已移出禁止清单,理由见
+        FORBIDDEN_STYLES 上方那段。保护外观的责任搬到了 n2/n3。)
+        """
         idents = _code_identifiers(self.tree) | set(self.consts)
         literals = _int_literals(self.tree)
         hits = []
