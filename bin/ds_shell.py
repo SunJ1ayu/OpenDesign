@@ -369,6 +369,8 @@ class WindowApi:
         self._old_wndproc = 0
         self._hooked_hwnd = 0      # 挂在**哪个**句柄上 —— 见 _install_wndproc
         self._user32 = None
+        self._nc_seen = False      # 收到过真的 WM_NCCALCSIZE 没有(D2b)
+        self._wndproc_warned = False   # 窗口过程里的错只记一次,别刷满盘
 
     # --- 内部 ---------------------------------------------------------
     def _form(self):
@@ -514,25 +516,49 @@ class WindowApi:
         不是 `DefWindowProcW`。WinForms 自己那层还在下面,绕过去会让它负责的
         一大堆行为静默失效(判据 n5 守着)。
         """
-        try:
-            if msg == WM_NCCALCSIZE and wparam:
-                if self._user32.IsZoomed(hwnd):
+        if msg == WM_NCCALCSIZE:
+            try:
+                if not self._nc_seen:
+                    # 🔴 **这一行才是"接管真的生效了"的证据**(design.md D2b)。
+                    #    挂载成功只证明 SetWindowLongPtrW 返回了非 0 ——
+                    #    P0 探针那次每一步都"成功"而回调一次没被叫到。
+                    #    真机清单 A1 认的就是这一行,别把它挪回挂载处。
+                    self._nc_seen = True
+                    log("[窗口] 非客户区接管已生效(收到第一条 WM_NCCALCSIZE)")
+                # 🔴 只有 wParam 为真时 lParam 才是 NCCALCSIZE_PARAMS;
+                #    为假时它是一个裸 RECT,碰不得。
+                if wparam and self._user32.IsZoomed(hwnd):
                     self._fit_maximized_to_work_area(hwnd, lparam)
-                return 0
-        except Exception as exc:
-            # 🔴 窗口过程里把异常抛出去 = 消息循环被带走 = 整个界面卡死。
-            #    宁可这一条消息不接管(顶多这一帧边框算错),也不能让业主的窗口死掉。
-            log(f"[窗口] 处理 WM_NCCALCSIZE 出错,交回默认处理:{exc!r}")
+            except Exception as exc:
+                self._warn_once(f"[窗口] 处理 WM_NCCALCSIZE 出错:{exc!r}")
+            # 🔴 **两种 wParam 都返回 0**,不动 lParam 指向的矩形。
+            #    wParam 为假那条原来是交回原 proc 的 —— 而 DefWindowProc 会按
+            #    窗口**当前真实样式**(现在含 WS_CAPTION)扣掉标题栏和边框,
+            #    那一帧标题栏会真的画出来,「外观零变化」当场破功。
+            #    (panel subdeepseek F2;WinFormedge 也为这条路单独打过补丁。)
+            return 0
         try:
             return self._user32.CallWindowProcW(self._old_wndproc, hwnd, msg,
                                                 wparam, lparam)
-        except Exception:
-            # 🔴 这一行原来在 try 外面。窗口过程里**任何**没接住的异常都会被
-            #    ctypes 打成 traceback 再返回 0,而那一刻业主的窗口正在处理
-            #    一条真消息 —— 行为会怪得没法查。返回 0 是同一个结果,
-            #    但它是我们自己决定的,而且不刷屏(这里故意不写日志:
-            #    窗口过程每秒可能跑几百次,记日志会把盘写满)。
+        except Exception as exc:
+            # 🔴 窗口过程里把异常抛出去 = 消息循环被带走 = 整个界面卡死。
+            #    但**返回 0 绝不是"同一个结果"**:对 WM_NCHITTEST 它意味着
+            #    整窗口都不可拖不可缩,对 WM_GETMINMAXINFO 意味着最大化约束失效
+            #    (panel subdeepseek F3 —— 我原来的注释在这点上写错了)。
+            #    所以这里必须留下痕迹,又不能每条消息都写盘 ⇒ 只记一次。
+            self._warn_once(f"[窗口] 窗口过程转发失败,后续消息可能行为异常:{exc!r}")
             return 0
+
+    def _warn_once(self, msg: str) -> None:
+        """窗口过程里记日志:只记第一条。
+
+        每秒可能有上百条消息,老老实实每条都写会把业主的盘写满
+        (panel subdeepseek F6)。但一条都不留就没法查(F3)——所以留第一条。
+        """
+        if self._wndproc_warned:
+            return
+        self._wndproc_warned = True
+        log(msg)
 
     def _fit_maximized_to_work_area(self, hwnd, lparam) -> None:
         """最大化时把客户区收回显示器工作区,否则溢出一圈、盖住任务栏。"""
@@ -600,15 +626,19 @@ class WindowApi:
         # 🔴 先存到 self 再挂:挂上之后 Windows 随时可能回调进来,
         #    那一刻这个对象必须已经有主。存成局部变量 = 被 GC = 崩(判据 n6)。
         self._wndproc_hook = WNDPROC(self._wndproc)
-        hwnd = wintypes.HWND(int(form.Handle.ToInt64()))
+        # 句柄只从这一个地方取一次:原来这里 wintypes.HWND(...) 一次、
+        # 记账时又 hwnd.value or 0 一次,两条路算同一个数 ——
+        # panel(submimo P3)提的,不是 bug,但没理由留两条路。
+        hwnd_int = int(form.Handle.ToInt64())
         self._old_wndproc = user32.SetWindowLongPtrW(
-            hwnd, GWLP_WNDPROC,
+            wintypes.HWND(hwnd_int), GWLP_WNDPROC,
             ctypes.cast(self._wndproc_hook, ctypes.c_void_p).value)
         if not self._old_wndproc:
             self._wndproc_hook = None
             raise OSError("SetWindowLongPtrW(GWLP_WNDPROC) 返回 0 —— 没挂上")
-        self._hooked_hwnd = int(hwnd.value or 0)
-        log("[窗口] 已接管非客户区(WM_NCCALCSIZE)")
+        self._hooked_hwnd = hwnd_int
+        # 只说"挂上了" —— **生效**要等 _wndproc 收到第一条消息才敢说(D2b)。
+        log("[窗口] 窗口过程已挂上(尚未收到消息)")
 
     def uninstall_wndproc(self) -> None:
         """把窗口过程还回去。**窗口销毁之前必须叫。**
