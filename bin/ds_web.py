@@ -87,7 +87,18 @@ import ds_todo
 import ds_tools
 import ds_workspace
 
-VERSION = "0.92.0"  # 缩小按钮重新有"向下收进任务栏"的动画(track opendesign-minimize-animation):
+VERSION = "0.93.0"  # 缩小/放大都有系统动画了,靠把窗口框架接回来(track opendesign-native-frame):
+                    # 业主 08-23 验收 0.92 之后:「缩小和放大的动画还是没有」。
+                    # **0.92 的规格问错了问题**:它贴的三个位管的是系统菜单和
+                    # Win+方向键(那些确实修好了),而动画归 WS_CAPTION/WS_THICKFRAME
+                    # 那一族 —— 恰恰是 0.92 特意排除的两个。真机 STYLE=0x360B0000 逐位对上,
+                    # 业主机器上 5 个有动画的窗口 CAPTION+THICKFRAME 全都同时有。
+                    # 这一版把那两个位加回来,再用 ctypes 装一个窗口过程接管 WM_NCCALCSIZE
+                    # 把标题栏那块地方吃掉 —— 系统眼里框还在(所以有动画、有贴边分屏),
+                    # 外观上一个像素不变。顺带拆掉"假最大化"换成真的(放大动画那一半)。
+                    # pythonnet 覆写 WndProc 那条路真机探针实测走不通(回调 0 次),
+                    # 走的是 ctypes SetWindowLongPtrW(GWLP_WNDPROC)。
+                    # 0.92.0  缩小按钮重新有"向下收进任务栏"的动画(track opendesign-minimize-animation):
                     # 业主 08-23:「缩小按钮在页面上是直接消失,不会像成熟的产品一样有
                     # 向下缩小的动画,这个很重要,可以引导用户知道页面在底部」。
                     # 根因不是动画是**身份**:frameless ⇒ FormBorderStyle=None ⇒
