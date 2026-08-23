@@ -367,6 +367,7 @@ class WindowApi:
         #    而且崩在别处,查不到这里。判据 n6 机械守着它必须挂在 self 上。
         self._wndproc_hook = None
         self._old_wndproc = 0
+        self._hooked_hwnd = 0      # 挂在**哪个**句柄上 —— 见 _install_wndproc
         self._user32 = None
 
     # --- 内部 ---------------------------------------------------------
@@ -416,11 +417,6 @@ class WindowApi:
         user32.ReleaseCapture()
         user32.SendMessageW(wintypes.HWND(int(form.Handle.ToInt64())),
                             self._WM_NCLBUTTONDOWN, code, 0)
-
-    def _work_area(self, form):
-        from System.Windows.Forms import Screen
-
-        return Screen.FromHandle(form.Handle).WorkingArea
 
     def _is_max(self, form) -> bool:
         """真最大化之后,直接问窗口自己 —— 别再比坐标。
@@ -527,8 +523,16 @@ class WindowApi:
             # 🔴 窗口过程里把异常抛出去 = 消息循环被带走 = 整个界面卡死。
             #    宁可这一条消息不接管(顶多这一帧边框算错),也不能让业主的窗口死掉。
             log(f"[窗口] 处理 WM_NCCALCSIZE 出错,交回默认处理:{exc!r}")
-        return self._user32.CallWindowProcW(self._old_wndproc, hwnd, msg,
-                                            wparam, lparam)
+        try:
+            return self._user32.CallWindowProcW(self._old_wndproc, hwnd, msg,
+                                                wparam, lparam)
+        except Exception:
+            # 🔴 这一行原来在 try 外面。窗口过程里**任何**没接住的异常都会被
+            #    ctypes 打成 traceback 再返回 0,而那一刻业主的窗口正在处理
+            #    一条真消息 —— 行为会怪得没法查。返回 0 是同一个结果,
+            #    但它是我们自己决定的,而且不刷屏(这里故意不写日志:
+            #    窗口过程每秒可能跑几百次,记日志会把盘写满)。
+            return 0
 
     def _fit_maximized_to_work_area(self, hwnd, lparam) -> None:
         """最大化时把客户区收回显示器工作区,否则溢出一圈、盖住任务栏。"""
@@ -547,7 +551,17 @@ class WindowApi:
         整个函数吞异常,和 `_apply_native_styles` 同一个理由:装不上的时候
         窗口该干什么还干什么,只是没有动画。**不拿功能去赌观感。**
         """
-        if self._wndproc_hook is not None:
+        # 🔴 幂等要比**句柄**,不能只看"挂过没有"。改 FormBorderStyle 会让
+        #    WinForms 重建窗口句柄(pywebview 的 fullscreen 就走这条),
+        #    重建之后旧 hwnd 上那份挂载连同它的窗口一起没了,而 _wndproc_hook
+        #    还非空 —— 只看它就会**再也不重挂**,业主看到的是"全屏切回来之后
+        #    动画就没了"。这正是 0.92 里样式位被安静刷掉的同一种病。
+        try:
+            hwnd_now = int(form.Handle.ToInt64())
+        except Exception as exc:
+            log(f"[窗口] 拿不到窗口句柄,这次不接管:{exc.__class__.__name__}")
+            return
+        if self._wndproc_hook is not None and self._hooked_hwnd == hwnd_now:
             return
         try:
             self._install_wndproc_unsafe(form)
@@ -593,6 +607,7 @@ class WindowApi:
         if not self._old_wndproc:
             self._wndproc_hook = None
             raise OSError("SetWindowLongPtrW(GWLP_WNDPROC) 返回 0 —— 没挂上")
+        self._hooked_hwnd = int(hwnd.value or 0)
         log("[窗口] 已接管非客户区(WM_NCCALCSIZE)")
 
     def _apply_native_styles_and_frame(self, form) -> None:
@@ -618,7 +633,7 @@ class WindowApi:
         不等第一次最小化 —— 不然右键任务栏图标那个系统菜单要到业主点过一次
         缩小之后才有。
         """
-        self._on_ui(self._setup_native_frame)
+        self._on_ui(self._apply_native_styles_and_frame)
 
     # --- 前端叫得到的 ---------------------------------------------------
     def begin_drag(self):
