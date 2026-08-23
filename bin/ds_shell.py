@@ -304,6 +304,34 @@ SWP_NOZORDER = 0x0004
 SWP_NOACTIVATE = 0x0010
 SWP_FRAMECHANGED = 0x0020
 
+# ── 方案 B(track opendesign-native-frame)新增 ─────────────────────
+# 0.92.0 只贴了上面那三个不参与绘制的位,真机证明**动画不归它们管** ——
+# 归下面这两个。代价是它们会真的改变非客户区尺寸,所以必须同时接管
+# WM_NCCALCSIZE 把那块地方吃掉。两件事同生共死(判据 n3)。
+GWLP_WNDPROC = -4
+WM_NCCALCSIZE = 0x0083
+WS_CAPTION = 0x00C00000          # = WS_BORDER | WS_DLGFRAME,别拆开写
+WS_THICKFRAME = 0x00040000
+MONITOR_DEFAULTTONEAREST = 0x0002
+
+
+class RECT(ctypes.Structure):
+    _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long),
+                ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
+
+
+class NCCALCSIZE_PARAMS(ctypes.Structure):
+    """WM_NCCALCSIZE 的 lParam。rgrc[0] 进来是"建议的窗口矩形",
+
+    我们把它原样留下 = 客户区铺满整个窗口 = 不给标题栏留高度。
+    """
+    _fields_ = [("rgrc", RECT * 3), ("lppos", ctypes.c_void_p)]
+
+
+class MONITORINFO(ctypes.Structure):
+    _fields_ = [("cbSize", ctypes.c_ulong), ("rcMonitor", RECT),
+                ("rcWork", RECT), ("dwFlags", ctypes.c_ulong)]
+
 
 class WindowApi:
     """前端那条窗口栏按下去之后走到的地方(pywebview 的 js_api)。
@@ -334,7 +362,12 @@ class WindowApi:
 
     def __init__(self, shell: "Shell"):
         self._shell = shell
-        self._restore = None       # 最大化之前的窗口位置/大小
+        # 🔴 这个引用必须活到解挂之后。ctypes 的回调对象一旦被 GC,
+        #    Windows 之后每发一条消息都是往野内存里跳 —— 随机时刻崩,
+        #    而且崩在别处,查不到这里。判据 n6 机械守着它必须挂在 self 上。
+        self._wndproc_hook = None
+        self._old_wndproc = 0
+        self._user32 = None
 
     # --- 内部 ---------------------------------------------------------
     def _form(self):
@@ -390,9 +423,14 @@ class WindowApi:
         return Screen.FromHandle(form.Handle).WorkingArea
 
     def _is_max(self, form) -> bool:
-        area = self._work_area(form)
-        return (form.Left == area.X and form.Top == area.Y
-                and form.Width == area.Width and form.Height == area.Height)
+        """真最大化之后,直接问窗口自己 —— 别再比坐标。
+
+        比坐标那版有个安静的错法:业主手动把窗口拖到正好铺满工作区,
+        它就会被判成"已最大化"。
+        """
+        from System.Windows.Forms import FormWindowState
+
+        return form.WindowState == FormWindowState.Maximized
 
     # --- 让 Windows 认这个窗口是正经窗口 ---------------------------------
     def _apply_native_styles(self, form) -> None:
@@ -446,18 +484,133 @@ class WindowApi:
 
         hwnd = wintypes.HWND(int(form.Handle.ToInt64()))
         style = user32.GetWindowLongPtrW(hwnd, GWL_STYLE)
-        needed = WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU
+        needed = (WS_CAPTION | WS_THICKFRAME
+                  | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)
         if style & needed == needed:
             return                       # 已经贴过了,别白发一次 FRAMECHANGED
         # 🔴 **或上去**,不是赋值。直接赋值会把窗口现有的样式全清掉 ⇒ 窗口当场变形。
+        #    (Electron 是建窗时赋值,那是另一种情形 —— 它那时窗口还没有别的样式。)
         user32.SetWindowLongPtrW(hwnd, GWL_STYLE,
-                                 style | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)
+                                 style | WS_CAPTION | WS_THICKFRAME
+                                 | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)
         # 改完样式必须通知一声,Windows 才会重算这个窗口的边框。四个 NO* 是保证
         # 它**只**重算边框:少一个就会顺手移动窗口 / 改大小 / 抢层级 / 抢焦点。
         user32.SetWindowPos(hwnd, None, 0, 0, 0, 0,
                             SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE
                             | SWP_NOZORDER | SWP_NOACTIVATE)
-        log("[窗口] 已把 MINIMIZEBOX/MAXIMIZEBOX/SYSMENU 贴回窗口")
+        log("[窗口] 已把 CAPTION/THICKFRAME/MINIMIZEBOX/MAXIMIZEBOX/SYSMENU 贴回窗口")
+
+    # --- 接管非客户区(方案 B 的另一半)---------------------------------
+    def _wndproc(self, hwnd, msg, wparam, lparam):
+        """装在 WinForms 那层**上面**的窗口过程。只接管一条消息。
+
+        `WM_NCCALCSIZE` 问的是"这个窗口的客户区有多大"。默认答案会给标题栏和
+        边框留出位置 —— 而我们要的是**客户区铺满整个窗口**(外观上看不见框,
+        系统眼里框还在)⇒ 不动 `rgrc[0]`,直接 `return 0`。
+        P1 探针实测:这一下之后 ClientSize 从 384 变成 400,正好等于 Size。
+
+        🔴 **最大化要额外收一次边。** 带 `WS_THICKFRAME` 的窗口最大化时,
+        Windows 给的 `rgrc[0]` 会向外溢出一圈边框宽度(它以为那圈要画边框)——
+        不收回来就会**盖住任务栏**、右下角内容被切。收到显示器的工作区为止。
+        WinFormedge 的 `AdjustMaximizedClientRect` 干的就是这件事。
+
+        🔴 其余消息一律交回 `CallWindowProcW` —— 交回**我们替换掉的那个** proc,
+        不是 `DefWindowProcW`。WinForms 自己那层还在下面,绕过去会让它负责的
+        一大堆行为静默失效(判据 n5 守着)。
+        """
+        try:
+            if msg == WM_NCCALCSIZE and wparam:
+                if self._user32.IsZoomed(hwnd):
+                    self._fit_maximized_to_work_area(hwnd, lparam)
+                return 0
+        except Exception as exc:
+            # 🔴 窗口过程里把异常抛出去 = 消息循环被带走 = 整个界面卡死。
+            #    宁可这一条消息不接管(顶多这一帧边框算错),也不能让业主的窗口死掉。
+            log(f"[窗口] 处理 WM_NCCALCSIZE 出错,交回默认处理:{exc!r}")
+        return self._user32.CallWindowProcW(self._old_wndproc, hwnd, msg,
+                                            wparam, lparam)
+
+    def _fit_maximized_to_work_area(self, hwnd, lparam) -> None:
+        """最大化时把客户区收回显示器工作区,否则溢出一圈、盖住任务栏。"""
+        params = ctypes.cast(lparam,
+                             ctypes.POINTER(NCCALCSIZE_PARAMS)).contents
+        mon = self._user32.MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)
+        info = MONITORINFO()
+        info.cbSize = ctypes.sizeof(MONITORINFO)
+        if not self._user32.GetMonitorInfoW(mon, ctypes.byref(info)):
+            return          # 拿不到就别乱改 —— 溢出一圈,总比算错一个位置强
+        params.rgrc[0] = info.rcWork
+
+    def _install_wndproc(self, form) -> None:
+        """把窗口过程装上去(幂等)。**必须在 UI 线程上跑。**
+
+        整个函数吞异常,和 `_apply_native_styles` 同一个理由:装不上的时候
+        窗口该干什么还干什么,只是没有动画。**不拿功能去赌观感。**
+        """
+        if self._wndproc_hook is not None:
+            return
+        try:
+            self._install_wndproc_unsafe(form)
+        except Exception as exc:
+            self._wndproc_hook = None
+            log(f"[窗口] 接管非客户区失败(窗口照常,只是没动画):{exc!r}")
+
+    def _install_wndproc_unsafe(self, form) -> None:
+        from ctypes import wintypes            # Windows 才有(同 _hit 的写法)
+
+        # WINFUNCTYPE 只在 Windows 上存在 ⇒ 必须留在函数里,不能提到模块级,
+        # 否则这个文件在 Linux 上连 import 都过不去(判据都是静态读源码的)。
+        LRESULT = ctypes.c_ssize_t
+        WNDPROC = ctypes.WINFUNCTYPE(LRESULT, wintypes.HWND, ctypes.c_uint,
+                                     ctypes.c_size_t, ctypes.c_ssize_t)
+
+        user32 = ctypes.windll.user32
+        # 不声明 argtypes/restype,64 位上句柄和返回值被静默截成 32 位 ——
+        # "改了等于没改",而且哪儿都不报错(tests/test_win_ctypes_decls.py)。
+        user32.SetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int,
+                                             ctypes.c_ssize_t]
+        user32.SetWindowLongPtrW.restype = ctypes.c_ssize_t
+        user32.CallWindowProcW.argtypes = [ctypes.c_ssize_t, wintypes.HWND,
+                                           ctypes.c_uint, ctypes.c_size_t,
+                                           ctypes.c_ssize_t]
+        user32.CallWindowProcW.restype = LRESULT
+        user32.IsZoomed.argtypes = [wintypes.HWND]
+        user32.IsZoomed.restype = wintypes.BOOL
+        user32.MonitorFromWindow.argtypes = [wintypes.HWND, ctypes.c_ulong]
+        user32.MonitorFromWindow.restype = ctypes.c_void_p
+        user32.GetMonitorInfoW.argtypes = [ctypes.c_void_p,
+                                           ctypes.POINTER(MONITORINFO)]
+        user32.GetMonitorInfoW.restype = wintypes.BOOL
+        self._user32 = user32
+
+        # 🔴 先存到 self 再挂:挂上之后 Windows 随时可能回调进来,
+        #    那一刻这个对象必须已经有主。存成局部变量 = 被 GC = 崩(判据 n6)。
+        self._wndproc_hook = WNDPROC(self._wndproc)
+        hwnd = wintypes.HWND(int(form.Handle.ToInt64()))
+        self._old_wndproc = user32.SetWindowLongPtrW(
+            hwnd, GWLP_WNDPROC,
+            ctypes.cast(self._wndproc_hook, ctypes.c_void_p).value)
+        if not self._old_wndproc:
+            self._wndproc_hook = None
+            raise OSError("SetWindowLongPtrW(GWLP_WNDPROC) 返回 0 —— 没挂上")
+        log("[窗口] 已接管非客户区(WM_NCCALCSIZE)")
+
+    def _apply_native_styles_and_frame(self, form) -> None:
+        """两件事一起做,**顺序要紧**。
+
+        先接管非客户区、再加样式位:反过来的话,从加上 `WS_CAPTION` 到接管
+        生效之间,窗口会闪一下**真的标题栏**。
+
+        🔴 整个包在 try 里(判据 s7 机械守着)。里面那两个各自也吞异常,
+        这一层是**给以后加第三件事的人**准备的:`minimize()` 先叫这里、
+        再设 WindowState,这儿要是把异常抛出去,业主按下缩小会毫无反应 ——
+        拿"缩小"这个功能去赌"缩小的动画",是这条路上最不该犯的错。
+        """
+        try:
+            self._install_wndproc(form)
+            self._apply_native_styles(form)
+        except Exception as exc:
+            log(f"[窗口] 接系统框架失败(窗口照常,只是没动画):{exc!r}")
 
     def ensure_native_styles(self):
         """窗口一出来就叫一次(main 里挂在 `shown` 上)。
@@ -465,7 +618,7 @@ class WindowApi:
         不等第一次最小化 —— 不然右键任务栏图标那个系统菜单要到业主点过一次
         缩小之后才有。
         """
-        self._on_ui(self._apply_native_styles)
+        self._on_ui(self._setup_native_frame)
 
     # --- 前端叫得到的 ---------------------------------------------------
     def begin_drag(self):
@@ -486,23 +639,28 @@ class WindowApi:
             #    那条路会改 `FormBorderStyle`,WinForms 会照 `CreateParams` 重算
             #    窗口样式 —— 我们贴的位会被**安静地刷掉**,而业主看到的是
             #    「有时有动画有时没有」。补位很便宜(贴过了就直接 return)。
-            self._apply_native_styles(form)
+            self._apply_native_styles_and_frame(form)
             form.WindowState = FormWindowState.Minimized
         self._on_ui(go)
 
     def toggle_maximize(self):
         def go(form):
-            from System.Drawing import Rectangle
+            from System.Windows.Forms import FormWindowState
 
-            if self._is_max(form) and self._restore:
-                x, y, w, h = self._restore
-                form.Bounds = Rectangle(x, y, w, h)
+            # 2026-08-23(track opendesign-native-frame):改回**真**最大化。
+            # 以前这里是自己算工作区、直接设 Bounds 的"假最大化" —— 系统压根
+            # 不知道发生了最大化,所以**永远不会有放大动画**,而那正是业主
+            # 本轮点名的一半(「缩小和放大的动画还是没有」)。
+            #
+            # 以前不敢用 WindowState.Maximized 的理由是"无边框窗口最大化会连
+            # 任务栏一起盖住" —— 那个理由**现在不成立了**:窗口带着 CAPTION|
+            # THICKFRAME,溢出的那一圈由 _wndproc 的 WM_NCCALCSIZE 分支收回
+            # 显示器工作区(_fit_maximized_to_work_area)。
+            self._apply_native_styles_and_frame(form)
+            if form.WindowState == FormWindowState.Maximized:
+                form.WindowState = FormWindowState.Normal
                 return False
-            self._restore = (form.Left, form.Top, form.Width, form.Height)
-            area = self._work_area(form)
-            # 🔴 用**工作区**而不是 WindowState.Maximized:无边框窗口最大化会连
-            #    任务栏一起盖住(FormBorderStyle=None 没有系统边框帮它留位置)。
-            form.Bounds = Rectangle(area.X, area.Y, area.Width, area.Height)
+            form.WindowState = FormWindowState.Maximized
             return True
         return {"maximized": bool(self._on_ui(go))}
 
@@ -539,12 +697,26 @@ class Shell:
         #    `Form.Show() + Activate()`,而 Activate 走的 `SetForegroundWindow`
         #    **对最小化的窗口不还原** ⇒ 业主点托盘图标、或再双击一次桌面图标,
         #    窗口都回不来(pywebview issue #1749 列的第三条,我们从没验过)。
-        #    我们自己的"最大化"是直接设 Bounds、WindowState 一直是 Normal ⇒
-        #    这一句对最大化的窗口是幂等的,不会把它打回小窗。
+        #    ⚠️ 2026-08-23(track opendesign-native-frame):这里原来写着
+        #    「我们的最大化 WindowState 一直是 Normal ⇒ restore 幂等」——
+        #    **D3 之后那句话不成立了**,最大化是真的,无条件 restore() 会把
+        #    最大化的窗口打回小窗。所以先问一句它是不是真的最小化了。
+        minimized = True
         try:
-            self.window.restore()
+            from System.Windows.Forms import FormWindowState
+
+            form = getattr(self.window, "native", None)
+            if form is not None:
+                minimized = (form.WindowState == FormWindowState.Minimized)
         except Exception as exc:
-            log(f"[窗口] 从最小化还原失败,仍然试着 Show:{exc.__class__.__name__}")
+            # 读不到状态时**按最小化处理**:多还原一次顶多丢掉最大化状态,
+            # 而漏还原会让窗口彻底回不来 —— 那才是 0.92 修掉的那个 bug。
+            log(f"[窗口] 读不到窗口状态,按最小化处理:{exc.__class__.__name__}")
+        if minimized:
+            try:
+                self.window.restore()
+            except Exception as exc:
+                log(f"[窗口] 从最小化还原失败,仍然试着 Show:{exc.__class__.__name__}")
         self.window.show()
 
     def hide_window(self):
