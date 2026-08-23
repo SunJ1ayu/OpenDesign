@@ -88,11 +88,13 @@ mutate_and_expect F3 bin/ds_shell.py "$ORACLE" \
   'needed = (WS_CAPTION | WS_THICKFRAME' 'needed = (WS_CAPTION' \
   'style | WS_CAPTION | WS_THICKFRAME' 'style | WS_CAPTION'
 
-# F4 加了位却不接管(常量名换成字面量,接管这一半就"不存在"了)
-#    —— 只做前半边 = 窗口长出一条真的标题栏
+# F4 加了位却不装接管 —— 只做前半边 = 窗口长出一条真的标题栏。
+#    (第一版这条是把 GWLP_WNDPROC 换成字面量 -4,那**根本没改变功能**,
+#     判据绿是对的。变异本身要是没破坏行为,红检就在测一个假问题。)
 mutate_and_expect F4 bin/ds_shell.py "$ORACLE" \
   test_n3_caption_requires_nccalcsize_takeover \
-  'hwnd, GWLP_WNDPROC,' 'hwnd, -4,'
+  '            self._install_wndproc(form)
+            self._apply_native_styles(form)' '            self._apply_native_styles(form)'
 
 # F5 NCCALCSIZE 分支不再吃掉非客户区
 mutate_and_expect F5 bin/ds_shell.py "$ORACLE" \
@@ -133,6 +135,14 @@ mutate_and_expect F10 bin/ds_shell.py "$ORACLE" \
 mutate_and_expect F11 bin/ds_shell.py "$ORACLE" \
   test_n10_install_is_idempotent_per_handle \
   'if self._wndproc_hook is not None and self._hooked_hwnd == hwnd_now:' 'if self._wndproc_hook is not None:'
+
+# F12 销毁前不解挂(panel P1 那条)—— 回调随对象走,而消息还在发
+mutate_and_expect F12 bin/ds_shell.py "$ORACLE" \
+  test_n11_wndproc_is_uninstalled_before_destroy \
+  '            self.window_api.uninstall_wndproc()
+            try:
+                self.window.destroy()' '            try:
+                self.window.destroy()'
 
 restore
 echo "== 还原核对 =="

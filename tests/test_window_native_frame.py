@@ -181,12 +181,27 @@ class WindowNativeFrame(unittest.TestCase):
         """本单的交易两头必须同时在。**只做前半边 = 窗口长出标题栏。**"""
         idents = _idents(self.tree)
         uses_caption = "WS_CAPTION" in idents
-        handles_nc = "WM_NCCALCSIZE" in idents and "GWLP_WNDPROC" in idents
+
+        # 🔴 "接管真的接上了"要三条同时成立,只看名字在不在不算数。
+        #    红检 F4 教的:把 GWLP_WNDPROC 换成字面量 -4,**功能一点没变** ——
+        #    那种变异下判据本就该绿。真正要咬住的是"接管压根没被装上",
+        #    所以这里问的是调用链,不是名字表。
+        wp = self.funcs.get("_wndproc")
+        has_wndproc = wp is not None and "WM_NCCALCSIZE" in _idents(wp)
+        has_install = "_install_wndproc" in self.funcs
+        entry = self.funcs.get("_apply_native_styles_and_frame")
+        installed = entry is not None and any(
+            _callee(c) == "_install_wndproc"
+            for c in ast.walk(entry) if isinstance(c, ast.Call))
+        handles_nc = has_wndproc and has_install and installed
+
         self.assertEqual(
             uses_caption, handles_nc,
             "WS_CAPTION 与 WM_NCCALCSIZE 接管必须同生共死:\n"
             f"  用了 WS_CAPTION = {uses_caption}\n"
-            f"  接管了 NCCALCSIZE = {handles_nc}\n"
+            f"  接管了 NCCALCSIZE = {handles_nc}"
+            f"(有 _wndproc={has_wndproc} 有 _install={has_install} "
+            f"真被装上={installed})\n"
             "只加位不接管 ⇒ Windows 会给这个窗口画一条真的标题栏,业主的外观当场变;\n"
             "只接管不加位 ⇒ 白接管,动画还是没有(0.92 的复刻)。")
 
@@ -375,6 +390,31 @@ class WindowNativeFrame(unittest.TestCase):
                 return
         self.fail("_install_wndproc 的早退条件里没有比较 _hooked_hwnd。\n"
                   "只判断'挂过没有'的话,窗口句柄一重建就永远不会重挂了。")
+
+    # ── n11 窗口销毁前必须解挂(panel submimo 标的 P1)──────────────
+    def test_n11_wndproc_is_uninstalled_before_destroy(self):
+        """不解挂 = 回调对象随 Python 对象一起走,而 Windows 还在给这个 hwnd
+
+        发最后几条消息(WM_DESTROY / WM_NCDESTROY)。
+        这条是 panel 标出来的:我自审时知道"从来没解挂过",但没把它当成要修的。
+        """
+        self.assertIn("uninstall_wndproc", self.funcs,
+                      "没有 uninstall_wndproc —— 窗口过程装上去就再也没还回去过")
+
+        fn = self.funcs.get("destroy")
+        self.assertIsNotNone(fn, "Shell.destroy 不见了")
+        calls = [(n.lineno, _code(n.func))
+                 for n in ast.walk(fn) if isinstance(n, ast.Call)]
+        un = [ln for ln, f in calls if "uninstall_wndproc" in f]
+        wd = [ln for ln, f in calls if f.endswith("window.destroy")]
+        self.assertTrue(
+            un, "Shell.destroy 里没有叫 uninstall_wndproc —— "
+                "窗口要没了,而我们的窗口过程还挂在它上面。")
+        if wd:
+            self.assertLess(
+                min(un), min(wd),
+                "解挂排在 window.destroy() **后面**了。销毁过程中的那几条消息"
+                "会走进一个即将消失的 Python 回调 —— 顺序必须反过来。")
 
 
 if __name__ == "__main__":
