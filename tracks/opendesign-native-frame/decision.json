@@ -2,19 +2,21 @@
   "schema_version": 1,
   "track": "opendesign-native-frame",
   "impact": {
-    "level": null,
-    "factors": null
+    "level": "standard",
+    "factors": []
   },
   "design": {
-    "uncertainty": null,
+    "uncertainty": "high",
     "premise_attack": {
-      "status": null,
-      "evidence": []
+      "status": "done",
+      "evidence": [
+        "evidence/premise-attack-upstream-b.md"
+      ]
     }
   },
   "execution_plan": {
-    "adapter": null,
-    "model": null
+    "adapter": "main",
+    "model": "claude-opus-5"
   },
   "outcome": {
     "verdict": null
