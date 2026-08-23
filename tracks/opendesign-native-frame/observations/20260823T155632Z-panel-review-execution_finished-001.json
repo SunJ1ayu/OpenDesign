@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-native-frame",
+  "run_id": "20260823-235632-85397-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "native-frame",
+  "started_at": "2026-08-23T15:56:32Z",
+  "finished_at": "2026-08-23T15:56:32Z",
+  "duration_ms": 112,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "standard",
+    "degraded": false,
+    "work_exit_code": 1,
+    "legs": []
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

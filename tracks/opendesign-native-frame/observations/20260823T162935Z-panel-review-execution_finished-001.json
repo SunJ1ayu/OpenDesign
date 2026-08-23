@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-native-frame",
+  "run_id": "20260823-235817-88793-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "native-frame",
+  "started_at": "2026-08-23T15:58:17Z",
+  "finished_at": "2026-08-23T16:29:35Z",
+  "duration_ms": 1878473,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "standard",
+    "degraded": true,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "name": "submimo",
+        "family": "xiaomi",
+        "adapter": "submimo",
+        "model": null,
+        "state": "completed",
+        "exit_code": 0,
+        "verdict": null,
+        "degraded": false,
+        "duration_ms": null,
+        "usage": {
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null,
+          "api_cost": null,
+          "billing_mode": null
+        }
+      },
+      {
+        "name": "subdeepseek",
+        "family": "deepseek",
+        "adapter": "subdeepseek-agent",
+        "model": null,
+        "state": "completed",
+        "exit_code": 0,
+        "verdict": "BLOCK",
+        "degraded": false,
+        "duration_ms": null,
+        "usage": {
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null,
+          "api_cost": null,
+          "billing_mode": null
+        }
+      },
+      {
+        "name": "subglm",
+        "family": "zhipu",
+        "adapter": "subglm",
+        "model": null,
+        "state": "failed",
+        "exit_code": 1,
+        "verdict": null,
+        "degraded": true,
+        "duration_ms": null,
+        "usage": {
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null,
+          "api_cost": null,
+          "billing_mode": null
+        }
+      },
+      {
+        "name": "subkimi",
+        "family": "moonshot",
+        "adapter": "subkimi",
+        "model": null,
+        "state": "failed",
+        "exit_code": 1,
+        "verdict": null,
+        "degraded": false,
+        "duration_ms": null,
+        "usage": {
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null,
+          "api_cost": null,
+          "billing_mode": null
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
