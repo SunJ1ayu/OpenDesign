@@ -381,15 +381,18 @@ class WindowNativeFrame(unittest.TestCase):
         """
         fn = self.funcs.get("_install_wndproc")
         self.assertIsNotNone(fn, "_install_wndproc 不见了")
-        for node in ast.walk(fn):
-            if not isinstance(node, ast.If):
-                continue
-            cond = _code(node.test)
-            has_return = any(isinstance(s, ast.Return) for s in node.body)
-            if has_return and "_hooked_hwnd" in cond:
-                return
-        self.fail("_install_wndproc 的早退条件里没有比较 _hooked_hwnd。\n"
-                  "只判断'挂过没有'的话,窗口句柄一重建就永远不会重挂了。")
+        # 🔴 写成 assertTrue 而不是"命中就 return、走到底再 fail":
+        #    后者那句 fail 在正常情况下**从来不会被执行**,死断言闸会红
+        #    (它是对的 —— 从没跑过的断言等于没写)。
+        guarded = any(
+            isinstance(node, ast.If)
+            and any(isinstance(st, ast.Return) for st in node.body)
+            and "_hooked_hwnd" in _code(node.test)
+            for node in ast.walk(fn))
+        self.assertTrue(
+            guarded,
+            "_install_wndproc 的早退条件里没有比较 _hooked_hwnd。\n"
+            "只判断「挂过没有」的话,窗口句柄一重建就永远不会重挂了。")
 
     # ── n11 窗口销毁前必须解挂(panel submimo 标的 P1)──────────────
     def test_n11_wndproc_is_uninstalled_before_destroy(self):
@@ -447,20 +450,16 @@ class WindowNativeFrame(unittest.TestCase):
         """
         fn = self.funcs.get("_wndproc")
         self.assertIsNotNone(fn)
-        for node in ast.walk(fn):
-            if not isinstance(node, ast.If):
-                continue
-            cond = _code(node.test)
-            if "WM_NCCALCSIZE" not in cond:
-                continue
+        conds = [_code(n.test) for n in ast.walk(fn)
+                 if isinstance(n, ast.If) and "WM_NCCALCSIZE" in _code(n.test)]
+        self.assertTrue(conds, "找不到 WM_NCCALCSIZE 的分支")
+        for cond in conds:
             self.assertNotIn(
                 "wparam", cond.lower(),
                 "决定「要不要吃掉非客户区」的那个 if 里带上了 wparam ⇒ "
                 "wParam 为假的消息会漏到原 proc 去。\n"
                 "wparam 只该用来决定「lParam 能不能当 NCCALCSIZE_PARAMS 解」,"
                 "不该决定「要不要 return 0」。")
-            return
-        self.fail("找不到 WM_NCCALCSIZE 的分支")
 
 
 if __name__ == "__main__":
