@@ -4,7 +4,7 @@ base-ref: eead395
 
 ## 0. 开工前必须先过的闸
 
-- [ ] **P0 探针:pythonnet 能不能覆写 `WndProc(ref Message m)`**
+- [x] **P0 探针(FAIL,见 evidence/p0-result.md):pythonnet 能不能覆写 `WndProc(ref Message m)`**
       —— design.md 未知 #1。**探针没绿之前不许写实现。**
       这一步需要一台 Windows;Linux 上无解。
 - [ ] `track-record validate --phase dispatch`(**当前被权限拦住,欠**)
