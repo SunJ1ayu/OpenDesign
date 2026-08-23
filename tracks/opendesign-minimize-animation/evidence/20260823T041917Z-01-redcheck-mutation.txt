@@ -1,0 +1,40 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-mutation
+cmd:     tests/mutation-window-chrome.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  656e606
+dirty:   yes(跑之前采的;含未跟踪文件)
+head-before: 656e60673ed76abac0dd8243c95dcade87592b51
+source-view-before: sha256:86c4a8510f34515ed06bede42cc31b1bead2f19ac400c45f5afc4d146bfd9839
+started: 2026-08-23T04:19:17Z
+---------------- 输出开始 ----------------
+== 红检开始(无边框窗口那一批)==
+  [OK]   W1 -> 靶子 test_x5_nothing_is_allowed_to_cover_the_window_bar 如期红了
+  [OK]   W2 -> 靶子 test_x8_the_grips_never_eat_the_buttons 如期红了
+  [OK]   W3 -> 靶子 test_x6_clicking_a_window_button_never_also_moves_the_window 如期红了
+  [OK]   W4 -> 靶子 test_x7_the_css_grips_match_the_edge_list 如期红了
+  [OK]   W5 -> 靶子 test_x9_every_grip_actually_sits_on_its_edge 如期红了
+  [OK]   W6 -> 靶子 test_x9_every_grip_actually_sits_on_its_edge 如期红了
+  [OK]   W7 -> 靶子 test_every_windll_call_declares_its_argtypes 如期红了
+  [OK]   W8 -> 靶子 test_w7_the_watchdog_looks_once_not_twice 如期红了
+  [OK]   N1 -> 靶子 test_s1_style_constants_have_the_right_values 如期红了
+  [OK]   N2 -> 靶子 test_s2_style_is_or_ed_onto_the_existing_style_not_overwritten 如期红了
+  [OK]   N2b -> 靶子 test_s2_style_is_or_ed_onto_the_existing_style_not_overwritten 如期红了
+  [OK]   N3 -> 靶子 test_s3_does_not_touch_styles_that_resize_the_non_client_area 如期红了
+  [OK]   N4 -> 靶子 test_s4_frame_change_is_announced_without_moving_or_stealing_focus 如期红了
+  [OK]   N5 -> 靶子 test_s5_show_window_restores_before_showing 如期红了
+  [OK]   N6 -> 靶子 test_s6_styles_are_ensured_before_every_minimize 如期红了
+  [OK]   N6b -> 靶子 test_s6_styles_are_ensured_before_every_minimize 如期红了
+  [OK]   N7 -> 靶子 test_s7_applying_styles_can_never_break_minimize_itself 如期红了
+  [OK]   N7b -> 靶子 test_s7_applying_styles_can_never_break_minimize_itself 如期红了
+  [OK]   N8 -> 靶子 test_functions_that_declare_argtypes_also_declare_restype 如期红了
+  [OK]   N8b -> 靶子 test_pointer_width_apis_return_a_pointer_wide_type 如期红了
+
+被变异的 3 个文件都已原样还回(哈希一致)
+== 红检结束:咬住 20 条 / 漏网 0 条 ==
+command-rc: 0
+head-after: 656e60673ed76abac0dd8243c95dcade87592b51
+source-view-after:  sha256:86c4a8510f34515ed06bede42cc31b1bead2f19ac400c45f5afc4d146bfd9839
+source-stable: yes
+---------------- 输出结束 ----------------
+runlog: redcheck-mutation rc=0 commit=656e606 dirty=yes final=yes at=2026-08-23T04:19:17Z file=tracks/opendesign-minimize-animation/evidence/20260823T041917Z-01-redcheck-mutation.txt

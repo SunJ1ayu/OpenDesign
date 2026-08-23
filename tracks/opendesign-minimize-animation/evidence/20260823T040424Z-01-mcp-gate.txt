@@ -1,0 +1,228 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    mcp-gate
+cmd:     tests/mcp-gate.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  656e606
+dirty:   yes(跑之前采的;含未跟踪文件)
+head-before: 656e60673ed76abac0dd8243c95dcade87592b51
+source-view-before: sha256:547769483fe314f26628d96ef3c66121f54c7122bd83dfdbef8560ee7ab2c513
+started: 2026-08-23T04:04:24Z
+---------------- 输出开始 ----------------
+== test_mcp_surface
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.150s
+
+OK
+== test_mcp_entry_contract
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+<unknown>:246: SyntaxWarning: invalid escape sequence '\]'
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_organize.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_refs.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_adopt.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_intake.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_lint.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_workspace.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_taxonomy.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_common.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_lock.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_todo.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_model.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+<unknown>:246: SyntaxWarning: invalid escape sequence '\]'
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_organize.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_refs.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_adopt.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_intake.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_lint.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_workspace.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_taxonomy.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_common.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_lock.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_todo.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_model.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:291: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_mcp.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:291: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_tools_server.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:291: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_organize_server.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:291: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_refs_server.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+...../root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:86: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/config/nanobot.config.jsonc' mode='r' encoding='utf-8'>
+  text = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:86: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/config/nanobot.config.windows.jsonc' mode='r' encoding='utf-8'>
+  text = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:97: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/config/nanobot.config.jsonc' mode='r' encoding='utf-8'>
+  text = open(os.path.join(ms.REPO, rel), encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:97: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/config/nanobot.config.windows.jsonc' mode='r' encoding='utf-8'>
+  text = open(os.path.join(ms.REPO, rel), encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:111: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/config/nanobot.config.jsonc' mode='r' encoding='utf-8'>
+  open(os.path.join(ms.REPO, rel), encoding="utf-8").read()))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:111: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/config/nanobot.config.windows.jsonc' mode='r' encoding='utf-8'>
+  open(os.path.join(ms.REPO, rel), encoding="utf-8").read()))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/evals/resolver_eval.py:119: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_tools_server.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(os.path.join(ROOT, "bin", f), encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/evals/resolver_eval.py:119: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_organize_server.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(os.path.join(ROOT, "bin", f), encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/evals/resolver_eval.py:119: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_refs_server.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(os.path.join(ROOT, "bin", f), encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:217: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_tools_server.py' mode='r' encoding='utf-8'>
+  src = open(os.path.join(ms.REPO, "bin", f), encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:217: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_organize_server.py' mode='r' encoding='utf-8'>
+  src = open(os.path.join(ms.REPO, "bin", f), encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:217: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_refs_server.py' mode='r' encoding='utf-8'>
+  src = open(os.path.join(ms.REPO, "bin", f), encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/evals/due_writer_eval.py:142: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_tools_server.py' mode='r' encoding='utf-8'>
+  open(os.path.join(ROOT, "bin", "ds_tools_server.py"), encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/10-systems-xhs-mindmap.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/10-systems.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/accept-0.75.0.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/accept-0.76.0.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/accept-0.81.0.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/accept-0.85.0.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/backlog.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/ccd-folder-taxonomy.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/code-conventions.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/deploy-security.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/frontend-actions-roadmap.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/install-windows.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/nanobot-ws-protocol.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/north-star.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/opendesign-optimization-plan-codex.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/spec.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/tool-audit-20260716.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/workspace-taxonomy.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:178: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/install-windows.md' mode='r' encoding='utf-8'>
+  encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:186: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py' mode='r' encoding='utf-8'>
+  head = open(os.path.join(ms.REPO, mod), encoding="utf-8").read()[:1200]
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:186: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_organize.py' mode='r' encoding='utf-8'>
+  head = open(os.path.join(ms.REPO, mod), encoding="utf-8").read()[:1200]
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:186: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_refs.py' mode='r' encoding='utf-8'>
+  head = open(os.path.join(ms.REPO, mod), encoding="utf-8").read()[:1200]
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+..
+----------------------------------------------------------------------
+Ran 16 tests in 2.299s
+
+OK
+== test_no_import_cycles
+<unknown>:246: SyntaxWarning: invalid escape sequence '\]'
+.<unknown>:246: SyntaxWarning: invalid escape sequence '\]'
+....
+----------------------------------------------------------------------
+Ran 5 tests in 0.252s
+
+OK
+mcp-gate: 全绿(/root/.venvs/design-studio/bin/python)
+command-rc: 0
+head-after: 656e60673ed76abac0dd8243c95dcade87592b51
+source-view-after:  sha256:547769483fe314f26628d96ef3c66121f54c7122bd83dfdbef8560ee7ab2c513
+source-stable: yes
+---------------- 输出结束 ----------------
+runlog: mcp-gate rc=0 commit=656e606 dirty=yes final=yes at=2026-08-23T04:04:24Z file=tracks/opendesign-minimize-animation/evidence/20260823T040424Z-01-mcp-gate.txt

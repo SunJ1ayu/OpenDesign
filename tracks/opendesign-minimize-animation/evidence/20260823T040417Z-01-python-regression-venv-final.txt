@@ -1,0 +1,16 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    python-regression-venv-final
+cmd:     /root/.venvs/design-studio/bin/python -W ignore -m unittest discover -s tests -t tests -p test_\*.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  656e606
+dirty:   yes(跑之前采的;含未跟踪文件)
+head-before: 656e60673ed76abac0dd8243c95dcade87592b51
+source-view-before: sha256:720da288d567271ddf07ea9b56fc1460f24224c8e355b7b6ccc6a123ce09c6ef
+started: 2026-08-23T04:04:17Z
+---------------- 输出开始 ----------------
+command-rc: 143
+head-after: 656e60673ed76abac0dd8243c95dcade87592b51
+source-view-after:  sha256:65b355f0172afc7903a1b7473bd9a47b39c7ec9a12eec22d3b885192c2d59892
+source-stable: no
+---------------- 输出结束 ----------------
+runlog: python-regression-venv-final rc=143 commit=656e606 dirty=yes final=yes at=2026-08-23T04:04:17Z file=tracks/opendesign-minimize-animation/evidence/20260823T040417Z-01-python-regression-venv-final.txt

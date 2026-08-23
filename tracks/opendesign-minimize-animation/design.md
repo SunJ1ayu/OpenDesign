@@ -1,9 +1,12 @@
 # Design: opendesign-minimize-animation
 
 - Change: opendesign-minimize-animation
-- Status: 调查完成,方向待业主拍板(2026-08-23 业主:先不动手改)
+- Status: 业主拍板做**方案 A**,已实现并收口(0.92.0,代码面主裁 PASS)。
+  方案 B 那一族明确不做,留单独一单。**产品结论悬着,等真机 B1/B2。**
 
-- 规划双出: 不适用 —— 这一轮**只调查不实现**,没有实现方向要双出。真动手时,
+- 规划双出: 不适用 —— 立单时这一轮**只调查不实现**;业主拍板后落地的方案 A 是
+  「往既有窗口补三个不参与绘制的样式位」,没有开新写面、方向也只有一个,
+  不另花一次双出(uncertainty=high 花掉的那次是 premise attack)。真动手做方案 B 时,
   方案 B(接管 `WM_NCCALCSIZE`/`WM_NCHITTEST`)是新写面,那一单必须双出。
 
 ## 根因(一族,不是一条)

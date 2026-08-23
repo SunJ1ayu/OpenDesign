@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-minimize-animation",
+  "run_id": "20260823T034751Z-01-python-regression-final",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "python-regression-final",
+  "started_at": "2026-08-23T03:47:51Z",
+  "finished_at": "2026-08-23T03:52:59Z",
+  "duration_ms": 307929,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
