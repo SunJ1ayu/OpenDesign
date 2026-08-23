@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-minimize-animation",
+  "impact": {
+    "level": "standard",
+    "factors": []
+  },
+  "design": {
+    "uncertainty": "high",
+    "premise_attack": {
+      "status": "done",
+      "evidence": [
+        "evidence/premise-attack-upstream.md"
+      ]
+    }
+  },
+  "execution_plan": {
+    "adapter": "main",
+    "model": "claude-opus-5"
+  },
+  "outcome": {
+    "verdict": null
+  }
+}
