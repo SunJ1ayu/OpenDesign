@@ -1,0 +1,11 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    python-regression
+cmd:     /root/.venvs/design-studio/bin/python -m pytest tests/ -q -p no:cacheprovider
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  057439d
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-23T03:39:36Z
+---------------- 输出开始 ----------------
+/root/.venvs/design-studio/bin/python: No module named pytest
+---------------- 输出结束 ----------------
+runlog: python-regression rc=1 commit=057439d dirty=yes at=2026-08-23T03:39:36Z file=tracks/opendesign-minimize-animation/evidence/20260823T033936Z-01-python-regression.txt

@@ -87,7 +87,19 @@ import ds_todo
 import ds_tools
 import ds_workspace
 
-VERSION = "0.91.0"  # 右上角那三个按钮和拖动带真的画出来了(track opendesign-shell-chrome):
+VERSION = "0.92.0"  # 缩小按钮重新有"向下收进任务栏"的动画(track opendesign-minimize-animation):
+                    # 业主 08-23:「缩小按钮在页面上是直接消失,不会像成熟的产品一样有
+                    # 向下缩小的动画,这个很重要,可以引导用户知道页面在底部」。
+                    # 根因不是动画是**身份**:frameless ⇒ FormBorderStyle=None ⇒
+                    # WinForms 的 CreateParams 把 WS_SYSMENU/WS_MINIMIZEBOX/WS_MAXIMIZEBOX
+                    # 那批位一个都不发,而 Windows 的窗口待遇全按这些位发。贴回三个
+                    # 不影响绘制的位就够(Electron 2014 年 #751 同一个坑、同一个结论)。
+                    # 顺带修掉一条更狠的:缩小之后点托盘图标叫不回窗口 —— pywebview 的
+                    # show() 是 Show()+Activate(),对最小化的窗口不还原(#1749 列过,
+                    # 我们从没验过)。现在先 restore 再 show。
+                    # ⚠️ 拖边缘分屏 / Win11 分屏布局 / 那个"假最大化"**本版没修**,
+                    #    它们要动窗口非客户区,是方案 B,单独一单。
+                    # 0.91.0  右上角那三个按钮和拖动带真的画出来了(track opendesign-shell-chrome):
                     # 无边框窗口把系统标题栏拿掉了,三个按钮 + 30px 拖动带 + 八个把手
                     # 改由前端自己画 —— 而它们在业主机器上**一样都没出现**
                     # (「拖不动 / 右上角还是没有缩小放大和退出」,0.89、0.90 两版都是)。

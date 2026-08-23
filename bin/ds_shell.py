@@ -413,7 +413,22 @@ class WindowApi:
         `WS_CAPTION` 会真的改变窗口非客户区的尺寸 —— 内容会被挤、边缘可能冒出
         一条线。那是方案 B(接管 `WM_NCCALCSIZE`)的活,要单独一单、单独一趟真机。
         判据 s3 机械地守着这条界线,别顺手多加一个。
+
+        🔴 **整个函数吞掉自己的异常**(判据 s7 机械守着)。理由不是"稳一点好":
+        `minimize()` 会先叫它、再设 `WindowState = Minimized`。它要是把异常抛出去,
+        那一行就跑不到了 —— **业主按下缩小按钮会毫无反应**。
+        拿"缩小"这个功能本身去赌"缩小的动画",是这一单最不该犯的错。
+        `_on_ui` 那层的 except 也接不住这件事:它印的是「回不到 UI 线程」,
+        而这里失败的原因五花八门(缺 API、句柄没了、权限),那句话会把排查带偏。
         """
+        try:
+            self._apply_native_styles_unsafe(form)
+        except Exception as exc:
+            # 贴不上就算了,窗口该干什么还干什么 —— 只是没有那段动画。
+            log(f"[窗口] 贴系统样式位失败(缩小照常,只是没动画):{exc!r}")
+
+    def _apply_native_styles_unsafe(self, form) -> None:
+        """真正干活的那半,调用者只有上面那个 —— 它负责兜异常。"""
         from ctypes import wintypes            # Windows 才有(同 _hit 的写法)
 
         user32 = ctypes.windll.user32
@@ -508,6 +523,9 @@ class Shell:
         self.lock = lock
         self.window = None
         self.icon = None
+        # 窗口按钮走它,`shown` 那条线也要再叫它一次(贴系统样式位)⇒ 存一份,
+        # 别在 main 里往实例上动态挂一个属性。
+        self.window_api = WindowApi(self)
         self.state = core.ShellState(ui=self, on_stop=self.stop_backend)
 
     # --- core.ShellState 要求的 UI 三件 -------------------------------
@@ -616,7 +634,6 @@ def main() -> int:
         sup, web, restart_gateway = start_backend(home, lock_port=lock.port)
         restart_holder.append(restart_gateway)
         shell = Shell(sup, web, lock)
-        shell.window_api = WindowApi(shell)     # `shown` 那条线还要再叫它
         shell_holder.append(shell)
 
         import webview
