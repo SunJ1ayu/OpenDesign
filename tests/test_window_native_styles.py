@@ -79,6 +79,30 @@ def _or_operands(node: ast.AST) -> set[str]:
     return names
 
 
+def _code_identifiers(tree: ast.Module) -> set[str]:
+    """源码里**真正被当作标识符用**的名字。
+
+    🔴 第一版这道闸是拿正则扫整个文件的文本 —— 于是我在实现里写下
+    「`WS_THICKFRAME` 会改非客户区尺寸,所以这一单不加它」这句**正当的注释**,
+    闸当场红了。带误报的闸最坏的地方不是烦:它会逼出「把话说得含糊一点好过闸」
+    的习惯,而那正是这道闸想拦的方向。⇒ 只问代码,不问注释和文档字符串。
+    """
+    names: set[str] = set()
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Name):
+            names.add(n.id)
+        elif isinstance(n, ast.Attribute):
+            names.add(n.attr)
+    return names
+
+
+def _int_literals(tree: ast.Module) -> set[int]:
+    """代码里的整数字面量(躲开注释,也躲开 docstring —— 那些是 str)。"""
+    return {n.value for n in ast.walk(tree)
+            if isinstance(n, ast.Constant) and isinstance(n.value, int)
+            and not isinstance(n.value, bool)}
+
+
 def _find_call(tree: ast.Module, name: str) -> ast.Call | None:
     for call in _calls(tree):
         if _callee_name(call) == name:
@@ -178,12 +202,14 @@ class WindowNativeStyles(unittest.TestCase):
     # ── s3 本单的边界 ───────────────────────────────────────────
     def test_s3_does_not_touch_styles_that_resize_the_non_client_area(self):
         """越界就作废「外观零变化」那句承诺 —— 那是方案 B 的活。"""
+        idents = _code_identifiers(self.tree) | set(self.consts)
+        literals = _int_literals(self.tree)
         hits = []
         for name, value in FORBIDDEN_STYLES.items():
-            if re.search(rf"\b{name}\b", self.src):
-                hits.append(f"{name}(出现在源码里)")
-            if re.search(rf"0[xX]0*{value:X}\b", self.src):
-                hits.append(f"{name} 的值 {value:#x}")
+            if name in idents:
+                hits.append(f"{name}(代码里用到了这个名字)")
+            if value in literals:
+                hits.append(f"{name} 的值 {value:#x}(代码里出现了这个字面量)")
         self.assertEqual(
             [], hits,
             "这一单只许贴**不影响绘制**的样式位。下面这些会改变窗口非客户区的尺寸,"
