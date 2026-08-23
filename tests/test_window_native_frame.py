@@ -105,12 +105,17 @@ def _code(node: ast.AST) -> str:
 
 
 def _idents(node: ast.AST) -> set[str]:
-    """代码里真正**引用到**的名字(Name / Attribute),不含注释与 docstring。"""
+    """代码里真正**读取**到的名字,不含注释、docstring,**也不含常量定义本身**。
+
+    🔴 只收 `ctx=Load` 的 Name。第一版连赋值目标(`GWLP_WNDPROC = -4` 那个
+    左手边)也收,于是红检 F4 把使用处换成字面量 `-4` 之后,判据**照样绿** ——
+    因为常量定义还在,名字还在集合里。"定义了"不等于"用了"。
+    """
     out: set[str] = set()
     for sub in ast.walk(node):
-        if isinstance(sub, ast.Name):
+        if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Load):
             out.add(sub.id)
-        elif isinstance(sub, ast.Attribute):
+        elif isinstance(sub, ast.Attribute) and isinstance(sub.ctx, ast.Load):
             out.add(sub.attr)
     return out
 
@@ -277,12 +282,32 @@ class WindowNativeFrame(unittest.TestCase):
         """
         fn = self.funcs.get("show_window")
         self.assertIsNotNone(fn, "show_window 不见了")
-        body = _code(fn)
-        if "restore()" in body:
-            self.assertTrue(
-                re.search(r"(Minimized|WindowState|_is_min)", body),
-                "show_window 里还是**无条件** restore()。D3 把最大化改成真的之后,"
-                "这一句会把最大化的窗口打回小窗 —— 必须先判断它是不是最小化。")
+
+        restores = [n for n in ast.walk(fn)
+                    if isinstance(n, ast.Call) and _callee(n) == "restore"]
+        if not restores:
+            return                       # 压根不 restore 也就无所谓打回小窗
+
+        # 🔴 第一版这条只检查"函数体里提到过 Minimized",红检当场证明它**咬不动**:
+        #    把 `if minimized:` 改成 `if True:` 它照样绿。真正要问的是
+        #    **每一个 restore() 调用都被一个"条件里真的在问最小化"的 if 包着**。
+        guarded: set[int] = set()
+        for node in ast.walk(fn):
+            if not isinstance(node, ast.If):
+                continue
+            cond = _code(node.test)
+            if not re.search(r"[Mm]inimi", cond):
+                continue                 # `if True:` 这种恒真条件不算数
+            for sub in ast.walk(node):
+                if isinstance(sub, ast.Call) and _callee(sub) == "restore":
+                    guarded.add(id(sub))
+
+        for call in restores:
+            self.assertIn(
+                id(call), guarded,
+                "show_window 里有一个 restore() 不在「判断是否最小化」的 if 里面。\n"
+                "D3 把最大化改成真的之后,无条件 restore() 会把最大化的窗口"
+                "打回小窗;而恒真的条件(if True)等于没判断。")
 
 
 if __name__ == "__main__":
