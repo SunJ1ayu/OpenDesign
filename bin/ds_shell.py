@@ -291,6 +291,20 @@ def start_backend(home: Path, lock_port: int | None = None):
     return sup, web, restart_gateway
 
 
+# ── winuser.h 的几个常量 ──────────────────────────────────────────────
+# 🔴 值抄错一位**不会报错**,只会安静地设成别的位 ⇒ 判据 s1 逐个对表 winuser.h。
+#    GWL_STYLE 是负数,别写成 0x10。
+GWL_STYLE = -16
+WS_MINIMIZEBOX = 0x00020000
+WS_MAXIMIZEBOX = 0x00010000
+WS_SYSMENU = 0x00080000
+SWP_NOSIZE = 0x0001
+SWP_NOMOVE = 0x0002
+SWP_NOZORDER = 0x0004
+SWP_NOACTIVATE = 0x0010
+SWP_FRAMECHANGED = 0x0020
+
+
 class WindowApi:
     """前端那条窗口栏按下去之后走到的地方(pywebview 的 js_api)。
 
@@ -380,6 +394,64 @@ class WindowApi:
         return (form.Left == area.X and form.Top == area.Y
                 and form.Width == area.Width and form.Height == area.Height)
 
+    # --- 让 Windows 认这个窗口是正经窗口 ---------------------------------
+    def _apply_native_styles(self, form) -> None:
+        """把 frameless 顺手拿走的几个样式位贴回去(**必须在 UI 线程上跑**)。
+
+        2026-08-23 业主:「缩小按钮在页面上是直接消失,不会像成熟的产品一样有
+        向下缩小的动画」。根因不是动画是**身份**:`FormBorderStyle = None` 之后,
+        WinForms 的 `CreateParams` 把 `WS_SYSMENU / WS_MINIMIZEBOX /
+        WS_MAXIMIZEBOX / WS_THICKFRAME / WS_CAPTION` 整批挂在
+        `if (formBorderStyle != None)` 底下**一个都不发**,而 Windows 的窗口待遇
+        (最小化动画、还原动画、系统菜单、Win+方向键)全是按这些位发的。
+
+        Electron 2014 年踩的是同一个坑(electron#751),结论一字不差:
+        「问题是这个窗口没有被加上正确的样式」;当时有人担心"加了会不会冒出真的
+        边框",实测**不会**。摘录见 track 的 evidence/premise-attack-upstream.md。
+
+        🔴 **这里只贴不影响绘制的三个位。** `WS_THICKFRAME`(拖边缘分屏要它)和
+        `WS_CAPTION` 会真的改变窗口非客户区的尺寸 —— 内容会被挤、边缘可能冒出
+        一条线。那是方案 B(接管 `WM_NCCALCSIZE`)的活,要单独一单、单独一趟真机。
+        判据 s3 机械地守着这条界线,别顺手多加一个。
+        """
+        from ctypes import wintypes            # Windows 才有(同 _hit 的写法)
+
+        user32 = ctypes.windll.user32
+        # 不声明 argtypes 的话 HWND 和样式值都按 c_int 传,64 位上被静默截断 ——
+        # 改了等于没改,而且哪儿都不报错(判据 tests/test_win_ctypes_decls.py)。
+        user32.GetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int]
+        user32.GetWindowLongPtrW.restype = ctypes.c_ssize_t
+        user32.SetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int,
+                                             ctypes.c_ssize_t]
+        user32.SetWindowLongPtrW.restype = ctypes.c_ssize_t
+        user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND,
+                                        ctypes.c_int, ctypes.c_int,
+                                        ctypes.c_int, ctypes.c_int, ctypes.c_uint]
+        user32.SetWindowPos.restype = wintypes.BOOL
+
+        hwnd = wintypes.HWND(int(form.Handle.ToInt64()))
+        style = user32.GetWindowLongPtrW(hwnd, GWL_STYLE)
+        needed = WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU
+        if style & needed == needed:
+            return                       # 已经贴过了,别白发一次 FRAMECHANGED
+        # 🔴 **或上去**,不是赋值。直接赋值会把窗口现有的样式全清掉 ⇒ 窗口当场变形。
+        user32.SetWindowLongPtrW(hwnd, GWL_STYLE,
+                                 style | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)
+        # 改完样式必须通知一声,Windows 才会重算这个窗口的边框。四个 NO* 是保证
+        # 它**只**重算边框:少一个就会顺手移动窗口 / 改大小 / 抢层级 / 抢焦点。
+        user32.SetWindowPos(hwnd, None, 0, 0, 0, 0,
+                            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE
+                            | SWP_NOZORDER | SWP_NOACTIVATE)
+        log("[窗口] 已把 MINIMIZEBOX/MAXIMIZEBOX/SYSMENU 贴回窗口")
+
+    def ensure_native_styles(self):
+        """窗口一出来就叫一次(main 里挂在 `shown` 上)。
+
+        不等第一次最小化 —— 不然右键任务栏图标那个系统菜单要到业主点过一次
+        缩小之后才有。
+        """
+        self._on_ui(self._apply_native_styles)
+
     # --- 前端叫得到的 ---------------------------------------------------
     def begin_drag(self):
         self._on_ui(lambda form: self._hit(form, self.HIT["caption"]))
@@ -395,6 +467,11 @@ class WindowApi:
         def go(form):
             from System.Windows.Forms import FormWindowState
 
+            # 🔴 每次都确保一遍,而不是只在开窗口时贴一次:pywebview 的 fullscreen
+            #    那条路会改 `FormBorderStyle`,WinForms 会照 `CreateParams` 重算
+            #    窗口样式 —— 我们贴的位会被**安静地刷掉**,而业主看到的是
+            #    「有时有动画有时没有」。补位很便宜(贴过了就直接 return)。
+            self._apply_native_styles(form)
             form.WindowState = FormWindowState.Minimized
         self._on_ui(go)
 
@@ -438,8 +515,19 @@ class Shell:
     # EdgeChromium 后端内部会把调用转到 UI 线程,但这一点我在 Linux 上验不了 ⇒
     # 已进 Windows 真机考卷(「开着的时候再双击一次图标」那一问)。
     def show_window(self):
-        if self.window:
-            self.window.show()
+        if not self.window:
+            return
+        # 🔴 先从最小化里捞出来,再 Show。pywebview 的 `show()` 是
+        #    `Form.Show() + Activate()`,而 Activate 走的 `SetForegroundWindow`
+        #    **对最小化的窗口不还原** ⇒ 业主点托盘图标、或再双击一次桌面图标,
+        #    窗口都回不来(pywebview issue #1749 列的第三条,我们从没验过)。
+        #    我们自己的"最大化"是直接设 Bounds、WindowState 一直是 Normal ⇒
+        #    这一句对最大化的窗口是幂等的,不会把它打回小窗。
+        try:
+            self.window.restore()
+        except Exception as exc:
+            log(f"[窗口] 从最小化还原失败,仍然试着 Show:{exc.__class__.__name__}")
+        self.window.show()
 
     def hide_window(self):
         if self.window:
@@ -528,6 +616,7 @@ def main() -> int:
         sup, web, restart_gateway = start_backend(home, lock_port=lock.port)
         restart_holder.append(restart_gateway)
         shell = Shell(sup, web, lock)
+        shell.window_api = WindowApi(shell)     # `shown` 那条线还要再叫它
         shell_holder.append(shell)
 
         import webview
@@ -543,10 +632,14 @@ def main() -> int:
             #    由 WindowApi 用原生窗口消息接回来。
             #    `easy_drag=False` 是关键:开着的话**整个页面**按哪儿都能拖窗口 ——
             #    选不了字、拖不动滚动条。拖动只认我们那条栏。
-            frameless=True, easy_drag=False, js_api=WindowApi(shell),
+            frameless=True, easy_drag=False, js_api=shell.window_api,
         )
         # 关窗口 = 收进托盘。pywebview 的 closing 回调返回 False 表示"别关"。
         shell.window.events.closing += lambda: shell.state.on_close_requested()
+        # 窗口一出来就把 frameless 拿走的那几个样式位贴回去(见
+        # WindowApi._apply_native_styles)。挂 `shown` 而不是在这儿直接叫:
+        # 这一刻窗口还没建出来,没有 Handle 可用。
+        shell.window.events.shown += shell.window_api.ensure_native_styles
 
         shell.run_tray()
         shell.run_watchdog()
