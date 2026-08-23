@@ -78,6 +78,7 @@ PYEOF
 CONTRACT=tests/test_shell_window_contract.py
 CTYPES=tests/test_win_ctypes_decls.py
 WIRING=tests/test_ds_shell_wiring.py
+STYLES=tests/test_window_native_styles.py
 
 echo "== 红检开始(无边框窗口那一批)=="
 
@@ -139,6 +140,74 @@ mutate_and_expect W8 bin/ds_shell.py "$WIRING" \
                 if dead:
                     found = [(n, n) for n in dead]
                     for report in self.sup.dead_reports():'
+
+# ── 2026-08-23 那一单:系统样式位(判据 tests/test_window_native_styles.py)──
+# 业主报的「缩小按钮直接消失」。这批变异要证明:那 6 条不是摆设。
+
+# N1 常量抄错一位 —— 设的是别的位,而且哪儿都不报错
+mutate_and_expect N1 bin/ds_shell.py "$STYLES" \
+  test_s1_style_constants_have_the_right_values \
+  'WS_MINIMIZEBOX = 0x00020000' \
+  'WS_MINIMIZEBOX = 0x00010000'
+
+# N2 **最危险的那条**:忘了把旧样式或进去 ⇒ 窗口现有样式被整个清掉、当场变形
+mutate_and_expect N2 bin/ds_shell.py "$STYLES" \
+  test_s2_style_is_or_ed_onto_the_existing_style_not_overwritten \
+  'style | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)' \
+  'WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)'
+
+# N2b 同一处的另一种坏法:整个换成单个常量(连或运算都没了)
+mutate_and_expect N2b bin/ds_shell.py "$STYLES" \
+  test_s2_style_is_or_ed_onto_the_existing_style_not_overwritten \
+  'style | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)' \
+  'WS_MINIMIZEBOX)'
+
+# N3 **越界闸**:顺手加上 WS_THICKFRAME(拖边缘分屏要它)—— 会改非客户区尺寸,
+#    作废本单「外观零变化」的承诺。这条是方案 A / 方案 B 的分界线。
+mutate_and_expect N3 bin/ds_shell.py "$STYLES" \
+  test_s3_does_not_touch_styles_that_resize_the_non_client_area \
+  'style | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)' \
+  'style | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU | WS_THICKFRAME)' \
+  'WS_SYSMENU = 0x00080000' \
+  'WS_SYSMENU = 0x00080000
+WS_THICKFRAME = 0x00040000'
+
+# N4 SetWindowPos 少一个 NO* —— 通知重算边框时顺手把窗口挪了
+mutate_and_expect N4 bin/ds_shell.py "$STYLES" \
+  test_s4_frame_change_is_announced_without_moving_or_stealing_focus \
+  'SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE' \
+  'SWP_FRAMECHANGED | SWP_NOSIZE'
+
+# N5 A1 的顺序反了 —— Show 完再 restore 等于没 restore
+mutate_and_expect N5 bin/ds_shell.py "$STYLES" \
+  test_s5_show_window_restores_before_showing \
+  '        try:
+            self.window.restore()
+        except Exception as exc:
+            log(f"[窗口] 从最小化还原失败,仍然试着 Show:{exc.__class__.__name__}")
+        self.window.show()' \
+  '        self.window.show()
+        try:
+            self.window.restore()
+        except Exception as exc:
+            log(f"[窗口] 从最小化还原失败:{exc.__class__.__name__}")'
+
+# N6 只在开窗口时贴一次 —— fullscreen 那条路重算过样式之后就没了,
+#    业主看到的是「有时有动画有时没有」
+mutate_and_expect N6 bin/ds_shell.py "$STYLES" \
+  test_s6_styles_are_ensured_before_every_minimize \
+  '            self._apply_native_styles(form)
+            form.WindowState = FormWindowState.Minimized' \
+  '            form.WindowState = FormWindowState.Minimized'
+
+# N6b 顺序反了(先最小化再补位)—— 这一次最小化仍然没有动画。
+#     N6 只打掉「有没有叫」,顺序那一面得单独打(s5/s6 第一版正是栽在顺序上)。
+mutate_and_expect N6b bin/ds_shell.py "$STYLES" \
+  test_s6_styles_are_ensured_before_every_minimize \
+  '            self._apply_native_styles(form)
+            form.WindowState = FormWindowState.Minimized' \
+  '            form.WindowState = FormWindowState.Minimized
+            self._apply_native_styles(form)'
 
 restore
 echo

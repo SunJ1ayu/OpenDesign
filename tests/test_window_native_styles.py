@@ -192,7 +192,26 @@ class WindowNativeStyles(unittest.TestCase):
             "窗口原有的样式会被整个抹掉")
         self.assertIsInstance(new_style.op, ast.BitOr, "新样式必须是按位或(|)")
 
+        # 🔴 红检 N2 逮到的洞:只问「是不是或运算 + 三个位在不在」是不够的 ——
+        #    把 `style |` 删掉之后剩下的 `WS_A | WS_B | WS_C` **照样是或运算、
+        #    照样含三个位**,而那正是最危险的那种坏法(窗口现有样式被整个清掉 ⇒
+        #    当场变形)。所以还得问一句:读出来的旧样式,有没有真的被或回去。
         added = _or_operands(new_style)
+        old_style_var = None
+        for node in ast.walk(owner):
+            if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                    and isinstance(node.targets[0], ast.Name)
+                    and any(_callee_name(c) == "GetWindowLongPtrW"
+                            for c in _calls(node))):
+                old_style_var = node.targets[0].id
+        self.assertIsNotNone(
+            old_style_var,
+            "GetWindowLongPtrW 的返回值没被接进一个变量 ⇒ 读了等于没读")
+        self.assertIn(
+            old_style_var, added,
+            f"新样式里没有 `{old_style_var}`(读出来的旧样式)⇒ 这是**覆盖**不是**补**:"
+            "窗口现有的样式会被整个抹掉,真机上当场变形。")
+
         for want in ("WS_MINIMIZEBOX", "WS_MAXIMIZEBOX", "WS_SYSMENU"):
             self.assertIn(want, added,
                           f"{want} 没被或进去。三个都要:MINIMIZEBOX 管动画,"
@@ -237,23 +256,29 @@ class WindowNativeStyles(unittest.TestCase):
 
         窗口在最小化状态时,`SetForegroundWindow` 不会把它捞回来 ⇒ 业主点托盘图标、
         或再双击一次桌面图标,窗口都不回来(pywebview issue #1749 报的正是这条)。
+
+        🔴 **这条的第一版是瞎的**(红检 N5):它拿 `body.find("Normal")` 和
+        `body.find(".show()")` 比字符位置 —— 而我自己在函数开头的注释里写着
+        「WindowState 一直是 Normal」,那个 "Normal" 的位置永远比 `.show()` 早,
+        于是把 restore 挪到 show 后面它照样绿。**判据被它要守的那段代码的注释骗了**,
+        和 s3 第一版是同一个病:拿文本搜索冒充代码结构。改用 ast 行号。
         """
         fn = self.funcs.get("show_window")
         self.assertIsNotNone(fn, "Shell.show_window 不见了?")
-        body = ast.get_source_segment(self.src, fn) or ""
 
-        show_at = body.find(".show()")
-        self.assertNotEqual(-1, show_at, "show_window 里没有 .show()?")
+        at: dict[str, int] = {}
+        for call in _calls(fn):
+            name = _callee_name(call)
+            if name in ("restore", "show"):
+                at.setdefault(name, call.lineno)
 
-        restore_at = min(
-            (i for i in (body.find("restore"), body.find("Normal")) if i != -1),
-            default=-1)
-        self.assertNotEqual(
-            -1, restore_at,
+        self.assertIn("show", at, "show_window 里没有 .show()?")
+        self.assertIn(
+            "restore", at,
             "show_window 里没有任何「把窗口从最小化里捞出来」的动作 ⇒ 缩小之后"
             "点托盘图标 / 再双击桌面图标,窗口回不来。")
         self.assertLess(
-            restore_at, show_at,
+            at["restore"], at["show"],
             "还原动作写在 .show() **后面**了 —— 顺序反了等于没写:"
             "Show/Activate 对最小化窗口不生效,之后再还原也已经错过那一下。")
 
@@ -272,14 +297,23 @@ class WindowNativeStyles(unittest.TestCase):
 
         fn = self.funcs.get("minimize")
         self.assertIsNotNone(fn, "WindowApi.minimize 不见了?")
-        body = ast.get_source_segment(self.src, fn) or ""
 
-        self.assertIn(
-            ensure.name, body,
+        # 顺序也用行号问(同 s5:文本位置会被注释骗)。
+        ensure_at = next((c.lineno for c in _calls(fn)
+                          if _callee_name(c) == ensure.name), None)
+        self.assertIsNotNone(
+            ensure_at,
             f"minimize 里没有先叫一次 {ensure.name}() ⇒ 只要 pywebview 那边重算过"
             "一次窗口样式,我们补的位就没了,而业主看到的是「有时有动画有时没有」。")
+
+        minimize_at = next(
+            (n.lineno for n in ast.walk(fn)
+             if isinstance(n, ast.Assign)
+             and isinstance(n.value, ast.Attribute) and n.value.attr == "Minimized"),
+            None)
+        self.assertIsNotNone(minimize_at, "minimize 里没有把 WindowState 设成 Minimized?")
         self.assertLess(
-            body.find(ensure.name), body.find("Minimized"),
+            ensure_at, minimize_at,
             "确保样式位写在**真正最小化之后**了 —— 顺序反了等于没补:"
             "这一次最小化仍然没有动画。")
 
