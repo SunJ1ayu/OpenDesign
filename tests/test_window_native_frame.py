@@ -309,6 +309,73 @@ class WindowNativeFrame(unittest.TestCase):
                 "D3 把最大化改成真的之后,无条件 restore() 会把最大化的窗口"
                 "打回小窗;而恒真的条件(if True)等于没判断。")
 
+    # ── n9 悬空的 self.xxx(本单真出过一次)────────────────────────
+    def test_n9_no_dangling_self_method_references(self):
+        """`self.某方法` 指向一个不存在的名字 —— 谁都抓不到它。
+
+        Python 静态检查不报(属性访问),判据不问,而这一层 **Linux 上一行都
+        跑不到**,全量回归 1299 项也照样全绿 —— 只有业主打开窗口那一刻才炸。
+
+        本单真出过一次:`_setup_native_frame` 改名成 `_apply_native_styles_and_frame`
+        时,漏了 `ensure_native_styles` 里那处**不带 `(form)` 的引用**
+        (`self._on_ui(self._setup_native_frame)`),批量替换没匹配到它。
+        窗口一 `shown` 就会 AttributeError,而且那句在 `_on_ui` 的 try **外面**。
+        """
+        for cls in ast.walk(self.tree):
+            if not isinstance(cls, ast.ClassDef):
+                continue
+            known: set[str] = {n.name for n in cls.body
+                               if isinstance(n, (ast.FunctionDef,
+                                                 ast.AsyncFunctionDef))}
+            # 类变量(`HIT = {...}` / `_WM_NCLBUTTONDOWN = 0x00A1`)——
+            # 第一版漏了它们,判据当场对 self._WM_NCLBUTTONDOWN 误报。
+            for stmt in cls.body:
+                if isinstance(stmt, ast.Assign):
+                    for tgt in stmt.targets:
+                        if isinstance(tgt, ast.Name):
+                            known.add(tgt.id)
+                elif (isinstance(stmt, ast.AnnAssign)
+                      and isinstance(stmt.target, ast.Name)):
+                    known.add(stmt.target.id)
+            # 实例属性:任何 `self.x = ...` 都算数(不限于 __init__)
+            for node in ast.walk(cls):
+                if (isinstance(node, ast.Attribute)
+                        and isinstance(node.value, ast.Name)
+                        and node.value.id == "self"
+                        and isinstance(node.ctx, ast.Store)):
+                    known.add(node.attr)
+
+            for node in ast.walk(cls):
+                if (isinstance(node, ast.Attribute)
+                        and isinstance(node.value, ast.Name)
+                        and node.value.id == "self"
+                        and isinstance(node.ctx, ast.Load)):
+                    self.assertIn(
+                        node.attr, known,
+                        f"{cls.name} 里引用了 self.{node.attr},但这个类既没有"
+                        f"叫这个名字的方法,也从没给它赋过值。\n"
+                        "改名漏改一处就是这个样子 —— 而它只在真机上炸。")
+
+    # ── n10 幂等要比句柄,不是比"挂过没有" ────────────────────────
+    def test_n10_install_is_idempotent_per_handle(self):
+        """改 FormBorderStyle 会让 WinForms **重建窗口句柄**(fullscreen 就走这条)。
+
+        重建之后旧 hwnd 上那份挂载连同窗口一起没了,而 `_wndproc_hook` 还非空 ——
+        早退条件只看它就**再也不会重挂**,业主看到的是"全屏切回来动画就没了"。
+        这和 0.92 里样式位被安静刷掉是同一种病,那次已经付过学费。
+        """
+        fn = self.funcs.get("_install_wndproc")
+        self.assertIsNotNone(fn, "_install_wndproc 不见了")
+        for node in ast.walk(fn):
+            if not isinstance(node, ast.If):
+                continue
+            cond = _code(node.test)
+            has_return = any(isinstance(s, ast.Return) for s in node.body)
+            if has_return and "_hooked_hwnd" in cond:
+                return
+        self.fail("_install_wndproc 的早退条件里没有比较 _hooked_hwnd。\n"
+                  "只判断'挂过没有'的话,窗口句柄一重建就永远不会重挂了。")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
