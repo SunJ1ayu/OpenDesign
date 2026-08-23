@@ -99,9 +99,11 @@ mutate_and_expect F4 bin/ds_shell.py "$ORACLE" \
 # F5 NCCALCSIZE 分支不再吃掉非客户区
 mutate_and_expect F5 bin/ds_shell.py "$ORACLE" \
   test_n4_nccalcsize_true_branch_returns_zero \
-  '                    self._fit_maximized_to_work_area(hwnd, lparam)
-                return 0' '                    self._fit_maximized_to_work_area(hwnd, lparam)
-                return 1'
+  '            return 0
+        try:
+            return self._user32.CallWindowProcW' '            return 1
+        try:
+            return self._user32.CallWindowProcW'
 
 # F6 绕过 WinForms 那一层 —— 它负责的一堆行为会静默失效
 mutate_and_expect F6 bin/ds_shell.py "$ORACLE" \
@@ -143,6 +145,16 @@ mutate_and_expect F12 bin/ds_shell.py "$ORACLE" \
             try:
                 self.window.destroy()' '            try:
                 self.window.destroy()'
+
+# F13 把"生效"的证据挪回挂载处 —— 日志说已接管,实际一条消息没收到
+mutate_and_expect F13 bin/ds_shell.py "$ORACLE" \
+  test_n12_effectiveness_is_logged_on_first_message \
+  '                if not self._nc_seen:' '                if False:'
+
+# F14 wParam 为假那条漏回原 proc —— DefWindowProc 会扣掉标题栏,画出来一帧
+mutate_and_expect F14 bin/ds_shell.py "$ORACLE" \
+  test_n13_nccalcsize_handles_both_wparam_paths \
+  'if msg == WM_NCCALCSIZE:' 'if msg == WM_NCCALCSIZE and wparam:'
 
 restore
 echo "== 还原核对 =="

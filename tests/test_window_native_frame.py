@@ -416,6 +416,52 @@ class WindowNativeFrame(unittest.TestCase):
                 "解挂排在 window.destroy() **后面**了。销毁过程中的那几条消息"
                 "会走进一个即将消失的 Python 回调 —— 顺序必须反过来。")
 
+    # ── n12 "生效"的证据必须来自收到消息,不是挂载成功(D2b)────────
+    def test_n12_effectiveness_is_logged_on_first_message(self):
+        """挂载成功 ≠ 回调被叫到。
+
+        P0 探针那次每一步都返回成功、`WndProc` 被调用 **0 次**;0.92 那次
+        位贴上了、动画没有。这个项目在"**返回成功 ≠ 事情发生了**"上栽过两次。
+        所以"接管生效"这句话只能由 `_wndproc` 收到第一条消息时说 ——
+        真机清单 A1 认的就是这一行(panel subdeepseek F1)。
+        """
+        fn = self.funcs.get("_wndproc")
+        self.assertIsNotNone(fn, "_wndproc 不见了")
+        logs = [n for n in ast.walk(fn)
+                if isinstance(n, ast.Call) and _callee(n) == "log"]
+        self.assertTrue(
+            logs,
+            "_wndproc 里一句 log 都没有 —— 那么日志里「已接管」只能来自挂载处,"
+            "而挂载成功证明不了回调被叫到过。D2b 要的就是这一行。")
+        self.assertIn(
+            "_nc_seen", _idents(fn),
+            "_wndproc 里没有用 _nc_seen 之类的一次性标志。"
+            "第一条消息记一次是要的;每条都记会把业主的盘写满。")
+
+    # ── n13 wParam 真假两条路都得吃掉非客户区 ──────────────────────
+    def test_n13_nccalcsize_handles_both_wparam_paths(self):
+        """`wParam` 为假时 lParam 是裸 RECT,交回原 proc 会被 DefWindowProc
+
+        按**当前真实样式**(现在含 WS_CAPTION)扣掉标题栏 —— 那一帧标题栏
+        会真的画出来。WinFormedge 为这条路单独打过补丁(panel subdeepseek F2)。
+        """
+        fn = self.funcs.get("_wndproc")
+        self.assertIsNotNone(fn)
+        for node in ast.walk(fn):
+            if not isinstance(node, ast.If):
+                continue
+            cond = _code(node.test)
+            if "WM_NCCALCSIZE" not in cond:
+                continue
+            self.assertNotIn(
+                "wparam", cond.lower(),
+                "决定「要不要吃掉非客户区」的那个 if 里带上了 wparam ⇒ "
+                "wParam 为假的消息会漏到原 proc 去。\n"
+                "wparam 只该用来决定「lParam 能不能当 NCCALCSIZE_PARAMS 解」,"
+                "不该决定「要不要 return 0」。")
+            return
+        self.fail("找不到 WM_NCCALCSIZE 的分支")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
