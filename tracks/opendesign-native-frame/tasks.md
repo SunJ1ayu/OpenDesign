@@ -7,6 +7,7 @@ base-ref: eead395
 - [x] **P0 探针(FAIL,见 evidence/p0-result.md):pythonnet 能不能覆写 `WndProc(ref Message m)`**
       —— design.md 未知 #1。**探针没绿之前不许写实现。**
       这一步需要一台 Windows;Linux 上无解。
+- [x] **P1 探针 PASS(evidence/p1-result.md):改用 ctypes `SetWindowLongPtrW(GWLP_WNDPROC)` 经典子类化、绕开 pythonnet ⇒ 未知 #1 定案,方案 B 可行**
 - [ ] `track-record validate --phase dispatch`(**当前被权限拦住,欠**)
 - [ ] 双出 / panel-explore(`design-uncertainty: high`)——
       要问的第一个问题就是 P0 失败时的退路

@@ -101,3 +101,38 @@ Electron 有专门的 `SetRoundedCorners()`,说明它不是自动的。
 - **最阴的一种**:业主 Win11 上好了,但 Win10 那台(公司机 F:\)因为
   `wParam==0` 那条分支坏掉 —— WinFormedge 专门为 22000 以下打了补丁。
   ⇒ 真机清单要标明**两台机器都要走**。
+
+---
+
+# 探针定案(2026-08-23 真机,追加 —— 上面原文不改,留着看我当初怎么判的)
+
+## 未知 #1 已定案:**不走 pythonnet,走 ctypes 子类化**
+
+| | P0:pythonnet `NativeWindow` 覆写 | P1:ctypes `SetWindowLongPtrW` |
+|---|---|---|
+| 类/挂载 | 都"成功" | 原 proc 返回非 0 |
+| 窗口过程被调用 | **0 次** | **15 次** |
+| 收到 `WM_NCCALCSIZE` | 0 | 1 |
+| ClientSize vs Size | (384,261) < (400,300) | **(400,300) == (400,300)** |
+| 结论 | **FAIL** | **PASS** |
+
+⇒ **D2 改写**:不再是"pythonnet 挂 `NativeWindow` 子类化",而是
+**ctypes 装一个自己的窗口过程,不接管的消息 `CallWindowProcW` 交回原 proc**。
+三个必须照抄的细节(回调对象要活着 / 交回原 proc 而不是 DefWindowProc /
+argtypes+restype 全声明)见 `evidence/p1-result.md`。
+
+**P0 的价值不在于它绿没绿,在于它失败得毫无声响** —— 每一步都返回成功、
+只有计数器是 0。这一族失败(和 0.92 那次"位贴上了但问错了问题")是这个项目
+反复栽的同一类:**返回成功 ≠ 事情发生了**。判据要问计数,不能问返回码。
+
+## 探针之后仍然敞着的(进 tasks,不许当已验)
+
+1. **最大化的客户区修正**没测(THICKFRAME 窗口最大化会溢出一圈,会盖住任务栏)
+2. **没在 pywebview 的窗口上挂过**(那个窗口已被 WinForms subclass 一层,我们是第二层)
+3. **解挂/重挂时机**(窗口销毁、fullscreen、DPI 变化都会重算样式)
+4. **线程**:挂载必须在 UI 线程做,现有 `_on_ui` 那条路要复用,未验
+
+## 未知 #2(圆角/阴影)仍然未知
+
+pywebview `shadow=True` 已经做了 `DwmExtendFrameIntoClientArea`,
+加了 CAPTION 之后会不会打架 —— 探针没碰这块,留给实现后的真机。
