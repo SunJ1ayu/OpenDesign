@@ -1,0 +1,28 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-frame-experiment
+cmd:     tests/mutation-frame-experiment.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  b0ba271
+dirty:   yes(跑之前采的;含未跟踪文件)
+head-before: b0ba27118bcec2451a11d60e4420230a8c982b62
+source-view-before: sha256:b6e4eba0a41623a2e37f2b1810793f6aa77d2fba8397bd86b151d4918c3dfeee
+started: 2026-08-24T11:44:11Z
+---------------- 输出开始 ----------------
+== 红检开始(0.94.0:方案 B 收进默认关闭的开关)==
+  [OK]   M1 -> 靶子 test_f2_default_is_off 如期红了
+  [OK]   M2 -> 靶子 test_f3_flag_file_turns_it_on 如期红了
+  [OK]   M3 -> 靶子 test_f4_unreadable_environment_is_off_not_on 如期红了
+  [OK]   M4 -> 靶子 test_f5_wndproc_install_is_behind_the_switch 如期红了
+  [OK]   M5 -> 靶子 test_f6_frame_style_bits_are_behind_the_switch 如期红了
+  [OK]   M6 -> 靶子 test_f7_default_path_uses_fake_maximize 如期红了
+  [OK]   M7 -> 靶子 test_f8_switch_is_written_in_the_positive_form 如期红了
+  [OK]   M8 -> 靶子 test_f9_experiment_path_leaves_diagnostics 如期红了
+  [BAD]  M9 -> 判据全绿:这条变异下它是瞎的(靶子 test_f9_experiment_path_leaves_diagnostics)
+
+== 红检结束:咬住 8 条,漏网 1 条(源文件已原样还原)==
+command-rc: 1
+head-after: b0ba27118bcec2451a11d60e4420230a8c982b62
+source-view-after:  sha256:b6e4eba0a41623a2e37f2b1810793f6aa77d2fba8397bd86b151d4918c3dfeee
+source-stable: yes
+---------------- 输出结束 ----------------
+runlog: redcheck-frame-experiment rc=1 commit=b0ba271 dirty=yes final=yes at=2026-08-24T11:44:11Z file=tracks/opendesign-native-frame/evidence/20260824T114411Z-01-redcheck-frame-experiment.txt

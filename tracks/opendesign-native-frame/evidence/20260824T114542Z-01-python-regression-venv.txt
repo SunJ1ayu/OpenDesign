@@ -1,0 +1,1361 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    python-regression-venv
+cmd:     /root/.venvs/design-studio/bin/python -m unittest discover -s tests -p test_\*.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  db144e1
+dirty:   yes(跑之前采的;含未跟踪文件)
+head-before: db144e1264ff74180667290185718834f2e5e304
+source-view-before: sha256:136ed7349e8997c8b62e52c191e1fb5d54ca8c2cf34ebf2c241a9c2ff0391712
+started: 2026-08-24T11:45:42Z
+---------------- 输出开始 ----------------
+/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+  """主变更行 C 号 —— **五个写口共用这一个定义**。
+.../root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:205: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-jk3a72d1/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-jk3a72d1/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:205: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-hl_az126/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-hl_az126/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:205: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-b96chgjn/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-b96chgjn/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_credential.py:129: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-b96chgjn/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  body = open(self.cfg_path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+../root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:205: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-6861xc95/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-6861xc95/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.../root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-3xrm0u39/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-g160ev6c/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:205: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-y6nk3im0/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-y6nk3im0/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:205: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-8dgwxrec/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-8dgwxrec/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-fq3cs4rn/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-cyvei34k/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-fojgap4j/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:205: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-7x19nlio/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+../root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:205: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-w61jzpn1/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-w61jzpn1/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_credential.py:161: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-w61jzpn1/UserData/.openDesign/key.txt' mode='r' encoding='utf-8'>
+  encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:205: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-tnnz6c1h/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-tnnz6c1h/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_credential.py:169: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-credential-tnnz6c1h/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(self.cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_credential.py:176: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/config/nanobot.config.windows.jsonc' mode='r' encoding='utf-8'>
+  tpl = open(TEMPLATE, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+............../root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:174: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-dataroot-djil7wzt/OpenDesign/Data/projects/星河名邸-2302.md' mode='r' encoding='utf-8'>
+  encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+....../root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:544: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-dataroot-lu2fhoe7/OpenDesign/Data/迁移记录.txt' mode='r' encoding='utf-8'>
+  body = open(note, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+......../root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:379: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-dataroot-218t677i/config.json' mode='r' encoding='utf-8'>
+  got = json.load(open(cfg_path, encoding="utf-8"))["tools"]["mcpServers"]
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/disable_builtin_file_tools.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_adopt.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_common.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_consent.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_dates.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_documents.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_intake.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_lint.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_lock.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_mcp.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_merge_config.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_model.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_openfolder.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_organize.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_organize_server.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_refs.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_refs_server.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_shell.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_shell_core.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_taxonomy.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_todo.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+  """主变更行 C 号 —— **五个写口共用这一个定义**。
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_tools_server.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_web.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_workspace.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/enable_webui.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:615: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/set_model.py' mode='r' encoding='utf-8'>
+  src = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:673: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_web.py' mode='r' encoding='utf-8'>
+  for n in ast.walk(ast.parse(open(path, encoding="utf-8").read(), filename=fn)):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:673: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_shell.py' mode='r' encoding='utf-8'>
+  for n in ast.walk(ast.parse(open(path, encoding="utf-8").read(), filename=fn)):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:673: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_shell_core.py' mode='r' encoding='utf-8'>
+  for n in ast.walk(ast.parse(open(path, encoding="utf-8").read(), filename=fn)):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:673: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_mcp.py' mode='r' encoding='utf-8'>
+  for n in ast.walk(ast.parse(open(path, encoding="utf-8").read(), filename=fn)):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_data_root.py:691: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_shell.py' mode='r' encoding='utf-8'>
+  src = open(os.path.join(ROOT, "bin", "ds_shell.py"), encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+......................................................................................................./root/.openclaw/workspace/projects/design-studio/tests/test_ds_consent.py:169: ResourceWarning: unclosed file <_io.BufferedReader name='/tmp/ds_consent_ds_iswkfchb/config/workspace.json'>
+  out[rel] = open(p, "rb").read() if os.path.exists(p) else None
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_ds_consent.py:169: ResourceWarning: unclosed file <_io.BufferedReader name='/tmp/ds_consent_ds_iswkfchb/config/consent.json'>
+  out[rel] = open(p, "rb").read() if os.path.exists(p) else None
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_ds_consent.py:688: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds_consent_ds_kbodwj7k/config/consent.json' mode='r' encoding='utf-8'>
+  self.assertIn("allow", open(cpath, encoding="utf-8").read(),
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+........./root/.openclaw/workspace/projects/design-studio/tests/test_ds_consent.py:169: ResourceWarning: unclosed file <_io.BufferedReader name='/tmp/ds_consent_ds_qjy7hkje/config/workspace.json'>
+  out[rel] = open(p, "rb").read() if os.path.exists(p) else None
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+..................../root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:82: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/dsdoc-work-2w8vl9xx/20260612 王姐 云栖佳苑/01-资料/扫描合同.pdf'>
+  open(path, "wb").write(out)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+......./root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:156: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/dsdoc-work-4b7p_u8_/20260612 王姐 云栖佳苑/01-资料/效果图.jpg'>
+  open(os.path.join(self.docs, "效果图.jpg"), "wb").write(b"\xff\xd8\xff\x00")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:176: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/dsdoc-work-r0z2bs80/客户总表.xlsx'>
+  open(self.secret, "wb").write(b"PK\x03\x04secret")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:291: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/config/taxonomy.default.json' mode='r' encoding='utf-8'>
+  tax = json.load(open(os.path.join(ROOT, "config", "taxonomy.default.json"),
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:176: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/dsdoc-work-_21kzhk7/客户总表.xlsx'>
+  open(self.secret, "wb").write(b"PK\x03\x04secret")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:176: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/dsdoc-work-tsmj1e1m/客户总表.xlsx'>
+  open(self.secret, "wb").write(b"PK\x03\x04secret")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:202: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/dsdoc-work-tsmj1e1m/20260612 王姐 云栖佳苑/01-资料/老合同.doc'>
+  open(good, "wb").write(ole + b"\x00" * 512)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:209: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/dsdoc-work-tsmj1e1m/20260612 王姐 云栖佳苑/01-资料/伪装.doc'>
+  open(os.path.join(self.docs, "伪装.doc"), "wb").write(b"just text, not OLE")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:176: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/dsdoc-work-s8d82lrj/客户总表.xlsx'>
+  open(self.secret, "wb").write(b"PK\x03\x04secret")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:176: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/dsdoc-work-qhd1plqn/客户总表.xlsx'>
+  open(self.secret, "wb").write(b"PK\x03\x04secret")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:176: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/dsdoc-work-yr8uri40/客户总表.xlsx'>
+  open(self.secret, "wb").write(b"PK\x03\x04secret")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:176: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/dsdoc-work-9tye1_k_/客户总表.xlsx'>
+  open(self.secret, "wb").write(b"PK\x03\x04secret")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:176: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/dsdoc-work-d9lnh035/客户总表.xlsx'>
+  open(self.secret, "wb").write(b"PK\x03\x04secret")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:176: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/dsdoc-work-rij0hxhk/客户总表.xlsx'>
+  open(self.secret, "wb").write(b"PK\x03\x04secret")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:176: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/dsdoc-work-vu5ut2df/客户总表.xlsx'>
+  open(self.secret, "wb").write(b"PK\x03\x04secret")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:260: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/dsdoc-work-vu5ut2df/20260612 王姐 云栖佳苑/01-资料/报价.pdf.exe'>
+  open(os.path.join(self.docs, "报价.pdf.exe"), "wb").write(b"MZ\x90\x00")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:176: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/dsdoc-work-inf4t4de/客户总表.xlsx'>
+  open(self.secret, "wb").write(b"PK\x03\x04secret")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_ds_documents.py:176: ResourceWarning: unclosed file <_io.BufferedWriter name='/tmp/dsdoc-work-jg4u3vrg/客户总表.xlsx'>
+  open(self.secret, "wb").write(b"PK\x03\x04secret")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+............................................................................................................................................................................................................................s...................s..................................../usr/lib/python3.12/subprocess.py:1127: ResourceWarning: subprocess 1453124 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+................/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py:1837: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_shell.py' mode='r' encoding='utf-8'>
+  body = open(os.path.join(ROOT, "bin", "ds_shell.py"), encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+....................................................................................................................................................................................................................................................................................................................................127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/consent/mode HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/consent/mode HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/consent/mode HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/consent/mode HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/consent/mode HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+127.0.0.1 - "PUT /api/consent HTTP/1.1" 405 -
+127.0.0.1 - "PUT /api/consent/mode HTTP/1.1" 405 -
+127.0.0.1 - "PUT /api/consent/resolve HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/consent/resolve HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 403 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 403 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 403 -
+127.0.0.1 - "GET / HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 403 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET / HTTP/1.1" 200 -
+127.0.0.1 - "GET /assets/app-abc123.js HTTP/1.1" 200 -
+127.0.0.1 - "GET /nonexistent.js HTTP/1.1" 404 -
+127.0.0.1 - "GET /../secret-ds_web_dist_bdt3zi44 HTTP/1.1" 404 -
+127.0.0.1 - "GET /%2e%2e/secret-ds_web_dist_bdt3zi44 HTTP/1.1" 404 -
+127.0.0.1 - "GET /assets/../../secret-ds_web_dist_bdt3zi44 HTTP/1.1" 404 -
+127.0.0.1 - "GET /assets/%2e%2e/%2e%2e/secret-ds_web_dist_bdt3zi44 HTTP/1.1" 404 -
+127.0.0.1 - "GET /leak.js HTTP/1.1" 404 -
+127.0.0.1 - "GET /..%5csecret-ds_web_dist_bdt3zi44 HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/todos HTTP/1.1" 405 -
+127.0.0.1 - "PUT / HTTP/1.1" 405 -
+127.0.0.1 - "DELETE /api/health HTTP/1.1" 405 -
+127.0.0.1 - "PATCH /api/todos HTTP/1.1" 405 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/add HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/add HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/add HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/addx HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/add/ HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/add/1 HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/add HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/add HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/add HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/changes/add HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/changes/add HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bindx HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/projects/bind/ HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/projects/bind/1 HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/projects/bind HTTP/1.1" 409 -
+127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/../changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/%2e%2e/changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/a%2fb/changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/a%2f%2e%2e%2fSECRET/changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/%2e%2e%2fSECRET/changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/x%00y/changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/a%5cb/changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects//changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E4%B8%8D%E5%AD%98%E5%9C%A8%E7%9A%84%E9%A1%B9%E7%9B%AE/changes HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/%E7%BC%96%E8%BE%91%E5%8E%86%E5%8F%B2%E9%A1%B9%E7%9B%AE/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/changes HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/createx HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/projects/create/ HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/projects HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/create HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/deletex HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/delete/ HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/delete/2 HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/todos HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 404 -
+................................................../root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-qhc4sd4g/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:205: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-aq9nrl_o/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-aq9nrl_o/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+../root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:205: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-zg22cu2h/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-zg22cu2h/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:205: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-e1limbh1/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-e1limbh1/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+..../root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-hxk35a95/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-ffrco3_f/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+....../root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:205: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-2rdl8o01/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-2rdl8o01/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:205: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-gx6h1j2t/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-gx6h1j2t/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:205: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-l62a5l4w/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-l62a5l4w/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:205: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-d28yy8ow/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-d28yy8ow/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:205: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-u3wguir4/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:146: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-web-cred-u3wguir4/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+...............Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/bin/ds_web.py", line 1333, in _open_folder
+    OPEN_LAUNCHER(target)
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_files.py", line 278, in boom
+    raise OSError("no desktop")
+OSError: no desktop
+127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E7%BC%96%E8%BE%91%E5%8E%86%E5%8F%B2%E9%A1%B9%E7%9B%AE/changes HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/delete HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/editx HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/edit/ HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/edit/2 HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/todos HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E7%BC%96%E8%BE%91%E5%8E%86%E5%8F%B2%E9%A1%B9%E7%9B%AE/changes HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E7%BC%96%E8%BE%91%E5%8E%86%E5%8F%B2%E9%A1%B9%E7%9B%AE/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/2026%3A0315%20%E6%9F%90%E9%A1%B9%E7%9B%AE HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects HTTP/1.1" 405 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/20260701%20%E6%96%B0%E7%AD%BE%20%E4%BA%91%E7%92%9F%E5%8F%B0%203%23301 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/../refs HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/%2e%2e/refs HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/a%2fb/refs HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/refs/file/12%231802-%E5%AE%A2%E5%8E%85.jpg HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/refs/file/%E5%AE%A2%E5%8E%85%EF%BC%88%E5%A4%8D%E5%B0%BA%EF%BC%89%26%E7%BB%88.jpg HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E4%BF%9D%E5%88%A9%E4%B8%AD%E5%A4%AE%E5%85%AC%E5%9B%AD/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/refs/file/bad%25x.png HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/refs/file/%E7%8E%84%E5%85%B3%E6%95%88%E6%9E%9C%E5%9B%BE.png HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/refs/file/notes.txt HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/refs/file/nope.png HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/refs/file/a.jpg HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/refs/file/sub/x.gif HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/refs/file/escape.png HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/refs/file/a.png%0A HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/refs/file/../outer.png HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/refs/file/%2e%2e/outer.png HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/refs/file/sub/../../outer.png HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/refs/file/a.png HTTP/1.1" 405 -
+127.0.0.1 - "PUT /api/refs/file/a.png HTTP/1.1" 405 -
+127.0.0.1 - "DELETE /api/refs/file/a.png HTTP/1.1" 405 -
+127.0.0.1 - "PATCH /api/refs/file/a.png HTTP/1.1" 405 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E5%A4%87%E6%B3%A8%E7%9C%9F%E7%9B%B8%E6%BA%90/changes HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 403 -
+127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 403 -
+127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 403 -
+127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 403 -
+127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/file/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802/../../../secret/%E5%AF%86.png HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/files/file/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802/02-%E5%8F%82%E8%80%83%E5%9B%BE/bad%21.png HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/files/file/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802/06-%E6%95%88%E6%9E%9C%E5%9B%BE/notes.txt HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/files/file/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802/02-%E5%8F%82%E8%80%83%E5%9B%BE/%E5%AE%A2%E5%8E%85%E5%8F%82%E8%80%83.png HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/file/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802/02-%E5%8F%82%E8%80%83%E5%9B%BE/%E5%A4%96%E9%93%BE/%E5%AF%86.png HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/files/file/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802/02-%E5%8F%82%E8%80%83%E5%9B%BE/%E5%AE%A2%E5%8E%85%E5%8F%82%E8%80%83.png%0A HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/files/file/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802/../../../secret/%E5%AF%86.png HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/files/file/%E5%88%AB%E7%9A%84%E9%A1%B9%E7%9B%AE/02-%E5%8F%82%E8%80%83%E5%9B%BE/%E5%AE%A2%E5%8E%85%E5%8F%82%E8%80%83.png HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/files/images/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/images/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/images/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/file/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802/01-%E8%B5%84%E6%96%99/a/b/c/%E6%B7%B1%E5%9B%BE.png HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/file/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802/02-%E5%8F%82%E8%80%83%E5%9B%BE/%E5%AE%A2%E5%8E%85%E5%8F%82%E8%80%83.png HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/file/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802/02-%E5%8F%82%E8%80%83%E5%9B%BE/%E6%8A%A5%E4%BB%B7%26%E7%BB%88%E7%A8%BF%EF%BC%88%E5%A4%8D%E5%B0%BA%EF%BC%89.png HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/file/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802/06-%E6%95%88%E6%9E%9C%E5%9B%BE/%E5%AE%9A%E7%A8%BF/%E5%AE%A2%E5%8E%85%E7%BB%88%E7%89%88.png HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/file/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802/08-%E4%BA%A4%E4%BB%98%23%E5%BD%92%E6%A1%A3/12%231802-%E5%AE%A2%E5%8E%85.png HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/images/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802 HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 500 -
+...............................127.0.0.1 - "POST /api/open-folder HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/files/overview/..%2Fx HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/files/overview/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/%E4%BA%91%E6%A0%96%E4%BD%B3%E8%8B%91-1802 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/files/overview/%E5%88%AB%E7%9A%84%E9%A1%B9%E7%9B%AE HTTP/1.1" 200 -
+127.0.0.1 - "PUT /api/open-folder HTTP/1.1" 405 -
+127.0.0.1 - "PUT /api/projects HTTP/1.1" 405 -
+127.0.0.1 - "DELETE /api/open-folder HTTP/1.1" 405 -
+127.0.0.1 - "DELETE /api/projects HTTP/1.1" 405 -
+127.0.0.1 - "PATCH /api/open-folder HTTP/1.1" 405 -
+127.0.0.1 - "PATCH /api/projects HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/projects HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/todos HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/open-folder/ HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/open-folderX HTTP/1.1" 405 -
+127.0.0.1 - "POST / HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/files/overview/x HTTP/1.1" 405 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 409 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 409 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 409 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 409 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 409 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 409 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+...............................................................................................[open-front] 'D:\\AI\\OpenDesign-ws\\01-项目\\20260701 王女士 翡翠湾 3#1801': hwnd=41 activate=True (第 3 轮)
+.[open-front] 'D:\\AI\\OpenDesign-ws\\01-项目\\20260701 王女士 翡翠湾 3#1801': no-match 轮询 4 次未找到资源管理器窗口 seen=[]
+.[open-front] 'D:\\AI\\OpenDesign-ws\\01-项目\\20260701 王女士 翡翠湾 3#1801': error OSError('ctypes 不在这台机器上')(第 1 轮)
+.[open-front] 'D:\\AI\\OpenDesign-ws\\01-项目\\20260701 王女士 翡翠湾 3#1801': error OSError('SetForegroundWindow 被系统拒')(第 1 轮)
+.[open-front] 'D:\\AI\\OpenDesign-ws\\01-项目\\20260701 王女士 翡翠湾 3#1801': no-match 轮询 3 次未找到资源管理器窗口 seen=[]
+......127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 400 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 409 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 409 -
+127.0.0.1 - "GET /api/workspace/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/workspace/folder-visibility HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/inbox/create HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/inbox/create HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/inbox/create HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/inbox/create HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/inbox/create HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/inbox/create HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/inbox/create HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/inbox/create HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/inbox/create HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/inbox/create HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/inbox/create HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/inbox/create HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/inbox/create HTTP/1.1" 409 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/intake/approve HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/intake/amendx HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/intake/amend/ HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 400 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/intake/amend HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/intake/approve HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/intake/approve HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/intake/approve HTTP/1.1" 403 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/intake/approve HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/intake/approve HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/intake/approve HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/intake/approve HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/intake/approve HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/intake/approve HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/intake/approve HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/intake HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/intake/approve/extra HTTP/1.1" 405 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/intake/scan HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/intake/scan HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/intake/scanx HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/intake/scan/ HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/intake HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/intake/scan HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/intake/scan HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/intake/scan HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/intake/scan HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 415 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 415 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 415 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 415 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 415 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 415 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 415 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 415 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 415 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/chat/sessions?limit=2&direction=latest&before=abc&token=tk1 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/chat/sessions/websocket:aB3_x.y-9/thread?limit=1 HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/chat/sessions/../thread HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/chat/sessions/%2e%2e/thread HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/chat/sessions/a%2fb/thread HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/chat/sessions/a%20b/thread HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/chat/sessions/%e2%82%ac/thread HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/chat/sessions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/thread HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/chat/sessions/x%00y/thread HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/chat/sessions//thread HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/chat/bootstrap/extra HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/chat/other HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/chat/sessions/k/thread/x HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/chat/ HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/chat HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/chat/bootstrap HTTP/1.1" 405 -
+127.0.0.1 - "PUT /api/chat/bootstrap HTTP/1.1" 405 -
+127.0.0.1 - "DELETE /api/chat/bootstrap HTTP/1.1" 405 -
+127.0.0.1 - "PATCH /api/chat/bootstrap HTTP/1.1" 405 -
+................................................................/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_structural_dirs.py:309: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/struct-ds-dy6lcx02/config/workspace.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfgp, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_structural_dirs.py:311: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/struct-ds-dy6lcx02/config/workspace.json' mode='w' encoding='utf-8'>
+  json.dump(cfg, open(cfgp, "w", encoding="utf-8"), ensure_ascii=False)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+...............127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/chat/sessions HTTP/1.1" 401 -
+127.0.0.1 - "GET /api/chat/sessions HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/chat/sessions HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/chat/sessions/websocket:abc/delete HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/chat/sessions/websocket:abc/delete HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/chat/sessions/websocket:abc/delete HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/chat/sessions/websocket:abc/delete HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/chat/sessions/../delete HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/chat/sessions/%2e%2e/delete HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/chat/sessions/a%2fb/delete HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/chat/sessions/%e9%be%99/delete HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/chat/sessions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/delete HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/chat/sessions HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/chat/bootstrap HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/chat/sessions/k/thread HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/chat/sessions/k/delete/extra HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 409 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 400 -
+127.0.0.1 - "GET /api/refs/update HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/refs/update HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/refs/update/ HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/refs/updatex HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/refs/update/../update HTTP/1.1" 405 -
+127.0.0.1 - "GET /api/refs/file/update HTTP/1.1" 404 -
+127.0.0.1 - "GET /api/projects/update/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects/stage HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/projects/stage HTTP/1.1" 403 -
+127.0.0.1 - "POST /api/projects/stage/ HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/projects/stagex HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/projects/stage/../projects/stage HTTP/1.1" 405 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/open-folder HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 409 -
+..../root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_upload.py:495: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/config/taxonomy.default.json' mode='r' encoding='utf-8'>
+  tax = json.load(open(os.path.join(ROOT, "config", "taxonomy.default.json"),
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+......................................................................................................../root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+<unknown>:246: SyntaxWarning: invalid escape sequence '\]'
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_organize.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_refs.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_adopt.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_intake.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_lint.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_workspace.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_taxonomy.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_common.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_lock.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_todo.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:272: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_model.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+<unknown>:246: SyntaxWarning: invalid escape sequence '\]'
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_organize.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_refs.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_adopt.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_intake.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_lint.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_workspace.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_taxonomy.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_common.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_lock.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_todo.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:313: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_model.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:291: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_mcp.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:291: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_tools_server.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:291: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_organize_server.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:291: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_refs_server.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(path, encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+...../root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:86: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/config/nanobot.config.jsonc' mode='r' encoding='utf-8'>
+  text = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:86: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/config/nanobot.config.windows.jsonc' mode='r' encoding='utf-8'>
+  text = open(path, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:97: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/config/nanobot.config.jsonc' mode='r' encoding='utf-8'>
+  text = open(os.path.join(ms.REPO, rel), encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:97: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/config/nanobot.config.windows.jsonc' mode='r' encoding='utf-8'>
+  text = open(os.path.join(ms.REPO, rel), encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:111: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/config/nanobot.config.jsonc' mode='r' encoding='utf-8'>
+  open(os.path.join(ms.REPO, rel), encoding="utf-8").read()))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:111: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/config/nanobot.config.windows.jsonc' mode='r' encoding='utf-8'>
+  open(os.path.join(ms.REPO, rel), encoding="utf-8").read()))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/evals/resolver_eval.py:119: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_tools_server.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(os.path.join(ROOT, "bin", f), encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/evals/resolver_eval.py:119: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_organize_server.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(os.path.join(ROOT, "bin", f), encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/evals/resolver_eval.py:119: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_refs_server.py' mode='r' encoding='utf-8'>
+  tree = ast.parse(open(os.path.join(ROOT, "bin", f), encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:217: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_tools_server.py' mode='r' encoding='utf-8'>
+  src = open(os.path.join(ms.REPO, "bin", f), encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:217: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_organize_server.py' mode='r' encoding='utf-8'>
+  src = open(os.path.join(ms.REPO, "bin", f), encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:217: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_refs_server.py' mode='r' encoding='utf-8'>
+  src = open(os.path.join(ms.REPO, "bin", f), encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/evals/due_writer_eval.py:142: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_tools_server.py' mode='r' encoding='utf-8'>
+  open(os.path.join(ROOT, "bin", "ds_tools_server.py"), encoding="utf-8").read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/10-systems-xhs-mindmap.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/10-systems.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/accept-0.75.0.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/accept-0.76.0.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/accept-0.81.0.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/accept-0.85.0.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/backlog.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/ccd-folder-taxonomy.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/code-conventions.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/deploy-security.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/frontend-actions-roadmap.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/install-windows.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/nanobot-ws-protocol.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/north-star.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/opendesign-optimization-plan-codex.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/spec.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/tool-audit-20260716.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:164: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/workspace-taxonomy.md' mode='r' encoding='utf-8'>
+  for i, line in enumerate(open(os.path.join(docs, fn), encoding="utf-8"), 1):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:178: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/docs/install-windows.md' mode='r' encoding='utf-8'>
+  encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:186: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py' mode='r' encoding='utf-8'>
+  head = open(os.path.join(ms.REPO, mod), encoding="utf-8").read()[:1200]
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:186: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_organize.py' mode='r' encoding='utf-8'>
+  head = open(os.path.join(ms.REPO, mod), encoding="utf-8").read()[:1200]
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_mcp_entry_contract.py:186: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_refs.py' mode='r' encoding='utf-8'>
+  head = open(os.path.join(ms.REPO, mod), encoding="utf-8").read()[:1200]
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+......<unknown>:246: SyntaxWarning: invalid escape sequence '\]'
+...<unknown>:246: SyntaxWarning: invalid escape sequence '\]'
+.<unknown>:246: SyntaxWarning: invalid escape sequence '\]'
+....../root/.openclaw/workspace/projects/design-studio/tests/test_set_model.py:44: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/set_model_test_3t2iuvxk/config.json' mode='r' encoding='utf-8'>
+  before = open(cfg, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_set_model.py:47: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/set_model_test_3t2iuvxk/config.json' mode='r' encoding='utf-8'>
+  d = json.load(open(cfg, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_set_model.py:51: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/set_model_test_3t2iuvxk/config.json.bak' mode='r' encoding='utf-8'>
+  self.assertEqual(open(cfg + ".bak", encoding="utf-8").read(), before)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+../root/.openclaw/workspace/projects/design-studio/tests/test_set_model.py:66: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/set_model_test_4312qksz/config.json' mode='r' encoding='utf-8'>
+  self.assertEqual(open(cfg, encoding="utf-8").read(), "{broken")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_set_model.py:73: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/set_model_test_cn9vn5ad/config.json' mode='r' encoding='utf-8'>
+  self.assertEqual(json.load(open(cfg, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_set_model.py:91: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/set_model_test_gj6hm8w9/config.json' mode='r' encoding='utf-8'>
+  d = json.load(open(cfg, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/tests/test_set_model.py:107: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/set_model_test_5zckz3al/config.json' mode='r' encoding='utf-8'>
+  d = json.load(open(cfg, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+............../root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+  """主变更行 C 号 —— **五个写口共用这一个定义**。
+./root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+  """主变更行 C 号 —— **五个写口共用这一个定义**。
+/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+  """主变更行 C 号 —— **五个写口共用这一个定义**。
+..........................................s
+----------------------------------------------------------------------
+Ran 1321 tests in 328.856s
+
+OK (skipped=3)
+127.0.0.1 - "POST /api/upload HTTP/1.1" 413 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 400 -
+127.0.0.1 - "GET /api/upload HTTP/1.1" 404 -
+127.0.0.1 - "POST /api/upload/../etc HTTP/1.1" 405 -
+127.0.0.1 - "POST /api/upload HTTP/1.1" 409 -
+command-rc: 0
+head-after: db144e1264ff74180667290185718834f2e5e304
+source-view-after:  sha256:136ed7349e8997c8b62e52c191e1fb5d54ca8c2cf34ebf2c241a9c2ff0391712
+source-stable: yes
+---------------- 输出结束 ----------------
+runlog: python-regression-venv rc=0 commit=db144e1 dirty=yes final=yes at=2026-08-24T11:45:42Z file=tracks/opendesign-native-frame/evidence/20260824T114542Z-01-python-regression-venv.txt

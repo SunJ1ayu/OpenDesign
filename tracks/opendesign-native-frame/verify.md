@@ -193,3 +193,102 @@ runlog: python-regression-venv rc=65 commit=f9e787b dirty=yes final=yes at=2026-
   真要堵得引入代次号或弱引用表,复杂度不划算;发生概率极低。
 - **方案 B 的 C 组能力**(拖边缘分屏 / Win11 Snap Layouts)本单**顺带**获得,
   但**没有为它们写任何判据** —— 它们是 THICKFRAME 的副产品,真机清单 B5/B6 只做观察。
+
+---
+
+# 0.94.0 —— 真机红之后的修复轮(2026-08-24)
+
+## 这一轮修的是什么
+
+业主真机:0.93.0「打开全是白的什么都没有了」。修法**不是猜一个机制去补**,
+而是把方案 B 整套收进默认关闭的实验开关,默认路径退回 0.92 那套真机验过能用的行为。
+
+理由写在 tasks.md 的「真机结果」一节(证据逐条)。一句话:
+**从"看得见"到"全白",唯一的功能性差量就是方案 B**;而方案 B 的代码逐行读过没有笔误,
+病在它与 WebView2 的运行时交互 —— 那一层 Linux 上一行都跑不到。
+0.92/0.93 连着两版都死在"把推论当结论发出去",这一版不再赌。
+
+## Mechanical checks
+
+- [x] tests pass(python 全量 **1321 项 rc=0**,venv 解释器,3 跳过均为
+      `DS_SHELL_E2E=1 才跑` 的 nanobot 联跑,与本轮无关)
+- [x] 红检(新闸 f1~f9):**咬 9 漏 0**
+- [x] 红检(老闸 n1~n13):**咬 14 漏 0**(F4/F8 锚点因实现缩进 +4 失效,已修)
+- [x] 成品闸:安装包 7 条 0 不合格;包内 `ds_shell.py`/`ds_web.py`/`web/dist`
+      与仓库**逐字节一致**
+- [x] **在打好的包里实测开关**:默认 `False` → 放标志文件 `True` → 删掉 `False`
+- [ ] **真机** —— 只有业主答得了,见 `真机清单-0.94.md`
+
+**机器打印的**(不是我的转述):
+
+```
+runlog: python-regression-venv rc=0 commit=db144e1 dirty=yes final=yes at=2026-08-24T11:45:42Z file=tracks/opendesign-native-frame/evidence/20260824T114542Z-01-python-regression-venv.txt
+runlog: redcheck-frame-experiment rc=0 commit=db144e1 dirty=yes final=yes at=2026-08-24T11:45:13Z file=tracks/opendesign-native-frame/evidence/20260824T114513Z-01-redcheck-frame-experiment.txt
+runlog: redcheck-native-frame rc=0 commit=db144e1 dirty=yes final=yes at=2026-08-24T11:45:26Z file=tracks/opendesign-native-frame/evidence/20260824T114526Z-01-redcheck-native-frame.txt
+```
+
+> `dirty=yes` 三份都是同一个原因:收据文件本身还没入库(未跟踪)。
+> 三份的 `source-stable` 全是 `yes` —— 跑的过程中源码没变过。
+
+**跑红的那几遍,一份都不藏**(规矩 5b):
+
+```
+runlog: python-regression-venv rc=1 commit=2d791b9 dirty=no final=yes at=2026-08-24T11:21:51Z file=tracks/opendesign-native-frame/evidence/20260824T112151Z-01-python-regression-venv.txt
+runlog: redcheck-frame-experiment rc=1 commit=b0ba271 dirty=yes final=yes at=2026-08-24T11:44:11Z file=tracks/opendesign-native-frame/evidence/20260824T114411Z-01-redcheck-frame-experiment.txt
+```
+
+- `rc=1` 那遍回归:**老闸抓到我一个真 bug**。`_log_frame_diagnostics` 里
+  `GetWindowRect`/`GetClientRect`/`GetClassNameW`/`EnumChildWindows` 四个都是裸调,
+  没声明 argtypes/restype ⇒ 64 位上句柄被静默截成 32 位,**诊断会印出看着像真的、
+  其实是错的数字**。那比没有数字更坏 —— 这个函数存在的全部理由就是给我可信的数字。
+  1321 项里就这一条红。已修(`b0ba271`)。
+- `rc=1` 那遍红检:**我自己那笔 argtypes 修复把 f9 弄瞎了**。补上
+  `user32.EnumChildWindows.argtypes = [...]` 之后,就算把调用整个删掉,
+  这个名字照样在源码里,f9 的子串匹配就绿了 ⇒ M9 漏网。
+  **加一道防线顺手拆掉另一道**,这个项目的老形状。
+  f9 已改成认 `ast.Call` 的被调方名字(属性赋值不算数),红检回到 9 咬 0 漏。
+
+## Review
+
+### 判据的洞 —— 和 0.91 同一个形状(本轮最该记的一条)
+
+0.93 那一单**判据全绿、四审 PASS、主裁代码面 PASS**,而业主打开是一片白。
+逐条核实后(tasks.md 有全文),原因不是"漏判":
+
+- **主裁当时就写了「产品面不给结论」**,而且写明失败形态是"外观当场坏掉";
+  subdeepseek F4 也标了"核心前提未验"。**它答不了,而我知道它答不了,包照发。**
+- 那轮实际只有**两条腿**成功(subglm 超时+503、subkimi 无额度)。但这不是主因 ——
+  **四条腿一样查不出来**:没有任何一条腿能在 Windows 上把窗口画出来。
+- 同一单的 F-A 已经现过这个盲区:`ensure_native_styles` 指着改名前的函数、
+  窗口一 `shown` 就崩,**10 条判据 + 1299 项回归全没咬住**,靠我肉眼看出来。
+  同一个洞在同一单里现过形,我没把它的份量看够。
+- 🔴 **真机清单自己也犯了同一个病**:C 组五条全在问"退化"(多一条线 / 冒标题栏 /
+  内容被挤掉一点 / 圆角 / 盖任务栏),**没有一条问"界面还在不在"**;
+  而 A 组硬闸让业主打开就去翻日志文件。「全白」从中间直接漏过去。
+
+⇒ 修法不是"多加一条评审腿"(腿再多也读不了屏幕),是把最粗的问题放到最前面。
+`真机清单-0.94.md` 的第一条现在是 **A0「界面出来了吗?一片白就停」**。
+
+### 这一版的判据能保证什么、不能保证什么
+
+- **不能**保证"页面画得出来" —— 那一层只有 Windows 答得了,和 0.93 一样。
+- **能**机械保证:默认路径**一个边框计算都不碰**(f5~f7 各自有红检咬着),
+  所以默认路径的行为就是 0.92 的行为,而 0.92 在业主机器上是好的。
+  这是一条更弱、但**真的成立**的保证 —— 0.92/0.93 两版的错就是把
+  "手段写对了"当成了"问题解决了"。
+
+### arbitrated verdict(主裁)
+
+**代码面 PASS。产品面照旧不给结论**,但这一版的产品风险与前两版**不是一个量级**:
+默认路径不是新写的代码,是 0.92 那份**业主已经跑过一版**的实现搬回来。
+真正的新代码只有开关本身和诊断日志,两者都在"关"的一侧不生效。
+
+⚠️ 仍然敞着的:**白屏的机制至今不知道**。这一版只做了两件事 ——
+让业主能用,以及让下一趟真机能带回数字。不许把"绕开了"写成"修好了"。
+
+## 未做 / 敞着的账
+
+- **白屏根因未定案**。要等业主走 `真机清单-0.94.md` 的 D 组(可选)带回 `[诊断]` 那几行。
+- 方案 B 的 C/E/F 组(拖边缘分屏、Win11 Snap、拖动跟不跟手、全屏后接管掉不掉)
+  **一条都没验过**,现在全在关着的开关后面,等根因定案再说。
+- 0.93 的 `真机清单-方案B.md` 保留不删:它的 C 组问法是本轮的反面教材。

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-native-frame",
+  "run_id": "20260824T112151Z-01-python-regression-venv",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "python-regression-venv",
+  "started_at": "2026-08-24T11:21:51Z",
+  "finished_at": "2026-08-24T11:27:29Z",
+  "duration_ms": 338598,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
