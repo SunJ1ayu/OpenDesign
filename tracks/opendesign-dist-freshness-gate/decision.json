@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-dist-freshness-gate",
+  "impact": {
+    "level": "standard",
+    "factors": []
+  },
+  "design": {
+    "uncertainty": "low",
+    "premise_attack": {
+      "status": "not_required",
+      "evidence": []
+    }
+  },
+  "execution_plan": {
+    "adapter": "main",
+    "model": "claude-opus-5"
+  },
+  "outcome": {
+    "verdict": null
+  }
+}

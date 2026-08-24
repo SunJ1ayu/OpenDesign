@@ -1,0 +1,21 @@
+P0 前提探针:vite build 是确定性的吗?
+日期:2026-08-24T01:24:55Z   commit:a433bf8
+
+== 第一次 build ==
+../../../../../../tmp/claude-0/-root/9fc00f84-c688-4159-b141-30bc4b015cba/scratchpad/p0-build-a/assets/index-DrDJWOTn.css   67.32 kB │ gzip:  12.08 kB
+../../../../../../tmp/claude-0/-root/9fc00f84-c688-4159-b141-30bc4b015cba/scratchpad/p0-build-a/assets/index-nULi_wUm.js   438.10 kB │ gzip: 139.20 kB
+✓ built in 2.51s
+rc1=0
+
+== 第二次 build(全新目录) ==
+../../../../../../tmp/claude-0/-root/9fc00f84-c688-4159-b141-30bc4b015cba/scratchpad/p0-build-b/assets/index-DrDJWOTn.css   67.32 kB │ gzip:  12.08 kB
+../../../../../../tmp/claude-0/-root/9fc00f84-c688-4159-b141-30bc4b015cba/scratchpad/p0-build-b/assets/index-nULi_wUm.js   438.10 kB │ gzip: 139.20 kB
+✓ built in 2.62s
+rc2=0
+
+== 产物文件数(必须 > 0,否则'两边都空'会造出恒绿) ==
+A=3 个文件, B=3 个文件
+
+== 逐字节比对(diff -r,输出为空即完全相同) ==
+DIFF-EMPTY: 两次 build 产物完全相同
+diff_rc=0

@@ -1,0 +1,92 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    oracle-red-before-gate
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_dist_freshness_gate -v
+cwd:     .(仓根)
+commit:  a433bf8
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-24T01:28:17Z
+---------------- 输出开始 ----------------
+test_o1_real_source_change_is_caught (tests.test_dist_freshness_gate.DistFreshnessGate.test_o1_real_source_change_is_caught)
+O1 改了会进产物的源码却没 build ⇒ 闸必须红,并点名差异文件。 ... FAIL
+test_o1b_index_html_change_is_caught (tests.test_dist_freshness_gate.DistFreshnessGate.test_o1b_index_html_change_is_caught)
+O1b 变异落在 `index.html` 上 —— 它**不带内容哈希**。 ... FAIL
+test_o2_comment_only_change_is_not_flagged (tests.test_dist_freshness_gate.DistFreshnessGate.test_o2_comment_only_change_is_not_flagged)
+O2 只改注释 ⇒ 产物不变 ⇒ 闸必须放行。 ... FAIL
+test_o3_build_failure_blocks_loudly (tests.test_dist_freshness_gate.DistFreshnessGate.test_o3_build_failure_blocks_loudly)
+O3 build 挂了 ⇒ 必须红,而且要带得出 build 的报错原文。 ... FAIL
+test_o4_does_not_touch_the_worktree (tests.test_dist_freshness_gate.DistFreshnessGate.test_o4_does_not_touch_the_worktree)
+O4 闸只报告、不修复 ⇒ 跑完 `web/dist` 逐字节不变、git 不新增脏项。 ... FAIL
+test_o5_build_is_deterministic (tests.test_dist_freshness_gate.DistFreshnessGate.test_o5_build_is_deterministic)
+O5 同样输入连续两次 build,产物必须逐字节相同。 ... FAIL
+test_o6_runall_wiring (tests.test_dist_freshness_gate.DistFreshnessGate.test_o6_runall_wiring)
+O6 `run-all.sh` 必须在**跑任何场景之前**过这道闸,且**闸红则整体红**。 ... FAIL
+
+======================================================================
+FAIL: test_o1_real_source_change_is_caught (tests.test_dist_freshness_gate.DistFreshnessGate.test_o1_real_source_change_is_caught)
+O1 改了会进产物的源码却没 build ⇒ 闸必须红,并点名差异文件。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_dist_freshness_gate.py", line 58, in setUp
+    self.assertTrue(GATE.exists(), f"闸不存在:{GATE}")
+AssertionError: False is not true : 闸不存在:/root/.openclaw/workspace/projects/design-studio/tests/e2e/check-dist-fresh.sh
+
+======================================================================
+FAIL: test_o1b_index_html_change_is_caught (tests.test_dist_freshness_gate.DistFreshnessGate.test_o1b_index_html_change_is_caught)
+O1b 变异落在 `index.html` 上 —— 它**不带内容哈希**。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_dist_freshness_gate.py", line 58, in setUp
+    self.assertTrue(GATE.exists(), f"闸不存在:{GATE}")
+AssertionError: False is not true : 闸不存在:/root/.openclaw/workspace/projects/design-studio/tests/e2e/check-dist-fresh.sh
+
+======================================================================
+FAIL: test_o2_comment_only_change_is_not_flagged (tests.test_dist_freshness_gate.DistFreshnessGate.test_o2_comment_only_change_is_not_flagged)
+O2 只改注释 ⇒ 产物不变 ⇒ 闸必须放行。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_dist_freshness_gate.py", line 58, in setUp
+    self.assertTrue(GATE.exists(), f"闸不存在:{GATE}")
+AssertionError: False is not true : 闸不存在:/root/.openclaw/workspace/projects/design-studio/tests/e2e/check-dist-fresh.sh
+
+======================================================================
+FAIL: test_o3_build_failure_blocks_loudly (tests.test_dist_freshness_gate.DistFreshnessGate.test_o3_build_failure_blocks_loudly)
+O3 build 挂了 ⇒ 必须红,而且要带得出 build 的报错原文。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_dist_freshness_gate.py", line 58, in setUp
+    self.assertTrue(GATE.exists(), f"闸不存在:{GATE}")
+AssertionError: False is not true : 闸不存在:/root/.openclaw/workspace/projects/design-studio/tests/e2e/check-dist-fresh.sh
+
+======================================================================
+FAIL: test_o4_does_not_touch_the_worktree (tests.test_dist_freshness_gate.DistFreshnessGate.test_o4_does_not_touch_the_worktree)
+O4 闸只报告、不修复 ⇒ 跑完 `web/dist` 逐字节不变、git 不新增脏项。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_dist_freshness_gate.py", line 58, in setUp
+    self.assertTrue(GATE.exists(), f"闸不存在:{GATE}")
+AssertionError: False is not true : 闸不存在:/root/.openclaw/workspace/projects/design-studio/tests/e2e/check-dist-fresh.sh
+
+======================================================================
+FAIL: test_o5_build_is_deterministic (tests.test_dist_freshness_gate.DistFreshnessGate.test_o5_build_is_deterministic)
+O5 同样输入连续两次 build,产物必须逐字节相同。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_dist_freshness_gate.py", line 58, in setUp
+    self.assertTrue(GATE.exists(), f"闸不存在:{GATE}")
+AssertionError: False is not true : 闸不存在:/root/.openclaw/workspace/projects/design-studio/tests/e2e/check-dist-fresh.sh
+
+======================================================================
+FAIL: test_o6_runall_wiring (tests.test_dist_freshness_gate.DistFreshnessGate.test_o6_runall_wiring)
+O6 `run-all.sh` 必须在**跑任何场景之前**过这道闸,且**闸红则整体红**。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_dist_freshness_gate.py", line 58, in setUp
+    self.assertTrue(GATE.exists(), f"闸不存在:{GATE}")
+AssertionError: False is not true : 闸不存在:/root/.openclaw/workspace/projects/design-studio/tests/e2e/check-dist-fresh.sh
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.001s
+
+FAILED (failures=7)
+---------------- 输出结束 ----------------
+runlog: oracle-red-before-gate rc=1 commit=a433bf8 dirty=yes at=2026-08-24T01:28:17Z file=tracks/opendesign-dist-freshness-gate/evidence/20260824T012817Z-01-oracle-red-before-gate.txt
