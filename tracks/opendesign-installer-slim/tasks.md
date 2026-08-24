@@ -26,3 +26,16 @@
 - [ ] 重新打包,量**前后的文件数与体积**并记进 verify
 - [ ] panel-review(impact=standard ⇒ 预算 1 条外部腿)
 - [ ] 与 0.95 的窗口改动**打同一个包**,业主只装一次
+
+## ⚠️ 一笔说不清的敞账(2026-08-24,别当成已解决)
+
+写这一单时,`probes/` 里两个 `.py` **在我 cp 进去、并且成功跑过之后消失了**
+(evidence/ 里的 .txt 好好的,同一分钟)。已从 scratchpad 恢复并**立即 commit**
+(入库之后就动不了了)。
+
+**已排除**:`track-record validate`(做了哨兵实验:放一个文件进去、跑一遍、文件还在);
+`~/.openclaw/_scripts/cleanup-sessions.sh`(只扫 session 目录、凌晨 3 点跑);
+`tmp-sweeper`(只扫 /tmp、3:25)。
+
+🔴 **谁删的仍然不知道。** 不编原因。教训是可操作的那条:
+**工件一落盘就 commit,别攒着** —— 未跟踪文件在这台机器上不安全。
