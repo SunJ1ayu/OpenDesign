@@ -9,6 +9,12 @@
 而重新 build 的产物与 web/dist **逐字节相同** —— 报警指的事不要紧,但报警器本身也没问对问题。
 
 判据全部**真调**闸,不看它的源码长什么样。
+
+⚠️ **O4/O6 跑在真仓库上**(其余六条在临时副本里,node_modules 用符号链接)。
+O6 会把 `web/dist/index.html` 短暂改脏再由 finally 还原;**若被 Ctrl+C 砍在中间**,
+那一行 `<!-- judge-probe -->` 会留在工作树上 —— git status 当场看得见,不是无声损坏,
+`git checkout -- web/dist/index.html` 一行就能收拾。
+(2026-08-24 panel submimo 建议把这条写在文件头,采纳。)
 """
 
 import os
