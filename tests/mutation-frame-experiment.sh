@@ -103,11 +103,11 @@ mutate_and_expect M3 bin/ds_shell.py "$ORACLE" \
 # M4 接管挪到开关外面 —— 默认路径又开始动窗口的边框计算了
 mutate_and_expect M4 bin/ds_shell.py "$ORACLE" \
   test_f5_wndproc_install_is_behind_the_switch \
-  '            if frame_experiment_on():
+  '            if frame_experiment_on() and not self._frame_gave_up:
                 # 方案 B 全套。**先接管非客户区,再贴位** —— 顺序见上面。
                 self._install_wndproc(form)' \
   '            self._install_wndproc(form)
-            if frame_experiment_on():
+            if frame_experiment_on() and not self._frame_gave_up:
                 # 方案 B 全套。**先接管非客户区,再贴位** —— 顺序见上面。'
 
 # M5 默认路径改去贴五个位(含 CAPTION|THICKFRAME)—— 0.93 的病根
@@ -127,17 +127,18 @@ mutate_and_expect M6 bin/ds_shell.py "$ORACLE" \
 # M7 开关写成否定式 —— f5~f7 会**反向放行**,闸还是绿的而产品是坏的
 mutate_and_expect M7 bin/ds_shell.py "$ORACLE" \
   test_f8_switch_is_written_in_the_positive_form \
-  '            if frame_experiment_on():
+  '            if frame_experiment_on() and not self._frame_gave_up:
                 # 方案 B 全套' \
-  '            if not frame_experiment_on():
+  '            if not frame_experiment_on() and not self._frame_gave_up:
                 # 方案 B 全套'
 
 # M8 诊断没人叫 —— 开关打开也拿不到任何数字,又要多跑一趟真机
 mutate_and_expect M8 bin/ds_shell.py "$ORACLE" \
   test_f9_experiment_path_leaves_diagnostics \
-  '                self._log_frame_diagnostics(form)
+  '                info = self._log_frame_diagnostics(form)
 ' \
-  ''
+  '                info = None
+'
 
 # M9 诊断里不再枚举子窗口 —— WebView2 那块还在不在就查不出来了
 #    🔴 这条专治"判据靠 docstring 绿":函数注释里写着 EnumChildWindows,

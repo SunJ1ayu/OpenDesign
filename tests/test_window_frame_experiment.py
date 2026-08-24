@@ -292,14 +292,22 @@ class FrameWorkStaysBehindTheSwitch(unittest.TestCase):
         真分支装的是**默认路径**,那三条闸会**反过来放行**危险动作 ——
         闸还是绿的,产品是坏的。宁可多这一条,不要一个会撒谎的闸。
         """
+        # 🔴 不能只看**最外层**是不是 `not`。0.95 之后条件长这样:
+        #    `if frame_experiment_on() and not self._frame_gave_up:` —— 是个 BoolOp,
+        #    于是"把开关取反"(`not frame_experiment_on() and …`)会从这条闸底下溜过去。
+        #    红检 M7 当场照出来的:那条变异下 f8 全绿。
+        #    正确的问法是:**整棵条件树里,有没有哪个 `not` 底下罩着这个开关**。
         bad = []
         for node in ast.walk(self.tree):
             if not isinstance(node, ast.If):
                 continue
             if FLAG_FN not in _idents(node.test):
                 continue
-            if isinstance(node.test, ast.UnaryOp) and isinstance(node.test.op, ast.Not):
-                bad.append(ast.unparse(node.test))
+            for sub in ast.walk(node.test):
+                if (isinstance(sub, ast.UnaryOp) and isinstance(sub.op, ast.Not)
+                        and FLAG_FN in _idents(sub.operand)):
+                    bad.append(ast.unparse(node.test))
+                    break
         self.assertEqual(
             [], bad,
             "开关被写成了否定式,f5~f7 会因此反向放行:\n  " + "\n  ".join(bad))

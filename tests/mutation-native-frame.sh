@@ -136,7 +136,7 @@ mutate_and_expect F9 bin/ds_shell.py "$ORACLE" \
 #     (窗口一 shown 就 AttributeError,而全量回归 1299 项照样全绿)
 mutate_and_expect F10 bin/ds_shell.py "$ORACLE" \
   test_n9_no_dangling_self_method_references \
-  'self._on_ui(self._apply_native_styles_and_frame)' 'self._on_ui(self._setup_native_frame)'
+  'self._on_ui(self._apply_safe_styles)' 'self._on_ui(self._setup_native_frame)'
 
 # F11 幂等退化成"挂过就不再挂" —— 全屏切回来之后动画消失
 mutate_and_expect F11 bin/ds_shell.py "$ORACLE" \
