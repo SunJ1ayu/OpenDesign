@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-native-frame",
+  "run_id": "20260824T124356Z-01-redcheck-frame-experiment",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "redcheck-frame-experiment",
+  "started_at": "2026-08-24T12:43:56Z",
+  "finished_at": "2026-08-24T12:44:06Z",
+  "duration_ms": 10075,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
