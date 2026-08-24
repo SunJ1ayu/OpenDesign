@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-installer-slim",
+  "impact": {
+    "level": "high",
+    "factors": [
+      "production_side_effect"
+    ]
+  },
+  "design": {
+    "uncertainty": "low",
+    "premise_attack": {
+      "status": "done",
+      "evidence": [
+        "tracks/opendesign-installer-slim/evidence/p0-import-graph.txt",
+        "tracks/opendesign-installer-slim/probes/p0-import-graph.py",
+        "tracks/opendesign-installer-slim/probes/p0-control-nothing-blocked.py"
+      ]
+    }
+  },
+  "execution_plan": {
+    "adapter": "main",
+    "model": null
+  },
+  "outcome": {
+    "verdict": null
+  }
+}

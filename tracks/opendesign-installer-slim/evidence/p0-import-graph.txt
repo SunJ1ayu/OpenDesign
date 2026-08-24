@@ -1,0 +1,31 @@
+==== 探针 p0:把候选包从导入系统里抹掉(模拟删除后) ====
+    列出 16 个内置通道(零 import)
+    启用 websocket ⇒ 实际加载 ['websocket']
+    discover_all() 拿到 13 个:['dingtalk', 'discord', 'email', 'mochat', 'msteams', 'napcat', 'qq', 'signal', 'slack', 'websocket', 'wecom', 'weixin', 'whatsapp']
+    bedrock_provider 模块本身导入成功(boto3 是函数内导入)
+
+==== 探针结果 ====
+[OK  ] import nanobot.cli.commands(python -m nanobot 的入口)
+[OK  ] discover_channel_names()(号称零 import)
+[OK  ] discover_enabled({'websocket'})(业主的真实形态)
+[OK  ] discover_all()(最坏路径,要求优雅跳过而不是崩)
+[OK  ] import nanobot.providers.bedrock_provider(boto3 那条)
+
+合计 5 步,失败 0 步
+
+==== 对照组:什么都不抹(基线) ====
+(第 4 步 FAIL 是**预期的** —— 那条断言写的是'抹掉之后 telegram/feishu 不许还在',对照组没抹,所以它当然还在。)
+    列出 16 个内置通道(零 import)
+    启用 websocket ⇒ 实际加载 ['websocket']
+    discover_all() 拿到 15 个:['dingtalk', 'discord', 'email', 'feishu', 'mochat', 'msteams', 'napcat', 'qq', 'signal', 'slack', 'telegram', 'websocket', 'wecom', 'weixin', 'whatsapp']
+    bedrock_provider 模块本身导入成功(boto3 是函数内导入)
+
+==== 探针结果 ====
+[OK  ] import nanobot.cli.commands(python -m nanobot 的入口)
+[OK  ] discover_channel_names()(号称零 import)
+[OK  ] discover_enabled({'websocket'})(业主的真实形态)
+[FAIL] discover_all()(最坏路径,要求优雅跳过而不是崩)
+        AssertionError: telegram 在包被抹掉的情况下**仍然加载成功**,不合预期
+[OK  ] import nanobot.providers.bedrock_provider(boto3 那条)
+
+合计 5 步,失败 1 步
