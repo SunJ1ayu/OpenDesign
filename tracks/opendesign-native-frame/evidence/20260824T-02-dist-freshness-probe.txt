@@ -1,0 +1,25 @@
+dist 新鲜度调查 —— 2026-08-24(业主质疑「确定是误报吗」之后做的)
+
+== 1. 提交先后(决定性) ==
+d704df8 2026-08-17 22:10:31 +0800 收口:开窗口的地址收进唯一来源 window_url(),挂载时问窗口状态改成等 api 到位
+c82dcbc 2026-08-17 22:24:53 +0800 判据:按钮"按下去真的叫到 Python"补上行为覆盖(评审 F1)+ x5 补两种全屏遮罩写法(F3)
+=> d704df8(带 dist 重建) 是 c82dcbc(改 app.css) 的祖先 ⇒ src 确实在 dist 之后改过,闸报得对
+
+== 2. 那次改动的内容 ==
+ web/src/app.css | 5 +++++
+ 1 file changed, 5 insertions(+)
+(实际 diff:+5 行,全部是 CSS 注释,零样式规则)
+
+== 3. 实测:重新 build 到仓外临时目录,与 web/dist 逐字节比对 ==
+cmd: npx vite build --outDir <tmp> --emptyOutDir   rc=0
+IDENTICAL  assets/index-DrDJWOTn.css
+IDENTICAL  assets/index-nULi_wUm.js
+IDENTICAL  index.html
+(vite 文件名即内容哈希,重建后哈希未变亦独立佐证)
+
+== 4. 安装包内 CSS vs 仓库 dist ==
+IDENTICAL ⇒ 业主装的包是当前源码的正确产物
+
+== 结论 ==
+报警不是误报(src 确实较新),但那次改动是纯注释、build 剥掉 ⇒ 产物零变化、产品面零影响。
+本次由绿转红的直接触发仍是红检 cp 毁 mtime(08-23 12:19 顶新两个前端文件)。

@@ -34,20 +34,45 @@ A1 是硬闸(「没有 = 停,别往下走」)⇒ 业主会在**第一条**就搜
 
 `tests/e2e/run-all.sh` 现为 **35 PASS / 1 FAIL / 2 SKIP,rc=1**
 (收据:`evidence/20260824T003109Z-01-e2e-runall.txt`)。红的是 `llm_key.e2e.mjs`,
-它红在自己那道新鲜度闸上(「web/dist 比 web/src 旧」)。**是假红**,三条证据:
+它红在自己那道新鲜度闸上(「web/dist 比 web/src 旧」)。
 
-1. 那道闸比的是 **mtime**(`tests/e2e/llm_key.e2e.mjs:77` 的 `statSync().mtimeMs`),不是内容;
-2. `git log --since=2026-08-18 -- web/src` **为空** ⇒ src 内容自 08-17(`d704df8`)起没变过,
-   而 dist build 于 08-18 ⇒ dist 并不比 src 的**内容**旧;
-3. `tests/mutation-window-chrome.sh` 的 SOURCES 正含 `web/src/app.css` 与
-   `web/src/workspace/WindowChrome.tsx`,而它恢复原状用的是 `cp`(`:36`)——
-   **`cp` 还原内容却把 mtime 设成当前时间**。08-23 12:19 跑红检那一下把这两个文件的
-   mtime 顶新了,闸从此误判(两文件 mtime 正是 08-23 12:19)。
+> ⚠️ **我第一版把它判成「假红」,那是错的 —— 已推翻。**
+> 当时给的第二条理由是「`git log --since=2026-08-18 -- web/src` 为空 ⇒ src 内容自
+> 08-17 起没变过」。这句**问错了区间**:该比的不是"某个日期之后",而是
+> **dist 那次提交与 src 那次提交谁在后**。业主质疑「确定是误报吗」之后重查:
 
-**8 个 `tests/mutation-*.sh` 全都用不带 `-p` 的 cp**,所以这不是一家的事。
-修法看着只是 `cp` → `cp -p`,但它**动的是判卷防线**,且与既有教训
-「红检会被字节码缓存骗」方向相反(那条讲的是 mtime **没变**导致 CPython 复用旧 .pyc)
-⇒ **必须实测、不许推理**,单独起 track,不在本单顺手改。
+**闸报得对,不是误报。**(证据:`evidence/20260824T-02-dist-freshness-probe.txt`)
+
+- `d704df8`(08-17 **22:10**)改 `WindowChrome.tsx` 时**一并重建并提交了 dist** ✓
+- `c82dcbc`(08-17 **22:24**)改了 `web/src/app.css`,**之后再没有过 dist 的提交**
+- `git merge-base --is-ancestor d704df8 c82dcbc` 成立 ⇒ **src 确实在 dist 之后改过**
+
+**但产品面零影响**,这一层是实测不是推理:
+
+- 那次 app.css 的改动是 **+5 行纯 CSS 注释**(说明右上角 6×6 把手为何点不到 ——
+  它整块落在三个按钮底下),**零样式规则**,而 build 会剥注释;
+- 重新 `npx vite build --outDir <仓外临时目录>`,产物与 `web/dist` **逐字节相同**
+  (`index-DrDJWOTn.css` / `index-nULi_wUm.js` / `index.html` 三个全 IDENTICAL;
+  vite 文件名即内容哈希,重建后哈希未变是独立佐证);
+- 安装包内 `index-DrDJWOTn.css` 与仓库 dist **逐字节相同**
+  ⇒ **0.93.0 的包里装的就是当前源码的正确产物,业主可以放心装。**
+
+**这次由绿转红的直接触发,仍然是红检毁 mtime:**
+`tests/mutation-window-chrome.sh:36` 恢复原状用 `cp` —— 还原内容却把 mtime 设成当前时间。
+08-23 12:19 跑红检那下把两个前端文件顶新(在那之前 dist=08-18 比 src 新,闸是绿的)。
+**8 个 `tests/mutation-*.sh` 全是不带 `-p` 的 cp。**
+
+⇒ 于是这里其实是**两件独立的事**,都成立:
+
+1. **红检没恢复干净**(承诺"恢复原状"却漏了 mtime)—— 8 个脚本同病。修法看着是
+   `cp` → `cp -p`,但与既有教训「红检会被字节码缓存骗」**方向相反**(那条讲 mtime
+   **没变**导致复用旧 .pyc)⇒ **必须实测、不许推理**。
+2. **闸问的问题与它想防的事有落差**:它比**时间戳**,而它真正要答的是
+   「dist 是不是当前 src 的产物」。所以像这次"只改了注释"的情形它会照样报警,
+   而时间戳还会被切分支/复制/解压等一堆无关动作刷新。根治要比**内容**
+   (build 时把 src 的内容哈希落进 dist,闸比哈希),那要动打包流程。
+
+两件都不在本单顺手做,单独起 track。
 
 > 本单收口时没跑 e2e 总跑(verify 里也没有 e2e 收据)。这一单不碰前端,取舍成立;
 > 但也正因为没跑,这个假红从 08-23 12:19 起就在,直到今天接手才被撞上。
