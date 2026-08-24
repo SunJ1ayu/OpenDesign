@@ -315,10 +315,18 @@ class FrameWorkStaysBehindTheSwitch(unittest.TestCase):
         self.assertIsNotNone(
             fn, "没有 _log_frame_diagnostics —— 开关打开也拿不到任何数据,"
                 "业主白跑一趟。")
-        body = _code(fn)          # 🔴 剥掉 docstring,否则靠注释就能绿(红检 M8)
+        # 🔴 问的是"**真的被调用了**",不是"名字在源码里出现过"。
+        #    这条断言在同一个坑里栽过两次:
+        #      ① 第一版扫 ast.unparse ⇒ 连 docstring 里写的名字都算(红检 M9 证实);
+        #      ② 改成 _code() 之后仍然是子串匹配 ⇒ 后来给这些调用补了
+        #         `user32.EnumChildWindows.argtypes = [...]`,名字又出现了,
+        #         把调用整个删掉它照样绿(红检 M9 第二次照出来 —— 而那行 argtypes
+        #         正是我自己为了修另一个 bug 加的:**加一道防线顺手拆了另一道**)。
+        #    所以这里认 ast.Call 的被调方名字,属性赋值不算数。
+        called = {_callee(n) for n in ast.walk(fn) if isinstance(n, ast.Call)}
         for must in ("GetWindowRect", "GetClientRect", "EnumChildWindows"):
             self.assertIn(
-                must, body,
+                must, called,
                 f"诊断里没有 {must}。三样缺一不可:\n"
                 "  窗口矩形 + 客户区矩形 ⇒ 看得出接管有没有把客户区铺满;\n"
                 "  子窗口列表 ⇒ 看得出 WebView2 那块还在不在、矩形对不对"
