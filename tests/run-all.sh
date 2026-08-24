@@ -132,7 +132,18 @@ note_last "$([ "$LAST_RC" -eq 0 ] && echo '三条闸全绿' || echo '见日志')
 # 入库的 dist 里根本没有新文案(是一条撞了额度上限、日志只写到一半的评审腿抓到的)。
 # 本机铁律:**盘上和运行时对不上 = BLOCK**。这里就是那道闸:重新 build,
 # 然后要求 git 对 web/dist 无话可说。
-run_seg "dist 新鲜度(重新 build 后 git 应无差异)" dist-fresh \
+# 🔴 **别看它叫「dist 新鲜度」就以为它只管产物 —— 它跑的是 `npm run build`,
+#    而那是 `tsc -b && vite build`。上面各段里没有任何独立的类型检查,
+#    ⇒ 这里是本仓库**唯一**跑 TypeScript 类型检查的地方。**
+#    2026-08-24 起 e2e 那段(第⑥段)自己也带了一道产物新鲜度闸
+#    (`tests/e2e/check-dist-fresh.sh`,比产物、不碰工作树、单独跑 e2e 时也守)。
+#    **两道看起来重复,但删这一段会连类型检查一起删掉,而且不会有任何判据变红。**
+#    要动之前先给 tsc 找个新家。
+#
+# ⚠️ 已知 fail-open:这一段靠 `git status --porcelain -- web/dist` 判断,
+#    **依赖 web/dist 入库**。哪天它被 gitignore,git 对它无话可说 ⇒ 本段恒绿。
+#    (实测 2026-08-24:现在没被 ignore,判得动。)第⑥段那道闸直接比文件,不吃这个亏。
+run_seg "dist 新鲜度 + 类型检查(npm run build 后 git 应无差异)" dist-fresh \
   bash -c 'cd web && npm run build >/dev/null 2>&1 && cd .. && \
            test -z "$(git status --porcelain -- web/dist)"'
 note_last "$([ "$LAST_RC" -eq 0 ] && echo "与源码同步" || echo "**入库的 dist 是旧的** —— 跑一次 npm run build 再提交")"

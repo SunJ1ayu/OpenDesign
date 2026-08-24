@@ -1,0 +1,15 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    oracle-after-docsync
+cmd:     /root/.venvs/design-studio/bin/python -W ignore -m unittest tests.test_dist_freshness_gate
+cwd:     .(仓根)
+commit:  23de411
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-24T02:57:25Z
+---------------- 输出开始 ----------------
+........
+----------------------------------------------------------------------
+Ran 8 tests in 28.553s
+
+OK
+---------------- 输出结束 ----------------
+runlog: oracle-after-docsync rc=0 commit=23de411 dirty=yes at=2026-08-24T02:57:25Z file=tracks/opendesign-gate-doc-sync/evidence/20260824T025725Z-01-oracle-after-docsync.txt

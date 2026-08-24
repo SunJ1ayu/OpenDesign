@@ -309,6 +309,23 @@ git-pull 的 `ds-nanobot.ps1`)都在管辖内;为开发机引入"去读 auth.jso
 - **`restart()` 不持 `_shutdown_lock`**:取舍与前提已写进它的 docstring;
   要动的话先把 shutdown 那侧的等待改成可中断的。
 
+## 两道 dist 新鲜度闸并存,且上层那道有 fail-open(2026-08-24 查证)
+
+来源:track `opendesign-gate-doc-sync`。**本单只写清了分工,没改行为** —— 要不要合并是独立判断。
+
+| | `tests/run-all.sh` ⑤ 段(08-06 立) | `tests/e2e/check-dist-fresh.sh`(08-24 立) |
+|---|---|---|
+| 做法 | `npm run build` **覆盖 web/dist** + `git status` 判断 | build 到**仓外**、**逐字节**比对 |
+| 碰工作树 | **会** | 不会 |
+| 依赖 dist 入库 | **是** ⇒ 被 gitignore 就**恒绿(fail-open)** | 否 |
+| 覆盖范围 | 只在仓库级总跑 | e2e 入口,**单独跑 e2e 时也守** |
+| 顺带 | 🔴 **本仓库唯一的 TypeScript 类型检查(`tsc -b`)** | 无 |
+
+- **🔴 删 ⑤ 段会连类型检查一起删掉,而且不会有任何判据变红。** 已在两处代码注释里钉住,
+  但那只是注释 —— **真正该做的是给 `tsc -b` 一个独立的段**,然后两道闸才谈得上合并。
+- ⑤ 段的 fail-open(依赖 `web/dist` 入库)实测目前不触发(dist 没被 ignore),
+  但那是个脆前提。真要修,把它也换成比文件、不看 git。
+
 ## 红检恢复文件时不还原 mtime;另有一个变异 python 却不清字节码缓存(2026-08-24)
 
 来源:track `opendesign-dist-freshness-gate` 的 non-goal(那一单只治了闸,没治这个)。
