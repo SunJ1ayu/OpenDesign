@@ -49,12 +49,22 @@ def _funcs(tree):
 
 
 def _callees(node) -> set[str]:
+    """这个函数里**够得着**的方法名 —— 调用和引用都算。
+
+    🔴 只收 `ast.Call` 是不够的,而且那个洞正好开在最要命的地方:
+    `ensure_native_styles` 的写法是 `self._on_ui(self._apply_native_styles_and_frame)`
+    —— 那是**引用**不是调用,只看 Call 的话 h1 的禁止清单对 0.93/0.94 的写法
+    **完全是瞎的**(集合里只有 `_on_ui`,禁的那几个名字一个都不在,于是空过)。
+    是实现改好之后 h1 报"连安全位都不贴了"才暴露出来的。
+    """
     out = set()
     for n in ast.walk(node):
         if isinstance(n, ast.Call):
             f = n.func
             out.add(f.attr if isinstance(f, ast.Attribute)
                     else f.id if isinstance(f, ast.Name) else "")
+        elif isinstance(n, ast.Attribute) and isinstance(n.ctx, ast.Load):
+            out.add(n.attr)
     return out
 
 
