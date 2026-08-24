@@ -122,18 +122,37 @@ class SlimListShape(unittest.TestCase):
             sp = Path(tmp) / "site-packages"
             sp.mkdir()
 
-            def _pkg(name, dist=None, top=None):
+            def _pkg(name, dist=None, top=None, *, with_top_level=True):
+                """造一个包 + 它的 dist-info。
+
+                🔴 `with_top_level=False` 那一支是 2026-08-24 真打包**当场**加的:
+                   我原来的替身给每份 dist-info 都造了 `top_level.txt`,
+                   于是判据绿、真打包却留下 `python_telegram_bot-22.8.dist-info` ——
+                   **现代 wheel 根本不写 top_level.txt**(它是 setuptools 的老古董),
+                   真实的那份里只有 INSTALLER/METADATA/RECORD/WHEEL。
+                   替身与真实情况不一样,判据就只是在考自己。
+                """
                 (sp / name).mkdir()
                 (sp / name / "__init__.py").write_text("", encoding="utf-8")
                 if dist:
                     d = sp / dist
                     d.mkdir()
-                    (d / "top_level.txt").write_text(
-                        (top or name) + "\n", encoding="utf-8")
+                    if with_top_level:
+                        (d / "top_level.txt").write_text(
+                            (top or name) + "\n", encoding="utf-8")
+                    else:
+                        # 只有 RECORD 可推:它列出这个发行版装了哪些文件
+                        (d / "RECORD").write_text(
+                            f"{dist}/METADATA,sha256=x,100\n"
+                            f"{dist}/RECORD,,\n"
+                            f"{top or name}/__init__.py,sha256=y,0\n",
+                            encoding="utf-8")
 
-            # 要被删的:注意 telegram 的 dist-info 名字**对不上**导入名
+            # 要被删的:注意 telegram 的 dist-info 名字**对不上**导入名,
+            # 而且它**没有 top_level.txt** —— 真实那份就是这样(实测)。
             _pkg("lark_oapi", "lark_oapi-1.4.dist-info")
-            _pkg("telegram", "python_telegram_bot-20.7.dist-info", top="telegram")
+            _pkg("telegram", "python_telegram_bot-20.7.dist-info", top="telegram",
+                 with_top_level=False)
             _pkg("botocore", "botocore-1.34.dist-info")
             _pkg("boto3", "boto3-1.34.dist-info")
             _pkg("s3transfer", "s3transfer-0.10.dist-info")

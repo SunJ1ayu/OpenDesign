@@ -43,6 +43,25 @@ SHELL_PINS=(pywebview==5.4 pystray==0.19.5 pythonnet==3.0.5)
 # (平台无关 = 没编译任何东西);核不过就 fail closed。
 PURE_SDIST=(proxy_tools)
 
+# ── 瘦身清单(track opendesign-installer-slim,2026-08-24)──────────────
+# 业主:「安装包可以先去掉这些内容,不要完全删除,后期需要的时候可以加回来就行」。
+# 起因是他说**安装和卸载都很慢** —— 实测整包 22,118 个文件,而 OpenDesign 自己
+# 只占 42 个。Windows 装/卸要一个一个写/删这两万多个小文件,每个还过一遍杀毒。
+#
+# 这三族是 nanobot 的**可选连接器**的传递依赖,业主一个都没用(配置里 feishu
+# 也是 enabled:false),合计 12,404 个文件 / 80 MB:
+#   lark_oapi                      飞书机器人(10,106 个文件,最大的一头)
+#   botocore/boto3/s3transfer      亚马逊云 Bedrock
+#   telegram                       Telegram 机器人
+#
+# 🔴 **必须是显式数组,不许通配符**(判据 g5 守着)。`lark*` 那种写法删错了
+#    不会报错,只会让业主装完之后某个功能悄悄没了 —— 最难查的那一种。
+# 🔴 **要加回来 = 删掉这里的一行,重新打包。** nanobot 的代码一个字节没动,
+#    包装回去就直接能用。
+# 前提已验:probes/p0-import-graph.py —— 抹掉这些之后 nanobot 启动路径 5 步全过,
+# 连 discover_all() 那条最坏路径也是优雅跳过(registry 接的就是 except ImportError)。
+SLIM_DROP=(lark_oapi botocore boto3 s3transfer telegram)
+
 PKG="$OUT/pkg"
 CACHE="$OUT/cache"
 SP="$PKG/python/Lib/site-packages"
@@ -153,6 +172,82 @@ if ! python3 "$HERE/win-deps-audit.py" "$SP" > "$OUT/audit-1.txt" 2>&1; then
 else
   echo "  一遍过,没有漏网的 Windows 条件依赖"
 fi
+
+# ------------------------------------------------------------ 3b. 瘦身
+# 🔴 **位置要紧:必须在闸 A 之后。** 闸 A 拿"声明了什么依赖"对"装了什么",
+#    先删再扫的话它会把这些报成缺失、然后**把它们装回来** —— 白删一场,
+#    而且构建日志上看不出哪里不对。
+say "3b/6 瘦身:去掉业主用不到的可选连接器"
+python3 - "$SP" "${SLIM_DROP[@]}" <<'PYSLIM' || die "瘦身失败"
+import shutil, sys
+from pathlib import Path
+
+sp = Path(sys.argv[1])
+drop = set(sys.argv[2:])
+if not drop:
+    sys.exit("SLIM_DROP 是空的 —— 要么填,要么把这一步删掉,别留个空动作")
+
+removed_files = removed_bytes = 0
+
+
+def _rm(path: Path) -> None:
+    global removed_files, removed_bytes
+    for f in path.rglob("*"):
+        if f.is_file():
+            removed_files += 1
+            removed_bytes += f.stat().st_size
+    shutil.rmtree(path)
+
+
+missing = []
+for name in sorted(drop):
+    d = sp / name
+    if d.is_dir():
+        _rm(d)
+    else:
+        missing.append(name)
+
+# 🔴 **发行名 != 导入名**:`telegram` 这个包来自发行版 `python-telegram-bot`,
+#    照导入名去删 `telegram-*.dist-info` 一个都删不掉,于是留下一份
+#    "说包还在、其实不在" 的元数据 —— importlib.metadata 会照着它去找 entry point,
+#    报错报在离现场很远的地方。所以这里**反着来**:读每份 dist-info 的
+#    top_level.txt,看它提供的顶层包是不是全在清单里。(判据 g4 守着这一条。)
+for info in sorted(sp.glob("*.dist-info")):
+    provided = set()
+    top = info / "top_level.txt"
+    if top.is_file():
+        provided = {ln.strip() for ln in top.read_text(encoding="utf-8").splitlines()
+                    if ln.strip()}
+    else:
+        # 🔴 **现代 wheel 根本不写 top_level.txt**(setuptools 的老古董)。
+        #    2026-08-24 真打包实测:python_telegram_bot-22.8.dist-info 里只有
+        #    INSTALLER/METADATA/RECORD/WHEEL —— 第一版在这里 `continue`,
+        #    于是它活了下来,留下一份"说包还在、其实不在"的元数据。
+        #    退而求其次读 RECORD:它逐行列出这个发行版装了哪些文件。
+        rec = info / "RECORD"
+        if rec.is_file():
+            for ln in rec.read_text(encoding="utf-8", errors="replace").splitlines():
+                path = ln.split(",")[0].strip().replace("\\", "/")
+                if not path or path.startswith(".."):
+                    continue
+                head = path.split("/")[0]
+                if head.endswith((".dist-info", ".data")):
+                    continue
+                provided.add(head)
+    # 子集判断是**故意保守的**:只要这个发行版还提供了清单外的任何东西,
+    # 就不动它的元数据。宁可多留一份 dist-info,也不能删掉别人还在用的。
+    if provided and provided <= drop:
+        _rm(info)
+
+if missing:
+    # fail closed:清单里写了个不存在的名字 = 要么打错字,要么依赖树变了。
+    # 静默放过的话,下次 nanobot 换个依赖名,瘦身就悄悄什么都没删。
+    sys.exit(f"🔴 清单里这些包在 site-packages 里根本不存在:{missing}\n"
+             f"   打错字了,或者依赖树变了 —— 先弄明白,别改清单让它闭嘴。")
+
+print(f"  删掉 {removed_files} 个文件 / {removed_bytes / 1048576:.0f} MB"
+      f"({', '.join(sorted(drop))})")
+PYSLIM
 
 # ---------------------------------------------------------------- 4. ds 文件
 say "4/6 ds 文件"

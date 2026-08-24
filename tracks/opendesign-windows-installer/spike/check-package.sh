@@ -58,6 +58,26 @@ for p in nanobot mcp anydoc pydantic_core lxml PIL cryptography; do
 done
 [ -f "$B/python/Lib/site-packages/anydoc/_anydoc.pyd" ] && ok "anydoc 的 Windows 原生件在" || no "anydoc 的 .pyd 缺"
 
+# 瘦身(track opendesign-installer-slim):**问产物,不是问脚本里有没有那行删除**。
+# 清单从 build-package.sh 的 SLIM_DROP 读 —— 唯一来源在那边,这里不抄第二份。
+# 顺带查 dist-info:只删包留元数据 = importlib.metadata 会说包还在、其实不在。
+SLIM_LIST="$(grep -oP '^SLIM_DROP=\(\K[^)]*' "$(dirname "$0")/build-package.sh" 2>/dev/null)"
+if [ -n "$SLIM_LIST" ]; then
+  for p in $SLIM_LIST; do
+    [ -e "$B/python/Lib/site-packages/$p" ] && no "瘦身没生效:$p 还在包里" || ok "瘦身:$p 已不在包里"
+  done
+  # 元数据残留:发行名与导入名常常不一样(python-telegram-bot vs telegram),
+  # 所以按 RECORD/top_level 反查过之后,这里只做一次兜底的目录名扫描。
+  for p in $SLIM_LIST; do
+    leftover="$(find "$B/python/Lib/site-packages" -maxdepth 1 -name "*.dist-info" \
+                 -exec sh -c 'grep -qiE "^Name: *'"$p"'$" "$1/METADATA" 2>/dev/null && echo "$1"' _ {} \; 2>/dev/null | head -1)"
+    [ -n "$leftover" ] && no "瘦身:$p 的包删了但元数据还在($(basename "$leftover"))" \
+                       || ok "瘦身:$p 没留下孤儿元数据"
+  done
+else
+  no "读不出 SLIM_DROP —— 瘦身清单没了,还是 build-package.sh 被改了?"
+fi
+
 NEED="ds/bin/ds_web.py ds/bin/ds_mcp.py ds/bin/enable_webui.py ds/bin/ds_merge_config.py
       ds/config/nanobot.config.windows.jsonc ds/web/dist/index.html ds/版本号.txt"
 if [ "$APP_MODE" = 1 ]; then
