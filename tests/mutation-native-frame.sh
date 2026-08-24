@@ -11,6 +11,11 @@
 #    判据绿不绿说明不了什么,**判据咬不咬得动**才说明问题。
 #    (n8 第一版就是在这儿被咬出来的:它扫文本,`if True:` 照样放行。)
 #
+# ⚠️ 2026-08-24:F4/F8 的锚点因为 0.94.0 把方案 B 挪进 `if frame_experiment_on():`
+#    **整体缩进 +4** 而全部失效,机械报的是"变异没打上去"(不是漏网,但同样致命 ——
+#    锚点过期的变异等于没跑)。这个项目在"锚点过期"上已经栽到第五次,
+#    每次都是改了实现没回头看红检。
+#
 # 用法:tests/mutation-native-frame.sh
 # 退出码:0 = 每条都咬住靶子   1 = 有漏网   2 = 用法/现场问题
 
@@ -93,8 +98,8 @@ mutate_and_expect F3 bin/ds_shell.py "$ORACLE" \
 #     判据绿是对的。变异本身要是没破坏行为,红检就在测一个假问题。)
 mutate_and_expect F4 bin/ds_shell.py "$ORACLE" \
   test_n3_caption_requires_nccalcsize_takeover \
-  '            self._install_wndproc(form)
-            self._apply_native_styles(form)' '            self._apply_native_styles(form)'
+  '                self._install_wndproc(form)
+                self._apply_native_styles(form)' '                self._apply_native_styles(form)'
 
 # F5 NCCALCSIZE 分支不再吃掉非客户区
 mutate_and_expect F5 bin/ds_shell.py "$ORACLE" \
@@ -118,9 +123,9 @@ mutate_and_expect F7 bin/ds_shell.py "$ORACLE" \
 # F8 退回"假最大化" —— 业主点名的"放大动画"那一半就死在这里
 mutate_and_expect F8 bin/ds_shell.py "$ORACLE" \
   test_n7_maximize_uses_window_state_not_bounds \
-  '            form.WindowState = FormWindowState.Maximized
-            return True' '            form.Bounds = form.Bounds
-            return True'
+  '                form.WindowState = FormWindowState.Maximized
+                return True' '                form.Bounds = form.Bounds
+                return True'
 
 # F9 还原判断改成恒真 —— **n8 第一版就是被这条咬出来的**(它当时照样绿)
 mutate_and_expect F9 bin/ds_shell.py "$ORACLE" \

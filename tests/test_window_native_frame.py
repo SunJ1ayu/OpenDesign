@@ -284,9 +284,30 @@ class WindowNativeFrame(unittest.TestCase):
             "toggle_maximize 还没改成用 WindowState。自己设 Bounds 的'假最大化',"
             "系统压根不知道发生了最大化 ⇒ 永远没有放大动画,"
             "而这正是业主本轮点名的那一半。")
+        # 🔴 2026-08-24 收窄了适用范围,**不是放水**。
+        #    原来这条断言的是"整个 toggle_maximize 里不许出现 form.Bounds"。
+        #    那句话的前提是"方案 B 永远开着" —— **业主真机把这个前提推翻了**
+        #    (0.93.0 默认开着方案 B ⇒「打开全是白的什么都没有了」)。
+        #    0.94.0 把方案 B 收进默认关闭的开关,默认路径必须走回 0.92 的
+        #    假最大化(真最大化没有 NCCALCSIZE 接管会盖住任务栏)。
+        #
+        #    所以断言搬到**还问得出的地方**:实验路径里一个 form.Bounds 都不许有。
+        #    少了这一步,"方案 B 被人偷偷换回假最大化"就没人看着了。
+        #    默认路径那一头由 tests/test_window_frame_experiment.py 的 f7 守着。
+        guarded = []
+        for node in ast.walk(fn):
+            if isinstance(node, ast.If) and "frame_experiment_on" in _idents(node.test):
+                guarded.extend(node.body)
+        self.assertTrue(
+            guarded,
+            "toggle_maximize 里找不到 `if frame_experiment_on():` 分支 —— "
+            "方案 B 的真最大化没有藏在开关后面(f5~f7 会同时红)。")
+        experiment_src = "\n".join(_code(st) for st in guarded)
         self.assertNotIn(
-            "form.Bounds = ", body,
-            "toggle_maximize 里还在直接设 form.Bounds —— 假最大化没拆干净。")
+            "form.Bounds = ", experiment_src,
+            "**实验路径**里还在直接设 form.Bounds —— 方案 B 的真最大化被换成了"
+            "假最大化,那条路的放大动画就白做了。\n"
+            "(默认路径用 Bounds 是对的,那一头归 f7 管。)")
 
     # ── n8 D3 连带:show_window 别把最大化窗口打回小窗 ──────────
     def test_n8_show_window_does_not_unmaximize(self):

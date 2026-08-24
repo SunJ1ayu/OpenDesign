@@ -73,6 +73,29 @@ def _idents(node: ast.AST) -> set[str]:
     return out
 
 
+def _code(node: ast.AST) -> str:
+    """节点的**纯代码**文本:ast.unparse 天然丢注释,再手工剥掉 docstring。
+
+    🔴 少了剥 docstring 这一步,f9 会**靠注释绿** —— 那个函数的 docstring 里
+    正好写着 GetWindowRect / GetClientRect / EnumChildWindows 三个词。
+    这个项目已经在"判据把注释当代码"上栽过三次(0.92 的 s3 第一版、R12b、n8 第一版),
+    这是第四次。**是写红检 M9 时读出来的,不是红检先咬到的**;
+    随后做了对照实验:f9 退回 ast.unparse 再跑 M9 → "判据全绿,这条变异下它是瞎的"。
+    """
+    import copy
+
+    n = copy.deepcopy(node)
+    body = getattr(n, "body", None)
+    if isinstance(body, list) and body:
+        first = body[0]
+        if (isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant)
+                and isinstance(first.value.value, str)):
+            n.body = body[1:]
+    if isinstance(getattr(n, "body", None), list) and not n.body:
+        return ""
+    return ast.unparse(n)
+
+
 def _callee(call: ast.Call) -> str:
     f = call.func
     if isinstance(f, ast.Attribute):
@@ -292,7 +315,7 @@ class FrameWorkStaysBehindTheSwitch(unittest.TestCase):
         self.assertIsNotNone(
             fn, "没有 _log_frame_diagnostics —— 开关打开也拿不到任何数据,"
                 "业主白跑一趟。")
-        body = ast.unparse(fn)
+        body = _code(fn)          # 🔴 剥掉 docstring,否则靠注释就能绿(红检 M8)
         for must in ("GetWindowRect", "GetClientRect", "EnumChildWindows"):
             self.assertIn(
                 must, body,
