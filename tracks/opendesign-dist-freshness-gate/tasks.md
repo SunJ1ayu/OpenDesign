@@ -29,11 +29,11 @@
 
 ## 3. 收口
 
-- [ ] 判据全绿 + 红检每条咬住(机器收据,不是我的转述)
-- [ ] `tests/e2e/run-all.sh` 总跑:**这一单的验收是 36 PASS / 0 FAIL**
+- [x] 判据全绿 + 红检每条咬住(机器收据,不是我的转述)
+- [x] `tests/e2e/run-all.sh` 总跑:**这一单的验收是 36 PASS / 0 FAIL**
       (即 `llm_key` 由红转绿,且新闸没把别的场景带红)
-- [ ] python 全量回归(venv 解释器,不是系统 python3)
-- [ ] 四审 panel-review(impact=standard ⇒ 外部预算 1,可加证据不可减)
+- [x] python 全量回归(venv 解释器,不是系统 python3)
+- [x] 四审 panel-review(impact=standard ⇒ 外部预算 1,可加证据不可减)
 - [x] `docs/backlog.md` 记一笔:8 个 `mutation-*.sh` 的 `cp` → `cp -p`(本单 non-goal,
       理由与实测要求一并写清)
 - [ ] 归档(本单纯判据面、无产品改动、无真机依赖 ⇒ 绿了就能归档)

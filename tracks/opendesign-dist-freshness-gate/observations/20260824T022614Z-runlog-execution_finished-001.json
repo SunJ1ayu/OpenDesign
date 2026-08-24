@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-dist-freshness-gate",
+  "run_id": "20260824T022336Z-01-e2e-runall-final",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "e2e-runall-final",
+  "started_at": "2026-08-24T02:23:36Z",
+  "finished_at": "2026-08-24T02:26:14Z",
+  "duration_ms": 157890,
+  "exit_code": 65,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 0,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
