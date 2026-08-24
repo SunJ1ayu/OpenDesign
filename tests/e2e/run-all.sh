@@ -32,6 +32,23 @@ for a in "$@"; do
   esac
 done
 
+# ── 产物新鲜度闸(2026-08-24,track opendesign-dist-freshness-gate)────────────
+# e2e 跑的是 `web/dist`,不是 `web/src`。两者对不上时,「你以为验了你改的代码,
+# 其实没有」—— 而且全绿,从收据上看不出来。0.91→0.93 三个包就一直是这个状态。
+#
+# 这道闸**比产物**:把当前源码 build 到仓外临时目录,与 web/dist 逐字节对。
+# 它替换掉的旧闸(原先只装在 llm_key.e2e.mjs 一个场景里)比的是 mtime ——
+# 那个指标会误报(改注释/切分支/复制),更会**漏报**(src 改了而 dist mtime
+# 因无关动作变新 ⇒ 闸绿而产物是旧的)。而且 37 个前端 e2e 里它只守了 1 个。
+#
+# ⚠️ 放在这里、放在场景循环**之前**,而且 rc 直接用 `if !` 接 ——
+#    **不许 `;` 接、不许进管道**(那两种写法会吞掉退出码,这个项目栽过五次)。
+if ! tests/e2e/check-dist-fresh.sh; then
+  echo
+  echo "== 总跑中止:前端产物与源码不一致,再往下跑出来的绿是假的。" >&2
+  exit 1
+fi
+
 # ── --with-gateway 的前置闸(2026-08-16,track opendesign-key-onboarding)──────
 # 上面那个隔离家目录**救不了这两条**:它们连的是**别人起好的** ds_web,而决定
 # 「弹不弹 key 卡片」的是**那个 ds_web 进程自己的 HOME**,不是这里 node 的 HOME。

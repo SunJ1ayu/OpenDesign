@@ -309,6 +309,29 @@ git-pull 的 `ds-nanobot.ps1`)都在管辖内;为开发机引入"去读 auth.jso
 - **`restart()` 不持 `_shutdown_lock`**:取舍与前提已写进它的 docstring;
   要动的话先把 shutdown 那侧的等待改成可中断的。
 
+## 红检恢复文件时不还原 mtime;另有一个变异 python 却不清字节码缓存(2026-08-24)
+
+来源:track `opendesign-dist-freshness-gate` 的 non-goal(那一单只治了闸,没治这个)。
+
+**① 8 个 `tests/mutation-*.sh` 用不带 `-p` 的 `cp` 恢复原状。**
+`cp` 还原内容却把 mtime 设成当前时间 ⇒ 红检跑完,被变异过的文件在时间戳上"变新了"。
+08-23 12:19 那次红检就是这么把当时的 dist 新鲜度闸(比 mtime)顶红的。
+
+- **现在已无已知危害**:新的产物新鲜度闸比**产物**不比时间戳,红检毁 mtime 对它没影响。
+- 但它仍是「工具承诺了恢复原状却没恢复干净」的真 bug,别的东西哪天再依赖 mtime 就会再咬人。
+- 修法看着是 `cp` → `cp -p` 一行。**动手前要实测**:既有教训「红检会被字节码缓存骗」
+  (2026-08-07)方向正相反 —— 那条讲的是 mtime **没变**导致 CPython 复用旧 `.pyc`。
+  > 08-24 补一条降低风险的观察:**变异 python 的脚本大多已经每轮清 `__pycache__`**
+  > (`mutation-window-chrome.sh` 等 7 个),pyc 那条路本来就被堵着 ⇒ `cp -p` 的
+  > 反向风险比立账时估的小。但仍然要实测,不要拿这条观察直接放行。
+
+**② `tests/mutation-ds-shell-core.sh` 变异 `bin/ds_shell.py`(python)却不清 `__pycache__`。**
+同样变异 python 的另外 6 个脚本都清了,只有它没清。
+「同长度替换 + 同一秒 mtime ⇒ CPython 复用旧字节码」在这条路上仍然敞着,
+**后果是假绿(变异没生效却报咬住)和假红两种都可能**。这条比 ① 值钱,
+因为它直接影响红检结论的可信度。(`mutation-llm-key.sh` / `mutation-slot.sh` 也不清,
+但它们变异的是 web/src 的 TS/CSS,没有 pyc 这条路。)
+
 ## 搬运保真闸:一次性证明留成了永久冻结(2026-08-17 观察)
 
 `tests/test_structure_moves.py` 的基线取自**搬运前**的 commit,用来证明

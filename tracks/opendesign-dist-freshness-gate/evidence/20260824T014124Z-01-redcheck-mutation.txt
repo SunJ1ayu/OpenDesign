@@ -1,0 +1,23 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-mutation
+cmd:     tests/mutation-dist-gate.sh
+cwd:     .(仓根)
+commit:  4969559
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-24T01:41:24Z
+---------------- 输出开始 ----------------
+== 红检开始(产物新鲜度闸)==
+  [OK]   M1 -> 靶子 test_o1b_index_html_change_is_caught 如期红了
+  [OK]   M2 -> 靶子 test_o3_build_failure_blocks_loudly 如期红了
+  [OK]   M3 -> 靶子 test_o2_comment_only_change_is_not_flagged 如期红了
+  [OK]   M4 -> 靶子 test_o6_runall_wiring 如期红了
+  [OK]   M5 -> 靶子 test_o4_does_not_touch_the_worktree 如期红了
+  [BAD]  M6 -> 红了,但**不是靶子** test_o7_empty_build_output_is_not_treated_as_match:
+         实际红的是:FAIL: test_o2_comment_only_change_is_not_flagged (tests.test_dist_freshness_gate.DistFreshnessGate.test_o2_comment_only_change_is_not_flagged)
+
+== 机械核对:被变异的文件都还原了吗 ==
+  全部还原(sha256 逐个比过)
+
+== 红检结果:咬住 5 条 / 漏网 1 条 ==
+---------------- 输出结束 ----------------
+runlog: redcheck-mutation rc=1 commit=4969559 dirty=yes at=2026-08-24T01:41:24Z file=tracks/opendesign-dist-freshness-gate/evidence/20260824T014124Z-01-redcheck-mutation.txt

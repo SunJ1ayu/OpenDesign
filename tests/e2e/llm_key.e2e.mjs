@@ -20,7 +20,7 @@
 //
 // 跑法:node tests/e2e/llm_key.e2e.mjs(自起 ds_web 于 8837;需要 web/dist 是新的)
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, statSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -66,23 +66,12 @@ if (!existsSync(join(dist, "index.html"))) {
   console.error("web/dist 里没有 index.html —— 先 npm run build(dist 新鲜度闸也管这个)");
   process.exit(1);
 }
-// 🔴 这一份 e2e 跑的是**打包产物**,而静态面判据扫的是**源码** ——
-//    不核对新鲜度的话,"源码里干干净净、dist 里是另一套"能骗过两边。
-{
-  const newest = (dir) => {
-    let t = 0;
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
-      if (e.name === "node_modules") continue;
-      const p2 = join(dir, e.name);
-      t = Math.max(t, e.isDirectory() ? newest(p2) : statSync(p2).mtimeMs);
-    }
-    return t;
-  };
-  if (newest(join(ROOT, "web", "src")) > newest(dist)) {
-    console.error("web/dist 比 web/src 旧 —— 先 npm run build,否则这一趟验的不是你改的那份代码");
-    process.exit(1);
-  }
-}
+// 新鲜度不在这里查了(2026-08-24,track opendesign-dist-freshness-gate)。
+//    原先这儿有一段比 mtime 的闸。它两头都不准:改一行注释/切分支/复制文件会**误报**;
+//    src 真改了而 dist 因无关动作 mtime 变新会**漏报** —— 后者才是它存在的理由。
+//    而且它只装在这一个场景里,另外 36 个前端 e2e 全在裸奔。
+//    现在由 tests/e2e/check-dist-fresh.sh 在 run-all.sh 入口**比产物**(build 一次逐字节对),
+//    对所有场景生效。判据 tests/test_dist_freshness_gate.py。
 
 // 期望值的**唯一出处**是后端的 PROVIDERS(骗法四:两边各抄一份就会一起错)。
 const provRaw = spawnSync("python3", ["-c", `
