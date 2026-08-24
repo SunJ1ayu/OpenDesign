@@ -13,6 +13,7 @@
 
 import os
 import shutil
+import signal
 import subprocess
 import tempfile
 import unittest
@@ -125,9 +126,11 @@ class DistFreshnessGate(unittest.TestCase):
                                 encoding="utf-8")
             rc, out = _run_gate(web)
             self.assertNotEqual(rc, 0, f"build 失败了闸却报绿。输出:\n{out}")
-            self.assertTrue(
-                len(out.strip()) > 40,
-                f"闸红了但没透出 build 的报错原文,查起来只能靠猜:\n{out}",
+            # 🔴 别断言"输出够长" —— 凑几十个字符太容易,闸多打两行套话就骗过去了,
+            #    而查起来仍然只能靠猜。要问的是**报错可不可以溯源到具体文件**。
+            self.assertIn(
+                "judge_broken", out,
+                f"闸红了,但没带出 build 报错里那个出问题的文件名,查不动:\n{out}",
             )
 
     # ── O4 不许污染工作树 ────────────────────────────────────────────
@@ -177,6 +180,31 @@ class DistFreshnessGate(unittest.TestCase):
             for rel, data in outs[0].items():
                 self.assertEqual(data, outs[1][rel], f"两次 build 的 {rel} 内容不同 ⇒ build 不确定")
 
+    # ── O7 「两边都空」不许被读成一致 ─────────────────────────────────
+    def test_o7_empty_build_output_is_not_treated_as_match(self):
+        """O7 build 报成功却一个文件都没产出、而 dist 也是空的 ⇒ 闸必须红。
+
+        这是恒绿的经典形状:比对函数把「两边文件集合都为空」读成一致,
+        于是这道闸永远绿着、什么都不守,而收据上看起来一切正常。
+        造法:副本里清空 dist,并让 vite `build.write=false`(build 成功但不落盘)。
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            web = _make_web_copy(Path(tmp) / "web")
+            shutil.rmtree(web / "dist")
+            (web / "dist").mkdir()
+            cfg = web / "vite.config.ts"
+            cfg.write_text(
+                cfg.read_text(encoding="utf-8").replace(
+                    "plugins: [react()],", "plugins: [react()],\n  build: { write: false },"
+                ),
+                encoding="utf-8",
+            )
+            rc, out = _run_gate(web)
+            self.assertNotEqual(
+                rc, 0,
+                f"build 没产出任何文件、dist 也是空的,闸却报绿 —— 这就是恒绿。输出:\n{out}",
+            )
+
     # ── O6 rc 必须传得出去,而且是默认路径就跑 ─────────────────────────
     def test_o6_runall_wiring(self):
         """O6 `run-all.sh` 必须在**跑任何场景之前**过这道闸,且**闸红则整体红**。
@@ -201,12 +229,25 @@ class DistFreshnessGate(unittest.TestCase):
         original = victim.read_bytes()
         try:
             victim.write_bytes(original + b"\n<!-- judge-probe -->\n")
-            proc = subprocess.run(
+            # 闸若拦住了,run-all.sh 几秒内就该退出;90s 足够宽松,
+            # 而它跑满全部场景要 2.5 分钟 —— 超时本身就是"没拦住"的证据。
+            #
+            # 🔴 必须 start_new_session + killpg:`subprocess.run(timeout=)` 只杀直接子进程,
+            #    而 run-all.sh 底下是 node + 一整棵 chromium。2026-08-24 跑红检时当场 ps 到
+            #    两个 ppid=1 的 crashpad handler —— **判据自己造遗孤**,和这个项目
+            #    「断线遗孤占端口」是同一族。
+            proc = subprocess.Popen(
                 [str(REPO / "tests" / "e2e" / "run-all.sh")],
-                cwd=str(REPO), capture_output=True, text=True, timeout=BUILD_TIMEOUT,
+                cwd=str(REPO), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, start_new_session=True,
             )
+            try:
+                combined = proc.communicate(timeout=90)[0]
+            except subprocess.TimeoutExpired:
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                combined = proc.communicate()[0] or ""
+                self.fail("闸红了,run-all.sh 却没停 —— 90s 内还在跑场景(已杀掉整个进程组)")
             self.assertNotEqual(proc.returncode, 0, "dist 与源码不符,run-all.sh 却报绿")
-            combined = proc.stdout + proc.stderr
             self.assertNotIn(
                 "PASS", combined,
                 f"闸红了却还continue跑了场景 —— 说明它没拦住:\n{combined[:2000]}",
