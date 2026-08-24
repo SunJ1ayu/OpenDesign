@@ -18,7 +18,7 @@
 这道闸问的是这笔交易的每一头:
   - f1~f4  开关本身:默认必须是**关**,而且读不到环境时也必须是关(fail-safe);
   - f5~f7  三个会改变窗口边框计算的动作,**一个都不许出现在默认路径上**;
-  - f8     开关必须写成正向 `if frame_experiment_on():`(f5~f7 的分析靠它成立);
+  - f8     开关必须写成正向 `if frame_animation_on():`(f5~f7 的分析靠它成立);
   - f9     实验路径必须留下诊断:光知道"白了"没用,要知道白的时候窗口长什么样。
 
 ⚠️ **这道闸答不了"页面还画不画得出来"** —— 那一层只有 Windows 答得了。
@@ -38,7 +38,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHELL = os.path.join(ROOT, "bin", "ds_shell.py")
 sys.path.insert(0, os.path.join(ROOT, "bin"))
 
-FLAG_FN = "frame_experiment_on"
+FLAG_FN = "frame_animation_on"
 
 # 会**真的改变窗口非客户区尺寸**的东西。默认路径上一个都不许有。
 FRAME_BITS = ("WS_CAPTION", "WS_THICKFRAME")
@@ -114,7 +114,7 @@ def _parents(root: ast.AST) -> dict:
 
 
 def _guarded_by_flag(node: ast.AST, root: ast.AST) -> bool:
-    """这个节点是不是被 `if frame_experiment_on():` 的**真分支**包着。
+    """这个节点是不是被 `if frame_animation_on():` 的**真分支**包着。
 
     🔴 一层层往上走,而不是"函数里出现过这个 if 就算" —— 后者会被
     `if flag(): pass` + 危险动作写在外面 这种改法骗过去(变异 M3 咬它)。
@@ -147,35 +147,49 @@ class FrameExperimentSwitch(unittest.TestCase):
             f"ds_shell 里没有 {FLAG_FN}() —— 方案 B 就没有开关,"
             "等于 0.93 原样再发一次。")
 
-    def test_f2_default_is_off(self):
-        """**本单最重要的一条。** 业主什么都不做的时候,方案 B 必须是关的。"""
+    def test_f2_default_is_on(self):
+        """**0.96.0 起翻过来了:业主什么都不做的时候,动画必须是开的。**
+
+        🔴 这不是"改考卷让自己及格",规格是真的变了,两条理由都写下来:
+
+        ① **业主的指令**:「你为什么不直接给我做好动画的,要默认关闭动画」。
+           他说得对,而且点破了一个自相矛盾:0.95 装了"不对就自动退回去"的保险,
+           却又不敢依赖它 —— 要么保险可信、就该默认开;要么不可信、就不该当卖点。
+        ② **最坏情况在结构上已经降级**:0.95 起开窗口时一个边框动作都不做,
+           方案 B 要等业主点缩小才装 ⇒ 就算把画面搞坏,**重开软件就是好的**,
+           不再是 0.93 那种"一起来就是砖"。
+
+        原来那条(默认必须关)守的是"别让业主开机就看见白屏" ——
+        那个风险已经被 h1(shown 路上一个边框动作都不许有)接管了,
+        **没有一处防线因此变松**。
+        """
         old = os.environ.get("LOCALAPPDATA")
         try:
             with tempfile.TemporaryDirectory() as tmp:
-                self._with_appdata(tmp)          # 干净目录 = 没有标志文件
-                self.assertFalse(
+                self._with_appdata(tmp)          # 干净目录 = 没有"关掉"的文件
+                self.assertTrue(
                     getattr(self.ds, FLAG_FN)(),
-                    "标志文件不存在时 frame_experiment_on() 返回了真 ⇒ "
-                    "方案 B 默认开着。0.93 真机就是这么白的。")
+                    "什么都没设的时候 frame_animation_on() 返回了假 ⇒ "
+                    "业主装上还是没有动画,而他已经为这件事等了四个版本。")
         finally:
             if old is None:
                 os.environ.pop("LOCALAPPDATA", None)
             else:
                 os.environ["LOCALAPPDATA"] = old
 
-    def test_f3_flag_file_turns_it_on(self):
-        """开关得真的打得开 —— 否则我永远拿不到诊断数据。"""
+    def test_f3_flag_file_turns_it_off(self):
+        """逃生门必须真的关得掉 —— 万一它把业主的窗口搞坏了,这是他的出路。"""
         old = os.environ.get("LOCALAPPDATA")
         try:
             with tempfile.TemporaryDirectory() as tmp:
                 self._with_appdata(tmp)
                 d = Path(tmp) / self.ds.APP
                 d.mkdir(parents=True, exist_ok=True)
-                (d / self.ds.EXPERIMENT_FLAG).write_text("", encoding="utf-8")
-                self.assertTrue(
+                (d / self.ds.DISABLE_FLAG).write_text("", encoding="utf-8")
+                self.assertFalse(
                     getattr(self.ds, FLAG_FN)(),
-                    f"标志文件 {self.ds.EXPERIMENT_FLAG} 就在 {d},"
-                    "frame_experiment_on() 却还是假 —— 开关是坏的。")
+                    f"逃生门文件 {self.ds.DISABLE_FLAG} 就在 {d},"
+                    "frame_animation_on() 却还是真 —— 业主关不掉它。")
         finally:
             if old is None:
                 os.environ.pop("LOCALAPPDATA", None)
@@ -286,15 +300,15 @@ class FrameWorkStaysBehindTheSwitch(unittest.TestCase):
             "0.92 那份实现是现成的,照抄回来。")
 
     def test_f8_switch_is_written_in_the_positive_form(self):
-        """开关必须写成 `if frame_experiment_on():`,不许 `if not ...:`。
+        """开关必须写成 `if frame_animation_on():`,不许 `if not ...:`。
 
         🔴 这不是洁癖:f5~f7 判的是"危险动作在不在真分支里"。写成否定式的话
         真分支装的是**默认路径**,那三条闸会**反过来放行**危险动作 ——
         闸还是绿的,产品是坏的。宁可多这一条,不要一个会撒谎的闸。
         """
         # 🔴 不能只看**最外层**是不是 `not`。0.95 之后条件长这样:
-        #    `if frame_experiment_on() and not self._frame_gave_up:` —— 是个 BoolOp,
-        #    于是"把开关取反"(`not frame_experiment_on() and …`)会从这条闸底下溜过去。
+        #    `if frame_animation_on() and not self._frame_gave_up:` —— 是个 BoolOp,
+        #    于是"把开关取反"(`not frame_animation_on() and …`)会从这条闸底下溜过去。
         #    红检 M7 当场照出来的:那条变异下 f8 全绿。
         #    正确的问法是:**整棵条件树里,有没有哪个 `not` 底下罩着这个开关**。
         bad = []

@@ -125,8 +125,8 @@ mutate_and_expect T6 bin/ds_shell.py "$ORACLE" \
 # T7 撤销过了还接着试 —— 业主每点一次缩小就闪一下,日志也被刷满
 mutate_and_expect T7 bin/ds_shell.py "$ORACLE" \
   test_h5_revert_is_remembered_so_it_does_not_retry_forever \
-  '            if frame_experiment_on() and not self._frame_gave_up:' \
-  '            if frame_experiment_on():'
+  '            if frame_animation_on() and not self._frame_gave_up:' \
+  '            if frame_animation_on():'
 
 # T8 量不出来就当成"坏了" —— 误撤没有任何好处,只有白闪一下 + 没动画
 mutate_and_expect T8 bin/ds_shell.py "$ORACLE" \

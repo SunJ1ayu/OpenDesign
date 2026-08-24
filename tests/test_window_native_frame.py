@@ -296,11 +296,11 @@ class WindowNativeFrame(unittest.TestCase):
         #    默认路径那一头由 tests/test_window_frame_experiment.py 的 f7 守着。
         guarded = []
         for node in ast.walk(fn):
-            if isinstance(node, ast.If) and "frame_experiment_on" in _idents(node.test):
+            if isinstance(node, ast.If) and "frame_animation_on" in _idents(node.test):
                 guarded.extend(node.body)
         self.assertTrue(
             guarded,
-            "toggle_maximize 里找不到 `if frame_experiment_on():` 分支 —— "
+            "toggle_maximize 里找不到 `if frame_animation_on():` 分支 —— "
             "方案 B 的真最大化没有藏在开关后面(f5~f7 会同时红)。")
         experiment_src = "\n".join(_code(st) for st in guarded)
         self.assertNotIn(
@@ -463,24 +463,70 @@ class WindowNativeFrame(unittest.TestCase):
             "第一条消息记一次是要的;每条都记会把业主的盘写满。")
 
     # ── n13 wParam 真假两条路都得吃掉非客户区 ──────────────────────
-    def test_n13_nccalcsize_handles_both_wparam_paths(self):
-        """`wParam` 为假时 lParam 是裸 RECT,交回原 proc 会被 DefWindowProc
+    def test_n13_only_wparam_true_is_short_circuited(self):
+        """**只有 `wParam` 为真时才自己了断;为假时必须交回原 proc。**
 
-        按**当前真实样式**(现在含 WS_CAPTION)扣掉标题栏 —— 那一帧标题栏
-        会真的画出来。WinFormedge 为这条路单独打过补丁(panel subdeepseek F2)。
+        🔴 **这条 2026-08-24 掉了个头,理由是我去读了参考实现的源码。**
+
+        原来它断言的是反面(「wparam 不许决定要不要 return 0」),依据是
+        评审腿 subdeepseek 的 F2,以及我在注释里写下的一句
+        「WinFormedge 也为这条路单独打过补丁」。
+        **那句话是我没读代码编的,而且和事实相反。**
+        WinFormedge(同一套壳:WinForms + WebView2)
+        `src/WinFormedge/Classes.Formedge/FormBase.cs:390` 的真实写法是:
+
+            case WM_NCCALCSIZE when wParam == 1 && ...:  ... return;
+            case WM_NCCALCSIZE when wParam == 0 && ...:  ... break;   ← 落到 base.WndProc
+
+        **它在 wParam == 0 那条上从不短路。**
+
+        时间线也对得上:改成"两种都 return 0"的是 `c09ad55`,而它就在
+        `bump 0.93.0` 前面 —— **业主唯一跑过、然后白屏的那一版,带着这个偏离**;
+        改之前(`58b397e`)的写法本来和参考实现一致,但那一版从没到过他机器上。
+
+        机制上也说得通:短路掉 wParam==0,WinForms 自己那层就没法维护客户区记账,
+        而 WebView2 是挂在它下面的**子窗口**,布局和绘制正靠这套记账。
+
+        ⚠️ **这是目前最可疑的一条线索,不是已证实的根因** —— 只有真机能定案。
+        但"和唯一一个同栈成功实现保持一致"本身就够格当规格。
         """
         fn = self.funcs.get("_wndproc")
         self.assertIsNotNone(fn)
-        conds = [_code(n.test) for n in ast.walk(fn)
-                 if isinstance(n, ast.If) and "WM_NCCALCSIZE" in _code(n.test)]
-        self.assertTrue(conds, "找不到 WM_NCCALCSIZE 的分支")
-        for cond in conds:
-            self.assertNotIn(
-                "wparam", cond.lower(),
-                "决定「要不要吃掉非客户区」的那个 if 里带上了 wparam ⇒ "
-                "wParam 为假的消息会漏到原 proc 去。\n"
-                "wparam 只该用来决定「lParam 能不能当 NCCALCSIZE_PARAMS 解」,"
-                "不该决定「要不要 return 0」。")
+
+        # 短路(return 0)必须被一个"条件里真的在问 wparam"的 if 包着
+        zero_returns = [
+            n for n in ast.walk(fn)
+            if isinstance(n, ast.Return)
+            and isinstance(n.value, ast.Constant) and n.value.value == 0]
+        self.assertTrue(zero_returns, "_wndproc 里连一处 return 0 都没有了?")
+
+        guarded = set()
+        for node in ast.walk(fn):
+            if not isinstance(node, ast.If):
+                continue
+            cond = _code(node.test).lower()
+            if "wparam" not in cond or "nccalcsize" in cond:
+                continue                 # 恒真条件/带 msg 的总分支都不算数
+            for sub in ast.walk(node):
+                if (isinstance(sub, ast.Return) and isinstance(sub.value, ast.Constant)
+                        and sub.value.value == 0):
+                    guarded.add(id(sub))
+
+        # 末尾那个 except 里的 return 0 是兜底,不参与本条
+        body_zero = [r for r in zero_returns
+                     if not any(isinstance(a, ast.ExceptHandler)
+                                for a in ast.walk(fn)
+                                if r in list(ast.walk(a)))]
+        self.assertTrue(
+            any(id(r) in guarded for r in body_zero),
+            "WM_NCCALCSIZE 分支里的 `return 0` **没有**被 `if wparam` 罩着 ⇒ "
+            "wParam 为假的消息也被短路了。\n"
+            "唯一一个同栈成功实现(WinFormedge FormBase.cs:390)在那条上是交回默认处理的;"
+            "而我们照搬短路的那一版,正是业主看到白屏的 0.93。")
+
+        self.assertIn(
+            "CallWindowProcW", _idents(fn),
+            "_wndproc 不再把消息交回原 proc —— wParam 为假那条就无处可去了。")
 
 
 if __name__ == "__main__":

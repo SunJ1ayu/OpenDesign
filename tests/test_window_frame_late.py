@@ -32,7 +32,7 @@ import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHELL = os.path.join(ROOT, "bin", "ds_shell.py")
-FLAG_FN = "frame_experiment_on"
+FLAG_FN = "frame_animation_on"
 
 
 def _src() -> str:

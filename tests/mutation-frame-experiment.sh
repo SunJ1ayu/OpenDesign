@@ -80,17 +80,17 @@ PYEOF
 
 echo "== 红检开始(0.94.0:方案 B 收进默认关闭的开关)=="
 
-# M1 开关默认变成"开" —— 这就是 0.93.0 那个把业主窗口弄白的规格
+# M1 默认变成"关" —— 业主装上还是没有动画,他为这件事等了四个版本
 mutate_and_expect M1 bin/ds_shell.py "$ORACLE" \
-  test_f2_default_is_off \
-  '        return (_app_dir() / EXPERIMENT_FLAG).is_file()' \
-  '        return True'
-
-# M2 开关坏成"永远关" —— 我永远拿不到诊断数据,业主白跑一趟
-mutate_and_expect M2 bin/ds_shell.py "$ORACLE" \
-  test_f3_flag_file_turns_it_on \
-  '        return (_app_dir() / EXPERIMENT_FLAG).is_file()' \
+  test_f2_default_is_on \
+  '        return not (_app_dir() / DISABLE_FLAG).is_file()' \
   '        return False'
+
+# M2 逃生门失灵(永远开)—— 万一它把窗口搞坏了,业主关不掉
+mutate_and_expect M2 bin/ds_shell.py "$ORACLE" \
+  test_f3_flag_file_turns_it_off \
+  '        return not (_app_dir() / DISABLE_FLAG).is_file()' \
+  '        return True'
 
 # M3 读不到环境时倒向"开" —— 方向反了:业主会连界面都看不见
 mutate_and_expect M3 bin/ds_shell.py "$ORACLE" \
@@ -103,11 +103,11 @@ mutate_and_expect M3 bin/ds_shell.py "$ORACLE" \
 # M4 接管挪到开关外面 —— 默认路径又开始动窗口的边框计算了
 mutate_and_expect M4 bin/ds_shell.py "$ORACLE" \
   test_f5_wndproc_install_is_behind_the_switch \
-  '            if frame_experiment_on() and not self._frame_gave_up:
+  '            if frame_animation_on() and not self._frame_gave_up:
                 # 方案 B 全套。**先接管非客户区,再贴位** —— 顺序见上面。
                 self._install_wndproc(form)' \
   '            self._install_wndproc(form)
-            if frame_experiment_on() and not self._frame_gave_up:
+            if frame_animation_on() and not self._frame_gave_up:
                 # 方案 B 全套。**先接管非客户区,再贴位** —— 顺序见上面。'
 
 # M5 默认路径改去贴五个位(含 CAPTION|THICKFRAME)—— 0.93 的病根
@@ -119,7 +119,7 @@ mutate_and_expect M5 bin/ds_shell.py "$ORACLE" \
 # M6 真最大化脱离开关 —— 没有 NCCALCSIZE 接管时它会盖住任务栏
 mutate_and_expect M6 bin/ds_shell.py "$ORACLE" \
   test_f7_default_path_uses_fake_maximize \
-  '            if frame_experiment_on():
+  '            if frame_animation_on():
                 from System.Windows.Forms import FormWindowState' \
   '            if True:
                 from System.Windows.Forms import FormWindowState'
@@ -127,9 +127,9 @@ mutate_and_expect M6 bin/ds_shell.py "$ORACLE" \
 # M7 开关写成否定式 —— f5~f7 会**反向放行**,闸还是绿的而产品是坏的
 mutate_and_expect M7 bin/ds_shell.py "$ORACLE" \
   test_f8_switch_is_written_in_the_positive_form \
-  '            if frame_experiment_on() and not self._frame_gave_up:
+  '            if frame_animation_on() and not self._frame_gave_up:
                 # 方案 B 全套' \
-  '            if not frame_experiment_on() and not self._frame_gave_up:
+  '            if not frame_animation_on() and not self._frame_gave_up:
                 # 方案 B 全套'
 
 # M8 诊断没人叫 —— 开关打开也拿不到任何数字,又要多跑一趟真机

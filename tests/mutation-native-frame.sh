@@ -156,10 +156,13 @@ mutate_and_expect F13 bin/ds_shell.py "$ORACLE" \
   test_n12_effectiveness_is_logged_on_first_message \
   '                if not self._nc_seen:' '                if False:'
 
-# F14 wParam 为假那条漏回原 proc —— DefWindowProc 会扣掉标题栏,画出来一帧
+# F14 把 wparam 守卫拿掉 —— 退回 0.93 那个偏离(两种 wParam 都短路),
+#     而唯一一个同栈成功实现(WinFormedge)在 wParam==0 那条上是交回默认处理的
 mutate_and_expect F14 bin/ds_shell.py "$ORACLE" \
-  test_n13_nccalcsize_handles_both_wparam_paths \
-  'if msg == WM_NCCALCSIZE:' 'if msg == WM_NCCALCSIZE and wparam:'
+  test_n13_only_wparam_true_is_short_circuited \
+  '            if wparam:
+                return 0' \
+  '            return 0'
 
 restore
 echo "== 还原核对 =="
