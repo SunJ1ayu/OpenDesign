@@ -10,6 +10,10 @@
 #   tests/e2e/run-all.sh --with-gateway   # 连需要活 gateway 的两条也跑
 #   tests/e2e/run-all.sh focus_ring todo  # 只跑名字含这些子串的
 #
+# 开跑之前先过一道**产物新鲜度闸**(check-dist-fresh.sh,约 3 秒):把当前前端源码
+# build 一遍,与 web/dist 逐字节比对。对不上就中止 —— 那种情形下跑出来的绿是假的,
+# 验的不是你改的那份代码。它只报告不修复,web/dist 一个字节都不碰。
+#
 # 退出码:有任何一条 FAIL 就非 0。**SKIP 永远不算 PASS**(见下方汇总)。
 set -uo pipefail
 
@@ -27,7 +31,7 @@ filters=()
 for a in "$@"; do
   case "$a" in
     --with-gateway) with_gateway=1 ;;
-    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
     *) filters+=("$a") ;;
   esac
 done
