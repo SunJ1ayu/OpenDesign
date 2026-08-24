@@ -65,8 +65,11 @@ class SlimListShape(unittest.TestCase):
         通配符删错**不会报错**,业主装完之后是某个功能悄悄没了 —— 最难查的那种。
         """
         src = _build_script()
+        # 🔴 `(?m)` 不能省:assertRegex 走的是 re.search **不带 MULTILINE**,
+        #    `^` 于是只锚整个文件的开头 —— 第一版就是这么写的,数组明明在文件里
+        #    却报"没有 SLIM_DROP",红的是判据不是实现。
         self.assertRegex(
-            src, r"^SLIM_DROP=\(",
+            src, r"(?m)^SLIM_DROP=\(",
             "build-package.sh 里没有 SLIM_DROP 数组 —— 瘦身根本没做。")
 
         drop = _slim_drop()
@@ -87,15 +90,80 @@ class SlimListShape(unittest.TestCase):
             "这些是业主的代码或 nanobot 主路径直接依赖的,删了功能会悄悄消失。")
 
     def test_g4_dist_info_is_dropped_together_with_the_package(self):
-        """`dist-info` 必须跟着包一起删。
+        """`dist-info` 必须跟着包一起删 —— **真跑一遍,不是查字符串**。
 
         🔴 只删包、留下元数据 = **比不删更坏**:`importlib.metadata` 会说包还在,
         `entry_points` 扫描时会拿到一个指向空气的入口,报错报在离现场很远的地方。
+
+        🔴 **这条第一版是 `assertRegex(src, "dist-info")`,红检 S4 当场证明它是瞎的** ——
+        把整个删除循环换成 `for info in []:` 它照样绿,因为注释里还写着 dist-info。
+        "名字出现过" != "真的做了这件事",这个项目在同一形状上栽过不止一次。
+        所以改成:把脚本里那段删除逻辑**抠出来真跑**,对着一棵假的 site-packages 看结果。
+
+        顺带,这也是**唯一**一条验到"发行名 != 导入名"的闸:
+        `telegram` 来自发行版 `python-telegram-bot`,照导入名去 glob 一个都删不着。
         """
+        import shutil
+        import subprocess
+        import tempfile
+        from pathlib import Path
+
         src = _build_script()
-        self.assertRegex(
-            src, r"dist-info",
-            "删包的时候没有一并处理 *.dist-info —— 会留下指向空气的元数据。")
+        # 🔴 `[^\n]*` 不能省:那一行是 `… <<'PYSLIM' || die "瘦身失败"`,
+        #    标记后面还跟着东西。第一版少了它 ⇒ 判据在这里就 None 了,
+        #    而红检**照样报"靶子如期红了"**(它只看那条测试红没红,不看红的理由)
+        #    —— 假的"咬住"。修完必须重跑红检才算数。
+        m = re.search(r"<<'PYSLIM'[^\n]*\n(.*?)\nPYSLIM", src, re.S)
+        self.assertIsNotNone(
+            m, "build-package.sh 里找不到 PYSLIM 那段删除逻辑 —— 瘦身没做,或者改了名字。")
+        code = m.group(1)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            sp = Path(tmp) / "site-packages"
+            sp.mkdir()
+
+            def _pkg(name, dist=None, top=None):
+                (sp / name).mkdir()
+                (sp / name / "__init__.py").write_text("", encoding="utf-8")
+                if dist:
+                    d = sp / dist
+                    d.mkdir()
+                    (d / "top_level.txt").write_text(
+                        (top or name) + "\n", encoding="utf-8")
+
+            # 要被删的:注意 telegram 的 dist-info 名字**对不上**导入名
+            _pkg("lark_oapi", "lark_oapi-1.4.dist-info")
+            _pkg("telegram", "python_telegram_bot-20.7.dist-info", top="telegram")
+            _pkg("botocore", "botocore-1.34.dist-info")
+            _pkg("boto3", "boto3-1.34.dist-info")
+            _pkg("s3transfer", "s3transfer-0.10.dist-info")
+            # 必须活下来的
+            _pkg("PIL", "pillow-10.2.dist-info", top="PIL")
+
+            drop = _slim_drop()
+            r = subprocess.run(
+                [sys.executable, "-c", code, str(sp), *drop],
+                capture_output=True, text=True)
+            self.assertEqual(
+                0, r.returncode,
+                f"删除逻辑自己跑挂了:\n{r.stdout}\n{r.stderr}")
+
+            left = sorted(p.name for p in sp.iterdir())
+            for gone in ("lark_oapi", "telegram", "botocore", "boto3", "s3transfer"):
+                self.assertNotIn(gone, left, f"{gone} 没被删掉。剩下:{left}")
+            self.assertNotIn(
+                "python_telegram_bot-20.7.dist-info", left,
+                "🔴 telegram 的 dist-info 留下来了 —— **发行名与导入名不一样**"
+                "(python-telegram-bot vs telegram),照导入名 glob 是删不着它的。\n"
+                f"剩下:{left}")
+            for gone in ("lark_oapi-1.4.dist-info", "botocore-1.34.dist-info"):
+                self.assertNotIn(gone, left, f"{gone} 留下来了。剩下:{left}")
+
+            self.assertIn("PIL", left, f"把不该删的 PIL 删了。剩下:{left}")
+            self.assertIn(
+                "pillow-10.2.dist-info", left,
+                f"把 PIL 的元数据删了(包还在、元数据没了,同样是坏的)。剩下:{left}")
+            shutil.rmtree(sp, ignore_errors=True)
 
 
 class PrunedRuntimeStillStarts(unittest.TestCase):
