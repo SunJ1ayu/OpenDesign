@@ -58,6 +58,32 @@ for p in nanobot mcp anydoc pydantic_core lxml PIL cryptography; do
 done
 [ -f "$B/python/Lib/site-packages/anydoc/_anydoc.pyd" ] && ok "anydoc 的 Windows 原生件在" || no "anydoc 的 .pyd 缺"
 
+# pywebview 版本闸(track opendesign-pywebview-upgrade):**问产物,不是问 pin 写没写对**。
+# pip 解析出别的版本、或者升级把某个 API 改了名,都要在这里当场红 ——
+# 而不是等业主装上打不开软件。清单从 build-package.sh 的 SHELL_PINS 读,不抄第二份。
+PW_PIN="$(grep -oP 'pywebview==\K[0-9.]+' "$(dirname "$0")/build-package.sh" 2>/dev/null | head -1)"
+if [ -n "$PW_PIN" ]; then
+  PW_DIST="$(find "$B/python/Lib/site-packages" -maxdepth 1 -name "pywebview-*.dist-info" -printf '%f\n' 2>/dev/null | head -1)"
+  # 🔴 `[0-9.]+` 会把 `pywebview-5.4.dist-info` 里结尾那个点也吃进去 ⇒ "5.4." != "5.4",
+  #    闸当场误报。误报和假绿一样坏:带误报的闸会逼出绕开它的习惯。
+  PW_GOT="$(echo "$PW_DIST" | grep -oP 'pywebview-\K[0-9]+(\.[0-9]+)*')"
+  [ "$PW_GOT" = "$PW_PIN" ] && ok "pywebview 版本 $PW_GOT == pin" \
+                            || no "pywebview 版本对不上:包里 ${PW_GOT:-没找到} / pin $PW_PIN"
+  # 我们真正调到的那几个 API,升级把哪个改了名都要当场红
+  for api in create_window start; do
+    grep -qE "^def $api|^    def $api" "$B/python/Lib/site-packages/webview/__init__.py" 2>/dev/null \
+      && ok "pywebview API webview.$api 在" || no "pywebview API webview.$api 不见了(升级改名了?)"
+  done
+  for api in show hide restore destroy; do
+    grep -qE "def $api\b" "$B/python/Lib/site-packages/webview/window.py" 2>/dev/null \
+      && ok "pywebview API window.$api 在" || no "pywebview API window.$api 不见了(升级改名了?)"
+  done
+  [ -f "$B/python/Lib/site-packages/webview/platforms/winforms.py" ] \
+    && ok "pywebview 的 WinForms 后端在" || no "pywebview 的 WinForms 后端不见了 —— 外壳起不来"
+else
+  no "读不出 pywebview 的 pin —— build-package.sh 被改了?"
+fi
+
 # 瘦身(track opendesign-installer-slim):**问产物,不是问脚本里有没有那行删除**。
 # 清单从 build-package.sh 的 SLIM_DROP 读 —— 唯一来源在那边,这里不抄第二份。
 # 顺带查 dist-info:只删包留元数据 = importlib.metadata 会说包还在、其实不在。

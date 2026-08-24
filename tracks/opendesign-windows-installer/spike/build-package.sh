@@ -35,7 +35,7 @@ PY_URL="https://www.python.org/ftp/python/${PY_VER}/${PY_ZIP}"
 # 组出来的包就和业主真机上装的不是一回事。
 PINS=(nanobot-ai==0.2.2 mcp==1.28.1 firecrawl-anydoc==0.1.6)
 # 外壳依赖(S1a 才用):裁决 pywebview 路线跑不跑得起来
-SHELL_PINS=(pywebview==5.4 pystray==0.19.5 pythonnet==3.0.5)
+SHELL_PINS=(pywebview==6.2.1 pystray==0.19.5 pythonnet==3.0.5)
 # 闸 C 的**显式例外**:PyPI 上只有源码包、但确实是纯 Python 的依赖。
 # 为什么要显式列而不是让 pip 自动回退到源码包:自动回退会把闸 C 悄悄拆掉 ——
 # 下一个需要现场编译的包会一声不响地混进来,等装到业主机器上才炸在缺编译器。

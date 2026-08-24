@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-pywebview-upgrade",
+  "impact": {
+    "level": "high",
+    "factors": [
+      "production_side_effect"
+    ]
+  },
+  "design": {
+    "uncertainty": "low",
+    "premise_attack": {
+      "status": "done",
+      "evidence": [
+        "design.md"
+      ]
+    }
+  },
+  "execution_plan": {
+    "adapter": "main",
+    "model": null
+  },
+  "outcome": {
+    "verdict": null
+  }
+}
