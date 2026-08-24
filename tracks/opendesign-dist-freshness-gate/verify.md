@@ -11,16 +11,17 @@
 
 ## Mechanical checks
 
-> 当前阶段:**判据先行已落,实现未写。** 此文件随工序推进填,不是收口态。
+> 状态:**收口**。代码面 PASS,本单无产品面(不改产品行为、不进安装包)。
 
 - [x] **P0 前提探针 PASS**:`vite build` 连续两次产物 `diff -r` 完全相同、各 3 个文件非空
       (`evidence/20260824T-P0-build-determinism.txt`)。build 若不确定,这道闸会随机红 ⇒
       前提塌了整个方案作废,所以先验。
-- [ ] tests pass(六条 oracle 全绿)
-- [ ] 红检:每条变异都咬得住
-- [ ] `run-all.sh` 总跑 36 PASS / 0 FAIL
-- [ ] python 全量回归(venv 解释器)
-- [ ] no secrets / unsafe ops
+- [x] tests pass:**8 条 oracle 全绿**(design 写的是六条,实做补了 O1b 与 O7)
+- [x] 红检:**6 条变异咬住 6、漏网 0**(第一轮 5 咬 1 漏,两件真问题已修,见 findings)
+- [x] `run-all.sh` 总跑 **36 PASS / 0 FAIL / 2 SKIP**(SKIP 是需要活 gateway 的两条,非本单造成)
+- [x] python 全量回归 **1312 项 OK**(venv 解释器);死断言 0
+- [x] no secrets / unsafe ops(只动 tests/ 与 docs/backlog.md,不碰产品代码)
+- [x] 红检跑完**仓库零污染、零遗孤进程**(实测)
 
 **机器打印的**(不是我的转述)—— 判据用 `runlog` 跑,把它打印的收据行原样粘进来:
 
@@ -30,11 +31,33 @@ runlog -t opendesign-dist-freshness-gate -- <判据命令>
 
 ```
 runlog: oracle-red-before-gate rc=1 commit=a433bf8 dirty=yes at=2026-08-24T01:28:17Z file=tracks/opendesign-dist-freshness-gate/evidence/20260824T012817Z-01-oracle-red-before-gate.txt
+runlog: oracle-green rc=0 commit=4969559 dirty=yes at=2026-08-24T01:40:03Z file=tracks/opendesign-dist-freshness-gate/evidence/20260824T014003Z-01-oracle-green.txt
+runlog: redcheck-mutation rc=1 commit=4969559 dirty=yes at=2026-08-24T01:41:24Z file=tracks/opendesign-dist-freshness-gate/evidence/20260824T014124Z-01-redcheck-mutation.txt
+runlog: oracle-green-v2 rc=0 commit=4969559 dirty=yes at=2026-08-24T01:53:03Z file=tracks/opendesign-dist-freshness-gate/evidence/20260824T015303Z-01-oracle-green-v2.txt
+runlog: redcheck-mutation-v2 rc=0 commit=4969559 dirty=yes at=2026-08-24T01:54:03Z file=tracks/opendesign-dist-freshness-gate/evidence/20260824T015403Z-01-redcheck-mutation-v2.txt
+runlog: e2e-runall-final rc=0 commit=4b56e1a dirty=no final=yes at=2026-08-24T02:03:34Z file=tracks/opendesign-dist-freshness-gate/evidence/20260824T020334Z-01-e2e-runall-final.txt
+runlog: python-regression-venv rc=0 commit=4b56e1a dirty=yes at=2026-08-24T02:08:00Z file=tracks/opendesign-dist-freshness-gate/evidence/20260824T020800Z-01-python-regression-venv.txt
+runlog: e2e-runall-final rc=65 commit=a137db3 dirty=no final=yes at=2026-08-24T02:16:38Z file=tracks/opendesign-dist-freshness-gate/evidence/20260824T021638Z-01-e2e-runall-final.txt
+runlog: e2e-runall-final rc=65 commit=c29093c dirty=no final=yes at=2026-08-24T02:23:36Z file=tracks/opendesign-dist-freshness-gate/evidence/20260824T022336Z-01-e2e-runall-final.txt
+runlog: e2e-runall-final rc=0 commit=963e0c0 dirty=no final=yes at=2026-08-24T02:28:03Z file=tracks/opendesign-dist-freshness-gate/evidence/20260824T022803Z-01-e2e-runall-final.txt
 ```
 
-> ☝️ 这是**先红后绿**的红:闸还不存在,7 条全红在 setUp 的「闸不存在」上。
-> **这个红很弱** —— 它只证明判据跑得起来,没证明任何一条断言咬得动它要咬的东西。
-> 那件事要靠实现落地后的**红检**来证明,别把这份红收据当成"判据有效"的证据。
+**十份全在这儿,红的一份没藏**(规矩 5b)。逐份说明:
+
+- `oracle-red-before-gate rc=1` —— **先红后绿**的红:闸还不存在,7 条全红在 setUp 上。
+  **这个红很弱**,只证明判据跑得起来,没证明任何一条断言咬得动 —— 那件事由红检证明。
+- `redcheck-mutation rc=1`(第一轮,**5 咬住 1 漏网**)—— 漏的那条最值钱,
+  查出 F-G(红检弄脏了被测仓库)与 F-H(变异本身没意义,该修的是实现)。见 findings。
+- `e2e-runall-final rc=65` **两份** —— **e2e 本身都是 36 PASS/0 FAIL**(`command-rc: 0`),
+  65 是 `runlog --final` 判定 `source-stable: no` 给的:收据跑的过程中有人写了这个仓库。
+  第一次是我并行派 panel(它往仓内 `observations/` 写),第二次是我自己在编辑 verify.md。
+  **闸没坏,是我用错了 —— 它两次都在正确报警。**
+- `e2e-runall-final rc=0 ... source-stable: yes`(02:28:03)—— **这才是有效的最终收据**,
+  跑在工作树干净、无并发写入的条件下。
+- 其余四份(`oracle-green` / `oracle-green-v2` / `redcheck-mutation-v2` /
+  `python-regression-venv`)全绿,数字见主裁。
+- P0 前提探针另存 `evidence/20260824T-P0-build-determinism.txt`(非 runlog 格式,
+  是我手写的探针脚本输出)。
 
 ## Review
 
