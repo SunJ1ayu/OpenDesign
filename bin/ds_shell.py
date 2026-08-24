@@ -404,6 +404,9 @@ class WindowApi:
         # 假最大化(开关关着时走的那条)还原前的位置。0.94.0 从 0.92 抄回来 ——
         # 真最大化在没有 WM_NCCALCSIZE 接管时会连任务栏一起盖住。
         self._restore = None
+        # 方案 B 装上之后量出来不对、已经自动退回去了 ⇒ 这一轮别再试。
+        # 不记住的话业主每点一次缩小就装一次、撤一次,每次闪一下,日志也刷满。
+        self._frame_gave_up = False
 
     # --- 内部 ---------------------------------------------------------
     def _form(self):
@@ -735,11 +738,15 @@ class WindowApi:
         拿"缩小"这个功能去赌"缩小的动画",是这条路上最不该犯的错。
         """
         try:
-            if frame_experiment_on():
+            if frame_experiment_on() and not self._frame_gave_up:
                 # 方案 B 全套。**先接管非客户区,再贴位** —— 顺序见上面。
                 self._install_wndproc(form)
                 self._apply_native_styles(form)
-                self._log_frame_diagnostics(form)
+                # 🔴 装完**当场量一次**,不对就自己退回去。
+                #    0.93 那趟业主报"全白",而我手上一个数字都没有,只能再要一趟。
+                info = self._log_frame_diagnostics(form)
+                if not self._frame_looks_sane(info):
+                    self._revert_native_frame(form)
             else:
                 # 默认路径 = 0.92 那套(真机验过能用):只贴三个不参与绘制的位。
                 self._apply_safe_styles(form)
@@ -843,9 +850,7 @@ class WindowApi:
                     user32.GetClassNameW(child, buf, 256)
                     r = RECT()
                     user32.GetWindowRect(child, ctypes.byref(r))
-                    found.append(
-                        f"{buf.value} {r.right - r.left}x{r.bottom - r.top}"
-                        f"@({r.left},{r.top})")
+                    found.append((buf.value, r.right - r.left, r.bottom - r.top))
                 except Exception:
                     pass
                 return True
@@ -855,17 +860,103 @@ class WindowApi:
             user32.EnumChildWindows.restype = wintypes.BOOL
             user32.EnumChildWindows(hwnd, ENUMPROC(_each), 0)
             log(f"[诊断] 子窗口 {len(found)} 个:" +
-                ("; ".join(found) if found else "**一个都没有**"))
+                ("; ".join(f"{n} {w}x{h}" for n, w, h in found)
+                 if found else "**一个都没有**"))
+            return found
         except Exception as exc:
             log(f"[诊断] 采集窗口几何失败(不影响窗口):{exc!r}")
+            return None
+
+    def _frame_looks_sane(self, info) -> bool:
+        """刚装上的方案 B 有没有把画面弄没 —— 只回答"明显坏了没有"。
+
+        判据很粗,**故意的**:WebView2 是窗口的子窗口,业主报的"全白"
+        最可能的机器现象是**子窗口没了、或者被压成 0×0**。
+        只咬这两种清清楚楚的坏状态。
+
+        🔴 **拿不到数据一律当成"没问题"**(判据 h6 守着 except 必须 `return True`)。
+        误撤的代价是白闪一下 + 没有动画,而它换不来任何好处;
+        漏撤最多回到 0.93 那个已知状态,业主删掉开关文件就能退出来。
+
+        ⚠️ **这一层抓不住"几何正常但就是不画"。** 真是那种,业主还会看到白屏 ——
+        别把这个函数说成"保证不白",它不是。
+        """
+        try:
+            if info is None:
+                return True                  # 压根没量到,不做判断
+            if not info:
+                log("[诊断] 🔴 窗口里一个子窗口都没有 —— 画面多半没了,撤销方案 B")
+                return False
+            biggest = max(w * h for _n, w, h in info)
+            if biggest <= 0:
+                log("[诊断] 🔴 子窗口全被压成 0 大小 —— 画面多半没了,撤销方案 B")
+                return False
+            return True
+        except Exception as exc:
+            log(f"[诊断] 判断窗口是否正常时出错,按'正常'处理:{exc!r}")
+            return True
+
+    def _revert_native_frame(self, form) -> None:
+        """把方案 B 整个退回去 —— **两头都要做**。
+
+        🔴 只做一半是**比白屏更坏**的状态:样式位还在而没人接管 `WM_NCCALCSIZE`
+        ⇒ 窗口会长出一条真的标题栏(判据 n3 讲的就是这对同生共死)。
+        所以顺序是:先解挂窗口过程,再把两个位摘掉,最后 `SWP_FRAMECHANGED` 通知一声。
+
+        退完记 `_frame_gave_up`,这一轮不再试(不然业主每点一次缩小就闪一下)。
+        """
+        self._frame_gave_up = True
+        try:
+            from ctypes import wintypes
+
+            self.uninstall_wndproc()
+            user32 = ctypes.windll.user32
+            user32.GetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int]
+            user32.GetWindowLongPtrW.restype = ctypes.c_ssize_t
+            user32.SetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int,
+                                                 ctypes.c_ssize_t]
+            user32.SetWindowLongPtrW.restype = ctypes.c_ssize_t
+            user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND,
+                                            ctypes.c_int, ctypes.c_int,
+                                            ctypes.c_int, ctypes.c_int,
+                                            ctypes.c_uint]
+            user32.SetWindowPos.restype = wintypes.BOOL
+
+            hwnd = wintypes.HWND(int(form.Handle.ToInt64()))
+            style = user32.GetWindowLongPtrW(hwnd, GWL_STYLE)
+            user32.SetWindowLongPtrW(hwnd, GWL_STYLE,
+                                     style & ~(WS_CAPTION | WS_THICKFRAME))
+            user32.SetWindowPos(hwnd, None, 0, 0, 0, 0,
+                                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE
+                                | SWP_NOZORDER | SWP_NOACTIVATE)
+            log("[窗口] 已把方案 B 退回去(窗口该正常了,代价是这一轮没有动画)。"
+                "请把 外壳.log 里 [诊断] 那几行发我。")
+        except Exception as exc:
+            log(f"[窗口] 🔴 退回方案 B 时出错,窗口可能不正常:{exc!r}\n"
+                f"        请退出软件、删掉 {EXPERIMENT_FLAG} 再打开。")
 
     def ensure_native_styles(self):
         """窗口一出来就叫一次(main 里挂在 `shown` 上)。
 
-        不等第一次最小化 —— 不然右键任务栏图标那个系统菜单要到业主点过一次
-        缩小之后才有。
+        🔴 **0.95.0 起,这条路只贴不改变非客户区的三个安全位。**
+        方案 B(会改变窗口边框计算的那半)挪到业主**第一次点缩小/最大化**时才装。
+
+        为什么(2026-08-24 真机日志):
+
+            17:54:47 窗口打开:http://127.0.0.1:8766/?shell=1
+            17:54:48 [窗口] 非客户区接管已生效(收到第一条 WM_NCCALCSIZE)
+
+        **窗口打开后一秒之内**就动了边框,而那正是 WebView2 还在初始化、
+        还在算自己该多大的时候。业主答"打开就白"。
+        0.92 同样早却没事 —— 因为它贴的三个位**不改变非客户区**。
+
+        ⚠️ "时机撞车"是**假设**,不是结论。但挪晚这一下无论假设对不对都有收获:
+        还白 ⇒ 是方案 B 和这套 WebView2 根本不兼容;好了 ⇒ 就是时机。
+
+        安全位仍然要早贴:右键任务栏图标那个系统菜单、Win+方向键都归它们管,
+        不早贴的话业主要点过一次缩小之后才有(0.92 就是为这个才挂在 shown 上的)。
         """
-        self._on_ui(self._apply_native_styles_and_frame)
+        self._on_ui(self._apply_safe_styles)
 
     # --- 前端叫得到的 ---------------------------------------------------
     def begin_drag(self):
