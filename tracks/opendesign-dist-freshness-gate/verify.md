@@ -29,11 +29,12 @@ runlog -t opendesign-dist-freshness-gate -- <判据命令>
 ```
 
 ```
-<粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
- **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
- 收据得进 git(5d)。一份收据都没有的话,写一行
- 「- 无机器证据:<理由>」认账 —— 沉默不算理由(5c)。>
+runlog: oracle-red-before-gate rc=1 commit=a433bf8 dirty=yes at=2026-08-24T01:28:17Z file=tracks/opendesign-dist-freshness-gate/evidence/20260824T012817Z-01-oracle-red-before-gate.txt
 ```
+
+> ☝️ 这是**先红后绿**的红:闸还不存在,7 条全红在 setUp 的「闸不存在」上。
+> **这个红很弱** —— 它只证明判据跑得起来,没证明任何一条断言咬得动它要咬的东西。
+> 那件事要靠实现落地后的**红检**来证明,别把这份红收据当成"判据有效"的证据。
 
 ## Review
 
