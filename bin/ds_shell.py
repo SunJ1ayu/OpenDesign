@@ -72,27 +72,33 @@ def _log_path() -> Path:
     return d / "外壳.log"
 
 
-# ── 方案 B 的实验开关(0.94.0)────────────────────────────────────────
-# 业主 2026-08-24 真机:0.93.0 默认开着方案 B ⇒「打开全是白的什么都没有了」。
-# 那一版的 ctypes 类型声明、常量对表、WM_NCCALCSIZE 两条 wParam 路都逐条读过,
-# **没有笔误** —— 病在方案 B 与 WebView2 的运行时交互,而那一层 Linux 上跑不到。
-# 0.92 和 0.93 连着两版都死在"把推论当结论发出去",这一版不再赌:
-# 默认退回 0.92 那套已被真机证明能用的窗口行为,方案 B 收进这个开关。
-EXPERIMENT_FLAG = "实验-窗口动画.on"
+# ── 窗口动画开关(0.96.0 起**默认开**)──────────────────────────────
+# 0.94/0.95 这里默认是**关**的,业主一句话点破了那个决定的自相矛盾:
+#   「你为什么不直接给我做好动画的,要默认关闭动画」
+# —— 我给 0.95 装了"不对就自动退回去"的保险,却又不敢依赖它。
+#   要么保险可信、就该默认开;要么不可信、就不该把它当卖点。
+#   我选了对自己最安全、对业主最麻烦的那一半:风险我躲了,力气他出。
+#
+# 而且 0.95 之后**「打开就白」在结构上已经没了**:开窗口时一个边框动作都不做,
+# 方案 B 要等业主点缩小才装 ⇒ 就算真把画面搞坏,**重开软件就是好的**,
+# 不像 0.93 那样一起来就是砖。既然最坏情况已经从"砖"降到"重开一下",
+# 就没有理由再让业主自己去建文件。
+DISABLE_FLAG = "关掉窗口动画.on"
 
 
-def frame_experiment_on() -> bool:
-    """方案 B(把系统窗口框架接回来)开着没有。**默认关。**
+def frame_animation_on() -> bool:
+    """要不要接系统窗口框架(缩小/放大的动画靠它)。**默认开。**
 
-    打开方式:在 `%LOCALAPPDATA%\\OpenDesign\\` 里新建一个空文件,
-    名字叫 `实验-窗口动画.on`,然后重开软件。删掉它就回到默认。
+    不想要就在 `%LOCALAPPDATA%\\OpenDesign\\` 里新建一个空文件,
+    名字叫 `关掉窗口动画.on`,重开软件即可。删掉它就回到默认。
 
     🔴 **读不到环境时倒向"关"**(判据 f4 守着 except 必须 `return False`)。
-    方向是有讲究的:猜错成关,业主顶多是没有那段动画 —— 他本来也没有;
-    猜错成开,他连界面都看不见。两种错的代价差着一个数量级。
+    方向仍然是有讲究的,只是理由换了:这个逃生门是给"已经发现它坏了"的人用的。
+    读不出文件系统时,把"可能已经关过"当成"关过"——
+    让一个本来没事的人少一段动画(小),好过让一个已经被坑过的人再被坑一次(大)。
     """
     try:
-        return (_app_dir() / EXPERIMENT_FLAG).is_file()
+        return not (_app_dir() / DISABLE_FLAG).is_file()
     except Exception:
         return False
 
@@ -477,7 +483,7 @@ class WindowApi:
         拖到正好铺满工作区,也会被判成"已最大化"。默认路径接受这个已知缺陷 ——
         它是 0.92 就有的、业主用了一版没提过,而"整个窗口白掉"不是。
         """
-        if frame_experiment_on():
+        if frame_animation_on():
             from System.Windows.Forms import FormWindowState
 
             return form.WindowState == FormWindowState.Maximized
@@ -591,12 +597,29 @@ class WindowApi:
                     self._fit_maximized_to_work_area(hwnd, lparam)
             except Exception as exc:
                 self._warn_once(f"[窗口] 处理 WM_NCCALCSIZE 出错:{exc!r}")
-            # 🔴 **两种 wParam 都返回 0**,不动 lParam 指向的矩形。
-            #    wParam 为假那条原来是交回原 proc 的 —— 而 DefWindowProc 会按
-            #    窗口**当前真实样式**(现在含 WS_CAPTION)扣掉标题栏和边框,
-            #    那一帧标题栏会真的画出来,「外观零变化」当场破功。
-            #    (panel subdeepseek F2;WinFormedge 也为这条路单独打过补丁。)
-            return 0
+            # 🔴 **只有 wParam 为真时才自己了断;为假时交回原 proc。**
+            #
+            #    2026-08-24 业主追问"别人做成了为什么我们做不成",我去扒了
+            #    WinFormedge(同一套壳:WinForms + WebView2)的真实代码
+            #    `src/WinFormedge/Classes.Formedge/FormBase.cs:390`:
+            #
+            #      case WM_NCCALCSIZE when wParam == 1 && ...:  ... return;
+            #      case WM_NCCALCSIZE when wParam == 0 && ...:  ... break;  ← 落到 base.WndProc
+            #
+            #    **它在 wParam == 0 那条上从不短路,而是交回默认处理。**
+            #
+            #    而 0.93 我把这条改成了 `return 0`(收评审腿 subdeepseek F2 的建议),
+            #    还在这里写下"WinFormedge 也为这条路单独打过补丁"——
+            #    **那句话是我没读代码编的,而且和事实相反。**
+            #    改之前(58b397e)的写法本来是对的、和参考实现一致;改之后
+            #    (c09ad55)才进的 0.93,也就是业主唯一跑过、然后白屏的那一版。
+            #
+            #    机制上说得通:短路掉 wParam==0 那条,WinForms 自己那层
+            #    就没法维护它的客户区记账,而 WebView2 是挂在它下面的子窗口 ——
+            #    子窗口的布局/绘制正是靠这套记账。
+            #    ⚠️ **这是最可疑的一条线索,不是已证实的根因。** 只有真机能定案。
+            if wparam:
+                return 0
         try:
             return self._user32.CallWindowProcW(self._old_wndproc, hwnd, msg,
                                                 wparam, lparam)
@@ -738,7 +761,7 @@ class WindowApi:
         拿"缩小"这个功能去赌"缩小的动画",是这条路上最不该犯的错。
         """
         try:
-            if frame_experiment_on() and not self._frame_gave_up:
+            if frame_animation_on() and not self._frame_gave_up:
                 # 方案 B 全套。**先接管非客户区,再贴位** —— 顺序见上面。
                 self._install_wndproc(form)
                 self._apply_native_styles(form)
@@ -933,7 +956,8 @@ class WindowApi:
                 "请把 外壳.log 里 [诊断] 那几行发我。")
         except Exception as exc:
             log(f"[窗口] 🔴 退回方案 B 时出错,窗口可能不正常:{exc!r}\n"
-                f"        请退出软件、删掉 {EXPERIMENT_FLAG} 再打开。")
+                f"        请退出软件、在 %LOCALAPPDATA%\\OpenDesign 里建一个"
+                f"空文件 {DISABLE_FLAG} 再打开,就不会再试了。")
 
     def ensure_native_styles(self):
         """窗口一出来就叫一次(main 里挂在 `shown` 上)。
@@ -996,7 +1020,7 @@ class WindowApi:
         """
         def go(form):
             self._apply_native_styles_and_frame(form)
-            if frame_experiment_on():
+            if frame_animation_on():
                 from System.Windows.Forms import FormWindowState
 
                 if form.WindowState == FormWindowState.Maximized:
