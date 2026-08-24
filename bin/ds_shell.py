@@ -812,6 +812,17 @@ class WindowApi:
             from ctypes import wintypes
 
             user32 = ctypes.windll.user32
+            # 🔴 每一个都要声明 argtypes/restype。不声明的话 64 位上句柄被静默
+            #    截成 32 位 —— 诊断会印出**看着像真的、其实是错的**数字,
+            #    那比没有数字更坏:我会拿着它去查一个不存在的现象。
+            #    (判据 tests/test_win_ctypes_decls.py 机械守着,这一版就是它抓的。)
+            user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(RECT)]
+            user32.GetWindowRect.restype = wintypes.BOOL
+            user32.GetClientRect.argtypes = [wintypes.HWND, ctypes.POINTER(RECT)]
+            user32.GetClientRect.restype = wintypes.BOOL
+            user32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR,
+                                             ctypes.c_int]
+            user32.GetClassNameW.restype = ctypes.c_int
             hwnd = wintypes.HWND(int(form.Handle.ToInt64()))
 
             win, cli = RECT(), RECT()
@@ -839,6 +850,9 @@ class WindowApi:
                     pass
                 return True
 
+            user32.EnumChildWindows.argtypes = [wintypes.HWND, ENUMPROC,
+                                                ctypes.c_ssize_t]
+            user32.EnumChildWindows.restype = wintypes.BOOL
             user32.EnumChildWindows(hwnd, ENUMPROC(_each), 0)
             log(f"[诊断] 子窗口 {len(found)} 个:" +
                 ("; ".join(found) if found else "**一个都没有**"))
