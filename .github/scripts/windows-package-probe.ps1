@@ -145,6 +145,22 @@ else {
     Say '3 装完查文件' "OK - 三个关键文件都在,装完 $size MB"
 }
 
+# ── 3.5 那句"配置初始化没有成功(错误码 2)"到底是什么 ────────────
+# 弹框只给了错误码,**人话那一段被静默安装吞掉了**(nsExec::ExecToLog 写进
+# 安装器的日志窗,而 /S 根本不开那个窗)。所以这里自己把同一条命令再跑一遍,
+# 把 stderr 原样接住 —— ds_provision.py 承诺过"给业主的是人话不是栈"。
+try {
+    $py = "$InstallDir\python\python.exe"
+    $pv = "$InstallDir\ds\bin\ds_provision.py"
+    if ((Test-Path $py) -and (Test-Path $pv)) {
+        $o = & $py $pv --home "$DataRoot\UserData" --ds-root "$InstallDir\ds" 2>&1
+        $rc = $LASTEXITCODE
+        "---- ds_provision.py 原样输出(rc=$rc) ----"
+        $o | ForEach-Object { "  $_" }
+        Say '3.5 配置初始化说了什么' "rc=$rc"
+    } else { Say '3.5 配置初始化说了什么' "FAIL - 找不到 python 或 ds_provision.py" }
+} catch { Say '3.5 配置初始化说了什么' "FAIL - $($_.Exception.Message)" }
+
 # ── 4 双击它(业主每天做的动作) ────────────────────────────────────
 try {
     Start-Process "$InstallDir\OpenDesign.exe" | Out-Null
