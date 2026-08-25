@@ -87,7 +87,20 @@ import ds_todo
 import ds_tools
 import ds_workspace
 
-VERSION = "0.97.0"  # pywebview 5.4 → 6.2.1(track opendesign-pywebview-upgrade)
+VERSION = "0.98.0"  # 全新的非中文 Windows 装不上 —— 一句成功提示卡死安装
+                    # (track opendesign-fresh-install-fix)
+                    # 怎么发现的:**第一次把真安装包搬上 GitHub 的云 Windows 机器跑**
+                    # (windows-package-probe,run 32801760571),不是业主报障、不是推理。
+                    # 链条:ds_merge_config 把配置写好了 → 最后一句「已合并 4 段进…」
+                    # 在 cp1252 的 stdout 上 UnicodeEncodeError → rc≠0 →
+                    # provision 判「合并失败」→ finally 删掉临时配置(顺序本身是对的)
+                    # → config.json 从没出现 → 安装器弹「配置初始化没有成功(错误码 2)」
+                    # → **NSIS 的 MessageBox 在 /S 下照弹** → 没人点 → 安装器假死。
+                    # 修两处:① 这条链上的 Python 输出与控制台编码脱钩(输出通道有权
+                    # 难看、没权杀进程)② 4 个 MessageBox 补 /SD(与①无关,①好了下一个
+                    # 错误照样卡死)。业主两台是中文 Windows(cp936),**他从没撞上过**。
+                    # ⚠️ 端到端要等这一版发出去、云机器再装一遍才算数。
+                    # 0.97.0  pywebview 5.4 → 6.2.1(track opendesign-pywebview-upgrade)
                     # 业主指令「先升级吧」。我们原来锁在 2025-01 的 5.4,落后两个大版本;
                     # 0.96 的动画是在旧后端上绕出来的,不是上游认可的路。
                     # 前提核查:6.0 的三条 BREAKING 一条都不沾我们(只用了 8 个 API);
