@@ -22,3 +22,9 @@ tests/test_ds_shell_core.py :: self.fail(f"实例没吭声就退了;stderr={p.st
 # c2 的兜底断言 —— 实现正确时 data_root() 一定抛 DataRootError,于是 except 分支 return,
 # 这句永远不执行。它守的是"万一将来有人把抛错改成返回值,也不许返回安装目录"。
 tests/test_data_root.py :: self.assertNotEqual(os.path.realpath(got), os.path.realpath(self.ds_root),  # data_root 正确时必抛错 ⇒ 这句兜底永远不执行,但它守着"不许回退安装目录"
+
+# g3 的兜底断言 —— 同文件 g5(:76 `self.assertTrue(drop, "SLIM_DROP 是空的,等于没瘦身。")`)
+# 已经在报同一件事;SLIM_DROP 非空时 g3 这句永远执行不到,它只是不重复报。
+# 2026-08-25 由 track opendesign-fresh-install-fix 的归档闸逼出来:那道闸要一份成功的
+# run-all,而这条从 08-24 起一直红着 —— **是它把这笔账催出来的,不是我主动想起来的。**
+tests/test_installer_slim.py :: self.fail("SLIM_DROP 是空的 —— g5 会红,这里不重复报,但也不算通过。")  # g5 已经在报同一件事,这是防御分支
