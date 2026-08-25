@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-fresh-install-fix",
+  "impact": {
+    "level": "high",
+    "factors": [
+      "production_side_effect"
+    ]
+  },
+  "design": {
+    "uncertainty": "low",
+    "premise_attack": {
+      "status": "not_required",
+      "evidence": []
+    }
+  },
+  "execution_plan": {
+    "adapter": "main",
+    "model": null
+  },
+  "outcome": {
+    "verdict": null
+  }
+}

@@ -101,10 +101,12 @@ class ProvisionTestBase(unittest.TestCase):
         (self.ds_root / "bin" / "ds_merge_config.py").write_bytes(
             (BIN / "ds_merge_config.py").read_bytes())
 
-    def run_provision(self, *extra: str, home: Path | None = None) -> subprocess.CompletedProcess:
+    def run_provision(self, *extra: str, home: Path | None = None,
+                      env: dict | None = None) -> subprocess.CompletedProcess:
         argv = [sys.executable, str(PROVISION),
                 "--home", str(home or self.home), "--ds-root", str(self.ds_root), *extra]
-        return subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", timeout=180)
+        return subprocess.run(argv, capture_output=True, text=True, encoding="utf-8",
+                              timeout=180, env=env)
 
     def config_path(self, home: Path | None = None) -> Path:
         return (home or self.home) / ".nanobot" / "config.json"
@@ -336,6 +338,68 @@ class TestMalformedButParseable(ProvisionTestBase):
         (self.ds_root / "config" / TEMPLATE.name).write_text("{ 坏了", encoding="utf-8")
         self.assertNotEqual(self.run_provision().returncode, 0)
         self.assertEqual(self.config_path().read_bytes(), before, "把他原来的配置改坏了")
+
+
+
+class TestNonChineseWindows(ProvisionTestBase):
+    """🔴 全新的**非中文** Windows 上装不上(2026-08-25 云机器实测,run 32801760571)。
+
+    真机现象:安装器弹「配置初始化没有成功(错误码 2)」然后**永远等人点确定**。
+    根因是一句**成功提示**:`ds_merge_config.py` 把配置写好了,却在最后
+    `print("ds_merge_config: 已合并 4 段进 …")` 时炸掉 ——
+    英文 Windows 的 stdout 是 cp1252,写不出"已合并"三个汉字
+    (`UnicodeEncodeError: 'charmap' codec can't encode characters`)。
+    提示炸了 ⇒ rc≠0 ⇒ 上一层判定"合并失败" ⇒ `finally` 删掉临时配置
+    (那个顺序本身是对的:半份配置比没有更坏)⇒ config.json 从来没出现过。
+
+    **一句成功提示,弄死了一次已经成功的合并。**
+
+    业主的两台是中文 Windows(cp936),"已合并"编得出来,所以他从没撞上过 ——
+    这正是"只有全新的、和我不一样的机器才撞得上"那一类,也正是判据该替他撞的。
+
+    这里用 `PYTHONIOENCODING=cp1252` 复现同一个条件:子进程的 stdout 从此写不出中文。
+    """
+
+    def cp1252_env(self) -> dict:
+        env = dict(os.environ)
+        env["PYTHONIOENCODING"] = "cp1252"   # = 英文 Windows 上那条管道的编码
+        env.pop("PYTHONUTF8", None)          # 别让本机的全局设置替被测代码把题做了
+        return env
+
+    def test_f1_fresh_install_survives_a_console_that_cannot_write_chinese(self):
+        """整条路走完之后,**config.json 在不在** —— 这是最粗的那一问。
+
+        08-25 之前没有任何一条判据问过它:每一环都有人盯,而"装完能不能用"没人问。
+        """
+        r = self.run_provision(env=self.cp1252_env())
+        self.assertEqual(
+            r.returncode, 0,
+            "非中文控制台上装机失败 —— 业主看到的是「配置初始化没有成功」+ 安装器卡死\n"
+            f"stdout={r.stdout}\nstderr={r.stderr}")
+        cfg = self.config_path()
+        self.assertTrue(cfg.is_file(), f"跑完了却没有配置:{cfg}")
+        json.loads(cfg.read_text(encoding="utf-8"))   # 合法 JSON,不是半份
+
+    def test_f2_the_merger_alone_survives_it_too(self):
+        """把范围缩到真正炸的那一支:合并脚本自己。
+
+        分开问是为了让红的时候**一眼看出是哪一层** —— f1 红 f2 绿 = 病在 provision;
+        两条一起红 = 病在合并脚本(08-25 就是这种)。
+        """
+        target = self.base / "cfg.json"
+        target.write_text(json.dumps({"providers": {}, "agents": {}}, ensure_ascii=False),
+                          encoding="utf-8")
+        r = subprocess.run(
+            [sys.executable, str(self.ds_root / "bin" / "ds_merge_config.py"),
+             str(self.ds_root / "config" / TEMPLATE.name), str(target)],
+            capture_output=True, text=True, encoding="utf-8", timeout=180,
+            env=self.cp1252_env())
+        self.assertEqual(
+            r.returncode, 0,
+            "合并脚本在写不出中文的控制台上退了非零 —— 而它的**配置其实已经写好了**,\n"
+            "死的只是最后那句成功提示\n"
+            f"stdout={r.stdout}\nstderr={r.stderr}")
+
 
 
 if __name__ == "__main__":
