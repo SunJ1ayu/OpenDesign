@@ -1,0 +1,46 @@
+# 一次性可行性探针:GitHub 托管的 windows runner 能不能替我们"看一眼界面"。
+#
+# 为什么有这个文件:这个仓库一年来 **一个 workflow 都没有**,而唯一的验证路径是
+# "打包 43MB 发给业主,让他装上肉眼看"。烧掉真机验收的三件事里有两件
+# (0.90 窗口栏整块没画出来 / 0.93 界面全白)是一张截图就能看出来的。
+#
+# 🔴 它**不是**回归判据,别把它当门槛:绿只代表探针跑完了,四问的答案在
+#    日志的 VERDICT 段 + 构件里的三张图上,由主 agent 亲眼看图之后下结论。
+#
+# 跑法:推到 ci-probe/** 分支自动跑,或在 Actions 页面手点(workflow_dispatch)。
+
+name: windows-gui-probe
+
+on:
+  push:
+    branches: ['ci-probe/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 这台机器是什么
+        shell: pwsh
+        run: |
+          (Get-CimInstance Win32_OperatingSystem).Caption
+          "session name = $env:SESSIONNAME"
+          "user         = $env:USERNAME"
+
+      - name: 四问探针(截图 + 像素核对)
+        shell: powershell
+        run: .\.github\scripts\windows-gui-probe.ps1 -OutDir probe-out
+
+      - name: 把图交出来
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-gui-probe
+          path: probe-out/*.png
+          if-no-files-found: warn
