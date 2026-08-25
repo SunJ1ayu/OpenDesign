@@ -88,5 +88,27 @@ class SilentInstallNeverBlocks(unittest.TestCase):
                       f"{NSI.name}:{ln} 这条涉及删掉业主的东西,静默默认必须是 IDCANCEL(保守的那一侧)")
 
 
+    def test_s4_the_silent_default_is_written_where_nsis_accepts_it(self):
+        """🔴 `/SD` 必须写在**正文之后**,不是跟在 `MessageBox` 后面。
+
+        NSIS 的语法是 `MessageBox mode text [/SD ret] [ret_check label]`。
+
+        这条是被自己的疏忽逼出来的(2026-08-25):s2 只问了"有没有 /SD",
+        于是我把它写成 `MessageBox /SD IDCANCEL MB_OKCANCEL|… "正文"` —— **s2/s3 全绿**,
+        而 `makensis` 当场 abort(`Error in script "OpenDesign.nsi" on line 191`)。
+        **一道连"编不编得过"都分不出来的闸,给的绿是假的。**
+        （真正兜住它的是打包那一步 —— 但闸的价值在于更早、更便宜地说清楚哪里错。）
+        """
+        for ln, text in messagebox_calls():
+            if "/SD" not in text:
+                continue          # 有没有由 s2 管,这里只管位置
+            quote = text.find('"')
+            self.assertNotEqual(-1, quote, f"{NSI.name}:{ln} 这条 MessageBox 没有正文?")
+            self.assertGreater(
+                text.index("/SD"), quote,
+                f"{NSI.name}:{ln} `/SD` 写在正文前面了 ⇒ makensis 编不过。"
+                "语法是 `MessageBox mode text /SD <默认> [ret label]`")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

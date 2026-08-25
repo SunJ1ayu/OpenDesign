@@ -184,11 +184,11 @@ Function CheckDirEmpty
     StrCmp $1 ".." next
     ; 找到了第一个真实条目 ⇒ 非空
     FindClose $0
-    MessageBox /SD IDCANCEL MB_OKCANCEL|MB_ICONEXCLAMATION \
+    MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION \
       "这个文件夹里已经有别的东西了:$\n$INSTDIR$\n$\n\
 卸载 ${APP} 的时候会把整个文件夹删掉,里面原有的东西也会一起没。$\n$\n\
 建议换一个空文件夹(比如默认的那个)。一定要用这里的话,点“确定”。" \
-      IDOK ok
+      /SD IDCANCEL IDOK ok
     Abort
   next:
     FindNext $0 $1
@@ -227,9 +227,9 @@ Function EnsureWebView2
     StrCpy $1 "启动失败"
   ${If} $1 != 0
     ; 装不上不拦住整个安装:业主可能只是暂时没网。第一次打开时外壳会再说一次人话。
-    MessageBox /SD IDOK MB_ICONEXCLAMATION "没能装上微软的 WebView2 运行时(错误码 $1)。$\n$\n\
+    MessageBox MB_ICONEXCLAMATION "没能装上微软的 WebView2 运行时(错误码 $1)。$\n$\n\
 ${APP} 仍然装好了,但第一次打开可能会报错。$\n\
-联网之后重新运行一次这个安装程序就行。"
+联网之后重新运行一次这个安装程序就行。" /SD IDOK
   ${Else}
     DetailPrint "WebView2 运行时装好了。"
   ${EndIf}
@@ -247,8 +247,8 @@ Function ProvisionConfig
   ${If} $0 != 0
     ; 不 Abort:文件已经铺好了,而外壳自己会把"到底缺什么"说得比这里清楚
     ; (那段话在业主真机上验过)。这里只负责别让它悄悄过去。
-    MessageBox /SD IDOK MB_ICONEXCLAMATION "配置初始化没有成功(错误码 $0)。$\n$\n\
-${APP} 的文件已经装好了。第一次打开时它会告诉你还缺什么。"
+    MessageBox MB_ICONEXCLAMATION "配置初始化没有成功(错误码 $0)。$\n$\n\
+${APP} 的文件已经装好了。第一次打开时它会告诉你还缺什么。" /SD IDOK
   ${EndIf}
 FunctionEnd
 
@@ -273,7 +273,7 @@ Section "un.${APP}" SecUnMain
     RMDir /r "$INSTDIR"
     Goto done
   not_ours:
-    MessageBox /SD IDOK MB_ICONEXCLAMATION "这个目录看起来不是 ${APP} 装的地方,为安全起见没有删:$\n$INSTDIR"
+    MessageBox MB_ICONEXCLAMATION "这个目录看起来不是 ${APP} 装的地方,为安全起见没有删:$\n$INSTDIR" /SD IDOK
   done:
 SectionEnd
 
