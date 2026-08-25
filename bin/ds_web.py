@@ -87,6 +87,9 @@ import ds_todo
 import ds_tools
 import ds_workspace
 
+# 版本号约定(2026-08-25 业主亲口定):**从 0.98 起只往第三位加** —— 0.98.1、
+# 0.98.2、0.98.3……**中途不许跳到 0.99 或 1.x**。`1.0.0` 留给业主说"就它了"
+# 的那一版(他的原话:"我希望最后发行版是 1.0")。
 VERSION = "0.98.0"  # 全新的非中文 Windows 装不上 —— 一句成功提示卡死安装
                     # (track opendesign-fresh-install-fix)
                     # 怎么发现的:**第一次把真安装包搬上 GitHub 的云 Windows 机器跑**
