@@ -1,0 +1,39 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    run-all
+cmd:     tests/run-all.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  98186e1
+dirty:   no(跑之前采的;含未跟踪文件)
+head-before: 98186e19a8c06cb2962788d167aad49afe6afbae
+source-view-before: sha256:0a879659d46a12f846778385fbe188036482a548c49d3d3318719bbac877d2a2
+started: 2026-08-25T04:34:35Z
+---------------- 输出开始 ----------------
+[1m== 泄漏闸自测(判据的判据)[0m
+   [32m完成[0m  0s
+[1m== node 单测(tests/*.mjs)[0m
+   [32m完成[0m  5s
+[1m== python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python)[0m
+   [31m有红[0m  458s
+[1m== MCP 契约闸[0m
+   [32m完成[0m  4s
+[1m== dist 新鲜度 + 类型检查(npm run build 后 git 应无差异)[0m
+   [32m完成[0m  9s
+[1m== e2e 总跑[0m
+   [32m完成[0m  139s
+
+════ 总跑汇总 ════
+  [32mPASS[0m  泄漏闸自测(判据的判据)   14 条全过
+  [32mPASS[0m  node 单测(tests/*.mjs)           376 通过 / 0 跳过 / 0 todo
+  [31mFAIL[0m  python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python) 1337 跑过 / 1 跳过 / ⚠️ 1 条死断言
+  [32mPASS[0m  MCP 契约闸                      三条闸全绿
+  [32mPASS[0m  dist 新鲜度 + 类型检查(npm run build 后 git 应无差异) 与源码同步
+  [32mPASS[0m  e2e 总跑                         36 PASS / 0 FAIL / 2 SKIP
+
+有 1 段红了,日志在 /tmp/ds-all-W6brfm
+   python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python) → /tmp/ds-all-W6brfm/py-full.log
+command-rc: 1
+head-after: 98186e19a8c06cb2962788d167aad49afe6afbae
+source-view-after:  sha256:0a879659d46a12f846778385fbe188036482a548c49d3d3318719bbac877d2a2
+source-stable: yes
+---------------- 输出结束 ----------------
+runlog: run-all rc=1 commit=98186e1 dirty=no final=yes at=2026-08-25T04:34:35Z file=tracks/opendesign-fresh-install-fix/evidence/20260825T043435Z-01-run-all.txt
