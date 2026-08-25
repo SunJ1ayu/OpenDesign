@@ -4,30 +4,54 @@
 
 ## Mechanical checks
 
-**机器打印的收据**(**最后一次编辑之后**跑的那一遍):
+**机器打印的收据 —— 两份,最后一次编辑之后跑的:**
+
+① 宽口(总跑六段):
 
 ```
-runlog: run-all rc=1 commit=526e559 dirty=no final=yes at=2026-08-25T05:12:18Z file=tracks/opendesign-fresh-install-fix/evidence/20260825T051218Z-01-run-all.txt
+runlog: run-all rc=3 commit=bddf85f dirty=no final=yes at=2026-08-25T05:27:41Z file=tracks/opendesign-fresh-install-fix/evidence/20260825T052741Z-01-run-all.txt
   PASS  泄漏闸自测                14 条全过
   PASS  node 单测                 376 通过 / 0 跳过 / 0 todo
-  FAIL  python 全量 + 死断言闸    1338 跑过 / 1 跳过 / ⚠️ 1 条死断言
+  PASS  python 全量 + 死断言闸    1338 跑过 / 1 跳过
   PASS  MCP 契约闸                三条闸全绿
   PASS  dist 新鲜度 + 类型检查    与源码同步
   PASS  e2e 总跑                  36 PASS / 0 FAIL / 2 SKIP
 ```
 
-🔴 **前两份收据都作废了,原因写在这儿,不许只留好看的那份:**
+🔴 **`rc=3` 不是红,是"3 条没跑",总跑自己就说了「不算通过」——别把跳过糊成通过。**
+那 3 条是**同一个原因**:这台机器上没有活网关。
+`tests/test_ws_protocol_smoke.py` 文件头写着「gateway 没在跑 → 整体 SKIP」(1 条),
+另外 2 条是要 `--with-gateway` 的 e2e。**六段本身全 PASS,零红。**
+
+② 窄口(本单自己的判据 + 邻近回归 + `.nsi` 静态闸),**rc=0**:
+
+```
+runlog: oracle-final rc=0 commit=bddf85f dirty=yes final=yes at=2026-08-25T05:39:29Z file=tracks/opendesign-fresh-install-fix/evidence/20260825T053929Z-01-oracle-final.txt
+  tests/test_ds_provision.py       22 条(含 f1/f2/f3)
+  tests/test_installer_silent.py    4 条(s1~s4)
+  tests/test_ds_merge_config.py     9 条
+  tests/test_no_console_window.py   3 条
+  installer/check-installer.py static  23 条,0 条不合格
+```
+
+🔴 **前三份收据都作废了,原因逐份写在这儿,不许只留好看的那份:**
 
 - `20260825T030259Z` —— **真红**:`test_no_console_window` 逮到我把
   `# no-console-exempt:` 注释和它守的 `subprocess.run` 之间插了说明 ⇒ 豁免当场失效。
   **闸干得对**,已修(注释挪回紧贴调用,并在那儿写明这一行必须紧贴)。
-- `20260825T031425Z` —— **过期的绿**:它跑在 `ae72029`,而之后 `7976633` 又改了
+- `20260825T031425Z` —— **过期的绿**:跑在 `ae72029`,而之后 `7976633` 又改了
   `installer/OpenDesign.nsi` 和 `tests/test_installer_silent.py`。
   **绿是真的,但它证明不了当前这棵树** ⇒ 重跑。这是本项目栽过多次的
   「我给的绿是过期的」,这次是接手断线现场时自己抓住的。
-- `20260825T043435Z` —— 也过期了:那之后才有 f3 和解码侧的修复。
+- `20260825T043435Z` / `20260825T051218Z` —— 也过期:那之后才有 f3、解码侧修复,
+  以及放行清单那一条。**它们那条红**是 `tests/test_installer_slim.py:216` 的死断言
+  (归 `opendesign-installer-slim`,那一单至今零 run-all 收据),
+  **本单一个字都没碰过那个文件**;三遍收据里它的位置和内容完全一样。
+  归档闸要一份成功的 run-all,把这笔账催了出来 ⇒ 已按格式登记进
+  `tests/dead_assertions.allow`(理由:同文件 g5 已在报同一件事,这是防御分支),
+  见 `bddf85f`。**不是调钝报警器,是把冗余断言登记在案。**
 
-**唯一承重的是上面那份 `20260825T051218Z`(`final=yes`、`dirty=no`)。**
+**承重的是上面那两份(①②,都是 `final=yes`)。**
 
 **那一条红不是本单改出来的,证据在下面 —— 但也不许拿它当"绿"用。**
 
@@ -46,8 +70,9 @@ runlog: run-all rc=1 commit=526e559 dirty=no final=yes at=2026-08-25T05:12:18Z f
   - f1/f2 —— 2 条,绿(修之前红,见 `da50f39`)
   - **f3 —— 绿(修之前红,见 `520c969`)**:panel 抓到的解码侧洞,判据先红后绿
 - `tests/test_installer_silent.py` s1~s4 —— 4 条,绿(修之前 s2/s3 红)
-- 邻近回归:`test_ds_provision` 22 条、`test_ds_merge_config` 9 条、
-  `test_no_console_window` 3 条,全绿
+- 邻近回归:`test_ds_merge_config` 9 条、`test_no_console_window` 3 条,全绿
+- `.nsi` 静态闸 `check-installer.py static` 23 条,0 条不合格
+  (它**不在总跑里** —— 这正是 finding #2,已开后续单)
 
 🔴 **f3 的题面自己先错过一版**:桩脚本里我往 `bytes` 字面量塞了中文 ⇒ **语法错**,
 它压根没跑到"写非 UTF-8 字节"那一步,而判据**照样绿**。

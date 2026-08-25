@@ -1,0 +1,145 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    oracle-final
+cmd:     bash -c set\ -e\;\ PY=/root/.venvs/design-studio/bin/python\;\ echo\ \"==\ 本单判据:非中文\ Windows\(f1/f2/f3\)+\ provision\ 全组\"\;\ \"\$PY\"\ tests/test_ds_provision.py\;\ echo\ \"==\ 本单判据:静默安装不许卡住\(s1~s4\)\"\;\ \"\$PY\"\ tests/test_installer_silent.py\;\ echo\ \"==\ 邻近回归:合并脚本\"\;\ \"\$PY\"\ tests/test_ds_merge_config.py\;\ echo\ \"==\ 邻近回归:不许冒黑窗口\(豁免注释必须紧贴\)\"\;\ \"\$PY\"\ tests/test_no_console_window.py\;\ echo\ \"==\ .nsi\ 静态闸\(17\ 条\,纯\ Python\,发版打包时也跑这一句\)\"\;\ python3\ installer/check-installer.py\ static\ installer/OpenDesign.nsi\ --launcher\ installer/launcher.nsi
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  bddf85f
+dirty:   yes(跑之前采的;含未跟踪文件)
+head-before: bddf85ff7322751ce79213855655158cab239a1c
+source-view-before: sha256:f8372c72c6e4fc8ece86e22541c4692147ae5361cbf5209b0a75e7176efde79b
+started: 2026-08-25T05:39:29Z
+---------------- 输出开始 ----------------
+== 本单判据:非中文 Windows(f1/f2/f3)+ provision 全组
+test_c1_does_not_touch_the_machines_own_nanobot (__main__.TestBlastRadius.test_c1_does_not_touch_the_machines_own_nanobot)
+**只写自己那棵树**。 ... ok
+test_c2_writes_nothing_outside_the_home (__main__.TestBlastRadius.test_c2_writes_nothing_outside_the_home)
+跑完之后,数据目录之外一个新文件都不该多出来。 ... ok
+test_d1_says_human_words_when_the_template_is_missing (__main__.TestBrokenInputs.test_d1_says_human_words_when_the_template_is_missing)
+包装坏了(模板没铺进去)⇒ 说人话并非零退出,不许静默产出半份配置。 ... ok
+test_d2_leaves_a_corrupt_config_alone (__main__.TestBrokenInputs.test_d2_leaves_a_corrupt_config_alone)
+已有配置是坏 JSON:不许当成"没有配置"覆盖掉 —— 那可能是业主唯一的一份。 ... ok
+test_a1_fresh_home_gets_a_config (__main__.TestFreshInstall.test_a1_fresh_home_gets_a_config)
+全新装机:什么都没有 → 跑一次 → 配置在那儿,而且是合法 JSON。 ... ok
+test_a2_the_shell_accepts_what_provision_produced (__main__.TestFreshInstall.test_a2_the_shell_accepts_what_provision_produced)
+**本文件最值钱的一条**:外壳的 `patch_config` 认不认这份配置。 ... ok
+test_a3_token_is_latin1_safe (__main__.TestFreshInstall.test_a3_token_is_latin1_safe)
+自动生成的口令必须是浏览器发得出去的。 ... ok
+test_a4_owner_can_find_the_token (__main__.TestFreshInstall.test_a4_owner_can_find_the_token)
+口令是随机生成的 ⇒ **业主必须能看到它**,否则聊天永远登不进去。 ... ok
+test_a5_mcp_servers_are_wired (__main__.TestFreshInstall.test_a5_mcp_servers_are_wired)
+三个工具服务缺任何一个,助手就"什么都不会做"了,而业主自己修不好。 ... ok
+test_a6_no_credential_lands_in_the_config (__main__.TestFreshInstall.test_a6_no_credential_lands_in_the_config)
+凭据只走环境变量。配置是要进日志、进截图、进我这边的收据的。 ... ok
+test_a7_missing_key_is_named_exactly (__main__.TestFreshInstall.test_a7_missing_key_is_named_exactly)
+与 S1b-r2 真机已验证的行为对齐:没放 key 时,**恰好**点名 DS_LLM_KEY。 ... ok
+test_b1_second_run_keeps_the_token (__main__.TestIdempotence.test_b1_second_run_keeps_the_token)
+业主记下来的口令,不许被第二次跑(修复安装 / 装新版)悄悄换掉。 ... ok
+test_b2_owner_chosen_token_survives (__main__.TestIdempotence.test_b2_owner_chosen_token_survives)
+他自己设过的口令(老装法 install.ps1 问过一次)必须原样留着。 ... ok
+test_b3_explicit_token_wins (__main__.TestIdempotence.test_b3_explicit_token_wins)
+给了 --token 就照做(将来的首启动向导会用这条口子改口令)。 ... ok
+test_b4_refuses_a_token_the_browser_cannot_send (__main__.TestIdempotence.test_b4_refuses_a_token_the_browser_cannot_send)
+显式给的口令也要过 latin-1 闸,而且要**当场**说清楚,不能等到聊天时才炸。 ... ok
+test_e1_null_channels_does_not_throw_a_stack_at_the_owner (__main__.TestMalformedButParseable.test_e1_null_channels_does_not_throw_a_stack_at_the_owner)
+`{"channels": null}` —— 合法 JSON,但 setdefault 拿到 None 再 .setdefault 就炸。 ... ok
+test_e2_websocket_of_wrong_type_is_refused_in_human_words (__main__.TestMalformedButParseable.test_e2_websocket_of_wrong_type_is_refused_in_human_words)
+`channels.websocket` 是个字符串 —— 同上,而且更像"被别的工具写坏了"。 ... ok
+test_e3_a_failing_merge_leaves_no_half_config_behind (__main__.TestMalformedButParseable.test_e3_a_failing_merge_leaves_no_half_config_behind)
+合并失败时,盘上不许留下一份"开了通道但没有工具服务"的半成品配置。 ... ok
+test_e4_a_failing_merge_does_not_damage_an_existing_config (__main__.TestMalformedButParseable.test_e4_a_failing_merge_does_not_damage_an_existing_config)
+已经装过的机器上合并失败:他原来那份必须**一个字节都没变**。 ... ok
+test_f1_fresh_install_survives_a_console_that_cannot_write_chinese (__main__.TestNonChineseWindows.test_f1_fresh_install_survives_a_console_that_cannot_write_chinese)
+整条路走完之后,**config.json 在不在** —— 这是最粗的那一问。 ... ok
+test_f2_the_merger_alone_survives_it_too (__main__.TestNonChineseWindows.test_f2_the_merger_alone_survives_it_too)
+把范围缩到真正炸的那一支:合并脚本自己。 ... ok
+test_f3_a_merger_that_spits_non_utf8_bytes_does_not_throw_a_stack_at_him (__main__.TestNonChineseWindows.test_f3_a_merger_that_spits_non_utf8_bytes_does_not_throw_a_stack_at_him)
+🔴 编码侧给了 `replace`,**解码侧还是 strict**(panel subglm 抓到,我自审两遍没看见)。 ... ok
+
+----------------------------------------------------------------------
+Ran 22 tests in 9.304s
+
+OK
+== 本单判据:静默安装不许卡住(s1~s4)
+test_s1_there_are_messageboxes_to_check (__main__.SilentInstallNeverBlocks.test_s1_there_are_messageboxes_to_check)
+先证明这道闸问得出东西 —— 一条都扫不到时它会永远绿。 ... ok
+test_s2_every_messagebox_has_a_silent_default (__main__.SilentInstallNeverBlocks.test_s2_every_messagebox_has_a_silent_default)
+🔴 每一条都必须有 `/SD` —— 没有它,静默安装就会停在那儿等人。 ... ok
+test_s3_the_data_loss_one_defaults_to_cancel (__main__.SilentInstallNeverBlocks.test_s3_the_data_loss_one_defaults_to_cancel)
+目录非空那条是唯一一个"选错了会删掉业主东西"的 —— 它的默认必须是取消。 ... ok
+test_s4_the_silent_default_is_written_where_nsis_accepts_it (__main__.SilentInstallNeverBlocks.test_s4_the_silent_default_is_written_where_nsis_accepts_it)
+🔴 `/SD` 必须写在**正文之后**,不是跟在 `MessageBox` 后面。 ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.001s
+
+OK
+== 邻近回归:合并脚本
+test_channels_untouched_and_backup_written (__main__.TestMergeConfig.test_channels_untouched_and_backup_written) ... ok
+test_dangling_preset_prefers_owner_own_preset (__main__.TestMergeConfig.test_dangling_preset_prefers_owner_own_preset) ... ok
+test_dangling_preset_with_no_owner_presets_falls_back_to_template (__main__.TestMergeConfig.test_dangling_preset_with_no_owner_presets_falls_back_to_template) ... ok
+test_default_merge_succeeds_and_preset_resolves (__main__.TestMergeConfig.test_default_merge_succeeds_and_preset_resolves) ... ok
+test_empty_or_missing_fields_fall_back_to_template (__main__.TestMergeConfig.test_empty_or_missing_fields_fall_back_to_template) ... ok
+test_existing_brain_survives_a_plain_remerge (__main__.TestMergeConfig.test_existing_brain_survives_a_plain_remerge) ... ok
+test_explicit_flags_still_win (__main__.TestMergeConfig.test_explicit_flags_still_win) ... ok
+test_model_override_creates_preset_and_repoints_default (__main__.TestMergeConfig.test_model_override_creates_preset_and_repoints_default) ... ok
+test_summary_prints_what_actually_landed (__main__.TestMergeConfig.test_summary_prints_what_actually_landed) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.366s
+
+OK
+== 邻近回归:不许冒黑窗口(豁免注释必须紧贴)
+<unknown>:246: SyntaxWarning: invalid escape sequence '\]'
+...
+----------------------------------------------------------------------
+Ran 3 tests in 0.228s
+
+OK
+== .nsi 静态闸(17 条,纯 Python,发版打包时也跑这一句)
+
+==== 静态闸 ====
+[PASS] G1 不要管理员权限(RequestExecutionLevel user)
+        实际:['user']
+[PASS] G2 装在 $LOCALAPPDATA\Programs 下,且全文不出现 $PROGRAMFILES
+        InstallDir=$LOCALAPPDATA\Programs\OpenDesign
+[PASS] G3 数据目录在安装根之外
+        DATA_ROOT=$LOCALAPPDATA\OpenDesign / INSTALL=$LOCALAPPDATA\Programs\OpenDesign
+[PASS] G4 默认卸载路径不碰业主数据
+[PASS] G5 删数据是单独的、默认不勾的可选段
+        删数据的段=['un.连我的资料一起删掉(不可恢复)'] / 默认不勾的段=['un.连我的资料一起删掉(不可恢复)']
+[PASS] G6 递归删安装目录之前先验哨兵文件
+        1 处递归删,每处之前都有哨兵
+[PASS] G7 不往 HKLM 写任何东西(读可以)
+[PASS] G8 卸载时删掉开机自启项
+        RUN_KEY=Software\Microsoft\Windows\CurrentVersion\Run
+[PASS] G9 写卸载条目、卸载时删掉它
+        UNINST_KEY=Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenDesign 写=True 删=True
+[PASS] G10 检测 WebView2 并在缺失时跑官方引导程序
+        读注册表=True 跑引导程序=True
+[PASS] G11 安装器不经手 key / 口令
+        出现了:[]
+[PASS] G12 Unicode true
+[PASS] G13 快捷方式指向启动器而不是 python.exe
+        3 个快捷方式
+[PASS] G16 快捷方式只在每用户上下文里动
+        建快捷方式的段=['${APP} 主程序', '在桌面上放一个图标'] 设了 current 的段=['${APP} 主程序', 'un.${APP}', 'un.连我的资料一起删掉(不可恢复)', '在桌面上放一个图标', '开机时自动启动']
+[PASS] G17 卸载器真会被生成,且卸载条目指的就是它
+        生成=['$INSTDIR\\卸载.exe'] 指向=['"$INSTDIR\\卸载.exe"']
+[PASS] G15 装进非空目录时会拦一下
+        回调 CheckDirEmpty:数了目录内容=True 会提醒=True
+[PASS] G14 开机自启是默认不勾的可选段
+        写自启的段=['开机时自动启动'] / 默认不勾的段=['开机时自动启动']
+[PASS] L1 静默启动(SilentInstall silent)
+[PASS] L2 不要管理员权限
+[PASS] L3 有自己的图标
+[PASS] L4 用 pythonw.exe 起(不留黑窗口)
+        Exec "$EXEDIR\python\pythonw.exe" "$EXEDIR\ds\bin\ds_shell.py"
+[PASS] L5 起完就退(Exec 不是 ExecWait)
+[PASS] L6 每一处组件检查都配一句中文提示
+        2 处检查 / 2 句提示
+---- 合计 23 条,0 条不合格 ----
+command-rc: 0
+head-after: bddf85ff7322751ce79213855655158cab239a1c
+source-view-after:  sha256:f8372c72c6e4fc8ece86e22541c4692147ae5361cbf5209b0a75e7176efde79b
+source-stable: yes
+---------------- 输出结束 ----------------
+runlog: oracle-final rc=0 commit=bddf85f dirty=yes final=yes at=2026-08-25T05:39:29Z file=tracks/opendesign-fresh-install-fix/evidence/20260825T053929Z-01-oracle-final.txt
