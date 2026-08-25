@@ -63,12 +63,33 @@ try {
     Say '1 下载安装包' "OK - $Asset,$mb MB"
 } catch { Say '1 下载安装包' "FAIL - $($_.Exception.Message)"; throw }
 
-# ── 2 静默安装(NSIS /S,每用户装到 %LOCALAPPDATA%\Programs) ────────
+# ── 2 静默安装(NSIS /S) ─────────────────────────────────────────
+# 🔴 **不用 -Wait**。第一跑(32798142734)在这里挂了 15 分钟、最后被我掐掉,
+#    而 -Wait 的形状是「卡住了就什么都看不见」—— 连一张能说明卡在哪的图都没有。
+#    NSIS 的规矩:`/S` 只跳过安装界面,**`MessageBox` 照弹**(除非带 /SD 默认值
+#    或被 IfSilent 挡住),而 installer/OpenDesign.nsi 里 4 个 MessageBox 一个都没有。
+#    所以这里改成:边等边截图、边列窗口标题 —— **让"它在等谁点确定"变成看得见的**。
 try {
     $sw = [Diagnostics.Stopwatch]::StartNew()
-    $p = Start-Process (Resolve-Path $setup) -ArgumentList '/S' -PassThru -Wait
+    $ip = Start-Process (Resolve-Path $setup) -ArgumentList '/S' -PassThru
+    $tick = 0
+    while (-not $ip.HasExited -and $sw.Elapsed.TotalMinutes -lt 8) {
+        Start-Sleep -Seconds 45; $tick++
+        Save-Screen ("{0}/2{1}-installing.png" -f $OutDir, $tick)
+        $t = Get-Process | Where-Object { $_.MainWindowTitle } |
+             ForEach-Object { "$($_.ProcessName):「$($_.MainWindowTitle)」" }
+        "  [装机中 $([int]$sw.Elapsed.TotalSeconds)s] 屏幕上的窗口: $(if($t){$t -join ' | '}else{'(无)'})"
+    }
     $sw.Stop()
-    Say '2 静默安装' "退出码 $($p.ExitCode),耗时 $([int]$sw.Elapsed.TotalSeconds)s"
+    if ($ip.HasExited) {
+        Say '2 静默安装' "退出码 $($ip.ExitCode),耗时 $([int]$sw.Elapsed.TotalSeconds)s"
+    } else {
+        Save-Screen "$OutDir/29-installer-stuck.png"
+        $t = Get-Process | Where-Object { $_.MainWindowTitle } |
+             ForEach-Object { "$($_.ProcessName):「$($_.MainWindowTitle)」" }
+        Say '2 静默安装' "FAIL - 8 分钟没退出,**卡住了**。屏幕上的窗口: $(if($t){$t -join ' | '}else{'(无标题窗口)'})"
+        Stop-Process -Id $ip.Id -Force -ErrorAction SilentlyContinue
+    }
 } catch { Say '2 静默安装' "FAIL - $($_.Exception.Message)" }
 
 # ── 3 装完了吗:查文件,不查安装器的自述 ────────────────────────────
