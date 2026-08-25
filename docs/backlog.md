@@ -433,3 +433,45 @@ e2e 从那天起谁也跑不动** —— 而总跑对此的说法是温和的 `S
 
 > 顺带一提,这一单对业主是**能立刻感觉到**的改进(文件数直接砍掉一半以上),
 > 而窗口动画那边卡在等真机数据 —— 排期上这一单应该在前面。
+
+## 🔴 全新的非中文 Windows 装不上:一句中文的成功提示把安装卡死(2026-08-25 云机器实测)
+
+**怎么发现的**:第一次把真安装包(0.97.0)搬上 GitHub 的云 Windows 机器跑
+(`.github/workflows/windows-package-probe.yml`,run 32801760571),不是推理。
+
+**一条链,每一环都对,合起来是坏的**:
+
+1. `ds_merge_config.py` **把配置写好了**(`args.target.write_text(...)` 已执行),
+   然后在最后一句成功提示上炸:
+   `print(f"ds_merge_config: 已合并 4 段进 …")` →
+   `UnicodeEncodeError: 'charmap' codec can't encode characters` (`encodings\cp1252.py`)。
+   **云机器是英文 Windows ⇒ stdout 的编码是 cp1252,写不出"已合并"三个字。**
+2. 提示炸了 ⇒ 退出码非 0 ⇒ `ds_provision.py:merge_template` 判定"配置合并失败"、
+   抛 `Trouble`;
+3. 而 provision 的顺序是"先在 `config.json.new` 上做完、最后原子换名",
+   `finally` 里**把临时文件删了** ⇒ **`config.json` 从来没出现过**;
+4. 安装器收到错误码 2 ⇒ 弹
+   `配置初始化没有成功(错误码 2)。` —— **而 NSIS 的 MessageBox 在 `/S` 静默安装下照弹**
+   (`installer/OpenDesign.nsi` 里 4 个 MessageBox **一个都没有 `/SD` 默认值**)
+   ⇒ 没人点确定 ⇒ **安装器永远不退出**;
+5. 软件照样能打开(窗口在),但 `外壳.log` 说
+   `还没装好:找不到配置文件 …\.nanobot\config.json`,`127.0.0.1:8766` 起不来。
+
+**业主受影响吗:目前不受。** 他两台都是中文 Windows(cp936),"已合并"编得出来 ⇒
+这一句不炸。**但换一台英文/其他语言的 Windows,这个软件装不上**,
+而且现象是"安装程序卡住不动 + 打开说没装好",不给任何线索。
+
+**要修两处(都很小)**:
+
+- **① 真因**:跑 `ds_merge_config.py` 的子进程强制 UTF-8
+  (`env` 加 `PYTHONUTF8=1`,provision 那边本来就是 `encoding="utf-8"` 收的);
+  或者别让"成功提示"有能力弄死一次成功的合并。
+- **② 防线**:`installer/OpenDesign.nsi` 的 4 个 `MessageBox` 全部补 `/SD`
+  —— 静默安装**永远不许卡在等人点确定**。这条与①无关,①修好了它也该补:
+  下一个错误照样会卡死。
+
+**顺带一条工艺账**:这一整条链上,**每一个环节都在做正确的事**
+(合并做完才换名、半份配置不留、失败要出声、装不上要告诉业主),
+合起来却成了"新机器装不上且不知道为什么"。
+**没有任何一条判据问过"整条路走完之后,config.json 在不在"** ——
+这正是这台云机器该长期回答的问题。
