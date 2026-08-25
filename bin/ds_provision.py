@@ -167,10 +167,19 @@ def merge_template(python_exe: str, ds_root: Path, cfg_path: Path) -> None:
     merger = ds_root / "bin" / "ds_merge_config.py"
     if not merger.is_file():
         raise Trouble(f"这份安装包不完整:找不到 {merger.name}\n请重新运行安装程序。")
+    # 🔴 两道保险都要:合并脚本自己会 `_talk_utf8()`,这里再把它的管道编码钉死。
+    # 理由是这条链上"提示写不出中文"曾经害得全新的非中文 Windows 整个装不上
+    # (2026-08-25 云机器实测)——而**盘上那份合并脚本不一定和这份一起更新**
+    # (业主可能在旧安装目录上覆盖安装)。判据:tests/test_ds_provision.py f1/f2。
+    env = dict(os.environ)
+    env["PYTHONIOENCODING"] = "utf-8"
     # no-console-exempt: 装机时由安装器的 nsExec 调用,跑在安装器自己的控制台里、
     # 装完就没了 —— 不是业主日常打开软件的路径。
+    # (这一行必须**紧贴**下面那个调用:我 08-25 把说明插在中间,豁免当场失效、
+    #  test_no_console_window 立刻红 —— 那道闸干得对,别把它挪开。)
     r = subprocess.run([python_exe, str(merger), str(template), str(cfg_path)],
-                       capture_output=True, text=True, encoding="utf-8", timeout=180)
+                       capture_output=True, text=True, encoding="utf-8", timeout=180,
+                       env=env)
     if r.returncode != 0:
         raise Trouble("配置合并失败:\n" + (r.stderr or r.stdout or "(没有输出)").strip()[:600])
 
@@ -242,7 +251,27 @@ def provision(home: Path, ds_root: Path, token: str | None, python_exe: str) -> 
     return cfg
 
 
+def _talk_utf8() -> None:
+    """把自己的 stdout/stderr 重设成 UTF-8。
+
+    🔴 **一句成功提示不该有能力弄死一次已经成功的合并**(2026-08-25,云机器实测
+    run 32801760571)。英文 Windows 上这个进程的 stdout 是 cp1252,写不出
+    "已合并"三个汉字 ⇒ `UnicodeEncodeError` ⇒ 退出码非零 ⇒ 上一层判定"合并失败"
+    ⇒ 临时配置被删 ⇒ **全新的非中文 Windows 装不上,而且现象是安装程序假死**。
+    配置那时其实早就写好了 —— 死的只是最后那句话。
+
+    `errors="replace"` 是刻意的:输出通道是给人看的,**它有权难看,没权杀进程**。
+    判据:tests/test_ds_provision.py 的 f1/f2。
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass   # 拿不到就算了:这一步是保险,不是功能
+
+
 def main(argv: list[str]) -> int:
+    _talk_utf8()
     ap = argparse.ArgumentParser(description="装完之后把配置弄到位(非交互、幂等)")
     ap.add_argument("--home", required=True, help="业主数据目录(%%LOCALAPPDATA%%\\OpenDesign\\UserData)")
     ap.add_argument("--ds-root", required=True, help="装好的 ds 目录(里面有 bin\\ 和 config\\)")

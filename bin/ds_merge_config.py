@@ -61,7 +61,27 @@ def deep_merge(dst: dict, src: dict) -> None:
             dst[k] = v
 
 
+def _talk_utf8() -> None:
+    """把自己的 stdout/stderr 重设成 UTF-8。
+
+    🔴 **一句成功提示不该有能力弄死一次已经成功的合并**(2026-08-25,云机器实测
+    run 32801760571)。英文 Windows 上这个进程的 stdout 是 cp1252,写不出
+    "已合并"三个汉字 ⇒ `UnicodeEncodeError` ⇒ 退出码非零 ⇒ 上一层判定"合并失败"
+    ⇒ 临时配置被删 ⇒ **全新的非中文 Windows 装不上,而且现象是安装程序假死**。
+    配置那时其实早就写好了 —— 死的只是最后那句话。
+
+    `errors="replace"` 是刻意的:输出通道是给人看的,**它有权难看,没权杀进程**。
+    判据:tests/test_ds_provision.py 的 f1/f2。
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass   # 拿不到就算了:这一步是保险,不是功能
+
+
 def main() -> int:
+    _talk_utf8()
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("template", type=Path)
     ap.add_argument("target", type=Path)
