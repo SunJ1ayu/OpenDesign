@@ -55,6 +55,46 @@ function Test-Blankness([string]$Path) {
     }
 }
 
+
+# 卡住时光有截图不够 —— 弹框可能被别的窗口盖住(第二跑就是这样:装机卡住那 8 分钟里
+# 屏幕上盖着 runner 自己的终端,弹框在它后面,图上一个字都看不见)。
+# 所以直接问 Windows 要那个框里的**文字**:枚举它的子控件,把 text 全掏出来。
+Add-Type @"
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+public class W32 {
+  public delegate bool EnumProc(IntPtr h, IntPtr l);
+  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc cb, IntPtr l);
+  [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr p, EnumProc cb, IntPtr l);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowTextW(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  public static string Text(IntPtr h) {
+    var sb = new StringBuilder(2048); GetWindowTextW(h, sb, 2048); return sb.ToString();
+  }
+}
+"@ -ErrorAction SilentlyContinue
+
+$script:dlg = @()
+function Dump-Dialogs([string]$Match = 'OpenDesign') {
+    $script:dlg = @()
+    $ccb = [W32+EnumProc]{ param($c, $m)
+        $ct = [W32]::Text($c); if ($ct) { $script:dlg += "    L $ct" }; return $true }
+    $cb = [W32+EnumProc]{ param($h, $l)
+        if ([W32]::IsWindowVisible($h)) {
+            $t = [W32]::Text($h)
+            if ($t -like "*$Match*") {
+                $script:dlg += "  window: [$t]"
+                [void][W32]::SetForegroundWindow($h)
+                [void][W32]::EnumChildWindows($h, $ccb, [IntPtr]::Zero)
+            }
+        }
+        return $true }
+    [void][W32]::EnumWindows($cb, [IntPtr]::Zero)
+    return $script:dlg
+}
+
 # ── 1 下载业主真正装的那个包 ──────────────────────────────────────
 try {
     & gh release download $Tag --repo $env:GITHUB_REPOSITORY --pattern $Asset --dir $OutDir --clobber
@@ -73,12 +113,13 @@ try {
     $sw = [Diagnostics.Stopwatch]::StartNew()
     $ip = Start-Process (Resolve-Path $setup) -ArgumentList '/S' -PassThru
     $tick = 0
-    while (-not $ip.HasExited -and $sw.Elapsed.TotalMinutes -lt 8) {
+    while (-not $ip.HasExited -and $sw.Elapsed.TotalMinutes -lt 3) {
         Start-Sleep -Seconds 45; $tick++
         Save-Screen ("{0}/2{1}-installing.png" -f $OutDir, $tick)
         $t = Get-Process | Where-Object { $_.MainWindowTitle } |
              ForEach-Object { "$($_.ProcessName):「$($_.MainWindowTitle)」" }
         "  [装机中 $([int]$sw.Elapsed.TotalSeconds)s] 屏幕上的窗口: $(if($t){$t -join ' | '}else{'(无)'})"
+        Dump-Dialogs | ForEach-Object { $_ }
     }
     $sw.Stop()
     if ($ip.HasExited) {
@@ -87,7 +128,10 @@ try {
         Save-Screen "$OutDir/29-installer-stuck.png"
         $t = Get-Process | Where-Object { $_.MainWindowTitle } |
              ForEach-Object { "$($_.ProcessName):「$($_.MainWindowTitle)」" }
-        Say '2 静默安装' "FAIL - 8 分钟没退出,**卡住了**。屏幕上的窗口: $(if($t){$t -join ' | '}else{'(无标题窗口)'})"
+        "---- 卡住时那个框里到底写的什么 ----"
+        Dump-Dialogs | ForEach-Object { $_ }
+        Save-Screen "$OutDir/29b-dialog-front.png"
+        Say '2 静默安装' "FAIL - 3 分钟没退出,**卡住了**。屏幕上的窗口: $(if($t){$t -join ' | '}else{'(无标题窗口)'})"
         Stop-Process -Id $ip.Id -Force -ErrorAction SilentlyContinue
     }
 } catch { Say '2 静默安装' "FAIL - $($_.Exception.Message)" }
