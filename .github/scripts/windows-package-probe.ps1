@@ -163,6 +163,7 @@ try {
 
 # ── 4 双击它(业主每天做的动作) ────────────────────────────────────
 try {
+    $script:launch = [Diagnostics.Stopwatch]::StartNew()
     Start-Process "$InstallDir\OpenDesign.exe" | Out-Null
     Say '4 启动' "OK - 已拉起 OpenDesign.exe"
 } catch { Say '4 启动' "FAIL - $($_.Exception.Message)" }
@@ -186,10 +187,22 @@ if ($wins) { Say '6 窗口在不在' "OK - $($wins -join ' | ')" }
 else { Say '6 窗口在不在' "FAIL - 一个有标题的顶层窗口都没有" }
 
 # ── 7 截图 + 白屏体检 ─────────────────────────────────────────────
+# 🔴 **一张图分不开"还在加载"和"真的白"**(0.98 那一跑:窗口开了、服务通了、
+#    日志零报错,而截图整块白 —— 这两种可能当时分不开,分不开就不许挑一个说)。
+#    所以隔一段拍一张,让"白不白"变成一条**随时间的曲线**:
+#    一路白到底 = 真白屏(0.93 那个至今没定案的病);中途有东西了 = 我截早了。
 try {
-    Save-Screen "$OutDir/11-app-window.png"
-    $b = Test-Blankness "$OutDir/11-app-window.png"
-    Say '7 截图与白屏体检' "颜色种类 $($b.Colors),近白像素 $($b.WhitePct)%（整块白≈颜色种类个位数 + 近白很高）"
+    $shots = @()
+    foreach ($wait in 0, 20, 30, 30, 60) {
+        if ($wait -gt 0) { Start-Sleep -Seconds $wait }
+        $t = [int]$script:launch.Elapsed.TotalSeconds
+        $f = "{0}/1{1}-app-{2}s.png" -f $OutDir, $shots.Count, $t
+        Save-Screen $f
+        $b = Test-Blankness $f
+        $shots += "启动后 ${t}s: 颜色 $($b.Colors) 种 / 近白 $($b.WhitePct)%"
+        "  [白屏体检] $($shots[-1])"
+    }
+    Say '7 截图与白屏体检' ($shots -join " | ")
 } catch { Say '7 截图与白屏体检' "FAIL - $($_.Exception.Message)" }
 
 # ── 8 把现场收走:外壳.log 是业主报"没按钮"时唯一的现场 ─────────────
