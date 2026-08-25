@@ -34,7 +34,7 @@ jobs:
           "user         = $env:USERNAME"
 
       - name: 四问探针(截图 + 像素核对)
-        shell: powershell
+        shell: pwsh
         run: .\.github\scripts\windows-gui-probe.ps1 -OutDir probe-out
 
       - name: 把图交出来
