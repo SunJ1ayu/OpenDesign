@@ -402,5 +402,32 @@ class TestNonChineseWindows(ProvisionTestBase):
 
 
 
+    def test_f3_a_merger_that_spits_non_utf8_bytes_does_not_throw_a_stack_at_him(self):
+        """🔴 编码侧给了 `replace`,**解码侧还是 strict**(panel subglm 抓到,我自审两遍没看见)。
+
+        `merge_template` 用 `text=True, encoding="utf-8"` 收子进程的输出 —— **strict**。
+        盘上那份合并脚本要是吐出非 UTF-8 字节(而那行注释自己写着"不一定和这份一起更新"),
+        `subprocess.run` 会在 **provision 自己这里**抛 `UnicodeDecodeError`。
+        那不是 `Trouble` ⇒ `main` 的 `except Trouble` 接不住 ⇒ **业主看到 Python 栈**,
+        而 `Trouble` 的第一句话就是「不许把 Python 栈甩给他 —— 他没有终端,也不是程序员」。
+
+        **和这一单修的病是同一个:同一条管道,两个方向,我只修了一个方向。**
+        """
+        (self.ds_root / "bin" / "ds_merge_config.py").write_text(
+            "import sys\n"
+            # bytes 字面量里只能放 ASCII —— 第一版我往里塞了中文,桩当场语法错、
+            # 压根没跑到写字节那一步,而判据照样绿(红在别处 = 等于没红检过)。
+            "sys.stdout.buffer.write(b'\\xff\\xfe these bytes are not utf-8')\n"
+            "sys.stdout.buffer.flush()\n"
+            "sys.exit(1)\n", encoding="utf-8")
+        r = self.run_provision()
+        out = r.stdout + r.stderr
+        self.assertNotIn("Traceback", out, "给业主看的不该是 Python 栈")
+        # 光看"没有栈"不够 —— 脚本压根没跑起来时也没有栈,这条会空绿。
+        self.assertIn("配置合并", out, "得说清楚是哪一步失败了")
+        self.assertNotEqual(r.returncode, 0, "合并真的失败了,不许当成功")
+
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
