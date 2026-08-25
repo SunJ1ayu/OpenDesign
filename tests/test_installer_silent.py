@@ -64,8 +64,14 @@ class SilentInstallNeverBlocks(unittest.TestCase):
 
         选哪个默认值是**人的判断**,规矩是:
         · 纯告知型(点完照样继续装)→ `/SD IDOK`,别让它拦住无人值守的安装;
-        · 涉及"可能删掉业主东西"的选择(目录非空那条)→ `/SD IDCANCEL`,
-          **静默时选保守的那一侧**:没人在场就不许替业主承担数据风险。
+        · 涉及"可能删掉业主东西"的选择(目录非空那条)→ `/SD IDCANCEL`
+          —— 但**它在 /S 下根本到不了**,原因见 s3。
+
+        ⚠️ **这道闸只扫 `OpenDesign.nsi`,别把它推广到 `installer/launcher.nsi`。**
+        launcher 是 `SilentInstall silent`(launcher.nsi:24),它那两个
+        **不带 `/SD` 的 MessageBox(:40,:45)是故意的** —— 那是业主唯一的报错出口。
+        谁哪天"顺手给它们也补上 /SD",就等于把业主最后一句人话砍掉了。
+        (panel subglm 的 INFO 发现,已核实。)
         """
         missing = [(ln, t.strip()[:60]) for ln, t in messagebox_calls() if "/SD" not in t]
         self.assertEqual(
@@ -76,8 +82,29 @@ class SilentInstallNeverBlocks(unittest.TestCase):
     def test_s3_the_data_loss_one_defaults_to_cancel(self):
         """目录非空那条是唯一一个"选错了会删掉业主东西"的 —— 它的默认必须是取消。
 
-        它长这样:`MB_OKCANCEL` + "点确定就用这个已经有东西的文件夹",
-        而卸载会把整个文件夹删掉。无人值守时点"确定" = 替业主承担了他没同意的风险。
+        它长这样:`MB_OKCANCEL` + "点确定就用这个已经有东西的文件夹",而卸载会把
+        整个文件夹删掉。交互安装时这条拦得住,所以 `/SD IDCANCEL` 该写还是要写。
+
+        🔴 **但别把这条读成"静默安装受保护了" —— 它不是**(2026-08-25 云机器实测,
+        run 32811517481,`.github/workflows/windows-nonempty-probe.yml`):
+
+            `CheckDirEmpty` 挂在 MUI 目录页的 **leave 回调**上
+            (`OpenDesign.nsi:82`),而 NSIS 在 `/S` 下跳过所有页面
+            ⇒ **这个函数根本不会被调用**,`/SD` 只在静默下起作用
+            ⇒ 那句 `/SD IDCANCEL` 在它唯一生效的模式里是**惰性**的。
+
+        实测三行(判读规则写在探针脚本头部,看结果之前):
+            /S /D=一个非空目录  →  退出码 0、40s **装进去了**(没有任何拦截)
+            装完                →  业主原有的文件还在、内容没变
+            静默卸载            →  **业主的文件没了**(哨兵认门通过 ⇒ RMDir /r 整棵删)
+
+        ⇒ 这是一个**存量**的数据损失口子(修这一单之前也一样),归后续单
+        `opendesign-silent-install-dir-guard`:静默安装撞见非空目录应当**拒装**,
+        而不是装进去、等卸载时把业主的东西一起带走。
+        **这道闸(纯文本扫描)问不出可达性 —— 上面那三行是机器量的,不是它验的。**
+
+        评审留痕:两条腿在这一点上给了相反答案(subglm 说不可达、submimo 说"正确的
+        保守侧"),而 submimo 那句是在复述我自己写错的理由 —— 所以才去量了一次。
         """
         okcancel = [(ln, t) for ln, t in messagebox_calls() if "MB_OKCANCEL" in t]
         self.assertEqual(1, len(okcancel),

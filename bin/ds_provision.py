@@ -178,8 +178,13 @@ def merge_template(python_exe: str, ds_root: Path, cfg_path: Path) -> None:
     # (这一行必须**紧贴**下面那个调用:我 08-25 把说明插在中间,豁免当场失效、
     #  test_no_console_window 立刻红 —— 那道闸干得对,别把它挪开。)
     r = subprocess.run([python_exe, str(merger), str(template), str(cfg_path)],
-                       capture_output=True, text=True, encoding="utf-8", timeout=180,
-                       env=env)
+                       capture_output=True, text=True, encoding="utf-8",
+                       # 🔴 解码侧也要 replace(panel subglm 抓到,我自审两遍没看见)。
+                       # 编码侧给了 replace、这里却还是 strict:盘上那份合并脚本
+                       # 吐出非 UTF-8 字节时,UnicodeDecodeError 在**这一行**抛出 ——
+                       # 那不是 Trouble,main 接不住 ⇒ 业主看到 Python 栈。
+                       # 同一条管道两个方向,只修一个方向不算修完。判据 f3。
+                       errors="replace", timeout=180, env=env)
     if r.returncode != 0:
         raise Trouble("配置合并失败:\n" + (r.stderr or r.stdout or "(没有输出)").strip()[:600])
 
