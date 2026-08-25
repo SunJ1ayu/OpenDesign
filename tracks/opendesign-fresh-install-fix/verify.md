@@ -34,7 +34,17 @@ runlog: oracle-final rc=0 commit=bddf85f dirty=yes final=yes at=2026-08-25T05:39
   installer/check-installer.py static  23 条,0 条不合格
 ```
 
-🔴 **前三份收据都作废了,原因逐份写在这儿,不许只留好看的那份:**
+🔴 **跑红过的那四遍,收据行逐字节贴在这儿,旁边写明为什么不算数** ——
+删掉才是造假,贴出来说清楚不是:
+
+```
+runlog: run-all rc=1 commit=da50f39 dirty=yes at=2026-08-25T03:02:59Z file=tracks/opendesign-fresh-install-fix/evidence/20260825T030259Z-01-run-all.txt
+runlog: run-all rc=1 commit=ae72029 dirty=yes at=2026-08-25T03:14:25Z file=tracks/opendesign-fresh-install-fix/evidence/20260825T031425Z-01-run-all.txt
+runlog: run-all rc=1 commit=98186e1 dirty=no final=yes at=2026-08-25T04:34:35Z file=tracks/opendesign-fresh-install-fix/evidence/20260825T043435Z-01-run-all.txt
+runlog: run-all rc=1 commit=526e559 dirty=no final=yes at=2026-08-25T05:12:18Z file=tracks/opendesign-fresh-install-fix/evidence/20260825T051218Z-01-run-all.txt
+```
+
+逐份说清楚:
 
 - `20260825T030259Z` —— **真红**:`test_no_console_window` 逮到我把
   `# no-console-exempt:` 注释和它守的 `subprocess.run` 之间插了说明 ⇒ 豁免当场失效。
