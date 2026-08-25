@@ -1,0 +1,34 @@
+# subdeepseek-agent explore log
+time: 2026-08-25T08:53:33+08:00
+mode: explore (agent base: claude-code headless -> deepseek)
+base_url: https://api.deepseek.com/anthropic
+model: deepseek-v4-flash
+repo: /root/.openclaw/workspace/projects/design-studio
+task: /root/aiwork/tasks/shell-reselect-brief.md
+视野: 底座腿 —— 自己读仓库(Read/Glob/Grep)+ 只读 git(自己跑 git diff/log/show)。
+
+Direction: 外壳整体换成 Electron——无边框窗口、托盘、单例、看护、更新全迁到 Electron 主进程，渲染层直接加载 `127.0.0.1:8766` 的网页，Python 只留后端，删掉 `ds_shell.py` + `ds_shell_core.py` 这两千多行。
+
+Core bet: 这个项目真正的敌人不是"pywebview 写不好窗口"，而是**外壳层对开发者零可见、零可测**。Electron 是唯一一种让外壳变成 HTML/JS/CSS、从而能在 Linux 上直接跑起来、用 Playwright 断言、并从 Linux 交叉打包出 Windows 安装包的方案。赌的是：验证路径的修复，比任何技术栈本身的优劣更能决定长期维护成本。
+
+How it works:
+- Python 侧收缩为纯后端，`127.0.0.1:8766` 那套服务照旧；`ds_shell.py`（1,234 行）与 `ds_shell_core.py`（1,093 行）连同其中 168 行 ctypes/Win32 直捅 Windows 的代码整体删除。
+- Electron 主进程接管外壳职责：无边框 BrowserWindow（隐藏标题栏 + 渲染层自绘最小化/最大化/关闭）、任务栏与托盘、单实例锁、进程看护（把 Python 服务作为子进程拉起/探活/崩溃重启）、首次填 key、应用内更新（Windows 走 NSIS 差分）。preload 只给渲染层暴露最小 API。
+- 网页本身几乎不动：还是那个单页应用，只是从 pywebview 的 `create_window` 换成 `BrowserWindow.loadURL`。
+- 结构性变化：外壳从"开发者这辈子跑不起来的 Windows 独有层"变成"开发者天天在跑的 Chromium + JS 层"。最小化/最大化/关闭动画是渲染层 CSS/JS，在 Linux 上就能断言和截图；WebView2 换成自带 Chromium 后，白屏那类"系统 WebView2 缺失/错版"的环境故障整类消失。
+
+Best at: 直接命中"唯一验证路径 = 打安装包发给人肉看"这个痛点。外壳的全部逻辑、状态、动画都可以在 Linux 上用 Playwright 断言甚至本地亲眼看；无边框 + 自绘按钮正是 Electron 生态被写过无数遍的成熟路径，而不再依赖 pywebview 作者自己承认"WinForms 有已知限制、旧 win32 已死、正解要等未发布的 7.0"的死胡同；electron-builder 从 Linux 交叉打 Windows 包是日常操作。五个版本烧在一件事上的历史，在这里变成"本地一个下午 + 真机一次确认"。
+
+Sacrifices: 放弃"只用一套运行时"的初衷，引入 Node 工具链，外壳从此是 JS，维护者要能读会改薄薄的 Electron 主进程（产品逻辑仍在 Python，不受影响）；包体积从 167MB 涨到约 350–400MB，单用户本机工具无所谓，若未来要广分发则变成硬伤；auto-updater 需要一个更新源，若现有更新机制是私有协议要重新接；如果事后发现使用者根本不想要无边框（原生标题栏就满足"像正常 Windows 软件"），这步就白重了——那时更便宜的答案是删掉自绘窗口、留在 pywebview。
+
+Blind spots in the brief:
+1. **最大的误框**："这一层没有任何自动化考卷验得了"——这是 pywebview（WinForms/WebView2/pythonnet）的事实，不是所有外壳的事实。Electron 的窗口层就是 HTML/JS，Linux 上用 Xvfb + Playwright 就能驱动断言。brief 把自家工具链的局限泛化成了"外壳不可验证"的普遍真理，这一框法本身就把答案锁死在"忍 pywebview 或换一个同样不可验证的本地层"里。
+2. **"无边框窗口"被当作既定事实，但它从未被评估过**：2026-08-13 决策表里根本没有"窗口控制"这一行，说明无边框是后来长出来的需求。brief 没问：这是谁提的？使用者真的在乎吗？烧掉的 5 个版本买的是一个可能从未被要求过的动画，而原生标题栏的最小化动画是系统免费给的、永远正确。这个方向赌审美价值真实存在，brief 却没有任何证据。
+3. **"开发者没有 Windows"被当绝对约束**，但没考虑 CI / 远程 Windows runner 这条路——它能补上编译 + 冒烟 + 部分 UI 自动化，改变"每轮都要人肉"的频率；不改变方向，但值得并入路线图。
+4. **白屏事故根因未定案**。brief 没把它归入"系统 WebView2 运行时环境故障"这一类来比较方案——Electron 自带 Chromium 恰好整类消除它，这一条本应是选型表里最重的一行。
+
+Smallest first step: 完全不上 Windows。在 Linux 上写一个最小 Electron 主进程：无边框窗口加载 `127.0.0.1:8766`，渲染层加自绘的最小化/最大化/关闭按钮和最小化动画，再写一个 Playwright 脚本断言"点最小化 → 窗口真的最小化；点最大化 → isMaximized() 为真；点关闭 → 进程退出"，并截图。一个下午就能验证核心赌注：那件烧了 5 个版本的事，在 Linux 上能不能被开发者亲眼看见、亲手断言。能，才谈打包与替换。
+
+------------------------------------------------------------
+turns: 2 / 上限 200
+(原始 stream-json:/root/aiwork/logs/explore-shell-reselect-20260825-085332.subdeepseek.stream.jsonl)

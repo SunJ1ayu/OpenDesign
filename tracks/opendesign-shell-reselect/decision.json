@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-shell-reselect",
+  "impact": {
+    "level": "self",
+    "factors": []
+  },
+  "design": {
+    "uncertainty": "high",
+    "premise_attack": {
+      "status": "done",
+      "evidence": [
+        "evidence/20260825-explore-01-mimo.log",
+        "evidence/20260825-explore-02-deepseek.log",
+        "evidence/20260825-explore-03-glm.log",
+        "evidence/20260825-explore-04-gpt56.md"
+      ]
+    }
+  },
+  "execution_plan": {
+    "adapter": "main",
+    "model": null
+  },
+  "outcome": {
+    "verdict": null
+  }
+}

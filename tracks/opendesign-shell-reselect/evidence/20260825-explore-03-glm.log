@@ -1,0 +1,38 @@
+# subglm-agent explore log
+time: 2026-08-25T08:53:35+08:00
+mode: explore (agent base: opencode CLI headless -> zhipu)
+base_url: https://opencode.ai/zen/go/v1
+model: go/glm-5.3
+repo: /root/.openclaw/workspace/projects/design-studio
+task: /root/aiwork/tasks/shell-reselect-brief.md
+视野: 底座腿 —— 自己读仓库(Read/Glob/Grep)+ 只读 git(自己跑 git diff/log/show)。
+
+Direction: 浏览器即外壳（本地服务模式）——删掉自研窗口层，用 Edge 的 PWA/app 窗口当壳，Python 退守“常驻服务 + 托盘 + 看护 + 更新”。
+
+Core bet: “用户看得到”这件事永远不该由本项目拥有的 Windows 原生代码负责。两台目标机上已经各装着一个由微软持续维护的 Chromium（Edge）——把窗口行为（最小化动画、贴靠、DPI、白屏）整体外包给它之后，剩下的代码全部落在 Linux 可验证的两层（网页 + Python 服务）里。附带赌注：使用者要的是“独立窗口 + 专属任务栏图标 + 双击就用”，而不是字面意义上的“一个 .exe”。
+
+How it works:
+- 壳 = 一个桌面/开始菜单项：把 `http://127.0.0.1:8766` 安装为 Edge PWA（manifest + 图标），得到独立窗口、专属任务栏图标、无浏览器 UI；实验期先用 `msedge --app=…` 快捷方式。
+- 标题栏：默认交还系统标准标题栏——“像正常 Windows 软件”的本义就是标准标题栏；确需品牌化再开 `display_override: ["window-controls-overlay"]`：三个窗口键由浏览器画、拖拽/贴靠/动画全归微软，网页只用 `env(titlebar-area-*)` 画底色，而那部分 CSS 在 Linux 的 Chromium 里就能开发自测。
+- 代码迁移：`ds_shell_core.py` 的端口/单实例锁/看护状态机是平台无关且已有考卷的，原样保留升格为服务本体；`ds_shell.py` 的 pywebview/pythonnet/ctypes 窗口层整层删除。前端对 `pywebview.api` 的依赖只剩窗口控制那几个方法（`tests/test_shell_window_contract.py` 钉的正是这层），随窗口栏一起消失——你们已经用 `/?shell=1` 地址标记和 Chrome e2e 把网页侧解耦，这条路的土已松了一半。
+- 首次填 key、更新提示本来就是网页+服务端逻辑。失败模式从“界面全白、只有眼睛能验”变成“HTTP 5xx/日志”，且使用者本人能在普通标签页打开同一 URL 念出错误——他成了可远程调用的诊断通道。
+
+Best at: 优化本项目真正稀缺的两样东西：真机验收往返次数、不可验证代码存量。在“开发者永远摸不到 Windows”的约束下，这是唯一把窗口层整个移出资产负债表的方向；壳体积≈0（Edge 免装、微软替你更新）；pywebview 作者自认无解的那一族 bug（#1749 族）从此是他的问题不是你的。
+
+Sacrifices: 失去“单一 exe”与安装向导的形态感；启动变“服务→浏览器窗口”两段式；窗口与托盘生命周期解耦（关窗≠退出）需向使用者解释一次；窗口层深度定制（异形窗、全局热键、多窗口编排）从此别想——brief 里没有这类需求；本地 8766 端口暴露给任意本地页面，需要一次性 token 的 URL（现状其实同样暴露，只是没人问）。若使用者真在意“必须是个传统 exe”，此方向全错。另外“等 pywebview 7.0/WinUI3”不在此列：archive 里已记有人试过报"incredibly laggy"，且换了后端依然不解决验证问题。
+
+Blind spots in the brief:
+1. **“无法在 Windows 上运行任何东西”被当成物理法则，其实是没修的基础设施**：GitHub Actions 的 windows-latest runner（或一台价格≈一次白跑验收的二手 Windows 机器）就能做“打包→装→启动→截图→像素断言”的自动考卷。“没有任何自动化考卷验得了”这句话本身是 brief 最大的盲点——无论换不换壳都该先修它。
+2. **“看起来像正常 Windows 软件”与“无边框+自绘按钮”是反义需求**：记事本、Word、资源管理器全有系统标准标题栏。烧掉 5 个版本的那个需求在 brief 里找不到需求方——选型表缺“窗口控制”一行只是症状，病根是没人问过“这是使用者要的还是开发者的审美”。
+3. **“不考虑工作量”是个误导性豁免**：这里稀缺的从来不是工时，而是验收往返和使用者的耐心——5 个版本、2 趟白跑烧的全是后者。按工时思维会倾向“一次性重写”（Tauri/Electron），而重写本身要烧掉好几轮白跑验收，花的恰是最贵的货币。
+4. 候选表少列了唯一一个已部署在两台目标机上、由微软免费维护的壳——浏览器本身；且 brief 通篇没问“本地 HTTP API 要不要鉴权”，浏览器当壳只是让这个既有问题显形。
+
+Smallest first step: 今天在 Linux 上就能做完：把现有 e2e（`tests/e2e/shell_chrome.e2e.mjs` 已在真 Chromium 里跑）换成 `--app` 窗口形态跑一遍，加一个最小 PWA manifest（name/icons/display），确认无 pywebview 注入时网页侧一切照常。然后在下一个本来就要发的安装包里，桌面多放一个指向 `msedge --app=http://127.0.0.1:8766` 的快捷方式，与 pywebview 壳并存，让使用者在例行验收时 A/B 回一句“哪个窗口用着正常”——用一次本已要花的往返，验证整个核心赌注。
+
+---- 工具轨迹(底座 stderr)----
+
+> aiwork-review · glm-5.3
+
+✱ Grep "pywebview" 100 matches
+✗ ls bin/ 2>/dev/null | head -30 failed
+Error: The user has specified a rule which prevents you from using this specific tool call. Here are some of the relevant rules [{"permission":"*","action":"allow","pattern":"*"},{"permission":"bash","pattern":"*","action":"deny"},{"permission":"bash","pattern":"git diff*","action":"allow"},{"permission":"bash","pattern":"git log*","action":"allow"},{"permission":"bash","pattern":"git status*","action":"allow"},{"permission":"bash","pattern":"git show*","action":"allow"}]

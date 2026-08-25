@@ -1,0 +1,49 @@
+# submimo explore log
+time: 2026-08-25T08:53:32+08:00
+mode: explore
+agent: aiwork-review
+repo: /root/.openclaw/workspace/projects/design-studio
+task: /root/.openclaw/workspace/projects/design-studio/.submimo-task-2084998.md
+model: xiaomi/mimo-v2.5-pro
+
+[0m
+> aiwork-review · mimo-v2.5-pro
+[0m
+## Direction
+
+**Tauri（Rust 壳 + 系统 WebView2）**
+
+## Core bet
+
+你真正的问题不是"哪个框架的无边框窗口更好"，而是**你在 Linux 上开发、却无法在 Windows 上验证任何东西**。Tauri 是唯一一个同时满足两个条件的方案：(1) 原生 Win32 窗口控制，不经过 WinForms 这层已知有坑的抽象；(2) 有成熟的 `tauri dev` 远程调试 + GitHub Actions Windows runner 的免费 CI 路径，让你在 Linux 上 push 代码、在 Windows 上自动跑截图/录屏验收，把"发包→人工肉眼→口头回话"这个验证循环从天级压到分钟级。
+
+## How it works
+
+- Tauri 的窗口管理直接调用 Win32 API（通过 `windows-rs` crate），无边框窗口、最小化动画、任务栏图标、托盘、单实例锁全是原生能力，不经过 WinForms/.NET 这层抽象。
+- 你的 Python 服务继续跑在 `127.0.0.1:8766`，Tauri 壳只负责窗口和系统集成，WebView2 加载那个地址。Python 逻辑零改动。
+- 成品 exe 只有几 MB（WebView2 已内置于 Windows 10 1803+），包体从 167 MB 降到约 10 MB 量级。
+- Rust 工具链是一次性成本：`rustup` + `cargo tauri build`，之后 CI 自动出包。
+
+## Best at
+
+**解决你描述的核心痛点：Linux 开发者对 Windows 窗口行为的验证瓶颈。** Tauri 的 CI 生态（`tauri-action`）可以在 GitHub Actions 的 Windows runner 上自动构建、自动跑 `WebDriver` 截图比对。你不再需要"发包给人装、肉眼看"——push 之后 5 分钟拿到截图 diff，白屏、错位、动画异常全在 PR 里可见。这一条直接消灭了"5 个版本、2 趟白跑、1 次全白事故"的根因。
+
+## Sacrifices
+
+- **引入 Rust 工具链。** 这是最大的代价。但 Rust 工具链是纯编译期依赖，不进运行时包体，不影响 Python 生态。且 `cargo` 的跨平台编译（Linux→Windows）比 pywebview 的 pythonnet/.NET 链成熟得多。
+- **需要重写 `ds_shell.py` 和 `ds_shell_core.py`（约 2,300 行）。** 但其中 168 行 ctypes/Win32 代码会被 Tauri 的原生 API 调用替代，其余 2,100 行大部分是窗口逻辑，用 Tauri 的 JS/Rust API 重写后会更短、更可测。
+- **`pystray` 不再需要。** Tauri 内置托盘支持，但你需要用 Rust 代码配置菜单，不再是 Python 一行搞定。
+
+## Blind spots in the brief
+
+1. **你问的是"外壳该由谁来当"，但真正的问题是"验证闭环怎么建"。** Brief 把 5 个版本的痛苦归因于 pywebview 的技术限制，但根因是 Linux→Windows 的验证延迟。即使 pywebview 7.0 完美解决了无边框窗口，你仍然无法在开发机上验证。换任何框架，如果不解决 CI 验证问题，都会重蹈覆辙。
+
+2. **Brief 没提 WebView2 的分发问题。** Windows 10 1803+ 自带 WebView2，但如果你的使用者恰好在更旧的系统上，需要额外分发 WebView2 Runtime（约 1.5 MB 引导器）。这不是大问题，但 brief 完全没提，说明可能没测过目标机器的 Windows 版本。
+
+3. **Brief 没问"窗口控制的自动化测试怎么做"。** 无论选哪个框架，无边框窗口的行为（拖拽、双击最大化、最小化动画、多显示器）都需要自动化验收。Brief 只问了框架选择，没问测试策略——但后者才是决定长期维护成本的关键变量。
+
+4. **167 MB 包体里 164 MB 是 Python 运行时，brief 把这当背景事实，但这是选型的核心约束。** 如果壳换了但 Python 运行时还在，包体问题没解；如果壳换了且能通过 HTTP API 调用 Python 服务（而不是内嵌 Python），那包体可以大幅缩小。Brief 没讨论这个方向。
+
+## Smallest first step
+
+在现有仓库里用 `cargo tauri init` 初始化一个最小 Tauri 项目，配置 `devUrl` 指向 `http://127.0.0.1:8766`，在 GitHub Actions 上加一个 Windows runner 跑 `cargo tauri build`，验证：(1) 窗口能加载你的 Python 服务页面；(2) CI 能自动出 .msi 安装包。这一步不碰任何 Python 代码，纯验证"壳能不能装上"。预计 2-3 小时。
