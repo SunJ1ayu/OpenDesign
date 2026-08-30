@@ -153,6 +153,34 @@ mutate_and_expect M18 bin/ds_shell.py test_s11_web_service_has_a_real_probe \
     except Exception:
         return True'
 
+# 🔴 四审孤腿 BLOCK 抓到的三条(2026-08-30 补)
+# M19 退回 urlopen —— 就是那条"配了系统代理的机器上软件根本打不开"的病
+mutate_and_expect M19 bin/ds_shell.py test_s13_probe_still_works_with_a_system_proxy_configured \
+  '        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(
+                f"http://127.0.0.1:{int(port)}/api/health", timeout=2) as r:' \
+  '        with urllib.request.urlopen(
+                f"http://127.0.0.1:{int(port)}/api/health", timeout=2) as r:'
+
+# 🔴 守卫型⑤:拿掉幂等闸 ⇒ 托盘还原会再上一次膛 ⇒ 必然超时 ⇒ 假诊断
+mutate_and_expect M20 bin/ds_shell.py test_s14_second_arm_does_not_start_a_second_watch \
+  '        if self._frame_watch is not None:
+            return' \
+  '        if False:
+            return'
+
+# 🔴 守卫型⑥:接线断掉 ⇒ 前端报了首帧也解不了看门 ⇒ 每次都误报,而其余判据照绿
+mutate_and_expect M21 bin/ds_shell.py test_s15_frame_submitted_disarms_the_watch \
+  '        if event == "frontend.frame_submitted":
+            self._shell.note_first_frame()' \
+  '        if False:
+            self._shell.note_first_frame()'
+
+# M22 关掉涂抹 ⇒ 业主的项目名/文件名又会随诊断包走
+mutate_and_expect M22 bin/ds_diag.py test_s16_request_lines_keep_the_endpoint_but_lose_the_names \
+  '        kept = "/" + "/".join(parts[:2])' \
+  '        kept = "/" + "/".join(parts)'
+
 echo
 echo "== 红检结果:咬住 $pass 条,漏网 $fail 条 =="
 [ "$fail" -eq 0 ] || exit 1

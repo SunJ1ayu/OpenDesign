@@ -1,0 +1,28 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    python
+cmd:     /root/.venvs/design-studio/bin/python tests/test_startup_diag.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  94fc656
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-30T08:52:51Z
+---------------- 输出开始 ----------------
+/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+  """主变更行 C 号 —— **五个写口共用这一个定义**。
+..../usr/lib/python3.12/unittest/case.py:638: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 46713)>
+  self.doCleanups()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+...F...............
+======================================================================
+FAIL: test_s16_request_lines_keep_the_endpoint_but_lose_the_names (__main__.S16BundleRedactsProjectPaths.test_s16_request_lines_keep_the_endpoint_but_lose_the_names)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 395, in test_s16_request_lines_keep_the_endpoint_but_lose_the_names
+    self.assertNotIn(leaked, body,
+AssertionError: '%E7%BF%A1' unexpectedly found in '2026-08-30 16:23:10 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -\n2026-08-30 16:23:10 127.0.0.1 - "GET /api/projects/王先生家/refs HTTP/1.1" 200 -\n2026-08-30 16:23:11 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -\n' : 诊断包里还带着业主的名字:'%E7%BF%A1'
+
+----------------------------------------------------------------------
+Ran 23 tests in 0.077s
+
+FAILED (failures=1)
+---------------- 输出结束 ----------------
+runlog: python rc=1 commit=94fc656 dirty=yes at=2026-08-30T08:52:51Z file=tracks/opendesign-startup-observability/evidence/20260830T085251Z-01-python.txt

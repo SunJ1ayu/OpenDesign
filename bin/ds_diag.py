@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import platform
+import re
 import secrets
 import struct
 import threading
@@ -42,6 +43,25 @@ _WV2_KEY = r"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-42
 # 参考图库当诱饵,证明它们一个都进不去。
 BUNDLE_LOGS = ("外壳.log", "工作台.log", "网关.log")
 BUNDLE_TAIL_BYTES = 256 * 1024
+
+# 🔴 请求行里的路径要涂抹(判据 s16;2026-08-30 四审 subdeepseek F3)。
+# 白名单只管到**文件级**:`工作台.log` 里的
+# `GET /api/files/overview/<项目名> HTTP/1.1` 会把业主的项目名和文件名带出去。
+# 我跟业主说过"包里不会有项目档案、客户资料" —— 文件级成立、内容级不成立,
+# 那是半真话。查启动只需要"打了哪个端点、什么状态",不需要知道是哪个客户
+# ⇒ 只留前两段路径,后面一律涂掉。
+_REQ_LINE = re.compile(r'"(?P<m>[A-Z]+) (?P<path>[^" ]+) (?P<v>HTTP/[\d.]+)"')
+
+
+def _redact_request_line(line: str) -> str:
+    def sub(m):
+        head = m.group("path").split("?", 1)[0]
+        parts = [p for p in head.split("/") if p]
+        kept = "/" + "/".join(parts[:2])
+        if len(parts) > 2:
+            kept += "/<已涂抹>"
+        return f'"{m.group("m")} {kept} {m.group("v")}"'
+    return _REQ_LINE.sub(sub, line)
 
 
 def webview2_version() -> str:
@@ -150,6 +170,14 @@ class StartupLog:
                     data = p.read_bytes()[-BUNDLE_TAIL_BYTES:]
                 except OSError:
                     continue
+                # 请求行里的路径涂抹掉(s16)。只对文本可解的部分做,解不出来就
+                # 原样带走 —— 涂抹失败绝不能让导出整个失败(观测层不当故障源)。
+                try:
+                    text = data.decode("utf-8", "replace")
+                    data = "".join(_redact_request_line(ln)
+                                   for ln in text.splitlines(keepends=True)).encode("utf-8")
+                except Exception:
+                    pass
                 z.writestr(f"Logs/{name}", data)
         return out
 

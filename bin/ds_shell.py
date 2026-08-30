@@ -132,10 +132,20 @@ def web_ready_probe(port: int) -> bool:
 
     🔴 **fail-closed**:任何异常都当成"还没就绪"。反过来写(拿不到就当好了)
     正是这个项目栽过的 fail-open 形状 —— 那样探针活着也等于没有。
+
+    🔴 **绝不能走系统代理**(判据 s13;2026-08-30 四审孤腿 BLOCK 抓到、我实测坐实)。
+    `urllib.request.urlopen` 对 127.0.0.1 **不绕过**代理:`proxy_bypass('127.0.0.1')`
+    就是 False,而 Windows 上 `ProxyOverride` 里的 `<local>` 只匹配无点主机名。
+    于是凡是配了系统代理的机器(公司代理、**以及 Clash 那类会设系统代理的 VPN 客户端**)
+    上,这个探针对**健康**的工作台一律返回 False ⇒ `_wait_ready` 死等到 60s 超时
+    ⇒ `StartupFailed` ⇒ **软件根本打不开**。
+    观测层绝不能成为新的故障源 —— 这条红线是本单自己写的,第一版亲手违反了它。
+    ⇒ 显式装一个空 `ProxyHandler`,任何环境里都直连。
     """
     import urllib.request
     try:
-        with urllib.request.urlopen(
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(
                 f"http://127.0.0.1:{int(port)}/api/health", timeout=2) as r:
             return r.status == 200
     except Exception:
@@ -1182,6 +1192,15 @@ class Shell:
     """
 
     def start_first_frame_watch(self):
+        """🔴 **只上一次膛**(判据 s14;四审孤腿 BLOCK 抓到)。
+
+        它挂在 `events.shown` 上,而**托盘还原(hide → show)会再发一次 Shown**。
+        再上一次膛的话:页面不会再报首帧(只在加载时报一次),而且 `report_from_ui`
+        按进程去重、连重报都会被丢 ⇒ 新看门**必然超时** ⇒ 业主每次从托盘还原
+        都换来一段假诊断。那就是"每次开机被骚扰"的原形,只是从弹框降级成了假日志。
+        """
+        if self._frame_watch is not None:
+            return
         self._frame_watch = ds_diag.FirstFrameWatch(
             timeout=self.FIRST_FRAME_TIMEOUT, on_timeout=self._first_frame_missing, emit=log)
         self._frame_watch.start()
@@ -1201,8 +1220,11 @@ class Shell:
         for name, ms in DIAG.milestones():
             log(f"[启动]   已到达 +{ms:.0f}ms {name}")
         try:
+            # 同样绕开系统代理(见 web_ready_probe 的注释)—— 这条是诊断路径,
+            # 走了代理只会让现场少一条信息,但没有理由留着同一个病的另一半。
             import urllib.request
-            with urllib.request.urlopen(
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(
                     f"http://127.0.0.1:{self.web_port}/api/health", timeout=3) as r:
                 log(f"[启动]   /api/health 通,HTTP {r.status}"
                     f" ⇒ 后端是活的,问题在网页那一层")

@@ -83,7 +83,6 @@ export function installStartupReporting(): void {
   report("frontend.bundle_started");
 }
 
-/** React 提交之后叫。等两帧再报 frame_submitted —— 一帧还在合成中。 */
 /** 等根节点真的有内容的帧预算。约 4 秒(60fps),之后才算"真的没画出来"。 */
 const FRAME_BUDGET = 240;
 

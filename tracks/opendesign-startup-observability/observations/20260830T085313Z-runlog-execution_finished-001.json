@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-startup-observability",
+  "run_id": "20260830T085313Z-01-python",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "python",
+  "started_at": "2026-08-30T08:53:13Z",
+  "finished_at": "2026-08-30T08:53:13Z",
+  "duration_ms": 217,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 0,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

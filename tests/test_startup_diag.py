@@ -363,5 +363,41 @@ class S15WiringFromUiToWatch(unittest.TestCase):
         self.assertTrue(sh._frame_watch._seen.is_set(),
                         "前端说画出来了,看门却没被解除 ⇒ 90s 后照样写假诊断")
 
+
+class S16BundleRedactsProjectPaths(unittest.TestCase):
+    """s16 诊断包里的请求行**不许带业主的项目名/文件名**。
+
+    🔴 四审 subdeepseek F3:白名单是**文件级**的,而 `工作台.log` 的请求行里
+    带着 `/api/files/file/<项目名>/<文件>`、`/api/projects/<项目名>/...` ——
+    项目 key 和文件路径(百分号编码的中文)会随包走。
+    **我在 08-30 跟业主说过"包里不会有项目档案、客户资料",文件级成立、内容级不成立
+    ⇒ 那是半真话。** 要么涂抹,要么把承诺改口;选涂抹 ——
+    查启动只需要知道"打了哪个端点、什么状态",不需要知道是哪个客户。
+    """
+
+    def test_s16_request_lines_keep_the_endpoint_but_lose_the_names(self):
+        tmp = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        logs = tmp / "Logs"; logs.mkdir()
+        (logs / "外壳.log").write_text("启动\n", encoding="utf-8")
+        (logs / "网关.log").write_text("网关\n", encoding="utf-8")
+        (logs / "工作台.log").write_text(
+            '2026-08-30 16:23:10 127.0.0.1 - "GET /api/files/overview/'
+            '%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -\n'
+            '2026-08-30 16:23:10 127.0.0.1 - "GET /api/projects/王先生家/refs HTTP/1.1" 200 -\n'
+            '2026-08-30 16:23:11 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -\n',
+            encoding="utf-8")
+        out = tmp / "诊断.zip"
+        d = ds_diag.StartupLog(emit=lambda _: None)
+        d.export_bundle(out, app_dir=tmp)
+        body = zipfile.ZipFile(out).read("Logs/工作台.log").decode("utf-8")
+
+        for leaked in ("%E7%BF%A1", "翡翠湾", "王先生家", "1801"):
+            self.assertNotIn(leaked, body,
+                             f"诊断包里还带着业主的名字:{leaked!r}")
+        # 但**诊断价值必须留住**:端点形状和状态码还得在,否则这份日志就没用了
+        self.assertIn("/api/files", body, "端点形状被涂没了 ⇒ 这份日志失去诊断价值")
+        self.assertIn("/api/health", body, "无参数的端点被误伤")
+        self.assertIn("200", body, "状态码被涂没了")
+
 if __name__ == "__main__":
     unittest.main()
