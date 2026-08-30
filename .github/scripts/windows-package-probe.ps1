@@ -40,7 +40,8 @@ function Say([string]$k, [string]$v) { $phases[$k] = $v; "PHASE $k : $v" }
 #    用**仓库里这一份**(和本脚本同版本),不是装出来的那份旧的。
 function Get-Verdict([string]$kind, $facts) {
     $judge = Join-Path $PSScriptRoot '..\..\bin\probe_verdict.py'
-    $py    = "$InstallDir\python\python.exe"
+    $py     = "$InstallDir\python\python.exe"
+    $errLog = Join-Path $OutDir ("judge-{0}.err" -f $kind)
     if (-not (Test-Path $judge)) { return "FAIL - 判定器不在:$judge" }
     if (-not (Test-Path $py))    { return "FAIL - 判定器跑不成:找不到 $py" }
     try {
@@ -50,10 +51,15 @@ function Get-Verdict([string]$kind, $facts) {
         #    run 33321769218 就是这么红的:第 8 相说三份日志全缺席,而同一秒第 9 相
         #    导出的包里它们明明在。纯 ASCII 的 JSON 任何代码页都打不坏。
         $json = $facts | ConvertTo-Json -Depth 6 -Compress -EscapeHandling EscapeNonAscii
-        $out  = $json | & $py $judge $kind 2>&1
-        $rc  = $LASTEXITCODE
+        # 🔴 **stdout 和 stderr 必须分开抓**。原来是 `2>&1`:判定器语法错/import 炸时
+        #    traceback 全在 stderr、stdout 是空的,合并之后"输出非空" ⇒ rc=1 穿过下面的
+        #    守卫 ⇒ **traceback 被当成裁决原样 Say 出去**,闸找不到 FAIL ⇒ exit 0。
+        #    第 2e 轮外部评审用一个语法错的判定器逐行模拟过。**裁决只能来自 stdout。**
+        $out  = $json | & $py $judge $kind 2>$errLog
+        $rc   = $LASTEXITCODE
     } catch { return "FAIL - 判定器炸了:$($_.Exception.Message)" }
-    if (-not $out) { return "FAIL - 判定器没有输出(rc=$rc)" }
+    $errText = if (Test-Path $errLog) { (Get-Content $errLog -Raw) } else { "" }
+    if (-not $out) { return "FAIL - 判定器没有输出(rc=$rc,stderr:$errText)" }
     # 🔴 **rc 只有 0(OK)和 1(FAIL)是裁决,别的都是"判定器自己坏了"**。
     #    上面那句 `2>&1` 把 stderr 并进了 $out,所以"输出非空"根本不等于"给了裁决":
     #    判定器 import 期炸(traceback 在 stderr)、kind 分发键被改名(rc=2 + 用法串),

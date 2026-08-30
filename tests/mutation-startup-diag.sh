@@ -258,7 +258,7 @@ mutate_and_expect M34 .github/scripts/windows-package-probe.ps1 test_s18_the_jud
 
 # M35 判定器跑不成时不再 fail-closed(判不了却当过了)
 mutate_and_expect M35 .github/scripts/windows-package-probe.ps1 test_s18_a_judge_that_does_not_run_is_a_FAIL_not_a_pass \
-  '    if (-not $out) { return "FAIL - 判定器没有输出(rc=$rc)" }' \
+  '    if (-not $out) { return "FAIL - 判定器没有输出(rc=$rc,stderr:$errText)" }' \
   '    if (-not $out) { return "OK" }' \
   '    if (-not (Test-Path $judge)) { return "FAIL - 判定器不在:$judge" }' \
   '    if (-not (Test-Path $judge)) { return "OK" }'
@@ -321,6 +321,53 @@ mutate_and_expect M44 .github/scripts/windows-package-probe.ps1 test_s18_the_sam
 mutate_and_expect M45 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_parameters_are_pinned_too \
   '                     -TimeoutSec 2 -Proxy $null' \
   '                     -TimeoutSec 2'
+
+# ── M46~M53:第 2e 轮 subdeepseek 实测的七种(采实层)+ stderr 当裁决那条 ─────
+# 🔴 采实层住在 .ps1 里、本机跑不了 ⇒ 只能静态钉;所以每一条都必须有变异证明它咬得动。
+
+# M46 stderr 并回裁决流 ⇒ 判定器语法错时 traceback 被当成裁决 ⇒ exit 0
+mutate_and_expect M46 .github/scripts/windows-package-probe.ps1 test_s18_stderr_can_never_become_a_verdict \
+  '        $out  = $json | & $py $judge $kind 2>$errLog' \
+  '        $out  = $json | & $py $judge $kind 2>&1'
+
+# M47 标题过滤的**取值**变空 ⇒ 同屏任何窗口都算我们的(2c 那批的原物)
+mutate_and_expect M47 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_is_pinned_not_just_referenced \
+  "\$appTitle = 'OpenDesign'" \
+  "\$appTitle = ''"
+
+# M48 匹配**方向**翻转 ⇒ 采的是"标题不含应用名"的窗口
+# 🔴 锚点必须唯一:`-like "*$Match*"` 在 Dump-Dialogs 里也有一份(而且在前面),
+#    工具只换第一处 ⇒ 第一版打到了另一个函数上,判据当然不红。今晚第三次栽这个。
+mutate_and_expect M48 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_is_pinned_not_just_referenced \
+  '            if ($t -like "*$Match*") {
+                $script:appwins' \
+  '            if ($t -notlike "*$Match*") {
+                $script:appwins'
+
+# M49 窗口类的**取参**错(拿 lParam)⇒ 类名恒空 ⇒ 报错框判成真窗口
+mutate_and_expect M49 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_is_pinned_not_just_referenced \
+  'Class = [W32]::Cls($h)' \
+  'Class = [W32]::Cls($l)'
+
+# M50 第 8 相"在不在"的**极性**翻转 ⇒ 健康趟每份都算缺席
+mutate_and_expect M50 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_is_pinned_not_just_referenced \
+  '        if (Test-Path $log) {' \
+  '        if (-not (Test-Path $log)) {'
+
+# M51 Say 不再落账 ⇒ 各相照样打印 FAIL,而闸读到的是空的 ⇒ 自报 FAIL 也 exit 0
+mutate_and_expect M51 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_is_pinned_not_just_referenced \
+  'function Say([string]$k, [string]$v) { $phases[$k] = $v; "PHASE $k : $v" }' \
+  'function Say([string]$k, [string]$v) { "PHASE $k : $v" }'
+
+# M52 轮询退出条件的**极性**翻转 ⇒ 健康时空转、坏时提早判红
+mutate_and_expect M52 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_is_pinned_not_just_referenced \
+  '    if ($answers.Values | Where-Object { $_ }) { break }' \
+  '    if ($answers.Values | Where-Object { -not $_ }) { break }'
+
+# M53 事实映射取错**属性名** ⇒ 每个窗口的 cls 都是 null ⇒ 报错框全判成真窗口
+mutate_and_expect M53 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_is_pinned_not_just_referenced \
+  'cls = $_.Class' \
+  'cls = $_.cls'
 
 echo
 echo "== 红检结果:咬住 $pass 条,漏网 $fail 条 =="
