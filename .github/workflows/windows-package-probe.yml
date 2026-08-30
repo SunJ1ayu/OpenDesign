@@ -48,4 +48,5 @@ jobs:
           path: |
             probe-out/*.png
             probe-out/*.log
+            probe-out/*.zip
           if-no-files-found: warn

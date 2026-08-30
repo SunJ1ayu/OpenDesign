@@ -205,14 +205,75 @@ try {
     Say '7 截图与白屏体检' ($shots -join " | ")
 } catch { Say '7 截图与白屏体检' "FAIL - $($_.Exception.Message)" }
 
-# ── 8 把现场收走:外壳.log 是业主报"没按钮"时唯一的现场 ─────────────
+# ── 8 把现场收走 ───────────────────────────────────────────────
+# 🔴 2026-08-30 业主一句「你的机子是 linux,github 的云 windows 你不一定看得全是不是」
+#    问出来的:这里原来**只收 外壳.log** —— 而 0.98.1 改的时间戳有一半在 工作台.log 上,
+#    那一半在 Windows 上从没被验证过。三份一起收,别再自己给自己留盲区。
 try {
-    $log = "$DataRoot\Logs\外壳.log"
-    if (Test-Path $log) {
-        Copy-Item $log "$OutDir/外壳.log" -Force
-        Say '8 收日志' "OK - 外壳.log $((Get-Item $log).Length) 字节"
-    } else { Say '8 收日志' "FAIL - 没有 $log" }
+    $names = @('外壳.log', '工作台.log', '网关.log')
+    $got = @()
+    foreach ($n in $names) {
+        $log = "$DataRoot\Logs\$n"
+        if (Test-Path $log) {
+            Copy-Item $log "$OutDir/$n" -Force
+            $got += "$n $((Get-Item $log).Length)B"
+        } else { $got += "$n 缺席" }
+    }
+    Say '8 收日志' ($got -join " | ")
 } catch { Say '8 收日志' "FAIL - $($_.Exception.Message)" }
+
+# ── 9 托盘导出诊断:在 Windows 上真跑一遍那段代码 ────────────────────
+# 🔴 同一问问出来的第二个盲区:探针不做任何交互 ⇒ 0.98.1 的**主打功能**
+#    「导出本次启动诊断」在 Windows 上**一次都没跑过**。右键点托盘不好自动化,
+#    但那段代码本身可以用装好的那个 python 直接跑 —— 至少证明中文文件名、
+#    zip、路径这些在真 Windows 上是成立的(不能证明菜单点得动,那条留给业主)。
+try {
+    $py = "$InstallDir\ds\python\python.exe"
+    $code = @"
+import sys, zipfile
+sys.path.insert(0, r'$InstallDir\ds\bin')
+import ds_diag
+d = ds_diag.StartupLog(emit=lambda s: None)
+out = r'$OutDir\诊断包-windows.zip'
+d.export_bundle(out, app_dir=r'$DataRoot')
+print('NAMES=' + '|'.join(zipfile.ZipFile(out).namelist()))
+"@
+    $r = & $py -c $code 2>&1
+    Say '9 托盘导出诊断(直接跑那段代码)' ("$r" -replace "`r?`n", " ")
+} catch { Say '9 托盘导出诊断(直接跑那段代码)' "FAIL - $($_.Exception.Message)" }
+
+# ── 10 带系统代理再启动一次:验 0.98.1 修的那个"软件打不开" ──────────
+# 🔴 第三个盲区,而且是最要命的:CI 机器上**没有系统代理**,而业主机器上**有**
+#    (跑着 VPN)。0.98.1 修的正是"就绪探针走了系统代理 ⇒ 死等 60s ⇒ 启动失败"。
+#    不在这儿造一个代理,那个修复在 Windows 上就是**未验证**的。
+try {
+    Get-Process OpenDesign, pythonw, python -ErrorAction SilentlyContinue |
+        Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 3
+    $env:HTTP_PROXY  = 'http://127.0.0.1:9'    # 9 端口没人听 = 走代理必失败
+    $env:HTTPS_PROXY = 'http://127.0.0.1:9'
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    Start-Process "$InstallDir\OpenDesign.exe"
+    $ok = $false
+    while ($sw.Elapsed.TotalSeconds -lt 90) {
+        Start-Sleep -Seconds 5
+        try {
+            $h = Invoke-WebRequest -Uri 'http://127.0.0.1:8766/api/health' -UseBasicParsing `
+                 -TimeoutSec 5 -Proxy $null
+            if ($h.StatusCode -eq 200) { $ok = $true; break }
+        } catch { }
+    }
+    Remove-Item Env:HTTP_PROXY, Env:HTTPS_PROXY -ErrorAction SilentlyContinue
+    Save-Screen "$OutDir/30-proxy-launch.png"
+    $b2 = Test-Blankness "$OutDir/30-proxy-launch.png"
+    if ($ok) {
+        Say '10 带系统代理启动' ("OK - {0}s 起来了,颜色 {1} 种 / 近白 {2}%" -f `
+            [int]$sw.Elapsed.TotalSeconds, $b2.Colors, $b2.WhitePct)
+    } else {
+        Say '10 带系统代理启动' "🔴 FAIL - 90s 没起来 ⇒ 代理修复在真 Windows 上不成立"
+    }
+    Copy-Item "$DataRoot\Logs\外壳.log" "$OutDir/外壳-带代理.log" -Force -ErrorAction SilentlyContinue
+} catch { Say '10 带系统代理启动' "FAIL - $($_.Exception.Message)" }
 
 Get-Process OpenDesign, pythonw, python -ErrorAction SilentlyContinue |
     Stop-Process -Force -ErrorAction SilentlyContinue

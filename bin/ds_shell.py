@@ -1287,10 +1287,14 @@ class Shell:
 
 
 def main() -> int:
+    DIAG.mark("main.entered")
     log(f"==== {APP} 外壳启动 ====")
     # 版本清单先写 —— 万一后面炸了,至少知道是哪一版、哪个内核上炸的。
     # (08-25 白屏那晚我们连内核版本都得靠业主去翻文件夹。)
     log(DIAG.manifest())
+    # manifest() 里会 import ds_web 拿版本号(唯一来源)。它是**我自己塞进这段窗口的
+    # 成本**,所以必须单独计一笔 —— 免得将来查慢的时候查到自己头上还不知道。
+    DIAG.mark("manifest.done")
     shell_holder: list[Shell] = []
 
     # ① 单实例。第二次双击走到这里就退出了,窗口由第一份自己叫到前台。
@@ -1368,6 +1372,12 @@ def main() -> int:
         lock.release()
     return 1
 
+
+# 🔴 模块体走完 = 所有 import 都办完了。这一条把"进程起来 → 拿到锁"那个
+#    9.4 秒的黑块切开(判据 s17):云机器上它是全程最大的一块,而在 Linux 上
+#    整条 import 链只要 130ms —— 差 70 倍,差的是 I/O 不是算力。
+#    切开之后才知道到底是 import 慢、还是锁那一步慢。
+DIAG.mark("shell.imports_done")
 
 if __name__ == "__main__":
     sys.exit(main())

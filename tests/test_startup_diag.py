@@ -419,12 +419,26 @@ class S17TheBigBlobIsSplit(unittest.TestCase):
             self.assertIn(f'DIAG.mark("{name}")', src,
                           f"开头那一大块少了里程碑 {name!r} ⇒ 它仍然是个黑块")
 
-    def test_s17_marks_come_in_the_right_order_in_the_source(self):
-        """顺序也要对 —— 里程碑打乱了,时间线就会撒谎。"""
-        src = (ROOT / "bin" / "ds_shell.py").read_text(encoding="utf-8")
-        pos = [src.index(f'DIAG.mark("{n}")') for n in self.NEEDED]
-        self.assertEqual(pos, sorted(pos),
-                         f"里程碑在源码里的先后和它们该发生的顺序不一致:{self.NEEDED}")
+    def test_s17_imports_done_is_marked_before_main_ever_runs(self):
+        """顺序要对 —— 但**按执行顺序判,不按源码顺序判**。
+
+        🔴 第一版这条判的是"谁在源码里靠前",当场红了 —— 而**红的是我的题面不是代码**:
+        `shell.imports_done` 写在文件末尾,执行却在 `main()` **之前**(模块体先跑完)。
+        结构断言在这里问错了问题,改成真去 import 一次、看它到底先记了什么。
+        """
+        import subprocess, sys as _sys
+        out = subprocess.run(
+            [_sys.executable, "-c",
+             "import sys; sys.path.insert(0, %r)\n"
+             "import ds_shell\n"
+             "print([n for n, _ in ds_shell.DIAG.milestones()])" % str(ROOT / "bin")],
+            capture_output=True, text=True, timeout=60)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        names = out.stdout.strip()
+        self.assertIn("shell.imports_done", names,
+                      "光 import 一次,imports_done 就该已经记下了")
+        self.assertNotIn("main.entered", names,
+                         "还没调用 main() 就记了 main.entered ⇒ 时间线会撒谎")
 
 if __name__ == "__main__":
     unittest.main()
