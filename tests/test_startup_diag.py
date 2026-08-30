@@ -459,156 +459,71 @@ def _probe_phase(src: str, n: str) -> str:
     return "\n".join(ln for ln in lines[start:end] if not ln.lstrip().startswith("#"))
 
 
-def _guard_of(sec: str, line: str) -> str:
-    """返回**贴着 `line` 的那个 if/elseif**(它上面最近的一条),没有就返回空串。
+class S18ProbeAsksTheJudgeAndSaysWhatItAnswers(unittest.TestCase):
+    """s18 探针只负责**采事实**,判定必须去问 `bin/probe_verdict.py`。
 
-    🔴 为什么不能只问"这一段里有没有一个提到 $miss 的 if":第 8 相里
-    `if ($required -contains $n) { $miss += $n }` 是**累加**用的,它天然提到 $miss ——
-    于是把真正的守卫改成 `if ($false)` 之后,判据被那条累加行喂饱、照样绿。
-    这是 M27 当场照出来的(2026-08-30),和 M25 是同一种病:**问错了对象**。
-    """
-    code = [ln for ln in sec.splitlines() if not ln.lstrip().startswith("#")]
-    try:
-        idx = next(i for i, ln in enumerate(code) if ln.strip() == line.strip())
-    except StopIteration:
-        return ""
-    for i in range(idx - 1, -1, -1):
-        st = code[i].lstrip()
-        if st.startswith("if (") or st.startswith("} elseif (") or st.startswith("elseif ("):
-            return code[i]
-    return ""
+    🔴 2026-08-30 深夜重写。原来这一整套是**静态断言**(读 .ps1 源码问"这句话在不在"),
+    今晚被连打回十几次,最后 subdeepseek 自己变异 8 种改法逐条执行、每一种都全绿。
+    结论:**字面断言够不着语义**。判定已经搬进 `probe_verdict.py`(行为判据见 s19),
+    这里只剩一件**静态的事非钉不可** —— 探针有没有真的去问它、有没有把答案原样说出来。
 
-
-class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
-    """s18 探针里「机器能独自断定的那几件」必须真的翻译成 FAIL。
-
-    来源:08-30 第二轮外部评审(subdeepseek)报的两条 MEDIUM,我逐行核过,成立。
-    探针文件头自称闸覆盖「窗口在不在、文件在不在」,而实际上:
-
-      · 第 8 相三份日志**全缺席**只写「缺席」两个字、不带 FAIL ⇒ 末尾闸
-        (`-match 'FAIL'`)看不见它 ⇒ 应用根本没起来、交件是空的,整趟还是绿的;
-      · 第 6 相认「标题里带 OpenDesign 的窗口」,而 `ds_shell.py` 的 `alert()/die()`
-        弹的报错框标题**正是** APP = `OpenDesign` ⇒ WebView2 缺失这类
-        「软件根本打不开」会走成:后端活着(第 5 相 OK)+ 屏幕上只有报错框(第 6 相 OK)
-        ⇒ **整趟绿**。这正是这支探针存在的理由那一类(0.89 装完打开就崩)。
-
-    网关.log 允许缺席(网关本来就可能没起),外壳/工作台两份不允许 —— 它们缺席
-    等于「现场是空的」。
-
-    这支探针**本机跑不了**(没有 pwsh),判据只能是静态的;所以每一条都在
-    `tests/mutation-startup-diag.sh` 里配了变异,证明它咬得动、不是摆设。
+    这一条本机验不了(没有 pwsh),所以配的变异(M23~M28)全是"把接线剪掉"。
     """
 
-    def test_s18_a_missing_required_log_is_a_FAIL(self):
-        sec = _probe_phase(PROBE.read_text(encoding="utf-8"), "8")
-        says = [ln for ln in sec.splitlines() if "Say '8 收日志'" in ln]
-        self.assertTrue(says, "第 8 相一条 Say 都没有")
-        own = [ln for ln in says if "FAIL" in ln and "$_.Exception.Message" not in ln]
-        self.assertTrue(own, "第 8 相唯一的 FAIL 是「脚本自己抛异常」——"
-                             "日志缺席(应用根本没写出来)不带 FAIL ⇒ 末尾闸看不见 ⇒ 整趟绿")
-        # 🔴 光有 FAIL 文案**不够**:把守卫改成 `if ($false)` 之后文案原封不动地留在那儿,
-        #    而那条 FAIL 永远走不到(第 2b 轮外部评审报的 F1,我亲手复现过)。
-        #    ⇒ 还要问:这条 FAIL 是被「缺了谁」这个机器事实够到的吗。
-        guard = _guard_of(sec, own[0])
-        self.assertIn("$miss", guard,
-                      "贴着这条 FAIL 的守卫不是「缺了哪几份必须日志」("
-                      f"实际是 {guard.strip()!r})⇒ 守卫被改成常量它也发现不了")
+    KINDS = {"5 服务活了吗": "health", "6 窗口在不在": "window",
+             "8 收日志": "logs", "10 带系统代理启动": "health"}
 
-    def test_s18_the_required_logs_are_named(self):
-        sec = _probe_phase(PROBE.read_text(encoding="utf-8"), "8")
-        code = [ln for ln in sec.splitlines() if not ln.lstrip().startswith("#")]
-        req = [ln for ln in code if "$required" in ln and "@(" in ln]
-        self.assertTrue(req, "第 8 相没有「哪几份是必须有的」这个清单 ⇒ 缺谁都一样宽")
-        for name in ("外壳.log", "工作台.log"):
-            self.assertIn(name, req[0], f"{name} 不在必须清单里 ⇒ 它缺席也不会红")
-        # 🔴 光有清单、光有 FAIL,还差**把两者连起来的那一行**:$miss 必须是按
-        #    「在不在必须清单里」攒的。第 2b 轮外部评审(subkimi,超时前把报告写完了)
-        #    报的 F1,我亲手复现过两种改法,判据都全绿:
-        #      · `$required -contains $n` → `$false`:$miss 永远空 ⇒ FAIL 永远走不到;
-        #      · `$required` → `$names`:三份全变必须 ⇒ 网关合法缺席 ⇒ **健康趟趟假红**。
-        # 🔴 同轮 submimo 报的:`$required` 的内容对、`$names` 里却没有它 ⇒ 循环走不到 ⇒
-        #    该红不红。两份清单的**包含关系**也得钉。
-        import re as _re
-        names_ln = [ln for ln in code if "$names" in ln and "@(" in ln]
-        self.assertTrue(names_ln, "第 8 相没有「要收哪几份日志」这个清单")
-        want = set(_re.findall(r"'([^']+)'", req[0]))
-        have = set(_re.findall(r"'([^']+)'", names_ln[0]))
-        self.assertTrue(want and want <= have,
-                        f"必须清单 {sorted(want)} 不是收集清单 {sorted(have)} 的子集 ⇒ "
-                        "循环压根走不到它,缺了也攒不进 $miss(该红不红)")
-        acc = [ln for ln in code if "$miss" in ln and "+=" in ln]
-        self.assertTrue(acc, "第 8 相没有把「缺了的必须日志」攒起来")
-        for ln in acc:
-            where = ln if "if (" in ln else _guard_of(sec, ln)
-            self.assertIn("$required", where,
-                          f"攒 $miss 的依据不是那份必须清单(实际是 {where.strip()!r})⇒ "
-                          "要么永远攒不到(该红不红),要么把网关也算必须(健康趟趟假红)")
-            # 🔴 极性(第 2c 轮 subgemini 报的):`-contains` 翻成 `-notcontains`,
-            #    "$required" 三个字还在,而网关.log 变成永远缺席 ⇒ **趟趟假红**。
-            #    ("-notcontains" 里没有 "-contains" 这个子串,所以这样判是准的。)
-            self.assertIn("-contains", where,
-                          f"判「是不是必须的」极性反了(实际是 {where.strip()!r})⇒ "
-                          "豁免的那份会被当成必须 ⇒ 每一趟健康的 run 都假红")
+    def _code(self, sec: str) -> list:
+        return [ln for ln in sec.splitlines() if not ln.lstrip().startswith("#")]
 
-    def test_s18_the_window_phase_can_tell_a_message_box_from_the_app(self):
+    def test_s18_the_judge_is_asked_in_every_machine_decided_phase(self):
         src = PROBE.read_text(encoding="utf-8")
-        # 🔴 同样要滤注释(F3):本文件其余三条都滤了,只有这条查全文 ——
-        #    下次有人在注释里提一嘴 GetClassNameW,它就变成"删代码留注释也绿"。
-        src_code = "\n".join(ln for ln in src.splitlines()
-                             if not ln.lstrip().startswith("#") and not ln.lstrip().startswith("//"))
-        self.assertIn("GetClassNameW", src_code,
-                      "W32 没有暴露窗口类名 ⇒ 探针分不开「报错框」和「真窗口」")
-        sec = _probe_phase(src, "6")
-        # 🔴 第一版这里写的是「这一段里有没有 #32770」—— **红检当场证明它是瞎的**:
-        #    M25 把分类那一刀撤掉($box = @())之后,FAIL 的**文案**里还留着
-        #    "窗口类 #32770" 这几个字,断言照样绿。字面满足不了判定。
-        #    ⇒ 改成盯**那个判定**:报错框这一类必须由「窗口类 == #32770」算出来。
-        box = [ln for ln in sec.splitlines() if "$box" in ln and "=" in ln]
-        self.assertTrue(box, "第 6 相没有把「报错框」单独算成一类")
-        # 🔴 **极性也要钉**:`-eq` 抄成 `-ne` 只差一个字符,$box/$real 就变成同一堆,
-        #    "只有报错框"的屏幕会走 $ours 兜底判 OK ⇒ 产品级假绿。
-        #    (第 2b 轮外部评审报的 F2,我亲手复现过:翻极性,四条判据全绿。)
-        self.assertTrue(any(".Class" in ln and "-eq" in ln and "#32770" in ln for ln in box),
-                        "「报错框」不是由「窗口类 -eq #32770」算出来的 —— 极性反了或换了依据,"
-                        "MessageBoxW 那个框(标题就是 OpenDesign)会被当成「窗口在」")
-        # 🔴 第 2c 轮 subgemini 报的:光钉 $box 不够,**整条数据流**每一环都能被抽掉,
-        #    而判据一环都不看。我亲手复现过两条:
-        #      · `$real = @($wins)`:真窗口集合把框也算进去 ⇒ "只有框"永远不成立 ⇒ 假绿;
-        #      · `$wins = @(Get-AppWindows '')`:什么窗口都匹配 ⇒ $real 非空 ⇒ 同样假绿。
-        code = [ln for ln in sec.splitlines() if not ln.lstrip().startswith("#")]
-        real = [ln for ln in code if ln.lstrip().startswith("$real") and "=" in ln]
-        self.assertTrue(real, "第 6 相没有「真窗口」这一类")
-        self.assertTrue(any(".Class" in ln and "-ne" in ln and "#32770" in ln for ln in real),
-                        "「真窗口」不是「窗口类 -ne #32770」—— 它把报错框也算进去的话,"
-                        "「只有框」这条 FAIL 永远不成立")
-        wins = [ln for ln in code if ln.lstrip().startswith("$wins") and "=" in ln]
-        self.assertTrue(wins, "第 6 相没有取窗口清单")
-        self.assertTrue(any("Get-AppWindows" in ln and "$appTitle" in ln for ln in wins),
-                        "窗口清单不是按应用标题取的 ⇒ 同屏任何窗口都会被当成真窗口")
+        for phase, kind in self.KINDS.items():
+            sec = _probe_phase(src, phase.split()[0])
+            code = "\n".join(self._code(sec))
+            self.assertIn(f"Get-Verdict '{kind}'", code,
+                          f"第 {phase} 相没有去问判定器 ⇒ 它又在自己判,而自己判的那套"
+                          "本机验不了(今晚被打回十几次的就是它)")
+            self.assertIn("Say", code, f"第 {phase} 相没把判定器的答案说出来")
 
-    def test_s18_the_window_lister_reports_title_and_class(self):
-        """`Get-AppWindows` 自己也要被钉:它是第 6 相唯一的窗口类来源。
+    def test_s18_the_judge_is_the_repo_copy_not_the_installed_one(self):
+        """判定器要用**仓库里这一份**(和探针同版本),不是装出来的那份旧的。"""
+        src = "\n".join(self._code(PROBE.read_text(encoding="utf-8")))
+        self.assertIn("probe_verdict.py", src, "没有引用判定器")
+        self.assertIn("$PSScriptRoot", src,
+                      "判定器不是按脚本自身位置找的 ⇒ 会去用装出来的那份(版本对不上)")
 
-        第 2c 轮 subgemini 指出的同一条数据流:判据只看第 6 相那一段,
-        而**辅助函数在段外** —— 把标题过滤或类名取值抽掉,第 6 相一个字不用改。
-        """
+    def test_s18_a_judge_that_does_not_run_is_a_FAIL_not_a_pass(self):
+        """判定器自己没跑成时必须 fail-closed —— 判不了就不能算过。"""
         src = PROBE.read_text(encoding="utf-8")
-        start = src.index("function Get-AppWindows")
-        body = src[start:src.index("\n}", start)]
-        code = "\n".join(ln for ln in body.splitlines() if not ln.lstrip().startswith("#"))
-        self.assertIn("$Match", code, "Get-AppWindows 不按标题筛了 ⇒ 同屏任何窗口都算我们的")
-        self.assertIn("[W32]::Cls(", code,
-                      "Get-AppWindows 不再取窗口类 ⇒ 第 6 相分不开报错框和真窗口")
-        # 🔴 同轮 submimo 报的:不问可见性 ⇒ 隐藏窗口/消息窗口也会被算进来。
-        self.assertIn("IsWindowVisible", code,
-                      "Get-AppWindows 不问「窗口可见吗」⇒ 看不见的窗口也算「窗口在」")
+        start = src.index("function Get-Verdict")
+        body = "\n".join(ln for ln in src[start:src.index("\n}", start)].splitlines()
+                          if not ln.lstrip().startswith("#"))
+        self.assertGreaterEqual(body.count("FAIL"), 2,
+                                "判定器跑不成/没输出的两条路里,有一条没有 FAIL ⇒ "
+                                "判不了却当过了(fail-open)")
+
+    def test_s18_the_facts_it_collects_are_the_ones_the_judge_needs(self):
+        src = PROBE.read_text(encoding="utf-8")
+        logs = "\n".join(self._code(_probe_phase(src, "8")))
+        for name in ("外壳.log", "工作台.log", "网关.log"):
+            self.assertIn(name, logs, f"第 8 相没有采 {name} 这份事实 ⇒ 判定器看不见它")
+        win = "\n".join(self._code(_probe_phase(src, "6")))
+        self.assertIn("[W32]::Cls(", "\n".join(self._code(src)),
+                      "没有采窗口类这个事实 ⇒ 判定器分不开报错框和真窗口")
+        self.assertIn("cls", win, "第 6 相没把窗口类喂给判定器")
+        self.assertIn("ours", win, "第 6 相没把老口径(进程主窗口标题)喂给判定器")
+
+    def test_s18_the_health_phases_scan_a_span_not_one_hardcoded_port(self):
+        """🔴 应用用 pick_ports(span=20) 挑端口,8766 被占会挪 ⇒ 写死一个端口 = 健康假红。"""
+        src = PROBE.read_text(encoding="utf-8")
+        for phase in ("5", "10"):
+            code = "\n".join(self._code(_probe_phase(src, phase)))
+            self.assertIn("$PortSpan", code,
+                          f"第 {phase} 相还在盯一个写死的端口 ⇒ 应用挪到 8767 就判它没活")
 
     def test_s18_any_phase_saying_FAIL_makes_the_run_red(self):
-        """退出码闸是全探针的安全网,而它自己至今没有判据(第 2c 轮 submimo 指出)。
-
-        0.98.2 这一刀重写的就是它:此前退出码 = 最后一个原生命令的 $LASTEXITCODE
-        (真 FAIL 也可能整趟绿)。既然是这一刀改的,就该由这一刀的判据守着。
-        """
+        """退出码闸是全探针的安全网,而它自己一直没有判据(第 2c 轮 submimo 指出)。"""
         src = PROBE.read_text(encoding="utf-8")
         code = [ln for ln in src.splitlines() if not ln.lstrip().startswith("#")]
         failed = [ln for ln in code if "$failed" in ln and "=" in ln and "FAIL" in ln]
@@ -618,43 +533,6 @@ class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
         tail = "\n".join(code)
         self.assertIn("exit 1", tail, "有相自报 FAIL 时不 exit 1 ⇒ 红的 run 会绿着交差")
         self.assertIn("exit 0", tail, "没有显式 exit 0 ⇒ 退出码又回到 $LASTEXITCODE 泄漏")
-
-    def test_s18_the_presence_signal_is_still_filtered_by_the_app_title(self):
-        """b99b603 修的那条("有任何带标题的窗口"就算 OK ⇒ 结构上不可能红)至今没有判据。
-
-        第 2b 轮外部评审(subkimi)报的 F2:把 `$ours = @($all | ... $appTitle ...)`
-        退回 `$ours = @($all)`,老洞原样复活,而 s18 四条 + 29 条变异**全绿**。
-        我亲手复现过。⇒ 这条在场信号的定义,从今天起归 s18 管。
-        """
-        sec = _probe_phase(PROBE.read_text(encoding="utf-8"), "6")
-        ours = [ln for ln in sec.splitlines()
-                if not ln.lstrip().startswith("#") and ln.lstrip().startswith("$ours")]
-        self.assertTrue(ours, "第 6 相没有「我们的窗口在不在」这个信号")
-        self.assertTrue(any("$appTitle" in ln for ln in ours),
-                        "在场信号又变成「屏幕上有任何带标题的窗口」了 —— CI 机器上永远有一个"
-                        "WindowsTerminal ⇒ 这一相结构上不可能红(b99b603 修的就是它)")
-        # 🔴 第 2c 轮 submimo 报的:光有赋值不够,**得有人用它**。
-        #    把 `$ours.Count -eq 0 -and` 从 while 条件里删掉,赋值原样留着 ⇒ 判据全绿,
-        #    而轮询退出条件变成只看报错框 ⇒ 健康启动第一轮就退出、可能还没画出来。
-        whiles = [ln for ln in sec.splitlines()
-                  if not ln.lstrip().startswith("#") and "while (" in ln]
-        self.assertTrue(any("$ours" in ln for ln in whiles),
-                        "在场信号没有出现在轮询的退出条件里 ⇒ 它算了个寂寞")
-
-    def test_s18_a_screen_with_only_the_error_box_is_a_FAIL(self):
-        sec = _probe_phase(PROBE.read_text(encoding="utf-8"), "6")
-        fails = [ln for ln in sec.splitlines()
-                 if "Say '6 窗口在不在'" in ln and "FAIL" in ln]
-        self.assertTrue(any("报错框" in ln for ln in fails),
-                        "第 6 相没有「屏幕上只有报错框」这条 FAIL 分支 ⇒ "
-                        "「软件根本打不开」照样绿")
-        # 🔴 同 F1:守卫改成 `if ($true)` 文案照样在,而这一相变成恒红。
-        #    这条 FAIL 必须由「有框、且没有真窗口」这两个机器事实一起守着。
-        box_fail = next(ln for ln in fails if "报错框" in ln)
-        guard = _guard_of(sec, box_fail)
-        self.assertTrue("$box" in guard and "$real" in guard,
-                        "贴着「只有报错框」这条 FAIL 的守卫不是 $box/$real 两个事实("
-                        f"实际是 {guard.strip()!r})⇒ 守卫被改成常量它也发现不了")
 
 
 class S19ProbeVerdictIsABehaviour(unittest.TestCase):
