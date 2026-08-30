@@ -671,3 +671,44 @@ PHASE 10 带系统代理启动 : OK - /api/health 通(端口 8766,version=up)(92
 
 ⇒ 「仍然敞着」第 11 条(改完的探针没在真 Windows 上跑过)**结清**;
    第 7 条(`#32770` 没被任何机器量过)**结清**(真窗口类是 WinForms,不撞)。
+
+## 第四轮 panel(close4,snapshot `faa9038`):gemini PASS / deepseek 再判 BLOCK —— 又是对的
+
+```
+# escalation=conflict(no-healthy-spare)
+# submimo=SKIP(cooldown) subdeepseek=PASS(verdict=BLOCK) subgemini=PASS(verdict=PASS)
+# subglm=SKIP(cooldown:FAIL) subkimi=SKIP(cooldown:FAIL)
+```
+
+subgemini 独立复核了 fail-open / 网关豁免 / 端口段三处产品面,并同意"失败分流表单开一单"。
+subdeepseek **认下"判定搬家这半刀是真修好了"**,但实测出 **4 种 s18+s19 全绿而行为已坏**的改法,
+**其中 3 种正好复活我这两刀亲手修的三个洞**。我逐条复现,全部成立:
+
+| 改法 | 后果 | 我原来的判据为什么瞎 |
+|---|---|---|
+| `_KINDS` 分发键 `window`→`win` | rc=2 + 用法串走 stderr ⇒ `2>&1` 后被当成裁决 ⇒ **第 6 相静默绿** | 两条 CLI 用例**只走 logs**,window/health 的分发裸奔 |
+| `Get-AppWindows ''` | 标题过滤没了 ⇒ b99b603 那个"永远不会红"复活 | s18 重写时把"钉调用参数"这条弄丢了 |
+| `$PortSpan = @(8766)` | 写死 8766 的健康假红复活 | 我只问"轮询那圈引不引用 `$PortSpan`",没问这个段**多宽** |
+| 第 10 相去掉 `-Proxy $null` | 探针自己也走死代理 ⇒ **每趟假红**,而那一相正是验代理修复的 | 压根没人钉 |
+
+**最该记的一条**:rc 那个洞 **我自己在派发前的自审里写过**
+("`2>&1` 把 stderr 混进裁决、我没验过,是个真口子"),写完就去派活了、没修,被腿端了回来。
+⇒ **自审里写下的疑虑,不修就等于没写。**
+
+已修:`Get-Verdict` 加 rc 守卫(rc∉{0,1} ⇒ FAIL);s18 补"采样参数"三条钉;
+s19 补"每种 kind 的 CLI 分发都要真跑过"。变异 M41~M45 各钉一处。
+
+```
+runlog: redcheck-wiring-params rc=1 commit=faa9038 dirty=yes at=2026-08-30T16:42:03Z file=tracks/opendesign-startup-observability/evidence/20260830T164203Z-01-redcheck-wiring-params.txt
+runlog: redcheck-mutation-2d rc=0 commit=1f1619a dirty=yes at=2026-08-30T16:42:55Z file=tracks/opendesign-startup-observability/evidence/20260830T164255Z-01-redcheck-mutation-2d.txt
+```
+
+现在:s18 **9 条**接线判据、s19 **15 条**行为判据、变异 **M1~M45,咬 45 漏 0**。
+
+### 记账不修的三条(两条腿都提了,我判为 LOW)
+
+12. **存在性 ≠ 新鲜度**:0 字节日志、上次启动残留的旧日志都算"在场"。真机 VM 是干净的,
+    业主机器上"应用没起来但躺着昨天的日志"时第 8 相会假绿 —— 靠第 5/6 相兜着。
+13. `health_verdict` **不核对版本**(任何真值都算活),多端口应答取最小端口;
+    第 10 相只断言 HTTP 200(gemini 提的)。
+14. fail-open 的"空枚举 + 只有报错框"这个**窄双故障组合**没有判据钉(注释里写了代价)。
