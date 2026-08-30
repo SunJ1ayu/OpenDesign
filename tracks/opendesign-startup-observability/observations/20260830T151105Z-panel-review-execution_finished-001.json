@@ -1,0 +1,170 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-startup-observability",
+  "run_id": "20260830-221557-3495657-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "startup-obs-close2",
+  "started_at": "2026-08-30T14:15:57Z",
+  "finished_at": "2026-08-30T15:11:05Z",
+  "duration_ms": 3307358,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": true,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "subdeepseek-agent",
+        "degraded": false,
+        "duration_ms": 629239,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:aa0881f92bd05a0c478fefa41c483ea42c747197b3026002aff89f13b52837a3",
+          "ref": "file:///root/aiwork/logs/panel-startup-obs-close2-20260830.subdeepseek.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "deepseek",
+        "model": {
+          "invoked": "deepseek-v4-flash",
+          "reported": null,
+          "requested": "deepseek-v4-flash"
+        },
+        "name": "subdeepseek",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260830-221557-3495657-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "digest": "sha256:8d92980ef783956271452e22aedd8b64bcf2f4f95916b0f847cd180a1685d495",
+          "manifest_version": 1,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "ff3d61b06bb6554af04e83a3298fadcaa33280b4",
+            "index_tree_oid": "2c4dc12ad316310159a3940315782d4f0ae4303c",
+            "worktree_tree_oid": "2c4dc12ad316310159a3940315782d4f0ae4303c"
+          },
+          "task_sha256": "sha256:af195a58388d98e69c1c97b418f218e428da73bd1a44541762cbfb97c391ea9b"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "api",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subglm",
+        "degraded": true,
+        "duration_ms": 900560,
+        "evidence": {
+          "completeness": "none",
+          "digest": null,
+          "ref": null
+        },
+        "failure_kind": "runtime",
+        "family": "zhipu",
+        "model": {
+          "invoked": "glm-5.3-flash",
+          "reported": null,
+          "requested": "glm-5.3-flash"
+        },
+        "name": "subglm",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 1,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260830-221557-3495657-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "digest": null,
+          "manifest_version": 1,
+          "source": null,
+          "task_sha256": "sha256:af195a58388d98e69c1c97b418f218e428da73bd1a44541762cbfb97c391ea9b"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "api",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "UNKNOWN",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "diff_bundle"
+        }
+      },
+      {
+        "adapter": "subkimi",
+        "degraded": false,
+        "duration_ms": 1501137,
+        "evidence": {
+          "completeness": "partial",
+          "digest": "sha256:eb52a4e340efef2d4ac6452e5899fd0318cb6d0162a9f9daf1d08553e829f35b",
+          "ref": "file:///root/aiwork/logs/panel-startup-obs-close2-20260830.subkimi.evidence.log"
+        },
+        "failure_kind": "timeout",
+        "family": "moonshot",
+        "model": {
+          "invoked": "kimi-code/k3",
+          "reported": null,
+          "requested": "kimi-code/k3"
+        },
+        "name": "subkimi",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 124,
+          "state": "timed_out"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260830-221557-3495657-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "digest": "sha256:eed0ac670fd794af93b764d3d42ae6c38e7298c78d59df65b3004501c8d5b3f3",
+          "manifest_version": 1,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "acb0f39b485a414e7bc0b18342739acf169c6404",
+            "index_tree_oid": "cf661f0cad22e24ea3296bd6463bc28c733d0972",
+            "worktree_tree_oid": "c19385c50a09dcee82c497601ff7bc78f4855fe6"
+          },
+          "task_sha256": "sha256:af195a58388d98e69c1c97b418f218e428da73bd1a44541762cbfb97c391ea9b"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
