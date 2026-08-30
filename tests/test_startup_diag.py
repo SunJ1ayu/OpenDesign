@@ -493,6 +493,26 @@ class S18ProbeAsksTheJudgeAndSaysWhatItAnswers(unittest.TestCase):
         self.assertIn("$PSScriptRoot", src,
                       "判定器不是按脚本自身位置找的 ⇒ 会去用装出来的那份(版本对不上)")
 
+    def test_s18_the_facts_reach_the_judge_as_pure_ascii(self):
+        """🔴 真跑(run 33321769218)当场照出来的:第 8 相把三份日志全判成缺席,
+        而同一秒第 9 相导出的包里 `Logs/外壳.log`、`Logs/工作台.log` **明明在**;
+        改之前那趟用同样的 `Test-Path` 报的是 `外壳.log 1188B`。
+
+        ⇒ 不是路径,是**管道**:事实的键是中文,PowerShell 往原生进程写管道用的是
+        控制台代码页(en-US runner = cp1252)⇒ 中文被打坏 ⇒ python 一个键都查不到
+        ⇒ 三份全"缺席" ⇒ **假红**。这是本单栽过一次的同一个坑(第 9 相"打印中文即炸"),
+        只是这次在**输入**方向。
+
+        修法不是"再赌一次编码",是**让数据不含非 ASCII**:`-EscapeHandling EscapeNonAscii`
+        把中文转成 `\\uXXXX`,任何代码页都打不坏它。
+        """
+        src = "\n".join(ln for ln in PROBE.read_text(encoding="utf-8").splitlines()
+                         if not ln.lstrip().startswith("#"))
+        self.assertIn("ConvertTo-Json", src, "没有把事实序列化给判定器")
+        self.assertIn("EscapeNonAscii", src,
+                      "交给判定器的 JSON 不是纯 ASCII ⇒ 中文键会被控制台代码页打坏 ⇒ "
+                      "判定器一个键都查不到 ⇒ 假红(run 33321769218 就是这么红的)")
+
     def test_s18_a_judge_that_does_not_run_is_a_FAIL_not_a_pass(self):
         """判定器自己没跑成时必须 fail-closed —— 判不了就不能算过。"""
         src = PROBE.read_text(encoding="utf-8")
@@ -625,6 +645,41 @@ class S19ProbeVerdictIsABehaviour(unittest.TestCase):
         v = self.pv.window_verdict(wins=[], ours=["pythonw:「OpenDesign」"])
         self.assertTrue(v.ok, v.text)
         self.assertIn("枚举", v.text, "退回老口径时没把这件事写进读数 ⇒ 读数不诚实")
+
+    def test_s19_the_cli_reads_utf8_facts_under_any_locale(self):
+        """判定器**自己**也不许赌 locale:C locale 下喂 UTF-8 中文键,照样要判得对。
+
+        (真跑那次坏在 PowerShell 那一侧,但同一条管道的两头都不该赌 —— 这一条
+         本机验得了:`LC_ALL=C` 时 python 的 stdin 默认就是 ASCII。)
+        """
+        import json as _json, subprocess as _sp, sys as _sys, os as _os
+        facts = {"present": {"外壳.log": 120, "工作台.log": None, "网关.log": None}}
+        # 🔴 光设 LC_ALL=C **咬不动**:Python(PEP 538)会把 C 悄悄升成 C.UTF-8,
+        #    于是这条判据看起来在验编码、其实永远绿 —— 那就是死断言。
+        #    关掉强制升级(PYTHONCOERCECLOCALE=0)+ UTF-8 模式(PYTHONUTF8=0)之后,
+        #    真跑那个假红在本机**原样复现**:同一份输入判成"外壳.log 缺席"。
+        env = dict(_os.environ, LC_ALL="C", LANG="C", PYTHONIOENCODING="",
+                   PYTHONCOERCECLOCALE="0", PYTHONUTF8="0")
+        out = _sp.run([_sys.executable, str(ROOT / "bin" / "probe_verdict.py"), "logs"],
+                      input=_json.dumps(facts, ensure_ascii=False).encode("utf-8"),
+                      capture_output=True, env=env, timeout=60)
+        text = out.stdout.decode("utf-8", "replace")
+        self.assertEqual(out.returncode, 1, f"该判 FAIL 却给了 rc={out.returncode}:{text}")
+        # 🔴 断言要盯**读到没读到那个值**。第一版写的是"文案里有没有 工作台.log" ——
+        #    而那几个字来自 python 里的常量、**不是**来自输入,键全被打坏时它照样在,
+        #    rc 也照样是 1 ⇒ 判据在坏的情况下也绿。`外壳.log 120B` 里的 120 只能从输入来。
+        self.assertIn("外壳.log 120B", text,
+                      f"中文键没活着穿过管道(在场的日志被判成缺席)⇒ 假红:{text!r}")
+
+    def test_s19_the_cli_also_takes_ascii_escaped_facts(self):
+        """PowerShell 那侧会把中文转成 ASCII 转义(\\uXXXX)再送进来 —— 这种形态也得判得对。"""
+        import json as _json, subprocess as _sp, sys as _sys
+        facts = {"present": {"外壳.log": 1, "工作台.log": 2, "网关.log": None}}
+        out = _sp.run([_sys.executable, str(ROOT / "bin" / "probe_verdict.py"), "logs"],
+                      input=_json.dumps(facts, ensure_ascii=True).encode("ascii"),
+                      capture_output=True, timeout=60)
+        self.assertEqual(out.returncode, 0,
+                         f"网关缺席是合法的,却判了红:{out.stdout.decode('utf-8','replace')}")
 
     # ── 第 5/10 相:服务活了吗(端口会挪)──────────────────────────────
     def test_s19_health_on_the_moved_port_is_ok(self):

@@ -1,0 +1,32 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-pipe-encoding
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_startup_diag.S18ProbeAsksTheJudgeAndSaysWhatItAnswers tests.test_startup_diag.S19ProbeVerdictIsABehaviour
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  5a0b070
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-30T16:22:22Z
+---------------- 输出开始 ----------------
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/usr/lib/python3.12/unittest/__main__.py", line 18, in <module>
+    main(module=None)
+  File "/usr/lib/python3.12/unittest/main.py", line 104, in __init__
+    self.parseArgs(argv)
+  File "/usr/lib/python3.12/unittest/main.py", line 153, in parseArgs
+    self.createTests()
+  File "/usr/lib/python3.12/unittest/main.py", line 164, in createTests
+    self.test = self.testLoader.loadTestsFromNames(self.testNames,
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/loader.py", line 207, in loadTestsFromNames
+    suites = [self.loadTestsFromName(name, module) for name in names]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/loader.py", line 137, in loadTestsFromName
+    module = __import__(module_name)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 497
+    """🔴 真跑(run 33321769218)当场照出来的:第 8 相把三份日志全判成缺席,
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: (unicode error) 'unicodeescape' codec can't decode bytes in position 1926-1927: truncated \uXXXX escape
+---------------- 输出结束 ----------------
+runlog: redcheck-pipe-encoding rc=1 commit=5a0b070 dirty=yes at=2026-08-30T16:22:22Z file=tracks/opendesign-startup-observability/evidence/20260830T162222Z-01-redcheck-pipe-encoding.txt
