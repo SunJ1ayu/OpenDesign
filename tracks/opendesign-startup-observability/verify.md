@@ -553,3 +553,46 @@ subdeepseek 和 subgemini 各自独立给了同一条出路 ——
 subglm 两轮各 901s 超时(agent + chat 回落都是);subkimi 1501s 超时 —— **但它报告写完了**,
 只是没来得及收尾,M30~M32 三条真发现就是从那份"失败"的日志里读出来的。
 两条腿健康表都已记 FAIL=2,再失败一次就停止轮换。
+
+## 第四刀:判定从 `.ps1` 搬进 `bin/probe_verdict.py`(BLOCK 的正面回应)
+
+第三轮 deepseek 的 BLOCK 说的是:**字面断言够不着语义**。它给的出路和 subgemini 独立给的
+是同一条,我照做了:
+
+- **新增 `bin/probe_verdict.py`**:纯函数,进去是事实、出来是裁决。
+  `logs_verdict` / `window_verdict` / `health_verdict`,stdout 一行给 `Say`,
+  退出码 0=OK / 1=FAIL / 2=输入有问题。
+- **探针第 5/6/8/10 相改成"采事实 → `Get-Verdict` → 原样 Say"**。判定器用**仓库里这一份**
+  (`$PSScriptRoot`,和探针同版本),不是装出来的旧版;找不到 / 跑不成 / 没输出 ⇒
+  **一律 fail-closed**(判不了 ≠ 过)。
+- **顺带修掉写死的 8766**:应用 `pick_ports(span=20)` 被占会挪,现在扫 8766..8786 整段。
+- **s18 从"读源码问这句话在不在"缩成六条接线判据**;判定本身由 **s19 的 11 条行为判据**
+  守着(喂"网关缺席"、"只有报错框"、"应用挪到 8767"这类真实事实,断言裁决)。
+  于是 deepseek 实测的那 8 种改法(极性 / 取值 / 终止条件 / 参数)全都变成输入输出问题。
+
+### 这一刀的收据(逐字节)
+
+```
+runlog: redcheck-s19-behaviour rc=1 commit=0c49d5a dirty=yes at=2026-08-30T15:36:03Z file=tracks/opendesign-startup-observability/evidence/20260830T153603Z-01-redcheck-s19-behaviour.txt
+runlog: redcheck-s18-wiring rc=1 commit=971de62 dirty=yes at=2026-08-30T15:38:59Z file=tracks/opendesign-startup-observability/evidence/20260830T153859Z-01-redcheck-s18-wiring.txt
+runlog: redcheck-mutation-rewired rc=1 commit=3a5b775 dirty=yes at=2026-08-30T15:40:42Z file=tracks/opendesign-startup-observability/evidence/20260830T154042Z-01-redcheck-mutation-rewired.txt
+runlog: redcheck-mutation-rewired-r2 rc=1 commit=3a5b775 dirty=yes at=2026-08-30T15:41:36Z file=tracks/opendesign-startup-observability/evidence/20260830T154136Z-01-redcheck-mutation-rewired-r2.txt
+runlog: redcheck-mutation-rewired-r3 rc=0 commit=3a5b775 dirty=yes at=2026-08-30T15:42:38Z file=tracks/opendesign-startup-observability/evidence/20260830T154238Z-01-redcheck-mutation-rewired-r3.txt
+```
+
+- 前两份 rc=1 是**判据先行**:s19 十一条全红(判定器还不存在)、s18 六条红四条(还没接线)。
+- 第三份 rc=1 **漏网 5 条,其中 4 条是量具自己造的**:`probe_verdict.py` 没进变异脚本的
+  `SOURCES` 还原清单 ⇒ 被改坏后再没恢复,后面每条都跑在残废的被测物上。
+  **漏掉的那个文件,它的变异结果全部作废** —— 这条已写进脚本注释。
+- 第四份 rc=1 漏网 2 条,**性质不同**:一条是**断言太松**(数 FAIL 个数:剪掉两条
+  fail-closed 分支还剩两条,数量照样满意)⇒ 改成"每一条提前返回都必须带 FAIL";
+  一条是**变异没意义**(改的是初始化那行,不影响行为)⇒ 换成剪断轮询那一圈。
+- 第五份 rc=0:**38 条全咬住、0 漏网**。
+
+### 🔴 这一刀还欠什么(不许读成"做完了")
+
+11. **改完的探针一次都没在真 Windows 上跑过。** 它现在会用装好的 python 去跑仓库里的
+    判定器、传 JSON、读回一行话 —— 这条链本机验不了(没有 pwsh)。
+    "本机 38 条变异全绿"证明的是**判定对不对**,不是**这支脚本在 Windows 上跑不跑得起来**。
+    ⇒ 收口的最后一步是推一条 `ci-probe/**` 分支触发一趟真跑,看第 5/6/8 相打印的是不是
+    判定器给的那句话(顺带把敞着第 7 条那个 `#32770` 也在真机上量了)。
