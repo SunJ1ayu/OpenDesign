@@ -399,5 +399,32 @@ class S16BundleRedactsProjectPaths(unittest.TestCase):
         self.assertIn("/api/health", body, "无参数的端点被误伤")
         self.assertIn("200", body, "状态码被涂没了")
 
+
+class S17TheBigBlobIsSplit(unittest.TestCase):
+    """s17 开头那一大块**必须被切开**。
+
+    🔴 2026-08-30 云机器实测:到界面出来 24.8s,而**最大的一块是开头的 9.4s**
+    (进程起来 → 拿到单实例锁)—— 全程最大单块,而 0.98.1 里它是**一个不透明的整块**:
+    我埋的第一个里程碑正好落在它的**结尾**,里面发生了什么一样答不出来。
+    同一段在 Linux 上只要 130ms(`ds_shell` 53ms + `ds_web` 76ms),差 70 倍
+    ⇒ 差的是 I/O 不是算力,但**具体差在哪一段,不切开就只能猜**。
+    而我今天已经猜错过一次("后端慢"被数据当场证伪),不再猜第二次。
+    """
+
+    NEEDED = ("shell.imports_done", "main.entered", "manifest.done", "lock.acquired")
+
+    def test_s17_the_startup_path_marks_every_stage(self):
+        src = (ROOT / "bin" / "ds_shell.py").read_text(encoding="utf-8")
+        for name in self.NEEDED:
+            self.assertIn(f'DIAG.mark("{name}")', src,
+                          f"开头那一大块少了里程碑 {name!r} ⇒ 它仍然是个黑块")
+
+    def test_s17_marks_come_in_the_right_order_in_the_source(self):
+        """顺序也要对 —— 里程碑打乱了,时间线就会撒谎。"""
+        src = (ROOT / "bin" / "ds_shell.py").read_text(encoding="utf-8")
+        pos = [src.index(f'DIAG.mark("{n}")') for n in self.NEEDED]
+        self.assertEqual(pos, sorted(pos),
+                         f"里程碑在源码里的先后和它们该发生的顺序不一致:{self.NEEDED}")
+
 if __name__ == "__main__":
     unittest.main()
