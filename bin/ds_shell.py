@@ -31,6 +31,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import ds_common  # noqa: E402
 import ds_credential  # noqa: E402  变量名从配置的 apiKey 引用里读,不许写死
+import ds_diag  # noqa: E402  启动可观测性:run_id / 分阶段耗时 / 诊断包
 import ds_shell_core as core  # noqa: E402
 
 APP = "OpenDesign"
@@ -124,6 +125,12 @@ def log(msg: str) -> None:
                 f.write(f"{stamp} {line}\n" if i == 0 else f"{pad}{line}\n")
     except OSError:
         pass
+
+
+# 这一次启动的证据链。**在模块导入时就建**,不是在 main() 里 —— 那样 t0 才贴着
+# 进程真正的起点(import 本身也可能慢,那段时间也该被量到)。
+# 白屏和"打开好慢"都靠它留下的东西查(track opendesign-startup-observability)。
+DIAG = ds_diag.StartupLog(emit=log)
 
 
 def alert(msg: str, title: str = APP) -> None:
@@ -1052,6 +1059,20 @@ class WindowApi:
         """关 = 收进托盘,和以前点系统那个 × 一模一样(不是退出程序)。"""
         self._shell.state.on_close_requested()
 
+    def report_startup(self, event: str, detail: str = ""):
+        """前端报"我走到哪一步了"。**这是网页能写进日志的口子** ⇒ 当不可信输入处理。
+
+        白名单 / 限长 / 去重全在 `ds_diag.report_from_ui` 里(判据 s7),
+        这一层只负责把"首帧到了"这件事告诉看门狗、别让它误报。
+
+        🔴 `frontend.frame_submitted` 只说明**浏览器提交了一帧**,不等于业主眼睛看见了
+        —— 真实像素只有 Windows 那边的截图作得了准(双出那轮 GPT 把这条钉死的)。
+        """
+        accepted = DIAG.report_from_ui(str(event), str(detail))
+        if event == "frontend.frame_submitted":
+            self._shell.note_first_frame()
+        return {"accepted": bool(accepted)}
+
 
 class Shell:
     """把 core 的状态机接到 pywebview / pystray 上。"""
@@ -1066,6 +1087,7 @@ class Shell:
         # 别在 main 里往实例上动态挂一个属性。
         self.window_api = WindowApi(self)
         self.state = core.ShellState(ui=self, on_stop=self.stop_backend)
+        self._frame_watch = None
 
     # --- core.ShellState 要求的 UI 三件 -------------------------------
     # ⚠️ 这三个方法可能被**锁的监听线程**调到(第二次双击时)。pywebview 的
@@ -1128,11 +1150,67 @@ class Shell:
             self.lock.release()
 
     # --- 托盘 ---------------------------------------------------------
+    # --- 首帧看门 + 诊断导出 ------------------------------------------
+    # 白屏那晚(0.98,08-25)我们手上一条线索都没有。这两件补的就是那笔账。
+
+    FIRST_FRAME_TIMEOUT = 90.0
+    """多少秒没等到前端画出第一帧,就写一次诊断快照。
+
+    🔴 **这个数字不承重**(判据 s9):超时路径不弹框,定错了最多多写一段日志。
+    取 90 是刻意取宽的 —— 已知唯一硬数据是云端冷启虚机 20~40 秒(08-25 分时段截图),
+    **业主自己机器上要几秒,至今没有任何人量过**。等他发回第一份诊断包再谈收紧。
+    """
+
+    def start_first_frame_watch(self):
+        self._frame_watch = ds_diag.FirstFrameWatch(
+            timeout=self.FIRST_FRAME_TIMEOUT, on_timeout=self._first_frame_missing, emit=log)
+        self._frame_watch.start()
+
+    def note_first_frame(self):
+        if self._frame_watch is not None:
+            self._frame_watch.seen()
+
+    def _first_frame_missing(self):
+        """到点了前端还没报"我画出来了" ⇒ 把现场记下来。**不弹框。**
+
+        🔴 不许在这里叫 `sup.poll_dead()` —— 它内部走 `take_dead()`,是**破坏性**的,
+        问一次就把死因从名册里取走了,看门狗那边的弹窗就变成"原因是空的"
+        (08-17 判据 c21 治的正是这个形状)。这里只看不碰。
+        """
+        log("[启动] 🔴 到点还没等到界面画出来 —— 下面是现场,不是报错弹窗。")
+        for name, ms in DIAG.milestones():
+            log(f"[启动]   已到达 +{ms:.0f}ms {name}")
+        try:
+            import urllib.request
+            with urllib.request.urlopen(
+                    f"http://127.0.0.1:{self.web_port}/api/health", timeout=3) as r:
+                log(f"[启动]   /api/health 通,HTTP {r.status}"
+                    f" ⇒ 后端是活的,问题在网页那一层")
+        except Exception as exc:
+            log(f"[启动]   /api/health 不通:{exc!r} ⇒ 问题可能在后端")
+        log(f"[启动]   右下角托盘 → 「导出本次启动诊断」可以把这些打包发出来。")
+
+    def export_diagnostics(self):
+        """托盘那一项。白屏时窗口是废的,**托盘还活着** —— 这是唯一还能操作的地方。"""
+        try:
+            out = _app_dir() / f"OpenDesign-诊断-{DIAG.run_id}.zip"
+            DIAG.export_bundle(out, app_dir=_app_dir())
+            log(f"[启动] 已导出诊断:{out}")
+            # 复用既有的平台实现,别在这儿造第四种"打开文件夹"
+            # (这个项目为同一个动作有过三种写法,已经统一到 ds_openfolder)。
+            import ds_openfolder
+            ds_openfolder._default_open_launcher(str(out.parent))
+        except Exception as exc:
+            log(f"[启动] 导出诊断失败:{exc!r}")
+            alert(f"导出诊断没成功:{exc}\n\n日志在:\n{_log_path().parent}")
+
     def run_tray(self):
         import pystray
 
         menu = pystray.Menu(
             pystray.MenuItem("打开 OpenDesign", lambda *_: self.state.on_show(), default=True),
+            # 白屏时业主唯一还点得动的地方 —— 一下打包,不用去文件夹里翻日志。
+            pystray.MenuItem("导出本次启动诊断", lambda *_: self.export_diagnostics()),
             pystray.MenuItem("退出", lambda *_: self.state.on_quit()),
         )
         self.icon = pystray.Icon(APP, tray_image(), APP, menu)
@@ -1168,6 +1246,9 @@ class Shell:
 
 def main() -> int:
     log(f"==== {APP} 外壳启动 ====")
+    # 版本清单先写 —— 万一后面炸了,至少知道是哪一版、哪个内核上炸的。
+    # (08-25 白屏那晚我们连内核版本都得靠业主去翻文件夹。)
+    log(DIAG.manifest())
     shell_holder: list[Shell] = []
 
     # ① 单实例。第二次双击走到这里就退出了,窗口由第一份自己叫到前台。
@@ -1184,10 +1265,12 @@ def main() -> int:
             return 0
     except core.PortBusy as e:
         die(f"启动失败:{e}")
+    DIAG.mark("lock.acquired")
 
     try:
         home = user_home()
         sup, web, restart_gateway = start_backend(home, lock_port=lock.port)
+        DIAG.mark("backend.ready")
         restart_holder.append(restart_gateway)
         shell = Shell(sup, web, lock)
         shell_holder.append(shell)
@@ -1213,10 +1296,19 @@ def main() -> int:
         # WindowApi._apply_native_styles)。挂 `shown` 而不是在这儿直接叫:
         # 这一刻窗口还没建出来,没有 Handle 可用。
         shell.window.events.shown += shell.window_api.ensure_native_styles
+        # 🔴 2026-08-30(判据 s6):「窗口打开」这行原来写在 `webview.start()` **之前** ——
+        #    它报的是"我要开了",不是"开了"。白屏那晚这行照样出现在日志里,
+        #    于是它把"窗口真开了"这件根本没发生的事说成了既成事实。搬到 shown 里。
+        shell.window.events.shown += lambda: DIAG.mark("window.shown")
+        # 首帧看门:到点还没等到前端报"我画出来了",就写一次诊断快照。
+        # **不弹框**(判据 s9)—— 阈值不承重,定错了最多多写一段日志。
+        shell.window.events.shown += lambda: shell.start_first_frame_watch()
 
         shell.run_tray()
         shell.run_watchdog()
-        log(f"窗口打开:{window_url(web)}")
+        DIAG.mark("window.create_returned", window_url(web))
+        log(f"准备进入图形循环:{window_url(web)}")
+        DIAG.mark("webview.loop_entered")
         webview.start()          # 阻塞,直到窗口 destroy
         shell.state.on_quit()    # 走正常关闭时也要把后台收干净
         return 0

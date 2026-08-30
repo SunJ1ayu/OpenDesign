@@ -1,0 +1,27 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    python
+cmd:     /root/.venvs/design-studio/bin/python -m unittest discover -s tests -t . -p test_startup_diag.py -v
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  95369a9
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-30T07:38:41Z
+---------------- 输出开始 ----------------
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/usr/lib/python3.12/unittest/__main__.py", line 18, in <module>
+    main(module=None)
+  File "/usr/lib/python3.12/unittest/main.py", line 104, in __init__
+    self.parseArgs(argv)
+  File "/usr/lib/python3.12/unittest/main.py", line 130, in parseArgs
+    self._do_discovery(argv[2:])
+  File "/usr/lib/python3.12/unittest/main.py", line 253, in _do_discovery
+    self.createTests(from_discovery=True, Loader=Loader)
+  File "/usr/lib/python3.12/unittest/main.py", line 160, in createTests
+    self.test = loader.discover(self.start, self.pattern, self.top)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/loader.py", line 307, in discover
+    raise ImportError('Start directory is not importable: %r' % start_dir)
+ImportError: Start directory is not importable: '/root/.openclaw/workspace/projects/design-studio/tests'
+---------------- 输出结束 ----------------
+runlog: python rc=1 commit=95369a9 dirty=yes at=2026-08-30T07:38:41Z file=tracks/opendesign-startup-observability/evidence/20260830T073841Z-01-python.txt
