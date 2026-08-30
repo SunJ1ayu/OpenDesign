@@ -1,0 +1,175 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-startup-observability",
+  "run_id": "20260830-163546-3236105-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "startup-observability",
+  "started_at": "2026-08-30T08:35:46Z",
+  "finished_at": "2026-08-30T08:48:37Z",
+  "duration_ms": 770596,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "submimo",
+        "degraded": false,
+        "duration_ms": 216600,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:58b126058eedc02869dd1d327a841a66d8cea1fd5c8c10870988245804e98612",
+          "ref": "file:///root/aiwork/logs/panel-startup-obs-20260830.submimo.evidence.log"
+        },
+        "failure_kind": "no_verdict",
+        "family": "xiaomi",
+        "model": {
+          "invoked": "xiaomi/mimo-v2.5-pro",
+          "reported": null,
+          "requested": "xiaomi/mimo-v2.5-pro"
+        },
+        "name": "submimo",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260830-163546-3236105-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "digest": "sha256:cae37d9f735ce254a9d975d1109901596345e3dbec39827e3ba2bb8fd3f9198f",
+          "manifest_version": 1,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "cb1e53db3cb0b476e88a27c27acfe459d50f2463",
+            "index_tree_oid": "439ec1e872c67661da39f7404133fa79a36997b1",
+            "worktree_tree_oid": "439ec1e872c67661da39f7404133fa79a36997b1"
+          },
+          "task_sha256": "sha256:6952d1135a69701990a699155ceb77d809034af8450ebc934e6cc3441f6a8cc6"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "UNKNOWN",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subdeepseek-agent",
+        "degraded": false,
+        "duration_ms": 551468,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:40ea7cda0da9aa9ecc99d462718aa02084fe2a7a314c55883dbc3239c1b2996e",
+          "ref": "file:///root/aiwork/logs/panel-startup-obs-20260830.subdeepseek.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "deepseek",
+        "model": {
+          "invoked": "deepseek-v4-flash",
+          "reported": null,
+          "requested": "deepseek-v4-flash"
+        },
+        "name": "subdeepseek",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260830-163546-3236105-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "digest": "sha256:cae37d9f735ce254a9d975d1109901596345e3dbec39827e3ba2bb8fd3f9198f",
+          "manifest_version": 1,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "cb1e53db3cb0b476e88a27c27acfe459d50f2463",
+            "index_tree_oid": "439ec1e872c67661da39f7404133fa79a36997b1",
+            "worktree_tree_oid": "439ec1e872c67661da39f7404133fa79a36997b1"
+          },
+          "task_sha256": "sha256:6952d1135a69701990a699155ceb77d809034af8450ebc934e6cc3441f6a8cc6"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "api",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "BLOCK",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subgemini",
+        "degraded": false,
+        "duration_ms": 113433,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:d661f1ffe3bf4bf660eed0ba5f3dde8b085c8e7d81e1bc226a6b577f90c373f1",
+          "ref": "file:///root/aiwork/logs/panel-startup-obs-20260830.subgemini.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "google",
+        "model": {
+          "invoked": "gemini-3.7-flash-high",
+          "reported": null,
+          "requested": "gemini-3.7-flash-high"
+        },
+        "name": "subgemini",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260830-163546-3236105-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "digest": "sha256:cae37d9f735ce254a9d975d1109901596345e3dbec39827e3ba2bb8fd3f9198f",
+          "manifest_version": 1,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "cb1e53db3cb0b476e88a27c27acfe459d50f2463",
+            "index_tree_oid": "439ec1e872c67661da39f7404133fa79a36997b1",
+            "worktree_tree_oid": "439ec1e872c67661da39f7404133fa79a36997b1"
+          },
+          "task_sha256": "sha256:6952d1135a69701990a699155ceb77d809034af8450ebc934e6cc3441f6a8cc6"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

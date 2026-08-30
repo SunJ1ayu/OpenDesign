@@ -284,5 +284,84 @@ class S11BackendReadyMeansItAnswers(unittest.TestCase):
                       "探针写出来了却没接到 工作台 Service 上 —— "
                       "「加了防线却没把构件放进防线」,本项目栽过")
 
+
+class S13ProbeMustNotGoThroughAProxy(unittest.TestCase):
+    """s13 就绪探针**不许走系统代理**。
+
+    🔴 2026-08-30 四审 subdeepseek 孤腿 BLOCK 抓到、我实测坐实:
+    `urllib.request.urlopen` 对 127.0.0.1 **不绕过**系统代理
+    (`urllib.request.proxy_bypass('127.0.0.1')` 就是 False;Windows 上
+    `ProxyOverride` 的 `<local>` 只匹配无点主机名,匹配不到 127.0.0.1)。
+    ⇒ 凡是配了系统代理的机器(公司代理、**以及 Clash 那类会设系统代理的 VPN 客户端**),
+    探针对健康服务返回 False ⇒ `_wait_ready` 死等 60s ⇒ StartupFailed ⇒ **软件打不开**。
+
+    这正是本单设计里那条红线的字面违反:**观测层绝不能成为新的故障源**。
+    而它在 Linux CI 上 19 条判据全绿 —— 判据对"探针走不走代理"零覆盖,是本单最大盲区。
+    仓里本来就有不受代理影响的姿势:`port_listening` 用裸 socket。
+    """
+
+    def test_s13_probe_still_works_with_a_system_proxy_configured(self):
+        import http.server, socketserver, threading
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200); self.end_headers(); self.wfile.write(b'{"ok":1}')
+            def log_message(self, *a): pass
+        srv = socketserver.TCPServer(("127.0.0.1", 0), H)
+        port = srv.server_address[1]
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.shutdown)
+        # 模拟"这台机器配了系统代理",代理端口没人听 —— 走代理必失败。
+        # 🔴 `urllib.request._opener` 必须一起清掉:urlopen 的 opener 是**首次调用时
+        #    建好并缓存**的,进程里早先跑过的判据已经建了一个"无代理"的 opener,
+        #    不清它这条判据就是**假绿**(第一版正是如此 —— 同一个坑我今天踩了两次:
+        #    手工探针那次也是这么骗过自己的)。清空 = 忠实还原"软件在配了代理的机器上启动"。
+        import urllib.request
+        with mock.patch.dict("os.environ", {"http_proxy": "http://127.0.0.1:9",
+                                            "https_proxy": "http://127.0.0.1:9"}), \
+             mock.patch.object(urllib.request, "_opener", None):
+            ok = shell.web_ready_probe(port)
+        self.assertTrue(ok,
+                        "配了系统代理的机器上,健康的工作台被判成没就绪 ⇒ 死等 60s ⇒ 软件打不开")
+
+
+class S14WatchIsArmedOnlyOnce(unittest.TestCase):
+    """s14 首帧看门**只许上一次膛**。
+
+    🔴 四审 subdeepseek 抓到:`start_first_frame_watch` 挂在 `events.shown` 上,
+    而托盘还原(hide → show)会**再发一次 Shown** ⇒ 又拉起一个 90s 看门;
+    此时页面不会再报首帧(只在加载时报一次),而且 `report_from_ui` 按进程去重
+    连重报都会丢 ⇒ 新看门**必然超时** ⇒ 业主每次从托盘还原都换来一段假诊断。
+    这就是"每次开机被骚扰"的原形,只是从弹框降级成了假日志。
+    """
+
+    def test_s14_second_arm_does_not_start_a_second_watch(self):
+        sh = shell.Shell.__new__(shell.Shell)
+        sh._frame_watch = None
+        sh.web_port = 1
+        sh.start_first_frame_watch()
+        first = sh._frame_watch
+        sh.start_first_frame_watch()
+        self.assertIs(sh._frame_watch, first,
+                      "第二次 shown(托盘还原)又上了一次膛 ⇒ 必然超时 ⇒ 假诊断")
+
+
+class S15WiringFromUiToWatch(unittest.TestCase):
+    """s15 前端报首帧 ⇒ 必须真的解除看门(接线闸)。
+
+    🔴 四审 subdeepseek F6:`report_startup → note_first_frame → watch.seen()`
+    这段接线**一条判据都没有**。断了的话所有判据照绿,而看门每次都误报。
+    本单自己的标准就是"接线要钉死"(s6/s11 都做了),这段不该例外。
+    """
+
+    def test_s15_frame_submitted_disarms_the_watch(self):
+        sh = shell.Shell.__new__(shell.Shell)
+        sh._frame_watch = None
+        sh.web_port = 1
+        sh.start_first_frame_watch()
+        api = shell.WindowApi(sh)
+        api.report_startup("frontend.frame_submitted", "1280x860")
+        self.assertTrue(sh._frame_watch._seen.is_set(),
+                        "前端说画出来了,看门却没被解除 ⇒ 90s 后照样写假诊断")
+
 if __name__ == "__main__":
     unittest.main()
