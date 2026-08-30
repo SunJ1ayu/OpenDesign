@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+"""探针的判定器 —— "机器事实 → 该不该 FAIL" 这件事,由**跑得动的代码**回答。
+
+**为什么有这个文件**(2026-08-30 深夜,track `opendesign-startup-observability`):
+
+Windows 探针 `.github/scripts/windows-package-probe.ps1` 本机跑不了(没有 pwsh),
+于是它的判据只能**静态读源码**。今晚这条路被连打回十几次,最后一轮外部评审
+(subdeepseek)自己动手变异了 8 种改法并逐条执行 —— **每一种静态判据都全绿**:
+
+    if ($miss.Count)  →  if ($miss.Count -lt 1)     # 极性
+    $required = @(外壳, 工作台)  →  加上 网关         # 喂给判定的**值**
+    if (Test-Path $log)  →  if (-not (Test-Path))    # 极性
+    $appTitle = 'OpenDesign'  →  ''                  # 不改过滤器,改它的输入
+    -not $real.Count  →  $real.Count                 # 第二个操作数的极性
+    while (… -and $box.Count -eq 0 …)  →  去掉这一项   # 循环为什么停
+    $t -like "*$Match*"  →  -notlike                 # 匹配方向
+    [W32]::Cls($h)  →  [W32]::Cls($l)                # 参数
+
+形状是固定的:**字面断言天生够不着语义**。补一条字面规则,下一层字面就能绕过去。
+
+⇒ 所以判定搬到这里:**纯函数,进去是事实,出来是裁决**。
+探针只负责**采事实**(哪几份日志在、屏幕上有哪些窗口和它们的类、哪个端口应答),
+把事实喂进来、把这里给的那句话原样 `Say` 出去。
+于是"极性/取值/终止条件/参数"全变成输入输出问题 —— 判据(`tests/test_startup_diag.py`
+的 `S19ProbeVerdictIsABehaviour`)喂一组真实事实、断言裁决,变异改哪一处都咬得住。
+
+**调用约定**(探针那边用的就是这个):
+
+    echo '<facts-json>' | python probe_verdict.py logs|window|health
+
+stdout 是**一行**给 `Say` 的话;退出码 0=OK、1=FAIL、2=输入本身有问题。
+`FAIL` 这个词只在真该红时出现 —— 探针末尾那道闸认的就是它。
+"""
+from __future__ import annotations
+
+import json
+import sys
+from dataclasses import dataclass
+
+# 三份日志:外壳/工作台**必须**有(进程只要被 spawn,文件在 Popen 之前就已落盘,
+# 见 ds_shell_core._spawn),网关允许缺席 —— 没填 key 时网关本来就不起,
+# 真机健康趟就是"网关缺席"这个形状。把它算成必须 = 每一趟健康的 run 都假红。
+BUNDLE_LOGS = ("外壳.log", "工作台.log", "网关.log")
+REQUIRED_LOGS = ("外壳.log", "工作台.log")
+
+# MessageBoxW 弹出来的框,窗口类恒为 Windows 的对话框类 #32770;
+# pywebview 的主窗口是动态注册的 WinForms 类,不可能是它。
+# 而两者的**标题**都是 APP = OpenDesign(ds_shell.alert/die 用的就是 APP)⇒ 标题分不开。
+DIALOG_CLASS = "#32770"
+
+
+@dataclass(frozen=True)
+class Verdict:
+    ok: bool
+    text: str
+
+
+def logs_verdict(present: dict) -> Verdict:
+    """第 8 相:`present` = {日志名: 字节数 or None(缺席)}。"""
+    got, miss = [], []
+    for name in BUNDLE_LOGS:
+        size = present.get(name)
+        if size is None:
+            got.append(f"{name} 缺席")
+            if name in REQUIRED_LOGS:
+                miss.append(name)
+        else:
+            got.append(f"{name} {size}B")
+    detail = " | ".join(got)
+    if miss:
+        return Verdict(False, f"FAIL - 必须有的日志缺席:{', '.join(miss)} ⇒ 现场是空的。明细:{detail}")
+    return Verdict(True, detail)
+
+
+def window_verdict(wins: list, ours: list) -> Verdict:
+    """第 6 相。
+
+    `wins` = EnumWindows 找到的、标题含应用名的顶层窗口 [{"title":…, "cls":…}];
+    `ours` = 老口径(进程主窗口标题里含应用名的那些),只在 `wins` 空时兜底。
+    """
+    boxes = [w for w in wins if w.get("cls") == DIALOG_CLASS]
+    real = [w for w in wins if w.get("cls") != DIALOG_CLASS]
+    if real:
+        shown = " | ".join(f"「{w.get('title')}」[{w.get('cls')}]" for w in real)
+        return Verdict(True, f"OK - {shown}(另有 {len(boxes)} 个报错框)")
+    if boxes:
+        # 只有框、没有真窗口 = 软件根本打不开(WebView2 缺失那类)。
+        # 注意这一支要**先于**老口径判:框本身就是进程主窗口,老口径看得见它。
+        shown = " | ".join(f"「{w.get('title')}」" for w in boxes)
+        return Verdict(False, f"FAIL - 屏幕上只有报错框(窗口类 {DIALOG_CLASS}):{shown} ⇒ 软件根本打不开")
+    if ours:
+        # 故意的 fail-open:一个都枚举不到时退回老口径,别造假红。
+        # 代价(空枚举 + 只有报错框时这个洞会复活)写在读数里,不藏着。
+        return Verdict(True, f"OK - {' | '.join(ours)}(EnumWindows 一个都没枚举到,退回老口径)")
+    return Verdict(False, "FAIL - 没等到我们的窗口(EnumWindows 和进程主窗口标题都没有)")
+
+
+def health_verdict(answers: dict) -> Verdict:
+    """第 5/10 相:`answers` = {端口: version or None}。
+
+    🔴 端口**会挪**:应用用 `pick_ports([8766,…], span=20)` 挑端口,8766 被占就往后找。
+    探针原来把 8766 写死 ⇒ 应用在 8767 上健康启动、探针照样判 FAIL(健康假红)。
+    """
+    alive = {int(p): v for p, v in answers.items() if v}
+    if alive:
+        port, ver = sorted(alive.items())[0]
+        return Verdict(True, f"OK - /api/health 通(端口 {port},version={ver})")
+    tried = sorted(int(p) for p in answers)
+    span = f"{tried[0]}..{tried[-1]}" if tried else "(一个端口都没试)"
+    return Verdict(False, f"FAIL - 端口段 {span} 全都不应答 ⇒ 后端没活过来")
+
+
+_KINDS = {
+    "logs": lambda f: logs_verdict(f["present"]),
+    "window": lambda f: window_verdict(f.get("wins") or [], f.get("ours") or []),
+    "health": lambda f: health_verdict(f["answers"]),
+}
+
+
+def main(argv: list) -> int:
+    if len(argv) != 2 or argv[1] not in _KINDS:
+        sys.stderr.write(f"用法: probe_verdict.py {'|'.join(_KINDS)} < facts.json\n")
+        return 2
+    try:
+        facts = json.load(sys.stdin)
+        v = _KINDS[argv[1]](facts)
+    except Exception as exc:                      # 判定器自己坏了要说出来,不许静默
+        sys.stdout.write(f"FAIL - 判定器读不懂事实({type(exc).__name__}: {exc})\n")
+        return 2
+    sys.stdout.write(v.text + "\n")
+    return 0 if v.ok else 1
+
+
+if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")   # Windows ANSI 代码页会把中文打炸
+    raise SystemExit(main(sys.argv))

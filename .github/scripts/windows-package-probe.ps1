@@ -28,7 +28,28 @@ New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $InstallDir = "$env:LOCALAPPDATA\Programs\OpenDesign"
 $DataRoot   = "$env:LOCALAPPDATA\OpenDesign"
 $phases     = [ordered]@{}
+# 🔴 应用用 `core.pick_ports([8766,…], span=20)` 挑端口,被占就往后挪(ds_shell.py:248)。
+#    探针原来把 8766 写死 ⇒ 8767 上健康启动也判 FAIL(**健康假红**)。扫整段。
+$PortSpan   = 8766..8786
 function Say([string]$k, [string]$v) { $phases[$k] = $v; "PHASE $k : $v" }
+
+# 🔴 判定("机器事实 → 该不该 FAIL")**不在这个脚本里**。
+#    这支脚本本机跑不了(没有 pwsh)⇒ 写在这里的判定谁都验不了,而 2026-08-30 那一晚
+#    它被外部评审连打回十几次(极性、取值、守卫、终止条件、参数,每一种静态判据都全绿)。
+#    ⇒ 探针只**采事实**,判定交给 bin/probe_verdict.py(纯函数,有 11 条行为判据守着)。
+#    用**仓库里这一份**(和本脚本同版本),不是装出来的那份旧的。
+function Get-Verdict([string]$kind, $facts) {
+    $judge = Join-Path $PSScriptRoot '..\..\bin\probe_verdict.py'
+    $py    = "$InstallDir\python\python.exe"
+    if (-not (Test-Path $judge)) { return "FAIL - 判定器不在:$judge" }
+    if (-not (Test-Path $py))    { return "FAIL - 判定器跑不成:找不到 $py" }
+    try {
+        $out = ($facts | ConvertTo-Json -Depth 6 -Compress) | & $py $judge $kind 2>&1
+        $rc  = $LASTEXITCODE
+    } catch { return "FAIL - 判定器炸了:$($_.Exception.Message)" }
+    if (-not $out) { return "FAIL - 判定器没有输出(rc=$rc)" }
+    return (("$out" -replace "`r?`n", " ").Trim())
+}
 
 function Save-Screen([string]$Path) {
     $b = [System.Windows.Forms.SystemInformation]::VirtualScreen
@@ -201,15 +222,19 @@ try {
 } catch { Say '4 启动' "FAIL - $($_.Exception.Message)" }
 
 # ── 5 它活过来了吗:问它自己的健康端点(不看窗口,看服务) ──────────────
-$health = $null
+$answers = @{}
+foreach ($p in $PortSpan) { $answers["$p"] = $null }
 for ($i = 0; $i -lt 60; $i++) {
-    try {
-        $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8766/api/health' -TimeoutSec 3
-        break
-    } catch { Start-Sleep -Seconds 3 }
+    foreach ($p in $PortSpan) {
+        try {
+            $h = Invoke-RestMethod -Uri "http://127.0.0.1:$p/api/health" -TimeoutSec 2
+            if ($h.version) { $answers["$p"] = "$($h.version)" }
+        } catch { }
+    }
+    if ($answers.Values | Where-Object { $_ }) { break }
+    Start-Sleep -Seconds 3
 }
-if ($health) { Say '5 服务活了吗' "OK - /api/health 通,version=$($health.version)" }
-else { Say '5 服务活了吗' "FAIL - 3 分钟内 127.0.0.1:8766 一直不通" }
+Say '5 服务活了吗' (Get-Verdict 'health' @{ answers = $answers })
 
 # ── 6 窗口在不在:等 **OpenDesign 自己的**窗口出现 ─────────────────
 # 🔴 2026-08-30 修:原来问的是"屏幕上有没有**任何**带标题的窗口",而 CI 机器上
@@ -233,20 +258,13 @@ do {
     Start-Sleep -Seconds 4
     $all  = @(Get-Process | Where-Object { $_.MainWindowTitle } |
               ForEach-Object { "$($_.ProcessName):「$($_.MainWindowTitle)」" })
-    $ours = @($all | Where-Object { $_ -like "*$appTitle*" })
-    $wins = @(Get-AppWindows $appTitle)
-    $box  = @($wins | Where-Object { $_.Class -eq '#32770' })
-    $real = @($wins | Where-Object { $_.Class -ne '#32770' })
-} while ($ours.Count -eq 0 -and $box.Count -eq 0 -and (Get-Date) -lt $deadline)
-if ($box.Count -and -not $real.Count) {
-    $txt = (Dump-Dialogs $appTitle) -join ' / '
-    Say '6 窗口在不在' "FAIL - 屏幕上只有报错框(窗口类 #32770),没有真窗口 ⇒ 软件根本打不开。框里写的:$txt"
-} elseif ($ours.Count -or $real.Count) {
-    $cls = if ($real.Count) { ($real | ForEach-Object { "「$($_.Title)」[$($_.Class)]" }) -join ' | ' } else { '(EnumWindows 没枚举到,只有进程主窗口标题)' }
-    Say '6 窗口在不在' "OK - $($ours -join ' | ') ⇒ $cls(同屏其余 $($all.Count - $ours.Count) 个窗口)"
-} else {
-    Say '6 窗口在不在' "FAIL - 60s 没等到标题带 $appTitle 的窗口。同屏:$(if($all.Count){$all -join ' | '}else{'一个都没有'})"
-}
+    $ours = @($all | Where-Object { $_ -like "*$appTitle*" })      # 老口径,只在枚举不到时兜底
+    $wins = @(Get-AppWindows $appTitle)                            # 新口径:标题 + **窗口类**
+} while ($ours.Count -eq 0 -and $wins.Count -eq 0 -and (Get-Date) -lt $deadline)
+Say '6 窗口在不在' (Get-Verdict 'window' @{
+    wins = @($wins | ForEach-Object { @{ title = $_.Title; cls = $_.Class } })
+    ours = $ours
+})
 
 # ── 7 截图 + 白屏体检 ─────────────────────────────────────────────
 # 🔴 **一张图分不开"还在加载"和"真的白"**(0.98 那一跑:窗口开了、服务通了、
@@ -277,24 +295,15 @@ try {
 #    外壳.log / 工作台.log 是**必须有的**(进程只要跑起来就会写);
 #    网关.log 允许缺席(网关本来就可能没起)——所以要有清单,不能一刀切。
 try {
-    $names    = @('外壳.log', '工作台.log', '网关.log')
-    $required = @('外壳.log', '工作台.log')
-    $got = @(); $miss = @()
-    foreach ($n in $names) {
+    $present = @{}
+    foreach ($n in @('外壳.log', '工作台.log', '网关.log')) {
         $log = "$DataRoot\Logs\$n"
         if (Test-Path $log) {
             Copy-Item $log "$OutDir/$n" -Force
-            $got += "$n $((Get-Item $log).Length)B"
-        } else {
-            $got += "$n 缺席"
-            if ($required -contains $n) { $miss += $n }
-        }
+            $present[$n] = (Get-Item $log).Length
+        } else { $present[$n] = $null }
     }
-    if ($miss.Count) {
-        Say '8 收日志' "FAIL - 必须有的日志缺席:$($miss -join ', ') ⇒ 现场是空的。明细:$($got -join ' | ')"
-    } else {
-        Say '8 收日志' ($got -join " | ")
-    }
+    Say '8 收日志' (Get-Verdict 'logs' @{ present = $present })
 } catch { Say '8 收日志' "FAIL - $($_.Exception.Message)" }
 
 # ── 9 托盘导出诊断:在 Windows 上真跑一遍那段代码 ────────────────────
@@ -338,24 +347,26 @@ try {
     $env:HTTPS_PROXY = 'http://127.0.0.1:9'
     $sw = [Diagnostics.Stopwatch]::StartNew()
     Start-Process "$InstallDir\OpenDesign.exe"
-    $ok = $false
+    $answers2 = @{}
+    foreach ($p in $PortSpan) { $answers2["$p"] = $null }
     while ($sw.Elapsed.TotalSeconds -lt 90) {
         Start-Sleep -Seconds 5
-        try {
-            $h = Invoke-WebRequest -Uri 'http://127.0.0.1:8766/api/health' -UseBasicParsing `
-                 -TimeoutSec 5 -Proxy $null
-            if ($h.StatusCode -eq 200) { $ok = $true; break }
-        } catch { }
+        foreach ($p in $PortSpan) {
+            try {
+                $h = Invoke-WebRequest -Uri "http://127.0.0.1:$p/api/health" -UseBasicParsing `
+                     -TimeoutSec 2 -Proxy $null
+                if ($h.StatusCode -eq 200) { $answers2["$p"] = 'up' }
+            } catch { }
+        }
+        if ($answers2.Values | Where-Object { $_ }) { break }
     }
+    $ok = [bool]($answers2.Values | Where-Object { $_ })
     Remove-Item Env:HTTP_PROXY, Env:HTTPS_PROXY -ErrorAction SilentlyContinue
     Save-Screen "$OutDir/30-proxy-launch.png"
     $b2 = Test-Blankness "$OutDir/30-proxy-launch.png"
-    if ($ok) {
-        Say '10 带系统代理启动' ("OK - {0}s 起来了,颜色 {1} 种 / 近白 {2}%" -f `
-            [int]$sw.Elapsed.TotalSeconds, $b2.Colors, $b2.WhitePct)
-    } else {
-        Say '10 带系统代理启动' "🔴 FAIL - 90s 没起来 ⇒ 代理修复在真 Windows 上不成立"
-    }
+    $v10 = Get-Verdict 'health' @{ answers = $answers2 }
+    Say '10 带系统代理启动' ("{0}({1}s,颜色 {2} 种 / 近白 {3}%)" -f `
+        $v10, [int]$sw.Elapsed.TotalSeconds, $b2.Colors, $b2.WhitePct)
     Copy-Item "$DataRoot\Logs\外壳.log" "$OutDir/外壳-带代理.log" -Force -ErrorAction SilentlyContinue
 } catch { Say '10 带系统代理启动' "FAIL - $($_.Exception.Message)" }
 
