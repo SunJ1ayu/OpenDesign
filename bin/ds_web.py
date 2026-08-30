@@ -871,7 +871,17 @@ class Handler(BaseHTTPRequestHandler):
     timeout = 30
 
     def log_message(self, fmt, *args):  # 请求日志走 stdout(design D2 运维面)
-        sys.stdout.write("%s - %s\n" % (self.address_string(), fmt % args))
+        # 🔴 2026-08-30(判据 s2):补时间戳并**立刻 flush**。
+        #    这份日志原来一个时间都没有 —— 于是"JS 是什么时候被请求的"
+        #    "健康检查什么时候通的"在白屏事后一个都答不了,而那正是分流表里
+        #    最要紧的几个分叉(08-25 白屏,我们手上一条线索都没有)。
+        #    不 flush 的话崩溃时缓冲区里那几行会一起丢掉 —— 恰恰是最后几行最值钱。
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        sys.stdout.write("%s %s - %s\n" % (stamp, self.address_string(), fmt % args))
+        try:
+            sys.stdout.flush()
+        except Exception:
+            pass
 
     def _host_ok(self) -> bool:
         """H2(07-13 盲评):Host 白名单,拒 DNS rebinding。

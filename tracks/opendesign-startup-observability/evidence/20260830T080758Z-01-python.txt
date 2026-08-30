@@ -1,0 +1,15 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    python
+cmd:     /root/.venvs/design-studio/bin/python tests/test_startup_diag.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  4f9db1d
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-30T08:07:58Z
+---------------- 输出开始 ----------------
+..............
+----------------------------------------------------------------------
+Ran 14 tests in 0.027s
+
+OK
+---------------- 输出结束 ----------------
+runlog: python rc=0 commit=4f9db1d dirty=yes at=2026-08-30T08:07:58Z file=tracks/opendesign-startup-observability/evidence/20260830T080758Z-01-python.txt

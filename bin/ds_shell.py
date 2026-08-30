@@ -127,6 +127,21 @@ def log(msg: str) -> None:
         pass
 
 
+def web_ready_probe(port: int) -> bool:
+    """工作台"就绪"的真正含义:`/api/health` 应答得了。
+
+    🔴 **fail-closed**:任何异常都当成"还没就绪"。反过来写(拿不到就当好了)
+    正是这个项目栽过的 fail-open 形状 —— 那样探针活着也等于没有。
+    """
+    import urllib.request
+    try:
+        with urllib.request.urlopen(
+                f"http://127.0.0.1:{int(port)}/api/health", timeout=2) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+
 # 这一次启动的证据链。**在模块导入时就建**,不是在 main() 里 —— 那样 t0 才贴着
 # 进程真正的起点(import 本身也可能慢,那段时间也该被量到)。
 # 白屏和"打开好慢"都靠它留下的东西查(track opendesign-startup-observability)。
@@ -304,6 +319,11 @@ def start_backend(home: Path, lock_port: int | None = None):
         return core.Service(name="工作台", argv=[str(python_exe()),
                                                  str(install_root() / "ds" / "bin" / "ds_web.py")],
                             env=e, ready_port=web, log_path=logs / "工作台.log",
+                            # 🔴 2026-08-30(判据 s11):就绪 = **它真的应答了**,
+                            #    不是"端口有人监听"。`ready_probe` 这个机制一直都在,
+                            #    只是工作台从没接上 ⇒ 时间线里的"后端就绪"是半真话,
+                            #    而整条启动耗时都建在这句话上面。
+                            ready_probe=web_ready_probe,
                             ready_timeout=60)
 
     # plan 里那两个名字是 core 的说法("ds-web"/"网关");Service 名是业主看得见的

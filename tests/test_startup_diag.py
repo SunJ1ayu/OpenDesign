@@ -16,6 +16,7 @@
 """
 from __future__ import annotations
 
+import io
 import sys
 import tempfile
 import time
@@ -77,8 +78,11 @@ class S3S4RunIdAndMonotonic(unittest.TestCase):
         `ds_shell_core.py:621` 早就用 monotonic 了,这里只是不许新代码走回头路。
         """
         seen: list[str] = []
-        d = ds_diag.StartupLog(emit=seen.append)
+        # 🔴 StartupLog **必须在 patch 生效之后建**:`self._clock = clock or time.monotonic`
+        #    在 __init__ 那一刻就把函数对象抓走了,事后再 patch 模块属性对它无效
+        #    —— 第一版就是这么写的,M5 变异下判据全绿(量具自己坏了)。
         with mock.patch("time.time", return_value=0.0):
+            d = ds_diag.StartupLog(emit=seen.append)
             d.mark("first")
             time.sleep(0.01)
             d.mark("second")
@@ -219,6 +223,66 @@ class S12CollectorsNeverBreakStartup(unittest.TestCase):
         d.mark("lock.acquired")          # 不许抛
         d.report_from_ui("frontend.error", "x")
 
+
+
+class S2WebLogHasTime(unittest.TestCase):
+    """s2 `工作台.log` 的请求行要带时间。
+
+    它现在**一个时间戳都没有** —— 于是"JS 是什么时候被请求的""健康检查什么时候通的"
+    这些问题,在白屏事后一个都答不了。而那正是分流表里最要紧的几个分叉。
+    """
+
+    def test_s2_request_lines_carry_a_timestamp(self):
+        import ds_web
+        buf = io.StringIO()
+        fake = ds_web.Handler.__new__(ds_web.Handler)
+        fake.address_string = lambda: "127.0.0.1"
+        with mock.patch.object(ds_web.sys, "stdout", buf):
+            ds_web.Handler.log_message(fake, '"%s" %s', "GET /api/health HTTP/1.1", "200")
+        line = buf.getvalue()
+        self.assertRegex(line, r"\b20\d{2}\b", f"工作台日志的请求行没有日期:{line!r}")
+        self.assertRegex(line, r"\d{2}:\d{2}:\d{2}", f"工作台日志的请求行没有时间:{line!r}")
+
+
+class S6NoLyingWindowOpenedLine(unittest.TestCase):
+    """s6 不许再有一行在窗口真打开**之前**宣布"窗口打开了"。
+
+    这条是钉住 D4 不被改回去。白屏那晚(08-25)日志里就有那一行 ——
+    它把根本没发生的事说成了既成事实,而我事后还拿它当过证据。
+    """
+
+    def test_s6_the_lying_literal_is_gone(self):
+        src = (ROOT / "bin" / "ds_shell.py").read_text(encoding="utf-8")
+        self.assertNotIn('log(f"窗口打开', src,
+                         "那行假信息又回来了 —— 它写在 webview.start() 之前,报的是"
+                         "「我要开了」不是「开了」")
+
+    def test_s6_window_shown_is_reported_from_the_shown_event(self):
+        src = (ROOT / "bin" / "ds_shell.py").read_text(encoding="utf-8")
+        self.assertIn('events.shown += lambda: DIAG.mark("window.shown")', src,
+                      "「窗口真的显示了」没有挂在 shown 事件上 ⇒ 时间线又会撒谎")
+
+
+class S11BackendReadyMeansItAnswers(unittest.TestCase):
+    """s11 「工作台就绪」必须是**它真的应答了**,不是"端口有人监听"。
+
+    双出那一轮 GPT 点出来、我亲自量证过的:`ready_probe` 机制早就存在,
+    但 `web_service` 从来没接上 ⇒ 现在的"后端就绪"是句半真话,
+    而整条启动时间线都建在这句话上面。
+    """
+
+    def test_s11_web_service_has_a_real_probe(self):
+        import ds_shell_core as core
+        probe = shell.web_ready_probe
+        self.assertTrue(callable(probe), "工作台没有就绪探针")
+        # 端口上没人 ⇒ 必须判"没就绪",不许因为异常就当成绿(fail-closed)
+        self.assertFalse(probe(1), "探针在一个死端口上返回了 True ⇒ fail-open")
+
+    def test_s11_the_probe_is_actually_wired_in(self):
+        src = (ROOT / "bin" / "ds_shell.py").read_text(encoding="utf-8")
+        self.assertIn("ready_probe=web_ready_probe", src,
+                      "探针写出来了却没接到 工作台 Service 上 —— "
+                      "「加了防线却没把构件放进防线」,本项目栽过")
 
 if __name__ == "__main__":
     unittest.main()
