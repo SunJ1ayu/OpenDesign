@@ -282,9 +282,17 @@ mutate_and_expect M38 .github/scripts/windows-package-probe.ps1 test_s18_the_pre
   '} while ($box.Count -eq 0 -and (Get-Date) -lt $deadline)'
 
 # M39 辅助函数不问"窗口可见吗" ⇒ 看不见的窗口也算窗口在
+# 🔴 锚点必须**唯一**:`IsWindowVisible` 在 Dump-Dialogs 里也有一份,而变异工具只换第一处
+#    —— 第一版锚点就是这么打到了**另一个函数**上(判据当然不红,脚本判 BAD 是对的)。
 mutate_and_expect M39 .github/scripts/windows-package-probe.ps1 test_s18_the_window_lister_reports_title_and_class \
-  '        if ([W32]::IsWindowVisible($h)) {' \
-  '        if ($true) {'
+  '        if ([W32]::IsWindowVisible($h)) {
+            $t = [W32]::Text($h)
+            if ($t -like "*$Match*") {
+                $script:appwins' \
+  '        if ($true) {
+            $t = [W32]::Text($h)
+            if ($t -like "*$Match*") {
+                $script:appwins'
 
 # M40 必须清单对、收集清单里却没有它 ⇒ 循环走不到 ⇒ 该红不红
 mutate_and_expect M40 .github/scripts/windows-package-probe.ps1 test_s18_the_required_logs_are_named \
