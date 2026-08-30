@@ -712,3 +712,48 @@ runlog: redcheck-mutation-2d rc=0 commit=1f1619a dirty=yes at=2026-08-30T16:42:5
 13. `health_verdict` **不核对版本**(任何真值都算活),多端口应答取最小端口;
     第 10 相只断言 HTTP 200(gemini 提的)。
 14. fail-open 的"空枚举 + 只有报错框"这个**窄双故障组合**没有判据钉(注释里写了代价)。
+
+## 第五轮 panel(close5,snapshot `60f484d`):gemini PASS / deepseek 三判 BLOCK —— 还是对的
+
+subdeepseek **自己变异 9 处、每处跑完整套件、还串行重跑了我 M1~M45**(确认 45 咬 0 漏属实),
+然后指出一句我没想到的:
+
+> "判定搬进纯函数"解决的是**判定层**。8 个历史变异里有 4 个本来就住在 `.ps1` 的**采实层**,
+> 搬判定根本够不着它们;s18 现在钉的是"引用了 `$appTitle`/`[W32]::Cls(`/`Test-Path`",
+> **不是这些采集的语义**。
+
+它实测七种(全部 48 条判据全绿而行为已坏),**四种是 2c 那批的原物**:
+
+| 改法 | 后果 |
+|---|---|
+| `$appTitle = ''` | 标题过滤没了 ⇒ 同屏任何窗口都算我们的 ⇒ 应用没起来也 OK |
+| `-like` → `-notlike` | 采的是"标题**不含**应用名"的窗口 ⇒ CI 终端顶替真窗口 |
+| `Cls($h)` → `Cls($l)` | 类名恒空 ⇒ 报错框被判成真窗口 ⇒ 2c 修的洞复活 |
+| `Test-Path` 取反 | 健康趟每份日志都算缺席 ⇒ 每趟假红 |
+| `Say` 不再写 `$phases` | 各相照样打印 FAIL,而闸读的是空的 ⇒ **自报 FAIL 也 exit 0** |
+| 轮询 `Where-Object { $_ }` 取反 | 健康时空转、坏时提早判红 |
+| `cls = $_.cls` | 每个窗口的 cls 都是 null ⇒ 报错框全判成真窗口 |
+
+**外加一条 fail-closed 没闭合**(2d 那条的另一走法):判定器**语法错/import 炸**时
+rc=1、stdout 空、traceback 在 stderr,而 `2>&1` 合并后"输出非空" ⇒ 穿过 rc 守卫 ⇒
+**traceback 被当成裁决** ⇒ exit 0。它用一个语法错的判定器逐行模拟过。
+
+⇒ 全部修掉:`Get-Verdict` 不再 `2>&1`(stderr 落 `probe-out/judge-<kind>.err`,
+裁决只认 stdout);采实层七条逐个钉,标题那条是**跨文件钉**(必须等于 `ds_shell.py` 的 `APP`)。
+变异补 M46~M53。
+
+```
+runlog: redcheck-sampling-pins-r2 rc=1 commit=01cc6a2 dirty=yes at=2026-08-30T16:54:09Z file=tracks/opendesign-startup-observability/evidence/20260830T165409Z-01-redcheck-sampling-pins-r2.txt
+runlog: redcheck-mutation-2e rc=1 commit=5a4efc5 dirty=yes at=2026-08-30T16:55:23Z file=tracks/opendesign-startup-observability/evidence/20260830T165523Z-01-redcheck-mutation-2e.txt
+runlog: redcheck-mutation-2e-r2 rc=0 commit=5a4efc5 dirty=yes at=2026-08-30T16:56:27Z file=tracks/opendesign-startup-observability/evidence/20260830T165627Z-01-redcheck-mutation-2e-r2.txt
+```
+
+现在:s18 **11 条**、s19 **15 条**、变异 **M1~M53,咬 53 漏 0**。
+(r1 那两条漏网**都是我的量具问题**:M35 锚点被这次改动改旧、M48 打偏到 `Dump-Dialogs` ——
+**今晚第三次栽在"锚点不唯一"上**。收据两份都留着。)
+
+### 一条新记的账
+
+15. **配了 key 但网关启动失败时,`网关.log 缺席` 仍判 OK ⇒ 假绿**(deepseek 提的,不在我原清单里)。
+    CI 新 VM 看不见,业主机器上会误导。修法要么按"配了 key 就必须有网关.log",
+    要么让探针读 config 判断该不该要 —— 进下一刀。
