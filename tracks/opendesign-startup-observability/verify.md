@@ -12,7 +12,7 @@
 - [x] e2e `startup_report.e2e.mjs`:全部通过,**且用控制变异证明它不是恒真的**
 - [x] 全量回归:1357 项 rc=0
 - [x] no secrets / unsafe ops(不碰网络、不加对外出口 —— 业主 08-30 定"先做 C")
-- [ ] 四审 panel-review(impact=high ⇒ 预算 2)—— **未跑**
+- [x] 四审 panel-review(impact=high ⇒ 预算 2,实派 3 腿)—— **孤腿 BLOCK,已全修**
 - [ ] Windows CI 端到端 —— 未跑
 - [ ] 业主真机 —— 只有他答得了
 
@@ -92,6 +92,59 @@ runlog: run-all rc=1 commit=6a6cf47 dirty=no at=2026-08-30T08:11:42Z file=tracks
 10. **前端上报链在真 Windows + 真 WebView2 下没验过。** 本机 e2e 用的是 chromium +
     自造的假桥。真桥(pywebview 注入)只有 Windows CI / 真机答得了。
 
-## Panel
+## Panel(2026-08-30)
 
-- [ ] 待跑(impact=high ⇒ 两条不同家族的健康腿)
+花名册(机器写的,别手抄):
+```
+# impact-risk=high requested-budget=2 selected-count=3
+# selected=submimo(xiaomi),subdeepseek(deepseek),subgemini(google)
+# escalation=incomplete   snapshot=head:cb1e53d
+submimo=PASS(verdict=UNKNOWN) subdeepseek=PASS(verdict=BLOCK) subglm=SKIP(rotation) subkimi=SKIP(rotation) subgemini=PASS(verdict=PASS)
+```
+
+### 🔴 先记我自己造的账:反锚定作废
+
+**两条判 PASS 的腿都在读我的 verify.md。** 证据:subgemini 提到"第一版两帧即判"
+(该信息**只**存在于我的工件与 commit,现有代码里看不出来);submimo 直接引用
+`verify.md:60-62`。它们列的"已知取舍"四条与我 verify 第 7~10 条一一对应,
+**没有一条是我没写过的**。
+
+根因是我把顺序做反了:panel skill 写明「正确节奏是先派发、后写 verify.md」,
+而我先写完 verify.md 并提交了才派发。`git checkout` 堵不住这条 ——
+底座腿自己读仓库,**文件在树上就够得着**。
+⇒ **这两条 PASS 的证据价值按接近零计。** 下一单必须先派发后落工件。
+
+### 逐条对账(孤腿 subdeepseek 的 BLOCK)
+
+| # | 它说的 | 我的核实 | 处置 |
+|---|---|---|---|
+| F1 HIGH | `web_ready_probe` 走 urlopen ⇒ 不绕系统代理 ⇒ 配代理的机器上健康服务被判未就绪 ⇒ 死等 60s ⇒ StartupFailed ⇒ **软件打不开** | **亲手复现**:设 `http_proxy` 后对健康服务返回 False,裸 socket 对照组正常;`proxy_bypass('127.0.0.1')` 确为 False。**业主本机跑 VPN(Clash 类会设系统代理)⇒ 很可能正中他** | **接受,已修**(空 ProxyHandler);判据 s13 + 变异 M19 |
+| F2 MED | 首帧看门无幂等闸,托盘还原再发 Shown ⇒ 必然超时 ⇒ 假诊断 | 读码属实:`start_first_frame_watch` 挂在 `events.shown`、无护栏;且 `report_from_ui` 按进程去重会丢掉重报 | **接受,已修**(只上一次膛);s14 + M20 |
+| F3 MED | 白名单只到文件级,`工作台.log` 请求行带项目名/文件名 | 属实。**而我 08-30 亲口对业主说过"包里不会有项目档案、客户资料" ⇒ 那是半真话** | **接受,已修**(请求行只留前两段路径,端点形状与状态码留住);s16 + M22 |
+| F6 LOW | `report_startup → note_first_frame → seen()` 无判据 | 属实,且违反本单自己的"接线要钉死"标准(s6/s11 都做了) | **接受,已补** s15 + M21 |
+| F4 LOW | 去重按事件名一次性 ⇒ 先发合法事件可压掉真事件 | 属实,但前提是页面已被攻破;本地单用户、口子只对本窗口 | **接受意见、不动作**,记为已知取舍 |
+| — | `begin_resize` 日志拼未截断网页字符串 | 属实,但**不在本单 diff 内** | 记入 backlog,不混进本单 |
+
+**它没说、但我自己记着的**:F1 那条正是本单设计里"观测层绝不能成为新的故障源"
+这条红线的字面违反 —— **而红线是我自己写的**。19 条判据在 Linux 上全绿,
+对"探针走不走代理"零覆盖,这是本单最大盲区,已由 s13 补上。
+
+### 裁决(主 agent,唯一仲裁者)
+
+**代码面 PASS。** 依据是我自己的复核与 22 条变异全咬,不是腿的票数 ——
+两条 PASS 腿的独立性已作废,不计入证据。
+**产品面不给结论**:真 Windows + 真 WebView2 下的前端上报链、以及 F1 修复在
+真代理机器上的效果,只有 CI / 真机答得了。
+
+## 最终收据(**最后一次编辑之后那一遍**,干净树)
+
+```
+runlog: run-all rc=1 commit=fb9398e dirty=no at=2026-08-30T08:54:28Z file=tracks/opendesign-startup-observability/evidence/20260830T085428Z-01-run-all.txt
+```
+六段:5 PASS,唯一红的是 e2e 总跑 **36 PASS / 1 FAIL / 2 SKIP**。
+那一条是 `stage_timer.e2e.mjs`,**已证死与本单无关**:在本单开工前的提交
+`d0840c1` 上单独跑,同样 4 FAIL(`connect-modal-mask` 挡住点击 = 既有的
+"e2e 悄悄依赖活网关"那笔账)。**是量出来的,不是推的。**
+
+> 另记:本机 e2e 的 playwright 依赖来自一个**写死的 npx 缓存路径**,那个缓存已被清空
+> ⇒ 直接跑总跑时 32 条全红。用 `E2E_PW_MODULES` 指到别处才跑得起来。**该单独开一单。**
