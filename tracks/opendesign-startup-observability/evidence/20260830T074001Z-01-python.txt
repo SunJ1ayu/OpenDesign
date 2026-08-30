@@ -1,0 +1,120 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    python
+cmd:     /root/.venvs/design-studio/bin/python tests/test_startup_diag.py -v
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  95369a9
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-30T07:40:01Z
+---------------- 输出开始 ----------------
+test_s10_bundle_carries_only_the_whitelist (__main__.S10ExportBundleLeaksNothing.test_s10_bundle_carries_only_the_whitelist) ... ERROR
+test_s12_a_failing_emit_does_not_raise (__main__.S12CollectorsNeverBreakStartup.test_s12_a_failing_emit_does_not_raise) ... ok
+test_s1_timestamp_carries_a_date (__main__.S1LogHasFullDate.test_s1_timestamp_carries_a_date) ... FAIL
+test_s3_each_startup_gets_its_own_id (__main__.S3S4RunIdAndMonotonic.test_s3_each_startup_gets_its_own_id) ... FAIL
+test_s3_every_line_carries_the_run_id (__main__.S3S4RunIdAndMonotonic.test_s3_every_line_carries_the_run_id) ... FAIL
+test_s4_elapsed_survives_a_wall_clock_jump_backwards (__main__.S3S4RunIdAndMonotonic.test_s4_elapsed_survives_a_wall_clock_jump_backwards)
+墙上时钟往回跳(对时/夏令时),耗时不许倒退。 ... FAIL
+test_s5_manifest_does_not_explode_off_windows (__main__.S5Manifest.test_s5_manifest_does_not_explode_off_windows)
+Linux 上查不到 WebView2 是正常的 —— 但**不许因此炸掉启动**。 ... ok
+test_s5_manifest_names_the_app_and_the_webview2_version (__main__.S5Manifest.test_s5_manifest_names_the_app_and_the_webview2_version) ... FAIL
+test_s7_detail_is_length_capped (__main__.S7UiReportIsUntrustedInput.test_s7_detail_is_length_capped) ... ERROR
+test_s7_only_whitelisted_events_get_through (__main__.S7UiReportIsUntrustedInput.test_s7_only_whitelisted_events_get_through) ... FAIL
+test_s7_same_event_is_not_logged_twice (__main__.S7UiReportIsUntrustedInput.test_s7_same_event_is_not_logged_twice) ... FAIL
+test_s8_absolutely_silent_when_the_frame_does_arrive (__main__.S8S9FirstFrameWatch.test_s8_absolutely_silent_when_the_frame_does_arrive)
+反误报:正常启动**一行都不许多写**。误报和假绿一样坏,本项目多次实证。 ... ok
+test_s8_snapshot_when_the_frame_never_arrives (__main__.S8S9FirstFrameWatch.test_s8_snapshot_when_the_frame_never_arrives) ... FAIL
+test_s9_the_timeout_path_never_pops_a_dialog (__main__.S8S9FirstFrameWatch.test_s9_the_timeout_path_never_pops_a_dialog)
+第一版硬规则:超时路径**不许**碰 alert。 ... ok
+
+======================================================================
+ERROR: test_s10_bundle_carries_only_the_whitelist (__main__.S10ExportBundleLeaksNothing.test_s10_bundle_carries_only_the_whitelist)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 200, in test_s10_bundle_carries_only_the_whitelist
+    names = zipfile.ZipFile(out).namelist()
+            ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/zipfile/__init__.py", line 1365, in __init__
+    self._RealGetContents()
+  File "/usr/lib/python3.12/zipfile/__init__.py", line 1432, in _RealGetContents
+    raise BadZipFile("File is not a zip file")
+zipfile.BadZipFile: File is not a zip file
+
+======================================================================
+ERROR: test_s7_detail_is_length_capped (__main__.S7UiReportIsUntrustedInput.test_s7_detail_is_length_capped)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 130, in test_s7_detail_is_length_capped
+    self.assertLess(len(seen[0]), 1000,
+                        ~~~~^^^
+IndexError: list index out of range
+
+======================================================================
+FAIL: test_s1_timestamp_carries_a_date (__main__.S1LogHasFullDate.test_s1_timestamp_carries_a_date)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 50, in test_s1_timestamp_carries_a_date
+    self.assertRegex(line, r"\b20\d{2}\b",
+AssertionError: Regex didn't match: '\\b20\\d{2}\\b' not found in '15:40:01 测试行' : 外壳日志少了日期,跨天对不了账:'15:40:01 测试行'
+
+======================================================================
+FAIL: test_s3_each_startup_gets_its_own_id (__main__.S3S4RunIdAndMonotonic.test_s3_each_startup_gets_its_own_id)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 59, in test_s3_each_startup_gets_its_own_id
+    self.assertTrue(a.run_id, "run_id 不能是空的")
+AssertionError: '' is not true : run_id 不能是空的
+
+======================================================================
+FAIL: test_s3_every_line_carries_the_run_id (__main__.S3S4RunIdAndMonotonic.test_s3_every_line_carries_the_run_id)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 68, in test_s3_every_line_carries_the_run_id
+    self.assertEqual(len(seen), 2)
+AssertionError: 0 != 2
+
+======================================================================
+FAIL: test_s4_elapsed_survives_a_wall_clock_jump_backwards (__main__.S3S4RunIdAndMonotonic.test_s4_elapsed_survives_a_wall_clock_jump_backwards)
+墙上时钟往回跳(对时/夏令时),耗时不许倒退。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 86, in test_s4_elapsed_survives_a_wall_clock_jump_backwards
+    self.assertEqual(len(got), 2)
+AssertionError: 0 != 2
+
+======================================================================
+FAIL: test_s5_manifest_names_the_app_and_the_webview2_version (__main__.S5Manifest.test_s5_manifest_names_the_app_and_the_webview2_version)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 101, in test_s5_manifest_names_the_app_and_the_webview2_version
+    self.assertIn(ds_web.VERSION, m, "版本清单里没有应用版本")
+AssertionError: '0.98.0' not found in '' : 版本清单里没有应用版本
+
+======================================================================
+FAIL: test_s7_only_whitelisted_events_get_through (__main__.S7UiReportIsUntrustedInput.test_s7_only_whitelisted_events_get_through)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 121, in test_s7_only_whitelisted_events_get_through
+    self.assertTrue(d.report_from_ui("frontend.react_committed"))
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_s7_same_event_is_not_logged_twice (__main__.S7UiReportIsUntrustedInput.test_s7_same_event_is_not_logged_twice)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 138, in test_s7_same_event_is_not_logged_twice
+    self.assertEqual(len(seen), 1, "同一事件没去重 ⇒ 网页可以刷屏")
+AssertionError: 0 != 1 : 同一事件没去重 ⇒ 网页可以刷屏
+
+======================================================================
+FAIL: test_s8_snapshot_when_the_frame_never_arrives (__main__.S8S9FirstFrameWatch.test_s8_snapshot_when_the_frame_never_arrives)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 158, in test_s8_snapshot_when_the_frame_never_arrives
+    self.assertEqual(len(fired), 1, "首帧没来,诊断快照没写 ⇒ 白屏又一次没有现场")
+AssertionError: 0 != 1 : 首帧没来,诊断快照没写 ⇒ 白屏又一次没有现场
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.019s
+
+FAILED (failures=8, errors=2)
+---------------- 输出结束 ----------------
+runlog: python rc=1 commit=95369a9 dirty=yes at=2026-08-30T07:40:01Z file=tracks/opendesign-startup-observability/evidence/20260830T074001Z-01-python.txt
