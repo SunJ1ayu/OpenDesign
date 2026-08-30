@@ -459,6 +459,26 @@ def _probe_phase(src: str, n: str) -> str:
     return "\n".join(ln for ln in lines[start:end] if not ln.lstrip().startswith("#"))
 
 
+def _guard_of(sec: str, line: str) -> str:
+    """返回**贴着 `line` 的那个 if/elseif**(它上面最近的一条),没有就返回空串。
+
+    🔴 为什么不能只问"这一段里有没有一个提到 $miss 的 if":第 8 相里
+    `if ($required -contains $n) { $miss += $n }` 是**累加**用的,它天然提到 $miss ——
+    于是把真正的守卫改成 `if ($false)` 之后,判据被那条累加行喂饱、照样绿。
+    这是 M27 当场照出来的(2026-08-30),和 M25 是同一种病:**问错了对象**。
+    """
+    code = [ln for ln in sec.splitlines() if not ln.lstrip().startswith("#")]
+    try:
+        idx = next(i for i, ln in enumerate(code) if ln.strip() == line.strip())
+    except StopIteration:
+        return ""
+    for i in range(idx - 1, -1, -1):
+        st = code[i].lstrip()
+        if st.startswith("if (") or st.startswith("} elseif (") or st.startswith("elseif ("):
+            return code[i]
+    return ""
+
+
 class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
     """s18 探针里「机器能独自断定的那几件」必须真的翻译成 FAIL。
 
@@ -489,11 +509,10 @@ class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
         # 🔴 光有 FAIL 文案**不够**:把守卫改成 `if ($false)` 之后文案原封不动地留在那儿,
         #    而那条 FAIL 永远走不到(第 2b 轮外部评审报的 F1,我亲手复现过)。
         #    ⇒ 还要问:这条 FAIL 是被「缺了谁」这个机器事实够到的吗。
-        guards = [ln for ln in sec.splitlines()
-                  if not ln.lstrip().startswith("#") and ln.lstrip().startswith("if (")]
-        self.assertTrue(any("$miss" in ln for ln in guards),
-                        "第 8 相的 FAIL 分支不是由「缺了哪几份必须日志」守着的 ⇒ "
-                        "守卫被改成常量它也发现不了")
+        guard = _guard_of(sec, own[0])
+        self.assertIn("$miss", guard,
+                      "贴着这条 FAIL 的守卫不是「缺了哪几份必须日志」("
+                      f"实际是 {guard.strip()!r})⇒ 守卫被改成常量它也发现不了")
 
     def test_s18_the_required_logs_are_named(self):
         sec = _probe_phase(PROBE.read_text(encoding="utf-8"), "8")
@@ -529,11 +548,11 @@ class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
                         "「软件根本打不开」照样绿")
         # 🔴 同 F1:守卫改成 `if ($true)` 文案照样在,而这一相变成恒红。
         #    这条 FAIL 必须由「有框、且没有真窗口」这两个机器事实一起守着。
-        guards = [ln for ln in sec.splitlines()
-                  if not ln.lstrip().startswith("#") and ln.lstrip().startswith("if (")]
-        self.assertTrue(any("$box" in ln and "$real" in ln for ln in guards),
-                        "「只有报错框」这条 FAIL 不是由 $box/$real 两个事实守着的 ⇒ "
-                        "守卫被改成常量它也发现不了")
+        box_fail = next(ln for ln in fails if "报错框" in ln)
+        guard = _guard_of(sec, box_fail)
+        self.assertTrue("$box" in guard and "$real" in guard,
+                        "贴着「只有报错框」这条 FAIL 的守卫不是 $box/$real 两个事实("
+                        f"实际是 {guard.strip()!r})⇒ 守卫被改成常量它也发现不了")
 
 
 if __name__ == "__main__":

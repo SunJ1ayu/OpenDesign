@@ -218,8 +218,8 @@ mutate_and_expect M27 .github/scripts/windows-package-probe.ps1 test_s18_a_missi
 
 # M28 把第 6 相的守卫改成常量真 ⇒ 这一相恒红(文案还在)
 mutate_and_expect M28 .github/scripts/windows-package-probe.ps1 test_s18_a_screen_with_only_the_error_box_is_a_FAIL \
-  '    if ($box.Count -and -not $real.Count) {' \
-  '    if ($true) {'
+  'if ($box.Count -and -not $real.Count) {' \
+  'if ($true) {'
 
 # M29 极性:-eq 抄成 -ne ⇒ $box/$real 变成同一堆 ⇒ 只有报错框的屏幕走 $ours 判 OK(产品级假绿)
 mutate_and_expect M29 .github/scripts/windows-package-probe.ps1 test_s18_the_window_phase_can_tell_a_message_box_from_the_app \
