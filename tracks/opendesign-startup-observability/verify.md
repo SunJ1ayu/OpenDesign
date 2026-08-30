@@ -600,3 +600,21 @@ runlog: redcheck-mutation-rewired-r3 rc=0 commit=3a5b775 dirty=yes at=2026-08-30
     "本机 38 条变异全绿"证明的是**判定对不对**,不是**这支脚本在 Windows 上跑不跑得起来**。
     ⇒ 收口的最后一步是推一条 `ci-probe/**` 分支触发一趟真跑,看第 5/6/8 相打印的是不是
     判定器给的那句话(顺带把敞着第 7 条那个 `#32770` 也在真机上量了)。
+
+### 最终收据(判定搬家之后,干净树)
+
+```
+runlog: run-all-final rc=1 commit=8724a32 dirty=no final=yes at=2026-08-30T15:58:19Z file=tracks/opendesign-startup-observability/evidence/20260830T155819Z-01-run-all-final.txt
+```
+
+六段:**5 PASS** + e2e 总跑 **37 PASS / 1 FAIL / 2 SKIP**。
+
+- 红的那条仍是 `stage_timer.e2e.mjs` —— 和本单前几遍**同一条**,开工前就红、已量证与本单无关。
+- 数字和 0.98.2 那遍**逐条对得上**(37/1/2),说明判定搬家没动到任何 e2e 行为。
+- `final=yes` 且没变成 rc=65 ⇒ 跑的那四分钟里没人写仓库。
+
+**⚠️ 这一遍之前还有一遍不作数的**(收据也留着,见上一条 commit):e2e 段 4 PASS / 34 FAIL,
+真因是 `playwright-core` 那个写死的 npx 缓存路径被清空(敞着第 5 条那笔老账)。
+**坏的是环境不是仓库**:chromium 二进制一直都在,机器上 bun 缓存里就有完整的
+playwright-core@1.58.2,放回那个路径后 37/1/2 立刻回来了。那条"写死的路径本身就是债"
+仍然敞着,该单独一单。
