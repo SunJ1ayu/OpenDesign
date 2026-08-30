@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-webview2-fixed-version",
+  "impact": {
+    "level": "high",
+    "factors": [
+      "production_side_effect"
+    ]
+  },
+  "design": {
+    "uncertainty": "high",
+    "premise_attack": {
+      "status": "pending",
+      "evidence": []
+    }
+  },
+  "execution_plan": {
+    "adapter": "main",
+    "model": "claude-opus-5"
+  },
+  "outcome": {
+    "verdict": null
+  }
+}
