@@ -1,0 +1,12 @@
+2026-08-30 09:29:11 ==== OpenDesign 外壳启动 ====
+2026-08-30 09:29:11 [启动] run=08c0d1 版本清单 OpenDesign=0.98.1 Windows=Windows-2025Server-10.0.26100-SP0 位数=64 Python=3.12.10 WebView2=151.0.4129.101
+2026-08-30 09:29:20 [启动] run=08c0d1 +9422ms lock.acquired
+2026-08-30 09:29:21 [启动] run=08c0d1 +10000ms backend.ready
+2026-08-30 09:29:21 [启动] run=08c0d1 +10234ms window.create_returned http://127.0.0.1:8766/?shell=1
+2026-08-30 09:29:21 准备进入图形循环:http://127.0.0.1:8766/?shell=1
+2026-08-30 09:29:21 [启动] run=08c0d1 +10234ms webview.loop_entered
+2026-08-30 09:29:30 [窗口] 已把 MINIMIZEBOX/MAXIMIZEBOX/SYSMENU 贴回窗口(默认路径,不动边框)
+2026-08-30 09:29:30 [启动] run=08c0d1 +18718ms window.shown
+2026-08-30 09:29:36 [启动] run=08c0d1 +24765ms frontend.bundle_started
+2026-08-30 09:29:36 [启动] run=08c0d1 +24765ms frontend.frame_submitted 1028x709
+2026-08-30 09:29:36 [启动] run=08c0d1 +24765ms frontend.react_committed
