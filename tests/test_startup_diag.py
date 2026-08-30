@@ -440,5 +440,74 @@ class S17TheBigBlobIsSplit(unittest.TestCase):
         self.assertNotIn("main.entered", names,
                          "还没调用 main() 就记了 main.entered ⇒ 时间线会撒谎")
 
+PROBE = ROOT / ".github" / "scripts" / "windows-package-probe.ps1"
+
+
+def _probe_phase(src: str, n: str) -> str:
+    """切出探针里第 n 相那一段(`# ── n …` 到下一个 `# ── `)。
+
+    按段切、**不按行号切** —— 行号在本项目已经被证明第 N 次不是身份。
+    """
+    lines = src.splitlines()
+    start = next((i for i, ln in enumerate(lines) if ln.startswith(f"# ── {n} ")), None)
+    assert start is not None, f"探针里找不到第 {n} 相"
+    end = next((j for j in range(start + 1, len(lines)) if lines[j].startswith("# ── ")),
+               len(lines))
+    return "\n".join(lines[start:end])
+
+
+class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
+    """s18 探针里「机器能独自断定的那几件」必须真的翻译成 FAIL。
+
+    来源:08-30 第二轮外部评审(subdeepseek)报的两条 MEDIUM,我逐行核过,成立。
+    探针文件头自称闸覆盖「窗口在不在、文件在不在」,而实际上:
+
+      · 第 8 相三份日志**全缺席**只写「缺席」两个字、不带 FAIL ⇒ 末尾闸
+        (`-match 'FAIL'`)看不见它 ⇒ 应用根本没起来、交件是空的,整趟还是绿的;
+      · 第 6 相认「标题里带 OpenDesign 的窗口」,而 `ds_shell.py` 的 `alert()/die()`
+        弹的报错框标题**正是** APP = `OpenDesign` ⇒ WebView2 缺失这类
+        「软件根本打不开」会走成:后端活着(第 5 相 OK)+ 屏幕上只有报错框(第 6 相 OK)
+        ⇒ **整趟绿**。这正是这支探针存在的理由那一类(0.89 装完打开就崩)。
+
+    网关.log 允许缺席(网关本来就可能没起),外壳/工作台两份不允许 —— 它们缺席
+    等于「现场是空的」。
+
+    这支探针**本机跑不了**(没有 pwsh),判据只能是静态的;所以每一条都在
+    `tests/mutation-startup-diag.sh` 里配了变异,证明它咬得动、不是摆设。
+    """
+
+    def test_s18_a_missing_required_log_is_a_FAIL(self):
+        sec = _probe_phase(PROBE.read_text(encoding="utf-8"), "8")
+        says = [ln for ln in sec.splitlines() if "Say '8 收日志'" in ln]
+        self.assertTrue(says, "第 8 相一条 Say 都没有")
+        own = [ln for ln in says if "FAIL" in ln and "$_.Exception.Message" not in ln]
+        self.assertTrue(own, "第 8 相唯一的 FAIL 是「脚本自己抛异常」——"
+                             "日志缺席(应用根本没写出来)不带 FAIL ⇒ 末尾闸看不见 ⇒ 整趟绿")
+
+    def test_s18_the_required_logs_are_named(self):
+        sec = _probe_phase(PROBE.read_text(encoding="utf-8"), "8")
+        req = [ln for ln in sec.splitlines() if "$required" in ln and "@(" in ln]
+        self.assertTrue(req, "第 8 相没有「哪几份是必须有的」这个清单 ⇒ 缺谁都一样宽")
+        for name in ("外壳.log", "工作台.log"):
+            self.assertIn(name, req[0], f"{name} 不在必须清单里 ⇒ 它缺席也不会红")
+
+    def test_s18_the_window_phase_can_tell_a_message_box_from_the_app(self):
+        src = PROBE.read_text(encoding="utf-8")
+        self.assertIn("GetClassNameW", src,
+                      "W32 没有暴露窗口类名 ⇒ 探针分不开「报错框」和「真窗口」")
+        sec = _probe_phase(src, "6")
+        self.assertIn("#32770", sec,
+                      "第 6 相没有把对话框类(#32770)摘出来 —— MessageBoxW 弹的框"
+                      "标题就是 OpenDesign,会被当成「窗口在」")
+
+    def test_s18_a_screen_with_only_the_error_box_is_a_FAIL(self):
+        sec = _probe_phase(PROBE.read_text(encoding="utf-8"), "6")
+        fails = [ln for ln in sec.splitlines()
+                 if "Say '6 窗口在不在'" in ln and "FAIL" in ln]
+        self.assertTrue(any("报错框" in ln for ln in fails),
+                        "第 6 相没有「屏幕上只有报错框」这条 FAIL 分支 ⇒ "
+                        "「软件根本打不开」照样绿")
+
+
 if __name__ == "__main__":
     unittest.main()
