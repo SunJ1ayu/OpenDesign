@@ -499,9 +499,15 @@ class S18ProbeAsksTheJudgeAndSaysWhatItAnswers(unittest.TestCase):
         start = src.index("function Get-Verdict")
         body = "\n".join(ln for ln in src[start:src.index("\n}", start)].splitlines()
                           if not ln.lstrip().startswith("#"))
-        self.assertGreaterEqual(body.count("FAIL"), 2,
-                                "判定器跑不成/没输出的两条路里,有一条没有 FAIL ⇒ "
-                                "判不了却当过了(fail-open)")
+        # 🔴 别数个数:剪掉两条 fail-closed 分支、剩下两条,数量断言照样满意
+        #    (M35 当场照出来的)。要问的是:**每一条提前返回的路,是不是都带 FAIL**。
+        returns = [ln.strip() for ln in body.splitlines() if "return" in ln]
+        self.assertTrue(returns, "Get-Verdict 一条 return 都没有?")
+        early = returns[:-1]          # 最后一条是把判定器的答案原样交出去
+        self.assertTrue(early, "Get-Verdict 没有任何提前返回的失败路")
+        for ln in early:
+            self.assertIn("FAIL", ln,
+                          f"这条提前返回没带 FAIL:{ln!r} ⇒ 判定器判不了却当过了(fail-open)")
 
     def test_s18_the_facts_it_collects_are_the_ones_the_judge_needs(self):
         src = PROBE.read_text(encoding="utf-8")
@@ -517,10 +523,16 @@ class S18ProbeAsksTheJudgeAndSaysWhatItAnswers(unittest.TestCase):
     def test_s18_the_health_phases_scan_a_span_not_one_hardcoded_port(self):
         """🔴 应用用 pick_ports(span=20) 挑端口,8766 被占会挪 ⇒ 写死一个端口 = 健康假红。"""
         src = PROBE.read_text(encoding="utf-8")
+        # 🔴 光问"这一段里有没有 $PortSpan"不够:初始化用它、而**轮询那一圈**退回
+        #    单端口,判据照样绿(M37 照出来的)。要问的是:每一圈 foreach 都得走整段。
         for phase in ("5", "10"):
-            code = "\n".join(self._code(_probe_phase(src, phase)))
-            self.assertIn("$PortSpan", code,
-                          f"第 {phase} 相还在盯一个写死的端口 ⇒ 应用挪到 8767 就判它没活")
+            code = self._code(_probe_phase(src, phase))
+            loops = [ln for ln in code if "foreach ($p in" in ln]
+            self.assertTrue(loops, f"第 {phase} 相没有逐端口试的循环")
+            for ln in loops:
+                self.assertIn("$PortSpan", ln.strip(),
+                              f"第 {phase} 相有一圈没走整段端口:{ln.strip()!r} ⇒ "
+                              "应用挪到 8767 就判它没活(健康假红)")
 
     def test_s18_any_phase_saying_FAIL_makes_the_run_red(self):
         """退出码闸是全探针的安全网,而它自己一直没有判据(第 2c 轮 submimo 指出)。"""

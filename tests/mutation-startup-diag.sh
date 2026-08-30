@@ -19,7 +19,11 @@ set -u
 cd "$(dirname "$0")/.."
 PY="${PY:-/root/.venvs/design-studio/bin/python}"
 
-SOURCES=(bin/ds_diag.py bin/ds_shell.py bin/ds_web.py \
+# 🔴 **每个被变异的文件都必须在这里**:2026-08-30 深夜漏了 probe_verdict.py,
+#    于是它被改坏后再没还原 —— 后面每条变异都跑在一个已经残废的被测物上,
+#    红检报"漏网 5 条",其中 4 条是**量具自己造出来的假象**。
+#    这一条比它看起来重:漏掉的那个文件,它的变异结果**全部作废**。
+SOURCES=(bin/ds_diag.py bin/ds_shell.py bin/ds_web.py bin/probe_verdict.py \
          .github/scripts/windows-package-probe.ps1)
 WORK="$(mktemp -d)"
 for f in "${SOURCES[@]}"; do cp -p "$f" "$WORK/$(echo "$f" | tr / _)"; done
@@ -182,125 +186,100 @@ mutate_and_expect M22 bin/ds_diag.py test_s16_request_lines_keep_the_endpoint_bu
   '        kept = "/" + "/".join(parts[:2])' \
   '        kept = "/" + "/".join(parts)'
 
-# ── s18:探针那道闸(08-30 第二轮外部评审报的两条,判据是静态的 ⇒ 更要证明咬得动)──
-# 🔴 这四条变异改的是 **.ps1**,不是 python。本机没有 pwsh,判据只能读源码 ——
-#    所以"判据是不是瞎的"这个问题在这里比别处更尖锐:把修复原样撤回去,它必须红。
+# ══ s18/s19:探针那道闸(2026-08-30 深夜整批重写)══════════════════════════
+# 🔴 **为什么整批重写**:原来这里的 M23~M41 打的都是 `.ps1` 里那些"判定语句",
+#    而判据是**静态读源码**的。那一晚外部评审自己动手变异 8 种改法逐条执行 ——
+#    每一种静态判据都全绿。判定已搬进 `bin/probe_verdict.py`(纯函数),于是:
+#      · 判定的变异打在 **python** 上,由 s19 的**行为判据**(喂事实、断言裁决)接住;
+#      · `.ps1` 上只剩**接线**能被剪断,由 s18 的六条接线判据接住。
+#    这不是"多补几条",是把够不着的那部分从字面搬到了行为。
 
-# M23 撤掉"缺席=FAIL"那句文案 ⇒ 第 8 相又只剩 catch 里那个 FAIL ⇒ 现场是空的也绿
-mutate_and_expect M23 .github/scripts/windows-package-probe.ps1 test_s18_a_missing_required_log_is_a_FAIL \
-  'Say '"'"'8 收日志'"'"' "FAIL - 必须有的日志缺席:$($miss -join '"'"', '"'"') ⇒ 现场是空的。明细:$($got -join '"'"' | '"'"')"' \
-  'Say '"'"'8 收日志'"'"' "必须有的日志缺席:$($miss -join '"'"', '"'"')。明细:$($got -join '"'"' | '"'"')"'
+# ── 判定本身(打 probe_verdict.py,靠 s19 行为判据咬)────────────────────
+# M23 必须清单形同虚设 ⇒ 工作台.log 缺席也不红(该红不红)
+mutate_and_expect M23 bin/probe_verdict.py test_s19_a_missing_required_log_is_a_FAIL \
+  '            if name in REQUIRED_LOGS:' \
+  '            if False:'
 
-# M24 清空"必须有哪几份"的清单 ⇒ 缺谁都一样宽,FAIL 分支永远走不到
-mutate_and_expect M24 .github/scripts/windows-package-probe.ps1 test_s18_the_required_logs_are_named \
-  '    $required = @('"'"'外壳.log'"'"', '"'"'工作台.log'"'"')' \
-  '    $required = @()'
+# M24 把豁免的网关.log 也算成必须 ⇒ **每一趟健康的 run 都假红**
+mutate_and_expect M24 bin/probe_verdict.py test_s19_the_exempt_gateway_log_may_be_missing \
+  'REQUIRED_LOGS = ("外壳.log", "工作台.log")' \
+  'REQUIRED_LOGS = ("外壳.log", "工作台.log", "网关.log")'
 
-# M25 把窗口类那一刀撤掉(只留注释里那句话)⇒ 报错框又算"窗口在"
-#     ——这条同时也是在验判据自己滤掉了注释行;不滤的话它会在这条上瞎掉。
-mutate_and_expect M25 .github/scripts/windows-package-probe.ps1 test_s18_the_window_phase_can_tell_a_message_box_from_the_app \
-  '    $box  = @($wins | Where-Object { $_.Class -eq '"'"'#32770'"'"' })' \
-  '    $box  = @()'
+# M25 "在不在"的极性翻转 ⇒ 在场的日志被当缺席
+mutate_and_expect M25 bin/probe_verdict.py test_s19_all_logs_present_is_ok \
+  '        if size is None:' \
+  '        if size is not None:'
 
-# M26 把"只有报错框"那条 FAIL 改回 OK ⇒ "软件根本打不开"整趟绿(评审报的正是这条路)
-mutate_and_expect M26 .github/scripts/windows-package-probe.ps1 test_s18_a_screen_with_only_the_error_box_is_a_FAIL \
-  '    Say '"'"'6 窗口在不在'"'"' "FAIL - 屏幕上只有报错框(窗口类 #32770),没有真窗口 ⇒ 软件根本打不开。框里写的:$txt"' \
-  '    Say '"'"'6 窗口在不在'"'"' "OK - 有窗口(报错框也算)"'
+# M26 报错框的判定极性翻转 ⇒ 报错框被当成真窗口
+mutate_and_expect M26 bin/probe_verdict.py test_s19_only_the_error_box_is_a_FAIL \
+  '    boxes = [w for w in wins if w.get("cls") == DIALOG_CLASS]' \
+  '    boxes = [w for w in wins if w.get("cls") != DIALOG_CLASS]'
 
-# ── M27~M29:第 2b 轮外部评审报的两条判据洞(F1 守卫被阉割 / F2 极性翻转)──
-# 🔴 三条我都亲手复现过:改之前**四条 s18 全绿**。它们是 M25 那类"字面满足不了判定"
-#    的两个更狠的形态 —— 文案一个字没动,而机器事实再也够不到那条 FAIL。
+# M27 真窗口集合把报错框也算进去 ⇒ "只有框"永远不成立
+mutate_and_expect M27 bin/probe_verdict.py test_s19_only_the_error_box_is_a_FAIL \
+  '    real = [w for w in wins if w.get("cls") != DIALOG_CLASS]' \
+  '    real = list(wins)'
 
-# M27 把第 8 相的守卫改成常量假 ⇒ "现场是空的"永远走不到 FAIL(文案还在)
-mutate_and_expect M27 .github/scripts/windows-package-probe.ps1 test_s18_a_missing_required_log_is_a_FAIL \
-  '    if ($miss.Count) {' \
-  '    if ($false) {'
+# M28 喂给判定的**值**被改坏(不改逻辑,改常量)
+mutate_and_expect M28 bin/probe_verdict.py test_s19_only_the_error_box_is_a_FAIL \
+  'DIALOG_CLASS = "#32770"' \
+  'DIALOG_CLASS = "#00000"'
 
-# M28 把第 6 相的守卫改成常量真 ⇒ 这一相恒红(文案还在)
-mutate_and_expect M28 .github/scripts/windows-package-probe.ps1 test_s18_a_screen_with_only_the_error_box_is_a_FAIL \
-  'if ($box.Count -and -not $real.Count) {' \
-  'if ($true) {'
+# M29 fail-open 从"枚举不到时兜底"扩成"永远兜底" ⇒ 什么窗口都没有也判过
+mutate_and_expect M29 bin/probe_verdict.py test_s19_no_window_at_all_is_a_FAIL \
+  '    if ours:' \
+  '    if True:'
 
-# M29 极性:-eq 抄成 -ne ⇒ $box/$real 变成同一堆 ⇒ 只有报错框的屏幕走 $ours 判 OK(产品级假绿)
-mutate_and_expect M29 .github/scripts/windows-package-probe.ps1 test_s18_the_window_phase_can_tell_a_message_box_from_the_app \
-  "    \$box  = @(\$wins | Where-Object { \$_.Class -eq '#32770' })" \
-  "    \$box  = @(\$wins | Where-Object { \$_.Class -ne '#32770' })"
+# M30 端口段判定退回"只认 8766" ⇒ 应用挪到 8767 就判它没活(健康假红)
+mutate_and_expect M30 bin/probe_verdict.py test_s19_health_on_the_moved_port_is_ok \
+  '    alive = {int(p): v for p, v in answers.items() if v}' \
+  '    alive = {int(p): v for p, v in answers.items() if v and int(p) == 8766}'
 
-# ── M30~M33:第 2b 轮 subkimi(超时前把报告写完了)报的三条,同一种病的第 3~5 个实例 ──
-# 🔴 四条我都亲手复现过:改之前 s18 全绿。
+# M31 "有没有应答"的极性翻转 ⇒ 一个都不应答也判活
+mutate_and_expect M31 bin/probe_verdict.py test_s19_no_port_answering_is_a_FAIL \
+  '    alive = {int(p): v for p, v in answers.items() if v}' \
+  '    alive = {int(p): v for p, v in answers.items() if not v}'
 
-# M30 攒 $miss 的依据被改成常量假 ⇒ 第 8 相的 FAIL 永远走不到(清单、文案、外层守卫都还在)
-mutate_and_expect M30 .github/scripts/windows-package-probe.ps1 test_s18_the_required_logs_are_named \
-  'if ($required -contains $n) { $miss += $n }' \
-  'if ($false) { $miss += $n }'
+# M32 退回老口径时不说明 ⇒ 读数不诚实(看到 OK 的人不知道新口径其实没生效)
+mutate_and_expect M32 bin/probe_verdict.py test_s19_enumeration_failure_falls_back_to_the_old_signal \
+  "(EnumWindows 一个都没枚举到,退回老口径)" \
+  "(一切正常)"
 
-# M31 把"必须"从清单换成全部 ⇒ 网关.log 合法缺席也算缺 ⇒ **每一趟健康的 run 都假红**
-mutate_and_expect M31 .github/scripts/windows-package-probe.ps1 test_s18_the_required_logs_are_named \
-  'if ($required -contains $n) { $miss += $n }' \
-  'if ($names -contains $n) { $miss += $n }'
+# ── 接线(打 .ps1,靠 s18 六条咬)──────────────────────────────────────
+# M33 第 6 相不问判定器,自己说了算
+mutate_and_expect M33 .github/scripts/windows-package-probe.ps1 test_s18_the_judge_is_asked_in_every_machine_decided_phase \
+  "Say '6 窗口在不在' (Get-Verdict 'window' @{" \
+  "Say '6 窗口在不在' \"OK\" ; \$null = (@{"
 
-# M32 在场信号退回"任何带标题的窗口" ⇒ b99b603 修的"结构上不可能红"原样复活
-mutate_and_expect M32 .github/scripts/windows-package-probe.ps1 test_s18_the_presence_signal_is_still_filtered_by_the_app_title \
-  '    $ours = @($all | Where-Object { $_ -like "*$appTitle*" })' \
-  '    $ours = @($all)'
+# M34 第 8 相不问判定器
+mutate_and_expect M34 .github/scripts/windows-package-probe.ps1 test_s18_the_judge_is_asked_in_every_machine_decided_phase \
+  "Say '8 收日志' (Get-Verdict 'logs' @{ present = \$present })" \
+  "Say '8 收日志' \"OK\""
 
-# M33 把窗口类名那两行注释掉(代码没了、字还在)⇒ 验判据确实滤掉了注释
-mutate_and_expect M33 .github/scripts/windows-package-probe.ps1 test_s18_the_window_phase_can_tell_a_message_box_from_the_app \
-  '  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassNameW(IntPtr h, StringBuilder s, int n);' \
-  '  // GetClassNameW 被注释掉了' \
-  '    var sb = new StringBuilder(256); GetClassNameW(h, sb, 256); return sb.ToString();' \
-  '    var sb = new StringBuilder(256); return sb.ToString();'
+# M35 判定器跑不成时不再 fail-closed(判不了却当过了)
+mutate_and_expect M35 .github/scripts/windows-package-probe.ps1 test_s18_a_judge_that_does_not_run_is_a_FAIL_not_a_pass \
+  '    if (-not $out) { return "FAIL - 判定器没有输出(rc=$rc)" }' \
+  '    if (-not $out) { return "OK" }' \
+  '    if (-not (Test-Path $judge)) { return "FAIL - 判定器不在:$judge" }' \
+  '    if (-not (Test-Path $judge)) { return "OK" }'
 
-# ── M34~M37:第 2c 轮 subgemini 报的同一条数据流(第 7~10 个实例)──
-# 🔴 前四条我都亲手复现过(M34/M35);M36/M37 是同一条链上剩下的两环,一并钉住。
+# M36 改用装出来的那份判定器(版本对不上,可能是几个月前的)
+mutate_and_expect M36 .github/scripts/windows-package-probe.ps1 test_s18_the_judge_is_the_repo_copy_not_the_installed_one \
+  "    \$judge = Join-Path \$PSScriptRoot '..\\..\\bin\\probe_verdict.py'" \
+  "    \$judge = \"\$InstallDir\\ds\\bin\\probe_verdict.py\""
 
-# M34 真窗口集合把报错框也算进去 ⇒ "只有框"永远不成立 ⇒ 产品级假绿
-mutate_and_expect M34 .github/scripts/windows-package-probe.ps1 test_s18_the_window_phase_can_tell_a_message_box_from_the_app \
-  "    \$real = @(\$wins | Where-Object { \$_.Class -ne '#32770' })" \
-  '    $real = @($wins)'
+# M37 第 5 相**轮询那一圈**退回写死一个端口(初始化那行不动 —— 改它不影响行为,
+#     那种变异测的是断言不是代码,第一版就是这么写的,白占一条)
+mutate_and_expect M37 .github/scripts/windows-package-probe.ps1 test_s18_the_health_phases_scan_a_span_not_one_hardcoded_port \
+  '    foreach ($p in $PortSpan) {
+        try {
+            $h = Invoke-RestMethod' \
+  '    foreach ($p in @(8766)) {
+        try {
+            $h = Invoke-RestMethod'
 
-# M35 -contains → -notcontains:"$required" 三个字还在,而网关.log 变成永远缺席 ⇒ 趟趟假红
-mutate_and_expect M35 .github/scripts/windows-package-probe.ps1 test_s18_the_required_logs_are_named \
-  'if ($required -contains $n) { $miss += $n }' \
-  'if ($required -notcontains $n) { $miss += $n }'
-
-# M36 窗口清单不按应用标题取 ⇒ 同屏任何窗口都算"真窗口"
-mutate_and_expect M36 .github/scripts/windows-package-probe.ps1 test_s18_the_window_phase_can_tell_a_message_box_from_the_app \
-  '    $wins = @(Get-AppWindows $appTitle)' \
-  "    \$wins = @(Get-AppWindows '')"
-
-# M37 辅助函数不再取窗口类(段外那一环,第 6 相一个字不用改)
-mutate_and_expect M37 .github/scripts/windows-package-probe.ps1 test_s18_the_window_lister_reports_title_and_class \
-  '                $script:appwins += [PSCustomObject]@{ Title = $t; Class = [W32]::Cls($h) }' \
-  '                $script:appwins += [PSCustomObject]@{ Title = $t; Class = "" }'
-
-# ── M38~M41:第 2c 轮 submimo 报的(第 11~13 个实例)+ 退出码闸自己的判据 ──
-
-# M38 在场信号算了但没人用(赋值还在,while 条件里删掉)
-mutate_and_expect M38 .github/scripts/windows-package-probe.ps1 test_s18_the_presence_signal_is_still_filtered_by_the_app_title \
-  '} while ($ours.Count -eq 0 -and $box.Count -eq 0 -and (Get-Date) -lt $deadline)' \
-  '} while ($box.Count -eq 0 -and (Get-Date) -lt $deadline)'
-
-# M39 辅助函数不问"窗口可见吗" ⇒ 看不见的窗口也算窗口在
-# 🔴 锚点必须**唯一**:`IsWindowVisible` 在 Dump-Dialogs 里也有一份,而变异工具只换第一处
-#    —— 第一版锚点就是这么打到了**另一个函数**上(判据当然不红,脚本判 BAD 是对的)。
-mutate_and_expect M39 .github/scripts/windows-package-probe.ps1 test_s18_the_window_lister_reports_title_and_class \
-  '        if ([W32]::IsWindowVisible($h)) {
-            $t = [W32]::Text($h)
-            if ($t -like "*$Match*") {
-                $script:appwins' \
-  '        if ($true) {
-            $t = [W32]::Text($h)
-            if ($t -like "*$Match*") {
-                $script:appwins'
-
-# M40 必须清单对、收集清单里却没有它 ⇒ 循环走不到 ⇒ 该红不红
-mutate_and_expect M40 .github/scripts/windows-package-probe.ps1 test_s18_the_required_logs_are_named \
-  "    \$names    = @('外壳.log', '工作台.log', '网关.log')" \
-  "    \$names    = @('工作台.log', '网关.log')"
-
-# M41 退出码闸:有相自报 FAIL 却不 exit 1 ⇒ 红的 run 绿着交差
-mutate_and_expect M41 .github/scripts/windows-package-probe.ps1 test_s18_any_phase_saying_FAIL_makes_the_run_red \
+# M38 退出码闸:有相自报 FAIL 却不 exit 1 ⇒ 红的 run 绿着交差
+mutate_and_expect M38 .github/scripts/windows-package-probe.ps1 test_s18_any_phase_saying_FAIL_makes_the_run_red \
   "\$failed = @(\$phases.GetEnumerator() | Where-Object { \$_.Value -match 'FAIL' } | ForEach-Object { \$_.Key })" \
   '$failed = @()'
 
