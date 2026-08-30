@@ -499,9 +499,15 @@ class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
         self.assertIn("GetClassNameW", src,
                       "W32 没有暴露窗口类名 ⇒ 探针分不开「报错框」和「真窗口」")
         sec = _probe_phase(src, "6")
-        self.assertIn("#32770", sec,
-                      "第 6 相没有把对话框类(#32770)摘出来 —— MessageBoxW 弹的框"
-                      "标题就是 OpenDesign,会被当成「窗口在」")
+        # 🔴 第一版这里写的是「这一段里有没有 #32770」—— **红检当场证明它是瞎的**:
+        #    M25 把分类那一刀撤掉($box = @())之后,FAIL 的**文案**里还留着
+        #    "窗口类 #32770" 这几个字,断言照样绿。字面满足不了判定。
+        #    ⇒ 改成盯**那个判定**:报错框这一类必须由「窗口类 == #32770」算出来。
+        box = [ln for ln in sec.splitlines() if "$box" in ln and "=" in ln]
+        self.assertTrue(box, "第 6 相没有把「报错框」单独算成一类")
+        self.assertTrue(any(".Class" in ln and "#32770" in ln for ln in box),
+                        "「报错框」不是由窗口类算出来的 —— MessageBoxW 弹的框标题就是 "
+                        "OpenDesign,靠标题分不开,会被当成「窗口在」")
 
     def test_s18_a_screen_with_only_the_error_box_is_a_FAIL(self):
         sec = _probe_phase(PROBE.read_text(encoding="utf-8"), "6")
