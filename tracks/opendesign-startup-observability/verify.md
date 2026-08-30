@@ -757,3 +757,16 @@ runlog: redcheck-mutation-2e-r2 rc=0 commit=5a4efc5 dirty=yes at=2026-08-30T16:5
 15. **配了 key 但网关启动失败时,`网关.log 缺席` 仍判 OK ⇒ 假绿**(deepseek 提的,不在我原清单里)。
     CI 新 VM 看不见,业主机器上会误导。修法要么按"配了 key 就必须有网关.log",
     要么让探针读 config 判断该不该要 —— 进下一刀。
+
+## ✅ 真跑第三趟(run 33323895993,`success`):stderr 分流之后仍然十相全对
+
+```
+PHASE 5  : OK - /api/health 通(端口 8766,version=0.98.2)
+PHASE 6  : OK - 「OpenDesign」[WindowsForms10.Window.8.app.0.aec740_r24_ad1](另有 0 个报错框)
+PHASE 8  : 外壳.log 1187B | 工作台.log 3386B | 网关.log 缺席
+PHASE 10 : OK - /api/health 通(端口 8766,version=up)(92s)
+           没有任何一相自报 FAIL ⇒ exit 0
+```
+
+第 8 相的数字和第二趟**逐字节一样**(1187B / 3386B)⇒ `2>$errLog` 这条改动没有动到任何采集。
+三趟真跑的账:**红(编码假红)→ 绿 → 绿**。
