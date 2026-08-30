@@ -84,17 +84,29 @@ export function installStartupReporting(): void {
 }
 
 /** React 提交之后叫。等两帧再报 frame_submitted —— 一帧还在合成中。 */
+/** 等根节点真的有内容的帧预算。约 4 秒(60fps),之后才算"真的没画出来"。 */
+const FRAME_BUDGET = 240;
+
 export function reportFirstFrame(): void {
   report("frontend.react_committed");
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    const root = document.getElementById("root");
-    const r = root?.getBoundingClientRect();
-    // 🔴 光"React 跑完了"不够:根节点可能是 0 尺寸 / display:none ——
-    //    那种情况业主眼里**就是白的**,不该报成功。
-    if (!r || r.width < 1 || r.height < 1) {
-      report("frontend.error", `根节点尺寸异常 ${r?.width ?? "?"}x${r?.height ?? "?"}`);
+  // 🔴 **不许只等固定两帧就下结论**(第一版就是那么写的,自审时抓到):
+  //    `createRoot().render()` 在 React 18 里是**异步**的 —— 提交可能发生在
+  //    两帧之后。那样健康启动会被报成"根节点尺寸异常"、而且永远不报成功
+  //    ⇒ 外壳那边的首帧看门**每次开机都误报**。
+  //    误报比没有报警器更坏,这个项目实证过很多次 ⇒ 改成在预算内轮询等它出现。
+  let left = FRAME_BUDGET;
+  const tick = () => {
+    const r = document.getElementById("root")?.getBoundingClientRect();
+    if (r && r.width >= 1 && r.height >= 1) {
+      report("frontend.frame_submitted", `${Math.round(r.width)}x${Math.round(r.height)}`);
       return;
     }
-    report("frontend.frame_submitted", `${Math.round(r.width)}x${Math.round(r.height)}`);
-  }));
+    if (--left <= 0) {
+      // 预算烧完还是 0 尺寸/不存在 —— 这才是真的"业主眼里一片白"。
+      report("frontend.error", `根节点等了 ${FRAME_BUDGET} 帧仍没有尺寸`);
+      return;
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 }
