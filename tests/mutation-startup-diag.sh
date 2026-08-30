@@ -226,6 +226,31 @@ mutate_and_expect M29 .github/scripts/windows-package-probe.ps1 test_s18_the_win
   "    \$box  = @(\$wins | Where-Object { \$_.Class -eq '#32770' })" \
   "    \$box  = @(\$wins | Where-Object { \$_.Class -ne '#32770' })"
 
+# ── M30~M33:第 2b 轮 subkimi(超时前把报告写完了)报的三条,同一种病的第 3~5 个实例 ──
+# 🔴 四条我都亲手复现过:改之前 s18 全绿。
+
+# M30 攒 $miss 的依据被改成常量假 ⇒ 第 8 相的 FAIL 永远走不到(清单、文案、外层守卫都还在)
+mutate_and_expect M30 .github/scripts/windows-package-probe.ps1 test_s18_the_required_logs_are_named \
+  'if ($required -contains $n) { $miss += $n }' \
+  'if ($false) { $miss += $n }'
+
+# M31 把"必须"从清单换成全部 ⇒ 网关.log 合法缺席也算缺 ⇒ **每一趟健康的 run 都假红**
+mutate_and_expect M31 .github/scripts/windows-package-probe.ps1 test_s18_the_required_logs_are_named \
+  'if ($required -contains $n) { $miss += $n }' \
+  'if ($names -contains $n) { $miss += $n }'
+
+# M32 在场信号退回"任何带标题的窗口" ⇒ b99b603 修的"结构上不可能红"原样复活
+mutate_and_expect M32 .github/scripts/windows-package-probe.ps1 test_s18_the_presence_signal_is_still_filtered_by_the_app_title \
+  '    $ours = @($all | Where-Object { $_ -like "*$appTitle*" })' \
+  '    $ours = @($all)'
+
+# M33 把窗口类名那两行注释掉(代码没了、字还在)⇒ 验判据确实滤掉了注释
+mutate_and_expect M33 .github/scripts/windows-package-probe.ps1 test_s18_the_window_phase_can_tell_a_message_box_from_the_app \
+  '  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassNameW(IntPtr h, StringBuilder s, int n);' \
+  '  // GetClassNameW 被注释掉了' \
+  '    var sb = new StringBuilder(256); GetClassNameW(h, sb, 256); return sb.ToString();' \
+  '    var sb = new StringBuilder(256); return sb.ToString();'
+
 echo
 echo "== 红检结果:咬住 $pass 条,漏网 $fail 条 =="
 [ "$fail" -eq 0 ] || exit 1

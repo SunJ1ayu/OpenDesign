@@ -516,14 +516,31 @@ class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
 
     def test_s18_the_required_logs_are_named(self):
         sec = _probe_phase(PROBE.read_text(encoding="utf-8"), "8")
-        req = [ln for ln in sec.splitlines() if "$required" in ln and "@(" in ln]
+        code = [ln for ln in sec.splitlines() if not ln.lstrip().startswith("#")]
+        req = [ln for ln in code if "$required" in ln and "@(" in ln]
         self.assertTrue(req, "第 8 相没有「哪几份是必须有的」这个清单 ⇒ 缺谁都一样宽")
         for name in ("外壳.log", "工作台.log"):
             self.assertIn(name, req[0], f"{name} 不在必须清单里 ⇒ 它缺席也不会红")
+        # 🔴 光有清单、光有 FAIL,还差**把两者连起来的那一行**:$miss 必须是按
+        #    「在不在必须清单里」攒的。第 2b 轮外部评审(subkimi,超时前把报告写完了)
+        #    报的 F1,我亲手复现过两种改法,判据都全绿:
+        #      · `$required -contains $n` → `$false`:$miss 永远空 ⇒ FAIL 永远走不到;
+        #      · `$required` → `$names`:三份全变必须 ⇒ 网关合法缺席 ⇒ **健康趟趟假红**。
+        acc = [ln for ln in code if "$miss" in ln and "+=" in ln]
+        self.assertTrue(acc, "第 8 相没有把「缺了的必须日志」攒起来")
+        for ln in acc:
+            where = ln if "if (" in ln else _guard_of(sec, ln)
+            self.assertIn("$required", where,
+                          f"攒 $miss 的依据不是那份必须清单(实际是 {where.strip()!r})⇒ "
+                          "要么永远攒不到(该红不红),要么把网关也算必须(健康趟趟假红)")
 
     def test_s18_the_window_phase_can_tell_a_message_box_from_the_app(self):
         src = PROBE.read_text(encoding="utf-8")
-        self.assertIn("GetClassNameW", src,
+        # 🔴 同样要滤注释(F3):本文件其余三条都滤了,只有这条查全文 ——
+        #    下次有人在注释里提一嘴 GetClassNameW,它就变成"删代码留注释也绿"。
+        src_code = "\n".join(ln for ln in src.splitlines()
+                             if not ln.lstrip().startswith("#") and not ln.lstrip().startswith("//"))
+        self.assertIn("GetClassNameW", src_code,
                       "W32 没有暴露窗口类名 ⇒ 探针分不开「报错框」和「真窗口」")
         sec = _probe_phase(src, "6")
         # 🔴 第一版这里写的是「这一段里有没有 #32770」—— **红检当场证明它是瞎的**:
@@ -538,6 +555,21 @@ class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
         self.assertTrue(any(".Class" in ln and "-eq" in ln and "#32770" in ln for ln in box),
                         "「报错框」不是由「窗口类 -eq #32770」算出来的 —— 极性反了或换了依据,"
                         "MessageBoxW 那个框(标题就是 OpenDesign)会被当成「窗口在」")
+
+    def test_s18_the_presence_signal_is_still_filtered_by_the_app_title(self):
+        """b99b603 修的那条("有任何带标题的窗口"就算 OK ⇒ 结构上不可能红)至今没有判据。
+
+        第 2b 轮外部评审(subkimi)报的 F2:把 `$ours = @($all | ... $appTitle ...)`
+        退回 `$ours = @($all)`,老洞原样复活,而 s18 四条 + 29 条变异**全绿**。
+        我亲手复现过。⇒ 这条在场信号的定义,从今天起归 s18 管。
+        """
+        sec = _probe_phase(PROBE.read_text(encoding="utf-8"), "6")
+        ours = [ln for ln in sec.splitlines()
+                if not ln.lstrip().startswith("#") and ln.lstrip().startswith("$ours")]
+        self.assertTrue(ours, "第 6 相没有「我们的窗口在不在」这个信号")
+        self.assertTrue(any("$appTitle" in ln for ln in ours),
+                        "在场信号又变成「屏幕上有任何带标题的窗口」了 —— CI 机器上永远有一个"
+                        "WindowsTerminal ⇒ 这一相结构上不可能红(b99b603 修的就是它)")
 
     def test_s18_a_screen_with_only_the_error_box_is_a_FAIL(self):
         sec = _probe_phase(PROBE.read_text(encoding="utf-8"), "6")
