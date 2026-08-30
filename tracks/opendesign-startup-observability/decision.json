@@ -10,8 +10,10 @@
   "design": {
     "uncertainty": "high",
     "premise_attack": {
-      "status": "pending",
-      "evidence": []
+      "status": "done",
+      "evidence": [
+        "evidence/20260830-双出-gpt56sol-原文.md"
+      ]
     }
   },
   "execution_plan": {
