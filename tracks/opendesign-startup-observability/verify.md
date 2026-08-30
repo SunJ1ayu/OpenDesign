@@ -770,3 +770,12 @@ PHASE 10 : OK - /api/health 通(端口 8766,version=up)(92s)
 
 第 8 相的数字和第二趟**逐字节一样**(1187B / 3386B)⇒ `2>$errLog` 这条改动没有动到任何采集。
 三趟真跑的账:**红(编码假红)→ 绿 → 绿**。
+
+### 最终收据(第 2e 轮修完,干净树)
+
+```
+runlog: run-all-final-2e rc=1 commit=fe0d7fa dirty=no final=yes at=2026-08-30T17:06:04Z file=tracks/opendesign-startup-observability/evidence/20260830T170604Z-01-run-all-final-2e.txt
+```
+
+六段:**5 PASS** + e2e 总跑 **37 PASS / 1 FAIL / 2 SKIP** —— 与 0.98.2 那遍、与本刀前一遍
+**逐条一致**;红的仍是开工前就红的 `stage_timer.e2e.mjs`。`final=yes`、`dirty=no`。
