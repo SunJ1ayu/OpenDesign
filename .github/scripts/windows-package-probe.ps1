@@ -77,8 +77,12 @@ public class W32 {
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowTextW(IntPtr h, StringBuilder s, int n);
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassNameW(IntPtr h, StringBuilder s, int n);
   public static string Text(IntPtr h) {
     var sb = new StringBuilder(2048); GetWindowTextW(h, sb, 2048); return sb.ToString();
+  }
+  public static string Cls(IntPtr h) {
+    var sb = new StringBuilder(256); GetClassNameW(h, sb, 256); return sb.ToString();
   }
 }
 "@ -ErrorAction SilentlyContinue
@@ -100,6 +104,25 @@ function Dump-Dialogs([string]$Match = 'OpenDesign') {
         return $true }
     [void][W32]::EnumWindows($cb, [IntPtr]::Zero)
     return $script:dlg
+}
+
+$script:appwins = @()
+# 「标题里带 $Match 的可见顶层窗口」+ **它的窗口类**。
+# 🔴 类名是分开"报错框"和"真窗口"的唯一可靠依据:MessageBoxW 弹的框窗口类恒为
+#    `#32770`(Windows 的对话框类),而 pywebview 的主窗口不是。
+#    **标题分不开** —— ds_shell.py 的 alert()/die() 用的标题就是 APP = OpenDesign。
+function Get-AppWindows([string]$Match = 'OpenDesign') {
+    $script:appwins = @()
+    $cb = [W32+EnumProc]{ param($h, $l)
+        if ([W32]::IsWindowVisible($h)) {
+            $t = [W32]::Text($h)
+            if ($t -like "*$Match*") {
+                $script:appwins += [PSCustomObject]@{ Title = $t; Class = [W32]::Cls($h) }
+            }
+        }
+        return $true }
+    [void][W32]::EnumWindows($cb, [IntPtr]::Zero)
+    return $script:appwins
 }
 
 # ── 1 下载业主真正装的那个包 ──────────────────────────────────────
@@ -196,6 +219,14 @@ else { Say '5 服务活了吗' "FAIL - 3 分钟内 127.0.0.1:8766 一直不通" 
 #    没画出来 / 0.93 白屏),却是全脚本唯一一处**结构上不可能红**的断言。
 #    改成:轮询等标题里带 OpenDesign 的那个(照第 5 相的写法),60s 没等到才 FAIL。
 #    固定 sleep 8s 本来就是抽签 —— 上一趟抽中了,这一趟没抽中。
+# 🔴 2026-08-30 第二处(第二轮外部评审报的,我逐行核过):光认**标题**不够。
+#    ds_shell.py 的 alert()/die() 弹的报错框标题**就是** APP = OpenDesign
+#    (`MessageBoxW(None, msg, APP, ...)`)。WebView2 缺失这类"软件根本打不开"会走成:
+#    后端已经活着(第 5 相 OK)+ 屏幕上只剩一个报错框(第 6 相也 OK)⇒ **整趟绿**,
+#    而业主眼里软件压根没打开。⇒ 还得问窗口**类**:`#32770` = 对话框,不是我们的窗口。
+#    老口径($ours,进程主窗口标题)保留当**在场**信号(它在 run 33310976051 上被证明
+#    看得见我们的窗口);新口径只用来**取消资格** —— 万一 EnumWindows 一个都枚举不到,
+#    行为退回改之前那样,不会造出一个假红。
 $appTitle = 'OpenDesign'          # = bin/ds_shell.py:37 的 APP,窗口标题的唯一来源
 $deadline = (Get-Date).AddSeconds(60)
 do {
@@ -203,9 +234,16 @@ do {
     $all  = @(Get-Process | Where-Object { $_.MainWindowTitle } |
               ForEach-Object { "$($_.ProcessName):「$($_.MainWindowTitle)」" })
     $ours = @($all | Where-Object { $_ -like "*$appTitle*" })
-} while ($ours.Count -eq 0 -and (Get-Date) -lt $deadline)
-if ($ours.Count) {
-    Say '6 窗口在不在' "OK - $($ours -join ' | ')(同屏其余 $($all.Count - $ours.Count) 个窗口)"
+    $wins = @(Get-AppWindows $appTitle)
+    $box  = @($wins | Where-Object { $_.Class -eq '#32770' })
+    $real = @($wins | Where-Object { $_.Class -ne '#32770' })
+} while ($ours.Count -eq 0 -and $box.Count -eq 0 -and (Get-Date) -lt $deadline)
+if ($box.Count -and -not $real.Count) {
+    $txt = (Dump-Dialogs $appTitle) -join ' / '
+    Say '6 窗口在不在' "FAIL - 屏幕上只有报错框(窗口类 #32770),没有真窗口 ⇒ 软件根本打不开。框里写的:$txt"
+} elseif ($ours.Count -or $real.Count) {
+    $cls = if ($real.Count) { ($real | ForEach-Object { "「$($_.Title)」[$($_.Class)]" }) -join ' | ' } else { '(EnumWindows 没枚举到,只有进程主窗口标题)' }
+    Say '6 窗口在不在' "OK - $($ours -join ' | ') ⇒ $cls(同屏其余 $($all.Count - $ours.Count) 个窗口)"
 } else {
     Say '6 窗口在不在' "FAIL - 60s 没等到标题带 $appTitle 的窗口。同屏:$(if($all.Count){$all -join ' | '}else{'一个都没有'})"
 }
@@ -233,17 +271,30 @@ try {
 # 🔴 2026-08-30 业主一句「你的机子是 linux,github 的云 windows 你不一定看得全是不是」
 #    问出来的:这里原来**只收 外壳.log** —— 而 0.98.1 改的时间戳有一半在 工作台.log 上,
 #    那一半在 Windows 上从没被验证过。三份一起收,别再自己给自己留盲区。
+# 🔴 2026-08-30 第二处(同一轮评审):原来三份**全缺席**也只写"缺席"两个字、
+#    不带 FAIL ⇒ 末尾那道闸(`-match 'FAIL'`)看不见它 ⇒ "应用根本没起来、
+#    现场是空的"这种最该红的情况,整趟是绿的、构件是空的。
+#    外壳.log / 工作台.log 是**必须有的**(进程只要跑起来就会写);
+#    网关.log 允许缺席(网关本来就可能没起)——所以要有清单,不能一刀切。
 try {
-    $names = @('外壳.log', '工作台.log', '网关.log')
-    $got = @()
+    $names    = @('外壳.log', '工作台.log', '网关.log')
+    $required = @('外壳.log', '工作台.log')
+    $got = @(); $miss = @()
     foreach ($n in $names) {
         $log = "$DataRoot\Logs\$n"
         if (Test-Path $log) {
             Copy-Item $log "$OutDir/$n" -Force
             $got += "$n $((Get-Item $log).Length)B"
-        } else { $got += "$n 缺席" }
+        } else {
+            $got += "$n 缺席"
+            if ($required -contains $n) { $miss += $n }
+        }
     }
-    Say '8 收日志' ($got -join " | ")
+    if ($miss.Count) {
+        Say '8 收日志' "FAIL - 必须有的日志缺席:$($miss -join ', ') ⇒ 现场是空的。明细:$($got -join ' | ')"
+    } else {
+        Say '8 收日志' ($got -join " | ")
+    }
 } catch { Say '8 收日志' "FAIL - $($_.Exception.Message)" }
 
 # ── 9 托盘导出诊断:在 Windows 上真跑一遍那段代码 ────────────────────
