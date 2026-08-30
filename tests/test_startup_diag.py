@@ -453,7 +453,10 @@ def _probe_phase(src: str, n: str) -> str:
     assert start is not None, f"探针里找不到第 {n} 相"
     end = next((j for j in range(start + 1, len(lines)) if lines[j].startswith("# ── ")),
                len(lines))
-    return "\n".join(lines[start:end])
+    # 🔴 **注释行不算数**。这几条判据问的都是"这一段里有没有这句代码",而这一段的
+    #    注释里恰好写着同样的字(讲的就是这个坑)⇒ 不滤掉的话,把代码删干净、
+    #    只留注释,判据照样绿 —— 那就是本项目记过多次的死断言。
+    return "\n".join(ln for ln in lines[start:end] if not ln.lstrip().startswith("#"))
 
 
 class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):

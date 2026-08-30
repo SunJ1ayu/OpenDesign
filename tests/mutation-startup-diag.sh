@@ -19,7 +19,8 @@ set -u
 cd "$(dirname "$0")/.."
 PY="${PY:-/root/.venvs/design-studio/bin/python}"
 
-SOURCES=(bin/ds_diag.py bin/ds_shell.py bin/ds_web.py)
+SOURCES=(bin/ds_diag.py bin/ds_shell.py bin/ds_web.py \
+         .github/scripts/windows-package-probe.ps1)
 WORK="$(mktemp -d)"
 for f in "${SOURCES[@]}"; do cp -p "$f" "$WORK/$(echo "$f" | tr / _)"; done
 
@@ -180,6 +181,31 @@ mutate_and_expect M21 bin/ds_shell.py test_s15_frame_submitted_disarms_the_watch
 mutate_and_expect M22 bin/ds_diag.py test_s16_request_lines_keep_the_endpoint_but_lose_the_names \
   '        kept = "/" + "/".join(parts[:2])' \
   '        kept = "/" + "/".join(parts)'
+
+# ── s18:探针那道闸(08-30 第二轮外部评审报的两条,判据是静态的 ⇒ 更要证明咬得动)──
+# 🔴 这四条变异改的是 **.ps1**,不是 python。本机没有 pwsh,判据只能读源码 ——
+#    所以"判据是不是瞎的"这个问题在这里比别处更尖锐:把修复原样撤回去,它必须红。
+
+# M23 撤掉"缺席=FAIL"那句文案 ⇒ 第 8 相又只剩 catch 里那个 FAIL ⇒ 现场是空的也绿
+mutate_and_expect M23 .github/scripts/windows-package-probe.ps1 test_s18_a_missing_required_log_is_a_FAIL \
+  'Say '"'"'8 收日志'"'"' "FAIL - 必须有的日志缺席:$($miss -join '"'"', '"'"') ⇒ 现场是空的。明细:$($got -join '"'"' | '"'"')"' \
+  'Say '"'"'8 收日志'"'"' "必须有的日志缺席:$($miss -join '"'"', '"'"')。明细:$($got -join '"'"' | '"'"')"'
+
+# M24 清空"必须有哪几份"的清单 ⇒ 缺谁都一样宽,FAIL 分支永远走不到
+mutate_and_expect M24 .github/scripts/windows-package-probe.ps1 test_s18_the_required_logs_are_named \
+  '    $required = @('"'"'外壳.log'"'"', '"'"'工作台.log'"'"')' \
+  '    $required = @()'
+
+# M25 把窗口类那一刀撤掉(只留注释里那句话)⇒ 报错框又算"窗口在"
+#     ——这条同时也是在验判据自己滤掉了注释行;不滤的话它会在这条上瞎掉。
+mutate_and_expect M25 .github/scripts/windows-package-probe.ps1 test_s18_the_window_phase_can_tell_a_message_box_from_the_app \
+  '    $box  = @($wins | Where-Object { $_.Class -eq '"'"'#32770'"'"' })' \
+  '    $box  = @()'
+
+# M26 把"只有报错框"那条 FAIL 改回 OK ⇒ "软件根本打不开"整趟绿(评审报的正是这条路)
+mutate_and_expect M26 .github/scripts/windows-package-probe.ps1 test_s18_a_screen_with_only_the_error_box_is_a_FAIL \
+  '    Say '"'"'6 窗口在不在'"'"' "FAIL - 屏幕上只有报错框(窗口类 #32770),没有真窗口 ⇒ 软件根本打不开。框里写的:$txt"' \
+  '    Say '"'"'6 窗口在不在'"'"' "OK - 有窗口(报错框也算)"'
 
 echo
 echo "== 红检结果:咬住 $pass 条,漏网 $fail 条 =="
