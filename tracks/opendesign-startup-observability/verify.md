@@ -428,3 +428,87 @@ runlog: run-all rc=1 commit=21a417d dirty=no final=yes at=2026-08-30T12:31:56Z f
 
 **代码面 PASS,已 push。** 0.98.1 / 0.98.2 两个 pre-release 都已发布。
 **唯一还欠的是业主真机一趟** —— 那是只有他能做的事,不是本单没做完。
+
+---
+
+# 收口第三刀:探针那道闸的两个洞(2026-08-30 深夜,断线后接手)
+
+## 由来:20:47 那轮评审**根本没跑完**
+
+`panel-startup-obs-close`(区间 `cb1e53d..HEAD`)21:16 被断线砍掉:
+subdeepseek 交了卷(PASS + 6 条发现),subglm 900s 超时无裁决,
+补派的 subkimi 起跑十几秒被 SIGTERM 打死(`Terminated`)。
+**高风险要两条不同家族的有效腿 ⇒ 那轮不成立**,`.final`/花名册都没写出来。
+
+接手第一动作是取证不是重跑:两个仓干净、无半提交;deepseek 那两条 MEDIUM
+**我逐行核过成立** ⇒ 先修再重派(**别评一棵马上要改的树**)。
+
+## 修的是什么(两条,都在判卷面,产品代码一行没动)
+
+1. **第 8 相:日志缺席现在会红。** 原来三份全缺席也只写"缺席"两个字,末尾闸
+   `-match 'FAIL'` 看不见 ⇒ "应用根本没起来、构件是空的"整趟绿。
+   现在 `$required = @('外壳.log','工作台.log')` 缺任一份 ⇒ FAIL(网关.log 豁免:CI 无 key)。
+2. **第 6 相:报错框不算"窗口在"。** `ds_shell.py:161-172` 的 `alert()/die()` 弹框标题
+   **就是** `OpenDesign` ⇒ WebView2 缺失这类"软件根本打不开"会走成:后端活着(第 5 相 OK)
+   + 屏幕上只剩报错框(第 6 相 OK)⇒ **整趟绿**。现在按窗口类 `#32770` 单独归类。
+   EnumWindows 枚举不到时退回老口径 —— **故意的 fail-open**,理由写在代码注释里。
+
+## 🔴 判据被连打回六次,抓的全是我自己
+
+| 变异 | 我写的断言错在哪 | 后果(没抓住的话) |
+|---|---|---|
+| M25 | 问"这段里有没有 `#32770`" | 撤掉分类那一刀,FAIL **文案**里还留着这几个字 ⇒ 全绿 |
+| M27 | 问"这段里有没有提到 `$miss` 的 if" | 被同段**累加行**喂饱 ⇒ 守卫改成 `if ($false)` 也全绿 |
+| M28 | 变异锚点抄了 4 个空格缩进 | **变异没打上去** = 这条红检等于没跑 |
+| M30 | 没人钉"攒 `$miss` 的依据" | `-contains` → `$false` ⇒ FAIL 永远走不到 ⇒ 全绿 |
+| M31 | 同上 | `$required` → `$names` ⇒ 网关合法缺席 ⇒ **每趟健康的 run 假红** ⇒ 全绿 |
+| M32 | 在场信号的定义没人钉 | `$ours = @($all)` ⇒ 今早刚修的"结构上不可能红"复活 ⇒ 全绿 |
+
+形状统一:**判据问的是"这句话在不在",而"机器事实够不够得到那条 FAIL"它没问。**
+现在 s18 有 5 条断言,依据是**贴身守卫 + 比较极性 + 攒集合的依据 + 在场信号的定义**。
+
+M30~M32 是 **subkimi 报的** —— 那条腿 rc=124 被超时砍掉,**但报告已经写完**。
+"失败腿的日志也要读"这条老规矩今晚又兑现了一次。
+
+## 机器打印的收据(逐字节,别改数)
+
+```
+runlog: redcheck-s18-probe-gate rc=1 commit=9311d93 dirty=yes at=2026-08-30T14:03:19Z file=tracks/opendesign-startup-observability/evidence/20260830T140319Z-01-redcheck-s18-probe-gate.txt
+runlog: redcheck-mutation-s18 rc=1 commit=a09fd33 dirty=no at=2026-08-30T14:07:48Z file=tracks/opendesign-startup-observability/evidence/20260830T140748Z-01-redcheck-mutation-s18.txt
+runlog: redcheck-mutation-s18-r2 rc=0 commit=38aa05f dirty=no at=2026-08-30T14:08:51Z file=tracks/opendesign-startup-observability/evidence/20260830T140851Z-01-redcheck-mutation-s18-r2.txt
+runlog: redcheck-mutation-s18-r3 rc=1 commit=438b354 dirty=no at=2026-08-30T14:29:56Z file=tracks/opendesign-startup-observability/evidence/20260830T142956Z-01-redcheck-mutation-s18-r3.txt
+runlog: redcheck-mutation-s18-r4 rc=0 commit=acb0f39 dirty=yes at=2026-08-30T14:31:28Z file=tracks/opendesign-startup-observability/evidence/20260830T143128Z-01-redcheck-mutation-s18-r4.txt
+runlog: redcheck-mutation-s18-r5 rc=0 commit=138494c dirty=yes at=2026-08-30T15:13:14Z file=tracks/opendesign-startup-observability/evidence/20260830T151314Z-01-redcheck-mutation-s18-r5.txt
+```
+
+逐份是什么(**红的那三份不许省掉**):
+- 第 1 份 **rc=1**:判据先行,s18 四条此刻全红。
+- 第 2 份 **rc=1**:M25 漏网 —— 判据被 FAIL 文案喂饱。
+- 第 3 份 rc=0:26 条全咬住。
+- 第 4 份 **rc=1**:M27 漏网 + M28 变异没打上去。
+- 第 5 份 rc=0:29 条全咬住。
+- 第 6 份 rc=0:**33 条全咬住、0 漏网**(含 M30~M33)。
+
+## Panel(收口轮,三次)
+
+```
+# 第一轮 close(21:16 被断线砍):无 final。
+#   subdeepseek=PASS(verdict=PASS)  subglm=UNKNOWN(900s 超时,降级)  subkimi=Terminated
+# 第二轮 close2(snapshot=ff3d61b,escalation=failure):
+#   submimo=SKIP(health:cooldown:INCOMPLETE) subdeepseek=PASS(verdict=PASS)
+#   subglm=FAIL(rc=1,降级:回落聊天腿也没成) subkimi=FAIL(rc=124) subgemini=SKIP(rotation)
+#   ⚠️ 评审期间 HEAD 从 ff3d61b 移到 acb0f39 —— 各腿未必评的同一棵树。
+```
+
+**两轮都只凑到 1 条有效腿** ⇒ 按 impact-risk=high 的预算(2 条不同家族)**都不成立**。
+第三轮 `close3`(snapshot=`b70d902`,派 submimo + subgemini)结果见下方。
+
+## 这一刀新添的"仍然敞着"
+
+6. 🔴 **本机没有 pwsh ⇒ 这道闸只能静态读 `.ps1`。** 今晚六次打回全是"文本还在、
+   语义已废"的变体;每发现一种补一条变异,是打补丁。真正的收口是让 `.ps1`
+   在本机(或每次 push 的 CI)真能被执行 —— 与 `opendesign-nsi-gate-in-run-all` 同一件事。
+7. 🔴 **`#32770` 这个常量至今没被这台机器量过。** 它是我从知识里写下的,不是测出来的。
+   下一趟真机/云机必须看第 6 相打印出来的窗口类(OK 分支现在会打印,就是为了这个)。
+8. **subglm 与 subkimi 今晚各超时两次/一次**(900s×2、1500s)。两条腿都病着,
+   这不是本单的事,但会持续吃掉评审预算 ⇒ 记进 aiwork 侧待办。
