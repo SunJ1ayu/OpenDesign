@@ -1,0 +1,27 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-sampling-pins-r2
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_startup_diag
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  01cc6a2
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-30T16:54:09Z
+---------------- 输出开始 ----------------
+..../usr/lib/python3.12/unittest/case.py:638: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 39233)>
+  self.doCleanups()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+........F.....................................
+======================================================================
+FAIL: test_s18_stderr_can_never_become_a_verdict (tests.test_startup_diag.S18ProbeAsksTheJudgeAndSaysWhatItAnswers.test_s18_stderr_can_never_become_a_verdict)
+🔴 rc=1 **且 stdout 空**:判定器语法错 / import 炸 ⇒ traceback 全在 stderr,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 590, in test_s18_stderr_can_never_become_a_verdict
+    self.assertNotIn("2>&1", body,
+AssertionError: '2>&1' unexpectedly found in 'function Get-Verdict([string]$kind, $facts) {\n    $judge = Join-Path $PSScriptRoot \'..\\..\\bin\\probe_verdict.py\'\n    $py    = "$InstallDir\\python\\python.exe"\n    if (-not (Test-Path $judge)) { return "FAIL - 判定器不在:$judge" }\n    if (-not (Test-Path $py))    { return "FAIL - 判定器跑不成:找不到 $py" }\n    try {\n        $json = $facts | ConvertTo-Json -Depth 6 -Compress -EscapeHandling EscapeNonAscii\n        $out  = $json | & $py $judge $kind 2>&1\n        $rc  = $LASTEXITCODE\n    } catch { return "FAIL - 判定器炸了:$($_.Exception.Message)" }\n    if (-not $out) { return "FAIL - 判定器没有输出(rc=$rc)" }\n    if ($rc -ne 0 -and $rc -ne 1) { return "FAIL - 判定器异常退出(rc=$rc):$out" }\n    return (("$out" -replace "`r?`n", " ").Trim())' : 判定器的 stderr 被并进了裁决那条流 ⇒ traceback/用法串会被当成裁决
+
+----------------------------------------------------------------------
+Ran 50 tests in 0.835s
+
+FAILED (failures=1)
+---------------- 输出结束 ----------------
+runlog: redcheck-sampling-pins-r2 rc=1 commit=01cc6a2 dirty=yes at=2026-08-30T16:54:09Z file=tracks/opendesign-startup-observability/evidence/20260830T165409Z-01-redcheck-sampling-pins-r2.txt

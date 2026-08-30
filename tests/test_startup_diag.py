@@ -576,6 +576,83 @@ class S18ProbeAsksTheJudgeAndSaysWhatItAnswers(unittest.TestCase):
         for ln in rc_guard:
             self.assertIn("FAIL", ln, f"这条 rc 守卫没有 fail-closed:{ln.strip()!r}")
 
+    def test_s18_stderr_can_never_become_a_verdict(self):
+        """🔴 rc=1 **且 stdout 空**:判定器语法错 / import 炸 ⇒ traceback 全在 stderr,
+        而 `2>&1` 把它并进 $out ⇒ "输出非空" ⇒ rc=1 穿过守卫 ⇒ **traceback 被当成裁决**
+        ⇒ 闸找不到 FAIL ⇒ exit 0。第 2e 轮 subdeepseek 用一个语法错的判定器逐行模拟过。
+
+        ⇒ stdout 和 stderr 必须**分开抓**:裁决只能来自 stdout。
+        """
+        src = PROBE.read_text(encoding="utf-8")
+        start = src.index("function Get-Verdict")
+        body = "\n".join(ln for ln in src[start:src.index("\n}", start)].splitlines()
+                          if not ln.lstrip().startswith("#"))
+        self.assertNotIn("2>&1", body,
+                         "判定器的 stderr 被并进了裁决那条流 ⇒ traceback/用法串会被当成裁决")
+
+    def test_s18_the_sampling_is_pinned_not_just_referenced(self):
+        """🔴 第 2e 轮 subdeepseek 实测的七种:s18 只钉"引用在不在",钉不住"采得对不对"。
+
+        七种改法当时全都 48 条全绿而行为已坏,其中四种是 2c 那批的**原物**:
+        标题过滤的**取值**、匹配**方向**、`Cls()` 的**取参**、`Test-Path` 的**极性**、
+        `Say` 的**落账**、轮询退出条件的**极性**、事实映射的**属性名**。
+        """
+        src = PROBE.read_text(encoding="utf-8")
+        code = [ln for ln in src.splitlines() if not ln.lstrip().startswith("#")]
+        joined = "\n".join(code)
+
+        # ① 标题过滤的取值:必须和 ds_shell.py 的 APP 一致(跨文件钉,不是抄一个字面量)
+        app = None
+        for ln in (ROOT / "bin" / "ds_shell.py").read_text(encoding="utf-8").splitlines():
+            if ln.startswith("APP ="):
+                app = ln.split("=", 1)[1].strip().strip('"\'')
+                break
+        self.assertTrue(app, "ds_shell.py 里找不到 APP")
+        title = [ln for ln in code if ln.lstrip().startswith("$appTitle")]
+        self.assertTrue(title, "第 6 相没有应用标题这个取值")
+        self.assertIn(f"'{app}'", title[0],
+                      f"应用标题的取值和 ds_shell.py 的 APP({app!r})对不上 ⇒ "
+                      "空串就等于不过滤,同屏任何窗口都算我们的")
+
+        # ② 取窗口时的匹配方向
+        lister = src[src.index("function Get-AppWindows"):]
+        lister = "\n".join(ln for ln in lister[:lister.index("\n}")].splitlines()
+                            if not ln.lstrip().startswith("#"))
+        self.assertIn("-like", lister, "取窗口没有按标题匹配")
+        self.assertNotIn("-notlike", lister,
+                         "匹配方向反了 ⇒ 采的是「标题**不含**应用名」的窗口 ⇒ 假绿")
+
+        # ③ 窗口类必须从窗口句柄取(不是从 lParam)
+        self.assertIn("[W32]::Cls($h)", lister,
+                      "窗口类不是从窗口句柄取的 ⇒ 类名恒空 ⇒ 报错框会被判成真窗口")
+
+        # ④ 第 8 相"在不在"的极性
+        logs = [ln for ln in _probe_phase(src, "8").splitlines()
+                if not ln.lstrip().startswith("#") and "Test-Path" in ln]
+        self.assertTrue(logs, "第 8 相没有查文件在不在")
+        for ln in logs:
+            self.assertNotIn("-not (Test-Path", ln.replace(" ", " "),
+                             f"「在不在」的极性反了:{ln.strip()!r} ⇒ 健康趟每份都算缺席")
+
+        # ⑤ Say 必须落账 —— 闸读的是 $phases,不是屏幕
+        say = [ln for ln in code if ln.lstrip().startswith("function Say")]
+        self.assertTrue(say, "没有 Say")
+        self.assertIn("$phases[$k] = $v", say[0],
+                      "Say 不再把结果记进 $phases ⇒ 各相照样打印 FAIL,而闸读到的是空的 ⇒ "
+                      "自报 FAIL 也 exit 0")
+
+        # ⑥ 轮询退出条件的极性(有应答才停)
+        polls = [ln for ln in code if "Where-Object { $_ }" in ln or "Where-Object { -not $_ }" in ln]
+        self.assertTrue(polls, "第 5/10 相没有「有没有应答」这个判断")
+        for ln in polls:
+            self.assertNotIn("-not $_", ln,
+                             f"轮询的退出条件极性反了:{ln.strip()!r} ⇒ 健康时空转、坏时提早判红")
+
+        # ⑦ 事实映射的属性名(Get-AppWindows 给的是 Title/Class)
+        self.assertIn("cls = $_.Class", joined,
+                      "喂给判定器的窗口类取错了属性 ⇒ 每个窗口的 cls 都是 null ⇒ "
+                      "报错框全判成真窗口")
+
     def test_s18_the_sampling_parameters_are_pinned_too(self):
         """🔴 采样**参数**也要钉:同一轮实测出三种改法,全都 s18+s19 全绿而行为已坏。
 
