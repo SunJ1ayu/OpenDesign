@@ -1,0 +1,25 @@
+2026-08-30 10:11:41 ==== OpenDesign 外壳启动 ====
+2026-08-30 10:11:41 [启动] run=339425 版本清单 OpenDesign=0.98.1 Windows=Windows-2025Server-10.0.26100-SP0 位数=64 Python=3.12.10 WebView2=151.0.4129.101
+2026-08-30 10:11:50 [启动] run=339425 +9297ms lock.acquired
+2026-08-30 10:11:51 [启动] run=339425 +9860ms backend.ready
+2026-08-30 10:11:51 [启动] run=339425 +10110ms window.create_returned http://127.0.0.1:8766/?shell=1
+2026-08-30 10:11:51 准备进入图形循环:http://127.0.0.1:8766/?shell=1
+2026-08-30 10:11:51 [启动] run=339425 +10125ms webview.loop_entered
+2026-08-30 10:11:53 [窗口] 已把 MINIMIZEBOX/MAXIMIZEBOX/SYSMENU 贴回窗口(默认路径,不动边框)
+2026-08-30 10:11:53 [启动] run=339425 +12219ms window.shown
+2026-08-30 10:11:56 [启动] run=339425 +15516ms frontend.bundle_started
+2026-08-30 10:11:56 [启动] run=339425 +15516ms frontend.react_committed
+2026-08-30 10:11:56 [启动] run=339425 +15516ms frontend.frame_submitted 1028x749
+2026-08-30 10:14:22 ==== OpenDesign 外壳启动 ====
+2026-08-30 10:14:22 [启动] run=22b2a3 版本清单 OpenDesign=0.98.1 Windows=Windows-2025Server-10.0.26100-SP0 位数=64 Python=3.12.10 WebView2=151.0.4129.101
+2026-08-30 10:14:31 [启动] run=22b2a3 +9172ms lock.acquired
+2026-08-30 10:14:32 [启动] run=22b2a3 +9719ms backend.ready
+2026-08-30 10:14:32 [启动] run=22b2a3 +9797ms window.create_returned http://127.0.0.1:8766/?shell=1
+2026-08-30 10:14:32 准备进入图形循环:http://127.0.0.1:8766/?shell=1
+2026-08-30 10:14:32 [启动] run=22b2a3 +9797ms webview.loop_entered
+2026-08-30 10:14:33 [窗口] 已把 MINIMIZEBOX/MAXIMIZEBOX/SYSMENU 贴回窗口(默认路径,不动边框)
+2026-08-30 10:14:33 [启动] run=22b2a3 +10437ms window.shown
+2026-08-30 10:14:34 [启动] run=22b2a3 +11359ms frontend.bundle_started
+2026-08-30 10:14:34 [启动] run=22b2a3 +11359ms frontend.react_committed
+2026-08-30 10:14:34 [启动] run=22b2a3 +11359ms frontend.frame_submitted 1028x749
+2026-08-30 10:14:34 [启动] run=22b2a3 +11359ms frontend.error Uncaught TypeError: c.window_state is not a function
