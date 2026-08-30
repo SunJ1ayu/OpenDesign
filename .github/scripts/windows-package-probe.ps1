@@ -228,7 +228,9 @@ try {
 #    但那段代码本身可以用装好的那个 python 直接跑 —— 至少证明中文文件名、
 #    zip、路径这些在真 Windows 上是成立的(不能证明菜单点得动,那条留给业主)。
 try {
-    $py = "$InstallDir\ds\python\python.exe"
+    # 🔴 路径:python 在 $INSTDIR\python\,**不在** ds\python\(第一版写错,当场 FAIL —— 探针自己坏了)。
+    #    出处:installer/OpenDesign.nsi:245 那行 ExecToLog 用的就是 "$INSTDIR\python\python.exe"。
+    $py = "$InstallDir\python\python.exe"
     $code = @"
 import sys, zipfile
 sys.path.insert(0, r'$InstallDir\ds\bin')
