@@ -207,6 +207,25 @@ mutate_and_expect M26 .github/scripts/windows-package-probe.ps1 test_s18_a_scree
   '    Say '"'"'6 窗口在不在'"'"' "FAIL - 屏幕上只有报错框(窗口类 #32770),没有真窗口 ⇒ 软件根本打不开。框里写的:$txt"' \
   '    Say '"'"'6 窗口在不在'"'"' "OK - 有窗口(报错框也算)"'
 
+# ── M27~M29:第 2b 轮外部评审报的两条判据洞(F1 守卫被阉割 / F2 极性翻转)──
+# 🔴 三条我都亲手复现过:改之前**四条 s18 全绿**。它们是 M25 那类"字面满足不了判定"
+#    的两个更狠的形态 —— 文案一个字没动,而机器事实再也够不到那条 FAIL。
+
+# M27 把第 8 相的守卫改成常量假 ⇒ "现场是空的"永远走不到 FAIL(文案还在)
+mutate_and_expect M27 .github/scripts/windows-package-probe.ps1 test_s18_a_missing_required_log_is_a_FAIL \
+  '    if ($miss.Count) {' \
+  '    if ($false) {'
+
+# M28 把第 6 相的守卫改成常量真 ⇒ 这一相恒红(文案还在)
+mutate_and_expect M28 .github/scripts/windows-package-probe.ps1 test_s18_a_screen_with_only_the_error_box_is_a_FAIL \
+  '    if ($box.Count -and -not $real.Count) {' \
+  '    if ($true) {'
+
+# M29 极性:-eq 抄成 -ne ⇒ $box/$real 变成同一堆 ⇒ 只有报错框的屏幕走 $ours 判 OK(产品级假绿)
+mutate_and_expect M29 .github/scripts/windows-package-probe.ps1 test_s18_the_window_phase_can_tell_a_message_box_from_the_app \
+  "    \$box  = @(\$wins | Where-Object { \$_.Class -eq '#32770' })" \
+  "    \$box  = @(\$wins | Where-Object { \$_.Class -ne '#32770' })"
+
 echo
 echo "== 红检结果:咬住 $pass 条,漏网 $fail 条 =="
 [ "$fail" -eq 0 ] || exit 1

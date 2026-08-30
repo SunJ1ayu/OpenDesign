@@ -486,6 +486,14 @@ class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
         own = [ln for ln in says if "FAIL" in ln and "$_.Exception.Message" not in ln]
         self.assertTrue(own, "第 8 相唯一的 FAIL 是「脚本自己抛异常」——"
                              "日志缺席(应用根本没写出来)不带 FAIL ⇒ 末尾闸看不见 ⇒ 整趟绿")
+        # 🔴 光有 FAIL 文案**不够**:把守卫改成 `if ($false)` 之后文案原封不动地留在那儿,
+        #    而那条 FAIL 永远走不到(第 2b 轮外部评审报的 F1,我亲手复现过)。
+        #    ⇒ 还要问:这条 FAIL 是被「缺了谁」这个机器事实够到的吗。
+        guards = [ln for ln in sec.splitlines()
+                  if not ln.lstrip().startswith("#") and ln.lstrip().startswith("if (")]
+        self.assertTrue(any("$miss" in ln for ln in guards),
+                        "第 8 相的 FAIL 分支不是由「缺了哪几份必须日志」守着的 ⇒ "
+                        "守卫被改成常量它也发现不了")
 
     def test_s18_the_required_logs_are_named(self):
         sec = _probe_phase(PROBE.read_text(encoding="utf-8"), "8")
@@ -505,9 +513,12 @@ class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
         #    ⇒ 改成盯**那个判定**:报错框这一类必须由「窗口类 == #32770」算出来。
         box = [ln for ln in sec.splitlines() if "$box" in ln and "=" in ln]
         self.assertTrue(box, "第 6 相没有把「报错框」单独算成一类")
-        self.assertTrue(any(".Class" in ln and "#32770" in ln for ln in box),
-                        "「报错框」不是由窗口类算出来的 —— MessageBoxW 弹的框标题就是 "
-                        "OpenDesign,靠标题分不开,会被当成「窗口在」")
+        # 🔴 **极性也要钉**:`-eq` 抄成 `-ne` 只差一个字符,$box/$real 就变成同一堆,
+        #    "只有报错框"的屏幕会走 $ours 兜底判 OK ⇒ 产品级假绿。
+        #    (第 2b 轮外部评审报的 F2,我亲手复现过:翻极性,四条判据全绿。)
+        self.assertTrue(any(".Class" in ln and "-eq" in ln and "#32770" in ln for ln in box),
+                        "「报错框」不是由「窗口类 -eq #32770」算出来的 —— 极性反了或换了依据,"
+                        "MessageBoxW 那个框(标题就是 OpenDesign)会被当成「窗口在」")
 
     def test_s18_a_screen_with_only_the_error_box_is_a_FAIL(self):
         sec = _probe_phase(PROBE.read_text(encoding="utf-8"), "6")
@@ -516,6 +527,13 @@ class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
         self.assertTrue(any("报错框" in ln for ln in fails),
                         "第 6 相没有「屏幕上只有报错框」这条 FAIL 分支 ⇒ "
                         "「软件根本打不开」照样绿")
+        # 🔴 同 F1:守卫改成 `if ($true)` 文案照样在,而这一相变成恒红。
+        #    这条 FAIL 必须由「有框、且没有真窗口」这两个机器事实一起守着。
+        guards = [ln for ln in sec.splitlines()
+                  if not ln.lstrip().startswith("#") and ln.lstrip().startswith("if (")]
+        self.assertTrue(any("$box" in ln and "$real" in ln for ln in guards),
+                        "「只有报错框」这条 FAIL 不是由 $box/$real 两个事实守着的 ⇒ "
+                        "守卫被改成常量它也发现不了")
 
 
 if __name__ == "__main__":
