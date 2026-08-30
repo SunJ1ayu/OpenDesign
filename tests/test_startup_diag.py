@@ -657,5 +657,98 @@ class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
                         f"实际是 {guard.strip()!r})⇒ 守卫被改成常量它也发现不了")
 
 
+class S19ProbeVerdictIsABehaviour(unittest.TestCase):
+    """s19 探针的"机器事实 → 该不该 FAIL"必须是**跑得动的判定**,不是一段文本。
+
+    🔴 为什么有这个类(2026-08-30 深夜,第三轮 panel 的 BLOCK):
+    s18 那一整套是**静态断言** —— 它读 `.ps1` 的源码问"这句话在不在"。今晚这条路
+    被连打回:M25/M27/M28/M30~M32、subgemini 的 M34~M37、submimo 的三条,
+    最后 subdeepseek **自己动手变异了 8 种改法并逐条执行**(极性 `-eq`→`-lt`、
+    把豁免的那份加进必须清单、`Test-Path` 取反、`$appTitle=''`、`-not` 去掉、
+    while 条件少一项、`-like`→`-notlike`、`Cls($h)`→`Cls($l)`),**每一种 s18 都全绿**。
+
+    形状是固定的:**字面断言天生够不着语义**。每补一条字面规则,下一层字面就能绕过去。
+
+    ⇒ 出路(subdeepseek 与 subgemini 各自独立给的同一条):把判定从 `.ps1` 里抽出来,
+    做成一个**纯函数**,喂事实、拿裁决。于是"极性/取值/终止条件/参数"全变成
+    输入输出问题 —— 判据只要喂一组真实事实、断言裁决对不对,变异自然咬得住。
+
+    `.ps1` 那边只剩一件事要静态钉:**它得真的去问这个函数**(见 s18 的接线断言)。
+    """
+
+    def setUp(self):
+        import probe_verdict
+        self.pv = probe_verdict
+
+    # ── 第 8 相:收日志 ────────────────────────────────────────────────
+    def test_s19_all_logs_present_is_ok(self):
+        v = self.pv.logs_verdict({"外壳.log": 120, "工作台.log": 80, "网关.log": 40})
+        self.assertTrue(v.ok, v.text)
+        self.assertNotIn("FAIL", v.text)
+
+    def test_s19_the_exempt_gateway_log_may_be_missing(self):
+        """真机健康趟就是这个形状:没填 key ⇒ 网关不起 ⇒ 网关.log 合法缺席。"""
+        v = self.pv.logs_verdict({"外壳.log": 120, "工作台.log": 80, "网关.log": None})
+        self.assertTrue(v.ok, f"网关缺席被判成 FAIL ⇒ 每一趟健康的 run 都假红:{v.text}")
+
+    def test_s19_a_missing_required_log_is_a_FAIL(self):
+        v = self.pv.logs_verdict({"外壳.log": 120, "工作台.log": None, "网关.log": None})
+        self.assertFalse(v.ok)
+        self.assertIn("FAIL", v.text)
+        self.assertIn("工作台.log", v.text)
+
+    def test_s19_everything_missing_is_a_FAIL(self):
+        """最该红的一种:现场是空的(应用根本没起来)。"""
+        v = self.pv.logs_verdict({"外壳.log": None, "工作台.log": None, "网关.log": None})
+        self.assertFalse(v.ok)
+        self.assertIn("FAIL", v.text)
+
+    # ── 第 6 相:窗口在不在 ────────────────────────────────────────────
+    def test_s19_a_real_window_is_ok(self):
+        v = self.pv.window_verdict(
+            wins=[{"title": "OpenDesign", "cls": "WindowsForms10.Window.8.app.0.1"}],
+            ours=["pythonw:「OpenDesign」"])
+        self.assertTrue(v.ok, v.text)
+
+    def test_s19_only_the_error_box_is_a_FAIL(self):
+        """WebView2 缺失那类:后端活着、屏幕上只剩 alert()/die() 弹的框。"""
+        v = self.pv.window_verdict(
+            wins=[{"title": "OpenDesign", "cls": "#32770"}],
+            ours=["pythonw:「OpenDesign」"])          # 框就是进程主窗口 ⇒ 老口径看得见它
+        self.assertFalse(v.ok, "只有报错框却判成「窗口在」⇒ 软件根本打不开也整趟绿")
+        self.assertIn("FAIL", v.text)
+
+    def test_s19_a_box_next_to_a_real_window_is_still_ok(self):
+        v = self.pv.window_verdict(
+            wins=[{"title": "OpenDesign", "cls": "#32770"},
+                  {"title": "OpenDesign", "cls": "WindowsForms10.Window.8.app.0.1"}],
+            ours=["pythonw:「OpenDesign」"])
+        self.assertTrue(v.ok, f"真窗口在场也被判红 ⇒ 假红:{v.text}")
+
+    def test_s19_no_window_at_all_is_a_FAIL(self):
+        v = self.pv.window_verdict(wins=[], ours=[])
+        self.assertFalse(v.ok)
+        self.assertIn("FAIL", v.text)
+
+    def test_s19_enumeration_failure_falls_back_to_the_old_signal(self):
+        """故意的 fail-open:一个窗口都枚举不到时退回老口径,别造假红。"""
+        v = self.pv.window_verdict(wins=[], ours=["pythonw:「OpenDesign」"])
+        self.assertTrue(v.ok, v.text)
+        self.assertIn("枚举", v.text, "退回老口径时没把这件事写进读数 ⇒ 读数不诚实")
+
+    # ── 第 5/10 相:服务活了吗(端口会挪)──────────────────────────────
+    def test_s19_health_on_the_moved_port_is_ok(self):
+        """🔴 应用用 pick_ports(span=20) 挑端口,8766 被占会挪到 8767+;
+        探针原来把 8766 写死 ⇒ 健康启动也判 FAIL(第三轮 subdeepseek 报的)。"""
+        v = self.pv.health_verdict({8766: None, 8767: "0.98.2"})
+        self.assertTrue(v.ok, f"应用挪到 8767 健康启动,却判成没活 ⇒ 假红:{v.text}")
+        self.assertIn("8767", v.text)
+
+    def test_s19_no_port_answering_is_a_FAIL(self):
+        v = self.pv.health_verdict({p: None for p in range(8766, 8787)})
+        self.assertFalse(v.ok)
+        self.assertIn("FAIL", v.text)
+
+
 if __name__ == "__main__":
     unittest.main()

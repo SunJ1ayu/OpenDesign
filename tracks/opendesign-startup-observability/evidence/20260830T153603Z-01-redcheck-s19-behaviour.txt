@@ -1,0 +1,110 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-s19-behaviour
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_startup_diag.S19ProbeVerdictIsABehaviour
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  0c49d5a
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-30T15:36:03Z
+---------------- 输出开始 ----------------
+/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+  """主变更行 C 号 —— **五个写口共用这一个定义**。
+EEEEEEEEEEE
+======================================================================
+ERROR: test_s19_a_box_next_to_a_real_window_is_still_ok (tests.test_startup_diag.S19ProbeVerdictIsABehaviour.test_s19_a_box_next_to_a_real_window_is_still_ok)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 680, in setUp
+    import probe_verdict
+ModuleNotFoundError: No module named 'probe_verdict'
+
+======================================================================
+ERROR: test_s19_a_missing_required_log_is_a_FAIL (tests.test_startup_diag.S19ProbeVerdictIsABehaviour.test_s19_a_missing_required_log_is_a_FAIL)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 680, in setUp
+    import probe_verdict
+ModuleNotFoundError: No module named 'probe_verdict'
+
+======================================================================
+ERROR: test_s19_a_real_window_is_ok (tests.test_startup_diag.S19ProbeVerdictIsABehaviour.test_s19_a_real_window_is_ok)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 680, in setUp
+    import probe_verdict
+ModuleNotFoundError: No module named 'probe_verdict'
+
+======================================================================
+ERROR: test_s19_all_logs_present_is_ok (tests.test_startup_diag.S19ProbeVerdictIsABehaviour.test_s19_all_logs_present_is_ok)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 680, in setUp
+    import probe_verdict
+ModuleNotFoundError: No module named 'probe_verdict'
+
+======================================================================
+ERROR: test_s19_enumeration_failure_falls_back_to_the_old_signal (tests.test_startup_diag.S19ProbeVerdictIsABehaviour.test_s19_enumeration_failure_falls_back_to_the_old_signal)
+故意的 fail-open:一个窗口都枚举不到时退回老口径,别造假红。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 680, in setUp
+    import probe_verdict
+ModuleNotFoundError: No module named 'probe_verdict'
+
+======================================================================
+ERROR: test_s19_everything_missing_is_a_FAIL (tests.test_startup_diag.S19ProbeVerdictIsABehaviour.test_s19_everything_missing_is_a_FAIL)
+最该红的一种:现场是空的(应用根本没起来)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 680, in setUp
+    import probe_verdict
+ModuleNotFoundError: No module named 'probe_verdict'
+
+======================================================================
+ERROR: test_s19_health_on_the_moved_port_is_ok (tests.test_startup_diag.S19ProbeVerdictIsABehaviour.test_s19_health_on_the_moved_port_is_ok)
+🔴 应用用 pick_ports(span=20) 挑端口,8766 被占会挪到 8767+;
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 680, in setUp
+    import probe_verdict
+ModuleNotFoundError: No module named 'probe_verdict'
+
+======================================================================
+ERROR: test_s19_no_port_answering_is_a_FAIL (tests.test_startup_diag.S19ProbeVerdictIsABehaviour.test_s19_no_port_answering_is_a_FAIL)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 680, in setUp
+    import probe_verdict
+ModuleNotFoundError: No module named 'probe_verdict'
+
+======================================================================
+ERROR: test_s19_no_window_at_all_is_a_FAIL (tests.test_startup_diag.S19ProbeVerdictIsABehaviour.test_s19_no_window_at_all_is_a_FAIL)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 680, in setUp
+    import probe_verdict
+ModuleNotFoundError: No module named 'probe_verdict'
+
+======================================================================
+ERROR: test_s19_only_the_error_box_is_a_FAIL (tests.test_startup_diag.S19ProbeVerdictIsABehaviour.test_s19_only_the_error_box_is_a_FAIL)
+WebView2 缺失那类:后端活着、屏幕上只剩 alert()/die() 弹的框。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 680, in setUp
+    import probe_verdict
+ModuleNotFoundError: No module named 'probe_verdict'
+
+======================================================================
+ERROR: test_s19_the_exempt_gateway_log_may_be_missing (tests.test_startup_diag.S19ProbeVerdictIsABehaviour.test_s19_the_exempt_gateway_log_may_be_missing)
+真机健康趟就是这个形状:没填 key ⇒ 网关不起 ⇒ 网关.log 合法缺席。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 680, in setUp
+    import probe_verdict
+ModuleNotFoundError: No module named 'probe_verdict'
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.002s
+
+FAILED (errors=11)
+---------------- 输出结束 ----------------
+runlog: redcheck-s19-behaviour rc=1 commit=0c49d5a dirty=yes at=2026-08-30T15:36:03Z file=tracks/opendesign-startup-observability/evidence/20260830T153603Z-01-redcheck-s19-behaviour.txt
