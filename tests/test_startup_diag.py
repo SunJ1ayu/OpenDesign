@@ -533,6 +533,12 @@ class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
             self.assertIn("$required", where,
                           f"攒 $miss 的依据不是那份必须清单(实际是 {where.strip()!r})⇒ "
                           "要么永远攒不到(该红不红),要么把网关也算必须(健康趟趟假红)")
+            # 🔴 极性(第 2c 轮 subgemini 报的):`-contains` 翻成 `-notcontains`,
+            #    "$required" 三个字还在,而网关.log 变成永远缺席 ⇒ **趟趟假红**。
+            #    ("-notcontains" 里没有 "-contains" 这个子串,所以这样判是准的。)
+            self.assertIn("-contains", where,
+                          f"判「是不是必须的」极性反了(实际是 {where.strip()!r})⇒ "
+                          "豁免的那份会被当成必须 ⇒ 每一趟健康的 run 都假红")
 
     def test_s18_the_window_phase_can_tell_a_message_box_from_the_app(self):
         src = PROBE.read_text(encoding="utf-8")
@@ -555,6 +561,34 @@ class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
         self.assertTrue(any(".Class" in ln and "-eq" in ln and "#32770" in ln for ln in box),
                         "「报错框」不是由「窗口类 -eq #32770」算出来的 —— 极性反了或换了依据,"
                         "MessageBoxW 那个框(标题就是 OpenDesign)会被当成「窗口在」")
+        # 🔴 第 2c 轮 subgemini 报的:光钉 $box 不够,**整条数据流**每一环都能被抽掉,
+        #    而判据一环都不看。我亲手复现过两条:
+        #      · `$real = @($wins)`:真窗口集合把框也算进去 ⇒ "只有框"永远不成立 ⇒ 假绿;
+        #      · `$wins = @(Get-AppWindows '')`:什么窗口都匹配 ⇒ $real 非空 ⇒ 同样假绿。
+        code = [ln for ln in sec.splitlines() if not ln.lstrip().startswith("#")]
+        real = [ln for ln in code if ln.lstrip().startswith("$real") and "=" in ln]
+        self.assertTrue(real, "第 6 相没有「真窗口」这一类")
+        self.assertTrue(any(".Class" in ln and "-ne" in ln and "#32770" in ln for ln in real),
+                        "「真窗口」不是「窗口类 -ne #32770」—— 它把报错框也算进去的话,"
+                        "「只有框」这条 FAIL 永远不成立")
+        wins = [ln for ln in code if ln.lstrip().startswith("$wins") and "=" in ln]
+        self.assertTrue(wins, "第 6 相没有取窗口清单")
+        self.assertTrue(any("Get-AppWindows" in ln and "$appTitle" in ln for ln in wins),
+                        "窗口清单不是按应用标题取的 ⇒ 同屏任何窗口都会被当成真窗口")
+
+    def test_s18_the_window_lister_reports_title_and_class(self):
+        """`Get-AppWindows` 自己也要被钉:它是第 6 相唯一的窗口类来源。
+
+        第 2c 轮 subgemini 指出的同一条数据流:判据只看第 6 相那一段,
+        而**辅助函数在段外** —— 把标题过滤或类名取值抽掉,第 6 相一个字不用改。
+        """
+        src = PROBE.read_text(encoding="utf-8")
+        start = src.index("function Get-AppWindows")
+        body = src[start:src.index("\n}", start)]
+        code = "\n".join(ln for ln in body.splitlines() if not ln.lstrip().startswith("#"))
+        self.assertIn("$Match", code, "Get-AppWindows 不按标题筛了 ⇒ 同屏任何窗口都算我们的")
+        self.assertIn("[W32]::Cls(", code,
+                      "Get-AppWindows 不再取窗口类 ⇒ 第 6 相分不开报错框和真窗口")
 
     def test_s18_the_presence_signal_is_still_filtered_by_the_app_title(self):
         """b99b603 修的那条("有任何带标题的窗口"就算 OK ⇒ 结构上不可能红)至今没有判据。

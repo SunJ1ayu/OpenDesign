@@ -251,6 +251,29 @@ mutate_and_expect M33 .github/scripts/windows-package-probe.ps1 test_s18_the_win
   '    var sb = new StringBuilder(256); GetClassNameW(h, sb, 256); return sb.ToString();' \
   '    var sb = new StringBuilder(256); return sb.ToString();'
 
+# ── M34~M37:第 2c 轮 subgemini 报的同一条数据流(第 7~10 个实例)──
+# 🔴 前四条我都亲手复现过(M34/M35);M36/M37 是同一条链上剩下的两环,一并钉住。
+
+# M34 真窗口集合把报错框也算进去 ⇒ "只有框"永远不成立 ⇒ 产品级假绿
+mutate_and_expect M34 .github/scripts/windows-package-probe.ps1 test_s18_the_window_phase_can_tell_a_message_box_from_the_app \
+  "    \$real = @(\$wins | Where-Object { \$_.Class -ne '#32770' })" \
+  '    $real = @($wins)'
+
+# M35 -contains → -notcontains:"$required" 三个字还在,而网关.log 变成永远缺席 ⇒ 趟趟假红
+mutate_and_expect M35 .github/scripts/windows-package-probe.ps1 test_s18_the_required_logs_are_named \
+  'if ($required -contains $n) { $miss += $n }' \
+  'if ($required -notcontains $n) { $miss += $n }'
+
+# M36 窗口清单不按应用标题取 ⇒ 同屏任何窗口都算"真窗口"
+mutate_and_expect M36 .github/scripts/windows-package-probe.ps1 test_s18_the_window_phase_can_tell_a_message_box_from_the_app \
+  '    $wins = @(Get-AppWindows $appTitle)' \
+  "    \$wins = @(Get-AppWindows '')"
+
+# M37 辅助函数不再取窗口类(段外那一环,第 6 相一个字不用改)
+mutate_and_expect M37 .github/scripts/windows-package-probe.ps1 test_s18_the_window_lister_reports_title_and_class \
+  '                $script:appwins += [PSCustomObject]@{ Title = $t; Class = [W32]::Cls($h) }' \
+  '                $script:appwins += [PSCustomObject]@{ Title = $t; Class = "" }'
+
 echo
 echo "== 红检结果:咬住 $pass 条,漏网 $fail 条 =="
 [ "$fail" -eq 0 ] || exit 1
