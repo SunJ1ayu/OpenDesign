@@ -4,9 +4,16 @@
 # 它要替业主挡掉的是这一类(而不是"动画好不好看"):
 #   0.89 装完打开就崩 / 0.90 窗口栏整块没画出来 / 0.93 打开全是白的
 #
-# 🔴 同上一支探针:**只报告,不判卷**。脚本自己崩了才 exit 非零。
-#    每一相都打印 `PHASE n: OK|FAIL — 细节`,结论由主 agent 看图 + 看日志之后下。
-#    "返回成功 ≠ 事情发生了":所以装完要查文件、起完要查端口、截完要查像素。
+# 🔴 退出码的契约(2026-08-30 重写,原来那句是**假的**):
+#    旧文案写"脚本自己崩了才 exit 非零",但脚本末尾没有 exit 语句 ⇒ pwsh 拿
+#    **最后一个原生命令的 $LASTEXITCODE** 当脚本退出码。run 33306843034 就是这么
+#    红的:第 9 相那个 python 因为打印中文炸了(见下),rc=1 泄漏出来染红整个 run,
+#    而产品一点问题都没有。反过来更坏:第 10 相真喊 "🔴 FAIL" 时,只要后面没有
+#    原生命令,整个 run 照样是**绿的**。
+#    现在改成:**任何一相自报 FAIL ⇒ exit 1**,否则 exit 0(见文件末尾)。
+#    ⚠️ 绿**不等于**产品没问题 —— 白屏体检给的是读数(颜色数 / 近白百分比),
+#    判读仍然要主 agent 看图。闸只兜机器能独自断定的那几件:装机退出码、
+#    配置 rc、导出 rc、端口通不通、窗口在不在、文件在不在。
 
 param(
     [string]$Tag    = "win-installer-0.97.0",
@@ -123,7 +130,9 @@ try {
     }
     $sw.Stop()
     if ($ip.HasExited) {
-        Say '2 静默安装' "退出码 $($ip.ExitCode),耗时 $([int]$sw.Elapsed.TotalSeconds)s"
+        # 🔴 非零退出码就是"装失败",文案必须带 FAIL —— 否则末尾那道闸看不见它。
+        $r2 = if ($ip.ExitCode -eq 0) { "退出码 0" } else { "FAIL - 退出码 $($ip.ExitCode)" }
+        Say '2 静默安装' "$r2,耗时 $([int]$sw.Elapsed.TotalSeconds)s"
     } else {
         Save-Screen "$OutDir/29-installer-stuck.png"
         $t = Get-Process | Where-Object { $_.MainWindowTitle } |
@@ -157,7 +166,7 @@ try {
         $rc = $LASTEXITCODE
         "---- ds_provision.py 原样输出(rc=$rc) ----"
         $o | ForEach-Object { "  $_" }
-        Say '3.5 配置初始化说了什么' "rc=$rc"
+        Say '3.5 配置初始化说了什么' $(if ($rc -eq 0) { "rc=0" } else { "FAIL - rc=$rc" })
     } else { Say '3.5 配置初始化说了什么' "FAIL - 找不到 python 或 ds_provision.py" }
 } catch { Say '3.5 配置初始化说了什么' "FAIL - $($_.Exception.Message)" }
 
@@ -231,8 +240,13 @@ try {
     # 🔴 路径:python 在 $INSTDIR\python\,**不在** ds\python\(第一版写错,当场 FAIL —— 探针自己坏了)。
     #    出处:installer/OpenDesign.nsi:245 那行 ExecToLog 用的就是 "$INSTDIR\python\python.exe"。
     $py = "$InstallDir\python\python.exe"
+    # 🔴 子进程的 stdout 在 Windows 上是 ANSI 代码页(en-US runner = cp1252),
+    #    print 中文文件名 ⇒ UnicodeEncodeError ⇒ 这一相拿到的是栈、不是答案。
+    #    仓里现成写法:bin/ds_provision.py:273 自己把流转成 utf-8(所以 3.5 相的
+    #    中文一直打得出来)。这里照抄。本机已逐字符复现,见 evidence 里那份红收据。
     $code = @"
 import sys, zipfile
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 sys.path.insert(0, r'$InstallDir\ds\bin')
 import ds_diag
 d = ds_diag.StartupLog(emit=lambda s: None)
@@ -241,7 +255,9 @@ d.export_bundle(out, app_dir=r'$DataRoot')
 print('NAMES=' + '|'.join(zipfile.ZipFile(out).namelist()))
 "@
     $r = & $py -c $code 2>&1
-    Say '9 托盘导出诊断(直接跑那段代码)' ("$r" -replace "`r?`n", " ")
+    $rc9 = $LASTEXITCODE
+    $t9  = "$r" -replace "`r?`n", " "
+    Say '9 托盘导出诊断(直接跑那段代码)' $(if ($rc9 -eq 0) { $t9 } else { "FAIL - rc=$rc9 $t9" })
 } catch { Say '9 托盘导出诊断(直接跑那段代码)' "FAIL - $($_.Exception.Message)" }
 
 # ── 10 带系统代理再启动一次:验 0.98.1 修的那个"软件打不开" ──────────
@@ -284,3 +300,13 @@ Get-Process OpenDesign, pythonw, python -ErrorAction SilentlyContinue |
 foreach ($k in $phases.Keys) { "{0,-16} {1}" -f $k, $phases[$k] }
 "================================================="
 "图和日志在构件里。**这段文字不是结论** —— 主 agent 看图之后才下。"
+
+# ── 退出码:只兜"机器能独自断定"的那几件,不替人判白屏 ────────────────
+# 不写这段的话,退出码 = 最后一个原生命令的 $LASTEXITCODE(见文件头)。
+$failed = @($phases.GetEnumerator() | Where-Object { $_.Value -match 'FAIL' } | ForEach-Object { $_.Key })
+if ($failed.Count) {
+    "🔴 自报 FAIL 的相:$($failed -join ', ') ⇒ exit 1"
+    exit 1
+}
+"没有任何一相自报 FAIL ⇒ exit 0(**白屏读数不在闸内**,仍要看图)"
+exit 0
