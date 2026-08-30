@@ -1,0 +1,17 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    phase9-encoding
+cmd:     /tmp/claude-0/-root/959020b2-18dd-423c-b1f3-d30f465bad8b/scratchpad/repro-phase9.sh plain
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  c42926f
+dirty:   no(跑之前采的;含未跟踪文件)
+started: 2026-08-30T12:11:47Z
+---------------- 输出开始 ----------------
+Traceback (most recent call last):
+  File "<string>", line 3, in <module>
+  File "/usr/lib/python3.12/encodings/cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 6-9: character maps to <undefined>
+python rc=1
+---------------- 输出结束 ----------------
+runlog: phase9-encoding rc=1 commit=c42926f dirty=no at=2026-08-30T12:11:47Z file=tracks/opendesign-startup-observability/evidence/20260830T121147Z-01-phase9-encoding.txt
