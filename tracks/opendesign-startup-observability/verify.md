@@ -13,8 +13,10 @@
 - [x] 全量回归:1357 项 rc=0
 - [x] no secrets / unsafe ops(不碰网络、不加对外出口 —— 业主 08-30 定"先做 C")
 - [x] 四审 panel-review(impact=high ⇒ 预算 2,实派 3 腿)—— **孤腿 BLOCK,已全修**
-- [ ] Windows CI 端到端 —— 未跑
-- [ ] 业主真机 —— 只有他答得了
+- [x] Windows CI 端到端 —— 今天真机跑了 **6 趟**(2 趟 cancelled 不计):
+      `33304106398`✅ `33305829954`✅(白屏复现) `33306843034`❌ `33310976051`✅
+      `33311323250`✅ `33311324419`❌(**故意的红检**)—— 逐趟红在哪见下
+- [ ] 业主真机 —— 只有他答得了(清单见 `真机清单-0.98.2.md`)
 
 ## 机器打印的收据(逐字节,别改数)
 
@@ -136,7 +138,17 @@ submimo=PASS(verdict=UNKNOWN) subdeepseek=PASS(verdict=BLOCK) subglm=SKIP(rotati
 **产品面不给结论**:真 Windows + 真 WebView2 下的前端上报链、以及 F1 修复在
 真代理机器上的效果,只有 CI / 真机答得了。
 
-## 最终收据(**最后一次编辑之后那一遍**,干净树)
+> **裁决补记(2026-08-30 归档前)**:上面这句"产品面不给结论"已被云 Windows 上的
+> 六趟真机跑补上了一半 —— 装得上、打得开、窗口在、`/api/health` 自报 0.98.2、
+> 托盘导出在真 Windows 上生成中文名 zip、带系统代理那条路从"整片空白"变成正常界面。
+> **仍然不给结论的那一半**:业主自己那台机器(他跑着 VPN、装过常青版 WebView2、
+> 用户名是中文环境)—— 那只有他装一趟才知道。**本单归档 ≠ 那一趟不用走。**
+
+## 最终收据(0.98.1 那一刀)—— ⚠️ **标题原来写"最后一次编辑之后那一遍",已不成立**
+
+> 这一节停在 `fb9398e / 08:54:28Z`,那是 **0.98.2 之前**的树。0.98.2 改完代码后
+> 我又跑过一遍却没贴回来。真正的最后一遍在下面「0.98.2 的机器收据」那节,
+> 而本单**最终的**那一遍在文末「归档前的最终收据」。保留本节是为了不删掉历史。
 
 ```
 runlog: run-all rc=1 commit=fb9398e dirty=no at=2026-08-30T08:54:28Z file=tracks/opendesign-startup-observability/evidence/20260830T085428Z-01-run-all.txt
@@ -243,16 +255,122 @@ runlog: run-all rc=1 commit=fb9398e dirty=no at=2026-08-30T08:54:28Z file=tracks
 `frame_submitted` 原来只查根节点**有没有尺寸** —— 而树被卸载后 `#root` 还在、尺寸照旧
 ⇒ **成功信号会撒谎**。真机那句 `1028x749` 正是"报了成功、屏幕是空的"。已加"必须有子节点"。
 
-## 0.98.2 端到端(run 33306843034):前后对比很干净
+## 0.98.2 端到端(run 33306843034):产品面很干净,**但这趟 run 本身是红的**
 
 | 探针步骤 | 0.98.1 | **0.98.2** |
 |---|---|---|
 | 带系统代理启动 | 颜色 **3** 种 / 近白 **98.9%**(空白) | 颜色 **50** 种 / 近白 **38.7%**(健康) |
 | 三份日志 | (0.98.1 起才收全)外壳 1001B / 工作台 2794B / 网关缺席 | 外壳 1187B / 工作台 2794B / 网关缺席 |
-| 托盘导出诊断 | 路径写错,没跑成 | **真跑成了**,见 `evidence/20260830-0.98.2-真Windows生成的诊断包.zip` |
+| 托盘导出诊断 | 路径写错,没跑成 | **zip 真生成了**,但这一相**被机器判 FAIL**(见下一节) |
 
 诊断包在**真 Windows** 上生成:`['本次启动.txt', 'Logs/外壳.log', 'Logs/工作台.log']`,
 中文文件名正常。**涂抹实测生效**:原始日志 27 条三段以上路径,包里 **0 条漏网**。
+
+## 🔴 我把机器写的 FAIL 在散文里改写成了"真跑成了"(2026-08-30 补记)
+
+上面那节原来的标题是"前后对比很干净",而 GitHub 上 **run 33306843034 是红的
+(exit 1)**,正文一个字没提。**这是本单最难看的一处**:机器判 FAIL、我在旁边
+写"跑成了" —— 下一个人(包括我自己)只会读散文。
+
+分三层把事实补齐:
+
+1. **产品面的结论不用改**:zip 确实在真 Windows 上生成了。依据不是探针的自述,
+   是 `evidence/20260830-0.98.2-真Windows生成的诊断包.zip` 里三个条目的时间戳
+   **全是 `2026-08-30 10:39:00`**,正是那台云机器跑第 9 相的时刻。
+2. **但第 9 相确实失败了**:它的任务是"把 zip 里的文件名打出来",而它吐的是一段
+   `UnicodeEncodeError` 栈 —— **导出成功了,报告没成功**。真因:子进程 stdout 在
+   Windows 上是 ANSI 代码页(en-US runner = cp1252),打印中文即炸。
+3. **🔴 红的来路比红本身糟得多**:脚本末尾**没有 exit 语句**,pwsh 拿最后一个
+   原生命令的 `$LASTEXITCODE` 当脚本退出码。这趟红是**泄漏**出来的,不是判出来的;
+   同一个机制反过来就是:**第 10 相(带代理启动)真喊 "🔴 FAIL" 时,只要它后面
+   没有原生命令,整趟 run 照样是绿的** —— 一道在最要紧的相上 fail-open 的闸。
+   而文件头当时白纸黑字写着"脚本自己崩了才 exit 非零",**那句话是假的**。
+
+两条都已修(`309508e`),并顺带堵掉三条"失败但文案不带 FAIL"的假绿路线
+(装机退出码非 0 / 配置 rc 非 0 / 第 9 相 rc 非 0)。
+**白屏读数故意留在闸外** —— 那是读数不是结论,判读仍要看图,已写进文件头。
+
+本机红检(绿的那份是把 `.ps1` 里那段 python **原样抠出来**跑的,不是手抄):
+
+```
+runlog: phase9-encoding rc=1 commit=c42926f dirty=no at=2026-08-30T12:11:47Z file=tracks/opendesign-startup-observability/evidence/20260830T121147Z-01-phase9-encoding.txt
+runlog: phase9-encoding rc=0 commit=c42926f dirty=yes at=2026-08-30T12:13:39Z file=tracks/opendesign-startup-observability/evidence/20260830T121339Z-01-phase9-encoding.txt
+runlog: phase9-mutation rc=1 commit=c42926f dirty=yes at=2026-08-30T12:13:53Z file=tracks/opendesign-startup-observability/evidence/20260830T121353Z-01-phase9-mutation.txt
+```
+
+变异那份删掉 `sys.stdout.reconfigure` 一行,同一测试立刻红在**同一位置**
+(`position 6-9`,与云机器那次逐字符一致)⇒ 咬得动,不是恒真。
+
+## 🔴 修那道闸时,当场又照出第三条:第 6 相**结构上不可能红**
+
+修完上面两条,我按"绿了也要看图"跑了一趟(run 33310976051,**绿**)。图上产品是好的,
+但 VERDICT 里第 6 相写的是:
+
+```
+6 窗口在不在          OK - WindowsTerminal:「C:\ProgramData\GitHub\HostedComputeAgent\...」
+```
+
+**OpenDesign 的窗口根本不在那一行里,它却报了 OK。** 去读代码:
+
+```powershell
+if ($wins) { Say '6 窗口在不在' "OK - ..." }   # $wins = 屏幕上**任何**带标题的窗口
+```
+
+CI 机器上永远有一个 WindowsTerminal ⇒ **这一相永远不会红**。而它恰恰是这支探针
+存在的理由那一问(0.89 装完就崩 / 0.91 窗口栏整块没画出来 / 0.93 打开全是白的)。
+原来那个固定 `Start-Sleep 8` 本来就是抽签:上一趟抽中了(列出了 `pythonw:「OpenDesign」`),
+这一趟没抽中 —— **而没抽中的时候它一声不吭。**
+
+⚠️ 它还让上面那道新闸对第 6 相**空转**:文案永远不带 FAIL,exit 闸就永远看不见它。
+
+已改成轮询等标题带 `OpenDesign` 的窗口(照第 5 相 `/api/health` 的写法),60s 没等到才 FAIL
+(`b99b603`;标题的唯一来源是 `bin/ds_shell.py:37` 的 `APP`)。
+
+### 红检:两个方向都在真 Windows 上验过(不是静态推的)
+
+| run | 分支 | 第 6 相 | 退出 |
+|---|---|---|---|
+| 33311323250 | main | `OK - pythonw:「OpenDesign」(同屏其余 1 个窗口)` | `没有任何一相自报 FAIL ⇒ exit 0` ✅ |
+| 33311324419 | `ci-probe/phase6-redcheck`(变异:把要找的标题改成不存在的) | `FAIL - 60s 没等到…同屏:pythonw:「OpenDesign」 \| WindowsTerminal:…` | `🔴 自报 FAIL 的相:6 窗口在不在 ⇒ exit 1` ✅ |
+
+**变异那趟的 FAIL 文案本身就是旧断言 fail-open 的铁证**:同一块屏幕上
+`pythonw:「OpenDesign」` 明明在,旧代码却只因"有窗口"就报 OK。
+两个方向都咬住 ⇒ 新的退出码契约不是空转。变异分支用完即删。
+
+> 同趟顺带证实第 9 相的修复在真 Windows 上成立:
+> `9 托盘导出诊断 NAMES=本次启动.txt|Logs/外壳.log|Logs/工作台.log` —— 中文过来了,不再是栈。
+
+> 🔴 **我在这一步自己造了一个坑并踩了**:跑红检要开变异分支,我用了 `git commit -am`,
+> 它把当时正在改的 `verify.md` / `tasks.md` 一起卷进了那个"用完即删"的提交;
+> 分支一删,两份工件的修改就从主线上消失了。靠 reflog(`0e051a5`)只取回那两个文件、
+> 不取它里面带变异的 `.ps1`。**教训:开临时分支时 `-am` 是把当前所有活儿都押上去。**
+
+> ⚠️ **退出码那条(②)本机验不了** —— 这台机器没有 pwsh。
+> 本机能做的只有静态穷举:把 **25 处** `Say` 逐条读一遍(`grep -c "Say '"` 数的,不是我估的)。
+> 结论:显式失败分支全部带 FAIL;而当时有 **4 处"成功文案"不带 FAIL** —— 装机退出码、
+> 配置 rc、第 9 相输出、白屏读数。前三处已改成机器事实一坏就喊 FAIL,第四处**故意不改**。
+> 真正的验证在真 Windows 上,见下一节。
+
+## 0.98.2 的机器收据(补记 —— 原先这一段整个是空的)
+
+白屏那一刀(`9e0a50a` → `717abb8`)的判据先红后绿,以及**真正的最后一遍总跑**:
+
+```
+runlog: python rc=1 commit=01874ee dirty=yes at=2026-08-30T10:07:30Z file=tracks/opendesign-startup-observability/evidence/20260830T100730Z-01-python.txt
+runlog: python rc=1 commit=097a737 dirty=yes at=2026-08-30T10:07:56Z file=tracks/opendesign-startup-observability/evidence/20260830T100756Z-01-python.txt
+runlog: python rc=0 commit=097a737 dirty=yes at=2026-08-30T10:08:22Z file=tracks/opendesign-startup-observability/evidence/20260830T100822Z-01-python.txt
+runlog: run-all rc=1 commit=f8485b3 dirty=no at=2026-08-30T10:19:46Z file=tracks/opendesign-startup-observability/evidence/20260830T101946Z-01-run-all.txt
+```
+
+- 前三行:`tests/test_startup_diag.py` 25 项,红(1 failure + 1 error)→ 红(1 failure)→ **OK**。
+- 末行是**最后一次代码编辑之后**那一遍(`f8485b3`,干净树):六段 5 PASS,
+  唯一红的仍是 e2e 总跑 **37 PASS / 1 FAIL / 2 SKIP** —— 就是上面那条已证与本单无关的
+  `stage_timer.e2e.mjs`(比 0.98.1 那遍多 1 条 PASS = 新加的 `api_partial_injection.e2e.mjs`)。
+
+> 🔴 **顺带认一笔**:上面"最终收据"那一节停在 `08:54:28 / fb9398e`,那是 0.98.2
+> **之前**的树。0.98.2 改完代码后我又跑了一遍(就是这里末行),却没贴回去 ——
+> "最终收据"于是变成了过期的绿。这是本机记过多次的老病,这次是自己查台账查出来的:
+> 盘上 29 份收据,verify.md 只引用了 8 份。
 
 ## 🔴 涂抹的残留(不许再说半真话)
 
@@ -273,6 +391,17 @@ runlog: run-all rc=1 commit=fb9398e dirty=no at=2026-08-30T08:54:28Z file=tracks
 
 ## 仍然敞着(下一单)
 
-**全仓没有 ErrorBoundary。** 这次只堵了**一处**会抛的地方,而
-"任何一处 JS 异常都能把整页打没"这个结构问题还在。
-**它是产品决策**(炸了之后给业主看什么:一句人话?一个重试按钮?)⇒ 单独开单,不混进本单。
+1. **全仓没有 ErrorBoundary。** 这次只堵了**一处**会抛的地方,而
+   "任何一处 JS 异常都能把整页打没"这个结构问题还在。
+   **它是产品决策**(炸了之后给业主看什么:一句人话?一个重试按钮?)⇒ 单独开单。
+   已给业主做了一页可选的对照(三种做法 + 两个要他回答的问题),等他拍板。
+2. 🔴 **`失败分流表验证` 这条验收条件没做**(design.md:129 列的)——
+   归档对账时才查出来。真机数据已经反着答了其中一行(前端内部切不开),
+   其余各行仍未逐行走过 ⇒ **进第三刀,别跟着归档埋掉**。
+3. **前端事件的时间戳是外壳收到的那一刻,不是浏览器里发生的那一刻**
+   ⇒ "网页这一层内部慢在哪"仍然答不出来(本单已知缺陷,修法是前端自己带
+   `performance.now()`)。
+4. **这支探针没有任何静态闸**:它只在 `workflow_dispatch` 时才跑,改坏了
+   本机 `run-all` 一声不吭。今天三条缺陷全是"跑了一趟才看见"。
+   与已开着的 `opendesign-nsi-gate-in-run-all`(`.nsi` 同病)是同一件事 ⇒ 并进那一单。
+5. **e2e 总跑的 playwright 依赖来自一个写死的 npx 缓存路径,缓存已被清空** ⇒ 该单独开一单。
