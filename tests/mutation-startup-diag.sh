@@ -294,6 +294,34 @@ mutate_and_expect M40 bin/probe_verdict.py test_s19_the_cli_reads_utf8_facts_und
   '    sys.stdin.reconfigure(encoding="utf-8", errors="replace")' \
   '    pass  # 不管 stdin 编码'
 
+# ── M41~M45:第 2d 轮 subdeepseek 实测出来的四种"判据全绿而行为已坏" ──────
+# 🔴 其中三种正好复活这两刀亲手修的三个洞。四条我都亲手复现过。
+
+# M41 判定器的 kind 分发键改名 ⇒ rc=2 + 用法串走 stderr ⇒ 被当成裁决 ⇒ 第 6 相静默绿
+mutate_and_expect M41 bin/probe_verdict.py test_s19_every_kind_is_reachable_from_the_cli \
+  '    "window": lambda f: window_verdict(f.get("wins") or [], f.get("ours") or []),' \
+  '    "win": lambda f: window_verdict(f.get("wins") or [], f.get("ours") or []),'
+
+# M42 rc 守卫拆掉 ⇒ 判定器异常退出被当成裁决(fail-open)
+mutate_and_expect M42 .github/scripts/windows-package-probe.ps1 test_s18_the_judge_failing_weirdly_is_a_FAIL_not_a_verdict \
+  '    if ($rc -ne 0 -and $rc -ne 1) { return "FAIL - 判定器异常退出(rc=$rc):$out" }' \
+  '    # rc 不管了'
+
+# M43 取窗口时不按标题筛 ⇒ b99b603 那个"永远不会红"原样复活
+mutate_and_expect M43 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_parameters_are_pinned_too \
+  '    $wins = @(Get-AppWindows $appTitle)                            # 新口径:标题 + **窗口类**' \
+  "    \$wins = @(Get-AppWindows '')"
+
+# M44 端口段收窄成单端口(轮询那圈照样引用 $PortSpan)⇒ 写死 8766 的假红复活
+mutate_and_expect M44 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_parameters_are_pinned_too \
+  '$PortSpan   = 8766..8786' \
+  '$PortSpan   = @(8766)'
+
+# M45 第 10 相自己的健康检查不再旁路代理 ⇒ 它也走那条死代理 ⇒ 每趟假红
+mutate_and_expect M45 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_parameters_are_pinned_too \
+  '                     -TimeoutSec 2 -Proxy $null' \
+  '                     -TimeoutSec 2'
+
 echo
 echo "== 红检结果:咬住 $pass 条,漏网 $fail 条 =="
 [ "$fail" -eq 0 ] || exit 1

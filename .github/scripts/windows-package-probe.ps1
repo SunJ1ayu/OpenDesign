@@ -54,6 +54,11 @@ function Get-Verdict([string]$kind, $facts) {
         $rc  = $LASTEXITCODE
     } catch { return "FAIL - 判定器炸了:$($_.Exception.Message)" }
     if (-not $out) { return "FAIL - 判定器没有输出(rc=$rc)" }
+    # 🔴 **rc 只有 0(OK)和 1(FAIL)是裁决,别的都是"判定器自己坏了"**。
+    #    上面那句 `2>&1` 把 stderr 并进了 $out,所以"输出非空"根本不等于"给了裁决":
+    #    判定器 import 期炸(traceback 在 stderr)、kind 分发键被改名(rc=2 + 用法串),
+    #    都会变成一句没有 FAIL 的话被原样 Say 出去 ⇒ 整趟绿。第 2d 轮外部评审实测过。
+    if ($rc -ne 0 -and $rc -ne 1) { return "FAIL - 判定器异常退出(rc=$rc):$out" }
     return (("$out" -replace "`r?`n", " ").Trim())
 }
 
