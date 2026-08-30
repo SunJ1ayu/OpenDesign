@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-startup-observability",
+  "run_id": "20260830T155612Z-01-run-all-after-verdict-move-r2",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "run-all-after-verdict-move-r2",
+  "started_at": "2026-08-30T15:56:12Z",
+  "finished_at": "2026-08-30T15:57:36Z",
+  "duration_ms": 83904,
+  "exit_code": 143,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 143,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
