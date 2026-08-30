@@ -405,3 +405,26 @@ runlog: run-all rc=1 commit=f8485b3 dirty=no at=2026-08-30T10:19:46Z file=tracks
    本机 `run-all` 一声不吭。今天三条缺陷全是"跑了一趟才看见"。
    与已开着的 `opendesign-nsi-gate-in-run-all`(`.nsi` 同病)是同一件事 ⇒ 并进那一单。
 5. **e2e 总跑的 playwright 依赖来自一个写死的 npx 缓存路径,缓存已被清空** ⇒ 该单独开一单。
+
+---
+
+## 归档前的最终收据(**这一份才是最后一次编辑之后那一遍**,干净树)
+
+```
+runlog: run-all rc=1 commit=21a417d dirty=no final=yes at=2026-08-30T12:31:56Z file=tracks/opendesign-startup-observability/evidence/20260830T123156Z-01-run-all.txt
+```
+
+六段:**5 PASS**,唯一红的仍是 e2e 总跑 **37 PASS / 1 FAIL / 2 SKIP**。
+
+- 红的那条是 `stage_timer.e2e.mjs` —— **和上面几遍是同一条**,已在本单开工前的提交
+  `d0840c1` 上量过、证死与本单无关(`connect-modal-mask` 挡住点击 = "e2e 悄悄依赖活网关"那笔老账)。
+- 本单自己的 `startup_report.e2e.mjs`:**PASS**。
+- `final=yes` 且没有变成 rc=65 ⇒ 跑的那 12 分钟里没人写过仓库(我自己也没有)。
+- 命令里那个 `E2E_PW_MODULES=` 是**显式写在命令行上**的,不是环境里飘着的 export
+  —— 本机 e2e 的 playwright 依赖指向一个已被清空的 npx 缓存路径,不指过去 32 条全红。
+  **这笔账仍然敞着**(见"仍然敞着"第 5 条)。
+
+## 交付状态
+
+**代码面 PASS,已 push。** 0.98.1 / 0.98.2 两个 pre-release 都已发布。
+**唯一还欠的是业主真机一趟** —— 那是只有他能做的事,不是本单没做完。
