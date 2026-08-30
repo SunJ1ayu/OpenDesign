@@ -1,0 +1,50 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-mutation-s18-r6
+cmd:     bash tests/mutation-startup-diag.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  4f02648
+dirty:   no(跑之前采的;含未跟踪文件)
+started: 2026-08-30T15:21:03Z
+---------------- 输出开始 ----------------
+== 红检开始(启动可观测性)==
+  [OK]   M1 -> 靶子 test_s1_timestamp_carries_a_date 如期红了
+  [OK]   M2 -> 靶子 test_s2_request_lines_carry_a_timestamp 如期红了
+  [OK]   M3 -> 靶子 test_s3_each_startup_gets_its_own_id 如期红了
+  [OK]   M4 -> 靶子 test_s3_every_line_carries_the_run_id 如期红了
+  [OK]   M5 -> 靶子 test_s4_elapsed_survives_a_wall_clock_jump_backwards 如期红了
+  [OK]   M6 -> 靶子 test_s5_manifest_names_the_app_and_the_webview2_version 如期红了
+  [OK]   M7 -> 靶子 test_s5_manifest_does_not_explode_off_windows 如期红了
+  [OK]   M8 -> 靶子 test_s7_only_whitelisted_events_get_through 如期红了
+  [OK]   M9 -> 靶子 test_s7_detail_is_length_capped 如期红了
+  [OK]   M10 -> 靶子 test_s7_same_event_is_not_logged_twice 如期红了
+  [OK]   M11 -> 靶子 test_s8_snapshot_when_the_frame_never_arrives 如期红了
+  [OK]   M12 -> 靶子 test_s8_absolutely_silent_when_the_frame_does_arrive 如期红了
+  [OK]   M13 -> 靶子 test_s9_the_timeout_path_never_pops_a_dialog 如期红了
+  [OK]   M14 -> 靶子 test_s10_bundle_carries_only_the_whitelist 如期红了
+  [OK]   M15 -> 靶子 test_s12_a_failing_emit_does_not_raise 如期红了
+  [OK]   M16 -> 靶子 test_s6_the_lying_literal_is_gone 如期红了
+  [OK]   M17 -> 靶子 test_s11_the_probe_is_actually_wired_in 如期红了
+  [OK]   M18 -> 靶子 test_s11_web_service_has_a_real_probe 如期红了
+  [OK]   M19 -> 靶子 test_s13_probe_still_works_with_a_system_proxy_configured 如期红了
+  [OK]   M20 -> 靶子 test_s14_second_arm_does_not_start_a_second_watch 如期红了
+  [OK]   M21 -> 靶子 test_s15_frame_submitted_disarms_the_watch 如期红了
+  [OK]   M22 -> 靶子 test_s16_request_lines_keep_the_endpoint_but_lose_the_names 如期红了
+  [OK]   M23 -> 靶子 test_s18_a_missing_required_log_is_a_FAIL 如期红了
+  [OK]   M24 -> 靶子 test_s18_the_required_logs_are_named 如期红了
+  [OK]   M25 -> 靶子 test_s18_the_window_phase_can_tell_a_message_box_from_the_app 如期红了
+  [OK]   M26 -> 靶子 test_s18_a_screen_with_only_the_error_box_is_a_FAIL 如期红了
+  [OK]   M27 -> 靶子 test_s18_a_missing_required_log_is_a_FAIL 如期红了
+  [OK]   M28 -> 靶子 test_s18_a_screen_with_only_the_error_box_is_a_FAIL 如期红了
+  [OK]   M29 -> 靶子 test_s18_the_window_phase_can_tell_a_message_box_from_the_app 如期红了
+  [OK]   M30 -> 靶子 test_s18_the_required_logs_are_named 如期红了
+  [OK]   M31 -> 靶子 test_s18_the_required_logs_are_named 如期红了
+  [OK]   M32 -> 靶子 test_s18_the_presence_signal_is_still_filtered_by_the_app_title 如期红了
+  [OK]   M33 -> 靶子 test_s18_the_window_phase_can_tell_a_message_box_from_the_app 如期红了
+  [OK]   M34 -> 靶子 test_s18_the_window_phase_can_tell_a_message_box_from_the_app 如期红了
+  [OK]   M35 -> 靶子 test_s18_the_required_logs_are_named 如期红了
+  [OK]   M36 -> 靶子 test_s18_the_window_phase_can_tell_a_message_box_from_the_app 如期红了
+  [OK]   M37 -> 靶子 test_s18_the_window_lister_reports_title_and_class 如期红了
+
+== 红检结果:咬住 37 条,漏网 0 条 ==
+---------------- 输出结束 ----------------
+runlog: redcheck-mutation-s18-r6 rc=0 commit=4f02648 dirty=no at=2026-08-30T15:21:03Z file=tracks/opendesign-startup-observability/evidence/20260830T152103Z-01-redcheck-mutation-s18-r6.txt

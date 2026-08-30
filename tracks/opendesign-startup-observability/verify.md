@@ -512,3 +512,44 @@ runlog: redcheck-mutation-s18-r5 rc=0 commit=138494c dirty=yes at=2026-08-30T15:
    下一趟真机/云机必须看第 6 相打印出来的窗口类(OK 分支现在会打印,就是为了这个)。
 8. **subglm 与 subkimi 今晚各超时两次/一次**(900s×2、1500s)。两条腿都病着,
    这不是本单的事,但会持续吃掉评审预算 ⇒ 记进 aiwork 侧待办。
+
+## 🔴 第三轮 panel:deepseek 判 BLOCK,而它是对的(2026-08-30 23:30)
+
+```
+# 第三轮 close3(snapshot=b70d902,escalation=incomplete):
+#   submimo=PASS(verdict=UNKNOWN) subdeepseek=PASS(verdict=BLOCK) subgemini=PASS(verdict=PASS)
+#   subglm=SKIP(health:cooldown:FAIL) subkimi=SKIP(health:cooldown:FAIL)
+#   ⚠️ 评审期间 HEAD 从 b70d902 移到 884dda6。
+```
+
+**孤腿 BLOCK 又一次是信号。** subdeepseek **自己动手变异了 8 种改法(A~H)并逐条执行**,
+每一种 s18 都全绿:`if ($miss.Count)` → `-lt 1`(极性)、把豁免的网关.log 加进必须清单、
+`Test-Path` 取反、`$appTitle = ''`(不改过滤器改它的输入)、`-not $real.Count` 去掉 `-not`、
+去掉 while 条件里的 `$box`、`-like` → `-notlike`、`Cls($h)` → `Cls($l)`(参数错)。
+
+⇒ **我写在上面那句"41 条变异全咬住、0 漏网"必须改成"0 _已知_ 漏网"。**
+"全咬住"是我照着自己的变异清单说的,而清单是我写的 —— 这正是本单反复栽的那个形状
+(**判据是我写的,过审只证明合乎它,不证明它问对了问题**)。
+
+**这轮不判过。** 今晚同一种病数到第 21 个实例,而结论不是"再补 8 条变异":
+subdeepseek 和 subgemini 各自独立给了同一条出路 ——
+**把"机器事实 → 该不该 FAIL"的判定抽成一个 python 纯函数**(探针第 3.5/9 相本来就在调 python),
+判据改成**行为断言**(喂"外壳缺席+网关缺席"这类事实,断言 verdict==FAIL)。
+这样极性/取值/终止条件/参数全变成输入输出问题,字面绕不过去。**这是下一刀的开工点。**
+
+### 另外两条(都核过成立,记账不修)
+
+9. 🔴 **探针把 8766 写死,而应用会挪端口。** `ds_shell.py:248` 用
+   `core.pick_ports([8766,…], span=20)`,被占就往后挪;探针第 5 相(:207,212)和
+   第 10 相(:345)写死 `127.0.0.1:8766` ⇒ runner 上 8766 被占(上次 run 残留)时,
+   应用在 8767 健康启动、探针判 FAIL = **健康假红**。MEDIUM,下一刀一起修。
+10. **第 6 相 fail-open 的代价我只写了一半**:注释说"退回老口径",但没写另半边 ——
+   空枚举 + 只有报错框时,`$ours` 非空(框就是进程主窗口)⇒ 又判 OK,
+   **它要杀的那个假绿原样复活**。另外 `Add-Type` 若编译失败,第 6 相没有 try/catch,
+   是"探针自己炸"不是"降级"。注释要补这半边。
+
+### 今晚评审腿的健康状况(记进 aiwork 待办,不是本单的事)
+
+subglm 两轮各 901s 超时(agent + chat 回落都是);subkimi 1501s 超时 —— **但它报告写完了**,
+只是没来得及收尾,M30~M32 三条真发现就是从那份"失败"的日志里读出来的。
+两条腿健康表都已记 FAIL=2,再失败一次就停止轮换。
