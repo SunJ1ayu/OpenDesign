@@ -274,6 +274,28 @@ mutate_and_expect M37 .github/scripts/windows-package-probe.ps1 test_s18_the_win
   '                $script:appwins += [PSCustomObject]@{ Title = $t; Class = [W32]::Cls($h) }' \
   '                $script:appwins += [PSCustomObject]@{ Title = $t; Class = "" }'
 
+# ── M38~M41:第 2c 轮 submimo 报的(第 11~13 个实例)+ 退出码闸自己的判据 ──
+
+# M38 在场信号算了但没人用(赋值还在,while 条件里删掉)
+mutate_and_expect M38 .github/scripts/windows-package-probe.ps1 test_s18_the_presence_signal_is_still_filtered_by_the_app_title \
+  '} while ($ours.Count -eq 0 -and $box.Count -eq 0 -and (Get-Date) -lt $deadline)' \
+  '} while ($box.Count -eq 0 -and (Get-Date) -lt $deadline)'
+
+# M39 辅助函数不问"窗口可见吗" ⇒ 看不见的窗口也算窗口在
+mutate_and_expect M39 .github/scripts/windows-package-probe.ps1 test_s18_the_window_lister_reports_title_and_class \
+  '        if ([W32]::IsWindowVisible($h)) {' \
+  '        if ($true) {'
+
+# M40 必须清单对、收集清单里却没有它 ⇒ 循环走不到 ⇒ 该红不红
+mutate_and_expect M40 .github/scripts/windows-package-probe.ps1 test_s18_the_required_logs_are_named \
+  "    \$names    = @('外壳.log', '工作台.log', '网关.log')" \
+  "    \$names    = @('工作台.log', '网关.log')"
+
+# M41 退出码闸:有相自报 FAIL 却不 exit 1 ⇒ 红的 run 绿着交差
+mutate_and_expect M41 .github/scripts/windows-package-probe.ps1 test_s18_any_phase_saying_FAIL_makes_the_run_red \
+  "\$failed = @(\$phases.GetEnumerator() | Where-Object { \$_.Value -match 'FAIL' } | ForEach-Object { \$_.Key })" \
+  '$failed = @()'
+
 echo
 echo "== 红检结果:咬住 $pass 条,漏网 $fail 条 =="
 [ "$fail" -eq 0 ] || exit 1

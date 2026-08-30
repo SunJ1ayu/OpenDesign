@@ -526,6 +526,16 @@ class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
         #    报的 F1,我亲手复现过两种改法,判据都全绿:
         #      · `$required -contains $n` → `$false`:$miss 永远空 ⇒ FAIL 永远走不到;
         #      · `$required` → `$names`:三份全变必须 ⇒ 网关合法缺席 ⇒ **健康趟趟假红**。
+        # 🔴 同轮 submimo 报的:`$required` 的内容对、`$names` 里却没有它 ⇒ 循环走不到 ⇒
+        #    该红不红。两份清单的**包含关系**也得钉。
+        import re as _re
+        names_ln = [ln for ln in code if "$names" in ln and "@(" in ln]
+        self.assertTrue(names_ln, "第 8 相没有「要收哪几份日志」这个清单")
+        want = set(_re.findall(r"'([^']+)'", req[0]))
+        have = set(_re.findall(r"'([^']+)'", names_ln[0]))
+        self.assertTrue(want and want <= have,
+                        f"必须清单 {sorted(want)} 不是收集清单 {sorted(have)} 的子集 ⇒ "
+                        "循环压根走不到它,缺了也攒不进 $miss(该红不红)")
         acc = [ln for ln in code if "$miss" in ln and "+=" in ln]
         self.assertTrue(acc, "第 8 相没有把「缺了的必须日志」攒起来")
         for ln in acc:
@@ -589,6 +599,25 @@ class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
         self.assertIn("$Match", code, "Get-AppWindows 不按标题筛了 ⇒ 同屏任何窗口都算我们的")
         self.assertIn("[W32]::Cls(", code,
                       "Get-AppWindows 不再取窗口类 ⇒ 第 6 相分不开报错框和真窗口")
+        # 🔴 同轮 submimo 报的:不问可见性 ⇒ 隐藏窗口/消息窗口也会被算进来。
+        self.assertIn("IsWindowVisible", code,
+                      "Get-AppWindows 不问「窗口可见吗」⇒ 看不见的窗口也算「窗口在」")
+
+    def test_s18_any_phase_saying_FAIL_makes_the_run_red(self):
+        """退出码闸是全探针的安全网,而它自己至今没有判据(第 2c 轮 submimo 指出)。
+
+        0.98.2 这一刀重写的就是它:此前退出码 = 最后一个原生命令的 $LASTEXITCODE
+        (真 FAIL 也可能整趟绿)。既然是这一刀改的,就该由这一刀的判据守着。
+        """
+        src = PROBE.read_text(encoding="utf-8")
+        code = [ln for ln in src.splitlines() if not ln.lstrip().startswith("#")]
+        failed = [ln for ln in code if "$failed" in ln and "=" in ln and "FAIL" in ln]
+        self.assertTrue(failed, "闸不是从各相的自报 FAIL 里算出来的")
+        self.assertTrue(any("-match" in ln or "-like" in ln for ln in failed),
+                        "闸没有在各相的文案里找 FAIL")
+        tail = "\n".join(code)
+        self.assertIn("exit 1", tail, "有相自报 FAIL 时不 exit 1 ⇒ 红的 run 会绿着交差")
+        self.assertIn("exit 0", tail, "没有显式 exit 0 ⇒ 退出码又回到 $LASTEXITCODE 泄漏")
 
     def test_s18_the_presence_signal_is_still_filtered_by_the_app_title(self):
         """b99b603 修的那条("有任何带标题的窗口"就算 OK ⇒ 结构上不可能红)至今没有判据。
@@ -604,6 +633,13 @@ class S18ProbeTranslatesMachineFactsIntoFAIL(unittest.TestCase):
         self.assertTrue(any("$appTitle" in ln for ln in ours),
                         "在场信号又变成「屏幕上有任何带标题的窗口」了 —— CI 机器上永远有一个"
                         "WindowsTerminal ⇒ 这一相结构上不可能红(b99b603 修的就是它)")
+        # 🔴 第 2c 轮 submimo 报的:光有赋值不够,**得有人用它**。
+        #    把 `$ours.Count -eq 0 -and` 从 while 条件里删掉,赋值原样留着 ⇒ 判据全绿,
+        #    而轮询退出条件变成只看报错框 ⇒ 健康启动第一轮就退出、可能还没画出来。
+        whiles = [ln for ln in sec.splitlines()
+                  if not ln.lstrip().startswith("#") and "while (" in ln]
+        self.assertTrue(any("$ours" in ln for ln in whiles),
+                        "在场信号没有出现在轮询的退出条件里 ⇒ 它算了个寂寞")
 
     def test_s18_a_screen_with_only_the_error_box_is_a_FAIL(self):
         sec = _probe_phase(PROBE.read_text(encoding="utf-8"), "6")
