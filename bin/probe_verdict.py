@@ -132,5 +132,8 @@ def main(argv: list) -> int:
 
 
 if __name__ == "__main__":
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")   # Windows ANSI 代码页会把中文打炸
+    # 两头都不许赌编码:出去的话会被 Windows ANSI 代码页打炸(本单栽过一次),
+    # 进来的事实同理 —— C locale 下 stdin 默认是 ASCII,中文键会全部解不出来。
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stdin.reconfigure(encoding="utf-8", errors="replace")
     raise SystemExit(main(sys.argv))

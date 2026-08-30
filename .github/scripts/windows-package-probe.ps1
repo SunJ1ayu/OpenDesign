@@ -44,7 +44,13 @@ function Get-Verdict([string]$kind, $facts) {
     if (-not (Test-Path $judge)) { return "FAIL - 判定器不在:$judge" }
     if (-not (Test-Path $py))    { return "FAIL - 判定器跑不成:找不到 $py" }
     try {
-        $out = ($facts | ConvertTo-Json -Depth 6 -Compress) | & $py $judge $kind 2>&1
+        # 🔴 `-EscapeHandling EscapeNonAscii`:把中文转成 \uXXXX。
+        #    不加的话,PowerShell 往原生进程写管道用的是**控制台代码页**
+        #    (en-US runner = cp1252)⇒ 中文键被打坏 ⇒ 判定器一个都查不到 ⇒ **假红**。
+        #    run 33321769218 就是这么红的:第 8 相说三份日志全缺席,而同一秒第 9 相
+        #    导出的包里它们明明在。纯 ASCII 的 JSON 任何代码页都打不坏。
+        $json = $facts | ConvertTo-Json -Depth 6 -Compress -EscapeHandling EscapeNonAscii
+        $out  = $json | & $py $judge $kind 2>&1
         $rc  = $LASTEXITCODE
     } catch { return "FAIL - 判定器炸了:$($_.Exception.Message)" }
     if (-not $out) { return "FAIL - 判定器没有输出(rc=$rc)" }

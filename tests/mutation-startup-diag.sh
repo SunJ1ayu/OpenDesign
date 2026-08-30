@@ -283,6 +283,17 @@ mutate_and_expect M38 .github/scripts/windows-package-probe.ps1 test_s18_any_pha
   "\$failed = @(\$phases.GetEnumerator() | Where-Object { \$_.Value -match 'FAIL' } | ForEach-Object { \$_.Key })" \
   '$failed = @()'
 
+# ── M39/M40:真跑(run 33321769218)抓到的假红 —— 中文键穿不过那条管道 ──────
+# M39 JSON 不转纯 ASCII ⇒ 中文键被控制台代码页打坏 ⇒ 判定器一个都查不到 ⇒ 假红
+mutate_and_expect M39 .github/scripts/windows-package-probe.ps1 test_s18_the_facts_reach_the_judge_as_pure_ascii \
+  '        $json = $facts | ConvertTo-Json -Depth 6 -Compress -EscapeHandling EscapeNonAscii' \
+  '        $json = $facts | ConvertTo-Json -Depth 6 -Compress'
+
+# M40 判定器自己赌 locale ⇒ C locale 下 stdin 是 ASCII ⇒ 中文键全解不出来
+mutate_and_expect M40 bin/probe_verdict.py test_s19_the_cli_reads_utf8_facts_under_any_locale \
+  '    sys.stdin.reconfigure(encoding="utf-8", errors="replace")' \
+  '    pass  # 不管 stdin 编码'
+
 echo
 echo "== 红检结果:咬住 $pass 条,漏网 $fail 条 =="
 [ "$fail" -eq 0 ] || exit 1
