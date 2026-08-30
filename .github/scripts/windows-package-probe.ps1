@@ -188,12 +188,27 @@ for ($i = 0; $i -lt 60; $i++) {
 if ($health) { Say '5 服务活了吗' "OK - /api/health 通,version=$($health.version)" }
 else { Say '5 服务活了吗' "FAIL - 3 分钟内 127.0.0.1:8766 一直不通" }
 
-# ── 6 窗口在不在:列出有标题的顶层窗口 ─────────────────────────────
-Start-Sleep -Seconds 8
-$wins = Get-Process | Where-Object { $_.MainWindowTitle } |
-        ForEach-Object { "$($_.ProcessName):「$($_.MainWindowTitle)」" }
-if ($wins) { Say '6 窗口在不在' "OK - $($wins -join ' | ')" }
-else { Say '6 窗口在不在' "FAIL - 一个有标题的顶层窗口都没有" }
+# ── 6 窗口在不在:等 **OpenDesign 自己的**窗口出现 ─────────────────
+# 🔴 2026-08-30 修:原来问的是"屏幕上有没有**任何**带标题的窗口",而 CI 机器上
+#    永远有一个 WindowsTerminal ⇒ **这一相永远不会红**。这不是推的:run 33310976051
+#    当场照出来 —— 那一刻 OpenDesign 的窗口根本不在列表里(41s 的截图上它才出现),
+#    而这一相照样报了 OK。这恰恰是本探针存在的理由那一问(0.89 崩 / 0.91 窗口栏
+#    没画出来 / 0.93 白屏),却是全脚本唯一一处**结构上不可能红**的断言。
+#    改成:轮询等标题里带 OpenDesign 的那个(照第 5 相的写法),60s 没等到才 FAIL。
+#    固定 sleep 8s 本来就是抽签 —— 上一趟抽中了,这一趟没抽中。
+$appTitle = 'OpenDesign'          # = bin/ds_shell.py:37 的 APP,窗口标题的唯一来源
+$deadline = (Get-Date).AddSeconds(60)
+do {
+    Start-Sleep -Seconds 4
+    $all  = @(Get-Process | Where-Object { $_.MainWindowTitle } |
+              ForEach-Object { "$($_.ProcessName):「$($_.MainWindowTitle)」" })
+    $ours = @($all | Where-Object { $_ -like "*$appTitle*" })
+} while ($ours.Count -eq 0 -and (Get-Date) -lt $deadline)
+if ($ours.Count) {
+    Say '6 窗口在不在' "OK - $($ours -join ' | ')(同屏其余 $($all.Count - $ours.Count) 个窗口)"
+} else {
+    Say '6 窗口在不在' "FAIL - 60s 没等到标题带 $appTitle 的窗口。同屏:$(if($all.Count){$all -join ' | '}else{'一个都没有'})"
+}
 
 # ── 7 截图 + 白屏体检 ─────────────────────────────────────────────
 # 🔴 **一张图分不开"还在加载"和"真的白"**(0.98 那一跑:窗口开了、服务通了、
