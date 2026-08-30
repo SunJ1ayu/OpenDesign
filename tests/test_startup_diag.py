@@ -554,6 +554,58 @@ class S18ProbeAsksTheJudgeAndSaysWhatItAnswers(unittest.TestCase):
                               f"第 {phase} 相有一圈没走整段端口:{ln.strip()!r} ⇒ "
                               "应用挪到 8767 就判它没活(健康假红)")
 
+    def test_s18_the_judge_failing_weirdly_is_a_FAIL_not_a_verdict(self):
+        """🔴 rc 不能被忽略(第 2d 轮 subdeepseek 实测,也是我自己自审里写下的那条)。
+
+        `$out = … 2>&1` 把 stderr 并进输出,而原来只在 `$out` **为空**时才看 rc ⇒
+        任何"stderr 上有话、话里没有 FAIL"的失败都会被当成一条合法裁决原样 Say 出去:
+          · 判定器 import 期炸 → traceback 在 stderr → 整趟绿;
+          · kind 分发键被改名 → rc=2 + 用法串 → **第 6 相静默变绿**。
+        ⇒ rc 只有 0(OK)和 1(FAIL)是**裁决**,别的都是"判定器自己坏了" = fail-closed。
+        """
+        src = PROBE.read_text(encoding="utf-8")
+        start = src.index("function Get-Verdict")
+        body = "\n".join(ln for ln in src[start:src.index("\n}", start)].splitlines()
+                          if not ln.lstrip().startswith("#"))
+        self.assertIn("$rc", body, "Get-Verdict 根本没接住判定器的退出码")
+        rc_guard = [ln for ln in body.splitlines()
+                    if "$rc" in ln and ("-ne" in ln or "-notin" in ln or "-gt" in ln)]
+        self.assertTrue(rc_guard,
+                        "退出码只被记下来、没被用来判 ⇒ 判定器异常退出(rc=2 用法串走 stderr)"
+                        "会被当成裁决说出去 ⇒ 静默变绿")
+        for ln in rc_guard:
+            self.assertIn("FAIL", ln, f"这条 rc 守卫没有 fail-closed:{ln.strip()!r}")
+
+    def test_s18_the_sampling_parameters_are_pinned_too(self):
+        """🔴 采样**参数**也要钉:同一轮实测出三种改法,全都 s18+s19 全绿而行为已坏。
+
+        · `Get-AppWindows $appTitle` → `Get-AppWindows ''`:标题过滤没了 ⇒
+          b99b603 那个"CI 上永远有 WindowsTerminal ⇒ 第 6 相永远不会红"原样复活;
+        · `$PortSpan = 8766..8786` → `@(8766)`:轮询那圈照样引用 $PortSpan,
+          而这一刀要修的"写死 8766 健康假红"原样复活;
+        · 第 10 相去掉 `-Proxy $null`:探针自己的健康检查也走那条死代理 ⇒ 每趟假红,
+          而那一相正是验代理修复的,一废全废。
+        """
+        src = PROBE.read_text(encoding="utf-8")
+        code = [ln for ln in src.splitlines() if not ln.lstrip().startswith("#")]
+        win = [ln for ln in _probe_phase(src, "6").splitlines()
+               if not ln.lstrip().startswith("#") and "Get-AppWindows" in ln]
+        self.assertTrue(win, "第 6 相没有去取窗口清单")
+        for ln in win:
+            self.assertIn("$appTitle", ln,
+                          f"取窗口时没按应用标题筛:{ln.strip()!r} ⇒ 同屏任何窗口都算我们的")
+        span = [ln for ln in code if ln.lstrip().startswith("$PortSpan")]
+        self.assertTrue(span, "没有端口段的定义")
+        self.assertIn("..", span[0],
+                      f"端口段被收窄成单端口:{span[0].strip()!r} ⇒ 应用挪到 8767 就判它没活")
+        p10 = [ln for ln in _probe_phase(src, "10").splitlines()
+               if not ln.lstrip().startswith("#") and "Invoke-WebRequest" in ln]
+        self.assertTrue(p10, "第 10 相没有自己的健康请求")
+        p10_block = "\n".join(ln for ln in _probe_phase(src, "10").splitlines()
+                               if not ln.lstrip().startswith("#"))
+        self.assertIn("-Proxy $null", p10_block,
+                      "第 10 相探针自己的健康检查没有旁路代理 ⇒ 它也走那条死代理 ⇒ 每趟假红")
+
     def test_s18_any_phase_saying_FAIL_makes_the_run_red(self):
         """退出码闸是全探针的安全网,而它自己一直没有判据(第 2c 轮 submimo 指出)。"""
         src = PROBE.read_text(encoding="utf-8")
@@ -670,6 +722,29 @@ class S19ProbeVerdictIsABehaviour(unittest.TestCase):
         #    rc 也照样是 1 ⇒ 判据在坏的情况下也绿。`外壳.log 120B` 里的 120 只能从输入来。
         self.assertIn("外壳.log 120B", text,
                       f"中文键没活着穿过管道(在场的日志被判成缺席)⇒ 假红:{text!r}")
+
+    def test_s19_every_kind_is_reachable_from_the_cli(self):
+        """🔴 分发键改名(`window` → `win`)⇒ rc=2 + 用法串走 stderr ⇒ PowerShell 那边
+        `2>&1` 把它当裁决 ⇒ 第 6 相静默绿。而原来两条 CLI 用例**只走 logs**,
+        window/health 的分发完全裸奔(第 2d 轮 subdeepseek 实测)。
+        """
+        import json as _json, subprocess as _sp, sys as _sys
+        cases = {
+            "logs": ({"present": {"外壳.log": 1, "工作台.log": 2, "网关.log": None}}, 0),
+            "window": ({"wins": [{"title": "OpenDesign", "cls": "#32770"}],
+                        "ours": ["pythonw:「OpenDesign」"]}, 1),
+            "health": ({"answers": {"8767": "0.98.2"}}, 0),
+        }
+        for kind, (facts, want_rc) in cases.items():
+            out = _sp.run([_sys.executable, str(ROOT / "bin" / "probe_verdict.py"), kind],
+                          input=_json.dumps(facts).encode("utf-8"),
+                          capture_output=True, timeout=60)
+            text = out.stdout.decode("utf-8", "replace").strip()
+            self.assertEqual(out.returncode, want_rc,
+                             f"kind={kind} 的 rc 不对(stdout={text!r} "
+                             f"stderr={out.stderr.decode('utf-8','replace')!r})")
+            self.assertTrue(text, f"kind={kind} 没有往 stdout 给一句裁决 ⇒ "
+                                  "PowerShell 会把 stderr 当成裁决")
 
     def test_s19_the_cli_also_takes_ascii_escaped_facts(self):
         """PowerShell 那侧会把中文转成 ASCII 转义(\\uXXXX)再送进来 —— 这种形态也得判得对。"""
