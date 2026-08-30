@@ -26,8 +26,16 @@ type ShellApi = {
 };
 
 function api(): ShellApi | null {
-  const w = window as unknown as { pywebview?: { api?: ShellApi } };
-  return w.pywebview?.api ?? null;
+  const w = window as unknown as { pywebview?: { api?: Partial<ShellApi> } };
+  const a = w.pywebview?.api;
+  // 🔴 2026-08-30:光判 `api` 在不在**不够** —— pywebview 是**分步**注入的,
+  //    对象已经在、方法还没挂上的那一瞬间真实存在。原来写的是 `w.pywebview?.api ?? null`,
+  //    于是 `api()?.window_state()` 变成 `undefined()`:**同步抛**,后面的 .catch 接不到,
+  //    异常从 useEffect 冒上去、而全仓没有 ErrorBoundary ⇒ **React 卸载整棵树 ⇒ 整页白**。
+  //    云 Windows 真机复现过(run 33305829954:先 frame_submitted,再报这个错,截图整片空白),
+  //    本机 e2e `api_partial_injection.e2e.mjs` 也复现得出来(root 子节点 = 0)。
+  //    ⇒ 必须逐个方法确认是函数再用。这是本项目栽的第四次"注入时机"。
+  return a && typeof a.window_state === "function" ? (a as ShellApi) : null;
 }
 
 export default function WindowChrome() {

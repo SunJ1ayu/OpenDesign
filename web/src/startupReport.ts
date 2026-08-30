@@ -95,14 +95,19 @@ export function reportFirstFrame(): void {
   //    误报比没有报警器更坏,这个项目实证过很多次 ⇒ 改成在预算内轮询等它出现。
   let left = FRAME_BUDGET;
   const tick = () => {
-    const r = document.getElementById("root")?.getBoundingClientRect();
-    if (r && r.width >= 1 && r.height >= 1) {
+    const root = document.getElementById("root");
+    const r = root?.getBoundingClientRect();
+    // 🔴 2026-08-30:光看尺寸**会撒谎**。React 把整棵树卸载之后,`#root` 这个 div
+    //    还在、尺寸照旧 —— 而业主眼里已经是一整片白。真机日志里那句
+    //    `frame_submitted 1028x749` 就是这么来的:报了成功,屏幕是空的。
+    //    ⇒ 还得问它**有没有内容**。
+    if (root && r && r.width >= 1 && r.height >= 1 && root.childElementCount > 0) {
       report("frontend.frame_submitted", `${Math.round(r.width)}x${Math.round(r.height)}`);
       return;
     }
     if (--left <= 0) {
       // 预算烧完还是 0 尺寸/不存在 —— 这才是真的"业主眼里一片白"。
-      report("frontend.error", `根节点等了 ${FRAME_BUDGET} 帧仍没有尺寸`);
+      report("frontend.error", `根节点等了 ${FRAME_BUDGET} 帧仍然是空的/没尺寸`);
       return;
     }
     requestAnimationFrame(tick);
