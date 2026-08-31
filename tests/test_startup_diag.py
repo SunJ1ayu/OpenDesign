@@ -1025,9 +1025,20 @@ class S20ThePowerShellStopsJudgingAndTheGateHasTwoPaths(unittest.TestCase):
         self.assertIn("verdicts.tsv", code,
                       "裁决没有落盘收据 ⇒ 闸只有'读字典里的文本'一条路,"
                       "闸前重播一个空字典、或把 FAIL 字样洗掉,任何一处都能整趟绿")
-        self.assertRegex(code, r"lastRc",
-                         "收据记的不是判定器的退出码 ⇒ 又是从文本里找 FAIL,"
-                         "和第一条路同生共死")
+        # 🔴 光问"lastRc 这个名字出现过没有"不够(M67/M68 照出来的):
+        #    ① Get-Verdict 得真把判定器的退出码记下来 —— 不记的话它恒为 1、每趟假红;
+        #    ② 收据里写的得是**那个变量**,不是一个常量 —— 写死 0 的话路二永远看不到 FAIL。
+        src = PROBE.read_text(encoding="utf-8")
+        gv = src[src.index("function Get-Verdict"):]
+        gv = "\n".join(ln for ln in gv[:gv.index("\n}")].splitlines()
+                        if not ln.lstrip().startswith("#"))
+        self.assertIn("$script:lastRc = $rc", gv,
+                      "Get-Verdict 没把判定器的退出码记下来 ⇒ 它恒为初值 1 ⇒ 每趟假红")
+        sv = src[src.index("function Say-Verdict"):]
+        sv = "\n".join(ln for ln in sv[:sv.index("\n}")].splitlines()
+                        if not ln.lstrip().startswith("#"))
+        self.assertIn("-f $script:lastRc,", sv,
+                      "收据里写的不是判定器的退出码(写死一个常量就行)⇒ 路二永远看不到 FAIL")
 
     def test_s20_the_gate_reads_the_receipt_too(self):
         """末尾那道闸必须**同时**看收据,不能只看 `$phases`。"""
@@ -1035,6 +1046,17 @@ class S20ThePowerShellStopsJudgingAndTheGateHasTwoPaths(unittest.TestCase):
         gate = self._code(src[src.index("$failed = @($phases"):])
         self.assertIn("verdicts.tsv", gate,
                       "闸只读 $phases ⇒ 在它前面重播一个空字典就整趟绿(实测成立)")
+        # 🔴 提到文件名不算读它(M55 照出来的:把读的那一句换成 `$hard = @()`,
+        #    `Test-Path $VerdictLog` 还在,只问名字的断言照样绿)。
+        self.assertIn("Get-Content $VerdictLog", gate,
+                      "闸提到了收据却没读它 ⇒ 路二是个摆设")
+        # (挑的是**读收据那一行**,不是第一行 `$hard = @()` —— 那是初值,
+        #  拿它去问等于把断言打到了自己身上,第一版就是这么红的。)
+        picks = [ln for ln in gate.splitlines()
+                 if "$hard = @(" in ln and "Get-Content" in ln]
+        self.assertTrue(picks, "闸没有从收据里挑出 FAIL 裁决")
+        self.assertIn('"1`t*"', picks[0],
+                      f"闸没有按退出码挑 FAIL 裁决:{picks[0].strip()!r} ⇒ 路二什么都拦不住")
 
     def test_s20_the_workflow_independently_fails_the_job_from_the_receipt(self):
         """🔴 第二条路必须在**另一个文件**里 —— 同一个 .ps1 里的两道闸一起改就是了。"""

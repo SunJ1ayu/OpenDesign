@@ -23,8 +23,12 @@ PY="${PY:-/root/.venvs/design-studio/bin/python}"
 #    于是它被改坏后再没还原 —— 后面每条变异都跑在一个已经残废的被测物上,
 #    红检报"漏网 5 条",其中 4 条是**量具自己造出来的假象**。
 #    这一条比它看起来重:漏掉的那个文件,它的变异结果**全部作废**。
+#    2026-08-31 **又栽一次,同一个坑**:这一批加了变异 workflow 的 M65,而
+#    `.github/workflows/*.yml` 不在这张清单里 ⇒ 它被改坏后再没还原,M66~M68 全跑在
+#    残废的被测物上、红在别处。那三条的结果当场作废、重跑。
 SOURCES=(bin/ds_diag.py bin/ds_shell.py bin/ds_web.py bin/probe_verdict.py \
-         .github/scripts/windows-package-probe.ps1)
+         .github/scripts/windows-package-probe.ps1 \
+         .github/workflows/windows-package-probe.yml)
 WORK="$(mktemp -d)"
 for f in "${SOURCES[@]}"; do cp -p "$f" "$WORK/$(echo "$f" | tr / _)"; done
 
@@ -212,13 +216,13 @@ mutate_and_expect M25 bin/probe_verdict.py test_s19_all_logs_present_is_ok \
 
 # M26 报错框的判定极性翻转 ⇒ 报错框被当成真窗口
 mutate_and_expect M26 bin/probe_verdict.py test_s19_only_the_error_box_is_a_FAIL \
-  '    boxes = [w for w in wins if w.get("cls") == DIALOG_CLASS]' \
-  '    boxes = [w for w in wins if w.get("cls") != DIALOG_CLASS]'
+  '    boxes = [w for w in mine if w.get("cls") == DIALOG_CLASS]' \
+  '    boxes = [w for w in mine if w.get("cls") != DIALOG_CLASS]'
 
 # M27 真窗口集合把报错框也算进去 ⇒ "只有框"永远不成立
 mutate_and_expect M27 bin/probe_verdict.py test_s19_only_the_error_box_is_a_FAIL \
-  '    real = [w for w in wins if w.get("cls") != DIALOG_CLASS]' \
-  '    real = list(wins)'
+  '    real = [w for w in mine if w.get("cls") != DIALOG_CLASS]' \
+  '    real = list(mine)'
 
 # M28 喂给判定的**值**被改坏(不改逻辑,改常量)
 mutate_and_expect M28 bin/probe_verdict.py test_s19_only_the_error_box_is_a_FAIL \
@@ -235,8 +239,10 @@ mutate_and_expect M30 bin/probe_verdict.py test_s19_health_on_the_moved_port_is_
   '    alive = {int(p): v for p, v in answers.items() if v}' \
   '    alive = {int(p): v for p, v in answers.items() if v and int(p) == 8766}'
 
-# M31 "有没有应答"的极性翻转 ⇒ 一个都不应答也判活
-mutate_and_expect M31 bin/probe_verdict.py test_s19_no_port_answering_is_a_FAIL \
+# M31 "有没有应答"的极性翻转 ⇒ 应答了反而判死
+# (2026-08-31 换靶子:不预填之后 answers 只装真答上来的,"一个都不应答"这一组
+#  是空 dict —— 极性翻转在空 dict 上看不出来。改用"应用挪到 8767 健康启动"那一组。)
+mutate_and_expect M31 bin/probe_verdict.py test_s19_health_on_the_moved_port_is_ok \
   '    alive = {int(p): v for p, v in answers.items() if v}' \
   '    alive = {int(p): v for p, v in answers.items() if not v}'
 
@@ -248,13 +254,13 @@ mutate_and_expect M32 bin/probe_verdict.py test_s19_enumeration_failure_falls_ba
 # ── 接线(打 .ps1,靠 s18 六条咬)──────────────────────────────────────
 # M33 第 6 相不问判定器,自己说了算
 mutate_and_expect M33 .github/scripts/windows-package-probe.ps1 test_s18_the_judge_is_asked_in_every_machine_decided_phase \
-  "Say '6 窗口在不在' (Get-Verdict 'window' @{" \
-  "Say '6 窗口在不在' \"OK\" ; \$null = (@{"
+  "    \$v6 = Get-Verdict 'window' @{" \
+  "    \$v6 = 'OK' ; \$null = @{"
 
 # M34 第 8 相不问判定器
 mutate_and_expect M34 .github/scripts/windows-package-probe.ps1 test_s18_the_judge_is_asked_in_every_machine_decided_phase \
-  "Say '8 收日志' (Get-Verdict 'logs' @{ present = \$present })" \
-  "Say '8 收日志' \"OK\""
+  "Say-Verdict '8 收日志' (Get-Verdict 'logs' @{ present = \$present })" \
+  "Say-Verdict '8 收日志' \"OK\""
 
 # M35 判定器跑不成时不再 fail-closed(判不了却当过了)
 mutate_and_expect M35 .github/scripts/windows-package-probe.ps1 test_s18_a_judge_that_does_not_run_is_a_FAIL_not_a_pass \
@@ -299,18 +305,17 @@ mutate_and_expect M40 bin/probe_verdict.py test_s19_the_cli_reads_utf8_facts_und
 
 # M41 判定器的 kind 分发键改名 ⇒ rc=2 + 用法串走 stderr ⇒ 被当成裁决 ⇒ 第 6 相静默绿
 mutate_and_expect M41 bin/probe_verdict.py test_s19_every_kind_is_reachable_from_the_cli \
-  '    "window": lambda f: window_verdict(f.get("wins") or [], f.get("ours") or []),' \
-  '    "win": lambda f: window_verdict(f.get("wins") or [], f.get("ours") or []),'
+  '    "window": lambda f: window_verdict(f.get("wins") or [], f.get("procs") or []),' \
+  '    "win": lambda f: window_verdict(f.get("wins") or [], f.get("procs") or []),'
 
 # M42 rc 守卫拆掉 ⇒ 判定器异常退出被当成裁决(fail-open)
 mutate_and_expect M42 .github/scripts/windows-package-probe.ps1 test_s18_the_judge_failing_weirdly_is_a_FAIL_not_a_verdict \
   '    if ($rc -ne 0 -and $rc -ne 1) { return "FAIL - 判定器异常退出(rc=$rc):$out" }' \
   '    # rc 不管了'
 
-# M43 取窗口时不按标题筛 ⇒ b99b603 那个"永远不会红"原样复活
-mutate_and_expect M43 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_parameters_are_pinned_too \
-  '    $wins = @(Get-AppWindows $appTitle)                            # 新口径:标题 + **窗口类**' \
-  "    \$wins = @(Get-AppWindows '')"
+# M43 **退场**(2026-08-31):它变异的是 `Get-AppWindows $appTitle` 的参数,而挑窗口
+#     已经搬进判定器、这个函数不再带参数 ⇒ 变异对象不存在。
+#     等价物:M56(枚举函数又长出过滤参数)、M59(判定器认的应用名被清空)。
 
 # M44 端口段收窄成单端口(轮询那圈照样引用 $PortSpan)⇒ 写死 8766 的假红复活
 mutate_and_expect M44 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_parameters_are_pinned_too \
@@ -330,19 +335,13 @@ mutate_and_expect M46 .github/scripts/windows-package-probe.ps1 test_s18_stderr_
   '        $out  = $json | & $py $judge $kind 2>$errLog' \
   '        $out  = $json | & $py $judge $kind 2>&1'
 
-# M47 标题过滤的**取值**变空 ⇒ 同屏任何窗口都算我们的(2c 那批的原物)
-mutate_and_expect M47 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_is_pinned_not_just_referenced \
-  "\$appTitle = 'OpenDesign'" \
-  "\$appTitle = ''"
+# M47 **退场**(2026-08-31):`$appTitle` 这个变量没了(挑窗口搬进了判定器)。
+#     ⚠️ 它退场前最后一次跑是**假的**:.ps1 的新注释里照抄了 `$appTitle = 'OpenDesign'`
+#     这句话讲这段历史,变异工具打到了**注释**上 ⇒ 报"红在别处"。
+#     等价物:M59(判定器的 APP_TITLE 被清空)、M61(挑窗口那一步被整个去掉)。
 
-# M48 匹配**方向**翻转 ⇒ 采的是"标题不含应用名"的窗口
-# 🔴 锚点必须唯一:`-like "*$Match*"` 在 Dump-Dialogs 里也有一份(而且在前面),
-#    工具只换第一处 ⇒ 第一版打到了另一个函数上,判据当然不红。今晚第三次栽这个。
-mutate_and_expect M48 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_is_pinned_not_just_referenced \
-  '            if ($t -like "*$Match*") {
-                $script:appwins' \
-  '            if ($t -notlike "*$Match*") {
-                $script:appwins'
+# M48 **退场**(2026-08-31):枚举时不再按标题匹配(那件事搬进了判定器)。
+#     等价物:M57(采集条件 `if ($t)` 被翻过来)、M61(判定器里挑窗口那一步被去掉)。
 
 # M49 窗口类的**取参**错(拿 lParam)⇒ 类名恒空 ⇒ 报错框判成真窗口
 mutate_and_expect M49 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_is_pinned_not_just_referenced \
@@ -360,14 +359,104 @@ mutate_and_expect M51 .github/scripts/windows-package-probe.ps1 test_s18_the_sam
   'function Say([string]$k, [string]$v) { "PHASE $k : $v" }'
 
 # M52 轮询退出条件的**极性**翻转 ⇒ 健康时空转、坏时提早判红
+# (2026-08-31:锚点随实现变了 —— 不预填之后 answers 只装真答上来的,条件是 .Count)
 mutate_and_expect M52 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_is_pinned_not_just_referenced \
-  '    if ($answers.Values | Where-Object { $_ }) { break }' \
-  '    if ($answers.Values | Where-Object { -not $_ }) { break }'
+  '    if ($answers.Count) { break }' \
+  '    if (-not $answers.Count) { break }'
 
 # M53 事实映射取错**属性名** ⇒ 每个窗口的 cls 都是 null ⇒ 报错框全判成真窗口
 mutate_and_expect M53 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_is_pinned_not_just_referenced \
   'cls = $_.Class' \
   'cls = $_.cls'
+
+# ══ 第 2g 轮:判断搬出 PowerShell + 闸走双路(2026-08-31)══════════════
+# 这一批钉的是**第六轮 panel 实测的那 8 条**在新形状下的等价物,外加新接线本身。
+# ⚠️ 有两条**故意不在这里**:闸前重播空 $phases、Get-Verdict 洗掉 FAIL 字样 ——
+#    它们废掉的是**运行时**那条路,本机静态判据结构上问不出。那两条的红收据只能
+#    来自真跑一趟(见 verify.md 的注入实验)。写在这里只会造出"钉过了"的假象。
+
+# M54 第 6 相不再落收据 ⇒ 路二对这一相是瞎的
+mutate_and_expect M54 .github/scripts/windows-package-probe.ps1 test_s18_the_judge_is_asked_in_every_machine_decided_phase \
+  "Say-Verdict '6 窗口在不在' \$v6" \
+  "Say '6 窗口在不在' \$v6"
+
+# M55 闸不再读收据 ⇒ 退回一条路
+mutate_and_expect M55 .github/scripts/windows-package-probe.ps1 test_s20_the_gate_reads_the_receipt_too \
+  '    $hard = @(Get-Content $VerdictLog | Where-Object { $_ -like "1`t*" })' \
+  '    $hard = @()'
+
+# M56 枚举函数又长出过滤参数 ⇒ 挑窗口偷偷搬回本机验不了的地方
+mutate_and_expect M56 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_parameters_are_pinned_too \
+  'function Get-AllWindows {' \
+  "function Get-AllWindows([string]\$Match = 'OpenDesign') {"
+
+# M57 采集条件翻转 ⇒ 采的全是无标题窗口 ⇒ mine 空 ⇒ 落进 fail-open ⇒ 只有报错框时假绿
+mutate_and_expect M57 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_is_pinned_not_just_referenced \
+  '            if ($t) {
+                $script:appwins' \
+  '            if (-not $t) {
+                $script:appwins'
+
+# M58 窗口类写死 + 留个诱饵调用(第六轮实测的原物)
+mutate_and_expect M58 .github/scripts/windows-package-probe.ps1 test_s20_the_window_class_is_sampled_exactly_once \
+  '                $script:appwins += [PSCustomObject]@{ Title = $t; Class = [W32]::Cls($h) }' \
+  '                $null = [W32]::Cls($h)
+                $script:appwins += [PSCustomObject]@{ Title = $t; Class = '"'"'WindowsForms10.Window.8'"'"' }'
+
+# M59 判定器认的应用名被清空 ⇒ 任何窗口都算我们的(第六轮实测的原物,换了地方)
+mutate_and_expect M59 bin/probe_verdict.py test_s19_the_app_title_is_the_one_ds_shell_actually_uses \
+  'APP_TITLE = "OpenDesign"' \
+  'APP_TITLE = ""'
+
+# M60 health 放宽成 is not None ⇒ 空版本号也算活(第六轮实测的原物)
+mutate_and_expect M60 bin/probe_verdict.py test_s19_a_port_that_answered_without_a_version_is_not_alive \
+  'alive = {int(p): v for p, v in answers.items() if v}' \
+  'alive = {int(p): v for p, v in answers.items() if v is not None}'
+
+# M61 挑窗口那一步被去掉 ⇒ 别人的窗口顶替我们的
+mutate_and_expect M61 bin/probe_verdict.py test_s19_a_window_that_is_not_ours_does_not_count \
+  'mine = [w for w in wins if APP_TITLE in str(w.get("title") or "")]' \
+  'mine = list(wins)'
+
+# M62 老口径那一步被去掉 ⇒ 别人的进程顶替我们的(fail-open 恒真)
+mutate_and_expect M62 bin/probe_verdict.py test_s19_the_fallback_only_counts_our_own_processes \
+  'ours = [t for t in procs if APP_TITLE in str(t)]' \
+  'ours = list(procs)'
+
+# M63 端口段又从 answers 的键反推 ⇒ 预填造出来的东西又变成了证据
+mutate_and_expect M63 bin/probe_verdict.py test_s19_the_span_that_was_tried_is_named_even_when_nothing_answered \
+  'ports = sorted(int(p) for p in tried)' \
+  'ports = sorted(int(p) for p in answers)'
+
+# M64 第 5 相预填复活(第六轮实测的原物)
+mutate_and_expect M64 .github/scripts/windows-package-probe.ps1 test_s20_the_health_phase_does_not_prefill_the_answers \
+  '$answers = @{}
+$tried   = @($PortSpan)' \
+  '$answers = @{}
+$tried   = @($PortSpan)
+foreach ($p in $PortSpan) { $answers["$p"] = $null }'
+
+# M65 workflow 那一步不再 if: always() ⇒ 探针 exit 0(正是被绕过的样子)时它不跑
+mutate_and_expect M65 .github/workflows/windows-package-probe.yml test_s20_the_workflow_independently_fails_the_job_from_the_receipt \
+  '      - name: 裁决收据独立复核
+        if: always()' \
+  '      - name: 裁决收据独立复核'
+
+# M66 第 6 相的等待条件改回"枚举到东西了吗" ⇒ 全量枚举下恒真 ⇒ 一秒就走人
+mutate_and_expect M66 .github/scripts/windows-package-probe.ps1 test_s18_the_sampling_parameters_are_pinned_too \
+  '} while ($script:lastRc -ne 0 -and (Get-Date) -lt $deadline)' \
+  '} while ($wins.Count -eq 0 -and (Get-Date) -lt $deadline)'
+
+# M67 Get-Verdict 不再记退出码 ⇒ lastRc 恒为 1 ⇒ 收据每趟全红(假红)
+mutate_and_expect M67 .github/scripts/windows-package-probe.ps1 test_s20_every_verdict_leaves_a_machine_receipt \
+  '    $script:lastRc = $rc
+    return' \
+  '    return'
+
+# M68 收据里记的是常量而不是退出码 ⇒ 路二永远看不到 FAIL
+mutate_and_expect M68 .github/scripts/windows-package-probe.ps1 test_s20_every_verdict_leaves_a_machine_receipt \
+  '    ("{0}`t{1}`t{2}" -f $script:lastRc, $k, ($v -replace "`t", '"'"' '"'"')) |' \
+  '    ("{0}`t{1}`t{2}" -f 0, $k, ($v -replace "`t", '"'"' '"'"')) |'
 
 echo
 echo "== 红检结果:咬住 $pass 条,漏网 $fail 条 =="
