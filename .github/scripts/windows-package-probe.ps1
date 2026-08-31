@@ -271,10 +271,22 @@ try {
 #    键反推"试过哪一段"。外部评审实测:把那个 $null 改成 "0"(一个字符),整段端口
 #    就全"活着" ⇒ 后端死了也绿,50 条判据全绿。answers 只放**真答上来的**,
 #    "试过谁"另作一个事实 $tried 交出去 —— 能被预填造出来的东西不能同时当证据。
+# 🔴 **墙钟,不是次数**(2026-08-31):原来是 `for ($i = 0; $i -lt 60; $i++)`。
+#    看着有上限,而真实最坏耗时 = 60 × (21 个端口 × `-TimeoutSec 2` + 3s sleep)
+#    = **45 分钟**,大于 job 的 `timeout-minutes: 30` —— 那个"单轮成本"根本不在代码里。
+#    后果不是"慢",是**闸走不到落账那一步**:run 33373282485 / 33373571950 两趟注入
+#    在 PHASE 4 之后静默 29 分钟被超时砍掉,verdicts.tsv 从来没生成过 ⇒ 路二/路三
+#    只能从"收据缺席"红,而不是从"读出 FAIL 裁决"红。而"后端起不来"正是这支探针
+#    最该报出来的场景之一 —— 它在那个场景里自己先卡死。干净趟撞不到:8766 第一个
+#    就应答,第一轮就 break(run 33374468524 实测 86s)。
+#    ⚠️ 内层也要看表:一圈扫 21 个死端口最坏 42s,不看的话"上限 150s"是假的。
+#    第 10 相当时就是这么写的(`while ($sw.Elapsed...)`)—— 这是不对称,不是设计。
 $answers = @{}
 $tried   = @($PortSpan)
-for ($i = 0; $i -lt 60; $i++) {
+$sw5 = [Diagnostics.Stopwatch]::StartNew()
+while ($sw5.Elapsed.TotalSeconds -lt 150) {
     foreach ($p in $PortSpan) {
+        if ($sw5.Elapsed.TotalSeconds -ge 150) { break }
         try {
             $h = Invoke-RestMethod -Uri "http://127.0.0.1:$p/api/health" -TimeoutSec 2
             if ($h.version) { $answers["$p"] = "$($h.version)" }
@@ -410,6 +422,7 @@ try {
     while ($sw.Elapsed.TotalSeconds -lt 90) {
         Start-Sleep -Seconds 5
         foreach ($p in $PortSpan) {
+            if ($sw.Elapsed.TotalSeconds -ge 90) { break }   # 同第 5 相:内层也要看表
             try {
                 $h = Invoke-WebRequest -Uri "http://127.0.0.1:$p/api/health" -UseBasicParsing `
                      -TimeoutSec 2 -Proxy $null

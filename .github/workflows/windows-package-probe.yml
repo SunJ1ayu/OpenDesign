@@ -54,21 +54,28 @@ jobs:
       - name: 裁决收据独立复核
         if: always()
         shell: pwsh
+        # 🔴 这一步打出来的话**只许 ASCII**(2026-08-31)。实测它在 runner 上把中文
+        #    全打成了问号:`?? ?????? probe-out/verdicts.tsv ? ??????????,??????`
+        #    —— 闸红了却说不清为什么红,和没红一样坏(本项目栽编码的第 N 次;
+        #    上一次是第 9 相打印中文即炸、rc=1 泄漏出来染红整趟)。
+        #    中文说明留在注释里:注释不进输出。
+        #    第一行那个 OutputEncoding 治的是另一半 —— 收据**内容**里的相名是中文。
         run: |
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
           $f = 'probe-out/verdicts.tsv'
           if (-not (Test-Path $f)) {
-              "🔴 没有裁决收据 $f ⇒ 探针没跑到落账那一步,这一趟不算过"
+              "RED: no verdict receipt at $f -- the probe never reached the bookkeeping step, this run does not pass"
               exit 1
           }
           $lines = @(Get-Content $f)
-          "裁决收据 $($lines.Count) 行:"
+          "verdict receipt, $($lines.Count) line(s):"
           $lines | ForEach-Object { "  $_" }
           $bad = @($lines | Where-Object { $_ -like "1`t*" })
           if ($bad.Count) {
-              "🔴 收据里有 $($bad.Count) 条 FAIL 裁决 ⇒ 这一趟不算过"
+              "RED: $($bad.Count) FAIL verdict(s) in the receipt, this run does not pass"
               exit 1
           }
-          "收据里没有 FAIL 裁决"
+          "no FAIL verdict in the receipt"
 
       - name: 把图和日志交出来
         if: always()
