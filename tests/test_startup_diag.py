@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import io
+import re
 import sys
 import tempfile
 import time
@@ -1026,9 +1027,15 @@ class S20ThePowerShellStopsJudgingAndTheGateHasTwoPaths(unittest.TestCase):
         self.assertIn("verdicts.tsv", yml,
                       "workflow 没有独立复核裁决收据 ⇒ 整道闸仍然住在一个文件里,"
                       "改一处(闸前重播空字典 / 洗掉 FAIL 字样)就能让任何事故绿")
-        self.assertIn("if: always()", yml,
-                      "复核那一步没有 if: always() ⇒ 探针 exit 1 时它根本不跑,"
-                      "而探针 exit 0 正是被绕过时的样子")
+        # 🔴 `if: always()` 不能拿整份 yml 去问 —— 上传构件那一步本来就带它,
+        #    这么问的话新加的复核步骤一个字不写也全绿(本项目记过多次的死断言)。
+        #    切出**复核自己那一步**再问。
+        steps = re.split(r"\n      - ", yml)
+        mine = [b for b in steps if "verdicts.tsv" in b and "run:" in b]
+        self.assertTrue(mine, "复核收据的不是 workflow 自己的一步(run:)")
+        self.assertIn("if: always()", mine[0],
+                      "复核那一步自己没带 if: always() ⇒ 探针 exit 1 时它根本不跑,"
+                      "而探针被绕过时的样子恰恰是 exit 0 —— 那一趟它必须跑")
 
 
 
