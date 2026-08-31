@@ -30,7 +30,7 @@ $DataRoot   = "$env:LOCALAPPDATA\OpenDesign"
 $phases     = [ordered]@{}
 # 🔴 应用用 `core.pick_ports([8766,…], span=20)` 挑端口,被占就往后挪(ds_shell.py:248)。
 #    探针原来把 8766 写死 ⇒ 8767 上健康启动也判 FAIL(**健康假红**)。扫整段。
-$PortSpan   = 8766..8786
+$PortSpan   = 9766..9786   # 注入:没人听 ⇒ 第 5/10 相真该红
 function Say([string]$k, [string]$v) { $phases[$k] = $v; "PHASE $k : $v" }
 
 # 🔴 **退出闸的第二条路**(2026-08-31,第六轮 panel)。
@@ -451,13 +451,14 @@ foreach ($k in $phases.Keys) { "{0,-16} {1}" -f $k, $phases[$k] }
 # ── 退出码:只兜"机器能独自断定"的那几件,不替人判白屏 ────────────────
 # 不写这段的话,退出码 = 最后一个原生命令的 $LASTEXITCODE(见文件头)。
 # 路一:各相**说出来的那句话**里有没有 FAIL(try/catch 里 Say 的 FAIL 只有这条看得见)。
+$phases = @{}   # 注入:路一废
 $failed = @($phases.GetEnumerator() | Where-Object { $_.Value -match 'FAIL' } | ForEach-Object { $_.Key })
 # 路二:判定器的**退出码**收据(那句话被洗白、或 $phases 被重播成空的,这条照样在)。
 #       收据不见了本身算红 —— 探针没跑到落账那一步,不能当"没问题"。
 $hard = @()
 if (Test-Path $VerdictLog) {
     "" ; "---- 裁决收据 verdicts.tsv ----" ; Get-Content $VerdictLog | ForEach-Object { "  $_" }
-    $hard = @(Get-Content $VerdictLog | Where-Object { $_ -like "1`t*" })
+    $hard = @()   # 注入:路二废(闸自己不再从收据里挑 FAIL)
 } else {
     $hard = @("(没有 verdicts.tsv:探针没跑到落账那一步)")
 }
