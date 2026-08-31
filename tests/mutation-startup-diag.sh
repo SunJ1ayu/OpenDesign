@@ -276,13 +276,12 @@ mutate_and_expect M36 .github/scripts/windows-package-probe.ps1 test_s18_the_jud
 
 # M37 第 5 相**轮询那一圈**退回写死一个端口(初始化那行不动 —— 改它不影响行为,
 #     那种变异测的是断言不是代码,第一版就是这么写的,白占一条)
+# 🔴 2026-08-31:锚点原来连着后面两行(try / Invoke-RestMethod),我在中间插了一句
+#     "内层也看表"就把它撑断了 ⇒ 报「变异没打上去」。**本项目第 N 次栽锚点过期**。
+#     收窄成只认那一行,且靠缩进区分第 5 相(4 空格)和第 10 相(8 空格)。
 mutate_and_expect M37 .github/scripts/windows-package-probe.ps1 test_s18_the_health_phases_scan_a_span_not_one_hardcoded_port \
-  '    foreach ($p in $PortSpan) {
-        try {
-            $h = Invoke-RestMethod' \
-  '    foreach ($p in @(8766)) {
-        try {
-            $h = Invoke-RestMethod'
+  '    foreach ($p in $PortSpan) {' \
+  '    foreach ($p in @(8766)) {'
 
 # M38 退出码闸:有相自报 FAIL 却不 exit 1 ⇒ 红的 run 绿着交差
 mutate_and_expect M38 .github/scripts/windows-package-probe.ps1 test_s18_any_phase_saying_FAIL_makes_the_run_red \
@@ -485,6 +484,35 @@ mutate_and_expect M73 bin/probe_verdict.py test_s19_the_verdict_names_who_owns_t
   '    owner = w.get("proc") or "属主未知"
     return f"「{w.get('"'"'title'"'"')}」[{w.get('"'"'cls'"'"')}]·{owner}"' \
   '    return f"「{w.get('"'"'title'"'"')}」[{w.get('"'"'cls'"'"')}]"'
+
+# ── s21:探针走不走得到落账那一步 / 闸的话读不读得懂 ────────────────────
+# M74 第 5 相退回"次数上限"⇒ 最坏耗时 = 次数 × 单轮成本,而单轮成本不在代码里
+#     (这就是 run 33373282485/33373571950 静默 29 分钟被超时砍掉的那个原物)
+mutate_and_expect M74 .github/scripts/windows-package-probe.ps1 test_s21_every_waiting_loop_is_bounded_by_a_wall_clock \
+  'while ($sw5.Elapsed.TotalSeconds -lt 150) {' \
+  'for ($i = 0; $i -lt 60; $i++) {'
+
+# M75 墙钟还在,但上限被放到 30 分钟 ⇒ 单独一相就把 job 的超时吃光
+#     (这一条是那个"出生就是绿的"判据的唯一证明)
+mutate_and_expect M75 .github/scripts/windows-package-probe.ps1 test_s21_no_single_wait_can_eat_the_job \
+  'while ($sw5.Elapsed.TotalSeconds -lt 150) {' \
+  'while ($sw5.Elapsed.TotalSeconds -lt 1800) {'
+
+# M76 跨文件:探针没动,把 job 的超时调小 ⇒ 等待装不进去了
+#     (第二个"出生就是绿的"判据;它钉的是两个文件之间的关系,单看任一个都是对的)
+mutate_and_expect M76 .github/workflows/windows-package-probe.yml test_s21_the_probe_cannot_outlast_the_job_timeout \
+  'timeout-minutes: 30' \
+  'timeout-minutes: 10'
+
+# M77 闸的那句话改回中文 ⇒ 在 runner 上打成一串问号,闸红了说不清为什么红
+mutate_and_expect M77 .github/workflows/windows-package-probe.yml test_s21_the_receipt_recheck_step_prints_only_ascii \
+  '"no FAIL verdict in the receipt"' \
+  '"收据里没有 FAIL 裁决"'
+
+# M78 输出编码那一行没了 ⇒ 收据内容里的中文相名出不来
+mutate_and_expect M78 .github/workflows/windows-package-probe.yml test_s21_the_receipt_recheck_step_forces_utf8_output \
+  '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)' \
+  '$null = 0'
 
 echo
 echo "== 红检结果:咬住 $pass 条,漏网 $fail 条 =="
