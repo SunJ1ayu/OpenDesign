@@ -1,0 +1,126 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-startup-observability",
+  "run_id": "20260831-192010-326351-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "startup-obs-close7",
+  "started_at": "2026-08-31T11:20:10Z",
+  "finished_at": "2026-08-31T11:30:33Z",
+  "duration_ms": 623810,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "subdeepseek-agent",
+        "degraded": false,
+        "duration_ms": 550546,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:3f8ddeed8ab925fab019add86dc5cf1a9c122531e8f891902db69a8e1d6b9128",
+          "ref": "file:///root/aiwork/logs/panel-startup-obs-close7-20260831-192010.subdeepseek.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "deepseek",
+        "model": {
+          "invoked": "deepseek-v4-flash",
+          "reported": null,
+          "requested": "deepseek-v4-flash"
+        },
+        "name": "subdeepseek",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260831-192010-326351-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "digest": "sha256:7af4364edf3dd074e79898196c3adcee9e2da748f188f874f29d0ff5090e4992",
+          "manifest_version": 1,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "4bac046ca9ea93958f88f446d49c25a8d1deff74",
+            "index_tree_oid": "6d71d27be653c11096f07f120f530e1eae3235c0",
+            "worktree_tree_oid": "6d71d27be653c11096f07f120f530e1eae3235c0"
+          },
+          "task_sha256": "sha256:bff4126655ecfce887e98ed005bc4b8f50f1ac0bd3d9a4c5fe773c5ef42e9795"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "api",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "BLOCK",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subglm-agent",
+        "degraded": false,
+        "duration_ms": 619718,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:35ffb2b8daa8d03ca63a8237a0b825e7efb8996669ba2707d7d231e027629677",
+          "ref": "file:///root/aiwork/logs/panel-startup-obs-close7-20260831-192010.subglm.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "zhipu",
+        "model": {
+          "invoked": "go/glm-5.3-flash",
+          "reported": null,
+          "requested": "go/glm-5.3-flash"
+        },
+        "name": "subglm",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260831-192010-326351-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "digest": "sha256:7af4364edf3dd074e79898196c3adcee9e2da748f188f874f29d0ff5090e4992",
+          "manifest_version": 1,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "4bac046ca9ea93958f88f446d49c25a8d1deff74",
+            "index_tree_oid": "6d71d27be653c11096f07f120f530e1eae3235c0",
+            "worktree_tree_oid": "6d71d27be653c11096f07f120f530e1eae3235c0"
+          },
+          "task_sha256": "sha256:bff4126655ecfce887e98ed005bc4b8f50f1ac0bd3d9a4c5fe773c5ef42e9795"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "BLOCK",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
