@@ -460,6 +460,31 @@ def _probe_phase(src: str, n: str) -> str:
     return "\n".join(ln for ln in lines[start:end] if not ln.lstrip().startswith("#"))
 
 
+
+def _wait_loops(code: str):
+    """切出探针里所有**会等**的循环(体内有 `Start-Sleep` 的 for/while)。
+
+    按大括号配平切,**不按行号、也不按缩进** —— 行号在本项目已被证明第 N 次不是身份。
+    """
+    lines = code.splitlines()
+    found = []
+    for i, ln in enumerate(lines):
+        if not re.match(r"\s*(for|while)\s*\(", ln):
+            continue
+        depth, opened, body = 0, False, []
+        for j in range(i, len(lines)):
+            depth += lines[j].count("{") - lines[j].count("}")
+            body.append(lines[j])
+            if lines[j].count("{"):
+                opened = True
+            if opened and depth <= 0:
+                break
+        text = "\n".join(body)
+        if "Start-Sleep" in text:
+            found.append((ln.strip(), text))
+    return found
+
+
 class S18ProbeAsksTheJudgeAndSaysWhatItAnswers(unittest.TestCase):
     """s18 探针只负责**采事实**,判定必须去问 `bin/probe_verdict.py`。
 
@@ -1150,6 +1175,121 @@ class S20ThePowerShellStopsJudgingAndTheGateHasTwoPaths(unittest.TestCase):
                       "而探针被绕过时的样子恰恰是 exit 0 —— 那一趟它必须跑")
 
 
+
+
+class S21TheProbeAlwaysReachesTheReceipt(unittest.TestCase):
+    """s21 探针必须**走得到落账那一步**,而闸的输出必须**读得懂**。
+
+    🔴 2026-08-31 断线接手后加的,两条都是**读出来的、不是推的**:
+
+    两趟注入实验(run 33373282485 / 33373571950)在 `PHASE 4 启动` 之后**静默 29 分钟**、
+    撞 job 的 `timeout-minutes: 30` 被砍,`probe-out/verdicts.tsv` **从来没生成过**。
+    我在那两个 commit 里自己写下的期望是「收据里有 1 开头的行 ⇒ 路二/路三判红」,
+    一个字都没兑现 —— 它们是从「**收据缺席**」那条分支红的。
+    ⇒ **路二/路三真正的机制,至今没有任何一趟真跑验过。**
+
+    根子在同一份文件里的**不对称**:第 10 相是 `while ($sw.Elapsed.TotalSeconds -lt 90)`
+    (**墙钟**),第 5 相却是 `for ($i = 0; $i -lt 60; $i++)` × 21 个端口
+    × `-TimeoutSec 2` + `sleep 3` —— 只有次数上限,**单轮成本是未知数**。
+    最坏 60×(21×2+3) = **45 分钟** > job 的 30 分钟上限。
+    (从那 29 分钟能反推硬下界:60 轮没跑完 ⇒ 每个死端口至少耗 1.2 秒。)
+
+    而「后端起不来」正是这支探针最该报出来的场景之一 —— 它在那个场景里**自己先卡死**。
+    干净趟撞不到:8766 第一个就应答,循环第一轮就 break(实测 run 33374468524 = 86s)。
+    """
+
+    def _code(self, src: str) -> str:
+        return "\n".join(ln for ln in src.splitlines() if not ln.lstrip().startswith("#"))
+
+    def _recheck_step(self) -> str:
+        yml = (ROOT / ".github" / "workflows" / "windows-package-probe.yml").read_text(
+            encoding="utf-8")
+        steps = re.split(r"\n      - ", yml)
+        mine = [b for b in steps if "verdicts.tsv" in b and "run:" in b]
+        self.assertTrue(mine, "workflow 里找不到复核裁决收据那一步")
+        return mine[0]
+
+    # ── 一、走得到落账那一步 ────────────────────────────────────────────
+    def test_s21_every_waiting_loop_is_bounded_by_a_wall_clock(self):
+        """凡是会等的循环,上限必须是**墙钟**,不许是「次数 × 未知的单轮成本」。
+
+        钉的正是第 5 相那一类:`for ($i = 0; $i -lt 60; $i++)` 看着有上限,
+        而它的真实最坏耗时取决于**每个死端口要多久才失败** —— 那个数不在代码里。
+        """
+        loops = _wait_loops(self._code(PROBE.read_text(encoding="utf-8")))
+        self.assertTrue(loops, "探针里一个会等的循环都没有?量具坏了")
+        for head, _ in loops:
+            self.assertIn(
+                "Elapsed", head,
+                f"这个循环会等,但上限不是墙钟:{head!r} ⇒ 最坏耗时 = 次数 × 单轮成本,"
+                "而单轮成本不在代码里(实测:两趟真跑各静默 29 分钟、撞 job 超时被砍,"
+                "verdicts.tsv 从来没生成过 ⇒ 闸走不到落账那一步)")
+
+    def test_s21_no_single_wait_can_eat_the_job(self):
+        """每一个墙钟上限都要 ≤ 180 秒 —— 挡「把上限写成 30 分钟」那一招。"""
+        code = self._code(PROBE.read_text(encoding="utf-8"))
+        bounds = [int(m) for m in re.findall(
+            r"Elapsed\.TotalSeconds\s*-lt\s*(\d+)", code)]
+        self.assertTrue(bounds, "探针里没有任何墙钟上限")
+        for b in bounds:
+            self.assertLessEqual(
+                b, 180,
+                f"有一个等待的墙钟上限是 {b}s ⇒ 单独一相就能把 job 的超时吃光,"
+                "闸照样走不到落账那一步")
+
+    def test_s21_the_probe_cannot_outlast_the_job_timeout(self):
+        """跨文件:所有等待上限之和 + 非等待的实测开销,必须装得进 job 的超时。
+
+        余量 600s 是**量出来的**:干净趟 run 33374468524 全程 399s,其中第 5 相 86s、
+        第 10 相 92s ⇒ 非等待部分 ≈ 221s(下载 / 装机 46s / 截图 / 上传构件)。
+        600s 是它的 2.7 倍。这条闸不判「快不快」,只判「**闸有没有机会落账**」。
+        """
+        code = self._code(PROBE.read_text(encoding="utf-8"))
+        waits = sum(int(m) for m in re.findall(
+            r"Elapsed\.TotalSeconds\s*-lt\s*(\d+)", code))
+        yml = (ROOT / ".github" / "workflows" / "windows-package-probe.yml").read_text(
+            encoding="utf-8")
+        m = re.search(r"timeout-minutes:\s*(\d+)", yml)
+        self.assertIsNotNone(m, "workflow 没给 job 设超时 ⇒ 卡死会烧满 6 小时")
+        budget = int(m.group(1)) * 60
+        self.assertLess(
+            waits + 600, budget,
+            f"探针光是等就要 {waits}s,加上实测的 221s 非等待开销装不进 job 的 "
+            f"{budget}s 超时 ⇒ 事故那一趟会被超时砍掉,而不是**判红**;"
+            "路二/路三就只能靠「收据缺席」红(实测两趟就是这么红的)")
+
+    # ── 二、闸的话要读得懂 ──────────────────────────────────────────────
+    def test_s21_the_receipt_recheck_step_prints_only_ascii(self):
+        """🔴 复核那一步自己说的话不许有非 ASCII —— 闸的输出不许赌终端编码。
+
+        实测:那一步在 runner 上打出来的是
+        `?? ?????? probe-out/verdicts.tsv ? ??????????,??????` —— 每个中文一个 `?`。
+        闸红了却说不清为什么红,和没红一样坏。本项目栽编码的第 N 次
+        (上一次是第 9 相打印中文即炸、rc=1 泄漏出来染红整趟)。
+        """
+        step = self._recheck_step()
+        bad = sorted({ch for ch in step if ord(ch) > 127})
+        self.assertFalse(
+            bad,
+            f"复核那一步里有非 ASCII 字符 {bad!r} ⇒ 它在 runner 上会打成一串 `?`,"
+            "闸说不清自己为什么红(中文说明放到 yml 的注释行里,注释不进输出)")
+
+    def test_s21_the_receipt_recheck_step_forces_utf8_output(self):
+        """而收据**内容**里的中文相名,得靠显式把输出编码设成 UTF-8 才读得出来。
+
+        ⚠️ 根因我在 Linux 上量不出来(同一个 job 里主探针的中文是好的,而它是个带 BOM
+        的 .ps1 文件;这一步是 Actions 现写的临时脚本)。所以两条各治一半:
+        上一条让**闸自己的话**根本不依赖编码,这一条让**收据里的中文**也能打出来。
+        下一趟真跑就能分辨:ASCII 那几句好了而收据仍是 `?` ⇒ 根因在读进来那头。
+        """
+        step = self._recheck_step()
+        self.assertRegex(
+            step, r"\[Console\]::OutputEncoding\s*=",
+            "复核那一步没有把控制台输出编码显式设成 UTF-8 ⇒ 它打出来的收据内容"
+            "(相名是中文)在 runner 上是一串 `?`,读不出到底哪一相判了 FAIL")
+        self.assertIn(
+            "UTF8", step,
+            "设了输出编码但不是 UTF-8 ⇒ 收据里的中文照样出不来")
 
 
 if __name__ == "__main__":

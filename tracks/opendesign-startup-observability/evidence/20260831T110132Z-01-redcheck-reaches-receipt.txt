@@ -1,0 +1,42 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-reaches-receipt
+cmd:     /root/.venvs/design-studio/bin/python -W ignore tests/test_startup_diag.py
+cwd:     .(仓根)
+commit:  4f7a48c
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-31T11:01:32Z
+---------------- 输出开始 ----------------
+........................................................F..FF..............
+======================================================================
+FAIL: test_s21_every_waiting_loop_is_bounded_by_a_wall_clock (__main__.S21TheProbeAlwaysReachesTheReceipt.test_s21_every_waiting_loop_is_bounded_by_a_wall_clock)
+凡是会等的循环,上限必须是**墙钟**,不许是「次数 × 未知的单轮成本」。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 1222, in test_s21_every_waiting_loop_is_bounded_by_a_wall_clock
+    self.assertIn(
+AssertionError: 'Elapsed' not found in 'for ($i = 0; $i -lt 60; $i++) {' : 这个循环会等,但上限不是墙钟:'for ($i = 0; $i -lt 60; $i++) {' ⇒ 最坏耗时 = 次数 × 单轮成本,而单轮成本不在代码里(实测:两趟真跑各静默 29 分钟、撞 job 超时被砍,verdicts.tsv 从来没生成过 ⇒ 闸走不到落账那一步)
+
+======================================================================
+FAIL: test_s21_the_receipt_recheck_step_forces_utf8_output (__main__.S21TheProbeAlwaysReachesTheReceipt.test_s21_the_receipt_recheck_step_forces_utf8_output)
+而收据**内容**里的中文相名,得靠显式把输出编码设成 UTF-8 才读得出来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 1286, in test_s21_the_receipt_recheck_step_forces_utf8_output
+    self.assertRegex(
+AssertionError: Regex didn't match: '\\[Console\\]::OutputEncoding\\s*=' not found in 'name: 裁决收据独立复核\n        if: always()\n        shell: pwsh\n        run: |\n          $f = \'probe-out/verdicts.tsv\'\n          if (-not (Test-Path $f)) {\n              "🔴 没有裁决收据 $f ⇒ 探针没跑到落账那一步,这一趟不算过"\n              exit 1\n          }\n          $lines = @(Get-Content $f)\n          "裁决收据 $($lines.Count) 行:"\n          $lines | ForEach-Object { "  $_" }\n          $bad = @($lines | Where-Object { $_ -like "1`t*" })\n          if ($bad.Count) {\n              "🔴 收据里有 $($bad.Count) 条 FAIL 裁决 ⇒ 这一趟不算过"\n              exit 1\n          }\n          "收据里没有 FAIL 裁决"\n' : 复核那一步没有把控制台输出编码显式设成 UTF-8 ⇒ 它打出来的收据内容(相名是中文)在 runner 上是一串 `?`,读不出到底哪一相判了 FAIL
+
+======================================================================
+FAIL: test_s21_the_receipt_recheck_step_prints_only_ascii (__main__.S21TheProbeAlwaysReachesTheReceipt.test_s21_the_receipt_recheck_step_prints_only_ascii)
+🔴 复核那一步自己说的话不许有非 ASCII —— 闸的输出不许赌终端编码。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 1272, in test_s21_the_receipt_recheck_step_prints_only_ascii
+    self.assertFalse(
+AssertionError: ['⇒', '一', '不', '决', '到', '复', '据', '探', '收', '有', '条', '核', '步', '没', '独', '立', '算', '落', '行', '裁', '账', '趟', '跑', '过', '这', '那', '里', '针', '🔴'] is not false : 复核那一步里有非 ASCII 字符 ['⇒', '一', '不', '决', '到', '复', '据', '探', '收', '有', '条', '核', '步', '没', '独', '立', '算', '落', '行', '裁', '账', '趟', '跑', '过', '这', '那', '里', '针', '🔴'] ⇒ 它在 runner 上会打成一串 `?`,闸说不清自己为什么红(中文说明放到 yml 的注释行里,注释不进输出)
+
+----------------------------------------------------------------------
+Ran 75 tests in 0.434s
+
+FAILED (failures=3)
+---------------- 输出结束 ----------------
+runlog: redcheck-reaches-receipt rc=1 commit=4f7a48c dirty=yes at=2026-08-31T11:01:32Z file=tracks/opendesign-startup-observability/evidence/20260831T110132Z-01-redcheck-reaches-receipt.txt
