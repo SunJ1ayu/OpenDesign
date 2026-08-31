@@ -847,5 +847,191 @@ class S19ProbeVerdictIsABehaviour(unittest.TestCase):
         self.assertIn("FAIL", v.text)
 
 
+    # ── 2026-08-31:过滤/匹配从 .ps1 搬进来之后,它们也变成行为 ──────────
+    #    这几条都走 `_KINDS` 那个**分发口**(探针用的就是它),所以连"事实叫什么名字"
+    #    一起钉住了 —— 只测函数本身的话,改掉事实的键名照样全绿。
+    def _judge(self, kind, facts):
+        return self.pv._KINDS[kind](facts)
+
+    def test_s19_a_window_that_is_not_ours_does_not_count(self):
+        """屏幕上有别人的窗口(CI 机器上永远有个终端)不等于我们的软件开起来了。"""
+        v = self._judge("window", {"wins": [{"title": "Windows PowerShell", "cls": "CASCADIA"}],
+                                   "procs": []})
+        self.assertFalse(v.ok, f"别人的窗口被算成了我们的:{v.text}")
+
+    def test_s19_our_window_among_strangers_is_ok(self):
+        v = self._judge("window", {"wins": [{"title": "Windows PowerShell", "cls": "CASCADIA"},
+                                            {"title": "OpenDesign", "cls": "WindowsForms10.Window.8"}],
+                                   "procs": []})
+        self.assertTrue(v.ok, v.text)
+        self.assertIn("OpenDesign", v.text)
+
+    def test_s19_the_error_box_is_found_even_among_strangers(self):
+        """🔴 这一条是这支探针存在的理由:只有报错框 = 软件根本打不开。
+
+        旁边有别人的窗口时也必须认出来 —— 挑窗口的活儿搬进来之后,
+        "别人的窗口"不能再把这一支盖掉。
+        """
+        v = self._judge("window", {"wins": [{"title": "Windows PowerShell", "cls": "CASCADIA"},
+                                            {"title": "OpenDesign", "cls": "#32770"}],
+                                   "procs": []})
+        self.assertFalse(v.ok, f"旁边有别人的窗口就把'只有报错框'盖掉了:{v.text}")
+        self.assertIn("#32770", v.text)
+
+    def test_s19_the_fallback_only_counts_our_own_processes(self):
+        v = self._judge("window", {"wins": [], "procs": ["notepad:「Untitled - Notepad」"]})
+        self.assertFalse(v.ok, f"老口径把别人的进程算成了我们的:{v.text}")
+
+    def test_s19_the_fallback_still_works_for_our_process(self):
+        v = self._judge("window", {"wins": [], "procs": ["OpenDesign:「OpenDesign」"]})
+        self.assertTrue(v.ok, f"老口径的兜底失效了(会造健康假红):{v.text}")
+
+    def test_s19_the_app_title_is_the_one_ds_shell_actually_uses(self):
+        """跨文件:判定器认的应用名必须等于 `ds_shell.APP`(窗口标题的唯一来源)。
+
+        改成别的就等于"我们的窗口"永远找不到 —— 而那正好是 fail-open 那一支
+        最容易被读成"枚举不到"的样子。
+        """
+        app = None
+        for ln in (ROOT / "bin" / "ds_shell.py").read_text(encoding="utf-8").splitlines():
+            if ln.startswith("APP "):
+                app = ln.split("=", 1)[1].strip().strip('"\'')
+                break
+        self.assertTrue(app, "ds_shell.py 里找不到 APP")
+        self.assertEqual(getattr(self.pv, "APP_TITLE", None), app,
+                         "判定器认的应用名和 ds_shell.APP 对不上")
+
+    def test_s19_the_span_that_was_tried_is_named_even_when_nothing_answered(self):
+        """端口段是**试过哪些**,不是"answers 的键有哪些" —— 后者会被预填造出来。"""
+        v = self._judge("health", {"answers": {}, "tried": list(range(8766, 8787))})
+        self.assertFalse(v.ok)
+        self.assertIn("8766..8786", v.text,
+                      f"没答上来时说不出试过哪一段 ⇒ 现场读不出发生了什么:{v.text}")
+
+    def test_s19_a_port_that_answered_without_a_version_is_not_alive(self):
+        """空版本号不算活(`if v` 被放宽成 `is not None` 时这一条要红)。"""
+        v = self._judge("health", {"answers": {"8766": ""}, "tried": list(range(8766, 8787))})
+        self.assertFalse(v.ok, f"空版本号被算成了活着:{v.text}")
+        self.assertIn("8766..8786", v.text)
+
+
+class S20ThePowerShellStopsJudgingAndTheGateHasTwoPaths(unittest.TestCase):
+    """s20 **把还留在 PowerShell 里的判断删掉**,并给退出闸第二条路。
+
+    🔴 为什么有这个类(2026-08-31,第六轮 panel):
+    第 2f 轮我问"还有没有第五种",subdeepseek **自己变异、逐条跑套件**,报回 8 种
+    「50 条判据全绿而行为已坏」。我逐条复现,**8 条全部成立**:
+
+        $phases = @{}(闸前重播一个空的)      ⇒ 任何事故 exit 0 —— 整道闸报废
+        Get-Verdict 最终 return 洗掉 "FAIL"   ⇒ 同上,裁决被洗白
+        $appTitle 二次赋值成 ''               ⇒ 屏幕上任何窗口都算我们的
+        窗口类写死 + 留个诱饵 [W32]::Cls($h)  ⇒ 报错框被当成真窗口
+        $answers 初值 $null → "0"(第 5/10 相)⇒ 端口段全"活着",后端死了也绿
+        health 里 if v → if v is not None     ⇒ 同上,判定器侧
+        老口径 $ours 写死                     ⇒ fail-open 那一支恒真
+
+    **形状和前五轮一模一样**,所以这次不再补第 9、第 10 条字面钉。第一性原理:
+    这些改法之所以钉不住,是因为**"过滤 / 匹配 / 初始化"这三类判断还留在 .ps1 里**,
+    而 .ps1 本机跑不了(没有 pwsh)⇒ 只能用"这句话在不在"去猜语义。
+
+    ⇒ 这一刀做两件事:
+      1. **把那三类判断从 PowerShell 里删掉**,搬进判定器(那里跑得动,s19 直接喂事实)。
+         不是再钉一遍 —— 是让可被变异的那段代码**不存在**。
+      2. 退出闸从"读一个进程内的字典"改成**双路**:每一相的裁决**退出码**落进
+         `probe-out/verdicts.tsv`,workflow 里**另一个文件、另一步**独立复核它。
+         于是"闸前重播空字典"或"洗掉 FAIL 字样"任何**单点**改动都不再能整趟绿。
+
+    ⚠️ 边界(不许把这条读成"已经严密"):双路把门槛从改一处抬到改两处(且跨文件),
+       **不是证明**。真正的终局是让 .ps1 变成可执行的(装 pwsh + 把 Win32 采集
+       做成可注入的接缝),那是下一刀,理由和代价写在 verify.md。
+    """
+
+    def _code(self, sec: str) -> str:
+        return "\n".join(ln for ln in sec.splitlines() if not ln.lstrip().startswith("#"))
+
+    # ── 一、PowerShell 不许自己过滤/匹配/初始化 ──────────────────────────
+    def test_s20_the_window_phase_hands_over_every_window_it_saw(self):
+        """第 6 相不许在 PowerShell 里按标题挑窗口 —— 挑给判定器做。
+
+        钉的是 `$appTitle = ''` 那一类:只要过滤器的**输入**留在 .ps1 里,
+        它就能被二次赋值改掉,而任何静态钉都只看得见第一次赋值。
+        """
+        sec = self._code(_probe_phase(PROBE.read_text(encoding="utf-8"), "6"))
+        self.assertNotIn("$appTitle", sec,
+                         "第 6 相还在 PowerShell 里存应用名 ⇒ 它可以被二次赋值成 '' "
+                         "(实测:50 条判据全绿,而屏幕上任何窗口都算我们的)")
+        self.assertNotIn("-like", sec,
+                         "第 6 相还在 PowerShell 里按标题过滤 ⇒ 匹配方向/输入都够不着,"
+                         "把全量窗口交给判定器,过滤在那边(s19 喂事实就能验)")
+
+    def test_s20_the_health_phase_does_not_prefill_the_answers(self):
+        """第 5/10 相不许预填 `$answers`,并且要把**试过哪些端口**当事实交出去。
+
+        钉的是 `$answers["$p"] = $null` → `= "0"` 那一类:预填的那个值一改,
+        整段端口就全"活着"。没有预填循环,这个可改的值就不存在。
+        """
+        src = PROBE.read_text(encoding="utf-8")
+        for n in ("5", "10"):
+            sec = self._code(_probe_phase(src, n))
+            self.assertNotRegex(
+                sec, r'\$answers2?\["\$p"\]\s*=\s*\$null',
+                f"第 {n} 相还在预填 answers ⇒ 把 $null 改成任何真值,"
+                "端口段就全'活着'(实测全绿)")
+            self.assertIn("tried", sec,
+                          f"第 {n} 相没把'试过哪些端口'交给判定器 ⇒ 判定器只能从 "
+                          "answers 的键反推端口段,而那正是被预填出来的东西")
+
+    def test_s20_the_fallback_titles_are_a_raw_dump(self):
+        """老口径也一样:PowerShell 只 dump 进程主窗口标题,谁算"我们的"由判定器说。"""
+        sec = self._code(_probe_phase(PROBE.read_text(encoding="utf-8"), "6"))
+        self.assertIn("Get-Process", sec, "老口径的标题不是从 Get-Process 采来的")
+        self.assertIn("procs = ", sec,
+                      "老口径的事实名还是 ours(= 已经过滤过的)⇒ 过滤没搬走")
+
+    def test_s20_the_window_class_is_sampled_exactly_once(self):
+        """窗口类只许采一次 —— 挡"写死一个真类名 + 留个诱饵调用"那一招。
+
+        这条**出生就是绿的**,靠变异(M56)证明它咬得动,不靠它现在红。
+        """
+        code = self._code(PROBE.read_text(encoding="utf-8"))
+        self.assertEqual(code.count("[W32]::Cls("), 1,
+                         "窗口类的采集出现了不止一次 ⇒ 其中一次可能是诱饵,"
+                         "而真正写进事实的那个是写死的常量(实测:报错框被判成真窗口)")
+        cls_line = [ln for ln in code.splitlines() if "[W32]::Cls(" in ln]
+        self.assertIn("Class =", cls_line[0],
+                      "唯一那次 Cls 调用没有直接喂给事实里的 Class ⇒ 中间可以被换掉")
+
+    # ── 二、退出闸的第二条路 ────────────────────────────────────────────
+    def test_s20_every_verdict_leaves_a_machine_receipt(self):
+        """每一相的裁决**退出码**要落盘,而不是只把一句话塞进进程内的字典。"""
+        code = self._code(PROBE.read_text(encoding="utf-8"))
+        self.assertIn("verdicts.tsv", code,
+                      "裁决没有落盘收据 ⇒ 闸只有'读字典里的文本'一条路,"
+                      "闸前重播一个空字典、或把 FAIL 字样洗掉,任何一处都能整趟绿")
+        self.assertRegex(code, r"lastRc",
+                         "收据记的不是判定器的退出码 ⇒ 又是从文本里找 FAIL,"
+                         "和第一条路同生共死")
+
+    def test_s20_the_gate_reads_the_receipt_too(self):
+        """末尾那道闸必须**同时**看收据,不能只看 `$phases`。"""
+        src = PROBE.read_text(encoding="utf-8")
+        gate = self._code(src[src.index("$failed = @($phases"):])
+        self.assertIn("verdicts.tsv", gate,
+                      "闸只读 $phases ⇒ 在它前面重播一个空字典就整趟绿(实测成立)")
+
+    def test_s20_the_workflow_independently_fails_the_job_from_the_receipt(self):
+        """🔴 第二条路必须在**另一个文件**里 —— 同一个 .ps1 里的两道闸一起改就是了。"""
+        yml = (ROOT / ".github" / "workflows" / "windows-package-probe.yml").read_text(
+            encoding="utf-8")
+        self.assertIn("verdicts.tsv", yml,
+                      "workflow 没有独立复核裁决收据 ⇒ 整道闸仍然住在一个文件里,"
+                      "改一处(闸前重播空字典 / 洗掉 FAIL 字样)就能让任何事故绿")
+        self.assertIn("if: always()", yml,
+                      "复核那一步没有 if: always() ⇒ 探针 exit 1 时它根本不跑,"
+                      "而探针 exit 0 正是被绕过时的样子")
+
+
+
+
 if __name__ == "__main__":
     unittest.main()
