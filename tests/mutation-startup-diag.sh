@@ -399,9 +399,9 @@ mutate_and_expect M57 .github/scripts/windows-package-probe.ps1 test_s18_the_sam
 
 # M58 窗口类写死 + 留个诱饵调用(第六轮实测的原物)
 mutate_and_expect M58 .github/scripts/windows-package-probe.ps1 test_s20_the_window_class_is_sampled_exactly_once \
-  '                $script:appwins += [PSCustomObject]@{ Title = $t; Class = [W32]::Cls($h) }' \
-  '                $null = [W32]::Cls($h)
-                $script:appwins += [PSCustomObject]@{ Title = $t; Class = '"'"'WindowsForms10.Window.8'"'"' }'
+  '                    Title = $t; Class = [W32]::Cls($h); Pid = [W32]::Pid($h) }' \
+  '                    Title = $t; Class = '"'"'WindowsForms10.Window.8'"'"'; Pid = [W32]::Pid($h) }
+                $null = [W32]::Cls($h)'
 
 # M59 判定器认的应用名被清空 ⇒ 任何窗口都算我们的(第六轮实测的原物,换了地方)
 mutate_and_expect M59 bin/probe_verdict.py test_s19_the_app_title_is_the_one_ds_shell_actually_uses \
@@ -474,6 +474,17 @@ mutate_and_expect M70 .github/scripts/windows-package-probe.ps1 test_s20_both_fi
 mutate_and_expect M71 .github/scripts/windows-package-probe.ps1 test_s20_the_ports_we_tried_are_the_span_we_scanned \
   '$tried   = @($PortSpan)' \
   '$tried   = @(8766)'
+
+# M72 窗口的属主进程不再采 ⇒ 别人家的同名窗口在读数里看不出来
+mutate_and_expect M72 .github/scripts/windows-package-probe.ps1 test_s20_the_window_facts_say_who_owns_each_window \
+  '            proc = (Get-Process -Id $_.Pid -ErrorAction SilentlyContinue).ProcessName } })' \
+  '            } })'
+
+# M73 读数里不再说属主 ⇒ 看到 OK 的人不知道那个窗口是谁的
+mutate_and_expect M73 bin/probe_verdict.py test_s19_the_verdict_names_who_owns_the_window \
+  '    owner = w.get("proc") or "属主未知"
+    return f"「{w.get('"'"'title'"'"')}」[{w.get('"'"'cls'"'"')}]·{owner}"' \
+  '    return f"「{w.get('"'"'title'"'"')}」[{w.get('"'"'cls'"'"')}]"'
 
 echo
 echo "== 红检结果:咬住 $pass 条,漏网 $fail 条 =="

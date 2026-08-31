@@ -81,11 +81,24 @@ def logs_verdict(present: dict) -> Verdict:
     return Verdict(True, detail)
 
 
+def _shown(w: dict) -> str:
+    """一个窗口在读数里长什么样:「标题」[窗口类]·属主进程。"""
+    owner = w.get("proc") or "属主未知"
+    return f"「{w.get('title')}」[{w.get('cls')}]·{owner}"
+
+
 def window_verdict(wins: list, procs: list) -> Verdict:
     """第 6 相。
 
-    `wins`  = EnumWindows 看见的**所有**可见顶层窗口 [{"title":…, "cls":…}] —— 不是
-              已经挑过的;挑哪些算我们的由这里做(见 APP_TITLE 那段注释)。
+    `wins`  = EnumWindows 看见的**所有**可见顶层窗口
+              [{"title":…, "cls":…, "proc": 属主进程名}] —— 不是已经挑过的;
+              挑哪些算我们的由这里做(见 APP_TITLE 那段注释)。
+
+    🔴 **敞着的一条**(2026-08-31 自审量出来的,存量):现在只按**标题**挑。
+    业主机器上资源管理器开着 `OpenDesign` 这个文件夹 ⇒ 标题 OpenDesign、
+    类 CabinetWClass 的窗口 ⇒ 被算成"真窗口" ⇒ **应用只弹了报错框也报 OK**。
+    `proc` 这个事实这一刀只**写进读数**(看到 OK 的人一眼能看出窗口是 explorer 的),
+    还没拿它当闸 —— 我们那个窗口的属主进程真名要等真跑打印出来。见 verify.md。
     `procs` = 老口径的原始 dump:所有有主窗口标题的进程 `名字:「标题」`,同样没挑过。
               只在 `wins` 里一个我们的窗口都没有时兜底。
     """
@@ -94,12 +107,12 @@ def window_verdict(wins: list, procs: list) -> Verdict:
     boxes = [w for w in mine if w.get("cls") == DIALOG_CLASS]
     real = [w for w in mine if w.get("cls") != DIALOG_CLASS]
     if real:
-        shown = " | ".join(f"「{w.get('title')}」[{w.get('cls')}]" for w in real)
+        shown = " | ".join(_shown(w) for w in real)
         return Verdict(True, f"OK - {shown}(另有 {len(boxes)} 个报错框)")
     if boxes:
         # 只有框、没有真窗口 = 软件根本打不开(WebView2 缺失那类)。
         # 注意这一支要**先于**老口径判:框本身就是进程主窗口,老口径看得见它。
-        shown = " | ".join(f"「{w.get('title')}」" for w in boxes)
+        shown = " | ".join(_shown(w) for w in boxes)
         return Verdict(False, f"FAIL - 屏幕上只有报错框(窗口类 {DIALOG_CLASS}):{shown} ⇒ 软件根本打不开")
     if ours:
         # 故意的 fail-open:一个都枚举不到时退回老口径,别造假红。

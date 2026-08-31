@@ -135,6 +135,8 @@ public class W32 {
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassNameW(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll")] public static extern int GetWindowThreadProcessId(IntPtr h, out int pid);
+  public static int Pid(IntPtr h) { int p; GetWindowThreadProcessId(h, out p); return p; }
   public static string Text(IntPtr h) {
     var sb = new StringBuilder(2048); GetWindowTextW(h, sb, 2048); return sb.ToString();
   }
@@ -180,7 +182,8 @@ function Get-AllWindows {
         if ([W32]::IsWindowVisible($h)) {
             $t = [W32]::Text($h)
             if ($t) {
-                $script:appwins += [PSCustomObject]@{ Title = $t; Class = [W32]::Cls($h) }
+                $script:appwins += [PSCustomObject]@{
+                    Title = $t; Class = [W32]::Cls($h); Pid = [W32]::Pid($h) }
             }
         }
         return $true }
@@ -308,7 +311,14 @@ do {
                ForEach-Object { "$($_.ProcessName):「$($_.MainWindowTitle)」" })
     $wins  = @(Get-AllWindows)                                     # 看见什么报什么
     $v6 = Get-Verdict 'window' @{
-        wins  = @($wins | ForEach-Object { @{ title = $_.Title; cls = $_.Class } })
+        wins  = @($wins | ForEach-Object { @{
+            title = $_.Title; cls = $_.Class
+            # 🔴 **这个窗口属于谁**。只按标题认窗口认不出"别人家的同名窗口":业主机器上
+            #    资源管理器开着 OpenDesign 这个文件夹,就是一个标题 OpenDesign、
+            #    类 CabinetWClass 的窗口 ⇒ 应用只弹了报错框也会被判成 OK。
+            #    这一刀先**采上来写进读数**,暂不据它判 —— 我们那个窗口的属主进程
+            #    真名叫什么,等这一趟真跑打印出来再说(凭猜写规则是本项目的老坑)。
+            proc = (Get-Process -Id $_.Pid -ErrorAction SilentlyContinue).ProcessName } })
         procs = $procs
     }
 } while ($script:lastRc -ne 0 -and (Get-Date) -lt $deadline)
