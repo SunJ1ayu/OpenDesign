@@ -458,6 +458,23 @@ mutate_and_expect M68 .github/scripts/windows-package-probe.ps1 test_s20_every_v
   '    ("{0}`t{1}`t{2}" -f $script:lastRc, $k, ($v -replace "`t", '"'"' '"'"')) |' \
   '    ("{0}`t{1}`t{2}" -f 0, $k, ($v -replace "`t", '"'"' '"'"')) |'
 
+# ── 自审(panel 之前我自己找的三条,当时都是 65 条全绿放过)────────────
+# M69 Say-Verdict 被换成 Say 的别名(真的那个改名留在后面当诱饵)
+mutate_and_expect M69 .github/scripts/windows-package-probe.ps1 test_s20_every_verdict_leaves_a_machine_receipt \
+  'function Say-Verdict([string]$k, [string]$v) {' \
+  'function Say-Verdict([string]$k, [string]$v) { Say $k $v ; return }
+function Say-VerdictOld([string]$k, [string]$v) {'
+
+# M70 收据文件名只在 .ps1 这一侧改 ⇒ workflow 那步找不到文件 ⇒ 每趟假红
+mutate_and_expect M70 .github/scripts/windows-package-probe.ps1 test_s20_both_files_mean_the_same_receipt \
+  "\$VerdictLog     = Join-Path \$OutDir 'verdicts.tsv'" \
+  "\$VerdictLog     = Join-Path \$OutDir 'verdicts-old.tsv'"
+
+# M71 tried 写死成单端口 ⇒ 读数里"我问过哪一段"是假话
+mutate_and_expect M71 .github/scripts/windows-package-probe.ps1 test_s20_the_ports_we_tried_are_the_span_we_scanned \
+  '$tried   = @($PortSpan)' \
+  '$tried   = @(8766)'
+
 echo
 echo "== 红检结果:咬住 $pass 条,漏网 $fail 条 =="
 [ "$fail" -eq 0 ] || exit 1

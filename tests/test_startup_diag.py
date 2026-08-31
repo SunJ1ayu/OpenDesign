@@ -1034,11 +1034,51 @@ class S20ThePowerShellStopsJudgingAndTheGateHasTwoPaths(unittest.TestCase):
                         if not ln.lstrip().startswith("#"))
         self.assertIn("$script:lastRc = $rc", gv,
                       "Get-Verdict 没把判定器的退出码记下来 ⇒ 它恒为初值 1 ⇒ 每趟假红")
+        # 🔴 切函数体之前先钉**只有一个** Say-Verdict(自审时量出来的:
+        #    在它前面插一个 `function Say-Verdict { Say $k $v }` 的别名、把真的那个改名,
+        #    `index("function Say-Verdict")` 找到的是新的、而 `index("\n}")` 找到的是
+        #    **旧函数的结尾** ⇒ 断言在旧函数体里找到了要的东西 ⇒ 65 条全绿放过。)
+        self.assertEqual(code.count("function Say-Verdict"), 1,
+                         "Say-Verdict 不止一个 ⇒ 真正被调用的那个可能是掏空的别名")
         sv = src[src.index("function Say-Verdict"):]
         sv = "\n".join(ln for ln in sv[:sv.index("\n}")].splitlines()
                         if not ln.lstrip().startswith("#"))
+        self.assertIn("Add-Content -Path $VerdictLog", sv,
+                      "Say-Verdict 没有把这一相写进收据 ⇒ 路二对每一相都是瞎的")
         self.assertIn("-f $script:lastRc,", sv,
                       "收据里写的不是判定器的退出码(写死一个常量就行)⇒ 路二永远看不到 FAIL")
+
+    def test_s20_both_files_mean_the_same_receipt(self):
+        """🔴 收据的文件名在**两个文件**里各写了一份,没有任何东西让它们对齐。
+
+        自审时量出来的:把 `.ps1` 里的名字改掉,65 条判据全绿。运行时的后果是
+        workflow 那步找不到文件 ⇒ **每趟假红** ⇒ 下一个人最省事的"修法"就是
+        把那一步删掉,路三就这么没了。跨文件钉住,和 APP_TITLE 那条一个道理。
+        """
+        src = PROBE.read_text(encoding="utf-8")
+        decl = [ln for ln in src.splitlines() if ln.lstrip().startswith("$VerdictLog")]
+        self.assertTrue(decl, "探针里没有收据文件名的定义")
+        name = decl[0].split("'")[1]
+        yml = (ROOT / ".github" / "workflows" / "windows-package-probe.yml").read_text(
+            encoding="utf-8")
+        self.assertIn(f"probe-out/{name}", yml,
+                      f"探针写的是 {name},而 workflow 复核的不是同一份 ⇒ "
+                      "路三每趟假红,而假红最后总是被删掉")
+
+    def test_s20_the_ports_we_tried_are_the_span_we_scanned(self):
+        """`tried` 是判定器说"我问过谁"的唯一依据 —— 它自己得来自真扫的那一段。
+
+        自审时量出来的:写死成 `@(8766)`,65 条全绿,而读数会说"端口段 8766..8766
+        全都不应答",把"我们扫了 21 个端口"变成一句假话。**刚把它搬出来当证据,
+        就得钉住它自己。**
+        """
+        src = PROBE.read_text(encoding="utf-8")
+        tried = [ln for ln in src.splitlines()
+                 if not ln.lstrip().startswith("#") and ln.lstrip().startswith("$tried")]
+        self.assertEqual(len(tried), 2, f"第 5/10 相的 tried 不是两处:{tried!r}")
+        for ln in tried:
+            self.assertIn("$PortSpan", ln,
+                          f"tried 不是真扫的那一段:{ln.strip()!r} ⇒ 读数说的端口段是假的")
 
     def test_s20_the_gate_reads_the_receipt_too(self):
         """末尾那道闸必须**同时**看收据,不能只看 `$phases`。"""
