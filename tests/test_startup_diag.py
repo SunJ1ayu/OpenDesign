@@ -1224,7 +1224,16 @@ class S21TheProbeAlwaysReachesTheReceipt(unittest.TestCase):
 
     # ── 一、走得到落账那一步 ────────────────────────────────────────────
     def test_s21_every_waiting_loop_is_bounded_by_a_wall_clock(self):
-        """凡是会等的循环,上限必须是**墙钟**,不许是「次数 × 未知的单轮成本」。
+        """**`for`/`while` 形式的**等待循环,上限必须是墙钟,不许是「次数 × 未知单轮成本」。
+
+        🔴 标题原来写的是"凡是会等的循环",**那是过度声明**(2026-08-31 第七轮 panel
+        两条腿各自实测证伪)。`_wait_loops` 认的是行首 `for`/`while`,所以它看不见:
+        · 第 7 相 `foreach ($wait in 0, 20, 30, 30, 60)`(体内 140s 睡眠);
+        · 第 6 相 `} while (... -lt $deadline)`(do-while,行首是 `}`);
+        · 第 5/10 相内圈 `foreach ($p in $PortSpan)`(每端口 `-TimeoutSec 2`)。
+        实测:把第 5 相外圈换成 `foreach ($i in 0..149)` ⇒ **75 条全绿**。
+        ⇒ 这一条只当"别把 for/while 写成计数圈"的护栏读。真正咬住第 5/10 相那两个
+        轮询的是 s22 的专条(点名钉那两个循环),不是这一条的全称量词。
 
         钉的正是第 5 相那一类:`for ($i = 0; $i -lt 60; $i++)` 看着有上限,
         而它的真实最坏耗时取决于**每个死端口要多久才失败** —— 那个数不在代码里。
@@ -1256,6 +1265,14 @@ class S21TheProbeAlwaysReachesTheReceipt(unittest.TestCase):
         余量 600s 是**量出来的**:干净趟 run 33374468524 全程 399s,其中第 5 相 86s、
         第 10 相 92s ⇒ 非等待部分 ≈ 221s(下载 / 装机 46s / 截图 / 上传构件)。
         600s 是它的 2.7 倍。这条闸不判「快不快」,只判「**闸有没有机会落账**」。
+
+        🔴 **"所有等待上限之和"这句话也是过度声明**(同上,两条腿各自算过):
+        这个正则只数得到 `Elapsed.TotalSeconds -lt N` 两处 = **240s**,而真实等待预算
+        ≈ **620s**(第 2 相 `TotalMinutes -lt 3` 180s + 第 5 相 150s + 第 6 相
+        `AddSeconds(60)` 60s + 第 7 相 foreach 睡眠 140s + 第 10 相 90s)。
+        真实账 620 + 221 = 841s < 1800s ⇒ **今天的结论仍然成立**,但它成立是因为
+        600 这个余量恰好盖住了漏数的那 380s ——**是巧合,不是设计**。
+        往第 7 相的睡眠表里加 200s,这条判据不会动。**当"别让探针超时"的粗护栏读。**
         """
         code = self._code(PROBE.read_text(encoding="utf-8"))
         waits = sum(int(m) for m in re.findall(
@@ -1303,6 +1320,104 @@ class S21TheProbeAlwaysReachesTheReceipt(unittest.TestCase):
         self.assertIn(
             "UTF8", run,
             "设了输出编码但不是 UTF-8 ⇒ 收据里的中文照样出不来")
+
+
+class S22StopTheBleedingOnWhatRoundSevenMeasured(unittest.TestCase):
+    """s22 第七轮 panel 两条腿**各自实测**出来的单点绕法,逐个止血。
+
+    ⚠️ **这些是字符串钉,是抬门槛不是证明。** 写在最前面,免得下一个人(或我自己)
+    把 s22 全绿读成"这道闸严密了" —— 前六轮每一轮都是这么想的,每一轮都被从旁边绕过去。
+    真正的解法是让 `.ps1` 本机跑得动、把这些断言换成行为断言(见 verify.md「下一刀」)。
+
+    两条腿(deepseek / zhipu 家族)独立跑出来、我又各自复现了一遍(都是 75 条全绿):
+
+    | 改法 | 后果 |
+    |---|---|
+    | `Say-Verdict` 体内先 `$script:lastRc = 0`,再 `Say $k ($v -replace "FAIL","")` | 收据 rc 列恒 0 且 phases 无 FAIL ⇒ **三条路一起死** |
+    | 闸条件 `if ($failed.Count -or $hard.Count)` → `if ($false)` | 路一路二一起死 |
+    | workflow 复核里 `-like "1`t*"` → `-notlike` | 路三变橡皮图章 |
+    | 第 5 相外圈 `while (...Elapsed...)` → `foreach ($i in 0..149)` | s21 的 for/while 正则看不见 |
+    | 删掉内圈 `-ge 150 { break }` | 上限从 150s 变 150+42s |
+
+    🔴 **还有一个止不住的**:三条路只覆盖 `Say-Verdict` 的四个相(5/6/8/10)。
+    用 `Say` 的七个相(1/2/3/3.5/4/7/9)的 FAIL **从不进 verdicts.tsv**,
+    对它们闸永远只有路一 —— 那正是"0.89 装完就崩"那类场景。**记账,进下一刀。**
+    """
+
+    def _code(self, src: str) -> str:
+        return "\n".join(ln for ln in src.splitlines() if not ln.lstrip().startswith("#"))
+
+    def _say_verdict_body(self) -> str:
+        code = self._code(PROBE.read_text(encoding="utf-8"))
+        m = re.search(r"function Say-Verdict\([^)]*\)\s*\{(.*?)\n\}", code, re.S)
+        self.assertIsNotNone(m, "探针里找不到 Say-Verdict")
+        return m.group(1)
+
+    def test_s22_the_gate_condition_reads_both_paths(self):
+        """闸的**条件本身**要同时看路一和路二 —— `if ($false)` 那一招。"""
+        code = self._code(PROBE.read_text(encoding="utf-8"))
+        gate = [ln for ln in code.splitlines()
+                if ln.startswith("if (") and "exit" not in ln and "Count" in ln]
+        self.assertTrue(gate, "闸的条件行不见了 ⇒ 任何事故都不会 exit 1")
+        self.assertIn("$failed.Count", gate[0],
+                      f"闸条件不看路一:{gate[0].strip()!r}(实测 `if ($false)` 75 条全绿)")
+        self.assertIn("$hard.Count", gate[0],
+                      f"闸条件不看路二:{gate[0].strip()!r}(实测 `if ($false)` 75 条全绿)")
+
+    def test_s22_say_verdict_repeats_the_verdict_verbatim(self):
+        """`Say-Verdict` 不许动裁决、也不许动 rc —— 收据和 phases 都从它流过。
+
+        这一条是第七轮**最狠的那个发现**:它是三条路唯一的共同上游。
+        """
+        body = self._say_verdict_body()
+        self.assertNotRegex(
+            body, r"\$script:lastRc\s*=",
+            "Say-Verdict 体内给 $script:lastRc 赋了值 ⇒ 它能把 Get-Verdict 拿到的真 rc "
+            "覆盖掉,收据整列恒 0(实测:三条路一起死,75 条全绿)")
+        says = [ln for ln in body.splitlines() if re.match(r"\s*Say\s", ln)]
+        self.assertTrue(says, "Say-Verdict 不再把裁决说出来 ⇒ 路一直接空了")
+        self.assertRegex(
+            says[-1].strip(), r"^Say\s+\$k\s+\$v\s*$",
+            f"Say-Verdict 没有原样转述裁决:{says[-1].strip()!r} ⇒ 裁决可以在这里被洗白"
+            "(实测 `Say $k ($v -replace \"FAIL\",\"\")` 75 条全绿)")
+
+    def test_s22_the_recheck_step_picks_fails_by_exit_code(self):
+        """路三不许只是"读了收据" —— 它得**按退出码挑出 FAIL 并 exit 1**。"""
+        yml = (ROOT / ".github" / "workflows" / "windows-package-probe.yml").read_text(
+            encoding="utf-8")
+        steps = re.split(r"\n      - ", yml)
+        mine = [b for b in steps if "verdicts.tsv" in b and "run:" in b]
+        self.assertTrue(mine, "workflow 里找不到复核那一步")
+        run = re.search(r"run:\s*\|\s*\n(.*)", mine[0], re.S).group(1)
+        picks = [ln for ln in run.splitlines() if "$bad" in ln and "Where-Object" in ln]
+        self.assertTrue(picks, "复核那一步没有从收据里挑 FAIL")
+        self.assertIn('-like "1`t*"', picks[0],
+                      f"复核挑 FAIL 的方式不是按退出码:{picks[0].strip()!r}"
+                      "(实测把 -like 翻成 -notlike ⇒ 路三变橡皮图章,75 条全绿)")
+        tail = run[run.index(picks[0]):]
+        self.assertRegex(tail, r"if\s*\(\s*\$bad\.Count\s*\)[\s\S]{0,300}?exit 1",
+                         "挑出来了却不 exit 1 ⇒ 路三读完收据什么也不做")
+
+    def test_s22_both_polling_loops_are_wall_clock_by_name(self):
+        """点名钉第 5/10 相那两个轮询:外圈墙钟 + 内圈也看表。
+
+        s21 那条全称的("凡是会等的循环")够不着 `foreach` 计数圈;这一条点名钉,
+        所以换成 `foreach ($i in 0..149)` 或删掉内圈 break 都会红。
+        """
+        src = PROBE.read_text(encoding="utf-8")
+        for n, bound in (("5", 150), ("10", 90)):
+            sec = self._code(_probe_phase(src, n))
+            heads = [ln for ln in sec.splitlines()
+                     if re.match(r"\s*(for|while|foreach)\s*\(", ln) and "PortSpan" not in ln]
+            self.assertTrue(heads, f"第 {n} 相找不到轮询的外圈")
+            self.assertRegex(
+                heads[0], r"while\s*\(\s*\$sw\d*\.Elapsed\.TotalSeconds\s*-lt\s*%d\s*\)" % bound,
+                f"第 {n} 相的轮询外圈不是 {bound}s 的墙钟:{heads[0].strip()!r} ⇒ "
+                "最坏耗时又变成「次数 × 未知单轮成本」(实测 foreach 计数圈 75 条全绿)")
+            self.assertRegex(
+                sec, r"Elapsed\.TotalSeconds\s*-ge\s*%d\s*\)\s*\{\s*break" % bound,
+                f"第 {n} 相内圈扫端口时不看表 ⇒ 写着的上限 {bound}s 是假的"
+                "(一圈 21 个死端口最坏还要再跑 42s)")
 
 
 if __name__ == "__main__":

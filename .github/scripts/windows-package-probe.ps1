@@ -41,7 +41,17 @@ function Say([string]$k, [string]$v) { $phases[$k] = $v; "PHASE $k : $v" }
 #    两种改完 50 条判据全绿。**一条路的闸,改一处就没了。**
 #    ⇒ 每一相的裁决**退出码**(不是那句话)另外落进 verdicts.tsv,
 #      由 workflow 里**另一个文件、另一步**独立复核(见 windows-package-probe.yml)。
-#    绕过它现在要同时改两个文件、两种语言。⚠️ 这是抬门槛,不是证明 —— 见 verify.md。
+# 🔴 **上面那句"绕过它要同时改两个文件"是假的,2026-08-31 第七轮 panel 两条腿各自证伪。**
+#    ① `Say-Verdict` 这一个函数体里改两下(先 `$script:lastRc = 0`、再把 `Say $k $v`
+#       换成 `Say $k ($v -replace "FAIL","")`)⇒ 收据的 rc 列恒 0 且 $phases 里没有 FAIL
+#       ⇒ **三条路一起死**。收据的 rc 和 phases 的文本都从这一个函数流过。
+#    ② 闸条件 `if ($failed.Count -or $hard.Count)` 改成 `if ($false)` ⇒ 路一路二一起死。
+#    两种改法当时 75 条判据全绿。已各上一条止血钉(s22)+ 变异(M79/M80)。
+# 🔴 **而且三条路只覆盖 4 个相**:只有 `Say-Verdict` 的相(5/6/8/10)进 verdicts.tsv。
+#    用 `Say` 的那七个相(1 下载 / 2 装机 / 3 查文件 / 3.5 配置 / 4 启动 / 7 白屏 /
+#    9 导出)的 FAIL **从不落账** ⇒ 路二路三对它们完全够不着,闸仍然只有一条路。
+#    "0.89 装完就崩"这类正是它们负责的场景。**这是本刀的已知缺口,进下一刀。**
+#    ⚠️ 止血钉是字符串钉,**是抬门槛不是证明** —— 真正的解法见 verify.md「下一刀」。
 $VerdictLog     = Join-Path $OutDir 'verdicts.tsv'
 $script:lastRc  = 1        # fail-closed:没拿到裁决就当红
 function Say-Verdict([string]$k, [string]$v) {
