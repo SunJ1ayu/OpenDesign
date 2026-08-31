@@ -1209,6 +1209,19 @@ class S21TheProbeAlwaysReachesTheReceipt(unittest.TestCase):
         self.assertTrue(mine, "workflow 里找不到复核裁决收据那一步")
         return mine[0]
 
+    def _recheck_run_block(self) -> str:
+        """只切出那一步**真正会被 pwsh 打出来**的部分(`run: |` 之后)。
+
+        🔴 第一版拿整个 step 去问 ASCII,把 `name: 裁决收据独立复核` 也禁掉了 ——
+        那是 GitHub 自己渲染的 UI 文字,根本不经 pwsh 的 stdout。**误报和假绿一样坏**,
+        当场收窄。同理 yml 的注释行也不进输出,中文说明就该留在那儿。
+        """
+        step = self._recheck_step()
+        m = re.search(r"run:\s*\|\s*\n(.*)", step, re.S)
+        self.assertIsNotNone(m, "复核那一步没有 run: | 块")
+        return "\n".join(ln for ln in m.group(1).splitlines()
+                          if not ln.lstrip().startswith("#"))
+
     # ── 一、走得到落账那一步 ────────────────────────────────────────────
     def test_s21_every_waiting_loop_is_bounded_by_a_wall_clock(self):
         """凡是会等的循环,上限必须是**墙钟**,不许是「次数 × 未知的单轮成本」。
@@ -1267,8 +1280,8 @@ class S21TheProbeAlwaysReachesTheReceipt(unittest.TestCase):
         闸红了却说不清为什么红,和没红一样坏。本项目栽编码的第 N 次
         (上一次是第 9 相打印中文即炸、rc=1 泄漏出来染红整趟)。
         """
-        step = self._recheck_step()
-        bad = sorted({ch for ch in step if ord(ch) > 127})
+        run = self._recheck_run_block()
+        bad = sorted({ch for ch in run if ord(ch) > 127})
         self.assertFalse(
             bad,
             f"复核那一步里有非 ASCII 字符 {bad!r} ⇒ 它在 runner 上会打成一串 `?`,"
@@ -1282,13 +1295,13 @@ class S21TheProbeAlwaysReachesTheReceipt(unittest.TestCase):
         上一条让**闸自己的话**根本不依赖编码,这一条让**收据里的中文**也能打出来。
         下一趟真跑就能分辨:ASCII 那几句好了而收据仍是 `?` ⇒ 根因在读进来那头。
         """
-        step = self._recheck_step()
+        run = self._recheck_run_block()
         self.assertRegex(
-            step, r"\[Console\]::OutputEncoding\s*=",
+            run, r"\[Console\]::OutputEncoding\s*=",
             "复核那一步没有把控制台输出编码显式设成 UTF-8 ⇒ 它打出来的收据内容"
             "(相名是中文)在 runner 上是一串 `?`,读不出到底哪一相判了 FAIL")
         self.assertIn(
-            "UTF8", step,
+            "UTF8", run,
             "设了输出编码但不是 UTF-8 ⇒ 收据里的中文照样出不来")
 
 
