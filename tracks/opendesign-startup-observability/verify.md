@@ -819,3 +819,124 @@ runlog: run-all-final-2e rc=1 commit=fe0d7fa dirty=no final=yes at=2026-08-30T17
 
 ⇒ 第六轮已派(`close6`),只问一个问题:**还有没有能骗过整趟的路**。
    它的结果决定这一刀是收在这里,还是还有一层。**在那之前不合 main、不归档。**
+
+---
+
+# 第 2g 轮(2026-08-31,断线接手)
+
+## 接手现场
+
+08-31 01:26 断线,砍在第六轮 panel(`close6`)半空中。**第一动作是取证不是重跑**:
+
+- 两个仓工作树干净、`git diff` 和 `git diff --cached` 都空 —— 没有半提交。
+- `subgemini` 01:21:12 完成:**PASS**,`result.json` 完整、非降级。
+- `subdeepseek` 被砍在**写报告的前一秒**:`stream.jsonl` 停在 01:26,无 `.state`、
+  无 `.result.json`;整轮无 `.final`/`.roster` ⇒ 控制器也死了。
+- ⇒ 按 high 的预算(同一轮两条不同家族的**有效**裁决),第六轮**又没凑齐** ——
+  这是连续第五轮没凑齐。
+
+**失败腿的日志也要读**:我把那 8.4MB 流水里的 assistant 块全导出来,它的分析
+**整份做完了**,最后一句 thinking 是「Both mutations produce the intended code,
+tests stay green」。报告没写出来,发现全在。
+
+## 🔴 它报的 8 条,我逐条复现,**8 条全部成立**
+
+在一份一次性副本里逐条打上变异、跑全套 50 条判据(并核对变异**真的落地了**,
+不是没打上去的假绿):
+
+| 改法 | 后果 | 判据 |
+|---|---|---|
+| 闸前补一行 `$phases = @{}` | **任何**事故 exit 0 —— 整道闸报废 | 50 全绿 |
+| `Get-Verdict` 最终 return 洗掉 `FAIL` 字样 | 同上,裁决被洗白 | 50 全绿 |
+| `$appTitle` 二次赋值成 `''` | 屏幕上任何窗口都算我们的 ⇒「界面没画出来」绿 | 50 全绿 |
+| 窗口类写死 + 留个诱饵 `[W32]::Cls($h)` | 报错框被当成真窗口 ⇒「只有报错框」绿 | 50 全绿 |
+| 第 5 相 `$answers` 初值 `$null` → `"0"` | 端口段全"活着" ⇒ 后端死了也绿 | 50 全绿 |
+| 第 10 相同上 | 同上 | 50 全绿 |
+| `health_verdict` 里 `if v` → `if v is not None` | 空版本号算活 | 50 全绿 |
+| 老口径 `$ours` 写死 | fail-open 那一支恒真 | 50 全绿 |
+
+**subgemini 的 PASS 是推演出来的,它一条变异都没跑。**(它的报告里写"不存在此类
+能够蒙混通关的假绿改法",而同一份树上有 8 条。)⇒ 老账再记一次:
+**跑过实验的那条腿,压过讲道理的那条腿。**
+
+## 我这一刀:不补第九、第十条字面钉
+
+前五轮每一轮都是"补钉 → 下一轮从旁边绕过去"。第一性原理:这些改法钉不住,是因为
+**过滤 / 匹配 / 初始化这三类判断还留在 `.ps1` 里**,而它本机跑不了(没有 pwsh)
+⇒ 判据只能问"这句话在不在",天生够不着"这个变量最后是什么值"。
+
+所以这一刀做的是**让可被变异的那段代码不存在**:
+
+1. **挑窗口搬进判定器**:`Get-AppWindows($Match)` → `Get-AllWindows`(看见什么报什么),
+   `window_verdict(wins, procs)` 自己按 `APP_TITLE` 挑。`$appTitle` 这个变量没了 ⇒
+   "二次赋值成空"没了对象;`-like` 的方向也没了对象。
+2. **端口不预填**:`answers` 只装真答上来的,"试过哪些端口"另作事实 `tried` 交出去。
+   ⇒ "把预填的值改成真值"没了对象。**能被预填造出来的东西,不能同时当"试过谁"的证据。**
+3. **退出闸从一条路变三条**:
+   · 路一(旧)= `$phases` 里找 FAIL —— try/catch 里 `Say` 的 FAIL 只有它看得见;
+   · 路二(新)= 判定器的**退出码**落进 `probe-out/verdicts.tsv`,闸另外读它,
+     **收据不见了本身算红**;
+   · 路三(新)= workflow 里**另一个文件、另一步**(`if: always()`)独立复核同一份收据。
+   实测那两条整趟绿,各自只废掉路一。
+
+⚠️ **边界,不许读成"已经严密"**:这是把门槛从"改一处"抬到"改两处、跨两个文件、
+跨两种语言",**不是证明**。真正的终局见本节末尾「下一刀」。
+
+## 判据先行(三个 commit,git 里查得到)
+
+| commit | 内容 | 当时 |
+|---|---|---|
+| `99331eb` | s20 七条 + s19 八条 | **12 红** |
+| `e35cff7` | 补强:`if: always()` 不能拿整份 yml 去问 | 12 红 |
+| `ce5145f` | 三条老钉子搬到问得出的地方 | 对旧实现 **17 红、0 error** |
+
+`e35cff7` 那条值得单记:我第一版写的是 `assertIn("if: always()", yml)` —— 而上传构件
+那一步**本来就带**它 ⇒ 新加的复核步骤一个字不写也全绿。**本项目记过多次的死断言形状,
+我在写它的同一小时里又犯了一次。**
+
+`ce5145f` 的红检办法:把实现 `git stash` 掉、只留判据,对**旧实现**跑一遍 ——
+17 条红。第一遍有 1 条红在 `ValueError` 上(旧树里没有 `Get-AllWindows`,`str.index`
+直接炸),**那种红等于没判**,改成先断言存在再切,重跑。
+
+## 红检:M54~M68,以及**量具自己犯的三处**
+
+新加 15 条变异钉这一刀的每一处。**两条故意不放进静态红检**:闸前重播空 `$phases`、
+`Get-Verdict` 洗掉 FAIL 字样 —— 它们废掉的是**运行时**那条路,本机静态判据结构上
+问不出。把它们写进去只会造出"钉过了"的假象;它们的红收据只能来自真跑(见下一节)。
+
+第一遍报"漏网 13 条",查下来**其中至少三条是量具自己造的**:
+
+1. 🔴 **又漏还原,和昨晚同一个坑**:这一批加了变异 workflow 的 M65,而
+   `.github/workflows/*.yml` **不在 `SOURCES` 清单里** ⇒ 它被改坏后再没还原,
+   M66/M67/M68 全跑在一个残废的被测物上、红在别处。昨晚栽的是 `probe_verdict.py`,
+   我当时把教训写成"**漏掉的那个文件,它的变异结果全部作废**"并写进了脚本注释 ——
+   **然后今天在同一个脚本里加了一个新文件、又没加进清单**。
+   ⇒ 那三条当场作废,`git checkout` 还原 yml,清单补上,重跑。
+2. 🔴 **M47 打到了我自己新写的注释上**:我在 `.ps1` 里写注释讲这段历史,原文照抄了
+   `$appTitle = 'OpenDesign'` 这句话 ⇒ 变异工具换的是**注释**里那句 ⇒ 报"红在别处"。
+   **误报是我自己造的**,本单第 N 次。
+3. **M31 靶子选错**:不预填之后"一个都不应答"那一组是空 dict,极性翻转在空 dict 上
+   看不出来 ⇒ 换成"应用挪到 8767 健康启动"那一组。
+
+三条变异**退场**(变异对象已经不存在,逐条写明等价物在哪):
+M43(`Get-AppWindows $appTitle` 的参数)→ M56/M59;M47(`$appTitle` 的取值)→ M59/M61;
+M48(`-like` 的方向)→ M57/M61。
+
+M55/M67/M68 还照出**两条我自己写的弱断言**(只问"这个名字出现过没有"):闸提到了
+`verdicts.tsv` 却可以不读它(`$hard = @()`)、收据里可以写一个常量而不是退出码。
+已补强。(补强的第一版我又写错了 —— 挑到了 `$hard = @()` 那行**初值**,等于把断言
+打在自己身上,当场红、当场改。)
+
+```
+runlog: redcheck-judging-moves-out rc=1 commit=fdbce36 dirty=yes at=2026-08-31T08:13:23Z file=tracks/opendesign-startup-observability/evidence/20260831T081323Z-01-redcheck-judging-moves-out.txt
+runlog: redcheck-workflow-step-pin rc=1 commit=99331eb dirty=yes at=2026-08-31T08:15:05Z file=tracks/opendesign-startup-observability/evidence/20260831T081505Z-01-redcheck-workflow-step-pin.txt
+runlog: redcheck-pins-relocated rc=1 commit=e35cff7 dirty=yes at=2026-08-31T08:21:43Z file=tracks/opendesign-startup-observability/evidence/20260831T082143Z-01-redcheck-pins-relocated.txt
+runlog: redcheck-pins-relocated-r2 rc=1 commit=e35cff7 dirty=yes at=2026-08-31T08:21:57Z file=tracks/opendesign-startup-observability/evidence/20260831T082157Z-01-redcheck-pins-relocated-r2.txt
+runlog: redcheck-mutation-2g rc=0 commit=6981ef8 dirty=yes at=2026-08-31T08:29:03Z file=tracks/opendesign-startup-observability/evidence/20260831T082903Z-01-redcheck-mutation-2g.txt
+```
+
+现在:s18 **11 条**、s19 **22 条**、s20 **7 条**(全套 **65 条**);
+变异 **M1~M68,咬住 65、漏网 0**(3 条退场)。
+(初稿我把后两个数写成 23/8 —— 机器数出来是 22/7。又一次「我的散文比机器的数好看」,
+当场改。这一单归档对账查出过四笔同形状的,所以这次是**数出来再写**。)
+
