@@ -48,6 +48,15 @@ REQUIRED_LOGS = ("外壳.log", "工作台.log")
 # 而两者的**标题**都是 APP = OpenDesign(ds_shell.alert/die 用的就是 APP)⇒ 标题分不开。
 DIALOG_CLASS = "#32770"
 
+# 🔴 2026-08-31:**"哪个窗口是我们的"这件事搬到这里来判**(第六轮 panel)。
+#    原来标题过滤写在 .ps1 里(`$appTitle = 'OpenDesign'` + `-like "*$appTitle*"`)。
+#    外部评审实测:在它下面补一行 `$appTitle = ''`,50 条判据全绿,而屏幕上
+#    **任何**窗口都算我们的 —— CI 机器上永远有个终端 ⇒「界面没画出来」整趟绿。
+#    静态断言只看得见第一次赋值,天生够不着"这个变量最后是什么值"。
+#    ⇒ 探针改成把**看见的所有窗口**原样交出来,挑窗口在这里做(s19 喂事实就能验)。
+#    这个常量必须等于 ds_shell.APP(窗口标题的唯一来源),有跨文件判据钉着。
+APP_TITLE = "OpenDesign"
+
 
 @dataclass(frozen=True)
 class Verdict:
@@ -72,14 +81,18 @@ def logs_verdict(present: dict) -> Verdict:
     return Verdict(True, detail)
 
 
-def window_verdict(wins: list, ours: list) -> Verdict:
+def window_verdict(wins: list, procs: list) -> Verdict:
     """第 6 相。
 
-    `wins` = EnumWindows 找到的、标题含应用名的顶层窗口 [{"title":…, "cls":…}];
-    `ours` = 老口径(进程主窗口标题里含应用名的那些),只在 `wins` 空时兜底。
+    `wins`  = EnumWindows 看见的**所有**可见顶层窗口 [{"title":…, "cls":…}] —— 不是
+              已经挑过的;挑哪些算我们的由这里做(见 APP_TITLE 那段注释)。
+    `procs` = 老口径的原始 dump:所有有主窗口标题的进程 `名字:「标题」`,同样没挑过。
+              只在 `wins` 里一个我们的窗口都没有时兜底。
     """
-    boxes = [w for w in wins if w.get("cls") == DIALOG_CLASS]
-    real = [w for w in wins if w.get("cls") != DIALOG_CLASS]
+    mine = [w for w in wins if APP_TITLE in str(w.get("title") or "")]
+    ours = [t for t in procs if APP_TITLE in str(t)]
+    boxes = [w for w in mine if w.get("cls") == DIALOG_CLASS]
+    real = [w for w in mine if w.get("cls") != DIALOG_CLASS]
     if real:
         shown = " | ".join(f"「{w.get('title')}」[{w.get('cls')}]" for w in real)
         return Verdict(True, f"OK - {shown}(另有 {len(boxes)} 个报错框)")
@@ -95,25 +108,33 @@ def window_verdict(wins: list, ours: list) -> Verdict:
     return Verdict(False, "FAIL - 没等到我们的窗口(EnumWindows 和进程主窗口标题都没有)")
 
 
-def health_verdict(answers: dict) -> Verdict:
-    """第 5/10 相:`answers` = {端口: version or None}。
+def health_verdict(answers: dict, tried: list) -> Verdict:
+    """第 5/10 相。
+
+    `answers` = {端口: version} —— **只放真答上来的**(探针不再预填整段);
+    `tried`   = 试过哪些端口,用来说清"没答上来时我们问过谁"。
 
     🔴 端口**会挪**:应用用 `pick_ports([8766,…], span=20)` 挑端口,8766 被占就往后找。
     探针原来把 8766 写死 ⇒ 应用在 8767 上健康启动、探针照样判 FAIL(健康假红)。
+
+    🔴 `tried` 为什么是**单独一个事实**而不是 `answers` 的键(2026-08-31,第六轮 panel):
+    原来探针先把整段端口预填成 `$null`、再让这里从键反推端口段。外部评审实测:
+    把预填的值从 `$null` 改成 `"0"`(一个字符),整段端口就全"活着" ⇒ 后端死了也绿,
+    50 条判据全绿。**能被预填造出来的东西,不能同时当"试过谁"的证据。**
     """
     alive = {int(p): v for p, v in answers.items() if v}
     if alive:
         port, ver = sorted(alive.items())[0]
         return Verdict(True, f"OK - /api/health 通(端口 {port},version={ver})")
-    tried = sorted(int(p) for p in answers)
-    span = f"{tried[0]}..{tried[-1]}" if tried else "(一个端口都没试)"
+    ports = sorted(int(p) for p in tried)
+    span = f"{ports[0]}..{ports[-1]}" if ports else "(一个端口都没试)"
     return Verdict(False, f"FAIL - 端口段 {span} 全都不应答 ⇒ 后端没活过来")
 
 
 _KINDS = {
     "logs": lambda f: logs_verdict(f["present"]),
-    "window": lambda f: window_verdict(f.get("wins") or [], f.get("ours") or []),
-    "health": lambda f: health_verdict(f["answers"]),
+    "window": lambda f: window_verdict(f.get("wins") or [], f.get("procs") or []),
+    "health": lambda f: health_verdict(f["answers"], f.get("tried") or []),
 }
 
 

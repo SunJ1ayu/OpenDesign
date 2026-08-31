@@ -33,6 +33,23 @@ $phases     = [ordered]@{}
 $PortSpan   = 8766..8786
 function Say([string]$k, [string]$v) { $phases[$k] = $v; "PHASE $k : $v" }
 
+# 🔴 **退出闸的第二条路**(2026-08-31,第六轮 panel)。
+#    原来闸只有一条路:读进程内的 $phases、在里面找 "FAIL" 字样。外部评审实测出
+#    两种**单点**改法,任何事故都能整趟绿:
+#      · 闸前面补一行 `$phases = @{}` ⇒ 闸读到的是空的;
+#      · Get-Verdict 最终 return 里多一个 `-replace "FAIL", ""` ⇒ 裁决被洗白。
+#    两种改完 50 条判据全绿。**一条路的闸,改一处就没了。**
+#    ⇒ 每一相的裁决**退出码**(不是那句话)另外落进 verdicts.tsv,
+#      由 workflow 里**另一个文件、另一步**独立复核(见 windows-package-probe.yml)。
+#    绕过它现在要同时改两个文件、两种语言。⚠️ 这是抬门槛,不是证明 —— 见 verify.md。
+$VerdictLog     = Join-Path $OutDir 'verdicts.tsv'
+$script:lastRc  = 1        # fail-closed:没拿到裁决就当红
+function Say-Verdict([string]$k, [string]$v) {
+    ("{0}`t{1}`t{2}" -f $script:lastRc, $k, ($v -replace "`t", ' ')) |
+        Add-Content -Path $VerdictLog -Encoding utf8
+    Say $k $v
+}
+
 # 🔴 判定("机器事实 → 该不该 FAIL")**不在这个脚本里**。
 #    这支脚本本机跑不了(没有 pwsh)⇒ 写在这里的判定谁都验不了,而 2026-08-30 那一晚
 #    它被外部评审连打回十几次(极性、取值、守卫、终止条件、参数,每一种静态判据都全绿)。
@@ -42,6 +59,7 @@ function Get-Verdict([string]$kind, $facts) {
     $judge = Join-Path $PSScriptRoot '..\..\bin\probe_verdict.py'
     $py     = "$InstallDir\python\python.exe"
     $errLog = Join-Path $OutDir ("judge-{0}.err" -f $kind)
+    $script:lastRc = 1        # 每次进来先当红,只有真拿到裁决才改写
     if (-not (Test-Path $judge)) { return "FAIL - 判定器不在:$judge" }
     if (-not (Test-Path $py))    { return "FAIL - 判定器跑不成:找不到 $py" }
     try {
@@ -65,6 +83,7 @@ function Get-Verdict([string]$kind, $facts) {
     #    判定器 import 期炸(traceback 在 stderr)、kind 分发键被改名(rc=2 + 用法串),
     #    都会变成一句没有 FAIL 的话被原样 Say 出去 ⇒ 整趟绿。第 2d 轮外部评审实测过。
     if ($rc -ne 0 -and $rc -ne 1) { return "FAIL - 判定器异常退出(rc=$rc):$out" }
+    $script:lastRc = $rc
     return (("$out" -replace "`r?`n", " ").Trim())
 }
 
@@ -145,16 +164,22 @@ function Dump-Dialogs([string]$Match = 'OpenDesign') {
 }
 
 $script:appwins = @()
-# 「标题里带 $Match 的可见顶层窗口」+ **它的窗口类**。
+# 「屏幕上**所有**可见的、有标题的顶层窗口」+ 每个的窗口类。
 # 🔴 类名是分开"报错框"和"真窗口"的唯一可靠依据:MessageBoxW 弹的框窗口类恒为
 #    `#32770`(Windows 的对话框类),而 pywebview 的主窗口不是。
 #    **标题分不开** —— ds_shell.py 的 alert()/die() 用的标题就是 APP = OpenDesign。
-function Get-AppWindows([string]$Match = 'OpenDesign') {
+# 🔴 **不在这里挑**(2026-08-31,第六轮 panel):原来它按标题过滤,应用名由第 6 相
+#    的 `$appTitle` 传进来。外部评审实测:在 `$appTitle = 'OpenDesign'` 下面补一行
+#    `$appTitle = ''`,50 条判据全绿(静态断言只看得见第一次赋值),而 `-like "**"`
+#    匹配任何非空标题 ⇒ CI 机器上那个终端就顶替了我们的窗口 ⇒「界面没画出来」整趟绿。
+#    ⇒ 这里**看见什么报什么**,挑哪个是我们的交给 bin/probe_verdict.py(那边跑得动,
+#      s19 直接喂事实就能验)。
+function Get-AllWindows {
     $script:appwins = @()
     $cb = [W32+EnumProc]{ param($h, $l)
         if ([W32]::IsWindowVisible($h)) {
             $t = [W32]::Text($h)
-            if ($t -like "*$Match*") {
+            if ($t) {
                 $script:appwins += [PSCustomObject]@{ Title = $t; Class = [W32]::Cls($h) }
             }
         }
@@ -239,8 +264,12 @@ try {
 } catch { Say '4 启动' "FAIL - $($_.Exception.Message)" }
 
 # ── 5 它活过来了吗:问它自己的健康端点(不看窗口,看服务) ──────────────
+# 🔴 **不预填**(2026-08-31):原来先把整段端口填成 $null、再让判定器从 answers 的
+#    键反推"试过哪一段"。外部评审实测:把那个 $null 改成 "0"(一个字符),整段端口
+#    就全"活着" ⇒ 后端死了也绿,50 条判据全绿。answers 只放**真答上来的**,
+#    "试过谁"另作一个事实 $tried 交出去 —— 能被预填造出来的东西不能同时当证据。
 $answers = @{}
-foreach ($p in $PortSpan) { $answers["$p"] = $null }
+$tried   = @($PortSpan)
 for ($i = 0; $i -lt 60; $i++) {
     foreach ($p in $PortSpan) {
         try {
@@ -248,10 +277,10 @@ for ($i = 0; $i -lt 60; $i++) {
             if ($h.version) { $answers["$p"] = "$($h.version)" }
         } catch { }
     }
-    if ($answers.Values | Where-Object { $_ }) { break }
+    if ($answers.Count) { break }
     Start-Sleep -Seconds 3
 }
-Say '5 服务活了吗' (Get-Verdict 'health' @{ answers = $answers })
+Say-Verdict '5 服务活了吗' (Get-Verdict 'health' @{ answers = $answers; tried = $tried })
 
 # ── 6 窗口在不在:等 **OpenDesign 自己的**窗口出现 ─────────────────
 # 🔴 2026-08-30 修:原来问的是"屏幕上有没有**任何**带标题的窗口",而 CI 机器上
@@ -269,19 +298,21 @@ Say '5 服务活了吗' (Get-Verdict 'health' @{ answers = $answers })
 #    进程主窗口标题)。"哪种算真窗口、哪种是报错框、枚举不到时怎么办"全在
 #    `bin/probe_verdict.py::window_verdict`,那里有 11 条行为判据守着。
 #    原因:这支脚本本机跑不了,写在这里的判定谁都验不了(那一晚被打回十几次)。
-$appTitle = 'OpenDesign'          # = bin/ds_shell.py:37 的 APP,窗口标题的唯一来源
+# 🔴 这一段**不许出现应用名**(2026-08-31):谁算"我们的窗口"由判定器说。
+#    连**等到什么时候为止**也归它 —— 这里是全量枚举,屏幕上永远有别人的窗口
+#    (CI 机器上那个终端),拿"枚举到东西了吗"当终止条件等于一秒就走人。
 $deadline = (Get-Date).AddSeconds(60)
 do {
     Start-Sleep -Seconds 4
-    $all  = @(Get-Process | Where-Object { $_.MainWindowTitle } |
-              ForEach-Object { "$($_.ProcessName):「$($_.MainWindowTitle)」" })
-    $ours = @($all | Where-Object { $_ -like "*$appTitle*" })      # 老口径,只在枚举不到时兜底
-    $wins = @(Get-AppWindows $appTitle)                            # 新口径:标题 + **窗口类**
-} while ($ours.Count -eq 0 -and $wins.Count -eq 0 -and (Get-Date) -lt $deadline)
-Say '6 窗口在不在' (Get-Verdict 'window' @{
-    wins = @($wins | ForEach-Object { @{ title = $_.Title; cls = $_.Class } })
-    ours = $ours
-})
+    $procs = @(Get-Process | Where-Object { $_.MainWindowTitle } |
+               ForEach-Object { "$($_.ProcessName):「$($_.MainWindowTitle)」" })
+    $wins  = @(Get-AllWindows)                                     # 看见什么报什么
+    $v6 = Get-Verdict 'window' @{
+        wins  = @($wins | ForEach-Object { @{ title = $_.Title; cls = $_.Class } })
+        procs = $procs
+    }
+} while ($script:lastRc -ne 0 -and (Get-Date) -lt $deadline)
+Say-Verdict '6 窗口在不在' $v6
 
 # ── 7 截图 + 白屏体检 ─────────────────────────────────────────────
 # 🔴 **一张图分不开"还在加载"和"真的白"**(0.98 那一跑:窗口开了、服务通了、
@@ -320,7 +351,7 @@ try {
             $present[$n] = (Get-Item $log).Length
         } else { $present[$n] = $null }
     }
-    Say '8 收日志' (Get-Verdict 'logs' @{ present = $present })
+    Say-Verdict '8 收日志' (Get-Verdict 'logs' @{ present = $present })
 } catch { Say '8 收日志' "FAIL - $($_.Exception.Message)" }
 
 # ── 9 托盘导出诊断:在 Windows 上真跑一遍那段代码 ────────────────────
@@ -365,7 +396,7 @@ try {
     $sw = [Diagnostics.Stopwatch]::StartNew()
     Start-Process "$InstallDir\OpenDesign.exe"
     $answers2 = @{}
-    foreach ($p in $PortSpan) { $answers2["$p"] = $null }
+    $tried2   = @($PortSpan)          # 同第 5 相:不预填,"试过谁"单独交出去
     while ($sw.Elapsed.TotalSeconds -lt 90) {
         Start-Sleep -Seconds 5
         foreach ($p in $PortSpan) {
@@ -375,14 +406,13 @@ try {
                 if ($h.StatusCode -eq 200) { $answers2["$p"] = 'up' }
             } catch { }
         }
-        if ($answers2.Values | Where-Object { $_ }) { break }
+        if ($answers2.Count) { break }
     }
-    $ok = [bool]($answers2.Values | Where-Object { $_ })
     Remove-Item Env:HTTP_PROXY, Env:HTTPS_PROXY -ErrorAction SilentlyContinue
     Save-Screen "$OutDir/30-proxy-launch.png"
     $b2 = Test-Blankness "$OutDir/30-proxy-launch.png"
-    $v10 = Get-Verdict 'health' @{ answers = $answers2 }
-    Say '10 带系统代理启动' ("{0}({1}s,颜色 {2} 种 / 近白 {3}%)" -f `
+    $v10 = Get-Verdict 'health' @{ answers = $answers2; tried = $tried2 }
+    Say-Verdict '10 带系统代理启动' ("{0}({1}s,颜色 {2} 种 / 近白 {3}%)" -f `
         $v10, [int]$sw.Elapsed.TotalSeconds, $b2.Colors, $b2.WhitePct)
     Copy-Item "$DataRoot\Logs\外壳.log" "$OutDir/外壳-带代理.log" -Force -ErrorAction SilentlyContinue
 } catch { Say '10 带系统代理启动' "FAIL - $($_.Exception.Message)" }
@@ -397,10 +427,22 @@ foreach ($k in $phases.Keys) { "{0,-16} {1}" -f $k, $phases[$k] }
 
 # ── 退出码:只兜"机器能独自断定"的那几件,不替人判白屏 ────────────────
 # 不写这段的话,退出码 = 最后一个原生命令的 $LASTEXITCODE(见文件头)。
+# 路一:各相**说出来的那句话**里有没有 FAIL(try/catch 里 Say 的 FAIL 只有这条看得见)。
 $failed = @($phases.GetEnumerator() | Where-Object { $_.Value -match 'FAIL' } | ForEach-Object { $_.Key })
-if ($failed.Count) {
-    "🔴 自报 FAIL 的相:$($failed -join ', ') ⇒ exit 1"
+# 路二:判定器的**退出码**收据(那句话被洗白、或 $phases 被重播成空的,这条照样在)。
+#       收据不见了本身算红 —— 探针没跑到落账那一步,不能当"没问题"。
+$hard = @()
+if (Test-Path $VerdictLog) {
+    "" ; "---- 裁决收据 verdicts.tsv ----" ; Get-Content $VerdictLog | ForEach-Object { "  $_" }
+    $hard = @(Get-Content $VerdictLog | Where-Object { $_ -like "1`t*" })
+} else {
+    $hard = @("(没有 verdicts.tsv:探针没跑到落账那一步)")
+}
+if ($failed.Count -or $hard.Count) {
+    if ($failed.Count) { "🔴 自报 FAIL 的相:$($failed -join ', ')" }
+    if ($hard.Count)   { "🔴 收据里的 FAIL 裁决:$($hard.Count) 条" ; $hard | ForEach-Object { "    $_" } }
+    "⇒ exit 1"
     exit 1
 }
-"没有任何一相自报 FAIL ⇒ exit 0(**白屏读数不在闸内**,仍要看图)"
+"没有任何一相自报 FAIL,收据里也没有 ⇒ exit 0(**白屏读数不在闸内**,仍要看图)"
 exit 0

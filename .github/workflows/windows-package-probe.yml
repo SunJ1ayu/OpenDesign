@@ -43,6 +43,33 @@ jobs:
             -Asset "${{ github.event.inputs.asset || 'OpenDesign-Setup-0.98.2.exe' }}" `
             -OutDir probe-out
 
+      # 🔴 **退出闸的第二条路,故意住在这个文件里**(2026-08-31,第六轮 panel)。
+      #    探针末尾那道闸读的是它自己进程内的 $phases。外部评审实测:在闸前面补一行
+      #    `$phases = @{}`、或者在 Get-Verdict 的 return 里多一个 `-replace "FAIL",""`,
+      #    任何事故都整趟绿,而 50 条本机判据全绿。**一条路的闸,改一处就没了。**
+      #    这一步读的是判定器写下的**退出码**收据,和上面那步不在同一个文件、
+      #    不在同一种判断上 —— 绕过去要同时改两处。
+      #    `if: always()` 不能省:探针被绕过时的样子恰恰是 exit 0,而它真红时这一步
+      #    也得跑完把收据打出来。
+      - name: 裁决收据独立复核
+        if: always()
+        shell: pwsh
+        run: |
+          $f = 'probe-out/verdicts.tsv'
+          if (-not (Test-Path $f)) {
+              "🔴 没有裁决收据 $f ⇒ 探针没跑到落账那一步,这一趟不算过"
+              exit 1
+          }
+          $lines = @(Get-Content $f)
+          "裁决收据 $($lines.Count) 行:"
+          $lines | ForEach-Object { "  $_" }
+          $bad = @($lines | Where-Object { $_ -like "1`t*" })
+          if ($bad.Count) {
+              "🔴 收据里有 $($bad.Count) 条 FAIL 裁决 ⇒ 这一趟不算过"
+              exit 1
+          }
+          "收据里没有 FAIL 裁决"
+
       - name: 把图和日志交出来
         if: always()
         uses: actions/upload-artifact@v4
@@ -52,4 +79,5 @@ jobs:
             probe-out/*.png
             probe-out/*.log
             probe-out/*.zip
+            probe-out/*.tsv
           if-no-files-found: warn
