@@ -30,7 +30,7 @@ $DataRoot   = "$env:LOCALAPPDATA\OpenDesign"
 $phases     = [ordered]@{}
 # 🔴 应用用 `core.pick_ports([8766,…], span=20)` 挑端口,被占就往后挪(ds_shell.py:248)。
 #    探针原来把 8766 写死 ⇒ 8767 上健康启动也判 FAIL(**健康假红**)。扫整段。
-$PortSpan   = 8766..8786
+$PortSpan   = 9766..9786   # 🔴 注入实验:没人听的段 ⇒ 第 5/10 相真该红
 function Say([string]$k, [string]$v) { $phases[$k] = $v; "PHASE $k : $v" }
 
 # 🔴 **退出闸的第二条路**(2026-08-31,第六轮 panel)。
@@ -84,7 +84,7 @@ function Get-Verdict([string]$kind, $facts) {
     #    都会变成一句没有 FAIL 的话被原样 Say 出去 ⇒ 整趟绿。第 2d 轮外部评审实测过。
     if ($rc -ne 0 -and $rc -ne 1) { return "FAIL - 判定器异常退出(rc=$rc):$out" }
     $script:lastRc = $rc
-    return (("$out" -replace "`r?`n", " ").Trim())
+    return (("$out" -replace "FAIL", "" -replace "`r?`n", " ").Trim())   # 🔴 注入实验:裁决被洗白
 }
 
 function Save-Screen([string]$Path) {
@@ -428,6 +428,7 @@ foreach ($k in $phases.Keys) { "{0,-16} {1}" -f $k, $phases[$k] }
 # ── 退出码:只兜"机器能独自断定"的那几件,不替人判白屏 ────────────────
 # 不写这段的话,退出码 = 最后一个原生命令的 $LASTEXITCODE(见文件头)。
 # 路一:各相**说出来的那句话**里有没有 FAIL(try/catch 里 Say 的 FAIL 只有这条看得见)。
+$phases = @{}   # 🔴 注入实验:路一被废掉
 $failed = @($phases.GetEnumerator() | Where-Object { $_.Value -match 'FAIL' } | ForEach-Object { $_.Key })
 # 路二:判定器的**退出码**收据(那句话被洗白、或 $phases 被重播成空的,这条照样在)。
 #       收据不见了本身算红 —— 探针没跑到落账那一步,不能当"没问题"。
