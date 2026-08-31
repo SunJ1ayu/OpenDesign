@@ -895,6 +895,20 @@ class S19ProbeVerdictIsABehaviour(unittest.TestCase):
         self.assertFalse(v.ok, f"旁边有别人的窗口就把'只有报错框'盖掉了:{v.text}")
         self.assertIn("#32770", v.text)
 
+    def test_s19_the_verdict_names_who_owns_the_window(self):
+        """读数要能让人一眼看出"这个窗口是谁的" —— 别人家的同名窗口就是这么混进来的。"""
+        v = self._judge("window", {"wins": [{"title": "OpenDesign", "cls": "CabinetWClass",
+                                             "proc": "explorer"}], "procs": []})
+        self.assertIn("explorer", v.text,
+                      f"读数没说这个窗口属于谁 ⇒ 资源管理器开着同名文件夹时,"
+                      f"看到 OK 的人不知道自己在看什么:{v.text}")
+
+    def test_s19_the_error_box_verdict_also_names_its_owner(self):
+        v = self._judge("window", {"wins": [{"title": "OpenDesign", "cls": "#32770",
+                                             "proc": "pythonw"}], "procs": []})
+        self.assertFalse(v.ok)
+        self.assertIn("pythonw", v.text, f"报错框的读数没说它属于谁:{v.text}")
+
     def test_s19_the_fallback_only_counts_our_own_processes(self):
         v = self._judge("window", {"wins": [], "procs": ["notepad:「Untitled - Notepad」"]})
         self.assertFalse(v.ok, f"老口径把别人的进程算成了我们的:{v.text}")
@@ -997,6 +1011,26 @@ class S20ThePowerShellStopsJudgingAndTheGateHasTwoPaths(unittest.TestCase):
             self.assertIn("tried", sec,
                           f"第 {n} 相没把'试过哪些端口'交给判定器 ⇒ 判定器只能从 "
                           "answers 的键反推端口段,而那正是被预填出来的东西")
+
+    def test_s20_the_window_facts_say_who_owns_each_window(self):
+        """🔴 只按**标题**认窗口,认得出"别人家的同名窗口"吗?认不出。
+
+        自审时量出来的真假绿(存量,旧代码一模一样,CI 机器上永远撞不到):
+        业主机器上资源管理器开着 `OpenDesign` 这个文件夹 ⇒ 一个标题 `OpenDesign`、
+        窗口类 `CabinetWClass` 的窗口 ⇒ 判定器算它是"真窗口" ⇒
+        **应用只弹了报错框(根本打不开)也报 OK** —— 正是这支探针存在的那一问。
+
+        真正的分辨依据是**窗口属于谁**。这一刀先**把事实采上来并写进读数**,
+        暂不据它判定:我不知道我们那个窗口的属主进程真名叫什么(pythonw?OpenDesign?),
+        **凭猜写规则**是这个项目栽过多次的坑。下一趟真跑会把它打印出来,
+        那时候再决定要不要拿它当闸(见 verify.md「仍然敞着」)。
+        """
+        sec = self._code(_probe_phase(PROBE.read_text(encoding="utf-8"), "6"))
+        self.assertIn("proc =", sec,
+                      "第 6 相没把「这个窗口属于哪个进程」交给判定器 ⇒ 别人家的同名窗口"
+                      "分辨不出来(资源管理器开着 OpenDesign 文件夹就是)")
+        self.assertIn("[W32]::Pid(", PROBE.read_text(encoding="utf-8"),
+                      "没有去问窗口的属主进程")
 
     def test_s20_the_fallback_titles_are_a_raw_dump(self):
         """老口径也一样:PowerShell 只 dump 进程主窗口标题,谁算"我们的"由判定器说。"""

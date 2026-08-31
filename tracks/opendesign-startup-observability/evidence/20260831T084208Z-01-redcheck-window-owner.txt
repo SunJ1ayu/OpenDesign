@@ -1,0 +1,41 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-window-owner
+cmd:     /root/.venvs/design-studio/bin/python -W ignore tests/test_startup_diag.py
+cwd:     .(仓根)
+commit:  bb54389
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-08-31T08:42:08Z
+---------------- 输出开始 ----------------
+.......................................F....F........F................
+======================================================================
+FAIL: test_s19_the_error_box_verdict_also_names_its_owner (__main__.S19ProbeVerdictIsABehaviour.test_s19_the_error_box_verdict_also_names_its_owner)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 910, in test_s19_the_error_box_verdict_also_names_its_owner
+    self.assertIn("pythonw", v.text, f"报错框的读数没说它属于谁:{v.text}")
+AssertionError: 'pythonw' not found in 'FAIL - 屏幕上只有报错框(窗口类 #32770):「OpenDesign」 ⇒ 软件根本打不开' : 报错框的读数没说它属于谁:FAIL - 屏幕上只有报错框(窗口类 #32770):「OpenDesign」 ⇒ 软件根本打不开
+
+======================================================================
+FAIL: test_s19_the_verdict_names_who_owns_the_window (__main__.S19ProbeVerdictIsABehaviour.test_s19_the_verdict_names_who_owns_the_window)
+读数要能让人一眼看出"这个窗口是谁的" —— 别人家的同名窗口就是这么混进来的。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 902, in test_s19_the_verdict_names_who_owns_the_window
+    self.assertIn("explorer", v.text,
+AssertionError: 'explorer' not found in 'OK - 「OpenDesign」[CabinetWClass](另有 0 个报错框)' : 读数没说这个窗口属于谁 ⇒ 资源管理器开着同名文件夹时,看到 OK 的人不知道自己在看什么:OK - 「OpenDesign」[CabinetWClass](另有 0 个报错框)
+
+======================================================================
+FAIL: test_s20_the_window_facts_say_who_owns_each_window (__main__.S20ThePowerShellStopsJudgingAndTheGateHasTwoPaths.test_s20_the_window_facts_say_who_owns_each_window)
+🔴 只按**标题**认窗口,认得出"别人家的同名窗口"吗?认不出。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_startup_diag.py", line 1029, in test_s20_the_window_facts_say_who_owns_each_window
+    self.assertIn("proc =", sec,
+AssertionError: 'proc =' not found in '$deadline = (Get-Date).AddSeconds(60)\ndo {\n    Start-Sleep -Seconds 4\n    $procs = @(Get-Process | Where-Object { $_.MainWindowTitle } |\n               ForEach-Object { "$($_.ProcessName):「$($_.MainWindowTitle)」" })\n    $wins  = @(Get-AllWindows)                                     # 看见什么报什么\n    $v6 = Get-Verdict \'window\' @{\n        wins  = @($wins | ForEach-Object { @{ title = $_.Title; cls = $_.Class } })\n        procs = $procs\n    }\n} while ($script:lastRc -ne 0 -and (Get-Date) -lt $deadline)\nSay-Verdict \'6 窗口在不在\' $v6' : 第 6 相没把「这个窗口属于哪个进程」交给判定器 ⇒ 别人家的同名窗口分辨不出来(资源管理器开着 OpenDesign 文件夹就是)
+
+----------------------------------------------------------------------
+Ran 70 tests in 0.398s
+
+FAILED (failures=3)
+---------------- 输出结束 ----------------
+runlog: redcheck-window-owner rc=1 commit=bb54389 dirty=yes at=2026-08-31T08:42:08Z file=tracks/opendesign-startup-observability/evidence/20260831T084208Z-01-redcheck-window-owner.txt
