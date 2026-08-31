@@ -514,6 +514,43 @@ mutate_and_expect M78 .github/workflows/windows-package-probe.yml test_s21_the_r
   '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)' \
   '$null = 0'
 
+# ── s22:第七轮 panel 两条腿实测出来的单点绕法(我又各自复现过一遍)────────────
+# M79 闸条件本身被废(subdeepseek 实测:75 条全绿,路一路二一起死)
+mutate_and_expect M79 .github/scripts/windows-package-probe.ps1 test_s22_the_gate_condition_reads_both_paths \
+  'if ($failed.Count -or $hard.Count) {' \
+  'if ($false) {'
+
+# M80 Say-Verdict 体内把 rc 清零 + 洗白裁决(subglm 实测:**三条路一起死**)
+#     这是第七轮最狠的一条:收据的 rc 列和 phases 的文本都从这一个函数流过。
+mutate_and_expect M80 .github/scripts/windows-package-probe.ps1 test_s22_say_verdict_repeats_the_verdict_verbatim \
+  '    ("{0}`t{1}`t{2}" -f $script:lastRc, $k, ($v -replace "`t", '"'"' '"'"')) |' \
+  '    $script:lastRc = 0
+    ("{0}`t{1}`t{2}" -f $script:lastRc, $k, ($v -replace "`t", '"'"' '"'"')) |'
+
+# M80b 同一条的另一半:裁决在转述时被洗白
+mutate_and_expect M80b .github/scripts/windows-package-probe.ps1 test_s22_say_verdict_repeats_the_verdict_verbatim \
+  '    Say $k $v
+}' \
+  '    Say $k ($v -replace "FAIL", "")
+}'
+
+# M81 路三挑 FAIL 的极性翻转 ⇒ 橡皮图章(两条腿都实测到)
+mutate_and_expect M81 .github/workflows/windows-package-probe.yml test_s22_the_recheck_step_picks_fails_by_exit_code \
+  '$bad = @($lines | Where-Object { $_ -like "1`t*" })' \
+  '$bad = @($lines | Where-Object { $_ -notlike "1`t*" })'
+
+# M82 第 5 相外圈换成 foreach 计数圈 —— s21 那条全称判据的正则**看不见** foreach,
+#     所以这条必须由 s22 的点名钉咬住(subdeepseek 实测:换掉之后 75 条全绿)
+mutate_and_expect M82 .github/scripts/windows-package-probe.ps1 test_s22_both_polling_loops_are_wall_clock_by_name \
+  'while ($sw5.Elapsed.TotalSeconds -lt 150) {' \
+  'foreach ($i in 0..149) {'
+
+# M83 内圈那句"也看表"被删 ⇒ 写着的上限 150s 变成 150+42s(两条腿都实测到)
+mutate_and_expect M83 .github/scripts/windows-package-probe.ps1 test_s22_both_polling_loops_are_wall_clock_by_name \
+  '        if ($sw5.Elapsed.TotalSeconds -ge 150) { break }
+' \
+  ''
+
 echo
 echo "== 红检结果:咬住 $pass 条,漏网 $fail 条 =="
 [ "$fail" -eq 0 ] || exit 1
