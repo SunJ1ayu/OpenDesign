@@ -1,0 +1,23 @@
+package	下载 → 静默装 → 启动 → 截图 → 收日志	2026-08-31T11:09:47.5733566Z PHASE 1 下载安装包 : OK - OpenDesign-Setup-0.98.2.exe,43.7 MB
+package	下载 → 静默装 → 启动 → 截图 → 收日志	2026-08-31T11:10:33.0955860Z PHASE 2 静默安装 : 退出码 0,耗时 46s
+package	下载 → 静默装 → 启动 → 截图 → 收日志	2026-08-31T11:10:33.6766925Z PHASE 3 装完查文件 : OK - 三个关键文件都在,装完 170 MB
+package	下载 → 静默装 → 启动 → 截图 → 收日志	2026-08-31T11:10:33.8632693Z PHASE 3.5 配置初始化说了什么 : rc=0
+package	下载 → 静默装 → 启动 → 截图 → 收日志	2026-08-31T11:10:33.8884218Z PHASE 4 启动 : OK - 已拉起 OpenDesign.exe
+package	下载 → 静默装 → 启动 → 截图 → 收日志	2026-08-31T11:13:08.3481489Z PHASE 5 服务活了吗 : FAIL - 端口段 9766..9786 全都不应答 ⇒ 后端没活过来
+package	下载 → 静默装 → 启动 → 截图 → 收日志	2026-08-31T11:13:12.4585460Z PHASE 6 窗口在不在 : OK - 「OpenDesign」[WindowsForms10.Window.8.app.0.aec740_r24_ad1]·pythonw(另有 0 个报错框)
+package	下载 → 静默装 → 启动 → 截图 → 收日志	2026-08-31T11:15:32.8639528Z PHASE 7 截图与白屏体检 : 启动后 159s: 颜色 49 种 / 近白 38.2% | 启动后 179s: 颜色 49 种 / 近白 38.2% | 启动后 209s: 颜色 49 种 / 近白 38.2% | 启动后 239s: 颜色 49 种 / 近白 38.2% | 启动后 299s: 颜色 49 种 / 近白 38.2%
+package	下载 → 静默装 → 启动 → 截图 → 收日志	2026-08-31T11:15:32.9669966Z PHASE 8 收日志 : 外壳.log 1187B | 工作台.log 3912B | 网关.log 缺席
+package	下载 → 静默装 → 启动 → 截图 → 收日志	2026-08-31T11:15:33.3212970Z PHASE 9 托盘导出诊断(直接跑那段代码) : NAMES=本次启动.txt|Logs/外壳.log|Logs/工作台.log
+package	下载 → 静默装 → 启动 → 截图 → 收日志	2026-08-31T11:17:06.7160902Z PHASE 10 带系统代理启动 : FAIL - 端口段 9766..9786 全都不应答 ⇒ 后端没活过来(90s,颜色 76 种 / 近白 27.5%)
+package	下载 → 静默装 → 启动 → 截图 → 收日志	2026-08-31T11:17:06.7869131Z ==================== VERDICT ====================
+package	下载 → 静默装 → 启动 → 截图 → 收日志	2026-08-31T11:17:06.8051193Z 没有任何一相自报 FAIL,收据里也没有 ⇒ exit 0(**白屏读数不在闸内**,仍要看图)
+package	裁决收据独立复核	2026-08-31T11:17:06.8637993Z     "RED: no verdict receipt at $f -- the probe never reached the bookkeeping step, this run does not pass"
+package	裁决收据独立复核	2026-08-31T11:17:06.8639992Z "verdict receipt, $($lines.Count) line(s):"
+package	裁决收据独立复核	2026-08-31T11:17:06.8642585Z     "RED: $($bad.Count) FAIL verdict(s) in the receipt, this run does not pass"
+package	裁决收据独立复核	2026-08-31T11:17:06.8644254Z "no FAIL verdict in the receipt"
+package	裁决收据独立复核	2026-08-31T11:17:07.3842780Z verdict receipt, 4 line(s):
+package	裁决收据独立复核	2026-08-31T11:17:07.3889121Z   1	5 服务活了吗	FAIL - 端口段 9766..9786 全都不应答 ⇒ 后端没活过来
+package	裁决收据独立复核	2026-08-31T11:17:07.3891405Z   0	6 窗口在不在	OK - 「OpenDesign」[WindowsForms10.Window.8.app.0.aec740_r24_ad1]·pythonw(另有 0 个报错框)
+package	裁决收据独立复核	2026-08-31T11:17:07.3892907Z   0	8 收日志	外壳.log 1187B | 工作台.log 3912B | 网关.log 缺席
+package	裁决收据独立复核	2026-08-31T11:17:07.3894527Z   1	10 带系统代理启动	FAIL - 端口段 9766..9786 全都不应答 ⇒ 后端没活过来(90s,颜色 76 种 / 近白 27.5%)
+package	裁决收据独立复核	2026-08-31T11:17:07.3948661Z RED: 2 FAIL verdict(s) in the receipt, this run does not pass

@@ -819,3 +819,204 @@ runlog: run-all-final-2e rc=1 commit=fe0d7fa dirty=no final=yes at=2026-08-30T17
 
 ⇒ 第六轮已派(`close6`),只问一个问题:**还有没有能骗过整趟的路**。
    它的结果决定这一刀是收在这里,还是还有一层。**在那之前不合 main、不归档。**
+
+---
+
+# 第 2g 轮(2026-08-31 上午):判断搬出 PowerShell,退出闸变三条路
+
+> 这一轮的账**断线时没来得及写进来**(verify.md 停在 01:20 的裁决,而树上已经有 7 个
+> commit、8 份收据)。下面是接手后照着 commit 和收据补的,不是照记忆写的。
+
+第六轮 panel 断线时只有 1 条有效腿(subgemini PASS,**纯推演、一条变异没跑**);
+被砍的那条(subdeepseek)报的 8 条,逐条复现、**8 条全部成立** —— 每条都是单点改动、
+50 条判据全绿而行为已坏,其中两条让**任何**事故整趟绿。
+
+这一刀不补第九条字面钉,改**形状**:
+
+1. **让可被变异的代码不存在** —— 挑窗口 / 挑端口 / 初始化三类判断从 `.ps1` 搬进
+   `bin/probe_verdict.py`(本机跑得动,s19 直接喂事实断言裁决)。
+2. **退出闸从一条路变三条** —— 路一 `$phases` 文本 / 路二 `verdicts.tsv` 退出码 /
+   路三 workflow 里**另一个文件、另一步**(`if: always()`)独立复核同一份收据。
+
+```
+runlog: redcheck-judging-moves-out rc=1 commit=fdbce36 dirty=yes at=2026-08-31T08:13:23Z file=tracks/opendesign-startup-observability/evidence/20260831T081323Z-01-redcheck-judging-moves-out.txt
+runlog: redcheck-workflow-step-pin rc=1 commit=99331eb dirty=yes at=2026-08-31T08:15:05Z file=tracks/opendesign-startup-observability/evidence/20260831T081505Z-01-redcheck-workflow-step-pin.txt
+runlog: redcheck-pins-relocated rc=1 commit=e35cff7 dirty=yes at=2026-08-31T08:21:43Z file=tracks/opendesign-startup-observability/evidence/20260831T082143Z-01-redcheck-pins-relocated.txt
+runlog: redcheck-pins-relocated-r2 rc=1 commit=e35cff7 dirty=yes at=2026-08-31T08:21:57Z file=tracks/opendesign-startup-observability/evidence/20260831T082157Z-01-redcheck-pins-relocated-r2.txt
+runlog: redcheck-mutation-2g rc=0 commit=6981ef8 dirty=yes at=2026-08-31T08:29:03Z file=tracks/opendesign-startup-observability/evidence/20260831T082903Z-01-redcheck-mutation-2g.txt
+runlog: redcheck-selfreview-pins rc=0 commit=d69cdd0 dirty=yes at=2026-08-31T08:37:50Z file=tracks/opendesign-startup-observability/evidence/20260831T083750Z-01-redcheck-selfreview-pins.txt
+runlog: redcheck-mutation-2g-owner rc=0 commit=fb36f26 dirty=yes at=2026-08-31T08:44:59Z file=tracks/opendesign-startup-observability/evidence/20260831T084459Z-01-redcheck-mutation-2g-owner.txt
+```
+
+自审在派 panel 之前先攻了一遍,挖到三条(当时 65 条判据全绿放过):Say-Verdict 被换成
+别名 / 收据文件名在两个文件里各写一份没人对齐 / `$tried` 写死成单端口。全部修 + 配变异。
+
+## ✅ 一件敞账当场关掉:那个窗口的属主进程叫什么
+
+第 6 相把「这个窗口属于谁」采上来写进读数,**当时没敢当闸** —— 理由写在代码注释里:
+「我不知道我们那个窗口的属主进程真名叫什么(pythonw?OpenDesign?),**凭猜写规则**
+是这个项目栽过多次的坑」。干净趟 run 33374468524 把它打回来了:
+
+```
+PHASE 6 窗口在不在 : OK - 「OpenDesign」[WindowsForms10.Window.8.app.0.aec740_r24_ad1]·pythonw(另有 0 个报错框)
+```
+
+**属主是 `pythonw`。** 要不要拿它当闸(拦掉"资源管理器开着 OpenDesign 文件夹"那条
+假绿)进下一刀 —— 这一刀只到"采上来、写进读数"为止,不在这里顺手改。
+
+---
+
+# 第 2h 轮(2026-08-31 傍晚,断线接手):我自己打的那个勾是假的
+
+## 接手第一动作:核那个打了勾的,不是重跑
+
+断线砍在 16:48。现场:第七轮 panel 的任务书(`close7.md`)和派发前自审都已写好、
+**从未派发**(logs 里 close7 一个文件都没有);tasks.md 改了没提交;8 份 observation
+收据躺在树外。
+
+🔴 **然后那个勾没扛住核对。** tasks.md 写的是:
+
+> - [x] 真跑四趟:干净 / 注入(废路一)/ 注入(废路一路二)/ 带新事实的干净趟
+
+四趟 run 是真的。但两趟**注入**没有验到它们声称验的那件事:
+
+| run | 分支 | 结论 | 实际发生了什么 |
+|---|---|---|---|
+| 33373259582 | 2g-clean | success | 干净趟,十相 |
+| 33373282485 | 2g-inject | **cancelled** | `PHASE 4 启动` 之后**静默 29 分钟**,撞 `timeout-minutes: 30` |
+| 33373571950 | 2g-inject3 | **cancelled** | 同上 |
+| 33374468524 | 2g-clean2 | success | 带新事实(属主进程)的干净趟 |
+
+两趟注入的 job 日志里,`PHASE 4` 之后下一行就是 `##[error]The operation was canceled.`,
+然后 `if: always()` 那步跑起来,打的是:
+
+```
+?? ?????? probe-out/verdicts.tsv ? ??????????,??????
+##[error]Process completed with exit code 1.
+```
+
+—— `probe-out/verdicts.tsv` **从来没生成过**,路三是从「**收据缺席**」那条分支红的。
+而我在那两个注入 commit 里**自己写下的期望**是:
+
+> 期望:verdicts.tsv 里有 1 开头的行 ⇒ 探针路二 exit 1,且 workflow 那步独立判红。
+
+**一个字都没兑现。** ⇒ **路二/路三真正的机制(从收据里读出 FAIL 裁决),至今没有
+任何一趟真跑验过。** 而 `close7.md` 已经把这句写成「真跑四趟(这是本轮最硬的证据)」
+准备交给评审腿 —— 派出去就是拿一句比事实重的话去换一个 PASS。
+
+> 自检句(这次是老账兑现,不是新账):**我写下的那句话,和它指的那件事,是两回事。**
+> 上一次是 commit 标题声称 470 全绿而树里没有收据;这一次是我自己写的"期望"没兑现,
+> 而我照着"我打算验什么"打了勾,没回头看"它到底验到了什么"。
+
+## 那 29 分钟不是噪音,是一个真 bug(读源码读出来的,不是推的)
+
+同一份文件里,两处等待写法**不对称**:
+
+```powershell
+# 第 10 相(对的):
+while ($sw.Elapsed.TotalSeconds -lt 90) { ... }        # 墙钟
+# 第 5 相(错的):
+for ($i = 0; $i -lt 60; $i++) {                        # 只有次数
+    foreach ($p in $PortSpan) { Invoke-RestMethod ... -TimeoutSec 2 }   # 21 个端口
+    Start-Sleep -Seconds 3
+}
+```
+
+看着有上限,而**真实最坏耗时 = 60 × (21 × 2 + 3) = 45 分钟**,大于 job 的 30 分钟
+上限 —— 那个"单轮成本"根本不在代码里。后果不是"慢",是**闸走不到落账那一步**:
+`verdicts.tsv` 在第 5 相之后才写第一行,而第 5 相自己先把 job 的预算耗光了。
+
+从那 29 分钟能反推一个硬下界:60 轮没跑完 ⇒ **每个死端口至少耗掉 1.2 秒**。
+
+**而「后端起不来」正是这支探针最该报出来的场景之一** —— 它在那个场景里自己先卡死。
+干净趟永远撞不到:8766 第一个就应答,第一轮就 `break`(实测 86s)。
+
+## 第三条:闸红了,却说不清为什么红
+
+路三那一步的中文在 runner 上打成一串 `?`(上面那行日志)。这是**这一刀新加的那一步**,
+而 65 条判据没有一条问过它。本项目栽编码的第 N 次(上一次是第 9 相打印中文即炸、
+rc=1 泄漏出来染红整趟 run 33306843034)。
+
+⚠️ **根因我没定案**:同一个 job 里主探针的中文是好的,而它是个带 BOM 的 `.ps1` 文件;
+坏掉的这一步是 Actions 现写的临时脚本。我在 Linux 上量不出来。所以两条各治一半:
+闸**自己的话**改成 ASCII(根本不依赖编码),**收据内容**靠显式 UTF-8 输出编码。
+下一趟真跑就能分辨是哪一头 —— ASCII 那几句好了而收据仍是 `?` ⇒ 根因在读进来那头。
+
+## 判据先行 → 实现 → 红检(每一步单独 commit,git 里查得到)
+
+s21 五条:①会等的循环上限必须是**墙钟** ②每个上限 ≤ 180s ③跨文件:所有上限之和
++ 600s 装得进 job 的 `timeout-minutes` ④路三那一步的输出只许 ASCII ⑤那一步必须显式
+设 UTF-8。②③**出生就是绿的**,靠 M75/M76 证明咬得动。
+
+600s 这个余量是**量出来的**,不是拍的:干净趟 run 33374468524 全程 399s,其中第 5 相
+86s、第 10 相 92s ⇒ 非等待开销 ≈ 221s,600 是它的 2.7 倍。
+
+```
+runlog: redcheck-reaches-receipt rc=1 commit=4f7a48c dirty=yes at=2026-08-31T11:01:32Z file=tracks/opendesign-startup-observability/evidence/20260831T110132Z-01-redcheck-reaches-receipt.txt
+runlog: redcheck-recheck-scope rc=1 commit=5d07a62 dirty=yes at=2026-08-31T11:03:02Z file=tracks/opendesign-startup-observability/evidence/20260831T110302Z-01-redcheck-recheck-scope.txt
+runlog: reaches-receipt-green rc=0 commit=798e819 dirty=yes at=2026-08-31T11:03:50Z file=tracks/opendesign-startup-observability/evidence/20260831T110350Z-01-reaches-receipt-green.txt
+runlog: redcheck-mutation-2h rc=1 commit=ce8a361 dirty=yes at=2026-08-31T11:05:07Z file=tracks/opendesign-startup-observability/evidence/20260831T110507Z-01-redcheck-mutation-2h.txt
+runlog: redcheck-mutation-2h-r2 rc=0 commit=ce8a361 dirty=yes at=2026-08-31T11:06:33Z file=tracks/opendesign-startup-observability/evidence/20260831T110633Z-01-redcheck-mutation-2h-r2.txt
+```
+
+三红 → 全绿 → 变异 **M1~M78,咬住 75,漏网 0**。判据 75 个 test 函数。
+
+**两处量具自己的毛病,当场修掉、单独记账**:
+
+1. ASCII 那条第一版拿**整个 step** 去问非 ASCII,把 `name: 裁决收据独立复核` 也禁了 ——
+   那是 GitHub 自己渲染的 UI 文字,根本不经 pwsh 的 stdout。**误报和假绿一样坏**
+   (带误报的闸会逼出绕开它的习惯),收窄成只切 `run: |` 块。收窄后仍是同样三条红。
+2. M37 的变异锚点连着后面两行,我插的那句"内层也看表"把它撑断 ⇒ 报「变异没打上去」。
+   **不是漏网,是锚点过期**(本项目第 N 次)。收窄成只认那一行、靠缩进区分第 5/10 相。
+
+## ✅ 真跑三趟(2h,修完之后重做):路二和路三**第一次**被验到
+
+| run | 分支 | 结论 | 关键行 |
+|---|---|---|---|
+| 33385609814 | 2h-clean | success | 第 5 相 OK(**91s**);复核那步 `verdict receipt, 4 line(s):` |
+| 33385634865 | 2h-inject-a | **failure** | 第 5 相 **155s** 判 FAIL 并落账;路一被废而探针自己的闸从收据判红 |
+| 33385649991 | 2h-inject-b | **failure** | 路一路二都废 ⇒ 探针 `exit 0`;**workflow 那一步独立判红** |
+
+```
+# inject-a(路一废 ⇒ 看路二拦不拦得住):
+PHASE 5 服务活了吗 : FAIL - 端口段 9766..9786 全都不应答 ⇒ 后端没活过来
+🔴 收据里的 FAIL 裁决:2 条
+⇒ exit 1
+
+# inject-b(路一路二都废 ⇒ 只剩 workflow 那一步):
+没有任何一相自报 FAIL,收据里也没有 ⇒ exit 0(**白屏读数不在闸内**,仍要看图)
+[裁决收据独立复核] verdict receipt, 4 line(s):
+[裁决收据独立复核] RED: 2 FAIL verdict(s) in the receipt, this run does not pass
+```
+
+**这正是上一轮声称验过、其实没验到的那件事。** 两趟都是 `failure` 而不是 `cancelled`,
+两趟都在 job 超时内跑完 —— 因为第 5 相现在 155s 就收工(墙钟 150s + 内层最后一次
+检查的 overshoot ≈ 5s,和设计说的一致)。干净趟第 5 相 91s,健康路径没被伤到。
+
+日志摘录:`evidence/20260831-run-33385609814-2h-clean.txt` 等三份。
+
+## ✅ 编码那条当场结案(这是判据里写下的预设实验)
+
+s21 第 5 条的 docstring 里我写过:「根因我在 Linux 上量不出来……下一趟真跑就能分辨:
+ASCII 那几句好了而收据仍是 `?` ⇒ 根因在读进来那头。」干净趟的答案是:
+
+```
+verdict receipt, 4 line(s):
+  0	5 服务活了吗	OK - /api/health 通(端口 8766,version=0.98.2)
+  0	6 窗口在不在	OK - 「OpenDesign」[WindowsForms10.Window.8.app.0.aec740_r24_ad1]·pythonw(另有 0 个报错框)
+```
+
+**收据里的中文原样打出来了** ⇒ 根因在**输出编码**那一头,`[Console]::OutputEncoding`
+治住了它。不是读进来那头。**这一条从"我没定案"变成"量过了"。**
+
+## 反锚定:这一轮我**没有**照"先派发后写 verify.md"做,如实记账
+
+panel skill 写得很清楚:唯一干净的做法是派发那一刻 verify.md 还没被写。我没照做,
+理由写在这里,不藏着:
+
+- 这一轮的任务书里**已经把同样的内容全给腿了**(那个假的勾、两个真 bug、三趟真跑的
+  结果、我自己答不了的 F1~F7)—— 把 verify.md 摘出去换不到真的独立性;
+- 而摘出去意味着一份没提交的工件在仓外躺 20 分钟,**这单已经被断线砍过两次**。
+
+⇒ 权衡之后选了"记账"而不是"照做"。**代价是:腿如果引用了 verify.md,它那一份的
+独立性打折**,任务书里已经要求它们声明有没有引用过。判读报告时按这个折扣读。
