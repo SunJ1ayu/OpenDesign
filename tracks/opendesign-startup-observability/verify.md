@@ -1157,3 +1157,88 @@ M1~M83 咬 81 漏 0)把这一轮**实测出来的**六个绕法关上了,但:
 3. **反锚定这一轮没做到位**(理由和代价见上一节),而两条腿一条声明读了 verify.md
    并说明"结论都来自自己的实跑"、另一条声明没读。按这个折扣读它们的报告 ——
    但它们给的是**自己跑出来的变异结果**,不是意见,折扣影响有限。
+
+---
+
+# 断线接手补记(2026-08-31 22:20,主 agent)
+
+断线砍在 2i 收据正中间。接手第一动作按老规矩:**查最终收据的时间戳,不看它绿不绿**。
+
+## 一、断线现场:两份收据,一份作废一份成立
+
+被砍的那份 317 字节,只有抬头没有输出,已按「半截收据一律作废、但留着当线索」标进文件名:
+
+```
+slug:    run-all-2i
+started: 2026-08-31T11:38:55Z
+---------------- 输出开始 ----------------
+（到此为止,被砍,零输出)
+```
+
+重跑那份跑完了,收尾行齐全:
+
+```
+runlog: run-all-2i-r2 rc=1 commit=b4e2035 dirty=yes at=2026-08-31T11:47:33Z file=tracks/opendesign-startup-observability/evidence/20260831T114733Z-01-run-all-2i-r2.txt
+```
+
+六段:**5 PASS** + e2e 总跑 **37 PASS / 1 FAIL / 2 SKIP** —— 与 2e 那遍、与 0.98.2 那遍
+**逐条一致**;红的仍是 `stage_timer.e2e.mjs`,开工前 `d0840c1` 上就量过、已证死与本单无关
+(`connect-modal-mask` 挡住点击 = 「e2e 悄悄依赖活网关」那笔老账)。
+
+两个诚实标注,别把这份收据读得比它重:
+
+- `dirty=yes` 的来源**只有三份未跟踪的收据文件**;tracked 树与 `b4e2035` 无差异
+  (`git status` 干净),所以它跑的确实是提交上去的那棵树。
+- **没有 `final=yes`**。这一刀判 BLOCK 不归档,不给它盖「最终」章。
+
+## 二、红检 2i 的机器收据(正文里只有散文,收据行补在这)
+
+上一节写了「M1~M83 咬 81 漏 0」却**没贴收据行** —— 这正是归档闸拦过我一次的那个动作
+(把红收据写成散文)。这一刀不归档所以没人拦,但标准照旧:
+
+```
+runlog: redcheck-mutation-2i rc=0 commit=4bac046 dirty=yes at=2026-08-31T11:35:09Z file=tracks/opendesign-startup-observability/evidence/20260831T113509Z-01-redcheck-mutation-2i.txt
+```
+
+`commit=4bac046 dirty=yes` 是因为它跑在**判据尚未提交的工作树**上。按「最终收据必须是
+最后一次编辑之后那一遍」核过四个文件的时间戳次序,**成立**:
+
+| 文件 | mtime |
+|---|---|
+| `.github/scripts/windows-package-probe.ps1` | 19:33:59 |
+| `tests/test_startup_diag.py` | 19:34:45 |
+| **红检开跑** | **19:35:09** |
+| `tests/mutation-startup-diag.sh` | 19:35:09(跑之前那一存) |
+| 提交 `9d35513` / `8ddf7f7` | 19:36:50 / 19:36:52 |
+
+⇒ 红检之后没有任何一次编辑,工作树原样进了那两个 commit。
+
+## 三、🔴 接手查出的一处:`decision.json` 里的 typed verdict 还写着 `PASS`
+
+散文这边 19:38 已经写死「**BLOCK,这一刀不归档**」,而 `decision.json` 的
+`outcome.verdict` 停在 08-30 的 `PASS`,**一天没动过**。
+
+这不是文档洁癖。`CONVENTION.md` 写着 decision.json 是当前决定的**唯一机器源**,
+归档闸读的也是它。我当场量了一次:
+
+```
+track-record validate --phase archive  →  status=valid
+```
+
+⇒ **此刻跑 `track archive`,一个判了 BLOCK 的 track 会被机器归成 PASS**,
+还会带着 high 的 0/1/2 预算进成功成本聚合。散文说"不归档",机器说"可以归,而且是成功的"。
+
+最难看的是它的来历:`decision.json` 最后一次被写正是 `21a417d`,那个 commit 的标题叫
+**「把机器判的 FAIL 补回工件,别让散文比事实好看」** —— 同一个动作,反过来做了一遍。
+
+已改 `PASS` → `BLOCK`,`shape / dispatch / archive` 三个 phase 复跑仍 valid。
+
+**自检句(新):散文改了裁决,typed 字段跟着改了吗?**
+这是"同一个事实存两份、只更新其中一份"的第 N 次,而这一次翻车的是**机器那一份**。
+
+**够不够上一条硬规矩**:这条漂移 git 一眼可查 —— `verify.md` 的最后一次提交晚于
+`decision.json` 的最后一次提交 ⇒ typed verdict 可能过期。准入的两条(真出过事 +
+git 一眼可查)都占着。**但先记账,不立规矩**:我顺手扫了其余 9 个开着的 track,
+命中同一形状的只有 `opendesign-native-frame`,而它是**真一致**的(代码面 PASS、
+产品面不给结论,08-24 那次 verify 编辑没动裁决);其余 `verdict=null` 或 legacy。
+样本 1/10 命中、1/10 误报 —— **误报率一半的闸不许上**,等下一刀连同那批静态钉一起决定。

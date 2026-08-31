@@ -1,0 +1,8 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    run-all-2i
+cmd:     bash tests/run-all.sh
+cwd:     .(仓根)
+commit:  b4e2035
+dirty:   no(跑之前采的;含未跟踪文件)
+started: 2026-08-31T11:38:55Z
+---------------- 输出开始 ----------------

@@ -21,6 +21,6 @@
     "model": "claude-opus-5"
   },
   "outcome": {
-    "verdict": "PASS"
+    "verdict": "BLOCK"
   }
 }

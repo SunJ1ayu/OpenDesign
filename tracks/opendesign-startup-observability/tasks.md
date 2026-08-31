@@ -135,6 +135,18 @@ base-ref: 40cdf3e
 - [ ] 「失败分流表验证」(design.md:129)单开一单 —— 仍未开工
 - [ ] 业主真机装一趟(只有他能做;清单 `真机清单-0.98.2.md`)
 
+## 6. 断线接手(2026-08-31 晚)
+
+- [x] 2i 收据入库:被砍那份标 `作废` 留着当线索,重跑那份(`run-all-2i-r2`)收尾行齐全、
+      6 段 5 PASS + e2e 37/1/2(红的仍是开工前就红的 `stage_timer`)
+- [x] 红检 2i 的收据行补进 verify.md(此前正文只有散文「咬 81 漏 0」,没贴机器行)
+- [x] 🔴 **`decision.json` 的 `outcome.verdict` 还写着 `PASS`,散文这边 19:38 已判 BLOCK**
+      —— 量过:`track-record validate --phase archive` 当时 `status=valid`,
+      ⇒ 此刻 `track archive` 会把一个 BLOCK 的 track 归成 PASS 并进成功成本聚合。
+      已改成 `BLOCK`。**自检句:散文改了裁决,typed 字段跟着改了吗?**
+- [ ] 「verify.md 提交晚于 decision.json 提交 ⇒ typed verdict 可能过期」这条闸:
+      扫了 10 个开着的 track,1 真 1 误报 ⇒ **误报率一半,先记账不上闸**,并进下一刀决定
+
 ## 明确不做(本刀)
 
 - 不做 `storage_path`(第二刀,单独发、冷温分别计时)
