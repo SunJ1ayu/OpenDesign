@@ -485,7 +485,9 @@ class S18ProbeAsksTheJudgeAndSaysWhatItAnswers(unittest.TestCase):
             self.assertIn(f"Get-Verdict '{kind}'", code,
                           f"第 {phase} 相没有去问判定器 ⇒ 它又在自己判,而自己判的那套"
                           "本机验不了(今晚被打回十几次的就是它)")
-            self.assertIn("Say", code, f"第 {phase} 相没把判定器的答案说出来")
+            self.assertIn("Say-Verdict", code,
+                          f"第 {phase} 相用的不是 Say-Verdict ⇒ 它的裁决退出码不进收据 ⇒ "
+                          "退出闸的第二条路对这一相是瞎的(把这一相的 FAIL 洗白就够了)")
 
     def test_s18_the_judge_is_the_repo_copy_not_the_installed_one(self):
         """判定器要用**仓库里这一份**(和探针同版本),不是装出来的那份旧的。"""
@@ -539,7 +541,8 @@ class S18ProbeAsksTheJudgeAndSaysWhatItAnswers(unittest.TestCase):
         self.assertIn("[W32]::Cls(", "\n".join(self._code(src)),
                       "没有采窗口类这个事实 ⇒ 判定器分不开报错框和真窗口")
         self.assertIn("cls", win, "第 6 相没把窗口类喂给判定器")
-        self.assertIn("ours", win, "第 6 相没把老口径(进程主窗口标题)喂给判定器")
+        self.assertIn("procs", win,
+                      "第 6 相没把老口径(所有进程的主窗口标题,**没挑过**)喂给判定器")
 
     def test_s18_the_health_phases_scan_a_span_not_one_hardcoded_port(self):
         """🔴 应用用 pick_ports(span=20) 挑端口,8766 被占会挪 ⇒ 写死一个端口 = 健康假红。"""
@@ -602,26 +605,23 @@ class S18ProbeAsksTheJudgeAndSaysWhatItAnswers(unittest.TestCase):
         code = [ln for ln in src.splitlines() if not ln.lstrip().startswith("#")]
         joined = "\n".join(code)
 
-        # ① 标题过滤的取值:必须和 ds_shell.py 的 APP 一致(跨文件钉,不是抄一个字面量)
-        app = None
-        for ln in (ROOT / "bin" / "ds_shell.py").read_text(encoding="utf-8").splitlines():
-            if ln.startswith("APP ="):
-                app = ln.split("=", 1)[1].strip().strip('"\'')
-                break
-        self.assertTrue(app, "ds_shell.py 里找不到 APP")
-        title = [ln for ln in code if ln.lstrip().startswith("$appTitle")]
-        self.assertTrue(title, "第 6 相没有应用标题这个取值")
-        self.assertIn(f"'{app}'", title[0],
-                      f"应用标题的取值和 ds_shell.py 的 APP({app!r})对不上 ⇒ "
-                      "空串就等于不过滤,同屏任何窗口都算我们的")
-
-        # ② 取窗口时的匹配方向
-        lister = src[src.index("function Get-AppWindows"):]
+        # ①② **搬走了**(2026-08-31,第六轮 panel)。这两条原来钉的是
+        #    `$appTitle` 的取值和 `-like` 的方向 —— 那段代码现在**不存在**了:
+        #    挑窗口整件事搬进了判定器。两条钉子搬到 s19 的
+        #    `test_s19_the_app_title_is_the_one_ds_shell_actually_uses`(跨文件,钉判定器
+        #    的 APP_TITLE)和 `test_s19_a_window_that_is_not_ours_does_not_count`
+        #    (喂一个别人的窗口,断言不算数)—— 那两条是**行为判据**,比这里的字面强。
+        #    留在这里的是这一层仍然问得出的:采集的**条件**别被翻过来。
+        self.assertIn("function Get-AllWindows", src,
+                      "找不到枚举窗口的函数(挑窗口搬走之后它应该叫这个名字)")
+        lister = src[src.index("function Get-AllWindows"):]
         lister = "\n".join(ln for ln in lister[:lister.index("\n}")].splitlines()
                             if not ln.lstrip().startswith("#"))
-        self.assertIn("-like", lister, "取窗口没有按标题匹配")
-        self.assertNotIn("-notlike", lister,
-                         "匹配方向反了 ⇒ 采的是「标题**不含**应用名」的窗口 ⇒ 假绿")
+        self.assertIn("if ($t)", lister,
+                      "取窗口时没有「有标题才算」这个条件")
+        self.assertNotIn("-not $t", lister,
+                         "采集条件被翻过来了 ⇒ 采的全是无标题窗口、我们的那个一个都不在 ⇒ "
+                         "判定器 mine 空 ⇒ 落到老口径 fail-open ⇒ 只有报错框时假绿")
 
         # ③ 窗口类必须从窗口句柄取(不是从 lParam)
         self.assertIn("[W32]::Cls($h)", lister,
@@ -642,11 +642,13 @@ class S18ProbeAsksTheJudgeAndSaysWhatItAnswers(unittest.TestCase):
                       "Say 不再把结果记进 $phases ⇒ 各相照样打印 FAIL,而闸读到的是空的 ⇒ "
                       "自报 FAIL 也 exit 0")
 
-        # ⑥ 轮询退出条件的极性(有应答才停)
-        polls = [ln for ln in code if "Where-Object { $_ }" in ln or "Where-Object { -not $_ }" in ln]
-        self.assertTrue(polls, "第 5/10 相没有「有没有应答」这个判断")
+        # ⑥ 轮询退出条件的极性(有应答才停)。不预填之后 answers 只装真答上来的,
+        #    所以条件是 `.Count`;翻过来就是"没人应答才停" ⇒ 健康时空转、坏时提早判红。
+        polls = [ln for ln in code if "$answers.Count" in ln or "$answers2.Count" in ln]
+        self.assertEqual(len(polls), 2,
+                         f"第 5/10 相的「有没有应答」判断不是两处:{polls!r}")
         for ln in polls:
-            self.assertNotIn("-not $_", ln,
+            self.assertNotIn("-not ", ln,
                              f"轮询的退出条件极性反了:{ln.strip()!r} ⇒ 健康时空转、坏时提早判红")
 
         # ⑦ 事实映射的属性名(Get-AppWindows 给的是 Title/Class)
@@ -666,12 +668,25 @@ class S18ProbeAsksTheJudgeAndSaysWhatItAnswers(unittest.TestCase):
         """
         src = PROBE.read_text(encoding="utf-8")
         code = [ln for ln in src.splitlines() if not ln.lstrip().startswith("#")]
+        # 🔴 这一条**掉过头了**(2026-08-31):原来钉的是"取窗口时必须带 $appTitle 参数",
+        #    而现在正相反 —— 取窗口**不许挑**,挑是判定器的活。钉法也跟着反过来:
+        #    枚举函数不许再长出过滤参数(长出来就等于把判断偷偷搬回本机验不了的地方)。
         win = [ln for ln in _probe_phase(src, "6").splitlines()
-               if not ln.lstrip().startswith("#") and "Get-AppWindows" in ln]
+               if not ln.lstrip().startswith("#") and "Get-AllWindows" in ln]
         self.assertTrue(win, "第 6 相没有去取窗口清单")
-        for ln in win:
-            self.assertIn("$appTitle", ln,
-                          f"取窗口时没按应用标题筛:{ln.strip()!r} ⇒ 同屏任何窗口都算我们的")
+        sig = [ln for ln in code if ln.startswith("function Get-AllWindows")]
+        self.assertTrue(sig, "找不到枚举函数")
+        self.assertEqual(sig[0].strip(), "function Get-AllWindows {",
+                         f"枚举窗口的函数又长出参数了:{sig[0].strip()!r} ⇒ "
+                         "挑窗口又回到了本机验不了的 .ps1 里")
+        # 等到什么时候为止也归判定器:全量枚举下"枚举到东西了吗"恒真(CI 上永远有终端),
+        # 拿它当终止条件 = 一秒就走人 ⇒ 应用还没画完就判它没窗口(假红)。
+        w6 = [ln for ln in _probe_phase(src, "6").splitlines()
+              if not ln.lstrip().startswith("#") and ln.lstrip().startswith("} while")]
+        self.assertTrue(w6, "第 6 相没有等窗口的循环")
+        self.assertIn("lastRc", w6[0],
+                      f"第 6 相的等待不是由判定器说了算:{w6[0].strip()!r} ⇒ "
+                      "全量枚举下终止条件恒真,一秒就走人")
         span = [ln for ln in code if ln.lstrip().startswith("$PortSpan")]
         self.assertTrue(span, "没有端口段的定义")
         self.assertIn("..", span[0],
@@ -745,34 +760,34 @@ class S19ProbeVerdictIsABehaviour(unittest.TestCase):
 
     # ── 第 6 相:窗口在不在 ────────────────────────────────────────────
     def test_s19_a_real_window_is_ok(self):
-        v = self.pv.window_verdict(
-            wins=[{"title": "OpenDesign", "cls": "WindowsForms10.Window.8.app.0.1"}],
-            ours=["pythonw:「OpenDesign」"])
+        v = self._judge("window", {
+            "wins": [{"title": "OpenDesign", "cls": "WindowsForms10.Window.8.app.0.1"}],
+            "procs": ["pythonw:「OpenDesign」"]})
         self.assertTrue(v.ok, v.text)
 
     def test_s19_only_the_error_box_is_a_FAIL(self):
         """WebView2 缺失那类:后端活着、屏幕上只剩 alert()/die() 弹的框。"""
-        v = self.pv.window_verdict(
-            wins=[{"title": "OpenDesign", "cls": "#32770"}],
-            ours=["pythonw:「OpenDesign」"])          # 框就是进程主窗口 ⇒ 老口径看得见它
+        v = self._judge("window", {
+            "wins": [{"title": "OpenDesign", "cls": "#32770"}],
+            "procs": ["pythonw:「OpenDesign」"]})     # 框就是进程主窗口 ⇒ 老口径看得见它
         self.assertFalse(v.ok, "只有报错框却判成「窗口在」⇒ 软件根本打不开也整趟绿")
         self.assertIn("FAIL", v.text)
 
     def test_s19_a_box_next_to_a_real_window_is_still_ok(self):
-        v = self.pv.window_verdict(
-            wins=[{"title": "OpenDesign", "cls": "#32770"},
-                  {"title": "OpenDesign", "cls": "WindowsForms10.Window.8.app.0.1"}],
-            ours=["pythonw:「OpenDesign」"])
+        v = self._judge("window", {
+            "wins": [{"title": "OpenDesign", "cls": "#32770"},
+                     {"title": "OpenDesign", "cls": "WindowsForms10.Window.8.app.0.1"}],
+            "procs": ["pythonw:「OpenDesign」"]})
         self.assertTrue(v.ok, f"真窗口在场也被判红 ⇒ 假红:{v.text}")
 
     def test_s19_no_window_at_all_is_a_FAIL(self):
-        v = self.pv.window_verdict(wins=[], ours=[])
+        v = self._judge("window", {"wins": [], "procs": []})
         self.assertFalse(v.ok)
         self.assertIn("FAIL", v.text)
 
     def test_s19_enumeration_failure_falls_back_to_the_old_signal(self):
         """故意的 fail-open:一个窗口都枚举不到时退回老口径,别造假红。"""
-        v = self.pv.window_verdict(wins=[], ours=["pythonw:「OpenDesign」"])
+        v = self._judge("window", {"wins": [], "procs": ["pythonw:「OpenDesign」"]})
         self.assertTrue(v.ok, v.text)
         self.assertIn("枚举", v.text, "退回老口径时没把这件事写进读数 ⇒ 读数不诚实")
 
@@ -838,12 +853,13 @@ class S19ProbeVerdictIsABehaviour(unittest.TestCase):
     def test_s19_health_on_the_moved_port_is_ok(self):
         """🔴 应用用 pick_ports(span=20) 挑端口,8766 被占会挪到 8767+;
         探针原来把 8766 写死 ⇒ 健康启动也判 FAIL(第三轮 subdeepseek 报的)。"""
-        v = self.pv.health_verdict({8766: None, 8767: "0.98.2"})
+        v = self._judge("health", {"answers": {"8767": "0.98.2"},
+                                   "tried": list(range(8766, 8787))})
         self.assertTrue(v.ok, f"应用挪到 8767 健康启动,却判成没活 ⇒ 假红:{v.text}")
         self.assertIn("8767", v.text)
 
     def test_s19_no_port_answering_is_a_FAIL(self):
-        v = self.pv.health_verdict({p: None for p in range(8766, 8787)})
+        v = self._judge("health", {"answers": {}, "tried": list(range(8766, 8787))})
         self.assertFalse(v.ok)
         self.assertIn("FAIL", v.text)
 
