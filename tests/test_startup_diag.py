@@ -16,6 +16,7 @@
 """
 from __future__ import annotations
 
+import ast
 import io
 import re
 import sys
@@ -414,11 +415,55 @@ class S17TheBigBlobIsSplit(unittest.TestCase):
 
     NEEDED = ("shell.imports_done", "main.entered", "manifest.done", "lock.acquired")
 
+    @staticmethod
+    def _marked_names(src: str) -> set[str]:
+        """源码里**真正被 `DIAG.mark(...)` 记下**的里程碑名字(按语法树认,不按字符串认)。"""
+        names = set()
+        for node in ast.walk(ast.parse(src)):
+            if not isinstance(node, ast.Call):
+                continue
+            f = node.func
+            if not (isinstance(f, ast.Attribute) and f.attr == "mark"
+                    and isinstance(f.value, ast.Name) and f.value.id == "DIAG"):
+                continue
+            if node.args and isinstance(node.args[0], ast.Constant) \
+                    and isinstance(node.args[0].value, str):
+                names.add(node.args[0].value)
+        return names
+
     def test_s17_the_startup_path_marks_every_stage(self):
-        src = (ROOT / "bin" / "ds_shell.py").read_text(encoding="utf-8")
+        """问的是"这个里程碑被记了吗",所以按**语法树**认,不按字符串形状认。
+
+        🔴 2026-09-01 换掉了上一版 `assertIn(f'DIAG.mark("{name}")', src)`。
+        换的理由不是它红了(它确实红了 —— 我给 `lock.acquired` 加了 detail 参数),
+        而是**它问的和它想问的不是一回事**:那个写法要求里程碑"被记下**且不带 detail**"。
+        证据不用推:`ds_shell.py` 里 `window.create_returned` 从 0.98.1 起就带着 detail,
+        它只是**恰好不在 NEEDED 里**,所以这个洞一直没露出来。
+
+        而且新写法**更严**,不只是更松:
+        · 旧写法能被一句**注释**里的 `DIAG.mark("lock.acquired")` 喂饱(字符串搜整个文件);
+          新写法只认真正的调用节点(对照组 c2 钉住)。
+        · detail 是给业主看的诊断内容,不是里程碑在不在的证据 —— 它变化时这条不该红。
+
+        (查过才敢改:全仓没有任何东西按整行匹配这几条 mark ——
+        `probe_verdict.py` 和 `windows-package-probe.ps1` 里都没有 `lock.acquired`。
+        所以加 detail 不会打坏下游,这条红是**题面问窄了**,不是真 bug。)
+        """
+        marked = self._marked_names((ROOT / "bin" / "ds_shell.py").read_text(encoding="utf-8"))
         for name in self.NEEDED:
-            self.assertIn(f'DIAG.mark("{name}")', src,
+            self.assertIn(name, marked,
                           f"开头那一大块少了里程碑 {name!r} ⇒ 它仍然是个黑块")
+
+    def test_s17_a_milestone_named_only_in_a_comment_does_not_count(self):
+        """对照组:光在注释里写出那行字,不算把里程碑记下来(旧写法在这里是绿的)。"""
+        fake = 'DIAG.mark("main.entered")\n# DIAG.mark("lock.acquired") ← 只是注释\n'
+        self.assertEqual(self._marked_names(fake), {"main.entered"},
+                         "注释里的调用被当成真调用 ⇒ 这条判据可以被一句注释喂饱")
+
+    def test_s17_a_detail_argument_does_not_hide_the_milestone(self):
+        """对照组:带 detail 的调用必须照样算数(这正是 2026-09-01 那条假红的形状)。"""
+        fake = 'DIAG.mark("lock.acquired", f"port={p} 用时{ms}ms")\n'
+        self.assertEqual(self._marked_names(fake), {"lock.acquired"})
 
     def test_s17_imports_done_is_marked_before_main_ever_runs(self):
         """顺序要对 —— 但**按执行顺序判,不按源码顺序判**。
