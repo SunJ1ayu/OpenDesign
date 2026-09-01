@@ -1311,7 +1311,11 @@ def main() -> int:
             return 0
     except core.PortBusy as e:
         die(f"启动失败:{e}")
-    DIAG.mark("lock.acquired")
+    # 花在哪、占了哪一格,由这把锁自己说 —— 2026-09-01 那一趟真机,业主的诊断里
+    # 只有一个 +9094ms,是我拿它减前一条、再除以锁位数,才知道 6 次握手全部耗满。
+    # 下一趟不该再靠人做除法。
+    DIAG.mark("lock.acquired",
+              f"port={lock.port} 扫了{lock.scanned}格 用时{lock.scan_ms:.0f}ms")
 
     try:
         home = user_home()

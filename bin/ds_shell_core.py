@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import os
 import re
@@ -119,6 +120,29 @@ def lock_sockopts(platform: str) -> list[tuple[str, int]]:
     return []
 
 
+def lock_timeouts() -> dict[str, float]:
+    """握手的两个期限。纯数据 —— 和 `lock_sockopts` 一个用意:好让考卷问得出来。
+
+    **两个数方向相反,这是 2026-09-01 那一单的核心主张:**
+
+    · `connect` 可以很短。对面**活着**的时候,三次握手是内核在 listen backlog 里
+      自己完成的 —— 它的应用线程忙不忙、卡没卡,都不影响我们 connect 成功
+      ⇒ 短超时**漏判不了活实例**。(不是推的:考卷 l3 拿一个"连得上、永远不回话"
+      的监听者证明了这一点,那种连接照样瞬间就通。)
+    · `read` 不能短。回话那一步要对面的 `_serve` 线程真的醒过来跑一趟 ⇒ 留够。
+
+    🔴 **只许调短前面那个。** 把 `read` 也调短是拿"更容易把活实例看成不存在"换速度,
+    后果是业主开出第二份 OpenDesign、两个后台抢同一份档案。考卷 l2 把两头都钉住了。
+
+    由来:2026-09-01 业主真机第一份启动诊断。此前两个期限都是 1.5s,而且**串行**扫
+    6 个锁位;他那台机器上每个锁位都耗满 ⇒ `manifest.done` 到 `lock.acquired`
+    干等 **9047ms**,占整趟启动 11031ms 的 82%。他的原话是"直接没反应了十几秒"。
+    (同样的扫描在 Linux 上 4.4ms —— 空端口瞬间被拒;Windows 上为什么耗满,
+    见 tracks/opendesign-slow-lock-scan/proposal.md 的"还不知道的"。)
+    """
+    return {"connect": 0.25, "read": 1.5}
+
+
 # 锁通道的线上协议。**公开常量,因为 ds_web 也要发这个帧** ——
 # 两处各抄一份的代价我付过(见 ports_for 那段注释),这里只留一个真相源。
 LOCK_HELLO = b"OpenDesign.ds_shell_core.lock.v1\n"
@@ -172,14 +196,24 @@ class InstanceLock:
         self._sock = None
         self._thread: threading.Thread | None = None
         self._released = threading.Event()
+        # 这把锁自己花了多少 —— 下一趟真机不该再靠人拿两个时间戳相减、再除以锁位数。
+        self.scan_ms: float = 0.0
+        self.scanned: int = 0
 
     def acquire(self) -> bool:
         """True = 我是唯一实例(并已开始监听);False = 已有实例(SHOW 已送到)。"""
+        t0 = time.monotonic()
+        try:
+            return self._acquire()
+        finally:
+            self.scan_ms = (time.monotonic() - t0) * 1000.0
+
+    def _acquire(self) -> bool:
         # 第一份可能落在备用锁位上,所以先扫完整段握手,再尝试占新锁。
-        for port in self._ports():
-            if self._send_show(port):
-                self.port = port
-                return False
+        hit = self._scan(self._ports())
+        if hit is not None:
+            self.port = hit
+            return False
 
         for port in self._ports():
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -213,12 +247,35 @@ class InstanceLock:
         raise PortBusy(f"单实例锁端口段 {self.base_port}..{self.base_port + self.span} 全部被占")
 
     def _someone_ahead_of(self, mine: int) -> bool:
-        for port in self._ports():
-            if port >= mine:
-                return False
-            if self._send_show(port):
-                return True
-        return False
+        # 🔴 这是**第二轮**整段扫描 —— 串行时代业主为一次启动付的是两轮超时
+        #    (考卷 l1 量到 15.0s,正是 5 个哑巴锁位 × 1.5s × 两轮)。
+        return self._scan(p for p in self._ports() if p < mine) is not None
+
+    def _scan(self, ports) -> int | None:
+        """并发对一段锁位握手,返回**最靠前**那个应答 OK 的锁位(没有就 None)。
+
+        为什么必须并发:每个锁位在最坏情况下都要耗满超时,而**串行会把它们加起来**。
+        业主真机上 6 个锁位一个都不肯快速失败 ⇒ 9047ms,他看到的就是"双击了没反应"。
+        并发之后整段的代价 = **一个**超时,不再随锁位数量增长。
+
+        顺序语义保持不变:`pool.map` 按入参顺序返回,所以仍然是"最靠前的那个赢" ——
+        并发裁决(绑完回头看有没有人比我更靠前)靠的就是这个方向唯一。
+
+        ⚠️ 与串行的唯一行为差异:串行遇到第一个应答就不再往下问,并发是整段都问一遍
+        ⇒ 万一真有两份在跑(那本身是 bug),两份都会被叫到前台。已知且可接受:
+        单实例世界里最多只有一份,而"多叫醒一个窗口"不伤数据。
+        """
+        ports = list(ports)
+        self.scanned = max(self.scanned, len(ports))
+        if not ports:
+            return None
+        with concurrent.futures.ThreadPoolExecutor(
+                max_workers=len(ports), thread_name_prefix="ds-shell-lock-scan") as pool:
+            answered = list(pool.map(self._send_show, ports))
+        for port, ok in zip(ports, answered):
+            if ok:
+                return port
+        return None
 
     def release(self) -> None:
         """放开锁,并且**立刻**不再应答握手。
@@ -264,11 +321,13 @@ class InstanceLock:
         收发都**循环读到整行**:TCP 没有消息边界,一次 recv 恰好等于整帧只是回环上的
         运气;分片就把真实例认成陌生人 ⇒ 开出第二份。
         """
+        t = lock_timeouts()
         try:
-            with socket.create_connection(("127.0.0.1", port), timeout=1.5) as s:
-                s.settimeout(1.5)
+            with socket.create_connection(("127.0.0.1", port), timeout=t["connect"]) as s:
+                s.settimeout(t["read"])
                 s.sendall(self._HELLO + self._SHOW)
-                return self._recv_line(s, deadline=time.monotonic() + 1.5) == self._OK.strip()
+                return self._recv_line(
+                    s, deadline=time.monotonic() + t["read"]) == self._OK.strip()
         except OSError:
             return False
 
