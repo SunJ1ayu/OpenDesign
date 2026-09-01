@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import functools
 import json
 import os
 import re
@@ -247,11 +248,25 @@ class InstanceLock:
         raise PortBusy(f"单实例锁端口段 {self.base_port}..{self.base_port + self.span} 全部被占")
 
     def _someone_ahead_of(self, mine: int) -> bool:
-        # 🔴 这是**第二轮**整段扫描 —— 串行时代业主为一次启动付的是两轮超时
-        #    (考卷 l1 量到 15.0s,正是 5 个哑巴锁位 × 1.5s × 两轮)。
-        return self._scan(p for p in self._ports() if p < mine) is not None
+        """我前面还有人吗 —— 这一问必须**耐心**,它是快扫漏判时的唯一兜底。
 
-    def _scan(self, ports) -> int | None:
+        🔴 走到这里意味着:快扫说"没人",可我**没能绑上首选锁位**。这两件事凑在一起
+        本身就是"快扫可能漏了"的信号(锁位被占,而占它的人快扫没问出来)。
+        所以这一轮不能再用快扫那个短期限 —— 用回话那个宽的。
+
+        实测支持这不是多余的小心(2026-09-01,200 次回环 connect,对面正常 accept):
+        中位 0.049ms 但 **p99 1023ms** —— backlog 一瞬满掉丢了 SYN,TCP 约 1s 才重传。
+        0.25s 的快扫在那条尾巴上看见的是"没人",而漏判 = 两份 OpenDesign 改同一份档案。
+        判据 l5 注入 connect=0 让快扫必然全瞎,专钉这条路。
+
+        代价只落在**罕见**分支上:绑到首选锁位时这里一个口都不用问(前面没有锁位),
+        业主每次启动付的仍然只有一轮快扫。
+        """
+        # 这是**第二轮**整段扫描 —— 串行时代业主为一次启动付的是两轮超时
+        # (考卷 l1 量到 15.0s,正是 5 个哑巴锁位 × 1.5s × 两轮)。
+        return self._scan((p for p in self._ports() if p < mine), patient=True) is not None
+
+    def _scan(self, ports, patient: bool = False) -> int | None:
         """并发对一段锁位握手,返回**最靠前**那个应答 OK 的锁位(没有就 None)。
 
         为什么必须并发:每个锁位在最坏情况下都要耗满超时,而**串行会把它们加起来**。
@@ -269,9 +284,10 @@ class InstanceLock:
         self.scanned = max(self.scanned, len(ports))
         if not ports:
             return None
+        probe = functools.partial(self._send_show, patient=patient)
         with concurrent.futures.ThreadPoolExecutor(
                 max_workers=len(ports), thread_name_prefix="ds-shell-lock-scan") as pool:
-            answered = list(pool.map(self._send_show, ports))
+            answered = list(pool.map(probe, ports))
         for port, ok in zip(ports, answered):
             if ok:
                 return port
@@ -315,15 +331,18 @@ class InstanceLock:
     def _ports(self):
         return range(self.base_port, self.base_port + self.span + 1)
 
-    def _send_show(self, port: int) -> bool:
+    def _send_show(self, port: int, patient: bool = False) -> bool:
         """连上去握一次手。对上了 = 那边是另一份 OpenDesign(SHOW 已送到)。
 
         收发都**循环读到整行**:TCP 没有消息边界,一次 recv 恰好等于整帧只是回环上的
         运气;分片就把真实例认成陌生人 ⇒ 开出第二份。
         """
         t = lock_timeouts()
+        # patient=True:连接也用回话那个宽期限。只有 `_someone_ahead_of` 走这条 ——
+        # 那一刻我们已经知道"锁位被占而快扫没问出来",短期限不该再被信任。
+        connect_deadline = t["read"] if patient else t["connect"]
         try:
-            with socket.create_connection(("127.0.0.1", port), timeout=t["connect"]) as s:
+            with socket.create_connection(("127.0.0.1", port), timeout=connect_deadline) as s:
                 s.settimeout(t["read"])
                 s.sendall(self._HELLO + self._SHOW)
                 return self._recv_line(
