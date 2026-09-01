@@ -1,0 +1,26 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    l2-flipped-red
+cmd:     env PYTHONPATH=tests /root/.venvs/design-studio/bin/python -m unittest -v test_ds_shell_core.LockScanCost.test_l2_neither_deadline_may_drop_below_the_measured_connect_tail
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  d4c2272
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-01T13:35:49Z
+---------------- 输出开始 ----------------
+test_l2_neither_deadline_may_drop_below_the_measured_connect_tail (test_ds_shell_core.LockScanCost.test_l2_neither_deadline_may_drop_below_the_measured_connect_tail)
+**两个期限都不许掉到实测尾巴以下。** 这条 2026-09-01 被评审推翻过一次,现在写的是修正后的规格。 ... FAIL
+
+======================================================================
+FAIL: test_l2_neither_deadline_may_drop_below_the_measured_connect_tail (test_ds_shell_core.LockScanCost.test_l2_neither_deadline_may_drop_below_the_measured_connect_tail)
+**两个期限都不许掉到实测尾巴以下。** 这条 2026-09-01 被评审推翻过一次,现在写的是修正后的规格。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py", line 1988, in test_l2_neither_deadline_may_drop_below_the_measured_connect_tail
+    self.assertGreaterEqual(t["connect"], 1.0,
+AssertionError: 0.25 not greater than or equal to 1.0 : 连接超时掉到实测 connect 尾巴(p99 1023ms)以下 ⇒ 快扫会把活实例看成不存在 ⇒ 业主开出两份
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+---------------- 输出结束 ----------------
+runlog: l2-flipped-red rc=1 commit=d4c2272 dirty=yes at=2026-09-01T13:35:49Z file=tracks/opendesign-slow-lock-scan/evidence/20260901T133549Z-01-l2-flipped-red.txt

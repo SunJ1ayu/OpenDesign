@@ -1,0 +1,18 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    connect-latency-before
+cmd:     /root/.venvs/design-studio/bin/python tracks/opendesign-slow-lock-scan/probes/connect_latency.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  d4c2272
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-01T13:36:18Z
+---------------- 输出开始 ----------------
+样本 200/200(连不上 0 次),对面是**正常 accept** 的监听者
+  中位 0.056ms
+  p99  1022.975ms
+  max  1023.173ms
+
+判读:lock_timeouts()['connect'] 必须罩得住 max —— 罩不住就等于
+     '快扫有一定概率把活实例看成不存在',而那条路的代价是业主开出两份。
+  当前 connect 期限盖过 max 了吗: connect=250ms vs max=1023ms ⇒ 盖不住
+---------------- 输出结束 ----------------
+runlog: connect-latency-before rc=0 commit=d4c2272 dirty=yes at=2026-09-01T13:36:18Z file=tracks/opendesign-slow-lock-scan/evidence/20260901T133618Z-01-connect-latency-before.txt
