@@ -198,6 +198,8 @@ class InstanceLock:
         self._thread: threading.Thread | None = None
         self._released = threading.Event()
         # 这把锁自己花了多少 —— 下一趟真机不该再靠人拿两个时间戳相减、再除以锁位数。
+        # `scanned` 是**握手总次数**(两轮就是两轮之和),好让 `scan_ms / scanned`
+        # 真的等于每格代价;`scan_ms` 是整个 `acquire()` 的墙钟。
         self.scan_ms: float = 0.0
         self.scanned: int = 0
 
@@ -281,7 +283,11 @@ class InstanceLock:
         单实例世界里最多只有一份,而"多叫醒一个窗口"不伤数据。
         """
         ports = list(ports)
-        self.scanned = max(self.scanned, len(ports))
+        # 🔴 **累加,不是取最大**:第二轮(`_someone_ahead_of`)扫的永远是第一轮的子集,
+        #    取 max 会让这个字段恒等于 span+1、把兜底那一轮整个吞掉 —— 而 `scan_ms`
+        #    是含两轮的墙钟 ⇒ 业主拿它一除,每格代价放大 1.5 倍。判据 l6 钉住
+        #    "字段 == 握手函数真被调用的次数"(2026-09-01 接手复核)。
+        self.scanned += len(ports)
         if not ports:
             return None
         probe = functools.partial(self._send_show, patient=patient)
