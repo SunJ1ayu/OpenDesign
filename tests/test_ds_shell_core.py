@@ -1996,6 +1996,40 @@ class LockScanCost(unittest.TestCase):
         self.assertGreaterEqual(lock.scan_ms, 0.0)
         self.assertEqual(lock.scanned, 6, "扫了几个锁位说不出来 ⇒ 诊断里那个除法还得我来做")
 
+    def test_l5_a_missed_fast_scan_must_not_produce_a_second_instance(self):
+        """快扫漏掉了活实例,也**不许**开出第二份 —— "首选锁位绑不上"是最后一道证据。
+
+        🔴 这条不是假想出来的风险,是**量出来的**(2026-09-01,本机 200 次回环 connect,
+        对面是一个正常 accept 的监听者):
+
+            中位 0.049ms   p99 1023.510ms   最大 1060.341ms
+
+        中位数支持"短超时够用"(0.25s 是中位的五千倍),**但那条尾巴不支持**:
+        backlog 一瞬间满掉就会丢 SYN,TCP 要等约 1 秒才重传 ⇒ 0.25s 的快扫在那一刻
+        看见的是"没人"。而漏判的代价是两份 OpenDesign 同时改业主一份档案。
+
+        所以快扫不能是唯一证据。这条钉的是兜底那一层:快扫全瞎时,
+        第二份**绑不到首选锁位**(第一份用 SO_EXCLUSIVEADDRUSE 占着),
+        它必须据此把整段**耐心地**再问一遍,而不是径直宣布自己是唯一的。
+
+        注入:把 connect 期限压成 0 ⇒ 实测 BlockingIOError、20 次一次都连不上,
+        快扫必然全瞎。第一份在打补丁**之前**就位,所以它自己不受影响。
+        """
+        base = free_port()
+        first = core.InstanceLock(base_port=base, span=5)
+        self.addCleanup(first.release)
+        self.assertTrue(first.acquire(), "场子没摆起来:第一份就没拿到锁")
+        self.assertEqual(first.port, base)
+
+        real = core.lock_timeouts()
+        with mock.patch.object(core, "lock_timeouts",
+                               return_value={**real, "connect": 0}):
+            second = core.InstanceLock(base_port=base, span=5)
+            self.addCleanup(second.release)
+            self.assertFalse(
+                second.acquire(),
+                "快扫漏判 + 首选锁位绑不上,它还是认为自己唯一 ⇒ 业主会开出两份 OpenDesign")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
