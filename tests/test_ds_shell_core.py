@@ -2095,5 +2095,41 @@ class LockScanCost(unittest.TestCase):
                          f"⇒ 业主拿 scan_ms 除它,得到的每格代价是错的")
 
 
+    def test_l7_both_deadlines_are_actually_read_from_lock_timeouts(self):
+        """两个期限都必须**真的从 `lock_timeouts()` 读** —— 写死字面量要红。
+
+        🔴 2026-09-01 评审腿(subgemini)指出的洞:l3 只 mock 了 `read`,而它那个
+        哑巴监听者的 connect 是**瞬间完成**的 ⇒ 实现把 connect 写死成字面量,
+        **l3 照样绿**。我另外核了 l5 也钉不住:把 connect 写死,快扫会照常找到
+        第一份,`assertFalse(second.acquire())` 依然成立。
+        ⇒ 这一刀把 connect 从 1.5 缩到 0.25、被评审推翻后又收回 1.5,
+        **全程没有任何判据问过"实现到底读没读这个数"**。
+
+        这里直接量**传给 `create_connection` 的 timeout 是不是那个数**,
+        两条路一起问(快扫用 `connect`、`patient` 用 `read`)——
+        顺带把 `patient` 的语义也钉住:今天两个数一样宽,它是空操作,
+        但哪天有人拿 Windows 实测把 connect 调短,这条会立刻重新有牙。
+
+        用 0.37/1.91 这种怪数,是为了让"碰巧等于写死的那个字面量"不可能发生。
+        """
+        lock = core.InstanceLock(base_port=free_port(), span=5)
+        self.addCleanup(lock.release)
+        seen: list[float] = []
+
+        def spy(addr, timeout=None, *a, **kw):
+            seen.append(timeout)
+            raise OSError("probe: 不真连,只看你打算等多久")
+
+        fake = {"connect": 0.37, "read": 1.91}
+        with mock.patch.object(core, "lock_timeouts", return_value=fake), \
+                mock.patch.object(core.socket, "create_connection", spy):
+            lock._send_show(12345)                      # 快扫那条路
+            lock._send_show(12345, patient=True)        # 兜底那条路
+
+        self.assertEqual(
+            seen, [fake["connect"], fake["read"]],
+            f"传给 create_connection 的期限是 {seen},而 lock_timeouts() 说的是 "
+            f"{[fake['connect'], fake['read']]} ⇒ 实现没在读它,那两个数是摆设")
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
