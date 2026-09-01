@@ -1925,9 +1925,17 @@ class LockScanCost(unittest.TestCase):
     def test_l1_scanning_the_slots_is_concurrent_not_serial(self):
         """5 个锁位都"连得上不回话",第 6 个空着 ⇒ 仍要拿到锁,而且**别把超时挨个加起来**。
 
-        串行实现在这里要付两轮 5×读超时(扫一遍 + 绑完再 `_someone_ahead_of` 扫一遍)
-        ≈ 15s;并发实现 ≈ 一个读超时。断言 4s 是留了两倍余量的**行为**上限,
-        不是掐着实现写的数字。
+        串行实现在这里要付**十个**读超时(两轮 × 5 个哑巴锁位)≈ 15s。
+        并发实现付的是**两个**:快扫一轮 + 绑上 base+5 之后 `_someone_ahead_of` 兜底一轮
+        —— **不是一个**。上限因此取 4 个读超时,对真值(2 个)和串行(10 个)各留 2 倍以上,
+        而且跟着 `lock_timeouts()` 走,不是掐着实现写的魔数。
+
+        🔴 2026-09-01 断线接手复核改的。上一版写的是"并发 ≈ 一个读超时……4s 是留了
+        两倍余量" —— **那句是假的**:兜底那一轮正是同一单自己加的
+        (见 `_someone_ahead_of` 的 patient),却没被算进这条判据自己的余量里。
+        venv 解释器实测单跑 **3.012s / 上限 4.0s = 1.33 倍**,慢一点的机器上会抖。
+        放宽不是调钝报警器:配了对照组 —— 把 `_scan` 退回串行,这条在**新**上限下
+        照样红(收据在 evidence/)。
 
         ⚠️ 这条**不能靠调小读超时来满足** —— l2 把读超时钉在 ≥1.0s。两条一起才咬得住。
         """
@@ -1946,8 +1954,10 @@ class LockScanCost(unittest.TestCase):
 
         self.assertTrue(got, "5 个锁位是陌生程序、第 6 个空着,居然没拿到锁")
         self.assertEqual(lock.port, base + 5, "没落在唯一空着的那一格")
-        self.assertLess(spent, 4.0,
-                        f"拿一把没人跟你抢的锁花了 {spent:.1f}s ⇒ 业主双击后就是在等这个")
+        budget = 4 * core.lock_timeouts()["read"]   # 真值 2 个读超时,串行要 10 个
+        self.assertLess(spent, budget,
+                        f"拿一把没人跟你抢的锁花了 {spent:.1f}s(上限 {budget:.1f}s)"
+                        f" ⇒ 业主双击后就是在等这个")
 
     def test_l2_connect_deadline_is_short_but_the_reply_deadline_is_not(self):
         """两个超时必须**分开**,而且方向相反 —— 这是本单的核心主张,写成判据。
