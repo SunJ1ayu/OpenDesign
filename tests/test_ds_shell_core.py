@@ -1901,5 +1901,101 @@ class TestTheAckNamesTheVerb(unittest.TestCase):
                 self.assertEqual(ds_web._restart_verdict(reply), want)
 
 
+# ============================================== L 拿这把锁要花多久(2026-09-01)
+class LockScanCost(unittest.TestCase):
+    """业主真机第一次带回启动诊断:`manifest.done` 到 `lock.acquired` 之间 **9047ms**,
+    而那段里只有 `InstanceLock.acquire()` 一件事。9047 / 6 个锁位 = 1507.8ms,
+    写死的超时是 1500ms ⇒ **6 次握手每一次都干等到超时**(同样的扫描在 Linux 上 4.4ms)。
+
+    B 组十几条判据把这把锁的**语义**问遍了(单实例、备用锁位、并发双击、协议分片),
+    **没有一条问过它要花多久** —— 而业主感受到的、让他说"直接没反应了十几秒"的,
+    正好就是这个没人问的维度。这一组补的是"代价"这一问。
+    """
+
+    def _mute_stranger(self, port: int = 0):
+        """一个"连得上、但永远不回话"的监听者 —— 逼实现把**读**超时耗满。
+
+        用 listen(8) 但不 accept:内核自己完成三次握手放进 backlog ⇒ connect 立刻成功,
+        随后 recv 干等。这正是真机上每个锁位的代价形状(耗满超时),而且不用 mock。
+        """
+        s, p = listen_on(port)
+        self.addCleanup(s.close)
+        return s, p
+
+    def test_l1_scanning_the_slots_is_concurrent_not_serial(self):
+        """5 个锁位都"连得上不回话",第 6 个空着 ⇒ 仍要拿到锁,而且**别把超时挨个加起来**。
+
+        串行实现在这里要付两轮 5×读超时(扫一遍 + 绑完再 `_someone_ahead_of` 扫一遍)
+        ≈ 15s;并发实现 ≈ 一个读超时。断言 4s 是留了两倍余量的**行为**上限,
+        不是掐着实现写的数字。
+
+        ⚠️ 这条**不能靠调小读超时来满足** —— l2 把读超时钉在 ≥1.0s。两条一起才咬得住。
+        """
+        base = free_port()
+        for off in range(5):                      # base..base+4 全是哑巴监听者
+            try:
+                self._mute_stranger(base + off)
+            except OSError:
+                self.skipTest(f"锁位 {base + off} 被本机别的程序占了,这条没法摆场子")
+        lock = core.InstanceLock(base_port=base, span=5)
+        self.addCleanup(lock.release)
+
+        t0 = time.monotonic()
+        got = lock.acquire()
+        spent = time.monotonic() - t0
+
+        self.assertTrue(got, "5 个锁位是陌生程序、第 6 个空着,居然没拿到锁")
+        self.assertEqual(lock.port, base + 5, "没落在唯一空着的那一格")
+        self.assertLess(spent, 4.0,
+                        f"拿一把没人跟你抢的锁花了 {spent:.1f}s ⇒ 业主双击后就是在等这个")
+
+    def test_l2_connect_deadline_is_short_but_the_reply_deadline_is_not(self):
+        """两个超时必须**分开**,而且方向相反 —— 这是本单的核心主张,写成判据。
+
+        · 连接可以很短:对面**活着**时,三次握手是内核在 backlog 里完成的,
+          它的应用线程忙不忙、卡没卡,都不影响 connect 成功 ⇒ 短超时**漏判不了活实例**。
+        · 回话不能短:那一步要对面的 `_serve` 线程真的醒过来跑一趟 ⇒ 留够。
+
+        把两个都调小 = 用"更容易把活实例看成不存在"换速度,后果是业主开出第二份、
+        两个后台抢同一份档案。所以下限和上限一起钉。
+        """
+        t = core.lock_timeouts()
+        self.assertLessEqual(t["connect"], 0.3,
+                             "连接超时还是大到要业主等 ⇒ 6 个锁位又会加起来")
+        self.assertGreaterEqual(t["read"], 1.0,
+                                "回话超时被顺手调小了 ⇒ 对面忙一下就被当成不存在 ⇒ 开出两份")
+
+    def test_l3_the_implementation_actually_uses_those_numbers(self):
+        """防"考卷读常量、代码写字面量":改了 `lock_timeouts()` 的返回值,握手耗时必须跟着变。
+
+        没有这一条,l2 问的只是一个没人用的字典。
+        """
+        _, port = self._mute_stranger()
+        lock = core.InstanceLock(base_port=port, span=0)
+        real = core.lock_timeouts()
+
+        with mock.patch.object(core, "lock_timeouts",
+                               return_value={**real, "read": 0.2}):
+            t0 = time.monotonic()
+            lock._send_show(port)
+            spent = time.monotonic() - t0
+        self.assertLess(spent, 1.0,
+                        f"把读超时改成 0.2s,握手还是花了 {spent:.1f}s ⇒ 实现没在读 lock_timeouts()")
+
+    def test_l4_the_lock_records_what_it_cost(self):
+        """下一趟真机不该再靠我拿两个时间戳相减、再除以 6。
+
+        这把锁自己要说得出:扫了几个口、花了多久、最后占的是哪个。
+        (`lock.acquired` 那条 mark 的 detail 就取这里。)
+        """
+        base = free_port()
+        lock = core.InstanceLock(base_port=base, span=5)
+        self.addCleanup(lock.release)
+        self.assertTrue(lock.acquire())
+        self.assertIsInstance(lock.scan_ms, float)
+        self.assertGreaterEqual(lock.scan_ms, 0.0)
+        self.assertEqual(lock.scanned, 6, "扫了几个锁位说不出来 ⇒ 诊断里那个除法还得我来做")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

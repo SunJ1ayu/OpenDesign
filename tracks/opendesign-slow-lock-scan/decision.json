@@ -2,19 +2,21 @@
   "schema_version": 1,
   "track": "opendesign-slow-lock-scan",
   "impact": {
-    "level": null,
-    "factors": null
+    "level": "high",
+    "factors": [
+      "data_consistency"
+    ]
   },
   "design": {
-    "uncertainty": null,
+    "uncertainty": "low",
     "premise_attack": {
-      "status": null,
+      "status": "not_required",
       "evidence": []
     }
   },
   "execution_plan": {
-    "adapter": null,
-    "model": null
+    "adapter": "main",
+    "model": "claude-opus-5"
   },
   "outcome": {
     "verdict": null
