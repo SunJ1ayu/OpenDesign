@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-slow-lock-scan",
+  "impact": {
+    "level": null,
+    "factors": null
+  },
+  "design": {
+    "uncertainty": null,
+    "premise_attack": {
+      "status": null,
+      "evidence": []
+    }
+  },
+  "execution_plan": {
+    "adapter": null,
+    "model": null
+  },
+  "outcome": {
+    "verdict": null
+  }
+}
