@@ -2030,6 +2030,44 @@ class LockScanCost(unittest.TestCase):
                 second.acquire(),
                 "快扫漏判 + 首选锁位绑不上,它还是认为自己唯一 ⇒ 业主会开出两份 OpenDesign")
 
+    def test_l6_the_slot_count_covers_every_round_not_just_the_first(self):
+        """诊断里那句"扫了N格"必须等于**真的握了几次手** —— 两轮就得算两轮。
+
+        🔴 2026-09-01 断线接手复核量出来的洞。旧写法是
+        `self.scanned = max(self.scanned, len(ports))`,而第二轮(`_someone_ahead_of`)
+        扫的**永远是第一轮的子集** ⇒ 这个字段**结构上恒等于 span+1**;
+        而 `scan_ms` 计的是整个 `_acquire` 的墙钟、**含两轮**。于是 `lock.acquired`
+        会写出「扫了6格 用时<两轮墙钟>」,业主(或下一个我)照着再除一次,
+        **得到的每格代价是真值的 1.5 倍**(仓外副本实测:真握 9 次、字段报 6)。
+        这个字段存在的全部理由就是"下一趟真机不用人做除法",它却偏偏在走兜底那条
+        **慢路**上把除法教错 —— 而慢路正是最需要诊断的那一次。
+
+        l4 咬不住:它断言 `scanned == 6`,而 6 是旧写法结构上唯一可能的值 ⇒
+        那条只问得出"根本没记",问不出"少记了一轮"。所以这里换一个问法:
+        **字段必须等于握手函数被真正调用的次数** —— 这个等式没法靠常量喂饱。
+        """
+        base = free_port()
+        blocker, _ = listen_on(base)          # 占住首选锁位,逼实现绑到 base+1
+        self.addCleanup(blocker.close)
+
+        lock = core.InstanceLock(base_port=base, span=1)
+        self.addCleanup(lock.release)
+
+        calls: list[int] = []
+
+        def counting_send_show(port, patient=False):
+            calls.append(port)
+            return False                      # 一律"没人",两轮都得走完
+        lock._send_show = counting_send_show
+
+        self.assertTrue(lock.acquire(), "两个锁位里第二个空着,居然没拿到锁")
+        self.assertEqual(lock.port, base + 1, "没落在唯一绑得上的那一格")
+        self.assertGreater(len(calls), 2,
+                           "只握了一轮手 ⇒ 这条判据没摆出两轮的场子,它证明不了任何事")
+        self.assertEqual(lock.scanned, len(calls),
+                         f"真的握了 {len(calls)} 次手,诊断里却说扫了 {lock.scanned} 格 "
+                         f"⇒ 业主拿 scan_ms 除它,得到的每格代价是错的")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
