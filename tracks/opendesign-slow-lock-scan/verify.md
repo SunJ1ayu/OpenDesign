@@ -7,9 +7,10 @@
 
 ## Mechanical checks
 
-- [x] build passes(纯 Python,无构建步骤;`tests/run-all.sh` 见下面的最终收据)
-- [x] tests pass(见最终收据一行;已知两条与本刀无关的红:`stage_timer.e2e.mjs` 开工前就红,
-      上一单已量证)
+- [ ] build passes / tests pass —— **此刻还没跑最终总跑,所以这两个勾不许先打**
+      (2026-09-02 自查抓到:我先打了勾才去跑,那正是"打了勾的第 11 项是假的"那种假。
+       收口时跑完 `runlog --final`、把收据行贴到下面,再回来改这两个框。)
+      已知两条与本刀无关的红:`stage_timer.e2e.mjs` 开工前就红,上一单已量证。
 - [x] no secrets / unsafe ops(本刀只动 `bin/ds_shell_core.py` 的锁扫描与两个 docstring、
       `tests/` 判据、`tracks/` 工件;无新写口、无凭证、无网络出口)
 
