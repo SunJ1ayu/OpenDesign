@@ -1,53 +1,69 @@
-# Verify: opendesign-release-0983
+# verify: opendesign-release-0983
 
-- Date: 2026-09-02
-
-> 机器消费的 impact / uncertainty / execution plan / outcome 只写在同目录
-> `decision.json`；这里保留检查、理由、发现与主 Agent 仲裁说明，不复制枚举。
-
-> Panel hook — 软判断(correctness/security/edge/spec-drift)走 panel-review:
-> 主 agent 先独立审并落 findings,再按 impact-risk 预算跑 panel-review；只有特殊控制面
-> 才显式 `--all` 做全池评审。最后仍由主 agent 主裁。
-> build/test 跑通是机械检查。
+机器消费的 impact / uncertainty / execution plan / outcome 只写在同目录 `decision.json`。
 
 ## Mechanical checks
 
-- [ ] build passes
-- [ ] tests pass
-- [ ] no secrets / unsafe ops
+- [x] build passes —— dist 新鲜度 + 类型检查段绿(`npm run build` 后 git 无差异)。
+- [x] tests pass —— ⚠️ **口径**:六段 **5 绿 1 红**,总跑 `rc=1`。
+      · **python 全量 1426 跑过 / 1 跳过,0 失败** ⇒ **bump 版本号没让任何判据变红**
+        (开工前的疑虑:`tests/test_startup_diag.py` 里有 `"0.98.2"` 字面量,
+         核过是 health 端点的**夹具假数据**,与 `bin/ds_web.py` 的 VERSION 无关)。
+      · 红的唯一一条 `stage_timer.e2e.mjs`,**本轮又自己核了失败形状**:
+        4 FAIL + `connect-modal-mask` 拦截 ×9,与上一单、与开工前 `d0840c1` 上量到的
+        **逐条一致** ⇒ 既有红,非本单引入。
+      · 3 条 SKIP 同一根因(本机无活 gateway)、都自标"不算通过"。
+- [x] no secrets / unsafe ops(本单只动版本号字符串、CI 默认值字符串与工件;零行为代码)
 
-**机器打印的**(不是我的转述)—— 判据用 `runlog` 跑,把它打印的收据行原样粘进来:
+**最终收据(全仓总跑)**:
 
 ```
-runlog -t opendesign-release-0983 -- <判据命令>
+runlog: run-all rc=1 commit=5589491 dirty=yes final=yes at=2026-09-02T08:31:51Z file=tracks/opendesign-release-0983/evidence/20260902T083151Z-01-run-all.txt
 ```
 
+**release 资产往返比对**:
+
 ```
-<粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
- **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
- 收据得进 git(5d)。一份收据都没有的话,写一行
- 「- 无机器证据:<理由>」认账 —— 沉默不算理由(5c)。>
+runlog: release-asset-roundtrip rc=0 commit=5589491 dirty=no at=2026-09-02T08:31:32Z file=tracks/opendesign-release-0983/evidence/20260902T083132Z-01-release-asset-roundtrip.txt
 ```
 
-## Review
+## 收口条件逐条对账(proposal 里写死的四条)
 
-- 规格自查(读任何 panel 输出之前先答):<如果规格本身就是错的,会错成什么样、我怎么发现?
-  panel 只验"实现合不合规格",验不了"规格对不对" —— 全池一致 PASS 也不等于题是对的。>
-- 腿的花名册: <把 `<日志前缀>.roster` 里那一行**原样粘过来**,别手写>
-  > panel-review 收尾自己写这个文件(off / FAIL(rc) / 降级 都在里面)。
-  > **控制器没活到收尾时它压根不存在** —— 那时跑 `panel-roster <日志前缀>` 从盘上重建,
-  > 与控制器自己写的**归一化后一致**(判据 R5b 守着;抬头有渲染时间戳,不是字面逐字节)。**一轮零记录的评审也粘得出这一行**,
-  > 所以"那轮被砍了所以没有花名册"不再是理由(2026-08-23,track panel-roster-from-disk)。
-  > 08-06 立这条的理由:08-05 我在这里手写了"三条腿一致 PASS",而 Kimi 根本没出结论
-  > (同一页第 90 行我自己还写着它没出报告)—— 手抄一份终端上的东西,抄错那次没人会发现。
-- findings:
-  - <...>
-  > 只写发现。腿的身份/降级不在这儿抄第二遍:日志自带身份牌(降级横幅 + 视野边界),
-  > 花名册在上一格,查工件不查自述。
-- arbitrated verdict (主裁): <...>
-  > 这里写理由；最终枚举写进 `decision.json.outcome.verdict`。归档时仍为空会被
-  > `track-record validate --phase archive` 挡住，`track list` 也会打 ⚠️。
+1. ✅ **exe 文件名含 0.98.3 且成品闸绿** —— 静态闸 23 条 0 不合格、成品闸 7 条 0 不合格
+   (含 P4「编进去的文件==payload,不多不少」、P5「每个文件字节数逐个对得上」)。
+2. ⚠️ **「从 exe 内容读回版本号」—— 降级了,如实说明。**
+   本机**没有 NSIS 解包工具**(`7z`/`binwalk` 都没有),exe 内容是压缩的,
+   字节流里搜不到 `VERSION = "0.98.3"`。**所以这一条不是直接读出来的**,
+   是靠传递性:`payload/pkg/ds/bin/ds_web.py` = `0.98.3`(直接读的)
+   × 成品闸 P4/P5 机械证明「exe 编进去的文件 == payload 树、字节数逐个对得上」。
+   ⇒ **链条是机器验的,但最后一环是推的,不是读的。**
+   真正的直接验证只有第 4 条(业主真机回显),这也是它必须存在的理由。
+3. ✅ **release 上的 tag 与资产名都是 0.98.3**,且**下回来与本地造的那份逐字节一致**
+   (sha256 `b1d40edf…d87982`,两边相同;`prerelease=true`,45836403 字节)。
+4. ⏳ **业主真机装一趟并回显版本** —— **只有他能做,不装不算发完**。
+   同一趟合并验上一单欠的那件:双击软件是不是真的不再干等十几秒。
 
-## Accepted deviations
+## 我自己的两个顺序错误(都记账,不藏)
 
-- <接受的非关键偏差 + 原因 + 影响范围,或 None>
+1. 🔴 **我先发了 release,才补跑最终判据。** 正确顺序是判据绿了再发。
+   这次侥幸没出事(补跑结果证明零新增失败),但**"侥幸"不是方法** ——
+   如果补跑红了,业主可能已经下载了一个没验过的包。
+   ⇒ 自检句:**对外发布之前,判据跑完了吗?**(发布是不可逆的:链接一旦给出去,
+   撤回也不知道谁已经下过了。)
+2. **最终收据 `dirty=yes`** —— 我在跑 `--final` 之前没有先把上一份收据提交,
+   于是 `evidence/`、`observations/` 两个未跟踪目录让工作树是脏的。
+   核过 `source-stable: yes`、`head-before == head-after == 5589491`,
+   **脏的只是收据文件自身、不是被测源码**,所以这遍有效;但严格说它削弱了
+   "这份收据对应哪棵树"的可追溯性。⇒ 下次:**先提交收据,再跑 `--final`。**
+
+## arbitrated verdict(主裁)
+
+**PASS**。
+
+依据:零行为代码改动(只动版本号与 CI 默认值字符串);python 全量 1426 条 0 失败
+⇒ bump 没碰坏任何判据;唯一的红是既有的、本轮自核过失败形状;
+release 资产与本地构建**逐字节一致**。
+
+⚠️ **但"发完了"这句话现在还不能说** —— 收口条件第 4 条(业主真机回显)未完成。
+按本机那条部署规矩:**没被装上、没回显出 0.98.3 的包,不算部署**。
+这一单的 PASS 是"包造对了、发对了",**不是"业主用上了"**。
