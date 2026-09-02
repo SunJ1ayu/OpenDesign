@@ -14,7 +14,9 @@
 - [x] no secrets / unsafe ops(本刀只动 `bin/ds_shell_core.py` 的锁扫描与两个 docstring、
       `tests/` 判据、`tracks/` 工件;无新写口、无凭证、无网络出口)
 
-**机器打印的**(不是我的转述)—— 全部 17 份收据,逐字节:
+**机器打印的**(不是我的转述)—— **全部 29 份收据,逐字节**
+(2026-09-02 第四轮 subkimi 发现 3:上一版这里写"全部 17 份",而当时 evidence/ 已有 28 份 ——
+ "全部"两个字是过期宣称。这一版是从 29 份收据文件里逐份抓尾行拼的,不是我打的字):
 
 ```
 runlog: l6-red rc=1 commit=7ea4262 dirty=yes at=2026-09-01T13:08:54Z file=tracks/opendesign-slow-lock-scan/evidence/20260901T130854Z-01-l6-red.txt
@@ -34,11 +36,29 @@ runlog: l2-new-floor-bites-1200ms rc=1 commit=f926a6c dirty=yes at=2026-09-02T00
 runlog: l2-green-floor-1500-Lgroup rc=0 commit=f926a6c dirty=yes at=2026-09-02T00:51:31Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T005131Z-01-l2-green-floor-1500-Lgroup.txt
 runlog: yield-race-30-rounds rc=0 commit=72581f1 dirty=yes at=2026-09-02T00:53:36Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T005336Z-01-yield-race-30-rounds.txt
 runlog: l5-control-drop-patient-must-fail rc=1 commit=4687bef dirty=yes at=2026-09-02T00:54:25Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T005425Z-01-l5-control-drop-patient-must-fail.txt
+runlog: yield-race-3-variants-30-rounds rc=0 commit=78f1a0d dirty=yes at=2026-09-02T01:04:14Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T010414Z-01-yield-race-3-variants-30-rounds.txt
+runlog: yield-race-3-variants-30-rounds-repeat rc=0 commit=78f1a0d dirty=yes at=2026-09-02T01:04:47Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T010447Z-01-yield-race-3-variants-30-rounds-repeat.txt
+runlog: empty-range-baseline-and-blackhole rc=0 commit=48cc9fd dirty=yes at=2026-09-02T01:08:57Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T010857Z-01-empty-range-baseline-and-blackhole.txt
+runlog: after-number-audit-unit-tests rc=0 commit=48cc9fd dirty=yes at=2026-09-02T01:09:59Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T010959Z-01-after-number-audit-unit-tests.txt
+runlog: blackhole-with-connect-025-the-1250ms-question rc=0 commit=3a95d50 dirty=yes at=2026-09-02T01:12:00Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T011200Z-01-blackhole-with-connect-025-the-1250ms-question.txt
+runlog: l2-selfevident-old-floor-1000-lets-connect-1000-through rc=0 commit=3a95d50 dirty=yes at=2026-09-02T01:12:51Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T011251Z-01-l2-selfevident-old-floor-1000-lets-connect-1000-through.txt
+runlog: l2-selfevident-new-floor-1500-bites-connect-1000 rc=1 commit=3a95d50 dirty=yes at=2026-09-02T01:13:01Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T011301Z-01-l2-selfevident-new-floor-1500-bites-connect-1000.txt
+runlog: yield-race-stagger-sweep-30 rc=0 commit=44d0bd7 dirty=yes at=2026-09-02T01:41:52Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T014152Z-01-yield-race-stagger-sweep-30.txt
+runlog: yield-race-stagger-fine-40 rc=0 commit=44d0bd7 dirty=yes at=2026-09-02T01:44:14Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T014414Z-01-yield-race-stagger-fine-40.txt
+runlog: yield-race-stagger-fine-40-repeat rc=0 commit=44d0bd7 dirty=yes at=2026-09-02T01:44:34Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T014434Z-01-yield-race-stagger-fine-40-repeat.txt
+runlog: acquire-duration-explains-the-window rc=0 commit=2f2e6d3 dirty=yes at=2026-09-02T01:51:19Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T015119Z-01-acquire-duration-explains-the-window.txt
+runlog: probe-tombstone-in-the-tool rc=0 commit=5954132 dirty=yes at=2026-09-02T02:36:36Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T023636Z-01-probe-tombstone-in-the-tool.txt
 ```
 
-**红的那几遍都在上面,一份没藏**:l6-red、l1-control(串行必须仍然红)、l2-flipped-red、
-l7-control(写死当前正确值也必须红)、l2-new-floor-bites-1000ms/1200ms、
-l5-control-drop-patient —— 共 7 份 rc=1。
+**红的那几遍都在上面,一份没藏** —— 共 8 份 rc=1:
+- `l6-red`
+- `l1-control-serial-must-still-fail`
+- `l2-flipped-red`
+- `l7-control-hardcoded-must-fail`
+- `l2-new-floor-bites-1000ms`
+- `l2-new-floor-bites-1200ms`
+- `l5-control-drop-patient-must-fail`
+- `l2-selfevident-new-floor-1500-bites-connect-1000`
 
 **最终收据(全仓总跑,在最后一次编辑之后跑的那一遍)**:
 
@@ -101,6 +121,29 @@ subdeepseek rc=0/证据完整/verdict=PASS = 1 条;subglm **降级 + NEEDS_MORE_
 标题不算假话(deepseek 确实判了 PASS),但它**读起来像整轮的裁决**,而整轮当时还没结束。
 —— 记忆里那条"机器打印的一句话,和这句话是真的,是两件事"的又一个形态:
 这次撒谎的是**我自己的 commit 标题**,不是机器。
+
+第四轮(`panel-slowlock-r4-1788314050`,snapshot **5954132**),从盘上重建:
+
+```
+submimo=SKIP(rotation) subdeepseek=SKIP(rotation) subglm=未收尾(无 state:被砍或仍在跑) subkimi=PASS(verdict=PASS) subgemini=SKIP(rotation)
+```
+
+🔴 **本轮预算实况:high 要 2 条 coverage-eligible,又只站住 1 条。**
+subkimi rc=0 / 证据完整 / verdict=PASS = 1 条(它的 subject digest 里
+`head_oid=5954132`、`worktree_tree_oid=69d76a13`,与我接手时的树逐字节一致,已核)。
+subglm 在 10:08:38 被**断线的 SIGTERM** 砍掉(`.log` 只有 09:54 那份 526 字节的抬头,
+`.log.err` 内容是 `Terminated`,workspace `/tmp/aiwork-review-workspaces/subglm-agent.JNDzqWaJ`
+已不存在),**零结论,不许补预算**。
+这一次 `panel-roster` 印的是"未收尾(无 state:被砍或仍在跑)"—— **第一、二个实例那笔账
+(把被砍的腿印成 SKIP)在这里没有复发**,它如实说了"分不出被砍还是在跑",而我用 `ps`
+查过:没有任何活腿(见发现 12 的记账)。
+
+🔴 **更要命的一条:控制器也死了 ⇒ 这一轮的 compact observation 一个字都没落盘。**
+`track-record` 判归档预算只认"同一次成功 panel、同一 subject digest 下 N 条
+coverage-eligible 的不同家族腿",**不许跨 run 拼接**。所以即使 subkimi 这份 PASS
+本身完整可读,它在机器眼里**等于不存在**:第三轮的 subdeepseek(PASS)和第四轮的
+subkimi(PASS)是两次 run,拼不起来。⇒ **必须真跑第五轮**,这不是形式主义:
+两条腿看的是不同的树,而第四轮修的四条正是第五轮该覆盖的新增区间。
 
 ### findings
 
@@ -189,8 +232,13 @@ l5 docstring 说清它只覆盖"第一份占着 base"这一种拓扑。
     | 组 | 0ms | 1ms | 2ms | 5ms | 10ms | 50ms | 200ms | 500ms |
     |---|---|---|---|---|---|---|---|---|
     | A 树上的实现 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-    | B 问整段 | 10/30、12/40、13/40 | 1/40、1/40 | 0 | 0 | 0 | 0 | 0 | 0 |
-    | C base回头看 | 6/30、21/40、14/40 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    | B 问整段 | 10/30、12/40、13/40、3/20、4/20 | 1/40、1/40、0/20、1/20 | 0 | 0 | 0 | 0 | 0 | 0 |
+    | C base回头看 | 6/30、21/40、14/40、5/20、5/20 | 0/40、0/40、1/20、0/20 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+    🔴 **1ms 那两格是第四轮抓到的(见发现 11):它在遍与遍之间翻过面**
+    (第三遍 B=0/20 而 C=1/20,和另外三遍反过来)⇒ 两组都在噪声底,
+    **不许写 B/C 谁的窗口更窄**。上一版这张表把它写成 "B 1/40 / C 0",
+    是挑了其中两遍。
 
     ⇒ **双向让位的危险窗口只有 1~2ms 量级**,不是结构性的。
     按跑之前写死的判读规则,这落在"0 存活在某一档之后消失"那一支:
@@ -200,6 +248,54 @@ l5 docstring 说清它只覆盖"第一份占着 base"这一种拓扑。
       被推翻的话上,现在加了"第 0 步:先证明便宜修法不够,别跳过去直接做协议字段";
     - **本刀仍不改让位方向**,但理由换了(见 deviation 1):不是"它行不通",
       而是"那条盲区是既有的、不是本刀引入的回归,换方向要重开判据与评审轮次"。
+
+**第四轮(subkimi,PASS,4 条)** —— 断线砍掉了另一条腿,但这条跑完了。
+我**逐条自己核了树**(不看它的结论就信),**四条全部成立**;第 1 条比它说的还该改:
+
+11. 🔴 **MEDIUM 成立 · 已修 · 比它说的更狠** — 注释里"C 已经是 0"被树上自己
+    **70 秒后**的收据推翻。`bin/ds_shell_core.py` 09:50(commit 2f2e6d3)写下
+    "错开 1ms 时 B 还剩 1/40、C 已经是 0",而 09:51 跑出、**和它同一个 commit
+    5954132 一起落盘**的收据 `*acquire-duration-explains-the-window*` 给的是
+    **B=0/20、C=1/20 —— 方向正好反过来**。
+    它说的是"方向写反了";我核完五份收据后认为**真相更重**:1ms 那一档
+    B/C 都已掉到噪声底(1/40、1/40、0/20、1/20 对 0/40、0/40、1/20、0/20),
+    **谁没掉到 0 会在遍与遍之间翻面** ⇒ 任何 B/C 方向性的话都写不得,
+    不是"改成正确方向"就完事。
+    最难看的是:**同一段注释往下六行,就是我自己写的 ⚠️"别引用其中任何一个比例"**
+    —— 违反的是我六行后自己立的规矩。已改三处(注释表、注释正文、
+    `opendesign-lock-seniority-field/proposal.md` 的表)+ 上面 findings 10 的表。
+    机器证的:`runlog: probe-tombstone-in-the-tool ... at=2026-09-02T02:36:36Z`
+    —— **第五遍**又翻回 B=1/20、C=0/20,当场再证一次"方向不稳"。
+
+12. 🔴 **MEDIUM 成立 · 已修** — **墓碑立在了 verify.md,没立在探针里。**
+    `probes/yield_race.py` 的 docstring 判读段和 (2) 段的打印,到 HEAD 为止
+    仍然无条件断言"B/C 只要出现过 0 ⇒ 这条修法被证伪 ⇒ 必须给锁协议加先来后到字段"
+    —— 那句话**已被同一支探针的 (3) 段推翻**。也就是说:最新那三份收据里,
+    **同一次运行先印出被推翻的旧结论,再在下面把它推翻**,而工具本身没有任何标记。
+    这是"假话留在树上"的**可执行形态**:它还会不断生产带假话的新收据。
+    已改:docstring 加 ⛔ 墓碑(保留原话 + 指向本条与 deviation 1),
+    (2) 段的打印改成只报事实、并明说"到此为止不许下结论,窗口宽度由 (3) 段说了算"。
+    机器证的(对照组):旧收据 `*acquire-duration-explains-the-window*` 里
+    "必须加先来后到字段" 出现 1 次;修完后跑的 `*probe-tombstone-in-the-tool*` 里
+    出现 **0 次**,取而代之的是第 36~37 行那两行墓碑。
+
+13. **LOW 成立 · 已修** — verify.md 顶部写"**全部** 17 份收据,逐字节",而当时
+    `evidence/` 已有 28 份。"全部"两个字是**过期宣称**(记忆里那条"过期的绿不只是
+    数字过期"的又一个形态)。已改成从 29 份收据文件里逐份抓机器尾行拼出来的全量清单,
+    rc=1 的份数也从 7 更正为 8(漏掉的是 `l2-selfevident-new-floor-1500-bites-connect-1000`)。
+
+14. **LOW 成立 · 记账不修(本单)** — 错开量是**名义值**:`time.sleep(offset)` 打在
+    `Barrier` 之后,两条线程**真实起跑偏斜从未打点实测**。方向双刃(sleep 过冲会放大、
+    Barrier 释放偏斜会缩小),≥2ms 档五遍全零在经验上把它夹住了,但这确实是
+    "我用没量过的量具去证伪自己上午的强结论"。
+    ⇒ 写进下一单第 0 步:两个**进程**测量时必须记 `perf_counter` 起跑差。
+    (它同轮还指出 proposal 表里 "B 10~13/40" 混了分母 —— 10 来自 /30 —— 已一并改掉。)
+
+⚠️ **subkimi 这份 PASS 的可信度我自己打个折**:它在结论里明说自己在 PASS 和 BLOCK
+之间来回了好几轮(日志里能看到它反复自问"a false statement in the reviewed range
+should block?"),最后按"不改变技术决定"落在 PASS。**我不拿它的 PASS 当通过凭证**
+—— 本轮真正有价值的是那四条发现,而它们四条全部成立、且第 1 条打在我自己
+"让这句话自证"的那个 commit 上。
 
 ### arbitrated verdict(主裁)
 
@@ -216,10 +312,11 @@ l5 docstring 说清它只覆盖"第一份占着 base"这一种拓扑。
      ⚠️ **2026-09-02 下午重写:这一格原先写的"结构性做不到两全"被我自己的收据推翻了**
      (见 findings 第 10 条)。下面是改正后的版本。
 
-     **量到的(三遍都成立)**:A 组在任何错开档上都没出现过 0 存活;
-     B/C 的 0 存活**只出现在 ≲1~2ms 的对齐窗口内**,错开 2ms 以上三遍一次都没有;
+     **量到的(五遍都成立)**:A 组在任何错开档上都没出现过 0 存活;
+     B/C 的 0 存活**只出现在 ≲1~2ms 的对齐窗口内**,错开 2ms 以上五遍一次都没有;
      存活 2 份在所有组、所有档、所有遍里恒为 0;盲区那一格每遍一样(A 放行、B/C 堵住)。
-     0ms 那一档的比例给出过 6/30~21/40,**别引用比例**。
+     0ms 那一档的比例给出过 6/30~21/40,**别引用比例**;1ms 那一档两组都在噪声底、
+     方向在遍与遍之间翻面(第四轮发现 11),**也不许比较 B 和 C 谁更窄**。
      ⇒ 量到的是"B/C 用一个 **1~2ms 量级的 0 存活窗口** 换盲区被堵住"这笔取舍,
      **不是**"做不到两件事兼得"。
 
