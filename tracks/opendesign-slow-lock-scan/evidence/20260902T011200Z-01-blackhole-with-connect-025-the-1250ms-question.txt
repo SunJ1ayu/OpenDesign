@@ -1,0 +1,17 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    blackhole-with-connect-025-the-1250ms-question
+cmd:     timeout 600 /root/.venvs/design-studio/bin/python tracks/opendesign-slow-lock-scan/probes/blackhole_scan.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  3a95d50
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-02T01:12:00Z
+---------------- 输出开始 ----------------
+对照基线:20 次扫 6 个空锁位(没人监听,真 connect)  中位 1.0ms  max 4.4ms
+
+旧版取自:e64b28f
+
+       修之前: acquire()=True  墙钟   9001.0ms
+       修之后: acquire()=True  墙钟    251.2ms
+            快了 35.8 倍;省下 8.7s
+---------------- 输出结束 ----------------
+runlog: blackhole-with-connect-025-the-1250ms-question rc=0 commit=3a95d50 dirty=yes at=2026-09-02T01:12:00Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T011200Z-01-blackhole-with-connect-025-the-1250ms-question.txt
