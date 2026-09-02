@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-lock-seniority-field",
+  "impact": {
+    "level": "high",
+    "factors": [
+      "data_consistency"
+    ]
+  },
+  "design": {
+    "uncertainty": null,
+    "premise_attack": {
+      "status": null,
+      "evidence": []
+    }
+  },
+  "execution_plan": {
+    "adapter": null,
+    "model": null
+  },
+  "outcome": {
+    "verdict": null
+  }
+}
