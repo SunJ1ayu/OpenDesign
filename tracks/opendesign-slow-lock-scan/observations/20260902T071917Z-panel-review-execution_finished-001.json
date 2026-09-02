@@ -1,0 +1,116 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-slow-lock-scan",
+  "run_id": "20260902-150322-2339699-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "slow-lock-scan-r6",
+  "started_at": "2026-09-02T07:03:22Z",
+  "finished_at": "2026-09-02T07:19:17Z",
+  "duration_ms": 954956,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": true,
+    "work_exit_code": 1,
+    "legs": [
+      {
+        "adapter": "subdeepseek",
+        "degraded": true,
+        "duration_ms": 1954,
+        "evidence": {
+          "completeness": "partial",
+          "digest": "sha256:e3968872312e4f036bdca0e57efc6aa46789f48e095590cb824970bde533390e",
+          "ref": "file:///root/aiwork/logs/panel-slowlock-r6-1788332601.subdeepseek.evidence.log"
+        },
+        "failure_kind": "runtime",
+        "family": "deepseek",
+        "model": {
+          "invoked": "deepseek-v4-flash",
+          "reported": null,
+          "requested": "deepseek-v4-flash"
+        },
+        "name": "subdeepseek",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 1,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260902-150322-2339699-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "digest": null,
+          "manifest_version": 1,
+          "source": null,
+          "task_sha256": "sha256:afbd5573fbfdd2c6ed352c78f9a121f81d90f2a9d464e845b4ed83679d58f40c"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "api",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "UNKNOWN",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "diff_bundle"
+        }
+      },
+      {
+        "adapter": "subglm",
+        "degraded": true,
+        "duration_ms": 6966,
+        "evidence": {
+          "completeness": "partial",
+          "digest": "sha256:890e915a5b41acfb44bbc2b57d568301ff2927afd10fe6686d3ac3b7483dbe23",
+          "ref": "file:///root/aiwork/logs/panel-slowlock-r6-1788332601.subglm.evidence.log"
+        },
+        "failure_kind": "runtime",
+        "family": "zhipu",
+        "model": {
+          "invoked": "glm-5.3-flash",
+          "reported": null,
+          "requested": "glm-5.3-flash"
+        },
+        "name": "subglm",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 1,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260902-150322-2339699-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "digest": null,
+          "manifest_version": 1,
+          "source": null,
+          "task_sha256": "sha256:afbd5573fbfdd2c6ed352c78f9a121f81d90f2a9d464e845b4ed83679d58f40c"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "api",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "UNKNOWN",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "diff_bundle"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

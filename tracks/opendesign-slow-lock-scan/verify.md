@@ -16,7 +16,7 @@
         ⇒ 既有红,非本刀引入(deviation 4)。
       · **三条 SKIP 全部同一根因(本机没有活 gateway),且都自己标着"不算通过"**:
         python 侧 1 条 = `tests/test_ws_protocol_smoke.py`(`_skip_reason()` 返回
-        "gateway 未在 127.0.0.1:8766 运行")—— **这一条是本轮新查明的**,
+        "gateway 未在 127.0.0.1:8765 运行")—— **这一条是本轮新查明的**,
         此前四轮的收据都只写"1 跳过"、从没点过它的名字;
         e2e 侧 2 条 = `new_chat.e2e.mjs` / `project-thread.e2e.mjs`。
       · **本刀最相关的那两条"两腿真联跑"判据不在 SKIP 里** —— 总跑显式设了
@@ -26,9 +26,18 @@
 - [x] no secrets / unsafe ops(本刀只动 `bin/ds_shell_core.py` 的锁扫描与两个 docstring、
       `tests/` 判据、`tracks/` 工件;无新写口、无凭证、无网络出口)
 
-**机器打印的**(不是我的转述)—— **全部 29 份收据,逐字节**
-(2026-09-02 第四轮 subkimi 发现 3:上一版这里写"全部 17 份",而当时 evidence/ 已有 28 份 ——
- "全部"两个字是过期宣称。这一版是从 29 份收据文件里逐份抓尾行拼的,不是我打的字):
+**机器打印的**(不是我的转述)—— `evidence/` 当前 **31 份**收据的尾行,逐字节:
+
+> ⚠️ **这个数字天生会过期** —— 每多跑一份收据它就少一。第四轮 subkimi 发现 3
+> 打的就是它(那时这里写"全部 17 份"而实有 28 份);**我今天又让它过期了一次**
+> (修好的"29"在我新增两份总跑收据后变成了假话,见 findings 24)。
+> ⇒ 修法不是再改一次数字,是**别再手打它**。重生成命令(收口后若再加收据就跑它):
+> ```
+> ls evidence/*.txt | wc -l                 # 总份数
+> grep -h '^runlog:' evidence/*.txt         # 整块,按文件名=时间序
+> grep -h '^runlog:' evidence/*.txt | grep -c ' rc=1 '   # 红的份数
+> ```
+> 本块与下面两个数字都是 2026-09-02 收口时**由脚本重生成**的,不是我打的字。
 
 ```
 runlog: l6-red rc=1 commit=7ea4262 dirty=yes at=2026-09-01T13:08:54Z file=tracks/opendesign-slow-lock-scan/evidence/20260901T130854Z-01-l6-red.txt
@@ -60,9 +69,11 @@ runlog: yield-race-stagger-fine-40 rc=0 commit=44d0bd7 dirty=yes at=2026-09-02T0
 runlog: yield-race-stagger-fine-40-repeat rc=0 commit=44d0bd7 dirty=yes at=2026-09-02T01:44:34Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T014434Z-01-yield-race-stagger-fine-40-repeat.txt
 runlog: acquire-duration-explains-the-window rc=0 commit=2f2e6d3 dirty=yes at=2026-09-02T01:51:19Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T015119Z-01-acquire-duration-explains-the-window.txt
 runlog: probe-tombstone-in-the-tool rc=0 commit=5954132 dirty=yes at=2026-09-02T02:36:36Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T023636Z-01-probe-tombstone-in-the-tool.txt
+runlog: run-all rc=1 commit=4c95a1e dirty=no final=yes at=2026-09-02T03:14:18Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T031418Z-01-run-all.txt
+runlog: run-all rc=1 commit=6cf9c5b dirty=no final=yes at=2026-09-02T06:36:58Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T063658Z-01-run-all.txt
 ```
 
-**红的那几遍都在上面,一份没藏** —— 共 8 份 rc=1:
+**红的那几遍都在上面,一份没藏** —— 共 **10** 份 rc=1:
 - `l6-red`
 - `l1-control-serial-must-still-fail`
 - `l2-flipped-red`
@@ -71,6 +82,8 @@ runlog: probe-tombstone-in-the-tool rc=0 commit=5954132 dirty=yes at=2026-09-02T
 - `l2-new-floor-bites-1200ms`
 - `l5-control-drop-patient-must-fail`
 - `l2-selfevident-new-floor-1500-bites-connect-1000`
+- `run-all`
+- `run-all`
 
 **最终收据(全仓总跑,在最后一次编辑之后跑的那一遍)**:
 
@@ -452,9 +465,83 @@ submimo 独立读了 `panel_review_coverage` 源码,确认跨 run 不拼)。
     就会写下"本刀的核心判据被跳过了"这句**假话**。真相是总跑设了
     `DS_SHELL_E2E=1`,它们跑了。⇒ **单跑的环境 ≠ 总跑的环境,别拿前者替后者作证。**
 
+**第六轮(`panel-slowlock-r6-1788332601`,snapshot **ec1f0bc**)** —— 花名册(机器打印的):
+
+```
+submimo=SKIP(health:cooldown:INCOMPLETE) subdeepseek=FAIL(rc=1,降级:回落聊天腿也没成) subglm=FAIL(rc=1,降级:回落聊天腿也没成) subkimi=SKIP(health:cooldown:FAIL) subgemini=SKIP(health:cooldown:FAIL)
+```
+
+ORACLE 先跑,`rc=0`(`DS_SHELL_E2E=1 python -m unittest tests.test_ds_shell_core tests.test_ds_lock`)。
+`impact-risk=high requested-budget=2 selected=2`,两条不同家族(deepseek / zhipu)。
+**coverage-eligible 仍然 = 0**,`escalation=failure(no-healthy-spare)`。
+
+24. 🔴 **第六轮的死因链有三环,中间一环是我的失误。**
+    ① 两条 **agent 腿都超时被砍**(`rc=124`,各跑约 25 分钟;subdeepseek 停在
+    `turns: 198 / 上限 200`)—— 这是**已记在案的老账**"评审腿的墙钟上限该换成停滞检测"
+    的又一次兑现,不是新病。
+    ② 回落到 chat 腿后,两条都打印
+    `WARNING: git diff is empty ... a chat-based reviewer will review BLIND` ⇒
+    **瞎审** ⇒ 无裁决行 ⇒ `rc=1`。**这一环是我的**:panel 抽屉里写着
+    "chat 腿只吃增量 diff,看不到已提交的东西,要用 `PANEL_INCLUDE` / `PANEL_DIFF_BASE`
+    喂它" —— 我**读了那个抽屉、却没把这条用在这次派发上**。agent 腿正常时不需要它,
+    可**一旦回落,chat 腿就是瞎的**;我把整轮押在"agent 腿不会挂"上,没留后手。
+    ③ 其余三条腿都在冷却 ⇒ 无健康备腿可补。
+    ⇒ 自检句:**我给这次派发留的后手,在主路径挂掉时还成立吗?**
+
+25. 🔴 **"全部 N 份"我修好一次,今天又亲手让它过期 —— 第十次"话比证据重"(我自己第五次)。**
+    finding 13 修的正是这句(那时写"全部 17 份"而实有 28 份)。修好写成"29 份"之后,
+    **我今天新增两份总跑收据,它立刻又变回假话**:实有 **31** 份,而红收据小结那句
+    "共 8 份 rc=1" 的真值是 **10** 份。
+    ⇒ **修法不是再改一次数字**(那是第三次打同一个补丁),而是**别再手打它**:
+    上面那块与两个数字现在都由脚本从 `evidence/*.txt` 逐份抓尾行重生成,
+    并把重数命令写在块首。**会随时间过期的句子,不该由人手维护。**
+
+26. 🔴 **这两条发现全部来自被机器判 FAIL、不进预算的腿 —— "失败腿的日志也要读"第 N 次兑现。**
+    - **端口写错**:我在 finding 23 里刚宣布"这条 SKIP 四轮以来头一次被点名",
+      **却在同一句话里把它的原因写错了** —— 写成 `127.0.0.1:8766`,真值是 **8765**
+      (`tests/test_ws_protocol_smoke.py:22`,8766 是 ds-web 的端口,我把两个搞混了)。
+      抓到它的是 **subglm 那条超时腿**:它在被砍之前跑了一条命令去核我这句话,
+      实测打印 `gateway 未在 127.0.0.1:8765 运行`。已改。
+    - **收据清单过期**(finding 25):**subdeepseek 那条超时腿**跑到第 198 轮,
+      正在数 `evidence/` 的份数与 rc=1 的份数、核清单里每个文件名是否都存在 ——
+      **它没来得及给结论就被砍了**,我把它设计的检查接过来自己跑完,才抓到 31/29 与 10/8。
+    ⇒ 这一轮机器认的证据是 **0**,而它实际产出了 **2 条真发现,且两条都成立**。
+    和第三、四轮同形:**"机器判它 FAIL"和"它没干出东西"是两件事。**
+
 ### arbitrated verdict(主裁)
 
-<收口时填>
+**PASS(代码面)—— 但带一个必须写明的缺口:外部评审覆盖 0/2,归档闸会因此 BLOCK。**
+
+**判 PASS 的依据(都是机器写的,不是我的转述)**:
+- 最终总跑 `rc=1`,六段 5 绿 1 红;红的唯一一条 `stage_timer.e2e.mjs` 与本刀无关
+  (**本轮自己核了失败形状**,与开工前 `d0840c1` 上量到的逐条一致),三条 SKIP
+  同一根因(本机无活 gateway)且都自标"不算通过"。
+- 第六轮 ORACLE `rc=0`:本刀的锁扫描判据此刻咬得住。
+- 本刀的核心主张"9047ms → 1502ms"**代码面成立**(`_scan` 一次性并发问整段、
+  `pool.map` 保序 ⇒ 让位方向唯一;最坏代价 = 一个 1.5s 超时,不再随锁位数线性增长)。
+- **代码在 09-01 21:39(`0e8256b`)之后再没动过行为** —— 此后 10 个 commit 全是
+  注释与工件。也就是说:真正需要外部评审的那部分,是**第一、二轮**审过的,
+  而那两轮的发现(2×BLOCK + 5 条)**逐条落地、我逐条核过树**。
+
+🔴 **缺口(不许被这个 PASS 盖住)**:
+`impact=high` 要求 2 条不同家族的 coverage-eligible 腿,**至今是 0**。
+六轮的实际去向:第一、二轮有真评审价值但机器只留下 1 份 observation;
+第三、四轮腿跑完了而**控制器没活过断线**(欠账 D8)⇒ 整轮不进预算;
+第五轮三条腿分别死于权限/额度/**题面没有裁决行契约**(欠账 D11);
+第六轮死于 **agent 腿超时 + 我没给 chat 腿留后手**(finding 24)。
+⇒ **这不是"代码没被审过",是"机器要的那份记录拿不到"。两件事必须分开说。**
+
+**为什么不派第七轮**:业主 2026-09-02 下午明确拍板"跑完最后一轮,有问题改完收口"。
+在此之前我已把账算给他看:**代码 09-01 晚就冻结了,第三~六轮审的全是文字**,
+而每一轮打的都是**上一轮结束后半小时内我新写的话**(09:50 写→10:41 打;
+第四轮改正时写→11:13 打)⇒ **不是腿不够,是"改正"这个动作本身在生产新的审查面**。
+再派只会让循环转下去。**这条机制比这一单任何一个 bug 都值钱。**
+
+**遗留给下一个人的**:
+1. 那台 Windows 的真机(deviation 2):全部实测来自 Linux,快扫会不会也这么快没量过。
+2. 拓扑盲区(deviation 1)已开单 `opendesign-lock-seniority-field`,第 0 步写死。
+3. 三笔工作流欠账(aiwork `WORKFLOW-DEBT.md` D8 / D11 / D12)**都还没修** ——
+   这一单为它们烧掉四轮外部评审;不修,下一单大概率重演。
 
 ## Accepted deviations
 
