@@ -1,0 +1,26 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    l5-control-drop-patient-must-fail
+cmd:     env PYTHONPATH=tests /root/.venvs/design-studio/bin/python -m unittest -v test_ds_shell_core.LockScanCost.test_l5_a_missed_fast_scan_must_not_produce_a_second_instance
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  4687bef
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-02T00:54:25Z
+---------------- 输出开始 ----------------
+test_l5_a_missed_fast_scan_must_not_produce_a_second_instance (test_ds_shell_core.LockScanCost.test_l5_a_missed_fast_scan_must_not_produce_a_second_instance)
+快扫漏掉了活实例,也**不许**开出第二份 —— "首选锁位绑不上"是最后一道证据。 ... FAIL
+
+======================================================================
+FAIL: test_l5_a_missed_fast_scan_must_not_produce_a_second_instance (test_ds_shell_core.LockScanCost.test_l5_a_missed_fast_scan_must_not_produce_a_second_instance)
+快扫漏掉了活实例,也**不许**开出第二份 —— "首选锁位绑不上"是最后一道证据。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py", line 2080, in test_l5_a_missed_fast_scan_must_not_produce_a_second_instance
+    self.assertFalse(
+AssertionError: True is not false : 快扫漏判 + 首选锁位绑不上,它还是认为自己唯一 ⇒ 业主会开出两份 OpenDesign
+
+----------------------------------------------------------------------
+Ran 1 test in 0.009s
+
+FAILED (failures=1)
+---------------- 输出结束 ----------------
+runlog: l5-control-drop-patient-must-fail rc=1 commit=4687bef dirty=yes at=2026-09-02T00:54:25Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T005425Z-01-l5-control-drop-patient-must-fail.txt
