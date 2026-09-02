@@ -7,13 +7,24 @@
 没有收据、没有对照组 —— 正是这一单自己刚给 connect_latency 补掉的那个形态
 ("量出来的数活在文档里,仓库里复现不出来")。所以补这一支。
 
-它量什么:两份实例**同时**跑 `acquire()`,数最后有几份认为自己是唯一的(=活下来几份)。
+它量两件事,因为这是一笔**取舍**,不是单指标:
+  (1) **盲区场景**:陌生程序占过 base 又退出 ⇒ 第一份在 base+1、第二份快扫全瞎绑上 base。
+      放行 = 两份 OpenDesign 并存 = 数据面出事。
+  (2) **同时启动 × N 轮**:业主双击两下,最后活下来几份。0 份 = 一个窗口都不开。
+
+三组实现:
   A 组 = 树上的实现:`_someone_ahead_of` 只问 `p < mine`(让位方向唯一)
-  B 组 = 评审建议的改法:绑完之后问**整段**(除了自己),两个方向都问
+  B 组 = 评审腿建议的改法:绑完之后问**整段**(除了自己),两个方向都问
+  C 组 = 主 agent 自己构造的**最强变体**(2026-09-02,用来攻"B 组是不是稻草人"):
+         只有绑上首选锁位 base 的那份才回头问后面,其余仍只问前面。
+         为什么它最强:盲区里第二份恰好绑在 base 上,只有让它回头问才够得着;
+         而非 base 那一侧的让位方向仍然唯一。
 
 判读:
-  A 组必须**恒等于 1**。出现 0 或 2 都是这把锁的严重缺陷。
-  B 组只要出现过 0,"整段都问"这条修法就被证伪 —— 业主双击之后一个窗口都不开。
+  A 组的 (2) 必须**恒等于 1**;它的 (1) 今天是**放行**(这就是那条已记账的拓扑盲区)。
+  B/C 组只要 (2) 出现过 0,这条修法就被证伪 —— 堵住数据面的代价是业主双击后没窗口。
+  ⇒ 三组都过不了"(1) 堵住 **且** (2) 恒为 1"这一关,说明**光靠问谁在监听是不够的**,
+     必须给锁协议加先来后到字段(track opendesign-lock-seniority-field)。
 
 ⚠️ 它模的是什么、不是什么:同一个进程里的两个线程、Linux 回环。真实场景是业主那台
    Windows 上的两个进程。**竞争窗口的绝对宽度会不一样**,所以这里的比例别当成
@@ -23,6 +34,7 @@ import os
 import socket
 import sys
 import threading
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "bin"))
 import ds_shell_core as core  # noqa: E402
@@ -50,8 +62,46 @@ def free_base(span: int) -> int:
 
 
 def ask_whole_range(self, mine: int) -> bool:
-    """B 组:绑完之后问整段(除了自己)—— 评审建议的修法。"""
+    """B 组:绑完之后问整段(除了自己)—— 评审腿建议的修法。"""
     return self._scan((p for p in self._ports() if p != mine), patient=True) is not None
+
+
+def ask_base_looks_behind(self, mine: int) -> bool:
+    """C 组:只有绑上首选锁位的那份才回头问后面,其余仍只问前面。"""
+    ports = list(self._ports())
+    others = (p for p in ports if p != mine) if mine == ports[0] else (p for p in ports if p < mine)
+    return self._scan(others, patient=True) is not None
+
+
+def blindspot_lets_a_second_through(patch) -> bool:
+    """(1) 盲区场景:True = 开出了第二份(坏)。
+
+    摆场子:陌生程序占住 base ⇒ 第一份只能落在 base+1 ⇒ 陌生程序退出 ⇒ base 空出来。
+    然后把第二份的 connect 期限注入成 0(实测 BlockingIOError,快扫必然全瞎),
+    看它会不会宣布自己是唯一的。第一份在注入**之前**就位,所以它自己不受影响。
+    """
+    span = 5
+    base = free_base(span)
+    stranger = socket.socket()
+    stranger.bind(("127.0.0.1", base))
+    stranger.listen(1)
+    first = core.InstanceLock(base_port=base, span=span)
+    assert first.acquire() is True, "场子没摆起来:第一份就没拿到锁"
+    assert first.port == base + 1, f"场子没摆对:第一份落在 {first.port},不是 base+1"
+    stranger.close()
+    original = core.InstanceLock._someone_ahead_of
+    if patch is not None:
+        core.InstanceLock._someone_ahead_of = patch
+    try:
+        real = core.lock_timeouts()
+        with mock.patch.object(core, "lock_timeouts", return_value={**real, "connect": 0}):
+            second = core.InstanceLock(base_port=base, span=span)
+            got = second.acquire()
+            second.release()
+        return got is True
+    finally:
+        core.InstanceLock._someone_ahead_of = original
+        first.release()
 
 
 def one_round(base: int, span: int) -> int:
@@ -79,10 +129,10 @@ def one_round(base: int, span: int) -> int:
                 pass
 
 
-def measure(label: str, rounds: int, span: int, patch: bool) -> dict:
+def measure(label: str, rounds: int, span: int, patch) -> dict:
     original = core.InstanceLock._someone_ahead_of
-    if patch:
-        core.InstanceLock._someone_ahead_of = ask_whole_range
+    if patch is not None:
+        core.InstanceLock._someone_ahead_of = patch
     try:
         tally = {0: 0, 1: 0, 2: 0}
         for _ in range(rounds):
@@ -98,21 +148,33 @@ def measure(label: str, rounds: int, span: int, patch: bool) -> dict:
 def main() -> int:
     rounds = int(sys.argv[1]) if len(sys.argv) > 1 else 30
     span = 5
-    print(f"两份同时启动 × {rounds} 轮,锁位段 span={span}(同进程两线程 / Linux 回环)\n")
-    a = measure("A 组 —— 树上的实现(只问 p < mine,让位方向唯一)", rounds, span, patch=False)
-    print()
-    b = measure("B 组 —— 评审建议的改法(绑完问整段,两个方向都问)", rounds, span, patch=True)
 
-    print("\n判读:")
-    ok_a = a[0] == 0 and a[2] == 0
-    print(f"  A 组恒等于 1 吗: {'是' if ok_a else '否'}"
-          f"(0 存活 {a[0]} 轮 / 2 存活 {a[2]} 轮)"
-          f" ⇒ {'让位方向唯一这条主张成立' if ok_a else '🔴 树上的实现自己就有问题'}")
-    print(f"  B 组出现过 0 存活吗: {'是' if b[0] else '否'}({b[0]}/{rounds} 轮)"
-          f" ⇒ {'“整段都问”确实会让业主双击后一个窗口都不开,驳回成立'
-               if b[0] else '⚠️ 这一轮没复现出 0 存活 —— 驳回它的那句话就没有证据'}")
-    print(f"  B 组出现过 2 存活吗: {b[2]}/{rounds} 轮")
-    return 0 if (ok_a and b[0]) else 1
+    print("(1) 盲区场景 —— 第二份有没有被放行(True = 两份并存 = 数据面出事)")
+    blind = {}
+    for label, patch in (("A 树上的实现", None),
+                         ("B 问整段  ", ask_whole_range),
+                         ("C base回头看", ask_base_looks_behind)):
+        blind[label] = blindspot_lets_a_second_through(patch)
+        print(f"    {label}: {'放行(坏)' if blind[label] else '堵住'}")
+
+    print(f"\n(2) 两份同时启动 × {rounds} 轮,锁位段 span={span}(同进程两线程 / Linux 回环)")
+    a = measure("\n  A 组 —— 树上的实现(只问 p < mine,让位方向唯一)", rounds, span, None)
+    b = measure("\n  B 组 —— 评审腿建议的改法(绑完问整段,两个方向都问)", rounds, span, ask_whole_range)
+    c = measure("\n  C 组 —— 最强变体(只有 base 上那份回头问后面)", rounds, span, ask_base_looks_behind)
+
+    print("\n判读(这是一笔取舍,不是单指标):")
+    rows = [("A 树上的实现", blind["A 树上的实现"], a),
+            ("B 问整段", blind["B 问整段  "], b),
+            ("C base回头看", blind["C base回头看"], c)]
+    for name, lets_through, tally in rows:
+        both = (not lets_through) and tally[0] == 0 and tally[2] == 0
+        print(f"    {name:<14} 盲区{'放行' if lets_through else '堵住'}"
+              f"  同时启动 0 存活 {tally[0]:>2}/{rounds}"
+              f"  ⇒ {'两件事都做到了' if both else '做不到两全'}")
+    ok = any((not l) and t[0] == 0 and t[2] == 0 for _, l, t in rows)
+    print(f"\n    有没有哪一组两件事都做到了: {'有' if ok else '没有'}"
+          f" ⇒ {'可以在本单直接修' if ok else '光靠问谁在监听不够,必须加先来后到字段(见 track opendesign-lock-seniority-field)'}")
+    return 0
 
 
 if __name__ == "__main__":
