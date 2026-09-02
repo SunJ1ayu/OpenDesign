@@ -183,6 +183,20 @@ def main() -> int:
     print(f"\n    有没有哪一组两件事都做到了: {'有' if ok else '没有'}"
           f" ⇒ {'可以在本单直接修' if ok else '光靠问谁在监听不够,必须加先来后到字段(见 track opendesign-lock-seniority-field)'}")
 
+    print("\n(3a) 一次 acquire 到底要多久 —— 「危险窗口有多宽」必须由它解释,否则那句话不自证")
+    durs = []
+    for _ in range(60):
+        b = free_base(span)
+        lk = core.InstanceLock(base_port=b, span=span)
+        t0 = time.perf_counter()
+        lk.acquire()
+        durs.append((time.perf_counter() - t0) * 1000.0)
+        lk.release()
+    durs.sort()
+    print(f"    空段上单份 acquire 耗时(60 次,ms): 中位 {durs[len(durs)//2]:.3f}"
+          f"  p90 {durs[int(len(durs)*0.9)]:.3f}  max {durs[-1]:.3f}")
+    print("    ⇒ 双向让位要求两份都在对方**扫描之前**绑好,所以危险窗口的量级 = 这个耗时的量级。")
+
     print("\n(3) 错开启动 —— (2) 量的是 Barrier 对齐,而业主是双击两下,中间隔着几百毫秒")
     print("""    判读规则(**写在看结果之前**,2026-09-02):
     - B/C 在每一档错开上**都还**出现 0 存活 ⇒ "做不到两全"与错开无关,驳回原样成立。
