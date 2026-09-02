@@ -150,7 +150,10 @@ def lock_timeouts() -> dict[str, float]:
     由来:2026-09-01 业主真机第一份启动诊断。此前两个期限都是 1.5s,而且**串行**扫
     6 个锁位;他那台机器上每个锁位都耗满 ⇒ `manifest.done` 到 `lock.acquired`
     干等 **9047ms**,占整趟启动 11031ms 的 82%。他的原话是"直接没反应了十几秒"。
-    (同样的扫描在 Linux 上 4.4ms —— 空端口瞬间被拒;Windows 上为什么耗满,
+    (同样的扫描在本机 Linux 上是**毫秒级**:20 次扫 6 个空锁位,中位 0.9ms、max 4.0ms,
+     收据 evidence/20260902T010857Z-01-empty-range-baseline-and-blackhole.txt;
+     单遍会跳,另一遍是 1.1 / 4.6 —— 别引用具体值,量级才是结论。
+     空端口瞬间被拒;Windows 上为什么耗满,
     见 tracks/opendesign-slow-lock-scan/proposal.md 的"还不知道的"。)
 
     ⚠️ 想把 connect 调回去,先在**那台 Windows** 上量一遍 connect_latency ——

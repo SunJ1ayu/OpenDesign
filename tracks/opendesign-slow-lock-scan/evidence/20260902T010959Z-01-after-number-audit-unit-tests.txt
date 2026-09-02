@@ -1,0 +1,24 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    after-number-audit-unit-tests
+cmd:     env PYTHONPATH=tests /root/.venvs/design-studio/bin/python -m unittest test_ds_shell_core test_startup_diag
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  48cc9fd
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-02T01:09:59Z
+---------------- 输出开始 ----------------
+.....................s...................s..................................../usr/lib/python3.12/subprocess.py:1127: ResourceWarning: subprocess 2031619 is still running
+  _warn("subprocess %s is still running" % self.pid,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+................/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_core.py:1837: ResourceWarning: unclosed file <_io.TextIOWrapper name='/root/.openclaw/workspace/projects/design-studio/bin/ds_shell.py' mode='r' encoding='utf-8'>
+  body = open(os.path.join(ROOT, "bin", "ds_shell.py"), encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+......../usr/lib/python3.12/unittest/case.py:638: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 57295)>
+  self.doCleanups()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.............................................................................
+----------------------------------------------------------------------
+Ran 179 tests in 42.963s
+
+OK (skipped=2)
+---------------- 输出结束 ----------------
+runlog: after-number-audit-unit-tests rc=0 commit=48cc9fd dirty=yes at=2026-09-02T01:09:59Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T010959Z-01-after-number-audit-unit-tests.txt

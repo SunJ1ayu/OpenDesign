@@ -1905,7 +1905,9 @@ class TestTheAckNamesTheVerb(unittest.TestCase):
 class LockScanCost(unittest.TestCase):
     """业主真机第一次带回启动诊断:`manifest.done` 到 `lock.acquired` 之间 **9047ms**,
     而那段里只有 `InstanceLock.acquire()` 一件事。9047 / 6 个锁位 = 1507.8ms,
-    写死的超时是 1500ms ⇒ **6 次握手每一次都干等到超时**(同样的扫描在 Linux 上 4.4ms)。
+    写死的超时是 1500ms ⇒ **6 次握手每一次都干等到超时**
+    (同样的扫描在本机 Linux 上是毫秒级:中位 0.9ms、max 4.0ms,
+     收据 empty-range-baseline-and-blackhole)。
 
     B 组十几条判据把这把锁的**语义**问遍了(单实例、备用锁位、并发双击、协议分片),
     **没有一条问过它要花多久** —— 而业主感受到的、让他说"直接没反应了十几秒"的,
@@ -1992,7 +1994,8 @@ class LockScanCost(unittest.TestCase):
         `l2-control-old-bound-lets-1000ms-through-below-p99` rc=0)。
         评审腿建议抬到 1.1(= Linux 实测 max 再加一点)。**不采纳**:那正是这一刀
         第一轮被 BLOCK 的动作 —— 拿 Linux 的尾巴去定业主那台 Windows 的期限,
-        而那台机器的回环行为已经被证明和 Linux 不一样(它 6 个锁位全耗满,Linux 4.4ms)。
+        而那台机器的回环行为已经被证明和 Linux 不一样
+        (它 6 个锁位全耗满 9047ms,本机同样的扫描是毫秒级)。
         唯一来路干净的数是 **1.5**:这一刀之前就在跑的值,所以"这一刀有没有让漏判
         更容易"的答案是干净的"没有",不需要任何跨平台推断。
         想往下调 ⇒ 先去那台 Windows 上量 connect_latency,再回来动这一行。
