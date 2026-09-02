@@ -7,10 +7,22 @@
 
 ## Mechanical checks
 
-- [ ] build passes / tests pass —— **此刻还没跑最终总跑,所以这两个勾不许先打**
-      (2026-09-02 自查抓到:我先打了勾才去跑,那正是"打了勾的第 11 项是假的"那种假。
-       收口时跑完 `runlog --final`、把收据行贴到下面,再回来改这两个框。)
-      已知两条与本刀无关的红:`stage_timer.e2e.mjs` 开工前就红,上一单已量证。
+- [x] build passes —— dist 新鲜度 + 类型检查段绿(`npm run build` 后 git 无差异)。
+- [x] tests pass —— ⚠️ **口径写清楚,不许拿一个勾盖住 `rc=1`**:
+      六段 **5 绿 1 红**,总跑 **rc=1**。逐条交代:
+      · **红的唯一一条 = `stage_timer.e2e.mjs`**。本轮**没有沿用上一单的说法**,
+        自己核了失败形状:4 FAIL + `connect-modal-mask` 拦截点击(日志里 9 次),
+        与上一单在**本刀开工前**的提交 `d0840c1` 上量到的**逐条一致**
+        ⇒ 既有红,非本刀引入(deviation 4)。
+      · **三条 SKIP 全部同一根因(本机没有活 gateway),且都自己标着"不算通过"**:
+        python 侧 1 条 = `tests/test_ws_protocol_smoke.py`(`_skip_reason()` 返回
+        "gateway 未在 127.0.0.1:8766 运行")—— **这一条是本轮新查明的**,
+        此前四轮的收据都只写"1 跳过"、从没点过它的名字;
+        e2e 侧 2 条 = `new_chat.e2e.mjs` / `project-thread.e2e.mjs`。
+      · **本刀最相关的那两条"两腿真联跑"判据不在 SKIP 里** —— 总跑显式设了
+        `DS_SHELL_E2E=1`(`tests/run-all.sh:118`),它们**真跑了**。
+        (我单独跑 `tests.test_ds_shell_core` 时 `skipped=2` 正是它们,
+         差点把这个当成总跑里那条 skip —— 环境不同,别拿单跑的结果替总跑作证。)
 - [x] no secrets / unsafe ops(本刀只动 `bin/ds_shell_core.py` 的锁扫描与两个 docstring、
       `tests/` 判据、`tracks/` 工件;无新写口、无凭证、无网络出口)
 
@@ -63,8 +75,17 @@ runlog: probe-tombstone-in-the-tool rc=0 commit=5954132 dirty=yes at=2026-09-02T
 **最终收据(全仓总跑,在最后一次编辑之后跑的那一遍)**:
 
 ```
-<收口时补:runlog --final 的那一行>
+runlog: run-all rc=1 commit=6cf9c5b dirty=no final=yes at=2026-09-02T06:36:58Z file=tracks/opendesign-slow-lock-scan/evidence/20260902T063658Z-01-run-all.txt
 ```
+
+收据自己写的四项:`final=yes`、`dirty=no`、`source-stable: yes`、`command-rc: 1`。
+**它跑在 `6cf9c5b` 上,那是本区间最后一次动 `bin/` 与 `tests/` 的提交**;
+此后只再编辑过 `verify.md` 本身(贴这行收据 + 记 findings 22),
+**源码面零改动** —— 这正是"最终收据必须在最后一次编辑之后"要保证的那件事。
+
+> ⚠️ 上一段会话在 `4c95a1e` 上也跑过一遍(收据 `20260902T031418Z-01-run-all.txt`,
+> 同样 rc=1、同样 37/1/2)。那份**不是最终收据**:它跑在本轮九处修改之前。
+> 两份都留在 `evidence/` 里,别把前一份当收口凭证。
 
 ## Review
 
@@ -404,6 +425,23 @@ submimo 独立读了 `panel_review_coverage` 源码,确认跨 run 不拼)。
     机器数的(五份 stagger 收据):0ms=5、1ms=4、2ms=4、5ms=2、10ms=3、50/200/500ms 各 1;
     **含 ≥2ms 任一档的收据 = 5 份** ⇒ "错开 2ms 以上五遍全零"这句话成立,
     但"2.0ms 那一格量过五遍"不成立(它是四遍)。两句话差一遍,已在表下写死。
+
+22. 🔴 **管道又把 rc 吃掉了 —— 这台机器上第六次,这次是我自己。**
+    我把最终总跑起成 `runlog --final ... | tail -45`,收工时 harness 报
+    **`exited with code 0`** —— 那是 `tail` 的 rc,不是 runlog 的。
+    真值 `rc=1` 只写在**机器自己写的收据尾行**里。
+    这一次没造成假绿,**只因为我没看屏幕上那个 0、去读了收据行** ——
+    而记忆里这条老账(07-31 起,已犯五次)配的正是这条药方。
+    ⇒ 自检句:**屏幕上那个退出码,是我要的那条命令的,还是管道最后一节的?**
+
+23. **那 1 条 python SKIP,四轮以来头一次被点名。** 前四轮的收据都写"1426 跑过 /
+    1 跳过",没有一轮问过"跳的是哪条"。本轮查明 = `test_ws_protocol_smoke`
+    (本机没起活 gateway)。**它无害**,但"没人点过名的 SKIP"正是这个仓栽过的形状
+    (08-05 turn_id 那单:一整块闸被 SKIP,汇总照印 OK)。
+    顺带把候选一个个排除时**差点判错**:我单独跑 `test_ds_shell_core` 得到
+    `skipped=2`,那两条恰恰是本刀最相关的"两腿真联跑"判据 —— 若就此收手,
+    就会写下"本刀的核心判据被跳过了"这句**假话**。真相是总跑设了
+    `DS_SHELL_E2E=1`,它们跑了。⇒ **单跑的环境 ≠ 总跑的环境,别拿前者替后者作证。**
 
 ### arbitrated verdict(主裁)
 
