@@ -175,7 +175,7 @@ submimo=SKIP(rotation) subdeepseek=SKIP(rotation) subglm=未收尾(无 state:被
 subkimi rc=0 / 证据完整 / verdict=PASS = 1 条(它的 subject digest 里
 `head_oid=5954132`、`worktree_tree_oid=69d76a13`,与我接手时的树逐字节一致,已核)。
 subglm 在 10:08:38 被**断线的 SIGTERM** 砍掉(`.log` 只有 09:54 那份 526 字节的抬头,
-`.log.err` 内容是 `Terminated`,workspace `/tmp/aiwork-review-workspaces/subglm-agent.JNDzqWaJ`
+`.log.err` 内容是 `Terminated`,workspace `/tmp/aiwork-review-workspaces/subglm-agent.JNDzqWaJ` [仓外不承重]
 已不存在),**零结论,不许补预算**。
 这一次 `panel-roster` 印的是"未收尾(无 state:被砍或仍在跑)"—— **第一、二个实例那笔账
 (把被砍的腿印成 SKIP)在这里没有复发**,它如实说了"分不出被砍还是在跑",而我用 `ps`
