@@ -12,16 +12,21 @@ on:
   push:
     branches: ['ci-probe/**']
   # 🔴 默认值 = **push 到 ci-probe/** 分支时用的那个**(那条路没有 inputs)。
-  #    它会过期:2026-08-30 深夜发现还停在 0.97.0,而当前发布是 0.98.2 ⇒
-  #    改探针后推分支验证,跑的其实是三个版本前的安装包。**发新版时顺手改这里。**
+  #    **它天生会过期**:GitHub Actions 的 `default:` 只吃字面量,读不到仓库里的
+  #    VERSION,所以这里必然是第二份版本号。**发新版时必须顺手改这里。**
+  #    发生过两次:2026-08-30 深夜发现它还停在 0.97.0(当时已发到 0.98.2)⇒
+  #    改探针后推分支验证,跑的其实是三个版本前的安装包;
+  #    2026-09-02 发 0.98.3 时它还停在 0.98.2,**已随本次发版同步**。
+  #    (别在这句话里再写"当前发布是 X" —— 那正是让它过期的写法。
+  #     当前发布看 releases 页,不看这里。)
   workflow_dispatch:
     inputs:
       tag:
         description: '发布 tag'
-        default: 'win-installer-0.98.2'
+        default: 'win-installer-0.98.3'
       asset:
         description: '安装包文件名'
-        default: 'OpenDesign-Setup-0.98.2.exe'
+        default: 'OpenDesign-Setup-0.98.3.exe'
 
 permissions:
   contents: read
@@ -39,8 +44,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           .\.github\scripts\windows-package-probe.ps1 `
-            -Tag "${{ github.event.inputs.tag || 'win-installer-0.98.2' }}" `
-            -Asset "${{ github.event.inputs.asset || 'OpenDesign-Setup-0.98.2.exe' }}" `
+            -Tag "${{ github.event.inputs.tag || 'win-installer-0.98.3' }}" `
+            -Asset "${{ github.event.inputs.asset || 'OpenDesign-Setup-0.98.3.exe' }}" `
             -OutDir probe-out
 
       # 🔴 **退出闸的第二条路,故意住在这个文件里**(2026-08-31,第六轮 panel)。
