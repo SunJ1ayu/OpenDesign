@@ -34,6 +34,7 @@ import os
 import socket
 import sys
 import threading
+import time
 from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "bin"))
@@ -104,14 +105,21 @@ def blindspot_lets_a_second_through(patch) -> bool:
         first.release()
 
 
-def one_round(base: int, span: int) -> int:
-    """两份同时 acquire(),返回活下来几份。"""
+def one_round(base: int, span: int, offset_s: float = 0.0) -> int:
+    """两份 acquire(),返回活下来几份。
+
+    `offset_s` = 第二份比第一份晚多久开始(0 = Barrier 对齐的近同时启动)。
+    加它的理由(2026-09-02,第三轮评审 subglm 与我自审 D2 各自独立命中):
+    此前只量过 Barrier 对齐这一种情态,而业主是双击两下,中间隔着几百毫秒。
+    """
     ready = threading.Barrier(2)
     locks = [core.InstanceLock(base_port=base, span=span) for _ in range(2)]
     got = [None, None]
 
     def run(i):
         ready.wait()
+        if i == 1 and offset_s:
+            time.sleep(offset_s)
         got[i] = locks[i].acquire()
 
     threads = [threading.Thread(target=run, args=(i,)) for i in (0, 1)]
@@ -129,14 +137,14 @@ def one_round(base: int, span: int) -> int:
                 pass
 
 
-def measure(label: str, rounds: int, span: int, patch) -> dict:
+def measure(label: str, rounds: int, span: int, patch, offset_s: float = 0.0) -> dict:
     original = core.InstanceLock._someone_ahead_of
     if patch is not None:
         core.InstanceLock._someone_ahead_of = patch
     try:
         tally = {0: 0, 1: 0, 2: 0}
         for _ in range(rounds):
-            tally[one_round(free_base(span), span)] += 1
+            tally[one_round(free_base(span), span, offset_s)] += 1
     finally:
         core.InstanceLock._someone_ahead_of = original
     print(f"{label}")
@@ -174,6 +182,42 @@ def main() -> int:
     ok = any((not l) and t[0] == 0 and t[2] == 0 for _, l, t in rows)
     print(f"\n    有没有哪一组两件事都做到了: {'有' if ok else '没有'}"
           f" ⇒ {'可以在本单直接修' if ok else '光靠问谁在监听不够,必须加先来后到字段(见 track opendesign-lock-seniority-field)'}")
+
+    print("\n(3) 错开启动 —— (2) 量的是 Barrier 对齐,而业主是双击两下,中间隔着几百毫秒")
+    print("""    判读规则(**写在看结果之前**,2026-09-02):
+    - B/C 在每一档错开上**都还**出现 0 存活 ⇒ "做不到两全"与错开无关,驳回原样成立。
+    - B/C 的 0 存活在某一档之后**消失** ⇒ 那一档就是**危险窗口的宽度**;
+      "做不到两全"必须限定成"两份的 acquire 落进这个窗口时",而这一单该不该当场修,
+      取决于真实场景里两次 acquire 有多容易落进去。
+      ⚠️ 别把"点击间隔"当成"acquire 间隔":进程冷启动的抖动比点击间隔大得多。
+    - A 组只要有一档不再恒等于 1 存活 ⇒ **探针坏了**,(3) 整段都不作数。""")
+    offsets_ms = ([float(x) for x in sys.argv[2].split(",")]
+                  if len(sys.argv) > 2 else [0, 10, 50, 200, 500])
+    grid = {}
+    for name, patch in (("A 树上的实现", None),
+                        ("B 问整段", ask_whole_range),
+                        ("C base回头看", ask_base_looks_behind)):
+        for off in offsets_ms:
+            grid[(name, off)] = measure(f"\n  {name} · 错开 {off}ms", rounds, span, patch, off / 1000.0)
+
+    print(f"\n  汇总:每格 = 存活 0 份的轮数 / {rounds}(A 组必须恒为 0)")
+    print("    " + "组".ljust(14) + "".join(f"{o:g}ms".rjust(9) for o in offsets_ms))
+    for name in ("A 树上的实现", "B 问整段", "C base回头看"):
+        print("    " + name.ljust(14)
+              + "".join(f"{grid[(name, o)][0]}/{rounds}".rjust(9) for o in offsets_ms))
+
+    a_broken = [o for o in offsets_ms if grid[("A 树上的实现", o)][1] != rounds]
+    if a_broken:
+        print(f"\n    ⚠️ A 组在 {a_broken} 上不是恒 1 存活 ⇒ 探针坏了,(3) 不作数")
+        return 0
+    bad = {n: [o for o in offsets_ms if grid[(n, o)][0] > 0] for n in ("B 问整段", "C base回头看")}
+    for n, offs in bad.items():
+        if offs == offsets_ms:
+            print(f"\n    {n}: 每一档都出现 0 存活 ⇒ 与错开无关")
+        elif offs:
+            print(f"\n    {n}: 只在错开 {offs} 上出现 0 存活 ⇒ 危险窗口宽度 ≈ 最大的那一档")
+        else:
+            print(f"\n    {n}: 任何一档都没出现 0 存活 ⇒ **本轮证伪了'与错开无关'**")
     return 0
 
 
