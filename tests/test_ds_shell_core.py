@@ -1965,9 +1965,12 @@ class LockScanCost(unittest.TestCase):
         🔴 原来这里写的是「connect 可以很短(≤0.3s),因为对面活着时握手由内核在 backlog
         里完成」—— **那半句是错的,而且是本单自己引入的回归**:
 
-            本机 200 次回环 connect(对面正常 accept):中位 0.049ms  p99 1023ms  max 1060ms
+            本机 200 次回环 connect(对面正常 accept)。收据里的真数(别再手抄近似值):
+                中位 0.056ms  p99 1022.975ms  max 1023.173ms  ← connect-latency-before
+                中位 0.056ms  p99 1023.688ms  max 1055.033ms  ← probes-after-connect-1500
+            (评审腿独立复现 0.057/1018.960/1032.338;另一腿 60 样本 max 1059.624ms。)
 
-        · 旧实现 connect=1.5s > max 1060ms ⇒ **这 200 个样本一个都漏不掉**。
+        · 旧实现 connect=1.5s > 这几轮的 max ⇒ **这些样本一个都漏不掉**。
         · 本单把它缩到 0.25s,落在 p99 **下面** ⇒ 每次触发条件成立时约 1~3% 会漏判。
         不是"把已有的窗口拉宽",是**把够不着的洞变成够得着的**(三条评审腿里两条独立
         命中,第三条自己写探针复现 5/5;我另写探针也复现了)。
@@ -1981,15 +1984,27 @@ class LockScanCost(unittest.TestCase):
             串行 1.5s        9001ms   ← 对上业主真机 9047ms
             并发 connect=1.5 1501ms   快 6.0 倍
             并发 connect=.25  252ms   只多挣 1.25s
-        为那 1.25s 把数据面赌进去,不划算。所以这里钉的是**下限**:
-        两个期限都必须罩得住实测的整条尾巴。
+        为那 1.25s 把数据面赌进去,不划算。所以这里钉的是**下限**。
+
+        🔴 **下限是 1.5,不是"实测尾巴 + 一点余量"**(2026-09-02 评审腿指出、我核实成立)。
+        这条判据以前钉的是 ≥1.0,而它自己的报错文案引的是 p99 1022.975ms ——
+        **1.0s 落在那条尾巴下面,判据照样绿**(对照收据
+        `l2-control-old-bound-lets-1000ms-through-below-p99` rc=0)。
+        评审腿建议抬到 1.1(= Linux 实测 max 再加一点)。**不采纳**:那正是这一刀
+        第一轮被 BLOCK 的动作 —— 拿 Linux 的尾巴去定业主那台 Windows 的期限,
+        而那台机器的回环行为已经被证明和 Linux 不一样(它 6 个锁位全耗满,Linux 4.4ms)。
+        唯一来路干净的数是 **1.5**:这一刀之前就在跑的值,所以"这一刀有没有让漏判
+        更容易"的答案是干净的"没有",不需要任何跨平台推断。
+        想往下调 ⇒ 先去那台 Windows 上量 connect_latency,再回来动这一行。
         """
         t = core.lock_timeouts()
-        self.assertGreaterEqual(t["connect"], 1.0,
-                                "连接超时掉到实测 connect 尾巴(p99 1023ms)以下 ⇒ "
+        floor = 1.5   # 这一刀之前就在跑的值。往下调必须先有那台 Windows 的实测,见上。
+        self.assertGreaterEqual(t["connect"], floor,
+                                f"连接超时掉到 {floor}s 以下(实测 connect 尾巴 p99 1022.975ms /"
+                                f" max 1055.033ms,而这台不是业主那台)⇒ "
                                 "快扫会把活实例看成不存在 ⇒ 业主开出两份")
-        self.assertGreaterEqual(t["read"], 1.0,
-                                "回话超时被顺手调小了 ⇒ 对面忙一下就被当成不存在 ⇒ 开出两份")
+        self.assertGreaterEqual(t["read"], floor,
+                                f"回话超时掉到 {floor}s 以下 ⇒ 对面忙一下就被当成不存在 ⇒ 开出两份")
 
     def test_l3_the_implementation_actually_uses_those_numbers(self):
         """防"考卷读常量、代码写字面量":改了 `lock_timeouts()` 的返回值,握手耗时必须跟着变。
@@ -2028,7 +2043,10 @@ class LockScanCost(unittest.TestCase):
         🔴 这条不是假想出来的风险,是**量出来的**(2026-09-01,本机 200 次回环 connect,
         对面是一个正常 accept 的监听者):
 
-            中位 0.049ms   p99 1023.510ms   最大 1060.341ms
+            中位 0.056ms   p99 1022.975ms   最大 1023.173ms
+            (收据 evidence/20260901T133618Z-01-connect-latency-before.txt;
+             第二轮 0.056/1023.688/1055.033。以前这儿写的 0.049/1023.510/1060.341
+             对不上任何一份收据 —— 那是探针入库前手抄的第一次测量,2026-09-02 改正。)
 
         中位数支持"短超时够用"(0.25s 是中位的五千倍),**但那条尾巴不支持**:
         backlog 一瞬间满掉就会丢 SYN,TCP 要等约 1 秒才重传 ⇒ 0.25s 的快扫在那一刻
