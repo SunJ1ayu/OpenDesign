@@ -14,8 +14,10 @@
                        旧服务读不到假 key ⇒ 弹遮罩 ⇒ 点击全被拦 ⇒ 4 FAIL / 92s
 ```
 
-证据链每一环都可查:遗孤的 `HOME=/tmp/ds-leakprobe-iNelDs/ds-e2e-home-GtqR7g`
-(`/proc/<pid>/environ` 读出来的)、那个目录**已经不存在**、
+证据链每一环当时都可查:遗孤的 `HOME=/tmp/ds-leakprobe-iNelDs/ds-e2e-home-GtqR7g` [仓外不承重]
+(`/proc/<pid>/environ` 读出来的;**进程已被杀、那个目录本来就已经不存在** ——
+这行是当时那个死进程的环境快照,**记在这里是为了说清机制,不是本单的承重证据**;
+承重的是下面那次可证伪的实验和 evidence/ 里的收据)、
 `DS_WEB_PORT=8814`、起始时间 `Sun Aug 30 16:05:14 2026`。
 
 **杀掉它之后,同一条 e2e 4 秒通过。**
