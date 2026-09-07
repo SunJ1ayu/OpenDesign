@@ -53,6 +53,21 @@ if ! tests/e2e/check-dist-fresh.sh; then
   exit 1
 fi
 
+# ── 端口预检(2026-09-07,track opendesign-stage-timer-e2e-red)─────────────
+# 每条场景把自己的端口写死在 `const PORT = N`,而它们的等待循环只问
+# 「/api/health 有没有人应答」—— **不问应答的是不是自己刚起的那个**。
+# 于是一个上次没收干净的遗孤 ds_web 占着端口时,场景会对着**别人**跑完整场:
+# 遗孤的隔离 HOME 早被 trap 删了 ⇒ 它判定"没配 key" ⇒ 前端弹遮罩 ⇒ 点击全被拦
+# ⇒ 红出来的样子和"产品坏了"一模一样。2026-08-30 的一个遗孤就这样烧掉五天,
+# 还被三个单子写成"既有红"传下去(杀掉它之后同一条 e2e 从 92 秒超时变成 4 秒过)。
+#
+# ⚠️ 同样用 `if !` 接,**不许 `;` 接、不许进管道** —— 那两种写法会吞掉退出码。
+if ! tests/e2e/check-ports.sh; then
+  echo
+  echo "== 总跑中止:e2e 要用的端口上有别人。照跑下去的红不是产品的红。" >&2
+  exit 1
+fi
+
 # ── --with-gateway 的前置闸(2026-08-16,track opendesign-key-onboarding)──────
 # 上面那个隔离家目录**救不了这两条**:它们连的是**别人起好的** ds_web,而决定
 # 「弹不弹 key 卡片」的是**那个 ds_web 进程自己的 HOME**,不是这里 node 的 HOME。
