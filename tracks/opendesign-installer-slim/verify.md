@@ -193,3 +193,42 @@ subkimi 说数组多行化会让 `g2/g3 拿残缺清单照样全绿`,并说闸B 
    按本机那条部署规矩:**这一单的 PASS 是"包造对了",不是"业主感觉到快了"**。
 2. 反锚定这轮不干净(verify.md 早在树上,底座腿读得到)。
 3. 后续单 `opendesign-slim-orphan-sweep` 的 6 条,一条都还没开工。
+
+## 最终收据(全仓总跑,跑在最后一次编辑之后)
+
+runlog: final-run-all rc=1 commit=3fe4c40 dirty=no final=yes at=2026-09-07T08:37:43Z file=tracks/opendesign-installer-slim/evidence/20260907T083743Z-01-final-run-all.txt
+
+六段里 **5 段绿、1 段红**,逐段如实抄:
+
+- ✅ 泄漏闸自测(判据的判据) 14 条全过
+- ✅ node 单测 376 通过 / 0 跳过 / 0 todo
+- ✅ **python 全量 + 死断言闸 1429 跑过 / 1 跳过**(venv 解释器)
+- ✅ MCP 契约闸 三条全绿
+- ✅ dist 新鲜度 + 类型检查 与源码同步
+- 🔴 **e2e 总跑 37 PASS / 1 FAIL / 2 SKIP** —— 红的是 `stage_timer.e2e.mjs`
+
+### 那条红:先问"是不是真 bug",再问"是不是我引入的"
+
+**不是抖动**:我单独又跑了一遍(`tests/e2e/run-all.sh stage_timer`),**照样红,92s**。
+本机 e2e 总跑有"内存不够 ⇒ 随机红"的老账,但这条不是它 —— 单跑必红。
+
+**不是本单引入**:失败形状与 `tracks/archive/opendesign-release-0983/verify.md:12-14`
+记的**逐条一致**,机械对过:
+
+| | 0.98.3 归档时(09-02) | 今天总跑 | 今天单跑 |
+|---|---|---|---|
+| 日志末行 | 4 FAIL | `stage_timer e2e: 4 FAIL` | `stage_timer e2e: 4 FAIL` |
+| `connect-modal-mask` 拦截 | ×9 | **×9** | **×9** |
+| 红的断言 | D1 | D1 卡头显示 23 天 | D1 卡头显示 23 天 |
+
+本单改的是 `tests/test_installer_slim.py`、`tests/mutation-installer-slim.sh`、
+`spike/check-package.sh`(组包时才跑的闸)和 track 工件 —— **和前端一行代码都不沾**。
+
+🔴 **但这笔账要说破**:这是**至少第三个**单子把它记成"既有红"然后放过去
+(0.98.3、本单,再往前还有)。"既有"不等于"没事"——
+`connect-modal-mask` 挡住点击说明那个界面在测试里以为"没配 key",
+而运行器**明明预置了假 key**(`tests/e2e/run-all.sh:132`)。
+**没有任何开着的单在管它。** 归档时一并开单,别再往下传。
+
+> 日志路径 `/tmp/ds-e2e-log-Fa1zC9`、`/tmp/ds-leakprobe-vgLmuJ` [仓外不承重]
+> —— 上面的数字已逐个抄进这张表,不靠那两个目录活着。
