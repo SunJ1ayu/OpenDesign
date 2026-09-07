@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import os
+import re
 import socket
 import subprocess
 import unittest
@@ -74,6 +75,101 @@ class E2EPortPreflight(unittest.TestCase):
         self.assertIn(
             "pid=", r.stdout,
             f"预检没报出占用者的 pid —— 那就还是查不动。\n{r.stdout}")
+
+    def test_p5_no_ss_must_fail_closed(self):
+        """🔴 `ss` 用不了的时候,预检必须**喊停**,不许说"干净"。
+
+        由来(2026-09-07,三条评审腿里两条**各自独立**命中,我自己复现):
+        第一版把 `ss` 的错误 `2>/dev/null` 吞掉,拿到空串就当"没人占" ——
+        于是在没有 iproute2 的机器(最小容器/Alpine)上,**这道闸恒绿**。
+        我建它就是为了消灭恒绿的检查,结果它自己是恒绿的。
+
+        实测(fake ss 返回 127,端口上真有人监听):
+        旧版打印 `✅ e2e 端口预检:1 个端口都没人占`,rc=0。
+        """
+        import tempfile
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+        s.listen(1)
+        with tempfile.TemporaryDirectory() as fake:
+            ss = os.path.join(fake, "ss")
+            with open(ss, "w", encoding="utf-8") as fh:
+                fh.write("#!/bin/bash\nexit 127\n")
+            os.chmod(ss, 0o755)
+            env = dict(os.environ, PATH=fake + os.pathsep + os.environ["PATH"])
+            try:
+                r = subprocess.run(["bash", PREFLIGHT, str(port)],
+                                   capture_output=True, text=True, cwd=ROOT, env=env)
+            finally:
+                s.close()
+
+        self.assertNotEqual(
+            0, r.returncode,
+            "ss 用不了的时候预检说了「干净」—— 这是恒绿,"
+            f"而端口 {port} 上真的有人监听。\n{r.stdout}\n{r.stderr}")
+
+    def test_p6_every_scene_that_starts_a_server_contributes_a_port(self):
+        """🔴 "抓到一部分" 必须响 —— 只防"一个都没抓到"是不够的。
+
+        由来:两条腿都指出正则 `^const PORT = N` 只认一种写法
+        (行首/大写/有空格/字面量),谁把某个场景改成 `let PORT` 或从配置读,
+        这道闸就对**那一个**场景永远瞎,而总数还是 29、30,兜底不触发。
+
+        这里不写死一个 MIN_PORTS 魔数(那个数字自己会过期),
+        而是问一个真不变量:**凡是自起 ds_web 的场景,都必须贡献至少一个端口。**
+        """
+        import glob
+        r = subprocess.run(["bash", PREFLIGHT, "--list"],
+                           capture_output=True, text=True, cwd=ROOT)
+        self.assertEqual(
+            0, r.returncode,
+            f"预检的 --list 模式跑不起来。\n{r.stdout}\n{r.stderr}")
+        listed = r.stdout.split()
+
+        missing = []
+        for f in sorted(glob.glob(os.path.join(ROOT, "tests", "e2e", "*.e2e.mjs"))):
+            with open(f, encoding="utf-8") as fh:
+                src = fh.read()
+            if "ds_web.py" not in src:
+                continue
+            mine = re.findall(r"(?m)^const PORT = ([0-9]+)", src)
+            if not mine:
+                missing.append(os.path.basename(f))
+        self.assertEqual(
+            [], missing,
+            f"这些场景自起 ds_web,却没有被端口扫描抓到:{missing}\n"
+            "⇒ 预检对它们永远瞎,而总数看起来还很正常。")
+
+    def test_p7_derived_ports_are_scanned_too(self):
+        """🔴 `PORT + 1` 起的第二个服务也要扫。
+
+        由来:两条腿都点名 `button_roles.e2e.mjs:97` 的 `spawnWeb(planRoot, PORT + 1)`
+        = 8825,**完全不在扫描范围内**;`gallery_head_buttons` 的 PORT+1 = 8820
+        碰巧被别的场景声明覆盖了 —— **是巧合,不是机制**。
+        """
+        import glob
+        r = subprocess.run(["bash", PREFLIGHT, "--list"],
+                           capture_output=True, text=True, cwd=ROOT)
+        listed = set(r.stdout.split())
+
+        want = {}
+        for f in sorted(glob.glob(os.path.join(ROOT, "tests", "e2e", "*.e2e.mjs"))):
+            with open(f, encoding="utf-8") as fh:
+                src = fh.read()
+            m = re.search(r"(?m)^const PORT = ([0-9]+)", src)
+            if not m:
+                continue
+            base = int(m.group(1))
+            for off in set(re.findall(r"PORT \+ ([0-9]+)", src)):
+                want[str(base + int(off))] = os.path.basename(f)
+
+        gap = {p: f for p, f in want.items() if p not in listed}
+        self.assertEqual(
+            {}, gap,
+            f"这些**派生端口**没被扫到:{gap}\n"
+            "场景用 PORT+N 另起了一个 ds_web,遗孤占着那个端口时预检照样放行。")
 
     def test_p4_wired_into_the_e2e_runner(self):
         """🔴 光有闸不算数,得有人叫它 —— 这个项目在"守卫没接线"上栽过不止一次。"""
