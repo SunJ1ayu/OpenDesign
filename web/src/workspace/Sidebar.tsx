@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { updateLabel, downloadUrl, notesSummary, hasUpdateBadge } from "../update";
+import { updateLabel, downloadUrl, notesSummary, hasUpdateBadge, badgeTitle } from "../update";
 import type { UpdateInfo, UpdateState } from "../update";
 import type { ConsentMode, Project } from "../api";
 import { relTime } from "../api";
@@ -402,7 +402,7 @@ export default function Sidebar({
             {/* 🔴 评审 F2:有新版的话必须在**收起来的**这一行上留个记号 ——
                 否则那句"有新版"只活在展开后的弹层里,业主永远看不到。 */}
             {hasUpdateBadge(updateInfo) && (
-              <span className="update-dot" title={`有新版 ${updateInfo?.latest}`}> ●</span>
+              <span className="update-dot" title={badgeTitle(updateInfo)}> ●</span>
             )}
           </span>
           <span className="chev">{settingsOpen ? "▴" : "▾"}</span>

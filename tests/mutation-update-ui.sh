@@ -109,6 +109,11 @@ mutate_and_expect v13 "u17 正文以「这一版」开头时不许被当成标�
   '    const isHeading = /^\s*#+\s/.test(raw);' \
   '    const isHeading = /^这一版|^更新内容|^改了什么/.test(raw.replace(/^\s*#+\s*/, ""));'
 
+# v14 蓝点的悬停说明退回拼版本号(MR-2 原样重现:latest 为 null 时印「有新版 null」)
+mutate_and_expect v14 "u19 🔴 没版本号时,蓝点的说明不许把 null 印给业主" \
+  '  return v ? `有新版 ${v}` : "有新版";' \
+  '  return `有新版 ${v}`;'
+
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"
 echo

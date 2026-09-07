@@ -57,6 +57,17 @@ export function hasUpdateBadge(info: { update_available: boolean } | null | unde
   return !!info && info.update_available === true;
 }
 
+/** 蓝点的悬停说明。
+ *
+ * 🔴 和 `updateLabel` 是**同一个组合**(有新版但后端没给版本号,评审 F-D):
+ * 那边修了、这边原样拼 `${info?.latest}` ⇒ 悬停上去写着「有新版 null」。
+ * 第三轮自审 MR-2 —— **一个 bug 只修一侧,就是造了一个新分叉**(判据 u19/u20 + e2e D)。
+ */
+export function badgeTitle(info: { latest?: string | null } | null | undefined): string {
+  const v = info?.latest;
+  return v ? `有新版 ${v}` : "有新版";
+}
+
 /** 自动查更新的开关键。默认**开**,只有业主显式关过才算关。 */
 export const AUTO_CHECK_PREF = "update.autoCheck";
 

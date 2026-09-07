@@ -246,7 +246,12 @@ export default function App() {
   }, []);
 
   // 查更新:挂载后问一次(后端带 6 小时缓存,不会把 GitHub 问烦)。
-  // 失败一律安静 —— 业主只是打开了软件,不该因为查更新失败看见任何东西。
+  //
+  // ⚠️ 这里原来写着"失败一律安静"—— 评审 F-A 之后那句话就成了假的(第三轮自审 MR-1):
+  //    catch 现在进 done ⇒ 设置里那一行显示"查不到更新",自动查也一样。
+  //    改口不是妥协:失败**不弹任何东西、不打断**,但也不装作没查过 —— 那一行本来就是
+  //    业主主动翻开设置才看得见的地方,在那儿说实话不打扰谁。
+  //    (能走到 catch 的只有"ds_web 自己不可达";没网是后端回 200+error,走 F3 那条路。)
   const checkUpdate = useCallback((force: boolean) => {
     setUpdateState("checking");
     fetch(force ? "/api/update/check?force=1" : "/api/update/check")

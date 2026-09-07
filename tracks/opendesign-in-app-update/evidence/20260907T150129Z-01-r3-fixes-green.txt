@@ -1,0 +1,161 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    r3-fixes-green
+cmd:     bash -c node\ --test\ tests/test_update_ui.mjs\;\ a=\$\?\;\ node\ tests/e2e/update_notice.e2e.mjs\ 2\>\&1\ \|\ grep\ -vE\ \"\^20\[0-9-\]+\ \[0-9:\]+\ 127\"\;\ b=\$\{PIPESTATUS\[0\]\}\;\ echo\ \"unit\ rc=\$a\ \ e2e\ rc=\$b\"\;\ \[\ \$a\ -eq\ 0\ \]\ \&\&\ \[\ \$b\ -eq\ 0\ \]
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  38b0295
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-07T15:01:29Z
+---------------- 输出开始 ----------------
+TAP version 13
+# Subtest: u1 有新版时,那句话里必须带着版本号
+ok 1 - u1 有新版时,那句话里必须带着版本号
+  ---
+  duration_ms: 1.121046
+  type: 'test'
+  ...
+# Subtest: u2 已是最新就说已是最新,不许说成有新版
+ok 2 - u2 已是最新就说已是最新,不许说成有新版
+  ---
+  duration_ms: 0.193046
+  type: 'test'
+  ...
+# Subtest: u3 🔴 查不动的时候不许说「已是最新」
+ok 3 - u3 🔴 查不动的时候不许说「已是最新」
+  ---
+  duration_ms: 0.218676
+  type: 'test'
+  ...
+# Subtest: u4 点下去要有反应(这个按钮原来的病就是没反应)
+ok 4 - u4 点下去要有反应(这个按钮原来的病就是没反应)
+  ---
+  duration_ms: 0.155677
+  type: 'test'
+  ...
+# Subtest: u5 还没查过时显示的是版本号,不是空白
+ok 5 - u5 还没查过时显示的是版本号,不是空白
+  ---
+  duration_ms: 0.192125
+  type: 'test'
+  ...
+# Subtest: u9 默认自动检查(业主没表过态时,帮他查)
+ok 6 - u9 默认自动检查(业主没表过态时,帮他查)
+  ---
+  duration_ms: 0.148797
+  type: 'test'
+  ...
+# Subtest: u10 🔴 显式关掉之后就不许再自动往外发请求
+ok 7 - u10 🔴 显式关掉之后就不许再自动往外发请求
+  ---
+  duration_ms: 0.132107
+  type: 'test'
+  ...
+# Subtest: u11 更新说明取第一句有意义的话,去掉 markdown 记号
+ok 8 - u11 更新说明取第一句有意义的话,去掉 markdown 记号
+  ---
+  duration_ms: 0.347243
+  type: 'test'
+  ...
+# Subtest: u12 更新说明太长要截断,空的要给空串
+ok 9 - u12 更新说明太长要截断,空的要给空串
+  ---
+  duration_ms: 0.421231
+  type: 'test'
+  ...
+# Subtest: u6 只放行本仓 releases 下的 https 地址
+ok 10 - u6 只放行本仓 releases 下的 https 地址
+  ---
+  duration_ms: 0.385771
+  type: 'test'
+  ...
+# Subtest: u7 别人给的地址一律不放行(界面上那个链接是要业主去点的)
+ok 11 - u7 别人给的地址一律不放行(界面上那个链接是要业主去点的)
+  ---
+  duration_ms: 0.188977
+  type: 'test'
+  ...
+# Subtest: u13 🔴 有新版时,设置那一行必须挂个记号(不然业主根本看不到)
+ok 12 - u13 🔴 有新版时,设置那一行必须挂个记号(不然业主根本看不到)
+  ---
+  duration_ms: 0.123617
+  type: 'test'
+  ...
+# Subtest: u14 done + 空结果要说查不到,不许伪装成没查过
+ok 13 - u14 done + 空结果要说查不到,不许伪装成没查过
+  ---
+  duration_ms: 1.027997
+  type: 'test'
+  ...
+# Subtest: u15 地址被闸掉时也得给业主一条路(F-C:仓库改名会让下载行静默消失)
+ok 14 - u15 地址被闸掉时也得给业主一条路(F-C:仓库改名会让下载行静默消失)
+  ---
+  duration_ms: 0.139657
+  type: 'test'
+  ...
+# Subtest: u16 有新版但没版本号时,不许说成「已是最新」(F-D)
+ok 15 - u16 有新版但没版本号时,不许说成「已是最新」(F-D)
+  ---
+  duration_ms: 0.103618
+  type: 'test'
+  ...
+# Subtest: u17 正文以「这一版」开头时不许被当成标题跳掉(submimo 补充 1)
+ok 16 - u17 正文以「这一版」开头时不许被当成标题跳掉(submimo 补充 1)
+  ---
+  duration_ms: 0.086878
+  type: 'test'
+  ...
+# Subtest: u18 issue 编号那种 `\#123` 不许被当成标题记号剥掉
+ok 17 - u18 issue 编号那种 `\#123` 不许被当成标题记号剥掉
+  ---
+  duration_ms: 0.082578
+  type: 'test'
+  ...
+# Subtest: u19 🔴 没版本号时,蓝点的说明不许把 null 印给业主
+ok 18 - u19 🔴 没版本号时,蓝点的说明不许把 null 印给业主
+  ---
+  duration_ms: 0.123218
+  type: 'test'
+  ...
+# Subtest: u20 有版本号时,蓝点的说明要带上它(别把上一条修成恒定串)
+ok 19 - u20 有版本号时,蓝点的说明要带上它(别把上一条修成恒定串)
+  ---
+  duration_ms: 0.071779
+  type: 'test'
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 19
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 159.894646
+ds-web 0.98.4: http://127.0.0.1:8842/  (DS_DATA_ROOT=/tmp/update-e2e-MlNgXg/ds)
+
+== A 有新版时,收起的设置行上那个蓝点真的被画出来了
+  ok - 设置那一行上有蓝点(收起状态就看得见)
+  ok - 蓝点有实际尺寸(实测 {"x":71.015625,"y":867.375,"width":12.375,"height":12})—— 0.91 那次整块没画出来,判据全绿
+  ok - 蓝点可见(没被别的元素盖掉、没被 display:none)
+
+== B 打开设置:那一行说有新版几点几,下载行指向发布页,说明取的是正文
+  ok - 前提:设置弹层里有且只有一个「检查更新」行
+  ok - 那一行要说是哪一版(实测「检查更新 有新版 0.99.0 ›」)
+  ok - 有新版却说已是最新:「检查更新 有新版 0.99.0 ›」
+  ok - 有一条能点的下载行
+  ok - 下载行指向 GitHub 给的发布页(实测 https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.99.0)
+  ok - 说明取的是正文而不是「这一版改了什么」那种标题(实测「下载 0.99.0 修了打开软件时窗口全白的那个 bug」)
+
+== C 查不动的时候:没有蓝点,而且绝不许说「已是最新」
+  ok - 查不动的时候不许亮蓝点(那是在说有新版)
+  ok - 🔴 把失败伪装成成功:「检查更新 查不到更新」—— 业主会以为自己在最新版上
+  ok - 没说清是"没查成"(实测「检查更新 查不到更新」)
+
+== D 有新版但后端没给版本号:一个 null 都不许印给业主(MR-2)
+  ok - 前提:这一格仍然算「有新版」,蓝点该亮
+  ok - 蓝点的悬停说明印成「有新版」—— 标签那边(u16)修过同一个组合,这里没修
+  ok - 下载行印成「下载 新版本 修了打开软件时窗口全白的那个 bug」
+
+全部通过
+unit rc=0  e2e rc=0
+---------------- 输出结束 ----------------
+runlog: r3-fixes-green rc=0 commit=38b0295 dirty=yes at=2026-09-07T15:01:29Z file=tracks/opendesign-in-app-update/evidence/20260907T150129Z-01-r3-fixes-green.txt
