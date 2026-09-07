@@ -9,7 +9,7 @@
 //    本单从头到尾治的就是这一类"安静的谎",判据自己更不能生产一个。
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { updateLabel, safeReleaseUrl, autoCheckEnabled, notesSummary, hasUpdateBadge, downloadUrl } from "../web/src/update.ts";
+import { updateLabel, safeReleaseUrl, autoCheckEnabled, notesSummary, hasUpdateBadge, downloadUrl, badgeTitle } from "../web/src/update.ts";
 
 const NEWER = {
   current: "0.98.1", update_available: true, latest: "0.98.3",
@@ -146,4 +146,19 @@ test("u17 正文以「这一版」开头时不许被当成标题跳掉(submimo �
 test("u18 issue 编号那种 `#123` 不许被当成标题记号剥掉", () => {
   const s = notesSummary("## 这一版改了什么\n\n#123 修复了导致白屏的那个 bug");
   assert.match(s, /#123/, `把 issue 编号的 # 剥掉了:「${s}」`);
+});
+
+// ── 第三轮自审 MR-2:F-D 只修了一半 ─────────────────────────────────────
+// `updateLabel` 已经处理了"有新版但没版本号"(u16),而**同一屏上**那个蓝点的
+// 悬停说明还是 `有新版 ${info?.latest}` —— 同一个组合下它印的是「有新版 null」。
+// 一个 bug 只修一侧就是造新分叉(记忆 wq101-paper-trading 那次的形状)。
+test("u19 🔴 没版本号时,蓝点的说明不许把 null 印给业主", () => {
+  const s = badgeTitle({ update_available: true, latest: null });
+  assert.doesNotMatch(s, /null|undefined/,
+    `蓝点悬停说明印成「${s}」—— u16 修的是同一个组合,标签修了、这里没修`);
+  assert.match(s, /有新版/, `「${s}」没说清是有新版`);
+});
+
+test("u20 有版本号时,蓝点的说明要带上它(别把上一条修成恒定串)", () => {
+  assert.match(badgeTitle({ update_available: true, latest: "0.99.0" }), /0\.99\.0/);
 });
