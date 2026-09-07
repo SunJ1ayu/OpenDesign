@@ -134,6 +134,36 @@ mutate_and_expect m10 test_t3d_unparsable_local_version_never_offers \
   '''    here = parse_version(current) or (0, 0, 0)
     if here is None:'''
 
+# ── 缓存那一批 ────────────────────────────────────────────────────────────
+
+# m11 🔴 失败也进缓存 = 一次断网把"查不到"钉死 6 小时
+mutate_and_expect m11 test_t8d_failure_is_never_cached \
+  '    if not result.get("error"):' \
+  '    if True:'
+
+# m12 缓存不按版本号分键 = 装完新版还拿旧答案提示更新
+# (第一版的 m12 是**我自己的变异写错了**:只多写一个键,读那一侧仍然按版本查,
+#  性质根本没被破坏 ⇒ 判据全绿是对的。已给实现抽出 _cache_key 接缝,
+#  现在一行就能表达"不按版本分键"。)
+mutate_and_expect m12 test_t8e_cache_is_keyed_by_current_version \
+  '    return current' \
+  '    return "same-for-everyone"'
+
+# m13 业主点「检查更新」也给缓存
+mutate_and_expect m13 test_t8c_force_bypasses_cache \
+  '    if not force:' \
+  '    if True:'
+
+# m14 缓存永不过期
+mutate_and_expect m14 test_t8b_expired_cache_refetches \
+  '        if hit and t - hit[0] < ttl:' \
+  '        if hit:'
+
+# m15 压根不缓存(每次都真去问 ⇒ 限流)
+mutate_and_expect m15 test_t8a_second_call_within_ttl_does_not_refetch \
+  '        hit = _cache.get(_cache_key(current))' \
+  '        hit = None'
+
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"
 echo

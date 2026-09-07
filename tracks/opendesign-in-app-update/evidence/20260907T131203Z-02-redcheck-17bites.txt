@@ -1,0 +1,30 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-17bites
+cmd:     bash tests/mutation-ds-update.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  1e69d2e
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-07T13:12:03Z
+---------------- 输出开始 ----------------
+== 红检 bin/ds_update.py ==
+  [咬住] m1 → test_t1_picks_the_newest_even_though_all_are_prerelease
+  [咬住] m1b → test_t1b_code_must_not_call_the_latest_endpoint
+  [对照组] m1c 注释里提到那个接口 → 仍然全绿(没有误报)
+  [咬住] m2 → test_t2a_numeric_not_lexicographic
+  [咬住] m3 → test_t3a_same_version_no_offer
+  [咬住] m4 → test_t3b_local_newer_no_offer
+  [咬住] m5 → test_t1c2_asset_with_a_wrong_name_is_not_an_installer
+  [咬住] m6 → test_t1d_draft_is_never_a_candidate
+  [咬住] m7 → test_t7d_never_raises_whatever_happens
+  [咬住] m8 → test_t2e_garbage_returns_none_not_exception
+  [咬住] m9 → test_t3c_local_older_offers_with_what_it_needs
+  [咬住] m10 → test_t3d_unparsable_local_version_never_offers
+  [咬住] m11 → test_t8d_failure_is_never_cached
+  [咬住] m12 → test_t8e_cache_is_keyed_by_current_version
+  [咬住] m13 → test_t8c_force_bypasses_cache
+  [咬住] m14 → test_t8b_expired_cache_refetches
+  [咬住] m15 → test_t8a_second_call_within_ttl_does_not_refetch
+
+== 红检小结:咬住 17 条 / 漏网 0 条(被测文件已逐字节还原)==
+---------------- 输出结束 ----------------
+runlog: redcheck-17bites rc=0 commit=1e69d2e dirty=yes at=2026-09-07T13:12:03Z file=tracks/opendesign-in-app-update/evidence/20260907T131203Z-02-redcheck-17bites.txt

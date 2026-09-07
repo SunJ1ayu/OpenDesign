@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import json
 import re
+import threading
+import time
 import urllib.request
 
 REPO = "SunJ1ayu/OpenDesign"
@@ -152,3 +154,44 @@ def check(current, fetch=fetch_releases):
     except Exception as exc:  # noqa: BLE001
         return {"current": current, "update_available": False, "latest": None,
                 "asset": None, "notes": "", "error": f"查更新失败:{exc.__class__.__name__}: {exc}"}
+
+
+# ── 缓存 ────────────────────────────────────────────────────────────────────
+# 未登录的 GitHub API 每小时 60 次。每开一次界面、每点一下都真去问,业主很快会被限流,
+# 而限流的样子恰恰是"查不到新版本" —— 一条安静的错。
+#
+# 🔴 方向必须写死:**失败不许进缓存**(判据 t8d)。一次断网如果把"查不到"钉死 6 小时,
+#    业主点「检查更新」也没反应,他看到的和"功能坏了"一模一样。
+CACHE_TTL_S = 6 * 3600
+_cache_lock = threading.Lock()
+_cache = {}  # {缓存键: (时刻, 结果)}
+
+
+def _cache_key(current):
+    """按**本机版本号**分键:装完新版之后旧答案立刻作废(判据 t8e,变异 m12 咬这一行)。
+
+    单独抽成一个函数不是为了好看 —— 是为了让"按什么分键"这件事**在一处可判**:
+    读和写都走它,红检改这一行就能表达"不按版本分键了",不用改两处。
+    """
+    return current
+
+
+def cache_clear():
+    with _cache_lock:
+        _cache.clear()
+
+
+def check_cached(current, fetch=fetch_releases, now=time.time, force=False, ttl=None):
+    """带缓存地查一次。`force=True` 是业主亲手点了「检查更新」—— 那一下必须真去问。"""
+    ttl = CACHE_TTL_S if ttl is None else ttl
+    t = now()
+    if not force:
+        with _cache_lock:
+            hit = _cache.get(_cache_key(current))
+        if hit and t - hit[0] < ttl:
+            return hit[1]
+    result = check(current, fetch=fetch)
+    if not result.get("error"):
+        with _cache_lock:
+            _cache[_cache_key(current)] = (t, result)
+    return result
