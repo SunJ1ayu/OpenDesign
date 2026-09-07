@@ -1031,7 +1031,11 @@ class Handler(BaseHTTPRequestHandler):
         `?force=1` 是业主亲手点了「检查更新」:那一下不给缓存,真去问一次。
         本机版本号只有一个来源(VERSION),不另写一份 —— 抄第二份迟早对不上。
         """
-        force = parse_qs(urlsplit(self.path).query).get("force", ["0"])[0] not in ("", "0")
+        # 🔴 第三轮评审 F6:原来判的是"非空且非 0" ⇒ `?force=false` 也会强制刷新。
+        #    没有危害(只多打一次 GitHub),但一个**反着读**的参数迟早会骗到下一个人。
+        #    只认明确的"开"(判据 t9e)。
+        raw_force = parse_qs(urlsplit(self.path).query).get("force", [""])[0]
+        force = raw_force.strip().lower() in ("1", "true", "yes", "on")
         self._json(200, ds_update.check_cached(VERSION, force=force))
 
     def _todos(self):

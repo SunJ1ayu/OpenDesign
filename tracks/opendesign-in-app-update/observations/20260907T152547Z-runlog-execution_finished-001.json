@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-in-app-update",
+  "run_id": "20260907T152328Z-01-redcheck-r3-panel-24-15-6-5",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "redcheck-r3-panel-24-15-6-5",
+  "started_at": "2026-09-07T15:23:28Z",
+  "finished_at": "2026-09-07T15:25:47Z",
+  "duration_ms": 138505,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 0,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

@@ -106,13 +106,23 @@ mutate_and_expect v12 "u16 有新版但没版本号时,不许说成「已是最�
 
 # v13 跳过标题的依据退回"按开头几个词"(submimo 补充 1 原样重现)
 mutate_and_expect v13 "u17 正文以「这一版」开头时不许被当成标题跳掉(submimo 补充 1)" \
-  '    const isHeading = /^\s*#+\s/.test(raw);' \
-  '    const isHeading = /^这一版|^更新内容|^改了什么/.test(raw.replace(/^\s*#+\s*/, ""));'
+  '    const isAtx = /^\s*#+\s/.test(raw);' \
+  '    const isAtx = /^这一版|^更新内容|^改了什么/.test(raw.replace(/^\s*#+\s*/, ""));'
 
 # v14 蓝点的悬停说明退回拼版本号(MR-2 原样重现:latest 为 null 时印「有新版 null」)
 mutate_and_expect v14 "u19 🔴 没版本号时,蓝点的说明不许把 null 印给业主" \
   '  return v ? `有新版 ${v}` : "有新版";' \
   '  return `有新版 ${v}`;'
+
+# v15 setext 标题不再被认出来(第三轮评审 F1 原样重现)
+mutate_and_expect v15 "u21 setext 标题(下一行 ===)不许被当成正文印给业主" \
+  '    const isSetext = raw.trim() !== "" && SETEXT_UNDERLINE.test(rows[i + 1] ?? "");' \
+  '    const isSetext = false;'
+
+# v16 分隔线不再被跳过(界面上直接印一串横杠,还顶掉"去发布页 ›")
+mutate_and_expect v16 "u22 正文以分隔线开头时,不许把那串横杠印出来" \
+  '    const isRule = HORIZONTAL_RULE.test(raw);' \
+  '    const isRule = false;'
 
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"

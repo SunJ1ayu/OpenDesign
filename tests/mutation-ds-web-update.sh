@@ -52,7 +52,7 @@ mutate_and_expect n1 test_t9b_network_failure_is_still_200 \
 
 # n2 业主点「检查更新」也给缓存
 mutate_and_expect n2 test_t9c_force_really_asks_again \
-  '        force = parse_qs(urlsplit(self.path).query).get("force", ["0"])[0] not in ("", "0")' \
+  '        force = raw_force.strip().lower() in ("1", "true", "yes", "on")' \
   '        force = False'
 
 # n3 本机版本号另写一份(抄第二份迟早对不上)
@@ -63,9 +63,9 @@ mutate_and_expect n3 test_t9a_endpoint_answers_with_the_shape_the_ui_needs \
 
 # n4 把 GitHub 的原始响应往界面上漏
 mutate_and_expect n4 test_t9a_endpoint_answers_with_the_shape_the_ui_needs \
-  '        force = parse_qs(urlsplit(self.path).query).get("force", ["0"])[0] not in ("", "0")
+  '        force = raw_force.strip().lower() in ("1", "true", "yes", "on")
         self._json(200, ds_update.check_cached(VERSION, force=force))' \
-  '        force = parse_qs(urlsplit(self.path).query).get("force", ["0"])[0] not in ("", "0")
+  '        force = raw_force.strip().lower() in ("1", "true", "yes", "on")
         r = dict(ds_update.check_cached(VERSION, force=force)); r["raw"] = "…整坨响应…"
         self._json(200, r)'
 
@@ -75,6 +75,11 @@ mutate_and_expect n5 test_t9a_endpoint_answers_with_the_shape_the_ui_needs \
             self._update_check()' \
   '        elif path == "/api/update/check--gone":
             self._update_check()'
+
+# w5 force 判定退回"非空且非 0"(第三轮评审 F6 原样重现:?force=false 也强制)
+mutate_and_expect w5 "test_t9e_force_false_is_not_force" \
+  '        force = raw_force.strip().lower() in ("1", "true", "yes", "on")' \
+  '        force = raw_force not in ("", "0")'
 
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"

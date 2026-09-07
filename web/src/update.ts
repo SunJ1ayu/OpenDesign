@@ -86,22 +86,33 @@ export function autoCheckEnabled(prefs: Record<string, boolean>): boolean {
  * 后端把 release 正文整段带下来了。**取了就要用** —— 留一个"取了不显示"的字段
  * 等于假装做了这件事(S4 自审)。界面上只放得下一行,所以这里只取一行。
  */
+// setext 标题的下划线(标题写在上一行,下一行整行是 === 或 ---)与分隔线。
+// 🔴 第三轮评审 F1:原来只认 ATX(`# 标题`)⇒ setext 写法的标题被当正文印给业主,
+//    而正文以 `---` 开头时界面上直接印一串横杠,还把"去发布页 ›"那句兜底顶掉。
+//    和 submimo 补充 1 治的是同一种病,只是形态不同。
+const SETEXT_UNDERLINE = /^\s*(?:=+|-+)\s*$/;
+const HORIZONTAL_RULE = /^\s*([-*_=])\s*(?:\1\s*){2,}$/;
+
 export function notesSummary(notes: string | null | undefined, max = 80): string {
   if (!notes) return "";
-  for (const raw of notes.split(/\r?\n/)) {
+  const rows = notes.split(/\r?\n/);
+  for (let i = 0; i < rows.length; i++) {
+    const raw = rows[i];
     // 🔴 跳过的依据是"**它本来就是个 markdown 标题**",不是"它以某几个词开头"。
     //    原来按开头几个词判,会把「这一版修了一个导致白屏的 bug」这种**正文**也跳掉
     //    (submimo 第二轮补充 1)。标题没信息量,正文有 —— 分界线在记号上,不在词上。
-    const isHeading = /^\s*#+\s/.test(raw);
-    // 标题整行跳过(上面 isHeading),所以这里**不再剥 `#`** —— 剥它反而有害:
+    const isAtx = /^\s*#+\s/.test(raw);
+    const isSetext = raw.trim() !== "" && SETEXT_UNDERLINE.test(rows[i + 1] ?? "");
+    const isRule = HORIZONTAL_RULE.test(raw);
+    // 标题整行跳过,所以这里**不再剥 `#`** —— 剥它反而有害:
     // 一行 `#123 修复了…`(issue 编号,不是标题)会被剥成 `123 修复了…`。
-    // 红检 v6 漏网把这条照了出来:那个替换在加了 isHeading 之后已是半死代码,
+    // 红检 v6 漏网把这条照了出来:那个替换在加了 isAtx 之后已是半死代码,
     // 而半死代码里还藏着一个真 bug。
     const line = raw
       .replace(/\*\*|__|`/g, "")     // 粗体 / 行内代码
       .trim();
     if (!line) continue;
-    if (isHeading) continue;
+    if (isAtx || isSetext || isRule) continue;
     return line.length > max ? line.slice(0, max - 1) + "…" : line;
   }
   return "";

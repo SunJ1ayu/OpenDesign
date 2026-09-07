@@ -162,3 +162,19 @@ test("u19 🔴 没版本号时,蓝点的说明不许把 null 印给业主", () =
 test("u20 有版本号时,蓝点的说明要带上它(别把上一条修成恒定串)", () => {
   assert.match(badgeTitle({ update_available: true, latest: "0.99.0" }), /0\.99\.0/);
 });
+
+// ── 第三轮评审 F1(subdeepseek 用 probe 实测出来的,工件里没有)────────────
+// `notesSummary` 只认 ATX(`# `)那种标题。业主的 release 正文若用 setext 写法
+// (标题下面一行 `===`),标题会被当成正文印出去 —— 和 submimo 补充 1 治的是同一种病,
+// 只是形态不同。首行是 `---` 时更难看:界面上直接印一串横杠,还把"去发布页 ›"顶掉。
+test("u21 setext 标题(下一行 ===)不许被当成正文印给业主", () => {
+  const s = notesSummary("大版本标题\n==========\n\n修了打开软件时全白的那个 bug");
+  assert.match(s, /白屏|全白/,
+    `setext 标题被当成正文了:「${s}」—— ATX 认了、这种没认`);
+});
+
+test("u22 正文以分隔线开头时,不许把那串横杠印出来", () => {
+  const s = notesSummary("---\n\n## 这一版改了什么\n\n修了打开软件时全白的那个 bug");
+  assert.doesNotMatch(s, /^[-=*_\s]+$/, `印了一串分隔符:「${s}」`);
+  assert.match(s, /白屏|全白/, `没往下找到正文:「${s}」`);
+});

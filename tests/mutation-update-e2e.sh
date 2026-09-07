@@ -15,10 +15,12 @@ ORACLE=tests/e2e/update_notice.e2e.mjs
 WORK="$(mktemp -d)"
 cp -p web/src/update.ts "$WORK/update.ts.orig"
 cp -p web/src/workspace/Sidebar.tsx "$WORK/Sidebar.tsx.orig"
+cp -p web/src/App.tsx "$WORK/App.tsx.orig"
 cp -r web/dist "$WORK/dist.orig"
 restore() {
   cp -p "$WORK/update.ts.orig" web/src/update.ts
   cp -p "$WORK/Sidebar.tsx.orig" web/src/workspace/Sidebar.tsx
+  cp -p "$WORK/App.tsx.orig" web/src/App.tsx
   rm -rf web/dist && cp -r "$WORK/dist.orig" web/dist
 }
 trap 'restore; rm -rf "$WORK"' EXIT
@@ -76,8 +78,16 @@ mutate_and_expect e3 "下载行指向 GitHub 给的发布页" web/src/update.ts 
 
 # e4 更新说明退回"取第一行"(标题会被当成正文印给业主)
 mutate_and_expect e4 "说明取的是正文而不是" web/src/update.ts \
-  '    if (isHeading) continue;' \
-  '    if (isHeading && false) continue;'
+  '    if (isAtx || isSetext || isRule) continue;' \
+  '    if (false && (isAtx || isSetext || isRule)) continue;'
+
+# e5 catch 退回 idle —— 第三轮评审 F4 指出:F-A 那条修法此前**没有任何判据守着**,
+#    改回去 54 条判据 + 17 条变异全绿,而业主点了「检查更新」看见的和没点一模一样。
+mutate_and_expect e5 "回退成版本号" web/src/App.tsx \
+  '        setUpdateInfo(null);
+        setUpdateState("done");' \
+  '        setUpdateInfo(null);
+        setUpdateState("idle");'
 
 restore
 echo "== 咬住 $bites 条 / 漏网 $escapes 条"

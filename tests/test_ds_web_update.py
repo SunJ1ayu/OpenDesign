@@ -110,6 +110,21 @@ class UpdateCheckEndpoint(unittest.TestCase):
         self.assertFalse(body["update_available"])
         self.assertTrue(body["error"], "失败了却什么都不说,日志里也查不到")
 
+    def test_t9e_force_false_is_not_force(self):
+        """第三轮评审 F6:`?force=false` 现在会**强制**(判定是"非空且非 0")。
+
+        没有危害(只多打一次 GitHub),但它把"关"读成了"开" —— 一个反着读的参数
+        迟早会被下一个人当成"我关掉了"。这里钉死:只有明确的开才算开。
+        """
+        self._fake(_fixture())
+        with _serve() as port:
+            _get(port, "/api/update/check")
+            _get(port, "/api/update/check?force=false")
+            self.assertEqual(len(self.calls), 1,
+                             "?force=false 被当成了强制刷新 —— 它字面写着 false")
+            _get(port, "/api/update/check?force=1")
+            self.assertEqual(len(self.calls), 2, "?force=1 反而没强制")
+
     def test_t9c_force_really_asks_again(self):
         """业主亲手点「检查更新」时不许给他缓存。"""
         self._fake(_fixture())
