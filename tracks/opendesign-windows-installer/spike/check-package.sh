@@ -92,14 +92,49 @@ if [ -n "$SLIM_LIST" ]; then
   for p in $SLIM_LIST; do
     [ -e "$B/python/Lib/site-packages/$p" ] && no "瘦身没生效:$p 还在包里" || ok "瘦身:$p 已不在包里"
   done
-  # 元数据残留:发行名与导入名常常不一样(python-telegram-bot vs telegram),
-  # 所以按 RECORD/top_level 反查过之后,这里只做一次兜底的目录名扫描。
-  for p in $SLIM_LIST; do
-    leftover="$(find "$B/python/Lib/site-packages" -maxdepth 1 -name "*.dist-info" \
-                 -exec sh -c 'grep -qiE "^Name: *'"$p"'$" "$1/METADATA" 2>/dev/null && echo "$1"' _ {} \; 2>/dev/null | head -1)"
-    [ -n "$leftover" ] && no "瘦身:$p 的包删了但元数据还在($(basename "$leftover"))" \
-                       || ok "瘦身:$p 没留下孤儿元数据"
-  done
+  # 元数据残留:**发行名与导入名常常不一样** —— python-telegram-bot vs telegram、
+  # lark-oapi(中划线)vs lark_oapi。这里原来拿导入名去 grep METADATA 的 `Name:`,
+  # 于是 5 行里有 2 行**结构上不可能红**(2026-09-07 两条评审腿各自独立指出、我造孤儿实测:
+  # 旧写法对着一份真的 python_telegram_bot-22.8.dist-info 照印 [PASS])。
+  # **而 telegram 正是 08-24 真打包时真留下过孤儿元数据的那一个** —— 恒瞎在最该咬的地方。
+  # 现在改成**和删除逻辑同一个问法**:每份 dist-info 提供哪些顶层包
+  # (top_level.txt;现代 wheel 不写它,就从 RECORD 反推),整份落在清单里 = 它是孤儿。
+  # 判据 g6(咬得住)+ g6b(干净的包不许误报)守着这两头。
+  orphans="$(python3 - "$B/python/Lib/site-packages" $SLIM_LIST <<'PYORPHAN'
+import sys
+from pathlib import Path
+
+sp, drop = Path(sys.argv[1]), set(sys.argv[2:])
+for info in sorted(sp.glob("*.dist-info")):
+    provided = set()
+    top = info / "top_level.txt"
+    if top.is_file():
+        provided = {ln.strip() for ln
+                    in top.read_text(encoding="utf-8", errors="replace").splitlines()
+                    if ln.strip()}
+    else:
+        rec = info / "RECORD"
+        if rec.is_file():
+            for ln in rec.read_text(encoding="utf-8", errors="replace").splitlines():
+                path = ln.split(",")[0].strip().replace("\\", "/")
+                if not path or path.startswith(".."):
+                    continue
+                head = path.split("/")[0]
+                if head.endswith((".dist-info", ".data")):
+                    continue
+                provided.add(head)
+    # 与删除侧同样**故意保守**:只要它还提供清单外的东西,就不当孤儿报。
+    if provided and provided <= drop:
+        print(info.name)
+PYORPHAN
+)"
+  if [ -n "$orphans" ]; then
+    for o in $orphans; do
+      no "瘦身:$o 的包删了但元数据还在(孤儿元数据)"
+    done
+  else
+    ok "瘦身:没留下孤儿元数据(按 top_level/RECORD 反查,不看发行名)"
+  fi
 else
   no "读不出 SLIM_DROP —— 瘦身清单没了,还是 build-package.sh 被改了?"
 fi

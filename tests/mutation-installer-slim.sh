@@ -19,7 +19,9 @@ cd "$(dirname "$0")/.."
 PY="${PY:-/root/.venvs/design-studio/bin/python}"
 
 TARGET=tracks/opendesign-windows-installer/spike/build-package.sh
-SOURCES=("$TARGET")
+# 闸B 也进红检:2026-09-07 起 g6 咬的是**它**,不备份就还原不回去。
+GATE=tracks/opendesign-windows-installer/spike/check-package.sh
+SOURCES=("$TARGET" "$GATE")
 WORK="$(mktemp -d)"
 declare -A BEFORE
 for f in "${SOURCES[@]}"; do
@@ -100,6 +102,28 @@ mutate_and_expect S5 "$TARGET" "$ORACLE" \
   test_g3_nanobot_startup_survives_the_prune \
   'SLIM_DROP=(lark_oapi botocore boto3 s3transfer telegram)' \
   'SLIM_DROP=(lark_oapi botocore boto3 s3transfer telegram rich)'
+
+# S6 把闸B 的孤儿扫描换成"按 dist-info 目录名前缀认" —— 这是最像样的错误写法,
+#    而 python_telegram_bot-22.8.dist-info 的前缀是 python_telegram_bot,不在清单里
+#    ⇒ 孤儿放行。**这正是 2026-09-07 之前那道闸的真实状态**(它按 METADATA Name 认,
+#    同样对不上),所以这条变异是在钉住"别再退回去"。
+mutate_and_expect S6 "$GATE" "$ORACLE" \
+  test_g6_product_gate_catches_orphan_metadata_of_a_renamed_dist \
+  'if provided and provided <= drop:' \
+  'if info.name.split("-")[0] in drop:'
+
+# S7 把清单改成多行、且注释里带一个右括号 —— 判据这侧的正则在那里截断,
+#    只解析出 ['lark_oapi'];闸B 那侧读成空、fail closed。
+#    ⚠️ 这条变异下 g4/g6 也会红(见 g7 的 docstring:我实测过,不是静默全绿),
+#    这里只要求**靶子 g7 红** —— 它是唯一一条把病因说对的。
+mutate_and_expect S7 "$TARGET" "$ORACLE" \
+  test_g7_both_readers_of_the_list_see_the_same_thing \
+  'SLIM_DROP=(lark_oapi botocore boto3 s3transfer telegram)' \
+  'SLIM_DROP=(
+  lark_oapi   # 飞书(最大的一头)
+  botocore boto3 s3transfer
+  telegram
+)'
 
 restore
 echo

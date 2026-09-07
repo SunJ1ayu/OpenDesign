@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-installer-slim",
+  "run_id": "20260907T083318Z-01-redcheck-7bites",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "redcheck-7bites",
+  "started_at": "2026-09-07T08:33:18Z",
+  "finished_at": "2026-09-07T08:33:27Z",
+  "duration_ms": 8392,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 0,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
