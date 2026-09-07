@@ -1,0 +1,77 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    judging-first-g6-red
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_installer_slim
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  ef037a7
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-07T08:30:28Z
+---------------- 输出开始 ----------------
+F......
+======================================================================
+FAIL: test_g6_product_gate_catches_orphan_metadata_of_a_renamed_dist (tests.test_installer_slim.ProductGateBites.test_g6_product_gate_catches_orphan_metadata_of_a_renamed_dist)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_installer_slim.py", line 247, in test_g6_product_gate_catches_orphan_metadata_of_a_renamed_dist
+    self.assertRegex(
+AssertionError: Regex didn't match: '\\[FAIL\\].*孤儿元数据' not found in "== 包结构检查:/tmp/tmp8iqmc6c5 ==\n  [FAIL] 包内 python.exe 缺失\n  [PASS] 没有 Linux .so 泄漏(0 个)\n  [FAIL] Windows .pyd 只有 0 个,不像装全了\n  [FAIL] ._pth 文件缺失\n  [PASS] 没有漏掉的 Windows 条件依赖(0 个全在)\n  [FAIL] 关键包 nanobot 缺\n  [FAIL] 关键包 mcp 缺\n  [FAIL] 关键包 anydoc 缺\n  [FAIL] 关键包 pydantic_core 缺\n  [FAIL] 关键包 lxml 缺\n  [FAIL] 关键包 PIL 缺\n  [FAIL] 关键包 cryptography 缺\n  [FAIL] anydoc 的 .pyd 缺\n  [FAIL] pywebview 版本对不上:包里 没找到 / pin 6.2.1\n  [FAIL] pywebview API webview.create_window 不见了(升级改名了?)\n  [FAIL] pywebview API webview.start 不见了(升级改名了?)\n  [FAIL] pywebview API window.show 不见了(升级改名了?)\n  [FAIL] pywebview API window.hide 不见了(升级改名了?)\n  [FAIL] pywebview API window.restore 不见了(升级改名了?)\n  [FAIL] pywebview API window.destroy 不见了(升级改名了?)\n  [FAIL] pywebview 的 WinForms 后端不见了 —— 外壳起不来\n  [PASS] 瘦身:lark_oapi 已不在包里\n  [PASS] 瘦身:botocore 已不在包里\n  [PASS] 瘦身:boto3 已不在包里\n  [PASS] 瘦身:s3transfer 已不在包里\n  [PASS] 瘦身:telegram 已不在包里\n  [PASS] 瘦身:lark_oapi 没留下孤儿元数据\n  [PASS] 瘦身:botocore 没留下孤儿元数据\n  [PASS] 瘦身:boto3 没留下孤儿元数据\n  [PASS] 瘦身:s3transfer 没留下孤儿元数据\n  [PASS] 瘦身:telegram 没留下孤儿元数据\n  [FAIL] ds/bin/ds_web.py 缺\n  [FAIL] ds/bin/ds_mcp.py 缺\n  [FAIL] ds/bin/enable_webui.py 缺\n  [FAIL] ds/bin/ds_merge_config.py 缺\n  [FAIL] ds/config/nanobot.config.windows.jsonc 缺\n  [FAIL] ds/web/dist/index.html 缺\n  [FAIL] ds/版本号.txt 缺\n  [FAIL] ds/bin/ds_shell.py 缺\n  [FAIL] ds/bin/ds_shell_core.py 缺\n  [FAIL] ds/bin/ds_provision.py 缺\n  [FAIL] ds/assets/图标.png 缺\n  [PASS] 出货形态里没有混进考卷/考卷入口\n  [FAIL] ds/bin/ds_shell.py 缺 —— 外壳形态的包必须带它\n  [FAIL] ds/bin/ds_shell_core.py 缺 —— 外壳形态的包必须带它\n  [PASS] ds/ 里没有仓库外的文件(不会把本地数据发出去)\n  [FAIL] 版本号锚对不上:仓库 '0.98.3' vs 包内 ''\n  [PASS] 没有本机编译的字节码残留\n== 结构检查结束:33 条不合格 ==\nfind: ‘/tmp/tmp8iqmc6c5/ds’: No such file or directory\n" : 🔴 包里留着 python_telegram_bot-22.8.dist-info(包已删、元数据还在),而成品闸一声不吭。
+发行名与导入名不一样时它必须照样咬住 —— 这正是 08-24 真出过的那个形状。
+闸的原话:
+== 包结构检查:/tmp/tmp8iqmc6c5 ==
+  [FAIL] 包内 python.exe 缺失
+  [PASS] 没有 Linux .so 泄漏(0 个)
+  [FAIL] Windows .pyd 只有 0 个,不像装全了
+  [FAIL] ._pth 文件缺失
+  [PASS] 没有漏掉的 Windows 条件依赖(0 个全在)
+  [FAIL] 关键包 nanobot 缺
+  [FAIL] 关键包 mcp 缺
+  [FAIL] 关键包 anydoc 缺
+  [FAIL] 关键包 pydantic_core 缺
+  [FAIL] 关键包 lxml 缺
+  [FAIL] 关键包 PIL 缺
+  [FAIL] 关键包 cryptography 缺
+  [FAIL] anydoc 的 .pyd 缺
+  [FAIL] pywebview 版本对不上:包里 没找到 / pin 6.2.1
+  [FAIL] pywebview API webview.create_window 不见了(升级改名了?)
+  [FAIL] pywebview API webview.start 不见了(升级改名了?)
+  [FAIL] pywebview API window.show 不见了(升级改名了?)
+  [FAIL] pywebview API window.hide 不见了(升级改名了?)
+  [FAIL] pywebview API window.restore 不见了(升级改名了?)
+  [FAIL] pywebview API window.destroy 不见了(升级改名了?)
+  [FAIL] pywebview 的 WinForms 后端不见了 —— 外壳起不来
+  [PASS] 瘦身:lark_oapi 已不在包里
+  [PASS] 瘦身:botocore 已不在包里
+  [PASS] 瘦身:boto3 已不在包里
+  [PASS] 瘦身:s3transfer 已不在包里
+  [PASS] 瘦身:telegram 已不在包里
+  [PASS] 瘦身:lark_oapi 没留下孤儿元数据
+  [PASS] 瘦身:botocore 没留下孤儿元数据
+  [PASS] 瘦身:boto3 没留下孤儿元数据
+  [PASS] 瘦身:s3transfer 没留下孤儿元数据
+  [PASS] 瘦身:telegram 没留下孤儿元数据
+  [FAIL] ds/bin/ds_web.py 缺
+  [FAIL] ds/bin/ds_mcp.py 缺
+  [FAIL] ds/bin/enable_webui.py 缺
+  [FAIL] ds/bin/ds_merge_config.py 缺
+  [FAIL] ds/config/nanobot.config.windows.jsonc 缺
+  [FAIL] ds/web/dist/index.html 缺
+  [FAIL] ds/版本号.txt 缺
+  [FAIL] ds/bin/ds_shell.py 缺
+  [FAIL] ds/bin/ds_shell_core.py 缺
+  [FAIL] ds/bin/ds_provision.py 缺
+  [FAIL] ds/assets/图标.png 缺
+  [PASS] 出货形态里没有混进考卷/考卷入口
+  [FAIL] ds/bin/ds_shell.py 缺 —— 外壳形态的包必须带它
+  [FAIL] ds/bin/ds_shell_core.py 缺 —— 外壳形态的包必须带它
+  [PASS] ds/ 里没有仓库外的文件(不会把本地数据发出去)
+  [FAIL] 版本号锚对不上:仓库 '0.98.3' vs 包内 ''
+  [PASS] 没有本机编译的字节码残留
+== 结构检查结束:33 条不合格 ==
+find: ‘/tmp/tmp8iqmc6c5/ds’: No such file or directory
+
+
+----------------------------------------------------------------------
+Ran 7 tests in 1.166s
+
+FAILED (failures=1)
+---------------- 输出结束 ----------------
+runlog: judging-first-g6-red rc=1 commit=ef037a7 dirty=yes at=2026-09-07T08:30:28Z file=tracks/opendesign-installer-slim/evidence/20260907T083028Z-01-judging-first-g6-red.txt

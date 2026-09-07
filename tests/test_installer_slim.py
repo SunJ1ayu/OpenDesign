@@ -185,6 +185,103 @@ class SlimListShape(unittest.TestCase):
             shutil.rmtree(sp, ignore_errors=True)
 
 
+CHECK_PKG = os.path.join(
+    ROOT, "tracks", "opendesign-windows-installer", "spike", "check-package.sh")
+
+
+def _bash_side_slim_drop() -> list[str]:
+    """**闸B 那一侧**怎么读这份清单(check-package.sh:90 的 grep,一字不改地复刻)。
+
+    存在的理由见 g7:同一份清单有两个读取器,它们必须看见同一个东西。
+    """
+    import subprocess
+    r = subprocess.run(
+        ["grep", "-oP", r"^SLIM_DROP=\(\K[^)]*", BUILD_PKG],
+        capture_output=True, text=True)
+    return r.stdout.split()
+
+
+class ProductGateBites(unittest.TestCase):
+    """g6:**成品闸**真的咬得动孤儿元数据 —— 包括发行名 != 导入名的那种。
+
+    🔴 由来(2026-09-07,归档前补跑的两条评审腿**各自独立**指出同一处):
+    闸B 原来拿**导入名**去 grep dist-info 的 `METADATA` 里的 `Name:` ——
+    而真实的发行名是 `python-telegram-bot` 和 `lark-oapi`(中划线),
+    跟 `telegram`/`lark_oapi` 永远对不上 ⇒ 那两行**恒为绿**。
+    我造了一份真的 `python_telegram_bot-22.8.dist-info` 孤儿放进假包里,
+    旧闸原话照印 `[PASS] 瘦身:telegram 没留下孤儿元数据`。
+
+    **而 telegram 恰恰是 08-24 真打包时真的留下过孤儿元数据的那一个**
+    (见 verify.md「收口时抓到的两件事」①)—— 这道闸对它要防的那件事恒瞎。
+    """
+
+    def _fake_pkg(self, tmp, *, plant_orphan):
+        from pathlib import Path
+        sp = Path(tmp) / "python" / "Lib" / "site-packages"
+        sp.mkdir(parents=True)
+        if plant_orphan:
+            # 包已被删、元数据留下 —— 08-24 真打包时真实发生过的那个形状。
+            # 发行名(python-telegram-bot)与导入名(telegram)**不一样**,
+            # 而且现代 wheel 不写 top_level.txt ⇒ 只能从 RECORD 反推。
+            d = sp / "python_telegram_bot-22.8.dist-info"
+            d.mkdir()
+            (d / "METADATA").write_text(
+                "Name: python-telegram-bot\nVersion: 22.8\n", encoding="utf-8")
+            (d / "RECORD").write_text(
+                "telegram/__init__.py,sha256=x,1\n"
+                "python_telegram_bot-22.8.dist-info/METADATA,sha256=y,2\n",
+                encoding="utf-8")
+        return sp
+
+    def _run_gate(self, tmp):
+        import subprocess
+        r = subprocess.run(["bash", CHECK_PKG, tmp, "--app"],
+                           capture_output=True, text=True)
+        return r.stdout + r.stderr
+
+    def test_g6_product_gate_catches_orphan_metadata_of_a_renamed_dist(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            self._fake_pkg(tmp, plant_orphan=True)
+            out = self._run_gate(tmp)
+        self.assertRegex(
+            out, r"\[FAIL\].*孤儿元数据",
+            "🔴 包里留着 python_telegram_bot-22.8.dist-info(包已删、元数据还在),"
+            "而成品闸一声不吭。\n"
+            "发行名与导入名不一样时它必须照样咬住 —— 这正是 08-24 真出过的那个形状。\n"
+            f"闸的原话:\n{out}")
+
+    def test_g6b_product_gate_does_not_cry_wolf_when_clean(self):
+        """对照组:干净的包里不许报孤儿 —— **误报和假绿一样坏**。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            self._fake_pkg(tmp, plant_orphan=False)
+            out = self._run_gate(tmp)
+        self.assertNotRegex(
+            out, r"\[FAIL\].*孤儿元数据",
+            f"干净的包被报成有孤儿元数据 —— 误报。\n闸的原话:\n{out}")
+
+    def test_g7_both_readers_of_the_list_see_the_same_thing(self):
+        """g7:清单有**两个读取器**(这份判据的正则 / 闸B 的 grep),必须看见同一个东西。
+
+        🔴 由来(2026-09-07 评审腿 subkimi 指出、我实测确认):
+        把数组写成多行、并且注释里带一个右括号(比如 `# 飞书(最大的一头)`),
+        这份判据的正则会在那个右括号处截断 ⇒ 只解析出 `['lark_oapi']`,
+        g2/g3 于是拿**一份缺了四个名字的清单**去检查,**照样全绿**。
+        闸B 的 grep 则读成空 ⇒ fail closed(它那侧是对的)。
+        两侧看见的不一样 = 有一侧在骗人,这条就是不许它们各说各话。
+        """
+        mine = _slim_drop()
+        theirs = _bash_side_slim_drop()
+        self.assertEqual(
+            sorted(mine), sorted(theirs),
+            "同一份 SLIM_DROP,两个读取器看见的不一样:\n"
+            f"  判据这侧(tests/test_installer_slim.py:_slim_drop)={mine}\n"
+            f"  闸B 那侧(check-package.sh:90 的 grep)      ={theirs}\n"
+            "⇒ 多半是数组被改成了多行(或注释里带了右括号)。\n"
+            "两侧的解析必须一致,否则总有一侧在拿残缺的清单发绿。")
+
+
 class PrunedRuntimeStillStarts(unittest.TestCase):
     """g3:**结果**闸 —— 按清单抹掉之后,nanobot 还起不起得来。
 

@@ -1,0 +1,126 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-installer-slim",
+  "run_id": "20260907-160426-2613071-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-installer-slim",
+  "started_at": "2026-09-07T08:04:26Z",
+  "finished_at": "2026-09-07T08:24:34Z",
+  "duration_ms": 1208594,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "subglm-agent",
+        "degraded": false,
+        "duration_ms": 576738,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:9adc204d82943cb14118d04e6b7c93a88cae98decb3254b7a1367bcacfff875d",
+          "ref": "file:///root/aiwork/logs/panel-installer-slim-20260907T080425Z.subglm.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "zhipu",
+        "model": {
+          "invoked": "go/glm-5.3-flash",
+          "reported": null,
+          "requested": "go/glm-5.3-flash"
+        },
+        "name": "subglm",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260907-160426-2613071-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "digest": "sha256:9901ac383ca5c37e03eb06690d8dfa989bb8b3958487fb89e326460598f2a98f",
+          "manifest_version": 1,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "ef037a7c14f6c4006b56a8bc73648570ad0b10d0",
+            "index_tree_oid": "46a879cfb9a28573858e1e240d4e6eaa8eb3d8ff",
+            "worktree_tree_oid": "829ccec0a82f2b73e49c93cfc21e949196ec8381"
+          },
+          "task_sha256": "sha256:e041390e0777de16f14d6dbf516a8b16468accee09537634d39230b3b23445b2"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subkimi",
+        "degraded": false,
+        "duration_ms": 1204514,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:dc7a19bab5081720f019c4d45d1022398c6bbd83ac41cbc79f43b0859ef5646d",
+          "ref": "file:///root/aiwork/logs/panel-installer-slim-20260907T080425Z.subkimi.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "moonshot",
+        "model": {
+          "invoked": "kimi-code/k3",
+          "reported": null,
+          "requested": "kimi-code/k3"
+        },
+        "name": "subkimi",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260907-160426-2613071-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "digest": "sha256:9901ac383ca5c37e03eb06690d8dfa989bb8b3958487fb89e326460598f2a98f",
+          "manifest_version": 1,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "ef037a7c14f6c4006b56a8bc73648570ad0b10d0",
+            "index_tree_oid": "46a879cfb9a28573858e1e240d4e6eaa8eb3d8ff",
+            "worktree_tree_oid": "829ccec0a82f2b73e49c93cfc21e949196ec8381"
+          },
+          "task_sha256": "sha256:e041390e0777de16f14d6dbf516a8b16468accee09537634d39230b3b23445b2"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

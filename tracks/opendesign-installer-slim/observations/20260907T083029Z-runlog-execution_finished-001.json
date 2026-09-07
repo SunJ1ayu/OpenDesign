@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-installer-slim",
+  "run_id": "20260907T083028Z-01-judging-first-g6-red",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "judging-first-g6-red",
+  "started_at": "2026-09-07T08:30:28Z",
+  "finished_at": "2026-09-07T08:30:29Z",
+  "duration_ms": 1452,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
