@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { updateLabel, safeReleaseUrl, notesSummary, hasUpdateBadge } from "../update";
+import { updateLabel, downloadUrl, notesSummary, hasUpdateBadge } from "../update";
 import type { UpdateInfo, UpdateState } from "../update";
 import type { ConsentMode, Project } from "../api";
 import { relTime } from "../api";
@@ -371,14 +371,14 @@ export default function Sidebar({
               })}
             </span>
           </button>
-          {updateInfo?.update_available && safeReleaseUrl(updateInfo.release_url) && (
+          {updateInfo?.update_available && (
             <a
               className="item"
-              href={safeReleaseUrl(updateInfo.release_url) as string}
+              href={downloadUrl(updateInfo.release_url)}
               target="_blank"
               rel="noreferrer"
             >
-              <span className="lbl">下载 {updateInfo.latest}</span>
+              <span className="lbl">下载 {updateInfo.latest ?? "新版本"}</span>
               <span className="val faint">
                 {notesSummary(updateInfo.notes) || "去发布页 ›"}
               </span>

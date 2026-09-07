@@ -66,10 +66,13 @@ mutate_and_expect v5 "u10 🔴 显式关掉之后就不许再自动往外发请�
   '  return prefs[AUTO_CHECK_PREF] !== false;' \
   '  return true;'
 
-# v6 更新说明不洗 markdown 记号
+# v6 更新说明不洗 markdown 记号(靶子 2026-09-07 从"剥标题记号"改到"剥粗体")
+# 原靶子那一行已删:加了 isHeading 之后它是半死代码,而且它把 `#123` 这种 issue 编号
+# 也剥了。v6 第一次漏网正是把这件事照出来的 —— 变异漏网不总是判据的错,
+# 有时是被测对象里那一行本来就不该在。
 mutate_and_expect v6 "u11 更新说明取第一句有意义的话,去掉 markdown 记号" \
-  '      .replace(/^\s*#+\s*/, "")      // 标题记号' \
-  '      .replace(/^\s*$/, "")      // 标题记号' 
+  '      .replace(/\*\*|__|`/g, "")     // 粗体 / 行内代码' \
+  '      .replace(/^$/g, "")     // 粗体 / 行内代码'
 
 # v7 更新说明不截断(长文会把那一行撑爆)
 mutate_and_expect v7 "u12 更新说明太长要截断,空的要给空串" \
@@ -90,6 +93,21 @@ mutate_and_expect v9 "u13 🔴 有新版时,设置那一行必须挂个记号(�
 mutate_and_expect v10 "u14 done + 空结果要说查不到,不许伪装成没查过" \
   '  if (s.state === "done" && !s.info) return "查不到更新";' \
   '  if (false) return "查不到更新";'
+
+# v11 地址被闸掉时不给退路(F-C 原样重现:蓝点亮着,没地方可点)
+mutate_and_expect v11 "u15 地址被闸掉时也得给业主一条路(F-C:仓库改名会让下载行静默消失)" \
+  '  return safeReleaseUrl(url) ?? RELEASES_PAGE;' \
+  '  return safeReleaseUrl(url) as string;'
+
+# v12 有新版但没版本号时掉进"已是最新"(F-D 原样重现)
+mutate_and_expect v12 "u16 有新版但没版本号时,不许说成「已是最新」(F-D)" \
+  '  if (info.update_available) return "有新版 ›";' \
+  '  if (false) return "有新版 ›";'
+
+# v13 跳过标题的依据退回"按开头几个词"(submimo 补充 1 原样重现)
+mutate_and_expect v13 "u17 正文以「这一版」开头时不许被当成标题跳掉(submimo 补充 1)" \
+  '    const isHeading = /^\s*#+\s/.test(raw);' \
+  '    const isHeading = /^这一版|^更新内容|^改了什么/.test(raw.replace(/^\s*#+\s*/, ""));'
 
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"

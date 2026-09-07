@@ -28,10 +28,24 @@ export type UpdateState = "idle" | "checking" | "done";
 // 界面上那个链接是要业主去点的,所以后端给什么就渲染什么是不行的。
 const RELEASE_URL_RE = /^https:\/\/github\.com\/SunJ1ayu\/OpenDesign\/releases\//;
 
-/** 放行本仓 releases 下的 https 地址;别的一律 null(宁可不给链接)。 */
+/** 放行本仓 releases 下的 https 地址;别的一律 null。 */
 export function safeReleaseUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   return RELEASE_URL_RE.test(url) ? url : null;
+}
+
+/** 本仓发布页 —— 编译期常量,永远打得开。 */
+export const RELEASES_PAGE = "https://github.com/SunJ1ayu/OpenDesign/releases";
+
+/** 业主要点的那个地址:验过就用它,验不过退回发布页。
+ *
+ * 🔴 评审 F-C:GitHub 在仓库改名/转 Org 之后会把 `html_url` 换成新 full_name,
+ * 前缀闸会把它拦下 ⇒ 下载那一行**静默消失**,而"有新版"的蓝点还亮着 ——
+ * 业主看见有新版,却没有任何地方可点。**闸掉一个可疑地址是对的,
+ * 但不能因此把业主晾在那儿。**
+ */
+export function downloadUrl(url: string | null | undefined): string {
+  return safeReleaseUrl(url) ?? RELEASES_PAGE;
 }
 
 /** 设置那一行要不要挂个"有新版"的记号。
@@ -64,13 +78,19 @@ export function autoCheckEnabled(prefs: Record<string, boolean>): boolean {
 export function notesSummary(notes: string | null | undefined, max = 80): string {
   if (!notes) return "";
   for (const raw of notes.split(/\r?\n/)) {
+    // 🔴 跳过的依据是"**它本来就是个 markdown 标题**",不是"它以某几个词开头"。
+    //    原来按开头几个词判,会把「这一版修了一个导致白屏的 bug」这种**正文**也跳掉
+    //    (submimo 第二轮补充 1)。标题没信息量,正文有 —— 分界线在记号上,不在词上。
+    const isHeading = /^\s*#+\s/.test(raw);
+    // 标题整行跳过(上面 isHeading),所以这里**不再剥 `#`** —— 剥它反而有害:
+    // 一行 `#123 修复了…`(issue 编号,不是标题)会被剥成 `123 修复了…`。
+    // 红检 v6 漏网把这条照了出来:那个替换在加了 isHeading 之后已是半死代码,
+    // 而半死代码里还藏着一个真 bug。
     const line = raw
-      .replace(/^\s*#+\s*/, "")      // 标题记号
       .replace(/\*\*|__|`/g, "")     // 粗体 / 行内代码
       .trim();
     if (!line) continue;
-    // 第一行常常是"这一版改了什么"这种小标题,没信息量 —— 跳过它,取下一行真内容。
-    if (/^这一版|^更新内容|^改了什么/.test(line)) continue;
+    if (isHeading) continue;
     return line.length > max ? line.slice(0, max - 1) + "…" : line;
   }
   return "";
@@ -91,5 +111,9 @@ export function updateLabel(
   // 反过来写的话,一次断网就会显示成"已是最新"(判据 u3 钉的就是这个次序)。
   if (info.error) return "查不到更新";
   if (info.update_available && info.latest) return `有新版 ${info.latest} ›`;
+  // 评审 F-D:`update_available` 为真但没版本号时,原来会掉进下面那句 ——
+  // 于是"有新版"的蓝点亮着,而同一屏上写着"已是最新"。今天后端产生不了这个组合,
+  // 但这是个未来的回归绊线,不是理论洁癖。
+  if (info.update_available) return "有新版 ›";
   return `已是最新 v${info.current}`;
 }

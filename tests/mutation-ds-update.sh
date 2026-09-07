@@ -204,6 +204,11 @@ mutate_and_expect m21 test_t11_releases_url_is_exactly_this \
   '    return API_BASE + RELEASES_PATH.format(repo=repo) + "?per_page=100"' \
   '    return API_BASE + RELEASES_PATH.format(repo=repo) + "/latest" + "?per_page=100"'
 
+# m22 🔴 真打网那处内联拼地址、绕开 releases_url(F-B 指的那条更深的绕闸路)
+mutate_and_expect m22 test_t12_fetch_releases_asks_exactly_the_seam_url \
+  '    url = releases_url(repo)' \
+  '    url = API_BASE + "/repos/" + repo + "/releases" + "/latest" + "?per_page=100"'
+
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"
 echo

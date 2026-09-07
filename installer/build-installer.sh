@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+#
+# 🔴 **产物名字被应用内更新依赖,别随手改**(2026-09-07,track opendesign-in-app-update)。
+#    `bin/ds_update.py` 的 ASSET_RE 严格匹配 `OpenDesign-Setup-<版本>.exe`
+#    (大小写、空格都算)。哪天这里的产物名变成 `...EXE` 或带了后缀,
+#    那一版会在业主的"检查更新"里**被静默跳过** —— 他不会看到新版,也不会看到任何错误。
+#    要改名就同时改 ASSET_RE 和 tests/test_ds_update.py 的 t1c2。
 # 造 OpenDesign 的 Windows 安装器 —— 从零到一个可以发给业主的 .exe。
 #
 # 用法:installer/build-installer.sh <输出目录>

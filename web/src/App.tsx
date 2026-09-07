@@ -256,8 +256,11 @@ export default function App() {
         setUpdateState("done");
       })
       .catch(() => {
+        // 🔴 评审 F-A:原来这里回到 idle,而 idle+null 显示的是版本号 ——
+        //    业主**手动点了「检查更新」**却看见和没点一样,正是本单在治的那类病。
+        //    ds_web 不可达是很窄的一条路(桌面壳里),但窄不等于可以安静。
         setUpdateInfo(null);
-        setUpdateState("idle");
+        setUpdateState("done");
       });
   }, []);
   // 🔴 关掉之后就**一次都不许自动发** —— 这是业主对自己机器往外连什么的决定权
