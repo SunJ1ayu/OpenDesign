@@ -42,7 +42,7 @@ else
       [ -n "$base" ] || continue
       echo "$base"
       # 同一个文件里 `PORT + N` 起的第二个服务
-      grep -oP 'PORT \+ \K[0-9]+' "$f" 2>/dev/null | sort -u | while read -r off; do
+      grep -oP 'PORT\s*\+\s*\K[0-9]+' "$f" 2>/dev/null | sort -u | while read -r off; do
         echo $((base + off))
       done
     done | sort -un
@@ -57,6 +57,10 @@ fi
 # `SS_BIN` 这个接缝**是为了这道闸自己能被判**:不给接缝,"ss 用不了"这条路
 # 在任何装了 iproute2 的机器上都跑不到 ⇒ 它就是一条死断言,而死断言正是本单在治的病。
 SS_BIN="${SS_BIN:-ss}"
+# 🔴 把正在用的 SS_BIN 印出来:这个接缝信任任何"成功退出"的二进制 ——
+#    实测 `SS_BIN=/bin/true` + 真监听 ⇒ 这道闸说"干净"(评审腿指出,我复现)。
+#    接缝是为了可判性,代价是它可被指向说谎者;至少让屏幕上看得见用的是谁。
+[ "$SS_BIN" = "ss" ] || echo "⚠️  端口预检用的不是默认 ss,而是:$SS_BIN"
 
 
 if [ "${#ports[@]}" -eq 0 ]; then
@@ -66,11 +70,17 @@ if [ "${#ports[@]}" -eq 0 ]; then
 fi
 
 busy=0
+ss_broken=0
 for p in "${ports[@]}"; do
-  if ! line="$("$SS_BIN" -lptnH "sport = :$p" 2>/dev/null)"; then
+  if ! line="$("$SS_BIN" -lptnH "sport = :$p" 2>&1 >/dev/null)"; then
+    # 🔴 报错原文要留着。原来 `2>/dev/null` 把它扔了,于是屏幕上只剩一句
+    #    "查不动",而下面的 TIP 还在教人 `kill <pid>` —— 此时根本没有 pid。
     echo "🔴 $SS_BIN 查端口 $p 时用不了(没装 iproute2?坏了?)—— **查不动就不许说干净**。"
+    [ -n "$line" ] && echo "   它自己说:$line"
+    ss_broken=1
     busy=$((busy + 1)); continue
   fi
+  line="$("$SS_BIN" -lptnH "sport = :$p" 2>/dev/null)"
   [ -z "$line" ] && continue
   pid="$(printf '%s' "$line" | grep -oP 'pid=\K[0-9]+' | head -1)"
   cmd="$(ps -o cmd= -p "${pid:-0}" 2>/dev/null | head -1)"
@@ -79,6 +89,12 @@ for p in "${ports[@]}"; do
   echo "   $cmd"
   busy=$((busy + 1))
 done
+
+if [ "$busy" -gt 0 ] && [ "$ss_broken" = 1 ]; then
+  echo
+  echo "⇒ 上面是**查不动**,不是查到了占用者 —— 没有 pid 可 kill。先把 ss(iproute2)弄好。"
+  exit 1
+fi
 
 if [ "$busy" -gt 0 ]; then
   cat <<'TIP'

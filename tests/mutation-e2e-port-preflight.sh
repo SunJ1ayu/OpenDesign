@@ -86,12 +86,12 @@ mutate_and_expect M5 "__RENAME__" test_p1_preflight_exists_and_is_runnable
 # M6 把 ss 的错误重新吞掉(= 2026-09-07 修之前的真实状态)——
 #    ss 坏了就当"没人占",恒绿。三条腿里两条各自独立命中的就是这个。
 mutate_and_expect M6 "$GATE" test_p5_no_ss_must_fail_closed \
-  'if ! line="$("$SS_BIN" -lptnH "sport = :$p" 2>/dev/null)"; then' \
+  'if ! line="$("$SS_BIN" -lptnH "sport = :$p" 2>&1 >/dev/null)"; then' \
   'line=""; if false; then'
 
 # M7 不再扫派生端口 —— button_roles 的 PORT+1(8825)又回到扫描范围之外
 mutate_and_expect M7 "$GATE" test_p7_derived_ports_are_scanned_too \
-  'grep -oP '"'"'PORT \+ \K[0-9]+'"'"' "$f" 2>/dev/null | sort -u | while read -r off; do' \
+  'grep -oP '"'"'PORT\s*\+\s*\K[0-9]+'"'"' "$f" 2>/dev/null | sort -u | while read -r off; do' \
   'true | while read -r off; do'
 
 # M8 试过又撤了,原因写在这儿,别让下一个人再试一遍:
@@ -100,6 +100,13 @@ mutate_and_expect M7 "$GATE" test_p7_derived_ports_are_scanned_too \
 #   `if ! line="$("$SS_BIN" ...)"` 已经把"没装"和"坏了"两种都咬住了。
 #   不承重的分支 = 死断言,而死断言正是本单在治的病 ⇒ **删掉它**,
 #   而不是给它编一条能让它显得有用的判据。红检照出的是我自己的冗余代码。
+# M8 把闸的派生端口正则收紧回"必须有空格"的老写法 —— p7 现在用的是更宽的独立正则,
+#    所以它咬得住。这一条钉的是评审腿指出的结构问题:
+#    **判据不许是闸自己正则的回声**,否则闸看不见的形状判据也看不见。
+mutate_and_expect M8 "$GATE" test_p7_derived_ports_are_scanned_too \
+  "grep -oP 'PORT\s*\+\s*\K[0-9]+'" \
+  "grep -oP 'PORT XX \+ \K[0-9]+'"
+
 
 restore
 echo

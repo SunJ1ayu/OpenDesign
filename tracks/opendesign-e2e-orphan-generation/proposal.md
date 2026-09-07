@@ -31,6 +31,27 @@
 ⇒ 判定"没配大模型 key" ⇒ 前端弹遮罩 ⇒ 点击全被拦。
 **生成**和**劣化**是两件事,这一条是劣化。
 
+## 🔴 第二轮评审推翻了我的成本判断(2026-09-07,subglm 指出,我核过)
+
+我在 `opendesign-stage-timer-e2e-red` 的 design 里写:让 35 处等待循环"问应答的是不是
+自己的孩子"太贵,所以先做端口预检。**那个前提是错的:数据早就在那儿了。**
+
+`bin/ds_web.py:915-919` 的 `/api/health` **本来就返回 `ds_root`**:
+
+```python
+if path == "/api/health":
+    self._json(200, {"ok": True, "version": VERSION,
+                     "ds_root": self.server.ds_root, ...})
+```
+
+而每个场景 spawn 时都给了自己的临时 `DS_ROOT`(如 `stage_timer.e2e.mjs:89`)。
+⇒ 等待循环里把 `await r.json()` 的 `ds_root` 和自己那个 tmp 目录**对一下**,
+**一行**就同时堵住三条路:单跑(事故的真实复现路径)、开跑后中途产生的遗孤、
+以及预检那个"时点检查"管不到的 TOCTOU 窗口。
+
+⇒ **本单的首要做法应该是这个**,不是我原来想的"改 35 处健康检查太贵所以不做"。
+自检句:**我说"太贵"的时候,查过它到底要花多少吗?**
+
 ## 候选做法(未定案)
 
 - `helpers.mjs` 出一个 `registerCleanup(srv)`:挂 `process.on('exit'|'SIGTERM'|'SIGINT')`,

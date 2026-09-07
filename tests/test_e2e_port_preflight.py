@@ -176,7 +176,11 @@ class E2EPortPreflight(unittest.TestCase):
             if not m:
                 continue
             base = int(m.group(1))
-            for off in set(re.findall(r"PORT \+ ([0-9]+)", src)):
+            # 🔴 **故意用和闸不一样的正则**(评审腿指出:p7 原来把
+            #    check-ports.sh 的模式原样抄了过来 ⇒ 闸看不见的形状 p7 也看不见,
+            #    它就不是独立神谕,只是同一个正则的回声)。
+            #    这里放宽到 `PORT<空白?>+<空白?>N`,闸那边收紧不了就会被这条咬住。
+            for off in set(re.findall(r"PORT\s*\+\s*([0-9]+)", src)):
                 want[str(base + int(off))] = os.path.basename(f)
 
         gap = {p: f for p, f in want.items() if p not in listed}
