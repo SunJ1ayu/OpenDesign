@@ -38,6 +38,16 @@ runlog: p1p7-green rc=0 commit=0ef050c dirty=yes at=2026-09-07T09:25:49Z file=tr
 runlog: redcheck-7bites rc=0 commit=0ef050c dirty=yes at=2026-09-07T09:25:50Z file=tracks/opendesign-stage-timer-e2e-red/evidence/20260907T092550Z-01-redcheck-7bites.txt
 runlog: p1p7-green-r2 rc=0 commit=4d2823d dirty=yes at=2026-09-07T09:39:45Z file=tracks/opendesign-stage-timer-e2e-red/evidence/20260907T093945Z-01-p1p7-green-r2.txt
 runlog: redcheck-8bites rc=0 commit=4d2823d dirty=yes at=2026-09-07T09:39:46Z file=tracks/opendesign-stage-timer-e2e-red/evidence/20260907T093946Z-01-redcheck-8bites.txt
+runlog: final-run-all rc=3 commit=0c4ce57 dirty=yes final=yes at=2026-09-07T11:14:30Z file=tracks/opendesign-stage-timer-e2e-red/evidence/20260907T111430Z-01-final-run-all.txt
+
+**最终收据 rc=3 是什么意思:0 红 / 3 条没跑**(2 条要活 gateway 的 e2e + `test_ds_shell_core`
+那条要起 nanobot 的 python 判据)。`run-all.sh` 明写「SKIP 不是 PASS」,有一条没跑就不许说全绿
+⇒ rc=3。**这是本仓无 gateway 时"没有红"的常态形状**(先例:`opendesign-owner-consent`
+`opendesign-owner-review-0808` 的归档收据同为 rc=3);对照之下 rc=1 才是真有红。
+
+**本单要证的那件事,由这份收据的 e2e 段给出**:
+`38 PASS / 0 FAIL / 2 SKIP` —— 上一单(`opendesign-installer-slim`,3fe4c40)同一段是
+`37 PASS / 1 FAIL / 2 SKIP`,红的正是 `stage_timer`。**连红五天的那条,这份收据里没有了。**
 
 **两次"判据先行、此刻是红的"都单独 commit 了**(`15df17d`→修 / `0ef050c`→修),
 git 里证明得了红过 —— 这是 08-25 记下的那笔账(裸 bash 跑的红检在历史里留不下痕迹)。
@@ -82,7 +92,7 @@ run-all 的 trap 不清子进程 / 36 个用默认 SIGTERM 而 llm_key 已改用
 一行就能同时堵住单跑、中途遗孤、TOCTOU 三条路。
 ⇒ 自检句:**我说"太贵"的时候,查过它到底要花多少吗?**
 
-## 我自己犯的三个过程错误(照记)
+## 我自己犯的四个过程错误(照记)
 
 1. **前两个 commit 我用 `-c core.hooksPath=.githooks` 绕过了 track-guard**(那个目录不存在)。
    更难看的是我随后写下"重放 rc=0 ⇒ 当时也会放行" —— **重放什么都没证明**:
@@ -93,6 +103,13 @@ run-all 的 trap 不清子进程 / 36 个用默认 SIGTERM 而 llm_key 已改用
    **被评代码一字节没动**。但次序是错的 —— 评审跑着时不该写仓库。
 3. 判据第一版把整份 `run-all.sh` 打进失败消息(里面有夹具假 key)
    ⇒ **runlog 的秘密扫描拒绝出收据**。拒对了。
+4. **最终收据被断线砍成半截,而我重跑时又亲手把它的 rc 吞了一次。**
+   17:42 那遍在「输出开始」那一行断掉(10 行、输出区全空),已改名
+   `…-final-run-all-VOID-断线砍半.txt` 标作废、不删(半截收据是线索:它证明了砍点在哪)。
+   重跑时我写的是 `setsid --wait runlog …; echo "rc=$?"` —— **harness 收到的是 `echo` 的 0**,
+   通知里明晃晃写着 `exit code 0`。我是打开收据看见 `command-rc: 3` 才知道的。
+   `; echo rc=$?` 吃掉退出码,记忆里记着这是第 6 次。
+   ⇒ 自检句:**我读的这个「绿」,是机器写在收据里的,还是我自己的命令行凑出来的?**
 
 ## 停止条件(为什么不跑第三轮)
 
