@@ -24,12 +24,40 @@
 set -u
 cd "$(dirname "$0")/../.."
 
+LIST_ONLY=0
+[ "${1:-}" = "--list" ] && { LIST_ONLY=1; shift; }
+
 if [ "$#" -gt 0 ]; then
   ports=("$@")
 else
   # 端口的**唯一来源**是各场景文件自己那行 `const PORT = N`,这里不抄第二份。
-  mapfile -t ports < <(grep -hoP '^const PORT = \K[0-9]+' tests/e2e/*.e2e.mjs 2>/dev/null | sort -un)
+  # 🔴 **派生端口也要算**(2026-09-07,两条评审腿各自独立命中):
+  #    button_roles.e2e.mjs:97 用 `spawnWeb(planRoot, PORT + 1)` 另起一个 ds_web
+  #    ⇒ 8825,原来完全不在扫描范围里;gallery_head_buttons 的 PORT+1 = 8820
+  #    碰巧被别的场景声明覆盖了 —— **是巧合,不是机制**。
+  mapfile -t ports < <(
+    for f in tests/e2e/*.e2e.mjs; do
+      [ -e "$f" ] || continue
+      base="$(grep -m1 -oP '^const PORT = \K[0-9]+' "$f" 2>/dev/null)"
+      [ -n "$base" ] || continue
+      echo "$base"
+      # 同一个文件里 `PORT + N` 起的第二个服务
+      grep -oP 'PORT \+ \K[0-9]+' "$f" 2>/dev/null | sort -u | while read -r off; do
+        echo $((base + off))
+      done
+    done | sort -un
+  )
 fi
+
+if [ "$LIST_ONLY" = 1 ]; then
+  printf '%s\n' "${ports[@]}"
+  exit 0
+fi
+
+# `SS_BIN` 这个接缝**是为了这道闸自己能被判**:不给接缝,"ss 用不了"这条路
+# 在任何装了 iproute2 的机器上都跑不到 ⇒ 它就是一条死断言,而死断言正是本单在治的病。
+SS_BIN="${SS_BIN:-ss}"
+
 
 if [ "${#ports[@]}" -eq 0 ]; then
   echo "🔴 一个端口都没扫到 —— 是 e2e 改了写法(不再是 \`const PORT = N\`)还是路径错了?"
@@ -39,7 +67,10 @@ fi
 
 busy=0
 for p in "${ports[@]}"; do
-  line="$(ss -lptnH "sport = :$p" 2>/dev/null || true)"
+  if ! line="$("$SS_BIN" -lptnH "sport = :$p" 2>/dev/null)"; then
+    echo "🔴 $SS_BIN 查端口 $p 时用不了(没装 iproute2?坏了?)—— **查不动就不许说干净**。"
+    busy=$((busy + 1)); continue
+  fi
   [ -z "$line" ] && continue
   pid="$(printf '%s' "$line" | grep -oP 'pid=\K[0-9]+' | head -1)"
   cmd="$(ps -o cmd= -p "${pid:-0}" 2>/dev/null | head -1)"

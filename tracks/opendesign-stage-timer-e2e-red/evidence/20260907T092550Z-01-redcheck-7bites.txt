@@ -1,0 +1,20 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-7bites
+cmd:     bash tests/mutation-e2e-port-preflight.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  0ef050c
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-07T09:25:50Z
+---------------- 输出开始 ----------------
+== 红检开始(e2e 端口预检)==
+  [OK]   M1 -> 靶子 test_p3_an_occupied_port_is_caught_and_named 如期红了
+  [OK]   M2 -> 靶子 test_p2_clean_ports_pass 如期红了
+  [OK]   M3 -> 靶子 test_p3_an_occupied_port_is_caught_and_named 如期红了
+  [OK]   M4 -> 靶子 test_p4_wired_into_the_e2e_runner 如期红了
+  [OK]   M5 -> 靶子 test_p1_preflight_exists_and_is_runnable 如期红了
+  [OK]   M6 -> 靶子 test_p5_no_ss_must_fail_closed 如期红了
+  [OK]   M7 -> 靶子 test_p7_derived_ports_are_scanned_too 如期红了
+
+== 红检结束:咬住 7 条,漏网 0 条(源文件已原样还原)==
+---------------- 输出结束 ----------------
+runlog: redcheck-7bites rc=0 commit=0ef050c dirty=yes at=2026-09-07T09:25:50Z file=tracks/opendesign-stage-timer-e2e-red/evidence/20260907T092550Z-01-redcheck-7bites.txt

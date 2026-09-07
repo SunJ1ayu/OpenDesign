@@ -83,6 +83,24 @@ mutate_and_expect M4 "$RUNNER" test_p4_wired_into_the_e2e_runner \
 # M5 闸整个没了
 mutate_and_expect M5 "__RENAME__" test_p1_preflight_exists_and_is_runnable
 
+# M6 把 ss 的错误重新吞掉(= 2026-09-07 修之前的真实状态)——
+#    ss 坏了就当"没人占",恒绿。三条腿里两条各自独立命中的就是这个。
+mutate_and_expect M6 "$GATE" test_p5_no_ss_must_fail_closed \
+  'if ! line="$("$SS_BIN" -lptnH "sport = :$p" 2>/dev/null)"; then' \
+  'line=""; if false; then'
+
+# M7 不再扫派生端口 —— button_roles 的 PORT+1(8825)又回到扫描范围之外
+mutate_and_expect M7 "$GATE" test_p7_derived_ports_are_scanned_too \
+  'grep -oP '"'"'PORT \+ \K[0-9]+'"'"' "$f" 2>/dev/null | sort -u | while read -r off; do' \
+  'true | while read -r off; do'
+
+# M8 试过又撤了,原因写在这儿,别让下一个人再试一遍:
+#   我原本在这里加了一道 `command -v "$SS_BIN"` 的前置闸(没装 iproute2 就喊停)。
+#   M8 变异它 ⇒ **判据全绿** ⇒ 说明那道闸不承重:每个端口那次
+#   `if ! line="$("$SS_BIN" ...)"` 已经把"没装"和"坏了"两种都咬住了。
+#   不承重的分支 = 死断言,而死断言正是本单在治的病 ⇒ **删掉它**,
+#   而不是给它编一条能让它显得有用的判据。红检照出的是我自己的冗余代码。
+
 restore
 echo
 for f in "${SOURCES[@]}"; do

@@ -110,6 +110,20 @@ class E2EPortPreflight(unittest.TestCase):
             "ss 用不了的时候预检说了「干净」—— 这是恒绿,"
             f"而端口 {port} 上真的有人监听。\n{r.stdout}\n{r.stderr}")
 
+    def test_p5b_missing_ss_binary_must_fail_closed(self):
+        """`ss` **根本不存在**时也必须喊停(p5 测的是"ss 在但坏了")。
+
+        走 `SS_BIN` 接缝 —— 那个接缝存在的唯一理由就是让这条分支**能被判**:
+        不给接缝,这条分支在任何装了 iproute2 的机器上都跑不到,
+        它就成了一条死断言,而死断言正是本单在治的病。
+        """
+        env = dict(os.environ, SS_BIN="definitely-not-a-real-ss-binary")
+        r = subprocess.run(["bash", PREFLIGHT, "65434"],
+                           capture_output=True, text=True, cwd=ROOT, env=env)
+        self.assertNotEqual(
+            0, r.returncode,
+            f"没有 ss 的时候预检说了「干净」—— 恒绿。\n{r.stdout}\n{r.stderr}")
+
     def test_p6_every_scene_that_starts_a_server_contributes_a_port(self):
         """🔴 "抓到一部分" 必须响 —— 只防"一个都没抓到"是不够的。
 
