@@ -1,0 +1,63 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    judging-cache-5red
+cmd:     env DS_SHELL_E2E=1 /root/.venvs/design-studio/bin/python -m unittest tests.test_ds_update
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  8c74486
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-07T13:10:35Z
+---------------- 输出开始 ----------------
+EEEEE...................
+======================================================================
+ERROR: test_t8a_second_call_within_ttl_does_not_refetch (tests.test_ds_update.CacheIt.test_t8a_second_call_within_ttl_does_not_refetch)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 255, in setUp
+    ds_update.cache_clear()
+    ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_update' has no attribute 'cache_clear'
+
+======================================================================
+ERROR: test_t8b_expired_cache_refetches (tests.test_ds_update.CacheIt.test_t8b_expired_cache_refetches)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 255, in setUp
+    ds_update.cache_clear()
+    ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_update' has no attribute 'cache_clear'
+
+======================================================================
+ERROR: test_t8c_force_bypasses_cache (tests.test_ds_update.CacheIt.test_t8c_force_bypasses_cache)
+业主亲手点「检查更新」时,必须真去问 —— 那一下是他在表达「我现在就要知道」。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 255, in setUp
+    ds_update.cache_clear()
+    ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_update' has no attribute 'cache_clear'
+
+======================================================================
+ERROR: test_t8d_failure_is_never_cached (tests.test_ds_update.CacheIt.test_t8d_failure_is_never_cached)
+一次断网不许把"查不到"钉死 6 小时。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 255, in setUp
+    ds_update.cache_clear()
+    ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_update' has no attribute 'cache_clear'
+
+======================================================================
+ERROR: test_t8e_cache_is_keyed_by_current_version (tests.test_ds_update.CacheIt.test_t8e_cache_is_keyed_by_current_version)
+装完新版之后本机版本号变了,旧答案必须作废(否则装完还提示更新)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 255, in setUp
+    ds_update.cache_clear()
+    ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_update' has no attribute 'cache_clear'
+
+----------------------------------------------------------------------
+Ran 24 tests in 0.014s
+
+FAILED (errors=5)
+---------------- 输出结束 ----------------
+runlog: judging-cache-5red rc=1 commit=8c74486 dirty=yes at=2026-09-07T13:10:35Z file=tracks/opendesign-in-app-update/evidence/20260907T131035Z-01-judging-cache-5red.txt

@@ -240,5 +240,72 @@ class NetworkMisbehaves(unittest.TestCase):
                 self.assertIn("update_available", d)
 
 
+class CacheIt(unittest.TestCase):
+    """t8:别把 GitHub 问烦了,但**别把错误缓存住**。
+
+    未登录的 GitHub API 每小时 60 次。查更新如果每次开界面、每次点一下都真去问一次,
+    业主用不了多久就会被限流,而限流的样子恰恰是"查不到新版本" —— 又一条安静的错。
+
+    🔴 但缓存有个方向必须写死:**失败不许进缓存**。
+    否则一次断网就会把"查不到"钉死 6 小时,业主点"重新检查"也没反应,
+    而他看到的和"功能坏了"一模一样。
+    """
+
+    def setUp(self):
+        ds_update.cache_clear()
+
+    def _fetcher(self, calls, payload=None):
+        def fetch():
+            calls.append(1)
+            if isinstance(payload, Exception):
+                raise payload
+            return payload if payload is not None else _fixture()
+        return fetch
+
+    def test_t8a_second_call_within_ttl_does_not_refetch(self):
+        calls = []
+        f = self._fetcher(calls)
+        ds_update.check_cached("0.98.1", fetch=f, now=lambda: 1000.0)
+        ds_update.check_cached("0.98.1", fetch=f, now=lambda: 1000.0 + 60)
+        self.assertEqual(len(calls), 1, "同一小时里问了 GitHub 两次")
+
+    def test_t8b_expired_cache_refetches(self):
+        calls = []
+        f = self._fetcher(calls)
+        ds_update.check_cached("0.98.1", fetch=f, now=lambda: 1000.0)
+        ds_update.check_cached("0.98.1", fetch=f,
+                               now=lambda: 1000.0 + ds_update.CACHE_TTL_S + 1)
+        self.assertEqual(len(calls), 2, "缓存过期了还不去重新问")
+
+    def test_t8c_force_bypasses_cache(self):
+        """业主亲手点「检查更新」时,必须真去问 —— 那一下是他在表达「我现在就要知道」。"""
+        calls = []
+        f = self._fetcher(calls)
+        ds_update.check_cached("0.98.1", fetch=f, now=lambda: 1000.0)
+        ds_update.check_cached("0.98.1", fetch=f, now=lambda: 1000.0, force=True)
+        self.assertEqual(len(calls), 2, "业主点了「检查更新」,却给他一个缓存")
+
+    def test_t8d_failure_is_never_cached(self):
+        """一次断网不许把"查不到"钉死 6 小时。"""
+        calls = []
+        bad = self._fetcher(calls, payload=OSError("no route to host"))
+        d = ds_update.check_cached("0.98.1", fetch=bad, now=lambda: 1000.0)
+        self.assertTrue(d["error"])
+        good = self._fetcher(calls)
+        d2 = ds_update.check_cached("0.98.1", fetch=good, now=lambda: 1000.0 + 1)
+        self.assertTrue(d2["update_available"],
+                        "上一次失败被缓存住了 —— 网络恢复之后仍然查不到新版本")
+        self.assertEqual(len(calls), 2)
+
+    def test_t8e_cache_is_keyed_by_current_version(self):
+        """装完新版之后本机版本号变了,旧答案必须作废(否则装完还提示更新)。"""
+        calls = []
+        f = self._fetcher(calls)
+        ds_update.check_cached("0.98.1", fetch=f, now=lambda: 1000.0)
+        d = ds_update.check_cached("0.98.3", fetch=f, now=lambda: 1000.0)
+        self.assertFalse(d["update_available"],
+                         "装到 0.98.3 之后还在拿 0.98.1 那次的答案提示更新")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
