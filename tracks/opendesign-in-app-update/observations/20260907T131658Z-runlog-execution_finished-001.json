@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-in-app-update",
+  "run_id": "20260907T131658Z-01-judging-ui-red",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "judging-ui-red",
+  "started_at": "2026-09-07T13:16:58Z",
+  "finished_at": "2026-09-07T13:16:58Z",
+  "duration_ms": 141,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

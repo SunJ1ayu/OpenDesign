@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { UpdateInfo, UpdateState } from "./update";
 import Sidebar, { type SessionItem } from "./workspace/Sidebar";
 import WindowChrome from "./workspace/WindowChrome";
 import ChangesColumn from "./workspace/ChangesColumn";
@@ -79,6 +80,9 @@ export default function App() {
   const [health, setHealth] = useState<
     { version: string; ds_root: string; model: string | null } | null
   >(null);
+  // 查更新(track opendesign-in-app-update,第一刀:只查不装)
+  const [updateState, setUpdateState] = useState<UpdateState>("idle");
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [sessions, setSessions] = useState<SessionItem[] | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   // 工作区体检卡浮层(2026-07-28 用户拍板:挪进设置)。计数器兼作 key:
@@ -231,6 +235,23 @@ export default function App() {
       .then((d) => d && setHealth({ version: d.version, ds_root: d.ds_root, model: d.model ?? null }))
       .catch(() => setHealth(null));
   }, []);
+
+  // 查更新:挂载后问一次(后端带 6 小时缓存,不会把 GitHub 问烦)。
+  // 失败一律安静 —— 业主只是打开了软件,不该因为查更新失败看见任何东西。
+  const checkUpdate = useCallback((force: boolean) => {
+    setUpdateState("checking");
+    fetch(force ? "/api/update/check?force=1" : "/api/update/check")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: UpdateInfo | null) => {
+        setUpdateInfo(d);
+        setUpdateState("done");
+      })
+      .catch(() => {
+        setUpdateInfo(null);
+        setUpdateState("idle");
+      });
+  }, []);
+  useEffect(() => { checkUpdate(false); }, [checkUpdate]);
 
   // 大模型 key 状态:首次打开只拉一次。没配就自动弹卡;已配只记录状态,不打扰。
   useEffect(() => {
@@ -467,6 +488,9 @@ export default function App() {
         window.location.hash = "#/";
       }}
       health={health}
+      updateState={updateState}
+      updateInfo={updateInfo}
+      onCheckUpdate={() => checkUpdate(true)}
     />
   );
 

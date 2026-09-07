@@ -1,0 +1,2170 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    node-all-green
+cmd:     node --test tests/test_button_roles.mjs tests/test_change_grouping.mjs tests/test_change_history.mjs tests/test_chat_connection.mjs tests/test_chat_media.mjs tests/test_chat_reconnect.mjs tests/test_chat_transcript.mjs tests/test_cockpit.mjs tests/test_completed_items.mjs tests/test_consent_messages.mjs tests/test_due_picker.mjs tests/test_gallery.mjs tests/test_intake_ui.mjs tests/test_llm_key.mjs tests/test_llm_key_surface.mjs tests/test_project_groups.mjs tests/test_project_name.mjs tests/test_project_thread.mjs tests/test_schedule.mjs tests/test_shell_window.mjs tests/test_todo_batch.mjs tests/test_todo_duedate.mjs tests/test_todo_layout.mjs tests/test_todo_one_view.mjs tests/test_todo_spaces.mjs tests/test_update_ui.mjs tests/test_workspace_health.mjs tests/test_search.mjs tests/test_startup_report.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  df6b3f3
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-07T13:19:17Z
+---------------- 输出开始 ----------------
+TAP version 13
+# == 扫 47 个源文件
+#   ok - `chat-btn` 在源码里已彻底消失(实测 0 处)
+#   ok - `go-link` 在源码里已彻底消失(实测 0 处)
+#   ok - `rail-expand-link` 在源码里已彻底消失(实测 0 处)
+#   ok - 角色 class `.btn-primary` 仍有定义
+#   ok - 角色 class `.btn-secondary` 仍有定义
+#   ok - 角色 class `.link-act` 仍有定义
+# 全部通过
+# Subtest: tests/test_button_roles.mjs
+ok 1 - tests/test_button_roles.mjs
+  ---
+  duration_ms: 75.114579
+  type: 'test'
+  ...
+# Subtest: groupByDate:日期倒序,同日保持相对序
+ok 2 - groupByDate:日期倒序,同日保持相对序
+  ---
+  duration_ms: 9.087308
+  type: 'test'
+  ...
+# Subtest: groupByDate:无日期组恒置末(即使首现)
+ok 3 - groupByDate:无日期组恒置末(即使首现)
+  ---
+  duration_ms: 0.225836
+  type: 'test'
+  ...
+# Subtest: groupByDate:空输入 → []
+ok 4 - groupByDate:空输入 → []
+  ---
+  duration_ms: 0.108478
+  type: 'test'
+  ...
+# Subtest: groupBySpace:按空间首现序,组内保持相对序
+ok 5 - groupBySpace:按空间首现序,组内保持相对序
+  ---
+  duration_ms: 0.363942
+  type: 'test'
+  ...
+# Subtest: groupBySpace:无空间组恒置末(即使首现)
+ok 6 - groupBySpace:无空间组恒置末(即使首现)
+  ---
+  duration_ms: 0.295203
+  type: 'test'
+  ...
+# Subtest: groupBySpace:空输入 → []
+ok 7 - groupBySpace:空输入 → []
+  ---
+  duration_ms: 0.144096
+  type: 'test'
+  ...
+# Subtest: 分组不改传入数组(纯函数)
+ok 8 - 分组不改传入数组(纯函数)
+  ---
+  duration_ms: 0.239916
+  type: 'test'
+  ...
+# Subtest: 无历史 → 空串(调用方据此不渲染入口)
+ok 9 - 无历史 → 空串(调用方据此不渲染入口)
+  ---
+  duration_ms: 1.266972
+  type: 'test'
+  ...
+# Subtest: 有历史 → 改过 N 次
+ok 10 - 有历史 → 改过 N 次
+  ---
+  duration_ms: 0.192664
+  type: 'test'
+  ...
+# Subtest: history 字段不是数组时不炸(后端异常/老缓存)
+ok 11 - history 字段不是数组时不炸(后端异常/老缓存)
+  ---
+  duration_ms: 0.118057
+  type: 'test'
+  ...
+# Subtest: 条目顺序原样保留(时序是后端的事,前端不重排)
+ok 12 - 条目顺序原样保留(时序是后端的事,前端不重排)
+  ---
+  duration_ms: 1.253212
+  type: 'test'
+  ...
+# Subtest: 非数组/空 → 空数组(渲染层可以无脑 .map)
+ok 13 - 非数组/空 → 空数组(渲染层可以无脑 .map)
+  ---
+  duration_ms: 0.281414
+  type: 'test'
+  ...
+# Subtest: 缺 old 的条目丢掉,缺 date 的保留(日期是附加信息,原文才是主体)
+ok 14 - 缺 old 的条目丢掉,缺 date 的保留(日期是附加信息,原文才是主体)
+  ---
+  duration_ms: 0.137407
+  type: 'test'
+  ...
+# Subtest: 日期走中文短格式 + 原文前缀
+ok 15 - 日期走中文短格式 + 原文前缀
+  ---
+  duration_ms: 0.355312
+  type: 'test'
+  ...
+# Subtest: 无日期 → 只出原文,不留空格头
+ok 16 - 无日期 → 只出原文,不留空格头
+  ---
+  duration_ms: 0.138048
+  type: 'test'
+  ...
+# Subtest: 坏日期原样透出(与 cnDate 同口径,不猜不补)
+ok 17 - 坏日期原样透出(与 cnDate 同口径,不猜不补)
+  ---
+  duration_ms: 0.369972
+  type: 'test'
+  ...
+# Subtest: 原文里的换行不参与渲染(索引层已消毒,这里只做兜底)
+ok 18 - 原文里的换行不参与渲染(索引层已消毒,这里只做兜底)
+  ---
+  duration_ms: 0.465579
+  type: 'test'
+  ...
+# Subtest: refs 条目透传 refId 与 note(编辑区据此定位/回填)
+ok 19 - refs 条目透传 refId 与 note(编辑区据此定位/回填)
+  ---
+  duration_ms: 0.346772
+  type: 'test'
+  ...
+# Subtest: 空备注透传成空串,不变成 undefined(编辑区要区分'没备注'与'不可编辑')
+ok 20 - 空备注透传成空串,不变成 undefined(编辑区要区分'没备注'与'不可编辑')
+  ---
+  duration_ms: 0.162226
+  type: 'test'
+  ...
+# Subtest: 工作区图没有 refId —— 它不在索引里,不给编辑入口
+ok 21 - 工作区图没有 refId —— 它不在索引里,不给编辑入口
+  ---
+  duration_ms: 0.177625
+  type: 'test'
+  ...
+# Subtest: 既有形状不回归:标签/分组/顺序照旧
+ok 22 - 既有形状不回归:标签/分组/顺序照旧
+  ---
+  duration_ms: 0.130347
+  type: 'test'
+  ...
+# Subtest: sameTags:顺序无关的集合等价
+ok 23 - sameTags:顺序无关的集合等价
+  ---
+  duration_ms: 0.116667
+  type: 'test'
+  ...
+# Subtest: sameTags:多一个/少一个/换一个都算改过
+ok 24 - sameTags:多一个/少一个/换一个都算改过
+  ---
+  duration_ms: 0.082028
+  type: 'test'
+  ...
+# Subtest: sameTags:词表外的老标签没动过 → 判为未改(否则原样回发会被核心拒)
+ok 25 - sameTags:词表外的老标签没动过 → 判为未改(否则原样回发会被核心拒)
+  ---
+  duration_ms: 0.063129
+  type: 'test'
+  ...
+# Subtest: 口令一次:setPassword 落 localStorage,新实例(=新标签页)直接可用
+ok 26 - 口令一次:setPassword 落 localStorage,新实例(=新标签页)直接可用
+  ---
+  duration_ms: 1.434068
+  type: 'test'
+  ...
+# Subtest: bootstrap:GET /api/chat/bootstrap + Bearer 口令,返回 info
+ok 27 - bootstrap:GET /api/chat/bootstrap + Bearer 口令,返回 info
+  ---
+  duration_ms: 0.508358
+  type: 'test'
+  ...
+# Subtest: bootstrap 401 = 口令错 → PasswordRejected
+ok 28 - bootstrap 401 = 口令错 → PasswordRejected
+  ---
+  duration_ms: 0.553029
+  type: 'test'
+  ...
+# Subtest: 中文口令 → PasswordRejected 明确提示且零网络(fetch header 只收 Latin-1)
+ok 29 - 中文口令 → PasswordRejected 明确提示且零网络(fetch header 只收 Latin-1)
+  ---
+  duration_ms: 0.359751
+  type: 'test'
+  ...
+# Subtest: 没口令 = 代签主路:照发 bootstrap,但**一个 Authorization 都不许带**
+ok 30 - 没口令 = 代签主路:照发 bootstrap,但**一个 Authorization 都不许带**
+  ---
+  duration_ms: 0.294984
+  type: 'test'
+  ...
+# Subtest: 没口令时 apiFetch / openSocket 都能走通(代签路是主路,不是兜底)
+ok 31 - 没口令时 apiFetch / openSocket 都能走通(代签路是主路,不是兜底)
+  ---
+  duration_ms: 0.580477
+  type: 'test'
+  ...
+# Subtest: 没口令且服务端也拒(401)→ PasswordRejected 弹回登录,且不重试
+ok 32 - 没口令且服务端也拒(401)→ PasswordRejected 弹回登录,且不重试
+  ---
+  duration_ms: 0.200636
+  type: 'test'
+  ...
+# Subtest: 有口令时仍用它签:兜底路没被拿掉
+ok 33 - 有口令时仍用它签:兜底路没被拿掉
+  ---
+  duration_ms: 0.248484
+  type: 'test'
+  ...
+# Subtest: gateway 不可达(bootstrap 502)≠ 口令错:抛错但不是 PasswordRejected
+ok 34 - gateway 不可达(bootstrap 502)≠ 口令错:抛错但不是 PasswordRejected
+  ---
+  duration_ms: 1.486748
+  type: 'test'
+  ...
+# Subtest: apiFetch:无缓存 token 先 bootstrap,再带 Bearer token 调目标
+ok 35 - apiFetch:无缓存 token 先 bootstrap,再带 Bearer token 调目标
+  ---
+  duration_ms: 1.657233
+  type: 'test'
+  ...
+# Subtest: apiFetch init 透传:method/body/CT 到线,Authorization 不可被覆盖
+ok 36 - apiFetch init 透传:method/body/CT 到线,Authorization 不可被覆盖
+  ---
+  duration_ms: 0.319303
+  type: 'test'
+  ...
+# Subtest: apiFetch 401 → 透明重 bootstrap 一次 → 新 token 重试成功
+ok 37 - apiFetch 401 → 透明重 bootstrap 一次 → 新 token 重试成功
+  ---
+  duration_ms: 0.243964
+  type: 'test'
+  ...
+# Subtest: 401 后重 bootstrap 也 401 = 口令失效 → PasswordRejected(弹回登录)
+ok 38 - 401 后重 bootstrap 也 401 = 口令失效 → PasswordRejected(弹回登录)
+  ---
+  duration_ms: 0.193065
+  type: 'test'
+  ...
+# Subtest: 重签后重试仍 401 → PasswordRejected 且只重试一次(不无限循环)
+ok 39 - 重签后重试仍 401 → PasswordRejected 且只重试一次(不无限循环)
+  ---
+  duration_ms: 0.245565
+  type: 'test'
+  ...
+# Subtest: openSocket 每次都新 bootstrap:两次开连 = 两次签发,token 各自独立
+ok 40 - openSocket 每次都新 bootstrap:两次开连 = 两次签发,token 各自独立
+  ---
+  duration_ms: 0.381721
+  type: 'test'
+  ...
+# Subtest: ws 地址 = ws_path + 已知端口自拼,绝不信 ws_url 的 host
+ok 41 - ws 地址 = ws_path + 已知端口自拼,绝不信 ws_url 的 host
+  ---
+  duration_ms: 0.286973
+  type: 'test'
+  ...
+# Subtest: nanobotPort 可覆盖(对应 DS_NANOBOT_PORT 部署形状)
+ok 42 - nanobotPort 可覆盖(对应 DS_NANOBOT_PORT 部署形状)
+  ---
+  duration_ms: 0.179816
+  type: 'test'
+  ...
+# Subtest: openSocket 顺手刷新 api token:随后 apiFetch 不再额外签发
+ok 43 - openSocket 顺手刷新 api token:随后 apiFetch 不再额外签发
+  ---
+  duration_ms: 0.280083
+  type: 'test'
+  ...
+# Subtest: openSocket(slot) 把身份挂到 socket 对象上,而**不进 ws URL**
+ok 44 - openSocket(slot) 把身份挂到 socket 对象上,而**不进 ws URL**
+  ---
+  duration_ms: 0.181875
+  type: 'test'
+  ...
+# Subtest: 不给 slot 也能开连(老调用点不被强制改),但那条连接就是无身份的
+ok 45 - 不给 slot 也能开连(老调用点不被强制改),但那条连接就是无身份的
+  ---
+  duration_ms: 0.149846
+  type: 'test'
+  ...
+# Subtest: m01 限额常量 = 协议限额(4 张 / 8MB)
+ok 46 - m01 限额常量 = 协议限额(4 张 / 8MB)
+  ---
+  duration_ms: 1.575175
+  type: 'test'
+  ...
+# Subtest: m02 svg 被拒(协议显式排除:内嵌脚本 XSS 面)
+ok 47 - m02 svg 被拒(协议显式排除:内嵌脚本 XSS 面)
+  ---
+  duration_ms: 0.335923
+  type: 'test'
+  ...
+# Subtest: m03 图纸/文档类被拒(dwg/pdf/dxf 不是聊天发图的活)
+ok 48 - m03 图纸/文档类被拒(dwg/pdf/dxf 不是聊天发图的活)
+  ---
+  duration_ms: 0.181676
+  type: 'test'
+  ...
+# Subtest: m04 扩展名大小写不敏感(相机出图常是 .JPG)
+ok 49 - m04 扩展名大小写不敏感(相机出图常是 .JPG)
+  ---
+  duration_ms: 0.177256
+  type: 'test'
+  ...
+# Subtest: m05 四种合规扩展名全放行,且顺序与入参一致
+ok 50 - m05 四种合规扩展名全放行,且顺序与入参一致
+  ---
+  duration_ms: 1.887748
+  type: 'test'
+  ...
+# Subtest: m06 单张超 8MB 被丢下(不静默截断)
+ok 51 - m06 单张超 8MB 被丢下(不静默截断)
+  ---
+  duration_ms: 0.224505
+  type: 'test'
+  ...
+# Subtest: m07 正好 8MB 放行(闸是 ≤ 不是 <)
+ok 52 - m07 正好 8MB 放行(闸是 ≤ 不是 <)
+  ---
+  duration_ms: 0.149567
+  type: 'test'
+  ...
+# Subtest: m08 0 字节被拒(拖到半截/空文件)
+ok 53 - m08 0 字节被拒(拖到半截/空文件)
+  ---
+  duration_ms: 0.174025
+  type: 'test'
+  ...
+# Subtest: m09 第 5 张起被丢下,且**明确告知**(不是静默截断)
+ok 54 - m09 第 5 张起被丢下,且**明确告知**(不是静默截断)
+  ---
+  duration_ms: 0.342731
+  type: 'test'
+  ...
+# Subtest: m10 已有 n 张时追加,名额按已有的算(拖两次不能突破 4 张)
+ok 55 - m10 已有 n 张时追加,名额按已有的算(拖两次不能突破 4 张)
+  ---
+  duration_ms: 0.42168
+  type: 'test'
+  ...
+# Subtest: m11 名额已满 → 全拒,accepted 为空且不抛
+ok 56 - m11 名额已满 → 全拒,accepted 为空且不抛
+  ---
+  duration_ms: 0.171577
+  type: 'test'
+  ...
+# Subtest: m12 每条拒绝理由都是人话(不把裸错误码怼给设计师)
+ok 57 - m12 每条拒绝理由都是人话(不把裸错误码怼给设计师)
+  ---
+  duration_ms: 0.297832
+  type: 'test'
+  ...
+# Subtest: m13 dataUrlBytes:base64 解码后的真实字节数(含 padding 两种)
+ok 58 - m13 dataUrlBytes:base64 解码后的真实字节数(含 padding 两种)
+  ---
+  duration_ms: 0.239934
+  type: 'test'
+  ...
+# Subtest: m14 dataUrlBytes:不是 data URL / 不是 base64 → -1(调用方据此拒,不当 0 放行)
+ok 59 - m14 dataUrlBytes:不是 data URL / 不是 base64 → -1(调用方据此拒,不当 0 放行)
+  ---
+  duration_ms: 0.122837
+  type: 'test'
+  ...
+# Subtest: m15 不带图 → 信封里**不出现** media 键(老形状一字不改)
+ok 60 - m15 不带图 → 信封里**不出现** media 键(老形状一字不改)
+  ---
+  duration_ms: 0.203066
+  type: 'test'
+  ...
+# Subtest: m16 传空数组 → 也不出现 media 键(空 media 不发)
+ok 61 - m16 传空数组 → 也不出现 media 键(空 media 不发)
+  ---
+  duration_ms: 0.080899
+  type: 'test'
+  ...
+# Subtest: m17 带图 → media 形状照协议:[{data_url, name}]
+ok 62 - m17 带图 → media 形状照协议:[{data_url, name}]
+  ---
+  duration_ms: 0.143857
+  type: 'test'
+  ...
+# Subtest: m18 带图但没文字 → content 仍是字符串(空串,不是 undefined/null)
+ok 63 - m18 带图但没文字 → content 仍是字符串(空串,不是 undefined/null)
+  ---
+  duration_ms: 0.091877
+  type: 'test'
+  ...
+# Subtest: m19 image_rejected 的每个 reason 都翻成人话(不是裸码)
+ok 64 - m19 image_rejected 的每个 reason 都翻成人话(不是裸码)
+  ---
+  duration_ms: 0.184095
+  type: 'test'
+  ...
+# Subtest: m20 尺寸/张数被拒时,提示要指出是图的问题(用户才知道去删图重发)
+ok 65 - m20 尺寸/张数被拒时,提示要指出是图的问题(用户才知道去删图重发)
+  ---
+  duration_ms: 0.171827
+  type: 'test'
+  ...
+# Subtest: m21 未知 reason 也要给话(协议会长,不认识的不能变成空白)
+ok 66 - m21 未知 reason 也要给话(协议会长,不认识的不能变成空白)
+  ---
+  duration_ms: 0.083598
+  type: 'test'
+  ...
+# Subtest: m22 missing content 这类非图错误照样转达
+ok 67 - m22 missing content 这类非图错误照样转达
+  ---
+  duration_ms: 0.084648
+  type: 'test'
+  ...
+# Subtest: m23 不是 error 事件 → null(调用方据此不显示任何东西)
+ok 68 - m23 不是 error 事件 → null(调用方据此不显示任何东西)
+  ---
+  duration_ms: 0.072119
+  type: 'test'
+  ...
+# Subtest: m24 data URL 的 mime 必须在上游白名单内(与 nanobot 同一判据)
+ok 69 - m24 data URL 的 mime 必须在上游白名单内(与 nanobot 同一判据)
+  ---
+  duration_ms: 0.157496
+  type: 'test'
+  ...
+# Subtest: m25 mime 缺失(File.type 为空)→ 拒。名字对也不行,上游按 mime 判
+ok 70 - m25 mime 缺失(File.type 为空)→ 拒。名字对也不行,上游按 mime 判
+  ---
+  duration_ms: 0.071968
+  type: 'test'
+  ...
+# Subtest: m26 svg / bmp / 视频 mime → 拒(白名单之外)
+ok 71 - m26 svg / bmp / 视频 mime → 拒(白名单之外)
+  ---
+  duration_ms: 0.090118
+  type: 'test'
+  ...
+# Subtest: m27 mime 大小写不敏感(浏览器一般给小写,但别赌)
+ok 72 - m27 mime 大小写不敏感(浏览器一般给小写,但别赌)
+  ---
+  duration_ms: 0.949309
+  type: 'test'
+  ...
+# Subtest: m28 inbox_not_found 的提示要指向那个按钮,不是让人自己去建
+ok 73 - m28 inbox_not_found 的提示要指向那个按钮,不是让人自己去建
+  ---
+  duration_ms: 0.129967
+  type: 'test'
+  ...
+# Subtest: p01 哈希名 → 可读名:项目 + 聊天图 + 8 位日期-时分
+ok 74 - p01 哈希名 → 可读名:项目 + 聊天图 + 8 位日期-时分
+  ---
+  duration_ms: 0.292233
+  type: 'test'
+  ...
+# Subtest: p02 没有项目上下文(首页新对话)→ 不硬凑项目名
+ok 75 - p02 没有项目上下文(首页新对话)→ 不硬凑项目名
+  ---
+  duration_ms: 0.140656
+  type: 'test'
+  ...
+# Subtest: p03 同一条消息多张 → 加序号,互不覆盖
+ok 76 - p03 同一条消息多张 → 加序号,互不覆盖
+  ---
+  duration_ms: 0.125547
+  type: 'test'
+  ...
+# Subtest: p04 **有意义的原名一律保留**(从文件夹拖进来的图不许被改名)
+ok 77 - p04 **有意义的原名一律保留**(从文件夹拖进来的图不许被改名)
+  ---
+  duration_ms: 0.284393
+  type: 'test'
+  ...
+# Subtest: p05 扩展名跟着原名走(jpg 不许被改成 png)
+ok 78 - p05 扩展名跟着原名走(jpg 不许被改成 png)
+  ---
+  duration_ms: 0.144027
+  type: 'test'
+  ...
+# Subtest: p06 哪些名字算「没意义」——只认死板的几类,不做聪明判断
+ok 79 - p06 哪些名字算「没意义」——只认死板的几类,不做聪明判断
+  ---
+  duration_ms: 0.139547
+  type: 'test'
+  ...
+# Subtest: p07 生成的名字必须过服务端单段闸(否则存进去 = 白存)
+ok 80 - p07 生成的名字必须过服务端单段闸(否则存进去 = 白存)
+  ---
+  duration_ms: 0.239724
+  type: 'test'
+  ...
+# Subtest: p08 项目名里若带路径字符,不能带进文件名(项目名是外部输入)
+ok 81 - p08 项目名里若带路径字符,不能带进文件名(项目名是外部输入)
+  ---
+  duration_ms: 0.133776
+  type: 'test'
+  ...
+# Subtest: h01 回放带图 → 还原到气泡上(签名 URL 补成网关绝对地址)
+ok 82 - h01 回放带图 → 还原到气泡上(签名 URL 补成网关绝对地址)
+  ---
+  duration_ms: 0.323444
+  type: 'test'
+  ...
+# Subtest: h02 只认 /api/media/ 开头的签名 URL —— 任意外链不许进 img src
+ok 83 - h02 只认 /api/media/ 开头的签名 URL —— 任意外链不许进 img src
+  ---
+  duration_ms: 0.189765
+  type: 'test'
+  ...
+# Subtest: h03 非图片附件(视频/文件)本期不渲染,但不许崩
+ok 84 - h03 非图片附件(视频/文件)本期不渲染,但不许崩
+  ---
+  duration_ms: 0.114008
+  type: 'test'
+  ...
+# Subtest: h04 畸形 media(缺 url / 不是数组 / 元素不是对象)→ 安全降级为无图
+ok 85 - h04 畸形 media(缺 url / 不是数组 / 元素不是对象)→ 安全降级为无图
+  ---
+  duration_ms: 0.199886
+  type: 'test'
+  ...
+# Subtest: h05 没有 media 的老会话回放,形状与从前逐字节一致(不回归)
+ok 86 - h05 没有 media 的老会话回放,形状与从前逐字节一致(不回归)
+  ---
+  duration_ms: 0.113268
+  type: 'test'
+  ...
+# Subtest: h06 签名 URL 里带 .. 或 // → 拒(浏览器会规范化掉,前缀闸会被绕过)
+ok 87 - h06 签名 URL 里带 .. 或 // → 拒(浏览器会规范化掉,前缀闸会被绕过)
+  ---
+  duration_ms: 0.113928
+  type: 'test'
+  ...
+# Subtest: 退避序列逐值:500 / 1000 / 2000 / 4000 / 8000 / 15000
+ok 88 - 退避序列逐值:500 / 1000 / 2000 / 4000 / 8000 / 15000
+  ---
+  duration_ms: 2.324508
+  type: 'test'
+  ...
+# Subtest: 到 15s 封顶后不再增长,而且永远不放弃(常驻工作台:合盖一夜回来该自己好了)
+ok 89 - 到 15s 封顶后不再增长,而且永远不放弃(常驻工作台:合盖一夜回来该自己好了)
+  ---
+  duration_ms: 0.279304
+  type: 'test'
+  ...
+# Subtest: 抖动:±15%,给定随机源可复现,且始终是整数毫秒
+ok 90 - 抖动:±15%,给定随机源可复现,且始终是整数毫秒
+  ---
+  duration_ms: 0.259555
+  type: 'test'
+  ...
+# Subtest: 抖动的真实理由是多标签页:同一状态两次算出的值不该恒等
+ok 91 - 抖动的真实理由是多标签页:同一状态两次算出的值不该恒等
+  ---
+  duration_ms: 0.184707
+  type: 'test'
+  ...
+# Subtest: 连上 ⇒ 失败计数清零、回 connected、不再排队
+ok 92 - 连上 ⇒ 失败计数清零、回 connected、不再排队
+  ---
+  duration_ms: 0.204325
+  type: 'test'
+  ...
+# Subtest: 连上之后再断,退避从头开始(不接着上次的 8 秒)
+ok 93 - 连上之后再断,退避从头开始(不接着上次的 8 秒)
+  ---
+  duration_ms: 0.120707
+  type: 'test'
+  ...
+# Subtest: online / 回到前台 ⇒ 退避清零并立刻试一次(合盖恢复是主路径)
+ok 94 - online / 回到前台 ⇒ 退避清零并立刻试一次(合盖恢复是主路径)
+  ---
+  duration_ms: 0.244034
+  type: 'test'
+  ...
+# Subtest: 已经连着的时候收到 online / 回到前台 ⇒ 什么都不做(别把好好的连接踹掉)
+ok 95 - 已经连着的时候收到 online / 回到前台 ⇒ 什么都不做(别把好好的连接踹掉)
+  ---
+  duration_ms: 0.163877
+  type: 'test'
+  ...
+# Subtest: bootstrap 返 401(口令真失效)⇒ 停止重连、回登录框
+ok 96 - bootstrap 返 401(口令真失效)⇒ 停止重连、回登录框
+  ---
+  duration_ms: 0.389801
+  type: 'test'
+  ...
+# Subtest: ws 断开 ⇒ 一律照常重连,**永远不产生 login**(握手 token 一次性,复用必 401)
+ok 97 - ws 断开 ⇒ 一律照常重连,**永远不产生 login**(握手 token 一次性,复用必 401)
+  ---
+  duration_ms: 0.403981
+  type: 'test'
+  ...
+# Subtest: 普通错误(gateway 没起、网络不通)⇒ 照常重连,不清口令
+ok 98 - 普通错误(gateway 没起、网络不通)⇒ 照常重连,不清口令
+  ---
+  duration_ms: 1.173513
+  type: 'test'
+  ...
+# Subtest: isPasswordFailure 认的是 PasswordRejected,而且靠 name 认(跨模块 instanceof 不可靠)
+ok 99 - isPasswordFailure 认的是 PasswordRejected,而且靠 name 认(跨模块 instanceof 不可靠)
+  ---
+  duration_ms: 0.184626
+  type: 'test'
+  ...
+# Subtest: 停下来之后不许自己复活:stopped 态收到 closed / online 一律不排队
+ok 100 - 停下来之后不许自己复活:stopped 态收到 closed / online 一律不排队
+  ---
+  duration_ms: 0.138468
+  type: 'test'
+  ...
+# Subtest: reducer 不改入参(React state 直接换引用)
+ok 101 - reducer 不改入参(React state 直接换引用)
+  ---
+  duration_ms: 0.094957
+  type: 'test'
+  ...
+# Subtest: 认不出的事件原样返回,不崩(协议会长,老约定不许退化)
+ok 102 - 认不出的事件原样返回,不崩(协议会长,老约定不许退化)
+  ---
+  duration_ms: 0.116377
+  type: 'test'
+  ...
+# Subtest: messageEnvelope:webui:true + turn_id 一等路径(协议 §2 入站)
+ok 103 - messageEnvelope:webui:true + turn_id 一等路径(协议 §2 入站)
+  ---
+  duration_ms: 2.331198
+  type: 'test'
+  ...
+# Subtest: appendLocalUser:用户消息上屏 + busy 锁输入;原 state 不被改动
+ok 104 - appendLocalUser:用户消息上屏 + busy 锁输入;原 state 不被改动
+  ---
+  duration_ms: 0.276344
+  type: 'test'
+  ...
+# Subtest: delta:首个 delta 建 assistant 消息(streaming),后续按 stream_id 追加
+ok 105 - delta:首个 delta 建 assistant 消息(streaming),后续按 stream_id 追加
+  ---
+  duration_ms: 0.402691
+  type: 'test'
+  ...
+# Subtest: delta:不同 stream_id 各自归组,互不串流
+ok 106 - delta:不同 stream_id 各自归组,互不串流
+  ---
+  duration_ms: 0.174767
+  type: 'test'
+  ...
+# Subtest: stream_end:按 stream_id 定稿(streaming=false),不动别的流
+ok 107 - stream_end:按 stream_id 定稿(streaming=false),不动别的流
+  ---
+  duration_ms: 0.158576
+  type: 'test'
+  ...
+# Subtest: turn_end:解锁输入 + 兜底定稿所有仍 streaming 的消息
+ok 108 - turn_end:解锁输入 + 兜底定稿所有仍 streaming 的消息
+  ---
+  duration_ms: 0.210964
+  type: 'test'
+  ...
+# Subtest: session_updated / 未知事件仍然一律忽略,state 原样(老约定不许退化)
+ok 109 - session_updated / 未知事件仍然一律忽略,state 原样(老约定不许退化)
+  ---
+  duration_ms: 0.146006
+  type: 'test'
+  ...
+# Subtest: 等待态:goal_status:running 与 reasoning_delta 都开启「正在思考」
+ok 110 - 等待态:goal_status:running 与 reasoning_delta 都开启「正在思考」
+  ---
+  duration_ms: 0.119077
+  type: 'test'
+  ...
+# Subtest: 等待态:第一个答案 delta 一到就关掉(别和正文一起挂着)
+ok 111 - 等待态:第一个答案 delta 一到就关掉(别和正文一起挂着)
+  ---
+  duration_ms: 0.308733
+  type: 'test'
+  ...
+# Subtest: 等待态:turn_end 收尾一定关掉(哪怕一个 delta 都没来过)
+ok 112 - 等待态:turn_end 收尾一定关掉(哪怕一个 delta 都没来过)
+  ---
+  duration_ms: 0.504779
+  type: 'test'
+  ...
+# Subtest: reasoning 正文一个字都不许进气泡(那是没定稿的草稿,不是给用户看的结论)
+ok 113 - reasoning 正文一个字都不许进气泡(那是没定稿的草稿,不是给用户看的结论)
+  ---
+  duration_ms: 0.324023
+  type: 'test'
+  ...
+# Subtest: 活动回执:真帧 ⇒ 落一条人话,且**不进 messages[] 气泡**
+ok 114 - 活动回执:真帧 ⇒ 落一条人话,且**不进 messages[] 气泡**
+  ---
+  duration_ms: 0.328752
+  type: 'test'
+  ...
+# Subtest: 活动回执:认不出的工具名 ⇒ 通用文案,**绝不把工具原名甩给机主**
+ok 115 - 活动回执:认不出的工具名 ⇒ 通用文案,**绝不把工具原名甩给机主**
+  ---
+  duration_ms: 0.248835
+  type: 'test'
+  ...
+# Subtest: 活动回执:kind:"tool_hint" 同样收下(本轮没抓到,但不许因此崩)
+ok 116 - 活动回执:kind:"tool_hint" 同样收下(本轮没抓到,但不许因此崩)
+  ---
+  duration_ms: 0.196216
+  type: 'test'
+  ...
+# Subtest: 活动回执:一轮里多次调工具 ⇒ 按顺序累积,不去重成一条
+ok 117 - 活动回执:一轮里多次调工具 ⇒ 按顺序累积,不去重成一条
+  ---
+  duration_ms: 0.236485
+  type: 'test'
+  ...
+# Subtest: 活动回执:turn_end 清空(下一轮不该顶着上一轮的尾巴)
+ok 118 - 活动回执:turn_end 清空(下一轮不该顶着上一轮的尾巴)
+  ---
+  duration_ms: 0.176145
+  type: 'test'
+  ...
+# Subtest: 活动回执:畸形 tool_events 一律不崩、不落空行
+ok 119 - 活动回执:畸形 tool_events 一律不崩、不落空行
+  ---
+  duration_ms: 0.170987
+  type: 'test'
+  ...
+# Subtest: emptyTranscript 自带这两个新字段,且是冻结的(别让调用方靠 undefined 判断)
+ok 120 - emptyTranscript 自带这两个新字段,且是冻结的(别让调用方靠 undefined 判断)
+  ---
+  duration_ms: 0.082108
+  type: 'test'
+  ...
+# Subtest: 畸形输入不崩:非对象 / 缺字段 / text 非字符串,一律原样返回
+ok 121 - 畸形输入不崩:非对象 / 缺字段 / text 非字符串,一律原样返回
+  ---
+  duration_ms: 0.097268
+  type: 'test'
+  ...
+# Subtest: delta 撞用户消息 id:不往用户气泡拼,另起 assistant 消息(role 守卫)
+ok 122 - delta 撞用户消息 id:不往用户气泡拼,另起 assistant 消息(role 守卫)
+  ---
+  duration_ms: 0.101387
+  type: 'test'
+  ...
+# Subtest: stream_end 未知 stream_id = no-op;turn_end 空 transcript 不崩
+ok 123 - stream_end 未知 stream_id = no-op;turn_end 空 transcript 不崩
+  ---
+  duration_ms: 0.199064
+  type: 'test'
+  ...
+# Subtest: error 事件:解锁 busy(失败路径不发 turn_end 时输入条不死锁)
+ok 124 - error 事件:解锁 busy(失败路径不发 turn_end 时输入条不死锁)
+  ---
+  duration_ms: 0.110088
+  type: 'test'
+  ...
+# Subtest: shouldSendOnEnter:Enter 发;isComposing / keyCode 229 / Shift+Enter 不发
+ok 125 - shouldSendOnEnter:Enter 发;isComposing / keyCode 229 / Shift+Enter 不发
+  ---
+  duration_ms: 0.148637
+  type: 'test'
+  ...
+# Subtest: XSS 闸:raw HTML 渲染为转义文本,不产生元素(<img onerror> 不执行)
+ok 126 - XSS 闸:raw HTML 渲染为转义文本,不产生元素(<img onerror> 不执行)
+  ---
+  duration_ms: 15.016487
+  type: 'test'
+  ...
+# Subtest: XSS 闸:<script> 同样只出转义文本
+ok 127 - XSS 闸:<script> 同样只出转义文本
+  ---
+  duration_ms: 2.240101
+  type: 'test'
+  ...
+# Subtest: XSS 闸:javascript:/data: 链接的 href 被剥空(默认 urlTransform,谁覆盖谁红)
+ok 128 - XSS 闸:javascript:/data: 链接的 href 被剥空(默认 urlTransform,谁覆盖谁红)
+  ---
+  duration_ms: 6.950916
+  type: 'test'
+  ...
+# Subtest: 外链带 target=_blank(点了不顶掉工作台)
+ok 129 - 外链带 target=_blank(点了不顶掉工作台)
+  ---
+  duration_ms: 1.470257
+  type: 'test'
+  ...
+# Subtest: 外链带 rel,且必须含 noreferrer(新标签页拿不到 window.opener)
+ok 130 - 外链带 rel,且必须含 noreferrer(新标签页拿不到 window.opener)
+  ---
+  duration_ms: 1.200153
+  type: 'test'
+  ...
+# Subtest: 加了 components.a 之后,XSS 闸一条都不许松(href 剥空的仍然剥空)
+ok 131 - 加了 components.a 之后,XSS 闸一条都不许松(href 剥空的仍然剥空)
+  ---
+  duration_ms: 11.451975
+  type: 'test'
+  ...
+# Subtest: GFM:表格渲染为 <table>(remark-gfm 真的挂上了)
+ok 132 - GFM:表格渲染为 <table>(remark-gfm 真的挂上了)
+  ---
+  duration_ms: 6.466926
+  type: 'test'
+  ...
+# Subtest: GFM:代码块/列表基本形状
+ok 133 - GFM:代码块/列表基本形状
+  ---
+  duration_ms: 3.411664
+  type: 'test'
+  ...
+# Subtest: attachEnvelope:协议 attach 信封形状
+ok 134 - attachEnvelope:协议 attach 信封形状
+  ---
+  duration_ms: 0.176556
+  type: 'test'
+  ...
+# Subtest: hydrateFromThread:正常回放(role 过滤/id 沿用/不锁输入)
+ok 135 - hydrateFromThread:正常回放(role 过滤/id 沿用/不锁输入)
+  ---
+  duration_ms: 0.316722
+  type: 'test'
+  ...
+# Subtest: hydrateFromThread:id 缺失/非字符串 → replay-<i> 兜底且不重复
+ok 136 - hydrateFromThread:id 缺失/非字符串 → replay-<i> 兜底且不重复
+  ---
+  duration_ms: 0.189685
+  type: 'test'
+  ...
+# Subtest: hydrateFromThread:畸形 payload → null(安全降级,不崩)
+ok 137 - hydrateFromThread:畸形 payload → null(安全降级,不崩)
+  ---
+  duration_ms: 0.126588
+  type: 'test'
+  ...
+# Subtest: hydrateFromThread:全被过滤 → 空消息列表(仍是合法 state,非 null)
+ok 138 - hydrateFromThread:全被过滤 → 空消息列表(仍是合法 state,非 null)
+  ---
+  duration_ms: 0.103679
+  type: 'test'
+  ...
+# Subtest: 对账①:同一句话说两遍、服务端只记上第一遍 ⇒ 两条都还在(本单要修的那个 bug)
+ok 139 - 对账①:同一句话说两遍、服务端只记上第一遍 ⇒ 两条都还在(本单要修的那个 bug)
+  ---
+  duration_ms: 0.265485
+  type: 'test'
+  ...
+# Subtest: 对账②:服务端已经记上的不重复追加(turnId 命中)
+ok 140 - 对账②:服务端已经记上的不重复追加(turnId 命中)
+  ---
+  duration_ms: 0.122957
+  type: 'test'
+  ...
+# Subtest: 对账③:本地 assistant 半截气泡一律丢弃(以服务端完整版为准)
+ok 141 - 对账③:本地 assistant 半截气泡一律丢弃(以服务端完整版为准)
+  ---
+  duration_ms: 0.119227
+  type: 'test'
+  ...
+# Subtest: 对账④:本地消息没有 turnId ⇒ 退回文本启发式,老行为不倒退
+ok 142 - 对账④:本地消息没有 turnId ⇒ 退回文本启发式,老行为不倒退
+  ---
+  duration_ms: 0.193796
+  type: 'test'
+  ...
+# Subtest: 对账⑤:本地有 turnId、服务端旧行没有 turnId 且文本一样 ⇒ **本地那条要留住**
+ok 143 - 对账⑤:本地有 turnId、服务端旧行没有 turnId 且文本一样 ⇒ **本地那条要留住**
+  ---
+  duration_ms: 0.122358
+  type: 'test'
+  ...
+# Subtest: 对账⑤b:服务端旧行没有 turnId、本地那条也没有 ⇒ 仍按文本去重(老行为不倒退)
+ok 144 - 对账⑤b:服务端旧行没有 turnId、本地那条也没有 ⇒ 仍按文本去重(老行为不倒退)
+  ---
+  duration_ms: 0.110227
+  type: 'test'
+  ...
+# Subtest: 对账⑥:turnId 不同但文本不同 ⇒ 本地那条照常保留(别把不同的话合并掉)
+ok 145 - 对账⑥:turnId 不同但文本不同 ⇒ 本地那条照常保留(别把不同的话合并掉)
+  ---
+  duration_ms: 0.116667
+  type: 'test'
+  ...
+# Subtest: 对账⑦:空本地 / 空回放不崩,且不凭空造消息
+ok 146 - 对账⑦:空本地 / 空回放不崩,且不凭空造消息
+  ---
+  duration_ms: 0.153186
+  type: 'test'
+  ...
+# Subtest: 对账⑧:不改动入参(纯函数,原数组与原对象都不许被动)
+ok 147 - 对账⑧:不改动入参(纯函数,原数组与原对象都不许被动)
+  ---
+  duration_ms: 0.132387
+  type: 'test'
+  ...
+# Subtest: hydrateFromThread:回放的 turnId 读回本地消息(对账的地基)
+ok 148 - hydrateFromThread:回放的 turnId 读回本地消息(对账的地基)
+  ---
+  duration_ms: 0.152626
+  type: 'test'
+  ...
+# Subtest: appendLocalUser:存得住 turnId,且必须是**发出去的那一个**
+ok 149 - appendLocalUser:存得住 turnId,且必须是**发出去的那一个**
+  ---
+  duration_ms: 0.092968
+  type: 'test'
+  ...
+# Subtest: projectImages:mtime 降序,同刻按 rel 名序
+ok 150 - projectImages:mtime 降序,同刻按 rel 名序
+  ---
+  duration_ms: 9.039869
+  type: 'test'
+  ...
+# Subtest: projectImages:降级态与 null 全部空数组
+ok 151 - projectImages:降级态与 null 全部空数组
+  ---
+  duration_ms: 0.226565
+  type: 'test'
+  ...
+# Subtest: projectImages:不改原数组(纯函数)
+ok 152 - projectImages:不改原数组(纯函数)
+  ---
+  duration_ms: 0.180187
+  type: 'test'
+  ...
+# Subtest: relTimeFromEpoch:今天/昨天/M-DD/空值
+ok 153 - relTimeFromEpoch:今天/昨天/M-DD/空值
+  ---
+  duration_ms: 0.523409
+  type: 'test'
+  ...
+# Subtest: categoryRows:非模板类目名全链路可见(照现状认的判卷用例)
+ok 154 - categoryRows:非模板类目名全链路可见(照现状认的判卷用例)
+  ---
+  duration_ms: 0.301383
+  type: 'test'
+  ...
+# Subtest: categoryRows:capped 显示 N+ 且活跃度留空(宁缺勿假)
+ok 155 - categoryRows:capped 显示 N+ 且活跃度留空(宁缺勿假)
+  ---
+  duration_ms: 0.128388
+  type: 'test'
+  ...
+# Subtest: categoryRows:散文件类目空名 → 未分类;服务端名序原样保留
+ok 156 - categoryRows:散文件类目空名 → 未分类;服务端名序原样保留
+  ---
+  duration_ms: 0.232454
+  type: 'test'
+  ...
+# Subtest: categoryRows:降级态与 null 全部空数组
+ok 157 - categoryRows:降级态与 null 全部空数组
+  ---
+  duration_ms: 0.134716
+  type: 'test'
+  ...
+# Subtest: filesState:四态状态机
+ok 158 - filesState:四态状态机
+  ---
+  duration_ms: 0.337072
+  type: 'test'
+  ...
+# Subtest: changeCounts:各态计数 + 未办结/已办结聚合
+ok 159 - changeCounts:各态计数 + 未办结/已办结聚合
+  ---
+  duration_ms: 1.056297
+  type: 'test'
+  ...
+# Subtest: changeCounts:null/空 安全
+ok 160 - changeCounts:null/空 安全
+  ---
+  duration_ms: 0.191986
+  type: 'test'
+  ...
+# Subtest: changeCounts:未知状态只进 all,不进 open/done
+ok 161 - changeCounts:未知状态只进 all,不进 open/done
+  ---
+  duration_ms: 0.158557
+  type: 'test'
+  ...
+# Subtest: open 与 done 聚合互补:合计 ≤ all,已知态不重不漏
+ok 162 - open 与 done 聚合互补:合计 ≤ all,已知态不重不漏
+  ---
+  duration_ms: 0.127607
+  type: 'test'
+  ...
+# Subtest: filterChanges done:只留 已完成 + 已关闭,保序
+ok 163 - filterChanges done:只留 已完成 + 已关闭,保序
+  ---
+  duration_ms: 1.253593
+  type: 'test'
+  ...
+# Subtest: filterChanges open:只留 待确认 + 进行中
+ok 164 - filterChanges open:只留 待确认 + 进行中
+  ---
+  duration_ms: 0.148607
+  type: 'test'
+  ...
+# Subtest: filterChanges all:原样返回,保序
+ok 165 - filterChanges all:原样返回,保序
+  ---
+  duration_ms: 0.184985
+  type: 'test'
+  ...
+# Subtest: filterChanges 精确单态:待确认 / 进行中
+ok 166 - filterChanges 精确单态:待确认 / 进行中
+  ---
+  duration_ms: 0.153596
+  type: 'test'
+  ...
+# Subtest: filterChanges:null 安全
+ok 167 - filterChanges:null 安全
+  ---
+  duration_ms: 0.298623
+  type: 'test'
+  ...
+# Subtest: OPEN_SET / DONE_SET 无交集,并起来 = 四态
+ok 168 - OPEN_SET / DONE_SET 无交集,并起来 = 四态
+  ---
+  duration_ms: 0.471759
+  type: 'test'
+  ...
+# Subtest: PROGRESS_ORDER = 球在业主→设计师→完成→作废
+ok 169 - PROGRESS_ORDER = 球在业主→设计师→完成→作废
+  ---
+  duration_ms: 0.176536
+  type: 'test'
+  ...
+# Subtest: O12a resolve 能回的每个错误码,业主都能看到一句人话
+ok 170 - O12a resolve 能回的每个错误码,业主都能看到一句人话
+  ---
+  duration_ms: 2.216612
+  type: 'test'
+  ...
+# Subtest: O12b 翻译过来的话里不许再出现英文码
+ok 171 - O12b 翻译过来的话里不许再出现英文码
+  ---
+  duration_ms: 1.100946
+  type: 'test'
+  ...
+# Subtest: O12c 码表真的被用上,而且留着兜底
+ok 172 - O12c 码表真的被用上,而且留着兜底
+  ---
+  duration_ms: 0.203526
+  type: 'test'
+  ...
+# Subtest: 空间充足:弹在下方,左边界对齐锚点
+ok 173 - 空间充足:弹在下方,左边界对齐锚点
+  ---
+  duration_ms: 0.92724
+  type: 'test'
+  ...
+# Subtest: 下方装不下、上方装得下 → 翻到上方
+ok 174 - 下方装不下、上方装得下 → 翻到上方
+  ---
+  duration_ms: 0.191296
+  type: 'test'
+  ...
+# Subtest: 上下都装不下 → 不翻,但夹进视口(不许跑到屏幕外)
+ok 175 - 上下都装不下 → 不翻,但夹进视口(不许跑到屏幕外)
+  ---
+  duration_ms: 0.177635
+  type: 'test'
+  ...
+# Subtest: 右侧会溢出 → 整体左移,右边界留出边距
+ok 176 - 右侧会溢出 → 整体左移,右边界留出边距
+  ---
+  duration_ms: 0.173037
+  type: 'test'
+  ...
+# Subtest: 锚点贴左缘 → 左边界不许为负
+ok 177 - 锚点贴左缘 → 左边界不许为负
+  ---
+  duration_ms: 0.138237
+  type: 'test'
+  ...
+# Subtest: 视口比浮层还窄 → 仍不许出左边界(夹取的优先级:左 > 右)
+ok 178 - 视口比浮层还窄 → 仍不许出左边界(夹取的优先级:左 > 右)
+  ---
+  duration_ms: 0.122436
+  type: 'test'
+  ...
+# Subtest: 纯函数:不改入参
+ok 179 - 纯函数:不改入参
+  ---
+  duration_ms: 0.194336
+  type: 'test'
+  ...
+# Subtest: gap 缺省有值(调用方不传也不能算出 NaN)
+ok 180 - gap 缺省有值(调用方不传也不能算出 NaN)
+  ---
+  duration_ms: 0.134597
+  type: 'test'
+  ...
+# Subtest: buildGallery:refs 索引序在前,ws 按路径自然序升序(对齐资源管理器)
+ok 181 - buildGallery:refs 索引序在前,ws 按路径自然序升序(对齐资源管理器)
+  ---
+  duration_ms: 9.352041
+  type: 'test'
+  ...
+# Subtest: buildGallery:按文件名自然序升序,不受 mtime 影响(\#10a 判据)
+ok 182 - buildGallery:按文件名自然序升序,不受 mtime 影响(\#10a 判据)
+  ---
+  duration_ms: 0.345183
+  type: 'test'
+  ...
+# Subtest: buildGallery:url 路由正确且逐段编码
+ok 183 - buildGallery:url 路由正确且逐段编码
+  ---
+  duration_ms: 0.310803
+  type: 'test'
+  ...
+# Subtest: buildGallery:label = note > 空间·风格 > 文件名;group 归属
+ok 184 - buildGallery:label = note > 空间·风格 > 文件名;group 归属
+  ---
+  duration_ms: 0.260354
+  type: 'test'
+  ...
+# Subtest: refLabel:全空回落 id
+ok 185 - refLabel:全空回落 id
+  ---
+  duration_ms: 0.214305
+  type: 'test'
+  ...
+# Subtest: galleryFacets:首现序去重;空间/风格只来自 refs
+ok 186 - galleryFacets:首现序去重;空间/风格只来自 refs
+  ---
+  duration_ms: 1.232212
+  type: 'test'
+  ...
+# Subtest: filterGallery:三维 AND;空筛选=全量
+ok 187 - filterGallery:三维 AND;空筛选=全量
+  ---
+  duration_ms: 0.370262
+  type: 'test'
+  ...
+# Subtest: filterGallery/facets:空输入不崩
+ok 188 - filterGallery/facets:空输入不崩
+  ---
+  duration_ms: 0.237075
+  type: 'test'
+  ...
+# Subtest: groupAlbums:refs 归一册,ws 图按父文件夹分册,册序=首现序
+ok 189 - groupAlbums:refs 归一册,ws 图按父文件夹分册,册序=首现序
+  ---
+  duration_ms: 0.536088
+  type: 'test'
+  ...
+# Subtest: groupAlbums:封面=册内首项(文件名最小);count/items 一致
+ok 190 - groupAlbums:封面=册内首项(文件名最小);count/items 一致
+  ---
+  duration_ms: 0.516358
+  type: 'test'
+  ...
+# Subtest: groupAlbums:项目根散图归「未分类」;空输入=空
+ok 191 - groupAlbums:项目根散图归「未分类」;空输入=空
+  ---
+  duration_ms: 0.223155
+  type: 'test'
+  ...
+# Subtest: state:loading / unconfigured / empty / ok / pending
+ok 192 - state:loading / unconfigured / empty / ok / pending
+  ---
+  duration_ms: 0.95559
+  type: 'test'
+  ...
+# Subtest: suggestion:类目+项目、仅类目、待认领三态
+ok 193 - suggestion:类目+项目、仅类目、待认领三态
+  ---
+  duration_ms: 0.290894
+  type: 'test'
+  ...
+# Subtest: suggestion:项目名去掉日期/人名前缀(短标签)
+ok 194 - suggestion:项目名去掉日期/人名前缀(短标签)
+  ---
+  duration_ms: 0.185116
+  type: 'test'
+  ...
+# Subtest: preview_rows:src 取文件名,dst 取目录;多 plan 保序
+ok 195 - preview_rows:src 取文件名,dst 取目录;多 plan 保序
+  ---
+  duration_ms: 1.37641
+  type: 'test'
+  ...
+# Subtest: preview_rows:工作区根直落(无目录段)显示占位,不给空串
+ok 196 - preview_rows:工作区根直落(无目录段)显示占位,不给空串
+  ---
+  duration_ms: 0.184535
+  type: 'test'
+  ...
+# Subtest: preview_rows:Windows 反斜杠路径归一成 /
+ok 197 - preview_rows:Windows 反斜杠路径归一成 /
+  ---
+  duration_ms: 0.147548
+  type: 'test'
+  ...
+# Subtest: a1 状态用 GET 拉,打在约定的那条路径上,不带 body
+ok 198 - a1 状态用 GET 拉,打在约定的那条路径上,不带 body
+  ---
+  duration_ms: 1.416207
+  type: 'test'
+  ...
+# Subtest: a2 状态原样透出(configured/provider/hint/providers 四样都不许丢)
+ok 199 - a2 状态原样透出(configured/provider/hint/providers 四样都不许丢)
+  ---
+  duration_ms: 1.31764
+  type: 'test'
+  ...
+# Subtest: a3 保存用 POST,provider 和 key 都在 body 里,**key 不许进 URL**
+ok 200 - a3 保存用 POST,provider 和 key 都在 body 里,**key 不许进 URL**
+  ---
+  duration_ms: 0.42457
+  type: 'test'
+  ...
+# Subtest: a4 保存成功:回 ok + 后端给的状态与 restart
+ok 201 - a4 保存成功:回 ok + 后端给的状态与 restart
+  ---
+  duration_ms: 0.198386
+  type: 'test'
+  ...
+# Subtest: a5 后端拒绝(400):把**它的**人话原样端出来,不许自己另编一句
+ok 202 - a5 后端拒绝(400):把**它的**人话原样端出来,不许自己另编一句
+  ---
+  duration_ms: 0.267054
+  type: 'test'
+  ...
+# Subtest: a6 服务不可达(fetch 抛)不许静默成功,也不许把 key 带进错误里
+ok 203 - a6 服务不可达(fetch 抛)不许静默成功,也不许把 key 带进错误里
+  ---
+  duration_ms: 0.208536
+  type: 'test'
+  ...
+# Subtest: a7 500 之类也走失败路,不许当成 200 解读
+ok 204 - a7 500 之类也走失败路,不许当成 200 解读
+  ---
+  duration_ms: 0.262605
+  type: 'test'
+  ...
+# Subtest: b1 厂商是后端说了算:没听过的厂商也照样透出、照样能提交
+ok 205 - b1 厂商是后端说了算:没听过的厂商也照样透出、照样能提交
+  ---
+  duration_ms: 0.258135
+  type: 'test'
+  ...
+# Subtest: c1 保存成功后,返回值里不含 key 原文
+ok 206 - c1 保存成功后,返回值里不含 key 原文
+  ---
+  duration_ms: 0.376562
+  type: 'test'
+  ...
+# Subtest: c2 后端要是把 key 回显了,前端也不许原样端出去
+ok 207 - c2 后端要是把 key 回显了,前端也不许原样端出去
+  ---
+  duration_ms: 1.361569
+  type: 'test'
+  ...
+# Subtest: d1 manual = 得业主自己重启,那句话里必须有「重启」
+ok 208 - d1 manual = 得业主自己重启,那句话里必须有「重启」
+  ---
+  duration_ms: 0.250874
+  type: 'test'
+  ...
+# Subtest: d2 requested = 已经替他重启了,不许再叫他去重启
+ok 209 - d2 requested = 已经替他重启了,不许再叫他去重启
+  ---
+  duration_ms: 0.142786
+  type: 'test'
+  ...
+# Subtest: d3 没见过的 restart 值往保守那边倒(宁可让他多点一下)
+ok 210 - d3 没见过的 restart 值往保守那边倒(宁可让他多点一下)
+  ---
+  duration_ms: 0.157686
+  type: 'test'
+  ...
+# Subtest: b2 端点/模型值不许在**整个前端**里第二次硬编码(两边一起错时判据也一起绿)
+ok 211 - b2 端点/模型值不许在**整个前端**里第二次硬编码(两边一起错时判据也一起绿)
+  ---
+  duration_ms: 36.994347
+  type: 'test'
+  ...
+# Subtest: c3 逻辑层不许碰 localStorage / sessionStorage / cookie
+ok 212 - c3 逻辑层不许碰 localStorage / sessionStorage / cookie
+  ---
+  duration_ms: 0.261665
+  type: 'test'
+  ...
+# Subtest: c4 逻辑层不许自己打日志(console 是 e2e 明账要扫的那一面)
+ok 213 - c4 逻辑层不许自己打日志(console 是 e2e 明账要扫的那一面)
+  ---
+  duration_ms: 0.253034
+  type: 'test'
+  ...
+# Subtest: groupProjectsByStage:按词表顺序分堆,空堆不出现
+ok 214 - groupProjectsByStage:按词表顺序分堆,空堆不出现
+  ---
+  duration_ms: 2.362528
+  type: 'test'
+  ...
+# Subtest: groupProjectsByStage:堆内保持传入相对序
+ok 215 - groupProjectsByStage:堆内保持传入相对序
+  ---
+  duration_ms: 0.266824
+  type: 'test'
+  ...
+# Subtest: groupProjectsByStage:空阶段进最后一堆「未建档」
+ok 216 - groupProjectsByStage:空阶段进最后一堆「未建档」
+  ---
+  duration_ms: 0.164516
+  type: 'test'
+  ...
+# Subtest: groupProjectsByStage:stage 缺失(undefined)也当未建档,不崩
+ok 217 - groupProjectsByStage:stage 缺失(undefined)也当未建档,不崩
+  ---
+  duration_ms: 0.138217
+  type: 'test'
+  ...
+# Subtest: groupProjectsByStage:词表外的非空阶段自成一堆,按首次出现序排在词表堆之后
+ok 218 - groupProjectsByStage:词表外的非空阶段自成一堆,按首次出现序排在词表堆之后
+  ---
+  duration_ms: 0.213145
+  type: 'test'
+  ...
+# Subtest: groupProjectsByStage:一个项目都不丢(总数守恒)
+ok 219 - groupProjectsByStage:一个项目都不丢(总数守恒)
+  ---
+  duration_ms: 0.237345
+  type: 'test'
+  ...
+# Subtest: groupProjectsByStage:空列表 → 空数组(不造空堆)
+ok 220 - groupProjectsByStage:空列表 → 空数组(不造空堆)
+  ---
+  duration_ms: 0.176015
+  type: 'test'
+  ...
+# Subtest: groupProjectsByStage:词表为空(接口没给)也不丢项目,按首次出现序
+ok 221 - groupProjectsByStage:词表为空(接口没给)也不丢项目,按首次出现序
+  ---
+  duration_ms: 0.142175
+  type: 'test'
+  ...
+# Subtest: isStageGroupOpen:没存过偏好 → 默认展开
+ok 222 - isStageGroupOpen:没存过偏好 → 默认展开
+  ---
+  duration_ms: 0.377912
+  type: 'test'
+  ...
+# Subtest: isStageGroupOpen:整堆都已交付 → 默认收起(已交付最占地方)
+ok 223 - isStageGroupOpen:整堆都已交付 → 默认收起(已交付最占地方)
+  ---
+  duration_ms: 0.382171
+  type: 'test'
+  ...
+# Subtest: isStageGroupOpen:堆里还有没交付的 → 仍默认展开
+ok 224 - isStageGroupOpen:堆里还有没交付的 → 仍默认展开
+  ---
+  duration_ms: 0.165406
+  type: 'test'
+  ...
+# Subtest: isStageGroupOpen:空堆不算「都已交付」,默认展开(every 对空数组为真的坑)
+ok 225 - isStageGroupOpen:空堆不算「都已交付」,默认展开(every 对空数组为真的坑)
+  ---
+  duration_ms: 0.123227
+  type: 'test'
+  ...
+# Subtest: isStageGroupOpen:存过偏好就听用户的(压过默认,两个方向都要)
+ok 226 - isStageGroupOpen:存过偏好就听用户的(压过默认,两个方向都要)
+  ---
+  duration_ms: 0.100407
+  type: 'test'
+  ...
+# Subtest: isStageGroupOpen:别的堆的偏好不串台
+ok 227 - isStageGroupOpen:别的堆的偏好不串台
+  ---
+  duration_ms: 0.074179
+  type: 'test'
+  ...
+# Subtest: SIDE_STAGE_STORAGE_KEY:键名锁死(改名 = 所有人的折叠状态丢一次)
+ok 228 - SIDE_STAGE_STORAGE_KEY:键名锁死(改名 = 所有人的折叠状态丢一次)
+  ---
+  duration_ms: 0.05616
+  type: 'test'
+  ...
+# Subtest: loadStagePrefs:正常 JSON 原样读回
+ok 229 - loadStagePrefs:正常 JSON 原样读回
+  ---
+  duration_ms: 0.197106
+  type: 'test'
+  ...
+# Subtest: loadStagePrefs:null / 坏 JSON / 非对象 / 数组 → 空表,不抛
+ok 230 - loadStagePrefs:null / 坏 JSON / 非对象 / 数组 → 空表,不抛
+  ---
+  duration_ms: 0.276663
+  type: 'test'
+  ...
+# Subtest: loadStagePrefs:非布尔值剔除,同一份里的好值留下
+ok 231 - loadStagePrefs:非布尔值剔除,同一份里的好值留下
+  ---
+  duration_ms: 0.131467
+  type: 'test'
+  ...
+# Subtest: revealStage:用户手动收起的堆里点中项目 → 展开(新对象)
+ok 232 - revealStage:用户手动收起的堆里点中项目 → 展开(新对象)
+  ---
+  duration_ms: 0.156747
+  type: 'test'
+  ...
+# Subtest: revealStage:默认收起的已交付堆里点中项目 → 也要展开(没存过偏好 ≠ 开着)
+ok 233 - revealStage:默认收起的已交付堆里点中项目 → 也要展开(没存过偏好 ≠ 开着)
+  ---
+  duration_ms: 0.097918
+  type: 'test'
+  ...
+# Subtest: revealStage:已经展开(显式 true)→ 原样返回,不制造无谓写盘
+ok 234 - revealStage:已经展开(显式 true)→ 原样返回,不制造无谓写盘
+  ---
+  duration_ms: 0.071237
+  type: 'test'
+  ...
+# Subtest: revealStage:默认就展开的堆 → 原样返回,不必写
+ok 235 - revealStage:默认就展开的堆 → 原样返回,不必写
+  ---
+  duration_ms: 0.102558
+  type: 'test'
+  ...
+# Subtest: revealStage:不动别的堆
+ok 236 - revealStage:不动别的堆
+  ---
+  duration_ms: 0.084248
+  type: 'test'
+  ...
+# Subtest: revealStage:未建档堆(词表外的堆名)也照常展开
+ok 237 - revealStage:未建档堆(词表外的堆名)也照常展开
+  ---
+  duration_ms: 0.097137
+  type: 'test'
+  ...
+# Subtest: 括号开头:优先显示右括号之后的内容
+ok 238 - 括号开头:优先显示右括号之后的内容
+  ---
+  duration_ms: 1.110706
+  type: 'test'
+  ...
+# Subtest: 全角括号开头:同规则
+ok 239 - 全角括号开头:同规则
+  ---
+  duration_ms: 0.137276
+  type: 'test'
+  ...
+# Subtest: 半角/全角混用也认(设计师手打常见)
+ok 240 - 半角/全角混用也认(设计师手打常见)
+  ---
+  duration_ms: 0.129897
+  type: 'test'
+  ...
+# Subtest: 非括号开头:原样返回(括号在中间不触发)
+ok 241 - 非括号开头:原样返回(括号在中间不触发)
+  ---
+  duration_ms: 0.097297
+  type: 'test'
+  ...
+# Subtest: 括号后为空 → 退回原名(不返回空串)
+ok 242 - 括号后为空 → 退回原名(不返回空串)
+  ---
+  duration_ms: 0.181856
+  type: 'test'
+  ...
+# Subtest: 只有左括号没有右括号 → 原样(不截断)
+ok 243 - 只有左括号没有右括号 → 原样(不截断)
+  ---
+  duration_ms: 0.107428
+  type: 'test'
+  ...
+# Subtest: 空串 / 纯空白 → 原样,不炸
+ok 244 - 空串 / 纯空白 → 原样,不炸
+  ---
+  duration_ms: 0.256365
+  type: 'test'
+  ...
+# Subtest: 括号后内容首尾空白裁掉
+ok 245 - 括号后内容首尾空白裁掉
+  ---
+  duration_ms: 0.147457
+  type: 'test'
+  ...
+# Subtest: 嵌套/多组括号:只吃开头那一组
+ok 246 - 嵌套/多组括号:只吃开头那一组
+  ---
+  duration_ms: 0.284124
+  type: 'test'
+  ...
+# Subtest: 嵌套文件:直接用后端给的 rel,不再拼类目/文件名
+ok 247 - 嵌套文件:直接用后端给的 rel,不再拼类目/文件名
+  ---
+  duration_ms: 1.604625
+  type: 'test'
+  ...
+# Subtest: 嵌套文件 + 白名单外扩展名 → 仍退化为开文件夹,绝不开该文件
+ok 248 - 嵌套文件 + 白名单外扩展名 → 仍退化为开文件夹,绝不开该文件
+  ---
+  duration_ms: 0.218745
+  type: 'test'
+  ...
+# Subtest: 白名单内扩展名 → 开文件,rel 带类目前缀
+ok 249 - 白名单内扩展名 → 开文件,rel 带类目前缀
+  ---
+  duration_ms: 0.123867
+  type: 'test'
+  ...
+# Subtest: 无类目(项目根散文件)→ rel 不带前缀
+ok 250 - 无类目(项目根散文件)→ rel 不带前缀
+  ---
+  duration_ms: 0.093848
+  type: 'test'
+  ...
+# Subtest: 扩展名大小写不敏感
+ok 251 - 扩展名大小写不敏感
+  ---
+  duration_ms: 0.097628
+  type: 'test'
+  ...
+# Subtest: test_open_target_executable:可执行/脚本 → 退化为开所在文件夹
+ok 252 - test_open_target_executable:可执行/脚本 → 退化为开所在文件夹
+  ---
+  duration_ms: 0.379692
+  type: 'test'
+  ...
+# Subtest: 无扩展名 → 退化为开所在文件夹
+ok 253 - 无扩展名 → 退化为开所在文件夹
+  ---
+  duration_ms: 0.095318
+  type: 'test'
+  ...
+# Subtest: 双扩展名按真实末段判定:报价.pdf.bat → 文件夹
+ok 254 - 双扩展名按真实末段判定:报价.pdf.bat → 文件夹
+  ---
+  duration_ms: 0.072129
+  type: 'test'
+  ...
+# Subtest: 白名单外 + 无类目 → 开项目根(sub undefined)
+ok 255 - 白名单外 + 无类目 → 开项目根(sub undefined)
+  ---
+  duration_ms: 0.067328
+  type: 'test'
+  ...
+# Subtest: 白名单本身:不含任何可执行/脚本/快捷方式扩展名
+ok 256 - 白名单本身:不含任何可执行/脚本/快捷方式扩展名
+  ---
+  duration_ms: 0.200785
+  type: 'test'
+  ...
+# Subtest: 白名单全为小写且带点(与后端 splitext().lower() 对齐)
+ok 257 - 白名单全为小写且带点(与后端 splitext().lower() 对齐)
+  ---
+  duration_ms: 0.172497
+  type: 'test'
+  ...
+# Subtest: loadThreadMap:null/坏 JSON/非对象 → 空表,不炸
+ok 258 - loadThreadMap:null/坏 JSON/非对象 → 空表,不炸
+  ---
+  duration_ms: 2.009135
+  type: 'test'
+  ...
+# Subtest: loadThreadMap:合法映射通过;非 string 值被剔除
+ok 259 - loadThreadMap:合法映射通过;非 string 值被剔除
+  ---
+  duration_ms: 0.329944
+  type: 'test'
+  ...
+# Subtest: threadFor:命中给 chatId,未命中 null
+ok 260 - threadFor:命中给 chatId,未命中 null
+  ---
+  duration_ms: 0.165797
+  type: 'test'
+  ...
+# Subtest: withThread/withoutThread:immutable,原表不动
+ok 261 - withThread/withoutThread:immutable,原表不动
+  ---
+  duration_ms: 0.256255
+  type: 'test'
+  ...
+# Subtest: withThread:同 key 覆盖(重开新对话后指向新会话)
+ok 262 - withThread:同 key 覆盖(重开新对话后指向新会话)
+  ---
+  duration_ms: 0.179006
+  type: 'test'
+  ...
+# Subtest: sessionLabels:sessionKey(websocket:<chatId>)反查项目显示名
+ok 263 - sessionLabels:sessionKey(websocket:<chatId>)反查项目显示名
+  ---
+  duration_ms: 0.244295
+  type: 'test'
+  ...
+# Subtest: sessionLabels:映射项目已不在列表(被删/改名)→ 回落 key 本身
+ok 264 - sessionLabels:映射项目已不在列表(被删/改名)→ 回落 key 本身
+  ---
+  duration_ms: 0.188036
+  type: 'test'
+  ...
+# Subtest: projectPrefix:与 AGENTS.md 规则同源的固定格式
+ok 265 - projectPrefix:与 AGENTS.md 规则同源的固定格式
+  ---
+  duration_ms: 0.113188
+  type: 'test'
+  ...
+# Subtest: THREADS_STORAGE_KEY:稳定命名(改名=用户丢映射,锁死)
+ok 266 - THREADS_STORAGE_KEY:稳定命名(改名=用户丢映射,锁死)
+  ---
+  duration_ms: 0.265955
+  type: 'test'
+  ...
+# Subtest: monthGrid:恒 42 格(6 行 × 7 列)
+ok 267 - monthGrid:恒 42 格(6 行 × 7 列)
+  ---
+  duration_ms: 1.412308
+  type: 'test'
+  ...
+# Subtest: monthGrid:周一起始——首格是包含 1 号那周的周一
+ok 268 - monthGrid:周一起始——首格是包含 1 号那周的周一
+  ---
+  duration_ms: 0.170856
+  type: 'test'
+  ...
+# Subtest: monthGrid:本月日期连续且 inMonth=true,邻月 inMonth=false
+ok 269 - monthGrid:本月日期连续且 inMonth=true,邻月 inMonth=false
+  ---
+  duration_ms: 0.277403
+  type: 'test'
+  ...
+# Subtest: monthGrid:尾部补到 42 格(跨到下月)
+ok 270 - monthGrid:尾部补到 42 格(跨到下月)
+  ---
+  duration_ms: 0.146836
+  type: 'test'
+  ...
+# Subtest: monthGrid:1 号正好是周一时不补前导格
+ok 271 - monthGrid:1 号正好是周一时不补前导格
+  ---
+  duration_ms: 0.141866
+  type: 'test'
+  ...
+# Subtest: monthGrid:闰年 2 月 29 天
+ok 272 - monthGrid:闰年 2 月 29 天
+  ---
+  duration_ms: 1.070746
+  type: 'test'
+  ...
+# Subtest: monthGrid:平年 2 月 28 天
+ok 273 - monthGrid:平年 2 月 28 天
+  ---
+  duration_ms: 0.153866
+  type: 'test'
+  ...
+# Subtest: monthGrid:跨年——12 月尾格进次年 1 月
+ok 274 - monthGrid:跨年——12 月尾格进次年 1 月
+  ---
+  duration_ms: 0.158397
+  type: 'test'
+  ...
+# Subtest: monthGrid:日期严格连续递增(无缺格无重复)
+ok 275 - monthGrid:日期严格连续递增(无缺格无重复)
+  ---
+  duration_ms: 0.433291
+  type: 'test'
+  ...
+# Subtest: dueDates:去重 + 升序
+ok 276 - dueDates:去重 + 升序
+  ---
+  duration_ms: 1.675073
+  type: 'test'
+  ...
+# Subtest: dueDates:无 due 的条目不参与
+ok 277 - dueDates:无 due 的条目不参与
+  ---
+  duration_ms: 0.247255
+  type: 'test'
+  ...
+# Subtest: dueDates:空输入 / 全无 due = []
+ok 278 - dueDates:空输入 / 全无 due = []
+  ---
+  duration_ms: 0.112277
+  type: 'test'
+  ...
+# Subtest: dueDates:不改传入数组(无副作用)
+ok 279 - dueDates:不改传入数组(无副作用)
+  ---
+  duration_ms: 0.121228
+  type: 'test'
+  ...
+# Subtest: followUpItems:只取超期 + 今天到期
+ok 280 - followUpItems:只取超期 + 今天到期
+  ---
+  duration_ms: 0.203485
+  type: 'test'
+  ...
+# Subtest: followUpItems:超期在前,越久越前;今天到期垫后
+ok 281 - followUpItems:超期在前,越久越前;今天到期垫后
+  ---
+  duration_ms: 0.110507
+  type: 'test'
+  ...
+# Subtest: followUpItems:同 due 保持传入序(稳定)
+ok 282 - followUpItems:同 due 保持传入序(稳定)
+  ---
+  duration_ms: 0.174336
+  type: 'test'
+  ...
+# Subtest: followUpItems:没有超期也没有今天到期 = []
+ok 283 - followUpItems:没有超期也没有今天到期 = []
+  ---
+  duration_ms: 0.185506
+  type: 'test'
+  ...
+# Subtest: followUpItems:条目原样带过(同一引用)
+ok 284 - followUpItems:条目原样带过(同一引用)
+  ---
+  duration_ms: 0.083237
+  type: 'test'
+  ...
+# Subtest: followUpItems:不改传入数组(无副作用)
+ok 285 - followUpItems:不改传入数组(无副作用)
+  ---
+  duration_ms: 0.122357
+  type: 'test'
+  ...
+# Subtest: s-w1 地址里没标记 = 不在外壳里(浏览器里一个窗口按钮都不许出现)
+ok 286 - s-w1 地址里没标记 = 不在外壳里(浏览器里一个窗口按钮都不许出现)
+  ---
+  duration_ms: 0.979809
+  type: 'test'
+  ...
+# Subtest: s-w2 地址里带标记才算在外壳里
+ok 287 - s-w2 地址里带标记才算在外壳里
+  ---
+  duration_ms: 0.291714
+  type: 'test'
+  ...
+# Subtest: s-w2b 只有 pywebview 注进来、地址没标记 ⇒ 仍然不算(本单的病根标本)
+ok 288 - s-w2b 只有 pywebview 注进来、地址没标记 ⇒ 仍然不算(本单的病根标本)
+  ---
+  duration_ms: 0.147707
+  type: 'test'
+  ...
+# Subtest: s-w2c 长得像的参数不许假命中(别用子串匹配)
+ok 289 - s-w2c 长得像的参数不许假命中(别用子串匹配)
+  ---
+  duration_ms: 0.251263
+  type: 'test'
+  ...
+# Subtest: s-w7 八个方向每个都有指针,且指针方向对得上
+ok 290 - s-w7 八个方向每个都有指针,且指针方向对得上
+  ---
+  duration_ms: 0.498009
+  type: 'test'
+  ...
+# Subtest: batchEditRequests:选中项 → 逐条请求体,保持序
+ok 291 - batchEditRequests:选中项 → 逐条请求体,保持序
+  ---
+  duration_ms: 2.157512
+  type: 'test'
+  ...
+# Subtest: batchEditRequests:看着已是目标态的条目也照发(判定归后端)
+ok 292 - batchEditRequests:看着已是目标态的条目也照发(判定归后端)
+  ---
+  duration_ms: 0.356371
+  type: 'test'
+  ...
+# Subtest: batchEditRequests:跳过 cnum===null 的残缺行
+ok 293 - batchEditRequests:跳过 cnum===null 的残缺行
+  ---
+  duration_ms: 0.185116
+  type: 'test'
+  ...
+# Subtest: batchEditRequests:看着全是空操作也照发(唯一被跳过的只有不可寻址)
+ok 294 - batchEditRequests:看着全是空操作也照发(唯一被跳过的只有不可寻址)
+  ---
+  duration_ms: 0.233715
+  type: 'test'
+  ...
+# Subtest: batchEditRequests:空输入 → []
+ok 295 - batchEditRequests:空输入 → []
+  ---
+  duration_ms: 0.187966
+  type: 'test'
+  ...
+# Subtest: batchEditRequests:非法目标态 → 抛
+ok 296 - batchEditRequests:非法目标态 → 抛
+  ---
+  duration_ms: 0.282484
+  type: 'test'
+  ...
+# Subtest: batchEditRequests:不改传入数组(纯函数)
+ok 297 - batchEditRequests:不改传入数组(纯函数)
+  ---
+  duration_ms: 0.236535
+  type: 'test'
+  ...
+# Subtest: dueStatus:null due → null
+ok 298 - dueStatus:null due → null
+  ---
+  duration_ms: 0.87858
+  type: 'test'
+  ...
+# Subtest: dueStatus:过去 → overdue
+ok 299 - dueStatus:过去 → overdue
+  ---
+  duration_ms: 0.152387
+  type: 'test'
+  ...
+# Subtest: dueStatus:今天 → today
+ok 300 - dueStatus:今天 → today
+  ---
+  duration_ms: 0.139537
+  type: 'test'
+  ...
+# Subtest: dueStatus:将来 → upcoming
+ok 301 - dueStatus:将来 → upcoming
+  ---
+  duration_ms: 0.171607
+  type: 'test'
+  ...
+# Subtest: idleProjectKeys:减掉有卡的项目
+ok 302 - idleProjectKeys:减掉有卡的项目
+  ---
+  duration_ms: 3.397135
+  type: 'test'
+  ...
+# Subtest: idleProjectKeys:减掉超期项目(已在独立行报过,不重复说)
+ok 303 - idleProjectKeys:减掉超期项目(已在独立行报过,不重复说)
+  ---
+  duration_ms: 0.243385
+  type: 'test'
+  ...
+# Subtest: idleProjectKeys:两个减法同时生效
+ok 304 - idleProjectKeys:两个减法同时生效
+  ---
+  duration_ms: 0.265215
+  type: 'test'
+  ...
+# Subtest: idleProjectKeys:保持 allKeys 传入序(不排序)
+ok 305 - idleProjectKeys:保持 allKeys 传入序(不排序)
+  ---
+  duration_ms: 0.268365
+  type: 'test'
+  ...
+# Subtest: idleProjectKeys:全被减完 = []
+ok 306 - idleProjectKeys:全被减完 = []
+  ---
+  duration_ms: 0.210025
+  type: 'test'
+  ...
+# Subtest: idleProjectKeys:既有卡又超期的项目只算减一次(不报错、不残留)
+ok 307 - idleProjectKeys:既有卡又超期的项目只算减一次(不报错、不残留)
+  ---
+  duration_ms: 0.182096
+  type: 'test'
+  ...
+# Subtest: orderItems:有 due 的整体排在无 due 的前面(哪怕无 due 的记录日期更老)
+ok 308 - orderItems:有 due 的整体排在无 due 的前面(哪怕无 due 的记录日期更老)
+  ---
+  duration_ms: 3.474583
+  type: 'test'
+  ...
+# Subtest: orderItems:硬轨按 due 升序 —— 过期最久的最靠前,然后今天,然后未来
+ok 309 - orderItems:硬轨按 due 升序 —— 过期最久的最靠前,然后今天,然后未来
+  ---
+  duration_ms: 7.079632
+  type: 'test'
+  ...
+# Subtest: orderItems:软轨按记录日期升序 —— 最久没动静的在前
+ok 310 - orderItems:软轨按记录日期升序 —— 最久没动静的在前
+  ---
+  duration_ms: 0.266874
+  type: 'test'
+  ...
+# Subtest: orderItems:软轨**不是**倒序(最新的不许排最前)
+ok 311 - orderItems:软轨**不是**倒序(最新的不许排最前)
+  ---
+  duration_ms: 0.187085
+  type: 'test'
+  ...
+# Subtest: orderItems:没有记录日期的条目沉到软轨最底
+ok 312 - orderItems:没有记录日期的条目沉到软轨最底
+  ---
+  duration_ms: 0.259974
+  type: 'test'
+  ...
+# Subtest: orderItems:无 date 的条目仍排在任何有 due 的条目之后(两轨优先于日期缺失)
+ok 313 - orderItems:无 date 的条目仍排在任何有 due 的条目之后(两轨优先于日期缺失)
+  ---
+  duration_ms: 0.181715
+  type: 'test'
+  ...
+# Subtest: orderItems:同 due 保持传入序(稳定)
+ok 314 - orderItems:同 due 保持传入序(稳定)
+  ---
+  duration_ms: 0.133506
+  type: 'test'
+  ...
+# Subtest: orderItems:同记录日期保持传入序(稳定)
+ok 315 - orderItems:同记录日期保持传入序(稳定)
+  ---
+  duration_ms: 0.132757
+  type: 'test'
+  ...
+# Subtest: orderItems:全是 null(既无 due 又无 date)= 原样保持传入序
+ok 316 - orderItems:全是 null(既无 due 又无 date)= 原样保持传入序
+  ---
+  duration_ms: 0.333114
+  type: 'test'
+  ...
+# Subtest: orderItems:不改传入数组(无副作用)
+ok 317 - orderItems:不改传入数组(无副作用)
+  ---
+  duration_ms: 0.42327
+  type: 'test'
+  ...
+# Subtest: orderItems:空输入 = []
+ok 318 - orderItems:空输入 = []
+  ---
+  duration_ms: 0.183566
+  type: 'test'
+  ...
+# Subtest: 【真实形态】全部条目都没有 due:整页退化成纯软轨,按最久在前
+ok 319 - 【真实形态】全部条目都没有 due:整页退化成纯软轨,按最久在前
+  ---
+  duration_ms: 0.126577
+  type: 'test'
+  ...
+# Subtest: 【真实形态】全部项目都没有 due:卡序按各卡最老记录日期升序
+ok 320 - 【真实形态】全部项目都没有 due:卡序按各卡最老记录日期升序
+  ---
+  duration_ms: 0.323743
+  type: 'test'
+  ...
+# Subtest: orderProjectCards:有过期条目的卡排最前(哪怕它条目最少)
+ok 321 - orderProjectCards:有过期条目的卡排最前(哪怕它条目最少)
+  ---
+  duration_ms: 0.177146
+  type: 'test'
+  ...
+# Subtest: orderProjectCards:四个档位的完整顺序(过期 → 今天 → 未来 → 无 due)
+ok 322 - orderProjectCards:四个档位的完整顺序(过期 → 今天 → 未来 → 无 due)
+  ---
+  duration_ms: 0.143198
+  type: 'test'
+  ...
+# Subtest: orderProjectCards:档位取卡内**最紧急**的那条,不是第一条也不是多数
+ok 323 - orderProjectCards:档位取卡内**最紧急**的那条,不是第一条也不是多数
+  ---
+  duration_ms: 0.133246
+  type: 'test'
+  ...
+# Subtest: orderProjectCards:同档内按卡里最早的 due 升序
+ok 324 - orderProjectCards:同档内按卡里最早的 due 升序
+  ---
+  duration_ms: 0.130767
+  type: 'test'
+  ...
+# Subtest: orderProjectCards:全平局保持传入序(稳定排序)
+ok 325 - orderProjectCards:全平局保持传入序(稳定排序)
+  ---
+  duration_ms: 0.124417
+  type: 'test'
+  ...
+# Subtest: orderProjectCards:items 原样带过(同一引用,不复制不重排组内)
+ok 326 - orderProjectCards:items 原样带过(同一引用,不复制不重排组内)
+  ---
+  duration_ms: 0.104148
+  type: 'test'
+  ...
+# Subtest: orderProjectCards:不改传入数组(无副作用)
+ok 327 - orderProjectCards:不改传入数组(无副作用)
+  ---
+  duration_ms: 0.164227
+  type: 'test'
+  ...
+# Subtest: orderProjectCards:空输入 = []
+ok 328 - orderProjectCards:空输入 = []
+  ---
+  duration_ms: 0.074949
+  type: 'test'
+  ...
+# Subtest: orderProjectCards:空 items 的卡不炸,且沉到无 due 档
+ok 329 - orderProjectCards:空 items 的卡不炸,且沉到无 due 档
+  ---
+  duration_ms: 0.103577
+  type: 'test'
+  ...
+# Subtest: orderProjectCards:**不再接受也不再理会**旧的 stale 入参
+ok 330 - orderProjectCards:**不再接受也不再理会**旧的 stale 入参
+  ---
+  duration_ms: 0.139847
+  type: 'test'
+  ...
+# Subtest: latestRecordAge:取**最新**的记录日期算年龄(不是最老)
+ok 331 - latestRecordAge:取**最新**的记录日期算年龄(不是最老)
+  ---
+  duration_ms: 0.173916
+  type: 'test'
+  ...
+# Subtest: latestRecordAge:今天刚记的 = 0 天
+ok 332 - latestRecordAge:今天刚记的 = 0 天
+  ---
+  duration_ms: 0.083568
+  type: 'test'
+  ...
+# Subtest: latestRecordAge:一条都没有日期 → null
+ok 333 - latestRecordAge:一条都没有日期 → null
+  ---
+  duration_ms: 0.065619
+  type: 'test'
+  ...
+# Subtest: latestRecordAge:空输入 → null
+ok 334 - latestRecordAge:空输入 → null
+  ---
+  duration_ms: 0.055829
+  type: 'test'
+  ...
+# Subtest: latestRecordAge:混合有无日期时,只看有日期的那些
+ok 335 - latestRecordAge:混合有无日期时,只看有日期的那些
+  ---
+  duration_ms: 0.072238
+  type: 'test'
+  ...
+# Subtest: latestRecordAge:跨月正确(不是按 30 天粗算)
+ok 336 - latestRecordAge:跨月正确(不是按 30 天粗算)
+  ---
+  duration_ms: 0.071327
+  type: 'test'
+  ...
+# Subtest: latestRecordAge:未来日期(手写错的档案)不返回负数,钳到 0
+ok 337 - latestRecordAge:未来日期(手写错的档案)不返回负数,钳到 0
+  ---
+  duration_ms: 0.149907
+  type: 'test'
+  ...
+# Subtest: STALE_AFTER_DAYS = 7,与后端 ds_todo 的阈值同源
+ok 338 - STALE_AFTER_DAYS = 7,与后端 ds_todo 的阈值同源
+  ---
+  duration_ms: 0.066888
+  type: 'test'
+  ...
+# Subtest: batchCaption:一批的第一条给标题
+ok 339 - batchCaption:一批的第一条给标题
+  ---
+  duration_ms: 0.158646
+  type: 'test'
+  ...
+# Subtest: batchCaption:同一批的后续条目不再重复标题
+ok 340 - batchCaption:同一批的后续条目不再重复标题
+  ---
+  duration_ms: 0.086248
+  type: 'test'
+  ...
+# Subtest: batchCaption:换了一批就重新给标题
+ok 341 - batchCaption:换了一批就重新给标题
+  ---
+  duration_ms: 0.072068
+  type: 'test'
+  ...
+# Subtest: batchCaption:没有名字的批次不给标题(不制造噪音)
+ok 342 - batchCaption:没有名字的批次不给标题(不制造噪音)
+  ---
+  duration_ms: 0.875111
+  type: 'test'
+  ...
+# Subtest: batchCaption:从有名字批次回到无名条目,不残留上一条的标题
+ok 343 - batchCaption:从有名字批次回到无名条目,不残留上一条的标题
+  ---
+  duration_ms: 0.123357
+  type: 'test'
+  ...
+# Subtest: batchCaption:同名但不同批(两次沟通碰巧起了同名)仍各自给标题
+ok 344 - batchCaption:同名但不同批(两次沟通碰巧起了同名)仍各自给标题
+  ---
+  duration_ms: 0.153856
+  type: 'test'
+  ...
+# Subtest: batchCaption:过长标题截断加省略号(复用 BATCH_TITLE_MAX=14)
+ok 345 - batchCaption:过长标题截断加省略号(复用 BATCH_TITLE_MAX=14)
+  ---
+  duration_ms: 0.088037
+  type: 'test'
+  ...
+# Subtest: batchCaption:不含条数 —— 卡内看得见行,不需要「等 N 条」
+ok 346 - batchCaption:不含条数 —— 卡内看得见行,不需要「等 N 条」
+  ---
+  duration_ms: 0.222736
+  type: 'test'
+  ...
+# Subtest: spaceSections:按空间首现序分组
+ok 347 - spaceSections:按空间首现序分组
+  ---
+  duration_ms: 2.045844
+  type: 'test'
+  ...
+# Subtest: spaceSections:无空间条目归 null 小节且恒置末(即使首现)
+ok 348 - spaceSections:无空间条目归 null 小节且恒置末(即使首现)
+  ---
+  duration_ms: 0.201946
+  type: 'test'
+  ...
+# Subtest: spaceSections:全无空间 = 单个 null 小节
+ok 349 - spaceSections:全无空间 = 单个 null 小节
+  ---
+  duration_ms: 0.295934
+  type: 'test'
+  ...
+# Subtest: spaceSections:空输入 = []
+ok 350 - spaceSections:空输入 = []
+  ---
+  duration_ms: 0.114758
+  type: 'test'
+  ...
+# Subtest: u1 有新版时,那句话里必须带着版本号
+ok 351 - u1 有新版时,那句话里必须带着版本号
+  ---
+  duration_ms: 0.995718
+  type: 'test'
+  ...
+# Subtest: u2 已是最新就说已是最新,不许说成有新版
+ok 352 - u2 已是最新就说已是最新,不许说成有新版
+  ---
+  duration_ms: 0.167217
+  type: 'test'
+  ...
+# Subtest: u3 🔴 查不动的时候不许说「已是最新」
+ok 353 - u3 🔴 查不动的时候不许说「已是最新」
+  ---
+  duration_ms: 0.208406
+  type: 'test'
+  ...
+# Subtest: u4 点下去要有反应(这个按钮原来的病就是没反应)
+ok 354 - u4 点下去要有反应(这个按钮原来的病就是没反应)
+  ---
+  duration_ms: 0.143807
+  type: 'test'
+  ...
+# Subtest: u5 还没查过时显示的是版本号,不是空白
+ok 355 - u5 还没查过时显示的是版本号,不是空白
+  ---
+  duration_ms: 0.225104
+  type: 'test'
+  ...
+# Subtest: u6 发布页地址指向本仓那一版的 tag,且是 https
+ok 356 - u6 发布页地址指向本仓那一版的 tag,且是 https
+  ---
+  duration_ms: 0.342752
+  type: 'test'
+  ...
+# Subtest: u7 版本号缺失时不许拼出一个坏地址
+ok 357 - u7 版本号缺失时不许拼出一个坏地址
+  ---
+  duration_ms: 0.155017
+  type: 'test'
+  ...
+1..357
+# tests 357
+# suites 0
+# pass 357
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3829.609767
+---------------- 输出结束 ----------------
+runlog: node-all-green rc=0 commit=df6b3f3 dirty=yes at=2026-09-07T13:19:17Z file=tracks/opendesign-in-app-update/evidence/20260907T131917Z-01-node-all-green.txt

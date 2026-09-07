@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { updateLabel, releasePageUrl } from "../update";
+import type { UpdateInfo, UpdateState } from "../update";
 import type { ConsentMode, Project } from "../api";
 import { relTime } from "../api";
 import { displayProjectName } from "./projectName";
@@ -45,6 +47,10 @@ type Props = {
   consentMode: ConsentMode | null;
   onSetConsentMode: (mode: ConsentMode) => void;
   health: { version: string; ds_root: string; model: string | null } | null;
+  /** 查更新(track opendesign-in-app-update)。这个按钮此前**没有 onClick**,点了没反应。 */
+  updateState: UpdateState;
+  updateInfo: UpdateInfo | null;
+  onCheckUpdate: () => void;
 };
 
 function dotClass(p: Project, current: boolean): string {
@@ -66,7 +72,7 @@ export default function Sidebar({
   route, projects, stages, selectedKey, onSelectProject, todosOpenCount, excludedStructural,
   onOpenFolderVisibility, onOpenLlmKey, consentMode, onSetConsentMode,
   sessions, sessionTags, onOpenSession, onDeleteSession, onNewChat, onNewProject,
-  onSearch, health,
+  onSearch, health, updateState, updateInfo, onCheckUpdate,
 }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -347,12 +353,32 @@ export default function Sidebar({
             <span className="lbl">快捷键</span>
           </button>
           <div className="divider" />
-          <button className="item">
+          <button
+            className="item"
+            onClick={onCheckUpdate}
+            disabled={updateState === "checking"}
+            title="问一次 GitHub:有没有比这台机器上更新的版本"
+          >
             <span className="lbl muted">检查更新</span>
             <span className="val mono faint">
-              {health ? `ds-web v${health.version}` : "服务离线"}
+              {updateLabel({
+                state: updateState,
+                info: updateInfo,
+                version: health ? health.version : null,
+              })}
             </span>
           </button>
+          {updateInfo?.update_available && releasePageUrl(updateInfo.latest) && (
+            <a
+              className="item"
+              href={releasePageUrl(updateInfo.latest) as string}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <span className="lbl">下载 {updateInfo.latest}</span>
+              <span className="val faint">去发布页 ›</span>
+            </a>
+          )}
         </div>
       )}
       <div className="side-footer">

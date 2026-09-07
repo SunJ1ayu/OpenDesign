@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-in-app-update",
+  "run_id": "20260907T131335Z-01-judging-endpoint-4red",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "judging-endpoint-4red",
+  "started_at": "2026-09-07T13:13:35Z",
+  "finished_at": "2026-09-07T13:13:37Z",
+  "duration_ms": 2134,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
