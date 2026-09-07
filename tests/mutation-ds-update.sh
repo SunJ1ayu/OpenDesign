@@ -187,6 +187,23 @@ mutate_and_expect m18 test_t2e_garbage_returns_none_not_exception \
   'BARE_RE = re.compile(rf"^({_NUM})$")' \
   'BARE_RE = re.compile(rf"^({_NUM})")'
 
+# ── 评审 F1 / F5 那批 ────────────────────────────────────────────────
+
+# m19 🔴 不把 GitHub 给的发布页地址带出来 ⇒ 界面只能自己拼(F1 的病根)
+mutate_and_expect m19 test_t10a_decide_carries_the_real_release_url \
+  '    out["release_url"] = rel.get("html_url")' \
+  '    out["release_url"] = None'
+
+# m20 🔴 地址拿补零后的版本号拼(F1 原样重现:1.0 → win-installer-1.0.0 → 404)
+mutate_and_expect m20 test_t10b_two_segment_tag_keeps_its_own_url \
+  '    out["release_url"] = rel.get("html_url")' \
+  '    out["release_url"] = "https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-" + out["latest"]'
+
+# m21 把 /latest 拆成另一个字面量拼上去(F5 说的那条绕闸路)⇒ t11 必须咬住
+mutate_and_expect m21 test_t11_releases_url_is_exactly_this \
+  '    return API_BASE + RELEASES_PATH.format(repo=repo) + "?per_page=100"' \
+  '    return API_BASE + RELEASES_PATH.format(repo=repo) + "/latest" + "?per_page=100"'
+
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"
 echo

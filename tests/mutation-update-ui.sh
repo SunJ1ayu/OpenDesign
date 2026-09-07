@@ -56,10 +56,10 @@ mutate_and_expect v3 "u1 有新版时,那句话里必须带着版本号" \
   '  if (info.update_available && info.latest) return `有新版 ${info.latest} ›`;' \
   '  if (info.update_available && info.latest) return "有新版 ›";'
 
-# v4 版本口径放宽到单段(和 ds_update.py 不一致)
-mutate_and_expect v4 "u8 发布页地址与版本解析口径一致(两段式认,坏形状不认)" \
-  'const VERSION_RE = /^\d+(\.\d+){1,3}$/;' \
-  'const VERSION_RE = /^\d+(\.\d+){0,3}$/;'
+# v4 已作废(2026-09-07):它咬的是 update.ts 里那条 VERSION_RE,
+# 而评审 F1 之后**地址不再由我们拼**,那条正则连同 releasePageUrl 一起没了。
+# 变异随被测对象消失而作废是正常的;留着它只会每轮报一次 [BAD]。
+# 替代它的是下面 v8:验地址那一关能不能被拆掉。
 
 # v5 🔴 开关关了也照样自动往外发
 mutate_and_expect v5 "u10 🔴 显式关掉之后就不许再自动往外发请求" \
@@ -75,6 +75,21 @@ mutate_and_expect v6 "u11 更新说明取第一句有意义的话,去掉 markdow
 mutate_and_expect v7 "u12 更新说明太长要截断,空的要给空串" \
   '    return line.length > max ? line.slice(0, max - 1) + "…" : line;' \
   '    return line;'
+
+# v8 🔴 后端给什么就渲染什么(验地址那一关拆掉)
+mutate_and_expect v8 "u7 别人给的地址一律不放行(界面上那个链接是要业主去点的)" \
+  '  return RELEASE_URL_RE.test(url) ? url : null;' \
+  '  return url;'
+
+# v9 🔴 有新版却不在收起来的那一行上留记号(F2 原样重现)
+mutate_and_expect v9 "u13 🔴 有新版时,设置那一行必须挂个记号(不然业主根本看不到)" \
+  '  return !!info && info.update_available === true;' \
+  '  return false;'
+
+# v10 查完了没拿到东西,长得像"还没查过"(F3 原样重现)
+mutate_and_expect v10 "u14 done + 空结果要说查不到,不许伪装成没查过" \
+  '  if (s.state === "done" && !s.info) return "查不到更新";' \
+  '  if (false) return "查不到更新";'
 
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"

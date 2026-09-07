@@ -90,7 +90,8 @@ class UpdateCheckEndpoint(unittest.TestCase):
             st, body = _get(port, "/api/update/check")
         self.assertEqual(st, 200)
         self.assertEqual(
-            set(body), {"current", "update_available", "latest", "asset", "notes", "error"},
+            set(body), {"current", "update_available", "latest", "asset", "notes", "error",
+                        "release_url"},   # release_url 是评审 F1 加的:地址由 GitHub 给,不许界面自己拼
             f"端点吐出来的字段和约定的不一样:{sorted(body)} —— "
             "多出来的字段意味着把 GitHub 的原始响应往界面上漏")
         self.assertEqual(body["current"], ds_web.VERSION,

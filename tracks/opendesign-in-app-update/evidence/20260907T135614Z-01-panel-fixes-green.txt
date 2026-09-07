@@ -1,0 +1,157 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    panel-fixes-green
+cmd:     bash -c set\ +e\;\ DS_SHELL_E2E=1\ /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_update\ tests.test_ds_web_update\;\ a=\$\?\;\ node\ --test\ tests/test_update_ui.mjs\;\ b=\$\?\;\ bash\ tests/mutation-ds-update.sh\;\ c=\$\?\;\ bash\ tests/mutation-update-ui.sh\;\ d=\$\?\;\ bash\ tests/mutation-ds-web-update.sh\;\ e=\$\?\;\ \[\ \$a\ -eq\ 0\ \]\ \&\&\ \[\ \$b\ -eq\ 0\ \]\ \&\&\ \[\ \$c\ -eq\ 0\ \]\ \&\&\ \[\ \$d\ -eq\ 0\ \]\ \&\&\ \[\ \$e\ -eq\ 0\ \]
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  752ac1d
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-07T13:56:14Z
+---------------- 输出开始 ----------------
+/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+  """主变更行 C 号 —— **五个写口共用这一个定义**。
+..............................2026-09-07 21:56:14 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+.2026-09-07 21:56:14 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+.2026-09-07 21:56:15 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-07 21:56:15 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-07 21:56:15 127.0.0.1 - "GET /api/update/check?force=1 HTTP/1.1" 200 -
+.2026-09-07 21:56:15 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+.
+----------------------------------------------------------------------
+Ran 34 tests in 2.034s
+
+OK
+TAP version 13
+# Subtest: u1 有新版时,那句话里必须带着版本号
+ok 1 - u1 有新版时,那句话里必须带着版本号
+  ---
+  duration_ms: 1.084105
+  type: 'test'
+  ...
+# Subtest: u2 已是最新就说已是最新,不许说成有新版
+ok 2 - u2 已是最新就说已是最新,不许说成有新版
+  ---
+  duration_ms: 0.195035
+  type: 'test'
+  ...
+# Subtest: u3 🔴 查不动的时候不许说「已是最新」
+ok 3 - u3 🔴 查不动的时候不许说「已是最新」
+  ---
+  duration_ms: 0.187116
+  type: 'test'
+  ...
+# Subtest: u4 点下去要有反应(这个按钮原来的病就是没反应)
+ok 4 - u4 点下去要有反应(这个按钮原来的病就是没反应)
+  ---
+  duration_ms: 0.145006
+  type: 'test'
+  ...
+# Subtest: u5 还没查过时显示的是版本号,不是空白
+ok 5 - u5 还没查过时显示的是版本号,不是空白
+  ---
+  duration_ms: 0.134637
+  type: 'test'
+  ...
+# Subtest: u9 默认自动检查(业主没表过态时,帮他查)
+ok 6 - u9 默认自动检查(业主没表过态时,帮他查)
+  ---
+  duration_ms: 0.165277
+  type: 'test'
+  ...
+# Subtest: u10 🔴 显式关掉之后就不许再自动往外发请求
+ok 7 - u10 🔴 显式关掉之后就不许再自动往外发请求
+  ---
+  duration_ms: 0.173056
+  type: 'test'
+  ...
+# Subtest: u11 更新说明取第一句有意义的话,去掉 markdown 记号
+ok 8 - u11 更新说明取第一句有意义的话,去掉 markdown 记号
+  ---
+  duration_ms: 0.375732
+  type: 'test'
+  ...
+# Subtest: u12 更新说明太长要截断,空的要给空串
+ok 9 - u12 更新说明太长要截断,空的要给空串
+  ---
+  duration_ms: 0.43584
+  type: 'test'
+  ...
+# Subtest: u6 只放行本仓 releases 下的 https 地址
+ok 10 - u6 只放行本仓 releases 下的 https 地址
+  ---
+  duration_ms: 0.41708
+  type: 'test'
+  ...
+# Subtest: u7 别人给的地址一律不放行(界面上那个链接是要业主去点的)
+ok 11 - u7 别人给的地址一律不放行(界面上那个链接是要业主去点的)
+  ---
+  duration_ms: 0.201856
+  type: 'test'
+  ...
+# Subtest: u13 🔴 有新版时,设置那一行必须挂个记号(不然业主根本看不到)
+ok 12 - u13 🔴 有新版时,设置那一行必须挂个记号(不然业主根本看不到)
+  ---
+  duration_ms: 0.158107
+  type: 'test'
+  ...
+# Subtest: u14 done + 空结果要说查不到,不许伪装成没查过
+ok 13 - u14 done + 空结果要说查不到,不许伪装成没查过
+  ---
+  duration_ms: 0.103418
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 150.240801
+== 红检 bin/ds_update.py ==
+  [咬住] m1 → test_t1_picks_the_newest_even_though_all_are_prerelease
+  [咬住] m1b → test_t1b_code_must_not_call_the_latest_endpoint
+  [对照组] m1c 注释里提到那个接口 → 仍然全绿(没有误报)
+  [咬住] m2 → test_t2a_numeric_not_lexicographic
+  [咬住] m3 → test_t3a_same_version_no_offer
+  [咬住] m4 → test_t3b_local_newer_no_offer
+  [咬住] m5 → test_t1c2_asset_with_a_wrong_name_is_not_an_installer
+  [咬住] m6 → test_t1d_draft_is_never_a_candidate
+  [咬住] m7 → test_t7d_never_raises_whatever_happens
+  [咬住] m8 → test_t2e_garbage_returns_none_not_exception
+  [咬住] m9 → test_t3c_local_older_offers_with_what_it_needs
+  [咬住] m10 → test_t3d_unparsable_local_version_never_offers
+  [咬住] m11 → test_t8d_failure_is_never_cached
+  [咬住] m12 → test_t8e_cache_is_keyed_by_current_version
+  [咬住] m13 → test_t8c_force_bypasses_cache
+  [咬住] m14 → test_t8b_expired_cache_refetches
+  [咬住] m15 → test_t8a_second_call_within_ttl_does_not_refetch
+  [咬住] m16 → test_t2f_two_segment_version_is_understood
+  [咬住] m17 → test_t2g_padding_makes_the_short_form_compare_right
+  [咬住] m18 → test_t2e_garbage_returns_none_not_exception
+  [咬住] m19 → test_t10a_decide_carries_the_real_release_url
+  [咬住] m20 → test_t10b_two_segment_tag_keeps_its_own_url
+  [咬住] m21 → test_t11_releases_url_is_exactly_this
+
+== 红检小结:咬住 23 条 / 漏网 0 条(被测文件已逐字节还原)==
+== 红检 web/src/update.ts ==
+  [咬住] v1 → u3 🔴 查不动的时候不许说「已是最新」
+  [咬住] v2 → u4 点下去要有反应(这个按钮原来的病就是没反应)
+  [咬住] v3 → u1 有新版时,那句话里必须带着版本号
+  [咬住] v5 → u10 🔴 显式关掉之后就不许再自动往外发请求
+  [咬住] v6 → u11 更新说明取第一句有意义的话,去掉 markdown 记号
+  [咬住] v7 → u12 更新说明太长要截断,空的要给空串
+  [咬住] v8 → u7 别人给的地址一律不放行(界面上那个链接是要业主去点的)
+  [咬住] v9 → u13 🔴 有新版时,设置那一行必须挂个记号(不然业主根本看不到)
+  [咬住] v10 → u14 done + 空结果要说查不到,不许伪装成没查过
+
+== 红检小结:咬住 9 条 / 漏网 0 条(被测文件已逐字节还原)==
+== 红检 /api/update/check ==
+  [咬住] n1 → test_t9b_network_failure_is_still_200
+  [咬住] n2 → test_t9c_force_really_asks_again
+  [咬住] n3 → test_t9a_endpoint_answers_with_the_shape_the_ui_needs
+  [咬住] n4 → test_t9a_endpoint_answers_with_the_shape_the_ui_needs
+  [咬住] n5 → test_t9a_endpoint_answers_with_the_shape_the_ui_needs
+
+== 红检小结:咬住 5 条 / 漏网 0 条(被测文件已逐字节还原)==
+---------------- 输出结束 ----------------
+runlog: panel-fixes-green rc=0 commit=752ac1d dirty=yes at=2026-09-07T13:56:14Z file=tracks/opendesign-in-app-update/evidence/20260907T135614Z-01-panel-fixes-green.txt

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { updateLabel, releasePageUrl, notesSummary } from "../update";
+import { updateLabel, safeReleaseUrl, notesSummary, hasUpdateBadge } from "../update";
 import type { UpdateInfo, UpdateState } from "../update";
 import type { ConsentMode, Project } from "../api";
 import { relTime } from "../api";
@@ -371,10 +371,10 @@ export default function Sidebar({
               })}
             </span>
           </button>
-          {updateInfo?.update_available && releasePageUrl(updateInfo.latest) && (
+          {updateInfo?.update_available && safeReleaseUrl(updateInfo.release_url) && (
             <a
               className="item"
-              href={releasePageUrl(updateInfo.latest) as string}
+              href={safeReleaseUrl(updateInfo.release_url) as string}
               target="_blank"
               rel="noreferrer"
             >
@@ -397,7 +397,14 @@ export default function Sidebar({
           aria-expanded={settingsOpen}
         >
           <span className="ico">⚙</span>
-          <span className="grow">设置</span>
+          <span className="grow">
+            设置
+            {/* 🔴 评审 F2:有新版的话必须在**收起来的**这一行上留个记号 ——
+                否则那句"有新版"只活在展开后的弹层里,业主永远看不到。 */}
+            {hasUpdateBadge(updateInfo) && (
+              <span className="update-dot" title={`有新版 ${updateInfo?.latest}`}> ●</span>
+            )}
+          </span>
           <span className="chev">{settingsOpen ? "▴" : "▾"}</span>
         </button>
       </div>

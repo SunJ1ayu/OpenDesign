@@ -13,22 +13,34 @@ export type UpdateInfo = {
   asset: { name: string; url: string; size: number; digest: string | null } | null;
   notes: string;
   error: string | null;
+  /** 发布页地址 —— **由 GitHub 给的**(评审 F1),不是我们拿版本号拼的。 */
+  release_url: string | null;
 };
 
 export type UpdateState = "idle" | "checking" | "done";
 
-const REPO = "SunJ1ayu/OpenDesign";
+// 🔴 评审 F1(2026-09-07,subdeepseek 抓到、我复现确认):**地址不再由我们拼。**
+//
+// 原来这里拿 `latest` 拼 `…/tag/win-installer-${version}`。而我修 S1 时给版本号补了零
+// (`1.0` → `1.0.0`),于是业主宣布 1.0、tag 打成 `win-installer-1.0` 的那一天,
+// 拼出来的是 `win-installer-1.0.0` —— **认出来了,却给一个 404 的链接**。
+// 现在地址由 GitHub 在 html_url 里给,这个函数只负责**验它**:
+// 界面上那个链接是要业主去点的,所以后端给什么就渲染什么是不行的。
+const RELEASE_URL_RE = /^https:\/\/github\.com\/SunJ1ayu\/OpenDesign\/releases\//;
 
-// 什么算版本号:**2~4 段数字**。单段不算(会撞上一堆随便的数字)。
-// 🔴 这条正则必须和 bin/ds_update.py 的 _NUM 同口径 —— 原来这边收两段、那边只收三段,
-//    两处对同一件事口径不一致(S1 自审抓到)。判据 u8 两侧一起钉。
-const VERSION_RE = /^\d+(\.\d+){1,3}$/;
+/** 放行本仓 releases 下的 https 地址;别的一律 null(宁可不给链接)。 */
+export function safeReleaseUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  return RELEASE_URL_RE.test(url) ? url : null;
+}
 
-/** 发布页地址。版本号拼不出来时返回 null —— 宁可不给链接,也不给一个坏链接。 */
-export function releasePageUrl(version: string | null | undefined): string | null {
-  if (!version) return null;
-  if (!VERSION_RE.test(version)) return null;
-  return `https://github.com/${REPO}/releases/tag/win-installer-${version}`;
+/** 设置那一行要不要挂个"有新版"的记号。
+ *
+ * 🔴 评审 F2:那句"有新版"原来只出现在**默认收起来的**设置弹层里 ——
+ * 规格写的是"软件告诉你",做出来是"你翻开菜单才看得到"。业主不会天天翻设置。
+ */
+export function hasUpdateBadge(info: { update_available: boolean } | null | undefined): boolean {
+  return !!info && info.update_available === true;
 }
 
 /** 自动查更新的开关键。默认**开**,只有业主显式关过才算关。 */
@@ -68,6 +80,9 @@ export function updateLabel(
   s: { state: UpdateState; info: UpdateInfo | null; version?: string | null },
 ): string {
   if (s.state === "checking") return "检查中…";
+  // 评审 F3:查完了却什么都没拿到(端点 403 那条路可达),**不许长得像"还没查过"** ——
+  // 那正是本单在治的"安静地错"。只有 idle 才显示版本号。
+  if (s.state === "done" && !s.info) return "查不到更新";
   if (s.state === "idle" || !s.info) {
     return s.version ? `ds-web v${s.version}` : "服务离线";
   }

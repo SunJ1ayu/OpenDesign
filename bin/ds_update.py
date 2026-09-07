@@ -111,7 +111,7 @@ def decide(current, releases):
     (开发机上本地永远比线上新,那时提示"更新"其实是往回装 —— 判据 t3b)。
     """
     out = {"current": current, "update_available": False, "latest": None,
-           "asset": None, "notes": "", "error": None}
+           "asset": None, "notes": "", "error": None, "release_url": None}
     here = parse_version(current)
     if here is None:
         out["error"] = "读不出本机版本号,不提示更新"
@@ -127,6 +127,11 @@ def decide(current, releases):
     asset = _installer_asset(rel)
     out["update_available"] = True
     out["notes"] = rel.get("body") or ""
+    # 🔴 F1(评审抓到、我复现确认):**地址由 GitHub 给,不许我们拿版本号拼**。
+    #    我修 S1 时给版本号补了零(1.0 → 1.0.0),界面拿 latest 去拼就成了
+    #    `win-installer-1.0.0` —— 而真实 tag 是 `win-installer-1.0`,点开 404。
+    #    认出来了却给一个打不开的链接,又一条"看起来在工作"。
+    out["release_url"] = rel.get("html_url")
     out["asset"] = {
         "name": asset.get("name"),
         "url": asset.get("browser_download_url"),
@@ -137,9 +142,19 @@ def decide(current, releases):
     return out
 
 
+def releases_url(repo=REPO):
+    """要问的那个地址,**逐字节可断言**(判据 t11)。
+
+    评审 F5 指出:t1b 那道 AST 闸只咬"一整条字符串里含 releases/latest",
+    把 `/latest` 拆成另一个字面量拼上去,t1 和 t1b 都躲得过。
+    ⇒ 与其扫源码,不如直接断言拼出来的结果是什么。
+    """
+    return API_BASE + RELEASES_PATH.format(repo=repo) + "?per_page=100"
+
+
 def fetch_releases(repo=REPO, timeout=TIMEOUT_S):
     """唯一碰网络的函数。判据一律注入替身,不打真网(2026-08-10 那次事故立的规矩)。"""
-    url = API_BASE + RELEASES_PATH.format(repo=repo) + "?per_page=100"
+    url = releases_url(repo)
     req = urllib.request.Request(url, headers={
         "Accept": "application/vnd.github+json",
         "User-Agent": "OpenDesign-updater",
@@ -163,21 +178,25 @@ def check_for_update(current, fetch=None):
         releases = (fetch or fetch_releases)()
     except Exception as exc:  # noqa: BLE001 —— 故意兜底,判据 t7d 就是钉它
         return {"current": current, "update_available": False, "latest": None,
-                "asset": None, "notes": "", "error": f"查更新失败:{exc.__class__.__name__}: {exc}"}
+                "asset": None, "notes": "", "release_url": None,
+                "error": f"查更新失败:{exc.__class__.__name__}: {exc}"}
     if isinstance(releases, str):
         try:
             releases = json.loads(releases)
         except Exception:  # noqa: BLE001
             return {"current": current, "update_available": False, "latest": None,
-                    "asset": None, "notes": "", "error": "查更新失败:线上返回的不是 JSON"}
+                    "asset": None, "notes": "", "release_url": None,
+                    "error": "查更新失败:线上返回的不是 JSON"}
     if not isinstance(releases, list):
         return {"current": current, "update_available": False, "latest": None,
-                "asset": None, "notes": "", "error": "查更新失败:线上返回的不是版本列表"}
+                "asset": None, "notes": "", "release_url": None,
+                "error": "查更新失败:线上返回的不是版本列表"}
     try:
         return decide(current, releases)
     except Exception as exc:  # noqa: BLE001
         return {"current": current, "update_available": False, "latest": None,
-                "asset": None, "notes": "", "error": f"查更新失败:{exc.__class__.__name__}: {exc}"}
+                "asset": None, "notes": "", "release_url": None,
+                "error": f"查更新失败:{exc.__class__.__name__}: {exc}"}
 
 
 # ── 缓存 ────────────────────────────────────────────────────────────────────
