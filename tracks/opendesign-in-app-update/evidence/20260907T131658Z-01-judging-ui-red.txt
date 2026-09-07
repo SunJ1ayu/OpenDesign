@@ -1,0 +1,47 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    judging-ui-red
+cmd:     node --test tests/test_update_ui.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  02a5098
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-07T13:16:58Z
+---------------- 输出开始 ----------------
+TAP version 13
+# node:internal/modules/esm/resolve:275
+#     throw new ERR_MODULE_NOT_FOUND(
+#           ^
+# Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/root/.openclaw/workspace/projects/design-studio/web/src/update.ts' imported from /root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs
+#     at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+#     at moduleResolve (node:internal/modules/esm/resolve:861:10)
+#     at defaultResolve (node:internal/modules/esm/resolve:985:11)
+#     at \#cachedDefaultResolve (node:internal/modules/esm/loader:747:20)
+#     at ModuleLoader.resolve (node:internal/modules/esm/loader:724:38)
+#     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:320:38)
+#     at ModuleJob._link (node:internal/modules/esm/module_job:182:49) {
+#   code: 'ERR_MODULE_NOT_FOUND',
+#   url: 'file:///root/.openclaw/workspace/projects/design-studio/web/src/update.ts'
+# }
+# Node.js v22.23.1
+# Subtest: tests/test_update_ui.mjs
+not ok 1 - tests/test_update_ui.mjs
+  ---
+  duration_ms: 65.215747
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 74.9533
+---------------- 输出结束 ----------------
+runlog: judging-ui-red rc=1 commit=02a5098 dirty=yes at=2026-09-07T13:16:58Z file=tracks/opendesign-in-app-update/evidence/20260907T131658Z-01-judging-ui-red.txt
