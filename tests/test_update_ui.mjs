@@ -9,7 +9,7 @@
 //    本单从头到尾治的就是这一类"安静的谎",判据自己更不能生产一个。
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { updateLabel, safeReleaseUrl, autoCheckEnabled, notesSummary, hasUpdateBadge } from "../web/src/update.ts";
+import { updateLabel, safeReleaseUrl, autoCheckEnabled, notesSummary, hasUpdateBadge, downloadUrl } from "../web/src/update.ts";
 
 const NEWER = {
   current: "0.98.1", update_available: true, latest: "0.98.3",
@@ -112,4 +112,33 @@ test("u13 🔴 有新版时,设置那一行必须挂个记号(不然业主根本
 test("u14 done + 空结果要说查不到,不许伪装成没查过", () => {
   const s = updateLabel({ state: "done", info: null, version: "0.98.3" });
   assert.match(s, /查不到/, `查完了却什么都没拿到,界面显示「${s}」—— 和没查过一模一样`);
+});
+
+// ── 评审第二轮 F-C/F-D + submimo 补充 1 ──────────────────────────────
+test("u15 地址被闸掉时也得给业主一条路(F-C:仓库改名会让下载行静默消失)", () => {
+  // GitHub 在仓库改名后会把 html_url 换成新 full_name ⇒ 前缀闸拦下 ⇒ 下载行不渲染,
+  // 而蓝点还亮着:业主看见"有新版",却没有任何地方可点。
+  const u = downloadUrl("https://github.com/SomeoneElse/Renamed/releases/tag/x");
+  assert.equal(u, "https://github.com/SunJ1ayu/OpenDesign/releases",
+    "闸掉了别人的地址,却没给业主任何退路");
+  assert.equal(downloadUrl(null), "https://github.com/SunJ1ayu/OpenDesign/releases");
+  const real = "https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-1.0";
+  assert.equal(downloadUrl(real), real, "正常地址被退路顶掉了");
+});
+
+test("u16 有新版但没版本号时,不许说成「已是最新」(F-D)", () => {
+  const s = updateLabel({
+    state: "done",
+    info: { current: "0.98.1", update_available: true, latest: null,
+            asset: null, notes: "", error: null, release_url: null },
+  });
+  assert.doesNotMatch(s, /已是最新/,
+    `既说有新版又说已是最新,同时印在界面上:「${s}」`);
+});
+
+test("u17 正文以「这一版」开头时不许被当成标题跳掉(submimo 补充 1)", () => {
+  const s = notesSummary("## 这一版改了什么\n\n这一版修了一个导致白屏的 bug");
+  assert.match(s, /白屏/,
+    `把正文当成标题跳掉了:「${s}」—— 跳过的依据应该是"它本来是个 markdown 标题",` +
+    `不是"它以某几个词开头"`);
 });

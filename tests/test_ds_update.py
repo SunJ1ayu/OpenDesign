@@ -179,6 +179,39 @@ class FetchUrlIsExact(unittest.TestCase):
             "https://api.github.com/repos/SunJ1ayu/OpenDesign/releases?per_page=100")
 
 
+class FetchReallyUsesTheSeam(unittest.TestCase):
+    """评审 F-B:`fetch_releases` 是全仓唯一真打网的地方,而**所有判据都注入替身**。
+
+    ⇒ 有人在那儿把地址内联拼成 `"/releases" + "/latest"`(F5 说的那条绕闸路),
+    t1b 的子串扫描咬不住、t11 因为 `releases_url` 没动而恒绿、功能判据因为注入替身而全绿。
+    **F5 那个洞在下一层深度上依然开着。** 这条把它堵上:不打网,只看它把什么地址交给了 urlopen。
+    """
+
+    def test_t12_fetch_releases_asks_exactly_the_seam_url(self):
+        import urllib.request
+        seen = {}
+
+        class _Resp:
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def read(self): return b"[]"
+
+        def fake_urlopen(req, timeout=None):
+            seen["url"] = req.full_url if hasattr(req, "full_url") else str(req)
+            return _Resp()
+
+        real = urllib.request.urlopen
+        urllib.request.urlopen = fake_urlopen
+        try:
+            ds_update.fetch_releases("SunJ1ayu/OpenDesign")
+        finally:
+            urllib.request.urlopen = real
+        self.assertEqual(
+            seen.get("url"), ds_update.releases_url("SunJ1ayu/OpenDesign"),
+            "真打网那一处问的地址,和 releases_url() 拼出来的不是同一个 —— "
+            "那么 t11 断言的就是一个没人用的函数,等于没断言")
+
+
 class VersionCompare(unittest.TestCase):
     """t2:按数比,不按字符串。"""
 
