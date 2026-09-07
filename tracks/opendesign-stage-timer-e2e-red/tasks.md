@@ -1,9 +1,36 @@
-# Tasks: opendesign-stage-timer-e2e-red
+# Tasks: stage_timer 那条既有红
 
-- base-ref: bb070b505237bd2145df42372aaac66f2545f179
+## 1. 查根因(做完)
 
-> 委托 submimo fix 时:主 agent 先写失败测试(oracle)并 commit,再把窄范围实现
-> 交给它;oracle/测试文件对它 off-limits;~2 次红了收回主 agent。
+- [x] 先问"是不是抖动" —— 单独重跑照样红(92s)⇒ **不是**本机那笔"内存不够随机红"
+- [x] 再问"是不是本单引入" —— 与 0.98.3 归档记的形状逐条一致 ⇒ 既有
+- [x] 查到底:**8 月 30 日的 ds_web 遗孤占着 8814**;它的隔离 HOME 已被 trap 删掉
+      ⇒ 读不到假 key ⇒ 弹遮罩 ⇒ 点击全被拦
+- [x] 证伪/证实:杀掉遗孤,同一条 e2e **4 秒通过**(此前 92 秒超时)
 
-- [ ] <task 1>
-- [ ] <task 2>
+## 2. 判据先行(两轮,都单独 commit 且当时是红的)
+
+- [x] p1 预检脚本在 / p2 干净端口不误报 / p3 占用要说出端口号+pid / p4 必须被总跑叫到
+- [x] p5 ss 坏了必须 fail closed(**打在我自己新建的闸上**)/ p5b ss 不存在同理
+- [x] p6 每个自起 ds_web 的场景都必须贡献端口(防"抓到一部分"的静默漂移)
+- [x] p7 派生端口(PORT+N)也要扫,且**用与闸不同的正则**(不许是闸的回声)
+- [x] 红检 **8 条变异,咬 8 漏 0**
+
+## 3. 实现
+
+- [x] `tests/e2e/check-ports.sh`(fail closed,**不杀任何进程**)
+- [x] 接进 `tests/e2e/run-all.sh`(`if !` 接,不用 `;`、不进管道)
+
+## 4. 评审(impact=high ⇒ 2 条腿)
+
+- [x] 第一轮:submimo(UNKNOWN 但有实报告)/ subdeepseek(PASS)/ subkimi **额度 403 零产出**
+- [x] 第二轮:subdeepseek(PASS)+ 智谱(PASS)—— **两个家族,预算满足**
+- [x] 两轮共 12 条发现:**6 条当场修、4 条开后续单、1 条驳回、1 条是我自己的死代码(删)**
+
+## 5. 没做、且知道自己没做的
+
+- [ ] **根因(遗孤怎么产生)一行没动** —— 已开 `opendesign-e2e-orphan-generation`,
+      并把评审推翻我成本判断的那条(/api/health 本来就返回 ds_root)写进它的 proposal
+- [ ] 单跑路径(`node tests/e2e/foo.e2e.mjs`)仍不过预检 —— 归上面那一单
+- [ ] 5 对端口声明碰撞(串行跑不咬人,并行化才咬)—— 记在上面那一单的 Non-goals 里
+- [ ] 预检是**时点检查**,开跑后中途产生的遗孤不复检 —— 同上
