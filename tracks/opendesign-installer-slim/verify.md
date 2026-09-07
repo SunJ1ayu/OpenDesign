@@ -12,7 +12,8 @@
 - [x] 真打包实测:**12,438 个文件 / 42 MB** 被删,整包 **22,118 → 9,675**(砍 56%),
       安装包 **59 MB → 43 MB**
 - [ ] **真机** —— 只有业主答得了,见 `真机清单-0.95.md` 的 B 组
-- [ ] **panel-review(impact=high ⇒ 2 条腿)** —— 见下方"次序问题"
+- [x] **panel-review(impact=high ⇒ 2 条腿)** —— **2026-09-07 补跑**(见文末收口段);
+      ⚠️ 下面"次序问题"里那句"panel-review 还在跑"**是假的**,今天证伪,见收口段
 
 ## 前提探针(P0)
 
@@ -76,3 +77,119 @@ g4 的 heredoc 抽取正则少了 `[^\n]*`(那行是 `… <<'PYSLIM' || die "瘦
 P0 探针 + 对照组、真打包实测数字与预估吻合。
 
 ⚠️ 敞着的:panel 未回;运行期路径未测(只测了 import 图)。
+
+
+---
+
+# 收口(2026-09-07)
+
+> 这一段是**归档前补的**。实现 08-24 就随 0.95.0 发出去了,但工件停在那天:
+> `tasks.md` 一个勾没打,而 impact=high 欠的 2 条评审腿**从来没跑过**。
+
+## 🔴 先改掉一句假话(它在这份文件里躺了两周)
+
+上面"次序问题"写着「**这一单的包已经发出去了,而 panel-review 还在跑**」。
+**没有在跑。** 今天翻 `/root/aiwork/logs/`:08-24 同一天别的单子的 panel 日志都在
+(`panel-gates-say-why-20260824T041527Z.*`、`panel-dist-gate-20260824T021700Z.*`),
+**唯独这一单零命中**,track 里也没有 `observations/`。
+两条独立信号都指向同一件事:那句话当时就不成立。
+
+⇒ 和 `WORKFLOW-DEBT.md` 的 D12 是同一个形状:**交接件把"我打算做"写成了"在做"**,
+不需要任何人撒谎。自检句照旧:**说"在跑"的东西,去盘上找它的日志,别读那句话。**
+
+## 今天重跑的判据(机器写的收据行,逐字节)
+
+runlog: g1g5-venv rc=0 commit=ef037a7 dirty=no at=2026-09-07T08:01:34Z file=tracks/opendesign-installer-slim/evidence/20260907T080134Z-01-g1g5-venv.txt
+runlog: g1-product-gate rc=1 commit=ef037a7 dirty=yes at=2026-09-07T08:01:43Z file=tracks/opendesign-installer-slim/evidence/20260907T080143Z-01-g1-product-gate.txt
+runlog: redcheck-mutation rc=0 commit=ef037a7 dirty=yes at=2026-09-07T08:02:04Z file=tracks/opendesign-installer-slim/evidence/20260907T080204Z-01-redcheck-mutation.txt
+runlog: judging-first-g6-red rc=1 commit=ef037a7 dirty=yes at=2026-09-07T08:30:28Z file=tracks/opendesign-installer-slim/evidence/20260907T083028Z-01-judging-first-g6-red.txt
+runlog: g1g7-after-fix rc=0 commit=15df17d dirty=yes at=2026-09-07T08:33:14Z file=tracks/opendesign-installer-slim/evidence/20260907T083314Z-01-g1g7-after-fix.txt
+runlog: redcheck-7bites rc=0 commit=15df17d dirty=yes at=2026-09-07T08:33:18Z file=tracks/opendesign-installer-slim/evidence/20260907T083318Z-01-redcheck-7bites.txt
+runlog: g1-product-gate-after-fix rc=1 commit=15df17d dirty=yes at=2026-09-07T08:33:30Z file=tracks/opendesign-installer-slim/evidence/20260907T083330Z-01-g1-product-gate-after-fix.txt
+
+**两份成品闸收据都是 rc=1,红的都是同一条,而且不是瘦身**:
+`[FAIL] 版本号锚对不上:仓库 '0.98.3' vs 包内 '0.98.2'` ——
+盘上最新的那棵真构建树是 0.98.2(0.98.3 的构建目录已经不在了)。
+**瘦身的那几行全 PASS**:5 个包都不在包里 + 没留下孤儿元数据。
+> 我不把它写成"全绿"。这一条红是**真的**,只是它问的是别的事。
+
+## 产物侧的事实(今天量的,不是抄的)
+
+| | 瘦身前(0.94.0,08-24 量) | 今天盘上的真出货树(0.98.2) |
+|---|---|---|
+| 包内文件数 | 22,118 | **9,642** |
+| 包体积 | 276 MB | **193 MB** |
+| 其中产品自己 | 42 个 | **38 个** |
+| 安装包 exe | 62,671,038 B | 45,861,463 B(0.95.0)/ 45,836,403 B(0.98.3) |
+
+> 🔴 **数字口径说清楚,免得又漂**:上面 08-24 那段写的 `22,118 → 9,675` 量的是
+> **0.95.0** 那棵树;今天这个 9,642 量的是 **0.98.2** 那棵。两个数都对,
+> 量的不是同一棵树。exe 字节数来自 `gh release view`(不是判据,是查询)。
+> 两条评审腿**各自独立**指出仓里三处数字互相对不上 —— 这一栏就是回答它。
+
+## 与两条评审腿逐条对账
+
+补跑的是 impact=high 的 2 条腿,两个不同模型家族,同一次 run、同一份 subject:
+`submimo=SKIP(rotation) subdeepseek=SKIP(rotation) subglm=PASS(verdict=PASS) subkimi=PASS(verdict=PASS) subgemini=SKIP(health:dead:FAIL:6)`
+(花名册:`/root/aiwork/logs/panel-installer-slim-20260907T080425Z.roster` [仓外不承重];
+oracle 在派发前先跑:`ORACLE ... rc=0`)
+
+**⚠️ 反锚定这轮做不干净,如实记账**:`verify.md` 从 08-24 起就在树上,底座腿自己读仓库
+⇒ 我 08-24 的自审与裁决它们读得到。我在题面里把这件事直说了,并要求它们优先给我那份里
+没有的角度。两条腿的报告里确实各有我没写过的东西(见下),但"独立"打了折扣。
+**正确节奏仍然是:先派发、后落工件。**
+
+### 接受并**当场修掉**的(2 条)
+
+1. **闸B 的孤儿元数据扫描对 5 个里的 2 个恒瞎** —— 两条腿**各自独立**命中。
+   已核:`grep -qiE "^Name: *$p$"` 拿的是**导入名**,而真实发行名是
+   `python-telegram-bot` / `lark-oapi`(实测 `importlib.metadata` 读出来的)。
+   我造了一份真的 `python_telegram_bot-22.8.dist-info` 孤儿丢进假包里,
+   旧闸原话照印 `[PASS] 瘦身:telegram 没留下孤儿元数据`。
+   **而 telegram 正是 08-24 真打包时真留下过孤儿的那一个** —— 恒瞎在最该咬的地方。
+   ⇒ 判据先行(`15df17d`,g6 此刻红)→ 修(`f9e0782`,g6 转绿)。
+2. **同一份清单有两个读取器,可能各说各话**(subkimi)—— 已加 g7。
+
+### 接受、但**故意不在本单做**(6 条,已开后续单 `opendesign-slim-orphan-sweep`)
+
+tornado 1.9 MB 孤儿(实测唯一 importer 就是被删的 python-telegram-bot)/
+g3 丢了 P0 的对照组差量 / 三种穿透子集判断的 dist-info 形状(其中 namespace 共用顶层
+是唯一会造成**真误删**的)/ console script 从没被删过 / 前提错了会是"无声的缺席" /
+`build-package.sh:212` 注释夸大孤儿元数据的炸点。
+**理由**:这两周里在业主机器上跑的代码没有一条因此出错,它们是"这套做法的边界"
+和"下次改坏时防线不够",不是现行错误;而 tornado 那条是**产品改动**,
+要先走 P0 探针才能动清单 —— 和 installer-slim 当初一样的规格。
+
+### 驳回一条(有依据)
+
+subkimi 说数组多行化会让 `g2/g3 拿残缺清单照样全绿`,并说闸B 的 grep 会
+"把 `# 飞书(最大的一头` 当包名去查(查不到 ⇒ 印 PASS)"。**两句我都实测过,都不成立**:
+- 闸B 的 grep 在多行时**读成空串** ⇒ 走 else ⇒ `[FAIL] 读不出 SLIM_DROP` = **fail closed**;
+- 整份判据**不是**静默全绿:那个形状下 **g4 会红**(它的假 site-packages 里五个包都在,
+  清单缺了四个 ⇒ 四个没被删掉)。
+⇒ g7 仍然值得加,但它的价值是**诊断指对地方**(g4 那句话指着删除逻辑,
+真正的病在清单解析),不是"捡了一个没人管的洞"。已把这段实测写进 g7 的 docstring,
+并在 `f9e0782` 里把我**自己上一个 commit 写重的那句话**一并改小。
+
+### 我自己 08-24 写的、今天仍然成立的
+
+规格自查那三条(「用不到」是今天的判断而非永远 / 只测了 import 图 / RECORD 兜底的边界)
+两条腿都没有推翻,其中第 2 条被它们补强成了具体形状(见后续单 C)。
+
+## arbitrated verdict(主裁)
+
+**PASS。**
+
+依据:
+- 判据今天真跑真绿(7 条,venv 解释器,g3 真起 nanobot),红检 **7 咬 0 漏**;
+- 成品闸打在**真出货过的包树**上,瘦身相关断言全 PASS(唯一的红是版本号锚,与本单无关);
+- 产物侧数字今天重量:22,118 → 9,642 个文件,exe 62.67 MB → 45.86 MB;
+- impact=high 欠的 2 条腿已补跑,两个模型家族、同一次 run,**两条都 PASS**;
+  它们的 8 条发现我逐条复现:2 条当场修、6 条开单、1 条驳回(有实测依据)。
+
+⚠️ **敞着的(不藏)**:
+1. **业主真机没有人问过。** 他装过带瘦身的 0.98.0,但那趟被白屏盖过去了。
+   "装/卸载到底快了多少"**没有任何数字** —— 本单所有测量都在 Linux 上。
+   按本机那条部署规矩:**这一单的 PASS 是"包造对了",不是"业主感觉到快了"**。
+2. 反锚定这轮不干净(verify.md 早在树上,底座腿读得到)。
+3. 后续单 `opendesign-slim-orphan-sweep` 的 6 条,一条都还没开工。
