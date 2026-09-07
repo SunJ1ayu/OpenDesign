@@ -1,0 +1,16 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    final-run-all
+cmd:     bash tests/run-all.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  14f1791
+dirty:   no(跑之前采的;含未跟踪文件)
+head-before: 14f1791e50c8a533c2ddeab0a910b7be9086218d
+source-view-before: sha256:275b6822f3779c38be7aee1cb0ac4cbdf56fb1a2d981b8dde52ed43649d762a1
+started: 2026-09-07T14:11:59Z
+---------------- 输出开始 ----------------
+command-rc: 143
+head-after: 14f1791e50c8a533c2ddeab0a910b7be9086218d
+source-view-after:  sha256:275b6822f3779c38be7aee1cb0ac4cbdf56fb1a2d981b8dde52ed43649d762a1
+source-stable: yes
+---------------- 输出结束 ----------------
+runlog: final-run-all rc=143 commit=14f1791 dirty=no final=yes at=2026-09-07T14:11:59Z file=tracks/opendesign-in-app-update/evidence/20260907T141159Z-01-final-run-all.txt

@@ -12,22 +12,55 @@
 
 ## Mechanical checks
 
-- [ ] build passes
-- [ ] tests pass
-- [ ] no secrets / unsafe ops
+- [x] build passes —— 总跑「dist 新鲜度 + 类型检查」段绿(现场 build 出来的产物与
+      `web/dist` 逐字节一致,顺带 `tsc`)
+- [x] tests pass —— **0 红,但 3 条没跑**(总跑 rc=3)。**这不叫"全绿"**,那 3 条的身份见下。
+- [x] no secrets / unsafe ops —— 本单新增的唯一外呼是**匿名 GET api.github.com**:
+      不带凭证、不写盘、失败只影响界面上那一行提示;新写口 `GET /api/update/check` 只读。
 
-**机器打印的**(不是我的转述)—— 判据用 `runlog` 跑,把它打印的收据行原样粘进来:
-
-```
-runlog -t opendesign-in-app-update -- <判据命令>
-```
+**机器打印的**(不是我的转述)—— 判据一律用 `runlog` 跑,下面每一行都是它写的:
 
 ```
-<粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
- **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
- 收据得进 git(5d)。一份收据都没有的话,写一行
- 「- 无机器证据:<理由>」认账 —— 沉默不算理由(5c)。>
+runlog: judging-first-red rc=1 commit=6933060 dirty=yes at=2026-09-07T13:05:14Z file=tracks/opendesign-in-app-update/evidence/20260907T130514Z-01-judging-first-red.txt
+runlog: t1t7-green rc=0 commit=c1bdf4e dirty=yes at=2026-09-07T13:08:51Z file=tracks/opendesign-in-app-update/evidence/20260907T130851Z-01-t1t7-green.txt
+runlog: redcheck-12bites rc=0 commit=c1bdf4e dirty=yes at=2026-09-07T13:08:52Z file=tracks/opendesign-in-app-update/evidence/20260907T130852Z-01-redcheck-12bites.txt
+runlog: judging-cache-5red rc=1 commit=8c74486 dirty=yes at=2026-09-07T13:10:35Z file=tracks/opendesign-in-app-update/evidence/20260907T131035Z-01-judging-cache-5red.txt
+runlog: t1t8-green rc=0 commit=1e69d2e dirty=yes at=2026-09-07T13:12:03Z file=tracks/opendesign-in-app-update/evidence/20260907T131203Z-01-t1t8-green.txt
+runlog: redcheck-17bites rc=0 commit=1e69d2e dirty=yes at=2026-09-07T13:12:03Z file=tracks/opendesign-in-app-update/evidence/20260907T131203Z-02-redcheck-17bites.txt
+runlog: judging-endpoint-4red rc=1 commit=afaf346 dirty=yes at=2026-09-07T13:13:35Z file=tracks/opendesign-in-app-update/evidence/20260907T131335Z-01-judging-endpoint-4red.txt
+runlog: endpoint-green rc=0 commit=b8597f3 dirty=yes at=2026-09-07T13:15:18Z file=tracks/opendesign-in-app-update/evidence/20260907T131518Z-01-endpoint-green.txt
+runlog: redcheck-endpoint-5bites rc=0 commit=b8597f3 dirty=yes at=2026-09-07T13:15:21Z file=tracks/opendesign-in-app-update/evidence/20260907T131521Z-01-redcheck-endpoint-5bites.txt
+runlog: judging-ui-red rc=1 commit=02a5098 dirty=yes at=2026-09-07T13:16:58Z file=tracks/opendesign-in-app-update/evidence/20260907T131658Z-01-judging-ui-red.txt
+runlog: node-all-green rc=0 commit=df6b3f3 dirty=yes at=2026-09-07T13:19:17Z file=tracks/opendesign-in-app-update/evidence/20260907T131917Z-01-node-all-green.txt
+runlog: final-run-all rc=1 commit=efe8dbb dirty=no final=yes at=2026-09-07T13:21:14Z file=tracks/opendesign-in-app-update/evidence/20260907T132114Z-01-final-run-all.txt
+runlog: judging-selfreview-red rc=1 commit=efe8dbb dirty=yes at=2026-09-07T13:34:18Z file=tracks/opendesign-in-app-update/evidence/20260907T133418Z-01-judging-selfreview-red.txt
+runlog: selfreview-fixes-green rc=0 commit=b006676 dirty=yes at=2026-09-07T13:38:34Z file=tracks/opendesign-in-app-update/evidence/20260907T133834Z-01-selfreview-fixes-green.txt
+runlog: redcheck-20-and-7 rc=0 commit=b006676 dirty=yes at=2026-09-07T13:38:37Z file=tracks/opendesign-in-app-update/evidence/20260907T133837Z-01-redcheck-20-and-7.txt
+runlog: judging-panel-f1f2f3f5-red rc=1 commit=55e5dba dirty=yes at=2026-09-07T13:53:31Z file=tracks/opendesign-in-app-update/evidence/20260907T135331Z-01-judging-panel-f1f2f3f5-red.txt
+runlog: panel-fixes-green rc=0 commit=752ac1d dirty=yes at=2026-09-07T13:56:14Z file=tracks/opendesign-in-app-update/evidence/20260907T135614Z-01-panel-fixes-green.txt
+runlog: judging-r2-findings-red rc=1 commit=1431900 dirty=yes at=2026-09-07T14:07:24Z file=tracks/opendesign-in-app-update/evidence/20260907T140724Z-01-judging-r2-findings-red.txt
+runlog: r2-fixes-green rc=0 commit=8f91e57 dirty=yes at=2026-09-07T14:09:44Z file=tracks/opendesign-in-app-update/evidence/20260907T140944Z-01-r2-fixes-green.txt
+runlog: final-run-all rc=143 commit=14f1791 dirty=no final=yes at=2026-09-07T14:11:59Z file=tracks/opendesign-in-app-update/evidence/20260907T141159Z-01-final-run-all.txt
+runlog: final-run-all rc=3 commit=14f1791 dirty=yes final=yes at=2026-09-07T14:29:03Z file=tracks/opendesign-in-app-update/evidence/20260907T142903Z-01-final-run-all.txt
 ```
+
+上面这堆数字不会自己解释自己,三件事说清楚:
+
+- 🔴 **`rc=143` 那一份是断线砍出来的半截,作废。** 22:11:59 起跑的最终总跑在第 83 秒
+  被会话的 SIGTERM 打死 —— 收据的输出区一片空白,一段都没跑完。文件已改名成
+  `20260907T141159Z-01-final-run-all-VOID-断线砍半.txt`:**不删**(半截收据是线索不是
+  垃圾,08-19 就是从这种半截里查出两个真 bug),但它不能给任何结论当依据。
+  重跑的是 `14:29:03Z` 那一份。
+- **中途那份 `rc=1`(13:21:14Z)红在哪:不是产品代码,是死断言闸咬到我自己新写的判据。**
+  `tests/test_ds_update.py` 有 2 条断言和它的守卫写在同一行,行粒度问不出"它跑过没有"
+  ⇒ 那道闸对这 2 条是瞎的。已拆成两行,现在这一段绿。
+- **最后那份 `rc=3` 是什么意思**:总跑自己的口径是「0 = 全跑且全绿 / 1 = 有红 /
+  **3 = 没红,但有没跑的,不算通过**」。这一遍 **0 红**;没跑的 3 条**全是同一个原因 ——
+  要一台活着的 gateway**:`new_chat.e2e.mjs`、`project-thread.e2e.mjs`,以及
+  `tests/test_ws_protocol_smoke.py`(整类 SKIP,连带 16 条断言没被问到)。
+  三条都长在聊天 / WebSocket 通道上,**本单一行都没碰那条通道**。
+  ⇒ 收口那一遍会照 `tests/e2e/README.md` 起 gateway,跑 `--with-gateway` 把这 3 条也
+  真跑一次,再宣布做完。
 
 ## Review
 
@@ -120,14 +153,40 @@ S6 发布页链接用 `<a target="_blank">`,**在 pywebview 外壳里点了会�
   成了半死代码,而它还把 `#123`(issue 编号)剥成 `123`。已删并加 u18。
   ⇒ **变异漏网不总是判据的错,有时是被测对象里那一行本来就不该在。**
 
-## 停止条件(为什么不跑第三轮)
+## 第三轮:原来写的是"不跑",断线之后我改了主意
+
+上一版这里的标题是「停止条件(为什么不跑第三轮)」,理由是发现的边际收益已经很低:
 
 - 两轮共 14 条发现,我全部复现过:11 修 / 2 核过不改 / 1 是流程账(F-F,本次补)。
 - 第二轮之后的每一处改动**各自有一条变异钉着**(m22 / v11 / v12 / v13 / v6 重定靶 / u18)。
 - 剩下的都是"开后续单"类,不是本单代码的问题。
-- **"改正"这个动作本身在生产新审查面**(09-02 那一单为此白跑四轮)—— 到此打住。
+- **"改正"这个动作本身在生产新审查面**(09-02 那一单为此白跑四轮)。
+
+**这些理由现在仍然成立,但它们答的不是全部的题。** 断线之后我去核机器写的记录
+(`observations/*-panel-review-*.json`,不是我的回忆),翻出两件上面四条管不着的事:
+
+1. **家族覆盖不够,归档闸会拦。** 本单 `impact.level=high` ⇒ 归档要求
+   **同一次成功 panel、同一 subject digest 下,有 2 个 coverage-eligible 的不同模型家族腿**。
+   实际是:第一轮只有 subdeepseek 一条(subglm 起来 1.5 秒就 rc=1 挂了),
+   第二轮**还是**只有 subdeepseek 一条(submimo 认真复核并给了 3 条实质意见,
+   但结论行没匹配上 ⇒ 机器记 `UNKNOWN`,而按规矩 **UNKNOWN 不补预算、跨轮也不许拼**)。
+   **两轮各 1,不等于 2。**
+2. **第二轮之后的那棵树,没有任何外部腿看过。** r2 的 subject 冻结在 `1431900`,
+   而那之后我又改了 6 处(`8f91e57` + `70ebb75`)—— 正是上面第 4 条说的
+   "改正动作自己生产的新审查面",而这一次它落在**没人复核过的**位置上。
+
+所以第三轮不是"再挑一轮毛病",是补这两件;它要攻的是**修法**,不是重审原始功能。
+
+- ⚠️ **反锚定这一轮是打折的,如实记账。** 两轮的发现在断线前已经写进这份 verify.md
+  并提交(`14f1791`),而底座腿自己读仓库 —— **文件在树上就够得着**,`git log -p` 里
+  也躺着。panel skill 讲得很清楚:真干净只有一条路,让 verify.md 在派发那一刻还没被写;
+  这一单已经做不到了(我也不打算为了好看去回退一份已经提交的工件)。
+  ⇒ **第三轮腿给的 PASS,分量比前两轮轻;它给的 BLOCK 分量不变** ——
+  锚定只会让它更容易附和我,不会让它更容易反对我。
+
   > 只写发现。腿的身份/降级不在这儿抄第二遍:日志自带身份牌(降级横幅 + 视野边界),
   > 花名册在上一格,查工件不查自述。
+
 - arbitrated verdict (主裁): <...>
   > 这里写理由；最终枚举写进 `decision.json.outcome.verdict`。归档时仍为空会被
   > `track-record validate --phase archive` 挡住，`track list` 也会打 ⚠️。
