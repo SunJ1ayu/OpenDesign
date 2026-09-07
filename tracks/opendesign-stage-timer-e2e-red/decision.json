@@ -2,18 +2,20 @@
   "schema_version": 1,
   "track": "opendesign-stage-timer-e2e-red",
   "impact": {
-    "level": null,
-    "factors": null
+    "level": "high",
+    "factors": [
+      "judging_control"
+    ]
   },
   "design": {
-    "uncertainty": null,
+    "uncertainty": "low",
     "premise_attack": {
-      "status": null,
+      "status": "not_required",
       "evidence": []
     }
   },
   "execution_plan": {
-    "adapter": null,
+    "adapter": "main",
     "model": null
   },
   "outcome": {

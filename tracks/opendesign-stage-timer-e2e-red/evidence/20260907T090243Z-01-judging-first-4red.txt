@@ -1,0 +1,57 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    judging-first-4red
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_e2e_port_preflight
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  3566f25
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-07T09:02:43Z
+---------------- 输出开始 ----------------
+FFFF
+======================================================================
+FAIL: test_p1_preflight_exists_and_is_runnable (tests.test_e2e_port_preflight.E2EPortPreflight.test_p1_preflight_exists_and_is_runnable)
+预检本身得在 —— 它不在的话,下面两条问的都是空气。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_e2e_port_preflight.py", line 37, in test_p1_preflight_exists_and_is_runnable
+    self.assertTrue(
+AssertionError: False is not true : 找不到 /root/.openclaw/workspace/projects/design-studio/tests/e2e/check-ports.sh —— e2e 端口预检没了,那么「端口被遗孤占着」这件事又会以「产品坏了」的样子出现。
+
+======================================================================
+FAIL: test_p2_clean_ports_pass (tests.test_e2e_port_preflight.E2EPortPreflight.test_p2_clean_ports_pass)
+对照组:没人占的端口必须放行 —— **误报和假绿一样坏**。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_e2e_port_preflight.py", line 48, in test_p2_clean_ports_pass
+    self.assertEqual(
+AssertionError: 0 != 127 : 没人占的端口被报成占用了 —— 误报。
+
+bash: /root/.openclaw/workspace/projects/design-studio/tests/e2e/check-ports.sh: No such file or directory
+
+
+======================================================================
+FAIL: test_p3_an_occupied_port_is_caught_and_named (tests.test_e2e_port_preflight.E2EPortPreflight.test_p3_an_occupied_port_is_caught_and_named)
+真占上一个端口,预检必须红,而且**要说出是哪个端口、谁占的**。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_e2e_port_preflight.py", line 68, in test_p3_an_occupied_port_is_caught_and_named
+    self.assertEqual(
+AssertionError: 1 != 127 : 端口 40509 上明明有人监听,预检却放行了。
+
+bash: /root/.openclaw/workspace/projects/design-studio/tests/e2e/check-ports.sh: No such file or directory
+
+
+======================================================================
+FAIL: test_p4_wired_into_the_e2e_runner (tests.test_e2e_port_preflight.E2EPortPreflight.test_p4_wired_into_the_e2e_runner)
+🔴 光有闸不算数,得有人叫它 —— 这个项目在"守卫没接线"上栽过不止一次。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_e2e_port_preflight.py", line 87, in test_p4_wired_into_the_e2e_runner
+    self.assertTrue(
+AssertionError: False is not true : e2e 总跑(tests/e2e/run-all.sh)没有调用端口预检 —— 闸建好了没接线,等于没建。
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.004s
+
+FAILED (failures=4)
+---------------- 输出结束 ----------------
+runlog: judging-first-4red rc=1 commit=3566f25 dirty=yes at=2026-09-07T09:02:43Z file=tracks/opendesign-stage-timer-e2e-red/evidence/20260907T090243Z-01-judging-first-4red.txt
