@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-in-app-update",
+  "impact": {
+    "level": "high",
+    "factors": [
+      "new_write_surface",
+      "production_side_effect",
+      "migration"
+    ]
+  },
+  "design": {
+    "uncertainty": "low",
+    "premise_attack": {
+      "status": "not_required",
+      "evidence": []
+    }
+  },
+  "execution_plan": {
+    "adapter": "main",
+    "model": null
+  },
+  "outcome": {
+    "verdict": null
+  }
+}
