@@ -1,0 +1,186 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    judging-selfreview-red
+cmd:     bash -c set\ +e\;\ DS_SHELL_E2E=1\ /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_update\;\ a=\$\?\;\ echo\ \"---\ python\ rc=\$a\ ---\"\;\ node\ --test\ tests/test_update_ui.mjs\;\ b=\$\?\;\ echo\ \"---\ node\ rc=\$b\ ---\"\;\ \[\ \$a\ -eq\ 0\ \]\ \&\&\ \[\ \$b\ -eq\ 0\ \]
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  efe8dbb
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-07T13:34:18Z
+---------------- 输出开始 ----------------
+.........EEEFFFF......F.....FF
+======================================================================
+ERROR: test_t7a_timeout_is_quiet (tests.test_ds_update.NetworkMisbehaves.test_t7a_timeout_is_quiet)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 242, in test_t7a_timeout_is_quiet
+    d = self._check(boom)
+        ^^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 237, in _check
+    return ds_update.check_for_update("0.98.1", fetch=fetch)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_update' has no attribute 'check_for_update'
+
+======================================================================
+ERROR: test_t7b_garbage_json_is_quiet (tests.test_ds_update.NetworkMisbehaves.test_t7b_garbage_json_is_quiet)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 249, in test_t7b_garbage_json_is_quiet
+    d = self._check(junk)
+        ^^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 237, in _check
+    return ds_update.check_for_update("0.98.1", fetch=fetch)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_update' has no attribute 'check_for_update'
+
+======================================================================
+ERROR: test_t7c_empty_list_is_quiet (tests.test_ds_update.NetworkMisbehaves.test_t7c_empty_list_is_quiet)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 254, in test_t7c_empty_list_is_quiet
+    d = self._check(lambda: [])
+        ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 237, in _check
+    return ds_update.check_for_update("0.98.1", fetch=fetch)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_update' has no attribute 'check_for_update'
+
+======================================================================
+FAIL: test_t7d_never_raises_whatever_happens (tests.test_ds_update.NetworkMisbehaves.test_t7d_never_raises_whatever_happens) (bad=<function NetworkMisbehaves.test_t7d_never_raises_whatever_happens.<locals>.<lambda> at 0x7da179795c60>)
+把能想到的坏形状都喂一遍:一条都不许抛。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 265, in test_t7d_never_raises_whatever_happens
+    d = ds_update.check_for_update("0.98.1", fetch=bad)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_update' has no attribute 'check_for_update'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 267, in test_t7d_never_raises_whatever_happens
+    self.fail(f"check_for_update() 抛了 {exc!r} —— 业主会看到一坨栈")
+AssertionError: check_for_update() 抛了 AttributeError("module 'ds_update' has no attribute 'check_for_update'") —— 业主会看到一坨栈
+
+======================================================================
+FAIL: test_t7d_never_raises_whatever_happens (tests.test_ds_update.NetworkMisbehaves.test_t7d_never_raises_whatever_happens) (bad=<function NetworkMisbehaves.test_t7d_never_raises_whatever_happens.<locals>.<lambda> at 0x7da179795d00>)
+把能想到的坏形状都喂一遍:一条都不许抛。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 265, in test_t7d_never_raises_whatever_happens
+    d = ds_update.check_for_update("0.98.1", fetch=bad)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_update' has no attribute 'check_for_update'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 267, in test_t7d_never_raises_whatever_happens
+    self.fail(f"check_for_update() 抛了 {exc!r} —— 业主会看到一坨栈")
+AssertionError: check_for_update() 抛了 AttributeError("module 'ds_update' has no attribute 'check_for_update'") —— 业主会看到一坨栈
+
+======================================================================
+FAIL: test_t7d_never_raises_whatever_happens (tests.test_ds_update.NetworkMisbehaves.test_t7d_never_raises_whatever_happens) (bad=<function NetworkMisbehaves.test_t7d_never_raises_whatever_happens.<locals>.<lambda> at 0x7da179795da0>)
+把能想到的坏形状都喂一遍:一条都不许抛。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 265, in test_t7d_never_raises_whatever_happens
+    d = ds_update.check_for_update("0.98.1", fetch=bad)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_update' has no attribute 'check_for_update'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 267, in test_t7d_never_raises_whatever_happens
+    self.fail(f"check_for_update() 抛了 {exc!r} —— 业主会看到一坨栈")
+AssertionError: check_for_update() 抛了 AttributeError("module 'ds_update' has no attribute 'check_for_update'") —— 业主会看到一坨栈
+
+======================================================================
+FAIL: test_t7d_never_raises_whatever_happens (tests.test_ds_update.NetworkMisbehaves.test_t7d_never_raises_whatever_happens) (bad=<function NetworkMisbehaves.test_t7d_never_raises_whatever_happens.<locals>.<lambda> at 0x7da179795e40>)
+把能想到的坏形状都喂一遍:一条都不许抛。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 265, in test_t7d_never_raises_whatever_happens
+    d = ds_update.check_for_update("0.98.1", fetch=bad)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_update' has no attribute 'check_for_update'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 267, in test_t7d_never_raises_whatever_happens
+    self.fail(f"check_for_update() 抛了 {exc!r} —— 业主会看到一坨栈")
+AssertionError: check_for_update() 抛了 AttributeError("module 'ds_update' has no attribute 'check_for_update'") —— 业主会看到一坨栈
+
+======================================================================
+FAIL: test_t1e_a_two_segment_tag_release_is_pickable (tests.test_ds_update.VersionCompare.test_t1e_a_two_segment_tag_release_is_pickable)
+端到端那一条:两段式 tag 的 release 必须挑得出来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 189, in test_t1e_a_two_segment_tag_release_is_pickable
+    self.assertEqual(ds_update.release_version(got), (1, 0, 0),
+AssertionError: Tuples differ: (0, 98, 3) != (1, 0, 0)
+
+First differing element 0:
+0
+1
+
+- (0, 98, 3)
++ (1, 0, 0) : 业主宣布 1.0 那天,更新检查看不见它
+
+======================================================================
+FAIL: test_t2f_two_segment_version_is_understood (tests.test_ds_update.VersionCompare.test_t2f_two_segment_version_is_understood)
+🔴 S1(我自审抓到的,和本单开头那个 404 是同一种病,只不过在我自己代码里)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 170, in test_t2f_two_segment_version_is_understood
+    self.assertEqual(ds_update.parse_version("1.0"), (1, 0, 0),
+AssertionError: None != (1, 0, 0) : 两段式版本号读不出来
+
+======================================================================
+FAIL: test_t2g_padding_makes_the_short_form_compare_right (tests.test_ds_update.VersionCompare.test_t2g_padding_makes_the_short_form_compare_right)
+`0.98` 和 `0.98.0` 是同一版,不是前者更小。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 179, in test_t2g_padding_makes_the_short_form_compare_right
+    self.assertEqual(ds_update.parse_version("0.98"), ds_update.parse_version("0.98.0"))
+AssertionError: None != (0, 98, 0)
+
+----------------------------------------------------------------------
+Ran 27 tests in 0.028s
+
+FAILED (failures=7, errors=3)
+--- python rc=1 ---
+TAP version 13
+# file:///root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:12
+# import { updateLabel, releasePageUrl, autoCheckEnabled, notesSummary } from "../web/src/update.ts";
+#                                       ^^^^^^^^^^^^^^^^
+# SyntaxError: The requested module '../web/src/update.ts' does not provide an export named 'autoCheckEnabled'
+#     at ModuleJob._instantiate (node:internal/modules/esm/module_job:226:21)
+#     at async ModuleJob.run (node:internal/modules/esm/module_job:335:5)
+#     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
+#     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+# Node.js v22.23.1
+# Subtest: tests/test_update_ui.mjs
+not ok 1 - tests/test_update_ui.mjs
+  ---
+  duration_ms: 103.79877
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 113.665462
+--- node rc=1 ---
+---------------- 输出结束 ----------------
+runlog: judging-selfreview-red rc=1 commit=efe8dbb dirty=yes at=2026-09-07T13:34:18Z file=tracks/opendesign-in-app-update/evidence/20260907T133418Z-01-judging-selfreview-red.txt

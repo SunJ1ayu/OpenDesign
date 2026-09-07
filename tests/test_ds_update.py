@@ -161,8 +161,36 @@ class VersionCompare(unittest.TestCase):
         self.assertEqual(ds_update.parse_version("OpenDesign-Setup-0.98.3.exe"), (0, 98, 3))
         self.assertEqual(ds_update.parse_version("0.98.3"), (0, 98, 3))
 
+    def test_t2f_two_segment_version_is_understood(self):
+        """🔴 S1(我自审抓到的,和本单开头那个 404 是同一种病,只不过在我自己代码里)。
+
+        原来的正则要求**三段**。业主哪天宣布 1.0,若 tag 打成两段的 `win-installer-1.0`,
+        那一版在更新检查里**根本不存在,而且一声不吭** —— 又一条恒绿路径。
+        """
+        self.assertEqual(ds_update.parse_version("1.0"), (1, 0, 0),
+                         "两段式版本号读不出来")
+        self.assertGreater(ds_update.parse_version("1.0"),
+                           ds_update.parse_version("0.99.9"))
+        self.assertEqual(ds_update.parse_version("win-installer-1.0"), (1, 0, 0))
+        self.assertEqual(ds_update.parse_version("OpenDesign-Setup-1.0.exe"), (1, 0, 0))
+
+    def test_t2g_padding_makes_the_short_form_compare_right(self):
+        """`0.98` 和 `0.98.0` 是同一版,不是前者更小。"""
+        self.assertEqual(ds_update.parse_version("0.98"), ds_update.parse_version("0.98.0"))
+        self.assertLess(ds_update.parse_version("0.98"), ds_update.parse_version("0.98.3"))
+
+    def test_t1e_a_two_segment_tag_release_is_pickable(self):
+        """端到端那一条:两段式 tag 的 release 必须挑得出来。"""
+        rels = _fixture()
+        one_oh = dict(
+            rels[0], tag_name="win-installer-1.0", draft=False, prerelease=True,
+            assets=[dict(rels[0]["assets"][0], name="OpenDesign-Setup-1.0.exe")])
+        got = ds_update.pick_latest([one_oh] + rels)
+        self.assertEqual(ds_update.release_version(got), (1, 0, 0),
+                         "业主宣布 1.0 那天,更新检查看不见它")
+
     def test_t2e_garbage_returns_none_not_exception(self):
-        for bad in ("", "  ", "latest", "v", "0.98.x", None):
+        for bad in ("", "  ", "latest", "v", "0.98.x", "1", "..", "0..3", None):
             self.assertIsNone(ds_update.parse_version(bad), f"{bad!r} 应当解析失败而不是抛")
 
 
@@ -206,7 +234,7 @@ class NetworkMisbehaves(unittest.TestCase):
     """t7:网络抽风要安静,不许把栈甩到业主脸上。"""
 
     def _check(self, fetch):
-        return ds_update.check("0.98.1", fetch=fetch)
+        return ds_update.check_for_update("0.98.1", fetch=fetch)
 
     def test_t7a_timeout_is_quiet(self):
         def boom():
@@ -234,9 +262,9 @@ class NetworkMisbehaves(unittest.TestCase):
                     lambda: [{"tag_name": None, "assets": None}]):
             with self.subTest(bad=bad):
                 try:
-                    d = ds_update.check("0.98.1", fetch=bad)
+                    d = ds_update.check_for_update("0.98.1", fetch=bad)
                 except Exception as exc:  # noqa: BLE001 —— 这里就是要抓住"抛了"
-                    self.fail(f"check() 抛了 {exc!r} —— 业主会看到一坨栈")
+                    self.fail(f"check_for_update() 抛了 {exc!r} —— 业主会看到一坨栈")
                 self.assertIn("update_available", d)
 
 

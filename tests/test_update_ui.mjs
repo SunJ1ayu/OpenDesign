@@ -9,7 +9,7 @@
 //    本单从头到尾治的就是这一类"安静的谎",判据自己更不能生产一个。
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { updateLabel, releasePageUrl } from "../web/src/update.ts";
+import { updateLabel, releasePageUrl, autoCheckEnabled, notesSummary } from "../web/src/update.ts";
 
 const NEWER = {
   current: "0.98.1", update_available: true, latest: "0.98.3",
@@ -59,4 +59,37 @@ test("u6 发布页地址指向本仓那一版的 tag,且是 https", () => {
 test("u7 版本号缺失时不许拼出一个坏地址", () => {
   assert.equal(releasePageUrl(null), null);
   assert.equal(releasePageUrl(""), null);
+});
+
+// ── S1 的界面侧:两处对"什么是合法版本号"的口径必须一致 ──────────────
+test("u8 发布页地址与版本解析口径一致(两段式认,坏形状不认)", () => {
+  assert.match(releasePageUrl("1.0"), /win-installer-1\.0$/,
+    "业主宣布 1.0 那天,界面给不出发布页链接");
+  assert.equal(releasePageUrl("0.98.x"), null, "坏版本号却拼出了一个链接");
+  assert.equal(releasePageUrl("1"), null, "单段不算版本号(会撞上一堆随便的数字)");
+});
+
+// ── S3:自动查更新要能关掉 ────────────────────────────────────────
+test("u9 默认自动检查(业主没表过态时,帮他查)", () => {
+  assert.equal(autoCheckEnabled({}), true);
+});
+
+test("u10 🔴 显式关掉之后就不许再自动往外发请求", () => {
+  assert.equal(autoCheckEnabled({ "update.autoCheck": false }), false,
+    "业主关掉了自动检查,软件却还是每次打开都往 GitHub 发一次请求");
+  assert.equal(autoCheckEnabled({ "update.autoCheck": true }), true);
+});
+
+// ── S4:取了就要用,不许留个"取了不显示"的字段假装做了 ──────────────
+test("u11 更新说明取第一句有意义的话,去掉 markdown 记号", () => {
+  const s = notesSummary("## 这一版改了什么\n\n**双击之后的等待**从 9 秒降到 1.5 秒");
+  assert.doesNotMatch(s, /^#|\*\*/, `没洗掉 markdown 记号:「${s}」`);
+  assert.match(s, /9 秒/, `没取到正文:「${s}」`);
+});
+
+test("u12 更新说明太长要截断,空的要给空串", () => {
+  assert.equal(notesSummary(""), "");
+  assert.equal(notesSummary(null), "");
+  const long = notesSummary("x".repeat(500));
+  assert.ok(long.length <= 80, `截断没生效:${long.length} 字`);
 });
