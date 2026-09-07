@@ -1,0 +1,82 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    judging-panel-f1f2f3f5-red
+cmd:     bash -c set\ +e\;\ DS_SHELL_E2E=1\ /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_update\ tests.test_ds_web_update\;\ a=\$\?\;\ echo\ \"---\ python\ rc=\$a\ ---\"\;\ node\ --test\ tests/test_update_ui.mjs\;\ b=\$\?\;\ echo\ \"---\ node\ rc=\$b\ ---\"\;\ \[\ \$a\ -eq\ 0\ \]\ \&\&\ \[\ \$b\ -eq\ 0\ \]
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  55e5dba
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-07T13:53:31Z
+---------------- 输出开始 ----------------
+.........E..........EE........2026-09-07 21:53:31 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+.2026-09-07 21:53:31 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+.2026-09-07 21:53:32 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-07 21:53:32 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-07 21:53:32 127.0.0.1 - "GET /api/update/check?force=1 HTTP/1.1" 200 -
+.2026-09-07 21:53:32 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+.
+======================================================================
+ERROR: test_t11_releases_url_is_exactly_this (tests.test_ds_update.FetchUrlIsExact.test_t11_releases_url_is_exactly_this)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 178, in test_t11_releases_url_is_exactly_this
+    ds_update.releases_url("SunJ1ayu/OpenDesign"),
+    ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_update' has no attribute 'releases_url'
+
+======================================================================
+ERROR: test_t10a_decide_carries_the_real_release_url (tests.test_ds_update.ReleaseUrlOnTheWire.test_t10a_decide_carries_the_real_release_url)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 153, in test_t10a_decide_carries_the_real_release_url
+    self.assertEqual(got["release_url"], newest["html_url"],
+                     ~~~^^^^^^^^^^^^^^^
+KeyError: 'release_url'
+
+======================================================================
+ERROR: test_t10b_two_segment_tag_keeps_its_own_url (tests.test_ds_update.ReleaseUrlOnTheWire.test_t10b_two_segment_tag_keeps_its_own_url)
+S1 那个场景端到端:两段式 tag 的发布页地址不许被补零污染。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update.py", line 165, in test_t10b_two_segment_tag_keeps_its_own_url
+    self.assertTrue(got["release_url"].endswith("win-installer-1.0"),
+                    ~~~^^^^^^^^^^^^^^^
+KeyError: 'release_url'
+
+----------------------------------------------------------------------
+Ran 34 tests in 2.040s
+
+FAILED (errors=3)
+--- python rc=1 ---
+TAP version 13
+# file:///root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:12
+# import { updateLabel, safeReleaseUrl, autoCheckEnabled, notesSummary, hasUpdateBadge } from "../web/src/update.ts";
+#                                                                       ^^^^^^^^^^^^^^
+# SyntaxError: The requested module '../web/src/update.ts' does not provide an export named 'hasUpdateBadge'
+#     at ModuleJob._instantiate (node:internal/modules/esm/module_job:226:21)
+#     at async ModuleJob.run (node:internal/modules/esm/module_job:335:5)
+#     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
+#     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+# Node.js v22.23.1
+# Subtest: tests/test_update_ui.mjs
+not ok 1 - tests/test_update_ui.mjs
+  ---
+  duration_ms: 107.997991
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 117.084248
+--- node rc=1 ---
+---------------- 输出结束 ----------------
+runlog: judging-panel-f1f2f3f5-red rc=1 commit=55e5dba dirty=yes at=2026-09-07T13:53:31Z file=tracks/opendesign-in-app-update/evidence/20260907T135331Z-01-judging-panel-f1f2f3f5-red.txt

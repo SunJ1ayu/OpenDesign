@@ -9,7 +9,7 @@
 //    本单从头到尾治的就是这一类"安静的谎",判据自己更不能生产一个。
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { updateLabel, releasePageUrl, autoCheckEnabled, notesSummary } from "../web/src/update.ts";
+import { updateLabel, safeReleaseUrl, autoCheckEnabled, notesSummary, hasUpdateBadge } from "../web/src/update.ts";
 
 const NEWER = {
   current: "0.98.1", update_available: true, latest: "0.98.3",
@@ -49,25 +49,9 @@ test("u5 还没查过时显示的是版本号,不是空白", () => {
   assert.match(s, /0\.98\.3/, `没查过时该显示当前版本,却显示「${s}」`);
 });
 
-test("u6 发布页地址指向本仓那一版的 tag,且是 https", () => {
-  const u = releasePageUrl("0.98.3");
-  assert.ok(u.startsWith("https://"), u);
-  assert.match(u, /SunJ1ayu\/OpenDesign/, u);
-  assert.match(u, /win-installer-0\.98\.3$/, `tag 拼错了:${u}`);
-});
 
-test("u7 版本号缺失时不许拼出一个坏地址", () => {
-  assert.equal(releasePageUrl(null), null);
-  assert.equal(releasePageUrl(""), null);
-});
 
 // ── S1 的界面侧:两处对"什么是合法版本号"的口径必须一致 ──────────────
-test("u8 发布页地址与版本解析口径一致(两段式认,坏形状不认)", () => {
-  assert.match(releasePageUrl("1.0"), /win-installer-1\.0$/,
-    "业主宣布 1.0 那天,界面给不出发布页链接");
-  assert.equal(releasePageUrl("0.98.x"), null, "坏版本号却拼出了一个链接");
-  assert.equal(releasePageUrl("1"), null, "单段不算版本号(会撞上一堆随便的数字)");
-});
 
 // ── S3:自动查更新要能关掉 ────────────────────────────────────────
 test("u9 默认自动检查(业主没表过态时,帮他查)", () => {
@@ -92,4 +76,40 @@ test("u12 更新说明太长要截断,空的要给空串", () => {
   assert.equal(notesSummary(null), "");
   const long = notesSummary("x".repeat(500));
   assert.ok(long.length <= 80, `截断没生效:${long.length} 字`);
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// 评审 F1(subdeepseek 抓到、我自己复现确认)——**我修 S1 时自己造出来的 bug**:
+// 补零把 `1.0` 变成 `1.0.0`,而真实 tag 是 `win-installer-1.0` ⇒ 拼出来的下载链接 404。
+// 旧的 u6/u7/u8 已删:它们测的是 releasePageUrl("1.0"),**而运行时永远不会传两段进去**
+// (后端给的一直是补零后的形式)——判据在测一条走不到的路,等于没测。
+// 新做法:**地址不再由我们拼,用 GitHub 自己给的 html_url;我们只负责验它。**
+test("u6 只放行本仓 releases 下的 https 地址", () => {
+  const real = "https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-1.0";
+  assert.equal(safeReleaseUrl(real), real);
+});
+
+test("u7 别人给的地址一律不放行(界面上那个链接是要业主去点的)", () => {
+  assert.equal(safeReleaseUrl("http://github.com/SunJ1ayu/OpenDesign/releases/tag/x"), null,
+    "http 明文也放行了");
+  assert.equal(safeReleaseUrl("https://evil.example.com/releases/tag/x"), null,
+    "别的域名也放行了 —— 后端一旦被骗,业主就会点到别人家去");
+  assert.equal(safeReleaseUrl("https://github.com/SunJ1ayu/OpenDesign/issues/1"), null,
+    "不是 releases 下的地址也放行了");
+  assert.equal(safeReleaseUrl(null), null);
+  assert.equal(safeReleaseUrl(""), null);
+});
+
+// ── 评审 F2:那句"有新版"藏在收起来的设置里,等于没说 ──────────────
+test("u13 🔴 有新版时,设置那一行必须挂个记号(不然业主根本看不到)", () => {
+  assert.equal(hasUpdateBadge({ update_available: true, latest: "1.0.0" }), true,
+    "有新版却不在收起来的设置行上留任何记号 —— 业主永远不会知道");
+  assert.equal(hasUpdateBadge({ update_available: false, latest: "1.0.0" }), false);
+  assert.equal(hasUpdateBadge(null), false);
+});
+
+// ── 评审 F3:查完了但没拿到东西,不许长得像"还没查过" ────────────────
+test("u14 done + 空结果要说查不到,不许伪装成没查过", () => {
+  const s = updateLabel({ state: "done", info: null, version: "0.98.3" });
+  assert.match(s, /查不到/, `查完了却什么都没拿到,界面显示「${s}」—— 和没查过一模一样`);
 });

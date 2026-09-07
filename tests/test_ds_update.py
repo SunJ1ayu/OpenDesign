@@ -138,6 +138,47 @@ class PickLatest(unittest.TestCase):
                          "草稿被当成了可更新的版本")
 
 
+class ReleaseUrlOnTheWire(unittest.TestCase):
+    """评审 F1:发布页地址必须**由 GitHub 给**,不许我们拿版本号拼。
+
+    我修 S1 时给版本号补了零(`1.0` → `1.0.0`),于是界面拿 `latest` 去拼地址就成了
+    `win-installer-1.0.0` —— 而真实 tag 是 `win-installer-1.0`,点开 404。
+    **认出来了、却给了一个打不开的链接**,又一条"看起来在工作"。
+    """
+
+    def test_t10a_decide_carries_the_real_release_url(self):
+        rels = _fixture()
+        got = ds_update.decide("0.98.1", rels)
+        newest = ds_update.pick_latest(rels)
+        self.assertEqual(got["release_url"], newest["html_url"],
+                         "没把 GitHub 给的发布页地址带出来,界面只能自己拼")
+
+    def test_t10b_two_segment_tag_keeps_its_own_url(self):
+        """S1 那个场景端到端:两段式 tag 的发布页地址不许被补零污染。"""
+        rels = _fixture()
+        one_oh = dict(
+            rels[0], tag_name="win-installer-1.0", draft=False,
+            html_url="https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-1.0",
+            assets=[dict(rels[0]["assets"][0], name="OpenDesign-Setup-1.0.exe")])
+        got = ds_update.decide("0.98.3", [one_oh] + rels)
+        self.assertEqual(got["latest"], "1.0.0")
+        self.assertTrue(got["release_url"].endswith("win-installer-1.0"),
+                        f"发布页地址被补零污染了:{got['release_url']}")
+
+
+class FetchUrlIsExact(unittest.TestCase):
+    """评审 F5:t1b 那道 AST 闸只咬"一整条字符串里含 releases/latest"。
+
+    把 `/latest` 拆成另一个字面量拼上去,t1 和 t1b 都躲得过。
+    ⇒ 直接断言**拼出来的那个地址逐字节是什么**,比扫源码结实。
+    """
+
+    def test_t11_releases_url_is_exactly_this(self):
+        self.assertEqual(
+            ds_update.releases_url("SunJ1ayu/OpenDesign"),
+            "https://api.github.com/repos/SunJ1ayu/OpenDesign/releases?per_page=100")
+
+
 class VersionCompare(unittest.TestCase):
     """t2:按数比,不按字符串。"""
 
