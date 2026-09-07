@@ -65,17 +65,40 @@ class PickLatest(unittest.TestCase):
                  "功能永远查不到新版本,而且不报错。")
         self.assertEqual(ds_update.release_version(got), (0, 98, 3))
 
-    def test_t1b_source_must_not_use_the_latest_endpoint(self):
-        """结构闸:源码里不许出现 `/releases/latest`。
+    def test_t1b_code_must_not_call_the_latest_endpoint(self):
+        """结构闸:**代码**里不许出现 `/releases/latest`(注释和文档串不算)。
 
-        t1 是从结果上问,这条是从结构上问。两条都在,是因为将来有人重写挑选逻辑时,
-        很可能"顺手改回标准接口" —— 那一刻 t1 会红,而这一条会直接指出为什么。
+        t1 从结果上问,这条从结构上问。两条都在,是因为将来有人重写挑选逻辑时,
+        很可能"顺手改回标准接口" —— 那一刻 t1 会红,而这一条直接说出为什么。
+
+        🔴 **这道闸的第一版是我自己写的一个误报**(2026-09-07):它扫整份源码,
+        于是把文件头那段**解释这个坑的注释**也咬了 —— 而那段注释正是下一个人
+        唯一能看懂"为什么不能用那个接口"的地方。**逼着人删掉解释才能过闸,
+        就是在逼人绕开闸。** 所以改成走 AST:注释根本不进 AST,
+        文档串按 id 显式排除,剩下的**代码里真正用到的字符串**才是它问的东西。
         """
-        src = open(MODULE_SRC, encoding="utf-8").read()
-        self.assertNotIn(
-            "releases/latest", src,
-            "bin/ds_update.py 里出现了 `/releases/latest` —— 那个接口在本仓恒返回 404"
-            "(本仓 20 个 release 全是 prerelease)。用 `/releases` 自己挑。")
+        import ast
+        with open(MODULE_SRC, encoding="utf-8") as fh:
+            tree = ast.parse(fh.read())
+        docstrings = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Module, ast.ClassDef,
+                                 ast.FunctionDef, ast.AsyncFunctionDef)):
+                body = getattr(node, "body", None) or []
+                if (body and isinstance(body[0], ast.Expr)
+                        and isinstance(body[0].value, ast.Constant)
+                        and isinstance(body[0].value.value, str)):
+                    docstrings.add(id(body[0].value))
+        offenders = [
+            n.value for n in ast.walk(tree)
+            if isinstance(n, ast.Constant) and isinstance(n.value, str)
+            and id(n) not in docstrings and "releases/latest" in n.value
+        ]
+        self.assertEqual(
+            offenders, [],
+            "bin/ds_update.py 的**代码**里出现了 `/releases/latest`:"
+            f"{offenders} —— 那个接口在本仓恒返回 404(20 个 release 全是 prerelease),"
+            "用它等于让查更新永远查不到东西。用 `/releases` 自己挑。")
 
     def test_t1c_release_without_installer_asset_is_not_a_candidate(self):
         """没有安装包资产的 release 不能被选中 —— 选中了就是"更新"到一个下不动的东西。"""
@@ -85,6 +108,26 @@ class PickLatest(unittest.TestCase):
         got = ds_update.pick_latest(stripped)
         self.assertIsNotNone(got, "把最新那版的资产拿掉之后应当回退到上一版,而不是什么都不给")
         self.assertEqual(ds_update.release_version(got), (0, 98, 2))
+
+    def test_t1c2_asset_with_a_wrong_name_is_not_an_installer(self):
+        """资产**名字不对**也不算 —— m5 红检漏网抓到的洞(2026-09-07)。
+
+        原来的 t1c 只把资产整个拿走,于是"认不认名字"这件事根本没被问到:
+        把 `if ASSET_RE.match(...)` 换成 `if True:` 时判据全绿。
+        后果不是抽象的 —— 一个只挂着说明文件的 release 会被当成可更新的版本,
+        然后我们拿着一个 .txt 去当安装包跑。
+        """
+        rels = _fixture()
+        newest = max(rels, key=lambda r: ds_update.release_version(r) or (0,))
+        renamed = [
+            dict(r, assets=[dict(a, name="更新说明.txt") for a in r["assets"]])
+            if r is newest else r
+            for r in rels
+        ]
+        got = ds_update.pick_latest(renamed)
+        self.assertEqual(
+            ds_update.release_version(got), (0, 98, 2),
+            "最新那版只剩一个名字不对的资产,却仍被当成可更新的版本")
 
     def test_t1d_draft_is_never_a_candidate(self):
         """草稿是没发出去的东西,业主下不到。"""
@@ -139,9 +182,19 @@ class DecideWhetherToOffer(unittest.TestCase):
         d = ds_update.decide("0.98.1", _fixture())
         self.assertTrue(d["update_available"])
         self.assertEqual(d["latest"], "0.98.3")
-        self.assertTrue(d["asset"]["url"].startswith("https://"),
+        url = d["asset"]["url"]
+        self.assertTrue(url.startswith("https://"),
                         "下载地址必须是 https —— 本单的信任根只有这一条")
+        # 🔴 m9 红检漏网抓到的洞(2026-09-07):光断言 https 是**永远成立**的,
+        #    因为 GitHub 的 API 地址也是 https。把 browser_download_url 换成 API 的
+        #    `url` 字段时判据全绿 —— 而那个地址下回来的是一坨 JSON,不是 exe。
+        self.assertIn("/releases/download/", url,
+                      f"这不是资产下载地址:{url} —— API 地址下回来的是 JSON,不是安装包")
+        self.assertTrue(url.endswith(d["asset"]["name"]),
+                        f"下载地址的结尾不是安装包文件名:{url}")
         self.assertGreater(d["asset"]["size"], 0)
+        self.assertTrue((d["asset"]["digest"] or "").startswith("sha256:"),
+                        "GitHub 给的 sha256 没带出来 —— 第二刀要拿它校验下回来的包")
 
     def test_t3d_unparsable_local_version_never_offers(self):
         """读不出自己是哪一版时,宁可不提示,也不许瞎装。"""
