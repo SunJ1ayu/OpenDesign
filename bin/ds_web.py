@@ -71,7 +71,7 @@ import time
 import traceback
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 import ds_common
 import ds_consent
@@ -83,6 +83,7 @@ import ds_organize  # 针孔④ approve+apply 直调核心(锁/复验/审计全�
 import ds_refs
 import ds_shell_core     # 只取锁通道的协议常量与读行:帧格式两处各抄一份迟早对不上
 import ds_taxonomy
+import ds_update    # 查更新(track opendesign-in-app-update):只查不装
 import ds_todo
 import ds_tools
 import ds_workspace
@@ -919,6 +920,8 @@ class Handler(BaseHTTPRequestHandler):
                              # 文档转换器装没装:业主刷一下 /api/health 就看得见,
                              # 不用开命令行(部署规矩:盘上有 ≠ 跑起来有)。
                              "doc_reader": _doc_reader_status()})
+        elif path == "/api/update/check":
+            self._update_check()
         elif path == "/api/todos":
             self._todos()
         elif path == "/api/llm/credential":
@@ -1017,6 +1020,19 @@ class Handler(BaseHTTPRequestHandler):
             self._method_not_allowed()
 
     do_PUT = do_DELETE = do_PATCH = _method_not_allowed
+
+    def _update_check(self):
+        """查更新:线上有没有比本机新的版本(track opendesign-in-app-update,第一刀)。
+
+        🔴 **任何失败都以 200 + error 字段回**(判据 t9b)。查更新失败是小事,
+        而一个 500 会让前端的通用错误路径弹东西给业主 —— 他什么都没干、只是打开了软件,
+        却看见"出错了"。**功能失败和软件坏了,在界面上不该长得一样。**
+
+        `?force=1` 是业主亲手点了「检查更新」:那一下不给缓存,真去问一次。
+        本机版本号只有一个来源(VERSION),不另写一份 —— 抄第二份迟早对不上。
+        """
+        force = parse_qs(urlsplit(self.path).query).get("force", ["0"])[0] not in ("", "0")
+        self._json(200, ds_update.check_cached(VERSION, force=force))
 
     def _todos(self):
         try:

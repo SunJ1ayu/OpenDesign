@@ -133,10 +133,15 @@ def fetch_releases(repo=REPO, timeout=TIMEOUT_S):
         return json.loads(resp.read().decode("utf-8"))
 
 
-def check(current, fetch=fetch_releases):
-    """查一次。**任何异常都不许漏出去** —— 查更新失败是小事,把一坨栈甩给业主是大事。"""
+def check(current, fetch=None):
+    """查一次。**任何异常都不许漏出去** —— 查更新失败是小事,把一坨栈甩给业主是大事。
+
+    `fetch=None` 时到**调用那一刻**才去取 `fetch_releases`。默认参数在 def 那一刻就固化了,
+    那样判据里替换 `ds_update.fetch_releases` 根本不生效,离线判据会悄悄变成真去打网
+    (判据 t9d 钉的就是这件事)。
+    """
     try:
-        releases = fetch()
+        releases = (fetch or fetch_releases)()
     except Exception as exc:  # noqa: BLE001 —— 故意兜底,判据 t7d 就是钉它
         return {"current": current, "update_available": False, "latest": None,
                 "asset": None, "notes": "", "error": f"查更新失败:{exc.__class__.__name__}: {exc}"}
@@ -181,7 +186,7 @@ def cache_clear():
         _cache.clear()
 
 
-def check_cached(current, fetch=fetch_releases, now=time.time, force=False, ttl=None):
+def check_cached(current, fetch=None, now=time.time, force=False, ttl=None):
     """带缓存地查一次。`force=True` 是业主亲手点了「检查更新」—— 那一下必须真去问。"""
     ttl = CACHE_TTL_S if ttl is None else ttl
     t = now()
