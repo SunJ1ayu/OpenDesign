@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { updateLabel, releasePageUrl } from "../update";
+import { updateLabel, releasePageUrl, notesSummary } from "../update";
 import type { UpdateInfo, UpdateState } from "../update";
 import type { ConsentMode, Project } from "../api";
 import { relTime } from "../api";
@@ -51,6 +51,9 @@ type Props = {
   updateState: UpdateState;
   updateInfo: UpdateInfo | null;
   onCheckUpdate: () => void;
+  /** 自动查更新开关(默认开)。业主的机器该业主做主 —— 见 update.ts 里那段理由。 */
+  autoCheck: boolean;
+  onToggleAutoCheck: () => void;
 };
 
 function dotClass(p: Project, current: boolean): string {
@@ -72,7 +75,7 @@ export default function Sidebar({
   route, projects, stages, selectedKey, onSelectProject, todosOpenCount, excludedStructural,
   onOpenFolderVisibility, onOpenLlmKey, consentMode, onSetConsentMode,
   sessions, sessionTags, onOpenSession, onDeleteSession, onNewChat, onNewProject,
-  onSearch, health, updateState, updateInfo, onCheckUpdate,
+  onSearch, health, updateState, updateInfo, onCheckUpdate, autoCheck, onToggleAutoCheck,
 }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -376,9 +379,15 @@ export default function Sidebar({
               rel="noreferrer"
             >
               <span className="lbl">下载 {updateInfo.latest}</span>
-              <span className="val faint">去发布页 ›</span>
+              <span className="val faint">
+                {notesSummary(updateInfo.notes) || "去发布页 ›"}
+              </span>
             </a>
           )}
+          <button className="item" onClick={onToggleAutoCheck}>
+            <span className="lbl muted">打开时自动检查</span>
+            <span className="val">{autoCheck ? "开 ›" : "关 ›"}</span>
+          </button>
         </div>
       )}
       <div className="side-footer">

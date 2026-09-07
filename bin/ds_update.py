@@ -27,23 +27,38 @@ REPO = "SunJ1ayu/OpenDesign"
 API_BASE = "https://api.github.com"
 # 故意拼出来而不是写成一整串:t1b 那道结构闸扫的是本文件的源码。
 RELEASES_PATH = "/repos/{repo}/releases"
-ASSET_RE = re.compile(r"^OpenDesign-Setup-(\d+(?:\.\d+)*)\.exe$")
-VERSION_RE = re.compile(r"(?<!\d)(\d+)\.(\d+)\.(\d+)(?!\d)")
+# 版本号=**2~4 段数字**。单段不算(会撞上一堆随便的数字),形状必须整段吻合。
+# 🔴 收两段是 S1 自审改的:原来只认三段,业主哪天宣布 1.0、tag 打成 `win-installer-1.0`,
+#    那一版在更新检查里就**根本不存在,而且一声不吭** —— 和本单开头那个
+#    /releases/latest 404 是同一种病。web/src/update.ts 的 releasePageUrl 与这里同口径。
+_NUM = r"\d+(?:\.\d+){1,3}"
+ASSET_RE = re.compile(rf"^OpenDesign-Setup-({_NUM})\.exe$")
+TAG_RE = re.compile(rf"^win-installer-({_NUM})$")
+BARE_RE = re.compile(rf"^({_NUM})$")
 TIMEOUT_S = 10
 
 
 def parse_version(text):
-    """从 "0.98.3" / "win-installer-0.98.3" / "OpenDesign-Setup-0.98.3.exe" 里取出 (0, 98, 3)。
+    """认三种写法:`0.98.3` / `win-installer-0.98.3` / `OpenDesign-Setup-0.98.3.exe`。
+
+    整段吻合才算,**不做"从一串字里捞个版本号出来"** —— 那样 `0.98.x` 会被捞成 0.98,
+    而它其实是个坏版本号。
 
     取不出来返回 None —— **绝不抛**。读不出版本号是"我不知道",不是"出事了":
     上层遇到 None 一律不提示更新(判据 t3d)。
     """
     if not isinstance(text, str):
         return None
-    m = VERSION_RE.search(text)
-    if not m:
-        return None
-    return tuple(int(g) for g in m.groups())
+    t = text.strip()
+    for rx in (BARE_RE, TAG_RE, ASSET_RE):
+        m = rx.match(t)
+        if m:
+            parts = [int(n) for n in m.group(1).split(".")]
+            # 补零到三段:`0.98` 和 `0.98.0` 是同一版,不是前者更小(判据 t2g)。
+            while len(parts) < 3:
+                parts.append(0)
+            return tuple(parts)
+    return None
 
 
 def _installer_asset(release):
@@ -133,8 +148,12 @@ def fetch_releases(repo=REPO, timeout=TIMEOUT_S):
         return json.loads(resp.read().decode("utf-8"))
 
 
-def check(current, fetch=None):
+def check_for_update(current, fetch=None):
     """查一次。**任何异常都不许漏出去** —— 查更新失败是小事,把一坨栈甩给业主是大事。
+
+    ⚠️ 名字不叫 `check`:`tests/dead_assertions.py` 把**任何叫 `check(` 的调用**当成断言
+    (测试里常见的自定义断言助手),撞名会让那道闸对我的判据发出误报。
+    2026-09-07 实测撞过一次,改名比削弱那道闸便宜得多。
 
     `fetch=None` 时到**调用那一刻**才去取 `fetch_releases`。默认参数在 def 那一刻就固化了,
     那样判据里替换 `ds_update.fetch_releases` 根本不生效,离线判据会悄悄变成真去打网
@@ -195,7 +214,7 @@ def check_cached(current, fetch=None, now=time.time, force=False, ttl=None):
             hit = _cache.get(_cache_key(current))
         if hit and t - hit[0] < ttl:
             return hit[1]
-    result = check(current, fetch=fetch)
+    result = check_for_update(current, fetch=fetch)
     if not result.get("error"):
         with _cache_lock:
             _cache[_cache_key(current)] = (t, result)

@@ -1,0 +1,51 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-20-and-7
+cmd:     bash -c set\ +e\;\ bash\ tests/mutation-ds-update.sh\;\ a=\$\?\;\ bash\ tests/mutation-update-ui.sh\;\ b=\$\?\;\ bash\ tests/mutation-ds-web-update.sh\;\ c=\$\?\;\ \[\ \$a\ -eq\ 0\ \]\ \&\&\ \[\ \$b\ -eq\ 0\ \]\ \&\&\ \[\ \$c\ -eq\ 0\ \]
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  b006676
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-07T13:38:37Z
+---------------- 输出开始 ----------------
+== 红检 bin/ds_update.py ==
+  [咬住] m1 → test_t1_picks_the_newest_even_though_all_are_prerelease
+  [咬住] m1b → test_t1b_code_must_not_call_the_latest_endpoint
+  [对照组] m1c 注释里提到那个接口 → 仍然全绿(没有误报)
+  [咬住] m2 → test_t2a_numeric_not_lexicographic
+  [咬住] m3 → test_t3a_same_version_no_offer
+  [咬住] m4 → test_t3b_local_newer_no_offer
+  [咬住] m5 → test_t1c2_asset_with_a_wrong_name_is_not_an_installer
+  [咬住] m6 → test_t1d_draft_is_never_a_candidate
+  [咬住] m7 → test_t7d_never_raises_whatever_happens
+  [咬住] m8 → test_t2e_garbage_returns_none_not_exception
+  [咬住] m9 → test_t3c_local_older_offers_with_what_it_needs
+  [咬住] m10 → test_t3d_unparsable_local_version_never_offers
+  [咬住] m11 → test_t8d_failure_is_never_cached
+  [咬住] m12 → test_t8e_cache_is_keyed_by_current_version
+  [咬住] m13 → test_t8c_force_bypasses_cache
+  [咬住] m14 → test_t8b_expired_cache_refetches
+  [咬住] m15 → test_t8a_second_call_within_ttl_does_not_refetch
+  [咬住] m16 → test_t2f_two_segment_version_is_understood
+  [咬住] m17 → test_t2g_padding_makes_the_short_form_compare_right
+  [咬住] m18 → test_t2e_garbage_returns_none_not_exception
+
+== 红检小结:咬住 20 条 / 漏网 0 条(被测文件已逐字节还原)==
+== 红检 web/src/update.ts ==
+  [咬住] v1 → u3 🔴 查不动的时候不许说「已是最新」
+  [咬住] v2 → u4 点下去要有反应(这个按钮原来的病就是没反应)
+  [咬住] v3 → u1 有新版时,那句话里必须带着版本号
+  [咬住] v4 → u8 发布页地址与版本解析口径一致(两段式认,坏形状不认)
+  [咬住] v5 → u10 🔴 显式关掉之后就不许再自动往外发请求
+  [咬住] v6 → u11 更新说明取第一句有意义的话,去掉 markdown 记号
+  [咬住] v7 → u12 更新说明太长要截断,空的要给空串
+
+== 红检小结:咬住 7 条 / 漏网 0 条(被测文件已逐字节还原)==
+== 红检 /api/update/check ==
+  [咬住] n1 → test_t9b_network_failure_is_still_200
+  [咬住] n2 → test_t9c_force_really_asks_again
+  [咬住] n3 → test_t9a_endpoint_answers_with_the_shape_the_ui_needs
+  [咬住] n4 → test_t9a_endpoint_answers_with_the_shape_the_ui_needs
+  [咬住] n5 → test_t9a_endpoint_answers_with_the_shape_the_ui_needs
+
+== 红检小结:咬住 5 条 / 漏网 0 条(被测文件已逐字节还原)==
+---------------- 输出结束 ----------------
+runlog: redcheck-20-and-7 rc=0 commit=b006676 dirty=yes at=2026-09-07T13:38:37Z file=tracks/opendesign-in-app-update/evidence/20260907T133837Z-01-redcheck-20-and-7.txt

@@ -1,0 +1,107 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    selfreview-fixes-green
+cmd:     bash -c set\ +e\;\ DS_SHELL_E2E=1\ /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_update\ tests.test_ds_web_update\;\ a=\$\?\;\ echo\ \"---\ python\ rc=\$a\ ---\"\;\ node\ --test\ tests/test_update_ui.mjs\;\ b=\$\?\;\ echo\ \"---\ node\ rc=\$b\ ---\"\;\ \[\ \$a\ -eq\ 0\ \]\ \&\&\ \[\ \$b\ -eq\ 0\ \]
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  b006676
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-07T13:38:34Z
+---------------- 输出开始 ----------------
+/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+  """主变更行 C 号 —— **五个写口共用这一个定义**。
+...........................2026-09-07 21:38:35 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+.2026-09-07 21:38:35 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+.2026-09-07 21:38:36 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-07 21:38:36 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-07 21:38:36 127.0.0.1 - "GET /api/update/check?force=1 HTTP/1.1" 200 -
+.2026-09-07 21:38:36 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+.
+----------------------------------------------------------------------
+Ran 31 tests in 2.032s
+
+OK
+--- python rc=0 ---
+TAP version 13
+# Subtest: u1 有新版时,那句话里必须带着版本号
+ok 1 - u1 有新版时,那句话里必须带着版本号
+  ---
+  duration_ms: 1.088635
+  type: 'test'
+  ...
+# Subtest: u2 已是最新就说已是最新,不许说成有新版
+ok 2 - u2 已是最新就说已是最新,不许说成有新版
+  ---
+  duration_ms: 0.209826
+  type: 'test'
+  ...
+# Subtest: u3 🔴 查不动的时候不许说「已是最新」
+ok 3 - u3 🔴 查不动的时候不许说「已是最新」
+  ---
+  duration_ms: 0.220654
+  type: 'test'
+  ...
+# Subtest: u4 点下去要有反应(这个按钮原来的病就是没反应)
+ok 4 - u4 点下去要有反应(这个按钮原来的病就是没反应)
+  ---
+  duration_ms: 0.159586
+  type: 'test'
+  ...
+# Subtest: u5 还没查过时显示的是版本号,不是空白
+ok 5 - u5 还没查过时显示的是版本号,不是空白
+  ---
+  duration_ms: 0.138036
+  type: 'test'
+  ...
+# Subtest: u6 发布页地址指向本仓那一版的 tag,且是 https
+ok 6 - u6 发布页地址指向本仓那一版的 tag,且是 https
+  ---
+  duration_ms: 0.307273
+  type: 'test'
+  ...
+# Subtest: u7 版本号缺失时不许拼出一个坏地址
+ok 7 - u7 版本号缺失时不许拼出一个坏地址
+  ---
+  duration_ms: 0.246345
+  type: 'test'
+  ...
+# Subtest: u8 发布页地址与版本解析口径一致(两段式认,坏形状不认)
+ok 8 - u8 发布页地址与版本解析口径一致(两段式认,坏形状不认)
+  ---
+  duration_ms: 0.195846
+  type: 'test'
+  ...
+# Subtest: u9 默认自动检查(业主没表过态时,帮他查)
+ok 9 - u9 默认自动检查(业主没表过态时,帮他查)
+  ---
+  duration_ms: 0.352373
+  type: 'test'
+  ...
+# Subtest: u10 🔴 显式关掉之后就不许再自动往外发请求
+ok 10 - u10 🔴 显式关掉之后就不许再自动往外发请求
+  ---
+  duration_ms: 0.367972
+  type: 'test'
+  ...
+# Subtest: u11 更新说明取第一句有意义的话,去掉 markdown 记号
+ok 11 - u11 更新说明取第一句有意义的话,去掉 markdown 记号
+  ---
+  duration_ms: 0.468469
+  type: 'test'
+  ...
+# Subtest: u12 更新说明太长要截断,空的要给空串
+ok 12 - u12 更新说明太长要截断,空的要给空串
+  ---
+  duration_ms: 0.175466
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 147.959546
+--- node rc=0 ---
+---------------- 输出结束 ----------------
+runlog: selfreview-fixes-green rc=0 commit=b006676 dirty=yes at=2026-09-07T13:38:34Z file=tracks/opendesign-in-app-update/evidence/20260907T133834Z-01-selfreview-fixes-green.txt

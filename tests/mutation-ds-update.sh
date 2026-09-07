@@ -80,10 +80,12 @@ else
   escapes=$((escapes+1))
 fi
 
-# m2 版本按字符串比
+# m2 版本按字符串比("0.98.10" < "0.98.9" 在字符串下成立)
+# (锚点 2026-09-07 随 S1 改实现更新过一次 —— 变异锚点过期在本仓是老毛病,
+#  所以脚本对"没匹配到"报 [BAD] 而不是当没事发生。)
 mutate_and_expect m2 test_t2a_numeric_not_lexicographic \
-  'return tuple(int(g) for g in m.groups())' \
-  'return tuple(str(g) for g in m.groups())'
+  'parts = [int(n) for n in m.group(1).split(".")]' \
+  'parts = [n for n in m.group(1).split(".")]'
 
 # m3 相等也提示更新
 mutate_and_expect m3 test_t3a_same_version_no_offer \
@@ -163,6 +165,27 @@ mutate_and_expect m14 test_t8b_expired_cache_refetches \
 mutate_and_expect m15 test_t8a_second_call_within_ttl_does_not_refetch \
   '        hit = _cache.get(_cache_key(current))' \
   '        hit = None'
+
+# ── S1 那批(自审补的)──────────────────────────────────────────────
+
+# m16 只认三段(回到自审前的样子)= 业主宣布 1.0 那天更新检查看不见它
+# (靶子故意避开反斜杠:第一版写成完整正则,经 heredoc→shell→python 三层转义后对不上,
+#  脚本报的是 [BAD] 变异没打上去,不是假绿。)
+mutate_and_expect m16 test_t2f_two_segment_version_is_understood \
+  '{1,3}"' \
+  '{2,3}"'
+
+# m17 不补零 ⇒ (0,98) < (0,98,0),0.98 会被当成比 0.98.0 旧
+mutate_and_expect m17 test_t2g_padding_makes_the_short_form_compare_right \
+  '            while len(parts) < 3:
+                parts.append(0)' \
+  '            while False:
+                parts.append(0)'
+
+# m18 版本号形状不再要求"整段吻合"(去掉尾锚)⇒ 0.98.x 被当成 0.98,坏版本号当好的用
+mutate_and_expect m18 test_t2e_garbage_returns_none_not_exception \
+  'BARE_RE = re.compile(rf"^({_NUM})$")' \
+  'BARE_RE = re.compile(rf"^({_NUM})")'
 
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { autoCheckEnabled, AUTO_CHECK_PREF } from "./update";
 import type { UpdateInfo, UpdateState } from "./update";
+import { loadBoolPrefs } from "./boolPrefs";
 import Sidebar, { type SessionItem } from "./workspace/Sidebar";
 import WindowChrome from "./workspace/WindowChrome";
 import ChangesColumn from "./workspace/ChangesColumn";
@@ -35,6 +37,8 @@ import {
   type ConsentMode,
   type Project,
 } from "./api";
+
+const UPDATE_PREFS_KEY = "ds.prefs.update";
 
 // 外壳(P3 T1,handoff v2 导航模型):
 //   hash 路由:#/ = home(3a 新对话,默认)| workspace(2a,点项目进入)
@@ -83,6 +87,11 @@ export default function App() {
   // 查更新(track opendesign-in-app-update,第一刀:只查不装)
   const [updateState, setUpdateState] = useState<UpdateState>("idle");
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  // 自动查更新的开关(默认开)。存 localStorage,和左栏那些展开偏好同一套。
+  const [autoCheck, setAutoCheck] = useState<boolean>(() => {
+    try { return autoCheckEnabled(loadBoolPrefs(localStorage.getItem(UPDATE_PREFS_KEY))); }
+    catch { return true; }   // 隐私模式读不到 ⇒ 按默认(开)走,不因此白屏
+  });
   const [sessions, setSessions] = useState<SessionItem[] | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   // 工作区体检卡浮层(2026-07-28 用户拍板:挪进设置)。计数器兼作 key:
@@ -251,7 +260,23 @@ export default function App() {
         setUpdateState("idle");
       });
   }, []);
-  useEffect(() => { checkUpdate(false); }, [checkUpdate]);
+  // 🔴 关掉之后就**一次都不许自动发** —— 这是业主对自己机器往外连什么的决定权
+  //    (判据 u10;手动点「检查更新」当然照旧,那是他自己按的)。
+  useEffect(() => {
+    if (autoCheck) checkUpdate(false);
+  }, [autoCheck, checkUpdate]);
+
+  const toggleAutoCheck = useCallback(() => {
+    setAutoCheck((prev) => {
+      const next = !prev;
+      try {
+        const cur = loadBoolPrefs(localStorage.getItem(UPDATE_PREFS_KEY));
+        localStorage.setItem(UPDATE_PREFS_KEY,
+                             JSON.stringify({ ...cur, [AUTO_CHECK_PREF]: next }));
+      } catch { /* 隐私模式:这次改动只在本次会话里生效,不白屏 */ }
+      return next;
+    });
+  }, []);
 
   // 大模型 key 状态:首次打开只拉一次。没配就自动弹卡;已配只记录状态,不打扰。
   useEffect(() => {
@@ -491,6 +516,8 @@ export default function App() {
       updateState={updateState}
       updateInfo={updateInfo}
       onCheckUpdate={() => checkUpdate(true)}
+      autoCheck={autoCheck}
+      onToggleAutoCheck={toggleAutoCheck}
     />
   );
 
