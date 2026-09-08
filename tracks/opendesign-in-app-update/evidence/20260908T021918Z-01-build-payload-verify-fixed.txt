@@ -1,0 +1,24 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    build-payload-verify-fixed
+cmd:     bash -c $'\nset -uo pipefail\nO=/root/aiwork/out/opendesign-0.98.4\necho "上一份收据(rc=1)是**我自己的探针坏了**,不是包坏了。先把这件事量出来:"\necho -n "  同一个文件,grep -ho(无 -a):"; grep -ho "update/check" "$O"/pkg/ds/web/dist/assets/*.js 2>/dev/null | wc -l\necho    "  ↑ 0 —— 因为 grep 认定它是二进制文件,匹配走了 stderr、正文一个字没出。"\necho -n "  同一个文件,grep -hoa(当文本):"; grep -hoa "update/check" "$O"/pkg/ds/web/dist/assets/*.js | wc -l\necho\necho "════ 收货侧三件(探针已修)════"\necho -n "① 新功能的文件进包了吗 : "; [ -f "$O/pkg/ds/bin/ds_update.py" ] && echo "有 ds_update.py" || { echo "🔴 没有"; exit 1; }\necho -n "② 包里的 VERSION      : "; grep -oE "^VERSION = \\"[0-9.]+\\"" "$O/pkg/ds/bin/ds_web.py"\necho -n "③ 前端 dist 带查更新吗 : "\nN=$(grep -hoa "update/check" "$O"/pkg/ds/web/dist/assets/*.js | wc -l)\nM=$(grep -hoa "检查更新" "$O"/pkg/ds/web/dist/assets/*.js | wc -l)\necho "update/check ${N} 处 / 「检查更新」${M} 处"\n[ "$N" -ge 1 ] && [ "$M" -ge 1 ] || { echo "🔴 前端没打进去"; exit 1; }\necho -n "④ 包里的 dist 和仓里的 dist 是同一份吗 : "\nif diff -r --brief "$O/pkg/ds/web/dist" web/dist >/dev/null 2>&1; then echo "逐文件一致"; else echo "🔴 不一致"; diff -r --brief "$O/pkg/ds/web/dist" web/dist; exit 1; fi\necho\necho "════ 要发出去的那个文件 ════"\nsha256sum "$O/OpenDesign-Setup-0.98.4.exe"\nstat -c "%s 字节" "$O/OpenDesign-Setup-0.98.4.exe"\n'
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  583767f
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-08T02:19:18Z
+---------------- 输出开始 ----------------
+上一份收据(rc=1)是**我自己的探针坏了**,不是包坏了。先把这件事量出来:
+  同一个文件,grep -ho(无 -a):0
+  ↑ 0 —— 因为 grep 认定它是二进制文件,匹配走了 stderr、正文一个字没出。
+  同一个文件,grep -hoa(当文本):2
+
+════ 收货侧三件(探针已修)════
+① 新功能的文件进包了吗 : 有 ds_update.py
+② 包里的 VERSION      : VERSION = "0.98.4"
+③ 前端 dist 带查更新吗 : update/check 2 处 / 「检查更新」1 处
+④ 包里的 dist 和仓里的 dist 是同一份吗 : 逐文件一致
+
+════ 要发出去的那个文件 ════
+0a5f914acef07d8dcb76c9eb5c1a70b4c611468c26970cf82ee1b512ecd0ae05  /root/aiwork/out/opendesign-0.98.4/OpenDesign-Setup-0.98.4.exe
+45852528 字节
+---------------- 输出结束 ----------------
+runlog: build-payload-verify-fixed rc=0 commit=583767f dirty=yes at=2026-09-08T02:19:18Z file=tracks/opendesign-in-app-update/evidence/20260908T021918Z-01-build-payload-verify-fixed.txt

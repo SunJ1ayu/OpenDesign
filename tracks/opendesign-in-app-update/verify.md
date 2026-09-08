@@ -42,6 +42,15 @@ runlog: judging-r2-findings-red rc=1 commit=1431900 dirty=yes at=2026-09-07T14:0
 runlog: r2-fixes-green rc=0 commit=8f91e57 dirty=yes at=2026-09-07T14:09:44Z file=tracks/opendesign-in-app-update/evidence/20260907T140944Z-01-r2-fixes-green.txt
 runlog: final-run-all rc=143 commit=14f1791 dirty=no final=yes at=2026-09-07T14:11:59Z file=tracks/opendesign-in-app-update/evidence/20260907T141159Z-01-final-run-all.txt
 runlog: final-run-all rc=3 commit=14f1791 dirty=yes final=yes at=2026-09-07T14:29:03Z file=tracks/opendesign-in-app-update/evidence/20260907T142903Z-01-final-run-all.txt
+runlog: judging-r3-selfreview-red rc=1 commit=97d6c2c dirty=yes at=2026-09-07T14:53:59Z file=tracks/opendesign-in-app-update/evidence/20260907T145359Z-01-judging-r3-selfreview-red.txt
+runlog: r3-fixes-green rc=0 commit=38b0295 dirty=yes at=2026-09-07T15:01:29Z file=tracks/opendesign-in-app-update/evidence/20260907T150129Z-01-r3-fixes-green.txt
+runlog: redcheck-r3-13-and-4 rc=0 commit=38b0295 dirty=yes at=2026-09-07T15:01:38Z file=tracks/opendesign-in-app-update/evidence/20260907T150138Z-01-redcheck-r3-13-and-4.txt
+runlog: r3-panel-fixes-green rc=0 commit=71ccf25 dirty=yes at=2026-09-07T15:23:16Z file=tracks/opendesign-in-app-update/evidence/20260907T152316Z-01-r3-panel-fixes-green.txt
+runlog: redcheck-r3-panel-24-15-6-5 rc=0 commit=71ccf25 dirty=yes at=2026-09-07T15:23:28Z file=tracks/opendesign-in-app-update/evidence/20260907T152328Z-01-redcheck-r3-panel-24-15-6-5.txt
+runlog: final-run-all-with-gateway rc=1 commit=76fa4de dirty=no final=yes at=2026-09-08T00:56:38Z file=tracks/opendesign-in-app-update/evidence/20260908T005638Z-01-final-run-all-with-gateway.txt
+runlog: final-run-all-with-gateway-v2 rc=0 commit=7793a95 dirty=no final=yes at=2026-09-08T01:12:08Z file=tracks/opendesign-in-app-update/evidence/20260908T011208Z-01-final-run-all-with-gateway-v2.txt
+runlog: build-installer-0984 rc=1 commit=583767f dirty=no at=2026-09-08T02:16:43Z file=tracks/opendesign-in-app-update/evidence/20260908T021643Z-01-build-installer-0984.txt
+runlog: build-payload-verify-fixed rc=0 commit=583767f dirty=yes at=2026-09-08T02:19:18Z file=tracks/opendesign-in-app-update/evidence/20260908T021918Z-01-build-payload-verify-fixed.txt
 ```
 
 上面这堆数字不会自己解释自己,三件事说清楚:
@@ -61,6 +70,43 @@ runlog: final-run-all rc=3 commit=14f1791 dirty=yes final=yes at=2026-09-07T14:2
   三条都长在聊天 / WebSocket 通道上,**本单一行都没碰那条通道**。
   ⇒ 收口那一遍会照 `tests/e2e/README.md` 起 gateway,跑 `--with-gateway` 把这 3 条也
   真跑一次,再宣布做完。
+
+🔴 **收据区在断线之后整段没跟上,2026-09-08 接手时补的。** 从
+`judging-r3-selfreview-red` 往下那 9 行,当时**全都只躺在 `evidence/` 里,正文一行没粘**
+—— 包括**两份最终 `--with-gateway` 总跑**。归档闸取的是收据区的最后一份,这个洞会让它
+读到一份 09-07 22:29 的旧收据当"最终"。(本项目栽过的同一种:**过期的绿不只是数字过期,
+是收据区整段缺**。)
+
+**新补的这 9 行里有两组必须单独说清:**
+
+- **`final-run-all-with-gateway` rc=1(00:56:38Z)不是回归。** 那一遍红在
+  `project-thread.e2e.mjs`,查下来是它的夹具(ds_root 里那两个项目文件)从来没进过仓
+  —— `.gitignore:23` 把整个 `projects/` 排掉了。**本单一行都没碰项目/聊天那条链**;
+  把夹具摆回去单独重跑那一条 ⇒ 7 步 ALL PASS。红收据原样留证:**它是发现这个洞的唯一
+  入口**。机制与正解写进 `tests/e2e/README.md` 第 3b 步 + 后续单 backlog B。
+  重跑的是 `-v2`(01:12:08Z):**6 段全绿、e2e 0 SKIP**,跑在 `7793a95` 且
+  `source-stable: yes`。
+
+- 🔴 **`build-installer-0984` rc=1(02:16:43Z)是我自己的探针坏了,不是包坏了。**
+  我在构建收据里加了一条"前端 dist 打进包了没有"的自检,写成
+  `grep -ho update/check …js | wc -l` ⇒ **grep 认定那个 bundle 是二进制文件,匹配走了
+  stderr、正文一个字没出 ⇒ 数出 0 ⇒ 判"前端没打进去"**。实际它是命中的。
+  **误报和假绿一样坏**,所以这份 rc=1 **不删也不改数字**;修的是探针(`grep -hoa`),
+  重跑在 `build-payload-verify-fixed`(02:19:18Z),那份收据里**先把这个误报当场量了
+  一遍**(无 `-a` 数出 0 / 带 `-a` 数出 2)再往下走。
+
+**打包结论(机器写的,见 `build-payload-verify-fixed`)**:
+`OpenDesign-Setup-0.98.4.exe`,45,852,528 字节,
+sha256 `0a5f914acef07d8dcb76c9eb5c1a70b4c611468c26970cf82ee1b512ecd0ae05`。
+包结构闸 0 条不合格 / 静态闸 23 条 / 成品闸 7 条,全过。
+另外问了四件**闸问不出**的(闸只比"exe == payload",不问 payload 里该有什么):
+① `ds_update.py` 在包里 ② 包里 `VERSION = "0.98.4"` ③ 前端 bundle 里有 `update/check`
+与「检查更新」 ④ 包里的 dist 与仓里的 dist 逐文件一致。
+
+⚠️ **同一份源码两次构建的 sha256 不一样**(第一次 `afc8061d…`,runlog 那次 `0a5f914a…`)
+—— NSIS 把构建时刻编进了产物,**这个安装器不是逐字节可复现的**。所以"要发出去的"只能指
+**盘上现在这一个**;发布之后要照 0.98.3 的做法跑一次 `release-asset-roundtrip`
+(把资产下回来和本地这份逐字节比)才算闭环。
 
 ## Review
 
