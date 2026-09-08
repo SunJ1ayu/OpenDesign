@@ -10,15 +10,17 @@
     ]
   },
   "design": {
-    "uncertainty": null,
+    "uncertainty": "high",
     "premise_attack": {
-      "status": null,
-      "evidence": []
+      "status": "done",
+      "evidence": [
+        "evidence/dualplan-gpt56sol.md"
+      ]
     }
   },
   "execution_plan": {
-    "adapter": null,
-    "model": null
+    "adapter": "main",
+    "model": "claude-opus-5"
   },
   "outcome": {
     "verdict": null

@@ -1,0 +1,212 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-u23-u25-notes-setext
+cmd:     node --test tests/test_update_ui.mjs
+cwd:     .(仓根)
+commit:  f194983
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-08T11:03:26Z
+---------------- 输出开始 ----------------
+TAP version 13
+# Subtest: u1 有新版时,那句话里必须带着版本号
+ok 1 - u1 有新版时,那句话里必须带着版本号
+  ---
+  duration_ms: 1.221272
+  type: 'test'
+  ...
+# Subtest: u2 已是最新就说已是最新,不许说成有新版
+ok 2 - u2 已是最新就说已是最新,不许说成有新版
+  ---
+  duration_ms: 0.209005
+  type: 'test'
+  ...
+# Subtest: u3 🔴 查不动的时候不许说「已是最新」
+ok 3 - u3 🔴 查不动的时候不许说「已是最新」
+  ---
+  duration_ms: 0.187415
+  type: 'test'
+  ...
+# Subtest: u4 点下去要有反应(这个按钮原来的病就是没反应)
+ok 4 - u4 点下去要有反应(这个按钮原来的病就是没反应)
+  ---
+  duration_ms: 0.142767
+  type: 'test'
+  ...
+# Subtest: u5 还没查过时显示的是版本号,不是空白
+ok 5 - u5 还没查过时显示的是版本号,不是空白
+  ---
+  duration_ms: 0.131697
+  type: 'test'
+  ...
+# Subtest: u9 默认自动检查(业主没表过态时,帮他查)
+ok 6 - u9 默认自动检查(业主没表过态时,帮他查)
+  ---
+  duration_ms: 0.162518
+  type: 'test'
+  ...
+# Subtest: u10 🔴 显式关掉之后就不许再自动往外发请求
+ok 7 - u10 🔴 显式关掉之后就不许再自动往外发请求
+  ---
+  duration_ms: 0.104958
+  type: 'test'
+  ...
+# Subtest: u11 更新说明取第一句有意义的话,去掉 markdown 记号
+ok 8 - u11 更新说明取第一句有意义的话,去掉 markdown 记号
+  ---
+  duration_ms: 0.480231
+  type: 'test'
+  ...
+# Subtest: u12 更新说明太长要截断,空的要给空串
+ok 9 - u12 更新说明太长要截断,空的要给空串
+  ---
+  duration_ms: 0.41368
+  type: 'test'
+  ...
+# Subtest: u6 只放行本仓 releases 下的 https 地址
+ok 10 - u6 只放行本仓 releases 下的 https 地址
+  ---
+  duration_ms: 0.42473
+  type: 'test'
+  ...
+# Subtest: u7 别人给的地址一律不放行(界面上那个链接是要业主去点的)
+ok 11 - u7 别人给的地址一律不放行(界面上那个链接是要业主去点的)
+  ---
+  duration_ms: 0.221814
+  type: 'test'
+  ...
+# Subtest: u13 🔴 有新版时,设置那一行必须挂个记号(不然业主根本看不到)
+ok 12 - u13 🔴 有新版时,设置那一行必须挂个记号(不然业主根本看不到)
+  ---
+  duration_ms: 0.159426
+  type: 'test'
+  ...
+# Subtest: u14 done + 空结果要说查不到,不许伪装成没查过
+ok 13 - u14 done + 空结果要说查不到,不许伪装成没查过
+  ---
+  duration_ms: 0.093977
+  type: 'test'
+  ...
+# Subtest: u15 地址被闸掉时也得给业主一条路(F-C:仓库改名会让下载行静默消失)
+ok 14 - u15 地址被闸掉时也得给业主一条路(F-C:仓库改名会让下载行静默消失)
+  ---
+  duration_ms: 0.082408
+  type: 'test'
+  ...
+# Subtest: u16 有新版但没版本号时,不许说成「已是最新」(F-D)
+ok 15 - u16 有新版但没版本号时,不许说成「已是最新」(F-D)
+  ---
+  duration_ms: 0.079807
+  type: 'test'
+  ...
+# Subtest: u17 正文以「这一版」开头时不许被当成标题跳掉(submimo 补充 1)
+ok 16 - u17 正文以「这一版」开头时不许被当成标题跳掉(submimo 补充 1)
+  ---
+  duration_ms: 0.092478
+  type: 'test'
+  ...
+# Subtest: u18 issue 编号那种 `\#123` 不许被当成标题记号剥掉
+ok 17 - u18 issue 编号那种 `\#123` 不许被当成标题记号剥掉
+  ---
+  duration_ms: 0.084569
+  type: 'test'
+  ...
+# Subtest: u19 🔴 没版本号时,蓝点的说明不许把 null 印给业主
+ok 18 - u19 🔴 没版本号时,蓝点的说明不许把 null 印给业主
+  ---
+  duration_ms: 0.159835
+  type: 'test'
+  ...
+# Subtest: u20 有版本号时,蓝点的说明要带上它(别把上一条修成恒定串)
+ok 19 - u20 有版本号时,蓝点的说明要带上它(别把上一条修成恒定串)
+  ---
+  duration_ms: 0.075887
+  type: 'test'
+  ...
+# Subtest: u21 setext 标题(下一行 ===)不许被当成正文印给业主
+ok 20 - u21 setext 标题(下一行 ===)不许被当成正文印给业主
+  ---
+  duration_ms: 0.121277
+  type: 'test'
+  ...
+# Subtest: u22 正文以分隔线开头时,不许把那串横杠印出来
+ok 21 - u22 正文以分隔线开头时,不许把那串横杠印出来
+  ---
+  duration_ms: 0.145217
+  type: 'test'
+  ...
+# Subtest: u23 🔴 setext 下划线只有 1~2 个字符时,不许把它自己当正文印出来
+not ok 22 - u23 🔴 setext 下划线只有 1~2 个字符时,不许把它自己当正文印出来
+  ---
+  duration_ms: 0.594218
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:187:1'
+  failureType: 'testCodeFailure'
+  error: '把下划线本身印出来了:「==」'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: '=='
+  operator: 'doesNotMatch'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:191:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: u24 🔴 多行 setext 标题不许只跳最后一行
+not ok 23 - u24 🔴 多行 setext 标题不许只跳最后一行
+  ---
+  duration_ms: 0.195846
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:195:1'
+  failureType: 'testCodeFailure'
+  error: '多行标题只跳了最后一行,前半截被当正文印出来:「标题上半截」'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: '标题上半截'
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:198:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: u25 🔴 列表项紧贴 --- 时,第一条要点不许被当成标题吃掉
+not ok 24 - u25 🔴 列表项紧贴 --- 时,第一条要点不许被当成标题吃掉
+  ---
+  duration_ms: 0.143697
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:202:1'
+  failureType: 'testCodeFailure'
+  error: '第一条要点被当成 setext 标题吃掉了:「其他零碎改动」'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: '其他零碎改动'
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:206:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..24
+# tests 24
+# suites 0
+# pass 21
+# fail 3
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 154.007451
+---------------- 输出结束 ----------------
+runlog: red-u23-u25-notes-setext rc=1 commit=f194983 dirty=yes at=2026-09-08T11:03:26Z file=tracks/opendesign-in-app-update-install/evidence/20260908T110326Z-01-red-u23-u25-notes-setext.txt
