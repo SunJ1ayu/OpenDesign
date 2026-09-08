@@ -1,0 +1,122 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-t24-relay-is-not-a-real-program
+cmd:     python3 -m pytest tests/test_ds_update_apply.py -q
+cwd:     .(仓根)
+commit:  2cf6fe6
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-08T15:03:08Z
+---------------- 输出开始 ----------------
+..............................FFFFFF............               [100%]
+=================================== FAILURES ===================================
+__________ TheRelayIsARealProgram.test_t24a_every_called_label_exists __________
+
+self = <test_ds_update_apply.TheRelayIsARealProgram testMethod=test_t24a_every_called_label_exists>
+
+    def test_t24a_every_called_label_exists(self):
+        """`call :foo` 而没有 `:foo` ⇒ 脚本当场报错。"""
+        import re
+        text = self._text()
+        called = set(re.findall(r"(?mi)^\s*call\s+:(\w+)", text))
+        defined = set(re.findall(r"(?mi)^\s*:(\w+)\b", text))
+        missing = sorted(called - defined)
+>       self.assertEqual(missing, [],
+                         "call 了不存在的标签 %s —— 这份脚本一跑就报错" % (missing,))
+E       AssertionError: Lists differ: ['ask_health', 'wait_gone'] != []
+E       
+E       First list contains 2 additional elements.
+E       First extra element 0:
+E       'ask_health'
+E       
+E       - ['ask_health', 'wait_gone']
+E       + [] : call 了不存在的标签 ['ask_health', 'wait_gone'] —— 这份脚本一跑就报错
+
+tests/test_ds_update_apply.py:491: AssertionError
+_ TheRelayIsARealProgram.test_t24b_failure_branches_are_control_flow_not_comments _
+
+self = <test_ds_update_apply.TheRelayIsARealProgram testMethod=test_t24b_failure_branches_are_control_flow_not_comments>
+
+    def test_t24b_failure_branches_are_control_flow_not_comments(self):
+        """🔴 `:: on_fail -> delete_new` 是**注释**,不是分支。
+    
+        收摊没干净时它挡不住下一行的改名 —— 而"不许进换名步"正是 t6 存在的全部理由。
+        """
+        for line in self._lines():
+            if "on_fail" in line:
+>               self.assertFalse(line.startswith("::") or line.startswith("rem "),
+                                 "失败分支写成了注释,它挡不住任何东西:%s" % line)
+E               AssertionError: True is not false : 失败分支写成了注释,它挡不住任何东西::: on_fail -> delete_new
+
+tests/test_ds_update_apply.py:502: AssertionError
+__ TheRelayIsARealProgram.test_t24c_teardown_failure_really_skips_the_rename ___
+
+self = <test_ds_update_apply.TheRelayIsARealProgram testMethod=test_t24c_teardown_failure_really_skips_the_rename>
+
+    def test_t24c_teardown_failure_really_skips_the_rename(self):
+        """收摊闸失败时,**改名那一行必须够不着**。
+    
+        查法:收摊闸和第一次改名之间,必须存在一条会跳走的控制流
+        (goto / exit / if errorlevel ... goto)。
+        """
+        lines = self._lines()
+        gate = next(i for i, l in enumerate(lines) if "wait_gone" in l or "teardown" in l.lower())
+        first_rename = next(i for i, l in enumerate(lines)
+                            if l.lower().startswith("move ") and i > gate)
+        between = " ".join(lines[gate:first_rename]).lower()
+>       self.assertTrue("goto" in between or "exit" in between,
+                        "收摊闸和第一次改名之间没有任何跳转 ⇒ 收不干净照样改名")
+E       AssertionError: False is not true : 收摊闸和第一次改名之间没有任何跳转 ⇒ 收不干净照样改名
+
+tests/test_ds_update_apply.py:519: AssertionError
+________ TheRelayIsARealProgram.test_t24d_rollback_is_not_unconditional ________
+
+self = <test_ds_update_apply.TheRelayIsARealProgram testMethod=test_t24d_rollback_is_not_unconditional>
+
+    def test_t24d_rollback_is_not_unconditional(self):
+        """🔴 回滚不许无条件执行 —— 否则**成功路径也会回滚**:
+    
+        改名成新版 → 起起来 → 问 health → 然后又把新版改回 `.new`、把 `.old` 改回来。
+        """
+        lines = self._lines()
+        rb = next(i for i, l in enumerate(lines) if "rollback" in l.lower())
+        before = " ".join(lines[max(0, rb - 6):rb]).lower()
+>       self.assertTrue("goto" in before or "if " in before or "errorlevel" in before,
+                        "回滚段前面没有任何条件/跳转 ⇒ 成功路径也会走进回滚")
+E       AssertionError: False is not true : 回滚段前面没有任何条件/跳转 ⇒ 成功路径也会走进回滚
+
+tests/test_ds_update_apply.py:530: AssertionError
+__________ TheRelayIsARealProgram.test_t24e_no_mixed_path_separators ___________
+
+self = <test_ds_update_apply.TheRelayIsARealProgram testMethod=test_t24e_no_mixed_path_separators>
+
+    def test_t24e_no_mixed_path_separators(self):
+        """`C:\\A\\B/Logs\\c.log` 这种混合分隔符在 cmd 里是坑,而且一眼看不出来。"""
+        for line in self._lines():
+            if "C:" in line:
+>               self.assertNotIn("/", line.replace("/Y", "").replace("/S", "")
+                                 .replace("/Q", "").replace("/b", "").replace("/c", ""),
+                                 "路径里混进了正斜杠:%s" % line)
+E               AssertionError: '/' unexpectedly found in 'echo done>>"C:\\D\\OpenDesign/Logs\\更新.log"' : 路径里混进了正斜杠:echo done>>"C:\D\OpenDesign/Logs\更新.log"
+
+tests/test_ds_update_apply.py:537: AssertionError
+____ TheRelayIsARealProgram.test_t24f_the_script_does_not_always_exit_zero _____
+
+self = <test_ds_update_apply.TheRelayIsARealProgram testMethod=test_t24f_the_script_does_not_always_exit_zero>
+
+    def test_t24f_the_script_does_not_always_exit_zero(self):
+        """全程 `exit /b 0` = 段① 永远不知道段② 出没出事,日志里也查不出来。"""
+        text = self._text()
+>       self.assertNotEqual(text.count("exit /b"), text.count("exit /b 0"),
+                            "每一条退出路径都返回 0 ⇒ 失败和成功在外面长得一模一样")
+E       AssertionError: 1 == 1 : 每一条退出路径都返回 0 ⇒ 失败和成功在外面长得一模一样
+
+tests/test_ds_update_apply.py:544: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_ds_update_apply.py::TheRelayIsARealProgram::test_t24a_every_called_label_exists
+FAILED tests/test_ds_update_apply.py::TheRelayIsARealProgram::test_t24b_failure_branches_are_control_flow_not_comments
+FAILED tests/test_ds_update_apply.py::TheRelayIsARealProgram::test_t24c_teardown_failure_really_skips_the_rename
+FAILED tests/test_ds_update_apply.py::TheRelayIsARealProgram::test_t24d_rollback_is_not_unconditional
+FAILED tests/test_ds_update_apply.py::TheRelayIsARealProgram::test_t24e_no_mixed_path_separators
+FAILED tests/test_ds_update_apply.py::TheRelayIsARealProgram::test_t24f_the_script_does_not_always_exit_zero
+6 failed, 42 passed, 10 subtests passed in 0.33s
+---------------- 输出结束 ----------------
+runlog: red-t24-relay-is-not-a-real-program rc=1 commit=2cf6fe6 dirty=yes at=2026-09-08T15:03:08Z file=tracks/opendesign-in-app-update-install/evidence/20260908T150308Z-01-red-t24-relay-is-not-a-real-program.txt

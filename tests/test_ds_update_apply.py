@@ -445,6 +445,106 @@ class RelayScriptShape(_Base):
         self.assertIn(rollback["marker"], text)
 
 
+class TheRelayIsARealProgram(_Base):
+    """t24 —— 渲染出来的 `.cmd` **必须是一个真程序**,不是一份带注释的清单。
+
+    🔴 这一组是 2026-09-08 我自己生成一份脚本、肉眼看它长什么样时逼出来的,
+    而当时 `t6`/`t17` **全是绿的**。生成物的实际形态是:
+
+        call :wait_gone ...        ← 这个标签根本不存在
+        :: on_fail -> delete_new   ← 失败分支只是**注释**,没有任何真实控制流
+        move ... （改名）           ← 于是"收摊没干净"照样往下改名
+        call :ask_health ...
+        :: on_fail -> rollback
+        move ...（回滚)            ← 回滚是**无条件执行**的:成功路径也会跑
+
+    真跑起来会毁掉业主的安装,而判据一片绿。
+
+    **根因是同一个形状,今天第三次:结构断言 ≠ 行为断言。**
+    `t6a` 只问"收摊闸的下标小于改名的下标",`t6b` 只问 plan 的 on_fail 列表里
+    有没有 `delete_new` —— 它们问的是**计划里有没有这几件事**,
+    没问**渲染出来的脚本会不会照着计划执行**。
+
+    design 里写过"python 侧只判结构、行为归 Windows CI",那句话没错;
+    错在我把"结构"理解得太松了 —— **结构断言必须强到能保证"渲染出来的是个真程序"**,
+    否则 CI 之前的一切都是假的(而 CI 上它会红在一堆 Windows 环境噪音里)。
+    """
+
+    def _text(self):
+        plan = ds_update_apply.relay_plan(
+            {"live": r"C:\P\OpenDesign", "new": r"C:\P\OpenDesign.new",
+             "old": r"C:\P\OpenDesign.old", "data_root": r"C:\D\OpenDesign",
+             "temp": r"C:\T"},
+            port=8766, nonce="n1", expect_version="0.98.5")
+        return ds_update_apply.render_relay(plan)
+
+    def _lines(self):
+        return [ln.strip() for ln in self._text().splitlines()]
+
+    def test_t24a_every_called_label_exists(self):
+        """`call :foo` 而没有 `:foo` ⇒ 脚本当场报错。"""
+        import re
+        text = self._text()
+        called = set(re.findall(r"(?mi)^\s*call\s+:(\w+)", text))
+        defined = set(re.findall(r"(?mi)^\s*:(\w+)\b", text))
+        missing = sorted(called - defined)
+        self.assertEqual(missing, [],
+                         "call 了不存在的标签 %s —— 这份脚本一跑就报错" % (missing,))
+        self.assertTrue(called, "一个子程序都没有?收摊和问 health 是怎么做的")
+
+    def test_t24b_failure_branches_are_control_flow_not_comments(self):
+        """🔴 `:: on_fail -> delete_new` 是**注释**,不是分支。
+
+        收摊没干净时它挡不住下一行的改名 —— 而"不许进换名步"正是 t6 存在的全部理由。
+        """
+        for line in self._lines():
+            if "on_fail" in line:
+                self.assertFalse(line.startswith("::") or line.startswith("rem "),
+                                 "失败分支写成了注释,它挡不住任何东西:%s" % line)
+        text = self._text()
+        self.assertIn("errorlevel", text.lower(),
+                      "整份脚本没有一次错误检查 ⇒ 每一步都是「跑了就算成功」")
+
+    def test_t24c_teardown_failure_really_skips_the_rename(self):
+        """收摊闸失败时,**改名那一行必须够不着**。
+
+        查法:收摊闸和第一次改名之间,必须存在一条会跳走的控制流
+        (goto / exit / if errorlevel ... goto)。
+        """
+        lines = self._lines()
+        gate = next(i for i, l in enumerate(lines) if "wait_gone" in l or "teardown" in l.lower())
+        first_rename = next(i for i, l in enumerate(lines)
+                            if l.lower().startswith("move ") and i > gate)
+        between = " ".join(lines[gate:first_rename]).lower()
+        self.assertTrue("goto" in between or "exit" in between,
+                        "收摊闸和第一次改名之间没有任何跳转 ⇒ 收不干净照样改名")
+
+    def test_t24d_rollback_is_not_unconditional(self):
+        """🔴 回滚不许无条件执行 —— 否则**成功路径也会回滚**:
+
+        改名成新版 → 起起来 → 问 health → 然后又把新版改回 `.new`、把 `.old` 改回来。
+        """
+        lines = self._lines()
+        rb = next(i for i, l in enumerate(lines) if "rollback" in l.lower())
+        before = " ".join(lines[max(0, rb - 6):rb]).lower()
+        self.assertTrue("goto" in before or "if " in before or "errorlevel" in before,
+                        "回滚段前面没有任何条件/跳转 ⇒ 成功路径也会走进回滚")
+
+    def test_t24e_no_mixed_path_separators(self):
+        """`C:\\A\\B/Logs\\c.log` 这种混合分隔符在 cmd 里是坑,而且一眼看不出来。"""
+        for line in self._lines():
+            if "C:" in line:
+                self.assertNotIn("/", line.replace("/Y", "").replace("/S", "")
+                                 .replace("/Q", "").replace("/b", "").replace("/c", ""),
+                                 "路径里混进了正斜杠:%s" % line)
+
+    def test_t24f_the_script_does_not_always_exit_zero(self):
+        """全程 `exit /b 0` = 段① 永远不知道段② 出没出事,日志里也查不出来。"""
+        text = self._text()
+        self.assertNotEqual(text.count("exit /b"), text.count("exit /b 0"),
+                            "每一条退出路径都返回 0 ⇒ 失败和成功在外面长得一模一样")
+
+
 class InstallerUpdateFlagContract(_Base):
     """t20 —— `/UPDATE` 这条跨文件契约是**机械的**,不是注释级的。
 
@@ -617,7 +717,7 @@ class WhereTheNewTreeGoes(_Base):
     """t23 —— `.new` / `.old` 放哪。**放错地方就是踩死线,或者被安装器自己覆盖掉。**
 
     `ds_web` 手上只有 `ds_root`(它就是 `<安装根>\\ds`,安装器写死的布局;
-    `OpenDesign.nsi` 的哨兵 `ds\bin\ds_shell.py` 也是按它算的)。
+    `OpenDesign.nsi` 的哨兵 `ds\\bin\\ds_shell.py` 也是按它算的)。
     这一层负责把它推成段① 要的那几个路径,**而三个"不许"必须机械地钉住**:
     不许放进安装根(会被覆盖)、不许放进数据根(会踩死线 t13)、不许和活树同名。
     """
