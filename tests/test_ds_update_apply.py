@@ -613,5 +613,60 @@ class HandoffToTheRelay(_Base):
                              "而它正在等我们死:互相等死" % blocking)
 
 
+class WhereTheNewTreeGoes(_Base):
+    """t23 —— `.new` / `.old` 放哪。**放错地方就是踩死线,或者被安装器自己覆盖掉。**
+
+    `ds_web` 手上只有 `ds_root`(它就是 `<安装根>\\ds`,安装器写死的布局;
+    `OpenDesign.nsi` 的哨兵 `ds\bin\ds_shell.py` 也是按它算的)。
+    这一层负责把它推成段① 要的那几个路径,**而三个"不许"必须机械地钉住**:
+    不许放进安装根(会被覆盖)、不许放进数据根(会踩死线 t13)、不许和活树同名。
+    """
+
+    def test_t23a_install_root_is_the_parent_of_ds_root(self):
+        paths = ds_update_apply.paths_for_update(
+            os.path.join(self.base, "Programs", "OpenDesign", "ds"),
+            data_root=self.data_root, temp_dir=self.temp)
+        self.assertEqual(paths["live"],
+                         os.path.join(self.base, "Programs", "OpenDesign"))
+
+    def test_t23b_new_and_old_are_siblings_of_the_live_tree(self):
+        paths = ds_update_apply.paths_for_update(
+            os.path.join(self.live, "ds"), data_root=self.data_root,
+            temp_dir=self.temp)
+        for key in ("new", "old"):
+            with self.subTest(key=key):
+                self.assertEqual(os.path.dirname(paths[key]),
+                                 os.path.dirname(paths["live"]),
+                                 "%s 不是活树的同级" % key)
+                self.assertNotEqual(paths[key], paths["live"])
+                self.assertFalse(
+                    paths[key].startswith(paths["live"] + os.sep),
+                    "%s 放进了安装根里面 —— 安装器会把它一起覆盖掉" % key)
+
+    def test_t23c_new_and_old_are_never_inside_the_data_root(self):
+        paths = ds_update_apply.paths_for_update(
+            os.path.join(self.live, "ds"), data_root=self.data_root,
+            temp_dir=self.temp)
+        root = os.path.normpath(self.data_root)
+        for key in ("new", "old"):
+            with self.subTest(key=key):
+                self.assertFalse(
+                    os.path.normpath(paths[key]).startswith(root + os.sep),
+                    "%s 放进了数据根 —— 更新过程会往那儿写整整一棵树,死线 t13 当场破" % key)
+
+    def test_t23d_the_data_root_is_the_one_holding_data_and_userdata(self):
+        """数据根指的是**装着 `Data\\` 和 `UserData\\` 的那一层**,不是它们自己。
+
+        差一层的后果不是报错,是死线判据比对了个空目录然后一路绿 ——
+        本单已经吃过一次同款(那个探针路径传错、两遍都失败,diff 照报"无差异")。
+        """
+        paths = ds_update_apply.paths_for_update(
+            os.path.join(self.live, "ds"), data_root=self.data_root,
+            temp_dir=self.temp)
+        for name in ds_update_apply.DATA_ROOT_PROTECTED_DIRS:
+            self.assertTrue(os.path.isdir(os.path.join(paths["data_root"], name)),
+                            "数据根底下没有 %s\\ —— 层数错了" % name)
+
+
 if __name__ == "__main__":
     unittest.main()
