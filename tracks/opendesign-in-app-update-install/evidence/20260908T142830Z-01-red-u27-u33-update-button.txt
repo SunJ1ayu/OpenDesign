@@ -1,0 +1,322 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-u27-u33-update-button
+cmd:     node --test tests/test_update_ui.mjs
+cwd:     .(仓根)
+commit:  090834c
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-08T14:28:30Z
+---------------- 输出开始 ----------------
+TAP version 13
+# Subtest: u1 有新版时,那句话里必须带着版本号
+ok 1 - u1 有新版时,那句话里必须带着版本号
+  ---
+  duration_ms: 1.370401
+  type: 'test'
+  ...
+# Subtest: u2 已是最新就说已是最新,不许说成有新版
+ok 2 - u2 已是最新就说已是最新,不许说成有新版
+  ---
+  duration_ms: 0.167957
+  type: 'test'
+  ...
+# Subtest: u3 🔴 查不动的时候不许说「已是最新」
+ok 3 - u3 🔴 查不动的时候不许说「已是最新」
+  ---
+  duration_ms: 0.190427
+  type: 'test'
+  ...
+# Subtest: u4 点下去要有反应(这个按钮原来的病就是没反应)
+ok 4 - u4 点下去要有反应(这个按钮原来的病就是没反应)
+  ---
+  duration_ms: 0.159726
+  type: 'test'
+  ...
+# Subtest: u5 还没查过时显示的是版本号,不是空白
+ok 5 - u5 还没查过时显示的是版本号,不是空白
+  ---
+  duration_ms: 0.125287
+  type: 'test'
+  ...
+# Subtest: u9 默认自动检查(业主没表过态时,帮他查)
+ok 6 - u9 默认自动检查(业主没表过态时,帮他查)
+  ---
+  duration_ms: 0.142527
+  type: 'test'
+  ...
+# Subtest: u10 🔴 显式关掉之后就不许再自动往外发请求
+ok 7 - u10 🔴 显式关掉之后就不许再自动往外发请求
+  ---
+  duration_ms: 0.100667
+  type: 'test'
+  ...
+# Subtest: u11 更新说明取第一句有意义的话,去掉 markdown 记号
+ok 8 - u11 更新说明取第一句有意义的话,去掉 markdown 记号
+  ---
+  duration_ms: 1.407489
+  type: 'test'
+  ...
+# Subtest: u12 更新说明太长要截断,空的要给空串
+ok 9 - u12 更新说明太长要截断,空的要给空串
+  ---
+  duration_ms: 0.42697
+  type: 'test'
+  ...
+# Subtest: u6 只放行本仓 releases 下的 https 地址
+ok 10 - u6 只放行本仓 releases 下的 https 地址
+  ---
+  duration_ms: 0.42602
+  type: 'test'
+  ...
+# Subtest: u7 别人给的地址一律不放行(界面上那个链接是要业主去点的)
+ok 11 - u7 别人给的地址一律不放行(界面上那个链接是要业主去点的)
+  ---
+  duration_ms: 0.203087
+  type: 'test'
+  ...
+# Subtest: u13 🔴 有新版时,设置那一行必须挂个记号(不然业主根本看不到)
+ok 12 - u13 🔴 有新版时,设置那一行必须挂个记号(不然业主根本看不到)
+  ---
+  duration_ms: 0.118948
+  type: 'test'
+  ...
+# Subtest: u14 done + 空结果要说查不到,不许伪装成没查过
+ok 13 - u14 done + 空结果要说查不到,不许伪装成没查过
+  ---
+  duration_ms: 0.096719
+  type: 'test'
+  ...
+# Subtest: u15 地址被闸掉时也得给业主一条路(F-C:仓库改名会让下载行静默消失)
+ok 14 - u15 地址被闸掉时也得给业主一条路(F-C:仓库改名会让下载行静默消失)
+  ---
+  duration_ms: 0.084727
+  type: 'test'
+  ...
+# Subtest: u16 有新版但没版本号时,不许说成「已是最新」(F-D)
+ok 15 - u16 有新版但没版本号时,不许说成「已是最新」(F-D)
+  ---
+  duration_ms: 0.097507
+  type: 'test'
+  ...
+# Subtest: u17 正文以「这一版」开头时不许被当成标题跳掉(submimo 补充 1)
+ok 16 - u17 正文以「这一版」开头时不许被当成标题跳掉(submimo 补充 1)
+  ---
+  duration_ms: 0.135838
+  type: 'test'
+  ...
+# Subtest: u18 issue 编号那种 `\#123` 不许被当成标题记号剥掉
+ok 17 - u18 issue 编号那种 `\#123` 不许被当成标题记号剥掉
+  ---
+  duration_ms: 0.110367
+  type: 'test'
+  ...
+# Subtest: u19 🔴 没版本号时,蓝点的说明不许把 null 印给业主
+ok 18 - u19 🔴 没版本号时,蓝点的说明不许把 null 印给业主
+  ---
+  duration_ms: 0.153577
+  type: 'test'
+  ...
+# Subtest: u20 有版本号时,蓝点的说明要带上它(别把上一条修成恒定串)
+ok 19 - u20 有版本号时,蓝点的说明要带上它(别把上一条修成恒定串)
+  ---
+  duration_ms: 0.086987
+  type: 'test'
+  ...
+# Subtest: u21 setext 标题(下一行 ===)不许被当成正文印给业主
+ok 20 - u21 setext 标题(下一行 ===)不许被当成正文印给业主
+  ---
+  duration_ms: 0.170286
+  type: 'test'
+  ...
+# Subtest: u22 正文以分隔线开头时,不许把那串横杠印出来
+ok 21 - u22 正文以分隔线开头时,不许把那串横杠印出来
+  ---
+  duration_ms: 0.162646
+  type: 'test'
+  ...
+# Subtest: u23 🔴 setext 下划线只有 1~2 个字符时,不许把它自己当正文印出来
+ok 22 - u23 🔴 setext 下划线只有 1~2 个字符时,不许把它自己当正文印出来
+  ---
+  duration_ms: 0.162647
+  type: 'test'
+  ...
+# Subtest: u24 🔴 多行 setext 标题不许只跳最后一行
+ok 23 - u24 🔴 多行 setext 标题不许只跳最后一行
+  ---
+  duration_ms: 0.100987
+  type: 'test'
+  ...
+# Subtest: u25 🔴 列表项紧贴 --- 时,第一条要点不许被当成标题吃掉
+ok 24 - u25 🔴 列表项紧贴 --- 时,第一条要点不许被当成标题吃掉
+  ---
+  duration_ms: 0.078489
+  type: 'test'
+  ...
+# Subtest: u26 🔴 文首那行是两字符的 == / -- 时,不许把它印给业主
+ok 25 - u26 🔴 文首那行是两字符的 == / -- 时,不许把它印给业主
+  ---
+  duration_ms: 0.125167
+  type: 'test'
+  ...
+# Subtest: u27 没有新版就不出现「更新」按钮
+not ok 26 - u27 没有新版就不出现「更新」按钮
+  ---
+  duration_ms: 0.160487
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:248:1'
+  failureType: 'testCodeFailure'
+  error: 'U.canApply is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:249:18)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: u27b 有新版但没有安装包时也不给按钮
+not ok 27 - u27b 有新版但没有安装包时也不给按钮
+  ---
+  duration_ms: 0.091329
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:253:1'
+  failureType: 'testCodeFailure'
+  error: 'U.canApply is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:255:18)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: u28 正在更新时那句话要说正在更新
+not ok 28 - u28 正在更新时那句话要说正在更新
+  ---
+  duration_ms: 0.093499
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:259:1'
+  failureType: 'testCodeFailure'
+  error: 'U.applyLabel is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:260:15)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: u29 🔴 失败时绝不许说成「更新已开始」
+not ok 29 - u29 🔴 失败时绝不许说成「更新已开始」
+  ---
+  duration_ms: 0.126648
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:264:1'
+  failureType: 'testCodeFailure'
+  error: 'U.applyLabel is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:266:17)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: u30 每个 stage 都要有业主看得懂的话,且不许甩技术词
+not ok 30 - u30 每个 stage 都要有业主看得懂的话,且不许甩技术词
+  ---
+  duration_ms: 0.171415
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:272:1'
+  failureType: 'testCodeFailure'
+  error: 'U.applyHint is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:274:17)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: u31 成功那句必须告诉他:软件会自己关掉再打开
+not ok 31 - u31 成功那句必须告诉他:软件会自己关掉再打开
+  ---
+  duration_ms: 0.117228
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:281:1'
+  failureType: 'testCodeFailure'
+  error: 'U.applyLabel is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:283:15)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: u32 没见过的 stage 也要有兜底话术
+not ok 32 - u32 没见过的 stage 也要有兜底话术
+  ---
+  duration_ms: 0.123478
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:287:1'
+  failureType: 'testCodeFailure'
+  error: 'U.applyHint is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:289:17)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: u33 自动更新失败不许变成死路:必须留着手动那条出口
+not ok 33 - u33 自动更新失败不许变成死路:必须留着手动那条出口
+  ---
+  duration_ms: 0.132947
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:295:1'
+  failureType: 'testCodeFailure'
+  error: 'U.applyHint is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_update_ui.mjs:297:17)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..33
+# tests 33
+# suites 0
+# pass 25
+# fail 8
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 175.22895
+---------------- 输出结束 ----------------
+runlog: red-u27-u33-update-button rc=1 commit=090834c dirty=yes at=2026-09-08T14:28:30Z file=tracks/opendesign-in-app-update-install/evidence/20260908T142830Z-01-red-u27-u33-update-button.txt

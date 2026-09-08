@@ -217,3 +217,85 @@ test("u26 🔴 文首那行是两字符的 == / -- 时,不许把它印给业主"
     assert.match(s, /白屏|全白/, `没往下找到正文:「${s}」`);
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// 第二刀「真去装」的界面那一半(track opendesign-in-app-update-install)。
+//
+// 🔴 这一批治的还是同一种病:**把失败说成成功**。
+//    第一刀那条纪律(u3:查更新失败绝不许显示"已是最新")在这里的对应物是
+//    **更新失败绝不许显示"更新已开始"** —— 而这一版的后果比第一刀重得多:
+//    业主看到"更新已开始"就会关掉浏览器等着,而实际上软件根本不会关,
+//    过一会儿接力脚本超时把新版删掉 —— 43MB 白下,他还不知道为什么。
+//
+// 用命名空间导入:实现还没落地时,**只让这一批红**,别把上面那 26 条一起拖红
+// (整份 import 挂掉的话,红就埋在别处了,等于没红检过)。
+import * as U from "../web/src/update.ts";
+
+const WITH_ASSET = {
+  current: "0.98.4", update_available: true, latest: "0.98.5",
+  asset: { name: "OpenDesign-Setup-0.98.5.exe", url: "https://x/y", size: 1, digest: "sha256:aa" },
+  notes: "", error: null, release_url: "https://github.com/x/releases/tag/win-installer-0.98.5",
+};
+const NO_ASSET = { ...WITH_ASSET, asset: null };
+const NONE = { current: "0.98.5", update_available: false, latest: "0.98.5", asset: null, notes: "", error: null };
+
+// 端点会回的全部 stage(bin/ds_web.py 的 _update_apply)。
+const FAIL_STAGES = ["no_update", "digest", "download", "verify", "install",
+                     "newtree", "handoff", "shell"];
+// 业主不该在界面上看见的词。他不是程序员。
+const JARGON = /sha256|stage|relay|NSIS|handoff|nonce|INSTDIR|\.new\b|traceback/i;
+
+test("u27 没有新版就不出现「更新」按钮", () => {
+  assert.equal(U.canApply(NONE), false, "已经是最新版,却给了一个「更新」按钮");
+  assert.equal(U.canApply(null), false, "还没查过就给按钮");
+});
+
+test("u27b 有新版但没有安装包时也不给按钮", () => {
+  // 点了必然失败的按钮比没有按钮更坏:他会以为是自己的机器有问题。
+  assert.equal(U.canApply(NO_ASSET), false, "这一版没有安装包,按钮点了必然失败");
+  assert.equal(U.canApply(WITH_ASSET), true, "有新版又有安装包,却不给更新的路");
+});
+
+test("u28 正在更新时那句话要说正在更新", () => {
+  const s = U.applyLabel({ state: "applying", result: null });
+  assert.match(s, /正在|更新中/, `「${s}」看不出正在做事`);
+});
+
+test("u29 🔴 失败时绝不许说成「更新已开始」", () => {
+  for (const stage of FAIL_STAGES) {
+    const s = U.applyLabel({ state: "done", result: { ok: false, stage, error: "x" } });
+    assert.doesNotMatch(s, /已开始|开始更新|正在更新|成功/,
+      `stage=${stage} 失败了,却说「${s}」—— 他会关掉浏览器等着,而什么都不会发生`);
+  }
+});
+
+test("u30 每个 stage 都要有业主看得懂的话,且不许甩技术词", () => {
+  for (const stage of FAIL_STAGES) {
+    const s = U.applyHint({ ok: false, stage, error: "sha256 对不上:期望 aa,实得 bb" });
+    assert.ok(s && s.length > 0, `stage=${stage} 没有给业主任何话`);
+    assert.doesNotMatch(s, JARGON, `stage=${stage} 把技术词甩给了业主:「${s}」`);
+    assert.doesNotMatch(s, /undefined|\[object/, `stage=${stage} 漏了占位:「${s}」`);
+  }
+});
+
+test("u31 成功那句必须告诉他:软件会自己关掉再打开", () => {
+  // 不说的话,窗口一关他会以为崩了 —— 而这一版恰恰会真的把窗口关掉。
+  const s = U.applyLabel({ state: "done", result: { ok: true, stage: "started", latest: "0.98.5" } });
+  assert.match(s, /关|重(新)?(打开|启动)/, `「${s}」没说软件会自己关掉再打开`);
+});
+
+test("u32 没见过的 stage 也要有兜底话术", () => {
+  for (const stage of [null, undefined, "", "什么鬼", "started-ish"]) {
+    const s = U.applyHint({ ok: false, stage, error: null });
+    assert.ok(s && s.length > 0, `stage=${String(stage)} 什么都没说`);
+    assert.doesNotMatch(s, /undefined|\[object/, `stage=${String(stage)}:「${s}」`);
+  }
+});
+
+test("u33 自动更新失败不许变成死路:必须留着手动那条出口", () => {
+  for (const stage of FAIL_STAGES.filter((s) => s !== "no_update")) {
+    const s = U.applyHint({ ok: false, stage, error: "x" });
+    assert.match(s, /手动|自己下载|发布页/,
+      `stage=${stage} 失败了却没给他任何别的路:「${s}」`);
+  }
+});
