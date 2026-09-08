@@ -445,5 +445,73 @@ class RelayScriptShape(_Base):
         self.assertIn(rollback["marker"], text)
 
 
+class InstallerUpdateFlagContract(_Base):
+    """t20 —— `/UPDATE` 这条跨文件契约是**机械的**,不是注释级的。
+
+    死线(t13)要求更新前后 `UserData\\` 逐字节不变,而 `OpenDesign.nsi:143` 每次安装
+    都 `Call ProvisionConfig`。修法是给安装器加 `/UPDATE` 档、更新时不跑 provisioning
+    (**改实现不改考卷**)。
+
+    那个修法**横跨两个文件、两种语言**:python 这边发旗子,NSIS 那边认。
+    任何一边悄悄改掉,死线就破了,**而 t13 在 Linux 上照样全绿** —— 它用的是替身
+    安装器,根本走不到真 NSIS。所以这条契约必须自己被钉住。
+    形状照抄本单 `t12a/t12b`(commit 46c0c90):把注释级契约变成机械的。
+    """
+
+    NSI = os.path.join(ROOT, "installer", "OpenDesign.nsi")
+
+    def _nsi(self):
+        with open(self.NSI, encoding="utf-8", errors="replace") as fh:
+            return fh.read()
+
+    def test_t20a_installer_is_invoked_with_the_update_flag(self):
+        import subprocess
+        seen = []
+
+        def fake_call(cmd, **kwargs):
+            seen.append((list(cmd), kwargs))
+            return 0
+
+        real = subprocess.call
+        subprocess.call = fake_call
+        try:
+            ds_update_apply._default_install("C:/tmp/Setup.exe", "C:/tmp/OpenDesign.new")
+        finally:
+            subprocess.call = real
+        self.assertTrue(seen, "没调起安装器")
+        argv, _kw = seen[0]
+        self.assertIn(ds_update_apply.INSTALL_UPDATE_FLAG, argv)
+        self.assertIn("/S", argv, "更新必须静默")
+        self.assertTrue(argv[-1].startswith("/D="),
+                        "/D= 必须是最后一个参数(NSIS 的规矩,不是我们的选择)")
+
+    def test_t20b_the_nsi_parses_that_exact_flag(self):
+        self.assertIn(ds_update_apply.INSTALL_UPDATE_FLAG, self._nsi(),
+                      "python 发的旗子,NSIS 那边根本不认")
+
+    def test_t20c_provisioning_is_guarded_by_the_update_flag(self):
+        """`Call ProvisionConfig` 必须落在一个由更新档把守的分支里。
+
+        不是"文件里出现过 /UPDATE 就算数" —— 那种断言随便加一行注释就骗过去了。
+        这里查**结构**:那一行上方最近的一个 `${If}`/`${Unless}` 必须提到更新档变量。
+        """
+        lines = self._nsi().splitlines()
+        at = [i for i, ln in enumerate(lines)
+              if "Call ProvisionConfig" in ln and not ln.strip().startswith(";")]
+        self.assertEqual(len(at), 1,
+                         "ProvisionConfig 的调用点不止一处了,这条闸要跟着改")
+        guard = None
+        for i in range(at[0] - 1, -1, -1):
+            line = lines[i].strip()
+            if line.startswith("${EndIf}"):
+                break          # 撞到别的块的收尾 ⇒ 我们这行不在那个块里
+            if line.startswith(("${If}", "${Unless}", "${IfNot}")):
+                guard = line
+                break
+        self.assertIsNotNone(guard, "ProvisionConfig 是无条件调用的 —— 死线 t13 破了")
+        self.assertIn(ds_update_apply.UPDATE_MODE_VAR, guard,
+                      "把守它的不是更新档:%s" % guard)
+
+
 if __name__ == "__main__":
     unittest.main()

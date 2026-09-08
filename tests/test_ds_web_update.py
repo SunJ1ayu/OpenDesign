@@ -18,6 +18,7 @@ import sys
 import threading
 import unittest
 from contextlib import contextmanager
+from urllib.parse import quote
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -152,3 +153,42 @@ class UpdateCheckEndpoint(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class HealthEchoesTheNonce(unittest.TestCase):
+    """t19 —— `/api/health` 必须把这次问话的 nonce 原样回给我(第二刀,更新收口)。
+
+    为什么这条住在**服务端**这份考卷里:更新时两次改名之后,旧进程可能还没死透,
+    **它也会回一个 200 和一个版本号**。客户端那半(`t18`,在 test_ds_update_apply.py)
+    已经要求"没回对 nonce 就不算成功";可要是服务端压根不回显,那条要求就变成
+    **永远不成功** —— 一条恒红的收口 = 每次更新都判失败、每次都回滚。
+    **两半必须一起钉,少一半都是坏的。**
+    """
+
+    def test_t19a_health_echoes_the_nonce_i_asked_with(self):
+        with _serve() as port:
+            st, body = _get(port, "/api/health?nonce=n0nce-abc")
+        self.assertEqual(st, 200)
+        self.assertEqual(body.get("nonce"), "n0nce-abc")
+
+    def test_t19b_no_nonce_asked_no_nonce_echoed(self):
+        with _serve() as port:
+            st, body = _get(port, "/api/health")
+        self.assertEqual(st, 200)
+        self.assertIsNone(body.get("nonce"),
+                          "没问就别编一个 —— 回一个固定值会让 t18 的分辨力归零")
+
+    def test_t19c_version_is_still_there(self):
+        # 收口判的是 version + nonce 两件事;别为了加 nonce 把 version 挤掉。
+        with _serve() as port:
+            _st, body = _get(port, "/api/health?nonce=x")
+        self.assertEqual(body.get("version"), ds_web.VERSION)
+
+    def test_t19d_a_weird_nonce_does_not_500(self):
+        # nonce 是我们自己生成的,但端点不许因为奇怪输入就 500 —— 500 会被前端那条
+        # 通用错误路径弹给业主看(和 t9b 同一个理由:功能失败 != 软件坏了)。
+        for nonce in ("a" * 200, "带中文的", "a&b=c", "<script>"):
+            with self.subTest(nonce=nonce):
+                with _serve() as port:
+                    st, _body = _get(port, "/api/health?nonce=" + quote(nonce))
+                self.assertEqual(st, 200)
