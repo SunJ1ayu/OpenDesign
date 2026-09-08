@@ -44,6 +44,33 @@ Unicode true
 ; 微软官方的 WebView2 检测键(每机器装 / 每用户装两处)。
 !define WV2_GUID   "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 
+; ── 更新档(track opendesign-in-app-update-install)────────────────────────
+; 应用内更新调这支安装器时会多传一面旗子 `/UPDATE`。认出它 = **这一趟是更新,
+; 不是首装** ⇒ 跳过 provisioning。
+;
+; 🔴 为什么必须跳:provisioning 往 `${DATA_ROOT}\UserData` 写,而"更新前后
+;    UserData 逐字节不变"是这一单的死线。同一份模板下它其实是字节级幂等的
+;    (2026-09-08 实测,证据 tracks/.../evidence/probe-provisioning-idempotence.md),
+;    但**新版带的模板可能和旧版不一样** —— 那时它会重写业主自己的设置。
+;    安装器是本项目最验不动的组件,让它更新期完全不碰数据根,
+;    比让它"小心地只改几个字段"便宜得多、也可证得多。
+;
+; ⚠️ 这面旗子的名字在两个文件里必须一致:bin/ds_update_apply.py 的
+;    INSTALL_UPDATE_FLAG 发它,这里认它。判据 t20a/t20b/t20c 机械地钉着这条契约
+;    —— 因为 t13(死线)在 Linux 上用的是替身安装器,走不到这儿,
+;    任何一边悄悄改掉它照样全绿。
+Var UpdateMode
+
+Function .onInit
+  StrCpy $UpdateMode "0"
+  ${GetParameters} $R0
+  ClearErrors
+  ${GetOptions} $R0 "/UPDATE" $R1
+  ${IfNot} ${Errors}
+    StrCpy $UpdateMode "1"
+  ${EndIf}
+FunctionEnd
+
 Name "${APP} ${APPVER}"
 OutFile "${APP}-Setup-${APPVER}.exe"
 InstallDir "$LOCALAPPDATA\Programs\${APP}"
@@ -140,7 +167,11 @@ Section "${APP} 主程序" SecMain
   CreateShortcut "$SMPROGRAMS\${APP}\卸载 ${APP}.lnk" "$INSTDIR\卸载.exe"
 
   Call EnsureWebView2
-  Call ProvisionConfig
+  ; 更新档不跑 provisioning —— 它是给首装用的,而更新期碰 UserData\ 就是踩死线。
+  ; (判据 t20c 查的是"这一行被更新档把守着"这个**结构**,不是文件里出现过 /UPDATE。)
+  ${If} $UpdateMode != "1"
+    Call ProvisionConfig
+  ${EndIf}
 SectionEnd
 
 Section "在桌面上放一个图标" SecDesktop

@@ -486,8 +486,22 @@ class InstallerUpdateFlagContract(_Base):
                         "/D= 必须是最后一个参数(NSIS 的规矩,不是我们的选择)")
 
     def test_t20b_the_nsi_parses_that_exact_flag(self):
-        self.assertIn(ds_update_apply.INSTALL_UPDATE_FLAG, self._nsi(),
-                      "python 发的旗子,NSIS 那边根本不认")
+        """⚠️ 这条第一版太松,红检当场照出来(m23 漏网,2026-09-08)。
+
+        原来问的是「文件里出现过这面旗子吗」。而**我自己写的那段注释里就有这几个字**
+        ⇒ 把 `${GetOptions}` 里的 `/UPDATE` 改成 `/UPD`,判据照样全绿。
+        一条为了消灭"注释级契约"而写的断言,自己退化成了注释级 —— 正是它要防的病。
+
+        收紧成:这面旗子必须出现在**真正解析参数的那一行**上(注释行不算数)。
+        """
+        lines = [ln for ln in self._nsi().splitlines()
+                 if not ln.strip().startswith(";")]
+        parsing = [ln for ln in lines
+                   if "GetOptions" in ln
+                   and ds_update_apply.INSTALL_UPDATE_FLAG in ln]
+        self.assertTrue(parsing,
+                        "没有任何一行 ${GetOptions} 在解析 %s —— python 发的旗子,"
+                        "NSIS 那边根本没人接" % ds_update_apply.INSTALL_UPDATE_FLAG)
 
     def test_t20c_provisioning_is_guarded_by_the_update_flag(self):
         """`Call ProvisionConfig` 必须落在一个由更新档把守的分支里。

@@ -914,12 +914,21 @@ class Handler(BaseHTTPRequestHandler):
             return
         path = urlsplit(self.path).path
         if path == "/api/health":
-            self._json(200, {"ok": True, "version": VERSION,
-                             "ds_root": self.server.ds_root,
-                             "model": _read_model(),
-                             # 文档转换器装没装:业主刷一下 /api/health 就看得见,
-                             # 不用开命令行(部署规矩:盘上有 ≠ 跑起来有)。
-                             "doc_reader": _doc_reader_status()})
+            health = {"ok": True, "version": VERSION,
+                      "ds_root": self.server.ds_root,
+                      "model": _read_model(),
+                      # 文档转换器装没装:业主刷一下 /api/health 就看得见,
+                      # 不用开命令行(部署规矩:盘上有 ≠ 跑起来有)。
+                      "doc_reader": _doc_reader_status()}
+            # 🔴 更新收口(track opendesign-in-app-update-install,判据 t19)。
+            #    更新时两次改名之后,**旧进程可能还没死透,它也会回 200 和一个版本号**。
+            #    带一次性 nonce 才分得清"新版起来了"和"旧的还在答"。
+            #    **没问就不回**:回一个固定值能骗过 t19a,却会让客户端那半(t18)
+            #    的分辨力归零 —— 那正是"看起来在工作"的形状。
+            nonce = parse_qs(urlsplit(self.path).query).get("nonce", [""])[0]
+            if nonce:
+                health["nonce"] = nonce
+            self._json(200, health)
         elif path == "/api/update/check":
             self._update_check()
         elif path == "/api/todos":

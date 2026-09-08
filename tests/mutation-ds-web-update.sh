@@ -81,6 +81,26 @@ mutate_and_expect w5 "test_t9e_force_false_is_not_force" \
   '        force = raw_force.strip().lower() in ("1", "true", "yes", "on")' \
   '        force = raw_force not in ("", "0")'
 
+# ── t19:更新收口的 nonce 回显(track opendesign-in-app-update-install)──────
+
+# n6 🔴 压根不回显 ⇒ 客户端那半(t18)变成恒不成功 = 每次更新都判失败、都回滚
+mutate_and_expect n6 test_t19a_health_echoes_the_nonce_i_asked_with \
+  '            if nonce:
+                health["nonce"] = nonce' \
+  '            if False:
+                health["nonce"] = nonce'
+
+# n7 🔴 没问也回一个固定值 ⇒ 骗得过 t19a,却让 t18 的分辨力归零
+#    (旧进程也会答出这个固定值 ⇒ "旧的还在答"永远认不出来)
+mutate_and_expect n7 test_t19b_no_nonce_asked_no_nonce_echoed \
+  '            nonce = parse_qs(urlsplit(self.path).query).get("nonce", [""])[0]' \
+  '            nonce = parse_qs(urlsplit(self.path).query).get("nonce", ["ok"])[0] or "ok"'
+
+# n8 为了塞 nonce 把 version 挤掉(收口判的是两件事,少一件都不算)
+mutate_and_expect n8 test_t19c_version_is_still_there \
+  '            health = {"ok": True, "version": VERSION,' \
+  '            health = {"ok": True,'
+
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"
 echo

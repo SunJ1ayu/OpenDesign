@@ -16,12 +16,19 @@ cd "$(dirname "$0")/.."
 PY="${PY:-/root/.venvs/design-studio/bin/python}"
 
 SRC=bin/ds_update_apply.py
+# t20 咬的是**跨文件契约**,所以这支脚本管两个被测文件:python 这边发旗子,
+# NSIS 那边认旗子。只变异其中一边,另一边的洞就永远照不出来。
+NSI=installer/OpenDesign.nsi
 ORACLE=tests.test_ds_update_apply
+MUT_SRC="$SRC"              # 当前这条变异打在哪个文件上
 WORK="$(mktemp -d)"
 BEFORE="$(sha256sum "$SRC" | cut -d' ' -f1)"
+BEFORE_NSI="$(sha256sum "$NSI" | cut -d' ' -f1)"
 cp -p "$SRC" "$WORK/orig.py"
+cp -p "$NSI" "$WORK/orig.nsi"
 restore() {
   cp -p "$WORK/orig.py" "$SRC"
+  cp -p "$WORK/orig.nsi" "$NSI"
   find . -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null
 }
 trap 'restore; rm -rf "$WORK"' EXIT
@@ -32,7 +39,7 @@ bites=0; escapes=0
 mutate_and_expect() {
   local id="$1" target="$2" old="$3" new="$4"
   restore
-  "$PY" - "$SRC" "$old" "$new" <<'PYEOF' || { echo "  [BAD]  $id 变异没打上去(靶子文本没匹配到)"; escapes=$((escapes+1)); return; }
+  "$PY" - "$MUT_SRC" "$old" "$new" <<'PYEOF' || { echo "  [BAD]  $id 变异没打上去(靶子文本没匹配到)"; escapes=$((escapes+1)); return; }
 import sys, pathlib
 p = pathlib.Path(sys.argv[1]); s = p.read_text(encoding="utf-8")
 old, new = sys.argv[2], sys.argv[3]
@@ -178,10 +185,54 @@ else
   escapes=$((escapes+1))
 fi
 
+# ── t20:/UPDATE 跨文件契约(python 发旗子 / NSIS 认旗子)──────────────────
+#
+# 🔴 这一组存在的全部理由:死线 t13 在 Linux 上用的是**替身安装器**,
+#    走不到真 NSIS。契约的任何一边被悄悄改掉,t13 照样全绿。
+
+MUT_SRC="$SRC"
+# m19 python 这边改了旗子名(NSIS 那边照样只认老的)
+#     ⚠️ 靶子一开始挑成了 t20a,红检报"红在别处" —— t20a 问的是"发出去的 argv 里
+#        有没有这个常量",常量改名它当然还在。**该红的是跨文件那条(t20b)**,
+#        它比对的是 python 的常量与 NSIS 真正解析的那一行。靶子搬到问得出的地方。
+mutate_and_expect m19 test_t20b_the_nsi_parses_that_exact_flag \
+  'INSTALL_UPDATE_FLAG = "/UPDATE"' \
+  'INSTALL_UPDATE_FLAG = "/SILENTUPDATE"'
+
+# m20 /D= 不再是最后一个参数(NSIS 的硬规矩,排错了这一位安装目录就不对)
+mutate_and_expect m20 test_t20a_installer_is_invoked_with_the_update_flag \
+  'cmd = [setup_path, "/S", INSTALL_UPDATE_FLAG, "/D=%s" % target_dir]' \
+  'cmd = [setup_path, "/S", "/D=%s" % target_dir, INSTALL_UPDATE_FLAG]'
+
+MUT_SRC="$NSI"
+# m21 🔴 NSIS 那边把把守撤了 ⇒ 更新期照跑 provisioning ⇒ 死线破,而 t13 全绿
+mutate_and_expect m21 test_t20c_provisioning_is_guarded_by_the_update_flag \
+  '  ${If} $UpdateMode != "1"
+    Call ProvisionConfig
+  ${EndIf}' \
+  '  Call ProvisionConfig'
+
+# m22 把守还在,但守的是别的东西(把"看结构"和"看字面"分开:文件里仍然有 /UPDATE)
+mutate_and_expect m22 test_t20c_provisioning_is_guarded_by_the_update_flag \
+  '  ${If} $UpdateMode != "1"' \
+  '  ${If} $R9 != "1"'
+
+# m23 NSIS 那边不认这面旗子了(python 照发,没人接)
+mutate_and_expect m23 test_t20b_the_nsi_parses_that_exact_flag \
+  '  ${GetOptions} $R0 "/UPDATE" $R1' \
+  '  ${GetOptions} $R0 "/UPD" $R1'
+
+MUT_SRC="$SRC"
+
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"
+AFTER_NSI="$(sha256sum "$NSI" | cut -d' ' -f1)"
 if [ "$BEFORE" != "$AFTER" ]; then
   echo "🔴 还原失败:$SRC 的哈希对不上($BEFORE → $AFTER)"
+  exit 2
+fi
+if [ "$BEFORE_NSI" != "$AFTER_NSI" ]; then
+  echo "🔴 还原失败:$NSI 的哈希对不上($BEFORE_NSI → $AFTER_NSI)"
   exit 2
 fi
 
