@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-in-app-update-install",
+  "run_id": "delegate-20260908-224347-3956707",
+  "controller": "delegate-codex",
+  "event": "execution_finished",
+  "label": "delegate-update-button-task",
+  "started_at": "2026-09-08T14:43:47.404Z",
+  "finished_at": "2026-09-08T14:52:17.800Z",
+  "duration_ms": 510396,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "delegate-codex",
+    "model": "gpt-5.5",
+    "risk": null,
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": "subscription"
+  }
+}

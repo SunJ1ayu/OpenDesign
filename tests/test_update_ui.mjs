@@ -368,6 +368,50 @@ test("u35 canApply 对矛盾/残缺的数据要严,不许给一个注定失败�
     "不知道要更新到哪一版,却给了更新按钮");
 });
 
+test("u35b 🔴 canApply 永远不许抛 —— 它跑在渲染里,抛一次就是白屏", () => {
+  // 闸③(2026-09-08 亲读 diff)抓到的,判据先行补上。**实测复现过,不是推论。**
+  //
+  // 后端 bin/ds_update.py 的 decide() 是 `asset.get("name")` /
+  // `asset.get("browser_download_url")` —— 取不到就是 None,过 JSON 就是 **null**。
+  // 而 `asset.name.trim()` 在 null 上抛 TypeError。
+  // 🔴 canApply 在 Sidebar 的**渲染体**里被调用(`const showApply = canApply(updateInfo)`)
+  //    ⇒ 抛一次 = React 卸掉整棵树 = **整页白**。
+  //    这正是本项目栽得最狠的那个坑(0.94、0.98 两次白屏都是这个形状)。
+  //
+  // u35 只喂了"字段在、但是空串",喂不出这条路 —— **那是我考卷的洞,不是实现的锅**。
+  const bads = [
+    ["asset 是空对象", {}],
+    ["name 是 null", { name: null, url: "u", size: 1, digest: "sha256:aa" }],
+    ["url 是 null", { name: "n", url: null, size: 1, digest: "sha256:aa" }],
+    ["缺 name 这个键", { url: "u", size: 1, digest: "sha256:aa" }],
+    ["缺 url 这个键", { name: "n", size: 1, digest: "sha256:aa" }],
+    ["name 不是字符串", { name: 1, url: "u", size: 1, digest: "sha256:aa" }],
+    ["size 是 null", { name: "n", url: "u", size: null, digest: "sha256:aa" }],
+  ];
+  for (const [label, asset] of bads) {
+    const info = { current: "0.98.4", update_available: true, latest: "0.98.5",
+                   asset, notes: "", error: null };
+    let out;
+    try {
+      out = U.canApply(info);
+    } catch (e) {
+      assert.fail(`${label}:canApply 抛了 ${e.constructor.name} —— 它跑在渲染里,`
+        + "这一抛业主看到的是整页白,而不是「没有更新按钮」");
+    }
+    assert.equal(out, false, `${label}:安装包信息是坏的,却放行了更新按钮`);
+  }
+});
+
+test("u35c 整个 info 是坏数据时也不许抛", () => {
+  for (const info of [undefined, 0, "", [], { update_available: true }]) {
+    try {
+      U.canApply(info);
+    } catch (e) {
+      assert.fail(`canApply(${JSON.stringify(info)}) 抛了 ${e.constructor.name} ⇒ 白屏`);
+    }
+  }
+});
+
 test("u36 🔴 HTTP 200 + ok:false 不许被读成成功;坏 JSON/断网一律算失败", () => {
   // 攻题第 2、3 条。端点**任何业务失败都以 200 回**(那是 t9b 立的规矩,为了不让
   // 前端的通用错误路径弹东西给业主)⇒ 前端只看 HTTP 状态码就会把失败读成成功。
