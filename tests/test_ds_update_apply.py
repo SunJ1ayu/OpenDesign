@@ -527,5 +527,91 @@ class InstallerUpdateFlagContract(_Base):
                       "把守它的不是更新档:%s" % guard)
 
 
+class HandoffToTheRelay(_Base):
+    """t21 —— 交棒:把接力脚本**脱离**启动,起不来就绝不往下走。
+
+    这一步是整条路上最不能出错的地方:它之后 `ds_web` 就要请外壳把整套软件关掉。
+    **脚本没起来却把软件关了 = 业主看到"软件关了,没再打开",而且没有任何东西会去回滚。**
+    """
+
+    SRC = os.path.join(ROOT, "bin", "ds_update_apply.py")
+
+    def _relay(self):
+        path = os.path.join(self.temp, "opendesign-update-relay.cmd")
+        with open(path, "w", encoding="gbk", errors="replace") as fh:
+            fh.write("@echo off\r\n")
+        return path
+
+    def test_t21a_missing_script_is_never_reported_as_handed_off(self):
+        seen = []
+        ok = ds_update_apply.handoff(os.path.join(self.temp, "不存在.cmd"),
+                                     launcher=lambda *a, **k: seen.append(a))
+        self.assertFalse(ok)
+        self.assertEqual(seen, [], "脚本都不在,还是把它启动了")
+
+    def test_t21b_the_script_path_is_what_gets_launched(self):
+        relay = self._relay()
+        seen = []
+
+        def fake(argv, **kwargs):
+            seen.append((list(argv), kwargs))
+            return object()
+
+        self.assertTrue(ds_update_apply.handoff(relay, launcher=fake))
+        self.assertTrue(seen, "没起")
+        argv, _kw = seen[0]
+        self.assertTrue(any(relay in str(a) for a in argv),
+                        "起的不是我们刚写下的那个脚本:%r" % (argv,))
+
+    def test_t21c_launch_uses_the_one_source_for_platform_flags(self):
+        relay = self._relay()
+        seen = []
+
+        def fake(argv, **kwargs):
+            seen.append(kwargs)
+            return object()
+
+        ds_update_apply.handoff(relay, launcher=fake)
+        import ds_shell_core
+        for key, value in ds_shell_core.spawn_kwargs().items():
+            self.assertEqual(seen[0].get(key), value,
+                             "平台标志没走唯一来源 —— Windows 上那个黑窗口业主一关,"
+                             "接力脚本就跟着死,而软件已经在关了")
+
+    def test_t21d_a_launcher_that_blows_up_is_not_a_handoff(self):
+        relay = self._relay()
+
+        def boom(*_a, **_k):
+            raise OSError("起不来")
+
+        self.assertFalse(ds_update_apply.handoff(relay, launcher=boom),
+                         "起失败了却报交棒成功 ⇒ 下一步就把软件关了")
+
+    def test_t21e_the_default_launcher_never_waits(self):
+        """**机械契约**:默认启动器必须是"起了就走"。
+
+        接力脚本要等我们**死透**才动手 —— 我们要是等它结束,就是互相等死:
+        软件永远关不掉,更新永远不发生,而界面上写着"正在更新"。
+        Linux 上没法真跑 `.cmd`,所以这里钉的是源码结构(形状同 t12a/t12b)。
+        """
+        import ast as _ast
+        with open(self.SRC, encoding="utf-8") as fh:
+            tree = _ast.parse(fh.read())
+        fn = next((n for n in _ast.walk(tree)
+                   if isinstance(n, _ast.FunctionDef) and n.name == "_default_launcher"), None)
+        self.assertIsNotNone(fn, "没有默认启动器")
+        names = set()
+        for node in _ast.walk(fn):
+            if isinstance(node, _ast.Call):
+                f = node.func
+                names.add(f.attr if isinstance(f, _ast.Attribute) else
+                          getattr(f, "id", ""))
+        self.assertIn("Popen", names, "默认启动器不是 Popen ⇒ 多半在等它结束")
+        for blocking in ("call", "run", "check_call", "check_output", "wait", "communicate"):
+            self.assertNotIn(blocking, names,
+                             "默认启动器里出现了 %s() —— 那会等接力脚本结束,"
+                             "而它正在等我们死:互相等死" % blocking)
+
+
 if __name__ == "__main__":
     unittest.main()

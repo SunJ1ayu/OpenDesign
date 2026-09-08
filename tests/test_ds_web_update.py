@@ -27,6 +27,7 @@ sys.path.insert(0, HERE)
 import _tmpreg   # noqa: E402
 import ds_update  # noqa: E402
 import ds_web     # noqa: E402
+import ds_update_apply  # noqa: E402  (第二刀:真去装那一半)
 
 FIXTURE = os.path.join(ROOT, "tests", "fixtures", "update",
                        "github-releases-20260907.json")
@@ -192,3 +193,145 @@ class HealthEchoesTheNonce(unittest.TestCase):
                 with _serve() as port:
                     st, _body = _get(port, "/api/health?nonce=" + quote(nonce))
                 self.assertEqual(st, 200)
+
+
+def _post(port, path, body=b"{}"):
+    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+    conn.request("POST", path, body=body,
+                 headers={"Content-Type": "application/json"})
+    r = conn.getresponse()
+    raw = r.read()
+    conn.close()
+    return r.status, (json.loads(raw.decode("utf-8")) if raw else None)
+
+
+class UpdateApplyEndpoint(unittest.TestCase):
+    """t22 —— `POST /api/update/apply`:业主点了「更新」之后这条路。
+
+    🔴 这份考卷里最要紧的一条是 **t22c 的顺序**:
+    **先把接力脚本起起来、确认它真起来了,再请外壳把软件关掉。**
+    反过来 = 外壳先把 ds_web 杀了,而接力脚本还没人起 ⇒
+    **业主看到的是「软件关了,没再打开」,而且没有任何东西会去回滚。**
+
+    第二要紧的是"不许撒谎"(t22e):只有外壳**点名认了**交棒动词才算开始。
+    裸 OK 是老外壳收下了帧但做了别的事 —— 报成"更新已开始",业主会关掉浏览器等着,
+    而实际什么都没发生。这条纪律照抄 `ds_shell_bridge_restart`。
+    """
+
+    def setUp(self):
+        ds_update.cache_clear()
+        self._real_fetch = ds_update.fetch_releases
+        self._real_apply = ds_update_apply.apply_update
+        self._real_handoff = ds_update_apply.handoff
+        self._real_bridge = getattr(ds_web, "ds_shell_bridge_update", None)
+        self.order = []          # 谁先谁后 —— t22c 就靠它
+        self.applied = []
+
+    def tearDown(self):
+        ds_update.fetch_releases = self._real_fetch
+        ds_update_apply.apply_update = self._real_apply
+        ds_update_apply.handoff = self._real_handoff
+        if self._real_bridge is not None:
+            ds_web.ds_shell_bridge_update = self._real_bridge
+        ds_update.cache_clear()
+
+    # --- 替身:一次真网都不打,一次真安装器都不跑,一次真关停都不做 ---
+
+    def _online(self, newer=True):
+        rel = _fixture()
+        if not newer:
+            rel = []
+        ds_update.fetch_releases = lambda: rel
+
+    def _seams(self, apply_ok=True, handoff_ok=True, bridge="started"):
+        def fake_apply(decision, paths, **kw):
+            self.order.append("apply")
+            self.applied.append(decision)
+            if apply_ok:
+                return {"ok": True, "stage": "relay", "error": None,
+                        "relay": "C:/tmp/relay.cmd"}
+            return {"ok": False, "stage": "verify", "error": "sha256 对不上",
+                    "relay": None}
+
+        def fake_handoff(relay, **kw):
+            self.order.append("handoff")
+            return handoff_ok
+
+        def fake_bridge():
+            self.order.append("bridge")
+            return bridge
+
+        ds_update_apply.apply_update = fake_apply
+        ds_update_apply.handoff = fake_handoff
+        ds_web.ds_shell_bridge_update = fake_bridge
+
+    def test_t22a_get_never_triggers_an_install(self):
+        """GET 面保持纯只读(本服务模块头的铁律)。装软件是本仓最重的副作用,
+        一个能被 GET 触发的它,等于一条能被别的网页诱发的更新。"""
+        self._online()
+        self._seams()
+        with _serve() as port:
+            st, _b = _get(port, "/api/update/apply")
+        self.assertIn(st, (404, 405), "GET 居然被路由到了安装口")
+        self.assertEqual(self.order, [], "GET 触发了安装")
+
+    def test_t22b_no_new_version_means_nothing_is_installed(self):
+        self._online(newer=False)
+        self._seams()
+        with _serve() as port:
+            st, body = _post(port, "/api/update/apply")
+        self.assertEqual(st, 200)
+        self.assertFalse(body.get("ok"))
+        self.assertEqual(self.order, [], "线上没有新版,却还是装了一遍")
+
+    def test_t22c_the_relay_is_launched_before_the_shell_is_told_to_quit(self):
+        """🔴 这一单最怕的那个形态就在这条断言的反面。"""
+        self._online()
+        self._seams()
+        with _serve() as port:
+            _st, body = _post(port, "/api/update/apply")
+        self.assertEqual(self.order, ["apply", "handoff", "bridge"],
+                         "顺序不对:必须先起接力脚本,再请外壳关停")
+        self.assertTrue(body.get("ok"))
+
+    def test_t22d_a_failed_handoff_never_asks_the_shell_to_quit(self):
+        """接力脚本没起来就请外壳关软件 = 关了没人接手。"""
+        self._online()
+        self._seams(handoff_ok=False)
+        with _serve() as port:
+            _st, body = _post(port, "/api/update/apply")
+        self.assertNotIn("bridge", self.order,
+                         "接力脚本都没起来,还是把关停请求发出去了")
+        self.assertFalse(body.get("ok"))
+        self.assertEqual(body.get("stage"), "handoff")
+
+    def test_t22e_a_shell_that_did_not_name_the_verb_is_not_success(self):
+        self._online()
+        self._seams(bridge="manual")
+        with _serve() as port:
+            _st, body = _post(port, "/api/update/apply")
+        self.assertFalse(body.get("ok"),
+                         "外壳没认这个动词,却跟业主说更新已经开始了")
+
+    def test_t22f_a_failed_preparation_says_which_step_died(self):
+        """"装错了"和"没装成"在业主那儿长得一样(软件关了没回来),
+        但在日志和界面上必须分得开 —— design「这个 oracle 能被什么骗过」第 4 条。"""
+        self._online()
+        self._seams(apply_ok=False)
+        with _serve() as port:
+            _st, body = _post(port, "/api/update/apply")
+        self.assertFalse(body.get("ok"))
+        self.assertEqual(body.get("stage"), "verify")
+        self.assertIn("sha256", body.get("error") or "")
+        self.assertEqual(self.order, ["apply"], "准备就没过,后面两步不该走")
+
+    def test_t22g_the_decision_handed_to_the_installer_carries_the_asset(self):
+        """端点必须把**查到的那个 release** 原样交下去 —— 不许自己另编一个。
+        下载地址只能来自它(t14 钉的同一件事,这里守的是接线这一侧)。"""
+        self._online()
+        self._seams()
+        with _serve() as port:
+            _post(port, "/api/update/apply")
+        self.assertTrue(self.applied, "没把决定交给安装那一层")
+        asset = (self.applied[0] or {}).get("asset") or {}
+        self.assertTrue(asset.get("url"), "交下去的决定里没有下载地址")

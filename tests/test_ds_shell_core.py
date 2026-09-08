@@ -446,6 +446,79 @@ class SingleInstance(unittest.TestCase):
         self.assertTrue(restarted.wait(5), "动词晚到一个包就被丢了 ⇒ 填完 key 不会重启")
         self.assertFalse(shown.is_set(), "退回成了唤醒窗口 —— 窗口闪一下,key 却没生效")
 
+    # ---- 更新交棒动词(track opendesign-in-app-update-install)----------------
+    # 应用内更新走到最后一步时,ds_web 已经把新版装进了 OpenDesign.new、也已经把
+    # 接力脚本起起来了,**只差把整套软件优雅地关掉**。而能关掉它的只有外壳
+    # (Supervisor 在它手里),ds_web 手上什么都没有。
+    # ⇒ 复用这把锁,加一个动词。理由与上面那组一字不差:不新开端口、不新造 IPC。
+    #
+    # 🔴 为什么不能让接力脚本自己去杀:收摊那一刻业主的 PKB 可能正被写到一半,
+    #    而 Data\ 逐字节不变是那一单的死线 ——
+    #    **用暴力杀去满足"收摊干净",等于为了过一条判据去踩另一条。**
+
+    def test_m1_the_update_verb_reaches_the_update_callback_only(self):
+        base = free_port()
+        shown, restarted, updated = (threading.Event(), threading.Event(),
+                                     threading.Event())
+        lock = core.InstanceLock(base_port=base, span=5, on_show=shown.set,
+                                 on_restart=restarted.set, on_update=updated.set)
+        self.addCleanup(lock.release)
+        self.assertTrue(lock.acquire())
+
+        self.assertEqual(self._send_frame(lock.port, core.LOCK_UPDATE),
+                         core.InstanceLock._OK_UPDATE, "交棒动词没被认出来")
+        self.assertTrue(updated.wait(5), "发了交棒动词,外壳却没去收摊")
+        self.assertFalse(restarted.is_set(),
+                         "交棒被当成了重启后端 —— 那只会掐断聊天,软件不会关")
+        self.assertFalse(shown.wait(0.5), "交棒顺带把窗口弹到了前台")
+
+    def test_m2_the_ack_names_the_update_verb(self):
+        """裸 OK 不算数。**报成功就必须是真的** —— 与 RESTART 那条纪律同源:
+        ds_web 只有拿到点名了动词的应答,才敢跟业主说「更新已经开始」。
+        拿裸 OK 当成功,业主会关掉浏览器等着,而外壳其实只把窗口闪了一下。"""
+        self.assertNotEqual(core.InstanceLock._OK_UPDATE, core.InstanceLock._OK,
+                            "交棒的应答和裸 OK 长得一样 ⇒ 分不出老外壳")
+        self.assertNotEqual(core.InstanceLock._OK_UPDATE,
+                            core.InstanceLock._OK_RESTART,
+                            "交棒的应答和重启的应答长得一样 ⇒ 分不出它认了哪件事")
+
+    def test_m3_adding_the_update_verb_does_not_disturb_the_old_ones(self):
+        """**加动词不许把已经在跑的两件事弄坏**(b12/b13 立的规矩,这里跟着守)。"""
+        base = free_port()
+        shown, restarted, updated = (threading.Event(), threading.Event(),
+                                     threading.Event())
+        lock = core.InstanceLock(base_port=base, span=5, on_show=shown.set,
+                                 on_restart=restarted.set, on_update=updated.set)
+        self.addCleanup(lock.release)
+        self.assertTrue(lock.acquire())
+
+        self.assertEqual(self._send_frame(lock.port, b"RESTART-BACKEND\n"),
+                         core.InstanceLock._OK_RESTART)
+        self.assertTrue(restarted.wait(5))
+        self.assertFalse(updated.is_set(), "重启把软件给关了")
+
+        self.assertEqual(self._send_frame(lock.port, b""), core.InstanceLock._OK)
+        self.assertTrue(shown.wait(5), "没有动词的老握手不再唤醒窗口")
+        self.assertFalse(updated.is_set(), "双击图标把软件关了 —— 这可太难看了")
+
+    def test_m4_no_update_callback_means_fall_back_to_show_not_crash(self):
+        """老外壳(没接 on_update)收到这个动词:**退回 SHOW,不许崩、更不许关软件**。
+
+        版本错配是真会发生的:新的 ds_web 已经在跑,而外壳还是上一版。
+        那时候正确的表现是「没反应」,由 ds_web 那侧诚实地报「没能自动更新」。
+        """
+        base = free_port()
+        shown = threading.Event()
+        lock = core.InstanceLock(base_port=base, span=5, on_show=shown.set,
+                                 on_restart=lambda: None)
+        self.addCleanup(lock.release)
+        self.assertTrue(lock.acquire())
+
+        self.assertEqual(self._send_frame(lock.port, core.LOCK_UPDATE),
+                         core.InstanceLock._OK,
+                         "没接交棒回调却回了「我认了」⇒ ds_web 会据此宣布更新已开始")
+        self.assertTrue(shown.wait(5), "认不出就该退回 SHOW(b13 立的规矩)")
+
     def test_b7_windows_branch_asks_for_exclusive_bind(self):
         """Windows 那条分支在 Linux 上跑不了,但"它打算设哪些 socket 选项"是纯数据,
         问得出来 —— 把"我以为它会设"变成一条会红的断言。

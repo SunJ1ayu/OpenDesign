@@ -1,0 +1,308 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-t21-t22-m-w-wiring
+cmd:     python3 -m pytest tests/test_ds_update_apply.py tests/test_ds_web_update.py tests/test_ds_shell_wiring.py tests/test_ds_shell_core.py::SingleInstance -q
+cwd:     .(仓根)
+commit:  fefa008
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-08T13:21:00Z
+---------------- 输出开始 ----------------
+.................................FFFFF.........FFFFFFF.......F [ 76%]
+F..............FFFF                                                      [100%]
+=================================== FAILURES ===================================
+__ HandoffToTheRelay.test_t21a_missing_script_is_never_reported_as_handed_off __
+
+self = <test_ds_update_apply.HandoffToTheRelay testMethod=test_t21a_missing_script_is_never_reported_as_handed_off>
+
+    def test_t21a_missing_script_is_never_reported_as_handed_off(self):
+        seen = []
+>       ok = ds_update_apply.handoff(os.path.join(self.temp, "不存在.cmd"),
+             ^^^^^^^^^^^^^^^^^^^^^^^
+                                     launcher=lambda *a, **k: seen.append(a))
+E       AttributeError: module 'ds_update_apply' has no attribute 'handoff'
+
+tests/test_ds_update_apply.py:547: AttributeError
+______ HandoffToTheRelay.test_t21b_the_script_path_is_what_gets_launched _______
+
+self = <test_ds_update_apply.HandoffToTheRelay testMethod=test_t21b_the_script_path_is_what_gets_launched>
+
+    def test_t21b_the_script_path_is_what_gets_launched(self):
+        relay = self._relay()
+        seen = []
+    
+        def fake(argv, **kwargs):
+            seen.append((list(argv), kwargs))
+            return object()
+    
+>       self.assertTrue(ds_update_apply.handoff(relay, launcher=fake))
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'ds_update_apply' has no attribute 'handoff'
+
+tests/test_ds_update_apply.py:560: AttributeError
+__ HandoffToTheRelay.test_t21c_launch_uses_the_one_source_for_platform_flags ___
+
+self = <test_ds_update_apply.HandoffToTheRelay testMethod=test_t21c_launch_uses_the_one_source_for_platform_flags>
+
+    def test_t21c_launch_uses_the_one_source_for_platform_flags(self):
+        relay = self._relay()
+        seen = []
+    
+        def fake(argv, **kwargs):
+            seen.append(kwargs)
+            return object()
+    
+>       ds_update_apply.handoff(relay, launcher=fake)
+        ^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'ds_update_apply' has no attribute 'handoff'
+
+tests/test_ds_update_apply.py:574: AttributeError
+____ HandoffToTheRelay.test_t21d_a_launcher_that_blows_up_is_not_a_handoff _____
+
+self = <test_ds_update_apply.HandoffToTheRelay testMethod=test_t21d_a_launcher_that_blows_up_is_not_a_handoff>
+
+    def test_t21d_a_launcher_that_blows_up_is_not_a_handoff(self):
+        relay = self._relay()
+    
+        def boom(*_a, **_k):
+            raise OSError("起不来")
+    
+>       self.assertFalse(ds_update_apply.handoff(relay, launcher=boom),
+                         ^^^^^^^^^^^^^^^^^^^^^^^
+                         "起失败了却报交棒成功 ⇒ 下一步就把软件关了")
+E       AttributeError: module 'ds_update_apply' has no attribute 'handoff'
+
+tests/test_ds_update_apply.py:587: AttributeError
+_________ HandoffToTheRelay.test_t21e_the_default_launcher_never_waits _________
+
+self = <test_ds_update_apply.HandoffToTheRelay testMethod=test_t21e_the_default_launcher_never_waits>
+
+    def test_t21e_the_default_launcher_never_waits(self):
+        """**机械契约**:默认启动器必须是"起了就走"。
+    
+        接力脚本要等我们**死透**才动手 —— 我们要是等它结束,就是互相等死:
+        软件永远关不掉,更新永远不发生,而界面上写着"正在更新"。
+        Linux 上没法真跑 `.cmd`,所以这里钉的是源码结构(形状同 t12a/t12b)。
+        """
+        import ast as _ast
+        with open(self.SRC, encoding="utf-8") as fh:
+            tree = _ast.parse(fh.read())
+        fn = next((n for n in _ast.walk(tree)
+                   if isinstance(n, _ast.FunctionDef) and n.name == "_default_launcher"), None)
+>       self.assertIsNotNone(fn, "没有默认启动器")
+E       AssertionError: unexpectedly None : 没有默认启动器
+
+tests/test_ds_update_apply.py:602: AssertionError
+_________ UpdateApplyEndpoint.test_t22a_get_never_triggers_an_install __________
+
+self = <test_ds_web_update.UpdateApplyEndpoint testMethod=test_t22a_get_never_triggers_an_install>
+
+    def setUp(self):
+        ds_update.cache_clear()
+        self._real_fetch = ds_update.fetch_releases
+        self._real_apply = ds_update_apply.apply_update
+>       self._real_handoff = ds_update_apply.handoff
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'ds_update_apply' has no attribute 'handoff'
+
+tests/test_ds_web_update.py:225: AttributeError
+___ UpdateApplyEndpoint.test_t22b_no_new_version_means_nothing_is_installed ____
+
+self = <test_ds_web_update.UpdateApplyEndpoint testMethod=test_t22b_no_new_version_means_nothing_is_installed>
+
+    def setUp(self):
+        ds_update.cache_clear()
+        self._real_fetch = ds_update.fetch_releases
+        self._real_apply = ds_update_apply.apply_update
+>       self._real_handoff = ds_update_apply.handoff
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'ds_update_apply' has no attribute 'handoff'
+
+tests/test_ds_web_update.py:225: AttributeError
+_ UpdateApplyEndpoint.test_t22c_the_relay_is_launched_before_the_shell_is_told_to_quit _
+
+self = <test_ds_web_update.UpdateApplyEndpoint testMethod=test_t22c_the_relay_is_launched_before_the_shell_is_told_to_quit>
+
+    def setUp(self):
+        ds_update.cache_clear()
+        self._real_fetch = ds_update.fetch_releases
+        self._real_apply = ds_update_apply.apply_update
+>       self._real_handoff = ds_update_apply.handoff
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'ds_update_apply' has no attribute 'handoff'
+
+tests/test_ds_web_update.py:225: AttributeError
+_ UpdateApplyEndpoint.test_t22d_a_failed_handoff_never_asks_the_shell_to_quit __
+
+self = <test_ds_web_update.UpdateApplyEndpoint testMethod=test_t22d_a_failed_handoff_never_asks_the_shell_to_quit>
+
+    def setUp(self):
+        ds_update.cache_clear()
+        self._real_fetch = ds_update.fetch_releases
+        self._real_apply = ds_update_apply.apply_update
+>       self._real_handoff = ds_update_apply.handoff
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'ds_update_apply' has no attribute 'handoff'
+
+tests/test_ds_web_update.py:225: AttributeError
+_ UpdateApplyEndpoint.test_t22e_a_shell_that_did_not_name_the_verb_is_not_success _
+
+self = <test_ds_web_update.UpdateApplyEndpoint testMethod=test_t22e_a_shell_that_did_not_name_the_verb_is_not_success>
+
+    def setUp(self):
+        ds_update.cache_clear()
+        self._real_fetch = ds_update.fetch_releases
+        self._real_apply = ds_update_apply.apply_update
+>       self._real_handoff = ds_update_apply.handoff
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'ds_update_apply' has no attribute 'handoff'
+
+tests/test_ds_web_update.py:225: AttributeError
+___ UpdateApplyEndpoint.test_t22f_a_failed_preparation_says_which_step_died ____
+
+self = <test_ds_web_update.UpdateApplyEndpoint testMethod=test_t22f_a_failed_preparation_says_which_step_died>
+
+    def setUp(self):
+        ds_update.cache_clear()
+        self._real_fetch = ds_update.fetch_releases
+        self._real_apply = ds_update_apply.apply_update
+>       self._real_handoff = ds_update_apply.handoff
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'ds_update_apply' has no attribute 'handoff'
+
+tests/test_ds_web_update.py:225: AttributeError
+_ UpdateApplyEndpoint.test_t22g_the_decision_handed_to_the_installer_carries_the_asset _
+
+self = <test_ds_web_update.UpdateApplyEndpoint testMethod=test_t22g_the_decision_handed_to_the_installer_carries_the_asset>
+
+    def setUp(self):
+        ds_update.cache_clear()
+        self._real_fetch = ds_update.fetch_releases
+        self._real_apply = ds_update_apply.apply_update
+>       self._real_handoff = ds_update_apply.handoff
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'ds_update_apply' has no attribute 'handoff'
+
+tests/test_ds_web_update.py:225: AttributeError
+___________ ShellWiring.test_w8_the_lock_carries_an_update_callback ____________
+
+self = <test_ds_shell_wiring.ShellWiring testMethod=test_w8_the_lock_carries_an_update_callback>
+
+    def test_w8_the_lock_carries_an_update_callback(self):
+        """只接 on_show/on_restart 的话,ds-web 发来的 UPDATE-HANDOFF 会被当成
+        「把窗口叫到前台」—— 业主看到窗口闪一下,更新一动没动。
+    
+        而这一条比 w3 更要紧:那时 `.new` 已经装好、接力脚本已经在跑了。
+        外壳不收摊 ⇒ 接力脚本等不到端口空 ⇒ 超时删掉 `.new` ⇒ 白下 43MB。
+        """
+        for call in self.find("InstanceLock"):
+>           self.assertIn("on_update", self.kwargs(call),
+                          "锁没接交棒回调 ⇒ 交棒帧到了也没人处理,更新永远走不完")
+E           AssertionError: 'on_update' not found in {'base_port', 'span', 'on_restart', 'on_show'} : 锁没接交棒回调 ⇒ 交棒帧到了也没人处理,更新永远走不完
+
+tests/test_ds_shell_wiring.py:119: AssertionError
+___ ShellWiring.test_w9_the_update_callback_actually_tears_the_backend_down ____
+
+self = <test_ds_shell_wiring.ShellWiring testMethod=test_w9_the_update_callback_actually_tears_the_backend_down>
+
+    def test_w9_the_update_callback_actually_tears_the_backend_down(self):
+        """接上了还不够 —— 得接到**真的会收摊**的那个东西上。
+    
+        h3 那条教训:静态闸看得见调用、看不见空转。所以这里再问一步:
+        `on_update=` 指过去的那个名字,它的函数体里必须真的去收摊
+        (`stop_backend` / `sup.shutdown`),不能是一个只写了日志的空壳。
+        """
+        target = None
+        for call in self.find("InstanceLock"):
+            for kw in call.keywords:
+                if kw.arg == "on_update":
+                    target = kw.value
+>       self.assertIsNotNone(target, "没接 on_update(w8 会先红)")
+E       AssertionError: unexpectedly None : 没接 on_update(w8 会先红)
+
+tests/test_ds_shell_wiring.py:134: AssertionError
+___ SingleInstance.test_m1_the_update_verb_reaches_the_update_callback_only ____
+
+self = <test_ds_shell_core.SingleInstance testMethod=test_m1_the_update_verb_reaches_the_update_callback_only>
+
+    def test_m1_the_update_verb_reaches_the_update_callback_only(self):
+        base = free_port()
+        shown, restarted, updated = (threading.Event(), threading.Event(),
+                                     threading.Event())
+>       lock = core.InstanceLock(base_port=base, span=5, on_show=shown.set,
+                                 on_restart=restarted.set, on_update=updated.set)
+E       TypeError: InstanceLock.__init__() got an unexpected keyword argument 'on_update'
+
+tests/test_ds_shell_core.py:463: TypeError
+_____________ SingleInstance.test_m2_the_ack_names_the_update_verb _____________
+
+self = <test_ds_shell_core.SingleInstance testMethod=test_m2_the_ack_names_the_update_verb>
+
+    def test_m2_the_ack_names_the_update_verb(self):
+        """裸 OK 不算数。**报成功就必须是真的** —— 与 RESTART 那条纪律同源:
+        ds_web 只有拿到点名了动词的应答,才敢跟业主说「更新已经开始」。
+        拿裸 OK 当成功,业主会关掉浏览器等着,而外壳其实只把窗口闪了一下。"""
+>       self.assertNotEqual(core.InstanceLock._OK_UPDATE, core.InstanceLock._OK,
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                            "交棒的应答和裸 OK 长得一样 ⇒ 分不出老外壳")
+E       AttributeError: type object 'InstanceLock' has no attribute '_OK_UPDATE'
+
+tests/test_ds_shell_core.py:479: AttributeError
+_ SingleInstance.test_m3_adding_the_update_verb_does_not_disturb_the_old_ones __
+
+self = <test_ds_shell_core.SingleInstance testMethod=test_m3_adding_the_update_verb_does_not_disturb_the_old_ones>
+
+    def test_m3_adding_the_update_verb_does_not_disturb_the_old_ones(self):
+        """**加动词不许把已经在跑的两件事弄坏**(b12/b13 立的规矩,这里跟着守)。"""
+        base = free_port()
+        shown, restarted, updated = (threading.Event(), threading.Event(),
+                                     threading.Event())
+>       lock = core.InstanceLock(base_port=base, span=5, on_show=shown.set,
+                                 on_restart=restarted.set, on_update=updated.set)
+E       TypeError: InstanceLock.__init__() got an unexpected keyword argument 'on_update'
+
+tests/test_ds_shell_core.py:490: TypeError
+_ SingleInstance.test_m4_no_update_callback_means_fall_back_to_show_not_crash __
+
+self = <test_ds_shell_core.SingleInstance testMethod=test_m4_no_update_callback_means_fall_back_to_show_not_crash>
+
+    def test_m4_no_update_callback_means_fall_back_to_show_not_crash(self):
+        """老外壳(没接 on_update)收到这个动词:**退回 SHOW,不许崩、更不许关软件**。
+    
+        版本错配是真会发生的:新的 ds_web 已经在跑,而外壳还是上一版。
+        那时候正确的表现是「没反应」,由 ds_web 那侧诚实地报「没能自动更新」。
+        """
+        base = free_port()
+        shown = threading.Event()
+        lock = core.InstanceLock(base_port=base, span=5, on_show=shown.set,
+                                 on_restart=lambda: None)
+        self.addCleanup(lock.release)
+        self.assertTrue(lock.acquire())
+    
+>       self.assertEqual(self._send_frame(lock.port, core.LOCK_UPDATE),
+                                                     ^^^^^^^^^^^^^^^^
+                         core.InstanceLock._OK,
+                         "没接交棒回调却回了「我认了」⇒ ds_web 会据此宣布更新已开始")
+E       AttributeError: module 'ds_shell_core' has no attribute 'LOCK_UPDATE'
+
+tests/test_ds_shell_core.py:517: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_ds_update_apply.py::HandoffToTheRelay::test_t21a_missing_script_is_never_reported_as_handed_off
+FAILED tests/test_ds_update_apply.py::HandoffToTheRelay::test_t21b_the_script_path_is_what_gets_launched
+FAILED tests/test_ds_update_apply.py::HandoffToTheRelay::test_t21c_launch_uses_the_one_source_for_platform_flags
+FAILED tests/test_ds_update_apply.py::HandoffToTheRelay::test_t21d_a_launcher_that_blows_up_is_not_a_handoff
+FAILED tests/test_ds_update_apply.py::HandoffToTheRelay::test_t21e_the_default_launcher_never_waits
+FAILED tests/test_ds_web_update.py::UpdateApplyEndpoint::test_t22a_get_never_triggers_an_install
+FAILED tests/test_ds_web_update.py::UpdateApplyEndpoint::test_t22b_no_new_version_means_nothing_is_installed
+FAILED tests/test_ds_web_update.py::UpdateApplyEndpoint::test_t22c_the_relay_is_launched_before_the_shell_is_told_to_quit
+FAILED tests/test_ds_web_update.py::UpdateApplyEndpoint::test_t22d_a_failed_handoff_never_asks_the_shell_to_quit
+FAILED tests/test_ds_web_update.py::UpdateApplyEndpoint::test_t22e_a_shell_that_did_not_name_the_verb_is_not_success
+FAILED tests/test_ds_web_update.py::UpdateApplyEndpoint::test_t22f_a_failed_preparation_says_which_step_died
+FAILED tests/test_ds_web_update.py::UpdateApplyEndpoint::test_t22g_the_decision_handed_to_the_installer_carries_the_asset
+FAILED tests/test_ds_shell_wiring.py::ShellWiring::test_w8_the_lock_carries_an_update_callback
+FAILED tests/test_ds_shell_wiring.py::ShellWiring::test_w9_the_update_callback_actually_tears_the_backend_down
+FAILED tests/test_ds_shell_core.py::SingleInstance::test_m1_the_update_verb_reaches_the_update_callback_only
+FAILED tests/test_ds_shell_core.py::SingleInstance::test_m2_the_ack_names_the_update_verb
+FAILED tests/test_ds_shell_core.py::SingleInstance::test_m3_adding_the_update_verb_does_not_disturb_the_old_ones
+FAILED tests/test_ds_shell_core.py::SingleInstance::test_m4_no_update_callback_means_fall_back_to_show_not_crash
+18 failed, 63 passed, 10 subtests passed in 17.79s
+---------------- 输出结束 ----------------
+runlog: red-t21-t22-m-w-wiring rc=1 commit=fefa008 dirty=yes at=2026-09-08T13:21:00Z file=tracks/opendesign-in-app-update-install/evidence/20260908T132100Z-01-red-t21-t22-m-w-wiring.txt

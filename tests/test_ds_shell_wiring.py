@@ -105,6 +105,42 @@ class ShellWiring(unittest.TestCase):
         self.assertIsNotNone(fn, "看门狗没了 —— 腿死了没人说话")
         names = {_name_of(c) for c in _calls(fn)}
         self.assertIn("take_dead", names, "看门狗没用单次快照")
+
+    # ---- 更新交棒(track opendesign-in-app-update-install)--------------------
+
+    def test_w8_the_lock_carries_an_update_callback(self):
+        """只接 on_show/on_restart 的话,ds-web 发来的 UPDATE-HANDOFF 会被当成
+        「把窗口叫到前台」—— 业主看到窗口闪一下,更新一动没动。
+
+        而这一条比 w3 更要紧:那时 `.new` 已经装好、接力脚本已经在跑了。
+        外壳不收摊 ⇒ 接力脚本等不到端口空 ⇒ 超时删掉 `.new` ⇒ 白下 43MB。
+        """
+        for call in self.find("InstanceLock"):
+            self.assertIn("on_update", self.kwargs(call),
+                          "锁没接交棒回调 ⇒ 交棒帧到了也没人处理,更新永远走不完")
+
+    def test_w9_the_update_callback_actually_tears_the_backend_down(self):
+        """接上了还不够 —— 得接到**真的会收摊**的那个东西上。
+
+        h3 那条教训:静态闸看得见调用、看不见空转。所以这里再问一步:
+        `on_update=` 指过去的那个名字,它的函数体里必须真的去收摊
+        (`stop_backend` / `sup.shutdown`),不能是一个只写了日志的空壳。
+        """
+        target = None
+        for call in self.find("InstanceLock"):
+            for kw in call.keywords:
+                if kw.arg == "on_update":
+                    target = kw.value
+        self.assertIsNotNone(target, "没接 on_update(w8 会先红)")
+        name = getattr(target, "attr", None) or getattr(target, "id", None)
+        self.assertIsNotNone(name, "on_update 接的不是一个具名函数,静态闸看不进去")
+        fn = next((n for n in ast.walk(self.tree)
+                   if isinstance(n, ast.FunctionDef) and n.name == name), None)
+        self.assertIsNotNone(fn, "on_update 指向 %s,但 ds_shell.py 里没有这个函数" % name)
+        called = {_name_of(c) for c in _calls(fn)}
+        self.assertTrue({"stop_backend", "shutdown"} & called,
+                        "%s() 里没有任何收摊动作 —— 交棒之后软件不会关,"
+                        "接力脚本会一直等到超时" % name)
         for two_step in ("poll_dead", "dead_reports"):
             self.assertNotIn(two_step, names,
                              f"看门狗还在调 {two_step}() ⇒ 又变成分两眼看,"
