@@ -1,0 +1,379 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-t4-t18-update-apply
+cmd:     python3 -m pytest tests/test_ds_update_apply.py -q
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  4b4e683
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-08T12:30:02Z
+---------------- 输出开始 ----------------
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF                                           [100%]
+=================================== FAILURES ===================================
+______ DigestIsMandatory.test_t15a_missing_digest_is_a_failure_not_a_skip ______
+
+self = <test_ds_update_apply.DigestIsMandatory testMethod=test_t15a_missing_digest_is_a_failure_not_a_skip>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+__________ DigestIsMandatory.test_t15b_malformed_digest_is_a_failure ___________
+
+self = <test_ds_update_apply.DigestIsMandatory testMethod=test_t15b_malformed_digest_is_a_failure>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+_______________ DigestIsMandatory.test_t15c_a_real_digest_parses _______________
+
+self = <test_ds_update_apply.DigestIsMandatory testMethod=test_t15c_a_real_digest_parses>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+_ DownloadAddressComesFromGitHub.test_t14a_downloader_gets_the_exact_url_github_gave _
+
+self = <test_ds_update_apply.DownloadAddressComesFromGitHub testMethod=test_t14a_downloader_gets_the_exact_url_github_gave>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+_ DownloadAddressComesFromGitHub.test_t14b_source_never_composes_a_download_url _
+
+self = <test_ds_update_apply.DownloadAddressComesFromGitHub testMethod=test_t14b_source_never_composes_a_download_url>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+_______________ ChecksumMismatchChangesNothing.test_t4a_refuses ________________
+
+self = <test_ds_update_apply.ChecksumMismatchChangesNothing testMethod=test_t4a_refuses>
+
+    def setUp(self):
+>       super().setUp()
+
+tests/test_ds_update_apply.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_ds_update_apply.py:139: in setUp
+    self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+E   AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+_____ ChecksumMismatchChangesNothing.test_t4b_live_tree_is_byte_identical ______
+
+self = <test_ds_update_apply.ChecksumMismatchChangesNothing testMethod=test_t4b_live_tree_is_byte_identical>
+
+    def setUp(self):
+>       super().setUp()
+
+tests/test_ds_update_apply.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_ds_update_apply.py:139: in setUp
+    self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+E   AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+___________ ChecksumMismatchChangesNothing.test_t4c_new_dir_is_gone ____________
+
+self = <test_ds_update_apply.ChecksumMismatchChangesNothing testMethod=test_t4c_new_dir_is_gone>
+
+    def setUp(self):
+>       super().setUp()
+
+tests/test_ds_update_apply.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_ds_update_apply.py:139: in setUp
+    self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+E   AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+_________ ChecksumMismatchChangesNothing.test_t4d_installer_never_ran __________
+
+self = <test_ds_update_apply.ChecksumMismatchChangesNothing testMethod=test_t4d_installer_never_ran>
+
+    def setUp(self):
+>       super().setUp()
+
+tests/test_ds_update_apply.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_ds_update_apply.py:139: in setUp
+    self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+E   AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+___________ ChecksumMismatchChangesNothing.test_t4e_dead_line_holds ____________
+
+self = <test_ds_update_apply.ChecksumMismatchChangesNothing testMethod=test_t4e_dead_line_holds>
+
+    def setUp(self):
+>       super().setUp()
+
+tests/test_ds_update_apply.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_ds_update_apply.py:139: in setUp
+    self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+E   AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+____________ NewTreeMustBeComplete.test_t5a_missing_sentinel_aborts ____________
+
+self = <test_ds_update_apply.NewTreeMustBeComplete testMethod=test_t5a_missing_sentinel_aborts>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+_______ NewTreeMustBeComplete.test_t5b_wrong_version_in_new_tree_aborts ________
+
+self = <test_ds_update_apply.NewTreeMustBeComplete testMethod=test_t5b_wrong_version_in_new_tree_aborts>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+___________ NewTreeMustBeComplete.test_t5c_a_good_new_tree_hands_off ___________
+
+self = <test_ds_update_apply.NewTreeMustBeComplete testMethod=test_t5c_a_good_new_tree_hands_off>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+_ LiveTreeIsNeverTouchedInStageOne.test_t16a_success_path_does_not_touch_the_live_tree _
+
+self = <test_ds_update_apply.LiveTreeIsNeverTouchedInStageOne testMethod=test_t16a_success_path_does_not_touch_the_live_tree>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+__ LiveTreeIsNeverTouchedInStageOne.test_t16b_installer_targets_new_not_live ___
+
+self = <test_ds_update_apply.LiveTreeIsNeverTouchedInStageOne testMethod=test_t16b_installer_targets_new_not_live>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+_ LiveTreeIsNeverTouchedInStageOne.test_t16c_dead_line_holds_on_the_success_path _
+
+self = <test_ds_update_apply.LiveTreeIsNeverTouchedInStageOne testMethod=test_t16c_dead_line_holds_on_the_success_path>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+________ TheDeadLine.test_t13a_logs_exemption_is_a_named_dir_not_a_glob ________
+
+self = <test_ds_update_apply.TheDeadLine testMethod=test_t13a_logs_exemption_is_a_named_dir_not_a_glob>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+________________ TheDeadLine.test_t13b_protected_dirs_are_named ________________
+
+self = <test_ds_update_apply.TheDeadLine testMethod=test_t13b_protected_dirs_are_named>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+___ TheDeadLine.test_t13c_stage_one_writes_nothing_under_data_root_but_logs ____
+
+self = <test_ds_update_apply.TheDeadLine testMethod=test_t13c_stage_one_writes_nothing_under_data_root_but_logs>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+________ HealthAcceptanceCannotBeFooled.test_t18a_url_carries_the_nonce ________
+
+self = <test_ds_update_apply.HealthAcceptanceCannotBeFooled testMethod=test_t18a_url_carries_the_nonce>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+__ HealthAcceptanceCannotBeFooled.test_t18b_opener_bypasses_the_system_proxy ___
+
+self = <test_ds_update_apply.HealthAcceptanceCannotBeFooled testMethod=test_t18b_opener_bypasses_the_system_proxy>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+_ HealthAcceptanceCannotBeFooled.test_t18c_answer_without_the_nonce_is_not_accepted _
+
+self = <test_ds_update_apply.HealthAcceptanceCannotBeFooled testMethod=test_t18c_answer_without_the_nonce_is_not_accepted>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+_ HealthAcceptanceCannotBeFooled.test_t18d_answer_with_a_stale_nonce_is_not_accepted _
+
+self = <test_ds_update_apply.HealthAcceptanceCannotBeFooled testMethod=test_t18d_answer_with_a_stale_nonce_is_not_accepted>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+_ HealthAcceptanceCannotBeFooled.test_t18e_right_version_and_right_nonce_is_accepted _
+
+self = <test_ds_update_apply.HealthAcceptanceCannotBeFooled testMethod=test_t18e_right_version_and_right_nonce_is_accepted>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+_ HealthAcceptanceCannotBeFooled.test_t18f_right_nonce_but_old_version_is_not_accepted _
+
+self = <test_ds_update_apply.HealthAcceptanceCannotBeFooled testMethod=test_t18f_right_nonce_but_old_version_is_not_accepted>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+______ RelayScriptShape.test_t17a_plan_has_a_rollback_that_puts_old_back _______
+
+self = <test_ds_update_apply.RelayScriptShape testMethod=test_t17a_plan_has_a_rollback_that_puts_old_back>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+_______ RelayScriptShape.test_t17b_rendered_script_contains_the_rollback _______
+
+self = <test_ds_update_apply.RelayScriptShape testMethod=test_t17b_rendered_script_contains_the_rollback>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+_______ RelayScriptShape.test_t6a_teardown_gate_comes_before_any_rename ________
+
+self = <test_ds_update_apply.RelayScriptShape testMethod=test_t6a_teardown_gate_comes_before_any_rename>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+_______ RelayScriptShape.test_t6b_failed_teardown_deletes_new_and_stops ________
+
+self = <test_ds_update_apply.RelayScriptShape testMethod=test_t6b_failed_teardown_deletes_new_and_stops>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+_____ RelayScriptShape.test_t6c_renderer_keeps_every_step_and_their_order ______
+
+self = <test_ds_update_apply.RelayScriptShape testMethod=test_t6c_renderer_keeps_every_step_and_their_order>
+
+    def setUp(self):
+        if ds_update_apply is None:
+>           self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
+                      % (_IMPORT_ERR,))
+E           AssertionError: bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(No module named 'ds_update_apply')
+
+tests/test_ds_update_apply.py:139: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_ds_update_apply.py::DigestIsMandatory::test_t15a_missing_digest_is_a_failure_not_a_skip
+FAILED tests/test_ds_update_apply.py::DigestIsMandatory::test_t15b_malformed_digest_is_a_failure
+FAILED tests/test_ds_update_apply.py::DigestIsMandatory::test_t15c_a_real_digest_parses
+FAILED tests/test_ds_update_apply.py::DownloadAddressComesFromGitHub::test_t14a_downloader_gets_the_exact_url_github_gave
+FAILED tests/test_ds_update_apply.py::DownloadAddressComesFromGitHub::test_t14b_source_never_composes_a_download_url
+FAILED tests/test_ds_update_apply.py::ChecksumMismatchChangesNothing::test_t4a_refuses
+FAILED tests/test_ds_update_apply.py::ChecksumMismatchChangesNothing::test_t4b_live_tree_is_byte_identical
+FAILED tests/test_ds_update_apply.py::ChecksumMismatchChangesNothing::test_t4c_new_dir_is_gone
+FAILED tests/test_ds_update_apply.py::ChecksumMismatchChangesNothing::test_t4d_installer_never_ran
+FAILED tests/test_ds_update_apply.py::ChecksumMismatchChangesNothing::test_t4e_dead_line_holds
+FAILED tests/test_ds_update_apply.py::NewTreeMustBeComplete::test_t5a_missing_sentinel_aborts
+FAILED tests/test_ds_update_apply.py::NewTreeMustBeComplete::test_t5b_wrong_version_in_new_tree_aborts
+FAILED tests/test_ds_update_apply.py::NewTreeMustBeComplete::test_t5c_a_good_new_tree_hands_off
+FAILED tests/test_ds_update_apply.py::LiveTreeIsNeverTouchedInStageOne::test_t16a_success_path_does_not_touch_the_live_tree
+FAILED tests/test_ds_update_apply.py::LiveTreeIsNeverTouchedInStageOne::test_t16b_installer_targets_new_not_live
+FAILED tests/test_ds_update_apply.py::LiveTreeIsNeverTouchedInStageOne::test_t16c_dead_line_holds_on_the_success_path
+FAILED tests/test_ds_update_apply.py::TheDeadLine::test_t13a_logs_exemption_is_a_named_dir_not_a_glob
+FAILED tests/test_ds_update_apply.py::TheDeadLine::test_t13b_protected_dirs_are_named
+FAILED tests/test_ds_update_apply.py::TheDeadLine::test_t13c_stage_one_writes_nothing_under_data_root_but_logs
+FAILED tests/test_ds_update_apply.py::HealthAcceptanceCannotBeFooled::test_t18a_url_carries_the_nonce
+FAILED tests/test_ds_update_apply.py::HealthAcceptanceCannotBeFooled::test_t18b_opener_bypasses_the_system_proxy
+FAILED tests/test_ds_update_apply.py::HealthAcceptanceCannotBeFooled::test_t18c_answer_without_the_nonce_is_not_accepted
+FAILED tests/test_ds_update_apply.py::HealthAcceptanceCannotBeFooled::test_t18d_answer_with_a_stale_nonce_is_not_accepted
+FAILED tests/test_ds_update_apply.py::HealthAcceptanceCannotBeFooled::test_t18e_right_version_and_right_nonce_is_accepted
+FAILED tests/test_ds_update_apply.py::HealthAcceptanceCannotBeFooled::test_t18f_right_nonce_but_old_version_is_not_accepted
+FAILED tests/test_ds_update_apply.py::RelayScriptShape::test_t17a_plan_has_a_rollback_that_puts_old_back
+FAILED tests/test_ds_update_apply.py::RelayScriptShape::test_t17b_rendered_script_contains_the_rollback
+FAILED tests/test_ds_update_apply.py::RelayScriptShape::test_t6a_teardown_gate_comes_before_any_rename
+FAILED tests/test_ds_update_apply.py::RelayScriptShape::test_t6b_failed_teardown_deletes_new_and_stops
+FAILED tests/test_ds_update_apply.py::RelayScriptShape::test_t6c_renderer_keeps_every_step_and_their_order
+30 failed in 0.37s
+---------------- 输出结束 ----------------
+runlog: red-t4-t18-update-apply rc=1 commit=4b4e683 dirty=yes at=2026-09-08T12:30:02Z file=tracks/opendesign-in-app-update-install/evidence/20260908T123002Z-01-red-t4-t18-update-apply.txt
