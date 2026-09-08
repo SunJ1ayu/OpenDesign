@@ -38,6 +38,28 @@ runlog: redcheck-t19-t20-24bites rc=0 commit=f77699b dirty=yes at=2026-09-08T12:
 # update-apply 咬 24 / 漏 0;ds-web 咬 9 / 漏 0
 ```
 
+### 接线那一段(t21 / t22 / t23 / m1~m4 / w8~w9)
+
+```
+runlog: red-t21-t22-m-w-wiring rc=1 commit=fefa008 dirty=yes at=2026-09-08T13:21:00Z file=tracks/opendesign-in-app-update-install/evidence/20260908T132100Z-01-red-t21-t22-m-w-wiring.txt
+runlog: green-t21-m-w-endpoint-still-red rc=0 commit=5c5398a dirty=yes at=2026-09-08T13:26:21Z file=tracks/opendesign-in-app-update-install/evidence/20260908T132621Z-01-green-t21-m-w-endpoint-still-red.txt
+runlog: red-t23-where-new-tree-goes rc=1 commit=c1bf217 dirty=yes at=2026-09-08T13:27:41Z file=tracks/opendesign-in-app-update-install/evidence/20260908T132741Z-01-red-t23-where-new-tree-goes.txt
+runlog: green-t22-t23-endpoint rc=0 commit=34e23a4 dirty=yes at=2026-09-08T13:34:41Z file=tracks/opendesign-in-app-update-install/evidence/20260908T133441Z-01-green-t22-t23-endpoint.txt
+runlog: redcheck-handoff-chain-final rc=1 commit=beb0eae dirty=no at=2026-09-08T14:05:34Z file=tracks/opendesign-in-app-update-install/evidence/20260908T140534Z-01-redcheck-handoff-chain-final.txt
+```
+
+🔴 **最后那一行 rc=1,不是我这一单的判据红了**,而是 `mutation-shell-restart.sh`
+里有**两条陈年变异是坏的**(M9 红在别处、M10 锚点在 2026-08-17 c22 改动后就失效了),
+它们让整支脚本永远以 rc=1 收场。**这一单自己的 27 条全部如期咬红、0 条漏网**,
+被测文件 4 个哈希逐字节还回。两条陈年账已开在 `docs/backlog.md`,
+**没有顺手修** —— 改红检的锚点要真懂被测那段逻辑,而那是别的 track 的活;
+顺手修一个自己没读懂的闸,正是闸被悄悄改弱的方式。
+
+⚠️ 这一轮红检**咬出过我自己判据的一个洞**(U5 漏网):t22a~t22g 把整座桥换成了
+替身,于是桥内部那句"只有点名了动词才算成功"**从来没被执行过** ——
+我把最要紧的那条纪律藏在了替身后面。补了 t22h~t22k 直接考那个纯函数,
+定点复验:同一条变异现在一次咬红三条。
+
 **没走 runlog 的两项,在这里认账**(5c:沉默不算理由):
 
 - `installer/check-installer.py static`:合计 23 条、0 条不合格。裸跑的。
