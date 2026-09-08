@@ -56,6 +56,27 @@ H=$(mktemp -d); mkdir -p "$H/.openDesign"; echo sk-e2e-fixture > "$H/.openDesign
 env HOME="$H" USERPROFILE="$H" DS_NANOBOT_CONFIG="$HOME/.nanobot/config.json" \
   DS_WEB_PORT=8768 python3 bin/ds_web.py &
 
+# 3b. 🔴 **`project-thread.e2e.mjs` 的夹具是 ds_root 里那两个项目,而它们没进仓。**
+#     它和别的场景不一样:别的自己起 ds_web、自己造夹具;它连的是**外面这一个**,
+#     只知道 HTTP 地址、够不着人家的 DS_ROOT ⇒ 夹具只能在起 ds_web 之前先摆好。
+#     · 上面这条命令**没给 DS_ROOT** ⇒ ds_root 落在 `DEFAULT_DS_ROOT` = 仓库根
+#       (`bin/ds_web.py:838`),夹具就是仓库根的 `projects/翡翠湾-1801.md` 与
+#       `projects/星河名邸-2302.md`。**本机有,但 git 里 `projects/` 只提交了
+#       `.gitkeep`** ⇒ 换一台机器新克隆,这两个文件不存在。
+#     · 表现是:第 2 步在 `.proj-row` 上干等 30 秒 → TimeoutError,
+#       错误信息里没有半个字提到"你少了夹具"(2026-09-08 收 opendesign-in-app-update
+#       时真撞上:那次是 ds_web 被起在一个空的 DS_ROOT 上。那两条要 gateway 的 e2e
+#       长年 SKIP,这个洞因此从来没露过头)。
+#     ⇒ 给 DS_ROOT 指别处、或换机器时,先把夹具造出来:
+mkdir -p "$DS_ROOT/projects"   # 不给 DS_ROOT 就是仓库根,本机已经有了
+for P in 翡翠湾-1801 星河名邸-2302; do
+  printf '# %s\n\n- 阶段: 施工跟进\n\n## 变更记录\n\n## 变更历史\n\n## 沟通日志\n' "$P" \
+    > "$DS_ROOT/projects/$P.md"
+done
+#     (`curl -s http://127.0.0.1:8768/api/projects` 列得出这两个才算摆好了。
+#      正解是让这条 e2e 自己用 `/api/projects/create` 造夹具、别靠机器上碰巧有什么 ——
+#      那要单独一单,记在 track `opendesign-in-app-update-install` 的 backlog 里。)
+
 # 4. 跑场景(playwright-core 用 npx 缓存,chromium 用 ms-playwright 缓存)
 #    **不用给口令**:T2 起 ds-web 替前端代签,给了也没人读。
 E2E_BASE=http://127.0.0.1:8768 node tests/e2e/project-thread.e2e.mjs
