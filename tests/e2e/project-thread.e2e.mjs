@@ -37,6 +37,49 @@ const waitThread = async (page, project, timeout = 10000) => {
   return threadMap(page);
 };
 
+/** 夹具:**这条 e2e 自己造它要用的两个项目**(继承的账 B)。
+ *
+ * 🔴 为什么非做不可:这条场景和别的 e2e 不一样 —— 别的自己起 ds_web、自己造夹具;
+ * 它连的是**外面已经起好的那一个**,只知道 HTTP 地址、够不着人家的 DS_ROOT。
+ * 于是夹具长年靠"这台机器上碰巧有 `projects/翡翠湾-1801.md` 和 `星河名邸-2302.md`",
+ * 而 git 里 `projects/` 只提交了 `.gitkeep`(`.gitignore:23` 排掉整个目录)
+ * ⇒ **换一台机器新克隆必红**,而且报错里一个字都不提夹具 ——
+ * 表现只是在 `.proj-row` 上干等 30 秒然后 TimeoutError。
+ * 它长年因为"要活 gateway"而 SKIP,这个洞从来没露过头,
+ * 2026-09-08 收第一刀时才真撞上(ds_web 起在一个空的 DS_ROOT 上)。
+ *
+ * 够得着的只有 HTTP,那就用 HTTP:`/api/projects/create`。
+ */
+async function ensureFixtures() {
+  const list = async () => {
+    const r = await fetch(`${BASE}/api/projects`);
+    if (!r.ok) {
+      throw new Error(`夹具:列项目失败 HTTP ${r.status} —— ds_web 起在 ${BASE} 了吗?`);
+    }
+    return new Set(((await r.json()).projects || []).map((p) => p.key));
+  };
+  const have = await list();
+  for (const name of [PROJ_A, PROJ_B]) {
+    if (have.has(name)) continue;
+    const r = await fetch(`${BASE}/api/projects/create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project: name }),
+    });
+    if (!r.ok) throw new Error(`夹具:建不出项目「${name}」(HTTP ${r.status})`);
+  }
+  // 🔴 建完**再问一次列表**。不许拿"POST 回了 200"当"它真在列表里" ——
+  // 本项目为这条栽过(「接线测试证明不了接上了」):写门和读门的名字校验口径
+  // 曾经不一致,建得出来却 GET 恒 404。这一步问的是读门。
+  const after = await list();
+  const missing = [PROJ_A, PROJ_B].filter((n) => !after.has(n));
+  if (missing.length) {
+    throw new Error(`夹具:建完了,但 /api/projects 里仍然没有:${missing.join("、")}`);
+  }
+}
+
+await ensureFixtures();
+
 const browser = await launchBrowser();
 let failed = 0;
 try {
