@@ -33,8 +33,15 @@
 
 ## 收口
 
-- [ ] 全仓总跑(`tests/run-all.sh`),收据进 `evidence/`
-- [ ] 开后续单 `opendesign-in-app-update-install`(把第二刀那两节原样搬过去)
-- [ ] panel-review:`impact-risk=high` ⇒ 预算 2,两个不同模型家族
-- [ ] bump 版本 + 打包 + 成品闸 + 发预发布
-- [ ] **业主真机:故意跑一次完整更新**(只有他能做 —— CI 上没有杀软、没有他家那条网)
+- [x] 全仓总跑(`tests/run-all.sh --with-gateway`),收据进 `evidence/`
+      —— 两份并排留证:`20260908T005638Z`(红在一条 e2e,是发现夹具洞的唯一入口)+
+      `20260908T011208Z-…-v2`(6 段全绿,e2e **0 SKIP**)
+- [x] 开后续单 `opendesign-in-app-update-install`(第二刀 + 继承的账 A~D 逐条搬过去)
+- [x] panel-review:`impact-risk=high` ⇒ 预算 2 —— 第四轮一次 run、同一 subject digest 下
+      **三个家族**(xiaomi / deepseek / moonshot)全部完整交卷全 PASS,超额满足
+- [x] 主裁结论写进 verify.md + `decision.json.outcome.verdict` = PASS
+- [x] 真机清单 `真机清单-0.98.4.md`(断线前只在散文里写着"⇒ 真机清单一条",没有文件)
+- [ ] bump 版本 + 打包 + 成品闸 + 发预发布 —— **bump 已做(0.98.4)**,打包/发布见下
+- [ ] **业主真机:走一趟 `真机清单-0.98.4.md`**
+      (🔴 注意:「有新版」那整条路这一趟**走不到** —— 装上 0.98.4 时线上最新就是它。
+       S6 那条外链验证已写死进后续单的收口清单)

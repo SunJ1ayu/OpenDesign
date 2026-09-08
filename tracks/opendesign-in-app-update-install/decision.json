@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "track": "opendesign-in-app-update",
+  "track": "opendesign-in-app-update-install",
   "impact": {
     "level": "high",
     "factors": [
@@ -10,17 +10,17 @@
     ]
   },
   "design": {
-    "uncertainty": "low",
+    "uncertainty": null,
     "premise_attack": {
-      "status": "not_required",
+      "status": null,
       "evidence": []
     }
   },
   "execution_plan": {
-    "adapter": "main",
+    "adapter": null,
     "model": null
   },
   "outcome": {
-    "verdict": "PASS"
+    "verdict": null
   }
 }
