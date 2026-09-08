@@ -12,27 +12,69 @@
 
 ## Mechanical checks
 
-- [ ] build passes
-- [ ] tests pass
-- [ ] no secrets / unsafe ops
+- [x] tests pass(段① + 接线两块;全仓总跑见下)
+- [x] no secrets / unsafe ops(判据一次真网都不打,下载/装/问 health 全走注入替身)
+- [ ] 全仓总跑 `tests/run-all.sh --with-gateway`(**收口时跑,收据要是最后一次编辑之后那一遍**)
 
-**机器打印的**(不是我的转述)—— 判据用 `runlog` 跑,把它打印的收据行原样粘进来:
-
-```
-runlog -t opendesign-in-app-update-install -- <判据命令>
-```
+**机器打印的**(不是我的转述)—— 判据用 `runlog` 跑,收据行原样粘在这里:
 
 ```
-<粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
- **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
- 收据得进 git(5d)。一份收据都没有的话,写一行
- 「- 无机器证据:<理由>」认账 —— 沉默不算理由(5c)。>
+runlog: red-t4-t18-update-apply rc=1 commit=4b4e683 dirty=yes at=2026-09-08T12:30:02Z file=tracks/opendesign-in-app-update-install/evidence/20260908T123002Z-01-red-t4-t18-update-apply.txt
+# 判据先行,30 failed(bin/ds_update_apply.py 还不存在)
+
+runlog: green-t4-t18-update-apply rc=0 commit=856f3fb dirty=yes at=2026-09-08T12:45:26Z file=tracks/opendesign-in-app-update-install/evidence/20260908T124526Z-01-green-t4-t18-update-apply.txt
+# 30 passed / 6 subtests passed
+
+runlog: redcheck-update-apply-19bites rc=0 commit=856f3fb dirty=yes at=2026-09-08T12:45:31Z file=tracks/opendesign-in-app-update-install/evidence/20260908T124531Z-01-redcheck-update-apply-19bites.txt
+# 咬住 19 / 漏网 0(含反误报对照组 c1)
+
+runlog: red-t19-t20-flag-and-nonce rc=1 commit=c7910f2 dirty=yes at=2026-09-08T12:46:57Z file=tracks/opendesign-in-app-update-install/evidence/20260908T124657Z-01-red-t19-t20-flag-and-nonce.txt
+# 判据先行,3 failed / 39 passed(红的是 t19a、t20b、t20c)
+
+runlog: green-t19-t20-flag-and-nonce rc=0 commit=f77699b dirty=yes at=2026-09-08T12:51:14Z file=tracks/opendesign-in-app-update-install/evidence/20260908T125114Z-01-green-t19-t20-flag-and-nonce.txt
+# 42 passed / 10 subtests passed
+
+runlog: redcheck-t19-t20-24bites rc=0 commit=f77699b dirty=yes at=2026-09-08T12:51:24Z file=tracks/opendesign-in-app-update-install/evidence/20260908T125124Z-01-redcheck-t19-t20-24bites.txt
+# update-apply 咬 24 / 漏 0;ds-web 咬 9 / 漏 0
+```
+
+**没走 runlog 的两项,在这里认账**(5c:沉默不算理由):
+
+- `installer/check-installer.py static`:合计 23 条、0 条不合格。裸跑的。
+  安装器在本机跑不了,这道静态闸是它唯一的机器意见 —— 收口时补一份 runlog 收据。
+- 全仓 python 段(`tests/dead_assertions.py`,1505 条)裸跑过两遍:
+  第一遍**红 1 条**并咬出黑窗口那个真 bug(见 tasks 进度段第 1 条),已修;
+  第二遍在收口时连同 `run-all.sh` 一起补收据。
+  ⚠️ **这两笔现在都还不是"最终收据"**,别拿它们当收口证据。
+
+## 上一轮(判据先行之前)的收据
+
+⚠️ 这四行 2026-09-08 21:0x **从证据文件末行逐字节取的,不是手抄**。
+我第一次写这一段时把它们缩成了 `... 文件名`,`track-guard` 规矩 5a 当场挡下 ——
+它防的正是这种"顺手四舍五入",而我确实顺手了。
+
+```
+runlog: red-u23-u25-notes-setext rc=1 commit=f194983 dirty=yes at=2026-09-08T11:03:26Z file=tracks/opendesign-in-app-update-install/evidence/20260908T110326Z-01-red-u23-u25-notes-setext.txt
+runlog: green-notes-setext-fix rc=0 commit=f194983 dirty=yes at=2026-09-08T11:08:38Z file=tracks/opendesign-in-app-update-install/evidence/20260908T110838Z-01-green-notes-setext-fix.txt
+runlog: green-notes-setext-fix-with-u26 rc=0 commit=8a0906b dirty=yes at=2026-09-08T11:30:07Z file=tracks/opendesign-in-app-update-install/evidence/20260908T113007Z-01-green-notes-setext-fix-with-u26.txt
+runlog: green-t12-asset-name-contract rc=0 commit=47e2320 dirty=yes at=2026-09-08T11:30:39Z file=tracks/opendesign-in-app-update-install/evidence/20260908T113039Z-01-green-t12-asset-name-contract.txt
 ```
 
 ## Review
 
-- 规格自查(读任何 panel 输出之前先答):<如果规格本身就是错的,会错成什么样、我怎么发现?
-  panel 只验"实现合不合规格",验不了"规格对不对" —— 全池一致 PASS 也不等于题是对的。>
+- 规格自查(读任何 panel 输出之前先答,**本轮已答,panel 还没跑**):
+
+  **规格错了会错成什么样?** 最像绿其实错的那条:更新"成功"了 —— 版本号对、窗口在 ——
+  而业主的档案没了。`t13` 就是为它存在的,而且它必须比对**真实文件内容**,不是"目录还在"。
+
+  **我怎么发现?** 这一轮已经发现三处规格级的错,全不是我自审出来的:
+  ① design 正文和末节讲两套机制(接手复核时查出);
+  ② 「provisioning 会写 UserData ⇒ 死线永远绿不了」是**推的**,探针当场证伪;
+  ③ `t20b` 自己退化成注释级契约,红检 m23 漏网才照出来。
+  ⇒ 共同形状:**我给的"因为",覆盖不到问题的全宽**。这一单已犯四次(含双出抓到那次)。
+
+  **panel 验不到的那一块**:段②(`.cmd`)的真行为、以及业主那台机器上的杀软/VPN/网速。
+  前者归 Windows CI `e1~e4`,后者**结构上只有业主验得到** —— 不假装 CI 覆盖了它。
 - 腿的花名册: <把 `<日志前缀>.roster` 里那一行**原样粘过来**,别手写>
   > panel-review 收尾自己写这个文件(off / FAIL(rc) / 降级 都在里面)。
   > **控制器没活到收尾时它压根不存在** —— 那时跑 `panel-roster <日志前缀>` 从盘上重建,
