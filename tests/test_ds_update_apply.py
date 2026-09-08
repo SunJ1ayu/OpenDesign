@@ -470,13 +470,19 @@ class TheRelayIsARealProgram(_Base):
     否则 CI 之前的一切都是假的(而 CI 上它会红在一堆 Windows 环境噪音里)。
     """
 
-    def _text(self):
-        plan = ds_update_apply.relay_plan(
-            {"live": r"C:\P\OpenDesign", "new": r"C:\P\OpenDesign.new",
+    #: ⚠️ 第一版这里只传了 plan、**没传 paths** ⇒ 渲染出来的脚本里所有路径都是空的,
+    #: 于是 t24e(不许混合分隔符)一行 `C:` 都看不到、**天然全绿**。
+    #: 是我把 `_win_path` 改成用 `/` 拼、发现它照样不红,才查出来的。
+    #: 教训:**判据调用被测函数时参数给不全,它测的就是一个不存在的场景。**
+    PATHS = {"live": r"C:\P\OpenDesign", "new": r"C:\P\OpenDesign.new",
              "old": r"C:\P\OpenDesign.old", "data_root": r"C:\D\OpenDesign",
-             "temp": r"C:\T"},
-            port=8766, nonce="n1", expect_version="0.98.5")
-        return ds_update_apply.render_relay(plan)
+             "temp": r"C:\T"}
+
+    def _text(self):
+        plan = ds_update_apply.relay_plan(self.PATHS, port=8766, nonce="n1",
+                                          expect_version="0.98.5")
+        return ds_update_apply.render_relay(plan, paths=self.PATHS, port=8766,
+                                            nonce="n1", expect_version="0.98.5")
 
     def _lines(self):
         return [ln.strip() for ln in self._text().splitlines()]
@@ -524,11 +530,16 @@ class TheRelayIsARealProgram(_Base):
 
         改名成新版 → 起起来 → 问 health → 然后又把新版改回 `.new`、把 `.old` 改回来。
         """
-        lines = self._lines()
-        rb = next(i for i, l in enumerate(lines) if "rollback" in l.lower())
-        before = " ".join(lines[max(0, rb - 6):rb]).lower()
-        self.assertTrue("goto" in before or "if " in before or "errorlevel" in before,
-                        "回滚段前面没有任何条件/跳转 ⇒ 成功路径也会走进回滚")
+        lines = [l for l in self._lines() if l and not l.startswith("::")]
+        # 找的是**标签定义**(`:rollback`),不是那些 `goto :rollback`。
+        # 第一版写成"含 rollback 的第一行",匹配到的是 goto,问错了地方。
+        rb = next(i for i, l in enumerate(lines)
+                  if l.lower().rstrip() == ":rollback")
+        prev = lines[rb - 1].lower() if rb else ""
+        # 最精确的问法:**紧挨着回滚之前那条可执行语句**必须是 exit 或 goto ——
+        # 否则成功路径跑完会直接"掉进"回滚,把刚装好的新版又换回去。
+        self.assertTrue(prev.startswith("exit") or prev.startswith("goto"),
+                        "成功路径会掉进回滚:回滚前一句是「%s」" % prev)
 
     def test_t24e_no_mixed_path_separators(self):
         """`C:\\A\\B/Logs\\c.log` 这种混合分隔符在 cmd 里是坑,而且一眼看不出来。"""

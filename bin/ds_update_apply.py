@@ -117,35 +117,32 @@ def health_says(payload, expect_version, nonce):
 # 不是"我在 .cmd 里肉眼看着像在前面"。
 
 def relay_plan(paths, port, nonce, expect_version):
-    """接力脚本的步骤表(有序)。每步:kind / marker / cmd,失败分支写 on_fail。"""
-    live = paths["live"]
-    new = paths["new"]
-    old = paths["old"]
-    logs = os.path.join(paths.get("data_root", ""), DATA_ROOT_EXEMPT_DIRS[0])
+    """接力脚本的步骤表(有序)。每步:kind / marker / cmd,失败分支写 on_fail。
+
+    先有**有序的步骤表**、再渲染成 `.cmd`,这样「收摊闸在改名之前」是**数据上的顺序**,
+    不是我在 .cmd 里肉眼看着像在前面(判据 t6a 因此问得出、变异 m12 因此咬得住)。
+    """
+    live, new, old = paths["live"], paths["new"], paths["old"]
     steps = [
         {
             "kind": "teardown_gate",
             # 🔴 这一步的锚点 09-08 搬过:安装现在发生在**收摊之前**,
             #    所以它问的不再是"不许进安装步",而是"不许进换名步"。
-            "cmd": ('call :wait_gone "%s" %d' % (live, int(port))),
+            "cmd": "call :wait_gone",
             "on_fail": ["delete_new", "abort"],
         },
-        {"kind": "rename", "cmd": 'move /Y "%s" "%s"' % (live, old)},
-        {"kind": "rename", "cmd": 'move /Y "%s" "%s"' % (new, live)},
-        {"kind": "launch", "cmd": 'start "" "%s\\OpenDesign.exe"' % live},
-        {
-            "kind": "health",
-            "cmd": ('call :ask_health %d %s %s' % (int(port), nonce, expect_version)),
-            "on_fail": ["rollback"],
-        },
+        {"kind": "rename", "cmd": 'move /Y "%LIVE%" "%OLDT%"'},
+        {"kind": "rename", "cmd": 'move /Y "%NEWT%" "%LIVE%"'},
+        {"kind": "launch", "cmd": 'start "" "%LIVE%\\OpenDesign.exe"'},
+        {"kind": "health", "cmd": "call :ask_health", "on_fail": ["rollback"]},
+        {"kind": "cleanup", "cmd": 'rmdir /S /Q "%OLDT%"'},
         {
             "kind": "rollback",
             # 换名中断/新版起不来 ⇒ 改回名字就是回滚(t17)。
-            "cmd": ('move /Y "%s" "%s" & move /Y "%s" "%s" & start "" "%s\\OpenDesign.exe"'
-                    % (live, new, old, live, live)),
+            # ⚠️ 它在脚本里是**只能跳进来的错误处理段**,不是顺序执行到的一步
+            #    —— 成功路径必须在它之前就 exit(判据 t24d)。
+            "cmd": ('move /Y "%s" "%s" & move /Y "%s" "%s"' % (live, new, old, live)),
         },
-        {"kind": "cleanup", "cmd": 'rmdir /S /Q "%s"' % old},
-        {"kind": "log", "cmd": 'echo done>>"%s\\更新.log"' % logs},
     ]
     for i, step in enumerate(steps):
         step.setdefault("on_fail", [])
@@ -153,22 +150,136 @@ def relay_plan(paths, port, nonce, expect_version):
     return steps
 
 
-def render_relay(plan):
-    """把步骤表渲染成 `.cmd`。**每一步的 marker 必须原样出现,且顺序不变**(t6c)。"""
+def _win_path(*parts):
+    """拼 Windows 路径。**不许用 os.path.join** —— 它在 Linux 上给的是 `/`,
+    拼出来就是 `C:\\A\\B/Logs\\c.log` 这种混合分隔符(判据 t24e 钉着)。"""
+    return "\\".join(str(p).rstrip("\\/") for p in parts)
+
+
+def render_relay(plan, paths=None, port=8766, nonce="", expect_version=""):
+    """把步骤表渲染成一份**真能跑的** `.cmd`。
+
+    🔴 2026-09-08 重写。上一版渲染出来的是**一份带注释的清单,不是程序**:
+    `call` 了不存在的标签、失败分支只是 `:: on_fail -> …` 注释、
+    回滚段无条件执行(成功路径跑完会把新版又换回去)、每条路都 `exit /b 0`。
+    **那样真跑起来会毁掉业主的安装,而判据 t6/t17 一片绿** ——
+    它们问的是「计划里有没有这几件事」,没问「渲染出来的会不会照着计划执行」。
+    判据 t24 现在钉着这件事。
+
+    只依赖 System32:`cmd.exe` / `netstat` / `findstr` / `curl.exe` / `ping`。
+    """
+    paths = paths or {}
+    live = paths.get("live", "")
+    new = paths.get("new", "")
+    old = paths.get("old", "")
+    logf = _win_path(paths.get("data_root", ""), DATA_ROOT_EXEMPT_DIRS[0], "更新.log")
+    sentinel = _win_path("%LIVE%", "ds", "bin", "ds_shell.py")
+    by_kind = {}
+    for step in plan:
+        by_kind.setdefault(step["kind"], []).append(step)
+
+    def marker(kind, n=0):
+        return by_kind[kind][n]["marker"]
+
     out = [
         "@echo off",
         "setlocal enableextensions",
         ":: OpenDesign 更新接力脚本 —— 由 bin/ds_update_apply.py 生成,别手改。",
         ":: 它住 %TEMP%,只依赖 System32:活树在它手里被改名,所以它不能住在活树里。",
         "",
+        'set "LIVE=%s"' % live,
+        'set "NEWT=%s"' % new,
+        'set "OLDT=%s"' % old,
+        'set "LOGF=%s"' % logf,
+        'set "PORT=%d"' % int(port),
+        'set "NONCE=%s"' % nonce,
+        'set "WANT=%s"' % expect_version,
+        "",
+        'call :log "接力开始"',
+        "",
+        marker("teardown_gate"),
+        "call :wait_gone",
+        ":: 收不干净就绝不换名 —— 活树到这一刻为止一个字节没被动过",
+        "if errorlevel 1 goto :teardown_failed",
+        "",
+        marker("rename", 0),
+        'move /Y "%LIVE%" "%OLDT%" >nul 2>&1',
+        "if errorlevel 1 goto :rename_failed",
+        "",
+        marker("rename", 1),
+        'move /Y "%NEWT%" "%LIVE%" >nul 2>&1',
+        ":: 这一步失败 = 停在两次改名之间,活树叫 .old ⇒ 必须回滚",
+        "if errorlevel 1 goto :rollback",
+        "",
+        marker("launch"),
+        'start "" "%LIVE%\\OpenDesign.exe"',
+        "",
+        marker("health"),
+        "call :ask_health",
+        "if errorlevel 1 goto :rollback",
+        "",
+        marker("cleanup"),
+        'rmdir /S /Q "%OLDT%" >nul 2>&1',
+        'call :log "更新成功,已切到 %WANT%"',
+        "exit /b 0",
+        "",
+        ":teardown_failed",
+        'call :log "收摊没收干净,放弃更新(活树没动过)"',
+        'rmdir /S /Q "%NEWT%" >nul 2>&1',
+        "exit /b 2",
+        "",
+        ":rename_failed",
+        'call :log "第一次改名就失败,活树没动过"',
+        'rmdir /S /Q "%NEWT%" >nul 2>&1',
+        "exit /b 3",
+        "",
+        marker("rollback"),
+        ":rollback",
+        'call :log "新版没能起来,换回旧版"',
+        'move /Y "%LIVE%" "%NEWT%" >nul 2>&1',
+        'move /Y "%OLDT%" "%LIVE%" >nul 2>&1',
+        'start "" "%LIVE%\\OpenDesign.exe"',
+        "exit /b 4",
+        "",
+        ":: ---- 子程序 ----",
+        "",
+        ":wait_gone",
+        ":: 端口真的还回来了,而且哨兵文件没人锁着。两条都过才算收干净。",
+        "set /a _t=0",
+        ":wait_gone_loop",
+        "set /a _t+=1",
+        'netstat -ano | findstr /r /c:":%PORT% .*LISTENING" >nul 2>&1',
+        "if not errorlevel 1 goto :wait_gone_busy",
+        '2>nul (>>"%s" call ) || goto :wait_gone_busy' % sentinel,
+        "exit /b 0",
+        ":wait_gone_busy",
+        "if %_t% GEQ 60 exit /b 1",
+        "ping -n 2 127.0.0.1 >nul 2>&1",
+        "goto :wait_gone_loop",
+        "",
+        ":ask_health",
+        ":: 🔴 --noproxy:业主机器上挂着 VPN。问 127.0.0.1 却走系统代理,0.98.1 栽过。",
+        ":: 🔴 认 nonce:换名之后旧进程可能还没死透,它也会回 200 和一个版本号。",
+        "set /a _h=0",
+        ":ask_health_loop",
+        "set /a _h+=1",
+        'curl.exe -s --noproxy "*" --max-time 5 '
+        '"http://127.0.0.1:%PORT%/api/health?nonce=%NONCE%" > "%TEMP%\\od-health.txt" 2>nul',
+        "if errorlevel 1 goto :ask_health_retry",
+        'findstr /c:"%NONCE%" "%TEMP%\\od-health.txt" >nul 2>&1',
+        "if errorlevel 1 goto :ask_health_retry",
+        'findstr /c:"%WANT%" "%TEMP%\\od-health.txt" >nul 2>&1',
+        "if errorlevel 1 goto :ask_health_retry",
+        "exit /b 0",
+        ":ask_health_retry",
+        "if %_h% GEQ 60 exit /b 1",
+        "ping -n 3 127.0.0.1 >nul 2>&1",
+        "goto :ask_health_loop",
+        "",
+        ":log",
+        '>>"%LOGF%" echo [%date% %time%] %~1',
+        "goto :eof",
     ]
-    for step in plan:
-        out.append(step["marker"])
-        out.append(step["cmd"])
-        for branch in step["on_fail"]:
-            out.append(":: on_fail -> %s" % branch)
-        out.append("")
-    out.append("exit /b 0")
     return "\n".join(out)
 
 
@@ -328,6 +439,10 @@ def _default_launcher(argv, **kwargs):
     而界面上写着"正在更新"。判据 t21e 机械地钉着这件事(禁 call/run/wait/communicate)。
     """
     import subprocess
+
+    # no-console-exempt: 平台标志由 handoff() 统一取自 spawn_kwargs() 再 **kwargs 传进来
+    # (判据 t21c 逐项比对它们真的到了这一层)。这里**不许自己拼** —— 一拼就成了第二个来源,
+    # 而黑窗口那道闸防的正是"各调用点自己拼"。闸看不到跨函数那一步,所以在这里说明。
     return subprocess.Popen(argv, **kwargs)
 
 
