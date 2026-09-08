@@ -187,6 +187,105 @@ S6 发布页链接用 `<a target="_blank">`,**在 pywebview 外壳里点了会�
   > 只写发现。腿的身份/降级不在这儿抄第二遍:日志自带身份牌(降级横幅 + 视野边界),
   > 花名册在上一格,查工件不查自述。
 
+- 腿的花名册(第三、四轮,**原样粘的,没手写**):
+
+  第三轮 `panel-inappupdate-r3-20260907T150454Z`(审第一、二轮的修法,冻结在 `71ccf25`):
+  ```
+  # impact-risk=high requested-budget=2 selected-count=1
+  # snapshot=head:71ccf25
+  submimo=SKIP(health:cooldown:INCOMPLETE) subdeepseek=PASS(verdict=PASS) subglm=SKIP(health:cooldown:FAIL) subkimi=SKIP(health:cooldown:FAIL) subgemini=SKIP(health:dead:FAIL:6)
+  ```
+  第四轮 `panel-inappupdate-r4-20260907T152737Z`(审第三轮那三条修法,冻结在 `2302e8f`):
+  ```
+  # impact-risk=high requested-budget=3 selected-count=3
+  # snapshot=head:2302e8f
+  submimo=PASS(verdict=PASS) subdeepseek=PASS(verdict=PASS) subglm=SKIP(health:cooldown:FAIL) subkimi=PASS(verdict=PASS) subgemini=SKIP(health:dead:FAIL:6)
+  ```
+
+- **第三轮 findings(subdeepseek,当轮唯一派得出的腿,PASS,给了 6 条)** —— 逐条复现,
+  3 修 3 核过不改。修法与理由在 `2302e8f` 的 commit 消息里写全了,这里落工件的账
+  (第四轮 subdeepseek 的 [Info] 就是指这一格当时是空的):
+  - 🔴 **F1 `notesSummary` 只认 ATX 标题**:setext 写法(下一行整行 `===`)的标题被当正文
+    印给业主;正文以 `---` 开头时界面直接印一串横杠,还把"去发布页 ›"那句兜底顶掉。
+    两条我都用它给的 probe 原样复现。⇒ 修,判据 u21/u22 + 变异 v15/v16。
+  - **F6 `?force=false` 会强制刷新**(原判据是"非空且非 0")。无危害,但一个反着读的参数
+    迟早骗到下一个人。⇒ 改成只认明确的开(`1/true/yes/on`),判据 t9e + 变异 w5。
+  - 🔴 **F4 那条 catch 修法此前没有任何判据守着**(第二轮 F-A 的修法本身):改回 idle,
+    54 条判据 + 17 条变异全绿,而业主点了「检查更新」看见的和没点一模一样。
+    ⇒ 新增 e2e 第 E 格(`route.abort()` ⇒ fetch reject ⇒ 真走 catch)+ 变异 e5。
+  - 它还指出我那条新 e2e 的等待是假的(等"检查中"消失,而设置弹层默认收起、那三个字
+    压根不在 DOM ⇒ 该等待立即通过、断言抢在 fetch 前面)。⇒ 改成等 Node 侧的事实 + 轮询。
+  - F2(强查失败抹掉旧蓝点)/ F3(自动检查只在挂载跑一次)/ F5:核过不改,见偏差栏。
+
+## 第四轮:三个家族第一次同时到齐(这一轮把预算真正补上了)
+
+第三轮只派得出 subdeepseek 一条(其余四条腿全在冷却/dead),**"两轮各 1 条"仍然不等于 2**,
+所以第三轮结束后立刻又派了第四轮。它是本单第一次、也是唯一一次**同一个 run、同一个
+subject digest 下三个不同模型家族全部完整交卷**:
+
+```
+run_id=20260907-232737-3111896-panel-review   subject digest=sha256:f727b7bb12a1270…
+submimo(xiaomi) PASS / subdeepseek(deepseek) PASS / subkimi(moonshot) PASS
+三条都 degraded=false、failure_kind=none、evidence completeness=complete
+```
+(以上逐字段来自机器写的 `observations/20260907T154534Z-panel-review-execution_finished-001.json`,
+不是我的转述。)⇒ `impact.level=high` 要求的「同一次成功 panel、2 个 coverage-eligible
+的不同家族」在这一轮**是 3 条,超额满足**;而它冻结的 `2302e8f` 就是此刻树上的 HEAD ——
+**这一次不存在 D13 那个"放行依据是一棵早就不存在的树"的形状**(merge-base 不用算:
+subject 的 `worktree_tree_oid` 与 `index_tree_oid` 相同,且等于当前 HEAD 的树)。
+
+### 三腿一致 PASS,给了 4 条 LOW —— 我全部亲手复现过
+
+前三条是**同一个根**:`notesSummary` 是逐行判断,**跳过 setext 标题时没有把它下面那行
+下划线一起吃掉**,也没区分"这一行能不能合法地当 setext 的正文"。我的探针输出(现跑现贴):
+
+```
+L1 短下划线(==)          => "=="   ← 本单要治的"印一串记号"的迷你版
+L1 短下划线(--)          => "--"
+L1 长下划线(====)        => "正文内容"   ← ≥3 个字符时 HORIZONTAL_RULE 兜住了,只漏 1~2 个字符的
+L2 多行 setext         => "很长很长的"   ← 多行标题只跳最后一行,前半截照印
+L3 列表项+hr            => "- 另一个改动"   ← 第一条要点被当成标题吃掉(GitHub 会渲染成正文)
+L3 引用+hr             => "正文"
+对照 正文\n\n---         => "一段正文"   ← 真空行隔开的分隔线,正文保留(没有回归)
+对照 ATX               => "- 修复白屏"
+```
+(subdeepseek 与 subkimi **各自独立**命中 L1 与 L3,submimo 把 L1 判成"不会发生"。
+两腿独立命中同一处,通常是真的 —— 我的探针证实了这一点。)
+
+第 4 条是记账:**资产名漂移仍然只有注释级契约**(`bin/ds_update.py:35` 的 `ASSET_RE`
+与 `installer/build-installer.sh:146` 的产物名之间没有机械绑定)。
+
+### 我自己去核的两件(腿提了问题,答案得我给)
+
+1. **submimo 问:那条红字警告守的是不是真门?** —— "如果打包可以绕过 `build-installer.sh`
+   (比如 CI 直接调 NSIS),那这个防御就是纸糊的。"这正是 `guards-must-watch-the-right-door`
+   那条记忆的形状,**所以我去查了而不是回答"应该没问题"**:
+   `grep -ln 'makensis\|build-installer' .github/workflows/*.yml` **一个都没有** ——
+   三个 workflow(gui-probe / nonempty-probe / package-probe)全是**消费**已发布资产的探针,
+   仓里没有任何 CI 打包路径。⇒ `installer/build-installer.sh` 是唯一的产物出口,
+   警告贴在定义名字的那个文件顶上,门是对的。**(它挡不住的是"在 GitHub 网页上手改资产名",
+   那一幕没有任何机械防线 —— 如实记在偏差栏。)**
+2. **subkimi 的一条更尖锐的观察,我核了属实**:通知路径其实**不需要**硬依赖资产名 ——
+   界面下载行只用 `release_url`(`web/src/workspace/Sidebar.tsx:377`),`asset` 字段在本单
+   范围内**没有任何消费方**(只在 `update.ts:13` 的类型里,给第二刀"装"预留)。
+   ⇒ 放宽 `pick_latest` 能让这一整类"安静地错"消失。**但我不改**:t1c 那条
+   "没有安装包的 release 不是可更新到的版本"是有理由的(选中它 = 把业主指向一个下不动的
+   东西),放宽等于用一种坏结局换另一种。⇒ 记进后续单,连同"给 `EXE=` 那行加一条机械断言"。
+
+### 这 4 条我为什么**不在本单改**(这是个判断,不是省事)
+
+- 都是 LOW,且**在真实语料上一次都不发生**:仓里录着 20 条真实 release 正文
+  (`tests/fixtures/update/github-releases-20260907.json`),subdeepseek 拿新旧两版实现
+  逐条对过输出**完全一致**;更关键的是,这些正文是**我自己在发版时写的**,
+  不是外部输入 —— 触发它要我自己去写 `标题\n==` 或"列表项紧贴 `---`"。
+- 失败形态是**难看**(界面上多印两个字符 / 摘要挑了下一行),不是**安静地错**。
+  本单真正在治的那一类("说了但业主看不见/看错版本")没有一条落在这里。
+- 🔴 **代价那一侧是实的**:此刻树上这棵正是三个家族刚刚全部审过的那一棵。为了一条
+  1~2 个字符的下划线去动 `notesSummary`,**发出去的就是一棵没有任何外部腿看过的树** ——
+  而 09-02 那一单的账刚记完:"改正"这个动作本身在生产新的审查面,那一单为此白跑四轮。
+  停止条件是**代码有问题才重审**;这四条够不上。
+- ⇒ 原样搬进后续单 `opendesign-in-app-update-install` 的 backlog(第二刀本来就要动这块)。
+
 - arbitrated verdict (主裁): <...>
   > 这里写理由；最终枚举写进 `decision.json.outcome.verdict`。归档时仍为空会被
   > `track-record validate --phase archive` 挡住，`track list` 也会打 ⚠️。
@@ -202,5 +301,10 @@ S6 发布页链接用 `<a target="_blank">`,**在 pywebview 外壳里点了会�
   (F-F 指出这条原来只写在 commit 消息里、工件里是空模板 —— 现在补在这儿。)
 - **force 无节流**(S5):业主连点十下就是十次真请求。同上,限额够用,
   且触发限流的后果可见(不是安静的)。不改。
+- **第四轮那 4 条 LOW,接受不改、原样搬进后续单**(理由写在上面「这 4 条我为什么不在本单改」
+  一格:真实语料上零发生、失败形态是难看不是安静地错、而改它就等于发一棵没有外部腿看过的树)。
+- **资产名如果是在 GitHub 网页上手改的,没有任何机械防线拦得住**(`installer/build-installer.sh`
+  是仓里唯一的产物出口,这一点我查过;但它管不到"包已经传上去之后有人改了名字")。
+  后果是那一版在业主的检查更新里被静默跳过。⇒ 记进后续单,本单接受。
 - **`now=time.time` 是 def 时刻早绑定**,与 `fetch` 的延迟绑定风格不一致(submimo 补充②)。
   核过:`now` 只在判据里注入,生产路径恒为 `time.time`,不构成错误。不改。
