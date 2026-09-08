@@ -37,13 +37,10 @@ sys.path.insert(0, os.path.join(ROOT, "bin"))
 
 MODULE_SRC = os.path.join(ROOT, "bin", "ds_update_apply.py")
 
-try:  # 判据先行:模块还不存在。让每条断言各自红,别整份 collection error ——
-    import ds_update_apply  # noqa: E402  (故意在路径注入之后)
-except ImportError as exc:  # pragma: no cover - 实现落地后这一支就不走了
-    ds_update_apply = None
-    _IMPORT_ERR = exc
-else:
-    _IMPORT_ERR = None
+# 判据先行那一版这里包了个 try/except,好让"模块还不存在"时 30 条各自红、可数。
+# 实现落地后那段就成了**一条永远不执行的断言**,死断言闸当场咬住(2026-09-08)。
+# 脚手架的使命完成了就拆掉 —— 留着既挡不住什么,又让每层看到的都是绿的。
+import ds_update_apply  # noqa: E402  (故意在路径注入之后)
 
 # 一个**绝不可能由版本号拼出来**的下载地址:t14 靠它区分"照抄 GitHub 给的"
 # 和"自己拼"。第一刀 F1 栽的就是拼地址(win-installer-1.0.0 对不上真 tag 1.0)。
@@ -52,6 +49,11 @@ ODD_ASSET_URL = ("https://objects.githubusercontent.com/gh-release-assets/"
 
 NEW_VERSION = "0.98.5"
 OLD_VERSION = "0.98.4"
+
+# 🔴 别用 None 当"帮我算一个合法 digest"的信号:t15a 要传的正是 None(缺失),
+#    两种含义撞在一个值上,那条断言就**结构上问不出它要问的事**(第一版就是这么写的,
+#    实现落地后当场照出来)。用一个独一无二的哨兵。
+_AUTO = object()
 
 
 def _sha256_bytes(data: bytes) -> str:
@@ -105,12 +107,12 @@ def _installer_bytes(version: str = NEW_VERSION) -> bytes:
     return ("MZ-fake-setup-" + version).encode("utf-8")
 
 
-def _decision(url: str = ODD_ASSET_URL, digest=None, version: str = NEW_VERSION,
+def _decision(url: str = ODD_ASSET_URL, digest=_AUTO, version: str = NEW_VERSION,
               payload: bytes = None) -> dict:
     """`ds_update.decide()` 那个形状里,第二刀真正会消费的几格。"""
     if payload is None:
         payload = _installer_bytes(version)
-    if digest is None:
+    if digest is _AUTO:
         digest = "sha256:" + _sha256_bytes(payload)
     return {
         "current": OLD_VERSION,
@@ -135,9 +137,6 @@ def _code_without_comments(path: str) -> str:
 
 class _Base(unittest.TestCase):
     def setUp(self):
-        if ds_update_apply is None:
-            self.fail("bin/ds_update_apply.py 还不存在 —— 判据先行,此刻应红(%s)"
-                      % (_IMPORT_ERR,))
         self.base = tempfile.mkdtemp(prefix="dsupd-")
         self.addCleanup(shutil.rmtree, self.base, ignore_errors=True)
         self.live = _make_live_tree(self.base)
@@ -347,12 +346,35 @@ class HealthAcceptanceCannotBeFooled(_Base):
         self.assertIn("127.0.0.1:8766", url)
 
     def test_t18b_opener_bypasses_the_system_proxy(self):
+        """⚠️ 这条第一版问错了地方,实现落地当场照出来 —— 留个记号免得下次再写一遍。
+
+        原来断言 `opener.handlers` 里有一个 proxies 为空的 ProxyHandler。**实测:没有。**
+        空 proxies 的 ProxyHandler 一个 `*_open` 方法都不生成,而
+        `OpenerDirector.add_handler` 明确跳过 `proxy_open` ⇒ 它压根不会被收进 handlers。
+        那条断言问的是一件结构上不存在的事,和实现对不对无关。
+
+        搬到问得出的地方:**在有代理环境变量的情况下**,我们的 opener 不许挂上任何
+        带 proxies 的 handler。带对照组 —— 默认 opener 在同一环境下必须挂得上,
+        否则这条判据自己就是恒绿的。
+        """
         import urllib.request
-        opener = ds_update_apply.build_opener()
-        proxy_handlers = [h for h in opener.handlers
-                          if isinstance(h, urllib.request.ProxyHandler)]
-        self.assertTrue(proxy_handlers, "得显式装一个空 ProxyHandler")
-        self.assertEqual(proxy_handlers[0].proxies, {},
+        from unittest import mock
+        env = {"http_proxy": "http://proxy.invalid:8080",
+               "https_proxy": "http://proxy.invalid:8080",
+               "HTTP_PROXY": "http://proxy.invalid:8080",
+               "HTTPS_PROXY": "http://proxy.invalid:8080"}
+        with mock.patch.dict(os.environ, env, clear=False):
+            ours = ds_update_apply.build_opener()
+            theirs = urllib.request.build_opener()   # 对照组
+
+        def proxied(opener):
+            return [h for h in opener.handlers
+                    if isinstance(h, urllib.request.ProxyHandler) and h.proxies]
+
+        self.assertTrue(proxied(theirs),
+                        "对照组塌了:默认 opener 在有代理环境时都没挂上代理 ⇒ "
+                        "这条判据问不出东西,别信它的绿")
+        self.assertEqual(proxied(ours), [],
                          "业主跑 VPN —— 问自己机器不许绕道系统代理(0.98.1 栽过)")
 
     def test_t18c_answer_without_the_nonce_is_not_accepted(self):
