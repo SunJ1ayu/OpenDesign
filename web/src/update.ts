@@ -18,6 +18,13 @@ export type UpdateInfo = {
 };
 
 export type UpdateState = "idle" | "checking" | "done";
+export type ApplyState = "idle" | "applying" | "done";
+export type ApplyResult = {
+  ok: boolean;
+  stage?: string | null;
+  error?: string | null;
+  latest?: string | null;
+} | null;
 
 // 🔴 评审 F1(2026-09-07,subdeepseek 抓到、我复现确认):**地址不再由我们拼。**
 //
@@ -176,4 +183,73 @@ export function updateLabel(
   // 但这是个未来的回归绊线,不是理论洁癖。
   if (info.update_available) return "有新版 ›";
   return `已是最新 v${info.current}`;
+}
+
+/** 是否给「更新」按钮:只有查更新成功、有版本号、有完整安装包时才放行。 */
+export function canApply(info: UpdateInfo | null): boolean {
+  if (!info || info.error || info.update_available !== true || !info.latest) return false;
+  const asset = info.asset;
+  return !!(
+    asset &&
+    asset.name.trim() &&
+    asset.url.trim() &&
+    asset.size > 0 &&
+    asset.digest?.trim()
+  );
+}
+
+/** 自动更新按钮那句话。started 只是开始切换,不能说成已经装好。 */
+export function applyLabel(s: { state: ApplyState; result: ApplyResult }): string {
+  if (s.state === "applying") return "正在更新,OpenDesign 会自动关掉再重新打开";
+  if (!s.result) return "更新";
+  if (s.result.ok) return "OpenDesign 会自动关掉再重新打开";
+  if (s.result.stage === "no_update") return "没有可安装的新版";
+  return "自动更新失败";
+}
+
+/** 自动更新失败后的解释。这里不把 stage/error 原样甩给业主。 */
+export function applyHint(result: ApplyResult): string {
+  if (!result || result.ok) return "";
+  switch (result.stage) {
+    case "no_update":
+      return "这台机器已经没有可安装的新版。可以到发布页核对最新版本。";
+    case "digest":
+      return "安装包缺少安全校验信息,没有继续安装。可以去发布页手动下载。";
+    case "download":
+      return "安装包没能下载下来。可以到发布页手动下载。";
+    case "verify":
+      return "安全校验没通过,安装包可能不完整或被改过,没有继续安装。可以去发布页手动下载。";
+    case "install":
+      return "新版没有准备到可安装状态。可以到发布页手动下载。";
+    case "newtree":
+      return "新版文件没有放到可切换的位置。可以到发布页手动下载。";
+    case "handoff":
+      return "桌面程序没有接住这次自动切换。可以到发布页手动下载。";
+    case "shell":
+      return "旧窗口没能完成收尾。可以到发布页手动下载。";
+    default:
+      return "自动更新没能继续。可以到发布页手动下载。";
+  }
+}
+
+function isRecord(body: unknown): body is Record<string, unknown> {
+  return typeof body === "object" && body !== null && !Array.isArray(body);
+}
+
+/** /api/update/apply 的 HTTP 200 也可能是业务失败,必须读 body.ok。 */
+export function readApplyResponse(
+  status: number,
+  body: unknown,
+): { ok: boolean; stage: string | null; error: string | null } {
+  if (status !== 200 || !isRecord(body) || typeof body.ok !== "boolean") {
+    return { ok: false, stage: null, error: null };
+  }
+  const stage = typeof body.stage === "string" && body.stage ? body.stage : null;
+  const error = typeof body.error === "string" && body.error ? body.error : null;
+  return { ok: body.ok === true && stage === "started", stage, error };
+}
+
+/** 点按钮前的防重入闸:正在更新时绝不再发第二个 apply 请求。 */
+export function beginApply(state: ApplyState): boolean {
+  return state !== "applying";
 }
