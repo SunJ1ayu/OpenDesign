@@ -60,6 +60,35 @@ runlog: redcheck-handoff-chain-final rc=1 commit=beb0eae dirty=no at=2026-09-08T
 我把最要紧的那条纪律藏在了替身后面。补了 t22h~t22k 直接考那个纯函数,
 定点复验:同一条变异现在一次咬红三条。
 
+### 界面「更新」按钮(u27~u37;实现派给了 codex)
+
+```
+runlog: red-u27-u33-update-button rc=1 commit=090834c dirty=yes at=2026-09-08T14:28:30Z file=tracks/opendesign-in-app-update-install/evidence/20260908T142830Z-01-red-u27-u33-update-button.txt
+runlog: red-u27-u37-after-attack rc=1 commit=bc13218 dirty=yes at=2026-09-08T14:41:43Z file=tracks/opendesign-in-app-update-install/evidence/20260908T144143Z-01-red-u27-u37-after-attack.txt
+runlog: red-u35b-canapply-white-screen rc=1 commit=b05d85a dirty=yes at=2026-09-08T14:56:13Z file=tracks/opendesign-in-app-update-install/evidence/20260908T145613Z-01-red-u35b-canapply-white-screen.txt
+runlog: green-u27-u37-button-done rc=0 commit=d81ac14 dirty=yes at=2026-09-08T14:57:33Z file=tracks/opendesign-in-app-update-install/evidence/20260908T145733Z-01-green-u27-u37-button-done.txt
+```
+
+**这一段的顺序是:考卷 → 攻题 → 改考卷 → 派活 → 收货三闸 → 闸③抓到洞 → 判据先行 → 修。**
+
+- **攻题(派活之前)**:`gpt-5.6-sol` 只读腿,记录在仓外
+  `/root/aiwork/tasks/update-button-attack.md`。它报 13 条,**打穿我 4 条断言**
+  (u29/u30/u31/u33 全是"黑名单只挡我想得到的词"),外加一个我写错的产品事实:
+  🔴 **`started` 不等于"更新完成"** —— 端点只证明接力起来了、外壳认了收摊,
+  后面的改名和拉起仍可能失败。还指出一条我完全没想到的时序:
+  **"软件会自己关掉"必须在点下去那一刻就说**,因为成功响应到浏览器时窗口可能已经在关了
+  (u31 只证明那句话写对了,证明不了它上过屏)⇒ 新增 u34。
+- **收货三闸**:闸① 判卷逐字节没动过、判卷路径下没多出文件;闸② 我亲跑 38/38,
+  集成后又重跑一遍(worktree 的绿不复用);闸③ 三个文件逐行读。
+- 🔴 **闸③ 抓到判据没覆盖的白屏路径**(实测复现,不是推论):`canApply` 在
+  `name`/`url` 为 `null` 时抛 TypeError,而它在 Sidebar 渲染体里调用 ⇒ 卸整棵树 ⇒ 整页白。
+  够得着真实数据(后端 `asset.get(...)` 取不到就是 None)。
+  **这是我考卷的洞,不是腿的锅** —— u35 只喂了"字段在但为空"。已补 u35b/u35c 后修。
+
+⚠️ 一条我自己抓自己的:`5332aa2` 的提交信息第一版把收据行写成了
+`commit=RUNLOG_PLACEHOLDER`(收据是 runlog 跑完才打印的,而我把提交信息写死在前面)。
+已 amend。**track-guard 只查 verify.md,查不到 commit 信息** —— 没人拦得住这句假话。
+
 **没走 runlog 的两项,在这里认账**(5c:沉默不算理由):
 
 - `installer/check-installer.py static`:合计 23 条、0 条不合格。裸跑的。
