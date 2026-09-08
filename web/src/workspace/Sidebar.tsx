@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { updateLabel, downloadUrl, notesSummary, hasUpdateBadge, badgeTitle } from "../update";
-import type { UpdateInfo, UpdateState } from "../update";
+import {
+  applyHint,
+  applyLabel,
+  canApply,
+  updateLabel,
+  downloadUrl,
+  notesSummary,
+  hasUpdateBadge,
+  badgeTitle,
+} from "../update";
+import type { ApplyResult, ApplyState, UpdateInfo, UpdateState } from "../update";
 import type { ConsentMode, Project } from "../api";
 import { relTime } from "../api";
 import { displayProjectName } from "./projectName";
@@ -51,6 +60,9 @@ type Props = {
   updateState: UpdateState;
   updateInfo: UpdateInfo | null;
   onCheckUpdate: () => void;
+  applyState: ApplyState;
+  applyResult: ApplyResult;
+  onApplyUpdate: () => void;
   /** 自动查更新开关(默认开)。业主的机器该业主做主 —— 见 update.ts 里那段理由。 */
   autoCheck: boolean;
   onToggleAutoCheck: () => void;
@@ -75,7 +87,8 @@ export default function Sidebar({
   route, projects, stages, selectedKey, onSelectProject, todosOpenCount, excludedStructural,
   onOpenFolderVisibility, onOpenLlmKey, consentMode, onSetConsentMode,
   sessions, sessionTags, onOpenSession, onDeleteSession, onNewChat, onNewProject,
-  onSearch, health, updateState, updateInfo, onCheckUpdate, autoCheck, onToggleAutoCheck,
+  onSearch, health, updateState, updateInfo, onCheckUpdate, applyState, applyResult,
+  onApplyUpdate, autoCheck, onToggleAutoCheck,
 }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -129,6 +142,9 @@ export default function Sidebar({
   }, [settingsOpen]);
 
   const recent = (sessions ?? []).slice(0, 2);
+  const showApply = canApply(updateInfo);
+  const applyText = applyLabel({ state: applyState, result: applyResult });
+  const applyHelp = applyHint(applyResult);
 
   const projRow = (p: Project) => {
     const current = p.key === selectedKey;
@@ -372,17 +388,45 @@ export default function Sidebar({
             </span>
           </button>
           {updateInfo?.update_available && (
-            <a
-              className="item"
-              href={downloadUrl(updateInfo.release_url)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <span className="lbl">下载 {updateInfo.latest ?? "新版本"}</span>
-              <span className="val faint">
-                {notesSummary(updateInfo.notes) || "去发布页 ›"}
-              </span>
-            </a>
+            <>
+              <div style={{ display: "flex", alignItems: "stretch", gap: 6 }}>
+                <a
+                  className="item"
+                  href={downloadUrl(updateInfo.release_url)}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ flex: "1 1 auto", minWidth: 0 }}
+                >
+                  <span className="lbl">下载 {updateInfo.latest ?? "新版本"}</span>
+                  <span className="val faint">
+                    {notesSummary(updateInfo.notes) || "去发布页 ›"}
+                  </span>
+                </a>
+                {showApply && (
+                  <button
+                    className="item"
+                    data-ui="update-apply"
+                    onClick={onApplyUpdate}
+                    disabled={applyState === "applying"}
+                    title={applyText}
+                    style={{
+                      flex: "0 0 auto",
+                      width: "auto",
+                      whiteSpace: "nowrap",
+                      opacity: applyState === "applying" ? 0.72 : 1,
+                    }}
+                  >
+                    <span className="lbl">更新</span>
+                  </button>
+                )}
+              </div>
+              {showApply && (applyState !== "idle" || applyResult) && (
+                <div className="side-empty-hint" data-ui="update-apply-status">
+                  {applyText}
+                  {applyHelp && <span className="side-hint-cta">{applyHelp}</span>}
+                </div>
+              )}
+            </>
           )}
           <button className="item" onClick={onToggleAutoCheck}>
             <span className="lbl muted">打开时自动检查</span>

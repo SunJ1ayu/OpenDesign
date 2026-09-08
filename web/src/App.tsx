@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { autoCheckEnabled, AUTO_CHECK_PREF } from "./update";
-import type { UpdateInfo, UpdateState } from "./update";
+import {
+  autoCheckEnabled,
+  AUTO_CHECK_PREF,
+  beginApply,
+  canApply,
+  readApplyResponse,
+} from "./update";
+import type { ApplyResult, ApplyState, UpdateInfo, UpdateState } from "./update";
 import { loadBoolPrefs } from "./boolPrefs";
 import Sidebar, { type SessionItem } from "./workspace/Sidebar";
 import WindowChrome from "./workspace/WindowChrome";
@@ -87,6 +93,11 @@ export default function App() {
   // 查更新(track opendesign-in-app-update,第一刀:只查不装)
   const [updateState, setUpdateState] = useState<UpdateState>("idle");
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [applyState, setApplyState] = useState<ApplyState>("idle");
+  const [applyResult, setApplyResult] = useState<ApplyResult>(null);
+  const applyStateRef = useRef<ApplyState>("idle");
+  const updateInfoRef = useRef<UpdateInfo | null>(null);
+  updateInfoRef.current = updateInfo;
   // 自动查更新的开关(默认开)。存 localStorage,和左栏那些展开偏好同一套。
   const [autoCheck, setAutoCheck] = useState<boolean>(() => {
     try { return autoCheckEnabled(loadBoolPrefs(localStorage.getItem(UPDATE_PREFS_KEY))); }
@@ -273,6 +284,45 @@ export default function App() {
   useEffect(() => {
     if (autoCheck) checkUpdate(false);
   }, [autoCheck, checkUpdate]);
+
+  useEffect(() => {
+    if (applyStateRef.current === "applying") return;
+    applyStateRef.current = "idle";
+    setApplyState("idle");
+    setApplyResult(null);
+  }, [updateInfo]);
+
+  const applyUpdate = useCallback(async () => {
+    const info = updateInfoRef.current;
+    if (!canApply(info) || !beginApply(applyStateRef.current)) return;
+
+    applyStateRef.current = "applying";
+    setApplyResult(null);
+    setApplyState("applying");
+
+    try {
+      const r = await fetch("/api/update/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      let body: unknown = null;
+      try {
+        body = await r.json();
+      } catch {
+        /* 非 JSON 响应:统一交给 readApplyResponse 当失败处理 */
+      }
+      const parsed = readApplyResponse(r.status, body);
+      applyStateRef.current = "done";
+      setApplyResult({ ...parsed, latest: info?.latest ?? null });
+      setApplyState("done");
+    } catch {
+      const parsed = readApplyResponse(0, null);
+      applyStateRef.current = "done";
+      setApplyResult({ ...parsed, latest: info?.latest ?? null });
+      setApplyState("done");
+    }
+  }, []);
 
   const toggleAutoCheck = useCallback(() => {
     setAutoCheck((prev) => {
@@ -524,6 +574,9 @@ export default function App() {
       updateState={updateState}
       updateInfo={updateInfo}
       onCheckUpdate={() => checkUpdate(true)}
+      applyState={applyState}
+      applyResult={applyResult}
+      onApplyUpdate={applyUpdate}
       autoCheck={autoCheck}
       onToggleAutoCheck={toggleAutoCheck}
     />
