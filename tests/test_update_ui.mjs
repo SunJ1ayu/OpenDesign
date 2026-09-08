@@ -261,27 +261,65 @@ test("u28 正在更新时那句话要说正在更新", () => {
   assert.match(s, /正在|更新中/, `「${s}」看不出正在做事`);
 });
 
-test("u29 🔴 失败时绝不许说成「更新已开始」", () => {
-  for (const stage of FAIL_STAGES) {
+test("u29 🔴 失败必须有正向的失败语义,不许用成功同义词把他骗走", () => {
+  // 攻题(2026-09-08,gpt-5.6-sol 只读腿)打穿了这条的第一版:
+  // 我原来只禁了「已开始/开始更新/正在更新/成功」几个词,而
+  //   "新版已就绪,请关闭浏览器等候"
+  // 一个都不撞,业主照样关掉窗口干等。**黑名单只挡我想得到的那些词。**
+  // ⇒ 改成正面要求:必须说出"失败/未能/取消",并禁掉几类误导句式。
+  for (const stage of FAIL_STAGES.filter((x) => x !== "no_update")) {
     const s = U.applyLabel({ state: "done", result: { ok: false, stage, error: "x" } });
-    assert.doesNotMatch(s, /已开始|开始更新|正在更新|成功/,
-      `stage=${stage} 失败了,却说「${s}」—— 他会关掉浏览器等着,而什么都不会发生`);
+    assert.match(s, /失败|未能|没能|取消/, `stage=${stage} 没说清这是失败:「${s}」`);
+    assert.doesNotMatch(s, /已开始|开始更新|正在更新|成功|已就绪|即将|马上|稍后/,
+      `stage=${stage} 用成功同义词把他骗走了:「${s}」`);
+    assert.doesNotMatch(s, /关闭.*等|等.*关闭/,
+      `stage=${stage} 在叫他关掉软件等着:「${s}」`);
   }
 });
 
-test("u30 每个 stage 都要有业主看得懂的话,且不许甩技术词", () => {
+test("u30 每个 stage 都要有业主看得懂、而且各不相同的话", () => {
+  // 攻题打穿了第一版:我那份技术词黑名单(sha256/relay/nonce/…)漏掉了
+  // digest / CDN / Authenticode / IPC / 退出码 / 目标树 —— 换个词就全绿。
+  // ⇒ 不再靠黑名单穷举:①不许把**原始 stage 串和原始 error 串**漏出去;
+  //   ②每个 stage 的话必须**互不相同**(一句万能话等于没解释);
+  //   ③保留一份最小黑名单当兜底,但它不再是主要防线。
+  const RAW_ERROR = "sha256 对不上:期望 aa,实得 bb";
+  const seen = new Map();
   for (const stage of FAIL_STAGES) {
-    const s = U.applyHint({ ok: false, stage, error: "sha256 对不上:期望 aa,实得 bb" });
+    const s = U.applyHint({ ok: false, stage, error: RAW_ERROR });
     assert.ok(s && s.length > 0, `stage=${stage} 没有给业主任何话`);
+    assert.ok(!s.includes(stage), `stage=${stage} 把原始 stage 串印给了业主:「${s}」`);
+    assert.ok(!s.includes(RAW_ERROR), `stage=${stage} 把原始报错原样甩给了业主:「${s}」`);
     assert.doesNotMatch(s, JARGON, `stage=${stage} 把技术词甩给了业主:「${s}」`);
     assert.doesNotMatch(s, /undefined|\[object/, `stage=${stage} 漏了占位:「${s}」`);
+    if (seen.has(s)) {
+      assert.fail(`stage=${stage} 和 ${seen.get(s)} 用了同一句话「${s}」——`
+        + " 一句万能话等于没解释,他分不清是网络断了还是包被改过");
+    }
+    seen.set(s, stage);
   }
 });
 
-test("u31 成功那句必须告诉他:软件会自己关掉再打开", () => {
-  // 不说的话,窗口一关他会以为崩了 —— 而这一版恰恰会真的把窗口关掉。
+test("u30b 校验没过那一条必须说清是「为了安全没装」", () => {
+  // 这是唯一一条"我们主动拒绝安装"的失败。不说清楚,业主会以为是网络问题反复重试;
+  // 说清楚了,他才知道这是保护他(信任根只有 HTTPS+digest 一条,见 ds_update 模块头)。
+  const s = U.applyHint({ ok: false, stage: "verify", error: "x" });
+  assert.match(s, /安全|校验|不完整|被改/, `校验失败说得像普通错误:「${s}」`);
+});
+
+test("u31 🔴 成功那句:软件会自己关掉再打开,且不许说成「更新完成」", () => {
+  // 攻题打穿两处:
+  // ① 我原来只要求出现"关"或"重新打开" ⇒「请关闭浏览器」也能过,而那是在
+  //    叫业主自己动手,他一关浏览器就什么都看不到了;
+  // ② 🔴 **started 不等于更新完成** —— 端点只证明接力脚本起来了、外壳认了收摊,
+  //    后面的改名和拉起仍可能失败。说"更新完成"是把没发生的事说成发生了。
   const s = U.applyLabel({ state: "done", result: { ok: true, stage: "started", latest: "0.98.5" } });
-  assert.match(s, /关|重(新)?(打开|启动)/, `「${s}」没说软件会自己关掉再打开`);
+  assert.match(s, /(OpenDesign|软件|程序).{0,6}(会|将|自动)/, `没说是软件自己会动:「${s}」`);
+  assert.match(s, /关/, `没说会关掉:「${s}」`);
+  assert.match(s, /重(新)?(打开|启动)|自动打开/, `没说会重新打开:「${s}」`);
+  assert.doesNotMatch(s, /更新完成|安装完成|已更新|已安装/,
+    `started 只是「开始切换」,不是装好了:「${s}」`);
+  assert.doesNotMatch(s, /请.{0,4}关闭/, `在叫业主自己关:「${s}」`);
 });
 
 test("u32 没见过的 stage 也要有兜底话术", () => {
@@ -289,13 +327,66 @@ test("u32 没见过的 stage 也要有兜底话术", () => {
     const s = U.applyHint({ ok: false, stage, error: null });
     assert.ok(s && s.length > 0, `stage=${String(stage)} 什么都没说`);
     assert.doesNotMatch(s, /undefined|\[object/, `stage=${String(stage)}:「${s}」`);
+    assert.match(s, /手动|自己下载|发布页/, `stage=${String(stage)} 没留出口:「${s}」`);
   }
 });
 
-test("u33 自动更新失败不许变成死路:必须留着手动那条出口", () => {
-  for (const stage of FAIL_STAGES.filter((s) => s !== "no_update")) {
+test("u33 自动更新失败不许变成死路:出口必须是正向的、可执行的", () => {
+  // 攻题打穿了第一版:我只要求出现"手动/发布页",于是
+  //   "请勿手动处理,稍后再试"、"发布页也解决不了,请联系开发者"
+  // 两句都能过 —— 一句在**禁止**他动手,一句直接告诉他没救。
+  for (const stage of FAIL_STAGES.filter((x) => x !== "no_update")) {
     const s = U.applyHint({ ok: false, stage, error: "x" });
-    assert.match(s, /手动|自己下载|发布页/,
-      `stage=${stage} 失败了却没给他任何别的路:「${s}」`);
+    assert.match(s, /(可以|请)(到|去|前往).{0,8}(发布页|下载)|手动(下载|安装)/,
+      `stage=${stage} 没给一条他真能走的路:「${s}」`);
+    assert.doesNotMatch(s, /请勿|不要|别去|也(解决不了|没用)|联系开发者/,
+      `stage=${stage} 把唯一的出口堵死了:「${s}」`);
   }
+});
+
+test("u34 🔴 「会自动关掉」这句必须在**点下去那一刻**就说,不能等成功响应", () => {
+  // 攻题第 11 条,最阴的一条:后端是**先起接力脚本、再请外壳收摊,然后才返回成功 JSON**。
+  // 也就是说,那个 200 到达浏览器时,窗口可能已经在关了 ——
+  // 把"软件会自己关掉"押在成功响应后的那一帧,业主很可能一眼都看不到,
+  // 只看到窗口凭空消失。u31 只证明那句话写对了,证明不了它**上过屏**。
+  const s = U.applyLabel({ state: "applying", result: null });
+  assert.match(s, /正在|更新中/, `「${s}」看不出正在做事`);
+  assert.match(s, /关/, `点下去那一刻没预告软件会关掉:「${s}」`);
+  assert.doesNotMatch(s, /请.{0,4}关闭/, `在叫业主自己关:「${s}」`);
+});
+
+test("u35 canApply 对矛盾/残缺的数据要严,不许给一个注定失败的按钮", () => {
+  // 攻题第 13 条:`!!(info.update_available && info.asset)` 正好通过 u27/u27b,
+  // 但业主会拿到一个点了必然失败的按钮,然后以为是自己机器的问题。
+  assert.equal(U.canApply({ ...WITH_ASSET, error: "查更新失败" }), false,
+    "查更新本身就失败了,却给了更新按钮");
+  assert.equal(U.canApply({ ...WITH_ASSET, asset: { name: "", url: "", size: 0, digest: null } }),
+    false, "安装包信息是空的,却给了更新按钮");
+  assert.equal(U.canApply({ ...WITH_ASSET, asset: { ...WITH_ASSET.asset, url: "" } }), false,
+    "没有下载地址,却给了更新按钮");
+  assert.equal(U.canApply({ ...WITH_ASSET, latest: null }), false,
+    "不知道要更新到哪一版,却给了更新按钮");
+});
+
+test("u36 🔴 HTTP 200 + ok:false 不许被读成成功;坏 JSON/断网一律算失败", () => {
+  // 攻题第 2、3 条。端点**任何业务失败都以 200 回**(那是 t9b 立的规矩,为了不让
+  // 前端的通用错误路径弹东西给业主)⇒ 前端只看 HTTP 状态码就会把失败读成成功。
+  assert.equal(U.readApplyResponse(200, { ok: false, stage: "verify", error: "x" }).ok, false,
+    "200 + ok:false 被读成了成功");
+  assert.equal(U.readApplyResponse(200, null).ok, false, "空响应被读成了成功");
+  assert.equal(U.readApplyResponse(200, "不是 JSON").ok, false, "坏响应被读成了成功");
+  assert.equal(U.readApplyResponse(200, { stage: "started" }).ok, false,
+    "缺 ok 字段被读成了成功");
+  assert.equal(U.readApplyResponse(500, { ok: true }).ok, false, "500 被读成了成功");
+  assert.equal(U.readApplyResponse(0, null).ok, false, "断网被读成了成功");
+  assert.equal(U.readApplyResponse(200, { ok: true, stage: "started" }).ok, true,
+    "真的成功却被读成失败");
+});
+
+test("u37 点第二下不许再发一次请求", () => {
+  // 攻题第 9 条:下载慢的时候业主会连点。两个更新流程并行 = 两份下载、两个接力脚本、
+  // 两套改名互相打架。**真按钮的接线由闸③亲读 diff + Windows CI 的 e2e 把关**,
+  // 这里钉的是它依赖的那个纯判断。
+  assert.equal(U.beginApply("idle"), true, "第一下都不让点");
+  assert.equal(U.beginApply("applying"), false, "正在更新时又发了一次请求");
 });
