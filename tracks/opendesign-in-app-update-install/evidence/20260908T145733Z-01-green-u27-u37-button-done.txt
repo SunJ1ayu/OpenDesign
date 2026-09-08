@@ -1,0 +1,260 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    green-u27-u37-button-done
+cmd:     node --test tests/test_update_ui.mjs
+cwd:     .(仓根)
+commit:  d81ac14
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-08T14:57:33Z
+---------------- 输出开始 ----------------
+TAP version 13
+# Subtest: u1 有新版时,那句话里必须带着版本号
+ok 1 - u1 有新版时,那句话里必须带着版本号
+  ---
+  duration_ms: 1.395698
+  type: 'test'
+  ...
+# Subtest: u2 已是最新就说已是最新,不许说成有新版
+ok 2 - u2 已是最新就说已是最新,不许说成有新版
+  ---
+  duration_ms: 1.107096
+  type: 'test'
+  ...
+# Subtest: u3 🔴 查不动的时候不许说「已是最新」
+ok 3 - u3 🔴 查不动的时候不许说「已是最新」
+  ---
+  duration_ms: 0.261063
+  type: 'test'
+  ...
+# Subtest: u4 点下去要有反应(这个按钮原来的病就是没反应)
+ok 4 - u4 点下去要有反应(这个按钮原来的病就是没反应)
+  ---
+  duration_ms: 0.153045
+  type: 'test'
+  ...
+# Subtest: u5 还没查过时显示的是版本号,不是空白
+ok 5 - u5 还没查过时显示的是版本号,不是空白
+  ---
+  duration_ms: 0.122417
+  type: 'test'
+  ...
+# Subtest: u9 默认自动检查(业主没表过态时,帮他查)
+ok 6 - u9 默认自动检查(业主没表过态时,帮他查)
+  ---
+  duration_ms: 0.146777
+  type: 'test'
+  ...
+# Subtest: u10 🔴 显式关掉之后就不许再自动往外发请求
+ok 7 - u10 🔴 显式关掉之后就不许再自动往外发请求
+  ---
+  duration_ms: 0.106998
+  type: 'test'
+  ...
+# Subtest: u11 更新说明取第一句有意义的话,去掉 markdown 记号
+ok 8 - u11 更新说明取第一句有意义的话,去掉 markdown 记号
+  ---
+  duration_ms: 0.534099
+  type: 'test'
+  ...
+# Subtest: u12 更新说明太长要截断,空的要给空串
+ok 9 - u12 更新说明太长要截断,空的要给空串
+  ---
+  duration_ms: 0.4063
+  type: 'test'
+  ...
+# Subtest: u6 只放行本仓 releases 下的 https 地址
+ok 10 - u6 只放行本仓 releases 下的 https 地址
+  ---
+  duration_ms: 0.388552
+  type: 'test'
+  ...
+# Subtest: u7 别人给的地址一律不放行(界面上那个链接是要业主去点的)
+ok 11 - u7 别人给的地址一律不放行(界面上那个链接是要业主去点的)
+  ---
+  duration_ms: 0.192025
+  type: 'test'
+  ...
+# Subtest: u13 🔴 有新版时,设置那一行必须挂个记号(不然业主根本看不到)
+ok 12 - u13 🔴 有新版时,设置那一行必须挂个记号(不然业主根本看不到)
+  ---
+  duration_ms: 0.116587
+  type: 'test'
+  ...
+# Subtest: u14 done + 空结果要说查不到,不许伪装成没查过
+ok 13 - u14 done + 空结果要说查不到,不许伪装成没查过
+  ---
+  duration_ms: 0.095947
+  type: 'test'
+  ...
+# Subtest: u15 地址被闸掉时也得给业主一条路(F-C:仓库改名会让下载行静默消失)
+ok 14 - u15 地址被闸掉时也得给业主一条路(F-C:仓库改名会让下载行静默消失)
+  ---
+  duration_ms: 0.132327
+  type: 'test'
+  ...
+# Subtest: u16 有新版但没版本号时,不许说成「已是最新」(F-D)
+ok 15 - u16 有新版但没版本号时,不许说成「已是最新」(F-D)
+  ---
+  duration_ms: 0.094849
+  type: 'test'
+  ...
+# Subtest: u17 正文以「这一版」开头时不许被当成标题跳掉(submimo 补充 1)
+ok 16 - u17 正文以「这一版」开头时不许被当成标题跳掉(submimo 补充 1)
+  ---
+  duration_ms: 0.095808
+  type: 'test'
+  ...
+# Subtest: u18 issue 编号那种 `\#123` 不许被当成标题记号剥掉
+ok 17 - u18 issue 编号那种 `\#123` 不许被当成标题记号剥掉
+  ---
+  duration_ms: 0.090308
+  type: 'test'
+  ...
+# Subtest: u19 🔴 没版本号时,蓝点的说明不许把 null 印给业主
+ok 18 - u19 🔴 没版本号时,蓝点的说明不许把 null 印给业主
+  ---
+  duration_ms: 0.124927
+  type: 'test'
+  ...
+# Subtest: u20 有版本号时,蓝点的说明要带上它(别把上一条修成恒定串)
+ok 19 - u20 有版本号时,蓝点的说明要带上它(别把上一条修成恒定串)
+  ---
+  duration_ms: 0.107417
+  type: 'test'
+  ...
+# Subtest: u21 setext 标题(下一行 ===)不许被当成正文印给业主
+ok 20 - u21 setext 标题(下一行 ===)不许被当成正文印给业主
+  ---
+  duration_ms: 0.170196
+  type: 'test'
+  ...
+# Subtest: u22 正文以分隔线开头时,不许把那串横杠印出来
+ok 21 - u22 正文以分隔线开头时,不许把那串横杠印出来
+  ---
+  duration_ms: 0.218125
+  type: 'test'
+  ...
+# Subtest: u23 🔴 setext 下划线只有 1~2 个字符时,不许把它自己当正文印出来
+ok 22 - u23 🔴 setext 下划线只有 1~2 个字符时,不许把它自己当正文印出来
+  ---
+  duration_ms: 0.157226
+  type: 'test'
+  ...
+# Subtest: u24 🔴 多行 setext 标题不许只跳最后一行
+ok 23 - u24 🔴 多行 setext 标题不许只跳最后一行
+  ---
+  duration_ms: 0.090158
+  type: 'test'
+  ...
+# Subtest: u25 🔴 列表项紧贴 --- 时,第一条要点不许被当成标题吃掉
+ok 24 - u25 🔴 列表项紧贴 --- 时,第一条要点不许被当成标题吃掉
+  ---
+  duration_ms: 0.076058
+  type: 'test'
+  ...
+# Subtest: u26 🔴 文首那行是两字符的 == / -- 时,不许把它印给业主
+ok 25 - u26 🔴 文首那行是两字符的 == / -- 时,不许把它印给业主
+  ---
+  duration_ms: 0.126187
+  type: 'test'
+  ...
+# Subtest: u27 没有新版就不出现「更新」按钮
+ok 26 - u27 没有新版就不出现「更新」按钮
+  ---
+  duration_ms: 0.112757
+  type: 'test'
+  ...
+# Subtest: u27b 有新版但没有安装包时也不给按钮
+ok 27 - u27b 有新版但没有安装包时也不给按钮
+  ---
+  duration_ms: 0.081089
+  type: 'test'
+  ...
+# Subtest: u28 正在更新时那句话要说正在更新
+ok 28 - u28 正在更新时那句话要说正在更新
+  ---
+  duration_ms: 0.159056
+  type: 'test'
+  ...
+# Subtest: u29 🔴 失败必须有正向的失败语义,不许用成功同义词把他骗走
+ok 29 - u29 🔴 失败必须有正向的失败语义,不许用成功同义词把他骗走
+  ---
+  duration_ms: 0.291053
+  type: 'test'
+  ...
+# Subtest: u30 每个 stage 都要有业主看得懂、而且各不相同的话
+ok 30 - u30 每个 stage 都要有业主看得懂、而且各不相同的话
+  ---
+  duration_ms: 0.41453
+  type: 'test'
+  ...
+# Subtest: u30b 校验没过那一条必须说清是「为了安全没装」
+ok 31 - u30b 校验没过那一条必须说清是「为了安全没装」
+  ---
+  duration_ms: 0.119817
+  type: 'test'
+  ...
+# Subtest: u31 🔴 成功那句:软件会自己关掉再打开,且不许说成「更新完成」
+ok 32 - u31 🔴 成功那句:软件会自己关掉再打开,且不许说成「更新完成」
+  ---
+  duration_ms: 0.263984
+  type: 'test'
+  ...
+# Subtest: u32 没见过的 stage 也要有兜底话术
+ok 33 - u32 没见过的 stage 也要有兜底话术
+  ---
+  duration_ms: 0.197436
+  type: 'test'
+  ...
+# Subtest: u33 自动更新失败不许变成死路:出口必须是正向的、可执行的
+ok 34 - u33 自动更新失败不许变成死路:出口必须是正向的、可执行的
+  ---
+  duration_ms: 0.268573
+  type: 'test'
+  ...
+# Subtest: u34 🔴 「会自动关掉」这句必须在**点下去那一刻**就说,不能等成功响应
+ok 35 - u34 🔴 「会自动关掉」这句必须在**点下去那一刻**就说,不能等成功响应
+  ---
+  duration_ms: 0.188446
+  type: 'test'
+  ...
+# Subtest: u35 canApply 对矛盾/残缺的数据要严,不许给一个注定失败的按钮
+ok 36 - u35 canApply 对矛盾/残缺的数据要严,不许给一个注定失败的按钮
+  ---
+  duration_ms: 0.125917
+  type: 'test'
+  ...
+# Subtest: u35b 🔴 canApply 永远不许抛 —— 它跑在渲染里,抛一次就是白屏
+ok 37 - u35b 🔴 canApply 永远不许抛 —— 它跑在渲染里,抛一次就是白屏
+  ---
+  duration_ms: 0.86158
+  type: 'test'
+  ...
+# Subtest: u35c 整个 info 是坏数据时也不许抛
+ok 38 - u35c 整个 info 是坏数据时也不许抛
+  ---
+  duration_ms: 0.147757
+  type: 'test'
+  ...
+# Subtest: u36 🔴 HTTP 200 + ok:false 不许被读成成功;坏 JSON/断网一律算失败
+ok 39 - u36 🔴 HTTP 200 + ok:false 不许被读成成功;坏 JSON/断网一律算失败
+  ---
+  duration_ms: 0.166187
+  type: 'test'
+  ...
+# Subtest: u37 点第二下不许再发一次请求
+ok 40 - u37 点第二下不许再发一次请求
+  ---
+  duration_ms: 0.077089
+  type: 'test'
+  ...
+1..40
+# tests 40
+# suites 0
+# pass 40
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 198.258348
+---------------- 输出结束 ----------------
+runlog: green-u27-u37-button-done rc=0 commit=d81ac14 dirty=yes at=2026-09-08T14:57:33Z file=tracks/opendesign-in-app-update-install/evidence/20260908T145733Z-01-green-u27-u37-button-done.txt

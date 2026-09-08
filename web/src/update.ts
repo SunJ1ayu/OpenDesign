@@ -185,16 +185,32 @@ export function updateLabel(
   return `已是最新 v${info.current}`;
 }
 
-/** 是否给「更新」按钮:只有查更新成功、有版本号、有完整安装包时才放行。 */
+/** 是否给「更新」按钮:只有查更新成功、有版本号、有完整安装包时才放行。
+ *
+ * 🔴 **这个函数永远不许抛。** 它在 `Sidebar` 的渲染体里被调用
+ * (`const showApply = canApply(updateInfo)`)—— 抛一次 React 就卸掉整棵树,
+ * 业主看到的是**整页白**,而不是"没有更新按钮"。本项目 0.94、0.98 两次白屏
+ * 都是同一个形状。判据 u35b/u35c 钉着这件事。
+ *
+ * 输入是**网络数据**,不是我们自己造的对象:后端 `ds_update.decide()` 那几个字段
+ * 取自 `asset.get(...)`,取不到就是 `None` ⇒ 过 JSON 就是 `null`。
+ * TypeScript 的类型只在编译期成立,**挡不住运行时进来的 null**。
+ */
+function nonEmptyText(v: unknown): boolean {
+  return typeof v === "string" && v.trim().length > 0;
+}
+
 export function canApply(info: UpdateInfo | null): boolean {
-  if (!info || info.error || info.update_available !== true || !info.latest) return false;
-  const asset = info.asset;
-  return !!(
-    asset &&
-    asset.name.trim() &&
-    asset.url.trim() &&
+  if (!info || typeof info !== "object") return false;
+  if (info.error || info.update_available !== true || !nonEmptyText(info.latest)) return false;
+  const asset = info.asset as Record<string, unknown> | null | undefined;
+  if (!asset || typeof asset !== "object") return false;
+  return (
+    nonEmptyText(asset.name) &&
+    nonEmptyText(asset.url) &&
+    typeof asset.size === "number" &&
     asset.size > 0 &&
-    asset.digest?.trim()
+    nonEmptyText(asset.digest)
   );
 }
 
