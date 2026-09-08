@@ -1,0 +1,12 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    green-t21-m-w-endpoint-still-red
+cmd:     python3 -m pytest tests/test_ds_update_apply.py tests/test_ds_shell_wiring.py tests/test_ds_shell_core.py::SingleInstance -q
+cwd:     .(仓根)
+commit:  5c5398a
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-08T13:26:21Z
+---------------- 输出开始 ----------------
+.................................................................  [100%]
+65 passed, 6 subtests passed in 12.31s
+---------------- 输出结束 ----------------
+runlog: green-t21-m-w-endpoint-still-red rc=0 commit=5c5398a dirty=yes at=2026-09-08T13:26:21Z file=tracks/opendesign-in-app-update-install/evidence/20260908T132621Z-01-green-t21-m-w-endpoint-still-red.txt

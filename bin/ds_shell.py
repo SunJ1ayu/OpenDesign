@@ -1301,10 +1301,26 @@ def main() -> int:
     #    这把锁同时是 ds-web 回来找我们的**唯一通道**(填完 key 请求重启网关)——
     #    所以它必须在起后台之前就位:锁端口要随 env 交给 ds-web。
     restart_holder: list = []
+
+    def update_handoff():
+        """ds-web:新版已经装在 `OpenDesign.new`、接力脚本也起来了 ⇒ **该收摊了**。
+
+        🔴 走 `state.on_quit()`,**不是只 `stop_backend()`**:那个只收后台两条腿,
+        而外壳自己这个 python 还活着、还攥着 `$INSTDIR` 里的 `.pyd`/`.exe` ——
+        接力脚本那两次改名会直接失败。`on_quit()` 是 `on_stop()` 加上 `ui.destroy()`,
+        而且自带幂等(`exiting` 标志)。判据 w9 钉着这一条。
+
+        (track opendesign-in-app-update-install;真的通不通只有 Windows 真机答得了。)
+        """
+        log("[更新] 收到交棒请求:开始收摊,把位置让给接力脚本")
+        if shell_holder:
+            shell_holder[0].state.on_quit()
+
     lock = core.InstanceLock(
         base_port=LOCK_PORT, span=5,
         on_show=lambda: shell_holder and shell_holder[0].state.on_show(),
-        on_restart=lambda: restart_holder and restart_holder[0]())
+        on_restart=lambda: restart_holder and restart_holder[0](),
+        on_update=update_handoff)
     try:
         if not lock.acquire():
             log("已有一份在跑,把它叫到前台,自己退出")

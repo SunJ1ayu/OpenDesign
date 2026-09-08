@@ -105,6 +105,10 @@ class ShellWiring(unittest.TestCase):
         self.assertIsNotNone(fn, "看门狗没了 —— 腿死了没人说话")
         names = {_name_of(c) for c in _calls(fn)}
         self.assertIn("take_dead", names, "看门狗没用单次快照")
+        for two_step in ("poll_dead", "dead_reports"):
+            self.assertNotIn(two_step, names,
+                             f"看门狗还在调 {two_step}() ⇒ 又变成分两眼看,"
+                             "两眼之间名册一变就是「名字有、原因空」")
 
     # ---- 更新交棒(track opendesign-in-app-update-install)--------------------
 
@@ -123,8 +127,16 @@ class ShellWiring(unittest.TestCase):
         """接上了还不够 —— 得接到**真的会收摊**的那个东西上。
 
         h3 那条教训:静态闸看得见调用、看不见空转。所以这里再问一步:
-        `on_update=` 指过去的那个名字,它的函数体里必须真的去收摊
-        (`stop_backend` / `sup.shutdown`),不能是一个只写了日志的空壳。
+        `on_update=` 指过去的那个名字,它的函数体里必须真的走**退出**那条路。
+
+        🔴 **这条断言第一版写窄了,而窄的那版会逼出一个错的实现**(2026-09-08,
+        读 `ds_shell.py` 时发现):我原来要的是 `stop_backend` / `shutdown`。
+        可 `stop_backend` 只收后台两条腿 —— **外壳自己那个 python 还活着,
+        还攥着 `$INSTDIR` 里的文件,改名必然失败。**
+        真正的退出是 `ShellState.on_quit()`:它是 `on_stop()` **加上** `ui.destroy()`,
+        而且自带幂等(`exiting` 标志,行为判据在 test_ds_shell_core 里钉着)。
+        ⇒ 断言搬到问得出、而且问得对的地方:**必须是 on_quit,不是只停后台。**
+        这是加强,不是放宽 —— 原来的写法会让一个关不掉自己的实现拿到绿灯。
         """
         target = None
         for call in self.find("InstanceLock"):
@@ -138,13 +150,9 @@ class ShellWiring(unittest.TestCase):
                    if isinstance(n, ast.FunctionDef) and n.name == name), None)
         self.assertIsNotNone(fn, "on_update 指向 %s,但 ds_shell.py 里没有这个函数" % name)
         called = {_name_of(c) for c in _calls(fn)}
-        self.assertTrue({"stop_backend", "shutdown"} & called,
-                        "%s() 里没有任何收摊动作 —— 交棒之后软件不会关,"
-                        "接力脚本会一直等到超时" % name)
-        for two_step in ("poll_dead", "dead_reports"):
-            self.assertNotIn(two_step, names,
-                             f"看门狗还在调 {two_step}() ⇒ 又变成分两眼看,"
-                             "两眼之间名册一变就是「名字有、原因空」")
+        self.assertIn("on_quit", called,
+                      "%s() 没走真正的退出路径(state.on_quit)——"
+                      "交棒之后软件不会关,接力脚本会一直等到超时" % name)
 
 
 if __name__ == "__main__":

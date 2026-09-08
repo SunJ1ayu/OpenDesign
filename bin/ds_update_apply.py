@@ -316,3 +316,55 @@ def _cleanup(setup_path, new_dir):
         pass
     if new_dir and os.path.exists(new_dir):
         shutil.rmtree(new_dir, ignore_errors=True)
+
+
+# --- 交棒:把接力脚本脱离启动 -----------------------------------------------
+
+def _default_launcher(argv, **kwargs):
+    """起了就走。**这里不许出现任何等待** —— 接力脚本正在等我们死。
+
+    我们要是等它结束,就是互相等死:软件永远关不掉、更新永远不发生,
+    而界面上写着"正在更新"。判据 t21e 机械地钉着这件事(禁 call/run/wait/communicate)。
+    """
+    import subprocess
+    return subprocess.Popen(argv, **kwargs)
+
+
+def relay_argv(relay_path):
+    """怎么把那个 `.cmd` 起起来。抽出来是为了让 t21 问得到。"""
+    return ["cmd.exe", "/c", relay_path]
+
+
+def handoff(relay_path, launcher=None):
+    """把接力脚本脱离启动。**起不来一律返回 False,上层绝不许往下走。**
+
+    🔴 这是整条路上最不能出错的一步:它之后 `ds_web` 就要请外壳把整套软件关掉。
+    **脚本没起来却把软件关了 = 业主看到"软件关了,没再打开",而且没有任何东西
+    会去回滚。** 所以这里对"起来了"的判断宁可保守:任何异常都算没起来。
+    """
+    launcher = launcher or _default_launcher
+    if not relay_path or not os.path.isfile(relay_path):
+        return False
+
+    from ds_shell_core import spawn_kwargs  # 平台标志的唯一来源(同 _default_install)
+
+    try:
+        launcher(relay_argv(relay_path), **spawn_kwargs())
+    except Exception:  # noqa: BLE001 —— 起不来是"没交棒",不是"甩栈给业主"
+        return False
+    return True
+
+
+def update_paths(install_root, data_root, temp_dir, port=None, nonce=None):
+    """段① 要用到的那几个路径。`.new` / `.old` 都是 `$INSTDIR` 的**同级**。
+
+    不放数据根(会踩死线 t13)、不放 `$INSTDIR` 里(会被安装器一起覆盖)。
+    """
+    live = os.path.normpath(str(install_root))
+    paths = {"live": live, "new": live + ".new", "old": live + ".old",
+             "data_root": str(data_root), "temp": str(temp_dir)}
+    if port is not None:
+        paths["port"] = port
+    if nonce is not None:
+        paths["nonce"] = nonce
+    return paths
