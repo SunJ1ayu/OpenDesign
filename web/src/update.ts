@@ -92,17 +92,55 @@ export function autoCheckEnabled(prefs: Record<string, boolean>): boolean {
 //    和 submimo 补充 1 治的是同一种病,只是形态不同。
 const SETEXT_UNDERLINE = /^\s*(?:=+|-+)\s*$/;
 const HORIZONTAL_RULE = /^\s*([-*_=])\s*(?:\1\s*){2,}$/;
+// 列表项的记号。setext 的标题必须是**段落**,而列表不是段落 ——
+// GitHub 把 `- 要点` 后面紧跟的 `---` 渲染成"列表项 + 分隔线",不是标题(判据 u25)。
+const LIST_ITEM = /^\s*(?:[-*+]\s|\d+[.)]\s)/;
+
+/** 哪些行属于 setext 标题(**标题那几行 + 下划线那一行**,全都要跳)。
+ *
+ * 🔴 第二刀开工时补的三条(第四轮 panel 的 LOW,第一刀判"接受不改"):
+ * 原来的写法是**每行各自问一句"我的下一行是不是下划线"**,于是同一个根子长出三种病:
+ *   u23 管不到下划线**自己** —— `HORIZONTAL_RULE` 要求"首字符 + 至少 2 个同样的",
+ *       `==` / `--` 这种两字符的下划线漏网,标题跳掉之后它自己成了"第一句有意义的话";
+ *   u24 管不到标题有**好几行** —— setext 的标题是下划线上面**那一整段**,只跳最后一行,
+ *       前半截照印给业主;
+ *   u25 **误伤列表** —— `- 要点` 的下一行恰好是 `---` 时,业主最想看的那条要点被吞掉。
+ *
+ * 所以改成按**段落**看:先找下划线,再往回收它上面那一整段连续非空行。
+ * 这样三条同时消失 —— 因为它们本来就是一个 bug 的三种形态。
+ */
+function setextRows(rows: string[]): Set<number> {
+  const skip = new Set<number>();
+  for (let i = 0; i < rows.length; i++) {
+    if (!SETEXT_UNDERLINE.test(rows[i])) continue;
+    // 往回收:下划线上面那段连续非空行。
+    let start = i;
+    while (start > 0 && rows[start - 1].trim() !== "") start--;
+    // ⚠️ 这里曾经有一句 `if (start === i) continue;`(上面没段落就当分隔线放过)。
+    //    **删掉了,而且是变异测试逼出来的**:m4 把它去掉,24 条判据一条都没红 ⇒
+    //    我给它写的理由("正文以 `---` 开头那一路走的就是这里")是**假的** ——
+    //    `---` 本来就被 HORIZONTAL_RULE 接住,跟这句没关系。
+    //    真去量了一遍才发现它不只是多余,是**有害**:开头是两字符的 `==` / `--` 时,
+    //    它让那一行漏到正文里印给业主(u23 那个 bug 换了个位置而已)。判据 u26 钉住。
+    //    留这段话是因为下一个人很可能想把这个"看起来该有的"豁免加回来。
+    // 段落的第一行是列表项 ⇒ 它是列表不是段落,那根 `---` 是分隔线(判据 u25)。
+    if (LIST_ITEM.test(rows[start])) continue;
+    for (let r = start; r <= i; r++) skip.add(r);
+  }
+  return skip;
+}
 
 export function notesSummary(notes: string | null | undefined, max = 80): string {
   if (!notes) return "";
   const rows = notes.split(/\r?\n/);
+  const setext = setextRows(rows);
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i];
     // 🔴 跳过的依据是"**它本来就是个 markdown 标题**",不是"它以某几个词开头"。
     //    原来按开头几个词判,会把「这一版修了一个导致白屏的 bug」这种**正文**也跳掉
     //    (submimo 第二轮补充 1)。标题没信息量,正文有 —— 分界线在记号上,不在词上。
     const isAtx = /^\s*#+\s/.test(raw);
-    const isSetext = raw.trim() !== "" && SETEXT_UNDERLINE.test(rows[i + 1] ?? "");
+    const isSetext = setext.has(i);
     const isRule = HORIZONTAL_RULE.test(raw);
     // 标题整行跳过,所以这里**不再剥 `#`** —— 剥它反而有害:
     // 一行 `#123 修复了…`(issue 编号,不是标题)会被剥成 `123 修复了…`。
