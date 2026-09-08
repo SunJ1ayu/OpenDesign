@@ -31,6 +31,7 @@ import hashlib
 import os
 import re
 import shutil
+import tempfile
 import urllib.request
 
 # 哨兵与版本号文件 —— 与 installer/OpenDesign.nsi 的 SENTINEL 是同一处约定。
@@ -353,6 +354,27 @@ def handoff(relay_path, launcher=None):
     except Exception:  # noqa: BLE001 —— 起不来是"没交棒",不是"甩栈给业主"
         return False
     return True
+
+
+def paths_for_update(ds_root, data_root=None, temp_dir=None, port=None, nonce=None):
+    """从 ds-web 手上已有的 `ds_root` 推出段① 要的那几个路径(判据 t23)。
+
+    - **安装根 = `ds_root` 的上一级**:`<安装根>\\ds` 是安装器写死的布局,
+      `OpenDesign.nsi` 的哨兵 `ds\\bin\\ds_shell.py` 也是按它算的。
+    - `.new` / `.old` 是安装根的**同级**。三个"不许"由 t23 机械钉着:
+      不许放进安装根(安装器会一起覆盖掉)、不许放进数据根(整整一棵树写进去,
+      死线 t13 当场破)、不许和活树同名。
+    - `data_root` 指的是**装着 `Data\\` 和 `UserData\\` 的那一层**(不是它们自己)。
+      段① 只往它底下的 `Logs\\` 写一行更新日志。
+    """
+    live = os.path.normpath(os.path.dirname(os.path.normpath(str(ds_root))))
+    if data_root is None:
+        # 与 ds_shell 的 _app_dir()、OpenDesign.nsi 的 DATA_ROOT 是同一处约定。
+        data_root = os.path.join(
+            os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "OpenDesign")
+    if temp_dir is None:
+        temp_dir = tempfile.gettempdir()
+    return update_paths(live, data_root, temp_dir, port=port, nonce=nonce)
 
 
 def update_paths(install_root, data_root, temp_dir, port=None, nonce=None):

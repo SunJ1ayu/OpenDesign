@@ -224,6 +224,12 @@ class UpdateApplyEndpoint(unittest.TestCase):
         self._real_apply = ds_update_apply.apply_update
         self._real_handoff = ds_update_apply.handoff
         self._real_bridge = getattr(ds_web, "ds_shell_bridge_update", None)
+        # 🔴 夹具录于 2026-09-07,里面最新的是 0.98.3,而本机 VERSION 已经是 0.98.4
+        #    ⇒ 照原样跑,"线上有新版"这个前提**结构上不成立**,底下几条断言永远
+        #    走不到它们要问的地方(第一版就是这么写的,实现落地后当场照出来)。
+        #    把本机版本调旧,让这份真实录下来的响应真的比它新。
+        self._real_version = ds_web.VERSION
+        ds_web.VERSION = "0.90.0"
         self.order = []          # 谁先谁后 —— t22c 就靠它
         self.applied = []
 
@@ -231,6 +237,7 @@ class UpdateApplyEndpoint(unittest.TestCase):
         ds_update.fetch_releases = self._real_fetch
         ds_update_apply.apply_update = self._real_apply
         ds_update_apply.handoff = self._real_handoff
+        ds_web.VERSION = self._real_version
         if self._real_bridge is not None:
             ds_web.ds_shell_bridge_update = self._real_bridge
         ds_update.cache_clear()

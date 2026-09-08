@@ -82,6 +82,7 @@ import ds_openfolder
 import ds_organize  # 针孔④ approve+apply 直调核心(锁/复验/审计全在核心)
 import ds_refs
 import ds_shell_core     # 只取锁通道的协议常量与读行:帧格式两处各抄一份迟早对不上
+import ds_update_apply   # 应用内更新第二刀:真去装(段①)
 import ds_taxonomy
 import ds_update    # 查更新(track opendesign-in-app-update):只查不装
 import ds_todo
@@ -339,6 +340,41 @@ def ds_shell_bridge_restart() -> str:
     return _restart_verdict(reply)
 
 
+def _update_verdict(reply: bytes) -> str:
+    """外壳的应答算不算"它认了交棒"。**只有点名了动词的才算数**(判据 m2/t22e)。
+
+    裸 `OK` 是老外壳:它收下了帧,但做的是"把窗口叫到前台"。把那种情况报成成功,
+    界面会说「更新已经开始」而软件根本不会关 —— 业主会关掉浏览器等着,
+    等到的是什么都没发生。纪律与 `_restart_verdict` 一字不差。
+    """
+    return "started" if reply == ds_shell_core.LOCK_OK_UPDATE.strip() else "manual"
+
+
+def ds_shell_bridge_update() -> str:
+    """请外壳收摊,把位置让给已经起来的接力脚本(track ...-install)。
+
+    走**外壳单实例锁那条已有的通道** —— 与填完 key 请求重启网关是同一条路,
+    不新开端口、不新造 IPC。
+
+    🔴 与那条一样,**这个函数的全部难点是不许撒谎**:回 "started" 就意味着帧真的
+    送到了外壳、而且它认了这个动词。任何一步不确定 —— 没有外壳、端口上没人、
+    占着那个号的是别的程序、它不吭声、它回的是裸 OK —— 一律 "manual"。
+
+    报错的代价:业主再手动装一次。撒谎的代价:他关掉浏览器等着,而什么都没发生,
+    然后过一会儿接力脚本超时、把 `.new` 删掉 —— 43MB 白下,他还不知道为什么。
+    """
+    raw = (os.environ.get("DS_SHELL_LOCK_PORT") or "").strip()
+    if not raw.isdigit():
+        return "manual"
+    try:
+        with socket.create_connection(("127.0.0.1", int(raw)), timeout=3) as s:
+            s.sendall(ds_shell_core.LOCK_HELLO + ds_shell_core.LOCK_UPDATE)
+            reply = ds_shell_core.recv_line(s, deadline=time.monotonic() + 3)
+    except (OSError, ValueError):
+        return "manual"
+    return _update_verdict(reply)
+
+
 def _gateway_password() -> str | None:
     """网关 websocket 通道的口令(**只往上游发,永不回给浏览器**)。
 
@@ -407,6 +443,8 @@ CREATE_PROJECT_PATH = "/api/projects/create"  # do_POST 写针孔⑥(同上 trac
 INTAKE_SCAN_PATH = "/api/intake/scan"  # do_POST 写针孔⑦(track opendesign-inbox-scan),精确匹配
 INTAKE_AMEND_PATH = "/api/intake/amend"  # do_POST 写针孔⑧(track opendesign-frontend-p1),精确匹配
 UPLOAD_PATH = "/api/upload"  # do_POST 写针孔⑬(track opendesign-image-upload),精确匹配
+# 🔴 装软件是本仓最重的副作用,所以它**只在 do_POST 上**(GET 面只读铁律,判据 t22a)。
+UPDATE_APPLY_PATH = "/api/update/apply"  # do_POST(track opendesign-in-app-update-install)
 INBOX_CREATE_PATH = "/api/inbox/create"  # do_POST 写针孔⑭(track opendesign-chat-image),精确匹配
 BIND_PROJECT_PATH = "/api/projects/bind"  # do_POST 写针孔⑨(同上 track),精确匹配
 FOLDER_VISIBILITY_PATH = "/api/workspace/folder-visibility"  # 阶段二:整份存结构目录声明
@@ -1003,6 +1041,8 @@ class Handler(BaseHTTPRequestHandler):
             self._intake_amend()
         elif path == "/api/llm/credential":
             self._llm_credential_post()
+        elif path == UPDATE_APPLY_PATH:
+            self._update_apply()
         elif path == UPLOAD_PATH:
             self._upload()
         elif path == INBOX_CREATE_PATH:
@@ -1029,6 +1069,50 @@ class Handler(BaseHTTPRequestHandler):
             self._method_not_allowed()
 
     do_PUT = do_DELETE = do_PATCH = _method_not_allowed
+
+    def _update_apply(self):
+        """业主点了「更新」(track opendesign-in-app-update-install,第二刀)。
+
+        顺序就是这个函数的全部要害(判据 t22c):
+
+            查一次 → 准备(下载/校验/装 .new/查新树/写接力脚本)
+            → **起接力脚本、确认它真起来了** → 才请外壳收摊
+
+        🔴 反过来 = 外壳先把我(ds-web)杀了,而接力脚本还没人起
+           ⇒ **业主看到"软件关了,没再打开",而且没有任何东西会去回滚。**
+
+        每一步失败都往"当无事发生"塌,并且**把死在哪一步说出来**:
+        "装错了"和"没装成"在业主那儿长得一样,在日志和界面上必须分得开。
+        """
+        info = ds_update.check_cached(VERSION)
+        if not info.get("update_available"):
+            self._json(200, {"ok": False, "stage": "no_update",
+                             "error": info.get("error") or "已经是最新版"})
+            return
+
+        paths = ds_update_apply.paths_for_update(self.server.ds_root,
+                                                 port=self.server.server_address[1])
+        result = ds_update_apply.apply_update(info, paths)
+        if not result.get("ok"):
+            self._json(200, {"ok": False, "stage": result.get("stage"),
+                             "error": result.get("error")})
+            return
+
+        # 到这里为止活树一个字节没被碰过(t16)。下一步才是不可逆的开始。
+        if not ds_update_apply.handoff(result.get("relay")):
+            self._json(200, {"ok": False, "stage": "handoff",
+                             "error": "接力脚本没能启动,更新取消(软件照常可用)"})
+            return
+
+        verdict = ds_shell_bridge_update()
+        if verdict != "started":
+            # 接力脚本已经在跑,但外壳没认这个动词 ⇒ 它等不到端口空,
+            # 会自己超时、删掉 .new 收工。**这里绝不许报成功。**
+            self._json(200, {"ok": False, "stage": "shell",
+                             "error": "没能让程序自动关闭,更新取消 —— 请手动安装新版"})
+            return
+        self._json(200, {"ok": True, "stage": "started", "error": None,
+                         "latest": info.get("latest")})
 
     def _update_check(self):
         """查更新:线上有没有比本机新的版本(track opendesign-in-app-update,第一刀)。

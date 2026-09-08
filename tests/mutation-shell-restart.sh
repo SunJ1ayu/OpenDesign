@@ -11,7 +11,11 @@ set -u
 cd "$(dirname "$0")/.."
 PY="${PY:-/root/.venvs/design-studio/bin/python}"
 WORK="$(mktemp -d)"
-SRCS=(bin/ds_shell_core.py bin/ds_web.py bin/ds_shell.py)
+# 🔴 **变异打到哪个文件,它就必须在这张表里** —— 这张表同时是备份表、还原表
+#    和收尾的哈希核对表。2026-09-08 我加更新交棒那一组时漏了 ds_update_apply.py:
+#    它会被变异、却永远不还原,变异一路累积留在仓库里,而收尾的哈希核对**看不见它**。
+#    (那一轮还没跑到就被我掐了,但坑是真的。)量具弄脏被测仓,是本仓的老毛病。
+SRCS=(bin/ds_shell_core.py bin/ds_web.py bin/ds_shell.py bin/ds_update_apply.py)
 
 declare -A BEFORE
 for s in "${SRCS[@]}"; do
@@ -57,6 +61,7 @@ WIRE=tests/test_ds_shell_wiring.py
 C=bin/ds_shell_core.py
 W=bin/ds_web.py
 S=bin/ds_shell.py
+A=bin/ds_update_apply.py
 
 echo "== 红检开始(T3 重启链路)=="
 
@@ -169,6 +174,89 @@ mutate_and_expect Q1 test_j2_ds_web_does_not "$CORE" "$C" \
 mutate_and_expect Q2 test_j5_the_shell_really_uses_it "$CORE" "$S" \
   '                + [web_service(envs["ds-web"])])' \
   '                + [web_service(envs["网关"])])'
+
+# ─────────────────────────────────────────────────────────────────────────
+# 更新交棒(track opendesign-in-app-update-install)—— 同样穿三层。
+# 🔴 这一组里最要紧的是 U3:**顺序**。它反过来的后果不是"更新失败",
+#    是业主看到"软件关了,没再打开",而且没有任何东西会去回滚。
+
+WEBUPD=tests/test_ds_web_update.py
+APPLY=tests/test_ds_update_apply.py
+
+# U1 core:没接 on_update 也回一个"我认了" ⇒ 新 ds-web 会据此宣布更新已开始,
+#    而外壳其实只把窗口闪了一下(最坏的那种撒谎)
+mutate_and_expect U1 test_m4_no_update_callback_means_fall_back_to_show_not_crash "$CORE" "$C" \
+  '                is_update = (verb.strip() == self._UPDATE.strip()
+                             and self.on_update is not None)' \
+  '                is_update = verb.strip() == self._UPDATE.strip()'
+
+# U2 core:交棒动词被当成重启 ⇒ 只掐断聊天,软件不会关,接力脚本白等
+mutate_and_expect U2 test_m1_the_update_verb_reaches_the_update_callback_only "$CORE" "$C" \
+  '        if is_update:
+            cb = self.on_update' \
+  '        if False:
+            cb = self.on_update'
+
+# U3 🔴 web:先请外壳关停、再起接力脚本(顺序反过来)
+mutate_and_expect U3 test_t22c_the_relay_is_launched_before_the_shell_is_told_to_quit "$WEBUPD" "$W" \
+  '        if not ds_update_apply.handoff(result.get("relay")):' \
+  '        _early = ds_shell_bridge_update()
+        if not ds_update_apply.handoff(result.get("relay")):'
+
+# U4 web:接力脚本没起来照样请外壳关停 ⇒ 关了没人接手
+mutate_and_expect U4 test_t22d_a_failed_handoff_never_asks_the_shell_to_quit "$WEBUPD" "$W" \
+  '            self._json(200, {"ok": False, "stage": "handoff",
+                             "error": "接力脚本没能启动,更新取消(软件照常可用)"})
+            return' \
+  '            pass'
+
+# U5 web:裸 OK 也当成功(老外壳 ⇒ 界面说"更新已开始"而什么都没发生)
+mutate_and_expect U5 test_t22e_a_shell_that_did_not_name_the_verb_is_not_success "$WEBUPD" "$W" \
+  '    return "started" if reply == ds_shell_core.LOCK_OK_UPDATE.strip() else "manual"' \
+  '    return "started" if reply else "manual"'
+
+# U6 web:没新版也装一遍
+mutate_and_expect U6 test_t22b_no_new_version_means_nothing_is_installed "$WEBUPD" "$W" \
+  '        if not info.get("update_available"):' \
+  '        if False:'
+
+# U7 web:安装口开到 GET 上(装软件是本仓最重的副作用,GET 面必须只读)
+mutate_and_expect U7 test_t22a_get_never_triggers_an_install "$WEBUPD" "$W" \
+  '        elif path == "/api/update/check":
+            self._update_check()' \
+  '        elif path == "/api/update/check":
+            self._update_check()
+        elif path == UPDATE_APPLY_PATH:
+            self._update_apply()'
+
+# U8 apply:交棒时不检查脚本在不在 ⇒ 起一个不存在的东西也报"交棒成功"
+mutate_and_expect U8 test_t21a_missing_script_is_never_reported_as_handed_off "$APPLY" "$A" \
+  '    if not relay_path or not os.path.isfile(relay_path):
+        return False' \
+  '    if False:
+        return False'
+
+# U9 apply:起失败了也算交棒(下一步就把软件关了)
+mutate_and_expect U9 test_t21d_a_launcher_that_blows_up_is_not_a_handoff "$APPLY" "$A" \
+  '    except Exception:  # noqa: BLE001 —— 起不来是"没交棒",不是"甩栈给业主"
+        return False' \
+  '    except Exception:  # noqa: BLE001
+        pass'
+
+# U10 apply:.new 放进安装根里面 ⇒ 安装器把它一起覆盖掉
+mutate_and_expect U10 test_t23b_new_and_old_are_siblings_of_the_live_tree "$APPLY" "$A" \
+  '    paths = {"live": live, "new": live + ".new", "old": live + ".old",' \
+  '    paths = {"live": live, "new": os.path.join(live, "new"), "old": live + ".old",'
+
+# U11 shell:交棒只停后台、不退出 ⇒ 外壳自己还攥着 $INSTDIR 里的文件,改名必然失败
+mutate_and_expect U11 test_w9_the_update_callback_actually_tears_the_backend_down "$WIRE" "$S" \
+  '            shell_holder[0].state.on_quit()' \
+  '            shell_holder[0].stop_backend()'
+
+# U12 shell:锁根本没接交棒回调
+mutate_and_expect U12 test_w8_the_lock_carries_an_update_callback "$WIRE" "$S" \
+  '        on_update=update_handoff)' \
+  ')'
 
 bad=0
 for s in "${SRCS[@]}"; do
