@@ -1,0 +1,68 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    green-t12-asset-name-contract
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_ds_update -v
+cwd:     .(仓根)
+commit:  47e2320
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-08T11:30:39Z
+---------------- 输出开始 ----------------
+test_t12a_updater_recognises_what_the_builder_actually_produces (tests.test_ds_update.AssetNameContract.test_t12a_updater_recognises_what_the_builder_actually_produces) ... ok
+test_t12b_that_name_survives_the_whole_pick_path (tests.test_ds_update.AssetNameContract.test_t12b_that_name_survives_the_whole_pick_path)
+不只正则认得 —— 走完整条挑版本的路(`pick_latest` 要求有安装包资产)。 ... ok
+test_t8a_second_call_within_ttl_does_not_refetch (tests.test_ds_update.CacheIt.test_t8a_second_call_within_ttl_does_not_refetch) ... ok
+test_t8b_expired_cache_refetches (tests.test_ds_update.CacheIt.test_t8b_expired_cache_refetches) ... ok
+test_t8c_force_bypasses_cache (tests.test_ds_update.CacheIt.test_t8c_force_bypasses_cache)
+业主亲手点「检查更新」时,必须真去问 —— 那一下是他在表达「我现在就要知道」。 ... ok
+test_t8d_failure_is_never_cached (tests.test_ds_update.CacheIt.test_t8d_failure_is_never_cached)
+一次断网不许把"查不到"钉死 6 小时。 ... ok
+test_t8e_cache_is_keyed_by_current_version (tests.test_ds_update.CacheIt.test_t8e_cache_is_keyed_by_current_version)
+装完新版之后本机版本号变了,旧答案必须作废(否则装完还提示更新)。 ... ok
+test_t3a_same_version_no_offer (tests.test_ds_update.DecideWhetherToOffer.test_t3a_same_version_no_offer) ... ok
+test_t3b_local_newer_no_offer (tests.test_ds_update.DecideWhetherToOffer.test_t3b_local_newer_no_offer)
+开发机上本地永远比线上新 —— 那时提示"更新"是往回装。 ... ok
+test_t3c_local_older_offers_with_what_it_needs (tests.test_ds_update.DecideWhetherToOffer.test_t3c_local_older_offers_with_what_it_needs) ... ok
+test_t3d_unparsable_local_version_never_offers (tests.test_ds_update.DecideWhetherToOffer.test_t3d_unparsable_local_version_never_offers)
+读不出自己是哪一版时,宁可不提示,也不许瞎装。 ... ok
+test_t12_fetch_releases_asks_exactly_the_seam_url (tests.test_ds_update.FetchReallyUsesTheSeam.test_t12_fetch_releases_asks_exactly_the_seam_url) ... ok
+test_t11_releases_url_is_exactly_this (tests.test_ds_update.FetchUrlIsExact.test_t11_releases_url_is_exactly_this) ... ok
+test_t7a_timeout_is_quiet (tests.test_ds_update.NetworkMisbehaves.test_t7a_timeout_is_quiet) ... ok
+test_t7b_garbage_json_is_quiet (tests.test_ds_update.NetworkMisbehaves.test_t7b_garbage_json_is_quiet) ... ok
+test_t7c_empty_list_is_quiet (tests.test_ds_update.NetworkMisbehaves.test_t7c_empty_list_is_quiet) ... ok
+test_t7d_never_raises_whatever_happens (tests.test_ds_update.NetworkMisbehaves.test_t7d_never_raises_whatever_happens)
+把能想到的坏形状都喂一遍:一条都不许抛。 ... ok
+test_t1_picks_the_newest_even_though_all_are_prerelease (tests.test_ds_update.PickLatest.test_t1_picks_the_newest_even_though_all_are_prerelease)
+20 个全是预发布,必须挑出 0.98.3。 ... ok
+test_t1a_fixture_is_all_prerelease (tests.test_ds_update.PickLatest.test_t1a_fixture_is_all_prerelease)
+先证明夹具确实是那个形状,否则 t1 问的是空气。 ... ok
+test_t1b_code_must_not_call_the_latest_endpoint (tests.test_ds_update.PickLatest.test_t1b_code_must_not_call_the_latest_endpoint)
+结构闸:**代码**里不许出现 `/releases/latest`(注释和文档串不算)。 ... ok
+test_t1c2_asset_with_a_wrong_name_is_not_an_installer (tests.test_ds_update.PickLatest.test_t1c2_asset_with_a_wrong_name_is_not_an_installer)
+资产**名字不对**也不算 —— m5 红检漏网抓到的洞(2026-09-07)。 ... ok
+test_t1c_release_without_installer_asset_is_not_a_candidate (tests.test_ds_update.PickLatest.test_t1c_release_without_installer_asset_is_not_a_candidate)
+没有安装包资产的 release 不能被选中 —— 选中了就是"更新"到一个下不动的东西。 ... ok
+test_t1d_draft_is_never_a_candidate (tests.test_ds_update.PickLatest.test_t1d_draft_is_never_a_candidate)
+草稿是没发出去的东西,业主下不到。 ... ok
+test_t10a_decide_carries_the_real_release_url (tests.test_ds_update.ReleaseUrlOnTheWire.test_t10a_decide_carries_the_real_release_url) ... ok
+test_t10b_two_segment_tag_keeps_its_own_url (tests.test_ds_update.ReleaseUrlOnTheWire.test_t10b_two_segment_tag_keeps_its_own_url)
+S1 那个场景端到端:两段式 tag 的发布页地址不许被补零污染。 ... ok
+test_t1e_a_two_segment_tag_release_is_pickable (tests.test_ds_update.VersionCompare.test_t1e_a_two_segment_tag_release_is_pickable)
+端到端那一条:两段式 tag 的 release 必须挑得出来。 ... ok
+test_t2a_numeric_not_lexicographic (tests.test_ds_update.VersionCompare.test_t2a_numeric_not_lexicographic)
+`"0.98.10" < "0.98.9"` 在字符串比较下成立 —— 这条就是钉它的。 ... ok
+test_t2b_across_the_second_digit (tests.test_ds_update.VersionCompare.test_t2b_across_the_second_digit) ... ok
+test_t2c_one_point_oh (tests.test_ds_update.VersionCompare.test_t2c_one_point_oh)
+1.0 由业主拍板才会出现,但版本比较不能等到那天才发现自己不认识它。 ... ok
+test_t2d_tag_and_asset_forms_parse_the_same (tests.test_ds_update.VersionCompare.test_t2d_tag_and_asset_forms_parse_the_same)
+线上三种写法都指同一版:tag、资产名、纯版本号。 ... ok
+test_t2e_garbage_returns_none_not_exception (tests.test_ds_update.VersionCompare.test_t2e_garbage_returns_none_not_exception) ... ok
+test_t2f_two_segment_version_is_understood (tests.test_ds_update.VersionCompare.test_t2f_two_segment_version_is_understood)
+🔴 S1(我自审抓到的,和本单开头那个 404 是同一种病,只不过在我自己代码里)。 ... ok
+test_t2g_padding_makes_the_short_form_compare_right (tests.test_ds_update.VersionCompare.test_t2g_padding_makes_the_short_form_compare_right)
+`0.98` 和 `0.98.0` 是同一版,不是前者更小。 ... ok
+
+----------------------------------------------------------------------
+Ran 33 tests in 0.023s
+
+OK
+---------------- 输出结束 ----------------
+runlog: green-t12-asset-name-contract rc=0 commit=47e2320 dirty=yes at=2026-09-08T11:30:39Z file=tracks/opendesign-in-app-update-install/evidence/20260908T113039Z-01-green-t12-asset-name-contract.txt

@@ -411,3 +411,69 @@ class CacheIt(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class AssetNameContract(unittest.TestCase):
+    """t12:安装包**文件名**在两个文件之间是有契约的,而契约此前只写在注释里。
+
+    `installer/build-installer.sh` 那行 `EXE=` 决定发出去的安装包叫什么;
+    `ds_update.ASSET_RE` 决定我们**认不认得**它。两边对不上的后果不是报错,是
+    **更新功能永远挑不出可安装的版本 ⇒ 界面永远"已是最新"** ——
+    和本文件开头那条 `/releases/latest` 404 是同一种病:一条安静的、永远绿的路。
+
+    第一刀四审(subkimi C4)点名:这里只有注释级契约。这一条把它变成机械的。
+
+    **它管不到的**:在 GitHub 网页上手改资产名 —— 那一幕没有任何机械防线,是明账。
+    """
+
+    BUILD_SH = os.path.join(ROOT, "installer", "build-installer.sh")
+    SAMPLE = "1.2.3"
+
+    def _asset_name_from_build_script(self):
+        """从构建脚本里**读出**产物名,不在判据里抄第二份。
+
+        抄一份的话,改了脚本而判据照绿 —— 那正是这条判据要防的事。
+        """
+        line = None
+        with open(self.BUILD_SH, encoding="utf-8") as fh:
+            for raw in fh:
+                if raw.startswith("EXE="):
+                    line = raw.strip()
+                    break
+        self.assertIsNotNone(
+            line, f"{self.BUILD_SH} 里找不到 `EXE=` 那一行 —— "
+                  "产物名的来源变了,这条判据的锚点过期了,先修判据别先改实现")
+        value = line.split("=", 1)[1].strip().strip('"').strip("'")
+        name = os.path.basename(value)
+        # 版本号变量必须真的在里面 —— 否则下面那次替换是空操作,
+        # 断言就退化成"随便什么名字都能过"。
+        self.assertRegex(
+            name, r"\$\{?APPVER\}?",
+            f"产物名 `{name}` 里没有版本号变量,这条判据会变成恒真 —— 先修判据")
+        import re as _re
+        return _re.sub(r"\$\{?APPVER\}?", self.SAMPLE, name)
+
+    def test_t12a_updater_recognises_what_the_builder_actually_produces(self):
+        name = self._asset_name_from_build_script()
+        m = ds_update.ASSET_RE.match(name)
+        self.assertIsNotNone(
+            m, f"构建脚本发出的是 `{name}`,而 ds_update.ASSET_RE 认不出它 ⇒ "
+               "更新功能会永远挑不到可安装版本、界面永远显示「已是最新」")
+        self.assertEqual(
+            m.group(1), self.SAMPLE,
+            f"认出来了,但版本号取错了:从 `{name}` 取到 `{m.group(1)}`")
+
+    def test_t12b_that_name_survives_the_whole_pick_path(self):
+        """不只正则认得 —— 走完整条挑版本的路(`pick_latest` 要求有安装包资产)。
+
+        只断言正则的话,`_installer_asset` 换个判法(比如改成认后缀)就漏了。
+        """
+        name = self._asset_name_from_build_script()
+        rel = {"tag_name": f"win-installer-{self.SAMPLE}", "draft": False,
+               "html_url": "https://github.com/SunJ1ayu/OpenDesign/releases/tag/x",
+               "assets": [{"name": name, "browser_download_url": "https://example/x",
+                           "size": 1, "digest": "sha256:" + "0" * 64}]}
+        picked = ds_update.pick_latest([rel])
+        self.assertIsNotNone(
+            picked, f"构建脚本发出的 `{name}` 走不完挑版本那条路 —— "
+                    "release 有安装包却被当成「没有可安装版本」跳过了")
