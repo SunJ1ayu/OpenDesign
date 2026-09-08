@@ -68,19 +68,26 @@ echo "== 红检开始(T3 重启链路)=="
 # ---- 锁:动词分派 ----
 
 # M1 动词认不出来 ⇒ 退回今天的行为(只会唤醒窗口)
+# ⚠️ M1~M3 的锚点 2026-09-08 搬过:动词分派从一行三元表达式改成了 if/elif/else
+#    (加更新交棒动词时)。**语义一个字没变,只是打在新的行上** —— 是这支脚本
+#    自己喊「变异没打上去」才发现的,不然三条会一直静静地不跑。
 mutate_and_expect M1 test_b11_the_restart_verb_restarts_and_does_not_raise_the_window "$CORE" "$C" \
-  '        cb = self.on_restart if verb.strip() == self._RESTART.strip() else self.on_show' \
-  '        cb = self.on_show'
+  '        elif is_restart:
+            cb = self.on_restart' \
+  '        elif is_restart:
+            cb = self.on_show'
 
 # M2 反向:什么都当成重启 ⇒ 双击图标会掐断他的对话
 mutate_and_expect M2 test_b12_a_frame_without_a_verb_still_means_show "$CORE" "$C" \
-  '        cb = self.on_restart if verb.strip() == self._RESTART.strip() else self.on_show' \
-  '        cb = self.on_restart'
+  '        else:
+            cb = self.on_show' \
+  '        else:
+            cb = self.on_restart'
 
 # M3 前缀匹配代替精确匹配 ⇒ "RESTART" 这种近似词也会重启
 mutate_and_expect M3 test_b13_an_unknown_verb_never_means_restart "$CORE" "$C" \
-  '        cb = self.on_restart if verb.strip() == self._RESTART.strip() else self.on_show' \
-  '        cb = self.on_restart if self._RESTART.strip().startswith(verb.strip()) else self.on_show'
+  '                is_restart = verb.strip() == self._RESTART.strip()' \
+  '                is_restart = self._RESTART.strip().startswith(verb.strip())'
 
 # M4 只读一行就返回(退回改造前的 _recv_line 形态)⇒ 分片到达的动词被丢掉。
 # 🔴 靶子不能写 b11:同包到达时缓冲里本来就有第二行,这条变异对它是**等价的** ——
@@ -132,7 +139,7 @@ mutate_and_expect M10 test_c17_a_failed_restart_does_not_take_the_others_down "$
 
 # M11 不看应答就说"已安排" ⇒ 端口上随便是谁都被当成外壳
 mutate_and_expect M11 test_k2_a_stranger_on_that_port_is_not_our_shell "$CRED" "$W" \
-  '    return "requested" if reply == ds_shell_core.LOCK_OK.strip() else "manual"' \
+  '    return "requested" if reply == ds_shell_core.LOCK_OK_RESTART.strip() else "manual"' \
   '    return "requested"'
 
 # M12 发错动词(SHOW)⇒ 窗口被弹到前台,key 却没生效
@@ -143,9 +150,14 @@ mutate_and_expect M12 test_k3_a_real_shell_gets_the_restart_verb_not_show "$CRED
 # M13 外壳不吭声时死等 ⇒ 业主点了保存,界面转圈,以为程序死了。
 # 🔴 靶子锚在 **deadline** 上,不是 create_connection 的 timeout:那个只管连接建立,
 # 读多久由 recv_line 的 deadline 说了算 —— 首跑我锚错了地方,变异等于没打。
+# ⚠️ 锚点 2026-09-08 加宽:这一行现在在 ds_web.py 里出现两次(更新交棒那座桥
+#    抄了同款帧收发)。只写这一行会被判「锚点不唯一」而整条空转 ——
+#    **同一段代码被复制到第二个地方,连红检的锚点都会跟着失效。**
 mutate_and_expect M13 test_k4_a_wedged_shell_does_not_hang_the_save "$CRED" "$W" \
-  '            reply = ds_shell_core.recv_line(s, deadline=time.monotonic() + 3)' \
-  '            reply = ds_shell_core.recv_line(s, deadline=time.monotonic() + 60)'
+  '            s.sendall(ds_shell_core.LOCK_HELLO + ds_shell_core.LOCK_RESTART)
+            reply = ds_shell_core.recv_line(s, deadline=time.monotonic() + 3)' \
+  '            s.sendall(ds_shell_core.LOCK_HELLO + ds_shell_core.LOCK_RESTART)
+            reply = ds_shell_core.recv_line(s, deadline=time.monotonic() + 60)'
 
 # ---- 外壳接线(静态闸的双向验:它到底会不会红)----
 
@@ -155,9 +167,12 @@ mutate_and_expect M14 test_w1_child_env_is_told_the_lock_port "$WIRE" "$S" \
   '            dsweb_port=web, ws_port=ws, key=key, key_var=key_var)'
 
 # M15 锁没接重启回调 ⇒ 重启帧到了也没人处理
+#     ⚠️ 锚点 2026-09-08 搬过一次:那一行原来以 `)` 收尾,加了 on_update 之后
+#     变成以 `,` 收尾。**是这支脚本报「变异没打上去」当场喊出来的** ——
+#     它没有默默放过,这正是「锚点过期」在本仓栽过四次之后加的那个 [BAD] 分支的价值。
 mutate_and_expect M15 test_w3_the_lock_carries_a_restart_callback "$WIRE" "$S" \
-  '        on_restart=lambda: restart_holder and restart_holder[0]())' \
-  '        )'
+  '        on_restart=lambda: restart_holder and restart_holder[0](),' \
+  '        '
 
 restore
 echo
@@ -211,7 +226,12 @@ mutate_and_expect U4 test_t22d_a_failed_handoff_never_asks_the_shell_to_quit "$W
   '            pass'
 
 # U5 web:裸 OK 也当成功(老外壳 ⇒ 界面说"更新已开始"而什么都没发生)
-mutate_and_expect U5 test_t22e_a_shell_that_did_not_name_the_verb_is_not_success "$WEBUPD" "$W" \
+#    ⚠️ 靶子 2026-09-08 搬过:原来指 t22e,而这条变异在它下面**全绿漏网** ——
+#    t22e 把**整座桥换成了替身**,桥内部那句判定压根没被执行。
+#    它问的是"端点尊不尊重裁决",问不到"裁决本身对不对"。
+#    ⇒ 新加了直接考那个纯函数的 t22h/t22i/t22j/t22k,靶子搬到它们身上。
+#    **这是加强不是放宽**:搬完之后这条变异一次咬红三条。
+mutate_and_expect U5 test_t22h_a_bare_ok_is_not_started "$WEBUPD" "$W" \
   '    return "started" if reply == ds_shell_core.LOCK_OK_UPDATE.strip() else "manual"' \
   '    return "started" if reply else "manual"'
 
@@ -258,6 +278,11 @@ mutate_and_expect U12 test_w8_the_lock_carries_an_update_callback "$WIRE" "$S" \
   '        on_update=update_handoff)' \
   ')'
 
+# 🔴 先还原再核对。**这一句 2026-09-08 才补上** —— 在那之前,收尾核对跑在
+#    最后一条变异还打在身上的时候,于是**每一轮都稳定地报一次「没还原干净」**
+#    (最后一条正好打在 ds_shell.py 上)。一个永远响的报警器 = 一个没人看的报警器,
+#    而它要报的那件事(量具弄脏被测仓)恰恰是本仓的老毛病。
+restore
 bad=0
 for s in "${SRCS[@]}"; do
   now="$(sha256sum "$s" | cut -d' ' -f1)"

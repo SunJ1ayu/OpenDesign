@@ -28,6 +28,7 @@ import _tmpreg   # noqa: E402
 import ds_update  # noqa: E402
 import ds_web     # noqa: E402
 import ds_update_apply  # noqa: E402  (第二刀:真去装那一半)
+import ds_shell_core  # noqa: E402  (锁通道协议常量,唯一真相源)
 
 FIXTURE = os.path.join(ROOT, "tests", "fixtures", "update",
                        "github-releases-20260907.json")
@@ -152,8 +153,6 @@ class UpdateCheckEndpoint(unittest.TestCase):
             "自己去打网了(那么离线判据全都是假的)")
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
 
 
 class HealthEchoesTheNonce(unittest.TestCase):
@@ -332,6 +331,33 @@ class UpdateApplyEndpoint(unittest.TestCase):
         self.assertIn("sha256", body.get("error") or "")
         self.assertEqual(self.order, ["apply"], "准备就没过,后面两步不该走")
 
+    # 🔴 下面四条是红检 U5 漏网逼出来的(2026-09-08)。
+    #    U5 把 `_update_verdict` 改成"随便回点什么都算 started",而上面那批**全绿** ——
+    #    因为它们把**整座桥换成了替身**,桥内部那句判定压根没被执行。
+    #    t22e 问的是"端点尊不尊重裁决",**问不到"裁决本身对不对"**。
+    #    ⇒ 断言搬到问得出的地方:直接考那个纯函数。这是加强,不是放宽。
+
+    def test_t22h_a_bare_ok_is_not_started(self):
+        """老外壳收下了帧、却做的是"把窗口叫到前台"。**报成 started 就是撒谎** ——
+        业主会关掉浏览器等着,而软件根本不会关。"""
+        self.assertEqual(ds_web._update_verdict(ds_shell_core.LOCK_OK.strip()),
+                         "manual")
+
+    def test_t22i_the_named_ack_is_started(self):
+        self.assertEqual(
+            ds_web._update_verdict(ds_shell_core.LOCK_OK_UPDATE.strip()), "started")
+
+    def test_t22j_another_verbs_ack_is_not_started(self):
+        """点名了**别的**动词的应答也不算 —— 那说明它认的是另一件事。"""
+        self.assertEqual(
+            ds_web._update_verdict(ds_shell_core.LOCK_OK_RESTART.strip()), "manual")
+
+    def test_t22k_garbage_on_that_port_is_not_started(self):
+        """端口是全机器共用的,占着那个号的完全可能是别的程序。"""
+        for reply in (b"", b"OK UPDATE", b"OK UPDATE-HANDOFF x", b"\x00\x01"):
+            with self.subTest(reply=reply):
+                self.assertEqual(ds_web._update_verdict(reply), "manual")
+
     def test_t22g_the_decision_handed_to_the_installer_carries_the_asset(self):
         """端点必须把**查到的那个 release** 原样交下去 —— 不许自己另编一个。
         下载地址只能来自它(t14 钉的同一件事,这里守的是接线这一侧)。"""
@@ -342,3 +368,13 @@ class UpdateApplyEndpoint(unittest.TestCase):
         self.assertTrue(self.applied, "没把决定交给安装那一层")
         asset = (self.applied[0] or {}).get("asset") or {}
         self.assertTrue(asset.get("url"), "交下去的决定里没有下载地址")
+
+
+# 🔴 这个入口必须留在**文件最末尾**。2026-09-08 我把两个新测试类追加在它后面,
+#    结果:pytest 照样能看见它们(它 import 整个模块),而**当脚本跑时
+#    `unittest.main()` 只看得见在它之前定义的类** —— 16 条里有 11 条凭空消失,
+#    而 tests/mutation-shell-restart.sh 正是用脚本方式跑判据的
+#    ⇒ 五条变异全部报「判据全绿」,而那是假的。
+#    「断言在那儿、却从没被执行过」这一类,换了张脸又来了一遍。
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
