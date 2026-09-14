@@ -139,12 +139,13 @@ mutate_and_expect m13 test_t6b_failed_teardown_deletes_new_and_stops \
   '            "on_fail": ["delete_new", "abort"],' \
   '            "on_fail": ["abort"],'
 
-# m14 渲染器悄悄丢掉最后一步
+# m14 渲染器悄悄丢掉最后一步(回滚段的锚点)
+# ⚠️ 09-14 改靶:t24 重写渲染器(2d63076)后原锚点 `for step in plan:` 已不存在,
+#    这条从那天起一直是 [BAD] 没打上去 —— 红检报告里有,没人看。
 mutate_and_expect m14 test_t6c_renderer_keeps_every_step_and_their_order \
-  '    for step in plan:
-        out.append(step["marker"])' \
-  '    for step in plan[:-1]:
-        out.append(step["marker"])'
+  '        marker("rollback"),
+        ":rollback",' \
+  '        ":rollback",'
 
 # m15 回滚步没了(换名中断就回不去)
 mutate_and_expect m15 test_t17a_plan_has_a_rollback_that_puts_old_back \
@@ -213,9 +214,12 @@ mutate_and_expect m21 test_t20c_provisioning_is_guarded_by_the_update_flag \
   '  Call ProvisionConfig'
 
 # m22 把守还在,但守的是别的东西(把"看结构"和"看字面"分开:文件里仍然有 /UPDATE)
+# ⚠️ 09-14 锚点带上下一行:t26 之后 .nsi 里有 6 处同样的 `${If} $UpdateMode != "1"`。
 mutate_and_expect m22 test_t20c_provisioning_is_guarded_by_the_update_flag \
-  '  ${If} $UpdateMode != "1"' \
-  '  ${If} $R9 != "1"'
+  '  ${If} $UpdateMode != "1"
+    Call ProvisionConfig' \
+  '  ${If} $R9 != "1"
+    Call ProvisionConfig'
 
 # m23 NSIS 那边不认这面旗子了(python 照发,没人接)
 mutate_and_expect m23 test_t20b_the_nsi_parses_that_exact_flag \
@@ -231,11 +235,8 @@ mutate_and_expect m25 test_t28a_first_rename_is_retried_with_a_bound \
   '"if %_r% GEQ 60 goto :rename_failed",' \
   '"rem if %_r% GEQ 60 goto :rename_failed",'
 mutate_and_expect m26 test_t28b_give_up_paths_bring_the_old_app_back \
-  '"活树一直被占着改不了名,放弃更新(活树没动过)"'"'"',
-        '"'"'rmdir /S /Q "%NEWT%" >nul 2>&1'"'"',
-        '"'"'start "" "%LIVE%\\\\OpenDesign.exe"'"'"',' \
-  '"活树一直被占着改不了名,放弃更新(活树没动过)"'"'"',
-        '"'"'rmdir /S /Q "%NEWT%" >nul 2>&1'"'"','
+  $'        \'start "" "%LIVE%\\\\OpenDesign.exe"\',\n        "exit /b 3",' \
+  $'        "exit /b 3",'
 mutate_and_expect m27 test_t28c_rollback_stops_what_runs_from_the_live_tree_before_moving_it \
   "'powershell.exe -NoProfile" \
   "'rem powershell.exe -NoProfile"
