@@ -243,6 +243,12 @@ mutate_and_expect m27 test_t28c_rollback_stops_what_runs_from_the_live_tree_befo
 mutate_and_expect m28 test_t28d_rollback_never_moves_old_into_an_existing_live_tree \
   "'if exist \"%LIVE%\" goto :rollback_stuck'," \
   "'rem if exist \"%LIVE%\" goto :rollback_stuck',"
+mutate_and_expect m30 test_t29a_handoff_launches_the_relay_from_its_own_folder \
+  'launcher(relay_argv(relay_path), cwd=os.path.dirname(os.path.abspath(relay_path)),' \
+  'launcher(relay_argv(relay_path),'
+mutate_and_expect m31 test_t29b_the_script_leaves_the_tree_before_anything_else \
+  $'        \'cd /d "%~dp0"\',' \
+  $'        \'rem cd /d "%~dp0"\','
 MUT_SRC="$NSI"
 mutate_and_expect m29 test_t26b_every_instdir_pointer_is_guarded_by_update_mode \
   '  ${If} $UpdateMode != "1"
