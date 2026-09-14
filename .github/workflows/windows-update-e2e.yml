@@ -1,0 +1,120 @@
+# 应用内更新端到端(track opendesign-in-app-update-install §3):新旧两个安装包从同一个 commit 用真流水线打,
+# 在用完就扔的 Windows runner 上把"点更新 → 自己关 → 换版本 → 自己回来"跑五个场景(e1~e5)。
+#
+# 🔴 这台 runner 上的 api.github.com / github.com 是**本机替身**(hosts + 一次性 CA),只在这台机器上。
+#    真仓库不发任何测试 release —— 业主的软件看不见;产品代码零改动。设计见 track 的 design.md「§3」。
+#
+# 跑法:推到 ci-update/** 分支,或 Actions 页面手点。
+# ⚠️ 分支前缀故意不是 ci-probe/**:那个前缀会顺带触发另外两支 8 分钟的探针。
+
+name: windows-update-e2e
+
+on:
+  push:
+    branches: ['ci-update/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      # build-package.sh 用 `python3 -m pip install --target` 装 Windows 轮子;
+      # 系统 python 带 PEP 668 标记会拒装,换 setup-python 的解释器。make-icon.py 要 Pillow。
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: tools
+        run: |
+          sudo apt-get update -q
+          python3 -m pip install --quiet pillow
+
+      - name: old + new installers from this commit
+        run: |
+          set -euo pipefail
+          OLD="$(grep -oP '^VERSION = "\K[^"]+' bin/ds_web.py)"
+          # 新版号纯 CI 用、永不发布;只要严格大于旧版、NSIS 收得下(每段 ≤ 65535)。
+          NEW="0.98.900"
+          mkdir -p e2e-dist
+          bash installer/build-installer.sh "$RUNNER_TEMP/old"
+          cp "$RUNNER_TEMP/old/OpenDesign-Setup-$OLD.exe" e2e-dist/
+          sed -i -E "s/^VERSION = \"[^\"]+\"/VERSION = \"$NEW\"/" bin/ds_web.py
+          grep -q "^VERSION = \"$NEW\"" bin/ds_web.py
+          mkdir -p "$RUNNER_TEMP/new"
+          cp -r "$RUNNER_TEMP/old/cache" "$RUNNER_TEMP/new/cache"
+          bash installer/build-installer.sh "$RUNNER_TEMP/new"
+          cp "$RUNNER_TEMP/new/OpenDesign-Setup-$NEW.exe" e2e-dist/
+          git checkout -- bin/ds_web.py
+          bash .github/scripts/make-e2e-certs.sh e2e-dist/certs
+          printf '{"old":"%s","new":"%s"}\n' "$OLD" "$NEW" > e2e-dist/versions.json
+          ls -la e2e-dist e2e-dist/certs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: update-e2e-dist
+          path: e2e-dist
+          retention-days: 1
+          if-no-files-found: error
+
+  e2e:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: update-e2e-dist
+          path: e2e-dist
+
+      - name: five update scenarios
+        shell: pwsh
+        run: |
+          $v = Get-Content e2e-dist/versions.json -Raw | ConvertFrom-Json
+          .\.github\scripts\windows-update-e2e.ps1 `
+            -OldSetup "e2e-dist/OpenDesign-Setup-$($v.old).exe" `
+            -NewSetup "e2e-dist/OpenDesign-Setup-$($v.new).exe" `
+            -OldVersion $v.old -NewVersion $v.new `
+            -CertDir e2e-dist/certs -OutDir e2e-out
+
+      # 🔴 退出闸的第二条路,故意住在这个文件里、写死五个场景名:
+      #    脚本那边哪天少跑一个场景、或把收据洗成 0,这一步照样要五条 rc=0 才放行。
+      #    缺席 = 没跑到,不是没问题。`if: always()`:上一步真红时这一步也要把收据打出来。
+      #    只打 ASCII(runner 的代码页会把中文打成问号,见 windows-package-probe.yml 同位置注释)。
+      - name: receipts independent check
+        if: always()
+        shell: pwsh
+        run: |
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+          $f = 'e2e-out/verdicts.tsv'
+          if (-not (Test-Path $f)) { "RED: no receipt file at $f"; exit 1 }
+          $lines = @(Get-Content $f)
+          $lines | ForEach-Object { "  $_" }
+          $bad = @()
+          foreach ($k in 'e1', 'e2', 'e3', 'e4', 'e5') {
+            $mine = @($lines | Where-Object { ($_ -split "`t")[1] -eq $k })
+            if ($mine.Count -ne 1) { $bad += "${k}: $($mine.Count) receipt line(s), expected exactly 1"; continue }
+            $rc = ($mine[0] -split "`t")[0]
+            if ($rc -ne '0') { $bad += "${k}: rc=$rc" }
+          }
+          if ($bad.Count) { "RED:"; $bad | ForEach-Object { "  $_" }; exit 1 }
+          "all five scenarios have exactly one rc=0 receipt"
+
+      - name: hand over screenshots, facts, logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-e2e-out
+          path: e2e-out
+          if-no-files-found: warn
