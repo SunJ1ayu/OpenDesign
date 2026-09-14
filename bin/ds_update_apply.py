@@ -184,6 +184,8 @@ def render_relay(plan, paths=None, port=8766, nonce="", expect_version=""):
     out = [
         "@echo off",
         "setlocal enableextensions",
+        ":: 🔴 先离开当前目录(t29):继承来的当前目录在活树里,站在里面就改不了它的名。",
+        'cd /d "%~dp0"',
         ":: OpenDesign 更新接力脚本 —— 由 bin/ds_update_apply.py 生成,别手改。",
         ":: 它住 %TEMP%,只依赖 System32:活树在它手里被改名,所以它不能住在活树里。",
         "",
@@ -510,7 +512,11 @@ def handoff(relay_path, launcher=None):
         # leave_job=True(t27):接力脚本要活过外壳收摊。不脱离的话它在 ds-web 的 Job 里,
         # 外壳一关 Job 它就跟着死 —— 软件关了、没人换名、没人拉起(Windows 端到端第二趟实测)。
         # 某些环境外层 Job 不许脱离 ⇒ 这里抛 ⇒ 下面按"没交棒"处理,更新取消、软件照常能用。
-        launcher(relay_argv(relay_path), **spawn_kwargs(leave_job=True))
+        # cwd(t29):不给的话继承 ds-web 的当前目录 —— 启动器 SetOutPath 把它设成了活树,
+        # **进程的当前目录在哪个文件夹里,那个文件夹就改不了名** ⇒ 接力脚本自己占住活树
+        # (Windows 端到端第四趟:改名重试满 60 秒一次没成)。
+        launcher(relay_argv(relay_path), cwd=os.path.dirname(os.path.abspath(relay_path)),
+                 **spawn_kwargs(leave_job=True))
     except Exception:  # noqa: BLE001 —— 起不来是"没交棒",不是"甩栈给业主"
         return False
     return True
