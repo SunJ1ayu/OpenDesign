@@ -414,7 +414,11 @@ def apply_update(decision, paths, download=None, install=None):
     plan = relay_plan(paths, port=port, nonce=nonce, expect_version=expect_version)
     relay = os.path.join(paths["temp"], "opendesign-update-relay.cmd")
     with open(relay, "w", encoding="gbk", errors="replace", newline="\r\n") as fh:
-        fh.write(render_relay(plan))
+        # 🔴 四个参数一个都不能少(t25)。09-14 Windows 端到端第一趟:这里原来只传了 plan,
+        #    盘上的脚本里 LIVE/NEWT/OLDT/NONCE/WANT 全是空的 ⇒ 每次点更新软件都关掉不回来,
+        #    而判据 t24 调渲染器时参数给全了,本机一片绿。
+        fh.write(render_relay(plan, paths=paths, port=port, nonce=nonce,
+                              expect_version=expect_version))
     _note(paths, "新树就绪,接力脚本 %s" % relay)
     return {"ok": True, "stage": "relay", "error": None, "relay": relay}
 

@@ -1,0 +1,14 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    green-t25-t26
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_update_apply\ tests.test_ds_web_update\ tests.test_update_e2e_harness\ 2\>\&1\ \|\ tail\ -3\;\ python3\ installer/check-installer.py\ static\ installer/OpenDesign.nsi\ --launcher\ installer/launcher.nsi\ 2\>\&1\ \|\ tail\ -1
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  7e5efbd
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-14T13:50:56Z
+---------------- 输出开始 ----------------
+Ran 96 tests in 12.278s
+
+OK
+---- 合计 23 条,0 条不合格 ----
+---------------- 输出结束 ----------------
+runlog: green-t25-t26 rc=0 commit=7e5efbd dirty=yes at=2026-09-14T13:50:56Z file=tracks/opendesign-in-app-update-install/evidence/20260914T135056Z-01-green-t25-t26.txt

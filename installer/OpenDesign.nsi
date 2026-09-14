@@ -143,17 +143,25 @@ Section "${APP} 主程序" SecMain
   ; 逐个文件比对 makensis 自己打印的清单与 payload 树。
   File /r "${PAYLOAD}\*"
 
-  WriteRegStr HKCU "Software\${APP}" "InstallDir" "$INSTDIR"
+  ; 🔴 更新档(/UPDATE)装进的是 OpenDesign.new,两次改名后这个路径就不存在了(判据 t26)。
+  ;    凡是把 $INSTDIR 写进注册表/快捷方式的,更新档一律不写 —— 改名之后活树还叫原来那个名字,
+  ;    首装时写下的指向本来就是对的。09-14 Windows 端到端第一趟照出来:原来照写,
+  ;    更新一次,桌面图标、开始菜单、卸载条目、"上次装在哪"全指向不存在的 .new。
+  ${If} $UpdateMode != "1"
+    WriteRegStr HKCU "Software\${APP}" "InstallDir" "$INSTDIR"
+  ${EndIf}
   WriteRegStr HKCU "Software\${APP}" "Version"    "${APPVER}"
 
   ; 卸载条目("设置 → 应用"里那一条)。
   WriteRegStr   HKCU "${UNINST_KEY}" "DisplayName"     "${APP}"
   WriteRegStr   HKCU "${UNINST_KEY}" "DisplayVersion"  "${APPVER}"
   WriteRegStr   HKCU "${UNINST_KEY}" "Publisher"       "OpenDesign"
-  WriteRegStr   HKCU "${UNINST_KEY}" "DisplayIcon"     "$INSTDIR\${APP}.exe"
-  WriteRegStr   HKCU "${UNINST_KEY}" "InstallLocation" "$INSTDIR"
-  WriteRegStr   HKCU "${UNINST_KEY}" "UninstallString" '"$INSTDIR\卸载.exe"'
-  WriteRegStr   HKCU "${UNINST_KEY}" "QuietUninstallString" '"$INSTDIR\卸载.exe" /S'
+  ${If} $UpdateMode != "1"
+    WriteRegStr   HKCU "${UNINST_KEY}" "DisplayIcon"     "$INSTDIR\${APP}.exe"
+    WriteRegStr   HKCU "${UNINST_KEY}" "InstallLocation" "$INSTDIR"
+    WriteRegStr   HKCU "${UNINST_KEY}" "UninstallString" '"$INSTDIR\卸载.exe"'
+    WriteRegStr   HKCU "${UNINST_KEY}" "QuietUninstallString" '"$INSTDIR\卸载.exe" /S'
+  ${EndIf}
   WriteRegDWORD HKCU "${UNINST_KEY}" "NoModify" 1
   WriteRegDWORD HKCU "${UNINST_KEY}" "NoRepair" 1
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
@@ -162,9 +170,11 @@ Section "${APP} 主程序" SecMain
 
   WriteUninstaller "$INSTDIR\卸载.exe"
 
-  CreateDirectory "$SMPROGRAMS\${APP}"
-  CreateShortcut "$SMPROGRAMS\${APP}\${APP}.lnk" "$INSTDIR\${APP}.exe"
-  CreateShortcut "$SMPROGRAMS\${APP}\卸载 ${APP}.lnk" "$INSTDIR\卸载.exe"
+  ${If} $UpdateMode != "1"
+    CreateDirectory "$SMPROGRAMS\${APP}"
+    CreateShortcut "$SMPROGRAMS\${APP}\${APP}.lnk" "$INSTDIR\${APP}.exe"
+    CreateShortcut "$SMPROGRAMS\${APP}\卸载 ${APP}.lnk" "$INSTDIR\卸载.exe"
+  ${EndIf}
 
   Call EnsureWebView2
   ; 更新档不跑 provisioning —— 它是给首装用的,而更新期碰 UserData\ 就是踩死线。
@@ -176,7 +186,9 @@ SectionEnd
 
 Section "在桌面上放一个图标" SecDesktop
   SetShellVarContext current
-  CreateShortcut "$DESKTOP\${APP}.lnk" "$INSTDIR\${APP}.exe"
+  ${If} $UpdateMode != "1"   ; 同上(t26):更新档不许把桌面图标指到 .new
+    CreateShortcut "$DESKTOP\${APP}.lnk" "$INSTDIR\${APP}.exe"
+  ${EndIf}
 SectionEnd
 
 ; `/o` = 默认不勾。业主拍板"开机自启做成选项";默认关还有第二个理由:
@@ -184,7 +196,9 @@ SectionEnd
 ; 那件事 design.md 记在 backlog 里、本单不动 —— 那就更不该默认替他打开。
 Section /o "开机时自动启动" SecAutorun
   SetShellVarContext current
-  WriteRegStr HKCU "${RUN_KEY}" "${APP}" '"$INSTDIR\${APP}.exe"'
+  ${If} $UpdateMode != "1"   ; 同上(t26)
+    WriteRegStr HKCU "${RUN_KEY}" "${APP}" '"$INSTDIR\${APP}.exe"'
+  ${EndIf}
 SectionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
