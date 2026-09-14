@@ -1,0 +1,31 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    windows-e2e-run7-facts-rejudged-locally
+cmd:     bash -o pipefail -c E=tracks/opendesign-in-app-update-install/evidence/windows-e2e-run-34868884497\;\ cat\ \$E/verdicts.tsv\;\ echo\ \"==\ 本机同一判定器复判\ ==\"\;\ rc=0\;\ for\ k\ in\ e1\ e2\ e3\ e4\ e5\;\ do\ /root/.venvs/design-studio/bin/python\ .github/scripts/update_e2e_verdict.py\ \$k\ \$E/facts-\$k.json\ \|\|\ rc=1\;\ done\;\ echo\ \"==\ 接力脚本日志\ ==\"\;\ cat\ \$E/relay-log.utf8.txt\;\ exit\ \$rc
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  ec6e5d2
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-14T16:43:53Z
+---------------- 输出开始 ----------------
+0	e2	OK e2 - corrupt download refused at verify, live tree untouched, 0.98.4 still up
+0	e3	OK e3 - relay gave up without renaming, .new removed, old relaunches (auto-reopened: nobody)
+0	e4	OK e4 - second rename failed, relay rolled back and relaunched 0.98.4
+0	e5	OK e5 - unhealthy new version rolled back to 0.98.4
+0	e1	OK e1 - updated 0.98.4 -> 0.98.900, window up, archive markers intact
+== 本机同一判定器复判 ==
+OK e1 - updated 0.98.4 -> 0.98.900, window up, archive markers intact
+OK e2 - corrupt download refused at verify, live tree untouched, 0.98.4 still up
+OK e3 - relay gave up without renaming, .new removed, old relaunches (auto-reopened: nobody)
+OK e4 - second rename failed, relay rolled back and relaunched 0.98.4
+OK e5 - unhealthy new version rolled back to 0.98.4
+== 接力脚本日志 ==
+# 接力脚本日志(runner 上文件名 '╕ⁿ╨┬.log',内容 GBK → UTF-8)
+[Mon 09/14/2026 16:34:53.41] 接力开始
+[Mon 09/14/2026 16:35:55.00] 收摊没收干净,放弃更新(活树没动过)
+[Mon 09/14/2026 16:37:18.97] 接力开始
+[Mon 09/14/2026 16:37:20.10] 新版没能起来,换回旧版
+[Mon 09/14/2026 16:38:39.87] 接力开始
+[Mon 09/14/2026 16:40:45.70] 新版没能起来,换回旧版
+[Mon 09/14/2026 16:42:22.97] 接力开始
+[Mon 09/14/2026 16:42:38.50] 更新成功,已切到 0.98.900
+---------------- 输出结束 ----------------
+runlog: windows-e2e-run7-facts-rejudged-locally rc=0 commit=ec6e5d2 dirty=yes at=2026-09-14T16:43:53Z file=tracks/opendesign-in-app-update-install/evidence/20260914T164353Z-01-windows-e2e-run7-facts-rejudged-locally.txt
