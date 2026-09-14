@@ -358,6 +358,48 @@ class UpdateApplyEndpoint(unittest.TestCase):
             with self.subTest(reply=reply):
                 self.assertEqual(ds_web._update_verdict(reply), "manual")
 
+    def test_t31a_a_second_apply_while_one_is_running_is_refused(self):
+        """t31 —— 同一时间只许有一次更新在跑。
+
+        🔴 2026-09-15 收口前自审读出来的:界面的防重入闸(`beginApply`)只管**同一个标签页**;
+        外壳窗口 + 浏览器里另开一个 127.0.0.1:8766,或者两个请求几乎同时到,服务端是
+        ThreadingHTTPServer ⇒ 两次 `apply_update` 并发:第二次 `rmtree(.new)` 时第一次的安装器正往里写,
+        第一次的接力脚本可能把一棵装了一半的树换成活树。
+        """
+        self._online()
+        started, release = threading.Event(), threading.Event()
+
+        def slow_apply(decision, paths, **kw):
+            self.order.append("apply")
+            started.set()
+            release.wait(10)
+            return {"ok": False, "stage": "verify", "error": "x", "relay": None}
+
+        self._seams()
+        ds_update_apply.apply_update = slow_apply
+        with _serve() as port:
+            first = {}
+            t = threading.Thread(target=lambda: first.update(zip(("st", "body"), _post(port, "/api/update/apply"))))
+            t.start()
+            self.assertTrue(started.wait(10), "第一次请求没走到 apply")
+            st2, body2 = _post(port, "/api/update/apply")
+            release.set()
+            t.join(10)
+        self.assertEqual(st2, 200)
+        self.assertFalse(body2.get("ok"))
+        self.assertEqual(body2.get("stage"), "busy", "第二次没被挡住:%r" % (body2,))
+        self.assertEqual(self.order.count("apply"), 1, "两次更新并发跑了")
+
+    def test_t31b_a_failed_attempt_does_not_lock_out_the_next_one(self):
+        """反面(防止修成"一次失败永远锁死"):失败之后业主再点一次,必须还能进得去。"""
+        self._online()
+        self._seams(apply_ok=False)
+        with _serve() as port:
+            _post(port, "/api/update/apply")
+            _st, body = _post(port, "/api/update/apply")
+        self.assertNotEqual(body.get("stage"), "busy")
+        self.assertEqual(self.order.count("apply"), 2)
+
     def test_t22g_the_decision_handed_to_the_installer_carries_the_asset(self):
         """端点必须把**查到的那个 release** 原样交下去 —— 不许自己另编一个。
         下载地址只能来自它(t14 钉的同一件事,这里守的是接线这一侧)。"""

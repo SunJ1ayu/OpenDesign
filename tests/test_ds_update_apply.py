@@ -1017,6 +1017,89 @@ class TheRelayDoesNotStandInsideTheTreeItRenames(unittest.TestCase):
                          "cd 进了要改名的树里:%s" % lines[cds[0]])
 
 
+class TheDownloadGoesThroughTheSystemProxy(unittest.TestCase):
+    """t30 —— **下载安装包要走系统代理**;只有问本机 127.0.0.1 的 health 才绕开代理(t18)。
+
+    🔴 2026-09-15 收口前主 agent 自审读出来的,Windows CI **结构上照不出**(runner 上没有代理):
+    `_default_download` 复用了 `build_opener()` —— 那是给 t18 问本机 health 用的、专门绕开代理的 opener。
+    而查更新(`ds_update.fetch_releases`)走的是默认 urllib,认系统代理。
+    ⇒ 业主开着 VPN(系统代理)时:**查更新说有新版,点下去下载却直接去连 github.com**,
+    在他的网络里很可能下不动 —— 功能对他整个不可用,而 CI 六趟全绿。
+
+    判法:本机起一个假代理(只认 CONNECT、一律回 502),环境变量指向它;
+    同时把 DNS 解析换成"非本机一律拒绝"——**判据自己不许有外网出口**,绕开代理的实现也出不去,只会被记下来。
+    """
+
+    def test_t30a_download_asks_the_proxy_not_the_internet(self):
+        import socket
+        import threading
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        from unittest import mock
+
+        seen = []
+
+        class FakeProxy(BaseHTTPRequestHandler):
+            def do_CONNECT(self):
+                seen.append(self.path)
+                self.send_response(502)
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), FakeProxy)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        proxy = "http://127.0.0.1:%d" % srv.server_address[1]
+        direct = []
+        real_gai = socket.getaddrinfo
+
+        def local_only(host, *args, **kwargs):
+            if host not in ("127.0.0.1", "localhost"):
+                direct.append(host)
+                raise OSError("判据不许有外网出口:%s" % host)
+            return real_gai(host, *args, **kwargs)
+
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        env = {"https_proxy": proxy, "HTTPS_PROXY": proxy, "http_proxy": proxy, "HTTP_PROXY": proxy,
+               "no_proxy": "", "NO_PROXY": ""}
+        url = "https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-9.9.9/OpenDesign-Setup-9.9.9.exe"
+        with mock.patch.dict(os.environ, env), mock.patch("socket.getaddrinfo", local_only):
+            with self.assertRaises(Exception):   # 假代理回 502,下载必然失败 —— 要问的是它去了哪
+                ds_update_apply._default_download(url, os.path.join(tmp, "x.exe"))
+        self.assertEqual(direct, [], "下载绕开了系统代理、直接去连 %s(开 VPN 的业主下不动)" % direct)
+        self.assertTrue(any(p.startswith("github.com:443") for p in seen), "代理没收到下载请求:%r" % seen)
+
+
+class AStaleOldTreeIsClearedFirst(_Base):
+    """t32 —— 开始更新前,上次留下的 `.old` 必须先清掉;清不掉就不开始。
+
+    🔴 2026-09-15 收口前自审读出来的:接力脚本第一次改名是 `move 活树 .old`,
+    **目标已经存在时 move 会把活树挪进 .old 里面**。上一次更新成功后的清理 `rmdir .old` 没删干净
+    (比如某个晚退的进程还攥着里面的文件)就会留下它 —— 下一次更新一旦走到回滚,
+    `move .old 活树` 换回来的是**那棵残缺的旧 .old,真正的活树被塞在它里面** ⇒ 软件打不开。
+    活树在(我们正从它里面跑着)时,.old 一定是过期的,可以放心删。
+    """
+
+    def test_t32a_stale_old_is_removed_and_the_update_proceeds(self):
+        _write(os.path.join(self.paths["old"], "ds", "bin", "leftover.py"), b"# from last time\n")
+        r = self._apply(_decision())
+        self.assertTrue(r["ok"], r.get("error"))
+        self.assertFalse(os.path.exists(self.paths["old"]), "上次留下的 .old 还在 ⇒ 第一次改名会把活树塞进去")
+        self.assertLiveUntouched("清 .old 时")
+
+    def test_t32b_an_old_that_cannot_be_removed_stops_before_downloading(self):
+        _write(self.paths["old"], b"not a directory, rmtree cannot take it")   # 删不掉的形状
+        r = self._apply(_decision())
+        self.assertFalse(r["ok"])
+        self.assertEqual(r["stage"], "stale_old")
+        self.assertEqual(self.downloads, [], ".old 清不掉还去下载 43MB")
+        self.assertIsNone(r.get("relay"))
+        self.assertLiveUntouched(".old 清不掉时")
+
+
 class UpdateModeDoesNotRepointTheInstall(unittest.TestCase):
     """t26 —— 更新档(`/UPDATE`,装进 `OpenDesign.new`)**不许**把注册表和快捷方式指到 `$INSTDIR`。
 
