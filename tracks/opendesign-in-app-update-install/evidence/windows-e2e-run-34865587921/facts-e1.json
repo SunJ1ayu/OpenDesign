@@ -1,0 +1,121 @@
+{
+  "old_version": "0.98.4",
+  "new_version": "0.98.900",
+  "fake_log_start": 17,
+  "reset": {
+    "health": {
+      "version": "0.98.4",
+      "port": 8766
+    },
+    "installer_rc": 0
+  },
+  "markers_before": {
+    "Data/客户资料-e2e.bin": "025af399aca1ebf51bdfd53be9140ecf49a3c4b8444f15d0524bfb6997d89ef5",
+    "Data/项目备忘-e2e.md": "862555f22b1aab8a6838473f40138791be5468926e416dac65703eb37610ae90",
+    "UserData/客户资料-e2e.bin": "7f68605a848e3b7f76c5dc3624210b67a42432d21b25b0ca73659fd290497989",
+    "UserData/项目备忘-e2e.md": "123f8a3bcf90c651a31f186afba816bb1fc7ccfe76bce0467e2c809f96432d93"
+  },
+  "check": {
+    "current": "0.98.4",
+    "update_available": true,
+    "latest": "0.98.900",
+    "asset": {
+      "name": "OpenDesign-Setup-0.98.900.exe",
+      "url": "https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.900/OpenDesign-Setup-0.98.900.exe",
+      "size": 46667251,
+      "digest": "sha256:dcc7b3c2cfb9bed234132794f3a826b4c561d773fbb5d71c7c400ea1a7b2f1b1"
+    },
+    "notes": "e2e stand-in release",
+    "error": null,
+    "release_url": "https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.900"
+  },
+  "apply": {
+    "ok": true,
+    "stage": "started",
+    "error": null,
+    "latest": "0.98.900"
+  },
+  "relay": {
+    "seen": true,
+    "old_seen": true,
+    "ended": true,
+    "seconds": 12.1
+  },
+  "seen_versions": [
+    "0.98.900"
+  ],
+  "health_after": {
+    "version": "0.98.900",
+    "port": 8766
+  },
+  "window": {
+    "wins": [
+      {
+        "title": "OpenDesign",
+        "cls": "WindowsForms10.Window.8.app.0.aec740_r24_ad1",
+        "proc": "pythonw"
+      },
+      {
+        "title": "C:\\ProgramData\\GitHub\\HostedComputeAgent\\hosted-compute-agent",
+        "cls": "CASCADIA_HOSTING_WINDOW_CLASS",
+        "proc": "WindowsTerminal"
+      },
+      {
+        "title": "Program Manager",
+        "cls": "Progman",
+        "proc": "explorer"
+      }
+    ],
+    "procs": [
+      "pythonw:「OpenDesign」",
+      "WindowsTerminal:「C:\\ProgramData\\GitHub\\HostedComputeAgent\\hosted-compute-agent」"
+    ]
+  },
+  "live_version_after": "0.98.900",
+  "old_exists": false,
+  "new_exists": false,
+  "pointers": {
+    "uninstall": {
+      "DisplayIcon": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\OpenDesign.exe",
+      "InstallLocation": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign",
+      "UninstallString": "\"C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\卸载.exe\"",
+      "DisplayVersion": "0.98.900"
+    },
+    "shortcuts": {
+      "C:\\Users\\runneradmin\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\OpenDesign\\OpenDesign.lnk": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\OpenDesign.exe",
+      "C:\\Users\\runneradmin\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\OpenDesign\\卸载 OpenDesign.lnk": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\卸载.exe",
+      "C:\\Users\\runneradmin\\Desktop\\OpenDesign.lnk": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\OpenDesign.exe"
+    },
+    "autorun": null,
+    "live": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign",
+    "install_dir": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign"
+  },
+  "markers_after": {
+    "Data/客户资料-e2e.bin": "025af399aca1ebf51bdfd53be9140ecf49a3c4b8444f15d0524bfb6997d89ef5",
+    "Data/项目备忘-e2e.md": "862555f22b1aab8a6838473f40138791be5468926e416dac65703eb37610ae90",
+    "UserData/客户资料-e2e.bin": "7f68605a848e3b7f76c5dc3624210b67a42432d21b25b0ca73659fd290497989",
+    "UserData/项目备忘-e2e.md": "123f8a3bcf90c651a31f186afba816bb1fc7ccfe76bce0467e2c809f96432d93"
+  },
+  "fake_log": [
+    {
+      "kind": "releases",
+      "host": "api.github.com",
+      "path": "/repos/SunJ1ayu/OpenDesign/releases?per_page=100",
+      "t": 1789402176.212557
+    },
+    {
+      "kind": "download",
+      "host": "github.com",
+      "mode": "normal",
+      "bytes": 46667251,
+      "sha256": "dcc7b3c2cfb9bed234132794f3a826b4c561d773fbb5d71c7c400ea1a7b2f1b1",
+      "t": 1789402176.4706888
+    },
+    {
+      "kind": "releases",
+      "host": "api.github.com",
+      "path": "/repos/SunJ1ayu/OpenDesign/releases?per_page=100",
+      "t": 1789402205.011189
+    }
+  ]
+}

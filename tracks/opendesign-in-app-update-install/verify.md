@@ -108,6 +108,68 @@ runlog: green-u27-u37-button-done rc=0 commit=d81ac14 dirty=yes at=2026-09-08T14
   我差点据此判它"挂住了"。同一个自匹配还让那个 `until` 循环**永远退不出去**。
   改用 PID(`kill -0`)。**`pkill -f` 自杀的老坑,这次换了张脸又来了一遍。**
 
+### §3 Windows 端到端(e1~e5)—— 2026-09-14 晚,六趟真跑
+
+收据行从证据文件末行机器提取,不是手抄:
+
+```
+runlog: harness-selftest-and-mutation rc=0 commit=eea4521 dirty=yes at=2026-09-14T13:21:58Z file=tracks/opendesign-in-app-update-install/evidence/20260914T132158Z-01-harness-selftest-and-mutation.txt
+runlog: red-t25-t26-relay-empty-and-pointers-repointed rc=1 commit=99d97b9 dirty=yes at=2026-09-14T13:48:32Z file=tracks/opendesign-in-app-update-install/evidence/20260914T134832Z-01-red-t25-t26-relay-empty-and-pointers-repointed.txt
+runlog: harness-selftest-and-mutation-round2 rc=0 commit=99d97b9 dirty=yes at=2026-09-14T13:48:32Z file=tracks/opendesign-in-app-update-install/evidence/20260914T134832Z-02-harness-selftest-and-mutation-round2.txt
+runlog: green-t25-t26 rc=0 commit=7e5efbd dirty=yes at=2026-09-14T13:50:56Z file=tracks/opendesign-in-app-update-install/evidence/20260914T135056Z-01-green-t25-t26.txt
+runlog: red-t27-relay-dies-with-the-job rc=1 commit=6209044 dirty=yes at=2026-09-14T14:24:04Z file=tracks/opendesign-in-app-update-install/evidence/20260914T142404Z-01-red-t27-relay-dies-with-the-job.txt
+runlog: harness-selftest-and-mutation-round3 rc=0 commit=6209044 dirty=yes at=2026-09-14T14:24:05Z file=tracks/opendesign-in-app-update-install/evidence/20260914T142405Z-01-harness-selftest-and-mutation-round3.txt
+runlog: green-t27 rc=0 commit=d76bca4 dirty=yes at=2026-09-14T14:28:09Z file=tracks/opendesign-in-app-update-install/evidence/20260914T142809Z-01-green-t27.txt
+runlog: red-t28-gate-40ms-and-no-way-back rc=1 commit=86dce8e dirty=yes at=2026-09-14T15:03:53Z file=tracks/opendesign-in-app-update-install/evidence/20260914T150353Z-01-red-t28-gate-40ms-and-no-way-back.txt
+runlog: red-t28-ignores-comment-lines rc=1 commit=ba605d5 dirty=yes at=2026-09-14T15:06:28Z file=tracks/opendesign-in-app-update-install/evidence/20260914T150628Z-01-red-t28-ignores-comment-lines.txt
+runlog: green-t28-and-full-mutation rc=0 commit=0ad89cb dirty=yes at=2026-09-14T15:09:14Z file=tracks/opendesign-in-app-update-install/evidence/20260914T150914Z-01-green-t28-and-full-mutation.txt
+runlog: red-t29-relay-cwd-inside-live rc=1 commit=34cde42 dirty=yes at=2026-09-14T15:32:39Z file=tracks/opendesign-in-app-update-install/evidence/20260914T153239Z-01-red-t29-relay-cwd-inside-live.txt
+runlog: harness-selftest-and-mutation-round5 rc=0 commit=34cde42 dirty=yes at=2026-09-14T15:32:39Z file=tracks/opendesign-in-app-update-install/evidence/20260914T153239Z-02-harness-selftest-and-mutation-round5.txt
+runlog: green-t29-and-full-mutation rc=0 commit=4a07db7 dirty=yes at=2026-09-14T15:33:38Z file=tracks/opendesign-in-app-update-install/evidence/20260914T153338Z-01-green-t29-and-full-mutation.txt
+runlog: red-z2-wait-relay-chain-broken rc=1 commit=004ae80 dirty=yes at=2026-09-14T15:57:11Z file=tracks/opendesign-in-app-update-install/evidence/20260914T155711Z-01-red-z2-wait-relay-chain-broken.txt
+runlog: harness-selftest-and-mutation-round6 rc=0 commit=004ae80 dirty=yes at=2026-09-14T15:57:11Z file=tracks/opendesign-in-app-update-install/evidence/20260914T155711Z-02-harness-selftest-and-mutation-round6.txt
+runlog: judge-fix-dead-t24b-and-leak rc=0 commit=32b4f47 dirty=yes at=2026-09-14T16:16:26Z file=tracks/opendesign-in-app-update-install/evidence/20260914T161626Z-01-judge-fix-dead-t24b-and-leak.txt
+runlog: windows-e2e-run6-facts-rejudged-locally rc=0 commit=7d963e2 dirty=yes at=2026-09-14T16:17:48Z file=tracks/opendesign-in-app-update-install/evidence/20260914T161748Z-01-windows-e2e-run6-facts-rejudged-locally.txt
+```
+
+**六趟 Windows 真跑**(workflow `windows-update-e2e.yml`,推 `ci-update/e2e-N` 触发;事实在 pwsh 采、判定在 python 下):
+
+| 趟 | run | 结果 | 这一趟照出来什么 |
+|---|---|---|---|
+| 1 | 34848924198 | e2 ✅,其余 ❌/崩 | 🔴 **t25** 盘上接力脚本变量全空(apply_update 只传了 plan);🔴 **t26** 更新档把 InstallDir/卸载/快捷方式写成 .new;考卷病:死端口扫描 42 秒、重装不带 /D= |
+| 2 | 34851863087 | 全 ❌ | t25/t26 真机生效;🔴 **t27** 接力脚本在 ds-web 的 KILL_ON_JOB_CLOSE Job 里,收摊 1 秒内被杀;量具病:WScript.Shell 读不出中文 .lnk |
+| 3 | 34855947275 | e2 e3 ✅ | t27 真机生效;🔴 **t28** 收摊闸 40 毫秒放行、外壳没退完 ⇒ 改名失败 ⇒ 关了不回来 |
+| 4 | 34860373658 | e2 e3 ✅,**e4 假绿** | 🔴 **t29** 启动器 SetOutPath 活树 ⇒ 接力脚本自己占着活树;e4 走的是"放弃"不是"回滚",终态一样被放过 ⇒ 考卷补 old_seen |
+| 5 | 34863116162 | 全 ❌(考卷坏) | 接力脚本日志第一次「更新成功,已切到 0.98.900」;全红是我插 old_seen 那行拆断了 pwsh 的 if/elseif 链 ⇒ 结构钉 z2 |
+| 6 | **34865587921** | **五个全 ✅** | 产品代码同第五趟,只换考卷 |
+
+**第六趟我亲读的**(不只看收据绿;事实与接力脚本日志已复制进 `evidence/windows-e2e-run-34865587921/`,本机同一判定器复判五份全 OK,收据见上最后一行):
+
+- e1:接力脚本 12 秒;`.old` 出现过又被清掉;在答的是 0.98.900;活树版本号文件 0.98.900;`.new` 没了;
+  注册表 InstallDir、三个快捷方式都指活树;档案标记 4 份逐字节不变;窗口是 `pythonw` 的 WinForms 类(不是报错框)。
+  截图亲眼看过:界面正常渲染(侧栏 + 首次使用的填 key 对话框,CI 上没 key 是对的形状),不是白屏。
+- e4:`.old` 出现过(第一次改名真做成了)⇒ 第二次改名失败 ⇒ 1 秒内回滚,旧版被接力脚本拉起。
+- e5:坏新版真的起来过(答过 0.0.1)⇒ 约 2 分钟收口超时 ⇒ 回滚,旧版在答,**没有旧树塞进活树**。
+- e3:收摊闸等满 ~60 秒放弃,`.new` 删掉,活树没动。
+
+**这一轮我自己犯的错**(都已修,如实记):
+1. 写 t28 实现时为让 t28c 过,在停进程命令尾巴硬塞 `%LIVE%`(判据绿、真跑会坏);亲读生成物才发现,没提交就改掉。
+2. t28 判据不认注释行(`rem ... GEQ ...` 能骗过)⇒ 补强 `4650fdb`。
+3. 一份红检收据用 `| tail -12` 截断,藏掉了自 09-08 就 [BAD] 的 m14 ⇒ 重跑留完整输出;顺带修 m14/m22/m26 三个靶子。
+4. 第五趟那行 old_seen 拆断 if/elseif(见上表)。
+5. 一个提交信息里的收据行写成了占位符(`4650fdb` amend 之前)—— 和 09-08 那次同一种病,track-guard 查不到 commit 信息。
+
+**全仓总跑(本地,非最终)**:node 416 / MCP 三闸 / dist 新鲜度 / e2e 39 PASS 2 SKIP 全绿;python 1583 OK 但死断言闸咬出
+t24b 自 09-08 起没执行过 + 泄漏闸咬出我 e2e 判据漏 5 个目录 ⇒ 都修了(`7d963e2`)。最终那一遍放到收口、最后一次编辑之后。
+
+**偶发,待查**:`test_ds_shell_core.LockScanCost.l1`(锁扫描并发耗时)在一次组合跑里 ERROR 一次,单跑与重跑两遍都绿。计时断言,本机 2G 内存。
+
+**这些 CI 覆盖不了、只有业主真机答得了**:杀软(可能秒删下回来的 exe)、他家的网速(43MB)、VPN;中文 Windows 上接力脚本的 GBK 日志(runner 是英文,
+日志文件名乱码但不影响判定)。
+
+**记下的小尾巴(不影响打开和使用,进 Accepted deviations)**:回滚后「设置 → 应用」里的版本号显示新版的号;
+回滚后 `.new`(~150MB)留在盘上,下次更新会先删;e3 那种"一直有东西占着活树"时接力脚本会尝试打开旧版,但占着的东西不放手时旧版也起不来。
+
 ## 上一轮(判据先行之前)的收据
 
 ⚠️ 这四行 2026-09-08 21:0x **从证据文件末行逐字节取的,不是手抄**。
