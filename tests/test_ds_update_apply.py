@@ -902,6 +902,76 @@ class TheRelaySurvivesTheShellTeardown(unittest.TestCase):
                         "handoff 起接力脚本时没要求脱离 Job ⇒ 外壳一收摊它就被一起收掉")
 
 
+class TheRelayWaitsForTheTreeAndAlwaysComesBack(unittest.TestCase):
+    """t28 —— 接力脚本**等活树真的空出来**再改名;放弃或回滚时**把软件带回来**、而且不把旧树塞进新树。
+
+    🔴 2026-09-14 Windows 端到端第三趟(run 34855947275)坐实的:t27 修好后接力脚本活下来了,
+    e1/e4/e5 却都是「接力开始 14:47:25.66 → 第一次改名就失败 14:47:25.70」—— **40 毫秒**。
+    收摊闸问的是「端口空了没 + `ds_shell.py` 有没有被锁」,而 python 跑起来后**并不锁着 .py**,
+    ds-web 一被收掉端口就空 ⇒ 闸立刻放行,而外壳的 `pythonw.exe` 还没退完、攥着活树 ⇒ 改名失败 ⇒
+    `.new` 删掉、退出 —— **没人把软件打开,业主看到的是"关了、没回来"**。
+
+    同一类问题读代码还能推出两处(同一个事实:Windows 上文件夹里有程序在跑,文件夹就改不了名):
+    - 回滚时新版要是已经起来了,它攥着活树 ⇒ `move 活树 .new` 失败 ⇒
+      下一句 `move .old 活树` 在活树还在时会把旧树**塞进**活树里(e5 要测的那个)。
+    - 放弃的两条路(收摊不干净 / 改名一直失败)都不重新打开旧版。
+
+    这里判生成物的结构(Linux 上只判得了这个);真行为是 e1/e3/e4/e5。
+    """
+
+    PATHS = TheRelayIsARealProgram.PATHS
+
+    def _lines(self):
+        plan = ds_update_apply.relay_plan(self.PATHS, port=8766, nonce="n1", expect_version="0.98.5")
+        text = ds_update_apply.render_relay(plan, paths=self.PATHS, port=8766, nonce="n1",
+                                            expect_version="0.98.5")
+        return [ln.strip() for ln in text.splitlines()]
+
+    def _section(self, label):
+        """从标签定义那一行到它后面第一句 `exit /b`(含)。"""
+        lines = self._lines()
+        at = next((i for i, l in enumerate(lines) if l.lower() == ":" + label), None)
+        self.assertIsNotNone(at, "脚本里没有 :%s 这一段" % label)
+        end = next(i for i in range(at, len(lines)) if lines[i].lower().startswith("exit /b"))
+        return lines[at:end + 1]
+
+    def test_t28a_first_rename_is_retried_with_a_bound(self):
+        lines = self._lines()
+        mv = next(i for i, l in enumerate(lines) if l.startswith('move /Y "%LIVE%" "%OLDT%"'))
+        label = lines[mv - 1]
+        self.assertTrue(label.startswith(":") and not label.startswith("::"),
+                        "第一次改名前面没有重试用的标签 ⇒ 只试一次(实测 40 毫秒就放弃)")
+        after = lines[mv + 1:mv + 8]
+        self.assertTrue(any(l.lower() == "goto " + label.lower() for l in after),
+                        "改名失败后没有跳回去重试")
+        self.assertTrue(any("geq" in l.lower() and "rename_failed" in l.lower() for l in after),
+                        "重试没有上限 ⇒ 活树永远被占着时脚本永远不结束")
+
+    def test_t28b_give_up_paths_bring_the_old_app_back(self):
+        for label in ("teardown_failed", "rename_failed"):
+            with self.subTest(label=label):
+                sec = self._section(label)
+                self.assertTrue(any(l.lower().startswith('start "" "%live%\\opendesign.exe"') for l in sec),
+                                "%s 放弃之后没有把旧版打开 ⇒ 业主看到的是关了、没回来" % label)
+
+    def test_t28c_rollback_stops_what_runs_from_the_live_tree_before_moving_it(self):
+        sec = self._section("rollback")
+        first_move = next((i for i, l in enumerate(sec) if "move" in l.lower() and "%live%" in l.lower()), None)
+        self.assertIsNotNone(first_move, "回滚段里没有把活树挪走的那一步")
+        stop = [i for i, l in enumerate(sec)
+                if "%live%" in l.lower() and ("stop-process" in l.lower() or "taskkill" in l.lower())]
+        self.assertTrue(stop and stop[0] < first_move,
+                        "回滚挪活树之前没先停掉从活树里跑着的程序 ⇒ 新版起来了就挪不动")
+
+    def test_t28d_rollback_never_moves_old_into_an_existing_live_tree(self):
+        sec = self._section("rollback")
+        put_back = next((i for i, l in enumerate(sec) if "%oldt%" in l.lower() and "%live%" in l.lower()
+                         and ("move" in l.lower())), None)
+        self.assertIsNotNone(put_back, "回滚段里没有把 .old 换回来的那一步")
+        guard = [l.lower() for l in sec[:put_back] if l.lower().startswith('if exist "%live%"') and "goto" in l.lower()]
+        self.assertTrue(guard, "活树还在时照样 move .old 活树 ⇒ 旧树被塞进活树里(e5 要测的那个)")
+
+
 class UpdateModeDoesNotRepointTheInstall(unittest.TestCase):
     """t26 —— 更新档(`/UPDATE`,装进 `OpenDesign.new`)**不许**把注册表和快捷方式指到 `$INSTDIR`。
 
