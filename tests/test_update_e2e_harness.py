@@ -312,6 +312,8 @@ COMMON_BREAKS = {
     "shortcut points at .old": _set(
         "pointers.shortcuts", {r"C:\x\OpenDesign.lnk": LIVE + ".old\\OpenDesign.exe"}),
     "no shortcuts at all": _set("pointers.shortcuts", {}),
+    "shortcut target unreadable": _set(
+        "pointers.shortcuts", {r"C:\\x\\OpenDesign.lnk": "", r"C:\\x\\y.lnk": "unreadable: COMException"}),
     "pointers fact missing": _drop("pointers"),
 }
 

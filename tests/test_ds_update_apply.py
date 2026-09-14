@@ -835,6 +835,73 @@ class TheRelayApplyWritesIsFilledIn(_Base):
         self.assertTrue(logf.startswith(self.data_root), "更新日志写到了数据根外面:%r" % logf)
 
 
+class TheRelaySurvivesTheShellTeardown(unittest.TestCase):
+    """t27 —— 接力脚本必须**活过外壳收摊**:它不许留在 ds-web 那个 Job 里。
+
+    🔴 2026-09-14 Windows 端到端第二趟(run 34851863087)坐实的:四个场景里接力脚本都在
+    交棒后 **1 秒内**死掉;它的日志里每次只有第一行「接力开始」,而那一秒正是外壳日志里的
+    「收摊:停两条腿」。机制(读 `ds_shell_core._assign_windows_job` 确认):
+    外壳把 ds-web 放进一个 `KILL_ON_JOB_CLOSE` 的 Job,**Windows 上子进程自动进父进程的 Job**,
+    接力脚本是 ds-web 起的 ⇒ 外壳收摊一关 Job,接力脚本跟着 ds-web 一起被收掉。
+    ⇒ 修好 t25 之后,点更新仍然是"软件关了、再也不回来"。
+
+    修法要同时守住两件事:
+    - 接力脚本**这一个**进程要脱离 Job(Job 允许脱离 + 起它时明确要求脱离);
+    - ds-web 起的**其他**子孙照旧跟着收 —— 不许用 SILENT_BREAKAWAY 让整棵树都溜出去
+      (那正是 Job 存在的理由:外壳一退,后台腿的子孙不许留在业主机器上)。
+    这里判的是两边的**标志**(Linux 上只判得了这个);真的活没活下来是 e1~e5 的事。
+    """
+
+    CREATE_BREAKAWAY_FROM_JOB = 0x01000000
+    JOB_OBJECT_LIMIT_BREAKAWAY_OK = 0x00000800
+    JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK = 0x00001000
+    JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
+
+    def test_t27a_job_allows_explicit_breakaway_but_still_kills_the_rest(self):
+        import ds_shell_core
+        flags = getattr(ds_shell_core, "JOB_LIMIT_FLAGS", 0)
+        self.assertTrue(flags & self.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, "Job 不再收整棵树了")
+        self.assertTrue(flags & self.JOB_OBJECT_LIMIT_BREAKAWAY_OK, "Job 不允许脱离 ⇒ 接力脚本脱不出去")
+        self.assertFalse(flags & self.JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK,
+                         "SILENT_BREAKAWAY 会让 ds-web 的所有子孙都溜出 Job")
+
+    def test_t27b_the_job_is_created_with_those_flags(self):
+        code = _code_without_comments(os.path.join(ROOT, "bin", "ds_shell_core.py"))
+        self.assertRegex(code, r"LimitFlags\s*=\s*JOB_LIMIT_FLAGS\b",
+                         "_assign_windows_job 没用 JOB_LIMIT_FLAGS(常量对了、建 Job 时没用上 = 白对)")
+
+    def test_t27c_only_the_relay_asks_to_leave_the_job(self):
+        import ds_shell_core
+        leave = ds_shell_core.spawn_kwargs("nt", leave_job=True)["creationflags"]
+        stay = ds_shell_core.spawn_kwargs("nt")["creationflags"]
+        self.assertTrue(leave & self.CREATE_BREAKAWAY_FROM_JOB, "要求脱离的那一份没带 CREATE_BREAKAWAY_FROM_JOB")
+        self.assertEqual(leave & ds_shell_core.WINDOWS_SPAWN_FLAGS, ds_shell_core.WINDOWS_SPAWN_FLAGS,
+                         "脱离 Job 时把不冒黑窗口那几位弄丢了")
+        self.assertFalse(stay & self.CREATE_BREAKAWAY_FROM_JOB, "默认也脱离了 ⇒ 后台腿的子孙收不掉")
+
+    def test_t27d_handoff_requests_leaving_the_job(self):
+        import ds_shell_core
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        relay = os.path.join(tmp, "opendesign-update-relay.cmd")
+        _write(relay, b"@echo off\r\n")
+        asked = []
+        real = ds_shell_core.spawn_kwargs
+
+        def recorder(*args, **kwargs):
+            asked.append(kwargs)
+            return real(*args, **kwargs)
+
+        ds_shell_core.spawn_kwargs = recorder
+        try:
+            ok = ds_update_apply.handoff(relay, launcher=lambda argv, **kw: object())
+        finally:
+            ds_shell_core.spawn_kwargs = real
+        self.assertTrue(ok)
+        self.assertTrue(any(k.get("leave_job") is True for k in asked),
+                        "handoff 起接力脚本时没要求脱离 Job ⇒ 外壳一收摊它就被一起收掉")
+
+
 class UpdateModeDoesNotRepointTheInstall(unittest.TestCase):
     """t26 —— 更新档(`/UPDATE`,装进 `OpenDesign.new`)**不许**把注册表和快捷方式指到 `$INSTDIR`。
 

@@ -181,16 +181,46 @@ function Get-LiveVersion {
 # 更新之后,注册表里的"装在哪"、卸载条目、开始菜单和桌面快捷方式都必须还指着**活树那个路径**。
 # 更新档装进的是 .new,两次改名后那个路径不存在 ⇒ 指过去 = 业主的图标打不开。
 
+# 🔴 快捷方式指向哪,用 IShellLinkW(Unicode)读,不用 WScript.Shell(run 34851863087 量出来的):
+#    英文 Windows 上 WScript.Shell 对"卸载 OpenDesign.lnk"(目标 卸载.exe)读回空串,
+#    五个场景因此全红 —— 那是量具读不了中文,不是快捷方式指错了。读不出来照样判红,不放宽。
+Add-Type @"
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+[ComImport, Guid("000214F9-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IShellLinkWPath {
+  void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszFile, int cch, IntPtr pfd, uint fFlags);
+}
+[ComImport, Guid("0000010b-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IPersistFileLoad {
+  void GetClassID(out Guid pClassID);
+  [PreserveSig] int IsDirty();
+  void Load([MarshalAs(UnmanagedType.LPWStr)] string pszFileName, uint dwMode);
+}
+[ComImport, Guid("00021401-0000-0000-C000-000000000046")] public class ShellLinkCo {}
+public static class Lnk {
+  public static string Target(string path) {
+    object link = new ShellLinkCo();
+    ((IPersistFileLoad)link).Load(path, 0);
+    var sb = new StringBuilder(1024);
+    ((IShellLinkWPath)link).GetPath(sb, sb.Capacity, IntPtr.Zero, 0);
+    return sb.ToString();
+  }
+}
+"@
+
 function Get-Pointers {
     $app = Get-ItemProperty -LiteralPath 'HKCU:\Software\OpenDesign' -ErrorAction SilentlyContinue
     $un  = Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenDesign' -ErrorAction SilentlyContinue
     $run = Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue
-    $wsh = New-Object -ComObject WScript.Shell
     $links = [ordered]@{}
     $programs = [Environment]::GetFolderPath('Programs')
     $desktop  = [Environment]::GetFolderPath('Desktop')
     foreach ($lnk in @("$programs\OpenDesign\OpenDesign.lnk", "$programs\OpenDesign\卸载 OpenDesign.lnk", "$desktop\OpenDesign.lnk")) {
-        if (Test-Path -LiteralPath $lnk) { $links[$lnk] = $wsh.CreateShortcut($lnk).TargetPath }
+        if (Test-Path -LiteralPath $lnk) {
+            try { $links[$lnk] = [Lnk]::Target($lnk) } catch { $links[$lnk] = "unreadable: $($_.Exception.Message)" }
+        }
     }
     return @{
         live        = $InstallDir
