@@ -1,0 +1,34 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    harness-selftest-and-mutation-round6
+cmd:     bash -o pipefail -c /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests/test_update_e2e_harness.py\ 2\>\&1\ \|\ tail\ -3\ \&\&\ PY=/root/.venvs/design-studio/bin/python\ /root/.venvs/design-studio/bin/python\ tests/mutation-update-e2e-harness.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  004ae80
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-14T15:57:11Z
+---------------- 输出开始 ----------------
+Ran 24 tests in 2.288s
+
+OK
+M1 digest prefix: BITES
+M2 drop github.com redirect: BITES
+M3 SAN lacks github.com: BITES
+M4 skip lookalike dirs: BITES
+M5 corrupt two bytes: BITES
+M6 e1 no marker check: BITES
+M7 e3 no relaunch check: BITES
+M8 e5 no seen check: BITES
+M9 nested ignored: BITES
+M10 injection ignored: BITES
+M11 missing facts ok: BITES
+M12 CI new version not newer: BITES
+M13 workflow gate lists four: BITES
+M14 non-ascii output: BITES
+M16 pointers not checked: BITES
+M17 .new counts as inside live: BITES
+M18 no /D on reset: BITES
+M19 rollback reach not checked: BITES
+M20 old_seen splits the if/elseif chain: BITES
+M15 e2 health ignored: BITES
+20 mutations, 20 bite, 0 escaped/setup-error
+---------------- 输出结束 ----------------
+runlog: harness-selftest-and-mutation-round6 rc=0 commit=004ae80 dirty=yes at=2026-09-14T15:57:11Z file=tracks/opendesign-in-app-update-install/evidence/20260914T155711Z-02-harness-selftest-and-mutation-round6.txt

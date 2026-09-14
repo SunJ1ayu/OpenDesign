@@ -470,6 +470,24 @@ class WWorkflowGateIsIndependent(unittest.TestCase):
         self.assertEqual(set(re.findall(r"'(e\d)'", m_ps.group(1))), want)
 
 
+class ZWaitRelayChainIsIntact(unittest.TestCase):
+    """pwsh 本机跑不了,这一段的控制流只能钉结构。
+
+    run 34863116162:我往 Wait-Relay 里加"看 .old 出现过没有"那一行时,插在了 `if ($running)` 和
+    `elseif ($seen) { break }` 中间 ⇒ elseif 挂到了新那行上 ⇒ 等 0 秒就走,五个场景的事实全量早了,
+    而本机 23 条全绿。⇒ 钉住:`elseif ($seen)` 的上一条非空、非注释语句必须是 `if ($running) ...`。
+    """
+
+    def test_z2_elseif_seen_hangs_off_if_running(self):
+        with open(PS1, encoding="utf-8") as fh:
+            lines = [l.strip() for l in fh.read().splitlines()]
+        code = [l for l in lines if l and not l.startswith("#")]
+        at = [i for i, l in enumerate(code) if l.startswith("elseif ($seen)")]
+        self.assertEqual(len(at), 1, "找不到(或不止一处)elseif ($seen)")
+        self.assertTrue(code[at[0] - 1].startswith("if ($running)"),
+                        "elseif ($seen) 没挂在 if ($running) 上,挂在了:%s" % code[at[0] - 1])
+
+
 class ZResetInstallsWhereTheScenarioLooks(unittest.TestCase):
     """场景前重装旧版必须显式 `/D=$InstallDir`(run 34848924198:注册表被上一个场景写成 .new,
     不带 /D 的静默安装就装进 .new,后面三个场景全被带崩)。注册表写没写坏,由各场景的 pointers 事实判。"""

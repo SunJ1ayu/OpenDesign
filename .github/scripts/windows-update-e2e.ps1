@@ -144,8 +144,10 @@ function Wait-Relay([int]$Seconds) {
     $versions = [Collections.Generic.List[string]]::new()
     while ($sw.Elapsed.TotalSeconds -lt $Seconds) {
         $running = (Get-RelayProcs).Count -gt 0
-        if ($running) { $seen = $true }
+        # 🔴 这一行必须在 if/elseif 链**之外**(run 34863116162):上一版插在 `if ($running)` 和 `elseif` 之间,
+        #    elseif 就挂到了这一行上 ⇒ 没有 .old 时直接 `elseif ($seen) { break }` ⇒ 等了 0 秒就走,五个场景全被量早了。
         if (Test-Path -LiteralPath $OldDir) { $oldSeen = $true }
+        if ($running) { $seen = $true }
         elseif ($seen) { break }
         elseif ($sw.Elapsed.TotalSeconds -gt 30) { break }      # 30 秒都没出现过 = 没起来
         $h = Get-Health
