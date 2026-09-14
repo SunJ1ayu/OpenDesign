@@ -138,10 +138,14 @@ function Wait-Health([string]$Want, [int]$Seconds) {
 function Wait-Relay([int]$Seconds) {
     $sw = [Diagnostics.Stopwatch]::StartNew()
     $seen = $false
+    # 🔴 第一次改名到底发生过没有(run 34860373658:e4 判了 OK,而接力脚本其实走的是"改名一直失败、放弃",
+    #    根本没到它要测的"第二次改名失败 ⇒ 回滚"—— 两条路的终态长得一样)。.old 出现过 = 第一次改名做成了。
+    $oldSeen = $false
     $versions = [Collections.Generic.List[string]]::new()
     while ($sw.Elapsed.TotalSeconds -lt $Seconds) {
         $running = (Get-RelayProcs).Count -gt 0
         if ($running) { $seen = $true }
+        if (Test-Path -LiteralPath $OldDir) { $oldSeen = $true }
         elseif ($seen) { break }
         elseif ($sw.Elapsed.TotalSeconds -gt 30) { break }      # 30 秒都没出现过 = 没起来
         $h = Get-Health
@@ -150,7 +154,7 @@ function Wait-Relay([int]$Seconds) {
     }
     $ended = (Get-RelayProcs).Count -eq 0
     Note ("relay seen=$seen ended=$ended after {0:N0}s; versions answering meanwhile: {1}" -f $sw.Elapsed.TotalSeconds, ($versions -join ','))
-    return @{ relay = @{ seen = $seen; ended = $ended; seconds = [Math]::Round($sw.Elapsed.TotalSeconds, 1) };
+    return @{ relay = @{ seen = $seen; ended = $ended; seconds = [Math]::Round($sw.Elapsed.TotalSeconds, 1); old_seen = $oldSeen };
               versions = @($versions) }
 }
 

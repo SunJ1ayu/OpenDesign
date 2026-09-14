@@ -974,6 +974,45 @@ class TheRelayWaitsForTheTreeAndAlwaysComesBack(unittest.TestCase):
         self.assertTrue(guard, "活树还在时照样 move .old 活树 ⇒ 旧树被塞进活树里(e5 要测的那个)")
 
 
+class TheRelayDoesNotStandInsideTheTreeItRenames(unittest.TestCase):
+    """t29 —— 接力脚本的**当前目录**不许在活树里。
+
+    🔴 2026-09-14 Windows 端到端第四趟(run 34860373658)坐实的:e1/e4/e5 的接力脚本日志全是
+    「活树一直被占着改不了名,放弃更新」—— 重试满 60 秒,活树始终改不了名。
+    占着它的就是接力脚本自己:`installer/launcher.nsi` 的 `SetOutPath "$EXEDIR"` 把工作目录设成活树,
+    外壳 → ds-web → 接力脚本一路继承。**Windows 上一个进程的当前目录在哪个文件夹里,那个文件夹就改不了名。**
+
+    两道都要:起它的时候给 `cwd`(它所在的 %TEMP%),脚本第一件事也 `cd /d` 出去 ——
+    后者防的是将来有人换了起它的方式、又把 cwd 弄丢。
+    """
+
+    PATHS = TheRelayIsARealProgram.PATHS
+
+    def test_t29a_handoff_launches_the_relay_from_its_own_folder(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        relay = os.path.join(tmp, "opendesign-update-relay.cmd")
+        _write(relay, b"@echo off\r\n")
+        seen = []
+        ok = ds_update_apply.handoff(relay, launcher=lambda argv, **kw: seen.append(kw) or object())
+        self.assertTrue(ok)
+        self.assertEqual(os.path.normpath(seen[0].get("cwd") or ""), os.path.normpath(tmp),
+                         "接力脚本没指定当前目录 ⇒ 继承 ds-web 的(活树里),自己把活树占住")
+
+    def test_t29b_the_script_leaves_the_tree_before_anything_else(self):
+        plan = ds_update_apply.relay_plan(self.PATHS, port=8766, nonce="n1", expect_version="0.98.5")
+        text = ds_update_apply.render_relay(plan, paths=self.PATHS, port=8766, nonce="n1",
+                                            expect_version="0.98.5")
+        lines = [l.strip() for l in text.splitlines()
+                 if l.strip() and not l.strip().startswith("::") and not l.strip().lower().startswith("rem ")]
+        gate = next(i for i, l in enumerate(lines) if l.lower() == "call :wait_gone")
+        cds = [i for i, l in enumerate(lines[:gate]) if l.lower().startswith("cd /d ")]
+        self.assertTrue(cds, "收摊闸之前没有 cd /d 离开当前目录")
+        target = lines[cds[0]][len("cd /d "):].strip().strip('"').lower()
+        self.assertFalse("%live%" in target or "%newt%" in target or "%oldt%" in target,
+                         "cd 进了要改名的树里:%s" % lines[cds[0]])
+
+
 class UpdateModeDoesNotRepointTheInstall(unittest.TestCase):
     """t26 —— 更新档(`/UPDATE`,装进 `OpenDesign.new`)**不许**把注册表和快捷方式指到 `$INSTDIR`。
 

@@ -260,7 +260,7 @@ def _base(kind):
         "pointers": copy.deepcopy(POINTERS),
     }
     started = {"ok": True, "stage": "started", "error": None}
-    relay = {"seen": True, "ended": True, "seconds": 42.0}
+    relay = {"seen": True, "ended": True, "seconds": 42.0, "old_seen": True}
     if kind == "e2":
         f.update(apply={"ok": False, "stage": "verify", "error": "sha256"}, live_before="d1", live_after="d1",
                  new_exists=False, old_exists=False, health_after={"port": 8766, "version": OLD})
@@ -340,6 +340,8 @@ BREAKS = {
         "relaunch fact missing": _drop("relaunch"),
     },
     "e4": {
+        "gave up before renaming (looks like rollback)": _set("relay.old_seen", False),
+        "old_seen fact missing": _set("relay", {"seen": True, "ended": True, "seconds": 42.0}),
         "inject missed": _set("inject.landed", False),
         "apply not started": _set("apply.stage", "shell"),
         "relay still running": _set("relay.ended", False),
@@ -351,6 +353,7 @@ BREAKS = {
         "new answering": _set("health_after", {"port": 8766, "version": NEW}),
     },
     "e5": {
+        "gave up before renaming (looks like rollback)": _set("relay.old_seen", False),
         "inject missed": _set("inject.landed", False),
         "bad new never ran": _set("seen_versions", [OLD]),
         "live version new": _set("live_version_after", NEW),

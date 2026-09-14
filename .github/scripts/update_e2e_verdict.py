@@ -213,12 +213,21 @@ def _rolled_back(kind, f, problems, old):
         problems.append("relay did not bring the old app back (answering: %r)" % (_version(f.get("health_after")) or None))
 
 
+def _reached_rollback(f, problems):
+    """回滚场景必须**真的做成了第一次改名**:否则走的是"改名一直失败、放弃"那条路,
+    终态(活树是旧版、旧版被拉起、没有 .old)和回滚一模一样,而回滚一行都没执行过。
+    run 34860373658 的 e4 就是这么假绿的。"""
+    if (f.get("relay") or {}).get("old_seen") is not True:
+        problems.append("first rename never happened (.old never seen): rollback path untested")
+
+
 def verdict_e4(raw):
     """第二次改名失败 ⇒ 回滚:活树换回旧版、没有 .old、旧版由接力脚本自己拉起来。"""
     f, problems = Facts(raw), []
     old, _ = _baseline(f, problems)
     _injected(f, problems)
     if _started(f, problems):
+        _reached_rollback(f, problems)
         _rolled_back("e4", f, problems, old)
     _pointers(f, problems)
     _markers(f, problems)
@@ -236,6 +245,7 @@ def verdict_e5(raw):
         bad = str((f.get("inject") or {}).get("version") or "")
         if not bad or bad not in (f.get("seen_versions") or []):
             problems.append("the unhealthy new version (%r) never answered, scenario untested" % (bad or None))
+        _reached_rollback(f, problems)
         _rolled_back("e5", f, problems, old)
     _pointers(f, problems)
     _markers(f, problems)

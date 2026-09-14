@@ -471,6 +471,7 @@ proposal 的第 1 块板原文是:
 | `t26` | `tests/test_ds_update_apply.py` | 更新档装 `.new` 时,任何把 `$INSTDIR` 写进注册表/快捷方式的语句都必须被更新档把守(Windows 第一趟照出来:改名后图标、卸载、"装在哪"全指向不存在的 `.new`)。行为半 = e1~e5 的 `pointers` 事实 |
 | `t27` | `tests/test_ds_update_apply.py` | 接力脚本**活过外壳收摊**:外壳建的 Job 允许显式脱离(不许 SILENT_BREAKAWAY)、只有接力脚本要求脱离(Windows 第二趟坐实:它在 ds-web 的 KILL_ON_JOB_CLOSE Job 里,收摊 1 秒内被一起杀)|
 | `t28` | `tests/test_ds_update_apply.py` | 接力脚本**等活树真空出来**(第一次改名有上限地重试)、放弃的两条路**把旧版打开**、回滚**先停掉从活树跑着的程序**且**活树还在时绝不 move .old 进去**(Windows 第三趟坐实:闸 40 毫秒放行、外壳还没退完 ⇒ 改名失败 ⇒ 关了不回来)|
+| `t29` | `tests/test_ds_update_apply.py` | 接力脚本的**当前目录不在活树里**:handoff 给 cwd=它所在的 %TEMP%,脚本收摊闸之前先 `cd /d` 出去(Windows 第四趟坐实:启动器 SetOutPath 活树 ⇒ 一路继承 ⇒ 接力脚本自己把活树占住,改名 60 秒全失败)|
 | `m1~` | `tests/test_ds_shell_core.py` | 锁通道:新动词分派 + 应答点名 + 老动词不受影响(真 socket,行为判据) |
 | `w8~` | `tests/test_ds_shell_wiring.py` | **静态闸**:`ds_shell.py` 真的把 `on_update` 接到了收摊上 |
 

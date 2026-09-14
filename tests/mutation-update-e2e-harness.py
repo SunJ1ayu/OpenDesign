@@ -34,6 +34,7 @@ muts = [
  ("M16 pointers not checked", ".github/scripts/update_e2e_verdict.py", 'def _pointers(f, problems):\n', 'def _pointers(f, problems):\n    return\n', "VVerdict"),
  ("M17 .new counts as inside live", ".github/scripts/update_e2e_verdict.py", 'under = live + "\\\\"', 'under = live', "VVerdict"),
  ("M18 no /D on reset", ".github/scripts/windows-update-e2e.ps1", '-ArgumentList "/S /D=$InstallDir"', "-ArgumentList '/S'", "ZReset"),
+ ("M19 rollback reach not checked", ".github/scripts/update_e2e_verdict.py", 'if (f.get("relay") or {}).get("old_seen") is not True:', 'if False:', "VVerdict"),
  ("M15 e2 health ignored", ".github/scripts/update_e2e_verdict.py", 'if _version(f.get("health_after")) != old:\n        problems.append("old app not answering after refusal', 'if False:\n        problems.append("old app not answering after refusal', "VVerdict"),
 ]
 bad = 0
