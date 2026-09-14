@@ -101,6 +101,18 @@ mutate_and_expect n8 test_t19c_version_is_still_there \
   '            health = {"ok": True, "version": VERSION,' \
   '            health = {"ok": True,'
 
+# ── t31:同一时间只许一次更新(09-15 收口自审)──────
+# n9 🔴 抢不到锁也照样往下走 ⇒ 两次更新并发
+mutate_and_expect n9 test_t31a_a_second_apply_while_one_is_running_is_refused \
+  '        if not lock.acquire(blocking=False):' \
+  '        if not (lock.acquire(blocking=False) or True):'
+# n10 失败路上不放锁 ⇒ 一次失败永远锁死(防修过头)
+mutate_and_expect n10 test_t31b_a_failed_attempt_does_not_lock_out_the_next_one \
+  '            if not started:
+                lock.release()' \
+  '            if False:
+                lock.release()'
+
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"
 echo

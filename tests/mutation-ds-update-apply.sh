@@ -252,6 +252,17 @@ mutate_and_expect m31 test_t29b_the_script_leaves_the_tree_before_anything_else 
 mutate_and_expect m32 test_t24b_failure_branches_are_control_flow_not_comments \
   '":: 收不干净就绝不换名 —— 活树到这一刻为止一个字节没被动过",' \
   '":: if errorlevel 1 goto :teardown_failed",'
+mutate_and_expect m33 test_t30a_download_asks_the_proxy_not_the_internet \
+  'with urllib.request.urlopen(req, timeout=300) as resp, open(dest, "wb") as fh:' \
+  'with build_opener().open(req, timeout=300) as resp, open(dest, "wb") as fh:'
+mutate_and_expect m34 test_t32a_stale_old_is_removed_and_the_update_proceeds \
+  '            shutil.rmtree(old_dir, ignore_errors=True)
+        if os.path.lexists(old_dir):' \
+  '            pass
+        if os.path.lexists(old_dir):'
+mutate_and_expect m35 test_t32b_an_old_that_cannot_be_removed_stops_before_downloading \
+  '            return _fail("stale_old", "上次更新留下的 %s 清不掉,请手动删除后再试" % old_dir)' \
+  '            pass'
 MUT_SRC="$NSI"
 mutate_and_expect m29 test_t26b_every_instdir_pointer_is_guarded_by_update_mode \
   '  ${If} $UpdateMode != "1"
