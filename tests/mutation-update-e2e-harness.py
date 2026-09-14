@@ -31,6 +31,9 @@ muts = [
  ("M12 CI new version not newer", ".github/workflows/windows-update-e2e.yml", 'NEW="0.98.900"', 'NEW="0.98.3"', "H1"),
  ("M13 workflow gate lists four", ".github/workflows/windows-update-e2e.yml", "foreach ($k in 'e1', 'e2', 'e3', 'e4', 'e5')", "foreach ($k in 'e1', 'e2', 'e3', 'e4')", "WWorkflow"),
  ("M14 non-ascii output", ".github/scripts/update_e2e_verdict.py", 'text.encode("ascii", "replace").decode("ascii")', 'text + "中"', "VVerdict"),
+ ("M16 pointers not checked", ".github/scripts/update_e2e_verdict.py", 'def _pointers(f, problems):\n', 'def _pointers(f, problems):\n    return\n', "VVerdict"),
+ ("M17 .new counts as inside live", ".github/scripts/update_e2e_verdict.py", 'under = live + "\\\\"', 'under = live', "VVerdict"),
+ ("M18 no /D on reset", ".github/scripts/windows-update-e2e.ps1", '-ArgumentList "/S /D=$InstallDir"', "-ArgumentList '/S'", "ZReset"),
  ("M15 e2 health ignored", ".github/scripts/update_e2e_verdict.py", 'if _version(f.get("health_after")) != old:\n        problems.append("old app not answering after refusal', 'if False:\n        problems.append("old app not answering after refusal', "VVerdict"),
 ]
 bad = 0

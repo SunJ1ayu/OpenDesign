@@ -104,7 +104,13 @@ function Remove-Tree([string]$Path) {
 }
 
 function Get-Health {
-    foreach ($p in $PortSpan) {
+    # 🔴 只问**正在监听**的端口(run 34848924198 量出来的):Windows 上连一个没人听的本机端口
+    #    要 ~2 秒才失败,扫一整段 21 个端口 = 一次 42 秒 ⇒ 等接力脚本的轮询粒度被拖成 43 秒,
+    #    "它活了多久"这个事实就量不出来了。
+    $listening = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
+        Where-Object { $_.LocalPort -ge $PortSpan[0] -and $_.LocalPort -le $PortSpan[-1] } |
+        ForEach-Object { $_.LocalPort } | Sort-Object -Unique)
+    foreach ($p in $listening) {
         try {
             $h = Invoke-RestMethod -Uri "http://127.0.0.1:$p/api/health" -TimeoutSec 2 -NoProxy
             if ($h.version) { return @{ port = $p; version = "$($h.version)" } }
@@ -169,6 +175,31 @@ function Get-LiveVersion {
     $f = Join-Path $InstallDir 'ds\版本号.txt'
     if (Test-Path -LiteralPath $f) { return (Get-Content -LiteralPath $f -Raw -Encoding utf8).Trim() }
     return $null
+}
+
+# ── 帮手:业主从哪儿打开它(t26 的真机半)──────────────────────────────
+# 更新之后,注册表里的"装在哪"、卸载条目、开始菜单和桌面快捷方式都必须还指着**活树那个路径**。
+# 更新档装进的是 .new,两次改名后那个路径不存在 ⇒ 指过去 = 业主的图标打不开。
+
+function Get-Pointers {
+    $app = Get-ItemProperty -LiteralPath 'HKCU:\Software\OpenDesign' -ErrorAction SilentlyContinue
+    $un  = Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenDesign' -ErrorAction SilentlyContinue
+    $run = Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue
+    $wsh = New-Object -ComObject WScript.Shell
+    $links = [ordered]@{}
+    $programs = [Environment]::GetFolderPath('Programs')
+    $desktop  = [Environment]::GetFolderPath('Desktop')
+    foreach ($lnk in @("$programs\OpenDesign\OpenDesign.lnk", "$programs\OpenDesign\卸载 OpenDesign.lnk", "$desktop\OpenDesign.lnk")) {
+        if (Test-Path -LiteralPath $lnk) { $links[$lnk] = $wsh.CreateShortcut($lnk).TargetPath }
+    }
+    return @{
+        live        = $InstallDir
+        install_dir = $app.InstallDir
+        uninstall   = @{ InstallLocation = $un.InstallLocation; UninstallString = $un.UninstallString
+                         DisplayIcon = $un.DisplayIcon; DisplayVersion = $un.DisplayVersion }
+        autorun     = $run.OpenDesign
+        shortcuts   = $links
+    }
 }
 
 # ── 帮手:档案标记(死线 t13 的真机半)──────────────────────────────────
@@ -306,7 +337,10 @@ function Reset-Old {
     Stop-All
     Remove-Item -LiteralPath $RelayPath -Force -ErrorAction SilentlyContinue
     foreach ($d in @($InstallDir, $NewDir, $OldDir)) { Remove-Tree $d }
-    $ip = Start-Process -FilePath $OldSetup -ArgumentList '/S' -PassThru
+    # 🔴 显式 /D=:更新档(修好之前)会把"上次装在哪"写成 .new(run 34848924198 就是这么把
+    #    e4/e5/e1 带崩的)。场景之间要互不污染,就不能让上一个场景写坏的注册表决定这次装哪。
+    #    注册表**有没有被写坏**是每个场景自己的 pointers 事实,不靠这里藏起来。
+    $ip = Start-Process -FilePath $OldSetup -ArgumentList "/S /D=$InstallDir" -PassThru
     $null = $ip.Handle          # 不先碰 Handle,进程退出后 ExitCode 可能读成 null(pwsh 的老坑)
     if ($ip.WaitForExit(240000)) { $rc = $ip.ExitCode }
     else { Stop-Process -Id $ip.Id -Force -ErrorAction SilentlyContinue; $rc = 'timeout' }
@@ -341,6 +375,7 @@ function Run-e2 {
     $f.new_exists = Test-Path -LiteralPath $NewDir
     $f.old_exists = Test-Path -LiteralPath $OldDir
     $f.health_after = Wait-Health $OldVersion 30
+    $f.pointers = Get-Pointers
     $f.markers_after = Get-Markers
     $f.fake_log = Get-FakeLogSince $f.fake_log_start
     Finish-Scenario 'e2' $f
@@ -375,6 +410,7 @@ function Run-e3 {
     $f.old_exists = Test-Path -LiteralPath $OldDir
     Start-Process -FilePath "$InstallDir\OpenDesign.exe" -ErrorAction SilentlyContinue | Out-Null
     $f.relaunch = @{ health = (Wait-Health $OldVersion 180) }
+    $f.pointers = Get-Pointers
     $f.markers_after = Get-Markers
     $f.fake_log = Get-FakeLogSince $f.fake_log_start
     Finish-Scenario 'e3' $f
@@ -450,6 +486,7 @@ function Run-Rollback([string]$Kind, [string]$Mode) {
     Wait-Job $job -Timeout 30 | Out-Null
     Receive-Job $job -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "    injector: $_" }
     Remove-Job $job -Force
+    $f.pointers = Get-Pointers
     $f.markers_after = Get-Markers
     $f.fake_log = Get-FakeLogSince $f.fake_log_start
     Finish-Scenario $Kind $f
@@ -478,6 +515,7 @@ function Run-e1 {
     $f.live_version_after = Get-LiveVersion
     $f.old_exists = Test-Path -LiteralPath $OldDir
     $f.new_exists = Test-Path -LiteralPath $NewDir
+    $f.pointers = Get-Pointers
     $f.markers_after = Get-Markers
     $f.fake_log = Get-FakeLogSince $f.fake_log_start
     Finish-Scenario 'e1' $f

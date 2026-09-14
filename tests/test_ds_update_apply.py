@@ -26,6 +26,7 @@ from __future__ import annotations
 import hashlib
 import io
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -777,6 +778,111 @@ class WhereTheNewTreeGoes(_Base):
         for name in ds_update_apply.DATA_ROOT_PROTECTED_DIRS:
             self.assertTrue(os.path.isdir(os.path.join(paths["data_root"], name)),
                             "数据根底下没有 %s\\ —— 层数错了" % name)
+
+
+class TheRelayApplyWritesIsFilledIn(_Base):
+    """t25 —— `apply_update` **真正写到盘上的**那份接力脚本,必须带着真实的路径、端口、nonce、版本号。
+
+    🔴 2026-09-14 Windows 端到端第一趟(run 34848924198)抓到的,构件 `relay-e3.cmd` 原文:
+
+        set "LIVE="
+        set "NEWT="
+        set "OLDT="
+        set "LOGF=\\Logs\\更新.log"
+        set "NONCE="
+        set "WANT="
+
+    `t24` 修渲染器时给 `render_relay` 加了 `paths/port/nonce/expect_version` 四个参数,
+    判据 `t24` 调它时**参数给全了**,而**生产调用点 `apply_update` 只传了 plan**。
+    后果:收摊闸问的哨兵变成 `\\ds\\bin\\ds_shell.py`(永远"被占着")⇒ 等满超时 ⇒ 放弃;
+    就算放行,`move "" ""` 也什么都换不了 —— **每一次点更新,软件都关掉、再也不回来**。
+    本机 88 条全绿,因为没有一条判据读过 `apply_update` 写出来的那个文件。
+
+    t24 那条教训("判据调用被测函数时参数给不全,测的是不存在的场景")的**反面**:
+    生产调用点参数给不全,判据给全了,于是判据测的是一个生产里不存在的程序。
+    ⇒ 这里只读**盘上那个文件**,不自己调渲染器。
+    """
+
+    PORT = 18777
+
+    def _relay_text(self):
+        self.paths["port"] = self.PORT
+        r = self._apply(_decision())
+        self.assertTrue(r["ok"], r.get("error"))
+        with open(r["relay"], encoding="gbk") as fh:
+            return fh.read()
+
+    @staticmethod
+    def _var(text, name):
+        m = re.search(r'^set "%s=(.*)"\s*$' % name, text, re.M)
+        return None if m is None else m.group(1)
+
+    def test_t25a_tree_paths_are_the_real_ones(self):
+        text = self._relay_text()
+        for var, key in (("LIVE", "live"), ("NEWT", "new"), ("OLDT", "old")):
+            with self.subTest(var=var):
+                self.assertEqual(self._var(text, var), self.paths[key],
+                                 "盘上接力脚本里的 %s 不是真路径" % var)
+
+    def test_t25b_port_nonce_and_version_are_filled_in(self):
+        text = self._relay_text()
+        self.assertEqual(self._var(text, "PORT"), str(self.PORT))
+        self.assertEqual(self._var(text, "WANT"), NEW_VERSION)
+        self.assertRegex(self._var(text, "NONCE") or "", r"^[0-9a-f]{16,}$", "nonce 是空的 —— 收口认不出新版")
+
+    def test_t25c_log_file_lives_under_the_real_data_root(self):
+        logf = self._var(self._relay_text(), "LOGF") or ""
+        self.assertTrue(logf.startswith(self.data_root), "更新日志写到了数据根外面:%r" % logf)
+
+
+class UpdateModeDoesNotRepointTheInstall(unittest.TestCase):
+    """t26 —— 更新档(`/UPDATE`,装进 `OpenDesign.new`)**不许**把注册表和快捷方式指到 `$INSTDIR`。
+
+    🔴 2026-09-14 Windows 端到端第一趟(run 34848924198)照出来的:e3 之后重装旧版,安装器报 rc=0,
+    而默认位置上没有 `OpenDesign.exe` —— `InstallDirRegKey` 读到的"上次装在哪"已经被更新档写成了
+    `...\\OpenDesign.new`。读 `.nsi` 确认:更新档装进 `.new` 时,`InstallDir`、卸载条目
+    (`InstallLocation`/`UninstallString`/`DisplayIcon`)、开始菜单和桌面快捷方式**全部照写 `$INSTDIR`**。
+
+    两次改名之后 `.new` 这个路径就不存在了 ⇒ **每次更新成功,业主的桌面图标、开始菜单、
+    "设置 → 应用"里的卸载都指向一个不存在的文件夹**;下次手动装新版也会装进 `.new`。
+
+    正确的指向本来就是活树那个路径,而改名之后活树还叫那个名字 ⇒ 更新档**什么都不用重写**。
+    查结构(同 t20c):每一行"把 `$INSTDIR` 写进注册表/快捷方式"的语句,上方最近的块守卫必须是更新档。
+    行为半在 Windows 端到端(e1~e5 的 pointers 事实)。
+    """
+
+    POINTER_OPS = ("WriteRegStr", "WriteRegExpandStr", "CreateShortcut")
+    NSI = InstallerUpdateFlagContract.NSI   # 不继承那个类:继承会把 t20 的判据再跑一遍
+
+    def _nsi(self):
+        with open(self.NSI, encoding="utf-8", errors="replace") as fh:
+            return fh.read()
+
+    def _pointer_lines(self):
+        lines = self._nsi().splitlines()
+        return lines, [i for i, ln in enumerate(lines)
+                       if not ln.strip().startswith(";")
+                       and ln.strip().startswith(self.POINTER_OPS)
+                       and "$INSTDIR" in ln]
+
+    def test_t26a_there_are_pointer_writes_to_check(self):
+        _lines, at = self._pointer_lines()
+        self.assertGreaterEqual(len(at), 6, "一条都找不到了 —— 这条闸在查空气")
+
+    def test_t26b_every_instdir_pointer_is_guarded_by_update_mode(self):
+        lines, at = self._pointer_lines()
+        for i in at:
+            with self.subTest(line=i + 1, text=lines[i].strip()):
+                guard = None
+                for j in range(i - 1, -1, -1):
+                    s = lines[j].strip()
+                    if s.startswith(("${EndIf}", "Section", "SectionEnd", "Function", "FunctionEnd")):
+                        break
+                    if s.startswith(("${If}", "${Unless}", "${IfNot}")):
+                        guard = s
+                        break
+                self.assertIsNotNone(guard, "更新档也会执行这一行,改名后它指向不存在的 .new")
+                self.assertIn(ds_update_apply.UPDATE_MODE_VAR, guard, "把守它的不是更新档:%s" % guard)
 
 
 if __name__ == "__main__":

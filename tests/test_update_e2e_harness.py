@@ -235,6 +235,17 @@ class H5ManifestSkipsOnlyPycache(unittest.TestCase):
 # ---------------------------------------------------------------- 判定器
 
 MARKERS = {"Data/客户资料-e2e.bin": "a" * 64, "UserData/项目备忘-e2e.md": "b" * 64}
+LIVE = r"C:\Users\runneradmin\AppData\Local\Programs\OpenDesign"
+POINTERS = {
+    "live": LIVE,
+    "install_dir": LIVE,
+    "uninstall": {"InstallLocation": LIVE, "UninstallString": '"%s\\卸载.exe"' % LIVE,
+                  "DisplayIcon": LIVE + "\\OpenDesign.exe", "DisplayVersion": OLD},
+    "autorun": None,
+    "shortcuts": {r"C:\Users\runneradmin\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\OpenDesign\OpenDesign.lnk":
+                  LIVE + "\\OpenDesign.exe",
+                  r"C:\Users\runneradmin\Desktop\OpenDesign.lnk": LIVE.upper() + "\\OpenDesign.exe"},
+}
 REAL_WINDOW = {"wins": [{"title": "OpenDesign", "cls": "WindowsForms10.Window.8.app.0.141b42a_r6_ad1",
                          "proc": "pythonw"}], "procs": ["pythonw:「OpenDesign」"]}
 
@@ -246,6 +257,7 @@ def _base(kind):
         "check": {"update_available": True, "latest": NEW, "error": None},
         "fake_log": [{"kind": "releases"}, {"kind": "download", "mode": "corrupt" if kind == "e2" else "normal"}],
         "markers_before": copy.deepcopy(MARKERS), "markers_after": copy.deepcopy(MARKERS),
+        "pointers": copy.deepcopy(POINTERS),
     }
     started = {"ok": True, "stage": "started", "error": None}
     relay = {"seen": True, "ended": True, "seconds": 42.0}
@@ -293,6 +305,14 @@ COMMON_BREAKS = {
     "archive marker changed": _set("markers_after", {"Data/客户资料-e2e.bin": "c" * 64}),
     "no markers seeded": _set("markers_before", {}),
     "markers fact missing": _drop("markers_after"),
+    "InstallDir points at .new": _set("pointers.install_dir", LIVE + ".new"),
+    "uninstall entry points at .new": _set("pointers.uninstall.UninstallString", '"%s.new\\卸载.exe"' % LIVE),
+    "desktop shortcut points at .new": _set(
+        "pointers.shortcuts", {r"C:\Users\runneradmin\Desktop\OpenDesign.lnk": LIVE + ".new\\OpenDesign.exe"}),
+    "shortcut points at .old": _set(
+        "pointers.shortcuts", {r"C:\x\OpenDesign.lnk": LIVE + ".old\\OpenDesign.exe"}),
+    "no shortcuts at all": _set("pointers.shortcuts", {}),
+    "pointers fact missing": _drop("pointers"),
 }
 
 BREAKS = {
@@ -443,6 +463,18 @@ class WWorkflowGateIsIndependent(unittest.TestCase):
         want = set(V.KINDS)
         self.assertEqual(set(re.findall(r"'(e\d)'", m_wf.group(1))), want)
         self.assertEqual(set(re.findall(r"'(e\d)'", m_ps.group(1))), want)
+
+
+class ZResetInstallsWhereTheScenarioLooks(unittest.TestCase):
+    """场景前重装旧版必须显式 `/D=$InstallDir`(run 34848924198:注册表被上一个场景写成 .new,
+    不带 /D 的静默安装就装进 .new,后面三个场景全被带崩)。注册表写没写坏,由各场景的 pointers 事实判。"""
+
+    def test_z1_reset_passes_the_install_dir(self):
+        with open(PS1, encoding="utf-8") as fh:
+            ps = fh.read()
+        m = re.search(r"^function Reset-Old \{(.*?)^\}", ps, re.M | re.S)
+        self.assertIsNotNone(m, "找不到 Reset-Old")
+        self.assertRegex(m.group(1), r'Start-Process -FilePath \$OldSetup -ArgumentList "/S /D=\$InstallDir"')
 
 
 if __name__ == "__main__":

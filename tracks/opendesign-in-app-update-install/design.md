@@ -467,6 +467,8 @@ proposal 的第 1 块板原文是:
 | `t22` | `tests/test_ds_web_update.py` | 端点:POST-only、**先起脚本再请关停**、不撒谎、没新版不许装 |
 | `t23` | `tests/test_ds_update_apply.py` | 路径:`.new`/`.old` 放哪的三个"不许" |
 | `t24` | `tests/test_ds_update_apply.py` | 接力脚本**是个真程序**:call 的标签都存在、失败分支是控制流不是注释、收摊闸挡得住改名、成功路径进不了回滚、不混路径分隔符、不许每条路都退 0(`7a9d123` 6 红 → `2d63076` 转绿) |
+| `t25` | `tests/test_ds_update_apply.py` | **`apply_update` 写到盘上的**接力脚本带着真实的 LIVE/NEWT/OLDT/PORT/NONCE/WANT/LOGF(Windows 第一趟抓到:生产调用点只传了 plan,脚本里全是空的)|
+| `t26` | `tests/test_ds_update_apply.py` | 更新档装 `.new` 时,任何把 `$INSTDIR` 写进注册表/快捷方式的语句都必须被更新档把守(Windows 第一趟照出来:改名后图标、卸载、"装在哪"全指向不存在的 `.new`)。行为半 = e1~e5 的 `pointers` 事实 |
 | `m1~` | `tests/test_ds_shell_core.py` | 锁通道:新动词分派 + 应答点名 + 老动词不受影响(真 socket,行为判据) |
 | `w8~` | `tests/test_ds_shell_wiring.py` | **静态闸**:`ds_shell.py` 真的把 `on_update` 接到了收摊上 |
 

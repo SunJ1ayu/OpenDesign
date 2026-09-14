@@ -28,6 +28,8 @@ stdout 一行;退出码 0=OK、1=FAIL、2=输入本身有问题(**也算红**,�
     relaunch   {health{...}}           e3:放手后手动拉起旧版的结果
     inject     {landed, detail}        e3/e4/e5 的注入打中没有
     markers_before / markers_after     档案标记文件 {相对路径: sha256}
+    pointers   {live, install_dir, uninstall{InstallLocation,UninstallString,DisplayIcon}, shortcuts{lnk: target}}
+               场景结束时业主"从哪儿打开它"的那几处指向(t26 的真机半)
     window     {wins, procs}           e1:屏幕上的窗口(交给 bin/probe_verdict.window_verdict)
 """
 from __future__ import annotations
@@ -90,6 +92,38 @@ def _markers(f, problems):
         problems.append("deadline: archive markers changed (Data/UserData touched)")
 
 
+def _norm(path):
+    return str(path or "").strip().strip('"').rstrip("\\").lower()
+
+
+def _pointers(f, problems):
+    """注册表"装在哪"、卸载条目、开始菜单/桌面快捷方式,**全都必须指着活树**(t26)。
+
+    更新档装进的是 `.new`;改名之后那个路径就不存在了。指过去 = 业主的图标打不开、卸载点不动、
+    下次手动安装装进 `.new`。每个场景都查:失败/回滚的路上 `.new` 也已经装过一遍了。
+    """
+    p = f.get("pointers") or {}
+    live = _norm(p.get("live"))
+    if not live:
+        problems.append("pointers: no live path recorded")
+        return
+    under = live + "\\"
+    un = p.get("uninstall") or {}
+    checks = [("InstallDir", p.get("install_dir"), "eq"),
+              ("uninstall.InstallLocation", un.get("InstallLocation"), "eq"),
+              ("uninstall.UninstallString", un.get("UninstallString"), "under"),
+              ("uninstall.DisplayIcon", un.get("DisplayIcon"), "under")]
+    shortcuts = p.get("shortcuts") or {}
+    if not shortcuts:
+        problems.append("pointers: no start-menu/desktop shortcut found")
+    checks += [("shortcut " + str(k).rsplit("\\", 1)[-1], v, "under") for k, v in sorted(shortcuts.items())]
+    for name, value, how in checks:
+        got = _norm(value)
+        ok = got == live if how == "eq" else got.startswith(under)
+        if not ok:
+            problems.append("pointers: %s -> %r, expected %s live tree" % (name, value, "the" if how == "eq" else "inside the"))
+
+
 def _started(f, problems):
     apply = f.get("apply") or {}
     if apply.get("ok") is not True or apply.get("stage") != "started":
@@ -141,6 +175,7 @@ def verdict_e2(raw):
         problems.append(".old exists")
     if _version(f.get("health_after")) != old:
         problems.append("old app not answering after refusal (got %r)" % _version(f.get("health_after")))
+    _pointers(f, problems)
     _markers(f, problems)
     return _finish("e2", f, problems, "corrupt download refused at verify, live tree untouched, %s still up" % old)
 
@@ -159,6 +194,7 @@ def verdict_e3(raw):
     relaunch = f.get("relaunch") or {}
     if _version(relaunch.get("health")) != old:
         problems.append("old app does not start after release (got %r)" % _version(relaunch.get("health")))
+    _pointers(f, problems)
     _markers(f, problems)
     auto = _version(f.get("health_after")) or "nobody"
     return _finish("e3", f, problems,
@@ -184,6 +220,7 @@ def verdict_e4(raw):
     _injected(f, problems)
     if _started(f, problems):
         _rolled_back("e4", f, problems, old)
+    _pointers(f, problems)
     _markers(f, problems)
     return _finish("e4", f, problems, "second rename failed, relay rolled back and relaunched %s" % old)
 
@@ -200,6 +237,7 @@ def verdict_e5(raw):
         if not bad or bad not in (f.get("seen_versions") or []):
             problems.append("the unhealthy new version (%r) never answered, scenario untested" % (bad or None))
         _rolled_back("e5", f, problems, old)
+    _pointers(f, problems)
     _markers(f, problems)
     return _finish("e5", f, problems, "unhealthy new version rolled back to %s" % old)
 
@@ -234,6 +272,7 @@ def verdict_e1(raw):
         w = probe_verdict.window_verdict(window.get("wins") or [], window.get("procs") or [])
         if not w.ok:
             problems.append("window: no OpenDesign main window after update")
+    _pointers(f, problems)
     _markers(f, problems)
     return _finish("e1", f, problems, "updated %s -> %s, window up, archive markers intact" % (old, new))
 
