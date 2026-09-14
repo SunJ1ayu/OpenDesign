@@ -346,7 +346,10 @@ def _note(paths, line):
 def _default_download(url, dest):
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     req = urllib.request.Request(url, headers={"User-Agent": "OpenDesign-updater"})
-    with build_opener().open(req, timeout=300) as resp, open(dest, "wb") as fh:
+    # 🔴 **走系统代理**(t30)。这里原来复用了 build_opener() —— 那是 t18 给"问本机 health"用的、
+    #    专门绕开代理的 opener。而查更新走默认 urllib、认代理 ⇒ 业主开 VPN 时查得到新版、
+    #    下载却直接去连 github.com。去外网的请求一律走默认 opener,和查更新同一个口径。
+    with urllib.request.urlopen(req, timeout=300) as resp, open(dest, "wb") as fh:
         shutil.copyfileobj(resp, fh)
     return dest
 
@@ -400,6 +403,17 @@ def apply_update(decision, paths, download=None, install=None):
     install = install or _default_install
     asset = (decision or {}).get("asset") or {}
     expect_version = decision.get("latest")
+
+    # 0. 上次留下的 .old 先清掉(t32)。接力脚本第一次改名是 `move 活树 .old`,
+    #    目标已存在时 move 会把活树**挪进去**;一旦走到回滚,换回来的就是那棵残缺的旧 .old。
+    #    我们正从活树里跑着 ⇒ 活树在 ⇒ .old 一定是过期的。清不掉就不开始 —— 别先下 43MB。
+    old_dir = paths.get("old")
+    if old_dir and os.path.lexists(old_dir):
+        if os.path.isdir(old_dir) and not os.path.islink(old_dir):
+            shutil.rmtree(old_dir, ignore_errors=True)
+        if os.path.lexists(old_dir):
+            _note(paths, "上次更新留下的 %s 清不掉,放弃更新" % old_dir)
+            return _fail("stale_old", "上次更新留下的 %s 清不掉,请手动删除后再试" % old_dir)
 
     # 1. digest 先于下载:没有可信的哈希就别开始下 43MB(t15)
     digest = parse_digest(asset.get("digest"))

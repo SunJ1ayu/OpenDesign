@@ -67,6 +67,7 @@ import os
 import re
 import socket
 import sys
+import threading
 import time
 import traceback
 import uuid
@@ -1084,11 +1085,28 @@ class Handler(BaseHTTPRequestHandler):
         每一步失败都往"当无事发生"塌,并且**把死在哪一步说出来**:
         "装错了"和"没装成"在业主那儿长得一样,在日志和界面上必须分得开。
         """
+        # 🔴 同一时间只许一次(t31)。界面的防重入闸只管同一个标签页;服务端是多线程的,
+        #    两个 apply 并发 = 第二次 rmtree(.new) 时第一次的安装器正往里写。
+        #    失败的路上放开(业主能再点一次);走到 started 就**不放**:软件马上要被关掉了。
+        lock = self.server.update_apply_lock
+        if not lock.acquire(blocking=False):
+            self._json(200, {"ok": False, "stage": "busy",
+                             "error": "更新已经在进行中,请稍候"})
+            return
+        started = False
+        try:
+            started = self._update_apply_locked()
+        finally:
+            if not started:
+                lock.release()
+
+    def _update_apply_locked(self) -> bool:
+        """`_update_apply` 持锁之后的全部内容。返回"是否走到了 started"(走到了就不放锁)。"""
         info = ds_update.check_cached(VERSION)
         if not info.get("update_available"):
             self._json(200, {"ok": False, "stage": "no_update",
                              "error": info.get("error") or "已经是最新版"})
-            return
+            return False
 
         paths = ds_update_apply.paths_for_update(self.server.ds_root,
                                                  port=self.server.server_address[1])
@@ -1096,13 +1114,13 @@ class Handler(BaseHTTPRequestHandler):
         if not result.get("ok"):
             self._json(200, {"ok": False, "stage": result.get("stage"),
                              "error": result.get("error")})
-            return
+            return False
 
         # 到这里为止活树一个字节没被碰过(t16)。下一步才是不可逆的开始。
         if not ds_update_apply.handoff(result.get("relay")):
             self._json(200, {"ok": False, "stage": "handoff",
                              "error": "接力脚本没能启动,更新取消(软件照常可用)"})
-            return
+            return False
 
         verdict = ds_shell_bridge_update()
         if verdict != "started":
@@ -1110,9 +1128,10 @@ class Handler(BaseHTTPRequestHandler):
             # 会自己超时、删掉 .new 收工。**这里绝不许报成功。**
             self._json(200, {"ok": False, "stage": "shell",
                              "error": "没能让程序自动关闭,更新取消 —— 请手动安装新版"})
-            return
+            return False
         self._json(200, {"ok": True, "stage": "started", "error": None,
                          "latest": info.get("latest")})
+        return True
 
     def _update_check(self):
         """查更新:线上有没有比本机新的版本(track opendesign-in-app-update,第一刀)。
@@ -2673,6 +2692,7 @@ def make_server(ds_root: str, dist: str, host: str = "127.0.0.1",
     httpd.ds_root = ds_root
     httpd.dist = os.path.realpath(dist)
     httpd.nanobot_port = nanobot_port  # 代理上游恒 127.0.0.1,仅端口可配
+    httpd.update_apply_lock = threading.Lock()  # 同一时间只许一次应用内更新(t31)
     return httpd
 
 
