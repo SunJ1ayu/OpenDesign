@@ -469,7 +469,10 @@ def handoff(relay_path, launcher=None):
     from ds_shell_core import spawn_kwargs  # 平台标志的唯一来源(同 _default_install)
 
     try:
-        launcher(relay_argv(relay_path), **spawn_kwargs())
+        # leave_job=True(t27):接力脚本要活过外壳收摊。不脱离的话它在 ds-web 的 Job 里,
+        # 外壳一关 Job 它就跟着死 —— 软件关了、没人换名、没人拉起(Windows 端到端第二趟实测)。
+        # 某些环境外层 Job 不许脱离 ⇒ 这里抛 ⇒ 下面按"没交棒"处理,更新取消、软件照常能用。
+        launcher(relay_argv(relay_path), **spawn_kwargs(leave_job=True))
     except Exception:  # noqa: BLE001 —— 起不来是"没交棒",不是"甩栈给业主"
         return False
     return True

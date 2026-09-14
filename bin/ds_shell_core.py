@@ -36,8 +36,19 @@ CREATE_NEW_PROCESS_GROUP = 0x00000200
 CREATE_NO_WINDOW = 0x08000000
 WINDOWS_SPAWN_FLAGS = CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
 
+# 🔴 Job 的两位(track opendesign-in-app-update-install,判据 t27)。
+#    外壳把每条后台腿放进一个 KILL_ON_JOB_CLOSE 的 Job:外壳一退,腿的整棵子孙树一起收。
+#    而 **Windows 上子进程自动进父进程的 Job** ⇒ ds-web 起的更新接力脚本也在里面,
+#    外壳收摊一关 Job 它就被收掉(09-14 Windows 端到端第二趟:交棒后 1 秒内死,日志只有第一行)。
+#    ⇒ Job 允许**显式**脱离(BREAKAWAY_OK),只有明确要求脱离的那一个进程(接力脚本)出去;
+#    **不许用 SILENT_BREAKAWAY_OK** —— 那会让腿的所有子孙都悄悄溜出去,Job 就白建了。
+CREATE_BREAKAWAY_FROM_JOB = 0x01000000
+JOB_OBJECT_LIMIT_BREAKAWAY_OK = 0x00000800
+JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
+JOB_LIMIT_FLAGS = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_BREAKAWAY_OK
 
-def spawn_kwargs(os_name: str = "") -> dict[str, Any]:
+
+def spawn_kwargs(os_name: str = "", leave_job: bool = False) -> dict[str, Any]:
     """起子进程时要额外传给 `subprocess` 的平台参数 —— **唯一来源**。
 
     调用点不许自己拼:漏一位的代价是真机上冒一个业主关得掉的黑窗口,
@@ -49,7 +60,9 @@ def spawn_kwargs(os_name: str = "") -> dict[str, Any]:
         # 自成会话 ⇒ 收尸时按进程组收,孙进程跑不掉(c1/c2/c13 咬的就是它)
         return {"start_new_session": True}
     if name == "nt":
-        return {"creationflags": WINDOWS_SPAWN_FLAGS}
+        # leave_job:只给更新接力脚本用 —— 它必须活过外壳收摊(见 JOB_LIMIT_FLAGS 那段)。
+        # posix 上 start_new_session 已经让它不在被按进程组收的那一组里,不用另加。
+        return {"creationflags": WINDOWS_SPAWN_FLAGS | (CREATE_BREAKAWAY_FROM_JOB if leave_job else 0)}
     return {}
 
 
@@ -969,7 +982,7 @@ class Supervisor:
                 ]
 
             info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
-            info.BasicLimitInformation.LimitFlags = 0x00002000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+            info.BasicLimitInformation.LimitFlags = JOB_LIMIT_FLAGS  # 收整棵树 + 允许显式脱离(t27)
             ok = kernel32.SetInformationJobObject(
                 job, 9, ctypes.byref(info), ctypes.sizeof(info)
             )
