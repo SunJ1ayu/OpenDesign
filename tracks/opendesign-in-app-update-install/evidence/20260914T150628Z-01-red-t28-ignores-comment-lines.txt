@@ -1,0 +1,55 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-t28-ignores-comment-lines
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_ds_update_apply -k t28
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  ba605d5
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-14T15:06:28Z
+---------------- 输出开始 ----------------
+FFFFF
+======================================================================
+FAIL: test_t28a_first_rename_is_retried_with_a_bound (tests.test_ds_update_apply.TheRelayWaitsForTheTreeAndAlwaysComesBack.test_t28a_first_rename_is_retried_with_a_bound)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_apply.py", line 944, in test_t28a_first_rename_is_retried_with_a_bound
+    self.assertTrue(label.startswith(":") and not label.startswith("::"),
+AssertionError: False is not true : 第一次改名前面没有重试用的标签 ⇒ 只试一次(实测 40 毫秒就放弃)
+
+======================================================================
+FAIL: test_t28b_give_up_paths_bring_the_old_app_back (tests.test_ds_update_apply.TheRelayWaitsForTheTreeAndAlwaysComesBack.test_t28b_give_up_paths_bring_the_old_app_back) (label='teardown_failed')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_apply.py", line 956, in test_t28b_give_up_paths_bring_the_old_app_back
+    self.assertTrue(any(l.lower().startswith('start "" "%live%\\opendesign.exe"') for l in sec),
+AssertionError: False is not true : teardown_failed 放弃之后没有把旧版打开 ⇒ 业主看到的是关了、没回来
+
+======================================================================
+FAIL: test_t28b_give_up_paths_bring_the_old_app_back (tests.test_ds_update_apply.TheRelayWaitsForTheTreeAndAlwaysComesBack.test_t28b_give_up_paths_bring_the_old_app_back) (label='rename_failed')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_apply.py", line 956, in test_t28b_give_up_paths_bring_the_old_app_back
+    self.assertTrue(any(l.lower().startswith('start "" "%live%\\opendesign.exe"') for l in sec),
+AssertionError: False is not true : rename_failed 放弃之后没有把旧版打开 ⇒ 业主看到的是关了、没回来
+
+======================================================================
+FAIL: test_t28c_rollback_stops_what_runs_from_the_live_tree_before_moving_it (tests.test_ds_update_apply.TheRelayWaitsForTheTreeAndAlwaysComesBack.test_t28c_rollback_stops_what_runs_from_the_live_tree_before_moving_it)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_apply.py", line 965, in test_t28c_rollback_stops_what_runs_from_the_live_tree_before_moving_it
+    self.assertTrue(stop and stop[0] < first_move,
+AssertionError: [] is not true : 回滚挪活树之前没先停掉从活树里跑着的程序 ⇒ 新版起来了就挪不动
+
+======================================================================
+FAIL: test_t28d_rollback_never_moves_old_into_an_existing_live_tree (tests.test_ds_update_apply.TheRelayWaitsForTheTreeAndAlwaysComesBack.test_t28d_rollback_never_moves_old_into_an_existing_live_tree)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_apply.py", line 974, in test_t28d_rollback_never_moves_old_into_an_existing_live_tree
+    self.assertTrue(guard, "活树还在时照样 move .old 活树 ⇒ 旧树被塞进活树里(e5 要测的那个)")
+AssertionError: [] is not true : 活树还在时照样 move .old 活树 ⇒ 旧树被塞进活树里(e5 要测的那个)
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.002s
+
+FAILED (failures=5)
+---------------- 输出结束 ----------------
+runlog: red-t28-ignores-comment-lines rc=1 commit=ba605d5 dirty=yes at=2026-09-14T15:06:28Z file=tracks/opendesign-in-app-update-install/evidence/20260914T150628Z-01-red-t28-ignores-comment-lines.txt

@@ -222,6 +222,33 @@ mutate_and_expect m23 test_t20b_the_nsi_parses_that_exact_flag \
   '  ${GetOptions} $R0 "/UPDATE" $R1' \
   '  ${GetOptions} $R0 "/UPD" $R1'
 
+# ---- t25~t28(2026-09-14,Windows 端到端三趟抓到的)----
+MUT_SRC="$SRC"
+mutate_and_expect m24 test_t25a_tree_paths_are_the_real_ones \
+  'fh.write(render_relay(plan, paths=paths, port=port, nonce=nonce,' \
+  'fh.write(render_relay(plan, paths={}, port=port, nonce=nonce,'
+mutate_and_expect m25 test_t28a_first_rename_is_retried_with_a_bound \
+  '"if %_r% GEQ 60 goto :rename_failed",' \
+  '"rem if %_r% GEQ 60 goto :rename_failed",'
+mutate_and_expect m26 test_t28b_give_up_paths_bring_the_old_app_back \
+  '"活树一直被占着改不了名,放弃更新(活树没动过)"'"'"',
+        '"'"'rmdir /S /Q "%NEWT%" >nul 2>&1'"'"',
+        '"'"'start "" "%LIVE%\\\\OpenDesign.exe"'"'"',' \
+  '"活树一直被占着改不了名,放弃更新(活树没动过)"'"'"',
+        '"'"'rmdir /S /Q "%NEWT%" >nul 2>&1'"'"','
+mutate_and_expect m27 test_t28c_rollback_stops_what_runs_from_the_live_tree_before_moving_it \
+  "'powershell.exe -NoProfile" \
+  "'rem powershell.exe -NoProfile"
+mutate_and_expect m28 test_t28d_rollback_never_moves_old_into_an_existing_live_tree \
+  "'if exist \"%LIVE%\" goto :rollback_stuck'," \
+  "'rem if exist \"%LIVE%\" goto :rollback_stuck',"
+MUT_SRC="$NSI"
+mutate_and_expect m29 test_t26b_every_instdir_pointer_is_guarded_by_update_mode \
+  '  ${If} $UpdateMode != "1"
+    WriteRegStr HKCU "Software\${APP}" "InstallDir" "$INSTDIR"
+  ${EndIf}' \
+  '    WriteRegStr HKCU "Software\${APP}" "InstallDir" "$INSTDIR"'
+
 MUT_SRC="$SRC"
 
 restore

@@ -925,7 +925,9 @@ class TheRelayWaitsForTheTreeAndAlwaysComesBack(unittest.TestCase):
         plan = ds_update_apply.relay_plan(self.PATHS, port=8766, nonce="n1", expect_version="0.98.5")
         text = ds_update_apply.render_relay(plan, paths=self.PATHS, port=8766, nonce="n1",
                                             expect_version="0.98.5")
-        return [ln.strip() for ln in text.splitlines()]
+        # 注释行一律不算数:`rem goto :x` / `:: if ... GEQ ...` 什么都挡不住,却能骗过按文本找的断言。
+        return [ln.strip() for ln in text.splitlines()
+                if not ln.strip().startswith("::") and not ln.strip().lower().startswith("rem ")]
 
     def _section(self, label):
         """从标签定义那一行到它后面第一句 `exit /b`(含)。"""
