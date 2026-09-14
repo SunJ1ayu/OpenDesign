@@ -1,0 +1,18 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    judge-fix-dead-t24b-and-leak
+cmd:     bash -o pipefail -c echo\ \"==\ 泄漏闸包着跑两份判据\ ==\"\;\ tests/tmpdir-leak-gate.sh\ --allow\ node-compile-\ --\ /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_update_apply\ tests.test_update_e2e_harness\ 2\>\&1\ \|\ tail\ -4\;\ echo\ \"==\ 红检\(完整\)==\"\;\ bash\ tests/mutation-ds-update-apply.sh\ 2\>\&1\ \|\ grep\ -E\ \"m32\|咬住\ \[0-9\]+\ /\|BAD\|漏网\\\]\|红在别处\"
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  32b4f47
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-14T16:16:26Z
+---------------- 输出开始 ----------------
+== 泄漏闸包着跑两份判据 ==
+----------------------------------------------------------------------
+Ran 87 tests in 2.919s
+
+OK
+== 红检(完整)==
+  [咬住] m32 → test_t24b_failure_branches_are_control_flow_not_comments
+== 咬住 33 / 漏网 0 ==
+---------------- 输出结束 ----------------
+runlog: judge-fix-dead-t24b-and-leak rc=0 commit=32b4f47 dirty=yes at=2026-09-14T16:16:26Z file=tracks/opendesign-in-app-update-install/evidence/20260914T161626Z-01-judge-fix-dead-t24b-and-leak.txt

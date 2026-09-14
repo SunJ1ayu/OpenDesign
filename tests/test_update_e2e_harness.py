@@ -421,7 +421,9 @@ class VVerdictIsABehaviour(unittest.TestCase):
             f = _base(kind)
             f["apply"] = {"ok": False, "stage": "装机", "error": "中文错误"}
             _, text = V.KINDS[kind](f)
-            path = os.path.join(tempfile.mkdtemp(), "f.json")
+            tmp = tempfile.mkdtemp()
+            self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)   # 泄漏闸 09-15 咬出:原来一个场景漏一个目录
+            path = os.path.join(tmp, "f.json")
             with open(path, "w", encoding="utf-8") as fh:
                 json.dump(f, fh, ensure_ascii=False)
             out = subprocess.run([sys.executable, os.path.join(SCRIPTS, "update_e2e_verdict.py"), kind, path],

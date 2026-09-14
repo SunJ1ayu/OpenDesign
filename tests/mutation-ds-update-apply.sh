@@ -249,6 +249,9 @@ mutate_and_expect m30 test_t29a_handoff_launches_the_relay_from_its_own_folder \
 mutate_and_expect m31 test_t29b_the_script_leaves_the_tree_before_anything_else \
   $'        \'cd /d "%~dp0"\',' \
   $'        \'rem cd /d "%~dp0"\','
+mutate_and_expect m32 test_t24b_failure_branches_are_control_flow_not_comments \
+  '":: 收不干净就绝不换名 —— 活树到这一刻为止一个字节没被动过",' \
+  '":: if errorlevel 1 goto :teardown_failed",'
 MUT_SRC="$NSI"
 mutate_and_expect m29 test_t26b_every_instdir_pointer_is_guarded_by_update_mode \
   '  ${If} $UpdateMode != "1"

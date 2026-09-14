@@ -504,10 +504,14 @@ class TheRelayIsARealProgram(_Base):
 
         收摊没干净时它挡不住下一行的改名 —— 而"不许进换名步"正是 t6 存在的全部理由。
         """
-        for line in self._lines():
-            if "on_fail" in line:
-                self.assertFalse(line.startswith("::") or line.startswith("rem "),
-                                 "失败分支写成了注释,它挡不住任何东西:%s" % line)
+        # ⚠️ 09-15 改问法:原来问"含 on_fail 的行不许是注释",而 t24 重写渲染器(2d63076)后
+        #    生成物里再没有 on_fail 这几个字 ⇒ 那条断言从 09-08 起**一次都没执行过**(死断言闸 09-15 咬出)。
+        #    它真正要防的是"控制流被写成注释" ⇒ 直接问:注释行里不许出现 goto / errorlevel。
+        comments = [l for l in self._lines() if l.startswith("::") or l.lower().startswith("rem ")]
+        self.assertTrue(comments, "一行注释都没有?这条问法问不出东西了,换个问法")
+        for line in comments:
+            self.assertFalse("goto" in line.lower() or "errorlevel" in line.lower(),
+                             "控制流写进了注释,它挡不住任何东西:%s" % line)
         text = self._text()
         self.assertIn("errorlevel", text.lower(),
                       "整份脚本没有一次错误检查 ⇒ 每一步都是「跑了就算成功」")
