@@ -115,16 +115,35 @@ mutate_and_expect n10 test_t31b_a_failed_attempt_does_not_lock_out_the_next_one 
 # ── t35:接力脚本起来了就不放锁(09-15 收口外审)──────  (上面 n10 锚点随 started→keep 改名同步)
 # n11 🔴 外壳没认动词也放锁 ⇒ 再点一次起第二份接力脚本
 mutate_and_expect n11 test_t35a_once_the_relay_is_running_the_lock_is_kept \
-  '                             "error": "没能让程序自动关闭,更新取消 —— 请手动安装新版"})
-            return True' \
-  '                             "error": "没能让程序自动关闭,更新取消 —— 请手动安装新版"})
-            return False'
+  '            return True, {"ok": False, "stage": "shell",' \
+  '            return False, {"ok": False, "stage": "shell",'
 # n12 修过头:接力脚本根本没起来也留锁 ⇒ 业主再也点不了
 mutate_and_expect n12 test_t35b_a_relay_that_never_started_does_not_keep_the_lock \
-  '                             "error": "接力脚本没能启动,更新取消(软件照常可用)"})
-            return False' \
-  '                             "error": "接力脚本没能启动,更新取消(软件照常可用)"})
-            return True'
+  '            return False, {"ok": False, "stage": "handoff",' \
+  '            return True, {"ok": False, "stage": "handoff",'
+# ── t41:先放锁、再回话(09-15 composer 最终总跑 t35b 红一次,探针坐实)──────  (n11/n12 锚点随"返回回包"同步)
+# n13 🔴 回包又挪回持锁时写出 ⇒ 回包之后线程被调度走,紧跟着的第二次撞上还没放的锁
+mutate_and_expect n13 test_t41b_handoff_failure_reply_means_the_lock_is_already_released \
+  '            if not keep:
+                lock.release()
+        # 🔴 先放锁、再回话(t41)。失败的回包就是在告诉业主「可以再点」;
+        #    原来回包在持锁时写出,写 socket 会让出 GIL ⇒ 满载时第二次先到、撞上还没放的锁。
+        self._json(200, reply)' \
+  '            if reply is not None:
+                self._json(200, reply)
+            if not keep:
+                lock.release()'
+# n14 同一个错,落在装之前就失败的那一支(t41a)
+mutate_and_expect n14 test_t41a_failure_reply_means_the_lock_is_already_released \
+  '            if not keep:
+                lock.release()
+        # 🔴 先放锁、再回话(t41)。失败的回包就是在告诉业主「可以再点」;
+        #    原来回包在持锁时写出,写 socket 会让出 GIL ⇒ 满载时第二次先到、撞上还没放的锁。
+        self._json(200, reply)' \
+  '            if reply is not None:
+                self._json(200, reply)
+            if not keep:
+                lock.release()'
 
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"
