@@ -329,6 +329,44 @@ def _fail(stage, error):
     return {"ok": False, "stage": stage, "error": error, "relay": None}
 
 
+RELAY_ENCODING = "gbk"
+# 接力脚本里会被**再解释一遍**的字符(t36):
+#   %  cmd 在双引号里照样展开变量;
+#   '  回滚那行 PowerShell 把 %LIVE% 放在单引号串里,一个 ' 就拆坏 ⇒ 停不掉新版 ⇒ 挪不动;
+#   ^  `call :move_retry "..."` 会把引号内的脱字符翻倍(cmd 的已知行为,未在真机上单独量过,拒绝是保守侧)。
+RELAY_UNSAFE_CHARS = ("%", "'", "^")
+
+
+def _oem_code_page():
+    """控制台代码页 —— 接力脚本 `.cmd` 的字节是按它读的。非 Windows 返回 None(那里没有接力脚本)。"""
+    if os.name != "nt":
+        return None
+    import ctypes
+    return int(ctypes.windll.kernel32.GetOEMCP())
+
+
+def relay_path_problem(paths):
+    """接力脚本处理得了这些路径吗?处理不了返回一句人话,处理得了返回 None(t36)。
+
+    处理不了的后果不是"更新失败"那么轻:路径一乱,放弃分支里那句 `start "%LIVE%\\OpenDesign.exe"`
+    也指错地方 ⇒ 软件已经被收摊、又打不开 ⇒ **关了不回来**。所以在动任何东西之前拒绝。
+    `paths["oem_cp"]` 可注入(判据用);不给就问 Windows。
+    """
+    oem_cp = paths["oem_cp"] if "oem_cp" in paths else _oem_code_page()
+    for key in ("live", "new", "old", "data_root", "temp"):
+        p = str(paths.get(key) or "")
+        for ch in RELAY_UNSAFE_CHARS:
+            if ch in p:
+                return "安装路径里有 %s,自动更新处理不了:%s" % (ch, p)
+        try:
+            p.encode(RELAY_ENCODING)
+        except UnicodeEncodeError:
+            return "安装路径里有 GBK 表示不了的字符,自动更新处理不了:%s" % p
+        if oem_cp is not None and oem_cp != 936 and not p.isascii():
+            return "系统代码页是 %s,自动更新处理不了带中文等非英文字符的路径:%s" % (oem_cp, p)
+    return None
+
+
 def _note(paths, line):
     """往数据根里唯一允许写的那个具名目录记一笔(t13:`Logs\\` 豁免)。"""
     root = paths.get("data_root")
@@ -361,6 +399,11 @@ def _default_install(setup_path, target_dir):
     本仓 `.github/scripts/windows-nonempty-probe.ps1:81` 已在真 Windows 上跑过这条路。
     ⚠️ `/UPDATE` 的意义:首装才需要 provisioning,更新时跑它就会写 `UserData\\`,
        而那是死线(t13)。**改实现,不改考卷。**
+
+    🔴 所以命令行**自己拼**,不交列表(t33)。交列表 = subprocess 用 list2cmdline 拼,
+       路径带空格就给 `/D=` 加引号 ⇒ NSIS 不认(`Main.c` 要求 `/D=` 前面紧挨空格)⇒
+       安装目录退回注册表 = **正在运行的活树**。前面几个参数照常交给 list2cmdline 加引号;
+       `/D=` 原样接在最后,NSIS 抄到行尾,空格不用引号。只在 Windows 上走得到这里。
     """
     import subprocess
 
@@ -369,7 +412,7 @@ def _default_install(setup_path, target_dir):
     # 🔴 必须走 spawn_kwargs():漏掉那一位,Windows 上会冒一个黑窗口,
     #    而**业主关掉它就等于杀掉正在装的安装器** —— 更新装到一半被腰斩。
     #    (0.90.0 那一单立的闸 tests/test_no_console_window.py 当场咬住了我这一行。)
-    cmd = [setup_path, "/S", INSTALL_UPDATE_FLAG, "/D=%s" % target_dir]
+    cmd = subprocess.list2cmdline([setup_path, "/S", INSTALL_UPDATE_FLAG]) + " /D=%s" % target_dir
     return subprocess.call(cmd, **spawn_kwargs())
 
 
@@ -403,6 +446,12 @@ def apply_update(decision, paths, download=None, install=None):
     install = install or _default_install
     asset = (decision or {}).get("asset") or {}
     expect_version = decision.get("latest")
+
+    # -1. 接力脚本扛不住的路径,**什么都别碰**就停(t36)。放在清 .old 之前:拒绝就得零副作用。
+    bad_path = relay_path_problem(paths)
+    if bad_path:
+        _note(paths, "路径接力脚本处理不了,放弃自动更新:%s" % bad_path)
+        return _fail("path_unsupported", bad_path)
 
     # 0. 上次留下的 .old 先清掉(t32)。接力脚本第一次改名是 `move 活树 .old`,
     #    目标已存在时 move 会把活树**挪进去**;一旦走到回滚,换回来的就是那棵残缺的旧 .old。
@@ -467,7 +516,7 @@ def apply_update(decision, paths, download=None, install=None):
     nonce = paths.get("nonce") or hashlib.sha256(os.urandom(16)).hexdigest()[:16]
     plan = relay_plan(paths, port=port, nonce=nonce, expect_version=expect_version)
     relay = os.path.join(paths["temp"], "opendesign-update-relay.cmd")
-    with open(relay, "w", encoding="gbk", errors="replace", newline="\r\n") as fh:
+    with open(relay, "w", encoding=RELAY_ENCODING, errors="replace", newline="\r\n") as fh:
         # 🔴 四个参数一个都不能少(t25)。09-14 Windows 端到端第一趟:这里原来只传了 plan,
         #    盘上的脚本里 LIVE/NEWT/OLDT/NONCE/WANT 全是空的 ⇒ 每次点更新软件都关掉不回来,
         #    而判据 t24 调渲染器时参数给全了,本机一片绿。

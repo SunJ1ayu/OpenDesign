@@ -69,6 +69,17 @@ Function .onInit
   ${IfNot} ${Errors}
     StrCpy $UpdateMode "1"
   ${EndIf}
+  ; 🔴 更新档只许装进 OpenDesign.new(判据 t34)。$INSTDIR 到这里已经定了(NSIS Ui.c:先 /D=、
+  ;    再注册表、再 InstallDir,之后才调 .onInit)。/D= 要是没被认出来(比如被加了引号),
+  ;    它就是注册表里记的**正在运行的活树** —— 静默装进去 = 半新半旧、下次打不开。
+  ;    宁可装不上(python 收到 rc=3 ⇒ 更新失败、活树没动),也绝不往别处装。
+  ${If} $UpdateMode == "1"
+    StrCpy $R2 $INSTDIR "" -4
+    ${If} $R2 != ".new"
+      SetErrorLevel 3
+      Abort
+    ${EndIf}
+  ${EndIf}
 FunctionEnd
 
 Name "${APP} ${APPVER}"
