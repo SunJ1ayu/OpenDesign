@@ -468,7 +468,7 @@ proposal 的第 1 块板原文是:
 | `t23` | `tests/test_ds_update_apply.py` | 路径:`.new`/`.old` 放哪的三个"不许" |
 | `t24` | `tests/test_ds_update_apply.py` | 接力脚本**是个真程序**:call 的标签都存在、失败分支是控制流不是注释、收摊闸挡得住改名、成功路径进不了回滚、不混路径分隔符、不许每条路都退 0(`7a9d123` 6 红 → `2d63076` 转绿) |
 | `t25` | `tests/test_ds_update_apply.py` | **`apply_update` 写到盘上的**接力脚本带着真实的 LIVE/NEWT/OLDT/PORT/NONCE/WANT/LOGF(Windows 第一趟抓到:生产调用点只传了 plan,脚本里全是空的)|
-| `t26` | `tests/test_ds_update_apply.py` | 更新档装 `.new` 时,任何把 `$INSTDIR` 写进注册表/快捷方式的语句都必须被更新档把守(Windows 第一趟照出来:改名后图标、卸载、"装在哪"全指向不存在的 `.new`)。行为半 = e1~e5 的 `pointers` 事实 |
+| `t26` | `tests/test_ds_update_apply.py` | 更新档装 `.new` 时,任何把 `$INSTDIR` 写进注册表/快捷方式的语句都必须被更新档把守(09-15 收紧:把守条件必须是 `$UpdateMode != "1"`,不是"提到了变量" —— 切片评审 GLM 腿亲测写反方向照样绿;t20c 同步收紧)(Windows 第一趟照出来:改名后图标、卸载、"装在哪"全指向不存在的 `.new`)。行为半 = e1~e5 的 `pointers` 事实 |
 | `t27` | `tests/test_ds_update_apply.py` | 接力脚本**活过外壳收摊**:外壳建的 Job 允许显式脱离(不许 SILENT_BREAKAWAY)、只有接力脚本要求脱离(Windows 第二趟坐实:它在 ds-web 的 KILL_ON_JOB_CLOSE Job 里,收摊 1 秒内被一起杀)|
 | `t28` | `tests/test_ds_update_apply.py` | 接力脚本**等活树真空出来**(第一次改名有上限地重试)、放弃的两条路**把旧版打开**、回滚**先停掉从活树跑着的程序**且**活树还在时绝不 move .old 进去**(Windows 第三趟坐实:闸 40 毫秒放行、外壳还没退完 ⇒ 改名失败 ⇒ 关了不回来)|
 | `t29` | `tests/test_ds_update_apply.py` | 接力脚本的**当前目录不在活树里**:handoff 给 cwd=它所在的 %TEMP%,脚本收摊闸之前先 `cd /d` 出去(Windows 第四趟坐实:启动器 SetOutPath 活树 ⇒ 一路继承 ⇒ 接力脚本自己把活树占住,改名 60 秒全失败)|
@@ -479,6 +479,10 @@ proposal 的第 1 块板原文是:
 | `t34` | `tests/test_ds_update_apply.py` | 安装器**更新档只许装进 `.new`**:`.onInit` 里更新档 + `$INSTDIR` 不以 `.new` 结尾 ⇒ `Abort`。纵深:哪天 `/D=` 又没被认出来,塌成"装不上",不是"装进活树"。行为半 = Windows `e6` |
 | `t35` | `tests/test_ds_web_update.py` | **接力脚本起来了就不放锁**:交棒成功、外壳没认动词(`stage=shell`)之后再点 ⇒ `busy`。否则两份接力脚本并存,业主手动关软件时两份先后改名(第二份 `move 活树 .old` 撞上已存在的 `.old` ⇒ 塞进去)。反面:接力脚本没起来(`stage=handoff`)照常能再点 |
 | `t36` | `tests/test_ds_update_apply.py` | **路径接力脚本扛不住就别开始**:任一路径含 `%`(cmd 展开)/ `'`(回滚那行 PowerShell 单引号)/ `^`(`call` 翻倍引号内的脱字符)、写不进 GBK、或非 ASCII 而控制台代码页不是 936 ⇒ `stage=path_unsupported`,**在清 .old / 下载 / 安装之前**。否则乱码路径让"放弃并打开旧版"也打不开 ⇒ 关了不回来。反面:空格、括号、中文(936)照常更新 |
+| `t37` | `tests/test_ds_update_apply.py` | **两段版本号照样装得上、收口认得出**:经真 `decide()`,`win-installer-1.1` + 新树写 `1.1` ⇒ 装上;接力脚本 `WANT` = 新树版本号原文(新版 /api/health 会报的那个)。反面:`1.2`/`1.1.1` 冒充 `1.1` 仍拒。切片评审 DeepSeek 段①片 F1 + GPT 整体腿 #10 各自指出:decide 补零成 `1.1.0`,新树逐字比对必失败 |
+| `t38` | `tests/test_ds_update_apply.py` | **交棒 = 接力脚本自己证明在跑**:脚本设完变量、进收摊闸前写 `%~f0.ready`;handoff 先删旧标记、限时等新标记,等不到就杀掉起的进程并报没交棒。切片评审 GPT 整体腿 #2:原来"Popen 没抛"就算交棒,cmd 起来了却没跑成脚本 ⇒ 关了不回来。t21b/t21c/t27d/t29a 的替身随契约改成会发信号 |
+| `t39` | `tests/test_ds_update_apply.py` | 新树装好之后删掉 `%TEMP%` 里的安装包(切片评审 DeepSeek F6:每更新一次留 43MB) |
+| `t40` | `tests/test_ds_update_apply.py` | **只有安装器装出来的树才自己更新自己**:活树缺 `OpenDesign.exe` 或 `ds\bin\ds_shell.py` ⇒ `stage=not_installed`,清 `.old` 之前返回。切片评审 DeepSeek F10 + 我核出更要命的一半:开发方式跑时活树被推成仓的上一级,第 0 步会 rmtree 一个恰好同名的无关 `.old` |
 | `m1~` | `tests/test_ds_shell_core.py` | 锁通道:新动词分派 + 应答点名 + 老动词不受影响(真 socket,行为判据) |
 | `w8~` | `tests/test_ds_shell_wiring.py` | **静态闸**:`ds_shell.py` 真的把 `on_update` 接到了收摊上 |
 

@@ -198,6 +198,23 @@ def _nsis_reads(cmdline):
     return {"silent": silent, "instdir": instdir}
 
 
+def _launcher_that_signals(record=None):
+    """替身启动器:像真接力脚本那样,一起来就写下就绪标记(t38)。
+
+    t38 之后"交棒成功" = 接力脚本**自己证明**它在跑,不再是"Popen 没抛异常"。
+    t21b/t21c/t27d/t29a 问的是别的事(起的是哪个脚本、平台标志、脱离 Job、当前目录),
+    它们的替身必须照新契约发信号,否则问不到自己要问的那件事。
+    """
+    def fake(argv, **kwargs):
+        if record is not None:
+            record.append((list(argv), kwargs))
+        relay = next(str(a) for a in argv if str(a).lower().endswith(".cmd"))
+        with open(relay + ds_update_apply.RELAY_READY_SUFFIX, "w") as fh:
+            fh.write("ready")
+        return object()
+    return fake
+
+
 class _Base(unittest.TestCase):
     def setUp(self):
         self.base = tempfile.mkdtemp(prefix="dsupd-")
@@ -693,8 +710,9 @@ class InstallerUpdateFlagContract(_Base):
                 guard = line
                 break
         self.assertIsNotNone(guard, "ProvisionConfig 是无条件调用的 —— 死线 t13 破了")
-        self.assertIn(ds_update_apply.UPDATE_MODE_VAR, guard,
-                      "把守它的不是更新档:%s" % guard)
+        # 🔴 要的是「!= "1"」这一句,不是"提到了这个变量"(切片评审 GLM 腿亲测:全部改成 == "1" 照样绿)
+        self.assertRegex(guard, r'%s\s*!=\s*"1"' % re.escape(ds_update_apply.UPDATE_MODE_VAR),
+                         "把守它的不是「非更新档」:%s" % guard)
 
 
 class HandoffToTheRelay(_Base):
@@ -722,12 +740,7 @@ class HandoffToTheRelay(_Base):
     def test_t21b_the_script_path_is_what_gets_launched(self):
         relay = self._relay()
         seen = []
-
-        def fake(argv, **kwargs):
-            seen.append((list(argv), kwargs))
-            return object()
-
-        self.assertTrue(ds_update_apply.handoff(relay, launcher=fake))
+        self.assertTrue(ds_update_apply.handoff(relay, launcher=_launcher_that_signals(seen)))
         self.assertTrue(seen, "没起")
         argv, _kw = seen[0]
         self.assertTrue(any(relay in str(a) for a in argv),
@@ -736,15 +749,10 @@ class HandoffToTheRelay(_Base):
     def test_t21c_launch_uses_the_one_source_for_platform_flags(self):
         relay = self._relay()
         seen = []
-
-        def fake(argv, **kwargs):
-            seen.append(kwargs)
-            return object()
-
-        ds_update_apply.handoff(relay, launcher=fake)
+        ds_update_apply.handoff(relay, launcher=_launcher_that_signals(seen))
         import ds_shell_core
         for key, value in ds_shell_core.spawn_kwargs().items():
-            self.assertEqual(seen[0].get(key), value,
+            self.assertEqual(seen[0][1].get(key), value,
                              "平台标志没走唯一来源 —— Windows 上那个黑窗口业主一关,"
                              "接力脚本就跟着死,而软件已经在关了")
 
@@ -952,7 +960,7 @@ class TheRelaySurvivesTheShellTeardown(unittest.TestCase):
 
         ds_shell_core.spawn_kwargs = recorder
         try:
-            ok = ds_update_apply.handoff(relay, launcher=lambda argv, **kw: object())
+            ok = ds_update_apply.handoff(relay, launcher=_launcher_that_signals())
         finally:
             ds_shell_core.spawn_kwargs = real
         self.assertTrue(ok)
@@ -1052,9 +1060,9 @@ class TheRelayDoesNotStandInsideTheTreeItRenames(unittest.TestCase):
         relay = os.path.join(tmp, "opendesign-update-relay.cmd")
         _write(relay, b"@echo off\r\n")
         seen = []
-        ok = ds_update_apply.handoff(relay, launcher=lambda argv, **kw: seen.append(kw) or object())
+        ok = ds_update_apply.handoff(relay, launcher=_launcher_that_signals(seen))
         self.assertTrue(ok)
-        self.assertEqual(os.path.normpath(seen[0].get("cwd") or ""), os.path.normpath(tmp),
+        self.assertEqual(os.path.normpath(seen[0][1].get("cwd") or ""), os.path.normpath(tmp),
                          "接力脚本没指定当前目录 ⇒ 继承 ds-web 的(活树里),自己把活树占住")
 
     def test_t29b_the_script_leaves_the_tree_before_anything_else(self):
@@ -1228,7 +1236,9 @@ class UpdateModeDoesNotRepointTheInstall(unittest.TestCase):
                         guard = s
                         break
                 self.assertIsNotNone(guard, "更新档也会执行这一行,改名后它指向不存在的 .new")
-                self.assertIn(ds_update_apply.UPDATE_MODE_VAR, guard, "把守它的不是更新档:%s" % guard)
+                # 🔴 方向也要对(同 t20c):== "1" 等于"只有更新档才写指向",正是第一趟 e2e 照出来的那个形态
+                self.assertRegex(guard, r'%s\s*!=\s*"1"' % re.escape(ds_update_apply.UPDATE_MODE_VAR),
+                                 "把守它的不是「非更新档」:%s" % guard)
 
 
 class TheInstallerReadsTheDirectoryWeMeant(unittest.TestCase):
@@ -1386,6 +1396,149 @@ class RelayUnsafePathsStopBeforeAnything(_Base):
                 result = self._apply_at(paths, cp)
                 self.assertTrue(result.get("ok"), "%r" % (result,))
                 self.assertEqual(result.get("stage"), "relay")
+
+
+class TwoPartVersionsStillUpdate(_Base):
+    """t37 —— 两段版本号(`win-installer-1.1`)照样能装上、收口认得出。
+
+    🔴 2026-09-15 切片评审两条腿各自指出(DeepSeek 段①片 F1、GPT 整体腿 #10),我读代码核实:
+    `ds_update.decide()` 把 `1.1` 补零成 `latest = "1.1.0"`,而新树的 `ds\\版本号.txt` 是构建时**原样**写的 `1.1`
+    ⇒ `verify_new_tree` 逐字比对必失败 ⇒ 永远停在 newtree;就算过了,接力脚本 `findstr "%WANT%"` 找的也是 `1.1.0`,
+    而新版 `/api/health` 报的是 `1.1` ⇒ 收口认不出 ⇒ 回滚。仓里明写要支持两段(业主宣布 1.0 那天)。
+    本机判据与 CI 全用三段版本号,补零是恒等变换 ⇒ 结构上照不出。
+    """
+
+    def _via_real_decide(self, tag_version, tree_version):
+        payload = _installer_bytes(tag_version)
+        import ds_update
+        rel = {"tag_name": "win-installer-" + tag_version, "draft": False, "prerelease": True,
+               "html_url": "https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-" + tag_version,
+               "body": "", "assets": [{"name": "OpenDesign-Setup-%s.exe" % tag_version,
+                                       "browser_download_url": ODD_ASSET_URL, "size": len(payload),
+                                       "digest": "sha256:" + _sha256_bytes(payload)}]}
+        decision = ds_update.decide("1.0", [rel])
+        self.assertTrue(decision.get("update_available"), "前提没摆好:%r" % (decision,))
+        result = ds_update_apply.apply_update(decision, self.paths, download=self._download(payload),
+                                              install=self._install(version=tree_version))
+        return decision, result
+
+    def test_t37a_a_two_part_release_installs(self):
+        decision, result = self._via_real_decide("1.1", "1.1")
+        self.assertTrue(result.get("ok"), "两段版本号装不上(latest=%r):%r" % (decision.get("latest"), result))
+
+    def test_t37b_the_relay_waits_for_the_version_the_new_app_will_actually_report(self):
+        """接力脚本等的必须是**新版 /api/health 真会报的那个字符串** = 新树版本号文件原文。"""
+        _decision_, result = self._via_real_decide("1.1", "1.1")
+        self.assertTrue(result.get("ok"), "%r" % (result,))
+        with open(result["relay"], encoding=ds_update_apply.RELAY_ENCODING) as fh:
+            text = fh.read()
+        self.assertIn('set "WANT=1.1"', text, "接力脚本等的不是新版会报的版本号")
+
+    def test_t37c_a_different_version_is_still_refused(self):
+        """反面(防修过头):两段对两段也得是**同一版** —— 1.2 冒充 1.1、1.1.1 冒充 1.1 都不行。"""
+        for tree_version in ("1.2", "1.1.1"):
+            with self.subTest(tree=tree_version):
+                shutil.rmtree(self.paths["new"], ignore_errors=True)
+                _d, result = self._via_real_decide("1.1", tree_version)
+                self.assertFalse(result.get("ok"))
+                self.assertEqual(result.get("stage"), "newtree")
+
+
+class TheRelayMustProveItIsRunning(_Base):
+    """t38 —— 交棒成功 = **接力脚本自己证明它在跑**(写下就绪标记),不是"Popen 没抛异常"。
+
+    🔴 2026-09-15 切片评审 GPT 整体腿 #2 指出,我读代码核实:`handoff` 只要启动器没抛就返回 True,
+    接着 ds-web 就请外壳把软件关掉。而 cmd 起来了却没跑成脚本的路不止一条
+    (`cmd.exe /c` 后面的路径带 `&`、带空格又带括号时引号被 cmd 剥掉、杀软拦了、脚本读坏了……)
+    ⇒ 软件关了、没有接力 ⇒ **关了不回来**,这正是本单最怕的形态。
+    判法:接力脚本在设完变量、进收摊闸之前写 `<脚本>.ready`;handoff 限时等它,等不到就把起的那个进程杀掉、报没交棒。
+    """
+
+    def _relay(self):
+        path = os.path.join(self.temp, "opendesign-update-relay.cmd")
+        _write(path, b"@echo off\r\n")
+        return path
+
+    class _Proc:
+        def __init__(self):
+            self.killed = False
+
+        def kill(self):
+            self.killed = True
+
+    def test_t38a_launched_but_silent_is_not_a_handoff(self):
+        relay = self._relay()
+        proc = self._Proc()
+        ok = ds_update_apply.handoff(relay, launcher=lambda argv, **kw: proc, ready_timeout=0.5)
+        self.assertFalse(ok, "进程起来了但接力脚本从没发出信号,却报交棒成功 ⇒ 下一步就把软件关了")
+        self.assertTrue(proc.killed, "报了没交棒,却让那个不知死活的进程留着 —— 它可能稍后又开始等我们死")
+
+    def test_t38b_a_relay_that_signals_is_a_handoff(self):
+        relay = self._relay()
+        self.assertTrue(ds_update_apply.handoff(relay, launcher=_launcher_that_signals(), ready_timeout=5))
+
+    def test_t38c_a_stale_signal_from_last_time_does_not_count(self):
+        relay = self._relay()
+        _write(relay + ds_update_apply.RELAY_READY_SUFFIX, b"ready")   # 上一次留下的
+        ok = ds_update_apply.handoff(relay, launcher=lambda argv, **kw: self._Proc(), ready_timeout=0.5)
+        self.assertFalse(ok, "拿上一次留下的就绪标记当成这一次的")
+
+    def test_t38d_the_rendered_relay_signals_before_it_starts_waiting(self):
+        paths = TheRelayIsARealProgram.PATHS
+        plan = ds_update_apply.relay_plan(paths, port=8766, nonce="n1", expect_version="0.98.5")
+        lines = [ln.strip() for ln in ds_update_apply.render_relay(
+            plan, paths=paths, port=8766, nonce="n1", expect_version="0.98.5").splitlines()]
+        code = [ln for ln in lines if ln and not ln.startswith("::")]
+        sig = [i for i, ln in enumerate(code)
+               if '"%~f0' + ds_update_apply.RELAY_READY_SUFFIX + '"' in ln and ">" in ln]
+        self.assertEqual(len(sig), 1, "接力脚本里没有(或不止一处)写就绪标记 %~f0" + ds_update_apply.RELAY_READY_SUFFIX)
+        last_set = max(i for i, ln in enumerate(code) if ln.startswith('set "'))
+        gate = code.index("call :wait_gone")
+        self.assertLess(last_set, sig[0], "就绪信号发在变量设完之前 —— 证明不了脚本读得动它的参数")
+        self.assertLess(sig[0], gate, "就绪信号发在收摊闸之后 —— 那时 ds-web 已经在等外壳关了,来不及")
+
+
+class TheDownloadedInstallerIsNotLeftBehind(_Base):
+    """t39 —— 成功把新树装好之后,`%TEMP%` 里那个 43MB 的安装包删掉。
+
+    切片评审 DeepSeek 段①片 F6:只有失败分支删它,成功路径与接力脚本都不删 ⇒ 每更新一次留 43MB。
+    业主机器出过"磁盘满了"(本仓 08-18 那一单),这种安静的积累正是那一类。
+    """
+
+    def test_t39a_setup_exe_is_gone_after_a_successful_prepare(self):
+        result = self._apply(_decision())
+        self.assertTrue(result.get("ok"), "%r" % (result,))
+        self.assertTrue(self.downloads, "前提没摆好:没下载")
+        _url, dest = self.downloads[0]
+        self.assertFalse(os.path.exists(dest), "安装包还躺在 %s" % dest)
+
+
+class OnlyAnInstalledTreeUpdatesItself(_Base):
+    """t40 —— 活树必须**长得像安装器装出来的**(`OpenDesign.exe` + `ds\\bin\\ds_shell.py`),否则什么都别碰。
+
+    切片评审 DeepSeek 段①片 F10,我读代码核实并发现更要命的一半:开发方式跑 ds-web(没有 DS_ROOT)时
+    `ds_root` = 仓根 ⇒ 活树被推成**仓的上一级**(例如 `F:\\AI`)。点更新 ⇒ 第 0 步 `rmtree("F:\\AI.old")`
+    会删掉一个和本软件无关、恰好叫这个名字的文件夹;随后真安装器往 `F:\\AI.new` 装 300MB、改注册表版本号。
+    """
+
+    def test_t40a_a_tree_that_was_not_installed_is_refused_before_anything(self):
+        not_installed = os.path.join(self.base, "dev", "AI")
+        _write(os.path.join(not_installed, "OpenDesign", "bin", "ds_web.py"), b"# a dev checkout\n")
+        paths = {"live": not_installed, "new": not_installed + ".new", "old": not_installed + ".old",
+                 "data_root": self.data_root, "temp": self.temp}
+        _write(os.path.join(paths["old"], "unrelated.txt"), "别人的东西".encode("utf-8"))
+        result = ds_update_apply.apply_update(_decision(), paths, download=self._download(_installer_bytes()),
+                                              install=self._install())
+        self.assertFalse(result.get("ok"))
+        self.assertEqual(result.get("stage"), "not_installed", "%r" % (result,))
+        self.assertTrue(os.path.isfile(os.path.join(paths["old"], "unrelated.txt")), "把一个无关的 .old 删了")
+        self.assertEqual(self.downloads, [])
+        self.assertEqual(self.installs, [])
+
+    def test_t40b_the_real_installed_shape_is_accepted(self):
+        """反面(防修过头):`_make_live_tree` 就是安装器布局的最小形状,它必须照常能走到写出接力脚本。"""
+        result = self._apply(_decision())
+        self.assertTrue(result.get("ok"), "%r" % (result,))
 
 
 if __name__ == "__main__":

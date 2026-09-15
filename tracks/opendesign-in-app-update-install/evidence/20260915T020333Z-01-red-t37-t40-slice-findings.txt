@@ -1,0 +1,139 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-t37-t40-slice-findings
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_ds_update_apply tests.test_ds_web_update tests.test_ds_update
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  49fde81
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T02:03:33Z
+---------------- 输出开始 ----------------
+.............F..................F.............F.....F.......EEEE...F.....FF.......2026-09-15 10:03:34 127.0.0.1 - "GET /api/health?nonce=n0nce-abc HTTP/1.1" 200 -
+.2026-09-15 10:03:35 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+.2026-09-15 10:03:35 127.0.0.1 - "GET /api/health?nonce=x HTTP/1.1" 200 -
+.2026-09-15 10:03:36 127.0.0.1 - "GET /api/health?nonce=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa HTTP/1.1" 200 -
+2026-09-15 10:03:36 127.0.0.1 - "GET /api/health?nonce=%E5%B8%A6%E4%B8%AD%E6%96%87%E7%9A%84 HTTP/1.1" 200 -
+2026-09-15 10:03:37 127.0.0.1 - "GET /api/health?nonce=a%26b%3Dc HTTP/1.1" 200 -
+2026-09-15 10:03:37 127.0.0.1 - "GET /api/health?nonce=%3Cscript%3E HTTP/1.1" 200 -
+.2026-09-15 10:03:38 127.0.0.1 - "GET /api/update/apply HTTP/1.1" 404 -
+.2026-09-15 10:03:38 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 10:03:39 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 10:03:39 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 10:03:40 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 10:03:40 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 10:03:41 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.....2026-09-15 10:03:41 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-15 10:03:41 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 10:03:42 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-15 10:03:42 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 10:03:42 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-15 10:03:42 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 10:03:43 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-15 10:03:43 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 10:03:43 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+.2026-09-15 10:03:44 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+.2026-09-15 10:03:44 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-15 10:03:44 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-15 10:03:44 127.0.0.1 - "GET /api/update/check?force=1 HTTP/1.1" 200 -
+.2026-09-15 10:03:45 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+.2026-09-15 10:03:45 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-15 10:03:45 127.0.0.1 - "GET /api/update/check?force=false HTTP/1.1" 200 -
+2026-09-15 10:03:45 127.0.0.1 - "GET /api/update/check?force=1 HTTP/1.1" 200 -
+..................................
+======================================================================
+ERROR: test_t38a_launched_but_silent_is_not_a_handoff (tests.test_ds_update_apply.TheRelayMustProveItIsRunning.test_t38a_launched_but_silent_is_not_a_handoff)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_apply.py", line 1472, in test_t38a_launched_but_silent_is_not_a_handoff
+    ok = ds_update_apply.handoff(relay, launcher=lambda argv, **kw: proc, ready_timeout=0.5)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: handoff() got an unexpected keyword argument 'ready_timeout'
+
+======================================================================
+ERROR: test_t38b_a_relay_that_signals_is_a_handoff (tests.test_ds_update_apply.TheRelayMustProveItIsRunning.test_t38b_a_relay_that_signals_is_a_handoff)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_apply.py", line 1478, in test_t38b_a_relay_that_signals_is_a_handoff
+    self.assertTrue(ds_update_apply.handoff(relay, launcher=_launcher_that_signals(), ready_timeout=5))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: handoff() got an unexpected keyword argument 'ready_timeout'
+
+======================================================================
+ERROR: test_t38c_a_stale_signal_from_last_time_does_not_count (tests.test_ds_update_apply.TheRelayMustProveItIsRunning.test_t38c_a_stale_signal_from_last_time_does_not_count)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_apply.py", line 1482, in test_t38c_a_stale_signal_from_last_time_does_not_count
+    _write(relay + ds_update_apply.RELAY_READY_SUFFIX, b"ready")   # 上一次留下的
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_update_apply' has no attribute 'RELAY_READY_SUFFIX'
+
+======================================================================
+ERROR: test_t38d_the_rendered_relay_signals_before_it_starts_waiting (tests.test_ds_update_apply.TheRelayMustProveItIsRunning.test_t38d_the_rendered_relay_signals_before_it_starts_waiting)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_apply.py", line 1493, in test_t38d_the_rendered_relay_signals_before_it_starts_waiting
+    if '"%~f0' + ds_update_apply.RELAY_READY_SUFFIX + '"' in ln and ">" in ln]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_update_apply' has no attribute 'RELAY_READY_SUFFIX'
+
+======================================================================
+FAIL: test_t21b_the_script_path_is_what_gets_launched (tests.test_ds_update_apply.HandoffToTheRelay.test_t21b_the_script_path_is_what_gets_launched)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_apply.py", line 743, in test_t21b_the_script_path_is_what_gets_launched
+    self.assertTrue(ds_update_apply.handoff(relay, launcher=_launcher_that_signals(seen)))
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_t40a_a_tree_that_was_not_installed_is_refused_before_anything (tests.test_ds_update_apply.OnlyAnInstalledTreeUpdatesItself.test_t40a_a_tree_that_was_not_installed_is_refused_before_anything)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_apply.py", line 1532, in test_t40a_a_tree_that_was_not_installed_is_refused_before_anything
+    self.assertFalse(result.get("ok"))
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_t39a_setup_exe_is_gone_after_a_successful_prepare (tests.test_ds_update_apply.TheDownloadedInstallerIsNotLeftBehind.test_t39a_setup_exe_is_gone_after_a_successful_prepare)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_apply.py", line 1513, in test_t39a_setup_exe_is_gone_after_a_successful_prepare
+    self.assertFalse(os.path.exists(dest), "安装包还躺在 %s" % dest)
+AssertionError: True is not false : 安装包还躺在 /tmp/dsupd-7bf8ukr5/Temp/OpenDesign-Setup-0.98.5.exe
+
+======================================================================
+FAIL: test_t29a_handoff_launches_the_relay_from_its_own_folder (tests.test_ds_update_apply.TheRelayDoesNotStandInsideTheTreeItRenames.test_t29a_handoff_launches_the_relay_from_its_own_folder)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_apply.py", line 1064, in test_t29a_handoff_launches_the_relay_from_its_own_folder
+    self.assertTrue(ok)
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_t27d_handoff_requests_leaving_the_job (tests.test_ds_update_apply.TheRelaySurvivesTheShellTeardown.test_t27d_handoff_requests_leaving_the_job)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_apply.py", line 966, in test_t27d_handoff_requests_leaving_the_job
+    self.assertTrue(ok)
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_t37a_a_two_part_release_installs (tests.test_ds_update_apply.TwoPartVersionsStillUpdate.test_t37a_a_two_part_release_installs)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_apply.py", line 1427, in test_t37a_a_two_part_release_installs
+    self.assertTrue(result.get("ok"), "两段版本号装不上(latest=%r):%r" % (decision.get("latest"), result))
+AssertionError: False is not true : 两段版本号装不上(latest='1.1.0'):{'ok': False, 'stage': 'newtree', 'error': '新树版本号是 1.1,要的是 1.1.0', 'relay': None}
+
+======================================================================
+FAIL: test_t37b_the_relay_waits_for_the_version_the_new_app_will_actually_report (tests.test_ds_update_apply.TwoPartVersionsStillUpdate.test_t37b_the_relay_waits_for_the_version_the_new_app_will_actually_report)
+接力脚本等的必须是**新版 /api/health 真会报的那个字符串** = 新树版本号文件原文。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_apply.py", line 1432, in test_t37b_the_relay_waits_for_the_version_the_new_app_will_actually_report
+    self.assertTrue(result.get("ok"), "%r" % (result,))
+AssertionError: False is not true : {'ok': False, 'stage': 'newtree', 'error': '新树版本号是 1.1,要的是 1.1.0', 'relay': None}
+
+----------------------------------------------------------------------
+Ran 139 tests in 12.933s
+
+FAILED (failures=7, errors=4)
+---------------- 输出结束 ----------------
+runlog: red-t37-t40-slice-findings rc=1 commit=49fde81 dirty=yes at=2026-09-15T02:03:33Z file=tracks/opendesign-in-app-update-install/evidence/20260915T020333Z-01-red-t37-t40-slice-findings.txt

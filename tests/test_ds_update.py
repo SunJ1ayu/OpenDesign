@@ -409,10 +409,6 @@ class CacheIt(unittest.TestCase):
                          "装到 0.98.3 之后还在拿 0.98.1 那次的答案提示更新")
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
-
-
 class AssetNameContract(unittest.TestCase):
     """t12:安装包**文件名**在两个文件之间是有契约的,而契约此前只写在注释里。
 
@@ -477,3 +473,9 @@ class AssetNameContract(unittest.TestCase):
         self.assertIsNotNone(
             picked, f"构建脚本发出的 `{name}` 走不完挑版本那条路 —— "
                     "release 有安装包却被当成「没有可安装版本」跳过了")
+
+
+# 🔴 入口必须在**文件最末尾**(2026-09-15 切片评审 GPT 腿 #11 指出):AssetNameContract 原来定义在它之后,
+#    当脚本跑时 `unittest.main()` 看不见 ⇒ t12a/t12b 凭空消失(tests/test_ds_web_update.py 末尾记过同一种病)。
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
