@@ -433,5 +433,31 @@ class OneSourceForReplaceRetry(unittest.TestCase):
         self.assertEqual([h[0] for h in hits], ["ds_common.py"], "定义在:%r" % hits)
 
 
+class FlushedToDiskBeforeTheSwap(unittest.TestCase):
+    """aw14 —— 断电那一半只能钉结构:`atomic_write_text` 里**替换之前**对临时文件 `os.fsync`。
+
+    断电本机模拟不了;只改名不刷盘,断电后可能是"改名落了、数据块没落"的空文件 —— 正是这一单要防的事。
+    钉的是调用顺序(AST 里 fsync 的调用出现在 replace_with_retry 之前),注释里写了 fsync 不算。
+    """
+
+    def test_aw14_fsync_happens_before_the_replace(self):
+        import ast
+        with open(os.path.join(BIN, "ds_common.py"), encoding="utf-8") as fh:
+            tree = ast.parse(fh.read())
+        fn = next((n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "atomic_write_text"), None)
+        self.assertIsNotNone(fn, "ds_common 里没有 atomic_write_text")
+        calls = []
+        for node in ast.walk(fn):
+            if isinstance(node, ast.Call):
+                f = node.func
+                name = f.attr if isinstance(f, ast.Attribute) else getattr(f, "id", "")
+                calls.append((node.lineno, node.col_offset, name))
+        calls.sort()
+        names = [c[2] for c in calls]
+        self.assertIn("fsync", names, "atomic_write_text 不刷盘:断电后可能是空文件")
+        self.assertIn("replace_with_retry", names)
+        self.assertLess(names.index("fsync"), names.index("replace_with_retry"), "刷盘发生在替换之后,来不及")
+
+
 if __name__ == "__main__":
     unittest.main()

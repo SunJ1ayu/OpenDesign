@@ -63,6 +63,7 @@ locked_rw(path)               with archive_lock(path): 读(文件不在照旧抛
 | `aw11` | 写过之后,项目列表 / 客户列表不出现 `.locks` 之类的东西 | |
 | `aw12` | **Windows 语义(本机恒绿,Windows 探针上才真问)**:另一句柄短暂开着目标(< 重试窗口)⇒ 写成功;一直开着 ⇒ 写抛错且原文件原封不动、无 `.tmp` 残骸 | `.github/workflows/windows-atomic-probe.yml` |
 | `aw13` | `_replace_with_retry` 只有一处定义(ds_common),ds_tools 引用它 | 结构钉,防第二来源 |
+| `aw14` | `atomic_write_text` 里替换之前对临时文件 `os.fsync`(AST 调用顺序) | 断电那一半本机模拟不了,只能钉结构;写判据表时漏了、实现提交前补上 |
 
 ### 这个 oracle 能被什么骗过?
 
