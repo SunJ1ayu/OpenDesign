@@ -650,8 +650,10 @@ class InstallerUpdateFlagContract(_Base):
         cmdline = _installer_cmdline("C:/tmp/Setup.exe", "C:/tmp/OpenDesign.new")
         self.assertIn(" %s " % ds_update_apply.INSTALL_UPDATE_FLAG, cmdline)
         self.assertIn(" /S ", cmdline, "更新必须静默")
-        self.assertRegex(cmdline, r' /D=[^"]*$',
-                         "/D= 必须是最后一个参数且不加引号(NSIS 的规矩,不是我们的选择)")
+        # 以「空格 + /D= + 目标原样」收尾 = 最后一个参数、不加引号、后面什么都没有。
+        # (第一版写的是正则 ` /D=[^"]*$`,只问得出"后面没引号",/D= 后面再跟一个参数照样绿 —— 红检 m20 换锚点时照出来)
+        self.assertTrue(cmdline.endswith(" /D=C:/tmp/OpenDesign.new"),
+                        "/D= 必须是最后一个参数且不加引号(NSIS 的规矩,不是我们的选择):%s" % cmdline)
 
     def test_t20b_the_nsi_parses_that_exact_flag(self):
         """⚠️ 这条第一版太松,红检当场照出来(m23 漏网,2026-09-08)。
@@ -1314,8 +1316,10 @@ class TheUpdateModeOnlyInstallsIntoNew(unittest.TestCase):
                 stack.pop()
             elif ln == "Abort" or ln.startswith("Abort "):
                 aborts.append((i, [cond for _at, cond in stack]))
+        # 🔴 要的是「更新档 == "1"」这一句,不是"提到了这个变量"—— 写成 == "0" 就成了只在首装时拦(红检 m45 立的)
+        update_mode = re.compile(r'%s\s*==\s*"1"' % re.escape(ds_update_apply.UPDATE_MODE_VAR))
         good = [i for i, conds in aborts
-                if any(ds_update_apply.UPDATE_MODE_VAR in c.split("<ELSE-OR>")[0] for c in conds)
+                if any(update_mode.search(c.split("<ELSE-OR>")[0]) for c in conds)
                 and any(var in c.split("<ELSE-OR>")[0] and '".new"' in c.split("<ELSE-OR>")[0] and "!=" in c
                         for c in conds)
                 and i > flag_at]

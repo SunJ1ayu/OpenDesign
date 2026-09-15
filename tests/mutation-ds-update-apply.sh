@@ -201,9 +201,10 @@ mutate_and_expect m19 test_t20b_the_nsi_parses_that_exact_flag \
   'INSTALL_UPDATE_FLAG = "/SILENTUPDATE"'
 
 # m20 /D= 不再是最后一个参数(NSIS 的硬规矩,排错了这一位安装目录就不对)
+# (09-15 锚点随 t33 的修法同步:命令行改成自己拼;变异仍是"/D= 后面还跟着东西")
 mutate_and_expect m20 test_t20a_installer_is_invoked_with_the_update_flag \
-  'cmd = [setup_path, "/S", INSTALL_UPDATE_FLAG, "/D=%s" % target_dir]' \
-  'cmd = [setup_path, "/S", "/D=%s" % target_dir, INSTALL_UPDATE_FLAG]'
+  ' + " /D=%s" % target_dir' \
+  ' + " /D=%s" % target_dir + " /NCRC"'
 
 MUT_SRC="$NSI"
 # m21 🔴 NSIS 那边把把守撤了 ⇒ 更新期照跑 provisioning ⇒ 死线破,而 t13 全绿
@@ -253,7 +254,7 @@ mutate_and_expect m32 test_t24b_failure_branches_are_control_flow_not_comments \
   '":: 收不干净就绝不换名 —— 活树到这一刻为止一个字节没被动过",' \
   '":: if errorlevel 1 goto :teardown_failed",'
 mutate_and_expect m33 test_t30a_download_asks_the_proxy_not_the_internet \
-  'with urllib.request.urlopen(req, timeout=300) as resp, open(dest, "wb") as fh:' \
+  'with urllib.request.build_opener().open(req, timeout=300) as resp, open(dest, "wb") as fh:' \
   'with build_opener().open(req, timeout=300) as resp, open(dest, "wb") as fh:'
 mutate_and_expect m34 test_t32a_stale_old_is_removed_and_the_update_proceeds \
   '            shutil.rmtree(old_dir, ignore_errors=True)
@@ -263,12 +264,59 @@ mutate_and_expect m34 test_t32a_stale_old_is_removed_and_the_update_proceeds \
 mutate_and_expect m35 test_t32b_an_old_that_cannot_be_removed_stops_before_downloading \
   '            return _fail("stale_old", "上次更新留下的 %s 清不掉,请手动删除后再试" % old_dir)' \
   '            pass'
+# ── t33 / t36 / t30b:收口外审之后(09-15)────────────────────────────
+# m36 🔴 回到交列表 ⇒ list2cmdline 给带空格的 /D= 加引号 ⇒ NSIS 不认 ⇒ 装进活树
+mutate_and_expect m36 test_t33a_nsis_reads_exactly_the_new_dir \
+  '    cmd = subprocess.list2cmdline([setup_path, "/S", INSTALL_UPDATE_FLAG]) + " /D=%s" % target_dir' \
+  '    cmd = [setup_path, "/S", INSTALL_UPDATE_FLAG, "/D=%s" % target_dir]'
+# m37 自己拼、但"好心"给 /D= 加引号
+mutate_and_expect m37 test_t33a_nsis_reads_exactly_the_new_dir \
+  ' + " /D=%s" % target_dir' \
+  ' + " \"/D=%s\"" % target_dir'
+# m38 放过单引号 ⇒ 回滚那行 PowerShell 被拆坏
+mutate_and_expect m38 test_t36a_unsafe_paths_are_refused_before_any_side_effect \
+  'RELAY_UNSAFE_CHARS = ("%", "'"'"'", "^")' \
+  'RELAY_UNSAFE_CHARS = ("%", "^")'
+# m39 不看控制台代码页 ⇒ 英文系统 + 中文路径照样开工
+mutate_and_expect m39 test_t36a_unsafe_paths_are_refused_before_any_side_effect \
+  '        if oem_cp is not None and oem_cp != 936 and not p.isascii():' \
+  '        if False:'
+# m40 拒绝检查整个拿掉
+mutate_and_expect m40 test_t36a_unsafe_paths_are_refused_before_any_side_effect \
+  '    bad_path = relay_path_problem(paths)' \
+  '    bad_path = None'
+# m41 修过头:非 ASCII 一律拒绝 ⇒ 中文系统上的业主也更新不了(反面 t36b 必须咬住)
+mutate_and_expect m41 test_t36b_ordinary_paths_still_update \
+  '        if oem_cp is not None and oem_cp != 936 and not p.isascii():' \
+  '        if not p.isascii():'
+# m42 回到进程级缓存的 urlopen ⇒ 先开软件后开 VPN,下载不走代理
+mutate_and_expect m42 test_t30b_the_proxy_is_read_when_downloading_not_at_the_first_network_call \
+  '    with urllib.request.build_opener().open(req, timeout=300) as resp, open(dest, "wb") as fh:' \
+  '    with urllib.request.urlopen(req, timeout=300) as resp, open(dest, "wb") as fh:'
+
 MUT_SRC="$NSI"
 mutate_and_expect m29 test_t26b_every_instdir_pointer_is_guarded_by_update_mode \
   '  ${If} $UpdateMode != "1"
     WriteRegStr HKCU "Software\${APP}" "InstallDir" "$INSTDIR"
   ${EndIf}' \
   '    WriteRegStr HKCU "Software\${APP}" "InstallDir" "$INSTDIR"'
+
+# ── t34:更新档只许装进 .new ──────────────────────────────────────────
+# m43 🔴 只设错误码、不 Abort ⇒ 照样往活树里装
+mutate_and_expect m43 test_t34a_update_mode_aborts_unless_instdir_ends_with_new \
+  '      SetErrorLevel 3
+      Abort' \
+  '      SetErrorLevel 3'
+# m44 比错后缀
+mutate_and_expect m44 test_t34a_update_mode_aborts_unless_instdir_ends_with_new \
+  '    ${If} $R2 != ".new"' \
+  '    ${If} $R2 != ".old"'
+# m45 把守条件写反 ⇒ 只在首装时拦、更新时放行(t34a 第一版只问"提到了变量",这条漏网逼出收紧)
+mutate_and_expect m45 test_t34a_update_mode_aborts_unless_instdir_ends_with_new \
+  '  ${If} $UpdateMode == "1"
+    StrCpy $R2 $INSTDIR "" -4' \
+  '  ${If} $UpdateMode == "0"
+    StrCpy $R2 $INSTDIR "" -4'
 
 MUT_SRC="$SRC"
 

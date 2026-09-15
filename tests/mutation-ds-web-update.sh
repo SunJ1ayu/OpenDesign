@@ -108,10 +108,23 @@ mutate_and_expect n9 test_t31a_a_second_apply_while_one_is_running_is_refused \
   '        if not (lock.acquire(blocking=False) or True):'
 # n10 失败路上不放锁 ⇒ 一次失败永远锁死(防修过头)
 mutate_and_expect n10 test_t31b_a_failed_attempt_does_not_lock_out_the_next_one \
-  '            if not started:
+  '            if not keep:
                 lock.release()' \
   '            if False:
                 lock.release()'
+# ── t35:接力脚本起来了就不放锁(09-15 收口外审)──────  (上面 n10 锚点随 started→keep 改名同步)
+# n11 🔴 外壳没认动词也放锁 ⇒ 再点一次起第二份接力脚本
+mutate_and_expect n11 test_t35a_once_the_relay_is_running_the_lock_is_kept \
+  '                             "error": "没能让程序自动关闭,更新取消 —— 请手动安装新版"})
+            return True' \
+  '                             "error": "没能让程序自动关闭,更新取消 —— 请手动安装新版"})
+            return False'
+# n12 修过头:接力脚本根本没起来也留锁 ⇒ 业主再也点不了
+mutate_and_expect n12 test_t35b_a_relay_that_never_started_does_not_keep_the_lock \
+  '                             "error": "接力脚本没能启动,更新取消(软件照常可用)"})
+            return False' \
+  '                             "error": "接力脚本没能启动,更新取消(软件照常可用)"})
+            return True'
 
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"
