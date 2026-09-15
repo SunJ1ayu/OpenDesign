@@ -1,0 +1,29 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    windows-atomic-probe-run-34930064530
+cmd:     bash -c set\ -e\;\ D=\$\(mktemp\ -d\)\;\ trap\ \"rm\ -rf\ \$D\"\ EXIT\;\ gh\ run\ view\ 34930064530\ -R\ SunJ1ayu/OpenDesign\ --json\ status\,conclusion\,headSha\,headBranch\,workflowName\,createdAt\ -q\ \"\\\"workflow=\\\(.workflowName\)\ branch=\\\(.headBranch\)\ sha=\\\(.headSha\)\ status=\\\(.status\)\ conclusion=\\\(.conclusion\)\ created=\\\(.createdAt\)\\\"\"\;\ gh\ run\ download\ 34930064530\ -R\ SunJ1ayu/OpenDesign\ -n\ windows-atomic-probe-log\ -D\ \$D\ \>/dev/null\;\ grep\ -E\ \"test_aw\|\^Ran\|\^OK\|\^FAILED\|platform\|Windows\|python\"\ \$D/\*.txt\ \|\ head\ -40
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  d813814
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T07:04:36Z
+---------------- 输出开始 ----------------
+workflow=windows-atomic-probe branch=ci-atomic/probe-1 sha=f9c97cf4ea9824bb6b1b3b4fe0dae2341b09acc8 status=completed conclusion=success created=2026-09-15T04:45:37Z
+test_aw1_a_write_that_dies_halfway_leaves_the_old_archive (tests.test_ds_atomic_write.AMidWriteFailureLeavesTheOldArchive.test_aw1_a_write_that_dies_halfway_leaves_the_old_archive) ... skipped 'RLIMIT_FSIZE 只有 POSIX 有;Windows 那一半由 aw12 在 Windows 探针上问'
+test_aw3_no_tmp_litter_after_a_failed_or_a_successful_write (tests.test_ds_atomic_write.AMidWriteFailureLeavesTheOldArchive.test_aw3_no_tmp_litter_after_a_failed_or_a_successful_write) ... skipped 'RLIMIT_FSIZE 只有 POSIX 有;Windows 那一半由 aw12 在 Windows 探针上问'
+test_aw2_killing_the_writer_at_random_moments (tests.test_ds_atomic_write.ARealKillNeverLeavesAHalfArchive.test_aw2_killing_the_writer_at_random_moments) ... ok
+test_aw4_write_false_changes_nothing (tests.test_ds_atomic_write.AWriteThatIsNotWantedTouchesNothing.test_aw4_write_false_changes_nothing) ... ok
+test_aw7a_bytes_are_what_text_mode_would_have_written (tests.test_ds_atomic_write.BytesAndPermissionsStayTheSame.test_aw7a_bytes_are_what_text_mode_would_have_written) ... ok
+test_aw7b_permission_bits_are_kept (tests.test_ds_atomic_write.BytesAndPermissionsStayTheSame.test_aw7b_permission_bits_are_kept) ... skipped '权限位是 POSIX 语义'
+test_aw14_fsync_happens_before_the_replace (tests.test_ds_atomic_write.FlushedToDiskBeforeTheSwap.test_aw14_fsync_happens_before_the_replace) ... ok
+test_aw11_list_projects_is_unchanged_by_writes (tests.test_ds_atomic_write.ListingsIgnoreTheLockDirectory.test_aw11_list_projects_is_unchanged_by_writes) ... ok
+test_aw5_two_processes_never_lose_an_increment (tests.test_ds_atomic_write.NoLostUpdatesAcrossProcesses.test_aw5_two_processes_never_lose_an_increment) ... ok
+test_aw13_replace_with_retry_is_defined_once_in_ds_common (tests.test_ds_atomic_write.OneSourceForReplaceRetry.test_aw13_replace_with_retry_is_defined_once_in_ds_common) ... ok
+test_aw6_concurrent_reader_never_sees_a_half_file (tests.test_ds_atomic_write.ReadersAlwaysSeeAWholeArchive.test_aw6_concurrent_reader_never_sees_a_half_file) ... ok
+test_aw10_rename_dying_halfway_leaves_every_file_whole (tests.test_ds_atomic_write.RenameProjectRewritesAreAtomicToo.test_aw10_rename_dying_halfway_leaves_every_file_whole) ... skipped 'RLIMIT_FSIZE 只有 POSIX 有'
+test_aw8_the_link_survives_and_the_real_file_changes (tests.test_ds_atomic_write.SymlinkedArchivesStayLinks.test_aw8_the_link_survives_and_the_real_file_changes) ... skipped 'Windows 建符号链接要特权'
+test_aw9_add_style_dying_halfway_keeps_the_vocabulary (tests.test_ds_atomic_write.TheStyleVocabularyIsWrittenTheSameWay.test_aw9_add_style_dying_halfway_keeps_the_vocabulary) ... skipped 'RLIMIT_FSIZE 只有 POSIX 有'
+test_aw12a_a_brief_reader_does_not_make_the_write_fail (tests.test_ds_atomic_write.WindowsReplaceSemantics.test_aw12a_a_brief_reader_does_not_make_the_write_fail) ... ok
+test_aw12b_a_long_reader_fails_the_write_but_keeps_the_archive (tests.test_ds_atomic_write.WindowsReplaceSemantics.test_aw12b_a_long_reader_fails_the_write_but_keeps_the_archive) ... ok
+Ran 16 tests in 12.924s
+OK (skipped=6)
+---------------- 输出结束 ----------------
+runlog: windows-atomic-probe-run-34930064530 rc=0 commit=d813814 dirty=yes at=2026-09-15T07:04:36Z file=tracks/opendesign-atomic-archive-write/evidence/20260915T070436Z-01-windows-atomic-probe-run-34930064530.txt
