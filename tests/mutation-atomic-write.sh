@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 红检 —— 证明 tests/test_ds_atomic_write.py(aw1~aw14)咬得动(track opendesign-atomic-archive-write)。
+# 红检 —— 证明 tests/test_ds_atomic_write.py(aw1~aw16)咬得动(track opendesign-atomic-archive-write)。
 #
 # 规矩同 tests/mutation-ds-update-apply.sh:变异**被测对象**(bin/ds_common.py、bin/ds_refs.py、bin/ds_tools.py),
 # 每条指定靶子(**必须是它自己红**,红在别处不算红检过),跑完原样还回去并核哈希。
@@ -119,6 +119,18 @@ def _write_workspace_json(cfg_path: str, obj: dict) -> None:'
 # m11 替换之前不刷盘(断电那一半,本机只能钉结构)
 mutate_and_expect m11 test_aw14_fsync_happens_before_the_replace bin/ds_common.py \
   '            os.fsync(fh.fileno())' '            pass'
+
+# m12 只读档案不再提前拒绝 ⇒ Linux(root)上硬写进去 / Windows 上空转 2 秒留只读残骸(评审 Kimi 那条)
+mutate_and_expect m12 test_aw15_a_read_only_archive_is_refused_without_litter bin/ds_common.py \
+  '    if not mode & stat.S_IWUSR:
+        raise PermissionError(errno.EACCES, "档案是只读的,改不了", real)' \
+  '    if False:
+        raise PermissionError(errno.EACCES, "档案是只读的,改不了", real)'
+
+# m13 改名提交点退回裸 os.replace(aw12c 的 Windows 行为本机照不出,这里咬结构钉 aw16)
+mutate_and_expect m13 test_aw16_rename_project_commit_point_uses_replace_with_retry bin/ds_tools.py \
+  '        ds_common.replace_with_retry(old_path, new_path, attempts=ds_common.ARCHIVE_REPLACE_ATTEMPTS)' \
+  '        os.replace(old_path, new_path)'
 
 # 对照组:只加一行注释 ⇒ 必须仍然全绿(变异框架本身没有误报)
 restore
