@@ -1,0 +1,25 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-atomic-archive-write",
+  "impact": {
+    "level": "high",
+    "factors": [
+      "data_consistency",
+      "cross_module"
+    ]
+  },
+  "design": {
+    "uncertainty": "low",
+    "premise_attack": {
+      "status": "not_required",
+      "evidence": []
+    }
+  },
+  "execution_plan": {
+    "adapter": "main",
+    "model": "claude-opus-5"
+  },
+  "outcome": {
+    "verdict": null
+  }
+}
