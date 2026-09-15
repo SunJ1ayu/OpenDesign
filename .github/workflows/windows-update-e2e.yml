@@ -1,5 +1,5 @@
 # 应用内更新端到端(track opendesign-in-app-update-install §3):新旧两个安装包从同一个 commit 用真流水线打,
-# 在用完就扔的 Windows runner 上把"点更新 → 自己关 → 换版本 → 自己回来"跑七个场景(e1~e7;e6/e7 装在带空格的目录)。
+# 在用完就扔的 Windows runner 上把"点更新 → 自己关 → 换版本 → 自己回来"跑八个场景(e1~e8;e6/e7 装在带空格的目录;e8 是查更新订阅源坏了、靠 API 的备路)。
 #
 # 🔴 这台 runner 上的 api.github.com / github.com 是**本机替身**(hosts + 一次性 CA),只在这台机器上。
 #    真仓库不发任何测试 release —— 业主的软件看不见;产品代码零改动。设计见 track 的 design.md「§3」。
@@ -78,7 +78,7 @@ jobs:
           name: update-e2e-dist
           path: e2e-dist
 
-      - name: seven update scenarios
+      - name: eight update scenarios
         shell: pwsh
         run: |
           $v = Get-Content e2e-dist/versions.json -Raw | ConvertFrom-Json
@@ -88,8 +88,8 @@ jobs:
             -OldVersion $v.old -NewVersion $v.new `
             -CertDir e2e-dist/certs -OutDir e2e-out
 
-      # 🔴 退出闸的第二条路,故意住在这个文件里、写死七个场景名:
-      #    脚本那边哪天少跑一个场景、或把收据洗成 0,这一步照样要七条 rc=0 才放行。
+      # 🔴 退出闸的第二条路,故意住在这个文件里、写死八个场景名:
+      #    脚本那边哪天少跑一个场景、或把收据洗成 0,这一步照样要八条 rc=0 才放行。
       #    缺席 = 没跑到,不是没问题。`if: always()`:上一步真红时这一步也要把收据打出来。
       #    只打 ASCII(runner 的代码页会把中文打成问号,见 windows-package-probe.yml 同位置注释)。
       - name: receipts independent check
@@ -102,14 +102,14 @@ jobs:
           $lines = @(Get-Content $f)
           $lines | ForEach-Object { "  $_" }
           $bad = @()
-          foreach ($k in 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7') {
+          foreach ($k in 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8') {
             $mine = @($lines | Where-Object { ($_ -split "`t")[1] -eq $k })
             if ($mine.Count -ne 1) { $bad += "${k}: $($mine.Count) receipt line(s), expected exactly 1"; continue }
             $rc = ($mine[0] -split "`t")[0]
             if ($rc -ne '0') { $bad += "${k}: rc=$rc" }
           }
           if ($bad.Count) { "RED:"; $bad | ForEach-Object { "  $_" }; exit 1 }
-          "all seven scenarios have exactly one rc=0 receipt"
+          "all eight scenarios have exactly one rc=0 receipt"
 
       - name: hand over screenshots, facts, logs
         if: always()

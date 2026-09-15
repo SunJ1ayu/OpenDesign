@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Windows 更新端到端 e1~e7 的判定器 —— "机器事实 → 这个场景过没过"。
+"""Windows 更新端到端 e1~e8 的判定器 —— "机器事实 → 这个场景过没过"。
 
 track opendesign-in-app-update-install §3。结构照抄 `bin/probe_verdict.py` 付过学费的那一套:
 `.github/scripts/windows-update-e2e.ps1` 本机跑不了(没有 pwsh),写在里面的判断谁都验不了
@@ -7,7 +7,7 @@ track opendesign-in-app-update-install §3。结构照抄 `bin/probe_verdict.py`
 
 调用约定:
 
-    python update_e2e_verdict.py e1|e2|e3|e4|e5|e6|e7 <facts.json>
+    python update_e2e_verdict.py e1|e2|e3|e4|e5|e6|e7|e8 <facts.json>
 
 stdout 一行;退出码 0=OK、1=FAIL、2=输入本身有问题(**也算红**,探针那边只认 0)。
 输出**只用 ASCII**:runner 是英文 Windows,中文进管道会被代码页打成问号(windows-package-probe 栽过)。
@@ -18,7 +18,8 @@ stdout 一行;退出码 0=OK、1=FAIL、2=输入本身有问题(**也算红**,�
     reset      {installer_rc, health{port,version}}   场景开始前重装旧版的结果
     check      GET /api/update/check?force=1 的应答
     apply      POST /api/update/apply 的应答
-    fake_log   替身记下的请求 [{kind: releases|download, mode, ...}]
+    source     查更新走哪条来源:feed(订阅源 + 清单,替身 API 回 403)| api(订阅源 503,API 正常,e8)
+    fake_log   替身记下的请求 [{kind: atom|manifest|releases|download, status, mode, ...}]
     live_before / live_after           活树清单摘要(排除 __pycache__)
     live_version_after                 活树 ds\\版本号.txt 的内容,活树不在则 null
     new_exists / old_exists            接力脚本结束后 .new / .old 在不在
@@ -77,9 +78,25 @@ def _baseline(f, problems):
     if check.get("update_available") is not True or str(check.get("latest")) != new:
         problems.append("setup: app did not see the stand-in release (update_available=%r latest=%r error=%r)"
                         % (check.get("update_available"), check.get("latest"), check.get("error")))
-    log = f.get("fake_log") or []
-    if not any(e.get("kind") == "releases" for e in log if isinstance(e, dict)):
-        problems.append("setup: stand-in never received a releases request")
+    kinds = [e.get("kind") for e in (f.get("fake_log") or []) if isinstance(e, dict)]
+    # 查更新走哪条来源(track opendesign-update-check-rate-limit,rl12):
+    #   feed —— 替身的 API 回 403 限流 ⇒ 软件必须靠订阅源 + 清单查到,**一次都不许问 API**(rl4 的真机版);
+    #   api  —— 替身的订阅源回 503 ⇒ 软件必须先试订阅源、再问 API。
+    source = f.get("source")
+    if source == "feed":
+        if "atom" not in kinds:
+            problems.append("setup: stand-in never received a release-feed request")
+        if "manifest" not in kinds:
+            problems.append("feed path: app never fetched the update manifest")
+        if "releases" in kinds:
+            problems.append("feed path worked but the app still asked the rate-limited API")
+    elif source == "api":
+        if "atom" not in kinds:
+            problems.append("fallback: app did not try the release feed first")
+        if "releases" not in kinds:
+            problems.append("fallback: app never asked the API after the feed failed")
+    else:
+        problems.append("setup: unknown update source mode %r" % (source,))
     return old, new
 
 
@@ -299,6 +316,17 @@ def verdict_e1(raw):
     return _full_update("e1", raw)
 
 
+def _api_mode(f, problems):
+    """e8 问的就是"订阅源坏了靠 API 还能更新" —— 不在 api 模式下跑 = 场景没摆好。"""
+    if f.get("source") != "api":
+        problems.append("setup: e8 ran with update source %r, not api (scenario untested)" % (f.get("source"),))
+
+
+def verdict_e8(raw):
+    """rl12 的备路半:替身订阅源回 503、API 正常 ⇒ 先试订阅源、再问 API,照样完整更新(e1 的全部断言)。"""
+    return _full_update("e8", raw, extra=_api_mode)
+
+
 def _live_has_space(f, problems):
     """e6/e7 问的就是"安装路径带空格"—— 路径里没空格 = 场景没摆好,不许当产品没问题。"""
     live = str((f.get("pointers") or {}).get("live") or "")
@@ -344,7 +372,7 @@ def verdict_e7(raw):
 
 
 KINDS = {"e1": verdict_e1, "e2": verdict_e2, "e3": verdict_e3, "e4": verdict_e4, "e5": verdict_e5,
-         "e6": verdict_e6, "e7": verdict_e7}
+         "e6": verdict_e6, "e7": verdict_e7, "e8": verdict_e8}
 
 
 def main(argv):

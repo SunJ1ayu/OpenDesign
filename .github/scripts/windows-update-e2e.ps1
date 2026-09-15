@@ -42,10 +42,14 @@ $PortSpan   = 8766..8786
 # 与 ds_update_apply.apply_update 写接力脚本的位置同一处:tempfile.gettempdir() 读的就是 TEMP。
 $RelayPath  = Join-Path ([IO.Path]::GetTempPath()) 'opendesign-update-relay.cmd'
 $ModeFile   = Join-Path $OutDir 'fake-mode.txt'
+# 查更新走哪条来源(track opendesign-update-check-rate-limit,rl12):feed = 订阅源 + 清单、替身的 API 回 403 限流(默认,
+# 业主 09-15 夜实测的那种网络);api = 订阅源回 503、API 正常(只有 e8 用)。替身每个请求现读这个文件。
+$SourceFile = Join-Path $OutDir 'fake-source.txt'
 $FakeLog    = Join-Path $OutDir 'fake-github.log'
 $VerdictLog = Join-Path $OutDir 'verdicts.tsv'
 # e6/e7 必须排在最后:它们把安装目录换成带空格的那个(Use-SpacedInstallDir),换过去就不换回来。
-$Expected   = @('e2', 'e3', 'e4', 'e5', 'e1', 'e6', 'e7')
+# e8 在 e1 之后、搬去带空格目录之前:它只换查更新的来源,装在原来的目录里。
+$Expected   = @('e2', 'e3', 'e4', 'e5', 'e1', 'e8', 'e6', 'e7')
 # t33/t34 的真机半用的目录:**带空格、纯 ASCII**。不能带中文 —— runner 是英文 Windows(代码页 437),
 # 非 ASCII 路径会被 t36 在动手之前拒掉(那是对的),e6 就测不到它要测的事。
 $SpacedInstallDir = 'C:\OD e2e space\Programs\OpenDesign'
@@ -393,6 +397,7 @@ function Reset-Old {
 
 function New-Facts {
     $f = [ordered]@{ old_version = $OldVersion; new_version = $NewVersion }
+    $f.source = (Get-Content -LiteralPath $SourceFile -Raw).Trim()
     $f.fake_log_start = Get-FakeLogCount
     $f.reset = Reset-Old
     $f.markers_before = Get-Markers
@@ -565,6 +570,14 @@ function Run-FullUpdate([string]$Kind) {
 
 function Run-e1 { Run-FullUpdate 'e1' }
 
+# e8 —— rl12 的备路半:替身的订阅源回 503、API 正常 ⇒ 软件先试订阅源、再问 API,照样完整更新。
+# 🔴 切回 feed 必须在 finally 里:e8 中途炸了,后面的 e6/e7 不许留在 api 模式(那样它们就测不到新路)。
+function Run-e8 {
+    Set-Content -LiteralPath $SourceFile -Value 'api'
+    try { Run-FullUpdate 'e8' }
+    finally { Set-Content -LiteralPath $SourceFile -Value 'feed' }
+}
+
 # 把后面的场景搬到带空格的安装目录。先按**原来的**前缀把还在跑的都停掉:换了前缀,Get-OurProcs 就认不出它们了。
 function Use-SpacedInstallDir {
     if ($script:InstallDir -eq $SpacedInstallDir) { return }
@@ -625,15 +638,17 @@ ipconfig /flushdns | Out-Null
 
 # 3. 起替身
 Set-Content -LiteralPath $ModeFile -Value 'normal'
-$fakeArgs = '"{0}" serve --repo {1} --version {2} --setup "{3}" --cert "{4}" --key "{5}" --mode-file "{6}" --log "{7}"' -f `
+Set-Content -LiteralPath $SourceFile -Value 'feed'
+$fakeArgs = '"{0}" serve --repo {1} --version {2} --setup "{3}" --cert "{4}" --key "{5}" --mode-file "{6}" --log "{7}" --source-file "{8}"' -f `
     (Join-Path $Scripts 'fake_github.py'), $Repo, $NewVersion, $NewSetup,
-    (Join-Path $CertDir 'server.crt'), (Join-Path $CertDir 'server.key'), $ModeFile, $FakeLog
+    (Join-Path $CertDir 'server.crt'), (Join-Path $CertDir 'server.key'), $ModeFile, $FakeLog, $SourceFile
 $fake = Start-Process -FilePath $Py -ArgumentList $fakeArgs -PassThru -NoNewWindow `
     -RedirectStandardOutput (Join-Path $OutDir 'fake-github.out') -RedirectStandardError (Join-Path $OutDir 'fake-github.err')
 Start-Sleep -Seconds 3
 try {
-    $r = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases?per_page=100" -TimeoutSec 20
-    Note "stand-in reachable over TLS from pwsh: tag=$($r[0].tag_name)"
+    # feed 模式下替身的 API 故意回 403,所以这里问订阅源(和软件主路同一个主机、同一张证书)。
+    $r = Invoke-WebRequest -Uri "https://github.com/$Repo/releases.atom" -TimeoutSec 20 -UseBasicParsing
+    Note "stand-in reachable over TLS from pwsh: releases.atom http=$($r.StatusCode)"
 } catch { Note "WARN: stand-in NOT reachable from pwsh: $($_.Exception.Message)" }
 
 # 4. 首装一次,种档案标记;顺带用**装出来的那个 python** 走一遍产品的真路径(DNS→TLS→urllib)
