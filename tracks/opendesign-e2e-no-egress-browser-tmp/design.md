@@ -62,7 +62,7 @@
 | `ne6` | 环境变量不是身份牌:主命名空间里预先设 `DS_E2E_NOEGRESS_TRIED=1` ⇒ 拒跑 rc=78、场景没跑(不许当成"已隔离"放行) |
 | `ne7` | python 版:导入 `tests/e2e/_no_egress.py` 的脚本在独立 ns 里、连不上外网;假 unshare ⇒ rc=78 且脚本体没跑 |
 | `ne8` | 结构:每个 `tests/e2e/*.e2e.mjs` 都导入 `./helpers.mjs`;每个 `tests/e2e/*.e2e.py` 都 `import _no_egress`,且在 `import ds_` 之前 |
-| `bt1` | 浏览器被 SIGKILL 后场景退出:外层 TMPDIR 里除 `node-compile-` 外剩 0 个;stderr 含「浏览器没走正常关闭」;设了 `E2E_BROWSER_NOTES` ⇒ 文件里有一行以脚本名开头 |
+| `bt1` | 浏览器没走正常关闭的两种真实形状 —— **开着就 `process.exit`**、**主进程被 SIGKILL**(pid 从子进程里找):外层 TMPDIR 里除 `node-compile-` 外剩 0 个;stderr 含「浏览器没走正常关闭」;设了 `E2E_BROWSER_NOTES` ⇒ 文件里有一行以脚本名开头 |
 | `bt2` | 正常 `browser.close()` 后退出:外层 TMPDIR 剩 0 个;stderr 不含那句;notes 文件不存在或为空 |
 | `bt3` | launch 失败(`executablePath` 指向不存在的文件):抛错,且外层 TMPDIR 里不留 `ds-e2e-browser-*` |
 
@@ -74,5 +74,9 @@
 4. **run-all.sh 打印 notes 那一段没有行为判据**(要在仓里塞假 e2e 才问得到):只由阅读核对 + 红检声明为未判。
    它只影响"点名",不影响泄漏本身被收掉(bt1 钉)。
 5. **真 e2e 在隔离里是否都还跑得通**:单测问不到 ⇒ 由 e2e 总跑(40 条)与全量总跑回答。
-6. **bt1 的"浏览器没正常关"是我用 SIGKILL 造的**;真实泄漏是不是同一条路径没钉死(探针只证明 SIGKILL 会留同形目录)。
+6. **bt1 的"浏览器没正常关"是我造的**;真实泄漏走的是哪一种没钉死。
+   🔴 **更正**(09-15 晚写判据时自己撞出来的):我在 composer-model-picker 的 verify 与记忆里写「浏览器进程被 SIGKILL 一次就留一个(5 次 → 5 个)」——
+   那个探针调的是 `browser.process().kill()`,而 Playwright 的 `Browser` **没有 `process()`**:脚本当场 TypeError 崩掉、浏览器还开着,
+   是 Playwright 的退出清理把它杀掉的。结论方向碰巧没错,**测法写错了**。重测(各 3 次):开着就退出 → 3 个 `org.chromium.Chromium.*` + 1 个 `.org.chromium.Chromium.*`;
+   开着时抛异常 → 同上;真 SIGKILL 主进程 → 3 个。判据第一版 bt1 照抄了那个错调用,**红在 TypeError 上而不是泄漏上**(收据 `red-ne-bt-oracle` 如实留着),已改。
    上线后若总跑再出现泄漏闸红,说明还有别的路径 —— 那时 notes 应当已经点名,没点名就说明本单的假设错了。
