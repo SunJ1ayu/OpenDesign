@@ -1,0 +1,47 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-r2-review-findings-oracle
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_update_source\ tests.test_update_manifest\ tests.test_update_e2e_harness\ 2\>\&1\ \|\ grep\ -E\ \"\^\(FAIL\|ERROR\):\|\^Ran\|\^OK\|\^FAILED\"\ \|\ sed\ \"s/\ \(tests\\.\[\^\)\]\*\)//\"\;\ E2E=1\ timeout\ 200\ node\ tests/e2e/update_notice.e2e.mjs\ 2\>\&1\ \|\ grep\ -E\ \"FAIL\|全部通过\"\ \|\ head\ -3\;\ exit\ 1
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  615be82
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T16:28:07Z
+---------------- 输出开始 ----------------
+ERROR: test_rl1d_links_to_other_repos_are_dropped
+FAIL: test_rl5d_feed_saw_a_newer_version_but_the_api_fallback_says_up_to_date
+FAIL: test_rl6b_unreadable_local_version_asks_nobody
+FAIL: test_rl7d_broken_http_from_a_middlebox_is_explained (exc='BadStatusLine')
+FAIL: test_rl7d_broken_http_from_a_middlebox_is_explained (exc='IncompleteRead')
+FAIL: test_rl7d_rate_limit_seen_only_in_headers_is_still_rate_limit
+FAIL: test_rl7e_bad_manifest_is_said_in_plain_words
+FAIL: test_rl3c_every_mismatch_is_refused [文件名末尾带换行]
+FAIL: test_rl3d_tag_with_trailing_newline_is_refused
+FAIL: test_rl10d_missing_inputs_say_so_without_a_traceback [安装包不在]
+FAIL: test_rl10d_missing_inputs_say_so_without_a_traceback [说明文件不在]
+FAIL: test_h6a_feed_mode_serves_feed_and_manifest_the_product_accepts
+FAIL: test_v2_every_break_fails (kind='e2', brk='manifest only ever 404')
+FAIL: test_v2_every_break_fails (kind='e2', brk='feed answered 503')
+FAIL: test_v2_every_break_fails (kind='e2', brk='download before the manifest')
+FAIL: test_v2_every_break_fails (kind='e3', brk='manifest only ever 404')
+FAIL: test_v2_every_break_fails (kind='e3', brk='feed answered 503')
+FAIL: test_v2_every_break_fails (kind='e3', brk='download before the manifest')
+FAIL: test_v2_every_break_fails (kind='e4', brk='manifest only ever 404')
+FAIL: test_v2_every_break_fails (kind='e4', brk='feed answered 503')
+FAIL: test_v2_every_break_fails (kind='e4', brk='download before the manifest')
+FAIL: test_v2_every_break_fails (kind='e5', brk='manifest only ever 404')
+FAIL: test_v2_every_break_fails (kind='e5', brk='feed answered 503')
+FAIL: test_v2_every_break_fails (kind='e5', brk='download before the manifest')
+FAIL: test_v2_every_break_fails (kind='e6', brk='manifest only ever 404')
+FAIL: test_v2_every_break_fails (kind='e6', brk='feed answered 503')
+FAIL: test_v2_every_break_fails (kind='e6', brk='download before the manifest')
+FAIL: test_v2_every_break_fails (kind='e1', brk='manifest only ever 404')
+FAIL: test_v2_every_break_fails (kind='e1', brk='feed answered 503')
+FAIL: test_v2_every_break_fails (kind='e1', brk='download before the manifest')
+FAIL: test_v2_every_break_fails (kind='e8', brk='API asked before the feed failed')
+FAIL: test_v2_every_break_fails (kind='e8', brk='feed did not actually fail')
+FAIL: test_v2_every_break_fails (kind='e8', brk='API failed too')
+FAIL: test_v2_every_break_fails (kind='e8', brk='download before the API answered')
+Ran 68 tests in 5.222s
+FAILED (failures=33, errors=1)
+全部通过
+---------------- 输出结束 ----------------
+runlog: red-r2-review-findings-oracle rc=1 commit=615be82 dirty=yes at=2026-09-15T16:28:07Z file=tracks/opendesign-update-check-rate-limit/evidence/20260915T162807Z-01-red-r2-review-findings-oracle.txt

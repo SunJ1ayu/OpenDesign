@@ -50,6 +50,11 @@ PS1 = os.path.join(SCRIPTS, "windows-update-e2e.ps1")
 WORKFLOW = os.path.join(ROOT, ".github", "workflows", "windows-update-e2e.yml")
 
 
+def _write(path, text):
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(text)
+
+
 def _setup_file(tmp, size=4096):
     path = os.path.join(tmp, "OpenDesign-Setup-%s.exe" % NEW)
     with open(path, "wb") as fh:
@@ -165,7 +170,7 @@ class H3TlsHandshakeWithTheThrowawayCa(_Served):
     def _source(self, value):
         with open(self.source, "w") as fh:
             fh.write(value)
-        self.addCleanup(lambda: open(self.source, "w").write("feed"))
+        self.addCleanup(_write, self.source, "feed")
 
     def test_h3a_api_github_com_verifies_strictly(self):
         self._source("api")   # feed 模式下 API 故意回 403;这条问的是证书,在 api 模式下问
@@ -226,7 +231,7 @@ class H6FeedAndApiSources(_Served):
     def _set_source(self, value):
         with open(self.source, "w") as fh:
             fh.write(value)
-        self.addCleanup(lambda: open(self.source, "w").write("feed"))
+        self.addCleanup(_write, self.source, "feed")
 
     def _status(self, head):
         return int(head.splitlines()[0].split()[1])
@@ -236,7 +241,12 @@ class H6FeedAndApiSources(_Served):
         head, body = self._get("github.com", fake_github.atom_path(ds_update.REPO), self.ca)
         self.assertEqual(self._status(head), 200)
         entries = ds_update.parse_atom(body.decode("utf-8"))
-        self.assertEqual([e["tag"] for e in entries], [tag])
+        tags = [e["tag"] for e in entries]
+        self.assertIn(tag, tags)
+        self.assertGreaterEqual(len(tags), 3, "替身订阅源只有一条 entry ⇒ e2e 照不出「取第一条而不是取最大」的回归")
+        self.assertNotEqual(tags[0], tag, "最新那条排在第一个 ⇒ 取第一条的回归照样绿")
+        best = max(entries, key=lambda e: ds_update.parse_version(e["tag"]))
+        self.assertEqual(best["tag"], tag)
         head, body = self._get("github.com", fake_github.update_manifest_path(ds_update.REPO, NEW), self.ca,
                                accept="application/octet-stream")
         self.assertEqual(self._status(head), 200)
@@ -299,9 +309,10 @@ class H7ScriptRunsBothSources(unittest.TestCase):
         self.assertIsNotNone(m, "没有 Run-e8")
         body = m.group(1)
         self.assertIn("Set-Content -LiteralPath $SourceFile -Value 'api'", body)
-        fin = body.find("finally")
-        self.assertGreater(fin, 0, "e8 切回 feed 不在 finally 里 —— 中途炸了会把后面的场景留在 api 模式")
-        self.assertIn("Set-Content -LiteralPath $SourceFile -Value 'feed'", body[fin:])
+        fin = re.search(r"\bfinally\s*\{([^{}]*)\}", body)
+        self.assertIsNotNone(fin, "e8 没有 finally 块")
+        self.assertIn("Set-Content -LiteralPath $SourceFile -Value 'feed'", fin.group(1),
+                      "e8 切回 feed 不在 finally 块里 —— 中途炸了会把后面的场景留在 api 模式")
 
     def test_h7d_facts_record_the_source(self):
         m = re.search(r"^function New-Facts \{(.*?)^\}", self.ps1, re.M | re.S)
@@ -545,6 +556,17 @@ BREAKS = {
                                                                    {"kind": "download", "mode": "normal"}]),
         "download not normal": _set("fake_log", [{"kind": "atom", "status": 503}, {"kind": "releases", "status": 200}]),
         "scenario not in api mode (untested)": _set("source", "feed"),
+        "API asked before the feed failed": _set("fake_log", [{"kind": "releases", "status": 200},
+                                                              {"kind": "atom", "status": 503},
+                                                              {"kind": "download", "mode": "normal"}]),
+        "feed did not actually fail": _set("fake_log", [{"kind": "atom", "status": 200},
+                                                        {"kind": "releases", "status": 200},
+                                                        {"kind": "download", "mode": "normal"}]),
+        "API failed too": _set("fake_log", [{"kind": "atom", "status": 503}, {"kind": "releases", "status": 403},
+                                            {"kind": "download", "mode": "normal"}]),
+        "download before the API answered": _set("fake_log", [{"kind": "atom", "status": 503},
+                                                              {"kind": "download", "mode": "normal"},
+                                                              {"kind": "releases", "status": 200}]),
         "apply not started": _set("apply", {"ok": False, "stage": "digest", "error": "x"}),
         "old still answering": _set("health_after", {"port": 8766, "version": OLD}),
         "new version gone by the end": _set("health_final", None),
@@ -561,6 +583,9 @@ FEED_BREAKS = {
     "feed never asked": lambda f: f.__setitem__(
         "fake_log", [e for e in f["fake_log"] if e.get("kind") != "atom"]),
     "unknown source mode": _set("source", "carrier-pigeon"),
+    "manifest only ever 404": lambda f: [e.update(status=404) for e in f["fake_log"] if e.get("kind") == "manifest"],
+    "feed answered 503": lambda f: [e.update(status=503) for e in f["fake_log"] if e.get("kind") == "atom"],
+    "download before the manifest": lambda f: f["fake_log"].sort(key=lambda e: 0 if e.get("kind") == "download" else 1),
 }
 
 
@@ -651,7 +676,7 @@ class VVerdictIsABehaviour(unittest.TestCase):
 class WWorkflowGateIsIndependent(unittest.TestCase):
     """退出闸第二条路住在 workflow 里、写死全部场景名。和脚本那边的场景表**必须一致**。"""
 
-    def test_w1_workflow_and_script_list_the_same_five(self):
+    def test_w1_workflow_and_script_list_the_same_scenarios(self):
         with open(WORKFLOW, encoding="utf-8") as fh:
             wf = fh.read()
         with open(PS1, encoding="utf-8") as fh:

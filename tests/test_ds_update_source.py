@@ -126,6 +126,14 @@ class ParseAtom(unittest.TestCase):
         self.assertEqual([e["tag"] for e in ds_update.parse_atom(text)],
                          ["win-installer-0.98.5", "win-installer-0.98.3"])
 
+    def test_rl1d_links_to_other_repos_are_dropped(self):
+        """评审(切片 core DeepSeek #2):链接正则原来不钉仓库,别的仓库的 tag 链接会被当成本仓版本、release_url 原样透传。"""
+        text = atom_text().replace("https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.4",
+                                   "https://github.com/EVIL/Other/releases/tag/win-installer-0.98.4")
+        entries = ds_update.parse_atom(text, REPO)
+        self.assertEqual([e["tag"] for e in entries], ["win-installer-0.98.5", "win-installer-0.98.3"])
+        self.assertTrue(all(e["html_url"].startswith("https://github.com/SunJ1ayu/OpenDesign/") for e in entries))
+
     def test_rl1c_not_xml_raises(self):
         with self.assertRaises(ValueError):
             ds_update.parse_atom("<html>rate limited</html")
@@ -161,11 +169,22 @@ class ManifestIsCheckedField_by_field(unittest.TestCase):
             "schema 不认识": manifest(schema=2),
             "不是 JSON": "<html>not found</html>",
             "不是对象": "[]",
+            # 评审(overall GPT #1,我复现):`$` 配 match() 会放过末尾换行 ⇒ 下载地址 / 本地文件名带换行,Windows 存不下
+            "文件名末尾带换行": manifest(name="OpenDesign-Setup-0.99.1.exe\n"),
         }
         for why, text in bad.items():
             with self.subTest(why):
                 with self.assertRaises(ValueError, msg="这份清单该被拒:%s" % why):
                     ds_update.parse_manifest(text, self.TAG, REPO)
+
+
+class TrailingNewlinesAreNotVersions(unittest.TestCase):
+    def test_rl3d_tag_with_trailing_newline_is_refused(self):
+        tag = "win-installer-0.99.1\n"
+        with self.assertRaises(ValueError):
+            ds_update.parse_manifest(manifest(tag=tag), tag, REPO)
+        self.assertIsNone(ds_update.TAG_RE.match(tag), "TAG_RE 的 $ 放过了末尾换行")
+        self.assertIsNone(ds_update.ASSET_RE.match("OpenDesign-Setup-0.99.1.exe\n"))
 
 
 class AtomFirstThenApi(unittest.TestCase):
@@ -219,6 +238,25 @@ class AtomFirstThenApi(unittest.TestCase):
         self.assertIn("订阅源", d["error"])
         self.assertIn("接口", d["error"])
 
+    def test_rl5d_feed_saw_a_newer_version_but_the_api_fallback_says_up_to_date(self):
+        """评审(切片 core DeepSeek #1 中 / 整份 DeepSeek #3):订阅源看见 0.99.1 但清单不可核对,回落 API 又说没有更新
+        ⇒ 原来返回一条干净的「已是最新」(且进 6 小时缓存)。线上明明有新版 —— 这是在撒谎。必须带着原因失败(不进缓存)。"""
+        _Sources(self, atom=atom_text(["0.99.1", "0.98.4", "0.98.3"]), manifests={}, api=api_releases())
+        d = ds_update.check_for_update("0.98.4")
+        self.assertFalse(d["update_available"])
+        self.assertTrue(d["error"], "线上有 0.99.1,却安静地说已是最新")
+        self.assertIn("0.99.1", d["error"])
+        self.assertIn("新版缺少可核对的安装包信息", d["error"])
+
+    def test_rl6b_unreadable_local_version_asks_nobody(self):
+        """评审(整份 GLM / Kimi):本机版本号读不出时原来会先白拉清单,错误里同一句还按两个来源重复两遍。"""
+        src = _Sources(self, atom=atom_text(["0.99.1", "0.98.4", "0.98.3"]),
+                       manifests={"win-installer-0.99.1": manifest()}, api=api_releases())
+        d = ds_update.check_for_update("not-a-version")
+        self.assertEqual(src.calls, [], "读不出本机版本号,还去联网")
+        self.assertFalse(d["update_available"])
+        self.assertEqual(d["error"].count("读不出本机版本号"), 1, d["error"])
+
     def test_rl6_not_newer_means_up_to_date_without_fetching_a_manifest(self):
         src = _Sources(self, atom=atom_text(), api=AssertionError("不许问 API"))
         d = ds_update.check_for_update("0.98.5")
@@ -240,6 +278,37 @@ class HumanReasons(unittest.TestCase):
             with self.subTest(exc=type(exc).__name__):
                 d = ds_update.check_for_update("0.98.4", fetch=lambda e=exc: (_ for _ in ()).throw(e))
                 self.assertIn("连不上 GitHub", d["error"])
+
+
+class HumanReasonsMore(unittest.TestCase):
+    def test_rl7d_rate_limit_seen_only_in_headers_is_still_rate_limit(self):
+        """评审(整份 + 切片 DeepSeek):GitHub 有时 403 的状态行是 Forbidden,限流只写在 X-RateLimit-Remaining: 0 里。"""
+        exc = urllib.error.HTTPError(ds_update.releases_url(REPO), 403, "Forbidden",
+                                     {"X-RateLimit-Remaining": "0"}, None)
+        d = ds_update.check_for_update("0.98.4", fetch=lambda: (_ for _ in ()).throw(exc))
+        self.assertIn("限制了这个网络出口的查询次数", d["error"])
+
+    def test_rl7d_plain_forbidden_is_not_called_rate_limit(self):
+        exc = urllib.error.HTTPError(ds_update.releases_url(REPO), 403, "Forbidden", {}, None)
+        d = ds_update.check_for_update("0.98.4", fetch=lambda: (_ for _ in ()).throw(exc))
+        self.assertIn("GitHub 拒绝了这次请求", d["error"])
+        self.assertNotIn("查询次数", d["error"])
+
+    def test_rl7d_broken_http_from_a_middlebox_is_explained(self):
+        """评审(整份 + 切片 DeepSeek):代理 / 门户回的不是 HTTP ⇒ http.client.HTTPException(不是 OSError)原来落进"出了意外"。"""
+        import http.client
+        for exc in (http.client.BadStatusLine("garbage"), http.client.IncompleteRead(b"x", 10)):
+            with self.subTest(exc=type(exc).__name__):
+                d = ds_update.check_for_update("0.98.4", fetch=lambda e=exc: (_ for _ in ()).throw(e))
+                self.assertIn("返回的内容看不懂", d["error"])
+
+    def test_rl7e_bad_manifest_is_said_in_plain_words(self):
+        """评审(整份 Kimi / GLM):清单不符时原来直接甩「清单里的 sha256 形状不对」,业主看不懂;design 承诺的是这句人话。"""
+        _Sources(self, atom=atom_text(["0.99.1", "0.98.4", "0.98.3"]),
+                 manifests={"win-installer-0.99.1": manifest(sha256="zz" * 32)}, api=rate_limited())
+        d = ds_update.check_for_update("0.98.4")
+        self.assertIn("新版缺少可核对的安装包信息", d["error"])
+        self.assertIn("sha256", d["error"], "技术细节要留在括号里")
 
 
 class HumanReasonsForGarbage(unittest.TestCase):

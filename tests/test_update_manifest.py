@@ -56,6 +56,24 @@ class MakeUpdateManifest(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0, "tag 与安装包文件名的版本不一致,却生成了清单")
         self.assertFalse(os.path.exists(self.out), "拒绝了却留下了清单文件")
 
+    def test_rl10d_missing_inputs_say_so_without_a_traceback(self):
+        """评审(切片 release-ui GLM #2):安装包 / 说明文件不在时原来是裸 traceback。发版人照着清单做,要一句人话。"""
+        cases = {
+            "安装包不在": [PY, SCRIPT, os.path.join(self.d, "OpenDesign-Setup-0.99.1.exe.missing"),
+                        "win-installer-0.99.1", "--out", self.out],
+            "说明文件不在": [PY, SCRIPT, self.exe, "win-installer-0.99.1", "--notes",
+                          os.path.join(self.d, "nope.md"), "--out", self.out],
+        }
+        for why, argv in cases.items():
+            with self.subTest(why):
+                if why == "安装包不在":
+                    argv[2] = os.path.join(self.d, "missing", "OpenDesign-Setup-0.99.1.exe")
+                r = subprocess.run(argv, capture_output=True, text=True, timeout=60)
+                self.assertNotEqual(r.returncode, 0)
+                self.assertNotIn("Traceback", r.stderr, r.stderr)
+                self.assertIn("✗", r.stderr)
+                self.assertFalse(os.path.exists(self.out))
+
     def test_rl10c_the_product_accepts_what_the_script_writes(self):
         r = self.run_script(self.exe, "win-installer-0.99.1")
         self.assertEqual(r.returncode, 0, r.stderr)

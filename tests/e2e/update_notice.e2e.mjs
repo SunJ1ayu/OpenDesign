@@ -206,6 +206,10 @@ try {
       `🔴 回退成版本号/"已是最新" —— 业主点了和没点一模一样(F-A 治的就是这个):「${label}」`);
     expect(await page.locator(".side-footer .update-dot").count() === 0,
       "查都没查成,不许亮「有新版」的蓝点");
+    // rl11b 接线(评审 切片 release-ui GLM #4):请求整个发不出去时,原因那行要说「软件后台没响应」
+    const reason = page.locator('.settings-pop [data-ui="update-reason"]');
+    check(await until(async () => await reason.count() === 1), "请求发不出去,却没写原因");
+    expect((await reason.innerText()).includes("软件后台没响应"), "原因没说是软件后台没响应");
     await page.close();
   });
 } finally {
