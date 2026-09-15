@@ -1,0 +1,51 @@
+# 档案原子写的 Windows 真机半(track opendesign-atomic-archive-write)。
+#
+# 本机(Linux)结构上照不出的三件事,只能在 Windows 上问:
+#   ① 目标被另一个句柄开着时 os.replace 换不掉(aw12b:一直开着 ⇒ 写失败、档案原封不动、无 .tmp 残骸;
+#      aw12a:短暂开着 ⇒ 重试之后写成功);
+#   ② msvcrt.locking 做旁路锁时,两个进程仍然互斥不丢更新(aw5)、读者读不到半截(aw6)、真杀进程不留半截(aw2);
+#   ③ text 模式写出的字节是 CRLF,与原实现逐字节一致(aw7a)。
+#
+# 跑法:推到 ci-atomic/** 分支,或 Actions 页面手点。
+# ⚠️ 分支前缀故意不是 ci-probe/**:那个前缀会顺带触发另外两支 8 分钟的探针。
+
+name: windows-atomic-probe
+
+on:
+  push:
+    branches: ['ci-atomic/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: atomic archive write oracle on real Windows
+        shell: pwsh
+        run: |
+          $env:PYTHONIOENCODING = 'utf-8'
+          python -m unittest -v tests.test_ds_atomic_write 2>&1 | Tee-Object -FilePath atomic-probe.txt
+          $rc = $LASTEXITCODE
+          # 🔴 退出码之外再问一句:aw12b 在 Windows 上**真的跑了**(不是 skipped)。它就是这支探针存在的理由,
+          #    被跳过的绿 = 什么都没问。
+          $ran = Select-String -Path atomic-probe.txt -Pattern 'test_aw12b\S*.*\.\.\. ok' -Quiet
+          if (-not $ran) { "RED: aw12b did not run and pass on Windows"; exit 1 }
+          exit $rc
+
+      - name: hand over the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-atomic-probe-log
+          path: atomic-probe.txt
+          if-no-files-found: warn

@@ -267,6 +267,9 @@ for _ in range(80):
                 reads += 1
                 if got not in want:
                     bad.append(len(got))
+                # 读者之间留 2ms:真实的读者是偶尔读一次,不是死循环。Windows 上一个死循环开关文件的读者
+                # 会让写者的替换一直等不到"没人开着"的空隙 —— 那测的是饥饿,不是这条要问的"读不到半截"。
+                time.sleep(0.002)
         finally:
             _out, err = p.communicate(timeout=180)
         self.assertEqual(p.returncode, 0, err[-800:])
