@@ -404,6 +404,11 @@ def atomic_write_text(path: str, text: str,
         mode = stat.S_IMODE(os.stat(real).st_mode)
     except OSError:
         mode = 0o644
+    # 🔴 只读档案**在建临时文件之前**就拒绝(判据 aw15)。Windows 上只读属性让替换和删除都失败:
+    #    不先拦的话,要空转约 2 秒重试,finally 里删那个同样被 chmod 成只读的临时文件又失败 ⇒ 每写一次留一个删不掉的 .tmp。
+    #    与旧 open(r+) 的行为一致:立刻报错、什么都不留。
+    if not mode & stat.S_IWUSR:
+        raise PermissionError(errno.EACCES, "档案是只读的,改不了", real)
     tmp = None
     try:
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=directory,

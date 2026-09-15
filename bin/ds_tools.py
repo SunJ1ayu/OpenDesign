@@ -1203,7 +1203,8 @@ def rename_project(old: str, new: str, ds_root: str = DEFAULT_DS_ROOT,
             body = f"# {new}" + ("" if first_nl == -1 else body[first_nl:])
             updated["title"] = True
             ds_common.atomic_write_text(old_path, body)
-        os.replace(old_path, new_path)
+        # 提交点也走替换重试(判据 aw12c / aw16):Windows 上改名那一瞬有人开着档案,裸 os.replace 当场失败
+        ds_common.replace_with_retry(old_path, new_path, attempts=ds_common.ARCHIVE_REPLACE_ATTEMPTS)
     return {"ok": True, "old": old, "new": new, "updated": updated}
 
 
