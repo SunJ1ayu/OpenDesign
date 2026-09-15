@@ -32,11 +32,16 @@ import os
 import re
 import shutil
 import tempfile
+import time
 import urllib.request
 
 # 哨兵与版本号文件 —— 与 installer/OpenDesign.nsi 的 SENTINEL 是同一处约定。
 SENTINEL_REL = os.path.join("ds", "bin", "ds_shell.py")
 VERSION_REL = os.path.join("ds", "版本号.txt")
+# 安装器布局里活树根上的启动器(t40:活树得长得像装出来的,才许它更新自己)。
+LAUNCHER_REL = "OpenDesign.exe"
+# 接力脚本的就绪信号(t38):脚本旁边的 `<脚本>.ready`。
+RELAY_READY_SUFFIX = ".ready"
 
 # 🔴 死线(t13)。**具名,不许写成通配符** —— design 里那条:
 #    "永远绿不了的判据,下一步一定会被我自己调松",所以豁免要窄到能说出名字。
@@ -197,6 +202,9 @@ def render_relay(plan, paths=None, port=8766, nonce="", expect_version=""):
         'set "NONCE=%s"' % nonce,
         'set "WANT=%s"' % expect_version,
         "",
+        ":: 🔴 就绪信号(t38):走到这一行 = cmd 真的在执行这份脚本、变量已经设好。",
+        ":: handoff 等到这个文件才请外壳关软件;等不到就把这个进程杀掉、更新取消,软件照常开着。",
+        '>"%~f0' + RELAY_READY_SUFFIX + '" echo ready',
         'call :log "接力开始"',
         "",
         marker("teardown_gate"),
@@ -427,15 +435,23 @@ def verify_new_tree(new_dir, expect_version):
     sentinel = os.path.join(new_dir, SENTINEL_REL)
     if not os.path.isfile(sentinel):
         return "新树缺哨兵:%s" % SENTINEL_REL
-    vpath = os.path.join(new_dir, VERSION_REL)
     try:
-        with open(vpath, encoding="utf-8") as fh:
-            got = fh.read().strip()
+        got = tree_version(new_dir)
     except OSError as exc:
         return "新树读不出版本号:%s" % (exc,)
-    if got != str(expect_version):
+    # 🔴 按**版本号**比,不按字面比(t37):decide() 把 `1.1` 补零成 `1.1.0`,新树里写的是构建时原样的 `1.1`。
+    #    同一套解析(ds_update.parse_version)两边都过一遍,认不出的一律算不对。
+    import ds_update
+    want = ds_update.parse_version(str(expect_version))
+    if want is None or ds_update.parse_version(got) != want:
         return "新树版本号是 %s,要的是 %s" % (got, expect_version)
     return None
+
+
+def tree_version(tree_dir):
+    """一棵树自己写着的版本号**原文** —— 也就是它起来之后 /api/health 会报的那个字符串。"""
+    with open(os.path.join(tree_dir, VERSION_REL), encoding="utf-8") as fh:
+        return fh.read().strip()
 
 
 def apply_update(decision, paths, download=None, install=None):
@@ -449,6 +465,14 @@ def apply_update(decision, paths, download=None, install=None):
     install = install or _default_install
     asset = (decision or {}).get("asset") or {}
     expect_version = decision.get("latest")
+
+    # -2. 活树得是安装器装出来的(t40)。开发方式跑(没有 DS_ROOT)时活树会被推成仓的上一级,
+    #     往下走第 0 步就会 rmtree 一个恰好同名的无关 .old、再往旁边装 300MB。只读检查,零副作用。
+    live = str(paths.get("live") or "")
+    if not (os.path.isfile(os.path.join(live, LAUNCHER_REL))
+            and os.path.isfile(os.path.join(live, SENTINEL_REL))):
+        _note(paths, "%s 不像安装器装出来的目录,不做应用内更新" % live)
+        return _fail("not_installed", "这份软件不是用安装包装的(%s),请到发布页手动下载" % live)
 
     # -1. 接力脚本扛不住的路径,**什么都别碰**就停(t36)。放在清 .old 之前:拒绝就得零副作用。
     bad_path = relay_path_problem(paths)
@@ -514,9 +538,15 @@ def apply_update(decision, paths, download=None, install=None):
         _note(paths, "新树不完整:%s" % bad)
         return _fail("newtree", bad)
 
+    # 5b. 安装包用完了(t39):新树已经验过,接力脚本也不需要它。不删 = 每更新一次在 %TEMP% 留 43MB。
+    _cleanup(dest, None)
+
     # 6. 写接力脚本。**交棒之后活树才会被动**,而那已经是段② 的事了
     port = int(paths.get("port") or 8766)
     nonce = paths.get("nonce") or hashlib.sha256(os.urandom(16)).hexdigest()[:16]
+    # 🔴 接力脚本要等的是新版 /api/health **真会报的**那个字符串 = 新树版本号原文(t37),
+    #    不是 decide() 补过零的 latest —— `1.1` 的新版永远不会说自己是 `1.1.0`。
+    expect_version = tree_version(new_dir)
     plan = relay_plan(paths, port=port, nonce=nonce, expect_version=expect_version)
     relay = os.path.join(paths["temp"], "opendesign-update-relay.cmd")
     with open(relay, "w", encoding=RELAY_ENCODING, errors="replace", newline="\r\n") as fh:
@@ -561,16 +591,27 @@ def relay_argv(relay_path):
     return ["cmd.exe", "/c", relay_path]
 
 
-def handoff(relay_path, launcher=None):
+def handoff(relay_path, launcher=None, ready_timeout=20.0):
     """把接力脚本脱离启动。**起不来一律返回 False,上层绝不许往下走。**
 
     🔴 这是整条路上最不能出错的一步:它之后 `ds_web` 就要请外壳把整套软件关掉。
     **脚本没起来却把软件关了 = 业主看到"软件关了,没再打开",而且没有任何东西
     会去回滚。** 所以这里对"起来了"的判断宁可保守:任何异常都算没起来。
+
+    🔴 "起来了"= **接力脚本自己写下就绪标记**(t38),不是"启动器没抛异常":
+       cmd.exe 起来了却没跑成脚本的路有好几条(路径里的 & 没被加引号、空格加括号时引号被 cmd 剥掉、
+       杀软拦截)。限时等不到 ⇒ 把起的那个进程杀掉 ⇒ 真的没有接力在跑 ⇒ 报没交棒(上层放锁,t35b)。
+       这里等的是一个文件,不是等进程结束 —— 接力脚本正在等我们死,等它结束就是互相等死(t21e 管启动器)。
     """
     launcher = launcher or _default_launcher
     if not relay_path or not os.path.isfile(relay_path):
         return False
+    ready = relay_path + RELAY_READY_SUFFIX
+    try:
+        if os.path.lexists(ready):
+            os.remove(ready)          # 上一次留下的不算数(t38c)
+    except OSError:
+        return False                  # 清不掉旧信号 = 分不清这次到底起没起来
 
     from ds_shell_core import spawn_kwargs  # 平台标志的唯一来源(同 _default_install)
 
@@ -581,11 +622,26 @@ def handoff(relay_path, launcher=None):
         # cwd(t29):不给的话继承 ds-web 的当前目录 —— 启动器 SetOutPath 把它设成了活树,
         # **进程的当前目录在哪个文件夹里,那个文件夹就改不了名** ⇒ 接力脚本自己占住活树
         # (Windows 端到端第四趟:改名重试满 60 秒一次没成)。
-        launcher(relay_argv(relay_path), cwd=os.path.dirname(os.path.abspath(relay_path)),
-                 **spawn_kwargs(leave_job=True))
+        proc = launcher(relay_argv(relay_path), cwd=os.path.dirname(os.path.abspath(relay_path)),
+                        **spawn_kwargs(leave_job=True))
     except Exception:  # noqa: BLE001 —— 起不来是"没交棒",不是"甩栈给业主"
         return False
-    return True
+    deadline = time.monotonic() + ready_timeout
+    while time.monotonic() < deadline:
+        if os.path.exists(ready):
+            try:
+                os.remove(ready)
+            except OSError:
+                pass
+            return True
+        time.sleep(0.05)
+    kill = getattr(proc, "kill", None)
+    if callable(kill):
+        try:
+            kill()
+        except Exception:  # noqa: BLE001 —— 杀不掉也照样报没交棒;它等不到外壳退出,60 秒后自己放弃
+            pass
+    return False
 
 
 def paths_for_update(ds_root, data_root=None, temp_dir=None, port=None, nonce=None):
