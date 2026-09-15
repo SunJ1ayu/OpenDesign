@@ -80,10 +80,13 @@ export async function waitConnected(page, scope, timeout = 20000) {
 
 /** 等到**真的能发消息**(view 已是 connected)。
  *
- * 🔴 为什么不并进 waitConnected:`模型按钮 [data-ui="chat-model"]` 出现 **不等于** 连上了 —— ChatPage 让
- *    reconnecting 与 connected **走同一条渲染路径**(断线前的对话必须留在眼前,
- *    见 ChatPage 875 行那段注释),重连中它照样在。要发消息的场景光等它会撞上
- *    disabled 的输入框,报「element is not enabled」,而那句报错完全不指向真因。
+ * 🔴 为什么不并进 waitConnected:模型按钮 `[data-ui="chat-model"]` 只在 `view.kind === "connected"`
+ *    时渲染(重连中**不在**,model_picker.e2e ⑭ 与红检 c1 钉着),可"连上了"仍**不等于**
+ *    "发得出去":发送键在 `view.kind !== "connected" || transcript.busy || 草稿为空` 时灰着,
+ *    上一轮还没答完时它照样灰着。要发消息的场景光等按钮会撞上 disabled,
+ *    报「element is not enabled」,而那句报错完全不指向真因。
+ *    (09-15 之前这里写的是「重连中它照样在」—— 那是旧 `.chat-meta` 时代就已不成立的理由,
+ *     换标记时被机械照抄;评审 DeepSeek 指出、我核 ChatPage 属实。)
  * 🔴 但也**不能无条件加进 waitConnected**:2026-08-16 我这么干过一次,当场把原本
  *    绿的 chat_image 打红 —— 它是 stub 场景、压根不发消息,connected 对它是**过强**
  *    的要求。**误报和假绿一样坏**,而且更贵:它指着一份好判据让我去改。

@@ -15,6 +15,10 @@
         → agents.defaults.modelPreset = id → 原子写配置(ds_credential._atomic_write)→ 回同 GET 的形状
         其余字段一个不碰;key.txt 不碰;不重启网关。
         生效:nanobot 每条入站消息前重读配置(loop.py:1255 → factory.py:251),**下一句起**用新模型。
+        ⚠️ 前提是 AgentLoop 构造时传了 provider_snapshot_loader 与 provider_signature:没传 ⇒
+        `_refresh_provider_snapshot` 直接 return / 永远沿用启动时的预设,界面显示换了而实际没换(静默)。
+        出货路径 `python -m nanobot gateway`(ds_shell.py、ds-nanobot.ps1)走 cli/commands.py:844-854,两样都传了
+        (评审 DeepSeek 两种构造都跑过,我读 venv 源码核实)。哪天换启动方式,这条要重核。
 
 目录(ds_credential.PROVIDERS 加 models)
   mimo     = 出货模板 config/nanobot.config.windows.jsonc 的 model_presets 里全部 provider=custom 的名字(不抄第二份)

@@ -1,0 +1,190 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-composer-model-picker",
+  "run_id": "20260915-174641-1147567-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-composer-model-picker-review",
+  "started_at": "2026-09-15T09:46:41Z",
+  "finished_at": "2026-09-15T09:54:05Z",
+  "duration_ms": 444190,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "subdeepseek-agent",
+        "degraded": false,
+        "duration_ms": 414130,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:48853f220cb18a103f29627699cca6bbd07dd0b88ba81520443e27cab4a1af06",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-composer-model-picker-review-20260915-174641.subdeepseek.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "deepseek",
+        "model": {
+          "invoked": "deepseek-flash",
+          "reported": null,
+          "requested": "deepseek-flash"
+        },
+        "name": "subdeepseek",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260915-174641-1147567-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:08bd4f713e00cd971bd854434e3bc55f32932e6fbea325756e96a88e36979f43",
+            "policy_version": 1,
+            "track": "opendesign-composer-model-picker"
+          },
+          "digest": "sha256:7ce0ba90cd52723bd67eb9fc533e3617b67f47cc268c88ff1f4b42e56a5df380",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "07afda826f373348855bef4af9241776f44b0d0d",
+            "index_tree_oid": "d5e64d2e2657ae1dfb3709ed96192c935a07d7de",
+            "worktree_tree_oid": "d5e64d2e2657ae1dfb3709ed96192c935a07d7de"
+          },
+          "task_sha256": "sha256:cdea2e92123b090fd876e9ecef4991b7cb616b78a14f53faa6f343568eccc5ee"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "api",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subglm-agent",
+        "degraded": false,
+        "duration_ms": 384669,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:2090e9af148f299b5371e1917f66bd93c1f1f3fdc8ca6c17e3a965d773fe4189",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-composer-model-picker-review-20260915-174641.subglm.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "zhipu",
+        "model": {
+          "invoked": "go/glm-5.3",
+          "reported": null,
+          "requested": "go/glm-5.3"
+        },
+        "name": "subglm",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260915-174641-1147567-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:08bd4f713e00cd971bd854434e3bc55f32932e6fbea325756e96a88e36979f43",
+            "policy_version": 1,
+            "track": "opendesign-composer-model-picker"
+          },
+          "digest": "sha256:7ce0ba90cd52723bd67eb9fc533e3617b67f47cc268c88ff1f4b42e56a5df380",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "07afda826f373348855bef4af9241776f44b0d0d",
+            "index_tree_oid": "d5e64d2e2657ae1dfb3709ed96192c935a07d7de",
+            "worktree_tree_oid": "d5e64d2e2657ae1dfb3709ed96192c935a07d7de"
+          },
+          "task_sha256": "sha256:cdea2e92123b090fd876e9ecef4991b7cb616b78a14f53faa6f343568eccc5ee"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subgrok",
+        "degraded": false,
+        "duration_ms": 31764,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:126d6f0fc5102a5ed2e2c3fe6135c99335cb5203475de6020ae95a8b29b02c45",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-composer-model-picker-review-20260915-174641.subgrok.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xai",
+        "model": {
+          "invoked": "grok-4.6",
+          "reported": null,
+          "requested": "grok-4.6"
+        },
+        "name": "subgrok",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260915-174641-1147567-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:08bd4f713e00cd971bd854434e3bc55f32932e6fbea325756e96a88e36979f43",
+            "policy_version": 1,
+            "track": "opendesign-composer-model-picker"
+          },
+          "digest": "sha256:7ce0ba90cd52723bd67eb9fc533e3617b67f47cc268c88ff1f4b42e56a5df380",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "07afda826f373348855bef4af9241776f44b0d0d",
+            "index_tree_oid": "d5e64d2e2657ae1dfb3709ed96192c935a07d7de",
+            "worktree_tree_oid": "d5e64d2e2657ae1dfb3709ed96192c935a07d7de"
+          },
+          "task_sha256": "sha256:cdea2e92123b090fd876e9ecef4991b7cb616b78a14f53faa6f343568eccc5ee"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
