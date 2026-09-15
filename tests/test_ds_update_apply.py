@@ -1325,7 +1325,7 @@ class RelayUnsafePathsStopBeforeAnything(_Base):
             ("a^b", {}, 936),
             ("Kullanıcı şahin", {}, 936),                     # GBK 写不进
             ("张 三", {}, 437),                                 # 英文系统控制台读 GBK 字节 = 乱码
-            ("张 三", {}, 65001),                               # 中文系统开了"UTF-8 全球语言支持"
+            ("李 四", {}, 65001),                               # 中文系统开了"UTF-8 全球语言支持"
             ("plain", {"temp": os.path.join(self.base, "T%M%P")}, 936),        # 接力脚本自己住的地方
             ("plain2", {"data_root": os.path.join(self.base, "Dâtä€")}, 936),  # LOGF 在数据根底下
         )
