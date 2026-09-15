@@ -1,0 +1,123 @@
+{
+  "old_version": "0.98.4",
+  "new_version": "0.98.900",
+  "fake_log_start": 19,
+  "reset": {
+    "installer_rc": 0,
+    "health": {
+      "version": "0.98.4",
+      "port": 8766
+    }
+  },
+  "markers_before": {
+    "Data/客户资料-e2e.bin": "3ff96aef9800d7f979dcbd260b8100646a5a0305012d3930a1e181e82833cc92",
+    "Data/项目备忘-e2e.md": "86a492c85bdd2a98fede147587cc8db2a55a3d47b0fe810d572dba5ca1662d82",
+    "UserData/客户资料-e2e.bin": "d043dd995ef930b350180e19e6c13783021de8beb60c0a563c9f38e32edc1c43",
+    "UserData/项目备忘-e2e.md": "6b5804b33eb5c09e1ee053866e644b60d2d14fb7c03a0f8ad32658c2291a9542"
+  },
+  "check": {
+    "current": "0.98.4",
+    "update_available": true,
+    "latest": "0.98.900",
+    "asset": {
+      "name": "OpenDesign-Setup-0.98.900.exe",
+      "url": "https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.900/OpenDesign-Setup-0.98.900.exe",
+      "size": 46747307,
+      "digest": "sha256:31d3db24a2f66b15ec5c1bdb71d17c922bbe26edd43d262ec8990e1f1ca35eca"
+    },
+    "notes": "e2e stand-in release",
+    "error": null,
+    "release_url": "https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.900"
+  },
+  "apply": {
+    "ok": false,
+    "stage": "newtree",
+    "error": "新树缺哨兵:ds\\bin\\ds_shell.py"
+  },
+  "relay": {
+    "seconds": 30.3,
+    "seen": false,
+    "ended": true,
+    "old_seen": false
+  },
+  "seen_versions": [
+    "0.98.4"
+  ],
+  "health_after": {
+    "version": "0.98.4",
+    "port": 8766
+  },
+  "window": {
+    "procs": [
+      "pythonw:「OpenDesign」",
+      "WindowsTerminal:「C:\\ProgramData\\GitHub\\HostedComputeAgent\\hosted-compute-agent」"
+    ],
+    "wins": [
+      {
+        "proc": "pythonw",
+        "title": "OpenDesign",
+        "cls": "#32770"
+      },
+      {
+        "proc": "WindowsTerminal",
+        "title": "C:\\ProgramData\\GitHub\\HostedComputeAgent\\hosted-compute-agent",
+        "cls": "CASCADIA_HOSTING_WINDOW_CLASS"
+      },
+      {
+        "proc": "SystemPropertiesPerformance",
+        "title": "System Properties",
+        "cls": "#32770"
+      },
+      {
+        "proc": "explorer",
+        "title": "Program Manager",
+        "cls": "Progman"
+      }
+    ]
+  },
+  "health_final": {
+    "version": "0.98.4",
+    "port": 8766
+  },
+  "live_version_after": "0.98.900",
+  "old_exists": false,
+  "new_exists": false,
+  "pointers": {
+    "uninstall": {
+      "DisplayVersion": "0.98.900",
+      "InstallLocation": "C:\\OD e2e space\\Programs\\OpenDesign",
+      "UninstallString": "\"C:\\OD e2e space\\Programs\\OpenDesign\\卸载.exe\"",
+      "DisplayIcon": "C:\\OD e2e space\\Programs\\OpenDesign\\OpenDesign.exe"
+    },
+    "live": "C:\\OD e2e space\\Programs\\OpenDesign",
+    "shortcuts": {
+      "C:\\Users\\runneradmin\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\OpenDesign\\OpenDesign.lnk": "C:\\OD e2e space\\Programs\\OpenDesign\\OpenDesign.exe",
+      "C:\\Users\\runneradmin\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\OpenDesign\\卸载 OpenDesign.lnk": "C:\\OD e2e space\\Programs\\OpenDesign\\卸载.exe",
+      "C:\\Users\\runneradmin\\Desktop\\OpenDesign.lnk": "C:\\OD e2e space\\Programs\\OpenDesign\\OpenDesign.exe"
+    },
+    "autorun": null,
+    "install_dir": "C:\\OD e2e space\\Programs\\OpenDesign"
+  },
+  "markers_after": {
+    "Data/客户资料-e2e.bin": "3ff96aef9800d7f979dcbd260b8100646a5a0305012d3930a1e181e82833cc92",
+    "Data/项目备忘-e2e.md": "86a492c85bdd2a98fede147587cc8db2a55a3d47b0fe810d572dba5ca1662d82",
+    "UserData/客户资料-e2e.bin": "d043dd995ef930b350180e19e6c13783021de8beb60c0a563c9f38e32edc1c43",
+    "UserData/项目备忘-e2e.md": "6b5804b33eb5c09e1ee053866e644b60d2d14fb7c03a0f8ad32658c2291a9542"
+  },
+  "fake_log": [
+    {
+      "kind": "releases",
+      "host": "api.github.com",
+      "path": "/repos/SunJ1ayu/OpenDesign/releases?per_page=100",
+      "t": 1789439355.4183848
+    },
+    {
+      "kind": "download",
+      "host": "github.com",
+      "mode": "normal",
+      "bytes": 46747307,
+      "sha256": "31d3db24a2f66b15ec5c1bdb71d17c922bbe26edd43d262ec8990e1f1ca35eca",
+      "t": 1789439355.4596527
+    }
+  ]
+}

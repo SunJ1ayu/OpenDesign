@@ -1,0 +1,7 @@
+0	e2	OK e2 - corrupt download refused at verify, live tree untouched, 0.98.4 still up
+0	e3	OK e3 - relay gave up without renaming, .new removed, old relaunches (auto-reopened: nobody)
+0	e4	OK e4 - second rename failed, relay rolled back and relaunched 0.98.4
+0	e5	OK e5 - unhealthy new version rolled back to 0.98.4
+0	e1	OK e1 - updated 0.98.4 -> 0.98.900, window up, archive markers intact
+0	e6	OK e6 - updated 0.98.4 -> 0.98.900, window up, archive markers intact
+0	e7	OK e7 - quoted /D= in update mode refused by the real installer (rc=3), live tree untouched

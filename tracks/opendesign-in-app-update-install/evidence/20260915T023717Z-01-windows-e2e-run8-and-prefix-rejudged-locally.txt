@@ -1,0 +1,56 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    windows-e2e-run8-and-prefix-rejudged-locally
+cmd:     bash -c E=tracks/opendesign-in-app-update-install/evidence\;\ for\ rid\ in\ 34920544736\ 34920544526\;\ do\ echo\ \"==\ run\ \$rid\"\;\ cat\ \$E/windows-e2e-run-\$rid/verdicts.tsv\;\ echo\ \"--\ 本机同一判定器复判\"\;\ for\ k\ in\ e1\ e2\ e3\ e4\ e5\ e6\ e7\;\ do\ /root/.venvs/design-studio/bin/python\ .github/scripts/update_e2e_verdict.py\ \$k\ \$E/windows-e2e-run-\$rid/facts-\$k.json\;\ echo\ \"\ \ \ rc=\$\?\"\;\ done\;\ done
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  eaec8f0
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T02:37:17Z
+---------------- 输出开始 ----------------
+== run 34920544736
+0	e2	OK e2 - corrupt download refused at verify, live tree untouched, 0.98.4 still up
+0	e3	OK e3 - relay gave up without renaming, .new removed, old relaunches (auto-reopened: nobody)
+0	e4	OK e4 - second rename failed, relay rolled back and relaunched 0.98.4
+0	e5	OK e5 - unhealthy new version rolled back to 0.98.4
+0	e1	OK e1 - updated 0.98.4 -> 0.98.900, window up, archive markers intact
+0	e6	OK e6 - updated 0.98.4 -> 0.98.900, window up, archive markers intact
+0	e7	OK e7 - quoted /D= in update mode refused by the real installer (rc=3), live tree untouched
+-- 本机同一判定器复判
+OK e1 - updated 0.98.4 -> 0.98.900, window up, archive markers intact
+   rc=0
+OK e2 - corrupt download refused at verify, live tree untouched, 0.98.4 still up
+   rc=0
+OK e3 - relay gave up without renaming, .new removed, old relaunches (auto-reopened: nobody)
+   rc=0
+OK e4 - second rename failed, relay rolled back and relaunched 0.98.4
+   rc=0
+OK e5 - unhealthy new version rolled back to 0.98.4
+   rc=0
+OK e6 - updated 0.98.4 -> 0.98.900, window up, archive markers intact
+   rc=0
+OK e7 - quoted /D= in update mode refused by the real installer (rc=3), live tree untouched
+   rc=0
+== run 34920544526
+0	e2	OK e2 - corrupt download refused at verify, live tree untouched, 0.98.4 still up
+0	e3	OK e3 - relay gave up without renaming, .new removed, old relaunches (auto-reopened: nobody)
+0	e4	OK e4 - second rename failed, relay rolled back and relaunched 0.98.4
+0	e5	OK e5 - unhealthy new version rolled back to 0.98.4
+0	e1	OK e1 - updated 0.98.4 -> 0.98.900, window up, archive markers intact
+1	e6	FAIL e6 - apply did not start (ok=False stage='newtree' error='?????:ds\\bin\\ds_shell.py')
+1	e7	FAIL e7 - installer rc=0, expected 3 (update mode must refuse a target that is not .new); quoted /D=: live tree changed (before=40fa955af942 after=c82f7f56ac60)
+-- 本机同一判定器复判
+OK e1 - updated 0.98.4 -> 0.98.900, window up, archive markers intact
+   rc=0
+OK e2 - corrupt download refused at verify, live tree untouched, 0.98.4 still up
+   rc=0
+OK e3 - relay gave up without renaming, .new removed, old relaunches (auto-reopened: nobody)
+   rc=0
+OK e4 - second rename failed, relay rolled back and relaunched 0.98.4
+   rc=0
+OK e5 - unhealthy new version rolled back to 0.98.4
+   rc=0
+FAIL e6 - apply did not start (ok=False stage='newtree' error='?????:ds\\bin\\ds_shell.py')
+   rc=1
+FAIL e7 - installer rc=0, expected 3 (update mode must refuse a target that is not .new); quoted /D=: live tree changed (before=40fa955af942 after=c82f7f56ac60)
+   rc=1
+---------------- 输出结束 ----------------
+runlog: windows-e2e-run8-and-prefix-rejudged-locally rc=0 commit=eaec8f0 dirty=yes at=2026-09-15T02:37:17Z file=tracks/opendesign-in-app-update-install/evidence/20260915T023717Z-01-windows-e2e-run8-and-prefix-rejudged-locally.txt

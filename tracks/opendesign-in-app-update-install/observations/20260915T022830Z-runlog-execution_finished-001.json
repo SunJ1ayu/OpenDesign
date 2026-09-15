@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-in-app-update-install",
+  "run_id": "20260915T021714Z-01-run-all-after-t37-t40-and-e6-e7",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "run-all-after-t37-t40-and-e6-e7",
+  "started_at": "2026-09-15T02:17:14Z",
+  "finished_at": "2026-09-15T02:28:30Z",
+  "duration_ms": 675784,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

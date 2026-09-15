@@ -1,0 +1,39 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    run-all-after-t37-t40-and-e6-e7
+cmd:     bash tests/run-all.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  eaec8f0
+dirty:   no(跑之前采的;含未跟踪文件)
+head-before: eaec8f014a18005cf5995823bd013026a4be3655
+source-view-before: sha256:a97ea3069615b1fc2d49f08fdbe8b0cccc346d4577fb56bb6f1164c8930c23a9
+started: 2026-09-15T02:17:14Z
+---------------- 输出开始 ----------------
+[1m== 泄漏闸自测(判据的判据)[0m
+   [32m完成[0m  0s
+[1m== node 单测(tests/*.mjs)[0m
+   [32m完成[0m  4s
+[1m== python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python)[0m
+   [32m完成[0m  488s
+[1m== MCP 契约闸[0m
+   [32m完成[0m  5s
+[1m== dist 新鲜度 + 类型检查(npm run build 后 git 应无差异)[0m
+   [32m完成[0m  8s
+[1m== e2e 总跑[0m
+   [31m有红[0m  156s
+
+════ 总跑汇总 ════
+  [32mPASS[0m  泄漏闸自测(判据的判据)   14 条全过
+  [32mPASS[0m  node 单测(tests/*.mjs)           416 通过 / 0 跳过 / 0 todo
+  [32mPASS[0m  python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python) 1607 跑过 / 0 跳过
+  [32mPASS[0m  MCP 契约闸                      三条闸全绿
+  [32mPASS[0m  dist 新鲜度 + 类型检查(npm run build 后 git 应无差异) 与源码同步
+  [31mFAIL[0m  e2e 总跑                         39 PASS / 0 FAIL / 2 SKIP / ⚠️ 漏了 1 个临时目录
+
+有 1 段红了,日志在 /tmp/ds-all-CmeoLT
+   e2e 总跑 → /tmp/ds-all-CmeoLT/e2e.log
+command-rc: 1
+head-after: eaec8f014a18005cf5995823bd013026a4be3655
+source-view-after:  sha256:a97ea3069615b1fc2d49f08fdbe8b0cccc346d4577fb56bb6f1164c8930c23a9
+source-stable: yes
+---------------- 输出结束 ----------------
+runlog: run-all-after-t37-t40-and-e6-e7 rc=1 commit=eaec8f0 dirty=no final=yes at=2026-09-15T02:17:14Z file=tracks/opendesign-in-app-update-install/evidence/20260915T021714Z-01-run-all-after-t37-t40-and-e6-e7.txt
