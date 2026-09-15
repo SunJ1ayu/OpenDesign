@@ -1,0 +1,43 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-aw10b-on-pre-fix-impl
+cmd:     /root/aiwork/bin/redcheck --base 2063c9a --impl bin/ds_common.py bin/ds_refs.py bin/ds_tools.py --oracle /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_atomic_write.RenameProjectRewritesAreAtomicToo --must-fail test_aw10b
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  46c929d
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T07:03:22Z
+---------------- 输出开始 ----------------
+redcheck: repo=/root/.openclaw/workspace/projects/design-studio
+  实现退回 2063c9a7c077(判卷留在 HEAD 46c929d90b87)
+  实现:bin/ds_common.py bin/ds_refs.py bin/ds_tools.py
+  跑判据 ...
+     | /root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+     |   """主变更行 C 号 —— **五个写口共用这一个定义**。
+     | FF
+     | ======================================================================
+     | FAIL: test_aw10_rename_dying_halfway_leaves_every_file_whole (tests.test_ds_atomic_write.RenameProjectRewritesAreAtomicToo.test_aw10_rename_dying_halfway_leaves_every_file_whole) (file='王先生.md')
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_atomic_write.py", line 360, in test_aw10_rename_dying_halfway_leaves_every_file_whole
+     |     self.assertTrue(got in (originals[p], done), "%s 成了半截(%d 字节,原来 %d)"
+     | AssertionError: False is not true : 王先生.md 成了半截(69120 字节,原来 70158)
+     | 
+     | ======================================================================
+     | FAIL: test_aw10b_rename_dying_while_retitling_the_archive_keeps_it_whole (tests.test_ds_atomic_write.RenameProjectRewritesAreAtomicToo.test_aw10b_rename_dying_while_retitling_the_archive_keeps_it_whole)
+     | ----------------------------------------------------------------------
+     | Traceback (most recent call last):
+     |   File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_atomic_write.py", line 398, in test_aw10b_rename_dying_while_retitling_the_archive_keeps_it_whole
+     |     self.assertTrue(got in (original, retitled),
+     | AssertionError: False is not true : 改标题写到一半出错,档案本体成了半截(37324 字节,原来 38348)
+     | 
+     | ----------------------------------------------------------------------
+     | Ran 2 tests in 0.113s
+     | 
+     | FAILED (failures=2)
+  ✅ 红在目标断言上(命中 /test_aw10b/)。
+
+  ✅ 红检通过:旧实现下判据是红的(rc=1)。这份判据确实在问本轮的改动。
+
+redcheck: 恢复实现到 HEAD ...
+  ✅ 已恢复,工作树干净(git 说的,不是我说的)。
+---------------- 输出结束 ----------------
+runlog: red-aw10b-on-pre-fix-impl rc=0 commit=46c929d dirty=yes at=2026-09-15T07:03:22Z file=tracks/opendesign-atomic-archive-write/evidence/20260915T070322Z-01-red-aw10b-on-pre-fix-impl.txt

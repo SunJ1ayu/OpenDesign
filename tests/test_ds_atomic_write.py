@@ -364,6 +364,41 @@ report(lambda: ds_tools.rename_project(%r, %r, %r, today="2026-09-15"))
         self.assertEqual(len(survivors), 1, "档案本体不见了或出现了两份:%r" % survivors)
         self.assertGreater(len(_bytes(survivors[0])), len(originals[self.proj]) // 2, "档案本体成了半截")
 
+    def test_aw10b_rename_dying_while_retitling_the_archive_keeps_it_whole(self):
+        # 🔴 aw10 问不到第④步「改档案标题」那个写口(2026-09-15 红检 m8 漏网抓到的,我读考卷核实):
+        #    它的夹具首行是「# 项目档案 旧」⇒ 改标题分支根本不走;而且故障先落在第一个大文件(客户备忘)上,
+        #    异常在①就抛了,④结构上到不了。这条让①写成功、故障只落在档案本体上。
+        old, new = "翡翠湾-1801", "翡翠湾-1801改"
+        _write_text(self.proj, "# %s\n" % old + _archive_text(400, "旧").split("\n", 1)[1])
+        client = os.path.join(self.ds, "clients", "王先生.md")
+        index = os.path.join(self.ds, "index.md")
+        _write_text(client, "# 王先生\n\n负责项目 [[%s]]\n\n%s" % (old, FOOTER))
+        _write_text(index, "# 索引\n\n- [[%s]]\n\n%s" % (old, FOOTER))
+        original = _bytes(self.proj)
+        self.assertEqual(original.split(b"\n", 1)[0].strip(), ("# %s" % old).encode("utf-8"),
+                         "前置:档案首行得恰好是「# 旧名」,否则改标题分支不走")
+        limit = len(original) - 1024
+        self.assertGreater(limit, 4 * max(len(_bytes(client)), len(_bytes(index))),
+                           "前置:客户备忘 / 索引得远小于上限,故障才落得到档案本体上")
+        code = _FSIZE_PRELUDE + """
+import ds_tools
+limit(%d)
+report(lambda: ds_tools.rename_project(%r, %r, %r, today="2026-09-15"))
+""" % (limit, old, new, self.ds)
+        r = _run_child(code)
+        self.assertIn("RAISED True", r.stdout, "故障没注入成功:%r %r" % (r.stdout, r.stderr[-500:]))
+        for p in (client, index):
+            self.assertIn(("[[%s]]" % new).encode("utf-8"), _bytes(p),
+                          "前置:%s 没改成新链接 ⇒ 故障落在了①,没落到改标题那一步" % os.path.basename(p))
+        new_path = os.path.join(self.ds, "projects", new + ".md")
+        survivors = [x for x in (self.proj, new_path) if os.path.exists(x)]
+        self.assertEqual(len(survivors), 1, "档案本体不见了或出现了两份:%r" % survivors)
+        got = _bytes(survivors[0])
+        retitled = original.replace(("# %s" % old).encode("utf-8"), ("# %s" % new).encode("utf-8"), 1)
+        self.assertTrue(got in (original, retitled),
+                        "改标题写到一半出错,档案本体成了半截(%d 字节,原来 %d)" % (len(got), len(original)))
+        self.assertNoTmpLitter(os.path.join(self.ds, "projects"))
+
 
 class ListingsIgnoreTheLockDirectory(_Tmp):
     """aw11 —— 写过之后,项目列表里不出现锁目录之类的东西。"""
