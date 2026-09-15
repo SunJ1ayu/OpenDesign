@@ -958,14 +958,25 @@ class WriteSideNameGate(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.ds, ignore_errors=True)
 
+    # 产品自己建的基础设施目录(按名放行):`.trash` = delete_project 的回收站,`.locks` = 档案锁
+    # (track opendesign-atomic-archive-write)。它们不是"名字逃逸造出来的嵌套项目目录"。
+    _INFRA_DIRS = (".trash", ".locks")
+
     def _no_nested(self):
-        # 安全属性:projects/ 与 clients/ 下不允许出现任何子目录(嵌套=读不到)
+        # 安全属性:projects/ 与 clients/ 下不允许出现**名字逃逸造出来的**子目录(嵌套=读不到)。
+        # ⚠️ 2026-09-15 改过问法:原来是"任何子目录都不许有",而产品本来就会建 .trash(删除回收)与 .locks(档案锁)
+        #    —— 这个类从不删项目才一直没撞上。问法搬到它真正要问的事上:基础设施目录按名放行,
+        #    其余任何子目录照红;**且 .locks 里只许有 .lock 文件**,豁免不许被拿来藏嵌套档案。
         for sub in ("projects", "clients"):
             base = os.path.join(self.ds, sub)
             self.assertEqual(
                 [e for e in os.listdir(base)
-                 if os.path.isdir(os.path.join(base, e))], [],
+                 if os.path.isdir(os.path.join(base, e)) and e not in self._INFRA_DIRS], [],
                 f"{sub}/ 出现嵌套目录")
+            locks = os.path.join(base, ".locks")
+            if os.path.isdir(locks):
+                self.assertEqual([e for e in os.listdir(locks) if not e.endswith(".lock")], [],
+                                 f"{sub}/.locks/ 里出现了锁文件以外的东西")
 
     # ① create_project 拒 `/`,零落盘
     def test_h1_create_project_slash_rejected(self):
