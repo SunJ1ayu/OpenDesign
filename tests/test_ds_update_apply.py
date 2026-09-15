@@ -136,6 +136,67 @@ def _code_without_comments(path: str) -> str:
     return "\n".join(t.string for t in toks if t.type != tokenize.COMMENT)
 
 
+def _installer_cmdline(setup_path, target_dir):
+    """`_default_install` 在 Windows 上**真正交给安装器的那条命令行**。
+
+    Windows 起进程只有一条字符串:传列表时 subprocess 先用 list2cmdline 拼(会给带空格的元素加引号),
+    传字符串就原样用。替身只截获、不起进程。
+    """
+    import subprocess
+    seen = []
+    real = subprocess.call
+    subprocess.call = lambda cmd, **kw: seen.append(cmd) or 0
+    try:
+        ds_update_apply._default_install(setup_path, target_dir)
+    finally:
+        subprocess.call = real
+    assert seen, "没调起安装器"
+    cmd = seen[0]
+    return cmd if isinstance(cmd, str) else subprocess.list2cmdline(cmd)
+
+
+def _nsis_reads(cmdline):
+    """NSIS 安装器读自己命令行的那段循环 —— **逐行照搬**,不是我对它的理解。
+
+    来源:kichik/nsis `Source/exehead/Main.c` 第 237~288 行(master,2026-09-15 取;
+    这段逻辑多年未变)。`CMP4CHAR(cmdline-2, " /D=")` 要求 `/D=` 前面紧挨着的是**空格**:
+    参数被引号包住时,前一个字符是引号 ⇒ 整个 `/D=` 被当成没传,安装目录退回注册表里记的那个。
+    返回 `{"silent": /S 认出来了吗, "instdir": /D= 读出的目录或 None}`。
+    """
+    s = cmdline + "\0"
+
+    def findchar(i, c):
+        while s[i] != "\0" and s[i] != c:
+            i += 1
+        return i
+
+    i, seek = 0, " "
+    if s[0] == '"':
+        seek, i = '"', 1
+    i = findchar(i, seek)
+    if s[i] != "\0":          # CharNext
+        i += 1
+    silent, instdir = False, None
+    while s[i] != "\0":
+        while s[i] == " ":
+            i += 1
+        seek = " "
+        if s[i] == '"':
+            i += 1
+            seek = '"'
+        if s[i] == "/":
+            i += 1
+            if s[i] == "S" and s[i + 1] in (" ", "\0"):
+                silent = True
+            if i >= 2 and s[i - 2:i + 2] == " /D=":
+                instdir = s[i + 2:-1]     # mystrcpy 抄到结尾
+                break                      # /D= must always be last
+        i = findchar(i, seek)
+        if s[i] == '"':
+            i += 1
+    return {"silent": silent, "instdir": instdir}
+
+
 class _Base(unittest.TestCase):
     def setUp(self):
         self.base = tempfile.mkdtemp(prefix="dsupd-")
@@ -581,25 +642,15 @@ class InstallerUpdateFlagContract(_Base):
             return fh.read()
 
     def test_t20a_installer_is_invoked_with_the_update_flag(self):
-        import subprocess
-        seen = []
-
-        def fake_call(cmd, **kwargs):
-            seen.append((list(cmd), kwargs))
-            return 0
-
-        real = subprocess.call
-        subprocess.call = fake_call
-        try:
-            ds_update_apply._default_install("C:/tmp/Setup.exe", "C:/tmp/OpenDesign.new")
-        finally:
-            subprocess.call = real
-        self.assertTrue(seen, "没调起安装器")
-        argv, _kw = seen[0]
-        self.assertIn(ds_update_apply.INSTALL_UPDATE_FLAG, argv)
-        self.assertIn("/S", argv, "更新必须静默")
-        self.assertTrue(argv[-1].startswith("/D="),
-                        "/D= 必须是最后一个参数(NSIS 的规矩,不是我们的选择)")
+        # ⚠️ 2026-09-15 收紧:原来问的是 argv 列表(`argv[-1].startswith("/D=")`)。
+        #    而"不加引号"是**命令行**层面的规矩,argv 里根本不存在引号 —— 引号是 Windows 上
+        #    list2cmdline 在起进程前才加的 ⇒ 那条断言结构上问不出它注释里声称的事(外审 DeepSeek 发现 6)。
+        #    改成问安装器真正收到的那条命令行;"读出来的目录对不对"归 t33。
+        cmdline = _installer_cmdline("C:/tmp/Setup.exe", "C:/tmp/OpenDesign.new")
+        self.assertIn(" %s " % ds_update_apply.INSTALL_UPDATE_FLAG, cmdline)
+        self.assertIn(" /S ", cmdline, "更新必须静默")
+        self.assertRegex(cmdline, r' /D=[^"]*$',
+                         "/D= 必须是最后一个参数且不加引号(NSIS 的规矩,不是我们的选择)")
 
     def test_t20b_the_nsi_parses_that_exact_flag(self):
         """⚠️ 这条第一版太松,红检当场照出来(m23 漏网,2026-09-08)。
@@ -1148,6 +1199,161 @@ class UpdateModeDoesNotRepointTheInstall(unittest.TestCase):
                         break
                 self.assertIsNotNone(guard, "更新档也会执行这一行,改名后它指向不存在的 .new")
                 self.assertIn(ds_update_apply.UPDATE_MODE_VAR, guard, "把守它的不是更新档:%s" % guard)
+
+
+class TheInstallerReadsTheDirectoryWeMeant(unittest.TestCase):
+    """t33 —— 安装器**真正读到的**目录必须逐字是 `.new`,路径带空格也一样。
+
+    🔴 2026-09-15 收口外审两条腿(DeepSeek 发现 1、GLM 发现 1)各自独立指出;我读 NSIS 源码坐实了更坏的那一支:
+    `[setup, "/S", "/UPDATE", "/D=" + 目标]` 交给 subprocess ⇒ list2cmdline 给带空格的 `/D=` 加引号
+    ⇒ NSIS 不认这个 `/D=` ⇒ 安装目录退回 `InstallDirRegKey`(= **正在运行的活树**)
+    ⇒ 静默装进活树:被占着的文件跳过、其余覆盖 ⇒ 半新半旧,下次打不开。
+    CI runner 是 `runneradmin`(无空格),`windows-nonempty-probe.ps1` 走的是不加引号那条 —— 这支从没被量过。
+    """
+
+    CASES = (
+        # (安装包在哪, 装到哪)
+        (r"C:\Users\runneradmin\AppData\Local\Temp\OpenDesign-Setup-0.98.5.exe",
+         r"C:\Users\runneradmin\AppData\Local\Programs\OpenDesign.new"),
+        (r"C:\Users\John Smith\AppData\Local\Temp\OpenDesign-Setup-0.98.5.exe",
+         r"C:\Users\John Smith\AppData\Local\Programs\OpenDesign.new"),
+        (r"C:\Users\ZHANGS~1\AppData\Local\Temp\OpenDesign-Setup-0.98.5.exe",
+         r"D:\Program Files (x86)\设计 工具\OpenDesign.new"),
+    )
+
+    def test_t33a_nsis_reads_exactly_the_new_dir(self):
+        for setup, target in self.CASES:
+            with self.subTest(target=target):
+                cmdline = _installer_cmdline(setup, target)
+                got = _nsis_reads(cmdline)
+                self.assertEqual(got["instdir"], target,
+                                 "NSIS 从这条命令行读出的安装目录不是 .new:%r\n命令行:%s" % (got["instdir"], cmdline))
+                self.assertTrue(got["silent"], "NSIS 没认出 /S:%s" % cmdline)
+
+    def test_t33z_the_reference_parser_follows_the_documented_nsis_rule(self):
+        """参照模型自检 —— 防止照搬错了、错成对实现有利的样子。
+
+        NSIS 文档(Installer Usage):`/D` "must be the last parameter used in the command line and
+        must not contain any quotes, even if the path contains spaces"。
+        """
+        self.assertIsNone(
+            _nsis_reads(r'"C:\x y\Setup.exe" /S /UPDATE "/D=C:\Users\John Smith\OpenDesign.new"')["instdir"],
+            "参照模型居然认了带引号的 /D= —— 和 NSIS 文档相反")
+        self.assertEqual(
+            _nsis_reads(r'"C:\x y\Setup.exe" /S /UPDATE /D=C:\Users\John Smith\OpenDesign.new')["instdir"],
+            r"C:\Users\John Smith\OpenDesign.new")
+        self.assertEqual(_nsis_reads(r"C:\x\Setup.exe /S /D=C:\a")["instdir"], r"C:\a")
+        self.assertTrue(_nsis_reads(r"C:\x\Setup.exe /S /D=C:\a")["silent"])
+        self.assertFalse(_nsis_reads(r"C:\x\Setup.exe /SILENT /D=C:\a")["silent"])
+
+
+class TheUpdateModeOnlyInstallsIntoNew(unittest.TestCase):
+    """t34 —— 更新档**只许装进 `.new`**:`.onInit` 里认出更新档、`$INSTDIR` 又不以 `.new` 结尾 ⇒ `Abort`。
+
+    t33 管"python 发对";这条是纵深:哪天 `/D=` 又因为别的原因没被认出来,
+    塌成"安装器 rc≠0、更新失败、活树没动",而不是"装进活树"。行为半 = Windows `e6`(真 NSIS)。
+    """
+
+    NSI = os.path.join(ROOT, "installer", "OpenDesign.nsi")
+
+    def _oninit(self):
+        with open(self.NSI, encoding="utf-8", errors="replace") as fh:
+            lines = [ln.strip() for ln in fh.read().splitlines()]
+        start = lines.index("Function .onInit")
+        end = lines.index("FunctionEnd", start)
+        return [ln for ln in lines[start + 1:end] if ln and not ln.startswith(";")]
+
+    def test_t34a_update_mode_aborts_unless_instdir_ends_with_new(self):
+        body = self._oninit()
+        suffix = [m.group(1) for m in
+                  (re.match(r'StrCpy\s+(\$\w+)\s+"?\$INSTDIR"?\s+""\s+-4$', ln) for ln in body) if m]
+        self.assertTrue(suffix, ".onInit 里没有取 $INSTDIR 末 4 个字符的那一行")
+        var = suffix[0]
+        flag_at = next((i for i, ln in enumerate(body)
+                        if "GetOptions" in ln and ds_update_apply.INSTALL_UPDATE_FLAG in ln), None)
+        self.assertIsNotNone(flag_at, ".onInit 不解析更新档旗子了")
+
+        # 逐行走块结构:记下每个 Abort 被哪些 ${If} 包着(${AndIf}/${OrIf} 并进当前块的条件)
+        stack, aborts = [], []
+        for i, ln in enumerate(body):
+            if ln.startswith(("${If}", "${IfNot}", "${Unless}")):
+                stack.append([i, ln])
+            elif ln.startswith(("${AndIf}", "${AndIfNot}")) and stack:
+                stack[-1][1] += " " + ln
+            elif ln.startswith(("${Else}", "${ElseIf}", "${OrIf}")) and stack:
+                stack[-1][1] += " <ELSE-OR> "     # 分支变了:之后的 Abort 不再受原条件保护
+            elif ln.startswith("${EndIf}") and stack:
+                stack.pop()
+            elif ln == "Abort" or ln.startswith("Abort "):
+                aborts.append((i, [cond for _at, cond in stack]))
+        good = [i for i, conds in aborts
+                if any(ds_update_apply.UPDATE_MODE_VAR in c.split("<ELSE-OR>")[0] for c in conds)
+                and any(var in c.split("<ELSE-OR>")[0] and '".new"' in c.split("<ELSE-OR>")[0] and "!=" in c
+                        for c in conds)
+                and i > flag_at]
+        self.assertTrue(good, "没有一个 Abort 同时被「更新档」和「%s != \".new\"」把守着:%r" % (var, aborts))
+
+
+class RelayUnsafePathsStopBeforeAnything(_Base):
+    """t36 —— 接力脚本扛不住的路径:**在清 .old / 下载 / 安装之前**就拒绝(`stage=path_unsupported`)。
+
+    🔴 2026-09-15 收口外审(GLM 发现 2/4、DeepSeek 发现 2)+ 我重读自审第 1 条时的更正:
+    `.cmd` 以 GBK 写、按控制台代码页读;路径一乱,连"放弃并打开旧版"那句 `start "%LIVE%\\..."` 也打不开
+    ⇒ 不是"安全失败",是**关了不回来**。`%` 被 cmd 展开;`'` 拆坏回滚那行 PowerShell 单引号串
+    (停不掉新版 ⇒ 挪不动 ⇒ 卡死);`^` 被 `call :move_retry "..."` 翻倍(回滚专用子程序)。
+    """
+
+    def _paths_under(self, dirname, temp=None, data_root=None):
+        live = _make_live_tree(os.path.join(self.base, dirname))
+        paths = {"live": live, "new": live + ".new", "old": live + ".old",
+                 "data_root": data_root or self.data_root, "temp": temp or self.temp}
+        for p in (paths["temp"], paths["data_root"]):
+            os.makedirs(p, exist_ok=True)
+        os.makedirs(paths["old"])     # 一棵过期 .old:拒绝必须早于 t32 的清理
+        return paths
+
+    def _apply_at(self, paths, oem_cp):
+        # 控制台代码页和 port/nonce 一样经 paths 注入(生产里不给 = 问 Windows GetOEMCP)
+        return ds_update_apply.apply_update(
+            _decision(), dict(paths, oem_cp=oem_cp), download=self._download(_installer_bytes()),
+            install=self._install())
+
+    def test_t36a_unsafe_paths_are_refused_before_any_side_effect(self):
+        cases = (
+            ("O'Brien", {}, 936),
+            ("100%off", {}, 936),
+            ("a^b", {}, 936),
+            ("Kullanıcı şahin", {}, 936),                     # GBK 写不进
+            ("张 三", {}, 437),                                 # 英文系统控制台读 GBK 字节 = 乱码
+            ("张 三", {}, 65001),                               # 中文系统开了"UTF-8 全球语言支持"
+            ("plain", {"temp": os.path.join(self.base, "T%M%P")}, 936),        # 接力脚本自己住的地方
+            ("plain2", {"data_root": os.path.join(self.base, "Dâtä€")}, 936),  # LOGF 在数据根底下
+        )
+        for dirname, extra, cp in cases:
+            with self.subTest(dir=dirname, extra=extra, oem_cp=cp):
+                self.downloads.clear()
+                self.installs.clear()
+                paths = self._paths_under(dirname, **extra)
+                live_before = _tree_digest(paths["live"])
+                result = self._apply_at(paths, cp)
+                self.assertFalse(result.get("ok"))
+                self.assertEqual(result.get("stage"), "path_unsupported", "%r" % (result,))
+                self.assertEqual(self.downloads, [], "拒绝之前已经开始下载了")
+                self.assertEqual(self.installs, [], "拒绝之前已经装了")
+                self.assertTrue(os.path.isdir(paths["old"]), "拒绝之前已经动手清了 .old")
+                self.assertFalse(os.path.exists(paths["new"]))
+                self.assertEqual(_tree_digest(paths["live"]), live_before)
+
+    def test_t36b_ordinary_paths_still_update(self):
+        """反面(防修过头):空格、括号、中文(控制台 936)、纯 ASCII(英文系统)都得照常走到写出接力脚本。
+        业主自己就是中文 Windows —— 修成"中文路径一律不更新"等于把这功能对他关掉。"""
+        for dirname, cp in (("Program Files (x86)", 936), ("设计 工具", 936),
+                            ("John Smith", 437), ("John Smith & Co", 65001)):
+            with self.subTest(dir=dirname, oem_cp=cp):
+                paths = self._paths_under(dirname)
+                result = self._apply_at(paths, cp)
+                self.assertTrue(result.get("ok"), "%r" % (result,))
+                self.assertEqual(result.get("stage"), "relay")
 
 
 if __name__ == "__main__":

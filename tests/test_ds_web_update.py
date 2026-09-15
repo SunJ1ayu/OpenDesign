@@ -400,6 +400,34 @@ class UpdateApplyEndpoint(unittest.TestCase):
         self.assertNotEqual(body.get("stage"), "busy")
         self.assertEqual(self.order.count("apply"), 2)
 
+    def test_t35a_once_the_relay_is_running_the_lock_is_kept(self):
+        """t35 —— 接力脚本已经起来、外壳却没认动词(`stage=shell`)之后,再点必须 busy。
+
+        🔴 2026-09-15 收口外审(DeepSeek 发现 4)指出、我读代码核实:原来走到 `stage=shell` 就放锁。
+        可那一刻接力脚本**已经脱离在跑**,正等端口空出来;业主看到「更新取消」再点一次
+        ⇒ 第二份 `apply_update` 删掉 `.new` 重装、再起第二份接力脚本 ⇒ 两份并存。
+        业主随后手动关掉软件,两份先后改名:第二份 `move 活树 .old` 时 `.old` 已在,move 会把活树**塞进去**。
+        """
+        self._online()
+        self._seams(bridge="manual")
+        with _serve() as port:
+            _st, first = _post(port, "/api/update/apply")
+            _st, second = _post(port, "/api/update/apply")
+        self.assertEqual(first.get("stage"), "shell", "前提没摆好:第一次应该停在外壳没认动词")
+        self.assertEqual(second.get("stage"), "busy",
+                         "接力脚本已经在跑,却又放进来一次更新:%r" % (second,))
+        self.assertEqual(self.order.count("handoff"), 1, "起了两份接力脚本")
+
+    def test_t35b_a_relay_that_never_started_does_not_keep_the_lock(self):
+        """反面(防修过头):接力脚本根本没起来(`stage=handoff`),没有东西在跑,业主必须还能再点。"""
+        self._online()
+        self._seams(handoff_ok=False)
+        with _serve() as port:
+            _post(port, "/api/update/apply")
+            _st, body = _post(port, "/api/update/apply")
+        self.assertEqual(body.get("stage"), "handoff", "第二次被挡住了:%r" % (body,))
+        self.assertEqual(self.order.count("apply"), 2)
+
     def test_t22g_the_decision_handed_to_the_installer_carries_the_asset(self):
         """端点必须把**查到的那个 release** 原样交下去 —— 不许自己另编一个。
         下载地址只能来自它(t14 钉的同一件事,这里守的是接线这一侧)。"""

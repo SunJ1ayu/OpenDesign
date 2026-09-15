@@ -475,6 +475,10 @@ proposal 的第 1 块板原文是:
 | `t30` | `tests/test_ds_update_apply.py` | **下载安装包走系统代理**(只有问本机 health 才绕开,t18)。收口自审读出:下载复用了绕代理的 opener,开 VPN 的业主查得到新版、下不动;CI 无代理结构上照不出 |
 | `t31` | `tests/test_ds_web_update.py` | 同一时间只许一次更新:第二个 apply 请求回 `stage=busy`;失败之后能再点(防修成永久锁死)|
 | `t32` | `tests/test_ds_update_apply.py` | 开始前先清上次留下的 `.old`,清不掉就不开始(`stage=stale_old`,不下载)。否则 `move 活树 .old` 会把活树塞进旧 .old,回滚时换回残缺的树 |
+| `t33` | `tests/test_ds_update_apply.py` | **安装器真正读到的目录 = `.new`**:把 python 发出去的那条命令行,按 NSIS 自己的解析循环(`Source/exehead/Main.c`,照搬进考卷)读一遍,读出来的安装目录必须逐字等于 `.new`,路径带空格也一样。收口外审(DeepSeek + GLM 各自独立)指出、我核 NSIS 源码坐实:list2cmdline 给带空格的 `/D=` 加引号 ⇒ NSIS 不认 ⇒ 按注册表装回**正在运行的活树**。旧 t20a 只看 argv 前缀,结构上问不出这件事 |
+| `t34` | `tests/test_ds_update_apply.py` | 安装器**更新档只许装进 `.new`**:`.onInit` 里更新档 + `$INSTDIR` 不以 `.new` 结尾 ⇒ `Abort`。纵深:哪天 `/D=` 又没被认出来,塌成"装不上",不是"装进活树"。行为半 = Windows `e6` |
+| `t35` | `tests/test_ds_web_update.py` | **接力脚本起来了就不放锁**:交棒成功、外壳没认动词(`stage=shell`)之后再点 ⇒ `busy`。否则两份接力脚本并存,业主手动关软件时两份先后改名(第二份 `move 活树 .old` 撞上已存在的 `.old` ⇒ 塞进去)。反面:接力脚本没起来(`stage=handoff`)照常能再点 |
+| `t36` | `tests/test_ds_update_apply.py` | **路径接力脚本扛不住就别开始**:任一路径含 `%`(cmd 展开)/ `'`(回滚那行 PowerShell 单引号)/ `^`(`call` 翻倍引号内的脱字符)、写不进 GBK、或非 ASCII 而控制台代码页不是 936 ⇒ `stage=path_unsupported`,**在清 .old / 下载 / 安装之前**。否则乱码路径让"放弃并打开旧版"也打不开 ⇒ 关了不回来。反面:空格、括号、中文(936)照常更新 |
 | `m1~` | `tests/test_ds_shell_core.py` | 锁通道:新动词分派 + 应答点名 + 老动词不受影响(真 socket,行为判据) |
 | `w8~` | `tests/test_ds_shell_wiring.py` | **静态闸**:`ds_shell.py` 真的把 `on_update` 接到了收摊上 |
 
