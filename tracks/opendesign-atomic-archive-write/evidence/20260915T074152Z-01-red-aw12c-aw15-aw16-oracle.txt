@@ -1,0 +1,16 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-aw12c-aw15-aw16-oracle
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_atomic_write\ 2\>\&1\ \|\ grep\ -E\ \"\^\(FAIL\|ERROR\):\|\^Ran\|\^OK\|\^FAILED\|AssertionError\"
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  9e716a9
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T07:41:52Z
+---------------- 输出开始 ----------------
+FAIL: test_aw15_a_read_only_archive_is_refused_without_litter (tests.test_ds_atomic_write.ReadOnlyArchivesAreRefusedUpFront.test_aw15_a_read_only_archive_is_refused_without_litter)
+AssertionError: PermissionError not raised
+FAIL: test_aw16_rename_project_commit_point_uses_replace_with_retry (tests.test_ds_atomic_write.RenameCommitPointRetries.test_aw16_rename_project_commit_point_uses_replace_with_retry)
+AssertionError: 'os.replace' unexpectedly found in ['ds_common.today_str', "(old or '').strip", "(new or '').strip", '_resolve', '_resolve', 'any', 'os.path.exists', 'ds_common.data_root', 'os.path.join', 'os.path.isdir', 'os.path.join', 'os.path.isfile', 'os.path.join', 'os.path.isfile', 'os.path.exists', 'targets.append', 'locked_workspace_json', 'ds_common.archive_lock', 'body.find', 'os.replace', 'open', 'fh.read', 'os.path.join', 'ds_common.locked_rw', "'\\n'.join", "updated['clients'].append", 'ds_common.locked_rw', 'enumerate', 'isinstance', 'isinstance', "raw['projects'].pop", 'open', 'fh.read', 'first_line.strip', 'ds_common.atomic_write_text', 'sorted', 'f.endswith', 'open', 'fh.read', 'joined.replace(link_old, link_new).split', 'ds_refs._used_segment', 'ln.split', 'ds_refs._SEG_SEP.join', 'ds_common.bump_last_updated', 'raw.get', 'os.listdir', 'os.path.splitext', "','.join", 'joined.replace', 'os.path.basename'] : rename_project 仍在裸调 os.replace
+Ran 20 tests in 2.868s
+FAILED (failures=2, skipped=1)
+---------------- 输出结束 ----------------
+runlog: red-aw12c-aw15-aw16-oracle rc=0 commit=9e716a9 dirty=yes at=2026-09-15T07:41:52Z file=tracks/opendesign-atomic-archive-write/evidence/20260915T074152Z-01-red-aw12c-aw15-aw16-oracle.txt

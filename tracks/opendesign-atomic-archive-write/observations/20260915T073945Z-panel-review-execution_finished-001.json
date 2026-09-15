@@ -1,0 +1,190 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-atomic-archive-write",
+  "run_id": "20260915-150932-1028169-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-atomic-archive-write-review",
+  "started_at": "2026-09-15T07:09:32Z",
+  "finished_at": "2026-09-15T07:39:45Z",
+  "duration_ms": 1813204,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "submimo",
+        "degraded": false,
+        "duration_ms": 769198,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:1ef99437376fa2459ee0f692d7a3a16ab8c04514e611922a25d9170cef75f1ce",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-atomic-archive-write-review-20260915-150932.submimo.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xiaomi",
+        "model": {
+          "invoked": "xiaomi/mimo-v2.5-pro",
+          "reported": null,
+          "requested": "xiaomi/mimo-v2.5-pro"
+        },
+        "name": "submimo",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260915-150932-1028169-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:7d04951e38287650f39de5db50a148c69f3373a280983e48310097ec5d65b6c6",
+            "policy_version": 1,
+            "track": "opendesign-atomic-archive-write"
+          },
+          "digest": "sha256:f6c1d8e64e2fb001e9611e2b781a81aa52d5243742742fb3247301793242511c",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "9e716a986b3bed428ad7920c2807745f40316943",
+            "index_tree_oid": "48f4a2f801f6510842c8ba81a9428c336fcfec22",
+            "worktree_tree_oid": "48f4a2f801f6510842c8ba81a9428c336fcfec22"
+          },
+          "task_sha256": "sha256:5770ccf4c713c64f2d06c9cfc2bd39b9b37bb2789916172e210be171241e268a"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subkimi",
+        "degraded": false,
+        "duration_ms": 1036952,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:5bce352ed1851407f0323bda62053953bd47761cb29d9fbbd056328f4710a840",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-atomic-archive-write-review-20260915-150932.subkimi.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "moonshot",
+        "model": {
+          "invoked": "kimi-code/kimi-for-coding",
+          "reported": null,
+          "requested": "kimi-code/kimi-for-coding"
+        },
+        "name": "subkimi",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260915-150932-1028169-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:7d04951e38287650f39de5db50a148c69f3373a280983e48310097ec5d65b6c6",
+            "policy_version": 1,
+            "track": "opendesign-atomic-archive-write"
+          },
+          "digest": "sha256:f6c1d8e64e2fb001e9611e2b781a81aa52d5243742742fb3247301793242511c",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "9e716a986b3bed428ad7920c2807745f40316943",
+            "index_tree_oid": "48f4a2f801f6510842c8ba81a9428c336fcfec22",
+            "worktree_tree_oid": "48f4a2f801f6510842c8ba81a9428c336fcfec22"
+          },
+          "task_sha256": "sha256:5770ccf4c713c64f2d06c9cfc2bd39b9b37bb2789916172e210be171241e268a"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subgrok",
+        "degraded": false,
+        "duration_ms": 52921,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:62a7f450326939e57932b8ab1c69e909830c5896d5a37b8912031383add8fcb5",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-atomic-archive-write-review-20260915-150932.subgrok.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xai",
+        "model": {
+          "invoked": "grok-4.6",
+          "reported": null,
+          "requested": "grok-4.6"
+        },
+        "name": "subgrok",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260915-150932-1028169-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:7d04951e38287650f39de5db50a148c69f3373a280983e48310097ec5d65b6c6",
+            "policy_version": 1,
+            "track": "opendesign-atomic-archive-write"
+          },
+          "digest": "sha256:f6c1d8e64e2fb001e9611e2b781a81aa52d5243742742fb3247301793242511c",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "9e716a986b3bed428ad7920c2807745f40316943",
+            "index_tree_oid": "48f4a2f801f6510842c8ba81a9428c336fcfec22",
+            "worktree_tree_oid": "48f4a2f801f6510842c8ba81a9428c336fcfec22"
+          },
+          "task_sha256": "sha256:5770ccf4c713c64f2d06c9cfc2bd39b9b37bb2789916172e210be171241e268a"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "BLOCK",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

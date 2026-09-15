@@ -335,7 +335,11 @@ report(lambda: ds_refs.add_style("判据专用风格aw9", %r))
 
 @unittest.skipUnless(POSIX, "RLIMIT_FSIZE 只有 POSIX 有")
 class RenameProjectRewritesAreAtomicToo(_Tmp):
-    """aw10 —— 项目改名改写客户备忘 / index / 档案正文时写到一半出错 ⇒ 这三类文件都不出现空或半截。"""
+    """aw10 / aw10b —— 项目改名时写到一半出错,不出现空或半截的文件。
+
+    aw10 问的是第①步(客户备忘 / index);它的夹具首行不是「# 旧名」、故障先落在①,**问不到**第④步改档案标题。
+    第④步那个写口由 aw10b 问(2026-09-15 红检 m8 漏网后补;这句 docstring 原来写成"三类都问",评审 Kimi 指出漂移后改正)。
+    """
 
     def test_aw10_rename_dying_halfway_leaves_every_file_whole(self):
         old, new = "翡翠湾-1801", "翡翠湾-1801改"
@@ -445,6 +449,31 @@ class WindowsReplaceSemantics(_Tmp):
         with open(self.proj, encoding="utf-8") as fh:
             self.assertIn("- 别人开着文件时写的", fh.read())
 
+    def test_aw12c_a_brief_reader_does_not_make_the_rename_fail(self):
+        # 改名的提交点(档案本体 old → new)在 Windows 上同样会被"别人开着"挡住。
+        # Linux 上 rename 开着的文件永远成功(恒绿);Windows 探针上才真问 —— 裸调 os.replace 会当场失败。
+        old, new = "翡翠湾-1801", "翡翠湾-1801改"
+        new_path = os.path.join(self.ds, "projects", new + ".md")
+        result = {}
+
+        def renamer():
+            try:
+                result["out"] = ds_tools.rename_project(old, new, self.ds, today="2026-09-15")
+            except OSError as exc:
+                result["error"] = exc
+
+        reader = open(self.proj, encoding="utf-8")
+        try:
+            t = threading.Thread(target=renamer)
+            t.start()
+            time.sleep(0.2)
+        finally:
+            reader.close()
+        t.join(60)
+        self.assertNotIn("error", result, "别人只开了 0.2 秒,改名却失败了:%r" % (result,))
+        self.assertTrue((result.get("out") or {}).get("ok"), "改名没报成功:%r" % (result,))
+        self.assertTrue(os.path.exists(new_path) and not os.path.exists(self.proj), "档案没有改成新名")
+
     @unittest.skipUnless(os.name == "nt", "只有 Windows 上\"开着的文件换不掉\"")
     def test_aw12b_a_long_reader_fails_the_write_but_keeps_the_archive(self):
         before = _bytes(self.proj)
@@ -452,6 +481,39 @@ class WindowsReplaceSemantics(_Tmp):
         self.assertIn("error", result, "目标一直被开着,写入却报成功 —— 那它是怎么写进去的?%r" % (result,))
         self.assertEqual(_bytes(self.proj), before, "写入失败了,档案却被动过")
         self.assertNoTmpLitter(os.path.dirname(os.path.abspath(self.proj)))   # 与 aw3 那两行字面不同:死断言放行清单按内容认
+
+
+class ReadOnlyArchivesAreRefusedUpFront(_Tmp):
+    """aw15 —— 档案是只读的 ⇒ 立刻拒绝写:档案原封不动、不空转替换重试、不留临时文件。
+
+    2026-09-15 评审 Kimi 指出、我核实:Windows 上只读属性让替换**和删除**都失败 ⇒ 原来的实现先空转约 2 秒,
+    再在 finally 里删临时文件时又失败(临时文件被 chmod 成同样只读)⇒ 每写一次留一个删不掉的 .tmp。
+    旧的 open(r+) 实现遇到只读档案是立刻报错、不留东西 —— 这是这单引入的退步。
+    """
+
+    def test_aw15_a_read_only_archive_is_refused_without_litter(self):
+        before = _bytes(self.proj)
+        os.chmod(self.proj, 0o444)
+        self.addCleanup(os.chmod, self.proj, 0o644)      # 先于 rmtree 执行:Windows 上只读文件删不掉
+        t0 = time.monotonic()
+        with self.assertRaises(PermissionError):
+            with ds_common.locked_rw(self.proj) as box:
+                box["lines"].insert(4, "- 只读档案上的写")
+        self.assertLess(time.monotonic() - t0, 1.0, "只读档案应当立刻拒绝,不该先空转替换重试")
+        self.assertEqual(_bytes(self.proj), before, "只读档案被改动了")
+        self.assertNoTmpLitter(os.path.join(self.ds, "projects"))
+
+
+class RenameCommitPointRetries(unittest.TestCase):
+    """aw16 —— rename_project 的提交点(档案本体改名)走 replace_with_retry,不裸调 os.replace(结构钉;行为由 aw12c 在 Windows 上问)。"""
+
+    def test_aw16_rename_project_commit_point_uses_replace_with_retry(self):
+        import ast
+        import inspect
+        tree = ast.parse(inspect.getsource(ds_tools.rename_project))
+        calls = [ast.unparse(n.func) for n in ast.walk(tree) if isinstance(n, ast.Call)]
+        self.assertNotIn("os.replace", calls, "rename_project 仍在裸调 os.replace")
+        self.assertIn("ds_common.replace_with_retry", calls, "rename_project 的提交点没走 replace_with_retry")
 
 
 class OneSourceForReplaceRetry(unittest.TestCase):
