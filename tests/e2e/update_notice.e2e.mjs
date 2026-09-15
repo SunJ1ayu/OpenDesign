@@ -167,6 +167,12 @@ try {
     expect(!label.includes("已是最新"),
       `🔴 把失败伪装成成功:「${label}」—— 业主会以为自己在最新版上`);
     expect(label.includes("查不到"), `没说清是"没查成"(实测「${label}」)`);
+    // rl11(track opendesign-update-check-rate-limit):业主 09-15 夜只看见「查不到更新」,
+    // 真原因(GitHub 限流 403)靠他开 PowerShell 才拿到。那一行下面必须把原因写出来。
+    const reason = page.locator('.settings-pop [data-ui="update-reason"]');
+    check(await until(async () => await reason.count() === 1), "查不到更新却没写原因(那一行下面没有原因小字)");
+    const reasonText = (await reason.innerText()).replace(/\s+/g, " ");
+    expect(reasonText.includes("no route to host"), `原因没原样显示后端给的那句(实测「${reasonText}」)`);
     await page.close();
   });
 
