@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-in-app-update-install",
+  "run_id": "20260915T014749Z-01-redcheck-t30b-t33-t36-and-t34a-tighten",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "redcheck-t30b-t33-t36-and-t34a-tighten",
+  "started_at": "2026-09-15T01:47:49Z",
+  "finished_at": "2026-09-15T01:51:33Z",
+  "duration_ms": 223913,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 0,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

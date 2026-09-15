@@ -1,0 +1,136 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-in-app-update-install",
+  "run_id": "20260915-091314-798503-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-in-app-update-install-final",
+  "started_at": "2026-09-15T01:13:14Z",
+  "finished_at": "2026-09-15T01:21:46Z",
+  "duration_ms": 511898,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "subdeepseek-agent",
+        "degraded": false,
+        "duration_ms": 333527,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:237ef661cb84cd9fcc8b94287811587447c5d4ad52d6f8f73d783abe89f13a2e",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-in-app-update-install-final-20260915-091314.subdeepseek.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "deepseek",
+        "model": {
+          "invoked": "deepseek-flash",
+          "reported": null,
+          "requested": "deepseek-flash"
+        },
+        "name": "subdeepseek",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260915-091314-798503-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:268b632f60133fd74f9c9b9128631947faef393df25b01a8c94cf581f2ea437c",
+            "policy_version": 1,
+            "track": "opendesign-in-app-update-install"
+          },
+          "digest": "sha256:c9a75c9219092f7bae17b829906bdebce37b7f41b85116e6272909be082008d8",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "05d0fd549f8939720b773f631b188435b204e672",
+            "index_tree_oid": "46f72007142c9e40eba5bfcd320e14f0b3ebf1a3",
+            "worktree_tree_oid": "46f72007142c9e40eba5bfcd320e14f0b3ebf1a3"
+          },
+          "task_sha256": "sha256:5ead697e3754cc1f2a117faefb9f47f21a8be72fa73a48cf14d5b83b81d940eb"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "api",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subglm-agent",
+        "degraded": false,
+        "duration_ms": 497566,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:eed92cfe482cf6bf1b08e3dd9a311ceb62c640ea5dadf6a237a49e050b46100f",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-in-app-update-install-final-20260915-091314.subglm.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "zhipu",
+        "model": {
+          "invoked": "go/glm-5.3-flash",
+          "reported": null,
+          "requested": "go/glm-5.3-flash"
+        },
+        "name": "subglm",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260915-091314-798503-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:268b632f60133fd74f9c9b9128631947faef393df25b01a8c94cf581f2ea437c",
+            "policy_version": 1,
+            "track": "opendesign-in-app-update-install"
+          },
+          "digest": "sha256:c9a75c9219092f7bae17b829906bdebce37b7f41b85116e6272909be082008d8",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "05d0fd549f8939720b773f631b188435b204e672",
+            "index_tree_oid": "46f72007142c9e40eba5bfcd320e14f0b3ebf1a3",
+            "worktree_tree_oid": "46f72007142c9e40eba5bfcd320e14f0b3ebf1a3"
+          },
+          "task_sha256": "sha256:5ead697e3754cc1f2a117faefb9f47f21a8be72fa73a48cf14d5b83b81d940eb"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
