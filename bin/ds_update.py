@@ -292,8 +292,6 @@ def parse_manifest(text, tag, repo=REPO):
 def explain(exc):
     """把一次失败说成人话,技术细节留在括号里(判据 rl7)。业主看得懂前半句,排障看后半句。"""
     tech = "%s: %s" % (exc.__class__.__name__, exc)
-    if isinstance(exc, ManifestError):
-        return "%s(%s)" % (UNVERIFIED_HUMAN, exc)
     if isinstance(exc, urllib.error.HTTPError):
         said = ("%s %s" % (exc.reason, exc)).lower()
         headers = exc.headers if exc.headers is not None else {}
