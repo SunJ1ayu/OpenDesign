@@ -1,0 +1,25 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-e2e-no-egress-browser-tmp",
+  "impact": {
+    "level": "high",
+    "factors": [
+      "judging_control",
+      "sandbox_boundary"
+    ]
+  },
+  "design": {
+    "uncertainty": "low",
+    "premise_attack": {
+      "status": "not_required",
+      "evidence": []
+    }
+  },
+  "execution_plan": {
+    "adapter": "main",
+    "model": "claude-opus-5"
+  },
+  "outcome": {
+    "verdict": null
+  }
+}
