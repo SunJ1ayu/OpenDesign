@@ -434,3 +434,23 @@ test("u37 点第二下不许再发一次请求", () => {
   assert.equal(U.beginApply("idle"), true, "第一下都不让点");
   assert.equal(U.beginApply("applying"), false, "正在更新时又发了一次请求");
 });
+
+// ── rl11:查不到的时候说清为什么(track opendesign-update-check-rate-limit)──────────────
+// 🔴 由来:业主 09-15 夜点「检查更新」一直「查不到更新」,真原因(GitHub 未登录限流 403)只在接口的 error 字段里,
+//    靠业主开 PowerShell 才拿到,来回三轮。界面上那一行下面要直接写出原因。
+test("rl11a 查成了但线上说失败 ⇒ 原样给出 error(人话由后端写)", () => {
+  const info = { ...NONE, update_available: false, latest: null,
+                 error: "查更新失败:GitHub 限制了这个网络出口的查询次数(HTTP 403)" };
+  assert.equal(U.updateReason({ state: "done", info }), info.error);
+});
+
+test("rl11b 查完了却什么都没拿到(软件后台不可达)⇒「软件后台没响应」", () => {
+  assert.equal(U.updateReason({ state: "done", info: null }), "软件后台没响应");
+});
+
+test("rl11c 成功 / 检查中 / 还没查过 ⇒ 不显示原因", () => {
+  assert.equal(U.updateReason({ state: "done", info: NONE }), "");
+  assert.equal(U.updateReason({ state: "done", info: WITH_ASSET }), "");
+  assert.equal(U.updateReason({ state: "checking", info: null }), "");
+  assert.equal(U.updateReason({ state: "idle", info: null }), "");
+});
