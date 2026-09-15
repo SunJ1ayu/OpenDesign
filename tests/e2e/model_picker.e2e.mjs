@@ -1,0 +1,186 @@
+// 判据:输入框里的模型按钮(track opendesign-composer-model-picker)的端到端。
+// 真 chromium + 真 ds_web(自己的临时 nanobot 配置,**绝不碰机器上的真配置**)+ stub 掉 ws/bootstrap。
+// 编号权威表在 tracks/opendesign-composer-model-picker/design.md。主 agent 亲写。
+//
+// 为什么必须有这一份(纯逻辑判据 mp 与后端判据 lm 接不住的):
+//   modelPicker.ts 的菜单可以字字正确而 ChatPage 压根没渲染它;后端 POST 可以正确而按钮没调它;
+//   按钮可以换了字而配置文件没变。这里问的是**业主眼前和盘上**到底发生了什么。
+//
+// 判据锁死的假绿路线:
+//   ① 按钮换了字、后端没写 ⇒ 读配置文件本身。
+//   ② 旧头部还在、只是多加了一个按钮 ⇒ 断言页面上没有 .chat-meta、没有「退出登录」。
+//   ③ 重连中也挂着绿点 = 界面谎称已连接 ⇒ 掐断后断言按钮不出现(chat_reconnect 那条语义保留)。
+//
+// 跑法:node tests/e2e/model_picker.e2e.mjs(自起 ds_web 于 8844;不需要 nanobot)
+import { spawn } from "node:child_process";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { launchBrowser, waitConnected } from "./helpers.mjs";
+import { WS_STUB_BASE } from "./_ws-stub.mjs";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const PORT = 8844;
+let failures = 0;
+
+async function until(fn, timeoutMs = 15000, stepMs = 200) {
+  const t0 = Date.now();
+  for (;;) {
+    try { if (await fn()) return true; } catch { /* 还没出现 */ }
+    if (Date.now() - t0 > timeoutMs) return false;
+    await new Promise((r) => setTimeout(r, stepMs));
+  }
+}
+function check(ok, label) {
+  if (ok) console.log(`  ok   - ${label}`);
+  else { console.log(`  FAIL - ${label}`); failures += 1; }
+}
+
+const STUB = () => {
+  window.__wsAll = [];
+  const origFetch = window.fetch;
+  window.fetch = (url, init) => {
+    const u = String(url);
+    if (u.includes("/api/chat/bootstrap")) {
+      return Promise.resolve(new Response(JSON.stringify(
+        { token: "stub-token", ws_path: "/ws", expires_in: 600, model_name: "mimo-v2.5" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }));
+    }
+    if (u.includes("/thread")) return Promise.resolve(new Response("not found", { status: 404 }));
+    return origFetch(url, init);   // /api/llm/models、/api/llm/model 走真 ds_web
+  };
+  class StubWS extends window.__BaseStubWS {
+    constructor(url) {
+      super(url);
+      window.__wsAll.push(this);
+      setTimeout(() => {
+        if (this.readyState === StubWS.CLOSED) return;
+        if (window.__failConnect) {
+          this.readyState = StubWS.CLOSED;
+          this.onclose?.({ code: 1006, reason: "stub fail", wasClean: false });
+          return;
+        }
+        this.readyState = StubWS.OPEN;
+        this.onopen?.({});
+        this._emit({ event: "ready", chat_id: `chat-mp-${window.__wsAll.length}` });
+      }, 10);
+    }
+    send() { /* 这个场景不聊天 */ }
+  }
+  window.WebSocket = StubWS;
+  window.__killAll = () => {
+    window.__failConnect = true;
+    for (const ws of window.__wsAll) {
+      if (ws.readyState === StubWS.CLOSED) continue;
+      ws.readyState = StubWS.CLOSED;
+      ws.onclose?.({ code: 1006, reason: "stub kill", wasClean: false });
+    }
+  };
+};
+
+// ── 临时台面:数据根 / 家目录(带 key,免得 key 卡片自动弹出)/ nanobot 配置(出货模板,MiMo 形态)──
+const tmp = mkdtempSync(join(tmpdir(), "ds-e2e-model-picker-"));
+const dsRoot = join(tmp, "ds");
+const home = join(tmp, "home");
+const cfgPath = join(home, ".nanobot", "config.json");
+mkdirSync(join(dsRoot, "projects"), { recursive: true });
+mkdirSync(join(dsRoot, "config"), { recursive: true });
+mkdirSync(join(tmp, "ws"), { recursive: true });
+writeFileSync(join(dsRoot, "config", "workspace.json"), JSON.stringify({ root: join(tmp, "ws"), projects: {} }));
+mkdirSync(join(home, ".openDesign"), { recursive: true });
+writeFileSync(join(home, ".openDesign", "key.txt"), "sk-e2e-model-picker\n");
+mkdirSync(dirname(cfgPath), { recursive: true });
+const template = readFileSync(join(ROOT, "config", "nanobot.config.windows.jsonc"), "utf8")
+  .split("\n").filter((ln) => !/^\s*\/\//.test(ln)).join("\n");
+writeFileSync(cfgPath, JSON.stringify(JSON.parse(template), null, 2));
+const modelPresetOnDisk = () => JSON.parse(readFileSync(cfgPath, "utf8")).agents.defaults.modelPreset;
+
+const pane = ".home-pane";
+const chip = `${pane} .chat-card [data-ui="chat-model"]`;
+const menu = `${pane} [data-ui="chat-model-menu"]`;
+let browser = null;
+let srv = null;
+try {
+  check(modelPresetOnDisk() === "mimo-v2.5", "前置:临时配置里的默认模型是 mimo-v2.5");
+  srv = spawn("python3", [join(ROOT, "bin", "ds_web.py")], {
+    env: { ...process.env, DS_ROOT: dsRoot, DS_WEB_PORT: String(PORT), DS_NANOBOT_CONFIG: cfgPath,
+           HOME: home, USERPROFILE: home },
+    stdio: ["ignore", "inherit", "inherit"],
+  });
+  const base = `http://127.0.0.1:${PORT}`;
+  for (let i = 0; ; i++) {
+    try { await fetch(`${base}/api/health`); break; }
+    catch {
+      if (i > 50) throw new Error("ds_web 起不来");
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  }
+
+  browser = await launchBrowser();
+  const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+  const errs = [];
+  page.on("pageerror", (e) => errs.push(String(e)));
+  const posts = [];
+  page.on("request", (r) => { if (r.method() === "POST" && r.url().includes("/api/llm/model")) posts.push(r.url()); });
+  await page.addInitScript(WS_STUB_BASE);
+  await page.addInitScript(STUB);
+  await page.goto(`${base}/#/`, { waitUntil: "domcontentloaded" });
+  await page.locator(pane).waitFor({ state: "visible", timeout: 10000 });
+  await waitConnected(page, pane);
+
+  // ── 位置与去掉的东西 ────────────────────────────────────────────────────
+  check(await until(async () => (await page.locator(chip).innerText()).includes("mimo-v2.5")),
+    "① 连上后,输入卡里出现模型按钮,写着当前模型 mimo-v2.5");
+  const chipBox = await page.locator(chip).boundingBox();
+  const sendBox = await page.locator(`${pane} .chat-card .send-btn`).boundingBox();
+  check(chipBox && sendBox && chipBox.x + chipBox.width <= sendBox.x + 1 && Math.abs(
+    (chipBox.y + chipBox.height / 2) - (sendBox.y + sendBox.height / 2)) < 12,
+  "② 按钮在发送键左边、同一行(业主拍板的位置)");
+  check(await page.locator(".chat-meta").count() === 0, "③ 左上角「已连接 · 模型名」那一行没了");
+  check(!(await page.locator("body").innerText()).includes("退出登录"), "④ 页面上没有「退出登录」");
+
+  // ── 菜单 ──────────────────────────────────────────────────────────────
+  await page.locator(chip).click();
+  check(await until(() => page.locator(menu).isVisible(), 5000), "⑤ 点按钮弹出菜单");
+  const menuBox = await page.locator(menu).boundingBox();
+  const chipBox2 = await page.locator(chip).boundingBox();
+  check(menuBox && chipBox2 && menuBox.y + menuBox.height <= chipBox2.y + 1, "⑥ 菜单向上弹(在按钮上方)");
+  const menuText = await page.locator(menu).innerText();
+  check(menuText.includes("mimo-v2.5-pro") && menuText.includes("换厂商 / 换 key…") && menuText.includes("MiMo"),
+    "⑦ 菜单里有当前 key 的两个模型、厂商名、和「换厂商 / 换 key…」");
+
+  // ── 选中 ⇒ 真写配置 ⇒ 按钮换字 ────────────────────────────────────────
+  await page.locator(`${menu} [data-model-id="mimo-v2.5-pro"]`).click();
+  check(await until(() => modelPresetOnDisk() === "mimo-v2.5-pro", 8000), "⑧ 选 mimo-v2.5-pro ⇒ 盘上的配置真的改了");
+  check(posts.length === 1, `⑨ 恰好发出一次 POST /api/llm/model(实际 ${posts.length})`);
+  check(await until(async () => (await page.locator(chip).innerText()).includes("mimo-v2.5-pro"), 8000),
+    "⑩ 按钮上的字变成 mimo-v2.5-pro");
+  check(!(await page.locator(menu).isVisible()), "⑪ 选完菜单收起");
+
+  // ── 换厂商 ⇒ 打开现有的「AI 模型 key」 ────────────────────────────────
+  await page.locator(chip).click();
+  await page.locator(menu).waitFor({ state: "visible", timeout: 5000 });
+  await page.locator(`${menu} [data-ui="chat-model-switch-provider"]`).click();
+  check(await until(() => page.locator('[data-ui="llm-key-card"]').isVisible(), 5000),
+    "⑫ 「换厂商 / 换 key…」打开 AI 模型 key 卡片");
+  await page.keyboard.press("Escape");
+
+  // ── 断线 ⇒ 按钮不许挂着 ────────────────────────────────────────────────
+  await page.evaluate(() => window.__killAll());
+  check(await until(() => page.locator(`${pane} [data-ui="chat-reconnecting"]`).isVisible(), 8000),
+    "⑬ 前置:掐断后出现「正在重连」");
+  check(!(await page.locator(chip).isVisible()), "⑭ 重连中模型按钮不出现(不许谎称已连接)");
+
+  check(errs.length === 0, `⑮ 全程没有页面级 JS 报错${errs.length ? ":" + errs[0] : ""}`);
+} catch (e) {
+  console.error("FAIL(异常):", e);
+  failures += 1;
+} finally {
+  if (browser) await browser.close();
+  if (srv) srv.kill();
+  rmSync(tmp, { recursive: true, force: true });
+}
+
+console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILED`);
+process.exit(failures === 0 ? 0 : 1);

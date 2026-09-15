@@ -1,0 +1,37 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-lm-mp-e2e-oracle
+cmd:     bash -c echo\ \"==\ lm\(后端\)\"\;\ /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_llm_model\ 2\>\&1\ \|\ grep\ -E\ \"\^\(FAIL\|ERROR\):\|\^Ran\|\^OK\|\^FAILED\"\;\ echo\ \"==\ mp\(前端纯逻辑\)\"\;\ node\ --test\ tests/test_model_picker.mjs\ 2\>\&1\ \|\ grep\ -E\ \"\^#\ \(tests\|pass\|fail\)\|ERR_MODULE_NOT_FOUND\"\ \|\ head\ -4\;\ echo\ \"==\ e2e\"\;\ timeout\ 180\ node\ tests/e2e/model_picker.e2e.mjs\ 2\>\&1\ \|\ grep\ -E\ \"ok\ \|FAIL\|ALL\ PASS\|FAILED\|异常\"\;\ exit\ 1
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  f9c97cf
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T04:52:34Z
+---------------- 输出开始 ----------------
+== lm(后端)
+FAIL: test_lm8_mimo_models_come_from_the_template (tests.test_ds_llm_model.CatalogHasOneSource.test_lm8_mimo_models_come_from_the_template)
+FAIL: test_lm5_deepseek_catalog_and_switching_to_pro (tests.test_ds_llm_model.DeepSeekKey.test_lm5_deepseek_catalog_and_switching_to_pro)
+FAIL: test_lm6_missing_broken_or_unknown_config (tests.test_ds_llm_model.NothingToChooseFrom.test_lm6_missing_broken_or_unknown_config) (case='missing')
+FAIL: test_lm6_missing_broken_or_unknown_config (tests.test_ds_llm_model.NothingToChooseFrom.test_lm6_missing_broken_or_unknown_config) (case='broken')
+FAIL: test_lm6_missing_broken_or_unknown_config (tests.test_ds_llm_model.NothingToChooseFrom.test_lm6_missing_broken_or_unknown_config) (case='unknown provider')
+FAIL: test_lm1_mimo_config_lists_the_template_models (tests.test_ds_llm_model.ReadTheCurrentModel.test_lm1_mimo_config_lists_the_template_models)
+FAIL: test_lm2_post_changes_only_the_active_preset (tests.test_ds_llm_model.SwitchWithinTheCurrentKey.test_lm2_post_changes_only_the_active_preset)
+FAIL: test_lm3_nanobot_itself_reads_the_new_model (tests.test_ds_llm_model.SwitchWithinTheCurrentKey.test_lm3_nanobot_itself_reads_the_new_model)
+FAIL: test_lm4_ids_outside_the_current_catalog_are_refused (tests.test_ds_llm_model.SwitchWithinTheCurrentKey.test_lm4_ids_outside_the_current_catalog_are_refused) (body={'model': 'deepseek-v4-pro'})
+FAIL: test_lm4_ids_outside_the_current_catalog_are_refused (tests.test_ds_llm_model.SwitchWithinTheCurrentKey.test_lm4_ids_outside_the_current_catalog_are_refused) (body={'model': 'gpt-4o'})
+FAIL: test_lm4_ids_outside_the_current_catalog_are_refused (tests.test_ds_llm_model.SwitchWithinTheCurrentKey.test_lm4_ids_outside_the_current_catalog_are_refused) (body={'model': ''})
+FAIL: test_lm4_ids_outside_the_current_catalog_are_refused (tests.test_ds_llm_model.SwitchWithinTheCurrentKey.test_lm4_ids_outside_the_current_catalog_are_refused) (body={'model': None})
+FAIL: test_lm4_ids_outside_the_current_catalog_are_refused (tests.test_ds_llm_model.SwitchWithinTheCurrentKey.test_lm4_ids_outside_the_current_catalog_are_refused) (body={'model': ['mimo-v2.5-pro']})
+FAIL: test_lm4_ids_outside_the_current_catalog_are_refused (tests.test_ds_llm_model.SwitchWithinTheCurrentKey.test_lm4_ids_outside_the_current_catalog_are_refused) (body={})
+Ran 8 tests in 4.604s
+FAILED (failures=14)
+== mp(前端纯逻辑)
+#     throw new ERR_MODULE_NOT_FOUND(
+# Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/root/.openclaw/workspace/projects/design-studio/web/src/chat/modelPicker.ts' imported from /root/.openclaw/workspace/projects/design-studio/tests/test_model_picker.mjs
+#   code: 'ERR_MODULE_NOT_FOUND',
+# tests 1
+== e2e
+  ok   - 前置:临时配置里的默认模型是 mimo-v2.5
+  FAIL - ① 连上后,输入卡里出现模型按钮,写着当前模型 mimo-v2.5
+FAIL(异常): locator.boundingBox: Timeout 30000ms exceeded.
+2 FAILED
+---------------- 输出结束 ----------------
+runlog: red-lm-mp-e2e-oracle rc=1 commit=f9c97cf dirty=yes at=2026-09-15T04:52:34Z file=tracks/opendesign-composer-model-picker/evidence/20260915T045234Z-01-red-lm-mp-e2e-oracle.txt
