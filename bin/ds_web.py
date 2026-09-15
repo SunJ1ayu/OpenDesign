@@ -1098,46 +1098,45 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"ok": False, "stage": "busy",
                              "error": "更新已经在进行中,请稍候"})
             return
-        keep = False
+        keep, reply = False, None
         try:
-            keep = self._update_apply_locked()
+            keep, reply = self._update_apply_locked()
         finally:
             if not keep:
                 lock.release()
+        # 🔴 先放锁、再回话(t41)。失败的回包就是在告诉业主「可以再点」;
+        #    原来回包在持锁时写出,写 socket 会让出 GIL ⇒ 满载时第二次先到、撞上还没放的锁。
+        self._json(200, reply)
 
-    def _update_apply_locked(self) -> bool:
-        """`_update_apply` 持锁之后的全部内容。返回"锁要不要留着" = 接力脚本起来了没有。"""
+    def _update_apply_locked(self) -> tuple[bool, dict]:
+        """`_update_apply` 持锁之后的全部内容。返回(锁要不要留着, 回包)。
+        锁要不要留着 = 接力脚本起来了没有。**这里不许自己回话**:回话在放锁之后(t41)。"""
         info = ds_update.check_cached(VERSION)
         if not info.get("update_available"):
-            self._json(200, {"ok": False, "stage": "no_update",
-                             "error": info.get("error") or "已经是最新版"})
-            return False
+            return False, {"ok": False, "stage": "no_update",
+                           "error": info.get("error") or "已经是最新版"}
 
         paths = ds_update_apply.paths_for_update(self.server.ds_root,
                                                  port=self.server.server_address[1])
         result = ds_update_apply.apply_update(info, paths)
         if not result.get("ok"):
-            self._json(200, {"ok": False, "stage": result.get("stage"),
-                             "error": result.get("error")})
-            return False
+            return False, {"ok": False, "stage": result.get("stage"),
+                           "error": result.get("error")}
 
         # 到这里为止活树一个字节没被碰过(t16)。下一步才是不可逆的开始。
         if not ds_update_apply.handoff(result.get("relay")):
-            self._json(200, {"ok": False, "stage": "handoff",
-                             "error": "接力脚本没能启动,更新取消(软件照常可用)"})
-            return False
+            return False, {"ok": False, "stage": "handoff",
+                           "error": "接力脚本没能启动,更新取消(软件照常可用)"}
 
         verdict = ds_shell_bridge_update()
         if verdict != "started":
             # 接力脚本已经在跑,但外壳没认这个动词 ⇒ 它等不到端口空,
             # 会自己超时、删掉 .new 收工。**这里绝不许报成功。**
             # 🔴 但锁留着(t35):它还在等,业主再点 / 随后手动关软件 ⇒ 两份接力脚本先后改名。
-            self._json(200, {"ok": False, "stage": "shell",
-                             "error": "没能让程序自动关闭,更新取消 —— 请手动安装新版"})
-            return True
-        self._json(200, {"ok": True, "stage": "started", "error": None,
-                         "latest": info.get("latest")})
-        return True
+            return True, {"ok": False, "stage": "shell",
+                          "error": "没能让程序自动关闭,更新取消 —— 请手动安装新版"}
+        return True, {"ok": True, "stage": "started", "error": None,
+                      "latest": info.get("latest")}
 
     def _update_check(self):
         """查更新:线上有没有比本机新的版本(track opendesign-in-app-update,第一刀)。

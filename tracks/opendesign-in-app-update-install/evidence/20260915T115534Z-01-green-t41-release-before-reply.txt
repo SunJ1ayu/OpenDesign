@@ -1,0 +1,50 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    green-t41-release-before-reply
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_ds_web_update tests.test_ds_update_apply tests.test_ds_update
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  d838c71
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T11:55:34Z
+---------------- 输出开始 ----------------
+2026-09-15 19:55:34 127.0.0.1 - "GET /api/health?nonce=n0nce-abc HTTP/1.1" 200 -
+.2026-09-15 19:55:34 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+.2026-09-15 19:55:35 127.0.0.1 - "GET /api/health?nonce=x HTTP/1.1" 200 -
+.2026-09-15 19:55:35 127.0.0.1 - "GET /api/health?nonce=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa HTTP/1.1" 200 -
+2026-09-15 19:55:36 127.0.0.1 - "GET /api/health?nonce=%E5%B8%A6%E4%B8%AD%E6%96%87%E7%9A%84 HTTP/1.1" 200 -
+2026-09-15 19:55:36 127.0.0.1 - "GET /api/health?nonce=a%26b%3Dc HTTP/1.1" 200 -
+2026-09-15 19:55:37 127.0.0.1 - "GET /api/health?nonce=%3Cscript%3E HTTP/1.1" 200 -
+.2026-09-15 19:55:37 127.0.0.1 - "GET /api/update/apply HTTP/1.1" 404 -
+.2026-09-15 19:55:38 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 19:55:38 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 19:55:39 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 19:55:39 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 19:55:40 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 19:55:40 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.....2026-09-15 19:55:41 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-15 19:55:41 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 19:55:41 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-15 19:55:41 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 19:55:42 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-15 19:55:42 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 19:55:42 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-15 19:55:42 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 19:55:43 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-15 19:55:43 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 19:55:43 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-15 19:55:43 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-15 19:55:44 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+.2026-09-15 19:55:44 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+.2026-09-15 19:55:45 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-15 19:55:45 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-15 19:55:45 127.0.0.1 - "GET /api/update/check?force=1 HTTP/1.1" 200 -
+.2026-09-15 19:55:45 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+.2026-09-15 19:55:46 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-15 19:55:46 127.0.0.1 - "GET /api/update/check?force=false HTTP/1.1" 200 -
+2026-09-15 19:55:46 127.0.0.1 - "GET /api/update/check?force=1 HTTP/1.1" 200 -
+....................................................................................................................
+----------------------------------------------------------------------
+Ran 141 tests in 14.951s
+
+OK
+---------------- 输出结束 ----------------
+runlog: green-t41-release-before-reply rc=0 commit=d838c71 dirty=yes at=2026-09-15T11:55:34Z file=tracks/opendesign-in-app-update-install/evidence/20260915T115534Z-01-green-t41-release-before-reply.txt
