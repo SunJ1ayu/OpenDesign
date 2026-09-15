@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 红检 —— 证明 tests/test_ds_atomic_write.py(aw1~aw16)咬得动(track opendesign-atomic-archive-write)。
+# 红检 —— 证明 tests/test_ds_atomic_write.py(aw1~aw17)咬得动(track opendesign-atomic-archive-write)。
 #
 # 规矩同 tests/mutation-ds-update-apply.sh:变异**被测对象**(bin/ds_common.py、bin/ds_refs.py、bin/ds_tools.py),
 # 每条指定靶子(**必须是它自己红**,红在别处不算红检过),跑完原样还回去并核哈希。
@@ -122,7 +122,7 @@ mutate_and_expect m11 test_aw14_fsync_happens_before_the_replace bin/ds_common.p
 
 # m12 只读档案不再提前拒绝 ⇒ Linux(root)上硬写进去 / Windows 上空转 2 秒留只读残骸(评审 Kimi 那条)
 mutate_and_expect m12 test_aw15_a_read_only_archive_is_refused_without_litter bin/ds_common.py \
-  '    if not mode & stat.S_IWUSR:
+  '    if archive_read_only(real):
         raise PermissionError(errno.EACCES, "档案是只读的,改不了", real)' \
   '    if False:
         raise PermissionError(errno.EACCES, "档案是只读的,改不了", real)'
@@ -131,6 +131,13 @@ mutate_and_expect m12 test_aw15_a_read_only_archive_is_refused_without_litter bi
 mutate_and_expect m13 test_aw16_rename_project_commit_point_uses_replace_with_retry bin/ds_tools.py \
   '        ds_common.replace_with_retry(old_path, new_path, attempts=ds_common.ARCHIVE_REPLACE_ATTEMPTS)' \
   '        os.replace(old_path, new_path)'
+
+# m14 改名不做闸前只读检查 ⇒ ①先提交、④再抛,链接指向新名、档案还叫旧名(评审 r2 DeepSeek 那条)
+mutate_and_expect m14 test_aw17_renaming_a_read_only_archive_changes_nothing bin/ds_tools.py \
+  '    if ds_common.archive_read_only(old_path):
+        return {"error": "project_read_only"}' \
+  '    if False:
+        return {"error": "project_read_only"}'
 
 # 对照组:只加一行注释 ⇒ 必须仍然全绿(变异框架本身没有误报)
 restore
