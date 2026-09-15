@@ -1,0 +1,52 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-t30b-proxy-read-once
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_update_apply.TheDownloadGoesThroughTheSystemProxy\;\ echo\ \"==\ 顺序依赖\(g1\ 先跑再\ t30a\)\,修前应红\"\;\ /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_shell_core.RealBackend.test_g1_ds_web_smoke_and_it_reads_the_data_root_we_gave_it\ tests.test_ds_update_apply.TheDownloadGoesThroughTheSystemProxy.test_t30a_download_asks_the_proxy_not_the_internet
+cwd:     /root/.openclaw/workspace/projects/ds-wt-dquote(仓根)
+commit:  e968e04
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T01:44:24Z
+---------------- 输出开始 ----------------
+.F
+======================================================================
+FAIL: test_t30b_the_proxy_is_read_when_downloading_not_at_the_first_network_call (tests.test_ds_update_apply.TheDownloadGoesThroughTheSystemProxy.test_t30b_the_proxy_is_read_when_downloading_not_at_the_first_network_call)
+t30b —— 代理设置在**下载那一刻**读,不是进程第一次联网时读一次就定死。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/ds-wt-dquote/tests/test_ds_update_apply.py", line 1151, in test_t30b_the_proxy_is_read_when_downloading_not_at_the_first_network_call
+    self.assertEqual(direct, [], "下载用的是进程早先缓存的代理设置,绕开了现在的系统代理、直接去连 %s" % direct)
+AssertionError: Lists differ: ['github.com'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'github.com'
+
+- ['github.com']
++ [] : 下载用的是进程早先缓存的代理设置,绕开了现在的系统代理、直接去连 ['github.com']
+
+----------------------------------------------------------------------
+Ran 2 tests in 1.083s
+
+FAILED (failures=1)
+== 顺序依赖(g1 先跑再 t30a),修前应红
+.F
+======================================================================
+FAIL: test_t30a_download_asks_the_proxy_not_the_internet (tests.test_ds_update_apply.TheDownloadGoesThroughTheSystemProxy.test_t30a_download_asks_the_proxy_not_the_internet)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/ds-wt-dquote/tests/test_ds_update_apply.py", line 1136, in test_t30a_download_asks_the_proxy_not_the_internet
+    self.assertEqual(direct, [], "下载绕开了系统代理、直接去连 %s(开 VPN 的业主下不动)" % direct)
+AssertionError: Lists differ: ['github.com'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'github.com'
+
+- ['github.com']
++ [] : 下载绕开了系统代理、直接去连 ['github.com'](开 VPN 的业主下不动)
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.696s
+
+FAILED (failures=1)
+---------------- 输出结束 ----------------
+runlog: red-t30b-proxy-read-once rc=1 commit=e968e04 dirty=yes at=2026-09-15T01:44:24Z file=tracks/opendesign-in-app-update-install/evidence/20260915T014424Z-01-red-t30b-proxy-read-once.txt

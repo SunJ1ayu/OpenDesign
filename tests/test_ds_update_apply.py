@@ -32,6 +32,7 @@ import sys
 import tempfile
 import tokenize
 import unittest
+import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "bin"))
@@ -1081,7 +1082,11 @@ class TheDownloadGoesThroughTheSystemProxy(unittest.TestCase):
     同时把 DNS 解析换成"非本机一律拒绝"——**判据自己不许有外网出口**,绕开代理的实现也出不去,只会被记下来。
     """
 
-    def test_t30a_download_asks_the_proxy_not_the_internet(self):
+    def _download_through_fake_proxy(self, before=None):
+        """起假代理(只认 CONNECT、一律回 502)+ DNS 非本机一律拒绝,然后下载。返回 (直连了谁, 代理收到了什么)。
+
+        `before`:在**打开代理之前**先在本进程里做的事(t30b 用它模拟"进程早先已经联过网")。
+        """
         import socket
         import threading
         from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -1114,13 +1119,36 @@ class TheDownloadGoesThroughTheSystemProxy(unittest.TestCase):
 
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        # 本进程的 urllib 全局 opener 用完复位成"懒建",别把这里的代理状态漏给后面的考卷
+        self.addCleanup(urllib.request.install_opener, None)
+        if before is not None:
+            before()
         env = {"https_proxy": proxy, "HTTPS_PROXY": proxy, "http_proxy": proxy, "HTTP_PROXY": proxy,
                "no_proxy": "", "NO_PROXY": ""}
         url = "https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-9.9.9/OpenDesign-Setup-9.9.9.exe"
         with mock.patch.dict(os.environ, env), mock.patch("socket.getaddrinfo", local_only):
             with self.assertRaises(Exception):   # 假代理回 502,下载必然失败 —— 要问的是它去了哪
                 ds_update_apply._default_download(url, os.path.join(tmp, "x.exe"))
+        return direct, seen
+
+    def test_t30a_download_asks_the_proxy_not_the_internet(self):
+        direct, seen = self._download_through_fake_proxy()
         self.assertEqual(direct, [], "下载绕开了系统代理、直接去连 %s(开 VPN 的业主下不动)" % direct)
+        self.assertTrue(any(p.startswith("github.com:443") for p in seen), "代理没收到下载请求:%r" % seen)
+
+    def test_t30b_the_proxy_is_read_when_downloading_not_at_the_first_network_call(self):
+        """t30b —— 代理设置在**下载那一刻**读,不是进程第一次联网时读一次就定死。
+
+        🔴 2026-09-15 合跑判据时照出来(基线 05d0fd5 上一样):`urllib.request.urlopen` 复用进程级缓存的
+        opener,代理是它**第一次被建出来时**读的。考卷里表现为顺序依赖 —— g1 先跑、t30a 就红;
+        产品里就是:业主**先开软件、后开 VPN**(查更新时已经建过 opener)⇒ 下载照样不走代理,t30 那件事换个时机又来了。
+        模拟"早先联过网":先装一个当时的(不走代理的)全局 opener,再打开代理去下载。
+        """
+        def process_already_went_online():
+            urllib.request.install_opener(urllib.request.build_opener(urllib.request.ProxyHandler({})))
+
+        direct, seen = self._download_through_fake_proxy(before=process_already_went_online)
+        self.assertEqual(direct, [], "下载用的是进程早先缓存的代理设置,绕开了现在的系统代理、直接去连 %s" % direct)
         self.assertTrue(any(p.startswith("github.com:443") for p in seen), "代理没收到下载请求:%r" % seen)
 
 

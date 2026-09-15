@@ -472,7 +472,7 @@ proposal 的第 1 块板原文是:
 | `t27` | `tests/test_ds_update_apply.py` | 接力脚本**活过外壳收摊**:外壳建的 Job 允许显式脱离(不许 SILENT_BREAKAWAY)、只有接力脚本要求脱离(Windows 第二趟坐实:它在 ds-web 的 KILL_ON_JOB_CLOSE Job 里,收摊 1 秒内被一起杀)|
 | `t28` | `tests/test_ds_update_apply.py` | 接力脚本**等活树真空出来**(第一次改名有上限地重试)、放弃的两条路**把旧版打开**、回滚**先停掉从活树跑着的程序**且**活树还在时绝不 move .old 进去**(Windows 第三趟坐实:闸 40 毫秒放行、外壳还没退完 ⇒ 改名失败 ⇒ 关了不回来)|
 | `t29` | `tests/test_ds_update_apply.py` | 接力脚本的**当前目录不在活树里**:handoff 给 cwd=它所在的 %TEMP%,脚本收摊闸之前先 `cd /d` 出去(Windows 第四趟坐实:启动器 SetOutPath 活树 ⇒ 一路继承 ⇒ 接力脚本自己把活树占住,改名 60 秒全失败)|
-| `t30` | `tests/test_ds_update_apply.py` | **下载安装包走系统代理**(只有问本机 health 才绕开,t18)。收口自审读出:下载复用了绕代理的 opener,开 VPN 的业主查得到新版、下不动;CI 无代理结构上照不出 |
+| `t30` | `tests/test_ds_update_apply.py` | **下载安装包走系统代理**(只有问本机 health 才绕开,t18)。收口自审读出:下载复用了绕代理的 opener,开 VPN 的业主查得到新版、下不动;CI 无代理结构上照不出。`t30b`:代理在**下载那一刻**读,不是进程第一次联网时缓存一次(09-15 合跑照出顺序依赖:g1 先跑 t30a 就红;产品里 = 先开软件后开 VPN 照样不走代理) |
 | `t31` | `tests/test_ds_web_update.py` | 同一时间只许一次更新:第二个 apply 请求回 `stage=busy`;失败之后能再点(防修成永久锁死)|
 | `t32` | `tests/test_ds_update_apply.py` | 开始前先清上次留下的 `.old`,清不掉就不开始(`stage=stale_old`,不下载)。否则 `move 活树 .old` 会把活树塞进旧 .old,回滚时换回残缺的树 |
 | `t33` | `tests/test_ds_update_apply.py` | **安装器真正读到的目录 = `.new`**:把 python 发出去的那条命令行,按 NSIS 自己的解析循环(`Source/exehead/Main.c`,照搬进考卷)读一遍,读出来的安装目录必须逐字等于 `.new`,路径带空格也一样。收口外审(DeepSeek + GLM 各自独立)指出、我核 NSIS 源码坐实:list2cmdline 给带空格的 `/D=` 加引号 ⇒ NSIS 不认 ⇒ 按注册表装回**正在运行的活树**。旧 t20a 只看 argv 前缀,结构上问不出这件事 |
