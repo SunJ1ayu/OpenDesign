@@ -11,6 +11,12 @@
 所以这里必须用 `/releases`(列表,含预发布)**自己挑**。改回那个"标准接口"的后果不是报错,
 是**功能永远查不到新版本、界面永远显示"已是最新"** —— 一条恒绿路径,比没有更新功能更坏。
 
+🔴 **第二件必须知道的事**(2026-09-15 夜,业主 0.98.4 实测,track opendesign-update-check-rate-limit):
+未登录的 API **每个出口 IP 每小时 60 次**。业主开着商用 VPN,出口很多人共用 ⇒
+`HTTP Error 403: rate limit exceeded`,点多少次都「查不到更新」。所以现在**先问 github.com 的
+发布页订阅源(releases.atom,网页端,不吃那个额度)+ 每版随包上传的清单 `OpenDesign-update.json`**,
+订阅源这条走不通才问 API。两条都把结果拼成 API 的形状交给同一个 `decide()`。
+
 信任根就一条:**HTTPS 到 github.com**。资产的 sha256 由 GitHub 在 `digest` 字段里给
 (实测与我们发版时记的那串一致),它挡得住"下坏了/下了半截/被中间人换了包",
 **挡不住"GitHub 账号被盗后换了资产"** —— 我们没有代码签名证书,这是明账,不假装有。
@@ -19,9 +25,12 @@ from __future__ import annotations
 
 import json
 import re
+import socket
 import threading
 import time
+import urllib.error
 import urllib.request
+import xml.etree.ElementTree as ET
 
 REPO = "SunJ1ayu/OpenDesign"
 API_BASE = "https://api.github.com"
@@ -36,6 +45,13 @@ ASSET_RE = re.compile(rf"^OpenDesign-Setup-({_NUM})\.exe$")
 TAG_RE = re.compile(rf"^win-installer-({_NUM})$")
 BARE_RE = re.compile(rf"^({_NUM})$")
 TIMEOUT_S = 10
+WEB_BASE = "https://github.com"
+MANIFEST_NAME = "OpenDesign-update.json"
+_ATOM_NS = "{http://www.w3.org/2005/Atom}"
+_TAG_LINK_RE = re.compile(r"^https://github\.com/[^/]+/[^/]+/releases/tag/([^/?#]+)$")
+_HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
+FEED_LABEL = "发布页订阅源"
+API_LABEL = "GitHub 接口"
 
 
 def parse_version(text):
@@ -152,15 +168,165 @@ def releases_url(repo=REPO):
     return API_BASE + RELEASES_PATH.format(repo=repo) + "?per_page=100"
 
 
+def atom_url(repo=REPO):
+    """发布页订阅源的地址(判据 rl8d 逐字节钉)。github.com 网页端,**不是** api.github.com。"""
+    return "%s/%s/releases.atom" % (WEB_BASE, repo)
+
+
+def manifest_url(repo, tag):
+    """某一版随包上传的清单地址 —— 和安装包同一个下载通道(判据 rl8d)。"""
+    return "%s/%s/releases/download/%s/%s" % (WEB_BASE, repo, tag, MANIFEST_NAME)
+
+
+def _open(req, timeout):
+    """🔴 代理在**请求那一刻**读(判据 rl8,t30b 同一个病):`urllib.request.urlopen` 复用进程级缓存的 opener,
+    代理只在它第一次被建出来时读一次 ⇒ 业主先开软件、后开 VPN,查更新照样直连。
+    `build_opener()` 不带参数 = 默认处理器 + 按此刻系统代理建的 ProxyHandler。"""
+    return urllib.request.build_opener().open(req, timeout=timeout)
+
+
+def _get_text(url, accept, timeout):
+    req = urllib.request.Request(url, headers={"Accept": accept, "User-Agent": "OpenDesign-updater"})
+    with _open(req, timeout) as resp:  # noqa: S310 (常量 https)
+        return resp.read().decode("utf-8")
+
+
 def fetch_releases(repo=REPO, timeout=TIMEOUT_S):
-    """唯一碰网络的函数。判据一律注入替身,不打真网(2026-08-10 那次事故立的规矩)。"""
-    url = releases_url(repo)
-    req = urllib.request.Request(url, headers={
-        "Accept": "application/vnd.github+json",
-        "User-Agent": "OpenDesign-updater",
-    })
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 (常量 https)
-        return json.loads(resp.read().decode("utf-8"))
+    """问 API(备路)。判据一律注入替身,不打真网(2026-08-10 那次事故立的规矩)。"""
+    return json.loads(_get_text(releases_url(repo), "application/vnd.github+json", timeout))
+
+
+def fetch_atom(repo=REPO, timeout=TIMEOUT_S):
+    """取发布页订阅源(主路)。"""
+    return _get_text(atom_url(repo), "application/atom+xml", timeout)
+
+
+def fetch_manifest(tag, repo=REPO, timeout=TIMEOUT_S):
+    """取某一版的清单(主路第二跳)。"""
+    return _get_text(manifest_url(repo, tag), "application/json", timeout)
+
+
+def parse_atom(text):
+    """订阅源 → `[{tag, html_url}]`,只留 `win-installer-<版本>`,保持原顺序(挑最新交给调用方,**不按条目先后**)。
+
+    tag 与链接都取 `<link href=".../releases/tag/<tag>">` 的**原文** —— 地址由 GitHub 给,不拼(F1)。
+    不是 XML ⇒ ValueError。
+    """
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError as exc:
+        raise ValueError("订阅源不是 XML(%s)" % exc) from None
+    out = []
+    for entry in root.findall(_ATOM_NS + "entry"):
+        for link in entry.findall(_ATOM_NS + "link"):
+            m = _TAG_LINK_RE.match(link.get("href") or "")
+            if m and TAG_RE.match(m.group(1)):
+                out.append({"tag": m.group(1), "html_url": m.group(0)})
+                break
+    return out
+
+
+def parse_manifest(text, tag, repo=REPO):
+    """清单 → 与 API 同形的资产 `{name, browser_download_url, size, digest}`;**任一项对不上就 ValueError**(判据 rl3)。
+
+    清单是新查法里"可信 sha256"的唯一来源,所以逐项核对:schema、来路 tag、version 与 tag 里的版本**同一段文字**、
+    文件名是安装包且版本同文字、sha256 是 64 位小写十六进制、size 是正整数。
+    下载地址用 tag 原文与文件名原文拼,**不用补零后的版本号**(F1:`win-installer-1.0` 不许变成 1.0.0)。
+    """
+    try:
+        m = json.loads(text) if isinstance(text, (str, bytes, bytearray)) else text
+    except ValueError:
+        raise ValueError("清单不是 JSON") from None
+    if not isinstance(m, dict):
+        raise ValueError("清单不是对象")
+    if type(m.get("schema")) is not int or m.get("schema") != 1:
+        raise ValueError("清单版本不认识")
+    tag_m = TAG_RE.match(tag or "")
+    if not tag_m or m.get("tag") != tag:
+        raise ValueError("清单写的版本标签与来路不一致")
+    version = tag_m.group(1)
+    if m.get("version") != version:
+        raise ValueError("清单里的版本号与标签不一致")
+    asset = m.get("asset")
+    if not isinstance(asset, dict):
+        raise ValueError("清单缺安装包信息")
+    name = asset.get("name")
+    name_m = ASSET_RE.match(name) if isinstance(name, str) else None
+    if not name_m or name_m.group(1) != version:
+        raise ValueError("清单里的安装包文件名与版本不一致")
+    sha = asset.get("sha256")
+    if not isinstance(sha, str) or not _HEX64_RE.match(sha):
+        raise ValueError("清单里的 sha256 形状不对")
+    size = asset.get("size")
+    if type(size) is not int or size <= 0:
+        raise ValueError("清单里的安装包大小不对")
+    return {
+        "name": name,
+        "browser_download_url": "%s/%s/releases/download/%s/%s" % (WEB_BASE, repo, tag, name),
+        "size": size,
+        "digest": "sha256:" + sha,
+    }
+
+
+def explain(exc):
+    """把一次失败说成人话,技术细节留在括号里(判据 rl7)。业主看得懂前半句,排障看后半句。"""
+    tech = "%s: %s" % (exc.__class__.__name__, exc)
+    if isinstance(exc, urllib.error.HTTPError):
+        said = ("%s %s" % (exc.reason, exc)).lower()
+        if exc.code == 429 or (exc.code == 403 and "rate limit" in said):
+            human = "GitHub 限制了这个网络出口的查询次数(同一出口的人查得太多),换个网络或稍后再试"
+        elif exc.code == 404:
+            human = "线上没有找到要的文件"
+        else:
+            human = "GitHub 拒绝了这次请求"
+    elif isinstance(exc, (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError, OSError)):
+        human = "连不上 GitHub(检查网络或 VPN)"
+    elif isinstance(exc, ValueError):
+        return str(exc)
+    else:
+        human = "出了意外"
+    return "%s(%s)" % (human, tech)
+
+
+def _failure(current, error):
+    return {"current": current, "update_available": False, "latest": None,
+            "asset": None, "notes": "", "release_url": None, "error": error}
+
+
+def _via_releases(current, fetch):
+    """API 形状的列表 → decide。"""
+    releases = fetch()
+    if isinstance(releases, str):
+        try:
+            releases = json.loads(releases)
+        except Exception:  # noqa: BLE001
+            raise ValueError("线上返回的不是 JSON") from None
+    if not isinstance(releases, list):
+        raise ValueError("线上返回的不是版本列表")
+    return decide(current, releases)
+
+
+def _via_feed(current):
+    """订阅源 → 挑最大版本 →(比本机新才)拉清单 → 拼成 API 形状 → decide。任何一步不对就抛,让调用方回落 API。"""
+    best, best_ver = None, None
+    for entry in parse_atom(fetch_atom()):
+        ver = parse_version(entry["tag"])
+        if ver is not None and (best_ver is None or ver > best_ver):
+            best, best_ver = entry, ver
+    if best is None:
+        raise ValueError("订阅源里没有安装包版本")
+    here = parse_version(current)
+    if here is not None and best_ver <= here:
+        # 线上最新不比本机新:不拉清单(判据 rl6)—— 老版本没有清单,拉了只会误报失败
+        out = _failure(current, None)
+        out["latest"] = ".".join(str(n) for n in best_ver)
+        return out
+    text = fetch_manifest(best["tag"])
+    asset = parse_manifest(text, best["tag"])
+    notes = json.loads(text).get("notes")
+    release = {"tag_name": best["tag"], "html_url": best["html_url"], "draft": False,
+               "body": notes if isinstance(notes, str) else "", "assets": [asset]}
+    return decide(current, [release])
 
 
 def check_for_update(current, fetch=None):
@@ -173,30 +339,29 @@ def check_for_update(current, fetch=None):
     `fetch=None` 时到**调用那一刻**才去取 `fetch_releases`。默认参数在 def 那一刻就固化了,
     那样判据里替换 `ds_update.fetch_releases` 根本不生效,离线判据会悄悄变成真去打网
     (判据 t9d 钉的就是这件事)。
+
+    来源:显式传了 `fetch` ⇒ **只用它**(判据 rl9;既有判据的注入方式)。
+    不传 ⇒ 先 `发布页订阅源`,走不通再 `GitHub 接口`;两条都不通 ⇒ error 里两条原因都写(判据 rl5c)。
+    每个来源函数都在调用那一刻按模块名取,判据替换 `ds_update.fetch_*` 才生效(t9d)。
     """
-    try:
-        releases = (fetch or fetch_releases)()
-    except Exception as exc:  # noqa: BLE001 —— 故意兜底,判据 t7d 就是钉它
-        return {"current": current, "update_available": False, "latest": None,
-                "asset": None, "notes": "", "release_url": None,
-                "error": f"查更新失败:{exc.__class__.__name__}: {exc}"}
-    if isinstance(releases, str):
+    if fetch is not None:
         try:
-            releases = json.loads(releases)
-        except Exception:  # noqa: BLE001
-            return {"current": current, "update_available": False, "latest": None,
-                    "asset": None, "notes": "", "release_url": None,
-                    "error": "查更新失败:线上返回的不是 JSON"}
-    if not isinstance(releases, list):
-        return {"current": current, "update_available": False, "latest": None,
-                "asset": None, "notes": "", "release_url": None,
-                "error": "查更新失败:线上返回的不是版本列表"}
-    try:
-        return decide(current, releases)
-    except Exception as exc:  # noqa: BLE001
-        return {"current": current, "update_available": False, "latest": None,
-                "asset": None, "notes": "", "release_url": None,
-                "error": f"查更新失败:{exc.__class__.__name__}: {exc}"}
+            return _via_releases(current, fetch)
+        except Exception as exc:  # noqa: BLE001 —— 故意兜底,判据 t7d 就是钉它
+            return _failure(current, "查更新失败:" + explain(exc))
+    reasons = []
+    for label, attempt in ((FEED_LABEL, lambda: _via_feed(current)),
+                           (API_LABEL, lambda: _via_releases(current, fetch_releases))):
+        try:
+            result = attempt()
+        except Exception as exc:  # noqa: BLE001
+            reasons.append("%s:%s" % (label, explain(exc)))
+            continue
+        if result.get("error"):
+            reasons.append("%s:%s" % (label, result["error"]))
+            continue
+        return result
+    return _failure(current, "查更新失败:" + ";".join(reasons))
 
 
 # ── 缓存 ────────────────────────────────────────────────────────────────────

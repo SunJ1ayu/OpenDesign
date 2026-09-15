@@ -447,6 +447,15 @@ body.has-window-chrome { padding-top: 30px; }
   direction: rtl; /* 长路径显示尾段(~/OpenDesign 一类短值不受影响) */
 }
 .settings-pop .item .val.faint { color: var(--ink-5); }
+/* 查不到更新时的原因(track opendesign-update-check-rate-limit):长句要能折行,不许被省略号吃掉 */
+.settings-pop .update-reason {
+  padding: 0 10px 6px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--ink-4);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .settings-pop .divider { border-top: 1px solid var(--border-soft); margin: 5px 4px; }
 .settings-pop .soon {
   font-size: 10px;

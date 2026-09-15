@@ -1,0 +1,17 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    green-rl-impl
+cmd:     bash -c rc=0\;\ /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_update_source\ tests.test_update_manifest\ tests.test_ds_update\ tests.test_ds_web_update\ tests.test_ds_update_apply\ tests.test_update_e2e_harness\ \>\ /tmp/claude-0/-root/7e5261ba-6ce2-491d-8734-fb3061ca6f75/scratchpad/py.txt\ 2\>\&1\ \|\|\ rc=1\;\ grep\ -E\ \"\^\(FAIL\|ERROR\):\|\^Ran\|\^OK\|\^FAILED\"\ /tmp/claude-0/-root/7e5261ba-6ce2-491d-8734-fb3061ca6f75/scratchpad/py.txt\;\ node\ --test\ tests/test_update_ui.mjs\ 2\>\&1\ \|\ grep\ -E\ \"\^#\ \(pass\|fail\)\"\;\ node\ --test\ tests/test_update_ui.mjs\ \>/dev/null\ 2\>\&1\ \|\|\ rc=1\;\ bash\ tests/e2e/check-dist-fresh.sh\ 2\>\&1\ \|\ tail\ -1\ \|\|\ rc=1\;\ E2E=1\ timeout\ 200\ node\ tests/e2e/update_notice.e2e.mjs\ \>\ /tmp/claude-0/-root/7e5261ba-6ce2-491d-8734-fb3061ca6f75/scratchpad/e2e.txt\ 2\>\&1\ \|\|\ rc=1\;\ grep\ -cE\ \"\^\ \ ok\ \"\ /tmp/claude-0/-root/7e5261ba-6ce2-491d-8734-fb3061ca6f75/scratchpad/e2e.txt\;\ grep\ -E\ \"FAIL\|全部通过\"\ /tmp/claude-0/-root/7e5261ba-6ce2-491d-8734-fb3061ca6f75/scratchpad/e2e.txt\;\ exit\ \$rc
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  411caf1
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T15:20:53Z
+---------------- 输出开始 ----------------
+Ran 188 tests in 19.192s
+OK
+# pass 43
+# fail 0
+✅ 产物新鲜度:web/dist 就是当前源码 build 出来的(3 个文件逐字节一致)
+28
+全部通过
+---------------- 输出结束 ----------------
+runlog: green-rl-impl rc=0 commit=411caf1 dirty=yes at=2026-09-15T15:20:53Z file=tracks/opendesign-update-check-rate-limit/evidence/20260915T152053Z-01-green-rl-impl.txt

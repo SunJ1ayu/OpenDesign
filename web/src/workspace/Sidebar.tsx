@@ -4,6 +4,7 @@ import {
   applyLabel,
   canApply,
   updateLabel,
+  updateReason,
   downloadUrl,
   notesSummary,
   hasUpdateBadge,
@@ -387,6 +388,11 @@ export default function Sidebar({
               })}
             </span>
           </button>
+          {updateReason({ state: updateState, info: updateInfo }) && (
+            <div className="update-reason" data-ui="update-reason">
+              {updateReason({ state: updateState, info: updateInfo })}
+            </div>
+          )}
           {updateInfo?.update_available && (
             <>
               <div style={{ display: "flex", alignItems: "stretch", gap: 6 }}>

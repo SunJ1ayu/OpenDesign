@@ -163,6 +163,18 @@ export function notesSummary(notes: string | null | undefined, max = 80): string
   return "";
 }
 
+/**
+ * 「查不到更新」下面那一行小字:**为什么查不到**(判据 rl11,track opendesign-update-check-rate-limit)。
+ *
+ * 🔴 由来:业主 09-15 夜点「检查更新」一直「查不到更新」,真原因(GitHub 未登录限流 403)只在接口的 error 字段里,
+ *    靠他开 PowerShell 才拿到,来回三轮。原因的人话由后端写(ds_update.explain),这里只决定显不显示。
+ */
+export function updateReason(s: { state: UpdateState; info: UpdateInfo | null }): string {
+  if (s.state !== "done") return "";
+  if (!s.info) return "软件后台没响应";
+  return s.info.error ? s.info.error : "";
+}
+
 export function updateLabel(
   s: { state: UpdateState; info: UpdateInfo | null; version?: string | null },
 ): string {
