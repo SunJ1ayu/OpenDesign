@@ -16,6 +16,7 @@ import json
 import os
 import sys
 import threading
+import time
 import unittest
 from contextlib import contextmanager
 from urllib.parse import quote
@@ -426,6 +427,53 @@ class UpdateApplyEndpoint(unittest.TestCase):
             _post(port, "/api/update/apply")
             _st, body = _post(port, "/api/update/apply")
         self.assertEqual(body.get("stage"), "handoff", "第二次被挡住了:%r" % (body,))
+        self.assertEqual(self.order.count("apply"), 2)
+
+    def _slow_after_reply(self):
+        """替身:apply 的回包写出去之后,那个线程被调度走 0.3 秒。
+
+        🔴 2026-09-15 最终总跑里 t35b 红了一次('busy' != 'handoff'),同一份代码前一遍是绿的。
+        原因不是抖:失败的回包是在**持锁时**写出去的,放锁在那之后。写 socket 会让出 GIL,
+        满载时客户端先读到"更新取消,可以再点",紧跟着的第二次就撞上还没放的锁。
+        t31b / t35b 只在碰巧被调度走时才问得到这件事;这里把那 0.3 秒摆成必然。
+        """
+        real = ds_web.Handler._send
+        hits = []
+
+        def slow(handler, *a, **kw):
+            real(handler, *a, **kw)
+            if handler.path.startswith("/api/update/apply"):
+                hits.append(1)
+                time.sleep(0.3)
+
+        ds_web.Handler._send = slow
+        self.addCleanup(setattr, ds_web.Handler, "_send", real)
+        return hits
+
+    def test_t41a_failure_reply_means_the_lock_is_already_released(self):
+        """t41 —— 回包说"失败了"的那一刻,锁必须已经放开:回包本身就是在告诉业主可以再点。"""
+        self._online()
+        self._seams(apply_ok=False)
+        hits = self._slow_after_reply()
+        with _serve() as port:
+            _post(port, "/api/update/apply")
+            _st, body = _post(port, "/api/update/apply")
+        self.assertEqual(len(hits), 2, "替身没接上回包那一步,这条问不到任何东西")
+        self.assertEqual(body.get("stage"), "verify",
+                         "回包之后锁还没放,第二次被当成进行中:%r" % (body,))
+        self.assertEqual(self.order.count("apply"), 2)
+
+    def test_t41b_handoff_failure_reply_means_the_lock_is_already_released(self):
+        """t41 同上,走到交棒才失败那一支(t35b 的必然版)。"""
+        self._online()
+        self._seams(handoff_ok=False)
+        hits = self._slow_after_reply()
+        with _serve() as port:
+            _post(port, "/api/update/apply")
+            _st, body = _post(port, "/api/update/apply")
+        self.assertEqual(len(hits), 2, "替身没接上回包那一步,这条问不到任何东西")
+        self.assertEqual(body.get("stage"), "handoff",
+                         "回包之后锁还没放,第二次被当成进行中:%r" % (body,))
         self.assertEqual(self.order.count("apply"), 2)
 
     def test_t22g_the_decision_handed_to_the_installer_carries_the_asset(self):

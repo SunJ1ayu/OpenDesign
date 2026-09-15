@@ -483,6 +483,7 @@ proposal 的第 1 块板原文是:
 | `t38` | `tests/test_ds_update_apply.py` | **交棒 = 接力脚本自己证明在跑**:脚本设完变量、进收摊闸前写 `%~f0.ready`;handoff 先删旧标记、限时等新标记,等不到就杀掉起的进程并报没交棒。切片评审 GPT 整体腿 #2:原来"Popen 没抛"就算交棒,cmd 起来了却没跑成脚本 ⇒ 关了不回来。t21b/t21c/t27d/t29a 的替身随契约改成会发信号 |
 | `t39` | `tests/test_ds_update_apply.py` | 新树装好之后删掉 `%TEMP%` 里的安装包(切片评审 DeepSeek F6:每更新一次留 43MB) |
 | `t40` | `tests/test_ds_update_apply.py` | **只有安装器装出来的树才自己更新自己**:活树缺 `OpenDesign.exe` 或 `ds\bin\ds_shell.py` ⇒ `stage=not_installed`,清 `.old` 之前返回。切片评审 DeepSeek F10 + 我核出更要命的一半:开发方式跑时活树被推成仓的上一级,第 0 步会 rmtree 一个恰好同名的无关 `.old` |
+| `t41` | `tests/test_ds_web_update.py` | **失败回包写出去之前,锁已经放开**:回包本身就在告诉业主「可以再点」。替身让回包之后的线程慢 0.3 秒 ⇒ 第二次必须照常进得去(不许 `busy`),两支(装之前失败 / 交棒失败)各一条。09-15 composer-model-picker 最终总跑 t35b 红一次、同代码前一遍绿 —— 我探针坐实是先回话后放锁的真顺序错,不是抖 |
 | `m1~` | `tests/test_ds_shell_core.py` | 锁通道:新动词分派 + 应答点名 + 老动词不受影响(真 socket,行为判据) |
 | `w8~` | `tests/test_ds_shell_wiring.py` | **静态闸**:`ds_shell.py` 真的把 `on_update` 接到了收摊上 |
 

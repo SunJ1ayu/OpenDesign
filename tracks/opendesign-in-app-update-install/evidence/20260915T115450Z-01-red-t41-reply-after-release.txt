@@ -1,0 +1,55 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-t41-reply-after-release
+cmd:     /root/.venvs/design-studio/bin/python -m unittest -v tests.test_ds_web_update.UpdateApplyEndpoint.test_t41a_failure_reply_means_the_lock_is_already_released tests.test_ds_web_update.UpdateApplyEndpoint.test_t41b_handoff_failure_reply_means_the_lock_is_already_released tests.test_ds_web_update.UpdateApplyEndpoint.test_t31b_a_failed_attempt_does_not_lock_out_the_next_one tests.test_ds_web_update.UpdateApplyEndpoint.test_t35b_a_relay_that_never_started_does_not_keep_the_lock
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  07afda8
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T11:54:50Z
+---------------- 输出开始 ----------------
+test_t41a_failure_reply_means_the_lock_is_already_released (tests.test_ds_web_update.UpdateApplyEndpoint.test_t41a_failure_reply_means_the_lock_is_already_released)
+t41 —— 回包说"失败了"的那一刻,锁必须已经放开:回包本身就是在告诉业主可以再点。 ... 2026-09-15 19:54:50 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-15 19:54:50 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+FAIL
+test_t41b_handoff_failure_reply_means_the_lock_is_already_released (tests.test_ds_web_update.UpdateApplyEndpoint.test_t41b_handoff_failure_reply_means_the_lock_is_already_released)
+t41 同上,走到交棒才失败那一支(t35b 的必然版)。 ... 2026-09-15 19:54:50 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-15 19:54:50 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+FAIL
+test_t31b_a_failed_attempt_does_not_lock_out_the_next_one (tests.test_ds_web_update.UpdateApplyEndpoint.test_t31b_a_failed_attempt_does_not_lock_out_the_next_one)
+反面(防止修成"一次失败永远锁死"):失败之后业主再点一次,必须还能进得去。 ... 2026-09-15 19:54:51 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-15 19:54:51 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_t35b_a_relay_that_never_started_does_not_keep_the_lock (tests.test_ds_web_update.UpdateApplyEndpoint.test_t35b_a_relay_that_never_started_does_not_keep_the_lock)
+反面(防修过头):接力脚本根本没起来(`stage=handoff`),没有东西在跑,业主必须还能再点。 ... 2026-09-15 19:54:51 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-15 19:54:51 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+
+======================================================================
+FAIL: test_t41a_failure_reply_means_the_lock_is_already_released (tests.test_ds_web_update.UpdateApplyEndpoint.test_t41a_failure_reply_means_the_lock_is_already_released)
+t41 —— 回包说"失败了"的那一刻,锁必须已经放开:回包本身就是在告诉业主可以再点。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_update.py", line 462, in test_t41a_failure_reply_means_the_lock_is_already_released
+    self.assertEqual(body.get("stage"), "verify",
+AssertionError: 'busy' != 'verify'
+- busy
++ verify
+ : 回包之后锁还没放,第二次被当成进行中:{'ok': False, 'stage': 'busy', 'error': '更新已经在进行中,请稍候'}
+
+======================================================================
+FAIL: test_t41b_handoff_failure_reply_means_the_lock_is_already_released (tests.test_ds_web_update.UpdateApplyEndpoint.test_t41b_handoff_failure_reply_means_the_lock_is_already_released)
+t41 同上,走到交棒才失败那一支(t35b 的必然版)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_update.py", line 475, in test_t41b_handoff_failure_reply_means_the_lock_is_already_released
+    self.assertEqual(body.get("stage"), "handoff",
+AssertionError: 'busy' != 'handoff'
+- busy
++ handoff
+ : 回包之后锁还没放,第二次被当成进行中:{'ok': False, 'stage': 'busy', 'error': '更新已经在进行中,请稍候'}
+
+----------------------------------------------------------------------
+Ran 4 tests in 2.023s
+
+FAILED (failures=2)
+---------------- 输出结束 ----------------
+runlog: red-t41-reply-after-release rc=1 commit=07afda8 dirty=yes at=2026-09-15T11:54:50Z file=tracks/opendesign-in-app-update-install/evidence/20260915T115450Z-01-red-t41-reply-after-release.txt
