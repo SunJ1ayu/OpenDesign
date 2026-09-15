@@ -484,7 +484,7 @@ class WindowsReplaceSemantics(_Tmp):
 
 
 class ReadOnlyArchivesAreRefusedUpFront(_Tmp):
-    """aw15 —— 档案是只读的 ⇒ 立刻拒绝写:档案原封不动、不空转替换重试、不留临时文件。
+    """aw15 / aw17 —— 档案是只读的 ⇒ 立刻拒绝写:档案原封不动、不空转替换重试、不留临时文件;改名在动任何引用之前就拒。
 
     2026-09-15 评审 Kimi 指出、我核实:Windows 上只读属性让替换**和删除**都失败 ⇒ 原来的实现先空转约 2 秒,
     再在 finally 里删临时文件时又失败(临时文件被 chmod 成同样只读)⇒ 每写一次留一个删不掉的 .tmp。
@@ -502,6 +502,25 @@ class ReadOnlyArchivesAreRefusedUpFront(_Tmp):
         self.assertLess(time.monotonic() - t0, 1.0, "只读档案应当立刻拒绝,不该先空转替换重试")
         self.assertEqual(_bytes(self.proj), before, "只读档案被改动了")
         self.assertNoTmpLitter(os.path.join(self.ds, "projects"))
+
+    def test_aw17_renaming_a_read_only_archive_changes_nothing(self):
+        # 🔴 评审 r2 DeepSeek 发现 1(我复现核实):aw15 的拦截落在改名第④步,而①(客户备忘 / 索引改链接)已经提交
+        #    ⇒ 抛错后"链接指向新名、档案还叫旧名",文件只读期间重跑也修不回来。真实档案首行就是「# 项目名」,④ 每次都走。
+        #    rename_project 自己的规矩是"坏档案在闸后先读、fail fast,绝不在引用改到一半后才发现"—— 只读也照此办。
+        old, new = "翡翠湾-1801", "翡翠湾-1801改"
+        _write_text(self.proj, "# %s\n" % old + _archive_text(20, "旧").split("\n", 1)[1])
+        client = os.path.join(self.ds, "clients", "王先生.md")
+        index = os.path.join(self.ds, "index.md")
+        _write_text(client, "# 王先生\n\n负责项目 [[%s]]\n\n%s" % (old, FOOTER))
+        _write_text(index, "# 索引\n\n- [[%s]]\n\n%s" % (old, FOOTER))
+        before = {p: _bytes(p) for p in (self.proj, client, index)}
+        os.chmod(self.proj, 0o444)
+        self.addCleanup(os.chmod, self.proj, 0o644)
+        out = ds_tools.rename_project(old, new, self.ds, today="2026-09-15")
+        self.assertEqual(out.get("error"), "project_read_only", "只读档案改名应当在动任何引用之前就回错误:%r" % (out,))
+        for p, b in before.items():
+            self.assertEqual(_bytes(p), b, "%s 被改动了" % os.path.basename(p))
+        self.assertFalse(os.path.exists(os.path.join(self.ds, "projects", new + ".md")), "档案被改成了新名")
 
 
 class RenameCommitPointRetries(unittest.TestCase):

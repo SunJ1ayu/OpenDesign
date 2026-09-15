@@ -1,0 +1,27 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    windows-atomic-probe-run-34943425108-prefix-448d598
+cmd:     bash -c D=\$\(mktemp\ -d\)\;\ trap\ \"rm\ -rf\ \$D\"\ EXIT\;\ gh\ run\ view\ 34943425108\ -R\ SunJ1ayu/OpenDesign\ --json\ status\,conclusion\,headSha\,headBranch\,workflowName\ -q\ \"\\\"workflow=\\\(.workflowName\)\ branch=\\\(.headBranch\)\ sha=\\\(.headSha\)\ status=\\\(.status\)\ conclusion=\\\(.conclusion\)\\\"\"\;\ gh\ run\ download\ 34943425108\ -R\ SunJ1ayu/OpenDesign\ -n\ windows-atomic-probe-log\ -D\ \$D\ \>/dev/null\;\ grep\ -E\ \"test_aw1\[256\]\|test_aw12\|\^Ran\|\^OK\|\^FAILED\|\^FAIL:\|\^AssertionError\"\ \$D/\*.txt\ \|\ cut\ -c1-260
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  6ca1d24
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T07:52:34Z
+---------------- 输出开始 ----------------
+workflow=windows-atomic-probe branch=ci-atomic/probe-2-prefix sha=448d59832df1f90159ba271bd4cfc1f00f0df87a status=completed conclusion=failure
+test_aw15_a_read_only_archive_is_refused_without_litter (tests.test_ds_atomic_write.ReadOnlyArchivesAreRefusedUpFront.test_aw15_a_read_only_archive_is_refused_without_litter) ... FAIL
+test_aw16_rename_project_commit_point_uses_replace_with_retry (tests.test_ds_atomic_write.RenameCommitPointRetries.test_aw16_rename_project_commit_point_uses_replace_with_retry) ... FAIL
+test_aw12a_a_brief_reader_does_not_make_the_write_fail (tests.test_ds_atomic_write.WindowsReplaceSemantics.test_aw12a_a_brief_reader_does_not_make_the_write_fail) ... ok
+test_aw12b_a_long_reader_fails_the_write_but_keeps_the_archive (tests.test_ds_atomic_write.WindowsReplaceSemantics.test_aw12b_a_long_reader_fails_the_write_but_keeps_the_archive) ... ok
+test_aw12c_a_brief_reader_does_not_make_the_rename_fail (tests.test_ds_atomic_write.WindowsReplaceSemantics.test_aw12c_a_brief_reader_does_not_make_the_rename_fail) ... FAIL
+FAIL: test_aw15_a_read_only_archive_is_refused_without_litter (tests.test_ds_atomic_write.ReadOnlyArchivesAreRefusedUpFront.test_aw15_a_read_only_archive_is_refused_without_litter)
+  File "D:\a\OpenDesign\OpenDesign\tests\test_ds_atomic_write.py", line 502, in test_aw15_a_read_only_archive_is_refused_without_litter
+AssertionError: 2.0470000000000255 not less than 1.0 : 只读档案应当立刻拒绝,不该先空转替换重试
+FAIL: test_aw16_rename_project_commit_point_uses_replace_with_retry (tests.test_ds_atomic_write.RenameCommitPointRetries.test_aw16_rename_project_commit_point_uses_replace_with_retry)
+  File "D:\a\OpenDesign\OpenDesign\tests\test_ds_atomic_write.py", line 515, in test_aw16_rename_project_commit_point_uses_replace_with_retry
+AssertionError: 'os.replace' unexpectedly found in ['ds_common.today_str', "(old or '').strip", "(new or '').strip", '_resolve', '_resolve', 'any', 'os.path.exists', 'ds_common.data_root', 'os.path.join', 'os.path.isdir', 'os.path.join', 'os.path.isfile', 'os.
+FAIL: test_aw12c_a_brief_reader_does_not_make_the_rename_fail (tests.test_ds_atomic_write.WindowsReplaceSemantics.test_aw12c_a_brief_reader_does_not_make_the_rename_fail)
+  File "D:\a\OpenDesign\OpenDesign\tests\test_ds_atomic_write.py", line 473, in test_aw12c_a_brief_reader_does_not_make_the_rename_fail
+AssertionError: 'error' unexpectedly found in {'error': PermissionError(13, 'The process cannot access the file because it is being used by another process')} : 别人只开了 0.2 秒,改名却失败了:{'error': PermissionError(13, 'The process cannot access
+Ran 20 tests in 15.215s
+FAILED (failures=3, skipped=7)
+---------------- 输出结束 ----------------
+runlog: windows-atomic-probe-run-34943425108-prefix-448d598 rc=0 commit=6ca1d24 dirty=yes at=2026-09-15T07:52:34Z file=tracks/opendesign-atomic-archive-write/evidence/20260915T075234Z-01-windows-atomic-probe-run-34943425108-prefix-448d598.txt

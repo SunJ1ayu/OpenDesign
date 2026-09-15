@@ -1,0 +1,14 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-aw17-oracle
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_atomic_write\ 2\>\&1\ \|\ grep\ -E\ \"\^\(FAIL\|ERROR\):\|\^Ran\|\^OK\|\^FAILED\|Error:\"
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  6ca1d24
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T07:52:16Z
+---------------- 输出开始 ----------------
+ERROR: test_aw17_renaming_a_read_only_archive_changes_nothing (tests.test_ds_atomic_write.ReadOnlyArchivesAreRefusedUpFront.test_aw17_renaming_a_read_only_archive_changes_nothing)
+PermissionError: [Errno 13] 档案是只读的,改不了: '/tmp/dsaw-a30ik67t/projects/翡翠湾-1801.md'
+Ran 21 tests in 2.916s
+FAILED (errors=1, skipped=1)
+---------------- 输出结束 ----------------
+runlog: red-aw17-oracle rc=0 commit=6ca1d24 dirty=yes at=2026-09-15T07:52:16Z file=tracks/opendesign-atomic-archive-write/evidence/20260915T075216Z-01-red-aw17-oracle.txt
