@@ -78,23 +78,44 @@ def _baseline(f, problems):
     if check.get("update_available") is not True or str(check.get("latest")) != new:
         problems.append("setup: app did not see the stand-in release (update_available=%r latest=%r error=%r)"
                         % (check.get("update_available"), check.get("latest"), check.get("error")))
-    kinds = [e.get("kind") for e in (f.get("fake_log") or []) if isinstance(e, dict)]
+    log = [e for e in (f.get("fake_log") or []) if isinstance(e, dict)]
+
+    def first(pred, after=-1):
+        return next((i for i, e in enumerate(log) if i > after and pred(e)), None)
+
+    def kind_is(k, status=None):
+        return lambda e: e.get("kind") == k and (status is None or status(e.get("status")))
+
+    ok = lambda s: s == 200          # noqa: E731
+    failed = lambda s: isinstance(s, int) and s >= 500   # noqa: E731
+    download = first(kind_is("download"))
     # 查更新走哪条来源(track opendesign-update-check-rate-limit,rl12):
-    #   feed —— 替身的 API 回 403 限流 ⇒ 软件必须靠订阅源 + 清单查到,**一次都不许问 API**(rl4 的真机版);
-    #   api  —— 替身的订阅源回 503 ⇒ 软件必须先试订阅源、再问 API。
+    #   feed —— 替身的 API 回 403 限流 ⇒ 订阅源 200、清单 200 且在下载之前,**一次都不许问 API**(rl4 的真机版);
+    #   api  —— 替身的订阅源回 503 ⇒ 先有失败的订阅源请求、之后才有成功的 API 请求、下载在 API 应答之后。
+    # 🔴 评审(overall GPT #2 / 切片 e2e Kimi #2,均复现):原来只看 kind 出没出现 —— 顺序反了、状态不对、清单只有 404 都判 OK。
     source = f.get("source")
     if source == "feed":
-        if "atom" not in kinds:
-            problems.append("setup: stand-in never received a release-feed request")
-        if "manifest" not in kinds:
-            problems.append("feed path: app never fetched the update manifest")
-        if "releases" in kinds:
+        if first(kind_is("atom", ok)) is None:
+            problems.append("setup: stand-in never answered a release-feed request with 200")
+        manifest_ok = first(kind_is("manifest", ok))
+        if manifest_ok is None:
+            problems.append("feed path: app never fetched the update manifest successfully")
+        if first(kind_is("releases")) is not None:
             problems.append("feed path worked but the app still asked the rate-limited API")
+        if download is not None and (manifest_ok is None or download < manifest_ok):
+            problems.append("feed path: download happened before the manifest was fetched")
     elif source == "api":
-        if "atom" not in kinds:
-            problems.append("fallback: app did not try the release feed first")
-        if "releases" not in kinds:
-            problems.append("fallback: app never asked the API after the feed failed")
+        feed_failed = first(kind_is("atom", failed))
+        if feed_failed is None:
+            problems.append("fallback: the release feed never failed first (scenario untested)")
+        early_api = first(kind_is("releases"))
+        if feed_failed is not None and early_api is not None and early_api < feed_failed:
+            problems.append("fallback: app asked the API before the release feed failed")
+        api_ok = first(kind_is("releases", ok), after=feed_failed if feed_failed is not None else -1)
+        if api_ok is None:
+            problems.append("fallback: app never got an API answer after the feed failed")
+        if download is not None and (api_ok is None or download < api_ok):
+            problems.append("fallback: download happened before the API answered")
     else:
         problems.append("setup: unknown update source mode %r" % (source,))
     return old, new

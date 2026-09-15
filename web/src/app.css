@@ -455,6 +455,9 @@ body.has-window-chrome { padding-top: 30px; }
   color: var(--ink-4);
   white-space: normal;
   overflow-wrap: anywhere;
+  /* 评审(切片 release-ui GLM #3):两条来源都挂时原因很长,弹层向上展开会顶出小窗口;限高、里面滚 */
+  max-height: 7.5em;
+  overflow-y: auto;
 }
 .settings-pop .divider { border-top: 1px solid var(--border-soft); margin: 5px 4px; }
 .settings-pop .soon {

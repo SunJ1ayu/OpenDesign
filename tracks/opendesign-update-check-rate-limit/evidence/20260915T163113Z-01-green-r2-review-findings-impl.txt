@@ -1,0 +1,17 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    green-r2-review-findings-impl
+cmd:     bash -c rc=0\;\ T=\$\(mktemp\ -d\)\;\ /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_update_source\ tests.test_update_manifest\ tests.test_update_e2e_harness\ tests.test_ds_update\ tests.test_ds_web_update\ tests.test_ds_update_apply\ \>\ \$T/py.txt\ 2\>\&1\ \|\|\ rc=1\;\ grep\ -E\ \"\^\(FAIL\|ERROR\):\|\^Ran\|\^OK\|\^FAILED\"\ \$T/py.txt\;\ node\ --test\ tests/test_update_ui.mjs\ 2\>\&1\ \|\ grep\ -E\ \"\^#\ \(pass\|fail\)\"\;\ node\ --test\ tests/test_update_ui.mjs\ \>/dev/null\ 2\>\&1\ \|\|\ rc=1\;\ bash\ tests/e2e/check-dist-fresh.sh\ 2\>\&1\ \|\ tail\ -1\;\ bash\ tests/e2e/check-dist-fresh.sh\ \>/dev/null\ 2\>\&1\ \|\|\ rc=1\;\ E2E=1\ timeout\ 200\ node\ tests/e2e/update_notice.e2e.mjs\ \>\ \$T/e2e.txt\ 2\>\&1\ \|\|\ rc=1\;\ grep\ -cE\ \"\^\ \ ok\ \"\ \$T/e2e.txt\;\ grep\ -E\ \"FAIL\|全部通过\"\ \$T/e2e.txt\;\ rm\ -rf\ \$T\;\ exit\ \$rc
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  d24e846
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T16:31:13Z
+---------------- 输出开始 ----------------
+Ran 209 tests in 20.528s
+OK
+# pass 43
+# fail 0
+✅ 产物新鲜度:web/dist 就是当前源码 build 出来的(3 个文件逐字节一致)
+30
+全部通过
+---------------- 输出结束 ----------------
+runlog: green-r2-review-findings-impl rc=0 commit=d24e846 dirty=yes at=2026-09-15T16:31:13Z file=tracks/opendesign-update-check-rate-limit/evidence/20260915T163113Z-01-green-r2-review-findings-impl.txt

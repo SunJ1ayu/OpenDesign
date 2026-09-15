@@ -23,6 +23,7 @@
 """
 from __future__ import annotations
 
+import http.client
 import json
 import re
 import socket
@@ -41,17 +42,35 @@ RELEASES_PATH = "/repos/{repo}/releases"
 #    那一版在更新检查里就**根本不存在,而且一声不吭** —— 和本单开头那个
 #    /releases/latest 404 是同一种病。web/src/update.ts 的 releasePageUrl 与这里同口径。
 _NUM = r"\d+(?:\.\d+){1,3}"
-ASSET_RE = re.compile(rf"^OpenDesign-Setup-({_NUM})\.exe$")
-TAG_RE = re.compile(rf"^win-installer-({_NUM})$")
-BARE_RE = re.compile(rf"^({_NUM})$")
+# 🔴 结尾用 \Z 不用 $(评审 overall GPT #1,我复现):`$` 配 match() 会放过末尾换行 ⇒
+#    清单里 `OpenDesign-Setup-0.99.1.exe\n` 被当成合法安装包名,下载地址 / 本地文件名带换行,Windows 存不下。
+ASSET_RE = re.compile(rf"^OpenDesign-Setup-({_NUM})\.exe\Z")
+TAG_RE = re.compile(rf"^win-installer-({_NUM})\Z")
+BARE_RE = re.compile(rf"^({_NUM})\Z")
 TIMEOUT_S = 10
 WEB_BASE = "https://github.com"
 MANIFEST_NAME = "OpenDesign-update.json"
 _ATOM_NS = "{http://www.w3.org/2005/Atom}"
-_TAG_LINK_RE = re.compile(r"^https://github\.com/[^/]+/[^/]+/releases/tag/([^/?#]+)$")
 _HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 FEED_LABEL = "发布页订阅源"
 API_LABEL = "GitHub 接口"
+UNVERIFIED_HUMAN = "新版缺少可核对的安装包信息"
+
+
+class ManifestError(ValueError):
+    """清单对不上。单独一类,好让 `explain` 说人话(判据 rl7e)。"""
+
+
+class FeedUnverified(Exception):
+    """订阅源里**看见了比本机新的版本**,但它的清单拿不到或对不上(判据 rl5d)。
+
+    带着版本号往上抛:回落 API 之后若 API 说"没有更新",不许把这当成"已是最新" —— 线上明明有新版。
+    """
+
+    def __init__(self, version, cause):
+        super().__init__(version)
+        self.version = version
+        self.cause = cause
 
 
 def parse_version(text):
@@ -207,20 +226,21 @@ def fetch_manifest(tag, repo=REPO, timeout=TIMEOUT_S):
     return _get_text(manifest_url(repo, tag), "application/octet-stream", timeout)
 
 
-def parse_atom(text):
+def parse_atom(text, repo=REPO):
     """订阅源 → `[{tag, html_url}]`,只留 `win-installer-<版本>`,保持原顺序(挑最新交给调用方,**不按条目先后**)。
 
     tag 与链接都取 `<link href=".../releases/tag/<tag>">` 的**原文** —— 地址由 GitHub 给,不拼(F1)。
-    不是 XML ⇒ ValueError。
+    链接必须是**本仓**的(判据 rl1d):别的仓库的 tag 链接不算本仓版本。不是 XML ⇒ ValueError。
     """
     try:
         root = ET.fromstring(text)
     except ET.ParseError as exc:
         raise ValueError("订阅源不是 XML(%s)" % exc) from None
+    link_re = re.compile(r"^%s/%s/releases/tag/([^/?#\s]+)\Z" % (re.escape(WEB_BASE), re.escape(repo)))
     out = []
     for entry in root.findall(_ATOM_NS + "entry"):
         for link in entry.findall(_ATOM_NS + "link"):
-            m = _TAG_LINK_RE.match(link.get("href") or "")
+            m = link_re.match(link.get("href") or "")
             if m and TAG_RE.match(m.group(1)):
                 out.append({"tag": m.group(1), "html_url": m.group(0)})
                 break
@@ -237,30 +257,30 @@ def parse_manifest(text, tag, repo=REPO):
     try:
         m = json.loads(text) if isinstance(text, (str, bytes, bytearray)) else text
     except ValueError:
-        raise ValueError("清单不是 JSON") from None
+        raise ManifestError("清单不是 JSON") from None
     if not isinstance(m, dict):
-        raise ValueError("清单不是对象")
+        raise ManifestError("清单不是对象")
     if type(m.get("schema")) is not int or m.get("schema") != 1:
-        raise ValueError("清单版本不认识")
+        raise ManifestError("清单版本不认识")
     tag_m = TAG_RE.match(tag or "")
     if not tag_m or m.get("tag") != tag:
-        raise ValueError("清单写的版本标签与来路不一致")
+        raise ManifestError("清单写的版本标签与来路不一致")
     version = tag_m.group(1)
     if m.get("version") != version:
-        raise ValueError("清单里的版本号与标签不一致")
+        raise ManifestError("清单里的版本号与标签不一致")
     asset = m.get("asset")
     if not isinstance(asset, dict):
-        raise ValueError("清单缺安装包信息")
+        raise ManifestError("清单缺安装包信息")
     name = asset.get("name")
     name_m = ASSET_RE.match(name) if isinstance(name, str) else None
     if not name_m or name_m.group(1) != version:
-        raise ValueError("清单里的安装包文件名与版本不一致")
+        raise ManifestError("清单里的安装包文件名与版本不一致")
     sha = asset.get("sha256")
     if not isinstance(sha, str) or not _HEX64_RE.match(sha):
-        raise ValueError("清单里的 sha256 形状不对")
+        raise ManifestError("清单里的 sha256 形状不对")
     size = asset.get("size")
     if type(size) is not int or size <= 0:
-        raise ValueError("清单里的安装包大小不对")
+        raise ManifestError("清单里的安装包大小不对")
     return {
         "name": name,
         "browser_download_url": "%s/%s/releases/download/%s/%s" % (WEB_BASE, repo, tag, name),
@@ -272,9 +292,14 @@ def parse_manifest(text, tag, repo=REPO):
 def explain(exc):
     """把一次失败说成人话,技术细节留在括号里(判据 rl7)。业主看得懂前半句,排障看后半句。"""
     tech = "%s: %s" % (exc.__class__.__name__, exc)
+    if isinstance(exc, ManifestError):
+        return "%s(%s)" % (UNVERIFIED_HUMAN, exc)
     if isinstance(exc, urllib.error.HTTPError):
         said = ("%s %s" % (exc.reason, exc)).lower()
-        if exc.code == 429 or (exc.code == 403 and "rate limit" in said):
+        headers = exc.headers if exc.headers is not None else {}
+        # 判据 rl7d:GitHub 有时状态行只写 Forbidden,限流写在 X-RateLimit-Remaining: 0 里
+        exhausted = str(headers.get("X-RateLimit-Remaining") or "").strip() == "0"
+        if exc.code == 429 or (exc.code == 403 and ("rate limit" in said or exhausted)):
             human = "GitHub 限制了这个网络出口的查询次数(同一出口的人查得太多),换个网络或稍后再试"
         elif exc.code == 404:
             human = "线上没有找到要的文件"
@@ -282,7 +307,7 @@ def explain(exc):
             human = "GitHub 拒绝了这次请求"
     elif isinstance(exc, (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError, OSError)):
         human = "连不上 GitHub(检查网络或 VPN)"
-    elif isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError)):
+    elif isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError, http.client.HTTPException)):
         # 判据 rl7c:代理 / 门户把接口换成一张网页时是这句,别把「Expecting value」当人话甩给业主
         human = "线上返回的内容看不懂(可能被网络中间的代理或登录页换掉了)"
     elif isinstance(exc, ValueError):
@@ -325,8 +350,11 @@ def _via_feed(current):
         out = _failure(current, None)
         out["latest"] = ".".join(str(n) for n in best_ver)
         return out
-    text = fetch_manifest(best["tag"])
-    asset = parse_manifest(text, best["tag"])
+    try:
+        text = fetch_manifest(best["tag"])
+        asset = parse_manifest(text, best["tag"])
+    except Exception as exc:  # noqa: BLE001 —— 带着"线上有新版"这件事往上抛(判据 rl5d)
+        raise FeedUnverified(".".join(str(n) for n in best_ver), exc) from exc
     notes = json.loads(text).get("notes")
     release = {"tag_name": best["tag"], "html_url": best["html_url"], "draft": False,
                "body": notes if isinstance(notes, str) else "", "assets": [asset]}
@@ -353,17 +381,30 @@ def check_for_update(current, fetch=None):
             return _via_releases(current, fetch)
         except Exception as exc:  # noqa: BLE001 —— 故意兜底,判据 t7d 就是钉它
             return _failure(current, "查更新失败:" + explain(exc))
+    if parse_version(current) is None:
+        # 判据 rl6b:读不出本机版本号就不联网(原来会白拉一次清单,错误还按两个来源重复两遍)
+        return _failure(current, "读不出本机版本号,不提示更新")
     reasons = []
+    unverified = None
     for label, attempt in ((FEED_LABEL, lambda: _via_feed(current)),
                            (API_LABEL, lambda: _via_releases(current, fetch_releases))):
         try:
             result = attempt()
+        except FeedUnverified as exc:
+            unverified = exc
+            detail = str(exc.cause) if isinstance(exc.cause, ManifestError) else explain(exc.cause)
+            reasons.append("%s:有新版 %s,但%s(%s)" % (label, exc.version, UNVERIFIED_HUMAN, detail))
+            continue
         except Exception as exc:  # noqa: BLE001
             reasons.append("%s:%s" % (label, explain(exc)))
             continue
         if result.get("error"):
             reasons.append("%s:%s" % (label, result["error"]))
             continue
+        if unverified is not None and not result.get("update_available"):
+            # 判据 rl5d:订阅源看见了新版、API 却说没有更新 ⇒ 不许说"已是最新"(也就不进缓存)
+            reasons.append("%s:没有比本机新的可安装版本" % label)
+            break
         return result
     return _failure(current, "查更新失败:" + ";".join(reasons))
 

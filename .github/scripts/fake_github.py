@@ -78,21 +78,30 @@ def atom_path(repo):
     return "/%s/releases.atom" % repo
 
 
+# 订阅源里除了新版,还放两条更旧的诱饵,**新版不排第一**(评审 切片 e2e Kimi #4):
+# 真 GitHub 一页 10 条、按发布时间排;产品要按版本号取最大。只放一条的话"取第一条"的回归在真机上照样绿。
+ATOM_DECOY_VERSIONS = ("0.0.2", None, "0.0.1")   # None = 新版所在的位置
+
+
 def atom_xml(repo, version):
-    """与真 releases.atom 同形(命名空间、entry、`<link href=".../releases/tag/<tag>">`),只有一个 entry。"""
-    tag = TAG_FMT.format(version=version)
+    """与真 releases.atom 同形(命名空间、entry、`<link href=".../releases/tag/<tag>">`),三个 entry,新版在中间。"""
+    entries = []
+    for v in ATOM_DECOY_VERSIONS:
+        ver = version if v is None else v
+        tag = TAG_FMT.format(version=ver)
+        entries.append(
+            '  <entry>\n'
+            '    <id>tag:github.com,2008:Repository/1/%(tag)s</id>\n'
+            '    <link rel="alternate" type="text/html" href="https://github.com/%(repo)s/releases/tag/%(tag)s"/>\n'
+            '    <title>OpenDesign %(version)s (e2e stand-in)</title>\n'
+            '    <content type="html">&lt;p&gt;e2e&lt;/p&gt;</content>\n'
+            '  </entry>\n' % {"repo": repo, "tag": tag, "version": ver})
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/" xml:lang="en-US">\n'
         '  <id>tag:github.com,2008:https://github.com/%(repo)s/releases</id>\n'
-        '  <title>Release notes from OpenDesign</title>\n'
-        '  <entry>\n'
-        '    <id>tag:github.com,2008:Repository/1/%(tag)s</id>\n'
-        '    <link rel="alternate" type="text/html" href="https://github.com/%(repo)s/releases/tag/%(tag)s"/>\n'
-        '    <title>OpenDesign %(version)s (e2e stand-in)</title>\n'
-        '    <content type="html">&lt;p&gt;e2e&lt;/p&gt;</content>\n'
-        '  </entry>\n'
-        '</feed>\n' % {"repo": repo, "tag": tag, "version": version})
+        '  <title>Release notes from OpenDesign</title>\n' % {"repo": repo}
+        + "".join(entries) + '</feed>\n')
 
 
 def update_manifest_path(repo, version):

@@ -36,6 +36,17 @@ def main(argv):
         print("✗ 安装包文件名(%s)与标签(%s)的版本对不上 —— 不生成清单" % (name, args.tag), file=sys.stderr)
         return 2
 
+    # 评审(切片 release-ui GLM #2):缺输入要一句人话,不是裸 traceback
+    if not os.path.isfile(args.exe):
+        print("✗ 找不到安装包:%s —— 不生成清单" % args.exe, file=sys.stderr)
+        return 2
+    if args.notes and not os.path.isfile(args.notes):
+        print("✗ 找不到发布说明文件:%s —— 不生成清单" % args.notes, file=sys.stderr)
+        return 2
+    out_dir = os.path.dirname(os.path.abspath(args.out))
+    if not os.path.isdir(out_dir):
+        print("✗ 清单要写去的目录不存在:%s —— 不生成清单" % out_dir, file=sys.stderr)
+        return 2
     h = hashlib.sha256()
     size = 0
     with open(args.exe, "rb") as fh:

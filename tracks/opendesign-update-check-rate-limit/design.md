@@ -86,6 +86,14 @@ e2e 全部场景默认让 API 回 403 ⇒ **一键更新走的是订阅源 + 清
 | `rl7c` | 返回体不是 JSON / 不是 UTF-8(代理或门户换成网页)⇒ 人话「返回的内容看不懂」,技术细节只在括号里(自审补) | 同上 |
 | `rl8` | 三处联网都**在请求那一刻读代理**:先装一个不走代理的全局 opener(模拟进程早先联过网),再打开假代理 ⇒ API / 订阅源 / 清单三个请求都进了代理、没有直连(t30b 同法) | 同上 |
 | `rl8e` | 清单请求的 `Accept` 是 `application/octet-stream`(不含 json)—— **真 GitHub 的下载地址带 `Accept: application/json` 回 404**(09-15 夜真 GitHub 冒烟照出,curl 三种 Accept 实测) | `tests/test_ds_update_source.py` |
+| `rl1d` | 订阅源里别的仓库的 tag 链接不算本仓版本(评审 切片 core) | `tests/test_ds_update_source.py` |
+| `rl3d` | 标签 / 文件名末尾带换行一律拒(`$` → `\Z`;评审 overall GPT) | 同上 |
+| `rl5d` | 订阅源见新版但清单不可核对、回落 API 说没更新 ⇒ **带原因失败**,不说"已是最新"、不进缓存(评审 切片 core + 整份 DeepSeek) | 同上 |
+| `rl6b` | 本机版本号读不出 ⇒ 不联网、原因只说一遍(评审 整份 GLM / Kimi) | 同上 |
+| `rl7d` | 403 限流只在 `X-RateLimit-Remaining: 0` 里也算限流;纯 Forbidden 不说成限流;`http.client.HTTPException` 说「内容看不懂」(评审 DeepSeek) | 同上 |
+| `rl7e` | 清单对不上 ⇒ 人话「新版缺少可核对的安装包信息」+ 括号细节(评审 整份 Kimi / GLM) | 同上 |
+| `rl10d` | 清单脚本缺安装包 / 说明文件 / 输出目录 ⇒ ✗ 人话、无 traceback、不留文件(评审 切片 release-ui GLM) | `tests/test_update_manifest.py` |
+| `rl12b` | 判定器按**顺序与状态**:feed 要 atom 200、清单 200 且在下载前、零 API;api 要先有失败的订阅源、之后成功的 API、下载在其后;替身订阅源三条 entry 新版不排第一;H7c 查切回真在 finally 块内(评审 overall GPT / 切片 e2e Kimi) | `tests/test_update_e2e_harness.py` |
 | `rl9` | 显式传 `fetch=` 时只用它、不碰订阅源(既有 t7~t9 注入方式不变,也防判据真打网) | 同上 |
 | `rl10` | `make-update-manifest.py`:sha256 / size 来自文件本身;tag 与文件名版本不一致 ⇒ 拒绝生成;生成物能被 `rl3` 的核对原样接受(往返) | `tests/test_update_manifest.py` |
 | `rl11` | 界面 `updateReason()`:有 error ⇒ 原样给出;查完没拿到数据 ⇒「软件后台没响应」;成功 / 检查中 ⇒ 空 | `tests/test_update_ui.mjs` |
