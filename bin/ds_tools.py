@@ -1118,6 +1118,10 @@ def rename_project(old: str, new: str, ds_root: str = DEFAULT_DS_ROOT,
             body = fh.read()
     except (OSError, UnicodeDecodeError):
         return {"error": "project_unreadable"}
+    # 只读档案同理:第④步改标题 / 改名一定过不去,放到①之后才发现 = 链接已指向新名、档案还叫旧名,
+    # 只读期间重跑也修不回来(判据 aw17,09-15 评审 DeepSeek 抓到)。
+    if ds_common.archive_read_only(old_path):
+        return {"error": "project_read_only"}
 
     updated = {"title": False, "clients": [], "index": False,
                "refs": 0, "workspace": False}

@@ -1,0 +1,12 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    green-aw17-impl
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_atomic_write\ tests.test_ds_tools\ tests.test_ds_refs\ 2\>\&1\ \|\ grep\ -E\ \"\^\(FAIL\|ERROR\):\|\^Ran\|\^OK\|\^FAILED\"
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  ff93e92
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T07:53:25Z
+---------------- 输出开始 ----------------
+Ran 217 tests in 4.379s
+OK (skipped=1)
+---------------- 输出结束 ----------------
+runlog: green-aw17-impl rc=0 commit=ff93e92 dirty=yes at=2026-09-15T07:53:25Z file=tracks/opendesign-atomic-archive-write/evidence/20260915T075325Z-01-green-aw17-impl.txt

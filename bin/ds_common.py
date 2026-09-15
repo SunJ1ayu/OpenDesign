@@ -370,6 +370,18 @@ def replace_with_retry(src: str, dst: str, attempts: int = 20,
             time.sleep(pause)
 
 
+def archive_read_only(path: str) -> bool:
+    """档案是不是只读的:看 owner 写位(Windows 上"只读"属性就反映在这一位)。stat 不了 ⇒ False,交给后面照常报错。
+
+    **唯一判法**:atomic_write_text 的拦截(判据 aw15)与 rename_project 的闸前检查(判据 aw17)都用它,别各写一份。
+    只看权限位:ACL 拒写但属性不只读的档案判不出来,那种会走到替换那一步再失败(不留残骸,只是多空转约 2 秒)。
+    """
+    try:
+        return not stat.S_IMODE(os.stat(os.path.realpath(path)).st_mode) & stat.S_IWUSR
+    except OSError:
+        return False
+
+
 @contextmanager
 def archive_lock(path: str):
     """档案 `path` 的跨进程排他锁,落在 `<所在目录>/.locks/<文件名>.lock`。
@@ -407,7 +419,7 @@ def atomic_write_text(path: str, text: str,
     # 🔴 只读档案**在建临时文件之前**就拒绝(判据 aw15)。Windows 上只读属性让替换和删除都失败:
     #    不先拦的话,要空转约 2 秒重试,finally 里删那个同样被 chmod 成只读的临时文件又失败 ⇒ 每写一次留一个删不掉的 .tmp。
     #    与旧 open(r+) 的行为一致:立刻报错、什么都不留。
-    if not mode & stat.S_IWUSR:
+    if archive_read_only(real):
         raise PermissionError(errno.EACCES, "档案是只读的,改不了", real)
     tmp = None
     try:
