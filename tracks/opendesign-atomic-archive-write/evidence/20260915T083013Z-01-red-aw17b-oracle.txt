@@ -1,0 +1,20 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-aw17b-oracle
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_atomic_write\ 2\>\&1\ \|\ grep\ -E\ \"\^\(FAIL\|ERROR\):\|\^Ran\|\^OK\|\^FAILED\|\^AssertionError\"
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  9fb4868
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T08:30:13Z
+---------------- 输出开始 ----------------
+FAIL: test_aw17b_any_read_only_file_the_rename_would_rewrite_is_refused_up_front (tests.test_ds_atomic_write.ReadOnlyArchivesAreRefusedUpFront.test_aw17b_any_read_only_file_the_rename_would_rewrite_is_refused_up_front) (read_only='client')
+AssertionError: None != 'project_read_only' : 只读的 clients/王先生.md 应当在动任何文件之前就回错误:{'raised': "PermissionError(13, '档案是只读的,改不了')"}
+FAIL: test_aw17b_any_read_only_file_the_rename_would_rewrite_is_refused_up_front (tests.test_ds_atomic_write.ReadOnlyArchivesAreRefusedUpFront.test_aw17b_any_read_only_file_the_rename_would_rewrite_is_refused_up_front) (read_only='index')
+AssertionError: None != 'project_read_only' : 只读的 index.md 应当在动任何文件之前就回错误:{'raised': "PermissionError(13, '档案是只读的,改不了')"}
+FAIL: test_aw17b_any_read_only_file_the_rename_would_rewrite_is_refused_up_front (tests.test_ds_atomic_write.ReadOnlyArchivesAreRefusedUpFront.test_aw17b_any_read_only_file_the_rename_would_rewrite_is_refused_up_front) (read_only='refs')
+AssertionError: None != 'project_read_only' : 只读的 refs-index.md 应当在动任何文件之前就回错误:{'raised': "PermissionError(13, '档案是只读的,改不了')"}
+FAIL: test_aw17b_any_read_only_file_the_rename_would_rewrite_is_refused_up_front (tests.test_ds_atomic_write.ReadOnlyArchivesAreRefusedUpFront.test_aw17b_any_read_only_file_the_rename_would_rewrite_is_refused_up_front) (read_only='workspace')
+AssertionError: None != 'project_read_only' : 只读的 config/workspace.json 应当在动任何文件之前就回错误:{'ok': True, 'old': '翡翠湾-1801', 'new': '翡翠湾-1801改', 'updated': {'title': True, 'clients': ['李女士', '王先生'], 'index': True, 'refs': 1, 'workspace': True}}
+Ran 22 tests in 2.909s
+FAILED (failures=4, skipped=1)
+---------------- 输出结束 ----------------
+runlog: red-aw17b-oracle rc=0 commit=9fb4868 dirty=yes at=2026-09-15T08:30:13Z file=tracks/opendesign-atomic-archive-write/evidence/20260915T083013Z-01-red-aw17b-oracle.txt

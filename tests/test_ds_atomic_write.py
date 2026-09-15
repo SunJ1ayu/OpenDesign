@@ -522,6 +522,47 @@ class ReadOnlyArchivesAreRefusedUpFront(_Tmp):
             self.assertEqual(_bytes(p), b, "%s 被改动了" % os.path.basename(p))
         self.assertFalse(os.path.exists(os.path.join(self.ds, "projects", new + ".md")), "档案被改成了新名")
 
+    def test_aw17b_any_read_only_file_the_rename_would_rewrite_is_refused_up_front(self):
+        # 🔴 评审 r3 GLM(被超时砍掉前已在临时目录实验证实)、我读代码核实:aw17 只查了档案本体,
+        #    而改名还要改写含 [[旧名]] 的客户备忘、索引、参考图索引「用于:」段、workspace.json 映射 ——
+        #    其中任一份只读,照样是前面几份已提交、到它这儿才抛 ⇒ 同一种半成品。
+        #    (王先生 排在 李女士 之后:只读的若是王先生,修前李女士已经被改掉,正是 GLM 实测的形状。)
+        import json
+        old, new = "翡翠湾-1801", "翡翠湾-1801改"
+        rels = {
+            "client": os.path.join("clients", "王先生.md"),
+            "index": "index.md",
+            "refs": "refs-index.md",
+            "workspace": os.path.join("config", "workspace.json"),
+        }
+        for case, ro_rel in rels.items():
+            with self.subTest(read_only=case):
+                ds = tempfile.mkdtemp(prefix="dsaw17b-")
+                self.addCleanup(shutil.rmtree, ds, ignore_errors=True)
+                files = {
+                    os.path.join("projects", old + ".md"): "# %s\n" % old + _archive_text(5, "旧").split("\n", 1)[1],
+                    os.path.join("clients", "李女士.md"): "# 李女士\n\n负责项目 [[%s]]\n\n%s" % (old, FOOTER),
+                    rels["client"]: "# 王先生\n\n负责项目 [[%s]]\n\n%s" % (old, FOOTER),
+                    rels["index"]: "# 索引\n\n- [[%s]]\n\n%s" % (old, FOOTER),
+                    rels["refs"]: "# 参考图索引\n\n- [r1] 奶油风|客厅 | 来源: | 文件:refs/a.png | 用于:%s | 备注:\n\n%s" % (old, FOOTER),
+                    rels["workspace"]: json.dumps({"root": ds, "projects": {old: "2025/" + old}}, ensure_ascii=False),
+                }
+                for rel, text in files.items():
+                    _write_text(os.path.join(ds, rel), text)
+                before = {rel: _bytes(os.path.join(ds, rel)) for rel in files}
+                ro = os.path.join(ds, ro_rel)
+                os.chmod(ro, 0o444)
+                self.addCleanup(os.chmod, ro, 0o644)      # 后注册先执行:先解只读再 rmtree
+                try:
+                    out = ds_tools.rename_project(old, new, ds, today="2026-09-15")
+                except OSError as exc:
+                    out = {"raised": repr(exc)}
+                self.assertEqual(out.get("error"), "project_read_only", "只读的 %s 应当在动任何文件之前就回错误:%r" % (ro_rel, out))
+                self.assertIn(ro_rel.replace(os.sep, "/"), out.get("read_only") or [], "错误里要点名是哪份文件只读:%r" % (out,))
+                for rel, b in before.items():
+                    self.assertEqual(_bytes(os.path.join(ds, rel)), b, "%s 被改动了(只读的是 %s)" % (rel, ro_rel))
+                self.assertFalse(os.path.exists(os.path.join(ds, "projects", new + ".md")), "档案被改成了新名")
+
 
 class RenameCommitPointRetries(unittest.TestCase):
     """aw16 —— rename_project 的提交点(档案本体改名)走 replace_with_retry,不裸调 os.replace(结构钉;行为由 aw12c 在 Windows 上问)。"""

@@ -1,0 +1,180 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-atomic-archive-write",
+  "run_id": "20260915-155652-1058185-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-atomic-archive-write-review-r3",
+  "started_at": "2026-09-15T07:56:52Z",
+  "finished_at": "2026-09-15T08:28:20Z",
+  "duration_ms": 1888106,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": true,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "submimo",
+        "degraded": false,
+        "duration_ms": 854184,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:42843d928e43661ecb30c5e163c3bb4dd5e4e2cbdd942d10f3716808344bdfb3",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-atomic-archive-write-review-r3-20260915-155652.submimo.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xiaomi",
+        "model": {
+          "invoked": "xiaomi/mimo-v2.5-pro",
+          "reported": null,
+          "requested": "xiaomi/mimo-v2.5-pro"
+        },
+        "name": "submimo",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260915-155652-1058185-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:8bf0d27a6dc738127d2488019210f335431fe61cd5b95ac03228d30de6a9255c",
+            "policy_version": 1,
+            "track": "opendesign-atomic-archive-write"
+          },
+          "digest": "sha256:1c5585b3e5f23fff75cd07b314ac914d304df3627054396f4d2cdc8b7c2f078d",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "9fb486825eb91a81c012345dae2abb2ca3d9d746",
+            "index_tree_oid": "0d1de5971188a16ec3af9adf9fae35469260bff9",
+            "worktree_tree_oid": "0d1de5971188a16ec3af9adf9fae35469260bff9"
+          },
+          "task_sha256": "sha256:15a3e9d37ab966397eadec746242f29ef5b6d48a09489ba3e162380de64fabbf"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "BLOCK",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subglm",
+        "degraded": true,
+        "duration_ms": 976349,
+        "evidence": {
+          "completeness": "none",
+          "digest": null,
+          "ref": null
+        },
+        "failure_kind": "runtime",
+        "family": "zhipu",
+        "model": {
+          "invoked": "glm-5.3",
+          "reported": null,
+          "requested": "glm-5.3"
+        },
+        "name": "subglm",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 1,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260915-155652-1058185-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "digest": null,
+          "manifest_version": 1,
+          "source": null,
+          "task_sha256": "sha256:15a3e9d37ab966397eadec746242f29ef5b6d48a09489ba3e162380de64fabbf"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "api",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "UNKNOWN",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "diff_bundle"
+        }
+      },
+      {
+        "adapter": "subgrok",
+        "degraded": false,
+        "duration_ms": 35715,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:8c399980ea7811d342087b8dec4f73561d389efdb60c9eceb624192c8e048a88",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-atomic-archive-write-review-r3-20260915-155652.subgrok.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xai",
+        "model": {
+          "invoked": "grok-4.6",
+          "reported": null,
+          "requested": "grok-4.6"
+        },
+        "name": "subgrok",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260915-155652-1058185-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:8bf0d27a6dc738127d2488019210f335431fe61cd5b95ac03228d30de6a9255c",
+            "policy_version": 1,
+            "track": "opendesign-atomic-archive-write"
+          },
+          "digest": "sha256:1c5585b3e5f23fff75cd07b314ac914d304df3627054396f4d2cdc8b7c2f078d",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "9fb486825eb91a81c012345dae2abb2ca3d9d746",
+            "index_tree_oid": "0d1de5971188a16ec3af9adf9fae35469260bff9",
+            "worktree_tree_oid": "0d1de5971188a16ec3af9adf9fae35469260bff9"
+          },
+          "task_sha256": "sha256:15a3e9d37ab966397eadec746242f29ef5b6d48a09489ba3e162380de64fabbf"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

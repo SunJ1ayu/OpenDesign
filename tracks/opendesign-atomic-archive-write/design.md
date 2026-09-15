@@ -66,6 +66,7 @@ locked_rw(path)               with archive_lock(path): 读(文件不在照旧抛
 | `aw12c` | 改名提交点被另一句柄**短暂**开着(0.2 秒)⇒ 改名成功 | 09-15 评审 Kimi 指出④裸调 `os.replace`;Linux 恒绿,Windows 探针上才真问 |
 | `aw15` | 档案只读 ⇒ `locked_rw` 写入**立刻**(< 1 秒)抛 PermissionError,档案字节不变,不留 `.tmp` | 09-15 评审 Kimi 指出、我核实:Windows 只读属性让替换与删除都失败 ⇒ 原实现空转 2 秒 + 留删不掉的只读 `.tmp`(旧 open(r+) 是立刻报错) |
 | `aw17` | 只读档案(首行 `# 旧名`、客户备忘与索引含 `[[旧名]]`)改名 ⇒ 返回 `{"error": "project_read_only"}`,三份文件字节不变、不出现新名档案 | 09-15 评审 r2 DeepSeek 发现 1、我复现:aw15 拦截落在④,①已提交 ⇒ 链接指向新名、档案还叫旧名,只读期间重跑不自愈 |
+| `aw17b` | 改名要改写的任一份文件只读(含 `[[旧名]]` 的客户备忘 / 索引 / 参考图索引「用于:」段 / workspace.json 映射,逐类 subTest)⇒ 回 `project_read_only` 且 `read_only` 点名那份文件,六份文件字节全不变 | 09-15 评审 r3 GLM 实验证实(被超时砍掉前)、我读代码核实:aw17 只查档案本体,兄弟文件只读是同一种半成品 |
 | `aw16` | `rename_project` 里不裸调 `os.replace`,提交点走 `ds_common.replace_with_retry`(AST 结构钉) | 与 aw12c 配对:本机只能钉结构 |
 | `aw13` | `_replace_with_retry` 只有一处定义(ds_common),ds_tools 引用它 | 结构钉,防第二来源 |
 | `aw14` | `atomic_write_text` 里替换之前对临时文件 `os.fsync`(AST 调用顺序) | 断电那一半本机模拟不了,只能钉结构;写判据表时漏了、实现提交前补上 |
