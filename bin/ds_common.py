@@ -9,12 +9,16 @@
   - bump_last_updated() / LASTUPD_DATE_RE:页脚锚定语义的唯一定义 ——
     **行首锚定 + 取最后一处(页脚)**,写侧读侧共用,防两侧分叉。
   - locked_rw():排他锁读改写;错误路径置 box["write"]=False 则完全不碰文件。
+  - archive_lock() / atomic_write_text() / replace_with_retry():档案写入的锁与原子写,
+    **写业主档案只许走这三个**(track opendesign-atomic-archive-write)。
 """
 from __future__ import annotations
 
 import errno
 import os
 import shutil
+import stat
+import tempfile
 import time
 import re
 from contextlib import contextmanager
@@ -329,15 +333,119 @@ def bump_last_updated(lines: list[str], today: str) -> None:
             return
 
 
+# ── 档案写入:锁 + 原子写(track opendesign-atomic-archive-write)──────────────
+#
+# 🔴 原来是 open(r+) → 锁 → 读 → truncate → write。截断之后、写完之前进程被杀
+#    (托盘退出 / 崩溃 / 断电 / 应用内更新收摊),业主的档案就只剩空文件或半截(判据 aw1/aw2 真复现过 0 字节)。
+#    而且退出 `with open(...) as fh, ds_lock.exclusive(fh):` 时是**先解锁、后关文件**,写入要到关文件才刷下去
+#    ⇒ POSIX 上另一个进程能在"锁已放、内容还空着"的那一瞬拿到锁、读到空档案(aw5 抓到的)。
+#
+# 形状照抄仓里真机验过的 workspace.json 那套(ds_tools.locked_workspace_json):
+#   **锁落在旁路文件上**(被 os.replace 之后,锁若挂在目标本体上就跟着旧 inode 走了,下一个写者绕过互斥;
+#   而 Windows 上持着目标的句柄时 os.replace 根本换不掉它)+ 同目录临时文件 + 刷盘 + 替换。
+
+LOCK_DIR_NAME = ".locks"          # 每个档案目录下一个;列表代码只认 .md 结尾(projects/ 早有 .trash/ 先例)
+ARCHIVE_REPLACE_ATTEMPTS = 100    # × 0.02s ≈ 2 秒:Windows 上别人短暂开着档案时等它关
+
+
+def replace_with_retry(src: str, dst: str, attempts: int = 20,
+                       pause: float = 0.02) -> None:
+    """`os.replace` 的 Windows 加固:目标被别人打开着时重试若干次再放弃。**唯一定义**(判据 aw13)。
+
+    **2026-07-27 用户 Windows 真机实测抓到的**(workspace.json 的判据 t06,Linux 上永远绿):
+    POSIX 上 rename 覆盖一个"正被读的文件"完全合法;**Windows 上直接
+    `PermissionError(13, '拒绝访问。')`** —— 只要有任何人把目标打开着(哪怕只是读的那零点几毫秒),
+    替换就当场炸。重试是标准解:读者的打开窗口是毫秒级。
+
+    最后一次仍失败就照抛 —— 不吞异常,写失败必须让调用方知道。
+    **不做"失败就退回原地写"**:那会让 Windows 上的原子性在判据全绿时悄悄失效(design 风险 1)。
+    """
+    for i in range(attempts):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if i == attempts - 1:
+                raise
+            time.sleep(pause)
+
+
+@contextmanager
+def archive_lock(path: str):
+    """档案 `path` 的跨进程排他锁,落在 `<所在目录>/.locks/<文件名>.lock`。
+
+    - 锁文件**永不删除**:删一个别人正持着的锁文件 = 下一个人建了新文件、互斥失效。
+    - 所在目录不存在就照抛(不替调用方把目录建出来 —— 原实现 open(r+) 也是直接抛)。
+    - 按 realpath 定位:经符号链接写的和直接写的是同一把锁。
+    """
+    real = os.path.realpath(path)
+    lock_dir = os.path.join(os.path.dirname(real), LOCK_DIR_NAME)
+    try:
+        os.mkdir(lock_dir)
+    except FileExistsError:
+        pass
+    lock_path = os.path.join(lock_dir, os.path.basename(real) + ".lock")
+    with open(lock_path, "a+b") as lock_fh, ds_lock.exclusive(lock_fh):
+        yield
+
+
+def atomic_write_text(path: str, text: str,
+                      attempts: int = ARCHIVE_REPLACE_ATTEMPTS) -> None:
+    """把 `text` 原子地写成 `path`:要么还是旧文件,要么是完整新文件,**任何时刻被杀都不会是半截**。
+
+    同目录临时文件(text 模式、utf-8、newline 默认 —— 与原实现逐字节一致,Windows 上照样写 CRLF)
+    → 写 → flush → **fsync**(断电那一半:只改名不刷盘,断电后可能是改名落了、数据块没落的空文件)
+    → 保留原权限位(临时文件建出来是 0600,替换过去会悄悄收紧业主的文件)→ 替换 → POSIX 上刷目录。
+    失败路径删掉临时文件,不留残骸(判据 aw3)。调用方负责持 `archive_lock`。
+    """
+    real = os.path.realpath(path)
+    directory = os.path.dirname(real)
+    try:
+        mode = stat.S_IMODE(os.stat(real).st_mode)
+    except OSError:
+        mode = 0o644
+    tmp = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=directory,
+                                         prefix="." + os.path.basename(real) + ".",
+                                         suffix=".tmp", delete=False) as fh:
+            tmp = fh.name
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.chmod(tmp, mode)
+        replace_with_retry(tmp, real, attempts=attempts)
+        tmp = None
+    finally:
+        if tmp is not None:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+    if os.name != "nt":
+        try:
+            dfd = os.open(directory, os.O_RDONLY)
+        except OSError:
+            return
+        try:
+            os.fsync(dfd)
+        except OSError:
+            pass
+        finally:
+            os.close(dfd)
+
+
 @contextmanager
 def locked_rw(path: str):
-    """以排他锁打开文件做读改写。yield box:改 box["lines"];
-    错误路径先置 box["write"] = False 再 return,文件将原封不动(mtime 也不碰)。"""
-    with open(path, "r+", encoding="utf-8") as fh, ds_lock.exclusive(fh):
-        fh.seek(0)
-        box = {"lines": fh.read().split("\n"), "write": True}
+    """以排他锁做档案的读改写。yield box:改 box["lines"];
+    错误路径先置 box["write"] = False 再 return,文件将原封不动(mtime 也不碰)。
+
+    写回走 `atomic_write_text`,**在锁内**完成写 + 刷盘 + 替换(判据 aw1~aw7)。
+    文件不存在照旧抛 FileNotFoundError。
+    """
+    with archive_lock(path):
+        with open(path, encoding="utf-8") as fh:
+            box = {"lines": fh.read().split("\n"), "write": True}
         yield box
         if box["write"]:
-            fh.seek(0)
-            fh.truncate()
-            fh.write("\n".join(box["lines"]))
+            atomic_write_text(path, "\n".join(box["lines"]))

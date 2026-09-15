@@ -761,33 +761,6 @@ def list_todos(stale_days: int = 7, ds_root: str = DEFAULT_DS_ROOT) -> dict:
 _ws_lock_held = threading.local()
 
 
-def _replace_with_retry(src: str, dst: str, attempts: int = 20,
-                        pause: float = 0.02) -> None:
-    """`os.replace` 的 Windows 加固:目标被别人打开着时重试若干次再放弃。
-
-    **2026-07-27 用户 Windows 真机实测抓到的**(判据 t06,Linux 上永远绿):
-    POSIX 上 rename 覆盖一个"正被读的文件"完全合法;**Windows 上直接
-    `PermissionError(13, '拒绝访问。')`** —— 只要有任何人把 workspace.json
-    打开着(哪怕只是 `load_config` 那零点几毫秒),写者的原子替换就当场炸。
-    真机是 MCP server + ds-web 两进程、ds-web 自己还是多线程,撞上不是小概率。
-    用户看到的现象=**保存莫名其妙失败**,而锁一点忙都帮不上:读者根本不拿锁。
-
-    为什么不是"让读者也拿锁":读遍布全仓(每次 `load_config` 都是一次读),
-    全部上锁既贵又会把 Windows 那条「重试约 10 次后抛 OSError」的争用面放大。
-    重试是标准解:读者的打开窗口是毫秒级,20 次 × 20ms ≈ 0.4s 足够跨过去。
-
-    最后一次仍失败就照抛 —— 不吞异常,写失败必须让调用方知道。
-    """
-    for i in range(attempts):
-        try:
-            os.replace(src, dst)
-            return
-        except PermissionError:
-            if i == attempts - 1:
-                raise
-            time.sleep(pause)
-
-
 def _write_workspace_json(cfg_path: str, obj: dict) -> None:
     """workspace.json 原子写(同目录唯一 tmp + os.replace,读者看不到半文件)。
 
@@ -812,7 +785,7 @@ def _write_workspace_json(cfg_path: str, obj: dict) -> None:
             json.dump(obj, fh, ensure_ascii=False, indent=2)
             fh.write("\n")
         os.chmod(tmp, mode)
-        _replace_with_retry(tmp, cfg_path)
+        ds_common.replace_with_retry(tmp, cfg_path)  # 唯一定义在 ds_common(Windows 真机 t06 的故事也在那)
         tmp = None
     finally:
         if tmp is not None:
@@ -1168,8 +1141,16 @@ def rename_project(old: str, new: str, ds_root: str = DEFAULT_DS_ROOT,
             continue  # 坏编码单文件跳过(M1 同哲学),审计里自然不出现
         if link_old not in text:
             continue
-        with open(path, "w", encoding="utf-8") as fh:
-            fh.write(text.replace(link_old, link_new))
+        # 🔴 原来锁都不拿、直接 open(w) 截断重写:改名改到一半被杀 = 客户备忘/索引半截(判据 aw10)。
+        #    改走 locked_rw(锁 + 原子写),锁内按最新内容复查再换,换行口径与原来一致。
+        with ds_common.locked_rw(path) as box:
+            joined = "\n".join(box["lines"])
+            if link_old in joined:
+                box["lines"] = joined.replace(link_old, link_new).split("\n")
+            else:
+                box["write"] = False
+        if not box["write"]:
+            continue
         if path == index_path:
             updated["index"] = True
         else:
@@ -1211,15 +1192,18 @@ def rename_project(old: str, new: str, ds_root: str = DEFAULT_DS_ROOT,
             box["write"] = False
 
     # ④ 档案本体:首标题恰好 `# old` 才改(自定义 title 不动);os.replace=提交点
-    # (body 已在闸后预读,fail fast)
-    first_nl = body.find("\n")
-    first_line = body if first_nl == -1 else body[:first_nl]
-    if first_line.strip() == f"# {old}":
-        body = f"# {new}" + ("" if first_nl == -1 else body[first_nl:])
-        updated["title"] = True
-        with open(old_path, "w", encoding="utf-8") as fh:
-            fh.write(body)
-    os.replace(old_path, new_path)
+    # (body 已在闸后预读,fail fast)。🔴 改标题原来是 open(w) 截断重写 ⇒ 改走锁 + 原子写(判据 aw10),
+    #  锁内按最新内容重读,别拿闸前那份旧 body 覆盖掉这之间别人刚写进档案的变更。
+    with ds_common.archive_lock(old_path):
+        with open(old_path, encoding="utf-8") as fh:
+            body = fh.read()
+        first_nl = body.find("\n")
+        first_line = body if first_nl == -1 else body[:first_nl]
+        if first_line.strip() == f"# {old}":
+            body = f"# {new}" + ("" if first_nl == -1 else body[first_nl:])
+            updated["title"] = True
+            ds_common.atomic_write_text(old_path, body)
+        os.replace(old_path, new_path)
     return {"ok": True, "old": old, "new": new, "updated": updated}
 
 

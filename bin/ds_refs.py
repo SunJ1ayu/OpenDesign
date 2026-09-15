@@ -20,8 +20,7 @@ from __future__ import annotations
 import os
 import re
 
-import ds_common  # 共享:防逃逸谓词/字段消毒/页脚锚定/加锁读改写(同目录模块)
-import ds_lock    # add_style 走整文追加,单独用锁
+import ds_common  # 共享:防逃逸谓词/字段消毒/页脚锚定/加锁读改写 + 档案原子写(同目录模块)
 
 # env DS_ROOT 缺失时基于 __file__ 推导(bin/ 的上一级):Linux/Windows 通用,不硬编码 /root
 DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -97,9 +96,10 @@ def add_style(style: str, ds_root: str = DEFAULT_DS_ROOT) -> dict:
     if not style or any(c in style for c in "|,\r\n"):
         return {"error": "bad_style"}
     path = _ensure_vocab(ds_root)
-    with open(path, "r+", encoding="utf-8") as fh, ds_lock.exclusive(fh):
-        fh.seek(0)
-        text = fh.read()
+    # 🔴 原来锁词表本体 + r+ 截断重写:写到一半被杀 = 词表半截(判据 aw9)。改走档案那套锁 + 原子写。
+    with ds_common.archive_lock(path):
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
         # L8(07-13 盲评):查重在锁内(持文本后),否则并发两次 add 同词都过锁外
         # 检查 → 词表出现重复行。持锁复查=唯一写者视角。
         if style in _parse_styles(text):
@@ -108,9 +108,7 @@ def add_style(style: str, ds_root: str = DEFAULT_DS_ROOT) -> dict:
         if not text.endswith("\n"):
             text += "\n"
         text += f"- {style}\n"
-        fh.seek(0)
-        fh.truncate()
-        fh.write(text)
+        ds_common.atomic_write_text(path, text)
     return {"ok": True, "style": style}
 
 
