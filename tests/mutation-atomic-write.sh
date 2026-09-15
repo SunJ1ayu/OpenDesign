@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 红检 —— 证明 tests/test_ds_atomic_write.py(aw1~aw17)咬得动(track opendesign-atomic-archive-write)。
+# 红检 —— 证明 tests/test_ds_atomic_write.py(aw1~aw17b)咬得动(track opendesign-atomic-archive-write)。
 #
 # 规矩同 tests/mutation-ds-update-apply.sh:变异**被测对象**(bin/ds_common.py、bin/ds_refs.py、bin/ds_tools.py),
 # 每条指定靶子(**必须是它自己红**,红在别处不算红检过),跑完原样还回去并核哈希。
@@ -132,12 +132,24 @@ mutate_and_expect m13 test_aw16_rename_project_commit_point_uses_replace_with_re
   '        ds_common.replace_with_retry(old_path, new_path, attempts=ds_common.ARCHIVE_REPLACE_ATTEMPTS)' \
   '        os.replace(old_path, new_path)'
 
-# m14 改名不做闸前只读检查 ⇒ ①先提交、④再抛,链接指向新名、档案还叫旧名(评审 r2 DeepSeek 那条)
+# m14 闸前清单漏掉档案本体 ⇒ ①先提交、④再抛,链接指向新名、档案还叫旧名(评审 r2 DeepSeek 那条)
 mutate_and_expect m14 test_aw17_renaming_a_read_only_archive_changes_nothing bin/ds_tools.py \
-  '    if ds_common.archive_read_only(old_path):
-        return {"error": "project_read_only"}' \
+  '    out = [old_path]                                   # ④ 改名(可能连标题)一定动档案本体' \
+  '    out = []                                           # ④ 改名(可能连标题)一定动档案本体'
+
+# m15 闸前清单漏掉客户备忘 / 索引(①)⇒ 它们只读时照样改到一半(评审 r3 GLM 那条)
+mutate_and_expect m15 test_aw17b_any_read_only_file_the_rename_would_rewrite_is_refused_up_front bin/ds_tools.py \
+  '                if link_old in fh.read():
+                    out.append(path)' \
+  '                if False:
+                    out.append(path)'
+
+# m16 闸前清单漏掉 workspace.json(③)
+mutate_and_expect m16 test_aw17b_any_read_only_file_the_rename_would_rewrite_is_refused_up_front bin/ds_tools.py \
+  '    if isinstance(raw, dict) and isinstance(raw.get("projects"), dict) and old in raw["projects"]:
+        out.append(cfg_path)' \
   '    if False:
-        return {"error": "project_read_only"}'
+        out.append(cfg_path)'
 
 # 对照组:只加一行注释 ⇒ 必须仍然全绿(变异框架本身没有误报)
 restore
