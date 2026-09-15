@@ -1088,6 +1088,40 @@ def _bind_project_impl(project: str, folder: str, ds_root: str,
 # 执行顺序=引用先改(全幂等),档案 os.replace 最后(=提交点):中途崩 old 档案
 # 还在,重跑一遍补齐;反序崩后 old 已消失无法重跑。跨文件无整体原子性=接受的
 # deviation(单用户本地盘,窗口毫秒级),返回审计清单如实报改了什么。
+def _rename_rewrites(old: str, link_old: str, old_path: str, targets: list[str],
+                     refs_path: str, cfg_path: str) -> list[str]:
+    """rename_project 会改写哪些文件 —— 条件与它的①②③④逐一对应,只读、不加锁(真正改写时锁内还会复查)。
+    给只读闸用(判据 aw17b):这里漏一类,那一类只读时就又是改到一半的半成品。"""
+    out = [old_path]                                   # ④ 改名(可能连标题)一定动档案本体
+    for path in targets:                               # ① 含 [[old]] 的客户备忘 / 索引
+        try:
+            with open(path, encoding="utf-8") as fh:
+                if link_old in fh.read():
+                    out.append(path)
+        except (OSError, UnicodeDecodeError):
+            continue
+    if os.path.isfile(refs_path):                      # ② 「用于:」段里有 old 的参考图索引
+        import ds_refs
+        try:
+            with open(refs_path, encoding="utf-8") as fh:
+                lines = fh.read().split("\n")
+        except (OSError, UnicodeDecodeError):
+            lines = []
+        for ln in lines:
+            seg = ds_refs._used_segment(ln)
+            if seg is not None and old in seg[1]:
+                out.append(refs_path)
+                break
+    try:                                               # ③ 映射里有 old 的 workspace.json
+        with open(cfg_path, encoding="utf-8") as fh:
+            raw = json.load(fh)
+    except (OSError, ValueError):
+        raw = None
+    if isinstance(raw, dict) and isinstance(raw.get("projects"), dict) and old in raw["projects"]:
+        out.append(cfg_path)
+    return out
+
+
 def rename_project(old: str, new: str, ds_root: str = DEFAULT_DS_ROOT,
                    today: str | None = None) -> dict:
     """项目改名,五处引用一致更新(变更历史/沟通日志正文里的旧名不动=账本语义)。
@@ -1118,15 +1152,7 @@ def rename_project(old: str, new: str, ds_root: str = DEFAULT_DS_ROOT,
             body = fh.read()
     except (OSError, UnicodeDecodeError):
         return {"error": "project_unreadable"}
-    # 只读档案同理:第④步改标题 / 改名一定过不去,放到①之后才发现 = 链接已指向新名、档案还叫旧名,
-    # 只读期间重跑也修不回来(判据 aw17,09-15 评审 DeepSeek 抓到)。
-    if ds_common.archive_read_only(old_path):
-        return {"error": "project_read_only"}
 
-    updated = {"title": False, "clients": [], "index": False,
-               "refs": 0, "workspace": False}
-
-    # ① clients/*.md + index.md:[[old]] → [[new]](精确定界,散文里的链接也跟走)
     link_old, link_new = f"[[{old}]]", f"[[{new}]]"
     root = ds_common.data_root(ds_root)
     client_dir = os.path.join(root, "clients")
@@ -1137,6 +1163,22 @@ def rename_project(old: str, new: str, ds_root: str = DEFAULT_DS_ROOT,
     index_path = os.path.join(root, "index.md")
     if os.path.isfile(index_path):
         targets.append(index_path)
+    refs_path = os.path.join(root, "refs-index.md")
+    cfg_path = os.path.join(root, "config", "workspace.json")
+
+    # 只读闸(判据 aw17 / aw17b):改名要改写的**每一份**文件都在动任何东西之前查一遍。
+    # 放到中途才发现 = 前面几份已指向新名、这份没改(档案还叫旧名),只读期间重跑也修不回来
+    # (09-15 评审 DeepSeek 抓到档案本体、GLM 实验证实客户备忘 / 索引 / 参考图索引同形)。
+    read_only = [p for p in _rename_rewrites(old, link_old, old_path, targets, refs_path, cfg_path)
+                 if ds_common.archive_read_only(p)]
+    if read_only:
+        return {"error": "project_read_only",
+                "read_only": [os.path.relpath(p, root).replace(os.sep, "/") for p in read_only]}
+
+    updated = {"title": False, "clients": [], "index": False,
+               "refs": 0, "workspace": False}
+
+    # ① clients/*.md + index.md:[[old]] → [[new]](精确定界,散文里的链接也跟走)
     for path in targets:
         try:
             with open(path, encoding="utf-8") as fh:
@@ -1162,7 +1204,6 @@ def rename_project(old: str, new: str, ds_root: str = DEFAULT_DS_ROOT,
 
     # ② refs-index.md:"用于:"段逗号列表精确项替换(复用 ds_refs 分段真相源,
     # 不子串误伤"锦修外滩二期")
-    refs_path = os.path.join(root, "refs-index.md")
     if os.path.isfile(refs_path):
         import ds_refs
         with ds_common.locked_rw(refs_path) as box:
