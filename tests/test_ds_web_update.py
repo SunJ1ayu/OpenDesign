@@ -69,12 +69,38 @@ def _get(port, path):
     return r.status, (json.loads(body.decode("utf-8")) if body else None)
 
 
+def _feed_unavailable(test):
+    """把「发布页订阅源」那条来源换成必失败的替身,让下面的判据**只问 API 那条路**。
+
+    ⚠️ 2026-09-15 夜加的(track opendesign-update-check-rate-limit,先于实现提交):那单把查更新改成
+    订阅源为主、API 为备。这份判据原来只替换 `ds_update.fetch_releases` —— 改完之后,
+    不带 fetch 的 `check_cached` 会**先真去打 github.com 的订阅源**(判据有外网出口),
+    而且订阅源说"已是最新"时根本不问 API ⇒ t9c/t9e 数的调用次数变 0。
+    问法不变:这些判据一直问的是"端点 → ds_update → 注入的来源"那条接线;订阅源那条路由 rl1~rl9 另外钉。
+    """
+    had = hasattr(ds_update, "fetch_atom")
+    real = getattr(ds_update, "fetch_atom", None)
+
+    def unavailable(*a, **kw):
+        raise OSError("判据不打网:订阅源在这份判据里一律不可用")
+
+    ds_update.fetch_atom = unavailable
+
+    def restore():
+        if had:
+            ds_update.fetch_atom = real
+        else:
+            delattr(ds_update, "fetch_atom")
+    test.addCleanup(restore)
+
+
 class UpdateCheckEndpoint(unittest.TestCase):
 
     def setUp(self):
         ds_update.cache_clear()
         self._real = ds_update.fetch_releases
         self.calls = []
+        _feed_unavailable(self)
 
     def tearDown(self):
         ds_update.fetch_releases = self._real
@@ -221,6 +247,7 @@ class UpdateApplyEndpoint(unittest.TestCase):
     def setUp(self):
         ds_update.cache_clear()
         self._real_fetch = ds_update.fetch_releases
+        _feed_unavailable(self)
         self._real_apply = ds_update_apply.apply_update
         self._real_handoff = ds_update_apply.handoff
         self._real_bridge = getattr(ds_web, "ds_shell_bridge_update", None)
