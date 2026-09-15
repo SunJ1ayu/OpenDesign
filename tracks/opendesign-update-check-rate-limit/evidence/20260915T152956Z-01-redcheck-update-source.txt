@@ -1,0 +1,38 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-update-source
+cmd:     bash tests/mutation-update-source.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  ecc8d97
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T15:29:56Z
+---------------- 输出开始 ----------------
+== ds_update 订阅源 / 清单 / 回落 / 人话 / 代理 ==
+  [咬住] r1 → test_rl2_the_highest_version_wins_not_the_first_entry
+  [咬住] r2 → test_rl4_when_the_feed_works_the_api_is_never_asked
+  [咬住] r3 → test_rl5a_feed_down_falls_back_to_the_api
+  [咬住] r4 → test_rl6_not_newer_means_up_to_date_without_fetching_a_manifest
+  [咬住] r5 → test_rl3c_every_mismatch_is_refused
+  [咬住] r6 → test_rl3c_every_mismatch_is_refused
+  [咬住] r7 → test_rl3b_tag_text_is_used_verbatim_in_the_url
+  [咬住] r8 → test_rl7a_rate_limit_is_explained
+  [咬住] r9 → test_rl8a_api
+  [咬住] r10 → test_rl8e_manifest_is_asked_for_as_a_file_not_as_json
+  [咬住] r11 → test_rl9_injected_fetch_never_touches_the_feed
+  [咬住] r12 → test_rl1b_other_tags_are_dropped
+  [咬住] r13 → test_rl5c_both_down_says_both_reasons_and_offers_nothing
+  [咬住] r14 → test_rl8b_feed
+== 发版清单生成脚本 ==
+  [咬住] n1 → test_rl10a_digest_and_size_come_from_the_file_itself
+  [漏网] n2 判据全绿 —— test_rl10b_tag_and_file_name_must_agree 没咬住
+== 界面原因 ==
+  [咬住] u1 → rl11b
+  [咬住] u2 → rl11a
+== Windows e2e 替身 / 判定器 ==
+  [咬住] h1 → test_h6b_feed_mode_manifest_with_json_accept_is_404_like_real_github
+  [咬住] h2 → test_h6c_feed_mode_api_is_rate_limited
+  [咬住] h3 → test_v2_every_break_fails
+  [咬住] h4 → test_v2_every_break_fails
+
+== 红检小结:咬住 21 条 / 漏网 1 条(被测文件已逐字节还原)==
+---------------- 输出结束 ----------------
+runlog: redcheck-update-source rc=1 commit=ecc8d97 dirty=yes at=2026-09-15T15:29:56Z file=tracks/opendesign-update-check-rate-limit/evidence/20260915T152956Z-01-redcheck-update-source.txt
