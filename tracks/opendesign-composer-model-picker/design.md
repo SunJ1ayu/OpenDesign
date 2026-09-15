@@ -19,6 +19,11 @@
         `_refresh_provider_snapshot` 直接 return / 永远沿用启动时的预设,界面显示换了而实际没换(静默)。
         出货路径 `python -m nanobot gateway`(ds_shell.py、ds-nanobot.ps1)走 cli/commands.py:844-854,两样都传了
         (评审 DeepSeek 两种构造都跑过,我读 venv 源码核实)。哪天换启动方式,这条要重核。
+        ⚠️ 例外(评审 r2 Kimi 指出、我读 loop.py:441-456 / 474-479 核实):有人在聊天里打过 `/model X` 之后,
+        网关内存里 `_active_preset=X`,而 `set_model_preset` 不更新 `_default_selection_signature`。
+        此时按钮选的若**正是配置里已有的那个默认**,配置不变 ⇒ 刷新走"保留会话预设"那支 ⇒ 实际仍用 X,按钮却显示默认(静默)。
+        选一个**别的**模型会改配置签名、清掉会话预设,再选回来即恢复;重启网关也恢复。旧头部同样读配置,不是本单引入;
+        业主不打 `/model`,但出货模板第 29 行注释在教它(那行"不需前端按钮"已过时,模板动了会触发 /UPDATE 不跑 provisioning 那笔账,本单不碰,记账)。
 
 目录(ds_credential.PROVIDERS 加 models)
   mimo     = 出货模板 config/nanobot.config.windows.jsonc 的 model_presets 里全部 provider=custom 的名字(不抄第二份)

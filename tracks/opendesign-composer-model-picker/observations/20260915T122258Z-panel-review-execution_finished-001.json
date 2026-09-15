@@ -1,0 +1,180 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-composer-model-picker",
+  "run_id": "20260915-200422-1229244-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-composer-model-picker-review-r2",
+  "started_at": "2026-09-15T12:04:22Z",
+  "finished_at": "2026-09-15T12:22:58Z",
+  "duration_ms": 1115974,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": true,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "subglm",
+        "degraded": true,
+        "duration_ms": 413278,
+        "evidence": {
+          "completeness": "partial",
+          "digest": "sha256:9ecc4bdb599403cdb204423022e2866bea62254c5580845ce12922058c9f8b70",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-composer-model-picker-review-r2b-20260915-200422.subglm.evidence.log"
+        },
+        "failure_kind": "runtime",
+        "family": "zhipu",
+        "model": {
+          "invoked": "glm-5.3",
+          "reported": null,
+          "requested": "glm-5.3"
+        },
+        "name": "subglm",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 1,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260915-200422-1229244-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "digest": null,
+          "manifest_version": 1,
+          "source": null,
+          "task_sha256": "sha256:3a5fea525626536c281522268f93885cebe66c89ecdee551f4dc4158304e5160"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "api",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "UNKNOWN",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "diff_bundle"
+        }
+      },
+      {
+        "adapter": "subkimi",
+        "degraded": false,
+        "duration_ms": 1073699,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:cc4b3f68acb2265594747c8e5338e4035ab27646e807e505af5b19f382e9bd93",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-composer-model-picker-review-r2b-20260915-200422.subkimi.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "moonshot",
+        "model": {
+          "invoked": "kimi-code/kimi-for-coding",
+          "reported": null,
+          "requested": "kimi-code/kimi-for-coding"
+        },
+        "name": "subkimi",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260915-200422-1229244-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:614a1b299463df8ffefc8f08e653c8e73f467af58d1f1f0682dba2462b4756e0",
+            "policy_version": 1,
+            "track": "opendesign-composer-model-picker"
+          },
+          "digest": "sha256:acadd2c30f7a8a1343a4e8ff25f7d76a8076e3eb7fde2f0016d8b0808f10c491",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "51d2b35da0c3a0d52542680b358cdde057072393",
+            "index_tree_oid": "b37a33bf38b5f038763f3101e0d694c5303e3c5f",
+            "worktree_tree_oid": "b37a33bf38b5f038763f3101e0d694c5303e3c5f"
+          },
+          "task_sha256": "sha256:3a5fea525626536c281522268f93885cebe66c89ecdee551f4dc4158304e5160"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subgrok",
+        "degraded": false,
+        "duration_ms": 32987,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:492c06d7f2370785303b83c34846528095d9dab1daa6237c744440faef6c2f60",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-composer-model-picker-review-r2b-20260915-200422.subgrok.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xai",
+        "model": {
+          "invoked": "grok-4.6",
+          "reported": null,
+          "requested": "grok-4.6"
+        },
+        "name": "subgrok",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260915-200422-1229244-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:614a1b299463df8ffefc8f08e653c8e73f467af58d1f1f0682dba2462b4756e0",
+            "policy_version": 1,
+            "track": "opendesign-composer-model-picker"
+          },
+          "digest": "sha256:acadd2c30f7a8a1343a4e8ff25f7d76a8076e3eb7fde2f0016d8b0808f10c491",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "51d2b35da0c3a0d52542680b358cdde057072393",
+            "index_tree_oid": "b37a33bf38b5f038763f3101e0d694c5303e3c5f",
+            "worktree_tree_oid": "b37a33bf38b5f038763f3101e0d694c5303e3c5f"
+          },
+          "task_sha256": "sha256:3a5fea525626536c281522268f93885cebe66c89ecdee551f4dc4158304e5160"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "NEEDS_MORE_INFO",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
