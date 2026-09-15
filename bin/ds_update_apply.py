@@ -387,7 +387,10 @@ def _default_download(url, dest):
     # 🔴 **走系统代理**(t30)。这里原来复用了 build_opener() —— 那是 t18 给"问本机 health"用的、
     #    专门绕开代理的 opener。而查更新走默认 urllib、认代理 ⇒ 业主开 VPN 时查得到新版、
     #    下载却直接去连 github.com。去外网的请求一律走默认 opener,和查更新同一个口径。
-    with urllib.request.urlopen(req, timeout=300) as resp, open(dest, "wb") as fh:
+    # 🔴 而且**当场现建**(t30b),不用 urlopen:urlopen 复用进程级缓存的 opener,代理在它第一次被建时
+    #    读一次就定死 ⇒ 业主先开软件、后开 VPN,下载照样不走代理。build_opener() 不带参数 = 默认处理器
+    #    (含按此刻系统代理建的 ProxyHandler);和上面那个传了空 ProxyHandler 的 build_opener 不是一回事。
+    with urllib.request.build_opener().open(req, timeout=300) as resp, open(dest, "wb") as fh:
         shutil.copyfileobj(resp, fh)
     return dest
 
