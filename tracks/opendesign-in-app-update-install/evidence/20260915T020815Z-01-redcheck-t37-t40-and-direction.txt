@@ -1,0 +1,71 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-t37-t40-and-direction
+cmd:     bash tests/mutation-ds-update-apply.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  350fef1
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T02:08:15Z
+---------------- 输出开始 ----------------
+== 红检 bin/ds_update_apply.py ==
+  [咬住] m1 → test_t15a_missing_digest_is_a_failure_not_a_skip
+  [咬住] m2 → test_t15b_malformed_digest_is_a_failure
+  [咬住] m3 → test_t4a_refuses
+  [咬住] m4 → test_t14a_downloader_gets_the_exact_url_github_gave
+  [咬住] m5 → test_t16a_success_path_does_not_touch_the_live_tree
+  [咬住] m6 → test_t4c_new_dir_is_gone
+  [咬住] m7 → test_t5a_missing_sentinel_aborts
+    锚点出现 0 次,不是 1 次:'    if got != str(expect_version):'
+  [BAD]  m8 变异没打上去(靶子文本没匹配到)
+  [咬住] m9 → test_t13a_logs_exemption_is_a_named_dir_not_a_glob
+  [咬住] m10 → test_t13b_protected_dirs_are_named
+  [咬住] m11 → test_t13c_stage_one_writes_nothing_under_data_root_but_logs
+  [咬住] m12 → test_t6a_teardown_gate_comes_before_any_rename
+  [咬住] m13 → test_t6b_failed_teardown_deletes_new_and_stops
+  [咬住] m14 → test_t6c_renderer_keeps_every_step_and_their_order
+  [咬住] m15 → test_t17a_plan_has_a_rollback_that_puts_old_back
+  [咬住] m16 → test_t18b_opener_bypasses_the_system_proxy
+  [咬住] m17 → test_t18c_answer_without_the_nonce_is_not_accepted
+  [咬住] m18 → test_t18f_right_nonce_but_old_version_is_not_accepted
+  [对照组] c1 只在注释里写 releases/download → 仍然全绿(没有误报)
+  [咬住] m19 → test_t20b_the_nsi_parses_that_exact_flag
+  [咬住] m20 → test_t20a_installer_is_invoked_with_the_update_flag
+  [咬住] m21 → test_t20c_provisioning_is_guarded_by_the_update_flag
+  [咬住] m22 → test_t20c_provisioning_is_guarded_by_the_update_flag
+  [咬住] m23 → test_t20b_the_nsi_parses_that_exact_flag
+  [咬住] m24 → test_t25a_tree_paths_are_the_real_ones
+  [咬住] m25 → test_t28a_first_rename_is_retried_with_a_bound
+  [咬住] m26 → test_t28b_give_up_paths_bring_the_old_app_back
+  [咬住] m27 → test_t28c_rollback_stops_what_runs_from_the_live_tree_before_moving_it
+  [咬住] m28 → test_t28d_rollback_never_moves_old_into_an_existing_live_tree
+  [咬住] m30 → test_t29a_handoff_launches_the_relay_from_its_own_folder
+  [咬住] m31 → test_t29b_the_script_leaves_the_tree_before_anything_else
+  [咬住] m32 → test_t24b_failure_branches_are_control_flow_not_comments
+  [咬住] m33 → test_t30a_download_asks_the_proxy_not_the_internet
+  [咬住] m34 → test_t32a_stale_old_is_removed_and_the_update_proceeds
+  [咬住] m35 → test_t32b_an_old_that_cannot_be_removed_stops_before_downloading
+  [咬住] m36 → test_t33a_nsis_reads_exactly_the_new_dir
+  [咬住] m37 → test_t33a_nsis_reads_exactly_the_new_dir
+  [咬住] m38 → test_t36a_unsafe_paths_are_refused_before_any_side_effect
+  [咬住] m39 → test_t36a_unsafe_paths_are_refused_before_any_side_effect
+  [咬住] m40 → test_t36a_unsafe_paths_are_refused_before_any_side_effect
+  [咬住] m41 → test_t36b_ordinary_paths_still_update
+  [咬住] m42 → test_t30b_the_proxy_is_read_when_downloading_not_at_the_first_network_call
+  [咬住] m46 → test_t37a_a_two_part_release_installs
+  [咬住] m47 → test_t37b_the_relay_waits_for_the_version_the_new_app_will_actually_report
+  [咬住] m48 → test_t37c_a_different_version_is_still_refused
+  [咬住] m49 → test_t38a_launched_but_silent_is_not_a_handoff
+  [咬住] m50 → test_t38a_launched_but_silent_is_not_a_handoff
+  [咬住] m51 → test_t38c_a_stale_signal_from_last_time_does_not_count
+  [咬住] m52 → test_t38d_the_rendered_relay_signals_before_it_starts_waiting
+  [咬住] m53 → test_t39a_setup_exe_is_gone_after_a_successful_prepare
+  [咬住] m54 → test_t40a_a_tree_that_was_not_installed_is_refused_before_anything
+  [咬住] m55 → test_t40b_the_real_installed_shape_is_accepted
+  [咬住] m29 → test_t26b_every_instdir_pointer_is_guarded_by_update_mode
+  [咬住] m56 → test_t20c_provisioning_is_guarded_by_the_update_flag
+  [咬住] m57 → test_t26b_every_instdir_pointer_is_guarded_by_update_mode
+  [咬住] m43 → test_t34a_update_mode_aborts_unless_instdir_ends_with_new
+  [咬住] m44 → test_t34a_update_mode_aborts_unless_instdir_ends_with_new
+  [咬住] m45 → test_t34a_update_mode_aborts_unless_instdir_ends_with_new
+== 咬住 57 / 漏网 1 ==
+---------------- 输出结束 ----------------
+runlog: redcheck-t37-t40-and-direction rc=1 commit=350fef1 dirty=yes at=2026-09-15T02:08:15Z file=tracks/opendesign-in-app-update-install/evidence/20260915T020815Z-01-redcheck-t37-t40-and-direction.txt

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Windows 更新端到端 e1~e5 的判定器 —— "机器事实 → 这个场景过没过"。
+"""Windows 更新端到端 e1~e7 的判定器 —— "机器事实 → 这个场景过没过"。
 
 track opendesign-in-app-update-install §3。结构照抄 `bin/probe_verdict.py` 付过学费的那一套:
 `.github/scripts/windows-update-e2e.ps1` 本机跑不了(没有 pwsh),写在里面的判断谁都验不了
@@ -7,7 +7,7 @@ track opendesign-in-app-update-install §3。结构照抄 `bin/probe_verdict.py`
 
 调用约定:
 
-    python update_e2e_verdict.py e1|e2|e3|e4|e5 <facts.json>
+    python update_e2e_verdict.py e1|e2|e3|e4|e5|e6|e7 <facts.json>
 
 stdout 一行;退出码 0=OK、1=FAIL、2=输入本身有问题(**也算红**,探针那边只认 0)。
 输出**只用 ASCII**:runner 是英文 Windows,中文进管道会被代码页打成问号(windows-package-probe 栽过)。
@@ -30,7 +30,10 @@ stdout 一行;退出码 0=OK、1=FAIL、2=输入本身有问题(**也算红**,�
     markers_before / markers_after     档案标记文件 {相对路径: sha256}
     pointers   {live, install_dir, uninstall{InstallLocation,UninstallString,DisplayIcon}, shortcuts{lnk: target}}
                场景结束时业主"从哪儿打开它"的那几处指向(t26 的真机半)
-    window     {wins, procs}           e1:屏幕上的窗口(交给 bin/probe_verdict.window_verdict)
+    window     {wins, procs}           e1/e6:屏幕上的窗口(交给 bin/probe_verdict.window_verdict)
+    health_final {port, version} | null   e1/e6:截完 20 秒那张图之后**再问一次**(新版起来又退出,前面那次看不出来)
+    cmdline    e7:交给新版安装器的参数串(修 t33 之前 python 真正发出去的那个形态)
+    installer_rc  e7:那次安装器的退出码
 """
 from __future__ import annotations
 
@@ -252,7 +255,7 @@ def verdict_e5(raw):
     return _finish("e5", f, problems, "unhealthy new version rolled back to %s" % old)
 
 
-def verdict_e1(raw):
+def _full_update(kind, raw, extra=None):
     """完整更新:在答的是新版、活树是新版、.old/.new 清掉、窗口在、档案逐字节不变。
 
     失败时要分得清"没装成"(停在哪一步)和"装错了"(装上了但不对)——
@@ -260,6 +263,8 @@ def verdict_e1(raw):
     """
     f, problems = Facts(raw), []
     old, new = _baseline(f, problems)
+    if extra is not None:
+        extra(f, problems)
     if not any(d.get("mode") == "normal" for d in _downloads(f)):
         problems.append("no normal download was served")
     if _started(f, problems):
@@ -282,12 +287,64 @@ def verdict_e1(raw):
         w = probe_verdict.window_verdict(window.get("wins") or [], window.get("procs") or [])
         if not w.ok:
             problems.append("window: no OpenDesign main window after update")
+        # 切片评审 GPT 腿 #9:health_after 与窗口只采一次,新版起来之后又退出 ⇒ 前面的事实全是过时的。
+        if _version(f.get("health_final")) != new:
+            problems.append("new version no longer answering at the end (got %r)" % (_version(f.get("health_final")) or None))
     _pointers(f, problems)
     _markers(f, problems)
-    return _finish("e1", f, problems, "updated %s -> %s, window up, archive markers intact" % (old, new))
+    return _finish(kind, f, problems, "updated %s -> %s, window up, archive markers intact" % (old, new))
 
 
-KINDS = {"e1": verdict_e1, "e2": verdict_e2, "e3": verdict_e3, "e4": verdict_e4, "e5": verdict_e5}
+def verdict_e1(raw):
+    return _full_update("e1", raw)
+
+
+def _live_has_space(f, problems):
+    """e6/e7 问的就是"安装路径带空格"—— 路径里没空格 = 场景没摆好,不许当产品没问题。"""
+    live = str((f.get("pointers") or {}).get("live") or "")
+    if " " not in live:
+        problems.append("setup: install path %r has no space, scenario untested" % live)
+
+
+def verdict_e6(raw):
+    """t33 的真机半:装在**带空格**的目录里,点更新照样完整更新(e1 的全部断言 + 路径真的带空格)。"""
+    return _full_update("e6", raw, extra=_live_has_space)
+
+
+def verdict_e7(raw):
+    """t33/t34 的真 NSIS 半:把修 t33 之前 python 真正发出去的那条参数(带空格的 /D= 被加了引号 + /UPDATE)
+    交给新版安装器 ⇒ 必须拒装(t34 的 rc=3),活树一个字节不动、`.new` 不出现、旧版照常在答。
+
+    `.new` 出现了 = NSIS 其实认了带引号的 /D=(t33 的前提读错了)或守卫把它放了进来;
+    活树变了 = /D= 没被认、守卫也没拦 ⇒ 装进了正在运行的活树,正是 t33 要防的那件事。
+    """
+    f, problems = Facts(raw), []
+    old = str(f.get("old_version") or "")
+    reset = f.get("reset") or {}
+    if reset.get("installer_rc") != 0:
+        problems.append("setup: old installer rc=%r" % reset.get("installer_rc"))
+    if _version(reset.get("health")) != old or not old:
+        problems.append("setup: old app not answering as %s (got %r)" % (old, _version(reset.get("health"))))
+    _live_has_space(f, problems)
+    cmd = str(f.get("cmdline") or "")
+    quoted = cmd.split('"/D=', 1)
+    if "/UPDATE" not in cmd or len(quoted) != 2 or " " not in quoted[1]:
+        problems.append("setup: not the quoted-/D= update command line, scenario untested (%r)" % cmd)
+    rc = f.get("installer_rc")
+    if rc != 3:
+        problems.append("installer rc=%r, expected 3 (update mode must refuse a target that is not .new)" % (rc,))
+    _live_same(f, problems, "quoted /D=")
+    if f.get("new_exists"):
+        problems.append(".new was created: NSIS honoured the quoted /D= or the guard let it through")
+    if _version(f.get("health_after")) != old:
+        problems.append("old app not answering afterwards (got %r)" % (_version(f.get("health_after")) or None))
+    _pointers(f, problems)
+    _markers(f, problems)
+    return _finish("e7", f, problems, "quoted /D= in update mode refused by the real installer (rc=3), live tree untouched")
+
+
+KINDS = {"e1": verdict_e1, "e2": verdict_e2, "e3": verdict_e3, "e4": verdict_e4, "e5": verdict_e5,
+         "e6": verdict_e6, "e7": verdict_e7}
 
 
 def main(argv):

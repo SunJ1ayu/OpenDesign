@@ -106,9 +106,9 @@ mutate_and_expect m7 test_t5a_missing_sentinel_aborts \
   '    if not os.path.isfile(sentinel):' \
   '    if False:'
 
-# m8 新树版本号不比对(装了个旧的也算成功)
+# m8 新树版本号不比对(装了个旧的也算成功)(09-15 锚点随 t37 改成按版本号比而同步)
 mutate_and_expect m8 test_t5b_wrong_version_in_new_tree_aborts \
-  '    if got != str(expect_version):' \
+  '    if want is None or ds_update.parse_version(got) != want:' \
   '    if False:'
 
 # m9 豁免写成通配符(design 里明写"不许用通配符糊过去")
@@ -294,12 +294,68 @@ mutate_and_expect m42 test_t30b_the_proxy_is_read_when_downloading_not_at_the_fi
   '    with urllib.request.build_opener().open(req, timeout=300) as resp, open(dest, "wb") as fh:' \
   '    with urllib.request.urlopen(req, timeout=300) as resp, open(dest, "wb") as fh:'
 
+# ── t37~t40:切片评审核实后的四件(09-15)──────────────────────────────
+# m46 🔴 新树版本号回到逐字比 ⇒ 两段版本号永远装不上
+mutate_and_expect m46 test_t37a_a_two_part_release_installs \
+  '    if want is None or ds_update.parse_version(got) != want:' \
+  '    if got != str(expect_version):'
+# m47 接力脚本等 decide 补过零的 latest ⇒ 收口认不出新版
+mutate_and_expect m47 test_t37b_the_relay_waits_for_the_version_the_new_app_will_actually_report \
+  '    expect_version = tree_version(new_dir)' \
+  '    expect_version = expect_version'
+# m48 修过头:版本号认得出就放行,不管是不是同一版(反面 t37c)
+mutate_and_expect m48 test_t37c_a_different_version_is_still_refused \
+  '    if want is None or ds_update.parse_version(got) != want:' \
+  '    if want is None:'
+# m49 🔴 起了就算交棒,不等信号 ⇒ cmd 没跑成脚本也去关软件
+mutate_and_expect m49 test_t38a_launched_but_silent_is_not_a_handoff \
+  '    deadline = time.monotonic() + ready_timeout' \
+  '    return True'
+# m50 等不到信号却不杀进程 ⇒ 一个不知死活的接力脚本留着
+mutate_and_expect m50 test_t38a_launched_but_silent_is_not_a_handoff \
+  '            kill()' \
+  '            pass'
+# m51 上一次留下的就绪标记当成这一次的
+mutate_and_expect m51 test_t38c_a_stale_signal_from_last_time_does_not_count \
+  '            os.remove(ready)          # 上一次留下的不算数(t38c)' \
+  '            pass'
+# m52 渲染出的脚本不发信号
+mutate_and_expect m52 test_t38d_the_rendered_relay_signals_before_it_starts_waiting \
+  "        '>\"%~f0' + RELAY_READY_SUFFIX + '\" echo ready'," \
+  '        "",'
+# m53 安装包留在 %TEMP%
+mutate_and_expect m53 test_t39a_setup_exe_is_gone_after_a_successful_prepare \
+  '    _cleanup(dest, None)' \
+  '    pass'
+# m54 🔴 不认树 ⇒ 开发目录下点更新会 rmtree 一个同名的无关 .old
+mutate_and_expect m54 test_t40a_a_tree_that_was_not_installed_is_refused_before_anything \
+  '    if not (os.path.isfile(os.path.join(live, LAUNCHER_REL))' \
+  '    if False and (os.path.isfile(os.path.join(live, LAUNCHER_REL))'
+# m55 修过头:认一个安装器布局里其实不在活树根上的文件 ⇒ 真装出来的树也被拒(反面 t40b)
+mutate_and_expect m55 test_t40b_the_real_installed_shape_is_accepted \
+  'LAUNCHER_REL = "OpenDesign.exe"' \
+  'LAUNCHER_REL = "OpenDesign.exe.missing"'
+
 MUT_SRC="$NSI"
 mutate_and_expect m29 test_t26b_every_instdir_pointer_is_guarded_by_update_mode \
   '  ${If} $UpdateMode != "1"
     WriteRegStr HKCU "Software\${APP}" "InstallDir" "$INSTDIR"
   ${EndIf}' \
   '    WriteRegStr HKCU "Software\${APP}" "InstallDir" "$INSTDIR"'
+
+# ── t20c / t26b 比较方向(09-15 切片评审 GLM 腿亲测写反照样绿)──────────
+# m56 🔴 provisioning 的把守写反 ⇒ 只有更新时才跑 provisioning,正是死线 t13
+mutate_and_expect m56 test_t20c_provisioning_is_guarded_by_the_update_flag \
+  '  ${If} $UpdateMode != "1"
+    Call ProvisionConfig' \
+  '  ${If} $UpdateMode == "1"
+    Call ProvisionConfig'
+# m57 "上次装在哪"的把守写反 ⇒ 只有更新档才写 ⇒ 指到 .new
+mutate_and_expect m57 test_t26b_every_instdir_pointer_is_guarded_by_update_mode \
+  '  ${If} $UpdateMode != "1"
+    WriteRegStr HKCU "Software\${APP}" "InstallDir" "$INSTDIR"' \
+  '  ${If} $UpdateMode == "1"
+    WriteRegStr HKCU "Software\${APP}" "InstallDir" "$INSTDIR"'
 
 # ── t34:更新档只许装进 .new ──────────────────────────────────────────
 # m43 🔴 只设错误码、不 Abort ⇒ 照样往活树里装

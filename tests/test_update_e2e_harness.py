@@ -1,4 +1,4 @@
-"""Windows 更新端到端(e1~e5)的**本机能判的那一半**(track opendesign-in-app-update-install §3)。
+"""Windows 更新端到端(e1~e7)的**本机能判的那一半**(track opendesign-in-app-update-install §3)。
 
 CI 那一趟要 ~40 分钟,而且它红了分不清"产品坏了"还是"考卷搭错了"。
 所以考卷自己能在本机判的,全部在这里先判掉:
@@ -246,6 +246,16 @@ POINTERS = {
                   LIVE + "\\OpenDesign.exe",
                   r"C:\Users\runneradmin\Desktop\OpenDesign.lnk": LIVE.upper() + "\\OpenDesign.exe"},
 }
+SPACED_LIVE = r"C:\OD e2e space\Programs\OpenDesign"
+
+
+def _pointers_at(live):
+    """同一套指向,换成另一个活树路径(e6/e7 装在带空格的目录)。"""
+    text = json.dumps(POINTERS, ensure_ascii=False).replace(json.dumps(LIVE)[1:-1], json.dumps(live)[1:-1])
+    text = text.replace(json.dumps(LIVE.upper())[1:-1], json.dumps(live.upper())[1:-1])
+    return json.loads(text)
+
+
 REAL_WINDOW = {"wins": [{"title": "OpenDesign", "cls": "WindowsForms10.Window.8.app.0.141b42a_r6_ad1",
                          "proc": "pythonw"}], "procs": ["pythonw:「OpenDesign」"]}
 
@@ -275,9 +285,20 @@ def _base(kind):
         if kind == "e5":
             f["inject"]["version"] = "0.0.1"
             f["seen_versions"] = ["0.0.1", OLD]
-    elif kind == "e1":
+    elif kind in ("e1", "e6"):
         f.update(apply=started, relay=relay, health_after={"port": 8766, "version": NEW},
-                 live_version_after=NEW, old_exists=False, new_exists=False, window=copy.deepcopy(REAL_WINDOW))
+                 live_version_after=NEW, old_exists=False, new_exists=False, window=copy.deepcopy(REAL_WINDOW),
+                 health_final={"port": 8766, "version": NEW})
+        if kind == "e6":
+            f["pointers"] = _pointers_at(SPACED_LIVE)
+    elif kind == "e7":
+        # e7 不走替身、不点更新:直接把修 t33 之前那条参数交给新版安装器
+        for k in ("new_version", "check", "fake_log"):
+            del f[k]
+        f.update(pointers=_pointers_at(SPACED_LIVE),
+                 cmdline='/S /UPDATE "/D=%s.new"' % SPACED_LIVE, installer_rc=3,
+                 live_before="d1", live_after="d1", new_exists=False,
+                 health_after={"port": 8766, "version": OLD})
     return f
 
 
@@ -362,7 +383,30 @@ BREAKS = {
         "live tree not restored": _set("live_after", "d2"),
         ".old left": _set("old_exists", True),
     },
+    "e6": {
+        "install path has no space (scenario untested)": _set("pointers", copy.deepcopy(POINTERS)),
+        "apply not started (quoted /D= fell back to live)": _set("apply", {"ok": False, "stage": "install", "error": "rc=3"}),
+        "old still answering": _set("health_after", {"port": 8766, "version": OLD}),
+        "health new but tree old": _set("live_version_after", OLD),
+        "new version gone by the end": _set("health_final", None),
+        "no window at all": _set("window", {"wins": [], "procs": []}),
+        ".new left": _set("new_exists", True),
+    },
+    "e7": {
+        "not the quoted form (scenario untested)": _set("cmdline", '/S /UPDATE /D=%s.new' % SPACED_LIVE),
+        "no /UPDATE (scenario untested)": _set("cmdline", '/S "/D=%s.new"' % SPACED_LIVE),
+        "quoted but no space (scenario untested)": _set("cmdline", '/S /UPDATE "/D=C:\\x\\OpenDesign.new"'),
+        "install path has no space (scenario untested)": _set("pointers", copy.deepcopy(POINTERS)),
+        "installer accepted it": _set("installer_rc", 0),
+        "installer failed some other way": _set("installer_rc", 2),
+        "installer hung": _set("installer_rc", "timeout"),
+        "live tree overwritten": _set("live_after", "d2"),
+        ".new created": _set("new_exists", True),
+        "old app gone": _set("health_after", None),
+    },
     "e1": {
+        "new version gone by the end": _set("health_final", None),
+        "old answering at the end": _set("health_final", {"port": 8766, "version": OLD}),
         "apply not started": _set("apply", {"ok": False, "stage": "install", "error": "rc=2"}),
         "relay never ended": _set("relay.ended", False),
         "old still answering": _set("health_after", {"port": 8766, "version": OLD}),
@@ -386,9 +430,15 @@ class VVerdictIsABehaviour(unittest.TestCase):
                 self.assertTrue(ok, text)
                 self.assertTrue(text.startswith("OK %s" % kind), text)
 
+    # 通用反例里问"替身"的那两条:e7 不经过替身(直接调安装器),这两条对它问不出东西 —— 具名豁免,不是整组跳过。
+    STAND_IN_BREAKS = {"app did not see stand-in", "stand-in never asked"}
+    NO_STAND_IN = {"e7"}
+
     def test_v2_every_break_fails(self):
         for kind, breaks in BREAKS.items():
-            for name, mutate in list(COMMON_BREAKS.items()) + list(breaks.items()):
+            common = [(n, m) for n, m in COMMON_BREAKS.items()
+                      if not (kind in self.NO_STAND_IN and n in self.STAND_IN_BREAKS)]
+            for name, mutate in common + list(breaks.items()):
                 with self.subTest(kind=kind, brk=name):
                     f = _base(kind)
                     mutate(f)
@@ -456,7 +506,7 @@ class VVerdictIsABehaviour(unittest.TestCase):
 
 
 class WWorkflowGateIsIndependent(unittest.TestCase):
-    """退出闸第二条路住在 workflow 里、写死五个场景名。和脚本那边的场景表**必须一致**。"""
+    """退出闸第二条路住在 workflow 里、写死全部场景名。和脚本那边的场景表**必须一致**。"""
 
     def test_w1_workflow_and_script_list_the_same_five(self):
         with open(WORKFLOW, encoding="utf-8") as fh:
@@ -500,6 +550,25 @@ class ZResetInstallsWhereTheScenarioLooks(unittest.TestCase):
         m = re.search(r"^function Reset-Old \{(.*?)^\}", ps, re.M | re.S)
         self.assertIsNotNone(m, "找不到 Reset-Old")
         self.assertRegex(m.group(1), r'Start-Process -FilePath \$OldSetup -ArgumentList "/S /D=\$InstallDir"')
+
+
+class ZSpacedScenariosRunLastAndReallyHaveASpace(unittest.TestCase):
+    """e6/e7 把安装目录换成带空格的那个就不换回来 ⇒ 必须排在场景表最后;
+    目录必须真带空格(否则 t33 那一支结构上照不出)且纯 ASCII(否则 runner 的 437 代码页下 t36 会先拒掉)。"""
+
+    def test_z3_spaced_dir_and_order(self):
+        with open(PS1, encoding="utf-8") as fh:
+            ps = fh.read()
+        m = re.search(r"^\$SpacedInstallDir\s*=\s*'([^']*)'", ps, re.M)
+        self.assertIsNotNone(m, "找不到 $SpacedInstallDir")
+        self.assertIn(" ", m.group(1))
+        self.assertTrue(m.group(1).isascii(), m.group(1))
+        order = re.findall(r"'(e\d)'", re.search(r"^\$Expected\s*=\s*@\(([^)]*)\)", ps, re.M).group(1))
+        self.assertEqual(order[-2:], ["e6", "e7"], "e6/e7 不在最后:%r" % order)
+        for fn in ("Run-e6", "Run-e7"):
+            body = re.search(r"^function %s \{(.*?)^\}" % fn, ps, re.M | re.S)
+            self.assertIsNotNone(body, fn)
+            self.assertIn("Use-SpacedInstallDir", body.group(1).split("\n")[1], "%s 第一件事不是换目录" % fn)
 
 
 if __name__ == "__main__":

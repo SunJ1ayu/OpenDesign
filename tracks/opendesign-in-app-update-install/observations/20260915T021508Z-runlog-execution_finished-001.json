@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-in-app-update-install",
+  "run_id": "20260915T021505Z-01-green-e2e-harness-e6-e7",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "green-e2e-harness-e6-e7",
+  "started_at": "2026-09-15T02:15:05Z",
+  "finished_at": "2026-09-15T02:15:08Z",
+  "duration_ms": 2493,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 0,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

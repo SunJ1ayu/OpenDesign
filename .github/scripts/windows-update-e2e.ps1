@@ -44,7 +44,11 @@ $RelayPath  = Join-Path ([IO.Path]::GetTempPath()) 'opendesign-update-relay.cmd'
 $ModeFile   = Join-Path $OutDir 'fake-mode.txt'
 $FakeLog    = Join-Path $OutDir 'fake-github.log'
 $VerdictLog = Join-Path $OutDir 'verdicts.tsv'
-$Expected   = @('e2', 'e3', 'e4', 'e5', 'e1')
+# e6/e7 必须排在最后:它们把安装目录换成带空格的那个(Use-SpacedInstallDir),换过去就不换回来。
+$Expected   = @('e2', 'e3', 'e4', 'e5', 'e1', 'e6', 'e7')
+# t33/t34 的真机半用的目录:**带空格、纯 ASCII**。不能带中文 —— runner 是英文 Windows(代码页 437),
+# 非 ASCII 路径会被 t36 在动手之前拒掉(那是对的),e6 就测不到它要测的事。
+$SpacedInstallDir = 'C:\OD e2e space\Programs\OpenDesign'
 # e5 注入的版本号:新版起得来,但收口认不出它。
 $InjectVersion = '0.0.1'
 # hosts 重定向的两个域名。**必须覆盖软件会碰的全部主机**:
@@ -531,14 +535,14 @@ function Run-Rollback([string]$Kind, [string]$Mode) {
 function Run-e4 { Run-Rollback 'e4' 'lock' }
 function Run-e5 { Run-Rollback 'e5' 'patch' }
 
-function Run-e1 {
+function Run-FullUpdate([string]$Kind) {
     Set-Content -LiteralPath $ModeFile -Value 'normal'
     $f = New-Facts
     $port = $f.reset.health.port
     $f.check = Invoke-Check $port
     $f.apply = Invoke-Apply $port
-    Note "e1 apply -> $($f.apply | ConvertTo-Json -Compress)"
-    Copy-Relay 'e1'
+    Note "$Kind apply -> $($f.apply | ConvertTo-Json -Compress)"
+    Copy-Relay $Kind
     $w = Wait-Relay 600
     $f.relay = $w.relay
     $f.seen_versions = $w.versions
@@ -546,15 +550,60 @@ function Run-e1 {
     $f.window = Wait-Window 90
     foreach ($s in 0, 20) {
         Start-Sleep -Seconds $s
-        Save-Screen (Join-Path $OutDir ("e1-after-update-{0}s.png" -f $s))
+        Save-Screen (Join-Path $OutDir ("{0}-after-update-{1}s.png" -f $Kind, $s))
     }
+    # 截完 20 秒那张之后**再问一次**(切片评审 GPT 腿 #9):新版起来又退出,上面那次 health_after 看不出来。
+    $f.health_final = Get-Health
     $f.live_version_after = Get-LiveVersion
     $f.old_exists = Test-Path -LiteralPath $OldDir
     $f.new_exists = Test-Path -LiteralPath $NewDir
     $f.pointers = Get-Pointers
     $f.markers_after = Get-Markers
     $f.fake_log = Get-FakeLogSince $f.fake_log_start
-    Finish-Scenario 'e1' $f
+    Finish-Scenario $Kind $f
+}
+
+function Run-e1 { Run-FullUpdate 'e1' }
+
+# 把后面的场景搬到带空格的安装目录。先按**原来的**前缀把还在跑的都停掉:换了前缀,Get-OurProcs 就认不出它们了。
+function Use-SpacedInstallDir {
+    if ($script:InstallDir -eq $SpacedInstallDir) { return }
+    Stop-All
+    $script:InstallDir = $SpacedInstallDir
+    $script:NewDir     = "$SpacedInstallDir.new"
+    $script:OldDir     = "$SpacedInstallDir.old"
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $SpacedInstallDir) | Out-Null
+    Note "install dir is now '$SpacedInstallDir'"
+}
+
+# e6 —— t33 的真机半:装在带空格的目录里,点更新照样完整更新。
+function Run-e6 {
+    Use-SpacedInstallDir
+    Run-FullUpdate 'e6'
+}
+
+# e7 —— t33/t34 的真 NSIS 半:把修 t33 之前 python 真正发出去的那条参数(带空格的 /D= 被 list2cmdline 加了引号)
+# 原样交给新版安装器。NSIS 不认带引号的 /D= ⇒ 安装目录退回注册表 = 活树 ⇒ 更新档守卫必须 rc=3 拒装。
+# 旧版故意开着:修之前那一幕就是"软件开着、python 调安装器"。
+function Run-e7 {
+    Use-SpacedInstallDir
+    $f = New-Facts
+    $f.live_before = Get-Manifest $InstallDir 'e7-before'
+    $f.cmdline = '/S /UPDATE "/D={0}"' -f $NewDir
+    Note "e7 new installer args: $($f.cmdline)"
+    $ip = Start-Process -FilePath $NewSetup -ArgumentList $f.cmdline -PassThru
+    $null = $ip.Handle
+    if ($ip.WaitForExit(240000)) { $f.installer_rc = $ip.ExitCode }
+    else { Stop-Process -Id $ip.Id -Force -ErrorAction SilentlyContinue; $f.installer_rc = 'timeout' }
+    Note "e7 installer rc=$($f.installer_rc)"
+    Start-Sleep -Seconds 3
+    $f.new_exists = Test-Path -LiteralPath $NewDir
+    $f.health_after = Wait-Health $OldVersion 30
+    $f.live_after = Get-Manifest $InstallDir 'e7-after'
+    Show-ManifestDiff 'e7-before' 'e7-after'
+    $f.pointers = Get-Pointers
+    $f.markers_after = Get-Markers
+    Finish-Scenario 'e7' $f
 }
 
 # ── 主流程 ──────────────────────────────────────────────────────────────
@@ -619,5 +668,5 @@ foreach ($k in $Expected) {
     if (($mine[0] -split "`t")[0] -ne '0') { $bad += "$k rc=$(($mine[0] -split "`t")[0])" }
 }
 if ($bad.Count) { "RED: $($bad -join '; ')"; exit 1 }
-"all five scenarios OK"
+"all $($Expected.Count) scenarios OK"
 exit 0
