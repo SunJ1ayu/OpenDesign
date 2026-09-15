@@ -14,7 +14,7 @@
 
 - [x] tests pass(段① + 接线两块;全仓总跑见下)
 - [x] no secrets / unsafe ops(判据一次真网都不打,下载/装/问 health 全走注入替身)
-- [ ] 全仓总跑 `tests/run-all.sh --with-gateway`(**收口时跑,收据要是最后一次编辑之后那一遍**)
+- [x] 全仓总跑 `tests/run-all.sh --with-gateway`(**收口时跑,收据要是最后一次编辑之后那一遍**)—— 09-15 `final-run-all-with-gateway`(commit 0595b85,代码此后未动)
 
 **机器打印的**(不是我的转述)—— 判据用 `runlog` 跑,收据行原样粘在这里:
 
@@ -170,6 +170,47 @@ t24b 自 09-08 起没执行过 + 泄漏闸咬出我 e2e 判据漏 5 个目录 �
 **记下的小尾巴(不影响打开和使用,进 Accepted deviations)**:回滚后「设置 → 应用」里的版本号显示新版的号;
 回滚后 `.new`(~150MB)留在盘上,下次更新会先删;e3 那种"一直有东西占着活树"时接力脚本会尝试打开旧版,但占着的东西不放手时旧版也起不来。
 
+### 09-15 收口(断线接手):t30b / t33~t40 / e6·e7 / 最终总跑
+
+过程、每条发现的来源与仲裁见下方 `## Review` 的「收口外审 —— 2026-09-15」。收据按时间序,**原样取自各收据文件末行**:
+
+```
+runlog: red-t33-t36-panel-findings rc=1 commit=05d0fd5 dirty=yes at=2026-09-15T01:34:32Z file=tracks/opendesign-in-app-update-install/evidence/20260915T013432Z-01-red-t33-t36-panel-findings.txt
+# 判据先行 12 红(t33a×2 t34a t35a t36a×8);反面 t33z/t35b/t36b 本就绿
+runlog: green-t33-t36 rc=0 commit=89ac2b5 dirty=yes at=2026-09-15T01:43:12Z file=tracks/opendesign-in-app-update-install/evidence/20260915T014312Z-01-green-t33-t36.txt
+# 修后 133 OK
+runlog: red-t30b-proxy-read-once rc=1 commit=e968e04 dirty=yes at=2026-09-15T01:44:24Z file=tracks/opendesign-in-app-update-install/evidence/20260915T014424Z-01-red-t30b-proxy-read-once.txt
+# t30b 红 + g1→t30a 顺序依赖复现
+runlog: green-t30b-and-combined rc=0 commit=ffff3c2 dirty=yes at=2026-09-15T01:45:04Z file=tracks/opendesign-in-app-update-install/evidence/20260915T014504Z-01-green-t30b-and-combined.txt
+# 相关考卷合跑 278 OK(基线 05d0fd5 同命令 ERROR 1);两个顺序各 3 OK
+runlog: redcheck-t30b-t33-t36-and-t34a-tighten rc=0 commit=d6312c3 dirty=yes at=2026-09-15T01:47:49Z file=tracks/opendesign-in-app-update-install/evidence/20260915T014749Z-01-redcheck-t30b-t33-t36-and-t34a-tighten.txt
+# ⚠️ rc=0 是 bash -c 末条的 rc:内含 update_apply 44/2(m20、m33 [BAD] 锚点漂移)、ds_web 13/0
+runlog: redcheck-update-apply-after-anchor-sync rc=0 commit=d6312c3 dirty=yes at=2026-09-15T01:52:36Z file=tracks/opendesign-in-app-update-install/evidence/20260915T015236Z-01-redcheck-update-apply-after-anchor-sync.txt
+# 锚点同步后 46/0
+runlog: red-t37-t40-slice-findings rc=1 commit=49fde81 dirty=yes at=2026-09-15T02:03:33Z file=tracks/opendesign-in-app-update-install/evidence/20260915T020333Z-01-red-t37-t40-slice-findings.txt
+# 判据先行 7 失败 4 错误;反面 t37c/t40b 本就绿
+runlog: green-t37-t40 rc=0 commit=e2bf8d5 dirty=yes at=2026-09-15T02:06:02Z file=tracks/opendesign-in-app-update-install/evidence/20260915T020602Z-01-green-t37-t40.txt
+# 相关考卷合跑 288 OK;安装器静态闸 17/0
+runlog: redcheck-t37-t40-and-direction rc=1 commit=350fef1 dirty=yes at=2026-09-15T02:08:15Z file=tracks/opendesign-in-app-update-install/evidence/20260915T020815Z-01-redcheck-t37-t40-and-direction.txt
+# 57/1:m46~m57 全咬住;m8 [BAD](锚点正是 t37 改掉的那行)
+runlog: redcheck-update-apply-after-m8-sync rc=0 commit=350fef1 dirty=yes at=2026-09-15T02:11:54Z file=tracks/opendesign-in-app-update-install/evidence/20260915T021154Z-01-redcheck-update-apply-after-m8-sync.txt
+# 58/0
+runlog: redcheck-e2e-harness-e6-e7 rc=0 commit=350fef1 dirty=yes at=2026-09-15T02:14:26Z file=tracks/opendesign-in-app-update-install/evidence/20260915T021426Z-01-redcheck-e2e-harness-e6-e7.txt
+# e2e 考卷红检 28/28
+runlog: green-e2e-harness-e6-e7 rc=0 commit=350fef1 dirty=yes at=2026-09-15T02:15:05Z file=tracks/opendesign-in-app-update-install/evidence/20260915T021505Z-01-green-e2e-harness-e6-e7.txt
+# e2e 考卷搭子 25 OK
+runlog: run-all-after-t37-t40-and-e6-e7 rc=1 commit=eaec8f0 dirty=no final=yes at=2026-09-15T02:17:14Z file=tracks/opendesign-in-app-update-install/evidence/20260915T021714Z-01-run-all-after-t37-t40-and-e6-e7.txt
+# 🔴 e2e 段 39/0/2SKIP 但泄漏闸 1 个空前缀残留(形状同 org.chromium.Chromium.*);复现探针 0 残留,判为 e2e 考卷时有时无的卫生问题,未改判据
+runlog: windows-e2e-run8-and-prefix-rejudged-locally rc=0 commit=eaec8f0 dirty=yes at=2026-09-15T02:37:17Z file=tracks/opendesign-in-app-update-install/evidence/20260915T023717Z-01-windows-e2e-run8-and-prefix-rejudged-locally.txt
+# 修后 run 34920544736 e1~e7 OK;修前对照 run 34920544526 e6/e7 FAIL;本机复判一致
+runlog: final-run-all-with-gateway rc=0 commit=0595b85 dirty=yes final=yes at=2026-09-15T02:55:39Z file=tracks/opendesign-in-app-update-install/evidence/20260915T025539Z-01-final-run-all-with-gateway.txt
+# ✅ 最终:6 段全绿,e2e 含 gateway 41/0/0;source-stable yes(dirty 仅外审观测 json)
+```
+
+Windows 端到端第八趟:修后 https://github.com/SunJ1ayu/OpenDesign/actions/runs/34920544736(e1~e7 全绿,我亲读 e6/e7 事实、
+e6 接力脚本日志与 20 秒截图);修前对照 https://github.com/SunJ1ayu/OpenDesign/actions/runs/34920544526(e6 活树版本号被改成 0.98.900
+而在答的是 0.98.4;e7 rc=0、活树 4 个文件被覆盖)。原始事实在 `evidence/windows-e2e-run-3492054*/`。
+
 ## 上一轮(判据先行之前)的收据
 
 ⚠️ 这四行 2026-09-08 21:0x **从证据文件末行逐字节取的,不是手抄**。
@@ -198,21 +239,86 @@ runlog: green-t12-asset-name-contract rc=0 commit=47e2320 dirty=yes at=2026-09-0
 
   **panel 验不到的那一块**:段②(`.cmd`)的真行为、以及业主那台机器上的杀软/VPN/网速。
   前者归 Windows CI `e1~e4`,后者**结构上只有业主验得到** —— 不假装 CI 覆盖了它。
-- 腿的花名册: <把 `<日志前缀>.roster` 里那一行**原样粘过来**,别手写>
-  > panel-review 收尾自己写这个文件(off / FAIL(rc) / 降级 都在里面)。
-  > **控制器没活到收尾时它压根不存在** —— 那时跑 `panel-roster <日志前缀>` 从盘上重建,
-  > 与控制器自己写的**归一化后一致**(判据 R5b 守着;抬头有渲染时间戳,不是字面逐字节)。**一轮零记录的评审也粘得出这一行**,
-  > 所以"那轮被砍了所以没有花名册"不再是理由(2026-08-23,track panel-roster-from-disk)。
-  > 08-06 立这条的理由:08-05 我在这里手写了"三条腿一致 PASS",而 Kimi 根本没出结论
-  > (同一页第 90 行我自己还写着它没出报告)—— 手抄一份终端上的东西,抄错那次没人会发现。
-- findings:
-  - <...>
-  > 只写发现。腿的身份/降级不在这儿抄第二遍:日志自带身份牌(降级横幅 + 视野边界),
-  > 花名册在上一格,查工件不查自述。
-- arbitrated verdict (主裁): <...>
-  > 这里写理由；最终枚举写进 `decision.json.outcome.verdict`。归档时仍为空会被
-  > `track-record validate --phase archive` 挡住，`track list` 也会打 ⚠️。
+### 收口外审 —— 2026-09-15(断线接手后)
+
+**第 0 轮(作废)** `panel-opendesign-in-app-update-install-final-20260915-004418`:submimo 报告写到半句、rc=0、判 no_verdict;
+subdeepseek 在 00:48 断线时被砍(`.err` 末行 `Terminated`),控制器没写 roster/final。**零条可计数结论**。
+setsid 没挡住真断线 —— 此后评审一律 `setsid -f` 脱到 PID 1 并核 ppid。
+
+**第 1 轮(整份,subject 05d0fd5)** 花名册原样:
+```
+    # panel-review 花名册(2026-09-15 09:21:45)task=opendesign-in-app-update-install-final
+    # PASS = 进程 rc=0,**不等于给了裁决**;off = 这条腿压根没派(不许读成通过)。
+    # impact-risk=high requested-budget=2 selected-count=2
+    # selected=subdeepseek(deepseek/subdeepseek-agent),subglm(zhipu/subglm-agent)
+    # escalation=none
+    # snapshot=head:05d0fd5
+    # 日志:/root/aiwork/logs/panel-opendesign-in-app-update-install-final-20260915-091314.*.log
+    submimo=SKIP(rotation) subdeepseek=PASS(verdict=PASS) subglm=PASS(verdict=PASS) subkimi=SKIP(rotation) subgemini=SKIP(health:dead:FAIL:6) subgrok=SKIP(rotation)
+```
+
+- DeepSeek 与 GLM **各自独立**指出 `/D=` 带空格会被 list2cmdline 加引号,都只判「中」(不确定 NSIS 怎么读)。
+  **我读 NSIS 源码(kichik/nsis Main.c:244-288)坐实:引号包住时 `CMP4CHAR(cmdline-2," /D=")` 不成立 ⇒ /D= 被当没传 ⇒
+  退回 InstallDirRegKey = 正在运行的活树。** 升级为阻断 ⇒ t33(命令行自己拼)+ t34(.onInit 更新档只许装 .new)。
+  **真机坐实**:修前对照 run 34920544526 e6 活树版本号文件变成 0.98.900 而在答的是 0.98.4;e7 活树 4 个文件被覆盖、rc=0。
+- 成立并修:t35(stage=shell 放锁 ⇒ 两份接力脚本,DeepSeek F4)、t36(`'`/`%`/非 GBK/代码页 ≠936 ⇒ 关了不回来,GLM F2/F4 + DeepSeek F2
+  + 对我自审第 1 条的更正:乱码路径让"打开旧版"也打不开,不是安全失败)、t20a 收紧(argv 问不出命令行形态,DeepSeek F6)。
+- 合跑判据时照出 t30b(urlopen 进程级缓存代理,g1↔t30a 双向顺序依赖;基线 05d0fd5 同样红)⇒ 修产品不修考卷。
+- 记账不修:rollback_stuck 不拉起任何东西(双重失败,自审第 2 条已记)、两次改名之间断电(design 明账)、
+  e2e 档案标记只盯标记目录(provisioning 字节级幂等 + t20c/t26b 方向已收紧 + t26 真机 pointers;全树哈希会被运行中的软件合法写入弄抖)、
+  GLM F5 固定 od-health.txt(单飞,无场景)。
+
+**切片评审(对照实验,subject 05d0fd5,scoped 结果不计入归档覆盖)** `/root/aiwork/logs/slice-manifest-20260915-092514`:
+relay#1 submimo PASS / stage1#1 subdeepseek BLOCK / installer-ui#1 subglm PASS / e2e#1 subkimi BLOCK / overall#1 subcodex(gpt-6-astra) BLOCK。
+⚠️ overall 腿派发时主工作区多了一个 runlog 观测 json(runlog `--repo 工作树` 仍写主工作区),其余四片源指纹一致;产品代码五份相同。
+
+- 成立并修:t37 两段版本号永远装不上(stage1 F1 + overall #10 各自复现)、t38 交棒要接力脚本自证在跑(overall #2)、
+  t39 删 %TEMP% 安装包(stage1 F6)、t40 只有装出来的树才自更新(stage1 F10,我核出第 0 步会 rmtree 同名无关 .old)、
+  t20c/t26b 比较方向(installer-ui GLM 亲测写反照样绿)、test_ds_update.py 入口挪到最末(overall #11)、e1/e6 收尾 health 复查(overall #9)。
+- 核后记账不修:
+  - overall #3 **档案 `locked_rw` 先 truncate 后 write**:早已存在、任何强杀/断电都中,更新只是多一个时机 ⇒ 另开单,已告知业主。
+  - overall #4 / stage1 F3 / relay G2:接力脚本 health 用 findstr 子串、不查 ok —— `/api/health` 应答时 ok 恒为 True;
+    子串对"新版严格大于旧版"造不出误判;"后端起来但窗口没起来就删 .old"是设计层明账。t18 测的 python helper 生产不调用,记为判卷诚实度欠账。
+  - stage1 F2 外壳启动窗口期假应答(只在启动头几秒、外部浏览器可达;无数据/安装损坏)。
+  - stage1 F4/relay G1 plan 字段未被渲染;F5 回滚 Stop-Process -Force;F7 端口换号;F9 ack 与回包竞态;F11 日志混编码(e2e 第八趟亲眼见到)。
+  - e2e 片 #1 隐藏主窗口经 probe_verdict fail-open 判绿(共享判定器、有意防假红);#3/#4 与 overall #8 快捷方式存在性/autorun 不判;
+    overall #9 后半 e3 自动重开结构上不可观测(注入锁住哨兵)。
+  - installer-ui:更新档仍调 EnsureWebView2(缺 WebView2 时会弹 UAC)、卸载条目半守卫、查更新 fetch 无超时、busy/stale_old 走默认提示。
+- **对照实验的读数**:切片审比整份审多抓到 t37/t38/t40 与多处判卷洞;其中 t37 由**同一 DeepSeek 家族**在切片里抓到、整份审没抓到。
+  混杂因素:切片那边多了一条 gpt-6-astra 整体腿,t38 与若干判卷洞是它一条腿的。
+
+**第 2 轮(复审修改,subject = 派发时 HEAD)** 花名册原样:
+```
+    # panel-review 花名册(2026-09-15 10:53:19)task=opendesign-in-app-update-install-final-r2
+    # PASS = 进程 rc=0,**不等于给了裁决**;off = 这条腿压根没派(不许读成通过)。
+    # impact-risk=high requested-budget=2 selected-count=2
+    # selected=subglm(zhipu/subglm-agent),subkimi(moonshot/subkimi)
+    # escalation=none
+    # snapshot=head:0595b85
+    # 日志:/root/aiwork/logs/panel-opendesign-in-app-update-install-final-r2-20260915-103751.*.log
+    submimo=SKIP(rotation) subdeepseek=SKIP(rotation) subglm=PASS(verdict=PASS) subkimi=PASS(verdict=PASS) subgemini=SKIP(health:dead:FAIL:6) subgrok=SKIP(rotation)
+```
+
+- GLM 与 Kimi 都 PASS,**都亲自核了**:中文 Windows(936)+ 中文用户名 + 默认位置不被 t36/t40 误拒;`OpenDesign.exe` 在包根
+  (build-installer.sh)、哨兵同 NSI 常量;t33 参照模型逐行对照 NSIS 源码无照搬错(Kimi 另做 5 处变异全咬住)。
+- 两腿各自提:stage=shell 后更新锁留到重启(GLM 中 / Kimi 低)。**我核前端**:界面不显示服务端那句「请稍候」,
+  busy 走 `applyHint` 默认句「自动更新没能继续。可以到发布页手动下载。」(实话)⇒ 剩下的影响只是"外壳没接住那次之后要重启才能再点",
+  而外壳没接住本身说明锁通道坏了、不重启再点多半同样失败 ⇒ **接受,t35 的取舍不变**。
+- GLM 低:第 6 步写接力脚本 / 读新树版本号无 try ⇒ 盘满时请求断、`.new` 留到下次 —— 刚装下 300MB 紧接着写 4KB 失败概率极低 ⇒ 记账不修。
+- 低/疑问(两腿自判不阻断):ready 落盘恰在超时那 50ms ⇒ 误杀报没交棒(可重试);ready 重定向失败静默 ⇒ 塌成取消;
+  参照模型 `/S` 大小写敏感(真 NSIS 不敏感,只会误红);e7 的 rc=3 未证明来自守卫(NSI 里 SetErrorLevel 3 仅此一处,合取事实兜住);
+  注册表路径尾反斜杠(安全向,仍 rc=3)。
+
+- arbitrated verdict (主裁): **PASS**。
+  依据:三轮外审 + 切片评审的全部成立发现已修或具名记账;修后 Windows e1~e7 全绿(我亲读事实/日志/截图),
+  修前对照 e6/e7 红且在真机上坐实"装进运行中的活树";红检 update_apply 58/0、ds_web 13/0、e2e 考卷 28/0;最终总跑见机械检查一格。
+  **业主真机仍是硬前提**:开 VPN 走一次完整更新(t30/t30b 真机半)、中文用户名/默认位置、杀软环境。
 
 ## Accepted deviations
 
-- <接受的非关键偏差 + 原因 + 影响范围,或 None>
+- 具名记账、不在本单修的,逐条理由见上方 Review「核后记账不修」三处。其中需要业主知道的两条:
+  1. **档案 `locked_rw` 先截断后写**(早已存在,任何强杀/断电都可能留下空档案):建议另开单改"写临时文件再原子替换"。
+  2. **开了「Beta: UTF-8 全球语言支持」的中文 Windows + 中文用户名 ⇒ 自动更新会被 t36 拒绝**(有意:GBK 接力脚本在 65001 下读乱),
+     这类机器走手动下载。真机清单要问业主是否这么配。
+- 外壳没接住交棒(stage=shell)之后更新锁留到重启(t35 取舍;界面提示为实话「自动更新没能继续」)。
+- 两次改名之间断电 / 被杀、rollback_stuck 不拉起任何东西:design 明账,无启动期恢复。
