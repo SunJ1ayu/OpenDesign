@@ -1087,22 +1087,21 @@ class Handler(BaseHTTPRequestHandler):
         """
         # 🔴 同一时间只许一次(t31)。界面的防重入闸只管同一个标签页;服务端是多线程的,
         #    两个 apply 并发 = 第二次 rmtree(.new) 时第一次的安装器正往里写。
-        #    接力脚本起来之前失败就放开(业主能再点一次);**接力脚本一旦起来就不放**(t35):
-        #    它已经脱离在跑、正等我们退出,再放进来一次 = 两份接力脚本并存。
+        #    失败的路上放开(业主能再点一次);走到 started 就**不放**:软件马上要被关掉了。
         lock = self.server.update_apply_lock
         if not lock.acquire(blocking=False):
             self._json(200, {"ok": False, "stage": "busy",
                              "error": "更新已经在进行中,请稍候"})
             return
-        keep = False
+        started = False
         try:
-            keep = self._update_apply_locked()
+            started = self._update_apply_locked()
         finally:
-            if not keep:
+            if not started:
                 lock.release()
 
     def _update_apply_locked(self) -> bool:
-        """`_update_apply` 持锁之后的全部内容。返回"锁要不要留着" = 接力脚本起来了没有。"""
+        """`_update_apply` 持锁之后的全部内容。返回"是否走到了 started"(走到了就不放锁)。"""
         info = ds_update.check_cached(VERSION)
         if not info.get("update_available"):
             self._json(200, {"ok": False, "stage": "no_update",
@@ -1127,10 +1126,9 @@ class Handler(BaseHTTPRequestHandler):
         if verdict != "started":
             # 接力脚本已经在跑,但外壳没认这个动词 ⇒ 它等不到端口空,
             # 会自己超时、删掉 .new 收工。**这里绝不许报成功。**
-            # 🔴 但锁留着(t35):它还在等,业主再点 / 随后手动关软件 ⇒ 两份接力脚本先后改名。
             self._json(200, {"ok": False, "stage": "shell",
                              "error": "没能让程序自动关闭,更新取消 —— 请手动安装新版"})
-            return True
+            return False
         self._json(200, {"ok": True, "stage": "started", "error": None,
                          "latest": info.get("latest")})
         return True
