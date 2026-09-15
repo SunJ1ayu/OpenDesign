@@ -342,7 +342,7 @@ try {
   // ④b **复活**(2026-08-16):它曾被我撤掉,理由是"全局多出的是列数不是 1,
   // 结构上问不出"。那个理由随分桶失效了 —— 按列问,「只重连一次」重新可判。
   check(await homeConns() === 2, "④b 首页那列只重连了一次(退避没把它连成一串)");
-  check(await until(() => page.locator(`${pane} .chat-meta`).isVisible(), 20000),
+  check(await until(() => page.locator(`${pane} [data-ui="chat-model"]`).isVisible(), 20000),
     "⑤ 回到已连接态");
   // ⚠️ 这条原来写反了(2026-08-04 攻题抓到,是**判据的 bug 不是实现的**):
   // 原断言要求 attach 的 id "不以 chat-new- 开头",而**第一条连接拿到的正是
@@ -427,7 +427,7 @@ try {
     "㉔b 前置:断线前屏幕上确实有两条一模一样的话");
 
   await page.evaluate(() => window.__killWS("home", 1006));
-  check(await until(() => page.locator(`${pane} .chat-meta`).isVisible(), 25000),
+  check(await until(() => page.locator(`${pane} [data-ui="chat-model"]`).isVisible(), 25000),
     "㉔c 掐断后自己连回来");
   check(await until(() => page.locator(pane).innerText()
     .then((t) => t.includes(MARK2)), 20000),
@@ -453,7 +453,7 @@ try {
   // 先等回到已连接态**再**动输入框:输入框是灰的时候 fill 会抛超时,
   // 报出来的是"异常"而不是"哪条断言错了"(㉒ 那条踩过同一个坑)。
   check(await until(async () =>
-    (await page.locator(`${pane} .chat-meta`).isVisible())
+    (await page.locator(`${pane} [data-ui="chat-model"]`).isVisible())
     && !(await page.locator(`${pane} textarea`).isDisabled()), 25000),
     "㉖a 前置:此刻是已连接、输入框可用(不然判的就不是「发送失败」这件事)");
   await page.evaluate(() => { window.__sendThrows = true; });
@@ -491,7 +491,7 @@ try {
   check((await page.locator('[data-ui="chat-turn-error"]').count()) > 0,
     "㉚a 前置:此刻屏上确实还挂着那句失败提示");
   await page.evaluate(() => window.__killWS("home", 1006));
-  check(await until(() => page.locator(`${pane} .chat-meta`).isVisible(), 25000),
+  check(await until(() => page.locator(`${pane} [data-ui="chat-model"]`).isVisible(), 25000),
     "㉚b 前置:又自己连回来了");
   check(await until(async () =>
     (await page.locator('[data-ui="chat-turn-error"]').count()) === 0, 8000),
@@ -510,10 +510,10 @@ try {
   await page.evaluate(() => { window.__holdAttached = true; window.__killWS("home", 1006); });
   check(await until(async () => (await page.evaluate(() => window.__attachIds.length)) >= 2, 20000),
     "⑭ 前置:重连后又发了一次 attach");
-  check(!(await page.locator(`${pane} .chat-meta`).isVisible()),
+  check(!(await page.locator(`${pane} [data-ui="chat-model"]`).isVisible()),
     "⑮ attach 还没回 attached ⇒ **不算连上**(不许在 ready 就宣告成功)");
   await page.evaluate(() => window.__releaseAttach());
-  check(await until(() => page.locator(`${pane} .chat-meta`).isVisible(), 15000),
+  check(await until(() => page.locator(`${pane} [data-ui="chat-model"]`).isVisible(), 15000),
     "⑯ 收到 attached 之后才回到已连接态");
 
   // ── 攻题补强 3:退避真的在涨(接线层不许每轮都从 500ms 重来)─────────────────
@@ -529,13 +529,13 @@ try {
   check(gaps.length >= 3 && gaps[1] > gaps[0] * 1.3 && gaps[2] > gaps[1] * 1.3,
     `⑱ 间隔逐次变长(退避没被每轮重置):${JSON.stringify(gaps)}`);
   await page.evaluate(() => { window.__failConnect = false; });
-  check(await until(() => page.locator(`${pane} .chat-meta`).isVisible(), 25000),
+  check(await until(() => page.locator(`${pane} [data-ui="chat-model"]`).isVisible(), 25000),
     "⑲ gateway 回来后自己接上");
 
   // ── 攻题补强 4:拉历史 401 **不是**口令失效,不许踹回登录框 ───────────────────
   //   connection.ts:116 在"重签后仍 401"时也抛 PasswordRejected —— 来源被抹掉了
   await page.evaluate(() => { window.__thread401 = true; window.__killWS("home", 1006); });
-  check(await until(() => page.locator(`${pane} .chat-meta`).isVisible(), 25000),
+  check(await until(() => page.locator(`${pane} [data-ui="chat-model"]`).isVisible(), 25000),
     "⑳ 历史接口 401 ⇒ 照常连上");
   check(!(await page.locator(`${pane} .chat-login input[type=password]`).isVisible()),
     "㉑ 历史接口 401 **不许**清口令、不许弹登录框(只有 bootstrap 自己 401 才算)");
@@ -544,7 +544,7 @@ try {
   // ── 空会话拉历史 = 404,当"没历史"处理,不弹错 ───────────────────────────
   await page.evaluate(() => { window.__threadStatus = 404; window.__killWS("home", 1006); });
   check(await until(async () => {
-    if (!(await page.locator(`${pane} .chat-meta`).isVisible())) return false;
+    if (!(await page.locator(`${pane} [data-ui="chat-model"]`).isVisible())) return false;
     const t = await page.locator(pane).innerText();
     return !t.includes("连接已断开") && !t.includes("404");
   }, 25000), "⑩ 拉历史 404(空会话的真实形状)⇒ 照常连上,不把 404 弹给用户");
@@ -563,7 +563,7 @@ try {
   check(await until(async () => await page.locator(`${pane} .send-btn`).isDisabled(), 8000),
     "㉜a 前置:发出去还没回 ⇒ 此刻确实是忙(发送键 disabled)");
   await page.evaluate(() => window.__killWS("home", 1006));
-  check(await until(() => page.locator(`${pane} .chat-meta`).isVisible(), 25000),
+  check(await until(() => page.locator(`${pane} [data-ui="chat-model"]`).isVisible(), 25000),
     "㉜b 前置:又连回来了(且这一轮拉历史是 404)");
   await page.locator(`${pane} textarea`).fill("重连之后我还想说话");
   check(await until(async () => !(await page.locator(`${pane} .send-btn`).isDisabled()), 8000),

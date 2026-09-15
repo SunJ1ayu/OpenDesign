@@ -34,16 +34,21 @@ export async function launchBrowser() {
   return pw.chromium.launch({ headless: true, executablePath: chromiumPath() });
 }
 
-/** 在 scope(容器选择器)内完成口令登录并等到已连接(.chat-meta 出现)。 */
+/** 在 scope(容器选择器)内完成口令登录并等到已连接(模型按钮 [data-ui="chat-model"] 出现)。 */
 export async function loginPane(page, scope, password, timeout = 20000) {
   const input = page.locator(`${scope} .chat-login input[type=password]`);
   await input.waitFor({ timeout });
   await input.fill(password);
   await page.locator(`${scope} .chat-login button[type=submit]`).click();
-  await page.locator(`${scope} .chat-meta`).waitFor({ timeout });
+  await page.locator(`${scope} [data-ui="chat-model"]`).waitFor({ timeout });
 }
 
-/** 等到已连接(.chat-meta 出现)—— **全程不手输口令**。
+/** 等到已连接(模型按钮 [data-ui="chat-model"] 出现)—— **全程不手输口令**。
+ *
+ * ⚠️ 2026-09-15 换过标记(track opendesign-composer-model-picker):原来认的是聊天头部 `.chat-meta`
+ *    (左上角「已连接 · 模型名」)。业主验收时拍板**删掉那一行**、把模型挪进输入框右下角
+ *    ⇒ "连上了"的可观察代理换成那颗按钮。语义不变:它和旧头部一样**只在真连上时渲染**,
+ *    重连中不出现(chat_reconnect 的 ⑬/㉝ 那几条照问)。这不是放宽:删头部是业主的决定,不是考卷的。
  *
  * track opendesign-key-onboarding(2026-08-16):T2 起 ds-web 用后端口令替前端签
  * (`_gateway_password()`),业主不该被要求记一个我们自己生成的口令。
@@ -62,7 +67,7 @@ export async function loginPane(page, scope, password, timeout = 20000) {
  */
 export async function waitConnected(page, scope, timeout = 20000) {
   try {
-    await page.locator(`${scope} .chat-meta`).waitFor({ timeout });
+    await page.locator(`${scope} [data-ui="chat-model"]`).waitFor({ timeout });
   } catch (e) {
     const login = await page.locator(`${scope} .chat-login`).count();
     throw new Error(login > 0
@@ -75,7 +80,7 @@ export async function waitConnected(page, scope, timeout = 20000) {
 
 /** 等到**真的能发消息**(view 已是 connected)。
  *
- * 🔴 为什么不并进 waitConnected:`.chat-meta` 出现 **不等于** 连上了 —— ChatPage 让
+ * 🔴 为什么不并进 waitConnected:`模型按钮 [data-ui="chat-model"]` 出现 **不等于** 连上了 —— ChatPage 让
  *    reconnecting 与 connected **走同一条渲染路径**(断线前的对话必须留在眼前,
  *    见 ChatPage 875 行那段注释),重连中它照样在。要发消息的场景光等它会撞上
  *    disabled 的输入框,报「element is not enabled」,而那句报错完全不指向真因。

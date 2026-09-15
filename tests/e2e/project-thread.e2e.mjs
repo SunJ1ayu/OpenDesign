@@ -24,7 +24,7 @@ const threadMap = (page) =>
   page.evaluate(() => JSON.parse(localStorage.getItem("odw.projectThreads") || "{}"));
 /** 等某项目的映射落盘再读。
  *  记账是异步的:chat_id 从网关回来 → setState → effect 写 localStorage,
- *  比「已连接」文案晚一两帧(实测 2-4ms)。原来在 .chat-meta 出现后立刻读这个
+ *  比「已连接」文案晚一两帧(实测 2-4ms)。原来在 模型按钮 [data-ui="chat-model"] 出现后立刻读这个
  *  瞬间值,margin 薄到前端任何渲染改动都能把它翻红(2026-07-24 前端批实锤:
  *  同一份代码基线读到、新构建晚 4ms 读不到)。断言强度不变——仍要求映射存在
  *  且与 A 不同,只是允许它在几秒内到达。 */
@@ -92,7 +92,7 @@ try {
 
   // ② 进项目 A:登录后选项目 → colResume nonce 变 → 列实例自动连上(不用二次登录)
   await projRow(page, PROJ_A).click();
-  await page.locator(`${COL} .chat-meta`).waitFor({ timeout: 20000 });
+  await page.locator(`${COL} [data-ui="chat-model"]`).waitFor({ timeout: 20000 });
   console.log("step2 项目 A 聊天列已连接");
 
   // ③ 发消息:首条带【当前项目】前缀,上屏可见
@@ -117,7 +117,7 @@ try {
 
   // ⑤ 切项目 B:全新上下文(转录清空,回到空态文案)
   await projRow(page, PROJ_B).click();
-  await page.locator(`${COL} .chat-meta`).waitFor({ timeout: 20000 });
+  await page.locator(`${COL} [data-ui="chat-model"]`).waitFor({ timeout: 20000 });
   check((await page.locator(`${COL} .msg-user`).count()) === 0, "B 项目转录为空(上下文隔离)");
   map = await waitThread(page, PROJ_B);
   check(map[PROJ_B] && map[PROJ_B] !== chatIdA, "B 项目映射独立于 A");
@@ -125,7 +125,7 @@ try {
 
   // ⑥ 切回 A:attach + thread 回放,消息还在,chat_id 不变
   await projRow(page, PROJ_A).click();
-  await page.locator(`${COL} .chat-meta`).waitFor({ timeout: 20000 });
+  await page.locator(`${COL} [data-ui="chat-model"]`).waitFor({ timeout: 20000 });
   await page
     .locator(`${COL} .msg-user`, { hasText: "这是A项目的e2e测试消息" })
     .first()
@@ -137,7 +137,7 @@ try {
   // ⑦ 再切 B(此前只连过没聊过):attach 虚会话即便失败也要自愈连上,不卡死,
   //   且映射保持可用(原 id 挂住或自愈换新 id,总之 B 名下有值)
   await projRow(page, PROJ_B).click();
-  await page.locator(`${COL} .chat-meta`).waitFor({ timeout: 25000 });
+  await page.locator(`${COL} [data-ui="chat-model"]`).waitFor({ timeout: 25000 });
   map = await waitThread(page, PROJ_B);
   check(typeof map[PROJ_B] === "string" && map[PROJ_B].length > 0, "B 再入后映射仍可用(挂住或自愈换新)");
   check(map[PROJ_A] === chatIdA, "B 的自愈不误伤 A 的映射");
