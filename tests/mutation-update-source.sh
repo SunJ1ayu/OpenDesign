@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 PY="${PY:-/root/.venvs/design-studio/bin/python}"
 
 FILES=(bin/ds_update.py installer/make-update-manifest.py web/src/update.ts
-       .github/scripts/fake_github.py .github/scripts/update_e2e_verdict.py)
+       .github/scripts/fake_github.py .github/scripts/update_e2e_verdict.py .github/scripts/windows-update-e2e.ps1)
 WORK="$(mktemp -d)"
 declare -A BEFORE
 for f in "${FILES[@]}"; do
@@ -66,6 +66,7 @@ PYEOF
 }
 
 SRC=tests.test_ds_update_source
+H=tests.test_update_e2e_harness
 echo "== ds_update 订阅源 / 清单 / 回落 / 人话 / 代理 =="
 mutate r1 bin/ds_update.py $SRC test_rl2_the_highest_version_wins_not_the_first_entry \
   '        if ver is not None and (best_ver is None or ver > best_ver):' \
@@ -73,12 +74,10 @@ mutate r1 bin/ds_update.py $SRC test_rl2_the_highest_version_wins_not_the_first_
 mutate r2 bin/ds_update.py $SRC test_rl4_when_the_feed_works_the_api_is_never_asked \
   '        if result.get("error"):
             reasons.append("%s:%s" % (label, result["error"]))
-            continue
-        return result' \
+            continue' \
   '        if result.get("error") or label == FEED_LABEL:
             reasons.append("%s:%s" % (label, result["error"]))
-            continue
-        return result'
+            continue'
 mutate r3 bin/ds_update.py $SRC test_rl5a_feed_down_falls_back_to_the_api \
   '                           (API_LABEL, lambda: _via_releases(current, fetch_releases))):' \
   '                           ):'
@@ -95,7 +94,7 @@ mutate r7 bin/ds_update.py $SRC test_rl3b_tag_text_is_used_verbatim_in_the_url \
   '        "browser_download_url": "%s/%s/releases/download/%s/%s" % (WEB_BASE, repo, tag, name),' \
   '        "browser_download_url": "%s/%s/releases/download/%s/%s" % (WEB_BASE, repo, "win-installer-" + ".".join(str(n) for n in parse_version(tag)), name.replace(version, ".".join(str(n) for n in parse_version(tag)))),'
 mutate r8 bin/ds_update.py $SRC test_rl7a_rate_limit_is_explained \
-  '        if exc.code == 429 or (exc.code == 403 and "rate limit" in said):' \
+  '        if exc.code == 429 or (exc.code == 403 and ("rate limit" in said or exhausted)):' \
   '        if False:'
 mutate r9 bin/ds_update.py $SRC test_rl8a_api \
   '    return urllib.request.build_opener().open(req, timeout=timeout)' \
@@ -119,8 +118,58 @@ mutate r14 bin/ds_update.py $SRC test_rl8b_feed \
   '    return urllib.request.urlopen(urllib.request.Request(atom_url(repo)), timeout=timeout).read().decode("utf-8")'
 
 mutate r15 bin/ds_update.py tests.test_ds_update_source test_rl7c_garbage_body_is_explained_not_dumped \
-  '    elif isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError)):' \
-  '    elif False:'
+  '    elif isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError, http.client.HTTPException)):' \
+  '    elif isinstance(exc, (http.client.HTTPException,)):'
+
+echo "== 评审第 1 轮修复(整份审 + 切片审)=="
+mutate r16 bin/ds_update.py $SRC test_rl1d_links_to_other_repos_are_dropped \
+  '    link_re = re.compile(r"^%s/%s/releases/tag/([^/?#\s]+)\Z" % (re.escape(WEB_BASE), re.escape(repo)))' \
+  '    link_re = re.compile(r"^%s/[^/]+/[^/]+/releases/tag/([^/?#\s]+)\Z" % re.escape(WEB_BASE))'
+mutate r17 bin/ds_update.py $SRC test_rl3d_tag_with_trailing_newline_is_refused \
+  'TAG_RE = re.compile(rf"^win-installer-({_NUM})\Z")' \
+  'TAG_RE = re.compile(rf"^win-installer-({_NUM})$")'
+mutate r18 bin/ds_update.py $SRC test_rl3c_every_mismatch_is_refused \
+  'ASSET_RE = re.compile(rf"^OpenDesign-Setup-({_NUM})\.exe\Z")' \
+  'ASSET_RE = re.compile(rf"^OpenDesign-Setup-({_NUM})\.exe$")'
+mutate r19 bin/ds_update.py $SRC test_rl5d_feed_saw_a_newer_version_but_the_api_fallback_says_up_to_date \
+  '        if unverified is not None and not result.get("update_available"):' \
+  '        if False:'
+mutate r20 bin/ds_update.py $SRC test_rl6b_unreadable_local_version_asks_nobody \
+  '    if parse_version(current) is None:
+        # 判据 rl6b' \
+  '    if False:
+        # 判据 rl6b'
+mutate r21 bin/ds_update.py $SRC test_rl7d_rate_limit_seen_only_in_headers_is_still_rate_limit \
+  '        if exc.code == 429 or (exc.code == 403 and ("rate limit" in said or exhausted)):' \
+  '        if exc.code == 429 or (exc.code == 403 and "rate limit" in said):'
+mutate r22 bin/ds_update.py $SRC test_rl7d_broken_http_from_a_middlebox_is_explained \
+  '    elif isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError, http.client.HTTPException)):' \
+  '    elif isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError)):'
+mutate r24 bin/ds_update.py $SRC test_rl7e_bad_manifest_is_said_in_plain_words \
+  '            detail = str(exc.cause) if isinstance(exc.cause, ManifestError) else explain(exc.cause)
+            reasons.append("%s:有新版 %s,但%s(%s)" % (label, exc.version, UNVERIFIED_HUMAN, detail))' \
+  '            reasons.append("%s:%s" % (label, explain(exc.cause)))'
+mutate n3 installer/make-update-manifest.py tests.test_update_manifest test_rl10d_missing_inputs_say_so_without_a_traceback \
+  '    if not os.path.isfile(args.exe):' \
+  '    if False:'
+mutate h5 .github/scripts/update_e2e_verdict.py $H test_v2_every_break_fails \
+  '        if feed_failed is not None and early_api is not None and early_api < feed_failed:' \
+  '        if False:'
+mutate h6 .github/scripts/update_e2e_verdict.py $H test_v2_every_break_fails \
+  '        manifest_ok = first(kind_is("manifest", ok))' \
+  '        manifest_ok = first(kind_is("manifest"))'
+mutate h7 .github/scripts/update_e2e_verdict.py $H test_v2_every_break_fails \
+  '        if download is not None and (api_ok is None or download < api_ok):' \
+  '        if False:'
+mutate h8 .github/scripts/fake_github.py $H test_h6a_feed_mode_serves_feed_and_manifest_the_product_accepts \
+  'ATOM_DECOY_VERSIONS = ("0.0.2", None, "0.0.1")' \
+  'ATOM_DECOY_VERSIONS = (None,)'
+mutate h9 .github/scripts/windows-update-e2e.ps1 $H test_h7c_e8_switches_to_api_and_always_switches_back \
+  "    try { Run-FullUpdate 'e8' }
+    finally { Set-Content -LiteralPath \$SourceFile -Value 'feed' }" \
+  "    try { Run-FullUpdate 'e8' }
+    finally { Note 'x' }
+    Set-Content -LiteralPath \$SourceFile -Value 'feed'"
 
 echo "== 发版清单生成脚本 =="
 mutate n1 installer/make-update-manifest.py tests.test_update_manifest test_rl10a_digest_and_size_come_from_the_file_itself \
@@ -156,15 +205,18 @@ mutate h2 .github/scripts/fake_github.py $H test_h6c_feed_mode_api_is_rate_limit
   '                if False:
                     log({"kind": "releases"'
 mutate h3 .github/scripts/update_e2e_verdict.py $H test_v2_every_break_fails \
-  '        if "releases" in kinds:
+  '        if first(kind_is("releases")) is not None:
             problems.append("feed path worked but the app still asked the rate-limited API")' \
   '        if False:
             problems.append("feed path worked but the app still asked the rate-limited API")'
+# h4 两道一起拆:"订阅源失败后没有 API 应答"与"下载在 API 应答之前"。e8 一定有下载,
+#    单拆前一道时后一道照样红(09-16 首跑 h4 漏网,核实是冗余不是没钉住)。
+MUTATE_ALSO_OLD='        if download is not None and (api_ok is None or download < api_ok):' MUTATE_ALSO_NEW='        if False:' \
 mutate h4 .github/scripts/update_e2e_verdict.py $H test_v2_every_break_fails \
-  '        if "releases" not in kinds:
-            problems.append("fallback: app never asked the API after the feed failed")' \
+  '        if api_ok is None:
+            problems.append("fallback: app never got an API answer after the feed failed")' \
   '        if False:
-            problems.append("fallback: app never asked the API after the feed failed")'
+            problems.append("fallback: app never got an API answer after the feed failed")'
 
 restore
 echo

@@ -556,8 +556,11 @@ BREAKS = {
                                                                    {"kind": "download", "mode": "normal"}]),
         "download not normal": _set("fake_log", [{"kind": "atom", "status": 503}, {"kind": "releases", "status": 200}]),
         "scenario not in api mode (untested)": _set("source", "feed"),
+        # 后面也有一次成功的 API(红检 h5 照出:没有它的话,这条反例靠"订阅源失败之后没有 API 应答"那道也会红,
+        # "先问 API"那道检查从来没被单独问到)
         "API asked before the feed failed": _set("fake_log", [{"kind": "releases", "status": 200},
                                                               {"kind": "atom", "status": 503},
+                                                              {"kind": "releases", "status": 200},
                                                               {"kind": "download", "mode": "normal"}]),
         "feed did not actually fail": _set("fake_log", [{"kind": "atom", "status": 200},
                                                         {"kind": "releases", "status": 200},

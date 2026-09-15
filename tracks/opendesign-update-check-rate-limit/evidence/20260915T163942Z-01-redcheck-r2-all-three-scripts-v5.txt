@@ -1,0 +1,113 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-r2-all-three-scripts-v5
+cmd:     bash -c rc=0\;\ echo\ \"########\ tests/mutation-update-source.sh\"\;\ bash\ tests/mutation-update-source.sh\ \|\|\ rc=1\;\ echo\ \"########\ tests/mutation-ds-update.sh\"\;\ bash\ tests/mutation-ds-update.sh\ \|\|\ rc=1\;\ echo\ \"########\ tests/mutation-update-e2e-harness.py\"\;\ /root/.venvs/design-studio/bin/python\ tests/mutation-update-e2e-harness.py\ \|\|\ rc=1\;\ exit\ \$rc
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  ba1280f
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T16:39:42Z
+---------------- 输出开始 ----------------
+######## tests/mutation-update-source.sh
+== ds_update 订阅源 / 清单 / 回落 / 人话 / 代理 ==
+  [咬住] r1 → test_rl2_the_highest_version_wins_not_the_first_entry
+  [咬住] r2 → test_rl4_when_the_feed_works_the_api_is_never_asked
+  [咬住] r3 → test_rl5a_feed_down_falls_back_to_the_api
+  [咬住] r4 → test_rl6_not_newer_means_up_to_date_without_fetching_a_manifest
+  [咬住] r5 → test_rl3c_every_mismatch_is_refused
+  [咬住] r6 → test_rl3c_every_mismatch_is_refused
+  [咬住] r7 → test_rl3b_tag_text_is_used_verbatim_in_the_url
+  [咬住] r8 → test_rl7a_rate_limit_is_explained
+  [咬住] r9 → test_rl8a_api
+  [咬住] r10 → test_rl8e_manifest_is_asked_for_as_a_file_not_as_json
+  [咬住] r11 → test_rl9_injected_fetch_never_touches_the_feed
+  [咬住] r12 → test_rl1b_other_tags_are_dropped
+  [咬住] r13 → test_rl5c_both_down_says_both_reasons_and_offers_nothing
+  [咬住] r14 → test_rl8b_feed
+  [咬住] r15 → test_rl7c_garbage_body_is_explained_not_dumped
+== 评审第 1 轮修复(整份审 + 切片审)==
+  [咬住] r16 → test_rl1d_links_to_other_repos_are_dropped
+  [咬住] r17 → test_rl3d_tag_with_trailing_newline_is_refused
+  [咬住] r18 → test_rl3c_every_mismatch_is_refused
+  [咬住] r19 → test_rl5d_feed_saw_a_newer_version_but_the_api_fallback_says_up_to_date
+  [咬住] r20 → test_rl6b_unreadable_local_version_asks_nobody
+  [咬住] r21 → test_rl7d_rate_limit_seen_only_in_headers_is_still_rate_limit
+  [咬住] r22 → test_rl7d_broken_http_from_a_middlebox_is_explained
+  [咬住] r24 → test_rl7e_bad_manifest_is_said_in_plain_words
+  [咬住] n3 → test_rl10d_missing_inputs_say_so_without_a_traceback
+  [咬住] h5 → test_v2_every_break_fails
+  [咬住] h6 → test_v2_every_break_fails
+  [咬住] h7 → test_v2_every_break_fails
+  [咬住] h8 → test_h6a_feed_mode_serves_feed_and_manifest_the_product_accepts
+  [咬住] h9 → test_h7c_e8_switches_to_api_and_always_switches_back
+== 发版清单生成脚本 ==
+  [咬住] n1 → test_rl10a_digest_and_size_come_from_the_file_itself
+  [咬住] n2 → test_rl10b_tag_and_file_name_must_agree
+== 界面原因 ==
+  [咬住] u1 → rl11b
+  [咬住] u2 → rl11a
+== Windows e2e 替身 / 判定器 ==
+  [咬住] h1 → test_h6b_feed_mode_manifest_with_json_accept_is_404_like_real_github
+  [咬住] h2 → test_h6c_feed_mode_api_is_rate_limited
+  [咬住] h3 → test_v2_every_break_fails
+  [咬住] h4 → test_v2_every_break_fails
+
+== 红检小结:咬住 37 条 / 漏网 0 条(被测文件已逐字节还原)==
+######## tests/mutation-ds-update.sh
+== 红检 bin/ds_update.py ==
+  [咬住] m1 → test_t1_picks_the_newest_even_though_all_are_prerelease
+  [咬住] m1b → test_t1b_code_must_not_call_the_latest_endpoint
+  [对照组] m1c 注释里提到那个接口 → 仍然全绿(没有误报)
+  [咬住] m2 → test_t2a_numeric_not_lexicographic
+  [咬住] m3 → test_t3a_same_version_no_offer
+  [咬住] m4 → test_t3b_local_newer_no_offer
+  [咬住] m5 → test_t1c2_asset_with_a_wrong_name_is_not_an_installer
+  [咬住] m6 → test_t1d_draft_is_never_a_candidate
+  [咬住] m7 → test_t7d_never_raises_whatever_happens
+  [咬住] m8 → test_t2e_garbage_returns_none_not_exception
+  [咬住] m9 → test_t3c_local_older_offers_with_what_it_needs
+  [咬住] m10 → test_t3d_unparsable_local_version_never_offers
+  [咬住] m11 → test_t8d_failure_is_never_cached
+  [咬住] m12 → test_t8e_cache_is_keyed_by_current_version
+  [咬住] m13 → test_t8c_force_bypasses_cache
+  [咬住] m14 → test_t8b_expired_cache_refetches
+  [咬住] m15 → test_t8a_second_call_within_ttl_does_not_refetch
+  [咬住] m16 → test_t2f_two_segment_version_is_understood
+  [咬住] m17 → test_t2g_padding_makes_the_short_form_compare_right
+  [咬住] m18 → test_t2e_garbage_returns_none_not_exception
+  [咬住] m19 → test_t10a_decide_carries_the_real_release_url
+  [咬住] m20 → test_t10b_two_segment_tag_keeps_its_own_url
+  [咬住] m21 → test_t11_releases_url_is_exactly_this
+  [咬住] m22 → test_t12_fetch_releases_asks_exactly_the_seam_url
+
+== 红检小结:咬住 24 条 / 漏网 0 条(被测文件已逐字节还原)==
+######## tests/mutation-update-e2e-harness.py
+M1 digest prefix: BITES
+M2 drop github.com redirect: BITES
+M3 SAN lacks github.com: BITES
+M4 skip lookalike dirs: BITES
+M5 corrupt two bytes: BITES
+M6 e1 no marker check: BITES
+M7 e3 no relaunch check: BITES
+M8 e5 no seen check: BITES
+M9 nested ignored: BITES
+M10 injection ignored: BITES
+M11 missing facts ok: BITES
+M12 CI new version not newer: BITES
+M13 workflow gate drops a scenario: BITES
+M14 non-ascii output: BITES
+M16 pointers not checked: BITES
+M17 .new counts as inside live: BITES
+M18 no /D on reset: BITES
+M19 rollback reach not checked: BITES
+M20 old_seen splits the if/elseif chain: BITES
+M15 e2 health ignored: BITES
+M21 e6 space not checked: BITES
+M22 e7 rc not checked: BITES
+M23 e7 .new ignored: BITES
+M24 e7 any command line: BITES
+M25 final health not checked: BITES
+M26 spaced scenarios not last: BITES
+M27 spaced dir has no space: BITES
+M28 e7 forgets to switch dir: BITES
+28 mutations, 28 bite, 0 escaped/setup-error
+---------------- 输出结束 ----------------
+runlog: redcheck-r2-all-three-scripts-v5 rc=0 commit=ba1280f dirty=yes at=2026-09-15T16:39:42Z file=tracks/opendesign-update-check-rate-limit/evidence/20260915T163942Z-01-redcheck-r2-all-three-scripts-v5.txt

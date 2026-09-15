@@ -184,7 +184,7 @@ mutate_and_expect m17 test_t2g_padding_makes_the_short_form_compare_right \
 
 # m18 版本号形状不再要求"整段吻合"(去掉尾锚)⇒ 0.98.x 被当成 0.98,坏版本号当好的用
 mutate_and_expect m18 test_t2e_garbage_returns_none_not_exception \
-  'BARE_RE = re.compile(rf"^({_NUM})$")' \
+  'BARE_RE = re.compile(rf"^({_NUM})\Z")' \
   'BARE_RE = re.compile(rf"^({_NUM})")'
 
 # ── 评审 F1 / F5 那批 ────────────────────────────────────────────────
@@ -205,9 +205,11 @@ mutate_and_expect m21 test_t11_releases_url_is_exactly_this \
   '    return API_BASE + RELEASES_PATH.format(repo=repo) + "/latest" + "?per_page=100"'
 
 # m22 🔴 真打网那处内联拼地址、绕开 releases_url(F-B 指的那条更深的绕闸路)
+# (09-16 锚点跟随 track opendesign-update-check-rate-limit:fetch_releases 改走 _get_text + build_opener,
+#  原锚点那行不存在了 ⇒ 这条曾经打不上、整支 rc=1,评审 整份 DeepSeek #1 指出)
 mutate_and_expect m22 test_t12_fetch_releases_asks_exactly_the_seam_url \
-  '    url = releases_url(repo)' \
-  '    url = API_BASE + "/repos/" + repo + "/releases" + "/latest" + "?per_page=100"'
+  '    return json.loads(_get_text(releases_url(repo), "application/vnd.github+json", timeout))' \
+  '    return json.loads(_get_text(API_BASE + "/repos/" + repo + "/releases" + "/latest" + "?per_page=100", "application/vnd.github+json", timeout))'
 
 restore
 AFTER="$(sha256sum "$SRC" | cut -d' ' -f1)"
