@@ -23,12 +23,14 @@ type Props = {
   dataEpoch?: number;      // -p2:收件箱卡片搬到本列顶部,沿用同一刷新节拍
   inboxActive?: boolean;   // -p2:路由门(仅工作区路由拉收件箱数据)
   onNewChat?: () => void; // 清当前项目映射+强制新会话
+  /** 模型菜单「换厂商 / 换 key…」→ App 级「AI 模型 key」卡(纯透传给 ChatPage)。 */
+  onOpenLlmKey?: () => void;
 };
 
 export default function ChatColumn({
   session, prefill, dispatch, onConnected, onTurnEnd,
   resume, onChatId, onAttachFailed, firstSendPrefix, projectLabel, onNewChat,
-  dataEpoch = 0, inboxActive = false,
+  dataEpoch = 0, inboxActive = false, onOpenLlmKey,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -82,6 +84,7 @@ export default function ChatColumn({
           onAttachFailed={onAttachFailed}
           firstSendPrefix={firstSendPrefix}
           projectLabel={projectLabel}
+          onOpenLlmKey={onOpenLlmKey}
         />
       </div>
     </section>

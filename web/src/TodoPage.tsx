@@ -62,6 +62,8 @@ type Props = {
   dataEpoch: number;
   // T4:右栏项目助手要挂 ChatPage 真身,session 从 App 经这里透传进 TodoRail。
   session: ChatSession;
+  /** 模型菜单「换厂商 / 换 key…」→ App 级「AI 模型 key」卡(纯透传进 TodoRail)。 */
+  onOpenLlmKey?: () => void;
 };
 
 function dotClass(p: Project | undefined): string {
@@ -96,6 +98,7 @@ export default function TodoPage({
   active,
   dataEpoch,
   session,
+  onOpenLlmKey,
 }: Props) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -700,6 +703,7 @@ export default function TodoPage({
           selectedDate={dateFilter}
           onSelectDate={toggleDateFilter}
           session={session}
+          onOpenLlmKey={onOpenLlmKey}
         />
       </div>
     </div>

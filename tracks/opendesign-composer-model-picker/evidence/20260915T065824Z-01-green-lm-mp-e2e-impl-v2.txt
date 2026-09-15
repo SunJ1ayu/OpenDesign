@@ -1,0 +1,28 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    green-lm-mp-e2e-impl-v2
+cmd:     bash -c rc=0\;\ H=\$\(mktemp\ -d\ -t\ ds-e2e-home-XXXXXX\)\;\ trap\ \"rm\ -rf\ \$H\"\ EXIT\;\ mkdir\ -p\ \$H/.openDesign\ \$H/.cache\;\ echo\ e2e-fixture-not-a-real-key\ \>\ \$H/.openDesign/key.txt\;\ ln\ -s\ /root/.cache/ms-playwright\ \$H/.cache/ms-playwright\;\ echo\ \"\(e2e\ 用隔离\ HOME\ +\ 假\ key\,同\ tests/e2e/run-all.sh:135-154\;v1\ 那份红在继承了真实\ HOME\ ⇒\ key\ 卡片遮罩拦点击\)\"\;\ echo\ \"==\ lm\"\;\ /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_llm_model\ \>\ \$H/lm.txt\ 2\>\&1\ \|\|\ rc=1\;\ grep\ -E\ \"\^\(FAIL\|ERROR\):\|\^Ran\|\^OK\|\^FAILED\"\ \$H/lm.txt\;\ echo\ \"==\ mp\"\;\ node\ --test\ tests/test_model_picker.mjs\ \>\ \$H/mp.txt\ 2\>\&1\ \|\|\ rc=1\;\ grep\ -E\ \"\^#\ \(tests\|pass\|fail\)\"\ \$H/mp.txt\;\ echo\ \"==\ dist\ 新鲜度\"\;\ bash\ tests/e2e/check-dist-fresh.sh\ \>\ \$H/dist.txt\ 2\>\&1\ \|\|\ rc=1\;\ tail\ -1\ \$H/dist.txt\;\ for\ f\ in\ model_picker\ chat_reconnect\;\ do\ echo\ \"==\ e2e\ \$f\"\;\ HOME=\$H\ USERPROFILE=\$H\ timeout\ 300\ node\ tests/e2e/\$f.e2e.mjs\ \>\ \$H/e2e.txt\ 2\>\&1\ \|\|\ rc=1\;\ grep\ -cE\ \"\^\ \ ok\ \"\ \$H/e2e.txt\ \|\ sed\ \"s/\^/\ \ ok\ 条数:\ /\"\;\ grep\ -E\ \"\^\ \ FAIL\|ALL\ PASS\|FAILED\|异常\"\ \$H/e2e.txt\;\ done\;\ echo\ \"==\ project-thread:要活\ gateway\ +\ 外起\ ds_web\,归全仓总跑\ --with-gateway\"\;\ exit\ \$rc
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  3f2a8bc
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T06:58:24Z
+---------------- 输出开始 ----------------
+(e2e 用隔离 HOME + 假 key,同 tests/e2e/run-all.sh:135-154;v1 那份红在继承了真实 HOME ⇒ key 卡片遮罩拦点击)
+== lm
+Ran 8 tests in 5.635s
+OK
+== mp
+# tests 6
+# pass 6
+# fail 0
+== dist 新鲜度
+✅ 产物新鲜度:web/dist 就是当前源码 build 出来的(3 个文件逐字节一致)
+== e2e model_picker
+  ok 条数: 16
+ALL PASS
+== e2e chat_reconnect
+  ok 条数: 45
+  ok   - ㉙ readyState 不是 OPEN 时点发送 ⇒ 不上屏假气泡(不靠异常兜)
+ALL PASS
+== project-thread:要活 gateway + 外起 ds_web,归全仓总跑 --with-gateway
+---------------- 输出结束 ----------------
+runlog: green-lm-mp-e2e-impl-v2 rc=0 commit=3f2a8bc dirty=yes at=2026-09-15T06:58:24Z file=tracks/opendesign-composer-model-picker/evidence/20260915T065824Z-01-green-lm-mp-e2e-impl-v2.txt

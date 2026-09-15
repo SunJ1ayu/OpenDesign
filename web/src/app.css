@@ -1945,40 +1945,42 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   color: var(--ink-2);
 }
 .chat-note .acts { display: flex; gap: 6px; margin-left: auto; }
-.chat-meta {
+/* 输入卡里的模型按钮(track opendesign-composer-model-picker):发送键左边,点开向上弹。
+   原来左上角那行「已连接 · 模型名」+ … 退出登录已按业主 09-15 拍板删掉。
+   菜单卡片视觉复用 .settings-pop 同款(圆角/边框/阴影/内边距)。 */
+.model-pick { position: relative; min-width: 0; }
+.model-chip {
+  height: 26px;
+  max-width: 180px;
   display: flex;
   align-items: center;
-  position: relative;
-  font-size: 10.5px;
-  color: var(--ink-5);
-  padding: 0 20px 6px;
+  gap: 5px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  transition: background var(--hover-ease);
 }
-.chat-meta-more {
-  margin-left: auto;
-  padding: 2px 6px;
-  border-radius: 5px;
-  color: var(--ink-5);
-  font-size: 13px;
-  line-height: 1;
-  transition: background var(--hover-ease), color var(--hover-ease);
-}
-.chat-meta-more:hover { background: var(--paper-hover); color: var(--ink-2); }
-/* 卡片视觉复用 .settings-pop 同款(圆角/边框/阴影/内边距),定位不同——挂在
-   本按钮下方靠右,不是侧栏底部弹层。 */
-.chat-meta-menu {
+.model-chip:hover, .model-chip[aria-expanded="true"] { background: var(--paper-side); }
+.model-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--st-done-dot); flex: none; }
+.model-chip .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model-chip .caret { font-size: 9px; color: var(--ink-5); flex: none; }
+.model-menu {
   position: absolute;
-  top: 100%;
-  right: 20px;
-  margin-top: 4px;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 6px;
   background: #fff;
   border: 1px solid var(--border-input);
   border-radius: 11px;
   box-shadow: var(--shadow-pop);
   padding: 6px;
-  z-index: 5;
-  min-width: 120px;
+  z-index: 20;
+  min-width: 220px;
 }
-.chat-meta-menu .item {
+.model-menu .group { padding: 6px 10px 4px; font-size: 11px; color: var(--ink-5); }
+.model-menu .sep { height: 1px; margin: 5px 4px; background: var(--border-soft); }
+.model-menu .item {
   display: flex;
   align-items: center;
   width: 100%;
@@ -1986,9 +1988,14 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   border-radius: 7px;
   font-size: 12.5px;
   color: var(--ink);
+  text-align: left;
   transition: background var(--hover-ease);
 }
-.chat-meta-menu .item:hover { background: var(--paper-side); }
+.model-menu .item:hover { background: var(--paper-side); }
+.model-menu .item:disabled { color: var(--ink-5); cursor: default; }
+.model-menu .item .name { flex: 1; }
+.model-menu .item .check { color: var(--terra); margin-left: 12px; }
+.model-menu .err { padding: 6px 10px 4px; font-size: 11.5px; color: var(--terra-deep); }
 
 /* ── 「连接聊天服务」卡(修改单 C):永远一张卡,不是裸表单 ─────────────────── */
 .connect-card {

@@ -28,6 +28,15 @@ import {
   pickChatImages,
 } from "./media";
 import { fileToDataUrl, uploadErrMsg, uploadToInbox } from "../api";
+import {
+  MODEL_CHANGED_EVENT,
+  MODEL_PATH,
+  MODELS_PATH,
+  modelChipLabel,
+  modelMenuItems,
+  readModelsResponse,
+  type ModelsStatus,
+} from "./modelPicker";
 
 // P2 T3:视觉照 handoff §4 重排(用户消息低对比右对齐 / AI 无气泡直排 /
 // 赤陶流式光标 / Claude 式组合输入卡 / 「记一下」chip 预填)。
@@ -99,6 +108,8 @@ type Props = {
    *  三处挂载点当前都没有 `key`,实例不随项目切换重建,所以固定串就够;
    *  哪天给它们加了 key,这里要改成带 project 的身份(gpt 腿提的)。 */
   slot?: string;
+  /** 模型菜单最后一行「换厂商 / 换 key…」:打开 App 级的「AI 模型 key」卡(与侧栏同一个入口)。 */
+  onOpenLlmKey?: () => void;
 };
 
 function StockLink() {
@@ -122,6 +133,7 @@ export default function ChatPage({
   projectLabel,
   variant = "column",
   slot,
+  onOpenLlmKey,
 }: Props) {
   const fallback = useMemo(() => new ChatSession(), []);
   const session = sessionProp ?? fallback;
@@ -145,27 +157,74 @@ export default function ChatPage({
   useEffect(() => {
     if (view.kind === "connected") setBannerOpen(false);
   }, [view.kind]);
-  // p3-polish §I5:头部降噪——「退出登录」收进 … 菜单,esc/外点关闭(与设置弹层
-  // 同规矩,全局原则 A3)。
-  const [chatMenuOpen, setChatMenuOpen] = useState(false);
+  // ── 输入框里的模型按钮(track opendesign-composer-model-picker)──────────────
+  // 业主 09-15 拍板:删掉左上角「已连接 · 模型名」和 … 里的「退出登录」(现在不用登录),
+  // 模型挪到输入卡右下角、发送键左边,点开向上弹、能直接换。esc/外点关闭(全局原则 A3)。
+  const [models, setModels] = useState<ModelsStatus | null>(null);
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [modelErr, setModelErr] = useState("");
+  const [modelBusy, setModelBusy] = useState(false);
+  const loadModels = () => {
+    fetch(MODELS_PATH)
+      .then(async (r) => readModelsResponse(r.status, await r.json().catch(() => null)))
+      .then(setModels)
+      .catch(() => setModels(null));   // 读不到 ⇒ 按钮退回网关报的模型名
+  };
   useEffect(() => {
-    if (!chatMenuOpen) return;
+    if (!modelMenuOpen) return;
     const onDown = (e: MouseEvent) => {
       const el = e.target as Element | null;
-      if (el && el.closest(".chat-meta-menu, .chat-meta-more")) return;
-      setChatMenuOpen(false);
+      if (el && el.closest(".model-pick")) return;
+      setModelMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setModelMenuOpen(false);
     };
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [chatMenuOpen]);
-  useEffect(() => {
-    if (!chatMenuOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setChatMenuOpen(false);
-    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [chatMenuOpen]);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [modelMenuOpen]);
+  // 模型是全局的:别的聊天实例换了,这里按钮上的字跟着换(不然三处显示的不是同一个真相)
+  useEffect(() => {
+    const onChanged = (e: Event) => setModels((e as CustomEvent<ModelsStatus>).detail);
+    window.addEventListener(MODEL_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(MODEL_CHANGED_EVENT, onChanged);
+  }, []);
+  // 连上(含重连成功)就拉一次;没连上时菜单不许挂着
+  useEffect(() => {
+    if (view.kind === "connected") loadModels();
+    else setModelMenuOpen(false);
+    // loadModels 只调 setState,不入依赖(与本文件既有 effect 同约定)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view.kind]);
+  const pickModel = async (id: string) => {
+    setModelBusy(true);
+    setModelErr("");
+    try {
+      const r = await fetch(MODEL_PATH, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: id }),
+      });
+      const body = await r.json().catch(() => null);
+      const next = readModelsResponse(r.status, body);
+      if (next) {
+        setModels(next);
+        setModelMenuOpen(false);
+        window.dispatchEvent(new CustomEvent(MODEL_CHANGED_EVENT, { detail: next }));
+      } else {
+        const msg = body && typeof body === "object" ? (body as { error?: unknown }).error : null;
+        setModelErr(typeof msg === "string" && msg ? msg : `没换成(服务返回 HTTP ${r.status})`);
+      }
+    } catch {
+      setModelErr("没换成:服务不可用,请稍后再试");
+    } finally {
+      setModelBusy(false);
+    }
+  };
   const [draft, setDraft] = useState("");
   const pwRef = useRef<HTMLInputElement>(null);
   const wsRef = useRef<WebSocket | null>(null); // 当前活连接,send 用
@@ -458,14 +517,6 @@ export default function ChatPage({
     setAttempt((n) => n + 1);
   };
 
-  const logout = () => {
-    session.clearPassword();
-    setLoginError("");
-    setView({ kind: "login" });
-    // 触发 effect 清理关掉在挂的 ws;无口令时新一轮 effect 直接早退,视图留在登录
-    setAttempt((n) => n + 1);
-  };
-
   // ── 发图(track opendesign-chat-image)────────────────────────────────────
   // 挂在这条消息上的图:发出去前放这儿,发出去随消息走并清空。
   // 限额在前端先拦(见 media.ts):上游任一项不合规会**整条消息不发布**,
@@ -734,6 +785,71 @@ export default function ChatPage({
             ✎ 记一下
           </button>
           <span className="grow" />
+          {/* 只在**真的连上**时出现:重连中挂着绿点 = 界面在撒谎说"已连接",
+              而 e2e 正是拿它判"连上没有"(原来认的是左上角 .chat-meta,已按业主拍板删掉)。 */}
+          {view.kind === "connected" && (
+            <div className="model-pick">
+              <button
+                className="model-chip"
+                data-ui="chat-model"
+                title="换模型(所有对话下一句起生效)"
+                aria-haspopup="menu"
+                aria-expanded={modelMenuOpen}
+                onClick={() => {
+                  if (!modelMenuOpen) {
+                    setModelErr("");
+                    loadModels();   // 打开时现拉:key 可能刚在别处换过
+                  }
+                  setModelMenuOpen((v) => !v);
+                }}
+              >
+                <span className="dot" />
+                <span className="name">{modelChipLabel(models, view.model)}</span>
+                <span className="caret">▴</span>
+              </button>
+              {modelMenuOpen && (
+                <div className="model-menu" data-ui="chat-model-menu" role="menu">
+                  {modelMenuItems(models).map((it, i) =>
+                    it.kind === "group" ? (
+                      <div className="group" key={`g${i}`}>{it.label}</div>
+                    ) : it.kind === "sep" ? (
+                      <div className="sep" key={`s${i}`} />
+                    ) : it.kind === "model" ? (
+                      <button
+                        key={it.id}
+                        className={`item${it.active ? " active" : ""}`}
+                        role="menuitemradio"
+                        aria-checked={it.active}
+                        data-model-id={it.id}
+                        disabled={modelBusy}
+                        onClick={() => {
+                          if (it.active) setModelMenuOpen(false);
+                          else void pickModel(it.id);
+                        }}
+                      >
+                        <span className="name">{it.label}</span>
+                        <span className="check">{it.active ? "✓" : ""}</span>
+                      </button>
+                    ) : (
+                      <button
+                        key="switch"
+                        className="item"
+                        role="menuitem"
+                        data-ui="chat-model-switch-provider"
+                        onClick={() => {
+                          setModelMenuOpen(false);
+                          onOpenLlmKey?.();
+                        }}
+                      >
+                        {it.label}
+                      </button>
+                    ),
+                  )}
+                  {modelErr && <div className="err" data-ui="chat-model-error">{modelErr}</div>}
+                </div>
+              )}
+            </div>
+          )}
           <button
             className="send-btn"
             title="发送(Enter)"
@@ -841,9 +957,6 @@ export default function ChatPage({
             <button className="btn-secondary" onClick={() => setAttempt((n) => n + 1)}>
               重试
             </button>
-            <button className="btn-secondary" onClick={logout}>
-              退出登录
-            </button>
           </span>
         </div>
         <div className="chat-fill">
@@ -889,34 +1002,6 @@ export default function ChatPage({
                 立即重试
               </button>
             </span>
-          )}
-        </div>
-      )}
-      {/* 头部只在**真的连上**时出现。重连中挂着它 = 界面在撒谎说"已连接",
-          而且 e2e 正是拿 .chat-meta 判"连上没有" —— 那会变成我自己造的假绿。 */}
-      {!reconnecting && (
-        <div className="chat-meta">
-          已连接{view.model ? ` · ${view.model}` : ""}
-          <button
-            className="chat-meta-more"
-            data-ui="chat-meta-more"
-            onClick={() => setChatMenuOpen((v) => !v)}
-            title="更多"
-          >
-            …
-          </button>
-          {chatMenuOpen && (
-            <div className="chat-meta-menu" data-ui="chat-meta-menu">
-              <button
-                className="item"
-                onClick={() => {
-                  setChatMenuOpen(false);
-                  logout();
-                }}
-              >
-                退出登录
-              </button>
-            </div>
           )}
         </div>
       )}

@@ -594,6 +594,7 @@ export default function App() {
           variant="home"
           slot="home"
           session={session}
+          onOpenLlmKey={() => setLlmKeyOpen(true)}
           prefill={homePrefill}
           onConnected={onConnected}
           onTurnEnd={onTurnEnd}
@@ -651,6 +652,7 @@ export default function App() {
           dataEpoch={dataEpoch}
           inboxActive={route === "workspace"}
           onNewChat={newProjectChat}
+          onOpenLlmKey={() => setLlmKeyOpen(true)}
         />
       </div>
 
@@ -665,6 +667,7 @@ export default function App() {
           active={route === "todos"}
           dataEpoch={dataEpoch}
           session={session}
+          onOpenLlmKey={() => setLlmKeyOpen(true)}
         />
       </div>
       {route === "skills" && <SkillsPage onUseSkill={useSkill} />}

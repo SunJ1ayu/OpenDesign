@@ -35,6 +35,8 @@ type Props = {
   // ——正是 track hardening M5「聊完免 F5」治过的毛病。另两个 ChatPage 实例都接了这条线,
   // 右栏不接就是半成品。接到 TodoPage 既有的 onEdited(→ App bump dataEpoch → 本页重拉)。
   onTurnEnd?: () => void;
+  /** 模型菜单「换厂商 / 换 key…」→ App 级「AI 模型 key」卡(纯透传给 ChatPage)。 */
+  onOpenLlmKey?: () => void;
 };
 
 function ymFromIso(iso: string): [number, number] {
@@ -51,7 +53,7 @@ function daysBetween(due: string, today: string): number {
 }
 
 export default function TodoRail({
-  items, today, selectedDate, onSelectDate, session, onTurnEnd,
+  items, today, selectedDate, onSelectDate, session, onTurnEnd, onOpenLlmKey,
 }: Props) {
   const [[year, month], setYm] = useState<[number, number]>(() => ymFromIso(today));
   // 项目助手(T3/T4/T5):expanded=两态切换;connected=ChatPage onConnected 记的
@@ -259,6 +261,7 @@ export default function TodoRail({
               dispatch={dispatch}
               onConnected={() => setConnected(true)}
               onTurnEnd={onTurnEnd}
+              onOpenLlmKey={onOpenLlmKey}
             />
           </div>
         </div>

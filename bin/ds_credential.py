@@ -41,6 +41,8 @@ import os
 import re
 import tempfile
 
+import ds_model  # 「当前大脑」preset 优先规则的唯一真相源(与 ds_web / set_model.py 同源)
+
 # 出货模板是这两份的**唯一出处**:预设值不在本文件里第二次硬编码。
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _REPO = os.path.dirname(_HERE)
@@ -71,15 +73,92 @@ def _template_presets() -> dict:
     return {"apiBase": api_base, "model": model}
 
 
+def _template_models() -> list:
+    """MiMo 能选哪些模型:**从出货模板的 model_presets 里读**(判据 lm8:这里不许再抄一份模型名)。"""
+    tpl = load_jsonc(WINDOWS_TEMPLATE)
+    return [name for name, p in (tpl.get("model_presets") or {}).items()
+            if isinstance(p, dict) and p.get("provider") == "custom"]
+
+
 PROVIDERS = {
     # 名字是给界面看的;端点/模型是给网关用的。
-    "mimo": {"label": "MiMo(小米)", **_template_presets()},
+    # `models` = 这家的 key 能用哪些模型(输入框里那颗模型按钮的菜单,track opendesign-composer-model-picker)。
+    "mimo": {"label": "MiMo(小米)", **_template_presets(), "models": _template_models()},
     # 🔴 2026-08-15 现拉 `GET https://api.deepseek.com/models` 核过:
     #    只剩 v4-flash / v4-pro,老的 deepseek-chat / deepseek-reasoner 已下架。
     #    **这是一条会过期的事实**,判据 b4 把它钉住,过期时会红。
     "deepseek": {"label": "DeepSeek 官方", "apiBase": "https://api.deepseek.com/v1",
-                 "model": "deepseek-v4-flash"},
+                 "model": "deepseek-v4-flash", "models": ["deepseek-v4-flash", "deepseek-v4-pro"]},
 }
+
+
+def _current_provider(cfg: dict):
+    """这份配置现在连的是哪一家:按 providers.custom.apiBase 认(与 status() 同一个判法)。认不出返回 None。"""
+    base = ((cfg.get("providers") or {}).get("custom") or {}).get("apiBase", "")
+    for name, preset in PROVIDERS.items():
+        if base and base == preset["apiBase"]:
+            return name
+    return None
+
+
+def models_status(cfg_path: str) -> dict:
+    """输入框里模型按钮要的东西:当前厂商、当前模型、这把 key 能选的模型(判据 lm1/lm5/lm6)。
+
+    🔴 模型列表按**厂商目录**给,不按配置里的 model_presets 给:换到 DeepSeek 之后,
+       MiMo 的预设还留在配置里,照配置列就会把它们列成"能用"—— 选了会被发到 DeepSeek 的地址(判据 lm5)。
+    配置缺失 / 读不出 / 认不出厂商 ⇒ provider=None、models=[](界面只剩「换厂商 / 换 key…」)。
+    """
+    out = {"provider": None, "label": None, "current": None, "models": []}
+    try:
+        with open(cfg_path, encoding="utf-8") as fh:
+            cfg = json.load(fh)
+    except (OSError, ValueError):
+        return out
+    if not isinstance(cfg, dict):
+        return out
+    provider = _current_provider(cfg)
+    if provider is None:
+        return out
+    p = PROVIDERS[provider]
+    out.update(provider=provider, label=p["label"], current=ds_model.resolve_model(cfg),
+               models=[{"id": m, "label": m} for m in p["models"]])
+    return out
+
+
+def select_model(cfg_path: str, model) -> dict:
+    """把当前模型换成 `model`:写 agents.defaults.modelPreset(判据 lm2~lm6)。
+
+    - 只许当前厂商目录里的 id(别家的 / 随便的串 / 空 ⇒ CredentialError,配置不动);
+    - 目录里有、配置里还没有这个预设 ⇒ 按该厂商端点补建(DeepSeek 的 v4-pro 就是这样);
+    - 其余字段一个不碰,key.txt 不碰,不重启网关:nanobot 每条入站消息前重读配置
+      (agent/loop.py _refresh_provider_snapshot → providers/factory.py load_provider_snapshot),下一句起生效。
+    配置读不出 ⇒ 拒绝,**不替业主建一份配置**。
+    """
+    if not isinstance(model, str) or not model.strip():
+        raise CredentialError("没有指定要换成哪个模型")
+    model = model.strip()
+    try:
+        with open(cfg_path, encoding="utf-8") as fh:
+            cfg = json.load(fh)
+    except (OSError, ValueError) as exc:
+        raise CredentialError(f"配置读不出来:{cfg_path}({exc.__class__.__name__})") from None
+    if not isinstance(cfg, dict):
+        raise CredentialError(f"配置读不出来:{cfg_path}")
+    provider = _current_provider(cfg)
+    if provider is None:
+        raise CredentialError("认不出现在用的是哪家的 key,请先在「AI 模型 key」里选厂商")
+    p = PROVIDERS[provider]
+    if model not in p["models"]:
+        raise CredentialError(f"{p['label']} 这把 key 用不了 {model}")
+    presets = cfg.setdefault("model_presets", {})
+    if model not in presets:
+        presets[model] = {"label": model, "provider": "custom", "model": model, "apiBase": p["apiBase"]}
+    cfg.setdefault("agents", {}).setdefault("defaults", {})["modelPreset"] = model
+    try:
+        _atomic_write(cfg_path, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n")
+    except OSError as exc:
+        raise CredentialError(f"写不进去({exc.__class__.__name__}),请确认这台机器上这个文件夹可写") from None
+    return models_status(cfg_path)
 
 
 def key_path(home: str) -> str:

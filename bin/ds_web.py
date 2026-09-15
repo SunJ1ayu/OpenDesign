@@ -974,6 +974,8 @@ class Handler(BaseHTTPRequestHandler):
             self._todos()
         elif path == "/api/llm/credential":
             self._llm_credential_get()
+        elif path == "/api/llm/models":
+            self._llm_models_get()
         elif path == "/api/chat/bootstrap":
             self._proxy("/webui/bootstrap")
         elif path == "/api/chat/sessions":
@@ -1042,6 +1044,8 @@ class Handler(BaseHTTPRequestHandler):
             self._intake_amend()
         elif path == "/api/llm/credential":
             self._llm_credential_post()
+        elif path == "/api/llm/model":
+            self._llm_model_post()
         elif path == UPDATE_APPLY_PATH:
             self._update_apply()
         elif path == UPLOAD_PATH:
@@ -2642,6 +2646,25 @@ class Handler(BaseHTTPRequestHandler):
         out = ds_credential.status(os.path.expanduser("~"), cfg)
         out["providers"] = [{"id": k, "label": v["label"], "model": v["model"]}
                             for k, v in ds_credential.PROVIDERS.items()]
+        self._json(200, out)
+
+    def _llm_models_get(self):
+        """输入框里的模型按钮:当前厂商 / 当前模型 / 这把 key 能选的模型(track opendesign-composer-model-picker)。"""
+        cfg = os.environ.get("DS_NANOBOT_CONFIG", DEFAULT_NANOBOT_CONFIG)
+        self._json(200, ds_credential.models_status(cfg))
+
+    def _llm_model_post(self):
+        """换模型:只写 modelPreset,不重启 —— nanobot 下一条消息前自己重读配置(判据 lm2/lm3)。
+        跨站/伪造 Host 已在 do_POST 入口挡掉(判据 lm7)。"""
+        body = self._read_json_body()
+        if body is None:
+            return
+        cfg = os.environ.get("DS_NANOBOT_CONFIG", DEFAULT_NANOBOT_CONFIG)
+        try:
+            out = ds_credential.select_model(cfg, body.get("model"))
+        except ds_credential.CredentialError as exc:
+            self._json(400, {"error": str(exc)})
+            return
         self._json(200, out)
 
     def _llm_credential_post(self):
