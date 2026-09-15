@@ -1,0 +1,37 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-model-picker
+cmd:     bash tests/mutation-model-picker.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  3f2a8bc
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T06:51:08Z
+---------------- 输出开始 ----------------
+== 段 A 后端 lm ==
+  [咬住] a1 → test_lm4_ids_outside_the_current_catalog_are_refused
+  [咬住] a2 → test_lm3_nanobot_itself_reads_the_new_model
+  [咬住] a3 → test_lm5_deepseek_catalog_and_switching_to_pro
+  [咬住] a4 → test_lm8_mimo_models_come_from_the_template
+  [咬住] a5 → test_lm5_deepseek_catalog_and_switching_to_pro
+    锚点出现 2 次,不是 1 次:'        raise CredentialError(f"配置读不出来:{cfg_path}({exc.__class__.__name__})") from None'
+  [BAD]  a6 变异没打上去
+    锚点出现 2 次,不是 1 次:'        if not self._same_site_ok():\n            self._json(403, {"error": "cross-site"})'
+  [BAD]  a7 变异没打上去
+  [咬住] a8 → test_lm2_post_changes_only_the_active_preset
+== 段 B 前端纯逻辑 mp ==
+  [咬住] b1 → mp1 
+  [咬住] b2 → mp3 
+  [咬住] b3 → mp4 
+  [咬住] b4 → mp5 
+  [咬住] b5 → mp6 
+  [咬住] b6 → mp2 
+== 段 C e2e(每条重建 dist)==
+  [咬住] c1 → ⑭
+  [咬住] c2 → ⑧
+  [咬住] c3 → ⑫
+  [咬住] c4 → ③
+  [咬住] c5 → ⑥
+  [咬住] c6 → ④
+== 咬住 18 / 漏网 2 ==
+还原核对:5 个被测文件 + web/dist 与开跑前逐字节一致
+---------------- 输出结束 ----------------
+runlog: redcheck-model-picker rc=1 commit=3f2a8bc dirty=yes at=2026-09-15T06:51:08Z file=tracks/opendesign-composer-model-picker/evidence/20260915T065108Z-01-redcheck-model-picker.txt

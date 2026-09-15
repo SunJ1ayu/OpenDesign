@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-composer-model-picker",
+  "run_id": "20260915T065108Z-01-redcheck-model-picker",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "redcheck-model-picker",
+  "started_at": "2026-09-15T06:51:08Z",
+  "finished_at": "2026-09-15T06:52:30Z",
+  "duration_ms": 81997,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
