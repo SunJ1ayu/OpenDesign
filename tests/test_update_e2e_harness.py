@@ -9,6 +9,10 @@ CI 那一趟要 ~40 分钟,而且它红了分不清"产品坏了"还是"考卷�
        不信那张 CA 时必须握不上(证明信任确实来自它)
 - `H4` 替身真发得出安装包;corrupt 模式只翻一个字节(大小不变、sha 变)
 - `H5` 目录清单只排 `__pycache__`,别的差异一律看得见
+- `H6` 查更新的两条来源(track opendesign-update-check-rate-limit,判据 rl12):
+       `feed` 模式(默认)订阅源 + 清单照真 GitHub 的样子给、**API 回 403 限流**(业主 09-15 夜实测的那句);
+       `api` 模式订阅源坏、API 好。清单带 `Accept: application/json` 回 404(真 GitHub 就这样,rl8e)。
+- `H7` 脚本 / 工作流:默认 feed、e8 切 api 且一定切回、e8 在 e6/e7 之前、两道收据闸都点名 e8
 - `V*` 判定器:每个场景一份"该过"的事实 ⇒ OK;逐项改坏 ⇒ FAIL;缺字段 ⇒ FAIL;CLI 退出码契约
 
 ⚠️ 这里一律只连 127.0.0.1(判据不许有外网出口,2026-08-10 那次事故立的规矩)。
@@ -94,7 +98,9 @@ class H2HostsCoverEveryHostTheProductTouches(unittest.TestCase):
             d = ds_update.decide(OLD, fake_github.releases_json(ds_update.REPO, NEW, _setup_file(tmp)))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
-        touched = {urlsplit(ds_update.releases_url()).hostname, urlsplit(d["asset"]["url"]).hostname}
+        touched = {urlsplit(ds_update.releases_url()).hostname, urlsplit(d["asset"]["url"]).hostname,
+                   urlsplit(ds_update.atom_url()).hostname,
+                   urlsplit(ds_update.manifest_url(ds_update.REPO, "win-installer-%s" % NEW)).hostname}
         with open(PS1, encoding="utf-8") as fh:
             m = re.search(r"^\$RedirectHosts\s*=\s*@\(([^)]*)\)", fh.read(), re.M)
         self.assertIsNotNone(m, "ps1 里找不到 $RedirectHosts")
@@ -115,10 +121,14 @@ class _Served(unittest.TestCase):
                        check=True, capture_output=True)
         cls.setup = _setup_file(cls.tmp, size=65536)
         cls.mode = os.path.join(cls.tmp, "mode.txt")
+        cls.source = os.path.join(cls.tmp, "source.txt")
         cls.log = os.path.join(cls.tmp, "fake.log")
         with open(cls.mode, "w") as fh:
             fh.write("normal")
-        handler = fake_github.make_handler(ds_update.REPO, NEW, cls.setup, cls.mode, cls.log)
+        with open(cls.source, "w") as fh:
+            fh.write("feed")
+        handler = fake_github.make_handler(ds_update.REPO, NEW, cls.setup, cls.mode, cls.log,
+                                           source_file=cls.source)
         cls.httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(os.path.join(cls.certs, "server.crt"), os.path.join(cls.certs, "server.key"))
@@ -133,12 +143,14 @@ class _Served(unittest.TestCase):
         cls.httpd.server_close()
         shutil.rmtree(cls.tmp, ignore_errors=True)
 
-    def _get(self, host, path, cafile):
+    def _get(self, host, path, cafile, accept=None):
         ctx = ssl.create_default_context(cafile=cafile) if cafile else ssl.create_default_context()
         ctx.verify_flags |= ssl.VERIFY_X509_STRICT
         raw = socket.create_connection(("127.0.0.1", self.port), timeout=5)
+        extra = ("Accept: %s\r\n" % accept) if accept else ""
         with ctx.wrap_socket(raw, server_hostname=host) as s:
-            s.sendall(("GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n" % (path, host)).encode())
+            s.sendall(("GET %s HTTP/1.1\r\nHost: %s\r\n%sConnection: close\r\n\r\n"
+                       % (path, host, extra)).encode())
             data = b""
             while True:
                 chunk = s.recv(65536)
@@ -150,7 +162,13 @@ class _Served(unittest.TestCase):
 
 
 class H3TlsHandshakeWithTheThrowawayCa(_Served):
+    def _source(self, value):
+        with open(self.source, "w") as fh:
+            fh.write(value)
+        self.addCleanup(lambda: open(self.source, "w").write("feed"))
+
     def test_h3a_api_github_com_verifies_strictly(self):
+        self._source("api")   # feed 模式下 API 故意回 403;这条问的是证书,在 api 模式下问
         head, body = self._get("api.github.com", "/repos/%s/releases?per_page=100" % ds_update.REPO,
                                os.path.join(self.certs, "ca.crt"))
         self.assertIn(" 200 ", head.splitlines()[0])
@@ -195,6 +213,103 @@ class H4DownloadModes(_Served):
         with open(self.log, encoding="utf-8") as fh:
             kinds = [json.loads(line) for line in fh]
         self.assertTrue(any(e["kind"] == "download" and e["mode"] == "corrupt" for e in kinds))
+
+
+class H6FeedAndApiSources(_Served):
+    """rl12 —— 替身的两种来源模式。形状一律拿真的 ds_update 解析函数核:替身给的东西产品不认,CI 那一趟就白跑。"""
+
+    CA = None
+
+    def setUp(self):
+        self.ca = os.path.join(self.certs, "ca.crt")
+
+    def _set_source(self, value):
+        with open(self.source, "w") as fh:
+            fh.write(value)
+        self.addCleanup(lambda: open(self.source, "w").write("feed"))
+
+    def _status(self, head):
+        return int(head.splitlines()[0].split()[1])
+
+    def test_h6a_feed_mode_serves_feed_and_manifest_the_product_accepts(self):
+        tag = "win-installer-%s" % NEW
+        head, body = self._get("github.com", fake_github.atom_path(ds_update.REPO), self.ca)
+        self.assertEqual(self._status(head), 200)
+        entries = ds_update.parse_atom(body.decode("utf-8"))
+        self.assertEqual([e["tag"] for e in entries], [tag])
+        head, body = self._get("github.com", fake_github.update_manifest_path(ds_update.REPO, NEW), self.ca,
+                               accept="application/octet-stream")
+        self.assertEqual(self._status(head), 200)
+        asset = ds_update.parse_manifest(body.decode("utf-8"), tag)
+        self.assertEqual(urlsplit(asset["browser_download_url"]).path, fake_github.download_path(ds_update.REPO, NEW))
+        with open(self.setup, "rb") as fh:
+            self.assertEqual(asset["digest"], "sha256:" + hashlib.sha256(fh.read()).hexdigest())
+
+    def test_h6b_feed_mode_manifest_with_json_accept_is_404_like_real_github(self):
+        head, _ = self._get("github.com", fake_github.update_manifest_path(ds_update.REPO, NEW), self.ca,
+                            accept="application/json")
+        self.assertEqual(self._status(head), 404, "真 GitHub 的下载地址对 JSON Accept 回 404,替身要照样(rl8e)")
+
+    def test_h6c_feed_mode_api_is_rate_limited(self):
+        head, body = self._get("api.github.com", "/repos/%s/releases?per_page=100" % ds_update.REPO, self.ca)
+        self.assertEqual(self._status(head), 403)
+        self.assertIn("rate limit exceeded", head.splitlines()[0].lower() + body.decode("utf-8").lower())
+
+    def test_h6d_api_mode_feed_broken_api_works(self):
+        self._set_source("api")
+        head, _ = self._get("github.com", fake_github.atom_path(ds_update.REPO), self.ca)
+        self.assertGreaterEqual(self._status(head), 500)
+        head, body = self._get("api.github.com", "/repos/%s/releases?per_page=100" % ds_update.REPO, self.ca)
+        self.assertEqual(self._status(head), 200)
+        self.assertTrue(ds_update.decide(OLD, json.loads(body))["update_available"])
+
+    def test_h6e_log_says_which_source_was_asked(self):
+        self._get("github.com", fake_github.atom_path(ds_update.REPO), self.ca)
+        with open(self.log, encoding="utf-8") as fh:
+            entries = [json.loads(line) for line in fh]
+        atoms = [e for e in entries if e.get("kind") == "atom"]
+        self.assertTrue(atoms, "替身没把订阅源请求记成 kind=atom")
+        self.assertIn("status", atoms[-1])
+
+
+class H7ScriptRunsBothSources(unittest.TestCase):
+    """rl12 —— 脚本默认 feed(全部既有场景走新路)、e8 切 api(备路)且一定切回、两道收据闸都点名 e8。"""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(PS1, encoding="utf-8") as fh:
+            cls.ps1 = fh.read()
+        with open(WORKFLOW, encoding="utf-8") as fh:
+            cls.wf = fh.read()
+
+    def test_h7a_e8_is_expected_before_the_spaced_dir_scenarios(self):
+        m = re.search(r"^\$Expected\s*=\s*@\(([^)]*)\)", self.ps1, re.M)
+        names = re.findall(r"'(e\d+)'", m.group(1))
+        self.assertIn("e8", names)
+        self.assertLess(names.index("e8"), names.index("e6"), "e8 要在搬去带空格目录(e6/e7)之前跑")
+
+    def test_h7b_fake_is_started_with_a_source_file_defaulting_to_feed(self):
+        self.assertRegex(self.ps1, r"--source-file")
+        loop = self.ps1.index("foreach ($s in $Expected)")
+        feed = [m.start() for m in re.finditer(r"Set-Content -LiteralPath \$SourceFile -Value 'feed'", self.ps1)]
+        self.assertTrue(feed and feed[0] < loop, "跑场景之前没把来源设成 feed")
+
+    def test_h7c_e8_switches_to_api_and_always_switches_back(self):
+        m = re.search(r"^function Run-e8 \{(.*?)^\}", self.ps1, re.M | re.S)
+        self.assertIsNotNone(m, "没有 Run-e8")
+        body = m.group(1)
+        self.assertIn("Set-Content -LiteralPath $SourceFile -Value 'api'", body)
+        fin = body.find("finally")
+        self.assertGreater(fin, 0, "e8 切回 feed 不在 finally 里 —— 中途炸了会把后面的场景留在 api 模式")
+        self.assertIn("Set-Content -LiteralPath $SourceFile -Value 'feed'", body[fin:])
+
+    def test_h7d_facts_record_the_source(self):
+        m = re.search(r"^function New-Facts \{(.*?)^\}", self.ps1, re.M | re.S)
+        self.assertRegex(m.group(1), r"\$f\.source\s*=")
+
+    def test_h7e_workflow_receipt_gate_names_e8(self):
+        m = re.search(r"foreach \(\$k in ([^)]*)\)", self.wf)
+        self.assertIn("'e8'", m.group(1))
 
 
 class H5ManifestSkipsOnlyPycache(unittest.TestCase):
@@ -261,11 +376,14 @@ REAL_WINDOW = {"wins": [{"title": "OpenDesign", "cls": "WindowsForms10.Window.8.
 
 
 def _base(kind):
+    source = "api" if kind == "e8" else "feed"
+    asked = ([{"kind": "atom", "status": 503}, {"kind": "releases", "status": 200}] if source == "api"
+             else [{"kind": "atom", "status": 200}, {"kind": "manifest", "status": 200}])
     f = {
-        "old_version": OLD, "new_version": NEW,
+        "old_version": OLD, "new_version": NEW, "source": source,
         "reset": {"installer_rc": 0, "health": {"port": 8766, "version": OLD}},
         "check": {"update_available": True, "latest": NEW, "error": None},
-        "fake_log": [{"kind": "releases"}, {"kind": "download", "mode": "corrupt" if kind == "e2" else "normal"}],
+        "fake_log": asked + [{"kind": "download", "mode": "corrupt" if kind == "e2" else "normal"}],
         "markers_before": copy.deepcopy(MARKERS), "markers_after": copy.deepcopy(MARKERS),
         "pointers": copy.deepcopy(POINTERS),
     }
@@ -285,7 +403,7 @@ def _base(kind):
         if kind == "e5":
             f["inject"]["version"] = "0.0.1"
             f["seen_versions"] = ["0.0.1", OLD]
-    elif kind in ("e1", "e6"):
+    elif kind in ("e1", "e6", "e8"):
         f.update(apply=started, relay=relay, health_after={"port": 8766, "version": NEW},
                  live_version_after=NEW, old_exists=False, new_exists=False, window=copy.deepcopy(REAL_WINDOW),
                  health_final={"port": 8766, "version": NEW})
@@ -293,7 +411,7 @@ def _base(kind):
             f["pointers"] = _pointers_at(SPACED_LIVE)
     elif kind == "e7":
         # e7 不走替身、不点更新:直接把修 t33 之前那条参数交给新版安装器
-        for k in ("new_version", "check", "fake_log"):
+        for k in ("new_version", "check", "fake_log", "source"):
             del f[k]
         f.update(pointers=_pointers_at(SPACED_LIVE),
                  cmdline='/S /UPDATE "/D=%s.new"' % SPACED_LIVE, installer_rc=3,
@@ -342,7 +460,8 @@ BREAKS = {
     "e2": {
         "update accepted": _set("apply", {"ok": True, "stage": "started"}),
         "refused at wrong stage": _set("apply.stage", "download"),
-        "download not corrupted": _set("fake_log", [{"kind": "releases"}, {"kind": "download", "mode": "normal"}]),
+        "download not corrupted": _set("fake_log", [{"kind": "atom", "status": 200}, {"kind": "manifest", "status": 200},
+                                                    {"kind": "download", "mode": "normal"}]),
         "live tree changed": _set("live_after", "d2"),
         "live digest missing": _set("live_before", None),
         ".new left": _set("new_exists", True),
@@ -417,8 +536,31 @@ BREAKS = {
         "only an error box": _set("window", {"wins": [{"title": "OpenDesign", "cls": "#32770", "proc": "pythonw"}],
                                             "procs": ["pythonw:「OpenDesign」"]}),
         "no window at all": _set("window", {"wins": [], "procs": []}),
-        "download not normal": _set("fake_log", [{"kind": "releases"}]),
+        "download not normal": _set("fake_log", [{"kind": "atom", "status": 200}, {"kind": "manifest", "status": 200}]),
     },
+    "e8": {
+        "feed never tried first": _set("fake_log", [{"kind": "releases", "status": 200},
+                                                    {"kind": "download", "mode": "normal"}]),
+        "API never asked after the feed failed": _set("fake_log", [{"kind": "atom", "status": 503},
+                                                                   {"kind": "download", "mode": "normal"}]),
+        "download not normal": _set("fake_log", [{"kind": "atom", "status": 503}, {"kind": "releases", "status": 200}]),
+        "scenario not in api mode (untested)": _set("source", "feed"),
+        "apply not started": _set("apply", {"ok": False, "stage": "digest", "error": "x"}),
+        "old still answering": _set("health_after", {"port": 8766, "version": OLD}),
+        "new version gone by the end": _set("health_final", None),
+        ".new left": _set("new_exists", True),
+    },
+}
+
+# 走 feed 那条(默认)的场景都要问:订阅源 + 清单真被问过、API 没被问(rl4 的真机版)。
+FEED_BREAKS = {
+    "feed worked but the rate-limited API was still asked": lambda f: f["fake_log"].insert(
+        0, {"kind": "releases", "status": 403}),
+    "manifest never fetched": lambda f: f.__setitem__(
+        "fake_log", [e for e in f["fake_log"] if e.get("kind") != "manifest"]),
+    "feed never asked": lambda f: f.__setitem__(
+        "fake_log", [e for e in f["fake_log"] if e.get("kind") != "atom"]),
+    "unknown source mode": _set("source", "carrier-pigeon"),
 }
 
 
@@ -438,7 +580,8 @@ class VVerdictIsABehaviour(unittest.TestCase):
         for kind, breaks in BREAKS.items():
             common = [(n, m) for n, m in COMMON_BREAKS.items()
                       if not (kind in self.NO_STAND_IN and n in self.STAND_IN_BREAKS)]
-            for name, mutate in common + list(breaks.items()):
+            feed = list(FEED_BREAKS.items()) if _base(kind).get("source") == "feed" else []
+            for name, mutate in common + feed + list(breaks.items()):
                 with self.subTest(kind=kind, brk=name):
                     f = _base(kind)
                     mutate(f)

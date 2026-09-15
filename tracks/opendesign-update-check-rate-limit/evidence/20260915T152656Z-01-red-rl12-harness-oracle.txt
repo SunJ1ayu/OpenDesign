@@ -1,0 +1,393 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-rl12-harness-oracle
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_update_e2e_harness
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  6f41139
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T15:26:56Z
+---------------- 输出开始 ----------------
+.....EE....EFFFFFFFFFFFFFFFFFEEEEEEEEEEEEEEEEEEEEEEF..F....
+======================================================================
+ERROR: setUpClass (tests.test_update_e2e_harness.H3TlsHandshakeWithTheThrowawayCa)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 130, in setUpClass
+    handler = fake_github.make_handler(ds_update.REPO, NEW, cls.setup, cls.mode, cls.log,
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: make_handler() got an unexpected keyword argument 'source_file'
+
+======================================================================
+ERROR: setUpClass (tests.test_update_e2e_harness.H4DownloadModes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 130, in setUpClass
+    handler = fake_github.make_handler(ds_update.REPO, NEW, cls.setup, cls.mode, cls.log,
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: make_handler() got an unexpected keyword argument 'source_file'
+
+======================================================================
+ERROR: setUpClass (tests.test_update_e2e_harness.H6FeedAndApiSources)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 130, in setUpClass
+    handler = fake_github.make_handler(ds_update.REPO, NEW, cls.setup, cls.mode, cls.log,
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: make_handler() got an unexpected keyword argument 'source_file'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='installer failed')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='old app never answered')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='app did not see stand-in')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='stand-in never asked')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='archive marker changed')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='no markers seeded')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='markers fact missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='InstallDir points at .new')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='uninstall entry points at .new')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='desktop shortcut points at .new')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='shortcut points at .old')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='no shortcuts at all')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='shortcut target unreadable')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='pointers fact missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='feed never tried first')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='API never asked after the feed failed')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='download not normal')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='scenario not in api mode (untested)')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='apply not started')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='old still answering')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='new version gone by the end')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+ERROR: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e8', brk='.new left')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 588, in test_v2_every_break_fails
+    ok, text = V.KINDS[kind](f)
+               ~~~~~~~^^^^^^
+KeyError: 'e8'
+
+======================================================================
+FAIL: test_h7a_e8_is_expected_before_the_spaced_dir_scenarios (tests.test_update_e2e_harness.H7ScriptRunsBothSources.test_h7a_e8_is_expected_before_the_spaced_dir_scenarios)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 288, in test_h7a_e8_is_expected_before_the_spaced_dir_scenarios
+    self.assertIn("e8", names)
+AssertionError: 'e8' not found in ['e2', 'e3', 'e4', 'e5', 'e1', 'e6', 'e7']
+
+======================================================================
+FAIL: test_h7b_fake_is_started_with_a_source_file_defaulting_to_feed (tests.test_update_e2e_harness.H7ScriptRunsBothSources.test_h7b_fake_is_started_with_a_source_file_defaulting_to_feed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 292, in test_h7b_fake_is_started_with_a_source_file_defaulting_to_feed
+    self.assertRegex(self.ps1, r"--source-file")
+AssertionError: Regex didn't match: '--source-file' not found in '# 应用内更新的端到端:在用完就扔的 Windows runner 上,把"点更新 → 自己关 → 换版本 → 自己回来"真跑五遍。\n#\n# track opendesign-in-app-update-install §3。设计与每个场景为什么这么注入:design.md「§3 Windows CI 怎么搭」。\n#\n# 🔴 这支脚本**只采事实、只做注入**,不下判断。判定在 update_e2e_verdict.py(本机有判据守着)。\n#    理由是 windows-package-probe 付过的学费:本机没有 pwsh,写在 .ps1 里的判断谁都验不了。\n#\n# 🔴 这台机器上的 api.github.com / github.com **是假的**(hosts 指到本机替身,替身 CA 进了受信根)。\n#    只在这台 runner 上这么做:业主的软件看不见任何测试 release,产品代码零改动。\n#\n# 退出码:五个场景的裁决收据全是 rc=0 ⇒ 0,否则 1。workflow 里另一步独立复核 verdicts.tsv。\n# ⚠️ 帮手函数里**只用 Write-Host 打日志**:pwsh 函数往管道吐的任何东西都会混进返回值。\n\nparam(\n    [Parameter(Mandatory = $true)] [string]$OldSetup,\n    [Parameter(Mandatory = $true)] [string]$NewSetup,\n    [Parameter(Mandatory = $true)] [string]$OldVersion,\n    [Parameter(Mandatory = $true)] [string]$NewVersion,\n    [Parameter(Mandatory = $true)] [string]$CertDir,\n    [string]$OutDir = \'e2e-out\'\n)\n\n$ErrorActionPreference = \'Stop\'\n[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)\n$env:PYTHONIOENCODING = \'utf-8\'\nAdd-Type -AssemblyName System.Windows.Forms, System.Drawing\n\nNew-Item -ItemType Directory -Force -Path $OutDir | Out-Null\n$OutDir     = (Resolve-Path $OutDir).Path\n$OldSetup   = (Resolve-Path $OldSetup).Path\n$NewSetup   = (Resolve-Path $NewSetup).Path\n$CertDir    = (Resolve-Path $CertDir).Path\n$Scripts    = $PSScriptRoot\n$RepoRoot   = (Resolve-Path (Join-Path $PSScriptRoot \'..\\..\')).Path\n$Py         = (Get-Command python).Source\n\n$InstallDir = "$env:LOCALAPPDATA\\Programs\\OpenDesign"\n$NewDir     = "$InstallDir.new"\n$OldDir     = "$InstallDir.old"\n$DataRoot   = "$env:LOCALAPPDATA\\OpenDesign"\n$PortSpan   = 8766..8786\n# 与 ds_update_apply.apply_update 写接力脚本的位置同一处:tempfile.gettempdir() 读的就是 TEMP。\n$RelayPath  = Join-Path ([IO.Path]::GetTempPath()) \'opendesign-update-relay.cmd\'\n$ModeFile   = Join-Path $OutDir \'fake-mode.txt\'\n$FakeLog    = Join-Path $OutDir \'fake-github.log\'\n$VerdictLog = Join-Path $OutDir \'verdicts.tsv\'\n# e6/e7 必须排在最后:它们把安装目录换成带空格的那个(Use-SpacedInstallDir),换过去就不换回来。\n$Expected   = @(\'e2\', \'e3\', \'e4\', \'e5\', \'e1\', \'e6\', \'e7\')\n# t33/t34 的真机半用的目录:**带空格、纯 ASCII**。不能带中文 —— runner 是英文 Windows(代码页 437),\n# 非 ASCII 路径会被 t36 在动手之前拒掉(那是对的),e6 就测不到它要测的事。\n$SpacedInstallDir = \'C:\\OD e2e space\\Programs\\OpenDesign\'\n# e5 注入的版本号:新版起得来,但收口认不出它。\n$InjectVersion = \'0.0.1\'\n# hosts 重定向的两个域名。**必须覆盖软件会碰的全部主机**:\n# 查更新 = ds_update.releases_url() 的主机,下载 = 替身给的 browser_download_url 的主机。\n# tests/test_update_e2e_harness.py 拿真的 ds_update 核这两个名字就是这里这两行。\n$RedirectHosts = @(\'api.github.com\', \'github.com\')\n\nfunction Note([string]$s) { Write-Host ("[{0:HH:mm:ss}] {1}" -f (Get-Date), $s) }\n\nAdd-Type @"\nusing System;\nusing System.Text;\nusing System.Runtime.InteropServices;\npublic class W32 {\n  public delegate bool EnumProc(IntPtr h, IntPtr l);\n  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc cb, IntPtr l);\n  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);\n  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowTextW(IntPtr h, StringBuilder s, int n);\n  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassNameW(IntPtr h, StringBuilder s, int n);\n  [DllImport("user32.dll")] public static extern int GetWindowThreadProcessId(IntPtr h, out int pid);\n  public static int Pid(IntPtr h) { int p; GetWindowThreadProcessId(h, out p); return p; }\n  public static string Text(IntPtr h) { var sb = new StringBuilder(2048); GetWindowTextW(h, sb, 2048); return sb.ToString(); }\n  public static string Cls(IntPtr h) { var sb = new StringBuilder(256); GetClassNameW(h, sb, 256); return sb.ToString(); }\n}\n"@\n\n# ── 帮手:进程 / 目录 / 健康 ───────────────────────────────────────────\n\nfunction Get-OurProcs {\n    # 活树、.new、.old 三棵树都以 $InstallDir 开头 ⇒ 一个前缀全认。runner 自己的 python(替身、判定器)不在里面。\n    return @(Get-CimInstance Win32_Process | Where-Object {\n        $_.ExecutablePath -and $_.ExecutablePath.StartsWith($InstallDir, [StringComparison]::OrdinalIgnoreCase) })\n}\n\nfunction Get-RelayProcs {\n    return @(Get-CimInstance Win32_Process -Filter "Name=\'cmd.exe\'" |\n        Where-Object { $_.CommandLine -like \'*opendesign-update-relay*\' })\n}\n\nfunction Stop-All {\n    foreach ($p in (Get-RelayProcs)) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }\n    for ($i = 0; $i -lt 15; $i++) {\n        $ps = Get-OurProcs\n        if ($ps.Count -eq 0) { return }\n        foreach ($p in $ps) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }\n        Start-Sleep -Seconds 1\n    }\n    Note "WARN: processes still alive under $InstallDir after 15s"\n}\n\nfunction Remove-Tree([string]$Path) {\n    for ($i = 0; $i -lt 15 -and (Test-Path -LiteralPath $Path); $i++) {\n        Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue\n        if (Test-Path -LiteralPath $Path) { Start-Sleep -Seconds 1 }\n    }\n    if (Test-Path -LiteralPath $Path) { throw "cannot remove $Path" }\n}\n\nfunction Get-Health {\n    # 🔴 只问**正在监听**的端口(run 34848924198 量出来的):Windows 上连一个没人听的本机端口\n    #    要 ~2 秒才失败,扫一整段 21 个端口 = 一次 42 秒 ⇒ 等接力脚本的轮询粒度被拖成 43 秒,\n    #    "它活了多久"这个事实就量不出来了。\n    $listening = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |\n        Where-Object { $_.LocalPort -ge $PortSpan[0] -and $_.LocalPort -le $PortSpan[-1] } |\n        ForEach-Object { $_.LocalPort } | Sort-Object -Unique)\n    foreach ($p in $listening) {\n        try {\n            $h = Invoke-RestMethod -Uri "http://127.0.0.1:$p/api/health" -TimeoutSec 2 -NoProxy\n            if ($h.version) { return @{ port = $p; version = "$($h.version)" } }\n        } catch { }\n    }\n    return $null\n}\n\n# 等到 $Want 在答为止;$Want 为空 = 谁答都行。等不到就交出**最后看见的那个**(事实里要看得出是谁在答)。\nfunction Wait-Health([string]$Want, [int]$Seconds) {\n    $sw = [Diagnostics.Stopwatch]::StartNew()\n    $last = $null\n    while ($sw.Elapsed.TotalSeconds -lt $Seconds) {\n        $h = Get-Health\n        if ($h) {\n            $last = $h\n            if (-not $Want -or $h.version -eq $Want) { return $h }\n        }\n        Start-Sleep -Seconds 2\n    }\n    return $last\n}\n\n# 等接力脚本结束。顺带记下这期间**谁答过健康**(e5 要确认"坏新版真的起来过")。\nfunction Wait-Relay([int]$Seconds) {\n    $sw = [Diagnostics.Stopwatch]::StartNew()\n    $seen = $false\n    # 🔴 第一次改名到底发生过没有(run 34860373658:e4 判了 OK,而接力脚本其实走的是"改名一直失败、放弃",\n    #    根本没到它要测的"第二次改名失败 ⇒ 回滚"—— 两条路的终态长得一样)。.old 出现过 = 第一次改名做成了。\n    $oldSeen = $false\n    $versions = [Collections.Generic.List[string]]::new()\n    while ($sw.Elapsed.TotalSeconds -lt $Seconds) {\n        $running = (Get-RelayProcs).Count -gt 0\n        # 🔴 这一行必须在 if/elseif 链**之外**(run 34863116162):上一版插在 `if ($running)` 和 `elseif` 之间,\n        #    elseif 就挂到了这一行上 ⇒ 没有 .old 时直接 `elseif ($seen) { break }` ⇒ 等了 0 秒就走,五个场景全被量早了。\n        if (Test-Path -LiteralPath $OldDir) { $oldSeen = $true }\n        if ($running) { $seen = $true }\n        elseif ($seen) { break }\n        elseif ($sw.Elapsed.TotalSeconds -gt 30) { break }      # 30 秒都没出现过 = 没起来\n        $h = Get-Health\n        if ($h -and -not $versions.Contains($h.version)) { $versions.Add($h.version) }\n        Start-Sleep -Seconds 1\n    }\n    $ended = (Get-RelayProcs).Count -eq 0\n    Note ("relay seen=$seen ended=$ended after {0:N0}s; versions answering meanwhile: {1}" -f $sw.Elapsed.TotalSeconds, ($versions -join \',\'))\n    return @{ relay = @{ seen = $seen; ended = $ended; seconds = [Math]::Round($sw.Elapsed.TotalSeconds, 1); old_seen = $oldSeen };\n              versions = @($versions) }\n}\n\nfunction Get-Manifest([string]$Dir, [string]$Name) {\n    $out = Join-Path $OutDir "manifest-$Name.json"\n    $line = & $Py (Join-Path $Scripts \'fake_github.py\') manifest $Dir $out\n    if ($LASTEXITCODE -ne 0) { Note "manifest failed for $Dir (rc=$LASTEXITCODE)"; return $null }\n    $digest = ("$line".Trim() -split \' \')[0]\n    if ($digest -eq \'MISSING\') { return $null }\n    return $digest\n}\n\nfunction Show-ManifestDiff([string]$A, [string]$B) {\n    $pa = Join-Path $OutDir "manifest-$A.json"; $pb = Join-Path $OutDir "manifest-$B.json"\n    if ((Test-Path $pa) -and (Test-Path $pb)) {\n        Note "manifest diff $A -> $B :"\n        & $Py (Join-Path $Scripts \'fake_github.py\') diff $pa $pb | ForEach-Object { Write-Host "    $_" }\n    }\n}\n\nfunction Get-LiveVersion {\n    $f = Join-Path $InstallDir \'ds\\版本号.txt\'\n    if (Test-Path -LiteralPath $f) { return (Get-Content -LiteralPath $f -Raw -Encoding utf8).Trim() }\n    return $null\n}\n\n# ── 帮手:业主从哪儿打开它(t26 的真机半)──────────────────────────────\n# 更新之后,注册表里的"装在哪"、卸载条目、开始菜单和桌面快捷方式都必须还指着**活树那个路径**。\n# 更新档装进的是 .new,两次改名后那个路径不存在 ⇒ 指过去 = 业主的图标打不开。\n\n# 🔴 快捷方式指向哪,用 IShellLinkW(Unicode)读,不用 WScript.Shell(run 34851863087 量出来的):\n#    英文 Windows 上 WScript.Shell 对"卸载 OpenDesign.lnk"(目标 卸载.exe)读回空串,\n#    五个场景因此全红 —— 那是量具读不了中文,不是快捷方式指错了。读不出来照样判红,不放宽。\nAdd-Type @"\nusing System;\nusing System.Text;\nusing System.Runtime.InteropServices;\n[ComImport, Guid("000214F9-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]\npublic interface IShellLinkWPath {\n  void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszFile, int cch, IntPtr pfd, uint fFlags);\n}\n[ComImport, Guid("0000010b-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]\npublic interface IPersistFileLoad {\n  void GetClassID(out Guid pClassID);\n  [PreserveSig] int IsDirty();\n  void Load([MarshalAs(UnmanagedType.LPWStr)] string pszFileName, uint dwMode);\n}\n[ComImport, Guid("00021401-0000-0000-C000-000000000046")] public class ShellLinkCo {}\npublic static class Lnk {\n  public static string Target(string path) {\n    object link = new ShellLinkCo();\n    ((IPersistFileLoad)link).Load(path, 0);\n    var sb = new StringBuilder(1024);\n    ((IShellLinkWPath)link).GetPath(sb, sb.Capacity, IntPtr.Zero, 0);\n    return sb.ToString();\n  }\n}\n"@\n\nfunction Get-Pointers {\n    $app = Get-ItemProperty -LiteralPath \'HKCU:\\Software\\OpenDesign\' -ErrorAction SilentlyContinue\n    $un  = Get-ItemProperty -LiteralPath \'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\OpenDesign\' -ErrorAction SilentlyContinue\n    $run = Get-ItemProperty -LiteralPath \'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\' -ErrorAction SilentlyContinue\n    $links = [ordered]@{}\n    $programs = [Environment]::GetFolderPath(\'Programs\')\n    $desktop  = [Environment]::GetFolderPath(\'Desktop\')\n    foreach ($lnk in @("$programs\\OpenDesign\\OpenDesign.lnk", "$programs\\OpenDesign\\卸载 OpenDesign.lnk", "$desktop\\OpenDesign.lnk")) {\n        if (Test-Path -LiteralPath $lnk) {\n            try { $links[$lnk] = [Lnk]::Target($lnk) } catch { $links[$lnk] = "unreadable: $($_.Exception.Message)" }\n        }\n    }\n    return @{\n        live        = $InstallDir\n        install_dir = $app.InstallDir\n        uninstall   = @{ InstallLocation = $un.InstallLocation; UninstallString = $un.UninstallString\n                         DisplayIcon = $un.DisplayIcon; DisplayVersion = $un.DisplayVersion }\n        autorun     = $run.OpenDesign\n        shortcuts   = $links\n    }\n}\n\n# ── 帮手:档案标记(死线 t13 的真机半)──────────────────────────────────\n\n$MarkerDirs = @(\'Data\', \'UserData\')\nfunction Seed-Markers {\n    foreach ($sub in $MarkerDirs) {\n        $dir = Join-Path $DataRoot "$sub\\e2e-档案标记"\n        New-Item -ItemType Directory -Force -Path $dir | Out-Null\n        $bytes = [byte[]]::new(262144)\n        # 不用静态 Fill():它的参数是 Span<byte>,pwsh 不会把 byte[] 自动转过去。\n        [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)\n        [IO.File]::WriteAllBytes((Join-Path $dir \'客户资料-e2e.bin\'), $bytes)\n        [IO.File]::WriteAllText((Join-Path $dir \'项目备忘-e2e.md\'), "# e2e 标记 $([Guid]::NewGuid())")\n    }\n}\n\nfunction Get-Markers {\n    $m = [ordered]@{}\n    foreach ($sub in $MarkerDirs) {\n        $dir = Join-Path $DataRoot "$sub\\e2e-档案标记"\n        if (Test-Path -LiteralPath $dir) {\n            foreach ($file in (Get-ChildItem -LiteralPath $dir -File | Sort-Object Name)) {\n                $m["$sub/$($file.Name)"] = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLower()\n            }\n        }\n    }\n    return $m\n}\n\n# ── 帮手:替身、端点、窗口、收据 ───────────────────────────────────────\n\nfunction Get-FakeLogCount {\n    if (Test-Path -LiteralPath $FakeLog) { return @(Get-Content -LiteralPath $FakeLog).Count }\n    return 0\n}\n\nfunction Get-FakeLogSince([int]$Skip) {\n    $out = @()\n    if (Test-Path -LiteralPath $FakeLog) {\n        foreach ($line in (@(Get-Content -LiteralPath $FakeLog) | Select-Object -Skip $Skip)) {\n            try { $out += , ($line | ConvertFrom-Json -AsHashtable) } catch { }\n        }\n    }\n    return , $out\n}\n\nfunction Invoke-Check($Port) {\n    try { return (Invoke-RestMethod -Uri "http://127.0.0.1:$Port/api/update/check?force=1" -TimeoutSec 90 -NoProxy) }\n    catch { return @{ _error = "$($_.Exception.Message)" } }\n}\n\nfunction Invoke-Apply($Port) {\n    # 和界面上那个按钮发的是同一个请求(按钮自身的接线由 u27~u37 管)。\n    try {\n        return (Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$Port/api/update/apply" `\n                -TimeoutSec 900 -NoProxy -ContentType \'application/json\' -Body \'{}\')\n    } catch { return @{ _error = "$($_.Exception.Message)" } }\n}\n\nfunction Save-Screen([string]$Path) {\n    try {\n        $b = [System.Windows.Forms.SystemInformation]::VirtualScreen\n        $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height\n        $g = [System.Drawing.Graphics]::FromImage($bmp)\n        $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)\n        $bmp.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)\n        $g.Dispose(); $bmp.Dispose()\n    } catch { Note "screenshot failed: $($_.Exception.Message)" }\n}\n\n$script:wins = @()\nfunction Get-AllWindows {\n    $script:wins = @()\n    $cb = [W32+EnumProc]{ param($h, $l)\n        if ([W32]::IsWindowVisible($h)) {\n            $t = [W32]::Text($h)\n            if ($t) {\n                $script:wins += @{ title = $t; cls = [W32]::Cls($h)\n                                   proc = (Get-Process -Id ([W32]::Pid($h)) -ErrorAction SilentlyContinue).ProcessName }\n            }\n        }\n        return $true }\n    [void][W32]::EnumWindows($cb, [IntPtr]::Zero)\n    return , $script:wins\n}\n\n# 窗口在不在由 bin/probe_verdict.py 的 window 判(报错框和真窗口按窗口类分),等到它说 OK 或到点为止。\nfunction Wait-Window([int]$Seconds) {\n    $judge = Join-Path $RepoRoot \'bin\\probe_verdict.py\'\n    $deadline = (Get-Date).AddSeconds($Seconds)\n    do {\n        Start-Sleep -Seconds 4\n        $procs = @(Get-Process | Where-Object { $_.MainWindowTitle } |\n                   ForEach-Object { "$($_.ProcessName):「$($_.MainWindowTitle)」" })\n        $facts = @{ wins = (Get-AllWindows); procs = $procs }\n        $json = $facts | ConvertTo-Json -Depth 6 -Compress -EscapeHandling EscapeNonAscii\n        $said = $json | & $Py $judge window 2>$null\n        $rc = $LASTEXITCODE\n        Note "window check rc=$rc : $said"\n    } while ($rc -ne 0 -and (Get-Date) -lt $deadline)\n    return $facts\n}\n\nfunction Copy-Relay([string]$Kind) {\n    if (Test-Path -LiteralPath $RelayPath) {\n        Copy-Item -LiteralPath $RelayPath -Destination (Join-Path $OutDir "relay-$Kind.cmd") -Force\n    }\n}\n\nfunction Judge([string]$Kind, $Facts) {\n    $factsPath = Join-Path $OutDir "facts-$Kind.json"\n    $Facts | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $factsPath -Encoding utf8\n    $errPath = Join-Path $OutDir "judge-$Kind.err"\n    $said = & $Py (Join-Path $Scripts \'update_e2e_verdict.py\') $Kind $factsPath 2> $errPath\n    $rc = $LASTEXITCODE\n    $line = ("$said" -replace "`r?`n", \' \').Trim()\n    if (-not $line) { $line = "FAIL $Kind - judge printed nothing"; if ($rc -eq 0) { $rc = 2 } }\n    ("{0}`t{1}`t{2}" -f $rc, $Kind, ($line -replace "`t", \' \')) | Add-Content -LiteralPath $VerdictLog -Encoding utf8\n    Write-Host "VERDICT $Kind rc=$rc : $line"\n}\n\nfunction Finish-Scenario([string]$Kind, $Facts) {\n    Save-Screen (Join-Path $OutDir "$Kind-end.png")\n    if (Test-Path -LiteralPath "$DataRoot\\Logs") {\n        Copy-Item -LiteralPath "$DataRoot\\Logs" -Destination (Join-Path $OutDir "logs-$Kind") -Recurse -Force\n    }\n    Judge $Kind $Facts\n}\n\n# ── 场景前:重装旧版并拉起 ──────────────────────────────────────────────\n\nfunction Reset-Old {\n    Note "reset: stop everything, wipe install trees, install $OldVersion"\n    Stop-All\n    Remove-Item -LiteralPath $RelayPath -Force -ErrorAction SilentlyContinue\n    foreach ($d in @($InstallDir, $NewDir, $OldDir)) { Remove-Tree $d }\n    # 🔴 显式 /D=:更新档(修好之前)会把"上次装在哪"写成 .new(run 34848924198 就是这么把\n    #    e4/e5/e1 带崩的)。场景之间要互不污染,就不能让上一个场景写坏的注册表决定这次装哪。\n    #    注册表**有没有被写坏**是每个场景自己的 pointers 事实,不靠这里藏起来。\n    $ip = Start-Process -FilePath $OldSetup -ArgumentList "/S /D=$InstallDir" -PassThru\n    $null = $ip.Handle          # 不先碰 Handle,进程退出后 ExitCode 可能读成 null(pwsh 的老坑)\n    if ($ip.WaitForExit(240000)) { $rc = $ip.ExitCode }\n    else { Stop-Process -Id $ip.Id -Force -ErrorAction SilentlyContinue; $rc = \'timeout\' }\n    Note "reset: installer rc=$rc"\n    Start-Process -FilePath "$InstallDir\\OpenDesign.exe" | Out-Null\n    $h = Wait-Health $OldVersion 180\n    Note "reset: health = $($h | ConvertTo-Json -Compress)"\n    return @{ installer_rc = $rc; health = $h }\n}\n\nfunction New-Facts {\n    $f = [ordered]@{ old_version = $OldVersion; new_version = $NewVersion }\n    $f.fake_log_start = Get-FakeLogCount\n    $f.reset = Reset-Old\n    $f.markers_before = Get-Markers\n    return $f\n}\n\n# ── 场景 ─────────────────────────────────────────────────────────────\n\nfunction Run-e2 {\n    Set-Content -LiteralPath $ModeFile -Value \'corrupt\'\n    $f = New-Facts\n    $port = $f.reset.health.port\n    $f.live_before = Get-Manifest $InstallDir \'e2-before\'\n    $f.check = Invoke-Check $port\n    $f.apply = Invoke-Apply $port\n    Note "e2 apply -> $($f.apply | ConvertTo-Json -Compress)"\n    Start-Sleep -Seconds 3\n    $f.live_after = Get-Manifest $InstallDir \'e2-after\'\n    Show-ManifestDiff \'e2-before\' \'e2-after\'\n    $f.new_exists = Test-Path -LiteralPath $NewDir\n    $f.old_exists = Test-Path -LiteralPath $OldDir\n    $f.health_after = Wait-Health $OldVersion 30\n    $f.pointers = Get-Pointers\n    $f.markers_after = Get-Markers\n    $f.fake_log = Get-FakeLogSince $f.fake_log_start\n    Finish-Scenario \'e2\' $f\n}\n\nfunction Run-e3 {\n    Set-Content -LiteralPath $ModeFile -Value \'normal\'\n    $f = New-Facts\n    $port = $f.reset.health.port\n    $f.live_before = Get-Manifest $InstallDir \'e3-before\'\n    $f.check = Invoke-Check $port\n    $lock = $null\n    $sentinel = Join-Path $InstallDir \'ds\\bin\\ds_shell.py\'\n    try {\n        $lock = [IO.File]::Open($sentinel, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::None)\n        $f.inject = @{ landed = $true; detail = \'holding live ds\\bin\\ds_shell.py with FileShare.None\' }\n    } catch {\n        $f.inject = @{ landed = $false; detail = "could not lock sentinel: $($_.Exception.Message)" }\n    }\n    $f.apply = Invoke-Apply $port\n    Note "e3 apply -> $($f.apply | ConvertTo-Json -Compress)"\n    Copy-Relay \'e3\'\n    $w = Wait-Relay 420\n    $f.relay = $w.relay\n    $f.seen_versions = $w.versions\n    $f.health_after = Wait-Health \'\' 10                 # 只是读数:它自己回来了吗\n    Stop-All                                            # 放手之前先把一切停住,免得放手那一刻接力脚本接着往下走\n    if ($lock) { $lock.Dispose() }\n    $f.live_after = Get-Manifest $InstallDir \'e3-after\' # 必须在放手之后:锁着的文件读不了\n    Show-ManifestDiff \'e3-before\' \'e3-after\'\n    $f.new_exists = Test-Path -LiteralPath $NewDir\n    $f.old_exists = Test-Path -LiteralPath $OldDir\n    Start-Process -FilePath "$InstallDir\\OpenDesign.exe" -ErrorAction SilentlyContinue | Out-Null\n    $f.relaunch = @{ health = (Wait-Health $OldVersion 180) }\n    $f.pointers = Get-Pointers\n    $f.markers_after = Get-Markers\n    $f.fake_log = Get-FakeLogSince $f.fake_log_start\n    Finish-Scenario \'e3\' $f\n}\n\n# e4 / e5 的注入要赶在"新树装好(接力脚本已写出)"和"第二次改名"之间 ⇒ 另开线程盯着。\n# 打中的判据:注入时 .new 这个路径还在 —— 第二次改名之后它就不存在了,打晚了一定打不中。\n$InjectBlock = {\n    param($relay, $newDir, $flagDir, $mode, $injectVersion)\n    $sw = [Diagnostics.Stopwatch]::StartNew()\n    $result = @{ landed = $false; detail = \'relay script never appeared within 900s\' }\n    $fs = $null\n    while ($sw.Elapsed.TotalSeconds -lt 900) {\n        if (Test-Path -LiteralPath $relay) {\n            try {\n                if ($mode -eq \'lock\') {\n                    $target = Join-Path $newDir \'ds\\bin\\ds_shell.py\'\n                    $fs = [IO.File]::Open($target, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::None)\n                    $result = @{ landed = $true; detail = ("locked {0} at {1:N1}s" -f $target, $sw.Elapsed.TotalSeconds) }\n                } else {\n                    $target = Join-Path $newDir \'ds\\bin\\ds_web.py\'\n                    $txt = [IO.File]::ReadAllText($target)\n                    $patched = [regex]::Replace($txt, \'(?m)^VERSION = "[^"]+"\', "VERSION = `"$injectVersion`"")\n                    if ($patched -eq $txt) { throw \'VERSION line not found in new ds_web.py\' }\n                    [IO.File]::WriteAllText($target, $patched)\n                    $result = @{ landed = $true; version = $injectVersion\n                                 detail = ("patched VERSION={0} in {1} at {2:N1}s" -f $injectVersion, $target, $sw.Elapsed.TotalSeconds) }\n                }\n            } catch {\n                $result = @{ landed = $false; detail = ("inject failed at {0:N1}s: {1}" -f $sw.Elapsed.TotalSeconds, $_.Exception.Message) }\n            }\n            break\n        }\n        Start-Sleep -Milliseconds 50\n    }\n    $result | ConvertTo-Json -Compress | Set-Content -LiteralPath (Join-Path $flagDir \'inject.json\') -Encoding utf8\n    if ($fs) {\n        $release = Join-Path $flagDir \'release\'\n        while (-not (Test-Path -LiteralPath $release)) { Start-Sleep -Milliseconds 200 }\n        $fs.Dispose()\n    }\n}\n\nfunction Run-Rollback([string]$Kind, [string]$Mode) {\n    Set-Content -LiteralPath $ModeFile -Value \'normal\'\n    $f = New-Facts\n    $port = $f.reset.health.port\n    $f.live_before = Get-Manifest $InstallDir "$Kind-before"\n    $f.check = Invoke-Check $port\n    $flagDir = Join-Path $OutDir "inject-$Kind"\n    New-Item -ItemType Directory -Force -Path $flagDir | Out-Null\n    Remove-Item -LiteralPath $RelayPath -Force -ErrorAction SilentlyContinue\n    $job = Start-ThreadJob -ScriptBlock $InjectBlock -ArgumentList $RelayPath, $NewDir, $flagDir, $Mode, $InjectVersion\n    $f.apply = Invoke-Apply $port\n    Note "$Kind apply -> $($f.apply | ConvertTo-Json -Compress)"\n    Copy-Relay $Kind\n    $w = Wait-Relay 600\n    $f.relay = $w.relay\n    $f.seen_versions = $w.versions\n    $f.health_after = Wait-Health $OldVersion 180\n    $injectFile = Join-Path $flagDir \'inject.json\'\n    $f.inject = if (Test-Path -LiteralPath $injectFile) {\n        Get-Content -LiteralPath $injectFile -Raw | ConvertFrom-Json -AsHashtable\n    } else { @{ landed = $false; detail = \'injector wrote no record\' } }\n    Note "$Kind inject -> $($f.inject | ConvertTo-Json -Compress)"\n    $f.live_version_after = Get-LiveVersion\n    $f.old_exists = Test-Path -LiteralPath $OldDir\n    $f.new_exists = Test-Path -LiteralPath $NewDir\n    $f.nested_old_exists = Test-Path -LiteralPath (Join-Path $InstallDir \'OpenDesign.old\')\n    $f.live_after = Get-Manifest $InstallDir "$Kind-after"\n    Show-ManifestDiff "$Kind-before" "$Kind-after"\n    New-Item -ItemType File -Force -Path (Join-Path $flagDir \'release\') | Out-Null\n    Wait-Job $job -Timeout 30 | Out-Null\n    Receive-Job $job -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "    injector: $_" }\n    Remove-Job $job -Force\n    $f.pointers = Get-Pointers\n    $f.markers_after = Get-Markers\n    $f.fake_log = Get-FakeLogSince $f.fake_log_start\n    Finish-Scenario $Kind $f\n}\n\nfunction Run-e4 { Run-Rollback \'e4\' \'lock\' }\nfunction Run-e5 { Run-Rollback \'e5\' \'patch\' }\n\nfunction Run-FullUpdate([string]$Kind) {\n    Set-Content -LiteralPath $ModeFile -Value \'normal\'\n    $f = New-Facts\n    $port = $f.reset.health.port\n    $f.check = Invoke-Check $port\n    $f.apply = Invoke-Apply $port\n    Note "$Kind apply -> $($f.apply | ConvertTo-Json -Compress)"\n    Copy-Relay $Kind\n    $w = Wait-Relay 600\n    $f.relay = $w.relay\n    $f.seen_versions = $w.versions\n    $f.health_after = Wait-Health $NewVersion 180\n    $f.window = Wait-Window 90\n    foreach ($s in 0, 20) {\n        Start-Sleep -Seconds $s\n        Save-Screen (Join-Path $OutDir ("{0}-after-update-{1}s.png" -f $Kind, $s))\n    }\n    # 截完 20 秒那张之后**再问一次**(切片评审 GPT 腿 #9):新版起来又退出,上面那次 health_after 看不出来。\n    $f.health_final = Get-Health\n    $f.live_version_after = Get-LiveVersion\n    $f.old_exists = Test-Path -LiteralPath $OldDir\n    $f.new_exists = Test-Path -LiteralPath $NewDir\n    $f.pointers = Get-Pointers\n    $f.markers_after = Get-Markers\n    $f.fake_log = Get-FakeLogSince $f.fake_log_start\n    Finish-Scenario $Kind $f\n}\n\nfunction Run-e1 { Run-FullUpdate \'e1\' }\n\n# 把后面的场景搬到带空格的安装目录。先按**原来的**前缀把还在跑的都停掉:换了前缀,Get-OurProcs 就认不出它们了。\nfunction Use-SpacedInstallDir {\n    if ($script:InstallDir -eq $SpacedInstallDir) { return }\n    Stop-All\n    $script:InstallDir = $SpacedInstallDir\n    $script:NewDir     = "$SpacedInstallDir.new"\n    $script:OldDir     = "$SpacedInstallDir.old"\n    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $SpacedInstallDir) | Out-Null\n    Note "install dir is now \'$SpacedInstallDir\'"\n}\n\n# e6 —— t33 的真机半:装在带空格的目录里,点更新照样完整更新。\nfunction Run-e6 {\n    Use-SpacedInstallDir\n    Run-FullUpdate \'e6\'\n}\n\n# e7 —— t33/t34 的真 NSIS 半:把修 t33 之前 python 真正发出去的那条参数(带空格的 /D= 被 list2cmdline 加了引号)\n# 原样交给新版安装器。NSIS 不认带引号的 /D= ⇒ 安装目录退回注册表 = 活树 ⇒ 更新档守卫必须 rc=3 拒装。\n# 旧版故意开着:修之前那一幕就是"软件开着、python 调安装器"。\nfunction Run-e7 {\n    Use-SpacedInstallDir\n    $f = New-Facts\n    $f.live_before = Get-Manifest $InstallDir \'e7-before\'\n    $f.cmdline = \'/S /UPDATE "/D={0}"\' -f $NewDir\n    Note "e7 new installer args: $($f.cmdline)"\n    $ip = Start-Process -FilePath $NewSetup -ArgumentList $f.cmdline -PassThru\n    $null = $ip.Handle\n    if ($ip.WaitForExit(240000)) { $f.installer_rc = $ip.ExitCode }\n    else { Stop-Process -Id $ip.Id -Force -ErrorAction SilentlyContinue; $f.installer_rc = \'timeout\' }\n    Note "e7 installer rc=$($f.installer_rc)"\n    Start-Sleep -Seconds 3\n    $f.new_exists = Test-Path -LiteralPath $NewDir\n    $f.health_after = Wait-Health $OldVersion 30\n    $f.live_after = Get-Manifest $InstallDir \'e7-after\'\n    Show-ManifestDiff \'e7-before\' \'e7-after\'\n    $f.pointers = Get-Pointers\n    $f.markers_after = Get-Markers\n    Finish-Scenario \'e7\' $f\n}\n\n# ── 主流程 ──────────────────────────────────────────────────────────────\n\nNote "old=$OldVersion new=$NewVersion"\n$Repo = (& $Py -c "import sys; sys.path.insert(0, r\'$RepoRoot\\bin\'); import ds_update; print(ds_update.REPO)").Trim()\nNote "repo the product asks about: $Repo"\n\n# 1. 让这台机器信替身的 CA\n# certutil 而不是 Import-Certificate:后者住在 Windows PowerShell 的 PKI 模块里,pwsh 7 能不能直接加载要赌。\n$said = certutil -addstore -f Root (Join-Path $CertDir \'ca.crt\') 2>&1\nif ($LASTEXITCODE -ne 0) { throw "certutil could not trust the stand-in CA (rc=$LASTEXITCODE): $said" }\n\n# 2. hosts:两个域名指到本机\n$hostsFile = "$env:SystemRoot\\System32\\drivers\\etc\\hosts"\n$lines = @(\'\') + @($RedirectHosts | ForEach-Object { "127.0.0.1 $_" })\nAdd-Content -LiteralPath $hostsFile -Value $lines -Encoding ascii\nipconfig /flushdns | Out-Null\n\n# 3. 起替身\nSet-Content -LiteralPath $ModeFile -Value \'normal\'\n$fakeArgs = \'"{0}" serve --repo {1} --version {2} --setup "{3}" --cert "{4}" --key "{5}" --mode-file "{6}" --log "{7}"\' -f `\n    (Join-Path $Scripts \'fake_github.py\'), $Repo, $NewVersion, $NewSetup,\n    (Join-Path $CertDir \'server.crt\'), (Join-Path $CertDir \'server.key\'), $ModeFile, $FakeLog\n$fake = Start-Process -FilePath $Py -ArgumentList $fakeArgs -PassThru -NoNewWindow `\n    -RedirectStandardOutput (Join-Path $OutDir \'fake-github.out\') -RedirectStandardError (Join-Path $OutDir \'fake-github.err\')\nStart-Sleep -Seconds 3\ntry {\n    $r = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases?per_page=100" -TimeoutSec 20\n    Note "stand-in reachable over TLS from pwsh: tag=$($r[0].tag_name)"\n} catch { Note "WARN: stand-in NOT reachable from pwsh: $($_.Exception.Message)" }\n\n# 4. 首装一次,种档案标记;顺带用**装出来的那个 python** 走一遍产品的真路径(DNS→TLS→urllib)\nReset-Old | Out-Null\nSeed-Markers\n$probe = "import sys; sys.path.insert(0, r\'$InstallDir\\ds\\bin\'); import ds_update; " +\n         "print(ds_update.check_for_update(sys.argv[1]))"\n$said = & "$InstallDir\\python\\python.exe" -c $probe $OldVersion 2>&1\nNote "product python sees: $said"\n\nforeach ($s in $Expected) {\n    Note "==================== scenario $s ===================="\n    try { & "Run-$s" }\n    catch {\n        $msg = ("{0} @ {1}" -f $_.Exception.Message, $_.InvocationInfo.PositionMessage) -replace "`t|`r|`n", \' \'\n        Write-Host "scenario $s crashed: $msg"\n        ("2`t{0}`tFAIL {0} - harness crashed: {1}" -f $s, $msg) | Add-Content -LiteralPath $VerdictLog -Encoding utf8\n        Save-Screen (Join-Path $OutDir "$s-crash.png")\n    }\n}\n\nStop-All\nif ($fake -and -not $fake.HasExited) { Stop-Process -Id $fake.Id -Force -ErrorAction SilentlyContinue }\n\n"" ; "==================== RECEIPTS ===================="\n$receipts = if (Test-Path -LiteralPath $VerdictLog) { @(Get-Content -LiteralPath $VerdictLog) } else { @() }\n$receipts | ForEach-Object { "  $_" }\n$bad = @()\nforeach ($k in $Expected) {\n    $mine = @($receipts | Where-Object { ($_ -split "`t")[1] -eq $k })\n    if ($mine.Count -ne 1) { $bad += "$k has $($mine.Count) receipt line(s)"; continue }\n    if (($mine[0] -split "`t")[0] -ne \'0\') { $bad += "$k rc=$(($mine[0] -split "`t")[0])" }\n}\nif ($bad.Count) { "RED: $($bad -join \'; \')"; exit 1 }\n"all $($Expected.Count) scenarios OK"\nexit 0\n'
+
+======================================================================
+FAIL: test_h7c_e8_switches_to_api_and_always_switches_back (tests.test_update_e2e_harness.H7ScriptRunsBothSources.test_h7c_e8_switches_to_api_and_always_switches_back)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 299, in test_h7c_e8_switches_to_api_and_always_switches_back
+    self.assertIsNotNone(m, "没有 Run-e8")
+AssertionError: unexpectedly None : 没有 Run-e8
+
+======================================================================
+FAIL: test_h7d_facts_record_the_source (tests.test_update_e2e_harness.H7ScriptRunsBothSources.test_h7d_facts_record_the_source)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 308, in test_h7d_facts_record_the_source
+    self.assertRegex(m.group(1), r"\$f\.source\s*=")
+AssertionError: Regex didn't match: '\\$f\\.source\\s*=' not found in '\n    $f = [ordered]@{ old_version = $OldVersion; new_version = $NewVersion }\n    $f.fake_log_start = Get-FakeLogCount\n    $f.reset = Reset-Old\n    $f.markers_before = Get-Markers\n    return $f\n'
+
+======================================================================
+FAIL: test_h7e_workflow_receipt_gate_names_e8 (tests.test_update_e2e_harness.H7ScriptRunsBothSources.test_h7e_workflow_receipt_gate_names_e8)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 312, in test_h7e_workflow_receipt_gate_names_e8
+    self.assertIn("'e8'", m.group(1))
+AssertionError: "'e8'" not found in "'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7'"
+
+======================================================================
+FAIL: test_v1_good_facts_pass (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v1_good_facts_pass) (kind='e1')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 572, in test_v1_good_facts_pass
+    self.assertTrue(ok, text)
+AssertionError: False is not true : FAIL e1 - setup: stand-in never received a releases request
+
+======================================================================
+FAIL: test_v1_good_facts_pass (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v1_good_facts_pass) (kind='e2')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 572, in test_v1_good_facts_pass
+    self.assertTrue(ok, text)
+AssertionError: False is not true : FAIL e2 - setup: stand-in never received a releases request
+
+======================================================================
+FAIL: test_v1_good_facts_pass (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v1_good_facts_pass) (kind='e3')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 572, in test_v1_good_facts_pass
+    self.assertTrue(ok, text)
+AssertionError: False is not true : FAIL e3 - setup: stand-in never received a releases request
+
+======================================================================
+FAIL: test_v1_good_facts_pass (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v1_good_facts_pass) (kind='e4')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 572, in test_v1_good_facts_pass
+    self.assertTrue(ok, text)
+AssertionError: False is not true : FAIL e4 - setup: stand-in never received a releases request
+
+======================================================================
+FAIL: test_v1_good_facts_pass (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v1_good_facts_pass) (kind='e5')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 572, in test_v1_good_facts_pass
+    self.assertTrue(ok, text)
+AssertionError: False is not true : FAIL e5 - setup: stand-in never received a releases request
+
+======================================================================
+FAIL: test_v1_good_facts_pass (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v1_good_facts_pass) (kind='e6')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 572, in test_v1_good_facts_pass
+    self.assertTrue(ok, text)
+AssertionError: False is not true : FAIL e6 - setup: stand-in never received a releases request
+
+======================================================================
+FAIL: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e2', brk='feed worked but the rate-limited API was still asked')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 589, in test_v2_every_break_fails
+    self.assertFalse(ok, "%s/%s 应该红却绿了:%s" % (kind, name, text))
+AssertionError: True is not false : e2/feed worked but the rate-limited API was still asked 应该红却绿了:OK e2 - corrupt download refused at verify, live tree untouched, 0.98.4 still up
+
+======================================================================
+FAIL: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e3', brk='feed worked but the rate-limited API was still asked')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 589, in test_v2_every_break_fails
+    self.assertFalse(ok, "%s/%s 应该红却绿了:%s" % (kind, name, text))
+AssertionError: True is not false : e3/feed worked but the rate-limited API was still asked 应该红却绿了:OK e3 - relay gave up without renaming, .new removed, old relaunches (auto-reopened: nobody)
+
+======================================================================
+FAIL: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e4', brk='feed worked but the rate-limited API was still asked')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 589, in test_v2_every_break_fails
+    self.assertFalse(ok, "%s/%s 应该红却绿了:%s" % (kind, name, text))
+AssertionError: True is not false : e4/feed worked but the rate-limited API was still asked 应该红却绿了:OK e4 - second rename failed, relay rolled back and relaunched 0.98.4
+
+======================================================================
+FAIL: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e5', brk='feed worked but the rate-limited API was still asked')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 589, in test_v2_every_break_fails
+    self.assertFalse(ok, "%s/%s 应该红却绿了:%s" % (kind, name, text))
+AssertionError: True is not false : e5/feed worked but the rate-limited API was still asked 应该红却绿了:OK e5 - unhealthy new version rolled back to 0.98.4
+
+======================================================================
+FAIL: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e6', brk='feed worked but the rate-limited API was still asked')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 589, in test_v2_every_break_fails
+    self.assertFalse(ok, "%s/%s 应该红却绿了:%s" % (kind, name, text))
+AssertionError: True is not false : e6/feed worked but the rate-limited API was still asked 应该红却绿了:OK e6 - updated 0.98.4 -> 0.98.900, window up, archive markers intact
+
+======================================================================
+FAIL: test_v2_every_break_fails (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v2_every_break_fails) (kind='e1', brk='feed worked but the rate-limited API was still asked')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 589, in test_v2_every_break_fails
+    self.assertFalse(ok, "%s/%s 应该红却绿了:%s" % (kind, name, text))
+AssertionError: True is not false : e1/feed worked but the rate-limited API was still asked 应该红却绿了:OK e1 - updated 0.98.4 -> 0.98.900, window up, archive markers intact
+
+======================================================================
+FAIL: test_v3_every_scenario_has_breaks (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v3_every_scenario_has_breaks)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 593, in test_v3_every_scenario_has_breaks
+    self.assertEqual(set(BREAKS), set(V.KINDS))
+AssertionError: Items in the first set but not the second:
+'e8'
+
+======================================================================
+FAIL: test_v6_cli_exit_codes (tests.test_update_e2e_harness.VVerdictIsABehaviour.test_v6_cli_exit_codes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_update_e2e_harness.py", line 642, in test_v6_cli_exit_codes
+    self.assertEqual(run("e1", good).returncode, 0)
+AssertionError: 1 != 0
+
+----------------------------------------------------------------------
+Ran 24 tests in 1.590s
+
+FAILED (failures=19, errors=25)
+---------------- 输出结束 ----------------
+runlog: red-rl12-harness-oracle rc=1 commit=6f41139 dirty=yes at=2026-09-15T15:26:56Z file=tracks/opendesign-update-check-rate-limit/evidence/20260915T152656Z-01-red-rl12-harness-oracle.txt
