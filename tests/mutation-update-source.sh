@@ -118,6 +118,10 @@ mutate r14 bin/ds_update.py $SRC test_rl8b_feed \
   '    return _get_text(atom_url(repo), "application/atom+xml", timeout)' \
   '    return urllib.request.urlopen(urllib.request.Request(atom_url(repo)), timeout=timeout).read().decode("utf-8")'
 
+mutate r15 bin/ds_update.py tests.test_ds_update_source test_rl7c_garbage_body_is_explained_not_dumped \
+  '    elif isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError)):' \
+  '    elif False:'
+
 echo "== 发版清单生成脚本 =="
 mutate n1 installer/make-update-manifest.py tests.test_update_manifest test_rl10a_digest_and_size_come_from_the_file_itself \
   '        "asset": {"name": name, "size": size, "sha256": h.hexdigest()},' \
