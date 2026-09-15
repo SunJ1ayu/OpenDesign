@@ -28,3 +28,10 @@ tests/test_data_root.py :: self.assertNotEqual(os.path.realpath(got), os.path.re
 # 2026-08-25 由 track opendesign-fresh-install-fix 的归档闸逼出来:那道闸要一份成功的
 # run-all,而这条从 08-24 起一直红着 —— **是它把这笔账催出来的,不是我主动想起来的。**
 tests/test_installer_slim.py :: self.fail("SLIM_DROP 是空的 —— g5 会红,这里不重复报,但也不算通过。")  # g5 已经在报同一件事,这是防御分支
+
+# aw12b 只在 Windows 上执行(Linux 上 os.replace 覆盖开着的文件永远成功,这组问题结构上问不出)。
+# 真跑它的是 .github/workflows/windows-atomic-probe.yml —— 那支探针**单独要求 aw12b 真的跑了且 ok**,
+# 被跳过的绿不算数(track opendesign-atomic-archive-write)。
+tests/test_ds_atomic_write.py :: self.assertIn("error", result, "目标一直被开着,写入却报成功 —— 那它是怎么写进去的?%r" % (result,))  # 只在 Windows 执行;windows-atomic-probe 要求它真跑且 ok
+tests/test_ds_atomic_write.py :: self.assertEqual(_bytes(self.proj), before, "写入失败了,档案却被动过")  # 同上(aw12b,Windows 专属)
+tests/test_ds_atomic_write.py :: self.assertNoTmpLitter(os.path.dirname(os.path.abspath(self.proj)))   # 与 aw3 那两行字面不同:死断言放行清单按内容认  # 同上(aw12b,Windows 专属)

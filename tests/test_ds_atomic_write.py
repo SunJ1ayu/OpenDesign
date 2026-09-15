@@ -416,7 +416,7 @@ class WindowsReplaceSemantics(_Tmp):
         result = self._write_while_held(8.0)
         self.assertIn("error", result, "目标一直被开着,写入却报成功 —— 那它是怎么写进去的?%r" % (result,))
         self.assertEqual(_bytes(self.proj), before, "写入失败了,档案却被动过")
-        self.assertNoTmpLitter(os.path.dirname(self.proj))
+        self.assertNoTmpLitter(os.path.dirname(os.path.abspath(self.proj)))   # 与 aw3 那两行字面不同:死断言放行清单按内容认
 
 
 class OneSourceForReplaceRetry(unittest.TestCase):
