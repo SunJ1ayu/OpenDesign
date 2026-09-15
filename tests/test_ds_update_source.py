@@ -302,6 +302,32 @@ class ProxyIsReadAtRequestTime(unittest.TestCase):
         self.assertEqual(direct, [], "清单直连了 %s" % direct)
         self.assertTrue(any(p.startswith("github.com:443") for p in seen), seen)
 
+    def test_rl8e_manifest_is_asked_for_as_a_file_not_as_json(self):
+        """🔴 2026-09-15 夜真 GitHub 冒烟照出来的(单测替身结构上问不到):
+        `github.com/<repo>/releases/download/<tag>/<asset>` **带 `Accept: application/json` 就回 404**,
+        `application/octet-stream` 或 `*/*` 才 302 到资产 CDN(curl 三种 Accept 各打一次实测)。
+        第一版实现给清单请求写了 application/json ⇒ 真 GitHub 上清单永远"找不到"、每次都回落 API,
+        而 rl1~rl9 全绿。这里钉住发出去的请求头。
+        """
+        seen = {}
+
+        class _Resp:
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def read(self): return b"{}"
+
+        def fake_open(director, req, data=None, timeout=None):
+            seen["accept"] = req.get_header("Accept")
+            seen["url"] = req.full_url
+            return _Resp()
+
+        with mock.patch.object(urllib.request.OpenerDirector, "open", fake_open):
+            ds_update.fetch_manifest("win-installer-0.99.1", REPO)
+        self.assertEqual(seen["url"], ds_update.manifest_url(REPO, "win-installer-0.99.1"))
+        self.assertNotIn("json", (seen.get("accept") or "").lower(),
+                         "清单请求带了 JSON 的 Accept —— 真 GitHub 的下载地址对它回 404")
+        self.assertEqual(seen.get("accept"), "application/octet-stream")
+
     def test_rl8d_urls_are_the_seam_urls(self):
         self.assertEqual(ds_update.atom_url(REPO), "https://github.com/SunJ1ayu/OpenDesign/releases.atom")
         self.assertEqual(ds_update.manifest_url(REPO, "win-installer-0.99.1"),

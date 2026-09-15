@@ -84,6 +84,7 @@ e2e 全部场景默认让 API 回 403 ⇒ **一键更新走的是订阅源 + 清
 | `rl6` | 最大那一版不比本机新 ⇒ 不拉清单,返回"已是最新"(无 error) | 同上 |
 | `rl7` | 人话:HTTP 403 带 rate limit ⇒ error 含「限制了这个网络出口的查询次数」;超时 / URLError ⇒ 含「连不上 GitHub」;原技术细节仍在括号里 | 同上 |
 | `rl8` | 三处联网都**在请求那一刻读代理**:先装一个不走代理的全局 opener(模拟进程早先联过网),再打开假代理 ⇒ API / 订阅源 / 清单三个请求都进了代理、没有直连(t30b 同法) | 同上 |
+| `rl8e` | 清单请求的 `Accept` 是 `application/octet-stream`(不含 json)—— **真 GitHub 的下载地址带 `Accept: application/json` 回 404**(09-15 夜真 GitHub 冒烟照出,curl 三种 Accept 实测) | `tests/test_ds_update_source.py` |
 | `rl9` | 显式传 `fetch=` 时只用它、不碰订阅源(既有 t7~t9 注入方式不变,也防判据真打网) | 同上 |
 | `rl10` | `make-update-manifest.py`:sha256 / size 来自文件本身;tag 与文件名版本不一致 ⇒ 拒绝生成;生成物能被 `rl3` 的核对原样接受(往返) | `tests/test_update_manifest.py` |
 | `rl11` | 界面 `updateReason()`:有 error ⇒ 原样给出;查完没拿到数据 ⇒「软件后台没响应」;成功 / 检查中 ⇒ 空 | `tests/test_update_ui.mjs` |
