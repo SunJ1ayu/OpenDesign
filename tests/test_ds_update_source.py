@@ -242,6 +242,20 @@ class HumanReasons(unittest.TestCase):
                 self.assertIn("连不上 GitHub", d["error"])
 
 
+class HumanReasonsForGarbage(unittest.TestCase):
+    def test_rl7c_garbage_body_is_explained_not_dumped(self):
+        """自审(09-15 夜):`fetch_releases` 里 json.loads 失败抛的是 JSONDecodeError(ValueError 子类),
+        原样当人话 ⇒ 业主看到「Expecting value: line 1 column 1 (char 0)」。代理 / 门户把 API 换成一张网页时就是这句。"""
+        cases = (json.JSONDecodeError("Expecting value", "<html>", 0),
+                 UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte"))
+        for exc in cases:
+            with self.subTest(exc=type(exc).__name__):
+                d = ds_update.check_for_update("0.98.4", fetch=lambda e=exc: (_ for _ in ()).throw(e))
+                self.assertIn("返回的内容看不懂", d["error"])
+                self.assertNotRegex(d["error"].split("(")[0], r"Expecting value|invalid start byte",
+                                    "技术细节跑到了人话那半句里")
+
+
 class ExplicitFetchIsTheOnlySource(unittest.TestCase):
     def test_rl9_injected_fetch_never_touches_the_feed(self):
         src = _Sources(self, atom=AssertionError("注入了 fetch 还去问订阅源"), api=AssertionError("x"))
