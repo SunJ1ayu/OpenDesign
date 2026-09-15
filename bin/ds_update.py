@@ -282,6 +282,9 @@ def explain(exc):
             human = "GitHub 拒绝了这次请求"
     elif isinstance(exc, (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError, OSError)):
         human = "连不上 GitHub(检查网络或 VPN)"
+    elif isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError)):
+        # 判据 rl7c:代理 / 门户把接口换成一张网页时是这句,别把「Expecting value」当人话甩给业主
+        human = "线上返回的内容看不懂(可能被网络中间的代理或登录页换掉了)"
     elif isinstance(exc, ValueError):
         return str(exc)
     else:
