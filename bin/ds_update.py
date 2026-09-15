@@ -203,7 +203,8 @@ def fetch_atom(repo=REPO, timeout=TIMEOUT_S):
 
 def fetch_manifest(tag, repo=REPO, timeout=TIMEOUT_S):
     """取某一版的清单(主路第二跳)。"""
-    return _get_text(manifest_url(repo, tag), "application/json", timeout)
+    # 🔴 以文件身份去拿(判据 rl8e):真 GitHub 的下载地址带 `Accept: application/json` 回 404。
+    return _get_text(manifest_url(repo, tag), "application/octet-stream", timeout)
 
 
 def parse_atom(text):

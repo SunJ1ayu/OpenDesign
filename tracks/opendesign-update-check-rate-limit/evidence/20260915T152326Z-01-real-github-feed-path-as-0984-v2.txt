@@ -1,0 +1,14 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    real-github-feed-path-as-0984-v2
+cmd:     /root/.venvs/design-studio/bin/python -c $'import sys, json\nsys.path.insert(0, "bin")\nimport ds_update\ncalls = []\ndef spy(name):\n    real = getattr(ds_update, name)\n    def wrap(*a, **kw):\n        calls.append(name)\n        return real(*a, **kw)\n    setattr(ds_update, name, wrap)\nfor n in ("fetch_atom", "fetch_manifest", "fetch_releases"):\n    spy(n)\nd = ds_update.check_for_update("0.98.4")\nprint(json.dumps({k: d.get(k) for k in ("update_available", "latest", "release_url", "error")}, ensure_ascii=False))\nprint(json.dumps(d.get("asset"), ensure_ascii=False))\nprint("调用顺序:", calls)\nassert calls == ["fetch_atom", "fetch_manifest"], "新路应当只问订阅源 + 清单,不问 API"\nassert d["update_available"] and d["latest"] == "0.98.5" and d["asset"]["digest"] == "sha256:62fdf7bc92167da296ac76806ee70cb990c468b4b5c46443964c893bb57e4f39" and d["asset"]["size"] == 46751938\nassert d["asset"]["url"] == "https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.5/OpenDesign-Setup-0.98.5.exe"\nprint("真 GitHub 上:订阅源 + 清单这条新路以 0.98.4 身份查到 0.98.5,digest / 大小 / 地址与已发布资产一致,API 一次没问")'
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  9c47819
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-15T15:23:26Z
+---------------- 输出开始 ----------------
+{"update_available": true, "latest": "0.98.5", "release_url": "https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.5", "error": null}
+{"name": "OpenDesign-Setup-0.98.5.exe", "url": "https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.5/OpenDesign-Setup-0.98.5.exe", "size": 46751938, "digest": "sha256:62fdf7bc92167da296ac76806ee70cb990c468b4b5c46443964c893bb57e4f39"}
+调用顺序: ['fetch_atom', 'fetch_manifest']
+真 GitHub 上:订阅源 + 清单这条新路以 0.98.4 身份查到 0.98.5,digest / 大小 / 地址与已发布资产一致,API 一次没问
+---------------- 输出结束 ----------------
+runlog: real-github-feed-path-as-0984-v2 rc=0 commit=9c47819 dirty=yes at=2026-09-15T15:23:26Z file=tracks/opendesign-update-check-rate-limit/evidence/20260915T152326Z-01-real-github-feed-path-as-0984-v2.txt
