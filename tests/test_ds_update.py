@@ -184,7 +184,12 @@ class FetchReallyUsesTheSeam(unittest.TestCase):
 
     ⇒ 有人在那儿把地址内联拼成 `"/releases" + "/latest"`(F5 说的那条绕闸路),
     t1b 的子串扫描咬不住、t11 因为 `releases_url` 没动而恒绿、功能判据因为注入替身而全绿。
-    **F5 那个洞在下一层深度上依然开着。** 这条把它堵上:不打网,只看它把什么地址交给了 urlopen。
+    **F5 那个洞在下一层深度上依然开着。** 这条把它堵上:不打网,只看它把什么地址交给了 urllib。
+
+    ⚠️ 2026-09-15 夜换过截获点(track opendesign-update-check-rate-limit,先于实现提交):原来替换的是
+    `urllib.request.urlopen`。那单要把查更新改成 `build_opener().open()`(代理在请求那一刻读,t30b 同法)——
+    截获点不换的话,这条**截不到、还会真去打网**。`OpenerDirector.open` 是 urlopen 与 build_opener().open 共同的下一层,
+    两种写法都经过它 ⇒ 问的还是同一件事,不松。
     """
 
     def test_t12_fetch_releases_asks_exactly_the_seam_url(self):
@@ -196,16 +201,16 @@ class FetchReallyUsesTheSeam(unittest.TestCase):
             def __exit__(self, *a): return False
             def read(self): return b"[]"
 
-        def fake_urlopen(req, timeout=None):
+        def fake_open(director, req, data=None, timeout=None):
             seen["url"] = req.full_url if hasattr(req, "full_url") else str(req)
             return _Resp()
 
-        real = urllib.request.urlopen
-        urllib.request.urlopen = fake_urlopen
+        real = urllib.request.OpenerDirector.open
+        urllib.request.OpenerDirector.open = fake_open
         try:
             ds_update.fetch_releases("SunJ1ayu/OpenDesign")
         finally:
-            urllib.request.urlopen = real
+            urllib.request.OpenerDirector.open = real
         self.assertEqual(
             seen.get("url"), ds_update.releases_url("SunJ1ayu/OpenDesign"),
             "真打网那一处问的地址,和 releases_url() 拼出来的不是同一个 —— "
