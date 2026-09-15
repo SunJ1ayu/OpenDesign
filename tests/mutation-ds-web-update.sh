@@ -133,7 +133,7 @@ mutate_and_expect n13 test_t41b_handoff_failure_reply_means_the_lock_is_already_
                 self._json(200, reply)
             if not keep:
                 lock.release()'
-# n14 同一个错,落在装之前就失败的那一支(t41a)
+# n14 与 n13 **是同一个变异体**(逐字节相同),只是换靶子看 t41a 也红 —— 不是独立的第 15 个变异(评审 r3 DeepSeek 指出)
 mutate_and_expect n14 test_t41a_failure_reply_means_the_lock_is_already_released \
   '            if not keep:
                 lock.release()
