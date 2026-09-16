@@ -628,6 +628,11 @@ class BlameIsDecidedInOnePlace(unittest.TestCase):
 
         新增一支(哪怕复用现成的人话)、改掉某一支的 blame、或改动分支条件 ⇒ 这里红,
         逼人重新判一次"这一支该怪谁",而不是等下一轮评审。
+
+        **射程(第 7 轮 DeepSeek 要求写准)**:它只看得见**分支体里直接出现 `BLAME_*` 字面量**的分支;
+        一条经 helper 返回常量的新分支(`return _pick(exc)`)**不在射程** —— 抽取只认 `Name` 节点。
+        绑的是 `ast.unparse` 后的条件原文,所以把类型元组提成常量、调换 `==` 两边这类无害重构也会红:
+        **红了要重新判一次,不是编到绿。**
         """
         got = self._blame_arms()
         self.assertTrue(got, "一条分支都没抽到 —— 抽取坏了,别当成判过了")
@@ -646,6 +651,10 @@ class BlameIsDecidedInOnePlace(unittest.TestCase):
         凡是我没判过的类型,只准拿到"路上"这个谦虚的默认值 —— 想把某个类型说成发版的错,
         就必须先在这里被判一次。builtins 覆盖了 MemoryError / RuntimeError / OSError 一族等
         现实里真会冒出来的类型;自定义异常类罩不住,写在 verify 的记账里,不假装。
+        **射程(第 7 轮 DeepSeek 要求写准)**:它枚举的是 builtins 里**造得出无参实例**的异常类型;
+        **带参数才成立的实例**(如真实的 `HTTPError`,靠 16 例行为表覆盖)、以及 `blame` 内**经 helper 的旁路**
+        都**不在射程**。自定义异常类同样不在。绕法是开集,判据关不死 —— 这条兜的是"谦虚默认":
+        没判过的类型只准拿到"路上"。剩下的靠评审,写在 verify 的记账里,不假装。
         """
         import builtins
         classes = sorted({obj for obj in vars(builtins).values()
