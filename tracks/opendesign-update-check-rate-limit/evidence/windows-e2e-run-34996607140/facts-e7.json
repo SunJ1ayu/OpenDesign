@@ -1,0 +1,50 @@
+{
+  "old_version": "0.98.5",
+  "new_version": "0.98.900",
+  "source": "feed",
+  "fake_log_start": 44,
+  "reset": {
+    "health": {
+      "port": 8766,
+      "version": "0.98.5"
+    },
+    "installer_rc": 0
+  },
+  "markers_before": {
+    "Data/客户资料-e2e.bin": "f761b7be733fa5c949813702ad3e48ce3836da4e6b064869b999f57ef927d93a",
+    "Data/项目备忘-e2e.md": "0a6843716ce4763e759ec89e076942d5a9b9969efcfe9b0555366129a3d10429",
+    "UserData/客户资料-e2e.bin": "ca4b4e2cf9bbf272415ca23b4135204c95403208a91d4715746b689c86ce448c",
+    "UserData/项目备忘-e2e.md": "c8585534a9025941c84cf8b912ff655dc3633ba3987dc178550a69d829b1a3e8"
+  },
+  "live_before": "7ed7f8c6373f0d5aa27114effaeb9e7fb897eb15b9c3c8b06f1c022f94b54c6d",
+  "cmdline": "/S /UPDATE \"/D=C:\\OD e2e space\\Programs\\OpenDesign.new\"",
+  "installer_rc": 3,
+  "new_exists": false,
+  "health_after": {
+    "port": 8766,
+    "version": "0.98.5"
+  },
+  "live_after": "7ed7f8c6373f0d5aa27114effaeb9e7fb897eb15b9c3c8b06f1c022f94b54c6d",
+  "pointers": {
+    "shortcuts": {
+      "C:\\Users\\runneradmin\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\OpenDesign\\OpenDesign.lnk": "C:\\OD e2e space\\Programs\\OpenDesign\\OpenDesign.exe",
+      "C:\\Users\\runneradmin\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\OpenDesign\\卸载 OpenDesign.lnk": "C:\\OD e2e space\\Programs\\OpenDesign\\卸载.exe",
+      "C:\\Users\\runneradmin\\Desktop\\OpenDesign.lnk": "C:\\OD e2e space\\Programs\\OpenDesign\\OpenDesign.exe"
+    },
+    "autorun": null,
+    "uninstall": {
+      "InstallLocation": "C:\\OD e2e space\\Programs\\OpenDesign",
+      "DisplayVersion": "0.98.5",
+      "DisplayIcon": "C:\\OD e2e space\\Programs\\OpenDesign\\OpenDesign.exe",
+      "UninstallString": "\"C:\\OD e2e space\\Programs\\OpenDesign\\卸载.exe\""
+    },
+    "install_dir": "C:\\OD e2e space\\Programs\\OpenDesign",
+    "live": "C:\\OD e2e space\\Programs\\OpenDesign"
+  },
+  "markers_after": {
+    "Data/客户资料-e2e.bin": "f761b7be733fa5c949813702ad3e48ce3836da4e6b064869b999f57ef927d93a",
+    "Data/项目备忘-e2e.md": "0a6843716ce4763e759ec89e076942d5a9b9969efcfe9b0555366129a3d10429",
+    "UserData/客户资料-e2e.bin": "ca4b4e2cf9bbf272415ca23b4135204c95403208a91d4715746b689c86ce448c",
+    "UserData/项目备忘-e2e.md": "c8585534a9025941c84cf8b912ff655dc3633ba3987dc178550a69d829b1a3e8"
+  }
+}
