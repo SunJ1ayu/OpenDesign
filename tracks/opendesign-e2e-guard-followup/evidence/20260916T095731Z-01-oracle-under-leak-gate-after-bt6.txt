@@ -1,0 +1,134 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    oracle-under-leak-gate-after-bt6
+cmd:     tests/tmpdir-leak-gate.sh --allow node-compile- -- node --test tests/test_e2e_harness_guard.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  f146ed5
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-16T09:57:31Z
+---------------- 输出开始 ----------------
+TAP version 13
+# Subtest: ne0 前提:本测试进程(主网络命名空间)连得上 1.1.1.1:443 —— 连不上就问不出「守卫切断了出口」
+ok 1 - ne0 前提:本测试进程(主网络命名空间)连得上 1.1.1.1:443 —— 连不上就问不出「守卫切断了出口」
+  ---
+  duration_ms: 6.75731
+  type: 'test'
+  ...
+# Subtest: ne1 导入 helpers 的普通 e2e:在独立网络命名空间里、连不上外网、场景代码只跑一次
+ok 2 - ne1 导入 helpers 的普通 e2e:在独立网络命名空间里、连不上外网、场景代码只跑一次
+  ---
+  duration_ms: 141.489081
+  type: 'test'
+  ...
+# Subtest: ne2 unshare 用不了 ⇒ 拒跑 rc=78、说清是无出口守卫、场景一行没跑
+ok 3 - ne2 unshare 用不了 ⇒ 拒跑 rc=78、说清是无出口守卫、场景一行没跑
+  ---
+  duration_ms: 50.471221
+  type: 'test'
+  ...
+# Subtest: ne3 透传:场景的退出码与命令行参数原样
+ok 4 - ne3 透传:场景的退出码与命令行参数原样
+  ---
+  duration_ms: 143.437749
+  type: 'test'
+  ...
+# Subtest: ne4 豁免:要活网关的两条(new_chat / project-thread)留在主网络命名空间
+ok 5 - ne4 豁免:要活网关的两条(new_chat / project-thread)留在主网络命名空间
+  ---
+  duration_ms: 110.523248
+  type: 'test'
+  ...
+# Subtest: ne5 豁免名单单一来源:helpers 的 NEEDS_LIVE_GATEWAY == run-all.sh 的 NEEDS_GATEWAY
+ok 6 - ne5 豁免名单单一来源:helpers 的 NEEDS_LIVE_GATEWAY == run-all.sh 的 NEEDS_GATEWAY
+  ---
+  duration_ms: 54.740915
+  type: 'test'
+  ...
+# Subtest: ne6 环境变量不是身份牌:主命名空间里预设 DS_E2E_NOEGRESS_TRIED ⇒ 拒跑、场景没跑
+ok 7 - ne6 环境变量不是身份牌:主命名空间里预设 DS_E2E_NOEGRESS_TRIED ⇒ 拒跑、场景没跑
+  ---
+  duration_ms: 49.60607
+  type: 'test'
+  ...
+# Subtest: ne7 python 版:导入 tests/e2e/_no_egress.py 的脚本在独立命名空间、连不上外网;unshare 用不了 ⇒ rc=78 且脚本体没跑
+ok 8 - ne7 python 版:导入 tests/e2e/_no_egress.py 的脚本在独立命名空间、连不上外网;unshare 用不了 ⇒ rc=78 且脚本体没跑
+  ---
+  duration_ms: 98.76117
+  type: 'test'
+  ...
+# Subtest: ne8 结构:每个 .e2e.mjs 都导入 ./helpers.mjs;每个 .e2e.py 都 import _no_egress 且在 import ds_ 之前
+ok 9 - ne8 结构:每个 .e2e.mjs 都导入 ./helpers.mjs;每个 .e2e.py 都 import _no_egress 且在 import ds_ 之前
+  ---
+  duration_ms: 6.119644
+  type: 'test'
+  ...
+# Subtest: bt1 浏览器没走正常关闭(开着就退出 / 主进程被硬杀):外层 TMPDIR 剩 0 个;stderr 点名;E2E_BROWSER_NOTES 记一行
+ok 10 - bt1 浏览器没走正常关闭(开着就退出 / 主进程被硬杀):外层 TMPDIR 剩 0 个;stderr 点名;E2E_BROWSER_NOTES 记一行
+  ---
+  duration_ms: 2716.684376
+  type: 'test'
+  ...
+# Subtest: ne9 回环起不来不许静默:假 ip 让 lo 起不来 ⇒ 打守卫横幅并拒跑(别红成「产品坏了」的样子)
+ok 11 - ne9 回环起不来不许静默:假 ip 让 lo 起不来 ⇒ 打守卫横幅并拒跑(别红成「产品坏了」的样子)
+  ---
+  duration_ms: 147.971128
+  type: 'test'
+  ...
+# Subtest: ne10 探针过了但自举失败 ⇒ 仍要打横幅,不许裸着退出
+ok 12 - ne10 探针过了但自举失败 ⇒ 仍要打横幅,不许裸着退出
+  ---
+  duration_ms: 59.010201
+  type: 'test'
+  ...
+# Subtest: bt4 名字到得了人眼:外层汇总行写着「浏览器收容 N 次」+ 是哪几条(按真实点名计数,不数打印出来的字)
+ok 13 - bt4 名字到得了人眼:外层汇总行写着「浏览器收容 N 次」+ 是哪几条(按真实点名计数,不数打印出来的字)
+  ---
+  duration_ms: 2831.703736
+  type: 'test'
+  ...
+# Subtest: bt5 内层尊重外面给的点名簿:给了 E2E_BROWSER_NOTES 就原样沿用;没给才落在自己的 ds-e2e-log-* 里
+ok 14 - bt5 内层尊重外面给的点名簿:给了 E2E_BROWSER_NOTES 就原样沿用;没给才落在自己的 ds-e2e-log-* 里
+  ---
+  duration_ms: 9.309863
+  type: 'test'
+  ...
+# Subtest: ne11 回环判定不看报错文案:报错被翻译成别的语言时,lo 起不来照样拒跑
+ok 15 - ne11 回环判定不看报错文案:报错被翻译成别的语言时,lo 起不来照样拒跑
+  ---
+  duration_ms: 156.42167
+  type: 'test'
+  ...
+# Subtest: ne12 python 版回环起不来不许静默:假 ip ⇒ rc=78、横幅说是回环、脚本体没跑
+ok 16 - ne12 python 版回环起不来不许静默:假 ip ⇒ rc=78、横幅说是回环、脚本体没跑
+  ---
+  duration_ms: 61.670582
+  type: 'test'
+  ...
+# Subtest: bt6 TMPDIR 太深 ⇒ launchBrowser 抛出点明原因的错(不是 Chromium 崩成 browser has been closed),且不留 ds-e2e-browser-*
+ok 17 - bt6 TMPDIR 太深 ⇒ launchBrowser 抛出点明原因的错(不是 Chromium 崩成 browser has been closed),且不留 ds-e2e-browser-*
+  ---
+  duration_ms: 563.5927
+  type: 'test'
+  ...
+# Subtest: bt2 正常 close 后退出:外层 TMPDIR 剩 0 个、不点名(防误报)
+ok 18 - bt2 正常 close 后退出:外层 TMPDIR 剩 0 个、不点名(防误报)
+  ---
+  duration_ms: 984.209691
+  type: 'test'
+  ...
+# Subtest: bt3 浏览器起不来:launchBrowser 抛错,外层 TMPDIR 不留 ds-e2e-browser-*
+ok 19 - bt3 浏览器起不来:launchBrowser 抛错,外层 TMPDIR 不留 ds-e2e-browser-*
+  ---
+  duration_ms: 568.409164
+  type: 'test'
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 19
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8870.540267
+---------------- 输出结束 ----------------
+runlog: oracle-under-leak-gate-after-bt6 rc=0 commit=f146ed5 dirty=yes at=2026-09-16T09:57:31Z file=tracks/opendesign-e2e-guard-followup/evidence/20260916T095731Z-01-oracle-under-leak-gate-after-bt6.txt

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-e2e-guard-followup",
+  "run_id": "20260916T095752Z-01-redcheck-bt6",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "redcheck-bt6",
+  "started_at": "2026-09-16T09:57:52Z",
+  "finished_at": "2026-09-16T09:58:02Z",
+  "duration_ms": 9668,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 0,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

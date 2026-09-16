@@ -1,0 +1,185 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-bt6
+cmd:     /root/aiwork/bin/redcheck --base f146ed5 --impl tests/e2e/helpers.mjs --oracle node\ --test\ tests/test_e2e_harness_guard.mjs --must-fail \#\ fail\ 1
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  d6ee329
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-16T09:57:52Z
+---------------- 输出开始 ----------------
+redcheck: repo=/root/.openclaw/workspace/projects/design-studio
+  实现退回 f146ed549210(判卷留在 HEAD d6ee329b94fb)
+  实现:tests/e2e/helpers.mjs
+  跑判据 ...
+     | TAP version 13
+     | # Subtest: ne0 前提:本测试进程(主网络命名空间)连得上 1.1.1.1:443 —— 连不上就问不出「守卫切断了出口」
+     | ok 1 - ne0 前提:本测试进程(主网络命名空间)连得上 1.1.1.1:443 —— 连不上就问不出「守卫切断了出口」
+     |   ---
+     |   duration_ms: 6.699681
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne1 导入 helpers 的普通 e2e:在独立网络命名空间里、连不上外网、场景代码只跑一次
+     | ok 2 - ne1 导入 helpers 的普通 e2e:在独立网络命名空间里、连不上外网、场景代码只跑一次
+     |   ---
+     |   duration_ms: 157.923727
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne2 unshare 用不了 ⇒ 拒跑 rc=78、说清是无出口守卫、场景一行没跑
+     | ok 3 - ne2 unshare 用不了 ⇒ 拒跑 rc=78、说清是无出口守卫、场景一行没跑
+     |   ---
+     |   duration_ms: 56.652333
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne3 透传:场景的退出码与命令行参数原样
+     | ok 4 - ne3 透传:场景的退出码与命令行参数原样
+     |   ---
+     |   duration_ms: 151.926871
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne4 豁免:要活网关的两条(new_chat / project-thread)留在主网络命名空间
+     | ok 5 - ne4 豁免:要活网关的两条(new_chat / project-thread)留在主网络命名空间
+     |   ---
+     |   duration_ms: 112.910425
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne5 豁免名单单一来源:helpers 的 NEEDS_LIVE_GATEWAY == run-all.sh 的 NEEDS_GATEWAY
+     | ok 6 - ne5 豁免名单单一来源:helpers 的 NEEDS_LIVE_GATEWAY == run-all.sh 的 NEEDS_GATEWAY
+     |   ---
+     |   duration_ms: 58.725718
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne6 环境变量不是身份牌:主命名空间里预设 DS_E2E_NOEGRESS_TRIED ⇒ 拒跑、场景没跑
+     | ok 7 - ne6 环境变量不是身份牌:主命名空间里预设 DS_E2E_NOEGRESS_TRIED ⇒ 拒跑、场景没跑
+     |   ---
+     |   duration_ms: 51.915219
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne7 python 版:导入 tests/e2e/_no_egress.py 的脚本在独立命名空间、连不上外网;unshare 用不了 ⇒ rc=78 且脚本体没跑
+     | ok 8 - ne7 python 版:导入 tests/e2e/_no_egress.py 的脚本在独立命名空间、连不上外网;unshare 用不了 ⇒ rc=78 且脚本体没跑
+     |   ---
+     |   duration_ms: 109.220858
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne8 结构:每个 .e2e.mjs 都导入 ./helpers.mjs;每个 .e2e.py 都 import _no_egress 且在 import ds_ 之前
+     | ok 9 - ne8 结构:每个 .e2e.mjs 都导入 ./helpers.mjs;每个 .e2e.py 都 import _no_egress 且在 import ds_ 之前
+     |   ---
+     |   duration_ms: 6.489565
+     |   type: 'test'
+     |   ...
+     | # Subtest: bt1 浏览器没走正常关闭(开着就退出 / 主进程被硬杀):外层 TMPDIR 剩 0 个;stderr 点名;E2E_BROWSER_NOTES 记一行
+     | ok 10 - bt1 浏览器没走正常关闭(开着就退出 / 主进程被硬杀):外层 TMPDIR 剩 0 个;stderr 点名;E2E_BROWSER_NOTES 记一行
+     |   ---
+     |   duration_ms: 2851.444937
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne9 回环起不来不许静默:假 ip 让 lo 起不来 ⇒ 打守卫横幅并拒跑(别红成「产品坏了」的样子)
+     | ok 11 - ne9 回环起不来不许静默:假 ip 让 lo 起不来 ⇒ 打守卫横幅并拒跑(别红成「产品坏了」的样子)
+     |   ---
+     |   duration_ms: 145.954603
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne10 探针过了但自举失败 ⇒ 仍要打横幅,不许裸着退出
+     | ok 12 - ne10 探针过了但自举失败 ⇒ 仍要打横幅,不许裸着退出
+     |   ---
+     |   duration_ms: 58.17049
+     |   type: 'test'
+     |   ...
+     | # Subtest: bt4 名字到得了人眼:外层汇总行写着「浏览器收容 N 次」+ 是哪几条(按真实点名计数,不数打印出来的字)
+     | ok 13 - bt4 名字到得了人眼:外层汇总行写着「浏览器收容 N 次」+ 是哪几条(按真实点名计数,不数打印出来的字)
+     |   ---
+     |   duration_ms: 2925.912185
+     |   type: 'test'
+     |   ...
+     | # Subtest: bt5 内层尊重外面给的点名簿:给了 E2E_BROWSER_NOTES 就原样沿用;没给才落在自己的 ds-e2e-log-* 里
+     | ok 14 - bt5 内层尊重外面给的点名簿:给了 E2E_BROWSER_NOTES 就原样沿用;没给才落在自己的 ds-e2e-log-* 里
+     |   ---
+     |   duration_ms: 10.525757
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne11 回环判定不看报错文案:报错被翻译成别的语言时,lo 起不来照样拒跑
+     | ok 15 - ne11 回环判定不看报错文案:报错被翻译成别的语言时,lo 起不来照样拒跑
+     |   ---
+     |   duration_ms: 141.494933
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne12 python 版回环起不来不许静默:假 ip ⇒ rc=78、横幅说是回环、脚本体没跑
+     | ok 16 - ne12 python 版回环起不来不许静默:假 ip ⇒ rc=78、横幅说是回环、脚本体没跑
+     |   ---
+     |   duration_ms: 61.271661
+     |   type: 'test'
+     |   ...
+     | # Subtest: bt6 TMPDIR 太深 ⇒ launchBrowser 抛出点明原因的错(不是 Chromium 崩成 browser has been closed),且不留 ds-e2e-browser-*
+     | not ok 17 - bt6 TMPDIR 太深 ⇒ launchBrowser 抛出点明原因的错(不是 Chromium 崩成 browser has been closed),且不留 ds-e2e-browser-*
+     |   ---
+     |   duration_ms: 767.299993
+     |   type: 'test'
+     |   location: '/root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:467:1'
+     |   failureType: 'testCodeFailure'
+     |   error: |-
+     |     报错没点明是 TMPDIR 太深 —— 下一个人会去查前端:
+     |     browserType.launch: Target page, context or browser has been closed
+     |     Browser logs:
+     |     
+     |     <launching> /root/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-extensions --disable-features=AvoidUnnecessaryBef
+     |   code: 'ERR_ASSERTION'
+     |   name: 'AssertionError'
+     |   expected:
+     |   actual: |-
+     |     browserType.launch: Target page, context or browser has been closed
+     |     Browser logs:
+     |     
+     |     <launching> /root/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --enable-automation --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/tmp/gt6-c8RVP8/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/playwright_chromiumdev_profile-bRKuvv --remote-debugging-pipe --no-startup-window
+     |     <launched> pid=2354159
+     |     [pid=2354159][err] [0916/175800.134670:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq: No such file or directory (2)
+     |     [pid=2354159][err] [0916/175800.134714:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq: No such file or directory (2)
+     |     Call log:
+     |     [2m  - <launching> /root/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --enable-automation --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/tmp/gt6-c8RVP8/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/playwright_chromiumdev_profile-bRKuvv --remote-debugging-pipe --no-startup-window[22m
+     |     [2m  - <launched> pid=2354159[22m
+     |     [2m  - [pid=2354159][err] [0916/175800.134670:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq: No such file or directory (2)[22m
+     |     [2m  - [pid=2354159][err] [0916/175800.134714:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq: No such file or directory (2)[22m
+     |     [2m  - [pid=2354159] <gracefully close start>[22m
+     |     [2m  - [pid=2354159] <kill>[22m
+     |     [2m  - [pid=2354159] <will force kill>[22m
+     |     [2m  - [pid=2354159] <process did exit: exitCode=null, signal=SIGTRAP>[22m
+     |     [2m  - [pid=2354159] starting temporary directories cleanup[22m
+     |     [2m  - [pid=2354159] finished temporary directories cleanup[22m
+     |     [2m  - [pid=2354159] <gracefully close end>[22m
+     |     
+     |   operator: 'match'
+     |   stack: |-
+     |     TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:480:12)
+     |     Test.runInAsyncScope (node:async_hooks:214:14)
+     |     Test.run (node:internal/test_runner/test:1047:25)
+     |     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+     |     Test.postRun (node:internal/test_runner/test:1173:19)
+     |     Test.run (node:internal/test_runner/test:1101:12)
+     |     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+     |   ...
+     | # Subtest: bt2 正常 close 后退出:外层 TMPDIR 剩 0 个、不点名(防误报)
+     | ok 18 - bt2 正常 close 后退出:外层 TMPDIR 剩 0 个、不点名(防误报)
+     |   ---
+     |   duration_ms: 1090.322817
+     |   type: 'test'
+     |   ...
+     | # Subtest: bt3 浏览器起不来:launchBrowser 抛错,外层 TMPDIR 不留 ds-e2e-browser-*
+     | ok 19 - bt3 浏览器起不来:launchBrowser 抛错,外层 TMPDIR 不留 ds-e2e-browser-*
+     |   ---
+     |   duration_ms: 607.404768
+     |   type: 'test'
+     |   ...
+     | 1..19
+     | # tests 19
+     | # suites 0
+     | # pass 18
+     | # fail 1
+     | # cancelled 0
+     | # skipped 0
+     | # todo 0
+     | # duration_ms 9486.274081
+  ✅ 红在目标断言上(命中 /# fail 1/)。
+
+  ✅ 红检通过:旧实现下判据是红的(rc=1)。这份判据确实在问本轮的改动。
+
+redcheck: 恢复实现到 HEAD ...
+  ✅ 已恢复,工作树干净(git 说的,不是我说的)。
+---------------- 输出结束 ----------------
+runlog: redcheck-bt6 rc=0 commit=d6ee329 dirty=yes at=2026-09-16T09:57:52Z file=tracks/opendesign-e2e-guard-followup/evidence/20260916T095752Z-01-redcheck-bt6.txt
