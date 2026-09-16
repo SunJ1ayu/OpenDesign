@@ -155,6 +155,17 @@ export async function launchBrowser() {
   // 由来:浏览器没走正常关闭(开着就退出 / 被硬杀)每次都在 TMPDIR 留一个
   // `org.chromium.Chromium.XXXXXX`,与泄漏闸偶发红"剩 1 个空前缀目录"同形。
   const dir = mkdtempSync(path.join(os.tmpdir(), "ds-e2e-browser-"));
+  // 🔴 起之前先算路径:Chromium 在它的 TMPDIR 里建 org.chromium.Chromium.XXXXXX/SingletonSocket,
+  //    Unix socket 路径上限 107 字符(实测 107 过、108 崩)。超了浏览器一启动就崩,报错只有一句
+  //    "browser has been closed",一个字不提路径 —— 全部场景秒挂,和「前端崩了」长得一样。
+  //    这里多套的这一层会吃掉 22 个字符,外层 TMPDIR 超过 40 就会撞上(track opendesign-e2e-guard-followup,判据 bt6)。
+  const SOCKET_TAIL = "/org.chromium.Chromium.XXXXXX/SingletonSocket";
+  if (dir.length + SOCKET_TAIL.length > 107) {
+    rmSync(dir, { recursive: true, force: true });
+    throw new Error(`TMPDIR 太深:Chromium 的 socket 会建在 ${dir}${SOCKET_TAIL}`
+      + `(${dir.length + SOCKET_TAIL.length} 字符),超过 Unix socket 路径上限 107 ⇒ 浏览器会一启动就崩。`
+      + `把 TMPDIR 换短(现在是 ${os.tmpdir()})。`);
+  }
   let browser;
   try {
     browser = await pw.chromium.launch({
