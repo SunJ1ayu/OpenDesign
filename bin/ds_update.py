@@ -51,10 +51,15 @@ TIMEOUT_S = 10
 WEB_BASE = "https://github.com"
 MANIFEST_NAME = "OpenDesign-update.json"
 _ATOM_NS = "{http://www.w3.org/2005/Atom}"
-_HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
+# 🔴 rl3e:这里原来是 `$`(评审 整份 DeepSeek,我复现):`$` 配 match() 放过末尾换行 ⇒
+#    `"ab…ab\n"` 被清单核对**接受**、`digest` 原样带着换行往下走。今天不炸只是因为
+#    `ds_update_apply.parse_digest` 顺手 strip 了 —— 那是侥幸,不是防线。上面三条同理。
+_HEX64_RE = re.compile(r"^[0-9a-f]{64}\Z")
 FEED_LABEL = "发布页订阅源"
 API_LABEL = "GitHub 接口"
 UNVERIFIED_HUMAN = "新版缺少可核对的安装包信息"
+# 判据 rl5e:清单只是**拉不到**时说上面那句会指着发版说事,和括号里的网络原因打架 ⇒ 分开说。
+UNREACHABLE_HUMAN = "拿不到新版的安装包信息"
 
 
 class ManifestError(ValueError):
@@ -294,9 +299,12 @@ def explain(exc):
     tech = "%s: %s" % (exc.__class__.__name__, exc)
     if isinstance(exc, urllib.error.HTTPError):
         said = ("%s %s" % (exc.reason, exc)).lower()
-        headers = exc.headers if exc.headers is not None else {}
-        # 判据 rl7d:GitHub 有时状态行只写 Forbidden,限流写在 X-RateLimit-Remaining: 0 里
-        exhausted = str(headers.get("X-RateLimit-Remaining") or "").strip() == "0"
+        # 判据 rl7d:GitHub 有时状态行只写 Forbidden,限流写在 X-RateLimit-Remaining: 0 里。
+        # 判据 rl7f:`headers` 非 None 又没有 `.get` 时,这里原来自己抛 AttributeError ——
+        # 而 explain 是在 except 分支里被调用的 ⇒ 异常穿出 check_for_update,
+        # 破掉它"任何异常都不许漏出去"的承诺。取值器拿不到就当没有这个头。
+        getter = getattr(exc.headers, "get", None)
+        exhausted = str((getter("X-RateLimit-Remaining") if callable(getter) else None) or "").strip() == "0"
         if exc.code == 429 or (exc.code == 403 and ("rate limit" in said or exhausted)):
             human = "GitHub 限制了这个网络出口的查询次数(同一出口的人查得太多),换个网络或稍后再试"
         elif exc.code == 404:
@@ -352,7 +360,9 @@ def _via_feed(current):
         text = fetch_manifest(best["tag"])
         asset = parse_manifest(text, best["tag"])
     except Exception as exc:  # noqa: BLE001 —— 带着"线上有新版"这件事往上抛(判据 rl5d)
-        raise FeedUnverified(".".join(str(n) for n in best_ver), exc) from exc
+        # 判据 rl5e:版本号用 **tag 原文**。补零后的三段值会把真 tag `win-installer-1.0`
+        # 说成"有新版 1.0.0",发版人照原因去发布页找 1.0.0 找不到(1.0 正是留给业主拍板的号)。
+        raise FeedUnverified(TAG_RE.match(best["tag"]).group(1), exc) from exc
     notes = json.loads(text).get("notes")
     release = {"tag_name": best["tag"], "html_url": best["html_url"], "draft": False,
                "body": notes if isinstance(notes, str) else "", "assets": [asset]}
@@ -390,8 +400,17 @@ def check_for_update(current, fetch=None):
             result = attempt()
         except FeedUnverified as exc:
             unverified = exc
-            detail = str(exc.cause) if isinstance(exc.cause, ManifestError) else explain(exc.cause)
-            reasons.append("%s:有新版 %s,但%s(%s)" % (label, exc.version, UNVERIFIED_HUMAN, detail))
+            if isinstance(exc.cause, ManifestError):
+                detail, human = str(exc.cause), UNVERIFIED_HUMAN
+            else:
+                # 判据 rl5e:网络类失败(超时 / 断网)只是拿不到,不是这一版发布质量有问题;
+                # HTTPError 走 else —— 清单 404 就是"这一版真没传清单",该说发布质量那句(rl5d / rl7e)。
+                detail = explain(exc.cause)
+                network = (isinstance(exc.cause, (urllib.error.URLError, socket.timeout, TimeoutError,
+                                                  ConnectionError, OSError))
+                           and not isinstance(exc.cause, urllib.error.HTTPError))
+                human = UNREACHABLE_HUMAN if network else UNVERIFIED_HUMAN
+            reasons.append("%s:有新版 %s,但%s(%s)" % (label, exc.version, human, detail))
             continue
         except Exception as exc:  # noqa: BLE001
             reasons.append("%s:%s" % (label, explain(exc)))

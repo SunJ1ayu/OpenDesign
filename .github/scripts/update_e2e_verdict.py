@@ -87,7 +87,10 @@ def _baseline(f, problems):
         return lambda e: e.get("kind") == k and (status is None or status(e.get("status")))
 
     ok = lambda s: s == 200          # noqa: E731
-    failed = lambda s: isinstance(s, int) and s >= 500   # noqa: E731
+    # 判据 rl12c(评审 整份 DeepSeek):产品在订阅源**任何**失败时都回落 API,
+    # 这里原来只认 >=500 ⇒ 替身换个状态码(404/403/429)就会"产品完全正确却判红"。
+    # 200 仍然不算失败 —— 反例 "feed did not actually fail" 守着这一边。
+    failed = lambda s: isinstance(s, int) and s != 200   # noqa: E731
     download = first(kind_is("download"))
     # 查更新走哪条来源(track opendesign-update-check-rate-limit,rl12):
     #   feed —— 替身的 API 回 403 限流 ⇒ 订阅源 200、清单 200 且在下载之前,**一次都不许问 API**(rl4 的真机版);

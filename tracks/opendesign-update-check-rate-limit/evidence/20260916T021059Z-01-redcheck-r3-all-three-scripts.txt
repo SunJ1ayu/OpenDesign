@@ -1,0 +1,22 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-r3-all-three-scripts
+cmd:     bash -c $'rc=0\necho "== ① tests/mutation-update-source.sh(本单主判据 + 第 2 轮新增 r25/r26/r27/r28/n4/h10,r24 跟随换靶)"\nbash tests/mutation-update-source.sh 2>&1 | tail -3 || rc=1\necho "== ② tests/mutation-ds-update.sh(老红检:锚点要跟随我这一刀)"\nbash tests/mutation-ds-update.sh 2>&1 | tail -3 || rc=1\necho "== ③ tests/mutation-update-e2e-harness.py(替身/判定器/ps1 的老红检)"\n/root/.venvs/design-studio/bin/python tests/mutation-update-e2e-harness.py 2>&1 | tail -3 || rc=1\nexit $rc'
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  62d567b
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-16T02:10:59Z
+---------------- 输出开始 ----------------
+== ① tests/mutation-update-source.sh(本单主判据 + 第 2 轮新增 r25/r26/r27/r28/n4/h10,r24 跟随换靶)
+  [咬住] h10 → test_rl12c_any_failing_feed_status_counts_as_the_feed_having_failed
+
+== 红检小结:咬住 43 条 / 漏网 0 条(被测文件已逐字节还原)==
+== ② tests/mutation-ds-update.sh(老红检:锚点要跟随我这一刀)
+  [咬住] m22 → test_t12_fetch_releases_asks_exactly_the_seam_url
+
+== 红检小结:咬住 24 条 / 漏网 0 条(被测文件已逐字节还原)==
+== ③ tests/mutation-update-e2e-harness.py(替身/判定器/ps1 的老红检)
+M27 spaced dir has no space: BITES
+M28 e7 forgets to switch dir: BITES
+28 mutations, 28 bite, 0 escaped/setup-error
+---------------- 输出结束 ----------------
+runlog: redcheck-r3-all-three-scripts rc=0 commit=62d567b dirty=yes at=2026-09-16T02:10:59Z file=tracks/opendesign-update-check-rate-limit/evidence/20260916T021059Z-01-redcheck-r3-all-three-scripts.txt

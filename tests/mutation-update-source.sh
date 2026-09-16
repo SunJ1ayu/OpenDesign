@@ -145,10 +145,11 @@ mutate r21 bin/ds_update.py $SRC test_rl7d_rate_limit_seen_only_in_headers_is_st
 mutate r22 bin/ds_update.py $SRC test_rl7d_broken_http_from_a_middlebox_is_explained \
   '    elif isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError, http.client.HTTPException)):' \
   '    elif isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError)):'
+# r24 的靶子随 rl5e 那一刀改写过一次。第一次跟随时我挑了 `if isinstance(...) -> if False`,
+# 它**打得上去但不红**:人话那句从 else 分支照样出来 —— 锚点跟随要连着问"打上去会不会红"。
 mutate r24 bin/ds_update.py $SRC test_rl7e_bad_manifest_is_said_in_plain_words \
-  '            detail = str(exc.cause) if isinstance(exc.cause, ManifestError) else explain(exc.cause)
-            reasons.append("%s:有新版 %s,但%s(%s)" % (label, exc.version, UNVERIFIED_HUMAN, detail))' \
-  '            reasons.append("%s:%s" % (label, explain(exc.cause)))'
+  '            reasons.append("%s:有新版 %s,但%s(%s)" % (label, exc.version, human, detail))' \
+  '            reasons.append("%s:%s" % (label, detail))'
 mutate n3 installer/make-update-manifest.py tests.test_update_manifest test_rl10d_missing_inputs_say_so_without_a_traceback \
   '    if not os.path.isfile(args.exe):' \
   '    if False:'
@@ -217,6 +218,28 @@ mutate h4 .github/scripts/update_e2e_verdict.py $H test_v2_every_break_fails \
             problems.append("fallback: app never got an API answer after the feed failed")' \
   '        if False:
             problems.append("fallback: app never got an API answer after the feed failed")'
+
+# ── 第 2 轮评审成立发现的判据(rl3e / rl5e / rl7f / rl10e / rl12c)咬不咬得住 ────────────
+mutate r25 bin/ds_update.py $SRC test_rl3e_a_sha256_with_a_trailing_newline_is_refused \
+  '_HEX64_RE = re.compile(r"^[0-9a-f]{64}\Z")' \
+  '_HEX64_RE = re.compile(r"^[0-9a-f]{64}$")'
+mutate r26 bin/ds_update.py $SRC test_rl7f_weird_headers_do_not_make_explain_throw \
+  '        getter = getattr(exc.headers, "get", None)
+        exhausted = str((getter("X-RateLimit-Remaining") if callable(getter) else None) or "").strip() == "0"' \
+  '        headers = exc.headers if exc.headers is not None else {}
+        exhausted = str(headers.get("X-RateLimit-Remaining") or "").strip() == "0"'
+mutate r27 bin/ds_update.py $SRC test_rl5e_cannot_reach_the_manifest_is_not_said_as_a_bad_release \
+  '                human = UNREACHABLE_HUMAN if network else UNVERIFIED_HUMAN' \
+  '                human = UNVERIFIED_HUMAN'
+mutate r28 bin/ds_update.py $SRC test_rl5e_the_version_in_the_reason_is_the_tag_as_published \
+  '        raise FeedUnverified(TAG_RE.match(best["tag"]).group(1), exc) from exc' \
+  '        raise FeedUnverified(".".join(str(n) for n in best_ver), exc) from exc'
+mutate n4 installer/make-update-manifest.py tests.test_update_manifest test_rl10e_a_missing_output_directory_says_so_too \
+  '    if not os.path.isdir(out_dir):' \
+  '    if False:'
+mutate h10 .github/scripts/update_e2e_verdict.py $H test_rl12c_any_failing_feed_status_counts_as_the_feed_having_failed \
+  '    failed = lambda s: isinstance(s, int) and s != 200   # noqa: E731' \
+  '    failed = lambda s: isinstance(s, int) and s >= 500   # noqa: E731'
 
 restore
 echo
