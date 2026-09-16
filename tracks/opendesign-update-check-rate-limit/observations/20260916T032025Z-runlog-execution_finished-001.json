@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-update-check-rate-limit",
+  "run_id": "20260916T030821Z-01-run-all-with-gateway-final",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "run-all-with-gateway-final",
+  "started_at": "2026-09-16T03:08:21Z",
+  "finished_at": "2026-09-16T03:20:25Z",
+  "duration_ms": 724523,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

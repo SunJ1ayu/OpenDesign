@@ -1,0 +1,25 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    run-all-red-set-is-baseline-final
+cmd:     bash -c $'set -u\necho "== 最终总跑那 1 段红:仍然不是本单造成的(机械判,在最终 HEAD 上重跑)"\ngit diff --quiet b13a71d..HEAD -- tests/test_e2e_harness_guard.mjs tests/e2e/helpers.mjs tests/run-all.sh && echo "   ✓ 那 7 条住的文件与豁免名单来源,本单一个字没动" || { echo "   ✗ 改过"; exit 1; }\ntest -z "$(git diff --name-status --diff-filter=AD b13a71d..HEAD -- "tests/e2e/*.e2e.mjs" "tests/e2e/*.e2e.py")" && echo "   ✓ e2e 场景文件无新增无删除(ne8 扫的就是这些)" || { echo "   ✗ 有增删"; exit 1; }\ngit log -1 --format="   来历:%h %s" b13a71d\necho "-- 当前 HEAD 单跑这一支"\nnode --test tests/test_e2e_harness_guard.mjs 2>&1 | grep -E "^not ok|^# (pass|fail)"\necho "== 结论:红集合 = base-ref b13a71d 的先行判据(track opendesign-e2e-no-egress-browser-tmp,实现未开始),本单零新增红"'
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  d37f32a
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-16T03:20:53Z
+---------------- 输出开始 ----------------
+== 最终总跑那 1 段红:仍然不是本单造成的(机械判,在最终 HEAD 上重跑)
+   ✓ 那 7 条住的文件与豁免名单来源,本单一个字没动
+   ✓ e2e 场景文件无新增无删除(ne8 扫的就是这些)
+   来历:b13a71d 🔴 判据先行 ne0~ne8 / bt1~bt3:e2e 判据断网守卫 + 浏览器临时目录归测试自己收(此刻 7 红)
+-- 当前 HEAD 单跑这一支
+not ok 2 - ne1 导入 helpers 的普通 e2e:在独立网络命名空间里、连不上外网、场景代码只跑一次
+not ok 3 - ne2 unshare 用不了 ⇒ 拒跑 rc=78、说清是无出口守卫、场景一行没跑
+not ok 6 - ne5 豁免名单单一来源:helpers 的 NEEDS_LIVE_GATEWAY == run-all.sh 的 NEEDS_GATEWAY
+not ok 7 - ne6 环境变量不是身份牌:主命名空间里预设 DS_E2E_NOEGRESS_TRIED ⇒ 拒跑、场景没跑
+not ok 8 - ne7 python 版:导入 tests/e2e/_no_egress.py 的脚本在独立命名空间、连不上外网;unshare 用不了 ⇒ rc=78 且脚本体没跑
+not ok 9 - ne8 结构:每个 .e2e.mjs 都导入 ./helpers.mjs;每个 .e2e.py 都 import _no_egress 且在 import ds_ 之前
+not ok 10 - bt1 浏览器没走正常关闭(开着就退出 / 主进程被硬杀):外层 TMPDIR 剩 0 个;stderr 点名;E2E_BROWSER_NOTES 记一行
+# pass 5
+# fail 7
+== 结论:红集合 = base-ref b13a71d 的先行判据(track opendesign-e2e-no-egress-browser-tmp,实现未开始),本单零新增红
+---------------- 输出结束 ----------------
+runlog: run-all-red-set-is-baseline-final rc=0 commit=d37f32a dirty=yes at=2026-09-16T03:20:53Z file=tracks/opendesign-update-check-rate-limit/evidence/20260916T032053Z-01-run-all-red-set-is-baseline-final.txt
