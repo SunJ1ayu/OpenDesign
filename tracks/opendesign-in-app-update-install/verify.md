@@ -322,3 +322,23 @@ relay#1 submimo PASS / stage1#1 subdeepseek BLOCK / installer-ui#1 subglm PASS /
      这类机器走手动下载。真机清单要问业主是否这么配。
 - 外壳没接住交棒(stage=shell)之后更新锁留到重启(t35 取舍;界面提示为实话「自动更新没能继续」)。
 - 两次改名之间断电 / 被杀、rollback_stuck 不拉起任何东西:design 明账,无启动期恢复。
+
+## 0.98.6 发版(2026-09-16,业主当面定「现在就发」)
+
+业主今天仍点不动「检查更新」——因为修复在 main,而 0.98.5 是 `743a6bf` 打的、**早于**修复的全部提交。
+这一版是第一个查得动更新的客户端。**业主这次仍须手动装一次**(他手上那版查更新本身是坏的,够不到 0.98.6);
+装上之后这个死结解开。发版按 `installer/RELEASE.md` 七步走,三份机器收据:
+
+```
+runlog: build-installer-0986-release rc=0 commit=76b9663 dirty=no at=2026-09-16T06:15:12Z file=tracks/opendesign-in-app-update-install/evidence/20260916T061512Z-01-build-installer-0986-release.txt
+runlog: published-bytes-match-0986 rc=0 commit=76b9663 dirty=yes at=2026-09-16T06:19:25Z file=tracks/opendesign-in-app-update-install/evidence/20260916T061925Z-01-published-bytes-match-0986.txt
+runlog: real-github-feed-path-as-0985-finds-0986 rc=0 commit=76b9663 dirty=yes at=2026-09-16T06:19:43Z file=tracks/opendesign-in-app-update-install/evidence/20260916T061943Z-01-real-github-feed-path-as-0985-finds-0986.txt
+```
+
+- 构建:静态闸 23 条 / 成品闸 7 条全绿,44.6 MB;bump 前与版本号耦合的判据本地跑过(python 414 OK skipped=2、test_update_ui fail 0)。
+- 已发布字节核对:本地构建 == 从 GitHub 取回 == 清单描述,三者 sha256 全等并逐字节 `cmp` 通过
+  (`de0b96f2536846f09b30b844e6a539fdfd0f5814b4c63fb117bcf48d743ec046`,46758546 B)。
+- **用产品自己的新路径**以 0.98.5 身份查真 GitHub:只调 `fetch_atom` + `fetch_manifest`(**API 一次没问**),
+  查到 0.98.6,digest / 大小 / 下载地址与已发布资产逐字段一致。
+- ⚠️ **仍欠部署闸最后一步**:业主装机后由运行中的软件回显 `0.98.6`,并点一次「检查更新」看是否显示"已经是最新版本"。
+  盘上/远端绿 ≠ 部署完成(本机规矩:运行中的目标自己打印版本才算)。

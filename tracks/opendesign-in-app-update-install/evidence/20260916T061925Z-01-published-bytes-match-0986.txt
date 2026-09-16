@@ -1,0 +1,19 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    published-bytes-match-0986
+cmd:     bash -c $'\nset -euo pipefail\nOUT=/root/aiwork/out/opendesign-0.98.6-release\nDL=$(mktemp -d)\ngh release download win-installer-0.98.6 -R SunJ1ayu/OpenDesign -D "$DL" --clobber\necho "下载回来的文件:"; ls -l "$DL"\nLOCAL=$(sha256sum $OUT/OpenDesign-Setup-0.98.6.exe | cut -d" " -f1)\nREMOTE=$(sha256sum "$DL/OpenDesign-Setup-0.98.6.exe" | cut -d" " -f1)\nMAN=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))[\\"asset\\"][\\"sha256\\"])" "$DL/OpenDesign-update.json")\nSZ=$(stat -c%s "$DL/OpenDesign-Setup-0.98.6.exe")\nMSZ=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))[\\"asset\\"][\\"size\\"])" "$DL/OpenDesign-update.json")\necho "本地 sha256:      $LOCAL"\necho "GitHub 取回 sha256: $REMOTE"\necho "清单里写的 sha256:  $MAN"\necho "取回大小 $SZ / 清单写 $MSZ"\n[ "$LOCAL" = "$REMOTE" ] || { echo "🔴 本地与已发布字节不一致"; exit 1; }\n[ "$REMOTE" = "$MAN" ]  || { echo "🔴 已发布字节与清单不一致"; exit 1; }\n[ "$SZ" = "$MSZ" ]      || { echo "🔴 大小不一致"; exit 1; }\ncmp "$OUT/OpenDesign-Setup-0.98.6.exe" "$DL/OpenDesign-Setup-0.98.6.exe"\necho "✅ 三者一致:本地构建 == GitHub 上的字节 == 清单描述(并逐字节 cmp 通过)"\nrm -rf "$DL"\n'
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  76b9663
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-16T06:19:25Z
+---------------- 输出开始 ----------------
+下载回来的文件:
+total 45668
+-rw-r--r-- 1 root root 46758546 Sep 16 14:19 OpenDesign-Setup-0.98.6.exe
+-rw-r--r-- 1 root root     1837 Sep 16 14:19 OpenDesign-update.json
+本地 sha256:      de0b96f2536846f09b30b844e6a539fdfd0f5814b4c63fb117bcf48d743ec046
+GitHub 取回 sha256: de0b96f2536846f09b30b844e6a539fdfd0f5814b4c63fb117bcf48d743ec046
+清单里写的 sha256:  de0b96f2536846f09b30b844e6a539fdfd0f5814b4c63fb117bcf48d743ec046
+取回大小 46758546 / 清单写 46758546
+✅ 三者一致:本地构建 == GitHub 上的字节 == 清单描述(并逐字节 cmp 通过)
+---------------- 输出结束 ----------------
+runlog: published-bytes-match-0986 rc=0 commit=76b9663 dirty=yes at=2026-09-16T06:19:25Z file=tracks/opendesign-in-app-update-install/evidence/20260916T061925Z-01-published-bytes-match-0986.txt
