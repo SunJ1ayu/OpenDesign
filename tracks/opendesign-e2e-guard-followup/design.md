@@ -40,6 +40,22 @@
 **④ README(第 1 轮 #8)**:`tests/e2e/README.md` 补一节「无出口守卫」:导入即生效、要 root + `unshare -n`、
 拒跑码 78 长什么样、豁免两条、`E2E_BROWSER_NOTES` 是什么。
 
+**⑤ 中途发现(外层真跑撞出来的,09-16 17:45):TMPDIR 一深,浏览器一启动就崩,而且报错不说为什么**
+
+- 外层总跑(注入探针那次,收据 `outer-run-injected-leak-probe`)里 **node 单测段红 3 条:bt1 / bt2 / bt4**,
+  报错都是 `browserType.launch: Target page, context or browser has been closed`。单跑全绿。
+- 根因(确定性实验,只改 TMPDIR 长度):Chromium 在它的 TMPDIR 里建 `org.chromium.Chromium.XXXXXX/SingletonSocket`,
+  Unix socket 路径上限 **107 字符**;实测 107 过、108 崩。`launchBrowser` 再套一层 `ds-e2e-browser-XXXXXX`
+  ⇒ 外层 TMPDIR 超过 40 字符就崩。外层总跑里泄漏闸把 TMPDIR 设成 `/tmp/ds-leakprobe-XXXXXX`(24),
+  判据再套一层 `ds-guardtest-bt1-tmp-XXXXXX` ⇒ 24+28+22+45 = **119**。真 e2e 段只有 24+22+45 = 91,所以没事。
+- ⇒ **bt1/bt2 自上一单起在全量总跑里一直是红的**;上一单从没真跑过外层,所以没人看见。
+- 红了先问是不是真 bug:**一半是**。
+  - 真 bug:`launchBrowser` 把「路径超长」崩成一句毫无线索的话。任何人 TMPDIR 深一点(比如会话临时目录)跑 e2e,
+    会看到全部场景秒挂,和「前端崩了」长得一样。⇒ 起浏览器之前先算路径,超了就抛一句点明 TMPDIR 与上限的错,并收掉临时目录。
+  - 判据自己的毛病:bt1/bt2/bt3 与造点名的 helper 用的夹具目录名太长,在外层总跑里**结构上问不到**它们要问的事
+    (浏览器根本没起来)。⇒ 夹具目录改成短前缀(`gt1-` 等),断言一个字不动。
+  - 改考卷的理由写在这里,并补一条**更强、会先红**的判据 bt6(下表),不是只把名字改短了事。
+
 ## Key trade-offs / risks
 
 1. **bt4/bt5 是「抽出真脚本的一段来跑」**,不是跑整个外层(6 分钟 + 真 chromium)。抽取锚点是注释标题行;
@@ -70,6 +86,7 @@
 | `bt5` | 抽出 `tests/e2e/run-all.sh` 里建日志目录到设点名簿那一截执行:外面给了 `E2E_BROWSER_NOTES` ⇒ 原样沿用;没给 ⇒ 落在内层自己的 `ds-e2e-log-*` 里 |
 | `ne11` | 假 `ip` 让 lo 起不来 + 假 `bash` 把 `unreachable` 翻成别的语言 ⇒ 仍然 rc=78、横幅含「回环」、场景没跑 |
 | `ne12` | python 版:假 `ip` 让 lo 起不来 ⇒ rc=78、横幅含「无出口守卫」与「回环」、脚本体没跑 |
+| `bt6` | TMPDIR 深到 Chromium 的 socket 路径超 107 ⇒ `launchBrowser` 抛出含「TMPDIR 太深」与「107」的错(不是 Chromium 崩成 browser has been closed),且不留 `ds-e2e-browser-*` |
 
 旧 bt4(文本里有那句话且排在 `note_last` 之前)删掉 —— 它被注释满足,留着只会继续假绿。
 

@@ -205,6 +205,12 @@ test("ne8 结构:每个 .e2e.mjs 都导入 ./helpers.mjs;每个 .e2e.py 都 impo
 
 // ── bt:浏览器临时目录 ──────────────────────────────────────────────────────
 
+// 🔴 起浏览器的场景,**外层 TMPDIR 的目录名必须短**(`gt1-` 这种),别用 `ds-guardtest-…-tmp-`:
+//    Chromium 在 TMPDIR 里建 org.chromium.Chromium.XXXXXX/SingletonSocket,Unix socket 路径上限 107 字符;
+//    launchBrowser 还要再套一层 ds-e2e-browser-XXXXXX。全量总跑里泄漏闸已经把 TMPDIR 设成
+//    /tmp/ds-leakprobe-XXXXXX(24),长名字 ⇒ 24+28+22+45 = 119 ⇒ 浏览器根本起不来,bt1/bt2 问不到要问的事
+//    (上一单起在总跑里一直红,09-16 track opendesign-e2e-guard-followup 外层真跑才撞出来)。
+//    短名字 ⇒ 24+11+22+45 = 102。超长时 launchBrowser 会抛「TMPDIR 太深」(bt6)。
 function leftovers(dir) {
   return readdirSync(dir).filter((n) => !n.startsWith("node-compile-"));
 }
@@ -234,7 +240,7 @@ process.exit(0);`,
 
 test("bt1 浏览器没走正常关闭(开着就退出 / 主进程被硬杀):外层 TMPDIR 剩 0 个;stderr 点名;E2E_BROWSER_NOTES 记一行", () => {
   for (const [mode, body] of Object.entries(BT1_SCENARIOS)) {
-    const d = tmp("ds-guardtest-bt1-"), outer = tmp("ds-guardtest-bt1-tmp-");
+    const d = tmp("ds-guardtest-bt1-"), outer = tmp("gt1-");
     try {
       const notes = path.join(d, "notes.txt");
       const name = `probe-${mode}.e2e.mjs`;
@@ -317,7 +323,7 @@ function section(file, start, end) {
 /** 用**真 helpers** 造点名(不是判据里的字面量):每个名字跑一次「开着浏览器就退出」,helpers 记一行。 */
 function realBrowserNotes(dir, names) {
   const notes = path.join(dir, "real-notes.txt");
-  const outer = tmp("ds-guardtest-notes-tmp-");
+  const outer = tmp("gtn-");
   try {
     for (const name of names) {
       const file = scenario(dir, name, BT1_SCENARIOS["exit-open"]);
@@ -458,8 +464,27 @@ open(os.environ["GUARD_MARKER"], "a").write("ran\\n")
   } finally { rmSync(d, { recursive: true, force: true }); rmSync(fb, { recursive: true, force: true }); }
 });
 
+test("bt6 TMPDIR 太深 ⇒ launchBrowser 抛出点明原因的错(不是 Chromium 崩成 browser has been closed),且不留 ds-e2e-browser-*", () => {
+  // 🔴 由来:本单外层真跑,node 单测段 bt1/bt2/bt4 一起红在 `Target page, context or browser has been closed` ——
+  //    一个字不提路径。真因是 Chromium 的 SingletonSocket 路径超了 Unix 上限 107(实测 107 过、108 崩)。
+  //    任何人 TMPDIR 深一点跑 e2e,都会看到全部场景秒挂,和「前端崩了」长得一样。
+  const d = tmp("gt6-");
+  const deep = path.join(d, "x".repeat(60));
+  mkdirSync(deep);
+  try {
+    const file = scenario(d, "probe-deep.e2e.mjs", `
+try { await H.launchBrowser(); process.exit(3); }
+catch (e) { process.stderr.write(String(e && e.message)); process.exit(0); }`);
+    const r = run(process.execPath, [file], { env: { TMPDIR: deep, TMP: deep, TEMP: deep } });
+    assert.equal(r.status, 0, `TMPDIR 这么深浏览器居然起来了、或场景崩了:rc=${r.status}\n${r.stderr.slice(0, 600)}`);
+    assert.match(r.stderr, /TMPDIR 太深/, `报错没点明是 TMPDIR 太深 —— 下一个人会去查前端:\n${r.stderr.slice(0, 600)}`);
+    assert.match(r.stderr, /107/, "没说清上限是多少");
+    assert.deepEqual(readdirSync(deep).filter((n) => n.startsWith("ds-e2e-browser-")), [], "抛了错却留下临时目录");
+  } finally { rmSync(d, { recursive: true, force: true }); }
+});
+
 test("bt2 正常 close 后退出:外层 TMPDIR 剩 0 个、不点名(防误报)", () => {
-  const d = tmp("ds-guardtest-bt2-"), outer = tmp("ds-guardtest-bt2-tmp-");
+  const d = tmp("ds-guardtest-bt2-"), outer = tmp("gt2-");
   try {
     const notes = path.join(d, "notes.txt");
     const file = scenario(d, "probe-close.e2e.mjs", `
@@ -477,7 +502,7 @@ process.exit(0);`);
 });
 
 test("bt3 浏览器起不来:launchBrowser 抛错,外层 TMPDIR 不留 ds-e2e-browser-*", () => {
-  const d = tmp("ds-guardtest-bt3-"), outer = tmp("ds-guardtest-bt3-tmp-"), home = tmp("ds-guardtest-bt3-home-");
+  const d = tmp("ds-guardtest-bt3-"), outer = tmp("gt3-"), home = tmp("ds-guardtest-bt3-home-");
   try {
     // 假 HOME 里放一个"chrome":一启动就退出 ⇒ launch 必失败(在建临时目录之后)
     const exe = path.join(home, ".cache", "ms-playwright", "chromium-99999", "chrome-linux64", "chrome");

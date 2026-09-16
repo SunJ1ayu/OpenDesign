@@ -1,0 +1,25 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    mutate-ne12-python-lo
+cmd:     bash tracks/opendesign-e2e-guard-followup/mutate-ne12.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  7e2cdb1
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-16T09:29:45Z
+---------------- 输出开始 ----------------
+== 变异:删掉 python 回环检查块(10 行)
+not ok 1 - ne12 python 版回环起不来不许静默:假 ip ⇒ rc=78、横幅说是回环、脚本体没跑
+  ---
+  duration_ms: 68.887648
+--
+  error: |-
+    python 版 lo 起不来却照跑:rc=0
+    
+--
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+== 已恢复(tests/e2e/_no_egress.py 与 HEAD 一致,git 说的)
+✅ 变异下 ne12 红 ⇒ 它真的在问 python 回环检查
+---------------- 输出结束 ----------------
+runlog: mutate-ne12-python-lo rc=0 commit=7e2cdb1 dirty=yes at=2026-09-16T09:29:45Z file=tracks/opendesign-e2e-guard-followup/evidence/20260916T092945Z-01-mutate-ne12-python-lo.txt

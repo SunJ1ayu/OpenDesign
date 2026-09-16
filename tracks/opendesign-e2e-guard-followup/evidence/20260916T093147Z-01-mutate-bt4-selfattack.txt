@@ -1,0 +1,16 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    mutate-bt4-selfattack
+cmd:     bash tracks/opendesign-e2e-guard-followup/mutate-bt4.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  9121488
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-16T09:31:47Z
+---------------- 输出开始 ----------------
+✅ [export 去掉(子进程拿不到路径)] bt4 红
+✅ [回到 grep 日志数字] bt4 红
+✅ [不合并重名(a a b)] bt4 红
+✅ [unset 挪到读之前] bt4 红
+✅ [拼好了却没喂给 note_last] bt4 红
+== 已恢复(tests/run-all.sh 与 HEAD 一致,git 说的)
+---------------- 输出结束 ----------------
+runlog: mutate-bt4-selfattack rc=0 commit=9121488 dirty=yes at=2026-09-16T09:31:47Z file=tracks/opendesign-e2e-guard-followup/evidence/20260916T093147Z-01-mutate-bt4-selfattack.txt

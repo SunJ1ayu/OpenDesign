@@ -1,0 +1,197 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-followup
+cmd:     /root/aiwork/bin/redcheck --base 7e2cdb1 --impl tests/run-all.sh tests/e2e/run-all.sh tests/e2e/helpers.mjs --oracle node\ --test\ tests/test_e2e_harness_guard.mjs --must-fail \#\ fail\ 3
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  9121488
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-16T09:31:12Z
+---------------- 输出开始 ----------------
+redcheck: repo=/root/.openclaw/workspace/projects/design-studio
+  实现退回 7e2cdb1e0691(判卷留在 HEAD 9121488a55cd)
+  实现:tests/run-all.sh tests/e2e/run-all.sh tests/e2e/helpers.mjs
+  跑判据 ...
+     | TAP version 13
+     | # Subtest: ne0 前提:本测试进程(主网络命名空间)连得上 1.1.1.1:443 —— 连不上就问不出「守卫切断了出口」
+     | ok 1 - ne0 前提:本测试进程(主网络命名空间)连得上 1.1.1.1:443 —— 连不上就问不出「守卫切断了出口」
+     |   ---
+     |   duration_ms: 6.609814
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne1 导入 helpers 的普通 e2e:在独立网络命名空间里、连不上外网、场景代码只跑一次
+     | ok 2 - ne1 导入 helpers 的普通 e2e:在独立网络命名空间里、连不上外网、场景代码只跑一次
+     |   ---
+     |   duration_ms: 126.809439
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne2 unshare 用不了 ⇒ 拒跑 rc=78、说清是无出口守卫、场景一行没跑
+     | ok 3 - ne2 unshare 用不了 ⇒ 拒跑 rc=78、说清是无出口守卫、场景一行没跑
+     |   ---
+     |   duration_ms: 54.668455
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne3 透传:场景的退出码与命令行参数原样
+     | ok 4 - ne3 透传:场景的退出码与命令行参数原样
+     |   ---
+     |   duration_ms: 112.41805
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne4 豁免:要活网关的两条(new_chat / project-thread)留在主网络命名空间
+     | ok 5 - ne4 豁免:要活网关的两条(new_chat / project-thread)留在主网络命名空间
+     |   ---
+     |   duration_ms: 107.555756
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne5 豁免名单单一来源:helpers 的 NEEDS_LIVE_GATEWAY == run-all.sh 的 NEEDS_GATEWAY
+     | ok 6 - ne5 豁免名单单一来源:helpers 的 NEEDS_LIVE_GATEWAY == run-all.sh 的 NEEDS_GATEWAY
+     |   ---
+     |   duration_ms: 53.189178
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne6 环境变量不是身份牌:主命名空间里预设 DS_E2E_NOEGRESS_TRIED ⇒ 拒跑、场景没跑
+     | ok 7 - ne6 环境变量不是身份牌:主命名空间里预设 DS_E2E_NOEGRESS_TRIED ⇒ 拒跑、场景没跑
+     |   ---
+     |   duration_ms: 49.650036
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne7 python 版:导入 tests/e2e/_no_egress.py 的脚本在独立命名空间、连不上外网;unshare 用不了 ⇒ rc=78 且脚本体没跑
+     | ok 8 - ne7 python 版:导入 tests/e2e/_no_egress.py 的脚本在独立命名空间、连不上外网;unshare 用不了 ⇒ rc=78 且脚本体没跑
+     |   ---
+     |   duration_ms: 99.187854
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne8 结构:每个 .e2e.mjs 都导入 ./helpers.mjs;每个 .e2e.py 都 import _no_egress 且在 import ds_ 之前
+     | ok 9 - ne8 结构:每个 .e2e.mjs 都导入 ./helpers.mjs;每个 .e2e.py 都 import _no_egress 且在 import ds_ 之前
+     |   ---
+     |   duration_ms: 20.440835
+     |   type: 'test'
+     |   ...
+     | # Subtest: bt1 浏览器没走正常关闭(开着就退出 / 主进程被硬杀):外层 TMPDIR 剩 0 个;stderr 点名;E2E_BROWSER_NOTES 记一行
+     | ok 10 - bt1 浏览器没走正常关闭(开着就退出 / 主进程被硬杀):外层 TMPDIR 剩 0 个;stderr 点名;E2E_BROWSER_NOTES 记一行
+     |   ---
+     |   duration_ms: 2764.901305
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne9 回环起不来不许静默:假 ip 让 lo 起不来 ⇒ 打守卫横幅并拒跑(别红成「产品坏了」的样子)
+     | ok 11 - ne9 回环起不来不许静默:假 ip 让 lo 起不来 ⇒ 打守卫横幅并拒跑(别红成「产品坏了」的样子)
+     |   ---
+     |   duration_ms: 108.910387
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne10 探针过了但自举失败 ⇒ 仍要打横幅,不许裸着退出
+     | ok 12 - ne10 探针过了但自举失败 ⇒ 仍要打横幅,不许裸着退出
+     |   ---
+     |   duration_ms: 60.916015
+     |   type: 'test'
+     |   ...
+     | # Subtest: bt4 名字到得了人眼:外层汇总行写着「浏览器收容 N 次」+ 是哪几条(按真实点名计数,不数打印出来的字)
+     | not ok 13 - bt4 名字到得了人眼:外层汇总行写着「浏览器收容 N 次」+ 是哪几条(按真实点名计数,不数打印出来的字)
+     |   ---
+     |   duration_ms: 2845.15849
+     |   type: 'test'
+     |   location: '/root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:358:1'
+     |   failureType: 'testCodeFailure'
+     |   error: '次数不对(真实 3 次):3 PASS / 0 FAIL / 2 SKIP / ⚠️ 浏览器收容 4 次(已自动收掉,看 e2e 段日志点名)'
+     |   code: 'ERR_ASSERTION'
+     |   name: 'AssertionError'
+     |   expected:
+     |   actual: '3 PASS / 0 FAIL / 2 SKIP / ⚠️ 浏览器收容 4 次(已自动收掉,看 e2e 段日志点名)'
+     |   operator: 'match'
+     |   stack: |-
+     |     TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:373:12)
+     |     Test.runInAsyncScope (node:async_hooks:214:14)
+     |     Test.run (node:internal/test_runner/test:1047:25)
+     |     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+     |     Test.postRun (node:internal/test_runner/test:1173:19)
+     |     Test.run (node:internal/test_runner/test:1101:12)
+     |     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+     |   ...
+     | # Subtest: bt5 内层尊重外面给的点名簿:给了 E2E_BROWSER_NOTES 就原样沿用;没给才落在自己的 ds-e2e-log-* 里
+     | not ok 14 - bt5 内层尊重外面给的点名簿:给了 E2E_BROWSER_NOTES 就原样沿用;没给才落在自己的 ds-e2e-log-* 里
+     |   ---
+     |   duration_ms: 6.386488
+     |   type: 'test'
+     |   location: '/root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:386:1'
+     |   failureType: 'testCodeFailure'
+     |   error: |-
+     |     外面给了点名簿,内层却换成了自己的 ⇒ 外层汇总永远读到空的
+     |     + actual - expected
+     |     
+     |     + '/tmp/ds-e2e-log-xDuNgS/browser-notes.txt'
+     |     - '/tmp/ds-guardtest-bt5-GiDIyO/given-notes.txt'
+     |     
+     |   code: 'ERR_ASSERTION'
+     |   name: 'AssertionError'
+     |   expected: '/tmp/ds-guardtest-bt5-GiDIyO/given-notes.txt'
+     |   actual: '/tmp/ds-e2e-log-xDuNgS/browser-notes.txt'
+     |   operator: 'strictEqual'
+     |   stack: |-
+     |     TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:401:12)
+     |     Test.runInAsyncScope (node:async_hooks:214:14)
+     |     Test.run (node:internal/test_runner/test:1047:25)
+     |     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+     |     Test.postRun (node:internal/test_runner/test:1173:19)
+     |     Test.run (node:internal/test_runner/test:1101:12)
+     |     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+     |   ...
+     | # Subtest: ne11 回环判定不看报错文案:报错被翻译成别的语言时,lo 起不来照样拒跑
+     | not ok 15 - ne11 回环判定不看报错文案:报错被翻译成别的语言时,lo 起不来照样拒跑
+     |   ---
+     |   duration_ms: 114.479132
+     |   type: 'test'
+     |   location: '/root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:410:1'
+     |   failureType: 'testCodeFailure'
+     |   error: |-
+     |     报错换了语言,lo 起不来就放行了:rc=0
+     |     
+     |     
+     |     0 !== 78
+     |     
+     |   code: 'ERR_ASSERTION'
+     |   name: 'AssertionError'
+     |   expected: 78
+     |   actual: 0
+     |   operator: 'strictEqual'
+     |   stack: |-
+     |     TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:433:12)
+     |     Test.runInAsyncScope (node:async_hooks:214:14)
+     |     Test.run (node:internal/test_runner/test:1047:25)
+     |     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+     |     Test.postRun (node:internal/test_runner/test:1173:19)
+     |     Test.run (node:internal/test_runner/test:1101:12)
+     |     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+     |   ...
+     | # Subtest: ne12 python 版回环起不来不许静默:假 ip ⇒ rc=78、横幅说是回环、脚本体没跑
+     | ok 16 - ne12 python 版回环起不来不许静默:假 ip ⇒ rc=78、横幅说是回环、脚本体没跑
+     |   ---
+     |   duration_ms: 60.248409
+     |   type: 'test'
+     |   ...
+     | # Subtest: bt2 正常 close 后退出:外层 TMPDIR 剩 0 个、不点名(防误报)
+     | ok 17 - bt2 正常 close 后退出:外层 TMPDIR 剩 0 个、不点名(防误报)
+     |   ---
+     |   duration_ms: 992.640516
+     |   type: 'test'
+     |   ...
+     | # Subtest: bt3 浏览器起不来:launchBrowser 抛错,外层 TMPDIR 不留 ds-e2e-browser-*
+     | ok 18 - bt3 浏览器起不来:launchBrowser 抛错,外层 TMPDIR 不留 ds-e2e-browser-*
+     |   ---
+     |   duration_ms: 560.618287
+     |   type: 'test'
+     |   ...
+     | 1..18
+     | # tests 18
+     | # suites 0
+     | # pass 15
+     | # fail 3
+     | # cancelled 0
+     | # skipped 0
+     | # todo 0
+     | # duration_ms 8273.96567
+  ✅ 红在目标断言上(命中 /# fail 3/)。
+
+  ✅ 红检通过:旧实现下判据是红的(rc=1)。这份判据确实在问本轮的改动。
+
+redcheck: 恢复实现到 HEAD ...
+  ✅ 已恢复,工作树干净(git 说的,不是我说的)。
+---------------- 输出结束 ----------------
+runlog: redcheck-followup rc=0 commit=9121488 dirty=yes at=2026-09-16T09:31:12Z file=tracks/opendesign-e2e-guard-followup/evidence/20260916T093112Z-01-redcheck-followup.txt
