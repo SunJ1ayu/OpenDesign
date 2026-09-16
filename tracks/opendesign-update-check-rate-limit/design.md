@@ -96,7 +96,7 @@ e2e 全部场景默认让 API 回 403 ⇒ **一键更新走的是订阅源 + 清
 | `rl12b` | 判定器按**顺序与状态**:feed 要 atom 200、清单 200 且在下载前、零 API;api 要先有失败的订阅源、之后成功的 API、下载在其后;替身订阅源三条 entry 新版不排第一;H7c 查切回真在 finally 块内(评审 overall GPT / 切片 e2e Kimi) | `tests/test_update_e2e_harness.py` |
 | `rl3e` | 清单里的 sha256 末尾带换行一律拒(`_HEX64_RE` 也换 `\Z` —— `\Z` 那一刀原来只修了一半)(第 2 轮评审 整份 DeepSeek) | `tests/test_ds_update_source.py` |
 | `rl5e` | 清单**拉不到**(超时 / 断网 / 中间盒回垃圾 `http.client.HTTPException`)不许说成"这一版发布质量有问题";原因里的版本号用 tag 原文(`1.0` 不写成 `1.0.0`)(第 2 轮 整份 DeepSeek / Kimi;HTTPException 那半是我第 3 轮派发前自审补的) | 同上 |
-| `rl5g` | **"该怪谁"只准有一处判定**:凡 `explain` 自己判成路上的问题(它的人话里出现"连不上 / 看不懂 / 限制了出口 / 拒绝了这次请求"),原因前半句就不许说成发布质量差;清单拿到了但不对仍算发布质量;`explain` 与 `blame` 同出 `_human_and_blame`、各自不得再长一份 `isinstance` 清单(三轮评审每轮照出"另一半没修" ⇒ 改判据形状,不再数类型) | `tests/test_ds_update_source.py` |
+| `rl5g` | **"该怪谁"只准有一处判定**,且每一支都要有人判过:① 行为表 —— 16 种失败各自该怪"路上"还是"这一版发布"(404 / ManifestError / ValueError = 发布,403 / 429 / 5xx / 超时 / 断网 / ssl / BadStatusLine / IncompleteRead / UnicodeDecodeError / JSONDecodeError / else = 路上);② 端到端 —— 原因前半句必须与该怪谁一致,两个方向都查;③ **分支绑定** —— `_human_and_blame` 里每条通向 `BLAME_*` 的分支必须与判过的分支表逐条相同(新增一支**哪怕复用现成人话**也红);④ 结构 —— `explain` / `blame` 同出 `_human_and_blame`、体内不许再有 `isinstance`。(三轮照出"另一半没修" ⇒ 收成一处;第 5 轮 DeepSeek 实证"按人话查覆盖"漏"复用人话的新分支" ⇒ 改成按分支查) | `tests/test_ds_update_source.py` |
 | `rl7f` | `HTTPError.headers` 非 None 又没有 `.get` 时 `explain` 自己不许抛 —— 它在 except 分支里被调用,抛了就穿出 `check_for_update`(第 2 轮 DeepSeek + Kimi 独立命中同一处) | 同上 |
 | `rl10e` | 清单脚本:**输出目录不存在**也要人话 + 不留文件(rl10d 的文字写了三种输入,防线只有两种)(第 2 轮 整份 DeepSeek) | `tests/test_update_manifest.py` |
 | `rl12c` | 判定器:订阅源**任何**失败状态(403 / 404 / 429 / 5xx)都算"订阅源先失败过",口径与产品一致;200 仍不算(第 2 轮 整份 DeepSeek) | `tests/test_update_e2e_harness.py` |

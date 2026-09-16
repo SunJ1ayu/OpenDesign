@@ -1,0 +1,134 @@
+{
+  "old_version": "0.98.5",
+  "new_version": "0.98.900",
+  "source": "feed",
+  "fake_log_start": 11,
+  "reset": {
+    "health": {
+      "version": "0.98.5",
+      "port": 8766
+    },
+    "installer_rc": 0
+  },
+  "markers_before": {
+    "Data/客户资料-e2e.bin": "39a9e79c427496f6de702451b6fc05cd4dae6c5b21261178f50107c419ec0fa8",
+    "Data/项目备忘-e2e.md": "adecaff5d8cc6dd224af3c45586274c7430764586d53a86879027762b4d69082",
+    "UserData/客户资料-e2e.bin": "db6f2acf342e5d8dcecc19546143e16f0c2c5d91039fc3eafa1da6058e6b7fe6",
+    "UserData/项目备忘-e2e.md": "97f6f35898bc045f1bc3fd27da65890989e63ca1ac93a8644685effa29440961"
+  },
+  "live_before": "330a70b15d53e8d3cba8a980c32134d0268166ee90e381baadb21c70d15e1c96",
+  "check": {
+    "current": "0.98.5",
+    "update_available": true,
+    "latest": "0.98.900",
+    "asset": {
+      "name": "OpenDesign-Setup-0.98.900.exe",
+      "url": "https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.900/OpenDesign-Setup-0.98.900.exe",
+      "size": 46760195,
+      "digest": "sha256:0a6f71c09baf018c51dab65df87aa07708cd9cb396131c0a2dcd1856b2abc40c"
+    },
+    "notes": "e2e stand-in",
+    "error": null,
+    "release_url": "https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.900"
+  },
+  "apply": {
+    "ok": true,
+    "stage": "started",
+    "error": null,
+    "latest": "0.98.900"
+  },
+  "relay": {
+    "ended": true,
+    "old_seen": true,
+    "seen": true,
+    "seconds": 32.8
+  },
+  "seen_versions": [],
+  "health_after": {
+    "version": "0.98.5",
+    "port": 8766
+  },
+  "inject": {
+    "landed": true,
+    "detail": "locked C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign.new\\ds\\bin\\ds_shell.py at 196.4s"
+  },
+  "live_version_after": "0.98.5",
+  "old_exists": false,
+  "new_exists": true,
+  "nested_old_exists": false,
+  "live_after": "330a70b15d53e8d3cba8a980c32134d0268166ee90e381baadb21c70d15e1c96",
+  "pointers": {
+    "uninstall": {
+      "DisplayIcon": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\OpenDesign.exe",
+      "UninstallString": "\"C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\卸载.exe\"",
+      "InstallLocation": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign",
+      "DisplayVersion": "0.98.900"
+    },
+    "live": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign",
+    "autorun": null,
+    "install_dir": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign",
+    "shortcuts": {
+      "C:\\Users\\runneradmin\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\OpenDesign\\OpenDesign.lnk": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\OpenDesign.exe",
+      "C:\\Users\\runneradmin\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\OpenDesign\\卸载 OpenDesign.lnk": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\卸载.exe",
+      "C:\\Users\\runneradmin\\Desktop\\OpenDesign.lnk": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\OpenDesign.exe"
+    }
+  },
+  "markers_after": {
+    "Data/客户资料-e2e.bin": "39a9e79c427496f6de702451b6fc05cd4dae6c5b21261178f50107c419ec0fa8",
+    "Data/项目备忘-e2e.md": "adecaff5d8cc6dd224af3c45586274c7430764586d53a86879027762b4d69082",
+    "UserData/客户资料-e2e.bin": "db6f2acf342e5d8dcecc19546143e16f0c2c5d91039fc3eafa1da6058e6b7fe6",
+    "UserData/项目备忘-e2e.md": "97f6f35898bc045f1bc3fd27da65890989e63ca1ac93a8644685effa29440961"
+  },
+  "fake_log": [
+    {
+      "kind": "atom",
+      "host": "github.com",
+      "status": 200,
+      "source": "feed",
+      "t": 1789526776.819391
+    },
+    {
+      "kind": "manifest",
+      "host": "github.com",
+      "status": 200,
+      "accept": "application/octet-stream",
+      "t": 1789526776.9603167
+    },
+    {
+      "kind": "atom",
+      "host": "github.com",
+      "status": 200,
+      "source": "feed",
+      "t": 1789526781.8890216
+    },
+    {
+      "kind": "manifest",
+      "host": "github.com",
+      "status": 200,
+      "accept": "application/octet-stream",
+      "t": 1789526782.024933
+    },
+    {
+      "kind": "download",
+      "host": "github.com",
+      "mode": "normal",
+      "bytes": 46760195,
+      "sha256": "0a6f71c09baf018c51dab65df87aa07708cd9cb396131c0a2dcd1856b2abc40c",
+      "t": 1789526782.7970488
+    },
+    {
+      "kind": "atom",
+      "host": "github.com",
+      "status": 200,
+      "source": "feed",
+      "t": 1789527016.2152932
+    },
+    {
+      "kind": "manifest",
+      "host": "github.com",
+      "status": 200,
+      "accept": "application/octet-stream",
+      "t": 1789527016.3974943
+    }
+  ]
+}

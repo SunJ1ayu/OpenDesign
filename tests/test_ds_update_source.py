@@ -499,8 +499,12 @@ class BlameIsDecidedInOnePlace(unittest.TestCase):
     判据会红在**正确的行为**上,接着很可能有人把代码改反。写死的词表是个会漂的东西。
     现在改成两件事:
       ① 一张**我判断"该怪谁"**的表(这件事是判断,推导不出来,所以必须写下来);
-      ② 一条**覆盖检查**:`_human_and_blame` 里每一句人话都必须被表里某个用例走到 ——
-         将来加一支新人话、忘了判它该怪谁,这条当场红,而不是等下一轮评审。
+      ② 一条**分支绑定检查**:`_human_and_blame` 里每一条通向 BLAME_* 的分支,
+         都必须与我判过的那张分支表逐条相同 —— 新增一支(哪怕复用现成人话)、改掉某一支的 blame、
+         或改动分支条件,这里当场红,逼人重新判一次,而不是等下一轮评审。
+    🔴 第 5 轮 DeepSeek 用实验证伪了 ② 的**第一版**(那版按"每句人话都被走到"来查):
+       复用旧人话的新分支能改掉 blame 而三条全绿,而我的 docstring 却写着"当场红" ——
+       **我给出的保证比实际大**。这条注释留着,提醒:写"已经关死了"之前先造一个反例试试。
     """
 
     @staticmethod
@@ -563,25 +567,78 @@ class BlameIsDecidedInOnePlace(unittest.TestCase):
         self.assertIn(ds_update.UNVERIFIED_HUMAN, error)
         self.assertNotIn(ds_update.UNREACHABLE_HUMAN, error)
 
-    def test_rl5g_every_human_phrase_in_the_classifier_is_judged(self):
-        """③ 覆盖:分类器里**每一句人话**都要被上面那张表走到。
+    # 分类器的每一支 ⇒ 它判谁的错。**按分支写,不按人话写。**
+    # 🔴 第 5 轮 DeepSeek 实证了"按人话写"的洞:往分类器里加一支**复用已有人话**的分支
+    #    (`elif isinstance(exc, MemoryError): human, blamed = "出了意外", BLAME_RELEASE`),
+    #    `blame(MemoryError())` 当场从 transport 变成 release,而三条判据 39/39 全绿 ——
+    #    "每句人话都被走到"根本没把人话和这一支的 blame 绑起来。把短语挪进模块常量、
+    #    或给已有 tuple 加一个新类型,同样全绿。我自审时把这一种记账不修,理由是
+    #    "复用人话的话端到端那条大概率会红" —— 那个推理是错的,它拿实验证伪了我。
+    # 顺带治好的:按人话抽取时,分类器里任何**非人话的中文常量**(诊断串、日志文案)都会让判据
+    #    红在正确代码上(DeepSeek 实证);中文判定漏假名 / 扩展区 / 全角标点那条也一起不存在了。
+    ARMS = [
+        ("isinstance(exc, ManifestError)", "BLAME_RELEASE"),
+        ("isinstance(exc, urllib.error.HTTPError) & exc.code == 429 or "
+         "(exc.code == 403 and ('rate limit' in said or exhausted))", "BLAME_TRANSPORT"),
+        ("isinstance(exc, urllib.error.HTTPError) & exc.code == 404", "BLAME_RELEASE"),
+        ("isinstance(exc, urllib.error.HTTPError) & else", "BLAME_TRANSPORT"),
+        ("isinstance(exc, (urllib.error.URLError, socket.timeout, TimeoutError, "
+         "ConnectionError, OSError))", "BLAME_TRANSPORT"),
+        ("isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError, http.client.HTTPException))",
+         "BLAME_TRANSPORT"),
+        ("isinstance(exc, ValueError)", "BLAME_RELEASE"),
+        ("else", "BLAME_TRANSPORT"),
+    ]
 
-        这条是替换掉"写死四个词"的那一条(第 4 轮 MiMo 命中原版的裂缝):新增一支人话而不判它该怪谁,
-        在这里当场红 —— 不用等下一轮评审,也不会像词表那样悄悄漏过去。
-        注释里的中文不算(走 AST,注释根本不在树里);docstring 排除。
+    @staticmethod
+    def _blame_arms():
+        """`_human_and_blame` 里每一条通向某个 BLAME_* 的路径 → (条件原文, 该怪谁)。
+
+        走 AST,所以注释不在树里;`ast.unparse` 会把写法归一,换行 / 空格改动不会误红,
+        **但改条件、加分支、改 blame 值一定会红** —— 那正是要人重新判一次的时刻。
         """
         import ast
         tree = ast.parse(inspect.getsource(ds_update._human_and_blame).lstrip())
-        fn = tree.body[0]
-        body = fn.body[1:] if (isinstance(fn.body[0], ast.Expr)
-                               and isinstance(fn.body[0].value, ast.Constant)) else fn.body
-        phrases = {node.value for stmt in body for node in ast.walk(stmt)
-                   if isinstance(node, ast.Constant) and isinstance(node.value, str)
-                   and re.search(r"[\u4e00-\u9fff]", node.value)}
-        self.assertTrue(phrases, "一句人话都没抽到 —— 抽取坏了,别当成覆盖全了")
-        said = [ds_update.explain(exc) for exc, _ in self._cases()]
-        missing = sorted(ph for ph in phrases if not any(ph in s for s in said))
-        self.assertEqual(missing, [], "这几句人话没有任何用例走到,也就没人判过它们该怪谁")
+        out = []
+
+        def walk(stmts, path):
+            for st in stmts:
+                if isinstance(st, ast.If):
+                    walk(st.body, path + [ast.unparse(st.test)])
+                    if st.orelse:
+                        if len(st.orelse) == 1 and isinstance(st.orelse[0], ast.If):
+                            walk(st.orelse, path)          # elif:同一层
+                        else:
+                            walk(st.orelse, path + ["else"])
+                else:
+                    for n in ast.walk(st):
+                        if isinstance(n, ast.Name) and n.id.startswith("BLAME_"):
+                            out.append((" & ".join(path) or "(顶层)", n.id))
+
+        walk(tree.body[0].body, [])
+        return out
+
+    def test_rl5g_every_branch_of_the_classifier_is_judged(self):
+        """分类器的分支表必须与上面这张我判过的表逐条相同。
+
+        新增一支(哪怕复用现成的人话)、改掉某一支的 blame、或改动分支条件 ⇒ 这里红,
+        逼人重新判一次"这一支该怪谁",而不是等下一轮评审。
+        """
+        got = self._blame_arms()
+        self.assertTrue(got, "一条分支都没抽到 —— 抽取坏了,别当成判过了")
+        self.assertEqual(got, [(c, b) for c, b in self.ARMS],
+                         "分类器的分支与判过的表对不上:新增/改动的那一支,得有人判它该怪谁")
+
+    def test_rl5g_the_table_and_the_branches_agree_on_the_count(self):
+        """两张表互为对照:行为表(16 种失败)必须把分支表里的每一支都走到。
+
+        只查分支被走到,不查人话 —— 人话是给业主看的,会改;分支是判断,改了就该重新判。
+        """
+        seen = {ds_update.blame(exc) for exc, _ in self._cases()}
+        self.assertEqual(seen, {ds_update.BLAME_TRANSPORT, ds_update.BLAME_RELEASE})
+        arms = self._blame_arms()
+        for want in ("BLAME_TRANSPORT", "BLAME_RELEASE"):
+            self.assertTrue(any(b == want for _, b in arms), "分支表里没有 %s" % want)
 
     def test_rl5g_blame_and_explain_come_from_one_place(self):
         """结构条:`explain` 与 `blame` 必须同出一处 —— 各自一份 isinstance 清单就是本条要防的形状。"""
