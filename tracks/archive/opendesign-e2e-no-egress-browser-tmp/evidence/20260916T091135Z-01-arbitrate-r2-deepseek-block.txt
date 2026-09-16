@@ -1,0 +1,23 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    arbitrate-r2-deepseek-block
+cmd:     bash tracks/opendesign-e2e-no-egress-browser-tmp/arbitrate-r2.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  590d86f
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-16T09:11:35Z
+---------------- 输出开始 ----------------
+== F2 bt4 是否被注释满足(删掉两行计数代码、保留注释,按 bt4 原样判法)
+  HEAD 实现: bt4 = true
+  删掉 2 行计数代码: bt4 = true
+== F3 计数:用两处真实代码块,喂 1 条点名
+  汇总行 => 40 PASS / 0 FAIL / 2 SKIP / ⚠️ 浏览器收容 2 次(已自动收掉,看 e2e 段日志点名)
+  真实发生 1 次
+== F4 bash /dev/tcp 的报错文本出处(bash 自带 vs libc strerror)
+  bash 二进制含 unreachable: 0
+  libc 含 'Network is unreachable': 1
+== F7 泄漏闸数不数文件(MiMo 说只数目录)
+  find 数法(同闸第 121 行): 1 个
+== 证据缺口:本 track 证据里外层 tests/run-all.sh 真打印过的汇总表头行数
+  0
+---------------- 输出结束 ----------------
+runlog: arbitrate-r2-deepseek-block rc=0 commit=590d86f dirty=yes at=2026-09-16T09:11:35Z file=tracks/opendesign-e2e-no-egress-browser-tmp/evidence/20260916T091135Z-01-arbitrate-r2-deepseek-block.txt

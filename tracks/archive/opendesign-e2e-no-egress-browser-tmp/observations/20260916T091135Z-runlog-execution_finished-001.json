@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-e2e-no-egress-browser-tmp",
+  "run_id": "20260916T091135Z-01-arbitrate-r2-deepseek-block",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "arbitrate-r2-deepseek-block",
+  "started_at": "2026-09-16T09:11:35Z",
+  "finished_at": "2026-09-16T09:11:35Z",
+  "duration_ms": 104,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 0,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

@@ -1,0 +1,244 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-noegress
+cmd:     /root/aiwork/bin/redcheck --repo /root/.openclaw/workspace/projects/design-studio --base b13a71d --impl tests/e2e/helpers.mjs tests/e2e/_no_egress.py tests/e2e/adoption.e2e.py tests/e2e/clickable_actions.e2e.py tests/e2e/inbox_scan.e2e.py tests/e2e/run-all.sh --oracle node\ tests/test_e2e_harness_guard.mjs --must-fail fail\ 7
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  aee16e2
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-16T07:58:17Z
+---------------- 输出开始 ----------------
+redcheck: repo=/root/.openclaw/workspace/projects/design-studio
+  实现退回 b13a71d7e6fb(判卷留在 HEAD aee16e210c31)
+  实现:tests/e2e/helpers.mjs tests/e2e/_no_egress.py tests/e2e/adoption.e2e.py tests/e2e/clickable_actions.e2e.py tests/e2e/inbox_scan.e2e.py tests/e2e/run-all.sh
+  (基线上没有 tests/e2e/_no_egress.py ⇒ 退回 = 删掉它)
+  跑判据 ...
+     | TAP version 13
+     | # Subtest: ne0 前提:本测试进程(主网络命名空间)连得上 1.1.1.1:443 —— 连不上就问不出「守卫切断了出口」
+     | ok 1 - ne0 前提:本测试进程(主网络命名空间)连得上 1.1.1.1:443 —— 连不上就问不出「守卫切断了出口」
+     |   ---
+     |   duration_ms: 6.721558
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne1 导入 helpers 的普通 e2e:在独立网络命名空间里、连不上外网、场景代码只跑一次
+     | not ok 2 - ne1 导入 helpers 的普通 e2e:在独立网络命名空间里、连不上外网、场景代码只跑一次
+     |   ---
+     |   duration_ms: 80.467983
+     |   type: 'test'
+     |   location: '/root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:72:1'
+     |   failureType: 'testCodeFailure'
+     |   error: 'e2e 还在主网络命名空间里跑 —— 判据有外网出口'
+     |   code: 'ERR_ASSERTION'
+     |   name: 'AssertionError'
+     |   expected: 'net:[4026531840]'
+     |   actual: 'net:[4026531840]'
+     |   operator: 'notStrictEqual'
+     |   stack: |-
+     |     TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:80:12)
+     |     Test.runInAsyncScope (node:async_hooks:214:14)
+     |     Test.run (node:internal/test_runner/test:1047:25)
+     |     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+     |     Test.postRun (node:internal/test_runner/test:1173:19)
+     |     Test.run (node:internal/test_runner/test:1101:12)
+     |     async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+     |   ...
+     | # Subtest: ne2 unshare 用不了 ⇒ 拒跑 rc=78、说清是无出口守卫、场景一行没跑
+     | not ok 3 - ne2 unshare 用不了 ⇒ 拒跑 rc=78、说清是无出口守卫、场景一行没跑
+     |   ---
+     |   duration_ms: 82.338431
+     |   type: 'test'
+     |   location: '/root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:86:1'
+     |   failureType: 'testCodeFailure'
+     |   error: |-
+     |     隔离做不到却没有拒跑:rc=0
+     |     
+     |     
+     |     0 !== 78
+     |     
+     |   code: 'ERR_ASSERTION'
+     |   name: 'AssertionError'
+     |   expected: 78
+     |   actual: 0
+     |   operator: 'strictEqual'
+     |   stack: |-
+     |     TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:94:12)
+     |     Test.runInAsyncScope (node:async_hooks:214:14)
+     |     Test.run (node:internal/test_runner/test:1047:25)
+     |     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+     |     Test.postRun (node:internal/test_runner/test:1173:19)
+     |     Test.run (node:internal/test_runner/test:1101:12)
+     |     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+     |   ...
+     | # Subtest: ne3 透传:场景的退出码与命令行参数原样
+     | ok 4 - ne3 透传:场景的退出码与命令行参数原样
+     |   ---
+     |   duration_ms: 78.469178
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne4 豁免:要活网关的两条(new_chat / project-thread)留在主网络命名空间
+     | ok 5 - ne4 豁免:要活网关的两条(new_chat / project-thread)留在主网络命名空间
+     |   ---
+     |   duration_ms: 111.832432
+     |   type: 'test'
+     |   ...
+     | # Subtest: ne5 豁免名单单一来源:helpers 的 NEEDS_LIVE_GATEWAY == run-all.sh 的 NEEDS_GATEWAY
+     | not ok 6 - ne5 豁免名单单一来源:helpers 的 NEEDS_LIVE_GATEWAY == run-all.sh 的 NEEDS_GATEWAY
+     |   ---
+     |   duration_ms: 45.720383
+     |   type: 'test'
+     |   location: '/root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:127:1'
+     |   failureType: 'testCodeFailure'
+     |   error: 'helpers.mjs 没有导出 NEEDS_LIVE_GATEWAY 数组'
+     |   code: 'ERR_ASSERTION'
+     |   name: 'AssertionError'
+     |   expected: true
+     |   actual: false
+     |   operator: '=='
+     |   stack: |-
+     |     TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:136:12)
+     |     Test.runInAsyncScope (node:async_hooks:214:14)
+     |     Test.run (node:internal/test_runner/test:1047:25)
+     |     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+     |     Test.postRun (node:internal/test_runner/test:1173:19)
+     |     Test.run (node:internal/test_runner/test:1101:12)
+     |     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+     |   ...
+     | # Subtest: ne6 环境变量不是身份牌:主命名空间里预设 DS_E2E_NOEGRESS_TRIED ⇒ 拒跑、场景没跑
+     | not ok 7 - ne6 环境变量不是身份牌:主命名空间里预设 DS_E2E_NOEGRESS_TRIED ⇒ 拒跑、场景没跑
+     |   ---
+     |   duration_ms: 64.638132
+     |   type: 'test'
+     |   location: '/root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:145:1'
+     |   failureType: 'testCodeFailure'
+     |   error: |-
+     |     一个环境变量就让守卫放行了:rc=0
+     |     
+     |     
+     |     0 !== 78
+     |     
+     |   code: 'ERR_ASSERTION'
+     |   name: 'AssertionError'
+     |   expected: 78
+     |   actual: 0
+     |   operator: 'strictEqual'
+     |   stack: |-
+     |     TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:153:12)
+     |     Test.runInAsyncScope (node:async_hooks:214:14)
+     |     Test.run (node:internal/test_runner/test:1047:25)
+     |     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+     |     Test.postRun (node:internal/test_runner/test:1173:19)
+     |     Test.run (node:internal/test_runner/test:1101:12)
+     |     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+     |   ...
+     | # Subtest: ne7 python 版:导入 tests/e2e/_no_egress.py 的脚本在独立命名空间、连不上外网;unshare 用不了 ⇒ rc=78 且脚本体没跑
+     | not ok 8 - ne7 python 版:导入 tests/e2e/_no_egress.py 的脚本在独立命名空间、连不上外网;unshare 用不了 ⇒ rc=78 且脚本体没跑
+     |   ---
+     |   duration_ms: 35.262229
+     |   type: 'test'
+     |   location: '/root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:158:1'
+     |   failureType: 'testCodeFailure'
+     |   error: |-
+     |     python 场景没跑成:rc=1
+     |     Traceback (most recent call last):
+     |       File "/tmp/ds-guardtest-ne7-C0qdKm/probe.e2e.py", line 3, in <module>
+     |         import _no_egress  # noqa: F401
+     |         ^^^^^^^^^^^^^^^^^
+     |     ModuleNotFoundError: No module named '_no_egress'
+     |     
+     |     
+     |     1 !== 0
+     |     
+     |   code: 'ERR_ASSERTION'
+     |   name: 'AssertionError'
+     |   expected: 0
+     |   actual: 1
+     |   operator: 'strictEqual'
+     |   stack: |-
+     |     TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:174:12)
+     |     Test.runInAsyncScope (node:async_hooks:214:14)
+     |     Test.run (node:internal/test_runner/test:1047:25)
+     |     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+     |     Test.postRun (node:internal/test_runner/test:1173:19)
+     |     Test.run (node:internal/test_runner/test:1101:12)
+     |     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+     |   ...
+     | # Subtest: ne8 结构:每个 .e2e.mjs 都导入 ./helpers.mjs;每个 .e2e.py 都 import _no_egress 且在 import ds_ 之前
+     | not ok 9 - ne8 结构:每个 .e2e.mjs 都导入 ./helpers.mjs;每个 .e2e.py 都 import _no_egress 且在 import ds_ 之前
+     |   ---
+     |   duration_ms: 14.51805
+     |   type: 'test'
+     |   location: '/root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:187:1'
+     |   failureType: 'testCodeFailure'
+     |   error: 'adoption.e2e.py 没有顶格的 import _no_egress'
+     |   code: 'ERR_ASSERTION'
+     |   name: 'AssertionError'
+     |   expected: true
+     |   actual: false
+     |   operator: '=='
+     |   stack: |-
+     |     TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:200:12)
+     |     Test.runInAsyncScope (node:async_hooks:214:14)
+     |     Test.run (node:internal/test_runner/test:1047:25)
+     |     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+     |     Test.postRun (node:internal/test_runner/test:1173:19)
+     |     Test.run (node:internal/test_runner/test:1101:12)
+     |     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+     |   ...
+     | # Subtest: bt1 浏览器没走正常关闭(开着就退出 / 主进程被硬杀):外层 TMPDIR 剩 0 个;stderr 点名;E2E_BROWSER_NOTES 记一行
+     | not ok 10 - bt1 浏览器没走正常关闭(开着就退出 / 主进程被硬杀):外层 TMPDIR 剩 0 个;stderr 点名;E2E_BROWSER_NOTES 记一行
+     |   ---
+     |   duration_ms: 829.74839
+     |   type: 'test'
+     |   location: '/root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:234:1'
+     |   failureType: 'testCodeFailure'
+     |   error: |-
+     |     [exit-open] 浏览器没正常关闭,它的临时目录留在了外层 TMPDIR
+     |     + actual - expected
+     |     
+     |     + [
+     |     +   'org.chromium.Chromium.iRL01f'
+     |     + ]
+     |     - []
+     |     
+     |   code: 'ERR_ASSERTION'
+     |   name: 'AssertionError'
+     |   expected:
+     |   actual:
+     |     0: 'org.chromium.Chromium.iRL01f'
+     |   operator: 'deepStrictEqual'
+     |   stack: |-
+     |     TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_e2e_harness_guard.mjs:243:14)
+     |     Test.runInAsyncScope (node:async_hooks:214:14)
+     |     Test.run (node:internal/test_runner/test:1047:25)
+     |     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+     |     Test.postRun (node:internal/test_runner/test:1173:19)
+     |     Test.run (node:internal/test_runner/test:1101:12)
+     |     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+     |   ...
+     | # Subtest: bt2 正常 close 后退出:外层 TMPDIR 剩 0 个、不点名(防误报)
+     | ok 11 - bt2 正常 close 后退出:外层 TMPDIR 剩 0 个、不点名(防误报)
+     |   ---
+     |   duration_ms: 877.554784
+     |   type: 'test'
+     |   ...
+     | # Subtest: bt3 浏览器起不来:launchBrowser 抛错,外层 TMPDIR 不留 ds-e2e-browser-*
+     | ok 12 - bt3 浏览器起不来:launchBrowser 抛错,外层 TMPDIR 不留 ds-e2e-browser-*
+     |   ---
+     |   duration_ms: 482.239085
+     |   type: 'test'
+     |   ...
+     | 1..12
+     | # tests 12
+     | # suites 0
+     | # pass 5
+     | # fail 7
+     | # cancelled 0
+     | # skipped 0
+     | # todo 0
+     | # duration_ms 2724.488529
+  ✅ 红在目标断言上(命中 /fail 7/)。
+
+  ✅ 红检通过:旧实现下判据是红的(rc=1)。这份判据确实在问本轮的改动。
+
+redcheck: 恢复实现到 HEAD ...
+  ✅ 已恢复,工作树干净(git 说的,不是我说的)。
+---------------- 输出结束 ----------------
+runlog: redcheck-noegress rc=0 commit=aee16e2 dirty=yes at=2026-09-16T07:58:17Z file=tracks/opendesign-e2e-no-egress-browser-tmp/evidence/20260916T075817Z-01-redcheck-noegress.txt
