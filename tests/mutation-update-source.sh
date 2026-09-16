@@ -228,15 +228,26 @@ mutate r26 bin/ds_update.py $SRC test_rl7f_weird_headers_do_not_make_explain_thr
         exhausted = str((getter("X-RateLimit-Remaining") if callable(getter) else None) or "").strip() == "0"' \
   '        headers = exc.headers if exc.headers is not None else {}
         exhausted = str(headers.get("X-RateLimit-Remaining") or "").strip() == "0"'
+# r27 / r29 的靶子随 rl5g 那一刀(两份类型清单收成一处)改写过 —— 锚点跟随第三次。
+# 这一块每动一次,老变异都要跟着动:rl5e 两刀 + rl5g 一刀,每次都是同一组锚点。
 mutate r27 bin/ds_update.py $SRC test_rl5e_cannot_reach_the_manifest_is_not_said_as_a_bad_release \
-  '                human = UNREACHABLE_HUMAN if network else UNVERIFIED_HUMAN' \
-  '                human = UNVERIFIED_HUMAN'
+  '            detail, human = explain(exc.cause), (
+                UNREACHABLE_HUMAN if blame(exc.cause) == BLAME_TRANSPORT else UNVERIFIED_HUMAN)' \
+  '            detail, human = explain(exc.cause), UNVERIFIED_HUMAN'
 mutate r28 bin/ds_update.py $SRC test_rl5e_the_version_in_the_reason_is_the_tag_as_published \
   '        raise FeedUnverified(TAG_RE.match(best["tag"]).group(1), exc) from exc' \
   '        raise FeedUnverified(".".join(str(n) for n in best_ver), exc) from exc'
 mutate r29 bin/ds_update.py $SRC test_rl5e_garbled_http_while_fetching_the_manifest_is_not_said_as_a_bad_release \
-  '                                                  ConnectionError, OSError, http.client.HTTPException))' \
-  '                                                  ConnectionError, OSError))'
+  '        human, blamed = "线上返回的内容看不懂(可能被网络中间的代理或登录页换掉了)", BLAME_TRANSPORT' \
+  '        human, blamed = "线上返回的内容看不懂(可能被网络中间的代理或登录页换掉了)", BLAME_RELEASE'
+mutate r30 bin/ds_update.py $SRC test_rl5g_transport_failures_never_blame_the_release \
+  '        human, blamed = "GitHub 拒绝了这次请求", BLAME_TRANSPORT' \
+  '        human, blamed = "GitHub 拒绝了这次请求", BLAME_RELEASE'
+mutate r31 bin/ds_update.py $SRC test_rl5g_a_bad_manifest_still_blames_the_release \
+  '        return str(exc), BLAME_RELEASE
+    if isinstance(exc, urllib.error.HTTPError):' \
+  '        return str(exc), BLAME_TRANSPORT
+    if isinstance(exc, urllib.error.HTTPError):'
 mutate n4 installer/make-update-manifest.py tests.test_update_manifest test_rl10e_a_missing_output_directory_says_so_too \
   '    if not os.path.isdir(out_dir):' \
   '    if False:'

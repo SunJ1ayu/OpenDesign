@@ -294,9 +294,22 @@ def parse_manifest(text, tag, repo=REPO):
     }
 
 
-def explain(exc):
-    """把一次失败说成人话,技术细节留在括号里(判据 rl7)。业主看得懂前半句,排障看后半句。"""
+# 这次失败该怪谁:路上(网络 / 中间盒 / 编码)还是线上那份东西本身。
+BLAME_TRANSPORT = "transport"
+BLAME_RELEASE = "release"
+
+
+def _human_and_blame(exc):
+    """人话 + 该怪谁,**一处判定**(判据 rl5g)。
+
+    🔴 为什么是一处:原来"该怪谁"有两份平行的 isinstance 清单 —— 这里一份、`check_for_update`
+    里的 `network` 一份。三轮评审每轮都照出"另一半没修"(超时/断网 → `http.client.HTTPException`
+    → `UnicodeDecodeError`)。两份清单注定各自漂移,补第三个补丁只会等第四次。
+    """
     tech = "%s: %s" % (exc.__class__.__name__, exc)
+    if isinstance(exc, ManifestError):
+        # 清单**拿到了**、但它自己不对 ⇒ 这一版发布的问题(rl7e / rl5d 同口径)
+        return str(exc), BLAME_RELEASE
     if isinstance(exc, urllib.error.HTTPError):
         said = ("%s %s" % (exc.reason, exc)).lower()
         # 判据 rl7d:GitHub 有时状态行只写 Forbidden,限流写在 X-RateLimit-Remaining: 0 里。
@@ -306,21 +319,35 @@ def explain(exc):
         getter = getattr(exc.headers, "get", None)
         exhausted = str((getter("X-RateLimit-Remaining") if callable(getter) else None) or "").strip() == "0"
         if exc.code == 429 or (exc.code == 403 and ("rate limit" in said or exhausted)):
-            human = "GitHub 限制了这个网络出口的查询次数(同一出口的人查得太多),换个网络或稍后再试"
+            human, blamed = ("GitHub 限制了这个网络出口的查询次数(同一出口的人查得太多),换个网络或稍后再试",
+                             BLAME_TRANSPORT)
         elif exc.code == 404:
-            human = "线上没有找到要的文件"
+            # 404 = 线上真没有这个文件(这一版没传清单),不是路上的问题
+            human, blamed = "线上没有找到要的文件", BLAME_RELEASE
         else:
-            human = "GitHub 拒绝了这次请求"
+            human, blamed = "GitHub 拒绝了这次请求", BLAME_TRANSPORT
     elif isinstance(exc, (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError, OSError)):
-        human = "连不上 GitHub(检查网络或 VPN)"
+        human, blamed = "连不上 GitHub(检查网络或 VPN)", BLAME_TRANSPORT
     elif isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError, http.client.HTTPException)):
-        # 判据 rl7c:代理 / 门户把接口换成一张网页时是这句,别把「Expecting value」当人话甩给业主
-        human = "线上返回的内容看不懂(可能被网络中间的代理或登录页换掉了)"
+        # 判据 rl7c:代理 / 门户把接口换成一张网页时是这句,别把「Expecting value」当人话甩给业主。
+        # 判据 rl5g:GitHub 送的清单是 ASCII JSON ⇒ 解不开多半是中间盒换过它,怪路上不怪发版。
+        human, blamed = "线上返回的内容看不懂(可能被网络中间的代理或登录页换掉了)", BLAME_TRANSPORT
     elif isinstance(exc, ValueError):
-        return str(exc)
+        return str(exc), BLAME_RELEASE
     else:
-        human = "出了意外"
-    return "%s(%s)" % (human, tech)
+        # 分不出来的时候说"拿不到"更谦虚:它不指着发版说事
+        human, blamed = "出了意外", BLAME_TRANSPORT
+    return "%s(%s)" % (human, tech), blamed
+
+
+def explain(exc):
+    """把一次失败说成人话,技术细节留在括号里(判据 rl7)。业主看得懂前半句,排障看后半句。"""
+    return _human_and_blame(exc)[0]
+
+
+def blame(exc):
+    """这次失败该怪谁(判据 rl5g)。和 `explain` 同出一处 —— 谁都不许再自己长一份类型清单。"""
+    return _human_and_blame(exc)[1]
 
 
 def _failure(current, error):
@@ -400,18 +427,11 @@ def check_for_update(current, fetch=None):
             result = attempt()
         except FeedUnverified as exc:
             unverified = exc
-            if isinstance(exc.cause, ManifestError):
-                detail, human = str(exc.cause), UNVERIFIED_HUMAN
-            else:
-                # 判据 rl5e:网络类失败(超时 / 断网)只是拿不到,不是这一版发布质量有问题;
-                # HTTPError 走 else —— 清单 404 就是"这一版真没传清单",该说发布质量那句(rl5d / rl7e)。
-                detail = explain(exc.cause)
-                # `http.client.HTTPException` 不是 OSError 子类,得单独列:代理 / 门户把清单
-                # 换成一堆垃圾时,坏的是中间盒不是这一版发布(判据 rl5e 第二半,我自审补的)。
-                network = (isinstance(exc.cause, (urllib.error.URLError, socket.timeout, TimeoutError,
-                                                  ConnectionError, OSError, http.client.HTTPException))
-                           and not isinstance(exc.cause, urllib.error.HTTPError))
-                human = UNREACHABLE_HUMAN if network else UNVERIFIED_HUMAN
+            # 判据 rl5e/rl5g:只是拿不到(超时 / 断网 / 中间盒换了内容 / GitHub 拒了)不许说成
+            # 这一版发布质量有问题;清单 404 或拿到了但对不上,才是发布的问题。
+            # **该怪谁只问 `blame()` 这一处** —— 这里原来自己维护第二份类型清单,漂移了三轮。
+            detail, human = explain(exc.cause), (
+                UNREACHABLE_HUMAN if blame(exc.cause) == BLAME_TRANSPORT else UNVERIFIED_HUMAN)
             reasons.append("%s:有新版 %s,但%s(%s)" % (label, exc.version, human, detail))
             continue
         except Exception as exc:  # noqa: BLE001
