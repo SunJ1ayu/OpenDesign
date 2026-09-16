@@ -1,0 +1,190 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-update-check-rate-limit",
+  "run_id": "20260916-101646-1639125-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-update-check-rate-limit-review-r3",
+  "started_at": "2026-09-16T02:16:46Z",
+  "finished_at": "2026-09-16T02:29:29Z",
+  "duration_ms": 762866,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "submimo",
+        "degraded": false,
+        "duration_ms": 376615,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:32583b984b2b625573a3f935f41e9695da3474d18bf8bd6631a570fcf62c713a",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-update-check-rate-limit-review-r3-20260916-101646.submimo.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xiaomi",
+        "model": {
+          "invoked": "xiaomi/mimo-v2.5-pro",
+          "reported": null,
+          "requested": "xiaomi/mimo-v2.5-pro"
+        },
+        "name": "submimo",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260916-101646-1639125-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:083c780d16d1651c85516317dc2da779a27b318cee2e8d75c0f1c2d592aa24bf",
+            "policy_version": 1,
+            "track": "opendesign-update-check-rate-limit"
+          },
+          "digest": "sha256:34de289919a2d44116973ef9f4b5081e5279fc5df71f137fddf7fb281a0dbe60",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "0020533ed5bbbd9f4bf7081c1cffa78fa43e2453",
+            "index_tree_oid": "f32325e04a52155630aa61569b9d34d1705b24f1",
+            "worktree_tree_oid": "f32325e04a52155630aa61569b9d34d1705b24f1"
+          },
+          "task_sha256": "sha256:c315ce0d87bb37dc0764833f6b55d748baa04371adb070e66a87f7e7145787a3"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subkimi",
+        "degraded": false,
+        "duration_ms": 761879,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:e07113d3d2034d2891c0a71ba9524845a8a1076ad1f42686eb859452e1157165",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-update-check-rate-limit-review-r3-20260916-101646.subkimi.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "moonshot",
+        "model": {
+          "invoked": "kimi-code/kimi-for-coding",
+          "reported": null,
+          "requested": "kimi-code/kimi-for-coding"
+        },
+        "name": "subkimi",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260916-101646-1639125-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:083c780d16d1651c85516317dc2da779a27b318cee2e8d75c0f1c2d592aa24bf",
+            "policy_version": 1,
+            "track": "opendesign-update-check-rate-limit"
+          },
+          "digest": "sha256:34de289919a2d44116973ef9f4b5081e5279fc5df71f137fddf7fb281a0dbe60",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "0020533ed5bbbd9f4bf7081c1cffa78fa43e2453",
+            "index_tree_oid": "f32325e04a52155630aa61569b9d34d1705b24f1",
+            "worktree_tree_oid": "f32325e04a52155630aa61569b9d34d1705b24f1"
+          },
+          "task_sha256": "sha256:c315ce0d87bb37dc0764833f6b55d748baa04371adb070e66a87f7e7145787a3"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subgrok",
+        "degraded": false,
+        "duration_ms": 50788,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:a60bab8d842ea8cbaa05e329c16a4e686ef9eb41cbda9f1b93387b7503da27e7",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-update-check-rate-limit-review-r3-20260916-101646.subgrok.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xai",
+        "model": {
+          "invoked": "grok-4.6",
+          "reported": null,
+          "requested": "grok-4.6"
+        },
+        "name": "subgrok",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260916-101646-1639125-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:083c780d16d1651c85516317dc2da779a27b318cee2e8d75c0f1c2d592aa24bf",
+            "policy_version": 1,
+            "track": "opendesign-update-check-rate-limit"
+          },
+          "digest": "sha256:34de289919a2d44116973ef9f4b5081e5279fc5df71f137fddf7fb281a0dbe60",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "0020533ed5bbbd9f4bf7081c1cffa78fa43e2453",
+            "index_tree_oid": "f32325e04a52155630aa61569b9d34d1705b24f1",
+            "worktree_tree_oid": "f32325e04a52155630aa61569b9d34d1705b24f1"
+          },
+          "task_sha256": "sha256:c315ce0d87bb37dc0764833f6b55d748baa04371adb070e66a87f7e7145787a3"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

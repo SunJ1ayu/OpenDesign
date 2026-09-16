@@ -8,9 +8,11 @@
 
 **判据不许有外网出口**:本文件在 setUpModule 里把 DNS 换成"非本机一律拒绝",漏打真网会当场报错而不是悄悄出去。
 """
+import http.client
 import json
 import os
 import socket
+import ssl
 import sys
 import threading
 import unittest
@@ -483,6 +485,70 @@ class SecondRoundReviewFindings(unittest.TestCase):
         d = ds_update.check_for_update("0.98.4")
         self.assertIn("有新版 1.0,", d["error"], d["error"])
         self.assertNotIn("1.0.0", d["error"], "原因里的版本号不是 tag 原文")
+
+
+class BlameIsDecidedInOnePlace(unittest.TestCase):
+    """判据 rl5g —— 三轮评审每轮都照出"另一半没修":
+    DeepSeek 照出超时 / 断网、我自审照出 `http.client.HTTPException`、Kimi 照出 `UnicodeDecodeError`。
+    病根不是漏了哪一条,是"该怪谁"有**两份平行的类型清单**(`explain` 一份、`check_for_update` 一份),
+    它们注定各自漂移。所以这条判据**不数类型**:凡是 `explain` 自己已经判成"路上的问题"的失败,
+    原因前半句就不许说成这一版发布质量有问题 —— 以后新增一种失败也照样被这条罩住。"""
+
+    TRANSPORT_WORDS = ("连不上 GitHub", "返回的内容看不懂",
+                       "限制了这个网络出口的查询次数", "GitHub 拒绝了这次请求")
+
+    def _reason_for(self, exc):
+        _Sources(self, atom=atom_text(["0.99.1", "0.98.4", "0.98.3"]),
+                 manifests={"win-installer-0.99.1": exc}, api=rate_limited())
+        return ds_update.check_for_update("0.98.4")["error"]
+
+    def test_rl5g_transport_failures_never_blame_the_release(self):
+        url = ds_update.manifest_url(REPO, "win-installer-0.99.1")
+        cases = [
+            urllib.error.URLError("timed out"),
+            socket.timeout("timed out"),
+            ConnectionResetError(),
+            ssl.SSLError("handshake failed"),
+            http.client.BadStatusLine("garbage"),
+            http.client.IncompleteRead(b"x", 10),
+            UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte"),
+            json.JSONDecodeError("Expecting value", "<html>", 0),
+            urllib.error.HTTPError(url, 403, "rate limit exceeded", {}, None),
+            urllib.error.HTTPError(url, 403, "Forbidden", {}, None),
+            urllib.error.HTTPError(url, 500, "Internal Server Error", {}, None),
+            urllib.error.HTTPError(url, 404, "Not Found", {}, None),
+        ]
+        for exc in cases:
+            with self.subTest(exc=type(exc).__name__, arg=str(exc)[:24]):
+                detail = ds_update.explain(exc)
+                on_the_way = any(w in detail for w in self.TRANSPORT_WORDS)
+                error = self._reason_for(exc)
+                self.assertIn("0.99.1", error)
+                if on_the_way:
+                    self.assertIn(ds_update.UNREACHABLE_HUMAN, error,
+                                  "explain 判成路上的问题(%s),原因却说成发布质量:%s" % (detail, error))
+                    self.assertNotIn(ds_update.UNVERIFIED_HUMAN, error, error)
+                else:
+                    self.assertIn(ds_update.UNVERIFIED_HUMAN, error,
+                                  "explain 没判成路上的问题(%s),原因却说拿不到:%s" % (detail, error))
+
+    def test_rl5g_a_bad_manifest_still_blames_the_release(self):
+        """反面:清单**拿到了**、但它自己不对 ⇒ 仍然是这一版发布的问题(rl7e 同口径,别被上面那条带跑)。"""
+        _Sources(self, atom=atom_text(["0.99.1", "0.98.4", "0.98.3"]),
+                 manifests={"win-installer-0.99.1": manifest(sha256="zz" * 32)}, api=rate_limited())
+        error = ds_update.check_for_update("0.98.4")["error"]
+        self.assertIn(ds_update.UNVERIFIED_HUMAN, error)
+        self.assertNotIn(ds_update.UNREACHABLE_HUMAN, error)
+
+    def test_rl5g_blame_and_explain_come_from_one_place(self):
+        """结构条:`explain` 与 `blame` 必须同出一处 —— 各自一份 isinstance 清单就是本条要防的形状。"""
+        import inspect
+        src = inspect.getsource(ds_update)
+        self.assertEqual(src.count("def _human_and_blame("), 1)
+        for fn in ("def explain(", "def blame("):
+            body = src.split(fn, 1)[1].split("\ndef ", 1)[0]
+            self.assertIn("_human_and_blame(", body, "%s 没走那个唯一的分类器" % fn)
+            self.assertNotIn("isinstance(", body, "%s 又自己长出一份类型清单" % fn)
 
 
 if __name__ == "__main__":
