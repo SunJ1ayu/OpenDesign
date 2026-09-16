@@ -1,5 +1,6 @@
 // 判据:e2e 判据进程不许有外网出口 + 浏览器临时目录归测试自己收(track opendesign-e2e-no-egress-browser-tmp)。
-// 编号权威表在 tracks/opendesign-e2e-no-egress-browser-tmp/design.md(前缀 ne / bt)。
+// 编号权威表在 tracks/archive/opendesign-e2e-no-egress-browser-tmp/design.md(ne0~ne10、bt1~bt3)
+// 与 tracks/opendesign-e2e-guard-followup/design.md(bt4 重写、bt5、ne11、ne12)。
 // 跑法:node --test tests/test_e2e_harness_guard.mjs
 //
 // 真 unshare、真 chromium。场景脚本都写在临时目录里、按绝对路径导入真 helpers.mjs。
@@ -291,23 +292,170 @@ test("ne10 探针过了但自举失败 ⇒ 仍要打横幅,不许裸着退出", 
   } finally { rmSync(d, { recursive: true, force: true }); rmSync(fb, { recursive: true, force: true }); }
 });
 
-test("bt4 点名必须到得了人眼:全量总跑的汇总行带浏览器收容计数,且两处用的是同一句话", () => {
-  // 🔴 由来:tests/e2e/run-all.sh 把点名打在自己的 stdout 上,而 tests/run-all.sh 把 e2e 那段
-  // 整段重定向进日志、绿了就把日志删掉 ⇒ **主场路径上这声喊到不了人耳**。
-  // design.md 风险 5 说得很明白:悄悄收掉等于把泄漏闸的信号吞了。这条钉两件事:
-  //   ① 外层汇总真的去数它;② 数的那句话与 helpers 打印的那句**逐字相同**(两处分家就永远数出 0)。
-  const MARK = "浏览器没走正常关闭";
-  const helpers = readFileSync(path.join(E2E_DIR, "helpers.mjs"), "utf8");
-  assert.ok(helpers.includes(MARK), `helpers.mjs 里没有这句话:${MARK}`);
-  const outer = readFileSync(path.join(REPO, "tests", "run-all.sh"), "utf8");
-  assert.ok(outer.includes(MARK),
-    "tests/run-all.sh 没有去数这句话 ⇒ 全量总跑绿的时候,浏览器没关干净这件事谁也看不见");
-  // 数出来的东西要真的进汇总行(note_last),不是打在会被删掉的日志里。
-  const seg = outer.slice(outer.indexOf("⑥ e2e 总跑"));
-  const noteCall = seg.indexOf("note_last");
-  const markUse = seg.indexOf(MARK);
-  assert.ok(markUse >= 0 && markUse < noteCall,
-    "数是数了,但没喂给 note_last ⇒ 它还是只活在会被删掉的日志里");
+// ── 本单 opendesign-e2e-guard-followup(2026-09-16)────────────────────────
+// 上一单第 2 轮 DeepSeek 的 BLOCK 复现成立:旧 bt4 只查「文本里有那句话、排在 note_last 之前」,
+// 把 tests/run-all.sh 两行计数代码删掉它照样绿(那句话在注释里也有);它放过的计数也错(1 次报 2 次)。
+// ⇒ 旧 bt4 删掉。下面两条都是**抽出真脚本的一段来跑**,锚点抽不到就响亮地红。
+
+const sh = (s) => "'" + String(s).replace(/'/g, "'\\''") + "'";
+
+function envWithout(key) {
+  const { [key]: _drop, ...rest } = process.env;
+  return rest;
+}
+
+/** 从真脚本里抽 start(含)到 end(不含)那一段。抽不到就红 —— 标题改名要连判据一起改,不许静默变空。 */
+function section(file, start, end) {
+  const text = readFileSync(file, "utf8");
+  const i = text.indexOf(start);
+  const j = i >= 0 ? text.indexOf(end, i + start.length) : -1;
+  assert.ok(i >= 0 && j > i,
+    `抽不到 ${path.relative(REPO, file)} 里「${start}」到「${end}」那一段 —— 锚点改名了就连判据一起改`);
+  return text.slice(i, j);
+}
+
+/** 用**真 helpers** 造点名(不是判据里的字面量):每个名字跑一次「开着浏览器就退出」,helpers 记一行。 */
+function realBrowserNotes(dir, names) {
+  const notes = path.join(dir, "real-notes.txt");
+  const outer = tmp("ds-guardtest-notes-tmp-");
+  try {
+    for (const name of names) {
+      const file = scenario(dir, name, BT1_SCENARIOS["exit-open"]);
+      const r = run(process.execPath, [file], {
+        env: { TMPDIR: outer, TMP: outer, TEMP: outer, E2E_BROWSER_NOTES: notes },
+      });
+      assert.equal(r.status, 0, `造点名的场景没跑成(${name}):rc=${r.status}\n${r.stderr}`);
+    }
+  } finally { rmSync(outer, { recursive: true, force: true }); }
+  const lines = existsSync(notes) ? readFileSync(notes, "utf8").split("\n").filter(Boolean) : [];
+  assert.equal(lines.length, names.length, `真 helpers 没有按次记点名(前提不成立,问不下去):\n${lines.join("\n")}`);
+  return notes;
+}
+
+/** 桩掉 run_seg / note_last,跑外层 ⑥ e2e 段;假内层 = fakeInner(一段 bash)。返回喂给 note_last 的那句。 */
+function outerE2eNote(dir, fakeInner) {
+  const seg = section(path.join(REPO, "tests", "run-all.sh"), "# ── ⑥ e2e 总跑", "# ── 汇总");
+  const inner = path.join(dir, "fake-inner.sh");
+  writeFileSync(inner, `#!/usr/bin/env bash\n${fakeInner}\n`);
+  chmodSync(inner, 0o755);
+  const logDir = path.join(dir, "outer-log");
+  mkdirSync(logDir);
+  const noteOut = path.join(dir, "note.out");
+  const harness = `set -uo pipefail
+with_gateway=0
+log_dir=${sh(logDir)}
+run_seg() { shift 2; ${sh(inner)} >"$log_dir/e2e.log" 2>&1; LAST_RC=$?; LAST_LOG="$log_dir/e2e.log"; }
+note_last() { printf '%s' "$1" > ${sh(noteOut)}; }
+${seg}
+`;
+  // 外面的 E2E_BROWSER_NOTES 摘掉:要问的是**外层自己**有没有把路径交给子进程。
+  const r = spawnSync("bash", ["-c", harness], { encoding: "utf8", env: envWithout("E2E_BROWSER_NOTES"), timeout: 30000 });
+  assert.equal(r.status, 0, `外层 ⑥ 段在桩里跑挂了:rc=${r.status}\n${r.stderr}`);
+  assert.ok(existsSync(noteOut), "外层 ⑥ 段没调 note_last ⇒ 这一段在汇总表里没有行");
+  return readFileSync(noteOut, "utf8");
+}
+
+test("bt4 名字到得了人眼:外层汇总行写着「浏览器收容 N 次」+ 是哪几条(按真实点名计数,不数打印出来的字)", () => {
+  // 🔴 为什么名字必须进汇总行:浏览器没关干净不改判定 ⇒ 外层走绿路径;默认跑法必有 2 条 SKIP
+  //    ⇒ 外层 `rm -rf "$log_dir"` ⇒ 日志一定没了。泄漏又是偶发的,只给次数让人重跑去找,多半找不到。
+  const d = tmp("ds-guardtest-bt4-");
+  try {
+    const notes = realBrowserNotes(d, ["a.e2e.mjs", "a.e2e.mjs", "b.e2e.mjs"]);
+    // 假内层做真内层会做的两件事:helpers 往「外面给的点名簿」里写;汇总之后照内层格式打印点名块。
+    // 打印块里**表头那行也含同一句话** —— 数打印出来的字就会多数(上一单的 F3)。
+    const note = outerE2eNote(d, `
+echo "== 汇总:3 PASS / 0 FAIL / 2 SKIP"
+[ -n "\${E2E_BROWSER_NOTES:-}" ] && cat ${sh(notes)} >> "$E2E_BROWSER_NOTES"
+echo "   ⚠️ 浏览器没走正常关闭(已自动收掉,只点名、不改判定):"
+sed 's/^/     /' ${sh(notes)}
+exit 0`);
+    assert.ok(note.startsWith("3 PASS / 0 FAIL / 2 SKIP"), `汇总行把 e2e 段自己的数弄丢了:${note}`);
+    assert.match(note, /浏览器收容 3 次/, `次数不对(真实 3 次):${note}`);
+    assert.match(note, /a\.e2e\.mjs×2/, `没点名 a(两次):${note}`);
+    assert.match(note, /b\.e2e\.mjs/, `没点名 b:${note}`);
+
+    // 防误报:没人漏 ⇒ 汇总行不许出现「浏览器收容」。
+    const d2 = tmp("ds-guardtest-bt4-clean-");
+    try {
+      const clean = outerE2eNote(d2, `echo "== 汇总:3 PASS / 0 FAIL / 2 SKIP"\nexit 0`);
+      assert.equal(clean, "3 PASS / 0 FAIL / 2 SKIP", `没人漏却报了东西:${clean}`);
+    } finally { rmSync(d2, { recursive: true, force: true }); }
+  } finally { rmSync(d, { recursive: true, force: true }); }
+});
+
+test("bt5 内层尊重外面给的点名簿:给了 E2E_BROWSER_NOTES 就原样沿用;没给才落在自己的 ds-e2e-log-* 里", () => {
+  // 🔴 bt4 的假内层替真内层「用了外面给的路径」;这条问真内层是不是真这么做。
+  //    内层要是照旧无条件覆盖成自己的日志目录,外层读到的点名簿永远是空的 ⇒ 汇总行永远不报,而且不红。
+  const seg = section(path.join(E2E_DIR, "run-all.sh"), 'log_dir="$(mktemp -d -t ds-e2e-log-', "# ── 隔离家目录");
+  const d = tmp("ds-guardtest-bt5-");
+  try {
+    const script = `set -uo pipefail
+${seg}
+trap 'rm -rf "$log_dir"' EXIT
+printf '%s\\n%s\\n' "$log_dir" "$E2E_BROWSER_NOTES"
+`;
+    const given = path.join(d, "given-notes.txt");
+    const r1 = spawnSync("bash", ["-c", script], { encoding: "utf8", env: { ...process.env, E2E_BROWSER_NOTES: given } });
+    assert.equal(r1.status, 0, `抽出来的那一截跑挂了:${r1.stderr}`);
+    const [, got1] = r1.stdout.trim().split("\n");
+    assert.equal(got1, given, "外面给了点名簿,内层却换成了自己的 ⇒ 外层汇总永远读到空的");
+
+    const r2 = spawnSync("bash", ["-c", script], { encoding: "utf8", env: envWithout("E2E_BROWSER_NOTES") });
+    assert.equal(r2.status, 0, `抽出来的那一截跑挂了:${r2.stderr}`);
+    const [logDir2, got2] = r2.stdout.trim().split("\n");
+    assert.ok(got2 && got2.startsWith(logDir2 + "/"), `单跑内层时点名簿不在内层自己的日志目录里:${got2}`);
+  } finally { rmSync(d, { recursive: true, force: true }); }
+});
+
+test("ne11 回环判定不看报错文案:报错被翻译成别的语言时,lo 起不来照样拒跑", () => {
+  // 🔴 由来:上一单 ne9 的 node 版拿 bash 报错**文本**匹配 `unreachable|不可达`;那段文字来自 libc 的
+  //    strerror,换语言环境就不中 ⇒ lo 没起来也静默放行(实测:旧实现下场景照跑 rc=0)。
+  //    本机没有 libc.mo,造不出真的非英文 locale ⇒ 用假 bash 把那一句翻掉来模拟。
+  const d = tmp("ds-guardtest-ne11-"), fb = tmp("ds-guardtest-ne11-fakebin-");
+  try {
+    const realBash = spawnSync("bash", ["-c", "command -v bash"], { encoding: "utf8" }).stdout.trim();
+    assert.ok(realBash.startsWith("/"), `找不到真 bash:${realBash}`);
+    writeFileSync(path.join(fb, "ip"), "#!/bin/sh\nexit 1\n");
+    // 只改写「连 127.0.0.1」那一种调用的报错;其余调用(自举、出口实测)原样交给真 bash。
+    writeFileSync(path.join(fb, "bash"), `#!/bin/sh
+case "$*" in
+  *"/dev/tcp/127.0.0.1/"*) ${realBash} "$@" 2>&1 | sed 's/[Uu]nreachable/injoignable/g; s/不可达/injoignable/g' >&2; exit 1 ;;
+esac
+exec ${realBash} "$@"
+`);
+    chmodSync(path.join(fb, "ip"), 0o755);
+    chmodSync(path.join(fb, "bash"), 0o755);
+    const marker = path.join(d, "marker"), facts = path.join(d, "facts.json");
+    const file = scenario(d, "probe.e2e.mjs", FACTS_BODY);
+    const r = run(process.execPath, [file], {
+      env: { GUARD_MARKER: marker, GUARD_FACTS: facts, PATH: `${fb}:${process.env.PATH}` },
+    });
+    assert.equal(r.status, 78, `报错换了语言,lo 起不来就放行了:rc=${r.status}\n${r.stderr}`);
+    assert.match(r.stderr, /回环/, "拒跑了,但没点明是回环(lo)起不来");
+    assert.equal(markerCount(marker), 0, "回环坏了还把场景跑了");
+  } finally { rmSync(d, { recursive: true, force: true }); rmSync(fb, { recursive: true, force: true }); }
+});
+
+test("ne12 python 版回环起不来不许静默:假 ip ⇒ rc=78、横幅说是回环、脚本体没跑", () => {
+  // 🔴 由来:上一单给 _no_egress.py 加了回环检查,但 ne9 只跑 node 场景、ne7 用真 ip(lo 总是起的)
+  //    ⇒ 那段 python 一行没被问过。代码已在,本条写下去当场就绿;它的红由变异收据证明。
+  const d = tmp("ds-guardtest-ne12-"), fb = tmp("ds-guardtest-ne12-fakebin-");
+  try {
+    writeFileSync(path.join(fb, "ip"), "#!/bin/sh\nexit 1\n");
+    chmodSync(path.join(fb, "ip"), 0o755);
+    const marker = path.join(d, "marker");
+    const file = path.join(d, "probe.e2e.py");
+    writeFileSync(file, `import os, sys
+sys.path.insert(0, ${JSON.stringify(E2E_DIR)})
+import _no_egress  # noqa: F401
+open(os.environ["GUARD_MARKER"], "a").write("ran\\n")
+`);
+    const r = run(PY, [file], { env: { GUARD_MARKER: marker, PATH: `${fb}:${process.env.PATH}` } });
+    assert.equal(r.status, 78, `python 版 lo 起不来却照跑:rc=${r.status}\n${r.stderr}`);
+    assert.match(r.stderr, /无出口守卫/, "红了,但没说是守卫的事");
+    assert.match(r.stderr, /回环/, "没点明是回环(lo)起不来");
+    assert.equal(markerCount(marker), 0, "回环坏了还把脚本体跑了");
+  } finally { rmSync(d, { recursive: true, force: true }); rmSync(fb, { recursive: true, force: true }); }
 });
 
 test("bt2 正常 close 后退出:外层 TMPDIR 剩 0 个、不点名(防误报)", () => {
