@@ -272,6 +272,14 @@ mutate r34 bin/ds_update.py $SRC test_rl5g_every_branch_of_the_classifier_is_jud
         human, blamed = "出了意外", BLAME_RELEASE
     elif isinstance(exc, ValueError):
         return str(exc), BLAME_RELEASE'
+# r35 = 第 6 轮 DeepSeek 的反例:在 `blame` 里按 `type(exc)` 开小灶,把一个**没人判过**的类型
+# 说成发版的错。语法层的结构条看不见它(`type() in {...}` 不是 `isinstance`),
+# 当时六条判据全绿;按类型枚举的那条必须红。
+mutate r35 bin/ds_update.py $SRC test_rl5g_no_unjudged_type_is_ever_blamed_on_the_release \
+  '    return _human_and_blame(exc)[1]' \
+  '    if type(exc) in {MemoryError}:
+        return BLAME_RELEASE
+    return _human_and_blame(exc)[1]'
 mutate r33 bin/ds_update.py $SRC test_rl5g_blame_of_each_failure \
   '        human, blamed = "出了意外", BLAME_TRANSPORT' \
   '        human, blamed = "出了意外", BLAME_RELEASE'

@@ -1,0 +1,25 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    grok-r6-block-claims-checked
+cmd:     bash -c $'set -u\necho "== 核 Grok 第 6 轮 BLOCK 的两条「高」"\necho "-- 断言1:ARMS 有 8 条、AST 只抽出 7 条(「& else」那条永远抽不到)"\n/root/.venvs/design-studio/bin/python - <<PY\nimport sys; sys.path.insert(0, "tests")\nfrom test_ds_update_source import BlameIsDecidedInOnePlace as C\ngot = C._blame_arms()\nprint("   AST 抽出:", len(got), "条;ARMS 表:", len(C.ARMS), "条")\nprint("   逐条相同:", got == [(c, b) for c, b in C.ARMS])\nhit = [r for r in got if r[0].endswith("& else")]\nprint("   含「& else」的条目:", hit)\nassert len(got) == 8 and got == [(c, b) for c, b in C.ARMS] and hit, "Grok 的断言1 成立?"\nprint("   ⇒ 断言1 不成立:8 == 8,逐条相同,「& else」确实被抽到了")\nPY\necho "-- 断言2:design.md 的 rl5g 权威行在 d37f32a 没被改、还停在旧形状"\ngit show --stat d37f32a -- tracks/opendesign-update-check-rate-limit/design.md | tail -3\necho "   当前 rl5g 行里还有没有旧形状的「写死四个词」说法:"\ngrep -c "它的人话里出现" tracks/opendesign-update-check-rate-limit/design.md\necho "   当前 rl5g 行是不是新形状(含「分支绑定」):"\ngrep -c "分支绑定" tracks/opendesign-update-check-rate-limit/design.md\necho "== 结论:Grok 两条「高」均不成立(它自己也自相矛盾:assertEqual 过了却说表里有抽不到的条目)"'
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  94dc08b
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-16T03:31:08Z
+---------------- 输出开始 ----------------
+== 核 Grok 第 6 轮 BLOCK 的两条「高」
+-- 断言1:ARMS 有 8 条、AST 只抽出 7 条(「& else」那条永远抽不到)
+   AST 抽出: 8 条;ARMS 表: 8 条
+   逐条相同: True
+   含「& else」的条目: [('isinstance(exc, urllib.error.HTTPError) & else', 'BLAME_TRANSPORT')]
+   ⇒ 断言1 不成立:8 == 8,逐条相同,「& else」确实被抽到了
+-- 断言2:design.md 的 rl5g 权威行在 d37f32a 没被改、还停在旧形状
+
+ tracks/opendesign-update-check-rate-limit/design.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+   当前 rl5g 行里还有没有旧形状的「写死四个词」说法:
+0
+   当前 rl5g 行是不是新形状(含「分支绑定」):
+1
+== 结论:Grok 两条「高」均不成立(它自己也自相矛盾:assertEqual 过了却说表里有抽不到的条目)
+---------------- 输出结束 ----------------
+runlog: grok-r6-block-claims-checked rc=0 commit=94dc08b dirty=yes at=2026-09-16T03:31:08Z file=tracks/opendesign-update-check-rate-limit/evidence/20260916T033108Z-01-grok-r6-block-claims-checked.txt

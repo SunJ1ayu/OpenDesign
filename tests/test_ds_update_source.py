@@ -502,9 +502,14 @@ class BlameIsDecidedInOnePlace(unittest.TestCase):
       ② 一条**分支绑定检查**:`_human_and_blame` 里每一条通向 BLAME_* 的分支,
          都必须与我判过的那张分支表逐条相同 —— 新增一支(哪怕复用现成人话)、改掉某一支的 blame、
          或改动分支条件,这里当场红,逼人重新判一次,而不是等下一轮评审。
-    🔴 第 5 轮 DeepSeek 用实验证伪了 ② 的**第一版**(那版按"每句人话都被走到"来查):
-       复用旧人话的新分支能改掉 blame 而三条全绿,而我的 docstring 却写着"当场红" ——
-       **我给出的保证比实际大**。这条注释留着,提醒:写"已经关死了"之前先造一个反例试试。
+    🔴 这一类承诺我说大过两次,两次都是被**造反例**抓到的,不是被读代码抓到的:
+       · 第 5 轮:② 的第一版按"每句人话都被走到"来查,DeepSeek 实测"复用旧人话的新分支"能改掉 blame 而全绿;
+       · 第 6 轮:它又在 `blame` 里按 `type(exc)` 开小灶绕过语法层的结构条 —— 六条判据仍然全绿。
+       所以现在**不再宣称"只有一处判定、已经关死"**。说得准的话是:
+       ③ 绑分支形状、⑤ 挡 `explain`/`blame` 体内的 `isinstance`、④ 按类型枚举兜住 builtins 里的每一种,
+       没判过的类型只准拿到"路上"这个谦虚默认值。**挡不住**的是"自定义异常类 + 别处单开一处判定" ——
+       绕法是开集,判据关不死,记在 verify 里不假装。
+       留着这段是为了下一个人:**写"已经关死了"之前,先自己造一个反例试试。**
     """
 
     @staticmethod
@@ -629,16 +634,48 @@ class BlameIsDecidedInOnePlace(unittest.TestCase):
         self.assertEqual(got, [(c, b) for c, b in self.ARMS],
                          "分类器的分支与判过的表对不上:新增/改动的那一支,得有人判它该怪谁")
 
-    def test_rl5g_the_table_and_the_branches_agree_on_the_count(self):
-        """两张表互为对照:行为表(16 种失败)必须把分支表里的每一支都走到。
+    def test_rl5g_no_unjudged_type_is_ever_blamed_on_the_release(self):
+        """把 builtins 里**每一个**异常类型挨个问一遍"该怪谁",不在我判断里的一律必须落到"路上"。
 
-        只查分支被走到,不查人话 —— 人话是给业主看的,会改;分支是判断,改了就该重新判。
+        🔴 第 6 轮 DeepSeek 的反例:在 `blame` 里按 `type(exc)` 开一个小灶
+        (`if type(exc) in {MemoryError}: return BLAME_RELEASE`),就能把一个**没人判过**的异常
+        说成"这一版发布质量有问题",而当时六条判据全绿(它实测 222/222)——
+        因为结构条查的是 `isinstance` 这个词,`type() in {...}` / `exc.__class__ in` / `getattr`
+        都绕得过去。**语法层的清单是关不死这件事的:绕法是开集。**
+        所以这条改成行为层、按类型枚举:判断写成一条独立的规则(不是抄代码的结构),
+        凡是我没判过的类型,只准拿到"路上"这个谦虚的默认值 —— 想把某个类型说成发版的错,
+        就必须先在这里被判一次。builtins 覆盖了 MemoryError / RuntimeError / OSError 一族等
+        现实里真会冒出来的类型;自定义异常类罩不住,写在 verify 的记账里,不假装。
         """
-        seen = {ds_update.blame(exc) for exc, _ in self._cases()}
-        self.assertEqual(seen, {ds_update.BLAME_TRANSPORT, ds_update.BLAME_RELEASE})
-        arms = self._blame_arms()
-        for want in ("BLAME_TRANSPORT", "BLAME_RELEASE"):
-            self.assertTrue(any(b == want for _, b in arms), "分支表里没有 %s" % want)
+        import builtins
+        classes = sorted({obj for obj in vars(builtins).values()
+                          if isinstance(obj, type) and issubclass(obj, BaseException)},
+                         key=lambda c: c.__name__)
+        self.assertGreater(len(classes), 40, "builtins 里的异常类型没抽到几个 —— 抽取坏了")
+        self.assertIn(MemoryError, classes, "DeepSeek 那个反例用的类型必须在枚举里")
+        unjudged, cannot_build = [], []
+        for cls in classes:
+            try:
+                exc = cls.__new__(cls)      # 不调 __init__:有些异常要参数
+            except TypeError:
+                # 造不出实例的只准是 ExceptionGroup 一族(它的 __new__ 强制要参数);
+                # **不许静默跳过** —— 跳过的每一个都要说得出为什么。
+                self.assertIn("Group", cls.__name__,
+                              "%s 造不出实例,而它不是 ExceptionGroup 一族 —— 别静默跳过" % cls.__name__)
+                cannot_build.append(cls.__name__)
+                continue
+            # 我的判断(独立写一遍,不是抄分类器的结构):
+            # 「线上那份东西本身不对」只有 ValueError 一族(清单不是 JSON / 字段不对 / 解析不出来),
+            # 其中 UnicodeDecodeError 例外 —— 解不开多半是中间盒换过它,算路上。
+            want = (ds_update.BLAME_RELEASE
+                    if issubclass(cls, ValueError) and not issubclass(cls, UnicodeDecodeError)
+                    else ds_update.BLAME_TRANSPORT)
+            got = ds_update.blame(exc)
+            if got != want:
+                unjudged.append((cls.__name__, got, want))
+        self.assertEqual(unjudged, [],
+                         "这些类型的「该怪谁」与判断对不上 —— 想把一个类型说成发版的错,先在这条判据里判它")
+        self.assertLessEqual(len(cannot_build), 2, "造不出实例的类型多了:%s" % cannot_build)
 
     def test_rl5g_blame_and_explain_come_from_one_place(self):
         """结构条:`explain` 与 `blame` 必须同出一处 —— 各自一份 isinstance 清单就是本条要防的形状。"""
