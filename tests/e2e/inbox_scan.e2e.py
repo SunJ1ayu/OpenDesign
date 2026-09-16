@@ -3,6 +3,9 @@
 丢文件 → POST /api/intake/scan(自动暂存确定性建议)→ GET /api/intake 见待确认 plan
 → POST /api/intake/approve 落位。证明 scan 针孔与既有 approve 针孔 compose。
 起真 ds_web,走真 HTTP;纯核心无浏览器。"""
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _no_egress  # noqa: F401,E402  ← 无出口守卫(必须在任何本仓模块之前)
 import http.client
 import json
 import os

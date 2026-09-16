@@ -1,9 +1,96 @@
 // e2e 公共件(O1 工具债沉淀):chromium 定位 / 登录 / 常用等待。
 // 场景文件 import 这里,别再手搓 driver。
+//
+// 🔴 **本文件导入即生效**:顶部有无出口守卫,会把导入它的 e2e 进程搬进独立网络命名空间。
+//    所以 tests/test_e2e_harness_guard.mjs 绝不能导入它(那样就问不出前提了)。
 import { createRequire } from "node:module";
-import { readdirSync, existsSync } from "node:fs";
+import { readdirSync, existsSync, mkdtempSync, rmSync, appendFileSync, readlinkSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
+
+// ── 无出口守卫(track opendesign-e2e-no-egress-browser-tmp,2026-09-16)────────────
+//
+// 不变量只有一句:**跑判据的进程不许有外网出口。**
+// 由来:默认 e2e 起的真 ds_web 一打开页面就调 `/api/update/check`,**真去问 GitHub** ——
+// 38 条里只有 update_notice 用 page.route 拦了。代价是判据替业主花掉他的免登录额度
+// (09-15 发 0.98.5 时产品查更新被 403 挡住,疑似就是被它用光;归因没钉死,但代码路径是确定的),
+// 而且判据结果从此看外网脸色。aiwork 08-10 为同一件事立过机械不变量(kimi 额度被判据烧光),
+// 这边一直没有。做法照搬 aiwork `tests/_no_egress.py` / `_no-egress.sh`。
+//
+// ⚠️ **强度声明**:这道闸挡的是手滑,不是蓄意。豁免按脚本名,改个名就能绕过;root 一行
+//    `nsenter` 也能出去。它保证的是"没人不小心留下一个外呼口",不是安全边界。
+//
+// 守在**每个 e2e 进程自己身上**,不守在 run-all.sh 入口:手跑单条 e2e 是日常,
+// 只包总跑入口等于守错门(本机"守卫守错门"已经栽过三次)。
+
+/** 要连主命名空间里活网关与 8768 的两条 —— **豁免名单的唯一一份**。
+ *  run-all.sh 的 NEEDS_GATEWAY 由判据 ne5 钉成与它逐项相同(名单散成两份迟早只更新一处)。 */
+export const NEEDS_LIVE_GATEWAY = ["new_chat.e2e.mjs", "project-thread.e2e.mjs"];
+
+const NO_EGRESS_REFUSED = 78;
+const NO_EGRESS_TRIED = "DS_E2E_NOEGRESS_TRIED";
+
+function noEgressRefuse(why) {
+  process.stderr.write(`🔴 无出口守卫:${why}\n`);
+  process.stderr.write("   e2e 判据进程必须没有外网出口(不许在跑判据时把业主的额度花出去)。\n");
+  process.stderr.write("   来源:tests/e2e/helpers.mjs,track opendesign-e2e-no-egress-browser-tmp。\n");
+  process.exit(NO_EGRESS_REFUSED);
+}
+
+/** 已经在独立网络命名空间里?——**看内核,不看环境变量**(环境变量是零成本后门)。 */
+function noEgressIsolated() {
+  try {
+    return readlinkSync("/proc/self/ns/net") !== readlinkSync("/proc/1/ns/net");
+  } catch {
+    return false;
+  }
+}
+
+function noEgressOpen() {
+  return spawnSync("bash", ["-c", "exec 3<>/dev/tcp/1.1.1.1/443"],
+    { timeout: 3000, stdio: "ignore" }).status === 0;
+}
+
+function enforceNoEgress() {
+  const script = process.argv[1] ? path.basename(process.argv[1]) : "";
+  if (NEEDS_LIVE_GATEWAY.includes(script)) return;   // 明示豁免:它们要的就是活网关
+
+  if (!noEgressIsolated()) {
+    // 自举标记只用来打断死循环,**不是身份牌**:预设它不能让人蒙混过关(ne6)。
+    if (process.env[NO_EGRESS_TRIED]) {
+      noEgressRefuse("已经自举过一次,却仍然不在独立的网络命名空间里(unshare 没生效?)");
+    }
+    // 先探再 re-exec:直接换掉本进程的话,unshare 失败连一句解释都留不下。
+    let probe;
+    try {
+      probe = spawnSync("unshare", ["-n", "--", "true"], { stdio: "ignore" });
+    } catch {
+      noEgressRefuse("找不到 unshare,做不到网络隔离 ⇒ 拒跑");
+    }
+    if (!probe || probe.error || probe.status !== 0) {
+      noEgressRefuse("unshare -n 用不了(没权限?内核不支持?)⇒ 拒跑");
+    }
+    // 用 spawnSync 而不是 exec:node 没有 execve。父进程原样透传子进程的退出码/信号。
+    const child = spawnSync("unshare",
+      ["-n", "--", "bash", "-c", 'ip link set lo up 2>/dev/null || true; exec "$0" "$@"',
+       process.execPath, ...process.execArgv, ...process.argv.slice(1)],
+      { stdio: "inherit", env: { ...process.env, [NO_EGRESS_TRIED]: "1" } });
+    if (child.error) noEgressRefuse(`起不来隔离子进程:${child.error.message}`);
+    if (child.signal) process.exit(128 + (os.constants.signals[child.signal] || 0));
+    process.exit(child.status ?? 1);
+  }
+
+  // 隔离成功就摘掉标记:留着会被子进程继承,子进程若回到主命名空间会被误判成"自举失败"。
+  delete process.env[NO_EGRESS_TRIED];
+
+  // **进来了还要实测一次**:闸没生效却以为生效,比没有闸更糟。
+  if (noEgressOpen()) {
+    noEgressRefuse("已经进了命名空间,却**仍然连得出去** ⇒ 拒跑(别把没生效的闸当生效)");
+  }
+}
+
+enforceNoEgress();
 
 const DEFAULT_PW_MODULES = "/root/.npm/_npx/e41f203b7505f1fb/node_modules";
 
@@ -31,7 +118,37 @@ export function chromiumPath() {
 
 export async function launchBrowser() {
   const pw = loadPlaywright();
-  return pw.chromium.launch({ headless: true, executablePath: chromiumPath() });
+  // 浏览器的临时目录**归测试自己所有**:给 Chromium 一个我们建的 TMPDIR,进程退出时收掉。
+  // 由来:浏览器没走正常关闭(开着就退出 / 被硬杀)每次都在 TMPDIR 留一个
+  // `org.chromium.Chromium.XXXXXX`,与泄漏闸偶发红"剩 1 个空前缀目录"同形。
+  const dir = mkdtempSync(path.join(os.tmpdir(), "ds-e2e-browser-"));
+  let browser;
+  try {
+    browser = await pw.chromium.launch({
+      headless: true,
+      executablePath: chromiumPath(),
+      env: { ...process.env, TMPDIR: dir, TMP: dir, TEMP: dir },
+    });
+  } catch (err) {
+    rmSync(dir, { recursive: true, force: true });   // 起不来也不留壳
+    throw err;
+  }
+  // 🔴 监听在 launch **之后**注册 ⇒ 排在 Playwright 自己的退出清理(杀浏览器)之后。
+  // 🔴 收掉之前必须**点名**:悄悄收掉等于把泄漏闸的信号吞了,下次再发生就没人知道是谁干的。
+  process.on("exit", () => {
+    let left = [];
+    try { left = readdirSync(dir); } catch { /* 已经没了 */ }
+    if (left.length) {
+      const who = process.argv[1] ? path.basename(process.argv[1]) : "(未知脚本)";
+      const what = `浏览器没走正常关闭,留下 ${left.join(" ")}(已收掉)`;
+      process.stderr.write(`⚠️ ${what} —— ${who}\n`);
+      if (process.env.E2E_BROWSER_NOTES) {
+        try { appendFileSync(process.env.E2E_BROWSER_NOTES, `${who}: ${what}\n`); } catch { /* 记不下也别把测试带崩 */ }
+      }
+    }
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* 尽力 */ }
+  });
+  return browser;
 }
 
 /** 在 scope(容器选择器)内完成口令登录并等到已连接(模型按钮 [data-ui="chat-model"] 出现)。 */

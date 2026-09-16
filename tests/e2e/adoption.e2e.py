@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """T5 真链 e2e:散文件 → adopt_scan → stage_adoption → 人工 ds-approve → apply_plan → 落位。
 纯 Python 核心 + 真起 ds-approve 子进程(人工闸)。断言真实文件移动。"""
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _no_egress  # noqa: F401,E402  ← 无出口守卫(必须在任何本仓模块之前)
 import json, os, shutil, subprocess, sys, tempfile
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

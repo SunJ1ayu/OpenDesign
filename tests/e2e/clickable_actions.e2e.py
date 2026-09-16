@@ -3,6 +3,9 @@
 建档(POST /api/projects/create)→ 记一条(POST /api/changes/add)→ 读回
 (GET /api/projects/<key>/changes),证明 create 造的项目 add 能写、GET 能见。
 起真 ds_web 服务器,走真 HTTP。纯核心,无浏览器。"""
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _no_egress  # noqa: F401,E402  ← 无出口守卫(必须在任何本仓模块之前)
 import http.client
 import json
 import os

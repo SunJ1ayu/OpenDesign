@@ -118,6 +118,12 @@ failed_names=(); skipped_names=()
 #    这一份漏了,四审当场抓到「同页自相矛盾」。改行为就得回来改这句。
 log_dir="$(mktemp -d -t ds-e2e-log-XXXXXX)"
 
+# 浏览器临时目录点名簿(track opendesign-e2e-no-egress-browser-tmp,2026-09-16)。
+# helpers.launchBrowser 发现浏览器没走正常关闭时,除了收掉残留,还往这里记一行
+# `<脚本名>: …`。**收掉之前必须点名**:悄悄收掉等于把泄漏闸的信号吞了 ——
+# 以前泄漏闸偶发红"剩 1 个空前缀目录",谁也说不出是哪条 e2e 干的。
+export E2E_BROWSER_NOTES="$log_dir/browser-notes.txt"
+
 # ── 隔离家目录(2026-08-16,track opendesign-key-onboarding)────────────────
 # 起因:T4 起 ds-web 在「没配大模型 key」时会自动弹一张模态卡片,遮罩盖住整个界面。
 # 那是给业主的**正确**行为(装完第一次打开就有得填),但这些场景测的是别的功能,
@@ -203,6 +209,11 @@ done
 
 echo
 echo "== 汇总:${pass} PASS / ${fail} FAIL / ${skip} SKIP"
+# 点名不改判定:浏览器没关干净是卫生问题,不是这条 e2e 的对错。只让它下次说得出是谁。
+if [ -s "$E2E_BROWSER_NOTES" ]; then
+  echo "   ⚠️ 浏览器没走正常关闭(已自动收掉,只点名、不改判定):"
+  sed 's/^/     /' "$E2E_BROWSER_NOTES"
+fi
 # SKIP 单独列出来,不并进 PASS —— 「没跑」和「跑过且绿」是两件事,混在一起就是假绿。
 if [ "$skip" -gt 0 ]; then
   echo "   未跑(不算通过):${skipped_names[*]}"
