@@ -406,8 +406,10 @@ def check_for_update(current, fetch=None):
                 # 判据 rl5e:网络类失败(超时 / 断网)只是拿不到,不是这一版发布质量有问题;
                 # HTTPError 走 else —— 清单 404 就是"这一版真没传清单",该说发布质量那句(rl5d / rl7e)。
                 detail = explain(exc.cause)
+                # `http.client.HTTPException` 不是 OSError 子类,得单独列:代理 / 门户把清单
+                # 换成一堆垃圾时,坏的是中间盒不是这一版发布(判据 rl5e 第二半,我自审补的)。
                 network = (isinstance(exc.cause, (urllib.error.URLError, socket.timeout, TimeoutError,
-                                                  ConnectionError, OSError))
+                                                  ConnectionError, OSError, http.client.HTTPException))
                            and not isinstance(exc.cause, urllib.error.HTTPError))
                 human = UNREACHABLE_HUMAN if network else UNVERIFIED_HUMAN
             reasons.append("%s:有新版 %s,但%s(%s)" % (label, exc.version, human, detail))

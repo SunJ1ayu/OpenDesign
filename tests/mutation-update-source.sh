@@ -234,6 +234,9 @@ mutate r27 bin/ds_update.py $SRC test_rl5e_cannot_reach_the_manifest_is_not_said
 mutate r28 bin/ds_update.py $SRC test_rl5e_the_version_in_the_reason_is_the_tag_as_published \
   '        raise FeedUnverified(TAG_RE.match(best["tag"]).group(1), exc) from exc' \
   '        raise FeedUnverified(".".join(str(n) for n in best_ver), exc) from exc'
+mutate r29 bin/ds_update.py $SRC test_rl5e_garbled_http_while_fetching_the_manifest_is_not_said_as_a_bad_release \
+  '                                                  ConnectionError, OSError, http.client.HTTPException))' \
+  '                                                  ConnectionError, OSError))'
 mutate n4 installer/make-update-manifest.py tests.test_update_manifest test_rl10e_a_missing_output_directory_says_so_too \
   '    if not os.path.isdir(out_dir):' \
   '    if False:'
