@@ -150,6 +150,16 @@ note_last "$([ "$LAST_RC" -eq 0 ] && echo "与源码同步" || echo "**入库的
 
 # ── ⑥ e2e 总跑 ─────────────────────────────────────────────────────────
 e2e_args=(); [ "$with_gateway" -eq 1 ] && e2e_args+=(--with-gateway)
+# 浏览器点名簿(track opendesign-e2e-guard-followup)放在**外层**自己的日志目录里,由外层直接读。
+# · 为什么外层要读:浏览器没关干净不改判定 ⇒ e2e 段是绿的;默认跑法必有 2 条 SKIP ⇒ 文件尾
+#   `rm -rf "$log_dir"` ⇒ e2e 段日志一定没了。而这种泄漏是偶发的 ⇒ **名字必须进汇总行**,
+#   只报次数等于让人重跑去碰运气。
+# · 为什么读点名簿、不 grep 日志:日志是给人看的打印,内层点名块的表头也含同一句话 ⇒ 数字多 1
+#   (上一单 09-16 实测「1 次报 2 次」)。点名簿每行一次、冒号前是脚本名(格式由判据 bt1 钉)。
+# · 为什么 export 在这里、不在文件头:② node 单测里的判据会起自己的浏览器场景,
+#   文件头 export 会让它们往这份点名簿里写,汇总就会报出判据自己造的「收容」。
+# 判据 bt4 抽这一段在桩里跑;bt5 钉内层「外面给了路径就沿用」。
+export E2E_BROWSER_NOTES="$log_dir/e2e-browser-notes.txt"
 # SEG_ALLOW=ds-e2e-log-:e2e 自己的日志目录,**红了才留**(tests/e2e/run-all.sh 文件尾),
 # 那是故意的保留、不是泄漏,所以放行。
 # ⚠️ 这条理由 2026-08-18 变过一次,别照旧版记:原来 e2e 在"只有跳过"时也留着日志目录,
@@ -162,13 +172,14 @@ run_seg "e2e 总跑$([ "$with_gateway" -eq 1 ] && echo '(含 gateway)')" e2e tes
 _l="$LAST_LOG"
 _sum=$(grep -m1 '^== 汇总:' "$_l" | sed 's/^== 汇总://')
 _skp=$(printf '%s' "$_sum" | grep -oE '[0-9]+ SKIP' | awk '{print $1}'); _skp="${_skp:-0}"
-# 浏览器没走正常关闭的次数要进**汇总行**,不能只活在日志里:这一段的输出整段重定向进
-# $log_dir,而全绿/只跳过时 $log_dir 会被删掉 ⇒ 判据替泄漏闸发的那声喊到不了人耳,
-# 等于把报警器的信号吞了(track opendesign-e2e-no-egress-browser-tmp design 风险 5 明令不许)。
-# ⚠️ 这句话必须与 tests/e2e/helpers.mjs 里打印的那句**逐字相同**,分了家就永远数出 0
-#    —— 判据 bt4 钉住两处一致。
-_bn=$(grep -c '浏览器没走正常关闭' "$_l" 2>/dev/null || true); _bn="${_bn:-0}"
-[ "$_bn" -gt 0 ] && _sum="${_sum} / ⚠️ 浏览器收容 ${_bn} 次(已自动收掉,看 e2e 段日志点名)"
+if [ -s "$E2E_BROWSER_NOTES" ]; then
+  _bn_n=$(grep -c '' "$E2E_BROWSER_NOTES")
+  # 同一条漏几次记 ×N、按名字排 —— 别让一条反复漏的刷满一行,也别把两条合成一个数。
+  _bn_who=$(cut -d: -f1 "$E2E_BROWSER_NOTES" | sort | uniq -c \
+    | awk '{ printf "%s%s%s", (NR > 1 ? " " : ""), $2, ($1 > 1 ? "×" $1 : "") }')
+  _sum="${_sum:-见日志} / ⚠️ 浏览器收容 ${_bn_n} 次(已自动收掉):${_bn_who}"
+fi
+unset E2E_BROWSER_NOTES
 note_last "${_sum:-见日志}" "$_skp"
 
 # ── 汇总 ───────────────────────────────────────────────────────────────

@@ -103,11 +103,17 @@ function enforceNoEgress() {
   // 🔴 回环起不来就**响亮地红**,别静默:`ip link set lo up` 失败被 `|| true` 吞掉时,
   //    3 个 .e2e.py 与绝大多数 .e2e.mjs 都连不上自己起的 ds_web ——
   //    那会红成"产品坏了"的样子,而这里最清楚真因是什么。
-  //    判法:往 127.0.0.1 的一个铁定没人听的端口连一下 —— 回环活着是"拒绝连接",
-  //    回环没起来是"网络不可达"。两者的 errno 不同,别只看"连不上"。
-  const lo = spawnSync("bash", ["-c", "exec 3<>/dev/tcp/127.0.0.1/1"],
+  //    判法:往 127.0.0.1 的一个铁定没人听的端口连一下,**读 errno**:回环活着是 ECONNREFUSED,
+  //    没起来是 ENETUNREACH / EHOSTUNREACH(与 python 版同一判法)。
+  //    🔴 只认 errno、不看报错文字:文字来自 libc 的 strerror,换语言环境就变。上一版拿 bash 的报错
+  //       文本去匹配 `unreachable|不可达`,换了语言 lo 没起来也静默放行(track opendesign-e2e-guard-followup,判据 ne11)。
+  //    node 没有同步 connect ⇒ 起一个 node 子进程去连、把 err.code 打回来(实测约 40ms)。
+  const lo = spawnSync(process.execPath, ["-e",
+    'require("net").connect(1, "127.0.0.1")' +
+    '.on("error", (e) => { process.stdout.write(String(e.code)); process.exit(0); })' +
+    '.on("connect", () => process.exit(0))'],
     { timeout: 3000, encoding: "utf8" });
-  if (/unreachable|不可达/i.test(`${lo.stderr || ""}`)) {
+  if (["ENETUNREACH", "EHOSTUNREACH"].includes(`${lo.stdout || ""}`.trim())) {
     noEgressRefuse("进了隔离,但**回环(lo)没起来** ⇒ 自起的 ds_web 一律连不上。这不是产品坏了,是 `ip link set lo up` 没成功");
   }
 

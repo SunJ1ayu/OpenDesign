@@ -36,6 +36,26 @@ tests/e2e/run-all.sh todo focus_ring  # 只跑名字含这些子串的
 **各自红了好几天没人发现**,两次都是"实现刻意改了、判据漏改"。
 开关第一次跑就把后者揪出来了。`SKIP` 单独列、**永不算作 PASS**。
 
+## 无出口守卫:e2e 进程没有外网(导入即生效)
+
+**不变量只有一句:跑判据的进程不许有外网出口**(08-10 一条判据真去调模型、一上午烧光额度;
+09-15 e2e 打开页面会真去问 GitHub 查更新,跟业主抢同一份免登录额度)。
+
+- **导入即生效**:`.e2e.mjs` 导入 `helpers.mjs`、`.e2e.py` 顶部 `import _no_egress`,进程就把自己
+  搬进一个**只有回环**的网络命名空间(`unshare -n`)再跑。单跑、总跑都一样,不靠 run-all 记得套。
+- **前提:root + 内核支持 `unshare -n`**。做不到就**拒跑**,退出码 **78**,stderr 以
+  `🔴 无出口守卫:` 开头并说清原因(找不到 unshare / 没权限 / 回环没起来 / 进去了却仍连得出去)。
+  看到 78 不是场景红了,是守卫在说环境不对 —— **别去查产品**。
+- **豁免只有两条**:`new_chat.e2e.mjs`、`project-thread.e2e.mjs`(要连主命名空间里的活 gateway)。
+  名单唯一一份在 `helpers.mjs` 的 `NEEDS_LIVE_GATEWAY`,`run-all.sh` 的 `NEEDS_GATEWAY` 由判据钉成逐项相同。
+  **想加第三条豁免时先问"这条 e2e 为什么需要外网"**,不是"怎么让它过"。
+- **浏览器临时目录归测试自己收**:`helpers.launchBrowser` 给 Chromium 一个自己建的 TMPDIR,进程退出时收掉;
+  浏览器没走正常关闭时,除了收掉还**点名**:stderr 一行 + 往 `E2E_BROWSER_NOTES` 指的文件记 `<脚本名>: …`。
+  单跑 `run-all.sh` 时点名簿在它自己的日志目录里、汇总后打印;仓库级总跑 `tests/run-all.sh` 会给它一个
+  外层自己的路径,把「浏览器收容 N 次:哪几条」直接写进汇总表那一行(外层绿了会删日志,名字只能留在那儿)。
+  ⚠️ 手工调试时 shell 里 export 过 `E2E_BROWSER_NOTES` 的话,`run-all.sh` 会沿用它 —— 用完 `unset`。
+- 强度:挡手滑,不挡蓄意(root 一行 `nsenter` 就出去)。判据在 `tests/test_e2e_harness_guard.mjs`。
+
 ## 跑法(Linux 开发机)
 
 ```bash

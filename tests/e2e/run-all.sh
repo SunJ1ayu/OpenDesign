@@ -122,7 +122,10 @@ log_dir="$(mktemp -d -t ds-e2e-log-XXXXXX)"
 # helpers.launchBrowser 发现浏览器没走正常关闭时,除了收掉残留,还往这里记一行
 # `<脚本名>: …`。**收掉之前必须点名**:悄悄收掉等于把泄漏闸的信号吞了 ——
 # 以前泄漏闸偶发红"剩 1 个空前缀目录",谁也说不出是哪条 e2e 干的。
-export E2E_BROWSER_NOTES="$log_dir/browser-notes.txt"
+# 🔴 外面给了路径就**沿用**(track opendesign-e2e-guard-followup):外层 tests/run-all.sh 要把名字
+#    挂进汇总行,而本脚本的日志目录绿了就被删 —— 覆盖成自己的,外层读到的永远是空的,且不会红。
+#    单独跑本脚本时才落在自己的日志目录里。判据 bt5 钉这一句。
+export E2E_BROWSER_NOTES="${E2E_BROWSER_NOTES:-$log_dir/browser-notes.txt}"
 
 # ── 隔离家目录(2026-08-16,track opendesign-key-onboarding)────────────────
 # 起因:T4 起 ds-web 在「没配大模型 key」时会自动弹一张模态卡片,遮罩盖住整个界面。
