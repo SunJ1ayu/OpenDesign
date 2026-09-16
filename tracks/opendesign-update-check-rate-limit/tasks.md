@@ -10,6 +10,6 @@
 - [x] 实现:ds_update 订阅源 + 清单 + 回落 + 人话 + 代理当场读;`installer/make-update-manifest.py`;界面 updateReason;重建 dist
 - [x] fake_github + windows-update-e2e:atom / 清单端点、API 403 模式、备路场景;推 `ci-update/**` 真跑
 - [x] 红检(变异咬住 rl 关键断言)
-- [ ] 全仓总跑 --with-gateway
-- [ ] panel-review(impact high)→ 仲裁
+- [x] 全仓总跑 --with-gateway
+- [x] panel-review(impact high)→ 仲裁
 - [x] 发版步骤写清(清单随版上传 + 发布核对走产品新路径);bump / 发版连同自动更新那单一起问业主
