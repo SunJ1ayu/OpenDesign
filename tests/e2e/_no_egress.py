@@ -15,6 +15,7 @@ fail-closed、**不认环境变量**(比 /proc/*/ns/net)、进去之后还要实
 ⚠️ 强度:挡手滑,不挡蓄意(root 一行 nsenter 就出去)。
 """
 
+import errno
 import os
 import socket
 import subprocess
@@ -63,17 +64,31 @@ def _enforce():
 
         env = dict(os.environ, **{_TRIED: "1"})
         script = os.path.abspath(sys.argv[0])
-        os.execvpe(
-            "unshare",
-            ["unshare", "-n", "--", "bash", "-c",
-             'ip link set lo up 2>/dev/null || true; exec "$0" "$@"',
-             sys.executable, script] + sys.argv[1:],
-            env,
-        )
+        try:
+            os.execvpe(
+                "unshare",
+                ["unshare", "-n", "--", "bash", "-c",
+                 'ip link set lo up 2>/dev/null || true; exec "$0" "$@"',
+                 sys.executable, script] + sys.argv[1:],
+                env,
+            )
+        except OSError as exc:
+            # 探得过、却 exec 不动:不许抛裸 traceback(那和"判据自己坏了"长得一样)。
+            _die("unshare 探得过、却 exec 不动(%s)⇒ 拒跑" % exc)
         _die("exec unshare 没能替换掉本进程 ⇒ 拒跑")  # 正常到不了
 
     # 隔离成功就摘掉"试过一次"的标记:它是给本进程打断死循环用的,不是身份牌。
     os.environ.pop(_TRIED, None)
+
+    # 🔴 回环起不来要**响亮地红**(与 node 版逐条对应):`ip link set lo up` 的失败被
+    # `|| true` 吞掉时,自起 ds_web 的判据会红成"产品坏了"的样子。
+    # 回环活着 = 连不上时 ECONNREFUSED;回环没起来 = ENETUNREACH/EHOSTUNREACH。
+    try:
+        socket.create_connection(("127.0.0.1", 1), timeout=3).close()
+    except OSError as exc:
+        if exc.errno in (errno.ENETUNREACH, errno.EHOSTUNREACH):
+            _die("进了隔离,但**回环(lo)没起来** ⇒ 自起的 ds_web 一律连不上。"
+                 "这不是产品坏了,是 `ip link set lo up` 没成功")
 
     if _egress_open():
         _die("已经进了命名空间,却**仍然连得出去** ⇒ 拒跑(别把没生效的闸当生效)")

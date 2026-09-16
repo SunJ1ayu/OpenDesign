@@ -4,7 +4,7 @@
 // 🔴 **本文件导入即生效**:顶部有无出口守卫,会把导入它的 e2e 进程搬进独立网络命名空间。
 //    所以 tests/test_e2e_harness_guard.mjs 绝不能导入它(那样就问不出前提了)。
 import { createRequire } from "node:module";
-import { readdirSync, existsSync, mkdtempSync, rmSync, appendFileSync, readlinkSync } from "node:fs";
+import { readdirSync, existsSync, mkdtempSync, rmSync, appendFileSync, readlinkSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
@@ -30,6 +30,7 @@ export const NEEDS_LIVE_GATEWAY = ["new_chat.e2e.mjs", "project-thread.e2e.mjs"]
 
 const NO_EGRESS_REFUSED = 78;
 const NO_EGRESS_TRIED = "DS_E2E_NOEGRESS_TRIED";
+const NO_EGRESS_STARTED = "DS_E2E_NOEGRESS_STARTED";
 
 function noEgressRefuse(why) {
   process.stderr.write(`🔴 无出口守卫:${why}\n`);
@@ -72,17 +73,43 @@ function enforceNoEgress() {
       noEgressRefuse("unshare -n 用不了(没权限?内核不支持?)⇒ 拒跑");
     }
     // 用 spawnSync 而不是 exec:node 没有 execve。父进程原样透传子进程的退出码/信号。
+    // 🔴 带一个"我真的进去了"的标记文件:探针过(`-- true`)但真自举挂(`-- bash -c …`)时,
+    //    子进程的退出码和"场景自己失败"长得一模一样。没有这个标记就只能裸着退,
+    //    打印 0 行解释 —— 那和本机反复记的"红在没有名字的地方"是同一种病。
+    const started = path.join(os.tmpdir(), `ds-e2e-noegress-${process.pid}.started`);
     const child = spawnSync("unshare",
       ["-n", "--", "bash", "-c", 'ip link set lo up 2>/dev/null || true; exec "$0" "$@"',
        process.execPath, ...process.execArgv, ...process.argv.slice(1)],
-      { stdio: "inherit", env: { ...process.env, [NO_EGRESS_TRIED]: "1" } });
+      { stdio: "inherit",
+        env: { ...process.env, [NO_EGRESS_TRIED]: "1", [NO_EGRESS_STARTED]: started } });
+    let reached = false;
+    try { reached = existsSync(started); rmSync(started, { force: true }); } catch { /* 尽力 */ }
     if (child.error) noEgressRefuse(`起不来隔离子进程:${child.error.message}`);
+    if (!reached) {
+      noEgressRefuse(`unshare 探得过、却没能把场景带进隔离(子进程 rc=${child.status ?? "?"} signal=${child.signal ?? "-"})⇒ 拒跑`);
+    }
     if (child.signal) process.exit(128 + (os.constants.signals[child.signal] || 0));
     process.exit(child.status ?? 1);
   }
 
-  // 隔离成功就摘掉标记:留着会被子进程继承,子进程若回到主命名空间会被误判成"自举失败"。
+  // 进来了就给父进程留个信儿(见上面 !reached 那一支),然后摘掉自举标记:
+  // 标记留着会被子进程继承,子进程若回到主命名空间会被误判成"自举失败"。
+  if (process.env[NO_EGRESS_STARTED]) {
+    try { writeFileSync(process.env[NO_EGRESS_STARTED], "1"); } catch { /* 父进程会当没进去,宁可多喊一声 */ }
+    delete process.env[NO_EGRESS_STARTED];
+  }
   delete process.env[NO_EGRESS_TRIED];
+
+  // 🔴 回环起不来就**响亮地红**,别静默:`ip link set lo up` 失败被 `|| true` 吞掉时,
+  //    3 个 .e2e.py 与绝大多数 .e2e.mjs 都连不上自己起的 ds_web ——
+  //    那会红成"产品坏了"的样子,而这里最清楚真因是什么。
+  //    判法:往 127.0.0.1 的一个铁定没人听的端口连一下 —— 回环活着是"拒绝连接",
+  //    回环没起来是"网络不可达"。两者的 errno 不同,别只看"连不上"。
+  const lo = spawnSync("bash", ["-c", "exec 3<>/dev/tcp/127.0.0.1/1"],
+    { timeout: 3000, encoding: "utf8" });
+  if (/unreachable|不可达/i.test(`${lo.stderr || ""}`)) {
+    noEgressRefuse("进了隔离,但**回环(lo)没起来** ⇒ 自起的 ds_web 一律连不上。这不是产品坏了,是 `ip link set lo up` 没成功");
+  }
 
   // **进来了还要实测一次**:闸没生效却以为生效,比没有闸更糟。
   if (noEgressOpen()) {

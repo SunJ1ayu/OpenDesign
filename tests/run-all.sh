@@ -162,6 +162,13 @@ run_seg "e2e 总跑$([ "$with_gateway" -eq 1 ] && echo '(含 gateway)')" e2e tes
 _l="$LAST_LOG"
 _sum=$(grep -m1 '^== 汇总:' "$_l" | sed 's/^== 汇总://')
 _skp=$(printf '%s' "$_sum" | grep -oE '[0-9]+ SKIP' | awk '{print $1}'); _skp="${_skp:-0}"
+# 浏览器没走正常关闭的次数要进**汇总行**,不能只活在日志里:这一段的输出整段重定向进
+# $log_dir,而全绿/只跳过时 $log_dir 会被删掉 ⇒ 判据替泄漏闸发的那声喊到不了人耳,
+# 等于把报警器的信号吞了(track opendesign-e2e-no-egress-browser-tmp design 风险 5 明令不许)。
+# ⚠️ 这句话必须与 tests/e2e/helpers.mjs 里打印的那句**逐字相同**,分了家就永远数出 0
+#    —— 判据 bt4 钉住两处一致。
+_bn=$(grep -c '浏览器没走正常关闭' "$_l" 2>/dev/null || true); _bn="${_bn:-0}"
+[ "$_bn" -gt 0 ] && _sum="${_sum} / ⚠️ 浏览器收容 ${_bn} 次(已自动收掉,看 e2e 段日志点名)"
 note_last "${_sum:-见日志}" "$_skp"
 
 # ── 汇总 ───────────────────────────────────────────────────────────────
