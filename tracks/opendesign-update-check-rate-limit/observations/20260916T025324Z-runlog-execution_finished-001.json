@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-update-check-rate-limit",
+  "run_id": "20260916T025145Z-01-redcheck-rl5g-table-and-coverage",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "redcheck-rl5g-table-and-coverage",
+  "started_at": "2026-09-16T02:51:45Z",
+  "finished_at": "2026-09-16T02:53:24Z",
+  "duration_ms": 99674,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 0,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

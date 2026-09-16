@@ -9,8 +9,10 @@
 **判据不许有外网出口**:本文件在 setUpModule 里把 DNS 换成"非本机一律拒绝",漏打真网会当场报错而不是悄悄出去。
 """
 import http.client
+import inspect
 import json
 import os
+import re
 import socket
 import ssl
 import sys
@@ -490,59 +492,99 @@ class SecondRoundReviewFindings(unittest.TestCase):
 class BlameIsDecidedInOnePlace(unittest.TestCase):
     """判据 rl5g —— 三轮评审每轮都照出"另一半没修":
     DeepSeek 照出超时 / 断网、我自审照出 `http.client.HTTPException`、Kimi 照出 `UnicodeDecodeError`。
-    病根不是漏了哪一条,是"该怪谁"有**两份平行的类型清单**(`explain` 一份、`check_for_update` 一份),
-    它们注定各自漂移。所以这条判据**不数类型**:凡是 `explain` 自己已经判成"路上的问题"的失败,
-    原因前半句就不许说成这一版发布质量有问题 —— 以后新增一种失败也照样被这条罩住。"""
+    病根不是漏了哪一条,是"该怪谁"有**两份平行的类型清单**(`explain` 一份、`check_for_update` 一份)。
 
-    TRANSPORT_WORDS = ("连不上 GitHub", "返回的内容看不懂",
-                       "限制了这个网络出口的查询次数", "GitHub 拒绝了这次请求")
+    🔴 这条判据自己也改过一次形状(第 4 轮 MiMo 命中):第一版拿**写死的四个人话词**当判据,
+    而 `else` 那支的「出了意外」不在词表里 ⇒ 一旦有人给它加一个走 `else` 的用例,
+    判据会红在**正确的行为**上,接着很可能有人把代码改反。写死的词表是个会漂的东西。
+    现在改成两件事:
+      ① 一张**我判断"该怪谁"**的表(这件事是判断,推导不出来,所以必须写下来);
+      ② 一条**覆盖检查**:`_human_and_blame` 里每一句人话都必须被表里某个用例走到 ——
+         将来加一支新人话、忘了判它该怪谁,这条当场红,而不是等下一轮评审。
+    """
+
+    @staticmethod
+    def _cases():
+        url = ds_update.manifest_url(REPO, "win-installer-0.99.1")
+        T, R = ds_update.BLAME_TRANSPORT, ds_update.BLAME_RELEASE
+        return [
+            (urllib.error.HTTPError(url, 403, "rate limit exceeded", {}, None), T),
+            (urllib.error.HTTPError(url, 403, "Forbidden", {}, None), T),
+            (urllib.error.HTTPError(url, 429, "Too Many Requests", {}, None), T),
+            (urllib.error.HTTPError(url, 500, "Internal Server Error", {}, None), T),
+            # 404 = 线上真没有这个文件(这一版没传清单)⇒ 发布的问题,不是路上的
+            (urllib.error.HTTPError(url, 404, "Not Found", {}, None), R),
+            (urllib.error.URLError("timed out"), T),
+            (socket.timeout("timed out"), T),
+            (ConnectionResetError(), T),
+            (ssl.SSLError("handshake failed"), T),
+            (http.client.BadStatusLine("garbage"), T),
+            (http.client.IncompleteRead(b"x", 10), T),
+            (UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte"), T),
+            (json.JSONDecodeError("Expecting value", "<html>", 0), T),
+            # 清单**拿到了**、但它自己不对 ⇒ 发布的问题(rl7e 同口径)
+            (ds_update.ManifestError("清单里的 sha256 形状不对"), R),
+            (ValueError("订阅源里没有安装包版本"), R),
+            # `else` 那支:分不出来时说"拿不到"更谦虚 —— 它不指着发版说事
+            (RuntimeError("谁知道呢"), T),
+        ]
 
     def _reason_for(self, exc):
         _Sources(self, atom=atom_text(["0.99.1", "0.98.4", "0.98.3"]),
                  manifests={"win-installer-0.99.1": exc}, api=rate_limited())
         return ds_update.check_for_update("0.98.4")["error"]
 
-    def test_rl5g_transport_failures_never_blame_the_release(self):
-        url = ds_update.manifest_url(REPO, "win-installer-0.99.1")
-        cases = [
-            urllib.error.URLError("timed out"),
-            socket.timeout("timed out"),
-            ConnectionResetError(),
-            ssl.SSLError("handshake failed"),
-            http.client.BadStatusLine("garbage"),
-            http.client.IncompleteRead(b"x", 10),
-            UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte"),
-            json.JSONDecodeError("Expecting value", "<html>", 0),
-            urllib.error.HTTPError(url, 403, "rate limit exceeded", {}, None),
-            urllib.error.HTTPError(url, 403, "Forbidden", {}, None),
-            urllib.error.HTTPError(url, 500, "Internal Server Error", {}, None),
-            urllib.error.HTTPError(url, 404, "Not Found", {}, None),
-        ]
-        for exc in cases:
+    def test_rl5g_blame_of_each_failure(self):
+        """① 表:每一种失败该怪谁。这是我的判断,不是从代码推出来的 —— 所以写下来、单独钉。"""
+        for exc, want in self._cases():
             with self.subTest(exc=type(exc).__name__, arg=str(exc)[:24]):
-                detail = ds_update.explain(exc)
-                on_the_way = any(w in detail for w in self.TRANSPORT_WORDS)
+                self.assertEqual(ds_update.blame(exc), want, "%s 判错了该怪谁" % ds_update.explain(exc))
+
+    def test_rl5g_transport_failures_never_blame_the_release(self):
+        """② 端到端:凡"路上的问题",原因前半句不许说成这一版发布质量有问题;反之亦然。"""
+        for exc, want in self._cases():
+            with self.subTest(exc=type(exc).__name__, arg=str(exc)[:24]):
                 error = self._reason_for(exc)
                 self.assertIn("0.99.1", error)
-                if on_the_way:
+                if want == ds_update.BLAME_TRANSPORT:
                     self.assertIn(ds_update.UNREACHABLE_HUMAN, error,
-                                  "explain 判成路上的问题(%s),原因却说成发布质量:%s" % (detail, error))
+                                  "路上的问题(%s),原因却说成发布质量:%s" % (ds_update.explain(exc), error))
                     self.assertNotIn(ds_update.UNVERIFIED_HUMAN, error, error)
                 else:
                     self.assertIn(ds_update.UNVERIFIED_HUMAN, error,
-                                  "explain 没判成路上的问题(%s),原因却说拿不到:%s" % (detail, error))
+                                  "发布的问题(%s),原因却说拿不到:%s" % (ds_update.explain(exc), error))
+                    self.assertNotIn(ds_update.UNREACHABLE_HUMAN, error, error)
 
     def test_rl5g_a_bad_manifest_still_blames_the_release(self):
-        """反面:清单**拿到了**、但它自己不对 ⇒ 仍然是这一版发布的问题(rl7e 同口径,别被上面那条带跑)。"""
+        """反面(走真的 parse_manifest,不是塞异常):清单拿到了但对不上 ⇒ 仍是这一版发布的问题。"""
         _Sources(self, atom=atom_text(["0.99.1", "0.98.4", "0.98.3"]),
                  manifests={"win-installer-0.99.1": manifest(sha256="zz" * 32)}, api=rate_limited())
         error = ds_update.check_for_update("0.98.4")["error"]
         self.assertIn(ds_update.UNVERIFIED_HUMAN, error)
         self.assertNotIn(ds_update.UNREACHABLE_HUMAN, error)
 
+    def test_rl5g_every_human_phrase_in_the_classifier_is_judged(self):
+        """③ 覆盖:分类器里**每一句人话**都要被上面那张表走到。
+
+        这条是替换掉"写死四个词"的那一条(第 4 轮 MiMo 命中原版的裂缝):新增一支人话而不判它该怪谁,
+        在这里当场红 —— 不用等下一轮评审,也不会像词表那样悄悄漏过去。
+        注释里的中文不算(走 AST,注释根本不在树里);docstring 排除。
+        """
+        import ast
+        tree = ast.parse(inspect.getsource(ds_update._human_and_blame).lstrip())
+        fn = tree.body[0]
+        body = fn.body[1:] if (isinstance(fn.body[0], ast.Expr)
+                               and isinstance(fn.body[0].value, ast.Constant)) else fn.body
+        phrases = {node.value for stmt in body for node in ast.walk(stmt)
+                   if isinstance(node, ast.Constant) and isinstance(node.value, str)
+                   and re.search(r"[\u4e00-\u9fff]", node.value)}
+        self.assertTrue(phrases, "一句人话都没抽到 —— 抽取坏了,别当成覆盖全了")
+        said = [ds_update.explain(exc) for exc, _ in self._cases()]
+        missing = sorted(ph for ph in phrases if not any(ph in s for s in said))
+        self.assertEqual(missing, [], "这几句人话没有任何用例走到,也就没人判过它们该怪谁")
+
     def test_rl5g_blame_and_explain_come_from_one_place(self):
         """结构条:`explain` 与 `blame` 必须同出一处 —— 各自一份 isinstance 清单就是本条要防的形状。"""
-        import inspect
         src = inspect.getsource(ds_update)
         self.assertEqual(src.count("def _human_and_blame("), 1)
         for fn in ("def explain(", "def blame("):

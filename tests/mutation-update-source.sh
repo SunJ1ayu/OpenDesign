@@ -255,6 +255,17 @@ mutate h10 .github/scripts/update_e2e_verdict.py $H test_rl12c_any_failing_feed_
   '    failed = lambda s: isinstance(s, int) and s != 200   # noqa: E731' \
   '    failed = lambda s: isinstance(s, int) and s >= 500   # noqa: E731'
 
+mutate r32 bin/ds_update.py $SRC test_rl5g_every_human_phrase_in_the_classifier_is_judged \
+  '    else:
+        # 分不出来的时候说"拿不到"更谦虚:它不指着发版说事
+        human, blamed = "出了意外", BLAME_TRANSPORT' \
+  '    elif isinstance(exc, MemoryError):
+        human, blamed = "内存不够了", BLAME_RELEASE
+    else:
+        human, blamed = "出了意外", BLAME_TRANSPORT'
+mutate r33 bin/ds_update.py $SRC test_rl5g_blame_of_each_failure \
+  '        human, blamed = "出了意外", BLAME_TRANSPORT' \
+  '        human, blamed = "出了意外", BLAME_RELEASE'
 restore
 echo
 dirty=0

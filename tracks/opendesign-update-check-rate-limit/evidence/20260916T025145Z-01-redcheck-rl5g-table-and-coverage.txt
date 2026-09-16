@@ -1,0 +1,15 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-rl5g-table-and-coverage
+cmd:     bash -c bash\ tests/mutation-update-source.sh\ 2\>\&1\ \|\ grep\ -E\ \"r3\[0-3\]\|小结\|BAD\|漏网\|锚点\"
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  6b9d1df
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-16T02:51:45Z
+---------------- 输出开始 ----------------
+  [咬住] r30 → test_rl5g_transport_failures_never_blame_the_release
+  [咬住] r31 → test_rl5g_a_bad_manifest_still_blames_the_release
+  [咬住] r32 → test_rl5g_every_human_phrase_in_the_classifier_is_judged
+  [咬住] r33 → test_rl5g_blame_of_each_failure
+== 红检小结:咬住 48 条 / 漏网 0 条(被测文件已逐字节还原)==
+---------------- 输出结束 ----------------
+runlog: redcheck-rl5g-table-and-coverage rc=0 commit=6b9d1df dirty=yes at=2026-09-16T02:51:45Z file=tracks/opendesign-update-check-rate-limit/evidence/20260916T025145Z-01-redcheck-rl5g-table-and-coverage.txt
