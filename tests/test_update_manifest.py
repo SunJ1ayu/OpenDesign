@@ -74,6 +74,18 @@ class MakeUpdateManifest(unittest.TestCase):
                 self.assertIn("✗", r.stderr)
                 self.assertFalse(os.path.exists(self.out))
 
+    def test_rl10e_a_missing_output_directory_says_so_too(self):
+        """评审(整份 DeepSeek #3):rl10d 的文字写了管三种坏输入,实际只钉了两种 ——
+        把脚本里「输出目录不存在」那一整段删掉,判据照样全绿(红检 n3 只改 isfile(args.exe) 那一行)。
+        分支本身是对的,缺的是防线:这条判据补上第三种。"""
+        out = os.path.join(self.d, "nope", "OpenDesign-update.json")
+        r = subprocess.run([PY, SCRIPT, self.exe, "win-installer-0.99.1", "--notes", self.notes, "--out", out],
+                           capture_output=True, text=True, timeout=60)
+        self.assertNotEqual(r.returncode, 0, "输出目录不存在,却还去生成清单")
+        self.assertNotIn("Traceback", r.stderr, r.stderr)
+        self.assertIn("✗", r.stderr)
+        self.assertFalse(os.path.exists(out))
+
     def test_rl10c_the_product_accepts_what_the_script_writes(self):
         r = self.run_script(self.exe, "win-installer-0.99.1")
         self.assertEqual(r.returncode, 0, r.stderr)

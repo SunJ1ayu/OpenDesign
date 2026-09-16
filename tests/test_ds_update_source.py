@@ -418,5 +418,56 @@ class ProxyIsReadAtRequestTime(unittest.TestCase):
                          "OpenDesign-update.json")
 
 
+class SecondRoundReviewFindings(unittest.TestCase):
+    """第 2 轮评审(增量)成立的几条低,判据先行。前缀仍是 rl。"""
+
+    def test_rl3e_a_sha256_with_a_trailing_newline_is_refused(self):
+        """整份 DeepSeek #1:`\Z` 那一刀只修了一半 —— `_HEX64_RE` 还用 `$`,
+        于是 `"ab…ab\n"` 被清单核对**接受**,`digest` 原样回成 `sha256:<64hex>\n`。
+        今天不炸只是因为下游 `ds_update_apply.parse_digest` 顺手 `.strip()` 了 ——
+        谁把那个 strip 拿掉、或拿 digest 去逐字节比 / 写进文件名,就静默放过一份坏清单。"""
+        with self.assertRaises(ValueError, msg="sha256 末尾带换行,清单核对却收下了"):
+            ds_update.parse_manifest(manifest(sha256=HEX + "\n"), "win-installer-0.99.1", REPO)
+        self.assertIsNone(ds_update._HEX64_RE.match(HEX + "\n"), "_HEX64_RE 的 $ 放过了末尾换行")
+
+    def test_rl7f_weird_headers_do_not_make_explain_throw(self):
+        """整份 DeepSeek #2 + Kimi #2(两家独立命中同一处):`exc.headers` 非 None 又没有 `.get` 时
+        `explain` 自己抛 AttributeError,而它是在 except 分支里被调用的 ⇒ 异常穿出 `check_for_update`,
+        违反它自己「任何异常都不许漏出去」的承诺(界面会落到泛化的「软件后台没响应」)。"""
+        class Weird:
+            pass
+
+        for hdrs in (0, "X-RateLimit-Remaining: 0", Weird(), [("X-RateLimit-Remaining", "0")]):
+            with self.subTest(hdrs=type(hdrs).__name__):
+                exc = urllib.error.HTTPError(ds_update.releases_url(REPO), 403, "Forbidden", hdrs, None)
+                d = ds_update.check_for_update("0.98.4", fetch=lambda e=exc: (_ for _ in ()).throw(e))
+                self.assertFalse(d["update_available"])
+                self.assertTrue(d["error"], d)
+                self.assertIn("403", d["error"])
+
+    def test_rl5e_cannot_reach_the_manifest_is_not_said_as_a_bad_release(self):
+        """整份 DeepSeek #5:清单只是**拉不到**(超时 / 断网)时也照说「新版缺少可核对的安装包信息」——
+        前半句是对这一版发布质量的断言,和括号里的网络原因打架,人会先去怀疑发版而不是网络。
+        清单 404(=这一版真没传清单)仍然该说发布质量那句 —— 见 rl5d / rl7e,两句不许合并。"""
+        for exc in (urllib.error.URLError("timed out"), socket.timeout("timed out"), ConnectionResetError()):
+            with self.subTest(exc=type(exc).__name__):
+                _Sources(self, atom=atom_text(["0.99.1", "0.98.4", "0.98.3"]),
+                         manifests={"win-installer-0.99.1": exc}, api=rate_limited())
+                d = ds_update.check_for_update("0.98.4")
+                self.assertTrue(d["error"])
+                self.assertIn("0.99.1", d["error"])
+                self.assertIn("连不上 GitHub", d["error"])
+                self.assertNotIn("新版缺少可核对的安装包信息", d["error"],
+                                 "只是拉不到,却说成这一版发布质量有问题")
+
+    def test_rl5e_the_version_in_the_reason_is_the_tag_as_published(self):
+        """Kimi #1:原因里的版本号用了补零后的三段值 ⇒ 真 tag `win-installer-1.0` 会被写成「有新版 1.0.0」,
+        而 1.0 正是留给业主拍板的那个号(记忆 opendesign-version-scheme)。发版人照原因去发布页找 1.0.0 找不到。"""
+        _Sources(self, atom=atom_text(["1.0", "0.98.4", "0.98.3"]), manifests={}, api=rate_limited())
+        d = ds_update.check_for_update("0.98.4")
+        self.assertIn("有新版 1.0,", d["error"], d["error"])
+        self.assertNotIn("1.0.0", d["error"], "原因里的版本号不是 tag 原文")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

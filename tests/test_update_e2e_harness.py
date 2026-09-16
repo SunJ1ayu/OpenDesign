@@ -617,6 +617,20 @@ class VVerdictIsABehaviour(unittest.TestCase):
                     self.assertFalse(ok, "%s/%s 应该红却绿了:%s" % (kind, name, text))
                     self.assertTrue(text.startswith("FAIL %s" % kind), text)
 
+    def test_rl12c_any_failing_feed_status_counts_as_the_feed_having_failed(self):
+        """评审(整份 DeepSeek #4):产品在订阅源**任何**失败(404 / 403 / 5xx)时都回落 API,
+        而判定器只认 `status >= 500` ⇒ 真机上产品行为完全正确却判红
+        (`the release feed never failed first`)。替身今天固定回 503 所以还没误报过,
+        换个状态码或换一种坏法就误。200 仍然不许算失败 —— 那条反例(feed did not actually fail)守着。"""
+        for status in (403, 404, 429, 500, 503):
+            with self.subTest(status=status):
+                f = _base("e8")
+                f["fake_log"] = [{"kind": "atom", "status": status},
+                                 {"kind": "releases", "status": 200},
+                                 {"kind": "download", "mode": "normal"}]
+                ok, text = V.KINDS["e8"](f)
+                self.assertTrue(ok, "订阅源以 %s 挂掉、产品照样靠 API 更新成功,判定器却红了:%s" % (status, text))
+
     def test_v3_every_scenario_has_breaks(self):
         self.assertEqual(set(BREAKS), set(V.KINDS))
 
