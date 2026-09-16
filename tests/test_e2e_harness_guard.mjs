@@ -248,6 +248,68 @@ test("bt1 浏览器没走正常关闭(开着就退出 / 主进程被硬杀):外�
   }
 });
 
+// ── 第 1 轮评审(subdeepseek,2026-09-16)三条成立发现补的判据 ──────────────
+
+test("ne9 回环起不来不许静默:假 ip 让 lo 起不来 ⇒ 打守卫横幅并拒跑(别红成「产品坏了」的样子)", () => {
+  // 🔴 由来:守卫自举时 `ip link set lo up 2>/dev/null || true` 把失败吞了。
+  // 吞掉的后果不是边角:3 个 .e2e.py 和绝大多数 .e2e.mjs 都要自起 ds_web 走 127.0.0.1,
+  // lo 没起来它们全部 ENETUNREACH ⇒ 红在"连不上自己的服务"上,而那和"产品坏了"长得一模一样。
+  // design.md 风险 4 写的是"响亮地红,不静默" —— 这条判据钉的就是那句话。
+  const d = tmp("ds-guardtest-ne9-"), fb = tmp("ds-guardtest-ne9-fakebin-");
+  try {
+    const fake = path.join(fb, "ip");
+    writeFileSync(fake, "#!/bin/sh\nexit 1\n");
+    chmodSync(fake, 0o755);
+    const marker = path.join(d, "marker"), facts = path.join(d, "facts.json");
+    const file = scenario(d, "probe.e2e.mjs", FACTS_BODY);
+    const r = run(process.execPath, [file], {
+      env: { GUARD_MARKER: marker, GUARD_FACTS: facts, PATH: `${fb}:${process.env.PATH}` },
+    });
+    assert.equal(r.status, 78, `lo 起不来却照跑:rc=${r.status}\n${r.stderr}`);
+    assert.match(r.stderr, /无出口守卫/, "红了,但没说是守卫的事 —— 下一个人会去查产品");
+    assert.match(r.stderr, /回环/, "没点明是回环(lo)起不来");
+    assert.equal(markerCount(marker), 0, "回环坏了还把场景跑了");
+  } finally { rmSync(d, { recursive: true, force: true }); rmSync(fb, { recursive: true, force: true }); }
+});
+
+test("ne10 探针过了但自举失败 ⇒ 仍要打横幅,不许裸着退出", () => {
+  // 🔴 由来:探针用 `unshare -n -- true`,真自举用 `unshare -n -- bash -c …`。
+  // 只有探针那一支有横幅;探针过、真自举挂时打印 0 行解释、rc 是个裸数字。
+  const d = tmp("ds-guardtest-ne10-"), fb = tmp("ds-guardtest-ne10-fakebin-");
+  try {
+    const fake = path.join(fb, "unshare");
+    // 探针(`-- true`)放行,真自举(`-- bash`)失败 —— 精确模拟"探得过、跑不动"。
+    writeFileSync(fake, '#!/bin/sh\nfor a in "$@"; do [ "$a" = "true" ] && exec /usr/bin/env true; done\nexit 3\n');
+    chmodSync(fake, 0o755);
+    const marker = path.join(d, "marker"), facts = path.join(d, "facts.json");
+    const file = scenario(d, "probe.e2e.mjs", FACTS_BODY);
+    const r = run(process.execPath, [file], {
+      env: { GUARD_MARKER: marker, GUARD_FACTS: facts, PATH: `${fb}:${process.env.PATH}` },
+    });
+    assert.match(r.stderr, /无出口守卫/, `自举失败却一句解释都没有:rc=${r.status}\n${r.stderr}`);
+    assert.equal(markerCount(marker), 0, "自举失败还把场景跑了");
+  } finally { rmSync(d, { recursive: true, force: true }); rmSync(fb, { recursive: true, force: true }); }
+});
+
+test("bt4 点名必须到得了人眼:全量总跑的汇总行带浏览器收容计数,且两处用的是同一句话", () => {
+  // 🔴 由来:tests/e2e/run-all.sh 把点名打在自己的 stdout 上,而 tests/run-all.sh 把 e2e 那段
+  // 整段重定向进日志、绿了就把日志删掉 ⇒ **主场路径上这声喊到不了人耳**。
+  // design.md 风险 5 说得很明白:悄悄收掉等于把泄漏闸的信号吞了。这条钉两件事:
+  //   ① 外层汇总真的去数它;② 数的那句话与 helpers 打印的那句**逐字相同**(两处分家就永远数出 0)。
+  const MARK = "浏览器没走正常关闭";
+  const helpers = readFileSync(path.join(E2E_DIR, "helpers.mjs"), "utf8");
+  assert.ok(helpers.includes(MARK), `helpers.mjs 里没有这句话:${MARK}`);
+  const outer = readFileSync(path.join(REPO, "tests", "run-all.sh"), "utf8");
+  assert.ok(outer.includes(MARK),
+    "tests/run-all.sh 没有去数这句话 ⇒ 全量总跑绿的时候,浏览器没关干净这件事谁也看不见");
+  // 数出来的东西要真的进汇总行(note_last),不是打在会被删掉的日志里。
+  const seg = outer.slice(outer.indexOf("⑥ e2e 总跑"));
+  const noteCall = seg.indexOf("note_last");
+  const markUse = seg.indexOf(MARK);
+  assert.ok(markUse >= 0 && markUse < noteCall,
+    "数是数了,但没喂给 note_last ⇒ 它还是只活在会被删掉的日志里");
+});
+
 test("bt2 正常 close 后退出:外层 TMPDIR 剩 0 个、不点名(防误报)", () => {
   const d = tmp("ds-guardtest-bt2-"), outer = tmp("ds-guardtest-bt2-tmp-");
   try {
