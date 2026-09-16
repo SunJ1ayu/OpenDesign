@@ -460,6 +460,22 @@ class SecondRoundReviewFindings(unittest.TestCase):
                 self.assertNotIn("新版缺少可核对的安装包信息", d["error"],
                                  "只是拉不到,却说成这一版发布质量有问题")
 
+    def test_rl5e_garbled_http_while_fetching_the_manifest_is_not_said_as_a_bad_release(self):
+        """我自审补的(第 3 轮派发之前):`http.client.HTTPException`(BadStatusLine / IncompleteRead ——
+        代理或门户把清单换成一堆垃圾)**不是** OSError 子类 ⇒ 落进"发布质量"那句。
+        和 DeepSeek 那条(超时/断网)是同一个毛病:我只修了一半。中间盒弄坏的东西不许指着发版说。"""
+        import http.client
+        for exc in (http.client.BadStatusLine("garbage"), http.client.IncompleteRead(b"x", 10)):
+            with self.subTest(exc=type(exc).__name__):
+                _Sources(self, atom=atom_text(["0.99.1", "0.98.4", "0.98.3"]),
+                         manifests={"win-installer-0.99.1": exc}, api=rate_limited())
+                d = ds_update.check_for_update("0.98.4")
+                self.assertTrue(d["error"])
+                self.assertIn("0.99.1", d["error"])
+                self.assertIn("返回的内容看不懂", d["error"])
+                self.assertNotIn("新版缺少可核对的安装包信息", d["error"],
+                                 "中间盒把清单换成了垃圾,却说成这一版发布质量有问题")
+
     def test_rl5e_the_version_in_the_reason_is_the_tag_as_published(self):
         """Kimi #1:原因里的版本号用了补零后的三段值 ⇒ 真 tag `win-installer-1.0` 会被写成「有新版 1.0.0」,
         而 1.0 正是留给业主拍板的那个号(记忆 opendesign-version-scheme)。发版人照原因去发布页找 1.0.0 找不到。"""
