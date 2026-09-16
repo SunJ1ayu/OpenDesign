@@ -16,8 +16,8 @@
     }
   },
   "execution_plan": {
-    "adapter": null,
-    "model": null
+    "adapter": "main",
+    "model": "claude-opus-5"
   },
   "outcome": {
     "verdict": null
