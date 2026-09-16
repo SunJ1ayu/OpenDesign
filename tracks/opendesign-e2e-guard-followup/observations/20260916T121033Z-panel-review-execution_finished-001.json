@@ -1,0 +1,136 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-e2e-guard-followup",
+  "run_id": "20260916-195119-2420417-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-e2e-guard-followup-review-r2",
+  "started_at": "2026-09-16T11:51:19Z",
+  "finished_at": "2026-09-16T12:10:33Z",
+  "duration_ms": 1153794,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "subdeepseek-agent",
+        "degraded": false,
+        "duration_ms": 338332,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:4fa8c438e7825cc48bb3e510c1c6fe4437f3581bc92a0d486a605030daa61c7c",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-e2e-guard-followup-review-r2-20260916-2005.subdeepseek.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "deepseek",
+        "model": {
+          "invoked": "deepseek-flash",
+          "reported": null,
+          "requested": "deepseek-flash"
+        },
+        "name": "subdeepseek",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260916-195119-2420417-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:73bf038e82f561a4b43548d00f72e09be8e3cf357ba76e2e85bc718d628b5c57",
+            "policy_version": 1,
+            "track": "opendesign-e2e-guard-followup"
+          },
+          "digest": "sha256:9d8ec741763f40aaad55a60e106b521d1a308cdb8d5da94baecb99f986c9a5ae",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "1eeec3c1383abf85ecd55ffe8dd69b010456ba39",
+            "index_tree_oid": "d79d5e882182fa737228e0869909aaf9a4b8d16b",
+            "worktree_tree_oid": "d79d5e882182fa737228e0869909aaf9a4b8d16b"
+          },
+          "task_sha256": "sha256:9403095d74b6ee4b31b17898036c1b8e522632df96cbffe273fff4cd550f6d54"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "api",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subkimi",
+        "degraded": false,
+        "duration_ms": 1142557,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:82c56f22f5e0cd1eb3943ce75c54d3c288609426b77523f296ebabec37495d4b",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-e2e-guard-followup-review-r2-20260916-2005.subkimi.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "moonshot",
+        "model": {
+          "invoked": "kimi-code/kimi-for-coding",
+          "reported": null,
+          "requested": "kimi-code/kimi-for-coding"
+        },
+        "name": "subkimi",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260916-195119-2420417-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:73bf038e82f561a4b43548d00f72e09be8e3cf357ba76e2e85bc718d628b5c57",
+            "policy_version": 1,
+            "track": "opendesign-e2e-guard-followup"
+          },
+          "digest": "sha256:9d8ec741763f40aaad55a60e106b521d1a308cdb8d5da94baecb99f986c9a5ae",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "1eeec3c1383abf85ecd55ffe8dd69b010456ba39",
+            "index_tree_oid": "d79d5e882182fa737228e0869909aaf9a4b8d16b",
+            "worktree_tree_oid": "d79d5e882182fa737228e0869909aaf9a4b8d16b"
+          },
+          "task_sha256": "sha256:9403095d74b6ee4b31b17898036c1b8e522632df96cbffe273fff4cd550f6d54"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

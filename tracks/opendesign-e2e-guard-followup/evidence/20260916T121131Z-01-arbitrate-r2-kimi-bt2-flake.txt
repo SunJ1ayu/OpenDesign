@@ -1,0 +1,47 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    arbitrate-r2-kimi-bt2-flake
+cmd:     bash -c $'\none() { out=$(node --test --test-name-pattern="^bt2 " tests/test_e2e_harness_guard.mjs 2>&1); if printf "%s" "$out" | grep -q "^# fail 0"; then echo "  run $1: 绿"; else echo "  run $1: 红 —— $(printf "%s" "$out" | grep -o "浏览器没走正常关闭[^—]*" | head -1)"; fi; }\necho "== A. 空闲机器,串行 20 次"; for i in $(seq 1 20); do one A$i; done\necho "== B. 三个并发(模拟评审腿同时在跑浏览器判据),5 组 × 3 = 15 次"; for g in 1 2 3 4 5; do one B$g.1 & one B$g.2 & one B$g.3 & wait; done\n'
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  1eeec3c
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-16T12:11:31Z
+---------------- 输出开始 ----------------
+== A. 空闲机器,串行 20 次
+  run A1: 绿
+  run A2: 绿
+  run A3: 绿
+  run A4: 绿
+  run A5: 绿
+  run A6: 绿
+  run A7: 绿
+  run A8: 绿
+  run A9: 绿
+  run A10: 绿
+  run A11: 绿
+  run A12: 绿
+  run A13: 绿
+  run A14: 绿
+  run A15: 绿
+  run A16: 绿
+  run A17: 绿
+  run A18: 绿
+  run A19: 绿
+  run A20: 绿
+== B. 三个并发(模拟评审腿同时在跑浏览器判据),5 组 × 3 = 15 次
+  run B1.2: 绿
+  run B1.3: 绿
+  run B1.1: 绿
+  run B2.3: 绿
+  run B2.2: 绿
+  run B2.1: 绿
+  run B3.2: 绿
+  run B3.1: 绿
+  run B3.3: 绿
+  run B4.1: 绿
+  run B4.3: 绿
+  run B4.2: 绿
+  run B5.2: 绿
+  run B5.3: 绿
+  run B5.1: 绿
+---------------- 输出结束 ----------------
+runlog: arbitrate-r2-kimi-bt2-flake rc=0 commit=1eeec3c dirty=yes at=2026-09-16T12:11:31Z file=tracks/opendesign-e2e-guard-followup/evidence/20260916T121131Z-01-arbitrate-r2-kimi-bt2-flake.txt

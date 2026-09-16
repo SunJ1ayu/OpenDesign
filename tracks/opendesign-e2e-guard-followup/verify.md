@@ -65,6 +65,12 @@ rc=3 = 「没有红的,但有 3 条没跑」:两条要活网关的 e2e(默认跑
 runlog: outer-run-final-clean rc=3 commit=d6ee329 dirty=yes at=2026-09-16T11:27:09Z file=tracks/opendesign-e2e-guard-followup/evidence/20260916T112709Z-01-outer-run-final-clean.txt
 ```
 
+第 2 轮仲裁探针(Kimi 报的 bt2 偶发误点名):单跑 bt2 空闲串行 20 次 + 三并发 15 次,**35 次全绿**(不是代码改动后的回归跑,是量发生率):
+
+```
+runlog: arbitrate-r2-kimi-bt2-flake rc=0 commit=1eeec3c dirty=yes at=2026-09-16T12:11:31Z file=tracks/opendesign-e2e-guard-followup/evidence/20260916T121131Z-01-arbitrate-r2-kimi-bt2-flake.txt
+```
+
 - ⚠️ `evidence/20260916T095817Z-01-outer-run-final-clean.txt` 是**断线砍掉的半截**(09-16 17:58 起跑,18:06 会话断线,
   后台任务被杀):只有收据头、**没有任何输出也没有收据行** ⇒ 它**不证明任何事**,归档闸也看不见它(闸只认带 `runlog:` 行的收据)。
   保留不删;同 slug 的那次重跑是脱离会话进程树起的(`setsid -f`,核过 ppid=1),就是上面那份。
@@ -79,12 +85,19 @@ runlog: outer-run-final-clean rc=3 commit=d6ee329 dirty=yes at=2026-09-16T11:27:
     仓外照 bt4 的桩逐字搭纯 bash 变异 [仓外不承重]:export 挪出 ⑥ 段 ⇒ `set -u` 下 unbound variable rc=127 ⇒ bt4 红;
     读侧再改成 `${E2E_BROWSER_NOTES:-}` ⇒ 汇总里没有「浏览器收容」⇒ bt4 红。仓内 `mutate-bt4.sh` 第一种变异本来就红过。
     派发前已把题面里这句错话改掉,没喂给腿。
-- 腿的花名册:
+- 腿的花名册(第 1 轮):
   `submimo=PASS(verdict=PASS) subdeepseek=PASS(verdict=PASS) subglm=SKIP(health:cooldown:rate_limit) subkimi=SKIP(rotation) subgemini=SKIP(health:dead:FAIL:6) subgrok=SKIP(rotation)`
   (`/root/aiwork/logs/panel-opendesign-e2e-guard-followup-review-r1-20260916-1940.roster`;impact high、budget 2、escalation none、snapshot head `d6ee329`;
   派发前 `PANEL_ORACLE_CMD='node --test tests/test_e2e_harness_guard.mjs'` rc=0)
+- 腿的花名册(第 2 轮):
+  `submimo=SKIP(rotation) subdeepseek=PASS(verdict=PASS) subglm=SKIP(health:cooldown:rate_limit) subkimi=PASS(verdict=PASS) subgemini=SKIP(health:dead:FAIL:6) subgrok=SKIP(rotation)`
+  (`/root/aiwork/logs/panel-opendesign-e2e-guard-followup-review-r2-20260916-2005.roster`;日志前缀里的 2005 是我起名时猜的时刻,实际 19:51 派发;
+  派发前 oracle rc=0;轮次读数「第 2 轮 / tests/=0 tracks/=12 其它=0」)
 - 反锚定:派发时报 `anchor leak: tracks/opendesign-e2e-guard-followup/verify.md`。那一刻它是**未填的模板**(本文件是两腿交卷后才写的),
   自审正本在仓外 ⇒ 没有结论泄漏。如实记账。
+  **第 2 轮是真泄漏了**:派发时 verify.md 已写着第 1 轮仲裁(`ce487ed`),DeepSeek 日志里先 `cat` 了它才去跑判据,Kimi 的结论引用了「已记账清单」。
+  题面让它们先读代码再看它。两腿仍各自挖出了清单外的新东西(下面 9~12),独立性没有全丢,但**不是干净的独立评审**。
+  我自己的第 2 轮自审也不是「读腿之前」的(第 1 轮两份报告我已经读过),同样如实记账。
 - findings(逐条对代码/探针核过;接受/驳回都给依据):
   1. **[DeepSeek,Low,成立 —— 记账不修] 回环检查会被 `NODE_OPTIONS` 污染 stdout 而放行**,且这是本单新引入的(旧实现走 bash,不吃 NODE_OPTIONS)。
      我亲自复现:`unshare -n` 里(lo 没起)照 `helpers.mjs` 原样起子进程,干净环境 stdout=`ENETUNREACH` ⇒ 拒跑;
@@ -113,12 +126,36 @@ runlog: outer-run-final-clean rc=3 commit=d6ee329 dirty=yes at=2026-09-16T11:27:
   8. **[两腿一致,核过] 夹具改短不是放水**:只动了 `outer = tmp(...)` 前缀,断言逐行未变(我与 DeepSeek 各自 `git diff` 核过)。
      我补一层两腿都没说到的:**bt3 那一处是必须改的** —— bt3 只断言「rc=0 + 不留 ds-e2e-browser-*」,不改短时在泄漏闸下 119 > 107,
      bt6 的新检查先抛「TMPDIR 太深」⇒ bt3 **照样绿、却根本没走到假 chrome 启动失败的收尾路径**,那才是假绿。
+  —— 第 2 轮(为什么有第 2 轮:见下面「轮次」)——
+  9. **[Kimi,Low,成立 —— 既有、记账,下一单优先] 浏览器正常关闭后,偶发被误点名「没走正常关闭」**(`tests/e2e/helpers.mjs:182-193` 的退出钩)。
+     Kimi 日志里是真输出、不是转述:两次分别留下 `.org.chromium.Chromium.XDIGDd` / `.VeQ3Ym`(**带前导点**,
+     和活的 socket 目录 `org.chromium.Chromium.*` 不是同一个)⇒ bt2 红。我量发生率:同一台机器空闲 20 次 + 三并发 15 次,**0/35**
+     (收据 `arbitrate-r2-kimi-bt2-flake`)⇒ 真实但罕见,Kimi 那次是和 DeepSeek 同时跑真 chromium 实验的高负载下。
+     Kimi 说「业主机绿、它的沙箱慢」**说错了**:它的沙箱就在这台机器上,差别是负载不是机器。
+     **在业主那边长成什么样:什么都没有**。在下一个看总跑的人那边:机器忙时汇总行可能冒出一句「浏览器收容 1 次:某条」而那条其实关得好好的
+     —— 本单恰恰把名字提到了汇总行上,**误报会被放大**,所以排进下一单第一优先(退出钩对带点目录给一个短暂宽限,或只认 socket 目录)。
+     不是本单引入(退出钩与 bt2 都是上一单的),不是假绿(是假红/误报),轮次已满 ⇒ 按 4b②③ 记账。
+  10. **[DeepSeek,Low,成立 —— 记账] bt5 问不到「赋值但不 export」**:核过 `tests/test_e2e_harness_guard.mjs:401` 在同一个 shell 里打印变量,
+      而 `: "${X:=v}"` 子进程看不到(我亲跑 `same-shell=v child=<空>`)。后果只在**单跑内层**时:helpers 拿不到点名簿路径 ⇒ 点名块静默不打印
+      (每条 e2e 自己的 stderr 那一行还在)。外层总跑不受影响(外层 export 过的变量传进来本来就是导出的)。业主侧零影响。
+  11. **[DeepSeek,Low,成立 —— 记账] bt4 的桩把 `note_last` 建模成写文件,真的是往数组追加**:核过真函数 `tests/run-all.sh:90` `notes+=(…)`,
+      桩 `tests/test_e2e_harness_guard.mjs:354` 写文件 ⇒ 把真调用挪进子 shell(数组丢失)bt4 照绿。现状对:最终干净真跑的汇总表里 e2e 那一行在。
+      和 finding 4 同一类 —— 「判据桩掉了哪一截,哪一截就只有一次性真跑在证明」;三条(4/10/11)在下一单一起补。
+  12. **[DeepSeek,Info,记账] bt5 第一半对「整行删掉」是恒真的**(父进程 env 里已经塞了路径),由第二半兜住,合起来覆盖还在。
+  另:两腿都独立复现了 107 边界(Kimi 61/62 过 63 崩;DeepSeek 107 过 108 崩)与 `SOCKET_TAIL`=45、socket 目录无前导点;
+  DeepSeek 独立复现了 bt3 在长夹具名下是假绿(finding 8 我那一层),以及 NODE_OPTIONS 放行(finding 1,另补一型:`--bogus-flag` 让子进程直接死 ⇒ 也放行)。
 - arbitrated verdict (主裁): **PASS**。
   本单要交付的四件(名字进汇总行且计数对 / 回环读 errno / python 回环有判据 / README)加中途发现 ⑤,
   都有「先红后绿 + 红检 + 变异」的机器证据,最终 HEAD 外层真跑全绿,接缝由注入收据真跑证明且其后脚本未变。
   两腿 PASS 不是我判 PASS 的理由:我独立读了全部代码 diff、复现了唯一一条「本单引入的退步」(finding 1)并按 4b② 判定它不值得返工。
-  轮次:第 1 轮 / 上限 2 轮,没开第 2 轮(没有值得返工的发现,且上面的记录都落在豁免清单内,不作废本轮绑定)。
+  **轮次:2 / 上限 2,用满。** 第 1 轮本来就该收口 —— 是 `track archive` 的证据寿命闸拦在 `design.md:49` 的 `/tmp/ds-leakprobe-XXXXXX` [仓外不承重]
+  (命名样式,不是证据),唯一出路是在那一行标 `[仓外不承重]`,而 design.md **不在**交付指纹豁免清单里 ⇒ 实测
+  `track-record validate --phase archive` BLOCK `review_delivery` ⇒ 按 4b① 「已经非改不可 ⇒ 认了、重跑一轮」(`1eeec3c`)。
+  **根因是我派第 1 轮之前没有预跑一次 `track archive`**,这个坑以前记过。第 2 轮的代码零改动(读数 其它=0),两腿仍 PASS,
+  新发现 9~12 都不属于「业主可见行为出错 / 考卷假绿」⇒ 记账,裁决不变。
 
 ## Accepted deviations
 
-- finding 1 / 3 / 4 / 5 / 6 均为判据侧工具的诊断强度问题,业主侧零影响,排进下一单(优先 4 —— 唯一静默的缝,其次 1 —— 本单引入的退步)。
+- finding 1 / 3 / 4 / 5 / 6 / 9 / 10 / 11 / 12 均为判据侧工具的问题,业主侧零影响,排进下一单。优先级:
+  ① **9** 误点名(本单把名字提上汇总行,误报被放大);② **4 + 10 + 11** 「名字静默丢失」判据问不住的三处,一起补;
+  ③ **1** 回环检查 fail-open(本单引入的退步,顺手查 `lo.error`);④ 3 / 5 / 6 / 12。
