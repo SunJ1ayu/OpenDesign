@@ -46,7 +46,7 @@
   报错都是 `browserType.launch: Target page, context or browser has been closed`。单跑全绿。
 - 根因(确定性实验,只改 TMPDIR 长度):Chromium 在它的 TMPDIR 里建 `org.chromium.Chromium.XXXXXX/SingletonSocket`,
   Unix socket 路径上限 **107 字符**;实测 107 过、108 崩。`launchBrowser` 再套一层 `ds-e2e-browser-XXXXXX`
-  ⇒ 外层 TMPDIR 超过 40 字符就崩。外层总跑里泄漏闸把 TMPDIR 设成 `/tmp/ds-leakprobe-XXXXXX`(24),
+  ⇒ 外层 TMPDIR 超过 40 字符就崩。外层总跑里泄漏闸把 TMPDIR 设成 `/tmp/ds-leakprobe-XXXXXX`(24)(这是泄漏闸临时目录的命名样式,不是证据地址 [仓外不承重]),
   判据再套一层 `ds-guardtest-bt1-tmp-XXXXXX` ⇒ 24+28+22+45 = **119**。真 e2e 段只有 24+22+45 = 91,所以没事。
 - ⇒ **bt1/bt2 自上一单起在全量总跑里一直是红的**;上一单从没真跑过外层,所以没人看见。
 - 红了先问是不是真 bug:**一半是**。
