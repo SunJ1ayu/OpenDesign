@@ -121,7 +121,10 @@ class UpdateCheckEndpoint(unittest.TestCase):
         self.assertEqual(st, 200)
         self.assertEqual(
             set(body), {"current", "update_available", "latest", "asset", "notes", "error",
-                        "release_url"},   # release_url 是评审 F1 加的:地址由 GitHub 给,不许界面自己拼
+                        "release_url",   # release_url 是评审 F1 加的:地址由 GitHub 给,不许界面自己拼
+                        # auto_update 是我们自己算的「这次能不能倒计时自动更新」,不是 GitHub 的字段
+                        # (track opendesign-auto-update-countdown,判据 au1~au12)
+                        "auto_update"},
             f"端点吐出来的字段和约定的不一样:{sorted(body)} —— "
             "多出来的字段意味着把 GitHub 的原始响应往界面上漏")
         self.assertEqual(body["current"], ds_web.VERSION,

@@ -323,6 +323,47 @@ class H7ScriptRunsBothSources(unittest.TestCase):
         self.assertIn("'e8'", m.group(1))
 
 
+class H8AutoUpdateRecordIsResetPerScenario(unittest.TestCase):
+    """aw4(track opendesign-auto-update-countdown):脚本那半本机能判的部分。
+
+    e5 会把新版号记进「自动试过」的账。场景复位不清它 ⇒ 排在后面的 e1/e8/e6 的 aw1 会红在**考卷自己身上**;
+    清的路径和产品写的路径对不上 ⇒ 同一个结果。路径以 tests/test_ds_web_auto_update.py 的 RECORD_NAME 为准。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        with open(PS1, encoding="utf-8") as fh:
+            cls.ps1 = fh.read()
+
+    def _function(self, name):
+        m = re.search(r"^function %s\b.*?^}" % re.escape(name), self.ps1, re.S | re.M)
+        self.assertIsNotNone(m, "脚本里找不到函数 %s" % name)
+        return m.group(0)
+
+    def test_h8a_record_path_is_the_one_the_product_writes(self):
+        sys.path.insert(0, os.path.join(ROOT, "tests"))
+        import test_ds_web_auto_update as A   # noqa: E402
+        m = re.search(r'^\$AutoRecord\s*=\s*"\$DataRoot\\Logs\\([^"\\]+)"\s*$', self.ps1, re.M)
+        self.assertIsNotNone(m, "脚本里没有 $AutoRecord = \"$DataRoot\\Logs\\<名字>\"")
+        self.assertEqual(m.group(1), A.RECORD_NAME)
+
+    def test_h8b_reset_clears_the_record_before_reinstalling(self):
+        body = self._function("Reset-Old")
+        rm = body.find("Remove-Item -LiteralPath $AutoRecord")
+        self.assertGreaterEqual(rm, 0, "Reset-Old 没清自动更新记账")
+        self.assertLess(rm, body.find("Start-Process -FilePath $OldSetup"), "清账要在装旧版、拉起旧版之前")
+        self.assertIn("if (Test-Path -LiteralPath $AutoRecord) { throw", body, "清不掉要当场炸,不许带着旧账往下跑")
+
+    def test_h8c_e5_starts_automatic_and_asks_again_after_rollback(self):
+        body = self._function("Run-Rollback")
+        self.assertRegex(body, r"\$f\.apply_body = if \(\$Kind -eq 'e5'\) \{ \$AutoBody \}")
+        self.assertIn("$f.apply = Invoke-Apply $port $f.apply_body", body)
+        after = body.find("$f.apply_auto_again = Invoke-Apply $p2 $AutoBody")
+        self.assertGreater(after, body.find("Wait-Job $job"), "回滚后的再次自动请求要在注入线程收掉之后")
+        self.assertIn("$f.check_after = Invoke-Check $p2", body)
+        self.assertRegex(self.ps1, r"(?m)^\$AutoBody = '\{\"auto\": true\}'\s*$")
+
+
 class H5ManifestSkipsOnlyPycache(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
@@ -414,10 +455,17 @@ def _base(kind):
         if kind == "e5":
             f["inject"]["version"] = "0.0.1"
             f["seen_versions"] = ["0.0.1", OLD]
+            # track opendesign-auto-update-countdown(aw2/aw3):e5 由自动那条路发起,回滚之后不许再自动试
+            f["apply_body"] = '{"auto": true}'
+            f["check_after"] = {"update_available": True, "latest": NEW, "error": None,
+                                "auto_update": {"eligible": False, "why_not": "attempted"}}
+            f["apply_auto_again"] = {"ok": False, "stage": "auto_skipped", "error": "attempted"}
     elif kind in ("e1", "e6", "e8"):
         f.update(apply=started, relay=relay, health_after={"port": 8766, "version": NEW},
                  live_version_after=NEW, old_exists=False, new_exists=False, window=copy.deepcopy(REAL_WINDOW),
                  health_final={"port": 8766, "version": NEW})
+        # aw1(track opendesign-auto-update-countdown):装出来的真桌面版里,倒计时的条件必须真的成立
+        f["check"]["auto_update"] = {"eligible": True, "why_not": None}
         if kind == "e6":
             f["pointers"] = _pointers_at(SPACED_LIVE)
     elif kind == "e7":
@@ -467,6 +515,13 @@ COMMON_BREAKS = {
     "pointers fact missing": _drop("pointers"),
 }
 
+# aw1(track opendesign-auto-update-countdown):e1/e6/e8 共用
+AUTO_ELIGIBLE_BREAKS = {
+    "auto update not eligible in the real app (countdown would never show)": _set("check.auto_update.eligible", False),
+    "auto update eligible as a string": _set("check.auto_update.eligible", "true"),
+    "auto_update missing from the real check": lambda f: f["check"].pop("auto_update"),
+}
+
 BREAKS = {
     "e2": {
         "update accepted": _set("apply", {"ok": True, "stage": "started"}),
@@ -512,6 +567,15 @@ BREAKS = {
         "bad new still answering": _set("health_after", {"port": 8766, "version": "0.0.1"}),
         "live tree not restored": _set("live_after", "d2"),
         ".old left": _set("old_exists", True),
+        # aw2 / aw3(track opendesign-auto-update-countdown)
+        "started by the manual button, not the countdown (untested)": _set("apply_body", "{}"),
+        "auto body is a string true (untested)": _set("apply_body", '{"auto": "true"}'),
+        "apply body not json": _set("apply_body", "auto"),
+        "still eligible after rollback (loop)": _set("check_after.auto_update", {"eligible": True, "why_not": None}),
+        "not eligible for another reason": _set("check_after.auto_update.why_not", "no_shell"),
+        "check after rollback failed": _set("check_after", {"_error": "timeout"}),
+        "second auto update started again": _set("apply_auto_again", {"ok": True, "stage": "started", "error": None}),
+        "second auto update merely busy": _set("apply_auto_again", {"ok": False, "stage": "busy", "error": "x"}),
     },
     "e6": {
         "install path has no space (scenario untested)": _set("pointers", copy.deepcopy(POINTERS)),
@@ -609,7 +673,8 @@ class VVerdictIsABehaviour(unittest.TestCase):
             common = [(n, m) for n, m in COMMON_BREAKS.items()
                       if not (kind in self.NO_STAND_IN and n in self.STAND_IN_BREAKS)]
             feed = list(FEED_BREAKS.items()) if _base(kind).get("source") == "feed" else []
-            for name, mutate in common + feed + list(breaks.items()):
+            auto = list(AUTO_ELIGIBLE_BREAKS.items()) if kind in ("e1", "e6", "e8") else []
+            for name, mutate in common + feed + auto + list(breaks.items()):
                 with self.subTest(kind=kind, brk=name):
                     f = _base(kind)
                     mutate(f)

@@ -245,6 +245,35 @@ def verdict_e3(raw):
                    "relay gave up without renaming, .new removed, old relaunches (auto-reopened: %s)" % auto)
 
 
+def _auto_update_eligible(f, problems):
+    """aw1(track opendesign-auto-update-countdown):**装出来的真桌面版**里,更新前那次查更新必须说 eligible。
+
+    Linux 上的判据全在替身环境里跑(假的安装根、假的外壳锁端口)。`no_shell` / `not_installed` /
+    `path_unsupported` 任何一条在真机上误判成立,倒计时就**永远不出现** —— 而其余判据全绿。这里是唯一问得到的地方。
+    """
+    auto = (f.get("check") or {}).get("auto_update")
+    if not isinstance(auto, dict) or auto.get("eligible") is not True:
+        problems.append("auto update not eligible in a real installed desktop app (auto_update=%r)" % (auto,))
+
+
+def _auto_not_retried(f, problems):
+    """aw2 / aw3:e5 由自动那条路发起;回滚、旧版被重新拉起之后,这个版本不许再自动试。"""
+    try:
+        body = json.loads(f.get("apply_body") or "null")
+    except ValueError:
+        body = None
+    if not isinstance(body, dict) or body.get("auto") is not True:
+        problems.append("setup: e5 was not started as an automatic update (body=%r), scenario untested"
+                        % (f.get("apply_body"),))
+    auto = (f.get("check_after") or {}).get("auto_update")
+    if not isinstance(auto, dict) or auto.get("eligible") is not False or auto.get("why_not") != "attempted":
+        problems.append("after rollback the same version is still offered for auto update (auto_update=%r)" % (auto,))
+    again = f.get("apply_auto_again") or {}
+    if again.get("stage") != "auto_skipped":
+        problems.append("after rollback a second automatic update was not refused (ok=%r stage=%r)"
+                        % (again.get("ok"), again.get("stage")))
+
+
 def _rolled_back(kind, f, problems, old):
     _live_same(f, problems, "rollback")
     if str(f.get("live_version_after") or "") != old:
@@ -291,6 +320,7 @@ def verdict_e5(raw):
             problems.append("the unhealthy new version (%r) never answered, scenario untested" % (bad or None))
         _reached_rollback(f, problems)
         _rolled_back("e5", f, problems, old)
+    _auto_not_retried(f, problems)
     _pointers(f, problems)
     _markers(f, problems)
     return _finish("e5", f, problems, "unhealthy new version rolled back to %s" % old)
@@ -306,6 +336,7 @@ def _full_update(kind, raw, extra=None):
     old, new = _baseline(f, problems)
     if extra is not None:
         extra(f, problems)
+    _auto_update_eligible(f, problems)
     if not any(d.get("mode") == "normal" for d in _downloads(f)):
         problems.append("no normal download was served")
     if _started(f, problems):

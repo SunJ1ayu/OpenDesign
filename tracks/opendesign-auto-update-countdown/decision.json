@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-auto-update-countdown",
+  "impact": {
+    "level": "high",
+    "factors": [
+      "new_write_surface",
+      "production_side_effect",
+      "cross_module"
+    ]
+  },
+  "design": {
+    "uncertainty": "low",
+    "premise_attack": {
+      "status": "not_required",
+      "evidence": []
+    }
+  },
+  "execution_plan": {
+    "adapter": "delegate-codex",
+    "model": "gpt-5.5"
+  },
+  "outcome": {
+    "verdict": null
+  }
+}

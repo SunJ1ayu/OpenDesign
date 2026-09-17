@@ -55,6 +55,11 @@ $Expected   = @('e2', 'e3', 'e4', 'e5', 'e1', 'e8', 'e6', 'e7')
 $SpacedInstallDir = 'C:\OD e2e space\Programs\OpenDesign'
 # e5 注入的版本号:新版起得来,但收口认不出它。
 $InjectVersion = '0.0.1'
+# 倒计时走完时界面发的请求体(track opendesign-auto-update-countdown)。e5 用它发起,回滚之后再发一次。
+$AutoBody = '{"auto": true}'
+# 自动更新记账文件:「这个版本自动试过」。每个场景复位时清掉 —— 不然 e5 记下的新版号会让后面 e1/e8/e6
+# 的「装出来的真桌面版里 eligible 为真」那条断言红在考卷自己身上。
+$AutoRecord = "$DataRoot\Logs\auto-update-attempts.json"
 # hosts 重定向的两个域名。**必须覆盖软件会碰的全部主机**:
 # 查更新 = ds_update.releases_url() 的主机,下载 = 替身给的 browser_download_url 的主机。
 # tests/test_update_e2e_harness.py 拿真的 ds_update 核这两个名字就是这里这两行。
@@ -296,11 +301,12 @@ function Invoke-Check($Port) {
     catch { return @{ _error = "$($_.Exception.Message)" } }
 }
 
-function Invoke-Apply($Port) {
-    # 和界面上那个按钮发的是同一个请求(按钮自身的接线由 u27~u37 管)。
+function Invoke-Apply($Port, [string]$Body = '{}') {
+    # 默认 '{}' 和界面上那个按钮发的是同一个请求(按钮自身的接线由 u27~u37 管);
+    # $AutoBody 是倒计时走完发的那个(界面那半由 tests/e2e/auto_update_countdown.e2e.mjs AC-A 钉着)。
     try {
         return (Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$Port/api/update/apply" `
-                -TimeoutSec 900 -NoProxy -ContentType 'application/json' -Body '{}')
+                -TimeoutSec 900 -NoProxy -ContentType 'application/json' -Body $Body)
     } catch { return @{ _error = "$($_.Exception.Message)" } }
 }
 
@@ -380,6 +386,8 @@ function Reset-Old {
     Note "reset: stop everything, wipe install trees, install $OldVersion"
     Stop-All
     Remove-Item -LiteralPath $RelayPath -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $AutoRecord -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $AutoRecord) { throw "cannot remove $AutoRecord" }
     foreach ($d in @($InstallDir, $NewDir, $OldDir)) { Remove-Tree $d }
     # 🔴 显式 /D=:更新档(修好之前)会把"上次装在哪"写成 .new(run 34848924198 就是这么把
     #    e4/e5/e1 带崩的)。场景之间要互不污染,就不能让上一个场景写坏的注册表决定这次装哪。
@@ -509,7 +517,9 @@ function Run-Rollback([string]$Kind, [string]$Mode) {
     New-Item -ItemType Directory -Force -Path $flagDir | Out-Null
     Remove-Item -LiteralPath $RelayPath -Force -ErrorAction SilentlyContinue
     $job = Start-ThreadJob -ScriptBlock $InjectBlock -ArgumentList $RelayPath, $NewDir, $flagDir, $Mode, $InjectVersion
-    $f.apply = Invoke-Apply $port
+    # e5 走倒计时那条路(自动);e4 仍是手动按钮那条。
+    $f.apply_body = if ($Kind -eq 'e5') { $AutoBody } else { '{}' }
+    $f.apply = Invoke-Apply $port $f.apply_body
     Note "$Kind apply -> $($f.apply | ConvertTo-Json -Compress)"
     Copy-Relay $Kind
     $w = Wait-Relay 600
@@ -531,6 +541,14 @@ function Run-Rollback([string]$Kind, [string]$Mode) {
     Wait-Job $job -Timeout 30 | Out-Null
     Receive-Job $job -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "    injector: $_" }
     Remove-Job $job -Force
+    if ($Kind -eq 'e5') {
+        # aw2(track opendesign-auto-update-countdown):自动试过 → 回滚 → 旧版被接力脚本重新拉起之后,
+        # 这个版本**不许再自动试**。这是「同一版本失败一次不再自动试」跨一次真实回滚仍然成立的唯一证据。
+        $p2 = if ($f.health_after -and $f.health_after.port) { $f.health_after.port } else { $port }
+        $f.check_after = Invoke-Check $p2
+        $f.apply_auto_again = Invoke-Apply $p2 $AutoBody
+        Note "e5 after rollback: auto_update=$($f.check_after.auto_update | ConvertTo-Json -Compress) again=$($f.apply_auto_again | ConvertTo-Json -Compress)"
+    }
     $f.pointers = Get-Pointers
     $f.markers_after = Get-Markers
     $f.fake_log = Get-FakeLogSince $f.fake_log_start
