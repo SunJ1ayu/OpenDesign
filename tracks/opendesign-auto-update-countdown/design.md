@@ -187,7 +187,7 @@ GET 面只读(不许在查更新里记「已提示过」),所以用时间界定:
 |---|---|
 | AC-A | eligible ⇒ 横幅在视口内、没被盖住(命中测试时临时打开 pointer-events)、不在设置里;**页面自己记下**横幅第一次出现的时刻与字(10 秒);**出现到请求到达 8.5~12 秒**;恰好一次 apply,`auto === true`;之后说会关掉重开;打开一次只查一次 |
 | AC-B | 960×640 点取消 ⇒ 收起;之后 online / visibilitychange / focus、手动检查、开关关再开 ⇒ 0 次 apply、不再出横幅 |
-| AC-C | 早就试过(recent_failure=false)⇒ 不出横幅、0 次 apply;设置里 `auto-update-why-not` 含「手动」 |
+| AC-C | 早就试过(recent_failure=false)⇒ 不出横幅、0 次 apply;设置里 `auto-update-why-not` 含「手动」;**点设置里「更新」发出的是手动请求**(收货时补:点击事件被当成 auto) |
 | AC-C2 | 刚失败(recent_failure=true)⇒ 横幅说版本 + 不会再自动,不倒计时、无取消;0 次 apply;能关掉 |
 | AC-D | apply 回 `download` 失败 ⇒ 横幅含「下载」、无内部词、能关掉;apply 请求被掐断 ⇒ 横幅非空、不倒计时、**不说**「不会再自动」 |
 | AC-E | 打开时已是最新;手动检查查到 eligible ⇒ 0 横幅、0 apply |

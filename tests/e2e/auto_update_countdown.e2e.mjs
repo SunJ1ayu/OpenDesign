@@ -278,6 +278,14 @@ try {
         const s = await hint.innerText();
         expect(/手动/.test(s), `解释里没告诉业主可以手动更新:「${s}」`);
       }
+      // 手动那条路是这个版本唯一的出口(承诺 3):按钮发出去的必须是**手动**请求,不许被服务端当成自动拒掉。
+      // 09-17 收货实测抓到:Sidebar 的 onClick 把点击事件传进 applyUpdate(auto) ⇒ 事件对象被当成 auto=true。
+      const btn = page.locator('.settings-pop [data-ui="update-apply"]');
+      check(await until(async () => await btn.count() === 1, 3000), "前提:设置里有「更新」按钮");
+      await btn.click();
+      check(await until(() => log.applies.length === 1, 3000), "前提:点了「更新」发出了请求");
+      expect(!isAuto(log.applies[0]),
+        `🔴 业主手动点的「更新」被标成了自动 ⇒ 服务端会以"自动试过"拒掉,业主再也没法更新这一版:${JSON.stringify(log.applies[0])}`);
       await page.close();
     }),
 
