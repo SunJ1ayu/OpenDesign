@@ -1,0 +1,19 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    ci-35222749618-rejudge
+cmd:     tracks/opendesign-auto-update-countdown/evidence/ci-35222749618/rejudge.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  77798b5
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-17T13:09:35Z
+---------------- 输出开始 ----------------
+OK e1 - updated 0.98.6 -> 0.98.900, window up, archive markers intact
+OK e2 - corrupt download refused at verify, live tree untouched, 0.98.6 still up
+OK e3 - relay gave up without renaming, .new removed, old relaunches (auto-reopened: nobody)
+OK e4 - second rename failed, relay rolled back and relaunched 0.98.6
+OK e5 - unhealthy new version rolled back to 0.98.6
+OK e6 - updated 0.98.6 -> 0.98.900, window up, archive markers intact
+OK e7 - quoted /D= in update mode refused by the real installer (rc=3), live tree untouched
+OK e8 - updated 0.98.6 -> 0.98.900, window up, archive markers intact
+OK e9 - page auto-updated on its own, rolled back to 0.98.6, not retried
+---------------- 输出结束 ----------------
+runlog: ci-35222749618-rejudge rc=0 commit=77798b5 dirty=yes at=2026-09-17T13:09:35Z file=tracks/opendesign-auto-update-countdown/evidence/20260917T130935Z-01-ci-35222749618-rejudge.txt

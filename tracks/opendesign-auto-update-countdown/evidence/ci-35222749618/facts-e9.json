@@ -1,0 +1,168 @@
+{
+  "old_version": "0.98.6",
+  "new_version": "0.98.900",
+  "source": "feed",
+  "fake_log_start": 40,
+  "reset": {
+    "installer_rc": 0,
+    "health": null
+  },
+  "markers_before": {
+    "Data/客户资料-e2e.bin": "f4ac0eb1275ce36bcb00f581462ac10a68c45567ace1c5d4d78d45f6a8fdc7eb",
+    "Data/项目备忘-e2e.md": "ee04a1891eee60c803b02051292f45dfca85bc32b3df50de18831ec76dd7529a",
+    "UserData/客户资料-e2e.bin": "104c3e66f3620ac204a41e93c141b80b21f5883b6c6d714ab4d4e0572041e2a2",
+    "UserData/项目备忘-e2e.md": "5d69dc62a8df39ff2bb60a81cb15ed62caa9b0b9b1e3a5922c4a62e77920e7dc"
+  },
+  "live_before": "44bd9e6c5a616eae54af891333b4f595b86c08a4fa1aa5eaa1a6099fdbfd7127",
+  "auto_knob_at_launch": "",
+  "launch_health": {
+    "port": 8766,
+    "version": "0.98.6"
+  },
+  "relay_started_after": 46.1,
+  "relay": {
+    "old_seen": true,
+    "ended": true,
+    "seconds": 127.0,
+    "seen": true
+  },
+  "seen_versions": [
+    "0.0.1"
+  ],
+  "health_after": {
+    "port": 8766,
+    "version": "0.98.6"
+  },
+  "check_after": {
+    "current": "0.98.6",
+    "update_available": true,
+    "latest": "0.98.900",
+    "asset": {
+      "name": "OpenDesign-Setup-0.98.900.exe",
+      "url": "https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.900/OpenDesign-Setup-0.98.900.exe",
+      "size": 46762333,
+      "digest": "sha256:312b0502ceec2ca53f33947a79f4b54521b561f16d9137600186c740b098e909"
+    },
+    "notes": "e2e stand-in",
+    "error": null,
+    "release_url": "https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.900",
+    "auto_update": {
+      "eligible": false,
+      "why_not": "attempted",
+      "recent_failure": true
+    }
+  },
+  "check_after_s": 180.5,
+  "inject": {
+    "landed": true,
+    "version": "0.0.1",
+    "detail": "patched VERSION=0.0.1 in C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign.new\\ds\\bin\\ds_web.py at 50.4s"
+  },
+  "live_version_after": "0.98.6",
+  "old_exists": false,
+  "new_exists": true,
+  "nested_old_exists": false,
+  "live_after": "44bd9e6c5a616eae54af891333b4f595b86c08a4fa1aa5eaa1a6099fdbfd7127",
+  "window_final": {
+    "wins": [
+      {
+        "cls": "WindowsForms10.Window.8.app.0.aec740_r24_ad1",
+        "title": "OpenDesign",
+        "proc": "pythonw"
+      },
+      {
+        "cls": "CASCADIA_HOSTING_WINDOW_CLASS",
+        "title": "C:\\ProgramData\\GitHub\\HostedComputeAgent\\hosted-compute-agent",
+        "proc": "WindowsTerminal"
+      },
+      {
+        "cls": "Progman",
+        "title": "Program Manager",
+        "proc": "explorer"
+      }
+    ],
+    "procs": [
+      "pythonw:「OpenDesign」",
+      "WindowsTerminal:「C:\\ProgramData\\GitHub\\HostedComputeAgent\\hosted-compute-agent」"
+    ]
+  },
+  "health_final": {
+    "port": 8766,
+    "version": "0.98.6"
+  },
+  "relay_again": false,
+  "pointers": {
+    "live": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign",
+    "install_dir": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign",
+    "autorun": null,
+    "shortcuts": {
+      "C:\\Users\\runneradmin\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\OpenDesign\\OpenDesign.lnk": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\OpenDesign.exe",
+      "C:\\Users\\runneradmin\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\OpenDesign\\卸载 OpenDesign.lnk": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\卸载.exe",
+      "C:\\Users\\runneradmin\\Desktop\\OpenDesign.lnk": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\OpenDesign.exe"
+    },
+    "uninstall": {
+      "DisplayIcon": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\OpenDesign.exe",
+      "DisplayVersion": "0.98.900",
+      "UninstallString": "\"C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\卸载.exe\"",
+      "InstallLocation": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign"
+    }
+  },
+  "markers_after": {
+    "Data/客户资料-e2e.bin": "f4ac0eb1275ce36bcb00f581462ac10a68c45567ace1c5d4d78d45f6a8fdc7eb",
+    "Data/项目备忘-e2e.md": "ee04a1891eee60c803b02051292f45dfca85bc32b3df50de18831ec76dd7529a",
+    "UserData/客户资料-e2e.bin": "104c3e66f3620ac204a41e93c141b80b21f5883b6c6d714ab4d4e0572041e2a2",
+    "UserData/项目备忘-e2e.md": "5d69dc62a8df39ff2bb60a81cb15ed62caa9b0b9b1e3a5922c4a62e77920e7dc"
+  },
+  "fake_log": [
+    {
+      "kind": "atom",
+      "host": "github.com",
+      "status": 200,
+      "source": "feed",
+      "t": 1789650084.8519862
+    },
+    {
+      "kind": "manifest",
+      "host": "github.com",
+      "status": 200,
+      "accept": "application/octet-stream",
+      "t": 1789650085.0121138
+    },
+    {
+      "kind": "download",
+      "host": "github.com",
+      "mode": "normal",
+      "bytes": 46762333,
+      "sha256": "312b0502ceec2ca53f33947a79f4b54521b561f16d9137600186c740b098e909",
+      "t": 1789650095.2784915
+    },
+    {
+      "kind": "atom",
+      "host": "github.com",
+      "status": 200,
+      "source": "feed",
+      "t": 1789650137.130838
+    },
+    {
+      "kind": "manifest",
+      "host": "github.com",
+      "status": 200,
+      "accept": "application/octet-stream",
+      "t": 1789650137.27158
+    },
+    {
+      "kind": "atom",
+      "host": "github.com",
+      "status": 200,
+      "source": "feed",
+      "t": 1789650259.8348842
+    },
+    {
+      "kind": "manifest",
+      "host": "github.com",
+      "status": 200,
+      "accept": "application/octet-stream",
+      "t": 1789650260.0565903
+    }
+  ]
+}
