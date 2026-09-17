@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   applyHint,
   applyLabel,
+  autoWhyNotHint,
   canApply,
   updateLabel,
   updateReason,
@@ -146,6 +147,7 @@ export default function Sidebar({
   const showApply = canApply(updateInfo);
   const applyText = applyLabel({ state: applyState, result: applyResult });
   const applyHelp = applyHint(applyResult);
+  const autoWhy = autoWhyNotHint(updateInfo);
 
   const projRow = (p: Project) => {
     const current = p.key === selectedKey;
@@ -391,6 +393,11 @@ export default function Sidebar({
           {updateReason({ state: updateState, info: updateInfo }) && (
             <div className="update-reason" data-ui="update-reason">
               {updateReason({ state: updateState, info: updateInfo })}
+            </div>
+          )}
+          {autoWhy && (
+            <div className="update-reason" data-ui="auto-update-why-not">
+              {autoWhy}
             </div>
           )}
           {updateInfo?.update_available && (

@@ -83,6 +83,7 @@ import ds_openfolder
 import ds_organize  # 针孔④ approve+apply 直调核心(锁/复验/审计全在核心)
 import ds_refs
 import ds_shell_core     # 只取锁通道的协议常量与读行:帧格式两处各抄一份迟早对不上
+import ds_auto_update    # 打开软件倒计时自动更新:只管"这个版本自动试过"的本机账
 import ds_update_apply   # 应用内更新第二刀:真去装(段①)
 import ds_taxonomy
 import ds_update    # 查更新(track opendesign-in-app-update):只查不装
@@ -876,6 +877,37 @@ def _workspace_health_state(ds_root: str) -> dict:
         "folders": folders,
         "reviewId": _workspace_review_id(config_bytes, top_dirs),
     }
+
+
+def _auto_update_status(info: dict, paths: dict) -> dict:
+    """这次查到的新版能不能在打开软件时倒计时自动更新。
+
+    顺序是产品契约:Windows 真机判据靠 disabled 排最后来证明前面条件全成立。
+    """
+    try:
+        latest = info.get("latest") if isinstance(info, dict) else None
+        if not isinstance(info, dict) or info.get("update_available") is not True:
+            return {"eligible": False, "why_not": "no_update", "recent_failure": False}
+        asset = info.get("asset")
+        digest = asset.get("digest") if isinstance(asset, dict) else None
+        url = asset.get("url") if isinstance(asset, dict) else None
+        if not url or ds_update_apply.parse_digest(digest) is None:
+            return {"eligible": False, "why_not": "asset", "recent_failure": False}
+        shell_port = os.environ.get("DS_SHELL_LOCK_PORT") or ""
+        if re.fullmatch(r"[0-9]+", shell_port) is None:
+            return {"eligible": False, "why_not": "no_shell", "recent_failure": False}
+        problem, _error = ds_update_apply.update_preflight_problem(paths)
+        if problem:
+            return {"eligible": False, "why_not": problem, "recent_failure": False}
+        data_root = paths.get("data_root")
+        if ds_auto_update.attempted_at(data_root, latest) is not None:
+            return {"eligible": False, "why_not": "attempted",
+                    "recent_failure": ds_auto_update.recent_failure(data_root, latest)}
+        if (os.environ.get("OPENDESIGN_AUTO_UPDATE") or "").strip().lower() == "off":
+            return {"eligible": False, "why_not": "disabled", "recent_failure": False}
+        return {"eligible": True, "why_not": None, "recent_failure": False}
+    except Exception:  # noqa: BLE001 —— 查更新照样 200;自动资格坏了只关掉倒计时
+        return {"eligible": False, "why_not": "error", "recent_failure": False}
 DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DEFAULT_DIST = os.path.join(DEFAULT_DS_ROOT, "web", "dist")
 DEFAULT_PORT = 8766
@@ -1095,6 +1127,7 @@ class Handler(BaseHTTPRequestHandler):
         #    两个 apply 并发 = 第二次 rmtree(.new) 时第一次的安装器正往里写。
         #    接力脚本起来之前失败就放开(业主能再点一次);**接力脚本一旦起来就不放**(t35):
         #    它已经脱离在跑、正等我们退出,再放进来一次 = 两份接力脚本并存。
+        auto_request = self._is_auto_update_request()
         lock = self.server.update_apply_lock
         if not lock.acquire(blocking=False):
             self._json(200, {"ok": False, "stage": "busy",
@@ -1102,7 +1135,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         keep, reply = False, None
         try:
-            keep, reply = self._update_apply_locked()
+            keep, reply = self._update_apply_locked(auto_request=auto_request)
         finally:
             if not keep:
                 lock.release()
@@ -1110,7 +1143,21 @@ class Handler(BaseHTTPRequestHandler):
         #    原来回包在持锁时写出,写 socket 会让出 GIL ⇒ 满载时第二次先到、撞上还没放的锁。
         self._json(200, reply)
 
-    def _update_apply_locked(self) -> tuple[bool, dict]:
+    def _is_auto_update_request(self) -> bool:
+        """只有 JSON 对象里的 auto 恰为 true 才算自动;坏 body 仍按手动旧语义走。"""
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = 0
+        if n <= 0 or n > 8192:
+            return False
+        try:
+            body = json.loads(self.rfile.read(n).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            return False
+        return isinstance(body, dict) and body.get("auto") is True
+
+    def _update_apply_locked(self, auto_request: bool = False) -> tuple[bool, dict]:
         """`_update_apply` 持锁之后的全部内容。返回(锁要不要留着, 回包)。
         锁要不要留着 = 接力脚本起来了没有。**这里不许自己回话**:回话在放锁之后(t41)。"""
         info = ds_update.check_cached(VERSION)
@@ -1120,6 +1167,16 @@ class Handler(BaseHTTPRequestHandler):
 
         paths = ds_update_apply.paths_for_update(self.server.ds_root,
                                                  port=self.server.server_address[1])
+        if auto_request:
+            auto = _auto_update_status(info, paths)
+            if not auto.get("eligible"):
+                return False, {"ok": False, "stage": "auto_skipped",
+                               "error": auto.get("why_not") or "error"}
+            # 🔴 预写:回滚失败发生在界面关闭之后,这里只能在动手前先把版本记下。
+            ok, err = ds_auto_update.record_attempt(paths.get("data_root"), info.get("latest"))
+            if not ok:
+                return False, {"ok": False, "stage": "auto_unrecorded",
+                               "error": err or "自动更新记录写不进去"}
         result = ds_update_apply.apply_update(info, paths)
         if not result.get("ok"):
             return False, {"ok": False, "stage": result.get("stage"),
@@ -1155,7 +1212,15 @@ class Handler(BaseHTTPRequestHandler):
         #    只认明确的"开"(判据 t9e)。
         raw_force = parse_qs(urlsplit(self.path).query).get("force", [""])[0]
         force = raw_force.strip().lower() in ("1", "true", "yes", "on")
-        self._json(200, ds_update.check_cached(VERSION, force=force))
+        info = dict(ds_update.check_cached(VERSION, force=force))
+        try:
+            paths = ds_update_apply.paths_for_update(self.server.ds_root,
+                                                     port=self.server.server_address[1])
+            info["auto_update"] = _auto_update_status(info, paths)
+        except Exception:  # noqa: BLE001 —— 自动资格算坏不该让查更新变 500
+            info["auto_update"] = {"eligible": False, "why_not": "error",
+                                   "recent_failure": False}
+        self._json(200, info)
 
     def _todos(self):
         try:

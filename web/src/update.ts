@@ -14,7 +14,12 @@ export type UpdateInfo = {
   notes: string;
   error: string | null;
   /** 发布页地址 —— **由 GitHub 给的**(评审 F1),不是我们拿版本号拼的。 */
-  release_url: string | null;
+  release_url?: string | null;
+  auto_update?: {
+    eligible?: boolean;
+    why_not?: string | null;
+    recent_failure?: boolean;
+  } | null;
 };
 
 export type UpdateState = "idle" | "checking" | "done";
@@ -77,6 +82,7 @@ export function badgeTitle(info: { latest?: string | null } | null | undefined):
 
 /** 自动查更新的开关键。默认**开**,只有业主显式关过才算关。 */
 export const AUTO_CHECK_PREF = "update.autoCheck";
+export const AUTO_UPDATE_SECONDS = 10;
 
 /** 要不要在打开软件时自动查一次。
  *
@@ -226,6 +232,55 @@ export function canApply(info: UpdateInfo | null): boolean {
   );
 }
 
+function autoStatus(info: unknown): Record<string, unknown> | null {
+  if (!info || typeof info !== "object" || Array.isArray(info)) return null;
+  const auto = (info as Record<string, unknown>).auto_update;
+  if (!auto || typeof auto !== "object" || Array.isArray(auto)) return null;
+  return auto as Record<string, unknown>;
+}
+
+export function shouldCountdown(info: unknown): boolean {
+  try {
+    return canApply(info as UpdateInfo | null) && autoStatus(info)?.eligible === true;
+  } catch {
+    return false;
+  }
+}
+
+export function countdownText(latest: unknown, seconds: unknown): string {
+  const version = nonEmptyText(latest) ? String(latest).trim() : "新版本";
+  const n = typeof seconds === "number" && Number.isFinite(seconds)
+    ? Math.max(0, Math.ceil(seconds))
+    : AUTO_UPDATE_SECONDS;
+  return `发现新版 ${version},${n} 秒后自动更新`;
+}
+
+export function autoRecentFailureText(info: unknown): string {
+  try {
+    if (!info || typeof info !== "object" || Array.isArray(info)) return "";
+    const rec = info as Record<string, unknown>;
+    const auto = autoStatus(info);
+    if (rec.update_available !== true || auto?.why_not !== "attempted" ||
+        auto.recent_failure !== true) return "";
+    const version = nonEmptyText(rec.latest) ? String(rec.latest).trim() : "这个版本";
+    return `上次自动更新 ${version} 没成功,这个版本不会再自动更新。你可以手动点「更新」。`;
+  } catch {
+    return "";
+  }
+}
+
+export function autoWhyNotHint(info: unknown): string {
+  try {
+    if (!info || typeof info !== "object" || Array.isArray(info)) return "";
+    const rec = info as Record<string, unknown>;
+    const auto = autoStatus(info);
+    if (rec.update_available !== true || auto?.why_not !== "attempted") return "";
+    return "这个版本已经自动试过一次,不会再自动更新。你仍然可以手动点「更新」。";
+  } catch {
+    return "";
+  }
+}
+
 /** 自动更新按钮那句话。started 只是开始切换,不能说成已经装好。 */
 export function applyLabel(s: { state: ApplyState; result: ApplyResult }): string {
   if (s.state === "applying") return "正在更新,OpenDesign 会自动关掉再重新打开";
@@ -257,6 +312,24 @@ export function applyHint(result: ApplyResult): string {
       return "旧窗口没能完成收尾。可以到发布页手动下载。";
     default:
       return "自动更新没能继续。可以到发布页手动下载。";
+  }
+}
+
+export function autoFailureText(result: ApplyResult): string {
+  try {
+    if (!result || result.ok) return "";
+    if (result.stage === "auto_skipped" || result.stage === "busy" ||
+        result.stage === "no_update") return "";
+    if (result.stage === "auto_unrecorded") {
+      return "这次自动更新没有开始:没能记下本次尝试。可以稍后再试,也可以手动点「更新」。";
+    }
+    if (result.stage === null) {
+      return "这次自动更新结果不确定。可以稍后再试,也可以手动点「更新」。";
+    }
+    const hint = applyHint(result);
+    return `${hint} 这个版本不会再自动更新,你可以手动点「更新」。`;
+  } catch {
+    return "这次自动更新没有开始。可以手动点「更新」。";
   }
 }
 
