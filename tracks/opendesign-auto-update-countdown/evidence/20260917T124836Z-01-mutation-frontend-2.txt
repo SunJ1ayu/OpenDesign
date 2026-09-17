@@ -1,0 +1,33 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    mutation-frontend-2
+cmd:     tests/mutation-auto-update-countdown.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  d6b46dd
+dirty:   no(跑之前采的;含未跟踪文件)
+started: 2026-09-17T12:48:36Z
+---------------- 输出开始 ----------------
+[M1-manual-check-counts-down] 咬住 ✅ —— 期望红在:手动「检查更新」也弹了倒计时|手动「检查更新」之后自己发了 [1-9]
+      FAIL: 手动「检查更新」也弹了倒计时
+      FAIL: 手动「检查更新」之后自己发了 1 次更新请求
+      FAIL: 中途打开自动检查开关也弹了倒计时(那不是打开软件)
+      FAIL: 中途打开开关之后自己发了 1 次更新请求
+    4 条没过
+[M2-toggle-counts-down] 咬住 ✅ —— 期望红在:中途打开自动检查开关也弹了倒计时|中途打开开关之后自己发了 [1-9]
+      FAIL: 中途打开自动检查开关也弹了倒计时(那不是打开软件)
+      FAIL: 中途打开开关之后自己发了 1 次更新请求
+    2 条没过
+[M3-timer-3s] 咬住 ✅ —— 期望红在:横幅出现到自动更新请求之间应当约 10 秒
+      FAIL: 横幅出现到自动更新请求之间应当约 10 秒,实测 3001ms —— 业主以为有 10 秒可以取消
+    1 条没过
+[M4-cancel-not-suppressing] 咬住 ✅ —— 期望红在:点了取消,之后还是自动发了|取消之后发了|取消之后倒计时横幅又冒出来了
+      FAIL: 🔴 点了取消,之后还是自动发了 1 次更新请求 —— 业主最不能接受的一种
+      FAIL: 取消之后发了 1 次更新请求
+      FAIL: 取消之后倒计时横幅又冒出来了
+    3 条没过
+[M5-manual-apply-keeps-countdown] 咬住 ✅ —— 期望红在:业主已经手动开始更新了,横幅还在倒计时|应当只有手动那一次请求
+      FAIL: 业主已经手动开始更新了,横幅还在倒计时
+      FAIL: 应当只有手动那一次请求,实际 2 次
+    2 条没过
+== 变异红检结束:全部咬住
+---------------- 输出结束 ----------------
+runlog: mutation-frontend-2 rc=0 commit=d6b46dd dirty=no at=2026-09-17T12:48:36Z file=tracks/opendesign-auto-update-countdown/evidence/20260917T124836Z-01-mutation-frontend-2.txt

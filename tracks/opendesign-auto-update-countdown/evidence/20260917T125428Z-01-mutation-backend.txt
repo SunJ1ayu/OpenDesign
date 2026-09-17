@@ -1,0 +1,56 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    mutation-backend
+cmd:     tests/mutation-auto-update-backend.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  d6b46dd
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-17T12:54:28Z
+---------------- 输出开始 ----------------
+[B1-record-after-apply] 咬住 ✅ —— test_au3_ 红了
+    FAIL: test_au13_a_failed_write_keeps_the_old_record_and_touches_nothing
+    FAIL: test_au3_the_attempt_is_written_before_anything_is_prepared
+    FAIL: test_au7_cannot_record_means_do_not_touch_anything
+    Ran 27 tests in 15.710s
+    FAILED (failures=3)
+[B2-no-fsync] 咬住 ✅ —— test_au13_ 红了
+    FAIL: test_au13_a_failed_write_keeps_the_old_record_and_touches_nothing
+    Ran 27 tests in 15.690s
+    FAILED (failures=1)
+[B3-fsync-before-flush] 咬住 ✅ —— test_au13_ 红了
+    FAIL: test_au13_a_failed_write_keeps_the_old_record_and_touches_nothing
+    Ran 27 tests in 15.714s
+    FAILED (failures=1)
+[B4-substring-version] 咬住 ✅ —— test_au9c_ 红了
+    FAIL: test_au9c_versions_are_compared_exactly
+    Ran 27 tests in 16.727s
+    FAILED (failures=1)
+[B5-max-attempted-version] 咬住 ✅ —— test_au9b_ 红了
+    FAIL: test_au15b_recent_failure_is_per_version
+    FAIL: test_au9b_a_withdrawn_newer_attempt_does_not_block_an_untried_older_one
+    Ran 27 tests in 17.232s
+    FAILED (failures=2)
+[B6-global-last-attempt-time] 咬住 ✅ —— test_au15b_ 红了
+    FAIL: test_au15b_recent_failure_is_per_version
+    Ran 27 tests in 17.235s
+    FAILED (failures=1)
+[B7-server-recheck-only-attempted] 咬住 ✅ —— test_au12c_ 红了
+    FAIL: test_au12a_refused_asset
+    FAIL: test_au12b_refused_no_shell
+    FAIL: test_au12c_refused_not_installed
+    FAIL: test_au12d_refused_path_unsupported
+    FAIL: test_au12e_refused_disabled
+    Ran 27 tests in 17.225s
+    FAILED (failures=5)
+[B8-disabled-before-attempted] 咬住 ✅ —— test_au14_ 红了
+    FAIL: test_au14_disabled_is_judged_last
+    Ran 27 tests in 16.741s
+    FAILED (failures=1)
+[B9-get-starts-update] 咬住 ✅ —— test_au1_ 红了
+    FAIL: test_au1_all_conditions_met_means_eligible
+    FAIL: test_au9b_a_withdrawn_newer_attempt_does_not_block_an_untried_older_one
+    FAIL: test_au9c_versions_are_compared_exactly
+    Ran 27 tests in 30.303s
+    FAILED (failures=3)
+== 后端变异红检结束:全部咬住
+---------------- 输出结束 ----------------
+runlog: mutation-backend rc=0 commit=d6b46dd dirty=yes at=2026-09-17T12:54:28Z file=tracks/opendesign-auto-update-countdown/evidence/20260917T125428Z-01-mutation-backend.txt
