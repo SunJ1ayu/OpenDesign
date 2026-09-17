@@ -389,6 +389,19 @@ def _note(paths, line):
         pass  # 记日志失败不该把更新带崩
 
 
+def update_preflight_problem(paths):
+    """段① 前两道纯检查。自动倒计时也调用它,避免两边各自猜安装形状。"""
+    live = str(paths.get("live") or "")
+    if not (os.path.isfile(os.path.join(live, LAUNCHER_REL))
+            and os.path.isfile(os.path.join(live, SENTINEL_REL))):
+        return ("not_installed",
+                "这份软件不是用安装包装的(%s),请到发布页手动下载" % live)
+    bad_path = relay_path_problem(paths)
+    if bad_path:
+        return ("path_unsupported", bad_path)
+    return (None, None)
+
+
 def _default_download(url, dest):
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     req = urllib.request.Request(url, headers={"User-Agent": "OpenDesign-updater"})
@@ -466,19 +479,14 @@ def apply_update(decision, paths, download=None, install=None):
     asset = (decision or {}).get("asset") or {}
     expect_version = decision.get("latest")
 
-    # -2. 活树得是安装器装出来的(t40)。开发方式跑(没有 DS_ROOT)时活树会被推成仓的上一级,
-    #     往下走第 0 步就会 rmtree 一个恰好同名的无关 .old、再往旁边装 300MB。只读检查,零副作用。
-    live = str(paths.get("live") or "")
-    if not (os.path.isfile(os.path.join(live, LAUNCHER_REL))
-            and os.path.isfile(os.path.join(live, SENTINEL_REL))):
-        _note(paths, "%s 不像安装器装出来的目录,不做应用内更新" % live)
-        return _fail("not_installed", "这份软件不是用安装包装的(%s),请到发布页手动下载" % live)
-
-    # -1. 接力脚本扛不住的路径,**什么都别碰**就停(t36)。放在清 .old 之前:拒绝就得零副作用。
-    bad_path = relay_path_problem(paths)
-    if bad_path:
-        _note(paths, "路径接力脚本处理不了,放弃自动更新:%s" % bad_path)
-        return _fail("path_unsupported", bad_path)
+    # -2/-1. 活树形状与接力脚本路径都是纯检查;GET 的自动资格也复用同一处。
+    problem, error = update_preflight_problem(paths)
+    if problem == "not_installed":
+        _note(paths, "%s 不像安装器装出来的目录,不做应用内更新" % str(paths.get("live") or ""))
+        return _fail(problem, error)
+    if problem == "path_unsupported":
+        _note(paths, "路径接力脚本处理不了,放弃自动更新:%s" % error)
+        return _fail(problem, error)
 
     # 0. 上次留下的 .old 先清掉(t32)。接力脚本第一次改名是 `move 活树 .old`,
     #    目标已存在时 move 会把活树**挪进去**;一旦走到回滚,换回来的就是那棵残缺的旧 .old。
