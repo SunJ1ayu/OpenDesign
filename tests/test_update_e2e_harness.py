@@ -495,12 +495,17 @@ def _base(kind):
         # track opendesign-auto-update-countdown(aw2):脚本不发 apply,页面自己倒计时发起;回滚后不许再自动试
         del f["check"]
         f["reset"]["health"] = None
+        # 页面查更新拿清单(t=100)→ 倒计时 10 秒 → 下载(t=110.6);回滚后重开的页面与脚本再查(之后的 atom/manifest)
+        f["fake_log"] = [{"kind": "atom", "status": 200, "t": 99.8}, {"kind": "manifest", "status": 200, "t": 100.0},
+                         {"kind": "download", "mode": "normal", "t": 110.6},
+                         {"kind": "atom", "status": 200, "t": 190.0}, {"kind": "manifest", "status": 200, "t": 190.2}]
         f.update(auto_knob_at_launch="", launch_health={"port": 8766, "version": OLD},
                  relay_started_after=31.5, relay=relay, seen_versions=["0.0.1", OLD],
                  inject={"landed": True, "detail": "x", "version": "0.0.1"},
                  health_after={"port": 8766, "version": OLD}, live_version_after=OLD,
                  old_exists=False, new_exists=True, nested_old_exists=False, live_before="d1", live_after="d1",
-                 window_after=copy.deepcopy(REAL_WINDOW), relay_again=False,
+                 window_final=copy.deepcopy(REAL_WINDOW), health_final={"port": 8766, "version": OLD},
+                 relay_again=False, check_after_s=142.0,
                  check_after={"update_available": True, "latest": NEW, "error": None,
                               "auto_update": {"eligible": False, "why_not": "attempted", "recent_failure": True}})
     elif kind == "e7":
@@ -624,7 +629,15 @@ BREAKS = {
         "never downloaded": lambda f: f.__setitem__("fake_log", [e for e in f["fake_log"] if e.get("kind") != "download"]),
         "relay running again after rollback": _set("relay_again", True),
         "relay_again unknown": _set("relay_again", None),
-        "no window after rollback": _set("window_after", {"wins": [], "procs": []}),
+        "no window at the end of the observation": _set("window_final", {"wins": [], "procs": []}),
+        "old app gone at the end of the observation": _set("health_final", None),
+        "new version answering at the end": _set("health_final", {"port": 8766, "version": NEW}),
+        "backend started the download right after the check (no countdown)": lambda f: f["fake_log"][2].update(t=100.4),
+        "download long after the check (countdown not the trigger)": lambda f: f["fake_log"][2].update(t=160.0),
+        "download without timestamps": lambda f: f["fake_log"][2].pop("t"),
+        "no manifest before the download": lambda f: f.__setitem__("fake_log", [f["fake_log"][0]] + f["fake_log"][2:]),
+        "rollback came back too late for the 10-minute window": _set("check_after_s", 600.0),
+        "check_after_s missing": _set("check_after_s", None),
         "still eligible after rollback (loop)": _set("check_after.auto_update",
                                                       {"eligible": True, "why_not": None, "recent_failure": False}),
         "not reported as attempted": _set("check_after.auto_update.why_not", "no_shell"),

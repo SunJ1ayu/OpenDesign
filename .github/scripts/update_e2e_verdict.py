@@ -402,11 +402,30 @@ def verdict_e9(raw):
     if len(downloads) != 1:
         problems.append("expected exactly one download (the automatic one), got %d: auto update retried after rollback?"
                         % len(downloads))
+    else:
+        # 攻题二 #4:证明是**页面倒计时**发起的,不是后端查完就自己开装。
+        # 页面那次查更新拿到清单 → 倒计时 10 秒 → POST → (缓存命中,不再拉清单)→ 下载。
+        log = [e for e in (f.get("fake_log") or []) if isinstance(e, dict)]
+        first_dl = next((e for e in log if e.get("kind") == "download"), None)
+        before = [e for e in log[:log.index(first_dl)] if e.get("kind") == "manifest" and e.get("status") == 200]
+        gap = (first_dl.get("t") - before[-1].get("t")) if before and isinstance(first_dl.get("t"), (int, float)) \
+            and isinstance(before[-1].get("t"), (int, float)) else None
+        if gap is None:
+            problems.append("cannot time the countdown: no timestamped manifest before the download")
+        elif not 8.5 <= gap <= 20:
+            problems.append("manifest -> download took %.1fs, expected the ~10s countdown in between" % gap)
     if f.get("relay_again") is not False:
         problems.append("a relay script was running again after the rollback (relay_again=%r)" % (f.get("relay_again"),))
-    window = f.get("window_after") or {}
+    window = f.get("window_final") or {}
     if not probe_verdict.window_verdict(window.get("wins") or [], window.get("procs") or []).ok:
-        problems.append("window: no OpenDesign main window after rollback")
+        problems.append("window: no OpenDesign main window at the end of the observation")
+    if _version(f.get("health_final")) != old:
+        problems.append("old app no longer answering at the end of the observation (got %r)" % (_version(f.get("health_final")) or None))
+    waited = f.get("check_after_s")
+    if not isinstance(waited, (int, float)):
+        problems.append("check_after_s missing: cannot tell whether the 10-minute window was still open")
+    elif waited >= 570:
+        problems.append("setup: rollback came back %.0fs after launch, the 600s recent-failure window is untestable" % waited)
     auto = (f.get("check_after") or {}).get("auto_update")
     if (not isinstance(auto, dict) or auto.get("eligible") is not False or auto.get("why_not") != "attempted"
             or auto.get("recent_failure") is not True):

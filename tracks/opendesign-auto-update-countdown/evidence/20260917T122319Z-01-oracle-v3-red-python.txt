@@ -1,0 +1,408 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    oracle-v3-red-python
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_ds_web_auto_update tests.test_ds_web_update tests.test_update_e2e_harness
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  ea81c72
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-17T12:23:19Z
+---------------- 输出开始 ----------------
+2026-09-17 20:23:19 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:19 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+F2026-09-17 20:23:19 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:19 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:19 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:19 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-17 20:23:20 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:20 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:20 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:20 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:20 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:20 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:21 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:21 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:21 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:21 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:21 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:21 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:22 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:22 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:22 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:22 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:22 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+F2026-09-17 20:23:23 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:23 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:23 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:23 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:23 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:23 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:23 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:24 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:24 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:25 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:25 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:26 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:26 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:27 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:27 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:27 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:27 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:27 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+F2026-09-17 20:23:28 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:29 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:29 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:29 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:29 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+F2026-09-17 20:23:29 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:29 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:29 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:29 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-17 20:23:30 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:30 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+F2026-09-17 20:23:30 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:31 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:31 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:31 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:31 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:31 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:31 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:31 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:31 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:32 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:32 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:32 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:32 127.0.0.1 - "GET /api/health?nonce=n0nce-abc HTTP/1.1" 200 -
+.2026-09-17 20:23:33 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+.2026-09-17 20:23:33 127.0.0.1 - "GET /api/health?nonce=x HTTP/1.1" 200 -
+.2026-09-17 20:23:34 127.0.0.1 - "GET /api/health?nonce=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa HTTP/1.1" 200 -
+2026-09-17 20:23:34 127.0.0.1 - "GET /api/health?nonce=%E5%B8%A6%E4%B8%AD%E6%96%87%E7%9A%84 HTTP/1.1" 200 -
+2026-09-17 20:23:35 127.0.0.1 - "GET /api/health?nonce=a%26b%3Dc HTTP/1.1" 200 -
+2026-09-17 20:23:35 127.0.0.1 - "GET /api/health?nonce=%3Cscript%3E HTTP/1.1" 200 -
+.2026-09-17 20:23:36 127.0.0.1 - "GET /api/update/apply HTTP/1.1" 404 -
+.2026-09-17 20:23:36 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-17 20:23:37 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-17 20:23:37 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-17 20:23:38 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-17 20:23:38 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-17 20:23:39 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.....2026-09-17 20:23:39 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:39 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-17 20:23:40 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:40 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-17 20:23:40 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:40 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-17 20:23:41 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:41 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-17 20:23:41 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:41 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-17 20:23:42 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-17 20:23:42 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-17 20:23:42 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+F2026-09-17 20:23:42 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+.2026-09-17 20:23:43 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:43 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:43 127.0.0.1 - "GET /api/update/check?force=1 HTTP/1.1" 200 -
+.2026-09-17 20:23:43 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+.2026-09-17 20:23:44 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-17 20:23:44 127.0.0.1 - "GET /api/update/check?force=false HTTP/1.1" 200 -
+2026-09-17 20:23:44 127.0.0.1 - "GET /api/update/check?force=1 HTTP/1.1" 200 -
+..........................................
+======================================================================
+FAIL: test_au10_only_logs_is_written_under_the_data_root (tests.test_ds_web_auto_update.AutoUpdate.test_au10_only_logs_is_written_under_the_data_root)
+t13 死线的同一条:更新前后 Data\ 与 UserData\ 逐字节不变,Logs\ 豁免。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 369, in test_au10_only_logs_is_written_under_the_data_root
+    self.assertTrue(os.path.isfile(self.record), "记账文件不在约定位置 <数据根>/Logs/%s" % RECORD_NAME)
+AssertionError: False is not true : 记账文件不在约定位置 <数据根>/Logs/auto-update-attempts.json
+
+======================================================================
+FAIL: test_au12a_refused_asset (tests.test_ds_web_auto_update.AutoUpdate.test_au12a_refused_asset)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 401, in test_au12a_refused_asset
+    self._refused("asset")
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 390, in _refused
+    again = self._auto(port)
+            ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.3', 'asset': {'name': 'OpenDesign-Setup-0.98.3.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe', 'size': 45836403, 'digest': None}, 'notes': '## 这一版改了什么\n\n**双击软件后的等待,最坏情况从 9 秒降到 1.5 秒。**\n\n原因是启动时检查"是不是已经开着一个了"的那段扫描:以前是 6 个端口挨个问、每个等 1.5 秒,\n凑满就是 9 秒。现在改成一次并发问完整段,最坏代价是**一个** 1.5 秒的超时,\n不再随端口数量线性增长。\n\n实测(Linux 探针):9047ms → 1502ms。\n\n## 要注意的\n\n- 这个数字**是在 Linux 上量的**。你那台 Windows 上会不会也这么快,还没量过 ——\n  装完请留意双击后的等待时间。\n- 数据安全那一面没有为了省时间让步:并发扫描的连接期限保持 1.5 秒(有判据钉着下限),\n  没有为了再省 1.25 秒把"两个实例同时开着"的风险放大。\n\n## 上一版(0.98.2)的内容仍在\n\n修白屏的那些改动都包含在内。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.3'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au12b_refused_no_shell (tests.test_ds_web_auto_update.AutoUpdate.test_au12b_refused_no_shell)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 405, in test_au12b_refused_no_shell
+    self._refused("no_shell")
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 390, in _refused
+    again = self._auto(port)
+            ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.3', 'asset': {'name': 'OpenDesign-Setup-0.98.3.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe', 'size': 45836403, 'digest': 'sha256:b1d40edf9647bf85bf5c0d613856c92173a366dae71c050591006708a5d87982'}, 'notes': '## 这一版改了什么\n\n**双击软件后的等待,最坏情况从 9 秒降到 1.5 秒。**\n\n原因是启动时检查"是不是已经开着一个了"的那段扫描:以前是 6 个端口挨个问、每个等 1.5 秒,\n凑满就是 9 秒。现在改成一次并发问完整段,最坏代价是**一个** 1.5 秒的超时,\n不再随端口数量线性增长。\n\n实测(Linux 探针):9047ms → 1502ms。\n\n## 要注意的\n\n- 这个数字**是在 Linux 上量的**。你那台 Windows 上会不会也这么快,还没量过 ——\n  装完请留意双击后的等待时间。\n- 数据安全那一面没有为了省时间让步:并发扫描的连接期限保持 1.5 秒(有判据钉着下限),\n  没有为了再省 1.25 秒把"两个实例同时开着"的风险放大。\n\n## 上一版(0.98.2)的内容仍在\n\n修白屏的那些改动都包含在内。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.3'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au12c_refused_not_installed (tests.test_ds_web_auto_update.AutoUpdate.test_au12c_refused_not_installed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 409, in test_au12c_refused_not_installed
+    self._refused("not_installed")
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 390, in _refused
+    again = self._auto(port)
+            ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.3', 'asset': {'name': 'OpenDesign-Setup-0.98.3.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe', 'size': 45836403, 'digest': 'sha256:b1d40edf9647bf85bf5c0d613856c92173a366dae71c050591006708a5d87982'}, 'notes': '## 这一版改了什么\n\n**双击软件后的等待,最坏情况从 9 秒降到 1.5 秒。**\n\n原因是启动时检查"是不是已经开着一个了"的那段扫描:以前是 6 个端口挨个问、每个等 1.5 秒,\n凑满就是 9 秒。现在改成一次并发问完整段,最坏代价是**一个** 1.5 秒的超时,\n不再随端口数量线性增长。\n\n实测(Linux 探针):9047ms → 1502ms。\n\n## 要注意的\n\n- 这个数字**是在 Linux 上量的**。你那台 Windows 上会不会也这么快,还没量过 ——\n  装完请留意双击后的等待时间。\n- 数据安全那一面没有为了省时间让步:并发扫描的连接期限保持 1.5 秒(有判据钉着下限),\n  没有为了再省 1.25 秒把"两个实例同时开着"的风险放大。\n\n## 上一版(0.98.2)的内容仍在\n\n修白屏的那些改动都包含在内。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.3'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au12d_refused_path_unsupported (tests.test_ds_web_auto_update.AutoUpdate.test_au12d_refused_path_unsupported)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 412, in test_au12d_refused_path_unsupported
+    self._refused("path_unsupported", self._install("Open%Design"))
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 390, in _refused
+    again = self._auto(port)
+            ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.3', 'asset': {'name': 'OpenDesign-Setup-0.98.3.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe', 'size': 45836403, 'digest': 'sha256:b1d40edf9647bf85bf5c0d613856c92173a366dae71c050591006708a5d87982'}, 'notes': '## 这一版改了什么\n\n**双击软件后的等待,最坏情况从 9 秒降到 1.5 秒。**\n\n原因是启动时检查"是不是已经开着一个了"的那段扫描:以前是 6 个端口挨个问、每个等 1.5 秒,\n凑满就是 9 秒。现在改成一次并发问完整段,最坏代价是**一个** 1.5 秒的超时,\n不再随端口数量线性增长。\n\n实测(Linux 探针):9047ms → 1502ms。\n\n## 要注意的\n\n- 这个数字**是在 Linux 上量的**。你那台 Windows 上会不会也这么快,还没量过 ——\n  装完请留意双击后的等待时间。\n- 数据安全那一面没有为了省时间让步:并发扫描的连接期限保持 1.5 秒(有判据钉着下限),\n  没有为了再省 1.25 秒把"两个实例同时开着"的风险放大。\n\n## 上一版(0.98.2)的内容仍在\n\n修白屏的那些改动都包含在内。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.3'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au12e_refused_disabled (tests.test_ds_web_auto_update.AutoUpdate.test_au12e_refused_disabled)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 416, in test_au12e_refused_disabled
+    self._refused("disabled")
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 390, in _refused
+    again = self._auto(port)
+            ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.3', 'asset': {'name': 'OpenDesign-Setup-0.98.3.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe', 'size': 45836403, 'digest': 'sha256:b1d40edf9647bf85bf5c0d613856c92173a366dae71c050591006708a5d87982'}, 'notes': '## 这一版改了什么\n\n**双击软件后的等待,最坏情况从 9 秒降到 1.5 秒。**\n\n原因是启动时检查"是不是已经开着一个了"的那段扫描:以前是 6 个端口挨个问、每个等 1.5 秒,\n凑满就是 9 秒。现在改成一次并发问完整段,最坏代价是**一个** 1.5 秒的超时,\n不再随端口数量线性增长。\n\n实测(Linux 探针):9047ms → 1502ms。\n\n## 要注意的\n\n- 这个数字**是在 Linux 上量的**。你那台 Windows 上会不会也这么快,还没量过 ——\n  装完请留意双击后的等待时间。\n- 数据安全那一面没有为了省时间让步:并发扫描的连接期限保持 1.5 秒(有判据钉着下限),\n  没有为了再省 1.25 秒把"两个实例同时开着"的风险放大。\n\n## 上一版(0.98.2)的内容仍在\n\n修白屏的那些改动都包含在内。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.3'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au13_a_failed_write_keeps_the_old_record_and_touches_nothing (tests.test_ds_web_auto_update.AutoUpdate.test_au13_a_failed_write_keeps_the_old_record_and_touches_nothing)
+攻题 #3 / 攻题二 #8:写记账必须是「同目录临时文件 → 写完 flush → 对**这个临时文件** os.fsync → os.replace 到记账文件」。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 449, in test_au13_a_failed_write_keeps_the_old_record_and_touches_nothing
+    self.assertTrue(into_record, "记账没有用 os.replace 换到 %s(原地写?):%r" % (self.record, replaced))
+AssertionError: [] is not true : 记账没有用 os.replace 换到 /tmp/ds_auto_update_bkypzzpf/appdata/OpenDesign/Logs/auto-update-attempts.json(原地写?):[]
+
+======================================================================
+FAIL: test_au14_disabled_is_judged_last (tests.test_ds_web_auto_update.AutoUpdate.test_au14_disabled_is_judged_last)
+OPENDESIGN_AUTO_UPDATE=off ⇒ disabled。它排在**最后**:Windows 真机判据(aw1)靠
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 483, in test_au14_disabled_is_judged_last
+    self._assert_not(self._auto(port), "disabled")
+                     ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.3', 'asset': {'name': 'OpenDesign-Setup-0.98.3.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe', 'size': 45836403, 'digest': 'sha256:b1d40edf9647bf85bf5c0d613856c92173a366dae71c050591006708a5d87982'}, 'notes': '## 这一版改了什么\n\n**双击软件后的等待,最坏情况从 9 秒降到 1.5 秒。**\n\n原因是启动时检查"是不是已经开着一个了"的那段扫描:以前是 6 个端口挨个问、每个等 1.5 秒,\n凑满就是 9 秒。现在改成一次并发问完整段,最坏代价是**一个** 1.5 秒的超时,\n不再随端口数量线性增长。\n\n实测(Linux 探针):9047ms → 1502ms。\n\n## 要注意的\n\n- 这个数字**是在 Linux 上量的**。你那台 Windows 上会不会也这么快,还没量过 ——\n  装完请留意双击后的等待时间。\n- 数据安全那一面没有为了省时间让步:并发扫描的连接期限保持 1.5 秒(有判据钉着下限),\n  没有为了再省 1.25 秒把"两个实例同时开着"的风险放大。\n\n## 上一版(0.98.2)的内容仍在\n\n修白屏的那些改动都包含在内。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.3'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au15_a_recent_failed_attempt_is_reported_once_the_app_is_back (tests.test_ds_web_auto_update.AutoUpdate.test_au15_a_recent_failed_attempt_is_reported_once_the_app_is_back)
+攻题 #1:接力脚本回滚、旧版被拉起之后,业主眼前得有一句「上次自动更新没成功」。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 505, in test_au15_a_recent_failed_attempt_is_reported_once_the_app_is_back
+    fresh = self._auto(port)
+            ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.3', 'asset': {'name': 'OpenDesign-Setup-0.98.3.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe', 'size': 45836403, 'digest': 'sha256:b1d40edf9647bf85bf5c0d613856c92173a366dae71c050591006708a5d87982'}, 'notes': '## 这一版改了什么\n\n**双击软件后的等待,最坏情况从 9 秒降到 1.5 秒。**\n\n原因是启动时检查"是不是已经开着一个了"的那段扫描:以前是 6 个端口挨个问、每个等 1.5 秒,\n凑满就是 9 秒。现在改成一次并发问完整段,最坏代价是**一个** 1.5 秒的超时,\n不再随端口数量线性增长。\n\n实测(Linux 探针):9047ms → 1502ms。\n\n## 要注意的\n\n- 这个数字**是在 Linux 上量的**。你那台 Windows 上会不会也这么快,还没量过 ——\n  装完请留意双击后的等待时间。\n- 数据安全那一面没有为了省时间让步:并发扫描的连接期限保持 1.5 秒(有判据钉着下限),\n  没有为了再省 1.25 秒把"两个实例同时开着"的风险放大。\n\n## 上一版(0.98.2)的内容仍在\n\n修白屏的那些改动都包含在内。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.3'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au15b_recent_failure_is_per_version (tests.test_ds_web_auto_update.AutoUpdate.test_au15b_recent_failure_is_per_version)
+攻题二 #6:只存一个全局「最后尝试时刻」的写法 —— 很久前试过 A、刚试过 B、B 被撤回 ⇒ 把 A 说成「刚失败」。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 534, in test_au15b_recent_failure_is_per_version
+    a = self._auto(port)
+        ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.2', 'asset': {'name': 'OpenDesign-Setup-0.98.2.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.2/OpenDesign-Setup-0.98.2.exe', 'size': 45825274, 'digest': 'sha256:2cca641fc30c52135f61e462f8711408652aec239901d6495dd720c77a5805c4'}, 'notes': '**建议装这一版,跳过 0.98.1。**\n\n## 找到了一条白屏的真原因(而且是 0.98.1 自己照出来的)\n\n0.98.1 加了"网页出错时报回来"的能力。发出去几小时,它就在云 Windows 机器上抓到一次真实白屏,并且给出了原因:\n\n程序和网页之间的接口是**分步接上**的,有一瞬间"接口在了、某个方法还没挂上"。\n我们的代码在那一瞬间会抛异常,而整个界面没有任何兜底 ⇒ **React 把整个界面卸载掉 ⇒ 整页变白。**\n\n这条路**一直都在**,只是以前完全隐形 —— 没有错误上报时,它就只是"打开全是白的,没有任何线索"。\n现在真机和本机两处都能复现,已修。\n\n⚠️ 不敢说它就是 8 月 25 号那次的原因(那次还有网页内核更新的嫌疑),但这是一条被复现、机制完整的白屏路径。\n\n## 顺带修了\n\n- 判断"界面画出来了"原来只看容器有没有大小 —— 而界面被卸载后容器还在,**成功信号会撒谎**。现在还要求它有内容。\n- 启动的头一段被切成了几小段,以后"慢在哪"分得更细。\n\n## 仍然敞着\n\n**整个程序没有错误兜底** —— 这次只堵了一处会抛的地方,"任何一处网页异常都能把整页打没"这个结构问题还在,要单独做一版。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.2'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au1_all_conditions_met_means_eligible (tests.test_ds_web_auto_update.AutoUpdate.test_au1_all_conditions_met_means_eligible)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 201, in test_au1_all_conditions_met_means_eligible
+    self.assertEqual(body.get("auto_update"), {"eligible": True, "why_not": None, "recent_failure": False},
+AssertionError: None != {'eligible': True, 'why_not': None, 'recent_failure': False} : 装出来的桌面版 + 有可装的新版 + 没试过,却不让倒计时:None
+
+======================================================================
+FAIL: test_au2a_no_update (tests.test_ds_web_auto_update.AutoUpdate.test_au2a_no_update)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 212, in test_au2a_no_update
+    self._assert_not(self._auto(port), "no_update")
+                     ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': False, 'latest': None, 'asset': None, 'notes': '', 'release_url': None, 'error': '查更新失败:发布页订阅源:连不上 GitHub(检查网络或 VPN)(OSError: 判据不打网:订阅源在这份判据里一律不可用);GitHub 接口:线上没有可安装的版本'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au2b_asset_without_digest (tests.test_ds_web_auto_update.AutoUpdate.test_au2b_asset_without_digest)
+没有可信 sha256 的安装包,一键更新会在下载前拒绝(t15)—— 倒计时 10 秒然后报失败没有意义。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 221, in test_au2b_asset_without_digest
+    self._assert_not(self._auto(port), "asset")
+                     ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.3', 'asset': {'name': 'OpenDesign-Setup-0.98.3.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe', 'size': 45836403, 'digest': None}, 'notes': '## 这一版改了什么\n\n**双击软件后的等待,最坏情况从 9 秒降到 1.5 秒。**\n\n原因是启动时检查"是不是已经开着一个了"的那段扫描:以前是 6 个端口挨个问、每个等 1.5 秒,\n凑满就是 9 秒。现在改成一次并发问完整段,最坏代价是**一个** 1.5 秒的超时,\n不再随端口数量线性增长。\n\n实测(Linux 探针):9047ms → 1502ms。\n\n## 要注意的\n\n- 这个数字**是在 Linux 上量的**。你那台 Windows 上会不会也这么快,还没量过 ——\n  装完请留意双击后的等待时间。\n- 数据安全那一面没有为了省时间让步:并发扫描的连接期限保持 1.5 秒(有判据钉着下限),\n  没有为了再省 1.25 秒把"两个实例同时开着"的风险放大。\n\n## 上一版(0.98.2)的内容仍在\n\n修白屏的那些改动都包含在内。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.3'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au2c_no_shell (tests.test_ds_web_auto_update.AutoUpdate.test_au2c_no_shell)
+没有桌面外壳接交棒(浏览器里开、开发方式跑)⇒ 走到最后一步必失败,别倒计时。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 227, in test_au2c_no_shell
+    self._assert_not(self._auto(port), "no_shell")
+                     ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.3', 'asset': {'name': 'OpenDesign-Setup-0.98.3.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe', 'size': 45836403, 'digest': 'sha256:b1d40edf9647bf85bf5c0d613856c92173a366dae71c050591006708a5d87982'}, 'notes': '## 这一版改了什么\n\n**双击软件后的等待,最坏情况从 9 秒降到 1.5 秒。**\n\n原因是启动时检查"是不是已经开着一个了"的那段扫描:以前是 6 个端口挨个问、每个等 1.5 秒,\n凑满就是 9 秒。现在改成一次并发问完整段,最坏代价是**一个** 1.5 秒的超时,\n不再随端口数量线性增长。\n\n实测(Linux 探针):9047ms → 1502ms。\n\n## 要注意的\n\n- 这个数字**是在 Linux 上量的**。你那台 Windows 上会不会也这么快,还没量过 ——\n  装完请留意双击后的等待时间。\n- 数据安全那一面没有为了省时间让步:并发扫描的连接期限保持 1.5 秒(有判据钉着下限),\n  没有为了再省 1.25 秒把"两个实例同时开着"的风险放大。\n\n## 上一版(0.98.2)的内容仍在\n\n修白屏的那些改动都包含在内。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.3'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au2d_not_installed (tests.test_ds_web_auto_update.AutoUpdate.test_au2d_not_installed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 232, in test_au2d_not_installed
+    self._assert_not(self._auto(port), "not_installed")
+                     ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.3', 'asset': {'name': 'OpenDesign-Setup-0.98.3.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe', 'size': 45836403, 'digest': 'sha256:b1d40edf9647bf85bf5c0d613856c92173a366dae71c050591006708a5d87982'}, 'notes': '## 这一版改了什么\n\n**双击软件后的等待,最坏情况从 9 秒降到 1.5 秒。**\n\n原因是启动时检查"是不是已经开着一个了"的那段扫描:以前是 6 个端口挨个问、每个等 1.5 秒,\n凑满就是 9 秒。现在改成一次并发问完整段,最坏代价是**一个** 1.5 秒的超时,\n不再随端口数量线性增长。\n\n实测(Linux 探针):9047ms → 1502ms。\n\n## 要注意的\n\n- 这个数字**是在 Linux 上量的**。你那台 Windows 上会不会也这么快,还没量过 ——\n  装完请留意双击后的等待时间。\n- 数据安全那一面没有为了省时间让步:并发扫描的连接期限保持 1.5 秒(有判据钉着下限),\n  没有为了再省 1.25 秒把"两个实例同时开着"的风险放大。\n\n## 上一版(0.98.2)的内容仍在\n\n修白屏的那些改动都包含在内。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.3'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au2e_path_the_relay_cannot_handle (tests.test_ds_web_auto_update.AutoUpdate.test_au2e_path_the_relay_cannot_handle)
+t36 那一类:接力脚本处理不了的路径,apply_update 第 -1 步会拒绝 —— 同一个判断,不许两处各说各的。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 238, in test_au2e_path_the_relay_cannot_handle
+    self._assert_not(self._auto(port), "path_unsupported")
+                     ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.3', 'asset': {'name': 'OpenDesign-Setup-0.98.3.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe', 'size': 45836403, 'digest': 'sha256:b1d40edf9647bf85bf5c0d613856c92173a366dae71c050591006708a5d87982'}, 'notes': '## 这一版改了什么\n\n**双击软件后的等待,最坏情况从 9 秒降到 1.5 秒。**\n\n原因是启动时检查"是不是已经开着一个了"的那段扫描:以前是 6 个端口挨个问、每个等 1.5 秒,\n凑满就是 9 秒。现在改成一次并发问完整段,最坏代价是**一个** 1.5 秒的超时,\n不再随端口数量线性增长。\n\n实测(Linux 探针):9047ms → 1502ms。\n\n## 要注意的\n\n- 这个数字**是在 Linux 上量的**。你那台 Windows 上会不会也这么快,还没量过 ——\n  装完请留意双击后的等待时间。\n- 数据安全那一面没有为了省时间让步:并发扫描的连接期限保持 1.5 秒(有判据钉着下限),\n  没有为了再省 1.25 秒把"两个实例同时开着"的风险放大。\n\n## 上一版(0.98.2)的内容仍在\n\n修白屏的那些改动都包含在内。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.3'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au2f_attempted (tests.test_ds_web_auto_update.AutoUpdate.test_au2f_attempted)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 245, in test_au2f_attempted
+    self._assert_not(self._auto(port), "attempted")
+                     ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.3', 'asset': {'name': 'OpenDesign-Setup-0.98.3.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe', 'size': 45836403, 'digest': 'sha256:b1d40edf9647bf85bf5c0d613856c92173a366dae71c050591006708a5d87982'}, 'notes': '## 这一版改了什么\n\n**双击软件后的等待,最坏情况从 9 秒降到 1.5 秒。**\n\n原因是启动时检查"是不是已经开着一个了"的那段扫描:以前是 6 个端口挨个问、每个等 1.5 秒,\n凑满就是 9 秒。现在改成一次并发问完整段,最坏代价是**一个** 1.5 秒的超时,\n不再随端口数量线性增长。\n\n实测(Linux 探针):9047ms → 1502ms。\n\n## 要注意的\n\n- 这个数字**是在 Linux 上量的**。你那台 Windows 上会不会也这么快,还没量过 ——\n  装完请留意双击后的等待时间。\n- 数据安全那一面没有为了省时间让步:并发扫描的连接期限保持 1.5 秒(有判据钉着下限),\n  没有为了再省 1.25 秒把"两个实例同时开着"的风险放大。\n\n## 上一版(0.98.2)的内容仍在\n\n修白屏的那些改动都包含在内。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.3'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au3_the_attempt_is_written_before_anything_is_prepared (tests.test_ds_web_auto_update.AutoUpdate.test_au3_the_attempt_is_written_before_anything_is_prepared)
+🔴 预写。接力脚本回滚、旧版被重新拉起时,界面早就没了 —— 只有动手前记下的账才活得过那一刻。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 262, in test_au3_the_attempt_is_written_before_anything_is_prepared
+    self.assertIsInstance(seen, dict, "开始准备的那一刻查更新没答上来:%r" % (seen,))
+AssertionError: None is not an instance of <class 'dict'> : 开始准备的那一刻查更新没答上来:None
+
+======================================================================
+FAIL: test_au4_a_failed_attempt_is_seen_through_the_cache_and_a_restart (tests.test_ds_web_auto_update.AutoUpdate.test_au4_a_failed_attempt_is_seen_through_the_cache_and_a_restart)
+查更新结果缓存 6 小时。auto_update 若跟着进了缓存,同一进程里下一次查仍说 eligible。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 271, in test_au4_a_failed_attempt_is_seen_through_the_cache_and_a_restart
+    before = self._auto(port)
+             ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.3', 'asset': {'name': 'OpenDesign-Setup-0.98.3.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe', 'size': 45836403, 'digest': 'sha256:b1d40edf9647bf85bf5c0d613856c92173a366dae71c050591006708a5d87982'}, 'notes': '## 这一版改了什么\n\n**双击软件后的等待,最坏情况从 9 秒降到 1.5 秒。**\n\n原因是启动时检查"是不是已经开着一个了"的那段扫描:以前是 6 个端口挨个问、每个等 1.5 秒,\n凑满就是 9 秒。现在改成一次并发问完整段,最坏代价是**一个** 1.5 秒的超时,\n不再随端口数量线性增长。\n\n实测(Linux 探针):9047ms → 1502ms。\n\n## 要注意的\n\n- 这个数字**是在 Linux 上量的**。你那台 Windows 上会不会也这么快,还没量过 ——\n  装完请留意双击后的等待时间。\n- 数据安全那一面没有为了省时间让步:并发扫描的连接期限保持 1.5 秒(有判据钉着下限),\n  没有为了再省 1.25 秒把"两个实例同时开着"的风险放大。\n\n## 上一版(0.98.2)的内容仍在\n\n修白屏的那些改动都包含在内。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.3'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au5_an_attempted_version_is_refused_on_the_server_too (tests.test_ds_web_auto_update.AutoUpdate.test_au5_an_attempted_version_is_refused_on_the_server_too)
+服务端二次把关:界面慢一拍、两个窗口同时倒计时、别的页面直接发请求,都绕不过去。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 288, in test_au5_an_attempted_version_is_refused_on_the_server_too
+    self.assertEqual(body.get("stage"), "auto_skipped", body)
+AssertionError: 'verify' != 'auto_skipped'
+- verify
++ auto_skipped
+ : {'ok': False, 'stage': 'verify', 'error': 'sha256 对不上'}
+
+======================================================================
+FAIL: test_au7_cannot_record_means_do_not_touch_anything (tests.test_ds_web_auto_update.AutoUpdate.test_au7_cannot_record_means_do_not_touch_anything)
+记不下 ⇒ 下次打开还会再自动试 ⇒ 循环。宁可这次不自动。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 305, in test_au7_cannot_record_means_do_not_touch_anything
+    self.assertFalse(body.get("ok"))
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_au8_a_garbage_record_is_an_empty_record (tests.test_ds_web_auto_update.AutoUpdate.test_au8_a_garbage_record_is_an_empty_record)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 314, in test_au8_a_garbage_record_is_an_empty_record
+    before = self._auto(port)
+             ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.3', 'asset': {'name': 'OpenDesign-Setup-0.98.3.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe', 'size': 45836403, 'digest': 'sha256:b1d40edf9647bf85bf5c0d613856c92173a366dae71c050591006708a5d87982'}, 'notes': '## 这一版改了什么\n\n**双击软件后的等待,最坏情况从 9 秒降到 1.5 秒。**\n\n原因是启动时检查"是不是已经开着一个了"的那段扫描:以前是 6 个端口挨个问、每个等 1.5 秒,\n凑满就是 9 秒。现在改成一次并发问完整段,最坏代价是**一个** 1.5 秒的超时,\n不再随端口数量线性增长。\n\n实测(Linux 探针):9047ms → 1502ms。\n\n## 要注意的\n\n- 这个数字**是在 Linux 上量的**。你那台 Windows 上会不会也这么快,还没量过 ——\n  装完请留意双击后的等待时间。\n- 数据安全那一面没有为了省时间让步:并发扫描的连接期限保持 1.5 秒(有判据钉着下限),\n  没有为了再省 1.25 秒把"两个实例同时开着"的风险放大。\n\n## 上一版(0.98.2)的内容仍在\n\n修白屏的那些改动都包含在内。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.3'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au9_earlier_attempts_are_kept (tests.test_ds_web_auto_update.AutoUpdate.test_au9_earlier_attempts_are_kept)
+追加,不覆盖。覆盖的话:试 A → 试 B → 线上撤回 B ⇒ A 又会被自动试一遍。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 333, in test_au9_earlier_attempts_are_kept
+    again = self._auto(port)
+            ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.2', 'asset': {'name': 'OpenDesign-Setup-0.98.2.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.2/OpenDesign-Setup-0.98.2.exe', 'size': 45825274, 'digest': 'sha256:2cca641fc30c52135f61e462f8711408652aec239901d6495dd720c77a5805c4'}, 'notes': '**建议装这一版,跳过 0.98.1。**\n\n## 找到了一条白屏的真原因(而且是 0.98.1 自己照出来的)\n\n0.98.1 加了"网页出错时报回来"的能力。发出去几小时,它就在云 Windows 机器上抓到一次真实白屏,并且给出了原因:\n\n程序和网页之间的接口是**分步接上**的,有一瞬间"接口在了、某个方法还没挂上"。\n我们的代码在那一瞬间会抛异常,而整个界面没有任何兜底 ⇒ **React 把整个界面卸载掉 ⇒ 整页变白。**\n\n这条路**一直都在**,只是以前完全隐形 —— 没有错误上报时,它就只是"打开全是白的,没有任何线索"。\n现在真机和本机两处都能复现,已修。\n\n⚠️ 不敢说它就是 8 月 25 号那次的原因(那次还有网页内核更新的嫌疑),但这是一条被复现、机制完整的白屏路径。\n\n## 顺带修了\n\n- 判断"界面画出来了"原来只看容器有没有大小 —— 而界面被卸载后容器还在,**成功信号会撒谎**。现在还要求它有内容。\n- 启动的头一段被切成了几小段,以后"慢在哪"分得更细。\n\n## 仍然敞着\n\n**整个程序没有错误兜底** —— 这次只堵了一处会抛的地方,"任何一处网页异常都能把整页打没"这个结构问题还在,要单独做一版。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.2'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au9b_a_withdrawn_newer_attempt_does_not_block_an_untried_older_one (tests.test_ds_web_auto_update.AutoUpdate.test_au9b_a_withdrawn_newer_attempt_does_not_block_an_untried_older_one)
+攻题 #14:只记"试过的最大版本"、按 ≤ 判 attempted 的写法 —— 试 0.98.3 → 撤回 ⇒ 从没试过的 0.98.2 被误封。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 344, in test_au9b_a_withdrawn_newer_attempt_does_not_block_an_untried_older_one
+    auto = self._auto(port)
+           ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.2', 'asset': {'name': 'OpenDesign-Setup-0.98.2.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.2/OpenDesign-Setup-0.98.2.exe', 'size': 45825274, 'digest': 'sha256:2cca641fc30c52135f61e462f8711408652aec239901d6495dd720c77a5805c4'}, 'notes': '**建议装这一版,跳过 0.98.1。**\n\n## 找到了一条白屏的真原因(而且是 0.98.1 自己照出来的)\n\n0.98.1 加了"网页出错时报回来"的能力。发出去几小时,它就在云 Windows 机器上抓到一次真实白屏,并且给出了原因:\n\n程序和网页之间的接口是**分步接上**的,有一瞬间"接口在了、某个方法还没挂上"。\n我们的代码在那一瞬间会抛异常,而整个界面没有任何兜底 ⇒ **React 把整个界面卸载掉 ⇒ 整页变白。**\n\n这条路**一直都在**,只是以前完全隐形 —— 没有错误上报时,它就只是"打开全是白的,没有任何线索"。\n现在真机和本机两处都能复现,已修。\n\n⚠️ 不敢说它就是 8 月 25 号那次的原因(那次还有网页内核更新的嫌疑),但这是一条被复现、机制完整的白屏路径。\n\n## 顺带修了\n\n- 判断"界面画出来了"原来只看容器有没有大小 —— 而界面被卸载后容器还在,**成功信号会撒谎**。现在还要求它有内容。\n- 启动的头一段被切成了几小段,以后"慢在哪"分得更细。\n\n## 仍然敞着\n\n**整个程序没有错误兜底** —— 这次只堵了一处会抛的地方,"任何一处网页异常都能把整页打没"这个结构问题还在,要单独做一版。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.2'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_au9c_versions_are_compared_exactly (tests.test_ds_web_auto_update.AutoUpdate.test_au9c_versions_are_compared_exactly)
+攻题 #14:子串 / 前缀 / 字典序 —— 试过 0.98.1,不等于试过 0.98.10。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 360, in test_au9c_versions_are_compared_exactly
+    auto = self._auto(port)
+           ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_update.py", line 187, in _auto
+    self.assertIn("auto_update", body, "查更新回包里没有 auto_update:%r" % (sorted(body),))
+AssertionError: 'auto_update' not found in {'current': '0.90.0', 'update_available': True, 'latest': '0.98.10', 'asset': {'name': 'OpenDesign-Setup-0.98.10.exe', 'url': 'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.10/OpenDesign-Setup-0.98.10.exe', 'size': 45828753, 'digest': 'sha256:03d3b5423cfb1af4d18ff1559118dc1e0feefbd764df34a9480d999be5e185fc'}, 'notes': '装上去**感觉不到变化**,只多一个托盘菜单项:右键右下角图标 → 「导出本次启动诊断」。\n\n## 这一版做了什么\n\n以前白屏时我们手上一条线索都没有(08-25 那晚就是)。现在:\n- 每次启动有独立编号,一晚开关多次也分得清哪几行属于哪一次\n- 启动分阶段计时,答得出"慢在哪一段"\n- 启动首行记下**网页内核版本** —— 08-25 最关键的那条证据,当时是靠翻文件夹才知道的\n- 界面没画出来时,自己把现场写进日志(**不弹框、不打扰**)\n- 白屏时窗口是废的、托盘还活着 ⇒ 点一下就把现场打成一个包\n\n## 🔴 顺带修了一个会让软件打不开的问题\n\n本版开发中新加的"后端就绪"探针走了系统代理,**配了公司代理或 Clash 类 VPN 的机器上\n会等满 60 秒然后判启动失败**。四审时被一条腿抓到、我造探针复现后修掉。', 'error': None, 'release_url': 'https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.10'} : 查更新回包里没有 auto_update:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available']
+
+======================================================================
+FAIL: test_t9a_endpoint_answers_with_the_shape_the_ui_needs (tests.test_ds_web_update.UpdateCheckEndpoint.test_t9a_endpoint_answers_with_the_shape_the_ui_needs)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_update.py", line 122, in test_t9a_endpoint_answers_with_the_shape_the_ui_needs
+    self.assertEqual(
+AssertionError: Items in the second set but not the first:
+'auto_update' : 端点吐出来的字段和约定的不一样:['asset', 'current', 'error', 'latest', 'notes', 'release_url', 'update_available'] —— 多出来的字段意味着把 GitHub 的原始响应往界面上漏
+
+----------------------------------------------------------------------
+Ran 94 tests in 29.532s
+
+FAILED (failures=26)
+---------------- 输出结束 ----------------
+runlog: oracle-v3-red-python rc=1 commit=ea81c72 dirty=yes at=2026-09-17T12:23:19Z file=tracks/opendesign-auto-update-countdown/evidence/20260917T122319Z-01-oracle-v3-red-python.txt

@@ -617,6 +617,7 @@ function Run-e9 {
     Remove-Item -Path "Env:$AutoKnob" -ErrorAction SilentlyContinue
     try {
         $f.auto_knob_at_launch = "$([Environment]::GetEnvironmentVariable($AutoKnob))"
+        $sinceLaunch = [Diagnostics.Stopwatch]::StartNew()
         Start-Process -FilePath "$InstallDir\OpenDesign.exe" | Out-Null
         $f.launch_health = Wait-Health $OldVersion 180
         Save-Screen (Join-Path $OutDir 'e9-launched.png')
@@ -628,6 +629,12 @@ function Run-e9 {
         $f.relay = $w.relay
         $f.seen_versions = $w.versions
         $f.health_after = Wait-Health $OldVersion 180
+        # 攻题二 #3:recent_failure 只在 10 分钟内为真 ⇒ 旧版一答话就立刻查,并记下离拉起过了多久
+        # (慢 runner 上超过 ~9.5 分钟判"场景超时",不判产品错)。
+        $p2 = if ($f.health_after -and $f.health_after.port) { $f.health_after.port } else { $null }
+        $f.check_after = if ($p2) { Invoke-Check $p2 } else { @{ _error = 'old app not answering after rollback' } }
+        $f.check_after_s = [Math]::Round($sinceLaunch.Elapsed.TotalSeconds, 1)
+        Note "e9 after rollback ($($f.check_after_s)s since launch): auto_update=$($f.check_after.auto_update | ConvertTo-Json -Compress)"
         $injectFile = Join-Path $flagDir 'inject.json'
         $f.inject = if (Test-Path -LiteralPath $injectFile) {
             Get-Content -LiteralPath $injectFile -Raw | ConvertFrom-Json -AsHashtable
@@ -645,13 +652,13 @@ function Run-e9 {
         # 旧版被拉起之后,给页面足够时间:加载 + 查更新 + (要是还倒计时的话)10 秒 + 开始下载。
         # 判的是**整个场景只下载过一次**(fake_log)+ 这会儿没有第二个接力脚本 —— 不在这里取分界点,
         # 免得页面在分界点之前就开始了第二次下载而被漏数。
-        $f.window_after = Wait-Window 60
+        Wait-Window 60 | Out-Null
         Start-Sleep -Seconds 45
         Save-Screen (Join-Path $OutDir 'e9-after-rollback.png')
+        # 攻题二 #2:窗口 / 后端在**观察窗结束时**还在,才算"回来了"(闪一下就没的,前面那次快照看不出来)。
+        $f.window_final = Wait-Window 5
+        $f.health_final = Get-Health
         $f.relay_again = (Get-RelayProcs).Count -gt 0
-        $p2 = if ($f.health_after -and $f.health_after.port) { $f.health_after.port } else { $null }
-        $f.check_after = if ($p2) { Invoke-Check $p2 } else { @{ _error = 'old app not answering after rollback' } }
-        Note "e9 after rollback: auto_update=$($f.check_after.auto_update | ConvertTo-Json -Compress)"
     } finally {
         Set-Item -Path "Env:$AutoKnob" -Value 'off'
     }

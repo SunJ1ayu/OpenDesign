@@ -62,7 +62,10 @@ GET 面只读(不许在查更新里记「已提示过」),所以用时间界定:
 文件名用 ASCII(Windows e2e 的 pwsh 要按名字清它,runner 代码页对中文不友好)。
 - 内容形状实现自定;要求**已记过的版本不丢**(追加,不覆盖)、每个版本带最后一次尝试时刻(`time.time()`)。
 - 读:不存在 / 读不了 / 不是 JSON / 形状不对 ⇒ 当作空账(下一次记账会整份写成合法的)。
-- 写:同目录临时文件 → `flush` + `os.fsync` → `os.replace`(不留半截文件;换名失败旧账完好)。任一步失败 ⇒ `auto_unrecorded`。
+- 写:同目录临时文件 → 写完 `flush` → 对**这个临时文件**的 fd `os.fsync` → `os.replace` 到记账文件(不留半截文件;换名失败旧账完好)。
+  任一步失败 ⇒ `auto_unrecorded`。调用写成模块属性 `os.fsync(...)` / `os.replace(...)`(判据按模块属性注入故障)。
+- 每个版本**各自**记最后一次尝试时刻(不许一个全局时刻 —— 撤回刚试的 B 之后会把很久前试的 A 说成「刚失败」)。
+- **查更新(GET)不许等更新锁**:真实更新要下载几十 MB,等锁的查更新会一直挂着;GET 也**绝不许自己开始更新**。
 - 条件重判、记账、开始准备在**同一个锁**里(锁外先判再进锁,两个窗口会把同一版准备两次 —— 攻题 #4,判据问不到,闸③亲读)。
 
 ### 前端
@@ -74,7 +77,7 @@ GET 面只读(不许在查更新里记「已提示过」),所以用时间界定:
 - `countdownText(latest, seconds)`:带版本号、带秒数、带「自动更新」。
 - `autoFailureText(result)`:自动那次请求的结果要不要在横幅上说、说什么。
   - `null` / 成功 / `auto_skipped` / `busy` / `no_update` ⇒ `""`(不是失败,或者别处已在更新,安静收起)。
-  - `auto_unrecorded`,以及 `stage` 为 `null`(请求没回来 / 非 200 / 回包不是 JSON —— 不知道服务端记没记账)⇒ 非空,**不许说**「不会再自动」。
+  - `auto_unrecorded`,以及 `stage` 为 `null`(请求没回来 / 非 200 / 回包不是 JSON —— 不知道服务端记没记账)⇒ 非空,**不许说**「不会再自动 / 不再自动」。
   - 其它失败 ⇒ 非空,包含 `applyHint(result)` 那句,并说明**这个版本不会再自动更新**。
 - `autoRecentFailureText(info)`:`update_available` 为真、`why_not === "attempted"`、`recent_failure === true` ⇒ 一句非空的话:
   哪一版、上次自动更新没成功、不会再自动试、可以手动更新;否则 `""`。
@@ -100,7 +103,9 @@ GET 面只读(不许在查更新里记「已提示过」),所以用时间界定:
 - aw1:e1/e6/e8 更新前那次查更新 `why_not` **恰好是 `disabled`**(排最后 ⇒ 真桌面版里其余条件全成立;看到 eligible=true = 关不掉 = 场景被污染)。
 - **e9(新)真 WebView 整条链**:复位不拉起 → 布置注入(同 e5,新版认不出 ⇒ 回滚)→ 摘掉开关 → 拉起旧版 → **脚本一次 apply 都不发**,
   等页面自己倒计时发起 → 接力脚本出现、回滚、旧版重新拉起 → 再等 45 秒:整个场景**只下载过一次**、没有第二个接力脚本、窗口在;
-  回滚后查更新 `attempted + recent_failure=true`。截图留横幅(不进裁决)。
+  回滚后**旧版一答话立刻**查更新:`attempted + recent_failure=true`,并记离拉起多久(≥570 秒判场景超时,不判产品错);
+  观察窗**结束时**窗口与旧版仍在;替身日志时间戳:页面拿到清单 → 下载之间 8.5~20 秒(证明是页面倒计时发起,不是后端自己开装)。
+  截图留横幅(不进裁决)。
   这是「装出来的真桌面版里打开软件真会倒计时」与「同一版本失败一次不再自动试」跨真实回滚 + 真页面重开的唯一证据(攻题 #6/#7)。
 - 每个场景复位时清掉记账文件。
 
@@ -133,7 +138,7 @@ GET 面只读(不许在查更新里记「已提示过」),所以用时间界定:
 ## Test strategy (oracle)
 
 主 agent 亲写,执行腿逐字节 off-limits。**编号 `au*`(后端)、`ac*`(前端纯函数)、E2E 段名 `AC-*`、Windows `aw*`。**
-这张表是唯一权威,tasks.md 只引用。第二版(09-17)按 GPT-5.6-sol 攻题改过,处置见 verify.md。
+这张表是唯一权威,tasks.md 只引用。第二版、第三版(09-17)按 GPT-5.6-sol 两轮攻题改过,处置收货后并入 verify.md。
 
 ### `tests/test_ds_web_auto_update.py`(真 ds_web、端口 0、网络与安装全替身、`LOCALAPPDATA` 指到临时目录)
 
@@ -144,7 +149,8 @@ GET 面只读(不许在查更新里记「已提示过」),所以用时间界定:
 |---|---|
 | au1 | 全部条件满足 ⇒ `auto_update == {"eligible": true, "why_not": null, "recent_failure": false}`,原有字段仍在 |
 | au2a~au2f | 各单独破一个条件 ⇒ `why_not` 分别为 `no_update` / `asset` / `no_shell` / `not_installed` / `path_unsupported` / `attempted` |
-| au3 | 自动请求:**`apply_update` 被调用的那一刻,产品自己的查更新已经说 attempted**(预写;问产品,不读文件找子串);顺序 apply → handoff → bridge |
+| au1 补 | 查更新之后 `apply_update` 一次没被调(GET 自己不许开始更新) |
+| au3 | 自动请求:**`apply_update` 被调用的那一刻,产品自己的查更新已经说 attempted**(预写;问产品,不读文件找子串;查更新不许等更新锁);顺序 apply → handoff → bridge |
 | au4 | 准备失败之后,不带 force 的查更新 attempted;**换一个新 server(新进程)** 仍 attempted |
 | au5 | 已试过的版本再发自动请求 ⇒ `auto_skipped`,`apply_update` 没被调 |
 | au6 | 已试过的版本发**手动**请求(`{}`)⇒ `apply_update` 照样被调 |
@@ -156,9 +162,10 @@ GET 面只读(不许在查更新里记「已提示过」),所以用时间界定:
 | au10 | 数据根下只写 `Logs/`,记账文件在 `Logs/auto-update-attempts.json` |
 | au11 | `"auto": "true"`(字符串)不算自动 |
 | au12a~e | 被拒的自动请求(`asset` / `no_shell` / `not_installed` / `path_unsupported` / `disabled`)⇒ `auto_skipped`、不准备、**不记账** |
-| au13 | 记账走 `fsync` → `os.replace`;`os.replace` 失败 ⇒ `auto_unrecorded`、不准备、**旧账完好**、没记上的版本不被当成试过 |
+| au13 | 记账:同目录临时文件,换名前对**同一个文件**(inode)fsync 过、且 fsync 时大小已与换名时相同(先 flush);`os.replace` 失败 ⇒ `auto_unrecorded`、不准备、**旧账完好**、没记上的版本不被当成试过 |
 | au14 | `OPENDESIGN_AUTO_UPDATE=off` ⇒ `disabled`;它排在 `not_installed` 与 `attempted` 之后;`OFF` 也认 |
 | au15 | 刚自动试过 ⇒ `recent_failure=true`;590 秒仍 true;610 秒 false(`time.time()`) |
+| au15b | 时刻按版本各记:t0 试 A、t0+1000 试 B、撤回 B,t0+1010 查 A ⇒ attempted 但 recent_failure=false |
 
 ### `tests/test_update_ui.mjs` 追加(node --test)
 
@@ -172,13 +179,13 @@ GET 面只读(不许在查更新里记「已提示过」),所以用时间界定:
 | ac6 | `autoFailureText`:真失败 ⇒ 含 `applyHint` 那句、说不会再自动;每个失败 stage 都非空 |
 | ac7 | `autoFailureText`:`auto_unrecorded` / stage null(请求失败、HTTP 500、非 JSON)⇒ 非空且**不含**「不会再自动」 |
 | ac8 | `autoWhyNotHint`:有新版 + attempted ⇒ 含「手动」;其它 ⇒ `""`,垃圾不抛 |
-| ac9 | `autoRecentFailureText`:有新版 + attempted + recent_failure ⇒ 含版本号、没成功、不会再自动、手动;其它 ⇒ `""`,垃圾不抛 |
+| ac9 | `autoRecentFailureText`:有新版 + attempted + recent_failure ⇒ 含版本号、没成功、不会再自动、手动;其它 ⇒ `""`,垃圾不抛。「没成功」「不会再自动」认一组同义说法(ac6/ac7/AC-C2/AC-D 同一套) |
 
 ### `tests/e2e/auto_update_countdown.e2e.mjs`(真 chromium + 真 ds_web;check / apply 用 page.route 拦;视口 = 真窗口 1280×860 / 最小 960×640)
 
 | 段 | 问什么 |
 |---|---|
-| AC-A | eligible ⇒ 横幅在视口内、没被盖住、不在设置里;显示 10 秒且在跳;**横幅出现到请求到达 8.5~12 秒**;恰好一次 apply,`auto === true`;之后说会关掉重开;打开一次只查一次 |
+| AC-A | eligible ⇒ 横幅在视口内、没被盖住(命中测试时临时打开 pointer-events)、不在设置里;**页面自己记下**横幅第一次出现的时刻与字(10 秒);**出现到请求到达 8.5~12 秒**;恰好一次 apply,`auto === true`;之后说会关掉重开;打开一次只查一次 |
 | AC-B | 960×640 点取消 ⇒ 收起;之后 online / visibilitychange / focus、手动检查、开关关再开 ⇒ 0 次 apply、不再出横幅 |
 | AC-C | 早就试过(recent_failure=false)⇒ 不出横幅、0 次 apply;设置里 `auto-update-why-not` 含「手动」 |
 | AC-C2 | 刚失败(recent_failure=true)⇒ 横幅说版本 + 不会再自动,不倒计时、无取消;0 次 apply;能关掉 |
@@ -192,7 +199,7 @@ GET 面只读(不许在查更新里记「已提示过」),所以用时间界定:
 | 编号 | 问什么 |
 |---|---|
 | aw1 | e1/e6/e8 事实里 `check.auto_update.why_not` 不是恰好 `disabled` ⇒ 判红(含 eligible=true、别的原因、缺字段) |
-| aw2 | e9 判定器:脚本发过 apply / 拉起时开关没摘 / 没有接力脚本 / 注入没中 / 坏新版没跑过 / 没回滚 / **下载不是恰好一次** / 回滚后又有接力脚本 / 没窗口 / 回滚后不是 attempted + recent_failure ⇒ 判红;缺任一事实 ⇒ 判红 |
+| aw2 | e9 判定器:脚本发过 apply / 拉起时开关没摘 / 没有接力脚本 / 注入没中 / 坏新版没跑过 / 没回滚 / **下载不是恰好一次** / **清单→下载不在 8.5~20 秒** / 回滚后又有接力脚本 / 观察结束时没窗口或旧版不在答 / 回滚后不是 attempted + recent_failure / 离拉起 ≥570 秒(场景超时)⇒ 判红;缺任一事实 ⇒ 判红 |
 | aw4 | 脚本静态:开关名与产品一致且**活得过外壳 child_env**(用真 child_env 核);第一次拉起之前已关;复位清账;e9 不发 apply、注入与摘开关在拉起之前、finally 装回;e9 排在带空格目录之前;工作流收据闸点名 e9 |
 
 ### 这份判据问不住什么(先写下来)

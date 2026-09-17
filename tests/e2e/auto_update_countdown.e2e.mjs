@@ -104,6 +104,8 @@ const LATEST_ALREADY = {
   release_url: null, auto_update: { eligible: false, why_not: "no_update", recent_failure: false },
 };
 const STARTED = { ok: true, stage: "started", error: null, latest: "0.99.0" };
+// 与 tests/test_update_ui.mjs 的 NO_MORE_AUTO 同一套说法(攻题二 #11:认意思不认字面)。
+const NO_MORE_AUTO = /不会再自动|不再自动|以后只能手动|之后只能手动/;
 const DEFAULT_VIEW = { width: 1280, height: 860 };
 const SMALLEST_VIEW = { width: 960, height: 640 };
 
@@ -115,6 +117,17 @@ const SMALLEST_VIEW = { width: 960, height: 640 };
 async function openPage(browser, { checks, applyReply = STARTED, autoCheckOff = false, view = DEFAULT_VIEW }) {
   const page = await browser.newPage({ viewport: view });
   const log = { checks: 0, checkUrls: [], applies: [], view };
+  // 攻题二 #5:「测试看见横幅」可能比「横幅真出现」晚(页面还在等侧栏、测试进程被调度)。
+  // 由页面自己记下横幅第一次进 DOM 的时刻和那一刻的字,量 10 秒拿这个当起点。
+  await page.addInitScript(() => {
+    const mark = () => {
+      const el = document.querySelector('[data-ui="auto-update-banner"]');
+      if (el && window.__bannerFirst === undefined) {
+        window.__bannerFirst = { at: Date.now(), text: el.textContent || "" };
+      }
+    };
+    new MutationObserver(mark).observe(document, { childList: true, subtree: true, characterData: true });
+  });
   if (autoCheckOff) {
     await page.addInitScript(() => {
       try { localStorage.setItem("ds.prefs.update", JSON.stringify({ "update.autoCheck": false })); }
@@ -144,7 +157,9 @@ const banner = (page) => page.locator('[data-ui="auto-update-banner"]');
 const bannerText = async (page) => (await banner(page).innerText()).replace(/\s+/g, " ");
 const isAuto = (a) => !!a && a.method === "POST" && !!a.body && a.body.auto === true;
 
-/** 横幅真在业主眼前:可见、不透明、整块落在视口里、中心点上确实是它(没被别的层盖住)、不在设置弹层里。 */
+/** 横幅真在业主眼前:可见、不透明、整块落在视口里、中心点上确实是它(没被别的层盖住)、不在设置弹层里。
+ *  攻题二 #10:横幅容器可以合法地设 `pointer-events:none`(只让按钮可点),那样 elementFromPoint 会穿过它 ——
+ *  命中测试时临时把横幅子树的 pointer-events 打开,问的是「视觉上有没有被盖住」,测完原样恢复。 */
 async function bannerOnScreen(page, view) {
   const b = banner(page);
   if (await b.count() !== 1) return false;
@@ -157,9 +172,19 @@ async function bannerOnScreen(page, view) {
     for (let n = el; n; n = n.parentElement) {
       if (Number(getComputedStyle(n).opacity) < 0.5) return false;
     }
-    const r = el.getBoundingClientRect();
-    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-    return !!hit && el.contains(hit);
+    const nodes = [el, ...el.querySelectorAll("*")];
+    const saved = nodes.map((n) => [n.style.getPropertyValue("pointer-events"), n.style.getPropertyPriority("pointer-events")]);
+    nodes.forEach((n) => n.style.setProperty("pointer-events", "auto", "important"));
+    try {
+      const r = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !!hit && el.contains(hit);
+    } finally {
+      nodes.forEach((n, i) => {
+        if (saved[i][0]) n.style.setProperty("pointer-events", saved[i][0], saved[i][1]);
+        else n.style.removeProperty("pointer-events");
+      });
+    }
   });
 }
 
@@ -179,12 +204,15 @@ try {
     check(await until(() => log.checks > 0, 15000), "前提:打开页面后真的自动查了一次更新");
     check(await until(() => bannerOnScreen(page, log.view), 5000),
       "查到之后 5 秒内,不翻任何菜单就看得见倒计时横幅(1280×860,没被盖住)");
-    const shownAt = Date.now();
+    const first = await page.evaluate(() => window.__bannerFirst || null);
+    check(!!first, "前提:页面记下了横幅第一次出现的时刻");
+    const shownAt = first.at;
+    const t0 = first.text.replace(/\s+/g, " ");
+    expect(/(^|\D)10\s*秒/.test(t0), `横幅第一次出现时显示的应当是 10 秒:「${t0}」`);
     const t1 = await bannerText(page);
     expect(t1.includes("0.99.0"), `横幅没说是哪一版:「${t1}」`);
     expect(/自动更新/.test(t1), `横幅没说会自动更新:「${t1}」`);
     const n1 = Number((t1.match(/(\d+)\s*秒/) || [])[1]);
-    expect(n1 >= 9 && n1 <= 10, `横幅一出来显示的秒数应当是 10(读到时可能刚跳成 9):「${t1}」`);
     expect(await page.locator('[data-ui="auto-update-banner"] [data-ui="auto-update-cancel"]').count() === 1,
       "倒计时横幅上没有取消按钮");
     await sleep(2500);
@@ -260,7 +288,7 @@ try {
         "🔴 自动更新刚失败、软件被换回旧版重新打开,眼前却什么都没有 —— 业主以为已经更新好了");
       if (await banner(page).count() === 1) {
         const t = await bannerText(page);
-        expect(t.includes("0.99.0") && /不会再自动/.test(t), `横幅没说是哪一版、没说不会再自动试:「${t}」`);
+        expect(t.includes("0.99.0") && NO_MORE_AUTO.test(t), `横幅没说是哪一版、没说不会再自动试:「${t}」`);
         expect(!/\d+\s*秒后/.test(t), `失败说明上居然在倒计时:「${t}」`);
         expect(await page.locator('[data-ui="auto-update-banner"] [data-ui="auto-update-cancel"]').count() === 0,
           "失败说明上有「取消」—— 没有要取消的东西");
@@ -349,7 +377,7 @@ try {
       (await bannerText(d2.page)).length > 0 && !/\d+\s*秒后/.test(await bannerText(d2.page)), 5000),
       "自动更新请求整个没回来,横幅上什么都没说(或者还停在倒计时)");
     const t2 = await bannerText(d2.page);
-    expect(!/不会再自动/.test(t2), `请求没回来,不知道服务端记没记账,却说「不会再自动」:「${t2}」`);
+    expect(!NO_MORE_AUTO.test(t2), `请求没回来,不知道服务端记没记账,却说「不会再自动」:「${t2}」`);
     await d1.page.close();
     await d2.page.close();
   });

@@ -461,6 +461,9 @@ test("rl11c 成功 / 检查中 / 还没查过 ⇒ 不显示原因", () => {
 const AUTO_OK = { ...WITH_ASSET, auto_update: { eligible: true, why_not: null, recent_failure: false } };
 const AUTO_TRIED = { ...WITH_ASSET, auto_update: { eligible: false, why_not: "attempted", recent_failure: false } };
 const AUTO_JUST_FAILED = { ...WITH_ASSET, auto_update: { eligible: false, why_not: "attempted", recent_failure: true } };
+// 攻题二 #11:同一个意思有几种自然说法,判据认意思不认字面(正反两面用同一套,别让实现靠换个说法绕过「不许说」)。
+const NO_MORE_AUTO = /不会再自动|不再自动|以后只能手动|之后只能手动/;
+const DID_NOT_SUCCEED = /没成功|没有成功|没完成|没有完成|未完成|未能完成|没能完成|没装上|没有装上|失败/;
 const GARBAGE = [null, undefined, "", "x", 0, 1, true, [], [AUTO_OK], {},
                  { ...WITH_ASSET, auto_update: null },
                  { ...WITH_ASSET, auto_update: "yes" },
@@ -510,7 +513,7 @@ test("ac6 真失败 ⇒ 说人话(复用 applyHint 那句),并说明这个版本
   const r = { ok: false, stage: "download", error: "HTTP 502" };
   const s = U.autoFailureText(r);
   assert.ok(s.includes(U.applyHint(r)), `「${s}」没带上那句失败原因「${U.applyHint(r)}」`);
-  assert.match(s, /不会再自动/, `「${s}」没说以后不会再自动试 —— 业主会担心下次打开又来一遍`);
+  assert.match(s, NO_MORE_AUTO, `「${s}」没说以后不会再自动试 —— 业主会担心下次打开又来一遍`);
   assert.doesNotMatch(s, JARGON);
   for (const stage of FAIL_STAGES.filter((x) => x !== "no_update")) {
     const t = U.autoFailureText({ ok: false, stage, error: "x" });
@@ -527,7 +530,7 @@ test("ac7 记不下账 / 结果不明(请求没回来、HTTP 500、回包不是 
                    U.readApplyResponse(200, "<html>")]) {
     const s = U.autoFailureText(r);
     assert.notEqual(s, "", `${JSON.stringify(r)}:自动更新没开始,横幅上却什么都没说`);
-    assert.doesNotMatch(s, /不会再自动/, `${JSON.stringify(r)}:「${s}」—— 这句可能是假的`);
+    assert.doesNotMatch(s, NO_MORE_AUTO, `${JSON.stringify(r)}:「${s}」—— 这句可能是假的`);
     assert.doesNotMatch(s, JARGON);
   }
 });
@@ -537,8 +540,8 @@ test("ac9 上次自动更新刚失败(回滚回来了)⇒ 打开时横幅上说�
   const s = U.autoRecentFailureText(AUTO_JUST_FAILED);
   assert.notEqual(s, "", "回滚回来了,打开时一句话都没有");
   assert.match(s, /0\.98\.5/, `「${s}」没说是哪一版`);
-  assert.match(s, /没成功|没有成功|没完成|未完成|失败/, `「${s}」没说上次没成功`);
-  assert.match(s, /不会再自动/, `「${s}」没说不会再自动试 —— 业主会担心又来一遍`);
+  assert.match(s, DID_NOT_SUCCEED, `「${s}」没说上次没成功`);
+  assert.match(s, NO_MORE_AUTO, `「${s}」没说不会再自动试 —— 业主会担心又来一遍`);
   assert.match(s, /手动/, `「${s}」没说可以手动更新`);
   assert.doesNotMatch(s, JARGON);
   assert.equal(U.autoRecentFailureText(AUTO_TRIED), "", "早就失败过(不是刚才)也每次打开都说");

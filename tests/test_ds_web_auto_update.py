@@ -203,6 +203,8 @@ class AutoUpdate(unittest.TestCase):
         for k in ("current", "update_available", "latest", "asset", "notes", "error", "release_url"):
             self.assertIn(k, body, "原有字段 %s 丢了" % k)
         self.assertEqual(body["latest"], LATEST)
+        # 攻题二 #4:查更新(GET)只许回答「能不能倒计时」,**自己绝不许开始更新** —— 倒计时和取消由页面做。
+        self.assertEqual(self.order, [], "查更新这个 GET 自己开始准备更新了 —— 业主来不及取消")
 
     def test_au2a_no_update(self):
         self.releases = []
@@ -245,7 +247,10 @@ class AutoUpdate(unittest.TestCase):
     # --- au3 ~ au12:自动那条路 ------------------------------------------------
 
     def test_au3_the_attempt_is_written_before_anything_is_prepared(self):
-        """🔴 预写。接力脚本回滚、旧版被重新拉起时,界面早就没了 —— 只有动手前记下的账才活得过那一刻。"""
+        """🔴 预写。接力脚本回滚、旧版被重新拉起时,界面早就没了 —— 只有动手前记下的账才活得过那一刻。
+
+        替身 apply_update 里向同一个服务发一次查更新(10 秒超时)。这也顺带钉住:**查更新不许等更新锁**
+        —— 真实更新要下载几十 MB,等锁的查更新会在那几分钟里一直挂着(攻题二 #7 我核后判为规格要求,不是判据误红)。"""
         with self._serve() as port:
             st, body = _post(port, "/api/update/apply", AUTO)
         self.assertEqual(st, 200)
@@ -309,7 +314,7 @@ class AutoUpdate(unittest.TestCase):
             before = self._auto(port)
             _post(port, "/api/update/apply", AUTO)
             after = self._auto(port)
-        self.assertEqual(before, {"eligible": True, "why_not": None},
+        self.assertEqual(before, {"eligible": True, "why_not": None, "recent_failure": False},
                          "账是坏的就永远不自动更新了:%r" % (before,))
         self._assert_not(after, "attempted")
 
@@ -411,26 +416,45 @@ class AutoUpdate(unittest.TestCase):
             self._refused("disabled")
 
     def test_au13_a_failed_write_keeps_the_old_record_and_touches_nothing(self):
-        """攻题 #3:写记账必须是「同目录临时文件 → flush + fsync → os.replace」。
-        原地截断重写的实现,写到一半崩掉 ⇒ 半截 JSON ⇒ 下次读成空账 ⇒ 又自动试。"""
+        """攻题 #3 / 攻题二 #8:写记账必须是「同目录临时文件 → 写完 flush → 对**这个临时文件** os.fsync → os.replace 到记账文件」。
+        原地截断重写的实现,写到一半崩掉 ⇒ 半截 JSON ⇒ 下次读成空账 ⇒ 又自动试。
+        判据按模块属性注入 os.fsync / os.replace(规格写明调用方式;`from os import fsync` 这种别名注入不到)。"""
         self.apply_ok = False
-        calls = []
+        synced, replaced = [], []
         real_fsync, real_replace = os.fsync, os.replace
 
         def spy_fsync(fd):
-            calls.append("fsync")
+            # 按 inode 认文件(不靠 /proc,Windows 上 PY=... tests/run-all.sh 也跑这份);
+            # 记下 fsync 那一刻文件在 OS 里有多大 —— 没 flush 就 fsync,小文件在这里是 0 字节。
+            st = os.fstat(fd)
+            synced.append((st.st_dev, st.st_ino, st.st_size))
             return real_fsync(fd)
 
         def spy_replace(a, b, **kw):
-            calls.append("replace")
+            try:
+                st = os.stat(a)
+                with open(a, encoding="utf-8") as fh:
+                    json.loads(fh.read())
+                src = (st.st_dev, st.st_ino, st.st_size, True)
+            except (OSError, ValueError):
+                src = (None, None, None, False)
+            replaced.append((os.path.realpath(a), os.path.realpath(b), src, list(synced)))
             return real_replace(a, b, **kw)
 
         with mock.patch("os.fsync", spy_fsync), mock.patch("os.replace", spy_replace):
             with self._serve() as port:
                 self.releases = _upto(_fixture(), "0.98.2")
                 _post(port, "/api/update/apply", AUTO)                      # 0.98.2 记上
-        self.assertIn("replace", calls, "记账没有走 os.replace(原地写?)")
-        self.assertIn("fsync", calls[:calls.index("replace")], "os.replace 之前没有 fsync:%r" % (calls,))
+        into_record = [r for r in replaced if r[1] == os.path.realpath(self.record)]
+        self.assertTrue(into_record, "记账没有用 os.replace 换到 %s(原地写?):%r" % (self.record, replaced))
+        src_path, _dst, (dev, ino, size, complete), synced_before = into_record[-1]
+        self.assertNotEqual(src_path, os.path.realpath(self.record), "临时文件就是记账文件本身")
+        self.assertEqual(os.path.dirname(src_path), os.path.dirname(os.path.realpath(self.record)),
+                         "临时文件不在同一个目录(跨盘 replace 不是原子的)")
+        self.assertTrue(complete, "换名那一刻临时文件里不是完整的 JSON")
+        self.assertIn((dev, ino, size), synced_before,
+                      "换名之前没有对这个临时文件做 fsync,或 fsync 时内容还没 flush 完(那一刻的大小和换名时不同):"
+                      "synced=%r src=%r" % (synced_before, (dev, ino, size)))
 
         def broken_replace(a, b, **kw):
             raise OSError("判据注入:换名那一刻失败")
@@ -491,6 +515,26 @@ class AutoUpdate(unittest.TestCase):
         self.assertIs(still.get("recent_failure"), True, "10 分钟之内就不报了:%r" % (still,))
         self.assertEqual(old, {"eligible": False, "why_not": "attempted", "recent_failure": False},
                          "过了 10 分钟每次打开还报「上次没成功」:%r" % (old,))
+
+    def test_au15b_recent_failure_is_per_version(self):
+        """攻题二 #6:只存一个全局「最后尝试时刻」的写法 —— 很久前试过 A、刚试过 B、B 被撤回 ⇒ 把 A 说成「刚失败」。"""
+        self.apply_ok = False
+        t0 = time.time()
+        with self._serve() as port:
+            self.releases = _upto(_fixture(), "0.98.2")
+            with mock.patch("time.time", return_value=t0):
+                _post(port, "/api/update/apply", AUTO)                      # t0 试 0.98.2
+            self.releases = _fixture()
+            ds_update.cache_clear()
+            with mock.patch("time.time", return_value=t0 + 1000):
+                _post(port, "/api/update/apply", AUTO)                      # t0+1000 试 0.98.3
+            self.releases = _upto(_fixture(), "0.98.2")                     # 0.98.3 撤回
+            ds_update.cache_clear()
+            with mock.patch("time.time", return_value=t0 + 1010):
+                a = self._auto(port)
+        self.assertEqual(self.order.count("apply"), 2, "前提没摆好")
+        self.assertEqual(a, {"eligible": False, "why_not": "attempted", "recent_failure": False},
+                         "0.98.2 是 1000 秒前试的,却被说成刚失败(刚失败的是 0.98.3):%r" % (a,))
 
 
 if __name__ == "__main__":

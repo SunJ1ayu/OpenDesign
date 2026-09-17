@@ -48,6 +48,18 @@ runlog: oracle-v2-red-node rc=1 commit=a057f6b dirty=yes at=2026-09-17T12:05:24Z
 runlog: oracle-v2-red-e2e rc=1 commit=a057f6b dirty=yes at=2026-09-17T12:05:25Z file=tracks/opendesign-auto-update-countdown/evidence/20260917T120525Z-01-oracle-v2-red-e2e.txt
 ```
 
+### 判据第三版:第二轮攻题之后(派活之前)
+
+- 第二轮只攻 v2 增量,报 11 条:1 条是我的错(au8 仍按两字段断言,合规实现必红),8 条成立已改,1 条驳回为规格
+  (查更新不许等更新锁),1 条接受为规格(`os.fsync` / `os.replace` 模块属性调用)。v3 是这 11 条处置的直接落实,未再攻第三轮。
+- 第三版红:python 26 条红(au1~au5、au7~au10、au9b/c、au12a~e、au13~au15、au15b + t9a),au6 / au11 绿;node ac1~ac9 红;e2e 7 条没过。
+
+```
+runlog: oracle-v3-red-python rc=1 commit=ea81c72 dirty=yes at=2026-09-17T12:23:19Z file=tracks/opendesign-auto-update-countdown/evidence/20260917T122319Z-01-oracle-v3-red-python.txt
+runlog: oracle-v3-red-node rc=1 commit=ea81c72 dirty=yes at=2026-09-17T12:23:49Z file=tracks/opendesign-auto-update-countdown/evidence/20260917T122349Z-01-oracle-v3-red-node.txt
+runlog: oracle-v3-red-e2e rc=1 commit=ea81c72 dirty=yes at=2026-09-17T12:23:49Z file=tracks/opendesign-auto-update-countdown/evidence/20260917T122349Z-02-oracle-v3-red-e2e.txt
+```
+
 ### 基线总跑被我中途停掉(内存)
 
 本机 2G 内存,攻题(codex)与基线总跑并跑时系统杀了两个等待进程;为保攻题,我停掉了总跑(rc=143,半截)。实现落地后重跑。
