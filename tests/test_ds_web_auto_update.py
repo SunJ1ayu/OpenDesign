@@ -18,6 +18,7 @@ import json
 import os
 import sys
 import threading
+import time
 import unittest
 from contextlib import contextmanager
 from unittest import mock
@@ -35,6 +36,7 @@ FIXTURE = os.path.join(ROOT, "tests", "fixtures", "update",
                        "github-releases-20260907.json")
 LATEST = "0.98.3"           # 夹具里最新的那一版
 RECORD_NAME = "auto-update-attempts.json"
+AUTO_KNOB = "OPENDESIGN_AUTO_UPDATE"   # 值为 off ⇒ why_not="disabled"(Windows 真机判据关掉产品自己的倒计时用)
 AUTO = b'{"auto": true}'
 MANUAL = b"{}"              # 界面上那个「更新」按钮发的就是它(App.tsx applyUpdate)
 
@@ -46,6 +48,22 @@ def _fixture():
 
 def _without(releases, tag):
     return [r for r in releases if r.get("tag_name") != tag]
+
+
+def _upto(releases, version):
+    """只留版本号 ≤ version 的正式安装包 release(夹具里的 spike / data-outside 这类 tag 产品本来就不认)。"""
+    want = ds_update.parse_version(version)
+    out = []
+    for r in releases:
+        m = ds_update.TAG_RE.match(r.get("tag_name") or "")
+        if m and ds_update.parse_version(m.group(1)) <= want:
+            out.append(r)
+    return out
+
+
+def _renamed(release, old, new):
+    """把一个 release 整个改名成另一个版本号(tag、安装包名、下载地址一起改),摆出 0.98.10 这种夹具里没有的版本。"""
+    return json.loads(json.dumps(release).replace(old, new))
 
 
 def _mkdist():
@@ -94,6 +112,7 @@ class AutoUpdate(unittest.TestCase):
 
         env = mock.patch.dict(os.environ, {"LOCALAPPDATA": self.appdata,
                                            "DS_SHELL_LOCK_PORT": "47123"})
+        os.environ.pop(AUTO_KNOB, None)
         env.start()
         self.addCleanup(env.stop)
 
@@ -112,16 +131,19 @@ class AutoUpdate(unittest.TestCase):
         ds_update.fetch_releases = lambda *a, **kw: self.releases
 
         self.order = []
-        self.record_at_apply = []   # apply_update 被叫到那一刻,记账文件里有什么
+        self.seen_at_apply = []     # apply_update 被叫到那一刻,**产品自己**(查更新)怎么看这个版本
         self.apply_ok = True
+        self.port = None
 
         def fake_apply(decision, paths, **kw):
             self.order.append("apply")
+            # 攻题 #2/#17:不读文件找子串(那样"先写一句裸文本、事后再补成合法账"也绿,
+            # 而合法的别种表示法反而红)。问产品自己:这一刻它认不认这个版本已经自动试过。
             try:
-                with open(self.record, encoding="utf-8", errors="replace") as fh:
-                    self.record_at_apply.append(fh.read())
-            except OSError:
-                self.record_at_apply.append(None)
+                _st, body = _get(self.port, "/api/update/check")
+                self.seen_at_apply.append((body or {}).get("auto_update"))
+            except Exception as e:  # noqa: BLE001
+                self.seen_at_apply.append("check failed: %r" % (e,))
             if self.apply_ok:
                 return {"ok": True, "stage": "relay", "error": None, "relay": "C:/tmp/relay.cmd"}
             return {"ok": False, "stage": "verify", "error": "sha256 对不上", "relay": None}
@@ -152,8 +174,9 @@ class AutoUpdate(unittest.TestCase):
         httpd = ds_web.make_server(ds_root, _mkdist(), port=0)
         t = threading.Thread(target=httpd.serve_forever, daemon=True)
         t.start()
+        self.port = httpd.server_address[1]
         try:
-            yield httpd.server_address[1]
+            yield self.port
         finally:
             httpd.shutdown()
             httpd.server_close()
@@ -175,7 +198,7 @@ class AutoUpdate(unittest.TestCase):
         with self._serve() as port:
             st, body = _get(port, "/api/update/check")
         self.assertEqual(st, 200)
-        self.assertEqual(body.get("auto_update"), {"eligible": True, "why_not": None},
+        self.assertEqual(body.get("auto_update"), {"eligible": True, "why_not": None, "recent_failure": False},
                          "装出来的桌面版 + 有可装的新版 + 没试过,却不让倒计时:%r" % (body.get("auto_update"),))
         for k in ("current", "update_available", "latest", "asset", "notes", "error", "release_url"):
             self.assertIn(k, body, "原有字段 %s 丢了" % k)
@@ -229,13 +252,15 @@ class AutoUpdate(unittest.TestCase):
         self.assertEqual(self.order, ["apply", "handoff", "bridge"],
                          "自动那条路的顺序不对(或根本没走到安装):%r / %r" % (self.order, body))
         self.assertTrue(body.get("ok"), body)
-        self.assertEqual(len(self.record_at_apply), 1)
-        seen = self.record_at_apply[0]
-        self.assertIsNotNone(seen, "开始准备的那一刻记账文件还不存在 —— 回滚之后下次打开会再自动试")
-        self.assertIn(LATEST, seen, "开始准备的那一刻账里没有这个版本:%r" % (seen,))
+        self.assertEqual(len(self.seen_at_apply), 1)
+        seen = self.seen_at_apply[0]
+        self.assertIsInstance(seen, dict, "开始准备的那一刻查更新没答上来:%r" % (seen,))
+        self.assertEqual((seen.get("eligible"), seen.get("why_not")), (False, "attempted"),
+                         "开始准备的那一刻,产品自己还不认为这个版本自动试过 —— 回滚之后下次打开会再自动试:%r" % (seen,))
 
-    def test_au4_a_failed_attempt_is_seen_through_the_cache(self):
-        """查更新结果缓存 6 小时。auto_update 若跟着进了缓存,同一进程里下一次查仍说 eligible。"""
+    def test_au4_a_failed_attempt_is_seen_through_the_cache_and_a_restart(self):
+        """查更新结果缓存 6 小时。auto_update 若跟着进了缓存,同一进程里下一次查仍说 eligible。
+        换一个新进程(新 server、缓存清空)也必须还认得 —— 回滚之后被拉起的就是一个新进程。"""
         self.apply_ok = False
         with self._serve() as port:
             before = self._auto(port)
@@ -244,6 +269,9 @@ class AutoUpdate(unittest.TestCase):
         self.assertEqual(before.get("eligible"), True, "前提没摆好:%r" % (before,))
         self.assertEqual(body.get("stage"), "verify", "前提没摆好:准备应当失败在 verify:%r" % (body,))
         self._assert_not(after, "attempted")
+        ds_update.cache_clear()
+        with self._serve() as port:
+            self._assert_not(self._auto(port), "attempted")
 
     def test_au5_an_attempted_version_is_refused_on_the_server_too(self):
         """服务端二次把关:界面慢一拍、两个窗口同时倒计时、别的页面直接发请求,都绕不过去。"""
@@ -301,6 +329,34 @@ class AutoUpdate(unittest.TestCase):
         self.assertEqual(self.order.count("apply"), 2, "前提没摆好:两个版本应各自动试一次")
         self._assert_not(again, "attempted")
 
+    def test_au9b_a_withdrawn_newer_attempt_does_not_block_an_untried_older_one(self):
+        """攻题 #14:只记"试过的最大版本"、按 ≤ 判 attempted 的写法 —— 试 0.98.3 → 撤回 ⇒ 从没试过的 0.98.2 被误封。"""
+        self.apply_ok = False
+        with self._serve() as port:
+            _post(port, "/api/update/apply", AUTO)                          # 自动试 0.98.3
+            self.releases = _without(_fixture(), "win-installer-" + LATEST)  # 撤回 0.98.3
+            ds_update.cache_clear()
+            auto = self._auto(port)
+        self.assertEqual(self.order.count("apply"), 1, "前提没摆好")
+        self.assertEqual(auto.get("why_not"), None, "0.98.2 从没自动试过,却不让倒计时:%r" % (auto,))
+        self.assertIs(auto.get("eligible"), True)
+
+    def test_au9c_versions_are_compared_exactly(self):
+        """攻题 #14:子串 / 前缀 / 字典序 —— 试过 0.98.1,不等于试过 0.98.10。"""
+        self.apply_ok = False
+        base = _upto(_fixture(), "0.98.1")
+        self.assertEqual(ds_update.decide("0.90.0", base)["latest"], "0.98.1", "前提没摆好")
+        ten = _renamed(base[0], "0.98.1", "0.98.10")
+        with self._serve() as port:
+            self.releases = base
+            _post(port, "/api/update/apply", AUTO)                          # 自动试 0.98.1
+            self.releases = [ten] + base
+            ds_update.cache_clear()
+            auto = self._auto(port)
+        self.assertEqual(self.order.count("apply"), 1, "前提没摆好")
+        self.assertEqual(auto, {"eligible": True, "why_not": None, "recent_failure": False},
+                         "0.98.10 从没试过,却被当成试过了(拿 0.98.1 做了子串 / 前缀比较?):%r" % (auto,))
+
     def test_au10_only_logs_is_written_under_the_data_root(self):
         """t13 死线的同一条:更新前后 Data\\ 与 UserData\\ 逐字节不变,Logs\\ 豁免。"""
         with self._serve() as port:
@@ -318,14 +374,123 @@ class AutoUpdate(unittest.TestCase):
         self.assertNotEqual(body.get("stage"), "auto_skipped", body)
         self.assertEqual(self.order.count("apply"), 2)
 
-    def test_au12_a_refused_auto_request_records_nothing(self):
-        """不满足条件被拒的自动请求不许记账 —— 否则浏览器里点开一次,就把桌面版以后的自动更新也关掉了。"""
-        with mock.patch.dict(os.environ, {"DS_SHELL_LOCK_PORT": ""}):
-            with self._serve() as port:
-                _st, body = _post(port, "/api/update/apply", AUTO)
+    # --- au12:被拒的自动请求什么都不碰 ---------------------------------------
+    # 攻题 #13:服务端二次把关要把**每一个**条件都重判一遍,不是只判 attempted / no_shell。
+    # 被拒的自动请求:回 auto_skipped、不准备、**不记账**(否则条件修好之后这一版也永远不会再自动试;
+    # 浏览器里点开一次,也会把桌面版以后的自动更新关掉)。
+
+    def _refused(self, why, install_root=None):
+        with self._serve(install_root) as port:
+            _st, body = _post(port, "/api/update/apply", AUTO)
+            again = self._auto(port)
         self.assertEqual(body.get("stage"), "auto_skipped", body)
-        self.assertEqual(self.order, [])
+        self.assertEqual(self.order, [], "条件不满足却开始准备了")
         self.assertFalse(os.path.exists(self.record), "被拒的自动请求也记了账")
+        self.assertEqual(again.get("why_not"), why, "被拒之后原因变了(记了账?):%r" % (again,))
+
+    def test_au12a_refused_asset(self):
+        rel = _fixture()
+        for a in rel[0].get("assets", []):
+            a["digest"] = None
+        self.releases = rel
+        self._refused("asset")
+
+    def test_au12b_refused_no_shell(self):
+        with mock.patch.dict(os.environ, {"DS_SHELL_LOCK_PORT": ""}):
+            self._refused("no_shell")
+
+    def test_au12c_refused_not_installed(self):
+        os.remove(os.path.join(self.install_root, "OpenDesign.exe"))
+        self._refused("not_installed")
+
+    def test_au12d_refused_path_unsupported(self):
+        self._refused("path_unsupported", self._install("Open%Design"))
+
+    def test_au12e_refused_disabled(self):
+        with mock.patch.dict(os.environ, {AUTO_KNOB: "off"}):
+            self._refused("disabled")
+
+    def test_au13_a_failed_write_keeps_the_old_record_and_touches_nothing(self):
+        """攻题 #3:写记账必须是「同目录临时文件 → flush + fsync → os.replace」。
+        原地截断重写的实现,写到一半崩掉 ⇒ 半截 JSON ⇒ 下次读成空账 ⇒ 又自动试。"""
+        self.apply_ok = False
+        calls = []
+        real_fsync, real_replace = os.fsync, os.replace
+
+        def spy_fsync(fd):
+            calls.append("fsync")
+            return real_fsync(fd)
+
+        def spy_replace(a, b, **kw):
+            calls.append("replace")
+            return real_replace(a, b, **kw)
+
+        with mock.patch("os.fsync", spy_fsync), mock.patch("os.replace", spy_replace):
+            with self._serve() as port:
+                self.releases = _upto(_fixture(), "0.98.2")
+                _post(port, "/api/update/apply", AUTO)                      # 0.98.2 记上
+        self.assertIn("replace", calls, "记账没有走 os.replace(原地写?)")
+        self.assertIn("fsync", calls[:calls.index("replace")], "os.replace 之前没有 fsync:%r" % (calls,))
+
+        def broken_replace(a, b, **kw):
+            raise OSError("判据注入:换名那一刻失败")
+
+        ds_update.cache_clear()
+        with mock.patch("os.replace", broken_replace):
+            with self._serve() as port:
+                self.releases = _fixture()                                  # 线上最新 0.98.3
+                _st, body = _post(port, "/api/update/apply", AUTO)
+        self.assertEqual(body.get("stage"), "auto_unrecorded", body)
+        self.assertEqual(self.order.count("apply"), 1, "0.98.3 的账没记上就开始准备了")
+        ds_update.cache_clear()
+        with self._serve() as port:
+            self.releases = _upto(_fixture(), "0.98.2")
+            self._assert_not(self._auto(port), "attempted")   # 旧账完好
+            self.releases = _fixture()
+            ds_update.cache_clear()
+            self.assertEqual(self._auto(port).get("eligible"), True, "没记上的 0.98.3 却被当成试过了")
+
+    def test_au14_disabled_is_judged_last(self):
+        """OPENDESIGN_AUTO_UPDATE=off ⇒ disabled。它排在**最后**:Windows 真机判据(aw1)靠
+        「看到 disabled = 其余条件在真机上全成立」来证明倒计时真会出现。"""
+        for value in ("off", "OFF"):
+            with mock.patch.dict(os.environ, {AUTO_KNOB: value}):
+                with self._serve() as port:
+                    self._assert_not(self._auto(port), "disabled")
+        with mock.patch.dict(os.environ, {AUTO_KNOB: "on"}):
+            with self._serve() as port:
+                self.assertEqual(self._auto(port).get("eligible"), True, "只有 off 才关;别的值不许关掉")
+        exe = os.path.join(self.install_root, "OpenDesign.exe")
+        os.remove(exe)
+        with mock.patch.dict(os.environ, {AUTO_KNOB: "off"}):
+            with self._serve() as port:
+                self._assert_not(self._auto(port), "not_installed")
+        _touch(exe)
+        self.apply_ok = False
+        with self._serve() as port:
+            _post(port, "/api/update/apply", AUTO)
+            with mock.patch.dict(os.environ, {AUTO_KNOB: "off"}):
+                self._assert_not(self._auto(port), "attempted")
+
+    def test_au15_a_recent_failed_attempt_is_reported_once_the_app_is_back(self):
+        """攻题 #1:接力脚本回滚、旧版被拉起之后,业主眼前得有一句「上次自动更新没成功」。
+        GET 面只读(不许在查更新里记"已提示过"),所以用时间界定:自动试过、仍是旧版、且不到 10 分钟 ⇒ recent_failure。
+        时间一律按 time.time() 算。"""
+        self.apply_ok = False
+        with self._serve() as port:
+            fresh = self._auto(port)
+            _post(port, "/api/update/apply", AUTO)
+            recent = self._auto(port)
+            with mock.patch("time.time", return_value=time.time() + 590):
+                still = self._auto(port)
+            with mock.patch("time.time", return_value=time.time() + 610):
+                old = self._auto(port)
+        self.assertIs(fresh.get("recent_failure"), False, fresh)
+        self.assertEqual(recent, {"eligible": False, "why_not": "attempted", "recent_failure": True},
+                         "刚自动试过、还是旧版,却没标出来 —— 回滚之后业主眼前什么都没有:%r" % (recent,))
+        self.assertIs(still.get("recent_failure"), True, "10 分钟之内就不报了:%r" % (still,))
+        self.assertEqual(old, {"eligible": False, "why_not": "attempted", "recent_failure": False},
+                         "过了 10 分钟每次打开还报「上次没成功」:%r" % (old,))
 
 
 if __name__ == "__main__":

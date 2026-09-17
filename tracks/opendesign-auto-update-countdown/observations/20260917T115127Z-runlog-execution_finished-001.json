@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-auto-update-countdown",
+  "run_id": "20260917T115056Z-01-baseline-run-all",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "baseline-run-all",
+  "started_at": "2026-09-17T11:50:56Z",
+  "finished_at": "2026-09-17T11:51:27Z",
+  "duration_ms": 31087,
+  "exit_code": 143,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 143,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

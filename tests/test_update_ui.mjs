@@ -458,8 +458,9 @@ test("rl11c 成功 / 检查中 / 还没查过 ⇒ 不显示原因", () => {
 // ── ac1~ac8:打开软件倒计时自动更新(track opendesign-auto-update-countdown)───────────────
 // 主 agent 亲写。编号与问法的唯一权威在该 track 的 design.md。
 // 🔴 这几个函数都会在渲染体里被叫 —— **永远不许抛**(0.94 / 0.98 两次整页白是同一个形状,u35b/u35c 同理)。
-const AUTO_OK = { ...WITH_ASSET, auto_update: { eligible: true, why_not: null } };
-const AUTO_TRIED = { ...WITH_ASSET, auto_update: { eligible: false, why_not: "attempted" } };
+const AUTO_OK = { ...WITH_ASSET, auto_update: { eligible: true, why_not: null, recent_failure: false } };
+const AUTO_TRIED = { ...WITH_ASSET, auto_update: { eligible: false, why_not: "attempted", recent_failure: false } };
+const AUTO_JUST_FAILED = { ...WITH_ASSET, auto_update: { eligible: false, why_not: "attempted", recent_failure: true } };
 const GARBAGE = [null, undefined, "", "x", 0, 1, true, [], [AUTO_OK], {},
                  { ...WITH_ASSET, auto_update: null },
                  { ...WITH_ASSET, auto_update: "yes" },
@@ -517,11 +518,40 @@ test("ac6 真失败 ⇒ 说人话(复用 applyHint 那句),并说明这个版本
   }
 });
 
-test("ac7 记不下账 ⇒ 要说,但不许说「不会再自动」(它没记上,下次打开还会试)", () => {
-  const s = U.autoFailureText({ ok: false, stage: "auto_unrecorded", error: "x" });
-  assert.notEqual(s, "");
-  assert.doesNotMatch(s, /不会再自动/, `「${s}」—— 这句是假的`);
+test("ac7 记不下账 / 结果不明(请求没回来、HTTP 500、回包不是 JSON)⇒ 要说,但不许说「不会再自动」", () => {
+  // 攻题 #11:stage 为 null 时服务端到底记没记账,界面不知道 —— 说「不会再自动」可能是假话。
+  // readApplyResponse 把请求失败 / 非 200 / 非 JSON 一律读成 stage:null(见 u 系列)。
+  for (const r of [{ ok: false, stage: "auto_unrecorded", error: "x" },
+                   { ok: false, stage: null, error: null },
+                   U.readApplyResponse(0, null), U.readApplyResponse(500, { ok: false }),
+                   U.readApplyResponse(200, "<html>")]) {
+    const s = U.autoFailureText(r);
+    assert.notEqual(s, "", `${JSON.stringify(r)}:自动更新没开始,横幅上却什么都没说`);
+    assert.doesNotMatch(s, /不会再自动/, `${JSON.stringify(r)}:「${s}」—— 这句可能是假的`);
+    assert.doesNotMatch(s, JARGON);
+  }
+});
+
+test("ac9 上次自动更新刚失败(回滚回来了)⇒ 打开时横幅上说一次:没成功、不会再自动、可以手动;其它情况不说,垃圾不抛", () => {
+  // 攻题 #1:接力脚本换回旧版、重新拉起之后,界面早就换了一个;不在横幅上说,业主以为已经更新好了。
+  const s = U.autoRecentFailureText(AUTO_JUST_FAILED);
+  assert.notEqual(s, "", "回滚回来了,打开时一句话都没有");
+  assert.match(s, /0\.98\.5/, `「${s}」没说是哪一版`);
+  assert.match(s, /没成功|没有成功|没完成|未完成|失败/, `「${s}」没说上次没成功`);
+  assert.match(s, /不会再自动/, `「${s}」没说不会再自动试 —— 业主会担心又来一遍`);
+  assert.match(s, /手动/, `「${s}」没说可以手动更新`);
   assert.doesNotMatch(s, JARGON);
+  assert.equal(U.autoRecentFailureText(AUTO_TRIED), "", "早就失败过(不是刚才)也每次打开都说");
+  assert.equal(U.autoRecentFailureText(AUTO_OK), "");
+  assert.equal(U.autoRecentFailureText({ ...NONE, auto_update: { eligible: false, why_not: "attempted", recent_failure: true } }), "",
+    "已经是最新了(那次其实成功了)还说没成功");
+  assert.equal(U.autoRecentFailureText({ ...AUTO_JUST_FAILED, auto_update: { eligible: false, why_not: "no_shell", recent_failure: true } }), "");
+  assert.equal(U.autoRecentFailureText({ ...AUTO_JUST_FAILED, auto_update: { eligible: false, why_not: "attempted", recent_failure: "true" } }), "");
+  for (const g of GARBAGE) {
+    let r;
+    assert.doesNotThrow(() => { r = U.autoRecentFailureText(g); }, `autoRecentFailureText(${JSON.stringify(g)}) 抛了`);
+    assert.equal(r, "");
+  }
 });
 
 test("ac8 设置里:这个版本自动试过没成 ⇒ 告诉业主可以手动点;其它情况不说,垃圾不抛", () => {
@@ -529,7 +559,7 @@ test("ac8 设置里:这个版本自动试过没成 ⇒ 告诉业主可以手动�
   assert.notEqual(s, "", "自动试过没成,设置里一句解释都没有 —— 蓝点亮着却不再自动,业主不知道为什么");
   assert.match(s, /手动/);
   assert.doesNotMatch(s, JARGON);
-  for (const why of ["no_update", "asset", "no_shell", "not_installed", "path_unsupported", "error", null]) {
+  for (const why of ["no_update", "asset", "no_shell", "not_installed", "path_unsupported", "disabled", "error", null]) {
     assert.equal(U.autoWhyNotHint({ ...WITH_ASSET, auto_update: { eligible: false, why_not: why } }), "", `why_not=${why}`);
   }
   assert.equal(U.autoWhyNotHint(AUTO_OK), "");

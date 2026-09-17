@@ -32,6 +32,30 @@ runlog: oracle-red-node rc=1 commit=bdad422 dirty=yes at=2026-09-17T11:36:42Z fi
 runlog: oracle-red-e2e rc=1 commit=bdad422 dirty=yes at=2026-09-17T11:36:49Z file=tracks/opendesign-auto-update-countdown/evidence/20260917T113649Z-01-oracle-red-e2e.txt
 ```
 
+### 判据第二版:攻题之后(派活之前)
+
+- 第三方攻题(GPT-5.6-sol,只读)报 19 条;逐条核对后改规格 5 处、改考卷 12 处、驳回 3 条、接受 1 条。
+  攻题记录在仓外(进仓 = 把考卷的洞递给考生),**收货之后**再把处置表并进本文件。
+- 最重的三条都是结构性的:Windows 真机场景会被产品自己的倒计时抢跑(且外壳 child_env 剥掉 `DS_*`,开关名必须避开)、
+  接力脚本回滚后业主眼前没有任何说明、「10 秒」没有被真正量过。
+- 第二版红:python au1~au5、au7~au10、au9b/au9c、au12a~e、au13~au15 + t9a 红(au6 / au11 仍是基线结构上红不了的反面判据);
+  node ac1~ac9 红;e2e AC-A / AC-B / AC-C(设置解释)/ AC-C2 / AC-D / AC-H 红,AC-E / AC-F 是"什么都不该发生"的守卫。
+  Windows 判定器 aw1 / e9 / H8 本机全绿(判定器与脚本静态检查,不依赖产品)。
+
+```
+runlog: oracle-v2-red-python rc=1 commit=a057f6b dirty=yes at=2026-09-17T12:04:55Z file=tracks/opendesign-auto-update-countdown/evidence/20260917T120455Z-01-oracle-v2-red-python.txt
+runlog: oracle-v2-red-node rc=1 commit=a057f6b dirty=yes at=2026-09-17T12:05:24Z file=tracks/opendesign-auto-update-countdown/evidence/20260917T120524Z-01-oracle-v2-red-node.txt
+runlog: oracle-v2-red-e2e rc=1 commit=a057f6b dirty=yes at=2026-09-17T12:05:25Z file=tracks/opendesign-auto-update-countdown/evidence/20260917T120525Z-01-oracle-v2-red-e2e.txt
+```
+
+### 基线总跑被我中途停掉(内存)
+
+本机 2G 内存,攻题(codex)与基线总跑并跑时系统杀了两个等待进程;为保攻题,我停掉了总跑(rc=143,半截)。实现落地后重跑。
+
+```
+runlog: baseline-run-all rc=143 commit=a057f6b dirty=no at=2026-09-17T11:50:56Z file=tracks/opendesign-auto-update-countdown/evidence/20260917T115056Z-01-baseline-run-all.txt
+```
+
 ## Review
 
 - 规格自查(读任何 panel 输出之前先答):<如果规格本身就是错的,会错成什么样、我怎么发现?

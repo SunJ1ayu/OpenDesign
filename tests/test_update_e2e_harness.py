@@ -315,7 +315,7 @@ class H7ScriptRunsBothSources(unittest.TestCase):
                       "e8 切回 feed 不在 finally 块里 —— 中途炸了会把后面的场景留在 api 模式")
 
     def test_h7d_facts_record_the_source(self):
-        m = re.search(r"^function New-Facts \{(.*?)^\}", self.ps1, re.M | re.S)
+        m = re.search(r"^function New-Facts\b[^{\n]*\{(.*?)^\}", self.ps1, re.M | re.S)
         self.assertRegex(m.group(1), r"\$f\.source\s*=")
 
     def test_h7e_workflow_receipt_gate_names_e8(self):
@@ -323,45 +323,71 @@ class H7ScriptRunsBothSources(unittest.TestCase):
         self.assertIn("'e8'", m.group(1))
 
 
-class H8AutoUpdateRecordIsResetPerScenario(unittest.TestCase):
+class H8AutoUpdateKnobAndRecord(unittest.TestCase):
     """aw4(track opendesign-auto-update-countdown):脚本那半本机能判的部分。
 
-    e5 会把新版号记进「自动试过」的账。场景复位不清它 ⇒ 排在后面的 e1/e8/e6 的 aw1 会红在**考卷自己身上**;
-    清的路径和产品写的路径对不上 ⇒ 同一个结果。路径以 tests/test_ds_web_auto_update.py 的 RECORD_NAME 为准。
+    - 旧版一被拉起,页面就会自己倒计时、自己发自动更新 ⇒ **第一次拉起 OpenDesign 之前**脚本就得把自动更新关掉,
+      而且变量名不许以 DS_ 开头(外壳 child_env 会剥掉 DS_*,那样产品根本收不到 —— 这条用真的 child_env 核)。
+    - 产品认的变量名以 tests/test_ds_web_auto_update.py 的 AUTO_KNOB 为准;记账文件名以它的 RECORD_NAME 为准。
+    - 每个场景复位时清账;e9 在拉起之前摘掉开关、结束时(finally)装回去;e9 排在带空格目录之前;工作流收据闸点名 e9。
     """
 
     @classmethod
     def setUpClass(cls):
         with open(PS1, encoding="utf-8") as fh:
             cls.ps1 = fh.read()
+        with open(WORKFLOW, encoding="utf-8") as fh:
+            cls.wf = fh.read()
+        sys.path.insert(0, os.path.join(ROOT, "tests"))
+        import test_ds_web_auto_update as A   # noqa: E402
+        cls.A = A
 
     def _function(self, name):
         m = re.search(r"^function %s\b.*?^}" % re.escape(name), self.ps1, re.S | re.M)
         self.assertIsNotNone(m, "脚本里找不到函数 %s" % name)
         return m.group(0)
 
-    def test_h8a_record_path_is_the_one_the_product_writes(self):
-        sys.path.insert(0, os.path.join(ROOT, "tests"))
-        import test_ds_web_auto_update as A   # noqa: E402
+    def test_h8a_knob_is_the_one_the_product_reads_and_survives_the_shell(self):
+        m = re.search(r"^\$AutoKnob\s*=\s*'([^']+)'\s*$", self.ps1, re.M)
+        self.assertIsNotNone(m, "脚本里没有 $AutoKnob = '<变量名>'")
+        self.assertEqual(m.group(1), self.A.AUTO_KNOB)
+        import ds_shell_core
+        env = ds_shell_core.child_env({m.group(1): "off"}, ds_root="x", user_home="y", dsweb_port=1, ws_port=2)
+        self.assertEqual(env.get(m.group(1)), "off", "外壳把这个变量剥掉了,ds_web 收不到 ⇒ 关不掉自动更新")
+
+    def test_h8b_knob_is_off_before_the_first_launch(self):
+        off = re.search(r'^Set-Item -Path "Env:\$AutoKnob" -Value \'off\'\s*$', self.ps1, re.M)
+        self.assertIsNotNone(off, "脚本顶层没有把自动更新关掉")
+        first_launch = self.ps1.find('Start-Process -FilePath "$InstallDir\\OpenDesign.exe"')
+        self.assertGreater(first_launch, 0)
+        self.assertLess(off.start(), first_launch, "第一次拉起 OpenDesign 之前自动更新还开着")
+
+    def test_h8c_record_path_and_reset_clears_it(self):
         m = re.search(r'^\$AutoRecord\s*=\s*"\$DataRoot\\Logs\\([^"\\]+)"\s*$', self.ps1, re.M)
         self.assertIsNotNone(m, "脚本里没有 $AutoRecord = \"$DataRoot\\Logs\\<名字>\"")
-        self.assertEqual(m.group(1), A.RECORD_NAME)
-
-    def test_h8b_reset_clears_the_record_before_reinstalling(self):
+        self.assertEqual(m.group(1), self.A.RECORD_NAME)
         body = self._function("Reset-Old")
         rm = body.find("Remove-Item -LiteralPath $AutoRecord")
         self.assertGreaterEqual(rm, 0, "Reset-Old 没清自动更新记账")
-        self.assertLess(rm, body.find("Start-Process -FilePath $OldSetup"), "清账要在装旧版、拉起旧版之前")
-        self.assertIn("if (Test-Path -LiteralPath $AutoRecord) { throw", body, "清不掉要当场炸,不许带着旧账往下跑")
+        self.assertLess(rm, body.find("Start-Process -FilePath $OldSetup"), "清账要在装旧版之前")
 
-    def test_h8c_e5_starts_automatic_and_asks_again_after_rollback(self):
-        body = self._function("Run-Rollback")
-        self.assertRegex(body, r"\$f\.apply_body = if \(\$Kind -eq 'e5'\) \{ \$AutoBody \}")
-        self.assertIn("$f.apply = Invoke-Apply $port $f.apply_body", body)
-        after = body.find("$f.apply_auto_again = Invoke-Apply $p2 $AutoBody")
-        self.assertGreater(after, body.find("Wait-Job $job"), "回滚后的再次自动请求要在注入线程收掉之后")
-        self.assertIn("$f.check_after = Invoke-Check $p2", body)
-        self.assertRegex(self.ps1, r"(?m)^\$AutoBody = '\{\"auto\": true\}'\s*$")
+    def test_h8d_e9_lets_the_page_do_it(self):
+        body = self._function("Run-e9")
+        self.assertNotIn("Invoke-Apply", body, "e9 里脚本自己发了 apply —— 页面的倒计时就没被测到")
+        rm = body.find('Remove-Item -Path "Env:$AutoKnob"')
+        launch = body.find('Start-Process -FilePath "$InstallDir\\OpenDesign.exe"')
+        inject = body.find("Start-ThreadJob -ScriptBlock $InjectBlock")
+        self.assertTrue(0 <= inject < launch and 0 <= rm < launch, "注入与摘开关都必须在拉起之前")
+        self.assertRegex(body, r"(?s)finally \{\s*Set-Item -Path \"Env:\$AutoKnob\" -Value 'off'")
+        self.assertIn("New-Facts -NoLaunch", body)
+
+    def test_h8e_e9_order_and_workflow_gate(self):
+        exp = re.search(r"^\$Expected\s*=\s*@\(([^)]*)\)", self.ps1, re.M).group(1)
+        names = re.findall(r"'(e\d+)'", exp)
+        self.assertIn("e9", names)
+        self.assertLess(names.index("e9"), names.index("e6"), "e9 要装在原来的目录里,排在带空格目录之前")
+        gate = re.search(r"foreach \(\$k in ([^)]*)\)", self.wf).group(1)
+        self.assertIn("'e9'", gate, "工作流的独立收据闸没点名 e9 —— 脚本少跑它也放行")
 
 
 class H5ManifestSkipsOnlyPycache(unittest.TestCase):
@@ -455,19 +481,28 @@ def _base(kind):
         if kind == "e5":
             f["inject"]["version"] = "0.0.1"
             f["seen_versions"] = ["0.0.1", OLD]
-            # track opendesign-auto-update-countdown(aw2/aw3):e5 由自动那条路发起,回滚之后不许再自动试
-            f["apply_body"] = '{"auto": true}'
-            f["check_after"] = {"update_available": True, "latest": NEW, "error": None,
-                                "auto_update": {"eligible": False, "why_not": "attempted"}}
-            f["apply_auto_again"] = {"ok": False, "stage": "auto_skipped", "error": "attempted"}
+
     elif kind in ("e1", "e6", "e8"):
         f.update(apply=started, relay=relay, health_after={"port": 8766, "version": NEW},
                  live_version_after=NEW, old_exists=False, new_exists=False, window=copy.deepcopy(REAL_WINDOW),
                  health_final={"port": 8766, "version": NEW})
-        # aw1(track opendesign-auto-update-countdown):装出来的真桌面版里,倒计时的条件必须真的成立
-        f["check"]["auto_update"] = {"eligible": True, "why_not": None}
+        # aw1(track opendesign-auto-update-countdown):脚本关掉了自动更新 ⇒ 真桌面版里恰好是 disabled
+        #  (排在最后判 ⇒ 其余条件在真机上全成立)
+        f["check"]["auto_update"] = {"eligible": False, "why_not": "disabled", "recent_failure": False}
         if kind == "e6":
             f["pointers"] = _pointers_at(SPACED_LIVE)
+    elif kind == "e9":
+        # track opendesign-auto-update-countdown(aw2):脚本不发 apply,页面自己倒计时发起;回滚后不许再自动试
+        del f["check"]
+        f["reset"]["health"] = None
+        f.update(auto_knob_at_launch="", launch_health={"port": 8766, "version": OLD},
+                 relay_started_after=31.5, relay=relay, seen_versions=["0.0.1", OLD],
+                 inject={"landed": True, "detail": "x", "version": "0.0.1"},
+                 health_after={"port": 8766, "version": OLD}, live_version_after=OLD,
+                 old_exists=False, new_exists=True, nested_old_exists=False, live_before="d1", live_after="d1",
+                 window_after=copy.deepcopy(REAL_WINDOW), relay_again=False,
+                 check_after={"update_available": True, "latest": NEW, "error": None,
+                              "auto_update": {"eligible": False, "why_not": "attempted", "recent_failure": True}})
     elif kind == "e7":
         # e7 不走替身、不点更新:直接把修 t33 之前那条参数交给新版安装器
         for k in ("new_version", "check", "fake_log", "source"):
@@ -517,8 +552,12 @@ COMMON_BREAKS = {
 
 # aw1(track opendesign-auto-update-countdown):e1/e6/e8 共用
 AUTO_ELIGIBLE_BREAKS = {
-    "auto update not eligible in the real app (countdown would never show)": _set("check.auto_update.eligible", False),
-    "auto update eligible as a string": _set("check.auto_update.eligible", "true"),
+    "harness knob did not switch auto update off (page would race the harness)": _set(
+        "check.auto_update", {"eligible": True, "why_not": None, "recent_failure": False}),
+    "a real-app condition failed before 'disabled' was reached (countdown would never show)": _set(
+        "check.auto_update.why_not", "no_shell"),
+    "not_installed in the real app": _set("check.auto_update.why_not", "not_installed"),
+    "eligible as a string": _set("check.auto_update.eligible", "false"),
     "auto_update missing from the real check": lambda f: f["check"].pop("auto_update"),
 }
 
@@ -567,15 +606,31 @@ BREAKS = {
         "bad new still answering": _set("health_after", {"port": 8766, "version": "0.0.1"}),
         "live tree not restored": _set("live_after", "d2"),
         ".old left": _set("old_exists", True),
-        # aw2 / aw3(track opendesign-auto-update-countdown)
-        "started by the manual button, not the countdown (untested)": _set("apply_body", "{}"),
-        "auto body is a string true (untested)": _set("apply_body", '{"auto": "true"}'),
-        "apply body not json": _set("apply_body", "auto"),
-        "still eligible after rollback (loop)": _set("check_after.auto_update", {"eligible": True, "why_not": None}),
-        "not eligible for another reason": _set("check_after.auto_update.why_not", "no_shell"),
+    },
+    "e9": {
+        "harness sent the apply itself (page countdown untested)": _set("apply", {"ok": True, "stage": "started"}),
+        "knob still off at launch": _set("auto_knob_at_launch", "off"),
+        "knob fact missing": _set("auto_knob_at_launch", None),
+        "old app never came up": _set("launch_health", None),
+        "page never auto-updated (no relay)": _set("relay_started_after", None),
+        "inject missed": _set("inject.landed", False),
+        "bad new never ran": _set("seen_versions", [OLD]),
+        "gave up before renaming (looks like rollback)": _set("relay.old_seen", False),
+        "relay still running": _set("relay.ended", False),
+        "live tree not restored": _set("live_after", "d2"),
+        "live version new": _set("live_version_after", NEW),
+        "nobody relaunched old": _set("health_after", None),
+        "downloaded again after rollback (loop)": lambda f: f["fake_log"].append({"kind": "download", "mode": "normal"}),
+        "never downloaded": lambda f: f.__setitem__("fake_log", [e for e in f["fake_log"] if e.get("kind") != "download"]),
+        "relay running again after rollback": _set("relay_again", True),
+        "relay_again unknown": _set("relay_again", None),
+        "no window after rollback": _set("window_after", {"wins": [], "procs": []}),
+        "still eligible after rollback (loop)": _set("check_after.auto_update",
+                                                      {"eligible": True, "why_not": None, "recent_failure": False}),
+        "not reported as attempted": _set("check_after.auto_update.why_not", "no_shell"),
+        "failure not reported as recent (no banner)": _set("check_after.auto_update.recent_failure", False),
         "check after rollback failed": _set("check_after", {"_error": "timeout"}),
-        "second auto update started again": _set("apply_auto_again", {"ok": True, "stage": "started", "error": None}),
-        "second auto update merely busy": _set("apply_auto_again", {"ok": False, "stage": "busy", "error": "x"}),
+        "stand-in not seen after rollback": _set("check_after.update_available", False),
     },
     "e6": {
         "install path has no space (scenario untested)": _set("pointers", copy.deepcopy(POINTERS)),
@@ -667,11 +722,15 @@ class VVerdictIsABehaviour(unittest.TestCase):
     # 通用反例里问"替身"的那两条:e7 不经过替身(直接调安装器),这两条对它问不出东西 —— 具名豁免,不是整组跳过。
     STAND_IN_BREAKS = {"app did not see stand-in", "stand-in never asked"}
     NO_STAND_IN = {"e7"}
+    # e9 复位时故意不拉起、脚本也不自己查更新 ⇒ 通用反例里改 reset.health / check 的两条问不到它;
+    # 它们在 e9 自己的反例里换成 launch_health / check_after 问("old app never came up" / "stand-in not seen after rollback")。
+    E9_EXEMPT = {"old app never answered", "app did not see stand-in"}
 
     def test_v2_every_break_fails(self):
         for kind, breaks in BREAKS.items():
             common = [(n, m) for n, m in COMMON_BREAKS.items()
-                      if not (kind in self.NO_STAND_IN and n in self.STAND_IN_BREAKS)]
+                      if not (kind in self.NO_STAND_IN and n in self.STAND_IN_BREAKS)
+                      and not (kind == "e9" and n in self.E9_EXEMPT)]
             feed = list(FEED_BREAKS.items()) if _base(kind).get("source") == "feed" else []
             auto = list(AUTO_ELIGIBLE_BREAKS.items()) if kind in ("e1", "e6", "e8") else []
             for name, mutate in common + feed + auto + list(breaks.items()):
@@ -702,7 +761,7 @@ class VVerdictIsABehaviour(unittest.TestCase):
     # 只进读数、不进裁决的字段(逐个说得出理由):
     #   e3.health_after  接力脚本放弃之后软件自己回没回来 —— 是产品取舍,不是 e3 问的事
     #   e4.new_exists    回滚后 .new 被注入方锁着删不掉,留着是注入造成的
-    INFORMATIONAL = {"e3": {"health_after"}, "e4": {"new_exists"}, "e5": {"new_exists"}}
+    INFORMATIONAL = {"e3": {"health_after"}, "e4": {"new_exists"}, "e5": {"new_exists"}, "e9": {"new_exists"}}
 
     def test_v4_every_fact_key_is_load_bearing_or_named_informational(self):
         # 删掉"该过"事实里的任何一个字段都必须红 —— 缺字段不许被当成"没问题"。
@@ -749,7 +808,7 @@ class VVerdictIsABehaviour(unittest.TestCase):
             self.assertEqual(run("e1", good).returncode, 0)
             self.assertEqual(run("e1", bad).returncode, 1)
             self.assertEqual(run("e1", junk).returncode, 2)
-            self.assertEqual(run("e9", good).returncode, 2)
+            self.assertEqual(run("e99", good).returncode, 2)
             self.assertEqual(run("e1").returncode, 2)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
@@ -797,7 +856,7 @@ class ZResetInstallsWhereTheScenarioLooks(unittest.TestCase):
     def test_z1_reset_passes_the_install_dir(self):
         with open(PS1, encoding="utf-8") as fh:
             ps = fh.read()
-        m = re.search(r"^function Reset-Old \{(.*?)^\}", ps, re.M | re.S)
+        m = re.search(r"^function Reset-Old\b[^{\n]*\{(.*?)^\}", ps, re.M | re.S)
         self.assertIsNotNone(m, "找不到 Reset-Old")
         self.assertRegex(m.group(1), r'Start-Process -FilePath \$OldSetup -ArgumentList "/S /D=\$InstallDir"')
 

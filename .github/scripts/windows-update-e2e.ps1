@@ -49,16 +49,21 @@ $FakeLog    = Join-Path $OutDir 'fake-github.log'
 $VerdictLog = Join-Path $OutDir 'verdicts.tsv'
 # e6/e7 必须排在最后:它们把安装目录换成带空格的那个(Use-SpacedInstallDir),换过去就不换回来。
 # e8 在 e1 之后、搬去带空格目录之前:它只换查更新的来源,装在原来的目录里。
-$Expected   = @('e2', 'e3', 'e4', 'e5', 'e1', 'e8', 'e6', 'e7')
+# e9(真 WebView 里的倒计时整条链)同样装在原来的目录里,排在 e8 之后、搬去带空格目录之前。
+$Expected   = @('e2', 'e3', 'e4', 'e5', 'e1', 'e8', 'e9', 'e6', 'e7')
 # t33/t34 的真机半用的目录:**带空格、纯 ASCII**。不能带中文 —— runner 是英文 Windows(代码页 437),
 # 非 ASCII 路径会被 t36 在动手之前拒掉(那是对的),e6 就测不到它要测的事。
 $SpacedInstallDir = 'C:\OD e2e space\Programs\OpenDesign'
 # e5 注入的版本号:新版起得来,但收口认不出它。
 $InjectVersion = '0.0.1'
-# 倒计时走完时界面发的请求体(track opendesign-auto-update-countdown)。e5 用它发起,回滚之后再发一次。
-$AutoBody = '{"auto": true}'
-# 自动更新记账文件:「这个版本自动试过」。每个场景复位时清掉 —— 不然 e5 记下的新版号会让后面 e1/e8/e6
-# 的「装出来的真桌面版里 eligible 为真」那条断言红在考卷自己身上。
+# ── 打开软件倒计时自动更新(track opendesign-auto-update-countdown)────────────────────
+# 🔴 旧版一被拉起,窗口里的页面就会自己查到替身的新版、倒计时 10 秒、**自己发自动更新**。
+#    e1~e8 是脚本自己按节奏发 apply、自己布置注入的,让产品抢跑 = 两条更新流程互相撞(攻题 #16)。
+#    ⇒ 整支脚本默认把自动更新关掉(产品认这个环境变量,why_not="disabled");只有 e9 摘掉它,让真页面自己跑完整条链。
+#    名字**不许以 DS_ 开头**:外壳 child_env 会把 DS_* 全部剥掉再交给 ds_web(bin/ds_shell_core.py)。
+$AutoKnob   = 'OPENDESIGN_AUTO_UPDATE'
+Set-Item -Path "Env:$AutoKnob" -Value 'off'
+# 自动更新记账文件:「这个版本自动试过」。每个场景复位时清掉,场景之间互不污染。
 $AutoRecord = "$DataRoot\Logs\auto-update-attempts.json"
 # hosts 重定向的两个域名。**必须覆盖软件会碰的全部主机**:
 # 查更新 = ds_update.releases_url() 的主机,下载 = 替身给的 browser_download_url 的主机。
@@ -301,12 +306,11 @@ function Invoke-Check($Port) {
     catch { return @{ _error = "$($_.Exception.Message)" } }
 }
 
-function Invoke-Apply($Port, [string]$Body = '{}') {
-    # 默认 '{}' 和界面上那个按钮发的是同一个请求(按钮自身的接线由 u27~u37 管);
-    # $AutoBody 是倒计时走完发的那个(界面那半由 tests/e2e/auto_update_countdown.e2e.mjs AC-A 钉着)。
+function Invoke-Apply($Port) {
+    # 和界面上那个按钮发的是同一个请求(按钮自身的接线由 u27~u37 管)。
     try {
         return (Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$Port/api/update/apply" `
-                -TimeoutSec 900 -NoProxy -ContentType 'application/json' -Body $Body)
+                -TimeoutSec 900 -NoProxy -ContentType 'application/json' -Body '{}')
     } catch { return @{ _error = "$($_.Exception.Message)" } }
 }
 
@@ -382,7 +386,7 @@ function Finish-Scenario([string]$Kind, $Facts) {
 
 # ── 场景前:重装旧版并拉起 ──────────────────────────────────────────────
 
-function Reset-Old {
+function Reset-Old([switch]$NoLaunch) {
     Note "reset: stop everything, wipe install trees, install $OldVersion"
     Stop-All
     Remove-Item -LiteralPath $RelayPath -Force -ErrorAction SilentlyContinue
@@ -397,17 +401,18 @@ function Reset-Old {
     if ($ip.WaitForExit(240000)) { $rc = $ip.ExitCode }
     else { Stop-Process -Id $ip.Id -Force -ErrorAction SilentlyContinue; $rc = 'timeout' }
     Note "reset: installer rc=$rc"
+    if ($NoLaunch) { return @{ installer_rc = $rc; health = $null } }
     Start-Process -FilePath "$InstallDir\OpenDesign.exe" | Out-Null
     $h = Wait-Health $OldVersion 180
     Note "reset: health = $($h | ConvertTo-Json -Compress)"
     return @{ installer_rc = $rc; health = $h }
 }
 
-function New-Facts {
+function New-Facts([switch]$NoLaunch) {
     $f = [ordered]@{ old_version = $OldVersion; new_version = $NewVersion }
     $f.source = (Get-Content -LiteralPath $SourceFile -Raw).Trim()
     $f.fake_log_start = Get-FakeLogCount
-    $f.reset = Reset-Old
+    $f.reset = Reset-Old -NoLaunch:$NoLaunch
     $f.markers_before = Get-Markers
     return $f
 }
@@ -517,9 +522,7 @@ function Run-Rollback([string]$Kind, [string]$Mode) {
     New-Item -ItemType Directory -Force -Path $flagDir | Out-Null
     Remove-Item -LiteralPath $RelayPath -Force -ErrorAction SilentlyContinue
     $job = Start-ThreadJob -ScriptBlock $InjectBlock -ArgumentList $RelayPath, $NewDir, $flagDir, $Mode, $InjectVersion
-    # e5 走倒计时那条路(自动);e4 仍是手动按钮那条。
-    $f.apply_body = if ($Kind -eq 'e5') { $AutoBody } else { '{}' }
-    $f.apply = Invoke-Apply $port $f.apply_body
+    $f.apply = Invoke-Apply $port
     Note "$Kind apply -> $($f.apply | ConvertTo-Json -Compress)"
     Copy-Relay $Kind
     $w = Wait-Relay 600
@@ -541,14 +544,6 @@ function Run-Rollback([string]$Kind, [string]$Mode) {
     Wait-Job $job -Timeout 30 | Out-Null
     Receive-Job $job -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "    injector: $_" }
     Remove-Job $job -Force
-    if ($Kind -eq 'e5') {
-        # aw2(track opendesign-auto-update-countdown):自动试过 → 回滚 → 旧版被接力脚本重新拉起之后,
-        # 这个版本**不许再自动试**。这是「同一版本失败一次不再自动试」跨一次真实回滚仍然成立的唯一证据。
-        $p2 = if ($f.health_after -and $f.health_after.port) { $f.health_after.port } else { $port }
-        $f.check_after = Invoke-Check $p2
-        $f.apply_auto_again = Invoke-Apply $p2 $AutoBody
-        Note "e5 after rollback: auto_update=$($f.check_after.auto_update | ConvertTo-Json -Compress) again=$($f.apply_auto_again | ConvertTo-Json -Compress)"
-    }
     $f.pointers = Get-Pointers
     $f.markers_after = Get-Markers
     $f.fake_log = Get-FakeLogSince $f.fake_log_start
@@ -594,6 +589,76 @@ function Run-e8 {
     Set-Content -LiteralPath $SourceFile -Value 'api'
     try { Run-FullUpdate 'e8' }
     finally { Set-Content -LiteralPath $SourceFile -Value 'feed' }
+}
+
+# e9 —— 真 WebView 里的倒计时整条链(track opendesign-auto-update-countdown,aw2)。
+# **脚本一次 apply 都不发**:摘掉关自动更新的环境变量,拉起旧版,由窗口里的页面自己查到新版、倒计时 10 秒、自己发自动更新。
+# 注入同 e5(新版起得来但认不出 ⇒ 回滚),于是旧版被接力脚本**重新拉起**,页面再加载一次 ——
+# 这一次:不许再倒计时、不许再下载;查更新必须 attempted + recent_failure(横幅在截图里,不进裁决)。
+# 这是「同一版本失败一次不再自动试」跨一次真实回滚 + 真页面重开仍然成立的唯一证据,
+# 也是「装出来的真桌面版里,打开软件那次查更新真的会开倒计时」的唯一证据(攻题 #6/#7)。
+function Wait-RelayStart([int]$Seconds) {
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    while ($sw.Elapsed.TotalSeconds -lt $Seconds) {
+        if ((Get-RelayProcs).Count -gt 0) { return [Math]::Round($sw.Elapsed.TotalSeconds, 1) }
+        Start-Sleep -Milliseconds 500
+    }
+    return $null
+}
+
+function Run-e9 {
+    Set-Content -LiteralPath $ModeFile -Value 'normal'
+    $f = New-Facts -NoLaunch
+    $f.live_before = Get-Manifest $InstallDir 'e9-before'
+    $flagDir = Join-Path $OutDir 'inject-e9'
+    New-Item -ItemType Directory -Force -Path $flagDir | Out-Null
+    Remove-Item -LiteralPath $RelayPath -Force -ErrorAction SilentlyContinue
+    $job = Start-ThreadJob -ScriptBlock $InjectBlock -ArgumentList $RelayPath, $NewDir, $flagDir, 'patch', $InjectVersion
+    Remove-Item -Path "Env:$AutoKnob" -ErrorAction SilentlyContinue
+    try {
+        $f.auto_knob_at_launch = "$([Environment]::GetEnvironmentVariable($AutoKnob))"
+        Start-Process -FilePath "$InstallDir\OpenDesign.exe" | Out-Null
+        $f.launch_health = Wait-Health $OldVersion 180
+        Save-Screen (Join-Path $OutDir 'e9-launched.png')
+        # 页面加载 + 查更新 + 10 秒倒计时 + 下载 + 静默装进 .new,之后接力脚本才出现。
+        $f.relay_started_after = Wait-RelayStart 600
+        Note "e9 relay started after $($f.relay_started_after)s (nobody but the page asked for it)"
+        Copy-Relay 'e9'
+        $w = Wait-Relay 600
+        $f.relay = $w.relay
+        $f.seen_versions = $w.versions
+        $f.health_after = Wait-Health $OldVersion 180
+        $injectFile = Join-Path $flagDir 'inject.json'
+        $f.inject = if (Test-Path -LiteralPath $injectFile) {
+            Get-Content -LiteralPath $injectFile -Raw | ConvertFrom-Json -AsHashtable
+        } else { @{ landed = $false; detail = 'injector wrote no record' } }
+        $f.live_version_after = Get-LiveVersion
+        $f.old_exists = Test-Path -LiteralPath $OldDir
+        $f.new_exists = Test-Path -LiteralPath $NewDir
+        $f.nested_old_exists = Test-Path -LiteralPath (Join-Path $InstallDir 'OpenDesign.old')
+        $f.live_after = Get-Manifest $InstallDir 'e9-after'
+        Show-ManifestDiff 'e9-before' 'e9-after'
+        New-Item -ItemType File -Force -Path (Join-Path $flagDir 'release') | Out-Null
+        Wait-Job $job -Timeout 30 | Out-Null
+        Receive-Job $job -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "    injector: $_" }
+        Remove-Job $job -Force
+        # 旧版被拉起之后,给页面足够时间:加载 + 查更新 + (要是还倒计时的话)10 秒 + 开始下载。
+        # 判的是**整个场景只下载过一次**(fake_log)+ 这会儿没有第二个接力脚本 —— 不在这里取分界点,
+        # 免得页面在分界点之前就开始了第二次下载而被漏数。
+        $f.window_after = Wait-Window 60
+        Start-Sleep -Seconds 45
+        Save-Screen (Join-Path $OutDir 'e9-after-rollback.png')
+        $f.relay_again = (Get-RelayProcs).Count -gt 0
+        $p2 = if ($f.health_after -and $f.health_after.port) { $f.health_after.port } else { $null }
+        $f.check_after = if ($p2) { Invoke-Check $p2 } else { @{ _error = 'old app not answering after rollback' } }
+        Note "e9 after rollback: auto_update=$($f.check_after.auto_update | ConvertTo-Json -Compress)"
+    } finally {
+        Set-Item -Path "Env:$AutoKnob" -Value 'off'
+    }
+    $f.pointers = Get-Pointers
+    $f.markers_after = Get-Markers
+    $f.fake_log = Get-FakeLogSince $f.fake_log_start
+    Finish-Scenario 'e9' $f
 }
 
 # 把后面的场景搬到带空格的安装目录。先按**原来的**前缀把还在跑的都停掉:换了前缀,Get-OurProcs 就认不出它们了。

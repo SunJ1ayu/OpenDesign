@@ -1,0 +1,303 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    oracle-v2-red-e2e
+cmd:     node tests/e2e/auto_update_countdown.e2e.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  a057f6b
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-17T12:05:25Z
+---------------- 输出开始 ----------------
+ds-web 0.98.6: http://127.0.0.1:8846/  (DS_DATA_ROOT=/tmp/auto-update-e2e-oPM67U/ds)
+2026-09-17 20:05:25 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+
+== AC-A 打开时查到可自动更新的新版 ⇒ 眼前出现倒计时,约 10 秒后恰好发一次自动更新
+2026-09-17 20:05:26 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-17 20:05:26 127.0.0.1 - "GET /assets/index-DnE4yG8A.js HTTP/1.1" 200 -
+2026-09-17 20:05:26 127.0.0.1 - "GET /assets/index-B0xwyepO.css HTTP/1.1" 200 -
+2026-09-17 20:05:27 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:27 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-17 20:05:27 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-17 20:05:27 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:27 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-17 20:05:27 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-17 20:05:27 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-17 20:05:27 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:27 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-17 20:05:27 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+  ok - 前提:打开页面后真的自动查了一次更新
+2026-09-17 20:05:27 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-17 20:05:27 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:05:27 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:05:27 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-17 20:05:27 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:27 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:28 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:28 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:30 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:30 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+[AC-A 打开时查到可自动更新的新版 ⇒ 眼前出现倒计时,约 10 秒后恰好发一次自动更新] Error: FAIL: 查到之后 5 秒内,不翻任何菜单就看得见倒计时横幅(1280×860,没被盖住)
+
+== AC-B 最小窗口里点取消 ⇒ 横幅收起;之后手动检查、开关自动检查、网络恢复、窗口切回来,都不许再自动更新
+
+== AC-C 这个版本早就自动试过 ⇒ 不出横幅、不请求;设置里说清楚可以手动点
+
+== AC-C2 刚自动更新失败、被换回旧版重新打开 ⇒ 横幅说一次(不倒计时、不请求),能关掉
+
+== AC-E 打开时已是最新;之后手动点「检查更新」查到新版 ⇒ 不倒计时(那不是打开软件)
+2026-09-17 20:05:32 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-17 20:05:32 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-17 20:05:32 127.0.0.1 - "GET /assets/index-B0xwyepO.css HTTP/1.1" 200 -
+2026-09-17 20:05:32 127.0.0.1 - "GET /assets/index-DnE4yG8A.js HTTP/1.1" 200 -
+2026-09-17 20:05:32 127.0.0.1 - "GET /assets/index-DnE4yG8A.js HTTP/1.1" 200 -
+2026-09-17 20:05:32 127.0.0.1 - "GET /assets/index-B0xwyepO.css HTTP/1.1" 200 -
+2026-09-17 20:05:32 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-17 20:05:32 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-17 20:05:32 127.0.0.1 - "GET /assets/index-B0xwyepO.css HTTP/1.1" 200 -
+2026-09-17 20:05:32 127.0.0.1 - "GET /assets/index-DnE4yG8A.js HTTP/1.1" 200 -
+2026-09-17 20:05:32 127.0.0.1 - "GET /assets/index-DnE4yG8A.js HTTP/1.1" 200 -
+2026-09-17 20:05:32 127.0.0.1 - "GET /assets/index-B0xwyepO.css HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+  ok - 前提:打开时自动查了一次
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 前提:打开页面后真的自动查了一次更新
+  ok - 前提:打开页面后真的自动查了一次更新
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:34 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:34 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:34 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:34 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:34 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:34 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:34 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:34 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:34 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:34 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 前提:手动检查真的发出去了
+2026-09-17 20:05:35 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:36 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:36 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:36 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:36 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:36 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:36 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:37 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:37 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  FAIL: 🔴 自动更新刚失败、软件被换回旧版重新打开,眼前却什么都没有 —— 业主以为已经更新好了
+2026-09-17 20:05:40 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:40 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:40 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:40 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:41 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:41 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:41 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:41 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:41 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:42 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:47 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 早就自动试过的版本,打开时又出横幅了(每次打开都说一遍)
+  ok - 自动试过的版本又发了 0 次更新请求 —— 正是业主怕的循环
+2026-09-17 20:05:48 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:48 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+[AC-B 最小窗口里点取消 ⇒ 横幅收起;之后手动检查、开关自动检查、网络恢复、窗口切回来,都不许再自动更新] Error: FAIL: 前提:960×640(真窗口的最小尺寸)里倒计时横幅在眼前、没被盖住
+2026-09-17 20:05:48 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:48 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 手动「检查更新」也弹了倒计时
+  ok - 手动「检查更新」之后自己发了 0 次更新请求
+2026-09-17 20:05:49 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:49 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:49 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  FAIL: 设置里没有解释为什么这一版不再自动更新(蓝点亮着、却不自动,业主会以为坏了)
+  ok - 刚失败的版本又发了 0 次更新请求
+  FAIL: 失败说明上没有关闭按钮
+
+== AC-F 打开时自动检查是关的;中途打开开关、那次查到新版 ⇒ 不倒计时
+
+== AC-H 倒计时中业主自己点了「更新」⇒ 只有他点的那一次,倒计时停下,走完也不再自动发
+2026-09-17 20:05:52 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /assets/index-B0xwyepO.css HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /assets/index-DnE4yG8A.js HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /assets/index-B0xwyepO.css HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /assets/index-DnE4yG8A.js HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-17 20:05:52 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:53 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-17 20:05:53 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:05:53 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:05:53 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-17 20:05:53 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:53 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-17 20:05:53 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:05:53 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-17 20:05:53 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:05:53 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:53 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:53 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:54 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:54 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:54 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:54 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:55 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:55 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 前提:自动检查关着时打开页面不该查(实际查了 0 次)
+  ok - 前提:打开开关之后查了一次
+2026-09-17 20:05:56 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:56 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:56 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:56 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:05:59 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:00 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:00 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:00 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:00 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:01 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:07 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:07 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+[AC-H 倒计时中业主自己点了「更新」⇒ 只有他点的那一次,倒计时停下,走完也不再自动发] Error: FAIL: 前提:倒计时横幅出现了
+2026-09-17 20:06:08 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:09 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 中途打开自动检查开关也弹了倒计时(那不是打开软件)
+  ok - 中途打开开关之后自己发了 0 次更新请求
+
+== AC-D 自动更新失败 ⇒ 横幅上说人话(不只藏在设置里),能关掉;请求整个没回来 ⇒ 也要说,但不说「不会再自动」
+2026-09-17 20:06:10 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /assets/index-DnE4yG8A.js HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /assets/index-B0xwyepO.css HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /assets/index-DnE4yG8A.js HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /assets/index-B0xwyepO.css HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:10 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:11 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:11 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:11 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:12 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:13 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:13 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:13 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:13 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:13 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:14 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:15 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:16 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:17 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:17 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:17 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:17 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:21 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:22 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:24 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-17 20:06:25 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+[AC-D 自动更新失败 ⇒ 横幅上说人话(不只藏在设置里),能关掉;请求整个没回来 ⇒ 也要说,但不说「不会再自动」] Error: FAIL: 前提:倒计时横幅出现了
+
+7 条没过
+---------------- 输出结束 ----------------
+runlog: oracle-v2-red-e2e rc=1 commit=a057f6b dirty=yes at=2026-09-17T12:05:25Z file=tracks/opendesign-auto-update-countdown/evidence/20260917T120525Z-01-oracle-v2-red-e2e.txt

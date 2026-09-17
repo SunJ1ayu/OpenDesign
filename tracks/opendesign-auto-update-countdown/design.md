@@ -23,7 +23,7 @@
 **`GET /api/update/check`** 回包在原有字段之外多一个(**每次请求现算,不进缓存**):
 
 ```json
-"auto_update": {"eligible": true, "why_not": null}
+"auto_update": {"eligible": true, "why_not": null, "recent_failure": false}
 ```
 
 `why_not` 取值(按下面顺序取**第一个**不满足的;`eligible=true` 时为 `null`):
@@ -32,11 +32,16 @@
 |---|---|
 | `no_update` | `update_available` 不为真(含查失败) |
 | `asset` | 安装包地址缺失,或 digest 不是可信 sha256(`ds_update_apply.parse_digest` 认不出) |
-| `no_shell` | 环境变量 `DS_SHELL_LOCK_PORT` 不是纯数字(没有桌面外壳接交棒) |
+| `no_shell` | 环境变量 `DS_SHELL_LOCK_PORT` 不是纯数字(这个后端不是桌面外壳起的:开发方式、单独跑)。**外壳起的后端,从浏览器标签打开同一个地址也算**(交棒走得通,真会更新);不在查更新时去探端口 |
 | `not_installed` | 活树不是安装器装出来的(与 `apply_update` 第 -2 步同一判断:`OpenDesign.exe` + `ds\bin\ds_shell.py`) |
 | `path_unsupported` | `relay_path_problem(paths)` 非空(与 `apply_update` 第 -1 步同一判断) |
-| `attempted` | `latest` 已在自动更新记账里 |
+| `attempted` | `latest` 已在自动更新记账里(**逐个版本精确比**,不许子串 / 前缀 / "试过的最大版本") |
+| `disabled` | 环境变量 `OPENDESIGN_AUTO_UPDATE` 为 `off`(不分大小写)。**排在最后**:Windows 真机判据靠「看到 disabled = 前面全成立」。名字不以 `DS_` 开头,因为外壳 `child_env` 会剥掉 `DS_*`。**只给判据用**,不是业主设置 |
 | `error` | 算这件事本身抛了 —— **查更新照样 200**,原字段不受影响 |
+
+`recent_failure`:`why_not == "attempted"` 且这个版本最后一次自动尝试距今 **不到 600 秒**(一律 `time.time()`)⇒ `true`,其余一律 `false`。
+用途:接力脚本回滚、旧版被重新拉起之后,页面在横幅上说一次「上次自动更新没成功」(攻题 #1)。
+GET 面只读(不许在查更新里记「已提示过」),所以用时间界定:回滚重开发生在几分钟内;过了 10 分钟再打开只在设置里说。
 
 「不是安装包装的 / 没外壳 / 路径不行」放进来,是为了**不做注定失败的倒计时**:不然开发方式、浏览器里打开,
 每次都会倒计时 10 秒然后报失败。与 `apply_update` 用**同一个判断**,不抄第二份(实现可以把 -2/-1 两步抽成共用函数)。
@@ -55,9 +60,10 @@
 **记账文件**:`<数据根>\Logs\auto-update-attempts.json`,数据根就是 `paths_for_update` 算出来的那个
 (`%LOCALAPPDATA%\OpenDesign`)。放 `Logs\` 是因为 t13 死线:更新前后 `Data\`、`UserData\` 逐字节不变,`Logs\` 豁免。
 文件名用 ASCII(Windows e2e 的 pwsh 要按名字清它,runner 代码页对中文不友好)。
-- 内容形状实现自定;只要求**已记过的版本不丢**(追加,不覆盖)。
+- 内容形状实现自定;要求**已记过的版本不丢**(追加,不覆盖)、每个版本带最后一次尝试时刻(`time.time()`)。
 - 读:不存在 / 读不了 / 不是 JSON / 形状不对 ⇒ 当作空账(下一次记账会整份写成合法的)。
-- 写:同目录临时文件 + `os.replace`(不留半截文件)。
+- 写:同目录临时文件 → `flush` + `os.fsync` → `os.replace`(不留半截文件;换名失败旧账完好)。任一步失败 ⇒ `auto_unrecorded`。
+- 条件重判、记账、开始准备在**同一个锁**里(锁外先判再进锁,两个窗口会把同一版准备两次 —— 攻题 #4,判据问不到,闸③亲读)。
 
 ### 前端
 
@@ -68,29 +74,35 @@
 - `countdownText(latest, seconds)`:带版本号、带秒数、带「自动更新」。
 - `autoFailureText(result)`:自动那次请求的结果要不要在横幅上说、说什么。
   - `null` / 成功 / `auto_skipped` / `busy` / `no_update` ⇒ `""`(不是失败,或者别处已在更新,安静收起)。
-  - `auto_unrecorded` ⇒ 非空,**不许说**「不会再自动」(它没记上,下次还会试)。
+  - `auto_unrecorded`,以及 `stage` 为 `null`(请求没回来 / 非 200 / 回包不是 JSON —— 不知道服务端记没记账)⇒ 非空,**不许说**「不会再自动」。
   - 其它失败 ⇒ 非空,包含 `applyHint(result)` 那句,并说明**这个版本不会再自动更新**。
+- `autoRecentFailureText(info)`:`update_available` 为真、`why_not === "attempted"`、`recent_failure === true` ⇒ 一句非空的话:
+  哪一版、上次自动更新没成功、不会再自动试、可以手动更新;否则 `""`。
 - `autoWhyNotHint(info)`:`update_available` 为真且 `why_not === "attempted"` ⇒ 一句非空的话,告诉业主可以**手动**点「更新」;否则 `""`。
 
 `App.tsx`:
-- **只有页面加载后的第一次自动查**的结果可以开倒计时。手动「检查更新」、中途把「打开时自动检查」打开触发的那次查,都不开。
+- **只有页面加载后的第一次自动查、那一次请求自己的回包**可以开倒计时(或出「刚失败」横幅)。手动「检查更新」、中途把「打开时自动检查」打开触发的那次查,都不开。
+- 取消是**这次页面生命周期**的:之后任何查更新、网络恢复、窗口切回来都不许再开倒计时。
+- 倒计时中业主自己点了「更新」⇒ 倒计时停下,走完不再发。
 - `shouldCountdown` 为真 ⇒ 横幅 `[data-ui="auto-update-banner"]`(不在设置弹层里、业主不翻任何菜单就看得见),
   每秒刷新 `countdownText`;里面 `[data-ui="auto-update-cancel"]` 点了 ⇒ 横幅收起、这次打开不再发请求。
 - 走完 ⇒ 复用现有的 `applyUpdate`(同一把防重入闸、同一个 apply 状态),请求体 `{"auto":true}`。
 - 请求中:横幅显示 `applyLabel`(「正在更新,OpenDesign 会自动关掉再重新打开」)。
+- 打开时查到 `autoRecentFailureText` 非空 ⇒ 横幅显示它 + `auto-update-dismiss`,**不倒计时、没有取消按钮**。
 - 失败:横幅显示 `autoFailureText`,带 `[data-ui="auto-update-dismiss"]`;`autoFailureText` 为空 ⇒ 横幅收起。
 - 设置里「检查更新」下面:`autoWhyNotHint` 非空时显示 `[data-ui="auto-update-why-not"]`。
 - 前端产物 `web/dist` 入库,改完要 build(总跑第⑤段查新鲜度)。
 
 ### Windows 真机 e2e(`.github/scripts/windows-update-e2e.ps1` + `update_e2e_verdict.py`)
 
-- `_full_update`(e1/e6/e8):更新前那次查更新的 `auto_update.eligible` 必须为真 ——
-  **这是唯一证明"装出来的真桌面版里倒计时条件真的会成立"的地方**;Linux 上的判据全是替身环境,
-  `no_shell` / `not_installed` / `path_unsupported` 任何一条在真机上误判成立,倒计时就**永远不出现**,而其余判据全绿。
-- e5(新版起得来但认不出 ⇒ 回滚):改用 `{"auto": true}` 发起;换回旧版、旧版起来之后再查一次 + 再自动请求一次:
-  必须 `eligible=false, why_not="attempted"`,第二次请求 `stage="auto_skipped"`。
-  **这是"同一版本失败一次不再自动试"跨一次真实回滚 + 重新拉起仍然成立的唯一证据。**
-- 每个场景复位旧版时清掉记账文件(否则 e5 记下的新版号会让后面 e1/e8/e6 的 eligible 断言红)。
+- 🔴 攻题 #16:旧版一被拉起,真页面就会自己查到替身的新版、倒计时、自己发自动更新 —— 和脚本按节奏发 apply、布置注入的 e1~e8 互相撞。
+  ⇒ 脚本顶层 `OPENDESIGN_AUTO_UPDATE=off`,e1~e8 行为不变。
+- aw1:e1/e6/e8 更新前那次查更新 `why_not` **恰好是 `disabled`**(排最后 ⇒ 真桌面版里其余条件全成立;看到 eligible=true = 关不掉 = 场景被污染)。
+- **e9(新)真 WebView 整条链**:复位不拉起 → 布置注入(同 e5,新版认不出 ⇒ 回滚)→ 摘掉开关 → 拉起旧版 → **脚本一次 apply 都不发**,
+  等页面自己倒计时发起 → 接力脚本出现、回滚、旧版重新拉起 → 再等 45 秒:整个场景**只下载过一次**、没有第二个接力脚本、窗口在;
+  回滚后查更新 `attempted + recent_failure=true`。截图留横幅(不进裁决)。
+  这是「装出来的真桌面版里打开软件真会倒计时」与「同一版本失败一次不再自动试」跨真实回滚 + 真页面重开的唯一证据(攻题 #6/#7)。
+- 每个场景复位时清掉记账文件。
 
 ## Key trade-offs / risks
 
@@ -101,6 +113,8 @@
    记账;横幅上的「取消」覆盖单次需要。
 3. **倒计时可能在业主已经开始干活时才出现**:查更新最坏三跳各 10 秒。只在"打开后第一次自动查"开,
    而倒计时本身可取消。不加"正在打字就推迟"之类的逻辑。
+3b. **「刚失败」用 10 分钟界定**:10 分钟内关了再开会再说一次;回滚后接力脚本没把旧版拉起来(关了不回来)的那种,界面无从说起 —— 那是既有回滚逻辑的事。
+3c. **测试开关 `OPENDESIGN_AUTO_UPDATE`** 进了产品代码。业主机器上没人设它;它只能把自动更新关掉,开不出任何东西。
 4. **两个页面同时倒计时**(外壳窗口 + 浏览器标签):现有的锁挡住第二个(`busy`),`autoFailureText` 对 `busy` 安静。
 5. **记账写不进去的机器**(Logs 不可写):每次打开都会倒计时一次然后安静地放弃(`auto_unrecorded` 有说明)。
    病态环境,不为它加探测。
@@ -118,8 +132,8 @@
 
 ## Test strategy (oracle)
 
-主 agent 亲写,执行腿逐字节 off-limits。**编号 `au*`(后端)、`ac*`(前端纯函数)、E2E 段名 `AC-*`,
-Windows 断言挂在已有 e1/e5/e6/e8 上。** 这张表是唯一权威,tasks.md 只引用。
+主 agent 亲写,执行腿逐字节 off-limits。**编号 `au*`(后端)、`ac*`(前端纯函数)、E2E 段名 `AC-*`、Windows `aw*`。**
+这张表是唯一权威,tasks.md 只引用。第二版(09-17)按 GPT-5.6-sol 攻题改过,处置见 verify.md。
 
 ### `tests/test_ds_web_auto_update.py`(真 ds_web、端口 0、网络与安装全替身、`LOCALAPPDATA` 指到临时目录)
 
@@ -128,53 +142,62 @@ Windows 断言挂在已有 e1/e5/e6/e8 上。** 这张表是唯一权威,tasks.m
 
 | 编号 | 问什么 |
 |---|---|
-| au1 | 全部条件满足 ⇒ 查更新回包 `auto_update == {"eligible": true, "why_not": null}`,原有字段仍在 |
-| au2a~au2f | 各单独破一个条件 ⇒ `eligible=false` 且 `why_not` 分别为 `no_update` / `asset`(digest 为空)/ `no_shell` / `not_installed` / `path_unsupported`(安装路径带 `%`)/ `attempted` |
-| au3 | 自动请求:**`apply_update` 被调用的那一刻,记账文件里已经有这个版本**(预写);顺序仍是 apply → handoff → bridge,回包 `ok=true` |
-| au4 | 自动请求且准备失败(替身 `apply_update` 报 verify 失败)⇒ 之后**不带 force** 的查更新 `why_not="attempted"`(不被 6 小时缓存吞掉) |
-| au5 | 已试过的版本再发自动请求 ⇒ `stage="auto_skipped"`,`apply_update` 一次没被调 |
-| au6 | 已试过的版本发**手动**请求(请求体 `{}`,界面按钮发的就是它)⇒ `apply_update` 照样被调 |
-| au7 | 记不下(`Logs` 是个文件不是目录)⇒ 自动请求 `stage="auto_unrecorded"`,`apply_update` 一次没被调 |
-| au8 | 记账文件是垃圾 ⇒ 查更新仍 `eligible=true`;自动请求之后 `why_not="attempted"`(被整份写好) |
-| au9 | 两个不同版本先后自动试 ⇒ **前一个不丢**(追加不覆盖) |
-| au10 | 数据根下自动那条路只写 `Logs/`(不碰 `Data/`、`UserData/`,t13 同一条死线) |
-| au11 | `"auto": "true"`(字符串)不算自动 ⇒ 已试过的版本照样调 `apply_update`(手动语义) |
-| au12 | 不满足条件的自动请求**不记账**(`no_shell` 下发自动请求 ⇒ 记账文件不存在) |
+| au1 | 全部条件满足 ⇒ `auto_update == {"eligible": true, "why_not": null, "recent_failure": false}`,原有字段仍在 |
+| au2a~au2f | 各单独破一个条件 ⇒ `why_not` 分别为 `no_update` / `asset` / `no_shell` / `not_installed` / `path_unsupported` / `attempted` |
+| au3 | 自动请求:**`apply_update` 被调用的那一刻,产品自己的查更新已经说 attempted**(预写;问产品,不读文件找子串);顺序 apply → handoff → bridge |
+| au4 | 准备失败之后,不带 force 的查更新 attempted;**换一个新 server(新进程)** 仍 attempted |
+| au5 | 已试过的版本再发自动请求 ⇒ `auto_skipped`,`apply_update` 没被调 |
+| au6 | 已试过的版本发**手动**请求(`{}`)⇒ `apply_update` 照样被调 |
+| au7 | 记不下(`Logs` 是文件)⇒ `auto_unrecorded`,什么都不准备 |
+| au8 | 记账文件是垃圾 ⇒ 仍 eligible;自动请求之后 attempted |
+| au9 | 两个版本先后试 ⇒ 前一个不丢 |
+| au9b | 试过 0.98.3 后撤回 ⇒ 从没试过的 0.98.2 仍 eligible(不许"试过的最大版本") |
+| au9c | 试过 0.98.1 ⇒ 0.98.10 仍 eligible(不许子串 / 前缀) |
+| au10 | 数据根下只写 `Logs/`,记账文件在 `Logs/auto-update-attempts.json` |
+| au11 | `"auto": "true"`(字符串)不算自动 |
+| au12a~e | 被拒的自动请求(`asset` / `no_shell` / `not_installed` / `path_unsupported` / `disabled`)⇒ `auto_skipped`、不准备、**不记账** |
+| au13 | 记账走 `fsync` → `os.replace`;`os.replace` 失败 ⇒ `auto_unrecorded`、不准备、**旧账完好**、没记上的版本不被当成试过 |
+| au14 | `OPENDESIGN_AUTO_UPDATE=off` ⇒ `disabled`;它排在 `not_installed` 与 `attempted` 之后;`OFF` 也认 |
+| au15 | 刚自动试过 ⇒ `recent_failure=true`;590 秒仍 true;610 秒 false(`time.time()`) |
 
 ### `tests/test_update_ui.mjs` 追加(node --test)
 
 | 编号 | 问什么 |
 |---|---|
 | ac1 | `AUTO_UPDATE_SECONDS === 10` |
-| ac2 | `shouldCountdown`:可装 + eligible ⇒ 真;eligible 为假 / 缺 `auto_update` / 不可装(无 digest)⇒ 假 |
-| ac3 | `shouldCountdown` 喂 null、字符串、数组、`auto_update: null`、`eligible: "true"` ⇒ 假且**不抛** |
-| ac4 | `countdownText("0.98.7", 7)` 含版本号、含 7、含「自动更新」 |
+| ac2 | `shouldCountdown`:可装 + eligible ⇒ 真;其余假 |
+| ac3 | `shouldCountdown` 喂垃圾 ⇒ 假且不抛 |
+| ac4 | `countdownText` 含版本号、秒数、「自动更新」 |
 | ac5 | `autoFailureText`:null / 成功 / `auto_skipped` / `busy` / `no_update` ⇒ `""` |
-| ac6 | `autoFailureText`:`download` 失败 ⇒ 含 `applyHint` 那句,且说明不会再自动 |
-| ac7 | `autoFailureText`:`auto_unrecorded` ⇒ 非空且**不含**「不会再自动」 |
-| ac8 | `autoWhyNotHint`:有新版 + `attempted` ⇒ 非空且含「手动」;其它 `why_not` / 无新版 / 垃圾输入 ⇒ `""` 且不抛 |
+| ac6 | `autoFailureText`:真失败 ⇒ 含 `applyHint` 那句、说不会再自动;每个失败 stage 都非空 |
+| ac7 | `autoFailureText`:`auto_unrecorded` / stage null(请求失败、HTTP 500、非 JSON)⇒ 非空且**不含**「不会再自动」 |
+| ac8 | `autoWhyNotHint`:有新版 + attempted ⇒ 含「手动」;其它 ⇒ `""`,垃圾不抛 |
+| ac9 | `autoRecentFailureText`:有新版 + attempted + recent_failure ⇒ 含版本号、没成功、不会再自动、手动;其它 ⇒ `""`,垃圾不抛 |
 
-### `tests/e2e/auto_update_countdown.e2e.mjs`(真 chromium + 真 ds_web;`/api/update/check` 与 `/api/update/apply` 用 page.route 拦)
+### `tests/e2e/auto_update_countdown.e2e.mjs`(真 chromium + 真 ds_web;check / apply 用 page.route 拦;视口 = 真窗口 1280×860 / 最小 960×640)
 
 | 段 | 问什么 |
 |---|---|
-| AC-A | eligible ⇒ 横幅在视口内可见、含版本号;不翻设置;约 10 秒后恰好一次 apply,请求体 `auto === true`;之后横幅显示「正在更新」 |
-| AC-B | 点取消 ⇒ 横幅收起;再等过倒计时 ⇒ 0 次 apply |
-| AC-C | `eligible=false, why_not=attempted` ⇒ 不出横幅、0 次 apply;设置里出现 `auto-update-why-not` 且含「手动」 |
-| AC-D | apply 回 `download` 失败 ⇒ 横幅上出现含「下载」的说明;点关闭 ⇒ 收起 |
-| AC-E | 打开时查到"已是最新";手动点「检查更新」得到 eligible ⇒ 等过倒计时仍 0 横幅、0 次 apply |
-| AC-F | 打开时自动检查是关的;中途打开开关、那次查得到 eligible ⇒ 0 横幅、0 次 apply |
+| AC-A | eligible ⇒ 横幅在视口内、没被盖住、不在设置里;显示 10 秒且在跳;**横幅出现到请求到达 8.5~12 秒**;恰好一次 apply,`auto === true`;之后说会关掉重开;打开一次只查一次 |
+| AC-B | 960×640 点取消 ⇒ 收起;之后 online / visibilitychange / focus、手动检查、开关关再开 ⇒ 0 次 apply、不再出横幅 |
+| AC-C | 早就试过(recent_failure=false)⇒ 不出横幅、0 次 apply;设置里 `auto-update-why-not` 含「手动」 |
+| AC-C2 | 刚失败(recent_failure=true)⇒ 横幅说版本 + 不会再自动,不倒计时、无取消;0 次 apply;能关掉 |
+| AC-D | apply 回 `download` 失败 ⇒ 横幅含「下载」、无内部词、能关掉;apply 请求被掐断 ⇒ 横幅非空、不倒计时、**不说**「不会再自动」 |
+| AC-E | 打开时已是最新;手动检查查到 eligible ⇒ 0 横幅、0 apply |
+| AC-F | 自动检查关着;中途打开开关、查到 eligible ⇒ 0 横幅、0 apply |
+| AC-H | 倒计时中手动点「更新」⇒ 倒计时停;全程只有那一次(非 auto)apply |
 
-### Windows(`tests/test_update_e2e_harness.py` 追加判定器用例)
+### Windows(`tests/test_update_e2e_harness.py`)
 
 | 编号 | 问什么 |
 |---|---|
-| aw1 | e1/e6/e8 事实里更新前 `check.auto_update.eligible` 不为真 ⇒ 判红 |
-| aw2 | e5 事实里 `apply_auto_again.stage != "auto_skipped"` 或 `check_after.auto_update` 不是 `{false, "attempted"}` ⇒ 判红;缺这两项 ⇒ 判红(没跑到 ≠ 没问题) |
-| aw3 | e5 事实里第一次请求不是自动(`apply_body` 不含 auto)⇒ 判红(场景没摆好) |
+| aw1 | e1/e6/e8 事实里 `check.auto_update.why_not` 不是恰好 `disabled` ⇒ 判红(含 eligible=true、别的原因、缺字段) |
+| aw2 | e9 判定器:脚本发过 apply / 拉起时开关没摘 / 没有接力脚本 / 注入没中 / 坏新版没跑过 / 没回滚 / **下载不是恰好一次** / 回滚后又有接力脚本 / 没窗口 / 回滚后不是 attempted + recent_failure ⇒ 判红;缺任一事实 ⇒ 判红 |
+| aw4 | 脚本静态:开关名与产品一致且**活得过外壳 child_env**(用真 child_env 核);第一次拉起之前已关;复位清账;e9 不发 apply、注入与摘开关在拉起之前、finally 装回;e9 排在带空格目录之前;工作流收据闸点名 e9 |
 
 ### 这份判据问不住什么(先写下来)
 
-- 横幅"好不好看"、业主真机 WebView2 里是否被别的层盖住 —— e2e 只证明 chromium 里可见。
-- 真机上从**打开软件**到倒计时走完的整条界面链 —— Windows e2e 走接口层,不点窗口;界面链由 AC-A 在 chromium 里证。
-- 记账文件在业主机器被杀软/清理工具删掉 ⇒ 多试一次。不防。
+- 条件重判 / 记账 / 开始准备是否真在同一个锁里(攻题 #4)—— 闸③亲读。
+- 横幅"好不好看";真机 WebView2 里横幅可见由 e9 截图人看,不进裁决。
+- 回滚后接力脚本没把旧版拉起来(关了不回来)—— 界面无从说起。
+- 记账文件被杀软 / 清理工具删掉 ⇒ 多试一次。

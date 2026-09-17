@@ -7,7 +7,7 @@ track opendesign-in-app-update-install §3。结构照抄 `bin/probe_verdict.py`
 
 调用约定:
 
-    python update_e2e_verdict.py e1|e2|e3|e4|e5|e6|e7|e8 <facts.json>
+    python update_e2e_verdict.py e1|e2|e3|e4|e5|e6|e7|e8|e9 <facts.json>
 
 stdout 一行;退出码 0=OK、1=FAIL、2=输入本身有问题(**也算红**,探针那边只认 0)。
 输出**只用 ASCII**:runner 是英文 Windows,中文进管道会被代码页打成问号(windows-package-probe 栽过)。
@@ -245,33 +245,18 @@ def verdict_e3(raw):
                    "relay gave up without renaming, .new removed, old relaunches (auto-reopened: %s)" % auto)
 
 
-def _auto_update_eligible(f, problems):
-    """aw1(track opendesign-auto-update-countdown):**装出来的真桌面版**里,更新前那次查更新必须说 eligible。
+def _auto_update_disabled_by_the_harness(f, problems):
+    """aw1(track opendesign-auto-update-countdown):e1/e6/e8 里**装出来的真桌面版**查更新,
+    `why_not` 必须恰好是 `disabled`(脚本用 OPENDESIGN_AUTO_UPDATE=off 关掉了自动更新,免得产品自己抢跑)。
 
-    Linux 上的判据全在替身环境里跑(假的安装根、假的外壳锁端口)。`no_shell` / `not_installed` /
-    `path_unsupported` 任何一条在真机上误判成立,倒计时就**永远不出现** —— 而其余判据全绿。这里是唯一问得到的地方。
+    `disabled` 排在全部条件的**最后**判 ⇒ 看到它 = 前面 no_update / asset / no_shell / not_installed /
+    path_unsupported / attempted 在真机上全都成立。Linux 判据全在替身环境里,任何一条在真机上误判,
+    倒计时就永远不出现而其余判据全绿 —— 这里是 e9 之外唯一问得到的地方。
+    看到 eligible=true ⇒ 关不掉 ⇒ 场景被产品自己的倒计时污染,同样算红。
     """
     auto = (f.get("check") or {}).get("auto_update")
-    if not isinstance(auto, dict) or auto.get("eligible") is not True:
-        problems.append("auto update not eligible in a real installed desktop app (auto_update=%r)" % (auto,))
-
-
-def _auto_not_retried(f, problems):
-    """aw2 / aw3:e5 由自动那条路发起;回滚、旧版被重新拉起之后,这个版本不许再自动试。"""
-    try:
-        body = json.loads(f.get("apply_body") or "null")
-    except ValueError:
-        body = None
-    if not isinstance(body, dict) or body.get("auto") is not True:
-        problems.append("setup: e5 was not started as an automatic update (body=%r), scenario untested"
-                        % (f.get("apply_body"),))
-    auto = (f.get("check_after") or {}).get("auto_update")
-    if not isinstance(auto, dict) or auto.get("eligible") is not False or auto.get("why_not") != "attempted":
-        problems.append("after rollback the same version is still offered for auto update (auto_update=%r)" % (auto,))
-    again = f.get("apply_auto_again") or {}
-    if again.get("stage") != "auto_skipped":
-        problems.append("after rollback a second automatic update was not refused (ok=%r stage=%r)"
-                        % (again.get("ok"), again.get("stage")))
+    if not isinstance(auto, dict) or auto.get("eligible") is not False or auto.get("why_not") != "disabled":
+        problems.append("auto update gate in the real app is not exactly 'disabled by the harness' (auto_update=%r)" % (auto,))
 
 
 def _rolled_back(kind, f, problems, old):
@@ -320,7 +305,6 @@ def verdict_e5(raw):
             problems.append("the unhealthy new version (%r) never answered, scenario untested" % (bad or None))
         _reached_rollback(f, problems)
         _rolled_back("e5", f, problems, old)
-    _auto_not_retried(f, problems)
     _pointers(f, problems)
     _markers(f, problems)
     return _finish("e5", f, problems, "unhealthy new version rolled back to %s" % old)
@@ -336,7 +320,7 @@ def _full_update(kind, raw, extra=None):
     old, new = _baseline(f, problems)
     if extra is not None:
         extra(f, problems)
-    _auto_update_eligible(f, problems)
+    _auto_update_disabled_by_the_harness(f, problems)
     if not any(d.get("mode") == "normal" for d in _downloads(f)):
         problems.append("no normal download was served")
     if _started(f, problems):
@@ -380,6 +364,56 @@ def _api_mode(f, problems):
 def verdict_e8(raw):
     """rl12 的备路半:替身订阅源回 503、API 正常 ⇒ 先试订阅源、再问 API,照样完整更新(e1 的全部断言)。"""
     return _full_update("e8", raw, extra=_api_mode)
+
+
+def verdict_e9(raw):
+    """真 WebView 里的倒计时整条链(track opendesign-auto-update-countdown,aw2)。
+
+    脚本一次 apply 都没发:页面自己查到新版、倒计时、自己发自动更新 ⇒ 注入让新版认不出 ⇒ 回滚 ⇒ 旧版被重新拉起、
+    页面再加载一次 ⇒ **不许再下载、不许再起接力脚本**;查更新 attempted + recent_failure。
+    """
+    f, problems = Facts(raw), []
+    # 复位时故意不拉起(页面一起来就会倒计时,注入得先摆好)⇒ 没有「复位后健康」和「脚本自己查一次」这两个事实。
+    # _baseline 要问的那两件事由拉起后的健康(launch_health)和回滚后的查更新(check_after)顶上。
+    shadow = dict(f.raw)
+    shadow["reset"] = dict(shadow.get("reset") or {}, health=f.get("launch_health"))
+    shadow["check"] = f.get("check_after")
+    old, _ = _baseline(Facts(shadow), problems)
+    if "apply" in f.raw:
+        problems.append("setup: the harness sent an apply itself, the page's own countdown is untested")
+    knob = f.get("auto_knob_at_launch")
+    if knob != "":
+        problems.append("setup: auto update was still switched off when the app launched (%r)" % (knob,))
+    _injected(f, problems)
+    if f.get("relay_started_after") is None:
+        problems.append("no relay ever started: the page never auto-updated (countdown missing in the real app?)")
+    else:
+        relay = f.get("relay") or {}
+        if not relay.get("seen"):
+            problems.append("relay script process was never seen")
+        if not relay.get("ended"):
+            problems.append("relay script still running at deadline (%rs)" % relay.get("seconds"))
+        bad = str((f.get("inject") or {}).get("version") or "")
+        if not bad or bad not in (f.get("seen_versions") or []):
+            problems.append("the unhealthy new version (%r) never answered, scenario untested" % (bad or None))
+        _reached_rollback(f, problems)
+        _rolled_back("e9", f, problems, old)
+    downloads = [d for d in _downloads(f) if d.get("mode") == "normal"]
+    if len(downloads) != 1:
+        problems.append("expected exactly one download (the automatic one), got %d: auto update retried after rollback?"
+                        % len(downloads))
+    if f.get("relay_again") is not False:
+        problems.append("a relay script was running again after the rollback (relay_again=%r)" % (f.get("relay_again"),))
+    window = f.get("window_after") or {}
+    if not probe_verdict.window_verdict(window.get("wins") or [], window.get("procs") or []).ok:
+        problems.append("window: no OpenDesign main window after rollback")
+    auto = (f.get("check_after") or {}).get("auto_update")
+    if (not isinstance(auto, dict) or auto.get("eligible") is not False or auto.get("why_not") != "attempted"
+            or auto.get("recent_failure") is not True):
+        problems.append("after rollback the version is not reported as a recent failed auto attempt (auto_update=%r)" % (auto,))
+    _pointers(f, problems)
+    _markers(f, problems)
+    return _finish("e9", f, problems, "page auto-updated on its own, rolled back to %s, not retried" % old)
 
 
 def _live_has_space(f, problems):
@@ -427,7 +461,7 @@ def verdict_e7(raw):
 
 
 KINDS = {"e1": verdict_e1, "e2": verdict_e2, "e3": verdict_e3, "e4": verdict_e4, "e5": verdict_e5,
-         "e6": verdict_e6, "e7": verdict_e7, "e8": verdict_e8}
+         "e6": verdict_e6, "e7": verdict_e7, "e8": verdict_e8, "e9": verdict_e9}
 
 
 def main(argv):
