@@ -285,8 +285,9 @@ export default function App() {
     }
   }, []);
 
-  const applyUpdate = useCallback(async (auto = false) => {
-    if (!auto) {
+  const applyUpdate = useCallback(async (auto: boolean) => {
+    const isAuto = auto === true;
+    if (!isAuto) {
       autoSuppressedRef.current = true;
       clearAutoCountdown(true);
     } else {
@@ -296,7 +297,7 @@ export default function App() {
     }
     const info = updateInfoRef.current;
     if (!canApply(info) || !beginApply(applyStateRef.current)) {
-      if (auto) setAutoBanner(null);
+      if (isAuto) setAutoBanner(null);
       return;
     }
 
@@ -308,7 +309,7 @@ export default function App() {
       const r = await fetch("/api/update/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(auto ? { auto: true } : {}),
+        body: JSON.stringify(isAuto ? { auto: true } : {}),
       });
       let body: unknown = null;
       try {
@@ -321,7 +322,7 @@ export default function App() {
       applyStateRef.current = "done";
       setApplyResult(withLatest);
       setApplyState("done");
-      if (auto) {
+      if (isAuto) {
         const text = autoFailureText(withLatest);
         setAutoBanner(parsed.ok ? { kind: "applying" } : text ? { kind: "failure", text } : null);
       }
@@ -331,12 +332,16 @@ export default function App() {
       applyStateRef.current = "done";
       setApplyResult(withLatest);
       setApplyState("done");
-      if (auto) {
+      if (isAuto) {
         const text = autoFailureText(withLatest);
         setAutoBanner(text ? { kind: "failure", text } : null);
       }
     }
   }, [clearAutoCountdown]);
+
+  const applyUpdateManually = useCallback(() => {
+    void applyUpdate(false);
+  }, [applyUpdate]);
 
   const startAutoCountdown = useCallback((info: UpdateInfo) => {
     if (autoSuppressedRef.current) return;
@@ -349,7 +354,7 @@ export default function App() {
     autoFireRef.current = window.setTimeout(() => {
       clearAutoCountdown(false);
       setAutoBanner({ kind: "applying" });
-      applyUpdate(true);
+      void applyUpdate(true);
     }, AUTO_UPDATE_SECONDS * 1000);
   }, [applyUpdate, clearAutoCountdown]);
 
@@ -669,7 +674,7 @@ export default function App() {
       onCheckUpdate={() => checkUpdate(true)}
       applyState={applyState}
       applyResult={applyResult}
-      onApplyUpdate={applyUpdate}
+      onApplyUpdate={applyUpdateManually}
       autoCheck={autoCheck}
       onToggleAutoCheck={toggleAutoCheck}
     />
