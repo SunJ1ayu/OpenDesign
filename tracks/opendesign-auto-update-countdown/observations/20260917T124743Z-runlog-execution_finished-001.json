@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-auto-update-countdown",
+  "run_id": "20260917T124315Z-01-mutation-frontend",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "mutation-frontend",
+  "started_at": "2026-09-17T12:43:15Z",
+  "finished_at": "2026-09-17T12:47:43Z",
+  "duration_ms": 267876,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

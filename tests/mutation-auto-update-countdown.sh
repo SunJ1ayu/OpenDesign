@@ -25,28 +25,29 @@ PY
   [ $? -eq 0 ] || { echo "[$name] 锚点没找到,变异没落地"; bad=1; return; }
   (cd web && npm run build >/dev/null 2>&1) || { echo "[$name] build 失败,不算数"; bad=1; return; }
   out=$(node tests/e2e/auto_update_countdown.e2e.mjs 2>&1)
-  if echo "$out" | grep -q "$expect"; then
+  # 🔴 只认**失败行**里的那句断言原文(第一版 grep 段名 —— 段名在标题行里每次都出现,等于恒绿,09-17 自查抓到)。
+  if echo "$out" | grep -E "FAIL: .*($expect)" >/dev/null; then
     echo "[$name] 咬住 ✅ —— 期望红在:$expect"
   else
     echo "[$name] 漏网 ❌ —— 没有红在:$expect"; bad=1
   fi
   echo "$out" | grep -E "FAIL|条没过|全部通过" | cut -c1-160 | sed 's/^/    /'
 }
-run M1-manual-check-counts-down "AC-E" \
-  'if (startupAuto) handleStartupAutoCheck(d);' 'handleStartupAutoCheck(d);'
-run M2-toggle-counts-down "AC-F" \
+run M1-manual-check-counts-down "手动「检查更新」也弹了倒计时|手动「检查更新」之后自己发了 [1-9]" \
+  'if (startupAuto) handleStartupAutoCheck(d);' 'if (startupAuto || d) handleStartupAutoCheck(d);'
+run M2-toggle-counts-down "中途打开自动检查开关也弹了倒计时|中途打开开关之后自己发了 [1-9]" \
   '    checkUpdate(false, false);
   }, [autoCheck, checkUpdate]);' '    checkUpdate(false, true);
   }, [autoCheck, checkUpdate]);'
-run M3-timer-3s "8.5~12\|约 10 秒\|10 秒" \
+run M3-timer-3s "横幅出现到自动更新请求之间应当约 10 秒" \
   '}, AUTO_UPDATE_SECONDS * 1000);' '}, 3000);'
-run M4-cancel-not-suppressing "AC-B" \
+run M4-cancel-not-suppressing "点了取消,之后还是自动发了|取消之后发了|取消之后倒计时横幅又冒出来了" \
   '                autoSuppressedRef.current = true;
                 clearAutoCountdown(true);
                 setAutoBanner(null);' '                clearAutoCountdown(true);
                 setAutoBanner(null);
                 window.setTimeout(() => { const i = updateInfoRef.current; if (i) startAutoCountdown(i); }, 3000);'
-run M5-manual-apply-keeps-countdown "AC-H" \
+run M5-manual-apply-keeps-countdown "业主已经手动开始更新了,横幅还在倒计时|应当只有手动那一次请求" \
   '    if (!isAuto) {
       autoSuppressedRef.current = true;
       clearAutoCountdown(true);
