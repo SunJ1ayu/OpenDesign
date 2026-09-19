@@ -270,6 +270,27 @@ class StateWriteTests(unittest.TestCase):
         self.assertIsNone(ds_update_startup.read_state(self.p / "nope.json"))
 
 
+class StatePathTests(unittest.TestCase):
+    """sp1~sp2:状态文件放在哪 —— 和既有的自动更新记账同侧。"""
+
+    def test_sp1_lives_next_to_the_attempts_record(self):
+        """sp1:放在数据根的 Logs 下,**不进安装目录、不进用户数据目录**。
+
+        进安装目录 ⇒ 更新时被覆盖/卸载时被删(业主卸载丢资料那一单的教训);
+        进用户数据目录 ⇒ 混进他的真实档案里。既有的 auto-update-attempts.json
+        已经定在 Logs 下,这个跟它走,省得下一个人再想一遍。
+        """
+        import ds_auto_update
+        got = Path(ds_update_startup.state_path("/data"))
+        self.assertEqual(got.parent, Path(ds_auto_update.record_path("/data")).parent)
+        self.assertEqual(got.name, "update-state.json")
+
+    def test_sp2_accepts_path_objects(self):
+        """sp2:传 Path 和传 str 结果一样(调用方两种都有)。"""
+        self.assertEqual(str(ds_update_startup.state_path("/data")),
+                         str(ds_update_startup.state_path(Path("/data"))))
+
+
 class BackgroundScheduleTests(unittest.TestCase):
     """sc1~sc4:后台查更新的节奏 —— 不在启动瞬间发起,轮询带抖动,失败要退避。"""
 
