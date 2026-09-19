@@ -68,3 +68,23 @@ runlog -t opendesign-startup-not-blocked-by-update -- <判据命令>
 - 每轮新增有效阻断:<第 1 轮 n / 第 2 轮 n>
 - 基础设施等待:<重试次数;observations 里 panel-review 的 duration_ms 求和>
 - 交付后返工:<归档后因本单再改过几次;不知道写 unknown>
+
+## 判据先行:实现之前的红(基线 34b0805)
+
+`python -m unittest tests.test_ds_update_startup` ⇒ **Ran 25 tests, FAILED (failures=24, errors=1)**
+
+红的原因逐条核过,都对(`ds_update_startup` 整个模块还不存在):
+- **su1**(唯一该装的那条路)+ **su2~su12**(缺文件/非对象/半写/schema 不认/phase 不对/
+  包不见了/摘要对不上/大小对不上/版本不新/版本号读不出/path 是目录或符号链接)⇒ 一律该进工作区
+- **su13** 永远不许抛 —— 本项目四次"打不开"前科的机械防线
+- **su14** reason 必须是稳定枚举,不是自由散文
+- **su_net1~3** 🔴 本卷核心:决策期间创建 socket 算失败;读状态文件也不许联网;
+  把 ds_update 的取数函数全换成"一调用就炸"后,启动决策仍须正常返回
+- **sw1~sw4** 原子写(用 `os.replace` 被调用那一刻目标路径的内容来验半写窗口)、坏文件读成 None
+- **sc1~sc4** 首次检查有延迟、轮询带抖动、失败退避且有上限、间隔不许为负
+  (sc1 是 error 不是 failure:它读常量 `FIRST_CHECK_DELAY_S`,桩返回的是函数 ⇒ TypeError。原因同样是"还不存在"。)
+
+**这份考卷防的两种作弊**(写在文件头):
+① 把超时从 35s 改小就宣称修好 —— 照样在启动路径上联网,网一慢照样等。su_net 段钉它,
+   且**故意不用"量耗时"来验**(耗时判据会被"把 35s 调成 3s"骗过,还会因机器快慢变 flaky)。
+② 状态文件一有问题就抛,把"不更新"变成"打不开"。su4~su13 钉它。
