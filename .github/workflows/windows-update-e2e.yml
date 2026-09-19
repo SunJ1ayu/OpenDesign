@@ -1,5 +1,5 @@
 # 应用内更新端到端(track opendesign-in-app-update-install §3):新旧两个安装包从同一个 commit 用真流水线打,
-# 在用完就扔的 Windows runner 上把"点更新 → 自己关 → 换版本 → 自己回来"跑九个场景(e1~e9;e6/e7 装在带空格的目录;e8 是查更新订阅源坏了、靠 API 的备路;e9 是真窗口里倒计时自己发起的自动更新 + 回滚后不再自动试)。
+# 在用完就扔的 Windows runner 上把"点更新 → 自己关 → 换版本 → 自己回来"跑九个场景(e1~e9;e6/e7 装在带空格的目录;e8 是查更新订阅源坏了、靠 API 的备路;e9 是真窗口里启动更新自己发起的自动更新 + 回滚后不再自动试)。
 #
 # 🔴 这台 runner 上的 api.github.com / github.com 是**本机替身**(hosts + 一次性 CA),只在这台机器上。
 #    真仓库不发任何测试 release —— 业主的软件看不见;产品代码零改动。设计见 track 的 design.md「§3」。

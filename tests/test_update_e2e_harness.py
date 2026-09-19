@@ -492,12 +492,12 @@ def _base(kind):
         if kind == "e6":
             f["pointers"] = _pointers_at(SPACED_LIVE)
     elif kind == "e9":
-        # track opendesign-auto-update-countdown(aw2):脚本不发 apply,页面自己倒计时发起;回滚后不许再自动试
+        # track opendesign-auto-update-countdown(aw2):脚本不发 apply,页面自己立即更新发起;回滚后不许再自动试
         del f["check"]
         f["reset"]["health"] = None
-        # 页面查更新拿清单(t=100)→ 倒计时 10 秒 → 下载(t=110.6);回滚后重开的页面与脚本再查(之后的 atom/manifest)
+        # 页面查更新拿清单(t=100)→ 立即更新 → 下载(t=100.6);回滚后重开的页面与脚本再查(之后的 atom/manifest)
         f["fake_log"] = [{"kind": "atom", "status": 200, "t": 99.8}, {"kind": "manifest", "status": 200, "t": 100.0},
-                         {"kind": "download", "mode": "normal", "t": 110.6},
+                         {"kind": "download", "mode": "normal", "t": 100.6},
                          {"kind": "atom", "status": 200, "t": 190.0}, {"kind": "manifest", "status": 200, "t": 190.2}]
         f.update(auto_knob_at_launch="", launch_health={"port": 8766, "version": OLD},
                  relay_started_after=31.5, relay=relay, seen_versions=["0.0.1", OLD],
@@ -632,8 +632,9 @@ BREAKS = {
         "no window at the end of the observation": _set("window_final", {"wins": [], "procs": []}),
         "old app gone at the end of the observation": _set("health_final", None),
         "new version answering at the end": _set("health_final", {"port": 8766, "version": NEW}),
-        "backend started the download right after the check (no countdown)": lambda f: f["fake_log"][2].update(t=100.4),
-        "download long after the check (countdown not the trigger)": lambda f: f["fake_log"][2].update(t=160.0),
+        "download before the check": lambda f: f["fake_log"][2].update(t=99.9),
+        "old 10-second countdown": lambda f: f["fake_log"][2].update(t=110.0),
+        "download long after the check (not immediate)": lambda f: f["fake_log"][2].update(t=160.0),
         "download without timestamps": lambda f: f["fake_log"][2].pop("t"),
         "no manifest before the download": lambda f: f.__setitem__("fake_log", [f["fake_log"][0]] + f["fake_log"][2:]),
         "rollback came back too late for the 10-minute window": _set("check_after_s", 600.0),

@@ -1,15 +1,15 @@
 # Tasks: opendesign-auto-update-countdown
 
-- base-ref: bdad4222b9774505f7674fe3cc46a4ed7cdb4068
+- 原方案基线：bdad4222b9774505f7674fe3cc46a4ed7cdb4068
+- 本次接续基线：9e7f95d；用户改为“直接更新，完成后进入软件”。
 
-> 判据编号与问法只在 design.md 的 `## Test strategy (oracle)` 一处,这里只引用。
-
-- [ ] 判据先行(主 agent):au1~au12、ac1~ac8、AC-A~F、aw1~aw3 + t9a 字段表加 `auto_update`;单独 commit,确认按预期红
-- [ ] 攻题:第三方攻「哪条断言全绿了结果仍然错」,记录落仓外,盖 oracle 哈希
-- [ ] 派活(delegate-codex,gpt-5.5):后端 `ds_web.py` / `ds_update_apply.py`(+ 可选新模块)、前端 `update.ts` / `App.tsx` / `Sidebar.tsx` / 样式 / `web/dist`
-- [ ] 收货三闸:`--receive` / 亲跑 python+node+e2e+build / 亲读 diff
-- [ ] Windows 真机 e2e(harness 与判定器由主 agent 改):推 `ci-update/*` 跑八场景,亲读事实
-- [ ] 红检:退回基线 build 后判据必须红
-- [ ] 全仓总跑收据
-- [ ] 自审落盘 → `track preflight` → panel-review(high,两家)→ 仲裁 → 归档
-- [ ] 问业主:bump / 发版
+- [x] 恢复 09-17 / 09-18 对话与现场，保留原有未提交的测试修复。
+- [x] 旧实现跑新判据：前端 2 条、浏览器 15 条不通过，确认需求差异。
+- [x] 删除倒计时并完成启动门控、立即更新、失败放行和一次性检查。
+- [x] 前端 50 项、后端及 Windows harness 209 项通过；前端构建通过。
+- [x] 浏览器启动流程通过；补充检查超时和迟到响应场景，纳入总跑。
+- [ ] 全仓检查及补充场景收据。
+- [ ] 新版本 Windows 九场景事实收据（旧 run 35222749618 只证明旧倒计时方案）。
+- [ ] 对齐并验证前端变异测试。
+- [ ] 最终验收记录、剩余评审与归档。
+- [ ] 用户授权后才 bump / 正式发布。

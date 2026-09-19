@@ -3,14 +3,11 @@ import {
   autoFailureText,
   autoCheckEnabled,
   autoRecentFailureText,
-  AUTO_UPDATE_SECONDS,
   AUTO_CHECK_PREF,
   beginApply,
   canApply,
-  countdownText,
-  applyLabel,
   readApplyResponse,
-  shouldCountdown,
+  shouldAutoUpdate,
 } from "./update";
 import type { ApplyResult, ApplyState, UpdateInfo, UpdateState } from "./update";
 import { loadBoolPrefs } from "./boolPrefs";
@@ -51,7 +48,6 @@ import {
 } from "./api";
 
 const UPDATE_PREFS_KEY = "ds.prefs.update";
-let startupAutoCheckIssued = false;
 
 // 外壳(P3 T1,handoff v2 导航模型):
 //   hash 路由:#/ = home(3a 新对话,默认)| workspace(2a,点项目进入)
@@ -105,14 +101,10 @@ export default function App() {
   const applyStateRef = useRef<ApplyState>("idle");
   const updateInfoRef = useRef<UpdateInfo | null>(null);
   updateInfoRef.current = updateInfo;
-  const [autoBanner, setAutoBanner] = useState<
-    { kind: "countdown" | "recent" | "applying" | "failure"; text?: string } | null
-  >(null);
-  const [autoCountdownLeft, setAutoCountdownLeft] = useState(AUTO_UPDATE_SECONDS);
-  const autoTickRef = useRef<number | null>(null);
-  const autoFireRef = useRef<number | null>(null);
-  const autoSuppressedRef = useRef(false);
-  const firstAutoCheckRef = useRef(true);
+  const [autoBanner, setAutoBanner] = useState<string | null>(null);
+  const [startupPhase, setStartupPhase] = useState<"checking" | "updating" | "ready">("checking");
+  // 同一个挂载只发一次启动检查,也挡住 StrictMode 重放 effect;中途开启只查不装。
+  const checkedAutoPrefRef = useRef<boolean | null>(null);
   // 自动查更新的开关(默认开)。存 localStorage,和左栏那些展开偏好同一套。
   const [autoCheck, setAutoCheck] = useState<boolean>(() => {
     try { return autoCheckEnabled(loadBoolPrefs(localStorage.getItem(UPDATE_PREFS_KEY))); }
@@ -271,35 +263,14 @@ export default function App() {
       .catch(() => setHealth(null));
   }, []);
 
-  const clearAutoCountdown = useCallback((hideCountdown: boolean) => {
-    if (autoTickRef.current !== null) {
-      window.clearInterval(autoTickRef.current);
-      autoTickRef.current = null;
-    }
-    if (autoFireRef.current !== null) {
-      window.clearTimeout(autoFireRef.current);
-      autoFireRef.current = null;
-    }
-    if (hideCountdown) {
-      setAutoBanner((cur) => (cur?.kind === "countdown" ? null : cur));
-    }
-  }, []);
-
   const applyUpdate = useCallback(async (auto: boolean) => {
     const isAuto = auto === true;
-    if (!isAuto) {
-      autoSuppressedRef.current = true;
-      clearAutoCountdown(true);
-    } else {
-      autoSuppressedRef.current = true;
-      clearAutoCountdown(false);
-      setAutoBanner({ kind: "applying" });
-    }
     const info = updateInfoRef.current;
     if (!canApply(info) || !beginApply(applyStateRef.current)) {
-      if (isAuto) setAutoBanner(null);
+      if (isAuto) setStartupPhase("ready");
       return;
     }
+    if (isAuto) setStartupPhase("updating");
 
     applyStateRef.current = "applying";
     setApplyResult(null);
@@ -323,8 +294,9 @@ export default function App() {
       setApplyResult(withLatest);
       setApplyState("done");
       if (isAuto) {
-        const text = autoFailureText(withLatest);
-        setAutoBanner(parsed.ok ? { kind: "applying" } : text ? { kind: "failure", text } : null);
+        setAutoBanner(autoFailureText(withLatest) || null);
+        // started 只是交给接力程序,旧窗口不能提前开放工作区。
+        if (!parsed.ok) setStartupPhase("ready");
       }
     } catch {
       const parsed = readApplyResponse(0, null);
@@ -333,53 +305,36 @@ export default function App() {
       setApplyResult(withLatest);
       setApplyState("done");
       if (isAuto) {
-        const text = autoFailureText(withLatest);
-        setAutoBanner(text ? { kind: "failure", text } : null);
+        setAutoBanner(autoFailureText(withLatest) || null);
+        setStartupPhase("ready");
       }
     }
-  }, [clearAutoCountdown]);
+  }, []);
 
   const applyUpdateManually = useCallback(() => {
     void applyUpdate(false);
   }, [applyUpdate]);
 
-  const startAutoCountdown = useCallback((info: UpdateInfo) => {
-    if (autoSuppressedRef.current) return;
-    clearAutoCountdown(false);
-    setAutoCountdownLeft(AUTO_UPDATE_SECONDS);
-    setAutoBanner({ kind: "countdown", text: info.latest ?? undefined });
-    autoTickRef.current = window.setInterval(() => {
-      setAutoCountdownLeft((n) => Math.max(0, n - 1));
-    }, 1000);
-    autoFireRef.current = window.setTimeout(() => {
-      clearAutoCountdown(false);
-      setAutoBanner({ kind: "applying" });
-      void applyUpdate(true);
-    }, AUTO_UPDATE_SECONDS * 1000);
-  }, [applyUpdate, clearAutoCountdown]);
-
   const handleStartupAutoCheck = useCallback((info: UpdateInfo | null) => {
-    if (autoSuppressedRef.current || !info) return;
-    if (shouldCountdown(info)) {
-      startAutoCountdown(info);
+    if (shouldAutoUpdate(info)) {
+      void applyUpdate(true);
       return;
     }
-    const recent = autoRecentFailureText(info);
-    if (recent) setAutoBanner({ kind: "recent", text: recent });
-  }, [startAutoCountdown]);
+    setAutoBanner(autoRecentFailureText(info) || null);
+    setStartupPhase("ready");
+  }, [applyUpdate]);
 
-  // 查更新:挂载后问一次(后端带 6 小时缓存,不会把 GitHub 问烦)。
-  //
-  // ⚠️ 这里原来写着"失败一律安静"—— 评审 F-A 之后那句话就成了假的(第三轮自审 MR-1):
-  //    catch 现在进 done ⇒ 设置里那一行显示"查不到更新",自动查也一样。
-  //    改口不是妥协:失败**不弹任何东西、不打断**,但也不装作没查过 —— 那一行本来就是
-  //    业主主动翻开设置才看得见的地方,在那儿说实话不打扰谁。
-  //    (能走到 catch 的只有"ds_web 自己不可达";没网是后端回 200+error,走 F3 那条路。)
+  // 检查只读,超时就进入现有版本。后端三跳最多约 30 秒,前端再留 5 秒余量。
+  // 安装请求不套这个期限:中断等待并不等于服务端停止安装。
   const checkUpdate = useCallback((force: boolean, startupAuto = false) => {
     setUpdateState("checking");
-    fetch(force ? "/api/update/check?force=1" : "/api/update/check")
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 35000);
+    fetch(force ? "/api/update/check?force=1" : "/api/update/check", { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: UpdateInfo | null) => {
+        // 立即更新会在下一次 render 之前执行,不能等 render 才同步 ref。
+        updateInfoRef.current = d;
         setUpdateInfo(d);
         setUpdateState("done");
         if (startupAuto) handleStartupAutoCheck(d);
@@ -388,24 +343,22 @@ export default function App() {
         // 🔴 评审 F-A:原来这里回到 idle,而 idle+null 显示的是版本号 ——
         //    业主**手动点了「检查更新」**却看见和没点一样,正是本单在治的那类病。
         //    ds_web 不可达是很窄的一条路(桌面壳里),但窄不等于可以安静。
+        updateInfoRef.current = null;
         setUpdateInfo(null);
         setUpdateState("done");
-      });
+        if (startupAuto) setStartupPhase("ready");
+      })
+      .finally(() => window.clearTimeout(timer));
   }, [handleStartupAutoCheck]);
-  // 🔴 只有页面加载后的第一次自动查会把自己的回包交给倒计时;之后开关再打开只查不弹。
   useEffect(() => {
-    if (!autoCheck) {
-      firstAutoCheckRef.current = false;
+    const previous = checkedAutoPrefRef.current;
+    checkedAutoPrefRef.current = autoCheck;
+    if (previous === null) {
+      if (autoCheck) checkUpdate(false, true);
+      else setStartupPhase("ready");
       return;
     }
-    if (firstAutoCheckRef.current) {
-      firstAutoCheckRef.current = false;
-      if (startupAutoCheckIssued) return;
-      startupAutoCheckIssued = true;
-      checkUpdate(false, true);
-      return;
-    }
-    checkUpdate(false, false);
+    if (previous !== autoCheck && autoCheck) checkUpdate(false, false);
   }, [autoCheck, checkUpdate]);
 
   useEffect(() => {
@@ -414,8 +367,6 @@ export default function App() {
     setApplyState("idle");
     setApplyResult(null);
   }, [updateInfo]);
-
-  useEffect(() => () => clearAutoCountdown(false), [clearAutoCountdown]);
 
   const toggleAutoCheck = useCallback(() => {
     setAutoCheck((prev) => {
@@ -632,11 +583,20 @@ export default function App() {
   // 历史行项目小标:命中项目映射的会话标上项目名
   const sessionTags = useMemo(() => sessionLabels(projThreads, projects), [projThreads, projects]);
   const updateLlmKeyStatus = useCallback((st: KeyStatus) => setLlmKeyStatus(st), []);
-  const autoBannerText = autoBanner?.kind === "countdown"
-    ? countdownText(autoBanner.text ?? updateInfo?.latest, autoCountdownLeft)
-    : autoBanner?.kind === "applying"
-      ? applyLabel({ state: applyState, result: applyResult })
-      : autoBanner?.text ?? "";
+  if (startupPhase !== "ready") {
+    return (
+      <div className="startup-update" data-ui="startup-update" role="status" aria-live="polite">
+        <WindowChrome />
+        <div className="startup-update-card">
+          <div className="startup-update-brand">OpenDesign</div>
+          <h1>{startupPhase === "checking" ? "正在检查更新…" : `正在更新到 ${updateInfo?.latest ?? "新版本"}`}</h1>
+          <p>{startupPhase === "checking"
+            ? "检查完成后将自动进入软件。"
+            : "软件会自动关闭并重新打开，更新完成后即可使用。"}</p>
+        </div>
+      </div>
+    );
+  }
 
   const sidebar = (
     <Sidebar
@@ -685,31 +645,12 @@ export default function App() {
       {/* 自己画的窗口栏:只在桌面外壳里渲染,浏览器里整块不存在 */}
       <WindowChrome />
       {sidebar}
-      {autoBanner && autoBannerText && (
+      {autoBanner && (
         <div className="auto-update-banner" data-ui="auto-update-banner">
-          <span className="auto-update-text">{autoBannerText}</span>
-          {autoBanner.kind === "countdown" && (
-            <button
-              className="btn-secondary sm"
-              data-ui="auto-update-cancel"
-              onClick={() => {
-                autoSuppressedRef.current = true;
-                clearAutoCountdown(true);
-                setAutoBanner(null);
-              }}
-            >
-              取消
-            </button>
-          )}
-          {(autoBanner.kind === "recent" || autoBanner.kind === "failure") && (
-            <button
-              className="btn-secondary sm"
-              data-ui="auto-update-dismiss"
-              onClick={() => setAutoBanner(null)}
-            >
-              关闭
-            </button>
-          )}
+          <span className="auto-update-text">{autoBanner}</span>
+          <button className="btn-secondary sm" data-ui="auto-update-dismiss" onClick={() => setAutoBanner(null)}>
+            关闭
+          </button>
         </div>
       )}
 

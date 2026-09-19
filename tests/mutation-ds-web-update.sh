@@ -44,11 +44,15 @@ PYEOF
 
 echo "== 红检 /api/update/check =="
 
+# ⚠️ n1/n3/n4 的锚点 09-17 改过:track opendesign-auto-update-countdown 把这一行拆成 `info = dict(...)` + 加 auto_update + `_json(200, info)`,
+#    原锚点失配 ⇒ 三条 [BAD](DeepSeek 评审抓到)。问法不变,只换打靶的那一行。
 # n1 🔴 查更新失败时甩 500 给前端(业主什么都没干就看见"出错了")
 mutate_and_expect n1 test_t9b_network_failure_is_still_200 \
-  '        self._json(200, ds_update.check_cached(VERSION, force=force))' \
-  '        r = ds_update.check_cached(VERSION, force=force)
-        self._json(500 if r.get("error") else 200, r)'
+  '        info = dict(ds_update.check_cached(VERSION, force=force))' \
+  '        info = dict(ds_update.check_cached(VERSION, force=force))
+        if info.get("error"):
+            self._json(500, info)
+            return'
 
 # n2 业主点「检查更新」也给缓存
 mutate_and_expect n2 test_t9c_force_really_asks_again \
@@ -57,17 +61,13 @@ mutate_and_expect n2 test_t9c_force_really_asks_again \
 
 # n3 本机版本号另写一份(抄第二份迟早对不上)
 mutate_and_expect n3 test_t9a_endpoint_answers_with_the_shape_the_ui_needs \
-  '        self._json(200, ds_update.check_cached(VERSION, force=force))' \
-  '        r = ds_update.check_cached(VERSION, force=force); r["current"] = "0.0.0"
-        self._json(200, r)'
+  '        info = dict(ds_update.check_cached(VERSION, force=force))' \
+  '        info = dict(ds_update.check_cached(VERSION, force=force)); info["current"] = "0.0.0"'
 
 # n4 把 GitHub 的原始响应往界面上漏
 mutate_and_expect n4 test_t9a_endpoint_answers_with_the_shape_the_ui_needs \
-  '        force = raw_force.strip().lower() in ("1", "true", "yes", "on")
-        self._json(200, ds_update.check_cached(VERSION, force=force))' \
-  '        force = raw_force.strip().lower() in ("1", "true", "yes", "on")
-        r = dict(ds_update.check_cached(VERSION, force=force)); r["raw"] = "…整坨响应…"
-        self._json(200, r)'
+  '        info = dict(ds_update.check_cached(VERSION, force=force))' \
+  '        info = dict(ds_update.check_cached(VERSION, force=force)); info["raw"] = "…整坨响应…"'
 
 # n5 路由整条拆掉(端点不在了,判据必须全红 —— 靶子取其中一条)
 mutate_and_expect n5 test_t9a_endpoint_answers_with_the_shape_the_ui_needs \

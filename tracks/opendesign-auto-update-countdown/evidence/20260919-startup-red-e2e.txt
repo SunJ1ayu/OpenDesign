@@ -1,0 +1,407 @@
+ds-web 0.98.6: http://127.0.0.1:8846/  (DS_DATA_ROOT=/tmp/auto-update-e2e-2f41uA/ds)
+2026-09-19 09:13:43 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+
+== AC-A 检查前不进入工作区；发现新版立即更新，成功交棒后等新窗口
+2026-09-19 09:13:45 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-19 09:13:45 127.0.0.1 - "GET /assets/index-CCOeC8Q1.css HTTP/1.1" 200 -
+2026-09-19 09:13:45 127.0.0.1 - "GET /assets/index-CswSfG01.js HTTP/1.1" 200 -
+2026-09-19 09:13:46 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:13:46 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:13:46 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:13:46 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-19 09:13:46 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-19 09:13:46 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-19 09:13:46 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-19 09:13:46 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-19 09:13:46 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:13:46 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:13:46 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:13:46 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:13:46 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-19 09:13:46 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-19 09:13:46 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:13:46 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:13:47 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:13:47 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:13:49 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:13:49 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:13:53 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:13:53 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  FAIL: 检查更新时应显示启动页
+  FAIL: 检查更新结束前工作区已经出现
+  FAIL: 查到新版后没有立即发起自动更新（仍在等倒计时）
+  FAIL: 更新进行中没有启动页
+  FAIL: 更新完成前工作区曾被挂载
+  FAIL: 启动更新还在显示取消倒计时按钮
+2026-09-19 09:14:00 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:02 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:17 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:19 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  FAIL: 启动页应显示正在更新的版本
+  ok - 启动页还在显示倒计时
+2026-09-19 09:14:31 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:34 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:44 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:47 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:57 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+[AC-A 检查前不进入工作区；发现新版立即更新，成功交棒后等新窗口] TimeoutError: locator.boundingBox: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-ui="startup-update"]')[22m
+
+
+== AC-B 没有新版、断网或不可自动更新时正常进入软件
+2026-09-19 09:14:58 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-19 09:14:58 127.0.0.1 - "GET /assets/index-CswSfG01.js HTTP/1.1" 200 -
+2026-09-19 09:14:58 127.0.0.1 - "GET /assets/index-CCOeC8Q1.css HTTP/1.1" 200 -
+2026-09-19 09:14:58 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+  ok - 未更新时没有进入工作区: {"current":"0.99.0","update_available":false,"latest":"0.99.0","asset":null,"notes":"","error":null,"release_url":null,"auto_update":{"eligible":false,"why_not":"no_update","recent_failure":false}}
+  ok - 无需更新却卡在启动页
+  ok - 没有可自动安装的版本却发起了更新
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /assets/index-CCOeC8Q1.css HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /assets/index-CswSfG01.js HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+  ok - 未更新时没有进入工作区: "abort"
+  ok - 无需更新却卡在启动页
+  ok - 没有可自动安装的版本却发起了更新
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:59 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /assets/index-CswSfG01.js HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /assets/index-CCOeC8Q1.css HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+  ok - 未更新时没有进入工作区: null
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+  ok - 无需更新却卡在启动页
+  ok - 没有可自动安装的版本却发起了更新
+2026-09-19 09:14:59 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:14:59 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /assets/index-CCOeC8Q1.css HTTP/1.1" 200 -
+2026-09-19 09:14:59 127.0.0.1 - "GET /assets/index-CswSfG01.js HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 未更新时没有进入工作区: {"current":"0.99.0","update_available":false,"latest":"0.99.0","asset":null,"notes":"","error":"网络不可用","release_url":null,"auto_update":{"eligible":false,"why_not":"no_update","recent_failure":false}}
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+  ok - 无需更新却卡在启动页
+  ok - 没有可自动安装的版本却发起了更新
+2026-09-19 09:15:00 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /assets/index-CswSfG01.js HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /assets/index-CCOeC8Q1.css HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 未更新时没有进入工作区: {"current":"0.98.6","update_available":true,"latest":"0.99.0","asset":{"name":"OpenDesign-Setup-0.99.0.exe","url":"https://x/y","size":46000000,"digest":"sha256:abababababababababababababababababababababababababababababababab"},"notes":"## 这一版改了什么\n\n打开软件发现新版会自动更新","error":null,"release_url":"https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.99.0","auto_update":{"eligible":false,"why_not":"no_shell"}}
+  ok - 无需更新却卡在启动页
+  ok - 没有可自动安装的版本却发起了更新
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:00 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /assets/index-CCOeC8Q1.css HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /assets/index-CswSfG01.js HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 未更新时没有进入工作区: {"current":"0.98.6","update_available":true,"latest":"0.99.0","asset":null,"notes":"## 这一版改了什么\n\n打开软件发现新版会自动更新","error":null,"release_url":"https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.99.0","auto_update":{"eligible":true,"why_not":null,"recent_failure":false}}
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:00 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 无需更新却卡在启动页
+  ok - 没有可自动安装的版本却发起了更新
+
+== AC-C 已自动试过的版本不再自动更新，手动出口仍可用
+2026-09-19 09:15:01 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /assets/index-CswSfG01.js HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /assets/index-CCOeC8Q1.css HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 已尝试的版本又发起自动更新
+  ok - 没有解释可手动更新
+  ok - 手动更新没有发出请求
+  ok - 手动更新被错误标记为自动
+
+== AC-C2 回滚后进入旧版并显示失败说明，不再次更新
+2026-09-19 09:15:01 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /assets/index-CCOeC8Q1.css HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /assets/index-CswSfG01.js HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+  ok - 回滚后不能进入旧版
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:01 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 回滚后缺少可见的失败说明
+  ok - 回滚提示没说明版本及不再自动重试
+  ok - 失败提示不能关闭
+  ok - 回滚后又自动重试
+
+== AC-D 更新失败后进入旧版，提示原因，结果未知时不虚称不会再试
+2026-09-19 09:15:02 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /assets/index-CCOeC8Q1.css HTTP/1.1" 200 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /assets/index-CswSfG01.js HTTP/1.1" 200 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:02 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:03 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:03 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  FAIL: 启动更新没有立即发起
+  ok - 更新失败后仍挡住工作区
+  ok - 更新失败没有可见的提示
+  ok - 失败提示泄露内部错误
+2026-09-19 09:15:04 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:04 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:05 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:05 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  FAIL: 更新失败后自动重复请求
+2026-09-19 09:15:06 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:06 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:08 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:08 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:11 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 失败提示不能关闭
+2026-09-19 09:15:12 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-19 09:15:12 127.0.0.1 - "GET /assets/index-CCOeC8Q1.css HTTP/1.1" 200 -
+2026-09-19 09:15:12 127.0.0.1 - "GET /assets/index-CswSfG01.js HTTP/1.1" 200 -
+2026-09-19 09:15:12 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:12 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:12 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:12 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-19 09:15:12 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-19 09:15:12 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-19 09:15:12 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-19 09:15:12 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:12 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-19 09:15:13 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:13 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-19 09:15:13 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:13 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-19 09:15:13 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:13 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:13 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:14 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:14 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  FAIL: 启动更新没有立即发起
+  ok - 更新失败后仍挡住工作区
+  ok - 更新失败没有可见的提示
+  ok - 失败提示泄露内部错误
+  ok - 未确认记账却承诺不会再自动更新
+2026-09-19 09:15:15 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:15 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:16 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:16 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  FAIL: 更新失败后自动重复请求
+2026-09-19 09:15:17 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:17 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:18 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:19 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:22 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:22 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 失败提示不能关闭
+2026-09-19 09:15:23 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-19 09:15:23 127.0.0.1 - "GET /assets/index-CCOeC8Q1.css HTTP/1.1" 200 -
+2026-09-19 09:15:23 127.0.0.1 - "GET /assets/index-CswSfG01.js HTTP/1.1" 200 -
+2026-09-19 09:15:23 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:23 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:23 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:23 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-19 09:15:23 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-19 09:15:23 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-19 09:15:23 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-19 09:15:23 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-19 09:15:23 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:23 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:23 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:23 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-19 09:15:23 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-19 09:15:23 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:23 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:24 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:24 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:25 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  FAIL: 启动更新没有立即发起
+  ok - 更新失败后仍挡住工作区
+  ok - 更新失败没有可见的提示
+  ok - 失败提示泄露内部错误
+  ok - 未确认记账却承诺不会再自动更新
+2026-09-19 09:15:26 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:26 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:26 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  FAIL: 更新失败后自动重复请求
+2026-09-19 09:15:26 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:27 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:27 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:29 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:29 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:33 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 失败提示不能关闭
+
+== AC-E 使用中手动检查发现新版不会打断工作
+2026-09-19 09:15:34 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-19 09:15:34 127.0.0.1 - "GET /assets/index-CCOeC8Q1.css HTTP/1.1" 200 -
+2026-09-19 09:15:34 127.0.0.1 - "GET /assets/index-CswSfG01.js HTTP/1.1" 200 -
+2026-09-19 09:15:34 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:34 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-19 09:15:34 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:34 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-19 09:15:34 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:34 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-19 09:15:34 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:34 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-19 09:15:34 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-19 09:15:34 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:34 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-19 09:15:34 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:34 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:34 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-19 09:15:34 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 手动检查未发出
+2026-09-19 09:15:34 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 手动检查之后自己发了更新请求
+  ok - 手动检查打断了工作区
+
+== AC-F 关闭自动检查可进入软件，中途开启只查不装
+2026-09-19 09:15:35 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-19 09:15:35 127.0.0.1 - "GET /assets/index-CswSfG01.js HTTP/1.1" 200 -
+2026-09-19 09:15:35 127.0.0.1 - "GET /assets/index-CCOeC8Q1.css HTTP/1.1" 200 -
+2026-09-19 09:15:35 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:35 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-19 09:15:35 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:35 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-19 09:15:35 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:35 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-19 09:15:35 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-19 09:15:35 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-19 09:15:35 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:35 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:35 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:35 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-19 09:15:35 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:35 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-19 09:15:35 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 关闭自动检查后启动仍查更新
+  ok - 中途开启没有检查更新
+2026-09-19 09:15:35 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+  ok - 中途开启自动检查之后自己发了更新请求
+  ok - 中途开启开关打断了工作区
+
+== AC-H 自动失败后手动更新可重试，且不会再次触发自动请求
+2026-09-19 09:15:36 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-19 09:15:36 127.0.0.1 - "GET /assets/index-CswSfG01.js HTTP/1.1" 200 -
+2026-09-19 09:15:36 127.0.0.1 - "GET /assets/index-CCOeC8Q1.css HTTP/1.1" 200 -
+2026-09-19 09:15:36 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:36 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-19 09:15:36 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:36 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:36 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-19 09:15:36 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-19 09:15:36 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-19 09:15:36 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-19 09:15:36 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 09:15:36 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+2026-09-19 09:15:36 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-19 09:15:36 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-19 09:15:36 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:36 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-19 09:15:36 127.0.0.1 - "GET /api/chat/bootstrap HTTP/1.1" 502 -
+[AC-H 自动失败后手动更新可重试，且不会再次触发自动请求] Error: FAIL: 前提：自动更新已经失败
+
+15 条没过

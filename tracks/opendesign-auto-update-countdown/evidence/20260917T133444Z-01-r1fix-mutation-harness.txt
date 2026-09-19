@@ -1,0 +1,40 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    r1fix-mutation-harness
+cmd:     /root/.venvs/design-studio/bin/python tests/mutation-update-e2e-harness.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  9e7f95d
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-17T13:34:44Z
+---------------- 输出开始 ----------------
+M1 digest prefix: BITES
+M2 drop github.com redirect: BITES
+M3 SAN lacks github.com: BITES
+M4 skip lookalike dirs: BITES
+M5 corrupt two bytes: BITES
+M6 e1 no marker check: BITES
+M7 e3 no relaunch check: BITES
+M8 e5 no seen check: BITES
+M8b e9 no seen check: BITES
+M9 nested ignored: BITES
+M10 injection ignored: BITES
+M11 missing facts ok: BITES
+M12 CI new version not newer: BITES
+M13 workflow gate drops a scenario: BITES
+M14 non-ascii output: BITES
+M16 pointers not checked: BITES
+M17 .new counts as inside live: BITES
+M18 no /D on reset: BITES
+M19 rollback reach not checked: BITES
+M20 old_seen splits the if/elseif chain: BITES
+M15 e2 health ignored: BITES
+M21 e6 space not checked: BITES
+M22 e7 rc not checked: BITES
+M23 e7 .new ignored: BITES
+M24 e7 any command line: BITES
+M25 final health not checked: BITES
+M26 spaced scenarios not last: BITES
+M27 spaced dir has no space: BITES
+M28 e7 forgets to switch dir: BITES
+29 mutations, 29 bite, 0 escaped/setup-error
+---------------- 输出结束 ----------------
+runlog: r1fix-mutation-harness rc=0 commit=9e7f95d dirty=yes at=2026-09-17T13:34:44Z file=tracks/opendesign-auto-update-countdown/evidence/20260917T133444Z-01-r1fix-mutation-harness.txt

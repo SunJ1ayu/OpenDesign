@@ -455,7 +455,7 @@ test("rl11c 成功 / 检查中 / 还没查过 ⇒ 不显示原因", () => {
   assert.equal(U.updateReason({ state: "idle", info: null }), "");
 });
 
-// ── ac1~ac8:打开软件倒计时自动更新(track opendesign-auto-update-countdown)───────────────
+// ── ac1~ac8:启动时直接自动更新(track opendesign-auto-update-countdown)───────────────
 // 主 agent 亲写。编号与问法的唯一权威在该 track 的 design.md。
 // 🔴 这几个函数都会在渲染体里被叫 —— **永远不许抛**(0.94 / 0.98 两次整页白是同一个形状,u35b/u35c 同理)。
 const AUTO_OK = { ...WITH_ASSET, auto_update: { eligible: true, why_not: null, recent_failure: false } };
@@ -470,34 +470,22 @@ const GARBAGE = [null, undefined, "", "x", 0, 1, true, [], [AUTO_OK], {},
                  { ...WITH_ASSET, auto_update: { eligible: "true", why_not: null } },
                  { ...WITH_ASSET, auto_update: { eligible: 1, why_not: null } }];
 
-test("ac1 倒计时 10 秒(业主选的是「几秒」,定成 10 秒:看得清、来得及点取消)", () => {
-  assert.equal(U.AUTO_UPDATE_SECONDS, 10);
-});
-
-test("ac2 可装 + 后端说 eligible 才倒计时;缺一样都不倒计时", () => {
-  assert.equal(U.shouldCountdown(AUTO_OK), true, "装得了、后端也说可以,却不倒计时");
-  assert.equal(U.shouldCountdown(AUTO_TRIED), false, "这个版本自动试过了,却又要倒计时 —— 正是业主怕的循环");
-  assert.equal(U.shouldCountdown(WITH_ASSET), false, "后端没给 auto_update(老后端)也倒计时了");
+test("ac2 可装 + 后端说 eligible 才自动更新;缺一样都不自动更新", () => {
+  assert.equal(U.shouldAutoUpdate(AUTO_OK), true, "装得了、后端也说可以,却不自动更新");
+  assert.equal(U.shouldAutoUpdate(AUTO_TRIED), false, "这个版本自动试过了,却又要自动更新 —— 正是业主怕的循环");
+  assert.equal(U.shouldAutoUpdate(WITH_ASSET), false, "后端没给 auto_update(老后端)也自动更新了");
   const noDigest = { ...AUTO_OK, asset: { ...AUTO_OK.asset, digest: null } };
-  assert.equal(U.shouldCountdown(noDigest), false,
-    "没有可信 sha256 的包也倒计时 —— 10 秒后必然报失败(界面不许只信后端一句 eligible)");
-  assert.equal(U.shouldCountdown({ ...AUTO_OK, error: "查更新失败" }), false);
+  assert.equal(U.shouldAutoUpdate(noDigest), false,
+    "没有可信 sha256 的包也自动更新 —— 开始后必然报失败(界面不许只信后端一句 eligible)");
+  assert.equal(U.shouldAutoUpdate({ ...AUTO_OK, error: "查更新失败" }), false);
 });
 
-test("ac3 🔴 喂垃圾不抛,一律不倒计时", () => {
+test("ac3 🔴 喂垃圾不抛,一律不自动更新", () => {
   for (const g of GARBAGE) {
     let r;
-    assert.doesNotThrow(() => { r = U.shouldCountdown(g); }, `shouldCountdown(${JSON.stringify(g)}) 抛了 —— 渲染体里抛 = 整页白`);
-    assert.equal(r, false, `shouldCountdown(${JSON.stringify(g)}) 居然是 ${r}`);
+    assert.doesNotThrow(() => { r = U.shouldAutoUpdate(g); }, `shouldAutoUpdate(${JSON.stringify(g)}) 抛了 —— 渲染体里抛 = 整页白`);
+    assert.equal(r, false, `shouldAutoUpdate(${JSON.stringify(g)}) 居然是 ${r}`);
   }
-});
-
-test("ac4 倒计时那句话:哪一版、还剩几秒、要自动更新", () => {
-  const s = U.countdownText("0.98.7", 7);
-  assert.match(s, /0\.98\.7/, `「${s}」没说是哪一版`);
-  assert.match(s, /(^|\D)7(\D|$)/, `「${s}」没说还剩几秒`);
-  assert.match(s, /自动更新/, `「${s}」没说会自动更新 —— 业主不知道 10 秒后软件会自己关掉`);
-  assert.doesNotMatch(s, JARGON);
 });
 
 test("ac5 不是失败、或者别处已在更新 ⇒ 横幅上什么都不说", () => {

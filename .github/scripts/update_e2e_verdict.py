@@ -251,8 +251,8 @@ def _auto_update_disabled_by_the_harness(f, problems):
 
     `disabled` 排在全部条件的**最后**判 ⇒ 看到它 = 前面 no_update / asset / no_shell / not_installed /
     path_unsupported / attempted 在真机上全都成立。Linux 判据全在替身环境里,任何一条在真机上误判,
-    倒计时就永远不出现而其余判据全绿 —— 这里是 e9 之外唯一问得到的地方。
-    看到 eligible=true ⇒ 关不掉 ⇒ 场景被产品自己的倒计时污染,同样算红。
+    启动更新就永远不出现而其余判据全绿 —— 这里是 e9 之外唯一问得到的地方。
+    看到 eligible=true ⇒ 关不掉 ⇒ 场景被产品自己的启动更新污染,同样算红。
     """
     auto = (f.get("check") or {}).get("auto_update")
     if not isinstance(auto, dict) or auto.get("eligible") is not False or auto.get("why_not") != "disabled":
@@ -367,26 +367,26 @@ def verdict_e8(raw):
 
 
 def verdict_e9(raw):
-    """真 WebView 里的倒计时整条链(track opendesign-auto-update-countdown,aw2)。
+    """真 WebView 里的启动更新整条链(track opendesign-auto-update-countdown,aw2)。
 
-    脚本一次 apply 都没发:页面自己查到新版、倒计时、自己发自动更新 ⇒ 注入让新版认不出 ⇒ 回滚 ⇒ 旧版被重新拉起、
+    脚本一次 apply 都没发:页面自己查到新版、启动更新、自己发自动更新 ⇒ 注入让新版认不出 ⇒ 回滚 ⇒ 旧版被重新拉起、
     页面再加载一次 ⇒ **不许再下载、不许再起接力脚本**;查更新 attempted + recent_failure。
     """
     f, problems = Facts(raw), []
-    # 复位时故意不拉起(页面一起来就会倒计时,注入得先摆好)⇒ 没有「复位后健康」和「脚本自己查一次」这两个事实。
+    # 复位时故意不拉起(页面一起来就会启动更新,注入得先摆好)⇒ 没有「复位后健康」和「脚本自己查一次」这两个事实。
     # _baseline 要问的那两件事由拉起后的健康(launch_health)和回滚后的查更新(check_after)顶上。
     shadow = dict(f.raw)
     shadow["reset"] = dict(shadow.get("reset") or {}, health=f.get("launch_health"))
     shadow["check"] = f.get("check_after")
     old, _ = _baseline(Facts(shadow), problems)
     if "apply" in f.raw:
-        problems.append("setup: the harness sent an apply itself, the page's own countdown is untested")
+        problems.append("setup: the harness sent an apply itself, the page's own startup update is untested")
     knob = f.get("auto_knob_at_launch")
     if knob != "":
         problems.append("setup: auto update was still switched off when the app launched (%r)" % (knob,))
     _injected(f, problems)
     if f.get("relay_started_after") is None:
-        problems.append("no relay ever started: the page never auto-updated (countdown missing in the real app?)")
+        problems.append("no relay ever started: the page never auto-updated (startup update missing in the real app?)")
     else:
         relay = f.get("relay") or {}
         if not relay.get("seen"):
@@ -403,17 +403,17 @@ def verdict_e9(raw):
         problems.append("expected exactly one download (the automatic one), got %d: auto update retried after rollback?"
                         % len(downloads))
     else:
-        # 攻题二 #4:证明是**页面倒计时**发起的,不是后端查完就自己开装。
-        # 页面那次查更新拿到清单 → 倒计时 10 秒 → POST → (缓存命中,不再拉清单)→ 下载。
+        # 攻题二 #4:证明是**页面启动更新**发起的,不是后端查完就自己开装。
+        # 页面那次查更新拿到清单 → 立即 POST → (缓存命中,不再拉清单)→ 下载。
         log = [e for e in (f.get("fake_log") or []) if isinstance(e, dict)]
         first_dl = next((e for e in log if e.get("kind") == "download"), None)
         before = [e for e in log[:log.index(first_dl)] if e.get("kind") == "manifest" and e.get("status") == 200]
         gap = (first_dl.get("t") - before[-1].get("t")) if before and isinstance(first_dl.get("t"), (int, float)) \
             and isinstance(before[-1].get("t"), (int, float)) else None
         if gap is None:
-            problems.append("cannot time the countdown: no timestamped manifest before the download")
-        elif not 8.5 <= gap <= 20:
-            problems.append("manifest -> download took %.1fs, expected the ~10s countdown in between" % gap)
+            problems.append("cannot time the immediate update: no timestamped manifest before the download")
+        elif not 0 <= gap < 8.5:
+            problems.append("manifest -> download took %.1fs, expected immediate startup update (<8.5s)" % gap)
     if f.get("relay_again") is not False:
         problems.append("a relay script was running again after the rollback (relay_again=%r)" % (f.get("relay_again"),))
     window = f.get("window_final") or {}

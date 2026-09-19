@@ -1,0 +1,51 @@
+✅ 产物新鲜度:web/dist 就是当前源码 build 出来的(3 个文件逐字节一致)
+✅ e2e 端口预检:34 个端口都没人占
+== e2e 总跑(仓库根 /root/.openclaw/workspace/projects/design-studio)
+
+  [32mPASS[0m  adoption.e2e.py                      0s
+  [32mPASS[0m  clickable_actions.e2e.py             0s
+  [32mPASS[0m  inbox_scan.e2e.py                    1s
+  [32mPASS[0m  api_partial_injection.e2e.mjs        5s
+  [32mPASS[0m  auto_update_countdown.e2e.mjs       48s
+  [32mPASS[0m  button_roles.e2e.mjs                16s
+  [32mPASS[0m  chat_image.e2e.mjs                   3s
+  [32mPASS[0m  chat_reconnect.e2e.mjs              25s
+  [32mPASS[0m  cockpit.e2e.mjs                      2s
+  [32mPASS[0m  consent_card.e2e.mjs                 3s
+  [32mPASS[0m  duedate.e2e.mjs                      1s
+  [32mPASS[0m  duedate_picker.e2e.mjs               3s
+  [32mPASS[0m  focus_ring.e2e.mjs                   3s
+  [32mPASS[0m  frontend_p1.e2e.mjs                  3s
+  [32mPASS[0m  frontend_p2_polish.e2e.mjs           3s
+  [32mPASS[0m  frontend_p3_polish.e2e.mjs           2s
+  [32mPASS[0m  gallery_head_buttons.e2e.mjs         7s
+  [32mPASS[0m  gallery_order.e2e.mjs                2s
+  [32mPASS[0m  image_upload.e2e.mjs                 2s
+  [32mPASS[0m  inbox_drop.e2e.mjs                   6s
+  [32mPASS[0m  inbox_open_button.e2e.mjs            2s
+  [32mPASS[0m  inbox_pad_gallery.e2e.mjs            3s
+  [32mPASS[0m  intake.e2e.mjs                       2s
+  [32mPASS[0m  intake_simplify.e2e.mjs              2s
+  [32mPASS[0m  llm_key.e2e.mjs                      6s
+  [32mPASS[0m  model_picker.e2e.mjs                 2s
+  [33mSKIP[0m  new_chat.e2e.mjs                         需要活 gateway,加 --with-gateway 才跑
+  [33mSKIP[0m  project-thread.e2e.mjs                   需要活 gateway,加 --with-gateway 才跑
+  [32mPASS[0m  settings_fvis.e2e.mjs                3s
+  [32mPASS[0m  shell_chrome.e2e.mjs                 3s
+  [32mPASS[0m  side_stage_groups.e2e.mjs            2s
+  [32mPASS[0m  stage_history.e2e.mjs                2s
+  [32mPASS[0m  stage_timer.e2e.mjs                  3s
+  [32mPASS[0m  startup_report.e2e.mjs               1s
+  [32mPASS[0m  todo_assistant.e2e.mjs               7s
+  [32mPASS[0m  todo_batch_space.e2e.mjs             3s
+  [32mPASS[0m  todo_delete.e2e.mjs                  2s
+  [32mPASS[0m  todo_layout.e2e.mjs                  4s
+  [32mPASS[0m  todo_one_view.e2e.mjs                2s
+  [32mPASS[0m  todo_rail.e2e.mjs                    3s
+  [32mPASS[0m  update_notice.e2e.mjs                3s
+  [32mPASS[0m  ws_change_note.e2e.mjs              11s
+  [32mPASS[0m  ws_collapse_back.e2e.mjs             2s
+
+== 汇总:41 PASS / 0 FAIL / 2 SKIP
+   未跑(不算通过):new_chat.e2e.mjs project-thread.e2e.mjs
+   没有红的,但有 2 条没跑 —— 不算通过。

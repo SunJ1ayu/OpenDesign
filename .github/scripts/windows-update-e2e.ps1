@@ -49,15 +49,15 @@ $FakeLog    = Join-Path $OutDir 'fake-github.log'
 $VerdictLog = Join-Path $OutDir 'verdicts.tsv'
 # e6/e7 必须排在最后:它们把安装目录换成带空格的那个(Use-SpacedInstallDir),换过去就不换回来。
 # e8 在 e1 之后、搬去带空格目录之前:它只换查更新的来源,装在原来的目录里。
-# e9(真 WebView 里的倒计时整条链)同样装在原来的目录里,排在 e8 之后、搬去带空格目录之前。
+# e9(真 WebView 里的启动更新整条链)同样装在原来的目录里,排在 e8 之后、搬去带空格目录之前。
 $Expected   = @('e2', 'e3', 'e4', 'e5', 'e1', 'e8', 'e9', 'e6', 'e7')
 # t33/t34 的真机半用的目录:**带空格、纯 ASCII**。不能带中文 —— runner 是英文 Windows(代码页 437),
 # 非 ASCII 路径会被 t36 在动手之前拒掉(那是对的),e6 就测不到它要测的事。
 $SpacedInstallDir = 'C:\OD e2e space\Programs\OpenDesign'
 # e5 注入的版本号:新版起得来,但收口认不出它。
 $InjectVersion = '0.0.1'
-# ── 打开软件倒计时自动更新(track opendesign-auto-update-countdown)────────────────────
-# 🔴 旧版一被拉起,窗口里的页面就会自己查到替身的新版、倒计时 10 秒、**自己发自动更新**。
+# ── 打开软件直接自动更新(track opendesign-auto-update-countdown)────────────────────
+# 🔴 旧版一被拉起,窗口里的页面就会自己查到替身的新版、立即**自己发自动更新**。
 #    e1~e8 是脚本自己按节奏发 apply、自己布置注入的,让产品抢跑 = 两条更新流程互相撞(攻题 #16)。
 #    ⇒ 整支脚本默认把自动更新关掉(产品认这个环境变量,why_not="disabled");只有 e9 摘掉它,让真页面自己跑完整条链。
 #    名字**不许以 DS_ 开头**:外壳 child_env 会把 DS_* 全部剥掉再交给 ds_web(bin/ds_shell_core.py)。
@@ -591,12 +591,12 @@ function Run-e8 {
     finally { Set-Content -LiteralPath $SourceFile -Value 'feed' }
 }
 
-# e9 —— 真 WebView 里的倒计时整条链(track opendesign-auto-update-countdown,aw2)。
-# **脚本一次 apply 都不发**:摘掉关自动更新的环境变量,拉起旧版,由窗口里的页面自己查到新版、倒计时 10 秒、自己发自动更新。
+# e9 —— 真 WebView 里的启动更新整条链(track opendesign-auto-update-countdown,aw2)。
+# **脚本一次 apply 都不发**:摘掉关自动更新的环境变量,拉起旧版,由窗口里的页面自己查到新版、立即自己发自动更新。
 # 注入同 e5(新版起得来但认不出 ⇒ 回滚),于是旧版被接力脚本**重新拉起**,页面再加载一次 ——
-# 这一次:不许再倒计时、不许再下载;查更新必须 attempted + recent_failure(横幅在截图里,不进裁决)。
+# 这一次:不许再启动更新、不许再下载;查更新必须 attempted + recent_failure(横幅在截图里,不进裁决)。
 # 这是「同一版本失败一次不再自动试」跨一次真实回滚 + 真页面重开仍然成立的唯一证据,
-# 也是「装出来的真桌面版里,打开软件那次查更新真的会开倒计时」的唯一证据(攻题 #6/#7)。
+# 也是「装出来的真桌面版里,打开软件那次查更新真的会立即发起更新」的唯一证据(攻题 #6/#7)。
 function Wait-RelayStart([int]$Seconds) {
     $sw = [Diagnostics.Stopwatch]::StartNew()
     while ($sw.Elapsed.TotalSeconds -lt $Seconds) {
@@ -621,7 +621,7 @@ function Run-e9 {
         Start-Process -FilePath "$InstallDir\OpenDesign.exe" | Out-Null
         $f.launch_health = Wait-Health $OldVersion 180
         Save-Screen (Join-Path $OutDir 'e9-launched.png')
-        # 页面加载 + 查更新 + 10 秒倒计时 + 下载 + 静默装进 .new,之后接力脚本才出现。
+        # 页面加载 + 查更新 + 下载 + 静默装进 .new,之后接力脚本才出现。
         $f.relay_started_after = Wait-RelayStart 600
         Note "e9 relay started after $($f.relay_started_after)s (nobody but the page asked for it)"
         Copy-Relay 'e9'
@@ -649,7 +649,7 @@ function Run-e9 {
         Wait-Job $job -Timeout 30 | Out-Null
         Receive-Job $job -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "    injector: $_" }
         Remove-Job $job -Force
-        # 旧版被拉起之后,给页面足够时间:加载 + 查更新 + (要是还倒计时的话)10 秒 + 开始下载。
+        # 旧版被拉起之后,给页面足够时间:加载 + 查更新 + 开始下载。
         # 判的是**整个场景只下载过一次**(fake_log)+ 这会儿没有第二个接力脚本 —— 不在这里取分界点,
         # 免得页面在分界点之前就开始了第二次下载而被漏数。
         Wait-Window 60 | Out-Null

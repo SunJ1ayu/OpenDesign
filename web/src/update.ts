@@ -82,7 +82,6 @@ export function badgeTitle(info: { latest?: string | null } | null | undefined):
 
 /** 自动查更新的开关键。默认**开**,只有业主显式关过才算关。 */
 export const AUTO_CHECK_PREF = "update.autoCheck";
-export const AUTO_UPDATE_SECONDS = 10;
 
 /** 要不要在打开软件时自动查一次。
  *
@@ -239,20 +238,12 @@ function autoStatus(info: unknown): Record<string, unknown> | null {
   return auto as Record<string, unknown>;
 }
 
-export function shouldCountdown(info: unknown): boolean {
+export function shouldAutoUpdate(info: unknown): boolean {
   try {
     return canApply(info as UpdateInfo | null) && autoStatus(info)?.eligible === true;
   } catch {
     return false;
   }
-}
-
-export function countdownText(latest: unknown, seconds: unknown): string {
-  const version = nonEmptyText(latest) ? String(latest).trim() : "新版本";
-  const n = typeof seconds === "number" && Number.isFinite(seconds)
-    ? Math.max(0, Math.ceil(seconds))
-    : AUTO_UPDATE_SECONDS;
-  return `发现新版 ${version},${n} 秒后自动更新`;
 }
 
 export function autoRecentFailureText(info: unknown): string {

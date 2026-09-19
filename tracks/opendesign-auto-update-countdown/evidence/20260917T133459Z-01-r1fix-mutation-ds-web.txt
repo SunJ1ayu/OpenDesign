@@ -1,0 +1,28 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    r1fix-mutation-ds-web
+cmd:     tests/mutation-ds-web-update.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  9e7f95d
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-17T13:34:59Z
+---------------- 输出开始 ----------------
+== 红检 /api/update/check ==
+  [咬住] n1 → test_t9b_network_failure_is_still_200
+  [咬住] n2 → test_t9c_force_really_asks_again
+  [咬住] n3 → test_t9a_endpoint_answers_with_the_shape_the_ui_needs
+  [咬住] n4 → test_t9a_endpoint_answers_with_the_shape_the_ui_needs
+  [咬住] n5 → test_t9a_endpoint_answers_with_the_shape_the_ui_needs
+  [咬住] w5 → test_t9e_force_false_is_not_force
+  [咬住] n6 → test_t19a_health_echoes_the_nonce_i_asked_with
+  [咬住] n7 → test_t19b_no_nonce_asked_no_nonce_echoed
+  [咬住] n8 → test_t19c_version_is_still_there
+  [咬住] n9 → test_t31a_a_second_apply_while_one_is_running_is_refused
+  [咬住] n10 → test_t31b_a_failed_attempt_does_not_lock_out_the_next_one
+  [咬住] n11 → test_t35a_once_the_relay_is_running_the_lock_is_kept
+  [咬住] n12 → test_t35b_a_relay_that_never_started_does_not_keep_the_lock
+  [咬住] n13 → test_t41b_handoff_failure_reply_means_the_lock_is_already_released
+  [咬住] n14 → test_t41a_failure_reply_means_the_lock_is_already_released
+
+== 红检小结:咬住 15 条 / 漏网 0 条(被测文件已逐字节还原)==
+---------------- 输出结束 ----------------
+runlog: r1fix-mutation-ds-web rc=0 commit=9e7f95d dirty=yes at=2026-09-17T13:34:59Z file=tracks/opendesign-auto-update-countdown/evidence/20260917T133459Z-01-r1fix-mutation-ds-web.txt

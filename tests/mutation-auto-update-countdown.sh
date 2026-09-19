@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # track opendesign-auto-update-countdown 的前端变异红检(主 agent 亲写)。
 # 为什么要有:AC-B / AC-E / AC-F / AC-H 里"什么都不该发生"那几条在基线上**结构上红不了**(基线本来就什么都不发生),
-# AC-A 的 10 秒也只有在实现存在时才量得到。只有故意改坏实现、看它们咬不咬,才知道它们不是恒真。
+# AC-A 还要挡住延迟更新与提前开放工作区。故意改坏实现,验证这些断言确实会失败。
 # 每个变异:改 web/src/App.tsx → build 进 web/dist → 跑 e2e → 记结果 → 恢复(web/src 与 web/dist 都 checkout 回去)。
 # 跑法:tests/mutation-auto-update-countdown.sh(约 9 分钟;会改写工作树里的 web/dist,跑完恢复;工作树要干净)
 # 任何一行「漏网」或「没落地」⇒ 退出码 1。
@@ -33,27 +33,18 @@ PY
   fi
   echo "$out" | grep -E "FAIL|条没过|全部通过" | cut -c1-160 | sed 's/^/    /'
 }
-run M1-manual-check-counts-down "手动「检查更新」也弹了倒计时|手动「检查更新」之后自己发了 [1-9]" \
+run M1-manual-check-auto-applies "手动检查之后自己发了更新请求" \
   'if (startupAuto) handleStartupAutoCheck(d);' 'if (startupAuto || d) handleStartupAutoCheck(d);'
-run M2-toggle-counts-down "中途打开自动检查开关也弹了倒计时|中途打开开关之后自己发了 [1-9]" \
-  '    checkUpdate(false, false);
-  }, [autoCheck, checkUpdate]);' '    checkUpdate(false, true);
-  }, [autoCheck, checkUpdate]);'
-run M3-timer-3s "横幅出现到自动更新请求之间应当约 10 秒" \
-  '}, AUTO_UPDATE_SECONDS * 1000);' '}, 3000);'
-run M4-cancel-not-suppressing "点了取消,之后还是自动发了|取消之后发了|取消之后倒计时横幅又冒出来了" \
-  '                autoSuppressedRef.current = true;
-                clearAutoCountdown(true);
-                setAutoBanner(null);' '                clearAutoCountdown(true);
-                setAutoBanner(null);
-                window.setTimeout(() => { const i = updateInfoRef.current; if (i) startAutoCountdown(i); }, 3000);'
-run M5-manual-apply-keeps-countdown "业主已经手动开始更新了,横幅还在倒计时|应当只有手动那一次请求" \
-  '    if (!isAuto) {
-      autoSuppressedRef.current = true;
-      clearAutoCountdown(true);
-    } else {' '    if (!isAuto) {
-      /* mutated */
-    } else {'
+run M2-toggle-auto-applies "中途开启自动检查之后自己发了更新请求" \
+  'if (previous !== autoCheck && autoCheck) checkUpdate(false, false);' \
+  'if (previous !== autoCheck && autoCheck) checkUpdate(false, true);'
+run M3-delayed-auto-update "查到新版后没有立即发起自动更新" \
+  '      void applyUpdate(true);' '      window.setTimeout(() => { void applyUpdate(true); }, 10000);'
+run M4-workspace-before-update "检查更新结束前工作区已经出现|更新完成前工作区曾被挂载" \
+  '  if (startupPhase !== "ready") {' '  if (false && startupPhase !== "ready") {'
+run M5-handoff-opens-old-workspace "接力程序刚启动就进入了旧版工作区|更新交棒后提前进入了旧版工作区" \
+  '        if (!parsed.ok) setStartupPhase("ready");' '        setStartupPhase("ready");'
+
 restore
 echo "== 变异红检结束:$([ $bad -eq 0 ] && echo 全部咬住 || echo 有漏网或没落地)"
 exit $bad
