@@ -87,6 +87,7 @@ import ds_auto_update    # 打开软件倒计时自动更新:只管"这个版本
 import ds_update_apply   # 应用内更新第二刀:真去装(段①)
 import ds_taxonomy
 import ds_update    # 查更新(track opendesign-in-app-update):只查不装
+import ds_update_startup   # 启动只读盘的更新决策(track opendesign-startup-not-blocked-by-update)
 import ds_todo
 import ds_tools
 import ds_workspace
@@ -1012,6 +1013,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, health)
         elif path == "/api/update/check":
             self._update_check()
+        elif path == "/api/update/startup":
+            self._update_startup()
         elif path == "/api/todos":
             self._todos()
         elif path == "/api/llm/credential":
@@ -1204,6 +1207,24 @@ class Handler(BaseHTTPRequestHandler):
                           "error": "没能让程序自动关闭,更新取消 —— 请手动安装新版"}
         return True, {"ok": True, "stage": "started", "error": None,
                       "latest": info.get("latest")}
+
+    def _update_startup(self):
+        """打开软件时问一次:盘上有没有**已经下好、且校验得过**的新版安装包?
+
+        🔴 **只读盘,一次网络都不发** —— 这是本接口存在的全部理由
+        (track opendesign-startup-not-blocked-by-update)。
+        0.98.7 把查更新放在启动路径上,实测最坏让业主干等 20.1 秒。
+        查更新与下载都挪到进入工作区**之后**的后台。
+
+        永远以 200 回;任何异常都回 `enter`。**"不更新"是小事,"打不开"是大事。**
+        """
+        try:
+            root = ds_common.data_root(self.server.ds_root)
+            state = ds_update_startup.read_state(ds_update_startup.state_path(root))
+            out = ds_update_startup.startup_decision(state, VERSION)
+        except Exception:  # noqa: BLE001 —— 这条路上不许有任何抛出
+            out = {"action": "enter", "reason": "decision_failed"}
+        self._json(200, out)
 
     def _update_check(self):
         """查更新:线上有没有比本机新的版本(track opendesign-in-app-update,第一刀)。

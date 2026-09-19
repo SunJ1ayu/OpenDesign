@@ -31,6 +31,16 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ds_update  # 只借 parse_version(避免两份版本比较逻辑漂移);**不调用它的任何取数函数**
 
 SCHEMA = 1
+STATE_NAME = "update-state.json"
+
+
+def state_path(data_root):
+    """状态文件放数据根的 Logs 下,**和既有的 auto-update-attempts.json 同侧**。
+
+    不进安装目录(更新会覆盖、卸载会删 —— 业主卸载丢资料那一单的教训),
+    也不进用户数据目录(那是他的真实档案)。判据 sp1/sp2。
+    """
+    return os.path.join(str(data_root), "Logs", STATE_NAME)
 
 # 进入工作区之后,等这么久才做第一次检查。不许是 0 —— 那等于换个地方接着抢启动资源。
 FIRST_CHECK_DELAY_S = 60
