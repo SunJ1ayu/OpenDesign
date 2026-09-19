@@ -100,7 +100,22 @@ async function pageWith(browser, body) {
   });
   await page.goto(`${base}/#/workspace`, { waitUntil: "domcontentloaded" });
   await page.locator(".side-footer .side-row").waitFor({ timeout: 15000 });
-  check(await until(() => served > 0, 15000), "前提:界面真的去查了一次更新");
+  // 🔴 **规格变更,不是放水**(2026-09-19,track opendesign-startup-not-blocked-by-update)。
+  //    业主原话:「不应该让用户看到这个界面才对啊,应该是有更新才显示和进度条,
+  //    没更新就跟平时打开软件一样」。启动因此**不再自动查更新**(改之前最坏干等 20.1 秒),
+  //    查更新挪到进入工作区 60 秒后的后台 ⇒ 原来那句"打开 15 秒内界面会自己去查"的前提
+  //    已经不成立。
+  //    **这份判据测的是「更新提示说什么」,不是查更新的时机** —— 所以改成主动点一次触发,
+  //    下面每一条断言一条没减。
+  //    时机本身搬到问得出的地方去钉了,而且更严:
+  //      tests/test_startup_gate.mjs sg1(启动等待上限 <=1000ms)、sg5(启动只许问
+  //      /api/update/startup,端点名里不许含 check)
+  //      tests/test_ds_update_startup.py su_net1~3(启动决策一次网络都不许发)
+  await page.locator(".side-footer .side-row").click();
+  await page.locator(".settings-pop").waitFor({ timeout: 5000 });
+  await page.locator('.settings-pop button:has-text("检查更新")').click();
+  check(await until(() => served > 0, 15000), "前提:点了「检查更新」之后,界面真的去查了");
+  await page.keyboard.press("Escape");   // 收起弹层,让后面的用例从干净状态开始
   return page;
 }
 

@@ -11,8 +11,13 @@
 ② 状态文件一有问题就抛,把"不更新"变成"打不开"。
 su_net 段钉①,su4~su12 钉②。
 """
+# 🔴 每个建了临时目录的 setUp 都必须 addCleanup 删掉它。
+#    2026-09-19 本单实测:漏了 27 个 —— 而"判据把盘撑满"我们整单治过
+#    (track opendesign-tmpdir-leak:一轮往 /tmp 扔 1.7 万个空壳目录,业主磁盘满了)。
+#    总跑里有专门的泄漏闸在数这个,它当场把我抓了。
 import json
 import os
+import shutil
 import socket
 import sys
 import time
@@ -52,6 +57,7 @@ class StartupDecisionTests(unittest.TestCase):
     def setUp(self):
         import hashlib, tempfile
         self.tmp = tempfile.mkdtemp(prefix="ds-startup-")
+        self.addCleanup(shutil.rmtree, self.tmp, True)   # 判据不许往盘上扔垃圾(泄漏闸会数)
         self.pkg = os.path.join(self.tmp, "OpenDesign-Setup-0.98.8.exe")
         with open(self.pkg, "wb") as f:
             f.write(b"abcd")
@@ -231,6 +237,7 @@ class StateWriteTests(unittest.TestCase):
     def setUp(self):
         import tempfile
         self.d = tempfile.mkdtemp(prefix="ds-startup-w-")
+        self.addCleanup(shutil.rmtree, self.d, True)
         self.p = Path(self.d) / "update-state.json"
 
     def test_sw1_write_then_read_roundtrips(self):
@@ -301,6 +308,7 @@ class PrepareUpdateTests(unittest.TestCase):
     def setUp(self):
         import hashlib, tempfile
         self.root = tempfile.mkdtemp(prefix="ds-prep-")
+        self.addCleanup(shutil.rmtree, self.root, True)
         self.body = b"NEW-INSTALLER-BYTES"
         self.sha = hashlib.sha256(self.body).hexdigest()
         self.info = {"update_available": True, "latest": "0.98.8",
