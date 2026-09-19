@@ -1,0 +1,126 @@
+{
+  "old_version": "0.98.6",
+  "new_version": "0.98.900",
+  "source": "feed",
+  "fake_log_start": 6,
+  "reset": {
+    "installer_rc": 0,
+    "health": {
+      "version": "0.98.6",
+      "port": 8766
+    }
+  },
+  "markers_before": {
+    "Data/客户资料-e2e.bin": "bd3cc966552cd5d9393d4ad464cc66285601714180e89e80655c1751dfde39de",
+    "Data/项目备忘-e2e.md": "e00f37bc30e147861ca4f3b7c456e708dcd1e94d0611b3a6a44fec78b8dd0f72",
+    "UserData/客户资料-e2e.bin": "ab94ce96a9731ea33851ae14a90b292b4fd514cb45c213b2bd483828060b3420",
+    "UserData/项目备忘-e2e.md": "2a1c9e36c765b14bc316ea13f3cb7e382e861740cc1e0e3aa665bfdd040ca8d4"
+  },
+  "live_before": "8ca0d908aeb89b8090987c17ff2ffdb9b55799019d84bdbf641333795623df52",
+  "check": {
+    "current": "0.98.6",
+    "update_available": true,
+    "latest": "0.98.900",
+    "asset": {
+      "name": "OpenDesign-Setup-0.98.900.exe",
+      "url": "https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.900/OpenDesign-Setup-0.98.900.exe",
+      "size": 46783205,
+      "digest": "sha256:945d2490d2a8fbde8c4ad9284775ad7d13b764659f36b8d2c57dd111bea70a78"
+    },
+    "notes": "e2e stand-in",
+    "error": null,
+    "release_url": "https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.900",
+    "auto_update": {
+      "eligible": false,
+      "why_not": "disabled",
+      "recent_failure": false
+    }
+  },
+  "inject": {
+    "detail": "holding live ds\\bin\\ds_shell.py with FileShare.None",
+    "landed": true
+  },
+  "apply": {
+    "ok": true,
+    "stage": "started",
+    "error": null,
+    "latest": "0.98.900"
+  },
+  "relay": {
+    "ended": true,
+    "seconds": 64.3,
+    "seen": true,
+    "old_seen": false
+  },
+  "seen_versions": [],
+  "health_after": null,
+  "live_after": "8ca0d908aeb89b8090987c17ff2ffdb9b55799019d84bdbf641333795623df52",
+  "new_exists": false,
+  "old_exists": false,
+  "relaunch": {
+    "health": {
+      "version": "0.98.6",
+      "port": 8766
+    }
+  },
+  "pointers": {
+    "shortcuts": {
+      "C:\\Users\\runneradmin\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\OpenDesign\\OpenDesign.lnk": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\OpenDesign.exe",
+      "C:\\Users\\runneradmin\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\OpenDesign\\卸载 OpenDesign.lnk": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\卸载.exe",
+      "C:\\Users\\runneradmin\\Desktop\\OpenDesign.lnk": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\OpenDesign.exe"
+    },
+    "uninstall": {
+      "UninstallString": "\"C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\卸载.exe\"",
+      "DisplayVersion": "0.98.900",
+      "InstallLocation": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign",
+      "DisplayIcon": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign\\OpenDesign.exe"
+    },
+    "autorun": null,
+    "install_dir": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign",
+    "live": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\OpenDesign"
+  },
+  "markers_after": {
+    "Data/客户资料-e2e.bin": "bd3cc966552cd5d9393d4ad464cc66285601714180e89e80655c1751dfde39de",
+    "Data/项目备忘-e2e.md": "e00f37bc30e147861ca4f3b7c456e708dcd1e94d0611b3a6a44fec78b8dd0f72",
+    "UserData/客户资料-e2e.bin": "ab94ce96a9731ea33851ae14a90b292b4fd514cb45c213b2bd483828060b3420",
+    "UserData/项目备忘-e2e.md": "2a1c9e36c765b14bc316ea13f3cb7e382e861740cc1e0e3aa665bfdd040ca8d4"
+  },
+  "fake_log": [
+    {
+      "kind": "atom",
+      "host": "github.com",
+      "status": 200,
+      "source": "feed",
+      "t": 1789785044.5799885
+    },
+    {
+      "kind": "manifest",
+      "host": "github.com",
+      "status": 200,
+      "accept": "application/octet-stream",
+      "t": 1789785044.7617486
+    },
+    {
+      "kind": "atom",
+      "host": "github.com",
+      "status": 200,
+      "source": "feed",
+      "t": 1789785052.0025878
+    },
+    {
+      "kind": "manifest",
+      "host": "github.com",
+      "status": 200,
+      "accept": "application/octet-stream",
+      "t": 1789785052.1616251
+    },
+    {
+      "kind": "download",
+      "host": "github.com",
+      "mode": "normal",
+      "bytes": 46783205,
+      "sha256": "945d2490d2a8fbde8c4ad9284775ad7d13b764659f36b8d2c57dd111bea70a78",
+      "t": 1789785052.392309
+    }
+  ]
+}

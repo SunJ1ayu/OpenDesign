@@ -1,0 +1,41 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    startup-final-oracle
+cmd:     python3 /root/panel-my-reviews/opendesign-startup-final-oracle.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  ad06d2d
+dirty:   yes(跑之前采的;含未跟踪文件)
+head-before: ad06d2d1b99a261c981d282d7493e38293f99f2a
+source-view-before: sha256:004ee431a91001d81ca69c544ea3ea4cddd942a20ac067b16ff1146bffa5ee6e
+started: 2026-09-19T03:51:23Z
+---------------- 输出开始 ----------------
+OK e1 - updated 0.98.6 -> 0.98.900, window up, archive markers intact
+OK e2 - corrupt download refused at verify, live tree untouched, 0.98.6 still up
+OK e3 - relay gave up without renaming, .new removed, old relaunches (auto-reopened: nobody)
+OK e4 - second rename failed, relay rolled back and relaunched 0.98.6
+OK e5 - unhealthy new version rolled back to 0.98.6
+OK e6 - updated 0.98.6 -> 0.98.900, window up, archive markers intact
+OK e7 - quoted /D= in update mode refused by the real installer (rc=3), live tree untouched
+OK e8 - updated 0.98.6 -> 0.98.900, window up, archive markers intact
+OK e9 - page auto-updated on its own, rolled back to 0.98.6, not retried
+TAP version 13
+# Subtest: tests/test_update_ui.mjs
+ok 1 - tests/test_update_ui.mjs
+  ---
+  duration_ms: 167.895809
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 177.431556
+command-rc: 0
+head-after: ad06d2d1b99a261c981d282d7493e38293f99f2a
+source-view-after:  sha256:004ee431a91001d81ca69c544ea3ea4cddd942a20ac067b16ff1146bffa5ee6e
+source-stable: yes
+---------------- 输出结束 ----------------
+runlog: startup-final-oracle rc=0 commit=ad06d2d dirty=yes final=yes at=2026-09-19T03:51:23Z file=tracks/opendesign-auto-update-countdown/evidence/20260919T035123Z-01-startup-final-oracle.txt

@@ -1,0 +1,8 @@
+{
+  "run_id": 35415559169,
+  "head_sha": "ad06d2d1b99a261c981d282d7493e38293f99f2a",
+  "branch": "ci-update/immediate-startup-20260919",
+  "url": "https://github.com/SunJ1ayu/OpenDesign/actions/runs/35415559169",
+  "artifact": "update-e2e-out",
+  "conclusion": "success"
+}
