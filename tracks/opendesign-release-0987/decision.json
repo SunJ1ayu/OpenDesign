@@ -14,9 +14,9 @@
   },
   "execution_plan": {
     "adapter": "main",
-    "model": "gpt-6"
+    "model": "claude-opus-5"
   },
   "outcome": {
-    "verdict": null
+    "verdict": "PASS"
   }
 }

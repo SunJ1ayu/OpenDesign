@@ -1,0 +1,46 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    real-update-check-from-0986
+cmd:     /root/.venvs/design-studio/bin/python -c $'\nimport sys, json\nsys.path.insert(0, "bin")\nimport ds_update\n\n# 用产品自己的查更新代码,假装自己是业主手上那版,看它能不能发现 0.98.7。\n# 这一条验的不是"我发布成功了",而是"他的软件真的查得到" —— 09-16 栽过一次:\n# 0.98.5 的查更新本身是坏的,发出去他点了也没反应。\nfor cur in ("0.98.6", "0.98.5"):\n    r = ds_update.check_for_update(cur)\n    print(f"--- 当前版本 {cur} ---")\n    print(json.dumps(r, ensure_ascii=False, indent=2, default=str))\n'
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  c78851e
+dirty:   yes(跑之前采的;含未跟踪文件)
+head-before: c78851eaa9b5d119c5ed1ae91a070ecdd0a0c4d4
+source-view-before: sha256:dfebb1e976d0fe69b877c16f1f60a48a121fcc0bd075a19ec341274aaada0ff6
+started: 2026-09-19T13:33:45Z
+---------------- 输出开始 ----------------
+--- 当前版本 0.98.6 ---
+{
+  "current": "0.98.6",
+  "update_available": true,
+  "latest": "0.98.7",
+  "asset": {
+    "name": "OpenDesign-Setup-0.98.7.exe",
+    "url": "https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.7/OpenDesign-Setup-0.98.7.exe",
+    "size": 46784236,
+    "digest": "sha256:17d2f06b80e790c9b17883a51030517096d1d7bf66c4aea6848e2854a05a3069"
+  },
+  "notes": "打开 OpenDesign 后先检查更新；发现可安装的新版本会**立即开始更新**，装完重启后直接进入工作区。\n\n- 更新期间只显示进度，没有倒计时、也没有取消按钮。\n- 检查超时或安装明确失败时，仍然可以进入旧版本，并会告诉你原因。\n- 手动更新入口保留不变；同一个版本自动更新失败过一次，就不会每次打开都再试。\n\n## 这一版怎么装\n\n**如果你手上是 0.98.6**：在软件里点「检查更新」，按提示装完即可。\n\n**如果你手上是 0.98.5 或更早**：请直接下载下面的 `OpenDesign-Setup-0.98.7.exe` 手动装一次。\n0.98.6 之前的版本「检查更新」本身是坏的（只问 GitHub 接口，你的网络出口被限流就一直失败），\n在那些版本里点「检查更新」多半还是查不到。\n\n装好之后，软件里显示的版本应该是 **0.98.7**。从这一版起，以后打开软件会自动更新，不用再手动装。\n",
+  "error": null,
+  "release_url": "https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.7"
+}
+--- 当前版本 0.98.5 ---
+{
+  "current": "0.98.5",
+  "update_available": true,
+  "latest": "0.98.7",
+  "asset": {
+    "name": "OpenDesign-Setup-0.98.7.exe",
+    "url": "https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.7/OpenDesign-Setup-0.98.7.exe",
+    "size": 46784236,
+    "digest": "sha256:17d2f06b80e790c9b17883a51030517096d1d7bf66c4aea6848e2854a05a3069"
+  },
+  "notes": "打开 OpenDesign 后先检查更新；发现可安装的新版本会**立即开始更新**，装完重启后直接进入工作区。\n\n- 更新期间只显示进度，没有倒计时、也没有取消按钮。\n- 检查超时或安装明确失败时，仍然可以进入旧版本，并会告诉你原因。\n- 手动更新入口保留不变；同一个版本自动更新失败过一次，就不会每次打开都再试。\n\n## 这一版怎么装\n\n**如果你手上是 0.98.6**：在软件里点「检查更新」，按提示装完即可。\n\n**如果你手上是 0.98.5 或更早**：请直接下载下面的 `OpenDesign-Setup-0.98.7.exe` 手动装一次。\n0.98.6 之前的版本「检查更新」本身是坏的（只问 GitHub 接口，你的网络出口被限流就一直失败），\n在那些版本里点「检查更新」多半还是查不到。\n\n装好之后，软件里显示的版本应该是 **0.98.7**。从这一版起，以后打开软件会自动更新，不用再手动装。\n",
+  "error": null,
+  "release_url": "https://github.com/SunJ1ayu/OpenDesign/releases/tag/win-installer-0.98.7"
+}
+command-rc: 0
+head-after: c78851eaa9b5d119c5ed1ae91a070ecdd0a0c4d4
+source-view-after:  sha256:dfebb1e976d0fe69b877c16f1f60a48a121fcc0bd075a19ec341274aaada0ff6
+source-stable: yes
+---------------- 输出结束 ----------------
+runlog: real-update-check-from-0986 rc=0 commit=c78851e dirty=yes final=yes at=2026-09-19T13:33:45Z file=tracks/opendesign-release-0987/evidence/20260919T133345Z-01-real-update-check-from-0986.txt

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-release-0987",
+  "run_id": "20260919T132808Z-01-build-installer-0987-release",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "build-installer-0987-release",
+  "started_at": "2026-09-19T13:28:08Z",
+  "finished_at": "2026-09-19T13:30:37Z",
+  "duration_ms": 149424,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 0,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
