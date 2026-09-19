@@ -291,6 +291,124 @@ class StatePathTests(unittest.TestCase):
                          str(ds_update_startup.state_path(Path("/data"))))
 
 
+class PrepareUpdateTests(unittest.TestCase):
+    """pr1~pr7:后台把新版下下来、校验、写状态 —— **只下不装**,装留到下次打开软件。
+
+    这是本单的另一半:没有它,状态文件永远不会被写,启动决策永远返回 enter,
+    等于"打开快了但不会自动更新了"。
+    """
+
+    def setUp(self):
+        import hashlib, tempfile
+        self.root = tempfile.mkdtemp(prefix="ds-prep-")
+        self.body = b"NEW-INSTALLER-BYTES"
+        self.sha = hashlib.sha256(self.body).hexdigest()
+        self.info = {"update_available": True, "latest": "0.98.8",
+                     "asset": {"name": "OpenDesign-Setup-0.98.8.exe",
+                               "url": "https://example/x.exe",
+                               "size": len(self.body),
+                               "digest": "sha256:" + self.sha}}
+
+    def dl_ok(self, url, dest):
+        Path(dest).write_bytes(self.body)
+
+    def state(self):
+        return ds_update_startup.read_state(ds_update_startup.state_path(self.root))
+
+    def test_pr1_success_writes_ready_and_startup_would_install(self):
+        """pr1:下好且校验过 ⇒ 写 ready,而且**下一次启动真的会装**(端到端接上)。"""
+        out = ds_update_startup.prepare_update(self.info, self.root, download=self.dl_ok)
+        self.assertTrue(out["ok"], out)
+        st = self.state()
+        self.assertEqual(st["phase"], "ready")
+        self.assertEqual(st["version"], "0.98.8")
+        self.assertEqual(st["asset"]["sha256"], self.sha)
+        # 🔴 这一条是本单两半之间唯一的接缝:prepare 写的东西,startup 必须认。
+        self.assertEqual(
+            ds_update_startup.startup_decision(st, "0.98.7")["action"], "install")
+
+    def test_pr2_download_failure_leaves_no_ready(self):
+        """pr2:下载炸了 ⇒ 绝不留下 ready。"""
+        def boom(url, dest):
+            raise OSError("网断了")
+        out = ds_update_startup.prepare_update(self.info, self.root, download=boom)
+        self.assertFalse(out["ok"])
+        st = self.state()
+        self.assertTrue(st is None or st.get("phase") != "ready", st)
+
+    def test_pr3_digest_mismatch_deletes_the_bad_package(self):
+        """pr3:摘要对不上 ⇒ 不写 ready,**并且把那个坏包删掉**。
+
+        留着它只会占盘,而且下次万一有人放宽校验就会装上去。
+        """
+        def wrong(url, dest):
+            # 🔴 **必须和好包等长**(2026-09-19 变异红检 B11 抓到):
+            # 原来写的是 b"TAMPERED"(8 字节)而好包是 19 字节 ⇒ 字节数检查先拦住,
+            # 这条判据根本走不到摘要检查 ⇒ 把 sha256 校验整个删掉它也照样绿。
+            Path(dest).write_bytes(b"X" * len(self.body))
+        out = ds_update_startup.prepare_update(self.info, self.root, download=wrong)
+        self.assertFalse(out["ok"])
+        st = self.state()
+        self.assertTrue(st is None or st.get("phase") != "ready")
+        leftovers = list(Path(self.root).rglob("*.exe"))
+        self.assertEqual(leftovers, [], f"校验失败的包没删干净:{leftovers}")
+
+    def test_pr4_size_mismatch_rejected(self):
+        """pr4:字节数对不上也不许写 ready(下到一半就当下完)。"""
+        info = dict(self.info, asset=dict(self.info["asset"], size=999999))
+        out = ds_update_startup.prepare_update(info, self.root, download=self.dl_ok)
+        self.assertFalse(out["ok"])
+        st = self.state()
+        self.assertTrue(st is None or st.get("phase") != "ready")
+
+    def test_pr5_marks_downloading_before_fetching(self):
+        """pr5:动手之前先把 downloading 写上 —— 下载中途断电,下次启动看到的不是 ready。"""
+        seen = {}
+        def spy(url, dest):
+            seen["phase_at_download"] = (self.state() or {}).get("phase")
+            self.dl_ok(url, dest)
+        ds_update_startup.prepare_update(self.info, self.root, download=spy)
+        self.assertEqual(seen.get("phase_at_download"), "downloading")
+
+    def test_pr6_never_raises(self):
+        """pr6:🔴 后台任务永不抛 —— 它跑在用户正在干活的时候。"""
+        for bad in (None, {}, {"update_available": False}, {"asset": None},
+                    {"update_available": True, "latest": None, "asset": {}},
+                    {"update_available": True, "latest": "0.98.8", "asset": {"url": None}}):
+            try:
+                out = ds_update_startup.prepare_update(bad, self.root, download=self.dl_ok)
+            except Exception as exc:                      # noqa: BLE001
+                self.fail(f"prepare_update 对 {bad!r} 抛了 {exc!r}")
+            self.assertFalse(out["ok"])
+
+    def test_pr6b_survives_failure_deep_in_the_path(self):
+        """pr6b:走到深处才炸的错误也必须被兜住。
+
+        🔴 由来(变异红检 B15,和 su13b 同一个毛病):pr6 喂的坏输入在到达兜底之前
+        就被 _asset_facts 返回 None 拦下了 ⇒ 去不去掉兜底行为完全一样。
+        这里让建目录那一步炸,才真正测到 prepare_update 的兜底。
+        """
+        def boom(*a, **k):
+            raise OSError("盘满了")
+        with mock.patch.object(os, "makedirs", boom):
+            try:
+                out = ds_update_startup.prepare_update(self.info, self.root, download=self.dl_ok)
+            except Exception as exc:                      # noqa: BLE001
+                self.fail(f"后台任务把异常漏出来了:{exc!r} —— 它跑在业主干活的时候")
+        self.assertFalse(out["ok"])
+
+    def test_pr7_already_ready_does_not_redownload(self):
+        """pr7:同一版已经下好了就别再下一遍(省业主的流量和磁盘)。"""
+        ds_update_startup.prepare_update(self.info, self.root, download=self.dl_ok)
+        calls = []
+        def counting(url, dest):
+            calls.append(url)
+            self.dl_ok(url, dest)
+        out = ds_update_startup.prepare_update(self.info, self.root, download=counting)
+        self.assertTrue(out["ok"])
+        self.assertEqual(calls, [], "同一个版本被重复下载了")
+
+
 class BackgroundScheduleTests(unittest.TestCase):
     """sc1~sc4:后台查更新的节奏 —— 不在启动瞬间发起,轮询带抖动,失败要退避。"""
 

@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 // 🔴 用命名空间导入,不用具名导入:ESM 的具名导入在导出不存在时**整份文件编译期就崩**,
 //    只报 1 个 fail —— 而判据先行唯一要证明的就是"哪几条会咬"。逐条红才数得出来。
 import * as U from "../web/src/update.ts";
-const { STARTUP_LOCAL_TIMEOUT_MS, STARTUP_LOCAL_ENDPOINT } = U;
+const { STARTUP_LOCAL_TIMEOUT_MS, STARTUP_LOCAL_ENDPOINT, STARTUP_PREPARE_ENDPOINT } = U;
 const startupAction = (...a) => {
   if (typeof U.startupAction !== "function") {
     throw new Error("update.ts 还没有导出 startupAction —— 判据先行,此刻应当红");
@@ -57,4 +57,10 @@ test("sg6 startupAction 永远不抛", () => {
   const nasty = { get action() { throw new Error("getter 炸了"); } };
   assert.doesNotThrow(() => startupAction(nasty));
   assert.equal(startupAction(nasty), "enter");
+});
+
+test("sg7 后台备货的端点和启动那个必须是两个,别混成一个", () => {
+  // 混成一个就等于把"下 46MB"搬回启动路径 —— 比原来的 20 秒还糟。
+  assert.equal(STARTUP_PREPARE_ENDPOINT, "/api/update/prepare");
+  assert.notEqual(STARTUP_PREPARE_ENDPOINT, STARTUP_LOCAL_ENDPOINT);
 });
