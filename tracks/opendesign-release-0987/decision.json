@@ -1,0 +1,22 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-release-0987",
+  "impact": {
+    "level": "self",
+    "factors": []
+  },
+  "design": {
+    "uncertainty": "low",
+    "premise_attack": {
+      "status": "not_required",
+      "evidence": []
+    }
+  },
+  "execution_plan": {
+    "adapter": "main",
+    "model": "gpt-6"
+  },
+  "outcome": {
+    "verdict": null
+  }
+}
