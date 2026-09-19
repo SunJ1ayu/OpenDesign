@@ -148,6 +148,24 @@ class StartupDecisionTests(unittest.TestCase):
                 self.fail(f"startup_decision 对 {junk!r} 抛了 {exc!r} —— 这会让软件打不开")
             self.assertIn(out["action"], ("install", "enter"))
 
+    def test_su13b_survives_failure_deep_in_the_path(self):
+        """su13b:走到深处才炸的那种错误,也必须被兜住。
+
+        🔴 由来(2026-09-19 变异红检 B5 抓到):su13 喂的坏输入在到达深处之前
+        就被前面的类型检查拦下返回了 ⇒ **去不去掉兜底 try,行为完全一样**,
+        su13 咬不住"把 except Exception 改窄"这个变异。
+        这里让一个合法状态在读文件那一步炸,才真正测到兜底。
+        """
+        s = self.good()
+        def boom(*a, **k):
+            raise OSError("磁盘这一刻读不了了")
+        with mock.patch.object(os.path, "getsize", boom):
+            try:
+                out = ds_update_startup.startup_decision(s, "0.98.7", now=1)
+            except Exception as exc:                      # noqa: BLE001
+                self.fail(f"深处的 OSError 漏出来了:{exc!r} —— 这会让软件打不开")
+        self.assertEqual(out["action"], "enter")
+
     def test_su14_reason_is_a_stable_token(self):
         """su14:reason 必须是稳定枚举,不是自由散文 —— 判据和界面都要认它。"""
         out = self.decide(self.good(phase="downloading"))
@@ -183,17 +201,27 @@ class StartupTouchesNoNetworkTests(unittest.TestCase):
                 ds_update_startup.read_state(p)
 
     def test_su_net3_does_not_import_or_call_update_fetchers(self):
-        """su_net3:即使 ds_update 的取数函数全部一调用就炸,启动决策照样正常返回。
+        """su_net3:启动决策一次都不许调 ds_update 的取数函数。
 
-        这条钉的是"别顺手在启动路径上捎带查一次更新"。
+        🔴 **必须用记账探针,不能用"一调用就抛"**(2026-09-19 变异红检 B1 抓到):
+        `startup_decision` 自己包着 `except Exception` 兜底(su13 要求的),
+        而 AssertionError 是 Exception 的子类 ⇒ **抛出来的探针会被那个兜底吞掉**,
+        判据照样绿。两条防线互相抵消,变异 B1(在启动路径上偷查一次更新)当场漏网。
+        记账探针不抛,吞不掉。
         """
         import ds_update
-        def boom(*a, **k):
-            raise AssertionError("启动路径调用了 ds_update 的取数函数")
-        with mock.patch.multiple(ds_update, fetch_releases=boom, fetch_atom=boom,
-                                 fetch_manifest=boom, check_for_update=boom,
-                                 check_cached=boom):
+        called = []
+        def spy(name):
+            def f(*a, **k):
+                called.append(name)
+                return None
+            return f
+        names = ("fetch_releases", "fetch_atom", "fetch_manifest",
+                 "check_for_update", "check_cached")
+        with mock.patch.multiple(ds_update, **{n: spy(n) for n in names}):
             out = ds_update_startup.startup_decision(None, "0.98.7", now=1)
+            ds_update_startup.startup_decision(_state(), "0.98.7", now=1)
+        self.assertEqual(called, [], f"启动决策调用了 ds_update 的取数函数:{called}")
         self.assertEqual(out["action"], "enter")
 
 
@@ -256,9 +284,14 @@ class BackgroundScheduleTests(unittest.TestCase):
 
     def test_sc3_failures_back_off_and_are_capped(self):
         """sc3:连续失败要退避,且有上限(不许退避到天荒地老)。"""
-        d0 = min(ds_update_startup.next_delay(attempt=0) for _ in range(40))
-        d3 = min(ds_update_startup.next_delay(attempt=3) for _ in range(40))
-        self.assertGreater(d3, d0, "失败之后没有退避")
+        # 🔴 **不许拿两组随机样本的同一个统计量比大小**(2026-09-19 变异红检抓到):
+        # 原来写的是 min(40 次) vs min(40 次),去掉退避后两者同分布 ⇒ 约五成几率碰巧通过,
+        # 同一个变异第一次咬住、第二次漏网。改成比**互不重叠的界**:真有退避时
+        # attempt=3 的基数是 attempt=0 的 8 倍,而抖动只有 ±20%,两个区间不可能相交。
+        d0_max = max(ds_update_startup.next_delay(attempt=0) for _ in range(200))
+        d3_min = min(ds_update_startup.next_delay(attempt=3) for _ in range(200))
+        self.assertGreater(d3_min, d0_max,
+                           f"失败之后没有退避:attempt=3 最小 {d3_min} 没超过 attempt=0 最大 {d0_max}")
         big = max(ds_update_startup.next_delay(attempt=99) for _ in range(40))
         self.assertLessEqual(big, ds_update_startup.MAX_BACKOFF_S)
 
