@@ -11,6 +11,7 @@ import {
   startupAction,
   STARTUP_LOCAL_ENDPOINT,
   STARTUP_LOCAL_TIMEOUT_MS,
+  STARTUP_PREPARE_ENDPOINT,
 } from "./update";
 import type { ApplyResult, ApplyState, UpdateInfo, UpdateState } from "./update";
 import { loadBoolPrefs } from "./boolPrefs";
@@ -378,8 +379,14 @@ export default function App() {
       return;
     }
     setStartupPhase("ready");
-    // 进了工作区再去查更新,延迟一会儿,别和启动抢资源。
-    window.setTimeout(() => { checkUpdate(false, false); }, BACKGROUND_FIRST_CHECK_MS);
+    // 进了工作区再去查更新并把新版**下下来备着**,延迟一会儿,别和启动抢资源。
+    // 下好之后写进盘上的状态文件,**下一次打开软件**才装 —— 那时装最快(东西已在本地),
+    // 而且本来就在启动,不额外打断他。这是 Chrome 那一路的做法。
+    window.setTimeout(() => {
+      checkUpdate(false, false);
+      // 后台备货:失败安静收场(业主正在干活,这里不该冒任何泡)。
+      void fetch(STARTUP_PREPARE_ENDPOINT, { method: "POST" }).catch(() => {});
+    }, BACKGROUND_FIRST_CHECK_MS);
   }, [applyUpdate, checkUpdate]);
 
   useEffect(() => {

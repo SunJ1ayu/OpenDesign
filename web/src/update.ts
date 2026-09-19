@@ -361,6 +361,12 @@ export const STARTUP_LOCAL_ENDPOINT = "/api/update/startup";
  */
 export const STARTUP_LOCAL_TIMEOUT_MS = 500;
 
+/** 后台备货用的端点:查到有新版就把它下下来,下一次打开软件才装。
+ *
+ * 🔴 **只许在进入工作区之后调**,绝不许出现在启动路径上 —— 它会下 46MB。
+ */
+export const STARTUP_PREPARE_ENDPOINT = "/api/update/prepare";
+
 /** 读懂启动接口的回应。**读不懂一律进工作区**,绝不卡住(判据 sg4/sg6)。
  *
  * 本项目已有四次"某个前置步骤没按预期返回 ⇒ 界面再也不往下走"的前科。

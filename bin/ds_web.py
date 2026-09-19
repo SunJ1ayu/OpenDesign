@@ -458,6 +458,9 @@ INTAKE_AMEND_PATH = "/api/intake/amend"  # do_POST 写针孔⑧(track opendesign
 UPLOAD_PATH = "/api/upload"  # do_POST 写针孔⑬(track opendesign-image-upload),精确匹配
 # 🔴 装软件是本仓最重的副作用,所以它**只在 do_POST 上**(GET 面只读铁律,判据 t22a)。
 UPDATE_APPLY_PATH = "/api/update/apply"  # do_POST(track opendesign-in-app-update-install)
+UPDATE_PREPARE_PATH = "/api/update/prepare"  # do_POST(track opendesign-startup-not-blocked-by-update)
+_PREPARE_LOCK = threading.Lock()
+_PREPARE_STATE = {"running": False}  # 同一时刻只许一个后台下载(见 _update_prepare)
 INBOX_CREATE_PATH = "/api/inbox/create"  # do_POST 写针孔⑭(track opendesign-chat-image),精确匹配
 BIND_PROJECT_PATH = "/api/projects/bind"  # do_POST 写针孔⑨(同上 track),精确匹配
 FOLDER_VISIBILITY_PATH = "/api/workspace/folder-visibility"  # 阶段二:整份存结构目录声明
@@ -1093,6 +1096,8 @@ class Handler(BaseHTTPRequestHandler):
             self._llm_model_post()
         elif path == UPDATE_APPLY_PATH:
             self._update_apply()
+        elif path == UPDATE_PREPARE_PATH:
+            self._update_prepare()
         elif path == UPLOAD_PATH:
             self._upload()
         elif path == INBOX_CREATE_PATH:
@@ -1207,6 +1212,41 @@ class Handler(BaseHTTPRequestHandler):
                           "error": "没能让程序自动关闭,更新取消 —— 请手动安装新版"}
         return True, {"ok": True, "stage": "started", "error": None,
                       "latest": info.get("latest")}
+
+    def _update_prepare(self):
+        """后台把新版下下来备着 —— **立刻返回,下载在后台线程里跑**。
+
+        业主这时候正在用软件,这条请求绝不能让界面等。下好之后写 update-state.json,
+        **下一次打开软件**才装(那时装最快,东西已经在本地,而且本来就在启动)。
+
+        重入保护:同一时刻只允许一个下载在跑 —— 否则后台轮询每转一圈就多起一个线程,
+        同一个 46MB 的包会被下好几遍(业主的流量和磁盘)。
+        """
+        with _PREPARE_LOCK:
+            if _PREPARE_STATE.get("running"):
+                self._json(200, {"started": False, "reason": "already_running"})
+                return
+            _PREPARE_STATE["running"] = True
+
+        info = self._update_decision_for_auto()
+        root = ds_common.data_root(self.server.ds_root)
+
+        def work():
+            try:
+                ds_update_startup.prepare_update(info, root)
+            finally:
+                with _PREPARE_LOCK:
+                    _PREPARE_STATE["running"] = False
+
+        threading.Thread(target=work, daemon=True, name="ds-update-prepare").start()
+        self._json(200, {"started": True})
+
+    def _update_decision_for_auto(self):
+        """给 prepare 用的那份查更新结果。失败一律返回 None(prepare 自己会当 nothing_to_prepare)。"""
+        try:
+            return ds_update.check_cached(VERSION)
+        except Exception:  # noqa: BLE001
+            return None
 
     def _update_startup(self):
         """打开软件时问一次:盘上有没有**已经下好、且校验得过**的新版安装包?

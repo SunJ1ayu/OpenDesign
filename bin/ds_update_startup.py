@@ -22,13 +22,15 @@ track opendesign-startup-not-blocked-by-update(2026-09-19)。
 """
 import json
 import os
+import time
 import random
 import sys
 import tempfile
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import ds_update  # 只借 parse_version(避免两份版本比较逻辑漂移);**不调用它的任何取数函数**
+import ds_update          # 只借 parse_version(避免两份版本比较逻辑漂移);**不调用它的任何取数函数**
+import ds_update_apply    # 只借下载/校验(避免两份下载逻辑漂移)
 
 SCHEMA = 1
 STATE_NAME = "update-state.json"
@@ -153,3 +155,100 @@ def startup_decision(state, current_version, now=None):
         return {"action": "install", "reason": "ready", "version": version, "path": path}
     except Exception:  # noqa: BLE001 —— 判据 su13:宁可不更新,绝不许打不开
         return _enter("decision_failed")
+
+
+PENDING_DIR = "pending"
+
+
+def _asset_facts(info):
+    """从查更新的结果里挖出下载所需的四样;缺一样就不算数。"""
+    if not isinstance(info, dict) or info.get("update_available") is not True:
+        return None
+    version = info.get("latest")
+    asset = info.get("asset")
+    if not isinstance(version, str) or not version or not isinstance(asset, dict):
+        return None
+    url, name, size = asset.get("url"), asset.get("name"), asset.get("size")
+    digest = ds_update_apply.parse_digest(asset.get("digest"))
+    if not isinstance(url, str) or not url or not isinstance(name, str) or not name:
+        return None
+    if not isinstance(size, int) or size <= 0 or not digest:
+        return None
+    return {"version": version, "url": url, "name": name, "size": size, "sha256": digest}
+
+
+def prepare_update(info, data_root, download=None, now=None):
+    """后台把新版下下来、校验、写状态 —— **只下不装**。
+
+    装留到下一次打开软件:那时候装是最快的(东西已经在本地),而且本来就在启动,
+    不额外打断业主。这正是 Chrome 那一路的做法。
+
+    🔴 **永不抛**(判据 pr6):它跑在业主正在干活的时候,一个后台任务把主进程搞崩
+    是不可接受的。失败就安静地不写 ready,下次再试。
+    """
+    fetch = ds_update_apply._default_download if download is None else download
+    state_file = state_path(data_root)
+    try:
+        facts = _asset_facts(info)
+        if facts is None:
+            return {"ok": False, "reason": "nothing_to_prepare"}
+
+        # 同一版已经下好了就别再下一遍(判据 pr7:省业主的流量和磁盘)。
+        current = read_state(state_file)
+        if (isinstance(current, dict) and current.get("phase") == "ready"
+                and current.get("version") == facts["version"]):
+            path = current.get("path")
+            if isinstance(path, str) and os.path.isfile(path) \
+                    and os.path.getsize(path) == facts["size"]:
+                return {"ok": True, "reason": "already_ready"}
+
+        dest_dir = os.path.join(str(data_root), "Logs", PENDING_DIR)
+        os.makedirs(dest_dir, exist_ok=True)
+        dest = os.path.join(dest_dir, facts["name"])
+
+        # 动手之前先把 downloading 写上(判据 pr5):下载中途断电/被杀,
+        # 下次启动读到的是 downloading 而不是一个指向半个文件的 ready。
+        write_state(state_file, {"schema": SCHEMA, "phase": "downloading",
+                                 "version": facts["version"],
+                                 "asset": {"name": facts["name"], "size": facts["size"],
+                                           "sha256": facts["sha256"]},
+                                 "path": dest,
+                                 "updated_at": time.time() if now is None else now})
+        try:
+            fetch(facts["url"], dest)
+        except Exception:  # noqa: BLE001
+            _discard(dest, state_file)
+            return {"ok": False, "reason": "download_failed"}
+
+        if not os.path.isfile(dest) or os.path.getsize(dest) != facts["size"]:
+            _discard(dest, state_file)
+            return {"ok": False, "reason": "size_mismatch"}
+        if ds_update_apply.sha256_file(dest).lower() != facts["sha256"].lower():
+            # 判据 pr3:坏包必须删掉 —— 留着只会占盘,而且哪天有人放宽校验就会装上去。
+            _discard(dest, state_file)
+            return {"ok": False, "reason": "digest_mismatch"}
+
+        write_state(state_file, {"schema": SCHEMA, "phase": "ready",
+                                 "version": facts["version"],
+                                 "asset": {"name": facts["name"], "size": facts["size"],
+                                           "sha256": facts["sha256"]},
+                                 "path": dest,
+                                 "updated_at": time.time() if now is None else now})
+        return {"ok": True, "reason": "ready", "version": facts["version"]}
+    except Exception:  # noqa: BLE001 —— 判据 pr6
+        return {"ok": False, "reason": "prepare_failed"}
+
+
+def _discard(dest, state_file):
+    """把没通过校验的包和 ready 状态一起清掉。自己也不许抛。"""
+    try:
+        if os.path.isfile(dest):
+            os.unlink(dest)
+    except OSError:
+        pass
+    try:
+        write_state(state_file, {"schema": SCHEMA, "phase": "idle",
+                                 "version": None, "asset": None,
+                                 "path": None, "updated_at": time.time()})
+    except Exception:  # noqa: BLE001
+        pass
