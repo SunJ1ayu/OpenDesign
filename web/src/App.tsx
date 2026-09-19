@@ -8,9 +8,15 @@ import {
   canApply,
   readApplyResponse,
   shouldAutoUpdate,
+  startupAction,
+  STARTUP_LOCAL_ENDPOINT,
+  STARTUP_LOCAL_TIMEOUT_MS,
 } from "./update";
 import type { ApplyResult, ApplyState, UpdateInfo, UpdateState } from "./update";
 import { loadBoolPrefs } from "./boolPrefs";
+
+// 进入工作区之后,等这么久才做第一次后台查更新(和后端 FIRST_CHECK_DELAY_S 同量级)。
+const BACKGROUND_FIRST_CHECK_MS = 60_000;
 import Sidebar, { type SessionItem } from "./workspace/Sidebar";
 import WindowChrome from "./workspace/WindowChrome";
 import ChangesColumn from "./workspace/ChangesColumn";
@@ -350,16 +356,42 @@ export default function App() {
       })
       .finally(() => window.clearTimeout(timer));
   }, [handleStartupAutoCheck]);
+  // 打开软件时**只问本地**:盘上有没有已经下好、校验得过的新版?
+  // 🔴 这里以前是 `checkUpdate(false, true)` —— 一次联网查更新,实测最坏 20.1 秒,
+  //    而整个工作区被挡在它后面。业主:「每次打开都会弹出正在检测更新,这严重拖慢了开软件的速度」。
+  //    查更新和下载都挪到**进入工作区之后**的后台:那时候他已经在用软件了,慢不碍事。
+  const probeStartup = useCallback(async () => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), STARTUP_LOCAL_TIMEOUT_MS);
+    let action: "install" | "enter" = "enter";
+    try {
+      const r = await fetch(STARTUP_LOCAL_ENDPOINT, { signal: controller.signal });
+      action = startupAction(r.ok ? await r.json() : null);
+    } catch {
+      action = "enter";   // 后端没起来/超时/垃圾回应 —— 一律进工作区
+    } finally {
+      window.clearTimeout(timer);
+    }
+    if (action === "install") {
+      setStartupPhase("updating");
+      void applyUpdate(true);
+      return;
+    }
+    setStartupPhase("ready");
+    // 进了工作区再去查更新,延迟一会儿,别和启动抢资源。
+    window.setTimeout(() => { checkUpdate(false, false); }, BACKGROUND_FIRST_CHECK_MS);
+  }, [applyUpdate, checkUpdate]);
+
   useEffect(() => {
     const previous = checkedAutoPrefRef.current;
     checkedAutoPrefRef.current = autoCheck;
     if (previous === null) {
-      if (autoCheck) checkUpdate(false, true);
+      if (autoCheck) void probeStartup();
       else setStartupPhase("ready");
       return;
     }
     if (previous !== autoCheck && autoCheck) checkUpdate(false, false);
-  }, [autoCheck, checkUpdate]);
+  }, [autoCheck, checkUpdate, probeStartup]);
 
   useEffect(() => {
     if (applyStateRef.current === "applying") return;

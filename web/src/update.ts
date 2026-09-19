@@ -345,3 +345,31 @@ export function readApplyResponse(
 export function beginApply(state: ApplyState): boolean {
   return state !== "applying";
 }
+
+/** 启动时**只**问这一个接口 —— 它只读盘、不联网(track opendesign-startup-not-blocked-by-update)。
+ *
+ * 🔴 **不许在启动路径上换回 `/api/update/check`。** 那条要联网,实测最坏 20.1 秒,
+ * 而这段时间整个工作区不渲染 —— 业主原话「每次打开都会弹出正在检测更新,这严重拖慢了开软件的速度」。
+ * 判据 sg5 钉死这个常量。
+ */
+export const STARTUP_LOCAL_ENDPOINT = "/api/update/startup";
+
+/** 启动最多等这么久。这是**本地读盘**,毫秒级;留 500ms 是给后端还没起来的那一瞬。
+ *
+ * 🔴 对照:改之前这里是 35000(前端给联网查更新留的余量)。
+ * **把 35000 改小并不是修复** —— 只要启动还在联网,网一慢照样等。判据 sg1 + sg5 一起拦。
+ */
+export const STARTUP_LOCAL_TIMEOUT_MS = 500;
+
+/** 读懂启动接口的回应。**读不懂一律进工作区**,绝不卡住(判据 sg4/sg6)。
+ *
+ * 本项目已有四次"某个前置步骤没按预期返回 ⇒ 界面再也不往下走"的前科。
+ */
+export function startupAction(resp: unknown): "install" | "enter" {
+  try {
+    if (!resp || typeof resp !== "object" || Array.isArray(resp)) return "enter";
+    return (resp as Record<string, unknown>).action === "install" ? "install" : "enter";
+  } catch {
+    return "enter";
+  }
+}
