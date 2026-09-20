@@ -1,4 +1,18 @@
-// 启动更新 e2e（历史文件名保留）：用户 2026-09-17 明确取消倒计时，更新完再进入工作区。
+// 启动更新 e2e（历史文件名保留）。
+//
+// 规格沿革 —— 这份卷子的前提被业主改过两次,都不是我自己改的:
+//   2026-09-17 取消倒计时:查到新版就立即更新,更新完再进工作区。
+//   2026-09-19 取消"启动查更新"(track opendesign-startup-not-blocked-by-update):
+//     业主原话「现在每次打开都会弹出正在检测更新,这严重拖慢了我们开软件的速度啊」
+//     「不应该让用户看到这个界面才对啊,应该是有更新才显示和进度条,没更新就跟平时打开软件一样对不对」。
+//     实测:0.98.7 打开软件干等 20.1 秒(收据 tracks/opendesign-startup-not-blocked-by-update/evidence/)。
+//
+// 🔴 **改这份卷子的规矩**:本次只搬前提、一条断言都没删。
+//    原来由"启动那次查更新"送达的东西(回滚说明、已试过的版本、查不到更新),
+//    现在由**手动/后台查更新**送达 —— 断言原样保留,只换触发点;
+//    而"启动路径上不许联网"这件事反而被钉得更死(AC-A/AC-A0 的 log.checks === 0,
+//    外加单测 sg1/sg5 与 su_net1~3)。
+//    删断言和搬断言的区别在证据方向:搬,要说得出新位置问得出同一件事,且重新红检过。
 import { spawn } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -92,6 +106,10 @@ const LATEST_ALREADY = {
   release_url: null, auto_update: { eligible: false, why_not: "no_update", recent_failure: false },
 };
 const STARTED = { ok: true, stage: "started", error: null, latest: "0.99.0" };
+// 盘上已经备好、校验过的新版(后端 startup_decision 的唯一一条 install 路)。
+const READY = { action: "install", reason: "ready", version: "0.99.0",
+                path: "C:\\Users\\x\\AppData\\Local\\OpenDesign\\pending\\OpenDesign-Setup-0.99.0.exe" };
+const ENTER = { action: "enter", reason: "no_state" };
 // 与 tests/test_update_ui.mjs 的 NO_MORE_AUTO 同一套说法(攻题二 #11:认意思不认字面)。
 const NO_MORE_AUTO = /不会再自动|不再自动|以后只能手动|之后只能手动/;
 const DEFAULT_VIEW = { width: 1280, height: 860 };
@@ -102,9 +120,10 @@ const SMALLEST_VIEW = { width: 960, height: 640 };
  * `(url) => Promise<body>`(用来把某一次请求挂住)。`applyReply` 是 `/api/update/apply` 的回包,
  * `"abort"` ⇒ 请求整个掐断。记下每一次请求的时刻、URL 与 apply 的请求体。
  */
-async function openPage(browser, { checks, applyReply = STARTED, autoCheckOff = false, view = DEFAULT_VIEW }) {
+async function openPage(browser, { checks, applyReply = STARTED, autoCheckOff = false, view = DEFAULT_VIEW,
+                                   startup = { action: "enter", reason: "no_state" } }) {
   const page = await browser.newPage({ viewport: view });
-  const log = { checks: 0, checkUrls: [], applies: [], view };
+  const log = { checks: 0, checkUrls: [], applies: [], startups: 0, view };
   await page.addInitScript(() => {
     window.__workspaceMounted = false;
     new MutationObserver(() => {
@@ -117,6 +136,20 @@ async function openPage(browser, { checks, applyReply = STARTED, autoCheckOff = 
       catch { /* 读不到就读不到,前提检查会抓住 */ }
     });
   }
+  // 🔴 规格变更(track opendesign-startup-not-blocked-by-update):启动**不再查更新**,
+  //    只问这个本地端点"盘上有没有已经下好、校验过的新版"。默认没有 ⇒ 立刻进工作区。
+  //    `startup` 可以是:回包对象 / "500" / "garbage" / "abort" / 函数(收第几次调用,
+  //    用来模拟"装完重启后盘上已经没有待装包了")/ 返回 Promise 的函数(挂住,测上限)。
+  await page.route("**/api/update/startup*", async (route) => {
+    log.startups += 1;
+    const body = typeof startup === "function" ? await startup(log.startups) : startup;
+    if (body === "hang") return;                      // 永不回应
+    if (body === "abort") return route.abort();
+    if (body === "500") return route.fulfill({ status: 500, contentType: "application/json", body: "{}" });
+    if (body === "garbage") return route.fulfill({ status: 200, contentType: "application/json",
+                                                   body: "<这不是 json>" });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+  });
   await page.route("**/api/update/check*", async (route) => {
     const i = log.checks++;
     log.checkUrls.push(route.request().url());
@@ -191,30 +224,41 @@ const deferred = () => {
   return { promise, resolve };
 };
 
+/** 手动查一次更新(启动不再查了,所以想拿到查更新的结果就得自己点)。 */
+async function manualCheck(page, log, expected) {
+  await openSettings(page);
+  await page.locator('.settings-pop button:has-text("检查更新")').click();
+  expect(await until(() => log.checks === expected), `手动检查没有发出(期望第 ${expected} 次)`);
+}
+
+/** 关掉设置弹层 —— 横幅的"真在业主眼前"要在没有弹层遮挡时问。 */
+async function closeSettings(page) {
+  await page.keyboard.press("Escape");
+  // 🔴 `count()` 回的是 Promise —— 不 await 就是拿 Promise 跟数字比,恒假。
+  //    这个洞第一版我自己写进来了,红检里表现成"设置弹层关不掉"这种假发现。
+  expect(await until(async () => (await page.locator(".settings-pop").count()) === 0, 3000), "设置弹层关不掉");
+}
+
 let browser = null;
 try {
   browser = await launchBrowser();
-  await step("AC-A 检查前不进入工作区；发现新版立即更新，成功交棒后等新窗口", async () => {
-    const checked = deferred();
+  await step("AC-A 盘上已备好新版 ⇒ 打开就装(零查更新、无倒计时),交棒后等新窗口", async () => {
     const applied = deferred();
     const { page, log } = await openPage(browser, {
-      checks: [() => checked.promise, LATEST_ALREADY], applyReply: () => applied.promise, view: SMALLEST_VIEW,
+      checks: [LATEST_ALREADY], applyReply: () => applied.promise, view: SMALLEST_VIEW,
+      startup: (n) => (n === 1 ? READY : ENTER),   // 装完重启后,盘上那个包已经用掉了
     });
     try {
-      expect(await until(() => startup(page).isVisible()), "检查更新时应显示启动页");
-      expect(await workspace(page).count() === 0, "检查更新结束前工作区已经出现");
-      checked.resolve(ELIGIBLE);
+      expect(await until(() => startup(page).isVisible()), "正在装备好的新版,却没有启动页");
+      expect(await workspace(page).count() === 0, "还没装完工作区已经出现");
       const fired = await until(() => log.applies.length === 1, 2500);
-      expect(fired, "查到新版后没有立即发起自动更新（仍在等倒计时）");
-      if (fired) {
-        expect(log.applies[0].at - log.checkedAt < 2500, "查到新版后仍有额外等待");
-        expect(isAuto(log.applies[0]), "启动更新必须是自动请求");
-      }
-      expect(await startup(page).isVisible(), "更新进行中没有启动页");
+      expect(fired, "盘上已备好新版却没有立即开始安装");
+      if (fired) expect(isAuto(log.applies[0]), "启动更新必须是自动请求");
+      expect(log.checks === 0, "🔴 启动路径上发生了查更新请求 —— 本单要根除的就是它");
       expect(!await page.evaluate(() => window.__workspaceMounted), "更新完成前工作区曾被挂载");
       expect(await page.locator('[data-ui="auto-update-cancel"]').count() === 0, "启动更新还在显示取消倒计时按钮");
       const text = await startup(page).innerText().catch(() => "");
-      expect(/0\.99\.0/.test(text) && /更新/.test(text), "启动页应显示正在更新的版本");
+      expect(/0\.99\.0/.test(text) && /更新/.test(text), "启动页没说正在更新到哪一版(版本就在启动回包里)");
       expect(!/秒后|倒计时/.test(text), "启动页还在显示倒计时");
       const box = await startup(page).boundingBox();
       expect(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= 960 && box.y + box.height <= 640,
@@ -223,43 +267,57 @@ try {
       await sleep(700);
       expect(await startup(page).isVisible(), "接力程序刚启动就进入了旧版工作区");
       expect(await workspace(page).count() === 0, "更新交棒后提前进入了旧版工作区");
-      expect(log.applies.length === 1 && log.checks === 1, "启动更新被重复触发");
-      // 成功重启后的新页面已经是最新版，可以进入软件。
+      expect(log.applies.length === 1 && log.checks === 0, "启动更新被重复触发");
+      // 成功重启后的新页面:盘上已经没有待装的包 ⇒ 正常进工作区,不再装一遍。
       await page.reload({ waitUntil: "domcontentloaded" });
       expect(await until(() => workspace(page).isVisible()), "更新后重新打开没有进入工作区");
       expect(await startup(page).count() === 0, "新版启动后仍被启动页挡住");
       expect(log.applies.length === 1, "新版重新打开还在自动更新");
     } finally {
-      checked.resolve(ELIGIBLE); applied.resolve(STARTED); await page.close();
+      applied.resolve(STARTED); await page.close();
     }
   });
 
-  await step("AC-B 没有新版、断网或不可自动更新时正常进入软件", async () => {
-    for (const info of [LATEST_ALREADY, "abort", null, { ...LATEST_ALREADY, error: "网络不可用" },
-      { ...ELIGIBLE, auto_update: { eligible: false, why_not: "no_shell" } },
-      { ...ELIGIBLE, asset: null }]) {
-      const { page, log } = await openPage(browser, { checks: [info] });
-      expect(await until(() => workspace(page).isVisible()), `未更新时没有进入工作区: ${JSON.stringify(info)}`);
-      expect(await startup(page).count() === 0, "无需更新却卡在启动页");
-      expect(log.applies.length === 0, "没有可自动安装的版本却发起了更新");
+  await step("AC-A0 盘上没有备好的新版 ⇒ 打开软件一次网都不联,直接进工作区", async () => {
+    // 🔴 业主投诉的就是这一条:线上**确实有**新版(ELIGIBLE),启动也不许去查。
+    const { page, log } = await openPage(browser, { checks: [ELIGIBLE] });
+    expect(await until(() => workspace(page).isVisible()), "没有待装的包却没能进工作区");
+    expect(await startup(page).count() === 0, "没有东西要装,却还被启动页挡着");
+    expect(log.startups === 1, "启动没有问本地状态接口");
+    expect(log.checks === 0, "🔴 启动路径上又去查更新了 —— 这正是「每次打开都弹正在检测更新」");
+    expect(log.applies.length === 0, "没有备好的包却发起了安装");
+    await page.close();
+  });
+
+  await step("AC-B 启动接口回什么坏东西都要能进软件", async () => {
+    for (const s of [ENTER, "500", "garbage", "abort", null, {}, [], { action: "INSTALL" }, { reason: "ready" }]) {
+      const { page, log } = await openPage(browser, { checks: [LATEST_ALREADY], startup: s });
+      const what = JSON.stringify(s);
+      expect(await until(() => workspace(page).isVisible()), `启动接口回 ${what} 时没能进工作区`);
+      expect(await startup(page).count() === 0, `启动接口回 ${what} 时卡在启动页`);
+      expect(log.applies.length === 0, `启动接口回 ${what} 时发起了安装`);
       await page.close();
     }
   });
 
-  await step("AC-C 已自动试过的版本不再自动更新，手动出口仍可用", async () => {
+  await step("AC-C 已自动试过的版本不再自动更新,手动出口仍可用", async () => {
     const { page, log } = await openPage(browser, { checks: [TRIED] });
-    await openSettings(page);
-    expect(log.applies.length === 0, "已尝试的版本又发起自动更新");
+    await manualCheck(page, log, 1);
+    expect(await until(async () => (await page.locator('[data-ui="auto-update-why-not"]').count()) === 1),
+      "查到已试过的版本,却没有解释可以手动更新");
     expect(/手动/.test(await page.locator('[data-ui="auto-update-why-not"]').innerText()), "没有解释可手动更新");
+    expect(log.applies.length === 0, "已尝试的版本又发起自动更新");
     await page.locator('[data-ui="update-apply"]').click();
     expect(await until(() => log.applies.length === 1), "手动更新没有发出请求");
     expect(!isAuto(log.applies[0]), "手动更新被错误标记为自动");
     await page.close();
   });
 
-  await step("AC-C2 回滚后进入旧版并显示失败说明，不再次更新", async () => {
+  await step("AC-C2 上次自动更新失败回滚 ⇒ 进旧版并给出可见说明,不再自动重试", async () => {
     const { page, log } = await openPage(browser, { checks: [JUST_FAILED] });
     expect(await until(() => workspace(page).isVisible()), "回滚后不能进入旧版");
+    await manualCheck(page, log, 1);     // 说明改由查更新送达:启动已经不查了
+    await closeSettings(page);
     expect(await until(() => bannerOnScreen(page, log.view)), "回滚后缺少可见的失败说明");
     const text = await bannerText(page);
     expect(text.includes("0.99.0") && NO_MORE_AUTO.test(text), "回滚提示没说明版本及不再自动重试");
@@ -269,11 +327,12 @@ try {
     await page.close();
   });
 
-  await step("AC-D 更新失败后进入旧版，提示原因，结果未知时不虚称不会再试", async () => {
+  await step("AC-D 启动安装失败 ⇒ 进旧版、提示原因,结果未知时不虚称不会再试", async () => {
     for (const reply of [{ ok: false, stage: "download", error: "HTTP 502" }, "abort",
       { ok: false, stage: "auto_unrecorded", error: "write failed" }]) {
-      const { page, log } = await openPage(browser, { checks: [ELIGIBLE], applyReply: reply });
-      expect(await until(() => log.applies.length === 1, 2500), "启动更新没有立即发起");
+      const { page, log } = await openPage(browser, { checks: [LATEST_ALREADY], applyReply: reply,
+        startup: (n) => (n === 1 ? READY : ENTER) });
+      expect(await until(() => log.applies.length === 1, 2500), "备好的新版没有在启动时开始安装");
       expect(await until(() => workspace(page).isVisible()), "更新失败后仍挡住工作区");
       expect(await until(() => bannerOnScreen(page, log.view)), "更新失败没有可见的提示");
       const text = await bannerText(page);
@@ -287,6 +346,7 @@ try {
       });
       await sleep(500);
       expect(log.applies.length === 1, "更新失败后自动重复请求");
+      expect(log.checks === 0, "装失败之后又在启动路径上查更新");
       await page.locator('[data-ui="auto-update-dismiss"]').click();
       expect(await banner(page).count() === 0, "失败提示不能关闭");
       await page.close();
@@ -294,20 +354,19 @@ try {
   });
 
   await step("AC-E 使用中手动检查发现新版不会打断工作", async () => {
-    const { page, log } = await openPage(browser, { checks: [LATEST_ALREADY, ELIGIBLE] });
-    await openSettings(page);
-    await page.locator('.settings-pop button:has-text("检查更新")').click();
-    check(await until(() => log.checks === 2), "手动检查未发出");
+    const { page, log } = await openPage(browser, { checks: [ELIGIBLE] });
+    await manualCheck(page, log, 1);
     await sleep(700);
     expect(log.applies.length === 0, "手动检查之后自己发了更新请求");
     expect(await workspace(page).isVisible(), "手动检查打断了工作区");
     await page.close();
   });
 
-  await step("AC-F 关闭自动检查可进入软件，中途开启只查不装", async () => {
+  await step("AC-F 关闭自动检查可进入软件,中途开启只查不装", async () => {
     const { page, log } = await openPage(browser, { checks: [ELIGIBLE], autoCheckOff: true });
     await openSettings(page);
     expect(log.checks === 0, "关闭自动检查后启动仍查更新");
+    expect(log.startups === 0, "关闭自动检查后启动仍去问了更新状态");
     await page.locator('.settings-pop button:has-text("打开时自动检查")').click();
     check(await until(() => log.checks === 1), "中途开启没有检查更新");
     await sleep(700);
@@ -316,29 +375,39 @@ try {
     await page.close();
   });
 
-  await step("AC-G 检查无响应时有界进入旧版，迟到的新版结果不打断工作", async () => {
-    const checked = deferred();
-    const { page, log } = await openPage(browser, { checks: [() => checked.promise] });
+  await step("AC-G 启动接口挂住 ⇒ 有界进入工作区,迟到的回包不打断工作", async () => {
+    // 原来这条问的是"查更新无响应时 35 秒内要放人进来";现在启动根本不联网,
+    // 同一件事改问本地读的上限(500ms 量级),**更严**。
+    const answered = deferred();
+    const { page, log } = await openPage(browser, { checks: [LATEST_ALREADY], startup: () => answered.promise });
     try {
-      expect(await until(() => startup(page).isVisible()), "等待检查时缺少启动页");
-      expect(await workspace(page).count() === 0, "检查未结束就提前开放工作区");
-      expect(await until(() => workspace(page).isVisible(), 40000), "检查一直无响应时无法进入旧版");
-      checked.resolve(ELIGIBLE);
+      expect(await until(() => workspace(page).isVisible(), 8000),
+        "启动接口一直不回,软件就再也打不开了(上限该是几百毫秒量级)");
+      expect(await startup(page).count() === 0, "启动接口不回时卡在启动页");
+      answered.resolve(READY);
       await sleep(700);
-      expect(log.applies.length === 0, "检查超时后迟到的回包触发了更新");
-      await openSettings(page);
-      expect(/查不到更新/.test(await page.locator('.settings-pop').innerText()), "检查超时却没有保留失败状态");
+      expect(log.applies.length === 0, "迟到的启动回包触发了安装,打断了正在用软件的人");
+      expect(log.checks === 0, "启动路径上查更新了");
     } finally {
-      checked.resolve(ELIGIBLE);
-      await page.close();
+      answered.resolve(ENTER); await page.close();
     }
   });
 
-  await step("AC-H 自动失败后手动更新可重试，且不会再次触发自动请求", async () => {
+  await step("AC-G2 手动查更新失败 ⇒ 设置里留下失败状态,不装聋", async () => {
+    const { page, log } = await openPage(browser, { checks: ["abort"] });
+    expect(await until(() => workspace(page).isVisible()), "没能进工作区");
+    await manualCheck(page, log, 1);
+    expect(await until(async () => /查不到更新/.test(await page.locator('.settings-pop').innerText())),
+      "查更新失败却没有保留失败状态");
+    await page.close();
+  });
+
+  await step("AC-H 启动安装失败后手动更新可重试,且不会再次触发自动请求", async () => {
     const { page, log } = await openPage(browser, { checks: [ELIGIBLE],
-      applyReply: { ok: false, stage: "download", error: "unavailable" } });
-    await openSettings(page);
-    check(log.applies.length === 1, "前提：自动更新已经失败");
+      applyReply: { ok: false, stage: "download", error: "unavailable" },
+      startup: (n) => (n === 1 ? READY : ENTER) });
+    expect(await until(() => log.applies.length === 1, 2500), "前提:启动安装已经失败");
+    await manualCheck(page, log, 1);
     await page.locator('[data-ui="update-apply"]').click();
     expect(await until(() => log.applies.length === 2), "自动失败后手动更新没有发出");
     expect(!isAuto(log.applies[1]), "失败后手动更新被标为自动");

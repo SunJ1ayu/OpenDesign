@@ -64,3 +64,25 @@ test("sg7 后台备货的端点和启动那个必须是两个,别混成一个", 
   assert.equal(STARTUP_PREPARE_ENDPOINT, "/api/update/prepare");
   assert.notEqual(STARTUP_PREPARE_ENDPOINT, STARTUP_LOCAL_ENDPOINT);
 });
+
+test("sg8 启动回包里的版本号要能读出来,读不出一律 null", () => {
+  // 为什么需要它:启动路径上**不查更新**,所以 updateInfo 是 null ——
+  // "正在更新到 0.99.0" 这句话的版本只能来自启动回包本身(后端 startup_decision 带了 version)。
+  // 读不出来就显示"新版本",绝不许因此抛或者卡住。
+  const startupVersion = (...a) => {
+    if (typeof U.startupVersion !== "function") {
+      throw new Error("update.ts 还没有导出 startupVersion —— 判据先行,此刻应当红");
+    }
+    return U.startupVersion(...a);
+  };
+  assert.equal(startupVersion({ action: "install", reason: "ready", version: "0.99.0" }), "0.99.0");
+  // 不是在装的,就没有"正在更新到"这回事
+  assert.equal(startupVersion({ action: "enter", reason: "no_state", version: "0.99.0" }), null);
+  for (const junk of [null, undefined, {}, [], 42, true, "0.99.0",
+                      { action: "install" }, { action: "install", version: 42 },
+                      { action: "install", version: "" }]) {
+    assert.equal(startupVersion(junk), null, String(JSON.stringify(junk)));
+  }
+  assert.doesNotThrow(() => startupVersion({ action: "install", get version() { throw new Error("炸"); } }));
+  assert.equal(startupVersion({ action: "install", get version() { throw new Error("炸"); } }), null);
+});
