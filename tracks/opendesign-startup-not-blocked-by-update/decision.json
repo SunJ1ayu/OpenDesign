@@ -23,6 +23,6 @@
     "model": "claude-opus-5"
   },
   "outcome": {
-    "verdict": null
+    "verdict": "PASS"
   }
 }

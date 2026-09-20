@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-startup-not-blocked-by-update",
+  "run_id": "20260920T092934Z-01-r4b-archive-preflight",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "r4b-archive-preflight",
+  "started_at": "2026-09-20T09:29:34Z",
+  "finished_at": "2026-09-20T09:29:36Z",
+  "duration_ms": 1584,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

@@ -105,7 +105,7 @@ escalation=conflict    selected-count=3(PASS/BLOCK 冲突 ⇒ 自动追加第三
 | 2 | 实质(复审修复清单) | **收据丢失**(见下注) | panel-startup-not-blocked-r2-20260920-1238 | 1 条 HIGH(两腿独立命中)+ 1 条 MEDIUM + 3 条 LOW |
 | 3 | 实质(**追加**,超出开工预算) | **读数又丢了**(见下注②) | panel-startup-not-blocked-r3-20260920-1345 | 1 条 HIGH(**本单引入的回归**)+ 1 条 MEDIUM + 2 条 LOW |
 | 4 | **基础设施失败,不算实质轮** | BLOCK=1 PENDING=2(rc=1,**已落盘**) | panel-startup-not-blocked-r4-20260920-1646 | — (只有 1 条腿给出裁决,拿不到合格覆盖) |
-| 4b | 实质(**追加,本单最后一次派发**) | 待填 | 待填 | 待填 |
+| 4b | 实质(**追加,本单最后一次派发**) | **没为它单独跑**(见注③);派发前 `track-record validate --phase dispatch` = `status=valid` | panel-startup-not-blocked-r4b-20260920-1720 | **0 条阻断**(5 条 LOW,全部核实成立、全部延期) |
 
 预算:2 轮实质评审(默认值,开工未另写)。**第 3 轮是追加**,理由与新预算写在下面「追加第 3 轮」。
 
@@ -120,6 +120,12 @@ escalation=conflict    selected-count=3(PASS/BLOCK 冲突 ⇒ 自动追加第三
   这一轮是**没落盘**丢的 —— 上一轮我把它记成"工艺欠账"却没当场修,于是同一笔账吃了两次。
   **不补跑冒充**(事后跑的 preflight 问的是"现在")。⇒ 从第 4 轮起,preflight 与控制器
   stdout 一律 `tee` 进 `evidence/`,收据行进这份文件。这是本单收尾要还的第一笔账。
+
+- 🔴 **注③:第 4b 轮派发前没有为它单独跑 `track preflight`,如实记账。** 第 4 轮那份
+  (`evidence/20260920T084048Z-01-r4-preflight.txt`,16:40)与 4b 派发(17:14)之间只隔一个
+  commit(`7eeef79`,内容是 r4 的花名册与记账),产品文件一个字没动;派发前跑的是
+  `track-record validate --phase dispatch`(`status=valid`,收据在 `.dispatch.log` 第一行)。
+  **不事后补跑一份冒充"派发前"** —— 那正是注①注②两次栽的地方。归档前的那一份另记(在下面)。
 
 - GLM / Kimi / Gemini / Grok 四条腿本轮显式 off:额度用光 / 周限额 / 地区被拒(连败 6 轮已判死)/ 连败 2 轮。
   健康池实际只剩 xiaomi 与 xai 两个家族,冲突后追加的 deepseek 是第三个。
@@ -384,6 +390,99 @@ submimo=PASS(verdict=PASS) subdeepseek=SKIP(rotation) subglm=SKIP(health:dead:au
 **不作为覆盖、也不作为"已被审过"的依据** —— 它是三轮三次孤票 PASS、且三次都被证明看漏了的那一家,
 何况这一趟它读到的树是脏的。它报的 Q1~Q6 我会在下一趟的报告到齐后一并核。
 
+## 第 4b 轮(重派,**本单最后一次派发**):两腿都 PASS,5 条 LOW
+
+### 腿的花名册(机器打印,不手写)
+
+```
+# panel-review 花名册(2026-09-20 17:26:17)task=opendesign-startup-r4b-task
+# impact-risk=high requested-budget=2 selected-count=2  escalation=none
+# snapshot=head:7eeef79
+submimo=PASS(verdict=PASS) subdeepseek=SKIP(rotation) subglm=SKIP(health:dead:auth:3) subkimi=SKIP(health:cooldown:rate_limit) subgemini=SKIP(health:dead:FAIL:6) subgrok=SKIP(health:dead:FAIL:3) subcursor=PASS(verdict=PASS)
+```
+
+机械覆盖**合格**:同一次 panel(`run_id=20260920-171426-1966509-panel-review`)、同一 subject
+digest(`sha256:e920dfc4…`)、同一 delivery digest(`sha256:42853335…`)、同一 task 哈希;
+两条腿 `rc=0`、`degraded=false`、`evidence.completeness=complete`、树干净
+(`index_tree_oid == worktree_tree_oid == b9def4c8`);家族 **xiaomi + xai** = high 要的 2 个不同家族。
+
+🔴 **但覆盖合格不等于覆盖有力,这一点我不粉饰**:这两家**正是前三轮已经看过这条链的两家**。
+第 4 轮想换的 moonshot(周额度用光)与 xai-grok CLI(未登录)都死在基础设施上 ⇒
+**这一轮没有一双新眼睛**。所以我不拿"两票 PASS"抬置信度 —— 本单的经验频率是
+**submimo 三轮三次孤票 PASS、三次都被证明看漏**。这一轮真正有信息量的是 subcursor
+那 5 条 LOW 和它对**我的探针**的那条纠正,不是它最后那个 PASS。
+
+### findings 处置表(第 4b 轮)
+
+| # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
+|---|---|---|---|---|
+| 24 | **LOW(subcursor)** apply 侧作废备货仍硬编码 `why_not == "attempted"`,而 prepare 侧用的是 `PERMANENT_BLOCKERS`;那段注释还写着 `no_shell / disabled / path_unsupported / asset / error` 都是**临时**条件 —— F4 之后这句话是假的(`path_unsupported` 已经是永久) | **成立**。我读了 `bin/ds_web.py:1198-1212` 与 `bin/ds_auto_update.py:100`:永久集含 `attempted / not_installed / path_unsupported`,apply 侧只认第一条,注释与之直接矛盾 | **延期**(后续单第一条) | 机械上是 dormant:startup 端点现在先问 `why_not_auto`,这两种永久否决下根本走不到 apply(el10/el12 钉住),业主遇不到。但**形状正是本单三轮反复栽的那一个**(同一个问题两处各答一遍),而且"注释不许说谎"是本单自己立的规矩 ⇒ 必须修,只是不在最后一轮动交付面 |
+| 25 | **LOW(subcursor)** `prepare_update(..., paths=None)` 仍会回退成"只问账本那一维" —— F3 那个「可选参数 = 忘传就静默失效」的形状,我在 `startup_decision` 上删掉了,在这个函数上还留着 | **成立**。`bin/ds_update_startup.py:267-272`;生产唯一调用点 `bin/ds_web.py:1357` **一定**传 `paths`,且端点自己还有一道早闸(`:1339`)⇒ 生产无洞。漏的是**判据**:pr 卷那些调用不传 `paths`,因此测不到机器那一维 | **延期**(同一张单) | 改它要动既有 pr 判据的夹具(重写一批调用),不是最后一轮该做的事;腿自己也点明 E2 变异"两层闸一起拆才红"是纵深、不是摆样子 |
+| 26 | **LOW(subcursor)** `bin/ds_web.py:911` 注释里的函数名 `machine_blocker` 已经不存在(第 3 轮改名成 `why_not_auto`) | **成立,且比它报的多一处**:我扫了全仓(`grep -rn machine_blocker`),代码里还有 `bin/ds_web.py:1342` 同样写着旧名字;verify.md 里那处是历史记述,正确 | **延期**(同一张单) | 「修一处先扫同类」这次兑现在我这一侧:腿报 1 处,我扫出 2 处 |
+| 27 | **LOW(subcursor,打的是我自己的探针)** `b8-probe.py:36` 用 `range(base, base+5)` = 5 个槽,而 `InstanceLock._ports` 是 `range(base, base+span+1)`、`span=5` ⇒ **6 个槽**;落在 `base+5` 的"上几轮赢家"不会被我的残留统计看见 | **成立**。读 `bin/ds_shell_core.py:441-442` 与 `tracks/<t>/b8-probe.py:36`,差一个槽是实打实的 | **延期**(并进 b8 那张待开单) | 它削弱的是「残留不是原因」这一侧的排除力(我那句"25 轮 0 异常"要打个折),**但不动摇** b8「本单造不出它」的机械论证:本单全部代码没有任何 bind/listen,`DS_SHELL_LOCK_PORT` 在夹具里是写死的字符串常量 —— 这一条两条腿各自独立复核过 |
+| 28 | **LOW(subcursor)** 变异集缺一个:没有"**只**把 `error` 加进 `PERMANENT_BLOCKERS`"的变异 | **成立**。`mutants-eligibility.py` 的 E8 加的是 `no_shell` + `disabled` | **延期** | E8 已经钉住"临时当永久"这一整类,缺的是同类里的一个成员;把它塞进最后一轮改判据的风险 > 收益 |
+
+**没有 HIGH,没有 MEDIUM。** 六条重点里三条是我自己不确定的(第五个决策点 / 启动路径又被我挡住 /
+`not_installed` 划永久),两腿**各自独立**给了同向的否定答案,且都给了可追的位置,不是"看起来没问题"。
+
+### 这一轮我自己抓到的(腿没报,记账)
+
+🔴 **`disabled` 不是业主的开关 —— 这话我在三处说错了,而且是我自己写进第 3 轮理由里的。**
+
+- 事实:`OPENDESIGN_AUTO_UPDATE` 是**判据用的旋钮**,`tracks/archive/opendesign-auto-update-countdown/design.md:60,143`
+  白纸黑字写着"只给判据用,不是业主设置"「业主机器上没人设它」。
+- 业主界面上的那个开关是前端的 `update.autoCheck`(localStorage,`web/src/update.ts:84`、
+  `web/src/App.tsx:120-121`)。关掉它之后 `probeStartup` **根本不跑**(`App.tsx:423`),
+  60 秒那趟后台备货也不会被排上(它排在 `probeStartup` 的 ready 分支里,`App.tsx:383-416`)
+  ⇒ **不会"照样弹、照样下 46MB"**。
+- 我错在哪:`bin/ds_auto_update.py:68`、`bin/ds_web.py:1336-1339` 两处注释,以及我写给
+  第 4 轮腿的任务书前情,都把这个测试旋钮说成"业主关掉自动更新的开关"。
+- 影响:**产品行为没错**(两条路各自都对,`disabled` 该拒也拒了)。错的是我给 F1 写的
+  **严重性描述** —— 我把一条只影响判据的维度,说成了"业主会亲眼看见的病"。
+  F1 本身仍然成立:`no_shell` / `not_installed` / `path_unsupported` 这三种**真实**机器条件,
+  改之前确实只在 apply 被问。
+- 处置:**延期**,并进 #26 那张注释单(注释说谎是本单自己立的规矩,得一起修干净)。
+
+> 记在这里的理由:这是本单**第四次**"我自己的规格/描述先错"(前三次:第 1 轮数据根、
+> 第 2 轮"备货已清所以下次正常"、第 3 轮"资格收成一处"其实只收了一半)。
+> 四次里有三次是外部腿或我自己的探针先抓到的,**没有一次是"我又读了一遍代码"读出来的**。
+
+### 归档前的机械检查(第 4b 轮)
+
+```
+runlog: r4b-archive-preflight rc=1 commit=7eeef79 dirty=yes at=2026-09-20T09:29:34Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T092934Z-01-r4b-archive-preflight.txt
+```
+
+🔴 **这一份 rc=1(BLOCK=2)。我贴出来,并且说得出它为什么不算数 —— 靠复现,不靠解释。**
+两条 BLOCK 都是 **`runlog` 自己制造的**,不是交付内容出了问题:
+
+- `runlog` 用 noclobber **先占位**建好收据文件并写入头部,**跑完命令才追加那行 `runlog: …`**
+  (`/root/aiwork/bin/runlog:138-166`);
+- 而交付投影跳过收据要**同时**满足两条:以 `# runlog receipt ` 开头 **且** 含一行 `runlog: `
+  (`/root/aiwork/bin/_review_delivery.py:85-88`)。跑命令的那一刻只满足第一条 ⇒ 这份**半写**收据
+  被当成普通内容计进交付 ⇒ working 的 delivery digest 变了 ⇒ 评审绑定判 BLOCK,
+  `views` 也跟着判 working≠staged。
+
+**复现(我量的,不是推的)**:
+
+| 树的状态 | working delivery digest |
+|---|---|
+| 半写收据(只有头)在树上 | `sha256:4c526532…` ⇒ 与腿绑定的对不上 |
+| 给**同一份**收据补上 `runlog: ` 行 | `sha256:42853335…` ⇒ **与两条腿绑定的完全一致** |
+| 删掉探针文件 | `sha256:42853335…` |
+
+并且**不经 runlog** 直接跑 `track preflight`:`decision: OK`
+(`status=preflight-clear phase=preflight verdict=PASS`)、`views: OK(同一份交付内容)`,
+只剩 5b 那条 PENDING —— 它要求的正是"把这份红收据引用出来并认账",也就是现在这一段。
+
+⇒ **工艺账(归 aiwork 仓,不在本单动工具)**:用 `runlog` 包任何会读 working 交付视图的检查
+(`track preflight` / `track-record validate --phase dispatch`),**必然自判两条假 BLOCK**。
+两个修法方向:① 投影把"有头、还没有收据行"的半写收据也按收据跳过(那一刻它显然是本次 runlog 自己的);
+② runlog 把占位文件建在仓外,跑完再落盘。**先记账**,第 4b 轮之后不再动工具面。
+
+> 这条也是第 4 轮那份 `r4-preflight rc=1` 的真因。当时我把它记成"preflight 自己刚写的收据
+> 还没 `git add`"——那只解释了 `views` 那一半,`decision` 那条我没看穿机制就放过去了。
+
 ## Accepted deviations
 
 - **「60 秒后后台那一趟点火时重新问一次开关」没有自动判据。** 那 60 秒的延迟让 e2e 问不出它,
@@ -393,16 +492,48 @@ submimo=PASS(verdict=PASS) subdeepseek=SKIP(rotation) subglm=SKIP(health:dead:au
 
 ## 试行记录(review-convergence 试行)
 
-- 总交付历时:2026-09-19 22:27(开工 commit)→ 待填(归档 commit)
+- 总交付历时:2026-09-19 22:27(开工 commit)→ 2026-09-20 17:5x(归档 commit),约 19.5 小时(含一次断线接手与一次整轮重派)
 - 每轮新增有效阻断:第 1 轮 3 HIGH + 3 MEDIUM(另 2 条驳回、2 条延期);
-  第 2 轮 1 HIGH + 1 MEDIUM + 3 LOW(**其中 HIGH 正是第 1 轮第 10 条我判"延期"的那一条的第二步**)
+  第 2 轮 1 HIGH + 1 MEDIUM + 3 LOW(**其中 HIGH 正是第 1 轮第 10 条我判"延期"的那一条的第二步**);
+  第 3 轮 1 HIGH(**本单引入的回归,打的是我第 2 轮那次"改抽象"本身**)+ 1 MEDIUM + 2 LOW;
+  第 4 轮 —— 基础设施失败,无裁决;第 4b 轮 **0 条阻断 + 5 条 LOW**(全部核实成立、全部延期)。
+  **曲线是收敛的**:HIGH 3 → 1 → 1 → 0,而且最后一轮的 5 条 LOW 里有 2 条打的是
+  文档/探针而不是产品代码。
 - 🔴 **第 2 轮最值钱的一条不是腿发现了新 bug,是它推翻了我上一轮的定性**:
   我写"备货已清 ⇒ 下一次打开一切正常"时只验了一步。这与 09-19 那单
   (我自己六条判据全绿而改动是坏的)是同一种失败:**我写的规格与我写的绿,互相证明不了对方。**
-- 基础设施等待:0 次重试(三条腿一次成功;冲突追加第三腿是协议内的升级,不是重试)
-- 交付后返工:待填
+- 基础设施等待:**1 次整轮重派**(第 4 轮:subkimi 周额度 403 + subgrok 未登录 ⇒ 只剩 1 条腿,
+  机械上拿不到 high 的两家族覆盖;记为基础设施重试,不计入轮次预算)。
+  前三轮 0 次重试(冲突追加第三腿是协议内升级,不是重试)。
+- 交付后返工:待填(业主真机之后)
+- 🔴 **这一单最贵的一条**:连续两轮我都在**同一个问题**上判错 ——「这个问题该在哪一处答」。
+  第 2 轮我把资格"收成一处"、实际只收了账本那一维;第 3 轮的 HIGH 打的就是那次重做本身。
+  补丁打在末端、判据钉在旧的决策点,症状就原样回来(E8 那个漏网变异是同一个病的第三次现形,
+  只不过那次是我自己的红检先抓到的)。
 
 ## arbitrated verdict(主裁)
+
+**最终主裁:PASS**(2026-09-20 17:3x,第 4b 轮读完两份报告并逐条核实之后)。
+
+- **机械门**:同一次 panel、同一 subject digest 下 2 条 coverage-eligible 腿、
+  2 个不同家族(xiaomi / xai)、都 `rc=0` `degraded=false` `evidence=complete`、树干净
+  ⇒ high 要的 0/1/2 预算里的 2 满足(花名册与 observation 收据在上面)。
+- **我自己那一遍**(先过一遍再读腿的结论):四个决策点 —— `prepare` 早闸(`ds_web.py:1339`)、
+  `prepare_update`(`ds_update_startup.py:268`)、`startup`(`ds_web.py:1394`)、
+  `apply`(`ds_web.py:912` via `_auto_update_status`)—— 我**逐处读了原文**,确认都只问
+  `why_not_auto`;前端没有第五处(`shouldAutoUpdate` 全仓只剩判据在调,`autoCheck` 问的是
+  另一个问题:要不要走这条流程);启动路径新增的读盘有 **500ms 硬上界**
+  (`STARTUP_LOCAL_TIMEOUT_MS`,超时一律进工作区),`update_preflight_problem` 我读完全文
+  = 2 次 `isfile` + 纯字符串检查(+Windows 一次 `GetOEMCP`),**无网络、无子进程、不算哈希**。
+- 🔴 **PASS 的依据不是"两票"**,是上面这一遍核实 + `mutants-eligibility.py` 的 **9/9 反向证据**
+  (把新设计逐处改坏,判据会点名叫红)。本单三轮的教训正相反:全票不是护身符,
+  submimo 三次孤票 PASS 三次都被证明看漏。
+- **5 条 LOW 全部延期**,没有一条落在业主走得到的路径上;后续单的内容已经写死在上面的处置表里
+  (注释/命名漂移 3 处、`prepare_update` 可选参数接缝、b8 取证 + 探针槽位、变异缺口)。
+- **本单的承诺是否兑现**:启动路径不再联网查更新(sg1/sg5 钉死)、没有可装的新版就直接进工作区、
+  只有盘上已下好且校验得过的新版才显示进度条。业主原话那件事(「每次打开都弹正在检测更新」)
+  在代码面已经不成立。**欠的只剩真机回显** —— 这一条按本机规矩不算做完(见下面「交付状态」)。
+
 
 **第 2 轮主裁:BLOCK**(2026-09-20 13:0x,断线后接手判)。
 submimo=PASS / subcursor=BLOCK / subdeepseek=BLOCK。两条 BLOCK 来自**两个不同家族**

@@ -1,0 +1,27 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    r4b-archive-preflight
+cmd:     /root/aiwork/bin/track preflight opendesign-startup-not-blocked-by-update
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  7eeef79
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-20T09:29:34Z
+---------------- 输出开始 ----------------
+track preflight: opendesign-startup-not-blocked-by-update (/root/.openclaw/workspace/projects/design-studio) —— 只读预检,不改任何东西
+  BLOCK   decision: typed 事实不合法,归档一定拒
+      | track-record: rule=observation.review_delivery path=observations[].actual.legs[].subject.delivery actual={"target":"sha256:f7c2a4227c67bc0af0932da1e517ff9ec1797c6a344f96a911a3a7f6d3815757","view":"working"} expected="qualifying same-run review bound to this delivery; rerun panel-review after content changes" verdict=BLOCK
+  BLOCK   views: working 与 staged 不是同一份内容:git add / 删掉 / ignore 这些(不需要重审)
+      | tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T092934Z-01-r4b-archive-preflight.txt
+  OK      verify: 在
+  OK      receipts: 收据引用齐
+  OK      ephemeral: 没有会话临时目录引用
+  OK      destination: 归档目标空着
+  OK      worktrees: 归档时不会挡
+      | worktree-sweep: /root/aiwork/worktrees
+      |   不属于本轮,只点名不触碰:
+      |     /root/aiwork/worktrees/keyonb-baseline
+      |     /root/aiwork/worktrees/opendesign-data-outside-install
+      |     /root/aiwork/worktrees/opendesign-windows-installer
+track preflight: BLOCK=2 PENDING=0 ERROR=0 OK=5 ⇒ rc=1
+  通过 ≠ 可归档:预检不留任何标记,归档时全部检查照样重跑。
+---------------- 输出结束 ----------------
+runlog: r4b-archive-preflight rc=1 commit=7eeef79 dirty=yes at=2026-09-20T09:29:34Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T092934Z-01-r4b-archive-preflight.txt
