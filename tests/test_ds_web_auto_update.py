@@ -31,6 +31,8 @@ import _tmpreg   # noqa: E402
 import ds_update  # noqa: E402
 import ds_web     # noqa: E402
 import ds_update_apply  # noqa: E402
+import ds_update_startup  # noqa: E402
+import hashlib  # noqa: E402
 
 FIXTURE = os.path.join(ROOT, "tests", "fixtures", "update",
                        "github-releases-20260907.json")
@@ -181,6 +183,51 @@ class AutoUpdate(unittest.TestCase):
             httpd.shutdown()
             httpd.server_close()
 
+    def _auto_apply(self, port):
+        """发一次"打开软件时的自动安装"请求。
+
+        🔴 **前提变更(2026-09-19,track opendesign-startup-not-blocked-by-update)**:
+        业主把规格改了 ——「不应该让用户看到这个界面…没更新就跟平时打开软件一样」。
+        自动安装装的因此是**盘上已经下好、校验过的那个包**(后台备货),
+        不再是"打开软件那一刻查到的新版"(那条路要联网,实测最坏干等 20.1 秒)。
+
+        所以发请求之前得先把备货摆上。**下面每一条断言一个字都没改**:
+        它们问的是记账与防循环(动手前先记账 / 账不被缓存吞掉 / 试过的版本不再自动试),
+        问的从来不是"谁触发的" —— 触发点换了,这些账照样必须成立。
+        摆备货对旧实现是**无害的多余动作**(旧实现根本不读它),
+        所以这次改动没有放松任何一条:见 verify.md 里"旧实现照样全绿"的收据。
+        """
+        self._stock_latest()
+        return _post(port, "/api/update/apply", AUTO)
+
+    def _stock_latest(self):
+        """把此刻 self.releases 里的最新版摆成"后台已经下好"的样子(离线,不打网)。"""
+        info = ds_update.check_for_update(ds_web.VERSION)
+        # 🔴 门槛用**产品自己**那套(_asset_facts):缺 digest / 缺地址 / 大小不对的资产,
+        #    后台备货本来就不会下 ⇒ 判据也不许替它摆上,否则 au12a 那种"资产被拒"的
+        #    场景会被夹具偷偷救活。
+        facts = ds_update_startup._asset_facts(info)
+        if facts is None:
+            return None
+        version, asset = facts["version"], {"name": facts["name"], "url": facts["url"]}
+        payload = ("pretend installer for %s" % version).encode("utf-8")
+        d = os.path.join(self.data_root, "Logs", "pending")
+        path = os.path.join(d, asset["name"])
+        try:
+            os.makedirs(d, exist_ok=True)
+            with open(path, "wb") as fh:
+                fh.write(payload)
+        except OSError:
+            return None        # 备不上货就别摆:让请求照它自己的路子被拒,别掩盖真实死法
+        ds_update_startup.write_state(
+            ds_update_startup.state_path(self.data_root),
+            {"schema": 1, "phase": "ready", "version": version,
+             "asset": {"name": asset["name"], "size": len(payload),
+                       "sha256": hashlib.sha256(payload).hexdigest(),
+                       "url": asset.get("url") or "https://example.invalid/setup.exe"},
+             "path": path, "updated_at": time.time()})
+        return path
+
     def _auto(self, port):
         st, body = _get(port, "/api/update/check")
         self.assertEqual(st, 200, "查更新不是 200:%r" % (body,))
@@ -240,7 +287,7 @@ class AutoUpdate(unittest.TestCase):
     def test_au2f_attempted(self):
         self.apply_ok = False   # 准备失败 ⇒ 锁放开(t35:接力脚本起来之后锁不放,第二次会是 busy)
         with self._serve() as port:
-            _post(port, "/api/update/apply", AUTO)
+            self._auto_apply(port)
             ds_update.cache_clear()
             self._assert_not(self._auto(port), "attempted")
 
@@ -252,7 +299,7 @@ class AutoUpdate(unittest.TestCase):
         替身 apply_update 里向同一个服务发一次查更新(10 秒超时)。这也顺带钉住:**查更新不许等更新锁**
         —— 真实更新要下载几十 MB,等锁的查更新会在那几分钟里一直挂着(攻题二 #7 我核后判为规格要求,不是判据误红)。"""
         with self._serve() as port:
-            st, body = _post(port, "/api/update/apply", AUTO)
+            st, body = self._auto_apply(port)
         self.assertEqual(st, 200)
         self.assertEqual(self.order, ["apply", "handoff", "bridge"],
                          "自动那条路的顺序不对(或根本没走到安装):%r / %r" % (self.order, body))
@@ -269,7 +316,7 @@ class AutoUpdate(unittest.TestCase):
         self.apply_ok = False
         with self._serve() as port:
             before = self._auto(port)
-            _st, body = _post(port, "/api/update/apply", AUTO)
+            _st, body = self._auto_apply(port)
             after = self._auto(port)          # 不带 force
         self.assertEqual(before.get("eligible"), True, "前提没摆好:%r" % (before,))
         self.assertEqual(body.get("stage"), "verify", "前提没摆好:准备应当失败在 verify:%r" % (body,))
@@ -282,8 +329,8 @@ class AutoUpdate(unittest.TestCase):
         """服务端二次把关:界面慢一拍、两个窗口同时倒计时、别的页面直接发请求,都绕不过去。"""
         self.apply_ok = False   # 准备失败 ⇒ 锁放开(t35:接力脚本起来之后锁不放,第二次会是 busy)
         with self._serve() as port:
-            _post(port, "/api/update/apply", AUTO)
-            _st, body = _post(port, "/api/update/apply", AUTO)
+            self._auto_apply(port)
+            _st, body = self._auto_apply(port)
         self.assertFalse(body.get("ok"))
         self.assertEqual(body.get("stage"), "auto_skipped", body)
         self.assertEqual(self.order.count("apply"), 1, "试过的版本又被自动装了一遍")
@@ -292,16 +339,21 @@ class AutoUpdate(unittest.TestCase):
         """反面(防修过头):不再**自动**试,不等于业主自己点也不让装。"""
         self.apply_ok = False   # 准备失败 ⇒ 锁放开(t35:接力脚本起来之后锁不放,第二次会是 busy)
         with self._serve() as port:
-            _post(port, "/api/update/apply", AUTO)
+            self._auto_apply(port)
             _st, body = _post(port, "/api/update/apply", MANUAL)
         self.assertNotEqual(body.get("stage"), "auto_skipped", body)
         self.assertEqual(self.order.count("apply"), 2, "试过自动之后,业主手动点「更新」被挡住了")
 
     def test_au7_cannot_record_means_do_not_touch_anything(self):
         """记不下 ⇒ 下次打开还会再自动试 ⇒ 循环。宁可这次不自动。"""
-        _touch(os.path.join(self.data_root, "Logs"))      # Logs 是个文件,里面建不了东西
+        # 🔴 2026-09-20 前提收窄(track opendesign-startup-not-blocked-by-update):
+        #    原来这里把整个 Logs 变成文件。新流程下备货的状态文件也住 Logs ⇒ 那样连货都备不上,
+        #    自动安装在更早一步就停了,**问不出**"记不下账该怎么办"。
+        #    改成只让**记账文件**写不进去(它自己是个目录),断言一个字没改。
+        os.makedirs(os.path.join(self.data_root, "Logs"), exist_ok=True)
+        os.makedirs(self.record, exist_ok=True)           # 记账文件的位置是个目录 ⇒ 换名必失败
         with self._serve() as port:
-            _st, body = _post(port, "/api/update/apply", AUTO)
+            _st, body = self._auto_apply(port)
         self.assertFalse(body.get("ok"))
         self.assertEqual(body.get("stage"), "auto_unrecorded", body)
         self.assertEqual(self.order, [], "账没记上就开始准备更新了")
@@ -312,7 +364,7 @@ class AutoUpdate(unittest.TestCase):
             fh.write(b"\x00\xffnot json {{{")
         with self._serve() as port:
             before = self._auto(port)
-            _post(port, "/api/update/apply", AUTO)
+            self._auto_apply(port)
             after = self._auto(port)
         self.assertEqual(before, {"eligible": True, "why_not": None, "recent_failure": False},
                          "账是坏的就永远不自动更新了:%r" % (before,))
@@ -324,10 +376,10 @@ class AutoUpdate(unittest.TestCase):
         with self._serve() as port:
             self.releases = _without(_fixture(), "win-installer-" + LATEST)   # 线上最新是 0.98.2
             ds_update.cache_clear()
-            _post(port, "/api/update/apply", AUTO)
+            self._auto_apply(port)
             self.releases = _fixture()                                        # 线上最新变成 0.98.3
             ds_update.cache_clear()
-            _post(port, "/api/update/apply", AUTO)
+            self._auto_apply(port)
             self.releases = _without(_fixture(), "win-installer-" + LATEST)   # 0.98.3 被撤回
             ds_update.cache_clear()
             again = self._auto(port)
@@ -338,7 +390,7 @@ class AutoUpdate(unittest.TestCase):
         """攻题 #14:只记"试过的最大版本"、按 ≤ 判 attempted 的写法 —— 试 0.98.3 → 撤回 ⇒ 从没试过的 0.98.2 被误封。"""
         self.apply_ok = False
         with self._serve() as port:
-            _post(port, "/api/update/apply", AUTO)                          # 自动试 0.98.3
+            self._auto_apply(port)                          # 自动试 0.98.3
             self.releases = _without(_fixture(), "win-installer-" + LATEST)  # 撤回 0.98.3
             ds_update.cache_clear()
             auto = self._auto(port)
@@ -354,7 +406,7 @@ class AutoUpdate(unittest.TestCase):
         ten = _renamed(base[0], "0.98.1", "0.98.10")
         with self._serve() as port:
             self.releases = base
-            _post(port, "/api/update/apply", AUTO)                          # 自动试 0.98.1
+            self._auto_apply(port)                          # 自动试 0.98.1
             self.releases = [ten] + base
             ds_update.cache_clear()
             auto = self._auto(port)
@@ -365,7 +417,7 @@ class AutoUpdate(unittest.TestCase):
     def test_au10_only_logs_is_written_under_the_data_root(self):
         """t13 死线的同一条:更新前后 Data\\ 与 UserData\\ 逐字节不变,Logs\\ 豁免。"""
         with self._serve() as port:
-            _post(port, "/api/update/apply", AUTO)
+            self._auto_apply(port)
         self.assertTrue(os.path.isfile(self.record), "记账文件不在约定位置 <数据根>/Logs/%s" % RECORD_NAME)
         self.assertEqual(sorted(os.listdir(self.data_root)), ["Logs"],
                          "自动那条路在数据根下写了 Logs 以外的东西")
@@ -374,7 +426,7 @@ class AutoUpdate(unittest.TestCase):
         """只有 JSON 的 true 才算自动;其余一律手动语义(手动那条路一行不改)。"""
         self.apply_ok = False   # 准备失败 ⇒ 锁放开(t35:接力脚本起来之后锁不放,第二次会是 busy)
         with self._serve() as port:
-            _post(port, "/api/update/apply", AUTO)
+            self._auto_apply(port)
             _st, body = _post(port, "/api/update/apply", b'{"auto": "true"}')
         self.assertNotEqual(body.get("stage"), "auto_skipped", body)
         self.assertEqual(self.order.count("apply"), 2)
@@ -386,7 +438,7 @@ class AutoUpdate(unittest.TestCase):
 
     def _refused(self, why, install_root=None):
         with self._serve(install_root) as port:
-            _st, body = _post(port, "/api/update/apply", AUTO)
+            _st, body = self._auto_apply(port)
             again = self._auto(port)
         self.assertEqual(body.get("stage"), "auto_skipped", body)
         self.assertEqual(self.order, [], "条件不满足却开始准备了")
@@ -444,7 +496,7 @@ class AutoUpdate(unittest.TestCase):
         with mock.patch("os.fsync", spy_fsync), mock.patch("os.replace", spy_replace):
             with self._serve() as port:
                 self.releases = _upto(_fixture(), "0.98.2")
-                _post(port, "/api/update/apply", AUTO)                      # 0.98.2 记上
+                self._auto_apply(port)                      # 0.98.2 记上
         into_record = [r for r in replaced if r[1] == os.path.realpath(self.record)]
         self.assertTrue(into_record, "记账没有用 os.replace 换到 %s(原地写?):%r" % (self.record, replaced))
         src_path, _dst, (dev, ino, size, complete), synced_before = into_record[-1]
@@ -460,9 +512,10 @@ class AutoUpdate(unittest.TestCase):
             raise OSError("判据注入:换名那一刻失败")
 
         ds_update.cache_clear()
+        self.releases = _fixture()                                          # 线上最新 0.98.3
+        self._stock_latest()          # 备货得在注入之前摆:注入的是 os.replace,写状态文件也走它
         with mock.patch("os.replace", broken_replace):
             with self._serve() as port:
-                self.releases = _fixture()                                  # 线上最新 0.98.3
                 _st, body = _post(port, "/api/update/apply", AUTO)
         self.assertEqual(body.get("stage"), "auto_unrecorded", body)
         self.assertEqual(self.order.count("apply"), 1, "0.98.3 的账没记上就开始准备了")
@@ -492,7 +545,7 @@ class AutoUpdate(unittest.TestCase):
         _touch(exe)
         self.apply_ok = False
         with self._serve() as port:
-            _post(port, "/api/update/apply", AUTO)
+            self._auto_apply(port)
             with mock.patch.dict(os.environ, {AUTO_KNOB: "off"}):
                 self._assert_not(self._auto(port), "attempted")
 
@@ -503,7 +556,7 @@ class AutoUpdate(unittest.TestCase):
         self.apply_ok = False
         with self._serve() as port:
             fresh = self._auto(port)
-            _post(port, "/api/update/apply", AUTO)
+            self._auto_apply(port)
             recent = self._auto(port)
             with mock.patch("time.time", return_value=time.time() + 590):
                 still = self._auto(port)
@@ -523,11 +576,11 @@ class AutoUpdate(unittest.TestCase):
         with self._serve() as port:
             self.releases = _upto(_fixture(), "0.98.2")
             with mock.patch("time.time", return_value=t0):
-                _post(port, "/api/update/apply", AUTO)                      # t0 试 0.98.2
+                self._auto_apply(port)                      # t0 试 0.98.2
             self.releases = _fixture()
             ds_update.cache_clear()
             with mock.patch("time.time", return_value=t0 + 1000):
-                _post(port, "/api/update/apply", AUTO)                      # t0+1000 试 0.98.3
+                self._auto_apply(port)                      # t0+1000 试 0.98.3
             self.releases = _upto(_fixture(), "0.98.2")                     # 0.98.3 撤回
             ds_update.cache_clear()
             with mock.patch("time.time", return_value=t0 + 1010):
