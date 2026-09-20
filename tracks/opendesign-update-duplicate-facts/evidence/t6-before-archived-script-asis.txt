@@ -1,0 +1,32 @@
+未变异:0 条红 ⇒ 全绿 ✓
+
+  [跳过] B1 锚点匹配 2 次 —— 脚本自己坏了
+  [咬住] B2 不再拒绝符号链接(安装包被换掉最省事的一条路)
+         期望 su12 变红;实得 rc=1 红的有:['test_su12_path_outside_or_weird_enters']
+  [跳过] B3 锚点匹配 0 次 —— 脚本自己坏了
+  [咬住] B4 不校验字节数
+         期望 su9 变红;实得 rc=1 红的有:['test_su13b_survives_failure_deep_in_the_path', 'test_su15b_startup_still_refuses_a_package_of_the_wrong_size', 'test_su9_size_mismatch_enters']
+  [咬住] B5 去掉兜底 try —— 坏状态直接抛(= 软件打不开)
+         期望 su13 变红;实得 rc=1 红的有:['test_su13b_survives_failure_deep_in_the_path']
+  [咬住] B6 write_state 不走 os.replace(留下半写窗口)
+         期望 sw2 变红;实得 rc=1 红的有:['test_pr10_files_nobody_references_are_swept', 'test_pr1_success_writes_ready_and_startup_would_install', 'test_pr5_marks_downloading_before_fetching', 'test_pr7_already_ready_does_not_redownload', 'test_pr8_a_package_for_a_version_we_already_run_is_swept', 'test_pr8b_a_still_pending_newer_package_is_not_swept', 'test_pr9_a_same_size_corrupt_ready_package_is_replaced', 'test_sw1_write_then_read_roundtrips', 'test_sw2_write_is_atomic']
+  [跳过] B7 锚点匹配 0 次 —— 脚本自己坏了
+  [跳过] B8 锚点匹配 0 次 —— 脚本自己坏了
+  [咬住] B9 不认 schema(将来换格式时会拿旧状态去装)
+         期望 su5 变红;实得 rc=1 红的有:['test_su5_unknown_schema_enters']
+  [咬住] B10 版本判断写成 < 而不是 <=(同一版会被重装一次)
+         期望 su10 变红;实得 rc=1 红的有:['test_su10_not_newer_enters']
+  [咬住] B11 prepare 不校验下载回来的摘要
+         期望 pr3 变红;实得 rc=1 红的有:['test_pr3_digest_mismatch_deletes_the_bad_package']
+  [咬住] B12 prepare 动手前不写 downloading(断电后下次启动会看到假的 ready)
+         期望 pr5 变红;实得 rc=1 红的有:['test_pr5_marks_downloading_before_fetching']
+  [咬住] B13 校验失败后不删坏包
+         期望 pr3 变红;实得 rc=1 红的有:['test_pr3_digest_mismatch_deletes_the_bad_package']
+  [咬住] B14 同一版重复下载(白烧业主流量)
+         期望 pr7 变红;实得 rc=1 红的有:['test_pr7_already_ready_does_not_redownload']
+  [咬住] B15 prepare 去掉兜底 —— 后台任务能把主进程搞崩
+         期望 pr6 变红;实得 rc=1 红的有:['test_pr6b_survives_failure_deep_in_the_path']
+  [咬住] B16 prepare 不校验字节数
+         期望 pr4 变红;实得 rc=1 红的有:['test_pr4_size_mismatch_rejected']
+
+🔴 有 4 条漏网

@@ -1,0 +1,21 @@
+2026-09-20 19:13:21 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-20 19:13:21 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 19:13:22 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-20 19:13:22 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 19:13:22 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-20 19:13:22 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 19:13:23 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-20 19:13:23 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 19:13:23 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+----------------------------------------------------------------------
+Ran 4 tests in 2.033s
+
+OK
+
+=== T0 读数 ===
+  场景=attempted(账上记过一次) | startup=enter | startup_reason=attempted | 真实链路是否调到 apply=False | 真实链路 apply stage=None | 真实链路进了作废分支=False | 直接调 apply 的 stage=auto_skipped | 直接调 apply 进了作废分支=True | 包还在=False
+  场景=path_unsupported(永久) | startup=enter | startup_reason=path_unsupported | 真实链路是否调到 apply=False | 真实链路 apply stage=None | 真实链路进了作废分支=False | 直接调 apply 的 stage=auto_skipped | 直接调 apply 进了作废分支=False | 包还在=True
+  场景=no_shell(临时) | startup=enter | startup_reason=no_shell | 真实链路是否调到 apply=False | 真实链路 apply stage=None | 真实链路进了作废分支=False | 直接调 apply 的 stage=auto_skipped | 直接调 apply 进了作废分支=False | 包还在=True
+  场景=干净(应当真装) | startup=install | startup_reason=ready | 真实链路是否调到 apply=True | 真实链路 apply stage=started | 真实链路进了作废分支=False | 直接调 apply 的 stage=busy | 直接调 apply 进了作废分支=False | 包还在=True
+
+失败/错误: 0 0

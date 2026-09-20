@@ -1,0 +1,28 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-update-duplicate-facts",
+  "impact": {
+    "level": "high",
+    "factors": [
+      "judging_control",
+      "production_side_effect"
+    ]
+  },
+  "design": {
+    "uncertainty": "low",
+    "premise_attack": {
+      "status": "done",
+      "evidence": [
+        "evidence/t0-apply-discard-reachability.txt",
+        "evidence/t6-before-prepare-mutants.txt"
+      ]
+    }
+  },
+  "execution_plan": {
+    "adapter": "main",
+    "model": null
+  },
+  "outcome": {
+    "verdict": null
+  }
+}
