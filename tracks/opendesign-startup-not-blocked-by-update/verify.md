@@ -104,7 +104,8 @@ escalation=conflict    selected-count=3(PASS/BLOCK 冲突 ⇒ 自动追加第三
 | 1 | 实质 | BLOCK=0 PENDING=2(rc=3) | panel-startup-not-blocked-r1-20260920-1201 | 3 条 HIGH + 3 条 MEDIUM |
 | 2 | 实质(复审修复清单) | **收据丢失**(见下注) | panel-startup-not-blocked-r2-20260920-1238 | 1 条 HIGH(两腿独立命中)+ 1 条 MEDIUM + 3 条 LOW |
 | 3 | 实质(**追加**,超出开工预算) | **读数又丢了**(见下注②) | panel-startup-not-blocked-r3-20260920-1345 | 1 条 HIGH(**本单引入的回归**)+ 1 条 MEDIUM + 2 条 LOW |
-| 4 | 实质(**追加,本单最后一次派发**) | 待填(**本轮起落盘**) | 待填 | 待填 |
+| 4 | **基础设施失败,不算实质轮** | BLOCK=1 PENDING=2(rc=1,**已落盘**) | panel-startup-not-blocked-r4-20260920-1646 | — (只有 1 条腿给出裁决,拿不到合格覆盖) |
+| 4b | 实质(**追加,本单最后一次派发**) | 待填 | 待填 | 待填 |
 
 预算:2 轮实质评审(默认值,开工未另写)。**第 3 轮是追加**,理由与新预算写在下面「追加第 3 轮」。
 
@@ -357,6 +358,31 @@ runlog: r4-preflight rc=1 commit=3dad391 dirty=no at=2026-09-20T08:40:48Z file=t
 
 🔴 **第 2、3 轮的 preflight 读数分别因断线和没落盘丢过两次;本轮起它走 runlog,
 收据在上面这一行。** 这是本单要还的第一笔工艺账,今天还了。
+
+### 第 4 次派发:**没拿到合格覆盖,记为基础设施重试**(并记我自己犯的一个错)
+
+```
+# impact-risk=high requested-budget=2 selected-count=3  escalation=failure  snapshot=head:d56fcad
+submimo=PASS(verdict=PASS) subdeepseek=SKIP(rotation) subglm=SKIP(health:dead:auth:3) subkimi=FAIL(rc=1) subgemini=SKIP(health:dead:FAIL:6) subgrok=FAIL(rc=1) subcursor=SKIP(rotation)
+```
+
+两条腿死在基础设施上,原话在各自的 `.err` 里:
+- **subkimi**:`403 You've reached your weekly (7-day) usage limit`(周额度,不是腿坏了)。
+- **subgrok**:`Not signed in ... run: grok login --device-code`(**只有业主能做**)。
+⇒ 只剩 submimo(xiaomi)一条给出裁决。high 要的是**同一次 panel、同一 subject digest 下
+两个不同家族**的 coverage-eligible 腿 ⇒ **这一趟机械上拿不到覆盖**,按协议记为
+**基础设施重试,不算实质评审轮**(预算未动)。
+
+🔴 **我自己犯的错,记在这里**:我给 `panel-review` 传的是**相对**日志前缀,而当时 cwd 就是被审仓库
+⇒ **22 个腿日志全被写进了被审仓库**(未跟踪)。引擎会把仓内未跟踪文件内联进评审 prompt
+⇒ 反锚定被我自己破了(补进来的 submimo 起跑时,另两条腿的 `.err`、`.plan`、`.roster` 已在树上),
+而且交付指纹里混进了这些日志。**这一趟因此双重不作数**:既没覆盖,树也不干净。
+文件已全部移回 `/root/aiwork/logs/`,仓库复原干净后才重派。
+⇒ 工艺账:日志前缀一律写绝对路径(这一条比"记得加"更稳的办法是下一单把它做成默认值)。
+
+**submimo 这一份报告怎么处理**:留档(`/root/aiwork/logs/panel-startup-not-blocked-r4-20260920-1646.submimo.log`),
+**不作为覆盖、也不作为"已被审过"的依据** —— 它是三轮三次孤票 PASS、且三次都被证明看漏了的那一家,
+何况这一趟它读到的树是脏的。它报的 Q1~Q6 我会在下一趟的报告到齐后一并核。
 
 ## Accepted deviations
 
