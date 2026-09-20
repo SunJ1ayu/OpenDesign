@@ -177,6 +177,29 @@ def _asset_facts(info):
     return {"version": version, "url": url, "name": name, "size": size, "sha256": digest}
 
 
+def _sweep_installed(state_file, info):
+    """把"已经装上了"的那个备货包清掉。**永不抛**(调用它的也是后台任务)。
+
+    只清确定没用的:状态里那一版 <= 现在跑着的版本。读不出版本就什么都不做 ——
+    拿不准的时候宁可留着占盘,也不许删错(删掉的是业主等着装的那 46MB)。
+    """
+    try:
+        current = info.get("current") if isinstance(info, dict) else None
+        if not isinstance(current, str):
+            return
+        state = read_state(state_file)
+        if not isinstance(state, dict):
+            return
+        here = ds_update.parse_version(current)
+        there = ds_update.parse_version(state.get("version")) \
+            if isinstance(state.get("version"), str) else None
+        if here is None or there is None or there > here:
+            return
+        _discard(state.get("path"), state_file)
+    except Exception:  # noqa: BLE001
+        return
+
+
 def prepare_update(info, data_root, download=None, now=None):
     """后台把新版下下来、校验、写状态 —— **只下不装**。
 
@@ -189,6 +212,12 @@ def prepare_update(info, data_root, download=None, now=None):
     fetch = ds_update_apply._default_download if download is None else download
     state_file = state_path(data_root)
     try:
+        # 🔴 先打扫:盘上留着的那个包如果**不比现在跑着的版本新**,它就是垃圾
+        #    (多半是上一次更新装完之后剩下的)。不清 ⇒ 每更新一次永久多占 46MB。
+        #    放在这里而不是启动路径上:那条路只许读盘,越少动作越好;这里业主已经在用软件了。
+        #    判据 pr8 / pr8b(还没装的新版不许被清掉)。
+        _sweep_installed(state_file, info)
+
         facts = _asset_facts(info)
         if facts is None:
             return {"ok": False, "reason": "nothing_to_prepare"}

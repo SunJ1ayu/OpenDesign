@@ -426,7 +426,12 @@ class PrepareUpdateTests(unittest.TestCase):
         out = ds_update_startup.prepare_update(latest_now, self.root, download=self.dl_ok)
         self.assertFalse(out["ok"])            # 没东西可备,但不是因此就不打扫
         self.assertFalse(os.path.isfile(pkg), "装完之后那个包还躺在盘上(每更新一次多占 46MB)")
-        self.assertIsNone(self.state(), "包清掉了,状态文件却还留着")
+        # 🔴 问的是"那 46MB 没了、而且没人再指着它",不是"状态文件被删了" ——
+        #    产品留一条 idle 记号(几百字节)是对的,那不是本条要治的东西。
+        #    第一版我写成 assertIsNone,是**判据问过头**:它会逼实现去删一个本该留着的记号。
+        st = self.state() or {}
+        self.assertNotEqual(st.get("phase"), "ready", "包没了,状态却还说 ready ⇒ 下次启动会指着空气")
+        self.assertIsNone(st.get("path"), "状态还指着一个已经不存在的包")
 
     def test_pr8b_a_still_pending_newer_package_is_not_swept(self):
         """pr8b:还没装的新版**不许**被打扫掉 —— 否则每 10 分钟一轮的后台轮询会把自己下的东西删了。"""
