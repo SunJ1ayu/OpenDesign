@@ -1,0 +1,190 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-startup-not-blocked-by-update",
+  "run_id": "20260920-120130-945542-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-startup-not-blocked-task",
+  "started_at": "2026-09-20T04:01:30Z",
+  "finished_at": "2026-09-20T04:11:51Z",
+  "duration_ms": 621509,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "submimo",
+        "degraded": false,
+        "duration_ms": 285109,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:afba539f768096ece9468c4347c8087dc80aec41325ccd743756b3a723379c51",
+          "ref": "file:///root/aiwork/logs/panel-startup-not-blocked-r1-20260920-1201.submimo.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xiaomi",
+        "model": {
+          "invoked": "xiaomi/mimo-v2.5-pro",
+          "reported": null,
+          "requested": "xiaomi/mimo-v2.5-pro"
+        },
+        "name": "submimo",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260920-120130-945542-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:d66b10e539f330f34c00fd11fc906a434c7829e2d51cf61d6b64f42c023c5dfe",
+            "policy_version": 1,
+            "track": "opendesign-startup-not-blocked-by-update"
+          },
+          "digest": "sha256:f36502b35ff04778b12c194842f04c2e2a868f39bebc48e3586bcb903da777cd",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "eb52d91a0b2081aa0e188857ebced99cece0bca1",
+            "index_tree_oid": "4639ed5c9e376cf0904b829b1696249c02fd2eaf",
+            "worktree_tree_oid": "4639ed5c9e376cf0904b829b1696249c02fd2eaf"
+          },
+          "task_sha256": "sha256:6d08d79aa6487e8bc4dd685c321cc5122c6da211abd202a94ee9408e387f3347"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subdeepseek-agent",
+        "degraded": false,
+        "duration_ms": 267837,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:e5eda71ade426c1e20e4563c069dede8c5d7aebc1f704aad1d812bb8436fe66c",
+          "ref": "file:///root/aiwork/logs/panel-startup-not-blocked-r1-20260920-1201.subdeepseek.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "deepseek",
+        "model": {
+          "invoked": "deepseek-flash",
+          "reported": null,
+          "requested": "deepseek-flash"
+        },
+        "name": "subdeepseek",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260920-120130-945542-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:d66b10e539f330f34c00fd11fc906a434c7829e2d51cf61d6b64f42c023c5dfe",
+            "policy_version": 1,
+            "track": "opendesign-startup-not-blocked-by-update"
+          },
+          "digest": "sha256:f36502b35ff04778b12c194842f04c2e2a868f39bebc48e3586bcb903da777cd",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "eb52d91a0b2081aa0e188857ebced99cece0bca1",
+            "index_tree_oid": "4639ed5c9e376cf0904b829b1696249c02fd2eaf",
+            "worktree_tree_oid": "4639ed5c9e376cf0904b829b1696249c02fd2eaf"
+          },
+          "task_sha256": "sha256:6d08d79aa6487e8bc4dd685c321cc5122c6da211abd202a94ee9408e387f3347"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "api",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "BLOCK",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subcursor",
+        "degraded": false,
+        "duration_ms": 331092,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:bb4a33413fcb0f580803d2026c4138ab96e91fb499e7cf8638e6c2a98ec38621",
+          "ref": "file:///root/aiwork/logs/panel-startup-not-blocked-r1-20260920-1201.subcursor.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xai",
+        "model": {
+          "invoked": "cursor-grok-4.6-high",
+          "reported": null,
+          "requested": "cursor-grok-4.6-high"
+        },
+        "name": "subcursor",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260920-120130-945542-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:d66b10e539f330f34c00fd11fc906a434c7829e2d51cf61d6b64f42c023c5dfe",
+            "policy_version": 1,
+            "track": "opendesign-startup-not-blocked-by-update"
+          },
+          "digest": "sha256:f36502b35ff04778b12c194842f04c2e2a868f39bebc48e3586bcb903da777cd",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "eb52d91a0b2081aa0e188857ebced99cece0bca1",
+            "index_tree_oid": "4639ed5c9e376cf0904b829b1696249c02fd2eaf",
+            "worktree_tree_oid": "4639ed5c9e376cf0904b829b1696249c02fd2eaf"
+          },
+          "task_sha256": "sha256:6d08d79aa6487e8bc4dd685c321cc5122c6da211abd202a94ee9408e387f3347"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "BLOCK",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

@@ -70,9 +70,17 @@ escalation=conflict    selected-count=3(PASS/BLOCK 冲突 ⇒ 自动追加第三
 | 轮 | 类型 | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
 |---|---|---|---|---|
 | 1 | 实质 | BLOCK=0 PENDING=2(rc=3) | panel-startup-not-blocked-r1-20260920-1201 | 3 条 HIGH + 3 条 MEDIUM |
-| 2 | 实质(复审修复清单) | 见下 | 待填 | 待填 |
+| 2 | 实质(复审修复清单) | **收据丢失**(见下注) | panel-startup-not-blocked-r2-20260920-1238 | 1 条 HIGH(两腿独立命中)+ 1 条 MEDIUM + 3 条 LOW |
+| 3 | 实质(**追加**,超出开工预算) | 待填 | 待填 | 待填 |
 
-预算:2 轮实质评审(默认值,开工未另写)。
+预算:2 轮实质评审(默认值,开工未另写)。**第 3 轮是追加**,理由与新预算写在下面「追加第 3 轮」。
+
+- 🔴 **第 2 轮派发前的 `track preflight` 读数没有落盘,如实记账**:那一轮的控制器 stdout
+  随会话断线一起丢了(12:38 派发,约 12:44 断线,13:0x 接手)。派发本身没受影响 ——
+  `panel-review` 由 `setsid -f` 脱到 PID 1,三条腿全部跑完、`observations/20260920T045036Z-*.json`
+  与 `.final` 都正常落盘。**但 preflight 那一次的读数我拿不回来了,不补跑冒充**
+  (事后跑的 preflight 问的是"现在",不是"派发那一刻")。
+  ⇒ 工艺账:控制器的 stdout 也该落盘,不能只活在会话里。归在本单的收尾记录,不改代码。
 
 - GLM / Kimi / Gemini / Grok 四条腿本轮显式 off:额度用光 / 周限额 / 地区被拒(连败 6 轮已判死)/ 连败 2 轮。
   健康池实际只剩 xiaomi 与 xai 两个家族,冲突后追加的 deepseek 是第三个。
@@ -95,6 +103,60 @@ escalation=conflict    selected-count=3(PASS/BLOCK 冲突 ⇒ 自动追加第三
 | 9 | **LOW(subcursor #5)** premise-move-probe 撤的是 HEAD 那一版而不是 base-ref `8746146` | **驳回**:探针要问的是"**这一次的实现**有没有让旧考卷放水",撤到 base-ref 会把整单实现一起撤掉,那问的是另一件事 | 驳回 | 有依据 |
 | 10 | **自查(无腿报)** 装失败的那一次会话里,不再有后台查更新/备货(`probeStartup` 在 install 分支 return) | 成立 | **延期** | 备货状态已在后端清掉 ⇒ **下一次打开**一切正常;代价只是"失败的那一次会话内拿不到更新提示"。改它要动前端调度,不属于本轮阻断 |
 
+### 腿的花名册(第 2 轮,从盘上重建 `panel-roster`)
+
+```
+# impact-risk=high requested-budget=2 selected-count=3  escalation=conflict
+# snapshot=head:e766279
+submimo=PASS(verdict=PASS) subdeepseek=PASS(verdict=BLOCK) subglm=off subkimi=off subgemini=off subgrok=off subcursor=PASS(verdict=BLOCK)
+```
+日志前缀 `/root/aiwork/logs/panel-startup-not-blocked-r2-20260920-1238.*`;
+三条腿 `exit_code=0`、`degraded=false`、`evidence.completeness=complete`(没有一条是被砍的半截)。
+家族:xiaomi / xai / deepseek 三个不同家族;冲突后追加第三腿同第 1 轮,是协议内升级不是重试。
+
+### findings 处置表(第 2 轮)
+
+| # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
+|---|---|---|---|---|
+| 11 | **HIGH(subcursor + subdeepseek 各自独立命中)** `discard_ready` 不收敛:被记过 `attempted` 的版本会被下一轮后台 prepare 原样下回来。序列:打开 A(enter)→ 开着满 60s 后台备好 → 打开 B:startup 说 install、弹「正在更新到 X」→ apply 判 `attempted` → `auto_skipped`(界面**静默**)+ discard → 打开 C:enter → 后台**重下 46MB** → 打开 D:又弹一次…… 第 1 轮 HIGH-2 的症状只被**减半**(每两次打开一次),另**新增每轮 46MB 流量** | **成立,我逐跳核过代码**:`_update_decision_for_auto` = `ds_update.check_cached(VERSION)`(`bin/ds_web.py:1331-1336`),不经 `_auto_update_status`;全仓 `attempted_at` 只在 `:916` 被问;`startup_decision`(`bin/ds_update_startup.py:99-148`)只看状态文件;前端 `web/src/App.tsx:412` 在 60s 后**无条件** POST prepare(只受开关约束);`autoFailureText` 对 `auto_skipped` 返回空串(`web/src/update.ts:317`)。subdeepseek 另跑探针实证:记上 attempted 后再调 `prepare_update` 仍 `ok=True`,download calls 1→2 | **本单必须修;按 4c 停手查设计后重做**(见下) | 业主每两次打开看见一次无解释的更新界面,且每轮白下 46MB |
+| 12 | **MEDIUM(subdeepseek,subcursor 同向)** 作废条件过宽:`bin/ds_web.py:1204-1211` 只要 `eligible=False` 就 `discard_ready`,而 `why_not` 还包括 `no_shell` / `disabled` / `path_unsupported` / `asset` / `error` —— 这些**一行账都没记**,本可在条件恢复后自动装,46MB 却被白删 | **成立**。我读了 `_auto_update_status`(`:903-923`)全部返回分支与 `:1204-1211` 调用点;代码注释写的是"多半是已经试过一次"——"多半"二字本身就是它没分清的自供。subdeepseek 走端点实证:`OPENDESIGN_AUTO_UPDATE=off` 与 `DS_SHELL_LOCK_PORT=""` 两种情况下包被删、状态回 `idle`,而记账文件不存在 | **本单必须修**(与 #11 同一处重做) | 不是失败,是"无效地丢了业主的 46MB";`path_unsupported` 这类永久条件下会变成"下载→作废→再下载"持久空转 |
+| 13 | **LOW(subdeepseek)** 三处注释仍声称 `startup_decision` 逐字节校验,su15 之后已不成立:`web/src/update.ts:242`「大小 + sha256 都对得上才算」、`:391`「逐字节校验过盘上那个包之后才带上它的」、`web/src/App.tsx:280`「大小 + sha256,后端 startup_decision」 | **成立**,我逐行核过三处原文 | **本单必须修** | 本单立的规矩正是"界面/注释不许说谎",这三句是下一个人会当真的假话;真实防线在 pr3/pr9 与 t4/ai9 |
+| 14 | **LOW(subdeepseek)** `_update_prepare` 先置 `_PREPARE_STATE["running"]=True`,再在 `try` 外算 `root`(`bin/ds_web.py:1310-1316`);一旦抛出,本会话之后所有 prepare 永远回 `already_running`,自动更新整条静默死掉 | **成立**(读代码)。`paths_for_update` 实际不会抛,概率极低 | **本单修**(挪进 try,零风险) | 失败形态是"静默永久死",与本单"不许静默单向失效"的立意同类 |
+| 15 | **LOW(subdeepseek)** `_discard` 第一个 try 只 `except OSError`,而 `os.path.isfile(None)` 抛 `TypeError`(subdeepseek 实测),与其 docstring「自己也不许抛」不符 | **成立**。当前三个调用方各自包了更宽的 `except Exception` ⇒ 暂无实际后果 | **本单修**(一行) | 契约靠调用方兜着,下一个调用方不兜就漏 |
+| 16 | **submimo 的 PASS** | — | **不采信为覆盖以外的任何东西** | 第 1 轮它也给 PASS 且在数据根那条上明确写"接缝无问题"(错的);这一轮它又是唯一的 PASS。**全票不是护身符,孤腿 BLOCK 才是信号**——本单第二次实证 |
+
+## 4c 停手:这是同一类问题连续第二次打补丁
+
+panel SKILL 4c:「**同一类问题连续第二次打补丁 ⇒ 停手**,先查抽象、数据关系、共同根因、验收边界」。
+
+- 第 1 轮:症状「装失败后每次打开空演一遍更新界面」⇒ 我的补丁:在 apply 侧 `discard_ready` 删包。
+- 第 2 轮:症状**同一个**,只是周期从 1 变成 2,外加 46MB/轮 ⇒ 再补就是第三个补丁。**停。**
+
+**共同根因(两条腿各自独立指到同一处,我核实同意)**:
+「**这一版还够不够格自动更新**」这本账(`auto-update-attempts.json`)在整条链上**只有一个决策点在读**——
+`apply`(真装那一刻,`_auto_update_status`)。而链上实际有**三个**决策点:
+
+| 决策点 | 问的问题 | 读不读这本账(修复前) |
+|---|---|---|
+| `prepare`(后台要不要下) | 有新版吗 | ❌ 只问 `check_cached` |
+| `startup`(打开时要不要弹界面装) | 盘上有没有校验得过的包 | ❌ 只看 `update-state.json` |
+| `apply`(真装) | 这一版够格自动装吗 | ✅ 唯一读的一处 |
+
+⇒ 末端删文件永远追不上前端重下。**正确的抽象是把"这一版够不够格自动更新"做成单一判据,
+链上三处共用**,而不是在末端补救。这也解释了第 1 轮我把"失败会话内不再查更新"判成延期时
+写下的那句理由(「备货状态已在后端清掉 ⇒ 下一次打开一切正常」)**为什么站不住**:
+它只往前看了一步,没看第三步会被后台重新备货。**我的延期定性是错的,不是腿挑刺。**
+
+## 追加第 3 轮(派发前写明,按 panel SKILL ④)
+
+- **具体阻断**:#11(HIGH)、#12(MEDIUM)成立且本单必须修;修法是**方案层重做**(单一资格判据,
+  三处共用),不是措辞修正 ⇒ 落在「先别改」的豁免清单**之外**,第 2 轮的 subject digest 必然失效,
+  机械上也拿不到归档覆盖。
+- **追加目的**:只核验 #11~#15 的重做与其影响面(尤其"资格判据下沉后,手动更新那条路有没有被误伤")。
+- **新的有限预算**:**1 轮**。再有阻断 ⇒ 本单保持未完成、缩范围,不再续轮。
+- 这不是"多审一轮碰运气":预算用完时协议给的两条路是「缩范围」或「回头重看方案」,
+  我选的是后者 + 为重做取一次覆盖。
+
 ## Accepted deviations
 
 - **「60 秒后后台那一趟点火时重新问一次开关」没有自动判据。** 那 60 秒的延迟让 e2e 问不出它,
@@ -105,13 +167,23 @@ escalation=conflict    selected-count=3(PASS/BLOCK 冲突 ⇒ 自动追加第三
 ## 试行记录(review-convergence 试行)
 
 - 总交付历时:2026-09-19 22:27(开工 commit)→ 待填(归档 commit)
-- 每轮新增有效阻断:第 1 轮 3 HIGH + 3 MEDIUM(另 2 条驳回、2 条延期)
+- 每轮新增有效阻断:第 1 轮 3 HIGH + 3 MEDIUM(另 2 条驳回、2 条延期);
+  第 2 轮 1 HIGH + 1 MEDIUM + 3 LOW(**其中 HIGH 正是第 1 轮第 10 条我判"延期"的那一条的第二步**)
+- 🔴 **第 2 轮最值钱的一条不是腿发现了新 bug,是它推翻了我上一轮的定性**:
+  我写"备货已清 ⇒ 下一次打开一切正常"时只验了一步。这与 09-19 那单
+  (我自己六条判据全绿而改动是坏的)是同一种失败:**我写的规格与我写的绿,互相证明不了对方。**
 - 基础设施等待:0 次重试(三条腿一次成功;冲突追加第三腿是协议内的升级,不是重试)
 - 交付后返工:待填
 
 ## arbitrated verdict(主裁)
 
-待第 2 轮复审后填。第 1 轮主裁:**BLOCK** —— 两条 BLOCK 腿的三条 HIGH 全部核实成立,
+**第 2 轮主裁:BLOCK**(2026-09-20 13:0x,断线后接手判)。
+submimo=PASS / subcursor=BLOCK / subdeepseek=BLOCK。两条 BLOCK 来自**两个不同家族**
+(xai、deepseek),**各自独立**落在同一条 HIGH 上,且 subdeepseek 另跑探针给了执行证据
+(download calls 1→2)。我没有采信任何一份自述:#11~#15 五条我逐条读了实现原文才判成立。
+本单**保持未完成**,按 4c 停手重做方案,再追加 1 轮(理由见上)。
+
+第 1 轮主裁:**BLOCK** —— 两条 BLOCK 腿的三条 HIGH 全部核实成立,
 其中两条是我自己那一遍审没看见的;MiMo 的 PASS(并明确写"接缝无问题")在第 1 条上是错的。
 **全票不是护身符,孤腿 BLOCK 才是信号** —— 这一轮是三次里最干脆的一次实证。
 
