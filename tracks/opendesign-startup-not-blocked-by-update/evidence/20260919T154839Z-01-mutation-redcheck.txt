@@ -1,0 +1,40 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    mutation-redcheck
+cmd:     /root/.venvs/design-studio/bin/python tracks/opendesign-startup-not-blocked-by-update/mutants.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  724f777
+dirty:   yes(跑之前采的;含未跟踪文件)
+head-before: 724f777d9270ead2365a0f693a3a755278198d87
+source-view-before: sha256:a5b16c8c8b5fd3cb87d1d116366a6672885579f54e97b1cae706fe0b7086130a
+started: 2026-09-19T15:48:39Z
+---------------- 输出开始 ----------------
+未变异:25 条全绿 ✓
+
+  [🔴 漏网] B1 启动路径上偷偷查一次更新(最可能的假修复:只把超时改小)
+         期望 su_net3 变红;实得 rc=0 红的有:无
+  [咬住] B2 不再拒绝符号链接(安装包被换掉最省事的一条路)
+         期望 su12 变红;实得 rc=1 红的有:['test_su12_path_outside_or_weird_enters']
+  [咬住] B3 不校验 sha256
+         期望 su8 变红;实得 rc=1 红的有:['test_su8_digest_mismatch_enters']
+  [咬住] B4 不校验字节数
+         期望 su9 变红;实得 rc=1 红的有:['test_su9_size_mismatch_enters']
+  [🔴 漏网] B5 去掉兜底 try —— 坏状态直接抛(= 软件打不开)
+         期望 su13 变红;实得 rc=0 红的有:无
+  [咬住] B6 write_state 不走 os.replace(留下半写窗口)
+         期望 sw2 变红;实得 rc=1 红的有:['test_sw1_write_then_read_roundtrips', 'test_sw2_write_is_atomic']
+  [咬住] B7 轮询间隔去掉抖动(所有客户端同一秒打服务器)
+         期望 sc2 变红;实得 rc=1 红的有:['test_sc2_interval_has_jitter']
+  [咬住] B8 失败之后不退避
+         期望 sc3 变红;实得 rc=1 红的有:['test_sc3_failures_back_off_and_are_capped']
+  [咬住] B9 不认 schema(将来换格式时会拿旧状态去装)
+         期望 su5 变红;实得 rc=1 红的有:['test_su5_unknown_schema_enters']
+  [咬住] B10 版本判断写成 < 而不是 <=(同一版会被重装一次)
+         期望 su10 变红;实得 rc=1 红的有:['test_su10_not_newer_enters']
+
+🔴 有 2 条漏网
+command-rc: 1
+head-after: 724f777d9270ead2365a0f693a3a755278198d87
+source-view-after:  sha256:a5b16c8c8b5fd3cb87d1d116366a6672885579f54e97b1cae706fe0b7086130a
+source-stable: yes
+---------------- 输出结束 ----------------
+runlog: mutation-redcheck rc=1 commit=724f777 dirty=yes final=yes at=2026-09-19T15:48:39Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260919T154839Z-01-mutation-redcheck.txt

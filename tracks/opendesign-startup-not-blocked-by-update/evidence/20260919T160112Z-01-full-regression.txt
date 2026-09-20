@@ -1,0 +1,40 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    full-regression
+cmd:     bash tests/run-all.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  1b876fb
+dirty:   yes(跑之前采的;含未跟踪文件)
+head-before: 1b876fb489824c6a19d3f0fa7b3cc7299cb6f3c7
+source-view-before: sha256:e04d2b64caccd8128f15a4f50b0a7113deb691ab0fd765dae1bb610270e08537
+started: 2026-09-19T16:01:12Z
+---------------- 输出开始 ----------------
+[1m== 泄漏闸自测(判据的判据)[0m
+   [32m完成[0m  1s
+[1m== node 单测(tests/*.mjs)[0m
+   [32m完成[0m  14s
+[1m== python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python)[0m
+   [31m有红[0m  532s
+[1m== MCP 契约闸[0m
+   [32m完成[0m  5s
+[1m== dist 新鲜度 + 类型检查(npm run build 后 git 应无差异)[0m
+   [32m完成[0m  8s
+[1m== e2e 总跑[0m
+   [31m有红[0m  437s
+
+════ 总跑汇总 ════
+  [32mPASS[0m  泄漏闸自测(判据的判据)   14 条全过
+  [32mPASS[0m  node 单测(tests/*.mjs)           458 通过 / 0 跳过 / 0 todo
+  [31mFAIL[0m  python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python) 1763 跑过 / 1 跳过 / ⚠️ 漏了 27 个临时目录
+  [32mPASS[0m  MCP 契约闸                      三条闸全绿
+  [32mPASS[0m  dist 新鲜度 + 类型检查(npm run build 后 git 应无差异) 与源码同步
+  [31mFAIL[0m  e2e 总跑                         39 PASS / 2 FAIL / 2 SKIP
+
+有 2 段红了,日志在 /tmp/ds-all-wKw7Rt
+   python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python) → /tmp/ds-all-wKw7Rt/py-full.log
+   e2e 总跑 → /tmp/ds-all-wKw7Rt/e2e.log
+command-rc: 1
+head-after: 1b876fb489824c6a19d3f0fa7b3cc7299cb6f3c7
+source-view-after:  sha256:e04d2b64caccd8128f15a4f50b0a7113deb691ab0fd765dae1bb610270e08537
+source-stable: yes
+---------------- 输出结束 ----------------
+runlog: full-regression rc=1 commit=1b876fb dirty=yes final=yes at=2026-09-19T16:01:12Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260919T160112Z-01-full-regression.txt
