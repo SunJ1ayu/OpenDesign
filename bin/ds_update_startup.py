@@ -234,7 +234,7 @@ def _sweep_orphans(state_file, data_root):
         return
 
 
-def prepare_update(info, data_root, download=None, now=None, paths=None):
+def prepare_update(info, paths, download=None, now=None):
     """后台把新版下下来、校验、写状态 —— **只下不装**。
 
     装留到下一次打开软件:那时候装是最快的(东西已经在本地),而且本来就在启动,
@@ -242,10 +242,24 @@ def prepare_update(info, data_root, download=None, now=None, paths=None):
 
     🔴 **永不抛**(判据 pr6):它跑在业主正在干活的时候,一个后台任务把主进程搞崩
     是不可接受的。失败就安静地不写 ready,下次再试。
+
+    🔴 `paths` 是**必填**,而且 `data_root` 不再单独当形参(判据 el17,
+    track opendesign-update-duplicate-facts)。原来的形状是
+    `prepare_update(info, data_root, ..., paths=None)`:
+
+    - 生产调用点两个都传,而 `root` 就是 `paths["data_root"]` ⇒ **同一个事实两个入口**,
+      迟早有人传成两个不同的值,而且没有任何东西会报错;
+    - `paths` 忘传时不报错,**静默退回"只问账本那一维"** —— 上一单第 3 轮刚在
+      `startup_decision` 上删掉同一个形状(F3),这里漏网了。今天生产无洞
+      (唯一调用点一定传,端点自己还有一道早闸),漏的是**判据**:既有 pr 卷全都不传它,
+      于是机器那一维在这一层一条题都问不到(el18 补上了)。
     """
     fetch = ds_update_apply._default_download if download is None else download
-    state_file = state_path(data_root)
     try:
+        # data_root / state_file 都放进 try 里:上面那句"永不抛"包括 `paths` 被传成
+        # 不是 dict 的东西(红检实测过一次 —— 旧签名会把它 str() 进路径、默默建出目录)。
+        data_root = paths.get("data_root")
+        state_file = state_path(data_root)
         # 🔴 先打扫:盘上留着的那个包如果**不比现在跑着的版本新**,它就是垃圾
         #    (多半是上一次更新装完之后剩下的)。不清 ⇒ 每更新一次永久多占 46MB。
         #    放在这里而不是启动路径上:那条路只许读盘,越少动作越好;这里业主已经在用软件了。
@@ -261,15 +275,9 @@ def prepare_update(info, data_root, download=None, now=None, paths=None):
         #    这一版已经自动试过一次(装不上)⇒ 下回来也只会被 apply 再拒一次,
         #    中间还要让业主看一次没有任何解释的更新界面。原来这里不问,于是删掉的包
         #    **每打开一次软件就被原样下回来一次**:末端删文件追不上前端重新备货。
-        #    判断本身在 ds_auto_update.auto_eligible —— 与 startup / apply 同一处来源。
-        #    ⚠️ `paths` 给了才问得了机器那一维;既有 pr 判据不传它 ⇒ 只问账本那一维,
-        #    它们的行为一字不变。生产路径(`/api/update/prepare`)一定传。
-        if paths is not None:
-            blocker = ds_auto_update.why_not_auto(paths, facts["version"])
-        elif ds_auto_update.auto_eligible(data_root, facts["version"]):
-            blocker = None
-        else:
-            blocker = "attempted"
+        #    判断本身在 ds_auto_update.why_not_auto —— 与 startup / apply 同一处来源,
+        #    **整个问题问一次**(账本那一维 + 机器那几维),调用方不许自己再拼一遍。
+        blocker = ds_auto_update.why_not_auto(paths, facts["version"])
         if blocker:
             if blocker in ds_auto_update.PERMANENT_BLOCKERS:
                 # 永久否决(试过 / 不是装出来的 / 路径不支持)⇒ 这一版**再也不会**自动装,

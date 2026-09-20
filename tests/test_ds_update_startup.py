@@ -41,6 +41,8 @@ except ModuleNotFoundError:                     # 判据先行:实现还不存�
             return boom
     ds_update_startup = _Missing()  # type: ignore[assignment]
 
+import ds_update_apply  # noqa: E402
+
 
 def _state(**over):
     """一份"本该装"的合法状态;各用例只改一个字段,好指认是哪条规则在起作用。"""
@@ -366,6 +368,22 @@ class PrepareUpdateTests(unittest.TestCase):
         import hashlib, tempfile
         self.root = tempfile.mkdtemp(prefix="ds-prep-")
         self.addCleanup(shutil.rmtree, self.root, True)
+        # 🔴 `prepare_update` 现在**必须**收 paths(判据 el17,
+        #    track opendesign-update-duplicate-facts)。本卷问的是"备货逻辑对不对",
+        #    不是"这台机器够不够格自动装" —— 后者由 el 卷问(el11/el15/el18)。
+        #    所以这里只把**外来子系统**那两维摆成放行:外壳端口、安装器 preflight;
+        #    账本那一维和开关那一维保持真的(本卷的 tmp 目录里本来就没有账)。
+        #    **本卷的断言一个字都没改**;改签名前后整套变异红检逐条比过(T6),
+        #    13 条咬住 → 13 条咬住,没有一条由红转绿。
+        self.paths = {"data_root": self.root}
+        env = mock.patch.dict(os.environ, {"DS_SHELL_LOCK_PORT": "47123"})
+        env.start()
+        self.addCleanup(env.stop)
+        os.environ.pop("OPENDESIGN_AUTO_UPDATE", None)
+        pf = mock.patch.object(ds_update_apply, "update_preflight_problem",
+                               lambda paths: (None, None))
+        pf.start()
+        self.addCleanup(pf.stop)
         self.body = b"NEW-INSTALLER-BYTES"
         self.sha = hashlib.sha256(self.body).hexdigest()
         self.info = {"update_available": True, "latest": "0.98.8",
@@ -382,7 +400,7 @@ class PrepareUpdateTests(unittest.TestCase):
 
     def test_pr1_success_writes_ready_and_startup_would_install(self):
         """pr1:下好且校验过 ⇒ 写 ready,而且**下一次启动真的会装**(端到端接上)。"""
-        out = ds_update_startup.prepare_update(self.info, self.root, download=self.dl_ok)
+        out = ds_update_startup.prepare_update(self.info, self.paths, download=self.dl_ok)
         self.assertTrue(out["ok"], out)
         st = self.state()
         self.assertEqual(st["phase"], "ready")
@@ -396,7 +414,7 @@ class PrepareUpdateTests(unittest.TestCase):
         """pr2:下载炸了 ⇒ 绝不留下 ready。"""
         def boom(url, dest):
             raise OSError("网断了")
-        out = ds_update_startup.prepare_update(self.info, self.root, download=boom)
+        out = ds_update_startup.prepare_update(self.info, self.paths, download=boom)
         self.assertFalse(out["ok"])
         st = self.state()
         self.assertTrue(st is None or st.get("phase") != "ready", st)
@@ -411,7 +429,7 @@ class PrepareUpdateTests(unittest.TestCase):
             # 原来写的是 b"TAMPERED"(8 字节)而好包是 19 字节 ⇒ 字节数检查先拦住,
             # 这条判据根本走不到摘要检查 ⇒ 把 sha256 校验整个删掉它也照样绿。
             Path(dest).write_bytes(b"X" * len(self.body))
-        out = ds_update_startup.prepare_update(self.info, self.root, download=wrong)
+        out = ds_update_startup.prepare_update(self.info, self.paths, download=wrong)
         self.assertFalse(out["ok"])
         st = self.state()
         self.assertTrue(st is None or st.get("phase") != "ready")
@@ -421,7 +439,7 @@ class PrepareUpdateTests(unittest.TestCase):
     def test_pr4_size_mismatch_rejected(self):
         """pr4:字节数对不上也不许写 ready(下到一半就当下完)。"""
         info = dict(self.info, asset=dict(self.info["asset"], size=999999))
-        out = ds_update_startup.prepare_update(info, self.root, download=self.dl_ok)
+        out = ds_update_startup.prepare_update(info, self.paths, download=self.dl_ok)
         self.assertFalse(out["ok"])
         st = self.state()
         self.assertTrue(st is None or st.get("phase") != "ready")
@@ -432,7 +450,7 @@ class PrepareUpdateTests(unittest.TestCase):
         def spy(url, dest):
             seen["phase_at_download"] = (self.state() or {}).get("phase")
             self.dl_ok(url, dest)
-        ds_update_startup.prepare_update(self.info, self.root, download=spy)
+        ds_update_startup.prepare_update(self.info, self.paths, download=spy)
         self.assertEqual(seen.get("phase_at_download"), "downloading")
 
     def test_pr6_never_raises(self):
@@ -441,7 +459,7 @@ class PrepareUpdateTests(unittest.TestCase):
                     {"update_available": True, "latest": None, "asset": {}},
                     {"update_available": True, "latest": "0.98.8", "asset": {"url": None}}):
             try:
-                out = ds_update_startup.prepare_update(bad, self.root, download=self.dl_ok)
+                out = ds_update_startup.prepare_update(bad, self.paths, download=self.dl_ok)
             except Exception as exc:                      # noqa: BLE001
                 self.fail(f"prepare_update 对 {bad!r} 抛了 {exc!r}")
             self.assertFalse(out["ok"])
@@ -457,7 +475,7 @@ class PrepareUpdateTests(unittest.TestCase):
             raise OSError("盘满了")
         with mock.patch.object(os, "makedirs", boom):
             try:
-                out = ds_update_startup.prepare_update(self.info, self.root, download=self.dl_ok)
+                out = ds_update_startup.prepare_update(self.info, self.paths, download=self.dl_ok)
             except Exception as exc:                      # noqa: BLE001
                 self.fail(f"后台任务把异常漏出来了:{exc!r} —— 它跑在业主干活的时候")
         self.assertFalse(out["ok"])
@@ -473,14 +491,14 @@ class PrepareUpdateTests(unittest.TestCase):
         清扫挂在后台备货那一趟里(业主已经在用软件了),不挂启动路径 —— 那条路上
         只许读盘,越少动作越好。
         """
-        ds_update_startup.prepare_update(self.info, self.root, download=self.dl_ok)
+        ds_update_startup.prepare_update(self.info, self.paths, download=self.dl_ok)
         pkg = self.state().get("path")
         self.assertTrue(os.path.isfile(pkg), "前提没摆好:包没下下来")
 
         # 已经升到 0.98.8 了:再跑一趟后台备货,这时线上没有更新的版本。
         latest_now = {"current": "0.98.8", "update_available": False, "latest": None,
                       "asset": None, "error": None}
-        out = ds_update_startup.prepare_update(latest_now, self.root, download=self.dl_ok)
+        out = ds_update_startup.prepare_update(latest_now, self.paths, download=self.dl_ok)
         self.assertFalse(out["ok"])            # 没东西可备,但不是因此就不打扫
         self.assertFalse(os.path.isfile(pkg), "装完之后那个包还躺在盘上(每更新一次多占 46MB)")
         # 🔴 问的是"那 46MB 没了、而且没人再指着它",不是"状态文件被删了" ——
@@ -492,11 +510,11 @@ class PrepareUpdateTests(unittest.TestCase):
 
     def test_pr8b_a_still_pending_newer_package_is_not_swept(self):
         """pr8b:还没装的新版**不许**被打扫掉 —— 否则每 10 分钟一轮的后台轮询会把自己下的东西删了。"""
-        ds_update_startup.prepare_update(self.info, self.root, download=self.dl_ok)
+        ds_update_startup.prepare_update(self.info, self.paths, download=self.dl_ok)
         pkg = self.state().get("path")
         same = {"current": "0.98.7", "update_available": True, "latest": "0.98.8",
                 "asset": self.info["asset"], "error": None}
-        ds_update_startup.prepare_update(same, self.root, download=self.dl_ok)
+        ds_update_startup.prepare_update(same, self.paths, download=self.dl_ok)
         self.assertTrue(os.path.isfile(pkg), "还没装的新版包被当成垃圾清掉了")
         self.assertEqual((self.state() or {}).get("phase"), "ready")
 
@@ -509,7 +527,7 @@ class PrepareUpdateTests(unittest.TestCase):
         然后**下一轮后台仍然认为不用再下** —— 死循环,永不自愈。
         校验放在后台这一趟是对的:业主已经在用软件,这里慢不要紧。
         """
-        ds_update_startup.prepare_update(self.info, self.root, download=self.dl_ok)
+        ds_update_startup.prepare_update(self.info, self.paths, download=self.dl_ok)
         pkg = self.state().get("path")
         with open(pkg, "r+b") as fh:          # 同样长度,内容不同
             fh.seek(0); fh.write(b"Z" * 8)
@@ -520,7 +538,7 @@ class PrepareUpdateTests(unittest.TestCase):
             self.dl_ok(url, dest)
 
         import hashlib
-        out = ds_update_startup.prepare_update(self.info, self.root, download=counting)
+        out = ds_update_startup.prepare_update(self.info, self.paths, download=counting)
         self.assertTrue(out["ok"], out)
         self.assertEqual(len(calls), 1, "等长坏包没有被重新下载 ⇒ 它会永远卡在那儿")
         self.assertEqual(hashlib.sha256(open(pkg, "rb").read()).hexdigest(), self.sha,
@@ -533,23 +551,23 @@ class PrepareUpdateTests(unittest.TestCase):
         进程被杀在下载中途留下半截 .exe;或者备好 0.99.0 之后 0.99.1 上线,
         新的写成**新文件名**,旧那个 46MB 没人再提起 —— 每跳过一版就永久多占一份。
         """
-        ds_update_startup.prepare_update(self.info, self.root, download=self.dl_ok)
+        ds_update_startup.prepare_update(self.info, self.paths, download=self.dl_ok)
         keep = self.state().get("path")
         junk = os.path.join(os.path.dirname(keep), "OpenDesign-Setup-0.98.7.exe.part")
         with open(junk, "wb") as fh:
             fh.write(b"half a download")
-        ds_update_startup.prepare_update(self.info, self.root, download=self.dl_ok)
+        ds_update_startup.prepare_update(self.info, self.paths, download=self.dl_ok)
         self.assertTrue(os.path.isfile(keep), "把当前备好的包清掉了")
         self.assertFalse(os.path.isfile(junk), "没人指着的半截包还留在盘上")
 
     def test_pr7_already_ready_does_not_redownload(self):
         """pr7:同一版已经下好了就别再下一遍(省业主的流量和磁盘)。"""
-        ds_update_startup.prepare_update(self.info, self.root, download=self.dl_ok)
+        ds_update_startup.prepare_update(self.info, self.paths, download=self.dl_ok)
         calls = []
         def counting(url, dest):
             calls.append(url)
             self.dl_ok(url, dest)
-        out = ds_update_startup.prepare_update(self.info, self.root, download=counting)
+        out = ds_update_startup.prepare_update(self.info, self.paths, download=counting)
         self.assertTrue(out["ok"])
         self.assertEqual(calls, [], "同一个版本被重复下载了")
 

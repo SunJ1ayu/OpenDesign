@@ -119,6 +119,16 @@ class UpdateEligibility(unittest.TestCase):
                 fh.write(PAYLOAD)
         return dl
 
+    def _paths(self):
+        """直接调 `prepare_update` 时要用的那份 paths —— **和端点用的是同一个造法**。
+
+        本卷的夹具本来就摆成"装出来的桌面版 + 有外壳端口",所以机器那一维在这里是
+        **真的**(不是摆平的):`why_not_auto` 四维照问,题目问的还是账本那一维。
+        改签名之前这些题传的是裸 `data_root`,机器那一维压根问不到(判据 el18 补的就是它)。
+        """
+        return ds_update_apply.paths_for_update(
+            os.path.join(self.install_root, "ds"), port=47123)
+
     def _stock(self, version=LATEST, payload=PAYLOAD):
         """摆出"后台已经下好并校验过"的样子:一个真文件 + 一份 ready 状态。"""
         os.makedirs(self.pending_dir, exist_ok=True)
@@ -173,7 +183,7 @@ class UpdateEligibility(unittest.TestCase):
     def test_el3_a_version_never_attempted_is_still_prepared_and_installed(self):
         self._armed()
         got = ds_update_startup.prepare_update(
-            self._info(), self.data_root, download=self._spy_download())
+            self._info(), self._paths(), download=self._spy_download())
         self.assertIs(got.get("ok"), True, "没试过的版本竟然备不了货:%r" % (got,))
         self.assertEqual(len(self.downloads), 1,
                          "🔴 没试过的版本没有被下下来 —— 自动更新被关死了,不是修好了")
@@ -190,7 +200,7 @@ class UpdateEligibility(unittest.TestCase):
         self._armed()
 
         got = ds_update_startup.prepare_update(
-            self._info(), self.data_root, download=self._spy_download())
+            self._info(), self._paths(), download=self._spy_download())
 
         self.assertEqual(self.downloads, [],
                          "🔴 这一版已经自动试过一次(装不上),后台又把 46MB 下了一遍:%r" % (got,))
@@ -210,7 +220,7 @@ class UpdateEligibility(unittest.TestCase):
         self._armed()
 
         ds_update_startup.prepare_update(
-            self._info(), self.data_root, download=self._spy_download())
+            self._info(), self._paths(), download=self._spy_download())
 
         self.assertEqual(self.downloads, [],
                          "🔴 用 24 小时的时效窗口当资格:过一天就又下一遍 46MB、又空演一次")
@@ -289,7 +299,7 @@ class UpdateEligibility(unittest.TestCase):
 
         # 第 2 步:他继续用软件,满 60 秒,前端无条件让后台备货
         got = ds_update_startup.prepare_update(
-            self._info(), self.data_root, download=self._spy_download())
+            self._info(), self._paths(), download=self._spy_download())
         self.assertEqual(self.downloads, [],
                          "🔴 同一个装不上的包又被下了一遍 46MB(第 2 轮 subcursor/subdeepseek "
                          "各自独立报的那条 HIGH):%r" % (got,))
@@ -302,7 +312,7 @@ class UpdateEligibility(unittest.TestCase):
 
         # 第 4 步:再走一轮,确认它是收敛的,不是把周期拉长到 3
         ds_update_startup.prepare_update(
-            self._info(), self.data_root, download=self._spy_download())
+            self._info(), self._paths(), download=self._spy_download())
         self.assertEqual(self.downloads, [], "第二轮又下了一遍 —— 这条链没有收敛,只是周期更长")
         self.assertEqual(self._startup_action()[0], "enter", "第二轮又弹了一次更新界面")
 
@@ -328,7 +338,7 @@ class UpdateEligibility(unittest.TestCase):
         self._armed()
 
         got = ds_update_startup.prepare_update(
-            self._info(), self.data_root, download=self._spy_download())
+            self._info(), self._paths(), download=self._spy_download())
 
         self.assertEqual(self.downloads, [], "夹具没摆对:这一版不该被重下(el1)")
         self.assertFalse(
@@ -600,11 +610,47 @@ class UpdateEligibility(unittest.TestCase):
         with mock.patch.object(ds_update_apply, "update_preflight_problem",
                                lambda paths: ("no_shell", "判据摆的")):
             out = ds_update_startup.prepare_update(
-                self._info(), {"data_root": self.data_root}, download=spy)
+                self._info(), self._paths(), download=spy)
         self.assertEqual((out or {}).get("reason"), "no_shell", out)
         self.assertEqual(self.downloads, [],
                          "🔴 机器那一维说装不上,这一趟还是把 46MB 下回来了")
 
+
+    def test_el19_an_unknowable_eligibility_is_transient_and_keeps_the_package(self):
+        """资格**算不出来**(`why_not_auto` 兜底返回 `error`)是**临时**条件,不许删包。
+
+        🔴 这条不是腿报的,是**变异红检 E8b 当场抓出来的洞**(track
+        opendesign-update-duplicate-facts #28):把 `error` 加进 `PERMANENT_BLOCKERS`,
+        整卷 11 个变异里只有它一条判据都没红 —— 也就是说"算不出来就把业主已经下好的
+        46MB 删掉"这个改法,在这套判据下是**免费**的。
+
+        它为什么必须是临时的:`error` 的意思是"这一刻问不出答案"(磁盘抖一下、
+        某个子系统抛了),**不是**"这一版再也装不上"。下一次打开多半就好了,
+        而那 46MB 已经没了,得重下一遍。el4/el15 钉的是 no_shell/disabled 这两种临时条件,
+        `error` 这一种当时没人钉。
+        """
+        def boom(paths):
+            raise RuntimeError("这一刻算不出资格")
+
+        # ① prepare 那一侧:不许删,也不许接着下
+        path, _ = self._stock()
+        self._armed()
+        spy = self._spy_download()
+        with mock.patch.object(ds_update_apply, "update_preflight_problem", boom):
+            out = ds_update_startup.prepare_update(self._info(), self._paths(), download=spy)
+        self.assertEqual((out or {}).get("reason"), "error", out)
+        self.assertEqual(self.downloads, [], "算不出资格还照样下 46MB")
+        self.assertTrue(self._package_exists(path),
+                        "🔴 prepare 侧:资格只是这一刻算不出来,业主的包就被删了")
+
+        # ② apply 那一侧:同样不许删
+        with mock.patch.object(ds_update_apply, "update_preflight_problem", boom):
+            with self._serve() as port:
+                st, body = _post(port, "/api/update/apply", AUTO)
+        self.assertEqual(st, 200, body)
+        self.assertEqual(body.get("stage"), "auto_skipped", body)
+        self.assertTrue(self._package_exists(path),
+                        "🔴 apply 侧:同上 —— error 不在 PERMANENT_BLOCKERS 里是有原因的")
 
 
 if __name__ == "__main__":

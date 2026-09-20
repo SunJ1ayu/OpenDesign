@@ -908,7 +908,7 @@ def _auto_update_status(info: dict, paths: dict) -> dict:
             return {"eligible": False, "why_not": "asset", "recent_failure": False}
         # 🔴 **同一个问题只写一处**(第 3 轮外审 F2):这里原来把 no_shell / preflight /
         #    attempted / disabled 四条又拼了一遍,和 startup/prepare 那边随时会漂。
-        #    现在共用 ds_auto_update.machine_blocker —— 顺序也由它一家定(产品契约)。
+        #    现在共用 ds_auto_update.why_not_auto —— 顺序也由它一家定(产品契约)。
         blocker = ds_auto_update.why_not_auto(paths, latest)
         if blocker:
             return {"eligible": False, "why_not": blocker,
@@ -1197,16 +1197,22 @@ class Handler(BaseHTTPRequestHandler):
         if auto_request:
             auto = _auto_update_status(info, paths)
             if not auto.get("eligible"):
-                # 🔴 **只有"这一版真的不会再自动装了"才作废备货**(判据 el4/el4b)。
-                #    `why_not == "attempted"` 是唯一永久的那一条:账已经记上,自动只试一次。
-                #    其余几种(no_shell / disabled / path_unsupported / asset / error)是
-                #    **临时**条件 —— 一行账都没记,条件恢复后这一版还能自动装。
-                #    原来这里一律删,等于把业主已经下好校验好的 46MB 白丢,还得重下一遍;
-                #    `path_unsupported` 那种还会变成"下载→作废→再下载"的持久空转
-                #    (2026-09-20 第 2 轮外审 subdeepseek,走端点实测过)。
-                #    ⚠️ 这里不再兼管"别再重复下回来"那件事 —— 那归 prepare/startup 的
-                #    资格闸(el1/el2)。末端删文件追不上前端重新备货,那是第 1 轮的教训。
-                if download is not None and auto.get("why_not") == "attempted":
+                # 🔴 **只有"这一版真的不会再自动装了"才作废备货**(判据 el4/el4b/el16)。
+                #    临时条件(条件恢复后这一版还能自动装)下删包 = 把业主已经下好校验好的
+                #    46MB 白丢、还得重下一遍(2026-09-20 第 2 轮外审 subdeepseek 走端点实测过)。
+                #    **哪些算永久,这里不自己回答** —— `ds_auto_update.PERMANENT_BLOCKERS`
+                #    一家说了算。这里原来硬编码 `== "attempted"`,而那份名单在第 3 轮外审 F4
+                #    之后已经多了 `path_unsupported`:同一个问题两处各答一遍、而且答得不一样,
+                #    正是这条链上已经栽过两轮的那个形状(track opendesign-update-duplicate-facts)。
+                #    ⚠️ 这里不兼管"别再重复下回来" —— 那归 prepare/startup 的资格闸(el1/el2)。
+                #    末端删文件追不上前端重新备货,那是第 1 轮的教训。
+                #
+                # ⚠️ **这是纵深,不是主防线**(探针 t0-apply-discard-reachability 实测):
+                #    前端只在 `/api/update/startup` 回 install 时才调本端点的 auto 分支
+                #    (`web/src/App.tsx`),而 startup 已经把任何 blocker 改写成 enter
+                #    ⇒ 正常链路根本走不到这里。留着它是因为端点本身是暴露的,
+                #    而"走不到"和"走到了也对"是两件事。别把它读成"自动更新靠这一句兜底"。
+                if download is not None and auto.get("why_not") in ds_auto_update.PERMANENT_BLOCKERS:
                     ds_update_startup.discard_ready(paths.get("data_root"))
                 return False, {"ok": False, "stage": "auto_skipped",
                                "error": auto.get("why_not") or "error"}
@@ -1339,7 +1345,7 @@ class Handler(BaseHTTPRequestHandler):
         blocker = ds_auto_update.why_not_auto(paths, None)
         if blocker and blocker != "attempted":
             # attempted 要放行到 prepare_update 里判 —— 那里才知道"最新版"是哪一版
-            # (machine_blocker 在这一步拿不到 version,传 None 只问机器维度)。
+            # (why_not_auto 在这一步拿不到 version,传 None 只问机器维度)。
             if blocker in ds_auto_update.PERMANENT_BLOCKERS:
                 # 永久条件(路径不支持 / 不是装出来的)⇒ 这一版再也不会自动装,
                 # 那 46MB 留着没意义,顺手清掉。判据 el14(第 3 轮外审 F4)。
@@ -1354,7 +1360,7 @@ class Handler(BaseHTTPRequestHandler):
             #    原先却在返回之前同步跑它 —— 那句话当时是假的(第 1 轮外审 subdeepseek #5)。
             try:
                 info = self._update_decision_for_auto()
-                ds_update_startup.prepare_update(info, root, paths=paths)
+                ds_update_startup.prepare_update(info, paths)
             finally:
                 with _PREPARE_LOCK:
                     _PREPARE_STATE["running"] = False

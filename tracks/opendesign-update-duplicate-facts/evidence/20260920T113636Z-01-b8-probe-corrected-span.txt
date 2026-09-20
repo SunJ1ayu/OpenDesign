@@ -1,0 +1,27 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    b8-probe-corrected-span
+cmd:     env ROUNDS=14 python3 tracks/opendesign-update-duplicate-facts/b8-probe.py
+cwd:     .(仓根)
+commit:  4ba29e8
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-20T11:36:36Z
+---------------- 输出开始 ----------------
+锁位数 = 6(由 InstanceLock._ports 推导,span=5)
+ok 第0轮 base=40111 span=40111..40116 结果=[{'acquired': False, 'port': 40112}, {'acquired': True, 'port': 40111}] 落在本轮 span 里的**上几轮赢家**=无
+ok 第1轮 base=46373 span=46373..46378 结果=[{'acquired': True, 'port': 46373}, {'acquired': False, 'port': 46374}] 落在本轮 span 里的**上几轮赢家**=无
+ok 第2轮 base=49823 span=49823..49828 结果=[{'acquired': True, 'port': 49823}, {'acquired': False, 'port': 49824}] 落在本轮 span 里的**上几轮赢家**=无
+ok 第3轮 base=53383 span=53383..53388 结果=[{'acquired': False, 'port': 53383}, {'acquired': True, 'port': 53383}] 落在本轮 span 里的**上几轮赢家**=无
+ok 第4轮 base=32929 span=32929..32934 结果=[{'acquired': True, 'port': 32929}, {'acquired': False, 'port': 32930}] 落在本轮 span 里的**上几轮赢家**=无
+ok 第5轮 base=37659 span=37659..37664 结果=[{'acquired': True, 'port': 37659}, {'acquired': False, 'port': 37660}] 落在本轮 span 里的**上几轮赢家**=无
+ok 第6轮 base=43417 span=43417..43422 结果=[{'acquired': True, 'port': 43417}, {'acquired': False, 'port': 43417}] 落在本轮 span 里的**上几轮赢家**=无
+ok 第7轮 base=39057 span=39057..39062 结果=[{'acquired': True, 'port': 39057}, {'acquired': False, 'port': 39058}] 落在本轮 span 里的**上几轮赢家**=无
+ok 第8轮 base=58777 span=58777..58782 结果=[{'acquired': False, 'port': 58778}, {'acquired': True, 'port': 58777}] 落在本轮 span 里的**上几轮赢家**=无
+ok 第9轮 base=38321 span=38321..38326 结果=[{'acquired': False, 'port': 38322}, {'acquired': True, 'port': 38321}] 落在本轮 span 里的**上几轮赢家**=无
+ok 第10轮 base=53983 span=53983..53988 结果=[{'acquired': False, 'port': 53984}, {'acquired': True, 'port': 53983}] 落在本轮 span 里的**上几轮赢家**=无
+ok 第11轮 base=36677 span=36677..36682 结果=[{'acquired': True, 'port': 36677}, {'acquired': False, 'port': 36678}] 落在本轮 span 里的**上几轮赢家**=无
+ok 第12轮 base=58699 span=58699..58704 结果=[{'acquired': True, 'port': 58699}, {'acquired': False, 'port': 58700}] 落在本轮 span 里的**上几轮赢家**=无
+ok 第13轮 base=35801 span=35801..35806 结果=[{'acquired': False, 'port': 35801}, {'acquired': True, 'port': 35801}] 落在本轮 span 里的**上几轮赢家**=无
+
+14 轮里 0 轮不是恰好一个赢家
+---------------- 输出结束 ----------------
+runlog: b8-probe-corrected-span rc=0 commit=4ba29e8 dirty=yes at=2026-09-20T11:36:36Z file=tracks/opendesign-update-duplicate-facts/evidence/20260920T113636Z-01-b8-probe-corrected-span.txt
