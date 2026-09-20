@@ -285,10 +285,16 @@ startup 问半个问题 → 说能装 → 界面弹出来 → apply 问另外半
 ## 第 4 轮派发前的收据,以及**最终回归又红了一条**(不是上一条,是新的一条)
 
 ```
+runlog: r3-full-eligibility-redcheck rc=1 commit=e7f83ef dirty=yes at=2026-09-20T05:56:41Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T055641Z-01-r3-full-eligibility-redcheck.txt
 runlog: r4-eligibility-mutants rc=0 commit=57d35e3 dirty=yes at=2026-09-20T07:57:43Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T075743Z-01-r4-eligibility-mutants.txt
 runlog: r4-full-regression-final rc=1 commit=f7b58db dirty=no final=yes at=2026-09-20T08:04:32Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T080432Z-01-r4-full-regression-final.txt
 runlog: r4-full-regression-recheck rc=3 commit=f7b58db dirty=yes at=2026-09-20T08:27:10Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T082710Z-01-r4-full-regression-recheck.txt
 ```
+
+**`r3-full-eligibility-redcheck` rc=1 是判据先行的红**:el10~el14 写完、实现还没动那一刻,
+**6 条红**(no_shell / disabled 下 startup 仍说 install、后台照样下 46MB、临时状况过去不恢复、
+path_unsupported 下 46MB 没人清)。它是第 3 轮那条 HIGH 在本仓里的机械复现,
+**不是环境噪音,是这一轮最值钱的一份收据**(preflight 的 5b 提醒我它没被引用,已补)。
 
 **`r4-eligibility-mutants` rc=0 = 9 个变异全部咬住**(含我补的 el15;它就是被第 8 个变异逼出来的)。
 
@@ -337,6 +343,20 @@ AssertionError: 0 != 1 : 第 5 轮同时起两份,0 份都认为自己是唯一�
 
 **⚠️ 所以本单的最终回归收据仍然是 rc=1,不是绿。** 归档时必须当面说清这一条,
 不许拿上面那份 `r4-eligibility-mutants rc=0` 冒充"回归全绿"。
+
+### 派发前的机械检查(第 4 轮,**这次落盘了**)
+
+```
+runlog: r4-preflight rc=1 commit=3dad391 dirty=no at=2026-09-20T08:40:48Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T084048Z-01-r4-preflight.txt
+```
+`BLOCK=1 PENDING=2 ERROR=0 OK=4`,逐条认账:
+- **BLOCK views**(working 与 staged 不同):来自 preflight **自己刚写的那份收据**还没 `git add`。
+  闸自己标了"(不需要重审)",已 add 并提交。
+- **PENDING receipts 5b**:第 3 轮那份跑红的收据没被 verify.md 引用 —— **真账,已补**(见上)。
+- **PENDING verdict**:`outcome.verdict=null`,正常 —— 主裁要等这一轮的报告读完才写。
+
+🔴 **第 2、3 轮的 preflight 读数分别因断线和没落盘丢过两次;本轮起它走 runlog,
+收据在上面这一行。** 这是本单要还的第一笔工艺账,今天还了。
 
 ## Accepted deviations
 

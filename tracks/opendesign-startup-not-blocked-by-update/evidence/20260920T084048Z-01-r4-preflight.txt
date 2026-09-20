@@ -1,0 +1,35 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    r4-preflight
+cmd:     /root/aiwork/bin/track preflight opendesign-startup-not-blocked-by-update
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  3dad391
+dirty:   no(跑之前采的;含未跟踪文件)
+started: 2026-09-20T08:40:48Z
+---------------- 输出开始 ----------------
+track preflight: opendesign-startup-not-blocked-by-update (/root/.openclaw/workspace/projects/design-studio) —— 只读预检,不改任何东西
+  PENDING decision: 要等最终评审 / 主 agent 仲裁
+      | track-record: rule=observation.review_budget path=observations[].actual.legs[].family actual={"impact":"high","required":2,"successful_panel_runs":3,"authoritative_groups":[{"run_id":"20260920-120130-945542-panel-review","subject_digest":"sha256:f36502b35ff04778b12c194842f04c2e2a868f39bebc48e3586bcb903da777cd","eligible_count":3,"eligible_families":["deepseek","xai","xiaomi"],"eligible_family_count":3,"verdicts":["BLOCK","PASS"],"conflict":true,"review_contract_versions":[1]},{"run_id":"20260920-123836-979437-panel-review","subject_digest":"sha256:c6550b2f46cde6b061f75c7afd36bb293d05d0d80c0b36fb7d370a00b918d852","eligible_count":3,"eligible_families":["deepseek","xai","xiaomi"],"eligible_family_count":3,"verdicts":["BLOCK","PASS"],"conflict":true,"review_contract_versions":[1]},{"run_id":"20260920-134416-1101476-panel-review","subject_digest":"sha256:9824e7829a0280e8ff1bb8dde9fc20cfa5bb8bbdb64d3144e71d8baa75507a49","eligible_count":2,"eligible_families":["deepseek","xiaomi"],"eligible_family_count":2,"verdicts":["BLOCK","PASS"],"conflict":true,"review_contract_versions":[1]}],"same_subject_shadow":null} expected=">= 2 coverage-eligible families in one successful panel run for one subject, without verdict conflict" verdict=PENDING
+      | track-record: note=归档覆盖检查首条待定即停:同组其后的检查尚未评估
+      | track-record: rule=field.decided path=outcome.verdict actual=null expected="PASS|BLOCK|NEEDS_MORE_INFO|ARCHIVED-SUPERSEDED" verdict=PENDING
+      | track-record: note=主 agent 仲裁后写入;覆盖检查按假设 PASS 预跑,不是归档凭据
+  BLOCK   views: working 与 staged 不是同一份内容:git add / 删掉 / ignore 这些(不需要重审)
+      | tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T084048Z-01-r4-preflight.txt
+  OK      verify: 在
+  PENDING receipts: 收尾时要在 verify.md 引用/认账(5b/5c;改 verify.md 不作废评审绑定)
+      | track preflight: 🔴 5b:/root/.openclaw/workspace/projects/design-studio/tracks/opendesign-startup-not-blocked-by-update/verify.md 在归档,但这一份**跑红了**的收据没有被引用:
+      | track preflight:      runlog: r3-full-eligibility-redcheck rc=1 commit=e7f83ef dirty=yes at=2026-09-20T05:56:41Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T055641Z-01-r3-full-eligibility-redcheck.txt
+      | track preflight:    (红的那几遍是这一单最值钱的部分,不许只贴好看的。)
+      | track preflight:    这一份如果是误跑/环境噪音:**照样贴上去,旁边写一句为什么不算数** ——
+      | track preflight:    删掉它才是造假,贴出来说清楚不是。
+  OK      ephemeral: 没有会话临时目录引用
+  OK      destination: 归档目标空着
+  OK      worktrees: 归档时不会挡
+      | worktree-sweep: /root/aiwork/worktrees
+      |   不属于本轮,只点名不触碰:
+      |     /root/aiwork/worktrees/keyonb-baseline
+      |     /root/aiwork/worktrees/opendesign-data-outside-install
+      |     /root/aiwork/worktrees/opendesign-windows-installer
+track preflight: BLOCK=1 PENDING=2 ERROR=0 OK=4 ⇒ rc=1
+  通过 ≠ 可归档:预检不留任何标记,归档时全部检查照样重跑。
+---------------- 输出结束 ----------------
+runlog: r4-preflight rc=1 commit=3dad391 dirty=no at=2026-09-20T08:40:48Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T084048Z-01-r4-preflight.txt
