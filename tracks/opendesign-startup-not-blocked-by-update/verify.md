@@ -31,7 +31,24 @@ runlog: full-regression-r1fix rc=3 commit=72e20dd dirty=yes at=2026-09-20T04:23:
 runlog: r2-eligibility-redcheck rc=1 commit=181f960 dirty=yes at=2026-09-20T04:57:54Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T045754Z-01-r2-eligibility-redcheck.txt
 runlog: r2-el9-redcheck rc=1 commit=141ed05 dirty=yes at=2026-09-20T05:04:34Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T050434Z-01-r2-el9-redcheck.txt
 runlog: r2-full-regression rc=3 commit=ff478f2 dirty=yes final=yes at=2026-09-20T05:06:20Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T050620Z-01-r2-full-regression.txt
+runlog: r2-full-regression-final rc=1 commit=3035b8d dirty=no final=yes at=2026-09-20T05:26:15Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T052615Z-01-r2-full-regression-final.txt
 ```
+
+🔴 **最后那份 `rc=1` 是红的,不藏**(判据红了先问是不是真 bug,不先怀疑判据):
+
+- 红的是 **`chat_reconnect.e2e.mjs` 第 ㉜ 条**(断线时正忙 + 重连后拉历史 404 ⇒ 发送键恢复
+  可用)。它钉的是**真 bug**(0.75.0 四审判 BLOCK 的那条 P1:重连回来能打字、发送键永久变灰
+  只能刷新),不是一条可有可无的题。㉜a/㉜b 两个前置都过了,只有最后那步 8s 内没等到。
+- **为什么判定"不是本单引入"——机械证据,不是推理**:上一趟 `ff478f2` 同一套 e2e 是
+  41 PASS / 0 FAIL;`git diff ff478f2 3035b8d -- bin/ tests/ web/` 去掉注释行后**零改动**,
+  `web/` 一个字节没动(那一趟与这一趟跑的是同一份 dist,两趟新鲜度闸都绿)。
+  ⇒ **被测系统的行为字节级相同,同一输入两次不同结果**。这不是统计推断,是对照。
+- 补量:当前 HEAD 单跑 `chat_reconnect` **5 遍 5 绿**(脚本在 scratchpad,`[仓外不承重]`)。
+- **处置:本单不修**(聊天重连是另一个模块,不在本单范围),**也不重跑到绿**
+  (那是挑收据)。两份收据都留着。**⇒ 记为待开单:e2e `chat_reconnect ㉜` 间歇失败,
+  需要在总跑环境下量复现率并定位竞态。** 与既有账 [[opendesign-e2e-flaky-and-gateway-dep]] 同族。
+- ⚠️ 因此本单的最终回归收据是 **rc=1**,不是绿。归档时这一条必须当面说清,不许用前一份
+  `rc=3` 冒充最终收据。
 
 **第 2 轮重做之后新增的三份**(上面 runlog 段落的后三行):
 - 两份 `rc=1` 是**判据先行的红**:`r2-eligibility-redcheck`(el1~el8,8 红 4 绿 —— 反向题 el3
