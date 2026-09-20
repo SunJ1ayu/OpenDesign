@@ -31,7 +31,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ds_update          # 只借 parse_version(避免两份版本比较逻辑漂移);**不调用它的任何取数函数**
 import ds_update_apply    # 只借下载/校验(避免两份下载逻辑漂移)
-import ds_auto_update     # 只借 auto_eligible(资格判断只写一处,三处共用)
+import ds_auto_update     # 只借 why_not_auto + PERMANENT_BLOCKERS(资格判断只写一处,三处共用)
 
 SCHEMA = 1
 STATE_NAME = "update-state.json"
@@ -259,6 +259,14 @@ def prepare_update(info, paths, download=None, now=None):
         # data_root / state_file 都放进 try 里:上面那句"永不抛"包括 `paths` 被传成
         # 不是 dict 的东西(红检实测过一次 —— 旧签名会把它 str() 进路径、默默建出目录)。
         data_root = paths.get("data_root")
+        # 🔴 拿不到 data_root 就**什么都别做**(判据 el20,2026-09-20 外审 subcursor+submimo
+        #    各自独立碰到这一处)。没有这一句的话:`state_path(None)` 会算出相对路径
+        #    `"None/Logs/update-state.json"`,于是打扫、写状态、下载**全都落在当前工作目录**
+        #    ——业主机器上那就是安装目录。不报错、不抛、照常返回,**一声不响地写错地方**。
+        #    生产走不到(端点用 paths_for_update 造 paths),但这正是本单在治的那个形状:
+        #    宁可响亮地失败,也不要静默地做错事。
+        if not isinstance(data_root, str) or not data_root:
+            return {"ok": False, "reason": "prepare_failed"}
         state_file = state_path(data_root)
         # 🔴 先打扫:盘上留着的那个包如果**不比现在跑着的版本新**,它就是垃圾
         #    (多半是上一次更新装完之后剩下的)。不清 ⇒ 每更新一次永久多占 46MB。

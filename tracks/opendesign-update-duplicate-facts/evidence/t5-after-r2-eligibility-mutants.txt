@@ -1,0 +1,28 @@
+未变异:全绿 ✓
+
+  [咬住] E1 打开软件那一问不再查资格(界面照弹)
+         期望 el10 变红;实得 rc=1 红的有:['test_el10_startup_does_not_offer_to_install_when_the_machine_cannot', 'test_el13_a_transient_blocker_going_away_restores_auto_update', 'test_el2_startup_does_not_offer_to_install_a_version_already_attempted']
+  [咬住] E2 后台备货两层闸**一起**拆(单拆一层是纵深,拆不出来)
+         期望 el11 变红;实得 rc=1 红的有:['test_el11_prepare_does_not_stock_when_the_machine_cannot', 'test_el14_a_permanent_blocker_does_not_hoard_46mb_forever', 'test_el15_prepare_keeps_the_package_under_a_transient_blocker', 'test_el18_prepare_asks_the_machine_dimension_when_called_directly', 'test_el19_an_unknowable_eligibility_is_transient_and_keeps_the_package', 'test_el1_prepare_refuses_to_restock_a_version_already_attempted', 'test_el1b_eligibility_is_permanent_not_a_24h_window', 'test_el5_a_failed_auto_install_does_not_come_back_every_other_launch', 'test_el9_an_ineligible_leftover_package_gets_cleaned_up']
+  [咬住] E3 资格判据漏掉 disabled(业主把自动更新关了,照样弹、照样下)
+         期望 el10 变红;实得 rc=1 红的有:['test_el10_startup_does_not_offer_to_install_when_the_machine_cannot', 'test_el11_prepare_does_not_stock_when_the_machine_cannot', 'test_el15_prepare_keeps_the_package_under_a_transient_blocker', 'test_el4_transient_ineligibility_keeps_the_package']
+  [咬住] E4 资格判据漏掉 no_shell(没外壳也说能装)
+         期望 el10 变红;实得 rc=1 红的有:['test_el10_startup_does_not_offer_to_install_when_the_machine_cannot', 'test_el11_prepare_does_not_stock_when_the_machine_cannot', 'test_el13_a_transient_blocker_going_away_restores_auto_update', 'test_el15_prepare_keeps_the_package_under_a_transient_blocker', 'test_el4_transient_ineligibility_keeps_the_package']
+  [咬住] E5 资格判据漏掉账本那一维(试过装不上的版本又弹一次)
+         期望 el2 变红;实得 rc=1 红的有:['test_el1_prepare_refuses_to_restock_a_version_already_attempted', 'test_el1b_eligibility_is_permanent_not_a_24h_window', 'test_el2_startup_does_not_offer_to_install_a_version_already_attempted', 'test_el4b_attempted_still_discards_the_package', 'test_el5_a_failed_auto_install_does_not_come_back_every_other_launch', 'test_el9_an_ineligible_leftover_package_gets_cleaned_up']
+  [咬住] E6 永久否决里拿掉 attempted(该清的 46MB 不清)
+         期望 el9 变红;实得 rc=1 红的有:['test_el4b_attempted_still_discards_the_package', 'test_el9_an_ineligible_leftover_package_gets_cleaned_up']
+  [咬住] E7 永久否决里拿掉 path_unsupported(46MB 永远没人清 —— F4 那条)
+         期望 el14 变红;实得 rc=1 红的有:['test_el14_a_permanent_blocker_does_not_hoard_46mb_forever']
+  [咬住] E8 把**临时**否决也当永久(没外壳就把业主的包删了)
+         期望 el15 变红;实得 rc=1 红的有:['test_el13_a_transient_blocker_going_away_restores_auto_update', 'test_el15_prepare_keeps_the_package_under_a_transient_blocker', 'test_el4_transient_ineligibility_keeps_the_package']
+  [咬住] E8b **只**把 error 加进永久集(资格算不出来就把业主的包删了)
+         期望 el19 变红;实得 rc=1 红的有:['test_el19_an_unknowable_eligibility_is_transient_and_keeps_the_package']
+  [咬住] E9 apply 侧不再共用同一判据(F2 那条:自己再拼一遍,且漏了)
+         期望 el4b 变红;实得 rc=1 红的有:['test_el13_a_transient_blocker_going_away_restores_auto_update', 'test_el16_apply_discards_under_every_permanent_blocker', 'test_el19_an_unknowable_eligibility_is_transient_and_keeps_the_package', 'test_el4_transient_ineligibility_keeps_the_package', 'test_el4b_attempted_still_discards_the_package']
+  [咬住] E11 prepare 拿不到 data_root 也照样往下做(静默写进当前工作目录)
+         期望 el20 变红;实得 rc=1 红的有:['test_el20_a_paths_without_data_root_writes_nothing_anywhere']
+  [咬住] E10 apply 侧把「哪些否决是永久的」又自己写一遍(track opendesign-update-duplicate-facts #24)
+         期望 el16 变红;实得 rc=1 红的有:['test_el16_apply_discards_under_every_permanent_blocker']
+
+全部咬住

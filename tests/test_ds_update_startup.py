@@ -379,6 +379,10 @@ class PrepareUpdateTests(unittest.TestCase):
         env = mock.patch.dict(os.environ, {"DS_SHELL_LOCK_PORT": "47123"})
         env.start()
         self.addCleanup(env.stop)
+        # 这一句在 env.start() **之后**,所以是安全的:mock.patch.dict 在 start 时存的是
+        # 整份 os.environ、stop 时整份还原 ⇒ 被 pop 掉的键会回来(实测 off → None → off)。
+        # 写清楚是因为 2026-09-20 外审有腿把它报成"没还原会渗给后面的判据" —— 代码不说,
+        # 下一个人就得重新推一遍。
         os.environ.pop("OPENDESIGN_AUTO_UPDATE", None)
         pf = mock.patch.object(ds_update_apply, "update_preflight_problem",
                                lambda paths: (None, None))

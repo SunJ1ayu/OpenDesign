@@ -652,6 +652,39 @@ class UpdateEligibility(unittest.TestCase):
         self.assertTrue(self._package_exists(path),
                         "🔴 apply 侧:同上 —— error 不在 PERMANENT_BLOCKERS 里是有原因的")
 
+    def test_el20_a_paths_without_data_root_writes_nothing_anywhere(self):
+        """`paths` 里没有 `data_root` ⇒ **一个字节都不许往盘上写**,更不许写进当前工作目录。
+
+        🔴 由来(2026-09-20 外审,subcursor 与 submimo **各自独立**碰到这一处):
+        `state_path(None)` 会算出**相对路径** `"None/Logs/update-state.json"`,于是打扫、
+        写状态、下载全都落在**当前工作目录** —— 业主机器上那就是安装目录 ——
+        而且不报错、不抛、照常返回。**一声不响地写错地方**,是本单整单在治的那个形状。
+
+        我自己今天红检时先踩过一次同一个坑:旧签名下我把一个 dict 当 data_root 传进去,
+        它在仓根建出了一个叫 `{'data_root': '/...` 的目录。当时我只当是红检的副作用,
+        **没意识到那是产品代码的一条真实静默写盘路径** —— 两条腿把它指出来了。
+
+        这条题**不查 reason 字符串**,查的是"盘上有没有多出东西":错误码可以改,
+        "不许乱写盘"不能改。
+        """
+        cwd = os.getcwd()
+        sandbox = os.path.join(self.tmp, "cwd-sentinel")
+        os.makedirs(sandbox, exist_ok=True)
+        os.chdir(sandbox)
+        try:
+            spy = self._spy_download()
+            with mock.patch.object(ds_update_apply, "update_preflight_problem",
+                                   lambda paths: (None, None)):
+                out = ds_update_startup.prepare_update(self._info(), {}, download=spy)
+        finally:
+            os.chdir(cwd)
+        self.assertIsInstance(out, dict)
+        self.assertIs(out.get("ok"), False, out)
+        self.assertEqual(self.downloads, [], "没有 data_root 却照样下了 46MB")
+        self.assertEqual(sorted(os.listdir(sandbox)), [],
+                         "🔴 它往当前工作目录里写东西了(业主机器上 cwd = 安装目录):%r"
+                         % (sorted(os.listdir(sandbox)),))
+
 
 if __name__ == "__main__":
     unittest.main()

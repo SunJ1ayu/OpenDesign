@@ -30,7 +30,10 @@ BIN = os.path.join(ROOT, "bin")
 
 #: 注释里写 `ds_web.py` 是在说一个**文件**,不是在引用一个属性。
 _EXTENSIONS = {"py", "ps1", "md", "json", "txt", "exe", "sh", "js", "ts", "mjs"}
-_QUALIFIED = re.compile(r"\b(ds_[a-z0-9_]+)\.([a-z_][a-z0-9_]*)\b")
+# 大写开头的名字(类名 / 常量)也要查:2026-09-20 外审 subcursor 指出原来的
+# `[a-z_]` 看不见 `ds_web.Handler` 这种。实测把大写放进来之后全仓**仍然 0 误报**,
+# 等于白捡的覆盖面。
+_QUALIFIED = re.compile(r"\b(ds_[a-z0-9_]+)\.([A-Za-z_][A-Za-z0-9_]*)\b")
 
 
 def _py_files():
