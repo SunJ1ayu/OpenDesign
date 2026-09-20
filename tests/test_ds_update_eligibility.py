@@ -287,6 +287,38 @@ class UpdateEligibility(unittest.TestCase):
         self.assertEqual(self.downloads, [], "第二轮又下了一遍 —— 这条链没有收敛,只是周期更长")
         self.assertEqual(self._startup_action()[0], "enter", "第二轮又弹了一次更新界面")
 
+    # === el9:资格闸装上之后,别把 46MB 永远晾在盘上 ========================
+
+    def test_el9_an_ineligible_leftover_package_gets_cleaned_up(self):
+        """**我自己审出来的,不是腿报的**(2026-09-20,写完 el1/el2 的实现之后)。
+
+        资格闸装上以后,已试过那一版的链路变成:prepare 直接拒、startup 回 enter
+        ⇒ **apply 再也不会被调用**。而清包的动作原本就挂在 apply 那一侧
+        (`discard_ready`)。于是只要有一份 attempted 版本的 ready 备货没走完正常流程
+        (discard 那一下失败、或状态文件是更早的版本写的),它就**三处都没人碰**:
+        `_sweep_installed` 不清(它比当前版本新)、`_sweep_orphans` 不清(状态正指着它)、
+        apply 不跑。业主盘上白占 46MB,永久。
+
+        prepare 每 60 秒跑一次,本来就是"打扫 + 备货"的地方,是这条链自然的收敛点。
+        清掉它零风险:那个包**永远不会再被自动装**,而手动更新走的是真下载、不碰它(el6)。
+        """
+        path, _ = self._stock()
+        ok, err = ds_auto_update.record_attempt(self.data_root, LATEST)
+        self.assertTrue(ok, err)
+        self._armed()
+
+        got = ds_update_startup.prepare_update(
+            self._info(), self.data_root, download=self._spy_download())
+
+        self.assertEqual(self.downloads, [], "夹具没摆对:这一版不该被重下(el1)")
+        self.assertFalse(
+            self._package_exists(path),
+            "🔴 这一版永远不会再自动装(prepare 拒、startup 回 enter、apply 不跑),"
+            "那 46MB 却还躺在业主盘上,三处都没人清:%r" % (got,))
+        state = ds_update_startup.read_state(ds_update_startup.state_path(self.data_root))
+        self.assertNotEqual((state or {}).get("phase"), "ready",
+                            "包清了状态还说 ready:%r" % (state,))
+
     # === el6:手动更新这条路一行不许变 ======================================
 
     def test_el6_manual_update_is_unaffected_by_the_auto_eligibility_gate(self):
