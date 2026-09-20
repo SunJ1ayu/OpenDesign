@@ -282,6 +282,62 @@ startup 问半个问题 → 说能装 → 界面弹出来 → apply 问另外半
   每一轮外部腿都抓出一条经我核实成立的 HIGH,其中两条是我自己写错的。
   我自己那一遍审在这条链上的命中率是 0/3。
 
+## 第 4 轮派发前的收据,以及**最终回归又红了一条**(不是上一条,是新的一条)
+
+```
+runlog: r4-eligibility-mutants rc=0 commit=57d35e3 dirty=yes at=2026-09-20T07:57:43Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T075743Z-01-r4-eligibility-mutants.txt
+runlog: r4-full-regression-final rc=1 commit=f7b58db dirty=no final=yes at=2026-09-20T08:04:32Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T080432Z-01-r4-full-regression-final.txt
+runlog: r4-full-regression-recheck rc=3 commit=f7b58db dirty=yes at=2026-09-20T08:27:10Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T082710Z-01-r4-full-regression-recheck.txt
+```
+
+**`r4-eligibility-mutants` rc=0 = 9 个变异全部咬住**(含我补的 el15;它就是被第 8 个变异逼出来的)。
+
+**`r4-full-regression-final` rc=1**,六段里五段绿,红的是 **python 全量的 1 条**
+(1793 跑过 / 1 跳过 / 1 红)。🔴 **注意:上一轮那条红的 e2e(`chat_reconnect ㉜`)这一趟是绿的**
+(e2e 41 PASS / 0 FAIL / 2 SKIP),dist 新鲜度与类型检查也绿。
+
+### 红的是 `test_ds_shell_core.test_b8`(双击两下只许一份赢),不是本单的模块
+
+```
+AssertionError: 0 != 1 : 第 5 轮同时起两份,0 份都认为自己是唯一实例:
+[{'acquired': False, 'port': 40305}, {'acquired': False, 'port': 40305}]
+```
+
+**先问"是不是真 bug",没先怀疑判据。** 我做的是:
+
+1. **读实现定住"什么才能造出这个结果"**:`acquired=False` 只有两条路 ——
+   第一轮扫描握手拿到 `LOCK_OK`(`_send_show` 要求**逐字节相等**的应答行),
+   或绑上之后发现更靠前的锁位有人(`_someone_ahead_of`)。两条都要求
+   **有一个真的 OpenDesign 锁在应答**。随便一个 HTTP 服务器冒充不了。
+2. **因此本单的改动造不出它**(机械理由,不是推理):我的新判据把
+   `DS_SHELL_LOCK_PORT` 写死成常量 `"47123"`(`test_ds_web_auto_update` 的夹具),
+   **从不启动 InstanceLock**,一个锁服务都不起。
+3. **隔离量了三组**(都在本次改动之上):b8 单跑 **8/8 绿**;
+   b8 所在模块与我的新卷**同进程**跑 **5/5 绿**;
+   另写探针 `tracks/<t>/b8-probe.py` 复刻它的循环并打印每轮 base / span / 上几轮留活的赢家,
+   **25 轮 0 次异常**(顺带证伪了我自己的第一个假设:本机临时端口是**随机**发的,
+   不是递增,所以"上一轮赢家落进下一轮 span"很罕见)。
+4. **今天之前的四趟总跑里 python 全段都是绿的**(1771 / 1776 / 1787 / 1787 全过)。
+5. **同一份代码(f7b58db)再跑一遍总跑:全绿**(`r4-full-regression-recheck`,
+   python **1793 全过**、e2e 41 PASS / 0 FAIL / 2 SKIP;rc=3 是那 3 条要活网关的没跑,
+   与历史同形,不是红)。⇒ **一红一绿,间歇性坐实**。
+   ⚠️ **两份收据都留着,不许拿绿的那份当"最终"** —— 带 `final=yes` 的是红的那份。
+
+🔴 **我明确说不出来的那一半,不糊过去**:这一次 `40305` 上到底是**谁**在应答,
+证据已经没了(进程早退)。两种可能后果完全不同:
+- ① 判据自己的残留:b8 每轮的赢家 `sleep(120)` 不退、要等整条用例结束才被 reap,
+  万一落进后面某轮的 5 个锁位里,**两份都让位是产品的正确行为**,错的是断言;
+- ② 真 bug:没有任何实例在跑,而两份都误判"已有一份" ⇒ 业主双击两下**一个窗口都不开**。
+  这正是本项目栽过的那一类(`release()` 的注释里写着同款事故)。
+
+**处置**:本单**不修、不重跑到绿、不改那条判据**(它不是本单的模块,而且②这个可能性
+还在桌上 —— 调它就是调钝报警器)。**记为待开单**:给 b8 加一条**失败当场取证**的诊断
+(红的时候把那几个锁位上谁在监听、PID 是谁打出来),下一次再红就能一眼分出 ①②。
+探针已经留在本 track 里给下一个人用。⇒ 与 [[opendesign-e2e-flaky-and-gateway-dep]] 同族账。
+
+**⚠️ 所以本单的最终回归收据仍然是 rc=1,不是绿。** 归档时必须当面说清这一条,
+不许拿上面那份 `r4-eligibility-mutants rc=0` 冒充"回归全绿"。
+
 ## Accepted deviations
 
 - **「60 秒后后台那一趟点火时重新问一次开关」没有自动判据。** 那 60 秒的延迟让 e2e 问不出它,
