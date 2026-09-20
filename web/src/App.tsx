@@ -7,11 +7,11 @@ import {
   beginApply,
   canApply,
   readApplyResponse,
-  shouldAutoUpdate,
   startupAction,
   STARTUP_LOCAL_ENDPOINT,
   STARTUP_LOCAL_TIMEOUT_MS,
   STARTUP_PREPARE_ENDPOINT,
+  startupVersion,
 } from "./update";
 import type { ApplyResult, ApplyState, UpdateInfo, UpdateState } from "./update";
 import { loadBoolPrefs } from "./boolPrefs";
@@ -110,6 +110,10 @@ export default function App() {
   updateInfoRef.current = updateInfo;
   const [autoBanner, setAutoBanner] = useState<string | null>(null);
   const [startupPhase, setStartupPhase] = useState<"checking" | "updating" | "ready">("checking");
+  // 启动要装哪一版:启动路径不查更新 ⇒ 版本只能来自启动回包(判据 sg8 / e2e AC-A)。
+  const [startupTarget, setStartupTarget] = useState<string | null>(null);
+  // "上次自动更新失败过"这句话,一次打开只说一遍(说完他关掉就别再冒出来)。
+  const recentFailureToldRef = useRef(false);
   // 同一个挂载只发一次启动检查,也挡住 StrictMode 重放 effect;中途开启只查不装。
   const checkedAutoPrefRef = useRef<boolean | null>(null);
   // 自动查更新的开关(默认开)。存 localStorage,和左栏那些展开偏好同一套。
@@ -270,10 +274,16 @@ export default function App() {
       .catch(() => setHealth(null));
   }, []);
 
-  const applyUpdate = useCallback(async (auto: boolean) => {
+  const applyUpdate = useCallback(async (auto: boolean, localTarget: string | null = null) => {
     const isAuto = auto === true;
     const info = updateInfoRef.current;
-    if (!canApply(info) || !beginApply(applyStateRef.current)) {
+    // 🔴 启动装的是**盘上那个已经逐字节校验过的包**(大小 + sha256,后端 startup_decision),
+    //    不是这一次查更新的结果 —— 启动路径上根本不查,所以 updateInfoRef 此刻必然是 null。
+    //    原来这里无条件走 canApply(info) ⇒ 后台备好的新版被自己挡掉,永远装不上
+    //    (判据 e2e AC-A/AC-D/AC-H 共 10 条钉这件事)。
+    //    盘上那条路的校验比 canApply 更硬:canApply 只看查更新回包的字段齐不齐。
+    const fromLocalState = typeof localTarget === "string" && localTarget !== "";
+    if ((!fromLocalState && !canApply(info)) || !beginApply(applyStateRef.current)) {
       if (isAuto) setStartupPhase("ready");
       return;
     }
@@ -296,7 +306,7 @@ export default function App() {
         /* 非 JSON 响应:统一交给 readApplyResponse 当失败处理 */
       }
       const parsed = readApplyResponse(r.status, body);
-      const withLatest = { ...parsed, latest: info?.latest ?? null };
+      const withLatest = { ...parsed, latest: info?.latest ?? localTarget ?? null };
       applyStateRef.current = "done";
       setApplyResult(withLatest);
       setApplyState("done");
@@ -307,7 +317,7 @@ export default function App() {
       }
     } catch {
       const parsed = readApplyResponse(0, null);
-      const withLatest = { ...parsed, latest: info?.latest ?? null };
+      const withLatest = { ...parsed, latest: info?.latest ?? localTarget ?? null };
       applyStateRef.current = "done";
       setApplyResult(withLatest);
       setApplyState("done");
@@ -322,18 +332,23 @@ export default function App() {
     void applyUpdate(false);
   }, [applyUpdate]);
 
-  const handleStartupAutoCheck = useCallback((info: UpdateInfo | null) => {
-    if (shouldAutoUpdate(info)) {
-      void applyUpdate(true);
-      return;
-    }
-    setAutoBanner(autoRecentFailureText(info) || null);
-    setStartupPhase("ready");
-  }, [applyUpdate]);
+  // 「上一次自动更新失败了,以后只能手动」这句话该在哪说。
+  //
+  // 🔴 它原来挂在 handleStartupAutoCheck 上 —— 那条路是"启动时查更新"专用的,
+  //    本单把启动查更新整个搬走之后,**再没有人走那条路,这句提示就此消失**
+  //    (业主装了失败的一版、回滚之后,软件什么都不说)。判据 e2e AC-C2 钉它。
+  //    现在改挂在"任何一次查更新的结果"上:后台那次也好、他自己点的也好,都算数。
+  const tellIfRolledBack = useCallback((info: UpdateInfo | null) => {
+    if (recentFailureToldRef.current) return;      // 一次打开只说一遍
+    const text = autoRecentFailureText(info);
+    if (!text) return;
+    recentFailureToldRef.current = true;
+    setAutoBanner(text);
+  }, []);
 
   // 检查只读,超时就进入现有版本。后端三跳最多约 30 秒,前端再留 5 秒余量。
   // 安装请求不套这个期限:中断等待并不等于服务端停止安装。
-  const checkUpdate = useCallback((force: boolean, startupAuto = false) => {
+  const checkUpdate = useCallback((force: boolean) => {
     setUpdateState("checking");
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), 35000);
@@ -344,7 +359,7 @@ export default function App() {
         updateInfoRef.current = d;
         setUpdateInfo(d);
         setUpdateState("done");
-        if (startupAuto) handleStartupAutoCheck(d);
+        tellIfRolledBack(d);
       })
       .catch(() => {
         // 🔴 评审 F-A:原来这里回到 idle,而 idle+null 显示的是版本号 ——
@@ -353,10 +368,9 @@ export default function App() {
         updateInfoRef.current = null;
         setUpdateInfo(null);
         setUpdateState("done");
-        if (startupAuto) setStartupPhase("ready");
       })
       .finally(() => window.clearTimeout(timer));
-  }, [handleStartupAutoCheck]);
+  }, [tellIfRolledBack]);
   // 打开软件时**只问本地**:盘上有没有已经下好、校验得过的新版?
   // 🔴 这里以前是 `checkUpdate(false, true)` —— 一次联网查更新,实测最坏 20.1 秒,
   //    而整个工作区被挡在它后面。业主:「每次打开都会弹出正在检测更新,这严重拖慢了开软件的速度」。
@@ -365,17 +379,21 @@ export default function App() {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), STARTUP_LOCAL_TIMEOUT_MS);
     let action: "install" | "enter" = "enter";
+    let target: string | null = null;
     try {
       const r = await fetch(STARTUP_LOCAL_ENDPOINT, { signal: controller.signal });
-      action = startupAction(r.ok ? await r.json() : null);
+      const body = r.ok ? await r.json() : null;
+      action = startupAction(body);
+      target = startupVersion(body);
     } catch {
       action = "enter";   // 后端没起来/超时/垃圾回应 —— 一律进工作区
     } finally {
       window.clearTimeout(timer);
     }
     if (action === "install") {
+      setStartupTarget(target);
       setStartupPhase("updating");
-      void applyUpdate(true);
+      void applyUpdate(true, target);
       return;
     }
     setStartupPhase("ready");
@@ -383,7 +401,7 @@ export default function App() {
     // 下好之后写进盘上的状态文件,**下一次打开软件**才装 —— 那时装最快(东西已在本地),
     // 而且本来就在启动,不额外打断他。这是 Chrome 那一路的做法。
     window.setTimeout(() => {
-      checkUpdate(false, false);
+      checkUpdate(false);
       // 后台备货:失败安静收场(业主正在干活,这里不该冒任何泡)。
       void fetch(STARTUP_PREPARE_ENDPOINT, { method: "POST" }).catch(() => {});
     }, BACKGROUND_FIRST_CHECK_MS);
@@ -397,7 +415,7 @@ export default function App() {
       else setStartupPhase("ready");
       return;
     }
-    if (previous !== autoCheck && autoCheck) checkUpdate(false, false);
+    if (previous !== autoCheck && autoCheck) checkUpdate(false);
   }, [autoCheck, checkUpdate, probeStartup]);
 
   useEffect(() => {
@@ -628,7 +646,7 @@ export default function App() {
         <WindowChrome />
         <div className="startup-update-card">
           <div className="startup-update-brand">OpenDesign</div>
-          <h1>{startupPhase === "checking" ? "正在检查更新…" : `正在更新到 ${updateInfo?.latest ?? "新版本"}`}</h1>
+          <h1>{startupPhase === "checking" ? "正在检查更新…" : `正在更新到 ${startupTarget ?? updateInfo?.latest ?? "新版本"}`}</h1>
           <p>{startupPhase === "checking"
             ? "检查完成后将自动进入软件。"
             : "软件会自动关闭并重新打开，更新完成后即可使用。"}</p>

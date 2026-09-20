@@ -1,0 +1,19 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    startup-respec-green
+cmd:     tests/e2e/run-all.sh auto_update_countdown
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  569a452
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-20T03:12:46Z
+---------------- 输出开始 ----------------
+✅ 产物新鲜度:web/dist 就是当前源码 build 出来的(3 个文件逐字节一致)
+✅ e2e 端口预检:34 个端口都没人占
+== e2e 总跑(仓库根 /root/.openclaw/workspace/projects/design-studio)
+   只跑名字含:auto_update_countdown
+
+  [32mPASS[0m  auto_update_countdown.e2e.mjs       16s
+
+== 汇总:1 PASS / 0 FAIL / 0 SKIP
+   全绿。
+---------------- 输出结束 ----------------
+runlog: startup-respec-green rc=0 commit=569a452 dirty=yes at=2026-09-20T03:12:46Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T031246Z-01-startup-respec-green.txt
