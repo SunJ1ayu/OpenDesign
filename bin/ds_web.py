@@ -906,18 +906,14 @@ def _auto_update_status(info: dict, paths: dict) -> dict:
         url = asset.get("url") if isinstance(asset, dict) else None
         if not url or ds_update_apply.parse_digest(digest) is None:
             return {"eligible": False, "why_not": "asset", "recent_failure": False}
-        shell_port = os.environ.get("DS_SHELL_LOCK_PORT") or ""
-        if re.fullmatch(r"[0-9]+", shell_port) is None:
-            return {"eligible": False, "why_not": "no_shell", "recent_failure": False}
-        problem, _error = ds_update_apply.update_preflight_problem(paths)
-        if problem:
-            return {"eligible": False, "why_not": problem, "recent_failure": False}
-        data_root = paths.get("data_root")
-        if ds_auto_update.attempted_at(data_root, latest) is not None:
-            return {"eligible": False, "why_not": "attempted",
-                    "recent_failure": ds_auto_update.recent_failure(data_root, latest)}
-        if (os.environ.get("OPENDESIGN_AUTO_UPDATE") or "").strip().lower() == "off":
-            return {"eligible": False, "why_not": "disabled", "recent_failure": False}
+        # 🔴 **同一个问题只写一处**(第 3 轮外审 F2):这里原来把 no_shell / preflight /
+        #    attempted / disabled 四条又拼了一遍,和 startup/prepare 那边随时会漂。
+        #    现在共用 ds_auto_update.machine_blocker —— 顺序也由它一家定(产品契约)。
+        blocker = ds_auto_update.why_not_auto(paths, latest)
+        if blocker:
+            return {"eligible": False, "why_not": blocker,
+                    "recent_failure": (ds_auto_update.recent_failure(paths.get("data_root"), latest)
+                                       if blocker == "attempted" else False)}
         return {"eligible": True, "why_not": None, "recent_failure": False}
     except Exception:  # noqa: BLE001 —— 查更新照样 200;自动资格坏了只关掉倒计时
         return {"eligible": False, "why_not": "error", "recent_failure": False}
@@ -1279,12 +1275,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             data_root = paths.get("data_root")      # 与 _update_data_root() 同一层(判据 ur1)
             state = ds_update_startup.read_state(ds_update_startup.state_path(data_root))
-            # ⚠️ **这一处故意不传 `data_root`,不是漏传**(2026-09-20 第 2 轮重做时的判断)。
-            #    `/api/update/startup` 那一处问的是「该不该弹更新界面装」⇒ 要带资格判断;
-            #    这里问的是「盘上到底有没有一个可装的包」⇒ 纯事实,资格由紧接着的
-            #    `_auto_update_status` 来判(判据 ai5)。
-            #    真传了反而会坏事:提前返回 None ⇒ `download is None` ⇒ attempted 那一支
-            #    的 `discard_ready` 不再发生,判据 el4b 会红。两个问题,两处答。
+            # `startup_decision` 只答事实(盘上有没有可装的包),资格由 `_auto_update_status`
+            # 一处答(判据 ai5、el4b:attempted 那一支要走到 apply 才清得掉包)。
             decision = ds_update_startup.startup_decision(state, VERSION)
             if decision.get("action") != "install":
                 return None
@@ -1330,11 +1322,31 @@ class Handler(BaseHTTPRequestHandler):
         #    概率极低(paths_for_update 实际不抛),但失败形态正是本单最反对的那种:
         #    单向、静默、永久。
         try:
-            root = self._update_data_root()
+            paths = ds_update_apply.paths_for_update(
+                self.server.ds_root, port=self.server.server_address[1])
+            root = paths.get("data_root")
         except Exception:  # noqa: BLE001
             with _PREPARE_LOCK:
                 _PREPARE_STATE["running"] = False
             self._json(200, {"started": False, "reason": "prepare_unavailable"})
+            return
+
+        # 🔴 **下之前先问这台机器装不装得上**(第 3 轮外审 F1,判据 el11)。
+        #    原先这里只问「有没有新版」,于是:没外壳、路径不支持、**或者业主自己把
+        #    「打开时自动检查」关掉了**,后台照样把 46MB 下回来 —— 下了也装不上,
+        #    而且下一次打开还会被 startup 看见、弹一次静默的更新界面。
+        #    `disabled` 尤其不能忍:关掉开关还偷偷下载,是说话不算话。
+        blocker = ds_auto_update.why_not_auto(paths, None)
+        if blocker and blocker != "attempted":
+            # attempted 要放行到 prepare_update 里判 —— 那里才知道"最新版"是哪一版
+            # (machine_blocker 在这一步拿不到 version,传 None 只问机器维度)。
+            if blocker in ds_auto_update.PERMANENT_BLOCKERS:
+                # 永久条件(路径不支持 / 不是装出来的)⇒ 这一版再也不会自动装,
+                # 那 46MB 留着没意义,顺手清掉。判据 el14(第 3 轮外审 F4)。
+                ds_update_startup.discard_ready(root)
+            with _PREPARE_LOCK:
+                _PREPARE_STATE["running"] = False
+            self._json(200, {"started": False, "reason": blocker})
             return
 
         def work():
@@ -1342,7 +1354,7 @@ class Handler(BaseHTTPRequestHandler):
             #    原先却在返回之前同步跑它 —— 那句话当时是假的(第 1 轮外审 subdeepseek #5)。
             try:
                 info = self._update_decision_for_auto()
-                ds_update_startup.prepare_update(info, root)
+                ds_update_startup.prepare_update(info, root, paths=paths)
             finally:
                 with _PREPARE_LOCK:
                     _PREPARE_STATE["running"] = False
@@ -1368,11 +1380,20 @@ class Handler(BaseHTTPRequestHandler):
         永远以 200 回;任何异常都回 `enter`。**"不更新"是小事,"打不开"是大事。**
         """
         try:
-            root = self._update_data_root()
+            paths = ds_update_apply.paths_for_update(
+                self.server.ds_root, port=self.server.server_address[1])
+            root = paths.get("data_root")
             state = ds_update_startup.read_state(ds_update_startup.state_path(root))
-            # 🔴 `data_root` 必须传:资格判断(这一版自动试过没有)就靠它。
-            #    忘传 ⇒ 这道闸在真机上等于不存在,而纯函数判据照样全绿(判据 el2 走真端点钉它)。
-            out = ds_update_startup.startup_decision(state, VERSION, data_root=root)
+            out = ds_update_startup.startup_decision(state, VERSION)
+            # 🔴 **事实之后问资格,就在这一处**(第 3 轮外审 F1,我跑探针核实成立)。
+            #    这一版该不该自动装(试过没有 / 有没有外壳 / 装没装过 / 路径行不行 /
+            #    开关关没关)原先只在 apply 被问 —— 那时界面**已经弹出来了**,而
+            #    auto_skipped 在界面上是静默的:业主看到「闪一下,什么都没说」,
+            #    包还留着、下次打开再来一遍,**永不收敛**。判据 el2/el10/el12/el13。
+            if out.get("action") == "install":
+                blocker = ds_auto_update.why_not_auto(paths, out.get("version"))
+                if blocker:
+                    out = {"action": "enter", "reason": blocker}
         except Exception:  # noqa: BLE001 —— 这条路上不许有任何抛出
             out = {"action": "enter", "reason": "decision_failed"}
         self._json(200, out)

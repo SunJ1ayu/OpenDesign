@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 import time
 
@@ -44,6 +45,59 @@ def attempted_at(data_root: str, version: object) -> float | None:
         return None
     attempts = read_attempts(data_root)
     return attempts.get(version)
+
+
+def why_not_auto(paths: dict, version: object) -> str | None:
+    """「这一版,在这台机器上,**现在**该不该自动装」—— 整条链**唯一**的资格判据。
+
+    返回 `None` = 该装;否则返回 why_not 字符串(与 `ds_web._auto_update_status` 同一套枚举)。
+    两维一起答:**账本**(这一版自动试过没有)+ **这台机器**(有没有外壳、装没装过、
+    路径行不行、业主把开关关了没有)。三个决策点 —— `prepare`(要不要下 46MB)、
+    `startup`(要不要弹更新界面)、`apply`(真装)—— 全部只问这一处。
+
+    🔴 为什么有它(2026-09-20 第 3 轮外审 subdeepseek F1,我跑探针核实成立):
+    第 2 轮我把资格判断"收成一处"时,**只收了账本那一维**(`auto_eligible`:试过没试过)。
+    而完整的「该不该自动装」有 7 种否决,另外几种 —— `no_shell` / `not_installed` /
+    `path_unsupported` / `disabled` —— **只在 apply 被问**,那时界面已经弹出来了,
+    而 `auto_skipped` 在界面上是静默的。探针实测:
+
+        [no_shell] STARTUP -> install ; APPLY -> auto_skipped/no_shell ; 包还在盘上
+        [disabled] 同上
+
+    ⇒ 闪一下、什么都不说、包留着、下次打开再来一遍,**永不收敛**。比 attempted 那条更糟
+    (那条至少会清包),而且 `disabled` 就是业主「关掉自动更新」的开关 —— 关了照样弹、照样下。
+
+    ⚠️ 顺序是产品契约,与 `_auto_update_status` 保持一致(Windows 真机判据靠 `disabled`
+    排最后来证明前面条件全成立)。判据 el10~el14。
+
+    🔴 **第 2 轮我只收了账本那一维,那不是收敛,是把同一个问题拆成了两半**:剩下几维
+    还留在 apply,而 startup/prepare 各自只问半个问题 ⇒ F1 那条回归。所以这里答**整个**
+    问题,调用方一个字都不许自己再拼一遍(第 3 轮外审 F2 打的就是 apply 侧那份重写)。
+    """
+    try:
+        shell_port = os.environ.get("DS_SHELL_LOCK_PORT") or ""
+        if re.fullmatch(r"[0-9]+", shell_port) is None:
+            return "no_shell"
+        # 放在函数里而不是模块顶:本模块是那本小账(记账 + 资格),别让它在 import 期
+        # 就拖上整个安装器模块。两边**本来就没有**循环依赖(ds_update_apply 不认识本模块)
+        # —— 这句话写准是有意的:本单立的规矩之一就是"注释不许说谎"。
+        import ds_update_apply
+        problem, _error = ds_update_apply.update_preflight_problem(paths)
+        if problem:
+            return problem
+        if not auto_eligible(paths.get("data_root"), version):
+            return "attempted"
+        if (os.environ.get("OPENDESIGN_AUTO_UPDATE") or "").strip().lower() == "off":
+            return "disabled"
+        return None
+    except Exception:  # noqa: BLE001 —— 资格算不出来时当"不能自动装",但绝不许抛
+        return "error"
+
+
+#: 永久性的否决:这一版在这台机器上**再也不会**自动装 ⇒ 留着那 46MB 没有意义。
+#: 其余几种(no_shell / disabled / error)是临时的 —— 条件恢复后还能装,不许删业主的包
+#: (判据 el4 / el13),但也不许让它走到弹界面那一步(判据 el10)。
+PERMANENT_BLOCKERS = ("attempted", "not_installed", "path_unsupported")
 
 
 def auto_eligible(data_root: str, version: object) -> bool:

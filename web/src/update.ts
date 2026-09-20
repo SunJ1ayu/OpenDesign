@@ -239,9 +239,12 @@ function autoStatus(info: unknown): Record<string, unknown> | null {
 }
 
 /** ⚠️ 2026-09-19 起**前端不再用它决定装不装**(track opendesign-startup-not-blocked-by-update)。
- *  该不该装由后端 `ds_update_startup.startup_decision` 看盘上的包答(存在 / 非符号链接 / 大小 / 版本 /
+ *  该不该装由后端 `/api/update/startup` 答,而它由两件事合成(2026-09-20 第 3 轮外审后分清的):
+ *  ① **事实**——`ds_update_startup.startup_decision` 看盘上的包(存在 / 非符号链接 / 大小 / 版本 /
  *  摘要字段齐全 —— 🔴 **它不算 sha256**,su15 起搬走了:逐字节校验在下好那一刻(pr3/pr9)
- *  与真装之前(apply_update,判据 t4/ai9)。
+ *  与真装之前(apply_update,判据 t4/ai9);
+ *  ② **资格**——`ds_auto_update.why_not_auto`(这一版自动试过没有 / 这台机器现在装不装得上)。
+ *  ②(资格)整条链只有这一处答,prepare 与 apply 用的是同一个函数。
  *  这里留着是因为 test_update_ui 还在钉它的语义;**别再把它当成启动路径上的闸** ——
  *  上一次"以为还有人走的那条路其实没人走了",代价是回滚提示整条消失(判据 AC-C2)。
  */
