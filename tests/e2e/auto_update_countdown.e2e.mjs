@@ -5,7 +5,7 @@
 //   2026-09-19 取消"启动查更新"(track opendesign-startup-not-blocked-by-update):
 //     业主原话「现在每次打开都会弹出正在检测更新,这严重拖慢了我们开软件的速度啊」
 //     「不应该让用户看到这个界面才对啊,应该是有更新才显示和进度条,没更新就跟平时打开软件一样对不对」。
-//     实测:0.98.7 打开软件干等 20.1 秒(收据 tracks/opendesign-startup-not-blocked-by-update/evidence/)。
+//     实测:0.98.7 打开软件干等 20.1 秒(收据 tracks/archive/opendesign-startup-not-blocked-by-update/evidence/)。
 //
 // 🔴 **改这份卷子的规矩**:本次只搬前提、一条断言都没删。
 //    原来由"启动那次查更新"送达的东西(回滚说明、已试过的版本、查不到更新),
