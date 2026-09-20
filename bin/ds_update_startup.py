@@ -265,7 +265,7 @@ def prepare_update(info, data_root, download=None, now=None):
         # 🔴 **备货之前先问够不够格自动装**(判据 el1/el1b,2026-09-20 第 2 轮外审)。
         #    这一版已经自动试过一次(装不上)⇒ 下回来也只会被 apply 再拒一次,
         #    中间还要让业主看一次没有任何解释的更新界面。原来这里不问,于是删掉的包
-        #    每 60 秒就被原样下回来一次:**末端删文件追不上前端重新备货**。
+        #    **每打开一次软件就被原样下回来一次**:末端删文件追不上前端重新备货。
         #    判断本身在 ds_auto_update.auto_eligible —— 与 startup / apply 同一处来源。
         if not ds_auto_update.auto_eligible(data_root, facts["version"]):
             # 顺手清掉这一版的残留备货(判据 el9,我自审补的)。资格闸装上之后,
@@ -273,7 +273,8 @@ def prepare_update(info, data_root, download=None, now=None):
             # 而清包的动作原本只挂在 apply 那一侧。没有这一下,一份没走完正常流程的
             # ready 备货就会三处都没人碰:`_sweep_installed` 嫌它新、`_sweep_orphans`
             # 见状态正指着它、apply 不跑 ⇒ 业主盘上永久白占 46MB。
-            # prepare 每 60 秒跑一次,本来就是打扫的地方,是这条链自然的收敛点。
+            # prepare 每次打开软件后 60 秒跑一趟(前端 setTimeout 单次,不是轮询),
+            # 本来就是打扫 + 备货的地方,是这条链自然的收敛点。
             # 零风险:这个包永远不会再被自动装,手动更新走真下载、不碰它(判据 el6)。
             current = read_state(state_file)
             if isinstance(current, dict) and current.get("version") == facts["version"]:

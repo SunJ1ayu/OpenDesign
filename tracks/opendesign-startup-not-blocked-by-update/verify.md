@@ -28,7 +28,17 @@ runlog: full-regression-final rc=3 commit=93bd712 dirty=yes at=2026-09-20T03:47:
 runlog: r1-fixlist-redcheck rc=1 commit=eb52d91 dirty=yes at=2026-09-20T04:17:45Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T041745Z-01-r1-fixlist-redcheck.txt
 runlog: r1-fixlist-green rc=0 commit=8536391 dirty=yes at=2026-09-20T04:22:19Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T042219Z-01-r1-fixlist-green.txt
 runlog: full-regression-r1fix rc=3 commit=72e20dd dirty=yes at=2026-09-20T04:23:31Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T042331Z-01-full-regression-r1fix.txt
+runlog: r2-eligibility-redcheck rc=1 commit=181f960 dirty=yes at=2026-09-20T04:57:54Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T045754Z-01-r2-eligibility-redcheck.txt
+runlog: r2-el9-redcheck rc=1 commit=141ed05 dirty=yes at=2026-09-20T05:04:34Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T050434Z-01-r2-el9-redcheck.txt
+runlog: r2-full-regression rc=3 commit=ff478f2 dirty=yes final=yes at=2026-09-20T05:06:20Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T050620Z-01-r2-full-regression.txt
 ```
+
+**第 2 轮重做之后新增的三份**(上面 runlog 段落的后三行):
+- 两份 `rc=1` 是**判据先行的红**:`r2-eligibility-redcheck`(el1~el8,8 红 4 绿 —— 反向题 el3
+  此刻就绿,证明它不会假红)、`r2-el9-redcheck`(我自审补的那条,单独先红再修)。
+- `r2-full-regression rc=3`:六段全 PASS(node 461 / **python 1787** / e2e 41 PASS 0 FAIL 2 SKIP /
+  dist 新鲜),3 条要活网关的没跑。**不是红,但也不许说成全绿**,与历史同形。
+  python 1787 对比第 2 轮腿跑的 1776:差的 11 条正是新卷 `test_ds_update_eligibility.py`。
 
 **怎么读这些数**:
 - `rc=1` 的六份是**判据先行的红**(每一份都对应一次"实现还没写/还没修,此刻应当红")

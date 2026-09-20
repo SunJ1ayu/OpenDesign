@@ -299,7 +299,8 @@ class UpdateEligibility(unittest.TestCase):
         `_sweep_installed` 不清(它比当前版本新)、`_sweep_orphans` 不清(状态正指着它)、
         apply 不跑。业主盘上白占 46MB,永久。
 
-        prepare 每 60 秒跑一次,本来就是"打扫 + 备货"的地方,是这条链自然的收敛点。
+        prepare 每次打开软件后 60 秒跑一趟(前端 `setTimeout` 单次,**不是**轮询),
+        本来就是"打扫 + 备货"的地方,是这条链自然的收敛点。
         清掉它零风险:那个包**永远不会再被自动装**,而手动更新走的是真下载、不碰它(el6)。
         """
         path, _ = self._stock()
