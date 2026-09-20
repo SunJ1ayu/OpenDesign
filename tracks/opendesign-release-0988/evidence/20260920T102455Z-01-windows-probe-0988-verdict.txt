@@ -1,0 +1,37 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    windows-probe-0988-verdict
+cmd:     bash -c $'\nset -uo pipefail\nRUN=35504699542\ngh run view $RUN -R SunJ1ayu/OpenDesign --json status,conclusion,headSha,displayTitle -q "\\"status=\\(.status) conclusion=\\(.conclusion) head=\\(.headSha)\\""\necho "== PHASE 行(从 run 日志里抓) =="\ngh run view $RUN -R SunJ1ayu/OpenDesign --log 2>/dev/null | grep -E "PHASE|FAIL|version=|0\\.98\\.8" | sed "s/^[^\\t]*\\t[^\\t]*\\t//" | head -60\n'
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  1db78c2
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-20T10:24:55Z
+---------------- 输出开始 ----------------
+status=completed conclusion=success head=1db78c20043a69710c37e777147d8748a10b8c3d
+== PHASE 行(从 run 日志里抓) ==
+2026-09-20T10:18:46.8877114Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +1db78c20043a69710c37e777147d8748a10b8c3d:refs/remotes/origin/main
+2026-09-20T10:18:49.2657121Z [36;1m  -Tag "win-installer-0.98.8" `[0m
+2026-09-20T10:18:49.2657445Z [36;1m  -Asset "OpenDesign-Setup-0.98.8.exe" `[0m
+2026-09-20T10:19:01.3630469Z PHASE 1 下载安装包 : OK - OpenDesign-Setup-0.98.8.exe,44.6 MB
+2026-09-20T10:19:46.9329864Z PHASE 2 静默安装 : 退出码 0,耗时 46s
+2026-09-20T10:19:47.4477472Z PHASE 3 装完查文件 : OK - 三个关键文件都在,装完 176 MB
+2026-09-20T10:19:47.6246564Z PHASE 3.5 配置初始化说了什么 : rc=0
+2026-09-20T10:19:47.6492719Z PHASE 4 启动 : OK - 已拉起 OpenDesign.exe
+2026-09-20T10:21:13.1085946Z PHASE 5 服务活了吗 : OK - /api/health 通(端口 8766,version=0.98.8)
+2026-09-20T10:21:17.2082840Z PHASE 6 窗口在不在 : OK - 「OpenDesign」[WindowsForms10.Window.8.app.0.aec740_r24_ad1]·pythonw(另有 0 个报错框)
+2026-09-20T10:23:37.5936335Z PHASE 7 截图与白屏体检 : 启动后 90s: 颜色 49 种 / 近白 38.2% | 启动后 110s: 颜色 49 种 / 近白 38.2% | 启动后 140s: 颜色 49 种 / 近白 38.2% | 启动后 170s: 颜色 49 种 / 近白 38.2% | 启动后 230s: 颜色 49 种 / 近白 38.2%
+2026-09-20T10:23:37.6748260Z PHASE 8 收日志 : 外壳.log 1215B | 工作台.log 3681B | 网关.log 缺席
+2026-09-20T10:23:37.9214170Z PHASE 9 托盘导出诊断(直接跑那段代码) : NAMES=本次启动.txt|Logs/外壳.log|Logs/工作台.log
+2026-09-20T10:24:26.1443109Z PHASE 10 带系统代理启动 : OK - /api/health 通(端口 8766,version=up)(45s,颜色 76 种 / 近白 27.5%)
+2026-09-20T10:24:26.1531890Z 1 下载安装包          OK - OpenDesign-Setup-0.98.8.exe,44.6 MB
+2026-09-20T10:24:26.1722159Z 5 服务活了吗          OK - /api/health 通(端口 8766,version=0.98.8)
+2026-09-20T10:24:26.1971737Z 10 带系统代理启动       OK - /api/health 通(端口 8766,version=up)(45s,颜色 76 种 / 近白 27.5%)
+2026-09-20T10:24:26.1976090Z   0	5 服务活了吗	OK - /api/health 通(端口 8766,version=0.98.8)
+2026-09-20T10:24:26.1986166Z   0	10 带系统代理启动	OK - /api/health 通(端口 8766,version=up)(45s,颜色 76 种 / 近白 27.5%)
+2026-09-20T10:24:26.1988457Z 没有任何一相自报 FAIL,收据里也没有 ⇒ exit 0(**白屏读数不在闸内**,仍要看图)
+2026-09-20T10:24:26.2726825Z [36;1m    "RED: $($bad.Count) FAIL verdict(s) in the receipt, this run does not pass"[0m
+2026-09-20T10:24:26.2729202Z [36;1m"no FAIL verdict in the receipt"[0m
+2026-09-20T10:24:26.6785178Z   0	5 服务活了吗	OK - /api/health 通(端口 8766,version=0.98.8)
+2026-09-20T10:24:26.6790901Z   0	10 带系统代理启动	OK - /api/health 通(端口 8766,version=up)(45s,颜色 76 种 / 近白 27.5%)
+2026-09-20T10:24:26.6853477Z no FAIL verdict in the receipt
+---------------- 输出结束 ----------------
+runlog: windows-probe-0988-verdict rc=0 commit=1db78c2 dirty=yes at=2026-09-20T10:24:55Z file=tracks/opendesign-release-0988/evidence/20260920T102455Z-01-windows-probe-0988-verdict.txt

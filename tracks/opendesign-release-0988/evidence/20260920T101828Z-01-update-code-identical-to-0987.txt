@@ -1,0 +1,22 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    update-code-identical-to-0987
+cmd:     bash -c $'\nset -euo pipefail\necho "问题:上面那条「以 0.98.7 身份查到 0.98.8」跑的是本仓当前代码。"\necho "     业主机器上 0.98.7 里的查更新实现,和我刚跑的这份是不是同一份?"\necho\necho "== 0.98.7 发布用的提交 =="\ngit log --oneline -1 c78851e\necho\necho "== 从那个提交到现在,查更新这条链改过没有 =="\nfor f in bin/ds_update.py bin/ds_update_apply.py; do\n  n=$(git diff --numstat c78851e..HEAD -- "$f" | wc -l)\n  h1=$(git rev-parse c78851e:$f); h2=$(git rev-parse HEAD:$f)\n  echo "$f: 差异文件数=$n  blob@0.98.7=$h1  blob@HEAD=$h2"\n  [ "$h1" = "$h2" ] || { echo "🔴 $f 变过 ⇒ 上面那条收据不能代表业主那台"; exit 1; }\ndone\necho\necho "✅ 两份 blob 哈希完全相同 ⇒ 业主 0.98.7 里跑的查更新代码与本次核对用的是同一份字节,"\necho "   这条「查得到」对他成立(0.98.7 那单的 0.98.5 假绿正是栽在这里:那版实现不同)。"\n'
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  1db78c2
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-20T10:18:28Z
+---------------- 输出开始 ----------------
+问题:上面那条「以 0.98.7 身份查到 0.98.8」跑的是本仓当前代码。
+     业主机器上 0.98.7 里的查更新实现,和我刚跑的这份是不是同一份?
+
+== 0.98.7 发布用的提交 ==
+c78851e 收据:0.98.7 本地回归 rc=3(六段全 PASS、0 FAIL,3 条 gateway 相关没跑)
+
+== 从那个提交到现在,查更新这条链改过没有 ==
+bin/ds_update.py: 差异文件数=0  blob@0.98.7=58cb20c31a658eecc19102c6272aaf7d98d3da71  blob@HEAD=58cb20c31a658eecc19102c6272aaf7d98d3da71
+bin/ds_update_apply.py: 差异文件数=0  blob@0.98.7=7a2f73832c48b7c1ced76397a0f89a85141a3d22  blob@HEAD=7a2f73832c48b7c1ced76397a0f89a85141a3d22
+
+✅ 两份 blob 哈希完全相同 ⇒ 业主 0.98.7 里跑的查更新代码与本次核对用的是同一份字节,
+   这条「查得到」对他成立(0.98.7 那单的 0.98.5 假绿正是栽在这里:那版实现不同)。
+---------------- 输出结束 ----------------
+runlog: update-code-identical-to-0987 rc=0 commit=1db78c2 dirty=yes at=2026-09-20T10:18:28Z file=tracks/opendesign-release-0988/evidence/20260920T101828Z-01-update-code-identical-to-0987.txt

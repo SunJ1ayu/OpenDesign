@@ -1,0 +1,19 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    published-bytes-match-0988
+cmd:     bash -c $'\nset -euo pipefail\nOUT=/root/aiwork/out/opendesign-0.98.8-release\nDL=$(mktemp -d)\ngh release download win-installer-0.98.8 -R SunJ1ayu/OpenDesign -D "$DL" --clobber\necho "下载回来的文件:"; ls -l "$DL"\nLOCAL=$(sha256sum $OUT/OpenDesign-Setup-0.98.8.exe | cut -d" " -f1)\nREMOTE=$(sha256sum "$DL/OpenDesign-Setup-0.98.8.exe" | cut -d" " -f1)\nMAN=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))[\\"asset\\"][\\"sha256\\"])" "$DL/OpenDesign-update.json")\nSZ=$(stat -c%s "$DL/OpenDesign-Setup-0.98.8.exe")\nMSZ=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))[\\"asset\\"][\\"size\\"])" "$DL/OpenDesign-update.json")\necho "本地 sha256:        $LOCAL"\necho "GitHub 取回 sha256: $REMOTE"\necho "清单里写的 sha256:  $MAN"\necho "取回大小 $SZ / 清单写 $MSZ"\n[ "$LOCAL" = "$REMOTE" ] || { echo "🔴 本地与已发布字节不一致"; exit 1; }\n[ "$REMOTE" = "$MAN" ]  || { echo "🔴 已发布字节与清单不一致"; exit 1; }\n[ "$SZ" = "$MSZ" ]      || { echo "🔴 大小不一致"; exit 1; }\ncmp "$OUT/OpenDesign-Setup-0.98.8.exe" "$DL/OpenDesign-Setup-0.98.8.exe"\necho "✅ 三者一致:本地构建 == GitHub 上的字节 == 清单描述(并逐字节 cmp 通过)"\nrm -rf "$DL"\n'
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  1db78c2
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-20T10:17:40Z
+---------------- 输出开始 ----------------
+下载回来的文件:
+total 45712
+-rw-r--r-- 1 root root 46799268 Sep 20 18:17 OpenDesign-Setup-0.98.8.exe
+-rw-r--r-- 1 root root     1542 Sep 20 18:17 OpenDesign-update.json
+本地 sha256:        4766e45d316f1acc3c6216b7d1aacfbd158dd4ba29b38fd30015cc7dee84e4bc
+GitHub 取回 sha256: 4766e45d316f1acc3c6216b7d1aacfbd158dd4ba29b38fd30015cc7dee84e4bc
+清单里写的 sha256:  4766e45d316f1acc3c6216b7d1aacfbd158dd4ba29b38fd30015cc7dee84e4bc
+取回大小 46799268 / 清单写 46799268
+✅ 三者一致:本地构建 == GitHub 上的字节 == 清单描述(并逐字节 cmp 通过)
+---------------- 输出结束 ----------------
+runlog: published-bytes-match-0988 rc=0 commit=1db78c2 dirty=yes at=2026-09-20T10:17:40Z file=tracks/opendesign-release-0988/evidence/20260920T101740Z-01-published-bytes-match-0988.txt

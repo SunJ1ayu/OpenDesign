@@ -1,0 +1,53 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    startup-no-network-on-real-windows
+cmd:     bash -c $'\nset -euo pipefail\necho "本单承诺:打开软件时不再联网查更新。下面是**同一台云机探针**上改前/改后的对照,"\necho "来源是两次 GitHub Actions run 取回的真实日志,不是本地判据。"\necho\nD=$(mktemp -d)\ngh run download 35446165320 -R SunJ1ayu/OpenDesign -D "$D/v0987" >/dev/null 2>&1\ngh run download 35504699542 -R SunJ1ayu/OpenDesign -D "$D/v0988" >/dev/null 2>&1\nA="$D/v0987/windows-package-probe/工作台.log"\nB="$D/v0988/windows-package-probe/工作台.log"\necho "== 0.98.7(改之前,run 35446165320)启动那一波 =="\nhead -13 "$A" | sed -n "1,13p"\necho\necho "   ⇒ 启动那一批请求里**就有** GET /api/update/check(与 todos/credential/projects 同一秒)。"\necho\necho "== 0.98.8(改之后,run 35504699542)启动那一波 =="\nhead -12 "$B" | sed -n "1,12p"\necho\necho "== 0.98.8 里 check / prepare 什么时候才出现 =="\ngrep -nE "update/(check|prepare|startup)" "$B" | head -5\necho\nFIRST=$(grep -m1 -E "GET /api/update/startup" "$B" | cut -d" " -f2)\nLATER=$(grep -m1 -E "POST /api/update/prepare" "$B" | cut -d" " -f2)\necho "启动只问了本地端点 /api/update/startup @ $FIRST"\necho "联网那一跳(prepare + check)推迟到 @ $LATER —— 相差 60 秒(BACKGROUND_FIRST_CHECK_MS)"\ngrep -qE "GET /api/update/check" <(head -13 "$B") && { echo "🔴 0.98.8 启动路径上仍然有 check"; exit 1; } || true\ngrep -qE "GET /api/update/check" <(head -13 "$A") || { echo "🔴 对照不成立:0.98.7 启动路径上没抓到 check"; exit 1; }\necho\necho "✅ 真 Windows 现场:改之前启动就联网查更新;改之后启动只读本地盘,联网推迟到进工作区 60 秒后。"\nrm -rf "$D"\n'
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  1db78c2
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-20T10:26:18Z
+---------------- 输出开始 ----------------
+本单承诺:打开软件时不再联网查更新。下面是**同一台云机探针**上改前/改后的对照,
+来源是两次 GitHub Actions run 取回的真实日志,不是本地判据。
+
+== 0.98.7(改之前,run 35446165320)启动那一波 ==
+ds-web 0.98.7: http://127.0.0.1:8766/  (DS_DATA_ROOT=C:\Users\runneradmin\AppData\Local\OpenDesign\Data)
+2026-09-19 13:35:34 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-19 13:35:39 127.0.0.1 - "GET /?shell=1 HTTP/1.1" 200 -
+2026-09-19 13:35:39 127.0.0.1 - "GET /assets/index-BoIynV2n.js HTTP/1.1" 200 -
+2026-09-19 13:35:39 127.0.0.1 - "GET /assets/index-DQleokpa.css HTTP/1.1" 200 -
+2026-09-19 13:35:40 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-19 13:35:40 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-19 13:35:40 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-19 13:35:40 127.0.0.1 - "GET /favicon.ico HTTP/1.1" 404 -
+2026-09-19 13:35:40 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-19 13:35:40 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-19 13:35:40 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-19 13:35:40 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+
+   ⇒ 启动那一批请求里**就有** GET /api/update/check(与 todos/credential/projects 同一秒)。
+
+== 0.98.8(改之后,run 35504699542)启动那一波 ==
+ds-web 0.98.8: http://127.0.0.1:8766/  (DS_DATA_ROOT=C:\Users\runneradmin\AppData\Local\OpenDesign\Data)
+2026-09-20 10:19:50 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-20 10:19:54 127.0.0.1 - "GET /?shell=1 HTTP/1.1" 200 -
+2026-09-20 10:19:54 127.0.0.1 - "GET /assets/index-DQleokpa.css HTTP/1.1" 200 -
+2026-09-20 10:19:54 127.0.0.1 - "GET /assets/index-Bbeslzlj.js HTTP/1.1" 200 -
+2026-09-20 10:19:55 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-20 10:19:55 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-20 10:19:55 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-20 10:19:55 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-20 10:19:55 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-20 10:19:55 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-20 10:19:55 127.0.0.1 - "GET /favicon.ico HTTP/1.1" 404 -
+
+== 0.98.8 里 check / prepare 什么时候才出现 ==
+9:2026-09-20 10:19:55 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+30:2026-09-20 10:20:55 127.0.0.1 - "POST /api/update/prepare HTTP/1.1" 200 -
+31:2026-09-20 10:20:55 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+
+启动只问了本地端点 /api/update/startup @ 10:19:55
+联网那一跳(prepare + check)推迟到 @ 10:20:55 —— 相差 60 秒(BACKGROUND_FIRST_CHECK_MS)
+
+✅ 真 Windows 现场:改之前启动就联网查更新;改之后启动只读本地盘,联网推迟到进工作区 60 秒后。
+---------------- 输出结束 ----------------
+runlog: startup-no-network-on-real-windows rc=0 commit=1db78c2 dirty=yes at=2026-09-20T10:26:18Z file=tracks/opendesign-release-0988/evidence/20260920T102618Z-01-startup-no-network-on-real-windows.txt
