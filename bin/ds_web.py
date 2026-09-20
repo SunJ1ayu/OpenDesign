@@ -62,6 +62,7 @@ import http.client
 import base64
 import binascii
 import hashlib
+import shutil
 import json
 import os
 import re
@@ -1176,13 +1177,27 @@ class Handler(BaseHTTPRequestHandler):
     def _update_apply_locked(self, auto_request: bool = False) -> tuple[bool, dict]:
         """`_update_apply` 持锁之后的全部内容。返回(锁要不要留着, 回包)。
         锁要不要留着 = 接力脚本起来了没有。**这里不许自己回话**:回话在放锁之后(t41)。"""
-        info = ds_update.check_cached(VERSION)
-        if not info.get("update_available"):
-            return False, {"ok": False, "stage": "no_update",
-                           "error": info.get("error") or "已经是最新版"}
-
         paths = ds_update_apply.paths_for_update(self.server.ds_root,
                                                  port=self.server.server_address[1])
+        download = None
+        if auto_request:
+            # 🔴 打开软件时的那一次安装,装的是**盘上已经下好、逐字节校验过的包**,
+            #    走到这里一次网都不许联(判据 ai1~ai6)。
+            #    原来这里无条件先 `check_cached(VERSION)`:进程刚起来缓存是冷的 ⇒ 真去联网
+            #    (实测最坏 20.1 秒),随后 apply_update 还会把同一个 46MB 重下一遍。
+            #    那就是把本单刚搬走的干等,原样搬回了"有更新的那一次打开"。
+            local = self._local_ready_install(paths)
+            if local is None:
+                # 备货不在了(被清理/被改过/版本不对)⇒ **安静跳过**,让软件照常可用。
+                # 绝不许退回"临时联网下载":那正是要根除的东西。
+                return False, {"ok": False, "stage": "auto_skipped", "error": "no_local_package"}
+            info, download = local
+        else:
+            info = ds_update.check_cached(VERSION)
+            if not info.get("update_available"):
+                return False, {"ok": False, "stage": "no_update",
+                               "error": info.get("error") or "已经是最新版"}
+
         if auto_request:
             auto = _auto_update_status(info, paths)
             if not auto.get("eligible"):
@@ -1193,7 +1208,7 @@ class Handler(BaseHTTPRequestHandler):
             if not ok:
                 return False, {"ok": False, "stage": "auto_unrecorded",
                                "error": err or "自动更新记录写不进去"}
-        result = ds_update_apply.apply_update(info, paths)
+        result = ds_update_apply.apply_update(info, paths, download=download)
         if not result.get("ok"):
             return False, {"ok": False, "stage": result.get("stage"),
                            "error": result.get("error")}
@@ -1212,6 +1227,44 @@ class Handler(BaseHTTPRequestHandler):
                           "error": "没能让程序自动关闭,更新取消 —— 请手动安装新版"}
         return True, {"ok": True, "stage": "started", "error": None,
                       "latest": info.get("latest")}
+
+    def _local_ready_install(self, paths):
+        """自动安装那条路的唯一入口:盘上有没有一个已经下好、校验得过的新版包?
+
+        **只读盘,一次网络都不发。** 回 `(decision, download)` 或 `None`。
+        `decision` 摆成和查更新回包同一个形状,好让 `_auto_update_status`
+        与 `apply_update` 原样复用 —— 防循环的闸(同一版试过一次就不再自动试)
+        因此对这条路照样管用(判据 ai5)。
+
+        `download` 不去网上取,而是把 pending 里那个包复制到安装用的临时目录:
+        `apply_update` 随后仍会**再算一遍 sha256** —— 复制坏了也照样被挡下。
+        """
+        try:
+            data_root = paths.get("data_root")
+            state = ds_update_startup.read_state(ds_update_startup.state_path(data_root))
+            decision = ds_update_startup.startup_decision(state, VERSION)
+            if decision.get("action") != "install":
+                return None
+            asset = (state or {}).get("asset") or {}
+            url, name, sha = asset.get("url"), asset.get("name"), asset.get("sha256")
+            src = decision.get("path")
+            if not isinstance(url, str) or not url:
+                return None            # 老状态文件没记下载地址 ⇒ 当没备货,下一轮后台重下
+            if not isinstance(name, str) or not name:
+                return None
+            if not isinstance(sha, str) or len(sha) != 64 or not isinstance(src, str) or not src:
+                return None
+            info = {"update_available": True, "latest": decision.get("version"),
+                    "asset": {"name": name, "url": url, "size": asset.get("size"),
+                              "digest": "sha256:" + sha},
+                    "error": None, "notes": "", "release_url": None}
+
+            def download(_url, dest, _src=src):
+                shutil.copyfile(_src, dest)
+
+            return info, download
+        except Exception:  # noqa: BLE001 —— 这条路上不许有任何抛出;失败 = 当没备货
+            return None
 
     def _update_prepare(self):
         """后台把新版下下来备着 —— **立刻返回,下载在后台线程里跑**。

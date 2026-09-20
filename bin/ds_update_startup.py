@@ -211,7 +211,7 @@ def prepare_update(info, data_root, download=None, now=None):
         write_state(state_file, {"schema": SCHEMA, "phase": "downloading",
                                  "version": facts["version"],
                                  "asset": {"name": facts["name"], "size": facts["size"],
-                                           "sha256": facts["sha256"]},
+                                           "sha256": facts["sha256"], "url": facts["url"]},
                                  "path": dest,
                                  "updated_at": time.time() if now is None else now})
         try:
@@ -230,8 +230,11 @@ def prepare_update(info, data_root, download=None, now=None):
 
         write_state(state_file, {"schema": SCHEMA, "phase": "ready",
                                  "version": facts["version"],
+                                 # url 也记下来:下次打开要装的时候,安装那一侧需要一个
+                                 # **真的**下载地址塞进决定里(它自己不去下,但会校验形状)。
+                                 # 不记的话就只能现编一个,或者回去联网查 —— 两条都不行。
                                  "asset": {"name": facts["name"], "size": facts["size"],
-                                           "sha256": facts["sha256"]},
+                                           "sha256": facts["sha256"], "url": facts["url"]},
                                  "path": dest,
                                  "updated_at": time.time() if now is None else now})
         return {"ok": True, "reason": "ready", "version": facts["version"]}

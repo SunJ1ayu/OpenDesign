@@ -1,0 +1,221 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    auto-install-local-green
+cmd:     /root/.venvs/design-studio/bin/python -m unittest -v tests.test_ds_web_auto_install_local tests.test_ds_web_auto_update tests.test_ds_update_startup
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  eb24724
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-20T03:28:54Z
+---------------- 输出开始 ----------------
+test_ai1_auto_install_uses_the_package_already_on_disk (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai1_auto_install_uses_the_package_already_on_disk) ... 2026-09-20 11:28:55 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_ai2_auto_install_makes_no_network_call_at_all (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai2_auto_install_makes_no_network_call_at_all) ... 2026-09-20 11:28:55 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_ai3_without_a_local_package_auto_install_refuses_instead_of_going_online (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai3_without_a_local_package_auto_install_refuses_instead_of_going_online) ... 2026-09-20 11:28:56 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_ai4_manual_update_still_checks_online (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai4_manual_update_still_checks_online) ... 2026-09-20 11:28:56 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_ai5_a_version_already_attempted_is_not_installed_even_if_stocked (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai5_a_version_already_attempted_is_not_installed_even_if_stocked) ... 2026-09-20 11:28:57 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_ai6_a_package_that_changed_after_the_decision_is_not_installed (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai6_a_package_that_changed_after_the_decision_is_not_installed) ... 2026-09-20 11:28:57 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_au10_only_logs_is_written_under_the_data_root (tests.test_ds_web_auto_update.AutoUpdate.test_au10_only_logs_is_written_under_the_data_root)
+t13 死线的同一条:更新前后 Data\ 与 UserData\ 逐字节不变,Logs\ 豁免。 ... 2026-09-20 11:28:58 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:28:58 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_au11_a_string_true_is_not_auto (tests.test_ds_web_auto_update.AutoUpdate.test_au11_a_string_true_is_not_auto)
+只有 JSON 的 true 才算自动;其余一律手动语义(手动那条路一行不改)。 ... 2026-09-20 11:28:58 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:28:58 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:28:58 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:28:58 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_au12a_refused_asset (tests.test_ds_web_auto_update.AutoUpdate.test_au12a_refused_asset) ... 2026-09-20 11:28:59 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:28:59 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au12b_refused_no_shell (tests.test_ds_web_auto_update.AutoUpdate.test_au12b_refused_no_shell) ... 2026-09-20 11:28:59 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:28:59 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au12c_refused_not_installed (tests.test_ds_web_auto_update.AutoUpdate.test_au12c_refused_not_installed) ... 2026-09-20 11:29:00 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:00 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au12d_refused_path_unsupported (tests.test_ds_web_auto_update.AutoUpdate.test_au12d_refused_path_unsupported) ... 2026-09-20 11:29:00 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:00 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au12e_refused_disabled (tests.test_ds_web_auto_update.AutoUpdate.test_au12e_refused_disabled) ... 2026-09-20 11:29:01 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:01 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au13_a_failed_write_keeps_the_old_record_and_touches_nothing (tests.test_ds_web_auto_update.AutoUpdate.test_au13_a_failed_write_keeps_the_old_record_and_touches_nothing)
+攻题 #3 / 攻题二 #8:写记账必须是「同目录临时文件 → 写完 flush → 对**这个临时文件** os.fsync → os.replace 到记账文件」。 ... 2026-09-20 11:29:01 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:01 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:02 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:02 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:02 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au14_disabled_is_judged_last (tests.test_ds_web_auto_update.AutoUpdate.test_au14_disabled_is_judged_last)
+OPENDESIGN_AUTO_UPDATE=off ⇒ disabled。它排在**最后**:Windows 真机判据(aw1)靠 ... 2026-09-20 11:29:03 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:03 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:04 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:04 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:05 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:05 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:05 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au15_a_recent_failed_attempt_is_reported_once_the_app_is_back (tests.test_ds_web_auto_update.AutoUpdate.test_au15_a_recent_failed_attempt_is_reported_once_the_app_is_back)
+攻题 #1:接力脚本回滚、旧版被拉起之后,业主眼前得有一句「上次自动更新没成功」。 ... 2026-09-20 11:29:05 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:05 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:05 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:05 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:05 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:05 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au15b_recent_failure_is_per_version (tests.test_ds_web_auto_update.AutoUpdate.test_au15b_recent_failure_is_per_version)
+攻题二 #6:只存一个全局「最后尝试时刻」的写法 —— 很久前试过 A、刚试过 B、B 被撤回 ⇒ 把 A 说成「刚失败」。 ... 2026-09-20 11:29:06 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:06 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:06 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:06 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:06 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au1_all_conditions_met_means_eligible (tests.test_ds_web_auto_update.AutoUpdate.test_au1_all_conditions_met_means_eligible) ... 2026-09-20 11:29:06 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au2a_no_update (tests.test_ds_web_auto_update.AutoUpdate.test_au2a_no_update) ... 2026-09-20 11:29:07 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au2b_asset_without_digest (tests.test_ds_web_auto_update.AutoUpdate.test_au2b_asset_without_digest)
+没有可信 sha256 的安装包,一键更新会在下载前拒绝(t15)—— 倒计时 10 秒然后报失败没有意义。 ... 2026-09-20 11:29:07 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au2c_no_shell (tests.test_ds_web_auto_update.AutoUpdate.test_au2c_no_shell)
+没有桌面外壳接交棒(浏览器里开、开发方式跑)⇒ 走到最后一步必失败,别倒计时。 ... 2026-09-20 11:29:08 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au2d_not_installed (tests.test_ds_web_auto_update.AutoUpdate.test_au2d_not_installed) ... 2026-09-20 11:29:08 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au2e_path_the_relay_cannot_handle (tests.test_ds_web_auto_update.AutoUpdate.test_au2e_path_the_relay_cannot_handle)
+t36 那一类:接力脚本处理不了的路径,apply_update 第 -1 步会拒绝 —— 同一个判断,不许两处各说各的。 ... 2026-09-20 11:29:09 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au2f_attempted (tests.test_ds_web_auto_update.AutoUpdate.test_au2f_attempted) ... 2026-09-20 11:29:09 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:09 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:09 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au3_the_attempt_is_written_before_anything_is_prepared (tests.test_ds_web_auto_update.AutoUpdate.test_au3_the_attempt_is_written_before_anything_is_prepared)
+🔴 预写。接力脚本回滚、旧版被重新拉起时,界面早就没了 —— 只有动手前记下的账才活得过那一刻。 ... 2026-09-20 11:29:10 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:10 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_au4_a_failed_attempt_is_seen_through_the_cache_and_a_restart (tests.test_ds_web_auto_update.AutoUpdate.test_au4_a_failed_attempt_is_seen_through_the_cache_and_a_restart)
+查更新结果缓存 6 小时。auto_update 若跟着进了缓存,同一进程里下一次查仍说 eligible。 ... 2026-09-20 11:29:10 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:10 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:10 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:10 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:11 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au5_an_attempted_version_is_refused_on_the_server_too (tests.test_ds_web_auto_update.AutoUpdate.test_au5_an_attempted_version_is_refused_on_the_server_too)
+服务端二次把关:界面慢一拍、两个窗口同时倒计时、别的页面直接发请求,都绕不过去。 ... 2026-09-20 11:29:11 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:11 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:11 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_au6_manual_update_still_works_for_an_attempted_version (tests.test_ds_web_auto_update.AutoUpdate.test_au6_manual_update_still_works_for_an_attempted_version)
+反面(防修过头):不再**自动**试,不等于业主自己点也不让装。 ... 2026-09-20 11:29:12 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:12 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:12 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:12 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_au7_cannot_record_means_do_not_touch_anything (tests.test_ds_web_auto_update.AutoUpdate.test_au7_cannot_record_means_do_not_touch_anything)
+记不下 ⇒ 下次打开还会再自动试 ⇒ 循环。宁可这次不自动。 ... 2026-09-20 11:29:12 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_au8_a_garbage_record_is_an_empty_record (tests.test_ds_web_auto_update.AutoUpdate.test_au8_a_garbage_record_is_an_empty_record) ... 2026-09-20 11:29:13 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:13 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:13 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:13 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au9_earlier_attempts_are_kept (tests.test_ds_web_auto_update.AutoUpdate.test_au9_earlier_attempts_are_kept)
+追加,不覆盖。覆盖的话:试 A → 试 B → 线上撤回 B ⇒ A 又会被自动试一遍。 ... 2026-09-20 11:29:13 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:13 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:13 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:13 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:13 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au9b_a_withdrawn_newer_attempt_does_not_block_an_untried_older_one (tests.test_ds_web_auto_update.AutoUpdate.test_au9b_a_withdrawn_newer_attempt_does_not_block_an_untried_older_one)
+攻题 #14:只记"试过的最大版本"、按 ≤ 判 attempted 的写法 —— 试 0.98.3 → 撤回 ⇒ 从没试过的 0.98.2 被误封。 ... 2026-09-20 11:29:14 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:14 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:14 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au9c_versions_are_compared_exactly (tests.test_ds_web_auto_update.AutoUpdate.test_au9c_versions_are_compared_exactly)
+攻题 #14:子串 / 前缀 / 字典序 —— 试过 0.98.1,不等于试过 0.98.10。 ... 2026-09-20 11:29:14 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 11:29:14 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 11:29:14 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_sc1_first_check_is_delayed (tests.test_ds_update_startup.BackgroundScheduleTests.test_sc1_first_check_is_delayed)
+sc1:首次检查不许在进入工作区的那一刻发起。 ... ok
+test_sc2_interval_has_jitter (tests.test_ds_update_startup.BackgroundScheduleTests.test_sc2_interval_has_jitter)
+sc2:同一个间隔连算多次不该总是同一个数 —— 否则所有客户端会同一秒打服务器。 ... ok
+test_sc3_failures_back_off_and_are_capped (tests.test_ds_update_startup.BackgroundScheduleTests.test_sc3_failures_back_off_and_are_capped)
+sc3:连续失败要退避,且有上限(不许退避到天荒地老)。 ... ok
+test_sc4_delay_never_negative (tests.test_ds_update_startup.BackgroundScheduleTests.test_sc4_delay_never_negative)
+sc4:抖动不许把间隔算成负数或 0。 ... ok
+test_pr1_success_writes_ready_and_startup_would_install (tests.test_ds_update_startup.PrepareUpdateTests.test_pr1_success_writes_ready_and_startup_would_install)
+pr1:下好且校验过 ⇒ 写 ready,而且**下一次启动真的会装**(端到端接上)。 ... ok
+test_pr2_download_failure_leaves_no_ready (tests.test_ds_update_startup.PrepareUpdateTests.test_pr2_download_failure_leaves_no_ready)
+pr2:下载炸了 ⇒ 绝不留下 ready。 ... ok
+test_pr3_digest_mismatch_deletes_the_bad_package (tests.test_ds_update_startup.PrepareUpdateTests.test_pr3_digest_mismatch_deletes_the_bad_package)
+pr3:摘要对不上 ⇒ 不写 ready,**并且把那个坏包删掉**。 ... ok
+test_pr4_size_mismatch_rejected (tests.test_ds_update_startup.PrepareUpdateTests.test_pr4_size_mismatch_rejected)
+pr4:字节数对不上也不许写 ready(下到一半就当下完)。 ... ok
+test_pr5_marks_downloading_before_fetching (tests.test_ds_update_startup.PrepareUpdateTests.test_pr5_marks_downloading_before_fetching)
+pr5:动手之前先把 downloading 写上 —— 下载中途断电,下次启动看到的不是 ready。 ... ok
+test_pr6_never_raises (tests.test_ds_update_startup.PrepareUpdateTests.test_pr6_never_raises)
+pr6:🔴 后台任务永不抛 —— 它跑在用户正在干活的时候。 ... ok
+test_pr6b_survives_failure_deep_in_the_path (tests.test_ds_update_startup.PrepareUpdateTests.test_pr6b_survives_failure_deep_in_the_path)
+pr6b:走到深处才炸的错误也必须被兜住。 ... ok
+test_pr7_already_ready_does_not_redownload (tests.test_ds_update_startup.PrepareUpdateTests.test_pr7_already_ready_does_not_redownload)
+pr7:同一版已经下好了就别再下一遍(省业主的流量和磁盘)。 ... ok
+test_su10_not_newer_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su10_not_newer_enters)
+su10:状态里的版本不比当前新 ⇒ 进工作区(不许降级、不许重装同版)。 ... ok
+test_su11_unreadable_version_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su11_unreadable_version_enters)
+su11:版本号读不出来(空/乱码/None)⇒ 进工作区,不抛。 ... ok
+test_su12_path_outside_or_weird_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su12_path_outside_or_weird_enters)
+su12:path 不是字符串、是目录、或是符号链接 ⇒ 进工作区。 ... ok
+test_su13_never_raises_on_arbitrary_input (tests.test_ds_update_startup.StartupDecisionTests.test_su13_never_raises_on_arbitrary_input)
+su13:🔴 它永远不许抛。盘上的数据可以是任何东西,抛一次 = 软件打不开。 ... ok
+test_su13b_survives_failure_deep_in_the_path (tests.test_ds_update_startup.StartupDecisionTests.test_su13b_survives_failure_deep_in_the_path)
+su13b:走到深处才炸的那种错误,也必须被兜住。 ... ok
+test_su14_reason_is_a_stable_token (tests.test_ds_update_startup.StartupDecisionTests.test_su14_reason_is_a_stable_token)
+su14:reason 必须是稳定枚举,不是自由散文 —— 判据和界面都要认它。 ... ok
+test_su1_ready_and_verified_installs (tests.test_ds_update_startup.StartupDecisionTests.test_su1_ready_and_verified_installs)
+su1:phase=ready + 版本更新 + 包在 + 大小摘要都对 ⇒ 装。 ... ok
+test_su2_missing_state_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su2_missing_state_enters)
+su2:根本没有状态文件(None)⇒ 进工作区。 ... ok
+test_su3_not_a_dict_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su3_not_a_dict_enters)
+su3:盘上是合法 JSON 但不是对象(列表/字符串/数字)⇒ 进工作区,不抛。 ... ok
+test_su4_missing_fields_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su4_missing_fields_enters)
+su4:半写 —— 字段缺一个就不许装(原子写失败时盘上可能就是这样)。 ... ok
+test_su5_unknown_schema_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su5_unknown_schema_enters)
+su5:schema 不是我们认识的版本 ⇒ 进工作区(将来改格式时的前向保护)。 ... ok
+test_su6_phase_not_ready_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su6_phase_not_ready_enters)
+su6:还没下完(downloading)或空闲(idle)⇒ 进工作区。 ... ok
+test_su7_package_gone_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su7_package_gone_enters)
+su7:状态说 ready,但那个安装包已经不在盘上了 ⇒ 进工作区。 ... ok
+test_su8_digest_mismatch_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su8_digest_mismatch_enters)
+su8:摘要对不上 ⇒ 进工作区。**绝不许装一个校验不过的包。** ... ok
+test_su9_size_mismatch_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su9_size_mismatch_enters)
+su9:字节数对不上(下到一半就被标成 ready)⇒ 进工作区。 ... ok
+test_su_net1_decision_makes_no_socket (tests.test_ds_update_startup.StartupTouchesNoNetworkTests.test_su_net1_decision_makes_no_socket)
+su_net1:决策期间任何 socket 创建都算失败。 ... ok
+test_su_net2_read_state_makes_no_socket (tests.test_ds_update_startup.StartupTouchesNoNetworkTests.test_su_net2_read_state_makes_no_socket)
+su_net2:读盘上的状态也不许联网(它只该碰文件系统)。 ... ok
+test_su_net3_does_not_import_or_call_update_fetchers (tests.test_ds_update_startup.StartupTouchesNoNetworkTests.test_su_net3_does_not_import_or_call_update_fetchers)
+su_net3:启动决策一次都不许调 ds_update 的取数函数。 ... ok
+test_sp1_lives_next_to_the_attempts_record (tests.test_ds_update_startup.StatePathTests.test_sp1_lives_next_to_the_attempts_record)
+sp1:放在数据根的 Logs 下,**不进安装目录、不进用户数据目录**。 ... ok
+test_sp2_accepts_path_objects (tests.test_ds_update_startup.StatePathTests.test_sp2_accepts_path_objects)
+sp2:传 Path 和传 str 结果一样(调用方两种都有)。 ... ok
+test_sw1_write_then_read_roundtrips (tests.test_ds_update_startup.StateWriteTests.test_sw1_write_then_read_roundtrips)
+sw1:写进去能原样读回来。 ... ok
+test_sw2_write_is_atomic (tests.test_ds_update_startup.StateWriteTests.test_sw2_write_is_atomic)
+sw2:🔴 替换那一刻之前,目标路径上要么是旧内容、要么不存在 —— 绝不能是半个文件。 ... ok
+test_sw3_corrupt_file_reads_as_none (tests.test_ds_update_startup.StateWriteTests.test_sw3_corrupt_file_reads_as_none)
+sw3:盘上是坏的(非 JSON / 半截 / 空)⇒ read_state 返回 None,不抛。 ... ok
+test_sw4_missing_file_reads_as_none (tests.test_ds_update_startup.StateWriteTests.test_sw4_missing_file_reads_as_none)
+sw4:文件不存在 ⇒ None,不抛。 ... ok
+
+----------------------------------------------------------------------
+Ran 69 tests in 20.306s
+
+OK
+---------------- 输出结束 ----------------
+runlog: auto-install-local-green rc=0 commit=eb24724 dirty=yes at=2026-09-20T03:28:54Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T032854Z-01-auto-install-local-green.txt
