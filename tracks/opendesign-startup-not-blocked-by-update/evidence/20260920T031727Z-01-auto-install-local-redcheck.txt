@@ -1,0 +1,87 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    auto-install-local-redcheck
+cmd:     /root/.venvs/design-studio/bin/python -m unittest -v tests.test_ds_web_auto_install_local
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  569a452
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-20T03:17:27Z
+---------------- 输出开始 ----------------
+test_ai1_auto_install_uses_the_package_already_on_disk (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai1_auto_install_uses_the_package_already_on_disk) ... 2026-09-20 11:17:27 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+FAIL
+test_ai2_auto_install_makes_no_network_call_at_all (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai2_auto_install_makes_no_network_call_at_all) ... 2026-09-20 11:17:27 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+FAIL
+test_ai3_without_a_local_package_auto_install_refuses_instead_of_going_online (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai3_without_a_local_package_auto_install_refuses_instead_of_going_online) ... 2026-09-20 11:17:28 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+FAIL
+test_ai4_manual_update_still_checks_online (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai4_manual_update_still_checks_online) ... 2026-09-20 11:17:28 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_ai5_a_version_already_attempted_is_not_installed_even_if_stocked (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai5_a_version_already_attempted_is_not_installed_even_if_stocked) ... 2026-09-20 11:17:29 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+FAIL
+test_ai6_a_package_that_changed_after_the_decision_is_not_installed (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai6_a_package_that_changed_after_the_decision_is_not_installed) ... 2026-09-20 11:17:29 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+FAIL
+
+======================================================================
+FAIL: test_ai1_auto_install_uses_the_package_already_on_disk (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai1_auto_install_uses_the_package_already_on_disk)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_install_local.py", line 105, in test_ai1_auto_install_uses_the_package_already_on_disk
+    self.assertIs(body.get("ok"), True, "盘上备好的新版没装成:%r" % (body,))
+AssertionError: False is not True : 盘上备好的新版没装成:{'ok': False, 'stage': 'no_update', 'error': '查更新失败:发布页订阅源:连不上 GitHub(检查网络或 VPN)(OSError: 自动安装路径上不许联网);GitHub 接口:连不上 GitHub(检查网络或 VPN)(OSError: 自动安装路径上不许联网)'}
+
+======================================================================
+FAIL: test_ai2_auto_install_makes_no_network_call_at_all (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai2_auto_install_makes_no_network_call_at_all)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_install_local.py", line 133, in test_ai2_auto_install_makes_no_network_call_at_all
+    self.assertEqual(self.net_calls, [],
+AssertionError: Lists differ: ['fetch', 'fetch'] != []
+
+First list contains 2 additional elements.
+First extra element 0:
+'fetch'
+
+- ['fetch', 'fetch']
++ [] : 🔴 自动安装期间去联网了 2 次 —— 业主在这一次打开时照样干等
+
+======================================================================
+FAIL: test_ai3_without_a_local_package_auto_install_refuses_instead_of_going_online (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai3_without_a_local_package_auto_install_refuses_instead_of_going_online)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_install_local.py", line 145, in test_ai3_without_a_local_package_auto_install_refuses_instead_of_going_online
+    self.assertEqual(body.get("stage"), "auto_skipped",
+AssertionError: 'no_update' != 'auto_skipped'
+- no_update
++ auto_skipped
+ : 该安静跳过(软件照常可用),而不是别的死法:{'ok': False, 'stage': 'no_update', 'error': '查更新失败:发布页订阅源:连不上 GitHub(检查网络或 VPN)(OSError: 自动安装路径上不许联网);GitHub 接口:连不上 GitHub(检查网络或 VPN)(OSError: 自动安装路径上不许联网)'}
+
+======================================================================
+FAIL: test_ai5_a_version_already_attempted_is_not_installed_even_if_stocked (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai5_a_version_already_attempted_is_not_installed_even_if_stocked)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_install_local.py", line 173, in test_ai5_a_version_already_attempted_is_not_installed_even_if_stocked
+    self.assertEqual(body.get("stage"), "auto_skipped", body)
+AssertionError: 'no_update' != 'auto_skipped'
+- no_update
++ auto_skipped
+ : {'ok': False, 'stage': 'no_update', 'error': '查更新失败:发布页订阅源:连不上 GitHub(检查网络或 VPN)(OSError: 自动安装路径上不许联网);GitHub 接口:连不上 GitHub(检查网络或 VPN)(OSError: 自动安装路径上不许联网)'}
+
+======================================================================
+FAIL: test_ai6_a_package_that_changed_after_the_decision_is_not_installed (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai6_a_package_that_changed_after_the_decision_is_not_installed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_auto_install_local.py", line 189, in test_ai6_a_package_that_changed_after_the_decision_is_not_installed
+    self.assertEqual(self.net_calls, [], "坏包时退回联网下载")
+AssertionError: Lists differ: ['fetch', 'fetch'] != []
+
+First list contains 2 additional elements.
+First extra element 0:
+'fetch'
+
+- ['fetch', 'fetch']
++ [] : 坏包时退回联网下载
+
+----------------------------------------------------------------------
+Ran 6 tests in 3.040s
+
+FAILED (failures=5)
+---------------- 输出结束 ----------------
+runlog: auto-install-local-redcheck rc=1 commit=569a452 dirty=yes at=2026-09-20T03:17:27Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T031727Z-01-auto-install-local-redcheck.txt
