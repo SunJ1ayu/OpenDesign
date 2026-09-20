@@ -462,6 +462,32 @@ class UpdateEligibility(unittest.TestCase):
             self._package_exists(path),
             "🔴 path_unsupported 是永久条件,这一版**永远**装不上,那 46MB 却没人清")
 
+    def test_el15_prepare_keeps_the_package_under_a_transient_blocker(self):
+        """备货那一侧也要分清临时和永久:没外壳 / 开关关着 ⇒ **不许删**业主已经下好的包。
+
+        🔴 **这条是变异红检 E8 逼出来的,不是腿报的**(2026-09-20,写完 F1 重做之后我自己跑的):
+        把 `no_shell` / `disabled` 错加进 `PERMANENT_BLOCKERS`,整卷 9 个变异里只有这一个
+        **一条判据都没红**。el4 钉的是 apply 那一侧的同一条规矩,而新的删包代码住在 prepare 这一侧
+        —— 规矩钉在了旧的那个决策点上,新的那个没人看着。同一条要求,两个决策点都要钉。
+        """
+        for label, env in (("no_shell", {"DS_SHELL_LOCK_PORT": ""}),
+                           ("disabled", {AUTO_KNOB: "off"})):
+            with self.subTest(why_not=label):
+                path, _ = self._stock()
+                self._armed()
+                with mock.patch.dict(os.environ, env):
+                    with self._serve() as port:
+                        st, body = _post(port, "/api/update/prepare", b"{}")
+                        self.assertEqual(st, 200, body)
+                        self._drain_prepare(port)
+                self.assertTrue(
+                    self._package_exists(path),
+                    "🔴 %s 是**临时**条件(下次带着外壳起来、或者业主把开关打开就能装),"
+                    "备货这一侧却把已经下好校验好的 46MB 删了 —— 白丢,还得重下一遍" % label)
+                self.assertIsNone(
+                    ds_auto_update.attempted_at(self.data_root, LATEST),
+                    "🔴 %s 一行账都不该记(记了就把这一版永久判死了,见 el13)" % label)
+
     # === el7 / el8:第 2 轮两条 LOW ========================================
 
     def test_el7_a_throwing_prepare_does_not_wedge_the_endpoint_forever(self):
