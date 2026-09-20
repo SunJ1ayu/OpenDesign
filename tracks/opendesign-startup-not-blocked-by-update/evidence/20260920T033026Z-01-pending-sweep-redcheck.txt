@@ -1,0 +1,100 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    pending-sweep-redcheck
+cmd:     /root/.venvs/design-studio/bin/python -m unittest -v tests.test_ds_update_startup
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  bca403d
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-20T03:30:26Z
+---------------- 输出开始 ----------------
+test_sc1_first_check_is_delayed (tests.test_ds_update_startup.BackgroundScheduleTests.test_sc1_first_check_is_delayed)
+sc1:首次检查不许在进入工作区的那一刻发起。 ... ok
+test_sc2_interval_has_jitter (tests.test_ds_update_startup.BackgroundScheduleTests.test_sc2_interval_has_jitter)
+sc2:同一个间隔连算多次不该总是同一个数 —— 否则所有客户端会同一秒打服务器。 ... ok
+test_sc3_failures_back_off_and_are_capped (tests.test_ds_update_startup.BackgroundScheduleTests.test_sc3_failures_back_off_and_are_capped)
+sc3:连续失败要退避,且有上限(不许退避到天荒地老)。 ... ok
+test_sc4_delay_never_negative (tests.test_ds_update_startup.BackgroundScheduleTests.test_sc4_delay_never_negative)
+sc4:抖动不许把间隔算成负数或 0。 ... ok
+test_pr1_success_writes_ready_and_startup_would_install (tests.test_ds_update_startup.PrepareUpdateTests.test_pr1_success_writes_ready_and_startup_would_install)
+pr1:下好且校验过 ⇒ 写 ready,而且**下一次启动真的会装**(端到端接上)。 ... ok
+test_pr2_download_failure_leaves_no_ready (tests.test_ds_update_startup.PrepareUpdateTests.test_pr2_download_failure_leaves_no_ready)
+pr2:下载炸了 ⇒ 绝不留下 ready。 ... ok
+test_pr3_digest_mismatch_deletes_the_bad_package (tests.test_ds_update_startup.PrepareUpdateTests.test_pr3_digest_mismatch_deletes_the_bad_package)
+pr3:摘要对不上 ⇒ 不写 ready,**并且把那个坏包删掉**。 ... ok
+test_pr4_size_mismatch_rejected (tests.test_ds_update_startup.PrepareUpdateTests.test_pr4_size_mismatch_rejected)
+pr4:字节数对不上也不许写 ready(下到一半就当下完)。 ... ok
+test_pr5_marks_downloading_before_fetching (tests.test_ds_update_startup.PrepareUpdateTests.test_pr5_marks_downloading_before_fetching)
+pr5:动手之前先把 downloading 写上 —— 下载中途断电,下次启动看到的不是 ready。 ... ok
+test_pr6_never_raises (tests.test_ds_update_startup.PrepareUpdateTests.test_pr6_never_raises)
+pr6:🔴 后台任务永不抛 —— 它跑在用户正在干活的时候。 ... ok
+test_pr6b_survives_failure_deep_in_the_path (tests.test_ds_update_startup.PrepareUpdateTests.test_pr6b_survives_failure_deep_in_the_path)
+pr6b:走到深处才炸的错误也必须被兜住。 ... ok
+test_pr7_already_ready_does_not_redownload (tests.test_ds_update_startup.PrepareUpdateTests.test_pr7_already_ready_does_not_redownload)
+pr7:同一版已经下好了就别再下一遍(省业主的流量和磁盘)。 ... ok
+test_pr8_a_package_for_a_version_we_already_run_is_swept (tests.test_ds_update_startup.PrepareUpdateTests.test_pr8_a_package_for_a_version_we_already_run_is_swept)
+pr8:装完之后,盘上那个 46MB 的包必须被清掉 —— 别让它永远躺在业主的盘上。 ... FAIL
+test_pr8b_a_still_pending_newer_package_is_not_swept (tests.test_ds_update_startup.PrepareUpdateTests.test_pr8b_a_still_pending_newer_package_is_not_swept)
+pr8b:还没装的新版**不许**被打扫掉 —— 否则每 10 分钟一轮的后台轮询会把自己下的东西删了。 ... ok
+test_su10_not_newer_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su10_not_newer_enters)
+su10:状态里的版本不比当前新 ⇒ 进工作区(不许降级、不许重装同版)。 ... ok
+test_su11_unreadable_version_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su11_unreadable_version_enters)
+su11:版本号读不出来(空/乱码/None)⇒ 进工作区,不抛。 ... ok
+test_su12_path_outside_or_weird_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su12_path_outside_or_weird_enters)
+su12:path 不是字符串、是目录、或是符号链接 ⇒ 进工作区。 ... ok
+test_su13_never_raises_on_arbitrary_input (tests.test_ds_update_startup.StartupDecisionTests.test_su13_never_raises_on_arbitrary_input)
+su13:🔴 它永远不许抛。盘上的数据可以是任何东西,抛一次 = 软件打不开。 ... ok
+test_su13b_survives_failure_deep_in_the_path (tests.test_ds_update_startup.StartupDecisionTests.test_su13b_survives_failure_deep_in_the_path)
+su13b:走到深处才炸的那种错误,也必须被兜住。 ... ok
+test_su14_reason_is_a_stable_token (tests.test_ds_update_startup.StartupDecisionTests.test_su14_reason_is_a_stable_token)
+su14:reason 必须是稳定枚举,不是自由散文 —— 判据和界面都要认它。 ... ok
+test_su1_ready_and_verified_installs (tests.test_ds_update_startup.StartupDecisionTests.test_su1_ready_and_verified_installs)
+su1:phase=ready + 版本更新 + 包在 + 大小摘要都对 ⇒ 装。 ... ok
+test_su2_missing_state_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su2_missing_state_enters)
+su2:根本没有状态文件(None)⇒ 进工作区。 ... ok
+test_su3_not_a_dict_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su3_not_a_dict_enters)
+su3:盘上是合法 JSON 但不是对象(列表/字符串/数字)⇒ 进工作区,不抛。 ... ok
+test_su4_missing_fields_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su4_missing_fields_enters)
+su4:半写 —— 字段缺一个就不许装(原子写失败时盘上可能就是这样)。 ... ok
+test_su5_unknown_schema_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su5_unknown_schema_enters)
+su5:schema 不是我们认识的版本 ⇒ 进工作区(将来改格式时的前向保护)。 ... ok
+test_su6_phase_not_ready_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su6_phase_not_ready_enters)
+su6:还没下完(downloading)或空闲(idle)⇒ 进工作区。 ... ok
+test_su7_package_gone_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su7_package_gone_enters)
+su7:状态说 ready,但那个安装包已经不在盘上了 ⇒ 进工作区。 ... ok
+test_su8_digest_mismatch_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su8_digest_mismatch_enters)
+su8:摘要对不上 ⇒ 进工作区。**绝不许装一个校验不过的包。** ... ok
+test_su9_size_mismatch_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su9_size_mismatch_enters)
+su9:字节数对不上(下到一半就被标成 ready)⇒ 进工作区。 ... ok
+test_su_net1_decision_makes_no_socket (tests.test_ds_update_startup.StartupTouchesNoNetworkTests.test_su_net1_decision_makes_no_socket)
+su_net1:决策期间任何 socket 创建都算失败。 ... ok
+test_su_net2_read_state_makes_no_socket (tests.test_ds_update_startup.StartupTouchesNoNetworkTests.test_su_net2_read_state_makes_no_socket)
+su_net2:读盘上的状态也不许联网(它只该碰文件系统)。 ... ok
+test_su_net3_does_not_import_or_call_update_fetchers (tests.test_ds_update_startup.StartupTouchesNoNetworkTests.test_su_net3_does_not_import_or_call_update_fetchers)
+su_net3:启动决策一次都不许调 ds_update 的取数函数。 ... ok
+test_sp1_lives_next_to_the_attempts_record (tests.test_ds_update_startup.StatePathTests.test_sp1_lives_next_to_the_attempts_record)
+sp1:放在数据根的 Logs 下,**不进安装目录、不进用户数据目录**。 ... ok
+test_sp2_accepts_path_objects (tests.test_ds_update_startup.StatePathTests.test_sp2_accepts_path_objects)
+sp2:传 Path 和传 str 结果一样(调用方两种都有)。 ... ok
+test_sw1_write_then_read_roundtrips (tests.test_ds_update_startup.StateWriteTests.test_sw1_write_then_read_roundtrips)
+sw1:写进去能原样读回来。 ... ok
+test_sw2_write_is_atomic (tests.test_ds_update_startup.StateWriteTests.test_sw2_write_is_atomic)
+sw2:🔴 替换那一刻之前,目标路径上要么是旧内容、要么不存在 —— 绝不能是半个文件。 ... ok
+test_sw3_corrupt_file_reads_as_none (tests.test_ds_update_startup.StateWriteTests.test_sw3_corrupt_file_reads_as_none)
+sw3:盘上是坏的(非 JSON / 半截 / 空)⇒ read_state 返回 None,不抛。 ... ok
+test_sw4_missing_file_reads_as_none (tests.test_ds_update_startup.StateWriteTests.test_sw4_missing_file_reads_as_none)
+sw4:文件不存在 ⇒ None,不抛。 ... ok
+
+======================================================================
+FAIL: test_pr8_a_package_for_a_version_we_already_run_is_swept (tests.test_ds_update_startup.PrepareUpdateTests.test_pr8_a_package_for_a_version_we_already_run_is_swept)
+pr8:装完之后,盘上那个 46MB 的包必须被清掉 —— 别让它永远躺在业主的盘上。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_startup.py", line 428, in test_pr8_a_package_for_a_version_we_already_run_is_swept
+    self.assertFalse(os.path.isfile(pkg), "装完之后那个包还躺在盘上(每更新一次多占 46MB)")
+AssertionError: True is not false : 装完之后那个包还躺在盘上(每更新一次多占 46MB)
+
+----------------------------------------------------------------------
+Ran 38 tests in 0.046s
+
+FAILED (failures=1)
+---------------- 输出结束 ----------------
+runlog: pending-sweep-redcheck rc=1 commit=bca403d dirty=yes at=2026-09-20T03:30:26Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T033026Z-01-pending-sweep-redcheck.txt

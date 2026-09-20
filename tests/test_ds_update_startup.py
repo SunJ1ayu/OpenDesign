@@ -405,6 +405,39 @@ class PrepareUpdateTests(unittest.TestCase):
                 self.fail(f"后台任务把异常漏出来了:{exc!r} —— 它跑在业主干活的时候")
         self.assertFalse(out["ok"])
 
+    def test_pr8_a_package_for_a_version_we_already_run_is_swept(self):
+        """pr8:装完之后,盘上那个 46MB 的包必须被清掉 —— 别让它永远躺在业主的盘上。
+
+        🔴 由来:本单新增的"后台备货"会把安装包留在 `Logs/pending/`。装完重启之后,
+        状态文件里那一版**就是现在跑着的这一版**,谁也不会再用它,但没人清 ⇒
+        每更新一次就永久多占 46MB。这个项目已经因为"没人清"被撑满过盘(track
+        opendesign-tmpdir-leak:一轮往 /tmp 扔 1.7 万个空壳目录)。
+
+        清扫挂在后台备货那一趟里(业主已经在用软件了),不挂启动路径 —— 那条路上
+        只许读盘,越少动作越好。
+        """
+        ds_update_startup.prepare_update(self.info, self.root, download=self.dl_ok)
+        pkg = self.state().get("path")
+        self.assertTrue(os.path.isfile(pkg), "前提没摆好:包没下下来")
+
+        # 已经升到 0.98.8 了:再跑一趟后台备货,这时线上没有更新的版本。
+        latest_now = {"current": "0.98.8", "update_available": False, "latest": None,
+                      "asset": None, "error": None}
+        out = ds_update_startup.prepare_update(latest_now, self.root, download=self.dl_ok)
+        self.assertFalse(out["ok"])            # 没东西可备,但不是因此就不打扫
+        self.assertFalse(os.path.isfile(pkg), "装完之后那个包还躺在盘上(每更新一次多占 46MB)")
+        self.assertIsNone(self.state(), "包清掉了,状态文件却还留着")
+
+    def test_pr8b_a_still_pending_newer_package_is_not_swept(self):
+        """pr8b:还没装的新版**不许**被打扫掉 —— 否则每 10 分钟一轮的后台轮询会把自己下的东西删了。"""
+        ds_update_startup.prepare_update(self.info, self.root, download=self.dl_ok)
+        pkg = self.state().get("path")
+        same = {"current": "0.98.7", "update_available": True, "latest": "0.98.8",
+                "asset": self.info["asset"], "error": None}
+        ds_update_startup.prepare_update(same, self.root, download=self.dl_ok)
+        self.assertTrue(os.path.isfile(pkg), "还没装的新版包被当成垃圾清掉了")
+        self.assertEqual((self.state() or {}).get("phase"), "ready")
+
     def test_pr7_already_ready_does_not_redownload(self):
         """pr7:同一版已经下好了就别再下一遍(省业主的流量和磁盘)。"""
         ds_update_startup.prepare_update(self.info, self.root, download=self.dl_ok)
