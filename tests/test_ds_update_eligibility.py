@@ -145,6 +145,24 @@ class UpdateEligibility(unittest.TestCase):
         self.assertEqual(st, 200, body)
         return (body or {}).get("action"), (body or {}).get("reason")
 
+    def _drain_prepare(self, port, timeout=15.0):
+        """prepare 端点立刻返回、下载在后台线程里 ⇒ 判据要等那条线程落地再断言。
+
+        靠端点自己的重入标志判完成:`running` 清了就说明 work() 跑完了
+        (不靠 sleep 猜时间,那会 flaky)。
+        """
+        import time as _t
+        deadline = _t.time() + timeout
+        while _t.time() < deadline:
+            st, body = _post(port, "/api/update/prepare", b"{}")
+            if st == 200 and (body or {}).get("reason") != "already_running":
+                # 这一次要么没起(被资格闸拦下)、要么又跑了一轮并已结束
+                if (body or {}).get("started") is not True:
+                    return body
+                continue
+            _t.sleep(0.1)
+        raise AssertionError("prepare 后台线程 %.1fs 没落地" % timeout)
+
     def _package_exists(self, path):
         return os.path.isfile(path)
 
@@ -332,6 +350,117 @@ class UpdateEligibility(unittest.TestCase):
         self.assertEqual(st, 200, body)
         self.assertEqual(self.order.count("apply"), 1,
                          "🔴 资格判据下沉时把手动更新一起挡了 —— 业主再也装不上这一版:%r" % (body,))
+
+    # === el10~el13:完整资格(第 3 轮 subdeepseek F1,我跑探针核实成立)=========
+    #
+    # 🔴 第 2 轮我只把**账本**那一维(试过没试过)收成了单一判据,于是漏了另外几维。
+    #    完整的「该不该自动装」住在 `ds_web._auto_update_status`,它有 7 种否决:
+    #    no_update / asset / **no_shell** / **not_installed** / **path_unsupported** /
+    #    attempted / **disabled**。加粗那几种**只在 apply 被问** —— 那时界面已经弹出来了。
+    #    探针实测(第 3 轮派发后我自己跑的):
+    #        [no_shell] STARTUP -> install ; APPLY -> auto_skipped/no_shell ; 包还在盘上
+    #        [disabled] 同上
+    #    ⇒ 界面闪一下、什么都不说、包留着、下次打开再来一遍,**永不收敛**。
+    #    比 attempted 那条更糟(那条至少会清包收敛),而且 `disabled` 就是
+    #    「关掉自动更新」那个开关 —— 关了照样弹界面、照样下 46MB。
+    #
+    # 🔴 **而且是我上午那条 el4 把它锁死的**:el4 要求临时条件不许删包(对的),
+    #    但我漏了一句 —— 既然不该删,就更不该让它走到弹界面那一步。
+    #
+    # 这些题**全部走真端点**:纯函数问不出「端点有没有把完整资格接上去」。
+
+    def _startup_and_apply(self, env):
+        with mock.patch.dict(os.environ, env):
+            with self._serve() as port:
+                st, startup = _get(port, "/api/update/startup")
+                st2, applied = _post(port, "/api/update/apply", AUTO)
+        self.assertEqual((st, st2), (200, 200), (startup, applied))
+        return startup, applied
+
+    def test_el10_startup_does_not_offer_to_install_when_the_machine_cannot(self):
+        """没外壳 / 开关关着 ⇒ 打开软件**不许**弹更新界面(apply 迟早也会拒,但那太晚了)。"""
+        for label, env in (("no_shell", {"DS_SHELL_LOCK_PORT": ""}),
+                           ("disabled", {AUTO_KNOB: "off"})):
+            with self.subTest(why_not=label):
+                self._stock()
+                self._armed()
+                startup, applied = self._startup_and_apply(env)
+                self.assertEqual(
+                    startup.get("action"), "enter",
+                    "🔴 %s:启动说 install(reason=%r)⇒ 界面弹「正在更新到 X」,"
+                    "而 apply 回 %r 在界面上是**静默**的。业主看到「闪一下,什么都没说」,"
+                    "且包留着 ⇒ 每次打开重复一遍,永不收敛"
+                    % (label, startup.get("reason"), applied.get("stage")))
+
+    def test_el11_prepare_does_not_stock_when_the_machine_cannot(self):
+        """没外壳 / 开关关着 ⇒ 后台**不许**去下那 46MB(下了也装不上)。
+
+        `disabled` 尤其要紧:那是「关掉自动更新」的开关,关了还偷偷下载是说话不算话。
+        """
+        for label, env in (("no_shell", {"DS_SHELL_LOCK_PORT": ""}),
+                           ("disabled", {AUTO_KNOB: "off"})):
+            with self.subTest(why_not=label):
+                self._armed()
+                self.downloads = []
+                with mock.patch.dict(os.environ, env):
+                    with self._serve() as port:
+                        st, body = _post(port, "/api/update/prepare", b"{}")
+                        self.assertEqual(st, 200, body)
+                        self._drain_prepare(port)
+                self.assertEqual(
+                    self.downloads, [],
+                    "🔴 %s:机器现在根本装不上,后台还是把 46MB 下了(业主的流量和磁盘)" % label)
+
+    def test_el12_a_capable_machine_still_prepares_and_installs(self):
+        """反向题:该能装的时候一切照旧 —— 防"把功能关死"式假修(同 el3)。"""
+        self._stock()
+        self._armed()
+        with self._serve() as port:
+            st, startup = _get(port, "/api/update/startup")
+        self.assertEqual(st, 200, startup)
+        self.assertEqual(startup.get("action"), "install",
+                         "🔴 条件全满足却不装了(reason=%r)—— 自动更新被关死了"
+                         % (startup.get("reason"),))
+
+    def test_el13_a_transient_blocker_going_away_restores_auto_update(self):
+        """没外壳是**临时**状况(下次带着外壳起来就好了)⇒ 不许把这一版永久判死。
+
+        与 el4 呼应:el4 说这种情况不许删包;这一条说条件恢复后它必须还能装。
+        两条一起才是完整的"临时条件"语义。
+        """
+        path, _ = self._stock()
+        self._armed()
+        startup, _applied = self._startup_and_apply({"DS_SHELL_LOCK_PORT": ""})
+        self.assertEqual(startup.get("action"), "enter", "夹具没摆对(见 el10)")
+        self.assertTrue(self._package_exists(path), "临时状况不该删包(el4)")
+        self.assertIsNone(ds_auto_update.attempted_at(self.data_root, LATEST),
+                          "临时状况不该记账(那会把这一版永久判死)")
+
+        with self._serve() as port:          # 外壳回来了(夹具默认有 DS_SHELL_LOCK_PORT)
+            st, startup2 = _get(port, "/api/update/startup")
+        self.assertEqual(st, 200, startup2)
+        self.assertEqual(startup2.get("action"), "install",
+                         "🔴 临时状况过去了却再也不装(reason=%r)—— 把临时当成了永久"
+                         % (startup2.get("reason"),))
+
+    def test_el14_a_permanent_blocker_does_not_hoard_46mb_forever(self):
+        """第 3 轮 subdeepseek F4:`path_unsupported` 是**永久**条件,而收窄后的 discard
+        只在 `attempted` 触发、el9 的清理只在账本那条路触发 ⇒ 那 46MB 没人删。
+        `_sweep_installed` 又故意放过比当前版本新的包。同一类磁盘泄漏,换了个 reason code。
+        """
+        path, _ = self._stock()
+        self._armed()
+        bad = os.path.join(self.tmp, "live with %s percent")
+        os.makedirs(bad, exist_ok=True)
+        with mock.patch.object(ds_update_apply, "update_preflight_problem",
+                               lambda paths: ("path_unsupported", "安装路径里有 %")):
+            with self._serve() as port:
+                st, body = _post(port, "/api/update/prepare", b"{}")
+                self.assertEqual(st, 200, body)
+                self._drain_prepare(port)
+        self.assertFalse(
+            self._package_exists(path),
+            "🔴 path_unsupported 是永久条件,这一版**永远**装不上,那 46MB 却没人清")
 
     # === el7 / el8:第 2 轮两条 LOW ========================================
 
