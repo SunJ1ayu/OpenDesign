@@ -1,73 +1,119 @@
-# Verify: opendesign-startup-not-blocked-by-update
+# Verify: 打开软件不再被更新检查挡住
 
-- Date: 2026-09-19
-
-> 机器消费的 impact / uncertainty / execution plan / outcome 只写在同目录
-> `decision.json`；这里保留检查、理由、发现与主 Agent 仲裁说明，不复制枚举。
-
-> Panel hook — 软判断(correctness/security/edge/spec-drift)走 panel-review:
-> 主 agent 先独立审并落 findings,再按 impact-risk 预算跑 panel-review；只有特殊控制面
-> 才显式 `--all` 做全池评审。最后仍由主 agent 主裁。
-> build/test 跑通是机械检查。
+- Date: 2026-09-19 开工 / 2026-09-20 收口(中途断线一次,次日接手)
 
 ## Mechanical checks
 
-- [ ] build passes
-- [ ] tests pass
-- [ ] no secrets / unsafe ops
+- [x] build passes(`npm run build` + `tsc --noEmit` rc=0;dist 新鲜度闸绿)
+- [x] tests pass(见下面的收据;**rc=3 那几遍不是全绿**,含义写在下面)
+- [x] no secrets / unsafe ops(新增的只有本地读写盘与本机 HTTP;无新出网口)
 
-**机器打印的**(不是我的转述)—— 判据用 `runlog` 跑,把它打印的收据行原样粘进来:
-
-```
-runlog -t opendesign-startup-not-blocked-by-update -- <判据命令>
-```
+**机器打印的收据(逐字节粘,红的一份没藏)**:
 
 ```
-<粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
- **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
- 收据得进 git(5d)。一份收据都没有的话,写一行
- 「- 无机器证据:<理由>」认账 —— 沉默不算理由(5c)。>
+runlog: startup-block-baseline rc=0 commit=8746146 dirty=yes final=yes at=2026-09-19T15:29:00Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260919T152900Z-01-startup-block-baseline.txt
+runlog: mutation-redcheck rc=1 commit=724f777 dirty=yes final=yes at=2026-09-19T15:48:39Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260919T154839Z-01-mutation-redcheck.txt
+runlog: full-regression rc=1 commit=1b876fb dirty=yes final=yes at=2026-09-19T16:01:12Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260919T160112Z-01-full-regression.txt
+runlog: startup-respec-redcheck rc=1 commit=287e7e8 dirty=yes at=2026-09-20T03:02:02Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T030202Z-01-startup-respec-redcheck.txt
+runlog: startup-respec-redcheck-2 rc=1 commit=287e7e8 dirty=yes at=2026-09-20T03:07:09Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T030709Z-01-startup-respec-redcheck-2.txt
+runlog: startup-respec-green rc=0 commit=569a452 dirty=yes at=2026-09-20T03:12:46Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T031246Z-01-startup-respec-green.txt
+runlog: auto-install-local-redcheck rc=1 commit=569a452 dirty=yes at=2026-09-20T03:17:27Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T031727Z-01-auto-install-local-redcheck.txt
+runlog: premise-move-probe rc=0 commit=4e73b27 dirty=yes at=2026-09-20T03:27:44Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T032744Z-01-premise-move-probe.txt
+runlog: auto-install-local-green rc=0 commit=eb24724 dirty=yes at=2026-09-20T03:28:54Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T032854Z-01-auto-install-local-green.txt
+runlog: pending-sweep-redcheck rc=1 commit=bca403d dirty=yes at=2026-09-20T03:30:26Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T033026Z-01-pending-sweep-redcheck.txt
+runlog: pending-sweep-green rc=0 commit=0477219 dirty=yes at=2026-09-20T03:31:20Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T033120Z-01-pending-sweep-green.txt
+runlog: full-regression-after-fix rc=3 commit=530f010 dirty=yes at=2026-09-20T03:31:31Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T033131Z-01-full-regression-after-fix.txt
+runlog: startup-polish-redcheck rc=1 commit=530f010 dirty=yes at=2026-09-20T03:45:02Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T034502Z-01-startup-polish-redcheck.txt
+runlog: full-regression-final rc=3 commit=93bd712 dirty=yes at=2026-09-20T03:47:43Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T034743Z-01-full-regression-final.txt
+runlog: r1-fixlist-redcheck rc=1 commit=eb52d91 dirty=yes at=2026-09-20T04:17:45Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T041745Z-01-r1-fixlist-redcheck.txt
+runlog: r1-fixlist-green rc=0 commit=8536391 dirty=yes at=2026-09-20T04:22:19Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T042219Z-01-r1-fixlist-green.txt
+runlog: full-regression-r1fix rc=3 commit=72e20dd dirty=yes at=2026-09-20T04:23:31Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T042331Z-01-full-regression-r1fix.txt
 ```
+
+**怎么读这些数**:
+- `rc=1` 的六份是**判据先行的红**(每一份都对应一次"实现还没写/还没修,此刻应当红")
+  加上昨晚那份变异红检(2 条漏网,当场补强了判据)。它们是这一单最值钱的部分。
+- `rc=3` 的三份全量回归:**六段全 PASS,3 条要活网关的 e2e 没跑** ⇒ 不是红,
+  但**也不许说成全绿**。与本仓历史同形。
+- 最后一遍(`full-regression-r1fix`)是结论所依据的那一遍:
+  node 461 / python 1776 / e2e 41 PASS 0 FAIL 2 SKIP / dist 新鲜。
 
 ## Review
 
-- 规格自查(读任何 panel 输出之前先答):<如果规格本身就是错的,会错成什么样、我怎么发现?
-  panel 只验"实现合不合规格",验不了"规格对不对" —— 全池一致 PASS 也不等于题是对的。>
-- 腿的花名册: <把 `<日志前缀>.roster` 里那一行**原样粘过来**,别手写>
-  > panel-review 收尾自己写这个文件(off / FAIL(rc) / 降级 都在里面)。
-  > **控制器没活到收尾时它压根不存在** —— 那时跑 `panel-roster <日志前缀>` 从盘上重建,
-  > 与控制器自己写的**归一化后一致**(判据 R5b 守着;抬头有渲染时间戳,不是字面逐字节)。**一轮零记录的评审也粘得出这一行**,
-  > 所以"那轮被砍了所以没有花名册"不再是理由(2026-08-23,track panel-roster-from-disk)。
-  > 08-06 立这条的理由:08-05 我在这里手写了"三条腿一致 PASS",而 Kimi 根本没出结论
-  > (同一页第 90 行我自己还写着它没出报告)—— 手抄一份终端上的东西,抄错那次没人会发现。
-- 轮次记录(每次派发一行;实质评审与基础设施重试分开,重试不算轮但次数与耗时照记):
+### 规格自查(读任何 panel 输出之前先答)
 
-  | 轮 | 类型(实质 / 重试) | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
-  |---|---|---|---|---|
-  | 1 | 实质 | <rc,BLOCK 数> | <…> | <n> |
+规格若本身是错的,会错成什么样?我当时写下的答案:
 
-- findings(**先处置、后动手**;一轮一份修复清单,一次修完再复审 —— panel 抽屉 4b):
+> 最可能错在**"启动只读盘"这句话的边界**:我把"读盘"当成了毫秒级动作,
+> 但盘上那个东西有 46MB。如果"读"变成"读满",这条规格就会在真机上悄悄失效。
 
-  | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
-  |---|---|---|---|---|
-  | 1 | <…> | <file:line / 复现收据> | 必须修 / 延期 / 驳回 / 尚未核实 | <延期必写:它在业主或下一个使用者那边会长成什么样> |
+第 1 轮 subcursor 报的 HIGH-1 正好命中这一条(startup_decision 对整个包算 sha256),
+**而我自己那一遍审没看见它** —— 我写下了正确的怀疑方向,却没顺着它去量一遍。
 
-  > 只写发现。腿的身份/降级不在这儿抄第二遍:日志自带身份牌(降级横幅 + 视野边界),
-  > 花名册在上一格,查工件不查自述。延期 = 留在这里,不自动开新单。
-- arbitrated verdict (主裁): <...>
-  > 这里写理由；最终枚举写进 `decision.json.outcome.verdict`。归档时仍为空会被
-  > `track-record validate --phase archive` 挡住，`track list` 也会打 ⚠️。
+另外两条 HIGH 我完全没想到:数据根不一致(subdeepseek)、装失败后备货不清(subcursor)。
+其中数据根那条**结构上问不出来**:全仓判据没有一处设过 `DS_DATA_ROOT`,
+而单测里两个根恰好相等。这不是"没想到",是**考卷的形状不对**。
+
+### 腿的花名册(从盘上重建,`panel-roster`)
+
+```
+submimo=PASS(verdict=PASS) subdeepseek=PASS(verdict=BLOCK) subglm=off subkimi=off subgemini=off subgrok=off subcursor=PASS(verdict=BLOCK)
+```
+```
+# impact-risk=high requested-budget=2 selected-count=2(派发前快照)
+escalation=conflict    selected-count=3(PASS/BLOCK 冲突 ⇒ 自动追加第三腿)
+```
+日志前缀 `/root/aiwork/logs/panel-startup-not-blocked-r1-20260920-1201.*`
+
+### 轮次记录
+
+| 轮 | 类型 | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
+|---|---|---|---|---|
+| 1 | 实质 | BLOCK=0 PENDING=2(rc=3) | panel-startup-not-blocked-r1-20260920-1201 | 3 条 HIGH + 3 条 MEDIUM |
+| 2 | 实质(复审修复清单) | 见下 | 待填 | 待填 |
+
+预算:2 轮实质评审(默认值,开工未另写)。
+
+- GLM / Kimi / Gemini / Grok 四条腿本轮显式 off:额度用光 / 周限额 / 地区被拒(连败 6 轮已判死)/ 连败 2 轮。
+  健康池实际只剩 xiaomi 与 xai 两个家族,冲突后追加的 deepseek 是第三个。
+- 🔴 **反锚定泄漏(如实记账)**:闸报了 `verify.md` 在树上。那一刻它是模板 + 昨晚的红检记录,
+  **不含我的裁决与发现**(自审正本在仓外 `/root/aiwork/tasks/...-my-review.md`)。
+  影响有限但不是零:腿能看到昨晚"这份考卷防的两种作弊"那段。
+
+### findings 处置表(第 1 轮)
+
+| # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
+|---|---|---|---|---|
+| 1 | **HIGH(subdeepseek)** 备货/启动接口用 `ds_common.data_root()`(外壳注 `…\OpenDesign\Data`),安装侧用 `paths_for_update()` 默认层(`%LOCALAPPDATA%\OpenDesign`)⇒ 真机上写的人和读的人各看各的文件,每次打开弹更新界面、apply 静默 `auto_skipped`,那一版永远装不上 | **成立**。我亲自读了 `ds_common.data_root` / `paths_for_update` / `ds_shell_core.data_root_for` 三处;新写的端点级判据 ur1/ur3 当场复现(状态落 `Data\Logs`、记账在 `Logs`) | **已修**(`_update_data_root()` 单一来源) | 本单核心承诺在真机上失效 |
+| 2 | **HIGH(subcursor)** `record_attempt` 在 apply 之前写,失败后没人清 `update-state.json` ⇒ 之后每次打开都空演一遍更新界面,而 `auto_skipped` 在界面上静默 | **成立**。读 `autoFailureText`:对 `auto_skipped` 故意返回空串;`probeStartup` 在 install 分支直接 return ⇒ 那次会话也不再查更新 | **已修**(`discard_ready()`;判据 ai7/ai8) | 业主每次打开都会看见,且无任何解释 |
+| 3 | **HIGH(subcursor)** `startup_decision` 对整个包算 sha256,而前端上限写死 500ms;超时后单向永久失效(前端不重试、`already_ready` 不重备) | **成立但本机未复现超时**:我量了 46.8MB —— 热缓存 37ms、丢缓存 117ms,**没超**。判成立的理由是机制:开销 O(包大小)、上限写死、失败静默且单向 | **已修**(启动不再哈希;校验留在 pr3/pr9 与 t4/ai9) | 余量未知(业主机器有 Defender 实时扫新下载的 .exe),而失败悄无声息 |
+| 4 | **MEDIUM(subcursor #3 + subdeepseek #3)** `already_ready` 只比版本+大小 ⇒ 等长坏包被两边一起放过,死循环永不自愈 | 成立(读代码) | **已修**(pr9:`already_ready` 验到字节) | 与 #3 同根,不修则 #3 的修法会留一个新洞 |
+| 5 | **MEDIUM(两腿都报)** `pending/` 下半截包与被跳过版本的孤儿没人清,每份 46MB | 成立 | **已修**(`_sweep_orphans`;判据 pr10) | 业主磁盘被撑满过两次 |
+| 6 | **LOW(subdeepseek #5)** `/api/update/prepare` 宣称"立刻返回",却在返回前同步跑那次最坏 20s 的联网查 | 成立(读代码) | **已修**(挪进线程,一行) | 与 #1 同一处改动,顺手且零风险 |
+| 7 | **LOW(subcursor #7 + submimo)** 启动那 0~500ms 是一块只有品牌名的画面,真机上可能"闪一下" | 成立,但那正是 sg10 要的形状;不是白屏(有 `--paper` 底色与 WindowChrome) | **延期** | 业主真机验收时看一眼;它在他那儿最坏是"打开时闪一下品牌名",不影响可用性 |
+| 8 | **LOW(submimo)** `_update_decision_for_auto` 起的后台线程不设超时 | **驳回**:`check_for_update` 每跳自带 `TIMEOUT_S=10`,两跳有界;线程是 daemon,关软件即走 | 驳回 | 有代码依据 |
+| 9 | **LOW(subcursor #5)** premise-move-probe 撤的是 HEAD 那一版而不是 base-ref `8746146` | **驳回**:探针要问的是"**这一次的实现**有没有让旧考卷放水",撤到 base-ref 会把整单实现一起撤掉,那问的是另一件事 | 驳回 | 有依据 |
+| 10 | **自查(无腿报)** 装失败的那一次会话里,不再有后台查更新/备货(`probeStartup` 在 install 分支 return) | 成立 | **延期** | 备货状态已在后端清掉 ⇒ **下一次打开**一切正常;代价只是"失败的那一次会话内拿不到更新提示"。改它要动前端调度,不属于本轮阻断 |
 
 ## Accepted deviations
 
-- <接受的非关键偏差 + 原因 + 影响范围,或 None>
+- **「60 秒后后台那一趟点火时重新问一次开关」没有自动判据。** 那 60 秒的延迟让 e2e 问不出它,
+  而为了可测在产品代码里开一个测试专用旋钮不值得。只做了代码级自查。**不冒充有覆盖。**
+- 3 条要活网关的 e2e 本轮没跑(与历史同形)。
+- 上面第 7、第 10 两条延期项。
 
-## 试行记录(review-convergence 试行,约五单;拿不到的写 unknown,别补 0)
+## 试行记录(review-convergence 试行)
 
-- 总交付历时:<开工 commit 时刻 → 归档 commit 时刻>
-- 每轮新增有效阻断:<第 1 轮 n / 第 2 轮 n>
-- 基础设施等待:<重试次数;observations 里 panel-review 的 duration_ms 求和>
-- 交付后返工:<归档后因本单再改过几次;不知道写 unknown>
+- 总交付历时:2026-09-19 22:27(开工 commit)→ 待填(归档 commit)
+- 每轮新增有效阻断:第 1 轮 3 HIGH + 3 MEDIUM(另 2 条驳回、2 条延期)
+- 基础设施等待:0 次重试(三条腿一次成功;冲突追加第三腿是协议内的升级,不是重试)
+- 交付后返工:待填
+
+## arbitrated verdict(主裁)
+
+待第 2 轮复审后填。第 1 轮主裁:**BLOCK** —— 两条 BLOCK 腿的三条 HIGH 全部核实成立,
+其中两条是我自己那一遍审没看见的;MiMo 的 PASS(并明确写"接缝无问题")在第 1 条上是错的。
+**全票不是护身符,孤腿 BLOCK 才是信号** —— 这一轮是三次里最干脆的一次实证。
 
 ## 判据先行:实现之前的红(基线 34b0805)
 
