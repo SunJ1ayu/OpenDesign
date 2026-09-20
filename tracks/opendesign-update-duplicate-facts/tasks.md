@@ -14,33 +14,33 @@
 
 ## 1. 判据(先单独 commit,再 commit 修复)
 
-- [ ] T1 el 新判据:`path_unsupported` 走到 apply auto 分支 ⇒ 包必须清;`no_shell`/`disabled` ⇒ 必须留
-- [ ] T2 prepare 新判据:① 不传 `paths` 必须**立刻报错**(不许静默少做检查);② 机器那一维在 prepare 里真被问到
-- [ ] T3 机械判据:`grep -rn machine_blocker bin/` 必须 0 命中
-- [ ] 判据红检:T1/T2/T3 在**修复之前**必须全红(收据进 evidence)
-- [ ] commit ①:只含判据
+- [x] T1 el 新判据:`path_unsupported` 走到 apply auto 分支 ⇒ 包必须清;`no_shell`/`disabled` ⇒ 必须留
+- [x] T2 prepare 新判据:① 不传 `paths` 必须**立刻报错**(不许静默少做检查);② 机器那一维在 prepare 里真被问到
+- [x] T3 机械判据:`grep -rn machine_blocker bin/` 必须 0 命中
+- [x] 判据红检:T1/T2/T3 在**修复之前**必须全红(收据进 evidence)
+- [x] commit ①:只含判据
 
 ## 2. 修复
 
-- [ ] #24 `ds_web.py`:`== "attempted"` → `in ds_auto_update.PERMANENT_BLOCKERS`;那段注释整段重写(不再自带成员清单,明写"纵深")
-- [ ] #26 `ds_web.py:911`、`:1342` 旧名 `machine_blocker` → `why_not_auto`;全仓扫同类
-- [ ] #25 `ds_update_startup.py`:`prepare_update(info, paths, download=None, now=None)`,内部推导 `data_root`;删掉半维回退
-- [ ] #25 夹具:`tests/test_ds_update_startup.py` 与 `tests/test_ds_update_eligibility.py` 的调用点改传 `paths`,**行为断言一字不改**
-- [ ] T7 全仓扫:`grep -rn "prepare_update("` 0 个老签名调用点
-- [ ] commit ②:修复
+- [x] #24 `ds_web.py`:`== "attempted"` → `in ds_auto_update.PERMANENT_BLOCKERS`;那段注释整段重写(不再自带成员清单,明写"纵深")
+- [x] #26 `ds_web.py:911`、`:1342` 旧名 `machine_blocker` → `why_not_auto`;全仓扫同类
+- [x] #25 `ds_update_startup.py`:`prepare_update(info, paths, download=None, now=None)`,内部推导 `data_root`;删掉半维回退
+- [x] #25 夹具:`tests/test_ds_update_startup.py` 与 `tests/test_ds_update_eligibility.py` 的调用点改传 `paths`,**行为断言一字不改**
+- [x] T7 全仓扫:`grep -rn "prepare_update("` 0 个老签名调用点
+- [x] commit ②:修复
 
 ## 3. 判据工具(#27 / #28)
 
-- [ ] #28 资格变异集补 E8b(只把 `error` 加进 `PERMANENT_BLOCKERS`),并给它一个**常驻位置**
+- [x] #28 资格变异集补 E8b(只把 `error` 加进 `PERMANENT_BLOCKERS`),并给它一个**常驻位置**
       `tests/mutation-update-eligibility.py`(与 `tests/mutation-*.sh` 同处,便于下次找得到;
       **不承诺**它被 run-all 自动跑 —— 那一批本来就都是手跑的红检)
-- [ ] #27 b8 探针:span 从 `ds_shell_core.InstanceLock` 推导,不写死数字;重跑取正确读数
-- [ ] T4:探针自己断言 span 长度 == `InstanceLock._ports` 长度
+- [x] #27 b8 探针:span 从 `ds_shell_core.InstanceLock` 推导,不写死数字;重跑取正确读数
+- [x] T4:探针自己断言 span 长度 == `InstanceLock._ports` 长度
 
 ## 4. 收口
 
-- [ ] T5 改后:资格变异整套(含 E8b)必须全部咬住
-- [ ] T6 改后:`mutants-prepare.py` 再跑一遍,与改前表**逐条 diff**;条数相同、0 error、无一条由红转绿
-- [ ] `tests/run-all.sh` 总跑
-- [ ] 真起一次 ds-web 走 `/api/update/prepare`(不是 mock),确认备货链路没被签名改动打断
+- [x] T5 改后:资格变异整套(含 E8b)必须全部咬住
+- [x] T6 改后:`mutants-prepare.py` 再跑一遍,与改前表**逐条 diff**;条数相同、0 error、无一条由红转绿
+- [x] `tests/run-all.sh` 总跑
+- [x] 真起一次 ds-web 走 `/api/update/prepare`(不是 mock),确认备货链路没被签名改动打断
 - [ ] `track preflight`(🔴 **别经 runlog 跑**)→ 派 1 腿评审 → 处置 → 归档
