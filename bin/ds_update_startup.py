@@ -135,14 +135,16 @@ def startup_decision(state, current_version, now=None):
         if os.path.getsize(path) != want_size:
             return _enter("size_mismatch")
 
-        import hashlib
-        h = hashlib.sha256()
-        with open(path, "rb") as f:
-            for chunk in iter(lambda: f.read(1 << 20), b""):
-                h.update(chunk)
-        if h.hexdigest().lower() != want_sha.lower():
-            return _enter("digest_mismatch")
-
+        # 🔴 **这里不算 sha256**(判据 su15)。原来算 —— 那是 O(包大小) 的操作,
+        #    而前端给这一步的上限是写死的 500ms,业主那台 Windows 还有 Defender
+        #    正在实时扫这个刚下好的 46MB .exe。超时之后是**单向**的:前端 abort 进工作区、
+        #    不重试;后台 already_ready 也不会重新备货 ⇒ 那一版从此永远装不上,而且悄无声息。
+        #    (2026-09-20 第 1 轮外审 subcursor HIGH-1,我核实成立。本机实测热 37ms、
+        #     丢缓存 117ms —— 没超,但余量未知,而失败是静默的。)
+        #
+        #    **字节校验没有消失,它在两头**:下好的那一刻(prepare,判据 pr3/pr9)、
+        #    以及真装之前(apply_update 再算一遍,判据 t4:对不上就拒绝执行、活树零改动)。
+        #    启动这一步只回答"盘上有没有一个看起来可装的东西"。
         return {"action": "install", "reason": "ready", "version": version, "path": path}
     except Exception:  # noqa: BLE001 —— 判据 su13:宁可不更新,绝不许打不开
         return _enter("decision_failed")
@@ -191,6 +193,37 @@ def _sweep_installed(state_file, info):
         return
 
 
+def _sweep_orphans(state_file, data_root):
+    """`pending/` 下**没人指着**的文件一律清掉。**永不抛**。
+
+    半截包(被杀在下载中途)、被跳过那一版的孤儿(备好 0.99.0 之后 0.99.1 上线,
+    新的写成新文件名,旧那个 46MB 再没人提起)—— 每攒一个就是永久多占一份。
+    判据 pr10。两条腿在第 1 轮各自报了这件事。
+
+    判断"有没有人指着"只认状态文件里那一条 path:拿不准的时候不删是安全的,
+    因为下一轮还会再来一次;而删错的代价是业主等着装的那 46MB 没了。
+    """
+    try:
+        d = os.path.join(str(data_root), "Logs", PENDING_DIR)
+        if not os.path.isdir(d):
+            return
+        state = read_state(state_file)
+        keep = (state or {}).get("path") if isinstance(state, dict) else None
+        keep = os.path.normcase(os.path.realpath(keep)) if isinstance(keep, str) and keep else None
+        for name in os.listdir(d):
+            p = os.path.join(d, name)
+            try:
+                if not os.path.isfile(p) or os.path.islink(p):
+                    continue
+                if keep is not None and os.path.normcase(os.path.realpath(p)) == keep:
+                    continue
+                os.unlink(p)
+            except OSError:
+                continue
+    except Exception:  # noqa: BLE001
+        return
+
+
 def prepare_update(info, data_root, download=None, now=None):
     """后台把新版下下来、校验、写状态 —— **只下不装**。
 
@@ -208,18 +241,23 @@ def prepare_update(info, data_root, download=None, now=None):
         #    放在这里而不是启动路径上:那条路只许读盘,越少动作越好;这里业主已经在用软件了。
         #    判据 pr8 / pr8b(还没装的新版不许被清掉)。
         _sweep_installed(state_file, info)
+        _sweep_orphans(state_file, data_root)
 
         facts = _asset_facts(info)
         if facts is None:
             return {"ok": False, "reason": "nothing_to_prepare"}
 
         # 同一版已经下好了就别再下一遍(判据 pr7:省业主的流量和磁盘)。
+        # 🔴 但"已经下好"必须**验到字节**(判据 pr9):启动那一步已经不算哈希了(su15),
+        #    这里再只比大小的话,一个等长坏包就会被两边一起放过 —— 后台说"不用下"、
+        #    安装侧每次拒,**死循环,永不自愈**。这一趟跑在业主用软件的时候,慢不要紧。
         current = read_state(state_file)
         if (isinstance(current, dict) and current.get("phase") == "ready"
                 and current.get("version") == facts["version"]):
             path = current.get("path")
             if isinstance(path, str) and os.path.isfile(path) \
-                    and os.path.getsize(path) == facts["size"]:
+                    and os.path.getsize(path) == facts["size"] \
+                    and ds_update_apply.sha256_file(path).lower() == facts["sha256"].lower():
                 return {"ok": True, "reason": "already_ready"}
 
         dest_dir = os.path.join(str(data_root), "Logs", PENDING_DIR)
@@ -260,6 +298,22 @@ def prepare_update(info, data_root, download=None, now=None):
         return {"ok": True, "reason": "ready", "version": facts["version"]}
     except Exception:  # noqa: BLE001 —— 判据 pr6
         return {"ok": False, "reason": "prepare_failed"}
+
+
+def discard_ready(data_root):
+    """把盘上那份备货作废(连包带状态)。**永不抛**。
+
+    🔴 谁用它:自动安装被拒或没装成的时候(ds_web)。这一版从此只能手动
+    (同一版自动只试一次),留着那份 `ready` 只会让**每次打开**都空演一遍更新界面,
+    而 `auto_skipped` 在界面上是**静默**的 —— 业主看到的是"闪一下,然后什么都没说"。
+    判据 ai7/ai8(2026-09-20 第 1 轮外审 subcursor HIGH-2)。
+    """
+    try:
+        state_file = state_path(data_root)
+        state = read_state(state_file)
+        _discard((state or {}).get("path"), state_file)
+    except Exception:  # noqa: BLE001
+        return
 
 
 def _discard(dest, state_file):

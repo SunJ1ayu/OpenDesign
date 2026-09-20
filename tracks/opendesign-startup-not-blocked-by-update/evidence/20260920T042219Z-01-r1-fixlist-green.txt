@@ -1,0 +1,434 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    r1-fixlist-green
+cmd:     /root/.venvs/design-studio/bin/python -m unittest -v tests.test_ds_web_update_roots tests.test_ds_web_auto_install_local tests.test_ds_web_auto_update tests.test_ds_update_startup tests.test_ds_update_apply tests.test_ds_web_update
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  8536391
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-20T04:22:19Z
+---------------- 输出开始 ----------------
+test_ur1_prepare_then_startup_then_install_all_read_the_same_root (tests.test_ds_web_update_roots.UpdateRootsAgree.test_ur1_prepare_then_startup_then_install_all_read_the_same_root)
+ur1:后台备好 ⇒ 启动接口说该装 ⇒ 自动安装真的走到安装那一步。 ... 2026-09-20 12:22:19 127.0.0.1 - "POST /api/update/prepare HTTP/1.1" 200 -
+2026-09-20 12:22:19 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-20 12:22:19 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-20 12:22:19 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:19 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_ur2_only_one_state_file_exists (tests.test_ds_web_update_roots.UpdateRootsAgree.test_ur2_only_one_state_file_exists)
+ur2:盘上只许有一份 update-state.json。 ... 2026-09-20 12:22:20 127.0.0.1 - "POST /api/update/prepare HTTP/1.1" 200 -
+2026-09-20 12:22:20 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-20 12:22:20 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-20 12:22:20 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:20 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_ur3_the_state_sits_next_to_the_attempts_log (tests.test_ds_web_update_roots.UpdateRootsAgree.test_ur3_the_state_sits_next_to_the_attempts_log)
+ur3:状态文件与既有的 auto-update-attempts.json **同侧**。 ... 2026-09-20 12:22:20 127.0.0.1 - "POST /api/update/prepare HTTP/1.1" 200 -
+2026-09-20 12:22:20 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-20 12:22:21 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-20 12:22:21 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:21 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_ai1_auto_install_uses_the_package_already_on_disk (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai1_auto_install_uses_the_package_already_on_disk) ... 2026-09-20 12:22:21 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_ai2_auto_install_makes_no_network_call_at_all (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai2_auto_install_makes_no_network_call_at_all) ... 2026-09-20 12:22:22 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_ai3_without_a_local_package_auto_install_refuses_instead_of_going_online (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai3_without_a_local_package_auto_install_refuses_instead_of_going_online) ... 2026-09-20 12:22:22 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_ai4_manual_update_still_checks_online (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai4_manual_update_still_checks_online) ... 2026-09-20 12:22:23 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_ai5_a_version_already_attempted_is_not_installed_even_if_stocked (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai5_a_version_already_attempted_is_not_installed_even_if_stocked) ... 2026-09-20 12:22:23 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_ai6_a_package_that_changed_after_the_decision_is_not_installed (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai6_a_package_that_changed_after_the_decision_is_not_installed) ... 2026-09-20 12:22:24 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_ai7_a_refused_auto_install_clears_the_ready_package (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai7_a_refused_auto_install_clears_the_ready_package)
+ai7:这一版已经自动试过 ⇒ 盘上那份 ready 必须清掉,别留着每次打开空演一遍。 ... 2026-09-20 12:22:24 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_ai8_a_failed_auto_install_clears_the_ready_package (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai8_a_failed_auto_install_clears_the_ready_package)
+ai8:真的装了但没装成,同样要清 —— 这一版从此只能手动,留着它只会每次打开空演。 ... 2026-09-20 12:22:25 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_ai9_a_corrupt_package_never_gets_installed (tests.test_ds_web_auto_install_local.AutoInstallFromLocal.test_ai9_a_corrupt_package_never_gets_installed)
+ai9:大小对得上、字节对不上的包 —— **真安装器**必须在碰活树之前拒掉它。 ... 2026-09-20 12:22:25 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-20 12:22:25 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_au10_only_logs_is_written_under_the_data_root (tests.test_ds_web_auto_update.AutoUpdate.test_au10_only_logs_is_written_under_the_data_root)
+t13 死线的同一条:更新前后 Data\ 与 UserData\ 逐字节不变,Logs\ 豁免。 ... 2026-09-20 12:22:26 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:26 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_au11_a_string_true_is_not_auto (tests.test_ds_web_auto_update.AutoUpdate.test_au11_a_string_true_is_not_auto)
+只有 JSON 的 true 才算自动;其余一律手动语义(手动那条路一行不改)。 ... 2026-09-20 12:22:26 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:26 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:26 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:26 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_au12a_refused_asset (tests.test_ds_web_auto_update.AutoUpdate.test_au12a_refused_asset) ... 2026-09-20 12:22:27 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:27 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au12b_refused_no_shell (tests.test_ds_web_auto_update.AutoUpdate.test_au12b_refused_no_shell) ... 2026-09-20 12:22:27 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:27 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au12c_refused_not_installed (tests.test_ds_web_auto_update.AutoUpdate.test_au12c_refused_not_installed) ... 2026-09-20 12:22:28 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:28 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au12d_refused_path_unsupported (tests.test_ds_web_auto_update.AutoUpdate.test_au12d_refused_path_unsupported) ... 2026-09-20 12:22:28 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:28 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au12e_refused_disabled (tests.test_ds_web_auto_update.AutoUpdate.test_au12e_refused_disabled) ... 2026-09-20 12:22:29 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:29 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au13_a_failed_write_keeps_the_old_record_and_touches_nothing (tests.test_ds_web_auto_update.AutoUpdate.test_au13_a_failed_write_keeps_the_old_record_and_touches_nothing)
+攻题 #3 / 攻题二 #8:写记账必须是「同目录临时文件 → 写完 flush → 对**这个临时文件** os.fsync → os.replace 到记账文件」。 ... 2026-09-20 12:22:29 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:29 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:30 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:30 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:30 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au14_disabled_is_judged_last (tests.test_ds_web_auto_update.AutoUpdate.test_au14_disabled_is_judged_last)
+OPENDESIGN_AUTO_UPDATE=off ⇒ disabled。它排在**最后**:Windows 真机判据(aw1)靠 ... 2026-09-20 12:22:30 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:31 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:31 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:32 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:32 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:32 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:32 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au15_a_recent_failed_attempt_is_reported_once_the_app_is_back (tests.test_ds_web_auto_update.AutoUpdate.test_au15_a_recent_failed_attempt_is_reported_once_the_app_is_back)
+攻题 #1:接力脚本回滚、旧版被拉起之后,业主眼前得有一句「上次自动更新没成功」。 ... 2026-09-20 12:22:33 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:33 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:33 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:33 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:33 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:33 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au15b_recent_failure_is_per_version (tests.test_ds_web_auto_update.AutoUpdate.test_au15b_recent_failure_is_per_version)
+攻题二 #6:只存一个全局「最后尝试时刻」的写法 —— 很久前试过 A、刚试过 B、B 被撤回 ⇒ 把 A 说成「刚失败」。 ... 2026-09-20 12:22:33 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:33 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:33 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:33 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:33 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au1_all_conditions_met_means_eligible (tests.test_ds_web_auto_update.AutoUpdate.test_au1_all_conditions_met_means_eligible) ... 2026-09-20 12:22:34 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au2a_no_update (tests.test_ds_web_auto_update.AutoUpdate.test_au2a_no_update) ... 2026-09-20 12:22:34 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au2b_asset_without_digest (tests.test_ds_web_auto_update.AutoUpdate.test_au2b_asset_without_digest)
+没有可信 sha256 的安装包,一键更新会在下载前拒绝(t15)—— 倒计时 10 秒然后报失败没有意义。 ... 2026-09-20 12:22:35 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au2c_no_shell (tests.test_ds_web_auto_update.AutoUpdate.test_au2c_no_shell)
+没有桌面外壳接交棒(浏览器里开、开发方式跑)⇒ 走到最后一步必失败,别倒计时。 ... 2026-09-20 12:22:35 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au2d_not_installed (tests.test_ds_web_auto_update.AutoUpdate.test_au2d_not_installed) ... 2026-09-20 12:22:36 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au2e_path_the_relay_cannot_handle (tests.test_ds_web_auto_update.AutoUpdate.test_au2e_path_the_relay_cannot_handle)
+t36 那一类:接力脚本处理不了的路径,apply_update 第 -1 步会拒绝 —— 同一个判断,不许两处各说各的。 ... 2026-09-20 12:22:36 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au2f_attempted (tests.test_ds_web_auto_update.AutoUpdate.test_au2f_attempted) ... 2026-09-20 12:22:37 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:37 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:37 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au3_the_attempt_is_written_before_anything_is_prepared (tests.test_ds_web_auto_update.AutoUpdate.test_au3_the_attempt_is_written_before_anything_is_prepared)
+🔴 预写。接力脚本回滚、旧版被重新拉起时,界面早就没了 —— 只有动手前记下的账才活得过那一刻。 ... 2026-09-20 12:22:37 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:37 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_au4_a_failed_attempt_is_seen_through_the_cache_and_a_restart (tests.test_ds_web_auto_update.AutoUpdate.test_au4_a_failed_attempt_is_seen_through_the_cache_and_a_restart)
+查更新结果缓存 6 小时。auto_update 若跟着进了缓存,同一进程里下一次查仍说 eligible。 ... 2026-09-20 12:22:38 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:38 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:38 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:38 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:38 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au5_an_attempted_version_is_refused_on_the_server_too (tests.test_ds_web_auto_update.AutoUpdate.test_au5_an_attempted_version_is_refused_on_the_server_too)
+服务端二次把关:界面慢一拍、两个窗口同时倒计时、别的页面直接发请求,都绕不过去。 ... 2026-09-20 12:22:39 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:39 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:39 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_au6_manual_update_still_works_for_an_attempted_version (tests.test_ds_web_auto_update.AutoUpdate.test_au6_manual_update_still_works_for_an_attempted_version)
+反面(防修过头):不再**自动**试,不等于业主自己点也不让装。 ... 2026-09-20 12:22:39 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:39 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:39 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:39 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_au7_cannot_record_means_do_not_touch_anything (tests.test_ds_web_auto_update.AutoUpdate.test_au7_cannot_record_means_do_not_touch_anything)
+记不下 ⇒ 下次打开还会再自动试 ⇒ 循环。宁可这次不自动。 ... 2026-09-20 12:22:40 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_au8_a_garbage_record_is_an_empty_record (tests.test_ds_web_auto_update.AutoUpdate.test_au8_a_garbage_record_is_an_empty_record) ... 2026-09-20 12:22:40 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:40 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:40 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:40 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au9_earlier_attempts_are_kept (tests.test_ds_web_auto_update.AutoUpdate.test_au9_earlier_attempts_are_kept)
+追加,不覆盖。覆盖的话:试 A → 试 B → 线上撤回 B ⇒ A 又会被自动试一遍。 ... 2026-09-20 12:22:41 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:41 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:41 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:41 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:41 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au9b_a_withdrawn_newer_attempt_does_not_block_an_untried_older_one (tests.test_ds_web_auto_update.AutoUpdate.test_au9b_a_withdrawn_newer_attempt_does_not_block_an_untried_older_one)
+攻题 #14:只记"试过的最大版本"、按 ≤ 判 attempted 的写法 —— 试 0.98.3 → 撤回 ⇒ 从没试过的 0.98.2 被误封。 ... 2026-09-20 12:22:41 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:41 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:41 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_au9c_versions_are_compared_exactly (tests.test_ds_web_auto_update.AutoUpdate.test_au9c_versions_are_compared_exactly)
+攻题 #14:子串 / 前缀 / 字典序 —— 试过 0.98.1,不等于试过 0.98.10。 ... 2026-09-20 12:22:42 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:42 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:42 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_pr10_files_nobody_references_are_swept (tests.test_ds_update_startup.PrepareUpdateTests.test_pr10_files_nobody_references_are_swept)
+pr10:`pending/` 下**没人指着**的文件一律清掉(半截包、被跳过版本的孤儿)。 ... ok
+test_pr1_success_writes_ready_and_startup_would_install (tests.test_ds_update_startup.PrepareUpdateTests.test_pr1_success_writes_ready_and_startup_would_install)
+pr1:下好且校验过 ⇒ 写 ready,而且**下一次启动真的会装**(端到端接上)。 ... ok
+test_pr2_download_failure_leaves_no_ready (tests.test_ds_update_startup.PrepareUpdateTests.test_pr2_download_failure_leaves_no_ready)
+pr2:下载炸了 ⇒ 绝不留下 ready。 ... ok
+test_pr3_digest_mismatch_deletes_the_bad_package (tests.test_ds_update_startup.PrepareUpdateTests.test_pr3_digest_mismatch_deletes_the_bad_package)
+pr3:摘要对不上 ⇒ 不写 ready,**并且把那个坏包删掉**。 ... ok
+test_pr4_size_mismatch_rejected (tests.test_ds_update_startup.PrepareUpdateTests.test_pr4_size_mismatch_rejected)
+pr4:字节数对不上也不许写 ready(下到一半就当下完)。 ... ok
+test_pr5_marks_downloading_before_fetching (tests.test_ds_update_startup.PrepareUpdateTests.test_pr5_marks_downloading_before_fetching)
+pr5:动手之前先把 downloading 写上 —— 下载中途断电,下次启动看到的不是 ready。 ... ok
+test_pr6_never_raises (tests.test_ds_update_startup.PrepareUpdateTests.test_pr6_never_raises)
+pr6:🔴 后台任务永不抛 —— 它跑在用户正在干活的时候。 ... ok
+test_pr6b_survives_failure_deep_in_the_path (tests.test_ds_update_startup.PrepareUpdateTests.test_pr6b_survives_failure_deep_in_the_path)
+pr6b:走到深处才炸的错误也必须被兜住。 ... ok
+test_pr7_already_ready_does_not_redownload (tests.test_ds_update_startup.PrepareUpdateTests.test_pr7_already_ready_does_not_redownload)
+pr7:同一版已经下好了就别再下一遍(省业主的流量和磁盘)。 ... ok
+test_pr8_a_package_for_a_version_we_already_run_is_swept (tests.test_ds_update_startup.PrepareUpdateTests.test_pr8_a_package_for_a_version_we_already_run_is_swept)
+pr8:装完之后,盘上那个 46MB 的包必须被清掉 —— 别让它永远躺在业主的盘上。 ... ok
+test_pr8b_a_still_pending_newer_package_is_not_swept (tests.test_ds_update_startup.PrepareUpdateTests.test_pr8b_a_still_pending_newer_package_is_not_swept)
+pr8b:还没装的新版**不许**被打扫掉 —— 否则每 10 分钟一轮的后台轮询会把自己下的东西删了。 ... ok
+test_pr9_a_same_size_corrupt_ready_package_is_replaced (tests.test_ds_update_startup.PrepareUpdateTests.test_pr9_a_same_size_corrupt_ready_package_is_replaced)
+pr9:等长但字节坏了的 ready 包,后台这一趟必须换掉它 —— 否则它永远卡在那里。 ... /root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_startup.py:526: ResourceWarning: unclosed file <_io.BufferedReader name='/tmp/ds-prep-sf_tshmr/Logs/pending/OpenDesign-Setup-0.98.8.exe'>
+  self.assertEqual(hashlib.sha256(open(pkg, "rb").read()).hexdigest(), self.sha,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_su15_startup_decision_does_not_hash_the_whole_package (tests.test_ds_update_startup.StartupCostTests.test_su15_startup_decision_does_not_hash_the_whole_package) ... ok
+test_su15b_startup_still_refuses_a_package_of_the_wrong_size (tests.test_ds_update_startup.StartupCostTests.test_su15b_startup_still_refuses_a_package_of_the_wrong_size)
+去掉哈希不等于什么都不看:大小对不上、文件不在、版本不新,仍然一律 enter。 ... ok
+test_su10_not_newer_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su10_not_newer_enters)
+su10:状态里的版本不比当前新 ⇒ 进工作区(不许降级、不许重装同版)。 ... ok
+test_su11_unreadable_version_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su11_unreadable_version_enters)
+su11:版本号读不出来(空/乱码/None)⇒ 进工作区,不抛。 ... ok
+test_su12_path_outside_or_weird_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su12_path_outside_or_weird_enters)
+su12:path 不是字符串、是目录、或是符号链接 ⇒ 进工作区。 ... ok
+test_su13_never_raises_on_arbitrary_input (tests.test_ds_update_startup.StartupDecisionTests.test_su13_never_raises_on_arbitrary_input)
+su13:🔴 它永远不许抛。盘上的数据可以是任何东西,抛一次 = 软件打不开。 ... ok
+test_su13b_survives_failure_deep_in_the_path (tests.test_ds_update_startup.StartupDecisionTests.test_su13b_survives_failure_deep_in_the_path)
+su13b:走到深处才炸的那种错误,也必须被兜住。 ... ok
+test_su14_reason_is_a_stable_token (tests.test_ds_update_startup.StartupDecisionTests.test_su14_reason_is_a_stable_token)
+su14:reason 必须是稳定枚举,不是自由散文 —— 判据和界面都要认它。 ... ok
+test_su1_ready_and_verified_installs (tests.test_ds_update_startup.StartupDecisionTests.test_su1_ready_and_verified_installs)
+su1:phase=ready + 版本更新 + 包在 + 大小摘要都对 ⇒ 装。 ... ok
+test_su2_missing_state_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su2_missing_state_enters)
+su2:根本没有状态文件(None)⇒ 进工作区。 ... ok
+test_su3_not_a_dict_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su3_not_a_dict_enters)
+su3:盘上是合法 JSON 但不是对象(列表/字符串/数字)⇒ 进工作区,不抛。 ... ok
+test_su4_missing_fields_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su4_missing_fields_enters)
+su4:半写 —— 字段缺一个就不许装(原子写失败时盘上可能就是这样)。 ... ok
+test_su5_unknown_schema_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su5_unknown_schema_enters)
+su5:schema 不是我们认识的版本 ⇒ 进工作区(将来改格式时的前向保护)。 ... ok
+test_su6_phase_not_ready_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su6_phase_not_ready_enters)
+su6:还没下完(downloading)或空闲(idle)⇒ 进工作区。 ... ok
+test_su7_package_gone_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su7_package_gone_enters)
+su7:状态说 ready,但那个安装包已经不在盘上了 ⇒ 进工作区。 ... ok
+test_su9_size_mismatch_enters (tests.test_ds_update_startup.StartupDecisionTests.test_su9_size_mismatch_enters)
+su9:字节数对不上(下到一半就被标成 ready)⇒ 进工作区。 ... ok
+test_su_net1_decision_makes_no_socket (tests.test_ds_update_startup.StartupTouchesNoNetworkTests.test_su_net1_decision_makes_no_socket)
+su_net1:决策期间任何 socket 创建都算失败。 ... ok
+test_su_net2_read_state_makes_no_socket (tests.test_ds_update_startup.StartupTouchesNoNetworkTests.test_su_net2_read_state_makes_no_socket)
+su_net2:读盘上的状态也不许联网(它只该碰文件系统)。 ... ok
+test_su_net3_does_not_import_or_call_update_fetchers (tests.test_ds_update_startup.StartupTouchesNoNetworkTests.test_su_net3_does_not_import_or_call_update_fetchers)
+su_net3:启动决策一次都不许调 ds_update 的取数函数。 ... ok
+test_sp1_lives_next_to_the_attempts_record (tests.test_ds_update_startup.StatePathTests.test_sp1_lives_next_to_the_attempts_record)
+sp1:放在数据根的 Logs 下,**不进安装目录、不进用户数据目录**。 ... ok
+test_sp2_accepts_path_objects (tests.test_ds_update_startup.StatePathTests.test_sp2_accepts_path_objects)
+sp2:传 Path 和传 str 结果一样(调用方两种都有)。 ... ok
+test_sw1_write_then_read_roundtrips (tests.test_ds_update_startup.StateWriteTests.test_sw1_write_then_read_roundtrips)
+sw1:写进去能原样读回来。 ... ok
+test_sw2_write_is_atomic (tests.test_ds_update_startup.StateWriteTests.test_sw2_write_is_atomic)
+sw2:🔴 替换那一刻之前,目标路径上要么是旧内容、要么不存在 —— 绝不能是半个文件。 ... ok
+test_sw3_corrupt_file_reads_as_none (tests.test_ds_update_startup.StateWriteTests.test_sw3_corrupt_file_reads_as_none)
+sw3:盘上是坏的(非 JSON / 半截 / 空)⇒ read_state 返回 None,不抛。 ... ok
+test_sw4_missing_file_reads_as_none (tests.test_ds_update_startup.StateWriteTests.test_sw4_missing_file_reads_as_none)
+sw4:文件不存在 ⇒ None,不抛。 ... ok
+test_t32a_stale_old_is_removed_and_the_update_proceeds (tests.test_ds_update_apply.AStaleOldTreeIsClearedFirst.test_t32a_stale_old_is_removed_and_the_update_proceeds) ... ok
+test_t32b_an_old_that_cannot_be_removed_stops_before_downloading (tests.test_ds_update_apply.AStaleOldTreeIsClearedFirst.test_t32b_an_old_that_cannot_be_removed_stops_before_downloading) ... ok
+test_t4a_refuses (tests.test_ds_update_apply.ChecksumMismatchChangesNothing.test_t4a_refuses) ... ok
+test_t4b_live_tree_is_byte_identical (tests.test_ds_update_apply.ChecksumMismatchChangesNothing.test_t4b_live_tree_is_byte_identical) ... ok
+test_t4c_new_dir_is_gone (tests.test_ds_update_apply.ChecksumMismatchChangesNothing.test_t4c_new_dir_is_gone) ... ok
+test_t4d_installer_never_ran (tests.test_ds_update_apply.ChecksumMismatchChangesNothing.test_t4d_installer_never_ran) ... ok
+test_t4e_dead_line_holds (tests.test_ds_update_apply.ChecksumMismatchChangesNothing.test_t4e_dead_line_holds) ... ok
+test_t15a_missing_digest_is_a_failure_not_a_skip (tests.test_ds_update_apply.DigestIsMandatory.test_t15a_missing_digest_is_a_failure_not_a_skip) ... ok
+test_t15b_malformed_digest_is_a_failure (tests.test_ds_update_apply.DigestIsMandatory.test_t15b_malformed_digest_is_a_failure) ... ok
+test_t15c_a_real_digest_parses (tests.test_ds_update_apply.DigestIsMandatory.test_t15c_a_real_digest_parses) ... ok
+test_t14a_downloader_gets_the_exact_url_github_gave (tests.test_ds_update_apply.DownloadAddressComesFromGitHub.test_t14a_downloader_gets_the_exact_url_github_gave) ... ok
+test_t14b_source_never_composes_a_download_url (tests.test_ds_update_apply.DownloadAddressComesFromGitHub.test_t14b_source_never_composes_a_download_url) ... ok
+test_t21a_missing_script_is_never_reported_as_handed_off (tests.test_ds_update_apply.HandoffToTheRelay.test_t21a_missing_script_is_never_reported_as_handed_off) ... ok
+test_t21b_the_script_path_is_what_gets_launched (tests.test_ds_update_apply.HandoffToTheRelay.test_t21b_the_script_path_is_what_gets_launched) ... ok
+test_t21c_launch_uses_the_one_source_for_platform_flags (tests.test_ds_update_apply.HandoffToTheRelay.test_t21c_launch_uses_the_one_source_for_platform_flags) ... ok
+test_t21d_a_launcher_that_blows_up_is_not_a_handoff (tests.test_ds_update_apply.HandoffToTheRelay.test_t21d_a_launcher_that_blows_up_is_not_a_handoff) ... ok
+test_t21e_the_default_launcher_never_waits (tests.test_ds_update_apply.HandoffToTheRelay.test_t21e_the_default_launcher_never_waits)
+**机械契约**:默认启动器必须是"起了就走"。 ... ok
+test_t18a_url_carries_the_nonce (tests.test_ds_update_apply.HealthAcceptanceCannotBeFooled.test_t18a_url_carries_the_nonce) ... ok
+test_t18b_opener_bypasses_the_system_proxy (tests.test_ds_update_apply.HealthAcceptanceCannotBeFooled.test_t18b_opener_bypasses_the_system_proxy)
+⚠️ 这条第一版问错了地方,实现落地当场照出来 —— 留个记号免得下次再写一遍。 ... ok
+test_t18c_answer_without_the_nonce_is_not_accepted (tests.test_ds_update_apply.HealthAcceptanceCannotBeFooled.test_t18c_answer_without_the_nonce_is_not_accepted) ... ok
+test_t18d_answer_with_a_stale_nonce_is_not_accepted (tests.test_ds_update_apply.HealthAcceptanceCannotBeFooled.test_t18d_answer_with_a_stale_nonce_is_not_accepted) ... ok
+test_t18e_right_version_and_right_nonce_is_accepted (tests.test_ds_update_apply.HealthAcceptanceCannotBeFooled.test_t18e_right_version_and_right_nonce_is_accepted) ... ok
+test_t18f_right_nonce_but_old_version_is_not_accepted (tests.test_ds_update_apply.HealthAcceptanceCannotBeFooled.test_t18f_right_nonce_but_old_version_is_not_accepted) ... ok
+test_t20a_installer_is_invoked_with_the_update_flag (tests.test_ds_update_apply.InstallerUpdateFlagContract.test_t20a_installer_is_invoked_with_the_update_flag) ... ok
+test_t20b_the_nsi_parses_that_exact_flag (tests.test_ds_update_apply.InstallerUpdateFlagContract.test_t20b_the_nsi_parses_that_exact_flag)
+⚠️ 这条第一版太松,红检当场照出来(m23 漏网,2026-09-08)。 ... ok
+test_t20c_provisioning_is_guarded_by_the_update_flag (tests.test_ds_update_apply.InstallerUpdateFlagContract.test_t20c_provisioning_is_guarded_by_the_update_flag)
+`Call ProvisionConfig` 必须落在一个由更新档把守的分支里。 ... ok
+test_t16a_success_path_does_not_touch_the_live_tree (tests.test_ds_update_apply.LiveTreeIsNeverTouchedInStageOne.test_t16a_success_path_does_not_touch_the_live_tree) ... ok
+test_t16b_installer_targets_new_not_live (tests.test_ds_update_apply.LiveTreeIsNeverTouchedInStageOne.test_t16b_installer_targets_new_not_live) ... ok
+test_t16c_dead_line_holds_on_the_success_path (tests.test_ds_update_apply.LiveTreeIsNeverTouchedInStageOne.test_t16c_dead_line_holds_on_the_success_path) ... ok
+test_t5a_missing_sentinel_aborts (tests.test_ds_update_apply.NewTreeMustBeComplete.test_t5a_missing_sentinel_aborts) ... ok
+test_t5b_wrong_version_in_new_tree_aborts (tests.test_ds_update_apply.NewTreeMustBeComplete.test_t5b_wrong_version_in_new_tree_aborts) ... ok
+test_t5c_a_good_new_tree_hands_off (tests.test_ds_update_apply.NewTreeMustBeComplete.test_t5c_a_good_new_tree_hands_off) ... ok
+test_t40a_a_tree_that_was_not_installed_is_refused_before_anything (tests.test_ds_update_apply.OnlyAnInstalledTreeUpdatesItself.test_t40a_a_tree_that_was_not_installed_is_refused_before_anything) ... ok
+test_t40b_the_real_installed_shape_is_accepted (tests.test_ds_update_apply.OnlyAnInstalledTreeUpdatesItself.test_t40b_the_real_installed_shape_is_accepted)
+反面(防修过头):`_make_live_tree` 就是安装器布局的最小形状,它必须照常能走到写出接力脚本。 ... ok
+test_t17a_plan_has_a_rollback_that_puts_old_back (tests.test_ds_update_apply.RelayScriptShape.test_t17a_plan_has_a_rollback_that_puts_old_back) ... ok
+test_t17b_rendered_script_contains_the_rollback (tests.test_ds_update_apply.RelayScriptShape.test_t17b_rendered_script_contains_the_rollback) ... ok
+test_t6a_teardown_gate_comes_before_any_rename (tests.test_ds_update_apply.RelayScriptShape.test_t6a_teardown_gate_comes_before_any_rename) ... ok
+test_t6b_failed_teardown_deletes_new_and_stops (tests.test_ds_update_apply.RelayScriptShape.test_t6b_failed_teardown_deletes_new_and_stops) ... ok
+test_t6c_renderer_keeps_every_step_and_their_order (tests.test_ds_update_apply.RelayScriptShape.test_t6c_renderer_keeps_every_step_and_their_order) ... ok
+test_t36a_unsafe_paths_are_refused_before_any_side_effect (tests.test_ds_update_apply.RelayUnsafePathsStopBeforeAnything.test_t36a_unsafe_paths_are_refused_before_any_side_effect) ... ok
+test_t36b_ordinary_paths_still_update (tests.test_ds_update_apply.RelayUnsafePathsStopBeforeAnything.test_t36b_ordinary_paths_still_update)
+反面(防修过头):空格、括号、中文(控制台 936)、纯 ASCII(英文系统)都得照常走到写出接力脚本。 ... ok
+test_t13a_logs_exemption_is_a_named_dir_not_a_glob (tests.test_ds_update_apply.TheDeadLine.test_t13a_logs_exemption_is_a_named_dir_not_a_glob) ... ok
+test_t13b_protected_dirs_are_named (tests.test_ds_update_apply.TheDeadLine.test_t13b_protected_dirs_are_named) ... ok
+test_t13c_stage_one_writes_nothing_under_data_root_but_logs (tests.test_ds_update_apply.TheDeadLine.test_t13c_stage_one_writes_nothing_under_data_root_but_logs) ... ok
+test_t30a_download_asks_the_proxy_not_the_internet (tests.test_ds_update_apply.TheDownloadGoesThroughTheSystemProxy.test_t30a_download_asks_the_proxy_not_the_internet) ... ok
+test_t30b_the_proxy_is_read_when_downloading_not_at_the_first_network_call (tests.test_ds_update_apply.TheDownloadGoesThroughTheSystemProxy.test_t30b_the_proxy_is_read_when_downloading_not_at_the_first_network_call)
+t30b —— 代理设置在**下载那一刻**读,不是进程第一次联网时读一次就定死。 ... ok
+test_t39a_setup_exe_is_gone_after_a_successful_prepare (tests.test_ds_update_apply.TheDownloadedInstallerIsNotLeftBehind.test_t39a_setup_exe_is_gone_after_a_successful_prepare) ... ok
+test_t33a_nsis_reads_exactly_the_new_dir (tests.test_ds_update_apply.TheInstallerReadsTheDirectoryWeMeant.test_t33a_nsis_reads_exactly_the_new_dir) ... ok
+test_t33z_the_reference_parser_follows_the_documented_nsis_rule (tests.test_ds_update_apply.TheInstallerReadsTheDirectoryWeMeant.test_t33z_the_reference_parser_follows_the_documented_nsis_rule)
+参照模型自检 —— 防止照搬错了、错成对实现有利的样子。 ... ok
+test_t25a_tree_paths_are_the_real_ones (tests.test_ds_update_apply.TheRelayApplyWritesIsFilledIn.test_t25a_tree_paths_are_the_real_ones) ... ok
+test_t25b_port_nonce_and_version_are_filled_in (tests.test_ds_update_apply.TheRelayApplyWritesIsFilledIn.test_t25b_port_nonce_and_version_are_filled_in) ... ok
+test_t25c_log_file_lives_under_the_real_data_root (tests.test_ds_update_apply.TheRelayApplyWritesIsFilledIn.test_t25c_log_file_lives_under_the_real_data_root) ... ok
+test_t29a_handoff_launches_the_relay_from_its_own_folder (tests.test_ds_update_apply.TheRelayDoesNotStandInsideTheTreeItRenames.test_t29a_handoff_launches_the_relay_from_its_own_folder) ... ok
+test_t29b_the_script_leaves_the_tree_before_anything_else (tests.test_ds_update_apply.TheRelayDoesNotStandInsideTheTreeItRenames.test_t29b_the_script_leaves_the_tree_before_anything_else) ... ok
+test_t24a_every_called_label_exists (tests.test_ds_update_apply.TheRelayIsARealProgram.test_t24a_every_called_label_exists)
+`call :foo` 而没有 `:foo` ⇒ 脚本当场报错。 ... ok
+test_t24b_failure_branches_are_control_flow_not_comments (tests.test_ds_update_apply.TheRelayIsARealProgram.test_t24b_failure_branches_are_control_flow_not_comments)
+🔴 `:: on_fail -> delete_new` 是**注释**,不是分支。 ... ok
+test_t24c_teardown_failure_really_skips_the_rename (tests.test_ds_update_apply.TheRelayIsARealProgram.test_t24c_teardown_failure_really_skips_the_rename)
+收摊闸失败时,**改名那一行必须够不着**。 ... ok
+test_t24d_rollback_is_not_unconditional (tests.test_ds_update_apply.TheRelayIsARealProgram.test_t24d_rollback_is_not_unconditional)
+🔴 回滚不许无条件执行 —— 否则**成功路径也会回滚**: ... ok
+test_t24e_no_mixed_path_separators (tests.test_ds_update_apply.TheRelayIsARealProgram.test_t24e_no_mixed_path_separators)
+`C:\A\B/Logs\c.log` 这种混合分隔符在 cmd 里是坑,而且一眼看不出来。 ... ok
+test_t24f_the_script_does_not_always_exit_zero (tests.test_ds_update_apply.TheRelayIsARealProgram.test_t24f_the_script_does_not_always_exit_zero)
+全程 `exit /b 0` = 段① 永远不知道段② 出没出事,日志里也查不出来。 ... ok
+test_t38a_launched_but_silent_is_not_a_handoff (tests.test_ds_update_apply.TheRelayMustProveItIsRunning.test_t38a_launched_but_silent_is_not_a_handoff) ... ok
+test_t38b_a_relay_that_signals_is_a_handoff (tests.test_ds_update_apply.TheRelayMustProveItIsRunning.test_t38b_a_relay_that_signals_is_a_handoff) ... ok
+test_t38c_a_stale_signal_from_last_time_does_not_count (tests.test_ds_update_apply.TheRelayMustProveItIsRunning.test_t38c_a_stale_signal_from_last_time_does_not_count) ... ok
+test_t38d_the_rendered_relay_signals_before_it_starts_waiting (tests.test_ds_update_apply.TheRelayMustProveItIsRunning.test_t38d_the_rendered_relay_signals_before_it_starts_waiting) ... ok
+test_t27a_job_allows_explicit_breakaway_but_still_kills_the_rest (tests.test_ds_update_apply.TheRelaySurvivesTheShellTeardown.test_t27a_job_allows_explicit_breakaway_but_still_kills_the_rest) ... ok
+test_t27b_the_job_is_created_with_those_flags (tests.test_ds_update_apply.TheRelaySurvivesTheShellTeardown.test_t27b_the_job_is_created_with_those_flags) ... ok
+test_t27c_only_the_relay_asks_to_leave_the_job (tests.test_ds_update_apply.TheRelaySurvivesTheShellTeardown.test_t27c_only_the_relay_asks_to_leave_the_job) ... ok
+test_t27d_handoff_requests_leaving_the_job (tests.test_ds_update_apply.TheRelaySurvivesTheShellTeardown.test_t27d_handoff_requests_leaving_the_job) ... ok
+test_t28a_first_rename_is_retried_with_a_bound (tests.test_ds_update_apply.TheRelayWaitsForTheTreeAndAlwaysComesBack.test_t28a_first_rename_is_retried_with_a_bound) ... ok
+test_t28b_give_up_paths_bring_the_old_app_back (tests.test_ds_update_apply.TheRelayWaitsForTheTreeAndAlwaysComesBack.test_t28b_give_up_paths_bring_the_old_app_back) ... ok
+test_t28c_rollback_stops_what_runs_from_the_live_tree_before_moving_it (tests.test_ds_update_apply.TheRelayWaitsForTheTreeAndAlwaysComesBack.test_t28c_rollback_stops_what_runs_from_the_live_tree_before_moving_it) ... ok
+test_t28d_rollback_never_moves_old_into_an_existing_live_tree (tests.test_ds_update_apply.TheRelayWaitsForTheTreeAndAlwaysComesBack.test_t28d_rollback_never_moves_old_into_an_existing_live_tree) ... ok
+test_t34a_update_mode_aborts_unless_instdir_ends_with_new (tests.test_ds_update_apply.TheUpdateModeOnlyInstallsIntoNew.test_t34a_update_mode_aborts_unless_instdir_ends_with_new) ... ok
+test_t37a_a_two_part_release_installs (tests.test_ds_update_apply.TwoPartVersionsStillUpdate.test_t37a_a_two_part_release_installs) ... ok
+test_t37b_the_relay_waits_for_the_version_the_new_app_will_actually_report (tests.test_ds_update_apply.TwoPartVersionsStillUpdate.test_t37b_the_relay_waits_for_the_version_the_new_app_will_actually_report)
+接力脚本等的必须是**新版 /api/health 真会报的那个字符串** = 新树版本号文件原文。 ... ok
+test_t37c_a_different_version_is_still_refused (tests.test_ds_update_apply.TwoPartVersionsStillUpdate.test_t37c_a_different_version_is_still_refused)
+反面(防修过头):两段对两段也得是**同一版** —— 1.2 冒充 1.1、1.1.1 冒充 1.1 都不行。 ... ok
+test_t26a_there_are_pointer_writes_to_check (tests.test_ds_update_apply.UpdateModeDoesNotRepointTheInstall.test_t26a_there_are_pointer_writes_to_check) ... ok
+test_t26b_every_instdir_pointer_is_guarded_by_update_mode (tests.test_ds_update_apply.UpdateModeDoesNotRepointTheInstall.test_t26b_every_instdir_pointer_is_guarded_by_update_mode) ... ok
+test_t23a_install_root_is_the_parent_of_ds_root (tests.test_ds_update_apply.WhereTheNewTreeGoes.test_t23a_install_root_is_the_parent_of_ds_root) ... ok
+test_t23b_new_and_old_are_siblings_of_the_live_tree (tests.test_ds_update_apply.WhereTheNewTreeGoes.test_t23b_new_and_old_are_siblings_of_the_live_tree) ... ok
+test_t23c_new_and_old_are_never_inside_the_data_root (tests.test_ds_update_apply.WhereTheNewTreeGoes.test_t23c_new_and_old_are_never_inside_the_data_root) ... ok
+test_t23d_the_data_root_is_the_one_holding_data_and_userdata (tests.test_ds_update_apply.WhereTheNewTreeGoes.test_t23d_the_data_root_is_the_one_holding_data_and_userdata)
+数据根指的是**装着 `Data\` 和 `UserData\` 的那一层**,不是它们自己。 ... ok
+test_t19a_health_echoes_the_nonce_i_asked_with (tests.test_ds_web_update.HealthEchoesTheNonce.test_t19a_health_echoes_the_nonce_i_asked_with) ... 2026-09-20 12:22:45 127.0.0.1 - "GET /api/health?nonce=n0nce-abc HTTP/1.1" 200 -
+ok
+test_t19b_no_nonce_asked_no_nonce_echoed (tests.test_ds_web_update.HealthEchoesTheNonce.test_t19b_no_nonce_asked_no_nonce_echoed) ... 2026-09-20 12:22:45 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+ok
+test_t19c_version_is_still_there (tests.test_ds_web_update.HealthEchoesTheNonce.test_t19c_version_is_still_there) ... 2026-09-20 12:22:46 127.0.0.1 - "GET /api/health?nonce=x HTTP/1.1" 200 -
+ok
+test_t19d_a_weird_nonce_does_not_500 (tests.test_ds_web_update.HealthEchoesTheNonce.test_t19d_a_weird_nonce_does_not_500) ... 2026-09-20 12:22:46 127.0.0.1 - "GET /api/health?nonce=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa HTTP/1.1" 200 -
+2026-09-20 12:22:47 127.0.0.1 - "GET /api/health?nonce=%E5%B8%A6%E4%B8%AD%E6%96%87%E7%9A%84 HTTP/1.1" 200 -
+2026-09-20 12:22:47 127.0.0.1 - "GET /api/health?nonce=a%26b%3Dc HTTP/1.1" 200 -
+2026-09-20 12:22:48 127.0.0.1 - "GET /api/health?nonce=%3Cscript%3E HTTP/1.1" 200 -
+ok
+test_t22a_get_never_triggers_an_install (tests.test_ds_web_update.UpdateApplyEndpoint.test_t22a_get_never_triggers_an_install)
+GET 面保持纯只读(本服务模块头的铁律)。装软件是本仓最重的副作用, ... 2026-09-20 12:22:48 127.0.0.1 - "GET /api/update/apply HTTP/1.1" 404 -
+ok
+test_t22b_no_new_version_means_nothing_is_installed (tests.test_ds_web_update.UpdateApplyEndpoint.test_t22b_no_new_version_means_nothing_is_installed) ... 2026-09-20 12:22:49 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_t22c_the_relay_is_launched_before_the_shell_is_told_to_quit (tests.test_ds_web_update.UpdateApplyEndpoint.test_t22c_the_relay_is_launched_before_the_shell_is_told_to_quit)
+🔴 这一单最怕的那个形态就在这条断言的反面。 ... 2026-09-20 12:22:49 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_t22d_a_failed_handoff_never_asks_the_shell_to_quit (tests.test_ds_web_update.UpdateApplyEndpoint.test_t22d_a_failed_handoff_never_asks_the_shell_to_quit)
+接力脚本没起来就请外壳关软件 = 关了没人接手。 ... 2026-09-20 12:22:50 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_t22e_a_shell_that_did_not_name_the_verb_is_not_success (tests.test_ds_web_update.UpdateApplyEndpoint.test_t22e_a_shell_that_did_not_name_the_verb_is_not_success) ... 2026-09-20 12:22:50 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_t22f_a_failed_preparation_says_which_step_died (tests.test_ds_web_update.UpdateApplyEndpoint.test_t22f_a_failed_preparation_says_which_step_died)
+"装错了"和"没装成"在业主那儿长得一样(软件关了没回来), ... 2026-09-20 12:22:51 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_t22g_the_decision_handed_to_the_installer_carries_the_asset (tests.test_ds_web_update.UpdateApplyEndpoint.test_t22g_the_decision_handed_to_the_installer_carries_the_asset)
+端点必须把**查到的那个 release** 原样交下去 —— 不许自己另编一个。 ... 2026-09-20 12:22:51 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_t22h_a_bare_ok_is_not_started (tests.test_ds_web_update.UpdateApplyEndpoint.test_t22h_a_bare_ok_is_not_started)
+老外壳收下了帧、却做的是"把窗口叫到前台"。**报成 started 就是撒谎** —— ... ok
+test_t22i_the_named_ack_is_started (tests.test_ds_web_update.UpdateApplyEndpoint.test_t22i_the_named_ack_is_started) ... ok
+test_t22j_another_verbs_ack_is_not_started (tests.test_ds_web_update.UpdateApplyEndpoint.test_t22j_another_verbs_ack_is_not_started)
+点名了**别的**动词的应答也不算 —— 那说明它认的是另一件事。 ... ok
+test_t22k_garbage_on_that_port_is_not_started (tests.test_ds_web_update.UpdateApplyEndpoint.test_t22k_garbage_on_that_port_is_not_started)
+端口是全机器共用的,占着那个号的完全可能是别的程序。 ... ok
+test_t31a_a_second_apply_while_one_is_running_is_refused (tests.test_ds_web_update.UpdateApplyEndpoint.test_t31a_a_second_apply_while_one_is_running_is_refused)
+t31 —— 同一时间只许有一次更新在跑。 ... 2026-09-20 12:22:52 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:52 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_t31b_a_failed_attempt_does_not_lock_out_the_next_one (tests.test_ds_web_update.UpdateApplyEndpoint.test_t31b_a_failed_attempt_does_not_lock_out_the_next_one)
+反面(防止修成"一次失败永远锁死"):失败之后业主再点一次,必须还能进得去。 ... 2026-09-20 12:22:52 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:52 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_t35a_once_the_relay_is_running_the_lock_is_kept (tests.test_ds_web_update.UpdateApplyEndpoint.test_t35a_once_the_relay_is_running_the_lock_is_kept)
+t35 —— 接力脚本已经起来、外壳却没认动词(`stage=shell`)之后,再点必须 busy。 ... 2026-09-20 12:22:53 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:53 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_t35b_a_relay_that_never_started_does_not_keep_the_lock (tests.test_ds_web_update.UpdateApplyEndpoint.test_t35b_a_relay_that_never_started_does_not_keep_the_lock)
+反面(防修过头):接力脚本根本没起来(`stage=handoff`),没有东西在跑,业主必须还能再点。 ... 2026-09-20 12:22:53 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:53 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_t41a_failure_reply_means_the_lock_is_already_released (tests.test_ds_web_update.UpdateApplyEndpoint.test_t41a_failure_reply_means_the_lock_is_already_released)
+t41 —— 回包说"失败了"的那一刻,锁必须已经放开:回包本身就是在告诉业主可以再点。 ... 2026-09-20 12:22:54 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:54 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_t41b_handoff_failure_reply_means_the_lock_is_already_released (tests.test_ds_web_update.UpdateApplyEndpoint.test_t41b_handoff_failure_reply_means_the_lock_is_already_released)
+t41 同上,走到交棒才失败那一支(t35b 的必然版)。 ... 2026-09-20 12:22:54 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 12:22:54 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+ok
+test_t9a_endpoint_answers_with_the_shape_the_ui_needs (tests.test_ds_web_update.UpdateCheckEndpoint.test_t9a_endpoint_answers_with_the_shape_the_ui_needs) ... 2026-09-20 12:22:55 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_t9b_network_failure_is_still_200 (tests.test_ds_web_update.UpdateCheckEndpoint.test_t9b_network_failure_is_still_200)
+🔴 查更新失败 ≠ 软件坏了,界面上也不该长得一样。 ... 2026-09-20 12:22:55 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_t9c_force_really_asks_again (tests.test_ds_web_update.UpdateCheckEndpoint.test_t9c_force_really_asks_again)
+业主亲手点「检查更新」时不许给他缓存。 ... 2026-09-20 12:22:56 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:56 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:56 127.0.0.1 - "GET /api/update/check?force=1 HTTP/1.1" 200 -
+ok
+test_t9d_endpoint_never_touches_the_network_in_tests (tests.test_ds_web_update.UpdateCheckEndpoint.test_t9d_endpoint_never_touches_the_network_in_tests)
+接线不许绕过注入点 —— 绕过去的话这一整份判据都在骗自己。 ... 2026-09-20 12:22:56 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+ok
+test_t9e_force_false_is_not_force (tests.test_ds_web_update.UpdateCheckEndpoint.test_t9e_force_false_is_not_force)
+第三轮评审 F6:`?force=false` 现在会**强制**(判定是"非空且非 0")。 ... 2026-09-20 12:22:57 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+2026-09-20 12:22:57 127.0.0.1 - "GET /api/update/check?force=false HTTP/1.1" 200 -
+2026-09-20 12:22:57 127.0.0.1 - "GET /api/update/check?force=1 HTTP/1.1" 200 -
+ok
+
+----------------------------------------------------------------------
+Ran 184 tests in 38.110s
+
+OK
+---------------- 输出结束 ----------------
+runlog: r1-fixlist-green rc=0 commit=8536391 dirty=yes at=2026-09-20T04:22:19Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T042219Z-01-r1-fixlist-green.txt

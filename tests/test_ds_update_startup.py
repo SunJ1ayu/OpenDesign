@@ -109,11 +109,17 @@ class StartupDecisionTests(unittest.TestCase):
         os.remove(self.pkg)
         self.assertEqual(self.decide(self.good())["action"], "enter")
 
-    def test_su8_digest_mismatch_enters(self):
-        """su8:摘要对不上 ⇒ 进工作区。**绝不许装一个校验不过的包。**"""
-        s = self.good()
-        s["asset"] = dict(s["asset"], sha256="0" * 64)
-        self.assertEqual(self.decide(s)["action"], "enter")
+    # 🔴 su8「摘要对不上 ⇒ 进工作区」2026-09-20 搬走,不是删。
+    #
+    # 它守的那句话是「**绝不许装一个校验不过的包**」,这句话一个字没松;
+    # 变的是**在哪儿问**:启动这一步不能再对整个包算 sha256(O(包大小),
+    # 而上限是写死的 500ms,超时之后单向永久失效 —— 判据 su15 钉这件事)。
+    # 同一句话现在由三处守着,而且都比原来更靠近真相:
+    #   · 下好的那一刻   —— pr3(坏包当场删掉)、pr9(等长坏包下一轮必被换掉)
+    #   · **真装之前**   —— tests/test_ds_update_apply.py 的 t4(既有、锁定:
+    #                        sha256 对不上 ⇒ 拒绝执行、活树零改动、.new 删干净)
+    #   · 走真安装器的端到端 —— tests/test_ds_web_auto_install_local.py 的 ai9
+    # 留这段话在这里,是为了下一个人来读 su 这一串时,不会以为这条防线被人偷偷拿掉了。
 
     def test_su9_size_mismatch_enters(self):
         """su9:字节数对不上(下到一半就被标成 ready)⇒ 进工作区。"""
@@ -513,6 +519,7 @@ class PrepareUpdateTests(unittest.TestCase):
             calls.append(url)
             self.dl_ok(url, dest)
 
+        import hashlib
         out = ds_update_startup.prepare_update(self.info, self.root, download=counting)
         self.assertTrue(out["ok"], out)
         self.assertEqual(len(calls), 1, "等长坏包没有被重新下载 ⇒ 它会永远卡在那儿")

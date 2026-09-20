@@ -1201,6 +1201,12 @@ class Handler(BaseHTTPRequestHandler):
         if auto_request:
             auto = _auto_update_status(info, paths)
             if not auto.get("eligible"):
+                # 🔴 这一版自动装不成了(多半是"已经试过一次")⇒ **把备货作废**。
+                #    留着它,下一次打开 startup 还会说"该装",前端还会弹「正在更新到 X」,
+                #    然后 apply 再回一句 auto_skipped —— 而那条路在界面上是**静默**的。
+                #    业主看到的就是"每次打开闪一下更新界面,什么都不说"。判据 ai7。
+                if download is not None:
+                    ds_update_startup.discard_ready(paths.get("data_root"))
                 return False, {"ok": False, "stage": "auto_skipped",
                                "error": auto.get("why_not") or "error"}
             # 🔴 预写:回滚失败发生在界面关闭之后,这里只能在动手前先把版本记下。
@@ -1210,6 +1216,10 @@ class Handler(BaseHTTPRequestHandler):
                                "error": err or "自动更新记录写不进去"}
         result = ds_update_apply.apply_update(info, paths, download=download)
         if not result.get("ok"):
+            # 同 ai7 的理由:账已经记上(这一版不会再自动试),备货留着只会每次打开空演一遍。
+            # 判据 ai8。
+            if auto_request and download is not None:
+                ds_update_startup.discard_ready(paths.get("data_root"))
             return False, {"ok": False, "stage": result.get("stage"),
                            "error": result.get("error")}
 
@@ -1228,6 +1238,28 @@ class Handler(BaseHTTPRequestHandler):
         return True, {"ok": True, "stage": "started", "error": None,
                       "latest": info.get("latest")}
 
+    def _update_data_root(self):
+        """更新机器自己的那个根:**装着 `Logs\\auto-update-attempts.json` 的那一层**。
+
+        🔴 **这里有个真踩过的坑,别再各算各的**(2026-09-20 第 1 轮外审 subdeepseek 报,
+        我核实成立)。本仓有两个都叫 `data_root` 的东西,而且在装出来的那一份里**不相等**:
+
+        · `ds_common.data_root(ds_root)` 认 `DS_DATA_ROOT`,外壳注进来的是
+          `<应用状态根>\\Data`(`ds_shell_core.data_root_for`)—— 那是**业主的真实档案**那一层;
+        · `ds_update_apply.paths_for_update()` 的默认 `data_root` 是
+          `%LOCALAPPDATA%\\OpenDesign` —— 装着 `Data\\`、`UserData\\` 和 `Logs\\` 的那一层。
+
+        更新的账(attempts)一直住后者。备货状态与 46MB 安装包也必须住那儿:
+        一来 design.md 写的就是"与既有 auto-update-attempts.json 同侧",
+        二来它们是更新机器的东西,不该混进业主的档案目录。
+
+        原先备货/启动接口用前者、安装那一侧用后者 ⇒ **真机上写的人和读的人各看各的文件**,
+        每次打开都弹「正在更新到 X」、apply 一句 auto_skipped 静默跳过,那一版永远装不上。
+        判据 ur1/ur2/ur3(端点级:设了 DS_DATA_ROOT 才问得出来)。
+        """
+        return ds_update_apply.paths_for_update(
+            self.server.ds_root, port=self.server.server_address[1]).get("data_root")
+
     def _local_ready_install(self, paths):
         """自动安装那条路的唯一入口:盘上有没有一个已经下好、校验得过的新版包?
 
@@ -1240,7 +1272,7 @@ class Handler(BaseHTTPRequestHandler):
         `apply_update` 随后仍会**再算一遍 sha256** —— 复制坏了也照样被挡下。
         """
         try:
-            data_root = paths.get("data_root")
+            data_root = paths.get("data_root")      # 与 _update_data_root() 同一层(判据 ur1)
             state = ds_update_startup.read_state(ds_update_startup.state_path(data_root))
             decision = ds_update_startup.startup_decision(state, VERSION)
             if decision.get("action") != "install":
@@ -1281,11 +1313,13 @@ class Handler(BaseHTTPRequestHandler):
                 return
             _PREPARE_STATE["running"] = True
 
-        info = self._update_decision_for_auto()
-        root = ds_common.data_root(self.server.ds_root)
+        root = self._update_data_root()
 
         def work():
+            # 🔴 查更新那一跳(最坏 20s)**放在线程里**:这个端点对外宣称"立刻返回",
+            #    原先却在返回之前同步跑它 —— 那句话当时是假的(第 1 轮外审 subdeepseek #5)。
             try:
+                info = self._update_decision_for_auto()
                 ds_update_startup.prepare_update(info, root)
             finally:
                 with _PREPARE_LOCK:
@@ -1312,7 +1346,7 @@ class Handler(BaseHTTPRequestHandler):
         永远以 200 回;任何异常都回 `enter`。**"不更新"是小事,"打不开"是大事。**
         """
         try:
-            root = ds_common.data_root(self.server.ds_root)
+            root = self._update_data_root()
             state = ds_update_startup.read_state(ds_update_startup.state_path(root))
             out = ds_update_startup.startup_decision(state, VERSION)
         except Exception:  # noqa: BLE001 —— 这条路上不许有任何抛出

@@ -41,6 +41,10 @@ LATEST = base.LATEST
 AUTO = base.AUTO
 MANUAL = base.MANUAL
 _post = base._post
+_get = base._get
+# 🔴 **模块导入那一刻**抓真安装器。夹具 setUp 里抓是抓不到的 —— 那时父类已经把它换成替身了,
+#    ai9 第一版就是这么写的,于是它"用真安装器"其实是在测替身,坏包当场"装成功"。
+REAL_APPLY_UPDATE = ds_update_apply.apply_update
 
 
 class AutoInstallFromLocal(unittest.TestCase):
@@ -173,6 +177,35 @@ class AutoInstallFromLocal(unittest.TestCase):
         self.assertEqual(body.get("stage"), "auto_skipped", body)
         self.assertEqual(self.order.count("apply"), 0, "已经试过的版本又装了一遍")
         self.assertEqual(self.net_calls, [], "被拒的自动请求也不许联网")
+
+    # --- ai9:坏包绝不许装上(接管 su8 的那句话,由真安装器来守)----------------
+
+    def test_ai9_a_corrupt_package_never_gets_installed(self):
+        """ai9:大小对得上、字节对不上的包 —— **真安装器**必须在碰活树之前拒掉它。
+
+        🔴 这是 su8「摘要对不上 ⇒ 进工作区」搬过来的落点。启动那一步不再算哈希
+        (su15:O(包大小) 的活儿配一个写死 500ms 的上限,超时之后单向永久失效),
+        所以"绝不许装一个校验不过的包"这句话必须由后面两道来守:
+        下好那一刻(pr3/pr9)与**真装之前**(既有锁定判据 t4)。
+        这一条走的是**生产那条路**:startup 说该装 ⇒ 自动 apply ⇒ 真 apply_update 校验。
+        本卷其它用例把 apply_update 换成了替身,只有这一条用真的。
+        """
+        path, state = self._stock()
+        with open(path, "r+b") as fh:          # 同样长度,内容不同
+            fh.seek(0); fh.write(b"Z" * 8)
+        self._armed()
+        ds_update_apply.apply_update = REAL_APPLY_UPDATE    # 这一条用真安装器
+        with self._serve() as port:
+            startup = _get(port, "/api/update/startup")[1]
+            st, body = _post(port, "/api/update/apply", AUTO)
+        self.assertEqual((startup or {}).get("action"), "install",
+                         "前提没摆好:启动这一步该说「该装」(它不再验字节)")
+        self.assertEqual(st, 200, body)
+        self.assertIs(body.get("ok"), False, "坏包被装上了:%r" % (body,))
+        self.assertEqual(body.get("stage"), "verify",
+                         "坏包该死在校验那一步(活树零改动),实得:%r" % (body,))
+        self.assertEqual(self.order, [], "坏包走到了交棒/外壳那一步:%r" % (self.order,))
+        self.assertEqual(self.net_calls, [], "拒坏包的路上联网了")
 
     # --- ai7/ai8:装不成的那一版,别让它每次打开都空演一遍 ----------------------
 
