@@ -46,6 +46,31 @@ def attempted_at(data_root: str, version: object) -> float | None:
     return attempts.get(version)
 
 
+def auto_eligible(data_root: str, version: object) -> bool:
+    """这一版还够不够格**自动**更新 —— 链上三处共用的**唯一**判据。
+
+    🔴 为什么要有这个函数(2026-09-20 第 2 轮外审,subcursor 与 subdeepseek 各自独立报):
+    在它之前,这本账只有**真装那一刻**(`ds_web._auto_update_status`)在读。而"要不要
+    自动装这一版"这个问题,链上其实有**三个**地方在答:
+
+        prepare(后台要不要把 46MB 下下来)   —— 原来只问 check_cached
+        startup(打开软件要不要弹更新界面装) —— 原来只看 update-state.json
+        apply(真装)                          —— 原来唯一读账的一处
+
+    于是出现这条不收敛的链:装失败 → 记账 + 删包 → 业主开着软件满 60s → 后台把**同一个
+    装不上的包**重新下回来 → 下次打开又弹一次更新界面 → 又判 attempted → 又删……
+    症状从"每次打开"变成"每两次打开",外加每轮 46MB 流量。**在末端删文件,永远追不上
+    前端重新备货** —— 这是同一类问题的第二个补丁,所以改抽象:判断只写一处,三处共用。
+
+    语义:**同一版自动只试一次**(永久,不是时效窗口)。
+    - 拿 `recent_failure`(10 分钟窗口)冒充资格 ⇒ 过了窗口又重下一遍、又空演一次(判据 el1b)。
+    - 账读不出来时当作"没试过" —— 与 `_auto_update_status` 一直以来的语义保持一致,
+      不在这里制造第二种解释;账真写不进去时的防线是 apply 侧的 `auto_unrecorded`。
+    - 只管**自动**更新。业主自己点「更新」永远不受它限制(判据 el6)。
+    """
+    return attempted_at(data_root, version) is None
+
+
 def recent_failure(data_root: str, version: object, now: float | None = None) -> bool:
     ts = attempted_at(data_root, version)
     if ts is None:

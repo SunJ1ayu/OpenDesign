@@ -239,7 +239,9 @@ function autoStatus(info: unknown): Record<string, unknown> | null {
 }
 
 /** ⚠️ 2026-09-19 起**前端不再用它决定装不装**(track opendesign-startup-not-blocked-by-update)。
- *  该不该装由后端 `ds_update_startup.startup_decision` 看盘上的包答(大小 + sha256 都对得上才算)。
+ *  该不该装由后端 `ds_update_startup.startup_decision` 看盘上的包答(存在 / 非符号链接 / 大小 / 版本 /
+ *  摘要字段齐全 —— 🔴 **它不算 sha256**,su15 起搬走了:逐字节校验在下好那一刻(pr3/pr9)
+ *  与真装之前(apply_update,判据 t4/ai9)。
  *  这里留着是因为 test_update_ui 还在钉它的语义;**别再把它当成启动路径上的闸** ——
  *  上一次"以为还有人走的那条路其实没人走了",代价是回滚提示整条消失(判据 AC-C2)。
  */
@@ -387,8 +389,9 @@ export const BACKGROUND_FIRST_CHECK_MS = 60_000;
 /** 启动要装的是哪一版。**只在真要装的时候有值**;读不出来回 null(界面显示"新版本")。
  *
  * 🔴 为什么不从 updateInfo 拿:启动路径上**不查更新**(本单的全部意义),
- *    那个对象此刻必然是 null。版本就在启动回包里 —— 后端 startup_decision
- *    是逐字节校验过盘上那个包之后才带上它的。判据 sg8。
+ *    那个对象此刻必然是 null。版本就在启动回包里。判据 sg8。
+ *    ⚠️ 别把它读成"这个包已经逐字节验过了" —— startup_decision 只看存在/大小/版本
+ *    (su15 起不再算 sha256)。真正的字节闸在 prepare(pr3/pr9)与 apply(t4/ai9)。
  */
 export function startupVersion(resp: unknown): string | null {
   try {

@@ -1201,11 +1201,16 @@ class Handler(BaseHTTPRequestHandler):
         if auto_request:
             auto = _auto_update_status(info, paths)
             if not auto.get("eligible"):
-                # 🔴 这一版自动装不成了(多半是"已经试过一次")⇒ **把备货作废**。
-                #    留着它,下一次打开 startup 还会说"该装",前端还会弹「正在更新到 X」,
-                #    然后 apply 再回一句 auto_skipped —— 而那条路在界面上是**静默**的。
-                #    业主看到的就是"每次打开闪一下更新界面,什么都不说"。判据 ai7。
-                if download is not None:
+                # 🔴 **只有"这一版真的不会再自动装了"才作废备货**(判据 el4/el4b)。
+                #    `why_not == "attempted"` 是唯一永久的那一条:账已经记上,自动只试一次。
+                #    其余几种(no_shell / disabled / path_unsupported / asset / error)是
+                #    **临时**条件 —— 一行账都没记,条件恢复后这一版还能自动装。
+                #    原来这里一律删,等于把业主已经下好校验好的 46MB 白丢,还得重下一遍;
+                #    `path_unsupported` 那种还会变成"下载→作废→再下载"的持久空转
+                #    (2026-09-20 第 2 轮外审 subdeepseek,走端点实测过)。
+                #    ⚠️ 这里不再兼管"别再重复下回来"那件事 —— 那归 prepare/startup 的
+                #    资格闸(el1/el2)。末端删文件追不上前端重新备货,那是第 1 轮的教训。
+                if download is not None and auto.get("why_not") == "attempted":
                     ds_update_startup.discard_ready(paths.get("data_root"))
                 return False, {"ok": False, "stage": "auto_skipped",
                                "error": auto.get("why_not") or "error"}
@@ -1274,6 +1279,12 @@ class Handler(BaseHTTPRequestHandler):
         try:
             data_root = paths.get("data_root")      # 与 _update_data_root() 同一层(判据 ur1)
             state = ds_update_startup.read_state(ds_update_startup.state_path(data_root))
+            # ⚠️ **这一处故意不传 `data_root`,不是漏传**(2026-09-20 第 2 轮重做时的判断)。
+            #    `/api/update/startup` 那一处问的是「该不该弹更新界面装」⇒ 要带资格判断;
+            #    这里问的是「盘上到底有没有一个可装的包」⇒ 纯事实,资格由紧接着的
+            #    `_auto_update_status` 来判(判据 ai5)。
+            #    真传了反而会坏事:提前返回 None ⇒ `download is None` ⇒ attempted 那一支
+            #    的 `discard_ready` 不再发生,判据 el4b 会红。两个问题,两处答。
             decision = ds_update_startup.startup_decision(state, VERSION)
             if decision.get("action") != "install":
                 return None
@@ -1313,7 +1324,18 @@ class Handler(BaseHTTPRequestHandler):
                 return
             _PREPARE_STATE["running"] = True
 
-        root = self._update_data_root()
+        # 🔴 置位之后的一切都要包起来(判据 el7,2026-09-20 第 2 轮外审 subdeepseek):
+        #    `root` 原先算在 try 外,一旦抛出,`running` 就再也没人清 ⇒ 这一会话之后
+        #    所有备货永远回 already_running,**自动更新整条静默死掉**。
+        #    概率极低(paths_for_update 实际不抛),但失败形态正是本单最反对的那种:
+        #    单向、静默、永久。
+        try:
+            root = self._update_data_root()
+        except Exception:  # noqa: BLE001
+            with _PREPARE_LOCK:
+                _PREPARE_STATE["running"] = False
+            self._json(200, {"started": False, "reason": "prepare_unavailable"})
+            return
 
         def work():
             # 🔴 查更新那一跳(最坏 20s)**放在线程里**:这个端点对外宣称"立刻返回",
@@ -1348,7 +1370,9 @@ class Handler(BaseHTTPRequestHandler):
         try:
             root = self._update_data_root()
             state = ds_update_startup.read_state(ds_update_startup.state_path(root))
-            out = ds_update_startup.startup_decision(state, VERSION)
+            # 🔴 `data_root` 必须传:资格判断(这一版自动试过没有)就靠它。
+            #    忘传 ⇒ 这道闸在真机上等于不存在,而纯函数判据照样全绿(判据 el2 走真端点钉它)。
+            out = ds_update_startup.startup_decision(state, VERSION, data_root=root)
         except Exception:  # noqa: BLE001 —— 这条路上不许有任何抛出
             out = {"action": "enter", "reason": "decision_failed"}
         self._json(200, out)

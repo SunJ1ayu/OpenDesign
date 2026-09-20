@@ -31,6 +31,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ds_update          # 只借 parse_version(避免两份版本比较逻辑漂移);**不调用它的任何取数函数**
 import ds_update_apply    # 只借下载/校验(避免两份下载逻辑漂移)
+import ds_auto_update     # 只借 auto_eligible(资格判断只写一处,三处共用)
 
 SCHEMA = 1
 STATE_NAME = "update-state.json"
@@ -96,8 +97,14 @@ def _enter(reason):
     return {"action": "enter", "reason": reason}
 
 
-def startup_decision(state, current_version, now=None):
+def startup_decision(state, current_version, now=None, data_root=None):
     """打开软件时该干什么:装,还是直接进工作区。
+
+    `data_root` 给的是**记账那一层**(`Logs/auto-update-attempts.json` 住的地方)。
+    给了就顺带问一句「这一版还够不够格自动装」;不给则跳过那一问
+    —— 纯函数级的老判据(su1~su15)不传它,行为一字不变。
+    🔴 但**端点必须传**:忘了传的话,这道闸在真机上等于不存在,而纯函数判据自己测自己、
+       永远是绿的。所以 el2 故意走真端点 `/api/update/startup` 来问。
 
     **只有一条路通向 install**;其余一切 —— 包括任何我没预料到的输入 —— 都是 enter。
     reason 是稳定枚举(判据 su14),界面和判据都认它。
@@ -119,6 +126,14 @@ def startup_decision(state, current_version, now=None):
             return _enter("unreadable_version")
         if target <= current:
             return _enter("not_newer")
+
+        # 🔴 这一版自动试过一次就不再自动装(判据 el2,2026-09-20 第 2 轮外审)。
+        #    放在这里而不是留给 apply:apply 拒的时候界面**已经弹出来了** ——
+        #    业主看到的就是"闪一下更新界面,然后什么都没说"(auto_skipped 在界面上是静默的)。
+        #    资格判断与 prepare / apply 同一处来源:ds_auto_update.auto_eligible。
+        #    只读一个小 json,不违反本函数"只读盘、别干重活"的契约(对比 su15 拿掉的那次全包哈希)。
+        if data_root is not None and not ds_auto_update.auto_eligible(data_root, version):
+            return _enter("already_attempted")
 
         asset = state.get("asset")
         path = state.get("path")
@@ -247,6 +262,24 @@ def prepare_update(info, data_root, download=None, now=None):
         if facts is None:
             return {"ok": False, "reason": "nothing_to_prepare"}
 
+        # 🔴 **备货之前先问够不够格自动装**(判据 el1/el1b,2026-09-20 第 2 轮外审)。
+        #    这一版已经自动试过一次(装不上)⇒ 下回来也只会被 apply 再拒一次,
+        #    中间还要让业主看一次没有任何解释的更新界面。原来这里不问,于是删掉的包
+        #    每 60 秒就被原样下回来一次:**末端删文件追不上前端重新备货**。
+        #    判断本身在 ds_auto_update.auto_eligible —— 与 startup / apply 同一处来源。
+        if not ds_auto_update.auto_eligible(data_root, facts["version"]):
+            # 顺手清掉这一版的残留备货(判据 el9,我自审补的)。资格闸装上之后,
+            # 这一版的链路是 prepare 拒 → startup 回 enter ⇒ **apply 再也不跑**,
+            # 而清包的动作原本只挂在 apply 那一侧。没有这一下,一份没走完正常流程的
+            # ready 备货就会三处都没人碰:`_sweep_installed` 嫌它新、`_sweep_orphans`
+            # 见状态正指着它、apply 不跑 ⇒ 业主盘上永久白占 46MB。
+            # prepare 每 60 秒跑一次,本来就是打扫的地方,是这条链自然的收敛点。
+            # 零风险:这个包永远不会再被自动装,手动更新走真下载、不碰它(判据 el6)。
+            current = read_state(state_file)
+            if isinstance(current, dict) and current.get("version") == facts["version"]:
+                _discard(current.get("path"), state_file)
+            return {"ok": False, "reason": "already_attempted"}
+
         # 同一版已经下好了就别再下一遍(判据 pr7:省业主的流量和磁盘)。
         # 🔴 但"已经下好"必须**验到字节**(判据 pr9):启动那一步已经不算哈希了(su15),
         #    这里再只比大小的话,一个等长坏包就会被两边一起放过 —— 后台说"不用下"、
@@ -317,11 +350,17 @@ def discard_ready(data_root):
 
 
 def _discard(dest, state_file):
-    """把没通过校验的包和 ready 状态一起清掉。自己也不许抛。"""
+    """把没通过校验的包和 ready 状态一起清掉。自己也不许抛。
+
+    🔴 `except Exception` 不是偷懒:`dest` 来自盘上的状态文件,可能是 `None`
+    (`os.path.isfile(None)` 抛的是 `TypeError`,不是 `OSError`)。写着"自己也不许抛"
+    却只兜 `OSError`,靠的是三个调用方各自包了更宽的 except —— 下一个调用方不包就漏。
+    判据 el8(2026-09-20 第 2 轮外审 subdeepseek 实测)。
+    """
     try:
         if os.path.isfile(dest):
             os.unlink(dest)
-    except OSError:
+    except Exception:  # noqa: BLE001
         pass
     try:
         write_state(state_file, {"schema": SCHEMA, "phase": "idle",

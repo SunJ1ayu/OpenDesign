@@ -277,7 +277,9 @@ export default function App() {
   const applyUpdate = useCallback(async (auto: boolean, localTarget: string | null = null) => {
     const isAuto = auto === true;
     const info = updateInfoRef.current;
-    // 🔴 启动装的是**盘上那个已经逐字节校验过的包**(大小 + sha256,后端 startup_decision),
+    // 🔴 启动装的是**盘上那个后台已经下好并验过字节的包**(验在 prepare:pr3/pr9;
+    //    真装前 apply_update 还会再算一遍:t4/ai9。startup_decision 自己只看存在/大小/版本,
+    //    su15 起不再算 sha256 —— 那是 O(包大小) 的活,不能放在启动路径上),
     //    不是这一次查更新的结果 —— 启动路径上根本不查,所以 updateInfoRef 此刻必然是 null。
     //    原来这里无条件走 canApply(info) ⇒ 后台备好的新版被自己挡掉,永远装不上
     //    (判据 e2e AC-A/AC-D/AC-H 共 10 条钉这件事)。
