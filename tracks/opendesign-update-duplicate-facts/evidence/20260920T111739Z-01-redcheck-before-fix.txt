@@ -1,0 +1,124 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    redcheck-before-fix
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_ds_update_eligibility tests.test_comment_references
+cwd:     .(仓根)
+commit:  3439097
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-20T11:17:39Z
+---------------- 输出开始 ----------------
+2026-09-20 19:17:39 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-20 19:17:39 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 19:17:39 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-20 19:17:39 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-20 19:17:40 127.0.0.1 - "POST /api/update/prepare HTTP/1.1" 200 -
+2026-09-20 19:17:40 127.0.0.1 - "POST /api/update/prepare HTTP/1.1" 200 -
+2026-09-20 19:17:40 127.0.0.1 - "POST /api/update/prepare HTTP/1.1" 200 -
+2026-09-20 19:17:40 127.0.0.1 - "POST /api/update/prepare HTTP/1.1" 200 -
+.2026-09-20 19:17:41 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+.2026-09-20 19:17:41 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-20 19:17:41 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 19:17:42 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+.2026-09-20 19:17:42 127.0.0.1 - "POST /api/update/prepare HTTP/1.1" 200 -
+2026-09-20 19:17:42 127.0.0.1 - "POST /api/update/prepare HTTP/1.1" 200 -
+.2026-09-20 19:17:43 127.0.0.1 - "POST /api/update/prepare HTTP/1.1" 200 -
+2026-09-20 19:17:43 127.0.0.1 - "POST /api/update/prepare HTTP/1.1" 200 -
+2026-09-20 19:17:43 127.0.0.1 - "POST /api/update/prepare HTTP/1.1" 200 -
+2026-09-20 19:17:43 127.0.0.1 - "POST /api/update/prepare HTTP/1.1" 200 -
+.2026-09-20 19:17:44 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+F2026-09-20 19:17:44 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+FFF..2026-09-20 19:17:45 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+.2026-09-20 19:17:45 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+.2026-09-20 19:17:46 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 19:17:47 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-20 19:17:47 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-20 19:17:48 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+2026-09-20 19:17:48 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-20 19:17:49 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+.2026-09-20 19:17:49 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+.2026-09-20 19:17:50 127.0.0.1 - "POST /api/update/prepare HTTP/1.1" 200 -
+2026-09-20 19:17:50 127.0.0.1 - "POST /api/update/prepare HTTP/1.1" 200 -
+...F<unknown>:246: SyntaxWarning: invalid escape sequence '\]'
+<unknown>:246: SyntaxWarning: invalid escape sequence '\]'
+F
+======================================================================
+FAIL: test_el16_apply_discards_under_every_permanent_blocker (tests.test_ds_update_eligibility.UpdateEligibility.test_el16_apply_discards_under_every_permanent_blocker) (permanent='not_installed')
+apply 侧"哪些否决是永久的"必须与 `PERMANENT_BLOCKERS` 同一个答案。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_eligibility.py", line 568, in test_el16_apply_discards_under_every_permanent_blocker
+    self.assertFalse(
+AssertionError: True is not false : 🔴 'not_installed' 在 PERMANENT_BLOCKERS 里 = 这一版再也不会自动装,那 46MB 却没人清。apply 侧不许自己另写一份永久名单
+
+======================================================================
+FAIL: test_el16_apply_discards_under_every_permanent_blocker (tests.test_ds_update_eligibility.UpdateEligibility.test_el16_apply_discards_under_every_permanent_blocker) (permanent='path_unsupported')
+apply 侧"哪些否决是永久的"必须与 `PERMANENT_BLOCKERS` 同一个答案。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_eligibility.py", line 568, in test_el16_apply_discards_under_every_permanent_blocker
+    self.assertFalse(
+AssertionError: True is not false : 🔴 'path_unsupported' 在 PERMANENT_BLOCKERS 里 = 这一版再也不会自动装,那 46MB 却没人清。apply 侧不许自己另写一份永久名单
+
+======================================================================
+FAIL: test_el17_prepare_update_cannot_be_called_without_the_machine_dimension (tests.test_ds_update_eligibility.UpdateEligibility.test_el17_prepare_update_cannot_be_called_without_the_machine_dimension)
+`prepare_update` 不许留"忘传一个参数就静默少做一半检查"的形状。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_eligibility.py", line 587, in test_el17_prepare_update_cannot_be_called_without_the_machine_dimension
+    self.assertIs(params["paths"].default, inspect.Parameter.empty,
+AssertionError: None is not <class 'inspect._empty'> : 🔴 paths 有默认值 = 忘传就静默少做半边检查,没有任何报错
+
+======================================================================
+FAIL: test_el18_prepare_asks_the_machine_dimension_when_called_directly (tests.test_ds_update_eligibility.UpdateEligibility.test_el18_prepare_asks_the_machine_dimension_when_called_directly)
+直接调 `prepare_update`(不走端点)时,机器那一维也必须被问。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_eligibility.py", line 604, in test_el18_prepare_asks_the_machine_dimension_when_called_directly
+    self.assertEqual((out or {}).get("reason"), "no_shell", out)
+AssertionError: 'ready' != 'no_shell'
+- ready
++ no_shell
+ : {'ok': True, 'reason': 'ready', 'version': '0.98.3'}
+
+======================================================================
+FAIL: test_machine_blocker_is_gone (tests.test_comment_references.CommentReferences.test_machine_blocker_is_gone)
+单点钉:`machine_blocker` 2026-09-20 已改名 `why_not_auto`。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_comment_references.py", line 117, in test_machine_blocker_is_gone
+    self.assertEqual(hits, [], "🔴 旧名字还在:\n  " + "\n  ".join(hits))
+AssertionError: Lists differ: ['bin/ds_web.py:911: #    现在共用 ds_auto_upd[109 chars]度)。'] != []
+
+First list contains 2 additional elements.
+First extra element 0:
+'bin/ds_web.py:911: #    现在共用 ds_auto_update.machine_blocker —— 顺序也由它一家定(产品契约)。'
+
++ []
+- ['bin/ds_web.py:911: #    现在共用 ds_auto_update.machine_blocker —— '
+-  '顺序也由它一家定(产品契约)。',
+-  'bin/ds_web.py:1342: # (machine_blocker 在这一步拿不到 version,传 None 只问机器维度)。'] : 🔴 旧名字还在:
+  bin/ds_web.py:911: #    现在共用 ds_auto_update.machine_blocker —— 顺序也由它一家定(产品契约)。
+  bin/ds_web.py:1342: # (machine_blocker 在这一步拿不到 version,传 None 只问机器维度)。
+
+======================================================================
+FAIL: test_qualified_module_references_in_comments_exist (tests.test_comment_references.CommentReferences.test_qualified_module_references_in_comments_exist)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_comment_references.py", line 100, in test_qualified_module_references_in_comments_exist
+    self.assertEqual(sorted(set(stale)), [],
+AssertionError: Lists differ: ['bin/ds_web.py 的注释写着 ds_auto_update.machi[39 chars]个名字'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'bin/ds_web.py 的注释写着 ds_auto_update.machine_blocker,而 bin/ds_auto_update.py 里没有这个名字'
+
++ []
+- ['bin/ds_web.py 的注释写着 ds_auto_update.machine_blocker,而 bin/ds_auto_update.py '
+-  '里没有这个名字'] : 🔴 注释引用了不存在的名字 —— 下一个人会当真:
+  bin/ds_web.py 的注释写着 ds_auto_update.machine_blocker,而 bin/ds_auto_update.py 里没有这个名字
+
+----------------------------------------------------------------------
+Ran 22 tests in 11.545s
+
+FAILED (failures=6)
+---------------- 输出结束 ----------------
+runlog: redcheck-before-fix rc=1 commit=3439097 dirty=yes at=2026-09-20T11:17:39Z file=tracks/opendesign-update-duplicate-facts/evidence/20260920T111739Z-01-redcheck-before-fix.txt

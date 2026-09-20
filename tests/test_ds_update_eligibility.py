@@ -42,6 +42,7 @@
 而它们的前提被本卷的替身改过 —— 那种红是假红(同 ai 卷文件头的那条教训)。
 """
 import hashlib
+import inspect
 import json
 import os
 import sys
@@ -527,6 +528,83 @@ class UpdateEligibility(unittest.TestCase):
             ds_update_startup._discard(None, state_file)
         except Exception as exc:  # noqa: BLE001
             self.fail("_discard 说好了自己不抛,却抛了 %s: %s" % (type(exc).__name__, exc))
+
+    # === el16~el18:track opendesign-update-duplicate-facts(上一单延期的 LOW #24/#25)===
+    #
+    # 这三条打的是**同一种病**:同一个事实写在两处。上一单第 2/3 轮外审连着打的就是它,
+    # 这里是没扫干净的残留。
+    #
+    # 🔴 el16 是**纵深题**,不是主链路题。探针 t0-apply-discard-reachability 实测:
+    #    前端只在 startup 回 install 时才调 apply(web/src/App.tsx),而 startup 已经把任何
+    #    blocker 改写成 enter ⇒ 正常链路走不到 apply 的作废分支。但端点是暴露的,
+    #    直接调时那段代码是活的 —— 而且此刻 attempted 会清包、path_unsupported 不会。
+    #    **纵深可以不被走到,不可以自相矛盾**:同样是"这一版再也不会自动装",
+    #    一个清包一个不清,下一个人读到的就是两条互相矛盾的规矩。
+
+    def _apply_auto_under(self, preflight):
+        """直接问 apply 端点(纵深层),把机器那一维钉成 preflight 给的那个值。"""
+        path, _ = self._stock()
+        self._armed()
+        with mock.patch.object(ds_update_apply, "update_preflight_problem",
+                               lambda paths: (preflight, "判据摆的")):
+            with self._serve() as port:
+                st, body = _post(port, "/api/update/apply", AUTO)
+        self.assertEqual(st, 200, body)
+        self.assertEqual(body.get("stage"), "auto_skipped", body)
+        self.assertEqual(body.get("error"), preflight, body)
+        return path
+
+    def test_el16_apply_discards_under_every_permanent_blocker(self):
+        """apply 侧"哪些否决是永久的"必须与 `PERMANENT_BLOCKERS` 同一个答案。
+
+        原来它硬编码 `why_not == "attempted"`,而永久集里还有 `not_installed` /
+        `path_unsupported`(F4 之后加的)⇒ 同一个问题两处各答一遍,而且答得不一样。
+        """
+        for blocker in ds_auto_update.PERMANENT_BLOCKERS:
+            if blocker == "attempted":
+                continue        # 这一条 el4b 已经钉住,不在这里重复
+            with self.subTest(permanent=blocker):
+                path = self._apply_auto_under(blocker)
+                self.assertFalse(
+                    self._package_exists(path),
+                    "🔴 %r 在 PERMANENT_BLOCKERS 里 = 这一版再也不会自动装,"
+                    "那 46MB 却没人清。apply 侧不许自己另写一份永久名单" % blocker)
+
+    def test_el17_prepare_update_cannot_be_called_without_the_machine_dimension(self):
+        """`prepare_update` 不许留"忘传一个参数就静默少做一半检查"的形状。
+
+        上一单第 3 轮已经在 `startup_decision` 上删掉过同一个形状(F3);这个函数上还留着:
+        `paths=None` 时回退成"只问账本那一维"。生产唯一调用点一定传,所以**今天没有洞**
+        —— 这条钉的是形状,以及"判据自己测不到机器那一维"这件事。
+
+        🔴 连带钉第二件事:`data_root` 不许再单独当形参。生产里它就是 `paths["data_root"]`
+        (`ds_web.py`:`root = paths.get("data_root")` 然后两个都传进来)——
+        同一个事实两个入口,迟早有人传成两个不同的值。
+        """
+        sig = inspect.signature(ds_update_startup.prepare_update)
+        params = sig.parameters
+        self.assertIn("paths", params, "prepare_update 必须收 paths")
+        self.assertIs(params["paths"].default, inspect.Parameter.empty,
+                      "🔴 paths 有默认值 = 忘传就静默少做半边检查,没有任何报错")
+        self.assertNotIn("data_root", params,
+                         "🔴 data_root 与 paths['data_root'] 是同一个事实的两个入口,"
+                         "只留 paths 一个")
+
+    def test_el18_prepare_asks_the_machine_dimension_when_called_directly(self):
+        """直接调 `prepare_update`(不走端点)时,机器那一维也必须被问。
+
+        旧夹具全都不传 paths ⇒ 这半边**一条判据都问不到**(端点那一层由 el11 钉,
+        但端点和函数是两层)。这条补的就是函数这一层。
+        """
+        spy = self._spy_download()
+        with mock.patch.object(ds_update_apply, "update_preflight_problem",
+                               lambda paths: ("no_shell", "判据摆的")):
+            out = ds_update_startup.prepare_update(
+                self._info(), {"data_root": self.data_root}, download=spy)
+        self.assertEqual((out or {}).get("reason"), "no_shell", out)
+        self.assertEqual(self.downloads, [],
+                         "🔴 机器那一维说装不上,这一趟还是把 46MB 下回来了")
+
 
 
 if __name__ == "__main__":
