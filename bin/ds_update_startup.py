@@ -44,27 +44,18 @@ def state_path(data_root):
     """
     return os.path.join(str(data_root), "Logs", STATE_NAME)
 
-# 进入工作区之后,等这么久才做第一次检查。不许是 0 —— 那等于换个地方接着抢启动资源。
-FIRST_CHECK_DELAY_S = 60
-BASE_INTERVAL_S = 600          # 平时 10 分钟轮询一次
-MAX_BACKOFF_S = 3600           # 连续失败最多退到 1 小时,不许退到天荒地老
-JITTER = 0.2                   # ±20% 抖动:别让所有客户端同一秒去打服务器
-
-
-def next_delay(attempt=0, rand=None):
-    """下一次检查等多久。attempt 是**连续失败次数**,0 表示上一次是成功的。
-
-    指数退避 + 抖动,封顶 MAX_BACKOFF_S。判据 sc2~sc4。
-    """
-    try:
-        n = max(0, int(attempt))
-    except Exception:  # noqa: BLE001 —— 永不抛
-        n = 0
-    base = min(BASE_INTERVAL_S * (2 ** min(n, 16)), MAX_BACKOFF_S)
-    r = random.random() if rand is None else rand
-    delay = base * (1.0 + JITTER * (2.0 * r - 1.0))
-    # 抖动不许把间隔算成 0 或负数(判据 sc4)
-    return max(1.0, min(delay, MAX_BACKOFF_S))
+# 🔴 这里原来有一整套后台轮询调度器(FIRST_CHECK_DELAY_S / BASE_INTERVAL_S /
+# MAX_BACKOFF_S / JITTER / next_delay,配 sc1~sc4 四条判据),2026-09-20 整段删掉。
+#
+# 理由:**它一个调用方都没有**。真正决定"进工作区多久之后去查"的是前端那一个
+# setTimeout(web/src/update.ts 的 BACKGROUND_FIRST_CHECK_MS,判据 sg9),
+# 而"每 10 分钟轮询一次"根本没实现、也不该实现:
+# 业主一次会话查一次足够(新版一周才有一个),而这个项目刚因为查得太勤被 GitHub
+# 限过流(track opendesign-update-check-rate-limit)。
+#
+# 留着的代价不是占地方,是**它看起来像一条防线**:同一天前端 handleStartupAutoCheck
+# 就是"以为还有人走、其实没人走",代价是回滚提示整条消失。
+# 以后真要做长会话轮询,连调用方一起加回来,判据钉的是调用方,不是这个函数本身。
 
 
 def read_state(path):

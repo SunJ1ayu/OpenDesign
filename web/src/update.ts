@@ -372,6 +372,14 @@ export const STARTUP_LOCAL_TIMEOUT_MS = 500;
  */
 export const STARTUP_PREPARE_ENDPOINT = "/api/update/prepare";
 
+/** 进了工作区之后,等这么久才做第一次后台查更新与备货。
+ *
+ * 不许是 0:那等于换个地方接着抢启动资源。也别太久:业主开一会儿就关的话备不上货。
+ * 🔴 **这个数只许有这一份**(判据 sg9)。它曾经在 App.tsx 和后端各写一份、互不知道,
+ *    而后端那份根本没有调用方 —— 同一个数两处各写一份是本项目的老病。
+ */
+export const BACKGROUND_FIRST_CHECK_MS = 60_000;
+
 /** 读懂启动接口的回应。**读不懂一律进工作区**,绝不卡住(判据 sg4/sg6)。
  *
  * 本项目已有四次"某个前置步骤没按预期返回 ⇒ 界面再也不往下走"的前科。

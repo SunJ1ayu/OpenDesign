@@ -455,37 +455,9 @@ class PrepareUpdateTests(unittest.TestCase):
         self.assertEqual(calls, [], "同一个版本被重复下载了")
 
 
-class BackgroundScheduleTests(unittest.TestCase):
-    """sc1~sc4:后台查更新的节奏 —— 不在启动瞬间发起,轮询带抖动,失败要退避。"""
+# 🔴 sc1~sc4(后台轮询的节奏:首次延迟 / 抖动 / 退避 / 间隔为正)2026-09-20 随被测代码一起删。
+# 它们钉的那套调度器**没有任何调用方** —— 判据钉着一个装饰件,看起来像防线,其实一行产品代码都不管。
+# 真正在管"进工作区多久之后查"的是前端那个常量,判据搬到了 tests/test_startup_gate.mjs 的 sg9
+# (那里有真正的调用方)。这是搬,不是删:sc1 问的"首次检查不许在进入工作区那一刻发起"
+# 在 sg9 里问得更准(它还顺带钉死"这个数只许有一份")。
 
-    def test_sc1_first_check_is_delayed(self):
-        """sc1:首次检查不许在进入工作区的那一刻发起。"""
-        self.assertGreaterEqual(ds_update_startup.FIRST_CHECK_DELAY_S, 5)
-
-    def test_sc2_interval_has_jitter(self):
-        """sc2:同一个间隔连算多次不该总是同一个数 —— 否则所有客户端会同一秒打服务器。"""
-        vals = {ds_update_startup.next_delay(attempt=0) for _ in range(40)}
-        self.assertGreater(len(vals), 1, "轮询间隔没有抖动")
-
-    def test_sc3_failures_back_off_and_are_capped(self):
-        """sc3:连续失败要退避,且有上限(不许退避到天荒地老)。"""
-        # 🔴 **不许拿两组随机样本的同一个统计量比大小**(2026-09-19 变异红检抓到):
-        # 原来写的是 min(40 次) vs min(40 次),去掉退避后两者同分布 ⇒ 约五成几率碰巧通过,
-        # 同一个变异第一次咬住、第二次漏网。改成比**互不重叠的界**:真有退避时
-        # attempt=3 的基数是 attempt=0 的 8 倍,而抖动只有 ±20%,两个区间不可能相交。
-        d0_max = max(ds_update_startup.next_delay(attempt=0) for _ in range(200))
-        d3_min = min(ds_update_startup.next_delay(attempt=3) for _ in range(200))
-        self.assertGreater(d3_min, d0_max,
-                           f"失败之后没有退避:attempt=3 最小 {d3_min} 没超过 attempt=0 最大 {d0_max}")
-        big = max(ds_update_startup.next_delay(attempt=99) for _ in range(40))
-        self.assertLessEqual(big, ds_update_startup.MAX_BACKOFF_S)
-
-    def test_sc4_delay_never_negative(self):
-        """sc4:抖动不许把间隔算成负数或 0。"""
-        for attempt in (0, 1, 5, 99):
-            for _ in range(40):
-                self.assertGreater(ds_update_startup.next_delay(attempt=attempt), 0)
-
-
-if __name__ == "__main__":
-    unittest.main()

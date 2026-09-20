@@ -11,13 +11,11 @@ import {
   STARTUP_LOCAL_ENDPOINT,
   STARTUP_LOCAL_TIMEOUT_MS,
   STARTUP_PREPARE_ENDPOINT,
+  BACKGROUND_FIRST_CHECK_MS,
   startupVersion,
 } from "./update";
 import type { ApplyResult, ApplyState, UpdateInfo, UpdateState } from "./update";
 import { loadBoolPrefs } from "./boolPrefs";
-
-// 进入工作区之后,等这么久才做第一次后台查更新(和后端 FIRST_CHECK_DELAY_S 同量级)。
-const BACKGROUND_FIRST_CHECK_MS = 60_000;
 import Sidebar, { type SessionItem } from "./workspace/Sidebar";
 import WindowChrome from "./workspace/WindowChrome";
 import ChangesColumn from "./workspace/ChangesColumn";
@@ -116,6 +114,8 @@ export default function App() {
   const recentFailureToldRef = useRef(false);
   // 同一个挂载只发一次启动检查,也挡住 StrictMode 重放 effect;中途开启只查不装。
   const checkedAutoPrefRef = useRef<boolean | null>(null);
+  // 60 秒后那个后台回调点火时要读的**当下**开关值(见 probeStartup 里的说明)。
+  const autoCheckRef = useRef<boolean>(true);
   // 自动查更新的开关(默认开)。存 localStorage,和左栏那些展开偏好同一套。
   const [autoCheck, setAutoCheck] = useState<boolean>(() => {
     try { return autoCheckEnabled(loadBoolPrefs(localStorage.getItem(UPDATE_PREFS_KEY))); }
@@ -346,7 +346,10 @@ export default function App() {
     setAutoBanner(text);
   }, []);
 
-  // 检查只读,超时就进入现有版本。后端三跳最多约 30 秒,前端再留 5 秒余量。
+  // 查更新(手动点的、或进工作区之后那次后台的)。只读,失败就当没查到。
+  // 🔴 35000 这个数原先的注释写"后端三跳最多约 30 秒" —— **那句话是错的**(实测两跳 20.1s),
+  //    0.98.7 规格里"最坏等 35 秒"就是照它算出来的,两家外审都看过没人问。
+  //    现在它不再挡在启动路径上(启动只读本地盘,上限 500ms),留着只是给这条后台/手动路兜底。
   // 安装请求不套这个期限:中断等待并不等于服务端停止安装。
   const checkUpdate = useCallback((force: boolean) => {
     setUpdateState("checking");
@@ -401,6 +404,9 @@ export default function App() {
     // 下好之后写进盘上的状态文件,**下一次打开软件**才装 —— 那时装最快(东西已在本地),
     // 而且本来就在启动,不额外打断他。这是 Chrome 那一路的做法。
     window.setTimeout(() => {
+      // 🔴 点火这一刻**重新问一次开关**:排期是 60 秒前做的,这中间他完全可能把
+      //    「打开时自动检查」关掉了。不重问的话,关掉之后照样会去查、还会下 46MB。
+      if (!autoCheckRef.current) return;
       checkUpdate(false);
       // 后台备货:失败安静收场(业主正在干活,这里不该冒任何泡)。
       void fetch(STARTUP_PREPARE_ENDPOINT, { method: "POST" }).catch(() => {});
@@ -410,6 +416,7 @@ export default function App() {
   useEffect(() => {
     const previous = checkedAutoPrefRef.current;
     checkedAutoPrefRef.current = autoCheck;
+    autoCheckRef.current = autoCheck;
     if (previous === null) {
       if (autoCheck) void probeStartup();
       else setStartupPhase("ready");
@@ -646,10 +653,16 @@ export default function App() {
         <WindowChrome />
         <div className="startup-update-card">
           <div className="startup-update-brand">OpenDesign</div>
-          <h1>{startupPhase === "checking" ? "正在检查更新…" : `正在更新到 ${startupTarget ?? updateInfo?.latest ?? "新版本"}`}</h1>
-          <p>{startupPhase === "checking"
-            ? "检查完成后将自动进入软件。"
-            : "软件会自动关闭并重新打开，更新完成后即可使用。"}</p>
+          {/* 🔴 "checking" 这一档现在只是**读一次本地盘**(上限 500ms),不联网、不查更新。
+              原来这里写的是「正在检查更新…」—— 启动查更新搬走之后它就成了谎话,
+              而且正是业主指着说不想看见的那块东西。这一档只给一块不作任何断言的启动画面。
+              判据 sg10。 */}
+          {startupPhase === "checking" ? null : (
+            <>
+              <h1>{`正在更新到 ${startupTarget ?? updateInfo?.latest ?? "新版本"}`}</h1>
+              <p>软件会自动关闭并重新打开，更新完成后即可使用。</p>
+            </>
+          )}
         </div>
       </div>
     );
