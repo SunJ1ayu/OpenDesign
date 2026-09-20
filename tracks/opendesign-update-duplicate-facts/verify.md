@@ -162,3 +162,48 @@ runlog: prepare-smoke-real-server rc=0 commit=468ce61 dirty=yes at=2026-09-20T11
 runlog: run-all-r2 rc=3 commit=34319af dirty=yes at=2026-09-20T12:07:54Z file=tracks/opendesign-update-duplicate-facts/evidence/20260920T120754Z-01-run-all-r2.txt
 
 ^ **最后一份,结论就依据它**。同样 rc=3,同样不写成"全绿"。
+
+---
+
+## 第 2 轮(最后一轮)派发记录
+
+| 轮 | 类型 | 花名册 | 结果 |
+|---|---|---|---|
+| — | **基础设施重试**(断线,零实质产出) | `panel-updupfacts-r2-20260920-2043` | 20:46 会话断线,**两条腿连同驱动被整组 SIGTERM 砍掉**。submimo 的报告其实已写完(结论 PASS)、subcursor 死在第 3 行。**不拿它充数**:证据不跨 run 拼接,整轮重派 |
+| 2 | **实质评审**(预算 2 轮之第 2 轮) | `panel-updupfacts-r2b-20260920-2145` | submimo(xiaomi)PASS + subdeepseek(deepseek)PASS,`escalation=none`,`snapshot=head:0fcfb47` |
+
+```
+submimo=PASS(verdict=PASS) subdeepseek=PASS(verdict=PASS) subglm=SKIP(health:dead:auth:3) subkimi=SKIP(health:cooldown:rate_limit) subgemini=SKIP(health:dead:FAIL:6) subgrok=SKIP(health:dead:FAIL:3) subcursor=SKIP(rotation)
+```
+
+- `ORACLE: python -m unittest tests.test_ds_update_eligibility tests.test_ds_update_startup tests.test_comment_references rc=0`(派发**之前**跑的,收据 `panel-updupfacts-r2b-20260920-2145.oracle.log`)
+- 🔴 **这一轮终于换到一双新眼睛**:轮换选中 subdeepseek —— 第 1 轮与上一单 4b 轮都没有它。
+  上面第 1 轮我记的「没有一双新眼睛」这条,本轮兑现了,而且它当场挖出两条别人没看见的。
+- 🔴 **断线教训(第二次栽同一个)**:`panel-review` 的腿虽然各自 `setsid --wait`,但驱动仍在会话进程组里,
+  断线 SIGTERM 打到整组 ⇒ 连腿一起死。本轮改用 `setsid -f` 把**驱动**脱到 PID 1(核过 `ppid=1`),
+  断线砍不着。记忆 [[panel-legs-survive-disconnect]] 09-15 就写过这条,我派活时没落实。
+- 反锚定:本轮报 `anchor leak: verify.md` —— **复审轮属预期**(4b ②:处置表是复审腿的已知输入)。
+
+## 第 2 轮发现的处置
+
+| # | 发现(谁报的) | 我的核实 | 处置 | 理由 |
+|---|---|---|---|---|
+| G1 | **我自己 + subdeepseek 各自独立**:el20 的射程只够 `{}` 一种形状。把守卫换成 `if not paths:`(我)或 `if "data_root" not in paths:`(它),**整卷 61 条一条不红**,而真实行为回到 F3 的原样 | **成立,两条独立变异各复现一次**。我的读数:变异树返回 `ok:True/ready`、真下了包、cwd 里建出 `None/`;干净树 `prepare_failed`、0 下载、cwd 干净(判读规则写在看结果之前)。证据 `/root/aiwork/logs/q2-el20-gap-readout.txt` + 探针 `q2-el20-gap-probe.py` | **延期** | 产品代码**是对的**(生产 `data_root` 恒为非空 str,我实测四种入参 + 两条腿各自验过)。它挡不住的是**未来某次把守卫改窄** ⇒ 正落在 4b「测试挡不住任意未来的错误实现,不自动扩大承诺」那一格。在业主那边长成什么样:**长不成任何样子**;在下一个改这段代码的人那边:他把守卫收窄成只查键存在,整卷不会红。**补法很便宜**(el20 加 `{"data_root": None}` / `""` / 非 str 三个子例 + 一条 E11b),写在这里供下一单直接抄 |
+| G2 | **subdeepseek**:同一形状隔壁没守 —— `discard_ready(data_root)` 拿到 `None` 时 `state_path(None)` 照样算相对路径 | **成立,我自己复现**:干净树上 `discard_ready(None)` 在 cwd 里建出 `None/Logs/update-state.json`。三个调用点(`ds_web.py:1216/1229/1352`)的 paths 都出自 `paths_for_update` ⇒ **今天走不到** | **延期** | 不是本单引入(`discard_ready` 本单一个字没动),今天不可达。与 G1 同批,补的时候一起补 |
+| G3 | **subdeepseek**:守卫注释里「宁可**响亮**地失败」在生产调用点上不成立 —— `ds_web.py:1363` 把 `prepare_update` 的返回值丢了,而且跑在后台线程里,端点早就回了 `started: True` | **成立**,我读了 `:1358-1370` 确认:返回值无赋值、`work()` 在 daemon 线程里、`self._json(200, {"started": True})` 在起线程之后 | **延期(记账)** | 与 F1 有**实质区别**,不按 F1 那条"注释说谎必须修"处理:F1 说的是**一句可证伪的代码事实**("只借 auto_eligible",而那个调用已被我删掉);G3 那句是**取舍原则**("宁可 A 不要 B"),它选的那一侧是真的(失败时不写错地方),只是"响亮"这个词没人听得见。报它的腿自己也标了 informational。**不拿"立意是注释不许说谎"把原则句和事实句混成一档** —— 那样下次就会为了措辞再烧一轮 |
+| G4 | **submimo** 对 Q2 答"**Yes,不存在 el20 绿而真实备货坏的情形**" | **这句是假的**,被 G1 的两条独立变异各证伪一次 | **记账,不影响裁决** | 🔴 **MiMo 的 PASS 第三次带事实错误**(09-16 一次、09-20 上一单一次),而且这次不是数字口误,是**我问的那个问题正中心的一句全称判断**。它的方向结论与我一致,但**它的断言一句都不能直接引用**。这也再次坐实:两票 PASS 不抬置信度 —— 真正有价值的是那条新眼睛独立跑出来的反例 |
+
+### 更正:上面第 1 轮那段话说大了
+
+第 1 轮我写「资格变异 12/12 全部咬住(含 E11 钉 F3 的守卫)」。**E11 钉的只是"守卫还在不在",不是"守卫问得对不对"**
+(它整条删掉守卫)。G1 证明:守卫仍在、只是问错了问题时,E11 照样绿。
+措辞更正就地做在 verify.md(本文件在交付投影的豁免清单里,改它不作废本轮评审绑定,也不花一轮)。
+
+## 主裁最终裁决:**PASS**
+
+- 交付面(`bin/ds_update_startup.py`、`bin/ds_web.py`)无真实阻断:三条发现全部"今天走不到",且产品行为经
+  两条腿 + 我自己各自独立核实为正确。
+- 机械门:high ⇒ 预算 2,同一次成功 panel(`r2b-20260920-2145`)、同一 subject digest 下
+  两个 coverage-eligible 的不同家族腿(xiaomi + deepseek),无降级、无冲突。
+- 轮次预算(开工时写的 2 轮实质评审)**用完即止**:G1~G3 均为延期项,按 4b ④「无真实阻断 + 机械门满足 ⇒ 结束」收口,
+  **不追加第 3 轮**,也不自动开新单。

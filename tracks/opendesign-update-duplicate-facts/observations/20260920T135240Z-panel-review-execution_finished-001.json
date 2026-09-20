@@ -1,0 +1,136 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-update-duplicate-facts",
+  "run_id": "20260920-214501-3028100-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-update-duplicate-facts-r2",
+  "started_at": "2026-09-20T13:45:01Z",
+  "finished_at": "2026-09-20T13:52:40Z",
+  "duration_ms": 459285,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "submimo",
+        "degraded": false,
+        "duration_ms": 350375,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:36e8d557427aeeb6a809979cd9079c225a69a6eabfaf9f56b9836ef0bde916c3",
+          "ref": "file:///root/aiwork/logs/panel-updupfacts-r2b-20260920-2145.submimo.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xiaomi",
+        "model": {
+          "invoked": "xiaomi/mimo-v2.5-pro",
+          "reported": null,
+          "requested": "xiaomi/mimo-v2.5-pro"
+        },
+        "name": "submimo",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260920-214501-3028100-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:f0772b0681ee5b47e5c9b52ca4126b884c1a2f4c941424d94c47c6850602fc09",
+            "policy_version": 1,
+            "track": "opendesign-update-duplicate-facts"
+          },
+          "digest": "sha256:51d8712035668a826aa2143dc3dc86d8b227170fedc1359bc4fd5c23ea20b852",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "0fcfb47eb871f0d3f0cef7961cddf1ad71c26ae5",
+            "index_tree_oid": "8653a659398fb86ed665463090e3e467875fd689",
+            "worktree_tree_oid": "8653a659398fb86ed665463090e3e467875fd689"
+          },
+          "task_sha256": "sha256:424b39ba457d46a244aeea702071e7befa42c1f4f987876a3220efcc6b8241f2"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subdeepseek-agent",
+        "degraded": false,
+        "duration_ms": 444339,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:dc434ad7804143a06993540b3dd4a947e39920cb612a3ba42048d2bf129915a1",
+          "ref": "file:///root/aiwork/logs/panel-updupfacts-r2b-20260920-2145.subdeepseek.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "deepseek",
+        "model": {
+          "invoked": "deepseek-flash",
+          "reported": null,
+          "requested": "deepseek-flash"
+        },
+        "name": "subdeepseek",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260920-214501-3028100-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:f0772b0681ee5b47e5c9b52ca4126b884c1a2f4c941424d94c47c6850602fc09",
+            "policy_version": 1,
+            "track": "opendesign-update-duplicate-facts"
+          },
+          "digest": "sha256:51d8712035668a826aa2143dc3dc86d8b227170fedc1359bc4fd5c23ea20b852",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "0fcfb47eb871f0d3f0cef7961cddf1ad71c26ae5",
+            "index_tree_oid": "8653a659398fb86ed665463090e3e467875fd689",
+            "worktree_tree_oid": "8653a659398fb86ed665463090e3e467875fd689"
+          },
+          "task_sha256": "sha256:424b39ba457d46a244aeea702071e7befa42c1f4f987876a3220efcc6b8241f2"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "api",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

@@ -43,4 +43,4 @@
 - [x] T6 改后:`mutants-prepare.py` 再跑一遍,与改前表**逐条 diff**;条数相同、0 error、无一条由红转绿
 - [x] `tests/run-all.sh` 总跑
 - [x] 真起一次 ds-web 走 `/api/update/prepare`(不是 mock),确认备货链路没被签名改动打断
-- [ ] `track preflight`(🔴 **别经 runlog 跑**)→ 派 1 腿评审 → 处置 → 归档
+- [x] `track preflight`(🔴 **别经 runlog 跑**)→ 派 1 腿评审 → 处置 → 归档
