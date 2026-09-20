@@ -1,0 +1,118 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    startup-polish-redcheck
+cmd:     node --test tests/test_startup_gate.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  530f010
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-20T03:45:02Z
+---------------- 输出开始 ----------------
+TAP version 13
+# Subtest: sg1 启动只等本地读,上限必须是几百毫秒量级,不是几十秒
+ok 1 - sg1 启动只等本地读,上限必须是几百毫秒量级,不是几十秒
+  ---
+  duration_ms: 1.108155
+  type: 'test'
+  ...
+# Subtest: sg2 后端说该装,才进更新界面
+ok 2 - sg2 后端说该装,才进更新界面
+  ---
+  duration_ms: 0.222316
+  type: 'test'
+  ...
+# Subtest: sg3 后端说进工作区 ⇒ 进工作区
+ok 3 - sg3 后端说进工作区 ⇒ 进工作区
+  ---
+  duration_ms: 0.170367
+  type: 'test'
+  ...
+# Subtest: sg4 🔴 任何读不懂的回应都必须进工作区,绝不许卡住
+ok 4 - sg4 🔴 任何读不懂的回应都必须进工作区,绝不许卡住
+  ---
+  duration_ms: 0.180346
+  type: 'test'
+  ...
+# Subtest: sg5 启动问的必须是本地那个只读接口,不是查更新
+ok 5 - sg5 启动问的必须是本地那个只读接口,不是查更新
+  ---
+  duration_ms: 0.188175
+  type: 'test'
+  ...
+# Subtest: sg6 startupAction 永远不抛
+ok 6 - sg6 startupAction 永远不抛
+  ---
+  duration_ms: 0.247254
+  type: 'test'
+  ...
+# Subtest: sg7 后台备货的端点和启动那个必须是两个,别混成一个
+ok 7 - sg7 后台备货的端点和启动那个必须是两个,别混成一个
+  ---
+  duration_ms: 0.227186
+  type: 'test'
+  ...
+# Subtest: sg8 启动回包里的版本号要能读出来,读不出一律 null
+ok 8 - sg8 启动回包里的版本号要能读出来,读不出一律 null
+  ---
+  duration_ms: 0.296943
+  type: 'test'
+  ...
+# Subtest: sg9 首次后台查更新的等待时间:一个数,一个地方,而且真有人用它
+not ok 9 - sg9 首次后台查更新的等待时间:一个数,一个地方,而且真有人用它
+  ---
+  duration_ms: 1.131005
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_startup_gate.mjs:95:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    update.ts 还没导出 BACKGROUND_FIRST_CHECK_MS —— 判据先行,此刻应当红
+    + actual - expected
+    
+    + 'undefined'
+    - 'number'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'number'
+  actual: 'undefined'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_startup_gate.mjs:101:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: sg10 启动界面不许声称自己在查更新
+not ok 10 - sg10 启动界面不许声称自己在查更新
+  ---
+  duration_ms: 1.890838
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_startup_gate.mjs:109:1'
+  failureType: 'testCodeFailure'
+  error: '启动界面还写着「正在检查更新…」—— 启动根本不查更新了'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_startup_gate.mjs:113:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 8
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 143.740099
+---------------- 输出结束 ----------------
+runlog: startup-polish-redcheck rc=1 commit=530f010 dirty=yes at=2026-09-20T03:45:02Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T034502Z-01-startup-polish-redcheck.txt

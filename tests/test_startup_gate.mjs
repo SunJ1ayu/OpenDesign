@@ -12,6 +12,11 @@ import assert from "node:assert/strict";
 // 🔴 用命名空间导入,不用具名导入:ESM 的具名导入在导出不存在时**整份文件编译期就崩**,
 //    只报 1 个 fail —— 而判据先行唯一要证明的就是"哪几条会咬"。逐条红才数得出来。
 import * as U from "../web/src/update.ts";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const SRC = (f) => readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "web", "src", f), "utf-8");
 const { STARTUP_LOCAL_TIMEOUT_MS, STARTUP_LOCAL_ENDPOINT, STARTUP_PREPARE_ENDPOINT } = U;
 const startupAction = (...a) => {
   if (typeof U.startupAction !== "function") {
@@ -85,4 +90,26 @@ test("sg8 启动回包里的版本号要能读出来,读不出一律 null", () =
   }
   assert.doesNotThrow(() => startupVersion({ action: "install", get version() { throw new Error("炸"); } }));
   assert.equal(startupVersion({ action: "install", get version() { throw new Error("炸"); } }), null);
+});
+
+test("sg9 首次后台查更新的等待时间:一个数,一个地方,而且真有人用它", () => {
+  // 🔴 由来(2026-09-20 自审):这个数原来在 App.tsx 里硬写一份(60_000),
+  //    后端 ds_update_startup 里还有一份 FIRST_CHECK_DELAY_S=60,**两份都没有对方**,
+  //    而后端那份根本没有调用方。同一个数两处各写一份,这个项目已经栽过
+  //    (写侧五处把变更号拼进正则、读侧按数认)。
+  const ms = U.BACKGROUND_FIRST_CHECK_MS;
+  assert.equal(typeof ms, "number", "update.ts 还没导出 BACKGROUND_FIRST_CHECK_MS —— 判据先行,此刻应当红");
+  assert.ok(ms >= 5000, `首次后台查更新只等了 ${ms}ms —— 那等于换个地方接着抢启动资源`);
+  assert.ok(ms <= 10 * 60 * 1000, "等太久 ⇒ 短会话永远备不上货");
+  // 不许在 App.tsx 里再写一份
+  assert.ok(!/const\s+BACKGROUND_FIRST_CHECK_MS\s*=/.test(SRC("App.tsx")),
+    "App.tsx 又自己写了一份 —— 两份迟早对不上");
+});
+
+test("sg10 启动界面不许声称自己在查更新", () => {
+  // 业主原话:「不应该让用户看到这个界面才对啊,应该是有更新才显示和进度条」。
+  // 启动路径已经不查更新了(只读一次本地盘),那句「正在检查更新…」既是谎话,
+  // 又正好是他指着说不想看见的那块东西。读盘那 0~500ms 只许是一块没有断言的启动画面。
+  assert.ok(!SRC("App.tsx").includes("正在检查更新"),
+    "启动界面还写着「正在检查更新…」—— 启动根本不查更新了");
 });
