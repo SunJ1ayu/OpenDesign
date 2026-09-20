@@ -1,0 +1,310 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    r2-eligibility-redcheck
+cmd:     python3 -m pytest tests/test_ds_update_eligibility.py -q
+cwd:     .(仓根)
+commit:  181f960
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-20T04:57:54Z
+---------------- 输出开始 ----------------
+FFF...F.FF                                                             [100%]
+=================================== FAILURES ===================================
+_ UpdateEligibility.test_el1_prepare_refuses_to_restock_a_version_already_attempted _
+
+self = <test_ds_update_eligibility.UpdateEligibility testMethod=test_el1_prepare_refuses_to_restock_a_version_already_attempted>
+
+    def test_el1_prepare_refuses_to_restock_a_version_already_attempted(self):
+        ok, err = ds_auto_update.record_attempt(self.data_root, LATEST)
+        self.assertTrue(ok, err)
+        self._armed()
+    
+        got = ds_update_startup.prepare_update(
+            self._info(), self.data_root, download=self._spy_download())
+    
+>       self.assertEqual(self.downloads, [],
+                         "🔴 这一版已经自动试过一次(装不上),后台又把 46MB 下了一遍:%r" % (got,))
+E       AssertionError: Lists differ: ['https://github.com/SunJ1ayu/OpenDesign/r[62 chars]exe'] != []
+E       
+E       First list contains 1 additional elements.
+E       First extra element 0:
+E       'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe'
+E       
+E       - ['https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe']
+E       + [] : 🔴 这一版已经自动试过一次(装不上),后台又把 46MB 下了一遍:{'ok': True, 'reason': 'ready', 'version': '0.98.3'}
+
+tests/test_ds_update_eligibility.py:176: AssertionError
+____ UpdateEligibility.test_el1b_eligibility_is_permanent_not_a_24h_window _____
+
+self = <test_ds_update_eligibility.UpdateEligibility testMethod=test_el1b_eligibility_is_permanent_not_a_24h_window>
+
+    def test_el1b_eligibility_is_permanent_not_a_24h_window(self):
+        """拿 `recent_failure`(24h 时效)冒充资格 ⇒ 过一天又重下、又空演一遍。"""
+        long_ago = time.time() - 30 * 24 * 3600
+        ok, err = ds_auto_update.record_attempt(self.data_root, LATEST, now=long_ago)
+        self.assertTrue(ok, err)
+        self.assertFalse(ds_auto_update.recent_failure(self.data_root, LATEST),
+                         "夹具没摆对:30 天前的记录不该算 recent_failure")
+        self._armed()
+    
+        ds_update_startup.prepare_update(
+            self._info(), self.data_root, download=self._spy_download())
+    
+>       self.assertEqual(self.downloads, [],
+                         "🔴 用 24 小时的时效窗口当资格:过一天就又下一遍 46MB、又空演一次")
+E       AssertionError: Lists differ: ['https://github.com/SunJ1ayu/OpenDesign/r[62 chars]exe'] != []
+E       
+E       First list contains 1 additional elements.
+E       First extra element 0:
+E       'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe'
+E       
+E       - ['https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe']
+E       + [] : 🔴 用 24 小时的时效窗口当资格:过一天就又下一遍 46MB、又空演一次
+
+tests/test_ds_update_eligibility.py:196: AssertionError
+_ UpdateEligibility.test_el2_startup_does_not_offer_to_install_a_version_already_attempted _
+
+self = <test_ds_update_eligibility.UpdateEligibility testMethod=test_el2_startup_does_not_offer_to_install_a_version_already_attempted>
+
+    def test_el2_startup_does_not_offer_to_install_a_version_already_attempted(self):
+        """盘上那份 ready 完全合格(大小/摘要/版本全对),唯一的问题是这一版已经试过。"""
+        self._stock()
+        ok, err = ds_auto_update.record_attempt(self.data_root, LATEST)
+        self.assertTrue(ok, err)
+        self._armed()
+    
+        action, reason = self._startup_action()
+    
+>       self.assertEqual(action, "enter",
+                         "🔴 已经试过装不上的那一版,打开软件又弹了一次更新界面"
+                         "(action=%r reason=%r)—— 业主看到的就是「闪一下,什么都没说」" % (action, reason))
+E       AssertionError: 'install' != 'enter'
+E       - install
+E       + enter
+E        : 🔴 已经试过装不上的那一版,打开软件又弹了一次更新界面(action='install' reason='ready')—— 业主看到的就是「闪一下,什么都没说」
+
+tests/test_ds_update_eligibility.py:210: AssertionError
+----------------------------- Captured stdout call -----------------------------
+2026-09-20 12:57:54 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+_ UpdateEligibility.test_el4_transient_ineligibility_keeps_the_package (why_not='no_shell') _
+
+self = <test_ds_update_eligibility.UpdateEligibility testMethod=test_el4_transient_ineligibility_keeps_the_package>
+
+    def test_el4_transient_ineligibility_keeps_the_package(self):
+        """没外壳 / 开关关着 / 出错:一行账都没记,这一版**本来还能装**,不许删业主的 46MB。"""
+        for label, env in (("no_shell", {"DS_SHELL_LOCK_PORT": ""}),
+                           ("disabled", {AUTO_KNOB: "off"})):
+            with self.subTest(why_not=label):
+                path, _ = self._stock()
+                self._armed()
+                with mock.patch.dict(os.environ, env):
+                    with self._serve() as port:
+                        st, body = _post(port, "/api/update/apply", AUTO)
+                self.assertEqual(st, 200, body)
+                self.assertIs(body.get("ok"), False, body)
+    
+>               self.assertTrue(
+                    self._package_exists(path),
+                    "🔴 %s 是**临时**条件(账一行没记,条件恢复就能自动装),"
+                    "却把已经下好校验好的 46MB 删了 —— 白丢,还得重下一遍" % label)
+E               AssertionError: False is not true : 🔴 no_shell 是**临时**条件(账一行没记,条件恢复就能自动装),却把已经下好校验好的 46MB 删了 —— 白丢,还得重下一遍
+
+tests/test_ds_update_eligibility.py:229: AssertionError
+_ UpdateEligibility.test_el4_transient_ineligibility_keeps_the_package (why_not='disabled') _
+
+self = <test_ds_update_eligibility.UpdateEligibility testMethod=test_el4_transient_ineligibility_keeps_the_package>
+
+    def test_el4_transient_ineligibility_keeps_the_package(self):
+        """没外壳 / 开关关着 / 出错:一行账都没记,这一版**本来还能装**,不许删业主的 46MB。"""
+        for label, env in (("no_shell", {"DS_SHELL_LOCK_PORT": ""}),
+                           ("disabled", {AUTO_KNOB: "off"})):
+            with self.subTest(why_not=label):
+                path, _ = self._stock()
+                self._armed()
+                with mock.patch.dict(os.environ, env):
+                    with self._serve() as port:
+                        st, body = _post(port, "/api/update/apply", AUTO)
+                self.assertEqual(st, 200, body)
+                self.assertIs(body.get("ok"), False, body)
+    
+>               self.assertTrue(
+                    self._package_exists(path),
+                    "🔴 %s 是**临时**条件(账一行没记,条件恢复就能自动装),"
+                    "却把已经下好校验好的 46MB 删了 —— 白丢,还得重下一遍" % label)
+E               AssertionError: False is not true : 🔴 disabled 是**临时**条件(账一行没记,条件恢复就能自动装),却把已经下好校验好的 46MB 删了 —— 白丢,还得重下一遍
+
+tests/test_ds_update_eligibility.py:229: AssertionError
+_ UpdateEligibility.test_el5_a_failed_auto_install_does_not_come_back_every_other_launch _
+
+self = <test_ds_update_eligibility.UpdateEligibility testMethod=test_el5_a_failed_auto_install_does_not_come_back_every_other_launch>
+
+    def test_el5_a_failed_auto_install_does_not_come_back_every_other_launch(self):
+        """装失败 → 清货记账 → 后台再备货 → 再打开。这是第 2 轮两条腿报的那条链。
+    
+        🔴 钉的是**行为不是实现**:资格判据放哪、怎么共用,我不管;
+           但走完这四步之后,业主不许再看到一次更新界面,也不许再被下一次 46MB。
+        """
+        path, _ = self._stock()
+        self.apply_ok = False          # 这一次自动更新装失败
+        self._armed()
+    
+        # 第 1 步:打开 A —— 有货,去装,失败
+        with self._serve() as port:
+            st, body = _post(port, "/api/update/apply", AUTO)
+        self.assertEqual(st, 200, body)
+        self.assertIs(body.get("ok"), False, "夹具没摆对:这一次本该装失败")
+        self.assertIsNotNone(ds_auto_update.attempted_at(self.data_root, LATEST),
+                             "装失败了却没记账 ⇒ 下一次还会自动试(第 1 轮 ai8)")
+        self.assertFalse(self._package_exists(path), "装失败之后那份备货该清掉(第 1 轮 ai7)")
+    
+        # 第 2 步:他继续用软件,满 60 秒,前端无条件让后台备货
+        got = ds_update_startup.prepare_update(
+            self._info(), self.data_root, download=self._spy_download())
+>       self.assertEqual(self.downloads, [],
+                         "🔴 同一个装不上的包又被下了一遍 46MB(第 2 轮 subcursor/subdeepseek "
+                         "各自独立报的那条 HIGH):%r" % (got,))
+E       AssertionError: Lists differ: ['https://github.com/SunJ1ayu/OpenDesign/r[62 chars]exe'] != []
+E       
+E       First list contains 1 additional elements.
+E       First extra element 0:
+E       'https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe'
+E       
+E       - ['https://github.com/SunJ1ayu/OpenDesign/releases/download/win-installer-0.98.3/OpenDesign-Setup-0.98.3.exe']
+E       + [] : 🔴 同一个装不上的包又被下了一遍 46MB(第 2 轮 subcursor/subdeepseek 各自独立报的那条 HIGH):{'ok': True, 'reason': 'ready', 'version': '0.98.3'}
+
+tests/test_ds_update_eligibility.py:274: AssertionError
+----------------------------- Captured stdout call -----------------------------
+2026-09-20 12:57:57 127.0.0.1 - "POST /api/update/apply HTTP/1.1" 200 -
+_ UpdateEligibility.test_el7_a_throwing_prepare_does_not_wedge_the_endpoint_forever _
+
+self = <test_ds_update_eligibility.UpdateEligibility testMethod=test_el7_a_throwing_prepare_does_not_wedge_the_endpoint_forever>
+
+    def test_el7_a_throwing_prepare_does_not_wedge_the_endpoint_forever(self):
+        """`_PREPARE_STATE["running"]` 置位之后若抛出,本会话之后所有备货永远回
+        already_running ⇒ 自动更新整条**静默**死掉(第 2 轮 subdeepseek LOW)。"""
+        self._armed()
+        boom_calls = []
+        real_paths_for_update = ds_update_apply.paths_for_update
+    
+        def boom(*a, **kw):
+            boom_calls.append(1)
+            raise RuntimeError("算数据根时炸了")
+    
+        with self._serve() as port:
+            ds_update_apply.paths_for_update = boom
+            try:
+>               st, body = _post(port, "/api/update/prepare", b"{}")
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_ds_update_eligibility.py:319: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_ds_web_auto_update.py:96: in _post
+    r = conn.getresponse()
+        ^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.12/http/client.py:1448: in getresponse
+    response.begin()
+/usr/lib/python3.12/http/client.py:336: in begin
+    version, status, reason = self._read_status()
+                              ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.client.HTTPResponse object at 0x76d740270100>
+
+    def _read_status(self):
+        line = str(self.fp.readline(_MAXLINE + 1), "iso-8859-1")
+        if len(line) > _MAXLINE:
+            raise LineTooLong("status line")
+        if self.debuglevel > 0:
+            print("reply:", repr(line))
+        if not line:
+            # Presumably, the server closed the connection before
+            # sending a valid response.
+>           raise RemoteDisconnected("Remote end closed connection without"
+                                     " response")
+E           http.client.RemoteDisconnected: Remote end closed connection without response
+
+/usr/lib/python3.12/http/client.py:305: RemoteDisconnected
+----------------------------- Captured stderr call -----------------------------
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 34814)
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/usr/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/usr/lib/python3.12/socketserver.py", line 761, in __init__
+    self.handle()
+  File "/usr/lib/python3.12/http/server.py", line 436, in handle
+    self.handle_one_request()
+  File "/usr/lib/python3.12/http/server.py", line 424, in handle_one_request
+    method()
+  File "/root/.openclaw/workspace/projects/design-studio/bin/ds_web.py", line 1101, in do_POST
+    self._update_prepare()
+  File "/root/.openclaw/workspace/projects/design-studio/bin/ds_web.py", line 1316, in _update_prepare
+    root = self._update_data_root()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/bin/ds_web.py", line 1260, in _update_data_root
+    return ds_update_apply.paths_for_update(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_update_eligibility.py", line 314, in boom
+    raise RuntimeError("算数据根时炸了")
+RuntimeError: 算数据根时炸了
+----------------------------------------
+____ UpdateEligibility.test_el8_discard_never_raises_even_on_a_broken_state ____
+
+self = <test_ds_update_eligibility.UpdateEligibility testMethod=test_el8_discard_never_raises_even_on_a_broken_state>
+
+    def test_el8_discard_never_raises_even_on_a_broken_state(self):
+        """`_discard` 的 docstring 写着"自己也不许抛",实现只 catch OSError,
+        而 `os.path.isfile(None)` 抛的是 TypeError(第 2 轮 subdeepseek 实测)。"""
+        state_file = ds_update_startup.state_path(self.data_root)
+        ds_update_startup.write_state(state_file, {
+            "schema": 1, "phase": "ready", "version": LATEST,
+            "asset": {"name": "x.exe", "size": 1, "sha256": "0" * 64, "url": "https://x/y"},
+            "path": None, "updated_at": time.time()})
+        try:
+>           ds_update_startup._discard(None, state_file)
+
+tests/test_ds_update_eligibility.py:339: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+bin/ds_update_startup.py:322: in _discard
+    if os.path.isfile(dest):
+       ^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = None
+
+>   ???
+E   TypeError: stat: path should be string, bytes, os.PathLike or integer, not NoneType
+
+<frozen genericpath>:30: TypeError
+
+During handling of the above exception, another exception occurred:
+
+self = <test_ds_update_eligibility.UpdateEligibility testMethod=test_el8_discard_never_raises_even_on_a_broken_state>
+
+    def test_el8_discard_never_raises_even_on_a_broken_state(self):
+        """`_discard` 的 docstring 写着"自己也不许抛",实现只 catch OSError,
+        而 `os.path.isfile(None)` 抛的是 TypeError(第 2 轮 subdeepseek 实测)。"""
+        state_file = ds_update_startup.state_path(self.data_root)
+        ds_update_startup.write_state(state_file, {
+            "schema": 1, "phase": "ready", "version": LATEST,
+            "asset": {"name": "x.exe", "size": 1, "sha256": "0" * 64, "url": "https://x/y"},
+            "path": None, "updated_at": time.time()})
+        try:
+            ds_update_startup._discard(None, state_file)
+        except Exception as exc:  # noqa: BLE001
+>           self.fail("_discard 说好了自己不抛,却抛了 %s: %s" % (type(exc).__name__, exc))
+E           AssertionError: _discard 说好了自己不抛,却抛了 TypeError: stat: path should be string, bytes, os.PathLike or integer, not NoneType
+
+tests/test_ds_update_eligibility.py:341: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_ds_update_eligibility.py::UpdateEligibility::test_el1_prepare_refuses_to_restock_a_version_already_attempted
+FAILED tests/test_ds_update_eligibility.py::UpdateEligibility::test_el1b_eligibility_is_permanent_not_a_24h_window
+FAILED tests/test_ds_update_eligibility.py::UpdateEligibility::test_el2_startup_does_not_offer_to_install_a_version_already_attempted
+SUBFAILED(why_not='no_shell') tests/test_ds_update_eligibility.py::UpdateEligibility::test_el4_transient_ineligibility_keeps_the_package
+SUBFAILED(why_not='disabled') tests/test_ds_update_eligibility.py::UpdateEligibility::test_el4_transient_ineligibility_keeps_the_package
+FAILED tests/test_ds_update_eligibility.py::UpdateEligibility::test_el5_a_failed_auto_install_does_not_come_back_every_other_launch
+FAILED tests/test_ds_update_eligibility.py::UpdateEligibility::test_el7_a_throwing_prepare_does_not_wedge_the_endpoint_forever
+FAILED tests/test_ds_update_eligibility.py::UpdateEligibility::test_el8_discard_never_raises_even_on_a_broken_state
+8 failed, 4 passed in 4.27s
+---------------- 输出结束 ----------------
+runlog: r2-eligibility-redcheck rc=1 commit=181f960 dirty=yes at=2026-09-20T04:57:54Z file=tracks/opendesign-startup-not-blocked-by-update/evidence/20260920T045754Z-01-r2-eligibility-redcheck.txt
