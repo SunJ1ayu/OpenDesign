@@ -178,6 +178,57 @@ class StartupDecisionTests(unittest.TestCase):
         self.assertRegex(out["reason"], r"^[a-z][a-z0-9_]*$")
 
 
+class StartupCostTests(unittest.TestCase):
+    """su15:启动那一步的开销**不许随安装包大小增长**。
+
+    🔴 由来(2026-09-20 第 1 轮外审,subcursor HIGH-1,我核实成立):
+    `startup_decision` 原来对整个包算一遍 sha256。前端给这一步的上限是写死的 500ms,
+    而这是个 **O(包大小)** 的操作 —— 业主那台 Windows 上,Defender 正在实时扫描一个
+    刚下好的 46MB .exe,谁也说不准它要多久。本机实测热缓存 37ms、丢缓存 117ms,
+    **没超** —— 但余量未知,而且超时之后是**单向的**:前端 abort 进工作区、不重试,
+    后台 `already_ready` 只比版本和大小、不会重新备货 ⇒ 那一版从此永远装不上,**悄无声息**。
+
+    字节校验并没有因此消失,它在**两头**:下好的那一刻(prepare 验 sha256)、
+    以及**真装之前**(`apply_update` 再算一遍,判据 t4 钉着"对不上就拒绝执行、活树零改动")。
+    启动这一步只需要回答"盘上有没有一个看起来可装的东西"。
+    """
+
+    def setUp(self):
+        import hashlib, tempfile
+        self.tmp = tempfile.mkdtemp(prefix="ds-startup-cost-")
+        self.addCleanup(shutil.rmtree, self.tmp, True)   # 判据不许往盘上扔垃圾(泄漏闸会数)
+        self.pkg = os.path.join(self.tmp, "OpenDesign-Setup-0.99.0.exe")
+        self.body = b"x" * (3 << 20)
+        with open(self.pkg, "wb") as fh:
+            fh.write(self.body)
+        self.state = {"schema": 1, "phase": "ready", "version": "0.99.0",
+                      "asset": {"name": os.path.basename(self.pkg), "size": len(self.body),
+                                "sha256": hashlib.sha256(self.body).hexdigest()},
+                      "path": self.pkg, "updated_at": 1789800000}
+
+    def test_su15_startup_decision_does_not_hash_the_whole_package(self):
+        import hashlib
+        calls = []
+        real = hashlib.sha256
+
+        def counting(*a, **kw):
+            calls.append(1)
+            return real(*a, **kw)
+
+        with mock.patch.object(hashlib, "sha256", counting):
+            out = ds_update_startup.startup_decision(self.state, "0.98.0")
+        self.assertEqual(out.get("action"), "install", out)
+        self.assertEqual(calls, [],
+                         "启动决策对包做了 %d 次哈希 —— 这一步的开销不许随包大小走" % len(calls))
+
+    def test_su15b_startup_still_refuses_a_package_of_the_wrong_size(self):
+        """去掉哈希不等于什么都不看:大小对不上、文件不在、版本不新,仍然一律 enter。"""
+        import hashlib  # noqa: F401
+        with open(self.pkg, "wb") as fh:
+            fh.write(b"short")
+        self.assertEqual(ds_update_startup.startup_decision(self.state, "0.98.0").get("action"), "enter")
+
+
 class StartupTouchesNoNetworkTests(unittest.TestCase):
     """su_net:🔴 本考卷的核心 —— 启动决策路径一次网络都不许发。
 
@@ -442,6 +493,47 @@ class PrepareUpdateTests(unittest.TestCase):
         ds_update_startup.prepare_update(same, self.root, download=self.dl_ok)
         self.assertTrue(os.path.isfile(pkg), "还没装的新版包被当成垃圾清掉了")
         self.assertEqual((self.state() or {}).get("phase"), "ready")
+
+    def test_pr9_a_same_size_corrupt_ready_package_is_replaced(self):
+        """pr9:等长但字节坏了的 ready 包,后台这一趟必须换掉它 —— 否则它永远卡在那里。
+
+        🔴 由来(2026-09-20 第 1 轮外审:subcursor MEDIUM-3 与 subdeepseek #3 各自命中)。
+        `already_ready` 只比"版本 + 大小",而启动侧(su15 之后)也不再算哈希 ⇒
+        一个等长坏包会被后台认成"已经备好了、不用再下",被安装侧在最后一刻拒掉,
+        然后**下一轮后台仍然认为不用再下** —— 死循环,永不自愈。
+        校验放在后台这一趟是对的:业主已经在用软件,这里慢不要紧。
+        """
+        ds_update_startup.prepare_update(self.info, self.root, download=self.dl_ok)
+        pkg = self.state().get("path")
+        with open(pkg, "r+b") as fh:          # 同样长度,内容不同
+            fh.seek(0); fh.write(b"Z" * 8)
+        calls = []
+
+        def counting(url, dest):
+            calls.append(url)
+            self.dl_ok(url, dest)
+
+        out = ds_update_startup.prepare_update(self.info, self.root, download=counting)
+        self.assertTrue(out["ok"], out)
+        self.assertEqual(len(calls), 1, "等长坏包没有被重新下载 ⇒ 它会永远卡在那儿")
+        self.assertEqual(hashlib.sha256(open(pkg, "rb").read()).hexdigest(), self.sha,
+                         "重下之后盘上还是那个坏包")
+
+    def test_pr10_files_nobody_references_are_swept(self):
+        """pr10:`pending/` 下**没人指着**的文件一律清掉(半截包、被跳过版本的孤儿)。
+
+        由来:两条腿都报(subcursor MEDIUM-4 / submimo MEDIUM)。
+        进程被杀在下载中途留下半截 .exe;或者备好 0.99.0 之后 0.99.1 上线,
+        新的写成**新文件名**,旧那个 46MB 没人再提起 —— 每跳过一版就永久多占一份。
+        """
+        ds_update_startup.prepare_update(self.info, self.root, download=self.dl_ok)
+        keep = self.state().get("path")
+        junk = os.path.join(os.path.dirname(keep), "OpenDesign-Setup-0.98.7.exe.part")
+        with open(junk, "wb") as fh:
+            fh.write(b"half a download")
+        ds_update_startup.prepare_update(self.info, self.root, download=self.dl_ok)
+        self.assertTrue(os.path.isfile(keep), "把当前备好的包清掉了")
+        self.assertFalse(os.path.isfile(junk), "没人指着的半截包还留在盘上")
 
     def test_pr7_already_ready_does_not_redownload(self):
         """pr7:同一版已经下好了就别再下一遍(省业主的流量和磁盘)。"""

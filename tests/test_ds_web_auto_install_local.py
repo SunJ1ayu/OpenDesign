@@ -174,6 +174,47 @@ class AutoInstallFromLocal(unittest.TestCase):
         self.assertEqual(self.order.count("apply"), 0, "已经试过的版本又装了一遍")
         self.assertEqual(self.net_calls, [], "被拒的自动请求也不许联网")
 
+    # --- ai7/ai8:装不成的那一版,别让它每次打开都空演一遍 ----------------------
+
+    def test_ai7_a_refused_auto_install_clears_the_ready_package(self):
+        """ai7:这一版已经自动试过 ⇒ 盘上那份 ready 必须清掉,别留着每次打开空演一遍。
+
+        🔴 由来(2026-09-20 第 1 轮外审,subcursor HIGH-2,我核实成立):
+        `record_attempt` 在 `apply_update` **之前**写,失败之后没有人清 `update-state.json`。
+        于是下一次打开:startup 仍回 install ⇒ 前端弹「正在更新到 X」⇒ apply 回
+        `auto_skipped` ⇒ 而 `autoFailureText` 对 auto_skipped **故意返回空串** ⇒
+        业主看到的是"闪一下更新界面,然后一声不吭掉进工作区",**每次打开都来一遍,永远**。
+        """
+        import ds_auto_update
+        ok, err = ds_auto_update.record_attempt(self.data_root, LATEST)
+        self.assertTrue(ok, err)
+        self._stock()
+        self._armed()
+        with self._serve() as port:
+            st, body = _post(port, "/api/update/apply", AUTO)
+        self.assertEqual(st, 200, body)
+        self.assertEqual(body.get("stage"), "auto_skipped", body)
+        state = ds_update_startup.read_state(ds_update_startup.state_path(self.data_root))
+        self.assertNotEqual((state or {}).get("phase"), "ready",
+                            "被拒之后 ready 还留着 ⇒ 下次打开还会空演一遍更新界面")
+        after = ds_update_startup.startup_decision(state, "0.90.0")
+        self.assertEqual(after.get("action"), "enter",
+                         "下一次打开仍然会被带进更新界面:%r" % (after,))
+
+    def test_ai8_a_failed_auto_install_clears_the_ready_package(self):
+        """ai8:真的装了但没装成,同样要清 —— 这一版从此只能手动,留着它只会每次打开空演。"""
+        self._stock()
+        self._armed()
+        self.apply_ok = False
+        with self._serve() as port:
+            st, body = _post(port, "/api/update/apply", AUTO)
+        self.assertEqual(st, 200, body)
+        self.assertIs(body.get("ok"), False, body)
+        self.assertEqual(self.order.count("apply"), 1, "前提没摆好:没走到安装")
+        state = ds_update_startup.read_state(ds_update_startup.state_path(self.data_root))
+        self.assertNotEqual((state or {}).get("phase"), "ready",
+                            "装失败之后 ready 还留着 ⇒ 下次打开继续空演")
+
     # --- ai6:包在决策之后变了样,宁可不更新 -----------------------------------
 
     def test_ai6_a_package_that_changed_after_the_decision_is_not_installed(self):
