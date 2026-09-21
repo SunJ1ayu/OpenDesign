@@ -69,7 +69,8 @@ export default function LlmKeyCard({ initialStatus = null, onStatus }: Props) {
     let stale = false;
     const timer = window.setInterval(() => {
       tries += 1;
-      if (tries > 40) {
+      // 上限约 10 分钟:业主机器上网关冷启动见过近 4 分钟(第 2 轮残余:原来 2 分钟会早停)
+      if (tries > 200) {
         window.clearInterval(timer);
         return;
       }

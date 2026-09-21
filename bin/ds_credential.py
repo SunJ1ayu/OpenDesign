@@ -232,7 +232,7 @@ def models_status(cfg_path: str) -> dict:
     return out
 
 
-def select_model(cfg_path: str, model, provider=None) -> dict:
+def select_model(cfg_path: str, model, provider=None, home: str | None = None) -> dict:
     """把当前模型换成 `model`:写 agents.defaults.modelPreset(判据 lm2~lm6、v8)。
 
     - 只许**网关手里有 key 的厂商**目录里的 id(别家的 / 随便的串 / 空 ⇒ CredentialError,配置不动);
@@ -242,6 +242,8 @@ def select_model(cfg_path: str, model, provider=None) -> dict:
       (agent/loop.py _refresh_provider_snapshot → providers/factory.py load_provider_snapshot),下一句起生效。
       跨厂商也一样 —— 真网关实验 p2 / 判据 l1 证实下一句就换到另一家的端点和 key。
     配置读不出 ⇒ 拒绝,**不替业主建一份配置**。
+    给了 `home`(ds_web 总会给):业主亲手选的模型盖过之前留下的「想换过去」(第 2 轮 v18)——
+    否则自动重启没成、他手选了 MiMo,之后一重启又被旧标记拽回 DeepSeek。
     """
     if not isinstance(model, str) or not model.strip():
         raise CredentialError("没有指定要换成哪个模型")
@@ -290,6 +292,11 @@ def select_model(cfg_path: str, model, provider=None) -> dict:
         _atomic_write(cfg_path, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n")
     except OSError as exc:
         raise CredentialError(f"写不进去({exc.__class__.__name__}),请确认这台机器上这个文件夹可写") from None
+    if home:
+        try:
+            os.remove(_switch_marker_path(home))
+        except OSError:
+            pass
     return models_status(cfg_path)
 
 

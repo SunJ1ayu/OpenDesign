@@ -2947,7 +2947,8 @@ class Handler(BaseHTTPRequestHandler):
         cfg = os.environ.get("DS_NANOBOT_CONFIG", DEFAULT_NANOBOT_CONFIG)
         try:
             # provider 可缺省(老前端只发 model);新前端点哪一行就带哪一家(判据 pv2/v8)
-            out = ds_credential.select_model(cfg, body.get("model"), provider=body.get("provider"))
+            out = ds_credential.select_model(cfg, body.get("model"), provider=body.get("provider"),
+                                             home=os.path.expanduser("~"))
         except ds_credential.CredentialError as exc:
             self._json(400, {"error": str(exc)})
             return
@@ -2968,6 +2969,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": str(exc)})
             return
         out.pop("env_var", None)          # 给外壳用的,不必给浏览器
+        if not _has_shell():
+            out["vendors"] = []           # 与 GET 同一条规矩(第 1 轮 G3;第 2 轮补上保存回包这一侧)
         out["restart"] = ds_shell_bridge_restart()
         self._json(200, out)
 
