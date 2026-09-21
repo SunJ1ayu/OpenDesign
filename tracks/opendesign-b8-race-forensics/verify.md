@@ -84,7 +84,16 @@ node 461、e2e 41 PASS / 0 FAIL / 2 SKIP、死断言闸不报。
   |---|---|---|---|---|
   | 1 | 实质 | rc=3,BLOCK=0(PENDING=2:收据引用/裁决未写) | `panel-b8-forensics-20260921-0221` | 6 |
   | — | 基础设施(subkimi 403 周额度,rc=1;工具当轮自动补 subcursor,未另行派发) | 同上 | 同上 | 0 |
-  | 2 | 实质(核验第 1 轮修复清单;**预算用尽,这是最后一轮**) | rc=3,BLOCK=0(PENDING=2 同上) | `panel-b8-forensics-r2-20260921-0245` | 3(F8/F9/F10) |
+  | 2 | 实质(核验第 1 轮修复清单;**预算用尽**) | rc=3,BLOCK=0(PENDING=2 同上) | `panel-b8-forensics-r2-20260921-0245` | 3(F8/F9/F10) |
+  | 3 | **覆盖轮(不是第 3 轮实质评审)** | rc=3,BLOCK=0 | `panel-b8-forensics-r3-<ts>` | <待填> |
+
+  > 第 3 次派发的**具体理由**(4b ④ 要求派发前写明):第 2 轮的三条一次修完之后,
+  > 交付内容与第 2 轮 panel 绑定的那份不再一致,归档闸机械判 BLOCK
+  > (`qualifying same-run review bound to this delivery; rerun panel-review after content changes`)。
+  > **目的**:给修好之后的内容一个合格覆盖,顺带核验 F8/F9/F10 三条修复。
+  > **新的有限预算**:1 次派发,不为"再确认一下"续轮。
+  > 🔴 收尾决定 ≠ 归档资格:主裁写得再有理,也不会让旧覆盖重新有效 —— 这一轮是机械门,
+  > 不是我改了主意。
 
 - findings(**先处置、后动手**;一轮一份修复清单,一次修完再复审):
 
