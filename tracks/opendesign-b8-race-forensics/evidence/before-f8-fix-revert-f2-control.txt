@@ -1,0 +1,7 @@
+# 对照实验:把 F2 整个 revert 掉(_tool_out 不看 returncode),r2d-broken-ss 抓不抓得住?
+# 跑于 2026-09-21T03:09:33Z  commit=f97f4ed
+# 仓外副本=/tmp/b8-revf2-reUFcf [仓外不承重]
+# 变异:_tool_out 不再看 returncode(= 把 F2 revert 掉)
+===== r2d-broken-ss(变异树)=====
+
+# [r2d 第1/1遍] 结果=红 期望=红 形状=错 🔴 不符合预期:红错了断言,不该出现:'ss:这个端口上没有 LISTEN' (0.4s)

@@ -1,0 +1,40 @@
+# 红检 r2d-flaky-lsof  标签=before-f8-fix  commit=f97f4ed  源=658c33dde7150bebc42614415f3a22f39692c7dc  改动文件数=12
+# 跑于 2026-09-21T03:08:45Z  副本=/tmp/b8-redcheck-16B32w/work-r2d-flaky-lsof [仓外不承重]
+# 变异(r2d):_someone_ahead_of 恒 False + _scan 恒 None(两份都赢)  repo=/tmp/b8-redcheck-16B32w/work-r2d-flaky-lsof
+# ⚠️ 降级实验:lsof 换成坏货(ss 另外藏掉)
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... FAIL
+
+======================================================================
+FAIL: test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/b8-redcheck-16B32w/work-r2d-flaky-lsof/tests/test_ds_shell_core.py", line 524, in test_b8_two_instances_racing_at_the_same_moment_still_yield_one
+    self.assertEqual(
+AssertionError: 2 != 1 : 第 0 轮同时起两份,2 份认为自己是唯一实例:[{'acquired': True, 'port': 40923}, {'acquired': True, 'port': 40924}]
+锁位段 = [40923, 40928]  本轮子进程 pid=[3971578, 3971579]
+  · 段内有真 OpenDesign 锁应答的格子:[40923, 40924]
+  · 其中**不是本轮自己**的(=环境残留):没有
+  · 🔴 归属查不出的格子:[40923, 40924] —— ss 与 lsof 都没给出 pid,上面那行对这几格问不出答案。
+  · 40923: <ss:没装;lsof:rc=1 lsof: WARNING: can't stat() some file system>
+  · 40924: <ss:没装;lsof:rc=1 lsof: WARNING: can't stat() some file system>
+  · 40925: <ss:没装;lsof:rc=1 lsof: WARNING: can't stat() some file system>
+  · 40926: <ss:没装;lsof:rc=1 lsof: WARNING: can't stat() some file system>
+  · 40927: <ss:没装;lsof:rc=1 lsof: WARNING: can't stat() some file system>
+  · 40928: <ss:没装;lsof:rc=1 lsof: WARNING: can't stat() some file system>
+  · 本用例起过的子进程:
+      轮0实例0 pid=3971578 活着 读数={'acquired': True, 'port': 40923}
+      轮0实例1 pid=3971579 活着 读数={'acquired': True, 'port': 40924}
+  · 本轮实例0 stderr=''
+  · 本轮实例1 stderr=''
+
+怎么读这份现场:段内有归属查不出的应答者 ⇒ **先别下结论**:装上 ss 或 lsof(或用 root 跑)再来一遍。在那之前,分不出这是判据环境脏还是产品缺陷。
+
+----------------------------------------------------------------------
+Ran 1 test in 0.723s
+
+FAILED (failures=1)
+
+# [r2d 第1/1遍] 结果=红 期望=红 形状=错 🔴 不符合预期:该红在这条断言上却没有:'开出两个窗口' / 红错了断言,不该出现:'先别下结论' (0.8s)
+# rc=1

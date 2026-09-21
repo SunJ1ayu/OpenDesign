@@ -1,0 +1,136 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-b8-race-forensics",
+  "run_id": "20260921-110009-3964676-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-b8-race-forensics-r2",
+  "started_at": "2026-09-21T03:00:09Z",
+  "finished_at": "2026-09-21T03:05:54Z",
+  "duration_ms": 344550,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "submimo",
+        "degraded": false,
+        "duration_ms": 337535,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:05b20e3aaf60c87fecec29491b0f69175a9f9913787c7b515024acd3b40db08a",
+          "ref": "file:///root/aiwork/logs/panel-b8-forensics-r2-20260921-0245.submimo.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xiaomi",
+        "model": {
+          "invoked": "xiaomi/mimo-v2.5-pro",
+          "reported": null,
+          "requested": "xiaomi/mimo-v2.5-pro"
+        },
+        "name": "submimo",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260921-110009-3964676-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:cbab3c1f4c9e2592a1982ff9b15115ccc5d2c60b198bc13009fd5222ac28c4ea",
+            "policy_version": 1,
+            "track": "opendesign-b8-race-forensics"
+          },
+          "digest": "sha256:53e64655b9b028ebfe1666d1775c2dad713db9694ee0501914f9d778c9994f07",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "f97f4ed814e7eb5f3014030c35bfad55f0af04e6",
+            "index_tree_oid": "11c0232ca219dab3efcfcfd00e1f2b5390c78817",
+            "worktree_tree_oid": "11c0232ca219dab3efcfcfd00e1f2b5390c78817"
+          },
+          "task_sha256": "sha256:db806d427137fa27c8fd9039ea9b004b785c7885f772c887827ee919a572ea7f"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subcursor",
+        "degraded": false,
+        "duration_ms": 343289,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:332f043e092fecf0162f135403d69269c323dda25906915520c2b33daf39ed20",
+          "ref": "file:///root/aiwork/logs/panel-b8-forensics-r2-20260921-0245.subcursor.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xai",
+        "model": {
+          "invoked": "cursor-grok-4.6-high",
+          "reported": null,
+          "requested": "cursor-grok-4.6-high"
+        },
+        "name": "subcursor",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260921-110009-3964676-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:cbab3c1f4c9e2592a1982ff9b15115ccc5d2c60b198bc13009fd5222ac28c4ea",
+            "policy_version": 1,
+            "track": "opendesign-b8-race-forensics"
+          },
+          "digest": "sha256:53e64655b9b028ebfe1666d1775c2dad713db9694ee0501914f9d778c9994f07",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "f97f4ed814e7eb5f3014030c35bfad55f0af04e6",
+            "index_tree_oid": "11c0232ca219dab3efcfcfd00e1f2b5390c78817",
+            "worktree_tree_oid": "11c0232ca219dab3efcfcfd00e1f2b5390c78817"
+          },
+          "task_sha256": "sha256:db806d427137fa27c8fd9039ea9b004b785c7885f772c887827ee919a572ea7f"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

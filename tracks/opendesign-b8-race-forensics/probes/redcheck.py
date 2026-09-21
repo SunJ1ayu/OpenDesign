@@ -33,6 +33,12 @@
        "这两个是我自己",靠的是 `listener_pids`;它只认 `ss` 的 `pid=` 格式时,
        没装 ss 的机器上会把本轮自己算成"环境残留" ⇒ 把产品缺陷写成"判据环境脏"。
        修之前这条必然形状错(CLEAN_ENV 缺失),修之后与 r2d 同形。
+  R2d-flaky-lsof  同上,ss 藏掉,而 `lsof` 换成**有输出但 rc=1 且 stderr 有警告**的那种
+       (容器里常见:一边报 /proc 警告一边照常打印结果)。
+       🔴 钉的是"工具挂了"的判定别下得太宽:**有输出就是答案**,
+       把它按 rc 丢掉,取证就会在明明查得到的时候说"查不出"(第 2 轮外审 F8)。
+  R2d-broken-ss   同上,`ss` 换成 rc=1 + stderr 的坏货,`lsof` 是真的。
+       钉的是 F2 本身:一支工具挂掉不算答案,必须接着问下一支。
   R3   正常树 ⇒ 必须绿。
 
 变异只许打在**仓外副本**上(活仓零改动)。`--repo` 指向活仓且要求变异时本夹具拒绝跑。
@@ -68,12 +74,14 @@ NO_VERDICT = "先别下结论"                    # 承认之后的正确动作:
 SHAPES = {
     # case -> (必须出现, 不许出现)
     "r1":  ([PRE_GATE], [RACE_GATE]),
-    "r2a": ([RACE_GATE, CLEAN_ENV, ONE_WINDOW], [PRE_GATE, TWO_WINDOWS]),
-    "r2b": ([RACE_GATE, CLEAN_ENV, ONE_WINDOW], [PRE_GATE, TWO_WINDOWS]),
-    "r2c": ([RACE_GATE, CLEAN_ENV, ONE_WINDOW], [PRE_GATE, TWO_WINDOWS]),
+    # forbid 里的 NO_VERDICT:查得出归属的时候就得把型分出来,不许顺手也印一句
+    # "先别下结论" —— 那会让这个逃生口变成常驻(第 2 轮外审点的覆盖洞)。
+    "r2a": ([RACE_GATE, CLEAN_ENV, ONE_WINDOW], [PRE_GATE, TWO_WINDOWS, NO_VERDICT]),
+    "r2b": ([RACE_GATE, CLEAN_ENV, ONE_WINDOW], [PRE_GATE, TWO_WINDOWS, NO_VERDICT]),
+    "r2c": ([RACE_GATE, CLEAN_ENV, ONE_WINDOW], [PRE_GATE, TWO_WINDOWS, NO_VERDICT]),
     # 🔴 两份赢家红的那一刻**还在监听**,取证必须认出"这两个是我自己"(不是环境残留),
     # 而且结论句要落到"开出两个窗口"这一支上 —— 只钉 RACE_GATE 的话,说反话也算过。
-    "r2d": ([RACE_GATE, CLEAN_ENV, TWO_WINDOWS], [PRE_GATE, ONE_WINDOW]),
+    "r2d": ([RACE_GATE, CLEAN_ENV, TWO_WINDOWS], [PRE_GATE, ONE_WINDOW, NO_VERDICT]),
     "r3":  ([], []),
 }
 # 偷懒版探测**必须**被 r2c 骗到,否则这条对照实验就不成立(它证明的是
@@ -82,6 +90,15 @@ SHAPES_LAZY = {"r2c": ([PRE_GATE], [RACE_GATE])}
 # 一个 pid 都查不到时:承认查不出、别下分型结论 —— 两支结论句都不许出现。
 SHAPES_NOTOOLS = {"r2d": ([RACE_GATE, UNKNOWN_OWNER, NO_VERDICT],
                           [PRE_GATE, TWO_WINDOWS, ONE_WINDOW])}
+# 工具能给出答案的降级路径(lsof 带警告):**必须照常分型**,不许退化成"查不出"。
+# 形状与正常的 r2d 完全一样。
+SHAPES_TOOL_OK = {"r2d": SHAPES["r2d"]}
+# 坏掉的 ss:分型照常(靠 lsof),**而且那句假话不许出现** ——
+# 🔴 只钉分型的话这条是空转的:`listener_pids` 本来就会落到 lsof,
+# 把 F2 整个 revert 掉它照样"形状=对"。真正会退化的是**打印给人看的那一行**:
+# 端口上明明有人,who_listens 却说"这个端口上没有 LISTEN"。所以锚点钉在那句话上。
+SS_LIE = "ss:这个端口上没有 LISTEN"
+SHAPES_BROKEN_SS = {"r2d": (SHAPES["r2d"][0], SHAPES["r2d"][1] + [SS_LIE])}
 
 LIVE_REPO = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
 TEST_NAME = "test_b8_two_instances_racing_at_the_same_moment_still_yield_one"
@@ -134,8 +151,16 @@ def mutate(repo: str, case: str) -> str:
             "r2c": "_send_show 恒返回 True(任何端口都被当成另一份 OpenDesign)"}[case]
 
 
+FLAKY_LSOF = ("lsof", "#!/bin/sh\n"
+              "out=$(/usr/bin/lsof \"$@\" 2>/dev/null)\n"
+              "echo \"lsof: WARNING: can't stat() some file system\" >&2\n"
+              "[ -n \"$out\" ] && echo \"$out\"\n"
+              "exit 1\n")
+BROKEN_SS = ("ss", "#!/bin/sh\necho \"ss: something went wrong\" >&2\nexit 1\n")
+
+
 def run_case(repo: str, case: str, lazy_probe: bool = False,
-             hide_tools: tuple = ()) -> tuple[bool, str]:
+             hide_tools: tuple = (), fake_tool=None) -> tuple[bool, str]:
     sys.path.insert(0, os.path.join(repo, "tests"))
     sys.path.insert(0, os.path.join(repo, "bin"))
     import test_ds_shell_core as T
@@ -143,8 +168,34 @@ def run_case(repo: str, case: str, lazy_probe: bool = False,
     squatter = None
     patcher = None
     lazy = None
+    faked = None
+    if fake_tool:
+        # 造一个坏工具丢进 PATH 之外的临时目录,再把 which 指过去。
+        # 两种坏法在真机上都真实存在:
+        #   flaky-lsof —— 有匹配照常打印,但 rc=1 且 stderr 有警告(容器里的 /proc 警告)
+        #   broken-ss  —— 彻底跑不出东西:rc=1 + stderr,stdout 空
+        tmpd = tempfile.mkdtemp(prefix="b8-faketool-")
+        name, script = fake_tool
+        path_ = os.path.join(tmpd, name)
+        with open(path_, "w", encoding="utf-8") as fh:
+            fh.write(script)
+        os.chmod(path_, 0o755)
+        import shutil as _sh2
+        _rw = _sh2.which
+
+        def _which_fake(cmd, *a, **k):
+            if cmd == name:
+                return path_
+            if cmd in hide_tools:
+                return None
+            return _rw(cmd, *a, **k)
+
+        faked = mock.patch.object(_sh2, "which", _which_fake)
+        faked.start()
+        print(f"# ⚠️ 降级实验:{name} 换成坏货({'/'.join(hide_tools) or '无'} 另外藏掉)")
+
     hidden = None
-    if hide_tools:
+    if hide_tools and not fake_tool:
         # 把点名的工具从判据眼里藏掉 —— 模拟没装它们的机器(容器里很常见)。
         # 只挡点名的那几个,别的 which 照常。
         import shutil as _sh
@@ -195,6 +246,8 @@ def run_case(repo: str, case: str, lazy_probe: bool = False,
         res = unittest.TextTestRunner(stream=buf, verbosity=2).run(suite)
         return res.wasSuccessful(), buf.getvalue()
     finally:
+        if faked:
+            faked.stop()
         if hidden:
             hidden.stop()
         if lazy:
@@ -246,6 +299,12 @@ def main():
                     help="把 b8 的前置探测换成**偷懒版**(复用产品自己的 _send_show)。"
                          "对照实验:证明'探测必须独立'不是我嘴上说的 —— 配 r2c 跑,"
                          "偷懒版会被变异骗到,红在前置断言(把产品缺陷说成环境脏)。")
+    ap.add_argument("--flaky-lsof", action="store_true",
+                    help="ss 藏掉,lsof 换成'有输出但 rc=1 且 stderr 有警告'的那种。"
+                         "取证必须照常认出自己 —— 有输出就是答案,别按 rc 丢掉。")
+    ap.add_argument("--broken-ss", action="store_true",
+                    help="ss 换成 rc=1 + stderr 的坏货(lsof 是真的)。"
+                         "一支工具挂掉不算答案,必须接着问下一支。")
     ap.add_argument("--no-tools", action="store_true",
                     help="把 `ss` 和 `lsof` 都藏掉 ⇒ 一个 pid 都查不到。配 r2d 跑:"
                          "取证必须承认'归属查不出'并**先别下结论**,"
@@ -267,11 +326,23 @@ def main():
     expect_red = a.case in ("r1", "r2a", "r2b", "r2c", "r2d")
     if a.no_ss and a.no_tools:
         raise SystemExit("--no-ss 与 --no-tools 二选一(后者已经包含前者)")
-    hide = ("ss", "lsof") if a.no_tools else (("ss",) if a.no_ss else ())
-    shapes = SHAPES_NOTOOLS if a.no_tools else (SHAPES_LAZY if a.lazy_probe else SHAPES)
+    if sum([a.no_ss, a.no_tools, a.flaky_lsof, a.broken_ss]) > 1:
+        raise SystemExit("--no-ss / --no-tools / --flaky-lsof / --broken-ss 只能选一个")
+    hide = ("ss", "lsof") if a.no_tools else (("ss",) if (a.no_ss or a.flaky_lsof) else ())
+    fake = FLAKY_LSOF if a.flaky_lsof else (BROKEN_SS if a.broken_ss else None)
+    if a.no_tools:
+        shapes = SHAPES_NOTOOLS
+    elif a.flaky_lsof:
+        shapes = SHAPES_TOOL_OK
+    elif a.broken_ss:
+        shapes = SHAPES_BROKEN_SS
+    elif a.lazy_probe:
+        shapes = SHAPES_LAZY
+    else:
+        shapes = SHAPES
     for i in range(a.repeat):
         t0 = time.time()
-        ok, out = run_case(repo, a.case, a.lazy_probe, hide)
+        ok, out = run_case(repo, a.case, a.lazy_probe, hide, fake)
         verdict = "绿" if ok else "红"
         want = "红" if expect_red else "绿"
         bad = []
