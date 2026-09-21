@@ -1,0 +1,31 @@
+# 红检 r1  标签=after-gate-shape  commit=a205077  源=b7f38ab093225e27bef4a3e1222af32fe3c15dbd  改动文件数=3
+# 跑于 2026-09-21T01:46:12Z  副本=/tmp/b8-redcheck-WYOZ2W/work-r1 [仓外不承重]
+# 无变异(r1)  repo=/tmp/b8-redcheck-WYOZ2W/work-r1
+# R1 占位端口=53877 ⇒ b8 的 base 被打桩成 53874,段=[53874,53879]
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... FAIL
+
+======================================================================
+FAIL: test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/b8-redcheck-WYOZ2W/work-r1/tests/test_ds_shell_core.py", line 441, in test_b8_two_instances_racing_at_the_same_moment_still_yield_one
+    self.assertEqual(
+AssertionError: Lists differ: [53877] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+53877
+
+- [53877]
++ [] : 第 0 轮开轮前,锁位段 [53874, 53879] 里已经有真 OpenDesign 锁在应答:[53877] ⇒ **判据环境脏,不是产品缺陷**。
+  · 53877: LISTEN 0 8 127.0.0.1:53877 0.0.0.0:* users:(("python",pid=3528321,fd=3))
+
+----------------------------------------------------------------------
+Ran 1 test in 0.018s
+
+FAILED (failures=1)
+
+# [r1 第1/1遍] 结果=红 期望=红 形状=对 符合预期 (0.1s)
+# rc=0

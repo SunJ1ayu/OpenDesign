@@ -279,6 +279,17 @@ class SingleInstance(unittest.TestCase):
         except (ValueError, OSError) as e:
             return f"<读不到 stderr:{e!r}>"
 
+    def dirty_segment_report(self, round_no, base, span, squatters) -> str:
+        """前置断言红的那一刻:段里坐着的是谁。
+
+        与 `race_forensics` 分开写,是因为这两条红的**处置完全相反** ——
+        这一条说的是判据环境脏(段内有真锁时两份都让位是产品**对的**行为),
+        那一条才是产品缺陷。分开也让断言自己能留在语句位上(死断言闸看得见)。
+        """
+        return (f"第 {round_no} 轮开轮前,锁位段 [{base}, {base + span}] 里已经有真 "
+                f"OpenDesign 锁在应答:{squatters} ⇒ **判据环境脏,不是产品缺陷**。"
+                + "".join(f"\n  · {q}: {who_listens(q)}" for q in squatters))
+
     def race_forensics(self, round_no, base, span, got, procs) -> str:
         """b8 红的那一刻:把现场打出来,让这条红**当场分型**。
 
@@ -422,11 +433,14 @@ class SingleInstance(unittest.TestCase):
             # 两份都会让位,而那是产品**对的**行为,错的是环境。
             # `free_port()` 只保证 base 这一格空,段里另外五格是谁的、没人管过。
             squatters = lock_responders_in(base, span)
-            if squatters:
-                self.fail(
-                    f"第 {round_no} 轮开轮前,锁位段 [{base}, {base + span}] 里已经有真 "
-                    f"OpenDesign 锁在应答:{squatters} ⇒ **判据环境脏,不是产品缺陷**。"
-                    + "".join(f"\n  · {q}: {who_listens(q)}" for q in squatters))
+            # 🔴 断言得**留在语句位上**。写成 `if squatters: self.fail(…)` 的话,
+            # 环境干净时这句一次都不执行 ⇒ 死断言闸只看得见"它从没被问出口",
+            # 而闸正是为了防「断言在那儿却问不出东西」而存在的
+            # (2026-09-21 T4 全量回归当场红在这:tests/dead_assertions.py)。
+            # 取证很贵(要探 6 格 + 调 ss),所以消息走三元:只在脏的时候才算。
+            self.assertEqual(
+                squatters, [],
+                self.dirty_segment_report(round_no, base, span, squatters) if squatters else "")
             go = self.marker.parent / f"发令枪{round_no}"
             procs = [subprocess.Popen(
                 [sys.executable, "-c", LOCK_CHILD, BIN, str(base), str(span),
@@ -439,14 +453,20 @@ class SingleInstance(unittest.TestCase):
             got = []
             for i, p in enumerate(procs):
                 line = p.stdout.readline()
-                if not line.strip():
-                    self.fail(f"实例没吭声就退了;stderr={self.drain_stderr(p)}")
+                # 同上,留在语句位。stderr 只在真没吭声时才读:`drain_stderr` 会先 kill,
+                # 而正常路径上赢家必须活到输家那一行读完(2026-08-13 卡死两分钟的坑)。
+                self.assertTrue(
+                    line.strip(),
+                    f"实例没吭声就退了;stderr={self.drain_stderr(p)}" if not line.strip() else "")
                 r = json.loads(line)
                 got.append(r)
                 self._spawned.append((f"轮{round_no}实例{i}", p, r))
             winners = [r for r in got if r["acquired"]]
-            if len(winners) != 1:
-                self.fail(self.race_forensics(round_no, base, span, got, procs))
+            # 同上:断言留在语句位,现场只在红的那一刻才取(取证会 kill 子进程)。
+            self.assertEqual(
+                len(winners), 1,
+                self.race_forensics(round_no, base, span, got, procs)
+                if len(winners) != 1 else "")
             # 本轮读完就收。赢家 `sleep(120)` 的存在理由只是"读输家那一行时它得还活着";
             # 留着不收,它就会落进后面某一轮的锁位段,把那一轮变成上面那种脏环境 ——
             # 探针 probes/crossround.py 的 E3 轮5 当场抓到过现行。

@@ -14,10 +14,11 @@
 tests/test_ws_protocol_smoke.py :: assert {"delta", "stream_end", "turn_end"} <= seen, seen  # 只在 DS_SMOKE_LLM=1 时才跑的完整消息链(默认不烧 LLM)
 tests/test_ws_protocol_smoke.py :: self.assertEqual(st2, 200)  # bootstrap token 恰好过期时才走的补签分支,正常跑不到
 
-# 这两条不是"问不出东西的断言",是**报错分支本身** —— 子进程没吐出第一行时才走,
+# 这一条不是"问不出东西的断言",是**报错分支本身** —— 子进程没吐出第一行时才走,
 # 而实现正常时它本来就不该被执行。
+# (b8 那条同款的 2026-09-21 已从清单里**拿掉**:它改回了语句位上的 assertTrue,
+#  消息走三元 ⇒ 断言每轮都真跑,不再需要放行。清单只减不增才是它该有的方向。)
 tests/test_ds_shell_core.py :: self.fail(f"第一个实例没吭声就退了;stderr={p.stderr.read()[:800]}")  # 单实例锁:第一个实例没吭声就退了才走这句,正常跑不到
-tests/test_ds_shell_core.py :: self.fail(f"实例没吭声就退了;stderr={p.stderr.read()[:500]}")  # 同上(唤醒握手那组的同一条报错分支)
 
 # c2 的兜底断言 —— 实现正确时 data_root() 一定抛 DataRootError,于是 except 分支 return,
 # 这句永远不执行。它守的是"万一将来有人把抛错改成返回值,也不许返回安装目录"。
