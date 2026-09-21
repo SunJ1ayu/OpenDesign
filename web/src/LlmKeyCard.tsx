@@ -61,6 +61,7 @@ export default function LlmKeyCard({ initialStatus = null, onStatus }: Props) {
   }, [onStatus]);
 
   const selected = status?.providers.find((p) => p.id === provider) ?? null;
+  const selectedVendor = status?.vendors.find((v) => v.id === provider) ?? null;
   // 被环境变量遮蔽 ⇒ 这一格在这个界面里改不动(后端也会拒绝,见 ds_credential.save)。
   // 提前变只读,业主就不用填一次才知道 —— 形状来自 DSH 的 describe().writable。
   const shadowed = status?.writable === false;
@@ -175,7 +176,10 @@ export default function LlmKeyCard({ initialStatus = null, onStatus }: Props) {
             autoComplete="off"
             placeholder={shadowed
               ? "这台机器的 key 由环境变量提供"
-              : status?.configured ? "粘贴新 key 可覆盖当前配置" : "粘贴 API key"}
+              : selectedVendor
+                // 多家各存各的:只说「这一家」,别说「覆盖当前配置」(存 DeepSeek 不会动 MiMo 那把)
+                ? (selectedVendor.configured ? "粘贴新 key,替换这一家现在的 key" : "粘贴这一家的 API key")
+                : status?.configured ? "粘贴新 key 可覆盖当前配置" : "粘贴 API key"}
             disabled={loading || saving || shadowed}
           />
         </label>
