@@ -54,6 +54,15 @@
       "include": "build/installer.nsh",
       "artifactName": "OpenDesign-${version}-electron-setup.${ext}",
       "warningsAsErrors": false
-    }
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "http://127.0.0.1:8900/"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "6.8.9"
   }
 }

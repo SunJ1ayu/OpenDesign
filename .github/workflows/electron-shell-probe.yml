@@ -3,6 +3,8 @@
 # E1 构建:electron-builder 把 Electron 外壳 + 免装 Python(现有组包流水线产出)打成 NSIS 安装包,量大小与耗时。
 # E3 过渡:真装旧版 0.98.x、在托盘里跑着 → 静默装新包 → 核目录/卸载项/资料/开机自启/桌面图标。
 # E2 起窗:Playwright 把装好的新版真跑起来,点三个按钮、关窗进托盘、再双击叫回、退出、硬杀主进程。
+# E4 更新:再造一版 0.98.11,替身更新源(本机 http,支持单段 Range)上放它;0.98.10 在后台跑着时
+#         经 electron-updater 下载并装上,量实际下载字节(增量省多少)。
 # 绿只代表探针跑完且机器能判的那几条过了;截图由主 agent 看。
 #
 # 跑法:推到 ci-electron/** 分支。⚠️ 前缀故意不是 ci-probe/**(那会顺带触发另外两支探针)。
@@ -72,15 +74,29 @@ jobs:
           Get-ChildItem dist\*.exe | ForEach-Object { "E1 安装包 $($_.Name) $([math]::Round($_.Length/1MB,1)) MB" }
           $u = Get-ChildItem dist\win-unpacked -Recurse -File
           "E1 解开后 $($u.Count) 个文件 / $([math]::Round(($u | Measure-Object Length -Sum).Sum/1MB,1)) MB"
+          Move-Item dist dist-v1
 
-      - name: E3 过渡 + E2 起窗
+      - name: E4 准备:再造一版 0.98.11,摆进替身更新源目录
+        working-directory: tracks/opendesign-electron-shell/spike/app
+        run: |
+          npm pkg set version=0.98.11
+          npx electron-builder --win nsis --x64 --publish never
+          if ($LASTEXITCODE) { throw "electron-builder(v2) rc=$LASTEXITCODE" }
+          New-Item -ItemType Directory -Force upd | Out-Null
+          Copy-Item dist\latest.yml, dist\*.exe, dist\*.blockmap upd\
+          Copy-Item dist-v1\*.blockmap upd\
+          Get-ChildItem upd | ForEach-Object { "  upd\$($_.Name) $($_.Length)" }
+          Get-Content upd\latest.yml
+
+      - name: E3 过渡 + E2 起窗 + E4 更新
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $setup = (Get-ChildItem tracks\opendesign-electron-shell\spike\app\dist\*.exe | Select-Object -First 1).FullName
+          $setup = (Get-ChildItem tracks\opendesign-electron-shell\spike\app\dist-v1\*.exe | Select-Object -First 1).FullName
           .\tracks\opendesign-electron-shell\spike\probe\electron-shell-probe.ps1 `
             -NewSetup $setup `
             -AppDir (Resolve-Path tracks\opendesign-electron-shell\spike\app).Path `
+            -UpdDir (Resolve-Path tracks\opendesign-electron-shell\spike\app\upd).Path `
             -OutDir probe-out
 
       - name: 把图和日志交出来

@@ -139,14 +139,23 @@ const winState = (app) =>
 }
 
 // ---------------------------------------------------------------- 第二轮:Electron 主进程被硬杀
+// 第一跑(run 35622694746)这里的 taskkill 没杀掉主进程 ⇒ 场景根本没发生,那条 FAIL 是量具坏了。
+// 现在:主进程 pid 问 Electron 自己要;先确认它**真的没了**,再去看管家与后台。
 {
   const { app } = await launchReady("第二轮");
   await sleep(1500);
-  const pid = app.process().pid;
-  console.log(`  硬杀前:${procsUnderInstall()}`);
-  spawnSync("taskkill", ["/F", "/PID", String(pid)]);
+  const pid = await app.evaluate(() => process.pid);
+  console.log(`  硬杀前(主进程 ${pid}):${procsUnderInstall()}`);
+  const tk = spawnSync("taskkill", ["/F", "/PID", String(pid)], { encoding: "utf8" });
+  console.log(`  taskkill rc=${tk.status} ${(tk.stdout || "").trim()} ${(tk.stderr || "").trim()}`);
+  let gone = false;
+  for (let i = 0; i < 20 && !gone; i++) {
+    await sleep(500);
+    gone = !procsUnderInstall().split(", ").some((x) => x.startsWith(`${pid} `));
+  }
+  V("E2.crash 量具:主进程确实被杀掉了", gone, `pid ${pid}`);
   const { left, ms } = await waitNoProcs(30000);
-  V("E2.crash 硬杀 Electron 主进程后,管家与后台 30 秒内都收掉", !left, left ? `还剩:${left}` : `${ms}ms`);
+  V("E2.crash 硬杀 Electron 主进程后,管家与后台 30 秒内都收掉", gone && !left, left ? `还剩:${left}` : `${ms}ms`);
   if (left) {
     spawnSync("pwsh", ["-NoProfile", "-Command", `Get-CimInstance Win32_Process | ? { $_.ExecutablePath -like '${installDir}\\*' } | % { Stop-Process -Id $_.ProcessId -Force }`]);
   }

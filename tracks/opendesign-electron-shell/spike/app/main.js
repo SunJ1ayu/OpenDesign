@@ -151,6 +151,7 @@ function onHostLine(line) {
   if (m.event === "ready") {
     webUrl = `http://127.0.0.1:${m.web_port}/?shell=1`;
     win.loadURL(webUrl);
+    maybeCheckUpdate();
   } else if (m.event === "show") {
     showWindow();
   } else if (m.event === "quit") {
@@ -183,6 +184,49 @@ function quitAll() {
       /* ignore */
     }
     done();
+  }, 15000);
+}
+
+// ---------------------------------------------------------------- E4 更新器探路
+// 只在环境变量 OD_SPIKE_UPDATE=1 时查(探针设它;安装器装完重新拉起的那一份不带它 ⇒ 不会循环更新)。
+// 更新源是构建时写进 app-update.yml 的 generic 地址(探针里的替身服务器)。
+let updating = false;
+function maybeCheckUpdate() {
+  if (process.env.OD_SPIKE_UPDATE !== "1") return;
+  const { autoUpdater } = require("electron-updater");
+  autoUpdater.logger = { info: (m) => log(`[更新] ${m}`), warn: (m) => log(`[更新] ⚠ ${m}`), error: (m) => log(`[更新] ✗ ${m}`), debug: () => {} };
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.on("update-downloaded", (info) => {
+    log(`[更新] 下好了 ${info.version}`);
+    installUpdate(autoUpdater);
+  });
+  autoUpdater.on("error", (e) => log(`[更新] 出错 ${e && e.stack ? e.stack : e}`));
+  log(`[更新] 查更新(当前 ${app.getVersion()})`);
+  autoUpdater.checkForUpdates().catch((e) => log(`[更新] checkForUpdates 抛了 ${e}`));
+}
+
+// 先让管家把后台收干净,再把位置让给安装器(挑战腿 #1 #16;ZCode autoUpdater.ts:441 同一件事)。
+function installUpdate(autoUpdater) {
+  if (updating) return;
+  updating = true;
+  quitting = true;
+  const go = () => {
+    log("[更新] 管家已收摊,交给安装器");
+    autoUpdater.quitAndInstall(true, true);
+  };
+  if (!host || host.exitCode !== null) return go();
+  host.once("exit", go);
+  try {
+    host.stdin.end();
+  } catch {
+    /* 已经断了 */
+  }
+  setTimeout(() => {
+    if (host.exitCode === null) {
+      log("[更新] 管家 15 秒没走完,强杀后照装(安装器那一侧还会再收一遍)");
+      try { host.kill(); } catch { /* ignore */ }
+    }
   }, 15000);
 }
 

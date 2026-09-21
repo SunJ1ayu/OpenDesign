@@ -11,6 +11,8 @@ param(
     [string]$OldAsset = "OpenDesign-Setup-0.98.8.exe",
     [Parameter(Mandatory)][string]$NewSetup,
     [Parameter(Mandatory)][string]$AppDir,
+    [string]$UpdDir   = "",          # E4:放 v2 的 latest.yml / 安装包 / blockmap(+ v1 的 blockmap)的目录;空 = 跳过 E4
+    [string]$NewVer   = "0.98.11",
     [string]$OutDir   = "probe-out"
 )
 $ErrorActionPreference = 'Stop'
@@ -129,6 +131,43 @@ node e2-drive.mjs "$Dir\OpenDesign.exe" $OutDir
 $e2 = $LASTEXITCODE
 Pop-Location
 V 'E2 起窗探针整体' ($e2 -eq 0) "e2-drive.mjs rc=$e2(逐条见上)"
+
+# ---------------------------------------------------------------- E4 自动更新(electron-updater)
+if ($UpdDir) {
+    "== E4 v1 → $NewVer:后台在跑时下载并安装"
+    $serveLog = Join-Path $OutDir 'e4-serve.log'
+    $srv = Start-Process node -ArgumentList @((Join-Path $PSScriptRoot 'serve.mjs'), $UpdDir, '8900', $serveLog) -PassThru -WindowStyle Hidden
+    Start-Sleep -Seconds 2
+    Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like "$Dir\*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    $v1 = (Get-Item "$Dir\OpenDesign.exe").VersionInfo.ProductVersion
+    $env:OD_SPIKE_UPDATE = '1'
+    Start-Process "$Dir\OpenDesign.exe" | Out-Null
+    Remove-Item Env:\OD_SPIKE_UPDATE
+    $sw = [Diagnostics.Stopwatch]::StartNew(); $ver = $v1
+    while ($sw.Elapsed.TotalMinutes -lt 8) {
+        Start-Sleep -Seconds 5
+        try { $ver = (Get-Item "$Dir\OpenDesign.exe" -ErrorAction Stop).VersionInfo.ProductVersion } catch { $ver = '(读不到:正在换文件?)' }
+        if ($ver -like "$NewVer*") { break }
+    }
+    "  exe 版本 $v1 → $ver,$([int]$sw.Elapsed.TotalSeconds)s"
+    V 'E4.version 装上了新版' ($ver -like "$NewVer*") "$ver"
+    $h = WaitHealth 240
+    V 'E4.relaunch 装完自己重新打开、后台应答' ([bool]$h) "$h"
+    "  更新后进程:$(ProcsUnder $Dir)"
+    Shot 'e4-01-after-update'
+    $ents = UninstallEntries
+    V 'E4.newkey 更新后「应用和功能」里仍只有一个 OpenDesign' ($ents.Count -eq 1) "$($ents -join ' ; ')"
+    V 'E4.dir 仍在原目录、没另装一份' (-not (Test-Path "$env:LOCALAPPDATA\Programs\OpenDesign\OpenDesign.exe")) ""
+    foreach ($m in $marks) {
+        V "E4.data 资料原样:$(Split-Path $m -Leaf)" ((Test-Path $m) -and ((Get-FileHash $m).Hash -eq $before[$m])) $m
+    }
+    $full = (Get-ChildItem $UpdDir -Filter "*$NewVer*.exe" | Select-Object -First 1).Length
+    $sent = 0; Get-Content $serveLog | ForEach-Object { if ($_ -match '\.exe .* sent=(\d+)$') { $sent += [int64]$Matches[1] } }
+    "  E4 实际下载 $([math]::Round($sent/1MB,1)) MB / 整包 $([math]::Round($full/1MB,1)) MB($([math]::Round(100.0*$sent/[math]::Max($full,1),1))%)"
+    "  ---- 替身服务器请求 ----"; Get-Content $serveLog | Select-Object -First 60 | ForEach-Object { "    $_" }
+    Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like "$Dir\*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    Stop-Process -Id $srv.Id -Force -ErrorAction SilentlyContinue
+}
 
 # ---------------------------------------------------------------- 收尾:日志
 New-Item -ItemType Directory -Force -Path "$OutDir\logs" | Out-Null
