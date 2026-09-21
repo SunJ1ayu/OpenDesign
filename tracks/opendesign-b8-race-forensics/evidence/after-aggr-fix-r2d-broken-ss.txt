@@ -1,0 +1,39 @@
+# 红检 r2d-broken-ss  标签=after-aggr-fix  commit=afc1b8c  源=7d89159e27091c802291a26c845a595979c6a102  改动文件数=16
+# 跑于 2026-09-21T03:37:21Z  副本=/tmp/b8-redcheck-WVyEuQ/work-r2d-broken-ss [仓外不承重]
+# 变异(r2d):_someone_ahead_of 恒 False + _scan 恒 None(两份都赢)  repo=/tmp/b8-redcheck-WVyEuQ/work-r2d-broken-ss
+# ⚠️ 降级实验:ss 换成坏货(无 另外藏掉)
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... FAIL
+
+======================================================================
+FAIL: test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/b8-redcheck-WVyEuQ/work-r2d-broken-ss/tests/test_ds_shell_core.py", line 538, in test_b8_two_instances_racing_at_the_same_moment_still_yield_one
+    self.assertEqual(
+AssertionError: 2 != 1 : 第 0 轮同时起两份,2 份认为自己是唯一实例:[{'acquired': True, 'port': 38996}, {'acquired': True, 'port': 38995}]
+锁位段 = [38995, 39000]  本轮子进程 pid=[4034892, 4034893]
+  · 段内有真 OpenDesign 锁应答的格子:[38995, 38996]
+  · 其中**不是本轮自己**的(=环境残留):没有
+  · 38995: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME python 4034893 root 3u IPv4 625986588 0t0 TCP 127.0.0.1:38995 (LISTEN)
+  · 38996: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME python 4034892 root 3u IPv4 625986018 0t0 TCP 127.0.0.1:38996 (LISTEN)
+  · 38997: <lsof:这个端口上没有 LISTEN>
+  · 38998: <lsof:这个端口上没有 LISTEN>
+  · 38999: <lsof:这个端口上没有 LISTEN>
+  · 39000: <lsof:这个端口上没有 LISTEN>
+  · 本用例起过的子进程:
+      轮0实例0 pid=4034892 活着 读数={'acquired': True, 'port': 38996}
+      轮0实例1 pid=4034893 活着 读数={'acquired': True, 'port': 38995}
+  · 本轮实例0 stderr=''
+  · 本轮实例1 stderr=''
+
+怎么读这份现场:上面「环境残留」非空 ⇒ **判据环境脏**,这一轮读数不可信;空的却又不是恰好 1 份赢 ⇒ **产品缺陷**(业主双击两下,开出两个窗口)。
+
+----------------------------------------------------------------------
+Ran 1 test in 0.502s
+
+FAILED (failures=1)
+
+# [r2d 第1/1遍] 结果=红 期望=红 形状=对 符合预期 (0.6s)
+# rc=0

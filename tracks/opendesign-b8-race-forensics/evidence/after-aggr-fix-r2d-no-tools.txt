@@ -1,0 +1,40 @@
+# 红检 r2d-no-tools  标签=after-aggr-fix  commit=afc1b8c  源=7d89159e27091c802291a26c845a595979c6a102  改动文件数=14
+# 跑于 2026-09-21T03:37:12Z  副本=/tmp/b8-redcheck-WVyEuQ/work-r2d-no-tools [仓外不承重]
+# 变异(r2d):_someone_ahead_of 恒 False + _scan 恒 None(两份都赢)  repo=/tmp/b8-redcheck-WVyEuQ/work-r2d-no-tools
+# ⚠️ 降级实验:判据眼里没有 ss/lsof
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... FAIL
+
+======================================================================
+FAIL: test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/b8-redcheck-WVyEuQ/work-r2d-no-tools/tests/test_ds_shell_core.py", line 538, in test_b8_two_instances_racing_at_the_same_moment_still_yield_one
+    self.assertEqual(
+AssertionError: 2 != 1 : 第 0 轮同时起两份,2 份认为自己是唯一实例:[{'acquired': True, 'port': 46904}, {'acquired': True, 'port': 46903}]
+锁位段 = [46903, 46908]  本轮子进程 pid=[4034782, 4034783]
+  · 段内有真 OpenDesign 锁应答的格子:[46903, 46904]
+  · 其中**不是本轮自己**的(=环境残留):没有
+  · 🔴 归属查不出的格子:[46903, 46904] —— ss 与 lsof 都没给出 pid,上面那行对这几格问不出答案。
+  · 46903: <ss:没装;lsof:没装>
+  · 46904: <ss:没装;lsof:没装>
+  · 46905: <ss:没装;lsof:没装>
+  · 46906: <ss:没装;lsof:没装>
+  · 46907: <ss:没装;lsof:没装>
+  · 46908: <ss:没装;lsof:没装>
+  · 本用例起过的子进程:
+      轮0实例0 pid=4034782 活着 读数={'acquired': True, 'port': 46904}
+      轮0实例1 pid=4034783 活着 读数={'acquired': True, 'port': 46903}
+  · 本轮实例0 stderr=''
+  · 本轮实例1 stderr=''
+
+怎么读这份现场:段内有归属查不出的应答者 ⇒ **先别下结论**:装上 ss 或 lsof(或用 root 跑)再来一遍。在那之前,分不出这是判据环境脏还是产品缺陷。
+
+----------------------------------------------------------------------
+Ran 1 test in 0.311s
+
+FAILED (failures=1)
+
+# [r2d 第1/1遍] 结果=红 期望=红 形状=对 符合预期 (0.4s)
+# rc=0

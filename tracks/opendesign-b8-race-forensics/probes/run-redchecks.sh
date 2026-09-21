@@ -31,7 +31,11 @@ for c in r1 r2a r2b r2c r2c-lazy r2d r2d-no-ss r2d-no-tools r2d-flaky-lsof r2d-b
     echo "# rc=$?"
   } > "$f" 2>&1
   tail -2 "$f" | head -1
-  grep -q "rc=0" "$f" || rc_all=1
+  # 🔴 **行首锚定**:r2a/r2b/r2c 的取证正文里印着子进程状态「已退 rc=0」,
+  # 松匹配会命中它 ⇒ 一条形状错的情景照样被读成过 ⇒ 整套报「全套 rc=0」。
+  # 这是本单自己造出来的假绿(6e68970 引入),覆盖轮当场用变异坐实:
+  # evidence/before-aggr-fix-grep-probe.txt。判据的判据被自己的输出骗了。
+  grep -q '^# rc=0' "$f" || rc_all=1
 done
 echo "== 全套 rc=$rc_all (0=每条都符合预期)"
 exit $rc_all

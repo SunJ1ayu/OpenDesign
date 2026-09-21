@@ -152,7 +152,11 @@ def mutate(repo: str, case: str) -> str:
 
 
 FLAKY_LSOF = ("lsof", "#!/bin/sh\n"
-              "out=$(/usr/bin/lsof \"$@\" 2>/dev/null)\n"
+              # 真 lsof 的位置自己查(Debian 在 /usr/bin,别的发行版可能在 /usr/sbin)。
+              # 硬编码路径换台机器就只剩"没输出+rc=1",这个情景会退化成 no-tools 的形状
+              # ⇒ 夹具当场红(fail-closed,不是假绿),但那是噪音,不如查一下。
+              "real=$(command -v -p lsof 2>/dev/null || command -v lsof 2>/dev/null)\n"
+              "out=$(\"${real:-lsof}\" \"$@\" 2>/dev/null)\n"
               "echo \"lsof: WARNING: can't stat() some file system\" >&2\n"
               "[ -n \"$out\" ] && echo \"$out\"\n"
               "exit 1\n")

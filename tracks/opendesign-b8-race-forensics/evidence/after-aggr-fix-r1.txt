@@ -1,0 +1,31 @@
+# 红检 r1  标签=after-aggr-fix  commit=afc1b8c  源=7d89159e27091c802291a26c845a595979c6a102  改动文件数=7
+# 跑于 2026-09-21T03:36:56Z  副本=/tmp/b8-redcheck-WVyEuQ/work-r1 [仓外不承重]
+# 无变异(r1)  repo=/tmp/b8-redcheck-WVyEuQ/work-r1
+# R1 占位端口=56337 ⇒ b8 的 base 被打桩成 56334,段=[56334,56339]
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... FAIL
+
+======================================================================
+FAIL: test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/b8-redcheck-WVyEuQ/work-r1/tests/test_ds_shell_core.py", line 513, in test_b8_two_instances_racing_at_the_same_moment_still_yield_one
+    self.assertEqual(
+AssertionError: Lists differ: [56337] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+56337
+
+- [56337]
++ [] : 第 0 轮开轮前,锁位段 [56334, 56339] 里已经有真 OpenDesign 锁在应答:[56337] ⇒ **判据环境脏,不是产品缺陷**。
+  · 56337: LISTEN 0 8 127.0.0.1:56337 0.0.0.0:* users:(("python",pid=4034445,fd=3))
+
+----------------------------------------------------------------------
+Ran 1 test in 0.025s
+
+FAILED (failures=1)
+
+# [r1 第1/1遍] 结果=红 期望=红 形状=对 符合预期 (0.1s)
+# rc=0

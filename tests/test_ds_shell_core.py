@@ -141,7 +141,7 @@ def who_listens(port: int) -> str:
                  ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN"]):
         out, why = _tool_out(argv)
         if why:
-            tried.append(why)          # 没装 / 跑不起来 / rc≠0 ⇒ 这不是答案,问下一支
+            tried.append(why)          # 它没给出答案(见 _tool_out 的三档)⇒ 问下一支
             continue
         if out.strip():
             return " ".join(out.split())
