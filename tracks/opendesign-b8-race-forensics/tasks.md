@@ -19,4 +19,7 @@
 - [x] T4c 自审 S1(取证在没装 `ss` 的机器上会把自己报成"环境残留",
       等于把产品缺陷说成判据环境脏)⇒ **先造红检后修**:
       新增 r2d(两份都赢)/ r2d-no-ss 两个情景 + 红收据(`e826736`),再修(`06c25f0`)
-- [ ] T5 外部评审(impact high ⇒ 2 条不同家族腿),主裁
+- [x] T5 外部评审(impact high ⇒ 2 条不同家族腿),主裁
+      第 1 轮 subdeepseek + subcursor(deepseek/xai):6 条有效阻断,两腿独立命中 F1;
+      第 2 轮 submimo + subcursor(xiaomi/xai):3 条,其中 F8 是我修 F2 时引入的回归。
+      两轮预算用尽,修完不追加第 3 轮(理由写在 verify.md 主裁那一格)。

@@ -27,7 +27,11 @@ runlog: b8-x12-final rc=0 commit=06c25f0 dirty=yes at=2026-09-21T02:03:27Z file=
 runlog: full-regression-final rc=3 commit=06c25f0 dirty=yes final=yes at=2026-09-21T02:03:51Z file=tracks/opendesign-b8-race-forensics/evidence/20260921T020351Z-01-full-regression-final.txt
 runlog: b8-x12-r2 rc=0 commit=570861f dirty=yes at=2026-09-21T02:39:57Z file=tracks/opendesign-b8-race-forensics/evidence/20260921T023957Z-01-b8-x12-r2.txt
 runlog: full-regression-r2-final rc=3 commit=570861f dirty=yes final=yes at=2026-09-21T02:40:21Z file=tracks/opendesign-b8-race-forensics/evidence/20260921T024021Z-01-full-regression-r2-final.txt
+runlog: b8-x12-r3 rc=0 commit=db567b0 dirty=yes at=2026-09-21T03:11:02Z file=tracks/opendesign-b8-race-forensics/evidence/20260921T031102Z-01-b8-x12-r3.txt
+runlog: full-regression-r3-final rc=3 commit=db567b0 dirty=yes final=yes at=2026-09-21T03:11:26Z file=tracks/opendesign-b8-race-forensics/evidence/20260921T031126Z-01-full-regression-r3-final.txt
 ```
+↑ **最后一遍就是这一份**(`source-stable: yes`):python 1800 跑过 / 1 跳过、
+node 461、e2e 41 PASS / 0 FAIL / 2 SKIP、死断言闸不报。
 `rc=3` = 3 条 SKIP(1 条 python + 2 条要活网关的 e2e),既有状态,没有红的。
 `final=yes` 那一份 `source-stable: yes`。
 
@@ -44,6 +48,11 @@ runlog: full-regression-r2-final rc=3 commit=570861f dirty=yes final=yes at=2026
 - `after-f1-fix-f2-probe.txt` —— F2 修复的当面对照:假 `ss`(rc=1)下修前说
   "这个端口上没有 LISTEN",修后正确回落到 `lsof`;两个工具都没有时说
   "<ss:没装;lsof:没装>" 且 `listener_pids -> None`。
+- `before-f8-fix-r2d-flaky-lsof.txt` —— 🔴 **红的**:带警告的 `lsof`(有输出但 rc=1)
+  被我按 rc 丢掉 ⇒ 明明查得到却说"查不出"(第 2 轮外审 F8,我自己修 F2 时修过头)。
+- `before-f8-fix-revert-f2-control.txt` —— 🔴 **红的(对照实验)**:把 F2 整个 revert 掉,
+  新加的 `r2d-broken-ss` 当场抓住那句假话 ⇒ 这条钉子不是空转。
+- `after-f8-fix-*.txt` —— 修完之后全套 **10 个情景 rc=0**。
 
 ## Review
 
@@ -61,6 +70,12 @@ runlog: full-regression-r2-final rc=3 commit=570861f dirty=yes final=yes at=2026
   submimo=SKIP(rotation) subdeepseek=PASS(verdict=PASS) subglm=SKIP(health:dead:auth:3) subkimi=FAIL(rc=1) subgemini=SKIP(health:dead:FAIL:6) subgrok=SKIP(health:dead:FAIL:3) subcursor=PASS(verdict=PASS)
   ```
   impact-risk=high requested-budget=2 selected-count=3 escalation=failure snapshot=head:fc59f17
+
+  第 2 轮:
+  ```
+  submimo=PASS(verdict=PASS) subdeepseek=SKIP(rotation) subglm=SKIP(health:dead:auth:3) subkimi=SKIP(health:cooldown:rate_limit) subgemini=SKIP(health:dead:FAIL:6) subgrok=SKIP(health:dead:FAIL:3) subcursor=PASS(verdict=PASS)
+  ```
+  impact-risk=high requested-budget=2 selected-count=2(xiaomi / xai 两个家族)
   subkimi 的 403 是**周额度未重置**(不是腿坏),工具自动补了 subcursor ⇒ 两个合格家族
   (deepseek / xai)覆盖满足。
 - 轮次记录(每次派发一行;实质评审与基础设施重试分开):
@@ -69,7 +84,7 @@ runlog: full-regression-r2-final rc=3 commit=570861f dirty=yes final=yes at=2026
   |---|---|---|---|---|
   | 1 | 实质 | rc=3,BLOCK=0(PENDING=2:收据引用/裁决未写) | `panel-b8-forensics-20260921-0221` | 6 |
   | — | 基础设施(subkimi 403 周额度,rc=1;工具当轮自动补 subcursor,未另行派发) | 同上 | 同上 | 0 |
-  | 2 | 实质(核验第 1 轮修复清单;**预算用尽,这是最后一轮**) | rc=3,BLOCK=0(PENDING=2 同上) | `panel-b8-forensics-r2-<ts>` | <待填> |
+  | 2 | 实质(核验第 1 轮修复清单;**预算用尽,这是最后一轮**) | rc=3,BLOCK=0(PENDING=2 同上) | `panel-b8-forensics-r2-20260921-0245` | 3(F8/F9/F10) |
 
 - findings(**先处置、后动手**;一轮一份修复清单,一次修完再复审):
 
@@ -86,10 +101,35 @@ runlog: full-regression-r2-final rc=3 commit=570861f dirty=yes final=yes at=2026
 
   | S12 | **我自己在写 r2 自审时发现的(记账,不修)**:`race_forensics` 的结论句让 `unknown` 压过 `foreign` —— 段内同时有"确认是外人"和"查不出"的格子时,明明已经够判"判据环境脏"了,它仍然说"先别下结论"。 | `tests/test_ds_shell_core.py` 结论句分支:`if unknown: … else: …`。 | **延期(过度保守,方向安全)** | 错的方向是**多跑一遍**(去装上工具再来),不是说反话;而造这个场景要同时摆一个外来真锁并藏掉两个工具,脚手架成本高于收益。写在这里,请第 2 轮的腿挑。 |
 
+  **第 2 轮(核验修复清单)**:两腿(submimo / subcursor)都判 PASS 并逐条确认第 1 轮
+  7 条处置无误(该修的没判成延期、该驳回的没被修),S12 / F5a / F7 三条延期两腿都认可。
+  subcursor 另报 3 条,**其中一条是我自己这轮修出来的回归**:
+
+  | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
+  |---|---|---|---|---|
+  | F8 | **subcursor(MEDIUM)**。我修 F2 时**判得太宽**:`_tool_out` 只要 `rc≠0` 就把 stdout 丢掉,而 `lsof` 在"没有匹配"时**正常** exit 1,容器里还会一边报 `/proc` 警告一边照常打印结果 ⇒ 明明查得到 pid 却回 `None` ⇒ 取证退回"查不出、先别下结论"。**正好废掉 S1/F1 修出来的那条降级路径。** | 我自己实测:`lsof -t -nP -iTCP:59999 -sTCP:LISTEN` rc=1,`ss` 同情形 rc=0。它给的证据是我自己的收据:同一份 r2d-no-ss,修 F2 前印 `<lsof:这个端口上没有 LISTEN>`,修后变成 `<ss:没装;lsof:rc=1 >`。夹具版红收据 `before-f8-fix-r2d-flaky-lsof.txt`(形状=错) | **必须修** | **本次引入的回归**(4b 第一档)。判定改三档:有 stdout ⇒ 那就是答案;stdout 空 + rc≠0 + stderr 有话 ⇒ 工具挂了,问下一支;其余 ⇒ 确实没人。取舍写进代码注释:静默失败(rc≠0 且 stderr 也空)会被读成"没人",而两个工具都不这么失败。 |
+  | F9 | **subcursor(LOW,覆盖洞)**。`r2a`/`r2d` 的 forbid 里没有 `NO_VERDICT` ⇒ 在正常分型句旁边**顺手也印一句"先别下结论"**,全套红检照样通过。 | `probes/redcheck.py` 的 SHAPES。 | **必须修** | 那会让"先别下结论"这个逃生口变成常驻装饰 —— 查得出归属的时候就得把型分出来。 |
+  | F10 | **subcursor(LOW,覆盖洞)**。F2 只有一次性探针收据(`after-f1-fix-f2-probe.txt`),没有红检钉子:把 F2 整个 revert 掉,8 个情景照样 rc=0。 | 我自己复现:revert 掉 `_tool_out` 的 rc 检查,旧的 8 情景全绿。 | **必须修** | 补 `r2d-broken-ss`;🔴 **只钉分型的话它是空转的**(`listener_pids` 本来就会落到 lsof),所以锚点钉在**打印给人看的那句假话**上。对照收据 `before-f8-fix-revert-f2-control.txt`:变异树上当场抓住。 |
+  | S13 | **记账(不是发现)**:submimo 的报告里写"全量回归 100 passed / 2 skipped"。 | 实际是 python 1800 / node 461 / e2e 41,收据在 evidence。 | **驳回(事实错误)** | **MiMo 第四次在 PASS 里带事实错误**(前三次 09-16、09-20 两单)。它的结论我一条都没直接引用;本轮它的价值在逐条确认处置,而那部分我自己复核过。 |
+
   > 两腿都给了 `Conclusion: PASS`,**我不拿它抬置信度**:F1 是两腿独立命中的同一条,
   > 而它恰好是本单核心承诺(当场分型)的反面 —— 全票 PASS 里藏着一条必须修的发现,
   > 正好是"一致 PASS 不等于题是对的"的实证。
-- arbitrated verdict (主裁): <第 2 轮复审后写>
+- arbitrated verdict (主裁): **PASS**。
+  - 交付承诺兑现:b8 红的那一刻能**当场分型**,10 个红检情景钉住了「红在哪条断言上」
+    「取证认没认出自己」「分型结论句落在哪一支」三件事,全套 rc=0;
+    修前的红收据一份没藏(`baseline-old-b8-*` / `before-s1-fix-*` / `before-f1-fix-*` / `before-f8-fix-*`)。
+  - 断言**严格更强**(段内本来无人 **且** 恰好 1 份赢),四种真产品缺陷 + 第三种长相
+    (两份都赢)全部仍然抓得住;两腿各自用独立变异复跑确认过检测力没丢。
+  - 产品代码零改动,业主那边行为不变、不用装。
+  - **轮次预算用尽(2 轮实质),不追加第 3 轮**:第 2 轮的三条(F8/F9/F10)已一次修完,
+    修复面窄(一个函数的三档判定 + 夹具锚点),而且**每条都有新红检或对照实验钉住**,
+    最后一遍 `--final` 总跑 `source-stable: yes`。按 4b ④「默认不续轮」,
+    再审一轮就是 09-16 业主拍板的"没完没了"。
+  - 未解决项如实留着:S12(结论句让 unknown 压过 foreign,过度保守)、F5a(reap 没钉子)、
+    F7(红检不进总跑)—— 三条延期两腿都认可,**不自动开新单**。
+  - 这份 oracle 是我自己写的、可能本身就错:它跑在 Linux/回环 socket 上,
+    **不承诺** Windows 双击两下的结果,也不拿本单的绿给真机背书。
 
 ## Accepted deviations
 
@@ -101,6 +141,6 @@ runlog: full-regression-r2-final rc=3 commit=570861f dirty=yes final=yes at=2026
 ## 试行记录(review-convergence 试行,约五单)
 
 - 总交付历时:开工 `36d9ddd`(2026-09-21 08:40 +0800)→ 归档 commit(待填)
-- 每轮新增有效阻断:第 1 轮 6(F1/F2/F3/F4/F5b/F6);第 2 轮 <待填>
-- 基础设施等待:subkimi 1 次失败(403 周额度);panel 总耗时约 11 分钟(10:18→10:29)
+- 每轮新增有效阻断:第 1 轮 6(F1/F2/F3/F4/F5b/F6);第 2 轮 3(F8/F9/F10,其中 F8 是我自己修 F2 时引入的回归)
+- 基础设施等待:subkimi 1 次失败(403 周额度);第 1 轮 panel 约 11 分钟(10:18→10:29),第 2 轮约 6 分钟(11:00→11:06)
 - 交付后返工:unknown

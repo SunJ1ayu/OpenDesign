@@ -156,6 +156,18 @@ def _tool_out(argv: list) -> tuple:
     长得一模一样 —— 前者必须接着问下一支工具、必须说清原因,后者才是答案。
     2026-09-21 外审 F2:一个 `exit 1` 的假 `ss` 就能让 `who_listens` 笃定地说
     "这个端口上没有 LISTEN",而同一刻 `lsof` 看得见那个监听者。
+
+    🔴 **但"挂了"不能按 rc 一刀切**(同日第 2 轮外审 F8,我修 F2 时修过头了):
+    `lsof` 在**没有匹配**时就是 exit 1(实测:`lsof -t -nP -iTCP:59999 -sTCP:LISTEN`
+    rc=1;`ss` 同样情形 rc=0),容器里它还会一边报 `/proc` 警告一边照常打印结果。
+    按 rc 丢掉 stdout,取证就会在**明明查得到**的时候说"查不出" ——
+    正好废掉 S1/F1 修出来的那条降级路径。所以判定改成三档:
+      · 有 stdout ⇒ **那就是答案**(rc 非 0 也照用);
+      · stdout 空 + rc≠0 + stderr 有话 ⇒ 工具挂了,接着问下一支;
+      · stdout 空、其余情形 ⇒ 它跑完了没吭声 = 这一格确实没人。
+    取舍写明:**静默失败**(rc≠0 且 stderr 也空)会被读成"没人"。
+    两个工具都不这么失败,而反过来把 lsof 的正常"没人"当成挂了,代价大得多。
+    红检 r2d-flaky-lsof / r2d-broken-ss 分别钉住这两个方向。
     """
     exe = shutil.which(argv[0])
     if not exe:
@@ -164,9 +176,11 @@ def _tool_out(argv: list) -> tuple:
         out = subprocess.run([exe] + argv[1:], capture_output=True, text=True, timeout=10)
     except (OSError, subprocess.SubprocessError) as e:
         return "", f"{argv[0]}:跑不起来({e!r})"
-    if out.returncode != 0:
+    if out.stdout.strip():
+        return out.stdout, ""
+    if out.returncode != 0 and out.stderr.strip():
         return "", f"{argv[0]}:rc={out.returncode} {' '.join(out.stderr.split())[:120]}"
-    return out.stdout, ""
+    return "", ""
 
 
 def listener_pids(port: int):

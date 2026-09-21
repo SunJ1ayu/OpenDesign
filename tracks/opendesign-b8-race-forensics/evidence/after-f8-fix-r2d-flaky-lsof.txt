@@ -1,0 +1,39 @@
+# 红检 r2d-flaky-lsof  标签=after-f8-fix  commit=db567b0  源=373759ba0b37e9f82ab4dbbec6e280c4cba39796  改动文件数=10
+# 跑于 2026-09-21T03:10:34Z  副本=/tmp/b8-redcheck-z3clvJ/work-r2d-flaky-lsof [仓外不承重]
+# 变异(r2d):_someone_ahead_of 恒 False + _scan 恒 None(两份都赢)  repo=/tmp/b8-redcheck-z3clvJ/work-r2d-flaky-lsof
+# ⚠️ 降级实验:lsof 换成坏货(ss 另外藏掉)
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... FAIL
+
+======================================================================
+FAIL: test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/b8-redcheck-z3clvJ/work-r2d-flaky-lsof/tests/test_ds_shell_core.py", line 538, in test_b8_two_instances_racing_at_the_same_moment_still_yield_one
+    self.assertEqual(
+AssertionError: 2 != 1 : 第 0 轮同时起两份,2 份认为自己是唯一实例:[{'acquired': True, 'port': 57091}, {'acquired': True, 'port': 57092}]
+锁位段 = [57091, 57096]  本轮子进程 pid=[3975529, 3975530]
+  · 段内有真 OpenDesign 锁应答的格子:[57091, 57092]
+  · 其中**不是本轮自己**的(=环境残留):没有
+  · 57091: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME python 3975529 root 3u IPv4 625644519 0t0 TCP 127.0.0.1:57091 (LISTEN)
+  · 57092: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME python 3975530 root 3u IPv4 625645553 0t0 TCP 127.0.0.1:57092 (LISTEN)
+  · 57093: <ss:没装;lsof:rc=1 lsof: WARNING: can't stat() some file system>
+  · 57094: <ss:没装;lsof:rc=1 lsof: WARNING: can't stat() some file system>
+  · 57095: <ss:没装;lsof:rc=1 lsof: WARNING: can't stat() some file system>
+  · 57096: <ss:没装;lsof:rc=1 lsof: WARNING: can't stat() some file system>
+  · 本用例起过的子进程:
+      轮0实例0 pid=3975529 活着 读数={'acquired': True, 'port': 57091}
+      轮0实例1 pid=3975530 活着 读数={'acquired': True, 'port': 57092}
+  · 本轮实例0 stderr=''
+  · 本轮实例1 stderr=''
+
+怎么读这份现场:上面「环境残留」非空 ⇒ **判据环境脏**,这一轮读数不可信;空的却又不是恰好 1 份赢 ⇒ **产品缺陷**(业主双击两下,开出两个窗口)。
+
+----------------------------------------------------------------------
+Ran 1 test in 0.587s
+
+FAILED (failures=1)
+
+# [r2d 第1/1遍] 结果=红 期望=红 形状=对 符合预期 (0.6s)
+# rc=0

@@ -1,0 +1,36 @@
+# 红检 r2c-lazy  标签=after-f8-fix  commit=db567b0  源=373759ba0b37e9f82ab4dbbec6e280c4cba39796  改动文件数=6
+# 跑于 2026-09-21T03:10:25Z  副本=/tmp/b8-redcheck-z3clvJ/work-r2c-lazy [仓外不承重]
+# 变异(r2c):_send_show 恒返回 True(任何端口都被当成另一份 OpenDesign)  repo=/tmp/b8-redcheck-z3clvJ/work-r2c-lazy
+# ⚠️ 对照实验:前置探测已换成偷懒版(复用产品 _send_show)
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... FAIL
+
+======================================================================
+FAIL: test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/b8-redcheck-z3clvJ/work-r2c-lazy/tests/test_ds_shell_core.py", line 513, in test_b8_two_instances_racing_at_the_same_moment_still_yield_one
+    self.assertEqual(
+AssertionError: Lists differ: [56501, 56502, 56503, 56504, 56505, 56506] != []
+
+First list contains 6 additional elements.
+First extra element 0:
+56501
+
+- [56501, 56502, 56503, 56504, 56505, 56506]
++ [] : 第 0 轮开轮前,锁位段 [56501, 56506] 里已经有真 OpenDesign 锁在应答:[56501, 56502, 56503, 56504, 56505, 56506] ⇒ **判据环境脏,不是产品缺陷**。
+  · 56501: <ss:这个端口上没有 LISTEN>
+  · 56502: <ss:这个端口上没有 LISTEN>
+  · 56503: <ss:这个端口上没有 LISTEN>
+  · 56504: <ss:这个端口上没有 LISTEN>
+  · 56505: <ss:这个端口上没有 LISTEN>
+  · 56506: <ss:这个端口上没有 LISTEN>
+
+----------------------------------------------------------------------
+Ran 1 test in 0.126s
+
+FAILED (failures=1)
+
+# [r2c 第1/1遍] 结果=红 期望=红 形状=对 符合预期 (0.2s)
+# rc=0
