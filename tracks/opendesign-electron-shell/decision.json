@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-electron-shell",
+  "impact": {
+    "level": "high",
+    "factors": [
+      "migration",
+      "data_consistency",
+      "cross_module"
+    ]
+  },
+  "design": {
+    "uncertainty": "high",
+    "premise_attack": {
+      "status": "done",
+      "evidence": [
+        "evidence/20260921-c1-challenge-cursor-grok.md",
+        "evidence/20260921-c2-challenge-deepseek.md",
+        "evidence/20260921-f1-localstorage-private-mode.md"
+      ]
+    }
+  },
+  "execution_plan": {
+    "adapter": null,
+    "model": null
+  },
+  "outcome": {
+    "verdict": null
+  }
+}
