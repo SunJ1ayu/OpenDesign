@@ -1,0 +1,23 @@
+# 红检 r1  标签=baseline-old-b8  commit=36d9ddd  dirty=3
+# 跑于 2026-09-21T00:43:44Z  副本=/tmp/b8-redcheck-JhGgtd/work-r1 [仓外不承重]
+# 无变异(r1)  repo=/tmp/b8-redcheck-JhGgtd/work-r1
+# R1 占位端口=56673 ⇒ b8 的 base 被打桩成 56670,段=[56670,56675]
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... FAIL
+
+======================================================================
+FAIL: test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/b8-redcheck-JhGgtd/work-r1/tests/test_ds_shell_core.py", line 327, in test_b8_two_instances_racing_at_the_same_moment_still_yield_one
+    self.assertEqual(len(winners), 1,
+AssertionError: 0 != 1 : 第 0 轮同时起两份,0 份都认为自己是唯一实例:[{'acquired': False, 'port': 56673}, {'acquired': False, 'port': 56673}]
+
+----------------------------------------------------------------------
+Ran 1 test in 0.320s
+
+FAILED (failures=1)
+
+# [r1 第1/1遍] 结果=红 期望=红 符合预期 (0.4s)
+# rc=0
