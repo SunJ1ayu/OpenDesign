@@ -1,0 +1,27 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    mutations
+cmd:     /root/.venvs/design-studio/bin/python tracks/opendesign-per-vendor-keys/evidence/mutations.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  83e2a3b
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-21T12:52:58Z
+---------------- 输出开始 ----------------
+咬住  M1 保存第二家时就往配置写条目  rc=1  红 4 条: test_v7_the_menu_lists_a_vendor_only_once_the_gateway_has_its_key ; test_v8b_a_vendor_the_gateway_does_not_have_is_refused_and_nothing_changes ; test_v1_with_a_shell_the_second_key_gets_its_own_file_and_the_config_is_untouched ; test_v11_each_vendor_reports_configured_live_active_and_pending 
+咬住  M2 prepare_gateway 写了条目却不给 key  rc=1  红 4 条: test_v8_switching_across_vendors_changes_only_the_active_preset ; test_v9_owner_who_moved_the_primary_slot_to_deepseek_then_adds_mimo ; test_v4_every_variable_the_config_references_is_one_the_gateway_is_given ; test_l1_switching_vendor_in_the_menu_reaches_the_other_vendor_with_its_own_key 
+咬住  M3 child_env 丢掉额外 key  rc=1  红 4 条: test_v8_switching_across_vendors_changes_only_the_active_preset ; test_v4_every_variable_the_config_references_is_one_the_gateway_is_given ; test_v9_owner_who_moved_the_primary_slot_to_deepseek_then_adds_mimo ; test_extra_keys_go_to_the_gateway_leg_only 
+咬住  M4 额外 key 也给了 ds-web  rc=1  红 1 条: test_extra_keys_go_to_the_gateway_leg_only 
+咬住  M8 标记从不兑现  rc=1  红 4 条: test_v7_the_menu_lists_a_vendor_only_once_the_gateway_has_its_key ; test_v6_after_saving_a_second_vendor_the_gateway_start_switches_to_it_once ; test_v6b_the_switch_waits_while_the_key_is_not_there ; test_v11_each_vendor_reports_configured_live_active_and_pending 
+咬住  M9 key 不在也吃掉标记  rc=1  红 1 条: test_v6b_the_switch_waits_while_the_key_is_not_there 
+🔴 漏了  M10 只有主槽时也补齐预设(改老家配置)  rc=0  红 0 条: 
+🔴 漏了  M10b 主槽补齐不看有没有第二家  rc=0  红 0 条: 
+咬住  M11 选网关没拿到 key 的厂商也放行  rc=1  红 1 条: test_v8b_a_vendor_the_gateway_does_not_have_is_refused_and_nothing_changes 
+咬住  M12 multi 被忽略(永远单把)  rc=1  红 14 条: test_v8_switching_across_vendors_changes_only_the_active_preset ; test_v10_a_broken_config_or_unreadable_key_never_raises_and_writes_nothing ; test_v5_an_entry_whose_key_is_gone_is_removed_and_nothing_dangles ; test_v6_after_saving_a_second_vendor_the_gateway_start_switches_to_it_once 
+咬住  M13 外壳不调 prepare_gateway  rc=1  红 1 条: test_w10_every_gateway_start_prepares_the_extra_vendors_in_the_same_place_it_injects_keys 
+咬住  M14 key 没了条目照留、注入空串  rc=1  红 1 条: test_v5_an_entry_whose_key_is_gone_is_removed_and_nothing_dangles 
+咬住  M15 额外槽预设仍指 custom(发往主槽端点)  rc=1  红 1 条: test_v9_owner_who_moved_the_primary_slot_to_deepseek_then_adds_mimo 
+咬住  M5b 菜单列目录里所有厂商(不看网关有没有 key)  rc=1  红 3 条: test_v7_the_menu_lists_a_vendor_only_once_the_gateway_has_its_key ; test_v8b_a_vendor_the_gateway_does_not_have_is_refused_and_nothing_changes ; test_v11_each_vendor_reports_configured_live_active_and_pending 
+咬住  M10d 早退与主槽补齐条件一起去掉(会改老家配置)  rc=1  红 1 条: test_v12b_a_single_key_install_that_moved_to_deepseek_is_also_left_alone 
+咬住  M-ui1 打勾不看厂商  rc=1  红 1 条: not ok 3 - pv3 同一个模型名出现在两家里:只有当前那家的打勾
+咬住  M-ui2 点了不带厂商  rc=1  红 1 条: not ok 2 - pv2 每一行都带着自己的厂商;点了发给后端的是 {model, provider}
+---------------- 输出结束 ----------------
+runlog: mutations rc=0 commit=83e2a3b dirty=yes at=2026-09-21T12:52:58Z file=tracks/opendesign-per-vendor-keys/evidence/20260921T125258Z-01-mutations.txt
