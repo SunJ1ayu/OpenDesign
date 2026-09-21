@@ -144,14 +144,23 @@ if ($UpdDir) {
     Start-Process "$Dir\OpenDesign.exe" | Out-Null
     Remove-Item Env:\OD_SPIKE_UPDATE
     $sw = [Diagnostics.Stopwatch]::StartNew(); $ver = $v1
+    $lastShot = -99
     while ($sw.Elapsed.TotalMinutes -lt 8) {
         Start-Sleep -Seconds 5
+        # 业主在这两分钟里看到什么:每 15 秒一张整屏
+        if ($sw.Elapsed.TotalSeconds - $lastShot -ge 15) { $lastShot = $sw.Elapsed.TotalSeconds; Shot ("e4-00-updating-{0:000}s" -f [int]$lastShot) }
         try { $ver = (Get-Item "$Dir\OpenDesign.exe" -ErrorAction Stop).VersionInfo.ProductVersion } catch { $ver = '(读不到:正在换文件?)' }
         if ($ver -like "$NewVer*") { break }
     }
     "  exe 版本 $v1 → $ver,$([int]$sw.Elapsed.TotalSeconds)s"
     V 'E4.version 装上了新版' ($ver -like "$NewVer*") "$ver"
-    $h = WaitHealth 240
+    # 版本号换了不等于装完:安装器还在铺文件。继续每 15 秒一张,直到新版自己重新打开、后台应答。
+    $h = $null; $sw2 = [Diagnostics.Stopwatch]::StartNew(); $n = 0
+    while (-not $h -and $sw2.Elapsed.TotalSeconds -lt 240) {
+        $n++; Shot ("e4-00-updating-after-flip-{0:00}" -f $n)
+        $h = WaitHealth 15
+    }
+    "  版本号换了之后又过 $([int]$sw2.Elapsed.TotalSeconds)s 新版才应答(整个更新 $([int]$sw.Elapsed.TotalSeconds + [int]$sw2.Elapsed.TotalSeconds)s 左右)"
     V 'E4.relaunch 装完自己重新打开、后台应答' ([bool]$h) "$h"
     "  更新后进程:$(ProcsUnder $Dir)"
     Shot 'e4-01-after-update'

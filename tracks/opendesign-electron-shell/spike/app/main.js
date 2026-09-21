@@ -197,6 +197,7 @@ function maybeCheckUpdate() {
   autoUpdater.logger = { info: (m) => log(`[更新] ${m}`), warn: (m) => log(`[更新] ⚠ ${m}`), error: (m) => log(`[更新] ✗ ${m}`), debug: () => {} };
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.disableWebInstaller = true;
   autoUpdater.on("update-downloaded", (info) => {
     log(`[更新] 下好了 ${info.version}`);
     installUpdate(autoUpdater);
@@ -212,8 +213,9 @@ function installUpdate(autoUpdater) {
   updating = true;
   quitting = true;
   const go = () => {
-    log("[更新] 管家已收摊,交给安装器");
-    autoUpdater.quitAndInstall(true, true);
+    // 第三跑:**不静默** —— 第二跑量到装机要约 2 分钟,静默的话业主这段时间屏幕上什么都没有。看看带界面是什么样。
+    log("[更新] 管家已收摊,交给安装器(带进度界面)");
+    autoUpdater.quitAndInstall(false, true);
   };
   if (!host || host.exitCode !== null) return go();
   host.once("exit", go);

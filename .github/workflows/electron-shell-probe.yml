@@ -80,6 +80,11 @@ jobs:
         working-directory: tracks/opendesign-electron-shell/spike/app
         run: |
           npm pkg set version=0.98.11
+          # 像一次真实发版那样改点代码:后端一个 .py、前端一个打包后的 js(增量下载量才有参考价值)
+          Add-Content pkg\ds\bin\ds_web.py "`n# probe: 0.98.11 的代码改动"
+          $js = Get-ChildItem pkg\ds\web\dist\assets\*.js | Select-Object -First 1
+          Add-Content $js.FullName "`n/* probe: 0.98.11 的前端改动 */"
+          "  改了:pkg\ds\bin\ds_web.py、$($js.Name)"
           npx electron-builder --win nsis --x64 --publish never
           if ($LASTEXITCODE) { throw "electron-builder(v2) rc=$LASTEXITCODE" }
           New-Item -ItemType Directory -Force upd | Out-Null
