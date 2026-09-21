@@ -1,0 +1,12 @@
+# F2 核实:一个 exit 1 的假 ss 之下,who_listens 还说不说假话
+# 跑于 2026-09-21T02:39:49Z  commit=570861f(工作树含 F1/F2 修复)
+# 假 ss 目录=/tmp/b8-fakebin-uvvLqn [仓外不承重]
+--- 假 ss(rc=1),lsof 还在 ---
+这个端口确实在 LISTEN: 50345
+who_listens  -> COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME python 3737401 root 3u IPv4 624282545 0t0 TCP 127.0.0.1:50345 (LISTEN)
+listener_pids-> {3737401}
+
+--- 对照:两个工具都没有(PATH=/nonexistent)---
+这个端口确实在 LISTEN: 51697
+who_listens  -> <ss:没装;lsof:没装>
+listener_pids-> None (None = 查不出,不是空集)

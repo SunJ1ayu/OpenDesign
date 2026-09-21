@@ -1,0 +1,31 @@
+# 红检 r1  标签=after-f1-fix  commit=570861f  源=d1f55c07496865ac6cbc1e9ebcdaeb819a15943e  改动文件数=3
+# 跑于 2026-09-21T02:39:00Z  副本=/tmp/b8-redcheck-IV6VCA/work-r1 [仓外不承重]
+# 无变异(r1)  repo=/tmp/b8-redcheck-IV6VCA/work-r1
+# R1 占位端口=43097 ⇒ b8 的 base 被打桩成 43094,段=[43094,43099]
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... FAIL
+
+======================================================================
+FAIL: test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/b8-redcheck-IV6VCA/work-r1/tests/test_ds_shell_core.py", line 499, in test_b8_two_instances_racing_at_the_same_moment_still_yield_one
+    self.assertEqual(
+AssertionError: Lists differ: [43097] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+43097
+
+- [43097]
++ [] : 第 0 轮开轮前,锁位段 [43094, 43099] 里已经有真 OpenDesign 锁在应答:[43097] ⇒ **判据环境脏,不是产品缺陷**。
+  · 43097: LISTEN 0 8 127.0.0.1:43097 0.0.0.0:* users:(("python",pid=3736552,fd=3))
+
+----------------------------------------------------------------------
+Ran 1 test in 0.018s
+
+FAILED (failures=1)
+
+# [r1 第1/1遍] 结果=红 期望=红 形状=对 符合预期 (0.2s)
+# rc=0

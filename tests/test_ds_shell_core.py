@@ -136,36 +136,41 @@ def who_listens(port: int) -> str:
     取不到就说清**为什么**取不到 —— 静默空白会让下一个人以为"查过了,没人",
     那正是 2026-09-20 那条红查不下去的原因(现场没留)。
     """
+    tried = []
     for argv in (["ss", "-ltnpH", f"sport = :{port}"],
                  ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN"]):
-        exe = shutil.which(argv[0])
-        if not exe:
+        out, why = _tool_out(argv)
+        if why:
+            tried.append(why)          # 没装 / 跑不起来 / rc≠0 ⇒ 这不是答案,问下一支
             continue
-        try:
-            out = subprocess.run([exe] + argv[1:], capture_output=True,
-                                 text=True, timeout=10)
-        except (OSError, subprocess.SubprocessError) as e:
-            return f"<{argv[0]} 跑不起来:{e!r}>"
-        if out.stdout.strip():
-            return " ".join(out.stdout.split())
-        return f"<{argv[0]}:这个端口上没有 LISTEN>"
-    return "<ss 和 lsof 都不在这台机器上,查不出是谁>"
+        if out.strip():
+            return " ".join(out.split())
+        return f"<{argv[0]}:这个端口上没有 LISTEN>"   # 工具好好跑完了,这才是答案
+    return "<" + ";".join(tried) + ">"
 
 
-def _tool_out(argv: list) -> str:
-    """跑一个查端口的小工具,拿它的标准输出;工具不在、跑不起来 ⇒ 空串。"""
+def _tool_out(argv: list) -> tuple:
+    """跑一个查端口的小工具,回 `(标准输出, 出了什么事)`。
+
+    🔴 **两个返回值缺一不可**:只回 stdout 的话,「工具挂了」和「工具说这里没人」
+    长得一模一样 —— 前者必须接着问下一支工具、必须说清原因,后者才是答案。
+    2026-09-21 外审 F2:一个 `exit 1` 的假 `ss` 就能让 `who_listens` 笃定地说
+    "这个端口上没有 LISTEN",而同一刻 `lsof` 看得见那个监听者。
+    """
     exe = shutil.which(argv[0])
     if not exe:
-        return ""
+        return "", f"{argv[0]}:没装"
     try:
         out = subprocess.run([exe] + argv[1:], capture_output=True, text=True, timeout=10)
-    except (OSError, subprocess.SubprocessError):
-        return ""
-    return out.stdout
+    except (OSError, subprocess.SubprocessError) as e:
+        return "", f"{argv[0]}:跑不起来({e!r})"
+    if out.returncode != 0:
+        return "", f"{argv[0]}:rc={out.returncode} {' '.join(out.stderr.split())[:120]}"
+    return out.stdout, ""
 
 
-def listener_pids(port: int) -> set:
-    """端口上监听者的 pid —— 用来分清"段内这个应答者是不是我自己刚起的那两份"。
+def listener_pids(port: int):
+    """端口上监听者的 pid;**查不出的时候回 `None`,不是空集**。
 
     🔴 **不解析 `who_listens` 那份文本**:它是给人看的(还被压成了一行),而两个来源的
     格式根本不是一回事 —— `ss` 印 `pid=1234`,`lsof` 把 pid 放在第二列。
@@ -173,14 +178,20 @@ def listener_pids(port: int) -> set:
     算成"环境残留" ⇒ 把一个真产品缺陷写成"判据环境脏"。方向正是本单要防的那个
     (调钝报警器),只是藏在别人的机器上;本机有 ss,所以全套红检绿着也照样漏。
     2026-09-21 自审 S1 读代码读出来的,红检 r2d-no-ss 钉住它。
+
+    🔴 **空集和"查不出"必须分开**(外审 F1,两腿独立命中,红检 r2d-no-tools 钉住):
+    两个工具都拿不到 pid 时回空集,调用方就会算出"这个应答者不是我自己",
+    于是取证笃定地报"环境残留" ⇒ 把一个**真产品缺陷**写成"判据环境脏"。
+    这里只被 `race_forensics` 用来问**握手成功的格子**,那些格子上必然有人在监听,
+    所以"一个 pid 都没查到"只可能是查不出,回 `None` 让调用方去说这句话。
     """
-    out = _tool_out(["ss", "-ltnpH", f"sport = :{port}"])
+    out, _ = _tool_out(["ss", "-ltnpH", f"sport = :{port}"])
     pids = {int(m) for m in re.findall(r"pid=(\d+)", out)}
     if pids:
         return pids
     # `lsof -t` 只吐 pid,一行一个 —— 机器要认就问机器可读的格式,别去切人话。
-    out = _tool_out(["lsof", "-t", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN"])
-    return {int(x) for x in out.split() if x.isdigit()}
+    out, _ = _tool_out(["lsof", "-t", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN"])
+    return {int(x) for x in out.split() if x.isdigit()} or None
 
 
 # =========================================================== A 端口选择
@@ -331,13 +342,25 @@ class SingleInstance(unittest.TestCase):
         mine = {p.pid for p in procs}
         responders = lock_responders_in(base, span)
         # 本轮自己那两份可能还在监听 ⇒ 不分清就会把自己报成"环境残留"。
-        foreign = [p for p in responders if not (listener_pids(p) & mine)]
+        # 🔴 **三类,不是两类**:确认是自己 / 确认是外来 / **查不出**。
+        # 把"查不出"混进"外来"里,下面那句结论就会把真产品缺陷判成判据环境脏
+        # (外审 F1;红检 r2d-no-tools)。
+        foreign, unknown = [], []
+        for p in responders:
+            pids = listener_pids(p)
+            if pids is None:
+                unknown.append(p)
+            elif not (pids & mine):
+                foreign.append(p)
         lines = [
             f"第 {round_no} 轮同时起两份,{len(winners)} 份认为自己是唯一实例:{got}",
             f"锁位段 = [{base}, {base + span}]  本轮子进程 pid={sorted(mine)}",
             f"  · 段内有真 OpenDesign 锁应答的格子:{responders or '一个都没有'}",
             f"  · 其中**不是本轮自己**的(=环境残留):{foreign or '没有'}",
         ]
+        if unknown:
+            lines.append(f"  · 🔴 归属查不出的格子:{unknown} —— ss 与 lsof 都没给出 pid,"
+                         "上面那行对这几格问不出答案。")
         for port in range(base, base + span + 1):
             lines.append(f"  · {port}: {who_listens(port)}")
         lines.append("  · 本用例起过的子进程:")
@@ -347,9 +370,15 @@ class SingleInstance(unittest.TestCase):
         for i, p in enumerate(procs):
             lines.append(f"  · 本轮实例{i} stderr={self.drain_stderr(p)!r}")
         lines.append("")
-        lines.append("怎么读这份现场:上面「环境残留」非空 ⇒ **判据环境脏**,这一轮读数不可信;"
-                     "空的却又不是恰好 1 份赢 ⇒ **产品缺陷**(业主双击两下,"
-                     f"{'一个窗口都不开' if not winners else '开出两个窗口'})。")
+        if unknown:
+            # 查不出归属就**别分型** —— 这两种病的处置完全相反,猜一个等于掷硬币。
+            lines.append("怎么读这份现场:段内有归属查不出的应答者 ⇒ **先别下结论**:"
+                         "装上 ss 或 lsof(或用 root 跑)再来一遍。"
+                         "在那之前,分不出这是判据环境脏还是产品缺陷。")
+        else:
+            lines.append("怎么读这份现场:上面「环境残留」非空 ⇒ **判据环境脏**,这一轮读数不可信;"
+                         "空的却又不是恰好 1 份赢 ⇒ **产品缺陷**(业主双击两下,"
+                         f"{'一个窗口都不开' if not winners else '开出两个窗口'})。")
         return "\n".join(lines)
 
     def start_first(self, base, span=5):
