@@ -454,10 +454,21 @@ def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = Fal
         primary = _current_provider(cfg)
         primary_has_key = (_env_key(cfg) or read_key(home)) is not None
         if primary_has_key and provider != primary:
+            # 先写「想换过去」、再写 key;key 写不进去就把标记撤掉 ⇒ 失败的保存两样都不留
+            # (第 1 轮 K3:反过来的话,标记写失败会留下一把业主以为没存上的 key,下次起网关悄悄激活)。
+            marker = _switch_marker_path(home)
+            try:
+                _atomic_write(marker, provider + "\n")
+            except OSError as exc:
+                raise CredentialError(f"写不进去({exc.__class__.__name__}),"
+                                      f"请确认这台机器上这个文件夹可写") from None
             try:
                 _atomic_write(extra_key_path(home, provider), k + "\n")
-                _atomic_write(_switch_marker_path(home), provider + "\n")
             except OSError as exc:
+                try:
+                    os.remove(marker)
+                except OSError:
+                    pass
                 raise CredentialError(f"写不进去({exc.__class__.__name__}),"
                                       f"请确认这台机器上这个文件夹可写") from None
             return status(home, cfg_path)
@@ -488,6 +499,11 @@ def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = Fal
         raise CredentialError(f"写不进去({exc.__class__.__name__}),"
                               f"请确认这台机器上这个文件夹可写") from None
 
+    # 存进主槽 = 这一次就是要用这家:之前留下的「想换过去」作废,最后一次保存为准(第 1 轮 K2)
+    try:
+        os.remove(_switch_marker_path(home))
+    except OSError:
+        pass
     out = status(home, cfg_path)
     out["env_var"] = var                         # 给外壳重启时用;**不是凭据**
     return out

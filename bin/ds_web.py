@@ -2927,6 +2927,10 @@ class Handler(BaseHTTPRequestHandler):
         out = ds_credential.status(os.path.expanduser("~"), cfg)
         out["providers"] = [{"id": k, "label": v["label"], "model": v["model"]}
                             for k, v in ds_credential.PROVIDERS.items()]
+        if not _has_shell():
+            # 没外壳时保存仍是单把覆盖(ds_credential.save multi=False);界面若照样摆出「每家一行」,
+            # 业主会以为另一家的 key 还在(第 1 轮 G3)⇒ 不给这张表,卡片退回原样。
+            out["vendors"] = []
         self._json(200, out)
 
     def _llm_models_get(self):

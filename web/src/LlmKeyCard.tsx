@@ -60,6 +60,33 @@ export default function LlmKeyCard({ initialStatus = null, onStatus }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onStatus]);
 
+  // 有厂商「已保存、等后台重启」时隔一会儿再问一次,后台起好后这一行自己变成「在用」
+  // (第 1 轮 G5:只在存完那一刻问一次的话,卡片会一直写着「等重启」)。有上限,不无限轮询。
+  const waiting = status?.vendors.some((v) => v.pending) ?? false;
+  useEffect(() => {
+    if (!waiting) return;
+    let tries = 0;
+    let stale = false;
+    const timer = window.setInterval(() => {
+      tries += 1;
+      if (tries > 40) {
+        window.clearInterval(timer);
+        return;
+      }
+      fetchKeyStatus(fetch)
+        .then((next) => {
+          if (stale) return;
+          setStatus(next);
+          onStatus?.(next);
+        })
+        .catch(() => { /* 这一次没问到,下一次再问 */ });
+    }, 3000);
+    return () => {
+      stale = true;
+      window.clearInterval(timer);
+    };
+  }, [waiting, onStatus]);
+
   const selected = status?.providers.find((p) => p.id === provider) ?? null;
   const selectedVendor = status?.vendors.find((v) => v.id === provider) ?? null;
   // 被环境变量遮蔽 ⇒ 这一格在这个界面里改不动(后端也会拒绝,见 ds_credential.save)。
