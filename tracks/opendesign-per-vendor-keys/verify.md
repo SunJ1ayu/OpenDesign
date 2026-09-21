@@ -8,7 +8,7 @@
 ## Mechanical checks
 
 - [x] build passes(`npm run build` 含类型检查;dist 随提交)
-- [ ] tests pass —— 最终一遍待第 2 轮修复后 `--final` 总跑
+- [x] tests pass —— `run-all-final`(`--final`,source-stable: yes):无红;3 条未跑为既有 skip(见下)
 - [x] no secrets / unsafe ops(判据全用假 key、本机假服务器;活网关判据代理指向死端口)
 
 **机器打印的**收据(逐字节):
@@ -18,9 +18,19 @@ runlog: red-py rc=1 commit=b01eb60 dirty=yes at=2026-09-21T12:35:04Z file=tracks
 runlog: red-ui rc=1 commit=b01eb60 dirty=yes at=2026-09-21T12:35:06Z file=tracks/opendesign-per-vendor-keys/evidence/20260921T123506Z-01-red-ui.txt
 runlog: red-e2e rc=1 commit=b01eb60 dirty=yes at=2026-09-21T12:35:06Z file=tracks/opendesign-per-vendor-keys/evidence/20260921T123506Z-02-red-e2e.txt
 runlog: mutations rc=0 commit=83e2a3b dirty=yes at=2026-09-21T12:52:58Z file=tracks/opendesign-per-vendor-keys/evidence/20260921T125258Z-01-mutations.txt
+runlog: r1-red-py rc=1 commit=8e80416 dirty=yes at=2026-09-21T13:26:26Z file=tracks/opendesign-per-vendor-keys/evidence/20260921T132626Z-01-r1-red-py.txt
+runlog: r1-red-e2e rc=1 commit=8e80416 dirty=yes at=2026-09-21T13:26:32Z file=tracks/opendesign-per-vendor-keys/evidence/20260921T132632Z-01-r1-red-e2e.txt
+runlog: run-all-r2 rc=1 commit=ce5314c dirty=no at=2026-09-21T13:29:56Z file=tracks/opendesign-per-vendor-keys/evidence/20260921T132956Z-01-run-all-r2.txt
+runlog: r2-red-py rc=1 commit=ce5314c dirty=yes at=2026-09-21T13:49:02Z file=tracks/opendesign-per-vendor-keys/evidence/20260921T134902Z-01-r2-red-py.txt
+runlog: run-all-final rc=3 commit=ecce4eb dirty=no final=yes at=2026-09-21T13:50:55Z file=tracks/opendesign-per-vendor-keys/evidence/20260921T135055Z-01-run-all-final.txt
 ```
 
 - 三份 red 是**先红**收据(实现之前,判据单独提交于 `402d5fb`):红在缺 API / 外壳未接线 / 卡片无每家一行 —— 预期内。
+- r1-red-py / r1-red-e2e:第 1 轮处置的判据先红(v16、v17、无外壳每家一行、B7),修复 `ce5314c` 后转绿。
+- run-all-r2(rc=1):**真红**,死断言闸点名 l1 两处只在出错时才跑的 `self.fail` —— 不是噪音,已在 `63ca266` 改写为每次都执行的断言。
+- r2-red-py:第 2 轮残余的判据先红(v18、无外壳保存回包),修复 `6258c99` 后转绿。
+- **run-all-final(最后一遍,结论所依据的那一遍)**:rc=3 = 没有红、但有 3 条没跑:e2e 的 2 条要活网关(`new_chat` / `project-thread`,
+  会真的叫模型;`NEEDS_LIVE_GATEWAY`,上一单 b8 归档时同样 rc=3)+ python 1 条非 POSIX 平台才跑的 skip。都不是本单引入,也不碰本单改动面。
 - mutations:17 个定点变异 15 个咬住;M10、M10b 单拆是**等价变异**(prepare_gateway 早退与 ③ 的 `and wanted` 互为双保险,
   单拆任一行为不变),两道合拆 M10d 被 v12b 咬住。
 
@@ -75,7 +85,19 @@ runlog: mutations rc=0 commit=83e2a3b dirty=yes at=2026-09-21T12:52:58Z file=tra
   | C3 | w10 仍抓不到「接住 prepare_gateway 的返回值后又改成 {}」 | `test_ds_shell_wiring.py` w10 | 驳回(接受) | 静态闸的天花板;当前源码不是那样,真正的接线由 l1(经 service_envs)与真机兜 |
   | M2 | 删标记失败(权限)被吞 ⇒ 残留标记下次重启兑现 | `save` 主槽路径 / `select_model` | 驳回(接受) | 需要 keys/ 目录权限异常;与 key.txt 写不进去同一类环境故障,不为它加状态 |
 
-- arbitrated verdict (主裁): 待最终总跑与覆盖轮。
+- 覆盖轮(**不是第 3 轮实质评审**:第 2 轮后只有残余 LOW 的修复,派这一次是为了让归档绑定最终交付内容)
+  花名册(`/root/aiwork/logs/panel-pvk-r3cov.roster` 原样):
+  `submimo=SKIP(health:cooldown:INCOMPLETE) subdeepseek=PASS(verdict=PASS,降级:回落聊天腿,只看得见 diff) subglm=SKIP(health:dead:auth:3) subkimi=PASS(verdict=PASS) subgemini=SKIP(health:dead:FAIL:6) subgrok=SKIP(health:dead:FAIL:3) subcursor=PASS(verdict=PASS)`
+  > subdeepseek 的 agent 底座失败回落聊天腿 = 降级,**不算覆盖**;控制器补派 subcursor。有效覆盖 = subkimi(moonshot)+ subcursor(xai)。
+  覆盖轮发现(全部 LOW,测试工程性,均为**假红方向**、不会假绿):e2e `until(组数)` 返回值没断言(后续 A1/C1 精确断言兜住);
+  B2b 1200ms 窗口在极慢机器上可能假红;轮询触顶后静默停住(第 1 轮 G5 既有形态)。处置:**接受,不改**
+  (改测试会作废本轮绑定,而它们只会让判据更容易红,不会让坏实现过关)。
+
+- arbitrated verdict (主裁): **PASS**。
+  业主目标四条(不重粘 / 换回来照常 / 界面与网关真实一致 / 单家不比今天差)各有判据直接问到:v1/v15、l1(真网关 + 两台假服务器 + Authorization)、
+  v4(nanobot 自己的加载器)+ v7/v8b、v3/v12/v12b/v13 + 无外壳接口两条;两轮实质外审 + 一次覆盖轮,
+  所有「必须修」逐条被另一家核为已修,驳回项(G1/G2/K4/C3/M2)理由三家均认可。
+  **仍未验的**:真 Windows 外壳 `ds_shell.py` 那一跳(w10 只是静态闸)、业主机器上重启网关要多久、真实 MiMo/DeepSeek 的回答 —— 全在真机清单里。
 
 ## Accepted deviations
 
@@ -84,6 +106,6 @@ runlog: mutations rc=0 commit=83e2a3b dirty=yes at=2026-09-21T12:52:58Z file=tra
 ## 试行记录(review-convergence 试行,约五单;拿不到的写 unknown,别补 0)
 
 - 总交付历时:`b01eb60`(2026-09-21 20:30)→ 归档 commit(待填)
-- 每轮新增有效阻断:第 1 轮 1(K1)
-- 基础设施等待:第 1 轮无重试;duration 见 observations
+- 每轮新增有效阻断:第 1 轮 1(K1)/ 第 2 轮 0 / 覆盖轮 0
+- 基础设施等待:第 2 轮 submimo 裁决行格式不认 ⇒ 补派 subdeepseek;覆盖轮 subdeepseek 降级 ⇒ 补派 subcursor;duration 见 observations
 - 交付后返工:unknown

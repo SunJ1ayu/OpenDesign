@@ -1,0 +1,180 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-per-vendor-keys",
+  "run_id": "20260921-220511-349017-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-per-vendor-keys-review-r3cov",
+  "started_at": "2026-09-21T14:05:11Z",
+  "finished_at": "2026-09-21T14:25:45Z",
+  "duration_ms": 1234215,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": true,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "subdeepseek",
+        "degraded": true,
+        "duration_ms": 88017,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:82cb86679ff83e7c5e1973862c0ce893336ec712560e88dce94e8c8b3f52091d",
+          "ref": "file:///root/aiwork/logs/panel-pvk-r3cov.subdeepseek.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "deepseek",
+        "model": {
+          "invoked": "deepseek-flash",
+          "reported": null,
+          "requested": "deepseek-flash"
+        },
+        "name": "subdeepseek",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260921-220511-349017-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "digest": null,
+          "manifest_version": 1,
+          "source": null,
+          "task_sha256": "sha256:861e87dcf4a8e07a6603252a362a4f512a5bf9477d35f4652119f99e06285d2c"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "api",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "diff_bundle"
+        }
+      },
+      {
+        "adapter": "subkimi",
+        "degraded": false,
+        "duration_ms": 723231,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:d33416fec1e305015e7d19671944094c961da8fc5eab8b69b2447b1ccc057963",
+          "ref": "file:///root/aiwork/logs/panel-pvk-r3cov.subkimi.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "moonshot",
+        "model": {
+          "invoked": "kimi-code/kimi-for-coding",
+          "reported": null,
+          "requested": "kimi-code/kimi-for-coding"
+        },
+        "name": "subkimi",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260921-220511-349017-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:83707e1d805cc50876f54be39c056efff65f692e6741d38feedf4640c146f2fc",
+            "policy_version": 1,
+            "track": "opendesign-per-vendor-keys"
+          },
+          "digest": "sha256:cca973bf020a6aa037dfe5a21f8e809eff4eb4478fe62f478492bf022ad6ec61",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "16d9bf3fb9ebed2b160e0a5351b1cbc4f9ebbe4d",
+            "index_tree_oid": "624366ca5f356bd1bb36c9c202ac79bd55c8c864",
+            "worktree_tree_oid": "624366ca5f356bd1bb36c9c202ac79bd55c8c864"
+          },
+          "task_sha256": "sha256:861e87dcf4a8e07a6603252a362a4f512a5bf9477d35f4652119f99e06285d2c"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subcursor",
+        "degraded": false,
+        "duration_ms": 374427,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:1b757096d4c75464200a746bc977d8d76d6f5c3bb7bd9d2914145daab11db8cf",
+          "ref": "file:///root/aiwork/logs/panel-pvk-r3cov.subcursor.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xai",
+        "model": {
+          "invoked": "cursor-grok-4.6-high",
+          "reported": null,
+          "requested": "cursor-grok-4.6-high"
+        },
+        "name": "subcursor",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260921-220511-349017-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:83707e1d805cc50876f54be39c056efff65f692e6741d38feedf4640c146f2fc",
+            "policy_version": 1,
+            "track": "opendesign-per-vendor-keys"
+          },
+          "digest": "sha256:cca973bf020a6aa037dfe5a21f8e809eff4eb4478fe62f478492bf022ad6ec61",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "16d9bf3fb9ebed2b160e0a5351b1cbc4f9ebbe4d",
+            "index_tree_oid": "624366ca5f356bd1bb36c9c202ac79bd55c8c864",
+            "worktree_tree_oid": "624366ca5f356bd1bb36c9c202ac79bd55c8c864"
+          },
+          "task_sha256": "sha256:861e87dcf4a8e07a6603252a362a4f512a5bf9477d35f4652119f99e06285d2c"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
