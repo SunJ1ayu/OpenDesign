@@ -35,6 +35,24 @@ import time
 import unittest
 from unittest import mock
 
+# 🔴 只问"红不红"是不够的 —— 本单的产出是**分型能力**,不是红绿。
+# 2026-09-21 实证:--lazy-probe 那次被变异骗到、把产品缺陷红成"环境脏",
+# 而当时的夹具照印"符合预期"。所以这里钉的是**红在哪条断言上**。
+PRE_GATE = "开轮前,锁位段"                  # 前置断言:判据环境脏
+RACE_GATE = "份认为自己是唯一实例"           # 竞态断言:恰好 1 份赢
+CLEAN_ENV = "(=环境残留):没有"              # 取证当场认定:段内没有外来残留
+SHAPES = {
+    # case -> (必须出现, 不许出现)
+    "r1":  ([PRE_GATE], [RACE_GATE]),
+    "r2a": ([RACE_GATE, CLEAN_ENV], [PRE_GATE]),
+    "r2b": ([RACE_GATE, CLEAN_ENV], [PRE_GATE]),
+    "r2c": ([RACE_GATE, CLEAN_ENV], [PRE_GATE]),
+    "r3":  ([], []),
+}
+# 偷懒版探测**必须**被 r2c 骗到,否则这条对照实验就不成立(它证明的是
+# "复用被测代码做探测会把产品缺陷伪装成环境问题")。
+SHAPES_LAZY = {"r2c": ([PRE_GATE], [RACE_GATE])}
+
 LIVE_REPO = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
 TEST_NAME = "test_b8_two_instances_racing_at_the_same_moment_still_yield_one"
 
@@ -70,13 +88,28 @@ def mutate(repo: str, case: str) -> str:
             "r2c": "_send_show 恒返回 True(任何端口都被当成另一份 OpenDesign)"}[case]
 
 
-def run_case(repo: str, case: str) -> tuple[bool, str]:
+def run_case(repo: str, case: str, lazy_probe: bool = False) -> tuple[bool, str]:
     sys.path.insert(0, os.path.join(repo, "tests"))
     sys.path.insert(0, os.path.join(repo, "bin"))
     import test_ds_shell_core as T
 
     squatter = None
     patcher = None
+    lazy = None
+    if lazy_probe:
+        import ds_shell_core as _core
+
+        def _lazy(base, span, timeout=1.5):
+            """偷懒版:直接问产品自己的握手 —— 这正是本单**没有**采用的写法。"""
+            probe = _core.InstanceLock(base_port=base, span=span)
+            return [p for p in range(base, base + span + 1) if probe._send_show(p)]
+
+        if not hasattr(T, "lock_responders_in"):
+            raise SystemExit("🔴 这棵树上的 b8 还没有独立探测(lock_responders_in),"
+                             "对照实验不适用 —— 这本身就是本单要改掉的状态")
+        lazy = mock.patch.object(T, "lock_responders_in", _lazy)
+        lazy.start()
+        print("# ⚠️ 对照实验:前置探测已换成偷懒版(复用产品 _send_show)")
     if case == "r1":
         # 造 ①:起一个真 InstanceLock 子进程占住 P,再让 b8 的 base 落成 P-3
         import ds_shell_core  # noqa: F401  (确认副本的 bin 在 path 上)
@@ -102,6 +135,8 @@ def run_case(repo: str, case: str) -> tuple[bool, str]:
         res = unittest.TextTestRunner(stream=buf, verbosity=2).run(suite)
         return res.wasSuccessful(), buf.getvalue()
     finally:
+        if lazy:
+            lazy.stop()
         if patcher:
             patcher.stop()
         if squatter:
@@ -144,6 +179,10 @@ def main():
     ap.add_argument("--repo", default=LIVE_REPO)
     ap.add_argument("--case", required=True, choices=["r1", "r2a", "r2b", "r2c", "r3"])
     ap.add_argument("--repeat", type=int, default=1)
+    ap.add_argument("--lazy-probe", action="store_true",
+                    help="把 b8 的前置探测换成**偷懒版**(复用产品自己的 _send_show)。"
+                         "对照实验:证明'探测必须独立'不是我嘴上说的 —— 配 r2c 跑,"
+                         "偷懒版会被变异骗到,红在前置断言(把产品缺陷说成环境脏)。")
     a = ap.parse_args()
     repo = os.path.realpath(a.repo)
 
@@ -158,13 +197,23 @@ def main():
     expect_red = a.case in ("r1", "r2a", "r2b", "r2c")
     for i in range(a.repeat):
         t0 = time.time()
-        ok, out = run_case(repo, a.case)
+        ok, out = run_case(repo, a.case, a.lazy_probe)
         verdict = "绿" if ok else "红"
         want = "红" if expect_red else "绿"
-        mark = "符合预期" if (ok != expect_red) else "🔴 不符合预期"
-        print(f"\n# [{a.case} 第{i+1}/{a.repeat}遍] 结果={verdict} 期望={want} {mark} "
-              f"({time.time()-t0:.1f}s)")
+        bad = []
         if ok == expect_red:
+            bad.append(f"红绿不对(得到{verdict},要{want})")
+        must, forbid = (SHAPES_LAZY if a.lazy_probe else SHAPES)[a.case]
+        for anchor in must:
+            if anchor not in out:
+                bad.append(f"该红在这条断言上却没有:{anchor!r}")
+        for anchor in forbid:
+            if anchor in out:
+                bad.append(f"红错了断言,不该出现:{anchor!r}")
+        mark = "符合预期" if not bad else "🔴 不符合预期:" + " / ".join(bad)
+        print(f"\n# [{a.case} 第{i+1}/{a.repeat}遍] 结果={verdict} 期望={want} "
+              f"形状={'对' if not bad else '错'} {mark} ({time.time()-t0:.1f}s)")
+        if bad:
             sys.exit(1)
     sys.exit(0)
 

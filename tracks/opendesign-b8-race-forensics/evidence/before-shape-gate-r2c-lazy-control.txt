@@ -1,0 +1,29 @@
+# 对照实验:前置探测若复用产品自己的 _send_show,r2c 会不会被骗
+# 跑于 2026-09-21T00:47:26Z 副本=/tmp/tmp.kCjsFwQ1fs [仓外不承重]
+# 变异(r2c):_send_show 恒返回 True(任何端口都被当成另一份 OpenDesign)  repo=/tmp/tmp.kCjsFwQ1fs
+# ⚠️ 对照实验:前置探测已换成偷懒版(复用产品 _send_show)
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... FAIL
+
+======================================================================
+FAIL: test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/tmp.kCjsFwQ1fs/tests/test_ds_shell_core.py", line 426, in test_b8_two_instances_racing_at_the_same_moment_still_yield_one
+    self.fail(
+AssertionError: 第 0 轮开轮前,锁位段 [37765, 37770] 里已经有真 OpenDesign 锁在应答:[37765, 37766, 37767, 37768, 37769, 37770] ⇒ **判据环境脏,不是产品缺陷**。
+  · 37765: <ss:这个端口上没有 LISTEN>
+  · 37766: <ss:这个端口上没有 LISTEN>
+  · 37767: <ss:这个端口上没有 LISTEN>
+  · 37768: <ss:这个端口上没有 LISTEN>
+  · 37769: <ss:这个端口上没有 LISTEN>
+  · 37770: <ss:这个端口上没有 LISTEN>
+
+----------------------------------------------------------------------
+Ran 1 test in 0.068s
+
+FAILED (failures=1)
+
+# [r2c 第1/1遍] 结果=红 期望=红 符合预期 (0.1s)
+# rc=0

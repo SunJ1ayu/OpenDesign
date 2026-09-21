@@ -1,0 +1,22 @@
+# 红检 r2a  标签=oldb8-vs-shape-gate  commit=6e68970  源=ad96dfecbf94c83cfcdbd7ac3359ff615c12eb99  改动文件数=10
+# 跑于 2026-09-21T00:48:26Z  副本=/tmp/b8-redcheck-v9t24z/work-r2a [仓外不承重]
+# 变异(r2a):_someone_ahead_of 恒返回 True(两份都让位)  repo=/tmp/b8-redcheck-v9t24z/work-r2a
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... FAIL
+
+======================================================================
+FAIL: test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/b8-redcheck-v9t24z/work-r2a/tests/test_ds_shell_core.py", line 327, in test_b8_two_instances_racing_at_the_same_moment_still_yield_one
+    self.assertEqual(len(winners), 1,
+AssertionError: 0 != 1 : 第 0 轮同时起两份,0 份都认为自己是唯一实例:[{'acquired': False, 'port': 37647}, {'acquired': False, 'port': 37648}]
+
+----------------------------------------------------------------------
+Ran 1 test in 0.319s
+
+FAILED (failures=1)
+
+# [r2a 第1/1遍] 结果=红 期望=红 形状=错 🔴 不符合预期:该红在这条断言上却没有:'份认为自己是唯一实例' / 该红在这条断言上却没有:'(=环境残留):没有' (0.4s)
+# rc=1

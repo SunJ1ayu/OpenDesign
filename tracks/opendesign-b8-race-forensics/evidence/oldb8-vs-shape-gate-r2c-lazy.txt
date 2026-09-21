@@ -1,0 +1,21 @@
+# 红检 r2c-lazy  标签=oldb8-vs-shape-gate  commit=6e68970  源=ad96dfecbf94c83cfcdbd7ac3359ff615c12eb99  改动文件数=13
+# 跑于 2026-09-21T00:48:28Z  副本=/tmp/b8-redcheck-v9t24z/work-r2c-lazy [仓外不承重]
+# 变异(r2c):_send_show 恒返回 True(任何端口都被当成另一份 OpenDesign)  repo=/tmp/b8-redcheck-v9t24z/work-r2c-lazy
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tracks/opendesign-b8-race-forensics/probes/redcheck.py", line 219, in <module>
+    main()
+  File "/root/.openclaw/workspace/projects/design-studio/tracks/opendesign-b8-race-forensics/probes/redcheck.py", line 197, in main
+    ok, out = run_case(repo, a.case, a.lazy_probe)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tracks/opendesign-b8-race-forensics/probes/redcheck.py", line 108, in run_case
+    lazy.start()
+  File "/usr/lib/python3.12/unittest/mock.py", line 1606, in start
+    result = self.__enter__()
+             ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1458, in __enter__
+    original, local = self.get_original()
+                      ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1431, in get_original
+    raise AttributeError(
+AttributeError: <module 'test_ds_shell_core' from '/tmp/b8-redcheck-v9t24z/work-r2c-lazy/tests/test_ds_shell_core.py'> does not have the attribute 'lock_responders_in'
+# rc=1
