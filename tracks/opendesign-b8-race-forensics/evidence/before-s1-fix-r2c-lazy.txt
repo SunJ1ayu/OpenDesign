@@ -1,0 +1,36 @@
+# 红检 r2c-lazy  标签=before-s1-fix  commit=a205077  源=fda21ab0883e2c7f39e981ac47599deaf0203be3  改动文件数=19
+# 跑于 2026-09-21T02:01:13Z  副本=/tmp/b8-redcheck-K6HMv3/work-r2c-lazy [仓外不承重]
+# 变异(r2c):_send_show 恒返回 True(任何端口都被当成另一份 OpenDesign)  repo=/tmp/b8-redcheck-K6HMv3/work-r2c-lazy
+# ⚠️ 对照实验:前置探测已换成偷懒版(复用产品 _send_show)
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... FAIL
+
+======================================================================
+FAIL: test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/b8-redcheck-K6HMv3/work-r2c-lazy/tests/test_ds_shell_core.py", line 441, in test_b8_two_instances_racing_at_the_same_moment_still_yield_one
+    self.assertEqual(
+AssertionError: Lists differ: [36671, 36672, 36673, 36674, 36675, 36676] != []
+
+First list contains 6 additional elements.
+First extra element 0:
+36671
+
+- [36671, 36672, 36673, 36674, 36675, 36676]
++ [] : 第 0 轮开轮前,锁位段 [36671, 36676] 里已经有真 OpenDesign 锁在应答:[36671, 36672, 36673, 36674, 36675, 36676] ⇒ **判据环境脏,不是产品缺陷**。
+  · 36671: <ss:这个端口上没有 LISTEN>
+  · 36672: <ss:这个端口上没有 LISTEN>
+  · 36673: <ss:这个端口上没有 LISTEN>
+  · 36674: <ss:这个端口上没有 LISTEN>
+  · 36675: <ss:这个端口上没有 LISTEN>
+  · 36676: <ss:这个端口上没有 LISTEN>
+
+----------------------------------------------------------------------
+Ran 1 test in 0.139s
+
+FAILED (failures=1)
+
+# [r2c 第1/1遍] 结果=红 期望=红 形状=对 符合预期 (0.2s)
+# rc=0

@@ -17,6 +17,14 @@
        产品自己的 `_send_show`,这个变异会让它**误报"环境脏"**,把真缺陷伪装成判据问题
        —— 那就是自动化版的"调钝报警器"。所以探测必须自己发 socket,
        新 b8 在这条下必须红在"恰好 1 份赢",**不许**红在前置断言。
+  R2d  ② 真产品缺陷(让位整个失灵):`_scan` 恒 None + `_someone_ahead_of` 恒 False
+       ⇒ **两份都赢**。红的第三种长相 —— 业主双击两下开出**两个**窗口,
+       那正是 b8 最初存在的理由。前两种长相都是 0 份赢,只造它们会漏掉这一半。
+  R2d-no-ss  同上,但把 `ss` 从判据眼里藏掉(`shutil.which("ss") -> None`)。
+       🔴 这条钉的是**取证在降级路径上会不会说反话**:两份赢家还在监听,取证得认出
+       "这两个是我自己",靠的是 `listener_pids`;它只认 `ss` 的 `pid=` 格式时,
+       没装 ss 的机器上会把本轮自己算成"环境残留" ⇒ 把产品缺陷写成"判据环境脏"。
+       修之前这条必然形状错(CLEAN_ENV 缺失),修之后与 r2d 同形。
   R3   正常树 ⇒ 必须绿。
 
 变异只许打在**仓外副本**上(活仓零改动)。`--repo` 指向活仓且要求变异时本夹具拒绝跑。
@@ -41,12 +49,16 @@ from unittest import mock
 PRE_GATE = "开轮前,锁位段"                  # 前置断言:判据环境脏
 RACE_GATE = "份认为自己是唯一实例"           # 竞态断言:恰好 1 份赢
 CLEAN_ENV = "(=环境残留):没有"              # 取证当场认定:段内没有外来残留
+TWO_WINDOWS = "开出两个窗口"                 # 分型结论句:这次红的是"2 份都赢"那一种
 SHAPES = {
     # case -> (必须出现, 不许出现)
     "r1":  ([PRE_GATE], [RACE_GATE]),
     "r2a": ([RACE_GATE, CLEAN_ENV], [PRE_GATE]),
     "r2b": ([RACE_GATE, CLEAN_ENV], [PRE_GATE]),
     "r2c": ([RACE_GATE, CLEAN_ENV], [PRE_GATE]),
+    # 🔴 两份赢家红的那一刻**还在监听**,取证必须认出"这两个是我自己"(不是环境残留),
+    # 而且结论句要落到"开出两个窗口"这一支上 —— 只钉 RACE_GATE 的话,说反话也算过。
+    "r2d": ([RACE_GATE, CLEAN_ENV, TWO_WINDOWS], [PRE_GATE]),
     "r3":  ([], []),
 }
 # 偷懒版探测**必须**被 r2c 骗到,否则这条对照实验就不成立(它证明的是
@@ -76,6 +88,22 @@ def mutate(repo: str, case: str) -> str:
             rest[sig_end:]
         open(path, "w", encoding="utf-8").write(new_src)
         return "_scan 恒返回 base_port(段内无人也报有人)"
+    elif case == "r2d":
+        # 两处一起改:只关让位仲裁的话,先 bind 的那份可能被另一份的 _scan 扫到 ⇒
+        # 退化成"恰好一份赢",造不出这种红。
+        anchor = "    def _someone_ahead_of(self, mine: int) -> bool:\n"
+        if anchor not in src or "    def _scan(self" not in src:
+            raise SystemExit("变异锚点没找到,拒绝继续:r2d 要 _someone_ahead_of + _scan")
+        src = src.replace(
+            anchor,
+            anchor + "        return False  # [MUTANT r2d] 让位仲裁失灵:谁都认为自己在最前面\n", 1)
+        idx = src.index("    def _scan(self")
+        head, rest = src[:idx], src[idx:]
+        sig_end = rest.index("\n", rest.index(":\n")) + 1
+        src = head + rest[:sig_end] + \
+            "        return None  # [MUTANT r2d] 扫描恒说段内没人\n" + rest[sig_end:]
+        open(path, "w", encoding="utf-8").write(src)
+        return "_someone_ahead_of 恒 False + _scan 恒 None(两份都赢)"
     elif case == "r2c":
         old = "    def _send_show(self, port: int, patient: bool = False) -> bool:\n"
         new = old + "        return True  # [MUTANT r2c] 握手恒真:任何端口都被当成另一份 OpenDesign\n"
@@ -88,7 +116,8 @@ def mutate(repo: str, case: str) -> str:
             "r2c": "_send_show 恒返回 True(任何端口都被当成另一份 OpenDesign)"}[case]
 
 
-def run_case(repo: str, case: str, lazy_probe: bool = False) -> tuple[bool, str]:
+def run_case(repo: str, case: str, lazy_probe: bool = False,
+             no_ss: bool = False) -> tuple[bool, str]:
     sys.path.insert(0, os.path.join(repo, "tests"))
     sys.path.insert(0, os.path.join(repo, "bin"))
     import test_ds_shell_core as T
@@ -96,6 +125,19 @@ def run_case(repo: str, case: str, lazy_probe: bool = False) -> tuple[bool, str]
     squatter = None
     patcher = None
     lazy = None
+    hide_ss = None
+    if no_ss:
+        # 把 `ss` 从判据眼里藏掉 —— 模拟没装 ss 的机器(容器里很常见)。
+        # 只挡 "ss" 这一个名字,别的 which 照常,免得把 lsof 也一起挡掉。
+        import shutil as _sh
+        _real_which = _sh.which
+
+        def _which_no_ss(cmd, *a, **k):
+            return None if cmd == "ss" else _real_which(cmd, *a, **k)
+
+        hide_ss = mock.patch.object(_sh, "which", _which_no_ss)
+        hide_ss.start()
+        print("# ⚠️ 降级实验:判据眼里没有 ss(只剩 lsof)")
     if lazy_probe:
         import ds_shell_core as _core
 
@@ -135,6 +177,8 @@ def run_case(repo: str, case: str, lazy_probe: bool = False) -> tuple[bool, str]
         res = unittest.TextTestRunner(stream=buf, verbosity=2).run(suite)
         return res.wasSuccessful(), buf.getvalue()
     finally:
+        if hide_ss:
+            hide_ss.stop()
         if lazy:
             lazy.stop()
         if patcher:
@@ -177,16 +221,20 @@ class _Capture:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", default=LIVE_REPO)
-    ap.add_argument("--case", required=True, choices=["r1", "r2a", "r2b", "r2c", "r3"])
+    ap.add_argument("--case", required=True,
+                    choices=["r1", "r2a", "r2b", "r2c", "r2d", "r3"])
     ap.add_argument("--repeat", type=int, default=1)
     ap.add_argument("--lazy-probe", action="store_true",
                     help="把 b8 的前置探测换成**偷懒版**(复用产品自己的 _send_show)。"
                          "对照实验:证明'探测必须独立'不是我嘴上说的 —— 配 r2c 跑,"
                          "偷懒版会被变异骗到,红在前置断言(把产品缺陷说成环境脏)。")
+    ap.add_argument("--no-ss", action="store_true",
+                    help="把 `ss` 从判据眼里藏掉(模拟没装 ss 的机器)。配 r2d 跑:"
+                         "两份赢家还在监听,取证必须仍认出'这两个是我自己'。")
     a = ap.parse_args()
     repo = os.path.realpath(a.repo)
 
-    if a.case in ("r2a", "r2b", "r2c"):
+    if a.case in ("r2a", "r2b", "r2c", "r2d"):
         if repo == LIVE_REPO:
             raise SystemExit("🔴 拒绝:变异只许打在仓外副本上,--repo 不能是活仓")
         what = mutate(repo, a.case)
@@ -194,10 +242,10 @@ def main():
     else:
         print(f"# 无变异({a.case})  repo={repo}")
 
-    expect_red = a.case in ("r1", "r2a", "r2b", "r2c")
+    expect_red = a.case in ("r1", "r2a", "r2b", "r2c", "r2d")
     for i in range(a.repeat):
         t0 = time.time()
-        ok, out = run_case(repo, a.case, a.lazy_probe)
+        ok, out = run_case(repo, a.case, a.lazy_probe, a.no_ss)
         verdict = "绿" if ok else "红"
         want = "红" if expect_red else "绿"
         bad = []

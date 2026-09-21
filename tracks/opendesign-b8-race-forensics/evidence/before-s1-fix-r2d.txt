@@ -1,0 +1,38 @@
+# 红检 r2d  标签=before-s1-fix  commit=a205077  源=fda21ab0883e2c7f39e981ac47599deaf0203be3  改动文件数=20
+# 跑于 2026-09-21T02:01:14Z  副本=/tmp/b8-redcheck-K6HMv3/work-r2d [仓外不承重]
+# 变异(r2d):_someone_ahead_of 恒 False + _scan 恒 None(两份都赢)  repo=/tmp/b8-redcheck-K6HMv3/work-r2d
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... FAIL
+
+======================================================================
+FAIL: test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/b8-redcheck-K6HMv3/work-r2d/tests/test_ds_shell_core.py", line 466, in test_b8_two_instances_racing_at_the_same_moment_still_yield_one
+    self.assertEqual(
+AssertionError: 2 != 1 : 第 0 轮同时起两份,2 份认为自己是唯一实例:[{'acquired': True, 'port': 55015}, {'acquired': True, 'port': 55016}]
+锁位段 = [55015, 55020]  本轮子进程 pid=[3556250, 3556251]
+  · 段内有真 OpenDesign 锁应答的格子:[55015, 55016]
+  · 其中**不是本轮自己**的(=环境残留):没有
+  · 55015: LISTEN 0 8 127.0.0.1:55015 0.0.0.0:* users:(("python",pid=3556250,fd=3))
+  · 55016: LISTEN 0 8 127.0.0.1:55016 0.0.0.0:* users:(("python",pid=3556251,fd=3))
+  · 55017: <ss:这个端口上没有 LISTEN>
+  · 55018: <ss:这个端口上没有 LISTEN>
+  · 55019: <ss:这个端口上没有 LISTEN>
+  · 55020: <ss:这个端口上没有 LISTEN>
+  · 本用例起过的子进程:
+      轮0实例0 pid=3556250 活着 读数={'acquired': True, 'port': 55015}
+      轮0实例1 pid=3556251 活着 读数={'acquired': True, 'port': 55016}
+  · 本轮实例0 stderr=''
+  · 本轮实例1 stderr=''
+
+怎么读这份现场:上面「环境残留」非空 ⇒ **判据环境脏**,这一轮读数不可信;空的却又不是恰好 1 份赢 ⇒ **产品缺陷**(业主双击两下,开出两个窗口)。
+
+----------------------------------------------------------------------
+Ran 1 test in 0.493s
+
+FAILED (failures=1)
+
+# [r2d 第1/1遍] 结果=红 期望=红 形状=对 符合预期 (0.5s)
+# rc=0

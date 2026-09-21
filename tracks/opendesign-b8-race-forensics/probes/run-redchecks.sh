@@ -12,10 +12,11 @@ trap 'rm -rf "$BASE"' EXIT
 SRC="$(git stash create)"; SRC="${SRC:-HEAD}"
 git archive "$SRC" | tar -x -C "$BASE"
 rc_all=0
-for c in r1 r2a r2b r2c r2c-lazy r3; do
+for c in r1 r2a r2b r2c r2c-lazy r2d r2d-no-ss r3; do
   rep=1; [ "$c" = r3 ] && rep=3               # 正常树多跑几遍,竞态单次绿说明不了什么
-  lazy=""; case="$c"
-  if [ "$c" = r2c-lazy ]; then case=r2c; lazy="--lazy-probe"; fi
+  flag=""; case="$c"      # 情景名带后缀的,拆成 --case + 一个开关
+  if [ "$c" = r2c-lazy ]; then case=r2c; flag="--lazy-probe"; fi
+  if [ "$c" = r2d-no-ss ]; then case=r2d; flag="--no-ss"; fi
   work="$BASE/work-$c"; rm -rf "$work"; cp -r "$BASE" "$work" 2>/dev/null
   rm -rf "$work"/work-* 2>/dev/null
   f="$OUT/$LABEL-$c.txt"
@@ -23,7 +24,7 @@ for c in r1 r2a r2b r2c r2c-lazy r3; do
     echo "# 红检 $c  标签=$LABEL  commit=$(git rev-parse --short HEAD)  源=$SRC  改动文件数=$(git status --porcelain | grep -c .)"
     echo "# 跑于 $(date -u +%Y-%m-%dT%H:%M:%SZ)  副本=$work [仓外不承重]"
     timeout 600 "$PY" tracks/opendesign-b8-race-forensics/probes/redcheck.py \
-        --repo "$work" --case "$case" $lazy --repeat "$rep" 2>&1
+        --repo "$work" --case "$case" $flag --repeat "$rep" 2>&1
     echo "# rc=$?"
   } > "$f" 2>&1
   tail -2 "$f" | head -1
