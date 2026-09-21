@@ -92,13 +92,113 @@ PROVIDERS = {
 }
 
 
-def _current_provider(cfg: dict):
-    """这份配置现在连的是哪一家:按 providers.custom.apiBase 认(与 status() 同一个判法)。认不出返回 None。"""
-    base = ((cfg.get("providers") or {}).get("custom") or {}).get("apiBase", "")
+def _norm_base(base) -> str:
+    """端点比较前去掉首尾空白与尾斜杠:`…/v1/` 和 `…/v1` 是同一家(挑战腿指出的 F5)。"""
+    return str(base or "").strip().rstrip("/")
+
+
+def _vendor_by_base(base):
+    b = _norm_base(base)
+    if not b:
+        return None
     for name, preset in PROVIDERS.items():
-        if base and base == preset["apiBase"]:
+        if b == _norm_base(preset["apiBase"]):
             return name
     return None
+
+
+def _current_provider(cfg: dict):
+    """**主槽**是哪一家:按 providers.custom.apiBase 认(与 status() 同一个判法)。认不出返回 None。"""
+    base = ((cfg.get("providers") or {}).get("custom") or {}).get("apiBase", "")
+    return _vendor_by_base(base)
+
+
+# ── 额外槽(track opendesign-per-vendor-keys)────────────────────────────────
+# 主槽 = `providers.custom` + 它引用的变量 + key.txt,**格式与语义一个字不改**:
+# 老启动器(ds-nanobot.ps1、Linux 的 ds-nanobot)只认它,老用户也不用迁移。
+# 第二家起放「额外槽」:key 在 `keys/<厂商>.txt`,配置条目 `providers.od_<厂商>`。
+#
+# 🔴 额外条目**只由 prepare_gateway 写**(外壳起网关那一刻,与注入 key 同一处)。
+#    实验 p2(真网关)证实:配置引用了网关 env 里没有的变量,每句前的重读会抛错被吞、
+#    **悄悄保留旧厂商**,而界面说换了。条目与 key 同一处产生 ⇒「引用 ⊆ 网关手里的 key」由结构保证。
+EXTRA_PREFIX = "od_"
+_VAR_UNSAFE = re.compile(r"[^A-Z0-9_]")
+
+
+def extra_provider_name(vendor: str) -> str:
+    return EXTRA_PREFIX + vendor
+
+
+def extra_var_name(vendor: str) -> str:
+    """额外槽的变量名。以 `DS_` 开头是刻意的:外壳 `child_env` 会剥掉继承来的 `DS_*`,
+    业主自己环境里的同名变量就漏不进网关(只有外壳注入的那份算数)。"""
+    return "DS_LLM_KEY_" + _VAR_UNSAFE.sub("_", vendor.upper())
+
+
+def keys_dir(home: str) -> str:
+    return os.path.join(home, ".openDesign", "keys")
+
+
+def extra_key_path(home: str, vendor: str) -> str:
+    return os.path.join(keys_dir(home), f"{vendor}.txt")
+
+
+def _switch_marker_path(home: str) -> str:
+    """「存了这家的 key,想换过去」—— 只有一个厂商 id,**不含 key**。
+    存 key 的那一下网关还没拿到它,不能立刻切(会撞上前提 3);由 prepare_gateway 在注入之后兑现。"""
+    return os.path.join(keys_dir(home), "switch-to")
+
+
+def read_extra_key(home: str, vendor: str) -> str | None:
+    try:
+        with open(extra_key_path(home, vendor), encoding="utf-8") as fh:
+            return fh.read().strip() or None
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
+def _extra_entries(cfg: dict) -> dict:
+    """配置里现有的额外槽条目:{厂商: 条目}。只认 `od_<目录里的厂商>`。"""
+    out = {}
+    for name, entry in ((cfg.get("providers") or {}).items()):
+        if isinstance(name, str) and name.startswith(EXTRA_PREFIX) and isinstance(entry, dict):
+            vendor = name[len(EXTRA_PREFIX):]
+            if vendor in PROVIDERS:
+                out[vendor] = entry
+    return out
+
+
+def _live_vendors(cfg: dict) -> list:
+    """网关手里有 key 的厂商(按配置判):主槽那家 + 每个额外条目。
+
+    额外条目只由 prepare_gateway 在注入 key 的同时写,所以"条目在"就等于"网关拿到了"。"""
+    primary = _current_provider(cfg)
+    out = [primary] if primary else []
+    for vendor in _extra_entries(cfg):
+        if vendor not in out:
+            out.append(vendor)
+    return out
+
+
+def _preset_vendor(cfg: dict, preset_name) -> str | None:
+    """某个预设实际发往哪一家:看它的 `provider` 字段(nanobot 按它路由,预设里没有端点字段)。"""
+    preset = (cfg.get("model_presets") or {}).get(preset_name) if preset_name else None
+    if not isinstance(preset, dict):
+        return None
+    prov = preset.get("provider")
+    if isinstance(prov, str) and prov.startswith(EXTRA_PREFIX):
+        vendor = prov[len(EXTRA_PREFIX):]
+        return vendor if vendor in PROVIDERS else None
+    return _current_provider(cfg)
+
+
+def _slot_of(cfg: dict, vendor: str) -> str:
+    return "custom" if vendor == _current_provider(cfg) else extra_provider_name(vendor)
+
+
+def _custom_preset(vendor: str, model: str) -> dict:
+    # 主槽预设沿用老形状(含 apiBase —— nanobot 不读它,但 lm5 与老配置都是这个样子)
+    return {"label": model, "provider": "custom", "model": model, "apiBase": PROVIDERS[vendor]["apiBase"]}
 
 
 def models_status(cfg_path: str) -> dict:
@@ -107,8 +207,11 @@ def models_status(cfg_path: str) -> dict:
     🔴 模型列表按**厂商目录**给,不按配置里的 model_presets 给:换到 DeepSeek 之后,
        MiMo 的预设还留在配置里,照配置列就会把它们列成"能用"—— 选了会被发到 DeepSeek 的地址(判据 lm5)。
     配置缺失 / 读不出 / 认不出厂商 ⇒ provider=None、models=[](界面只剩「换厂商 / 换 key…」)。
+
+    多厂商(track opendesign-per-vendor-keys):`groups` = 每个**网关手里有 key**的厂商一组;
+    顶层 `provider/label/models` 仍是当前在用那一家(老前端照旧能用)。
     """
-    out = {"provider": None, "label": None, "current": None, "models": []}
+    out = {"provider": None, "label": None, "current": None, "models": [], "groups": []}
     try:
         with open(cfg_path, encoding="utf-8") as fh:
             cfg = json.load(fh)
@@ -116,26 +219,34 @@ def models_status(cfg_path: str) -> dict:
         return out
     if not isinstance(cfg, dict):
         return out
-    provider = _current_provider(cfg)
-    if provider is None:
+    live = _live_vendors(cfg)
+    if not live:
         return out
-    p = PROVIDERS[provider]
-    out.update(provider=provider, label=p["label"], current=ds_model.resolve_model(cfg),
-               models=[{"id": m, "label": m} for m in p["models"]])
+    active = _preset_vendor(cfg, ds_model.active_preset_name(cfg))
+    if active not in live:
+        active = live[0]
+    groups = [{"provider": v, "label": PROVIDERS[v]["label"],
+               "models": [{"id": m, "label": m} for m in PROVIDERS[v]["models"]]} for v in live]
+    out.update(provider=active, label=PROVIDERS[active]["label"], current=ds_model.resolve_model(cfg),
+               models=groups[live.index(active)]["models"], groups=groups)
     return out
 
 
-def select_model(cfg_path: str, model) -> dict:
-    """把当前模型换成 `model`:写 agents.defaults.modelPreset(判据 lm2~lm6)。
+def select_model(cfg_path: str, model, provider=None) -> dict:
+    """把当前模型换成 `model`:写 agents.defaults.modelPreset(判据 lm2~lm6、v8)。
 
-    - 只许当前厂商目录里的 id(别家的 / 随便的串 / 空 ⇒ CredentialError,配置不动);
-    - 目录里有、配置里还没有这个预设 ⇒ 按该厂商端点补建(DeepSeek 的 v4-pro 就是这样);
-    - 其余字段一个不碰,key.txt 不碰,不重启网关:nanobot 每条入站消息前重读配置
+    - 只许**网关手里有 key 的厂商**目录里的 id(别家的 / 随便的串 / 空 ⇒ CredentialError,配置不动);
+      `provider` 给了就只在那一家里找(前端点哪一行就带哪一家,不靠模型名反查);
+    - 目录里有、配置里还没有这个预设 ⇒ 按该厂商所在的槽补建(DeepSeek 的 v4-pro 就是这样);
+    - 其余字段一个不碰,key 文件不碰,不重启网关:nanobot 每条入站消息前重读配置
       (agent/loop.py _refresh_provider_snapshot → providers/factory.py load_provider_snapshot),下一句起生效。
+      跨厂商也一样 —— 真网关实验 p2 / 判据 l1 证实下一句就换到另一家的端点和 key。
     配置读不出 ⇒ 拒绝,**不替业主建一份配置**。
     """
     if not isinstance(model, str) or not model.strip():
         raise CredentialError("没有指定要换成哪个模型")
+    if provider is not None and not isinstance(provider, str):
+        raise CredentialError("厂商参数不对")
     model = model.strip()
     try:
         with open(cfg_path, encoding="utf-8") as fh:
@@ -144,15 +255,36 @@ def select_model(cfg_path: str, model) -> dict:
         raise CredentialError(f"配置读不出来:{cfg_path}({exc.__class__.__name__})") from None
     if not isinstance(cfg, dict):
         raise CredentialError(f"配置读不出来:{cfg_path}")
-    provider = _current_provider(cfg)
-    if provider is None:
+    live = _live_vendors(cfg)
+    if not live:
         raise CredentialError("认不出现在用的是哪家的 key,请先在「AI 模型 key」里选厂商")
-    p = PROVIDERS[provider]
+    if provider is not None:
+        if provider not in PROVIDERS:
+            raise CredentialError(f"不认识的厂商:{provider}")
+        if provider not in live:
+            raise CredentialError(f"{PROVIDERS[provider]['label']} 的 key 后台还没拿到,"
+                                  "等后台重启好再选(或先在「AI 模型 key」里填)")
+        vendor = provider
+    else:
+        hits = [v for v in live if model in PROVIDERS[v]["models"]]
+        if not hits:
+            waiting = [v for v in PROVIDERS if v not in live and model in PROVIDERS[v]["models"]]
+            if waiting:
+                raise CredentialError(f"{PROVIDERS[waiting[0]]['label']} 的 key 后台还没拿到,"
+                                      "等后台重启好再选(或先在「AI 模型 key」里填)")
+            raise CredentialError(f"{PROVIDERS[live[0]]['label']} 这把 key 用不了 {model}")
+        vendor = hits[0]
+    p = PROVIDERS[vendor]
     if model not in p["models"]:
         raise CredentialError(f"{p['label']} 这把 key 用不了 {model}")
+    slot = _slot_of(cfg, vendor)
     presets = cfg.setdefault("model_presets", {})
-    if model not in presets:
-        presets[model] = {"label": model, "provider": "custom", "model": model, "apiBase": p["apiBase"]}
+    existing = presets.get(model)
+    if not isinstance(existing, dict):
+        presets[model] = (_custom_preset(vendor, model) if slot == "custom"
+                          else {"label": model, "provider": slot, "model": model})
+    elif existing.get("provider", "custom") != slot:
+        existing["provider"] = slot          # 手改过的错指预设:按厂商所在的槽纠正,否则会发到别家端点
     cfg.setdefault("agents", {}).setdefault("defaults", {})["modelPreset"] = model
     try:
         _atomic_write(cfg_path, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n")
@@ -216,28 +348,50 @@ def status(home: str, cfg_path: str | None = None) -> dict:
 
     `source` / `writable` 回答的是"这把 key 从哪来、在这儿改得动吗",让界面能提前
     把被遮蔽的那一格渲染成只读,而不是让业主白填一次(见 `_env_key` 的说明)。
+    这几个老字段只讲**主槽**(语义不变);每家一行的状态在 `vendors` 里(v11)。
     """
     key = read_key(home)
     provider = None
     env_key = None
+    cfg = None
     if cfg_path and os.path.isfile(cfg_path):
         try:
-            cfg = json.load(open(cfg_path, encoding="utf-8"))
-            base = (cfg.get("providers", {}).get("custom", {}) or {}).get("apiBase", "")
-            for name, preset in PROVIDERS.items():
-                if base and base == preset["apiBase"]:
-                    provider = name
-                    break
-            env_key = _env_key(cfg)
+            with open(cfg_path, encoding="utf-8") as fh:
+                cfg = json.load(fh)
+            if not isinstance(cfg, dict):
+                cfg = None
         except (OSError, ValueError):
-            provider = None
+            cfg = None
+    if cfg is not None:
+        provider = _current_provider(cfg)
+        env_key = _env_key(cfg)
     # 启动脚本 env 优先 ⇒ **真正生效的是 env 那把**,hint 也必须报它,
     # 否则业主换完 key 会看见新的末四位、用着旧的 key,且无从发现。
     live = env_key or key
     return {"configured": live is not None, "provider": provider,
             "hint": _hint(live) if live else None,
             "source": "env" if env_key else ("file" if key else None),
-            "writable": env_key is None}
+            "writable": env_key is None,
+            "vendors": _vendor_rows(home, cfg, provider, live)}
+
+
+def _vendor_rows(home: str, cfg, primary, primary_key) -> list:
+    """卡片上每家一行:configured(存了 key)/ live(网关手里有)/ active(正在用)/ pending(存了、等重启)。"""
+    live_vendors = _live_vendors(cfg) if cfg is not None else []
+    active = _preset_vendor(cfg, ds_model.active_preset_name(cfg)) if cfg is not None else None
+    rows = []
+    for vendor, meta in PROVIDERS.items():
+        if vendor == primary:
+            k = primary_key
+            is_live = k is not None
+        else:
+            k = read_extra_key(home, vendor)
+            is_live = k is not None and vendor in live_vendors
+        rows.append({"id": vendor, "label": meta["label"], "configured": k is not None,
+                     "hint": _hint(k) if k else None, "live": is_live,
+                     "active": bool(is_live and vendor == active),
+                     "pending": bool(k is not None and not is_live)})
+    return rows
 
 
 def _atomic_write(path: str, body: str) -> None:
@@ -261,8 +415,17 @@ def _atomic_write(path: str, body: str) -> None:
         raise
 
 
-def save(home: str, cfg_path: str, provider: str, key: str) -> dict:
-    """写 key.txt + 把厂商写进配置。返回状态(**不含 key**)。
+def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = False) -> dict:
+    """存一家的 key。返回状态(**不含 key**)。
+
+    `multi=False`(没有外壳:git-pull / Linux 开发机):**与今天逐字节相同** —— 主槽覆盖、
+    改 apiBase/预设、写 key.txt。那两种启动器只认一个变量,配置里不许出现额外引用(v3)。
+
+    `multi=True`(有外壳,ds_web 按 DS_SHELL_LOCK_PORT 判):
+      · 主槽还没有 key(全新装机)或这家就是主槽那家 ⇒ 同上(主槽);
+      · 否则 ⇒ 写 `keys/<厂商>.txt` + 「想换过去」标记,**配置一个字节不动**(v1)——
+        此刻网关还没拿到这把 key,往配置里加引用就是"界面说换了、后台没换"。
+        条目由外壳起网关时的 prepare_gateway 写,与注入 key 同一处。
 
     顺序是**先改配置、再写 key**:配置改坏了就整个失败,不留下"key 在但端点还是旧的"
     那种半成品(业主会拿着一把对的 key 连到错的地方,而报错长得像 key 不对)。
@@ -281,10 +444,23 @@ def save(home: str, cfg_path: str, provider: str, key: str) -> dict:
 
     preset = PROVIDERS[provider]
     try:
-        cfg = json.load(open(cfg_path, encoding="utf-8"))
+        with open(cfg_path, encoding="utf-8") as fh:
+            cfg = json.load(fh)
     except (OSError, ValueError) as exc:
         # 🔴 报错里带路径可以,**带 key 不行**(判据 a4)。
         raise CredentialError(f"配置读不出来:{cfg_path}({exc.__class__.__name__})") from None
+
+    if multi and isinstance(cfg, dict):
+        primary = _current_provider(cfg)
+        primary_has_key = (_env_key(cfg) or read_key(home)) is not None
+        if primary_has_key and provider != primary:
+            try:
+                _atomic_write(extra_key_path(home, provider), k + "\n")
+                _atomic_write(_switch_marker_path(home), provider + "\n")
+            except OSError as exc:
+                raise CredentialError(f"写不进去({exc.__class__.__name__}),"
+                                      f"请确认这台机器上这个文件夹可写") from None
+            return status(home, cfg_path)
 
     var = env_var_name(cfg)                      # 会抛 CredentialError,由调用方翻译
 
@@ -315,3 +491,133 @@ def save(home: str, cfg_path: str, provider: str, key: str) -> dict:
     out = status(home, cfg_path)
     out["env_var"] = var                         # 给外壳重启时用;**不是凭据**
     return out
+
+
+# ── 外壳起网关的那一刻(track opendesign-per-vendor-keys)────────────────────────
+def prepare_gateway(home: str, cfg_path: str) -> dict:
+    """外壳每次起/重启网关前调一次(`ds_shell.build_env`):让配置里的额外厂商条目
+    与 key 文件对齐,返回**要注入网关的额外变量 → key**(主槽 key 仍走原来那条路)。
+
+    这是额外条目**唯一的写入口**,而且与注入在同一处 ⇒ 配置引用的每个变量,网关都拿得到
+    (判据 v4 把配置交给 nanobot 自己的加载器来答)。
+
+    - 只有主槽一把 key 的老家:一个字节都不动(v12/v12b,零迁移);
+    - 有第二家的 key:补条目、把那家目录里的模型预设指到它的条目;主槽那家的目录预设补齐并指回 custom;
+    - 条目没有对应 key 了:删条目、删指向它的预设;当前模型悬空就回落主槽默认(v5);
+    - 「想换过去」标记:那家此刻真有 key 才兑现,兑现后才删(v6/v6b);
+    - **任何出错都不抛**(外壳不能因为这一步起不来):不写配置,只返回盘上配置里已引用、且读得到 key 的那些(v10)。
+    """
+    try:
+        with open(cfg_path, encoding="utf-8") as fh:
+            cfg = json.load(fh)
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(cfg, dict):
+        return {}
+    try:
+        new, marker_done = _synced_config(home, cfg)
+    except Exception:          # 🔴 这一步坏了也不许拖垮启动:退回今天的单厂商
+        return _extra_env(home, cfg)
+    if new != cfg:
+        try:
+            _atomic_write(cfg_path, json.dumps(new, ensure_ascii=False, indent=2) + "\n")
+        except OSError:
+            return _extra_env(home, cfg)
+        cfg = new
+    if marker_done:
+        try:
+            os.remove(_switch_marker_path(home))
+        except OSError:
+            pass
+    return _extra_env(home, cfg)
+
+
+def _extra_env(home: str, cfg: dict) -> dict:
+    """配置里每个额外条目引用的变量 → 它的 key。读不到 key 的不给(那种条目本不该在)。"""
+    out = {}
+    for vendor, entry in _extra_entries(cfg).items():
+        m = _ENV_REF_RE.match(str(entry.get("apiKey") or "").strip())
+        k = read_extra_key(home, vendor)
+        if m and k:
+            out[m.group(1)] = k
+    return out
+
+
+def _read_marker(home: str) -> str | None:
+    try:
+        with open(_switch_marker_path(home), encoding="utf-8") as fh:
+            v = fh.read().strip()
+    except (OSError, UnicodeDecodeError):
+        return None
+    return v if v in PROVIDERS else None
+
+
+def _synced_config(home: str, cfg: dict):
+    """算出对齐之后的配置(不写盘)。返回 (新配置, 标记是否兑现)。"""
+    import copy
+    primary = _current_provider(cfg)
+    wanted = {v: k for v in PROVIDERS if v != primary for k in [read_extra_key(home, v)] if k}
+    existing = {name for name in (cfg.get("providers") or {})
+                if isinstance(name, str) and name.startswith(EXTRA_PREFIX)}
+    marker = _read_marker(home)
+    if not wanted and not existing and marker is None:
+        return cfg, False                       # 只有主槽的老家:不碰(零迁移)
+
+    new = copy.deepcopy(cfg)
+    providers = new.setdefault("providers", {})
+    presets = new.setdefault("model_presets", {})
+
+    # ① 没 key 的额外条目连同指向它的预设一起删(我们拥有 od_ 这个前缀)
+    for name in list(existing):
+        vendor = name[len(EXTRA_PREFIX):]
+        if vendor not in wanted:
+            providers.pop(name, None)
+            for pname in [n for n, p in presets.items() if isinstance(p, dict) and p.get("provider") == name]:
+                presets.pop(pname, None)
+
+    # ② 有 key 的额外厂商:条目 + 目录里每个模型的预设都指向它
+    for vendor in wanted:
+        name = extra_provider_name(vendor)
+        entry = providers.get(name) if isinstance(providers.get(name), dict) else {}
+        entry = dict(entry)
+        entry["apiKey"] = "${%s}" % extra_var_name(vendor)
+        entry["apiBase"] = PROVIDERS[vendor]["apiBase"]
+        providers[name] = entry
+        for model in PROVIDERS[vendor]["models"]:
+            p = presets.get(model)
+            if isinstance(p, dict):
+                p["provider"] = name
+                p.pop("apiBase", None)          # 老形状残留的端点字段 nanobot 不读,留着只会误导人
+            else:
+                presets[model] = {"label": model, "provider": name, "model": model}
+
+    # ③ 主槽那家:目录里的模型都有预设、且都指回 custom(修掉换过厂商后留下的错指)
+    if primary is not None and wanted:
+        for model in PROVIDERS[primary]["models"]:
+            p = presets.get(model)
+            if isinstance(p, dict):
+                if p.get("provider", "custom") != "custom":
+                    p["provider"] = "custom"
+            else:
+                presets[model] = _custom_preset(primary, model)
+
+    # ④ 「想换过去」:那家此刻真有 key(额外槽有条目,或就是主槽且主槽有 key)才兑现
+    defaults = new.setdefault("agents", {}).setdefault("defaults", {})
+    marker_done = False
+    if marker is not None:
+        if marker in wanted or (marker == primary and read_key(home)):
+            target = PROVIDERS[marker]["model"]
+            if target in presets:
+                defaults["modelPreset"] = target
+                marker_done = True
+
+    # ⑤ 当前模型悬空(指向刚删的预设)⇒ 回落主槽默认;nanobot 对悬空的 modelPreset 直接拒绝加载
+    if defaults.get("modelPreset") and defaults["modelPreset"] not in presets:
+        fallback = PROVIDERS[primary]["model"] if primary else None
+        if fallback and fallback not in presets:
+            presets[fallback] = _custom_preset(primary, fallback)
+        if fallback:
+            defaults["modelPreset"] = fallback
+        elif presets:
+            defaults["modelPreset"] = next(iter(presets))
+    return new, marker_done

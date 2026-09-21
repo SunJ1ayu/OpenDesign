@@ -96,7 +96,7 @@ import ds_workspace
 # 版本号约定(2026-08-25 业主亲口定):**从 0.98 起只往第三位加** —— 0.98.1、
 # 0.98.2、0.98.3……**中途不许跳到 0.99 或 1.x**。`1.0.0` 留给业主说"就它了"
 # 的那一版(他的原话:"我希望最后发行版是 1.0")。
-VERSION = "0.98.8"  # 09-20:打开软件**不再联网查更新** —— 没有已下好的新版就直接进工作区;查更新与下载挪到进入工作区 60 秒后的后台
+VERSION = "0.98.9"  # 09-21:每家厂商各存各的 key —— 聊天框模型菜单里直接换 MiMo / DeepSeek,不用重粘 key、切换不重启后台
                     # 再进工作区(更新期间只显示进度,**没有倒计时、也没有取消按钮**;
                     # 方案最后从"倒计时 10 秒"改成了"立即更新")。查更新超时或安装明确
                     # 失败时仍可进旧版并说明原因;手动更新入口一行没动;同一个版本自动
@@ -327,6 +327,14 @@ def _restart_verdict(reply: bytes) -> str:
     ⇒ 宁可让业主多点一下(`manual`),也不要一句会撒谎的"已生效"。
     """
     return "requested" if reply == ds_shell_core.LOCK_OK_RESTART.strip() else "manual"
+
+
+def _has_shell() -> bool:
+    """有没有外壳(装好的应用)。只有外壳会在起网关时写额外厂商条目、注入它们的 key
+    (ds_credential.prepare_gateway);没有外壳的 git-pull / Linux 启动器只认一个变量,
+    ⇒ 那两种形态保存 key 仍按今天的单把语义(track opendesign-per-vendor-keys,判据 v3)。
+    判法与 ds_shell_bridge_restart 同一个来源:外壳把锁端口交给我们。"""
+    return (os.environ.get("DS_SHELL_LOCK_PORT") or "").strip().isdigit()
 
 
 def ds_shell_bridge_restart() -> str:
@@ -2934,7 +2942,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         cfg = os.environ.get("DS_NANOBOT_CONFIG", DEFAULT_NANOBOT_CONFIG)
         try:
-            out = ds_credential.select_model(cfg, body.get("model"))
+            # provider 可缺省(老前端只发 model);新前端点哪一行就带哪一家(判据 pv2/v8)
+            out = ds_credential.select_model(cfg, body.get("model"), provider=body.get("provider"))
         except ds_credential.CredentialError as exc:
             self._json(400, {"error": str(exc)})
             return
@@ -2948,7 +2957,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             out = ds_credential.save(home=os.path.expanduser("~"), cfg_path=cfg,
                                      provider=str(body.get("provider") or ""),
-                                     key=str(body.get("key") or ""))
+                                     key=str(body.get("key") or ""),
+                                     multi=_has_shell())
         except ds_credential.CredentialError as exc:
             # CredentialError 的文本按契约不含 key;别在这儿把 body 回显出去。
             self._json(400, {"error": str(exc)})

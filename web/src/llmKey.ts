@@ -1,12 +1,23 @@
 export const CREDENTIAL_PATH = "/api/llm/credential";
 
 export type Provider = { id: string; label: string; model: string };
+/** 卡片上每家一行(track opendesign-per-vendor-keys)。**不含 key**,只有末四位提示。 */
+export type Vendor = {
+  id: string; label: string;
+  /** 存了这家的 key */ configured: boolean;
+  hint: string | null;
+  /** 后台(网关)手里有这把 key */ live: boolean;
+  /** 正在用 */ active: boolean;
+  /** 存了、等后台重启才能用 */ pending: boolean;
+};
 export type KeyStatus = {
   configured: boolean; provider: string | null; hint: string | null; providers: Provider[];
   /** 这把 key 现在由哪一层供着:"env"=进程环境变量、"file"=key.txt、null=没配。 */
   source: "env" | "file" | null;
   /** 在这个界面里改得动吗。env 供值时为 false —— 启动脚本 env 优先,写 key.txt 不生效。 */
   writable: boolean;
+  /** 每家一行;老后端没有 ⇒ []。 */
+  vendors: Vendor[];
 };
 export type SaveOutcome =
   | { ok: true; configured: boolean; provider: string | null; hint: string | null; restart: string }
@@ -32,10 +43,24 @@ function asProvider(v: unknown): Provider | null {
     : null;
 }
 
+function asVendor(v: unknown): Vendor | null {
+  const r = asRecord(v);
+  const bools = ["configured", "live", "active", "pending"] as const;
+  if (typeof r.id !== "string" || typeof r.label !== "string") return null;
+  if (!bools.every((k) => typeof r[k] === "boolean")) return null;
+  if (r.hint !== null && typeof r.hint !== "string") return null;
+  return { id: r.id, label: r.label, configured: r.configured as boolean, hint: r.hint as string | null,
+           live: r.live as boolean, active: r.active as boolean, pending: r.pending as boolean };
+}
+
 function asStatus(v: unknown): KeyStatus {
   const r = asRecord(v);
   const providers = Array.isArray(r.providers)
     ? r.providers.map(asProvider).filter((p): p is Provider => p !== null)
+    : [];
+  // 形状不对的那几行丢掉,不让整张卡片崩(pv6)
+  const vendors = Array.isArray(r.vendors)
+    ? r.vendors.map(asVendor).filter((x): x is Vendor => x !== null)
     : [];
   return {
     configured: r.configured === true,
@@ -47,7 +72,18 @@ function asStatus(v: unknown): KeyStatus {
     //    (E 组 save 那道)。**两个方向的坏,选可恢复的那个。**
     writable: r.writable !== false,
     providers,
+    vendors,
   };
+}
+
+/** 卡片上每一行说的话。四种状态四种说法(pv7);待重启那行必须说清要等后台重启 ——
+ *  不说,业主会以为存了没用。 */
+export function vendorStateText(v: Vendor): string {
+  const tail = v.hint ? ` · ${v.hint}` : "";
+  if (v.live && v.active) return `在用${tail}`;
+  if (v.pending) return `已保存,后台重启后就能用${tail}`;
+  if (v.configured) return `已配置${tail}`;
+  return "还没填";
 }
 
 async function readJson(res: ResponseLike): Promise<unknown> {

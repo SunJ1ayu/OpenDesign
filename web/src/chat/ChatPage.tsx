@@ -34,6 +34,7 @@ import {
   MODELS_PATH,
   modelChipLabel,
   modelMenuItems,
+  modelSelectBody,
   readModelsResponse,
   type ModelsStatus,
 } from "./modelPicker";
@@ -200,14 +201,15 @@ export default function ChatPage({
     // loadModels 只调 setState,不入依赖(与本文件既有 effect 同约定)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view.kind]);
-  const pickModel = async (id: string) => {
+  const pickModel = async (item: { id: string; provider: string | null }) => {
     setModelBusy(true);
     setModelErr("");
     try {
       const r = await fetch(MODEL_PATH, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: id }),
+        // 点哪一行就带哪一家(track opendesign-per-vendor-keys,判据 pv2)
+        body: JSON.stringify(modelSelectBody(item)),
       });
       const body = await r.json().catch(() => null);
       const next = readModelsResponse(r.status, body);
@@ -816,15 +818,16 @@ export default function ChatPage({
                       <div className="sep" key={`s${i}`} />
                     ) : it.kind === "model" ? (
                       <button
-                        key={it.id}
+                        key={`${it.provider ?? ""}:${it.id}`}
                         className={`item${it.active ? " active" : ""}`}
                         role="menuitemradio"
                         aria-checked={it.active}
                         data-model-id={it.id}
+                        data-provider={it.provider ?? undefined}
                         disabled={modelBusy}
                         onClick={() => {
                           if (it.active) setModelMenuOpen(false);
-                          else void pickModel(it.id);
+                          else void pickModel(it);
                         }}
                       >
                         <span className="name">{it.label}</span>

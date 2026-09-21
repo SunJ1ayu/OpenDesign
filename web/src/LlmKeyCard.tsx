@@ -3,6 +3,7 @@ import {
   fetchKeyStatus,
   restartNotice,
   saveKey,
+  vendorStateText,
   type KeyStatus,
 } from "./llmKey";
 
@@ -82,11 +83,17 @@ export default function LlmKeyCard({ initialStatus = null, onStatus }: Props) {
         source: outcome.configured ? "file" : null,
         writable: true,
         providers: status?.providers ?? [],
+        vendors: status?.vendors ?? [],
       };
       setStatus(next);
       setProvider((cur) => (hasProvider(next, cur) ? cur : preferredProvider(next)));
       onStatus?.(next);
       setNotice(restartNotice(outcome.restart));
+      // 每家一行的状态以后端为准(存的是哪一槽、要不要等重启,只有后端知道)
+      fetchKeyStatus(fetch).then((fresh) => {
+        setStatus(fresh);
+        onStatus?.(fresh);
+      }).catch(() => { /* 读不到就先用上面那份 */ });
     } else {
       setError(outcome.error);
     }
@@ -107,10 +114,34 @@ export default function LlmKeyCard({ initialStatus = null, onStatus }: Props) {
         {status?.configured && (
           <div className="llm-key-current">
             <span>当前</span>
-            <strong>{status.hint ?? "已配置"}</strong>
+            {/* 多家时报**正在用的那家**的末四位;老字段 hint 只讲最早那一家(主槽) */}
+            <strong>{status.vendors.find((v) => v.active)?.hint ?? status.hint ?? "已配置"}</strong>
           </div>
         )}
       </div>
+
+      {status && status.vendors.length > 1 && (
+        // 每家一行的只读状态(track opendesign-per-vendor-keys):点一行 = 在下面的下拉里选中那家
+        <ul className="llm-key-vendors" data-ui="llm-key-vendors">
+          {status.vendors.map((v) => (
+            <li key={v.id}>
+              <button
+                type="button"
+                className={`llm-key-vendor${provider === v.id ? " selected" : ""}`}
+                data-ui="llm-key-vendor"
+                data-vendor={v.id}
+                disabled={loading || saving || !hasProvider(status, v.id)}
+                onClick={() => setProvider(v.id)}
+              >
+                <span className="name">{v.label}</span>
+                <span className={`state${v.active ? " active" : v.pending ? " pending" : ""}`}>
+                  {vendorStateText(v)}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <form className="llm-key-form" onSubmit={onSubmit}>
         <label>

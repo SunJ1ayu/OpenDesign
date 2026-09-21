@@ -1193,6 +1193,7 @@ def child_env(
     key: str | None = None,
     key_var: str | None = None,
     lock_port: int | None = None,
+    extra_keys: dict | None = None,
 ) -> dict:
     env: dict[str, str] = {}
     for k, v in base_env.items():
@@ -1224,6 +1225,11 @@ def child_env(
         if not key_var:
             raise ValueError("有 key 却没说该设哪个环境变量(从配置的 apiKey 引用里读)")
         env[str(key_var)] = str(key)
+    # 第二家起的 key(track opendesign-per-vendor-keys):变量名与值都来自
+    # ds_credential.prepare_gateway —— 它同时把引用这些变量的条目写进配置,两件事同一处发生。
+    # 放在剥 `DS_*` 之后:业主机器上残留的同名变量不会顶替外壳注入的这份。
+    for name, value in (extra_keys or {}).items():
+        env[str(name)] = str(value)
     return env
 
 
@@ -1237,6 +1243,7 @@ def service_envs(
     key: str | None = None,
     key_var: str | None = None,
     lock_port: int | None = None,
+    extra_keys: dict | None = None,
 ) -> dict[str, dict]:
     """两条腿各自的环境:**key 只进网关,不进 ds-web。**
 
@@ -1255,7 +1262,8 @@ def service_envs(
     common = dict(ds_root=ds_root, user_home=user_home, dsweb_port=dsweb_port,
                   ws_port=ws_port, lock_port=lock_port)
     return {
-        "网关": child_env(base_env, key=key, key_var=key_var, **common),
+        # 额外厂商的 key 与主槽 key 同一条不变量:只进网关(track opendesign-per-vendor-keys)
+        "网关": child_env(base_env, key=key, key_var=key_var, extra_keys=extra_keys, **common),
         "ds-web": child_env(base_env, key=None, key_var=None, **common),
     }
 

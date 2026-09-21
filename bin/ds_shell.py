@@ -260,6 +260,11 @@ def start_backend(home: Path, lock_port: int | None = None):
     def build_env():
         """每次都**现读** key 和配置:重启网关那一下走的就是这里,
         读到的必须是业主刚填进去的那份,不是启动时缓存的。"""
+        # 🔴 第二家起的厂商(track opendesign-per-vendor-keys):配置里的额外条目与它们的 key
+        #    **在这一处同时产生** —— prepare_gateway 写条目、返回 key,下面交给 service_envs。
+        #    拆开的话「配置引用 ⊆ 网关手里的 key」就不再由结构保证,网关会悄悄用着旧厂商
+        #    (真网关实验 p2)。它自己保证不抛:出错就退回只有主槽的样子。启动与重启都走这里。
+        extra_keys = ds_credential.prepare_gateway(str(home), str(cfg))
         key = read_key(home)
         key_var = None
         if key:
@@ -274,7 +279,8 @@ def start_backend(home: Path, lock_port: int | None = None):
         #    从没设过的变量。(2026-08-16 四审 BLOCK,判据 J 组钉住。)
         return key, core.service_envs(
             dict(os.environ), ds_root=str(install_root() / "ds"), user_home=str(home),
-            dsweb_port=web, ws_port=ws, key=key, key_var=key_var, lock_port=lock_port)
+            dsweb_port=web, ws_port=ws, key=key, key_var=key_var, lock_port=lock_port,
+            extra_keys=extra_keys)
 
     key, envs = build_env()
 
