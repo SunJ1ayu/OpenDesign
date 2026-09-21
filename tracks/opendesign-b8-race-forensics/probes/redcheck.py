@@ -6,7 +6,11 @@
   R1   ① 判据自污染:段内本来就有一个真 InstanceLock 在应答。
        造法:占住一个端口拿到真锁,再把 test 模块的 `free_port` 打桩成 P-3。
   R2a  ② 真产品缺陷(让位方向坏了):`_someone_ahead_of` 恒真 ⇒ 两份都让位。
-       读数里两份 port **不同值**(各自绑的那一格)。
+       ⚠️ 2026-09-21 外审(subcursor)对着收据抓到我这里写过一句假话:原文说
+       "读数里两份 port **不同值**(各自绑的那一格)",而 after-s1-fix-r2a.txt 里
+       两份都是 46135。真实机制:先起的那份绑住 base 并开始应答,后起的那份
+       `_scan` 就命中了它 ⇒ 走扫描命中分支(`self.port = hit`)⇒ 同值。
+       ⇒ **两份 port 同值这个形状 r2a 也做得出**,更说明形状分不出病因(见 R2b)。
   R2b  ② 真产品缺陷(扫描误判):`_scan` 恒命中 base ⇒ 两份都以为"已有一份"。
        读数里两份 port **同值** —— 与 2026-09-20 那条红**完全同形**,
        而段内真的一个人都没有。🔴 这条是本单的承重墙:
@@ -21,6 +25,10 @@
        ⇒ **两份都赢**。红的第三种长相 —— 业主双击两下开出**两个**窗口,
        那正是 b8 最初存在的理由。前两种长相都是 0 份赢,只造它们会漏掉这一半。
   R2d-no-ss  同上,但把 `ss` 从判据眼里藏掉(`shutil.which("ss") -> None`)。
+  R2d-no-tools  同上,但 `ss` **和** `lsof` 都藏掉 ⇒ 一个 pid 都查不到。
+       🔴 这条钉的是**取证知不知道自己不知道**:查不出归属时不许把应答者
+       笃定地记进"环境残留",更不许顺着它把产品缺陷判成"判据环境脏"。
+       该打印的是"归属查不出"+"先别下结论"。2026-09-21 外审两腿独立命中(F1)。
        🔴 这条钉的是**取证在降级路径上会不会说反话**:两份赢家还在监听,取证得认出
        "这两个是我自己",靠的是 `listener_pids`;它只认 `ss` 的 `pid=` 格式时,
        没装 ss 的机器上会把本轮自己算成"环境残留" ⇒ 把产品缺陷写成"判据环境脏"。
@@ -50,20 +58,30 @@ PRE_GATE = "开轮前,锁位段"                  # 前置断言:判据环境脏
 RACE_GATE = "份认为自己是唯一实例"           # 竞态断言:恰好 1 份赢
 CLEAN_ENV = "(=环境残留):没有"              # 取证当场认定:段内没有外来残留
 TWO_WINDOWS = "开出两个窗口"                 # 分型结论句:这次红的是"2 份都赢"那一种
+ONE_WINDOW = "一个窗口都不开"                # 分型结论句:0 份赢那一种
+UNKNOWN_OWNER = "归属查不出的格子"           # 取证承认:这几格是谁的,工具没说
+NO_VERDICT = "先别下结论"                    # 承认之后的正确动作:不分型
+# 🔴 **两支结论句都要钉,而且互相禁止**(2026-09-21 外审 F3,我复现过):
+# 原来只有 r2d 钉了 TWO_WINDOWS,0 份赢那三条一个分型锚点都没有 ⇒ 把结论句硬写成
+# "开出两个窗口",r2a/r2b/r2d 照印"形状=对" —— **改坏了分型而全套红检通过**,
+# 正是这份夹具最该防住的事。
 SHAPES = {
     # case -> (必须出现, 不许出现)
     "r1":  ([PRE_GATE], [RACE_GATE]),
-    "r2a": ([RACE_GATE, CLEAN_ENV], [PRE_GATE]),
-    "r2b": ([RACE_GATE, CLEAN_ENV], [PRE_GATE]),
-    "r2c": ([RACE_GATE, CLEAN_ENV], [PRE_GATE]),
+    "r2a": ([RACE_GATE, CLEAN_ENV, ONE_WINDOW], [PRE_GATE, TWO_WINDOWS]),
+    "r2b": ([RACE_GATE, CLEAN_ENV, ONE_WINDOW], [PRE_GATE, TWO_WINDOWS]),
+    "r2c": ([RACE_GATE, CLEAN_ENV, ONE_WINDOW], [PRE_GATE, TWO_WINDOWS]),
     # 🔴 两份赢家红的那一刻**还在监听**,取证必须认出"这两个是我自己"(不是环境残留),
     # 而且结论句要落到"开出两个窗口"这一支上 —— 只钉 RACE_GATE 的话,说反话也算过。
-    "r2d": ([RACE_GATE, CLEAN_ENV, TWO_WINDOWS], [PRE_GATE]),
+    "r2d": ([RACE_GATE, CLEAN_ENV, TWO_WINDOWS], [PRE_GATE, ONE_WINDOW]),
     "r3":  ([], []),
 }
 # 偷懒版探测**必须**被 r2c 骗到,否则这条对照实验就不成立(它证明的是
 # "复用被测代码做探测会把产品缺陷伪装成环境问题")。
 SHAPES_LAZY = {"r2c": ([PRE_GATE], [RACE_GATE])}
+# 一个 pid 都查不到时:承认查不出、别下分型结论 —— 两支结论句都不许出现。
+SHAPES_NOTOOLS = {"r2d": ([RACE_GATE, UNKNOWN_OWNER, NO_VERDICT],
+                          [PRE_GATE, TWO_WINDOWS, ONE_WINDOW])}
 
 LIVE_REPO = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
 TEST_NAME = "test_b8_two_instances_racing_at_the_same_moment_still_yield_one"
@@ -117,7 +135,7 @@ def mutate(repo: str, case: str) -> str:
 
 
 def run_case(repo: str, case: str, lazy_probe: bool = False,
-             no_ss: bool = False) -> tuple[bool, str]:
+             hide_tools: tuple = ()) -> tuple[bool, str]:
     sys.path.insert(0, os.path.join(repo, "tests"))
     sys.path.insert(0, os.path.join(repo, "bin"))
     import test_ds_shell_core as T
@@ -125,19 +143,19 @@ def run_case(repo: str, case: str, lazy_probe: bool = False,
     squatter = None
     patcher = None
     lazy = None
-    hide_ss = None
-    if no_ss:
-        # 把 `ss` 从判据眼里藏掉 —— 模拟没装 ss 的机器(容器里很常见)。
-        # 只挡 "ss" 这一个名字,别的 which 照常,免得把 lsof 也一起挡掉。
+    hidden = None
+    if hide_tools:
+        # 把点名的工具从判据眼里藏掉 —— 模拟没装它们的机器(容器里很常见)。
+        # 只挡点名的那几个,别的 which 照常。
         import shutil as _sh
         _real_which = _sh.which
 
-        def _which_no_ss(cmd, *a, **k):
-            return None if cmd == "ss" else _real_which(cmd, *a, **k)
+        def _which_hiding(cmd, *a, **k):
+            return None if cmd in hide_tools else _real_which(cmd, *a, **k)
 
-        hide_ss = mock.patch.object(_sh, "which", _which_no_ss)
-        hide_ss.start()
-        print("# ⚠️ 降级实验:判据眼里没有 ss(只剩 lsof)")
+        hidden = mock.patch.object(_sh, "which", _which_hiding)
+        hidden.start()
+        print(f"# ⚠️ 降级实验:判据眼里没有 {'/'.join(hide_tools)}")
     if lazy_probe:
         import ds_shell_core as _core
 
@@ -177,8 +195,8 @@ def run_case(repo: str, case: str, lazy_probe: bool = False,
         res = unittest.TextTestRunner(stream=buf, verbosity=2).run(suite)
         return res.wasSuccessful(), buf.getvalue()
     finally:
-        if hide_ss:
-            hide_ss.stop()
+        if hidden:
+            hidden.stop()
         if lazy:
             lazy.stop()
         if patcher:
@@ -228,6 +246,10 @@ def main():
                     help="把 b8 的前置探测换成**偷懒版**(复用产品自己的 _send_show)。"
                          "对照实验:证明'探测必须独立'不是我嘴上说的 —— 配 r2c 跑,"
                          "偷懒版会被变异骗到,红在前置断言(把产品缺陷说成环境脏)。")
+    ap.add_argument("--no-tools", action="store_true",
+                    help="把 `ss` 和 `lsof` 都藏掉 ⇒ 一个 pid 都查不到。配 r2d 跑:"
+                         "取证必须承认'归属查不出'并**先别下结论**,"
+                         "不许把自己的赢家笃定地记成环境残留。")
     ap.add_argument("--no-ss", action="store_true",
                     help="把 `ss` 从判据眼里藏掉(模拟没装 ss 的机器)。配 r2d 跑:"
                          "两份赢家还在监听,取证必须仍认出'这两个是我自己'。")
@@ -243,15 +265,19 @@ def main():
         print(f"# 无变异({a.case})  repo={repo}")
 
     expect_red = a.case in ("r1", "r2a", "r2b", "r2c", "r2d")
+    if a.no_ss and a.no_tools:
+        raise SystemExit("--no-ss 与 --no-tools 二选一(后者已经包含前者)")
+    hide = ("ss", "lsof") if a.no_tools else (("ss",) if a.no_ss else ())
+    shapes = SHAPES_NOTOOLS if a.no_tools else (SHAPES_LAZY if a.lazy_probe else SHAPES)
     for i in range(a.repeat):
         t0 = time.time()
-        ok, out = run_case(repo, a.case, a.lazy_probe, a.no_ss)
+        ok, out = run_case(repo, a.case, a.lazy_probe, hide)
         verdict = "绿" if ok else "红"
         want = "红" if expect_red else "绿"
         bad = []
         if ok == expect_red:
             bad.append(f"红绿不对(得到{verdict},要{want})")
-        must, forbid = (SHAPES_LAZY if a.lazy_probe else SHAPES)[a.case]
+        must, forbid = shapes[a.case]
         for anchor in must:
             if anchor not in out:
                 bad.append(f"该红在这条断言上却没有:{anchor!r}")

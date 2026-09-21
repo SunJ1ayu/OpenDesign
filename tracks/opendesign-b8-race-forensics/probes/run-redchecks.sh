@@ -12,11 +12,12 @@ trap 'rm -rf "$BASE"' EXIT
 SRC="$(git stash create)"; SRC="${SRC:-HEAD}"
 git archive "$SRC" | tar -x -C "$BASE"
 rc_all=0
-for c in r1 r2a r2b r2c r2c-lazy r2d r2d-no-ss r3; do
+for c in r1 r2a r2b r2c r2c-lazy r2d r2d-no-ss r2d-no-tools r3; do
   rep=1; [ "$c" = r3 ] && rep=3               # 正常树多跑几遍,竞态单次绿说明不了什么
   flag=""; case="$c"      # 情景名带后缀的,拆成 --case + 一个开关
   if [ "$c" = r2c-lazy ]; then case=r2c; flag="--lazy-probe"; fi
   if [ "$c" = r2d-no-ss ]; then case=r2d; flag="--no-ss"; fi
+  if [ "$c" = r2d-no-tools ]; then case=r2d; flag="--no-tools"; fi
   work="$BASE/work-$c"; rm -rf "$work"; cp -r "$BASE" "$work" 2>/dev/null
   rm -rf "$work"/work-* 2>/dev/null
   f="$OUT/$LABEL-$c.txt"

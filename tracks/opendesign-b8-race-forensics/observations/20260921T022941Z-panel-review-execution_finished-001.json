@@ -1,0 +1,190 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-b8-race-forensics",
+  "run_id": "20260921-101807-3610526-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-b8-race-forensics",
+  "started_at": "2026-09-21T02:18:07Z",
+  "finished_at": "2026-09-21T02:29:41Z",
+  "duration_ms": 694459,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "subdeepseek-agent",
+        "degraded": false,
+        "duration_ms": 319295,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:de41102ae95f34b33f4d4f50ae4b0b08e1988c62f26d55c231020bb5f5086c30",
+          "ref": "file:///root/aiwork/logs/panel-b8-forensics-20260921-0221.subdeepseek.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "deepseek",
+        "model": {
+          "invoked": "deepseek-flash",
+          "reported": null,
+          "requested": "deepseek-flash"
+        },
+        "name": "subdeepseek",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260921-101807-3610526-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:217317fcf1ecccf7f499b492a0c64fe3a4c515f28ccc30b98670ac13d8bd8870",
+            "policy_version": 1,
+            "track": "opendesign-b8-race-forensics"
+          },
+          "digest": "sha256:5a740b2817dc5b2779403ce1c351f93914888f83f7b0d7d093e91e5c2c6b4708",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "fc59f1795fe427ce55add62fe6cb6c437b3bfeb8",
+            "index_tree_oid": "10dc23670c86a4e6ced6f0a90c1ee66f82dd7385",
+            "worktree_tree_oid": "10dc23670c86a4e6ced6f0a90c1ee66f82dd7385"
+          },
+          "task_sha256": "sha256:59425946161c6faf826c2ae3ad2c3140b89100d894b5e12f5360d0c400f04fd4"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "api",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subkimi",
+        "degraded": false,
+        "duration_ms": 6678,
+        "evidence": {
+          "completeness": "partial",
+          "digest": "sha256:168cddb0043e8136d800acca39d121e29602362c51f7ac459bdde7477d3069b6",
+          "ref": "file:///root/aiwork/logs/panel-b8-forensics-20260921-0221.subkimi.evidence.log"
+        },
+        "failure_kind": "rate_limit",
+        "family": "moonshot",
+        "model": {
+          "invoked": "kimi-code/kimi-for-coding",
+          "reported": null,
+          "requested": "kimi-code/kimi-for-coding"
+        },
+        "name": "subkimi",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 1,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260921-101807-3610526-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:217317fcf1ecccf7f499b492a0c64fe3a4c515f28ccc30b98670ac13d8bd8870",
+            "policy_version": 1,
+            "track": "opendesign-b8-race-forensics"
+          },
+          "digest": "sha256:5a740b2817dc5b2779403ce1c351f93914888f83f7b0d7d093e91e5c2c6b4708",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "fc59f1795fe427ce55add62fe6cb6c437b3bfeb8",
+            "index_tree_oid": "10dc23670c86a4e6ced6f0a90c1ee66f82dd7385",
+            "worktree_tree_oid": "10dc23670c86a4e6ced6f0a90c1ee66f82dd7385"
+          },
+          "task_sha256": "sha256:59425946161c6faf826c2ae3ad2c3140b89100d894b5e12f5360d0c400f04fd4"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "UNKNOWN",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subcursor",
+        "degraded": false,
+        "duration_ms": 373813,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:d6db2773d9685ededb6fe6fa20a042bb79c6d81fa4c22f79414f1b021f3fada7",
+          "ref": "file:///root/aiwork/logs/panel-b8-forensics-20260921-0221.subcursor.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xai",
+        "model": {
+          "invoked": "cursor-grok-4.6-high",
+          "reported": null,
+          "requested": "cursor-grok-4.6-high"
+        },
+        "name": "subcursor",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260921-101807-3610526-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:217317fcf1ecccf7f499b492a0c64fe3a4c515f28ccc30b98670ac13d8bd8870",
+            "policy_version": 1,
+            "track": "opendesign-b8-race-forensics"
+          },
+          "digest": "sha256:5a740b2817dc5b2779403ce1c351f93914888f83f7b0d7d093e91e5c2c6b4708",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "fc59f1795fe427ce55add62fe6cb6c437b3bfeb8",
+            "index_tree_oid": "10dc23670c86a4e6ced6f0a90c1ee66f82dd7385",
+            "worktree_tree_oid": "10dc23670c86a4e6ced6f0a90c1ee66f82dd7385"
+          },
+          "task_sha256": "sha256:59425946161c6faf826c2ae3ad2c3140b89100d894b5e12f5360d0c400f04fd4"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

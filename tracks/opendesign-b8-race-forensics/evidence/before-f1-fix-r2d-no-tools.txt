@@ -1,0 +1,39 @@
+# 红检 r2d-no-tools  标签=before-f1-fix  commit=fc59f17  源=0187800b3675c7219907ec13063fbae07d6d499b  改动文件数=11
+# 跑于 2026-09-21T02:35:08Z  副本=/tmp/b8-redcheck-kvamye/work-r2d-no-tools [仓外不承重]
+# 变异(r2d):_someone_ahead_of 恒 False + _scan 恒 None(两份都赢)  repo=/tmp/b8-redcheck-kvamye/work-r2d-no-tools
+# ⚠️ 降级实验:判据眼里没有 ss/lsof
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... FAIL
+
+======================================================================
+FAIL: test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/b8-redcheck-kvamye/work-r2d-no-tools/tests/test_ds_shell_core.py", line 495, in test_b8_two_instances_racing_at_the_same_moment_still_yield_one
+    self.assertEqual(
+AssertionError: 2 != 1 : 第 0 轮同时起两份,2 份认为自己是唯一实例:[{'acquired': True, 'port': 45228}, {'acquired': True, 'port': 45227}]
+锁位段 = [45227, 45232]  本轮子进程 pid=[3675488, 3675489]
+  · 段内有真 OpenDesign 锁应答的格子:[45227, 45228]
+  · 其中**不是本轮自己**的(=环境残留):[45227, 45228]
+  · 45227: <ss 和 lsof 都不在这台机器上,查不出是谁>
+  · 45228: <ss 和 lsof 都不在这台机器上,查不出是谁>
+  · 45229: <ss 和 lsof 都不在这台机器上,查不出是谁>
+  · 45230: <ss 和 lsof 都不在这台机器上,查不出是谁>
+  · 45231: <ss 和 lsof 都不在这台机器上,查不出是谁>
+  · 45232: <ss 和 lsof 都不在这台机器上,查不出是谁>
+  · 本用例起过的子进程:
+      轮0实例0 pid=3675488 活着 读数={'acquired': True, 'port': 45228}
+      轮0实例1 pid=3675489 活着 读数={'acquired': True, 'port': 45227}
+  · 本轮实例0 stderr=''
+  · 本轮实例1 stderr=''
+
+怎么读这份现场:上面「环境残留」非空 ⇒ **判据环境脏**,这一轮读数不可信;空的却又不是恰好 1 份赢 ⇒ **产品缺陷**(业主双击两下,开出两个窗口)。
+
+----------------------------------------------------------------------
+Ran 1 test in 0.323s
+
+FAILED (failures=1)
+
+# [r2d 第1/1遍] 结果=红 期望=红 形状=错 🔴 不符合预期:该红在这条断言上却没有:'归属查不出的格子' / 该红在这条断言上却没有:'先别下结论' / 红错了断言,不该出现:'开出两个窗口' (0.4s)
+# rc=1
