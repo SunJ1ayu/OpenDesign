@@ -121,14 +121,15 @@ class Rig(unittest.TestCase):
         return ds_credential.env_var_name(self.cfg())
 
     def gateway_env(self) -> dict:
-        """外壳真会给网关的那份 key 环境:主槽变量(读 key.txt)+ prepare_gateway 给的额外变量。"""
+        """外壳真会给网关的那份环境 —— 用外壳自己的 `service_envs` 生成,不在判据里另拼一份
+        (第一版只拼了 key 变量,漏了模板 MCP 段引用的 DS_ROOT/USERPROFILE,nanobot 加载直接抛;
+        改成走真构造器是加强:少注入任何一个变量,这里都会像真网关一样起不来)。"""
         extra = ds_credential.prepare_gateway(self.home, self.cfg_path)
-        env = {}
         k = ds_credential.read_key(self.home)
-        if k:
-            env[self.primary_var()] = k
-        env.update(extra)
-        return env
+        envs = core.service_envs({"PATH": os.environ.get("PATH", "")}, ds_root=ROOT, user_home=self.home,
+                                 dsweb_port=1, ws_port=2, key=k,
+                                 key_var=self.primary_var() if k else None, extra_keys=extra)
+        return envs["网关"]
 
     def extra_entries(self, cfg=None) -> dict:
         cfg = cfg if cfg is not None else self.cfg()
@@ -139,7 +140,7 @@ class Rig(unittest.TestCase):
         """交给 **nanobot 自己** 加载:它才是真正决定"下一句发给谁、带哪把 key"的那一方。"""
         from nanobot.providers.factory import load_provider_snapshot
         from pathlib import Path
-        with mock.patch.dict(os.environ, env):
+        with mock.patch.dict(os.environ, env, clear=True):     # 只有网关那份 env,别的一概没有
             return load_provider_snapshot(Path(self.cfg_path), preset_name=preset)
 
 
