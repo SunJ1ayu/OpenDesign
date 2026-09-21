@@ -101,6 +101,62 @@ def free_port() -> int:
     return p
 
 
+def lock_responders_in(base: int, span: int, timeout: float = 1.5) -> list[int]:
+    """段里哪几格上坐着一个**真 OpenDesign 锁**(握手回 OK)。范围与 `_ports()` 一致。
+
+    🔴 **故意不调 `core.InstanceLock._send_show`** —— 探测必须独立于被测代码。
+    复用它的话,"握手恒真"这一类缺陷会让 b8 的前置断言误报"判据环境脏",
+    把**产品缺陷伪装成环境问题** —— 自动化版的"调钝报警器"。
+    红检 r2c 钉的就是这条(probes/redcheck.py)。
+    协议常量可以引用:协议改了探测该跟着改,那不是行为逻辑。
+    """
+    found = []
+    for port in range(base, base + span + 1):
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=timeout) as s:
+                s.settimeout(timeout)
+                s.sendall(core.InstanceLock._HELLO + core.InstanceLock._SHOW)
+                reply = b""
+                end = time.monotonic() + timeout
+                while b"\n" not in reply and time.monotonic() < end:
+                    chunk = s.recv(64)
+                    if not chunk:
+                        break
+                    reply += chunk
+            if reply.strip() == core.InstanceLock._OK.strip():
+                found.append(port)
+        except OSError:
+            pass          # 连不上 / 不吭声 / 不是我们的协议 ⇒ 这一格没有真锁
+    return found
+
+
+def who_listens(port: int) -> str:
+    """尽力而为地说出这个端口上是谁。
+
+    取不到就说清**为什么**取不到 —— 静默空白会让下一个人以为"查过了,没人",
+    那正是 2026-09-20 那条红查不下去的原因(现场没留)。
+    """
+    for argv in (["ss", "-ltnpH", f"sport = :{port}"],
+                 ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN"]):
+        exe = shutil.which(argv[0])
+        if not exe:
+            continue
+        try:
+            out = subprocess.run([exe] + argv[1:], capture_output=True,
+                                 text=True, timeout=10)
+        except (OSError, subprocess.SubprocessError) as e:
+            return f"<{argv[0]} 跑不起来:{e!r}>"
+        if out.stdout.strip():
+            return " ".join(out.stdout.split())
+        return f"<{argv[0]}:这个端口上没有 LISTEN>"
+    return "<ss 和 lsof 都不在这台机器上,查不出是谁>"
+
+
+def listener_pids(port: int) -> set:
+    """端口上监听者的 pid —— 用来分清"段内这个应答者是不是我自己刚起的那两份"。"""
+    return {int(m) for m in re.findall(r"pid=(\d+)", who_listens(port))}
+
+
 # =========================================================== A 端口选择
 class PickPort(unittest.TestCase):
     def test_a1_preferred_when_free(self):
@@ -211,6 +267,51 @@ class SingleInstance(unittest.TestCase):
             if f:
                 f.close()
 
+    def drain_stderr(self, p) -> str:
+        """🔴 读 stderr 之前必须先把它杀掉。赢家 `sleep(120)` 不退,直接 read 要白等
+        两分钟 —— 2026-08-13 整份考卷卡死在 b 组就是这个坑(见 `start_first` 里那条)。
+        """
+        if p.poll() is None:
+            p.kill()
+            p.wait(timeout=10)
+        try:
+            return (p.stderr.read() or "")[:500]
+        except (ValueError, OSError) as e:
+            return f"<读不到 stderr:{e!r}>"
+
+    def race_forensics(self, round_no, base, span, got, procs) -> str:
+        """b8 红的那一刻:把现场打出来,让这条红**当场分型**。
+
+        病只有两种,处置完全相反:段内本来就有真锁 ⇒ 判据环境脏,两份让位是产品**对的**
+        行为;段内一个应答都没有却 0 份赢 ⇒ 产品缺陷,业主双击两下一个窗口都不开。
+        旧断言对这两种给出的红逐字段同形(收据
+        tracks/opendesign-b8-race-forensics/evidence/baseline-old-b8-*.txt)。
+        """
+        winners = [r for r in got if r["acquired"]]
+        mine = {p.pid for p in procs}
+        responders = lock_responders_in(base, span)
+        # 本轮自己那两份可能还在监听 ⇒ 不分清就会把自己报成"环境残留"。
+        foreign = [p for p in responders if not (listener_pids(p) & mine)]
+        lines = [
+            f"第 {round_no} 轮同时起两份,{len(winners)} 份认为自己是唯一实例:{got}",
+            f"锁位段 = [{base}, {base + span}]  本轮子进程 pid={sorted(mine)}",
+            f"  · 段内有真 OpenDesign 锁应答的格子:{responders or '一个都没有'}",
+            f"  · 其中**不是本轮自己**的(=环境残留):{foreign or '没有'}",
+        ]
+        for port in range(base, base + span + 1):
+            lines.append(f"  · {port}: {who_listens(port)}")
+        lines.append("  · 本用例起过的子进程:")
+        for tag, p, r in getattr(self, "_spawned", []):
+            state = "活着" if p.poll() is None else f"已退 rc={p.returncode}"
+            lines.append(f"      {tag} pid={p.pid} {state} 读数={r}")
+        for i, p in enumerate(procs):
+            lines.append(f"  · 本轮实例{i} stderr={self.drain_stderr(p)!r}")
+        lines.append("")
+        lines.append("怎么读这份现场:上面「环境残留」非空 ⇒ **判据环境脏**,这一轮读数不可信;"
+                     "空的却又不是恰好 1 份赢 ⇒ **产品缺陷**(业主双击两下,"
+                     f"{'一个窗口都不开' if not winners else '开出两个窗口'})。")
+        return "\n".join(lines)
+
     def start_first(self, base, span=5):
         p = subprocess.Popen([sys.executable, "-c", LOCK_CHILD, BIN, str(base), str(span),
                               str(self.marker)],
@@ -305,12 +406,30 @@ class SingleInstance(unittest.TestCase):
         b2/b4 都是"等第一份完全监听好了才起第二份",漏掉的正是双击最典型的那个窗口:
         两份都先扫完整段、都认定"没有旧的",然后一个绑 base、一个绑 base+1,
         **两份都以为自己是唯一的**。真机上就是两个窗口、两套后台、抢同一批端口。
+
+        断言是**两条**,不是一条(track opendesign-b8-race-forensics,2026-09-21):
+        开轮前段内必须一个真锁都没有,**并且**两份同时起只许恰好一份赢。
+        加前置那条不是放水,是**变强** —— 09-20 这里红过一次,而旧断言的读数
+        分不出病因:段内残留一个真锁(判据自污染)和产品真的两份都让位,红出来
+        逐字段同形,除端口号外一个字不差。收据在
+        tracks/opendesign-b8-race-forensics/evidence/baseline-old-b8-*.txt。
         """
+        span = 5
+        self._spawned = []
         for round_no in range(6):     # 竞态要多打几遍才现形,单次绿说明不了什么
             base = free_port()
+            # 🔴 开轮前:段内不许有真 OpenDesign 锁在应答。有的话这一轮的读数不可信 ——
+            # 两份都会让位,而那是产品**对的**行为,错的是环境。
+            # `free_port()` 只保证 base 这一格空,段里另外五格是谁的、没人管过。
+            squatters = lock_responders_in(base, span)
+            if squatters:
+                self.fail(
+                    f"第 {round_no} 轮开轮前,锁位段 [{base}, {base + span}] 里已经有真 "
+                    f"OpenDesign 锁在应答:{squatters} ⇒ **判据环境脏,不是产品缺陷**。"
+                    + "".join(f"\n  · {q}: {who_listens(q)}" for q in squatters))
             go = self.marker.parent / f"发令枪{round_no}"
             procs = [subprocess.Popen(
-                [sys.executable, "-c", LOCK_CHILD, BIN, str(base), "5",
+                [sys.executable, "-c", LOCK_CHILD, BIN, str(base), str(span),
                  str(self.marker.parent / f"shown{round_no}-{i}.txt"), str(go)],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) for i in range(2)]
             for p in procs:
@@ -318,14 +437,21 @@ class SingleInstance(unittest.TestCase):
             time.sleep(0.3)           # 让两个解释器都起好、都堵在发令枪前
             go.write_text("go", encoding="utf-8")
             got = []
-            for p in procs:
+            for i, p in enumerate(procs):
                 line = p.stdout.readline()
                 if not line.strip():
-                    self.fail(f"实例没吭声就退了;stderr={p.stderr.read()[:500]}")
-                got.append(json.loads(line))
+                    self.fail(f"实例没吭声就退了;stderr={self.drain_stderr(p)}")
+                r = json.loads(line)
+                got.append(r)
+                self._spawned.append((f"轮{round_no}实例{i}", p, r))
             winners = [r for r in got if r["acquired"]]
-            self.assertEqual(len(winners), 1,
-                             f"第 {round_no} 轮同时起两份,{len(winners)} 份都认为自己是唯一实例:{got}")
+            if len(winners) != 1:
+                self.fail(self.race_forensics(round_no, base, span, got, procs))
+            # 本轮读完就收。赢家 `sleep(120)` 的存在理由只是"读输家那一行时它得还活着";
+            # 留着不收,它就会落进后面某一轮的锁位段,把那一轮变成上面那种脏环境 ——
+            # 探针 probes/crossround.py 的 E3 轮5 当场抓到过现行。
+            for p in procs:
+                self.reap(p)
 
     def test_b9_a_silent_client_cannot_wedge_the_lock(self):
         """攻题二轮 HIGH#2:端口扫描器(或任何连上就不说话的东西)连住锁位。

@@ -1,0 +1,31 @@
+# 红检 r3  标签=after-fix  commit=6e68970  源=3983d12b6c8f562f81aee0012208ce5eaea97015  改动文件数=16
+# 跑于 2026-09-21T00:49:03Z  副本=/tmp/b8-redcheck-oHJq9n/work-r3 [仓外不承重]
+# 无变异(r3)  repo=/tmp/b8-redcheck-oHJq9n/work-r3
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 1.881s
+
+OK
+
+# [r3 第1/3遍] 结果=绿 期望=绿 形状=对 符合预期 (1.9s)
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 1.882s
+
+OK
+
+# [r3 第2/3遍] 结果=绿 期望=绿 形状=对 符合预期 (1.9s)
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 1.870s
+
+OK
+
+# [r3 第3/3遍] 结果=绿 期望=绿 形状=对 符合预期 (1.9s)
+# rc=0

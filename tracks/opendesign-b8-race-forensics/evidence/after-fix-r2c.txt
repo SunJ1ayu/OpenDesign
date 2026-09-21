@@ -1,0 +1,38 @@
+# 红检 r2c  标签=after-fix  commit=6e68970  源=3983d12b6c8f562f81aee0012208ce5eaea97015  改动文件数=15
+# 跑于 2026-09-21T00:49:00Z  副本=/tmp/b8-redcheck-oHJq9n/work-r2c [仓外不承重]
+# 变异(r2c):_send_show 恒返回 True(任何端口都被当成另一份 OpenDesign)  repo=/tmp/b8-redcheck-oHJq9n/work-r2c
+test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。 ... FAIL
+
+======================================================================
+FAIL: test_b8_two_instances_racing_at_the_same_moment_still_yield_one (test_ds_shell_core.SingleInstance.test_b8_two_instances_racing_at_the_same_moment_still_yield_one)
+🔴 攻题二轮 HIGH#1:业主快速双击两下,两个实例**同时**起来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/b8-redcheck-oHJq9n/work-r2c/tests/test_ds_shell_core.py", line 449, in test_b8_two_instances_racing_at_the_same_moment_still_yield_one
+    self.fail(self.race_forensics(round_no, base, span, got, procs))
+AssertionError: 第 0 轮同时起两份,0 份认为自己是唯一实例:[{'acquired': False, 'port': 52155}, {'acquired': False, 'port': 52155}]
+锁位段 = [52155, 52160]  本轮子进程 pid=[3481277, 3481278]
+  · 段内有真 OpenDesign 锁应答的格子:一个都没有
+  · 其中**不是本轮自己**的(=环境残留):没有
+  · 52155: <ss:这个端口上没有 LISTEN>
+  · 52156: <ss:这个端口上没有 LISTEN>
+  · 52157: <ss:这个端口上没有 LISTEN>
+  · 52158: <ss:这个端口上没有 LISTEN>
+  · 52159: <ss:这个端口上没有 LISTEN>
+  · 52160: <ss:这个端口上没有 LISTEN>
+  · 本用例起过的子进程:
+      轮0实例0 pid=3481277 已退 rc=0 读数={'acquired': False, 'port': 52155}
+      轮0实例1 pid=3481278 已退 rc=0 读数={'acquired': False, 'port': 52155}
+  · 本轮实例0 stderr=''
+  · 本轮实例1 stderr=''
+
+怎么读这份现场:上面「环境残留」非空 ⇒ **判据环境脏**,这一轮读数不可信;空的却又不是恰好 1 份赢 ⇒ **产品缺陷**(业主双击两下,一个窗口都不开)。
+
+----------------------------------------------------------------------
+Ran 1 test in 0.459s
+
+FAILED (failures=1)
+
+# [r2c 第1/1遍] 结果=红 期望=红 形状=对 符合预期 (0.5s)
+# rc=0
