@@ -82,6 +82,16 @@ node 461、e2e 41 PASS / 0 FAIL / 2 SKIP、死断言闸不报。
   submimo=PASS(verdict=PASS) subdeepseek=SKIP(rotation) subglm=SKIP(health:dead:auth:3) subkimi=SKIP(health:cooldown:rate_limit) subgemini=SKIP(health:dead:FAIL:6) subgrok=SKIP(health:dead:FAIL:3) subcursor=PASS(verdict=PASS)
   ```
   impact-risk=high requested-budget=2 selected-count=2(xiaomi / xai 两个家族)
+
+  覆盖轮(第 3 次派发):
+  ```
+  submimo=PASS(verdict=PASS) subdeepseek=SKIP(rotation) subglm=SKIP(health:dead:auth:3) subkimi=SKIP(health:cooldown:rate_limit) subgemini=SKIP(health:dead:FAIL:6) subgrok=SKIP(health:dead:FAIL:3) subcursor=PASS(verdict=PASS)
+  ```
+  覆盖轮(第 4 次派发,归档所绑的就是这一次):
+  ```
+  submimo=PASS(verdict=PASS) subdeepseek=SKIP(rotation) subglm=SKIP(health:dead:auth:3) subkimi=SKIP(health:cooldown:rate_limit) subgemini=SKIP(health:dead:FAIL:6) subgrok=SKIP(health:dead:FAIL:3) subcursor=PASS(verdict=PASS)
+  ```
+  两次都是 impact-risk=high requested-budget=2 selected-count=2(xiaomi / xai)
   subkimi 的 403 是**周额度未重置**(不是腿坏),工具自动补了 subcursor ⇒ 两个合格家族
   (deepseek / xai)覆盖满足。
 - 轮次记录(每次派发一行;实质评审与基础设施重试分开):
@@ -92,7 +102,7 @@ node 461、e2e 41 PASS / 0 FAIL / 2 SKIP、死断言闸不报。
   | — | 基础设施(subkimi 403 周额度,rc=1;工具当轮自动补 subcursor,未另行派发) | 同上 | 同上 | 0 |
   | 2 | 实质(核验第 1 轮修复清单;**预算用尽**) | rc=3,BLOCK=0(PENDING=2 同上) | `panel-b8-forensics-r2-20260921-0245` | 3(F8/F9/F10) |
   | 3 | **覆盖轮(不是第 3 轮实质评审)** | rc=1,唯一 BLOCK 就是"要重跑 panel"本身 | `panel-b8-forensics-r3-20260921-0325` | 1(L2,我自己把它从 LOW 提成必须修) |
-  | 4 | **覆盖轮(同上,机械门)** | <待填> | `panel-b8-forensics-r4-<ts>` | <待填> |
+  | 4 | **覆盖轮(同上,机械门)** | rc=1,唯一 BLOCK 就是"要重跑 panel"本身 | `panel-b8-forensics-r4-20260921-0353` | 0(两腿都说没有必须修级别的发现) |
 
   > 第 3 次派发的**具体理由**(4b ④ 要求派发前写明):第 2 轮的三条一次修完之后,
   > 交付内容与第 2 轮 panel 绑定的那份不再一致,归档闸机械判 BLOCK
@@ -138,6 +148,13 @@ node 461、e2e 41 PASS / 0 FAIL / 2 SKIP、死断言闸不报。
   | L3 | **subcursor LOW**:`design.md` 的 oracle 段仍写"8 个情景",实际已是 10。 | design.md vs `run-redchecks.sh`。 | **修了** | 与 F4 同类(文档写的不是它跑的东西),而且是本轮刚加的两条造成的。 |
   | nit | **subcursor**:`who_listens` 里旁注还写"rc≠0 ⇒ 这不是答案",F8 之后"有 stdout 的 rc≠0"已经是答案。 | `tests/test_ds_shell_core.py`。 | **修了** | 留着会误导下一个人把第一档改回去 —— 那正好是 F8 那个回归的复发路径。 |
   | S15 | **记账**:submimo 的报告里又写"测试套件 100 passed / 2 skipped"。 | 实际 python 1800 / node 461 / e2e 41。 | **驳回(事实错误)** | 与第 2 轮同一句、同一个错 ⇒ **MiMo 第五次在 PASS 里带事实错误**。它这轮的实测部分(三档判定、F2 没被放回、假工具 fail-closed)我自己复核过才采信。 |
+
+  **覆盖轮(第 4 次派发)**:两腿都 PASS,**没有必须修级别的发现**。
+  subcursor 逐条核了四处改动没碰坏 10 个情景与 b8 本身,并指出聚合层剩下的缺口
+  (不钉末行、`$` 不锚)要"以后再往正文里印一行 `# rc=0`"才骗得过 ⇒ 属于
+  「挡不住任意未来的错误实现」那一类,不升必须修 —— 我同意。
+  三条延期(S12 / F5a / F7)这一轮仍然成立,两腿各自对着现码复核过。
+  submimo 这一轮引用的数字对上了(1800 / 461 / 41 / source-stable: yes)。
 
   > 两腿都给了 `Conclusion: PASS`,**我不拿它抬置信度**:F1 是两腿独立命中的同一条,
   > 而它恰好是本单核心承诺(当场分型)的反面 —— 全票 PASS 里藏着一条必须修的发现,
