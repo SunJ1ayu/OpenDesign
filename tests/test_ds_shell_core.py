@@ -152,9 +152,35 @@ def who_listens(port: int) -> str:
     return "<ss 和 lsof 都不在这台机器上,查不出是谁>"
 
 
+def _tool_out(argv: list) -> str:
+    """跑一个查端口的小工具,拿它的标准输出;工具不在、跑不起来 ⇒ 空串。"""
+    exe = shutil.which(argv[0])
+    if not exe:
+        return ""
+    try:
+        out = subprocess.run([exe] + argv[1:], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return out.stdout
+
+
 def listener_pids(port: int) -> set:
-    """端口上监听者的 pid —— 用来分清"段内这个应答者是不是我自己刚起的那两份"。"""
-    return {int(m) for m in re.findall(r"pid=(\d+)", who_listens(port))}
+    """端口上监听者的 pid —— 用来分清"段内这个应答者是不是我自己刚起的那两份"。
+
+    🔴 **不解析 `who_listens` 那份文本**:它是给人看的(还被压成了一行),而两个来源的
+    格式根本不是一回事 —— `ss` 印 `pid=1234`,`lsof` 把 pid 放在第二列。
+    只认 `pid=` 的话,**没装 ss 的机器上这里恒返回空集** ⇒ 取证会把本轮自己的两份
+    算成"环境残留" ⇒ 把一个真产品缺陷写成"判据环境脏"。方向正是本单要防的那个
+    (调钝报警器),只是藏在别人的机器上;本机有 ss,所以全套红检绿着也照样漏。
+    2026-09-21 自审 S1 读代码读出来的,红检 r2d-no-ss 钉住它。
+    """
+    out = _tool_out(["ss", "-ltnpH", f"sport = :{port}"])
+    pids = {int(m) for m in re.findall(r"pid=(\d+)", out)}
+    if pids:
+        return pids
+    # `lsof -t` 只吐 pid,一行一个 —— 机器要认就问机器可读的格式,别去切人话。
+    out = _tool_out(["lsof", "-t", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN"])
+    return {int(x) for x in out.split() if x.isdigit()}
 
 
 # =========================================================== A 端口选择
@@ -293,9 +319,12 @@ class SingleInstance(unittest.TestCase):
     def race_forensics(self, round_no, base, span, got, procs) -> str:
         """b8 红的那一刻:把现场打出来,让这条红**当场分型**。
 
-        病只有两种,处置完全相反:段内本来就有真锁 ⇒ 判据环境脏,两份让位是产品**对的**
-        行为;段内一个应答都没有却 0 份赢 ⇒ 产品缺陷,业主双击两下一个窗口都不开。
-        旧断言对这两种给出的红逐字段同形(收据
+        红有**三种**长相,处置分两类:
+        - 段内本来就有真锁在应答 ⇒ **判据环境脏**:两份都让位是产品**对的**行为;
+        - 段内一个应答都没有却 **0 份赢** ⇒ 产品缺陷,业主双击两下一个窗口都不开;
+        - **2 份都赢** ⇒ 产品缺陷,业主双击两下开出**两个**窗口 —— 那正是 b8 最初
+          存在的理由(红检 r2d 造的就是这种)。
+        旧断言对这几种给出的红逐字段同形(收据
         tracks/opendesign-b8-race-forensics/evidence/baseline-old-b8-*.txt)。
         """
         winners = [r for r in got if r["acquired"]]
