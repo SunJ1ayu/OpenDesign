@@ -39,6 +39,7 @@ runlog: mutations rc=0 commit=83e2a3b dirty=yes at=2026-09-21T12:52:58Z file=tra
   | 轮 | 类型 | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
   |---|---|---|---|---|
   | 1 | 实质 | rc=3,BLOCK 0(PENDING 2:decision / receipts) | `/root/aiwork/logs/panel-pvk-r1` | 1(K1,测试侧竞态致判据红;另 5 条 MEDIUM/LOW 见下) |
+  | 2 | 实质(核验修复) | rc=3,BLOCK 0(PENDING 2) | `/root/aiwork/logs/panel-pvk-r2` | 0(三腿 PASS;残余全 LOW,见第 2 轮表) |
 
 - findings(第 1 轮;K = subkimi,G = subcursor):
 
@@ -56,7 +57,25 @@ runlog: mutations rc=0 commit=83e2a3b dirty=yes at=2026-09-21T12:52:58Z file=tra
   | K5 | verify.md 空、无绿收据 | — | 必须修(流程) | 本文件;最终 `--final` 总跑收据归档前补 |
   | S0 | (自查)`.github/workflows/windows-package-probe.yml` 四处默认值未随 0.98.9 同步 | `installer/RELEASE.md` 第 1 步 | 必须修 | 发版清单要求;与本轮修复同一提交,由第 2 轮核验 |
 
-- arbitrated verdict (主裁): 待第 2 轮核验修复后定。
+- 腿的花名册(第 2 轮,`/root/aiwork/logs/panel-pvk-r2.roster` 原样):
+  `submimo=PASS(verdict=UNKNOWN) subdeepseek=PASS(verdict=PASS) subglm=SKIP(health:dead:auth:3) subkimi=SKIP(rotation) subgemini=SKIP(health:dead:FAIL:6) subgrok=SKIP(health:dead:FAIL:3) subcursor=PASS(verdict=PASS)`
+  > submimo 的 UNKNOWN:它的结论写成「## 结论 / PASS」两行,裁决行匹配不上;开日志核过原文是 PASS,
+  > 但**机器不认的就不算覆盖**,控制器随即补派 subdeepseek(PASS)。submimo 环境缺 nanobot,
+  > 依赖它的 4 条判据在它那边 ERROR(环境问题,它自己也这么写),不影响它对修复的逐条核验。
+- findings(第 2 轮;M = submimo,D = subdeepseek,C = subcursor)—— 第 1 轮「必须修」7 项三腿逐条核为已修;驳回 3 项三腿均认为理由站得住:
+
+  | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
+  |---|---|---|---|---|
+  | D2 | 自动重启没成时标记还在;业主**亲手**在菜单点了 MiMo,之后一重启又被拽回 DeepSeek(K2 同类,只修了主槽保存那条路) | `select_model` 不清标记;复现 v18 红(`r2-red-py`) | 必须修(`6258c99`) | select_model(home=) 成功后清标记,ds_web 传 home |
+  | C1 | 无外壳时保存接口的回包仍带完整 vendors(GET 已清) | `ds_web._llm_credential_post` | 必须修(`6258c99`) | 与 GET 同规矩;防以后有人拿回包渲染时 G3 复发 |
+  | D1/C2 | 卡片轮询上限 120s,慢机重启 >2 分钟后停在「等重启」 | `LlmKeyCard.tsx` | 必须修(`6258c99`) | 放到约 10 分钟(冷启动见过近 4 分钟) |
+  | D3/M | e2e「等两帧」是启发式,回包头到 ≠ 页面画好 | e2e groupsInMenu | 必须修(`63ca266`) | 改成等「菜单组数 = 这次回包的组数」 |
+  | D4 | B7 若存完那次刷新落在假外壳 1.5s 之后,不靠轮询也绿 | e2e B7 | 必须修(`63ca266`) | 加 B2b:先钉住存完那一刻在「等重启」 |
+  | 自查 | 死断言闸:l1 两处只在出错时才跑的 `self.fail` | run-all-r2 收据 py-full 段 | 必须修(`63ca266`) | 改成每次都执行的 assertTrue |
+  | C3 | w10 仍抓不到「接住 prepare_gateway 的返回值后又改成 {}」 | `test_ds_shell_wiring.py` w10 | 驳回(接受) | 静态闸的天花板;当前源码不是那样,真正的接线由 l1(经 service_envs)与真机兜 |
+  | M2 | 删标记失败(权限)被吞 ⇒ 残留标记下次重启兑现 | `save` 主槽路径 / `select_model` | 驳回(接受) | 需要 keys/ 目录权限异常;与 key.txt 写不进去同一类环境故障,不为它加状态 |
+
+- arbitrated verdict (主裁): 待最终总跑与覆盖轮。
 
 ## Accepted deviations
 
