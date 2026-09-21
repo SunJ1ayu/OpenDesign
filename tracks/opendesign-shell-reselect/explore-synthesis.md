@@ -229,3 +229,25 @@ Q4 那张图的形状和我们的软件几乎一样:一个浏览器窗口装着�
 Windows PowerShell 5.1,按系统 ANSI 代码页读 `.ps1` ⇒ 文件里的中文全成乱码、解析器爆炸。
 改 `shell: pwsh` + 给脚本加 BOM。**量具自己坏了,不是被测的东西坏了** —— 这次的红
 一个字都不能拿来回答"云机器行不行"。
+
+## 2026-09-21 新证据：ZCode（智谱，Electron 41）的无边框做法
+
+业主看 ZCode 开源后追问「它怎么保留自己的前端又有缩小放大关闭」。读 `zai-org/ZCode`
+（浅克隆 `872ad96`）得到的**事实**（不是结论）：
+
+- Windows 主窗口 `frame:false` + `backgroundMaterial:"acrylic"`，三个按钮由页面自绘
+  （`packages/ui/src/DesktopWindowControls.tsx`，IPC → `win.minimize()/maximize()/close()`）；
+  拖动区是 CSS `app-region: drag/no-drag`，**页面里没有窗口缩放把手**。
+- **没设 `thickFrame`**（默认 true）⇒ 按 Electron 文档，frameless 窗口保留 WS_THICKFRAME，
+  系统缩放边、贴边分屏、最小化动画由 Electron 在 C++ 里保住 —— 正是我们在
+  `ds_shell.py` 用 ctypes 贴样式位 + 接管 `WM_NCCALCSIZE` 手工补的那一层。
+- 接口由 preload `contextBridge.exposeInMainWorld` 在页面脚本之前就位 ⇒ 没有我们栽了四次的
+  「注入时机」这一类（我们靠 `?shell=1` 绕）。
+- 它也踩过 Windows 合成层的坑：拉伸结束 / 从托盘 show 后「窗口只剩宿主底色」，
+  补法是 `webContents.invalidate()` 有界双帧重绘（`attachWindowsWindowRepaint`）。
+- 另一种它用过的形态：更新窗口 `titleBarStyle:"hidden"` + `titleBarOverlay`（按钮由 Windows 画）
+  —— 即本单 C1「按钮交还给 Windows」在 Electron 里的现成写法。
+
+**对裁决的影响：不改。** 触发条件照旧；ZCode 只是把「重开选型时 Electron 路线」从
+DeepSeek 一条腿的论文变成了一个可读源码的真产品参照。**不许拿它论证白屏根因**
+（同上文对 DeepSeek 那条的处理）。对照页：https://claude.ai/artifact/ReEsjSRZ8MwAYPbjxfjnxJ
