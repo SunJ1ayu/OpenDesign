@@ -25,6 +25,8 @@ runlog: b8-x12-after-gate-shape rc=0 commit=a205077 dirty=yes at=2026-09-21T01:4
 runlog: full-regression-after-gate-shape rc=3 commit=a205077 dirty=yes at=2026-09-21T01:47:20Z file=tracks/opendesign-b8-race-forensics/evidence/20260921T014720Z-01-full-regression-after-gate-shape.txt
 runlog: b8-x12-final rc=0 commit=06c25f0 dirty=yes at=2026-09-21T02:03:27Z file=tracks/opendesign-b8-race-forensics/evidence/20260921T020327Z-01-b8-x12-final.txt
 runlog: full-regression-final rc=3 commit=06c25f0 dirty=yes final=yes at=2026-09-21T02:03:51Z file=tracks/opendesign-b8-race-forensics/evidence/20260921T020351Z-01-full-regression-final.txt
+runlog: b8-x12-r2 rc=0 commit=570861f dirty=yes at=2026-09-21T02:39:57Z file=tracks/opendesign-b8-race-forensics/evidence/20260921T023957Z-01-b8-x12-r2.txt
+runlog: full-regression-r2-final rc=3 commit=570861f dirty=yes final=yes at=2026-09-21T02:40:21Z file=tracks/opendesign-b8-race-forensics/evidence/20260921T024021Z-01-full-regression-r2-final.txt
 ```
 `rc=3` = 3 条 SKIP(1 条 python + 2 条要活网关的 e2e),既有状态,没有红的。
 `final=yes` 那一份 `source-stable: yes`。
@@ -38,6 +40,10 @@ runlog: full-regression-final rc=3 commit=06c25f0 dirty=yes final=yes at=2026-09
   取证仍笃定地说"环境残留"(外审 F1)。
 - `before-f1-fix-f3-mutant.txt` —— 🔴 **红的(对照实验)**:把分型结论句硬写成一支,
   补锚点前夹具照印"形状=对",补锚点后当场抓住(外审 F3)。
+- `after-f1-fix-*.txt` —— 第 1 轮修复之后全套 8 情景 rc=0(r2d-no-tools 转绿)。
+- `after-f1-fix-f2-probe.txt` —— F2 修复的当面对照:假 `ss`(rc=1)下修前说
+  "这个端口上没有 LISTEN",修后正确回落到 `lsof`;两个工具都没有时说
+  "<ss:没装;lsof:没装>" 且 `listener_pids -> None`。
 
 ## Review
 
@@ -63,6 +69,7 @@ runlog: full-regression-final rc=3 commit=06c25f0 dirty=yes final=yes at=2026-09
   |---|---|---|---|---|
   | 1 | 实质 | rc=3,BLOCK=0(PENDING=2:收据引用/裁决未写) | `panel-b8-forensics-20260921-0221` | 6 |
   | — | 基础设施(subkimi 403 周额度,rc=1;工具当轮自动补 subcursor,未另行派发) | 同上 | 同上 | 0 |
+  | 2 | 实质(核验第 1 轮修复清单;**预算用尽,这是最后一轮**) | rc=3,BLOCK=0(PENDING=2 同上) | `panel-b8-forensics-r2-<ts>` | <待填> |
 
 - findings(**先处置、后动手**;一轮一份修复清单,一次修完再复审):
 
@@ -76,6 +83,8 @@ runlog: full-regression-final rc=3 commit=06c25f0 dirty=yes final=yes at=2026-09
   | F5b | **subdeepseek(LOW)**。09-20 那条读数的同形来源不止"本用例跨轮残留",开发机上真在跑的 OpenDesign 实例同样造得出。 | `_acquire` 扫描命中分支 `self.port = hit` ⇒ 两份同值;该分支不关心应答者是谁起的。 | **必须修**(措辞) | 我的 design 前提 4 只写了"进程里任何还活着的赢家",少了"外来实例"这一支;收口时若照旧措辞,就成了一句证据不足的话。已改写为"段内确有一个真应答者;自留还是外来,证据已失"。 |
   | F6 | **subcursor(LOW)**。`redcheck.py` 注释断言 r2a"两份 port **不同值**",而 `after-s1-fix-r2a.txt` 里两份都是 46135。 | 收据 vs 注释;真实机制是后起的那份 `_scan` 命中了先起的那份 ⇒ 走扫描命中分支 ⇒ 同值。 | **必须修** | 这句假话就长在"同值/不同值能不能分辨病因"那条推理链上 —— 留着会污染下一次对同形读数的判读。 |
   | F7 | **subcursor(LOW)**。红检不在 `tests/run-all.sh` 里,只有人手动重跑 `run-redchecks.sh` 才会发现锚点措辞漂移。 | `tests/run-all.sh` 的六段里没有它。 | **延期** | 漂移是 **fail-closed**(rc=1),不是静默失效;把"判据的判据"常驻化是另一件事(本仓已有"泄漏闸自测"这一先例,可照着做),超出本单射程「b8 红的时候留下现场」。留在这里,不自动开单。 |
+
+  | S12 | **我自己在写 r2 自审时发现的(记账,不修)**:`race_forensics` 的结论句让 `unknown` 压过 `foreign` —— 段内同时有"确认是外人"和"查不出"的格子时,明明已经够判"判据环境脏"了,它仍然说"先别下结论"。 | `tests/test_ds_shell_core.py` 结论句分支:`if unknown: … else: …`。 | **延期(过度保守,方向安全)** | 错的方向是**多跑一遍**(去装上工具再来),不是说反话;而造这个场景要同时摆一个外来真锁并藏掉两个工具,脚手架成本高于收益。写在这里,请第 2 轮的腿挑。 |
 
   > 两腿都给了 `Conclusion: PASS`,**我不拿它抬置信度**:F1 是两腿独立命中的同一条,
   > 而它恰好是本单核心承诺(当场分型)的反面 —— 全票 PASS 里藏着一条必须修的发现,
