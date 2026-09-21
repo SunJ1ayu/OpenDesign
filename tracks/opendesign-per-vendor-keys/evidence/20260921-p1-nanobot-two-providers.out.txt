@@ -1,0 +1,5 @@
+# 亲跑 2026-09-21,/root/.venvs/design-studio/bin/python(nanobot-ai 0.2.2)
+mimo-v2.5            -> model=mimo-v2.5 base=https://token-plan-cn.xiaomimimo.com/v1 key=k-mimo cls=OpenAICompatProvider
+deepseek-v4-flash    -> model=deepseek-v4-flash base=https://api.deepseek.com/v1 key=k-ds cls=OpenAICompatProvider
+mimo-v2.5            -> ERROR ValueError: Environment variable 'DS_LLM_KEY_DEEPSEEK' referenced in config is not set
+deepseek-v4-flash    -> model=deepseek-v4-flash base=https://api.deepseek.com/v1 key= cls=OpenAICompatProvider

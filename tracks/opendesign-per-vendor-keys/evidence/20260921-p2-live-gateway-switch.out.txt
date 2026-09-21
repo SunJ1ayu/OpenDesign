@@ -1,0 +1,11 @@
+# 亲跑 2026-09-21 20:20,真 nanobot 0.2.2 网关 + 两台本机假 OpenAI 服务(127.0.0.1,无外网)
+# 「回复=None」是探针解析事件格式没对上,不影响结论:判定看的是假服务器记下的 Authorization/model
+config→mimo-v2.5          | 回复=None             | 本句打到=[('A-mimo', 'Bearer key-A-mimo', 'mimo-v2.5')]
+config→deepseek-v4-flash  | 回复=None             | 本句打到=[('B-deepseek', 'Bearer key-B-deepseek', 'deepseek-v4-flash')]
+config→mimo-v2.5          | 回复=None             | 本句打到=[('A-mimo', 'Bearer key-A-mimo', 'mimo-v2.5')]
+config→deepseek-v4-flash  | 回复=None             | 本句打到=[('A-mimo', 'Bearer key-A-mimo', 'mimo-v2.5')]
+--- gw.log 里的相关行 ---
+2026-09-21 20:24:06 | ERROR | - | Failed to refresh provider config
+          │                 └ '${DS_LLM_KEY_OTHER}'
+          │                │   │             └ '${DS_LLM_KEY_OTHER}'
+ValueError: Environment variable 'DS_LLM_KEY_OTHER' referenced in config is not set
