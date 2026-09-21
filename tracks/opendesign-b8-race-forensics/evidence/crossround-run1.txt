@@ -1,0 +1,11 @@
+# python=3.12.3  ephemeral_range=32768	60999
+E1 段内有人(占位端口=46221, base=46218, 段=[46218,46223]): 0 份赢 -> [{'acquired': False, 'port': 46221}, {'acquired': False, 'port': 46221}]
+E1 两份 port 同值且等于占位端口: True
+E2 段内无人(对照): 1 份赢 -> [{'acquired': True, 'port': 42495}, {'acquired': False, 'port': 42496}]
+E3 轮0 base=50779 段=[50779,53779] 段内前轮存活=[] => 1 份赢 [{'acquired': False, 'port': 50780}, {'acquired': True, 'port': 50779}]
+E3 轮1 base=36151 段=[36151,39151] 段内前轮存活=[] => 1 份赢 [{'acquired': False, 'port': 36152}, {'acquired': True, 'port': 36151}]
+E3 轮2 base=60613 段=[60613,63613] 段内前轮存活=[] => 1 份赢 [{'acquired': False, 'port': 60614}, {'acquired': True, 'port': 60613}]
+E3 轮3 base=39613 段=[39613,42613] 段内前轮存活=[] => 0 份赢 [{'acquired': False, 'port': 42495}, {'acquired': False, 'port': 42495}]
+E3 轮4 base=54811 段=[54811,57811] 段内前轮存活=[] => 1 份赢 [{'acquired': False, 'port': 54812}, {'acquired': True, 'port': 54811}]
+E3 轮5 base=47995 段=[47995,50995] 段内前轮存活=[50779] => 0 份赢 [{'acquired': False, 'port': 50779}, {'acquired': False, 'port': 50779}]
+E3 结束,存活赢家端口=[50779, 36151, 60613, 54811]
