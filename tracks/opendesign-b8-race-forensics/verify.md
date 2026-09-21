@@ -29,9 +29,12 @@ runlog: b8-x12-r2 rc=0 commit=570861f dirty=yes at=2026-09-21T02:39:57Z file=tra
 runlog: full-regression-r2-final rc=3 commit=570861f dirty=yes final=yes at=2026-09-21T02:40:21Z file=tracks/opendesign-b8-race-forensics/evidence/20260921T024021Z-01-full-regression-r2-final.txt
 runlog: b8-x12-r3 rc=0 commit=db567b0 dirty=yes at=2026-09-21T03:11:02Z file=tracks/opendesign-b8-race-forensics/evidence/20260921T031102Z-01-b8-x12-r3.txt
 runlog: full-regression-r3-final rc=3 commit=db567b0 dirty=yes final=yes at=2026-09-21T03:11:26Z file=tracks/opendesign-b8-race-forensics/evidence/20260921T031126Z-01-full-regression-r3-final.txt
+runlog: b8-x12-r4 rc=0 commit=4af7789 dirty=no at=2026-09-21T03:38:19Z file=tracks/opendesign-b8-race-forensics/evidence/20260921T033819Z-01-b8-x12-r4.txt
+runlog: full-regression-r4-final rc=3 commit=4af7789 dirty=yes final=yes at=2026-09-21T03:38:43Z file=tracks/opendesign-b8-race-forensics/evidence/20260921T033843Z-01-full-regression-r4-final.txt
 ```
-↑ **最后一遍就是这一份**(`source-stable: yes`):python 1800 跑过 / 1 跳过、
+↑ **最后一遍是 `full-regression-r4-final`**(`source-stable: yes`):python 1800 跑过 / 1 跳过、
 node 461、e2e 41 PASS / 0 FAIL / 2 SKIP、死断言闸不报。
+(前面几份 `-final` 是各轮修复当时的最后一遍,一并留着 —— 结论依据的是最后那一份。)
 `rc=3` = 3 条 SKIP(1 条 python + 2 条要活网关的 e2e),既有状态,没有红的。
 `final=yes` 那一份 `source-stable: yes`。
 
@@ -53,6 +56,9 @@ node 461、e2e 41 PASS / 0 FAIL / 2 SKIP、死断言闸不报。
 - `before-f8-fix-revert-f2-control.txt` —— 🔴 **红的(对照实验)**:把 F2 整个 revert 掉,
   新加的 `r2d-broken-ss` 当场抓住那句假话 ⇒ 这条钉子不是空转。
 - `after-f8-fix-*.txt` —— 修完之后全套 **10 个情景 rc=0**。
+- `before-aggr-fix-grep-probe.txt` —— 🔴 **红的**:`run-redchecks.sh` 的聚合判定
+  `grep -q "rc=0"` 命中取证正文里的「已退 rc=0」⇒ 形状错的情景被读成过(覆盖轮 L2)。
+- `after-aggr-fix-*.txt` —— 行首锚定之后全套 10 情景 rc=0(这次是严格判定下的 rc=0)。
 
 ## Review
 
