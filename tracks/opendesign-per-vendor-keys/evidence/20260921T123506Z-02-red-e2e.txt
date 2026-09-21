@@ -1,0 +1,44 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-e2e
+cmd:     node tests/e2e/per_vendor_keys.e2e.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  b01eb60
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-21T12:35:06Z
+---------------- 输出开始 ----------------
+ds-web 0.98.8: http://127.0.0.1:8848/  (DS_DATA_ROOT=/tmp/ds-e2e-per-vendor-WdiOmx/ds)
+2026-09-21 20:35:06 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-21 20:35:07 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-21 20:35:07 127.0.0.1 - "GET /assets/index-DQleokpa.css HTTP/1.1" 200 -
+2026-09-21 20:35:07 127.0.0.1 - "GET /assets/index-Bbeslzlj.js HTTP/1.1" 200 -
+2026-09-21 20:35:07 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-21 20:35:07 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-21 20:35:07 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-21 20:35:07 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-21 20:35:07 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-21 20:35:07 127.0.0.1 - "GET /favicon.ico HTTP/1.1" 404 -
+2026-09-21 20:35:07 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-21 20:35:07 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+2026-09-21 20:35:08 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+2026-09-21 20:35:08 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-21 20:35:08 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+2026-09-21 20:35:08 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-21 20:35:08 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+  ok   - A1 只配了 MiMo:菜单只有 MiMo 一组(实际 ["MiMo(小米) · 当前这把 key"])
+  FAIL - A2 每一行都标着厂商 mimo(实际 [[null,"mimo-v2.5","true"],[null,"mimo-v2.5-pro","false"]])
+2026-09-21 20:35:08 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+  ok   - A3 「换厂商 / 换 key…」打开卡片
+  FAIL - A4 卡片上两家各一行
+2026-09-21 20:36:07 127.0.0.1 - "POST /api/update/prepare HTTP/1.1" 200 -
+2026-09-21 20:36:07 127.0.0.1 - "GET /api/update/check HTTP/1.1" 200 -
+  FAIL - A5 MiMo 一行:在用 + 末四位(实际「」)
+  FAIL - A6 DeepSeek 一行在、且没有末四位(还没填)(实际「」)
+  FAIL - 场景本身崩了:locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-ui="llm-key-card"] [data-ui="llm-key-vendor"][data-vendor="deepseek"]')[22m
+
+    at /root/.openclaw/workspace/projects/design-studio/tests/e2e/per_vendor_keys.e2e.mjs:192:25
+
+5 条红
+---------------- 输出结束 ----------------
+runlog: red-e2e rc=1 commit=b01eb60 dirty=yes at=2026-09-21T12:35:06Z file=tracks/opendesign-per-vendor-keys/evidence/20260921T123506Z-02-red-e2e.txt

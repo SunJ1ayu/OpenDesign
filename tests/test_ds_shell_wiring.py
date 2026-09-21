@@ -154,6 +154,27 @@ class ShellWiring(unittest.TestCase):
                       "%s() 没走真正的退出路径(state.on_quit)——"
                       "交棒之后软件不会关,接力脚本会一直等到超时" % name)
 
+    # ---- 每家厂商各存各的 key(track opendesign-per-vendor-keys)------------------
+
+    def test_w10_every_gateway_start_prepares_the_extra_vendors_in_the_same_place_it_injects_keys(self):
+        """额外厂商的配置条目与它们的 key 必须在**同一处**产生:`build_env` 里先
+        `prepare_gateway`(写条目 + 读 key),再把结果交给 `service_envs`。
+        拆开的话,「配置引用 ⊆ 网关手里的 key」就不再由结构保证 —— 实验 p2 证实,
+        不成立时网关会**悄悄**用着旧厂商而界面说换了。
+
+        放在 build_env 里而不是 start_backend 里是有讲究的:重启网关(业主刚存了第二家的 key)
+        走的也是 build_env;只在启动时准备 ⇒ 存了 key 要等到下次开机才用得上。"""
+        fn = next((n for n in ast.walk(self.tree)
+                   if isinstance(n, ast.FunctionDef) and n.name == "build_env"), None)
+        self.assertIsNotNone(fn, "build_env 没了 —— 启动与重启共用的那一处 env 构造")
+        names = [_name_of(c) for c in _calls(fn)]
+        self.assertIn("prepare_gateway", names, "build_env 没调 prepare_gateway ⇒ 第二家永远进不了网关")
+        self.assertIn("service_envs", names)
+        envs_calls = [c for c in _calls(fn) if _name_of(c) == "service_envs"]
+        for call in envs_calls:
+            self.assertIn("extra_keys", self.kwargs(call),
+                          "prepare_gateway 给的额外 key 没交给 service_envs ⇒ 配置引用了、网关手里却没有")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

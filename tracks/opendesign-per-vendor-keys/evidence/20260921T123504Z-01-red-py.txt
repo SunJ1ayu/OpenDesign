@@ -1,0 +1,219 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    red-py
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_per_vendor_keys tests.test_per_vendor_live tests.test_ds_shell_wiring
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  b01eb60
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-21T12:35:04Z
+---------------- 输出开始 ----------------
+EEEEEEEEEEEEEEEEE/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:284: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-121lkks6/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:225: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-121lkks6/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./root/.openclaw/workspace/projects/design-studio/bin/ds_credential.py:225: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-iphoz87c/UserData/.nanobot/config.json' mode='r' encoding='utf-8'>
+  cfg = json.load(open(cfg_path, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+EEEEF.........
+======================================================================
+ERROR: test_v7_the_menu_lists_a_vendor_only_once_the_gateway_has_its_key (tests.test_per_vendor_keys.TestMenuAndSwitching.test_v7_the_menu_lists_a_vendor_only_once_the_gateway_has_its_key)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 371, in test_v7_the_menu_lists_a_vendor_only_once_the_gateway_has_its_key
+    got, groups = self.groups()
+                  ^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 367, in groups
+    return got, {g["provider"]: [m["id"] for m in g["models"]] for g in got["groups"]}
+                                                                        ~~~^^^^^^^^^^
+KeyError: 'groups'
+
+======================================================================
+ERROR: test_v8_switching_across_vendors_changes_only_the_active_preset (tests.test_per_vendor_keys.TestMenuAndSwitching.test_v8_switching_across_vendors_changes_only_the_active_preset)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 388, in test_v8_switching_across_vendors_changes_only_the_active_preset
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=True)
+TypeError: save() got an unexpected keyword argument 'multi'
+
+======================================================================
+ERROR: test_v8b_a_vendor_the_gateway_does_not_have_is_refused_and_nothing_changes (tests.test_per_vendor_keys.TestMenuAndSwitching.test_v8b_a_vendor_the_gateway_does_not_have_is_refused_and_nothing_changes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 406, in test_v8b_a_vendor_the_gateway_does_not_have_is_refused_and_nothing_changes
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=True)
+TypeError: save() got an unexpected keyword argument 'multi'
+
+======================================================================
+ERROR: test_v10_a_broken_config_or_unreadable_key_never_raises_and_writes_nothing (tests.test_per_vendor_keys.TestPreparingTheGateway.test_v10_a_broken_config_or_unreadable_key_never_raises_and_writes_nothing)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 327, in test_v10_a_broken_config_or_unreadable_key_never_raises_and_writes_nothing
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=True)
+TypeError: save() got an unexpected keyword argument 'multi'
+
+======================================================================
+ERROR: test_v12_an_existing_single_key_install_is_left_byte_for_byte_alone (tests.test_per_vendor_keys.TestPreparingTheGateway.test_v12_an_existing_single_key_install_is_left_byte_for_byte_alone)
+零迁移:只有 key.txt 的老家,起网关不许改配置(改了就是在业主机器上做迁移)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 346, in test_v12_an_existing_single_key_install_is_left_byte_for_byte_alone
+    self.assertEqual(ds_credential.prepare_gateway(self.home, self.cfg_path), {})
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_credential' has no attribute 'prepare_gateway'
+
+======================================================================
+ERROR: test_v12b_a_single_key_install_that_moved_to_deepseek_is_also_left_alone (tests.test_per_vendor_keys.TestPreparingTheGateway.test_v12b_a_single_key_install_that_moved_to_deepseek_is_also_left_alone)
+另一种老家形状:以前在界面里换成过 DeepSeek(主槽 = DeepSeek,预设只有一个)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 355, in test_v12b_a_single_key_install_that_moved_to_deepseek_is_also_left_alone
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=False)
+TypeError: save() got an unexpected keyword argument 'multi'
+
+======================================================================
+ERROR: test_v4_every_variable_the_config_references_is_one_the_gateway_is_given (tests.test_per_vendor_keys.TestPreparingTheGateway.test_v4_every_variable_the_config_references_is_one_the_gateway_is_given)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 240, in test_v4_every_variable_the_config_references_is_one_the_gateway_is_given
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=True)
+TypeError: save() got an unexpected keyword argument 'multi'
+
+======================================================================
+ERROR: test_v5_an_entry_whose_key_is_gone_is_removed_and_nothing_dangles (tests.test_per_vendor_keys.TestPreparingTheGateway.test_v5_an_entry_whose_key_is_gone_is_removed_and_nothing_dangles)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 266, in test_v5_an_entry_whose_key_is_gone_is_removed_and_nothing_dangles
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=True)
+TypeError: save() got an unexpected keyword argument 'multi'
+
+======================================================================
+ERROR: test_v6_after_saving_a_second_vendor_the_gateway_start_switches_to_it_once (tests.test_per_vendor_keys.TestPreparingTheGateway.test_v6_after_saving_a_second_vendor_the_gateway_start_switches_to_it_once)
+今天「填 DeepSeek 的 key 保存」的结果就是换到了 DeepSeek —— 新版不许比今天差(F7)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 285, in test_v6_after_saving_a_second_vendor_the_gateway_start_switches_to_it_once
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=True)
+TypeError: save() got an unexpected keyword argument 'multi'
+
+======================================================================
+ERROR: test_v6b_the_switch_waits_while_the_key_is_not_there (tests.test_per_vendor_keys.TestPreparingTheGateway.test_v6b_the_switch_waits_while_the_key_is_not_there)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 297, in test_v6b_the_switch_waits_while_the_key_is_not_there
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=True)
+TypeError: save() got an unexpected keyword argument 'multi'
+
+======================================================================
+ERROR: test_v9_owner_who_moved_the_primary_slot_to_deepseek_then_adds_mimo (tests.test_per_vendor_keys.TestPreparingTheGateway.test_v9_owner_who_moved_the_primary_slot_to_deepseek_then_adds_mimo)
+业主机器上的真实形态之一:以前在界面里换过 DeepSeek ⇒ 主槽是 DeepSeek,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 311, in test_v9_owner_who_moved_the_primary_slot_to_deepseek_then_adds_mimo
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=False)
+TypeError: save() got an unexpected keyword argument 'multi'
+
+======================================================================
+ERROR: test_v13_fresh_install_first_key_goes_into_the_primary_slot_like_today (tests.test_per_vendor_keys.TestSavingASecondVendor.test_v13_fresh_install_first_key_goes_into_the_primary_slot_like_today)
+全新装机(一把 key 都没有):第一把进主槽 —— 所有老启动器都认得它。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 205, in test_v13_fresh_install_first_key_goes_into_the_primary_slot_like_today
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path,
+TypeError: save() got an unexpected keyword argument 'multi'
+
+======================================================================
+ERROR: test_v14_saving_the_primary_vendor_again_rotates_key_txt_only (tests.test_per_vendor_keys.TestSavingASecondVendor.test_v14_saving_the_primary_vendor_again_rotates_key_txt_only)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 215, in test_v14_saving_the_primary_vendor_again_rotates_key_txt_only
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path,
+TypeError: save() got an unexpected keyword argument 'multi'
+
+======================================================================
+ERROR: test_v15_saving_the_extra_vendor_again_rotates_only_its_file (tests.test_per_vendor_keys.TestSavingASecondVendor.test_v15_saving_the_extra_vendor_again_rotates_only_its_file)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 225, in test_v15_saving_the_extra_vendor_again_rotates_only_its_file
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=True)
+TypeError: save() got an unexpected keyword argument 'multi'
+
+======================================================================
+ERROR: test_v1_with_a_shell_the_second_key_gets_its_own_file_and_the_config_is_untouched (tests.test_per_vendor_keys.TestSavingASecondVendor.test_v1_with_a_shell_the_second_key_gets_its_own_file_and_the_config_is_untouched)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 153, in test_v1_with_a_shell_the_second_key_gets_its_own_file_and_the_config_is_untouched
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path,
+TypeError: save() got an unexpected keyword argument 'multi'
+
+======================================================================
+ERROR: test_v2_each_key_lives_in_exactly_its_own_file_even_after_the_gateway_is_prepared (tests.test_per_vendor_keys.TestSavingASecondVendor.test_v2_each_key_lives_in_exactly_its_own_file_even_after_the_gateway_is_prepared)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 167, in test_v2_each_key_lives_in_exactly_its_own_file_even_after_the_gateway_is_prepared
+    saved = ds_credential.save(home=self.home, cfg_path=self.cfg_path,
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: save() got an unexpected keyword argument 'multi'
+
+======================================================================
+ERROR: test_v3_without_a_shell_it_behaves_exactly_like_today (tests.test_per_vendor_keys.TestSavingASecondVendor.test_v3_without_a_shell_it_behaves_exactly_like_today)
+git-pull / Linux 那两种启动器只认一个变量:配置里一旦出现额外引用,网关就起不来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 186, in test_v3_without_a_shell_it_behaves_exactly_like_today
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path,
+TypeError: save() got an unexpected keyword argument 'multi'
+
+======================================================================
+ERROR: test_v11_each_vendor_reports_configured_live_active_and_pending (tests.test_per_vendor_keys.TestStatusForTheCard.test_v11_each_vendor_reports_configured_live_active_and_pending)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 429, in test_v11_each_vendor_reports_configured_live_active_and_pending
+    st, v = self.vendors()
+            ^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 426, in vendors
+    return st, {v["id"]: v for v in st["vendors"]}
+                                    ~~^^^^^^^^^^^
+KeyError: 'vendors'
+
+======================================================================
+ERROR: test_extra_keys_go_to_the_gateway_leg_only (tests.test_per_vendor_keys.TestTheKeysOnlyReachTheGateway.test_extra_keys_go_to_the_gateway_leg_only)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 459, in test_extra_keys_go_to_the_gateway_leg_only
+    envs = core.service_envs({"PATH": "/bin", "DS_LLM_KEY_DEEPSEEK": "业主机器上残留的旧值"},
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: service_envs() got an unexpected keyword argument 'extra_keys'
+
+======================================================================
+ERROR: test_without_extra_keys_nothing_changes (tests.test_per_vendor_keys.TestTheKeysOnlyReachTheGateway.test_without_extra_keys_nothing_changes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 472, in test_without_extra_keys_nothing_changes
+    b = core.service_envs({"PATH": "/bin"}, ds_root="/ds", user_home="/h", dsweb_port=1, ws_port=2,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: service_envs() got an unexpected keyword argument 'extra_keys'
+
+======================================================================
+ERROR: test_l1_switching_vendor_in_the_menu_reaches_the_other_vendor_with_its_own_key (tests.test_per_vendor_live.LiveSwitch.test_l1_switching_vendor_in_the_menu_reaches_the_other_vendor_with_its_own_key)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_live.py", line 139, in setUp
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=True)
+TypeError: save() got an unexpected keyword argument 'multi'
+
+======================================================================
+FAIL: test_w10_every_gateway_start_prepares_the_extra_vendors_in_the_same_place_it_injects_keys (tests.test_ds_shell_wiring.ShellWiring.test_w10_every_gateway_start_prepares_the_extra_vendors_in_the_same_place_it_injects_keys)
+额外厂商的配置条目与它们的 key 必须在**同一处**产生:`build_env` 里先
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_wiring.py", line 171, in test_w10_every_gateway_start_prepares_the_extra_vendors_in_the_same_place_it_injects_keys
+    self.assertIn("prepare_gateway", names, "build_env 没调 prepare_gateway ⇒ 第二家永远进不了网关")
+AssertionError: 'prepare_gateway' not found in ['read_key', 'service_envs', 'dict', 'open', 'env_var_name', 'die', 'str', 'str', 'load', 'install_root'] : build_env 没调 prepare_gateway ⇒ 第二家永远进不了网关
+
+----------------------------------------------------------------------
+Ran 32 tests in 1.072s
+
+FAILED (failures=1, errors=21)
+---------------- 输出结束 ----------------
+runlog: red-py rc=1 commit=b01eb60 dirty=yes at=2026-09-21T12:35:04Z file=tracks/opendesign-per-vendor-keys/evidence/20260921T123504Z-01-red-py.txt
