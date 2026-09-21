@@ -1,7 +1,7 @@
 # Design: opendesign-electron-shell
 
 - Change: opendesign-electron-shell
-- Status: draft —— **方案挑战已做完,范围待业主重新拍板**(见文末「未解决项」)
+- Status: draft —— 方案挑战已做完;**业主 09-21 深夜拍板四样全换**;下一步探路实验(U2)
 
 ## Goal-to-design check
 
@@ -56,11 +56,16 @@ P6(管家语言)三方里两方站 Python。
 
 ## 未解决项(能改方向,先解决)
 
-- **U1(业主)**:安装包和自动更新换不换。我的推荐:不换 —— 换壳那一版还有机会直接走自动更新上机(不用卸载),
-  前提是 U2 在云 Windows 上跑通;跑不通再退回「手动装一次」,并让那一版对旧更新器不可见。
-- **U2(实验)**:探路包 —— 在现有安装布局里把窗口换成 Electron,跑 `windows-package-probe`(装→开→截图:首屏/最大化/
-  托盘还原后 500ms/三按钮)+ `windows-update-e2e`(旧 pywebview 版 → Electron 版;Electron 版 → Electron 版;回滚)。
-  断言接力脚本走到 `:ask_health` 报出新版号、退出后无残留 Python 进程。
+- ~~**U1(业主)**:安装包和自动更新换不换~~ **已答:「全换吧」**(听完两家劝阻与我的推荐之后)。
+  ⇒ 上表 #1~#6 #11 #16 #17 从「劝退理由」变成「必须堵上的清单」,各自的堵法由 U2 实验定,见下。
+- **U2(实验,全换版)**:云 Windows 探路,每条对应上表一个风险,**先量再写判据**:
+  - E1 构建:electron-builder NSIS 带上免装 Python(extraResources),量包体、构建时长。
+  - E2 起窗:窗口先出来、Python 管家起后台、界面出来;截图首屏 / 最大化(任务栏在不在)/ 托盘隐藏再还原后 500ms(#17);
+    三按钮与关窗进托盘可被自动点;托盘退出后无残留 python(#16);杀掉 Electron 主进程后 Python 管家与后台也收掉。
+  - E3 过渡(#3 #4 #5 #6):先装真的 0.98.9(自选带空格目录、在托盘里跑着)→ 双击新安装包 ⇒ 旧程序被关掉、旧卸载项消失、
+    装回同一目录、资料根与 key 一个字节不少、开机自启指向新 exe、桌面图标能用;旧版的更新器看不见新 release(tag/资产名都不匹配)。
+  - E4 更新(#1 #2 #11):v1 → v2 走 electron-updater;Python 后台在跑时装 ⇒ 结果整棵是新版;量实际下载字节(增量省多少);
+    发现通道不碰 api.github.com(github.com 下载地址)、不依赖 prerelease 过滤。
 
 ## Approach
 
