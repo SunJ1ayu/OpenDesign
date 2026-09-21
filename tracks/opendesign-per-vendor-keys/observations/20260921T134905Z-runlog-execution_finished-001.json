@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-per-vendor-keys",
+  "run_id": "20260921T134902Z-01-r2-red-py",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "r2-red-py",
+  "started_at": "2026-09-21T13:49:02Z",
+  "finished_at": "2026-09-21T13:49:05Z",
+  "duration_ms": 2961,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

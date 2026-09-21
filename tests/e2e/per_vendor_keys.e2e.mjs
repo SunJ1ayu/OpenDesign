@@ -165,12 +165,16 @@ try {
   // 读在两者之间就是时序性红(Kimi 环境 2/2 红)⇒ **等打开那次 /api/llm/models 回包落地、
   // 再过两帧**才读。等的是真实状态,不是放宽。
   const twoFrames = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  // 第 2 轮 DeepSeek 残余 3:回包头到了 ≠ 页面画好了。改成**等菜单里的组数与这次回包一致**再读 ——
+  // 等的是页面反映了新数据这件事本身,不是一个经验帧数。
   const groupsInMenu = async () => {
     const fresh = page.waitForResponse((r) => r.url().includes("/api/llm/models"), { timeout: 8000 });
     await page.locator(chip).click();
-    await fresh;
-    await twoFrames();
+    const body = await (await fresh).json().catch(() => ({}));
+    const want = Array.isArray(body.groups) && body.groups.length ? body.groups.length : 1;
     await page.locator(menu).waitFor({ state: "visible", timeout: 5000 });
+    await until(async () => (await page.locator(`${menu} .group`).count()) === want, 5000);
+    await twoFrames();
     const labels = await page.locator(`${menu} .group`).allInnerTexts();
     const models = await page.locator(`${menu} [data-model-id]`).evaluateAll(
       (els) => els.map((e) => [e.getAttribute("data-provider"), e.getAttribute("data-model-id"),
@@ -204,6 +208,10 @@ try {
   await page.locator('[data-ui="llm-key-input"]').fill(DS_KEY);
   await page.locator('[data-ui="llm-key-save"]').click();
   check(await until(() => page.locator('[data-ui="llm-key-notice"]').isVisible(), 8000), "B2 保存后有提示");
+  // 第 2 轮 DeepSeek 残余 4:B7 要问的是「卡片自己跟上」,前提是存完那一刻它**确实**处在「等重启」——
+  // 否则一台慢机器上它可能一开始就是「在用」,B7 不靠轮询也绿。先把前提钉住。
+  check(await until(async () => /重启/.test(await row("deepseek").innerText()), 1200),
+    `B2b 存完那一刻 DeepSeek 一行写着要等后台重启(实际「${await row("deepseek").innerText().catch(() => "")}」)`);
   check(readFileSync(join(home, ".openDesign", "key.txt"), "utf8").trim() === MIMO_KEY, "B3 MiMo 的 key 原样还在(本单要解决的正是它被覆盖)");
   check(existsSync(dsKeyFile) && readFileSync(dsKeyFile, "utf8").trim() === DS_KEY, "B4 DeepSeek 的 key 落进它自己的文件");
   check(await until(() => restarts.length > 0, 8000), `B5 保存之后请了外壳重启网关(假外壳收到 ${restarts.length} 次)`);

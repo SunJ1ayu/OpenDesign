@@ -512,12 +512,15 @@ class TestTheWebOnlyOffersPerVendorRowsWithAShell(Rig):
     提示「粘贴这一家的 key」,业主会以为另一家的 key 还在 —— 那比改动前更差。
     ⇒ 接口在没外壳时不给 `vendors`,卡片退回原样(前端 pv6:没有 vendors ⇒ 不显示那张表)。"""
 
-    def get(self, with_shell: bool) -> dict:
+    def call(self, with_shell: bool, method: str, path: str, body=None) -> dict:
+        """起一个真 ds_web,发一个请求。有外壳 = DS_SHELL_LOCK_PORT 有值
+        (指向没人听的 1 号端口:重启请求会诚实地回 manual,不会真去连谁)。"""
         import http.client
         import threading
         import ds_web
         dist = os.path.join(self.tmp, "dist")
         os.makedirs(dist, exist_ok=True)
+        os.makedirs(os.path.join(self.tmp, "ds", "projects"), exist_ok=True)
         with open(os.path.join(dist, "index.html"), "w", encoding="utf-8") as fh:
             fh.write("<!doctype html>")
         env = {"DS_NANOBOT_CONFIG": self.cfg_path, "HOME": self.home, "USERPROFILE": self.home,
@@ -528,15 +531,23 @@ class TestTheWebOnlyOffersPerVendorRowsWithAShell(Rig):
             try:
                 port = httpd.server_address[1]
                 conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
-                conn.request("GET", "/api/llm/credential", headers={"Host": f"127.0.0.1:{port}"})
+                hd = {"Host": f"127.0.0.1:{port}"}
+                data = None
+                if body is not None:
+                    hd["Content-Type"] = "application/json"
+                    data = json.dumps(body).encode("utf-8")
+                conn.request(method, path, body=data, headers=hd)
                 r = conn.getresponse()
-                body = json.loads(r.read().decode("utf-8"))
+                out = json.loads(r.read().decode("utf-8"))
                 conn.close()
-                self.assertEqual(r.status, 200)
-                return body
+                self.assertEqual(r.status, 200, out)
+                return out
             finally:
                 httpd.shutdown()
                 httpd.server_close()
+
+    def get(self, with_shell: bool) -> dict:
+        return self.call(with_shell, "GET", "/api/llm/credential")
 
     def test_without_a_shell_there_are_no_per_vendor_rows(self):
         self.have_mimo_in_primary()
@@ -545,6 +556,24 @@ class TestTheWebOnlyOffersPerVendorRowsWithAShell(Rig):
                          "没外壳时保存会覆盖另一家,界面不许再摆出「每家一行」")
         rows = self.get(with_shell=True).get("vendors") or []
         self.assertEqual([r["id"] for r in rows], list(ds_credential.PROVIDERS), "有外壳时每家一行")
+
+    def test_without_a_shell_the_save_response_has_no_per_vendor_rows_either(self):
+        """第 2 轮 Grok 残余:只清 GET 不清 POST ⇒ 哪天有人拿保存的回包渲染,G3 就回来了。"""
+        self.have_mimo_in_primary()
+        out = self.call(False, "POST", "/api/llm/credential", {"provider": "deepseek", "key": DS_KEY})
+        self.assertEqual(out.get("vendors"), [], "没外壳时保存的回包也不许摆出每家一行")
+        self.assertNotIn(DS_KEY, json.dumps(out, ensure_ascii=False))
+
+    def test_v18_picking_a_model_by_hand_beats_an_earlier_pending_switch(self):
+        """第 2 轮 DeepSeek 残余 2:存 DeepSeek 时自动重启没成(界面已说「请手动重启」),
+        业主随后**亲手**在菜单里点了 MiMo 的模型;之后软件一重启,不许再被旧标记拽回 DeepSeek。
+        走真 ds_web 的换模型接口:界面点菜单调的就是它。"""
+        self.have_mimo_in_primary()
+        self.call(True, "POST", "/api/llm/credential", {"provider": "deepseek", "key": DS_KEY})
+        self.call(True, "POST", "/api/llm/model", {"model": "mimo-v2.5-pro", "provider": "mimo"})
+        ds_credential.prepare_gateway(self.home, self.cfg_path)       # 之后某一次起网关
+        self.assertEqual(self.cfg()["agents"]["defaults"]["modelPreset"], "mimo-v2.5-pro",
+                         "业主亲手选的模型被一个更早的「想换过去」盖掉了")
 
 
 if __name__ == "__main__":

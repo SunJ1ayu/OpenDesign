@@ -176,14 +176,17 @@ class LiveSwitch(unittest.TestCase):
         n = len(self.mimo.hits) + len(self.ds.hits)
         await ws.send(text)
         t0 = time.monotonic()
+        arrived = False
         while time.monotonic() - t0 < 60:
             if len(self.mimo.hits) + len(self.ds.hits) > n:
-                return
+                arrived = True
+                break
             try:
                 await asyncio.wait_for(ws.recv(), timeout=0.5)
             except asyncio.TimeoutError:
                 pass
-        self.fail(f"「{text}」发出去 60 秒,两家都没收到请求。网关日志尾巴:\n{self.gateway_log()}")
+        # 断言放在循环外、每次都执行(死断言闸:只在出错时才跑的 self.fail 等于没问)
+        self.assertTrue(arrived, f"「{text}」发出去 60 秒,两家都没收到请求。网关日志尾巴:\n{self.gateway_log()}")
 
     def test_l1_switching_vendor_in_the_menu_reaches_the_other_vendor_with_its_own_key(self):
         import websockets
@@ -191,8 +194,9 @@ class LiveSwitch(unittest.TestCase):
         async def run():
             ws = None
             for _ in range(300):
-                if self.gw.poll() is not None:
-                    self.fail(f"网关起不来(rc={self.gw.returncode}):\n{self.gateway_log()}")
+                alive = self.gw.poll() is None
+                self.assertTrue(alive, f"网关起不来(rc={self.gw.returncode}):\n"
+                                       f"{self.gateway_log() if not alive else ''}")
                 try:
                     ws = await websockets.connect(f"ws://127.0.0.1:{self.ws_port}/?client_id=oracle&token=live-oracle")
                     break
