@@ -1,0 +1,59 @@
+{
+  "name": "opendesign",
+  "productName": "OpenDesign",
+  "version": "0.98.10",
+  "private": true,
+  "description": "OpenDesign 桌面外壳 —— Electron 探路版(track opendesign-electron-shell U2),不是产品代码",
+  "author": "OpenDesign",
+  "main": "main.js",
+  "devDependencies": {
+    "electron": "44.4.3",
+    "electron-builder": "26.15.3",
+    "playwright": "1.63.0"
+  },
+  "build": {
+    "appId": "com.opendesign.desktop",
+    "productName": "OpenDesign",
+    "executableName": "OpenDesign",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "loading.html"
+    ],
+    "extraResources": [
+      {
+        "from": "pkg/python",
+        "to": "python"
+      },
+      {
+        "from": "pkg/ds",
+        "to": "ds"
+      },
+      {
+        "from": "host",
+        "to": "host"
+      },
+      {
+        "from": "build/icon.ico",
+        "to": "opendesign.ico"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "shortcutName": "OpenDesign",
+      "include": "build/installer.nsh",
+      "artifactName": "OpenDesign-${version}-electron-setup.${ext}",
+      "warningsAsErrors": false
+    }
+  }
+}
