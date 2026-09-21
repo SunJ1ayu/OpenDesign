@@ -1,0 +1,67 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    r1-red-e2e
+cmd:     node tests/e2e/per_vendor_keys.e2e.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  8e80416
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-21T13:26:32Z
+---------------- 输出开始 ----------------
+ds-web 0.98.9: http://127.0.0.1:8848/  (DS_DATA_ROOT=/tmp/ds-e2e-per-vendor-EMLu8I/ds)
+2026-09-21 21:26:32 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-21 21:26:33 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-21 21:26:33 127.0.0.1 - "GET /assets/index-Cog_dEq9.css HTTP/1.1" 200 -
+2026-09-21 21:26:33 127.0.0.1 - "GET /assets/index-DVcftx6z.js HTTP/1.1" 200 -
+2026-09-21 21:26:33 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-21 21:26:33 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-21 21:26:33 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-21 21:26:33 127.0.0.1 - "GET /api/update/startup HTTP/1.1" 200 -
+2026-09-21 21:26:33 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-21 21:26:33 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-21 21:26:33 127.0.0.1 - "GET /favicon.ico HTTP/1.1" 404 -
+2026-09-21 21:26:33 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+2026-09-21 21:26:34 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-21 21:26:34 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+2026-09-21 21:26:34 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-21 21:26:34 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+  ok   - A1 只配了 MiMo:菜单只有 MiMo 一组(实际 ["MiMo(小米)"])
+  ok   - A2 每一行都标着厂商 mimo(实际 [["mimo","mimo-v2.5","true"],["mimo","mimo-v2.5-pro","false"]])
+2026-09-21 21:26:34 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+  ok   - A3 「换厂商 / 换 key…」打开卡片
+  ok   - A4 卡片上两家各一行
+  ok   - A5 MiMo 一行:在用 + 末四位(实际「MiMo(小米)
+在用 · tp-e…cdef」)
+  ok   - A6 DeepSeek 一行在、且没有末四位(还没填)(实际「DeepSeek 官方
+还没填」)
+  ok   - B1 点 DeepSeek 那一行 ⇒ 下拉里选中了 DeepSeek
+2026-09-21 21:26:34 127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 200 -
+2026-09-21 21:26:34 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+  ok   - B2 保存后有提示
+  ok   - B3 MiMo 的 key 原样还在(本单要解决的正是它被覆盖)
+  ok   - B4 DeepSeek 的 key 落进它自己的文件
+  ok   - B5 保存之后请了外壳重启网关(假外壳收到 1 次)
+  ok   - B6 外壳那一步(prepare_gateway)没出错:[{"rc":0,"out":"['DS_LLM_KEY_DEEPSEEK']","err":""}]
+  FAIL - B7 卡片开着不动:后台起好后 DeepSeek 一行自己变成「在用」(实际「DeepSeek 官方
+已保存,后台重启后就能用 · sk-e…89ab」)
+2026-09-21 21:26:51 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+  ok   - C1 网关拿到 key 之后菜单出现两组(实际 ["MiMo(小米)","DeepSeek 官方"])
+  ok   - C2 存完就换到了 DeepSeek(与今天一致)(实际打勾 [["deepseek","deepseek-v4-flash","true"]])
+2026-09-21 21:26:51 127.0.0.1 - "POST /api/llm/model HTTP/1.1" 200 -
+  ok   - D1 点 MiMo 的模型 ⇒ 配置里的当前模型真的变了
+  ok   - D2 它指向 MiMo 的端点(预设 provider=custom)
+  ok   - D3 按钮上的字跟着变
+2026-09-21 21:26:51 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-21 21:26:51 127.0.0.1 - "POST /api/llm/model HTTP/1.1" 200 -
+  ok   - D4 再点 DeepSeek 的 pro ⇒ 配置里的当前模型真的变了
+  ok   - D5 它指向 DeepSeek 的端点(预设 provider=od_deepseek)
+  ok   - D6 换模型没碰任何 key 文件
+  ok   - E MiMo 的 key 没出现在页面 HTML里
+  ok   - E MiMo 的 key 没出现在无障碍树里
+  ok   - E MiMo 的 key 没出现在控制台里
+  ok   - E DeepSeek 的 key 没出现在页面 HTML里
+  ok   - E DeepSeek 的 key 没出现在无障碍树里
+  ok   - E DeepSeek 的 key 没出现在控制台里
+  ok   - E 配置文件里没有 key 原文
+
+1 条红
+---------------- 输出结束 ----------------
+runlog: r1-red-e2e rc=1 commit=8e80416 dirty=yes at=2026-09-21T13:26:32Z file=tracks/opendesign-per-vendor-keys/evidence/20260921T132632Z-01-r1-red-e2e.txt

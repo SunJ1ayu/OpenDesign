@@ -5,67 +5,66 @@
 > 机器消费的 impact / uncertainty / execution plan / outcome 只写在同目录
 > `decision.json`；这里保留检查、理由、发现与主 Agent 仲裁说明，不复制枚举。
 
-> Panel hook — 软判断(correctness/security/edge/spec-drift)走 panel-review:
-> 主 agent 先独立审并落 findings,再按 impact-risk 预算跑 panel-review；只有特殊控制面
-> 才显式 `--all` 做全池评审。最后仍由主 agent 主裁。
-> build/test 跑通是机械检查。
-
 ## Mechanical checks
 
-- [ ] build passes
-- [ ] tests pass
-- [ ] no secrets / unsafe ops
+- [x] build passes(`npm run build` 含类型检查;dist 随提交)
+- [ ] tests pass —— 最终一遍待第 2 轮修复后 `--final` 总跑
+- [x] no secrets / unsafe ops(判据全用假 key、本机假服务器;活网关判据代理指向死端口)
 
-**机器打印的**(不是我的转述)—— 判据用 `runlog` 跑,把它打印的收据行原样粘进来:
-
-```
-runlog -t opendesign-per-vendor-keys -- <判据命令>
-```
+**机器打印的**收据(逐字节):
 
 ```
-<粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
- **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
- 收据得进 git(5d)。一份收据都没有的话,写一行
- 「- 无机器证据:<理由>」认账 —— 沉默不算理由(5c)。>
+runlog: red-py rc=1 commit=b01eb60 dirty=yes at=2026-09-21T12:35:04Z file=tracks/opendesign-per-vendor-keys/evidence/20260921T123504Z-01-red-py.txt
+runlog: red-ui rc=1 commit=b01eb60 dirty=yes at=2026-09-21T12:35:06Z file=tracks/opendesign-per-vendor-keys/evidence/20260921T123506Z-01-red-ui.txt
+runlog: red-e2e rc=1 commit=b01eb60 dirty=yes at=2026-09-21T12:35:06Z file=tracks/opendesign-per-vendor-keys/evidence/20260921T123506Z-02-red-e2e.txt
+runlog: mutations rc=0 commit=83e2a3b dirty=yes at=2026-09-21T12:52:58Z file=tracks/opendesign-per-vendor-keys/evidence/20260921T125258Z-01-mutations.txt
 ```
+
+- 三份 red 是**先红**收据(实现之前,判据单独提交于 `402d5fb`):红在缺 API / 外壳未接线 / 卡片无每家一行 —— 预期内。
+- mutations:17 个定点变异 15 个咬住;M10、M10b 单拆是**等价变异**(prepare_gateway 早退与 ③ 的 `and wanted` 互为双保险,
+  单拆任一行为不变),两道合拆 M10d 被 v12b 咬住。
 
 ## Review
 
-- 规格自查(读任何 panel 输出之前先答):<回看 design 的用户成功条件、前提证据和未解决项。
-  实现符合规格不证明规格合理;实现评审也可质疑规格,但不能替代实施前 panel 4c 的方案检查。
-  本轮若暴露能推翻方向的前提,先回到设计;全池一致 PASS 也不等于题是对的。>
-- 腿的花名册: <把 `<日志前缀>.roster` 里那一行**原样粘过来**,别手写>
-  > panel-review 收尾自己写这个文件(off / FAIL(rc) / 降级 都在里面)。
-  > **控制器没活到收尾时它压根不存在** —— 那时跑 `panel-roster <日志前缀>` 从盘上重建,
-  > 与控制器自己写的**归一化后一致**(判据 R5b 守着;抬头有渲染时间戳,不是字面逐字节)。**一轮零记录的评审也粘得出这一行**,
-  > 所以"那轮被砍了所以没有花名册"不再是理由(2026-08-23,track panel-roster-from-disk)。
-  > 08-06 立这条的理由:08-05 我在这里手写了"三条腿一致 PASS",而 Kimi 根本没出结论
-  > (同一页第 90 行我自己还写着它没出报告)—— 手抄一份终端上的东西,抄错那次没人会发现。
-- 轮次记录(每次派发一行;实质评审与基础设施重试分开,重试不算轮但次数与耗时照记):
+- 规格自查(读 panel 输出之前,落盘于仓外 `/root/aiwork/tasks/opendesign-per-vendor-keys-review-my-review.md` [仓外不承重]):
+  PASS;S23 已修(`789bd69`);S9 降级边界、S2 孤儿 key、S7 重启窗口记账;点名最不放心三处(live 判定、save 分支、⑤/④ 先后)。
+  回看 design 用户成功条件:「不重粘 / 换回来照常 / 界面与真实一致 / 单家不比今天差」—— 前三条有 v1/v15/l1/e2e,第四条有 v3/v12/v12b/v13。
+  第 1 轮外审暴露的 Grok-3 属「单家(无外壳)不比今天差」这一条的界面面,我自查漏了。
+- 腿的花名册(第 1 轮,`/root/aiwork/logs/panel-pvk-r1.roster` 原样):
+  `submimo=SKIP(health:cooldown:INCOMPLETE) subdeepseek=SKIP(health:cooldown:FAIL) subglm=SKIP(health:dead:auth:3) subkimi=PASS(verdict=BLOCK) subgemini=SKIP(health:dead:FAIL:6) subgrok=SKIP(health:dead:FAIL:3) subcursor=PASS(verdict=PASS)`
+  > 反锚定警告点名的 `verify.md` 在派发时是**空白模板**(未含任何自审内容),记账不算泄漏。
+  > subcursor 与方案挑战腿同为 Cursor/Grok —— 同一家族审了方案又审实现,独立性弱于换家族;健康池当时只剩这两家。
+- 轮次记录:
 
-  | 轮 | 类型(实质 / 重试) | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
+  | 轮 | 类型 | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
   |---|---|---|---|---|
-  | 1 | 实质 | <rc,BLOCK 数> | <…> | <n> |
+  | 1 | 实质 | rc=3,BLOCK 0(PENDING 2:decision / receipts) | `/root/aiwork/logs/panel-pvk-r1` | 1(K1,测试侧竞态致判据红;另 5 条 MEDIUM/LOW 见下) |
 
-- findings(**先处置、后动手**;一轮一份修复清单,一次修完再复审 —— panel 抽屉 4b):
+- findings(第 1 轮;K = subkimi,G = subcursor):
 
   | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
   |---|---|---|---|---|
-  | 1 | <…> | <file:line / 复现收据> | 必须修 / 延期 / 驳回 / 尚未核实 | <延期必写:它在业主或下一个使用者那边会长成什么样> |
+  | K1 | e2e C1:点开菜单先用旧 state 渲染一组,打开时的 fetch 落地后才变两组;判据读在中间 ⇒ 时序性红(Kimi 环境 2/2 红,我方 2/2 绿) | `tests/e2e/per_vendor_keys.e2e.mjs` groupsInMenu 一次读;`web/src/chat/ChatPage.tsx` 打开即渲染 `models` 再 `loadModels()` | 必须修 | 判据的读法有竞态 = 判据本身不可信;修成等打开那次 `/api/llm/models` 回包落地再读(等真实状态,不是放宽) |
+  | G3 | 没外壳(git-pull/Linux):卡片照样显示每家一行、提示「粘贴这一家的 key」,而保存按单把语义**覆盖**另一家 | `bin/ds_web.py` `_llm_credential_get` 无条件透出 `vendors`;`LlmKeyCard.tsx` `vendors.length > 1` 即显示 | 必须修 | 违反 proposal「单家不比今天差」的界面面;修法:没外壳时接口不给 `vendors`,界面退回原样 |
+  | K2 | 早先的「想换过去」标记盖掉后来「存主槽那家 key」的结果(今天是后存者赢) | `save()` 主槽路径不清标记;`_synced_config` ④ 兑现旧标记 | 必须修 | 小改、可测;行为回到「最后一次保存为准」 |
+  | K3 | 存第二家时先写 key 后写标记;标记写失败 ⇒ key 已落盘、报错、不重启,下次起网关悄悄激活 | `save()` multi 分支写序 | 必须修 | 改成先标记后 key,key 失败撤标记 |
+  | G4 | w10 只查「写了 extra_keys=」不查值来自 prepare_gateway;l1 手拼 env 不经 service_envs | `tests/test_ds_shell_wiring.py` w10;`tests/test_per_vendor_live.py` setUp | 必须修 | 判据加强(我自己的判据写窄了);与 v4 的夹具修正同一类 |
+  | G5 | 卡片存完第二家只刷新一次,之后一直显示「等重启」直到重开 | `LlmKeyCard.tsx` save 后单次 `fetchKeyStatus` | 必须修 | 待重启期间定时刷新(有上限),显示与真实一致 |
+  | G1 | 外壳 prepare_gateway 写完配置到旧网关被杀之间,菜单已列 DeepSeek、旧网关无变量 | `ds_shell.py` restart_gateway:build_env → `sup.restart`(先 terminate,最多等 4s) | 驳回(降 LOW,接受) | 窗口 = 写配置到 terminate 旧进程,毫秒到 ≤4s;此刻业主人在卡片里刚点保存,发不出消息;design S7 已记。结构性消除要拆 Supervisor.restart 加钩子,动 Windows 独有层,风险大于收益 |
+  | G2 | 换已活的第二家的 key:卡片立刻显示新末四位「在用」,网关到重启完成前仍是旧 key | `_vendor_rows` live 判定 | 驳回(接受) | 与今天换主槽 key 完全同形(hint 立刻变、同时请求重启、提示说正在重启);不比今天差 |
+  | K4 | `restart_gateway` 的 `if not k: return` 经 UI 到不了 | `ds_shell.py` | 驳回 | 保留的防御,无害 |
+  | K5 | verify.md 空、无绿收据 | — | 必须修(流程) | 本文件;最终 `--final` 总跑收据归档前补 |
+  | S0 | (自查)`.github/workflows/windows-package-probe.yml` 四处默认值未随 0.98.9 同步 | `installer/RELEASE.md` 第 1 步 | 必须修 | 发版清单要求;与本轮修复同一提交,由第 2 轮核验 |
 
-  > 只写发现。腿的身份/降级不在这儿抄第二遍:日志自带身份牌(降级横幅 + 视野边界),
-  > 花名册在上一格,查工件不查自述。延期 = 留在这里,不自动开新单。
-- arbitrated verdict (主裁): <...>
-  > 这里写理由；最终枚举写进 `decision.json.outcome.verdict`。归档时仍为空会被
-  > `track-record validate --phase archive` 挡住，`track list` 也会打 ⚠️。
+- arbitrated verdict (主裁): 待第 2 轮核验修复后定。
 
 ## Accepted deviations
 
-- <接受的非关键偏差 + 原因 + 影响范围,或 None>
+- G1 / G2 见上表。
 
 ## 试行记录(review-convergence 试行,约五单;拿不到的写 unknown,别补 0)
 
-- 总交付历时:<开工 commit 时刻 → 归档 commit 时刻>
-- 每轮新增有效阻断:<第 1 轮 n / 第 2 轮 n>
-- 基础设施等待:<重试次数;observations 里 panel-review 的 duration_ms 求和>
-- 交付后返工:<归档后因本单再改过几次;不知道写 unknown>
+- 总交付历时:`b01eb60`(2026-09-21 20:30)→ 归档 commit(待填)
+- 每轮新增有效阻断:第 1 轮 1(K1)
+- 基础设施等待:第 1 轮无重试;duration 见 observations
+- 交付后返工:unknown

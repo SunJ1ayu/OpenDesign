@@ -1,0 +1,136 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-per-vendor-keys",
+  "run_id": "20260921-205716-255792-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-per-vendor-keys-review",
+  "started_at": "2026-09-21T12:57:16Z",
+  "finished_at": "2026-09-21T13:22:14Z",
+  "duration_ms": 1497471,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "subkimi",
+        "degraded": false,
+        "duration_ms": 1491303,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:d384e9ba8c2bfafe541f35a6a62e4edcea4361803a44f4b8b421e9c6cb97ac51",
+          "ref": "file:///root/aiwork/logs/panel-pvk-r1.subkimi.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "moonshot",
+        "model": {
+          "invoked": "kimi-code/kimi-for-coding",
+          "reported": null,
+          "requested": "kimi-code/kimi-for-coding"
+        },
+        "name": "subkimi",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260921-205716-255792-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:d84df98597a613cb0d97d6d017f152145383cccc636d7cf4eeb3ae5ce54815a8",
+            "policy_version": 1,
+            "track": "opendesign-per-vendor-keys"
+          },
+          "digest": "sha256:ee34094b5795978fb9f233301fdcd7c8eec05d88cedd17534d4ea54428a92c19",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "8e80416b0dad8b93806bddb936a8aed7bc2ca82b",
+            "index_tree_oid": "ca9e1671406db34ed729996cb7676f0945ee200c",
+            "worktree_tree_oid": "ca9e1671406db34ed729996cb7676f0945ee200c"
+          },
+          "task_sha256": "sha256:b44c937d8b716219197c86a7723be393620451f809fd24ca7288b97b7c092a7c"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "BLOCK",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subcursor",
+        "degraded": false,
+        "duration_ms": 697682,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:c90b6d85c4c5c487d4f11709a94baf58bd407e76ccd14ef4bf06d4e3ba223886",
+          "ref": "file:///root/aiwork/logs/panel-pvk-r1.subcursor.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xai",
+        "model": {
+          "invoked": "cursor-grok-4.6-high",
+          "reported": null,
+          "requested": "cursor-grok-4.6-high"
+        },
+        "name": "subcursor",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260921-205716-255792-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:d84df98597a613cb0d97d6d017f152145383cccc636d7cf4eeb3ae5ce54815a8",
+            "policy_version": 1,
+            "track": "opendesign-per-vendor-keys"
+          },
+          "digest": "sha256:ee34094b5795978fb9f233301fdcd7c8eec05d88cedd17534d4ea54428a92c19",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "8e80416b0dad8b93806bddb936a8aed7bc2ca82b",
+            "index_tree_oid": "ca9e1671406db34ed729996cb7676f0945ee200c",
+            "worktree_tree_oid": "ca9e1671406db34ed729996cb7676f0945ee200c"
+          },
+          "task_sha256": "sha256:b44c937d8b716219197c86a7723be393620451f809fd24ca7288b97b7c092a7c"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

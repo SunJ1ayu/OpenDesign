@@ -139,12 +139,15 @@ class LiveSwitch(unittest.TestCase):
         ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=True)
 
         # 外壳起网关那一刻做的事:prepare_gateway + 主槽 key,只进网关
+        # 第 1 轮 G4:网关那份 env 由外壳**自己的** service_envs 生成(不在判据里手拼),
+        # 外壳注入额外 key 那一跳坏了,这里的真网关就会像业主机器上一样拿不到 key。
+        import ds_shell_core as core
         extra = ds_credential.prepare_gateway(self.home, self.cfg_path)
         with open(self.cfg_path, encoding="utf-8") as fh:
             primary_var = ds_credential.env_var_name(json.load(fh))
-        env = {k: v for k, v in os.environ.items() if not k.upper().startswith("DS_")}
-        env.update(extra)
-        env[primary_var] = MIMO_KEY
+        env = core.service_envs(dict(os.environ), ds_root=ROOT, user_home=self.home, dsweb_port=1,
+                                ws_port=self.ws_port, key=ds_credential.read_key(self.home),
+                                key_var=primary_var, extra_keys=extra)["网关"]
         env.update(HOME=self.home, USERPROFILE=self.home, PYTHONIOENCODING="utf-8",
                    HTTP_PROXY="http://127.0.0.1:9", HTTPS_PROXY="http://127.0.0.1:9",
                    http_proxy="http://127.0.0.1:9", https_proxy="http://127.0.0.1:9",

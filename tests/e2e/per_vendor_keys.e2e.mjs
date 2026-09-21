@@ -110,6 +110,8 @@ const fakeShell = createServer((sock) => {
       const verb = buf.slice(HELLO.length).split("\n")[0];
       if (verb === "RESTART-BACKEND") {
         sock.end("OK RESTART-BACKEND\n");
+        // 真外壳重启网关要花时间:故意晚 1.5 秒才「起好」,让存完那一刻卡片必然处在「待重启」
+        setTimeout(() => {
         const r = spawnSync(PY, ["-c", `
 import sys; sys.path.insert(0, ${JSON.stringify(join(ROOT, "bin"))})
 import ds_credential
@@ -117,6 +119,7 @@ extra = ds_credential.prepare_gateway(${JSON.stringify(home)}, ${JSON.stringify(
 print(sorted(extra))
 `], { encoding: "utf-8" });
         restarts.push({ rc: r.status, out: (r.stdout || "").trim(), err: (r.stderr || "").trim() });
+        }, 1500);
       } else {
         sock.end("OK\n");
       }
@@ -158,8 +161,15 @@ try {
   await page.locator(pane).waitFor({ state: "visible", timeout: 10000 });
   await waitConnected(page, pane);
 
+  // 第 1 轮 K1:菜单打开时先用手上的旧数据画、再用打开那一下拉到的新数据重画。
+  // 读在两者之间就是时序性红(Kimi 环境 2/2 红)⇒ **等打开那次 /api/llm/models 回包落地、
+  // 再过两帧**才读。等的是真实状态,不是放宽。
+  const twoFrames = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   const groupsInMenu = async () => {
+    const fresh = page.waitForResponse((r) => r.url().includes("/api/llm/models"), { timeout: 8000 });
     await page.locator(chip).click();
+    await fresh;
+    await twoFrames();
     await page.locator(menu).waitFor({ state: "visible", timeout: 5000 });
     const labels = await page.locator(`${menu} .group`).allInnerTexts();
     const models = await page.locator(`${menu} [data-model-id]`).evaluateAll(
@@ -198,6 +208,9 @@ try {
   check(existsSync(dsKeyFile) && readFileSync(dsKeyFile, "utf8").trim() === DS_KEY, "B4 DeepSeek 的 key 落进它自己的文件");
   check(await until(() => restarts.length > 0, 8000), `B5 保存之后请了外壳重启网关(假外壳收到 ${restarts.length} 次)`);
   check(restarts.every((r) => r.rc === 0), `B6 外壳那一步(prepare_gateway)没出错:${JSON.stringify(restarts)}`);
+  // 第 1 轮 G5:卡片一直开着,后台起好之后它要自己跟上,不许一直写着「等重启」
+  check(await until(async () => /在用/.test(await row("deepseek").innerText()), 15000),
+    `B7 卡片开着不动:后台起好后 DeepSeek 一行自己变成「在用」(实际「${await row("deepseek").innerText().catch(() => "")}」)`);
 
   // ── C ──
   await page.keyboard.press("Escape");

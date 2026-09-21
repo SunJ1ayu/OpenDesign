@@ -232,6 +232,38 @@ class TestSavingASecondVendor(Rig):
             self.assertEqual(fh.read().strip(), MIMO_KEY)
 
 
+    def test_v16_the_last_save_wins_even_when_it_is_the_primary_vendor(self):
+        """第 1 轮 K2:先存 DeepSeek(留下「想换过去」),紧接着又存 MiMo(主槽)⇒ 今天是「后存者赢」,
+        落在 MiMo;标记要是还留着,重启时会把他拽回 DeepSeek。"""
+        self.have_mimo_in_primary()
+        ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=True)
+        ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="mimo", key=NEW_KEY, multi=True)
+        ds_credential.prepare_gateway(self.home, self.cfg_path)
+        self.assertIn(self.cfg()["agents"]["defaults"]["modelPreset"], ds_credential.PROVIDERS["mimo"]["models"],
+                      "后存的是 MiMo,重启后却落在了先存的那家")
+        self.assertEqual(ds_credential.models_status(self.cfg_path)["provider"], "mimo")
+
+    def test_v17_a_failed_extra_save_leaves_neither_a_key_nor_a_pending_switch_behind(self):
+        """第 1 轮 K3:存第二家失败 ⇒ 报错,且**两样都不留**:不留 key(否则下次起网关悄悄激活一家
+        业主以为没存上的厂商),也不留「想换过去」。两种失败顺序都要问 —— 哪一步先写都可能是失败的那一步。"""
+        self.have_mimo_in_primary()
+        before = self.cfg_bytes()
+        marker = os.path.join(self.keys_dir, "switch-to")
+        key_file = os.path.join(self.keys_dir, "deepseek.txt")
+        for blocked in (marker, key_file):          # 用同名目录占住,让那一步写失败
+            with self.subTest(blocked=os.path.basename(blocked)):
+                shutil.rmtree(self.keys_dir, ignore_errors=True)
+                os.makedirs(blocked)
+                with self.assertRaises(ds_credential.CredentialError):
+                    ds_credential.save(home=self.home, cfg_path=self.cfg_path,
+                                       provider="deepseek", key=DS_KEY, multi=True)
+                self.assertEqual(sweep(self.tmp, DS_KEY), [], "保存失败了,key 却落在了某个文件里")
+                self.assertEqual(sorted(os.listdir(self.keys_dir)), [os.path.basename(blocked)],
+                                 "失败的保存留下了别的文件(标记 / key / 临时文件)")
+                self.assertEqual(self.cfg_bytes(), before)
+        shutil.rmtree(self.keys_dir, ignore_errors=True)
+
+
 # =============================================================================
 class TestPreparingTheGateway(Rig):
     """v4~v6、v9、v10、v12:外壳起网关那一刻。**配置引用的每个变量,网关都拿得到** —— 由 nanobot 自己来答。"""
@@ -473,6 +505,46 @@ class TestTheKeysOnlyReachTheGateway(unittest.TestCase):
         b = core.service_envs({"PATH": "/bin"}, ds_root="/ds", user_home="/h", dsweb_port=1, ws_port=2,
                               key=MIMO_KEY, key_var="DS_LLM_KEY", extra_keys={})
         self.assertEqual(a, b)
+
+
+class TestTheWebOnlyOffersPerVendorRowsWithAShell(Rig):
+    """第 1 轮 G3:没有外壳(git-pull / Linux)时保存仍是单把覆盖(v3);界面若照样显示「每家一行」、
+    提示「粘贴这一家的 key」,业主会以为另一家的 key 还在 —— 那比改动前更差。
+    ⇒ 接口在没外壳时不给 `vendors`,卡片退回原样(前端 pv6:没有 vendors ⇒ 不显示那张表)。"""
+
+    def get(self, with_shell: bool) -> dict:
+        import http.client
+        import threading
+        import ds_web
+        dist = os.path.join(self.tmp, "dist")
+        os.makedirs(dist, exist_ok=True)
+        with open(os.path.join(dist, "index.html"), "w", encoding="utf-8") as fh:
+            fh.write("<!doctype html>")
+        env = {"DS_NANOBOT_CONFIG": self.cfg_path, "HOME": self.home, "USERPROFILE": self.home,
+               "DS_SHELL_LOCK_PORT": "1" if with_shell else ""}
+        with mock.patch.dict(os.environ, env):
+            httpd = ds_web.make_server(os.path.join(self.tmp, "ds"), dist, port=0, nanobot_port=1)
+            threading.Thread(target=httpd.serve_forever, daemon=True).start()
+            try:
+                port = httpd.server_address[1]
+                conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+                conn.request("GET", "/api/llm/credential", headers={"Host": f"127.0.0.1:{port}"})
+                r = conn.getresponse()
+                body = json.loads(r.read().decode("utf-8"))
+                conn.close()
+                self.assertEqual(r.status, 200)
+                return body
+            finally:
+                httpd.shutdown()
+                httpd.server_close()
+
+    def test_without_a_shell_there_are_no_per_vendor_rows(self):
+        self.have_mimo_in_primary()
+        os.makedirs(os.path.join(self.tmp, "ds", "projects"), exist_ok=True)
+        self.assertEqual(self.get(with_shell=False).get("vendors"), [],
+                         "没外壳时保存会覆盖另一家,界面不许再摆出「每家一行」")
+        rows = self.get(with_shell=True).get("vendors") or []
+        self.assertEqual([r["id"] for r in rows], list(ds_credential.PROVIDERS), "有外壳时每家一行")
 
 
 if __name__ == "__main__":

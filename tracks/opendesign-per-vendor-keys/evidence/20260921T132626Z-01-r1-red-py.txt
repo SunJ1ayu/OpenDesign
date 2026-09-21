@@ -1,0 +1,81 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    r1-red-py
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_per_vendor_keys tests.test_ds_shell_wiring tests.test_per_vendor_live
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  8e80416
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-21T13:26:26Z
+---------------- 输出开始 ----------------
+./root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py:424: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-_4onbmbb/UserData/.openDesign/key.txt' mode='r' encoding='UTF-8'>
+  cfg_before_keys = (open(self.key_txt).read(), open(os.path.join(self.keys_dir, "deepseek.txt")).read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py:424: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-_4onbmbb/UserData/.openDesign/keys/deepseek.txt' mode='r' encoding='UTF-8'>
+  cfg_before_keys = (open(self.key_txt).read(), open(os.path.join(self.keys_dir, "deepseek.txt")).read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py:431: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-_4onbmbb/UserData/.openDesign/key.txt' mode='r' encoding='UTF-8'>
+  self.assertEqual((open(self.key_txt).read(), open(os.path.join(self.keys_dir, "deepseek.txt")).read()),
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py:431: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-_4onbmbb/UserData/.openDesign/keys/deepseek.txt' mode='r' encoding='UTF-8'>
+  self.assertEqual((open(self.key_txt).read(), open(os.path.join(self.keys_dir, "deepseek.txt")).read()),
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.............FF.......2026-09-21 21:26:26 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+F...........
+======================================================================
+FAIL: test_v16_the_last_save_wins_even_when_it_is_the_primary_vendor (tests.test_per_vendor_keys.TestSavingASecondVendor.test_v16_the_last_save_wins_even_when_it_is_the_primary_vendor)
+第 1 轮 K2:先存 DeepSeek(留下「想换过去」),紧接着又存 MiMo(主槽)⇒ 今天是「后存者赢」,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 242, in test_v16_the_last_save_wins_even_when_it_is_the_primary_vendor
+    self.assertIn(self.cfg()["agents"]["defaults"]["modelPreset"], ds_credential.PROVIDERS["mimo"]["models"],
+AssertionError: 'deepseek-v4-flash' not found in ['mimo-v2.5', 'mimo-v2.5-pro'] : 后存的是 MiMo,重启后却落在了先存的那家
+
+======================================================================
+FAIL: test_v17_a_failed_extra_save_leaves_neither_a_key_nor_a_pending_switch_behind (tests.test_per_vendor_keys.TestSavingASecondVendor.test_v17_a_failed_extra_save_leaves_neither_a_key_nor_a_pending_switch_behind) (blocked='switch-to')
+第 1 轮 K3:存第二家失败 ⇒ 报错,且**两样都不留**:不留 key(否则下次起网关悄悄激活一家
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 260, in test_v17_a_failed_extra_save_leaves_neither_a_key_nor_a_pending_switch_behind
+    self.assertEqual(sweep(self.tmp, DS_KEY), [], "保存失败了,key 却落在了某个文件里")
+AssertionError: Lists differ: ['UserData/.openDesign/keys/deepseek.txt'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'UserData/.openDesign/keys/deepseek.txt'
+
+- ['UserData/.openDesign/keys/deepseek.txt']
++ [] : 保存失败了,key 却落在了某个文件里
+
+======================================================================
+FAIL: test_without_a_shell_there_are_no_per_vendor_rows (tests.test_per_vendor_keys.TestTheWebOnlyOffersPerVendorRowsWithAShell.test_without_a_shell_there_are_no_per_vendor_rows)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 544, in test_without_a_shell_there_are_no_per_vendor_rows
+    self.assertEqual(self.get(with_shell=False).get("vendors"), [],
+AssertionError: Lists differ: [{'id': 'mimo', 'label': 'MiMo(小米)', 'conf[208 chars]lse}] != []
+
+First list contains 2 additional elements.
+First extra element 0:
+{'id': 'mimo', 'label': 'MiMo(小米)', 'configured': True, 'hint': 'tp-o…0123', 'live': True, 'active': True, 'pending': False}
+
++ []
+- [{'active': True,
+-   'configured': True,
+-   'hint': 'tp-o…0123',
+-   'id': 'mimo',
+-   'label': 'MiMo(小米)',
+-   'live': True,
+-   'pending': False},
+-  {'active': False,
+-   'configured': False,
+-   'hint': None,
+-   'id': 'deepseek',
+-   'label': 'DeepSeek 官方',
+-   'live': False,
+-   'pending': False}] : 没外壳时保存会覆盖另一家,界面不许再摆出「每家一行」
+
+----------------------------------------------------------------------
+Ran 35 tests in 5.562s
+
+FAILED (failures=3)
+---------------- 输出结束 ----------------
+runlog: r1-red-py rc=1 commit=8e80416 dirty=yes at=2026-09-21T13:26:26Z file=tracks/opendesign-per-vendor-keys/evidence/20260921T132626Z-01-r1-red-py.txt

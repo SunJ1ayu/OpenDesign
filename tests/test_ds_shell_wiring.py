@@ -170,10 +170,20 @@ class ShellWiring(unittest.TestCase):
         names = [_name_of(c) for c in _calls(fn)]
         self.assertIn("prepare_gateway", names, "build_env 没调 prepare_gateway ⇒ 第二家永远进不了网关")
         self.assertIn("service_envs", names)
+        # 第 1 轮 G4:只查「写了 extra_keys=」挡不住 `extra_keys={}` —— 要查**传进去的就是
+        # prepare_gateway 的返回值**(同一个名字,在 build_env 里由那次调用赋值)。
+        bound = {t.id for n in ast.walk(fn) if isinstance(n, ast.Assign)
+                 and isinstance(n.value, ast.Call) and _name_of(n.value) == "prepare_gateway"
+                 for t in n.targets if isinstance(t, ast.Name)}
+        self.assertTrue(bound, "prepare_gateway 的返回值没接住 ⇒ 额外 key 无从交给网关")
         envs_calls = [c for c in _calls(fn) if _name_of(c) == "service_envs"]
         for call in envs_calls:
             self.assertIn("extra_keys", self.kwargs(call),
                           "prepare_gateway 给的额外 key 没交给 service_envs ⇒ 配置引用了、网关手里却没有")
+            value = next(k.value for k in call.keywords if k.arg == "extra_keys")
+            self.assertTrue(isinstance(value, ast.Name) and value.id in bound,
+                            "交给 service_envs 的 extra_keys 不是 prepare_gateway 的返回值 "
+                            f"(实际 {ast.unparse(value)})⇒ 配置写了条目、网关却拿不到 key")
 
 
 if __name__ == "__main__":
