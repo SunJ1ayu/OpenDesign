@@ -189,14 +189,9 @@ LOCK_OK = b"OK\n"
 #    正面违反「不许撒谎的重启」。带上动词,新 ds-web 碰上老外壳时才能
 #    **正确降级**成"请手动重启"。(老 ds-web 碰上新外壳无碍:它比对的是前缀。)
 LOCK_OK_RESTART = b"OK RESTART-BACKEND\n"
-# 更新交棒(track opendesign-in-app-update-install):ds-web 已经把新版装进了
-# OpenDesign.new、也已经把接力脚本起起来了,**只差把整套软件优雅地关掉**。
-# 能关掉它的只有外壳(Supervisor 在它手里),所以这件事必须从这条通道过来。
-# 🔴 不让接力脚本自己去杀:收摊那一刻业主的 PKB 可能正被写到一半,而
-#    `Data\` 逐字节不变是那一单的死线 —— 用暴力杀去满足"收摊干净",
-#    等于为了过一条判据去踩另一条。
-LOCK_UPDATE = b"UPDATE-HANDOFF\n"
-LOCK_OK_UPDATE = b"OK UPDATE-HANDOFF\n"
+# (2026-09-22,track opendesign-electron-shell:旧更新器的「UPDATE-HANDOFF」交棒动词随接力脚本退役 ——
+#  唯一发送方是已删掉的 ds-web 更新端点;换壳后更新由 Electron 主进程先收管家、再交安装器。
+#  老 ds-web 发来这个动词会落进下面「认不出的一律退回 SHOW」那一支,回裸 OK,它据此诚实降级。)
 
 
 def recv_line(sock: socket.socket, deadline: float, limit: int = 4096) -> bytes:
@@ -224,21 +219,17 @@ class InstanceLock:
     _HELLO = LOCK_HELLO
     _SHOW = LOCK_SHOW
     _RESTART = LOCK_RESTART
-    _UPDATE = LOCK_UPDATE
     _OK = LOCK_OK
     _OK_RESTART = LOCK_OK_RESTART
-    _OK_UPDATE = LOCK_OK_UPDATE
 
     port: int | None
     _sock: socket.socket | None
 
-    def __init__(self, base_port: int, span: int = 5, on_show=None, on_restart=None,
-                 on_update=None):
+    def __init__(self, base_port: int, span: int = 5, on_show=None, on_restart=None):
         self.base_port = int(base_port)
         self.span = int(span)
         self.on_show = on_show
         self.on_restart = on_restart
-        self.on_update = on_update
         self.port = None
         self._sock = None
         self._thread: threading.Thread | None = None
@@ -526,30 +517,13 @@ class InstanceLock:
                     return
                 # 先认动词再决定回什么 —— 回裸 OK 就等于说"我收到了"而不说"我认了什么"
                 is_restart = verb.strip() == self._RESTART.strip()
-                # 🔴 **没接回调就不算认识这个动词**:老外壳(没接 on_update)必须回裸 OK,
-                #    这样新 ds-web 才分得出"它没认" ⇒ 诚实降级成"没能自动更新"。
-                #    回一个点名了动词的 OK 而其实什么都不做,是最坏的那种撒谎:
-                #    业主会关掉浏览器等着,而软件根本不会关。
-                is_update = (verb.strip() == self._UPDATE.strip()
-                             and self.on_update is not None)
-                if is_update:
-                    ack = self._OK_UPDATE
-                elif is_restart:
-                    ack = self._OK_RESTART
-                else:
-                    ack = self._OK
+                ack = self._OK_RESTART if is_restart else self._OK
                 conn.sendall(ack)
             except OSError:
                 return
-        # 动词分派。**认不出的一律退回 SHOW**:重启会掐断他正在进行的对话、
-        # 交棒更是直接把软件关掉,而把窗口叫到前台最多是打扰一下
-        # ⇒ 拿不准时选那个不伤人的。
-        if is_update:
-            cb = self.on_update
-        elif is_restart:
-            cb = self.on_restart
-        else:
-            cb = self.on_show
+        # 动词分派。**认不出的一律退回 SHOW**:重启会掐断他正在进行的对话,
+        # 而把窗口叫到前台最多是打扰一下 ⇒ 拿不准时选那个不伤人的。
+        cb = self.on_restart if is_restart else self.on_show
         if cb is not None:
             cb()
 
@@ -1267,41 +1241,3 @@ def service_envs(
         "ds-web": child_env(base_env, key=None, key_var=None, **common),
     }
 
-
-class ShellState:
-    visible: bool
-    exiting: bool
-
-    def __init__(self, ui, on_stop):
-        self.ui = ui
-        self.on_stop = on_stop
-        self.visible = True
-        self.exiting = False
-        # 事件从三个方向来:锁的监听线程(第二次双击)、托盘线程、UI 线程。
-        # 没有这把锁,"检查 exiting 再置位"是两步 —— 两个线程能一起穿过去,
-        # 后台被收两遍、窗口被销毁两遍。锁只护**状态判定**,不护 UI 调用本身。
-        self._lock = threading.RLock()
-
-    def on_close_requested(self) -> bool:
-        with self._lock:
-            if self.exiting:
-                return True
-            self.visible = False
-        self.ui.hide_window()
-        return False
-
-    def on_show(self) -> None:
-        with self._lock:
-            if self.exiting:
-                return
-            self.visible = True
-        self.ui.show_window()
-
-    def on_quit(self) -> None:
-        with self._lock:
-            if self.exiting:
-                return
-            self.exiting = True
-            self.visible = False
-        self.on_stop()
-        self.ui.destroy()

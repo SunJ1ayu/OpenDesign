@@ -39,9 +39,11 @@ DETAIL_CAP = 200                   # detail 截断长度,防网页把日志撑�
 # 官方文档给的常青运行时注册表位置(2026-08-30 从 learn.microsoft.com 读来的)
 _WV2_KEY = r"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 
-# 导出诊断包**只带**这三份日志。白名单是硬的:判据 s10 会摆上 key/配置/项目档案/
+# 导出诊断包**只带**这几份日志。白名单是硬的:判据 s10 会摆上 key/配置/项目档案/
 # 参考图库当诱饵,证明它们一个都进不去。
-BUNDLE_LOGS = ("外壳.log", "工作台.log", "网关.log")
+# `electron.log` 是换 Electron 之后窗口那一侧的日志(track opendesign-electron-shell,判据 h9):
+# 包里没有它,白屏那种事再来一次,窗口那一半手上还是零线索。
+BUNDLE_LOGS = ("外壳.log", "工作台.log", "网关.log", "electron.log")
 BUNDLE_TAIL_BYTES = 256 * 1024
 
 # 🔴 请求行里的路径要涂抹(判据 s16;2026-08-30 四审 subdeepseek F3)。

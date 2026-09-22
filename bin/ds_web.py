@@ -68,12 +68,11 @@ import os
 import re
 import socket
 import sys
-import threading
 import time
 import traceback
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, unquote, urlsplit
+from urllib.parse import unquote, urlsplit
 
 import ds_common
 import ds_consent
@@ -84,11 +83,7 @@ import ds_openfolder
 import ds_organize  # 针孔④ approve+apply 直调核心(锁/复验/审计全在核心)
 import ds_refs
 import ds_shell_core     # 只取锁通道的协议常量与读行:帧格式两处各抄一份迟早对不上
-import ds_auto_update    # 打开软件倒计时自动更新:只管"这个版本自动试过"的本机账
-import ds_update_apply   # 应用内更新第二刀:真去装(段①)
 import ds_taxonomy
-import ds_update    # 查更新(track opendesign-in-app-update):只查不装
-import ds_update_startup   # 启动只读盘的更新决策(track opendesign-startup-not-blocked-by-update)
 import ds_todo
 import ds_tools
 import ds_workspace
@@ -362,41 +357,6 @@ def ds_shell_bridge_restart() -> str:
     return _restart_verdict(reply)
 
 
-def _update_verdict(reply: bytes) -> str:
-    """外壳的应答算不算"它认了交棒"。**只有点名了动词的才算数**(判据 m2/t22e)。
-
-    裸 `OK` 是老外壳:它收下了帧,但做的是"把窗口叫到前台"。把那种情况报成成功,
-    界面会说「更新已经开始」而软件根本不会关 —— 业主会关掉浏览器等着,
-    等到的是什么都没发生。纪律与 `_restart_verdict` 一字不差。
-    """
-    return "started" if reply == ds_shell_core.LOCK_OK_UPDATE.strip() else "manual"
-
-
-def ds_shell_bridge_update() -> str:
-    """请外壳收摊,把位置让给已经起来的接力脚本(track ...-install)。
-
-    走**外壳单实例锁那条已有的通道** —— 与填完 key 请求重启网关是同一条路,
-    不新开端口、不新造 IPC。
-
-    🔴 与那条一样,**这个函数的全部难点是不许撒谎**:回 "started" 就意味着帧真的
-    送到了外壳、而且它认了这个动词。任何一步不确定 —— 没有外壳、端口上没人、
-    占着那个号的是别的程序、它不吭声、它回的是裸 OK —— 一律 "manual"。
-
-    报错的代价:业主再手动装一次。撒谎的代价:他关掉浏览器等着,而什么都没发生,
-    然后过一会儿接力脚本超时、把 `.new` 删掉 —— 43MB 白下,他还不知道为什么。
-    """
-    raw = (os.environ.get("DS_SHELL_LOCK_PORT") or "").strip()
-    if not raw.isdigit():
-        return "manual"
-    try:
-        with socket.create_connection(("127.0.0.1", int(raw)), timeout=3) as s:
-            s.sendall(ds_shell_core.LOCK_HELLO + ds_shell_core.LOCK_UPDATE)
-            reply = ds_shell_core.recv_line(s, deadline=time.monotonic() + 3)
-    except (OSError, ValueError):
-        return "manual"
-    return _update_verdict(reply)
-
-
 def _gateway_password() -> str | None:
     """网关 websocket 通道的口令(**只往上游发,永不回给浏览器**)。
 
@@ -465,11 +425,6 @@ CREATE_PROJECT_PATH = "/api/projects/create"  # do_POST 写针孔⑥(同上 trac
 INTAKE_SCAN_PATH = "/api/intake/scan"  # do_POST 写针孔⑦(track opendesign-inbox-scan),精确匹配
 INTAKE_AMEND_PATH = "/api/intake/amend"  # do_POST 写针孔⑧(track opendesign-frontend-p1),精确匹配
 UPLOAD_PATH = "/api/upload"  # do_POST 写针孔⑬(track opendesign-image-upload),精确匹配
-# 🔴 装软件是本仓最重的副作用,所以它**只在 do_POST 上**(GET 面只读铁律,判据 t22a)。
-UPDATE_APPLY_PATH = "/api/update/apply"  # do_POST(track opendesign-in-app-update-install)
-UPDATE_PREPARE_PATH = "/api/update/prepare"  # do_POST(track opendesign-startup-not-blocked-by-update)
-_PREPARE_LOCK = threading.Lock()
-_PREPARE_STATE = {"running": False}  # 同一时刻只许一个后台下载(见 _update_prepare)
 INBOX_CREATE_PATH = "/api/inbox/create"  # do_POST 写针孔⑭(track opendesign-chat-image),精确匹配
 BIND_PROJECT_PATH = "/api/projects/bind"  # do_POST 写针孔⑨(同上 track),精确匹配
 FOLDER_VISIBILITY_PATH = "/api/workspace/folder-visibility"  # 阶段二:整份存结构目录声明
@@ -900,31 +855,6 @@ def _workspace_health_state(ds_root: str) -> dict:
     }
 
 
-def _auto_update_status(info: dict, paths: dict) -> dict:
-    """这次查到的新版能不能在打开软件时倒计时自动更新。
-
-    顺序是产品契约:Windows 真机判据靠 disabled 排最后来证明前面条件全成立。
-    """
-    try:
-        latest = info.get("latest") if isinstance(info, dict) else None
-        if not isinstance(info, dict) or info.get("update_available") is not True:
-            return {"eligible": False, "why_not": "no_update", "recent_failure": False}
-        asset = info.get("asset")
-        digest = asset.get("digest") if isinstance(asset, dict) else None
-        url = asset.get("url") if isinstance(asset, dict) else None
-        if not url or ds_update_apply.parse_digest(digest) is None:
-            return {"eligible": False, "why_not": "asset", "recent_failure": False}
-        # 🔴 **同一个问题只写一处**(第 3 轮外审 F2):这里原来把 no_shell / preflight /
-        #    attempted / disabled 四条又拼了一遍,和 startup/prepare 那边随时会漂。
-        #    现在共用 ds_auto_update.why_not_auto —— 顺序也由它一家定(产品契约)。
-        blocker = ds_auto_update.why_not_auto(paths, latest)
-        if blocker:
-            return {"eligible": False, "why_not": blocker,
-                    "recent_failure": (ds_auto_update.recent_failure(paths.get("data_root"), latest)
-                                       if blocker == "attempted" else False)}
-        return {"eligible": True, "why_not": None, "recent_failure": False}
-    except Exception:  # noqa: BLE001 —— 查更新照样 200;自动资格坏了只关掉倒计时
-        return {"eligible": False, "why_not": "error", "recent_failure": False}
 DEFAULT_DS_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 DEFAULT_DIST = os.path.join(DEFAULT_DS_ROOT, "web", "dist")
 DEFAULT_PORT = 8766
@@ -1010,19 +940,7 @@ class Handler(BaseHTTPRequestHandler):
                       # 文档转换器装没装:业主刷一下 /api/health 就看得见,
                       # 不用开命令行(部署规矩:盘上有 ≠ 跑起来有)。
                       "doc_reader": _doc_reader_status()}
-            # 🔴 更新收口(track opendesign-in-app-update-install,判据 t19)。
-            #    更新时两次改名之后,**旧进程可能还没死透,它也会回 200 和一个版本号**。
-            #    带一次性 nonce 才分得清"新版起来了"和"旧的还在答"。
-            #    **没问就不回**:回一个固定值能骗过 t19a,却会让客户端那半(t18)
-            #    的分辨力归零 —— 那正是"看起来在工作"的形状。
-            nonce = parse_qs(urlsplit(self.path).query).get("nonce", [""])[0]
-            if nonce:
-                health["nonce"] = nonce
             self._json(200, health)
-        elif path == "/api/update/check":
-            self._update_check()
-        elif path == "/api/update/startup":
-            self._update_startup()
         elif path == "/api/todos":
             self._todos()
         elif path == "/api/llm/credential":
@@ -1099,10 +1017,6 @@ class Handler(BaseHTTPRequestHandler):
             self._llm_credential_post()
         elif path == "/api/llm/model":
             self._llm_model_post()
-        elif path == UPDATE_APPLY_PATH:
-            self._update_apply()
-        elif path == UPDATE_PREPARE_PATH:
-            self._update_prepare()
         elif path == UPLOAD_PATH:
             self._upload()
         elif path == INBOX_CREATE_PATH:
@@ -1129,313 +1043,6 @@ class Handler(BaseHTTPRequestHandler):
             self._method_not_allowed()
 
     do_PUT = do_DELETE = do_PATCH = _method_not_allowed
-
-    def _update_apply(self):
-        """业主点了「更新」(track opendesign-in-app-update-install,第二刀)。
-
-        顺序就是这个函数的全部要害(判据 t22c):
-
-            查一次 → 准备(下载/校验/装 .new/查新树/写接力脚本)
-            → **起接力脚本、确认它真起来了** → 才请外壳收摊
-
-        🔴 反过来 = 外壳先把我(ds-web)杀了,而接力脚本还没人起
-           ⇒ **业主看到"软件关了,没再打开",而且没有任何东西会去回滚。**
-
-        每一步失败都往"当无事发生"塌,并且**把死在哪一步说出来**:
-        "装错了"和"没装成"在业主那儿长得一样,在日志和界面上必须分得开。
-        """
-        # 🔴 同一时间只许一次(t31)。界面的防重入闸只管同一个标签页;服务端是多线程的,
-        #    两个 apply 并发 = 第二次 rmtree(.new) 时第一次的安装器正往里写。
-        #    接力脚本起来之前失败就放开(业主能再点一次);**接力脚本一旦起来就不放**(t35):
-        #    它已经脱离在跑、正等我们退出,再放进来一次 = 两份接力脚本并存。
-        auto_request = self._is_auto_update_request()
-        lock = self.server.update_apply_lock
-        if not lock.acquire(blocking=False):
-            self._json(200, {"ok": False, "stage": "busy",
-                             "error": "更新已经在进行中,请稍候"})
-            return
-        keep, reply = False, None
-        try:
-            keep, reply = self._update_apply_locked(auto_request=auto_request)
-        finally:
-            if not keep:
-                lock.release()
-        # 🔴 先放锁、再回话(t41)。失败的回包就是在告诉业主「可以再点」;
-        #    原来回包在持锁时写出,写 socket 会让出 GIL ⇒ 满载时第二次先到、撞上还没放的锁。
-        self._json(200, reply)
-
-    def _is_auto_update_request(self) -> bool:
-        """只有 JSON 对象里的 auto 恰为 true 才算自动;坏 body 仍按手动旧语义走。"""
-        try:
-            n = int(self.headers.get("Content-Length") or 0)
-        except ValueError:
-            n = 0
-        if n <= 0 or n > 8192:
-            return False
-        try:
-            body = json.loads(self.rfile.read(n).decode("utf-8"))
-        except (ValueError, UnicodeDecodeError):
-            return False
-        return isinstance(body, dict) and body.get("auto") is True
-
-    def _update_apply_locked(self, auto_request: bool = False) -> tuple[bool, dict]:
-        """`_update_apply` 持锁之后的全部内容。返回(锁要不要留着, 回包)。
-        锁要不要留着 = 接力脚本起来了没有。**这里不许自己回话**:回话在放锁之后(t41)。"""
-        paths = ds_update_apply.paths_for_update(self.server.ds_root,
-                                                 port=self.server.server_address[1])
-        download = None
-        if auto_request:
-            # 🔴 打开软件时的那一次安装,装的是**盘上已经下好、逐字节校验过的包**,
-            #    走到这里一次网都不许联(判据 ai1~ai6)。
-            #    原来这里无条件先 `check_cached(VERSION)`:进程刚起来缓存是冷的 ⇒ 真去联网
-            #    (实测最坏 20.1 秒),随后 apply_update 还会把同一个 46MB 重下一遍。
-            #    那就是把本单刚搬走的干等,原样搬回了"有更新的那一次打开"。
-            local = self._local_ready_install(paths)
-            if local is None:
-                # 备货不在了(被清理/被改过/版本不对)⇒ **安静跳过**,让软件照常可用。
-                # 绝不许退回"临时联网下载":那正是要根除的东西。
-                return False, {"ok": False, "stage": "auto_skipped", "error": "no_local_package"}
-            info, download = local
-        else:
-            info = ds_update.check_cached(VERSION)
-            if not info.get("update_available"):
-                return False, {"ok": False, "stage": "no_update",
-                               "error": info.get("error") or "已经是最新版"}
-
-        if auto_request:
-            auto = _auto_update_status(info, paths)
-            if not auto.get("eligible"):
-                # 🔴 **只有"这一版真的不会再自动装了"才作废备货**(判据 el4/el4b/el16)。
-                #    临时条件(条件恢复后这一版还能自动装)下删包 = 把业主已经下好校验好的
-                #    46MB 白丢、还得重下一遍(2026-09-20 第 2 轮外审 subdeepseek 走端点实测过)。
-                #    **哪些算永久,这里不自己回答** —— `ds_auto_update.PERMANENT_BLOCKERS`
-                #    一家说了算。这里原来硬编码 `== "attempted"`,而那份名单在第 3 轮外审 F4
-                #    之后已经多了 `path_unsupported`:同一个问题两处各答一遍、而且答得不一样,
-                #    正是这条链上已经栽过两轮的那个形状(track opendesign-update-duplicate-facts)。
-                #    ⚠️ 这里不兼管"别再重复下回来" —— 那归 prepare/startup 的资格闸(el1/el2)。
-                #    末端删文件追不上前端重新备货,那是第 1 轮的教训。
-                #
-                # ⚠️ **这是纵深,不是主防线**(探针 t0-apply-discard-reachability 实测):
-                #    前端只在 `/api/update/startup` 回 install 时才调本端点的 auto 分支
-                #    (`web/src/App.tsx`),而 startup 已经把任何 blocker 改写成 enter
-                #    ⇒ 正常链路根本走不到这里。留着它是因为端点本身是暴露的,
-                #    而"走不到"和"走到了也对"是两件事。别把它读成"自动更新靠这一句兜底"。
-                if download is not None and auto.get("why_not") in ds_auto_update.PERMANENT_BLOCKERS:
-                    ds_update_startup.discard_ready(paths.get("data_root"))
-                return False, {"ok": False, "stage": "auto_skipped",
-                               "error": auto.get("why_not") or "error"}
-            # 🔴 预写:回滚失败发生在界面关闭之后,这里只能在动手前先把版本记下。
-            ok, err = ds_auto_update.record_attempt(paths.get("data_root"), info.get("latest"))
-            if not ok:
-                return False, {"ok": False, "stage": "auto_unrecorded",
-                               "error": err or "自动更新记录写不进去"}
-        result = ds_update_apply.apply_update(info, paths, download=download)
-        if not result.get("ok"):
-            # 同 ai7 的理由:账已经记上(这一版不会再自动试),备货留着只会每次打开空演一遍。
-            # 判据 ai8。
-            if auto_request and download is not None:
-                ds_update_startup.discard_ready(paths.get("data_root"))
-            return False, {"ok": False, "stage": result.get("stage"),
-                           "error": result.get("error")}
-
-        # 到这里为止活树一个字节没被碰过(t16)。下一步才是不可逆的开始。
-        if not ds_update_apply.handoff(result.get("relay")):
-            return False, {"ok": False, "stage": "handoff",
-                           "error": "接力脚本没能启动,更新取消(软件照常可用)"}
-
-        verdict = ds_shell_bridge_update()
-        if verdict != "started":
-            # 接力脚本已经在跑,但外壳没认这个动词 ⇒ 它等不到端口空,
-            # 会自己超时、删掉 .new 收工。**这里绝不许报成功。**
-            # 🔴 但锁留着(t35):它还在等,业主再点 / 随后手动关软件 ⇒ 两份接力脚本先后改名。
-            return True, {"ok": False, "stage": "shell",
-                          "error": "没能让程序自动关闭,更新取消 —— 请手动安装新版"}
-        return True, {"ok": True, "stage": "started", "error": None,
-                      "latest": info.get("latest")}
-
-    def _update_data_root(self):
-        """更新机器自己的那个根:**装着 `Logs\\auto-update-attempts.json` 的那一层**。
-
-        🔴 **这里有个真踩过的坑,别再各算各的**(2026-09-20 第 1 轮外审 subdeepseek 报,
-        我核实成立)。本仓有两个都叫 `data_root` 的东西,而且在装出来的那一份里**不相等**:
-
-        · `ds_common.data_root(ds_root)` 认 `DS_DATA_ROOT`,外壳注进来的是
-          `<应用状态根>\\Data`(`ds_shell_core.data_root_for`)—— 那是**业主的真实档案**那一层;
-        · `ds_update_apply.paths_for_update()` 的默认 `data_root` 是
-          `%LOCALAPPDATA%\\OpenDesign` —— 装着 `Data\\`、`UserData\\` 和 `Logs\\` 的那一层。
-
-        更新的账(attempts)一直住后者。备货状态与 46MB 安装包也必须住那儿:
-        一来 design.md 写的就是"与既有 auto-update-attempts.json 同侧",
-        二来它们是更新机器的东西,不该混进业主的档案目录。
-
-        原先备货/启动接口用前者、安装那一侧用后者 ⇒ **真机上写的人和读的人各看各的文件**,
-        每次打开都弹「正在更新到 X」、apply 一句 auto_skipped 静默跳过,那一版永远装不上。
-        判据 ur1/ur2/ur3(端点级:设了 DS_DATA_ROOT 才问得出来)。
-        """
-        return ds_update_apply.paths_for_update(
-            self.server.ds_root, port=self.server.server_address[1]).get("data_root")
-
-    def _local_ready_install(self, paths):
-        """自动安装那条路的唯一入口:盘上有没有一个已经下好、校验得过的新版包?
-
-        **只读盘,一次网络都不发。** 回 `(decision, download)` 或 `None`。
-        `decision` 摆成和查更新回包同一个形状,好让 `_auto_update_status`
-        与 `apply_update` 原样复用 —— 防循环的闸(同一版试过一次就不再自动试)
-        因此对这条路照样管用(判据 ai5)。
-
-        `download` 不去网上取,而是把 pending 里那个包复制到安装用的临时目录:
-        `apply_update` 随后仍会**再算一遍 sha256** —— 复制坏了也照样被挡下。
-        """
-        try:
-            data_root = paths.get("data_root")      # 与 _update_data_root() 同一层(判据 ur1)
-            state = ds_update_startup.read_state(ds_update_startup.state_path(data_root))
-            # `startup_decision` 只答事实(盘上有没有可装的包),资格由 `_auto_update_status`
-            # 一处答(判据 ai5、el4b:attempted 那一支要走到 apply 才清得掉包)。
-            decision = ds_update_startup.startup_decision(state, VERSION)
-            if decision.get("action") != "install":
-                return None
-            asset = (state or {}).get("asset") or {}
-            url, name, sha = asset.get("url"), asset.get("name"), asset.get("sha256")
-            src = decision.get("path")
-            if not isinstance(url, str) or not url:
-                return None            # 老状态文件没记下载地址 ⇒ 当没备货,下一轮后台重下
-            if not isinstance(name, str) or not name:
-                return None
-            if not isinstance(sha, str) or len(sha) != 64 or not isinstance(src, str) or not src:
-                return None
-            info = {"update_available": True, "latest": decision.get("version"),
-                    "asset": {"name": name, "url": url, "size": asset.get("size"),
-                              "digest": "sha256:" + sha},
-                    "error": None, "notes": "", "release_url": None}
-
-            def download(_url, dest, _src=src):
-                shutil.copyfile(_src, dest)
-
-            return info, download
-        except Exception:  # noqa: BLE001 —— 这条路上不许有任何抛出;失败 = 当没备货
-            return None
-
-    def _update_prepare(self):
-        """后台把新版下下来备着 —— **立刻返回,下载在后台线程里跑**。
-
-        业主这时候正在用软件,这条请求绝不能让界面等。下好之后写 update-state.json,
-        **下一次打开软件**才装(那时装最快,东西已经在本地,而且本来就在启动)。
-
-        重入保护:同一时刻只允许一个下载在跑 —— 否则后台轮询每转一圈就多起一个线程,
-        同一个 46MB 的包会被下好几遍(业主的流量和磁盘)。
-        """
-        with _PREPARE_LOCK:
-            if _PREPARE_STATE.get("running"):
-                self._json(200, {"started": False, "reason": "already_running"})
-                return
-            _PREPARE_STATE["running"] = True
-
-        # 🔴 置位之后的一切都要包起来(判据 el7,2026-09-20 第 2 轮外审 subdeepseek):
-        #    `root` 原先算在 try 外,一旦抛出,`running` 就再也没人清 ⇒ 这一会话之后
-        #    所有备货永远回 already_running,**自动更新整条静默死掉**。
-        #    概率极低(paths_for_update 实际不抛),但失败形态正是本单最反对的那种:
-        #    单向、静默、永久。
-        try:
-            paths = ds_update_apply.paths_for_update(
-                self.server.ds_root, port=self.server.server_address[1])
-            root = paths.get("data_root")
-        except Exception:  # noqa: BLE001
-            with _PREPARE_LOCK:
-                _PREPARE_STATE["running"] = False
-            self._json(200, {"started": False, "reason": "prepare_unavailable"})
-            return
-
-        # 🔴 **下之前先问这台机器装不装得上**(第 3 轮外审 F1,判据 el11)。
-        #    原先这里只问「有没有新版」,于是:没外壳、路径不支持、**或者业主自己把
-        #    「打开时自动检查」关掉了**,后台照样把 46MB 下回来 —— 下了也装不上,
-        #    而且下一次打开还会被 startup 看见、弹一次静默的更新界面。
-        #    `disabled` 尤其不能忍:关掉开关还偷偷下载,是说话不算话。
-        blocker = ds_auto_update.why_not_auto(paths, None)
-        if blocker and blocker != "attempted":
-            # attempted 要放行到 prepare_update 里判 —— 那里才知道"最新版"是哪一版
-            # (why_not_auto 在这一步拿不到 version,传 None 只问机器维度)。
-            if blocker in ds_auto_update.PERMANENT_BLOCKERS:
-                # 永久条件(路径不支持 / 不是装出来的)⇒ 这一版再也不会自动装,
-                # 那 46MB 留着没意义,顺手清掉。判据 el14(第 3 轮外审 F4)。
-                ds_update_startup.discard_ready(root)
-            with _PREPARE_LOCK:
-                _PREPARE_STATE["running"] = False
-            self._json(200, {"started": False, "reason": blocker})
-            return
-
-        def work():
-            # 🔴 查更新那一跳(最坏 20s)**放在线程里**:这个端点对外宣称"立刻返回",
-            #    原先却在返回之前同步跑它 —— 那句话当时是假的(第 1 轮外审 subdeepseek #5)。
-            try:
-                info = self._update_decision_for_auto()
-                ds_update_startup.prepare_update(info, paths)
-            finally:
-                with _PREPARE_LOCK:
-                    _PREPARE_STATE["running"] = False
-
-        threading.Thread(target=work, daemon=True, name="ds-update-prepare").start()
-        self._json(200, {"started": True})
-
-    def _update_decision_for_auto(self):
-        """给 prepare 用的那份查更新结果。失败一律返回 None(prepare 自己会当 nothing_to_prepare)。"""
-        try:
-            return ds_update.check_cached(VERSION)
-        except Exception:  # noqa: BLE001
-            return None
-
-    def _update_startup(self):
-        """打开软件时问一次:盘上有没有**已经下好、且校验得过**的新版安装包?
-
-        🔴 **只读盘,一次网络都不发** —— 这是本接口存在的全部理由
-        (track opendesign-startup-not-blocked-by-update)。
-        0.98.7 把查更新放在启动路径上,实测最坏让业主干等 20.1 秒。
-        查更新与下载都挪到进入工作区**之后**的后台。
-
-        永远以 200 回;任何异常都回 `enter`。**"不更新"是小事,"打不开"是大事。**
-        """
-        try:
-            paths = ds_update_apply.paths_for_update(
-                self.server.ds_root, port=self.server.server_address[1])
-            root = paths.get("data_root")
-            state = ds_update_startup.read_state(ds_update_startup.state_path(root))
-            out = ds_update_startup.startup_decision(state, VERSION)
-            # 🔴 **事实之后问资格,就在这一处**(第 3 轮外审 F1,我跑探针核实成立)。
-            #    这一版该不该自动装(试过没有 / 有没有外壳 / 装没装过 / 路径行不行 /
-            #    开关关没关)原先只在 apply 被问 —— 那时界面**已经弹出来了**,而
-            #    auto_skipped 在界面上是静默的:业主看到「闪一下,什么都没说」,
-            #    包还留着、下次打开再来一遍,**永不收敛**。判据 el2/el10/el12/el13。
-            if out.get("action") == "install":
-                blocker = ds_auto_update.why_not_auto(paths, out.get("version"))
-                if blocker:
-                    out = {"action": "enter", "reason": blocker}
-        except Exception:  # noqa: BLE001 —— 这条路上不许有任何抛出
-            out = {"action": "enter", "reason": "decision_failed"}
-        self._json(200, out)
-
-    def _update_check(self):
-        """查更新:线上有没有比本机新的版本(track opendesign-in-app-update,第一刀)。
-
-        🔴 **任何失败都以 200 + error 字段回**(判据 t9b)。查更新失败是小事,
-        而一个 500 会让前端的通用错误路径弹东西给业主 —— 他什么都没干、只是打开了软件,
-        却看见"出错了"。**功能失败和软件坏了,在界面上不该长得一样。**
-
-        `?force=1` 是业主亲手点了「检查更新」:那一下不给缓存,真去问一次。
-        本机版本号只有一个来源(VERSION),不另写一份 —— 抄第二份迟早对不上。
-        """
-        # 🔴 第三轮评审 F6:原来判的是"非空且非 0" ⇒ `?force=false` 也会强制刷新。
-        #    没有危害(只多打一次 GitHub),但一个**反着读**的参数迟早会骗到下一个人。
-        #    只认明确的"开"(判据 t9e)。
-        raw_force = parse_qs(urlsplit(self.path).query).get("force", [""])[0]
-        force = raw_force.strip().lower() in ("1", "true", "yes", "on")
-        info = dict(ds_update.check_cached(VERSION, force=force))
-        try:
-            paths = ds_update_apply.paths_for_update(self.server.ds_root,
-                                                     port=self.server.server_address[1])
-            info["auto_update"] = _auto_update_status(info, paths)
-        except Exception:  # noqa: BLE001 —— 自动资格算坏不该让查更新变 500
-            info["auto_update"] = {"eligible": False, "why_not": "error",
-                                   "recent_failure": False}
-        self._json(200, info)
 
     def _todos(self):
         try:
@@ -3007,7 +2614,6 @@ def make_server(ds_root: str, dist: str, host: str = "127.0.0.1",
     httpd.ds_root = ds_root
     httpd.dist = os.path.realpath(dist)
     httpd.nanobot_port = nanobot_port  # 代理上游恒 127.0.0.1,仅端口可配
-    httpd.update_apply_lock = threading.Lock()  # 同一时间只许一次应用内更新(t31)
     return httpd
 
 
