@@ -1,13 +1,16 @@
 # 云 Windows 判据(track opendesign-electron-shell)—— 换壳版 OpenDesign 在真 Windows 上装、换、跑、更新、卸。
 # **断言写死,FAIL 0 才算过**(探路 U2 十跑的 electron-shell-probe.ps1 转正;design.md「Test strategy」E1~E6)。
 #
-# 顺序(一台干净的 runner 上依次走,每段收尾把现场收干净):
-#   E5 全新机器带界面首装,选目录页改成带空格的自选目录
-#   E6 在托盘里跑着时从「应用和功能」那条卸载(带界面)
-#   E3b 旧版 0.98.8 装在 A、首装新版时改选 B ⇒ A 那份也得被收掉(「旧版在哪就去哪收」)
-#   E3 旧版 0.98.8 装在自选带空格目录、开机自启开着、在托盘里跑 → 带界面装新版(选目录页不改)
+# 顺序(一台干净的 runner 上依次走;攻题 #16 之后重排:**旧版过渡必须是这台机器上的第一件事**,
+# 否则新版先建好的配置/资料会冒充「旧版留下的东西」,过渡时把它们弄丢也看不出来):
+#   E3 旧版 0.98.8 装在自选带空格目录、开机自启开着、在托盘里跑、配置里有业主改过的值 → 带界面装新版(选目录页不改)
 #   E2 把装好的新版真跑起来点(e2-drive.mjs)
+#   E2v 故意让后台版本对不上(改装好的 ds_web.VERSION)⇒ 必须弹「重新运行安装包」(挑战 a4 的真机那一半)
 #   E4 更新:源不通 → 重试 → 「重启以更新」→ 向导按两下 → 新版(e4-drive.mjs + click-wizard.ps1)
+#   E6 软件在跑时从「应用和功能」那条卸载(带界面)
+#   E3b 旧版 0.98.8 装在 A、首装新版时改选 B ⇒ A 那份也得被收掉(「旧版在哪就去哪收」),资料不动
+#   (清空这台机器上的 OpenDesign 痕迹,模拟一台新电脑)
+#   E5 全新机器带界面首装,选目录页改成带空格 + 中文的自选目录
 # 每条判读一行 `OK  |FAIL <名字> :: <事实>`;有 FAIL 就 exit 1。
 param(
     [string]$OldTag   = "win-installer-0.98.8",
@@ -108,6 +111,14 @@ function SilentUninstall([string]$dir) {
     if ($u) { $p = Start-Process $u.FullName -ArgumentList '/S' -PassThru; [void]$p.WaitForExit(180000); Start-Sleep -Seconds 5 }
 }
 
+$cfgPath = "$Data\UserData\.nanobot\config.json"
+# 配置里业主在意的那几样(挑战 a7 / 攻题 #16):大脑选择 / 各厂商 key 引用 / 登录口令
+function CfgFacts {
+    $c = Get-Content $cfgPath -Raw -Encoding utf8 | ConvertFrom-Json
+    $keys = @($c.providers.PSObject.Properties | ForEach-Object { "$($_.Name)=$($_.Value.apiKey)" }) -join ','
+    "brain=$($c.agents.defaults.modelPreset) | keys=$keys | token=$($c.channels.websocket.token)"
+}
+
 # 资料与 key:放几样「丢了就出事」的东西,记下指纹。整场判据共用一份,任何一段动了它都会被抓到。
 $marks = @("$Data\UserData\.openDesign\key.txt", "$Data\Data\e2e-档案-marker.md", "$Data\UserData\.openDesign\e2e-marker.txt")
 function Marks {
@@ -124,68 +135,6 @@ function MarksSame([string]$tag, $before) {
 "== 下载已发布的旧版 $OldAsset"
 gh release download $OldTag -p $OldAsset -D "$OutDir\old" --clobber
 
-# ================================================================ E5 全新机器带界面首装
-$Fresh = "C:\OD 新装\OpenDesign"   # 空格 + 中文(旧判据 t36b:中文路径在中文控制台 936 下也得照常)
-"== E5 全新首装(带界面),选目录页改成「$Fresh」"
-V 'E5.pre 量具:这台机器上没有任何 OpenDesign' (-not (UninstallEntries) -and -not (Test-Path $Data)) "$(UninstallEntries) $(Test-Path $Data)"
-$w = Wizard 'e5' @('*electron-setup*') $Fresh 420
-$rc = RunInstaller $NewSetup 'e5' 6
-$clicks = WizardDone $w
-V 'E5.install 安装包退出码 0' ($rc -eq 0) "$rc"
-$dirLine = @($clicks | Where-Object { $_ -match '改目录:' }) | Select-Object -First 1
-V 'E5.setdir 量具:选目录页确实改成了自选目录' ($dirLine -and $dirLine.Contains("→ [$Fresh]")) "$dirLine"
-V 'E5.dir 装到了所选目录' ((Test-Path "$Fresh\OpenDesign.exe") -and (Test-Path "$Fresh\resources\app.asar")) "$Fresh"
-V 'E5.dir 没在默认目录另装一份' (-not (Test-Path "$Default\OpenDesign.exe")) "$Default"
-$ents = UninstallEntries
-V 'E5.newkey 「应用和功能」里一个 OpenDesign' ($ents.Count -eq 1) "$($ents -join ' ; ')"
-$run = (Get-ItemProperty $RunKey -ErrorAction SilentlyContinue).OpenDesign
-V 'E5.autostart 全新安装默认不开机自启(design C:已知回归,设置页开关另单)' (-not $run) "$run"
-V 'E5.shortcut 桌面图标指向新 exe' ((Shortcut) -eq "$Fresh\OpenDesign.exe") "$(Shortcut)"
-V 'E5.provision 配置建好了(ds_provision 跑过)' (Test-Path "$Data\UserData\.nanobot\config.json") "$Data\UserData\.nanobot\config.json"
-$h = WaitHealth 180
-V 'E5.run 完成页勾着「运行」⇒ 装完软件自己起来了' ([bool]$h) "$h"
-ThreeWay 'E5.samever 版本三方一致' $h "$Fresh\OpenDesign.exe" $Ver
-Shot 'e5-01-running'
-
-# ================================================================ E6 在托盘里跑着时卸载
-"== E6 卸载(软件在跑,带界面)"
-$before = Marks
-$u = Get-ChildItem $Fresh -Filter 'Uninstall OpenDesign*.exe' | Select-Object -First 1
-V 'E6.pre 卸载程序在' ([bool]$u) "$($u.FullName)"
-$w = Wizard 'e6' @('Au_*', 'Un_*', 'Uninstall OpenDesign*') '' 300
-$p = Start-Process $u.FullName -PassThru
-[void]$p.WaitForExit(300000)
-Start-Sleep -Seconds 8     # NSIS 卸载器先把自己拷到 %TEMP% 再跑 ⇒ 等拷贝那一份也走完
-$null = WizardDone $w
-$left = ProcsUnder $Fresh
-V 'E6.proc 卸载时在跑的软件被收掉了' (-not $left) "$left"
-V 'E6.files 安装目录清空了' (-not (Test-Path "$Fresh\OpenDesign.exe") -and -not (Test-Path "$Fresh\resources")) ((Get-ChildItem $Fresh -Name -ErrorAction SilentlyContinue) -join ' ')
-V 'E6.key 卸载项没了' (-not (UninstallEntries)) "$(UninstallEntries)"
-V 'E6.shortcut 桌面图标没了' ((Shortcut) -eq '(没有)') "$(Shortcut)"
-MarksSame 'E6' $before
-V 'E6.config 配置还在(资料根不动)' (Test-Path "$Data\UserData\.nanobot\config.json") ""
-
-# ================================================================ E3b 旧版在 A,新版装到 B
-$A = "C:\AI Old\OpenDesign"; $B = "C:\AI New\OpenDesign"
-"== E3b 旧版装在「$A」在跑 → 首装新版改选「$B」"
-V 'E3b.old 旧版装上了' (InstallOld $A) "$A"
-Start-Process "$A\OpenDesign.exe" | Out-Null
-V 'E3b.oldrun 旧版跑起来了' ([bool](WaitHealth 240)) ""
-$w = Wizard 'e3b' @('*electron-setup*') $B 420
-$rc = RunInstaller $NewSetup 'e3b' 6
-$null = WizardDone $w
-V 'E3b.install 安装包退出码 0' ($rc -eq 0) "$rc"
-V 'E3b.dir 装到了 B' (Test-Path "$B\OpenDesign.exe") "$B"
-$left = ProcsUnder $A
-V 'E3b.oldproc A 那份旧版的进程被收掉了' (-not $left) "$left"
-V 'E3b.oldgone A 那份旧版被旧卸载器卸掉了(哨兵没了)' (-not (Test-Path "$A\ds\bin\ds_shell.py")) ((Get-ChildItem $A -Name -ErrorAction SilentlyContinue | Select-Object -First 8) -join ' ')
-$ents = UninstallEntries
-V 'E3b.newkey 「应用和功能」里只剩一个 OpenDesign' ($ents.Count -eq 1) "$($ents -join ' ; ')"
-KillUnder $B; SilentUninstall $B; KillUnder $A
-# E3b 若红了,A 那份旧版可能还在(卸载项 / InstallDir 键)⇒ 不收的话会把 E3 的读数带脏
-if (Test-Path "$A\卸载.exe") { $p = Start-Process "$A\卸载.exe" -ArgumentList '/S' -PassThru; [void]$p.WaitForExit(180000); Start-Sleep -Seconds 5 }
-Remove-Item $A, $B -Recurse -Force -ErrorAction SilentlyContinue
-
 # ================================================================ E3 从已发布的 0.98.8 过渡
 $Dir = "C:\AI Test\OpenDesign"
 "== E3 旧版装在「$Dir」、开机自启开着、在托盘里跑 → 带界面装新版(选目录页不改)"
@@ -196,17 +145,14 @@ Set-ItemProperty $RunKey -Name 'OpenDesign' -Value "`"$Dir\OpenDesign.exe`""
 $before = Marks
 $dataCountBefore = @(Get-ChildItem "$Data\Data" -Recurse -File -ErrorAction SilentlyContinue).Count
 # 挑战 a7:换壳那一次会跑 ds_provision 合并配置 ⇒ 业主选好的「大脑」、key 引用、登录口令都不许被重置
-$cfgPath = "$Data\UserData\.nanobot\config.json"
 Start-Process "$Dir\OpenDesign.exe" | Out-Null
 V 'E3.oldrun 旧版跑起来了(工作台应答)' ([bool](WaitHealth 240)) ""
 $cfg = Get-Content $cfgPath -Raw -Encoding utf8 | ConvertFrom-Json
 $cfg.agents.defaults | Add-Member -NotePropertyName modelPreset -NotePropertyValue 'mimo-v2.5-pro' -Force   # 业主换过大脑(模板默认是 mimo-v2.5)
+# 登录口令也植一个非默认值(攻题 #16):换壳那一次若重新生成口令,业主手里那张「登录口令.txt」就登不进聊天了
+$ws = $cfg.channels.websocket
+$ws | Add-Member -NotePropertyName token -NotePropertyValue "e2e-token-$([guid]::NewGuid().ToString('N').Substring(0,12))" -Force
 $cfg | ConvertTo-Json -Depth 32 | Set-Content $cfgPath -Encoding utf8
-function CfgFacts {
-    $c = Get-Content $cfgPath -Raw -Encoding utf8 | ConvertFrom-Json
-    $keys = @($c.providers.PSObject.Properties | ForEach-Object { "$($_.Name)=$($_.Value.apiKey)" }) -join ','
-    "brain=$($c.agents.defaults.modelPreset) | keys=$keys | token=$($c.channels.websocket.token)"
-}
 $cfgBefore = CfgFacts
 "  配置业务字段(前):$cfgBefore"
 Shot 'e3-01-old-running'
@@ -244,6 +190,42 @@ $e2 = $LASTEXITCODE
 Pop-Location
 V 'E2 起窗判据整体' ($e2 -eq 0) "e2-drive.mjs rc=$e2(逐条见上)"
 
+# ================================================================ E2v 版本对不上要说话
+"== E2v 装好的后台版本被改旧 ⇒ 主进程必须弹「重新运行安装包」(安装被打断留下半新半旧的那个形状)"
+KillUnder $Dir
+$webPy = "$Dir\resources\ds\bin\ds_web.py"
+$orig = Get-Content $webPy -Raw -Encoding utf8
+($orig -replace '(?m)^VERSION = "[^"]+"', 'VERSION = "0.0.1"') | Set-Content $webPy -NoNewline -Encoding utf8
+$elog = "$Data\Logs\electron.log"
+$logLen = if (Test-Path $elog) { (Get-Item $elog).Length } else { 0 }
+Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+# Electron 的对话框在 Windows 上是 TaskDialog:字不在 Win32 子控件里,要走 UI Automation 读
+function DialogText([uint32[]]$pids) {
+    $root = [Windows.Automation.AutomationElement]::RootElement
+    $all = $root.FindAll([Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition)
+    @($all | Where-Object { $pids -contains [uint32]$_.Current.ProcessId -and $_.Current.ClassName -eq '#32770' } | ForEach-Object {
+        $_.FindAll([Windows.Automation.TreeScope]::Descendants, [Windows.Automation.Condition]::TrueCondition) | ForEach-Object { $_.Current.Name }
+    }) -join ' '
+}
+Start-Process "$Dir\OpenDesign.exe" | Out-Null
+$sw = [Diagnostics.Stopwatch]::StartNew(); $box = ''; $said = $false
+while ($sw.Elapsed.TotalSeconds -lt 120 -and -not (($box -match '重新运行安装包') -and $said)) {
+    Start-Sleep -Seconds 2
+    $ours = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq "$Dir\OpenDesign.exe" } | ForEach-Object { [uint32]$_.ProcessId })
+    if ($ours.Count) { $box = DialogText $ours }
+    $tailLog = ''
+    if (Test-Path $elog) {
+        $fs = [IO.File]::Open($elog, 'Open', 'Read', 'ReadWrite'); [void]$fs.Seek($logLen, 'Begin')
+        $tailLog = (New-Object IO.StreamReader($fs, [Text.Encoding]::UTF8)).ReadToEnd(); $fs.Dispose()
+    }
+    $said = ($tailLog -match '0\.0\.1') -and ($tailLog -match [regex]::Escape($Ver))
+}
+Shot 'e2v-01-mismatch'
+V 'E2v.box 弹了对话框,话里有「重新运行安装包」' ($box -match '重新运行安装包') "$box"
+V 'E2v.log electron.log 记下了两个版本号' $said "看 $elog 新增部分"
+KillUnder $Dir
+Set-Content $webPy -Value $orig -NoNewline -Encoding utf8
+
 # ================================================================ E4 更新
 "== E4 $Ver → $NewVer:源不通 → 重试 → 「重启以更新」→ 向导"
 KillUnder $Dir
@@ -276,7 +258,7 @@ for ($k = 0; $k -lt 30 -and $null -ne $instSeen -and $null -eq $instGone; $k++) 
 $clicks = WizardDone $w
 $heads = @($clicks | ForEach-Object { if ($_ -match '页头:\[([^/\]]+)') { $Matches[1].Trim() } })
 # 同一页 5 秒没翻过去量具会再按一次 —— 业主那边是一下;连续重复的页头只算一次
-$heads = @($heads | Where-Object -Begin { $prev = $null } -Process { $keep = ($_ -ne $prev); $prev = $_; $keep })
+$prev = $null; $heads = @($heads | ForEach-Object { if ($_ -ne $prev) { $_ }; $prev = $_ })   # (Where-Object 没有 -Begin,本机 pwsh 实测会抛)
 V 'E4.wizard 更新时按两下:「安装选项」→「安装完成」(U3/U4 照 ZCode;选目录页自己跳过)' (($heads -join '|') -eq '安装选项|安装完成') "$($heads -join ' → ')"
 V 'E4.version 装上了新版' ($null -ne $flip) "$Ver → $ver"
 V 'E4.relaunch 装完自己重新打开、后台应答' ([bool]$h) "$h"
@@ -289,9 +271,14 @@ public static class Fg {
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
 }
 "@
-$fgPid = 0; [void][Fg]::GetWindowThreadProcessId([Fg]::GetForegroundWindow(), [ref]$fgPid)
-$fgPath = (Get-CimInstance Win32_Process -Filter "ProcessId=$fgPid" -ErrorAction SilentlyContinue).ExecutablePath
-V 'E4.front 新版窗口在最前面(第四跑零点击那版落在后面)' ($fgPath -eq "$Dir\OpenDesign.exe") "前台进程 $fgPid $fgPath"
+# 攻题 #22:只采一瞬会被 CI 的控制台 / 截图工具抢走前台判假红 ⇒ 15 秒里轮询,**当过一次**前台就算
+$sw = [Diagnostics.Stopwatch]::StartNew(); $fgPath = $null; $seenFg = @()
+while ($sw.Elapsed.TotalSeconds -lt 15 -and $fgPath -ne "$Dir\OpenDesign.exe") {
+    $fgPid = 0; [void][Fg]::GetWindowThreadProcessId([Fg]::GetForegroundWindow(), [ref]$fgPid)
+    $fgPath = (Get-CimInstance Win32_Process -Filter "ProcessId=$fgPid" -ErrorAction SilentlyContinue).ExecutablePath
+    $seenFg += "$fgPid $fgPath"; Start-Sleep -Milliseconds 500
+}
+V 'E4.front 新版窗口到过最前面(第四跑零点击那版落在后面)' ($fgPath -eq "$Dir\OpenDesign.exe") "见过的前台:$(($seenFg | Select-Object -Unique) -join ' ; ')"
 Shot 'e4-01-after-update'
 $ents = UninstallEntries
 V 'E4.newkey 更新后「应用和功能」里仍只有一个 OpenDesign' ($ents.Count -eq 1) "$($ents -join ' ; ')"
@@ -309,6 +296,97 @@ V 'E4.delta 实际下载不到整包的 10%(增量成立)' ($full -gt 0 -and $se
 KillUnder $Dir
 $srvPid = Get-Content (Join-Path $OutDir 'e4-serve.pid') -ErrorAction SilentlyContinue
 if ($srvPid) { Stop-Process -Id ([int]$srvPid) -Force -ErrorAction SilentlyContinue }
+
+
+# ================================================================ E6 软件在跑时卸载
+"== E6 卸载「$Dir」那一份(软件在跑,带界面)"
+Start-Process "$Dir\OpenDesign.exe" | Out-Null
+V 'E6.pre 卸载前软件在跑' ([bool](WaitHealth 180)) ""
+$before = Marks
+$cfgBefore = CfgFacts
+$u = Get-ChildItem $Dir -Filter 'Uninstall OpenDesign*.exe' | Select-Object -First 1
+V 'E6.pre 卸载程序在' ([bool]$u) "$($u.FullName)"
+$w = Wizard 'e6' @('Au_*', 'Un_*', 'Uninstall OpenDesign*') '' 300
+$p = Start-Process $u.FullName -PassThru
+[void]$p.WaitForExit(300000)
+# NSIS 卸载器先把自己拷到 %TEMP% 再跑 ⇒ 等拷贝那一份也走完(攻题 #18:它挂着不退、完成框一直在,也要判红)
+$sw = [Diagnostics.Stopwatch]::StartNew(); $un = 'x'
+while ($sw.Elapsed.TotalSeconds -lt 120 -and $un) {
+    Start-Sleep -Seconds 2
+    $un = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -like 'Au_*' -or $_.ProcessName -like 'Un_*' -or $_.ProcessName -like 'Uninstall OpenDesign*' } |
+            ForEach-Object { "$($_.Id) $($_.ProcessName)" }) -join ', '
+}
+$null = WizardDone $w
+V 'E6.done 卸载程序(含拷到临时目录的那一份)自己走完了' (-not $un) "$un"
+$left = ProcsUnder $Dir
+V 'E6.proc 卸载时在跑的软件被收掉了' (-not $left) "$left"
+V 'E6.files 安装目录清空了' (-not (Test-Path "$Dir\OpenDesign.exe") -and -not (Test-Path "$Dir\resources")) ((Get-ChildItem $Dir -Name -ErrorAction SilentlyContinue) -join ' ')
+V 'E6.key 卸载项没了' (-not (UninstallEntries)) "$(UninstallEntries)"
+V 'E6.shortcut 桌面图标没了' ((Shortcut) -eq '(没有)') "$(Shortcut)"
+MarksSame 'E6' $before
+$cfgAfter = CfgFacts
+V 'E6.config 配置业务字段原样(卸载不许碰资料根)' ($cfgAfter -eq $cfgBefore) "前 $cfgBefore ;后 $cfgAfter"
+
+# ================================================================ E3b 旧版在 A,新版装到 B
+$A = "C:\AI Old\OpenDesign"; $B = "C:\AI New\OpenDesign"
+"== E3b 旧版装在「$A」在跑 → 首装新版改选「$B」"
+$before = Marks
+$cfgBefore = CfgFacts
+V 'E3b.old 旧版装上了' (InstallOld $A) "$A"
+Start-Process "$A\OpenDesign.exe" | Out-Null
+V 'E3b.oldrun 旧版跑起来了' ([bool](WaitHealth 240)) ""
+$w = Wizard 'e3b' @('*electron-setup*') $B 420
+$rc = RunInstaller $NewSetup 'e3b' 6
+$null = WizardDone $w
+V 'E3b.install 安装包退出码 0' ($rc -eq 0) "$rc"
+V 'E3b.dir 装到了 B' (Test-Path "$B\OpenDesign.exe") "$B"
+$left = ProcsUnder $A
+V 'E3b.oldproc A 那份旧版的进程被收掉了' (-not $left) "$left"
+V 'E3b.oldgone A 那份旧版被旧卸载器卸掉了(哨兵没了)' (-not (Test-Path "$A\ds\bin\ds_shell.py")) ((Get-ChildItem $A -Name -ErrorAction SilentlyContinue | Select-Object -First 8) -join ' ')
+$ents = UninstallEntries
+V 'E3b.newkey 「应用和功能」里只剩一个 OpenDesign' ($ents.Count -eq 1) "$($ents -join ' ; ')"
+MarksSame 'E3b' $before
+$cfgAfter = CfgFacts
+V 'E3b.config 配置业务字段前后不变' ($cfgAfter -eq $cfgBefore) "前 $cfgBefore ;后 $cfgAfter"
+KillUnder $B; SilentUninstall $B; KillUnder $A
+# E3b 若红了,A 那份旧版可能还在(卸载项 / InstallDir 键)⇒ 不收的话会把 E3 的读数带脏
+if (Test-Path "$A\卸载.exe") { $p = Start-Process "$A\卸载.exe" -ArgumentList '/S' -PassThru; [void]$p.WaitForExit(180000); Start-Sleep -Seconds 5 }
+Remove-Item $A, $B -Recurse -Force -ErrorAction SilentlyContinue
+
+# ================================================================ 模拟一台新电脑
+"== 清空这台机器上的 OpenDesign 痕迹(E5 要的是全新机器)"
+Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like '*OpenDesign*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+Remove-Item $Data -Recurse -Force -ErrorAction SilentlyContinue
+Remove-ItemProperty $RunKey -Name 'OpenDesign' -ErrorAction SilentlyContinue
+Remove-Item 'HKCU:\Software\OpenDesign' -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item "$([Environment]::GetFolderPath('Desktop'))\OpenDesign.lnk" -Force -ErrorAction SilentlyContinue
+
+# ================================================================ E5 全新机器带界面首装
+$Fresh = "C:\OD 新装\OpenDesign"   # 空格 + 中文(旧判据 t36b:中文路径在中文控制台 936 下也得照常)
+"== E5 全新首装(带界面),选目录页改成「$Fresh」"
+V 'E5.pre 量具:这台机器上已经没有任何 OpenDesign 痕迹' (-not (UninstallEntries) -and -not (Test-Path $Data)) "$(UninstallEntries) $(Test-Path $Data)"
+$w = Wizard 'e5' @('*electron-setup*') $Fresh 420
+$rc = RunInstaller $NewSetup 'e5' 6
+$clicks = WizardDone $w
+V 'E5.install 安装包退出码 0' ($rc -eq 0) "$rc"
+$heads5 = @($clicks | ForEach-Object { if ($_ -match '页头:\[([^/\]]+)') { $Matches[1].Trim() } })
+$prev = $null; $heads5 = @($heads5 | ForEach-Object { if ($_ -ne $prev) { $_ }; $prev = $_ })
+V 'E5.pages 首装按三页:安装选项 → 选定安装位置 → 安装完成(U4 照 ZCode 留着「为哪位用户」)' (($heads5 -join '|') -eq '安装选项|选定安装位置|安装完成') "$($heads5 -join ' → ')"
+$dirLine = @($clicks | Where-Object { $_ -match '改目录:' }) | Select-Object -First 1
+V 'E5.setdir 量具:选目录页确实改成了自选目录' ($dirLine -and $dirLine.Contains("→ [$Fresh]")) "$dirLine"
+V 'E5.dir 装到了所选目录' ((Test-Path "$Fresh\OpenDesign.exe") -and (Test-Path "$Fresh\resources\app.asar")) "$Fresh"
+V 'E5.dir 没在默认目录另装一份' (-not (Test-Path "$Default\OpenDesign.exe")) "$Default"
+$ents = UninstallEntries
+V 'E5.newkey 「应用和功能」里一个 OpenDesign' ($ents.Count -eq 1) "$($ents -join ' ; ')"
+$run = (Get-ItemProperty $RunKey -ErrorAction SilentlyContinue).OpenDesign
+V 'E5.autostart 全新安装默认不开机自启(design C:已知回归,设置页开关另单)' (-not $run) "$run"
+V 'E5.shortcut 桌面图标指向新 exe' ((Shortcut) -eq "$Fresh\OpenDesign.exe") "$(Shortcut)"
+V 'E5.provision 配置建好了(ds_provision 跑过)' (Test-Path "$Data\UserData\.nanobot\config.json") "$Data\UserData\.nanobot\config.json"
+$h = WaitHealth 180
+V 'E5.run 完成页勾着「运行」⇒ 装完软件自己起来了' ([bool]$h) "$h"
+ThreeWay 'E5.samever 版本三方一致' $h "$Fresh\OpenDesign.exe" $Ver
+Shot 'e5-01-running'
+KillUnder $Fresh
 
 # ---------------------------------------------------------------- 收尾:日志
 New-Item -ItemType Directory -Force -Path "$OutDir\logs" | Out-Null

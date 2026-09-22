@@ -12,7 +12,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 
-const { rewriteLatestYml, sha512Base64, verifyFeed } = await import("../desktop/scripts/release-feed.mjs");
+const { rewriteLatestYml, sha512Base64, verifyFeed, ghReleaseCommand } = await import("../desktop/scripts/release-feed.mjs");
 
 const BASE = "https://github.com/SunJ1ayu/OpenDesign/releases/download";
 const SHA = "q1w2e3r4t5y6u7i8o9p0ZZZZzzzz0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS==";
@@ -85,4 +85,26 @@ test("r7 云 Windows 判据用同一个函数,只换主机前缀(替身源 http:
   const out = rewriteLatestYml(LATEST, "0.98.11", "http://127.0.0.1:8900/download");
   assert.equal(field(out, "url"), "http://127.0.0.1:8900/download/v0.98.11/OpenDesign-0.98.11-electron-setup.exe");
   assert.equal(rewriteLatestYml(out, "0.98.11", "http://127.0.0.1:8900/download"), out);
+});
+
+test("r8 🔴 发布命令由工具生成:正式 release、tag v<版本>、恰好三样资产、latest.yml 必须是改写过的(攻题 #15/#23)", () => {
+  const dir = "dist";
+  const files = {
+    installer: `${dir}/OpenDesign-0.98.11-electron-setup.exe`,
+    blockmap: `${dir}/OpenDesign-0.98.11-electron-setup.exe.blockmap`,
+    latestYml: "feed/latest.yml",
+  };
+  const argv = ghReleaseCommand({ version: "0.98.11", ...files, latestYmlText: rewriteLatestYml(LATEST, "0.98.11") });
+  assert.deepEqual(argv.slice(0, 3), ["release", "create", "v0.98.11"]);
+  for (const bad of ["--prerelease", "--draft"]) {
+    assert.ok(!argv.includes(bad), `${bad} ⇒ releases/latest/download 看不见它,旧版永远「已是最新」`);
+  }
+  const assets = argv.filter((a) => Object.values(files).includes(a));
+  assert.deepEqual(assets.sort(), Object.values(files).sort(), "资产要恰好三样:安装包 + blockmap + 改写过的 latest.yml");
+  const r = argv.indexOf("--repo");
+  if (r >= 0) assert.equal(argv[r + 1], "SunJ1ayu/OpenDesign");
+  assert.throws(() => ghReleaseCommand({ version: "0.98.11", ...files, latestYmlText: LATEST }),
+    "没改写的 latest.yml 发出去 ⇒ 每次更新都退整包 158MB");
+  assert.throws(() => ghReleaseCommand({ version: "0.98.12", ...files, latestYmlText: rewriteLatestYml(LATEST, "0.98.11") }),
+    "版本对不上还给命令 ⇒ 发出去的 tag 和包不是一版");
 });

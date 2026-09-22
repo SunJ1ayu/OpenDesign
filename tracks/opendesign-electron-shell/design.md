@@ -191,8 +191,9 @@ P6(管家语言)三方里两方站 Python。
 - **收摊顺序**(表 #1 #16):托盘退出 / 更新 ⇒ 先关管家 stdin、等它退(Job 收整棵树),15s 不退才强杀,再退 Electron。
 - **`bin/ds_shell.py` 拆两半**:后台那一半(`start_backend` / `build_env` / `user_home` / key 读取 / 日志)留下供管家用;
   窗口那一半(`WindowApi` / `Shell` / `main` / pystray 托盘 / pywebview)退役。ds-web 与 `ds_credential` 对 `build_env` 的依赖不变。
-- **版本号只有一个来源**:`bin/ds_web.py` `VERSION`。打包时由它写进 `desktop/package.json` 的 version(安装包文件名、
-  「应用和功能」、electron-updater 比较的都是它);判据核两处一致。探路版两处各写各的(exe 0.98.11 / 后台报 0.98.9),正式版不许。
+- **版本号只有一个来源**:`bin/ds_web.py` `VERSION`。`desktop/package.json` 的 version(安装包文件名、
+  「应用和功能」、electron-updater 比较的都是它)**提交时就与它同值**,发版时两处一起改,判据 c4 钉住不许分叉;
+  构建不改写版本(攻题 #12 提的「构建时生成」是另一种等价做法,选手工同值 + 判据,少一个会出错的构建步骤)。探路版两处各写各的(exe 0.98.11 / 后台报 0.98.9),正式版不许。
 
 ### B. 窗口栏与前端
 
@@ -243,7 +244,8 @@ P6(管家语言)三方里两方站 Python。
   「重启以更新」就放在那一行上,弹层里再放一份。
   浏览器形态(Linux / git-pull)没有更新器:只显示当前版本 + 发布页链接。
 - 「重启以更新」旁写明「约 2 分钟,期间请别关机」(向导进度页不能取消,关机会装一半)。
-- **下载失败不许静默**:整包回退或下载出错 ⇒ 更新一栏显示人话 + 「重试」,不能只是按钮永远不出现(否则他以为没有新版)。
+- **交给安装器失败**(`quitAndInstall` 抛了):管家已经收了 ⇒ 弹人话并**把软件重新拉起来**(`app.relaunch()`),不留一个连不上后台的空窗口(攻题 #8,mc16)。
+- **下载失败不许静默**:下载出错 ⇒ 状态 error(**带着那一版的版本号**)⇒ 更新一栏说「0.98.x 下载失败」+ 「重试」,且侧栏「设置」行上的圆点亮(du8;单纯「查不到」不亮 —— 他常先开软件后开 VPN,每次开机亮一个点是骚扰,而且我们并不知道有没有新版)。**整包回退本身允许**(旧 blockmap 取不到时 electron-updater 退回下整包,只是慢;攻题 #6 把它读成要拦 —— 这里写明不拦,发布流程由 r1~r8 保证 blockmap 在该在的地方)。
   出错后 15 分钟再自动查一次(挑战 a6:他常先开软件后开 VPN),不等 4 小时。
 - **回滚随旧更新器退役**(已接受的保证损失,写进判据迁移账):旧版「装到旁边、新版起不来就退回」做不到了 ——
   electron-updater 是就地重装。补救:每一版发布前云 Windows 判据全过才发;旧版安装包一直留在发布页,出事可以直接装回旧版。
@@ -291,10 +293,11 @@ runtime_delivery_change 0.99 / judging_surface_change 0.91 / deploy_target_outsi
 |---|---|---|
 | 管家 | `bin/ds_host.py` | `serve(inp, out, *, make_lock, start_backend, home, diag, app_dir, log, watch_interval=3.0, first_frame_timeout=90.0) -> int`(`inp`/`out` 是**字节流**);`main()` 接真依赖(`sys.stdin.buffer` / `sys.stdout.buffer` / `core.InstanceLock` / `ds_shell.start_backend` …) |
 | 管家协议 | 同上 | 一行一个 JSON、UTF-8。事件(管家→外壳)`ready{web_port,version}` / `show` / `already-running` / `fatal{message}` / `alert{message}` / `backend-died{names,message}` / `diagnostics{path}` 或 `diagnostics{error}`;命令(外壳→管家)`{"cmd":"quit"}` / `export-diagnostics` / `report{event,detail}` / `window-shown`;**stdin EOF = quit**;坏行忽略、不崩 |
-| 主进程纯逻辑 | `desktop/lib/*.js`(CommonJS,**不 require electron**,无 node_modules 也加载得了) | `hostProtocol.js`:`parseHostLine` / `encodeCommand` / `hostExitMessage(code, {quitting, fatalShown})`;`versionCheck.js`:`versionMismatch`;`navPolicy.js`:`navDecision(url, origin)` / `windowOpenDecision`;`updateState.js`:`initialUpdateState` / `reduceUpdate(state, {type,…})` / `canInstall` / `nextCheckDelayMs` / `FIRST_CHECK_DELAY_MS` / `configureUpdater(u, {log})`;`lifecycle.js`:`shutdownHost(child, {graceMs})` / `installUpdate({state, host, updater, graceMs}) -> Promise<bool>` |
+| 主进程控制器(攻题后补) | `desktop/lib/controller.js`、`desktop/lib/menus.js` | `createController(deps)` → `hostStdout(chunk)` / `hostExit(code)` / `setQuitting()` / `navigate(url)→是否拦` / `startUpdates()` / `checkNow()` / `updateState()` / `installUpdate(host)`;deps = `appVersion, loadWorkbench, showWindow, showError, revealFile, openExternal, log, updater, pushUpdateState, setTimeout, clearTimeout, relaunch, graceMs`。**main.js 只接 Electron 的东西,判断全在控制器里**(c10 钉 main.js 真用它)。`menus.js`:`trayMenuTemplate({onOpen,onExport,onQuit})` / `contextMenuTemplate(params)` |
+| 主进程纯逻辑 | `desktop/lib/*.js`(CommonJS,**不 require electron**,无 node_modules 也加载得了) | `hostProtocol.js`:`parseHostLine` / `createHostDecoder(onEvent)→{push,end}`(管道分块、UTF-8 切半)/ `encodeCommand` / `hostExitMessage(code, {quitting, fatalShown})`;`versionCheck.js`:`versionMismatch`;`navPolicy.js`:`navDecision(url, origin)` / `windowOpenDecision`;`updateState.js`:`initialUpdateState` / `reduceUpdate(state, {type,…})` / `canInstall` / `nextCheckDelayMs` / `FIRST_CHECK_DELAY_MS` / `configureUpdater(u, {log})`;`lifecycle.js`:`shutdownHost(child, {graceMs})` / `installUpdate({state, host, updater, graceMs, recover?}) -> Promise<bool>`(`quitAndInstall` 抛了 ⇒ `recover(err)`、返回 false)|
 | 打包 | `tracks/opendesign-windows-installer/spike/build-package.sh <out> --electron` | 出 `pkg/python` + `pkg/ds`(不带 pywebview / pythonnet / pystray);`desktop/package.json` 的 extraResources 从 `pkg/` 取 |
-| 发布 | `desktop/scripts/release-feed.mjs` | `rewriteLatestYml(text, version, base = GitHub 的 releases/download)` / `sha512Base64(buf)` / `verifyFeed(text, buf) -> {ok, reason}`;命令行 `verify <latest.yml> <安装包>`、`rewrite <入> <出> <版本> [--base URL]`(云 Windows 判据摆替身源用的就是它) |
-| 前端 | `web/src/desktopShell.ts`、`web/src/desktopUpdate.ts` | `OdShell` 类型 + `shellApi(win)`(`window.odShell` 齐了才给,否则 null);`desktopUpdateLabel(state, version)` / `showRestart(state)` / `showRetry(state)` / `hasDesktopUpdateBadge(state)` / `RESTART_HINT`;DOM 钩子 `data-ui=settings-toggle`(收起的「设置」行)/ `update-status` / `update-retry`(弹层里)/ `update-restart`(**收起的那一行上**)—— 云 Windows 判据点它们 |
+| 发布 | `desktop/scripts/release-feed.mjs` | `rewriteLatestYml(text, version, base = GitHub 的 releases/download)` / `sha512Base64(buf)` / `verifyFeed(text, buf) -> {ok, reason}`;`ghReleaseCommand({version, installer, blockmap, latestYml, latestYmlText}) -> gh 的 argv`(正式 release、tag v<版本>、恰好三样资产、latest.yml 必须改写过);命令行 `verify <latest.yml> <安装包>`、`rewrite <入> <出> <版本> [--base URL]`、`gh-command …`(云 Windows 判据摆替身源用的就是它) |
+| 前端 | `web/src/desktopShell.ts`、`web/src/desktopUpdate.ts` | `OdShell` 类型 + `shellApi(win)`(`window.odShell` 齐了才给,否则 null);`desktopUpdateLabel(state, version)` / `showRestart(state)` / `showRetry(state)` / `hasDesktopUpdateBadge(state)` / `RESTART_HINT`;DOM 钩子 `data-ui=settings-toggle`(收起的「设置」行)/ `update-badge`(那一行上的圆点)/ `update-status` / `update-retry`(弹层里)/ `update-restart`(**收起的那一行上**)—— e2e desktop_update 与云 Windows 判据点它们 |
 
 更新状态(主进程 → 前端同一形状):`{phase: idle|checking|latest|downloading|downloaded|error, version?, percent?, error?}`。
 
@@ -333,4 +336,6 @@ runtime_delivery_change 0.99 / judging_surface_change 0.91 / deploy_target_outsi
   窗口内跳外站不离开工作台、退出后零进程、硬杀主进程 30 秒内收干净。
 - E4 更新:先不开替身源 ⇒ 更新一栏说「没查到」不说「已是最新」、出现「重试」;开源点重试 ⇒ 下好、侧栏出现「重启以更新」
   → 点它 → 向导按两下 → 新版应答、在前台、版本三方一致、原目录、1 条卸载项、资料不变、实下 < 10%、旧 blockmap 取自 `download/v<旧版>/`。
-- 业主真机(T6):A0 界面出来了吗;装新版时旧版在托盘里 → 装完资料/key/档案都在;下一版走一次「重启以更新」;两台错开装。
+- **攻题后补(`/root/aiwork/logs/opendesign-electron-shell-t4-attack.out`,23 条逐条处置见 `evidence/20260922-t4-attack-disposition.md`)**:`tests/test_desktop_controller.mjs` mc1~mc18(接线:分块解码、版本不一致不加载、fatal 不双弹、调度只排一只、下载失败、装失败重新拉起、外链真外开、托盘 / 右键菜单);h13b(64 线程同时 emit 不粘行)、h14 按语法树认 serve 的字节流实参且 already-running 判前提不成立;c6c 分方向、c10 main.js 真接线、c2 改钉 `$isForceCurrentInstall`、c7c 改钉工具;r8 发布命令;du4b/du8;`tests/e2e/desktop_update.e2e.mjs`(真页面上各状态的 DOM);云 Windows 重排为 **E3 → E2 → E2v → E4 → E6 → E3b → 清空 → E5**(旧版过渡必须是干净机器上的第一件事),E3 植登录口令 / 大脑选择哨兵,E2v 故意改旧后台版本看弹框,E2.repaint 只量窗口内容区,E2.second 100ms 采样新 Python,E4.front 15 秒轮询,E6 等临时卸载器退出 + 配置原样,E5.pages 三页。
+- **延期(发布前 / T6)**:「为哪位用户」点成「所有用户」的真实后果 —— 发布前在云 Windows 探一次、结论写进业主说明(U4 时说的是推断);托盘菜单真点(通知区 UI Automation 不稳,改为 T6 业主清单 + mc17 模板);发布后从生产 `latest/download` 做一次 smoke(T6 发布门)。
+- 业主真机(T6):A0 界面出来了吗;装新版时旧版在托盘里 → 装完资料/key/档案都在;下一版走一次「重启以更新」;两台错开装;托盘三项各点一次。

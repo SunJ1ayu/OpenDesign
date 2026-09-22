@@ -24,8 +24,10 @@ function V(name, ok, detail) {
   console.log(`${ok ? "OK  " : "FAIL"} ${name} :: ${detail}`);
 }
 
-function desktopShot(name) {
-  const r = spawnSync("pwsh", ["-NoProfile", "-File", shotPs1, path.join(out, `${name}.png`)], { encoding: "utf8" });
+function desktopShot(name, rect = null) {
+  const args = ["-NoProfile", "-File", shotPs1, path.join(out, `${name}.png`)];
+  if (rect) args.push("-Rect", `${rect.x},${rect.y},${rect.width},${rect.height}`);
+  const r = spawnSync("pwsh", args, { encoding: "utf8" });
   const text = (r.stdout || "").trim();
   console.log(`  [截图] ${name}: ${text} ${(r.stderr || "").trim()}`);
   try { return JSON.parse(text.split("\n").pop()); } catch { return null; }
@@ -126,22 +128,33 @@ const winState = (app) =>
 
   // 模拟业主再双击一次图标:第二份进程应当把窗口叫出来、自己退出 —— **不许再起一套管家**(表 #9:Electron 的锁先拿)。
   const pyBefore = pythonsUnderInstall();
-  spawn(exe, [], { detached: true, stdio: "ignore" }).unref();
+  const pidsOf = () => new Set(procsUnderInstall().split(", ").filter((x) => /python/i.test(x)).map((x) => x.split(" ")[0]));
+  const known = pidsOf();
+  const second = spawn(exe, [], { detached: true, stdio: "ignore" });
+  const secondGone = new Promise((r) => second.once("exit", () => r(true)));
+  second.unref();
   const t0 = Date.now();
+  const strays = new Set();
   do {
-    await sleep(300);
+    // 攻题 #21:只看 2.5 秒后的进程数抓不到「先起一套管家、撞锁、再退」的瞬时峰值 ⇒ 边等边采新冒出来的 Python
+    for (const p of pidsOf()) if (!known.has(p)) strays.add(p);
+    await sleep(100);
     s = await winState(app);
   } while (!s.visible && Date.now() - t0 < 15000);
   V("E2.second 再双击图标把窗口叫出来", s.visible, `${Date.now() - t0}ms`);
   await sleep(500);
-  const shot = desktopShot("e2-04-restored-500ms");
+  const shot = desktopShot("e2-04-restored-500ms", s.bounds);
   await page.screenshot({ path: path.join(out, "e2-04-restored-500ms.page.png") });
   // 挑战 #17 / ZCode attachWindowsWindowRepaint:「托盘还原后几何正常、画面只剩底色」。
-  // 整屏截图中心 60% 的颜色种数:纯底色 ≈ 1~2 种;工作台界面(字、侧栏、卡片)远多于此。
-  V("E2.repaint 托盘还原后 500ms 屏幕上是界面、不是一片底色", !!shot && shot.colors >= 5, JSON.stringify(shot));
-  await sleep(2500);
+  // **只量窗口内容区**(攻题 #19):纯底色 ≈ 1~2 种;工作台界面(字、侧栏、卡片)远多于此。
+  V("E2.repaint 托盘还原后 500ms 窗口里是界面、不是一片底色", !!shot && shot.samples > 100 && shot.colors >= 5, JSON.stringify(shot));
+  const t1 = Date.now();
+  while (Date.now() - t1 < 3000) { for (const p of pidsOf()) if (!known.has(p)) strays.add(p); await sleep(100); }
+  const secondExited = await Promise.race([secondGone, sleep(10000).then(() => false)]);
   const pyAfter = pythonsUnderInstall();
-  V("E2.second 第二次打开没多起一套管家/后台", pyAfter === pyBefore, `Python 进程 ${pyBefore} → ${pyAfter}`);
+  V("E2.second 第二次打开的那一份自己退了", secondExited, "");
+  V("E2.second 第二次打开从头到尾没冒出新的管家/后台进程", strays.size === 0 && pyAfter === pyBefore,
+    `Python 进程 ${pyBefore} → ${pyAfter};途中冒出过 ${[...strays].join(",") || "无"}`);
 
   // 窗口里只许停在本机工作台(m8~m11 的真机那一半):页面自己往外站跳 ⇒ 交系统浏览器,窗口不动。
   const home = page.url();

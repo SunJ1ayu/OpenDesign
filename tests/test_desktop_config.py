@@ -131,12 +131,14 @@ class C1Installer(unittest.TestCase):
         self.assertEqual(nsis.get("artifactName"), "OpenDesign-${version}-electron-setup.${ext}")
         self.assertEqual(nsis.get("include"), "build/installer.nsh")
 
-    def test_c2_no_skipped_pages_we_decided_to_keep(self):
-        """U3「c吧」+ U4「留着和zcode一样」⇒ 「为哪位用户」页与「完成」页都照 ZCode 留着。
-        第四跑那两个零点击钩子(customInstallMode / customFinishPage)已撤回,不许悄悄加回来。"""
+    def test_c2_the_which_user_page_is_not_forced_away(self):
+        """U4「留着和zcode一样」:「为哪位用户」页照 ZCode 留着。模板里让它消失的开关是把
+        `$isForceCurrentInstall` 置 1(第四跑零点击那版就是这么做的,已撤回)。
+        攻题 #13:原来按宏名禁 customInstallMode / customFinishPage,会误伤正当的定制、又挡不住换个宏名跳页
+        ⇒ 静态这边只钉那个开关;页面序列由云 Windows E5.pages / E4.wizard 按真实向导逐页核。"""
         code = _nsis_code_only(NSH.read_text(encoding="utf-8"))
-        for macro in ("customInstallMode", "customFinishPage"):
-            self.assertEqual(_hits(code, rf"!macro\s+{macro}\b"), [], f"{macro} 回来了 ⇒ 不再是业主选的 C/U4")
+        self.assertEqual(_hits(code, r"StrCpy\s+\$isForceCurrentInstall\s+\"?1"), [],
+                         "「为哪位用户」页被强行跳过 ⇒ 不再是业主选的 U4")
 
     def test_c2c_every_messagebox_answers_itself_in_silent_mode(self):
         """旧判据 installer_silent s2 搬过来:没有 `/SD` 的 MessageBox 在静默装/卸时就停在那儿等人
@@ -168,7 +170,9 @@ class C3Publish(unittest.TestCase):
         self.assertIs(p.get("useMultipleRangeRequest"), False, "GitHub 多段 Range 回 501 ⇒ 退整包(第二跑)")
 
     def test_c3b_no_other_update_source_hides_in_the_repo(self):
-        for f in list(DESKTOP.glob("*.js")) + list((DESKTOP / "lib").glob("*.js")):
+        files = list(DESKTOP.glob("*.js")) + list((DESKTOP / "lib").glob("*.js"))
+        self.assertIn(DESKTOP / "main.js", files, "desktop/main.js 都没有 —— 这条问不出东西(不许空转成绿)")
+        for f in files:
             code = _code_only(f.read_text(encoding="utf-8"))
             self.assertEqual(_hits(code, r"api\.github\.com"), [], f"{f.name} 直连 api.github.com")
             self.assertEqual(_hits(code, r"setFeedURL\s*\("), [], f"{f.name} 在运行时换更新源 ⇒ 构建期那份 publish 形同虚设")
@@ -227,20 +231,47 @@ class C6Contract(unittest.TestCase):
         self.assertEqual(sub(self.declared, TS_SEPS), sub(self.exposed, ","))
         self.assertTrue({"check", "install", "state", "onState"} <= sub(self.declared, TS_SEPS))
 
-    def test_c6c_every_preload_channel_has_a_main_side(self):
-        chans = set(re.findall(r'ipcRenderer\.(?:invoke|send|on)\(\s*["\']([^"\']+)["\']', self.preload))
-        self.assertTrue(chans, "preload 一个通道都没有")
+    def test_c6c_every_preload_channel_has_a_main_side_in_the_right_direction(self):
+        """攻题 #9:同名字符串方向反了照样对得上 —— `invoke` 却只有 `webContents.send`,那一问永远没人答。
+        三张表分开对:invoke↔ipcMain.handle、send↔ipcMain.on、ipcRenderer.on↔webContents.send。"""
         main_side = "\n".join(_code_only(f.read_text(encoding="utf-8"))
                               for f in list(DESKTOP.glob("*.js")) + list((DESKTOP / "lib").glob("*.js"))
                               if f.name != "preload.js")
-        for ch in chans:
-            self.assertTrue(_hits(main_side, rf'(ipcMain\.(handle|on)|\.send)\(\s*["\']{re.escape(ch)}["\']'),
-                            f"通道 {ch} 主进程没人接 ⇒ 前端那一下永远等不到回音")
+        pairs = {"invoke": r"ipcMain\.handle", "send": r"ipcMain\.on", "on": r"webContents\.send"}
+        seen = 0
+        for verb, main_rx in pairs.items():
+            for ch in set(re.findall(rf'ipcRenderer\.{verb}\(\s*["\']([^"\']+)["\']', self.preload)):
+                seen += 1
+                self.assertTrue(_hits(main_side, rf'{main_rx}\(\s*["\']{re.escape(ch)}["\']'),
+                                f"preload 用 ipcRenderer.{verb}('{ch}'),主进程没有对应的 {main_rx.replace(chr(92), '')}('{ch}')"
+                                " ⇒ 前端那一下永远等不到回音")
+        self.assertGreater(seen, 0, "preload 一个通道都没有")
 
     def test_c6d_the_page_cannot_reach_node(self):
         main = _code_only((DESKTOP / "main.js").read_text(encoding="utf-8"))
         for want in (r"contextIsolation\s*:\s*true", r"nodeIntegration\s*:\s*false", r"sandbox\s*:\s*true"):
             self.assertTrue(_hits(main, want), f"main.js 的 webPreferences 里没有 {want} ⇒ 网页够得着 Node")
+
+
+class C10MainIsWired(unittest.TestCase):
+    """攻题 #1 #10 #11:纯函数与控制器写对了、main.js 不调用 ⇒ 全绿而业主那边什么都没发生。
+    行为由 test_desktop_controller.mjs 钉;这里钉 **main.js 真的接上了它们**(第二道,查代码不查注释)。"""
+
+    def test_c10_main_uses_the_tested_pieces(self):
+        main = _code_only((DESKTOP / "main.js").read_text(encoding="utf-8"))
+        for need, why in [
+            (r'require\(\s*["\']\./lib/controller(\.js)?["\']\s*\)', "不经控制器 ⇒ 版本自检 / 调度 / 装失败恢复全是死代码"),
+            (r"createController\s*\(", "控制器没被建出来"),
+            (r"\.hostStdout\s*\(", "管家的输出没交给控制器(分块解码在它里面)"),
+            (r"\.navigate\s*\(", "will-navigate 没问控制器 ⇒ 外链不会交给系统浏览器"),
+            (r'require\(\s*["\']\./lib/menus(\.js)?["\']\s*\)', "托盘 / 右键菜单没用测过的模板"),
+            (r"trayMenuTemplate\s*\(", "托盘菜单不是那三项"),
+            (r"contextMenuTemplate\s*\(", "右键没有复制粘贴(旧版 WebView2 自带,不做是回归)"),
+            (r"[\"']context-menu[\"']", "没接 context-menu 事件"),
+            (r"requestSingleInstanceLock\s*\(", "没有单实例锁 ⇒ 双击两次起两套后台"),
+            (r"windowsHide\s*:\s*true", "起管家时没藏控制台 ⇒ 业主每次开机看到一个黑框"),
+        ]:
+            self.assertTrue(_hits(main, need), f"main.js:{why}(要有 {need})")
 
 
 class C7Retired(unittest.TestCase):
@@ -269,11 +300,13 @@ class C7Retired(unittest.TestCase):
             self.assertEqual(_hits(src, re.escape(gone)), [], f"ds_shell.py 里 {gone!r} 还在(design A:窗口那一半退役)")
         self.assertIn("def start_backend(", src, "后台那一半要留给管家用")
 
-    def test_c7c_release_notes_say_formal_release(self):
-        """挑战 a8:旧 RELEASE.md 写死 --prerelease;`latest/download` 跳过 prerelease ⇒ 照旧发 = 没人收得到更新。"""
+    def test_c7c_release_notes_point_at_the_tested_tool(self):
+        """挑战 a8:旧 RELEASE.md 写死 `--prerelease`;`latest/download` 跳过 prerelease ⇒ 照旧发 = 没人收得到更新。
+        攻题 #15:文档里禁词会误伤正确的警告、提一句也能喂绿 ⇒ 发布命令本身由 release-feed.mjs 生成(r8 钉它的实参),
+        这里只要求发布说明叫人用那个工具,而不是手敲命令。"""
         text = (ROOT / "installer" / "RELEASE.md").read_text(encoding="utf-8")
-        self.assertEqual(_hits(text, r"--prerelease"), [])
-        self.assertIn("release-feed.mjs", text, "发布说明要写改写 latest.yml 那一步(漏了 ⇒ 每次更新整包)")
+        self.assertTrue(_hits(text, r"release-feed\.mjs\s+gh-command"), "发布说明没叫人用生成好的发布命令")
+        self.assertTrue(_hits(text, r"release-feed\.mjs\s+verify"), "发布说明没叫人先核 sha512")
 
 
 class C8NoOldUpdateSurface(unittest.TestCase):

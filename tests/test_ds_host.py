@@ -499,11 +499,37 @@ class H13Stdout(unittest.TestCase):
             self.assertIsInstance(obj.get("event"), str, f"不是协议行:{line!r}")
 
 
+class H13bConcurrentEmit(unittest.TestCase):
+    def test_h13b_events_from_many_threads_never_glue_together(self):
+        """攻题 #4:emit 若分两次写(先 JSON、后换行),看门狗线程与锁回调同时发事件时两条会粘成一行,
+        Electron 那边整行丢弃 ⇒「叫回窗口」「后台死了」偶发消失、日志里还找不到。
+        这里让 64 条线程同一瞬间一起叫 SHOW(锁回调就跑在别的线程上),逐行必须各自解析得出。"""
+        h = Harness(self).start()
+        h.wait_event("ready")
+        cb = h.lock.callbacks["on_show"]
+        gate = threading.Barrier(64)
+
+        def fire():
+            gate.wait()
+            cb()
+
+        ts = [threading.Thread(target=fire) for _ in range(64)]
+        for t in ts:
+            t.start()
+        for t in ts:
+            t.join(5)
+        h.send({"cmd": "quit"})
+        h.finish()
+        shows = [e for e in h.events() if e["event"] == "show"]     # events() 逐行 json.loads,粘行当场抛
+        self.assertEqual(len(shows), 64)
+
+
 class H14RealPipe(unittest.TestCase):
     def test_h14_real_process_speaks_utf8_on_a_chinese_windows_pipe(self):
         """真起一次 `python bin/ds_host.py`,把管道编码设成 gbk(= 中文 Windows 上被重定向的 stdout)。
         空的数据目录 ⇒ 起后台必然失败 ⇒ 必须收到一行**UTF-8** 的 JSON、中文原样。
-        (锁端口若被占或本机回环不通,收到的会是另一条中文 fatal / already-running —— 编码照样要对。)"""
+        (本机回环不通时拿锁失败,收到的是另一条中文 fatal —— 编码照样要对;
+         收到 already-running = 本机有别的实例占着锁位,**前提不成立,判红**,不当绿。)"""
         tmp = Path(self.enterContext(tempfile.TemporaryDirectory()))
         env = dict(os.environ, LOCALAPPDATA=str(tmp), HOME=str(tmp), USERPROFILE=str(tmp),
                    PYTHONIOENCODING="gbk", PYTHONUTF8="0")
@@ -519,16 +545,27 @@ class H14RealPipe(unittest.TestCase):
                 self.fail(f"stdout 里有一行不是 UTF-8 的协议 JSON({exc}):{ln[:120]!r} —— "
                           f"中文 Windows 上业主看到的就是乱码")
         first = events[0]
-        self.assertIn(first.get("event"), ("fatal", "already-running"), f"实际:{events}")
-        if first["event"] == "fatal":
-            msg = first.get("message", "")
-            self.assertRegex(msg, r"[一-鿿]", f"fatal 没有中文人话:{msg!r}")
+        # 攻题 #3:拿到 already-running 时这条什么都没问到(那个事件不带中文)⇒ 不许算绿
+        self.assertNotEqual(first.get("event"), "already-running",
+                            "前提不成立:本机 18788~18792 上已有一份在跑,这次没问到编码 —— 关掉它再跑")
+        self.assertEqual(first.get("event"), "fatal", f"实际:{events}")
+        msg = first.get("message", "")
+        self.assertRegex(msg, r"[一-鿿]", f"fatal 没有中文人话:{msg!r}")
 
     def test_h14b_main_wires_the_byte_streams(self):
-        """serve 只收字节流;main 若把文本流塞进去,编码又回到系统代码页手里。"""
-        src = (ROOT / "bin" / "ds_host.py").read_text(encoding="utf-8")
-        self.assertIn("stdin.buffer", src)
-        self.assertIn("stdout.buffer", src)
+        """serve 只收字节流;main 若把文本流塞进去,编码又回到系统代码页手里。
+        攻题 #3:原来搜字符串,一句注释就能喂饱 ⇒ 改成按语法树认 main() 里**真正传给 serve 的前两个实参**。"""
+        import ast
+        tree = ast.parse((ROOT / "bin" / "ds_host.py").read_text(encoding="utf-8"))
+        main = next((n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "main"), None)
+        self.assertIsNotNone(main, "ds_host.py 没有 main()")
+        calls = [n for n in ast.walk(main) if isinstance(n, ast.Call)
+                 and ((isinstance(n.func, ast.Name) and n.func.id == "serve")
+                      or (isinstance(n.func, ast.Attribute) and n.func.attr == "serve"))]
+        self.assertEqual(len(calls), 1, "main() 里应当恰好调一次 serve(...)")
+        args = [ast.unparse(a) for a in calls[0].args[:2]]
+        self.assertEqual(args, ["sys.stdin.buffer", "sys.stdout.buffer"],
+                         f"传给 serve 的是 {args} —— 不是字节流")
 
 
 if __name__ == "__main__":

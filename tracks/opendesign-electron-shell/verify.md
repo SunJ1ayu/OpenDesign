@@ -36,6 +36,13 @@ runlog: t3-red-py rc=1 commit=521bdaf dirty=yes at=2026-09-22T08:17:19Z file=tra
 runlog: t4pre-retarget-red rc=0 commit=6e397b4 dirty=yes at=2026-09-22T08:24:32Z file=tracks/opendesign-electron-shell/evidence/20260922T082432Z-01-t4pre-retarget-red.txt
 ```
 
+派活前攻题(23 条,处置 `evidence/20260922-t4-attack-disposition.md`)之后补的判据,在旧实现上全红
+(node 42/42 红、python 15 条红;`rc=0` 同样是管道末尾 grep 的;desktop_update e2e 已改成红在有名字的 FAIL 上):
+
+```
+runlog: t4pre-attackfix-red rc=0 commit=dd2d2e1 dirty=yes at=2026-09-22T09:09:56Z file=tracks/opendesign-electron-shell/evidence/20260922T090956Z-01-t4pre-attackfix-red.txt
+```
+
 另:c1/c2/c2b/c5 对着探路版的 package.json / installer.nsh 跑过是绿的(证明判据**过得去**,不是出了一道做不对的题);
 c3 对探路版是红的 —— 对的,探路版的 publish 指本机替身源。
 
