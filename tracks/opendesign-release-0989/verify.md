@@ -23,10 +23,9 @@ runlog -t opendesign-release-0989 -- <判据命令>
 ```
 
 ```
-<粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
- **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
- 收据得进 git(5d)。一份收据都没有的话,写一行
- 「- 无机器证据:<理由>」认账 —— 沉默不算理由(5c)。>
+# 旧壳(pywebview)0.98.9 安装包与清单,从未发布
+runlog: build-installer-0989-release rc=0 commit=0081673 dirty=no at=2026-09-21T14:28:10Z file=tracks/opendesign-release-0989/evidence/20260921T142810Z-01-build-installer-0989-release.txt
+runlog: make-update-manifest-0989 rc=0 commit=0081673 dirty=yes at=2026-09-21T14:30:50Z file=tracks/opendesign-release-0989/evidence/20260921T143050Z-01-make-update-manifest-0989.txt
 ```
 
 ## Review
@@ -55,7 +54,8 @@ runlog -t opendesign-release-0989 -- <判据命令>
 
   > 只写发现。腿的身份/降级不在这儿抄第二遍:日志自带身份牌(降级横幅 + 视野边界),
   > 花名册在上一格,查工件不查自述。延期 = 留在这里,不自动开新单。
-- arbitrated verdict (主裁): <...>
+- arbitrated verdict (主裁): **ARCHIVED-SUPERSEDED** —— 0.98.9 从没发出去(发布页被权限拦,命令交业主后未执行);09-22 换壳单 `opendesign-electron-shell` 归档 PASS,
+  0.98.9 改为以 Electron 形态、正式 release `v0.98.9` 发出(含本单要发的「每家厂商各存各的 key」),由 `opendesign-electron-release-0989` 接手。本单的旧壳安装包与清单作废,不上传。
   > 这里写理由；最终枚举写进 `decision.json.outcome.verdict`。归档时仍为空会被
   > `track-record validate --phase archive` 挡住，`track list` 也会打 ⚠️。
 
