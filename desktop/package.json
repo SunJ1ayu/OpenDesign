@@ -1,0 +1,67 @@
+{
+  "name": "opendesign",
+  "productName": "OpenDesign",
+  "version": "0.98.9",
+  "private": true,
+  "description": "OpenDesign 桌面外壳(Electron)。版本号唯一来源是 bin/ds_web.py 的 VERSION,改版本两处一起改(判据 c4)。",
+  "author": "OpenDesign",
+  "main": "main.js",
+  "dependencies": {
+    "electron-updater": "6.8.9"
+  },
+  "devDependencies": {
+    "electron": "44.4.3",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.opendesign.desktop",
+    "productName": "OpenDesign",
+    "executableName": "OpenDesign",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "loading.html",
+      "lib/**"
+    ],
+    "extraResources": [
+      {
+        "from": "pkg/python",
+        "to": "python"
+      },
+      {
+        "from": "pkg/ds",
+        "to": "ds"
+      },
+      {
+        "from": "build/icon.ico",
+        "to": "opendesign.ico"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "shortcutName": "OpenDesign",
+      "include": "build/installer.nsh",
+      "installerLanguages": ["zh_CN"],
+      "language": "2052",
+      "artifactName": "OpenDesign-${version}-electron-setup.${ext}",
+      "warningsAsErrors": false
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://github.com/SunJ1ayu/OpenDesign/releases/latest/download",
+        "useMultipleRangeRequest": false
+      }
+    ]
+  }
+}

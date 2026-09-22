@@ -1,0 +1,6 @@
+# 构建产物与 CI 里解开的 Python 包,不进仓(不带尾斜杠:worktree 里的同名符号链接也要挡住)
+node_modules
+dist
+dist-v1
+pkg
+upd
