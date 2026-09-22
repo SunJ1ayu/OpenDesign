@@ -1,7 +1,7 @@
 # Proposal: OpenDesign 0.98.9 发布(Electron 外壳首版,正式 release `v0.98.9`)
 
-- Date: 2026-09-23
-- 业主原话(09-23 00:0x):「ok 你测完直接发布吧」—— 授权推送源码与发布;问「直接更新还是卸载再下载」。
+- Date: 2026-09-22
+- 业主原话(09-22 23:4x):「ok 你测完直接发布吧」—— 授权推送源码与发布;问「直接更新还是卸载再下载」。
 - 把已归档 PASS 的 `opendesign-electron-shell`(含已归档的 `opendesign-per-vendor-keys`,0.98.9 从没发出去)发成正式 release `v0.98.9`。
   取代 `opendesign-release-0989`(旧壳 prerelease 方案,ARCHIVED-SUPERSEDED)。换壳单移交过来的承诺 ⑤:业主真机 A0。
 
