@@ -1,8 +1,9 @@
 # T3 判据迁移账(2026-09-22,主 agent 亲写)
 
 design.md「判据迁移账」的兑现:**每个要退役或改写的旧判据,写清它守的是什么 → 新判据编号,或因行为退役而不再需要(理由)**。
-不许只删不记。删除动作发生在 T4 —— 和它守的那段代码**同一个 commit** 删,commit 信息点名本表的行;
-「改写」类(判据留着、只换注入对象/目标文件)在 T4 对应那一步**先单独 commit 判据**,再 commit 实现。
+不许只删不记。**执行方式(09-22 派活前定)**:判据侧的删除与改写全由主 agent 在一个单独的判据 commit 里做完(执行腿不许删文件、
+不许动判卷);退役的**产品代码文件**也由主 agent 在派活前删掉(腿只负责把剩下的接好)。因此派活前的基线上:
+新判据红、改写过的判据红(目标还不存在)、被删代码的调用方红 —— 全部由 T4 实现变绿。
 
 新判据(本单 T3 写,先单独 commit):
 `tests/test_ds_host.py` h1~h15 · `tests/test_desktop_main.mjs` m1~m22 · `tests/test_desktop_release.mjs` r1~r7 ·
@@ -39,7 +40,7 @@ design.md「判据迁移账」的兑现:**每个要退役或改写的旧判据,�
 
 ## 二、逐文件去向
 
-### A. 整个文件退役(它守的代码整个删掉;T4 与代码同 commit 删)
+### A. 整个文件退役(它守的代码整个删掉;判据文件在派活前的判据 commit 里删,被测代码由主 agent 派活前删)
 
 | 文件(条数) | 守的是什么 | 去向 / 不再需要的理由 |
 |---|---|---|
@@ -58,30 +59,30 @@ design.md「判据迁移账」的兑现:**每个要退役或改写的旧判据,�
 | test_window_native_frame.py(13) | WM_NCCALCSIZE 接管、真最大化 | 同上;E2.max「最大化不盖任务栏」保留了唯一业主可见的那条 |
 | test_window_frame_experiment.py(9) | 窗口动画实验开关(`关掉窗口动画.on`) | 同上;逃生门随手补的窗口层一起消失(`frame_animation_on` 与 `DISABLE_FLAG` 在 T4 删) |
 | test_window_frame_late.py(6) | 边框动作挪到首次使用、量了不对自动撤 | 同上 |
-| test_win_ctypes_decls.py(4) | ds_shell 里 ctypes windll 调用都声明 argtypes/restype | 那些调用随 WindowApi 删掉。⚠️ **T4 核一遍**:ds_shell 剩下的后台那一半若还有 windll 调用(`alert` 的 MessageBoxW 会被管家接走),这个文件就**不退役**、改成扫剩下的 |
 | test_update_ui.mjs(46) | 旧更新一栏的措辞、发布说明摘要、下载链接闸、自动装倒计时 | u3 → du4;u1/u5 → du5/du1;u4 → du2;蓝点 u(hasUpdateBadge)→ du8;发布说明摘要/下载链接(u6~u37、rl11、ac*)随「下载去发布页」这条路一起退役 —— 新流程在应用内下好再装 |
 | test_startup_gate.mjs(10) | 打开软件时的更新闸画面 | 行为退役(同 test_ds_update_startup) |
 | e2e/update_notice.e2e.mjs、e2e/auto_update_countdown.e2e.mjs | 旧更新一栏、倒计时的浏览器 e2e | 同上;新流程的真机 e2e = E4(offline → 重试 → 按钮在收起那一行 → 交棒) |
 | e2e/api_partial_injection.e2e.mjs | pywebview 分步注入那一瞬(方法还没挂上) | preload 在页面脚本之前就位,没有「注入晚于首帧」;残余的「半个对象」情形 → du11(缺一个方法就当没有) |
-| mutation-ds-update*.sh、mutation-update-*.sh/.py、mutation-auto-update-*.sh、mutation-ds-web-update.sh、mutation-window-chrome.sh、mutation-native-frame.sh、mutation-frame-*.sh、mutation-shell-restart.sh(交棒部分) | 上面各文件的变异收据 | 随被测文件删;本单的变异在 T5 前对新判据重做 |
+| mutation-ds-update*.sh、mutation-update-*.sh/.py、mutation-auto-update-*.sh、mutation-ds-web-update.sh、mutation-window-chrome.sh、mutation-native-frame.sh、mutation-frame-*.sh、mutation-shell-restart.sh、mutation-startup-diag.sh | 上面各文件的变异收据(shell-restart 一半是交棒;startup-diag 一半是旧探针判定器) | 随被测文件删;mutation-ds-shell-core.sh 只去掉 M13(ShellState 退出加锁 → m22)。本单的变异在 T5 前对新判据重做 |
 
 ### B. 文件保留、部分用例退役或改写
 
 | 文件 | 退役 | 改写 | 保留 |
 |---|---|---|---|
 | test_ds_shell_core.py | `SingleInstance` 的 m1~m4(UPDATE-HANDOFF 动词:唯一发送方是退役的 ds-web 更新端点);`ShellState` f1~f9(状态机随 Shell 删;保证去向见上表) | — | b1~b14 与其余全部(锁、端口、配置、Supervisor、Job 都留给管家用) |
-| test_ds_shell_wiring.py | w8/w9(锁接交棒回调 / 交棒真收摊) | w3/w4 的目标从 `ds_shell.py` 换成 `ds_host.py`(锁在管家里建)—— 行为版已由 h1/h11 钉,静态版留作第二道 | w1/w2/w5/w10(`start_backend` 留在 ds_shell.py) |
+| test_ds_shell_wiring.py | w8/w9(锁接交棒回调 / 交棒真收摊);w6/w7(看门狗问 take_dead、只看一眼 —— 看门狗搬进管家,h7 用「poll_dead 一调就炸」的假 Supervisor 从行为上钉,比查函数名强) | w3/w4 的目标从 `ds_shell.py` 换成 `ds_host.py`(`make_lock(on_restart=…)` / `start_backend(lock_port=…)`)—— 行为版已由 h1/h11 钉,静态版留作第二道 | w1/w2/w5/w10(`start_backend` 留在 ds_shell.py) |
 | test_ds_shell_startup.py | — | — | s1~s6 全留(`start_backend` 不动) |
-| test_startup_diag.py | s6(`window.shown` 由 pywebview shown 事件报 → Electron 发 window-shown,h15);s18~s22(旧 windows-package-probe 的判定器与收据双路;该 workflow 退役) | s17 读的文件从 `ds_shell.py` 换成 `ds_host.py`(`main.entered` / `manifest.done` / `lock.acquired` 跟着 `main()` 搬家);`shell.imports_done` 仍在 ds_shell 模块尾 | s1~s5、s7~s16 全留(ds_diag 不动)。s18~s22 的**原则**已搬进 e2e.ps1:子驱动 rc 必判(`E2/E4 整体`)、每个等待都有墙钟上限、有 FAIL 就 exit 1 —— **不再有单独的判定器进程与收据文件,所以不移植那几条元判据**(接受的偏差,写进 verify) |
+| test_startup_diag.py | s6(`window.shown` 由 pywebview shown 事件报 → Electron 发 window-shown,h15);s14/s15(首帧看门接在 `Shell` 上 → h10/h10b);s18~s22(旧 windows-package-probe 的判定器 `bin/probe_verdict.py` 与收据双路;该 workflow 退役,判定器进 c7 退役清单) | s17 读的文件从 `ds_shell.py` 换成 `ds_host.py`(`main.entered` / `manifest.done` / `lock.acquired` 跟着 `main()` 搬家);`shell.imports_done` 仍在 ds_shell 模块尾 | s1~s5、s7~s16 全留(ds_diag 不动)。s18~s22 的**原则**已搬进 e2e.ps1:子驱动 rc 必判(`E2/E4 整体`)、每个等待都有墙钟上限、有 FAIL 就 exit 1 —— **不再有单独的判定器进程与收据文件,所以不移植那几条元判据**(接受的偏差,写进 verify) |
 | test_shell_window_contract.py | x1/x7/x8/x9(八个把手随表 #10 删);x12(等 pywebview.api 到位) | x2/x3 → c6(名单对表的 Electron 版);x10 → m21 | x4/x5/x6/x11 改读新文件后保留(浏览器不画、没东西盖住窗口栏、点按钮不连带拖动、标记是唯一闸) |
 | test_shell_window.mjs | s-w7(把手指针) | — | s-w1~s-w2c |
 | test_no_console_window.py | — | — | 全留:Python 那侧起子进程仍走 `spawn_kwargs()`;管家本身由 Electron `spawn(…, {windowsHide:true})` 起 —— T4 核 main.js 有 windowsHide(E2 截图里不许有黑框) |
 | test_shipped_names.py | — | — | 全留;T4 核它的扫描范围把 `ds_host.py` 算进去(n1「有文件可看」会提醒) |
 | test_comment_references.py | — | — | 全留;删掉 ds_auto_update 等之后,注释里点名它们的地方要一起清(这道闸会红,是对的) |
+| test_win_ctypes_decls.py | — | 豁免清单去掉 `ReleaseCapture`(随 WindowApi 删;留着 = 空头豁免,它自己的第二条会红) | 全留:`alert` 的 MessageBoxW 还在 ds_shell,ds_shell_core 的 Job 调用也在 |
 | test_installer_slim.py | — | — | 全留(打包脚本 build-package.sh 保留,加 `--electron` 形态) |
 | e2e/shell_chrome.e2e.mjs | 八个把手那几段 | 注入对象 `window.pywebview.api` → `window.odShell`(断言不变:浏览器零按钮、外壳里三按钮真点、没东西盖住) | 其余 |
 | e2e/startup_report.e2e.mjs | 「pywebviewready 之后补发」那一段 | 注入对象换成 `window.odShell.reportStartup`(preload 在页面前就位 ⇒ 不再需要缓存补发;断言「真被调用、只报白名单事件」不变) | 其余 |
-| e2e/helpers.mjs | 拦 `/api/update/check` 那段(端点没了) | — | 其余 |
+| e2e/helpers.mjs | — | — | 全留(只在注释里讲 `/api/update/check` 的由来,没有拦截代码;核过) |
 
 ### C. 云 Windows workflow
 

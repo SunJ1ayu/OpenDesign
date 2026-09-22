@@ -156,19 +156,7 @@ mutate_and_expect M12 test_e5_home_points_at_our_own_data_dir \
   '            "HOME": str(user_home),' \
   '            "HOME": base_env.get("HOME", str(user_home)),'
 
-# M13 退出不加锁 —— 三个线程一起点退出会收两遍
-mutate_and_expect M13 test_f9_the_check_and_set_in_on_quit_is_not_two_steps \
-  '        with self._lock:
-            if self.exiting:
-                return
-            self.exiting = True
-            self.visible = False
-        self.on_stop()' \
-  '        if self.exiting:
-            return
-        self.on_stop()
-        self.exiting = True
-        self.visible = False'
+# M13(ShellState 退出加锁)随 ShellState 退役(track opendesign-electron-shell 判据迁移账;保证去向 m22)
 
 # M14 「谁死了」和「为什么死」退回分两眼看 —— 两眼之间业主存了 key 触发重启,
 #     名册一变就是「名字有、原因空」:c20 刚消灭的没线索弹窗换个入口又长回来

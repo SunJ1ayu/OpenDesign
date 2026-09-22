@@ -1,0 +1,25 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    t4pre-retarget-red
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_shell_wiring\ tests.test_startup_diag\ tests.test_win_ctypes_decls\ 2\>\&1\ \|\ grep\ -E\ \"\^\(ERROR\|FAIL\):\|\^Ran\|\^OK\|\^FAILED\"\;\ node\ tests/e2e/shell_chrome.e2e.mjs\ 2\>\&1\ \|\ grep\ -E\ \"FAIL\|全绿\|失败\"\ \;\ node\ tests/e2e/startup_report.e2e.mjs\ 2\>\&1\ \|\ grep\ -E\ \"FAIL\|全部通过\|不通过\"
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  6e397b4
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-22T08:24:32Z
+---------------- 输出开始 ----------------
+ERROR: test_w3_the_lock_carries_a_restart_callback (tests.test_ds_shell_wiring.ShellWiring.test_w3_the_lock_carries_a_restart_callback)
+ERROR: test_w4_start_backend_receives_the_lock_port (tests.test_ds_shell_wiring.ShellWiring.test_w4_start_backend_receives_the_lock_port)
+ERROR: test_s17_the_startup_path_marks_every_stage (tests.test_startup_diag.S17TheBigBlobIsSplit.test_s17_the_startup_path_marks_every_stage)
+FAIL: test_every_windll_call_declares_its_argtypes (tests.test_win_ctypes_decls.WinCtypesDecls.test_every_windll_call_declares_its_argtypes)
+Ran 33 tests in 0.269s
+FAILED (failures=1, errors=3)
+  FAIL: 自绘把手一个都没有(会压在系统缩放边上;实测 8 个)
+  FAIL: 顶边 2px 是拖动带(缩放边由系统在窗口外沿给,不在页面里;实测 {"cls":"win-grip win-grip-top","ui":"","tag":"div","ownerUi":""})
+  FAIL: 点最小化按钮 ⇒ 叫了 odShell.minimize()(实测 [])
+  FAIL: 点最大化按钮 ⇒ 叫了 odShell.toggleMaximize()(实测 [])
+  FAIL: 点关闭按钮 ⇒ 叫了 odShell.close()(实测 [])
+❌ shell_chrome e2e 有 5 条失败
+  FAIL: reportStartup 被叫到了(实测 0 次)—— 一次都没有 = 这条链在真环境里是断的
+  FAIL: 收到 frontend.frame_submitted —— 收不到的话外壳的首帧看门每次都会误报
+2 条不通过
+---------------- 输出结束 ----------------
+runlog: t4pre-retarget-red rc=0 commit=6e397b4 dirty=yes at=2026-09-22T08:24:32Z file=tracks/opendesign-electron-shell/evidence/20260922T082432Z-01-t4pre-retarget-red.txt

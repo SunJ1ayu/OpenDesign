@@ -50,8 +50,8 @@ EXEMPT = {
     # 参数是 (NULL, str, str, uint):没有一个是需要 64 位的句柄。
     # 第一个实参在代码里写死 None ⇒ ctypes 传 NULL 指针,不经过 int 截断那条路。
     "MessageBoxW",
-    # 无参数。
-    "ReleaseCapture",
+    # (「ReleaseCapture」2026-09-22 随 WindowApi 退役:自绘拖动交给 Electron 的 app-region。
+    #   豁免里留着一个已经没人调的名字,下面那条闸会红 —— 这正是它存在的理由。)
 }
 
 

@@ -19,6 +19,7 @@ import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHELL = os.path.join(ROOT, "bin", "ds_shell.py")
+HOST = os.path.join(ROOT, "bin", "ds_host.py")
 
 
 def _calls(tree: ast.AST):
@@ -68,15 +69,30 @@ class ShellWiring(unittest.TestCase):
             self.assertIn("key_var", self.kwargs(call),
                           "变量名没传 ⇒ 有 key 时外壳会在启动阶段抛 ValueError")
 
+    # ---- 锁与后台在管家里接(track opendesign-electron-shell)-----------------------
+    # 2026-09-22 判据迁移账:锁在 `bin/ds_host.py` 里建(Electron 起管家,ds_shell 只剩后台那一半)。
+    # w3/w4 **跟着接线点搬家,守的东西不变**;行为版由 tests/test_ds_host.py h1/h11 钉,这里是第二道。
+    # w6/w7(看门狗问 take_dead、只看一眼)退役:看门狗搬进管家,h7 用一个 poll_dead/dead_reports
+    # 一被调就炸的假 Supervisor 从行为上钉同一件事 —— 比查函数名更强。
+
+    @staticmethod
+    def _host_calls():
+        with open(HOST, encoding="utf-8") as fh:
+            return _calls(ast.parse(fh.read(), filename=HOST))
+
     def test_w3_the_lock_carries_a_restart_callback(self):
         """只接 on_show 的话,ds-web 发来的 RESTART-BACKEND 会被当成"叫窗口到前台" ——
         业主看到窗口闪一下,key 却还是没生效。"""
-        for call in self.find("InstanceLock"):
+        hits = [c for c in self._host_calls() if _name_of(c) == "make_lock"]
+        self.assertTrue(hits, "ds_host.py 里没有 make_lock(...) 调用(接缝见 design.md)")
+        for call in hits:
             self.assertIn("on_restart", self.kwargs(call),
                           "锁没接重启回调 ⇒ 重启帧到了也没人处理")
 
     def test_w4_start_backend_receives_the_lock_port(self):
-        for call in self.find("start_backend"):
+        hits = [c for c in self._host_calls() if _name_of(c) == "start_backend"]
+        self.assertTrue(hits, "ds_host.py 里没有调用 start_backend(...)")
+        for call in hits:
             self.assertIn("lock_port", self.kwargs(call),
                           "start_backend 没拿到锁端口,build_env 只能传 None")
 
@@ -84,75 +100,6 @@ class ShellWiring(unittest.TestCase):
         """缺 key 时网关不许起(它会死在缺变量上,而业主要的是那个引导页)。
         判断本身在 core.startup_plan(判据 d1/d2),这里只查外壳真的问过它。"""
         self.find("startup_plan")
-
-    def test_w6_the_watchdog_asks_why_a_leg_died_not_just_that_it_did(self):
-        """08-16 现场:外壳只打了 `[后台退出] ['网关']`,一个退出码都没有 ⇒
-        拿到两份真机日志也答不了「它是被杀的还是自己崩的」。
-        带退出码 + 日志尾巴的是 `take_dead()`(判据 c20/c21);
-        这一条只查外壳**真的问了它** —— 光在 core 里做好没人用,等于没做。
-
-        08-17:入口从 `dead_reports()` 换成 `take_dead()`(F5 只看一眼)。
-        **题面跟着实现搬,不是放宽** —— 守的仍是"死了要说清为什么",
-        而且由下面的 w7 补上了更强的一问:不许分两次看。"""
-        self.find("take_dead")
-
-    def test_w7_the_watchdog_looks_once_not_twice(self):
-        """F5:先问「谁死了」再问「为什么」,两问之间名册会变(业主恰好存了 key
-        触发重启)⇒ 弹窗照弹、原因是空的 —— c20 消灭掉的那种没线索的弹窗
-        换个入口又长出来。行为面由 c21 咬着,这一条守的是**外壳这侧不许再问两遍**。"""
-        fn = next((n for n in ast.walk(self.tree)
-                   if isinstance(n, ast.FunctionDef) and n.name == "run_watchdog"), None)
-        self.assertIsNotNone(fn, "看门狗没了 —— 腿死了没人说话")
-        names = {_name_of(c) for c in _calls(fn)}
-        self.assertIn("take_dead", names, "看门狗没用单次快照")
-        for two_step in ("poll_dead", "dead_reports"):
-            self.assertNotIn(two_step, names,
-                             f"看门狗还在调 {two_step}() ⇒ 又变成分两眼看,"
-                             "两眼之间名册一变就是「名字有、原因空」")
-
-    # ---- 更新交棒(track opendesign-in-app-update-install)--------------------
-
-    def test_w8_the_lock_carries_an_update_callback(self):
-        """只接 on_show/on_restart 的话,ds-web 发来的 UPDATE-HANDOFF 会被当成
-        「把窗口叫到前台」—— 业主看到窗口闪一下,更新一动没动。
-
-        而这一条比 w3 更要紧:那时 `.new` 已经装好、接力脚本已经在跑了。
-        外壳不收摊 ⇒ 接力脚本等不到端口空 ⇒ 超时删掉 `.new` ⇒ 白下 43MB。
-        """
-        for call in self.find("InstanceLock"):
-            self.assertIn("on_update", self.kwargs(call),
-                          "锁没接交棒回调 ⇒ 交棒帧到了也没人处理,更新永远走不完")
-
-    def test_w9_the_update_callback_actually_tears_the_backend_down(self):
-        """接上了还不够 —— 得接到**真的会收摊**的那个东西上。
-
-        h3 那条教训:静态闸看得见调用、看不见空转。所以这里再问一步:
-        `on_update=` 指过去的那个名字,它的函数体里必须真的走**退出**那条路。
-
-        🔴 **这条断言第一版写窄了,而窄的那版会逼出一个错的实现**(2026-09-08,
-        读 `ds_shell.py` 时发现):我原来要的是 `stop_backend` / `shutdown`。
-        可 `stop_backend` 只收后台两条腿 —— **外壳自己那个 python 还活着,
-        还攥着 `$INSTDIR` 里的文件,改名必然失败。**
-        真正的退出是 `ShellState.on_quit()`:它是 `on_stop()` **加上** `ui.destroy()`,
-        而且自带幂等(`exiting` 标志,行为判据在 test_ds_shell_core 里钉着)。
-        ⇒ 断言搬到问得出、而且问得对的地方:**必须是 on_quit,不是只停后台。**
-        这是加强,不是放宽 —— 原来的写法会让一个关不掉自己的实现拿到绿灯。
-        """
-        target = None
-        for call in self.find("InstanceLock"):
-            for kw in call.keywords:
-                if kw.arg == "on_update":
-                    target = kw.value
-        self.assertIsNotNone(target, "没接 on_update(w8 会先红)")
-        name = getattr(target, "attr", None) or getattr(target, "id", None)
-        self.assertIsNotNone(name, "on_update 接的不是一个具名函数,静态闸看不进去")
-        fn = next((n for n in ast.walk(self.tree)
-                   if isinstance(n, ast.FunctionDef) and n.name == name), None)
-        self.assertIsNotNone(fn, "on_update 指向 %s,但 ds_shell.py 里没有这个函数" % name)
-        called = {_name_of(c) for c in _calls(fn)}
-        self.assertIn("on_quit", called,
-                      "%s() 没走真正的退出路径(state.on_quit)——"
-                      "交棒之后软件不会关,接力脚本会一直等到超时" % name)
 
     # ---- 每家厂商各存各的 key(track opendesign-per-vendor-keys)------------------
 

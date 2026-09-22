@@ -11,9 +11,14 @@
 // 健康启动会被报成"尺寸异常"、且永不报成功。
 //
 // 覆盖:
-//   A 页面加载后,`report_startup` **真的被调用了**(桥在 pywebviewready 之后补发)
+//   A 页面加载后,`odShell.reportStartup` **真的被调用了**
 //   B 一定收到 `frontend.frame_submitted`,**且不许收到 frontend.error**
 //   C 事件名都在白名单内(外壳那边会丢弃白名单外的,两边要对得上)
+//
+// 🔴 2026-09-22 改写(track opendesign-electron-shell 判据迁移账):桥由 `window.pywebview.api.report_startup`
+//    换成 preload 给的 `window.odShell.reportStartup`。preload 在页面脚本**之前**就位 ⇒ 桩在 addInitScript 里
+//    一次装全,不再模拟「注入晚于首帧、派 pywebviewready 补发」那一段(那一瞬在 Electron 里不存在)。
+//    A/B/C 三条断言一字未动。
 //
 // 跑法:node tests/e2e/startup_report.e2e.mjs(自起 ds_web 于 8831)
 import { spawn } from "node:child_process";
@@ -61,27 +66,19 @@ try {
   browser = await launchBrowser();
   const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
 
-  // 装一个假的 pywebview 桥 —— 在页面脚本之前注入,走的正是真实那条路
-  // (外壳注入得比页面晚,所以还要派一次 pywebviewready 让缓存补发)。
+  // 装一个假的 odShell —— 和 preload 一样在页面脚本之前就位。
   await page.addInitScript(() => {
     const seen = [];
     window.__seen = seen;
-    window.pywebview = {
-      api: {
-        report_startup(event, detail) { seen.push([event, detail]); return Promise.resolve({ accepted: true }); },
-        // 🔴 桩必须把前端会叫的方法**补全**:第一版只放了 report_startup,
-        //    于是 WindowChrome 叫 window_state() 时页面真抛异常,B 段红在了
-        //    我自己的桩上。报警器没错、桩不全 —— 记在这儿免得下个人再踩。
-        window_state() { return Promise.resolve({ maximized: false }); },
-        minimize() { return Promise.resolve(null); },
-        toggle_maximize() { return Promise.resolve({ maximized: false }); },
-        close_window() { return Promise.resolve(null); },
-        begin_drag() { return Promise.resolve(null); },
-        begin_resize() { return Promise.resolve(null); },
-      },
+    const ok = (v = null) => () => Promise.resolve(v);
+    // 🔴 桩必须把前端会叫的方法**补全**(旧版第一次只放了上报那一个,WindowChrome 叫别的方法时
+    //    页面真抛异常,B 段红在了桩上);缺一个的话 shellApi() 还会整个当它不存在(du11)。
+    window.odShell = {
+      reportStartup(event, detail) { seen.push([event, detail]); return Promise.resolve(true); },
+      windowState: ok({ maximized: false }), minimize: ok(), toggleMaximize: ok({ maximized: false }),
+      close: ok(), onWindowState: () => () => {},
+      update: { check: ok(), install: ok(false), state: ok({ phase: "idle" }), onState: () => () => {} },
     };
-    // 模拟外壳"注入完成"的时机:页面已经跑了一会儿才派。
-    setTimeout(() => window.dispatchEvent(new Event("pywebviewready")), 50);
   });
 
   await page.goto(`${base}/?shell=1`, { waitUntil: "domcontentloaded" });
@@ -98,7 +95,7 @@ try {
 
   console.log("\n== A 桥真的被调用了");
   expect(seen.length > 0,
-    `report_startup 被叫到了(实测 ${seen.length} 次)—— 一次都没有 = 这条链在真环境里是断的`);
+    `reportStartup 被叫到了(实测 ${seen.length} 次)—— 一次都没有 = 这条链在真环境里是断的`);
 
   console.log("\n== B 一定报出「画出来了」,且不许报错");
   expect(names.includes("frontend.frame_submitted"),

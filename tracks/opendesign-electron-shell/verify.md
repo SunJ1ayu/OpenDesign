@@ -29,6 +29,13 @@ runlog: t3-red-node rc=1 commit=521bdaf dirty=yes at=2026-09-22T08:17:14Z file=t
 runlog: t3-red-py rc=1 commit=521bdaf dirty=yes at=2026-09-22T08:17:19Z file=tracks/opendesign-electron-shell/evidence/20260922T081719Z-01-t3-red-py.txt
 ```
 
+派活前的判据 commit(旧判据按迁移账删 / 改写)之后,改写过的几条在旧实现上红(`rc=0` 是管道末尾那个 grep 的,
+红在内容里:w3/w4/s17 找不到 ds_host.py、ctypes 豁免失效、shell_chrome 5 条、startup_report 2 条):
+
+```
+runlog: t4pre-retarget-red rc=0 commit=6e397b4 dirty=yes at=2026-09-22T08:24:32Z file=tracks/opendesign-electron-shell/evidence/20260922T082432Z-01-t4pre-retarget-red.txt
+```
+
 另:c1/c2/c2b/c5 对着探路版的 package.json / installer.nsh 跑过是绿的(证明判据**过得去**,不是出了一道做不对的题);
 c3 对探路版是红的 —— 对的,探路版的 publish 指本机替身源。
 

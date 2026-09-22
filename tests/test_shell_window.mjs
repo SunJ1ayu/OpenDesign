@@ -8,9 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  RESIZE_EDGES,
   SHELL_MARK,
-  cursorFor,
   inDesktopShell,
 } from "../web/src/shellWindow.ts";
 
@@ -58,15 +56,6 @@ test("s-w2c 长得像的参数不许假命中(别用子串匹配)", () => {
   assert.equal(inDesktopShell(win("?noshell=1")), false);
 });
 
-// ── ③ 名单本身 ──────────────────────────────────────────────────────
-test("s-w7 八个方向每个都有指针,且指针方向对得上", () => {
-  assert.equal(RESIZE_EDGES.length, 8);
-  for (const edge of RESIZE_EDGES) {
-    assert.match(cursorFor(edge), /^(ns|ew|nwse|nesw)-resize$/, `${edge} 没有指针`);
-  }
-  // 对角线两组不许配反:配反了鼠标显示的方向和实际拉的方向是拧着的
-  assert.equal(cursorFor("topleft"), cursorFor("bottomright"));
-  assert.equal(cursorFor("topright"), cursorFor("bottomleft"));
-  assert.notEqual(cursorFor("topleft"), cursorFor("topright"));
-});
-
+// ── ③ 八个方向的指针(s-w7)—— 2026-09-22 退役(track opendesign-electron-shell 判据迁移账):
+//    换 Electron 后缩放边是系统的(frame:false 不关 thickFrame),八个自绘把手连同 RESIZE_EDGES /
+//    cursorFor 一起删(表 #10)。「按钮不被拖动吃掉」由 tests/test_desktop_ui.mjs du12 接着钉。

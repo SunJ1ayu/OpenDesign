@@ -35,6 +35,13 @@
 //     把 `onClick` 换成 `() => {}`,A/B/C/D 加上契约闸 x2/x3 **全绿**,而业主看着
 //     三个按钮却关不掉窗口(无边框之后那是唯一的出口)。这一段就是补这个空档。
 //
+// 🔴 2026-09-22 改写(track opendesign-electron-shell 判据迁移账):换 Electron。
+//    ① 注入对象由 `window.pywebview.api` 换成 preload 给的 `window.odShell`(方法名见 web/src/desktopShell.ts
+//       的 OdShell,与 desktop/preload.js 由契约闸 c6 对表);断言「浏览器零按钮 / 外壳里三按钮真叫到」不变。
+//    ② 八个把手删了(缩放边是系统的,表 #10)⇒ A 改成「一个把手都没有」、C 的顶边 2px 改成拖动带;
+//       拖动带不再调方法(拖动交给 Chromium 的 app-region,Electron 里页面根本收不到那一下),
+//       E 里 begin_drag / begin_resize / 双击拖动带那三段随之退役。真机拖动与缩放 → 云 Windows E2 + T6。
+//
 // 跑法:node tests/e2e/shell_chrome.e2e.mjs(自起 ds_web 于 8840)
 import { spawn } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
@@ -133,7 +140,7 @@ try {
   }, [x, y]);
 
   // ── A 病本身 ────────────────────────────────────────────────────────────
-  await step("A 外壳里(地址带标记):三个按钮 + 拖动带 + 八个把手都在", async () => {
+  await step("A 外壳里(地址带标记):三个按钮 + 拖动带都在,自绘把手一个都没有", async () => {
     await open("?shell=1");
     for (const [sel, what] of BTNS) {
       const loc = page.locator(sel);
@@ -143,13 +150,13 @@ try {
     expect(await page.locator('[data-ui="window-bar"]').count() === 1,
       "顶部拖动带在场(系统标题栏已经没有了,这是唯一能拖的地方)");
     const grips = await page.locator(".win-grip").count();
-    expect(grips === 8, `八个边角把手都在(实测 ${grips} 个)`);
+    expect(grips === 0, `自绘把手一个都没有(会压在系统缩放边上;实测 ${grips} 个)`);
     const pad = await bodyPad();
     expect(pad === BAR_H, `界面往下让出 ${BAR_H}px(实测 ${pad}px)`);
   });
 
   // ── C 命中测试(同一次开页,接着 A 量)─────────────────────────────────
-  await step("C 命中测试:按钮/把手/拖动带各自点得到", async () => {
+  await step("C 命中测试:按钮/拖动带各自点得到", async () => {
     // 短超时:窗口栏不在场时这一段要立刻红,别让它在默认 30 秒里干等
     const box = await page.locator('[data-ui="window-close"]')
       .boundingBox({ timeout: 5000 }).catch(() => null);
@@ -164,9 +171,9 @@ try {
       `关闭按钮上沿 2px 仍是关闭按钮,不是"改窗口大小"(实测 ${JSON.stringify(onCloseTop)})`);
 
     const midX = 1280 / 2;
-    const onGrip = await hitAt(midX, 2);
-    expect(String(onGrip?.cls || "").includes("win-grip-top"),
-      `顶边 2px 是"改大小"的把手(实测 ${JSON.stringify(onGrip)})`);
+    const onTop = await hitAt(midX, 2);
+    expect(String(onTop?.ui || "") === "window-bar",
+      `顶边 2px 是拖动带(缩放边由系统在窗口外沿给,不在页面里;实测 ${JSON.stringify(onTop)})`);
     const onBar = await hitAt(midX, 15);
     expect(String(onBar?.ui || "") === "window-bar",
       `顶栏 15px 处是拖动带,没被别的东西盖着(实测 ${JSON.stringify(onBar)})`);
@@ -201,24 +208,25 @@ try {
       `没有界面元素被压在拖动带底下(实测:${JSON.stringify(intruders)})`);
   });
 
-  // ── E 按下去真的叫到了 Python(评审 F1)─────────────────────────────────
-  await step("E 三个按钮 / 拖动带 / 八个把手,按下去都真的叫到对应的方法", async () => {
-    // 塞一个假的 pywebview.api:名字必须和 bin/ds_shell.py 的 WindowApi 一致
-    // (那件事由契约闸 x2 对表;这里问的是"前端有没有真的去叫")。
+  // ── E 按下去真的叫到了外壳(评审 F1)────────────────────────────────────
+  await step("E 三个按钮按下去都真的叫到 odShell 对应的方法", async () => {
+    // 塞一个假的 odShell:名字必须和 web/src/desktopShell.ts 的 OdShell 一致(契约闸 c6 对 preload 表);
+    // 这里问的是「前端有没有真的去叫」—— 把 onClick 换成 () => {},A~D 全绿而业主关不掉窗口。
     const page2 = await browser.newPage({ viewport: { width: 1280, height: 860 } });
     await page2.addInitScript(() => {
       const calls = [];
       window.__calls = calls;
-      const rec = (name) => (...args) => {
-        calls.push(args.length ? `${name}:${args[0]}` : name);
-        return Promise.resolve(name === "window_state" ? { maximized: false } : null);
+      const rec = (name, ret = null) => (...args) => {
+        calls.push(args.length && typeof args[0] !== "function" ? `${name}:${args[0]}` : name);
+        return Promise.resolve(ret);
       };
-      window.pywebview = {
-        api: {
-          minimize: rec("minimize"), toggle_maximize: rec("toggle_maximize"),
-          close_window: rec("close_window"), begin_drag: rec("begin_drag"),
-          begin_resize: rec("begin_resize"), window_state: rec("window_state"),
-        },
+      const off = () => () => {};
+      window.odShell = {
+        minimize: rec("minimize"), toggleMaximize: rec("toggleMaximize", { maximized: false }),
+        close: rec("close"), windowState: rec("windowState", { maximized: false }),
+        onWindowState: off, reportStartup: rec("reportStartup"),
+        update: { check: rec("update.check"), install: rec("update.install", false),
+                  state: rec("update.state", { phase: "idle" }), onState: off },
       };
     });
     await page2.goto(`${base}/?shell=1#/workspace`, { waitUntil: "domcontentloaded" });
@@ -230,70 +238,15 @@ try {
 
     for (const [sel, what, method] of [
       ['[data-ui="window-min"]', "最小化", "minimize"],
-      ['[data-ui="window-max"]', "最大化", "toggle_maximize"],
-      ['[data-ui="window-close"]', "关闭", "close_window"],
+      ['[data-ui="window-max"]', "最大化", "toggleMaximize"],
+      ['[data-ui="window-close"]', "关闭", "close"],
     ]) {
       await clear();
       await page2.locator(sel).click();
       const got = await called();
       expect(got.includes(method),
-        `点${what}按钮 ⇒ 叫了 api.${method}()(实测 ${JSON.stringify(got)})`);
+        `点${what}按钮 ⇒ 叫了 odShell.${method}()(实测 ${JSON.stringify(got)})`);
     }
-
-    // 拖动带:按下左键就该开始拖窗口(真实动作是 mousedown,不是 click)
-    await clear();
-    await page2.mouse.move(400, 15);
-    await page2.mouse.down();
-    await page2.mouse.up();
-    let got = await called();
-    expect(got.includes("begin_drag"),
-      `在拖动带上按下 ⇒ 叫了 api.begin_drag()(实测 ${JSON.stringify(got)})`);
-
-    // 八个把手:方向名必须一字不差地传过去(名字错 = 那条边"拖了没反应")
-    const edges = await page2.evaluate(() => [...document.querySelectorAll(".win-grip")]
-      .map((el) => {
-        const r = el.getBoundingClientRect();
-        return { name: [...el.classList].find((c) => c.startsWith("win-grip-"))
-                        ?.replace("win-grip-", ""),
-                 x: r.x + r.width / 2, y: r.y + r.height / 2 };
-      }));
-    expect(edges.length === 8, `八个把手都量到了(实测 ${edges.length})`);
-    for (const e of edges) {
-      await clear();
-      await page2.mouse.move(e.x, e.y);
-      await page2.mouse.down();
-      await page2.mouse.up();
-      got = await called();
-      if (e.name === "topright") {
-        // 🔴 **这一条是本段第一次跑就挖出来的**,而且它不是回归、是一条一直如此的边界:
-        // 右上角那 6×6 完全落在三个按钮那 132×30 里,而"按钮压过把手"是 0.89 四审
-        // 定下来的(否则点关闭按钮的上沿会变成改大小,判据 x8)。
-        // ⇒ 右上角这个**斜角**改大小点不到;上边(按钮左侧)和右边(栏下面)照样能拖,
-        //   下面两条断言就是那两处。业主的真机清单已按这个写(B7 + F4),别再当 bug 查。
-        expect(got.includes("close_window"),
-          `右上角那一小块是关闭按钮的地盘(实测 ${JSON.stringify(got)})`);
-        for (const [x, y, dir] of [[1148 - 8, 2, "top"], [1278, 45, "right"]]) {
-          await clear();
-          await page2.mouse.move(x, y);
-          await page2.mouse.down();
-          await page2.mouse.up();
-          const g2 = await called();
-          expect(g2.includes(`begin_resize:${dir}`),
-            `贴着按钮外侧那儿仍能改大小:(${x},${y}) ⇒ begin_resize("${dir}")` +
-            `(实测 ${JSON.stringify(g2)})`);
-        }
-        continue;
-      }
-      expect(got.includes(`begin_resize:${e.name}`),
-        `拖 ${e.name} 那条边 ⇒ 叫了 api.begin_resize("${e.name}")(实测 ${JSON.stringify(got)})`);
-    }
-
-    // 双击拖动带 = 最大化/还原(0.89 的 D6);顺带证明它没被按钮吃掉
-    await clear();
-    await page2.mouse.dblclick(400, 15);
-    got = await called();
-    expect(got.includes("toggle_maximize"),
-      `双击拖动带 ⇒ 叫了 api.toggle_maximize()(实测 ${JSON.stringify(got)})`);
     await page2.close();
   });
 

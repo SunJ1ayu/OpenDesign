@@ -129,35 +129,6 @@ def _z_of(selector: str) -> int | None:
 
 class WindowContract(unittest.TestCase):
 
-    def test_x1_the_edge_names_match_on_both_sides(self):
-        """前端的 RESIZE_EDGES ↔ Python 的 HIT(去掉标题区那一项)。"""
-        block = re.search(r"RESIZE_EDGES\s*=\s*\[(.*?)\]", _read(TS_EDGES), re.S)
-        self.assertIsNotNone(block, "前端那份方向名单没找到 —— 名字或写法变了")
-        ts = set(re.findall(r'"([a-z]+)"', block.group(1)))
-        py = set(ds_shell.WindowApi.HIT) - {"caption"}
-        self.assertEqual(ts, py,
-                         f"两边的方向名对不上:前端有 {sorted(ts - py)}、"
-                         f"Python 有 {sorted(py - ts)} ⇒ 那几条边拖了没反应")
-        self.assertEqual(8, len(ts), "四边四角一共八个,少一个就是一条边拖不动")
-
-    def test_x2_every_button_calls_a_method_that_really_exists(self):
-        """pywebview 按**方法名**把 `pywebview.api.xxx()` 接到 Python 上。
-        前端写 `close_window()` 而 Python 叫 `close()` ⇒ 关闭按钮永远点不动,
-        且控制台之外没有任何提示。"""
-        called = set(re.findall(r"api\(\)\?\.([a-z_]+)\(", _read(TSX_CHROME)))
-        self.assertTrue(called, "前端一个 api 调用都没扫到 —— 这道闸问不出东西")
-        for name in sorted(called):
-            self.assertTrue(
-                callable(getattr(ds_shell.WindowApi, name, None)),
-                f"前端叫了 pywebview.api.{name}(),Python 那边没有这个方法 ⇒ 那个按钮是死的")
-
-    def test_x3_the_three_buttons_are_all_wired(self):
-        """业主要的就是这三个。少接一个 = 少一个按钮,而界面上看不出来。"""
-        tsx = _read(TSX_CHROME)
-        for ui, what in (("window-min", "最小化"), ("window-max", "最大化"),
-                         ("window-close", "关闭")):
-            self.assertIn(f'data-ui="{ui}"', tsx, f"{what}按钮没了")
-
     # ── 2026-08-17 四审之后补的四条 ──────────────────────────────────────
     # 上面 x1~x4 问的都是"名字对不对得上"。这一版真正会让业主骂人的四件事,
     # 一条都不在那四问的射程里 —— 补在下面。
@@ -230,128 +201,11 @@ class WindowContract(unittest.TestCase):
             _jsx_tag_is_self_closing(tsx, "win-bar"),
             "按钮区又回到窗口栏里了 ⇒ 点按钮会冒泡成拖窗口、双击会白送一次最大化")
 
-    def test_x7_the_css_grips_match_the_edge_list(self):
-        """🔴 **判据自己咬空过**:`shellWindow.ts` 里有个 `resizeEdgeAt()` 被五条判据
-        围着测,而 `WindowChrome.tsx` 一次都没用过它 —— 真正决定"能不能拖边"的是
-        `app.css` 里那八个 `.win-grip-*` 的定位,那边一条判据都没有。
-        (08-17 四审 subkimi 在被断线砍断之前正好摸到这一条。)
-        ⇒ 把断言搬到问得出的地方:CSS 里的把手名单必须和方向名单一一对应。
-        """
-        block = re.search(r"RESIZE_EDGES\s*=\s*\[(.*?)\]", _read(TS_EDGES), re.S)
-        edges = set(re.findall(r'"([a-z]+)"', block.group(1)))
-        in_css = set(re.findall(r"\.win-grip-([a-z]+)\b", _read(CSS)))
-        self.assertEqual(edges, in_css,
-                         f"CSS 里的把手和方向名单对不上:少了 {sorted(edges - in_css)}、"
-                         f"多了 {sorted(in_css - edges)} ⇒ 那几条边拖了没反应")
-
-    def test_x8_the_grips_never_eat_the_buttons(self):
-        """把手不许压在三个按钮身上(点关闭按钮的上沿必须是关闭,不是"改窗口大小")。
-
-        🔴 **这一条的第一版是假绿,而且犯的正是本版一直在治的那种病。**
-        它当时只比 `.win-btns`(220) > `.win-grip`(210) 两个**声明数字**,
-        判绿。可 `.win-bar` 是 `position:fixed` + `z-index:200` ——
-        **它自己就是一个 stacking context**;`.win-btns` 是它的 DOM 子元素,
-        那个 220 只在栏内部有效。根上下文里参与比较的是**整个栏的 200**
-        对把手的 210 ⇒ 把手照样画在按钮上面,F7 原样没修。
-        (08-17 四审 subkimi F-1;另一条腿在同一处判了"properly fixed"。)
-
-        ⇒ 层号自己说明不了问题,**得先问结构**:要参与根层序比较的三者
-        必须是**同一层的兄弟**,谁也不许被谁的 stacking context 关起来。
-        """
-        tsx = _read(TSX_CHROME)
-        self.assertIn('className="win-btns"', tsx, "按钮区不见了")
-        self.assertTrue(
-            _jsx_tag_is_self_closing(tsx, "win-bar"),
-            "窗口栏里装了东西 ⇒ 栏是 fixed+z-index、自己就是一个 stacking context,"
-            "装在里面的层号在根上下文里**不算数**,把手照样吃掉按钮上沿。"
-            "栏必须是空的纯拖动区,按钮区做它的兄弟节点。")
-
-        bar_z, grip, btns = _z_of(".win-bar"), _z_of(".win-grip"), _z_of(".win-btns")
-        for name, z in (("窗口栏", bar_z), ("把手", grip), ("按钮区", btns)):
-            self.assertIsNotNone(z, f"{name}没有 z-index ⇒ 层序无从谈起")
-        self.assertLess(bar_z, grip, "把手要压过栏,否则整条顶边改不了大小")
-        self.assertLess(grip, btns, "按钮要压过把手,否则按钮上沿点下去是改大小")
-
-    def test_x9_every_grip_actually_sits_on_its_edge(self):
-        """把手的**几何**:贴边、且有厚度。
-
-        x7 只问名字、x8 只问层序 —— 把某个把手挪到屏幕中间、或把厚度改成 0,
-        两条都照绿,而业主那边"这条边拖不动"(08-17 四审 subdeepseek 记的覆盖缺口)。
-        """
-        css = _read(CSS)
-        for edge in ("top", "bottom", "left", "right",
-                     "topleft", "topright", "bottomleft", "bottomright"):
-            m = re.search(rf"\.win-grip-{edge}\s*\{{([^}}]*)\}}", css)
-            self.assertIsNotNone(m, f".win-grip-{edge} 不见了")
-            body = m.group(1)
-            # 贴边:名字里的每个方向,对应的 offset 必须是 0
-            for side in ("top", "bottom", "left", "right"):
-                if side in edge:
-                    self.assertRegex(body, rf"{side}\s*:\s*0(?![.\d])",
-                                     f".win-grip-{edge} 没贴住 {side} 边 ⇒ 那儿拖不动")
-            # 有厚度:宽或高至少有一个是正数(0 = 一条抓不住的线)
-            sizes = [int(v) for v in re.findall(r"(?:width|height)\s*:\s*(\d+)px", body)]
-            self.assertTrue(sizes and all(v > 0 for v in sizes),
-                            f".win-grip-{edge} 的尺寸是 {sizes} —— 0 像素的把手抓不住")
-
     def test_x4_the_chrome_never_shows_up_in_a_plain_browser(self):
         """浏览器里没有窗口可关,画出来就是三个按下去没反应的按钮。
         分界必须走 inDesktopShell(判据 s-w1/s-w2 咬着它的行为)。"""
         self.assertIn("inDesktopShell", _read(TSX_CHROME),
                       "窗口栏没问过'我是不是在外壳里' ⇒ 浏览器里也会画出来")
-
-    def test_x12_asking_python_anything_has_to_wait_for_the_api(self):
-        """问 Python「我是不是最大化」的那一问,必须等 `pywebview.api` 到位。
-
-        窗口栏本身**不等**(靠地址标记,首帧就画);但 `window_state()` 这类
-        **要 Python 回答**的调用不等就是一句空话:挂载那一刻 `api()` 是 null,
-        Promise 根本不会发出去。0.91.0 之前它正是如此,只是整个组件都没渲染过,
-        所以这句空话没人看见 —— 同族的病见 [[field-needs-a-writer-before-ui]]。
-        ⇒ 谁把这个等待去掉,这条会响。
-        """
-        tsx = _read(TSX_CHROME)
-        # 无条件问,不用 skipTest:条件式跳过正是"整块 SKIP 混成 PASS"那个形状。
-        self.assertIn("window_state()", tsx,
-                      "挂载时不再问窗口状态了 ⇒ 最大化/还原的图标可能一直画反;"
-                      "真要去掉,连 0.89 真机清单 G2 那笔偏差一起重新想清楚")
-        self.assertIn("pywebviewready", tsx,
-                      "挂载时问了 window_state(),却没等 pywebview 把 api 注进来 ⇒ "
-                      "那一问发不出去(api() 是 null),effect 成了装饰")
-
-    def test_x10_the_shell_really_tells_the_page_who_it_is(self):
-        """🔴 **业主机器上窗口栏整块没画出来**(0.89.0/0.90.0 两版,2026-08-17)。
-
-        病根:前端原来靠 `window.pywebview.api` 在不在来判断"我在外壳里吗",而
-        pywebview 5.4 的 Windows 后端是在 `on_navigation_completed` 里才注入那个对象
-        (webview/platforms/edgechromium.py:314)—— **页面脚本早就跑完了**。
-        那一问在真机上永远答 false ⇒ 三个按钮、拖动带、八个把手一起不画,
-        而系统标题栏已经被 `frameless=True` 拿掉了:窗口既拖不动也关不掉。
-
-        改成外壳打开页面时在**地址里**报身份(第一帧就在,与注入时机无关)。
-        于是又多了一条跨语言的字符串契约,和 x1/x2 一样的坏法:
-        **对不上就是"窗口栏又没了",而且哪儿都不报错。** 这道闸问两件事:
-          ① 两边的标记一字不差;
-          ② 打开窗口那行**引用的是常量**,不是自己拼一个 `?shell=1`
-             (硬编码能过 ①,然后常量改了它不跟着改)。
-        """
-        ts = _read(TS_EDGES)
-        m = re.search(r'SHELL_MARK\s*=\s*"([^"]+)"', ts)
-        self.assertIsNotNone(m, "前端那个标记常量没找到 —— 名字或写法变了")
-        self.assertEqual(
-            m.group(1), ds_shell.SHELL_MARK,
-            f"两边的标记对不上:前端认 {m.group(1)!r}、外壳发 {ds_shell.SHELL_MARK!r} "
-            "⇒ 前端判定'我不在外壳里',窗口栏整块不画")
-        self.assertRegex(ds_shell.SHELL_MARK, r"^[A-Za-z_][\w-]*=[^&?#\s]+$",
-                         "标记得是一个正常的 query 参数(key=value),否则拼进地址里没意义")
-
-        # ② 不 grep 字面量,**直接叫那个唯一来源**,再查开窗口那行走的是它。
-        self.assertEqual(f"http://127.0.0.1:8766/?{ds_shell.SHELL_MARK}",
-                         ds_shell.window_url(8766),
-                         "外壳开的那个地址不带标记了 ⇒ 前端判定'我不在外壳里',窗口栏整块不画")
-        args = _call_args(_read(os.path.join(ROOT, "bin", "ds_shell.py")), "create_window")
-        self.assertIn("window_url(", args,
-                      "开窗口没走 window_url() ⇒ 那儿自己拼了一个地址,"
-                      "标记改了它不跟着改(0.90 的 spawn_kwargs 是同一种病)")
 
     def test_x11_the_shell_flag_is_the_only_gate(self):
         """分界不许再回到 `window.pywebview` 上(x10 那个病的入口)。

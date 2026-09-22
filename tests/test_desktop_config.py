@@ -252,6 +252,9 @@ class C7Retired(unittest.TestCase):
         "installer/check-installer.py", "installer/make-update-manifest.py", "installer/mutation-installer.sh",
         ".github/workflows/windows-package-probe.yml", ".github/workflows/windows-update-e2e.yml",
         ".github/scripts/windows-package-probe.ps1", ".github/scripts/windows-update-e2e.ps1",
+        # 两支旧云判据自己的判定器 / 替身 GitHub / 证书(只有它们在用)
+        "bin/probe_verdict.py", ".github/scripts/update_e2e_verdict.py", ".github/scripts/fake_github.py",
+        ".github/scripts/make-e2e-certs.sh",
         # 探路 workflow 由 electron-e2e.yml 取代(spike/ 目录留作参照)
         ".github/workflows/electron-shell-probe.yml",
     ]
