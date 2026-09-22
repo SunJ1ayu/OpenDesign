@@ -328,6 +328,7 @@ runtime_delivery_change 0.99 / judging_surface_change 0.91 / deploy_target_outsi
   0.98.8 已发布代码的 ASSET_RE/TAG_RE(`git show win-installer-0.98.8:bin/ds_update.py`)认不出新名字;
   preload 暴露的方法 ⊇ 前端调用的(x2 的 Electron 版)、preload 的每个通道主进程都有 handle;退役清单里的文件已删、
   ds-web 与前端不再有 `/api/update`、前端不再读 `pywebview`。
+- `tests/test_desktop_config.py` **c11(T4 云跑 run 35728406022 逼出来的)**:`desktop/` 与云判据自己的 package-lock 每个 `resolved` 都是 `https://registry.npmjs.org/` —— 我在本机生成的锁全钉在腾讯云内网镜像(http),GitHub 的 Windows 机器 `npm ci` 连不上、卡死。`web/` 的锁同病但没有任何一处在本机之外装它,延期。
 - `tests/test_desktop_ui.mjs` du1~du12:更新一栏各状态措辞(u3 搬过来;**T4 收货收紧 du4**:查不动要明说「失败 / 没成功 / 连不上」,不许说「没查到 / 查不到」—— 业主读成「没有新版」,和 du4b 同一个理由)、「重启以更新」只在 downloaded、错误态有「重试」、
   圆点只在 downloaded、提示写明约 2 分钟别关机;`shellApi` 不认 pywebview;s-w1(浏览器零按钮)照旧在 `test_shell_window.mjs`;
   窗口栏 CSS:拖动带 drag、按钮 no-drag、无 `.win-grip`。

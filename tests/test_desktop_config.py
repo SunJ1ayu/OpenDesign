@@ -294,6 +294,27 @@ class C6Contract(unittest.TestCase):
             self.assertTrue(_hits(main, want), f"main.js 的 webPreferences 里没有 {want} ⇒ 网页够得着 Node")
 
 
+class C11LockfilesResolvePublicly(unittest.TestCase):
+    """T4 云跑 run 35728406022 红在 E1 的 `npm ci`(`npm error Exit handler never called!`,2 分钟就死):
+    本机 npm 配的是腾讯云内网镜像,我生成的锁文件把每个包都钉在 `http://mirrors.tencentyun.com/npm/…` ——
+    只有腾讯云里的机器连得上,GitHub 的 Windows 机器、业主的电脑都连不上;而且是 http。
+    npm 只在 resolved 的主机是 registry.npmjs.org 时才换成当前配置的源(replace-registry-host 默认值),
+    所以别的机器上 `npm ci` 照着锁文件直连那个内网地址,卡死。
+    钉住**在别的机器上装**的那几份锁:Electron 的 `desktop/`、云判据自己的 `.github/scripts/electron-e2e/`。
+    (`web/package-lock.json` 同病,但没有任何一处在本机之外装它 —— 前端产物是本机 build 好提交的;延期,不在本单承诺里。)"""
+
+    LOCKS = ["desktop/package-lock.json", ".github/scripts/electron-e2e/package-lock.json"]
+
+    def test_c11_every_package_resolves_from_the_public_registry(self):
+        for rel in self.LOCKS:
+            data = json.loads((ROOT / rel).read_text(encoding="utf-8"))
+            resolved = [(name, meta["resolved"]) for name, meta in data.get("packages", {}).items()
+                        if isinstance(meta, dict) and meta.get("resolved")]
+            self.assertTrue(resolved, f"{rel}:一个 resolved 都没有 ⇒ 这条问不出东西")
+            bad = [(n, u) for n, u in resolved if not u.startswith("https://registry.npmjs.org/")]
+            self.assertEqual(bad[:5], [], f"{rel}:{len(bad)}/{len(resolved)} 个包不是从官方 https 源装的 ⇒ 别的机器上 npm ci 连不上")
+
+
 class C10MainIsWired(unittest.TestCase):
     """攻题 #1 #10 #11:纯函数与控制器写对了、main.js 不调用 ⇒ 全绿而业主那边什么都没发生。
     行为由 test_desktop_controller.mjs 钉;这里钉 **main.js 真的接上了它们**(第二道,查代码不查注释)。"""

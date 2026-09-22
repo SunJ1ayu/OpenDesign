@@ -1,0 +1,15 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    c11-lock-red
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_desktop_config.C11LockfilesResolvePublicly\ 2\>\&1\ \|\ grep\ -E\ \"AssertionError\|\^OK\|\^FAILED\|\^Ran\"\ \|\ cut\ -c1-200\;\ for\ f\ in\ desktop/package-lock.json\ .github/scripts/electron-e2e/package-lock.json\;\ do\ echo\ \"\$f:\ \$\(grep\ -c\ \"\\\"resolved\\\":\ \\\"http://mirrors.tencentyun.com\"\ \$f\)\ 个内网镜像地址\"\;\ done
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  caadd68
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-22T12:43:28Z
+---------------- 输出开始 ----------------
+AssertionError: Lists differ: [('node_modules/@electron-internal/extract[605 chars]gz')] != []
+Ran 1 test in 0.004s
+FAILED (failures=1)
+desktop/package-lock.json: 289 个内网镜像地址
+.github/scripts/electron-e2e/package-lock.json: 2 个内网镜像地址
+---------------- 输出结束 ----------------
+runlog: c11-lock-red rc=0 commit=caadd68 dirty=yes at=2026-09-22T12:43:28Z file=tracks/opendesign-electron-shell/evidence/20260922T124328Z-01-c11-lock-red.txt
