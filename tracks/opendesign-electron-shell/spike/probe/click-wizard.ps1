@@ -3,7 +3,7 @@
 #   按进程号枚举安装器的顶层对话框(类名 #32770)→ ID=1 的按钮可用且写着「下一步/完成」⇒ 给对话框发 WM_COMMAND(IDOK)。
 #   NSIS 自己会再查一遍按钮是否可用(进度页上它是灰的,发了也不动)。
 # 每 15 秒把看到的所有 #32770 顶层窗口(标题/进程号/按钮字)记一行,点不动时能看出卡在哪。
-# 每到一页:记页头、单选/勾选状态,截整屏,再按。同一页 5 秒没翻过去会再按一次;最多按 6 下。
+# 每到一页:记页头、单选/勾选状态、可见输入框的内容(选目录页的目录),截整屏,再按。同一页 5 秒没翻过去会再按一次;最多按 6 下。
 # 日志直接写 UTF-8(5.1 的标准输出被重定向时按控制台代码页编码,中文会变问号);每按一下的行带 ASCII 标记 CLICK#。
 # 用法:powershell.exe -File click-wizard.ps1 <输出目录> <日志文件> [总超时秒]
 param([Parameter(Mandatory)][string]$OutDir, [Parameter(Mandatory)][string]$LogPath, [int]$TimeoutSec = 480)
@@ -39,6 +39,7 @@ public static class W {
         int st = GetWindowLong(h, -16) & 0xF;
         if (st == 2 || st == 3 || st == 4 || st == 9) parts.Add(Text(h) + "=" + ((long)SendMessage(h, 0x00F0, IntPtr.Zero, IntPtr.Zero) == 1 ? "1" : "0"));
       }
+      if (Cls(h) == "Edit" && IsWindowVisible(h)) parts.Add("EDIT=" + Text(h));
       return true; }, IntPtr.Zero);
     return string.Join(" ; ", parts.ToArray());
   }
@@ -67,7 +68,7 @@ while ($sw.Elapsed.TotalSeconds -lt $TimeoutSec -and $clicks -lt 6) {
         $head = "$([W]::Text([W]::GetDlgItem($dlg, 1037))) / $([W]::Text([W]::GetDlgItem($dlg, 1038)))"
         $page = "$head | $okText"
         if ($page -eq $lastPage -and $t - $lastAt -lt 5) { continue }   # 刚按过、还没翻页
-        $opts = ([W]::Options($dlg) -replace '=1', '=选中') -replace '=0', '=未选'
+        $opts = ((([W]::Options($dlg) -replace '=1\b', '=选中') -replace '=0\b', '=未选') -replace 'EDIT=', '输入框=')
         $clicks++; $lastPage = $page; $lastAt = $t
         Say "+${t}s CLICK#$clicks 页头:[$head] 选项:[$opts] ⇒ 按「$okText」"
         & powershell.exe -NoProfile -File $Shot (Join-Path $OutDir ("e4-wizard-{0}-{1:000}s.png" -f $clicks, $t)) | Out-Null

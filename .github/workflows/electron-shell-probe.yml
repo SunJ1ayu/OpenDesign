@@ -87,11 +87,13 @@ jobs:
           "  改了:pkg\ds\bin\ds_web.py、$($js.Name)"
           npx electron-builder --win nsis --x64 --publish never
           if ($LASTEXITCODE) { throw "electron-builder(v2) rc=$LASTEXITCODE" }
-          New-Item -ItemType Directory -Force upd | Out-Null
-          Copy-Item dist\latest.yml, dist\*.exe, dist\*.blockmap upd\
-          Copy-Item dist-v1\*.blockmap upd\
-          Get-ChildItem upd | ForEach-Object { "  upd\$($_.Name) $($_.Length)" }
-          Get-Content upd\latest.yml
+          # 第七跑起按 GitHub 真实布局摆:latest/download/ 只放新版(最新 release)的资产;旧版 blockmap 在 download/v<旧版>/ 下
+          $v1 = (Get-ChildItem dist-v1\*.exe | Select-Object -First 1).Name -replace '^OpenDesign-(.+)-electron-setup\.exe$', '$1'
+          New-Item -ItemType Directory -Force upd\latest\download, "upd\download\v$v1" | Out-Null
+          Copy-Item dist\latest.yml, dist\*.exe, dist\*.blockmap upd\latest\download\
+          Copy-Item dist-v1\*.blockmap "upd\download\v$v1\"
+          Get-ChildItem upd -Recurse -File | ForEach-Object { "  $($_.FullName.Substring((Resolve-Path upd).Path.Length)) $($_.Length)" }
+          Get-Content upd\latest\download\latest.yml
 
       - name: E3 过渡 + E2 起窗 + E4 更新
         env:

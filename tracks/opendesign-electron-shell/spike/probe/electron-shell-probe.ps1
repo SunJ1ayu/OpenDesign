@@ -98,10 +98,12 @@ V 'E3.oldrun 旧版跑起来了(工作台应答)' ([bool]$h) "$h"
 Shot 'e3-01-old-running'
 "  装新版前的卸载项:"; UninstallEntries | ForEach-Object { "    $_" }
 
-# ---------------------------------------------------------------- E3-3 双击新安装包(静默、不带 /D)
-"== E3-3 静默装新版 $NewSetup(不带 /D:目录要它自己认出来)"
+# ---------------------------------------------------------------- E3-3 双击新安装包(第七跑起:带界面,像业主那样一页页点)
+"== E3-3 带界面装新版 $NewSetup(不带参数;click-wizard 替业主按「下一步/完成」,选目录页不改)"
+$e3Log = Join-Path $OutDir 'e3-click-wizard.log'
+$e3Clicker = Start-Process powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'click-wizard.ps1'), $OutDir, $e3Log, '420') -PassThru -WindowStyle Hidden -RedirectStandardError "$e3Log.err"
 $sw = [Diagnostics.Stopwatch]::StartNew()
-$p = Start-Process $NewSetup -ArgumentList '/S' -PassThru
+$p = Start-Process $NewSetup -PassThru
 $tick = 0
 while (-not $p.HasExited -and $sw.Elapsed.TotalMinutes -lt 6) {
     Start-Sleep -Seconds 30; $tick++; Shot ("e3-02-installing-{0}" -f $tick)
@@ -109,6 +111,10 @@ while (-not $p.HasExited -and $sw.Elapsed.TotalMinutes -lt 6) {
 if (-not $p.HasExited) { Shot 'e3-02-install-stuck'; throw "新版安装 6 分钟没结束" }
 "  新安装包退出码 $($p.ExitCode),耗时 $([int]$sw.Elapsed.TotalSeconds)s"
 V 'E3.install 新安装包退出码 0' ($p.ExitCode -eq 0) "$($p.ExitCode)"
+if (-not $e3Clicker.WaitForExit(30000)) { Stop-Process -Id $e3Clicker.Id -Force -ErrorAction SilentlyContinue }
+"  ---- 替业主点首装向导(click-wizard.ps1)----"; Get-Content $e3Log, "$e3Log.err" -ErrorAction SilentlyContinue | ForEach-Object { "    $_" }
+$dirLine = @(Get-Content $e3Log -ErrorAction SilentlyContinue | Where-Object { $_ -match 'CLICK#' -and $_ -match '输入框=' }) | Select-Object -First 1
+V 'E3.guidir 选目录页默认显示的就是旧版那个自选目录' ($dirLine -and $dirLine.Contains("输入框=$Dir")) "$dirLine"
 Start-Sleep -Seconds 3
 
 # ---------------------------------------------------------------- E3-4 核对
@@ -190,9 +196,14 @@ if ($UpdDir) {
     foreach ($m in $marks) {
         V "E4.data 资料原样:$(Split-Path $m -Leaf)" ((Test-Path $m) -and ((Get-FileHash $m).Hash -eq $before[$m])) $m
     }
-    $full = (Get-ChildItem $UpdDir -Filter "*$NewVer*.exe" | Select-Object -First 1).Length
+    $full = (Get-ChildItem $UpdDir -Recurse -Filter "*$NewVer*.exe" | Select-Object -First 1).Length
     $sent = 0; Get-Content $serveLog | ForEach-Object { if ($_ -match '\.exe .* sent=(\d+)$') { $sent += [int64]$Matches[1] } }
     "  E4 实际下载 $([math]::Round($sent/1MB,1)) MB / 整包 $([math]::Round($full/1MB,1)) MB($([math]::Round(100.0*$sent/[math]::Max($full,1),1))%)"
+    # 第七跑:替身源按 GitHub 真实布局摆(latest/download/ 只有新版资产)。增量成立的前提是旧版 blockmap 从它自己的 release 取到。
+    $oldMap = @(Get-Content $serveLog | Where-Object { $_ -match '^200 GET download/v[^/]+/[^ ]+\.blockmap ' })
+    $miss = @(Get-Content $serveLog | Where-Object { $_ -match '^404 ' })
+    V 'E4.oldmap 旧版 blockmap 从它自己那个 release 的路径取到' ($oldMap.Count -ge 1) "$($oldMap -join ' | ')"
+    V 'E4.delta 实际下载不到整包的 10%(增量成立)' ($full -gt 0 -and $sent -lt 0.1 * $full) "$sent / $full 字节;404:$($miss -join ' | ')"
     "  ---- 替身服务器请求 ----"; Get-Content $serveLog | Select-Object -First 60 | ForEach-Object { "    $_" }
     Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like "$Dir\*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
     Stop-Process -Id $srv.Id -Force -ErrorAction SilentlyContinue
