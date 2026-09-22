@@ -63,10 +63,11 @@ c3 对探路版是红的 —— 对的,探路版的 publish 指本机替身源�
 
 ## Review
 
-- 规格自查(读任何 panel 输出之前先答):<回看 design 的用户成功条件、前提证据和未解决项。
-  实现符合规格不证明规格合理;实现评审也可质疑规格,但不能替代实施前 panel 4c 的方案检查。
-  本轮若暴露能推翻方向的前提,先回到设计;全池一致 PASS 也不等于题是对的。>
-- 腿的花名册: <把 `<日志前缀>.roster` 里那一行**原样粘过来**,别手写>
+- 规格自查(读任何 panel 输出之前先答;正文在仓外自审 `/root/aiwork/tasks/opendesign-electron-shell-t5-review-my-review.md`,派发前落盘):
+  业主成功条件 = 换壳后能装能开、过渡不丢东西、以后能自动更新、git-pull 形态不坏;云 Windows 第五跑 FAIL 0 + 本地总跑全绿覆盖**快乐路径**。
+  我自己最没把握的是过渡在失败路径上的行为与判据假绿 —— 本轮两条腿抓到的正好落在这里(失败重试 / 装不上时的恢复),规格方向不受影响。
+- 腿的花名册(第 1 轮,`/root/aiwork/logs/panel-opendesign-electron-shell-t5-20260922-2200.roster`):
+  `subkimi=PASS(verdict=PASS) subcursor.grok-4.7-high=PASS(verdict=PASS)`
   > panel-review 收尾自己写这个文件(off / FAIL(rc) / 降级 都在里面)。
   > **控制器没活到收尾时它压根不存在** —— 那时跑 `panel-roster <日志前缀>` 从盘上重建,
   > 与控制器自己写的**归一化后一致**(判据 R5b 守着;抬头有渲染时间戳,不是字面逐字节)。**一轮零记录的评审也粘得出这一行**,
@@ -77,13 +78,20 @@ c3 对探路版是红的 —— 对的,探路版的 publish 指本机替身源�
 
   | 轮 | 类型(实质 / 重试) | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
   |---|---|---|---|---|
-  | 1 | 实质 | <rc,BLOCK 数> | <…> | <n> |
+  | 1 | 实质(22:00→22:26,绑定 HEAD 98ecb4d) | rc=3,BLOCK=0 | `/root/aiwork/logs/panel-opendesign-electron-shell-t5-20260922-2200` | 4(两腿都判 PASS;我核实后 4 条归「必须修」) |
 
 - findings(**先处置、后动手**;一轮一份修复清单,一次修完再复审 —— panel 抽屉 4b):
 
   | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
   |---|---|---|---|---|
-  | 1 | <…> | <file:line / 复现收据> | 必须修 / 延期 / 驳回 / 尚未核实 | <延期必写:它在业主或下一个使用者那边会长成什么样> |
+  | R1-1(Cursor 中) | 旧卸载器两次都没卸干净 ⇒ 先 `Delete 卸载.exe` 再弹「请重启后再运行」;重启重试时第 32 行要求卸载器在 ⇒ 过渡整段跳过,新文件叠进留着旧 `ds\`/`python\` 的目录。**我往下挖出更深一层**:旧卸载器先删自启项与 `Software\OpenDesign` 指针再删文件 ⇒ 拒装后重试,开机自启丢失;旧版在 A、新装选 B 时重试找不到 A | 读 `desktop/build/installer.nsh:32-61`;旧卸载段 `git show 6e397b4:installer/OpenDesign.nsi`(先 DeleteRegValue Run / DeleteRegKey 指针,后 RMDir /r) | **必须修** | 过渡(承诺②)每台机器只走一次,提示框自己说「为避免新旧文件混在一起」而重试恰恰混在一起;业主不会收拾这种残局。修:拒装时保留卸载器 + 写回旧卸载器删掉的指针与自启;新云判据 E3c(锁住哨兵 → 第一次拒装 → 解锁 → 不带 /D 重试) |
+  | R1-2(Cursor 中;Kimi #5;我自审 M8) | electron-updater `quitAndInstall()` **从不抛**:装不上时 `dispatchError` + 什么都不做;`lifecycle.installUpdate` 只在抛时恢复 ⇒ 后台已收、窗口留着、不提示不重开;main 的 `quitting` 已是 true ⇒ 托盘「退出」被 `quitAll` 第一行吞掉 ⇒ 只能任务管理器强杀 | 读 electron-updater 6.8.9 `out/BaseUpdater.js:13-26,42-67`;`desktop/lib/lifecycle.js:37-47`;`desktop/main.js:145-146,174-179`;mc16 的假件会抛,真库不会 ⇒ **判据假绿** | **必须修** | 考卷假绿(「装失败恢复」是攻题轮定下的接线承诺)。我自审 M8 把后果写成「窗口还在」、判极低 —— 漏了托盘退不掉。修:照真库形状判(交棒期间收到 error 事件即失败 → 恢复) |
+  | R1-3(Kimi 低) | 首装时 ds_provision 失败被吞(`Pop $0` 不判) | `installer.nsh:67-68`;旧 `OpenDesign.nsi:301-307` 同位置弹「配置初始化没有成功(错误码)… 第一次打开时它会告诉你还缺什么」,注释「别让它悄悄过去」 | **必须修** | **本次引入的回归**(T3 退役旧判据时这条约束没搬过来)。修:照旧文案弹框,不中止 |
+  | R1-4(Cursor 低) | 安装路径含单引号 ⇒ 嵌进 PowerShell 单引号串的 `$INSTDIR`/`$odOldDir` 断句 ⇒ 脚本退出非 0 ⇒ 误报「还在运行,关不掉」,拒装 | `installer.nsh:25,36,53` | **必须修** | **本次引入的回归**:旧安装器不经 PowerShell,这类路径装得上。业主目录无单引号不受影响;别的机器(用户名 O'Brien 默认目录就中)装不上。修:路径经环境变量传,不拼进命令;E3c 的旧目录带单引号 |
+  | R1-5(Cursor 低) | 主框架服务端跳转没拦(无 `will-redirect`) | `desktop/main.js` 只挂 will-navigate + setWindowOpenHandler;`bin/ds_web.py` 无任何 30x/Location | 延期 | 业主那边不会发生:主框架只加载本机 ds_web,它不对外跳转;将来 ds_web 若加对外 302,外站会拿到 preload 的窗口按钮与「重启以更新」—— 那时再挂 will-redirect |
+  | R1-6(Kimi 中) | `desktop_update.e2e.mjs` 在没配 key 的 HOME 下被 key 卡遮罩挡住 ⇒ 「绿取决于开发机」 | `tests/e2e/run-all.sh:135-155`:总跑给每次建隔离 HOME 并预置假 key(注释写明就是防这个遮罩);Kimi 是单独跑这一个文件 | 驳回 | 总跑是封闭环境,40 PASS 不看开发机脸色;单独跑要自备夹具,总跑缺 gateway 时会把手工命令打印出来 |
+  | R1-7(Kimi 低) | 卸载后留下 `%LOCALAPPDATA%\OpenDesign\Electron`(Chromium 缓存) | `desktop/main.js:17`;`deleteAppDataOnUninstall:false` | 延期 | 资料根整体保留是 0.87 起的既定设计(E6 验过);缓存夹子在里面,重装复用,业主看到的只是资料目录里多一个文件夹 |
+  | R1-8(Kimi 低 推测;我自审 M4) | 杀进程段信注册表 `InstallDir`,无哨兵 | `installer.nsh:25` | 延期 | 该值只由旧安装器按 /D 写入,业主两台是 `D:\AI\OpenDesign` / `F:\AI\OpenDesign`;要先有人把 HKCU 写坏才会扩大杀伤 |
 
   > 只写发现。腿的身份/降级不在这儿抄第二遍:日志自带身份牌(降级横幅 + 视野边界),
   > 花名册在上一格,查工件不查自述。延期 = 留在这里,不自动开新单。
