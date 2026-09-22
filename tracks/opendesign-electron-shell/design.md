@@ -293,16 +293,20 @@ runtime_delivery_change 0.99 / judging_surface_change 0.91 / deploy_target_outsi
 |---|---|---|
 | 管家 | `bin/ds_host.py` | `serve(inp, out, *, make_lock, start_backend, home, diag, app_dir, log, watch_interval=3.0, first_frame_timeout=90.0) -> int`(`inp`/`out` 是**字节流**);`main()` 接真依赖(`sys.stdin.buffer` / `sys.stdout.buffer` / `core.InstanceLock` / `ds_shell.start_backend` …) |
 | 管家协议 | 同上 | 一行一个 JSON、UTF-8。事件(管家→外壳)`ready{web_port,version}` / `show` / `already-running` / `fatal{message}` / `alert{message}` / `backend-died{names,message}` / `diagnostics{path}` 或 `diagnostics{error}`;命令(外壳→管家)`{"cmd":"quit"}` / `export-diagnostics` / `report{event,detail}` / `window-shown`;**stdin EOF = quit**;坏行忽略、不崩 |
-| 主进程控制器(攻题后补) | `desktop/lib/controller.js`、`desktop/lib/menus.js` | `createController(deps)` → `hostStdout(chunk)` / `hostExit(code)` / `setQuitting()` / `navigate(url)→是否拦` / `startUpdates()` / `checkNow()` / `updateState()` / `installUpdate(host)`;deps = `appVersion, loadWorkbench, showWindow, showError, revealFile, openExternal, log, updater, pushUpdateState, setTimeout, clearTimeout, relaunch, graceMs`。**main.js 只接 Electron 的东西,判断全在控制器里**(c10 钉 main.js 真用它)。
+| 主进程控制器(攻题后补) | `desktop/lib/controller.js`、`desktop/lib/menus.js` | `createController(deps)` → `hostStdout(chunk)` / `hostExit(code)` / `setQuitting()` / `navigate(url)→是否拦` / `startUpdates()` / `checkNow()` / `updateState()` / `installUpdate(host)` / `hostError(err)`;deps = `appVersion, loadWorkbench, showWindow, showError, revealFile, openExternal, log, updater, pushUpdateState, setTimeout, clearTimeout, relaunch, quitApp, graceMs`。**main.js 只接 Electron 的东西,判断全在控制器里**(c10 钉 main.js 真用它)。
+**T4 收货补(主 agent 读 diff 时发现的规格洞,mc19~mc21)**:**起不来的四种** —— `fatal` / `already-running` / 版本对不上 / 管家根本没拉起来(`spawn` 的 `error`:python.exe 缺失或被杀软隔离)—— 弹完那一个框就 `quitApp()` 整个退出。
+不退的话加载页(整页拖动带、没有按钮)一直转圈说「正在启动…」,业主以为还在起、只能去托盘退;旧版 `die()` 本来就是弹框后退出。`alert` / `backend-died` / 诊断失败不退(工作台还开着)。
+`hostError` 之后跟来的 `close` 不再弹「意外退出」。
 **main.js 的接法(复核后补,c10~c10e 静态钉;写法照这里,判据才看得见)**:管道原始块原样交 `ctl.hostStdout(chunk)`(Buffer 或 setEncoding 后的字符串,**不许逐块 toString**);
 `host.on("close", (code) => ctl.hostExit(code))`(**close 不是 exit**:exit 时 stdout 可能没读完,最后一行 fatal 会排在「意外退出」后面);
+`host.on("error", (error) => ctl.hostError(error))`(没人接 ⇒ Node 抛成主进程未捕获异常,业主看到一框英文堆栈);deps 的 `quitApp` 走和托盘「退出」同一条收摊路(`quitAll`:先收管家再退);
 `relaunch: () => { app.relaunch(); app.exit(0); }`(只 relaunch 当前进程不退);查更新 / 交安装器**只在控制器里**(main.js 不许出现 `checkForUpdates` / `quitAndInstall`);
 要调到 `startUpdates` / `checkNow` / `updateState` / `installUpdate` / `setQuitting`;deps 接真的 `shell.openExternal` / `shell.showItemInFolder`;`setWindowOpenHandler` 用 `windowOpenDecision`;
 `trayMenuTemplate({ onOpen: …, onExport: …, onQuit: … })` **回调就地写**(onOpen 叫出窗口 / onExport 让管家出包 / onQuit 先 setQuitting 再退)。`menus.js`:`trayMenuTemplate({onOpen,onExport,onQuit})` / `contextMenuTemplate(params)` |
 | 主进程纯逻辑 | `desktop/lib/*.js`(CommonJS,**不 require electron**,无 node_modules 也加载得了) | `hostProtocol.js`:`parseHostLine` / `createHostDecoder(onEvent)→{push,end}`(管道分块、UTF-8 切半)/ `encodeCommand` / `hostExitMessage(code, {quitting, fatalShown})`;`versionCheck.js`:`versionMismatch`;`navPolicy.js`:`navDecision(url, origin)` / `windowOpenDecision`;`updateState.js`:`initialUpdateState` / `reduceUpdate(state, {type,…})` / `canInstall` / `nextCheckDelayMs` / `FIRST_CHECK_DELAY_MS` / `configureUpdater(u, {log})`;`lifecycle.js`:`shutdownHost(child, {graceMs})` / `installUpdate({state, host, updater, graceMs, recover?}) -> Promise<bool>`(`quitAndInstall` 抛了 ⇒ `recover(err)`、返回 false)|
 | 打包 | `tracks/opendesign-windows-installer/spike/build-package.sh <out> --electron` | 出 `pkg/python` + `pkg/ds`(不带 pywebview / pythonnet / pystray);`desktop/package.json` 的 extraResources 从 `pkg/` 取 |
 | 发布 | `desktop/scripts/release-feed.mjs` | `rewriteLatestYml(text, version, base = GitHub 的 releases/download)` / `sha512Base64(buf)` / `verifyFeed(text, buf) -> {ok, reason}`;`ghReleaseCommand({version, installer, blockmap, latestYml, latestYmlText}) -> gh 的 argv`(正式 release、tag v<版本>、恰好三样资产、latest.yml 必须改写过);命令行 `verify <latest.yml> <安装包>`、`rewrite <入> <出> <版本> [--base URL]`、`gh-command …`(云 Windows 判据摆替身源用的就是它) |
-| 前端 | `web/src/desktopShell.ts`、`web/src/desktopUpdate.ts` | `OdShell` 类型 + `shellApi(win)`(`window.odShell` 齐了才给,否则 null);`desktopUpdateLabel(state, version)` / `showRestart(state)` / `showRetry(state)` / `hasDesktopUpdateBadge(state)` / `RESTART_HINT`;DOM 钩子 `data-ui=settings-toggle`(收起的「设置」行)/ `update-badge`(那一行上的圆点)/ `update-status` / `update-retry`(弹层里)/ `update-restart`(**收起的那一行上**)—— e2e desktop_update 与云 Windows 判据点它们 |
+| 前端 | `web/src/desktopShell.ts`、`web/src/desktopUpdate.ts` | `OdShell` 类型 + `shellApi(win)`(`window.odShell` 齐了才给,否则 null);`desktopUpdateLabel(state, version)` / `showRestart(state)` / `showRetry(state)` / `hasDesktopUpdateBadge(state)` / `RESTART_HINT`;DOM 钩子 `data-ui=settings-toggle`(收起的「设置」行)/ `update-badge`(那一行上的圆点)/ `update-status` / `update-retry`(弹层里)/ `update-restart`(**收起的那一行上**)/ `update-check`(弹层里,**T4 收货补**:没查过 / 已是最新时在,点了叫 `update.check()`;查着、下着、下好了、出错(有「重试」)时不摆 —— 旧版一直有「检查更新」,本节 D 写的是「改接」和 `update.check()` 手动查,我的任务书写成「旧的查更新…全部删掉」让执行腿连按钮一起删了)—— e2e desktop_update 与云 Windows 判据点它们 |
 
 更新状态(主进程 → 前端同一形状):`{phase: idle|checking|latest|downloading|downloaded|error, version?, percent?, error?}`。
 
@@ -324,7 +328,7 @@ runtime_delivery_change 0.99 / judging_surface_change 0.91 / deploy_target_outsi
   0.98.8 已发布代码的 ASSET_RE/TAG_RE(`git show win-installer-0.98.8:bin/ds_update.py`)认不出新名字;
   preload 暴露的方法 ⊇ 前端调用的(x2 的 Electron 版)、preload 的每个通道主进程都有 handle;退役清单里的文件已删、
   ds-web 与前端不再有 `/api/update`、前端不再读 `pywebview`。
-- `tests/test_desktop_ui.mjs` du1~du12:更新一栏各状态措辞(u3 搬过来)、「重启以更新」只在 downloaded、错误态有「重试」、
+- `tests/test_desktop_ui.mjs` du1~du12:更新一栏各状态措辞(u3 搬过来;**T4 收货收紧 du4**:查不动要明说「失败 / 没成功 / 连不上」,不许说「没查到 / 查不到」—— 业主读成「没有新版」,和 du4b 同一个理由)、「重启以更新」只在 downloaded、错误态有「重试」、
   圆点只在 downloaded、提示写明约 2 分钟别关机;`shellApi` 不认 pywebview;s-w1(浏览器零按钮)照旧在 `test_shell_window.mjs`;
   窗口栏 CSS:拖动带 drag、按钮 no-drag、无 `.win-grip`。
 

@@ -376,6 +376,34 @@ class C10MainIsWired(unittest.TestCase):
             body = re.sub(r"^\s*(?:async\s+)?" + key, "", entries[key], count=1)
             self.assertIsNotNone(re.search(need, body), f"托盘 {key}:{why}(回调里要有 {need}):{entries[key].strip()[:80]}")
 
+    def test_c10f_host_spawn_and_pipe_errors_are_caught(self):
+        """T4 收货补(主 agent 读 GPT 那一半的 diff):python.exe 缺失 / 被杀软隔离时 `spawn` 发 `error` 事件,
+        没人接 ⇒ Node 把它抛成主进程未捕获异常:业主看到一框英文堆栈,窗口停在「正在启动…」(mc21 只测到控制器)。
+        写法照接缝表:`host.on("error", (error) => ctl.hostError(error))`。
+        同类再扫:管家先死了、我们还往它 stdin 写(window-shown / report)⇒ stdin 流发 EPIPE 的 `error`,没人接同样是未捕获异常
+        (sendHost 的 try/catch 接不住:那是异步事件,不是 write() 同步抛)。"""
+        main = _code_only((DESKTOP / "main.js").read_text(encoding="utf-8"))
+        handlers = _call_args(main, r"\.(?:on|once)")
+        on_error = [h for h in handlers if re.match(r"\(\s*[\"']error[\"']", h) and ".hostError" in h]
+        self.assertTrue(on_error, "main.js 没在管家的 error 事件里叫 hostError ⇒ python.exe 起不来时主进程未捕获异常")
+        self.assertTrue(_hits(main, r"\.stdin\s*\.\s*(?:on|once)\s*\(\s*[\"']error[\"']"),
+                        "main.js 没接管家 stdin 的 error ⇒ 管家先死、再往它写一行就是 EPIPE 未捕获异常")
+
+    def test_c10g_quit_app_goes_through_the_same_shutdown(self):
+        """T4 收货补:起不来时控制器叫 deps.quitApp(),main.js 传个空函数 mc19~mc21 照样全绿(它们只测到 deps)。
+        要走托盘「退出」同一条收摊路 quitAll(先收管家、再退)—— 版本对不上那一刻管家和两条腿都还活着。"""
+        main = _code_only((DESKTOP / "main.js").read_text(encoding="utf-8"))
+        calls = _call_args(main, r"createController")
+        self.assertTrue(calls, "main.js 没调 createController")
+        arg = calls[0]
+        brace = arg.find("{")
+        self.assertTrue(brace >= 0 and not arg[1:brace].strip(), f"createController 的实参要是就地写的对象字面量:{arg[:80]}")
+        entries = _top_entries(_balanced(arg, brace))
+        self.assertIn("quitApp", entries, "控制器的 deps 里没有 quitApp")
+        body = re.sub(r"^\s*(?:async\s+)?quitApp", "", entries["quitApp"], count=1)
+        self.assertIsNotNone(re.search(r"quitAll\s*\(", body),
+                             f"quitApp 没走 quitAll(先收管家再退):{entries['quitApp'].strip()[:80]}")
+
 
 class C7Retired(unittest.TestCase):
     RETIRED = [

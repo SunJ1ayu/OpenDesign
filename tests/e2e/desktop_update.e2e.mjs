@@ -9,7 +9,10 @@
 //   A 每一种状态下:「重启以更新」只在下好之后出现(整页任何地方,弹层开着也算);收起的「设置」行上那个按钮在;
 //     圆点只在「下好了 / 下载失败」时亮;弹层里的说明不说假话;失败时有「重试」;下好时「约 2 分钟、别关机」看得见
 //   B 点「重启以更新」⇒ 叫 odShell.update.install() 恰好一次;点「重试」⇒ 叫 odShell.update.check()
-//   C 浏览器形态(没有 odShell):只有当前版本 + 发布页链接,没有重启/重试
+//   C 浏览器形态(没有 odShell):只有当前版本 + 发布页链接,没有重启/重试/检查更新
+//   D(T4 收货补,主 agent 读 diff 发现):弹层里「检查更新」—— 旧版一直有这个按钮;设计 D 写的是「改接」+ `update.check()` 手动查,
+//     我的任务书写成「旧的查更新…全部删掉」,执行腿连按钮一起删了。没查过 / 已是最新时在,点了只叫 check;
+//     查着、下着、下好了不摆(没东西可查),出错时由「重试」顶(不摆两个做同一件事的按钮)
 //
 // 跑法:node tests/e2e/desktop_update.e2e.mjs(自起 ds_web 于 8850)
 import { spawn } from "node:child_process";
@@ -120,6 +123,9 @@ try {
     } else {
       expect(!(await visible("[data-ui=update-retry]")), "没出错不摆「重试」");
     }
+    const canCheck = st.phase === "idle" || st.phase === "latest";
+    expect(await visible("[data-ui=update-check]") === canCheck,
+      `弹层里「检查更新」${canCheck ? "在(没查过 / 已是最新时要能手动查)" : "不在"}`);
     expect(await restartTextAnywhere() === done,
       `整页(弹层开着)任何地方「重启以更新」这几个字${done ? "看得见" : "都不许出现"}`);
     // 复核:只看「整页有这两句」⇒ 页面别处本来就有时,提示没渲染也绿。改成**对照**:下好之前不许有、下好之后必须有。
@@ -143,6 +149,15 @@ try {
   await sleep(300);
   calls = await page.evaluate(() => window.__calls.slice());
   expect(calls.includes("check") && !calls.includes("install"), `点「重试」⇒ 只叫 check(实测 ${JSON.stringify(calls)})`);
+
+  console.log("\n== D 手动检查更新");
+  await page.evaluate(() => { window.__calls.length = 0; window.__push({ phase: "latest" }); });
+  await sleep(300);
+  await popOpen(true);
+  await page.click("[data-ui=update-check]");
+  await sleep(300);
+  calls = await page.evaluate(() => window.__calls.slice());
+  expect(JSON.stringify(calls) === JSON.stringify(["check"]), `点「检查更新」⇒ 只叫 check 一次(实测 ${JSON.stringify(calls)})`);
   });
   await page.close();
 
@@ -159,7 +174,8 @@ try {
   expect(txt.includes(version), `显示当前版本 ${version}(实测「${txt}」)`);
   const link = await p2.locator('a[href^="https://github.com/SunJ1ayu/OpenDesign/releases"]').count();
   expect(link >= 1, "有发布页链接");
-  expect(await p2.locator("[data-ui=update-restart], [data-ui=update-retry]").count() === 0, "没有重启 / 重试(浏览器里没东西可装)");
+  expect(await p2.locator("[data-ui=update-restart], [data-ui=update-retry], [data-ui=update-check]").count() === 0,
+    "没有重启 / 重试 / 检查更新(浏览器里没有更新器)");
   await p2.close();
   });
 } finally {

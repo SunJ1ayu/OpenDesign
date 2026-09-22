@@ -38,7 +38,10 @@ test("du3 查过、没有新版:说已是最新", () => {
 test("du4 🔴 查不动 / 下载失败不许说「已是最新」(旧判据 u3)", () => {
   const s = desktopUpdateLabel(S("error", { error: "net::ERR_CONNECTION_REFUSED" }), "0.98.10");
   assert.doesNotMatch(s, /已是最新|最新版/, `查不动时说「${s}」= 把失败伪装成成功`);
-  assert.match(s, /没查到|查不到|失败/);
+  // T4 收货收紧:原来这里也放行「没查到 / 查不到」—— 可 du4b 自己就写着「没查到」会让他以为没有新版。
+  // GPT 交的是「没查到更新,请稍后重试」:业主(常先开软件后开 VPN)读成「没有新版」,和「已是最新」是同一个误导。
+  assert.match(s, /失败|没成功|连不上/, `查不动要明说没查成:「${s}」`);
+  assert.doesNotMatch(s, /没查到|查不到/, `「${s}」会被读成「没有新版」`);
   assert.doesNotMatch(s, /ERR_|net::/, "英文错误码不给业主看(进日志)");
 });
 

@@ -188,12 +188,16 @@ class Harness:
 
     def wait_event(self, name, timeout=5.0):
         t0 = time.monotonic()
-        while time.monotonic() - t0 < timeout:
-            for e in self.events():
-                if e.get("event") == name:
-                    return e
-            time.sleep(0.02)
-        self.tc.fail(f"{timeout}s 内没等到管家发 `{name}`;实际发了:{self.events()};日志:{self.logs[-8:]}")
+        found = None
+        while found is None and time.monotonic() - t0 < timeout:
+            found = next((e for e in self.events() if e.get("event") == name), None)
+            if found is None:
+                time.sleep(0.02)
+        # 断言在语句位、每次都真跑(T4 总跑的死断言闸点名:原来是「超时才走的 self.fail」,绿的时候一次都不执行);
+        # 消息走三元,等到了就不去拼那一长串(b8 同款改法,不进放行清单)。
+        self.tc.assertIsNotNone(found, None if found is not None else
+                                f"{timeout}s 内没等到管家发 `{name}`;实际发了:{self.events()};日志:{self.logs[-8:]}")
+        return found
 
     def finish(self, timeout=5.0):
         self.thread.join(timeout)

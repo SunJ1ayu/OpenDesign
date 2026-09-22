@@ -11,7 +11,8 @@
 //   createController(deps) → { hostStdout(chunk), hostExit(code), setQuitting(), navigate(url),
 //                              startUpdates(), checkNow(), updateState(), installUpdate(host) }
 //   deps = { appVersion, loadWorkbench(url), showWindow(), showError(msg), revealFile(path), openExternal(url),
-//            log(msg), updater, pushUpdateState(state), setTimeout, clearTimeout, relaunch(), graceMs? }
+//            log(msg), updater, pushUpdateState(state), setTimeout, clearTimeout, relaunch(), quitApp(), graceMs? }
+//   T4 收货补(主 agent 读 diff 时发现的规格洞):hostError(err) = 管家的 spawn 发了 error;quitApp() = 走托盘「退出」同一条收摊路。
 //   hostStdout(chunk) 吃管道**原始块**(Buffer 或 setEncoding 之后的字符串),按行拼在控制器里;
 //   hostExit(code) 先把没换行的尾巴认完再判「意外退出」;relaunch() 在 main.js 里 = app.relaunch() 紧跟 app.exit(0)。
 //   desktop/lib/hostProtocol.js 另给 createHostDecoder(onEvent) → { push(chunk), end() }
@@ -61,7 +62,7 @@ class FakeChild extends EventEmitter {
 }
 
 function harness(over = {}) {
-  const rec = { loaded: [], shown: 0, errors: [], revealed: [], external: [], logs: [], states: [], relaunched: 0, seq: [] };
+  const rec = { loaded: [], shown: 0, errors: [], revealed: [], external: [], logs: [], states: [], relaunched: 0, quits: 0, seq: [] };
   const clock = fakeClock();
   const updater = new FakeUpdater();
   const { createController } = lib("controller");
@@ -78,6 +79,7 @@ function harness(over = {}) {
     setTimeout: clock.setTimeout,
     clearTimeout: clock.clearTimeout,
     relaunch: () => { rec.relaunched++; rec.seq.push("relaunch"); },
+    quitApp: () => { rec.quits++; rec.seq.push("quit"); },
     graceMs: 500,
     ...over,
   });
@@ -323,4 +325,48 @@ test("mc18 右键:输入框里有剪切/复制/粘贴/全选;只选中了字就�
   const labels = contextMenuTemplate({ isEditable: true, selectionText: "", editFlags: { canCut: true, canCopy: true, canPaste: true, canSelectAll: true } })
     .filter((i) => i.role).map((i) => i.label);
   assert.deepEqual(labels, ["剪切", "复制", "粘贴", "全选"], "菜单是给业主看的,中文");
+});
+
+// ── T4 收货补(主 agent 读 GPT 那一半的 diff 时发现的规格洞,判据先单独 commit)──────────────
+// 加载页 desktop/loading.html 整页是拖动带、**没有按钮**。起不来时只弹框不退 ⇒ 业主点掉框,
+// 看到的是一直转圈的「OpenDesign 正在启动…」,以为还在起,只能自己摸到托盘去退;旧版 ds_shell 的 die() 本来就是弹框后退出。
+test("mc19 🔴 起不来的三种(fatal / already-running / 版本对不上):弹完那一个框就整个退出,不留转圈的「正在启动」窗口", () => {
+  for (const [name, feed] of [
+    ["fatal", (c) => c.hostStdout(line({ event: "fatal", message: "数据目录写不进去" }))],
+    ["already-running", (c) => c.hostStdout(line({ event: "already-running" }))],
+    ["版本对不上", (c) => c.hostStdout(line({ event: "ready", web_port: 8767, version: "0.98.9" }))],
+  ]) {
+    const { c, rec } = harness();
+    feed(c);
+    c.hostExit(1);      // 管家跟着退(或被 quitApp 收掉)—— 不许再补一个「意外退出」
+    assert.deepEqual(rec.seq, ["error", "quit"], `${name}:先弹那一个框、再退,各恰好一次(实测 ${JSON.stringify(rec.seq)})`);
+    assert.deepEqual(rec.loaded, [], `${name}:不许加载工作台`);
+  }
+});
+
+test("mc20 能接着用的(alert / backend-died / 诊断包没出成)只弹框、不退 —— 工作台还开着,别替业主把软件关了", () => {
+  const { c, rec } = harness();
+  c.hostStdout(line({ event: "ready", web_port: 8766, version: "0.98.10" }));
+  c.hostStdout(line({ event: "alert", message: "key 已经存好了,但后台没能自己重启" }));
+  c.hostStdout(line({ event: "backend-died", names: ["网关"], message: "网关 意外退出了" }));
+  c.hostStdout(line({ event: "diagnostics", error: "磁盘满了" }));
+  assert.equal(rec.errors.length, 3);
+  assert.equal(rec.quits, 0, "弹个提醒就把软件关了");
+});
+
+test("mc21 🔴 管家根本没拉起来(spawn 发 error:python.exe 缺失 / 被杀软隔离)⇒ 一句中文人话、原始错误进日志、退出;跟来的 close 不再弹「意外退出」", () => {
+  const { c, rec } = harness();
+  const e = Object.assign(new Error("spawn C:\\OpenDesign\\resources\\python\\python.exe ENOENT"), { code: "ENOENT" });
+  c.hostError(e);
+  c.hostExit(-4058);
+  assert.deepEqual(rec.seq, ["error", "quit"], `实测 ${JSON.stringify(rec.seq)}`);
+  assert.match(rec.errors[0], /[\u4e00-\u9fff]/);
+  assert.match(rec.errors[0], /安装/, "python.exe 没了 ⇒ 告诉他重新运行安装包");
+  assert.doesNotMatch(rec.errors[0], /ENOENT|spawn/, "英文错误码不给业主看(进日志)");
+  assert.ok(rec.logs.some((l) => /ENOENT/.test(l)), "原始错误没进日志");
+  // 收摊时 kill 失败之类也会发 error:那时不许再弹框
+  const b = harness();
+  b.c.setQuitting();
+  b.c.hostError(Object.assign(new Error("kill EPERM"), { code: "EPERM" }));
+  assert.deepEqual(b.rec.errors, [], "收摊中的 error 只进日志");
 });

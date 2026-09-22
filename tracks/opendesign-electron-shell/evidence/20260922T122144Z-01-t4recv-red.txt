@@ -1,0 +1,24 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    t4recv-red
+cmd:     bash -c node\ --test\ tests/test_desktop_controller.mjs\ tests/test_desktop_ui.mjs\ 2\>\&1\ \|\ grep\ -E\ \'\^not\ ok\|\^#\ \(pass\|fail\)\'\;\ /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_desktop_config.C10MainIsWired\ tests.test_ds_host\ 2\>\&1\ \|\ grep\ -E\ \'\^\(FAIL\|ERROR\):\|\^Ran\ \|\^OK\|\^FAILED\'\;\ HOME=/tmp/claude-0/-root/70c6a91f-4349-4cd1-9eb8-91c763d96575/scratchpad/repro/home\ USERPROFILE=/tmp/claude-0/-root/70c6a91f-4349-4cd1-9eb8-91c763d96575/scratchpad/repro/home\ node\ tests/e2e/desktop_update.e2e.mjs\ 2\>\&1\ \|\ grep\ -E\ \'FAIL\|不通过\|全部通过\'
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  7a86006
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-22T12:21:44Z
+---------------- 输出开始 ----------------
+not ok 22 - mc19 🔴 起不来的三种(fatal / already-running / 版本对不上):弹完那一个框就整个退出,不留转圈的「正在启动」窗口
+not ok 24 - mc21 🔴 管家根本没拉起来(spawn 发 error:python.exe 缺失 / 被杀软隔离)⇒ 一句中文人话、原始错误进日志、退出;跟来的 close 不再弹「意外退出」
+not ok 28 - du4 🔴 查不动 / 下载失败不许说「已是最新」(旧判据 u3)
+# pass 34
+# fail 3
+FAIL: test_c10f_host_spawn_and_pipe_errors_are_caught (tests.test_desktop_config.C10MainIsWired.test_c10f_host_spawn_and_pipe_errors_are_caught)
+FAIL: test_c10g_quit_app_goes_through_the_same_shutdown (tests.test_desktop_config.C10MainIsWired.test_c10g_quit_app_goes_through_the_same_shutdown)
+Ran 29 tests in 2.547s
+FAILED (failures=2)
+  FAIL: 弹层里「检查更新」在(没查过 / 已是最新时要能手动查)
+  FAIL: 弹层里「检查更新」在(没查过 / 已是最新时要能手动查)
+  FAIL: A downloaded 炸了:TimeoutError: page.click: Timeout 5000ms exceeded.
+  FAIL: B 炸了:TimeoutError: page.click: Timeout 5000ms exceeded.
+4 条不通过
+---------------- 输出结束 ----------------
+runlog: t4recv-red rc=0 commit=7a86006 dirty=yes at=2026-09-22T12:21:44Z file=tracks/opendesign-electron-shell/evidence/20260922T122144Z-01-t4recv-red.txt
