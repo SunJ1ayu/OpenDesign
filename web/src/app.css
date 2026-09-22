@@ -130,51 +130,6 @@ select:focus-visible {
 }
 html, body { overflow: auto; }
 
-.startup-update {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  padding: 48px 24px;
-  box-sizing: border-box;
-  background: var(--paper);
-}
-.startup-update-card { max-width: 480px; text-align: center; }
-.startup-update-brand { color: var(--terra); font-size: 18px; font-weight: 600; }
-.startup-update-card h1 { margin: 24px 0 12px; font-size: 24px; overflow-wrap: anywhere; }
-.startup-update-card p { color: var(--ink-2); font-size: 14px; line-height: 1.7; }
-
-.auto-update-banner {
-  position: fixed;
-  top: 42px;
-  left: 260px;
-  right: 20px;
-  z-index: 150;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  max-width: 760px;
-  padding: 9px 12px 9px 14px;
-  border: 1px solid var(--border-main);
-  border-left: 3px solid var(--terra);
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: var(--shadow-pop);
-}
-.auto-update-text {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--ink);
-  overflow-wrap: anywhere;
-}
-.auto-update-banner .btn-secondary {
-  flex: none;
-}
-
 /* keep-mounted(P3 T1):非当前路由的常驻聊天实例只隐藏、不卸载。
    display:none 由这一个 class 承担;给它换 key / 条件卸载都算违规(红线 3)。 */
 .route-hidden { display: none !important; }
@@ -215,8 +170,7 @@ html, body { overflow: auto; }
   position: relative;
 }
 /* ── 自己画的窗口栏(只在桌面外壳里出现,见 WindowChrome.tsx)────────────
-   无边框窗口把系统标题栏连同"拖边缘改大小"一起收走了,这里补回来。
-   高度 30px ≈ 原来那条系统标题栏 —— 净空间不变,少一个重复的 OpenDesign 标题。 */
+   Electron 保留 thickFrame 提供系统缩放边，这里只补标题拖动区与三按钮。 */
 body.has-window-chrome { padding-top: 30px; }
 /* 🔴 层号必须压过所有 inset:0 的浮层(判据 x5)。原来窗口栏在 60、连接弹窗的
    遮罩在 70 ⇒ **业主装完第一次打开、填 key 的弹窗一出现,三个窗口按钮全点不动、
@@ -226,16 +180,13 @@ body.has-window-chrome { padding-top: 30px; }
   background: var(--paper-side); border-bottom: 1px solid var(--border-soft);
   display: flex; align-items: center; justify-content: flex-end;
   user-select: none; -webkit-user-select: none;
+  -webkit-app-region: drag;
 }
-/* 按钮要在把手**上面**:把手是全宽的一条,原来压着三个按钮的上沿 5px、
-   右上角还压掉 6×6 ⇒ 点关闭按钮的顶部是"改窗口大小",不是关闭(判据 x8)。
-   按钮只有 30px 高,被吃掉的是六分之一。
-   🔴 必须是**根级 fixed**、不能待在 .win-bar 里:栏自己是 fixed+z-index,
-      它开了一个 stacking context,里面的层号在根上下文里不算数,把手照样盖上来。
-      (这一条 08-17 四审 subkimi 逮到,我第一版就是放在栏里的。) */
+/* 按钮是拖动区的兄弟，并显式 no-drag，保证点击交给按钮。 */
 .win-btns {
   position: fixed; top: 0; right: 0; height: 30px; z-index: 220;
   display: flex;
+  -webkit-app-region: no-drag;
 }
 .win-btn {
   width: 44px; height: 100%; display: grid; place-items: center;
@@ -244,23 +195,6 @@ body.has-window-chrome { padding-top: 30px; }
 }
 .win-btn:hover { background: var(--paper-hover); color: var(--ink); }
 .win-btn-close:hover { background: var(--terra); color: #fff; }
-/* 八个透明把手。5px 宽,压在浮层之上、按钮之下 —— 窗口边缘那一线的点击
-   让给"改大小",但**不许吃掉按钮**(见 .win-btns 的层号)。 */
-.win-grip { position: fixed; z-index: 210; }
-.win-grip-top    { top: 0; left: 6px; right: 6px; height: 5px; }
-.win-grip-bottom { bottom: 0; left: 6px; right: 6px; height: 5px; }
-.win-grip-left   { left: 0; top: 6px; bottom: 6px; width: 5px; }
-.win-grip-right  { right: 0; top: 6px; bottom: 6px; width: 5px; }
-.win-grip-topleft     { top: 0; left: 0; width: 6px; height: 6px; }
-/* ⚠️ 这一个**点不到**:它 6×6 全落在三个按钮那 132×30 里,而按钮层号更高
-   (那是有意的,见上;否则点关闭按钮的上沿会变成改大小)。
-   ⇒ 右上角这个斜角改不了大小;上边(按钮左侧)和右边(栏以下)照样能拖。
-   2026-08-17 e2e shell_chrome 的 E 段用真鼠标钉住了这个事实(按下去命中关闭按钮),
-   业主真机清单 B7/F4 也照这个写。留着这条规则是为了名单完整 + 将来按钮若移位就自然复活。 */
-.win-grip-topright    { top: 0; right: 0; width: 6px; height: 6px; }
-.win-grip-bottomleft  { bottom: 0; left: 0; width: 6px; height: 6px; }
-.win-grip-bottomright { bottom: 0; right: 0; width: 6px; height: 6px; }
-
 .side-brand { display: flex; align-items: baseline; padding: 18px 20px 12px; }
 .side-brand .brand {
   font-weight: 700;
@@ -515,6 +449,15 @@ body.has-window-chrome { padding-top: 30px; }
 }
 .side-footer { border-top: 1px solid var(--border-main); padding: 8px 10px; }
 .side-footer .side-row { padding: 8px 10px; user-select: none; }
+.settings-toggle-row { display: flex; flex-direction: column; gap: 5px; }
+.settings-toggle-row > [data-ui="settings-toggle"] {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+}
+.side-update-restart {
+  display: flex; flex-direction: column; align-items: flex-start;
+  padding-left: 25px; color: var(--terra-deep); font-weight: 600;
+}
+.side-update-restart small { color: var(--ink-4); font-size: 10px; font-weight: 400; }
 
 /* ================= 2. 中央变更记录列 flex:1 ================= */
 .center {

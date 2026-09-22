@@ -12,17 +12,18 @@
 #   闸 B:成品结构合不合格(check-package.sh,fail closed)
 #   闸 C:只允许 Windows 轮子进包(--only-binary + --platform,任何源码包直接失败)
 #
-# 用法:build-package.sh <输出目录> [--with-shell|--s1b]
+# 用法:build-package.sh <输出目录> [--with-shell|--s1b|--app|--electron]
 #   (不给)      :S0 形态,考卷 spike.py —— 只问"免装 Python 跑不跑得动"
 #   --with-shell:S1a,加外壳依赖,考卷 spike-shell.py —— 只问"窗口/托盘起不起得来"
 #   --s1b       :S1b,加外壳依赖,考卷 spike-shell2.py —— 问"外壳 + **真后端**"那一组
 #   --app       :S1c 出货形态,加外壳依赖,**不带考卷**(装机包不是考卷,别混)
+#   --electron  :Electron 出货形态,不带 pywebview/pythonnet/pystray,不带考卷
 #
 # 产出:<输出目录>/pkg/ 与 <输出目录>/OpenDesign-spike.zip
 
 set -euo pipefail
 
-OUT="${1:?用法: build-package.sh <输出目录> [--with-shell|--s1b]}"
+OUT="${1:?用法: build-package.sh <输出目录> [--with-shell|--s1b|--app|--electron]}"
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../../.." && pwd)"          # design-studio 仓根
@@ -74,6 +75,7 @@ die() { printf '\n🔴 %s\n' "$*" >&2; exit 1; }
 WITH_SHELL=0
 SPIKE=spike.py
 APP_MODE=0
+ELECTRON_MODE=0
 case "${2:-}" in
   "")           ;;
   --with-shell) WITH_SHELL=1; SPIKE=spike-shell.py  ;;
@@ -82,7 +84,8 @@ case "${2:-}" in
   # 考卷是问"跑不跑得动"的,装机包是"跑得动之后给他用的",混在一起会让业主
   # 双击到一张答非所问的卷子,而它照样打印一份像样的收据。
   --app)        WITH_SHELL=1; APP_MODE=1; SPIKE="" ;;
-  *)            die "不认识的参数 '${2}'(只认 --with-shell / --s1b / --app)" ;;
+  --electron)   WITH_SHELL=0; APP_MODE=1; ELECTRON_MODE=1; SPIKE="" ;;
+  *)            die "不认识的参数 '${2}'(只认 --with-shell / --s1b / --app / --electron)" ;;
 esac
 [ "$APP_MODE" = 1 ] || [ -f "$HERE/$SPIKE" ] || die "考卷 $SPIKE 不在 $HERE 里"
 
@@ -289,7 +292,10 @@ fi
 
 # ---------------------------------------------------------------- 6. 闸 B + 出 zip
 say "6/6 闸 B:成品结构检查"
-CHECK_MODE=""; [ "$APP_MODE" = 1 ] && CHECK_MODE="--app"
+CHECK_MODE=""
+if [ "$ELECTRON_MODE" = 1 ]; then CHECK_MODE="--electron"
+elif [ "$APP_MODE" = 1 ]; then CHECK_MODE="--app"
+fi
 bash "$HERE/check-package.sh" "$PKG" $CHECK_MODE || die "闸 B:成品结构不合格"
 
 ZIP="$OUT/OpenDesign-spike.zip"

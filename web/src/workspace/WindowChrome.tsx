@@ -1,10 +1,6 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import {
-  RESIZE_EDGES,
-  cursorFor,
-  inDesktopShell,
-  type ResizeEdge,
-} from "../shellWindow";
+import { inDesktopShell } from "../shellWindow";
+import { shellApi } from "../desktopShell";
 
 // 我们自己的窗口栏(2026-08-16 业主:「为什么不能不要外面那个框,只留我们原来的
 // 前端仅仅加上右上角的缩小放大和退出按钮」)。
@@ -12,37 +8,12 @@ import {
 // 🔴 只在桌面外壳里出现。用浏览器打开 127.0.0.1:8766 的时候没有窗口可以关,
 //    画出来就是三个按下去没反应的按钮。分界见 shellWindow.ts 的 inDesktopShell。
 //
-// 🔴 无边框 = Windows 把"拖边缘改大小"也一起收走了。所以除了三个按钮,这里还铺了
-//    八个透明的边角把手,按下去交给 Python 那边发一条原生的窗口消息 —— 拖动和
-//    改大小都由 Windows 自己接管(手感和系统边框一样,也带吸附)。
-
-type ShellApi = {
-  minimize(): Promise<unknown>;
-  toggle_maximize(): Promise<{ maximized: boolean } | null>;
-  close_window(): Promise<unknown>;
-  begin_drag(): Promise<unknown>;
-  begin_resize(edge: string): Promise<unknown>;
-  window_state(): Promise<{ maximized: boolean } | null>;
-};
-
-function api(): ShellApi | null {
-  const w = window as unknown as { pywebview?: { api?: Partial<ShellApi> } };
-  const a = w.pywebview?.api;
-  // 🔴 2026-08-30:光判 `api` 在不在**不够** —— pywebview 是**分步**注入的,
-  //    对象已经在、方法还没挂上的那一瞬间真实存在。原来写的是 `w.pywebview?.api ?? null`,
-  //    于是 `api()?.window_state()` 变成 `undefined()`:**同步抛**,后面的 .catch 接不到,
-  //    异常从 useEffect 冒上去、而全仓没有 ErrorBoundary ⇒ **React 卸载整棵树 ⇒ 整页白**。
-  //    云 Windows 真机复现过(run 33305829954:先 frame_submitted,再报这个错,截图整片空白),
-  //    本机 e2e `api_partial_injection.e2e.mjs` 也复现得出来(root 子节点 = 0)。
-  //    ⇒ 必须逐个方法确认是函数再用。这是本项目栽的第四次"注入时机"。
-  return a && typeof a.window_state === "function" ? (a as ShellApi) : null;
-}
+// Electron 保留原生 thickFrame，拖边缘缩放由系统处理；标题区只负责拖动与三按钮。
 
 export default function WindowChrome() {
   // 一次定死:分界读的是**地址**,首帧就定了,之后也不会变 —— 前端没有任何
   // `history.pushState/replaceState`(路由走 hash),外壳也从不 `load_url`。
-  // 🔴 这行原来的注释写着「pywebview 的注入发生在页面加载那一刻」,那是错的,
-  //    而且 0.89/0.90 两版的窗口栏就是因此整块没画出来(见 shellWindow.ts)。
+  // 地址标记在首帧就可用，不依赖 preload API 的调用结果。
   const [shell] = useState(inDesktopShell);
   const [maximized, setMaximized] = useState(false);
 
@@ -57,67 +28,30 @@ export default function WindowChrome() {
     return () => document.body.classList.remove("has-window-chrome");
   }, [shell]);
 
-  // 「我现在是不是最大化」只有 Python 那边知道,而 `pywebview.api` 到位得**比这一帧晚**
-  // (注入发生在 on_navigation_completed 之后,见 shellWindow.ts)。
-  // 🔴 窗口栏本身**不等它**(靠地址,首帧就画);但这一问必须等 —— 不等的话
-  //    `api()` 是 null,这个 effect 就成了一句好看的空话(0.91.0 之前它正是如此:
-  //    整个组件都没渲染过,所以没人发现)。
-  //    pywebview 注完 finish.js 会派 `pywebviewready`;它可能在我们挂上监听**之前**
-  //    就派过了(页面重挂、热更新),所以两条路都要走。
+  // preload 先取一次当前状态，再订阅之后的最大化/还原变化。
   useEffect(() => {
     if (!shell) return;
-    const sync = () => {
-      api()?.window_state().then((st) => st && setMaximized(!!st.maximized)).catch(() => {});
-    };
-    if (api()) { sync(); return; }
-    window.addEventListener("pywebviewready", sync, { once: true });
-    return () => window.removeEventListener("pywebviewready", sync);
+    const api = shellApi(window);
+    if (!api) return;
+    void api.windowState().then((st) => st && setMaximized(!!st.maximized)).catch(() => {});
+    return api.onWindowState((st) => setMaximized(!!st.maximized));
   }, [shell]);
 
   if (!shell) return null;
 
   const toggle = () => {
-    api()?.toggle_maximize()
+    shellApi(window)?.toggleMaximize()
       .then((st) => st && setMaximized(!!st.maximized))
       .catch(() => {});
   };
 
-  const grip = (edge: ResizeEdge) => (
-    <div
-      key={edge}
-      className={`win-grip win-grip-${edge}`}
-      style={{ cursor: cursorFor(edge) }}
-      onMouseDown={(e) => {
-        if (e.button !== 0) return;
-        e.preventDefault();
-        api()?.begin_resize(edge).catch(() => {});
-      }}
-    />
-  );
-
   return (
     <>
-      <div
-        className="win-bar"
-        data-ui="window-bar"
-        onMouseDown={(e) => {
-          // 只有在栏本身的空白处按下才算拖窗口;按在按钮上不算 —— 按钮区是这条栏的
-          // **兄弟节点**且压在它上面(见下),点击根本到不了这里。
-          if (e.button !== 0) return;
-          api()?.begin_drag().catch(() => {});
-        }}
-        onDoubleClick={toggle}
-      />
-      {/* 🔴 按钮区**不能放进窗口栏里**(08-17 四审 subkimi F-1)。
-          栏是 `position:fixed` + `z-index`,它自己就是一个 stacking context ——
-          按钮放在里面,层号再高也只在栏内部有效,根上下文里参与比较的是
-          整个栏的层号。于是把手(层号比栏高)照样盖在按钮上沿。
-          抬成栏的兄弟节点,200 < 210 < 220 才真的成立。判据 x8 现在先问结构。
-          顺带:不再是父子 ⇒ 点/双击按钮本来就不会冒泡到栏,那两个
-          stopPropagation 是白留的,一起去掉(x6 跟着改成问结构)。 */}
+      <div className="win-bar" data-ui="window-bar" />
+      {/* 按钮区独立于可拖动标题区，避免按钮点击被 app-region:drag 吞掉。 */}
       <div className="win-btns">
           <button className="win-btn" data-ui="window-min" title="最小化"
-                  onClick={() => api()?.minimize().catch(() => {})}>
+                  onClick={() => shellApi(window)?.minimize().catch(() => {})}>
             <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
               <path d="M0 5h10" stroke="currentColor" strokeWidth="1.2" />
             </svg>
@@ -137,14 +71,13 @@ export default function WindowChrome() {
             )}
           </button>
           <button className="win-btn win-btn-close" data-ui="window-close" title="关闭"
-                  onClick={() => api()?.close_window().catch(() => {})}>
+                  onClick={() => shellApi(window)?.close().catch(() => {})}>
             <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
               <path d="M0.7 0.7l8.6 8.6M9.3 0.7l-8.6 8.6" stroke="currentColor"
                     strokeWidth="1.2" />
             </svg>
           </button>
       </div>
-      {RESIZE_EDGES.map(grip)}
     </>
   );
 }

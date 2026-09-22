@@ -2,14 +2,17 @@
 # 组包后的结构检查 —— 本机(Linux)能验的那一半,别把结构性错误留给业主去发现。
 # 验不了的那一半(embeddable Python 真跑不跑得动)正是探路包本身要回答的问题。
 #
-# 用法:check-package.sh <包目录> [--app]
+# 用法:check-package.sh <包目录> [--app|--electron]
 #   (不给):考卷形态(S0/S1a/S1b)—— 包里要有且只有一张考卷,且 跑一下.bat 指向它
 #   --app  :出货形态(S1c)—— 装到业主机器上的那棵树,不带考卷,要带外壳与图标
+#   --electron:Electron 出货形态—— 不带 Python 窗口依赖,要带管家
 
 set -u
-B="${1:?用法: check-package.sh <包目录> [--app]}"
+B="${1:?用法: check-package.sh <包目录> [--app|--electron]}"
 APP_MODE=0
+ELECTRON_MODE=0
 [ "${2:-}" = "--app" ] && APP_MODE=1
+[ "${2:-}" = "--electron" ] && APP_MODE=1 && ELECTRON_MODE=1
 bad=0
 ok()  { echo "  [PASS] $1"; }
 no()  { echo "  [FAIL] $1"; bad=$((bad+1)); }
@@ -62,7 +65,11 @@ done
 # pip 解析出别的版本、或者升级把某个 API 改了名,都要在这里当场红 ——
 # 而不是等业主装上打不开软件。清单从 build-package.sh 的 SHELL_PINS 读,不抄第二份。
 PW_PIN="$(grep -oP 'pywebview==\K[0-9.]+' "$(dirname "$0")/build-package.sh" 2>/dev/null | head -1)"
-if [ -n "$PW_PIN" ]; then
+if [ "$ELECTRON_MODE" = 1 ]; then
+  for p in webview pythonnet clr_loader pystray; do
+    [ -e "$B/python/Lib/site-packages/$p" ] && no "Electron 包不该带窗口依赖:$p" || ok "Electron 包不带窗口依赖:$p"
+  done
+elif [ -n "$PW_PIN" ]; then
   PW_DIST="$(find "$B/python/Lib/site-packages" -maxdepth 1 -name "pywebview-*.dist-info" -printf '%f\n' 2>/dev/null | head -1)"
   # 🔴 `[0-9.]+` 会把 `pywebview-5.4.dist-info` 里结尾那个点也吃进去 ⇒ "5.4." != "5.4",
   #    闸当场误报。误报和假绿一样坏:带误报的闸会逼出绕开它的习惯。
@@ -145,6 +152,7 @@ if [ "$APP_MODE" = 1 ]; then
   # 出货形态多要四样:外壳两件、配置就绪脚本、托盘图标。
   # 少任何一件业主都装得上、打不开 —— 而"装得上"看起来就像成功了。
   NEED="$NEED ds/bin/ds_shell.py ds/bin/ds_shell_core.py ds/bin/ds_provision.py ds/assets/图标.png"
+  [ "$ELECTRON_MODE" = 1 ] && NEED="$NEED ds/bin/ds_host.py"
 else
   NEED="$NEED 跑一下.bat"
 fi
