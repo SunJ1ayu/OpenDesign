@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-electron-shell",
+  "run_id": "20260922T130347Z-01-c12-ps-case-red",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "c12-ps-case-red",
+  "started_at": "2026-09-22T13:03:47Z",
+  "finished_at": "2026-09-22T13:03:47Z",
+  "duration_ms": 116,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 0,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
