@@ -184,6 +184,11 @@ P6(管家语言)三方里两方站 Python。
   `installerLanguages:[zh_CN]`、`deleteAppDataOnUninstall:false`、`artifactName: OpenDesign-${version}-electron-setup.${ext}`。
 - `installer.nsh` 照探路版(E3 六跑全绿):preInit 把旧 `HKCU\Software\OpenDesign\InstallDir` 转成默认目录、记下旧版开机自启;
   customCheckAppRunning 收掉安装目录里所有进程、用旧卸载器静默卸掉旧程序(资料节默认不选);首装跑 `ds_provision`;更新时不碰资料根。
+- **旧版在哪就去哪收**(方案挑战腿思考日志里提出、我核实成立):探路版的 customCheckAppRunning 只看 `$INSTDIR` ——
+  首装时业主若在选目录页换了目录,原目录的旧版不收进程、不卸 ⇒ 新旧并存、两条卸载项、托盘里旧版照跑。
+  ⇒ 另按 `HKCU\Software\OpenDesign\InstallDir` 记的**旧目录**收进程、跑旧卸载器(与 `$INSTDIR` 相同则只做一次)。
+- **旧卸载器跑完要核**:探路版只记退出码不判。⇒ 卸完若哨兵 `ds\bin\ds_shell.py` 仍在 ⇒ 再收一次进程重试一次,仍在就弹人话并退出,
+  不许新旧文件混装(09-08 否掉就地覆盖的同一个形状)。
 - 资料根仍在 `%LOCALAPPDATA%\OpenDesign`(安装目录外);卸载不删资料(旧版那个「连资料一起删」可选项随旧卸载器退役)。
 - **开机自启**:过渡时沿用旧版的选择(E3 已验);**全新安装默认关、安装时没有勾选项**(旧版是安装页上一个默认不勾的选项)
   ⇒ 已知回归,延期到设置页开关(另单),在业主真机清单里写明。
@@ -205,6 +210,10 @@ P6(管家语言)三方里两方站 Python。
   「完成」勾着「运行」)⇒ 新版在最前面(第六跑)。
 - 前端设置页的更新一栏改接 `odShell.update`:下载好了才出现「重启以更新」按钮;**查不动不许说「已是最新」**(旧判据 u3 的保证搬过来)。
   浏览器形态(Linux / git-pull)没有更新器:只显示当前版本 + 发布页链接。
+- 「重启以更新」旁写明「约 2 分钟,期间请别关机」(向导进度页不能取消,关机会装一半)。
+- **下载失败不许静默**:整包回退或下载出错 ⇒ 更新一栏显示人话 + 「重试」,不能只是按钮永远不出现(否则他以为没有新版)。
+- **回滚随旧更新器退役**(已接受的保证损失,写进判据迁移账):旧版「装到旁边、新版起不来就退回」做不到了 ——
+  electron-updater 是就地重装。补救:每一版发布前云 Windows 判据全过才发;旧版安装包一直留在发布页,出事可以直接装回旧版。
 - **退役**(表 #11 的两个真相源因此只剩一个):`bin/ds_update.py`、`ds_update_apply.py`、`ds_update_startup.py`、`ds_auto_update.py`、
   ds-web `/api/update/*`、前端开机更新画面 / 自动更新横幅 / 自动更新偏好。退役清单与每条旧判据的去向见下「判据迁移账」。
 - **旧安装包工具链一起退役**:`installer/OpenDesign.nsi`、`installer/build-installer.sh`、`installer/check-installer.py`、
