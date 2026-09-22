@@ -1,17 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  applyHint,
-  applyLabel,
-  autoWhyNotHint,
-  canApply,
-  updateLabel,
-  updateReason,
-  downloadUrl,
-  notesSummary,
-  hasUpdateBadge,
-  badgeTitle,
-} from "../update";
-import type { ApplyResult, ApplyState, UpdateInfo, UpdateState } from "../update";
+  desktopUpdateLabel,
+  hasDesktopUpdateBadge,
+  RESTART_HINT,
+  showRestart,
+  showRetry,
+} from "../desktopUpdate";
+import type { DesktopUpdateState } from "../desktopShell";
+import { RELEASES_PAGE } from "../update";
 import type { ConsentMode, Project } from "../api";
 import { relTime } from "../api";
 import { displayProjectName } from "./projectName";
@@ -58,16 +54,10 @@ type Props = {
   consentMode: ConsentMode | null;
   onSetConsentMode: (mode: ConsentMode) => void;
   health: { version: string; ds_root: string; model: string | null } | null;
-  /** 查更新(track opendesign-in-app-update)。这个按钮此前**没有 onClick**,点了没反应。 */
-  updateState: UpdateState;
-  updateInfo: UpdateInfo | null;
+  desktopShell: boolean;
+  updateState: DesktopUpdateState;
   onCheckUpdate: () => void;
-  applyState: ApplyState;
-  applyResult: ApplyResult;
-  onApplyUpdate: () => void;
-  /** 自动查更新开关(默认开)。业主的机器该业主做主 —— 见 update.ts 里那段理由。 */
-  autoCheck: boolean;
-  onToggleAutoCheck: () => void;
+  onInstallUpdate: () => void;
 };
 
 function dotClass(p: Project, current: boolean): string {
@@ -89,8 +79,7 @@ export default function Sidebar({
   route, projects, stages, selectedKey, onSelectProject, todosOpenCount, excludedStructural,
   onOpenFolderVisibility, onOpenLlmKey, consentMode, onSetConsentMode,
   sessions, sessionTags, onOpenSession, onDeleteSession, onNewChat, onNewProject,
-  onSearch, health, updateState, updateInfo, onCheckUpdate, applyState, applyResult,
-  onApplyUpdate, autoCheck, onToggleAutoCheck,
+  onSearch, health, desktopShell, updateState, onCheckUpdate, onInstallUpdate,
 }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -144,10 +133,6 @@ export default function Sidebar({
   }, [settingsOpen]);
 
   const recent = (sessions ?? []).slice(0, 2);
-  const showApply = canApply(updateInfo);
-  const applyText = applyLabel({ state: applyState, result: applyResult });
-  const applyHelp = applyHint(applyResult);
-  const autoWhy = autoWhyNotHint(updateInfo);
 
   const projRow = (p: Project) => {
     const current = p.key === selectedKey;
@@ -375,95 +360,50 @@ export default function Sidebar({
             <span className="lbl">快捷键</span>
           </button>
           <div className="divider" />
-          <button
-            className="item"
-            onClick={onCheckUpdate}
-            disabled={updateState === "checking"}
-            title="问一次 GitHub:有没有比这台机器上更新的版本"
-          >
-            <span className="lbl muted">检查更新</span>
-            <span className="val mono faint">
-              {updateLabel({
-                state: updateState,
-                info: updateInfo,
-                version: health ? health.version : null,
-              })}
-            </span>
-          </button>
-          {updateReason({ state: updateState, info: updateInfo }) && (
-            <div className="update-reason" data-ui="update-reason">
-              {updateReason({ state: updateState, info: updateInfo })}
-            </div>
-          )}
-          {autoWhy && (
-            <div className="update-reason" data-ui="auto-update-why-not">
-              {autoWhy}
-            </div>
-          )}
-          {updateInfo?.update_available && (
+          {desktopShell ? (
             <>
-              <div style={{ display: "flex", alignItems: "stretch", gap: 6 }}>
-                <a
-                  className="item"
-                  href={downloadUrl(updateInfo.release_url)}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ flex: "1 1 auto", minWidth: 0 }}
-                >
-                  <span className="lbl">下载 {updateInfo.latest ?? "新版本"}</span>
-                  <span className="val faint">
-                    {notesSummary(updateInfo.notes) || "去发布页 ›"}
-                  </span>
-                </a>
-                {showApply && (
-                  <button
-                    className="item"
-                    data-ui="update-apply"
-                    onClick={onApplyUpdate}
-                    disabled={applyState === "applying"}
-                    title={applyText}
-                    style={{
-                      flex: "0 0 auto",
-                      width: "auto",
-                      whiteSpace: "nowrap",
-                      opacity: applyState === "applying" ? 0.72 : 1,
-                    }}
-                  >
-                    <span className="lbl">更新</span>
-                  </button>
-                )}
+              <div className="item">
+                <span className="lbl muted">软件更新</span>
+                <span className="val mono faint" data-ui="update-status">
+                  {desktopUpdateLabel(updateState, health?.version ?? "未知")}
+                </span>
               </div>
-              {showApply && (applyState !== "idle" || applyResult) && (
-                <div className="side-empty-hint" data-ui="update-apply-status">
-                  {applyText}
-                  {applyHelp && <span className="side-hint-cta">{applyHelp}</span>}
-                </div>
+              {showRetry(updateState) && (
+                <button className="item" data-ui="update-retry" onClick={onCheckUpdate}>
+                  <span className="lbl">重试</span>
+                </button>
+              )}
+              {showRestart(updateState) && (
+                <button className="item" onClick={onInstallUpdate}>
+                  <span className="lbl">重启以更新</span>
+                  <span className="val faint">{RESTART_HINT}</span>
+                </button>
               )}
             </>
+          ) : (
+            <a className="item" href={RELEASES_PAGE} target="_blank" rel="noreferrer">
+              <span className="lbl muted" data-ui="update-status">
+                当前版本 v{health?.version ?? "未知"}
+              </span>
+              <span className="val faint">发布页 ›</span>
+            </a>
           )}
-          <button className="item" onClick={onToggleAutoCheck}>
-            <span className="lbl muted">打开时自动检查</span>
-            <span className="val">{autoCheck ? "开 ›" : "关 ›"}</span>
-          </button>
         </div>
       )}
       <div className="side-footer">
-        <button
-          className="side-row"
-          onClick={() => setSettingsOpen((v) => !v)}
-          aria-expanded={settingsOpen}
-        >
-          <span className="ico">⚙</span>
-          <span className="grow">
-            设置
-            {/* 🔴 评审 F2:有新版的话必须在**收起来的**这一行上留个记号 ——
-                否则那句"有新版"只活在展开后的弹层里,业主永远看不到。 */}
-            {hasUpdateBadge(updateInfo) && (
-              <span className="update-dot" title={badgeTitle(updateInfo)}> ●</span>
-            )}
-          </span>
-          <span className="chev">{settingsOpen ? "▴" : "▾"}</span>
-        </button>
+        <div className="side-row settings-toggle-row">
+          <button data-ui="settings-toggle" onClick={() => setSettingsOpen((v) => !v)} aria-expanded={settingsOpen}>
+            <span className="ico">⚙</span>
+            <span className="grow">设置</span>
+            {hasDesktopUpdateBadge(updateState) && <span className="update-dot" data-ui="update-badge">●</span>}
+            <span className="chev">{settingsOpen ? "▴" : "▾"}</span>
+          </button>
+          {desktopShell && showRestart(updateState) && (
+            <button className="side-update-restart" data-ui="update-restart" onClick={onInstallUpdate}>
+              重启以更新 <small>{RESTART_HINT}</small>
+            </button>
+          )}
+        </div>
       </div>
     </nav>
   );

@@ -1,21 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  autoFailureText,
-  autoCheckEnabled,
-  autoRecentFailureText,
-  AUTO_CHECK_PREF,
-  beginApply,
-  canApply,
-  readApplyResponse,
-  startupAction,
-  STARTUP_LOCAL_ENDPOINT,
-  STARTUP_LOCAL_TIMEOUT_MS,
-  STARTUP_PREPARE_ENDPOINT,
-  BACKGROUND_FIRST_CHECK_MS,
-  startupVersion,
-} from "./update";
-import type { ApplyResult, ApplyState, UpdateInfo, UpdateState } from "./update";
-import { loadBoolPrefs } from "./boolPrefs";
+import { shellApi, type DesktopUpdateState } from "./desktopShell";
 import Sidebar, { type SessionItem } from "./workspace/Sidebar";
 import WindowChrome from "./workspace/WindowChrome";
 import ChangesColumn from "./workspace/ChangesColumn";
@@ -51,8 +35,6 @@ import {
   type ConsentMode,
   type Project,
 } from "./api";
-
-const UPDATE_PREFS_KEY = "ds.prefs.update";
 
 // 外壳(P3 T1,handoff v2 导航模型):
 //   hash 路由:#/ = home(3a 新对话,默认)| workspace(2a,点项目进入)
@@ -98,29 +80,8 @@ export default function App() {
   const [health, setHealth] = useState<
     { version: string; ds_root: string; model: string | null } | null
   >(null);
-  // 查更新(track opendesign-in-app-update,第一刀:只查不装)
-  const [updateState, setUpdateState] = useState<UpdateState>("idle");
-  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
-  const [applyState, setApplyState] = useState<ApplyState>("idle");
-  const [applyResult, setApplyResult] = useState<ApplyResult>(null);
-  const applyStateRef = useRef<ApplyState>("idle");
-  const updateInfoRef = useRef<UpdateInfo | null>(null);
-  updateInfoRef.current = updateInfo;
-  const [autoBanner, setAutoBanner] = useState<string | null>(null);
-  const [startupPhase, setStartupPhase] = useState<"checking" | "updating" | "ready">("checking");
-  // 启动要装哪一版:启动路径不查更新 ⇒ 版本只能来自启动回包(判据 sg8 / e2e AC-A)。
-  const [startupTarget, setStartupTarget] = useState<string | null>(null);
-  // "上次自动更新失败过"这句话,一次打开只说一遍(说完他关掉就别再冒出来)。
-  const recentFailureToldRef = useRef(false);
-  // 同一个挂载只发一次启动检查,也挡住 StrictMode 重放 effect;中途开启只查不装。
-  const checkedAutoPrefRef = useRef<boolean | null>(null);
-  // 60 秒后那个后台回调点火时要读的**当下**开关值(见 probeStartup 里的说明)。
-  const autoCheckRef = useRef<boolean>(true);
-  // 自动查更新的开关(默认开)。存 localStorage,和左栏那些展开偏好同一套。
-  const [autoCheck, setAutoCheck] = useState<boolean>(() => {
-    try { return autoCheckEnabled(loadBoolPrefs(localStorage.getItem(UPDATE_PREFS_KEY))); }
-    catch { return true; }   // 隐私模式读不到 ⇒ 按默认(开)走,不因此白屏
-  });
+  const [desktopShell] = useState(() => shellApi(window));
+  const [updateState, setUpdateState] = useState<DesktopUpdateState>({ phase: "idle" });
   const [sessions, setSessions] = useState<SessionItem[] | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   // 工作区体检卡浮层(2026-07-28 用户拍板:挪进设置)。计数器兼作 key:
@@ -274,178 +235,18 @@ export default function App() {
       .catch(() => setHealth(null));
   }, []);
 
-  const applyUpdate = useCallback(async (auto: boolean, localTarget: string | null = null) => {
-    const isAuto = auto === true;
-    const info = updateInfoRef.current;
-    // 🔴 启动装的是**盘上那个后台已经下好并验过字节的包**(验在 prepare:pr3/pr9;
-    //    真装前 apply_update 还会再算一遍:t4/ai9。startup_decision 自己只看存在/大小/版本,
-    //    su15 起不再算 sha256 —— 那是 O(包大小) 的活,不能放在启动路径上),
-    //    不是这一次查更新的结果 —— 启动路径上根本不查,所以 updateInfoRef 此刻必然是 null。
-    //    原来这里无条件走 canApply(info) ⇒ 后台备好的新版被自己挡掉,永远装不上
-    //    (判据 e2e AC-A/AC-D/AC-H 共 10 条钉这件事)。
-    //    盘上那条路的校验比 canApply 更硬:canApply 只看查更新回包的字段齐不齐。
-    const fromLocalState = typeof localTarget === "string" && localTarget !== "";
-    if ((!fromLocalState && !canApply(info)) || !beginApply(applyStateRef.current)) {
-      if (isAuto) setStartupPhase("ready");
-      return;
-    }
-    if (isAuto) setStartupPhase("updating");
-
-    applyStateRef.current = "applying";
-    setApplyResult(null);
-    setApplyState("applying");
-
-    try {
-      const r = await fetch("/api/update/apply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(isAuto ? { auto: true } : {}),
-      });
-      let body: unknown = null;
-      try {
-        body = await r.json();
-      } catch {
-        /* 非 JSON 响应:统一交给 readApplyResponse 当失败处理 */
-      }
-      const parsed = readApplyResponse(r.status, body);
-      const withLatest = { ...parsed, latest: info?.latest ?? localTarget ?? null };
-      applyStateRef.current = "done";
-      setApplyResult(withLatest);
-      setApplyState("done");
-      if (isAuto) {
-        setAutoBanner(autoFailureText(withLatest) || null);
-        // started 只是交给接力程序,旧窗口不能提前开放工作区。
-        if (!parsed.ok) setStartupPhase("ready");
-      }
-    } catch {
-      const parsed = readApplyResponse(0, null);
-      const withLatest = { ...parsed, latest: info?.latest ?? localTarget ?? null };
-      applyStateRef.current = "done";
-      setApplyResult(withLatest);
-      setApplyState("done");
-      if (isAuto) {
-        setAutoBanner(autoFailureText(withLatest) || null);
-        setStartupPhase("ready");
-      }
-    }
-  }, []);
-
-  const applyUpdateManually = useCallback(() => {
-    void applyUpdate(false);
-  }, [applyUpdate]);
-
-  // 「上一次自动更新失败了,以后只能手动」这句话该在哪说。
-  //
-  // 🔴 它原来挂在 handleStartupAutoCheck 上 —— 那条路是"启动时查更新"专用的,
-  //    本单把启动查更新整个搬走之后,**再没有人走那条路,这句提示就此消失**
-  //    (业主装了失败的一版、回滚之后,软件什么都不说)。判据 e2e AC-C2 钉它。
-  //    现在改挂在"任何一次查更新的结果"上:后台那次也好、他自己点的也好,都算数。
-  const tellIfRolledBack = useCallback((info: UpdateInfo | null) => {
-    if (recentFailureToldRef.current) return;      // 一次打开只说一遍
-    const text = autoRecentFailureText(info);
-    if (!text) return;
-    recentFailureToldRef.current = true;
-    setAutoBanner(text);
-  }, []);
-
-  // 查更新(手动点的、或进工作区之后那次后台的)。只读,失败就当没查到。
-  // 🔴 35000 这个数原先的注释写"后端三跳最多约 30 秒" —— **那句话是错的**(实测两跳 20.1s),
-  //    0.98.7 规格里"最坏等 35 秒"就是照它算出来的,两家外审都看过没人问。
-  //    现在它不再挡在启动路径上(启动只读本地盘,上限 500ms),留着只是给这条后台/手动路兜底。
-  // 安装请求不套这个期限:中断等待并不等于服务端停止安装。
-  const checkUpdate = useCallback((force: boolean) => {
-    setUpdateState("checking");
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 35000);
-    fetch(force ? "/api/update/check?force=1" : "/api/update/check", { signal: controller.signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: UpdateInfo | null) => {
-        // 立即更新会在下一次 render 之前执行,不能等 render 才同步 ref。
-        updateInfoRef.current = d;
-        setUpdateInfo(d);
-        setUpdateState("done");
-        tellIfRolledBack(d);
-      })
-      .catch(() => {
-        // 🔴 评审 F-A:原来这里回到 idle,而 idle+null 显示的是版本号 ——
-        //    业主**手动点了「检查更新」**却看见和没点一样,正是本单在治的那类病。
-        //    ds_web 不可达是很窄的一条路(桌面壳里),但窄不等于可以安静。
-        updateInfoRef.current = null;
-        setUpdateInfo(null);
-        setUpdateState("done");
-      })
-      .finally(() => window.clearTimeout(timer));
-  }, [tellIfRolledBack]);
-  // 打开软件时**只问本地**:盘上有没有已经下好、校验得过的新版?
-  // 🔴 这里以前是 `checkUpdate(false, true)` —— 一次联网查更新,实测最坏 20.1 秒,
-  //    而整个工作区被挡在它后面。业主:「每次打开都会弹出正在检测更新,这严重拖慢了开软件的速度」。
-  //    查更新和下载都挪到**进入工作区之后**的后台:那时候他已经在用软件了,慢不碍事。
-  const probeStartup = useCallback(async () => {
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), STARTUP_LOCAL_TIMEOUT_MS);
-    let action: "install" | "enter" = "enter";
-    let target: string | null = null;
-    try {
-      const r = await fetch(STARTUP_LOCAL_ENDPOINT, { signal: controller.signal });
-      const body = r.ok ? await r.json() : null;
-      action = startupAction(body);
-      target = startupVersion(body);
-    } catch {
-      action = "enter";   // 后端没起来/超时/垃圾回应 —— 一律进工作区
-    } finally {
-      window.clearTimeout(timer);
-    }
-    if (action === "install") {
-      setStartupTarget(target);
-      setStartupPhase("updating");
-      void applyUpdate(true, target);
-      return;
-    }
-    setStartupPhase("ready");
-    // 进了工作区再去查更新并把新版**下下来备着**,延迟一会儿,别和启动抢资源。
-    // 下好之后写进盘上的状态文件,**下一次打开软件**才装 —— 那时装最快(东西已在本地),
-    // 而且本来就在启动,不额外打断他。这是 Chrome 那一路的做法。
-    window.setTimeout(() => {
-      // 🔴 点火这一刻**重新问一次开关**:排期是 60 秒前做的,这中间他完全可能把
-      //    「打开时自动检查」关掉了。不重问的话,关掉之后照样会去查、还会下 46MB。
-      if (!autoCheckRef.current) return;
-      checkUpdate(false);
-      // 后台备货:失败安静收场(业主正在干活,这里不该冒任何泡)。
-      void fetch(STARTUP_PREPARE_ENDPOINT, { method: "POST" }).catch(() => {});
-    }, BACKGROUND_FIRST_CHECK_MS);
-  }, [applyUpdate, checkUpdate]);
-
   useEffect(() => {
-    const previous = checkedAutoPrefRef.current;
-    checkedAutoPrefRef.current = autoCheck;
-    autoCheckRef.current = autoCheck;
-    if (previous === null) {
-      if (autoCheck) void probeStartup();
-      else setStartupPhase("ready");
-      return;
-    }
-    if (previous !== autoCheck && autoCheck) checkUpdate(false);
-  }, [autoCheck, checkUpdate, probeStartup]);
-
-  useEffect(() => {
-    if (applyStateRef.current === "applying") return;
-    applyStateRef.current = "idle";
-    setApplyState("idle");
-    setApplyResult(null);
-  }, [updateInfo]);
-
-  const toggleAutoCheck = useCallback(() => {
-    setAutoCheck((prev) => {
-      const next = !prev;
-      try {
-        const cur = loadBoolPrefs(localStorage.getItem(UPDATE_PREFS_KEY));
-        localStorage.setItem(UPDATE_PREFS_KEY,
-                             JSON.stringify({ ...cur, [AUTO_CHECK_PREF]: next }));
-      } catch { /* 隐私模式:这次改动只在本次会话里生效,不白屏 */ }
-      return next;
-    });
-  }, []);
-
+    if (!desktopShell) return;
+    let active = true;
+    void desktopShell.update.state()
+      .then((state) => { if (active) setUpdateState(state); })
+      .catch(() => {});
+    const unsubscribe = desktopShell.update.onState((state) => setUpdateState(state));
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [desktopShell]);
   // 大模型 key 状态:首次打开只拉一次。没配就自动弹卡;已配只记录状态,不打扰。
   useEffect(() => {
     let stale = false;
@@ -649,27 +450,6 @@ export default function App() {
   // 历史行项目小标:命中项目映射的会话标上项目名
   const sessionTags = useMemo(() => sessionLabels(projThreads, projects), [projThreads, projects]);
   const updateLlmKeyStatus = useCallback((st: KeyStatus) => setLlmKeyStatus(st), []);
-  if (startupPhase !== "ready") {
-    return (
-      <div className="startup-update" data-ui="startup-update" role="status" aria-live="polite">
-        <WindowChrome />
-        <div className="startup-update-card">
-          <div className="startup-update-brand">OpenDesign</div>
-          {/* 🔴 "checking" 这一档现在只是**读一次本地盘**(上限 500ms),不联网、不查更新。
-              原来这里写的是「正在检查更新…」—— 启动查更新搬走之后它就成了谎话,
-              而且正是业主指着说不想看见的那块东西。这一档只给一块不作任何断言的启动画面。
-              判据 sg10。 */}
-          {startupPhase === "checking" ? null : (
-            <>
-              <h1>{`正在更新到 ${startupTarget ?? updateInfo?.latest ?? "新版本"}`}</h1>
-              <p>软件会自动关闭并重新打开，更新完成后即可使用。</p>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   const sidebar = (
     <Sidebar
       route={route}
@@ -701,14 +481,10 @@ export default function App() {
         window.location.hash = "#/";
       }}
       health={health}
+      desktopShell={!!desktopShell}
       updateState={updateState}
-      updateInfo={updateInfo}
-      onCheckUpdate={() => checkUpdate(true)}
-      applyState={applyState}
-      applyResult={applyResult}
-      onApplyUpdate={applyUpdateManually}
-      autoCheck={autoCheck}
-      onToggleAutoCheck={toggleAutoCheck}
+      onCheckUpdate={() => { void desktopShell?.update.check(); }}
+      onInstallUpdate={() => { void desktopShell?.update.install(); }}
     />
   );
 
@@ -717,14 +493,6 @@ export default function App() {
       {/* 自己画的窗口栏:只在桌面外壳里渲染,浏览器里整块不存在 */}
       <WindowChrome />
       {sidebar}
-      {autoBanner && (
-        <div className="auto-update-banner" data-ui="auto-update-banner">
-          <span className="auto-update-text">{autoBanner}</span>
-          <button className="btn-secondary sm" data-ui="auto-update-dismiss" onClick={() => setAutoBanner(null)}>
-            关闭
-          </button>
-        </div>
-      )}
 
       {/* 3a 新对话页(常驻,非 home 路由时 CSS 隐藏不卸载) */}
       <section className={`home-pane${route === "home" ? "" : " route-hidden"}`}>
