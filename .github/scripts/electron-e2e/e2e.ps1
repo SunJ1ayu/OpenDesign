@@ -24,6 +24,9 @@ param(
 $ErrorActionPreference = 'Stop'
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $OutDir   = (Resolve-Path $OutDir).Path
+# 🔴 PowerShell 变量名不分大小写:小写 ver 与参数 Ver 是同一个变量。云跑第二跑 E4 循环里给小写那个赋值,期望版本被悄悄改成新版号
+#    ⇒ E5.samever 假红、E4.oldmap 假绿。参数一律只读:再有人赋值当场抛错、整趟红(静态那一道是 C12)。
+foreach ($n in 'OldTag', 'OldAsset', 'NewSetup', 'Ver', 'UpdDir', 'NewVer', 'OutDir') { (Get-Variable -Name $n -Scope Script).Options = 'ReadOnly' }
 $Here     = $PSScriptRoot
 $Data     = "$env:LOCALAPPDATA\OpenDesign"
 $Default  = "$env:LOCALAPPDATA\Programs\OpenDesign"
@@ -79,10 +82,10 @@ function ThreeWay([string]$name, [string]$health, [string]$exe, [string]$want) {
 }
 function Wizard([string]$tag, [string[]]$procLike, [string]$setDir, [int]$timeout) {
     $log = Join-Path $OutDir "$tag-click-wizard.log"
-    $a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $Here 'click-wizard.ps1'), $OutDir, $log, "$timeout",
+    $argv = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $Here 'click-wizard.ps1'), $OutDir, $log, "$timeout",
            '-ProcLike', "`"$($procLike -join ',')`"", '-Tag', $tag)   # Start-Process 不替带空格的参数加引号
-    if ($setDir) { $a += @('-SetDir', "`"$setDir`"") }
-    $p = Start-Process powershell.exe -ArgumentList $a -PassThru -WindowStyle Hidden -RedirectStandardError "$log.err"
+    if ($setDir) { $argv += @('-SetDir', "`"$setDir`"") }
+    $p = Start-Process powershell.exe -ArgumentList $argv -PassThru -WindowStyle Hidden -RedirectStandardError "$log.err"
     return [PSCustomObject]@{ Proc = $p; Log = $log }
 }
 function WizardDone($w) {
@@ -100,14 +103,40 @@ function RunInstaller([string]$exe, [string]$tag, [int]$limitMin) {
     Write-Host "  $tag 安装包退出码 $($p.ExitCode),耗时 $([int]$sw.Elapsed.TotalSeconds)s"
     return $p.ExitCode
 }
-function InstallOld([string]$dir) {
-    $p = Start-Process "$OutDir\old\$OldAsset" -ArgumentList "/S /D=$dir" -PassThru
+function InstallOld([string]$at) {
+    $p = Start-Process "$OutDir\old\$OldAsset" -ArgumentList "/S /D=$at" -PassThru
     if (-not $p.WaitForExit(300000)) { throw "旧版安装 5 分钟没结束" }
-    return (Test-Path "$dir\ds\bin\ds_shell.py") -and (Test-Path "$dir\卸载.exe")
+    return (Test-Path "$at\ds\bin\ds_shell.py") -and (Test-Path "$at\卸载.exe")
 }
-function Shortcut { $l = "$([Environment]::GetFolderPath('Desktop'))\OpenDesign.lnk"; if (Test-Path $l) { (New-Object -ComObject WScript.Shell).CreateShortcut($l).TargetPath } else { '(没有)' } }
-function SilentUninstall([string]$dir) {
-    $u = Get-ChildItem $dir -Filter 'Uninstall OpenDesign*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+# 读桌面图标指向哪:用资源管理器双击图标时走的宽字符接口 IShellLinkW。
+# 🔴 WScript.Shell 的 TargetPath 经系统 ANSI 代码页转换(英文 runner = 1252)⇒ 中文目录读回来是 `C:\OD ??\…`
+#    (云跑第二跑 E5.shortcut)。它只留作对照打印(ShortcutAnsi),判读表在 evidence/20260922-t4-cloud2-run35728968821.md。
+Add-Type -TypeDefinition @'
+using System; using System.Text; using System.Runtime.InteropServices; using System.Runtime.InteropServices.ComTypes;
+[ComImport, Guid("000214F9-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IOdShellLinkW {
+  void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszFile, int cch, IntPtr pfd, uint fFlags);
+}
+[ComImport, Guid("00021401-0000-0000-C000-000000000046")] public class OdShellLink {}
+public static class OdLnk {
+  public static string Target(string path) {
+    object o = new OdShellLink();
+    try {
+      ((IPersistFile)o).Load(path, 0);
+      var sb = new StringBuilder(32768);
+      ((IOdShellLinkW)o).GetPath(sb, sb.Capacity, IntPtr.Zero, 0);
+      return sb.ToString();
+    } finally { Marshal.ReleaseComObject(o); }
+  }
+}
+'@
+function DesktopLnk { "$([Environment]::GetFolderPath('Desktop'))\OpenDesign.lnk" }
+function Shortcut { $l = DesktopLnk; if (Test-Path -LiteralPath $l) { [OdLnk]::Target($l) } else { '(没有)' } }
+function ShortcutAnsi { $l = DesktopLnk; if (Test-Path -LiteralPath $l) { (New-Object -ComObject WScript.Shell).CreateShortcut($l).TargetPath } else { '(没有)' } }
+# 图标指向 = 期望的 exe,且那个文件真的在(只比字符串的话,指向一个不存在的路径也能绿)
+function ShortcutOk([string]$want) { $sc = Shortcut; ($sc -eq $want) -and (Test-Path -LiteralPath $sc) }
+function SilentUninstall([string]$at) {
+    $u = Get-ChildItem $at -Filter 'Uninstall OpenDesign*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($u) { $p = Start-Process $u.FullName -ArgumentList '/S' -PassThru; [void]$p.WaitForExit(180000); Start-Sleep -Seconds 5 }
 }
 
@@ -179,7 +208,7 @@ $cfgAfter = CfgFacts
 V 'E3.config 配置业务字段前后不变(大脑选择 / key 引用 / 登录口令)' ($cfgAfter -eq $cfgBefore) "前 $cfgBefore ;后 $cfgAfter"
 $run = (Get-ItemProperty $RunKey -ErrorAction SilentlyContinue).OpenDesign
 V 'E3.autostart 开机自启还在、指向新 exe' ($run -eq "`"$Dir\OpenDesign.exe`"") "$run"
-V 'E3.shortcut 桌面图标指向新 exe' ((Shortcut) -eq "$Dir\OpenDesign.exe") "$(Shortcut)"
+V 'E3.shortcut 桌面图标指向新 exe(且那个文件在)' (ShortcutOk "$Dir\OpenDesign.exe") "IShellLinkW=$(Shortcut) ;对照 WScript=$(ShortcutAnsi)"
 
 # ================================================================ E2 起窗
 "== E2 起窗 / 三按钮 / 托盘 / 第二次打开 / 重绘 / 导航 / 退出 / 硬杀"
@@ -237,7 +266,7 @@ $e4 = $LASTEXITCODE
 Pop-Location
 V 'E4 前半段(没查到 / 重试 / 按钮 / 交棒)整体' ($e4 -eq 0) "e4-drive.mjs rc=$e4(逐条见上)"
 # 一条时间线量到底 —— 安装器何时起、何时退、exe 何时换版、新版何时应答。每 10 秒一张整屏。
-$sw = [Diagnostics.Stopwatch]::StartNew(); $ver = $Ver
+$sw = [Diagnostics.Stopwatch]::StartNew(); $exeNow = $Ver
 $lastShot = -99; $instSeen = $null; $instGone = $null; $flip = $null; $h = $null
 while ($sw.Elapsed.TotalMinutes -lt 8 -and -not $h) {
     Start-Sleep -Seconds 3
@@ -246,8 +275,8 @@ while ($sw.Elapsed.TotalMinutes -lt 8 -and -not $h) {
     if ($inst.Count -and $null -eq $instSeen) { $instSeen = $t; "  +${t}s 安装器起来了:$($inst[0].CommandLine)" }
     if ($null -ne $instSeen -and -not $inst.Count -and $null -eq $instGone) { $instGone = $t; "  +${t}s 安装器退出了" }
     if ($t - $lastShot -ge 10) { $lastShot = $t; Shot ("e4-00-updating-{0:000}s" -f $t) }
-    try { $ver = ExeVer "$Dir\OpenDesign.exe" } catch { $ver = '(读不到:正在换文件?)' }
-    if ($null -eq $flip -and $ver -eq $NewVer) { $flip = $t; "  +${t}s exe 版本换成 $ver" }
+    try { $exeNow = ExeVer "$Dir\OpenDesign.exe" } catch { $exeNow = '(读不到:正在换文件?)' }
+    if ($null -eq $flip -and $exeNow -eq $NewVer) { $flip = $t; "  +${t}s exe 版本换成 $exeNow" }
     if ($null -ne $flip) { $h = QuickHealth }
 }
 $t = [int]$sw.Elapsed.TotalSeconds
@@ -260,7 +289,7 @@ $heads = @($clicks | ForEach-Object { if ($_ -match '页头:\[([^/\]]+)') { $Mat
 # 同一页 5 秒没翻过去量具会再按一次 —— 业主那边是一下;连续重复的页头只算一次
 $prev = $null; $heads = @($heads | ForEach-Object { if ($_ -ne $prev) { $_ }; $prev = $_ })   # (Where-Object 没有 -Begin,本机 pwsh 实测会抛)
 V 'E4.wizard 更新时按两下:「安装选项」→「安装完成」(U3/U4 照 ZCode;选目录页自己跳过)' (($heads -join '|') -eq '安装选项|安装完成') "$($heads -join ' → ')"
-V 'E4.version 装上了新版' ($null -ne $flip) "$Ver → $ver"
+V 'E4.version 装上了新版' ($null -ne $flip) "$Ver → $exeNow"
 V 'E4.relaunch 装完自己重新打开、后台应答' ([bool]$h) "$h"
 ThreeWay 'E4.samever 新版:版本三方一致' $h "$Dir\OpenDesign.exe" $NewVer
 Start-Sleep -Seconds 3
@@ -380,7 +409,7 @@ $ents = UninstallEntries
 V 'E5.newkey 「应用和功能」里一个 OpenDesign' ($ents.Count -eq 1) "$($ents -join ' ; ')"
 $run = (Get-ItemProperty $RunKey -ErrorAction SilentlyContinue).OpenDesign
 V 'E5.autostart 全新安装默认不开机自启(design C:已知回归,设置页开关另单)' (-not $run) "$run"
-V 'E5.shortcut 桌面图标指向新 exe' ((Shortcut) -eq "$Fresh\OpenDesign.exe") "$(Shortcut)"
+V 'E5.shortcut 桌面图标指向新 exe(且那个文件在)' (ShortcutOk "$Fresh\OpenDesign.exe") "IShellLinkW=$(Shortcut) ;对照 WScript=$(ShortcutAnsi)"
 V 'E5.provision 配置建好了(ds_provision 跑过)' (Test-Path "$Data\UserData\.nanobot\config.json") "$Data\UserData\.nanobot\config.json"
 $h = WaitHealth 180
 V 'E5.run 完成页勾着「运行」⇒ 装完软件自己起来了' ([bool]$h) "$h"
