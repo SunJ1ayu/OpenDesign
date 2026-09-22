@@ -12,6 +12,7 @@
 #   E3c 旧版装在带单引号的目录、有文件被占住 ⇒ 第一次拒装且可重试 ⇒ 解锁后不带 /D 重装、收干净(T5 R1-1/R1-4)
 #   (清空这台机器上的 OpenDesign 痕迹,模拟一台新电脑)
 #   E5 全新机器带界面首装,选目录页改成带空格 + 中文的自选目录
+#   E7 业主误点「所有用户」:旧版在自选目录 → 新版选「所有用户」⇒ 过渡照样干净、资料不动、配置不落 C:\ProgramData(发版单)
 # 每条判读一行 `OK  |FAIL <名字> :: <事实>`;有 FAIL 就 exit 1。
 param(
     [string]$OldTag   = "win-installer-0.98.8",
@@ -58,6 +59,13 @@ function UninstallEntries {
       Where-Object { $_.DisplayName -like 'OpenDesign*' } |
       ForEach-Object { "[$($_.PSChildName)] $($_.DisplayName) | $($_.UninstallString)" })
 }
+# 「所有用户」装的卸载项在 HKLM(E7)
+function MachineEntries {
+    @(foreach ($k in 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall', 'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall') {
+        Get-ChildItem $k -ErrorAction SilentlyContinue | ForEach-Object { Get-ItemProperty $_.PSPath } |
+          Where-Object { $_.DisplayName -like 'OpenDesign*' } | ForEach-Object { "[$($_.PSChildName)] $($_.DisplayName) | $($_.UninstallString)" }
+    })
+}
 function QuickHealth {
     $ports = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
                Where-Object { $_.LocalPort -ge 8766 -and $_.LocalPort -le 8786 } | Select-Object -ExpandProperty LocalPort -Unique)
@@ -83,11 +91,12 @@ function ThreeWay([string]$name, [string]$health, [string]$exe, [string]$want) {
     $hv = HealthVer $health; $ev = if (Test-Path $exe) { ExeVer $exe } else { '(没有 exe)' }
     V $name (($hv -eq $want) -and ($ev -eq $want)) "后台 $hv / exe $ev / 期望 $want"
 }
-function Wizard([string]$tag, [string[]]$procLike, [string]$setDir, [int]$timeout) {
+function Wizard([string]$tag, [string[]]$procLike, [string]$setDir, [int]$timeout, [string]$pick = '') {
     $log = Join-Path $OutDir "$tag-click-wizard.log"
     $argv = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $Here 'click-wizard.ps1'), $OutDir, $log, "$timeout",
            '-ProcLike', "`"$($procLike -join ',')`"", '-Tag', $tag)   # Start-Process 不替带空格的参数加引号
     if ($setDir) { $argv += @('-SetDir', "`"$setDir`"") }
+    if ($pick) { $argv += @('-Pick', "`"$pick`"") }
     $p = Start-Process powershell.exe -ArgumentList $argv -PassThru -WindowStyle Hidden -RedirectStandardError "$log.err"
     return [PSCustomObject]@{ Proc = $p; Log = $log }
 }
@@ -140,11 +149,11 @@ function ShortcutAnsi { $l = DesktopLnk; if (Test-Path -LiteralPath $l) { (New-O
 function ShortcutOk([string]$want) { $sc = Shortcut; ($sc -eq $want) -and (Test-Path -LiteralPath $sc) }
 # 🔴 NSIS 卸载器先把自己拷到 %TEMP% 再跑、父进程马上退 ⇒ 只等父进程 + 睡 5 秒是赌时间(云跑第四跑:E3b 收尾后
 #    B 那份卸载项还在 ⇒ E5.pre 红、E5 选目录页默认成了 B)。等拷贝那一份也走完(同 E6,攻题 #18),最多 120 秒。
-function SilentUninstall([string]$at) {
+function SilentUninstall([string]$at, [string]$extra = '') {
     $u = Get-ChildItem $at -Filter 'Uninstall OpenDesign*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $u) { Write-Host "  (静默卸载 ${at}:没找到卸载程序)"; return }
     $sw = [Diagnostics.Stopwatch]::StartNew()
-    $p = Start-Process $u.FullName -ArgumentList '/S' -PassThru; [void]$p.WaitForExit(180000)
+    $p = Start-Process $u.FullName -ArgumentList "/S $extra".Trim() -PassThru; [void]$p.WaitForExit(180000)
     $un = 'x'
     while ($sw.Elapsed.TotalSeconds -lt 120 -and $un) {
         Start-Sleep -Seconds 2
@@ -482,6 +491,48 @@ V 'E5.run 完成页勾着「运行」⇒ 装完软件自己起来了' ([bool]$h)
 ThreeWay 'E5.samever 版本三方一致' $h "$Fresh\OpenDesign.exe" $Ver
 Shot 'e5-01-running'
 KillUnder $Fresh
+
+# ================================================================ E7 业主误点「所有用户」
+# 换壳单延期项「发布前补测一次、告诉业主」+ 发版单读模板查出的 bug(track opendesign-electron-release-0989):
+# 选「所有用户」⇒ SetShellVarContext all ⇒ $LOCALAPPDATA = C:\ProgramData ⇒ 首装 provision 写错地方(软件运行时读当前用户的)。
+# 场景 = 业主那台:旧版 0.98.8 装在自选目录、开机自启开着、资料在 ⇒ 带界面装新版,「为哪位用户」点「所有用户」,其余默认。
+# 判:过渡照样收干净、资料与配置原样、没有 C:\ProgramData\OpenDesign、软件起得来且版本一致、开机自启指新 exe。
+# 只记不判:装到了哪、卸载项在 HKCU 还是 HKLM —— 这些是要照实告诉业主的事实。
+KillUnder $Fresh; SilentUninstall $Fresh; KillUnder $Fresh
+Remove-Item $Fresh -Recurse -Force -ErrorAction SilentlyContinue
+$Own = "C:\AI Own\OpenDesign"
+$pd = Join-Path $env:ProgramData 'OpenDesign'
+"== E7 旧版装在「$Own」、开机自启开着 → 带界面装新版,「为哪位用户」点「所有用户」"
+V 'E7.pre 量具:没有 C:\ProgramData\OpenDesign、没有卸载项' (-not (Test-Path $pd) -and -not (UninstallEntries) -and -not (MachineEntries)) "$(Test-Path $pd) $(UninstallEntries) $(MachineEntries)"
+V 'E7.old 旧版装上了' (InstallOld $Own) "$Own"
+Set-ItemProperty $RunKey -Name 'OpenDesign' -Value "`"$Own\OpenDesign.exe`""
+$before = Marks
+$cfgBefore = CfgFacts
+$w = Wizard 'e7' @('*electron-setup*') '' 420 '所有用户'
+$rc = RunInstaller $NewSetup 'e7' 8
+$clicks = WizardDone $w
+V 'E7.install 安装包退出码 0' ($rc -eq 0) "$rc"
+$pickLine = @($clicks | Where-Object { $_ -match '点选:' }) | Select-Object -First 1
+V 'E7.pick 量具:「为哪位用户」确实点成了「所有用户」' ($pickLine -and $pickLine -match '点选:\[[^\]]*所有用户[^\]]*\] → [^;]*所有用户\)=选中') "$pickLine"
+$mEnt = @(MachineEntries); $uEnt = @(UninstallEntries)
+$newExe = @($mEnt + $uEnt | ForEach-Object { if ($_ -match '\| "([^"]+)\\Uninstall OpenDesign[^"]*\.exe"') { "$($Matches[1])\OpenDesign.exe" } }) | Select-Object -First 1
+"  [记] 装到了:$(if ($newExe) { Split-Path $newExe } else { '(没找到)' });「应用和功能」:所有用户 $($mEnt.Count) 条 [$($mEnt -join ' ; ')] / 当前用户 $($uEnt.Count) 条 [$($uEnt -join ' ; ')]"
+V 'E7.newexe 新版装上了' ($newExe -and (Test-Path $newExe)) "$newExe"
+V 'E7.oldgone 旧版收干净了(哨兵、卸载程序都没了)' (-not (Test-Path "$Own\ds\bin\ds_shell.py") -and -not (Test-Path "$Own\卸载.exe")) ((Get-ChildItem $Own -Name -ErrorAction SilentlyContinue | Select-Object -First 8) -join ' ')
+V 'E7.nopd 没往 C:\ProgramData 写配置(provision 要落在当前用户下)' (-not (Test-Path $pd)) ((Get-ChildItem $pd -Recurse -Name -ErrorAction SilentlyContinue | Select-Object -First 6) -join ' ')
+MarksSame 'E7' $before
+$cfgAfter = CfgFacts
+V 'E7.config 配置业务字段前后不变' ($cfgAfter -eq $cfgBefore) "前 $cfgBefore ;后 $cfgAfter"
+$run = (Get-ItemProperty $RunKey -ErrorAction SilentlyContinue).OpenDesign
+V 'E7.autostart 开机自启指向新 exe' ($newExe -and $run -eq "`"$newExe`"") "$run"
+if ($newExe) { Start-Process $newExe | Out-Null }
+$h = WaitHealth 180
+V 'E7.run 软件起得来' ([bool]$h) "$h"
+if ($newExe) { ThreeWay 'E7.samever 版本三方一致' $h $newExe $Ver }
+Shot 'e7-01-running'
+if ($newExe) { $nd = Split-Path $newExe; KillUnder $nd; SilentUninstall $nd $(if ($mEnt.Count) { '/allusers' } else { '' }); KillUnder $nd; Remove-Item $nd -Recurse -Force -ErrorAction SilentlyContinue }
+Remove-Item $Own -Recurse -Force -ErrorAction SilentlyContinue
+Remove-ItemProperty $RunKey -Name 'OpenDesign' -ErrorAction SilentlyContinue
 
 # ---------------------------------------------------------------- 收尾:日志
 New-Item -ItemType Directory -Force -Path "$OutDir\logs" | Out-Null

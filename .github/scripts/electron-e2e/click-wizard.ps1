@@ -5,10 +5,11 @@
 # 每 15 秒把看到的所有 #32770 顶层窗口(标题/进程号/按钮字)记一行,点不动时能看出卡在哪。
 # 每到一页:记页头、单选/勾选状态、可见输入框的内容(选目录页的目录),截整屏,再按。同一页 5 秒没翻过去会再按一次;最多按 8 下。
 # -SetDir:在有输入框的那一页先把目录改成它(像业主在选目录页自己改),日志记「原值 → 新值」。
+# -Pick:在有这段字的单选框那一页先点它(像业主在「为哪位用户安装」点「所有用户」),日志记「点选:[字] → 点完的选项」。
 # 日志直接写 UTF-8(5.1 的标准输出被重定向时按控制台代码页编码,中文会变问号);每按一下的行带 ASCII 标记 CLICK#。
-# 用法:powershell.exe -File click-wizard.ps1 <输出目录> <日志文件> [总超时秒] [-ProcLike 名字模式,…] [-SetDir 目录] [-Tag 截图前缀]
+# 用法:powershell.exe -File click-wizard.ps1 <输出目录> <日志文件> [总超时秒] [-ProcLike 名字模式,…] [-SetDir 目录] [-Pick 单选框的字] [-Tag 截图前缀]
 param([Parameter(Mandatory)][string]$OutDir, [Parameter(Mandatory)][string]$LogPath, [int]$TimeoutSec = 480,
-      [string[]]$ProcLike = @('*electron-setup*'), [string]$SetDir = '', [string]$Tag = 'wizard')
+      [string[]]$ProcLike = @('*electron-setup*'), [string]$SetDir = '', [string]$Pick = '', [string]$Tag = 'wizard')
 function Say([string]$m) { Add-Content -Path $LogPath -Value $m -Encoding UTF8 }
 # -File 方式传进来的「a,b」是一整个字符串,不是数组 ⇒ 自己拆
 $ProcLike = @($ProcLike | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
@@ -57,6 +58,19 @@ public static class W {
       return true; }, IntPtr.Zero);
     return string.Join(" ; ", parts.ToArray());
   }
+  // 点单选框:字里含 sub 的那个(BS_RADIOBUTTON / BS_AUTORADIOBUTTON)发 BM_CLICK;返回点到的字,没找到回空
+  public static string ClickRadio(IntPtr dlg, string sub) {
+    IntPtr hit = IntPtr.Zero;
+    EnumChildWindows(dlg, (h, l) => {
+      if (hit == IntPtr.Zero && Cls(h) == "Button" && IsWindowVisible(h)) {
+        int st = GetWindowLong(h, -16) & 0xF;
+        if ((st == 4 || st == 9) && Text(h).Contains(sub)) hit = h;
+      }
+      return true; }, IntPtr.Zero);
+    if (hit == IntPtr.Zero) return "";
+    SendMessage(hit, 0x00F5, IntPtr.Zero, IntPtr.Zero);
+    return Text(hit);
+  }
   public static void PressOk(IntPtr dlg) { PostMessage(dlg, 0x0111, (IntPtr)1, GetDlgItem(dlg, 1)); }
 }
 "@
@@ -93,6 +107,11 @@ while ($sw.Elapsed.TotalSeconds -lt $TimeoutSec -and $clicks -lt 8) {
             $raw = $now
         }
         $opts = ((($raw -replace '=1\b', '=选中') -replace '=0\b', '=未选') -replace 'EDIT=', '输入框=')
+        if ($Pick -and $raw -like "*$Pick*") {
+            $picked = [W]::ClickRadio($dlg, $Pick)
+            Start-Sleep -Milliseconds 300
+            $opts += " ; 点选:[$picked] → " + ((([W]::Options($dlg) -replace '=1\b', '=选中') -replace '=0\b', '=未选') -replace 'EDIT=', '输入框=')
+        }
         $edit = [W]::FirstEdit($dlg)
         if ($SetDir -and $edit -ne [IntPtr]::Zero) {
             $was = [W]::EditText($edit)

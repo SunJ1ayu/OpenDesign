@@ -251,6 +251,50 @@ class C13InstallerFailurePaths(unittest.TestCase):
         self.assertEqual(bad, [], "这些 PowerShell 命令把安装路径直接拼进了命令")
 
 
+class C14ReleaseAndAllUsers(unittest.TestCase):
+    """track opendesign-electron-release-0989(发版前查出的两件)。行为由云 Windows E1r / E7 真跑;这里是本机那一道。"""
+
+    WF = ROOT / ".github" / "workflows" / "electron-e2e.yml"
+
+    def test_c14a_first_install_provisions_into_the_current_users_data(self):
+        """选「所有用户」⇒ electron-builder `SetShellVarContext all` ⇒ `$LOCALAPPDATA` = C:\\ProgramData;
+        而软件运行时读当前用户的 LOCALAPPDATA(desktop/main.js)⇒ 全新机器打开就「还没装好」、业主机器留一份没用的配置。
+        模板自己用 LOCALAPPDATA 前后都切回 current(app-builder-lib templates/nsis/include/installer.nsh
+        "electron always uses per user app data")⇒ provision 也得这样包住。"""
+        lines = [l.strip() for l in _nsis_code_only(NSH.read_text(encoding="utf-8")).splitlines()]
+        start = lines.index("!macro customInstall")
+        end = next(i for i in range(start, len(lines)) if lines[i] == "!macroend")
+        at = [i for i in range(start, end) if "ds_provision.py" in lines[i]]
+        self.assertEqual(len(at), 1, f"customInstall 里应恰有一处 provision,实为 {at}")
+        before = [i for i in range(start, at[0]) if lines[i] == "SetShellVarContext current"]
+        after = [i for i in range(at[0], end) if lines[i] == "SetShellVarContext all"]
+        self.assertTrue(before, "provision 之前没切回当前用户 ⇒ 选「所有用户」时配置写进 C:\\ProgramData")
+        self.assertTrue(after, "provision 之后没切回 all ⇒ 后面的快捷方式 / 卸载项会落到当前用户")
+        for i in (before[-1], after[0]):
+            self.assertRegex(lines[i - 1], r'^\$\{if\} \$installMode == "all"$', f"第 {i + 1} 行的切换应只在「所有用户」时做")
+
+    def test_c14b_the_same_run_ships_an_unpatched_release_build(self):
+        """被测包的更新源指本机替身(E1 打补丁),发出去就永远收不到更新;RELEASE.md 说从 workflow artifact 取出货包,
+        workflow 却不传。钉住:E4 准备(会改 pkg 与版本号)之前,还原 package.json 再打一份出货包,并把三样资产传成 artifact `release`。"""
+        import yaml
+        steps = yaml.safe_load(self.WF.read_text(encoding="utf-8"))["jobs"]["e2e"]["steps"]
+        names = [s.get("name", "") for s in steps]
+        r = next((i for i, n in enumerate(names) if n.startswith("E1r")), None)
+        e4 = next((i for i, n in enumerate(names) if n.startswith("E4 准备")), None)
+        self.assertIsNotNone(r, "没有出货包那一步(E1r)")
+        self.assertLess(r, e4, "出货包要在 E4 准备之前打:E4 会改 pkg 里的代码和版本号")
+        run = steps[r].get("run", "")
+        self.assertIn("git checkout -- package.json", run, "出货包之前没还原 E1 打的更新源补丁")
+        self.assertLess(run.index("git checkout -- package.json"), run.index("electron-builder"))
+        up = [s for s in steps if "upload-artifact" in str(s.get("uses", "")) and (s.get("with") or {}).get("name") == "release"]
+        self.assertEqual(len(up), 1, "没把出货包传成 artifact `release`")
+        paths = str(up[0]["with"].get("path", ""))
+        for want in ("dist-release/*.exe", "dist-release/*.blockmap", "dist-release/latest.yml"):
+            self.assertIn(want, paths)
+        self.assertEqual(up[0]["with"].get("if-no-files-found"), "error", "少一样就该红,不是传个空的")
+        self.assertLess(steps.index(up[0]), e4, "趁 E4 改动之前就传走")
+
+
 class C3Publish(unittest.TestCase):
     def test_c3_feed_is_github_download_urls_not_the_api(self):
         pub = _pkg()["build"]["publish"]
