@@ -339,6 +339,17 @@ class C12PsNoCaseTwins(unittest.TestCase):
                     twins[f"{f.name}:{k}"] = sorted(v)
         self.assertEqual(twins, {}, "PowerShell 变量名不分大小写 ⇒ 这些拼法其实是同一个变量,给一个赋值就改了另一个")
 
+    # `"$tag:"` / `"$at:…"` 会被当成「驱动器:变量」——T3 写判据时踩过一次、云跑第四跑后改 SilentUninstall 又踩一次
+    # (整份脚本解析失败,一条都不跑)。作用域限定符(env/script/…)是合法写法,要紧跟变量名就用 `${at}:`。
+    DRIVE = re.compile(r"\$(?!(?:env|script|global|local|private|using|function|variable|alias)\b)[A-Za-z_][A-Za-z0-9_]*:(?!:)", re.I)
+
+    def test_c12b_no_variable_followed_by_colon(self):
+        hits = []
+        for f in sorted((ROOT / self.DIR).glob("*.ps1")):
+            for i, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+                hits += [f"{f.name}:{i}: {m.group(0)}" for m in self.DRIVE.finditer(line)]
+        self.assertEqual(hits, [], "`$名字:` 会被 PowerShell 当成驱动器限定的变量 ⇒ 整份脚本解析失败;写成 `${名字}:`")
+
 
 class C10MainIsWired(unittest.TestCase):
     """攻题 #1 #10 #11:纯函数与控制器写对了、main.js 不调用 ⇒ 全绿而业主那边什么都没发生。

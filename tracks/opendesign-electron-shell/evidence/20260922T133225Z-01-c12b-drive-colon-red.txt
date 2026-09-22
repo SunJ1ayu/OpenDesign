@@ -1,0 +1,16 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    c12b-drive-colon-red
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_desktop_config.C12PsNoCaseTwins\ 2\>\&1\ \|\ cut\ -c1-300\ \|\ grep\ -E\ \"\^\(FAIL\|OK\|Ran\|AssertionError\)\|e2e.ps1:\"
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  fdf2185
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-22T13:32:25Z
+---------------- 输出开始 ----------------
+FAIL: test_c12b_no_variable_followed_by_colon (tests.test_desktop_config.C12PsNoCaseTwins.test_c12b_no_variable_followed_by_colon)
+AssertionError: Lists differ: ['e2e.ps1:144: $at:', 'e2e.ps1:153: $at:', 'e2e.ps1:272: $NewVer:'] != []
+'e2e.ps1:144: $at:'
+- ['e2e.ps1:144: $at:', 'e2e.ps1:153: $at:', 'e2e.ps1:272: $NewVer:']
+Ran 2 tests in 0.003s
+FAILED (failures=1)
+---------------- 输出结束 ----------------
+runlog: c12b-drive-colon-red rc=0 commit=fdf2185 dirty=yes at=2026-09-22T13:32:25Z file=tracks/opendesign-electron-shell/evidence/20260922T133225Z-01-c12b-drive-colon-red.txt
