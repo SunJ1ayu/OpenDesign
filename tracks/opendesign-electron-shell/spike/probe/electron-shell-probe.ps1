@@ -52,6 +52,13 @@ function WaitHealth([int]$limitSec) {
     return $null
 }
 
+# 健康检查报的版本(JSON 里的 version)是否等于 exe 的产品版本(去掉尾巴上的 .0)。挑战 a4:旧更新器靠「版本号 + nonce」认新版,
+# 探路第二跑出现过 exe 0.98.11 而后台报 0.98.9 —— 只看「有应答」会把半新半旧判成装好了。
+function SameVersion([string]$health, [string]$exe) {
+    if (-not $health) { return $false }
+    $m = [regex]::Match($health, '"version":\s*"([^"]+)"')
+    return $m.Success -and ($exe -replace '(\.0)+$', '') -eq $m.Groups[1].Value
+}
 function QuickHealth {
     $ports = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
                Where-Object { $_.LocalPort -ge 8766 -and $_.LocalPort -le 8786 } | Select-Object -ExpandProperty LocalPort -Unique)
@@ -128,6 +135,9 @@ V 'E3.oldkey 旧卸载项没了' (-not (Test-Path 'HKCU:\Software\Microsoft\Wind
 V 'E3.newkey 「应用和功能」里只剩一个 OpenDesign' ($ents.Count -eq 1) "$($ents.Count) 条"
 $left = ProcsUnder "$Dir\python"
 V 'E3.oldproc 旧版进程全收掉了' (-not $left) "$left"
+$exeVer = (Get-Item "$Dir\OpenDesign.exe").VersionInfo.ProductVersion
+$h3 = WaitHealth 120
+V 'E3.samever 完成页拉起的新版,后台报的版本 = exe 版本' (SameVersion $h3 $exeVer) "exe $exeVer;$h3"
 foreach ($m in $marks) {
     $ok = (Test-Path $m) -and ((Get-FileHash $m).Hash -eq $before[$m])
     V "E3.data 资料原样:$(Split-Path $m -Leaf)" $ok $m
@@ -188,6 +198,7 @@ if ($UpdDir) {
     V 'E4.wizard 向导点完、安装器退出' ($null -ne $instSeen -and $null -ne $instGone -and $nClicks -ge 1) "点了 $nClicks 下;起 +$instSeen s,退 +$instGone s"
     V 'E4.version 装上了新版' ($null -ne $flip) "$v1 → $ver"
     V 'E4.relaunch 装完自己重新打开、后台应答' ([bool]$h) "$h"
+    V 'E4.samever 新版后台报的版本 = exe 版本' (SameVersion $h $ver) "exe $ver;$h"
     "  更新后进程:$(ProcsUnder $Dir)"
     Shot 'e4-01-after-update'
     $ents = UninstallEntries

@@ -66,6 +66,10 @@ jobs:
           $sw = [Diagnostics.Stopwatch]::StartNew()
           Expand-Archive ..\..\..\..\artifact\pkg.zip -DestinationPath . -Force
           Copy-Item ..\..\..\..\installer\opendesign.ico build\icon.ico
+          # 版本号只许一个来源(挑战 a4):后台 ds_web.VERSION 与安装包版本同值。探路版这里反过来由 package.json 写进 ds_web.py
+          $ver = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          (Get-Content pkg\ds\bin\ds_web.py -Raw) -replace '(?m)^VERSION = "[^"]+"', "VERSION = `"$ver`"" | Set-Content pkg\ds\bin\ds_web.py -NoNewline -Encoding utf8
+          Select-String -Path pkg\ds\bin\ds_web.py -Pattern '^VERSION = ' | ForEach-Object { "  后台版本行:$($_.Line)" }
           npm install --no-audit --no-fund
           if ($LASTEXITCODE) { throw "npm install rc=$LASTEXITCODE" }
           npx electron-builder --win nsis --x64 --publish never
@@ -80,6 +84,7 @@ jobs:
         working-directory: tracks/opendesign-electron-shell/spike/app
         run: |
           npm pkg set version=0.98.11
+          (Get-Content pkg\ds\bin\ds_web.py -Raw) -replace '(?m)^VERSION = "[^"]+"', 'VERSION = "0.98.11"' | Set-Content pkg\ds\bin\ds_web.py -NoNewline -Encoding utf8
           # 像一次真实发版那样改点代码:后端一个 .py、前端一个打包后的 js(增量下载量才有参考价值)
           Add-Content pkg\ds\bin\ds_web.py "`n# probe: 0.98.11 的代码改动"
           $js = Get-ChildItem pkg\ds\web\dist\assets\*.js | Select-Object -First 1

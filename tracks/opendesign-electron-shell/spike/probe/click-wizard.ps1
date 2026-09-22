@@ -1,4 +1,4 @@
-﻿# 替业主点安装向导(业主选 C = 照 ZCode:更新时向导由人点)。**只按「下一步」「完成」(对话框里 ID=1 的按钮),绝不碰「取消」。**
+﻿# 替业主点安装向导(业主选 C = 照 ZCode:更新时向导由人点)。**只按「下一步」「安装」「完成」(对话框里 ID=1 的按钮),绝不碰「取消」。**
 # 跑在 Windows PowerShell 5.1。第五跑用 UI Automation 找按钮,480 秒一下没点、也没留下看到了什么 ⇒ 第六跑改走 Win32:
 #   按进程号枚举安装器的顶层对话框(类名 #32770)→ ID=1 的按钮可用且写着「下一步/完成」⇒ 给对话框发 WM_COMMAND(IDOK)。
 #   NSIS 自己会再查一遍按钮是否可用(进度页上它是灰的,发了也不动)。
@@ -64,7 +64,8 @@ while ($sw.Elapsed.TotalSeconds -lt $TimeoutSec -and $clicks -lt 6) {
         $ok = [W]::GetDlgItem($dlg, 1)
         $okText = [W]::Text($ok)
         if (-not ([W]::IsWindowEnabled($ok) -and [W]::IsWindowVisible($ok))) { continue }
-        if (-not ($okText -like '下一步*' -or $okText -like '完成*')) { continue }
+        # 首装时选目录页是进度页前的最后一页,按钮字是「安装(I)」(第七跑卡在这里 6 分钟)
+        if (-not ($okText -like '下一步*' -or $okText -like '安装*' -or $okText -like '完成*')) { continue }
         $head = "$([W]::Text([W]::GetDlgItem($dlg, 1037))) / $([W]::Text([W]::GetDlgItem($dlg, 1038)))"
         $page = "$head | $okText"
         if ($page -eq $lastPage -and $t - $lastAt -lt 5) { continue }   # 刚按过、还没翻页
