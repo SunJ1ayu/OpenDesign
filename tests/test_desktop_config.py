@@ -315,6 +315,31 @@ class C11LockfilesResolvePublicly(unittest.TestCase):
             self.assertEqual(bad[:5], [], f"{rel}:{len(bad)}/{len(resolved)} 个包不是从官方 https 源装的 ⇒ 别的机器上 npm ci 连不上")
 
 
+class C12PsNoCaseTwins(unittest.TestCase):
+    """T4 云跑第二跑 run 35728968821:**PowerShell 变量名不分大小写**,e2e.ps1 E4 那段 `$ver = $Ver` 再在循环里
+    给 `$ver` 赋值 ⇒ 期望版本 `$Ver` 被悄悄改成了新版号。两个后果方向相反:
+      · E5.samever 假红(新装的是 v1,却拿 v2 的号去比);
+      · E4.oldmap 假绿(本该查「旧版 blockmap 取到了」,实际拿新版那份去比 —— 新版那份每次都一定会取)。
+    这类错看代码看不出来(读的人按大小写区分),只有跑到那一行才暴露。钉住:云判据的 .ps1 里,
+    同一个变量名不许出现两种大小写 —— 函数里的局部变量也算(眼下作用域隔开无害,但下一次挪代码就不是了)。"""
+
+    DIR = ".github/scripts/electron-e2e"
+    VAR = re.compile(r"\$\{?(?:(?:script|global|local|private|using):)?([A-Za-z_][A-Za-z0-9_]*)")
+
+    def test_c12_no_variable_spelled_two_ways(self):
+        files = sorted((ROOT / self.DIR).glob("*.ps1"))
+        self.assertTrue(files, f"{self.DIR} 下一个 .ps1 都没有 ⇒ 这条问不出东西")
+        twins = {}
+        for f in files:
+            seen: dict[str, set[str]] = {}
+            for m in self.VAR.finditer(f.read_text(encoding="utf-8")):
+                seen.setdefault(m.group(1).lower(), set()).add(m.group(1))
+            for k, v in seen.items():
+                if len(v) > 1:
+                    twins[f"{f.name}:{k}"] = sorted(v)
+        self.assertEqual(twins, {}, "PowerShell 变量名不分大小写 ⇒ 这些拼法其实是同一个变量,给一个赋值就改了另一个")
+
+
 class C10MainIsWired(unittest.TestCase):
     """攻题 #1 #10 #11:纯函数与控制器写对了、main.js 不调用 ⇒ 全绿而业主那边什么都没发生。
     行为由 test_desktop_controller.mjs 钉;这里钉 **main.js 真的接上了它们**(第二道,查代码不查注释)。"""

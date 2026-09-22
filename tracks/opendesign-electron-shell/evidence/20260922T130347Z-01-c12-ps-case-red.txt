@@ -1,0 +1,22 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    c12-ps-case-red
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_desktop_config.C12PsNoCaseTwins\ 2\>\&1\ \|\ cut\ -c1-300\ \|\ grep\ -vE\ \"\^\\s\*\$\"\ \|\ tail\ -12
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  a30dcb4
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-22T13:03:47Z
+---------------- 输出开始 ----------------
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 340, in test_c12_no_variable_spelled_two_ways
+    self.assertEqual(twins, {}, "PowerShell 变量名不分大小写 ⇒ 这些拼法其实是同一个变量,给一个赋值就改了另一个")
+AssertionError: {'e2e.ps1:ver': ['Ver', 'ver'], 'e2e.ps1:a[40 chars]ir']} != {}
++ {}
+- {'e2e.ps1:a': ['A', 'a'],
+-  'e2e.ps1:dir': ['Dir', 'dir'],
+-  'e2e.ps1:ver': ['Ver', 'ver']} : PowerShell 变量名不分大小写 ⇒ 这些拼法其实是同一个变量,给一个赋值就改了另一个
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+FAILED (failures=1)
+---------------- 输出结束 ----------------
+runlog: c12-ps-case-red rc=0 commit=a30dcb4 dirty=yes at=2026-09-22T13:03:47Z file=tracks/opendesign-electron-shell/evidence/20260922T130347Z-01-c12-ps-case-red.txt
