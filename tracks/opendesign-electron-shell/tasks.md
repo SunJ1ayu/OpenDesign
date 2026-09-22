@@ -7,7 +7,7 @@
 
 - [x] T0 立单;主 agent 方向派发前落盘;两个家族独立方案挑战(Cursor-Grok / DeepSeek)并逐条核实(design.md 表)
 - [x] T1 业主重新拍板:安装包与自动更新换不换(U1)—— 「全换吧」
-- [ ] T2 探路(U2):E1 构建 / E2 起窗 / E3 过渡 / E4 更新,云 Windows 上量
+- [x] T2 探路(U2):E1 构建 / E2 起窗 / E3 过渡 / E4 更新,云 Windows 上量
 - [ ] T3 定稿 design.md Approach + 写实现判据(判据先单独 commit)
 - [ ] T4 实现(管家瘦身 / Electron 主进程+preload / 前端窗口栏 / 安装包接入)
 - [ ] T5 回归 + 两家族评审(impact=high)
