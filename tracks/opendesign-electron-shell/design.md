@@ -141,3 +141,12 @@ P6(管家语言)三方里两方站 Python。
   排除「打开软件时装」:0.98.7 业主已经否过「打开软件干等」(track `opendesign-startup-not-blocked-by-update`)。
   排除「退出时自动装」:ZCode 在 Windows 上特意关掉(`autoUpdater.ts:1502-1505`,紧接着关机会装一半)。
   我的推荐:②。
+
+### U2 第五、六跑 —— 方案 C(照 ZCode)走通
+
+- 第五跑(`evidence/20260922-u2r5-run35691247054.md`)E4 红 = 替人点向导的量具(UI Automation 版)一下没点,不是产品问题。
+- **第六跑(`evidence/20260922-u2r6-run35692682755.md`)FAIL 0**:更新时业主按两下 ——「安装选项」页「下一步」(默认已选「仅为我安装」)、
+  「安装完成」页「完成」(「运行 OpenDesign」默认勾上);中间进度页约 1 分 50 秒;新版 +130s 应答、**在最前面**。
+- **待业主(U4)**:「安装选项 / 为哪位用户」这一页照 ZCode 留着还是单独去掉。留着的风险(读模板源码,未实测):
+  点成「所有用户」⇒ 要管理员授权 ⇒ 装进 `C:\Program Files\OpenDesign`(更新时选目录页跳过)、`installSection.nsh:54-57` 顺手卸掉他自选目录那份 ⇒ 搬家;
+  开机自启键仍指旧路径(customInstall/customUnInstall 在 --updated 时都不碰)⇒ 推断会失效。去掉 = `customInstallMode` 置 `$isForceCurrentInstall=1`(第四跑已验证可行)。
