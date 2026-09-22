@@ -1,7 +1,7 @@
 # Design: opendesign-electron-shell
 
 - Change: opendesign-electron-shell
-- Status: draft —— 方案挑战已做完;**业主 09-21 深夜拍板四样全换**;下一步探路实验(U2)
+- Status: draft —— U1~U4 业主已答、U2 六跑量完;Approach 草案 v1 已写,**下一步两家族方案挑战**,之后写判据
 
 ## Goal-to-design check
 
@@ -114,14 +114,6 @@ P6(管家语言)三方里两方站 Python。
 **第四跑要量的**:更新全程零点击(安装器自己退出)、时间线(安装器起 / 退 / exe 换版 / 新版应答)、每 10 秒一张整屏。
 量完拿截图给业主看「更新时屏幕上是什么、停多久」—— 这是体验取舍,与旧版「只停几秒」相比是退步,**要他知情**。
 
-## Approach
-
-(U1 答复后定稿。管家留 Python、窗口照 ZCode 的部分已定。)
-
-## Test strategy (oracle)
-
-(U1、U2 之后写。)
-
 ### U2 第四跑(run 35689840996)—— FAIL 0,`evidence/20260922-u2r4-run35689840996.md`
 
 - **零点击成立**:带界面的安装器没人点也自己走完(`--updated --force-run`、无 /S);「应用和功能」卸载串带 `/currentuser`(customInstallMode 生效)。
@@ -151,3 +143,100 @@ P6(管家语言)三方里两方站 Python。
   (我推荐去掉,他听完「点成所有用户会搬家」的风险仍选留着 ⇒ 不加 customInstallMode,不再劝)。原题:留着的风险(读模板源码,未实测):
   点成「所有用户」⇒ 要管理员授权 ⇒ 装进 `C:\Program Files\OpenDesign`(更新时选目录页跳过)、`installSection.nsh:54-57` 顺手卸掉他自选目录那份 ⇒ 搬家;
   开机自启键仍指旧路径(customInstall/customUnInstall 在 --updated 时都不碰)⇒ 推断会失效。去掉 = `customInstallMode` 置 `$isForceCurrentInstall=1`(第四跑已验证可行)。
+
+## Approach(草案 v1,2026-09-22;待两家族方案挑战后定稿)
+
+依据:U1「全换吧」、U2 六跑实测、U3「c吧」(更新照 ZCode:点「重启以更新」+ 向导自己点)、U4「留着和zcode一样」。
+**原则**:ZCode 做过的照 ZCode;ZCode 没有、我们有的(Python 后台、锁通道、诊断、迁移)照探路版已量过的做法;
+其余不新增。
+
+### A. 进程与目录(照探路版,已在云 Windows 量过)
+
+- 产品代码放 `desktop/`(Electron 主进程 `main.js`、`preload.js`、`loading.html`、`package.json`、`build/installer.nsh`)
+  + `bin/ds_host.py`(管家)。探路版 `tracks/.../spike/` 只作参照,不直接搬。
+- **Electron 主进程**:窗口(frame:false、不关 thickFrame、resized/show 后双帧 invalidate —— ZCode `desktopWindowChrome.ts`)、
+  托盘(打开 / 导出本次启动诊断 / 退出)、单实例(`requestSingleInstanceLock`,第二份 → 把第一份叫到前台)、
+  外链交系统浏览器、窗口内只许停在本机工作台、更新器(见 D)、日志 `%LOCALAPPDATA%\OpenDesign\Logs\electron.log`。
+- **管家 `bin/ds_host.py`**(Python,留着的理由见表 #15/P6):复用 `ds_shell.start_backend`(挑端口、改配置、Job 收整棵树)、
+  `InstanceLock`(**只留** ds-web「存 key 后重启网关」通道;`on_update` 交棒退役)、看门狗、诊断。
+  协议 = stdout 一行一个 JSON 事件(`ready{web_port}` / `show` / `already-running` / `backend-died{report}` / `fatal{message}`),
+  stdin 一行一个命令(`quit` / `export-diagnostics` / `report{event,detail}` / `window-shown`),**stdin EOF = 收摊**
+  (Electron 被硬杀时管道断 ⇒ 管家自己收摊;第二跑量到 502ms)。
+- **单实例顺序**(表 #9):Electron 锁先拿;只有拿到锁的那份才起管家;管家拿不到 InstanceLock ⇒ `already-running` ⇒ Electron 弹一句人话退出。
+- **收摊顺序**(表 #1 #16):托盘退出 / 更新 ⇒ 先关管家 stdin、等它退(Job 收整棵树),15s 不退才强杀,再退 Electron。
+- **`bin/ds_shell.py` 拆两半**:后台那一半(`start_backend` / `build_env` / `user_home` / key 读取 / 日志)留下供管家用;
+  窗口那一半(`WindowApi` / `Shell` / `main` / pystray 托盘 / pywebview)退役。ds-web 与 `ds_credential` 对 `build_env` 的依赖不变。
+- **版本号只有一个来源**:`bin/ds_web.py` `VERSION`。打包时由它写进 `desktop/package.json` 的 version(安装包文件名、
+  「应用和功能」、electron-updater 比较的都是它);判据核两处一致。探路版两处各写各的(exe 0.98.11 / 后台报 0.98.9),正式版不许。
+
+### B. 窗口栏与前端
+
+- preload 暴露**新名字** `window.odShell`(不再冒充 `pywebview`):`minimize / toggleMaximize / close / windowState / onWindowState /
+  reportStartup / update.*`(见 D)。`WindowChrome.tsx`、`startupReport.ts` 改接它;`pywebviewready` 那套等待注入的逻辑删掉
+  (preload 在页面脚本之前就位,没有「注入晚于首帧」这回事)。
+- 拖动交给 Chromium:`app.css` 里窗口栏 `-webkit-app-region: drag`、按钮 `no-drag`;八个 `.win-grip-*` 与 `RESIZE_EDGES` 删掉
+  (表 #10;缩放边是系统的)。`SHELL_MARK`(`?shell=1`)保留 —— 首帧就知道要不要画窗口栏,浏览器里一个按钮都不画(判据 s-w1 不变)。
+- 右键复制粘贴原生菜单(ZCode 有,旧版 WebView2 自带;不做会是回归)。
+
+### C. 安装包(electron-builder NSIS,照探路版 + ZCode 配置)
+
+- `oneClick:false`、`perMachine:false`(「为哪位用户」页照 ZCode 保留,U4)、`allowToChangeInstallationDirectory:true`、
+  `installerLanguages:[zh_CN]`、`deleteAppDataOnUninstall:false`、`artifactName: OpenDesign-${version}-electron-setup.${ext}`。
+- `installer.nsh` 照探路版(E3 六跑全绿):preInit 把旧 `HKCU\Software\OpenDesign\InstallDir` 转成默认目录、记下旧版开机自启;
+  customCheckAppRunning 收掉安装目录里所有进程、用旧卸载器静默卸掉旧程序(资料节默认不选);首装跑 `ds_provision`;更新时不碰资料根。
+- 资料根仍在 `%LOCALAPPDATA%\OpenDesign`(安装目录外);卸载不删资料(旧版那个「连资料一起删」可选项随旧卸载器退役)。
+- **开机自启**:过渡时沿用旧版的选择(E3 已验);**全新安装默认关、安装时没有勾选项**(旧版是安装页上一个默认不勾的选项)
+  ⇒ 已知回归,延期到设置页开关(另单),在业主真机清单里写明。
+
+### D. 自动更新(electron-updater,U3 = 照 ZCode)
+
+- 主进程持有更新器:`autoDownload=true`(增量约 1MB,后台下)、`autoInstallOnAppQuit=false`(ZCode `autoUpdater.ts:1502-1505`:
+  退出后紧接着关机会装一半)、`disableWebInstaller=true`;publish = generic
+  `https://github.com/SunJ1ayu/OpenDesign/releases/latest/download`、`useMultipleRangeRequest:false`(GitHub 多段 501,第二跑亲测)。
+  不碰 api.github.com(VPN 出口 60 次/小时限流那个坑,表 #2)。
+- 查的时机:窗口出来后延迟一小段查一次,之后每 4 小时一次;**绝不挡启动**(0.98.8 的教训)。
+- 状态 `idle / checking / available / downloading(进度) / downloaded(版本) / error(人话)` 经 `odShell.update.onState` 推给前端;
+  `update.check()` 手动查;`update.install()` = 先收管家、再 `quitAndInstall()` 默认参数 ⇒ 向导(安装选项「下一步」→ 进度 →
+  「完成」勾着「运行」)⇒ 新版在最前面(第六跑)。
+- 前端设置页的更新一栏改接 `odShell.update`:下载好了才出现「重启以更新」按钮;**查不动不许说「已是最新」**(旧判据 u3 的保证搬过来)。
+  浏览器形态(Linux / git-pull)没有更新器:只显示当前版本 + 发布页链接。
+- **退役**(表 #11 的两个真相源因此只剩一个):`bin/ds_update.py`、`ds_update_apply.py`、`ds_update_startup.py`、`ds_auto_update.py`、
+  ds-web `/api/update/*`、前端开机更新画面 / 自动更新横幅 / 自动更新偏好。退役清单与每条旧判据的去向见下「判据迁移账」。
+- **旧安装包工具链一起退役**:`installer/OpenDesign.nsi`、`installer/build-installer.sh`、`installer/check-installer.py`、
+  `.github/workflows/windows-package-probe.yml` / `windows-update-e2e.yml`(及其 `.github/scripts/*.ps1`)由新的云 Windows 判据 workflow 取代。
+  **已发布的 0.98.x 安装包不动**(E3 要从它们过渡,业主机器上跑的也是它们)。
+
+### E. 发布通道
+
+- Electron 版起:tag `v<版本>`、**正式 release(非 prerelease)**,资产 = 安装包 + `.blockmap` + `latest.yml`。
+  旧版(0.98.x)只认 `win-installer-*` tag 与 `OpenDesign-Setup-*.exe` ⇒ **看不见**新版(已本地核 ASSET_RE/TAG_RE)⇒ 两台机器各手动装一次(业主选 A)。
+- 安装包在 CI 的 windows-latest 上构建(E1 已跑六次;本机 2G 内存且 electron-builder 出 Windows 包要 Wine,不在本机造):
+  新 workflow 手动触发 → 产出安装包 + blockmap + latest.yml 当 artifact → 我下载、核 `latest.yml` 的 sha512 与安装包逐字节一致
+  → 业主 `!` 跑 `gh release create`(发布权限在他那)。
+
+### F. 保持不坏
+
+- Linux 浏览器形态、`bin/start.ps1` git-pull 形态:ds-web 与后台不变,只少了更新端点。
+- 界面内容、后台、助手行为不改。
+
+### 判据迁移账(退役的旧判据 → 保证去哪了)
+
+T3 逐文件列:每个被删的测试写「它守的是什么 → 新判据编号 / 因行为退役而不再需要(理由)」。**不许只删不记**;
+仍成立的保证(例:u3 查不动不说已是最新、s-w1 浏览器不画按钮、Job 收整棵树、资料根不动)必须在新判据里有对应编号。
+
+## Test strategy (oracle)(草案,方案挑战后写成判据并先单独 commit)
+
+- **Linux(进 run-all SUITES,断网)**:
+  - 管家协议:`ready` 带端口;stdin EOF / `quit` ⇒ `sup.shutdown()` 被叫且锁释放;拿不到锁 ⇒ `already-running`;
+    后台腿死 ⇒ `backend-died` 带退出码与日志尾;`report` 只收 `ds_diag.UI_EVENTS` 白名单;`export-diagnostics` 产出 zip。
+  - 主进程可判逻辑抽成纯模块(管家行解析、收摊顺序、更新状态机、外链判定)用 node 测;更新状态机:下载好之前不给 install、
+    install 先收管家再交安装器、error 态措辞不含「已是最新」。
+  - 配置不变量:package.json 的 nsis / publish 各项(上面 C、D 列的值);新 tag/资产名**不被** 0.98.x 已发布代码的 ASSET_RE/TAG_RE 认出
+    (取 `git show win-installer-0.98.8:bin/ds_update.py` 的正则,不取工作树 —— 那份要退役)。
+  - 前端:浏览器形态零按钮(s-w1);窗口栏 app-region;无 `.win-grip-*`;更新一栏各状态的措辞与「重启以更新」只在 downloaded 出现。
+- **云 Windows 判据 workflow**(从探路版 probe 转正,断言写死在脚本里,绿才算过):
+  E1 构建;E3 从**已发布的** 0.98.x 过渡(12 条);E2 起窗 / 三按钮 / 托盘 / 退出 / 硬杀;
+  E4 v1→v2 更新:click-wizard 按两下、页头依次是「安装选项」「安装完成」、新版应答且在前台、原目录、卸载项 1 条、资料指纹不变;
+  **E5 首装带界面**(第六跑没测到):安装选项 → 选目录(改成带空格自选目录)→ 进度 → 完成,装到所选目录;
+  E6 卸载:资料根不动、安装目录清空。
+- 业主真机(T6):A0 界面出来了吗;装新版时旧版在托盘里 → 装完资料/key/档案都在;下一版走一次「重启以更新」。
