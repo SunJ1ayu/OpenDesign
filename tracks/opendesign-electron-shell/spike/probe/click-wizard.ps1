@@ -69,6 +69,7 @@ while ($sw.Elapsed.TotalSeconds -lt $TimeoutSec -and $clicks -lt 6) {
         $head = "$([W]::Text([W]::GetDlgItem($dlg, 1037))) / $([W]::Text([W]::GetDlgItem($dlg, 1038)))"
         $page = "$head | $okText"
         if ($page -eq $lastPage -and $t - $lastAt -lt 5) { continue }   # 刚按过、还没翻页
+        if ($page -ne $lastPage) { Start-Sleep -Seconds 1 }   # 页头先换、页面控件后画(第八跑读到空目录框)
         $opts = ((([W]::Options($dlg) -replace '=1\b', '=选中') -replace '=0\b', '=未选') -replace 'EDIT=', '输入框=')
         $clicks++; $lastPage = $page; $lastAt = $t
         Say "+${t}s CLICK#$clicks 页头:[$head] 选项:[$opts] ⇒ 按「$okText」"

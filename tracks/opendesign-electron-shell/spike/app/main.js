@@ -198,10 +198,11 @@ function maybeCheckUpdate() {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.disableWebInstaller = true;
-  // 第七跑:替身源按 GitHub 真实布局摆 —— latest/download/ 只有最新那个 release 的资产,旧版 blockmap 在它自己的 release 下。
-  // electron-updater 默认拿「新地址把版本号换成旧版」去找旧 blockmap(providers/Provider.js:22-25)⇒ latest/download 下 404 ⇒ 整包。
-  // 生产上这里是 https://github.com/SunJ1ayu/OpenDesign/releases/download/v<当前版本>/。
-  autoUpdater.previousBlockmapBaseUrlOverride = `http://127.0.0.1:8900/download/v${app.getVersion()}/`;
+  // 旧版 blockmap 的地址 = 新安装包地址把**路径里所有**新版本号换成旧版本号(electron-updater providers/Provider.js:22-25)。
+  // 第八跑:previousBlockmapBaseUrlOverride 只换得了主机 —— 路径是绝对路径,new URL(路径, override) 丢掉 override 的路径
+  // ⇒ 仍去 latest/download/ 找旧 blockmap ⇒ 404 ⇒ 整包 158MB。撤掉它。
+  // 第九跑起改由发布流程把 latest.yml 里安装包地址写成带版本号的绝对地址(…/download/v<新版>/…),
+  // 换号之后正好落在旧版自己那个 release 下,跳版更新也成立。
   autoUpdater.on("update-downloaded", (info) => {
     log(`[更新] 下好了 ${info.version}`);
     installUpdate(autoUpdater);

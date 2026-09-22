@@ -92,11 +92,16 @@ jobs:
           "  改了:pkg\ds\bin\ds_web.py、$($js.Name)"
           npx electron-builder --win nsis --x64 --publish never
           if ($LASTEXITCODE) { throw "electron-builder(v2) rc=$LASTEXITCODE" }
-          # 第七跑起按 GitHub 真实布局摆:latest/download/ 只放新版(最新 release)的资产;旧版 blockmap 在 download/v<旧版>/ 下
+          # 按 GitHub 真实布局摆:每个 release 的资产在 download/v<版本>/ 下;latest/download/ 只给最新 release 的 latest.yml。
+          # 第九跑起 latest.yml 里安装包地址改成带版本号的绝对地址(发布流程要做同样的改写):electron-updater 找旧 blockmap 时
+          # 把路径里的新版本号全换成旧版本号 ⇒ 正好落在 download/v<旧版>/ 下。
           $v1 = (Get-ChildItem dist-v1\*.exe | Select-Object -First 1).Name -replace '^OpenDesign-(.+)-electron-setup\.exe$', '$1'
-          New-Item -ItemType Directory -Force upd\latest\download, "upd\download\v$v1" | Out-Null
-          Copy-Item dist\latest.yml, dist\*.exe, dist\*.blockmap upd\latest\download\
-          Copy-Item dist-v1\*.blockmap "upd\download\v$v1\"
+          $v2 = '0.98.11'
+          New-Item -ItemType Directory -Force upd\latest\download, "upd\download\v$v1", "upd\download\v$v2" | Out-Null
+          Copy-Item dist\*.exe, dist\*.blockmap "upd\download\v$v2\"
+          Copy-Item dist-v1\*.exe, dist-v1\*.blockmap "upd\download\v$v1\"
+          $abs = "http://127.0.0.1:8900/download/v$v2/"
+          (Get-Content dist\latest.yml -Raw) -replace 'url: OpenDesign-', "url: ${abs}OpenDesign-" -replace 'path: OpenDesign-', "path: ${abs}OpenDesign-" | Set-Content upd\latest\download\latest.yml -NoNewline -Encoding utf8
           Get-ChildItem upd -Recurse -File | ForEach-Object { "  $($_.FullName.Substring((Resolve-Path upd).Path.Length)) $($_.Length)" }
           Get-Content upd\latest\download\latest.yml
 

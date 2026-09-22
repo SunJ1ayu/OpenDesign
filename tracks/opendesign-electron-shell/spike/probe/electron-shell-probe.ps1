@@ -189,8 +189,10 @@ if ($UpdDir) {
         if ($null -ne $flip) { $h = QuickHealth }
     }
     $t = [int]$sw.Elapsed.TotalSeconds
-    # 新版应答时安装器可能正在退出(它先拉起新版再退)⇒ 出循环再看一眼
-    if ($null -ne $instSeen -and $null -eq $instGone -and -not @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like '*electron-setup*' }).Count) { $instGone = $t }
+    # 新版应答时安装器可能还在退出(「完成」页先拉起新版再退;第八跑 +149s 新版应答时它还在)⇒ 最多再等 30 秒
+    for ($k = 0; $k -lt 30 -and $null -ne $instSeen -and $null -eq $instGone; $k++) {
+        if (-not @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like '*electron-setup*' }).Count) { $instGone = [int]$sw.Elapsed.TotalSeconds } else { Start-Sleep -Seconds 1 }
+    }
     "  时间线:安装器起 +$instSeen s / 安装器退 +$instGone s / exe 换版 +$flip s / 新版应答 $(if ($h) { "+$t s" } else { '没等到' })(上限 480s)"
     if (-not $clicker.WaitForExit(30000)) { Stop-Process -Id $clicker.Id -Force -ErrorAction SilentlyContinue }
     "  ---- 替业主点向导(click-wizard.ps1)----"; Get-Content $clickLog, "$clickLog.err" -ErrorAction SilentlyContinue | ForEach-Object { "    $_" }
@@ -211,9 +213,11 @@ if ($UpdDir) {
     $sent = 0; Get-Content $serveLog | ForEach-Object { if ($_ -match '\.exe .* sent=(\d+)$') { $sent += [int64]$Matches[1] } }
     "  E4 实际下载 $([math]::Round($sent/1MB,1)) MB / 整包 $([math]::Round($full/1MB,1)) MB($([math]::Round(100.0*$sent/[math]::Max($full,1),1))%)"
     # 第七跑:替身源按 GitHub 真实布局摆(latest/download/ 只有新版资产)。增量成立的前提是旧版 blockmap 从它自己的 release 取到。
-    $oldMap = @(Get-Content $serveLog | Where-Object { $_ -match '^200 GET download/v[^/]+/[^ ]+\.blockmap ' })
+    $v1s = $v1 -replace '(\.0)+$', ''
+    $oldMapPath = "download/v$v1s/OpenDesign-$v1s-electron-setup.exe.blockmap"
+    $oldMap = @(Get-Content $serveLog | Where-Object { $_.StartsWith("200 GET $oldMapPath ") })
     $miss = @(Get-Content $serveLog | Where-Object { $_ -match '^404 ' })
-    V 'E4.oldmap 旧版 blockmap 从它自己那个 release 的路径取到' ($oldMap.Count -ge 1) "$($oldMap -join ' | ')"
+    V 'E4.oldmap 旧版 blockmap 从它自己那个 release 的路径取到' ($oldMap.Count -ge 1) "要 $oldMapPath;实到 $($oldMap -join ' | ')"
     V 'E4.delta 实际下载不到整包的 10%(增量成立)' ($full -gt 0 -and $sent -lt 0.1 * $full) "$sent / $full 字节;404:$($miss -join ' | ')"
     "  ---- 替身服务器请求 ----"; Get-Content $serveLog | Select-Object -First 60 | ForEach-Object { "    $_" }
     Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like "$Dir\*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
