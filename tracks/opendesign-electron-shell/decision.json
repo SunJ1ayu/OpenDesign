@@ -24,8 +24,8 @@
     }
   },
   "execution_plan": {
-    "adapter": "main",
-    "model": null
+    "adapter": "delegate-codex",
+    "model": "gpt-5.6-sol"
   },
   "outcome": {
     "verdict": null
