@@ -1,0 +1,138 @@
+# 云 Windows 判据(track opendesign-electron-shell)—— 换壳版在真 Windows 上装、换、跑、更新、卸。**断言写死,绿才算过。**
+# 探路 U2 十跑的 electron-shell-probe 转正:用 desktop/ 的**产品代码**构建,不再用 tracks/…/spike/。
+#
+#   E1 构建:版本号从 bin/ds_web.py VERSION 来(唯一来源);包里不带 pywebview / pythonnet / pystray(窗口那一半已退役)
+#   E5/E6/E3b/E3/E2/E4:见 .github/scripts/electron-e2e/e2e.ps1 文件头
+#
+# 测试版与发出去的版本**只差一处**:publish 地址换成本机替身源(构建期改 package.json 副本,不在运行时留换源口子)。
+# E4 的 v2 = 同一份代码把版本号 +1、改一个 .py 与一个前端 js(增量下载量才有参考价值);
+# 替身源按 GitHub 真实布局摆,latest.yml 用**发布时同一个工具**(desktop/scripts/release-feed.mjs)改写。
+#
+# 跑法:手动触发,或推到 ci-electron/** 分支。
+
+name: electron-e2e
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['ci-electron/**']
+
+permissions:
+  contents: read
+
+jobs:
+  payload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 组 Python 包(出货流水线,Electron 形态:不带窗口那一半的依赖)
+        run: bash tracks/opendesign-windows-installer/spike/build-package.sh out --electron
+
+      - name: 打成一个 zip(一万多个小文件直接传太慢)
+        run: cd out && zip -qr pkg.zip pkg && ls -la pkg.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg
+          path: out/pkg.zip
+          retention-days: 3
+
+  e2e:
+    needs: payload
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: pkg
+          path: artifact
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: E1 构建(v1 = 仓库里的版本)
+        working-directory: desktop
+        run: |
+          $sw = [Diagnostics.Stopwatch]::StartNew()
+          Expand-Archive ..\artifact\pkg.zip -DestinationPath . -Force
+          $ver = [regex]::Match((Get-Content ..\bin\ds_web.py -Raw), '(?m)^VERSION = "([^"]+)"').Groups[1].Value
+          "VER=$ver" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          npm ci --no-audit --no-fund
+          if ($LASTEXITCODE) { throw "npm ci rc=$LASTEXITCODE" }
+          # 测试版唯一的差别:更新源指本机替身(发出去的版本指 GitHub,判据 c3 钉着)
+          node -e "const f='package.json',p=JSON.parse(require('fs').readFileSync(f,'utf8'));p.build.publish=[{...p.build.publish[0],url:'http://127.0.0.1:8900/latest/download'}];require('fs').writeFileSync(f,JSON.stringify(p,null,2))"
+          git diff --stat -- package.json
+          npx electron-builder --win nsis --x64 --publish never
+          if ($LASTEXITCODE) { throw "electron-builder rc=$LASTEXITCODE" }
+          "E1 构建耗时 $([int]$sw.Elapsed.TotalSeconds)s"
+          $fail = 0
+          function V([string]$n, [bool]$ok, [string]$d) { if (-not $ok) { $script:fail++ }; "{0} {1} :: {2}" -f $(if ($ok) { 'OK  ' } else { 'FAIL' }), $n, $d }
+          $setup = Get-ChildItem dist\*.exe | Select-Object -First 1
+          "E1 安装包 $($setup.Name) $([math]::Round($setup.Length/1MB,1)) MB"
+          V 'E1.name 安装包名 = OpenDesign-<ds_web.VERSION>-electron-setup.exe' ($setup.Name -eq "OpenDesign-$ver-electron-setup.exe") $setup.Name
+          $exeVer = (Get-Item dist\win-unpacked\OpenDesign.exe).VersionInfo.ProductVersion -replace '(\.0)+$', ''
+          V 'E1.version exe 版本 = ds_web.VERSION' ($exeVer -eq $ver) "exe $exeVer / ds_web $ver"
+          $sp = 'dist\win-unpacked\resources\python\Lib\site-packages'
+          $gone = @('webview', 'pythonnet', 'clr_loader', 'pystray') | Where-Object { Test-Path (Join-Path $sp $_) }
+          V 'E1.slim 包里不带窗口那一半的依赖' (-not $gone) "$gone"
+          V 'E1.host 管家在包里' (Test-Path 'dist\win-unpacked\resources\ds\bin\ds_host.py') ''
+          $u = Get-ChildItem dist\win-unpacked -Recurse -File
+          "E1 解开后 $($u.Count) 个文件 / $([math]::Round(($u | Measure-Object Length -Sum).Sum/1MB,1)) MB"
+          Move-Item dist dist-v1
+          if ($fail) { exit 1 }
+
+      - name: E4 准备:v2 = 版本 +1、改一处后端一处前端,按 GitHub 真实布局摆进替身源
+        working-directory: desktop
+        run: |
+          $p = $env:VER.Split('.'); $p[-1] = [string]([int]$p[-1] + 1); $v2 = $p -join '.'
+          "V2=$v2" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          npm pkg set version=$v2
+          (Get-Content pkg\ds\bin\ds_web.py -Raw) -replace '(?m)^VERSION = "[^"]+"', "VERSION = `"$v2`"" | Set-Content pkg\ds\bin\ds_web.py -NoNewline -Encoding utf8
+          Add-Content pkg\ds\bin\ds_web.py "`n# e2e: $v2 的代码改动"
+          $js = Get-ChildItem pkg\ds\web\dist\assets\*.js | Select-Object -First 1
+          Add-Content $js.FullName "`n/* e2e: $v2 的前端改动 */"
+          npx electron-builder --win nsis --x64 --publish never
+          if ($LASTEXITCODE) { throw "electron-builder(v2) rc=$LASTEXITCODE" }
+          New-Item -ItemType Directory -Force upd\latest\download, "upd\download\v$env:VER", "upd\download\v$v2" | Out-Null
+          Copy-Item dist\*.exe, dist\*.blockmap "upd\download\v$v2\"
+          Copy-Item dist-v1\*.exe, dist-v1\*.blockmap "upd\download\v$env:VER\"
+          # 发布时同一个工具:核 sha512 与安装包逐字节一致,再把安装包地址改写成 download/v<版本>/ 绝对地址
+          node scripts/release-feed.mjs verify dist\latest.yml (Get-ChildItem dist\*.exe | Select-Object -First 1).FullName
+          if ($LASTEXITCODE) { throw "release-feed verify rc=$LASTEXITCODE" }
+          node scripts/release-feed.mjs rewrite dist\latest.yml upd\latest\download\latest.yml $v2 --base http://127.0.0.1:8900/download
+          if ($LASTEXITCODE) { throw "release-feed rewrite rc=$LASTEXITCODE" }
+          Get-ChildItem upd -Recurse -File | ForEach-Object { "  $($_.FullName.Substring((Resolve-Path upd).Path.Length)) $($_.Length)" }
+          Get-Content upd\latest\download\latest.yml
+
+      - name: 判据用的 Playwright
+        working-directory: .github/scripts/electron-e2e
+        run: |
+          npm ci --no-audit --no-fund
+          if ($LASTEXITCODE) { throw "npm ci rc=$LASTEXITCODE" }
+
+      - name: E5 首装 / E6 卸载 / E3b / E3 过渡 / E2 起窗 / E4 更新
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $setup = (Get-ChildItem desktop\dist-v1\*.exe | Select-Object -First 1).FullName
+          .\.github\scripts\electron-e2e\e2e.ps1 -NewSetup $setup -Ver $env:VER -UpdDir (Resolve-Path desktop\upd).Path -NewVer $env:V2 -OutDir e2e-out
+
+      - name: 把图和日志交出来
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-e2e
+          path: e2e-out
+          retention-days: 14

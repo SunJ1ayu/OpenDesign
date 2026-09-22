@@ -283,22 +283,54 @@ runtime_delivery_change 0.99 / judging_surface_change 0.91 / deploy_target_outsi
 (`latest/download/` 只放新版资产、`download/v<旧版>/` 放旧版 blockmap),量第一次更新的实际下载字节。
 「做完」的标准仍是业主机器上**运行中的**软件回显新版本号(T6)。
 
-## Test strategy (oracle)(草案,方案挑战后写成判据并先单独 commit)
+## Test strategy (oracle)(T3 定稿,2026-09-22;判据先单独 commit,再动实现)
 
-- **Linux(进 run-all SUITES,断网)**:
-  - 管家协议:`ready` 带端口;stdin EOF / `quit` ⇒ `sup.shutdown()` 被叫且锁释放;拿不到锁 ⇒ `already-running`;
-    后台腿死 ⇒ `backend-died` 带退出码与日志尾;`report` 只收 `ds_diag.UI_EVENTS` 白名单;`export-diagnostics` 产出 zip。
-  - 主进程可判逻辑抽成纯模块(管家行解析、收摊顺序、更新状态机、外链判定)用 node 测;更新状态机:下载好之前不给 install、
-    install 先收管家再交安装器、error 态措辞不含「已是最新」。
-  - 配置不变量:package.json 的 nsis / publish 各项(上面 C、D 列的值);新 tag/资产名**不被** 0.98.x 已发布代码的 ASSET_RE/TAG_RE 认出
-    (取 `git show win-installer-0.98.8:bin/ds_update.py` 的正则,不取工作树 —— 那份要退役)。
-  - 前端:浏览器形态零按钮(s-w1);窗口栏 app-region;无 `.win-grip-*`;更新一栏各状态的措辞与「重启以更新」只在 downloaded 出现。
-- **云 Windows 判据 workflow**(从探路版 probe 转正,断言写死在脚本里,绿才算过):
-  E1 构建;E3 从**已发布的** 0.98.x 过渡(12 条);E2 起窗 / 三按钮 / 托盘 / 退出 / 硬杀;
-  E3 改**带界面**(像业主那样双击、只按默认的下一步/安装/完成):选目录页默认 = 旧 InstallDir;配置里的业务字段(key 引用、模型选择)前后不变;
-  E3/E4 **健康检查报的版本 = exe 版本 = ds_web.VERSION**(挑战 a4);
-  E4 v1→v2 更新:click-wizard 按两下、页头依次是「安装选项」「安装完成」、新版应答且在前台、原目录、卸载项 1 条、资料指纹不变;
-  E4 增量:替身源按 GitHub 真实布局(`latest/download/` + `download/v<旧版>/`),实际下载 < 整包 10%;
-  **E5 首装带界面**(第六跑没测到):安装选项 → 选目录(改成带空格自选目录)→ 进度 → 完成,装到所选目录;
-  E6 卸载:资料根不动、安装目录清空。
-- 业主真机(T6):A0 界面出来了吗;装新版时旧版在托盘里 → 装完资料/key/档案都在;下一版走一次「重启以更新」。
+**接缝由判据定**(实现照这些名字写;要改名先改判据、单独 commit、写理由):
+
+| 接缝 | 文件 | 形状 |
+|---|---|---|
+| 管家 | `bin/ds_host.py` | `serve(inp, out, *, make_lock, start_backend, home, diag, app_dir, log, watch_interval=3.0, first_frame_timeout=90.0) -> int`(`inp`/`out` 是**字节流**);`main()` 接真依赖(`sys.stdin.buffer` / `sys.stdout.buffer` / `core.InstanceLock` / `ds_shell.start_backend` …) |
+| 管家协议 | 同上 | 一行一个 JSON、UTF-8。事件(管家→外壳)`ready{web_port,version}` / `show` / `already-running` / `fatal{message}` / `alert{message}` / `backend-died{names,message}` / `diagnostics{path}` 或 `diagnostics{error}`;命令(外壳→管家)`{"cmd":"quit"}` / `export-diagnostics` / `report{event,detail}` / `window-shown`;**stdin EOF = quit**;坏行忽略、不崩 |
+| 主进程纯逻辑 | `desktop/lib/*.js`(CommonJS,**不 require electron**,无 node_modules 也加载得了) | `hostProtocol.js`:`parseHostLine` / `encodeCommand` / `hostExitMessage(code, {quitting, fatalShown})`;`versionCheck.js`:`versionMismatch`;`navPolicy.js`:`navDecision(url, origin)` / `windowOpenDecision`;`updateState.js`:`initialUpdateState` / `reduceUpdate(state, {type,…})` / `canInstall` / `nextCheckDelayMs` / `FIRST_CHECK_DELAY_MS` / `configureUpdater(u, {log})`;`lifecycle.js`:`shutdownHost(child, {graceMs})` / `installUpdate({state, host, updater, graceMs}) -> Promise<bool>` |
+| 打包 | `tracks/opendesign-windows-installer/spike/build-package.sh <out> --electron` | 出 `pkg/python` + `pkg/ds`(不带 pywebview / pythonnet / pystray);`desktop/package.json` 的 extraResources 从 `pkg/` 取 |
+| 发布 | `desktop/scripts/release-feed.mjs` | `rewriteLatestYml(text, version, base = GitHub 的 releases/download)` / `sha512Base64(buf)` / `verifyFeed(text, buf) -> {ok, reason}`;命令行 `verify <latest.yml> <安装包>`、`rewrite <入> <出> <版本> [--base URL]`(云 Windows 判据摆替身源用的就是它) |
+| 前端 | `web/src/desktopShell.ts`、`web/src/desktopUpdate.ts` | `OdShell` 类型 + `shellApi(win)`(`window.odShell` 齐了才给,否则 null);`desktopUpdateLabel(state, version)` / `showRestart(state)` / `showRetry(state)` / `hasDesktopUpdateBadge(state)` / `RESTART_HINT`;DOM 钩子 `data-ui=settings-toggle`(收起的「设置」行)/ `update-status` / `update-retry`(弹层里)/ `update-restart`(**收起的那一行上**)—— 云 Windows 判据点它们 |
+
+更新状态(主进程 → 前端同一形状):`{phase: idle|checking|latest|downloading|downloaded|error, version?, percent?, error?}`。
+
+**Linux(进 run-all,断网)**
+
+- `tests/test_ds_host.py` h1~h14:ready 带端口与版本(= `ds_web.VERSION`);EOF / quit ⇒ `sup.shutdown()` + 锁释放;
+  拿不到锁 ⇒ `already-running` 且不起后台;起后台时 `die()` ⇒ 一条 `fatal`、**不弹第二个框**(原 `alert` 不被叫)、serve 不抛;
+  重启网关失败的 `alert` ⇒ `alert` 事件;看门狗只问 `take_dead`(c21)、报一次 `backend-died`;`report` 只收白名单(s7);
+  `export-diagnostics` 出 zip 且带 `electron.log`;`window-shown` 两次只上一次膛(s14),首帧到了不写快照;
+  锁的 SHOW / RESTART 接到;UPDATE-HANDOFF 不再让管家收摊;stdout 每行都是协议;输入输出都按 UTF-8(子进程真跑一次,`PYTHONIOENCODING=gbk` 模拟中文 Windows 管道)。
+- `tests/test_desktop_main.mjs` m1~m20:协议解析与坏行;退出提示(收摊中/已报 fatal 不再弹);版本自检(a4);
+  导航(同源放行、`127.0.0.1:8766@evil` 与 `:87661` 不算同源、非 http 一律拒);更新状态机(下好之前不给装、error 不说已是最新、
+  失败 15 分钟重查、平时 4 小时、首查不挡启动);`configureUpdater`(autoDownload / 不在退出时装 / disableWebInstaller);
+  `installUpdate` 先收管家再 `quitAndInstall()` **零参数**(U3 = 照 ZCode);`shutdownHost` 15 秒不走才强杀。
+- `tests/test_desktop_release.mjs` r1~r6:latest.yml 改写成 `download/v<版本>/` 绝对地址、sha512/size 不动、幂等、
+  换号后正好落在旧版 release 的 blockmap(第九跑的机制);版本对不上拒绝;sha512 校验抓得到换过的安装包。
+- `tests/test_desktop_config.py` c1~c10:nsis 各项(U4 照 ZCode、中文、不删资料);不加 customInstallMode / customFinishPage(U3/U4);
+  publish = generic GitHub `latest/download`、`useMultipleRangeRequest:false`、无 github provider;版本号唯一来源;
+  0.98.8 已发布代码的 ASSET_RE/TAG_RE(`git show win-installer-0.98.8:bin/ds_update.py`)认不出新名字;
+  preload 暴露的方法 ⊇ 前端调用的(x2 的 Electron 版)、preload 的每个通道主进程都有 handle;退役清单里的文件已删、
+  ds-web 与前端不再有 `/api/update`、前端不再读 `pywebview`。
+- `tests/test_desktop_ui.mjs` du1~du12:更新一栏各状态措辞(u3 搬过来)、「重启以更新」只在 downloaded、错误态有「重试」、
+  圆点只在 downloaded、提示写明约 2 分钟别关机;`shellApi` 不认 pywebview;s-w1(浏览器零按钮)照旧在 `test_shell_window.mjs`;
+  窗口栏 CSS:拖动带 drag、按钮 no-drag、无 `.win-grip`。
+
+**云 Windows(`.github/workflows/electron-e2e.yml`,断言写死,FAIL 0 才算过)**:从探路版转正,用 `desktop/` 的产品代码构建;
+测试版只用 electron-builder 命令行把 publish 地址换成本机替身源(构建期,不在运行时留口子)。
+
+- E1 构建:版本号从 `ds_web.VERSION` 来;包里不带 pywebview / pythonnet / pystray。
+- E5 全新机器带界面首装:改选带空格自选目录 → 装到所选目录、1 条卸载项、开机自启默认关、资料根与配置建好、版本三方一致。
+- E6 在托盘里跑着时卸载:进程全收、安装目录清空、卸载项没了、资料根原样。
+- E3 从**已发布的** 0.98.8 过渡(带界面):选目录页默认 = 旧目录(`WM_GETTEXT`,第十跑验量具)、旧文件/卸载项/进程全收、
+  配置业务字段(模型选择、key 引用、登录口令)前后不变(a7)、版本三方一致(a4)、开机自启/桌面图标指新 exe、资料指纹不变。
+- E3b 旧版装在 A、首装时改选 B:A 的旧版进程收掉、旧卸载器跑过、只剩 1 条卸载项(「旧版在哪就去哪收」)。
+- E2 起窗:10 秒内出窗口、三按钮、关窗进托盘且后台活着、再双击叫回且**不多起一份管家**、托盘还原 500ms 截图非纯色(#17)、
+  窗口内跳外站不离开工作台、退出后零进程、硬杀主进程 30 秒内收干净。
+- E4 更新:先不开替身源 ⇒ 更新一栏说「没查到」不说「已是最新」、出现「重试」;开源点重试 ⇒ 下好、侧栏出现「重启以更新」
+  → 点它 → 向导按两下 → 新版应答、在前台、版本三方一致、原目录、1 条卸载项、资料不变、实下 < 10%、旧 blockmap 取自 `download/v<旧版>/`。
+- 业主真机(T6):A0 界面出来了吗;装新版时旧版在托盘里 → 装完资料/key/档案都在;下一版走一次「重启以更新」;两台错开装。

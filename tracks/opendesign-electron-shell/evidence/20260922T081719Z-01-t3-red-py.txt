@@ -1,0 +1,266 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    t3-red-py
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_ds_host tests.test_desktop_config
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  521bdaf
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-22T08:17:19Z
+---------------- 输出开始 ----------------
+EEEEEE.EEEFFFFF
+======================================================================
+ERROR: test_ds_host (unittest.loader._FailedTest.test_ds_host)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_ds_host
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/unittest/loader.py", line 137, in loadTestsFromName
+    module = __import__(module_name)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_host.py", line 46, in <module>
+    import ds_host                      # noqa: E402  ← 本单新增,现在还不存在(判据先红)
+    ^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'ds_host'
+
+
+======================================================================
+ERROR: test_c1_nsis_is_the_zcode_wizard_in_chinese_that_keeps_the_data (tests.test_desktop_config.C1Installer.test_c1_nsis_is_the_zcode_wizard_in_chinese_that_keeps_the_data)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 125, in test_c1_nsis_is_the_zcode_wizard_in_chinese_that_keeps_the_data
+    nsis = _pkg()["build"]["nsis"]
+           ^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 31, in _pkg
+    return json.loads(PKG.read_text(encoding="utf-8"))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/root/.openclaw/workspace/projects/design-studio/desktop/package.json'
+
+======================================================================
+ERROR: test_c2_no_skipped_pages_we_decided_to_keep (tests.test_desktop_config.C1Installer.test_c2_no_skipped_pages_we_decided_to_keep)
+U3「c吧」+ U4「留着和zcode一样」⇒ 「为哪位用户」页与「完成」页都照 ZCode 留着。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 137, in test_c2_no_skipped_pages_we_decided_to_keep
+    code = _nsis_code_only(NSH.read_text(encoding="utf-8"))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/root/.openclaw/workspace/projects/design-studio/desktop/build/installer.nsh'
+
+======================================================================
+ERROR: test_c2b_old_install_dir_is_where_we_install_and_where_we_clean (tests.test_desktop_config.C1Installer.test_c2b_old_install_dir_is_where_we_install_and_where_we_clean)
+旧版记目录的键(旧 OpenDesign.nsi 的 InstallDirRegKey)必须被读:
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 152, in test_c2b_old_install_dir_is_where_we_install_and_where_we_clean
+    code = _nsis_code_only(NSH.read_text(encoding="utf-8"))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/root/.openclaw/workspace/projects/design-studio/desktop/build/installer.nsh'
+
+======================================================================
+ERROR: test_c2c_every_messagebox_answers_itself_in_silent_mode (tests.test_desktop_config.C1Installer.test_c2c_every_messagebox_answers_itself_in_silent_mode)
+旧判据 installer_silent s2 搬过来:没有 `/SD` 的 MessageBox 在静默装/卸时就停在那儿等人
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 144, in test_c2c_every_messagebox_answers_itself_in_silent_mode
+    code = _nsis_code_only(NSH.read_text(encoding="utf-8"))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/root/.openclaw/workspace/projects/design-studio/desktop/build/installer.nsh'
+
+======================================================================
+ERROR: test_c3_feed_is_github_download_urls_not_the_api (tests.test_desktop_config.C3Publish.test_c3_feed_is_github_download_urls_not_the_api)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 162, in test_c3_feed_is_github_download_urls_not_the_api
+    pub = _pkg()["build"]["publish"]
+          ^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 31, in _pkg
+    return json.loads(PKG.read_text(encoding="utf-8"))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/root/.openclaw/workspace/projects/design-studio/desktop/package.json'
+
+======================================================================
+ERROR: test_c4_one_version_everywhere (tests.test_desktop_config.C4Version.test_c4_one_version_everywhere)
+版本号唯一来源:`bin/ds_web.py` VERSION(挑战 a4)。安装包文件名、「应用和功能」、
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 182, in test_c4_one_version_everywhere
+    self.assertEqual(_pkg().get("version"), web, "package.json 与 ds_web.VERSION 分叉 ⇒ 版本自检每次开机都弹框")
+                     ^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 31, in _pkg
+    return json.loads(PKG.read_text(encoding="utf-8"))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/root/.openclaw/workspace/projects/design-studio/desktop/package.json'
+
+======================================================================
+ERROR: test_c5_released_updater_cannot_see_the_electron_release (tests.test_desktop_config.C5OldUpdaterBlind.test_c5_released_updater_cannot_see_the_electron_release)
+表 #6:没手动装的那台上跑着 0.98.8 的旧更新器;它要是认出新 release,会拿旧格式去装(接力换名)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 195, in test_c5_released_updater_cannot_see_the_electron_release
+    ver = _pkg()["version"]
+          ^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 31, in _pkg
+    return json.loads(PKG.read_text(encoding="utf-8"))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/root/.openclaw/workspace/projects/design-studio/desktop/package.json'
+
+======================================================================
+ERROR: setUpClass (tests.test_desktop_config.C6Contract)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 206, in setUpClass
+    cls.preload = _code_only(PRELOAD.read_text(encoding="utf-8"))
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/root/.openclaw/workspace/projects/design-studio/desktop/preload.js'
+
+======================================================================
+FAIL: test_c7_retired_files_are_gone (tests.test_desktop_config.C7Retired.test_c7_retired_files_are_gone)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 261, in test_c7_retired_files_are_gone
+    self.assertEqual(left, [], "退役清单里的文件还在 —— 留着就会有人以为它还管用")
+AssertionError: Lists differ: ['bin/ds_update.py', 'bin/ds_update_apply.[466 chars]yml'] != []
+
+First list contains 15 additional elements.
+First extra element 0:
+'bin/ds_update.py'
+
++ []
+- ['bin/ds_update.py',
+-  'bin/ds_update_apply.py',
+-  'bin/ds_update_startup.py',
+-  'bin/ds_auto_update.py',
+-  'installer/OpenDesign.nsi',
+-  'installer/launcher.nsi',
+-  'installer/build-installer.sh',
+-  'installer/check-installer.py',
+-  'installer/make-update-manifest.py',
+-  'installer/mutation-installer.sh',
+-  '.github/workflows/windows-package-probe.yml',
+-  '.github/workflows/windows-update-e2e.yml',
+-  '.github/scripts/windows-package-probe.ps1',
+-  '.github/scripts/windows-update-e2e.ps1',
+-  '.github/workflows/electron-shell-probe.yml'] : 退役清单里的文件还在 —— 留着就会有人以为它还管用
+
+======================================================================
+FAIL: test_c7b_window_half_of_ds_shell_is_gone (tests.test_desktop_config.C7Retired.test_c7b_window_half_of_ds_shell_is_gone)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 266, in test_c7b_window_half_of_ds_shell_is_gone
+    self.assertEqual(_hits(src, re.escape(gone)), [], f"ds_shell.py 里 {gone!r} 还在(design A:窗口那一半退役)")
+AssertionError: Lists differ: ['420: class WindowApi:'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'420: class WindowApi:'
+
+- ['420: class WindowApi:']
++ [] : ds_shell.py 里 'class WindowApi' 还在(design A:窗口那一半退役)
+
+======================================================================
+FAIL: test_c7c_release_notes_say_formal_release (tests.test_desktop_config.C7Retired.test_c7c_release_notes_say_formal_release)
+挑战 a8:旧 RELEASE.md 写死 --prerelease;`latest/download` 跳过 prerelease ⇒ 照旧发 = 没人收得到更新。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 272, in test_c7c_release_notes_say_formal_release
+    self.assertEqual(_hits(text, r"--prerelease"), [])
+AssertionError: Lists differ: ['24: -R SunJ1ayu/OpenDesign --target <打包那[70 chars]md>'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'24: -R SunJ1ayu/OpenDesign --target <打包那个提交> --prerelease --title "OpenDesign <ver> —— …" --notes-file <notes.md>'
+
++ []
+- ['24: -R SunJ1ayu/OpenDesign --target <打包那个提交> --prerelease --title '
+-  '"OpenDesign <ver> —— …" --notes-file <notes.md>']
+
+======================================================================
+FAIL: test_c8_no_update_endpoints_left (tests.test_desktop_config.C8NoOldUpdateSurface.test_c8_no_update_endpoints_left)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 279, in test_c8_no_update_endpoints_left
+    self.assertEqual(_hits(web, r"/api/update"), [], "ds-web 还留着更新端点 ⇒ 两个真相源(表 #11)")
+AssertionError: Lists differ: ['469: UPDATE_APPLY_PATH = "/api/update/ap[318 chars] 分支'] != []
+
+First list contains 5 additional elements.
+First extra element 0:
+'469: UPDATE_APPLY_PATH = "/api/update/apply"  # do_POST(track opendesign-in-app-update-install)'
+
++ []
+- ['469: UPDATE_APPLY_PATH = "/api/update/apply"  # do_POST(track '
+-  'opendesign-in-app-update-install)',
+-  '470: UPDATE_PREPARE_PATH = "/api/update/prepare"  # do_POST(track '
+-  'opendesign-startup-not-blocked-by-update)',
+-  '1022: elif path == "/api/update/check":',
+-  '1024: elif path == "/api/update/startup":',
+-  '1219: #    前端只在 `/api/update/startup` 回 install 时才调本端点的 auto 分支'] : ds-web 还留着更新端点 ⇒ 两个真相源(表 #11)
+
+======================================================================
+FAIL: test_c9_frontend_no_longer_reads_pywebview (tests.test_desktop_config.C8NoOldUpdateSurface.test_c9_frontend_no_longer_reads_pywebview)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_config.py", line 287, in test_c9_frontend_no_longer_reads_pywebview
+    self.assertEqual(_hits(code, r"\bpywebview"), [], f"{f.relative_to(ROOT)} 还在读 pywebview(preload 给的是 odShell)")
+AssertionError: Lists differ: ['23: const w = window as unknown as { pyw[145 chars]});'] != []
+
+First list contains 3 additional elements.
+First extra element 0:
+'23: const w = window as unknown as { pywebview?: { api?: Partial<ReportApi> } };'
+
++ []
+- ['23: const w = window as unknown as { pywebview?: { api?: Partial<ReportApi> '
+-  '} };',
+-  '24: const a = w.pywebview?.api;',
+-  '52: window.addEventListener("pywebviewready", flush, { once: true });'] : web/src/startupReport.ts 还在读 pywebview(preload 给的是 odShell)
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.036s
+
+FAILED (failures=5, errors=9)
+---------------- 输出结束 ----------------
+runlog: t3-red-py rc=1 commit=521bdaf dirty=yes at=2026-09-22T08:17:19Z file=tracks/opendesign-electron-shell/evidence/20260922T081719Z-01-t3-red-py.txt

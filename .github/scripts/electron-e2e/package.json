@@ -1,0 +1,9 @@
+{
+  "name": "opendesign-electron-e2e",
+  "private": true,
+  "description": "云 Windows 判据 electron-e2e 的驱动(Playwright 驱动装好的 OpenDesign.exe)。不进安装包。",
+  "type": "module",
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

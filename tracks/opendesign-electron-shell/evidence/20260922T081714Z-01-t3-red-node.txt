@@ -1,0 +1,605 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    t3-red-node
+cmd:     node --test tests/test_desktop_main.mjs tests/test_desktop_release.mjs tests/test_desktop_ui.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  521bdaf
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-22T08:17:14Z
+---------------- 输出开始 ----------------
+TAP version 13
+# Subtest: m1 管家发来的协议行认得出来
+not ok 1 - m1 管家发来的协议行认得出来
+  ---
+  duration_ms: 1.452278
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:19:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/hostProtocol.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:20:29)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m2 坏行一律 null,不许抛(抛了主进程就崩)
+not ok 2 - m2 坏行一律 null,不许抛(抛了主进程就崩)
+  ---
+  duration_ms: 0.371502
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:27:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/hostProtocol.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:28:29)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m3 发给管家的命令:一行一个 JSON、以换行收尾、中文原样
+not ok 3 - m3 发给管家的命令:一行一个 JSON、以换行收尾、中文原样
+  ---
+  duration_ms: 0.204626
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:35:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/hostProtocol.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:36:44)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m4 管家退出时要不要弹框:收摊中、已经报过 fatal 的都不弹
+not ok 4 - m4 管家退出时要不要弹框:收摊中、已经报过 fatal 的都不弹
+  ---
+  duration_ms: 0.266113
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:44:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/hostProtocol.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:45:31)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m5 版本一致不吭声
+not ok 5 - m5 版本一致不吭声
+  ---
+  duration_ms: 0.262775
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:56:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/versionCheck.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:57:31)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m6 版本对不上 ⇒ 人话,说清是哪两版、该怎么办
+not ok 6 - m6 版本对不上 ⇒ 人话,说清是哪两版、该怎么办
+  ---
+  duration_ms: 0.183615
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:61:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/versionCheck.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:62:31)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m7 后台没报版本也算对不上(旧管家 / 被截断的 ready 不许蒙混过关)
+not ok 7 - m7 后台没报版本也算对不上(旧管家 / 被截断的 ready 不许蒙混过关)
+  ---
+  duration_ms: 0.168667
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:71:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/versionCheck.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:72:31)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m8 同源放行
+not ok 8 - m8 同源放行
+  ---
+  duration_ms: 0.263994
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:79:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/navPolicy.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:80:27)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m9 🔴 长得像同源的不算(探路版用 startsWith,这三个都会被放进窗口)
+not ok 9 - m9 🔴 长得像同源的不算(探路版用 startsWith,这三个都会被放进窗口)
+  ---
+  duration_ms: 0.44807
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:85:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/navPolicy.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:86:27)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m10 外站交系统浏览器;非 http 一律拒
+not ok 10 - m10 外站交系统浏览器;非 http 一律拒
+  ---
+  duration_ms: 0.44156
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:92:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/navPolicy.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:93:47)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m11 工作台还没起来(没有 origin)时,只有 http(s) 能出去
+not ok 11 - m11 工作台还没起来(没有 origin)时,只有 http(s) 能出去
+  ---
+  duration_ms: 0.278245
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:104:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/navPolicy.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:105:27)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m21 窗口打开的地址带外壳标记(旧判据 x10:前端首帧靠它决定画不画窗口栏),且与前端同一个字面量
+not ok 12 - m21 窗口打开的地址带外壳标记(旧判据 x10:前端首帧靠它决定画不画窗口栏),且与前端同一个字面量
+  ---
+  duration_ms: 0.278174
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:112:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/navPolicy.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:113:40)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m12 初始是 idle;查 → 有新版 → 下载中 → 下好,版本一路带着
+not ok 13 - m12 初始是 idle;查 → 有新版 → 下载中 → 下好,版本一路带着
+  ---
+  duration_ms: 0.187985
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:121:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/updateState.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:122:48)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m13 🔴 只有 downloaded 才许装
+not ok 14 - m13 🔴 只有 downloaded 才许装
+  ---
+  duration_ms: 0.170586
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:138:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/updateState.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:139:60)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m14 🔴 查不动 / 下载失败是 error,不是 latest(旧判据 u3 的保证搬过来)
+not ok 15 - m14 🔴 查不动 / 下载失败是 error,不是 latest(旧判据 u3 的保证搬过来)
+  ---
+  duration_ms: 0.171656
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:150:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/updateState.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:151:48)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m15 下好之后再查出错,不许把「下好了」冲掉(按钮会消失,他就更新不了)
+not ok 16 - m15 下好之后再查出错,不许把「下好了」冲掉(按钮会消失,他就更新不了)
+  ---
+  duration_ms: 0.148936
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:160:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/updateState.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:161:60)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m16 下次什么时候查:失败 15 分钟,平时 4 小时;第一次查不挡启动
+not ok 17 - m16 下次什么时候查:失败 15 分钟,平时 4 小时;第一次查不挡启动
+  ---
+  duration_ms: 0.192906
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:169:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/updateState.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:170:88)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m17 更新器的开关照 design D 设好
+not ok 18 - m17 更新器的开关照 design D 设好
+  ---
+  duration_ms: 0.243484
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:179:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/updateState.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:180:32)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m18 收摊:关管家 stdin、等它自己走完,不强杀
+not ok 19 - m18 收摊:关管家 stdin、等它自己走完,不强杀
+  ---
+  duration_ms: 0.45707
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:202:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/lifecycle.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:203:28)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m19 管家赖着不走 ⇒ 过了宽限期强杀,不许永远卡住
+not ok 20 - m19 管家赖着不走 ⇒ 过了宽限期强杀,不许永远卡住
+  ---
+  duration_ms: 0.286324
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:211:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/lifecycle.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:212:28)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m22 收摊可以被叫两次(托盘「退出」与 before-quit 同时到):只关一次 stdin、两边都等得到结束
+not ok 21 - m22 收摊可以被叫两次(托盘「退出」与 before-quit 同时到):只关一次 stdin、两边都等得到结束
+  ---
+  duration_ms: 0.302503
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:224:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/lifecycle.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:227:28)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: m20 🔴 装更新:先收管家、再 quitAndInstall() 零参数(U3 = 照 ZCode autoUpdater.ts:470)
+not ok 22 - m20 🔴 装更新:先收管家、再 quitAndInstall() 零参数(U3 = 照 ZCode autoUpdater.ts:470)
+  ---
+  duration_ms: 0.356443
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:234:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/lifecycle.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:235:29)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# node:internal/modules/esm/resolve:275
+#     throw new ERR_MODULE_NOT_FOUND(
+#           ^
+# Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/root/.openclaw/workspace/projects/design-studio/desktop/scripts/release-feed.mjs' imported from /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_release.mjs
+#     at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+#     at moduleResolve (node:internal/modules/esm/resolve:861:10)
+#     at defaultResolve (node:internal/modules/esm/resolve:985:11)
+#     at \#cachedDefaultResolve (node:internal/modules/esm/loader:747:20)
+#     at ModuleLoader.resolve (node:internal/modules/esm/loader:724:38)
+#     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:320:38)
+#     at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:680:36)
+#     at TracingChannel.tracePromise (node:diagnostics_channel:350:14)
+#     at ModuleLoader.import (node:internal/modules/esm/loader:679:21)
+#     at defaultImportModuleDynamicallyForModule (node:internal/modules/esm/utils:222:31) {
+#   code: 'ERR_MODULE_NOT_FOUND',
+#   url: 'file:///root/.openclaw/workspace/projects/design-studio/desktop/scripts/release-feed.mjs'
+# }
+# Node.js v22.23.1
+# Subtest: tests/test_desktop_release.mjs
+not ok 2 - tests/test_desktop_release.mjs
+  ---
+  duration_ms: 65.950707
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_release.mjs:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# node:internal/modules/esm/resolve:275
+#     throw new ERR_MODULE_NOT_FOUND(
+#           ^
+# Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/root/.openclaw/workspace/projects/design-studio/web/src/desktopUpdate.ts' imported from /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_ui.mjs
+#     at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+#     at moduleResolve (node:internal/modules/esm/resolve:861:10)
+#     at defaultResolve (node:internal/modules/esm/resolve:985:11)
+#     at \#cachedDefaultResolve (node:internal/modules/esm/loader:747:20)
+#     at ModuleLoader.resolve (node:internal/modules/esm/loader:724:38)
+#     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:320:38)
+#     at ModuleJob._link (node:internal/modules/esm/module_job:182:49) {
+#   code: 'ERR_MODULE_NOT_FOUND',
+#   url: 'file:///root/.openclaw/workspace/projects/design-studio/web/src/desktopUpdate.ts'
+# }
+# Node.js v22.23.1
+# Subtest: tests/test_desktop_ui.mjs
+not ok 3 - tests/test_desktop_ui.mjs
+  ---
+  duration_ms: 100.578988
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_ui.mjs:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+1..24
+# tests 24
+# suites 0
+# pass 0
+# fail 24
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 286.25342
+---------------- 输出结束 ----------------
+runlog: t3-red-node rc=1 commit=521bdaf dirty=yes at=2026-09-22T08:17:14Z file=tracks/opendesign-electron-shell/evidence/20260922T081714Z-01-t3-red-node.txt

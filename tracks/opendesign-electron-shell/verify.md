@@ -22,6 +22,16 @@
 runlog -t opendesign-electron-shell -- <判据命令>
 ```
 
+T3 判据先红(实现一行都还没写;红因全是「被测模块/文件不存在」或「退役文件还在」,不是判据自己坏):
+
+```
+runlog: t3-red-node rc=1 commit=521bdaf dirty=yes at=2026-09-22T08:17:14Z file=tracks/opendesign-electron-shell/evidence/20260922T081714Z-01-t3-red-node.txt
+runlog: t3-red-py rc=1 commit=521bdaf dirty=yes at=2026-09-22T08:17:19Z file=tracks/opendesign-electron-shell/evidence/20260922T081719Z-01-t3-red-py.txt
+```
+
+另:c1/c2/c2b/c5 对着探路版的 package.json / installer.nsh 跑过是绿的(证明判据**过得去**,不是出了一道做不对的题);
+c3 对探路版是红的 —— 对的,探路版的 publish 指本机替身源。
+
 ```
 <粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
  **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
