@@ -1,7 +1,7 @@
 # Design: opendesign-electron-shell
 
 - Change: opendesign-electron-shell
-- Status: draft —— U1~U4 业主已答、U2 六跑量完;Approach 草案 v1 已写,**下一步两家族方案挑战**,之后写判据
+- Status: draft —— U1~U4 业主已答;Approach v2 已过独立方案挑战(`19f7396`);U2 九跑量完(第九跑证实 D 的增量方案),**下一步写判据(先单独 commit)**
 
 ## Goal-to-design check
 
@@ -232,7 +232,8 @@ P6(管家语言)三方里两方站 Python。
   - **改为**:发布时把 `latest.yml` 里安装包的 `url`/`path` 改写成带版本号的绝对地址
     `https://github.com/SunJ1ayu/OpenDesign/releases/download/v<新版>/OpenDesign-<新版>-electron-setup.exe`(sha512 不变)。
     换号后正好是 `…/download/v<旧版>/OpenDesign-<旧版>-electron-setup.exe.blockmap` = 旧版自己 release 里的资产;跳版更新同样成立。
-    `latest.yml` 本身仍从 `releases/latest/download/` 取(发现通道不变)。第九跑验证。
+    `latest.yml` 本身仍从 `releases/latest/download/` 取(发现通道不变)。
+    **第九跑证实**(run 35698706347):替身源按 GitHub 真实布局摆,旧 blockmap 从 `download/v0.98.10/` 取到,实下 1.06MB / 165.7MB(0.6%),零 404。
 - 查的时机:窗口出来后延迟一小段查一次,之后每 4 小时一次;**绝不挡启动**(0.98.8 的教训)。
 - 状态 `idle / checking / available / downloading(进度) / downloaded(版本) / error(人话)` 经 `odShell.update.onState` 推给前端;
   `update.check()` 手动查;`update.install()` = 先收管家、再 `quitAndInstall()` 默认参数 ⇒ 向导(安装选项「下一步」→ 进度 →

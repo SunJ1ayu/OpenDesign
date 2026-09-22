@@ -19,11 +19,14 @@ public static class W {
   [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
   [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr h, int idx);
   [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr SendMessage(IntPtr h, uint m, IntPtr w, StringBuilder l);
   [DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
   [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr h, int id);
   [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr h);
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
   public static string Text(IntPtr h) { if (h == IntPtr.Zero) return ""; var sb = new StringBuilder(1024); GetWindowText(h, sb, 1024); return sb.ToString(); }
+  // 输入框的内容要发 WM_GETTEXT 取:GetWindowText 读别的进程的控件只拿到标题,输入框没有标题 ⇒ 永远是空(第八、九跑的 E3.guidir 假红)
+  public static string EditText(IntPtr h) { var sb = new StringBuilder(1024); SendMessage(h, 0x000D, (IntPtr)1024, sb); return sb.ToString(); }
   public static string Cls(IntPtr h) { var sb = new StringBuilder(256); GetClassName(h, sb, 256); return sb.ToString(); }
   public static uint Pid(IntPtr h) { uint p; GetWindowThreadProcessId(h, out p); return p; }
   public static List<IntPtr> Dialogs() {
@@ -39,7 +42,7 @@ public static class W {
         int st = GetWindowLong(h, -16) & 0xF;
         if (st == 2 || st == 3 || st == 4 || st == 9) parts.Add(Text(h) + "=" + ((long)SendMessage(h, 0x00F0, IntPtr.Zero, IntPtr.Zero) == 1 ? "1" : "0"));
       }
-      if (Cls(h) == "Edit" && IsWindowVisible(h)) parts.Add("EDIT=" + Text(h));
+      if (Cls(h) == "Edit" && IsWindowVisible(h)) parts.Add("EDIT=" + EditText(h));
       return true; }, IntPtr.Zero);
     return string.Join(" ; ", parts.ToArray());
   }
@@ -69,7 +72,6 @@ while ($sw.Elapsed.TotalSeconds -lt $TimeoutSec -and $clicks -lt 6) {
         $head = "$([W]::Text([W]::GetDlgItem($dlg, 1037))) / $([W]::Text([W]::GetDlgItem($dlg, 1038)))"
         $page = "$head | $okText"
         if ($page -eq $lastPage -and $t - $lastAt -lt 5) { continue }   # 刚按过、还没翻页
-        if ($page -ne $lastPage) { Start-Sleep -Seconds 1 }   # 页头先换、页面控件后画(第八跑读到空目录框)
         $opts = ((([W]::Options($dlg) -replace '=1\b', '=选中') -replace '=0\b', '=未选') -replace 'EDIT=', '输入框=')
         $clicks++; $lastPage = $page; $lastAt = $t
         Say "+${t}s CLICK#$clicks 页头:[$head] 选项:[$opts] ⇒ 按「$okText」"
