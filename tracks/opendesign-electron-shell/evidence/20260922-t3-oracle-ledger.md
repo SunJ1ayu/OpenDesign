@@ -102,3 +102,7 @@ design.md「判据迁移账」的兑现:**每个要退役或改写的旧判据,�
   事实依据:装好的应用里 localStorage 本来不跨重启保存(f1)⇒ 这个开关在业主机器上**每次重启都回到「开」**,从没真正关住过。
   ⚠️ 这是业主看得见的一项消失,**T6 说明里要告诉他**;他要的话另开单做成设置页开关(那时存到后台,不存 localStorage)。
 - **ds_diag 版本清单里的 `WebView2=`**:换壳后不再用 WebView2,这一项会一直是「查不到」。不影响任何判据;另记一条小账(让管家报 Electron/Chromium 版本),不在本单。
+
+**T4 补记(2026-09-22 19:30,主 agent 跑 python 全量时抓到)**:`tests/test_installer_silent.py`(上表「静默模式下每个框自己有答案」那一行,保证已去 c2c)
+本该随它量的 `installer/OpenDesign.nsi` 一起在 `4b90d84` 退役,当时漏删 ⇒ 全量里 4 条 FileNotFoundError。现在删掉;
+`tests/fixtures/update/`(只有已退役的旧更新器判据读它,全仓再无引用)一并退役。都是判卷面,单独 commit。
