@@ -26,7 +26,9 @@ New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $OutDir   = (Resolve-Path $OutDir).Path
 # 🔴 PowerShell 变量名不分大小写:小写 ver 与参数 Ver 是同一个变量。云跑第二跑 E4 循环里给小写那个赋值,期望版本被悄悄改成新版号
 #    ⇒ E5.samever 假红、E4.oldmap 假绿。参数一律只读:再有人赋值当场抛错、整趟红(静态那一道是 C12)。
-foreach ($n in 'OldTag', 'OldAsset', 'NewSetup', 'Ver', 'UpdDir', 'NewVer', 'OutDir') { (Get-Variable -Name $n -Scope Script).Options = 'ReadOnly' }
+#    ⚠ 要用 Set-Variable 重建:workflow 里是 `.\e2e.ps1 …` 调用,参数是优化过的局部变量,直接改 .Options 会抛
+#      「Cannot set options on the local variable」(云跑第三跑 run 35731332274 就死在这一行;本机 -File 跑不出来)。
+foreach ($n in 'OldTag', 'OldAsset', 'NewSetup', 'Ver', 'UpdDir', 'NewVer', 'OutDir') { Set-Variable -Name $n -Value (Get-Variable -Name $n -ValueOnly) -Option ReadOnly -Force }
 $Here     = $PSScriptRoot
 $Data     = "$env:LOCALAPPDATA\OpenDesign"
 $Default  = "$env:LOCALAPPDATA\Programs\OpenDesign"
