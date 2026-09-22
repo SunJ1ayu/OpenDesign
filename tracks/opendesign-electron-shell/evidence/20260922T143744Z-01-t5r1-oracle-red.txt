@@ -1,0 +1,22 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    t5r1-oracle-red
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_desktop_config\ 2\>\&1\ \|\ grep\ -E\ \"\^\(FAIL\|ERROR\|OK\|Ran\|FAILED\)\|AssertionError\"\ \|\ cut\ -c1-200\;\ node\ --test\ tests/test_desktop_controller.mjs\ 2\>\&1\ \|\ grep\ -E\ \"\^not\ ok\|\^#\ \(pass\|fail\)\|装不上却报\"\ \|\ cut\ -c1-200
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  6c7cc8e
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-22T14:37:44Z
+---------------- 输出开始 ----------------
+FAIL: test_c13a_refusal_keeps_the_old_uninstaller_and_writes_back_what_it_deleted (tests.test_desktop_config.C13InstallerFailurePaths.test_c13a_refusal_keeps_the_old_uninstaller_and_writes_back_what_i
+AssertionError: 39 not greater than 40 : $INSTDIR:第 40 行删卸载器在最后一次哨兵检查(第 41 行)之前 ⇒ 拒装后重试找不到它
+FAIL: test_c13b_provisioning_failure_is_said_out_loud (tests.test_desktop_config.C13InstallerFailurePaths.test_c13b_provisioning_failure_is_said_out_loud)
+AssertionError: Regex didn't match: '\\$\\{if\\} \\$0 != "?0"?' not found in 'Pop $0\n${if} $odAutostart == "1"\nWriteRegStr HKCU "${OD_RUN_KEY}" "OpenDesign" \'"$INSTDIR\\OpenDesign.exe"\'\n${endIf}\
+FAIL: test_c13c_paths_never_spliced_into_powershell (tests.test_desktop_config.C13InstallerFailurePaths.test_c13c_paths_never_spliced_into_powershell)
+AssertionError: Lists differ: ['25: nsExec::ExecToLog `"$SYSDIR\\Windows[348 chars]$od'] != []
+Ran 30 tests in 0.143s
+FAILED (failures=3)
+not ok 20 - mc16b 🔴 真库装不上时**不抛**:只发 error 事件、什么都不做 ⇒ 照样要说人话并重新拉起(T5 R1-2)
+    装不上却报交棒成功 ⇒ main 不复位 quitting,托盘退不掉
+# pass 24
+# fail 1
+---------------- 输出结束 ----------------
+runlog: t5r1-oracle-red rc=0 commit=6c7cc8e dirty=yes at=2026-09-22T14:37:44Z file=tracks/opendesign-electron-shell/evidence/20260922T143744Z-01-t5r1-oracle-red.txt

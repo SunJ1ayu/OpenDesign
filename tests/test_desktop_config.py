@@ -200,6 +200,57 @@ class C1Installer(unittest.TestCase):
                         "安装包没读旧版记目录的键 ⇒ 选目录页默认值与「旧版在哪就去哪收」都没了依据")
 
 
+class C13InstallerFailurePaths(unittest.TestCase):
+    """T5 第 1 轮(verify.md R1-1 / R1-3 / R1-4):过渡与首装在**失败路径**上的约束。
+    快乐路径由云 Windows E3/E3b/E5 真跑;失败重试由云 E3c 真跑(锁住旧版哨兵 → 拒装 → 解锁 → 不带 /D 重装)。
+    这里是本机那一道:结构写歪了不用等 15 分钟的云跑。"""
+
+    DIRS = ("$INSTDIR", "$odOldDir")
+
+    def _lines(self) -> list[str]:
+        return [l.strip() for l in NSH.read_text(encoding="utf-8").splitlines()]
+
+    def test_c13a_refusal_keeps_the_old_uninstaller_and_writes_back_what_it_deleted(self):
+        """R1-1:旧卸载器卸不干净 ⇒ 拒装,提示「重启后再运行」。那次重试要能从**同一个状态**接着走:
+        · `卸载.exe` 不能在拒装之前删(重试时过渡段靠它判断「这里有旧版」,删了就整段跳过、新旧文件混装);
+        · 旧卸载器是**先**删自启项和 `Software\\OpenDesign` 目录指针、**后**删文件的
+          (`git show 6e397b4:installer/OpenDesign.nsi` 卸载段)⇒ 拒装时要写回,否则重试丢开机自启、找不到 A。"""
+        lines = self._lines()
+        for d in self.DIRS:
+            sentinel = f'"{d}\\ds\\bin\\ds_shell.py"'
+            dels = [i for i, l in enumerate(lines) if l == f'Delete "{d}\\卸载.exe"']
+            self.assertEqual(len(dels), 1, f"{d}:应恰有一处删旧卸载器,实为 {dels}")
+            last_check = max(i for i, l in enumerate(lines) if sentinel in l)
+            self.assertGreater(dels[0], last_check,
+                               f"{d}:第 {dels[0] + 1} 行删卸载器在最后一次哨兵检查(第 {last_check + 1} 行)之前 ⇒ 拒装后重试找不到它")
+            quit_after = next(i for i in range(last_check, len(lines)) if lines[i] == "Quit")
+            refusal = "\n".join(lines[last_check:quit_after])
+            self.assertRegex(refusal, r'WriteReg(Expand)?Str HKCU "\$\{OD_OLD_KEY\}" "InstallDir"',
+                             f"{d}:拒装分支没写回旧目录指针 ⇒ 旧版在 A、新装选 B 时,重试找不到 A")
+            self.assertRegex(refusal, r'WriteRegStr HKCU "\$\{OD_RUN_KEY\}" "OpenDesign"',
+                             f"{d}:拒装分支没写回开机自启 ⇒ 重试时读不到,业主的开机自启丢了")
+            self.assertIn("MessageBox", refusal, f"{d}:量具:这段应当就是拒装分支")
+
+    def test_c13b_provisioning_failure_is_said_out_loud(self):
+        """R1-3(本次引入的回归):旧安装器 `OpenDesign.nsi:301-307` 在 ds_provision 失败时弹
+        「配置初始化没有成功(错误码)… 第一次打开时它会告诉你还缺什么」,注释写明「别让它悄悄过去」。"""
+        code = [l.strip() for l in _nsis_code_only(NSH.read_text(encoding="utf-8")).splitlines()]
+        at = [i for i, l in enumerate(code) if "ds_provision.py" in l]
+        self.assertEqual(len(at), 1, f"应恰有一处调 ds_provision,实为 {at}")
+        after = "\n".join(code[at[0] + 1:at[0] + 6])
+        self.assertIn("Pop $0", after)
+        self.assertRegex(after, r'\$\{if\} \$0 != "?0"?', "provision 的退出码收了不判 ⇒ 失败了安装照常说成功")
+        self.assertIn("配置初始化没有成功", after, "失败时要照旧版文案告诉业主")
+
+    def test_c13c_paths_never_spliced_into_powershell(self):
+        """R1-4(本次引入的回归):`'$INSTDIR\\'` 嵌进 PowerShell 单引号串 ⇒ 路径里有 `'`(如用户名 O'Brien 的默认目录)
+        命令断句、退出非 0 ⇒ 误报「还在运行,关不掉」拒装。旧安装器不经 PowerShell,这类路径装得上。
+        钉住:PowerShell 命令里不许出现 NSIS 的路径变量 —— 经环境变量传。(扫原文:命令里的 `;` 会被 _nsis_code_only 当注释截掉)"""
+        bad = [f"{i}: {l[:120]}" for i, l in enumerate(self._lines(), 1)
+               if "powershell.exe" in l.lower() and ("$INSTDIR" in l or "$odOldDir" in l)]
+        self.assertEqual(bad, [], "这些 PowerShell 命令把安装路径直接拼进了命令")
+
+
 class C3Publish(unittest.TestCase):
     def test_c3_feed_is_github_download_urls_not_the_api(self):
         pub = _pkg()["build"]["publish"]

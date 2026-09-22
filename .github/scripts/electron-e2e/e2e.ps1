@@ -9,6 +9,7 @@
 #   E4 更新:源不通 → 重试 → 「重启以更新」→ 向导按两下 → 新版(e4-drive.mjs + click-wizard.ps1)
 #   E6 软件在跑时从「应用和功能」那条卸载(带界面)
 #   E3b 旧版 0.98.8 装在 A、首装新版时改选 B ⇒ A 那份也得被收掉(「旧版在哪就去哪收」),资料不动
+#   E3c 旧版装在带单引号的目录、有文件被占住 ⇒ 第一次拒装且可重试 ⇒ 解锁后不带 /D 重装、收干净(T5 R1-1/R1-4)
 #   (清空这台机器上的 OpenDesign 痕迹,模拟一台新电脑)
 #   E5 全新机器带界面首装,选目录页改成带空格 + 中文的自选目录
 # 每条判读一行 `OK  |FAIL <名字> :: <事实>`;有 FAIL 就 exit 1。
@@ -394,6 +395,58 @@ KillUnder $B; SilentUninstall $B; KillUnder $A
 # E3b 若红了,A 那份旧版可能还在(卸载项 / InstallDir 键)⇒ 不收的话会把 E3 的读数带脏
 if (Test-Path "$A\卸载.exe") { $p = Start-Process "$A\卸载.exe" -ArgumentList '/S' -PassThru; [void]$p.WaitForExit(180000); Start-Sleep -Seconds 5 }
 Remove-Item $A, $B -Recurse -Force -ErrorAction SilentlyContinue
+
+# ================================================================ E3c 旧版卸不干净 → 拒装 → 解锁(=重启)后重装
+# T5 第 1 轮 R1-1 / R1-4(verify.md):旧卸载器**先**删自启项与目录指针、**后**删文件;有文件被占住就卸不干净。
+# 那时安装包拒装、提示「重启后再运行」—— 重试要能从同一个状态接着走:卸载器还在、指针与自启写回了,
+# 重装(不带 /D,像业主那样直接双击)自己找回原目录、把旧文件收干净、自启指向新 exe、只剩一个卸载项。
+# 目录带单引号 + 空格:安装包把路径拼进 PowerShell 单引号串时,这里会误报「关不掉」、旧卸载器根本不跑。
+$LockDir = "C:\AI Lock's\OpenDesign"
+"== E3c 旧版装在「$LockDir」、有文件被占住 ⇒ 第一次拒装且可重试 ⇒ 解锁后不带 /D 重装"
+$before = Marks
+$cfgBefore = CfgFacts
+$stale = @(Get-ChildItem 'HKCU:\Software' -ErrorAction SilentlyContinue | Where-Object { "$((Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue).InstallLocation)" -like '*OpenDesign*' } | ForEach-Object { $_.PSChildName })
+V 'E3c.pre 量具:没有卸载项、没有旧目录指针、没有新版的安装位置记录' (-not (UninstallEntries) -and -not (Test-Path 'HKCU:\Software\OpenDesign') -and -not $stale.Count) "$(UninstallEntries) $($stale -join ',')"
+V 'E3c.old 旧版装上了' (InstallOld $LockDir) "$LockDir"
+Set-ItemProperty $RunKey -Name 'OpenDesign' -Value "`"$LockDir\OpenDesign.exe`""
+# 另起一个进程占住哨兵(不共享 ⇒ 删不掉)。它是 pwsh.exe、不在安装目录下 ⇒ 安装包收进程时不会收它 —— 就像杀软 / 别的程序占着文件。
+$lockPath = "$LockDir\ds\bin\ds_shell.py"
+$env:OD_E2E_LOCK = $lockPath
+$lockCmd = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes('$f = [IO.File]::Open($env:OD_E2E_LOCK, "Open", "Read", "None"); Start-Sleep -Seconds 900'))
+$locker = Start-Process (Get-Process -Id $PID).Path -ArgumentList "-NoProfile -EncodedCommand $lockCmd" -PassThru -WindowStyle Hidden
+function IsLocked([string]$f) { try { [IO.File]::Open($f, 'Open', 'Read', 'None').Dispose(); $false } catch { $true } }
+$sw = [Diagnostics.Stopwatch]::StartNew(); while ($sw.Elapsed.TotalSeconds -lt 20 -and -not (IsLocked $lockPath)) { Start-Sleep -Milliseconds 300 }
+V 'E3c.lock 量具:旧版的哨兵被别的进程占住了' (IsLocked $lockPath) "$lockPath 占用进程 $($locker.Id)"
+$p = Start-Process $NewSetup -ArgumentList '/S' -PassThru
+if (-not $p.WaitForExit(600000)) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+V 'E3c.refuse 第一次没装(新版文件没进去)' (-not (Test-Path "$LockDir\resources\app.asar")) "退出码 $($p.ExitCode)"
+V 'E3c.refuse 旧卸载器真跑过(没被「关不掉」挡在门外;R1-4 单引号路径)' (-not (Test-Path "$LockDir\python")) ((Get-ChildItem $LockDir -Name -ErrorAction SilentlyContinue) -join ' ')
+V 'E3c.refuse 量具:哨兵确实没删掉' (Test-Path $lockPath) ""
+V 'E3c.refuse 旧卸载程序还在(R1-1:重试靠它认出这里有旧版)' (Test-Path "$LockDir\卸载.exe") ""
+$ptr = (Get-ItemProperty 'HKCU:\Software\OpenDesign' -ErrorAction SilentlyContinue).InstallDir
+V 'E3c.refuse 旧目录指针写回了(旧卸载器删过它)' ($ptr -eq $LockDir) "InstallDir = $ptr"
+$run = (Get-ItemProperty $RunKey -ErrorAction SilentlyContinue).OpenDesign
+V 'E3c.refuse 开机自启写回了(旧卸载器删过它)' ([bool]$run) "$run"
+V 'E3c.refuse 「应用和功能」里没有半截新版' (-not (UninstallEntries)) "$(UninstallEntries)"
+MarksSame 'E3c.refuse' $before
+Stop-Process -Id $locker.Id -Force -ErrorAction SilentlyContinue
+$sw = [Diagnostics.Stopwatch]::StartNew(); while ($sw.Elapsed.TotalSeconds -lt 20 -and (IsLocked $lockPath)) { Start-Sleep -Milliseconds 300 }
+V 'E3c.unlock 量具:解锁了(相当于业主重启了电脑)' (-not (IsLocked $lockPath)) ""
+$p = Start-Process $NewSetup -ArgumentList '/S' -PassThru
+if (-not $p.WaitForExit(600000)) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+V 'E3c.retry 重装装回了原目录(没带 /D,自己找回来的)' ((Test-Path "$LockDir\OpenDesign.exe") -and (Test-Path "$LockDir\resources\app.asar")) "退出码 $($p.ExitCode)"
+V 'E3c.retry 没在默认目录另装一份' (-not (Test-Path "$Default\OpenDesign.exe")) "$Default"
+V 'E3c.retry 旧文件收干净了(ds\ python\ 卸载.exe)' (-not ((Test-Path "$LockDir\ds") -or (Test-Path "$LockDir\python") -or (Test-Path "$LockDir\卸载.exe"))) ((Get-ChildItem $LockDir -Name -ErrorAction SilentlyContinue | Select-Object -First 12) -join ' ')
+$ents = UninstallEntries
+V 'E3c.retry 「应用和功能」里只有一个 OpenDesign' ($ents.Count -eq 1) "$($ents -join ' ; ')"
+$run = (Get-ItemProperty $RunKey -ErrorAction SilentlyContinue).OpenDesign
+V 'E3c.retry 开机自启还在、指向新 exe' ($run -eq "`"$LockDir\OpenDesign.exe`"") "$run"
+MarksSame 'E3c.retry' $before
+$cfgAfter = CfgFacts
+V 'E3c.retry 配置业务字段前后不变' ($cfgAfter -eq $cfgBefore) "前 $cfgBefore ;后 $cfgAfter"
+KillUnder $LockDir; SilentUninstall $LockDir; KillUnder $LockDir
+Remove-Item $LockDir -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item (Split-Path $LockDir) -Force -ErrorAction SilentlyContinue
 
 # ================================================================ 模拟一台新电脑
 "== 清空这台机器上的 OpenDesign 痕迹(E5 要的是全新机器)"

@@ -45,13 +45,19 @@ function fakeClock() {
 }
 
 class FakeUpdater extends EventEmitter {
-  constructor() { super(); this.checks = 0; this.installs = []; this.rejectNext = null; this.throwOnInstall = null; }
+  constructor() { super(); this.checks = 0; this.installs = []; this.rejectNext = null; this.throwOnInstall = null; this.failLikeElectronUpdater = null; }
   checkForUpdates() {
     this.checks++;
     if (this.rejectNext) { const e = this.rejectNext; this.rejectNext = null; return Promise.reject(e); }
     return Promise.resolve(null);
   }
-  quitAndInstall(...args) { if (this.throwOnInstall) throw this.throwOnInstall; this.installs.push(args); }
+  quitAndInstall(...args) {
+    if (this.throwOnInstall) throw this.throwOnInstall;
+    // electron-updater 6.8.9 真实的失败形状(out/BaseUpdater.js:13-26,42-67):install() 里 dispatchError(e)
+    // ⇒ 同步发 "error" 事件、return false;quitAndInstall 看到 false 就什么都不做 —— 不抛、不退、不装。
+    if (this.failLikeElectronUpdater) { const e = this.failLikeElectronUpdater; this.emit("error", e, String(e.stack || e)); return; }
+    this.installs.push(args);
+  }
 }
 
 class FakeChild extends EventEmitter {
@@ -302,6 +308,24 @@ test("mc16 🔴 交给安装器那一下失败了 ⇒ 说人话并把软件重�
   assert.deepEqual(rec.seq, ["error", "relaunch"],
     "先拉起再弹框 ⇒ relaunch 那一下当前进程就退了(c10d),业主根本看不到那句话");
   assert.ok(rec.logs.some((l) => /EACCES/.test(l)), "失败原因没进日志");
+});
+
+test("mc16b 🔴 真库装不上时**不抛**:只发 error 事件、什么都不做 ⇒ 照样要说人话并重新拉起(T5 R1-2)", async () => {
+  // mc16 的假件会抛,而 electron-updater 从来不抛 ⇒ 只认「抛了才算失败」时 mc16 绿而真机卡死:
+  // 后台已收、窗口留着、不提示不重开,main 的 quitting 已是 true ⇒ 托盘「退出」也被吞(Cursor 第 1 轮)。
+  const { c, rec, clock, updater } = harness();
+  c.startUpdates();
+  await clock.fire();
+  updater.emit("update-downloaded", { version: "0.98.11" });
+  await tick();
+  updater.failLikeElectronUpdater = new Error("No update filepath provided, can't quit and install");
+  const child = new FakeChild();
+  assert.equal(await c.installUpdate(child), false, "装不上却报交棒成功 ⇒ main 不复位 quitting,托盘退不掉");
+  assert.equal(child.stdinEnded, 1, "量具:交棒前确实先收了管家(这正是不重开就成空壳的原因)");
+  assert.deepEqual(updater.installs, [], "量具:假件确实没装");
+  assert.equal(rec.relaunched, 1, "管家已经收了、安装器没起来 ⇒ 不重新拉起就是一个连不上后台的空窗口");
+  assert.deepEqual(rec.seq, ["error", "relaunch"], "先弹框再拉起(同 mc16)");
+  assert.ok(rec.logs.some((l) => /No update filepath/.test(l)), "失败原因没进日志");
 });
 
 // ── 托盘与右键菜单 ─────────────────────────────────────────────────
