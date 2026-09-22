@@ -215,7 +215,8 @@ function installUpdate(autoUpdater) {
   const go = () => {
     // 第三跑:**不静默** —— 第二跑量到装机要约 2 分钟,静默的话业主这段时间屏幕上什么都没有。看看带界面是什么样。
     // 第五跑:业主选 C = 照 ZCode(autoUpdater.ts:470 `autoUpdater.quitAndInstall()` 默认参数):
-    // 非静默、不带 --force-run ⇒ 向导由人点完,「完成」页的「运行」勾选框把新版拉起来。
+    // 非静默 ⇒ 向导由人点完。electron-updater 非静默时仍带 --force-run(autoRunAppAfterInstall 默认 true,第五跑日志
+    // `isForceRunAfter: true`),但向导模式只在静默时据此拉起;这里靠「完成」页的「运行」勾选框把新版拉起来。
     // 探路版这里下好就装,代表业主点了「重启以更新」;按钮本身是 T4 的事。
     log("[更新] 管家已收摊,交给安装器(向导,照 ZCode)");
     autoUpdater.quitAndInstall();
