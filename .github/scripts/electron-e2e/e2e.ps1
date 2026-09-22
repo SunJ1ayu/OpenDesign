@@ -137,9 +137,20 @@ function Shortcut { $l = DesktopLnk; if (Test-Path -LiteralPath $l) { [OdLnk]::T
 function ShortcutAnsi { $l = DesktopLnk; if (Test-Path -LiteralPath $l) { (New-Object -ComObject WScript.Shell).CreateShortcut($l).TargetPath } else { '(没有)' } }
 # 图标指向 = 期望的 exe,且那个文件真的在(只比字符串的话,指向一个不存在的路径也能绿)
 function ShortcutOk([string]$want) { $sc = Shortcut; ($sc -eq $want) -and (Test-Path -LiteralPath $sc) }
+# 🔴 NSIS 卸载器先把自己拷到 %TEMP% 再跑、父进程马上退 ⇒ 只等父进程 + 睡 5 秒是赌时间(云跑第四跑:E3b 收尾后
+#    B 那份卸载项还在 ⇒ E5.pre 红、E5 选目录页默认成了 B)。等拷贝那一份也走完(同 E6,攻题 #18),最多 120 秒。
 function SilentUninstall([string]$at) {
     $u = Get-ChildItem $at -Filter 'Uninstall OpenDesign*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($u) { $p = Start-Process $u.FullName -ArgumentList '/S' -PassThru; [void]$p.WaitForExit(180000); Start-Sleep -Seconds 5 }
+    if (-not $u) { Write-Host "  (静默卸载 ${at}:没找到卸载程序)"; return }
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    $p = Start-Process $u.FullName -ArgumentList '/S' -PassThru; [void]$p.WaitForExit(180000)
+    $un = 'x'
+    while ($sw.Elapsed.TotalSeconds -lt 120 -and $un) {
+        Start-Sleep -Seconds 2
+        $un = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -like 'Au_*' -or $_.ProcessName -like 'Un_*' -or $_.ProcessName -like 'Uninstall OpenDesign*' } |
+                ForEach-Object { "$($_.Id) $($_.ProcessName)" }) -join ', '
+    }
+    Write-Host "  (静默卸载 ${at}:$([int]$sw.Elapsed.TotalSeconds)s,还没退的卸载进程:$(if ($un) { $un } else { '无' }))"
 }
 
 $cfgPath = "$Data\UserData\.nanobot\config.json"
@@ -258,7 +269,7 @@ KillUnder $Dir
 Set-Content $webPy -Value $orig -NoNewline -Encoding utf8
 
 # ================================================================ E4 更新
-"== E4 $Ver → $NewVer:源不通 → 重试 → 「重启以更新」→ 向导"
+"== E4 $Ver → ${NewVer}:源不通 → 重试 → 「重启以更新」→ 向导"
 KillUnder $Dir
 $serveLog = Join-Path $OutDir 'e4-serve.log'
 $w = Wizard 'e4' @('*electron-setup*') '' 900
