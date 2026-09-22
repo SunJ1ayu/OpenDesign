@@ -122,10 +122,10 @@ try {
     }
     expect(await restartTextAnywhere() === done,
       `整页(弹层开着)任何地方「重启以更新」这几个字${done ? "看得见" : "都不许出现"}`);
-    if (done) {
-      const hint = await page.evaluate(() => /2 ?分钟/.test(document.body.innerText) && /关机/.test(document.body.innerText));
-      expect(hint, "下好之后「约 2 分钟、期间别关机」真的渲染出来了");
-    }
+    // 复核:只看「整页有这两句」⇒ 页面别处本来就有时,提示没渲染也绿。改成**对照**:下好之前不许有、下好之后必须有。
+    const hint = await page.evaluate(() => /2 ?分钟/.test(document.body.innerText) && /关机/.test(document.body.innerText));
+    expect(hint === done, done ? "下好之后「约 2 分钟、期间别关机」真的渲染出来了"
+                               : "还没下好,页面上不许已经有「约 2 分钟、期间别关机」(否则上一条问不出东西)");
   });
 
   await guard("B", async () => {

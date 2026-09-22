@@ -1,0 +1,41 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    t4pre-recheckfix-red
+cmd:     bash -c node\ --test\ tests/test_desktop_controller.mjs\ tests/test_desktop_main.mjs\ tests/test_desktop_release.mjs\ tests/test_desktop_ui.mjs\ 2\>\&1\ \|\ grep\ -E\ \"\^#\ \(tests\|pass\|fail\)\|\^not\ ok\ .\*\(mc2b\|mc2c\|mc5b\|mc14\|mc16\|r8\)\"\;\ /root/.venvs/design-studio/bin/python\ -m\ unittest\ -v\ tests.test_desktop_config.C10MainIsWired\ 2\>\&1\ \|\ grep\ -E\ \"\^test_c10\|\^\(Ran\|OK\|FAILED\)\"\;\ /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_ds_host\ tests.test_desktop_config\ 2\>\&1\ \|\ grep\ -E\ \"\^\(Ran\|OK\|FAILED\)\"\;\ echo\ \"==\ 判据的判据\"\;\ /root/.venvs/design-studio/bin/python\ tracks/opendesign-electron-shell/evidence/c10_samples_check.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  a74d33a
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-22T11:15:19Z
+---------------- 输出开始 ----------------
+not ok 3 - mc2b 🔴 **控制器**吃的是管道原始块:一行切三块、两行一块、中文从字节中间切开(复核:解码器测对了、控制器没用它)
+not ok 4 - mc2c 字符串块也照样按行拼(main.js 用了 setEncoding 的写法)
+not ok 8 - mc5b fatal 是最后一行、没换行,紧接着管家退出 ⇒ 仍只弹 fatal 那句(退出时先把没换行的尾巴认完)
+not ok 17 - mc14 下载途中出错 ⇒ error(有版本)、不许装;每一步都推给前端
+not ok 19 - mc16 🔴 交给安装器那一下失败了 ⇒ 说人话并把软件重新拉起来,不留空壳(攻题 \#8)
+# tests 45
+# pass 0
+# fail 45
+test_c10_main_uses_the_tested_pieces (tests.test_desktop_config.C10MainIsWired.test_c10_main_uses_the_tested_pieces) ... ERROR
+test_c10b_updates_only_go_through_the_controller (tests.test_desktop_config.C10MainIsWired.test_c10b_updates_only_go_through_the_controller)
+test_c10c_host_exit_is_read_after_the_pipe_drains (tests.test_desktop_config.C10MainIsWired.test_c10c_host_exit_is_read_after_the_pipe_drains)
+test_c10d_relaunch_really_leaves (tests.test_desktop_config.C10MainIsWired.test_c10d_relaunch_really_leaves)
+test_c10e_tray_callbacks_do_something (tests.test_desktop_config.C10MainIsWired.test_c10e_tray_callbacks_do_something)
+Ran 5 tests in 0.002s
+FAILED (errors=5)
+Ran 19 tests in 0.077s
+FAILED (failures=4, errors=10)
+== 判据的判据
+OK   写对的样例 :: 红 无
+OK   main 自己查一次更新、不开调度 :: 红 ['test_c10_main_uses_the_tested_pieces', 'test_c10b_updates_only_go_through_the_controller']
+OK   按钮直接 quitAndInstall :: 红 ['test_c10_main_uses_the_tested_pieces', 'test_c10b_updates_only_go_through_the_controller']
+OK   在 exit 上叫 hostExit :: 红 ['test_c10c_host_exit_is_read_after_the_pipe_drains']
+OK   逐块 toString :: 红 ['test_c10c_host_exit_is_read_after_the_pipe_drains']
+OK   只 relaunch 不 exit :: 红 ['test_c10d_relaunch_really_leaves']
+OK   托盘导出是空函数 :: 红 ['test_c10e_tray_callbacks_do_something']
+OK   托盘退出是空函数 :: 红 ['test_c10_main_uses_the_tested_pieces', 'test_c10e_tray_callbacks_do_something']
+OK   托盘回调不在调用处 :: 红 ['test_c10e_tray_callbacks_do_something']
+OK   外链 deps 是空函数 :: 红 ['test_c10_main_uses_the_tested_pieces']
+OK   诊断包 deps 是空函数 :: 红 ['test_c10_main_uses_the_tested_pieces']
+OK   没拦新窗口 :: 红 ['test_c10_main_uses_the_tested_pieces']
+判据的判据:0 例不符预期
+---------------- 输出结束 ----------------
+runlog: t4pre-recheckfix-red rc=0 commit=a74d33a dirty=yes at=2026-09-22T11:15:19Z file=tracks/opendesign-electron-shell/evidence/20260922T111519Z-01-t4pre-recheckfix-red.txt

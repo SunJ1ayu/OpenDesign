@@ -99,7 +99,8 @@ test("r8 🔴 发布命令由工具生成:正式 release、tag v<版本>、恰�
   for (const bad of ["--prerelease", "--draft"]) {
     assert.ok(!argv.includes(bad), `${bad} ⇒ releases/latest/download 看不见它,旧版永远「已是最新」`);
   }
-  const assets = argv.filter((a) => Object.values(files).includes(a));
+  // 复核:先滤成「已知三个路径」再比 ⇒ 多带一个别的文件不会红。这里按扩展名认出**所有**像资产的实参(gh 的 `文件#显示名` 也算)。
+  const assets = argv.slice(3).filter((a) => !a.startsWith("-") && /\.(exe|blockmap|ya?ml|zip|7z|msi|nupkg)(#.*)?$/i.test(a));
   assert.deepEqual(assets.sort(), Object.values(files).sort(), "资产要恰好三样:安装包 + blockmap + 改写过的 latest.yml");
   const r = argv.indexOf("--repo");
   if (r >= 0) assert.equal(argv[r + 1], "SunJ1ayu/OpenDesign");

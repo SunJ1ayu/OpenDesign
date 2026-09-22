@@ -42,8 +42,9 @@ def _nsis_code_only(src: str) -> str:
 
 
 def _balanced(src: str, start: int) -> str:
-    """从 src[start] 那个 `{` 起,数深度取到配对的 `}`(跳过字符串)。别用正则找边界 —— 本仓栽过四次。"""
-    assert src[start] == "{", src[start:start + 20]
+    """从 src[start] 那个 `{`(或 `(`)起,数深度取到配对的 `}`(`)`)(跳过字符串)。别用正则找边界 —— 本仓栽过四次。"""
+    assert src[start] in "{(", src[start:start + 20]
+    op, cl = src[start], "}" if src[start] == "{" else ")"
     depth, quote, i = 0, "", start
     while i < len(src):
         c = src[i]
@@ -55,14 +56,54 @@ def _balanced(src: str, start: int) -> str:
                 quote = ""
         elif c in "\"'`":
             quote = c
-        elif c == "{":
+        elif c == op:
             depth += 1
-        elif c == "}":
+        elif c == cl:
             depth -= 1
             if depth == 0:
                 return src[start:i + 1]
         i += 1
-    raise AssertionError("没找到配对的 } —— 这道闸问不出东西")
+    raise AssertionError(f"没找到配对的 {cl} —— 这道闸问不出东西")
+
+
+def _call_args(src: str, callee_rx: str) -> list[str]:
+    """每一处 `<callee>(` 调用的整段实参(含两头括号)。"""
+    return [_balanced(src, m.end() - 1) for m in re.finditer(callee_rx + r"\s*\(", src)]
+
+
+def _top_entries(obj_src: str) -> dict[str, str]:
+    """对象字面量第一层:键名 → 这一项的全文(含键名)。只认 `,` 分隔,深度 > 0 的逗号不算。"""
+    body = obj_src[1:-1]
+    parts, depth, quote, cur, i = [], 0, "", "", 0
+    while i < len(body):
+        c = body[i]
+        if quote:
+            if c == "\\":
+                cur += body[i:i + 2]
+                i += 2
+                continue
+            if c == quote:
+                quote = ""
+        elif c in "\"'`":
+            quote = c
+        elif c in "{([":
+            depth += 1
+        elif c in "})]":
+            depth -= 1
+        elif c == "," and depth == 0:
+            parts.append(cur)
+            cur = ""
+            i += 1
+            continue
+        cur += c
+        i += 1
+    parts.append(cur)
+    out = {}
+    for p in parts:
+        m = re.match(r"\s*(?:async\s+)?([A-Za-z_$][\w$]*)", p)
+        if m:
+            out[m.group(1)] = p
+    return out
 
 
 def _top_keys(obj_src: str, seps: str = ",") -> set[str]:
@@ -270,8 +311,70 @@ class C10MainIsWired(unittest.TestCase):
             (r"[\"']context-menu[\"']", "没接 context-menu 事件"),
             (r"requestSingleInstanceLock\s*\(", "没有单实例锁 ⇒ 双击两次起两套后台"),
             (r"windowsHide\s*:\s*true", "起管家时没藏控制台 ⇒ 业主每次开机看到一个黑框"),
+            # 复核(Cursor grok-4.7-high)#2:下面这几项控制器测了、main.js 不叫照样全绿
+            (r"\.startUpdates\s*\(", "没开更新调度 ⇒ 先开软件后开 VPN 的那天,一整天不再自己查(挑战 a6)"),
+            (r"\.checkNow\s*\(", "「重试」没接到控制器"),
+            (r"\.updateState\s*\(", "前端打开时拿不到当前更新状态"),
+            (r"\.installUpdate\s*\(", "「重启以更新」不经控制器 ⇒ 装失败没有恢复(攻题 #8)"),
+            (r"\.setQuitting\s*\(", "退出时没告诉控制器 ⇒ 正常关软件也弹「意外退出」"),
+            # 同类再扫(主 agent):控制器把外链 / 诊断包交给 deps,deps 是空函数照样绿
+            (r"shell\.openExternal\s*\(", "外链没真交给系统浏览器(mc9 只测到 deps)"),
+            (r"shell\.showItemInFolder\s*\(", "导出的诊断包没在文件夹里点出来(mc7 只测到 deps)"),
+            (r"setWindowOpenHandler\s*\(", "没拦 window.open / target=_blank ⇒ 外站开进一个带后台权限的新窗口"),
+            (r"windowOpenDecision\s*\(", "新窗口的放行规则不是测过的那一份(navPolicy)"),
         ]:
             self.assertTrue(_hits(main, need), f"main.js:{why}(要有 {need})")
+
+    def test_c10b_updates_only_go_through_the_controller(self):
+        """复核 #2:main.js 自己 `checkForUpdates()` 一次、点按钮直接 `quitAndInstall()` ⇒ 控制器的调度和装失败恢复被绕过,
+        而 c10 的「要有」清单照样满足。查更新和交安装器**只许**在控制器里(经 deps.updater)。"""
+        main = _code_only((DESKTOP / "main.js").read_text(encoding="utf-8"))
+        for banned, why in [
+            (r"\.checkForUpdates\w*\s*\(", "main.js 自己查更新 ⇒ 绕过 15 分钟 / 4 小时调度与「只排一只」"),
+            (r"\.quitAndInstall\s*\(", "main.js 自己交安装器 ⇒ 绕过「先收管家、装失败重新拉起」"),
+        ]:
+            self.assertEqual(_hits(main, banned), [], f"main.js:{why}")
+
+    def test_c10c_host_exit_is_read_after_the_pipe_drains(self):
+        """Node 的子进程 `exit` 事件来的时候 stdout **可能还没读完**;`close` 才保证读完。
+        管家的 fatal 往往就是退出前最后一行 ⇒ 在 `exit` 上叫 hostExit = 先弹「意外退出」、再弹真原因(mc5 在现场失效)。
+        写法照接缝表:`host.on("close", (code) => ctl.hostExit(code))`,回调写在调用处。
+        另:管道原始块原样交给 hostStdout,**不许逐块 toString**(UTF-8 切半处会变成乱码,mc2b 只测得到控制器)。"""
+        main = _code_only((DESKTOP / "main.js").read_text(encoding="utf-8"))
+        handlers = _call_args(main, r"\.(?:on|once)")
+        on_close = [h for h in handlers if re.match(r"\(\s*[\"']close[\"']", h) and ".hostExit" in h]
+        on_exit = [h for h in handlers if re.match(r"\(\s*[\"']exit[\"']", h) and ".hostExit" in h]
+        self.assertTrue(on_close, "main.js 没在管家的 close 事件里叫 hostExit")
+        self.assertEqual(on_exit, [], "main.js 在 exit 事件里叫 hostExit ⇒ 最后一行 fatal 可能还在管道里")
+        for arg in _call_args(main, r"\.hostStdout"):
+            self.assertIsNone(re.search(r"toString|String\s*\(|TextDecoder|\.decode\s*\(", arg),
+                              f"hostStdout{arg[:80]}:逐块转字符串会把切在中间的中文变成乱码 —— 原样交给控制器")
+
+    def test_c10d_relaunch_really_leaves(self):
+        """复核 #8:Electron 的 `app.relaunch()` 只是登记「退出后再起一份」,**当前进程不退**;
+        托盘软件的关窗又是「藏起来」⇒ 只 relaunch 不 exit = 空壳窗口还在、新的一份永远不起。"""
+        main = _code_only((DESKTOP / "main.js").read_text(encoding="utf-8"))
+        self.assertIsNotNone(re.search(r"app\.relaunch\s*\([^)]*\)\s*;?\s*app\.exit\s*\(", main),
+                             "main.js 里要有 `app.relaunch()` 紧跟 `app.exit(0)`(控制器的 deps.relaunch 就是它)")
+
+    def test_c10e_tray_callbacks_do_something(self):
+        """复核 #10:托盘真点延期到 T6,但传进 trayMenuTemplate 的三个回调是空函数照样全绿(mc17 只测模板)。
+        写法照接缝表:回调写在调用处的对象字面量里,判据才看得见它们各自去做了什么。"""
+        main = _code_only((DESKTOP / "main.js").read_text(encoding="utf-8"))
+        calls = _call_args(main, r"trayMenuTemplate")
+        self.assertTrue(calls, "main.js 没调 trayMenuTemplate")
+        arg = calls[0]
+        brace = arg.find("{")
+        self.assertTrue(brace >= 0 and not arg[1:brace].strip(), f"trayMenuTemplate 的实参要是就地写的对象字面量:{arg[:80]}")
+        entries = _top_entries(_balanced(arg, brace))
+        for key, need, why in [
+            ("onOpen", r"show", "「打开 OpenDesign」没把窗口叫出来"),
+            ("onExport", r"(?i)export", "「导出本次启动诊断」没叫管家出包"),
+            ("onQuit", r"(?i)quit", "「退出」没退"),
+        ]:
+            self.assertIn(key, entries, f"trayMenuTemplate 缺 {key}")
+            body = re.sub(r"^\s*(?:async\s+)?" + key, "", entries[key], count=1)
+            self.assertIsNotNone(re.search(need, body), f"托盘 {key}:{why}(回调里要有 {need}):{entries[key].strip()[:80]}")
 
 
 class C7Retired(unittest.TestCase):

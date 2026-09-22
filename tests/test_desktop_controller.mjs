@@ -12,6 +12,8 @@
 //                              startUpdates(), checkNow(), updateState(), installUpdate(host) }
 //   deps = { appVersion, loadWorkbench(url), showWindow(), showError(msg), revealFile(path), openExternal(url),
 //            log(msg), updater, pushUpdateState(state), setTimeout, clearTimeout, relaunch(), graceMs? }
+//   hostStdout(chunk) 吃管道**原始块**(Buffer 或 setEncoding 之后的字符串),按行拼在控制器里;
+//   hostExit(code) 先把没换行的尾巴认完再判「意外退出」;relaunch() 在 main.js 里 = app.relaunch() 紧跟 app.exit(0)。
 //   desktop/lib/hostProtocol.js 另给 createHostDecoder(onEvent) → { push(chunk), end() }
 //   desktop/lib/menus.js 给 trayMenuTemplate({onOpen,onExport,onQuit}) / contextMenuTemplate(params)
 import { test } from "node:test";
@@ -59,7 +61,7 @@ class FakeChild extends EventEmitter {
 }
 
 function harness(over = {}) {
-  const rec = { loaded: [], shown: 0, errors: [], revealed: [], external: [], logs: [], states: [], relaunched: 0 };
+  const rec = { loaded: [], shown: 0, errors: [], revealed: [], external: [], logs: [], states: [], relaunched: 0, seq: [] };
   const clock = fakeClock();
   const updater = new FakeUpdater();
   const { createController } = lib("controller");
@@ -67,7 +69,7 @@ function harness(over = {}) {
     appVersion: "0.98.10",
     loadWorkbench: (u) => rec.loaded.push(u),
     showWindow: () => { rec.shown++; },
-    showError: (m) => rec.errors.push(String(m)),
+    showError: (m) => { rec.errors.push(String(m)); rec.seq.push("error"); },
     revealFile: (p) => rec.revealed.push(p),
     openExternal: (u) => rec.external.push(u),
     log: (m) => rec.logs.push(String(m)),
@@ -75,7 +77,7 @@ function harness(over = {}) {
     pushUpdateState: (s) => rec.states.push(s),
     setTimeout: clock.setTimeout,
     clearTimeout: clock.clearTimeout,
-    relaunch: () => { rec.relaunched++; },
+    relaunch: () => { rec.relaunched++; rec.seq.push("relaunch"); },
     graceMs: 500,
     ...over,
   });
@@ -108,6 +110,28 @@ test("mc2 坏行夹在好行中间只丢那一行;最后一行没换行、管道
   assert.deepEqual(got.map((e) => e.event), ["show", "show", "backend-died"]);
 });
 
+test("mc2b 🔴 **控制器**吃的是管道原始块:一行切三块、两行一块、中文从字节中间切开(复核:解码器测对了、控制器没用它)", () => {
+  const { c, rec } = harness();
+  const a = Buffer.from(line({ event: "fatal", message: "还没装好:找不到配置文件" }), "utf8");
+  const cut = a.indexOf(Buffer.from("装", "utf8")) + 1;          // 切在「装」这个字的三个字节中间
+  c.hostStdout(a.subarray(0, 5));
+  assert.deepEqual(rec.errors, [], "半行就当一整行解析了");
+  c.hostStdout(a.subarray(5, cut));
+  c.hostStdout(a.subarray(cut));
+  c.hostStdout(Buffer.from(line({ event: "show" }) + line({ event: "ready", web_port: 8766, version: "0.98.10" }), "utf8"));
+  assert.deepEqual(rec.errors, ["还没装好:找不到配置文件"], "中文被切开后拼错了 ⇒ 业主看到乱码");
+  assert.equal(rec.shown, 1, "两行挤在一块时后一行丢了");
+  assert.deepEqual(rec.loaded, ["http://127.0.0.1:8766/?shell=1"]);
+});
+
+test("mc2c 字符串块也照样按行拼(main.js 用了 setEncoding 的写法)", () => {
+  const { c, rec } = harness();
+  const s = line({ event: "ready", web_port: 8768, version: "0.98.10" });
+  c.hostStdout(s.slice(0, 7));
+  c.hostStdout(s.slice(7));
+  assert.deepEqual(rec.loaded, ["http://127.0.0.1:8768/?shell=1"]);
+});
+
 // ── 管家事件 → 界面 ─────────────────────────────────────────────────
 test("mc3 ready 且版本一致 ⇒ 加载带外壳标记的工作台", () => {
   const { c, rec } = harness();
@@ -130,6 +154,13 @@ test("mc5 fatal 弹它带来的那句话;之后管家退出不再弹「意外退
   c.hostStdout(line({ event: "fatal", message: "还没装好:找不到配置文件" }));
   c.hostExit(1);
   assert.deepEqual(rec.errors, ["还没装好:找不到配置文件"], "同一个错两个框,且后一个说错了原因");
+});
+
+test("mc5b fatal 是最后一行、没换行,紧接着管家退出 ⇒ 仍只弹 fatal 那句(退出时先把没换行的尾巴认完)", () => {
+  const { c, rec } = harness();
+  c.hostStdout(Buffer.from('{"event":"fatal","message":"数据目录写不进去"}', "utf8"));
+  c.hostExit(1);
+  assert.deepEqual(rec.errors, ["数据目录写不进去"], "尾巴没认 ⇒ 业主看到的是「意外退出」,真正的原因丢了");
 });
 
 test("mc6 管家无故退出 ⇒ 说人话带退出码;收摊中退出不吭声", () => {
@@ -235,6 +266,8 @@ test("mc14 下载途中出错 ⇒ error(有版本)、不许装;每一步都推�
   assert.equal(s.version, "0.98.11", "下载失败要记得是哪一版(界面据此说「下载失败」并亮圆点,du8)");
   assert.deepEqual(rec.states.map((x) => x.phase).slice(-3), ["downloading", "downloading", "error"],
     "每一步都要推给前端(之前推不推「检查中」随实现)");
+  assert.deepEqual(clock.pending().map((t) => t.ms), [15 * 60 * 1000],
+    "下载断了之后没排 15 分钟再查 / 排了不止一只(复核 #6/#7:下到一半断网,要等 4 小时或永远不再下)");
   const child = new FakeChild();
   assert.equal(await c.installUpdate(child), false);
   assert.equal(child.stdinEnded, 0, "没下好就把后台收了");
@@ -264,6 +297,8 @@ test("mc16 🔴 交给安装器那一下失败了 ⇒ 说人话并把软件重�
   assert.equal(rec.errors.length, 1);
   assert.match(rec.errors[0], /[\u4e00-\u9fff]/);
   assert.equal(rec.relaunched, 1, "管家已经收了、安装器没起来 ⇒ 不重新拉起就是一个连不上后台的空窗口");
+  assert.deepEqual(rec.seq, ["error", "relaunch"],
+    "先拉起再弹框 ⇒ relaunch 那一下当前进程就退了(c10d),业主根本看不到那句话");
   assert.ok(rec.logs.some((l) => /EACCES/.test(l)), "失败原因没进日志");
 });
 

@@ -43,6 +43,14 @@ runlog: t4pre-retarget-red rc=0 commit=6e397b4 dirty=yes at=2026-09-22T08:24:32Z
 runlog: t4pre-attackfix-red rc=0 commit=dd2d2e1 dirty=yes at=2026-09-22T09:09:56Z file=tracks/opendesign-electron-shell/evidence/20260922T090956Z-01-t4pre-attackfix-red.txt
 ```
 
+派活前复核(Cursor grok-4.7-high,BLOCK 两条必须修 + 我同类再扫,处置在同一份 disposition 的「复核」一节)之后补的判据
+(mc2b/mc2c/mc5b、mc14/mc16 加断言、c10 补齐 + c10b~c10e、r8、desktop_update 提示改对照)在旧实现上红;
+**判据的判据** `evidence/c10_samples_check.py`:写对的样例 main.js 全绿、11 种写错的各在对应那一条上红(0 例不符预期):
+
+```
+runlog: t4pre-recheckfix-red rc=0 commit=a74d33a dirty=yes at=2026-09-22T11:15:19Z file=tracks/opendesign-electron-shell/evidence/20260922T111519Z-01-t4pre-recheckfix-red.txt
+```
+
 另:c1/c2/c2b/c5 对着探路版的 package.json / installer.nsh 跑过是绿的(证明判据**过得去**,不是出了一道做不对的题);
 c3 对探路版是红的 —— 对的,探路版的 publish 指本机替身源。
 
