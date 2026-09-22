@@ -85,11 +85,19 @@
 
 !macro customInstall
   ${ifNot} ${isUpdated}
+    ; 选「所有用户」时 electron-builder 已 SetShellVarContext all ⇒ $LOCALAPPDATA 变成 C:\ProgramData;
+    ; 软件运行时读的是当前用户的 LOCALAPPDATA ⇒ 配置必须建在当前用户下(同模板 "electron always uses per user app data")。
+    ${if} $installMode == "all"
+      SetShellVarContext current
+    ${endIf}
     nsExec::ExecToLog '"$INSTDIR\resources\python\python.exe" "$INSTDIR\resources\ds\bin\ds_provision.py" --home "${OD_DATA}\UserData" --ds-root "$INSTDIR\resources\ds"'
     Pop $0
     ; 不中止:文件已经装好,第一次打开时管家会把缺什么说清楚;这里只负责别让它悄悄过去(同旧版 OpenDesign.nsi,T5 R1-3)。
     ${if} $0 != "0"
       MessageBox MB_ICONEXCLAMATION "配置初始化没有成功(错误码 $0)。$\n$\nOpenDesign 的文件已经装好了。第一次打开时它会告诉你还缺什么。" /SD IDOK
+    ${endIf}
+    ${if} $installMode == "all"
+      SetShellVarContext all
     ${endIf}
     ${if} $odAutostart == "1"
       WriteRegStr HKCU "${OD_RUN_KEY}" "OpenDesign" '"$INSTDIR\OpenDesign.exe"'

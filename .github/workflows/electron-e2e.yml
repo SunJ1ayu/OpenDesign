@@ -93,6 +93,61 @@ jobs:
           Move-Item dist dist-v1
           if ($fail) { exit 1 }
 
+      - name: E1r 出货包(更新源 = GitHub;与被测版同一次运行、同一份 pkg、只差更新源)
+        working-directory: desktop
+        run: |
+          # 发版单 opendesign-electron-release-0989:被测包的更新源是本机替身,不能拿去发;RELEASE.md 取的就是这里传出去的三样。
+          # 必须在 E4 准备之前:E4 会改 pkg 里的 ds_web.py / 前端 js 和 package.json 版本号。
+          git checkout -- package.json
+          git diff --exit-code --stat -- package.json
+          if ($LASTEXITCODE) { throw "package.json 没还原到提交里的样子" }
+          npx electron-builder --win nsis --x64 --publish never
+          if ($LASTEXITCODE) { throw "electron-builder(出货) rc=$LASTEXITCODE" }
+          Move-Item dist dist-release
+          $fail = 0
+          function V([string]$n, [bool]$ok, [string]$d) { if (-not $ok) { $script:fail++ }; "{0} {1} :: {2}" -f $(if ($ok) { 'OK  ' } else { 'FAIL' }), $n, $d }
+          $setup = Get-ChildItem dist-release\*.exe | Select-Object -First 1
+          V 'E1r.name 出货安装包名 = OpenDesign-<ds_web.VERSION>-electron-setup.exe' ($setup.Name -eq "OpenDesign-$env:VER-electron-setup.exe") $setup.Name
+          $feedR = Get-Content dist-release\win-unpacked\resources\app-update.yml -Raw
+          $feedT = Get-Content dist-v1\win-unpacked\resources\app-update.yml -Raw
+          V 'E1r.feed 出货版的更新源 = GitHub releases/latest/download' ($feedR -match '(?m)^url:\s*https://github\.com/SunJ1ayu/OpenDesign/releases/latest/download/?\s*$') ($feedR -replace "`r?`n", ' | ')
+          V 'E1r.feed 量具:被测版的更新源确实是本机替身(两份不同才比得出东西)' ($feedT -match '127\.0\.0\.1:8900') ($feedT -replace "`r?`n", ' | ')
+          # 逐文件比哈希:只许 app-update.yml / app.asar 不同;app.asar 不同就解开再比,只许 package.json 不同、且去掉 build.publish 后一致
+          function Hashes([string]$root) { $h = @{}; Get-ChildItem $root -Recurse -File | ForEach-Object { $h[$_.FullName.Substring($root.Length)] = (Get-FileHash $_.FullName -Algorithm SHA256).Hash }; $h }
+          $a = (Resolve-Path dist-v1\win-unpacked).Path; $b = (Resolve-Path dist-release\win-unpacked).Path
+          $ha = Hashes $a; $hb = Hashes $b
+          $diff = @(@($ha.Keys) + @($hb.Keys) | Sort-Object -Unique | Where-Object { $ha[$_] -ne $hb[$_] })
+          "E1r 两份各 $($ha.Count) / $($hb.Count) 个文件,不同的:$($diff -join ' ; ')"
+          $allowed = @('\resources\app-update.yml', '\resources\app.asar')
+          V 'E1r.same 出货版与被测版逐文件只差更新源(app-update.yml / app.asar)' ($ha.Count -gt 1000 -and -not @($diff | Where-Object { $_ -notin $allowed })) ($diff -join ' ; ')
+          if ($diff -contains '\resources\app.asar') {
+            $xa = Join-Path $env:RUNNER_TEMP 'asar-v1'; $xb = Join-Path $env:RUNNER_TEMP 'asar-release'
+            node -e "const a=require('@electron/asar');a.extractAll(process.argv[1],process.argv[2]);a.extractAll(process.argv[3],process.argv[4])" "$a\resources\app.asar" $xa "$b\resources\app.asar" $xb
+            if ($LASTEXITCODE) { throw "解 app.asar rc=$LASTEXITCODE" }
+            $da = Hashes $xa; $db = Hashes $xb
+            $adiff = @(@($da.Keys) + @($db.Keys) | Sort-Object -Unique | Where-Object { $da[$_] -ne $db[$_] })
+            V 'E1r.asar app.asar 里只有 package.json 不同' (-not @($adiff | Where-Object { $_ -ne '\package.json' })) ($adiff -join ' ; ')
+            if ($adiff -contains '\package.json') {
+              node -e "const f=require('fs'),p=x=>{const j=JSON.parse(f.readFileSync(x,'utf8'));if(j.build)delete j.build.publish;return JSON.stringify(j)};process.exit(p(process.argv[1])===p(process.argv[2])?0:1)" "$xa\package.json" "$xb\package.json"
+              V 'E1r.asar 两份 package.json 去掉 build.publish 后一致' ($LASTEXITCODE -eq 0) "rc=$LASTEXITCODE"
+            }
+          }
+          node scripts/release-feed.mjs verify dist-release\latest.yml $setup.FullName
+          V 'E1r.bytes 出货清单(latest.yml)与出货安装包逐字节一致' ($LASTEXITCODE -eq 0) "rc=$LASTEXITCODE"
+          Get-Content dist-release\latest.yml
+          if ($fail) { exit 1 }
+
+      - name: 交出出货包三样(RELEASE.md 第 2 步从这里取)
+        uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: |
+            desktop/dist-release/*.exe
+            desktop/dist-release/*.blockmap
+            desktop/dist-release/latest.yml
+          if-no-files-found: error
+          retention-days: 14
+
       - name: E4 准备:v2 = 版本 +1、改一处后端一处前端,按 GitHub 真实布局摆进替身源
         working-directory: desktop
         run: |
