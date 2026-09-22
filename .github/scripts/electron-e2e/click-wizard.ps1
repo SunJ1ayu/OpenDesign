@@ -83,7 +83,16 @@ while ($sw.Elapsed.TotalSeconds -lt $TimeoutSec -and $clicks -lt 8) {
         $head = "$([W]::Text([W]::GetDlgItem($dlg, 1037))) / $([W]::Text([W]::GetDlgItem($dlg, 1038)))"
         $page = "$head | $okText"
         if ($page -eq $lastPage -and $t - $lastAt -lt 5) { continue }   # 刚按过、还没翻页
-        $opts = ((([W]::Options($dlg) -replace '=1\b', '=选中') -replace '=0\b', '=未选') -replace 'EDIT=', '输入框=')
+        # 页头和按钮先换、页面内容后画:慢机器上一翻页就读,内容区还是一片空白(T5 修复跑 E3.guidir,截图为证)。
+        # ⇒ 等选项出现且 200ms 内不再变(最多 3 秒)再读、再截图、再按。真空着 3 秒就照空的记 —— 判据照样红。
+        $waited = 0; $raw = [W]::Options($dlg)
+        while ($waited -lt 3000) {
+            Start-Sleep -Milliseconds 200; $waited += 200
+            $now = [W]::Options($dlg)
+            if ($now -and $now -eq $raw) { break }
+            $raw = $now
+        }
+        $opts = ((($raw -replace '=1\b', '=选中') -replace '=0\b', '=未选') -replace 'EDIT=', '输入框=')
         $edit = [W]::FirstEdit($dlg)
         if ($SetDir -and $edit -ne [IntPtr]::Zero) {
             $was = [W]::EditText($edit)
@@ -92,7 +101,7 @@ while ($sw.Elapsed.TotalSeconds -lt $TimeoutSec -and $clicks -lt 8) {
             $opts += " ; 改目录:[$was] → [$([W]::EditText($edit))]"
         }
         $clicks++; $lastPage = $page; $lastAt = $t
-        Say "+${t}s CLICK#$clicks 页头:[$head] 选项:[$opts] ⇒ 按「$okText」"
+        Say "+${t}s CLICK#$clicks 页头:[$head] 选项:[$opts](等页面内容 ${waited}ms)⇒ 按「$okText」"
         & powershell.exe -NoProfile -File $Shot (Join-Path $OutDir ("{0}-{1}-{2:000}s.png" -f $Tag, $clicks, $t)) | Out-Null
         [W]::PressOk($dlg)
         Start-Sleep -Seconds 1
