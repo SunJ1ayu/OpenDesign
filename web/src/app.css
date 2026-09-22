@@ -395,7 +395,7 @@ body.has-window-chrome { padding-top: 30px; }
   position: absolute;
   left: 10px;
   right: 10px;
-  bottom: 54px;
+  bottom: calc(100% + 1px);   /* 贴着 side-footer 上沿(+1px = 它的上边框),不按「设置」行的高度写死(那一行下好更新后会变高) */
   background: #fff;
   border: 1px solid var(--border-input);
   border-radius: 11px;
@@ -447,7 +447,7 @@ body.has-window-chrome { padding-top: 30px; }
   padding: 0 6px;
   margin-left: 4px;
 }
-.side-footer { border-top: 1px solid var(--border-main); padding: 8px 10px; }
+.side-footer { position: relative; border-top: 1px solid var(--border-main); padding: 8px 10px; }
 .side-footer .side-row { padding: 8px 10px; user-select: none; }
 .settings-toggle-row { display: flex; flex-direction: column; gap: 5px; }
 .settings-toggle-row > [data-ui="settings-toggle"] {

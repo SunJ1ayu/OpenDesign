@@ -41,6 +41,16 @@ function createController(deps) {
     schedule(nextCheckDelayMs(state));
   };
 
+  // 起不来:弹完这一个框就整个退出。加载页整页是拖动带、没有按钮,
+  // 不退的话业主点掉框看到的是一直转圈的「正在启动…」(旧版 die() 也是弹框后退出)。
+  const giveUp = (message) => {
+    if (fatalShown) return;
+    fatalShown = true;
+    deps.showError(message);
+    quitting = true;
+    deps.quitApp();
+  };
+
   const onHostEvent = (message) => {
     deps.log(`[管家→] ${JSON.stringify(message)}`);
     switch (message.event) {
@@ -48,7 +58,7 @@ function createController(deps) {
         const mismatch = versionMismatch(deps.appVersion, message.version);
         if (mismatch) {
           deps.log(mismatch);
-          deps.showError(mismatch);
+          giveUp(mismatch);
           return;
         }
         const url = workbenchUrl(message.web_port);
@@ -60,16 +70,14 @@ function createController(deps) {
         deps.showWindow();
         return;
       case "fatal":
-        fatalShown = true;
-        deps.showError(message.message || "OpenDesign 后台启动失败。");
+        giveUp(message.message || "OpenDesign 后台启动失败。");
         return;
       case "alert":
       case "backend-died":
         deps.showError(message.message || "OpenDesign 后台发生错误。");
         return;
       case "already-running":
-        fatalShown = true;
-        deps.showError("另一个 OpenDesign 后台正在运行，请先从托盘退出它。");
+        giveUp("另一个 OpenDesign 后台正在运行，请先从托盘退出它。");
         return;
       case "diagnostics":
         if (message.path) deps.revealFile(message.path);
@@ -116,6 +124,12 @@ function createController(deps) {
       decoder.end();
       const message = hostExitMessage(code, { quitting, fatalShown });
       if (message) deps.showError(message);
+    },
+    // spawn 发 error(python.exe 缺失 / 被杀软隔离;收摊时 kill 失败也走这里)。
+    hostError(error) {
+      deps.log(`[管家] 进程出错:${error && (error.stack || error.message) ? (error.stack || error.message) : error}`);
+      if (quitting) return;
+      giveUp("OpenDesign 的后台程序没能启动，可能是安装不完整或被杀毒软件拦截。请重新运行安装包。");
     },
     setQuitting() { quitting = true; },
     navigate(url) {

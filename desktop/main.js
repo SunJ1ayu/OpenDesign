@@ -57,6 +57,7 @@ const ctl = createController({
   setTimeout,
   clearTimeout,
   relaunch: () => { app.relaunch(); app.exit(0); },
+  quitApp: () => { void quitAll(); },
   graceMs: 15000,
 });
 
@@ -135,6 +136,9 @@ function startHost() {
   host.stdout.on("data", (chunk) => ctl.hostStdout(chunk));
   host.stderr.setEncoding("utf8");
   host.stderr.on("data", (chunk) => log(`[管家 stderr] ${chunk.trimEnd()}`));
+  // 管家先死了、我们还在往它写(window-shown / report)⇒ 异步 EPIPE,没人接就是主进程未捕获异常。
+  host.stdin.on("error", (error) => log(`[管家 stdin] ${error}`));
+  host.on("error", (error) => ctl.hostError(error));
   host.on("close", (code) => ctl.hostExit(code));
 }
 

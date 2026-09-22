@@ -11,7 +11,8 @@ export function desktopUpdateLabel(state: DesktopUpdateState, currentVersion: st
       return `正在下载 ${state.version || "新版本"}${progress}`;
     }
     case "downloaded": return `${state.version || "新版本"} 已下载完成`;
-    case "error": return state.version ? `${state.version} 下载失败` : "没查到更新，请稍后重试";
+    // 查不动别说「没查到更新」:业主会读成「没有新版」(du4)。
+    case "error": return state.version ? `${state.version} 下载失败` : "检查更新失败，请稍后重试";
     case "idle":
     default: return `当前版本 v${currentVersion}`;
   }
@@ -19,6 +20,11 @@ export function desktopUpdateLabel(state: DesktopUpdateState, currentVersion: st
 
 export function showRestart(state: DesktopUpdateState): boolean {
   return state.phase === "downloaded";
+}
+
+// 没查过 / 已是最新时可以手动查;查着、下着、下好了没东西可查,出错时由「重试」顶。
+export function showCheck(state: DesktopUpdateState): boolean {
+  return state.phase === "idle" || state.phase === "latest";
 }
 
 export function showRetry(state: DesktopUpdateState): boolean {
