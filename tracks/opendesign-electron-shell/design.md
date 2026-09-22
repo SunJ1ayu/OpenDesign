@@ -229,6 +229,15 @@ P6(管家语言)三方里两方站 Python。
 T3 逐文件列:每个被删的测试写「它守的是什么 → 新判据编号 / 因行为退役而不再需要(理由)」。**不许只删不记**;
 仍成立的保证(例:u3 查不动不说已是最新、s-w1 浏览器不画按钮、Job 收整棵树、资料根不动)必须在新判据里有对应编号。
 
+### Jev 读数(2026-09-22,Approach 草案 v1 之后、方案挑战进行中;业主问起才补跑 —— 之前漏了)
+
+`triage --track tracks/opendesign-electron-shell`(jev-1.13.0):unverified_premise 0.63 / data_or_authorization_change 0.54 /
+runtime_delivery_change 0.99 / judging_surface_change 0.91 / deploy_target_outside_repo 0.96 → next_step **measure**(0.38)。
+只当提醒:impact=high、uncertainty=high、方案挑战本来就在做,**没改方向**;它促成的一件事 ——
+**blockmap 取旧版 release 的那条(新前提,未实测)在写判据前先上云 Windows 量**:替身源按 GitHub 真实布局摆
+(`latest/download/` 只放新版资产、`download/v<旧版>/` 放旧版 blockmap),量第一次更新的实际下载字节。
+「做完」的标准仍是业主机器上**运行中的**软件回显新版本号(T6)。
+
 ## Test strategy (oracle)(草案,方案挑战后写成判据并先单独 commit)
 
 - **Linux(进 run-all SUITES,断网)**:
