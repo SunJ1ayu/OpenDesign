@@ -214,9 +214,11 @@ function installUpdate(autoUpdater) {
   quitting = true;
   const go = () => {
     // 第三跑:**不静默** —— 第二跑量到装机要约 2 分钟,静默的话业主这段时间屏幕上什么都没有。看看带界面是什么样。
-    // 第四跑:第三跑停在向导第一页等人点 ⇒ installer.nsh 用 customInstallMode/customFinishPage 让更新时零点击,只剩进度页。
-    log("[更新] 管家已收摊,交给安装器(带进度界面)");
-    autoUpdater.quitAndInstall(false, true);
+    // 第五跑:业主选 C = 照 ZCode(autoUpdater.ts:470 `autoUpdater.quitAndInstall()` 默认参数):
+    // 非静默、不带 --force-run ⇒ 向导由人点完,「完成」页的「运行」勾选框把新版拉起来。
+    // 探路版这里下好就装,代表业主点了「重启以更新」;按钮本身是 T4 的事。
+    log("[更新] 管家已收摊,交给安装器(向导,照 ZCode)");
+    autoUpdater.quitAndInstall();
   };
   if (!host || host.exitCode !== null) return go();
   host.once("exit", go);

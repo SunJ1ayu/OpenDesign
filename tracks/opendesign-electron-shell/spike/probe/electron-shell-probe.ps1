@@ -52,6 +52,18 @@ function WaitHealth([int]$limitSec) {
     return $null
 }
 
+function QuickHealth {
+    $ports = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
+               Where-Object { $_.LocalPort -ge 8766 -and $_.LocalPort -le 8786 } | Select-Object -ExpandProperty LocalPort -Unique)
+    foreach ($p in $ports) {
+        try {
+            $r = Invoke-WebRequest "http://127.0.0.1:$p/api/health" -NoProxy -TimeoutSec 2 -UseBasicParsing
+            if ($r.StatusCode -eq 200) { return "$p $($r.Content)" }
+        } catch {}
+    }
+    return $null
+}
+
 # ---------------------------------------------------------------- E3-1 装旧版
 "== E3-1 下载并静默装旧版 $OldAsset 到「$Dir」"
 gh release download $OldTag -p $OldAsset -D "$OutDir\old" --clobber
@@ -140,10 +152,13 @@ if ($UpdDir) {
     Start-Sleep -Seconds 2
     Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like "$Dir\*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
     $v1 = (Get-Item "$Dir\OpenDesign.exe").VersionInfo.ProductVersion
+    # 第五跑(业主选 C = 照 ZCode):向导由人点。click-wizard.ps1 替业主点「下一步」「完成」,每页先截图、记下页上的字与选项。
+    $clickLog = Join-Path $OutDir 'e4-click-wizard.log'
+    $clicker = Start-Process powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'click-wizard.ps1'), $OutDir, $clickLog, '480') -PassThru -WindowStyle Hidden -RedirectStandardError "$clickLog.err"
     $env:OD_SPIKE_UPDATE = '1'
     Start-Process "$Dir\OpenDesign.exe" | Out-Null
     Remove-Item Env:\OD_SPIKE_UPDATE
-    # 第四跑:一条时间线量到底 —— 安装器何时起、何时自己退(没人点)、exe 何时换版、新版何时应答。每 10 秒一张整屏。
+    # 一条时间线量到底 —— 安装器何时起、何时退、exe 何时换版、新版何时应答。每 10 秒一张整屏。
     $sw = [Diagnostics.Stopwatch]::StartNew(); $ver = $v1
     $lastShot = -99; $instSeen = $null; $instGone = $null; $flip = $null; $h = $null
     while ($sw.Elapsed.TotalMinutes -lt 8 -and -not $h) {
@@ -151,17 +166,20 @@ if ($UpdDir) {
         $t = [int]$sw.Elapsed.TotalSeconds
         $inst = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like '*electron-setup*' })
         if ($inst.Count -and $null -eq $instSeen) { $instSeen = $t; "  +${t}s 安装器起来了:$($inst[0].CommandLine)" }
-        if ($null -ne $instSeen -and -not $inst.Count -and $null -eq $instGone) { $instGone = $t; "  +${t}s 安装器自己退出了" }
+        if ($null -ne $instSeen -and -not $inst.Count -and $null -eq $instGone) { $instGone = $t; "  +${t}s 安装器退出了" }
         if ($t - $lastShot -ge 10) { $lastShot = $t; Shot ("e4-00-updating-{0:000}s" -f $t) }
         try { $ver = (Get-Item "$Dir\OpenDesign.exe" -ErrorAction Stop).VersionInfo.ProductVersion } catch { $ver = '(读不到:正在换文件?)' }
         if ($null -eq $flip -and $ver -like "$NewVer*") { $flip = $t; "  +${t}s exe 版本换成 $ver" }
-        if ($null -ne $flip) { $h = WaitHealth 1 }
+        if ($null -ne $flip) { $h = QuickHealth }
     }
     $t = [int]$sw.Elapsed.TotalSeconds
     # 新版应答时安装器可能正在退出(它先拉起新版再退)⇒ 出循环再看一眼
     if ($null -ne $instSeen -and $null -eq $instGone -and -not @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like '*electron-setup*' }).Count) { $instGone = $t }
     "  时间线:安装器起 +$instSeen s / 安装器退 +$instGone s / exe 换版 +$flip s / 新版应答 $(if ($h) { "+$t s" } else { '没等到' })(上限 480s)"
-    V 'E4.noclick 安装器没人点也自己走完了' ($null -ne $instSeen -and $null -ne $instGone) "起 +$instSeen s,退 +$instGone s"
+    if (-not $clicker.WaitForExit(30000)) { Stop-Process -Id $clicker.Id -Force -ErrorAction SilentlyContinue }
+    "  ---- 替业主点向导(click-wizard.ps1)----"; Get-Content $clickLog, "$clickLog.err" -ErrorAction SilentlyContinue | ForEach-Object { "    $_" }
+    $nClicks = @(Get-Content $clickLog -ErrorAction SilentlyContinue | Where-Object { $_ -match 'CLICK#' }).Count
+    V 'E4.wizard 向导点完、安装器退出' ($null -ne $instSeen -and $null -ne $instGone -and $nClicks -ge 1) "点了 $nClicks 下;起 +$instSeen s,退 +$instGone s"
     V 'E4.version 装上了新版' ($null -ne $flip) "$v1 → $ver"
     V 'E4.relaunch 装完自己重新打开、后台应答' ([bool]$h) "$h"
     "  更新后进程:$(ProcsUnder $Dir)"
