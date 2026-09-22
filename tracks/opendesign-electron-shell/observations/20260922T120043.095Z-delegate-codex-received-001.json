@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-electron-shell",
+  "run_id": "delegate-20260922-191734-1466521",
+  "controller": "delegate-codex",
+  "event": "received",
+  "label": "delegate-opendesign-electron-shell-t4-impl",
+  "started_at": "2026-09-22T12:00:42.883Z",
+  "finished_at": "2026-09-22T12:00:43.095Z",
+  "duration_ms": 213,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "delegate-codex",
+    "model": "gpt-5.6-sol",
+    "risk": null,
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": "subscription"
+  }
+}
