@@ -22,7 +22,11 @@
 
 !macro customCheckAppRunning
   DetailPrint "OpenDesign:先关掉还在运行的 OpenDesign…"
-  nsExec::ExecToLog `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -Command "$$roots=@('$INSTDIR\','$odOldDir\') | Where-Object { $$_ } | Select-Object -Unique; for($$i=0;$$i -lt 40;$$i++){ $$p=@(Get-CimInstance Win32_Process | Where-Object { $$x=$$_.ExecutablePath; $$x -and @($$roots | Where-Object { $$x.StartsWith($$_,[StringComparison]::OrdinalIgnoreCase) }).Count }); if($$p.Count -eq 0){ exit 0 }; if($$i -ge 4){ $$p | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue } }; Start-Sleep -Milliseconds 500 }; exit 1"`
+  ; 路径经环境变量交给 PowerShell,不拼进命令:拼进单引号串时路径里一个 `'`(如用户名 O'Brien 的默认目录)
+  ; 就让命令断句、退出非 0 ⇒ 误报「关不掉」拒装(T5 R1-4)。nsExec 起的子进程继承这里设的环境。
+  System::Call 'Kernel32::SetEnvironmentVariable(t "OD_DIR_A", t "$INSTDIR")i'
+  System::Call 'Kernel32::SetEnvironmentVariable(t "OD_DIR_B", t "$odOldDir")i'
+  nsExec::ExecToLog `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -Command "$$roots=@($$env:OD_DIR_A,$$env:OD_DIR_B) | Where-Object { $$_ } | ForEach-Object { $$_.TrimEnd('\') + '\' } | Select-Object -Unique; for($$i=0;$$i -lt 40;$$i++){ $$p=@(Get-CimInstance Win32_Process | Where-Object { $$x=$$_.ExecutablePath; $$x -and @($$roots | Where-Object { $$x.StartsWith($$_,[StringComparison]::OrdinalIgnoreCase) }).Count }); if($$p.Count -eq 0){ exit 0 }; if($$i -ge 4){ $$p | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue } }; Start-Sleep -Milliseconds 500 }; exit 1"`
   Pop $0
   ${if} $0 != "0"
     MessageBox MB_ICONSTOP "OpenDesign 还在运行，关不掉。请在右下角托盘图标上点「退出」，再重新运行安装程序。" /SD IDOK
@@ -33,7 +37,7 @@
   ${andIf} ${FileExists} "$INSTDIR\卸载.exe"
     ExecWait '"$INSTDIR\卸载.exe" /S _?=$INSTDIR' $1
     ${if} ${FileExists} "$INSTDIR\ds\bin\ds_shell.py"
-      nsExec::ExecToLog `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -Command "$$d='$INSTDIR\'; Get-CimInstance Win32_Process | Where-Object { $$_.ExecutablePath -and $$_.ExecutablePath.StartsWith($$d,[StringComparison]::OrdinalIgnoreCase) } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"`
+      nsExec::ExecToLog `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -Command "$$d=$$env:OD_DIR_A.TrimEnd('\') + '\'; Get-CimInstance Win32_Process | Where-Object { $$_.ExecutablePath -and $$_.ExecutablePath.StartsWith($$d,[StringComparison]::OrdinalIgnoreCase) } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"`
       Pop $0
       ExecWait '"$INSTDIR\卸载.exe" /S _?=$INSTDIR' $1
     ${endIf}
@@ -50,7 +54,7 @@
   ${andIf} ${FileExists} "$odOldDir\卸载.exe"
     ExecWait '"$odOldDir\卸载.exe" /S _?=$odOldDir' $1
     ${if} ${FileExists} "$odOldDir\ds\bin\ds_shell.py"
-      nsExec::ExecToLog `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -Command "$$d='$odOldDir\'; Get-CimInstance Win32_Process | Where-Object { $$_.ExecutablePath -and $$_.ExecutablePath.StartsWith($$d,[StringComparison]::OrdinalIgnoreCase) } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"`
+      nsExec::ExecToLog `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -Command "$$d=$$env:OD_DIR_B.TrimEnd('\') + '\'; Get-CimInstance Win32_Process | Where-Object { $$_.ExecutablePath -and $$_.ExecutablePath.StartsWith($$d,[StringComparison]::OrdinalIgnoreCase) } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"`
       Pop $0
       ExecWait '"$odOldDir\卸载.exe" /S _?=$odOldDir' $1
     ${endIf}
