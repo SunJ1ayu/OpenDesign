@@ -91,7 +91,8 @@ design.md「判据迁移账」的兑现:**每个要退役或改写的旧判据,�
 | windows-package-probe.yml + .ps1 | 旧 NSIS 包装得上、起得来、不白屏、日志三份在 | electron-e2e E1/E5(装得上、起得来)、E2.repaint(不是一片底色)、E2.window;日志随 e2e-out 上传 |
 | windows-update-e2e.yml + .ps1 | 旧更新器端到端(真替身 GitHub、带空格目录、限流回落、自动装) | electron-e2e E4(真 electron-updater、真替身源、GitHub 真实布局、增量字节、版本三方一致) |
 | electron-shell-probe.yml(探路) | U2 十跑 | 转正为 electron-e2e;spike/ 目录留作参照 |
-| windows-gui-probe / windows-nonempty-probe / windows-atomic-probe | 与换壳无关的旧探针 | **不动**(本单不碰) |
+| windows-nonempty-probe.yml + .ps1 | 旧 NSIS 包静默装进非空目录 / 卸载会不会连带删业主的东西(量的是 `installer/OpenDesign.nsi` 的 CheckDirEmpty 与卸载认门) | 随旧安装包退役(派活前删产品文件时核出它依赖 OpenDesign.nsi,09-22 补记);新安装包的同类风险 → E3b/E6(旧卸载器只卸旧程序、卸载时资料根原样) |
+| windows-gui-probe / windows-atomic-probe | 与换壳无关的旧探针 | **不动**(本单不碰;核过不引用退役文件) |
 
 ## 三、已知不再有判据的东西(接受,写明)
 
