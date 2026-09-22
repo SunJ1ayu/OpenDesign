@@ -52,6 +52,8 @@
       "deleteAppDataOnUninstall": false,
       "shortcutName": "OpenDesign",
       "include": "build/installer.nsh",
+      "installerLanguages": ["zh_CN"],
+      "language": "2052",
       "artifactName": "OpenDesign-${version}-electron-setup.${ext}",
       "warningsAsErrors": false
     },

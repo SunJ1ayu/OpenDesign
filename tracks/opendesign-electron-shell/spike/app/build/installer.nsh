@@ -71,3 +71,28 @@
     DeleteRegValue HKCU "${OD_RUN_KEY}" "OpenDesign"
   ${endIf}
 !macroend
+
+; ---- 更新时零点击(U2 第四跑)。第三跑:向导模式的安装器被 quitAndInstall(false,…) 拉起后停在第一页等人点。
+; 模板里要人点的只有三页:「装给谁」「选目录」「完成」。选目录那页模板自己在 --updated 时跳过;另两页由这里处理。
+; 「装给谁」:旧版一直只装给当前用户(HKCU),新版也固定只给当前用户 ⇒ 这一页首次安装也不再出现。
+!macro customInstallMode
+  StrCpy $isForceCurrentInstall "1"
+!macroend
+
+; 「完成」:首次安装照旧显示(带「运行 OpenDesign」勾选框);更新时不停在这页,直接把新版打开、安装器退出。
+!macro customFinishPage
+  Function odFinishPre
+    ${if} ${isUpdated}
+      HideWindow
+      ${StdUtils.ExecShellAsUser} $0 "$launchLink" "open" "--updated"
+      Abort
+    ${endIf}
+  FunctionEnd
+  Function odRunAfterFinish
+    ${StdUtils.ExecShellAsUser} $0 "$launchLink" "open" ""
+  FunctionEnd
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE odFinishPre
+  !define MUI_FINISHPAGE_RUN
+  !define MUI_FINISHPAGE_RUN_FUNCTION odRunAfterFinish
+  !insertmacro MUI_PAGE_FINISH
+!macroend

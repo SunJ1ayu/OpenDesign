@@ -143,24 +143,26 @@ if ($UpdDir) {
     $env:OD_SPIKE_UPDATE = '1'
     Start-Process "$Dir\OpenDesign.exe" | Out-Null
     Remove-Item Env:\OD_SPIKE_UPDATE
+    # 第四跑:一条时间线量到底 —— 安装器何时起、何时自己退(没人点)、exe 何时换版、新版何时应答。每 10 秒一张整屏。
     $sw = [Diagnostics.Stopwatch]::StartNew(); $ver = $v1
-    $lastShot = -99
-    while ($sw.Elapsed.TotalMinutes -lt 8) {
-        Start-Sleep -Seconds 5
-        # 业主在这两分钟里看到什么:每 15 秒一张整屏
-        if ($sw.Elapsed.TotalSeconds - $lastShot -ge 15) { $lastShot = $sw.Elapsed.TotalSeconds; Shot ("e4-00-updating-{0:000}s" -f [int]$lastShot) }
+    $lastShot = -99; $instSeen = $null; $instGone = $null; $flip = $null; $h = $null
+    while ($sw.Elapsed.TotalMinutes -lt 8 -and -not $h) {
+        Start-Sleep -Seconds 3
+        $t = [int]$sw.Elapsed.TotalSeconds
+        $inst = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like '*electron-setup*' })
+        if ($inst.Count -and $null -eq $instSeen) { $instSeen = $t; "  +${t}s 安装器起来了:$($inst[0].CommandLine)" }
+        if ($null -ne $instSeen -and -not $inst.Count -and $null -eq $instGone) { $instGone = $t; "  +${t}s 安装器自己退出了" }
+        if ($t - $lastShot -ge 10) { $lastShot = $t; Shot ("e4-00-updating-{0:000}s" -f $t) }
         try { $ver = (Get-Item "$Dir\OpenDesign.exe" -ErrorAction Stop).VersionInfo.ProductVersion } catch { $ver = '(读不到:正在换文件?)' }
-        if ($ver -like "$NewVer*") { break }
+        if ($null -eq $flip -and $ver -like "$NewVer*") { $flip = $t; "  +${t}s exe 版本换成 $ver" }
+        if ($null -ne $flip) { $h = WaitHealth 1 }
     }
-    "  exe 版本 $v1 → $ver,$([int]$sw.Elapsed.TotalSeconds)s"
-    V 'E4.version 装上了新版' ($ver -like "$NewVer*") "$ver"
-    # 版本号换了不等于装完:安装器还在铺文件。继续每 15 秒一张,直到新版自己重新打开、后台应答。
-    $h = $null; $sw2 = [Diagnostics.Stopwatch]::StartNew(); $n = 0
-    while (-not $h -and $sw2.Elapsed.TotalSeconds -lt 240) {
-        $n++; Shot ("e4-00-updating-after-flip-{0:00}" -f $n)
-        $h = WaitHealth 15
-    }
-    "  版本号换了之后又过 $([int]$sw2.Elapsed.TotalSeconds)s 新版才应答(整个更新 $([int]$sw.Elapsed.TotalSeconds + [int]$sw2.Elapsed.TotalSeconds)s 左右)"
+    $t = [int]$sw.Elapsed.TotalSeconds
+    # 新版应答时安装器可能正在退出(它先拉起新版再退)⇒ 出循环再看一眼
+    if ($null -ne $instSeen -and $null -eq $instGone -and -not @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like '*electron-setup*' }).Count) { $instGone = $t }
+    "  时间线:安装器起 +$instSeen s / 安装器退 +$instGone s / exe 换版 +$flip s / 新版应答 $(if ($h) { "+$t s" } else { '没等到' })(上限 480s)"
+    V 'E4.noclick 安装器没人点也自己走完了' ($null -ne $instSeen -and $null -ne $instGone) "起 +$instSeen s,退 +$instGone s"
+    V 'E4.version 装上了新版' ($null -ne $flip) "$v1 → $ver"
     V 'E4.relaunch 装完自己重新打开、后台应答' ([bool]$h) "$h"
     "  更新后进程:$(ProcsUnder $Dir)"
     Shot 'e4-01-after-update'

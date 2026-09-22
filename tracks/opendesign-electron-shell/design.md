@@ -91,6 +91,29 @@ P6(管家语言)三方里两方站 Python。
 - 🔴 **新发现:更新时软件消失约 2 分钟**(安装器 exe 换版本 78s、新版重新应答 128s;静默装,屏幕上什么都没有)。
   旧的「装到旁边再换名」是边用边装、只停几秒。⇒ 第三跑:带进度界面装,看业主会看到什么;并量一次**真改了代码**的增量。
 
+### U2 第三跑(run 35625592442)—— E4 两条红,`evidence/20260922-u2r3-run35625592442.md`
+
+- E1/E3/E2 全绿;**真改了一个 .py + 一个前端 js 的增量:下 1 MB / 158.1 MB(0.6%)**,单段请求成立。
+- **E4 红 = 从头到尾没装**:`quitAndInstall(false, true)` 拉起的是向导模式安装器(`oneClick:false`),
+  停在第一页「装给所有人 / 只给我 → 下一步」等人点(截图 `evidence/20260922-u2r3-e4-00-wizard-waiting.png`)。
+- ZCode 自己也是非静默 `autoUpdater.quitAndInstall()`(`packages/desktop/src/main/autoUpdater.ts:470`,`zai-org/ZCode@872ad96`)⇒ 它的用户每次更新都点一遍向导;
+  它的更新由用户点「重启以更新」触发,人在跟前。我们是开机自启、后台自动更新 ⇒ **这一处不能照抄**。
+
+### 更新时业主看到什么(待定项,第四跑先量)
+
+读 electron-builder 26.15.3 的 NSIS 模板(`app-builder-lib/templates/nsis/`)定出每一页的处置(要人点的是其中三页):
+
+| 页 | 模板行为 | 处置 |
+|---|---|---|
+| 装给谁(`multiUserUi.nsh` PAGE_INSTALL_MODE) | 更新时**不跳过**(第三跑停的就是它) | `customInstallMode` 置 `$isForceCurrentInstall=1` ⇒ 固定只给当前用户(旧版本来就是 HKCU),首装也不再问 |
+| 选目录(`assistedInstaller.nsh`) | `skipPageIfUpdated`,更新时自己跳过 | 不动 |
+| 进度页 | 显示 | **留着 = 业主在那一分多钟里看到的东西** |
+| 完成页 | 非静默时不自动启动,等人点「完成」(`installSection.nsh`:只在 `isForceRun && Silent` 才启动) | `customFinishPage`:更新时拉起新版并跳过此页;首装照旧 |
+
+另把安装器界面定为简体中文(`installerLanguages: [zh_CN]`、`language: 2052`,只一种语言 ⇒ 不弹语言选择)。
+**第四跑要量的**:更新全程零点击(安装器自己退出)、时间线(安装器起 / 退 / exe 换版 / 新版应答)、每 10 秒一张整屏。
+量完拿截图给业主看「更新时屏幕上是什么、停多久」—— 这是体验取舍,与旧版「只停几秒」相比是退步,**要他知情**。
+
 ## Approach
 
 (U1 答复后定稿。管家留 Python、窗口照 ZCode 的部分已定。)

@@ -214,6 +214,7 @@ function installUpdate(autoUpdater) {
   quitting = true;
   const go = () => {
     // 第三跑:**不静默** —— 第二跑量到装机要约 2 分钟,静默的话业主这段时间屏幕上什么都没有。看看带界面是什么样。
+    // 第四跑:第三跑停在向导第一页等人点 ⇒ installer.nsh 用 customInstallMode/customFinishPage 让更新时零点击,只剩进度页。
     log("[更新] 管家已收摊,交给安装器(带进度界面)");
     autoUpdater.quitAndInstall(false, true);
   };
