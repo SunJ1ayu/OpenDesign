@@ -224,11 +224,15 @@ P6(管家语言)三方里两方站 Python。
   退出后紧接着关机会装一半)、`disableWebInstaller=true`;publish = generic
   `https://github.com/SunJ1ayu/OpenDesign/releases/latest/download`、`useMultipleRangeRequest:false`(GitHub 多段 501,第二跑亲测)。
   不碰 api.github.com(VPN 出口 60 次/小时限流那个坑,表 #2)。
-- **增量要能在真发布布局下成立**(我自己在写方案时发现,探路版没测到):electron-updater 取旧版 blockmap 的地址 =
-  新安装包地址把版本号换成旧版(`electron-updater/out/providers/Provider.js:22-25`);而 `releases/latest/download/` 只给**最新那一个**
-  release 的资产 ⇒ 旧版 blockmap 404 ⇒ 退回整包 158MB。探路版的替身源把两版 blockmap 摆在同一目录,所以没暴露。
-  ⇒ 设 `autoUpdater.previousBlockmapBaseUrlOverride = https://github.com/SunJ1ayu/OpenDesign/releases/download/v<当前版本>/`
-  (旧版去自己那个 release 取;同文件 :649、:172)。取不到照样能整包装上,只是慢 ⇒ 判据要按 GitHub 真实目录布局摆替身源,量到增量才算。
+- **增量要能在真发布布局下成立**(写方案时我自己发现的洞):electron-updater 找旧版 blockmap 的地址 = 新安装包地址
+  **把路径里所有新版本号换成旧版本号**(`electron-updater/out/providers/Provider.js:22-25`);`releases/latest/download/` 下只有最新 release
+  的资产 ⇒ 旧 blockmap 404 ⇒ 退整包 158MB。
+  - ~~`previousBlockmapBaseUrlOverride`~~ **第八跑证伪**:它只换得了主机 —— 路径是绝对路径,`new URL(路径, override)` 丢掉 override 的路径,
+    日志照样去 `latest/download/OpenDesign-0.98.10-…blockmap` ⇒ 404 ⇒ 实下 158MB/158MB。我只读到它被传进去,没读 `newUrlFromBase`。
+  - **改为**:发布时把 `latest.yml` 里安装包的 `url`/`path` 改写成带版本号的绝对地址
+    `https://github.com/SunJ1ayu/OpenDesign/releases/download/v<新版>/OpenDesign-<新版>-electron-setup.exe`(sha512 不变)。
+    换号后正好是 `…/download/v<旧版>/OpenDesign-<旧版>-electron-setup.exe.blockmap` = 旧版自己 release 里的资产;跳版更新同样成立。
+    `latest.yml` 本身仍从 `releases/latest/download/` 取(发现通道不变)。第九跑验证。
 - 查的时机:窗口出来后延迟一小段查一次,之后每 4 小时一次;**绝不挡启动**(0.98.8 的教训)。
 - 状态 `idle / checking / available / downloading(进度) / downloaded(版本) / error(人话)` 经 `odShell.update.onState` 推给前端;
   `update.check()` 手动查;`update.install()` = 先收管家、再 `quitAndInstall()` 默认参数 ⇒ 向导(安装选项「下一步」→ 进度 →
@@ -254,7 +258,7 @@ P6(管家语言)三方里两方站 Python。
   旧版(0.98.x)只认 `win-installer-*` tag 与 `OpenDesign-Setup-*.exe` ⇒ **看不见**新版(已本地核 ASSET_RE/TAG_RE)⇒ 两台机器各手动装一次(业主选 A)。
 - 安装包在 CI 的 windows-latest 上构建(E1 已跑六次;本机 2G 内存且 electron-builder 出 Windows 包要 Wine,不在本机造):
   新 workflow 手动触发 → 产出安装包 + blockmap + latest.yml 当 artifact → 我下载、核 `latest.yml` 的 sha512 与安装包逐字节一致
-  → 业主 `!` 跑 `gh release create`(发布权限在他那)。`installer/RELEASE.md` 写死的 `--prerelease` 随旧工具链退役,
+  → **改写 latest.yml 的安装包地址为 `download/v<版本>/` 绝对地址**(见 D)→ 业主 `!` 跑 `gh release create`(发布权限在他那)。`installer/RELEASE.md` 写死的 `--prerelease` 随旧工具链退役,
   新发布说明写明**正式 release**(挑战 a8)。
 - **换壳那一版两台错开装**(挑战 a3):先装一台、用一天确认界面正常,再装另一台;0.98.8 安装包留在发布页。
   出事时另一台还能干活,不用当晚开 VPN 重下旧版。(`.old` 退路方案的取舍见挑战表 a3。)
