@@ -144,7 +144,30 @@ P6(管家语言)三方里两方站 Python。
   点成「所有用户」⇒ 要管理员授权 ⇒ 装进 `C:\Program Files\OpenDesign`(更新时选目录页跳过)、`installSection.nsh:54-57` 顺手卸掉他自选目录那份 ⇒ 搬家;
   开机自启键仍指旧路径(customInstall/customUnInstall 在 --updated 时都不碰)⇒ 推断会失效。去掉 = `customInstallMode` 置 `$isForceCurrentInstall=1`(第四跑已验证可行)。
 
-## Approach(草案 v1,2026-09-22;待两家族方案挑战后定稿)
+## 实施方案的独立挑战与核实(2026-09-22)
+
+- 触发(4c 第三行):默认自动动作变了(自动装 → 他点)、退役跨模块契约(ds-web 更新端点、锁通道交棒)、发布通道变了。
+- 输入:题面 `evidence/20260922-a0-approach-brief.md`;我的方向与最危险前提**派发前**落盘在仓外,交卷后原样复制为
+  `evidence/20260922-a0-my-direction-before-dispatch.md`。腿读的是**去掉 design.md / verify.md / 上次两家报告、无 git 历史**的快照。
+- 腿:Cursor / grok-4.7-high(xai)。第 1 次 15 分钟超时(rc=124,55 次读码、无报告;思考日志里四条我核实成立,已先补进 v1 —— `f09498c`);
+  第 2 次放宽到 35 分钟(`PANEL_HEALTH_OVERRIDE` 解冷却 = 基础设施重试),rc=0,报告原样 `evidence/20260922-a1-approach-challenge-cursor-grok47.md`。
+  花名册:`subcursor.grok-4.7-high=EXPLORE(rc=0,coverage=none)`(`/root/aiwork/logs/explore-electron-approach-20260922-1440r2.roster`)。
+- 追加第二条腿?**不追加** —— 下表没有需要第二家来分辨的具体分歧;有分歧的那条(.old 退路)是取舍,我给了理由。
+
+| # | 腿的主张 | 核实 | 处置 |
+|---|---|---|---|
+| a1 | 首装带界面那条路没跑过,选目录页未必停在旧目录 | 第七跑截图 `C:\AI Test\OpenDesign` 就是默认值(旧 InstallDir);那跑因我的点击量具不认「安装(I)」按钮卡住,第八跑补全 | 成立为未测 ⇒ 判据 E3 改带界面 |
+| a2 | 「不论选哪都去卸旧目录」会 `RMDir /r` 他原目录里的一切 | 属实(`installer/OpenDesign.nsi` `un.OpenDesign`);但**不这么做**就是新旧并存、托盘里旧版照跑、两条卸载项 | 保留该做法;他往程序目录里放自己文件的可能性低,且旧卸载器本来就这么删 |
+| a3 | 换壳当晚两台都失去退路(0.98.8 已被卸);建议改名 `.old`、新版自报版本对上才删 | 属实:退路只剩发布页重下 + 先卸新版再装旧版,对他是多步。`.old` 方案要在安装器 cwd=`$INSTDIR`(模板 `.onInit` `SetOutPath $INSTDIR`)时改名该目录、处理旧卸载项与配置里写死的旧路径 —— 都未验证 | **不采纳 .old**,换成零代码的做法:**两台错开装**(先装一台、用一天确认界面正常再装另一台),发布页保留 0.98.8;写进 T6 业主说明 |
+| a4 | 判「装好了」只看有应答;第二跑 exe 0.98.11 而后台报 0.98.9;旧更新器有「版本号 + nonce」这道闸,方案把它一起退役了 | 属实(`bin/ds_update_apply.py:86-92`;探路 v2 只给 `ds_web.py` 追加注释没改 VERSION) | **采纳**:管家 `ready` 带后台版本,主进程比对 `app.getVersion()`,对不上弹人话(抓安装被打断的半新半旧);判据 E3/E4 断言「健康检查版本 = exe 版本 = ds_web.VERSION」,探路第八跑起 v1/v2 都改 VERSION |
+| a5 | 「重启以更新」若只在设置弹层里,不点就成了默认;侧栏「设置」行上的更新圆点是专门为此加的,方案没说留 | 属实(`web/src/workspace/Sidebar.tsx:461` `hasUpdateBadge`;`update.ts:68`) | **采纳**:圆点保留;「重启以更新」放在收起的「设置」那一行上,弹层里再放一份 + 「约 2 分钟,期间请别关机」 |
+| a6 | 先开软件后开 VPN ⇒ 下载失败,要等 4 小时再查 | 旧更新器为此每次请求现建代理(`ds_update._open`)属实;electron-updater 走 Chromium 网络栈、跟随系统代理变化 —— **未实测** | 采纳一半:失败后 15 分钟重查 + 手动「重试」;不为此造代理层 |
+| a7 | 换壳那一次跑 `ds_provision` 合并配置,E3 只查 config.json 在不在 | 属实 | 采纳:判据核配置里的业务字段(key 引用、模型选择)前后不变 |
+| a8 | `installer/RELEASE.md` 写死 `--prerelease`,与 latest/download 冲突 | 属实(`installer/RELEASE.md:24`) | 采纳:发布说明随旧工具链重写,新版写明正式 release |
+| a9 | 看不到他下载后的 SmartScreen | 首装:与旧安装包一样未签名,他装过 30 多版;更新:electron-updater 自己下载的文件不带网络来源标记 —— 推理,未实测 | 记为未测风险,不改方案 |
+| a10 | 更简单:探路版 installer.nsh 原样当产品 | 等于回到 a2 的并存问题 | 驳回 |
+
+## Approach(v2,2026-09-22;已按上表挑战结果修订)
 
 依据:U1「全换吧」、U2 六跑实测、U3「c吧」(更新照 ZCode:点「重启以更新」+ 向导自己点)、U4「留着和zcode一样」。
 **原则**:ZCode 做过的照 ZCode;ZCode 没有、我们有的(Python 后台、锁通道、诊断、迁移)照探路版已量过的做法;
@@ -159,9 +182,11 @@ P6(管家语言)三方里两方站 Python。
   外链交系统浏览器、窗口内只许停在本机工作台、更新器(见 D)、日志 `%LOCALAPPDATA%\OpenDesign\Logs\electron.log`。
 - **管家 `bin/ds_host.py`**(Python,留着的理由见表 #15/P6):复用 `ds_shell.start_backend`(挑端口、改配置、Job 收整棵树)、
   `InstanceLock`(**只留** ds-web「存 key 后重启网关」通道;`on_update` 交棒退役)、看门狗、诊断。
-  协议 = stdout 一行一个 JSON 事件(`ready{web_port}` / `show` / `already-running` / `backend-died{report}` / `fatal{message}`),
+  协议 = stdout 一行一个 JSON 事件(`ready{web_port, version}` / `show` / `already-running` / `backend-died{report}` / `fatal{message}`),
   stdin 一行一个命令(`quit` / `export-diagnostics` / `report{event,detail}` / `window-shown`),**stdin EOF = 收摊**
   (Electron 被硬杀时管道断 ⇒ 管家自己收摊;第二跑量到 502ms)。
+- **版本自检**(挑战 a4):主进程收到 `ready` 时比对后台版本与 `app.getVersion()`,对不上 ⇒ 弹人话(「这次安装没装完整,请重新运行安装包」)
+  并写日志 —— 抓安装被打断留下的半新半旧(旧更新器「版本号 + nonce」那道闸的替身)。
 - **单实例顺序**(表 #9):Electron 锁先拿;只有拿到锁的那份才起管家;管家拿不到 InstanceLock ⇒ `already-running` ⇒ Electron 弹一句人话退出。
 - **收摊顺序**(表 #1 #16):托盘退出 / 更新 ⇒ 先关管家 stdin、等它退(Job 收整棵树),15s 不退才强杀,再退 Electron。
 - **`bin/ds_shell.py` 拆两半**:后台那一半(`start_backend` / `build_env` / `user_home` / key 读取 / 日志)留下供管家用;
@@ -209,9 +234,12 @@ P6(管家语言)三方里两方站 Python。
   `update.check()` 手动查;`update.install()` = 先收管家、再 `quitAndInstall()` 默认参数 ⇒ 向导(安装选项「下一步」→ 进度 →
   「完成」勾着「运行」)⇒ 新版在最前面(第六跑)。
 - 前端设置页的更新一栏改接 `odShell.update`:下载好了才出现「重启以更新」按钮;**查不动不许说「已是最新」**(旧判据 u3 的保证搬过来)。
+  **按钮不能只藏在弹层里**(挑战 a5):侧栏收起的「设置」行上的更新圆点(`Sidebar.tsx` `hasUpdateBadge`)保留,
+  「重启以更新」就放在那一行上,弹层里再放一份。
   浏览器形态(Linux / git-pull)没有更新器:只显示当前版本 + 发布页链接。
 - 「重启以更新」旁写明「约 2 分钟,期间请别关机」(向导进度页不能取消,关机会装一半)。
 - **下载失败不许静默**:整包回退或下载出错 ⇒ 更新一栏显示人话 + 「重试」,不能只是按钮永远不出现(否则他以为没有新版)。
+  出错后 15 分钟再自动查一次(挑战 a6:他常先开软件后开 VPN),不等 4 小时。
 - **回滚随旧更新器退役**(已接受的保证损失,写进判据迁移账):旧版「装到旁边、新版起不来就退回」做不到了 ——
   electron-updater 是就地重装。补救:每一版发布前云 Windows 判据全过才发;旧版安装包一直留在发布页,出事可以直接装回旧版。
 - **退役**(表 #11 的两个真相源因此只剩一个):`bin/ds_update.py`、`ds_update_apply.py`、`ds_update_startup.py`、`ds_auto_update.py`、
@@ -226,7 +254,10 @@ P6(管家语言)三方里两方站 Python。
   旧版(0.98.x)只认 `win-installer-*` tag 与 `OpenDesign-Setup-*.exe` ⇒ **看不见**新版(已本地核 ASSET_RE/TAG_RE)⇒ 两台机器各手动装一次(业主选 A)。
 - 安装包在 CI 的 windows-latest 上构建(E1 已跑六次;本机 2G 内存且 electron-builder 出 Windows 包要 Wine,不在本机造):
   新 workflow 手动触发 → 产出安装包 + blockmap + latest.yml 当 artifact → 我下载、核 `latest.yml` 的 sha512 与安装包逐字节一致
-  → 业主 `!` 跑 `gh release create`(发布权限在他那)。
+  → 业主 `!` 跑 `gh release create`(发布权限在他那)。`installer/RELEASE.md` 写死的 `--prerelease` 随旧工具链退役,
+  新发布说明写明**正式 release**(挑战 a8)。
+- **换壳那一版两台错开装**(挑战 a3):先装一台、用一天确认界面正常,再装另一台;0.98.8 安装包留在发布页。
+  出事时另一台还能干活,不用当晚开 VPN 重下旧版。(`.old` 退路方案的取舍见挑战表 a3。)
 
 ### F. 保持不坏
 
@@ -259,7 +290,10 @@ runtime_delivery_change 0.99 / judging_surface_change 0.91 / deploy_target_outsi
   - 前端:浏览器形态零按钮(s-w1);窗口栏 app-region;无 `.win-grip-*`;更新一栏各状态的措辞与「重启以更新」只在 downloaded 出现。
 - **云 Windows 判据 workflow**(从探路版 probe 转正,断言写死在脚本里,绿才算过):
   E1 构建;E3 从**已发布的** 0.98.x 过渡(12 条);E2 起窗 / 三按钮 / 托盘 / 退出 / 硬杀;
+  E3 改**带界面**(像业主那样双击、只按默认的下一步/安装/完成):选目录页默认 = 旧 InstallDir;配置里的业务字段(key 引用、模型选择)前后不变;
+  E3/E4 **健康检查报的版本 = exe 版本 = ds_web.VERSION**(挑战 a4);
   E4 v1→v2 更新:click-wizard 按两下、页头依次是「安装选项」「安装完成」、新版应答且在前台、原目录、卸载项 1 条、资料指纹不变;
+  E4 增量:替身源按 GitHub 真实布局(`latest/download/` + `download/v<旧版>/`),实际下载 < 整包 10%;
   **E5 首装带界面**(第六跑没测到):安装选项 → 选目录(改成带空格自选目录)→ 进度 → 完成,装到所选目录;
   E6 卸载:资料根不动、安装目录清空。
 - 业主真机(T6):A0 界面出来了吗;装新版时旧版在托盘里 → 装完资料/key/档案都在;下一版走一次「重启以更新」。
