@@ -6,6 +6,7 @@
 !macro preInit
   Var /GLOBAL odAutostart
   Var /GLOBAL odOldDir
+  Var /GLOBAL odRunVal
   StrCpy $odAutostart "0"
   ReadRegStr $odOldDir HKCU "${OD_OLD_KEY}" "InstallDir"
   ${if} $odOldDir != ""
@@ -14,8 +15,8 @@
       WriteRegExpandStr HKCU "${INSTALL_REGISTRY_KEY}" "InstallLocation" "$odOldDir"
     ${endIf}
   ${endIf}
-  ReadRegStr $0 HKCU "${OD_RUN_KEY}" "OpenDesign"
-  ${if} $0 != ""
+  ReadRegStr $odRunVal HKCU "${OD_RUN_KEY}" "OpenDesign"
+  ${if} $odRunVal != ""
     StrCpy $odAutostart "1"
   ${endIf}
 !macroend
@@ -41,11 +42,19 @@
       Pop $0
       ExecWait '"$INSTDIR\卸载.exe" /S _?=$INSTDIR' $1
     ${endIf}
-    Delete "$INSTDIR\卸载.exe"
     ${if} ${FileExists} "$INSTDIR\ds\bin\ds_shell.py"
+      ; 拒装后业主会照提示重启再装 ⇒ 那一次要从同一个状态接着走(T5 R1-1):
+      ; 旧卸载器留着(过渡段靠它认出这里有旧版),它先删掉的目录指针与开机自启写回去。
+      ${if} $odOldDir != ""
+        WriteRegStr HKCU "${OD_OLD_KEY}" "InstallDir" "$odOldDir"
+      ${endIf}
+      ${if} $odAutostart == "1"
+        WriteRegStr HKCU "${OD_RUN_KEY}" "OpenDesign" "$odRunVal"
+      ${endIf}
       MessageBox MB_ICONSTOP "旧版 OpenDesign 没能完整卸载。为避免新旧文件混在一起，安装已经停止。请重启电脑后再运行安装包。" /SD IDOK
       Quit
     ${endIf}
+    Delete "$INSTDIR\卸载.exe"
   ${endIf}
 
   ${if} $odOldDir != ""
@@ -58,11 +67,19 @@
       Pop $0
       ExecWait '"$odOldDir\卸载.exe" /S _?=$odOldDir' $1
     ${endIf}
-    Delete "$odOldDir\卸载.exe"
     ${if} ${FileExists} "$odOldDir\ds\bin\ds_shell.py"
+      ; 拒装后业主会照提示重启再装 ⇒ 那一次要从同一个状态接着走(T5 R1-1):
+      ; 旧卸载器留着(过渡段靠它认出这里有旧版),它先删掉的目录指针与开机自启写回去。
+      ${if} $odOldDir != ""
+        WriteRegStr HKCU "${OD_OLD_KEY}" "InstallDir" "$odOldDir"
+      ${endIf}
+      ${if} $odAutostart == "1"
+        WriteRegStr HKCU "${OD_RUN_KEY}" "OpenDesign" "$odRunVal"
+      ${endIf}
       MessageBox MB_ICONSTOP "原目录里的旧版 OpenDesign 没能完整卸载。为避免电脑里留下两份，安装已经停止。请重启电脑后再运行安装包。" /SD IDOK
       Quit
     ${endIf}
+    Delete "$odOldDir\卸载.exe"
   ${endIf}
 !macroend
 
@@ -70,6 +87,10 @@
   ${ifNot} ${isUpdated}
     nsExec::ExecToLog '"$INSTDIR\resources\python\python.exe" "$INSTDIR\resources\ds\bin\ds_provision.py" --home "${OD_DATA}\UserData" --ds-root "$INSTDIR\resources\ds"'
     Pop $0
+    ; 不中止:文件已经装好,第一次打开时管家会把缺什么说清楚;这里只负责别让它悄悄过去(同旧版 OpenDesign.nsi,T5 R1-3)。
+    ${if} $0 != "0"
+      MessageBox MB_ICONEXCLAMATION "配置初始化没有成功(错误码 $0)。$\n$\nOpenDesign 的文件已经装好了。第一次打开时它会告诉你还缺什么。" /SD IDOK
+    ${endIf}
     ${if} $odAutostart == "1"
       WriteRegStr HKCU "${OD_RUN_KEY}" "OpenDesign" '"$INSTDIR\OpenDesign.exe"'
     ${endIf}
