@@ -96,9 +96,13 @@ PROVIDERS = {
     # 🔴 下面三家 2026-09-23 照 ZCode 内置目录(config/provider/zcode-builtin.json)+ 官方文档 + 无 key 探测(401)填,
     #    **没用真 key 验过模型名**(业主手上没有);会过期,判据 k1 钉住。
     #    Kimi 只接按量(开放平台);Kimi 会员(Kimi Code)业主定不加 —— 官方只给编程工具、禁改 User-Agent。
+    # `presetParams` = 这家每个预设必须带的生成参数。Kimi K2.5+ 拒收 temperature<1.0 ——
+    #    nanobot 只在它自己的 moonshot 规格里覆盖(registry.py model_overrides),我们走 custom/od_kimi 通道吃不到,
+    #    预设默认 0.1 ⇒ 每句被拒(判据 k7 问的是真发出去的参数)。
     "kimi": {"label": "Kimi 按量", "apiBase": "https://api.moonshot.cn/v1",
              "model": "kimi-k3", "models": ["kimi-k3", "kimi-k2.7-code", "kimi-k2.6"],
-             "keyUrl": "https://platform.kimi.com/console/api-keys"},
+             "keyUrl": "https://platform.kimi.com/console/api-keys",
+             "presetParams": {"temperature": 1.0}},
     # GLM 两家有同名模型(glm-5.3):菜单按「厂商+模型」打勾(pv3),换模型按厂商所在槽改预设(判据 k4 用 nanobot 加载器验)。
     "glm_plan": {"label": "GLM 套餐(Coding Plan)", "apiBase": "https://open.bigmodel.cn/api/coding/paas/v4",
                  "model": "glm-5.3", "models": ["glm-5.3", "glm-5.3-flash"],
@@ -213,9 +217,20 @@ def _slot_of(cfg: dict, vendor: str) -> str:
     return "custom" if vendor == _current_provider(cfg) else extra_provider_name(vendor)
 
 
+def _apply_params(preset: dict, vendor: str) -> dict:
+    """把这家必带的生成参数(presetParams)盖到预设上;其余字段不动。"""
+    preset.update(PROVIDERS[vendor].get("presetParams") or {})
+    return preset
+
+
 def _custom_preset(vendor: str, model: str) -> dict:
     # 主槽预设沿用老形状(含 apiBase —— nanobot 不读它,但 lm5 与老配置都是这个样子)
-    return {"label": model, "provider": "custom", "model": model, "apiBase": PROVIDERS[vendor]["apiBase"]}
+    return _apply_params({"label": model, "provider": "custom", "model": model,
+                          "apiBase": PROVIDERS[vendor]["apiBase"]}, vendor)
+
+
+def _extra_preset(vendor: str, model: str) -> dict:
+    return _apply_params({"label": model, "provider": extra_provider_name(vendor), "model": model}, vendor)
 
 
 def models_status(cfg_path: str) -> dict:
@@ -301,9 +316,11 @@ def select_model(cfg_path: str, model, provider=None, home: str | None = None) -
     existing = presets.get(model)
     if not isinstance(existing, dict):
         presets[model] = (_custom_preset(vendor, model) if slot == "custom"
-                          else {"label": model, "provider": slot, "model": model})
-    elif existing.get("provider", "custom") != slot:
-        existing["provider"] = slot          # 手改过的错指预设:按厂商所在的槽纠正,否则会发到别家端点
+                          else _extra_preset(vendor, model))
+    else:
+        if existing.get("provider", "custom") != slot:
+            existing["provider"] = slot      # 手改过的错指预设:按厂商所在的槽纠正,否则会发到别家端点
+        _apply_params(existing, vendor)
     cfg.setdefault("agents", {}).setdefault("defaults", {})["modelPreset"] = model
     try:
         _atomic_write(cfg_path, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n")
@@ -512,8 +529,7 @@ def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = Fal
     custom["apiBase"] = preset["apiBase"]
     custom["apiKey"] = "${%s}" % var             # 只留引用形态,原文永不进配置
     presets = cfg.setdefault("model_presets", {})
-    presets[preset["model"]] = {"label": preset["model"], "provider": "custom",
-                                "model": preset["model"], "apiBase": preset["apiBase"]}
+    presets[preset["model"]] = _custom_preset(provider, preset["model"])
     cfg.setdefault("agents", {}).setdefault("defaults", {})["modelPreset"] = preset["model"]
 
     try:
@@ -615,7 +631,22 @@ def _synced_config(home: str, cfg: dict):
             for pname in [n for n, p in presets.items() if isinstance(p, dict) and p.get("provider") == name]:
                 presets.pop(pname, None)
 
-    # ② 有 key 的额外厂商:条目 + 目录里每个模型的预设都指向它
+    # 同名模型(两家 GLM 都有 glm-5.3)归哪家,是业主在菜单里选的 —— 起网关时**不许替他改**
+    # (判据 k4b:原来按「最后一家」重指,重启一次就从套餐改走按量、扣另一份钱)。
+    # 预设现在指着的那家只要还有 key、且目录里也有这个模型,就原样留着;否则才重指。
+    def keeps_owner(p: dict, model: str) -> bool:
+        prov = p.get("provider", "custom")
+        if prov == "custom":
+            owner = primary
+        elif isinstance(prov, str) and prov.startswith(EXTRA_PREFIX):
+            owner = prov[len(EXTRA_PREFIX):]
+            if owner not in wanted:
+                return False
+        else:
+            return False
+        return owner is not None and owner in PROVIDERS and model in PROVIDERS[owner]["models"]
+
+    # ② 有 key 的额外厂商:条目 + 目录里每个模型的预设都指向它(同名模型已归别家的除外)
     for vendor in wanted:
         name = extra_provider_name(vendor)
         entry = providers.get(name) if isinstance(providers.get(name), dict) else {}
@@ -626,10 +657,13 @@ def _synced_config(home: str, cfg: dict):
         for model in PROVIDERS[vendor]["models"]:
             p = presets.get(model)
             if isinstance(p, dict):
+                if p.get("provider") != name and keeps_owner(p, model):
+                    continue
                 p["provider"] = name
                 p.pop("apiBase", None)          # 老形状残留的端点字段 nanobot 不读,留着只会误导人
+                _apply_params(p, vendor)
             else:
-                presets[model] = {"label": model, "provider": name, "model": model}
+                presets[model] = _extra_preset(vendor, model)
 
     # ③ 主槽那家:目录里的模型都有预设、且都指回 custom(修掉换过厂商后留下的错指)
     if primary is not None and wanted:
@@ -637,7 +671,10 @@ def _synced_config(home: str, cfg: dict):
             p = presets.get(model)
             if isinstance(p, dict):
                 if p.get("provider", "custom") != "custom":
+                    if keeps_owner(p, model):
+                        continue
                     p["provider"] = "custom"
+                _apply_params(p, primary)
             else:
                 presets[model] = _custom_preset(primary, model)
 
@@ -648,6 +685,11 @@ def _synced_config(home: str, cfg: dict):
         if marker in wanted or (marker == primary and read_key(home)):
             target = PROVIDERS[marker]["model"]
             if target in presets:
+                # 同名预设可能被②留给了另一家(k4b)⇒ 兑现「想换过去」时把它指到这一家(判据 k4c)
+                tp = presets[target]
+                if isinstance(tp, dict):
+                    tp["provider"] = "custom" if marker == primary else extra_provider_name(marker)
+                    _apply_params(tp, marker)
                 defaults["modelPreset"] = target
                 marker_done = True
 
