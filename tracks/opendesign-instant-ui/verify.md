@@ -89,15 +89,46 @@ subkimi=PASS(verdict=PASS) subcursor.grok-4.7-high=FAIL(rc=124)
 - 业主追加(同单):「顺手修」窄窗横向滚动条(0.98.9 起就有,`.workspace { min-width:1260px }` 加在所有页)。
   判据 `tests/e2e/narrow_window.e2e.mjs` 先红;第一版量具量 `documentElement` 假绿过四条,改量 `.workspace` 实宽后正确红(内容 1260 / 窗口 1024)。
 
-- arbitrated verdict (主裁): <待第 2 次派发(两家族同一次成功)>
+- 腿的花名册(第 2 次派发,两家族同一次成功 = 本单的评审覆盖):
+
+```
+# panel-review 花名册(2026-09-23 14:58:19)task=opendesign-instant-ui-review
+# PASS = 进程 rc=0,**不等于给了裁决**;off = 这条腿压根没派(不许读成通过)。
+# impact-risk=high requested-budget=2 selected-count=2
+# selected=subkimi(moonshot/subkimi),subcursor.grok-4.7-high(xai/subcursor)
+# escalation=none
+# snapshot=head:51b78b8
+# 日志:/root/aiwork/logs/panel-opendesign-instant-ui-review-r2-20260923-1436.*.log
+subkimi=PASS(verdict=PASS) subcursor.grok-4.7-high=PASS(verdict=PASS)
+```
+
+- 轮次记录补:
+
+  | 轮 | 类型 | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
+  |---|---|---|---|---|
+  | 2 | 实质(核验第 1 次 + MiMo 三条修复 + 窄窗修复;CURSOR_TIMEOUT=1800) | rc=3,BLOCK 0 | `/root/aiwork/logs/panel-opendesign-instant-ui-review-r2-20260923-1436` | 0 |
+
+- 第 2 轮 findings:
+
+  | # | 发现 | 核实证据 | 处置 | 理由 |
+  |---|---|---|---|---|
+  | G1 | (Grok)E2.noreload「没钉死在读不到项目列表」是**空检查**:那行红字只画在项目页(`.ws-pane`,首页时 `display:none`),测试停在首页 ⇒ 恒真 | `web/src/App.tsx` projErr 只在 `.ws-pane` 里渲染;`e2-drive.mjs` 用 `isVisible` | 延期 | 承诺②「不钉死」由 a6(就绪前挂起不失败)结构性保证,不靠这一行;改它要动 tests/ ⇒ 作废本轮绑定、超预算。下一个使用者:别信这一行的名字;**下一单动 e2-drive.mjs 时改成先切到 `#/workspace` 再查 `.ws-pane .error-note` 不可见,并断言 `.ws-pane` 可见** |
+  | K1~K4 | (Kimi)backend-died 不自愈 / localStorage 丢一次 / E2.connecting 慢机假红 / 长挂起观感 | 同第 1 次处置表 | 维持延期 / 已认账 | Kimi 逐条复核后认为第 1 次的驳回/延期都站得住;Kimi 自认第 1 次「corsEnabled 更严」说反了 |
+
+- arbitrated verdict (主裁): **PASS**。五条承诺各有证据:①E2.instant(窗口栏 +590ms 先于后台 +4086ms);②a6 + E2.connecting + E2.noreload(整页只导航 1 次、横幅就绪后消失);
+  ③旧判据全绿 + 云 E2/E3/E4/E5/E6/E7 全过;④bs2/bs4~6/mc19~21 + 云 E2v;⑤a3/a5/a7/n1/s1/s1b。窄窗:narrow_window.e2e 先红后绿 + 云截图。
+  两家族同一次 PASS;附加 MiMo BLOCK 的三条已修并经第 2 轮两家复核。
 
 ## Accepted deviations
 
-- <接受的非关键偏差 + 原因 + 影响范围,或 None>
+- **T5(随版本发布 + 业主真机)移交下一张发版单**:发版要改版本号 = 改产品文件 ⇒ 会作废本单评审绑定;本仓一向发版单独开单(同 opendesign-electron-shell)。
+  发版单必须带上:①发版说明写明「项目对话映射 / 图库列数 / 侧栏折叠会重置一次」;②真机清单:有 key 冷启动,看横幅文字、各页只转圈不报错、就绪后自己出来;③窄窗(把窗口拖窄)首页无横向滚动条。
+- localStorage 源站迁移不做数据搬运(一次性丢三项偏好,口令由 ds-web 代签不受影响)。
 
 ## 试行记录(review-convergence 试行,约五单;拿不到的写 unknown,别补 0)
 
-- 总交付历时:<开工 commit 时刻 → 归档 commit 时刻>
-- 每轮新增有效阻断:<第 1 轮 n / 第 2 轮 n>
-- 基础设施等待:<重试次数;observations 里 panel-review 的 duration_ms 求和>
-- 交付后返工:<归档后因本单再改过几次;不知道写 unknown>
+- 总交付历时:立单 `dcf61b7`(09-23 12:36)→ 归档(09-23 同日下午)
+- 每轮新增有效阻断:第 1 轮 0(Kimi)+ 附加 MiMo 1(M1)/ 第 2 轮 0
+- 基础设施等待:Grok 第 1 次超时 1 次(900s,零产出);MiMo 附加单派一次被「单家族低于 high 下限」拒派后改 standard 重派
+- 交付后返工:unknown
+- 方案挑战的作用:Grok 挑战改变了 4 处设计(首地址带 shell=1、挂起而非 503、管家通道先攒、导航源站提前定);云探针把「回环 http 还是 app://」这个分叉用数据定了
