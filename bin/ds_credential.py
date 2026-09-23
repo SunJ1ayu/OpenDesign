@@ -253,12 +253,13 @@ def _extra_preset(vendor: str, model: str) -> dict:
 
 
 def _preset_owner(name, preset: dict) -> str | None:
-    """这份预设属于哪家:名字带 `@厂商` ⇒ 那家;否则它的模型只在一家目录里 ⇒ 那家;认不出 ⇒ None(业主自己的,不碰)。"""
-    v = _qualified_vendor(name)
-    if v is not None:
-        return v
-    hits = [v for v, p in PROVIDERS.items() if preset.get("model") in p["models"]]
-    return hits[0] if len(hits) == 1 else None
+    """这份预设是不是**我们替某家起的**:模型在那家目录里,且名字正是 `preset_name(那家, 模型)` ⇒ 那家;
+    其余一律 None(业主手写的,哪怕名字碰巧以 `@kimi` 结尾、或名字和模型对不上 —— 第 5 轮 #20)。"""
+    model = preset.get("model")
+    for v, p in PROVIDERS.items():
+        if model in p["models"] and name == preset_name(v, model):
+            return v
+    return None
 
 
 def _route_presets(cfg: dict) -> None:
@@ -268,7 +269,8 @@ def _route_presets(cfg: dict) -> None:
     旧主槽留下的预设(`glm-5.3@glm_plan`、`mimo-v2.5`)就跟着发到新主槽,名字说一家、扣另一家的钱。
     所以在**槽的厂商会变的每一处**(save 写主槽、起网关)都对齐一遍:
     主人是主槽那家 ⇒ custom;主人有额外槽条目 ⇒ od_<主人>;都不是(主人手里没 key)⇒ 删掉。
-    只动指向我们自己槽位(custom / od_*)的预设;主槽厂商认不出(业主自配的端点)时不碰指向 custom 的。
+    只动**我们起的名字**(见 _preset_owner)且显式指向我们自己槽位(custom / od_*)的预设;
+    主槽厂商认不出(业主自配的端点)时不碰指向 custom 的。业主手写的一律不碰(k14)。
     """
     primary = _current_provider(cfg)
     providers = cfg.get("providers") or {}
@@ -279,7 +281,7 @@ def _route_presets(cfg: dict) -> None:
         p = presets[name]
         if not isinstance(p, dict):
             continue
-        prov = p.get("provider", "custom")
+        prov = p.get("provider")                 # 没写 = nanobot 的 auto,不是我们的槽(第 5 轮 #21)
         ours = prov == "custom" or (isinstance(prov, str) and prov.startswith(EXTRA_PREFIX))
         if not ours or (prov == "custom" and primary is None):
             continue

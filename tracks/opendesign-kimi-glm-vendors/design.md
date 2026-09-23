@@ -39,7 +39,11 @@
 > **每份认得出主人的预设(名字带 `@厂商`,或模型只在一家目录里)只许发到主人那家**:主人是主槽 ⇒ custom;
 > 主人有额外槽 ⇒ od_<主人>;主人没 key ⇒ 删。在槽的厂商会变的每一处都跑:save 写主槽时、起网关时(含只有一把 key 的老家快路径,
 > 本来就对齐的配置字节不变 v12/v12b)。认不出主人的(业主手写、自配端点)一律不碰。顺带收掉已发版本就有的 #16
-> (换过 DeepSeek 的老家里 mimo-* 发到 DeepSeek),`set_model.py` 也改用带厂商的名字(#17)。
+> (换过 DeepSeek 的老家里 mimo-* 发到 DeepSeek)。
+>
+> **第 5 轮后**:① 写「当前模型」只留一个入口 —— 我们管的配置(主槽端点认得出)里 `set_model.py` 改走 `select_model`
+> (界面同一入口:认厂商、同名按厂商命名、分不清拒绝、手选盖过标记);认不出的配置照老办法。
+> ② 「我们的预设」= 模型在那家目录里且名字正是 `preset_name` 的结果、并显式指向 custom/od_*;其余(业主手写)一律不碰。
 - `bin/ds_credential.py` PROVIDERS 加三行 + 每行 `keyUrl`;`/api/llm/credential` 的 providers 带出 `keyUrl`。
 - `web/src/llmKey.ts` asProvider 读可选 keyUrl(只收 https);`LlmKeyCard.tsx` 在 API key 输入框下显示「获取 {label} 的 API Key ›」外链(新窗口/外部浏览器)。
 - 链接:MiMo `https://platform.xiaomimimo.com/token-plan`(我们接的是套餐端点,不能照 ZCode 链平台首页);DeepSeek `https://platform.deepseek.com/api_keys`;

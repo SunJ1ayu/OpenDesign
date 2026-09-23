@@ -12,6 +12,12 @@ model 字段被无视。所以切换必须跟着同一条规则写,否则静默�
     输家 model 字段一字不碰,旧预设保留供 /model 切回;
   - modelPreset 未设(纯 onboard 形态)→ 改 agents.defaults.model(此时它才是真相源)。
 
+**我们管的配置**(主槽端点认得出是哪家,即界面填过 key 的装法)里,这个脚本不自己写,改走和界面同一个入口
+`ds_credential.select_model`:只许选网关手里有 key 的那几家目录里的模型、同名模型按厂商命名(`glm-5.3@glm`)、
+两家都有又没给 `--provider` 就拒绝、手选盖过「想换过去」标记。以前它自己写,正用 Kimi 时 `set_model.py glm-5.3`
+会把 glm-5.3 发到 Kimi 的端点(track opendesign-kimi-glm-vendors 第 5 轮;判据 k13/k13b/k13c)。
+认不出的配置(自配端点 / 纯 onboard)照下面的老办法写。
+
 其余契约不变(oracle tests/test_set_model.py 锁定):
   - 上面点名之外的字段值一个不碰(整文件按标准 JSON 缩进重排——值不变,空白归一);
   - 改前把原文备份到 config.json.bak;
@@ -37,6 +43,8 @@ def main() -> int:
     ap.add_argument("model", help="模型 id,如 xiaomi/mimo-v2.5-pro")
     ap.add_argument("--config", default=DEFAULT_CONFIG,
                     help=f"nanobot config 路径(默认 {DEFAULT_CONFIG})")
+    ap.add_argument("--provider", default=None,
+                    help="厂商 id(如 glm_plan / glm);模型名几家都有时必须给")
     args = ap.parse_args()
 
     model = args.model.strip()
@@ -56,6 +64,9 @@ def main() -> int:
         print(f"set_model: config 不是合法 JSON({e}),一字未动", file=sys.stderr)
         return 2
 
+    if isinstance(cfg, dict) and ds_credential._current_provider(cfg) is not None:
+        return _select_via_the_ui_entry(args, cfg, original)
+
     defaults = cfg.setdefault("agents", {}).setdefault("defaults", {})
     active_preset = ds_model.active_preset_name(cfg)  # 与 _read_model 同一判定(L1)
     if active_preset:
@@ -65,13 +76,8 @@ def main() -> int:
         old = base.get("model", active_preset) if isinstance(base, dict) else active_preset
         entry = dict(base) if isinstance(base, dict) else {"provider": "custom"}
         entry.update(label=model, model=model)
-        # 当前厂商目录里认得这个模型 ⇒ 用那家的预设名(两家 GLM 同名模型各一份 `glm-5.3@glm`,
-        # 写裸名会多出第三份、谁都能改它的归属;k12)。认不得 ⇒ 照旧用模型名。
-        vendor = ds_credential._preset_vendor(cfg, active_preset)
-        name = (ds_credential.preset_name(vendor, model)
-                if vendor and model in ds_credential.PROVIDERS[vendor]["models"] else model)
-        presets[name] = entry
-        defaults["modelPreset"] = name
+        presets[model] = entry
+        defaults["modelPreset"] = model
     else:
         old = defaults.get("model")
         defaults["model"] = model
@@ -84,6 +90,23 @@ def main() -> int:
 
     print(f"set_model: {old or '(未设)'} → {model}")
     print("已落盘;重启 gateway 生效(关掉 ds-nanobot 窗口重开,或重启服务)。")
+    return 0
+
+
+def _select_via_the_ui_entry(args, cfg: dict, original: str) -> int:
+    old = ds_model.resolve_model(cfg)
+    nb_dir = os.path.dirname(os.path.abspath(args.config))
+    # 装法里配置在 <home>/.nanobot/config.json,「想换过去」标记在同一个 home 下 —— 手选要把它作废(v18 / k13c)
+    home = os.path.dirname(nb_dir) if os.path.basename(nb_dir) == ".nanobot" else None
+    try:
+        st = ds_credential.select_model(args.config, args.model.strip(), provider=args.provider, home=home)
+    except ds_credential.CredentialError as exc:
+        print(f"set_model: {exc}(配置一字未动)", file=sys.stderr)
+        return 2
+    with open(args.config + ".bak", "w", encoding="utf-8") as fh:
+        fh.write(original)                      # 备份 = 改前原文
+    print(f"set_model: {old or '(未设)'} → {st.get('current')}({st.get('label')})")
+    print("已落盘;网关每句话前重读配置,下一句起生效。")
     return 0
 
 
