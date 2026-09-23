@@ -591,6 +591,16 @@ class C7Retired(unittest.TestCase):
         self.assertTrue(_hits(text, r"release-feed\.mjs\s+gh-command"), "发布说明没叫人用生成好的发布命令")
         self.assertTrue(_hits(text, r"release-feed\.mjs\s+verify"), "发布说明没叫人先核 sha512")
 
+    def test_c7d_release_notes_require_every_cloud_stage(self):
+        """发版单 opendesign-electron-release-0989 延期 #1(Cursor-Grok):RELEASE.md 写「E1～E6 必须通过」,而 artifact `release`
+        在 E7 之前就上传了 ⇒ 照文档从一次 E7 红的运行取包,发出去的就是会把口令写进 C:\\ProgramData 的那种。
+        最高段号从 e2e.ps1 现取(将来加 E8 不用回来改这里),要求说明写到它。"""
+        text = (ROOT / "installer" / "RELEASE.md").read_text(encoding="utf-8")
+        ps1 = (ROOT / ".github" / "scripts" / "electron-e2e" / "e2e.ps1").read_text(encoding="utf-8")
+        top = max(int(n) for n in re.findall(r"\bE(\d+)\b", ps1))
+        self.assertGreaterEqual(top, 7, "量具:e2e.ps1 里至少有 E7")
+        self.assertTrue(_hits(text, rf"E1\s*[～~\-–]\s*E{top}\b"), f"发布说明没要求云上 E1～E{top} 全过")
+
 
 class C8NoOldUpdateSurface(unittest.TestCase):
     def test_c8_no_update_endpoints_left(self):
