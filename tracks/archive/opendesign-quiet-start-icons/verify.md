@@ -12,9 +12,9 @@
 
 ## Mechanical checks
 
-- [ ] build passes
-- [ ] tests pass
-- [ ] no secrets / unsafe ops
+- [x] build passes
+- [x] tests pass
+- [x] no secrets / unsafe ops
 
 **机器打印的**(不是我的转述)—— 判据用 `runlog` 跑,把它打印的收据行原样粘进来:
 
@@ -31,6 +31,16 @@ runlog: node rc=1 commit=9532d5d dirty=yes at=2026-09-23T08:44:08Z file=tracks/o
 runlog: bash rc=1 commit=087bf1c dirty=yes at=2026-09-23T08:46:51Z file=tracks/opendesign-quiet-start-icons/evidence/20260923T084651Z-01-bash.txt
 ```
 (上一行 = 实现后第一遍总跑:只红「dist 新鲜度」一段 —— 入库 dist 还没随改动重建提交;node 506 / python 1436 / e2e 41 全过。)
+
+```
+runlog: bash rc=3 commit=aaeac2d dirty=no at=2026-09-23T08:58:51Z file=tracks/opendesign-quiet-start-icons/evidence/20260923T085851Z-01-bash.txt
+```
+(上一行 = 最后一遍总跑,干净树:六段全 PASS;rc=3 = 2 条要活网关的 e2e + 1 条 python 跳过,与本单无关、历来如此。)
+
+```
+runlog: node rc=0 commit=aaeac2d dirty=yes at=2026-09-23T09:10:47Z file=tracks/opendesign-quiet-start-icons/evidence/20260923T091047Z-01-node.txt
+```
+(上一行 = 本单判据 + 两份被改的旧判据 44/44 绿;dirty 只是 verify/decision/tasks 未提交,源码 = aaeac2d。)
 
 ```
 <粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);

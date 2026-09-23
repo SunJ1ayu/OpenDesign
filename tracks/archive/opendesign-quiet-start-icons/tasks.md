@@ -5,5 +5,5 @@
 - [x] T1 判据先行:新 test_quiet_start_icons.mjs + 改旧判据(fb1/fb3/s4、e2-drive),单独 commit,红检
 - [x] T2 去横幅(backendState.ts / App.tsx / CSS)
 - [x] T3 侧栏换 lucide 图标(icons.tsx / Sidebar.tsx / CSS)
-- [ ] T4 build + 总跑 + 本地截图亲看;bump 0.98.11
-- [ ] T5 归档;发版另问业主
+- [x] T4 build + 总跑 + 本地截图亲看(bump 不在本单:跟发版单走)
+- [x] T5 归档;发版另问业主

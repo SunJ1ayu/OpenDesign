@@ -1,0 +1,284 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    node
+cmd:     node --test tests/test_quiet_start_icons.mjs tests/test_desktop_instant.mjs tests/test_desktop_ui.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  aaeac2d
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-23T09:10:47Z
+---------------- 输出开始 ----------------
+TAP version 13
+# Subtest: a1 首页 = 包里的 index.html,入口页不缓存、nosniff
+ok 1 - a1 首页 = 包里的 index.html,入口页不缓存、nosniff
+  ---
+  duration_ms: 59.970227
+  type: 'test'
+  ...
+# Subtest: a2 带哈希的资源长缓存、类型对
+ok 2 - a2 带哈希的资源长缓存、类型对
+  ---
+  duration_ms: 1.908568
+  type: 'test'
+  ...
+# Subtest: a3 🔴 越界一律拒,且从不去读 dist 以外的路径(..%2f / ..%5c / %00 / 绝对路径)
+ok 3 - a3 🔴 越界一律拒,且从不去读 dist 以外的路径(..%2f / ..%5c / %00 / 绝对路径)
+  ---
+  duration_ms: 4.295664
+  type: 'test'
+  ...
+# Subtest: a4 不存在的文件 404,不回落首页(工作台是 \#/ 路由,ds-web 也不回落)
+ok 4 - a4 不存在的文件 404,不回落首页(工作台是 \#/ 路由,ds-web 也不回落)
+  ---
+  duration_ms: 0.815592
+  type: 'test'
+  ...
+# Subtest: a5 🔴 冒名主机 app://别的/ 既不给文件也不进后台
+ok 5 - a5 🔴 冒名主机 app://别的/ 既不给文件也不进后台
+  ---
+  duration_ms: 1.521087
+  type: 'test'
+  ...
+# Subtest: a6 🔴 后台没好时 /api 请求挂着、不失败;就绪后原样转给 127.0.0.1:<端口>(路径与查询串不丢)
+ok 6 - a6 🔴 后台没好时 /api 请求挂着、不失败;就绪后原样转给 127.0.0.1:<端口>(路径与查询串不丢)
+  ---
+  duration_ms: 30.531917
+  type: 'test'
+  ...
+# Subtest: a7 🔴 转发时去掉页面身份头(Origin/Referer/Sec-Fetch-*),业务头照带
+ok 7 - a7 🔴 转发时去掉页面身份头(Origin/Referer/Sec-Fetch-*),业务头照带
+  ---
+  duration_ms: 1.255022
+  type: 'test'
+  ...
+# Subtest: a8 方法与请求体原样转发(上传走流,duplex=half);GET 不带体
+ok 8 - a8 方法与请求体原样转发(上传走流,duplex=half);GET 不带体
+  ---
+  duration_ms: 0.653925
+  type: 'test'
+  ...
+# Subtest: a9 后台连不上(死了/重启中)⇒ 502 JSON,不抛(抛了页面拿到的是无法解释的网络错误)
+ok 9 - a9 后台连不上(死了/重启中)⇒ 502 JSON,不抛(抛了页面拿到的是无法解释的网络错误)
+  ---
+  duration_ms: 1.153264
+  type: 'test'
+  ...
+# Subtest: a10 只有 /api/ 开头才进后台:/apix、/api 本身都按文件处理
+ok 10 - a10 只有 /api/ 开头才进后台:/apix、/api 本身都按文件处理
+  ---
+  duration_ms: 1.207232
+  type: 'test'
+  ...
+# Subtest: a11 窗口地址 = app://opendesign/?shell=1,外壳标记与前端同一个字面量
+ok 11 - a11 窗口地址 = app://opendesign/?shell=1,外壳标记与前端同一个字面量
+  ---
+  duration_ms: 75.300864
+  type: 'test'
+  ...
+# Subtest: n1 🔴 站内(app://opendesign)放行;冒名主机拒、不外开;http(s) 交系统浏览器
+ok 12 - n1 🔴 站内(app://opendesign)放行;冒名主机拒、不外开;http(s) 交系统浏览器
+  ---
+  duration_ms: 0.90918
+  type: 'test'
+  ...
+# Subtest: hs1 🔴 管家还没起来时发的(window-shown / 首帧上报)先攒着,接上后按原顺序补发
+ok 13 - hs1 🔴 管家还没起来时发的(window-shown / 首帧上报)先攒着,接上后按原顺序补发
+  ---
+  duration_ms: 2.604662
+  type: 'test'
+  ...
+# Subtest: hs2 管家已退出 / stdin 不可写 / 写时抛 ⇒ 丢弃并记日志,不抛
+ok 14 - hs2 管家已退出 / stdin 不可写 / 写时抛 ⇒ 丢弃并记日志,不抛
+  ---
+  duration_ms: 0.463589
+  type: 'test'
+  ...
+# Subtest: hs3 攒的有上限(管家永远起不来时不无限长)
+ok 15 - hs3 攒的有上限(管家永远起不来时不无限长)
+  ---
+  duration_ms: 2.970874
+  type: 'test'
+  ...
+# Subtest: bs1 🔴 一开始就是「后台启动中」;ready 且版本一致 ⇒ 放行端口一次、推「就绪」,**不再整页换地址**
+ok 16 - bs1 🔴 一开始就是「后台启动中」;ready 且版本一致 ⇒ 放行端口一次、推「就绪」,**不再整页换地址**
+  ---
+  duration_ms: 5.714543
+  type: 'test'
+  ...
+# Subtest: bs2 版本对不上 ⇒ 不放行(挂着的请求永远不进半新半旧的后台),弹框退出
+ok 17 - bs2 版本对不上 ⇒ 不放行(挂着的请求永远不进半新半旧的后台),弹框退出
+  ---
+  duration_ms: 0.407491
+  type: 'test'
+  ...
+# Subtest: bs3 站内跳转在后台就绪之前就放行(源站创建窗口时就定了)
+ok 18 - bs3 站内跳转在后台就绪之前就放行(源站创建窗口时就定了)
+  ---
+  duration_ms: 0.353282
+  type: 'test'
+  ...
+# Subtest: fb2 外壳桥:新 preload 给 backend;旧 preload 没有 backend 也照样认得出外壳(窗口按钮不能因此消失)
+ok 19 - fb2 外壳桥:新 preload 给 backend;旧 preload 没有 backend 也照样认得出外壳(窗口按钮不能因此消失)
+  ---
+  duration_ms: 4.821701
+  type: 'test'
+  ...
+# Subtest: s1 🔴 app 协议在模块顶层注册成特权协议(standard/secure/supportFetchAPI/stream),先于 whenReady
+ok 20 - s1 🔴 app 协议在模块顶层注册成特权协议(standard/secure/supportFetchAPI/stream),先于 whenReady
+  ---
+  duration_ms: 0.889221
+  type: 'test'
+  ...
+# Subtest: s2 🔴 窗口一创建就加载 APP_URL;加载页整个删掉
+ok 21 - s2 🔴 窗口一创建就加载 APP_URL;加载页整个删掉
+  ---
+  duration_ms: 0.449381
+  type: 'test'
+  ...
+# Subtest: s3 管家通道全走 hostSender(主进程里不再直接写 host.stdin)
+ok 22 - s3 管家通道全走 hostSender(主进程里不再直接写 host.stdin)
+  ---
+  duration_ms: 0.279745
+  type: 'test'
+  ...
+# Subtest: s4 后台状态经 preload 通到界面(界面不再挂横幅,见 test_quiet_start_icons q1)
+ok 23 - s4 后台状态经 preload 通到界面(界面不再挂横幅,见 test_quiet_start_icons q1)
+  ---
+  duration_ms: 1.560725
+  type: 'test'
+  ...
+# Subtest: bs4 🔴 管家在 ready 之前意外退出 ⇒ 弹一次框并退出;不让业主去托盘
+ok 24 - bs4 🔴 管家在 ready 之前意外退出 ⇒ 弹一次框并退出;不让业主去托盘
+  ---
+  duration_ms: 0.449111
+  type: 'test'
+  ...
+# Subtest: bs5 管家在 ready 之后意外退出 ⇒ 同样弹框并退出(后台已整个没了,留着窗口只剩一堆 502)
+ok 25 - bs5 管家在 ready 之后意外退出 ⇒ 同样弹框并退出(后台已整个没了,留着窗口只剩一堆 502)
+  ---
+  duration_ms: 0.321343
+  type: 'test'
+  ...
+# Subtest: bs6 收摊中 / 已报过 fatal 的管家退出,不弹也不重复退
+ok 26 - bs6 收摊中 / 已报过 fatal 的管家退出,不弹也不重复退
+  ---
+  duration_ms: 0.486139
+  type: 'test'
+  ...
+# Subtest: s1b app 协议不给 corsEnabled / bypassCSP / allowServiceWorkers 等用不着的特权
+ok 27 - s1b app 协议不给 corsEnabled / bypassCSP / allowServiceWorkers 等用不着的特权
+  ---
+  duration_ms: 0.370281
+  type: 'test'
+  ...
+# Subtest: du1 没查过时显示当前版本,不是空白
+ok 28 - du1 没查过时显示当前版本,不是空白
+  ---
+  duration_ms: 1.166874
+  type: 'test'
+  ...
+# Subtest: du2 查的时候有反应
+ok 29 - du2 查的时候有反应
+  ---
+  duration_ms: 0.176816
+  type: 'test'
+  ...
+# Subtest: du3 查过、没有新版:说已是最新
+ok 30 - du3 查过、没有新版:说已是最新
+  ---
+  duration_ms: 0.117517
+  type: 'test'
+  ...
+# Subtest: du4 🔴 查不动 / 下载失败不许说「已是最新」(旧判据 u3)
+ok 31 - du4 🔴 查不动 / 下载失败不许说「已是最新」(旧判据 u3)
+  ---
+  duration_ms: 0.208885
+  type: 'test'
+  ...
+# Subtest: du4b 下载到一半失败:说是哪一版没下完,不说「已是最新」也不说「没查到」(那会让他以为没有新版)
+ok 32 - du4b 下载到一半失败:说是哪一版没下完,不说「已是最新」也不说「没查到」(那会让他以为没有新版)
+  ---
+  duration_ms: 0.285643
+  type: 'test'
+  ...
+# Subtest: du5 下载中、下好了:都说出是哪一版
+ok 33 - du5 下载中、下好了:都说出是哪一版
+  ---
+  duration_ms: 0.134127
+  type: 'test'
+  ...
+# Subtest: du6 🔴「重启以更新」只在 downloaded 出现(没下好就装 = 装半截)
+ok 34 - du6 🔴「重启以更新」只在 downloaded 出现(没下好就装 = 装半截)
+  ---
+  duration_ms: 0.219575
+  type: 'test'
+  ...
+# Subtest: du7 失败了要有「重试」(挑战 a6:先开软件后开 VPN;下载失败不许静默)
+ok 35 - du7 失败了要有「重试」(挑战 a6:先开软件后开 VPN;下载失败不许静默)
+  ---
+  duration_ms: 0.154246
+  type: 'test'
+  ...
+# Subtest: du8 侧栏「设置」行上的圆点:下好了、或下载失败(知道有新版却没拿到)时亮;单纯查不到不亮(挑战 a5 / 攻题 \#14)
+ok 36 - du8 侧栏「设置」行上的圆点:下好了、或下载失败(知道有新版却没拿到)时亮;单纯查不到不亮(挑战 a5 / 攻题 \#14)
+  ---
+  duration_ms: 0.375301
+  type: 'test'
+  ...
+# Subtest: du9 按钮旁写明要多久、别关机(向导进度页取消不了,关机会装一半)
+ok 37 - du9 按钮旁写明要多久、别关机(向导进度页取消不了,关机会装一半)
+  ---
+  duration_ms: 0.378682
+  type: 'test'
+  ...
+# Subtest: du10 每个状态都有话说,且不是 undefined/null 拼出来的
+ok 38 - du10 每个状态都有话说,且不是 undefined/null 拼出来的
+  ---
+  duration_ms: 0.358082
+  type: 'test'
+  ...
+# Subtest: du11 shellApi 只认 preload 给的 odShell,齐了才给
+ok 39 - du11 shellApi 只认 preload 给的 odShell,齐了才给
+  ---
+  duration_ms: 0.187815
+  type: 'test'
+  ...
+# Subtest: du12 窗口栏 CSS:拖动带交给 Chromium,按钮不许被拖动吃掉,八个自绘把手删光
+ok 40 - du12 窗口栏 CSS:拖动带交给 Chromium,按钮不许被拖动吃掉,八个自绘把手删光
+  ---
+  duration_ms: 3.725946
+  type: 'test'
+  ...
+# Subtest: q1 🔴 界面里没有「正在启动后台」横幅:App 不渲染、不引用,整个 web/src 找不到那句话
+ok 41 - q1 🔴 界面里没有「正在启动后台」横幅:App 不渲染、不引用,整个 web/src 找不到那句话
+  ---
+  duration_ms: 22.549595
+  type: 'test'
+  ...
+# Subtest: q2 🔴 侧栏五行各用对应的 lucide 线条图标,不再有 ✳⌕◎✦◷⚙ 文字符号
+ok 42 - q2 🔴 侧栏五行各用对应的 lucide 线条图标,不再有 ✳⌕◎✦◷⚙ 文字符号
+  ---
+  duration_ms: 0.543707
+  type: 'test'
+  ...
+# Subtest: q3 🔴 icons.tsx 五个图标与 lucide 1.47.0 原文逐字一致,线条色跟文字走,带 ISC 许可
+ok 43 - q3 🔴 icons.tsx 五个图标与 lucide 1.47.0 原文逐字一致,线条色跟文字走,带 ISC 许可
+  ---
+  duration_ms: 0.39128
+  type: 'test'
+  ...
+# Subtest: q4 历史对话行前不再有图标位(ZCode 任务行前无图标)
+ok 44 - q4 历史对话行前不再有图标位(ZCode 任务行前无图标)
+  ---
+  duration_ms: 0.214835
+  type: 'test'
+  ...
+1..44
+# tests 44
+# suites 0
+# pass 44
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 603.339635
+---------------- 输出结束 ----------------
+runlog: node rc=0 commit=aaeac2d dirty=yes at=2026-09-23T09:10:47Z file=tracks/opendesign-quiet-start-icons/evidence/20260923T091047Z-01-node.txt
