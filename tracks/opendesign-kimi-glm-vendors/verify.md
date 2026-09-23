@@ -222,6 +222,7 @@ runlog: bash rc=0 commit=b033875 dirty=yes at=2026-09-23T13:03:15Z file=tracks/o
 - 第 6 轮第一次派发(/root/aiwork/logs/panel-kimi-glm-r6-20260923-2103 [仓外不承重]):两腿都在 900s 被砍(rc=124),**无结论 = 基础设施失败,不算实质轮**。
   MiMo 残稿里的探针(E/F/G)全部要先手改配置(手写预设占用我们起的名字却填别的模型)或是旧版 set_model 留下的裸名,我们任何写入口都走不到;
   题面第 1 问本来就限定「我们的写入口」⇒ 重派时加长时限(MIMO_CLI_TIMEOUT=2100、CURSOR_TIMEOUT=1800,已知大单要这么久),题面加一句范围说明,问题不减。
+  重派被健康闸拦(两腿因刚才的超时进入冷却)⇒ 用 PANEL_HEALTH_OVERRIDE 放回:超时原因已知(时限短,MiMo 残稿显示它在正常干活),时限已加长;不是腿坏了。
 
 ## Accepted deviations
 
