@@ -2,7 +2,8 @@
 
 const { createHostDecoder, hostExitMessage } = require("./hostProtocol");
 const { versionMismatch } = require("./versionCheck");
-const { navDecision, workbenchUrl } = require("./navPolicy");
+const { navDecision } = require("./navPolicy");
+const { APP_ORIGIN } = require("./appProtocol");
 const {
   initialUpdateState,
   reduceUpdate,
@@ -16,7 +17,9 @@ const { installUpdate: handoffUpdate } = require("./lifecycle");
 function createController(deps) {
   let quitting = false;
   let fatalShown = false;
-  let origin = null;
+  // 源站在窗口创建时就定了(track opendesign-instant-ui):站内跳转不用等后台。
+  const origin = APP_ORIGIN;
+  let backend = { phase: "starting" };
   let state = initialUpdateState();
   let timer = null;
   let updatesStarted = false;
@@ -61,9 +64,11 @@ function createController(deps) {
           giveUp(mismatch);
           return;
         }
-        const url = workbenchUrl(message.web_port);
-        origin = new URL(url).origin;
-        deps.loadWorkbench(url);
+        // 页面早就在了,这里只放行那些挂着的 /api 请求;**不换页**(换页 = 业主看到整页再来一次)。
+        if (backend.phase === "ready") return;
+        backend = { phase: "ready" };
+        deps.backendReady(message.web_port);
+        deps.pushBackendState(backend);
         return;
       }
       case "show":
@@ -141,6 +146,7 @@ function createController(deps) {
     startUpdates,
     checkNow,
     updateState() { return state; },
+    backendState() { return backend; },
     installUpdate(host) {
       if (!canInstall(state)) return Promise.resolve(false);
       quitting = true;

@@ -13,6 +13,14 @@ contextBridge.exposeInMainWorld("odShell", {
     return () => ipcRenderer.removeListener("od:window-state-changed", listener);
   },
   reportStartup: (event, detail) => ipcRenderer.send("od:report", String(event), detail == null ? "" : String(detail)),
+  backend: {
+    state: () => ipcRenderer.invoke("od:backend-state"),
+    onState: (callback) => {
+      const listener = (_event, state) => callback(state);
+      ipcRenderer.on("od:backend-state-changed", listener);
+      return () => ipcRenderer.removeListener("od:backend-state-changed", listener);
+    },
+  },
   update: {
     check: () => ipcRenderer.invoke("od:update-check"),
     install: () => ipcRenderer.invoke("od:update-install"),

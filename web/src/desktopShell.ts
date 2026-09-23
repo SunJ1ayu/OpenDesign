@@ -1,9 +1,16 @@
+import type { BackendState } from "./backendState";
+
 export type DesktopUpdateState = {
   phase: "idle" | "checking" | "latest" | "downloading" | "downloaded" | "error";
   version?: string;
   percent?: number;
   error?: string;
 };
+
+export interface OdBackend {
+  state(): Promise<BackendState>;
+  onState(callback: (state: BackendState) => void): () => void;
+}
 
 export interface OdShell {
   minimize(): Promise<unknown>;
@@ -12,6 +19,8 @@ export interface OdShell {
   windowState(): Promise<{ maximized: boolean } | null>;
   onWindowState(callback: (state: { maximized: boolean }) => void): () => void;
   reportStartup(event: string, detail?: string): unknown;
+  /** 后台起没起好(track opendesign-instant-ui);旧 preload 没有,用 backendApi() 取 */
+  backend?: OdBackend;
   update: {
     check(): Promise<unknown>;
     install(): Promise<unknown>;
@@ -31,4 +40,12 @@ export function shellApi(win: unknown = globalThis): OdShell | null {
   if (!update || !method(update.check) || !method(update.install)
       || !method(update.state) || !method(update.onState)) return null;
   return api as OdShell;
+}
+
+/** 后台状态桥(新 preload 才有)。旧 preload 没有它时返回 null —— 外壳照样认得出(fb2)。 */
+export function backendApi(win: unknown = globalThis): OdBackend | null {
+  if (!shellApi(win)) return null;
+  const backend = (win as { odShell?: { backend?: Partial<OdBackend> } }).odShell?.backend;
+  if (!backend || !method(backend.state) || !method(backend.onState)) return null;
+  return backend as OdBackend;
 }

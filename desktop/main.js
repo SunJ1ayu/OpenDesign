@@ -1,6 +1,6 @@
 "use strict";
 
-const { app, BrowserWindow, Tray, Menu, ipcMain, shell, dialog } = require("electron");
+const { app, BrowserWindow, Tray, Menu, ipcMain, shell, dialog, protocol, net } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
@@ -8,13 +8,21 @@ const path = require("node:path");
 const { createController } = require("./lib/controller");
 const { trayMenuTemplate, contextMenuTemplate } = require("./lib/menus");
 const { windowOpenDecision } = require("./lib/navPolicy");
-const { encodeCommand } = require("./lib/hostProtocol");
+const { createHostSender } = require("./lib/hostSender");
+const { APP_SCHEME, APP_URL, createAppHandler } = require("./lib/appProtocol");
 const { shutdownHost } = require("./lib/lifecycle");
 
 const resources = app.isPackaged ? process.resourcesPath : path.join(__dirname, "pkg");
 const localData = process.env.LOCALAPPDATA || app.getPath("appData");
 const logPath = path.join(localData, "OpenDesign", "Logs", "electron.log");
 app.setPath("userData", path.join(localData, "OpenDesign", "Electron"));
+
+// 工作台的源站 app://opendesign(track opendesign-instant-ui)。必须在 ready 之前、模块顶层注册:
+// 不是 standard 协议的话,相对路径 /api、localStorage、fetch 都不按网页的规矩走。
+protocol.registerSchemesAsPrivileged([{
+  scheme: APP_SCHEME,
+  privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true },
+}]);
 
 function log(message) {
   try {
@@ -30,6 +38,25 @@ let tray = null;
 let host = null;
 let quitting = false;
 
+// 后台(ds-web)的端口:管家报 ready 时才知道。在那之前页面的 /api 请求都挂在这个 Promise 上。
+let resolveBackend;
+const backendPort = new Promise((resolve) => { resolveBackend = resolve; });
+const webDist = path.join(resources, "ds", "web", "dist");
+
+// 和 ds-web `_static` 一样按 realpath 判越界(包里若出现指向外面的链接也读不出去)。
+async function readDistFile(target) {
+  const root = await fs.promises.realpath(webDist);
+  const real = await fs.promises.realpath(target);
+  if (real !== root && !real.startsWith(root + path.sep)) {
+    const error = new Error("outside dist");
+    error.code = "ENOENT";
+    throw error;
+  }
+  return fs.promises.readFile(real);
+}
+
+const hostSender = createHostSender({ log });
+
 function showWindow() {
   if (!win || win.isDestroyed()) return;
   if (win.isMinimized()) win.restore();
@@ -38,13 +65,15 @@ function showWindow() {
 }
 
 function sendHost(command) {
-  if (!host || host.exitCode !== null || !host.stdin.writable) return;
-  try { host.stdin.write(encodeCommand(command), "utf8"); } catch (error) { log(`[管家 stdin] ${error}`); }
+  hostSender.send(command);
 }
 
 const ctl = createController({
   appVersion: app.getVersion(),
-  loadWorkbench: (url) => win && win.loadURL(url),
+  backendReady: (port) => resolveBackend(port),
+  pushBackendState: (state) => {
+    if (win && !win.isDestroyed()) win.webContents.send("od:backend-state-changed", state);
+  },
   showWindow,
   showError: (message) => dialog.showErrorBox("OpenDesign", message),
   revealFile: (file) => shell.showItemInFolder(file),
@@ -85,7 +114,7 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
-  void win.loadFile(path.join(__dirname, "loading.html"));
+  void win.loadURL(APP_URL);
   win.once("ready-to-show", showWindow);
 
   win.on("close", (event) => {
@@ -138,6 +167,7 @@ function startHost() {
   host.stderr.on("data", (chunk) => log(`[管家 stderr] ${chunk.trimEnd()}`));
   // 管家先死了、我们还在往它写(window-shown / report)⇒ 异步 EPIPE,没人接就是主进程未捕获异常。
   host.stdin.on("error", (error) => log(`[管家 stdin] ${error}`));
+  hostSender.attach(host);
   host.on("error", (error) => ctl.hostError(error));
   host.on("close", (code) => ctl.hostExit(code));
 }
@@ -171,6 +201,7 @@ ipcMain.handle("od:window-state", () => ({ maximized: !!win && win.isMaximized()
 ipcMain.on("od:report", (_event, event, detail) => sendHost({ cmd: "report", event, detail }));
 ipcMain.handle("od:update-check", () => ctl.checkNow());
 ipcMain.handle("od:update-state", () => ctl.updateState());
+ipcMain.handle("od:backend-state", () => ctl.backendState());
 ipcMain.handle("od:update-install", async () => {
   // 放行 electron-updater 自己发出的 app.quit；失败时控制器会立即 relaunch。
   quitting = true;
@@ -191,6 +222,13 @@ if (!app.requestSingleInstanceLock()) {
   app.on("window-all-closed", () => {});
   app.whenReady().then(() => {
     log(`==== OpenDesign(Electron ${process.versions.electron}) 启动 ====`);
+    protocol.handle("app", createAppHandler({   // = APP_SCHEME;字面量给静态判据 s1 认
+      distRoot: webDist,
+      readFile: readDistFile,
+      backendPort: () => backendPort,
+      fetch: (url, init) => net.fetch(url, init),
+      log,
+    }));
     createWindow();
     createTray();
     startHost();

@@ -2184,6 +2184,34 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 }
 .connect-banner .banner-link { margin-left: auto; font-weight: 600; color: var(--terra-deep); }
 .chat-fill-blank { flex: 1; min-height: 0; }
+/* 外壳里后台没好时的横幅(track opendesign-instant-ui):浮在窗口栏下方正中,不占布局、不挡点击 */
+.backend-banner {
+  position: fixed;
+  top: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: var(--st-pending-bg);
+  border: 1px solid var(--st-pending-dot);
+  border-radius: 999px;
+  color: var(--st-pending-fg);
+  font-size: 12.5px;
+  pointer-events: none;
+  box-shadow: 0 2px 10px rgba(44, 42, 38, 0.08);
+}
+.backend-banner .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--st-pending-dot);
+  flex: none;
+  animation: backend-pulse 1.2s ease-in-out infinite;
+}
+@keyframes backend-pulse { 50% { opacity: 0.3; } }
 .connect-modal-mask {
   position: fixed;
   inset: 0;
