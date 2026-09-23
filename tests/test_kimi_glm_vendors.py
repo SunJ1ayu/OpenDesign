@@ -160,6 +160,26 @@ class TestRouting(pv.Rig):
                     self.assertEqual(snap.provider.api_key, key)
                     self.assertEqual(ds_credential.models_status(self.cfg_path)["provider"], vendor)
 
+    def test_k4c_adding_the_other_glm_key_still_switches_to_it_after_restart(self):
+        """k4b 的反面:存了另一家 GLM 的 key =「想换过去」(switch-to 标记),重启后要真换到**那一家**,
+        不能因为同名预设归了原来那家就又落回原来那家(那样界面说已切换、实际没换)。"""
+        for first, second in (("glm_plan", "glm"), ("glm", "glm_plan")):
+            with self.subTest(f"{first} → {second}"):
+                self.setUp()
+                self.have_mimo_in_primary()
+                keys = {"glm_plan": GLM_PLAN_KEY, "glm": GLM_KEY}
+                self.add(first, keys[first])
+                self.gateway_env()
+                ds_credential.select_model(self.cfg_path, "glm-5.3", provider=first)
+                self.add(second, keys[second])            # 存第二家 ⇒ 留下「想换过去」
+                snap = self.snapshot(self.gateway_env(), None)
+                self.assertEqual(snap.provider.api_base, EXPECTED[second]["apiBase"],
+                                 f"存了 {second} 的 key、重启后还在用 {first}")
+                self.assertEqual(snap.provider.api_key, keys[second])
+                # 兑现一次之后,再重启不许又被拽走
+                snap = self.snapshot(self.gateway_env(), None)
+                self.assertEqual(snap.provider.api_base, EXPECTED[second]["apiBase"])
+
     def test_k7_kimi_is_always_sent_temperature_at_least_1(self):
         """🔴 自审抓到的:Kimi K2.5+ 拒收 temperature<1.0(nanobot 自带 moonshot 规格的注释与 model_overrides);
         我们走 custom / od_kimi 通道,那条覆盖不生效,预设默认 0.1 ⇒ 每句都被拒。

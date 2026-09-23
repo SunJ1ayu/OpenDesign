@@ -39,6 +39,12 @@ runlog: python rc=1 commit=64442c0 dirty=yes at=2026-09-23T09:51:37Z file=tracks
 ② Kimi 每个模型真发出去的 temperature=0.1(nanobot 的 moonshot 覆盖只对它自己的 moonshot 规格生效)。)
 
 ```
+runlog: python rc=1 commit=a913a4f dirty=yes at=2026-09-23T09:53:18Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T095318Z-01-python.txt
+```
+(上一行 = 修 k4b 时想到的反面 k4c 红检(工作树里已有 k4b/k7 的修法):存第二家 GLM 的 key 后「想换过去」,
+同名预设被保留给原来那家 ⇒ 重启后仍在原来那家,两个方向都红;k4b/k7/k7b 此时已绿。)
+
+```
 <粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
  **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
  收据得进 git(5d)。一份收据都没有的话,写一行
