@@ -1,0 +1,136 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-instant-ui",
+  "run_id": "20260923-133547-2155334-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-instant-ui-review",
+  "started_at": "2026-09-23T05:35:47Z",
+  "finished_at": "2026-09-23T05:50:51Z",
+  "duration_ms": 904146,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "subkimi",
+        "degraded": false,
+        "duration_ms": 743490,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:7a2ba8582a1bd121c3948dbf80678253f030f48562d163818b5f5c75569663d1",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-instant-ui-review-20260923-1335.subkimi.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "moonshot",
+        "model": {
+          "invoked": "kimi-code/kimi-for-coding",
+          "reported": null,
+          "requested": "kimi-code/kimi-for-coding"
+        },
+        "name": "subkimi",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260923-133547-2155334-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:9054119341cc32064924f2b332c2bab17ee513d5d431921c5935d98f7cf48120",
+            "policy_version": 1,
+            "track": "opendesign-instant-ui"
+          },
+          "digest": "sha256:f5ded902fa88ee9628e0191c8ab139d0480525df52130fad61bcd0f44361c6db",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "81fbe19c7e79931474ba9c9d4e29a3c003905df6",
+            "index_tree_oid": "3281e65afa0220687f1a968ce9ac3853717a7f65",
+            "worktree_tree_oid": "3281e65afa0220687f1a968ce9ac3853717a7f65"
+          },
+          "task_sha256": "sha256:de1361382453a0afdb5dd94d2ba7f8cc2e3148804676003b227f033cf69a0fd7"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subcursor",
+        "degraded": false,
+        "duration_ms": 902295,
+        "evidence": {
+          "completeness": "partial",
+          "digest": "sha256:df6cde0c07f38fd524842aab5439c1aa28c9b0ab4c81c1200b1d3e45f1944f72",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-instant-ui-review-20260923-1335.subcursor.grok-4.7-high.evidence.log"
+        },
+        "failure_kind": "timeout",
+        "family": "xai",
+        "model": {
+          "invoked": "grok-4.7-high",
+          "reported": null,
+          "requested": "grok-4.7-high"
+        },
+        "name": "subcursor.grok-4.7-high",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 124,
+          "state": "timed_out"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260923-133547-2155334-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:9054119341cc32064924f2b332c2bab17ee513d5d431921c5935d98f7cf48120",
+            "policy_version": 1,
+            "track": "opendesign-instant-ui"
+          },
+          "digest": "sha256:f5ded902fa88ee9628e0191c8ab139d0480525df52130fad61bcd0f44361c6db",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "81fbe19c7e79931474ba9c9d4e29a3c003905df6",
+            "index_tree_oid": "3281e65afa0220687f1a968ce9ac3853717a7f65",
+            "worktree_tree_oid": "3281e65afa0220687f1a968ce9ac3853717a7f65"
+          },
+          "task_sha256": "sha256:de1361382453a0afdb5dd94d2ba7f8cc2e3148804676003b227f033cf69a0fd7"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "UNKNOWN",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

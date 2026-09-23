@@ -34,33 +34,43 @@ runlog: bash rc=0 commit=7452f32 dirty=yes at=2026-09-23T05:35:19Z file=tracks/o
 
 ## Review
 
-- 规格自查(读任何 panel 输出之前先答):<回看 design 的用户成功条件、前提证据和未解决项。
-  实现符合规格不证明规格合理;实现评审也可质疑规格,但不能替代实施前 panel 4c 的方案检查。
-  本轮若暴露能推翻方向的前提,先回到设计;全池一致 PASS 也不等于题是对的。>
-- 腿的花名册: <把 `<日志前缀>.roster` 里那一行**原样粘过来**,别手写>
-  > panel-review 收尾自己写这个文件(off / FAIL(rc) / 降级 都在里面)。
-  > **控制器没活到收尾时它压根不存在** —— 那时跑 `panel-roster <日志前缀>` 从盘上重建,
-  > 与控制器自己写的**归一化后一致**(判据 R5b 守着;抬头有渲染时间戳,不是字面逐字节)。**一轮零记录的评审也粘得出这一行**,
-  > 所以"那轮被砍了所以没有花名册"不再是理由(2026-08-23,track panel-roster-from-disk)。
-  > 08-06 立这条的理由:08-05 我在这里手写了"三条腿一致 PASS",而 Kimi 根本没出结论
-  > (同一页第 90 行我自己还写着它没出报告)—— 手抄一份终端上的东西,抄错那次没人会发现。
-- 轮次记录(每次派发一行;实质评审与基础设施重试分开,重试不算轮但次数与耗时照记):
+- 规格自查:派评审前落盘于仓外 `/root/aiwork/tasks/opendesign-instant-ui-review-my-review.md` [仓外不承重](暂判 PASS;疑点 S1 corsEnabled、localStorage 一次性丢失、有 key 长挂起未测)。
+- 腿的花名册(第 1 次派发):
+
+```
+# panel-review 花名册(2026-09-23 13:50:51)task=opendesign-instant-ui-review
+# PASS = 进程 rc=0,**不等于给了裁决**;off = 这条腿压根没派(不许读成通过)。
+# impact-risk=high requested-budget=2 selected-count=2
+# selected=subkimi(moonshot/subkimi),subcursor.grok-4.7-high(xai/subcursor)
+# escalation=none
+# snapshot=head:81fbe19
+# 日志:/root/aiwork/logs/panel-opendesign-instant-ui-review-20260923-1335.*.log
+subkimi=PASS(verdict=PASS) subcursor.grok-4.7-high=FAIL(rc=124)
+```
+
+- 轮次记录:
 
   | 轮 | 类型(实质 / 重试) | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
   |---|---|---|---|---|
-  | 1 | 实质 | <rc,BLOCK 数> | <…> | <n> |
+  | 1 | 实质(但 Grok 腿 rc=124 超时,**不构成两家族覆盖**) | rc=3,BLOCK 0 | `/root/aiwork/logs/panel-opendesign-instant-ui-review-20260923-1335` | 0 |
+  | — | 附加(不绑 track,standard):MiMo 单腿,MIMO_CLI_TIMEOUT=2100,业主「mimo也可以试试」 | 同上 | `/root/aiwork/logs/panel-opendesign-instant-ui-review-mimo-20260923-1351b` | 待交卷 |
 
-- findings(**先处置、后动手**;一轮一份修复清单,一次修完再复审 —— panel 抽屉 4b):
+  - 反锚定记账:第 1 次派发时 verify.md 已含收据行 + 一句「C6 抓到 OdShell 没登记 backend」,不含结论/疑点;影响小。
+  - Grok 超时:15 分钟只读代码未落一字(stream 仅 266 字);按基础设施失败计,重派时 `CURSOR_TIMEOUT=1800`。
+
+- findings:
 
   | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
   |---|---|---|---|---|
-  | 1 | <…> | <file:line / 复现收据> | 必须修 / 延期 / 驳回 / 尚未核实 | <延期必写:它在业主或下一个使用者那边会长成什么样> |
+  | 1 | (Kimi)E2.connecting 在窗口栏出现那一刻就查横幅,横幅要等 IPC 回包 + 二次渲染 ⇒ 慢机偶发假红 | `e2-drive.mjs` bannerAtUi;`App.tsx` backend effect | 延期 | 云上跑过一次为真;产品侧不是缺陷(横幅晚几十毫秒出现)。下一个使用者:某次 CI 假红时,按 design.md「红了先看数字」处理,别放宽判读 |
+  | 2 | (Kimi)有 key 时后台长挂,各页只转圈的观感 CI 量不到 | design.md oracle 小节 | 延期 → T5 真机清单 | 结构上就绪前请求不失败;观感只有业主有 key 的机器答得了 |
+  | 3 | (Kimi)localStorage 一次性丢失,含 `ds-chat-password` | `web/src/chat/connection.ts:10,81`;`bin/ds_web.py _proxy` 缺 Authorization 时服务端自注入口令 | 驳回(对口令)/ 已认账(其余三项) | 口令丢了也不用重输:ds-web 代理自己补;对话映射/图库列数/侧栏折叠丢一次,发版说明写明 |
+  | 4 | (主裁 S1)`corsEnabled: true` 非必需 | `desktop/main.js` registerSchemesAsPrivileged | 驳回 | Kimi 指出它是更严的取向(跨源读 app:// 要走 CORS);本应用内也没有别的源的页面 |
 
-  > 只写发现。腿的身份/降级不在这儿抄第二遍:日志自带身份牌(降级横幅 + 视野边界),
-  > 花名册在上一格,查工件不查自述。延期 = 留在这里,不自动开新单。
-- arbitrated verdict (主裁): <...>
-  > 这里写理由；最终枚举写进 `decision.json.outcome.verdict`。归档时仍为空会被
-  > `track-record validate --phase archive` 挡住，`track list` 也会打 ⚠️。
+- 业主追加(同单):「顺手修」窄窗横向滚动条(0.98.9 起就有,`.workspace { min-width:1260px }` 加在所有页)。
+  判据 `tests/e2e/narrow_window.e2e.mjs` 先红;第一版量具量 `documentElement` 假绿过四条,改量 `.workspace` 实宽后正确红(内容 1260 / 窗口 1024)。
+
+- arbitrated verdict (主裁): <待第 2 次派发(两家族同一次成功)>
 
 ## Accepted deviations
 
