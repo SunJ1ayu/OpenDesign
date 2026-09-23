@@ -27,6 +27,12 @@
 - 未解决项:无能改方向的;真 key 验证留业主。
 
 ## Approach
+
+> **第 3 轮评审后改了方向(同名模型的存法)**:原来同名模型共用一份以模型名为键的预设,靠「起网关时别替业主改归属 /
+> 想换过去时改指 / 不带厂商时优先当前 / 丢 key 时回落」四层补丁守住不串家,连打五次补丁仍被评审找到缝。
+> 现在改成 **同名模型按厂商各存一份预设**(`preset_name`:`glm-5.3@glm_plan` / `glm-5.3@glm`;不重名的仍用模型名,老配置零变化),
+> 再加一条不变量:带 `@厂商` 的预设只许指向名字里那一家(主槽 ⇒ custom、有 key 的额外槽 ⇒ od_<厂商>、否则删)。
+> keeps_owner、removed 两层补丁随之删除。未发版 ⇒ 没有要迁移的旧配置。
 - `bin/ds_credential.py` PROVIDERS 加三行 + 每行 `keyUrl`;`/api/llm/credential` 的 providers 带出 `keyUrl`。
 - `web/src/llmKey.ts` asProvider 读可选 keyUrl(只收 https);`LlmKeyCard.tsx` 在 API key 输入框下显示「获取 {label} 的 API Key ›」外链(新窗口/外部浏览器)。
 - 链接:MiMo `https://platform.xiaomimimo.com/token-plan`(我们接的是套餐端点,不能照 ZCode 链平台首页);DeepSeek `https://platform.deepseek.com/api_keys`;

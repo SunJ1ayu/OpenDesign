@@ -217,6 +217,25 @@ def _slot_of(cfg: dict, vendor: str) -> str:
     return "custom" if vendor == _current_provider(cfg) else extra_provider_name(vendor)
 
 
+PRESET_VENDOR_SEP = "@"
+
+
+def preset_name(vendor: str, model: str) -> str:
+    """某家某模型的预设名。**同名模型按厂商各存一份**(两家 GLM 都有 glm-5.3 ⇒ `glm-5.3@glm_plan` / `glm-5.3@glm`),
+    谁也改不动谁的归属 —— 共用一份时连打了五次补丁(k4b/k4c/k8/k8b/k9),第 3 轮评审后回头改成这样(k10)。
+    不重名的模型照旧就用模型名:老配置、nanobot `/model` 列表一个字不变。"""
+    shared = any(v != vendor and model in p["models"] for v, p in PROVIDERS.items())
+    return f"{model}{PRESET_VENDOR_SEP}{vendor}" if shared else model
+
+
+def _qualified_vendor(name) -> str | None:
+    """`glm-5.3@glm_plan` → `glm_plan`;不是按厂商分开的预设名 ⇒ None。"""
+    if not isinstance(name, str) or PRESET_VENDOR_SEP not in name:
+        return None
+    vendor = name.rsplit(PRESET_VENDOR_SEP, 1)[1]
+    return vendor if vendor in PROVIDERS else None
+
+
 def _apply_params(preset: dict, vendor: str) -> dict:
     """把这家必带的生成参数(presetParams)盖到预设上;其余字段不动。"""
     preset.update(PROVIDERS[vendor].get("presetParams") or {})
@@ -308,14 +327,11 @@ def select_model(cfg_path: str, model, provider=None, home: str | None = None) -
                                       "等后台重启好再选(或先在「AI 模型 key」里填)")
             raise CredentialError(f"{PROVIDERS[live[0]]['label']} 这把 key 用不了 {model}")
         # 两家都能用同名模型(两家 GLM 的 glm-5.3)时不许按表序猜 —— 猜错就换端点、换 key、换账单(判据 k8/k8b):
-        # ① 当前在用的那家有这个模型 ⇒ 就是它(老菜单只列当前这家的目录,不带厂商 = 这家里的那个模型);
-        # ② 否则预设现在归哪家就留在哪家;③ 都说不清 ⇒ 拒绝,要调用方指明厂商。
+        # 当前在用的那家有这个模型 ⇒ 就是它(老菜单只列当前这家的目录,不带厂商 = 这家里的那个模型);
+        # 否则说不清 ⇒ 拒绝,要调用方指明厂商。
         active = _preset_vendor(cfg, ds_model.active_preset_name(cfg))
-        owner = _preset_vendor(cfg, model) if model in (cfg.get("model_presets") or {}) else None
         if active in hits:
             vendor = active
-        elif owner in hits:
-            vendor = owner
         elif len(hits) > 1:
             names = "、".join(PROVIDERS[v]["label"] for v in hits)
             raise CredentialError(f"{model} 在 {names} 都有,请指明要用哪一家")
@@ -326,15 +342,16 @@ def select_model(cfg_path: str, model, provider=None, home: str | None = None) -
         raise CredentialError(f"{p['label']} 这把 key 用不了 {model}")
     slot = _slot_of(cfg, vendor)
     presets = cfg.setdefault("model_presets", {})
-    existing = presets.get(model)
+    name = preset_name(vendor, model)
+    existing = presets.get(name)
     if not isinstance(existing, dict):
-        presets[model] = (_custom_preset(vendor, model) if slot == "custom"
-                          else _extra_preset(vendor, model))
+        presets[name] = (_custom_preset(vendor, model) if slot == "custom"
+                         else _extra_preset(vendor, model))
     else:
         if existing.get("provider", "custom") != slot:
             existing["provider"] = slot      # 手改过的错指预设:按厂商所在的槽纠正,否则会发到别家端点
         _apply_params(existing, vendor)
-    cfg.setdefault("agents", {}).setdefault("defaults", {})["modelPreset"] = model
+    cfg.setdefault("agents", {}).setdefault("defaults", {})["modelPreset"] = name
     try:
         _atomic_write(cfg_path, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n")
     except OSError as exc:
@@ -542,8 +559,9 @@ def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = Fal
     custom["apiBase"] = preset["apiBase"]
     custom["apiKey"] = "${%s}" % var             # 只留引用形态,原文永不进配置
     presets = cfg.setdefault("model_presets", {})
-    presets[preset["model"]] = _custom_preset(provider, preset["model"])
-    cfg.setdefault("agents", {}).setdefault("defaults", {})["modelPreset"] = preset["model"]
+    name = preset_name(provider, preset["model"])
+    presets[name] = _custom_preset(provider, preset["model"])
+    cfg.setdefault("agents", {}).setdefault("defaults", {})["modelPreset"] = name
 
     try:
         _atomic_write(cfg_path, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n")
@@ -637,31 +655,14 @@ def _synced_config(home: str, cfg: dict):
     presets = new.setdefault("model_presets", {})
 
     # ① 没 key 的额外条目连同指向它的预设一起删(我们拥有 od_ 这个前缀)
-    removed = set()
     for name in list(existing):
         vendor = name[len(EXTRA_PREFIX):]
         if vendor not in wanted:
             providers.pop(name, None)
             for pname in [n for n, p in presets.items() if isinstance(p, dict) and p.get("provider") == name]:
                 presets.pop(pname, None)
-                removed.add(pname)
 
-    # 同名模型(两家 GLM 都有 glm-5.3)归哪家,是业主在菜单里选的 —— 起网关时**不许替他改**
-    # (判据 k4b:原来按「最后一家」重指,重启一次就从套餐改走按量、扣另一份钱)。
-    # 预设现在指着的那家只要还有 key、且目录里也有这个模型,就原样留着;否则才重指。
-    def keeps_owner(p: dict, model: str) -> bool:
-        prov = p.get("provider", "custom")
-        if prov == "custom":
-            owner = primary
-        elif isinstance(prov, str) and prov.startswith(EXTRA_PREFIX):
-            owner = prov[len(EXTRA_PREFIX):]
-            if owner not in wanted:
-                return False
-        else:
-            return False
-        return owner is not None and owner in PROVIDERS and model in PROVIDERS[owner]["models"]
-
-    # ② 有 key 的额外厂商:条目 + 目录里每个模型的预设都指向它(同名模型已归别家的除外)
+    # ② 有 key 的额外厂商:条目 + 目录里每个模型的预设都指向它(同名模型各家一份,见 preset_name)
     for vendor in wanted:
         name = extra_provider_name(vendor)
         entry = providers.get(name) if isinstance(providers.get(name), dict) else {}
@@ -670,52 +671,56 @@ def _synced_config(home: str, cfg: dict):
         entry["apiBase"] = PROVIDERS[vendor]["apiBase"]
         providers[name] = entry
         for model in PROVIDERS[vendor]["models"]:
-            p = presets.get(model)
+            pname = preset_name(vendor, model)
+            p = presets.get(pname)
             if isinstance(p, dict):
-                if p.get("provider") != name and keeps_owner(p, model):
-                    continue
                 p["provider"] = name
                 p.pop("apiBase", None)          # 老形状残留的端点字段 nanobot 不读,留着只会误导人
                 _apply_params(p, vendor)
             else:
-                presets[model] = _extra_preset(vendor, model)
+                presets[pname] = _extra_preset(vendor, model)
 
     # ③ 主槽那家:目录里的模型都有预设、且都指回 custom(修掉换过厂商后留下的错指)
     if primary is not None and wanted:
         for model in PROVIDERS[primary]["models"]:
-            p = presets.get(model)
+            pname = preset_name(primary, model)
+            p = presets.get(pname)
             if isinstance(p, dict):
                 if p.get("provider", "custom") != "custom":
-                    if keeps_owner(p, model):
-                        continue
                     p["provider"] = "custom"
                 _apply_params(p, primary)
             else:
-                presets[model] = _custom_preset(primary, model)
+                presets[pname] = _custom_preset(primary, model)
+
+    # ③b 按厂商分开的预设(`…@<厂商>`)只许指向名字里那一家:那家是主槽 ⇒ custom;有 key 的额外槽 ⇒ od_<厂商>;
+    #     都不是(主槽换了人、key 没了)⇒ 删掉。否则主槽换人后,旧主槽留下的 `glm-5.3@glm_plan` 会指着新主槽发请求。
+    for pname in list(presets):
+        v = _qualified_vendor(pname)
+        if v is None or not isinstance(presets[pname], dict):
+            continue
+        if v == primary:
+            presets[pname]["provider"] = "custom"
+        elif v in wanted:
+            presets[pname]["provider"] = extra_provider_name(v)
+        else:
+            presets.pop(pname)
 
     # ④ 「想换过去」:那家此刻真有 key(额外槽有条目,或就是主槽且主槽有 key)才兑现
     defaults = new.setdefault("agents", {}).setdefault("defaults", {})
     marker_done = False
     if marker is not None:
         if marker in wanted or (marker == primary and read_key(home)):
-            target = PROVIDERS[marker]["model"]
+            target = preset_name(marker, PROVIDERS[marker]["model"])
             if target in presets:
-                # 同名预设可能被②留给了另一家(k4b)⇒ 兑现「想换过去」时把它指到这一家(判据 k4c)
-                tp = presets[target]
-                if isinstance(tp, dict):
-                    tp["provider"] = "custom" if marker == primary else extra_provider_name(marker)
-                    _apply_params(tp, marker)
                 defaults["modelPreset"] = target
                 marker_done = True
 
     # ⑤ 当前模型悬空(指向刚删的预设)⇒ 回落主槽默认;nanobot 对悬空的 modelPreset 直接拒绝加载。
-    #    同名模型的预设在①被删、又在②被另一家重建(两家 GLM)也算悬空:当前那家没 key 了,
-    #    不许悄悄改扣另一家的钱 —— 与别家丢 key 一样回落主槽默认(判据 k9)。
-    if defaults.get("modelPreset") and (defaults["modelPreset"] not in presets
-                                        or (defaults["modelPreset"] in removed and not marker_done)):
-        fallback = PROVIDERS[primary]["model"] if primary else None
+    #    同名模型各家一份预设,丢了 key 的那家的预设在①/③b 删掉 ⇒ 这里回落,不会落到另一家同名预设上(k9)。
+    if defaults.get("modelPreset") and defaults["modelPreset"] not in presets:
+        fallback = preset_name(primary, PROVIDERS[primary]["model"]) if primary else None
         if fallback and fallback not in presets:
-            presets[fallback] = _custom_preset(primary, fallback)
+            presets[fallback] = _custom_preset(primary, PROVIDERS[primary]["model"])
         if fallback:
             defaults["modelPreset"] = fallback
         elif presets:
