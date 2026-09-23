@@ -55,16 +55,42 @@ async function waitNoProcs(limitMs) {
   return { left, ms: Date.now() - t0 };
 }
 
+// 工作台后台(ds-web)在哪个端口:偏好 8766、顺延 20 格(ds_shell.PREFERRED)。
+// 🔴 只认带 ds_root 的 /api/health —— ws 端口段(8765 起)与它重叠,别的服务回个 200 不能算。
+async function findBackendPort() {
+  for (let p = 8766; p <= 8786; p++) {
+    try {
+      const r = await fetch(`http://127.0.0.1:${p}/api/health`, { signal: AbortSignal.timeout(400) });
+      if (r.ok && (await r.json()).ds_root) return p;
+    } catch { /* 没开 / 不是它 */ }
+  }
+  return null;
+}
+
+// track opendesign-instant-ui:窗口一出来就该是工作台(app://opendesign/?shell=1),后台在旁边起。
+// 从启动那一刻起就轮询后台,量「窗口栏画出来」与「后台就绪」谁先谁后。
 async function launchReady(tag) {
   const t0 = Date.now();
+  let backendMs = null, backendPort = null, stop = false;
+  const poll = (async () => {
+    while (!stop && backendMs === null && Date.now() - t0 < 240000) {
+      const p = await findBackendPort();
+      if (p) { backendPort = p; backendMs = Date.now() - t0; } else await sleep(100);
+    }
+  })();
   const app = await electron.launch({ executablePath: exe, timeout: 90000 });
   const page = await app.firstWindow();
   const firstMs = Date.now() - t0;
-  await page.waitForURL(/shell=1/, { timeout: 240000 });
   await page.waitForSelector("[data-ui=window-bar]", { timeout: 90000 });
   const uiMs = Date.now() - t0;
-  console.log(`  [${tag}] 第一个窗口 +${firstMs}ms,工作台界面 +${uiMs}ms`);
-  return { app, page, firstMs, uiMs };
+  const backendAtUi = backendMs;                       // null = 窗口栏出来时后台还没好
+  const bannerAtUi = await page.isVisible("[data-ui=backend-connecting]").catch(() => false);
+  const hrefAtUi = page.url();
+  await page.evaluate(() => { window.__odE2Mark = 1; }).catch(() => {});
+  await poll;
+  stop = true;
+  console.log(`  [${tag}] 第一个窗口 +${firstMs}ms,窗口栏 +${uiMs}ms,后台就绪 +${backendMs}ms(端口 ${backendPort})`);
+  return { app, page, firstMs, uiMs, backendMs, backendPort, backendAtUi, bannerAtUi, hrefAtUi };
 }
 
 const winState = (app) =>
@@ -78,9 +104,18 @@ const winState = (app) =>
 
 // ---------------------------------------------------------------- 第一轮:起窗 / 三按钮 / 托盘 / 退出
 {
-  const { app, page, firstMs, uiMs } = await launchReady("第一轮");
-  V("E2.window 窗口在 10 秒内出来(后台还没好时先显示「正在启动」)", firstMs < 10000, `+${firstMs}ms`);
-  V("E2.ui 工作台界面出来了", true, `+${uiMs}ms,地址 ${page.url()}`);
+  const { app, page, firstMs, uiMs, backendMs, backendPort, backendAtUi, bannerAtUi, hrefAtUi } = await launchReady("第一轮");
+  V("E2.window 窗口在 10 秒内出来", firstMs < 10000, `+${firstMs}ms`);
+  V("E2.instant 第一个页面就是工作台(app://opendesign/?shell=1)", hrefAtUi.startsWith("app://opendesign/?shell=1"), hrefAtUi);
+  V("E2.instant 🔴 窗口栏在后台就绪**之前**就画出来了(不再先挂「正在启动」)", backendAtUi === null && backendMs !== null && uiMs < backendMs,
+    `窗口栏 +${uiMs}ms / 后台 +${backendMs}ms`);
+  V("E2.connecting 后台没好时有「正在启动后台」横幅", bannerAtUi, `窗口栏出来那一刻 visible=${bannerAtUi}`);
+  const bannerGone = await page.waitForSelector("[data-ui=backend-connecting]", { state: "hidden", timeout: 30000 }).then(() => true, () => false);
+  const nav = await page.evaluate(() => ({ mark: window.__odE2Mark, navs: performance.getEntriesByType("navigation").length, href: location.href }));
+  V("E2.noreload 后台就绪后横幅 30 秒内消失,整页没有重新加载", bannerGone && nav.mark === 1 && nav.navs === 1, JSON.stringify({ bannerGone, ...nav }));
+  await sleep(3000);
+  const stuck = await page.isVisible("text=读不到项目列表").catch(() => false);
+  V("E2.noreload 项目列表没钉死在「读不到项目列表」(就绪前的请求挂着、就绪后补上)", !stuck, `stuck=${stuck}`);
   await sleep(1500);
   desktopShot("e2-01-ui");
   await page.screenshot({ path: path.join(out, "e2-01-ui.page.png") });
@@ -115,7 +150,7 @@ const winState = (app) =>
   await sleep(1500);
   s = await winState(app);
   V("E2.close 点「关闭」= 收进托盘(隐藏、没销毁)", !s.visible && !s.destroyed, JSON.stringify({ visible: s.visible, destroyed: s.destroyed }));
-  const port = new URL(page.url()).port;
+  const port = backendPort;
   let healthOk = false;
   try {
     const r = await fetch(`http://127.0.0.1:${port}/api/health`);
@@ -160,7 +195,8 @@ const winState = (app) =>
   const home = page.url();
   await page.evaluate(() => { location.href = "http://127.0.0.1:9/od-e2e-nav-probe"; }).catch(() => {});
   await sleep(2000);
-  V("E2.nav 页面往外站跳,窗口仍停在工作台", new URL(page.url()).origin === new URL(home).origin, `${home} → ${page.url()}`);
+  // Node 的 URL 对 app:// 给 origin === "null",比 origin 恒等 ⇒ 用前缀比
+  V("E2.nav 页面往外站跳,窗口仍停在工作台", page.url().startsWith("app://opendesign/") && home.startsWith("app://opendesign/"), `${home} → ${page.url()}`);
   spawnSync("pwsh", ["-NoProfile", "-Command", "Get-Process msedge -ErrorAction SilentlyContinue | Stop-Process -Force"]);
 
   // 托盘「退出」走的是同一个 quitAll;这里经 app.quit() → before-quit → quitAll。

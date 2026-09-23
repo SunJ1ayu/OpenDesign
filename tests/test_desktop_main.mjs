@@ -108,13 +108,13 @@ test("m11 工作台还没起来(没有 origin)时,只有 http(s) 能出去", () 
   assert.equal(navDecision("file:///x", null), "deny");
 });
 
-const navDecisionOf = (u) => lib("navPolicy").navDecision(u, new URL(u).origin);
 test("m21 窗口打开的地址带外壳标记(旧判据 x10:前端首帧靠它决定画不画窗口栏),且与前端同一个字面量", async () => {
-  const { workbenchUrl, SHELL_MARK } = lib("navPolicy");
+  const { SHELL_MARK } = lib("navPolicy");
   const { SHELL_MARK: FRONT } = await import("../web/src/shellWindow.ts");
   assert.equal(SHELL_MARK, FRONT, "两边的标记对不上 ⇒ 窗口栏整块不画,哪儿都不报错(0.89/0.90 两版)");
-  assert.equal(workbenchUrl(8767), `http://127.0.0.1:8767/?${FRONT}`);
-  assert.equal(navDecisionOf(workbenchUrl(8767)), "allow");
+  const { APP_URL, APP_ORIGIN } = lib("appProtocol");
+  assert.equal(APP_URL, `app://opendesign/?${FRONT}`, "track opendesign-instant-ui:窗口地址从 http://127.0.0.1:<端口> 换成 app://");
+  assert.equal(lib("navPolicy").navDecision(APP_URL, APP_ORIGIN), "allow");
 });
 
 // ── 更新状态机(U3 = 照 ZCode:后台下好 → 他点「重启以更新」→ 向导) ──────────

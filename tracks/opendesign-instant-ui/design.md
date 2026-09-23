@@ -44,11 +44,24 @@ Electron 注册特权协议 `app://opendesign/`,`protocol.handle`:非 /api 从�
 ## 前提与核实(最小实验:云 Windows 探针 `spike/probe/`,判读规则先写死在 `check.mjs`)
 
 P1 挂起到就绪 / P2 后台看到的头 / P3 5MB 上传流式代理 / P4 JSON POST / P5 图片 / P6 app:// 页面直连 ws://127.0.0.1 /
-P7 系统代理指向死端口时回环照通 / P8 深链兜底 / P9-P10 localStorage 写入并跨重启持久。结果回填本节。
+P7 系统代理指向死端口时回环照通 / P8 深链兜底 / P9-P10 localStorage 写入并跨重启持久。
+
+**结果(run 35820084450,真 Windows,Electron 44.4.3):10 OK / 1 FAIL。** P0/P1(挂起 2888ms 后返回)/P3(5242880 字节到齐)/P4/P5/P6(`echo:hi`)/P7/P8/P9/P10(`written-run1`)全过。
+P2 红:后台看到 `Sec-Fetch-Site: none`(net.fetch 自己加的,删不掉)。**判读规则比真实契约严** —— ds-web `_same_site_ok`
+(`bin/ds_web.py:2500`)对 `none` 放行、无 Origin 放行 ⇒ 前提「ds-web 把代理请求当本机非浏览器调用」成立。
+认账:这是我写的判读规则错,不是改考卷 —— 规则问的是「会不会被 403」,真正该比的是 `_same_site_ok` 的放行集合。
+(第一跑 run 35819783664 是探针工作流没取到 Electron 二进制,量具坏、未产出任何判读。)
+⇒ **方向定为 app:// 协议;回环 http 备选不用。** 初版首跑 P8 的 SPA 兜底不采用:ds-web `_static` 本来就不回落(工作台是 `#/` 路由),照它。
 
 ## Approach
 
-<选定的技术方向>
+- `desktop/lib/appProtocol.js`(不 require electron,Linux 可测):`APP_ORIGIN/APP_URL`、`createAppHandler({distRoot, readFile, backendPort, fetch, log})`。
+  静态规则照抄 ds-web `_static`(`\\`/NUL 拒、realpath 不出 dist、类型表、入口 no-cache、资源 immutable、nosniff);只认主机 `opendesign`;
+  `/api/` 前缀挂起到 `backendPort()` 再转发,去 Origin/Referer/Sec-Fetch-*,流体 duplex=half,连不上 502 JSON。
+- `desktop/lib/hostSender.js`:管家起来之前的命令先攒(上限 200),attach 后按序补发。
+- 控制器:`ready` → 版本核对 → `deps.backendReady(port)` + `pushBackendState({phase:"ready"})`;不再 loadWorkbench;导航源站固定 app://opendesign。
+- main.js:顶层 registerSchemesAsPrivileged;whenReady 里 protocol.handle;createWindow 直接 `loadURL(APP_URL)`;删 loading.html。
+- 前端:`web/src/backendState.ts backendBanner()`、`desktopShell.ts backendApi()`(旧 preload 无 backend 也认外壳);App 顶部 `data-ui="backend-connecting"` 横幅。
 
 ## Key trade-offs / risks
 
@@ -60,10 +73,14 @@ P7 系统代理指向死端口时回环照通 / P8 深链兜底 / P9-P10 localSt
 
 ## Test strategy (oracle)
 
-<怎么证明它对 —— 这是后面 verify 的判据,主 agent 拥有>
+- 本地:`tests/test_desktop_instant.mjs`(a1~a11 协议处理、n1 导航、hs1~3 管家通道、bs1~3 控制器、fb1~2 前端、s1~s4 接线);
+  改写旧判据:`test_desktop_controller.mjs` mc2b/mc2c/mc3/mc4/mc9/mc19(ready 不再换页)、`test_desktop_main.mjs` m21(地址换 app://)。
+- 云 Windows(`e2-drive.mjs`):E2.instant(首个地址 = app://opendesign/?shell=1;窗口栏先于后台就绪)、E2.connecting(那一刻横幅可见)、
+  E2.noreload(就绪后横幅消失、全程只 1 次导航、没钉死「读不到项目列表」);E2.nav 改前缀比(Node 对 app:// 的 origin 恒为 "null")。
 
 **这个 oracle 能被什么骗过?**
 
-<不问"断言写没写",问"用户眼里的成功长什么样,我的断言离它差了什么"。
-写下:断言全绿但结果仍然错,会错成什么样;以及那种错要靠什么才接得住
-(真截图/真机/真返回)。史料:07-24 `columnCount==="3"` 全绿,实际正文被压成竖排。>
+- 云上 CI 没有 key ⇒ 网关不起,后台就绪只 ~3.5s;业主有 key 时网关可能久得多,横幅要挂更久 —— 云上量不到「很久」时界面是否仍可用,
+  只能靠真机(T5 真机清单里写明:有 key 冷启动,看横幅文字与各页是否只转圈不报错)。
+- E2.instant 比的是「窗口栏先于后台」,若某次 CI 后台异常快会假红 —— 红了先看数字,不许放宽判读。
+- 各页「挂着」期间显示什么由各页现有 loading 态决定;判据只保证不钉死红字,不保证每页都有好看的加载态(截图人工看一眼)。

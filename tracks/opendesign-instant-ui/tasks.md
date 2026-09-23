@@ -1,9 +1,8 @@
 # Tasks: opendesign-instant-ui
 
-- base-ref: 5d91b2593b96e4519eaafbf787f86974868d4ae5
-
-> 委托 submimo fix 时:主 agent 先写失败测试(oracle)并 commit,再把窄范围实现
-> 交给它;oracle/测试文件对它 off-limits;~2 次红了收回主 agent。
-
-- [ ] <task 1>
-- [ ] <task 2>
+- [x] T0 方案挑战(xai)+ 云探针定方向(app:// 协议)
+- [ ] T1 判据先行:tests/test_desktop_instant.mjs + 改旧判据 + 云 E2(先红)
+- [ ] T2 实现:appProtocol / hostSender / 控制器 / main.js / preload / 前端横幅;删 loading.html
+- [ ] T3 本地总跑 + 云 Windows 整跑 FAIL 0(截图人工看一眼)
+- [ ] T4 两家族评审(impact=high,预算 2 轮)
+- [ ] T5 随下一版发布;业主真机(有 key 冷启动)回显

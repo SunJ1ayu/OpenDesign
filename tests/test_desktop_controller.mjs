@@ -68,13 +68,15 @@ class FakeChild extends EventEmitter {
 }
 
 function harness(over = {}) {
-  const rec = { loaded: [], shown: 0, errors: [], revealed: [], external: [], logs: [], states: [], relaunched: 0, quits: 0, seq: [] };
+  const rec = { loaded: [], ready: [], backend: [], shown: 0, errors: [], revealed: [], external: [], logs: [], states: [], relaunched: 0, quits: 0, seq: [] };
   const clock = fakeClock();
   const updater = new FakeUpdater();
   const { createController } = lib("controller");
   const c = createController({
     appVersion: "0.98.10",
     loadWorkbench: (u) => rec.loaded.push(u),
+    backendReady: (p) => rec.ready.push(p),
+    pushBackendState: (st) => rec.backend.push(st),
     showWindow: () => { rec.shown++; },
     showError: (m) => { rec.errors.push(String(m)); rec.seq.push("error"); },
     revealFile: (p) => rec.revealed.push(p),
@@ -129,7 +131,7 @@ test("mc2b 🔴 **控制器**吃的是管道原始块:一行切三块、两行�
   c.hostStdout(Buffer.from(line({ event: "show" }) + line({ event: "ready", web_port: 8766, version: "0.98.10" }), "utf8"));
   assert.deepEqual(rec.errors, ["还没装好:找不到配置文件"], "中文被切开后拼错了 ⇒ 业主看到乱码");
   assert.equal(rec.shown, 1, "两行挤在一块时后一行丢了");
-  assert.deepEqual(rec.loaded, ["http://127.0.0.1:8766/?shell=1"]);
+  assert.deepEqual(rec.ready, [8766]);
 });
 
 test("mc2c 字符串块也照样按行拼(main.js 用了 setEncoding 的写法)", () => {
@@ -137,21 +139,22 @@ test("mc2c 字符串块也照样按行拼(main.js 用了 setEncoding 的写法)"
   const s = line({ event: "ready", web_port: 8768, version: "0.98.10" });
   c.hostStdout(s.slice(0, 7));
   c.hostStdout(s.slice(7));
-  assert.deepEqual(rec.loaded, ["http://127.0.0.1:8768/?shell=1"]);
+  assert.deepEqual(rec.ready, [8768]);
 });
 
 // ── 管家事件 → 界面 ─────────────────────────────────────────────────
-test("mc3 ready 且版本一致 ⇒ 加载带外壳标记的工作台", () => {
+test("mc3 ready 且版本一致 ⇒ 放行挂着的请求(端口交出去),不换页(track opendesign-instant-ui)", () => {
   const { c, rec } = harness();
   c.hostStdout(line({ event: "ready", web_port: 8767, version: "0.98.10" }));
-  assert.deepEqual(rec.loaded, ["http://127.0.0.1:8767/?shell=1"]);
+  assert.deepEqual(rec.ready, [8767]);
+  assert.deepEqual(rec.loaded, []);
   assert.deepEqual(rec.errors, []);
 });
 
 test("mc4 🔴 版本对不上 ⇒ 弹一次人话、记日志、**不加载工作台**(挑战 a4:半新半旧不许蒙混)", () => {
   const { c, rec } = harness();
   c.hostStdout(line({ event: "ready", web_port: 8767, version: "0.98.9" }));
-  assert.deepEqual(rec.loaded, [], "半新半旧照常加载 ⇒ 这道闸形同虚设");
+  assert.deepEqual(rec.ready, [], "半新半旧照常放行 ⇒ 这道闸形同虚设");
   assert.equal(rec.errors.length, 1);
   assert.match(rec.errors[0], /重新运行安装包/);
   assert.ok(rec.logs.some((l) => /0\.98\.9/.test(l) && /0\.98\.10/.test(l)), "日志里没留两个版本号");
@@ -205,7 +208,7 @@ test("mc8 already-running ⇒ 中文人话", () => {
 test("mc9 外站 ⇒ openExternal 恰好一次并拦住窗口;同源放行;非 http 拦住且不外开", () => {
   const { c, rec } = harness();
   c.hostStdout(line({ event: "ready", web_port: 8766, version: "0.98.10" }));
-  assert.equal(c.navigate("http://127.0.0.1:8766/projects/x"), false, "同源被拦 ⇒ 工作台自己的跳转全坏");
+  assert.equal(c.navigate("app://opendesign/#/projects/x"), false, "同源被拦 ⇒ 工作台自己的跳转全坏");
   assert.equal(c.navigate("https://github.com/SunJ1ayu/OpenDesign/releases"), true);
   assert.deepEqual(rec.external, ["https://github.com/SunJ1ayu/OpenDesign/releases"]);
   assert.equal(c.navigate("file:///C:/Windows/win.ini"), true);
@@ -364,7 +367,7 @@ test("mc19 🔴 起不来的三种(fatal / already-running / 版本对不上):�
     feed(c);
     c.hostExit(1);      // 管家跟着退(或被 quitApp 收掉)—— 不许再补一个「意外退出」
     assert.deepEqual(rec.seq, ["error", "quit"], `${name}:先弹那一个框、再退,各恰好一次(实测 ${JSON.stringify(rec.seq)})`);
-    assert.deepEqual(rec.loaded, [], `${name}:不许加载工作台`);
+    assert.deepEqual(rec.ready, [], `${name}:不许放行到后台`);
   }
 });
 

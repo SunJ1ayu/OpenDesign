@@ -1,0 +1,1139 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    node
+cmd:     node --test tests/test_desktop_instant.mjs tests/test_desktop_controller.mjs tests/test_desktop_main.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  f32b817
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-23T04:57:30Z
+---------------- 输出开始 ----------------
+TAP version 13
+# Subtest: mc1 一行 JSON 被切成三块、两行挤在一块、中文 UTF-8 从字节中间切开,都照样认
+ok 1 - mc1 一行 JSON 被切成三块、两行挤在一块、中文 UTF-8 从字节中间切开,都照样认
+  ---
+  duration_ms: 4.214586
+  type: 'test'
+  ...
+# Subtest: mc2 坏行夹在好行中间只丢那一行;最后一行没换行、管道关了也要认
+ok 2 - mc2 坏行夹在好行中间只丢那一行;最后一行没换行、管道关了也要认
+  ---
+  duration_ms: 0.599097
+  type: 'test'
+  ...
+# Subtest: mc2b 🔴 **控制器**吃的是管道原始块:一行切三块、两行一块、中文从字节中间切开(复核:解码器测对了、控制器没用它)
+not ok 3 - mc2b 🔴 **控制器**吃的是管道原始块:一行切三块、两行一块、中文从字节中间切开(复核:解码器测对了、控制器没用它)
+  ---
+  duration_ms: 4.419272
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_controller.mjs:123:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+    + []
+    - [
+    -   8766
+    - ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0: 8766
+  actual:
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_controller.mjs:134:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: mc2c 字符串块也照样按行拼(main.js 用了 setEncoding 的写法)
+not ok 4 - mc2c 字符串块也照样按行拼(main.js 用了 setEncoding 的写法)
+  ---
+  duration_ms: 1.217813
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_controller.mjs:137:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+    + []
+    - [
+    -   8768
+    - ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0: 8768
+  actual:
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_controller.mjs:142:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: mc3 ready 且版本一致 ⇒ 放行挂着的请求(端口交出去),不换页(track opendesign-instant-ui)
+not ok 5 - mc3 ready 且版本一致 ⇒ 放行挂着的请求(端口交出去),不换页(track opendesign-instant-ui)
+  ---
+  duration_ms: 0.581007
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_controller.mjs:146:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+    + []
+    - [
+    -   8767
+    - ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0: 8767
+  actual:
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_controller.mjs:149:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: mc4 🔴 版本对不上 ⇒ 弹一次人话、记日志、**不加载工作台**(挑战 a4:半新半旧不许蒙混)
+ok 6 - mc4 🔴 版本对不上 ⇒ 弹一次人话、记日志、**不加载工作台**(挑战 a4:半新半旧不许蒙混)
+  ---
+  duration_ms: 0.88327
+  type: 'test'
+  ...
+# Subtest: mc5 fatal 弹它带来的那句话;之后管家退出不再弹「意外退出」
+ok 7 - mc5 fatal 弹它带来的那句话;之后管家退出不再弹「意外退出」
+  ---
+  duration_ms: 0.450839
+  type: 'test'
+  ...
+# Subtest: mc5b fatal 是最后一行、没换行,紧接着管家退出 ⇒ 仍只弹 fatal 那句(退出时先把没换行的尾巴认完)
+ok 8 - mc5b fatal 是最后一行、没换行,紧接着管家退出 ⇒ 仍只弹 fatal 那句(退出时先把没换行的尾巴认完)
+  ---
+  duration_ms: 1.690682
+  type: 'test'
+  ...
+# Subtest: mc6 管家无故退出 ⇒ 说人话带退出码;收摊中退出不吭声
+ok 9 - mc6 管家无故退出 ⇒ 说人话带退出码;收摊中退出不吭声
+  ---
+  duration_ms: 0.663645
+  type: 'test'
+  ...
+# Subtest: mc7 alert / backend-died 弹它们的话;show 叫出窗口;诊断包交给系统去定位
+ok 10 - mc7 alert / backend-died 弹它们的话;show 叫出窗口;诊断包交给系统去定位
+  ---
+  duration_ms: 0.781203
+  type: 'test'
+  ...
+# Subtest: mc8 already-running ⇒ 中文人话
+ok 11 - mc8 already-running ⇒ 中文人话
+  ---
+  duration_ms: 0.379071
+  type: 'test'
+  ...
+# Subtest: mc9 外站 ⇒ openExternal 恰好一次并拦住窗口;同源放行;非 http 拦住且不外开
+not ok 12 - mc9 外站 ⇒ openExternal 恰好一次并拦住窗口;同源放行;非 http 拦住且不外开
+  ---
+  duration_ms: 0.527379
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_controller.mjs:208:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    同源被拦 ⇒ 工作台自己的跳转全坏
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_controller.mjs:211:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: mc10 首查排在 FIRST_CHECK_DELAY_MS 之后,不是立刻
+ok 13 - mc10 首查排在 FIRST_CHECK_DELAY_MS 之后,不是立刻
+  ---
+  duration_ms: 15.638541
+  type: 'test'
+  ...
+# Subtest: mc11 🔴 查失败 ⇒ 状态 error、15 分钟后自己再查(挑战 a6:先开软件后开 VPN)
+ok 14 - mc11 🔴 查失败 ⇒ 状态 error、15 分钟后自己再查(挑战 a6:先开软件后开 VPN)
+  ---
+  duration_ms: 1.558836
+  type: 'test'
+  ...
+# Subtest: mc12 checkForUpdates 既 reject 又发 error ⇒ 仍然只排一只定时器
+ok 15 - mc12 checkForUpdates 既 reject 又发 error ⇒ 仍然只排一只定时器
+  ---
+  duration_ms: 1.229292
+  type: 'test'
+  ...
+# Subtest: mc13 没有新版 ⇒ 4 小时后再查;手动「重试」立刻查且不叠定时器
+ok 16 - mc13 没有新版 ⇒ 4 小时后再查;手动「重试」立刻查且不叠定时器
+  ---
+  duration_ms: 1.129885
+  type: 'test'
+  ...
+# Subtest: mc14 下载途中出错 ⇒ error(有版本)、不许装;每一步都推给前端
+ok 17 - mc14 下载途中出错 ⇒ error(有版本)、不许装;每一步都推给前端
+  ---
+  duration_ms: 2.779298
+  type: 'test'
+  ...
+# Subtest: mc15 下好了 ⇒ 装:先收管家、再 quitAndInstall() 零参数
+ok 18 - mc15 下好了 ⇒ 装:先收管家、再 quitAndInstall() 零参数
+  ---
+  duration_ms: 7.501852
+  type: 'test'
+  ...
+# Subtest: mc16 🔴 交给安装器那一下失败了 ⇒ 说人话并把软件重新拉起来,不留空壳(攻题 \#8)
+ok 19 - mc16 🔴 交给安装器那一下失败了 ⇒ 说人话并把软件重新拉起来,不留空壳(攻题 \#8)
+  ---
+  duration_ms: 7.547091
+  type: 'test'
+  ...
+# Subtest: mc16b 🔴 真库装不上时**不抛**:只发 error 事件、什么都不做 ⇒ 照样要说人话并重新拉起(T5 R1-2)
+ok 20 - mc16b 🔴 真库装不上时**不抛**:只发 error 事件、什么都不做 ⇒ 照样要说人话并重新拉起(T5 R1-2)
+  ---
+  duration_ms: 7.044272
+  type: 'test'
+  ...
+# Subtest: mc17 托盘三项:打开 / 导出本次启动诊断 / 退出,点哪项叫哪个
+ok 21 - mc17 托盘三项:打开 / 导出本次启动诊断 / 退出,点哪项叫哪个
+  ---
+  duration_ms: 0.976017
+  type: 'test'
+  ...
+# Subtest: mc18 右键:输入框里有剪切/复制/粘贴/全选;只选中了字就只有复制;什么都没有就不弹(旧版 WebView2 自带,不做就是回归)
+ok 22 - mc18 右键:输入框里有剪切/复制/粘贴/全选;只选中了字就只有复制;什么都没有就不弹(旧版 WebView2 自带,不做就是回归)
+  ---
+  duration_ms: 0.344942
+  type: 'test'
+  ...
+# Subtest: mc19 🔴 起不来的三种(fatal / already-running / 版本对不上):弹完那一个框就整个退出,不留转圈的「正在启动」窗口
+ok 23 - mc19 🔴 起不来的三种(fatal / already-running / 版本对不上):弹完那一个框就整个退出,不留转圈的「正在启动」窗口
+  ---
+  duration_ms: 0.452391
+  type: 'test'
+  ...
+# Subtest: mc20 能接着用的(alert / backend-died / 诊断包没出成)只弹框、不退 —— 工作台还开着,别替业主把软件关了
+ok 24 - mc20 能接着用的(alert / backend-died / 诊断包没出成)只弹框、不退 —— 工作台还开着,别替业主把软件关了
+  ---
+  duration_ms: 0.222535
+  type: 'test'
+  ...
+# Subtest: mc21 🔴 管家根本没拉起来(spawn 发 error:python.exe 缺失 / 被杀软隔离)⇒ 一句中文人话、原始错误进日志、退出;跟来的 close 不再弹「意外退出」
+ok 25 - mc21 🔴 管家根本没拉起来(spawn 发 error:python.exe 缺失 / 被杀软隔离)⇒ 一句中文人话、原始错误进日志、退出;跟来的 close 不再弹「意外退出」
+  ---
+  duration_ms: 0.605697
+  type: 'test'
+  ...
+# Subtest: a1 首页 = 包里的 index.html,入口页不缓存、nosniff
+not ok 26 - a1 首页 = 包里的 index.html,入口页不缓存、nosniff
+  ---
+  duration_ms: 2.2639
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:62:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/appProtocol.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:23:23)
+    appHarness (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:43:32)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:63:23)
+  ...
+# Subtest: a2 带哈希的资源长缓存、类型对
+not ok 27 - a2 带哈希的资源长缓存、类型对
+  ---
+  duration_ms: 0.604907
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:72:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/appProtocol.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:23:23)
+    appHarness (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:43:32)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:73:23)
+  ...
+# Subtest: a3 🔴 越界一律拒,且从不去读 dist 以外的路径(..%2f / ..%5c / %00 / 绝对路径)
+not ok 28 - a3 🔴 越界一律拒,且从不去读 dist 以外的路径(..%2f / ..%5c / %00 / 绝对路径)
+  ---
+  duration_ms: 0.40452
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:84:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/appProtocol.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:23:23)
+    appHarness (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:43:32)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:85:28)
+  ...
+# Subtest: a4 不存在的文件 404,不回落首页(工作台是 \#/ 路由,ds-web 也不回落)
+not ok 29 - a4 不存在的文件 404,不回落首页(工作台是 \#/ 路由,ds-web 也不回落)
+  ---
+  duration_ms: 0.39918
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:101:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/appProtocol.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:23:23)
+    appHarness (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:43:32)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:102:23)
+  ...
+# Subtest: a5 🔴 冒名主机 app://别的/ 既不给文件也不进后台
+not ok 30 - a5 🔴 冒名主机 app://别的/ 既不给文件也不进后台
+  ---
+  duration_ms: 0.497319
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:107:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/appProtocol.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:23:23)
+    appHarness (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:43:32)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:108:34)
+  ...
+# Subtest: a6 🔴 后台没好时 /api 请求挂着、不失败;就绪后原样转给 127.0.0.1:<端口>(路径与查询串不丢)
+not ok 31 - a6 🔴 后台没好时 /api 请求挂着、不失败;就绪后原样转给 127.0.0.1:<端口>(路径与查询串不丢)
+  ---
+  duration_ms: 0.408572
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:117:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/appProtocol.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:23:23)
+    appHarness (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:43:32)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:118:34)
+  ...
+# Subtest: a7 🔴 转发时去掉页面身份头(Origin/Referer/Sec-Fetch-*),业务头照带
+not ok 32 - a7 🔴 转发时去掉页面身份头(Origin/Referer/Sec-Fetch-*),业务头照带
+  ---
+  duration_ms: 0.463608
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:131:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/appProtocol.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:23:23)
+    appHarness (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:43:32)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:132:34)
+  ...
+# Subtest: a8 方法与请求体原样转发(上传走流,duplex=half);GET 不带体
+not ok 33 - a8 方法与请求体原样转发(上传走流,duplex=half);GET 不带体
+  ---
+  duration_ms: 0.405142
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:151:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/appProtocol.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:23:23)
+    appHarness (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:43:32)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:152:34)
+  ...
+# Subtest: a9 后台连不上(死了/重启中)⇒ 502 JSON,不抛(抛了页面拿到的是无法解释的网络错误)
+not ok 34 - a9 后台连不上(死了/重启中)⇒ 502 JSON,不抛(抛了页面拿到的是无法解释的网络错误)
+  ---
+  duration_ms: 0.763684
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:164:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/appProtocol.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:23:23)
+    appHarness (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:43:32)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:165:34)
+  ...
+# Subtest: a10 只有 /api/ 开头才进后台:/apix、/api 本身都按文件处理
+not ok 35 - a10 只有 /api/ 开头才进后台:/apix、/api 本身都按文件处理
+  ---
+  duration_ms: 0.745574
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:174:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/appProtocol.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:23:23)
+    appHarness (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:43:32)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:175:34)
+  ...
+# Subtest: a11 窗口地址 = app://opendesign/?shell=1,外壳标记与前端同一个字面量
+not ok 36 - a11 窗口地址 = app://opendesign/?shell=1,外壳标记与前端同一个字面量
+  ---
+  duration_ms: 0.391601
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:182:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/appProtocol.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:23:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:183:35)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: n1 🔴 站内(app://opendesign)放行;冒名主机拒、不外开;http(s) 交系统浏览器
+not ok 37 - n1 🔴 站内(app://opendesign)放行;冒名主机拒、不外开;http(s) 交系统浏览器
+  ---
+  duration_ms: 0.90421
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:190:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/appProtocol.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:23:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:192:26)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: hs1 🔴 管家还没起来时发的(window-shown / 首帧上报)先攒着,接上后按原顺序补发
+not ok 38 - hs1 🔴 管家还没起来时发的(window-shown / 首帧上报)先攒着,接上后按原顺序补发
+  ---
+  duration_ms: 0.292533
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:210:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/hostSender.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:23:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:211:32)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: hs2 管家已退出 / stdin 不可写 / 写时抛 ⇒ 丢弃并记日志,不抛
+not ok 39 - hs2 管家已退出 / stdin 不可写 / 写时抛 ⇒ 丢弃并记日志,不抛
+  ---
+  duration_ms: 0.318432
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:225:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/hostSender.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:23:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:226:32)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: hs3 攒的有上限(管家永远起不来时不无限长)
+not ok 40 - hs3 攒的有上限(管家永远起不来时不无限长)
+  ---
+  duration_ms: 1.235462
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:239:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/hostSender.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:23:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:240:32)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+  ...
+# Subtest: bs1 🔴 一开始就是「后台启动中」;ready 且版本一致 ⇒ 放行端口一次、推「就绪」,**不再整页换地址**
+not ok 41 - bs1 🔴 一开始就是「后台启动中」;ready 且版本一致 ⇒ 放行端口一次、推「就绪」,**不再整页换地址**
+  ---
+  duration_ms: 4.87867
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:268:1'
+  failureType: 'testCodeFailure'
+  error: 'c.backendState is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:270:22)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: bs2 版本对不上 ⇒ 不放行(挂着的请求永远不进半新半旧的后台),弹框退出
+not ok 42 - bs2 版本对不上 ⇒ 不放行(挂着的请求永远不进半新半旧的后台),弹框退出
+  ---
+  duration_ms: 3.315447
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:278:1'
+  failureType: 'testCodeFailure'
+  error: 'c.backendState is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:282:22)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: bs3 站内跳转在后台就绪之前就放行(源站创建窗口时就定了)
+not ok 43 - bs3 站内跳转在后台就绪之前就放行(源站创建窗口时就定了)
+  ---
+  duration_ms: 1.291791
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:287:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:289:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: fb1 启动中有一句中文横幅;就绪、浏览器里(没有外壳)都不显示
+not ok 44 - fb1 启动中有一句中文横幅;就绪、浏览器里(没有外壳)都不显示
+  ---
+  duration_ms: 0.777743
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:295:1'
+  failureType: 'testCodeFailure'
+  error: "Cannot find module '/root/.openclaw/workspace/projects/design-studio/web/src/backendState.ts' imported from /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs"
+  code: 'ERR_MODULE_NOT_FOUND'
+  stack: |-
+    finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    moduleResolve (node:internal/modules/esm/resolve:861:10)
+    defaultResolve (node:internal/modules/esm/resolve:985:11)
+    #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)
+    ModuleLoader.resolve (node:internal/modules/esm/loader:724:38)
+    ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:320:38)
+    onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:680:36)
+    TracingChannel.tracePromise (node:diagnostics_channel:350:14)
+    ModuleLoader.import (node:internal/modules/esm/loader:679:21)
+    defaultImportModuleDynamicallyForModule (node:internal/modules/esm/utils:222:31)
+  ...
+# Subtest: fb2 外壳桥:新 preload 给 backend;旧 preload 没有 backend 也照样认得出外壳(窗口按钮不能因此消失)
+not ok 45 - fb2 外壳桥:新 preload 给 backend;旧 preload 没有 backend 也照样认得出外壳(窗口按钮不能因此消失)
+  ---
+  duration_ms: 71.595252
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:303:1'
+  failureType: 'testCodeFailure'
+  error: 'backendApi is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:309:16)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: s1 🔴 app 协议在模块顶层注册成特权协议(standard/secure/supportFetchAPI/stream),先于 whenReady
+not ok 46 - s1 🔴 app 协议在模块顶层注册成特权协议(standard/secure/supportFetchAPI/stream),先于 whenReady
+  ---
+  duration_ms: 0.535898
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:315:1'
+  failureType: 'testCodeFailure'
+  error: '没在顶层注册 ⇒ app:// 不是标准协议,localStorage/fetch 都不认'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:318:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: s2 🔴 窗口一创建就加载 APP_URL;加载页整个删掉
+not ok 47 - s2 🔴 窗口一创建就加载 APP_URL;加载页整个删掉
+  ---
+  duration_ms: 1.054316
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:328:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /win\.loadURL\(APP_URL\)/. Input:
+    
+    'function createWindow() {\n' +
+      '  win = new BrowserWindow({\n' +
+      '    width: 1280,\n' +
+      '    height: 860,\n' +
+      '    minWidth: 960,\n' +
+      '    minHeight: 640,\n' +
+      '    title: "OpenDesign",\n' +
+      '    icon: path.join(resources, "opendesign.ico"),\n' +
+      '    show: false,\n' +
+      '    frame: false,\n' +
+      '    backgroundColor: "#f7f5f0",\n' +
+      '    webPreferences: {\n' +
+      '      preload: path.join(__dirname, "preload.js"),\n' +
+      '      contextIsolation: true,\n' +
+      '      sandbox: true,\n' +
+      '      nodeIntegration: false,\n' +
+      '    },\n' +
+      '  });\n' +
+      '  void win.loadFile(path.join(__dirname, "loading.html"));\n' +
+      '  win.once("ready-to-show", showWindow);\n' +
+      '\n' +
+      '  win.on("close", (event) => {\n' +
+      '    if (quitting) return;\n' +
+      '    event.preventDefault();\n' +
+      '    win.hide();\n' +
+      '  });\n' +
+      '  win.on("maximize", sendWindowState);\n' +
+      '  win.on("unmaximize", sendWindowState);\n' +
+      '\n' +
+      '  let repaintTimer = null;\n' +
+      '  const repaint = () => {\n' +
+      '    if (!win || win.isDestroyed()) return;\n' +
+      '    win.webContents.invalidate();\n' +
+      '    clearTimeout(repaintTimer);\n' +
+      '    repaintTimer = setTimeout(() => {\n' +
+      '      if (win && !win.isDestroyed()) win.webContents.invalidate();\n' +
+      '    }, 32);\n' +
+      '  };\n' +
+      '  win.on("resized", repaint);\n' +
+      '  win.on("show", () => {\n' +
+      '    repaint();\n' +
+      '    sendHost({ cmd: "window-shown" });\n' +
+      '  });\n' +
+      '\n' +
+      '  win.webContents.on("will-navigate", (event, url) => {\n' +
+      '    if (ctl.navigate(url)) event.preventDefault();\n' +
+      '  });\n' +
+      '  win.webContents.setWindowOpenHandler(({ url }) => {\n' +
+      '    if (windowOpenDecision(url) === "external") void shell.openExternal(url).catch((error) => log(`[外链] ${error}`));\n' +
+      '    return { action: "deny" };\n' +
+      '  });\n' +
+      '  win.webContents.on("context-menu", (_event, params) => {\n' +
+      '    const template = contextMenuTemplate(params);\n' +
+      '    if (template.length) Menu.buildFromTemplate(template).popup({ window: win });\n' +
+      '  });\n' +
+      '  win.webContents.on("render-process-gone", (_event, details) => log(`[窗口] 渲染进程退出：${details.reason}`));\n' +
+      '}\n' +
+      '\n'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    function createWindow() {
+      win = new BrowserWindow({
+        width: 1280,
+        height: 860,
+        minWidth: 960,
+        minHeight: 640,
+        title: "OpenDesign",
+        icon: path.join(resources, "opendesign.ico"),
+        show: false,
+        frame: false,
+        backgroundColor: "#f7f5f0",
+        webPreferences: {
+          preload: path.join(__dirname, "preload.js"),
+          contextIsolation: true,
+          sandbox: true,
+          nodeIntegration: false,
+        },
+      });
+      void win.loadFile(path.join(__dirname, "loading.html"));
+      win.once("ready-to-show", showWindow);
+    
+      win.on("close", (event) => {
+        if (quitting) return;
+        event.preventDefault();
+        win.hide();
+      });
+      win.on("maximize", sendWindowState);
+      win.on("unmaximize", sendWindowState);
+    
+      let repaintTimer = null;
+      const repaint = () => {
+        if (!win || win.isDestroyed()) return;
+        win.webContents.invalidate();
+        clearTimeout(repaintTimer);
+        repaintTimer = setTimeout(() => {
+          if (win && !win.isDestroyed()) win.webContents.invalidate();
+        }, 32);
+      };
+      win.on("resized", repaint);
+      win.on("show", () => {
+        repaint();
+        sendHost({ cmd: "window-shown" });
+      });
+    
+      win.webContents.on("will-navigate", (event, url) => {
+        if (ctl.navigate(url)) event.preventDefault();
+      });
+      win.webContents.setWindowOpenHandler(({ url }) => {
+        if (windowOpenDecision(url) === "external") void shell.openExternal(url).catch((error) => log(`[外链] ${error}`));
+        return { action: "deny" };
+      });
+      win.webContents.on("context-menu", (_event, params) => {
+        const template = contextMenuTemplate(params);
+        if (template.length) Menu.buildFromTemplate(template).popup({ window: win });
+      });
+      win.webContents.on("render-process-gone", (_event, details) => log(`[窗口] 渲染进程退出：${details.reason}`));
+    }
+    
+    
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:331:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: s3 管家通道全走 hostSender(主进程里不再直接写 host.stdin)
+not ok 48 - s3 管家通道全走 hostSender(主进程里不再直接写 host.stdin)
+  ---
+  duration_ms: 0.333982
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:337:1'
+  failureType: 'testCodeFailure'
+  error: '直接写 ⇒ 管家起来之前的消息照丢'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:339:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: s4 后台状态经 preload 到界面,界面有那条横幅
+not ok 49 - s4 后台状态经 preload 到界面,界面有那条横幅
+  ---
+  duration_ms: 0.488619
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:343:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /backend:\s*\{/. Input:
+    
+    '"use strict";\n' +
+      '\n' +
+      'const { contextBridge, ipcRenderer } = require("electron");\n' +
+      '\n' +
+      'contextBridge.exposeInMainWorld("odShell", {\n' +
+      '  minimize: () => ipcRenderer.invoke("od:minimize"),\n' +
+      '  toggleMaximize: () => ipcRenderer.invoke("od:toggle-maximize"),\n' +
+      '  close: () => ipcRenderer.invoke("od:close"),\n' +
+      '  windowState: () => ipcRenderer.invoke("od:window-state"),\n' +
+      '  onWindowState: (callback) => {\n' +
+      '    const listener = (_event, state) => callback(state);\n' +
+      '    ipcRenderer.on("od:window-state-changed", listener);\n' +
+      '    return () => ipcRenderer.removeListener("od:window-state-changed", listener);\n' +
+      '  },\n' +
+      '  reportStartup: (event, detail) => ipcRenderer.send("od:report", String(event), detail == null ? "" : String(detail)),\n' +
+      '  update: {\n' +
+      '    check: () => ipcRenderer.invoke("od:update-check"),\n' +
+      '    install: () => ipcRenderer.invoke("od:update-install"),\n' +
+      '    state: () => ipcRenderer.invoke("od:update-state"),\n' +
+      '    onState: (callback) => {\n' +
+      '      const listener = (_event, state) => callback(state);\n' +
+      '      ipcRenderer.on("od:update-state-changed", listener);\n' +
+      '      return () => ipcRenderer.removeListener("od:update-state-changed", listener);\n' +
+      '    },\n' +
+      '  },\n' +
+      '});\n'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    "use strict";
+    
+    const { contextBridge, ipcRenderer } = require("electron");
+    
+    contextBridge.exposeInMainWorld("odShell", {
+      minimize: () => ipcRenderer.invoke("od:minimize"),
+      toggleMaximize: () => ipcRenderer.invoke("od:toggle-maximize"),
+      close: () => ipcRenderer.invoke("od:close"),
+      windowState: () => ipcRenderer.invoke("od:window-state"),
+      onWindowState: (callback) => {
+        const listener = (_event, state) => callback(state);
+        ipcRenderer.on("od:window-state-changed", listener);
+        return () => ipcRenderer.removeListener("od:window-state-changed", listener);
+      },
+      reportStartup: (event, detail) => ipcRenderer.send("od:report", String(event), detail == null ? "" : String(detail)),
+      update: {
+        check: () => ipcRenderer.invoke("od:update-check"),
+        install: () => ipcRenderer.invoke("od:update-install"),
+        state: () => ipcRenderer.invoke("od:update-state"),
+        onState: (callback) => {
+          const listener = (_event, state) => callback(state);
+          ipcRenderer.on("od:update-state-changed", listener);
+          return () => ipcRenderer.removeListener("od:update-state-changed", listener);
+        },
+      },
+    });
+    
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:345:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: m1 管家发来的协议行认得出来
+ok 50 - m1 管家发来的协议行认得出来
+  ---
+  duration_ms: 2.998832
+  type: 'test'
+  ...
+# Subtest: m2 坏行一律 null,不许抛(抛了主进程就崩)
+ok 51 - m2 坏行一律 null,不许抛(抛了主进程就崩)
+  ---
+  duration_ms: 0.388701
+  type: 'test'
+  ...
+# Subtest: m3 发给管家的命令:一行一个 JSON、以换行收尾、中文原样
+ok 52 - m3 发给管家的命令:一行一个 JSON、以换行收尾、中文原样
+  ---
+  duration_ms: 0.270384
+  type: 'test'
+  ...
+# Subtest: m4 管家退出时要不要弹框:收摊中、已经报过 fatal 的都不弹
+ok 53 - m4 管家退出时要不要弹框:收摊中、已经报过 fatal 的都不弹
+  ---
+  duration_ms: 0.386801
+  type: 'test'
+  ...
+# Subtest: m5 版本一致不吭声
+ok 54 - m5 版本一致不吭声
+  ---
+  duration_ms: 0.512919
+  type: 'test'
+  ...
+# Subtest: m6 版本对不上 ⇒ 人话,说清是哪两版、该怎么办
+ok 55 - m6 版本对不上 ⇒ 人话,说清是哪两版、该怎么办
+  ---
+  duration_ms: 0.154477
+  type: 'test'
+  ...
+# Subtest: m7 后台没报版本也算对不上(旧管家 / 被截断的 ready 不许蒙混过关)
+ok 56 - m7 后台没报版本也算对不上(旧管家 / 被截断的 ready 不许蒙混过关)
+  ---
+  duration_ms: 0.152437
+  type: 'test'
+  ...
+# Subtest: m8 同源放行
+ok 57 - m8 同源放行
+  ---
+  duration_ms: 0.537727
+  type: 'test'
+  ...
+# Subtest: m9 🔴 长得像同源的不算(探路版用 startsWith,这三个都会被放进窗口)
+ok 58 - m9 🔴 长得像同源的不算(探路版用 startsWith,这三个都会被放进窗口)
+  ---
+  duration_ms: 0.462939
+  type: 'test'
+  ...
+# Subtest: m10 外站交系统浏览器;非 http 一律拒
+ok 59 - m10 外站交系统浏览器;非 http 一律拒
+  ---
+  duration_ms: 0.504397
+  type: 'test'
+  ...
+# Subtest: m11 工作台还没起来(没有 origin)时,只有 http(s) 能出去
+ok 60 - m11 工作台还没起来(没有 origin)时,只有 http(s) 能出去
+  ---
+  duration_ms: 0.248024
+  type: 'test'
+  ...
+# Subtest: m21 窗口打开的地址带外壳标记(旧判据 x10:前端首帧靠它决定画不画窗口栏),且与前端同一个字面量
+not ok 61 - m21 窗口打开的地址带外壳标记(旧判据 x10:前端首帧靠它决定画不画窗口栏),且与前端同一个字面量
+  ---
+  duration_ms: 47.213166
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:111:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module '../desktop/lib/appProtocol.js'
+    Require stack:
+    - /root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    Function._load (node:internal/modules/cjs/loader:1216:25)
+    wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    Module.require (node:internal/modules/cjs/loader:1527:12)
+    require (node:internal/modules/helpers:147:16)
+    lib (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:16:23)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_main.mjs:115:35)
+    async Test.run (node:internal/test_runner/test:1054:7)
+  ...
+# Subtest: m12 初始是 idle;查 → 有新版 → 下载中 → 下好,版本一路带着
+ok 62 - m12 初始是 idle;查 → 有新版 → 下载中 → 下好,版本一路带着
+  ---
+  duration_ms: 0.611176
+  type: 'test'
+  ...
+# Subtest: m13 🔴 只有 downloaded 才许装
+ok 63 - m13 🔴 只有 downloaded 才许装
+  ---
+  duration_ms: 0.179436
+  type: 'test'
+  ...
+# Subtest: m14 🔴 查不动 / 下载失败是 error,不是 latest(旧判据 u3 的保证搬过来)
+ok 64 - m14 🔴 查不动 / 下载失败是 error,不是 latest(旧判据 u3 的保证搬过来)
+  ---
+  duration_ms: 0.138818
+  type: 'test'
+  ...
+# Subtest: m15 下好之后再查出错,不许把「下好了」冲掉(按钮会消失,他就更新不了)
+ok 65 - m15 下好之后再查出错,不许把「下好了」冲掉(按钮会消失,他就更新不了)
+  ---
+  duration_ms: 0.108348
+  type: 'test'
+  ...
+# Subtest: m16 下次什么时候查:失败 15 分钟,平时 4 小时;第一次查不挡启动
+ok 66 - m16 下次什么时候查:失败 15 分钟,平时 4 小时;第一次查不挡启动
+  ---
+  duration_ms: 0.124288
+  type: 'test'
+  ...
+# Subtest: m17 更新器的开关照 design D 设好
+ok 67 - m17 更新器的开关照 design D 设好
+  ---
+  duration_ms: 0.235734
+  type: 'test'
+  ...
+# Subtest: m18 收摊:关管家 stdin、等它自己走完,不强杀
+ok 68 - m18 收摊:关管家 stdin、等它自己走完,不强杀
+  ---
+  duration_ms: 16.371825
+  type: 'test'
+  ...
+# Subtest: m19 管家赖着不走 ⇒ 过了宽限期强杀,不许永远卡住
+ok 69 - m19 管家赖着不走 ⇒ 过了宽限期强杀,不许永远卡住
+  ---
+  duration_ms: 106.411733
+  type: 'test'
+  ...
+# Subtest: m22 收摊可以被叫两次(托盘「退出」与 before-quit 同时到):只关一次 stdin、两边都等得到结束
+ok 70 - m22 收摊可以被叫两次(托盘「退出」与 before-quit 同时到):只关一次 stdin、两边都等得到结束
+  ---
+  duration_ms: 11.039243
+  type: 'test'
+  ...
+# Subtest: m20 🔴 装更新:先收管家、再 quitAndInstall() 零参数(U3 = 照 ZCode autoUpdater.ts:470)
+ok 71 - m20 🔴 装更新:先收管家、再 quitAndInstall() 零参数(U3 = 照 ZCode autoUpdater.ts:470)
+  ---
+  duration_ms: 11.039704
+  type: 'test'
+  ...
+1..71
+# tests 71
+# suites 0
+# pass 42
+# fail 29
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 692.055642
+---------------- 输出结束 ----------------
+runlog: node rc=1 commit=f32b817 dirty=yes at=2026-09-23T04:57:30Z file=tracks/opendesign-instant-ui/evidence/20260923T045730Z-01-node.txt
