@@ -352,3 +352,55 @@ test("s4 后台状态经 preload 到界面,界面有那条横幅", () => {
   assert.match(appTsx, /backendBanner\(/);
   assert.match(appTsx, /data-ui="backend-connecting"/);
 });
+
+// ── 第 1 次评审(MiMo)核实成立的三条 —— 判据先行 ─────────────────────────
+// F1:管家在 ready 之前硬崩(杀软 / python 崩溃,来不及发 fatal)⇒ 旧代码只弹「请从托盘退出」不退,
+//     窗口留着永远「正在启动后台」(承诺④明文禁止)。管家一死整棵后台都没了(它是后台的看护人),
+//     ready 之前之后都一样没法用 ⇒ **意外退出一律弹那一个框并退出**,话里不让业主去托盘找。
+test("bs4 🔴 管家在 ready 之前意外退出 ⇒ 弹一次框并退出;不让业主去托盘", () => {
+  const seq = [], errors = [];
+  const { c } = ctl({ showError: (m) => { errors.push(m); seq.push("error"); }, quitApp: () => seq.push("quit") });
+  c.hostExit(3);
+  assert.deepEqual(seq, ["error", "quit"], `实测 ${JSON.stringify(seq)}`);
+  assert.match(errors[0], /3/, "退出码要在");
+  assert.match(errors[0], /重新打开/);
+  assert.doesNotMatch(errors[0], /托盘/, "都退出了还让他去托盘找");
+});
+
+test("bs5 管家在 ready 之后意外退出 ⇒ 同样弹框并退出(后台已整个没了,留着窗口只剩一堆 502)", () => {
+  const seq = [];
+  const { c } = ctl({ showError: () => seq.push("error"), quitApp: () => seq.push("quit") });
+  c.hostStdout(line({ event: "ready", web_port: 8766, version: "0.98.10" }));
+  c.hostExit(1);
+  assert.deepEqual(seq, ["error", "quit"]);
+});
+
+test("bs6 收摊中 / 已报过 fatal 的管家退出,不弹也不重复退", () => {
+  const seq = [];
+  const a = ctl({ showError: () => seq.push("error"), quitApp: () => seq.push("quit") });
+  a.c.setQuitting();
+  a.c.hostExit(0);
+  assert.deepEqual(seq, []);
+  const b = ctl({ showError: () => seq.push("error"), quitApp: () => seq.push("quit") });
+  b.c.hostStdout(line({ event: "fatal", message: "数据目录写不进去" }));
+  b.c.hostExit(1);
+  assert.deepEqual(seq, ["error", "quit"], "fatal 之后的退出不许再补一个框");
+});
+
+// F3:corsEnabled 让 app:// 成为「可被跨源读」的协议 —— 页面全是同源请求,用不着(最小特权)。
+test("s1b app 协议不给 corsEnabled / bypassCSP / allowServiceWorkers 等用不着的特权", () => {
+  const src = read("desktop/main.js");
+  const reg = src.search(/^protocol\.registerSchemesAsPrivileged\(/m);
+  const block = src.slice(reg, src.indexOf(");", reg));
+  for (const k of ["corsEnabled", "bypassCSP", "allowServiceWorkers", "codeCache"]) {
+    assert.ok(!block.includes(k), `多给了 ${k}`);
+  }
+});
+
+// F7:有 key 时网关冷启动可达数分钟(ds_shell ready_timeout=300),「马上就好」是假话。
+test("fb3 横幅不许许诺「马上」,要说清可能要等一会儿", async () => {
+  const { backendBanner } = await import("../web/src/backendState.ts");
+  const t = backendBanner({ phase: "starting" }) ?? "";
+  assert.doesNotMatch(t, /马上/);
+  assert.match(t, /分钟/, "要让业主知道可能要等几分钟");
+});
