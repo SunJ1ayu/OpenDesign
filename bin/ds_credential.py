@@ -307,10 +307,14 @@ def select_model(cfg_path: str, model, provider=None, home: str | None = None) -
                 raise CredentialError(f"{PROVIDERS[waiting[0]]['label']} 的 key 后台还没拿到,"
                                       "等后台重启好再选(或先在「AI 模型 key」里填)")
             raise CredentialError(f"{PROVIDERS[live[0]]['label']} 这把 key 用不了 {model}")
-        # 两家都能用同名模型(两家 GLM 的 glm-5.3)时不许按表序猜 —— 猜错就换端点、换 key、换账单(判据 k8):
-        # 预设现在归哪家就留在哪家;谁都没用过它 ⇒ 拒绝,要调用方指明厂商。
+        # 两家都能用同名模型(两家 GLM 的 glm-5.3)时不许按表序猜 —— 猜错就换端点、换 key、换账单(判据 k8/k8b):
+        # ① 当前在用的那家有这个模型 ⇒ 就是它(老菜单只列当前这家的目录,不带厂商 = 这家里的那个模型);
+        # ② 否则预设现在归哪家就留在哪家;③ 都说不清 ⇒ 拒绝,要调用方指明厂商。
+        active = _preset_vendor(cfg, ds_model.active_preset_name(cfg))
         owner = _preset_vendor(cfg, model) if model in (cfg.get("model_presets") or {}) else None
-        if owner in hits:
+        if active in hits:
+            vendor = active
+        elif owner in hits:
             vendor = owner
         elif len(hits) > 1:
             names = "、".join(PROVIDERS[v]["label"] for v in hits)
@@ -633,12 +637,14 @@ def _synced_config(home: str, cfg: dict):
     presets = new.setdefault("model_presets", {})
 
     # ① 没 key 的额外条目连同指向它的预设一起删(我们拥有 od_ 这个前缀)
+    removed = set()
     for name in list(existing):
         vendor = name[len(EXTRA_PREFIX):]
         if vendor not in wanted:
             providers.pop(name, None)
             for pname in [n for n, p in presets.items() if isinstance(p, dict) and p.get("provider") == name]:
                 presets.pop(pname, None)
+                removed.add(pname)
 
     # 同名模型(两家 GLM 都有 glm-5.3)归哪家,是业主在菜单里选的 —— 起网关时**不许替他改**
     # (判据 k4b:原来按「最后一家」重指,重启一次就从套餐改走按量、扣另一份钱)。
@@ -702,8 +708,11 @@ def _synced_config(home: str, cfg: dict):
                 defaults["modelPreset"] = target
                 marker_done = True
 
-    # ⑤ 当前模型悬空(指向刚删的预设)⇒ 回落主槽默认;nanobot 对悬空的 modelPreset 直接拒绝加载
-    if defaults.get("modelPreset") and defaults["modelPreset"] not in presets:
+    # ⑤ 当前模型悬空(指向刚删的预设)⇒ 回落主槽默认;nanobot 对悬空的 modelPreset 直接拒绝加载。
+    #    同名模型的预设在①被删、又在②被另一家重建(两家 GLM)也算悬空:当前那家没 key 了,
+    #    不许悄悄改扣另一家的钱 —— 与别家丢 key 一样回落主槽默认(判据 k9)。
+    if defaults.get("modelPreset") and (defaults["modelPreset"] not in presets
+                                        or (defaults["modelPreset"] in removed and not marker_done)):
         fallback = PROVIDERS[primary]["model"] if primary else None
         if fallback and fallback not in presets:
             presets[fallback] = _custom_preset(primary, fallback)
