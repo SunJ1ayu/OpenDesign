@@ -239,6 +239,12 @@ runlog: bash rc=0 commit=b033875 dirty=yes at=2026-09-23T13:03:15Z file=tracks/o
   k13e(反面:只有自配端点、没有我们的厂商槽 ⇒ 照老办法写;修前修后都得绿)。
 runlog: python rc=1 commit=d179286 dirty=yes at=2026-09-23T14:24:41Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T142441Z-01-python.txt
   (上一行 = k13d 红,k13e 绿。)
+- 变异自检:闸退回「主槽认得出」⇒ k13d 红;闸放开到任何配置 ⇒ k13e 红。
+runlog: bash rc=3 commit=cb861bf dirty=no at=2026-09-23T14:25:38Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T142538Z-01-bash.txt
+runlog: bash rc=0 commit=cb861bf dirty=yes at=2026-09-23T14:37:39Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T143739Z-01-bash.txt
+  (上两行 = 修 #26 后:总跑六段全过(python 1473,rc=3 只因既有 SKIP);判据三件套 + set_model 老判据 rc=0。)
+- **追加第 7 轮的理由(派发前写)**:业主选 A,改动只一处(set_model 的闸)⇒ 审这一处;预算 1 轮、同成员,时限一开始就给足(MiMo 2100s / Grok 1800s)。
+  再有阻断 ⇒ 停下交业主。
 
 ## Accepted deviations
 
