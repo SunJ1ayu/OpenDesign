@@ -12,11 +12,11 @@ model 字段被无视。所以切换必须跟着同一条规则写,否则静默�
     输家 model 字段一字不碰,旧预设保留供 /model 切回;
   - modelPreset 未设(纯 onboard 形态)→ 改 agents.defaults.model(此时它才是真相源)。
 
-**我们管的配置**(主槽端点认得出是哪家,即界面填过 key 的装法)里,这个脚本不自己写,改走和界面同一个入口
+**我们管的配置**(主槽端点认得出是哪家,或界面里加过额外厂商的 key)里,这个脚本不自己写,改走和界面同一个入口
 `ds_credential.select_model`:只许选网关手里有 key 的那几家目录里的模型、同名模型按厂商命名(`glm-5.3@glm`)、
 两家都有又没给 `--provider` 就拒绝、手选盖过「想换过去」标记。以前它自己写,正用 Kimi 时 `set_model.py glm-5.3`
 会把 glm-5.3 发到 Kimi 的端点(track opendesign-kimi-glm-vendors 第 5 轮;判据 k13/k13b/k13c)。
-认不出的配置(自配端点 / 纯 onboard)照下面的老办法写。
+一个我们的厂商槽都没有的配置(只有自配端点 / 纯 onboard)照下面的老办法写(k13e)。
 
 其余契约不变(oracle tests/test_set_model.py 锁定):
   - 上面点名之外的字段值一个不碰(整文件按标准 JSON 缩进重排——值不变,空白归一);
@@ -64,7 +64,9 @@ def main() -> int:
         print(f"set_model: config 不是合法 JSON({e}),一字未动", file=sys.stderr)
         return 2
 
-    if isinstance(cfg, dict) and ds_credential._current_provider(cfg) is not None:
+    # 「我们管的配置」= 配置里有任何一个我们管的厂商槽(主槽认得出,或界面加过的额外厂商)。
+    # 只看主槽不够:自配端点(install.ps1 --api-base)+ 界面加了两家 GLM 时会走老分支,无视 --provider(第 6 轮 #26,k13d)。
+    if isinstance(cfg, dict) and ds_credential._live_vendors(cfg):
         return _select_via_the_ui_entry(args, cfg, original)
 
     defaults = cfg.setdefault("agents", {}).setdefault("defaults", {})
