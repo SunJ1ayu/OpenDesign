@@ -23,11 +23,14 @@ runlog -t opendesign-instant-ui -- <判据命令>
 ```
 
 ```
-<粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
- **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
- 收据得进 git(5d)。一份收据都没有的话,写一行
- 「- 无机器证据:<理由>」认账 —— 沉默不算理由(5c)。>
+runlog: node rc=1 commit=f32b817 dirty=yes at=2026-09-23T04:57:30Z file=tracks/opendesign-instant-ui/evidence/20260923T045730Z-01-node.txt
+runlog: run-all rc=1 commit=384a7ef dirty=yes final=yes at=2026-09-23T04:59:58Z file=tracks/opendesign-instant-ui/evidence/20260923T045958Z-01-run-all.txt
+runlog: run-all rc=3 commit=7452f32 dirty=no final=yes at=2026-09-23T05:13:11Z file=tracks/opendesign-instant-ui/evidence/20260923T051311Z-01-run-all.txt
+runlog: bash rc=0 commit=7452f32 dirty=yes at=2026-09-23T05:35:19Z file=tracks/opendesign-instant-ui/evidence/20260923T053519Z-01-bash.txt
 ```
+
+- 说明:node rc=1 = 判据先行红跑(29 条,实现前);第一次 run-all rc=1 = C6 抓到 OdShell 类型没登记 backend(真漏,已补)+ dist 未提交;
+  第二次 run-all rc=3 = 全绿 + 3 条老的没跑(要网关);cloud = run 35821491722 FAIL 0。
 
 ## Review
 

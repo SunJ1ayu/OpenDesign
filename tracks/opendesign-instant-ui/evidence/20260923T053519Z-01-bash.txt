@@ -1,0 +1,157 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    bash
+cmd:     bash -c gh\ run\ view\ 35821491722\ --json\ headSha\,conclusion\,jobs\ --jq\ \'\"headSha=\"+.headSha+\"\ conclusion=\"+.conclusion\,\ \(.jobs\[\]\|.name+\"\ \"+.conclusion\)\'\;\ gh\ run\ view\ 35821491722\ --log\ \|\ grep\ -E\ \'Z\ \(OK\ \ \|FAIL\)\ \|判据结束\|\\\[第.轮\\\]\'\ \|\ sed\ \'s/\^.\*Z\ //\'\ \|\ cut\ -c1-240
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  7452f32
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-23T05:35:19Z
+---------------- 输出开始 ----------------
+headSha=7452f32c78902fa6913725f30b16547aabca3bf4 conclusion=success
+payload success
+e2e success
+OK   E1.name 安装包名 = OpenDesign-<ds_web.VERSION>-electron-setup.exe :: OpenDesign-0.98.9-electron-setup.exe
+OK   E1.version exe 版本 = ds_web.VERSION :: exe 0.98.9 / ds_web 0.98.9
+OK   E1.slim 包里不带窗口那一半的依赖 :: 
+OK   E1.host 管家在包里 :: 
+OK   E1r.name 出货安装包名 = OpenDesign-<ds_web.VERSION>-electron-setup.exe :: OpenDesign-0.98.9-electron-setup.exe
+OK   E1r.feed 出货版的更新源 = GitHub releases/latest/download :: provider: generic | url: https://github.com/SunJ1ayu/OpenDesign/releases/latest/download | useMultipleRangeRequest: false | updaterCacheDirName: opendesign-updater | 
+OK   E1r.feed 量具:被测版的更新源确实是本机替身(两份不同才比得出东西) :: provider: generic | url: http://127.0.0.1:8900/latest/download | useMultipleRangeRequest: false | updaterCacheDirName: opendesign-updater | 
+OK   E1r.same 出货版与被测版逐文件只差更新源(app-update.yml / app.asar) :: \resources\app-update.yml
+OK   E1r.bytes 出货清单(latest.yml)与出货安装包逐字节一致 :: rc=0
+OK   E3.old 旧版装上了 :: C:\AI Test\OpenDesign
+OK   E3.old 旧版记下了自选目录 :: InstallDir = C:\AI Test\OpenDesign
+OK   E3.oldrun 旧版跑起来了(工作台应答) :: 
+OK   E3.install 新安装包退出码 0 :: 0
+OK   E3.guidir 选目录页默认显示的就是旧版那个自选目录 :: +4s CLICK#2 页头:[选定安装位置 / 选定 OpenDesign 要安装的文件夹。] 选项:[输入框=C:\AI Test\OpenDesign](等页面内容 200ms)⇒ 按「安装
+OK   E3.dir 装回了旧版那个自选目录 :: C:\AI Test\OpenDesign
+OK   E3.dir 没在默认目录另装一份 :: C:\Users\runneradmin\AppData\Local\Programs\OpenDesign
+OK   E3.oldgone 旧程序文件没了(python\ ds\ 卸载.exe) :: locales resources chrome_100_percent.pak chrome_200_percent.pak d3dcompiler_47.dll dxcompiler.dll dxil.dll ffmpeg.dll icudtl.dat LICENSE.electron.txt LICENSES.chromium.html Op
+OK   E3.oldkey 旧卸载项没了 :: 
+OK   E3.newkey 「应用和功能」里只剩一个 OpenDesign :: [429f71bf-8d61-5deb-8e8d-8af9bef02227] OpenDesign 0.98.9 | "C:\AI Test\OpenDesign\Uninstall OpenDesign.exe" /currentuser
+OK   E3.oldproc 旧版进程全收掉了 :: 
+OK   E3.samever 完成页拉起的新版:版本三方一致 :: 后台 0.98.9 / exe 0.98.9 / 期望 0.98.9
+OK   E3.data 资料原样:key.txt :: C:\Users\runneradmin\AppData\Local\OpenDesign\UserData\.openDesign\key.txt
+OK   E3.data 资料原样:e2e-档案-marker.md :: C:\Users\runneradmin\AppData\Local\OpenDesign\Data\e2e-档案-marker.md
+OK   E3.data 资料原样:e2e-marker.txt :: C:\Users\runneradmin\AppData\Local\OpenDesign\UserData\.openDesign\e2e-marker.txt
+OK   E3.data 档案目录文件数没少 :: 1 → 1
+OK   E3.config 配置业务字段前后不变(大脑选择 / key 引用 / 登录口令) :: 前 brain=mimo-v2.5-pro | keys=custom=${DS_LLM_KEY},azureOpenai=,bedrock=,anthropic=,openai=,openrouter=,assemblyai=,huggingface=,skywork=,deepseek=,
+OK   E3.autostart 开机自启还在、指向新 exe :: "C:\AI Test\OpenDesign\OpenDesign.exe"
+OK   E3.shortcut 桌面图标指向新 exe(且那个文件在) :: IShellLinkW=C:\AI Test\OpenDesign\OpenDesign.exe ;对照 WScript=C:\AI Test\OpenDesign\OpenDesign.exe
+  [第一轮] 第一个窗口 +435ms,窗口栏 +645ms,后台就绪 +4421ms(端口 8766)
+OK   E2.window 窗口在 10 秒内出来 :: +435ms
+OK   E2.instant 第一个页面就是工作台(app://opendesign/?shell=1) :: app://opendesign/?shell=1
+OK   E2.instant 🔴 窗口栏在后台就绪**之前**就画出来了(不再先挂「正在启动」) :: 窗口栏 +645ms / 后台 +4421ms
+OK   E2.connecting 后台没好时有「正在启动后台」横幅 :: 窗口栏出来那一刻 visible=true
+OK   E2.noreload 后台就绪后横幅 30 秒内消失,整页没有重新加载 :: {"bannerGone":true,"mark":1,"navs":1,"href":"app://opendesign/?shell=1"}
+OK   E2.noreload 项目列表没钉死在「读不到项目列表」(就绪前的请求挂着、就绪后补上) :: stuck=false
+OK   E2.grip 自绘缩放把手已隐藏(让给系统缩放边) :: none-in-dom
+OK   E2.max 点「最大化」后窗口是最大化 :: {"x":-8,"y":-8,"width":1040,"height":736}
+OK   E2.max 最大化不盖任务栏 :: 窗口底 728 / 工作区底 720
+OK   E2.restore 再点一次回到普通大小 :: {"x":0,"y":0,"width":1024,"height":720}
+OK   E2.min 点「最小化」后窗口最小化 :: 
+OK   E2.close 点「关闭」= 收进托盘(隐藏、没销毁) :: {"visible":false,"destroyed":false}
+OK   E2.close 收进托盘后后台还活着 :: /api/health on 8766
+OK   E2.second 再双击图标把窗口叫出来 :: 670ms
+OK   E2.repaint 托盘还原后 500ms 窗口里是界面、不是一片底色 :: {"samples":27270,"colors":127,"whitePct":75.8}
+OK   E2.second 第二次打开的那一份自己退了 :: 
+OK   E2.second 第二次打开从头到尾没冒出新的管家/后台进程 :: Python 进程 6 → 6;途中冒出过 无
+OK   E2.nav 页面往外站跳,窗口仍停在工作台 :: app://opendesign/?shell=1 → app://opendesign/?shell=1
+OK   E2.quit 退出后安装目录里不剩任何进程 :: 477ms 内收干净
+  [第二轮] 第一个窗口 +348ms,窗口栏 +510ms,后台就绪 +3870ms(端口 8766)
+OK   E2.crash 量具:主进程确实被杀掉了 :: pid 8964
+OK   E2.crash 硬杀 Electron 主进程后,管家与后台 30 秒内都收掉 :: 458ms
+OK   E2 起窗判据整体 :: e2-drive.mjs rc=0(逐条见上)
+OK   E2v.box 弹了对话框,话里有「重新运行安装包」 :: MainInstructionIcon OpenDesign OpenDesign 这次安装没装完整：桌面程序是 0.98.9，后台是 0.0.1。请重新运行安装包。 OK Error System Menu Bar System
+OK   E2v.log electron.log 记下了两个版本号 :: 看 C:\Users\runneradmin\AppData\Local\OpenDesign\Logs\electron.log 新增部分
+OK   E4.offline 源不通时更新一栏说没查到 :: 「检查更新失败，请稍后重试」 +17223ms
+OK   E4.offline 🔴 源不通时不许说已是最新(u3) :: 「检查更新失败，请稍后重试」
+OK   E4.offline 旁边有「重试」 :: 
+OK   E4.button 下好后,收起的「设置」行上出现「重启以更新」 :: +1012ms
+OK   E4.handoff 点「重启以更新」后旧版自己退出(把位置让给安装器) :: 退出码 0
+OK   E4 前半段(没查到 / 重试 / 按钮 / 交棒)整体 :: e4-drive.mjs rc=0(逐条见上)
+OK   E4.wizard 更新时按两下:「安装选项」→「安装完成」(U3/U4 照 ZCode;选目录页自己跳过) :: 安装选项 → 安装完成
+OK   E4.version 装上了新版 :: 0.98.9 → 0.98.10
+OK   E4.relaunch 装完自己重新打开、后台应答 :: 8766 {"ok": true, "version": "0.98.10", "ds_root": "C:\\AI Test\\OpenDesign\\resources\\ds", "model": "mimo-v2.5-pro", "doc_reader": {"available": true, "converter": "0.1.6"}}
+OK   E4.samever 新版:版本三方一致 :: 后台 0.98.10 / exe 0.98.10 / 期望 0.98.10
+OK   E4.front 新版窗口到过最前面(第四跑零点击那版落在后面) :: 见过的前台:8240 C:\AI Test\OpenDesign\OpenDesign.exe
+OK   E4.newkey 更新后「应用和功能」里仍只有一个 OpenDesign :: [429f71bf-8d61-5deb-8e8d-8af9bef02227] OpenDesign 0.98.10 | "C:\AI Test\OpenDesign\Uninstall OpenDesign.exe" /currentuser
+OK   E4.dir 仍在原目录、没另装一份 :: 
+OK   E4.data 资料原样:key.txt :: C:\Users\runneradmin\AppData\Local\OpenDesign\UserData\.openDesign\key.txt
+OK   E4.data 资料原样:e2e-档案-marker.md :: C:\Users\runneradmin\AppData\Local\OpenDesign\Data\e2e-档案-marker.md
+OK   E4.data 资料原样:e2e-marker.txt :: C:\Users\runneradmin\AppData\Local\OpenDesign\UserData\.openDesign\e2e-marker.txt
+OK   E4.oldmap 旧版 blockmap 从它自己那个 release 的路径取到 :: 要 download/v0.98.9/OpenDesign-0.98.9-electron-setup.exe.blockmap;实到 200 GET download/v0.98.9/OpenDesign-0.98.9-electron-setup.exe.blockmap - sent=173311
+OK   E4.delta 实际下载不到整包的 10%(增量成立) :: 1015270 / 164653773 字节;404:
+OK   E6.pre 卸载前软件在跑 :: 
+OK   E6.pre 卸载程序在 :: C:\AI Test\OpenDesign\Uninstall OpenDesign.exe
+OK   E6.done 卸载程序(含拷到临时目录的那一份)自己走完了 :: 
+OK   E6.proc 卸载时在跑的软件被收掉了 :: 
+OK   E6.files 安装目录清空了 :: 
+OK   E6.key 卸载项没了 :: 
+OK   E6.shortcut 桌面图标没了 :: (没有)
+OK   E6.data 资料原样:key.txt :: C:\Users\runneradmin\AppData\Local\OpenDesign\UserData\.openDesign\key.txt
+OK   E6.data 资料原样:e2e-档案-marker.md :: C:\Users\runneradmin\AppData\Local\OpenDesign\Data\e2e-档案-marker.md
+OK   E6.data 资料原样:e2e-marker.txt :: C:\Users\runneradmin\AppData\Local\OpenDesign\UserData\.openDesign\e2e-marker.txt
+OK   E6.config 配置业务字段原样(卸载不许碰资料根) :: 前 brain=mimo-v2.5-pro | keys=custom=${DS_LLM_KEY},azureOpenai=,bedrock=,anthropic=,openai=,openrouter=,assemblyai=,huggingface=,skywork=,deepseek=,groq=,zhipu=,dashscope
+OK   E3b.old 旧版装上了 :: C:\AI Old\OpenDesign
+OK   E3b.oldrun 旧版跑起来了 :: 
+OK   E3b.install 安装包退出码 0 :: 0
+OK   E3b.dir 装到了 B :: C:\AI New\OpenDesign
+OK   E3b.oldproc A 那份旧版的进程被收掉了 :: 
+OK   E3b.oldgone A 那份旧版被旧卸载器卸掉了(哨兵没了) :: 
+OK   E3b.newkey 「应用和功能」里只剩一个 OpenDesign :: [429f71bf-8d61-5deb-8e8d-8af9bef02227] OpenDesign 0.98.9 | "C:\AI New\OpenDesign\Uninstall OpenDesign.exe" /currentuser
+OK   E3b.data 资料原样:key.txt :: C:\Users\runneradmin\AppData\Local\OpenDesign\UserData\.openDesign\key.txt
+OK   E3b.data 资料原样:e2e-档案-marker.md :: C:\Users\runneradmin\AppData\Local\OpenDesign\Data\e2e-档案-marker.md
+OK   E3b.data 资料原样:e2e-marker.txt :: C:\Users\runneradmin\AppData\Local\OpenDesign\UserData\.openDesign\e2e-marker.txt
+OK   E3b.config 配置业务字段前后不变 :: 前 brain=mimo-v2.5-pro | keys=custom=${DS_LLM_KEY},azureOpenai=,bedrock=,anthropic=,openai=,openrouter=,assemblyai=,huggingface=,skywork=,deepseek=,groq=,zhipu=,dashscope=,vllm=,ollama=,lmS
+OK   E3c.pre 量具:没有卸载项、没有旧目录指针、没有新版的安装位置记录 ::  
+OK   E3c.old 旧版装上了 :: C:\AI Lock's\OpenDesign
+OK   E3c.lock 量具:旧版的哨兵被别的进程占住了 :: C:\AI Lock's\OpenDesign\ds\bin\ds_shell.py 占用进程 2228
+OK   E3c.refuse 第一次没装(新版文件没进去) :: 退出码 2
+OK   E3c.refuse 旧卸载器真跑过(没被「关不掉」挡在门外;R1-4 单引号路径) :: ds 卸载.exe
+OK   E3c.refuse 量具:哨兵确实没删掉 :: 
+OK   E3c.refuse 旧卸载程序还在(R1-1:重试靠它认出这里有旧版) :: 
+OK   E3c.refuse 旧目录指针写回了(旧卸载器删过它) :: InstallDir = C:\AI Lock's\OpenDesign
+OK   E3c.refuse 开机自启写回了(旧卸载器删过它) :: "C:\AI Lock's\OpenDesign\OpenDesign.exe"
+OK   E3c.refuse 「应用和功能」里没有半截新版 :: 
+OK   E3c.refuse.data 资料原样:key.txt :: C:\Users\runneradmin\AppData\Local\OpenDesign\UserData\.openDesign\key.txt
+OK   E3c.refuse.data 资料原样:e2e-档案-marker.md :: C:\Users\runneradmin\AppData\Local\OpenDesign\Data\e2e-档案-marker.md
+OK   E3c.refuse.data 资料原样:e2e-marker.txt :: C:\Users\runneradmin\AppData\Local\OpenDesign\UserData\.openDesign\e2e-marker.txt
+OK   E3c.unlock 量具:解锁了(相当于业主重启了电脑) :: 
+OK   E3c.retry 重装装回了原目录(没带 /D,自己找回来的) :: 退出码 0
+OK   E3c.retry 没在默认目录另装一份 :: C:\Users\runneradmin\AppData\Local\Programs\OpenDesign
+OK   E3c.retry 旧文件收干净了(ds\ python\ 卸载.exe) :: locales resources chrome_100_percent.pak chrome_200_percent.pak d3dcompiler_47.dll dxcompiler.dll dxil.dll ffmpeg.dll icudtl.dat LICENSE.electron.txt LICENSES.chromium.html Ope
+OK   E3c.retry 「应用和功能」里只有一个 OpenDesign :: [429f71bf-8d61-5deb-8e8d-8af9bef02227] OpenDesign 0.98.9 | "C:\AI Lock's\OpenDesign\Uninstall OpenDesign.exe" /currentuser
+OK   E3c.retry 开机自启还在、指向新 exe :: "C:\AI Lock's\OpenDesign\OpenDesign.exe"
+OK   E3c.retry.data 资料原样:key.txt :: C:\Users\runneradmin\AppData\Local\OpenDesign\UserData\.openDesign\key.txt
+OK   E3c.retry.data 资料原样:e2e-档案-marker.md :: C:\Users\runneradmin\AppData\Local\OpenDesign\Data\e2e-档案-marker.md
+OK   E3c.retry.data 资料原样:e2e-marker.txt :: C:\Users\runneradmin\AppData\Local\OpenDesign\UserData\.openDesign\e2e-marker.txt
+OK   E3c.retry 配置业务字段前后不变 :: 前 brain=mimo-v2.5-pro | keys=custom=${DS_LLM_KEY},azureOpenai=,bedrock=,anthropic=,openai=,openrouter=,assemblyai=,huggingface=,skywork=,deepseek=,groq=,zhipu=,dashscope=,vllm=,ollama=,lmSt
+OK   E5.pre 量具:这台机器上已经没有任何 OpenDesign 痕迹 ::  False
+OK   E5.install 安装包退出码 0 :: 0
+OK   E5.pages 首装按三页:安装选项 → 选定安装位置 → 安装完成(U4 照 ZCode 留着「为哪位用户」) :: 安装选项 → 选定安装位置 → 安装完成
+OK   E5.setdir 量具:选目录页确实改成了自选目录 :: +3s CLICK#2 页头:[选定安装位置 / 选定 OpenDesign 要安装的文件夹。] 选项:[输入框=C:\Users\runneradmin\AppData\Local\Programs\OpenDesign ; 改目录:[C:\U
+OK   E5.dir 装到了所选目录 :: C:\OD 新装\OpenDesign
+OK   E5.dir 没在默认目录另装一份 :: C:\Users\runneradmin\AppData\Local\Programs\OpenDesign
+OK   E5.newkey 「应用和功能」里一个 OpenDesign :: [429f71bf-8d61-5deb-8e8d-8af9bef02227] OpenDesign 0.98.9 | "C:\OD 新装\OpenDesign\Uninstall OpenDesign.exe" /currentuser
+OK   E5.autostart 全新安装默认不开机自启(design C:已知回归,设置页开关另单) :: 
+OK   E5.shortcut 桌面图标指向新 exe(且那个文件在) :: IShellLinkW=C:\OD 新装\OpenDesign\OpenDesign.exe ;对照 WScript=C:\OD ??\OpenDesign\OpenDesign.exe
+OK   E5.provision 配置建好了(ds_provision 跑过) :: C:\Users\runneradmin\AppData\Local\OpenDesign\UserData\.nanobot\config.json
+OK   E5.run 完成页勾着「运行」⇒ 装完软件自己起来了 :: 8766 {"ok": true, "version": "0.98.9", "ds_root": "C:\\OD 新装\\OpenDesign\\resources\\ds", "model": "mimo-v2.5", "doc_reader": {"available": true, "converter": "0.
+OK   E5.samever 版本三方一致 :: 后台 0.98.9 / exe 0.98.9 / 期望 0.98.9
+OK   E7.pre 量具:没有 C:\ProgramData\OpenDesign、没有卸载项 :: False  
+OK   E7.old 旧版装上了 :: C:\AI Own\OpenDesign
+OK   E7.install 安装包退出码 0 :: 0
+OK   E7.pick 量具:「为哪位用户」确实点成了「所有用户」 :: +1s CLICK#1 页头:[安装选项 / 为哪位用户安装该应用？] 选项:[为使用这台电脑的任何人安装 (所有用户)=未选 ; 仅为我安装 (run
+OK   E7.newexe 新版装上了 :: C:\Program Files\OpenDesign\OpenDesign.exe
+OK   E7.oldgone 旧版收干净了(哨兵、卸载程序都没了) :: 
+OK   E7.nopd 没往 C:\ProgramData 写配置(provision 要落在当前用户下) :: 
+OK   E7.data 资料原样:key.txt :: C:\Users\runneradmin\AppData\Local\OpenDesign\UserData\.openDesign\key.txt
+OK   E7.data 资料原样:e2e-档案-marker.md :: C:\Users\runneradmin\AppData\Local\OpenDesign\Data\e2e-档案-marker.md
+OK   E7.data 资料原样:e2e-marker.txt :: C:\Users\runneradmin\AppData\Local\OpenDesign\UserData\.openDesign\e2e-marker.txt
+OK   E7.config 配置业务字段前后不变 :: 前 brain=mimo-v2.5 | keys=custom=${DS_LLM_KEY},azureOpenai=,bedrock=,anthropic=,openai=,openrouter=,assemblyai=,huggingface=,skywork=,deepseek=,groq=,zhipu=,dashscope=,vllm=,ollama=,lmStudio
+OK   E7.autostart 开机自启指向新 exe :: "C:\Program Files\OpenDesign\OpenDesign.exe"
+OK   E7.run 软件起得来 :: 8766 {"ok": true, "version": "0.98.9", "ds_root": "C:\\Program Files\\OpenDesign\\resources\\ds", "model": "mimo-v2.5", "doc_reader": {"available": true, "converter": "0.1.6"}}
+OK   E7.samever 版本三方一致 :: 后台 0.98.9 / exe 0.98.9 / 期望 0.98.9
+== 判据结束:FAIL 0 条
+---------------- 输出结束 ----------------
+runlog: bash rc=0 commit=7452f32 dirty=yes at=2026-09-23T05:35:19Z file=tracks/opendesign-instant-ui/evidence/20260923T053519Z-01-bash.txt
