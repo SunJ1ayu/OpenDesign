@@ -23,11 +23,15 @@ runlog -t opendesign-electron-release-0989 -- <判据命令>
 ```
 
 ```
-<粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
- **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
- 收据得进 git(5d)。一份收据都没有的话,写一行
- 「- 无机器证据:<理由>」认账 —— 沉默不算理由(5c)。>
+runlog: rel-oracle-red rc=0 commit=5facd88 dirty=yes at=2026-09-22T15:53:39Z file=tracks/opendesign-electron-release-0989/evidence/20260922T155339Z-01-rel-oracle-red.txt
+runlog: rel-red-run35750376646 rc=0 commit=81a892c dirty=no at=2026-09-22T16:16:30Z file=tracks/opendesign-electron-release-0989/evidence/20260922T161630Z-01-rel-red-run35750376646.txt
+runlog: rel-fix-run35750584881 rc=0 commit=81a892c dirty=yes at=2026-09-22T16:16:33Z file=tracks/opendesign-electron-release-0989/evidence/20260922T161633Z-01-rel-fix-run35750584881.txt
+runlog: rel-runall-before-review rc=3 commit=d236f61 dirty=no final=yes at=2026-09-22T16:16:48Z file=tracks/opendesign-electron-release-0989/evidence/20260922T161648Z-01-rel-runall-before-review.txt
+runlog: prod-smoke rc=0 commit=cfcef3c dirty=no at=2026-09-23T04:18:51Z file=tracks/opendesign-electron-release-0989/evidence/20260923T041851Z-01-prod-smoke.txt
 ```
+
+- 说明:rel-oracle-red 是判据先行的红跑(C14a/b 红,预期);rel-red 云跑 rc=0 只是取日志成功,内容里 E7.nopd 红(预期);
+  rel-runall rc=3 = 各段全绿 + 3 条老的没跑;prod-smoke = T4 发布后从 GitHub 正式地址取回逐字节比对。
 
 ## Review
 
