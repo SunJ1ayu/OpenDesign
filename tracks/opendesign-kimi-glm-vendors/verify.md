@@ -121,6 +121,7 @@ runlog: bash rc=0 commit=218e13a dirty=yes at=2026-09-23T11:39:08Z file=tracks/o
   | 1 | 实质 | rc=3,BLOCK 0(PENDING=待评审) | /root/aiwork/logs/panel-kimi-glm-20260923-1806 [仓外不承重] | 0(1 条钱路径缺口按必须修处理) |
   | 2 | 实质 | rc=3,BLOCK 0 | /root/aiwork/logs/panel-kimi-glm-r2-20260923-1836 [仓外不承重] | 2(Grok BLOCK,下表 7、8) |
   | 3 | 实质(追加,预算 1) | rc=3,BLOCK 0 | /root/aiwork/logs/panel-kimi-glm-r3-20260923-1908 [仓外不承重] | 1(MiMo BLOCK,下表 12;按预案回头改设计) |
+  | 4 | 实质(改设计后,预算 1) | rc=3,BLOCK 0(PENDING=待评审) | /root/aiwork/logs/panel-kimi-glm-r4-20260923-1939 [仓外不承重] | 1(两家都 BLOCK,同一个洞,下表 15)|
 
 - findings(第 1 轮):
 
@@ -158,6 +159,20 @@ runlog: bash rc=0 commit=218e13a dirty=yes at=2026-09-23T11:39:08Z file=tracks/o
 
 - **追加第 4 轮的理由(派发前写)**:第 3 轮按预案不再补丁,改设计(同名模型按厂商分预设名、删 keeps_owner/removed 补丁)。
   这是方向改变 ⇒ 必须再审一轮;预算 = 1 轮(两家族)。再有阻断 ⇒ 本单记 NEEDS_MORE_INFO 交业主定是否先只发 Kimi + 一家 GLM。
+
+- 第 4 轮花名册: submimo=PASS(verdict=BLOCK) subcursor.grok-4.7-high=PASS(verdict=BLOCK)(两家族一致 BLOCK;09-23 断线后接手核实)
+- findings(第 4 轮):
+
+  | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
+  |---|---|---|---|---|
+  | 15 | (两家)只有一把 GLM 套餐 key 在主槽,业主**替换**成 GLM 按量(不是再加一家)⇒ 没有额外槽,`prepare_gateway` 在 650 行提前返回,③b 不跑;残留的 `glm-5.3@glm_plan` 仍是 `custom` ⇒ 经 `/model` 或 agent 的 model_preset 工具选中它时,名字写套餐、实际发到按量端点、用按量 key | 接手后亲跑复现:nanobot 自己加载 `glm-5.3@glm_plan` 得到 key=按量、apiBase=`open.bigmodel.cn/api/paas/v4` | **本单阻断**;按预案停,交业主 | 改设计只把「同名」拆开了,没拆掉真正共享的东西:**`custom` 这个槽的厂商会变,而指向它的预设不带厂商**。第 3 轮之前那五个补丁、以及这个洞,都是它的症状 |
+  | 16 | (MiMo)不重名的旧主槽预设(如 MiMo 换成 DeepSeek 后 `mimo-v2.5`)仍指 `custom` ⇒ 发到新主槽 | 在 base `53560cc`(=已发 0.98.10 的代码)上亲跑同样复现:`mimo-v2.5` → DeepSeek 端点+key | 不属本单引入;记进下一单 | 已发版本就有;模型名在新端点不存在 ⇒ 报错,不扣错钱。但与 15 是同一根因,修 15 时应一并修 |
+  | 17 | (MiMo)`bin/set_model.py` 一律写裸模型名,会和 `@厂商` 名并存 | 读码属实(set_model.py:67-68) | 随 15 一起处理 | 界面不走它,但文档点名它是换模型入口 |
+  | 18 | (两家)k10 只数 provider 字段、不咬预设名、不走 nanobot 加载;k8 的 `pop("glm-5.3-flash")` 改设计后成了空操作 | 读 tests/test_kimi_glm_vendors.py 属实 | 随 15 一起加强 | 考卷没挡住 15,本身就是判据太弱的实证 |
+
+- **状态:NEEDS_MORE_INFO(待业主拍板)**。按第 4 轮前写下的预案,不再自己续轮。给业主的两条路:
+  A. 先只发 Kimi + 一家 GLM(同名问题直接消失;16 仍是已发版本的旧毛病,另开单);
+  B. 两家 GLM 都要 ⇒ 按根因改:「主槽换厂商的那一刻,所有指向 custom 且不属于新主槽那家的预设,有额外 key 就改指 od_<厂商>、没有就删」,一条规矩同时收 15/16,再审一轮。
 
 ## Accepted deviations
 
