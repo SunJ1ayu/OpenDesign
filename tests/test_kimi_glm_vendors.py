@@ -582,6 +582,8 @@ class TestPresetsThatAreNotOurs(TestEveryPresetGoesToItsOwner):
             "我的@kimi": {"label": "x", "provider": "custom", "model": "my-own-model"},
             "glm-5.3@glm_plan": {"label": "x", "provider": "custom", "model": "kimi-k3"},   # 名模不一致 = 不是我们起的
             "没写provider": {"label": "x", "model": "deepseek-v4-flash"},
+            # 名字正是我们会起的,但没写 provider(nanobot 按 auto 路由)⇒ 不是指向我们的槽,也不碰(变异自检补的)
+            "deepseek-v4-flash": {"label": "x", "model": "deepseek-v4-flash"},
         }
         cfg = self.cfg()
         cfg["model_presets"].update(mine)

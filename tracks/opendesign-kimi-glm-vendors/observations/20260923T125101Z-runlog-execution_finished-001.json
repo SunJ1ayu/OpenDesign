@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-kimi-glm-vendors",
+  "run_id": "20260923T125059Z-01-python",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "python",
+  "started_at": "2026-09-23T12:50:59Z",
+  "finished_at": "2026-09-23T12:51:01Z",
+  "duration_ms": 2106,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

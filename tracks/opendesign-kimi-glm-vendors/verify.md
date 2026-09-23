@@ -210,6 +210,10 @@ runlog: bash rc=0 commit=bc67483 dirty=yes at=2026-09-23T12:30:38Z file=tracks/o
   k14(手写预设不碰:`@kimi` 撞名、名模不一致、没写 provider)、k11 加「活着的厂商默认预设必须在」、k12 改用网关此刻的 env。
 runlog: python rc=1 commit=cd0ab0f dirty=yes at=2026-09-23T12:47:52Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T124752Z-01-python.txt
   (上一行 = 第 5 轮判据红:k13 四处、k13b、k13c、k14。)
+- 变异自检(第 5 轮修法):set_model 不走入口 / 不传 home / 额外槽也删 ⇒ 红;**「没写 provider 当 custom」存活**(k14 那份没写 provider 的名字本来就不是我们起的,问不到这一支)
+  ⇒ k14 补一份「名字是我们会起的、但没写 provider」的预设;把上一版认主人的函数原样放回 ⇒ k14 红。
+runlog: python rc=1 commit=3afb648 dirty=yes at=2026-09-23T12:50:59Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T125059Z-01-python.txt
+  (上一行 = 补过的 k14 在修前代码上红。)
 
 ## Accepted deviations
 
