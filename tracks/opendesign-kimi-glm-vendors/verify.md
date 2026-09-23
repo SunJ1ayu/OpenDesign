@@ -85,6 +85,11 @@ runlog: bash rc=0 commit=47ca5d9 dirty=yes at=2026-09-23T11:08:01Z file=tracks/o
 (上一行 = 本单判据 14 条 + ku 全绿。)
 
 ```
+runlog: python rc=1 commit=fb97e4d dirty=yes at=2026-09-23T11:24:51Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T112451Z-01-python.txt
+```
+(上一行 = 改设计的判据:k10(同名模型两家各一份预设)红;k9b 两格对位在旧补丁上已绿。)
+
+```
 <粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
  **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
  收据得进 git(5d)。一份收据都没有的话,写一行
@@ -105,6 +110,7 @@ runlog: bash rc=0 commit=47ca5d9 dirty=yes at=2026-09-23T11:08:01Z file=tracks/o
   |---|---|---|---|---|
   | 1 | 实质 | rc=3,BLOCK 0(PENDING=待评审) | /root/aiwork/logs/panel-kimi-glm-20260923-1806 [仓外不承重] | 0(1 条钱路径缺口按必须修处理) |
   | 2 | 实质 | rc=3,BLOCK 0 | /root/aiwork/logs/panel-kimi-glm-r2-20260923-1836 [仓外不承重] | 2(Grok BLOCK,下表 7、8) |
+  | 3 | 实质(追加,预算 1) | rc=3,BLOCK 0 | /root/aiwork/logs/panel-kimi-glm-r3-20260923-1908 [仓外不承重] | 1(MiMo BLOCK,下表 12;按预案回头改设计) |
 
 - findings(第 1 轮):
 
@@ -130,6 +136,18 @@ runlog: bash rc=0 commit=47ca5d9 dirty=yes at=2026-09-23T11:08:01Z file=tracks/o
 
 - **追加第 3 轮的理由(派发前写)**:预算 2 轮已用完;7、8 是真实阻断,且都在扣钱轴。追加目的:只核验 7、8 的修法与 k8b/k9 考卷;
   新预算 = 1 轮(两家族,同成员)。第 3 轮再有阻断 ⇒ 本单保持未完成、回头重看同名模型的设计(改成按厂商区分预设名),不再续轮。
+
+- 第 3 轮花名册: submimo=PASS(verdict=BLOCK) subcursor.grok-4.7-high=PASS(verdict=PASS)(冲突:MiMo BLOCK、Grok PASS)
+- findings(第 3 轮):
+
+  | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
+  |---|---|---|---|---|
+  | 12 | (MiMo BLOCK)主槽=GLM 按量、人在额外槽套餐 glm-5.3,套餐 key 丢了 ⇒ 回落主槽默认 = 按量 glm-5.3,模型名不变、账单换家 | Grok 同一格读码:落到主槽 custom,端点/key 一致;k9b ① 实测落主槽按量 | 驳回「作为 bug」,但**按预案回头改设计** | 行为本身是「丢 key 回主槽默认」的既定规矩(DeepSeek→MiMo 同一条),不是串到非主槽的第三方;但同名模型已第五次打补丁(k4b/k4c/k8/k8b/k9),4c「同一类问题第二次打补丁要回头看根因」早已触发 ⇒ 改成同名模型按厂商各存一份预设(k10),未发版无迁移成本 |
+  | 13 | (MiMo)k9 夹具只有 MiMo 主槽;缺「主槽=另一家 GLM」与「人在第三家丢一家 GLM 不许被踢」对位 | 属实 | 本单必须修(随设计改) | 补 k9b 两格 |
+  | 14 | (MiMo)k8b 只考一个方向,缺「预设归属」那一支 | 属实 | 随设计改消失 | 改设计后预设不再共享,「归属」分支删除,不需要考 |
+
+- **追加第 4 轮的理由(派发前写)**:第 3 轮按预案不再补丁,改设计(同名模型按厂商分预设名、删 keeps_owner/removed 补丁)。
+  这是方向改变 ⇒ 必须再审一轮;预算 = 1 轮(两家族)。再有阻断 ⇒ 本单记 NEEDS_MORE_INFO 交业主定是否先只发 Kimi + 一家 GLM。
 
 ## Accepted deviations
 

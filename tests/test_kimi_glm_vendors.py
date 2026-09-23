@@ -274,6 +274,58 @@ class TestRouting(pv.Rig):
         snap = self.snapshot(self.gateway_env(), None)
         self.assertEqual(snap.provider.api_key, GLM_KEY)
 
+    def test_k9b_losing_a_glm_key_symmetric_and_bystander_positions(self):
+        """第 3 轮评审(MiMo)补的对位:
+        ① 主槽就是另一家 GLM:丢了额外那家的 key ⇒ 按「回落主槽默认」的既定规矩落到主槽那家(和 DeepSeek 丢 key 回 MiMo 同一条),
+           且真发出去的端点/key 就是主槽那家 —— 不许出现「名字说主槽、预设指着别处」;
+        ② 人在 Kimi,丢一家 GLM 的 key ⇒ 留在 Kimi,不许被踢走。"""
+        with self.subTest("主槽=GLM 按量,丢套餐"):
+            self.setUp()
+            ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="glm", key=GLM_KEY)
+            self.add("glm_plan", GLM_PLAN_KEY)
+            self.gateway_env()
+            ds_credential.select_model(self.cfg_path, "glm-5.3", provider="glm_plan")
+            os.remove(os.path.join(self.keys_dir, "glm_plan.txt"))
+            snap = self.snapshot(self.gateway_env(), None)
+            self.assertEqual(snap.provider.api_base, EXPECTED["glm"]["apiBase"])
+            self.assertEqual(snap.provider.api_key, GLM_KEY)
+            self.assertEqual(ds_credential.models_status(self.cfg_path)["provider"], "glm",
+                             "菜单打勾要和真发的是同一家")
+        with self.subTest("人在 Kimi,丢一家 GLM"):
+            self.setUp()
+            self.have_mimo_in_primary()
+            self.add("glm_plan", GLM_PLAN_KEY)
+            self.add("glm", GLM_KEY)
+            self.add("kimi", KIMI_KEY)
+            self.gateway_env()
+            ds_credential.select_model(self.cfg_path, "kimi-k2.6", provider="kimi")
+            os.remove(os.path.join(self.keys_dir, "glm_plan.txt"))
+            snap = self.snapshot(self.gateway_env(), None)
+            self.assertEqual(snap.provider.api_key, KIMI_KEY, "丢的是 GLM 的 key,人却被踢出了 Kimi")
+
+    def test_k10_each_glm_vendor_keeps_its_own_preset_for_a_shared_model_name(self):
+        """根治(第 3 轮后回头改设计):同名模型按厂商各存一份预设,谁也改不动谁的 ——
+        两家都选过 glm-5.3 之后,任一家的那份预设都还指着它自己。"""
+        self.have_mimo_in_primary()
+        self.add("glm_plan", GLM_PLAN_KEY)
+        self.add("glm", GLM_KEY)
+        self.gateway_env()
+        ds_credential.select_model(self.cfg_path, "glm-5.3", provider="glm_plan")
+        ds_credential.select_model(self.cfg_path, "glm-5.3", provider="glm")
+        self.gateway_env()
+        owners = {}
+        for name, p in self.cfg()["model_presets"].items():
+            if isinstance(p, dict) and p.get("model") == "glm-5.3":
+                owners.setdefault(p.get("provider"), []).append(name)
+        self.assertEqual(set(owners), {"od_glm_plan", "od_glm"},
+                         f"glm-5.3 应该两家各一份预设,实际 {owners}")
+        for prov, names in owners.items():
+            self.assertEqual(len(names), 1, f"{prov} 有多份 glm-5.3 预设:{names}")
+        # 不重名的模型预设名照旧就是模型名(老配置、nanobot /model 列表不变)
+        presets = self.cfg()["model_presets"]
+        self.assertIn("mimo-v2.5", presets)
+        self.assertIn("glm-5v-turbo", presets)
+
     def test_k5_kimi_as_a_second_vendor_end_to_end(self):
         self.have_mimo_in_primary()
         self.add("kimi", KIMI_KEY)
