@@ -28,6 +28,17 @@ runlog: bash rc=1 commit=53560cc dirty=yes at=2026-09-23T09:37:17Z file=tracks/o
 (上一行 = 判据先行红检:k1/k2/k4/k5/k5b/k6 + ku1/ku3 红,红因都是「不认识的厂商 / 缺 keyUrl / 卡片无链接」;k3、ku2 是守卫型、现状即绿。)
 
 ```
+runlog: bash rc=3 commit=64442c0 dirty=no at=2026-09-23T09:39:46Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T093946Z-01-bash.txt
+```
+(上一行 = 第一版实现后总跑:六段全 PASS(rc=3 = 活网关 e2e 2 条 + python 1 条跳过)。**之后自审抓到两条真 bug,见下。**)
+
+```
+runlog: python rc=1 commit=64442c0 dirty=yes at=2026-09-23T09:51:37Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T095137Z-01-python.txt
+```
+(上一行 = 自审补判据 k4b/k7/k7b 的红检:① 重启后 GLM 同名预设被 prepare_gateway 按「最后一家」重指,三种槽位组合全红;
+② Kimi 每个模型真发出去的 temperature=0.1(nanobot 的 moonshot 覆盖只对它自己的 moonshot 规格生效)。)
+
+```
 <粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
  **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
  收据得进 git(5d)。一份收据都没有的话,写一行

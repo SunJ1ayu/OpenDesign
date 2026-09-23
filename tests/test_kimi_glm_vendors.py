@@ -129,6 +129,68 @@ class TestRouting(pv.Rig):
                              f"选 {vendor} 的 glm-5.3,nanobot 发去了别的端点")
             self.assertEqual(snap.provider.api_key, key, f"选 {vendor} 的 glm-5.3,带的是别家的 key")
 
+    def test_k4b_the_glm_choice_survives_a_gateway_restart(self):
+        """🔴 自审抓到的:prepare_gateway 每次起网关都把同名预设按「最后一家」重指 ⇒
+        业主选了套餐 glm-5.3,重启一次就悄悄改走按量(扣另一份钱)。三种槽位组合都要守住。"""
+        combos = (
+            ("mimo 主槽,两家 GLM 都在额外槽", None),
+            ("GLM 套餐在主槽", "glm_plan"),
+            ("GLM 按量在主槽", "glm"),
+        )
+        for name, primary in combos:
+            with self.subTest(name):
+                self.setUp()
+                if primary is None:
+                    self.have_mimo_in_primary()
+                    self.add("glm_plan", GLM_PLAN_KEY)
+                    self.add("glm", GLM_KEY)
+                else:
+                    ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider=primary,
+                                       key=GLM_PLAN_KEY if primary == "glm_plan" else GLM_KEY)
+                    other = "glm" if primary == "glm_plan" else "glm_plan"
+                    self.add(other, GLM_KEY if other == "glm" else GLM_PLAN_KEY)
+                self.gateway_env()
+                for vendor, key in (("glm_plan", GLM_PLAN_KEY), ("glm", GLM_KEY)):
+                    ds_credential.select_model(self.cfg_path, "glm-5.3", provider=vendor)
+                    for _ in range(2):                       # 重启两次(每次起网关都跑 prepare_gateway)
+                        env = self.gateway_env()
+                    snap = self.snapshot(env, None)
+                    self.assertEqual(snap.provider.api_base, EXPECTED[vendor]["apiBase"],
+                                     f"[{name}] 选了 {vendor},重启后改走了别家")
+                    self.assertEqual(snap.provider.api_key, key)
+                    self.assertEqual(ds_credential.models_status(self.cfg_path)["provider"], vendor)
+
+    def test_k7_kimi_is_always_sent_temperature_at_least_1(self):
+        """🔴 自审抓到的:Kimi K2.5+ 拒收 temperature<1.0(nanobot 自带 moonshot 规格的注释与 model_overrides);
+        我们走 custom / od_kimi 通道,那条覆盖不生效,预设默认 0.1 ⇒ 每句都被拒。
+        问的是**真发出去的请求参数**(nanobot 的 _build_kwargs),不是配置字段。"""
+        def sent_temperature(env):
+            p = self.snapshot(env, None).provider
+            g = p.generation
+            kw = p._build_kwargs([{"role": "user", "content": "hi"}], None, None,
+                                 g.max_tokens, g.temperature, g.reasoning_effort, None)
+            return kw.get("temperature")
+
+        # 额外槽:每个 Kimi 模型、重启后也一样
+        self.have_mimo_in_primary()
+        self.add("kimi", KIMI_KEY)
+        env = self.gateway_env()
+        for m in EXPECTED["kimi"]["models"]:
+            ds_credential.select_model(self.cfg_path, m, provider="kimi")
+            t = sent_temperature(self.gateway_env())
+            self.assertIsNotNone(t)
+            self.assertGreaterEqual(t, 1.0, f"{m} 发出去的 temperature={t},Kimi 会拒")
+        # 换回 MiMo:别把 MiMo 也改成 1.0(它一直是 0.1)
+        ds_credential.select_model(self.cfg_path, "mimo-v2.5", provider="mimo")
+        self.assertEqual(sent_temperature(self.gateway_env()), 0.1)
+
+    def test_k7b_kimi_as_the_first_and_only_vendor_too(self):
+        self.add("kimi", KIMI_KEY)                  # 新装第一把 ⇒ 主槽
+        for m in EXPECTED["kimi"]["models"]:
+            ds_credential.select_model(self.cfg_path, m, provider="kimi")
+            p = self.snapshot(self.gateway_env(), None).provider
+            self.assertGreaterEqual(p.generation.temperature, 1.0, f"主槽 {m}")
+
     def test_k5_kimi_as_a_second_vendor_end_to_end(self):
         self.have_mimo_in_primary()
         self.add("kimi", KIMI_KEY)
