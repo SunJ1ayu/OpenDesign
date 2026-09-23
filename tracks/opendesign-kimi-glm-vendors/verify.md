@@ -55,6 +55,11 @@ runlog: bash rc=0 commit=700ace1 dirty=yes at=2026-09-23T10:06:26Z file=tracks/o
 (上一行 = 本单判据 11 条 + 前端 ku/老 llm_key/per_vendor_ui 全绿;dirty 只是 verify/收据未提交,源码 = 700ace1。)
 
 ```
+runlog: python rc=1 commit=264aad4 dirty=yes at=2026-09-23T10:22:57Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T102257Z-01-python.txt
+```
+(上一行 = 第 1 轮修复清单的判据:k8 红(正用按量、只带模型名被换到套餐);k7b 加强为走 `_build_kwargs` 出口,现实现即绿。)
+
+```
 <粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
  **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
  收据得进 git(5d)。一份收据都没有的话,写一行
@@ -63,33 +68,28 @@ runlog: bash rc=0 commit=700ace1 dirty=yes at=2026-09-23T10:06:26Z file=tracks/o
 
 ## Review
 
-- 规格自查(读任何 panel 输出之前先答):<回看 design 的用户成功条件、前提证据和未解决项。
-  实现符合规格不证明规格合理;实现评审也可质疑规格,但不能替代实施前 panel 4c 的方案检查。
-  本轮若暴露能推翻方向的前提,先回到设计;全池一致 PASS 也不等于题是对的。>
-- 腿的花名册: <把 `<日志前缀>.roster` 里那一行**原样粘过来**,别手写>
-  > panel-review 收尾自己写这个文件(off / FAIL(rc) / 降级 都在里面)。
-  > **控制器没活到收尾时它压根不存在** —— 那时跑 `panel-roster <日志前缀>` 从盘上重建,
-  > 与控制器自己写的**归一化后一致**(判据 R5b 守着;抬头有渲染时间戳,不是字面逐字节)。**一轮零记录的评审也粘得出这一行**,
-  > 所以"那轮被砍了所以没有花名册"不再是理由(2026-08-23,track panel-roster-from-disk)。
-  > 08-06 立这条的理由:08-05 我在这里手写了"三条腿一致 PASS",而 Kimi 根本没出结论
-  > (同一页第 90 行我自己还写着它没出报告)—— 手抄一份终端上的东西,抄错那次没人会发现。
-- 轮次记录(每次派发一行;实质评审与基础设施重试分开,重试不算轮但次数与耗时照记):
+- 规格自查(派发前,正本在仓外 /root/aiwork/tasks/opendesign-kimi-glm-vendors-my-review.md [仓外不承重]):用户成功条件 = 下拉多三家、各带获取 key 链接、
+  选哪家就走哪家(扣对钱)。自审中推翻了 design 前提 3 的一半,抓到并修了三条(k4b 重启串家、k4c 想换过去不兑现、k7 Kimi temperature),见上方收据。
+  4c:沿用 per-vendor-keys 已验证契约、不改用户必经步骤 ⇒ 未做实施前独立挑战(premise not_required);impact=high(money/sensitive_data)⇒ 两家族实现评审。
+- 反锚定如实记账:第 1 轮派发时 verify.md 已含收据注释(里面写了我自审抓到的三条 bug),两条腿都读得到;
+  **它们对这三条的确认不算独立发现**,独立价值在它们另报的条目(下表 1~3)。
+- 腿的花名册: submimo=PASS(verdict=PASS) subcursor.grok-4.7-high=PASS(verdict=PASS)
+- 轮次记录(预算 2 轮实质评审):
 
-  | 轮 | 类型(实质 / 重试) | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
+  | 轮 | 类型 | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
   |---|---|---|---|---|
-  | 1 | 实质 | <rc,BLOCK 数> | <…> | <n> |
+  | 1 | 实质 | rc=3,BLOCK 0(PENDING=待评审) | /root/aiwork/logs/panel-kimi-glm-20260923-1806 [仓外不承重] | 0(1 条钱路径缺口按必须修处理) |
 
-- findings(**先处置、后动手**;一轮一份修复清单,一次修完再复审 —— panel 抽屉 4b):
+- findings(第 1 轮):
 
   | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
   |---|---|---|---|---|
-  | 1 | <…> | <file:line / 复现收据> | 必须修 / 延期 / 驳回 / 尚未核实 | <延期必写:它在业主或下一个使用者那边会长成什么样> |
-
-  > 只写发现。腿的身份/降级不在这儿抄第二遍:日志自带身份牌(降级横幅 + 视野边界),
-  > 花名册在上一格,查工件不查自述。延期 = 留在这里,不自动开新单。
-- arbitrated verdict (主裁): <...>
-  > 这里写理由；最终枚举写进 `decision.json.outcome.verdict`。归档时仍为空会被
-  > `track-record validate --phase archive` 挡住，`track list` 也会打 ⚠️。
+  | 1 | (MiMo,Grok 也点到)`POST /api/llm/model` 不带 provider 且两家 GLM 都活时,`hits[0]` 静默改成 glm_plan,改走套餐端点+套餐 key | `bin/ds_credential.py:303-310` 读码属实;调用方:现界面 `modelSelectBody` 总带 provider,外壳前后端同包发 ⇒ 装好的软件里走不到 | **本单必须修** | 同名模型是本单引入的新暴露面,落在「扣错钱」轴上;修法小:缺 provider 时优先保留预设现在的归属,多家都能用且无归属 ⇒ 拒绝并要求指明厂商(判据 k8) |
+  | 2 | (MiMo)k7b 只看 generation.temperature,不走 `_build_kwargs` 真出口 | 读 `tests/test_kimi_glm_vendors.py` 属实 | **本单必须修**(随清单一起) | 考卷证明「主槽 Kimi 真发出的值」这条当前承诺时隔了一层;改成与 k7 同一出口,成本一行 |
+  | 3 | (两家)ku3 是源码字符串匹配,可被「假链接 + 真 UI 另画」骗过 | 属实 | 延期 | 当前实现经截图核过(卡片外链文字/href 随下拉变);这是「挡不住任意未来错误实现」类,不扩大本单承诺。在业主那边:将来有人改卡片时可能漏掉链接而考卷仍绿 —— 发版单云 e2e 截图兜一次 |
+  | 4 | (MiMo)k7 只钉 temperature,不钉全部出参;kimi-k3 可能另有拒收参数 | 属实,但无真 key 问不出 | 延期 | 已知未知(design 前提 2);业主那边的样子:选 Kimi 聊天报参数错误,改表一行即修 |
+  | 5 | (MiMo)`rel` 可写 `noopener noreferrer` | noreferrer 在 Chromium 已含 noopener 语义 | 驳回 | 行为等价 |
+  | 6 | (Grok)k7 `>= 1.0` 放过 1.5 | 1.5 同样被 Kimi 接受(拒的是 <1.0) | 驳回 | 断言与真实约束同形 |
 
 ## Accepted deviations
 

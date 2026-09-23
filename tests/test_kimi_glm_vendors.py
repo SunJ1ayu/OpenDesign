@@ -209,7 +209,38 @@ class TestRouting(pv.Rig):
         for m in EXPECTED["kimi"]["models"]:
             ds_credential.select_model(self.cfg_path, m, provider="kimi")
             p = self.snapshot(self.gateway_env(), None).provider
-            self.assertGreaterEqual(p.generation.temperature, 1.0, f"主槽 {m}")
+            g = p.generation
+            # 第 1 轮评审(MiMo):与 k7 同一出口 —— 问真发出去的参数,不只看 generation
+            kw = p._build_kwargs([{"role": "user", "content": "hi"}], None, None,
+                                 g.max_tokens, g.temperature, g.reasoning_effort, None)
+            self.assertGreaterEqual(kw.get("temperature") or 0, 1.0, f"主槽 {m} 发出去的 temperature")
+
+    def test_k8_a_model_name_two_live_vendors_share_never_switches_vendor_silently(self):
+        """第 1 轮评审(MiMo)发现:POST /api/llm/model 不带 provider 时按厂商表序取第一家 ⇒
+        正用 GLM 按量的 glm-5.3,来一个只带模型名的请求就被改成套餐(换端点、换 key、换账单)。
+        要么留在现在那家,要么拒绝并要求指明厂商 —— 不许悄悄换家。"""
+        self.have_mimo_in_primary()
+        self.add("glm_plan", GLM_PLAN_KEY)
+        self.add("glm", GLM_KEY)
+        env = self.gateway_env()
+        for current, key in (("glm", GLM_KEY), ("glm_plan", GLM_PLAN_KEY)):
+            ds_credential.select_model(self.cfg_path, "glm-5.3", provider=current)
+            got = ds_credential.select_model(self.cfg_path, "glm-5.3")          # 不带厂商
+            self.assertEqual(got["provider"], current, f"正用 {current},只带模型名就被换到 {got['provider']}")
+            snap = self.snapshot(env, None)
+            self.assertEqual(snap.provider.api_base, EXPECTED[current]["apiBase"])
+            self.assertEqual(snap.provider.api_key, key)
+        # 当前在 MiMo、两家 GLM 都能用 glm-5.3-flash 且谁都还没用过它 ⇒ 分不清就拒绝,配置不动
+        ds_credential.select_model(self.cfg_path, "mimo-v2.5", provider="mimo")
+        cfg = self.cfg()
+        cfg["model_presets"].pop("glm-5.3-flash", None)
+        with open(self.cfg_path, "w", encoding="utf-8") as fh:
+            json.dump(cfg, fh, ensure_ascii=False, indent=2)
+        before = self.cfg_bytes()
+        with self.assertRaises(ds_credential.CredentialError) as cm:
+            ds_credential.select_model(self.cfg_path, "glm-5.3-flash")
+        self.assertIn("哪一家", str(cm.exception), "拒绝时要说清是缺了厂商")
+        self.assertEqual(self.cfg_bytes(), before)
 
     def test_k5_kimi_as_a_second_vendor_end_to_end(self):
         self.have_mimo_in_primary()
