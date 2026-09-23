@@ -267,6 +267,11 @@ runlog: bash rc=0 commit=922bb7f dirty=yes at=2026-09-23T14:57:07Z file=tracks/o
   - MiMo:新发现 #30 —— 老 PowerShell 安装脚本 `bin/install.ps1` 让机主手填 apiBase + model(→ `ds_merge_config --model`)写**共享模型裸名**
     (如 `glm-5.3 → custom`);之后界面存别家 key 进主槽 ⇒ `_route_presets` 认不出主人不碰 ⇒ glm-5.3 发到别家。亲核:install.ps1:127-134 确有这两问。
 - **状态:NEEDS_MORE_INFO,按预案停**(第 8 轮后不修、不续轮)。交业主:A 修 #30(+ Grok 那一格判据)再审一轮 / B #30 记延期另开单、本单照常收尾。
+- **业主 09-23 晚:修 #30,评审加上 DeepSeek 和 GPT**(同时把 codex 腿换成 gpt-6-sol,aiwork track codex-leg-gpt6-sol 已归档)。
+  判据:k15(安装合并按厂商命名共享模型;装 GLM 套餐后换 Kimi 每份预设仍发到主人那家)、k15b(已装 MiMo 重装换 DeepSeek,合并后对齐)—— 红;
+  k13g(Grok:自配端点 + 恰好一家额外槽,set_model 走统一入口)—— 现代码绿,套上 Grok 那种闸写残即红(亲跑)。
+runlog: python rc=1 commit=3c88167 dirty=yes at=2026-09-23T15:39:30Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T153930Z-01-python.txt
+  (上一行 = k15、k15b 红。)
 
 ## Accepted deviations
 
