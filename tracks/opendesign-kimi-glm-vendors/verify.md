@@ -190,6 +190,27 @@ runlog: bash rc=0 commit=bc67483 dirty=yes at=2026-09-23T12:30:38Z file=tracks/o
 - **追加第 5 轮的理由(派发前写)**:业主拍板走 B(按根因修),方向又变了一次(从「改名字」到「不变量:预设只发到主人那家」)⇒ 必须再审一轮;
   预算 = 1 轮(两家族,同成员 MiMo + Grok)。再有阻断:若与本根因同类 ⇒ 说明根因判定错了,停下交业主;若是新的不同类问题 ⇒ 逐条核实后按常规处置。
 
+- 第 5 轮花名册: submimo=PASS(verdict=BLOCK) subcursor.grok-4.7-high=PASS(verdict=BLOCK)(两家族一致 BLOCK,主发现相同)
+- findings(第 5 轮):
+
+  | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
+  |---|---|---|---|---|
+  | 19 | (两家)正用 Kimi 时 `set_model.py glm-5.3` ⇒ 写出裸名 `glm-5.3` 且抄走 od_kimi ⇒ glm-5.3 发到 Kimi 端点带 Kimi key;对齐认不出「两家都有」的裸名,起网关也不修 | 亲跑复现(active=glm-5.3,provider=od_kimi,nanobot 加载得 Kimi key + moonshot 端点) | **本单必须修** | 实际后果是 Kimi 报「没这个模型」(不会扣错钱),但违反不变量。**根子是两个写「当前模型」的入口**:界面走 select_model(认厂商、按厂商命名、分不清就拒绝),set_model.py 不认厂商。修法 = 我们管的配置里 set_model.py 改走 select_model(同一个入口),不给路由规则再加一格 |
+  | 20 | (MiMo)业主手写预设名字以 `@kimi` 等结尾会被当成我们的删掉 | 属实(`_qualified_vendor` 只看后缀) | 本单必须修 | 「认不出主人不碰」的承诺被后缀撞名打破。修法:只认**我们自己会起的名字**(模型在那家目录里且名字正是 preset_name 的结果) |
+  | 21 | (Grok)没写 provider 的手写预设被当成指 custom | 属实(nanobot 默认 auto) | 本单必须修(随 20) | 只动显式指 custom / od_* 的 |
+  | 22 | (MiMo)set_model 不清「想换过去」标记,手选被下次起网关顶掉 | 属实 | 随 19 消失 | 同一入口 select_model(home=…) 本来就清(v18) |
+  | 23 | (两家)k12 用 gateway_env() 问 ⇒ 先对齐再看,错的写法被纠正后才被看见;k11 只查留下的都对、不查活着那家的预设没被删;owner_of 与实现同构 | 属实 | 本单必须修 | k12/k13 改用网关此刻手里的 env;k11 加「活着的厂商默认预设必须在」;owner_of 改为按规格写(名字=那家会起的名字),与实现各写各的 |
+  | 24 | (MiMo)手改配置后、**没外壳**的启动器起网关不跑对齐 | 读码属实(只有 ds_shell 调 prepare_gateway) | 驳回(不扩大) | 手写错指不是我们的写入口造的;没外壳 = git-pull/Linux 开发机,不是业主的装法;#16 那种老残留在没外壳的机器上是「报错不扣钱」 |
+  | 25 | (MiMo)存第二家 key(额外槽)时 save 不对齐 | 属实 | 驳回 | v1 既定契约:存额外 key 时配置一个字节不动,对齐只在起网关时做 |
+
+- **第 5 轮停不停的判断(按派发前写的预案)**:预案是「与本根因同类 ⇒ 根因判错了,停下交业主」。MiMo 认为是同类;我判不是:
+  #19 不是「custom 槽换厂商」造成的,而是**第二个写入口绕开了命名**;修法是删掉第二个写入口(不是给路由加分支)。
+  且业主已明示「从第一性原理修就好了」⇒ 继续修,把这一判断原样写进给业主的汇报。第 6 轮是最后一轮:再有阻断一律停下交业主。
+- 第 5 轮判据(先红):k13/k13b/k13c(set_model 走同一入口:没 key 的厂商拒绝、两家 GLM 分不清拒绝、带 --provider 按厂商命名、手选盖过标记)、
+  k14(手写预设不碰:`@kimi` 撞名、名模不一致、没写 provider)、k11 加「活着的厂商默认预设必须在」、k12 改用网关此刻的 env。
+runlog: python rc=1 commit=cd0ab0f dirty=yes at=2026-09-23T12:47:52Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T124752Z-01-python.txt
+  (上一行 = 第 5 轮判据红:k13 四处、k13b、k13c、k14。)
+
 ## Accepted deviations
 
 - <接受的非关键偏差 + 原因 + 影响范围,或 None>

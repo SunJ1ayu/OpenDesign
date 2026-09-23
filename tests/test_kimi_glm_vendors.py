@@ -360,12 +360,17 @@ KEYS = {"mimo": pv.MIMO_KEY, "deepseek": pv.DS_KEY, "kimi": KIMI_KEY, "glm_plan"
 
 
 def owner_of(name, preset):
-    """判据自己认「这份预设属于哪家」,不借实现的 helper:名字带 `@厂商` ⇒ 那家;
-    否则模型只在一家目录里 ⇒ 那家;认不出(业主手写的)⇒ None,不管它。"""
-    if "@" in name and name.rsplit("@", 1)[1] in ds_credential.PROVIDERS:
-        return name.rsplit("@", 1)[1]
-    hits = [v for v, p in ds_credential.PROVIDERS.items() if preset.get("model") in p["models"]]
-    return hits[0] if len(hits) == 1 else None
+    """判据自己认「这份预设是我们替哪家起的」,不借实现的 helper(第 5 轮起):模型在某家目录里,且名字正是
+    那家会起的名字 —— 只有这一家有这个模型 ⇒ 模型名本身;几家都有 ⇒ `模型@厂商`。其余(业主手写)⇒ None。"""
+    m = preset.get("model")
+    hits = [v for v, p in ds_credential.PROVIDERS.items() if m in p["models"]]
+    if len(hits) == 1 and name == m:
+        return hits[0]
+    if len(hits) > 1 and "@" in name:
+        v = name.rsplit("@", 1)[1]
+        if v in hits and name == f"{m}@{v}":
+            return v
+    return None
 
 
 class TestEveryPresetGoesToItsOwner(pv.Rig):
@@ -409,6 +414,11 @@ class TestEveryPresetGoesToItsOwner(pv.Rig):
                 who = [v for v, k in KEYS.items() if k == got[1]]
                 bad.append(f"{name}:属于 {owner},实际发去 {got[0]}(带 {who} 的 key)")
         self.assertGreater(checked, 0, f"[{where}] 一份认得出主人的预设都没有 ⇒ 这条没问到东西")
+        # 第 5 轮(Grok):只查「留下的都对」放过「把活着那家的预设也删了」⇒ 每家活着的厂商,默认模型那份必须还在
+        for v in live:
+            if not any(owner_of(n, p) == v and p.get("model") == ds_credential.PROVIDERS[v]["model"]
+                       for n, p in cfg["model_presets"].items() if isinstance(p, dict)):
+                bad.append(f"{v} 还有 key,它默认模型的预设却没了")
         self.assertEqual(bad, [], f"[{where}] 这些预设发不到自己那家")
         snap = self.snapshot(env, None)
         self.assertIn(snap.provider.api_key, [KEYS[v] for v in live], f"[{where}] 当前模型发去了没 key 的厂商")
@@ -477,6 +487,7 @@ class TestEveryPresetGoesToItsOwner(pv.Rig):
         self.add("glm_plan", GLM_PLAN_KEY)
         self.add("glm", GLM_KEY)
         self.gateway_env()
+        env = self.gateway_env()                    # 网关此刻手里的 env(第 5 轮 Grok:别让下一次对齐替它收拾)
         ds_credential.select_model(self.cfg_path, "glm-5.3", provider="glm")
         r = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "set_model.py"), "glm-5.3-flash",
                             "--config", self.cfg_path], capture_output=True, encoding="utf-8", timeout=30)
@@ -484,9 +495,104 @@ class TestEveryPresetGoesToItsOwner(pv.Rig):
         cfg = self.cfg()
         self.assertEqual(cfg["agents"]["defaults"]["modelPreset"], "glm-5.3-flash@glm")
         self.assertNotIn("glm-5.3-flash", cfg["model_presets"], "set_model 造出了不带厂商的裸名")
-        snap = self.snapshot(self.gateway_env(), None)
+        snap = self.snapshot(env, None)
         self.assertEqual((snap.provider.api_base, snap.provider.api_key), (EXPECTED["glm"]["apiBase"], GLM_KEY))
-        self.assert_every_preset_goes_to_its_owner(self.gateway_env(), {"mimo", "glm_plan", "glm"}, "set_model 后")
+        self.assert_every_preset_goes_to_its_owner(env, {"mimo", "glm_plan", "glm"}, "set_model 后")
+
+
+class TestOneWriterForTheModelChoice(TestEveryPresetGoesToItsOwner):
+    """第 5 轮两家 BLOCK:`bin/set_model.py` 是第二个写「当前模型」的入口,不认厂商 ——
+    正用 Kimi 时 `set_model.py glm-5.3` 写出裸名 `glm-5.3` 且抄走 od_kimi ⇒ glm-5.3 发到 Kimi 的端点、带 Kimi 的 key;
+    起网关的对齐也认不出这种「两家 GLM 都有」的裸名。根子是两个写入口,不是路由规则漏了一格 ⇒
+    我们管的配置(主槽厂商认得出)里,set_model.py 必须走和界面同一个入口(select_model):认厂商、按厂商命名、分不清就拒绝。
+
+    都用**网关此刻手里那份 env**(set_model 之前起网关时的)来问:nanobot 每句都重读配置,set_model 一落盘就生效,
+    不许靠下一次起网关替它收拾(第 5 轮 Grok:k12 原来用 gateway_env() 问,先跑了对齐,错的写法也被纠正后才被看见)。"""
+
+    def set_model(self, *args):
+        import subprocess
+        return subprocess.run([sys.executable, os.path.join(ROOT, "bin", "set_model.py"), *args,
+                               "--config", self.cfg_path], capture_output=True, encoding="utf-8", timeout=30)
+
+    def serves(self, env, name=None):
+        """这份预设(默认=当前)被 nanobot 加载后:发去的那家目录里有没有它的模型。"""
+        cfg = self.cfg()
+        name = name or cfg["agents"]["defaults"]["modelPreset"]
+        snap = self.snapshot(env, name)
+        vendor = next(v for v, p in ds_credential.PROVIDERS.items() if p["apiBase"] == snap.provider.api_base)
+        return vendor, cfg["model_presets"][name]["model"] in ds_credential.PROVIDERS[vendor]["models"]
+
+    def test_k13_set_model_never_sends_a_model_to_a_vendor_that_does_not_have_it(self):
+        self.have_mimo_in_primary()
+        self.add("kimi", KIMI_KEY)
+        env = self.gateway_env()
+        ds_credential.select_model(self.cfg_path, "kimi-k3", provider="kimi")
+        for model in ("glm-5.3", "glm-5v-turbo", "deepseek-v4-pro"):      # 这台机器上没有任何一家 GLM / DeepSeek 的 key
+            with self.subTest(model):
+                before = self.cfg_bytes()
+                r = self.set_model(model)
+                self.assertNotEqual(r.returncode, 0, f"没有能发 {model} 的厂商,set_model 却成功了:{r.stdout}")
+                self.assertEqual(self.cfg_bytes(), before, "拒绝了还改了配置")
+        # 换到另一家有 key 的模型:照样能换,且此刻就发对了家(不等下次起网关)
+        r = self.set_model("mimo-v2.5-pro")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.serves(env), ("mimo", True))
+        self.assertTrue(os.path.exists(self.cfg_path + ".bak"), "老契约:改前备份 .bak")
+
+    def test_k13b_set_model_on_two_glm_vendors_names_the_vendor_or_refuses(self):
+        self.have_mimo_in_primary()
+        self.add("glm_plan", GLM_PLAN_KEY)
+        self.add("glm", GLM_KEY)
+        env = self.gateway_env()
+        ds_credential.select_model(self.cfg_path, "mimo-v2.5", provider="mimo")
+        for v in ("glm_plan", "glm"):                     # 让两家都有 flash 的预设,再从 MiMo 出发要 flash
+            ds_credential.select_model(self.cfg_path, "glm-5.3-flash", provider=v)
+        ds_credential.select_model(self.cfg_path, "mimo-v2.5", provider="mimo")
+        before = self.cfg_bytes()
+        r = self.set_model("glm-5.3-flash")                # 两家都有 ⇒ 分不清
+        self.assertNotEqual(r.returncode, 0, "两家 GLM 都有 glm-5.3-flash,不带厂商却选了一家")
+        self.assertEqual(self.cfg_bytes(), before)
+        for v, key in (("glm_plan", GLM_PLAN_KEY), ("glm", GLM_KEY)):
+            r = self.set_model("glm-5.3-flash", "--provider", v)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(self.cfg()["agents"]["defaults"]["modelPreset"], f"glm-5.3-flash@{v}")
+            snap = self.snapshot(env, None)
+            self.assertEqual((snap.provider.api_base, snap.provider.api_key), (EXPECTED[v]["apiBase"], key))
+        self.assertNotIn("glm-5.3-flash", self.cfg()["model_presets"], "出现了不带厂商的裸名")
+
+    def test_k13c_what_set_model_picked_survives_the_next_gateway_start(self):
+        """第 5 轮(MiMo)2b:存了第二家(留下「想换过去」)后用 set_model 手选别的 ⇒ 下次起网关被标记拽走。
+        界面入口早就是「业主亲手选的盖过标记」(v18),同一个入口就同一条规矩。"""
+        self.have_mimo_in_primary()
+        self.add("kimi", KIMI_KEY)                  # 留下「想换过去」→ kimi,网关还没起
+        r = self.set_model("mimo-v2.5-pro")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.gateway_env()
+        self.assertEqual(self.cfg()["agents"]["defaults"]["modelPreset"], "mimo-v2.5-pro",
+                         "set_model 手选的模型被「想换过去」标记顶掉了")
+
+
+class TestPresetsThatAreNotOurs(TestEveryPresetGoesToItsOwner):
+    """第 5 轮:对齐只许动**我们自己起的名字**(模型在那家目录里、名字就是那家会起的名字),
+    业主手写的一律不碰 —— 哪怕名字碰巧以 `@kimi` 结尾(MiMo 2a),哪怕没写 provider(Grok #3,nanobot 默认 auto)。"""
+
+    def test_k14_hand_written_presets_are_left_alone(self):
+        self.have_mimo_in_primary()
+        mine = {
+            "我的@kimi": {"label": "x", "provider": "custom", "model": "my-own-model"},
+            "glm-5.3@glm_plan": {"label": "x", "provider": "custom", "model": "kimi-k3"},   # 名模不一致 = 不是我们起的
+            "没写provider": {"label": "x", "model": "deepseek-v4-flash"},
+        }
+        cfg = self.cfg()
+        cfg["model_presets"].update(mine)
+        with open(self.cfg_path, "w", encoding="utf-8") as fh:
+            json.dump(cfg, fh, ensure_ascii=False, indent=2)
+        ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="mimo", key=pv.MIMO_KEY, multi=True)
+        self.add("kimi", KIMI_KEY)
+        self.gateway_env()
+        got = self.cfg()["model_presets"]
+        for name, p in mine.items():
+            self.assertEqual(got.get(name), p, f"业主手写的预设 {name} 被改了/删了")
 
 
 class TestTheWebEndpoint(unittest.TestCase):
