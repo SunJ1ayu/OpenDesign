@@ -44,6 +44,9 @@
 > **第 5 轮后**:① 写「当前模型」只留一个入口 —— 我们管的配置(主槽端点认得出)里 `set_model.py` 改走 `select_model`
 > (界面同一入口:认厂商、同名按厂商命名、分不清拒绝、手选盖过标记);认不出的配置照老办法。
 > ② 「我们的预设」= 模型在那家目录里且名字正是 `preset_name` 的结果、并显式指向 custom/od_*;其余(业主手写)一律不碰。
+>
+> **第 8 轮后**:安装合并 `ds_merge_config.py` 也是「改主槽厂商」的写入口 ⇒ 同一条规矩:认得出端点且模型在那家目录里时按 `preset_name` 命名
+> (带那家必带参数);合并后跑 `_route_presets` + 悬空回落。认不出的端点/模型 = 机主自己填的,照写不动。
 - `bin/ds_credential.py` PROVIDERS 加三行 + 每行 `keyUrl`;`/api/llm/credential` 的 providers 带出 `keyUrl`。
 - `web/src/llmKey.ts` asProvider 读可选 keyUrl(只收 https);`LlmKeyCard.tsx` 在 API key 输入框下显示「获取 {label} 的 API Key ›」外链(新窗口/外部浏览器)。
 - 链接:MiMo `https://platform.xiaomimimo.com/token-plan`(我们接的是套餐端点,不能照 ZCode 链平台首页);DeepSeek `https://platform.deepseek.com/api_keys`;

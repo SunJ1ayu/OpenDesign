@@ -18,6 +18,8 @@ import sys
 import time
 from pathlib import Path
 
+import ds_credential  # 厂商目录、预设命名与「预设只发到主人那家」对齐的唯一真相源
+
 
 def strip_jsonc(text: str) -> str:
     """去掉 // 与 /* */ 注释;字符串字面量里的 `//`(如 https://)原样保留。"""
@@ -135,8 +137,16 @@ def main() -> int:
         # 并把默认预设指过去。maxTokens 等参数沿用模板第一个预设的值。
         base = dict(next(iter(tpl["model_presets"].values())))
         base.update(label=args.model, model=args.model)
-        tpl["model_presets"] = {args.model: base}
-        tpl["agents"]["defaults"]["modelPreset"] = args.model
+        # 端点认得出是哪家、模型在那家目录里 ⇒ 用那家的预设名(两家 GLM 都有的 glm-5.3 ⇒ `glm-5.3@glm_plan`)
+        # 并带上那家必带的参数;写裸名的话,之后主槽换成别家时对齐认不出它,glm-5.3 会跟着发到别家
+        # (track opendesign-kimi-glm-vendors 第 8 轮 #30,判据 k15)。认不出 ⇒ 机主自己的端点和模型,照写。
+        vendor = ds_credential._current_provider(tpl)
+        name = args.model
+        if vendor and args.model in ds_credential.PROVIDERS[vendor]["models"]:
+            name = ds_credential.preset_name(vendor, args.model)
+            ds_credential._apply_params(base, vendor)
+        tpl["model_presets"] = {name: base}
+        tpl["agents"]["defaults"]["modelPreset"] = name
 
     wanted = {
         "providers": {"custom": tpl["providers"]["custom"]},
@@ -159,6 +169,10 @@ def main() -> int:
     shutil.copy2(args.target, backup)
 
     deep_merge(cfg, wanted)
+    # 合并可能换了主槽的厂商(重装换端点):深合并会留下旧厂商的预设、仍指 custom ⇒ 跟着发到新端点。
+    # 与 save 写主槽同一条规矩:每份我们起的预设只发到它主人那家,主人没槽就删;当前模型因此悬空就回落(k15b)。
+    ds_credential._route_presets(cfg)
+    ds_credential._fallback_if_dangling(cfg)
     args.target.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     # 汇总印**落地文件里的值**,不是模板的值。
