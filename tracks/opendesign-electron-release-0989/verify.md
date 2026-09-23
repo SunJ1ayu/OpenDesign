@@ -31,33 +31,40 @@ runlog -t opendesign-electron-release-0989 -- <判据命令>
 
 ## Review
 
-- 规格自查(读任何 panel 输出之前先答):<回看 design 的用户成功条件、前提证据和未解决项。
-  实现符合规格不证明规格合理;实现评审也可质疑规格,但不能替代实施前 panel 4c 的方案检查。
-  本轮若暴露能推翻方向的前提,先回到设计;全池一致 PASS 也不等于题是对的。>
-- 腿的花名册: <把 `<日志前缀>.roster` 里那一行**原样粘过来**,别手写>
-  > panel-review 收尾自己写这个文件(off / FAIL(rc) / 降级 都在里面)。
-  > **控制器没活到收尾时它压根不存在** —— 那时跑 `panel-roster <日志前缀>` 从盘上重建,
-  > 与控制器自己写的**归一化后一致**(判据 R5b 守着;抬头有渲染时间戳,不是字面逐字节)。**一轮零记录的评审也粘得出这一行**,
-  > 所以"那轮被砍了所以没有花名册"不再是理由(2026-08-23,track panel-roster-from-disk)。
-  > 08-06 立这条的理由:08-05 我在这里手写了"三条腿一致 PASS",而 Kimi 根本没出结论
-  > (同一页第 90 行我自己还写着它没出报告)—— 手抄一份终端上的东西,抄错那次没人会发现。
-- 轮次记录(每次派发一行;实质评审与基础设施重试分开,重试不算轮但次数与耗时照记):
+- 规格自查(09-23 12:2x 接手补写;诚实记:这次是读完两腿报告之后才落笔,不算事前自审):design 的用户成功条件 =
+  业主从正式 release 下到的安装包 = 云上装过的那份(只差更新源)、选「所有用户」也能打开、旧壳看不见新版不会误升级。
+  两件发版前修补(出货包流水线 / 「所有用户」provision 上下文)都是本单自己查出的,判据先红后绿(evidence/20260923-rel-cloud-redcheck.md)。
+  未暴露能推翻方向的前提;下一版在生产上真走一次增量更新不在本单承诺里(T5 之后的事)。
+- 腿的花名册:
+
+```
+# panel-review 花名册(2026-09-23 00:42:00)task=opendesign-electron-release-0989-review
+# PASS = 进程 rc=0,**不等于给了裁决**;off = 这条腿压根没派(不许读成通过)。
+# impact-risk=high requested-budget=2 selected-count=2
+# selected=subkimi(moonshot/subkimi),subcursor.grok-4.7-high(xai/subcursor)
+# escalation=none
+# snapshot=head:c994ac3
+# 日志:/root/aiwork/logs/panel-opendesign-electron-release-0989-20260923-0029.*.log
+subkimi=PASS(verdict=PASS) subcursor.grok-4.7-high=PASS(verdict=PASS)
+```
+
+- 轮次记录:
 
   | 轮 | 类型(实质 / 重试) | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
   |---|---|---|---|---|
-  | 1 | 实质 | <rc,BLOCK 数> | <…> | <n> |
+  | 1 | 实质 | unknown(上一会话派发,未留 rc) | `/root/aiwork/logs/panel-opendesign-electron-release-0989-20260923-0029` | 0 |
 
-- findings(**先处置、后动手**;一轮一份修复清单,一次修完再复审 —— panel 抽屉 4b):
+- findings(主裁 12:2x 逐条对代码核实):
 
   | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
   |---|---|---|---|---|
-  | 1 | <…> | <file:line / 复现收据> | 必须修 / 延期 / 驳回 / 尚未核实 | <延期必写:它在业主或下一个使用者那边会长成什么样> |
+  | 1 | (Cursor-Grok)RELEASE.md 第 1 步只要求 E1～E6 通过,而 artifact `release` 在 E7 之前就上传 ⇒ 照文档可能从 E7 红的一次运行取包,取到会把口令写进 ProgramData 的那种 | `installer/RELEASE.md:5`;`.github/workflows/electron-e2e.yml:140-149` | 延期 | 本次只从全绿 run 35750584881 取包,不受影响;改文档会动评审绑定的交付面。下一次发版若照抄清单,可能发出一个没过 E7 的包 ⇒ 下一张发版单先把「E1～E6」改成「E1～E7 全过」 |
+  | 2 | (两腿)`gh-command` 不带 `--target`,tag 打在执行时 main 的 HEAD | `desktop/scripts/release-feed.mjs:49-55` | 驳回(本单按流程兜住) | 发布前核 main HEAD 与 81a892c 之间只差 tracks/(12:2x 已核:`git diff --stat 81a892c HEAD -- . ':!tracks'` 为空);安装包字节来自 artifact,不随 tag 变 |
+  | 3 | (Kimi)C14a 没钉 provision 的 `--home` 取自 `$LOCALAPPDATA`,改成定死路径静态闸照绿 | `tests/test_desktop_config.py:259-274`;`desktop/build/installer.nsh:4` | 延期 | 云 E7.nopd 行为闸抓得住;若只跑本地判据会漏,下次动 installer.nsh 时顺手补 |
+  | 4 | (Kimi)E1r 的 app.asar 子比较分支本次没被执行(两份 asar 逐字节相同) | fix 收据 E1r 行 | 驳回 | 防御路径,没被触发正说明两包 asar 相同;不是承诺缺口 |
 
-  > 只写发现。腿的身份/降级不在这儿抄第二遍:日志自带身份牌(降级横幅 + 视野边界),
-  > 花名册在上一格,查工件不查自述。延期 = 留在这里,不自动开新单。
-- arbitrated verdict (主裁): <...>
-  > 这里写理由；最终枚举写进 `decision.json.outcome.verdict`。归档时仍为空会被
-  > `track-record validate --phase archive` 挡住，`track list` 也会打 ⚠️。
+- arbitrated verdict (主裁): 发布前评审 PASS —— 两家族(moonshot / xai)同一 snapshot c994ac3 均 PASS、0 新阻断,
+  我核过的要点与两腿一致。本单整体 outcome 等 T4 发布 + T5 业主真机回显后再写进 decision.json。
 
 ## Accepted deviations
 

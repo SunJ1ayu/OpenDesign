@@ -1,0 +1,136 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-electron-release-0989",
+  "run_id": "20260923-002904-1853015-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-electron-release-0989-review",
+  "started_at": "2026-09-22T16:29:04Z",
+  "finished_at": "2026-09-22T16:42:01Z",
+  "duration_ms": 776619,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "subkimi",
+        "degraded": false,
+        "duration_ms": 629498,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:06561cda3683ffb33f3d373e2c4413f7b01b0f359e84fdee75c96b591fbef19b",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-electron-release-0989-20260923-0029.subkimi.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "moonshot",
+        "model": {
+          "invoked": "kimi-code/kimi-for-coding",
+          "reported": null,
+          "requested": "kimi-code/kimi-for-coding"
+        },
+        "name": "subkimi",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260923-002904-1853015-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:7b677136c2350ec577c2d50b8343b42f89a95aab7453c4e40482ea2fbadc7a44",
+            "policy_version": 1,
+            "track": "opendesign-electron-release-0989"
+          },
+          "digest": "sha256:4fa510db1f61590dcdfc710cf686c785de8b4cde235f3102d352666a227cf392",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "c994ac3465fd909db8558371fcf4ee08e21fa05d",
+            "index_tree_oid": "ea3af41d405f704556fbdf4eed6222ecbfbf0f10",
+            "worktree_tree_oid": "ea3af41d405f704556fbdf4eed6222ecbfbf0f10"
+          },
+          "task_sha256": "sha256:5805d417adc1d3c5284038cbab4a3f66b2def30631893a2c20da6e562d381488"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subcursor",
+        "degraded": false,
+        "duration_ms": 774881,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:f1d6006d573f7148621a722732fe5657ca30c176243771e0a683552153aa789d",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-electron-release-0989-20260923-0029.subcursor.grok-4.7-high.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xai",
+        "model": {
+          "invoked": "grok-4.7-high",
+          "reported": null,
+          "requested": "grok-4.7-high"
+        },
+        "name": "subcursor.grok-4.7-high",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260923-002904-1853015-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:7b677136c2350ec577c2d50b8343b42f89a95aab7453c4e40482ea2fbadc7a44",
+            "policy_version": 1,
+            "track": "opendesign-electron-release-0989"
+          },
+          "digest": "sha256:4fa510db1f61590dcdfc710cf686c785de8b4cde235f3102d352666a227cf392",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "c994ac3465fd909db8558371fcf4ee08e21fa05d",
+            "index_tree_oid": "ea3af41d405f704556fbdf4eed6222ecbfbf0f10",
+            "worktree_tree_oid": "ea3af41d405f704556fbdf4eed6222ecbfbf0f10"
+          },
+          "task_sha256": "sha256:5805d417adc1d3c5284038cbab4a3f66b2def30631893a2c20da6e562d381488"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
