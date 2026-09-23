@@ -1,0 +1,2 @@
+{ "name": "instant-ui-probe", "version": "0.0.1", "main": "main.js", "private": true,
+  "devDependencies": { "electron": "44.4.3" } }

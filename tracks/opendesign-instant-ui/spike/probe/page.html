@@ -1,0 +1,40 @@
+<!doctype html><html><head><meta charset="utf-8"><title>probe</title></head>
+<body><div id="s">probe</div><img id="im" src="/api/img">
+<script>
+(async () => {
+  const r = { href: location.href, origin: location.origin, t0: performance.now() };
+  const mode = new URLSearchParams(location.search).get("mode");
+  try { r.lsBefore = localStorage.getItem("probe.k"); } catch (e) { r.lsBefore = "ERR " + e; }
+  if (mode === "write") {
+    try { localStorage.setItem("probe.k", "written-run1"); r.lsWrote = true; } catch (e) { r.lsWrote = "ERR " + e; }
+    // ① 就绪前发的请求:应挂起到后台就绪后返回
+    const t = performance.now();
+    try { const j = await (await fetch("/api/echo?x=1")).json(); r.heldMs = Math.round(performance.now() - t); r.getSeen = j; }
+    catch (e) { r.get = "ERR " + e; }
+    // ② 5MB 上传经代理
+    try {
+      const blob = new Blob([new Uint8Array(5 * 1024 * 1024)]);
+      const j = await (await fetch("/api/upload", { method: "POST", body: blob, headers: { "Content-Type": "application/octet-stream" } })).json();
+      r.upload = j;
+    } catch (e) { r.upload = "ERR " + e; }
+    // ③ JSON POST(带 Origin 的那类)
+    try { r.post = await (await fetch("/api/changes/edit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ a: 1 }) })).json(); }
+    catch (e) { r.post = "ERR " + e; }
+    // ④ 图片
+    const im = document.getElementById("im");
+    r.img = im.complete ? im.naturalWidth : await new Promise((ok) => { im.onload = () => ok(im.naturalWidth); im.onerror = () => ok("ERR"); });
+    // ⑤ 页面(安全 scheme)→ ws://127.0.0.1 直连
+    r.ws = await new Promise((ok) => {
+      let ws; const to = setTimeout(() => ok("TIMEOUT"), 8000);
+      try { ws = new WebSocket("ws://127.0.0.1:" + window.probe.wsPort + "/"); } catch (e) { clearTimeout(to); return ok("THROW " + e); }
+      ws.onopen = () => ws.send("hi");
+      ws.onmessage = (m) => { clearTimeout(to); ok(String(m.data)); ws.close(); };
+      ws.onerror = () => { clearTimeout(to); ok("ERROR event"); };
+    });
+    // ⑥ hash 路由 + 深链刷新兜底
+    try { r.deep = (await fetch("/some/deep/route")).status; } catch (e) { r.deep = "ERR " + e; }
+  }
+  r.ms = Math.round(performance.now() - r.t0);
+  window.probe.done(r);
+})();
+</script></body></html>

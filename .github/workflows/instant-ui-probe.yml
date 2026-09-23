@@ -1,0 +1,41 @@
+# 一次性探针(track opendesign-instant-ui):app:// 自定义协议能否承载工作台(挂起/代理/上传/ws/持久存储/系统代理)。
+# 不是回归判据。判读规则写死在 tracks/opendesign-instant-ui/spike/probe/check.mjs。推到 ci-instant/** 分支跑。
+name: instant-ui-probe
+on:
+  push:
+    branches: ['ci-instant/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: tracks/opendesign-instant-ui/spike/probe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: 装
+        run: |
+          python -m pip install -q websockets
+          npm install --no-audit --no-fund
+          if ($LASTEXITCODE) { throw "npm rc=$LASTEXITCODE" }
+      - name: 跑两次 + 判读
+        run: |
+          $ud = Join-Path $env:RUNNER_TEMP 'probe-ud'
+          $b = Start-Process python -ArgumentList 'backend.py','18866','18865' -PassThru -NoNewWindow
+          Start-Sleep 3
+          $e = '.\node_modules\electron\dist\electron.exe'
+          & $e . --mode=write --http-port=18866 --ws-port=18865 "--udata=$ud" "--out=$env:RUNNER_TEMP\w.json" | Out-Host
+          & $e . --mode=read --http-port=18866 --ws-port=18865 "--udata=$ud" "--out=$env:RUNNER_TEMP\r.json" | Out-Host
+          Get-Content "$env:RUNNER_TEMP\w.json"; Get-Content "$env:RUNNER_TEMP\r.json"
+          node check.mjs "$env:RUNNER_TEMP\w.json" "$env:RUNNER_TEMP\r.json"
+          $rc = $LASTEXITCODE
+          Stop-Process -Id $b.Id -Force
+          exit $rc

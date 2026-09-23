@@ -2,19 +2,24 @@
   "schema_version": 2,
   "track": "opendesign-instant-ui",
   "impact": {
-    "level": null,
-    "factors": null
+    "level": "high",
+    "factors": [
+      "cross_module",
+      "permissions"
+    ]
   },
   "design": {
-    "uncertainty": null,
+    "uncertainty": "high",
     "premise_attack": {
-      "status": null,
-      "evidence": []
+      "status": "done",
+      "evidence": [
+        "design.md"
+      ]
     }
   },
   "execution_plan": {
-    "adapter": null,
-    "model": null
+    "adapter": "main",
+    "model": "claude-opus-5-5"
   },
   "outcome": {
     "verdict": null
