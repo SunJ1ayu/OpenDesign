@@ -1,0 +1,24 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    bash
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ tests/test_kimi_glm_vendors.py\ 2\>\&1\ \|\ grep\ -E\ \'\^\(test_\|Ran\|OK\|FAILED\)\'\ \;\ node\ --test\ tests/test_kimi_glm_ui.mjs\ 2\>\&1\ \|\ grep\ -E\ \'\^\(not\ ok\|ok\|#\ pass\|#\ fail\)\'\;\ exit\ 1
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  53560cc
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-23T09:37:17Z
+---------------- 输出开始 ----------------
+test_k4_same_model_name_in_both_glm_vendors_never_crosses_over (__main__.TestRouting.test_k4_same_model_name_in_both_glm_vendors_never_crosses_over) ... ERROR
+test_k5_kimi_as_a_second_vendor_end_to_end (__main__.TestRouting.test_k5_kimi_as_a_second_vendor_end_to_end) ... ERROR
+test_k5b_kimi_on_a_fresh_install_goes_into_the_primary_slot (__main__.TestRouting.test_k5b_kimi_on_a_fresh_install_goes_into_the_primary_slot) ... ERROR
+test_k1_three_new_vendors_with_their_endpoints_and_models (__main__.TestTheTable.test_k1_three_new_vendors_with_their_endpoints_and_models) ... FAIL
+test_k2_every_vendor_links_to_where_its_key_is_made (__main__.TestTheTable.test_k2_every_vendor_links_to_where_its_key_is_made) ... FAIL
+test_k3_vendor_ids_are_safe_as_file_and_variable_names (__main__.TestTheTable.test_k3_vendor_ids_are_safe_as_file_and_variable_names) ... ok
+test_k6_the_card_is_told_each_vendors_key_link (__main__.TestTheWebEndpoint.test_k6_the_card_is_told_each_vendors_key_link) ... 2026-09-23 17:37:17 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+Ran 7 tests in 0.513s
+FAILED (failures=2, errors=4)
+not ok 1 - ku1 厂商行带上 keyUrl;缺了也照样认得出这家(老后端)
+ok 2 - ku2 🔴 非 https 的 keyUrl 一律丢掉(不渲染 javascript:/http:/相对路径)
+not ok 3 - ku3 卡片按选中厂商显示「获取 API Key」外链,在新窗口开、不带来源
+# pass 1
+# fail 2
+---------------- 输出结束 ----------------
+runlog: bash rc=1 commit=53560cc dirty=yes at=2026-09-23T09:37:17Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T093717Z-01-bash.txt
