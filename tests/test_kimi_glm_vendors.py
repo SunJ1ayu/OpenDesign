@@ -233,7 +233,9 @@ class TestRouting(pv.Rig):
         # 当前在 MiMo、两家 GLM 都能用 glm-5.3-flash 且谁都还没用过它 ⇒ 分不清就拒绝,配置不动
         ds_credential.select_model(self.cfg_path, "mimo-v2.5", provider="mimo")
         cfg = self.cfg()
-        cfg["model_presets"].pop("glm-5.3-flash", None)
+        # 第 4 轮(两家):改设计后预设名是 `glm-5.3-flash@<厂商>`,只 pop 裸名是空操作 ⇒ 前提「谁都还没用过」没造出来
+        for v in ("glm_plan", "glm"):
+            self.assertIsNotNone(cfg["model_presets"].pop(f"glm-5.3-flash@{v}", None), f"{v} 的 flash 预设不在")
         with open(self.cfg_path, "w", encoding="utf-8") as fh:
             json.dump(cfg, fh, ensure_ascii=False, indent=2)
         before = self.cfg_bytes()
@@ -321,6 +323,14 @@ class TestRouting(pv.Rig):
                          f"glm-5.3 应该两家各一份预设,实际 {owners}")
         for prov, names in owners.items():
             self.assertEqual(len(names), 1, f"{prov} 有多份 glm-5.3 预设:{names}")
+        # 第 4 轮(两家):不只数 provider 字段 —— 咬名字,并按名字交给 nanobot 加载,各发各家
+        presets = self.cfg()["model_presets"]
+        self.assertNotIn("glm-5.3", presets, "出现了不带厂商的裸名 glm-5.3(第三份,谁都能改它的归属)")
+        env = self.gateway_env()
+        for vendor, key in (("glm_plan", GLM_PLAN_KEY), ("glm", GLM_KEY)):
+            snap = self.snapshot(env, f"glm-5.3@{vendor}")
+            self.assertEqual((snap.provider.api_base, snap.provider.api_key), (EXPECTED[vendor]["apiBase"], key),
+                             f"glm-5.3@{vendor} 没发去 {vendor}")
         # 不重名的模型预设名照旧就是模型名(老配置、nanobot /model 列表不变)
         presets = self.cfg()["model_presets"]
         self.assertIn("mimo-v2.5", presets)
@@ -344,6 +354,116 @@ class TestRouting(pv.Rig):
         st = ds_credential.status(self.home, self.cfg_path)
         self.assertEqual(st["provider"], "kimi")
         self.assertEqual(self.cfg()["providers"]["custom"]["apiBase"], EXPECTED["kimi"]["apiBase"])
+
+
+KEYS = {"mimo": pv.MIMO_KEY, "deepseek": pv.DS_KEY, "kimi": KIMI_KEY, "glm_plan": GLM_PLAN_KEY, "glm": GLM_KEY}
+
+
+def owner_of(name, preset):
+    """判据自己认「这份预设属于哪家」,不借实现的 helper:名字带 `@厂商` ⇒ 那家;
+    否则模型只在一家目录里 ⇒ 那家;认不出(业主手写的)⇒ None,不管它。"""
+    if "@" in name and name.rsplit("@", 1)[1] in ds_credential.PROVIDERS:
+        return name.rsplit("@", 1)[1]
+    hits = [v for v, p in ds_credential.PROVIDERS.items() if preset.get("model") in p["models"]]
+    return hits[0] if len(hits) == 1 else None
+
+
+class TestEveryPresetGoesToItsOwner(pv.Rig):
+    """第 4 轮两家 BLOCK 的根因:主槽 `custom` 的厂商会变,指向它的预设却不带厂商 ⇒ 主槽换人后,
+    旧主槽留下的预设(`glm-5.3@glm_plan`、`mimo-v2.5`)跟着发到新主槽。前五个补丁和那个洞都是它的症状。
+
+    k11 不追某一条序列,而是问一条**不变量**:存完 key / 起完网关之后,配置里**每一份认得出主人的预设**,
+    交给 nanobot 按名字加载,都发到它主人的端点、带它主人的 key;主人手里没 key ⇒ 这份预设就不该还在。
+    (`/model <名字>` 和 agent 的 model_preset 工具都能按名字选任何一份,所以每一份都要问,不只问当前那份。)"""
+
+    def add(self, vendor, key):
+        ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider=vendor, key=key, multi=True)
+
+    def plain_env(self):
+        """没外壳的启动器给网关的 env:只有主槽那一个变量,不跑 prepare_gateway。"""
+        k = ds_credential.read_key(self.home)
+        return pv.core.service_envs({"PATH": os.environ.get("PATH", "")}, ds_root=pv.ROOT, user_home=self.home,
+                                 dsweb_port=1, ws_port=2, key=k, key_var=self.primary_var(), extra_keys={})["网关"]
+
+    def replace_primary(self, vendor, *, shell=True):
+        """业主把主槽换成另一家:有外壳时 = 主槽 key 没了再存(外壳只有这样才会写主槽);没外壳 = 直接覆盖。"""
+        if shell:
+            os.remove(self.key_txt)
+        ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider=vendor, key=KEYS[vendor], multi=shell)
+
+    def assert_every_preset_goes_to_its_owner(self, env, live, where):
+        """每一份都问完再报(不在第一份上停):哪几份错、错成什么,一次看全。"""
+        cfg = self.cfg()
+        bad, checked = [], 0
+        for name, preset in cfg["model_presets"].items():
+            owner = owner_of(name, preset) if isinstance(preset, dict) else None
+            if owner is None:
+                continue
+            checked += 1
+            if owner not in live:
+                bad.append(f"{name}:{owner} 已经没 key,预设还留着")
+                continue
+            snap = self.snapshot(env, name)
+            got = (snap.provider.api_base, snap.provider.api_key)
+            if got != (ds_credential.PROVIDERS[owner]["apiBase"], KEYS[owner]):
+                who = [v for v, k in KEYS.items() if k == got[1]]
+                bad.append(f"{name}:属于 {owner},实际发去 {got[0]}(带 {who} 的 key)")
+        self.assertGreater(checked, 0, f"[{where}] 一份认得出主人的预设都没有 ⇒ 这条没问到东西")
+        self.assertEqual(bad, [], f"[{where}] 这些预设发不到自己那家")
+        snap = self.snapshot(env, None)
+        self.assertIn(snap.provider.api_key, [KEYS[v] for v in live], f"[{where}] 当前模型发去了没 key 的厂商")
+
+    def test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner(self):
+        with self.subTest("有外壳:只有 GLM 套餐一把 → 换成 GLM 按量(第 4 轮 #15 原样)"):
+            self.setUp()
+            self.add("glm_plan", GLM_PLAN_KEY)
+            self.gateway_env()
+            self.replace_primary("glm")
+            self.assert_every_preset_goes_to_its_owner(self.gateway_env(), {"glm"}, "壳 套餐→按量")
+        with self.subTest("没外壳:GLM 套餐 → GLM 按量,存完就问(不起网关也不许错)"):
+            self.setUp()
+            ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="glm_plan", key=GLM_PLAN_KEY)
+            self.replace_primary("glm", shell=False)
+            self.assert_every_preset_goes_to_its_owner(self.plain_env(), {"glm"}, "无壳 套餐→按量")
+        with self.subTest("没外壳:MiMo → DeepSeek(#16,已发版本就有的同根毛病)"):
+            self.setUp()
+            self.have_mimo_in_primary()
+            self.replace_primary("deepseek", shell=False)
+            self.assert_every_preset_goes_to_its_owner(self.plain_env(), {"deepseek"}, "无壳 MiMo→DeepSeek")
+        with self.subTest("有外壳:主槽套餐 + 额外 Kimi → 主槽换成按量"):
+            self.setUp()
+            self.add("glm_plan", GLM_PLAN_KEY)
+            self.add("kimi", KIMI_KEY)
+            self.gateway_env()
+            self.replace_primary("glm")
+            self.assert_every_preset_goes_to_its_owner(self.gateway_env(), {"glm", "kimi"}, "壳 套餐+Kimi→按量")
+        with self.subTest("有外壳:主槽 MiMo + 两家 GLM 额外 → 主槽换成套餐(额外那家变主槽)"):
+            self.setUp()
+            self.have_mimo_in_primary()
+            self.add("glm_plan", GLM_PLAN_KEY)
+            self.add("glm", GLM_KEY)
+            self.gateway_env()
+            self.replace_primary("glm_plan")
+            self.assert_every_preset_goes_to_its_owner(self.gateway_env(), {"glm_plan", "glm"}, "壳 MiMo→套餐")
+
+    def test_k12_set_model_script_keeps_the_vendor_in_the_preset_name(self):
+        """第 4 轮(MiMo)#17:bin/set_model.py 一律写裸模型名 ⇒ 与 `glm-5.3-flash@glm` 并存出第三份。
+        它在当前厂商目录里认得这个模型时,要写成那家的预设名,并且真发到那家。"""
+        import subprocess
+        self.have_mimo_in_primary()
+        self.add("glm_plan", GLM_PLAN_KEY)
+        self.add("glm", GLM_KEY)
+        self.gateway_env()
+        ds_credential.select_model(self.cfg_path, "glm-5.3", provider="glm")
+        r = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "set_model.py"), "glm-5.3-flash",
+                            "--config", self.cfg_path], capture_output=True, encoding="utf-8", timeout=30)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        cfg = self.cfg()
+        self.assertEqual(cfg["agents"]["defaults"]["modelPreset"], "glm-5.3-flash@glm")
+        self.assertNotIn("glm-5.3-flash", cfg["model_presets"], "set_model 造出了不带厂商的裸名")
+        snap = self.snapshot(self.gateway_env(), None)
+        self.assertEqual((snap.provider.api_base, snap.provider.api_key), (EXPECTED["glm"]["apiBase"], GLM_KEY))
+        self.assert_every_preset_goes_to_its_owner(self.gateway_env(), {"mimo", "glm_plan", "glm"}, "set_model 后")
 
 
 class TestTheWebEndpoint(unittest.TestCase):

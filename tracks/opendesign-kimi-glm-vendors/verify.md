@@ -173,6 +173,12 @@ runlog: bash rc=0 commit=218e13a dirty=yes at=2026-09-23T11:39:08Z file=tracks/o
 - **状态:NEEDS_MORE_INFO(待业主拍板)**。按第 4 轮前写下的预案,不再自己续轮。给业主的两条路:
   A. 先只发 Kimi + 一家 GLM(同名问题直接消失;16 仍是已发版本的旧毛病,另开单);
   B. 两家 GLM 都要 ⇒ 按根因改:「主槽换厂商的那一刻,所有指向 custom 且不属于新主槽那家的预设,有额外 key 就改指 od_<厂商>、没有就删」,一条规矩同时收 15/16,再审一轮。
+- **业主 09-23 晚拍板:「从第一性原理修就好了」⇒ 走 B。** 根因判据(先红):
+  k11 = 不变量「存完 key / 起完网关后,每一份认得出主人的预设按名字交给 nanobot 加载都发到主人那家;主人没 key ⇒ 预设不在」,
+  五种主槽换人序列(含无外壳存完即问、#16 MiMo→DeepSeek、额外槽变主槽);k12 = set_model.py 写带厂商的名字(#17);
+  k10 加咬名字 + 按名字加载、k8 的 pop 改成真实预设名(#18)。
+runlog: python rc=1 commit=627c28b dirty=yes at=2026-09-23T12:14:13Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T121413Z-01-python.txt
+  (上一行 = 根因判据红:k11 五格全红,且逐份列出 —— 第一格里 `glm-5.3@glm_plan` 单独点名(=#15),另有模板自带的 MiMo 预设在首把 key 是 GLM 时就残留(同根);k12 红。)
 
 ## Accepted deviations
 
