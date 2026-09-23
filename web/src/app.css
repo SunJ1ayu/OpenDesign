@@ -124,8 +124,12 @@ select:focus-visible {
 .workspace {
   display: flex;
   height: 100%;
-  /* 窄窗兜底:出横向滚动,不做响应式重排(design 风险项)。240+400+300=940 固定列,
-     地板随 I3 列宽同步上调,保证中央列不被挤到 ~210px(subkimi #2)。 */
+}
+/* 窄窗兜底:出横向滚动,不做响应式重排(design 风险项)。240+400+300=940 固定列,
+   地板随 I3 列宽同步上调,保证中央列不被挤到 ~210px(subkimi #2)。
+   **只在项目页三栏可见时才要**(track opendesign-instant-ui,业主「顺手修」):加在所有页上时,
+   1024 宽窗口的首页也被撑到 1260,「发送」被切掉一半(0.98.9 云截图)。判据 tests/e2e/narrow_window.e2e.mjs。 */
+.workspace:has(> .ws-pane:not(.route-hidden)) {
   min-width: 1260px;
 }
 html, body { overflow: auto; }
