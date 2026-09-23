@@ -246,6 +246,19 @@ runlog: bash rc=0 commit=cb861bf dirty=yes at=2026-09-23T14:37:39Z file=tracks/o
 - **追加第 7 轮的理由(派发前写)**:业主选 A,改动只一处(set_model 的闸)⇒ 审这一处;预算 1 轮、同成员,时限一开始就给足(MiMo 2100s / Grok 1800s)。
   再有阻断 ⇒ 停下交业主。
 
+- 第 7 轮花名册: submimo=PASS(verdict=BLOCK) subcursor.grok-4.7-high=PASS(verdict=PASS)(冲突:MiMo BLOCK、Grok PASS;日志 /root/aiwork/logs/panel-kimi-glm-r7-20260923-2237.* [仓外不承重])
+- findings(第 7 轮):
+
+  | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
+  |---|---|---|---|---|
+  | 28 | (MiMo BLOCK)代码与规格一致(它自己认 Q1/Q2 过),但称闸的两种写残 M3「只看额外槽」/ M4「活厂商≥2」**穿过整个套件**,会在「只有主槽」的装法上复活 #19 | 亲跑变异(脚本 tracks/opendesign-kimi-glm-vendors/mut_gate_r7.sh):两个都被 **k13c** 杀死(它就是「主槽认得出、额外 key 还没进配置」的形状)。MiMo 只跑了 k13d/k13e 与自己的探针。Grok 同一格读码也点名 k13c 会杀「只看额外槽」 | **驳回「穿过整个套件」**;**采纳建议**:补一格直接问「只有主槽」的 k13f | 事实主张被收据证伪;但「靠 k13c 顺带杀」不如直接钉死 —— 补 k13f(只有 MiMo 主槽:要 glm-5.3 拒绝且不写、要本家模型走统一入口),M3/M4 在它上面各红一次 |
+  | 29 | (MiMo)新分支 `.bak` 在 select_model 落盘后才写 | 属实 | 延期 | 内容仍是改前原文;失败路径不写 .bak;只有「.bak 那一下 I/O 失败」才缺备份 |
+
+runlog: bash rc=0 commit=893cdc7 dirty=yes at=2026-09-23T14:55:14Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T145514Z-01-bash.txt
+  (上一行 = #28 变异收据:两个闸变异都被 k13c 杀死,rc=0 = 没有存活。)
+- **停不停**:预案「再有阻断 ⇒ 停」。这条阻断的事实前提被收据证伪、代码零改动;归档闸要求同一次评审里两家族一致 ⇒
+  补 k13f 后请同两家复核(第 8 轮 = 仲裁复核,不是修复轮);仍冲突 ⇒ 停下交业主。
+
 ## Accepted deviations
 
 - <接受的非关键偏差 + 原因 + 影响范围,或 None>

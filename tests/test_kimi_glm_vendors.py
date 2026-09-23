@@ -612,6 +612,23 @@ class TestOneWriterEvenOnASelfConfiguredEndpoint(TestOneWriterForTheModelChoice)
         self.assertEqual(cfg["model_presets"]["my-proxy/some-model"]["provider"], "custom")
 
 
+class TestOneWriterWithOnlyThePrimarySlot(TestOneWriterForTheModelChoice):
+    """第 7 轮(MiMo)#28:最常见的装法 —— 只有主槽(MiMo)、从没加过别家。闸写残成「只看额外槽」或「活厂商≥2」时,
+    这里会走老分支:要 glm-5.3 就写出裸名、抄 custom ⇒ glm-5.3 发到 MiMo。原先只被 k13c 顺带杀掉,这里直接钉死。"""
+
+    def test_k13f_with_only_the_primary_slot_set_model_goes_through_the_ui_entry(self):
+        self.have_mimo_in_primary()
+        env = self.gateway_env()
+        before = self.cfg_bytes()
+        r = self.set_model("glm-5.3")                     # 这台机器只有 MiMo 的 key
+        self.assertNotEqual(r.returncode, 0, f"只有 MiMo,set_model 却接了 glm-5.3:{r.stdout}")
+        self.assertEqual(self.cfg_bytes(), before, "拒绝了还改了配置")
+        r = self.set_model("mimo-v2.5-pro")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.serves(env), ("mimo", True))
+        self.assertNotIn("glm-5.3", self.cfg()["model_presets"])
+
+
 class TestPresetsThatAreNotOurs(TestEveryPresetGoesToItsOwner):
     """第 5 轮:对齐只许动**我们自己起的名字**(模型在那家目录里、名字就是那家会起的名字),
     业主手写的一律不碰 —— 哪怕名字碰巧以 `@kimi` 结尾(MiMo 2a),哪怕没写 provider(Grok #3,nanobot 默认 auto)。"""
