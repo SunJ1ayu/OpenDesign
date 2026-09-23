@@ -27,10 +27,16 @@ runlog: node rc=1 commit=f32b817 dirty=yes at=2026-09-23T04:57:30Z file=tracks/o
 runlog: run-all rc=1 commit=384a7ef dirty=yes final=yes at=2026-09-23T04:59:58Z file=tracks/opendesign-instant-ui/evidence/20260923T045958Z-01-run-all.txt
 runlog: run-all rc=3 commit=7452f32 dirty=no final=yes at=2026-09-23T05:13:11Z file=tracks/opendesign-instant-ui/evidence/20260923T051311Z-01-run-all.txt
 runlog: bash rc=0 commit=7452f32 dirty=yes at=2026-09-23T05:35:19Z file=tracks/opendesign-instant-ui/evidence/20260923T053519Z-01-bash.txt
+runlog: node rc=1 commit=81fbe19 dirty=yes at=2026-09-23T05:53:38Z file=tracks/opendesign-instant-ui/evidence/20260923T055338Z-01-node.txt
+runlog: run-all rc=3 commit=901f0c5 dirty=no final=yes at=2026-09-23T05:55:49Z file=tracks/opendesign-instant-ui/evidence/20260923T055549Z-01-run-all.txt
+runlog: node rc=1 commit=901f0c5 dirty=yes at=2026-09-23T06:13:41Z file=tracks/opendesign-instant-ui/evidence/20260923T061341Z-01-node.txt
+runlog: run-all rc=3 commit=df3b84e dirty=no final=yes at=2026-09-23T06:15:05Z file=tracks/opendesign-instant-ui/evidence/20260923T061505Z-01-run-all.txt
+runlog: bash rc=0 commit=df3b84e dirty=yes at=2026-09-23T06:36:19Z file=tracks/opendesign-instant-ui/evidence/20260923T063619Z-01-bash.txt
 ```
 
 - 说明:node rc=1 = 判据先行红跑(29 条,实现前);第一次 run-all rc=1 = C6 抓到 OdShell 类型没登记 backend(真漏,已补)+ dist 未提交;
-  第二次 run-all rc=3 = 全绿 + 3 条老的没跑(要网关);cloud = run 35821491722 FAIL 0。
+  run-all rc=3 = 各段全绿 + 3 条要网关的没跑;cloud 35821491722 / 35825872884 均 FAIL 0(后者 = 最终版:含窄窗修复与 MiMo 三条);
+  narrow node rc=1 = 窄窗判据先行红跑;20260923T061341Z node rc=1 = MiMo 三条判据先行红跑。
 
 ## Review
 
