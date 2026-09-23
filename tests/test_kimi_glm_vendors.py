@@ -242,6 +242,38 @@ class TestRouting(pv.Rig):
         self.assertIn("哪一家", str(cm.exception), "拒绝时要说清是缺了厂商")
         self.assertEqual(self.cfg_bytes(), before)
 
+    def test_k8b_without_a_vendor_the_current_vendor_wins(self):
+        """第 2 轮评审(Grok)复现:正用 GLM 按量 glm-5.3,只带模型名要 glm-5.3-flash,
+        而 flash 的预设还归套餐 ⇒ 被换到套餐。老菜单只列**当前这家**的目录,不带厂商的请求意思就是「这家里的那个模型」。"""
+        self.have_mimo_in_primary()
+        self.add("glm_plan", GLM_PLAN_KEY)
+        self.add("glm", GLM_KEY)                    # 存完 ⇒「想换过去」标记指向按量
+        env = self.gateway_env()                    # 兑现:glm-5.3 归按量,glm-5.3-flash 仍归套餐
+        ds_credential.select_model(self.cfg_path, "glm-5.3", provider="glm")
+        got = ds_credential.select_model(self.cfg_path, "glm-5.3-flash")
+        self.assertEqual(got["provider"], "glm", f"正用按量,只带模型名就被换到 {got['provider']}")
+        snap = self.snapshot(env, None)
+        self.assertEqual(snap.provider.api_base, EXPECTED["glm"]["apiBase"])
+        self.assertEqual(snap.provider.api_key, GLM_KEY)
+
+    def test_k9_losing_one_glm_key_falls_back_to_the_default_not_to_the_other_glm(self):
+        """第 2 轮评审(Grok):正用套餐 glm-5.3,套餐的 key 文件没了再起网关 ⇒ 预设被删又被按量重建,
+        当前模型悄悄改扣按量的钱。应与 DeepSeek 丢 key 一样回落主槽默认,让业主自己再选。"""
+        self.have_mimo_in_primary()
+        self.add("glm_plan", GLM_PLAN_KEY)
+        self.add("glm", GLM_KEY)
+        self.gateway_env()
+        ds_credential.select_model(self.cfg_path, "glm-5.3", provider="glm_plan")
+        os.remove(os.path.join(self.keys_dir, "glm_plan.txt"))
+        snap = self.snapshot(self.gateway_env(), None)
+        self.assertNotEqual(snap.provider.api_base, EXPECTED["glm"]["apiBase"],
+                            "套餐 key 没了,当前模型被悄悄改走按量")
+        self.assertEqual(snap.provider.api_key, pv.MIMO_KEY, "应回落主槽(MiMo)的默认模型")
+        # 按量那家照旧能手选
+        ds_credential.select_model(self.cfg_path, "glm-5.3", provider="glm")
+        snap = self.snapshot(self.gateway_env(), None)
+        self.assertEqual(snap.provider.api_key, GLM_KEY)
+
     def test_k5_kimi_as_a_second_vendor_end_to_end(self):
         self.have_mimo_in_primary()
         self.add("kimi", KIMI_KEY)

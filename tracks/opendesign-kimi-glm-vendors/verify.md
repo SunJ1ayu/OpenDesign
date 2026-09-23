@@ -70,6 +70,11 @@ runlog: bash rc=0 commit=4311fd2 dirty=yes at=2026-09-23T10:36:03Z file=tracks/o
 (上一行 = 本单判据 12 条 + ku 全绿。)
 
 ```
+runlog: python rc=1 commit=9d0c2c2 dirty=yes at=2026-09-23T10:54:40Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T105440Z-01-python.txt
+```
+(上一行 = 第 2 轮修复清单判据:k8b(不带厂商要同名家族另一模型被换家)、k9(丢一家 GLM key 后改扣另一家)均红。)
+
+```
 <粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
  **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
  收据得进 git(5d)。一份收据都没有的话,写一行
@@ -89,6 +94,7 @@ runlog: bash rc=0 commit=4311fd2 dirty=yes at=2026-09-23T10:36:03Z file=tracks/o
   | 轮 | 类型 | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
   |---|---|---|---|---|
   | 1 | 实质 | rc=3,BLOCK 0(PENDING=待评审) | /root/aiwork/logs/panel-kimi-glm-20260923-1806 [仓外不承重] | 0(1 条钱路径缺口按必须修处理) |
+  | 2 | 实质 | rc=3,BLOCK 0 | /root/aiwork/logs/panel-kimi-glm-r2-20260923-1836 [仓外不承重] | 2(Grok BLOCK,下表 7、8) |
 
 - findings(第 1 轮):
 
@@ -100,6 +106,20 @@ runlog: bash rc=0 commit=4311fd2 dirty=yes at=2026-09-23T10:36:03Z file=tracks/o
   | 4 | (MiMo)k7 只钉 temperature,不钉全部出参;kimi-k3 可能另有拒收参数 | 属实,但无真 key 问不出 | 延期 | 已知未知(design 前提 2);业主那边的样子:选 Kimi 聊天报参数错误,改表一行即修 |
   | 5 | (MiMo)`rel` 可写 `noopener noreferrer` | noreferrer 在 Chromium 已含 noopener 语义 | 驳回 | 行为等价 |
   | 6 | (Grok)k7 `>= 1.0` 放过 1.5 | 1.5 同样被 Kimi 接受(拒的是 <1.0) | 驳回 | 断言与真实约束同形 |
+
+- 第 2 轮花名册: submimo=PASS(verdict=PASS) subcursor.grok-4.7-high=PASS(verdict=BLOCK)(两家冲突:MiMo PASS、Grok BLOCK;冲突不靠投票,逐条核实如下)
+- findings(第 2 轮):
+
+  | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
+  |---|---|---|---|---|
+  | 7 | (Grok BLOCK)正用按量 glm-5.3,不带厂商要 glm-5.3-flash(其预设仍归套餐)⇒ 被换到套餐,换端点/key/账单 | 判据 k8b 复现红;修 #1 的「优先预设归属」漏了「优先当前这家」 | **本单必须修** | 第 1 轮 #1 的修法没修全,同一条钱路径;老菜单只列当前这家的目录 ⇒ 不带厂商 = 当前这家 |
+  | 8 | (Grok BLOCK)正用套餐 glm-5.3,套餐 key 文件没了再起网关 ⇒ 预设删了又被按量重建,当前模型改扣按量 | 判据 k9 复现红;界面无删 key 入口,只能手删文件 | **本单必须修** | 与 DeepSeek 丢 key 回落主槽的既有语义不一致,且落在扣钱轴;修法小:当前预设在①被删 ⇒ 回落主槽默认 |
+  | 9 | (MiMo)预设归属那家没 key 时 `owner in hits` 仍会留在归属 | `_live_vendors` 主槽不验 key | 延期 | fail-closed(报错/发不出去),不扣错钱;业主那边:删了主槽 key 后选模型会报错,需重填 key |
+  | 10 | (MiMo)`bin/set_model.py` 不读 presetParams;零迁移路径不补写 | 读码属实(set_model.py:65-67;prepare_gateway 零迁移分支) | 延期 | 界面不走 set_model.py;没有任何已发版本写过 Kimi 预设 ⇒ 零迁移路径上不存在缺温度的 Kimi 预设;脚本换到 Kimi 会报参数错(fail-closed) |
+  | 11 | (MiMo)k8 缺 owner∉hits 对位 | 属实 | 本单必须修(随 7 一起) | k8b 即补这一位 |
+
+- **追加第 3 轮的理由(派发前写)**:预算 2 轮已用完;7、8 是真实阻断,且都在扣钱轴。追加目的:只核验 7、8 的修法与 k8b/k9 考卷;
+  新预算 = 1 轮(两家族,同成员)。第 3 轮再有阻断 ⇒ 本单保持未完成、回头重看同名模型的设计(改成按厂商区分预设名),不再续轮。
 
 ## Accepted deviations
 
