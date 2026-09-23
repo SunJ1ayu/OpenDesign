@@ -252,6 +252,51 @@ def _extra_preset(vendor: str, model: str) -> dict:
     return _apply_params({"label": model, "provider": extra_provider_name(vendor), "model": model}, vendor)
 
 
+def _preset_owner(name, preset: dict) -> str | None:
+    """这份预设属于哪家:名字带 `@厂商` ⇒ 那家;否则它的模型只在一家目录里 ⇒ 那家;认不出 ⇒ None(业主自己的,不碰)。"""
+    v = _qualified_vendor(name)
+    if v is not None:
+        return v
+    hits = [v for v, p in PROVIDERS.items() if preset.get("model") in p["models"]]
+    return hits[0] if len(hits) == 1 else None
+
+
+def _route_presets(cfg: dict) -> None:
+    """**每份认得出主人的预设,只许发到它主人那家**(原地改;k11)。
+
+    根因(第 4 轮两家 BLOCK):主槽 `custom` 的厂商会变,而指向它的预设不带厂商 ⇒ 主槽一换人,
+    旧主槽留下的预设(`glm-5.3@glm_plan`、`mimo-v2.5`)就跟着发到新主槽,名字说一家、扣另一家的钱。
+    所以在**槽的厂商会变的每一处**(save 写主槽、起网关)都对齐一遍:
+    主人是主槽那家 ⇒ custom;主人有额外槽条目 ⇒ od_<主人>;都不是(主人手里没 key)⇒ 删掉。
+    只动指向我们自己槽位(custom / od_*)的预设;主槽厂商认不出(业主自配的端点)时不碰指向 custom 的。
+    """
+    primary = _current_provider(cfg)
+    providers = cfg.get("providers") or {}
+    presets = cfg.get("model_presets")
+    if not isinstance(presets, dict):
+        return
+    for name in list(presets):
+        p = presets[name]
+        if not isinstance(p, dict):
+            continue
+        prov = p.get("provider", "custom")
+        ours = prov == "custom" or (isinstance(prov, str) and prov.startswith(EXTRA_PREFIX))
+        if not ours or (prov == "custom" and primary is None):
+            continue
+        owner = _preset_owner(name, p)
+        if owner is None:
+            continue
+        if owner == primary:
+            slot = "custom"
+        elif isinstance(providers.get(extra_provider_name(owner)), dict):
+            slot = extra_provider_name(owner)
+        else:
+            presets.pop(name)
+            continue
+        if prov != slot:
+            p["provider"] = slot
+
+
 def models_status(cfg_path: str) -> dict:
     """输入框里模型按钮要的东西:当前厂商、当前模型、这把 key 能选的模型(判据 lm1/lm5/lm6)。
 
@@ -562,6 +607,7 @@ def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = Fal
     name = preset_name(provider, preset["model"])
     presets[name] = _custom_preset(provider, preset["model"])
     cfg.setdefault("agents", {}).setdefault("defaults", {})["modelPreset"] = name
+    _route_presets(cfg)                          # 主槽可能刚换了厂商:旧主槽的预设不许跟着发到新主槽(k11)
 
     try:
         _atomic_write(cfg_path, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n")
@@ -648,7 +694,12 @@ def _synced_config(home: str, cfg: dict):
                 if isinstance(name, str) and name.startswith(EXTRA_PREFIX)}
     marker = _read_marker(home)
     if not wanted and not existing and marker is None:
-        return cfg, False                       # 只有主槽的老家:不碰(零迁移)
+        # 只有主槽的老家:除了「预设发到自己那家」这一条,其余不碰;本来就对齐的配置一个字节不变(v12/v12b)
+        new = copy.deepcopy(cfg)
+        _route_presets(new)
+        if new != cfg:
+            _fallback_if_dangling(new)
+        return new, False
 
     new = copy.deepcopy(cfg)
     providers = new.setdefault("providers", {})
@@ -692,18 +743,8 @@ def _synced_config(home: str, cfg: dict):
             else:
                 presets[pname] = _custom_preset(primary, model)
 
-    # ③b 按厂商分开的预设(`…@<厂商>`)只许指向名字里那一家:那家是主槽 ⇒ custom;有 key 的额外槽 ⇒ od_<厂商>;
-    #     都不是(主槽换了人、key 没了)⇒ 删掉。否则主槽换人后,旧主槽留下的 `glm-5.3@glm_plan` 会指着新主槽发请求。
-    for pname in list(presets):
-        v = _qualified_vendor(pname)
-        if v is None or not isinstance(presets[pname], dict):
-            continue
-        if v == primary:
-            presets[pname]["provider"] = "custom"
-        elif v in wanted:
-            presets[pname]["provider"] = extra_provider_name(v)
-        else:
-            presets.pop(pname)
+    # ③b 每份认得出主人的预设只许发到主人那家(`glm-5.3@glm_plan` 也好、旧主槽的 `mimo-v2.5` 也好);主人没 key ⇒ 删
+    _route_presets(new)
 
     # ④ 「想换过去」:那家此刻真有 key(额外槽有条目,或就是主槽且主槽有 key)才兑现
     defaults = new.setdefault("agents", {}).setdefault("defaults", {})
@@ -715,9 +756,19 @@ def _synced_config(home: str, cfg: dict):
                 defaults["modelPreset"] = target
                 marker_done = True
 
-    # ⑤ 当前模型悬空(指向刚删的预设)⇒ 回落主槽默认;nanobot 对悬空的 modelPreset 直接拒绝加载。
-    #    同名模型各家一份预设,丢了 key 的那家的预设在①/③b 删掉 ⇒ 这里回落,不会落到另一家同名预设上(k9)。
+    _fallback_if_dangling(new)
+    return new, marker_done
+
+
+def _fallback_if_dangling(cfg: dict) -> None:
+    """⑤ 当前模型悬空(指向刚删的预设)⇒ 回落主槽默认;nanobot 对悬空的 modelPreset 直接拒绝加载。
+    同名模型各家一份预设,丢了 key 的那家的预设在①/③b 删掉 ⇒ 这里回落,不会落到另一家同名预设上(k9)。"""
+    defaults = (cfg.get("agents") or {}).get("defaults")
+    presets = cfg.get("model_presets")
+    if not isinstance(defaults, dict) or not isinstance(presets, dict):
+        return
     if defaults.get("modelPreset") and defaults["modelPreset"] not in presets:
+        primary = _current_provider(cfg)
         fallback = preset_name(primary, PROVIDERS[primary]["model"]) if primary else None
         if fallback and fallback not in presets:
             presets[fallback] = _custom_preset(primary, PROVIDERS[primary]["model"])
@@ -725,4 +776,3 @@ def _synced_config(home: str, cfg: dict):
             defaults["modelPreset"] = fallback
         elif presets:
             defaults["modelPreset"] = next(iter(presets))
-    return new, marker_done

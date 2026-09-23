@@ -33,6 +33,13 @@
 > 现在改成 **同名模型按厂商各存一份预设**(`preset_name`:`glm-5.3@glm_plan` / `glm-5.3@glm`;不重名的仍用模型名,老配置零变化),
 > 再加一条不变量:带 `@厂商` 的预设只许指向名字里那一家(主槽 ⇒ custom、有 key 的额外槽 ⇒ od_<厂商>、否则删)。
 > keeps_owner、removed 两层补丁随之删除。未发版 ⇒ 没有要迁移的旧配置。
+>
+> **第 4 轮两家 BLOCK 后找到的真根因(业主拍板「从第一性原理修」)**:共享的不是模型名,而是主槽 `custom` ——
+> 它的厂商会变,指向它的预设却不带厂商。改名只拆开了同名这一种症状。现在只留一条不变量 `_route_presets`:
+> **每份认得出主人的预设(名字带 `@厂商`,或模型只在一家目录里)只许发到主人那家**:主人是主槽 ⇒ custom;
+> 主人有额外槽 ⇒ od_<主人>;主人没 key ⇒ 删。在槽的厂商会变的每一处都跑:save 写主槽时、起网关时(含只有一把 key 的老家快路径,
+> 本来就对齐的配置字节不变 v12/v12b)。认不出主人的(业主手写、自配端点)一律不碰。顺带收掉已发版本就有的 #16
+> (换过 DeepSeek 的老家里 mimo-* 发到 DeepSeek),`set_model.py` 也改用带厂商的名字(#17)。
 - `bin/ds_credential.py` PROVIDERS 加三行 + 每行 `keyUrl`;`/api/llm/credential` 的 providers 带出 `keyUrl`。
 - `web/src/llmKey.ts` asProvider 读可选 keyUrl(只收 https);`LlmKeyCard.tsx` 在 API key 输入框下显示「获取 {label} 的 API Key ›」外链(新窗口/外部浏览器)。
 - 链接:MiMo `https://platform.xiaomimimo.com/token-plan`(我们接的是套餐端点,不能照 ZCode 链平台首页);DeepSeek `https://platform.deepseek.com/api_keys`;

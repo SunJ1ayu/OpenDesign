@@ -26,6 +26,7 @@ import json
 import os
 import sys
 
+import ds_credential  # 厂商目录与预设命名(preset_name)的唯一真相源
 import ds_model  # preset-优先规则单一真相源(L1;与 ds_web._read_model 同源)
 
 DEFAULT_CONFIG = os.path.join(os.path.expanduser("~"), ".nanobot", "config.json")
@@ -64,8 +65,13 @@ def main() -> int:
         old = base.get("model", active_preset) if isinstance(base, dict) else active_preset
         entry = dict(base) if isinstance(base, dict) else {"provider": "custom"}
         entry.update(label=model, model=model)
-        presets[model] = entry
-        defaults["modelPreset"] = model
+        # 当前厂商目录里认得这个模型 ⇒ 用那家的预设名(两家 GLM 同名模型各一份 `glm-5.3@glm`,
+        # 写裸名会多出第三份、谁都能改它的归属;k12)。认不得 ⇒ 照旧用模型名。
+        vendor = ds_credential._preset_vendor(cfg, active_preset)
+        name = (ds_credential.preset_name(vendor, model)
+                if vendor and model in ds_credential.PROVIDERS[vendor]["models"] else model)
+        presets[name] = entry
+        defaults["modelPreset"] = name
     else:
         old = defaults.get("model")
         defaults["model"] = model
