@@ -283,6 +283,21 @@ runlog: bash rc=0 commit=f4f510a dirty=yes at=2026-09-23T15:55:50Z file=tracks/o
   GPT(subcodex,gpt-6-sol)是角色腿、不进普通池(工具设计:GPT 也是执行腿)⇒ 同题单独派,结论入账、逐条核实,但不计入归档覆盖。
   本单代码全由主 agent 写,不存在「GPT 审自家代码」。有阻断 ⇒ 停下交业主。
 
+- 第 9 轮花名册: submimo=PASS(verdict=BLOCK) subcursor.grok-4.7-high=PASS(verdict=BLOCK) subdeepseek=PASS(verdict=BLOCK)(日志 /root/aiwork/logs/panel-kimi-glm-r9-20260923-2356.* [仓外不承重]);GPT(subcodex gpt-6-sol,不计覆盖):BLOCK(/root/aiwork/logs/codex-kimi-glm-r9-20260923-2356.log [仓外不承重])
+- findings(第 9 轮,四家全 BLOCK;未修,按预案停):
+
+  | # | 发现 | 谁 | 处置 |
+  |---|---|---|---|
+  | 31 | 老安装脚本填**认得出的端点 + 别家的共享模型名**(如 Kimi 端点 + glm-5.3)⇒ 合并写裸名 glm-5.3、指 custom ⇒ 发到 Kimi;对齐认不出裸共享名,之后也修不掉。#30 只修了「模型在这家目录里」那一半 | MiMo/Grok/DeepSeek 三家独立同一条 | 待业主定 |
+  | 32 | 判据缺口:k11 的 owner_of 对裸共享名瞎(结构上看不见 #30/#31 形状);k15 只钉 glm-5.3 一个名字、只测套餐端点;合并路径的悬空回落与 presetParams(Kimi temperature)无判据 | MiMo/DeepSeek | 待业主定 |
+  | 33 | 重跑老安装脚本:已有 key.txt 就跳过录 key,但仍允许换成别家端点 ⇒ 新端点配旧 key(报认证错,不扣错钱;已发版本就有) | GPT(HIGH) | 待业主定 |
+  | 34 | 普通更新合并现在也对齐:名字像我们起的、主人没槽的手写预设会被删,当前模型可能回落 | DeepSeek(INFO) | 与 k14「我们的名字」口径一致,记录 |
+  | 35 | check-package.sh 的必需文件清单没有 ds_credential.py / ds_model.py | DeepSeek(LOW) | 待业主定 |
+
+- **主裁判断**:#31/#33 的共同根子是**老 PowerShell 安装脚本让机主手填任意「端点 + 模型」**,这是第六个写入口,且和界面里「选厂商 → 填 key」重复;
+  出货的一键安装包(ds_provision)不走这两问。第一性原理的修法是把手填端点/模型这两问从老安装脚本撤掉(换厂商一律走界面),或合并器拒绝「认得出但不成对」的端点/模型并要求重录 key。
+- **状态:NEEDS_MORE_INFO,停**。交业主。
+
 ## Accepted deviations
 
 - <接受的非关键偏差 + 原因 + 影响范围,或 None>
