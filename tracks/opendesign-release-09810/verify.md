@@ -23,11 +23,13 @@ runlog -t opendesign-release-09810 -- <判据命令>
 ```
 
 ```
-<粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
- **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
- 收据得进 git(5d)。一份收据都没有的话,写一行
- 「- 无机器证据:<理由>」认账 —— 沉默不算理由(5c)。>
+runlog: python rc=1 commit=485b83e dirty=yes at=2026-09-23T07:09:03Z file=tracks/opendesign-release-09810/evidence/20260923T070903Z-01-python.txt
+runlog: python rc=1 commit=485b83e dirty=yes at=2026-09-23T07:09:08Z file=tracks/opendesign-release-09810/evidence/20260923T070908Z-01-python.txt
+runlog: run-all rc=3 commit=e67c726 dirty=no final=yes at=2026-09-23T07:10:26Z file=tracks/opendesign-release-09810/evidence/20260923T071026Z-01-run-all.txt
+runlog: bash rc=0 commit=e67c726 dirty=yes at=2026-09-23T07:33:25Z file=tracks/opendesign-release-09810/evidence/20260923T073325Z-01-bash.txt
 ```
+
+- 说明:07:09:03 那份 rc=1 是我把测试类名写错(C7Shell,报 errors=1,量具错);07:09:08 才是 C7d 的真红;run-all rc=3 = 各段全绿、3 条要网关的没跑;cloud 35830315041 FAIL 0。
 
 ## Review
 
