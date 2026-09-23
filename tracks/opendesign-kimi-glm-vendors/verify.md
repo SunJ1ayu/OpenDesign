@@ -224,6 +224,18 @@ runlog: bash rc=0 commit=b033875 dirty=yes at=2026-09-23T13:03:15Z file=tracks/o
   题面第 1 问本来就限定「我们的写入口」⇒ 重派时加长时限(MIMO_CLI_TIMEOUT=2100、CURSOR_TIMEOUT=1800,已知大单要这么久),题面加一句范围说明,问题不减。
   重派被健康闸拦(两腿因刚才的超时进入冷却)⇒ 用 PANEL_HEALTH_OVERRIDE 放回:超时原因已知(时限短,MiMo 残稿显示它在正常干活),时限已加长;不是腿坏了。
 
+- 第 6 轮花名册: submimo=PASS(verdict=BLOCK) subcursor.grok-4.7-high=PASS(verdict=PASS)(冲突:MiMo BLOCK、Grok PASS;日志 /root/aiwork/logs/panel-kimi-glm-r6c-20260923-2120.* [仓外不承重])
+- findings(第 6 轮):
+
+  | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
+  |---|---|---|---|---|
+  | 26 | (MiMo BLOCK)主槽是**自配端点**(install.ps1 `--api-base`,不用手改)+ 界面加了两家 GLM ⇒ set_model.py 走老分支:`--provider glm` 被无视,裸名 `glm-5.3` 抄走 od_glm_plan ⇒ 要按量、实际留在套餐(扣错钱) | 亲跑复现:rc=0,active=glm-5.3,provider=od_glm_plan,nanobot 加载得套餐 key + 套餐端点 | **阻断成立**;按预案停,交业主 | 第 5 轮「一个写入口」的闸设在「主槽认得出」,应设在「配置里有我们管的厂商槽」(`_live_vendors` 非空)。Grok 判 PASS 是因为它认定老分支只有手改才走到 —— install.ps1 的 `--api-base` 证明不需要手改 |
+  | 27 | (两家)手写预设占用我们起的名字却填别的模型,那家有 key 时起网关 ②/③ 按名字改指 | 读码属实 | 延期(范围外) | 需手改配置;已发版本同样如此 |
+
+- **状态:NEEDS_MORE_INFO(第 6 轮 = 预案里的最后一轮,再有阻断即停)**。给业主的选择:
+  A. 修 #26(闸改成「有我们管的厂商槽就走统一入口」+ 一条判据),再审一轮;
+  B. 本单先停在这里不发,等业主有空再定。
+
 ## Accepted deviations
 
 - <接受的非关键偏差 + 原因 + 影响范围,或 None>

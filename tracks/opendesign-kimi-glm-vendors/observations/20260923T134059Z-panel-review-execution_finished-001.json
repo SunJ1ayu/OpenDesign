@@ -1,0 +1,136 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-kimi-glm-vendors",
+  "run_id": "20260923-212049-2646486-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-kimi-glm-vendors-r6",
+  "started_at": "2026-09-23T13:20:49Z",
+  "finished_at": "2026-09-23T13:40:59Z",
+  "duration_ms": 1210775,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "submimo",
+        "degraded": false,
+        "duration_ms": 1210133,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:84a69159baca946cbafae50274f50e3db6820c5c03cdf50ea0d8520bca03b960",
+          "ref": "file:///root/aiwork/logs/panel-kimi-glm-r6c-20260923-2120.submimo.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xiaomi",
+        "model": {
+          "invoked": "xiaomi/mimo-v2.6-pro",
+          "reported": null,
+          "requested": "xiaomi/mimo-v2.6-pro"
+        },
+        "name": "submimo",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260923-212049-2646486-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:4a879507bf559b9f31846d464a82da1ac9fbf41af335ea3869cc9e7891c11593",
+            "policy_version": 1,
+            "track": "opendesign-kimi-glm-vendors"
+          },
+          "digest": "sha256:ef4113234ae5df4469324bef700ec2fd586c8012625710be4128f46fb58bcde8",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "b1e14138c61f02a8ac670d2bb8a58a61975bb6af",
+            "index_tree_oid": "481f8a0af5f3668d7fb94dafbdccdc791437a912",
+            "worktree_tree_oid": "481f8a0af5f3668d7fb94dafbdccdc791437a912"
+          },
+          "task_sha256": "sha256:aa0cb9a8aad4490b20e44f027c4cf2f2880823b83af10407f0ceabd46b01374e"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "BLOCK",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subcursor",
+        "degraded": false,
+        "duration_ms": 1058586,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:2b0b8f900b65c376088f29d97368e260b2b8c4c552141494d72cd2275d2d6678",
+          "ref": "file:///root/aiwork/logs/panel-kimi-glm-r6c-20260923-2120.subcursor.grok-4.7-high.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xai",
+        "model": {
+          "invoked": "grok-4.7-high",
+          "reported": null,
+          "requested": "grok-4.7-high"
+        },
+        "name": "subcursor.grok-4.7-high",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260923-212049-2646486-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:4a879507bf559b9f31846d464a82da1ac9fbf41af335ea3869cc9e7891c11593",
+            "policy_version": 1,
+            "track": "opendesign-kimi-glm-vendors"
+          },
+          "digest": "sha256:ef4113234ae5df4469324bef700ec2fd586c8012625710be4128f46fb58bcde8",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "b1e14138c61f02a8ac670d2bb8a58a61975bb6af",
+            "index_tree_oid": "481f8a0af5f3668d7fb94dafbdccdc791437a912",
+            "worktree_tree_oid": "481f8a0af5f3668d7fb94dafbdccdc791437a912"
+          },
+          "task_sha256": "sha256:aa0cb9a8aad4490b20e44f027c4cf2f2880823b83af10407f0ceabd46b01374e"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
