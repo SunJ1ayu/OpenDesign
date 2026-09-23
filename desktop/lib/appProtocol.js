@@ -78,7 +78,10 @@ function createAppHandler({ distRoot, readFile, backendPort, fetch, log }) {
   }
 
   async function forward(request, url) {
-    const port = await backendPort();          // 后台没好就挂在这里:页面拿到的是「晚到」,不是「失败」
+    // 后台没好就挂在这里:页面拿到的是「晚到」,不是「失败」。
+    // 🔴 端口只取一次:依赖「ds-web 在一次运行里不换端口」(重启网关只动网关,ds_shell.restart_gateway)。
+    //    将来要让 ds-web 自己重启/换端口的人,必须把这里改成每次现取。
+    const port = await backendPort();
     const headers = new Headers(request.headers);
     for (const h of STRIP) headers.delete(h);
     const init = { method: request.method, headers };
