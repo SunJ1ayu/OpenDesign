@@ -179,6 +179,11 @@ runlog: bash rc=0 commit=218e13a dirty=yes at=2026-09-23T11:39:08Z file=tracks/o
   k10 加咬名字 + 按名字加载、k8 的 pop 改成真实预设名(#18)。
 runlog: python rc=1 commit=627c28b dirty=yes at=2026-09-23T12:14:13Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T121413Z-01-python.txt
   (上一行 = 根因判据红:k11 五格全红,且逐份列出 —— 第一格里 `glm-5.3@glm_plan` 单独点名(=#15),另有模板自带的 MiMo 预设在首把 key 是 GLM 时就残留(同根);k12 红。)
+- 变异自检(修法写好后,逐个拆掉修法的一部分看判据红不红):save 不对齐 / 主人没 key 不删 / 指 custom 一律当主槽 ⇒ k11 红;
+  **老家快路径不对齐、起网关主路径不对齐两个变异存活** ⇒ 补 k11b(盘上已有的错指配置起网关就对齐:0.98.10 换过 DeepSeek 的老家 + 有额外槽的家)。
+  v9 夹具原先靠「save 换主槽后 mimo-* 残留」造老形状,修后 save 不再造它 ⇒ 夹具改为照老样子直接写出(断言不变;新旧实现上都绿)。
+runlog: python rc=1 commit=04e78b4 dirty=yes at=2026-09-23T12:18:21Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T121821Z-01-python.txt
+  (上一行 = 补的 k11b 在修前代码上红;两个存活变异各被 k11b 的一格杀死。)
 
 ## Accepted deviations
 

@@ -342,6 +342,13 @@ class TestPreparingTheGateway(Rig):
         """业主机器上的真实形态之一:以前在界面里换过 DeepSeek ⇒ 主槽是 DeepSeek,
         而模板带来的 mimo-* 预设仍是 provider=custom —— 会被发到 **DeepSeek 的端点**。"""
         ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=False)
+        # 0.98.10 及以前换 DeepSeek 后留在业主盘上的样子(base 53560cc 亲跑核过):模板的 mimo-* 预设原样留着、仍指 custom。
+        # 现在 save 换主槽时会把它们清掉(k11),这个形状只剩「老版本留下的」一个来源 ⇒ 照老样子直接写出来,断言不变。
+        cfg = self.cfg()
+        for name, p in ds_credential.load_jsonc(TEMPLATE)["model_presets"].items():
+            cfg["model_presets"].setdefault(name, p)
+        with open(self.cfg_path, "w", encoding="utf-8") as fh:
+            json.dump(cfg, fh, ensure_ascii=False, indent=2)
         self.assertEqual(self.cfg()["model_presets"]["mimo-v2.5"].get("provider"), "custom", "夹具前提不成立")
         ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="mimo", key=MIMO_KEY, multi=True)
         env = self.gateway_env()

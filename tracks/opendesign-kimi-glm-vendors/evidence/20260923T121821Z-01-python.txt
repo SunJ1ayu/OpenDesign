@@ -1,0 +1,195 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    python
+cmd:     /root/.venvs/design-studio/bin/python tests/test_kimi_glm_vendors.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  04e78b4
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-23T12:18:21Z
+---------------- 输出开始 ----------------
+test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner (__main__.TestEveryPresetGoesToItsOwner.test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner) ... 
+  test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner (__main__.TestEveryPresetGoesToItsOwner.test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner) [有外壳:只有 GLM 套餐一把 → 换成 GLM 按量(第 4 轮 #15 原样)] ... FAIL
+  test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner (__main__.TestEveryPresetGoesToItsOwner.test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner) [没外壳:GLM 套餐 → GLM 按量,存完就问(不起网关也不许错)] ... FAIL
+  test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner (__main__.TestEveryPresetGoesToItsOwner.test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner) [没外壳:MiMo → DeepSeek(#16,已发版本就有的同根毛病)] ... FAIL
+  test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner (__main__.TestEveryPresetGoesToItsOwner.test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner) [有外壳:主槽套餐 + 额外 Kimi → 主槽换成按量] ... FAIL
+  test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner (__main__.TestEveryPresetGoesToItsOwner.test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner) [有外壳:主槽 MiMo + 两家 GLM 额外 → 主槽换成套餐(额外那家变主槽)] ... FAIL
+test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts (__main__.TestEveryPresetGoesToItsOwner.test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts)
+save 现在不会再造出错指的预设,但**已经在业主盘上的**会:0.98.10 及以前换 DeepSeek 后留下的 mimo-* ... 
+  test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts (__main__.TestEveryPresetGoesToItsOwner.test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts) [老家:主槽 DeepSeek,盘上留着指 custom 的 mimo-*]
+save 现在不会再造出错指的预设,但**已经在业主盘上的**会:0.98.10 及以前换 DeepSeek 后留下的 mimo-* ... FAIL
+  test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts (__main__.TestEveryPresetGoesToItsOwner.test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts) [主槽 GLM 按量 + 额外 Kimi,盘上留着指 custom 的 glm-5.3@glm_plan]
+save 现在不会再造出错指的预设,但**已经在业主盘上的**会:0.98.10 及以前换 DeepSeek 后留下的 mimo-* ... FAIL
+test_k12_set_model_script_keeps_the_vendor_in_the_preset_name (__main__.TestEveryPresetGoesToItsOwner.test_k12_set_model_script_keeps_the_vendor_in_the_preset_name)
+第 4 轮(MiMo)#17:bin/set_model.py 一律写裸模型名 ⇒ 与 `glm-5.3-flash@glm` 并存出第三份。 ... FAIL
+test_k10_each_glm_vendor_keeps_its_own_preset_for_a_shared_model_name (__main__.TestRouting.test_k10_each_glm_vendor_keeps_its_own_preset_for_a_shared_model_name)
+根治(第 3 轮后回头改设计):同名模型按厂商各存一份预设,谁也改不动谁的 —— ... ok
+test_k4_same_model_name_in_both_glm_vendors_never_crosses_over (__main__.TestRouting.test_k4_same_model_name_in_both_glm_vendors_never_crosses_over) ... ok
+test_k4b_the_glm_choice_survives_a_gateway_restart (__main__.TestRouting.test_k4b_the_glm_choice_survives_a_gateway_restart)
+🔴 自审抓到的:prepare_gateway 每次起网关都把同名预设按「最后一家」重指 ⇒ ... ok
+test_k4c_adding_the_other_glm_key_still_switches_to_it_after_restart (__main__.TestRouting.test_k4c_adding_the_other_glm_key_still_switches_to_it_after_restart)
+k4b 的反面:存了另一家 GLM 的 key =「想换过去」(switch-to 标记),重启后要真换到**那一家**, ... ok
+test_k5_kimi_as_a_second_vendor_end_to_end (__main__.TestRouting.test_k5_kimi_as_a_second_vendor_end_to_end) ... /root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py:342: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-u7d5rio0/UserData/.openDesign/keys/kimi.txt' mode='r' encoding='UTF-8'>
+  self.assertEqual(open(os.path.join(self.keys_dir, "kimi.txt")).read().strip(), KIMI_KEY)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_k5b_kimi_on_a_fresh_install_goes_into_the_primary_slot (__main__.TestRouting.test_k5b_kimi_on_a_fresh_install_goes_into_the_primary_slot) ... ok
+test_k7_kimi_is_always_sent_temperature_at_least_1 (__main__.TestRouting.test_k7_kimi_is_always_sent_temperature_at_least_1)
+🔴 自审抓到的:Kimi K2.5+ 拒收 temperature<1.0(nanobot 自带 moonshot 规格的注释与 model_overrides); ... ok
+test_k7b_kimi_as_the_first_and_only_vendor_too (__main__.TestRouting.test_k7b_kimi_as_the_first_and_only_vendor_too) ... ok
+test_k8_a_model_name_two_live_vendors_share_never_switches_vendor_silently (__main__.TestRouting.test_k8_a_model_name_two_live_vendors_share_never_switches_vendor_silently)
+第 1 轮评审(MiMo)发现:POST /api/llm/model 不带 provider 时按厂商表序取第一家 ⇒ ... ok
+test_k8b_without_a_vendor_the_current_vendor_wins (__main__.TestRouting.test_k8b_without_a_vendor_the_current_vendor_wins)
+第 2 轮评审(Grok)复现:正用 GLM 按量 glm-5.3,只带模型名要 glm-5.3-flash, ... ok
+test_k9_losing_one_glm_key_falls_back_to_the_default_not_to_the_other_glm (__main__.TestRouting.test_k9_losing_one_glm_key_falls_back_to_the_default_not_to_the_other_glm)
+第 2 轮评审(Grok):正用套餐 glm-5.3,套餐的 key 文件没了再起网关 ⇒ 预设被删又被按量重建, ... ok
+test_k9b_losing_a_glm_key_symmetric_and_bystander_positions (__main__.TestRouting.test_k9b_losing_a_glm_key_symmetric_and_bystander_positions)
+第 3 轮评审(MiMo)补的对位: ... ok
+test_k1_three_new_vendors_with_their_endpoints_and_models (__main__.TestTheTable.test_k1_three_new_vendors_with_their_endpoints_and_models) ... ok
+test_k2_every_vendor_links_to_where_its_key_is_made (__main__.TestTheTable.test_k2_every_vendor_links_to_where_its_key_is_made) ... ok
+test_k3_vendor_ids_are_safe_as_file_and_variable_names (__main__.TestTheTable.test_k3_vendor_ids_are_safe_as_file_and_variable_names) ... ok
+test_k6_the_card_is_told_each_vendors_key_link (__main__.TestTheWebEndpoint.test_k6_the_card_is_told_each_vendors_key_link) ... 2026-09-23 20:18:22 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+ok
+
+======================================================================
+FAIL: test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner (__main__.TestEveryPresetGoesToItsOwner.test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner) [有外壳:只有 GLM 套餐一把 → 换成 GLM 按量(第 4 轮 #15 原样)]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py", line 422, in test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner
+    self.assert_every_preset_goes_to_its_owner(self.gateway_env(), {"glm"}, "壳 套餐→按量")
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py", line 412, in assert_every_preset_goes_to_its_owner
+    self.assertEqual(bad, [], f"[{where}] 这些预设发不到自己那家")
+AssertionError: Lists differ: ['mimo-v2.5:mimo 已经没 key,预设还留着', 'mimo-v2.[64 chars]还留着'] != []
+
+First list contains 3 additional elements.
+First extra element 0:
+'mimo-v2.5:mimo 已经没 key,预设还留着'
+
++ []
+- ['mimo-v2.5:mimo 已经没 key,预设还留着',
+-  'mimo-v2.5-pro:mimo 已经没 key,预设还留着',
+-  'glm-5.3@glm_plan:glm_plan 已经没 key,预设还留着'] : [壳 套餐→按量] 这些预设发不到自己那家
+
+======================================================================
+FAIL: test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner (__main__.TestEveryPresetGoesToItsOwner.test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner) [没外壳:GLM 套餐 → GLM 按量,存完就问(不起网关也不许错)]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py", line 427, in test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner
+    self.assert_every_preset_goes_to_its_owner(self.plain_env(), {"glm"}, "无壳 套餐→按量")
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py", line 412, in assert_every_preset_goes_to_its_owner
+    self.assertEqual(bad, [], f"[{where}] 这些预设发不到自己那家")
+AssertionError: Lists differ: ['mimo-v2.5:mimo 已经没 key,预设还留着', 'mimo-v2.[64 chars]还留着'] != []
+
+First list contains 3 additional elements.
+First extra element 0:
+'mimo-v2.5:mimo 已经没 key,预设还留着'
+
++ []
+- ['mimo-v2.5:mimo 已经没 key,预设还留着',
+-  'mimo-v2.5-pro:mimo 已经没 key,预设还留着',
+-  'glm-5.3@glm_plan:glm_plan 已经没 key,预设还留着'] : [无壳 套餐→按量] 这些预设发不到自己那家
+
+======================================================================
+FAIL: test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner (__main__.TestEveryPresetGoesToItsOwner.test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner) [没外壳:MiMo → DeepSeek(#16,已发版本就有的同根毛病)]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py", line 432, in test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner
+    self.assert_every_preset_goes_to_its_owner(self.plain_env(), {"deepseek"}, "无壳 MiMo→DeepSeek")
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py", line 412, in assert_every_preset_goes_to_its_owner
+    self.assertEqual(bad, [], f"[{where}] 这些预设发不到自己那家")
+AssertionError: Lists differ: ['mimo-v2.5:mimo 已经没 key,预设还留着', 'mimo-v2.5-pro:mimo 已经没 key,预设还留着'] != []
+
+First list contains 2 additional elements.
+First extra element 0:
+'mimo-v2.5:mimo 已经没 key,预设还留着'
+
+- ['mimo-v2.5:mimo 已经没 key,预设还留着', 'mimo-v2.5-pro:mimo 已经没 key,预设还留着']
++ [] : [无壳 MiMo→DeepSeek] 这些预设发不到自己那家
+
+======================================================================
+FAIL: test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner (__main__.TestEveryPresetGoesToItsOwner.test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner) [有外壳:主槽套餐 + 额外 Kimi → 主槽换成按量]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py", line 439, in test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner
+    self.assert_every_preset_goes_to_its_owner(self.gateway_env(), {"glm", "kimi"}, "壳 套餐+Kimi→按量")
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py", line 412, in assert_every_preset_goes_to_its_owner
+    self.assertEqual(bad, [], f"[{where}] 这些预设发不到自己那家")
+AssertionError: Lists differ: ['mimo-v2.5:mimo 已经没 key,预设还留着', 'mimo-v2.5-pro:mimo 已经没 key,预设还留着'] != []
+
+First list contains 2 additional elements.
+First extra element 0:
+'mimo-v2.5:mimo 已经没 key,预设还留着'
+
+- ['mimo-v2.5:mimo 已经没 key,预设还留着', 'mimo-v2.5-pro:mimo 已经没 key,预设还留着']
++ [] : [壳 套餐+Kimi→按量] 这些预设发不到自己那家
+
+======================================================================
+FAIL: test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner (__main__.TestEveryPresetGoesToItsOwner.test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner) [有外壳:主槽 MiMo + 两家 GLM 额外 → 主槽换成套餐(额外那家变主槽)]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py", line 447, in test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner
+    self.assert_every_preset_goes_to_its_owner(self.gateway_env(), {"glm_plan", "glm"}, "壳 MiMo→套餐")
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py", line 412, in assert_every_preset_goes_to_its_owner
+    self.assertEqual(bad, [], f"[{where}] 这些预设发不到自己那家")
+AssertionError: Lists differ: ['mimo-v2.5:mimo 已经没 key,预设还留着', 'mimo-v2.5-pro:mimo 已经没 key,预设还留着'] != []
+
+First list contains 2 additional elements.
+First extra element 0:
+'mimo-v2.5:mimo 已经没 key,预设还留着'
+
+- ['mimo-v2.5:mimo 已经没 key,预设还留着', 'mimo-v2.5-pro:mimo 已经没 key,预设还留着']
++ [] : [壳 MiMo→套餐] 这些预设发不到自己那家
+
+======================================================================
+FAIL: test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts (__main__.TestEveryPresetGoesToItsOwner.test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts) [老家:主槽 DeepSeek,盘上留着指 custom 的 mimo-*]
+save 现在不会再造出错指的预设,但**已经在业主盘上的**会:0.98.10 及以前换 DeepSeek 后留下的 mimo-*
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py", line 463, in test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts
+    self.assert_every_preset_goes_to_its_owner(self.gateway_env(), {"deepseek"}, "老家 DeepSeek")
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py", line 412, in assert_every_preset_goes_to_its_owner
+    self.assertEqual(bad, [], f"[{where}] 这些预设发不到自己那家")
+AssertionError: Lists differ: ['mimo-v2.5:mimo 已经没 key,预设还留着', 'mimo-v2.5-pro:mimo 已经没 key,预设还留着'] != []
+
+First list contains 2 additional elements.
+First extra element 0:
+'mimo-v2.5:mimo 已经没 key,预设还留着'
+
+- ['mimo-v2.5:mimo 已经没 key,预设还留着', 'mimo-v2.5-pro:mimo 已经没 key,预设还留着']
++ [] : [老家 DeepSeek] 这些预设发不到自己那家
+
+======================================================================
+FAIL: test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts (__main__.TestEveryPresetGoesToItsOwner.test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts) [主槽 GLM 按量 + 额外 Kimi,盘上留着指 custom 的 glm-5.3@glm_plan]
+save 现在不会再造出错指的预设,但**已经在业主盘上的**会:0.98.10 及以前换 DeepSeek 后留下的 mimo-*
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py", line 470, in test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts
+    self.assert_every_preset_goes_to_its_owner(self.gateway_env(), {"glm", "kimi"}, "按量+Kimi")
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py", line 412, in assert_every_preset_goes_to_its_owner
+    self.assertEqual(bad, [], f"[{where}] 这些预设发不到自己那家")
+AssertionError: Lists differ: ['mimo-v2.5:mimo 已经没 key,预设还留着', 'mimo-v2.5-pro:mimo 已经没 key,预设还留着'] != []
+
+First list contains 2 additional elements.
+First extra element 0:
+'mimo-v2.5:mimo 已经没 key,预设还留着'
+
+- ['mimo-v2.5:mimo 已经没 key,预设还留着', 'mimo-v2.5-pro:mimo 已经没 key,预设还留着']
++ [] : [按量+Kimi] 这些预设发不到自己那家
+
+======================================================================
+FAIL: test_k12_set_model_script_keeps_the_vendor_in_the_preset_name (__main__.TestEveryPresetGoesToItsOwner.test_k12_set_model_script_keeps_the_vendor_in_the_preset_name)
+第 4 轮(MiMo)#17:bin/set_model.py 一律写裸模型名 ⇒ 与 `glm-5.3-flash@glm` 并存出第三份。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py", line 485, in test_k12_set_model_script_keeps_the_vendor_in_the_preset_name
+    self.assertEqual(cfg["agents"]["defaults"]["modelPreset"], "glm-5.3-flash@glm")
+AssertionError: 'glm-5.3-flash' != 'glm-5.3-flash@glm'
+- glm-5.3-flash
++ glm-5.3-flash@glm
+?              ++++
+
+
+----------------------------------------------------------------------
+Ran 19 tests in 1.191s
+
+FAILED (failures=8)
+---------------- 输出结束 ----------------
+runlog: python rc=1 commit=04e78b4 dirty=yes at=2026-09-23T12:18:21Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T121821Z-01-python.txt

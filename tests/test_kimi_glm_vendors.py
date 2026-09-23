@@ -446,6 +446,29 @@ class TestEveryPresetGoesToItsOwner(pv.Rig):
             self.replace_primary("glm_plan")
             self.assert_every_preset_goes_to_its_owner(self.gateway_env(), {"glm_plan", "glm"}, "壳 MiMo→套餐")
 
+    def test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts(self):
+        """save 现在不会再造出错指的预设,但**已经在业主盘上的**会:0.98.10 及以前换 DeepSeek 后留下的 mimo-*
+        (base 53560cc 亲跑核过)、手改过的配置。起网关是唯一一定会经过的地方 ⇒ 那里也要对齐,两条路都要问:
+        只有主槽一把 key 的老家(快路径),和有额外槽的家。"""
+        def leave_behind(presets):
+            cfg = self.cfg()
+            cfg["model_presets"].update(presets)
+            with open(self.cfg_path, "w", encoding="utf-8") as fh:
+                json.dump(cfg, fh, ensure_ascii=False, indent=2)
+
+        with self.subTest("老家:主槽 DeepSeek,盘上留着指 custom 的 mimo-*"):
+            self.setUp()
+            ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=pv.DS_KEY)
+            leave_behind(ds_credential.load_jsonc(pv.TEMPLATE)["model_presets"])
+            self.assert_every_preset_goes_to_its_owner(self.gateway_env(), {"deepseek"}, "老家 DeepSeek")
+        with self.subTest("主槽 GLM 按量 + 额外 Kimi,盘上留着指 custom 的 glm-5.3@glm_plan"):
+            self.setUp()
+            ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="glm", key=GLM_KEY)
+            self.add("kimi", KIMI_KEY)
+            self.gateway_env()
+            leave_behind({"glm-5.3@glm_plan": {"label": "glm-5.3", "provider": "custom", "model": "glm-5.3"}})
+            self.assert_every_preset_goes_to_its_owner(self.gateway_env(), {"glm", "kimi"}, "按量+Kimi")
+
     def test_k12_set_model_script_keeps_the_vendor_in_the_preset_name(self):
         """第 4 轮(MiMo)#17:bin/set_model.py 一律写裸模型名 ⇒ 与 `glm-5.3-flash@glm` 并存出第三份。
         它在当前厂商目录里认得这个模型时,要写成那家的预设名,并且真发到那家。"""
