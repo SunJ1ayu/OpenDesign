@@ -13,14 +13,15 @@ import type { ConsentMode, Project } from "../api";
 import { relTime } from "../api";
 import { displayProjectName } from "./projectName";
 import GroupToggle from "../GroupToggle";
+import { SideIcon } from "./icons";
 import {
   groupProjectsByStage, isStageGroupOpen, loadStagePrefs, revealStage,
   SIDE_STAGE_STORAGE_KEY, type StageGroup, type StagePrefs,
 } from "./projectGroups";
 
 // 左侧栏 v2(P3 T3,handoff §1,240px):品牌 / 全局操作组(新对话/搜索/
-// 待办事项/技能)/ 历史对话 / 项目 / 设置弹层。图标沿用定稿的 Unicode 占位
-// (✳ ⌕ ◎ ✦ ◷ ⚙)。v2 要点:日历行删除(功能将来融进待办页)、技能上移进
+// 待办事项/技能)/ 历史对话 / 项目 / 设置弹层。图标 09-23 由 Unicode 占位换成
+// ZCode 同款 lucide 线条图标(./icons.tsx;历史行不再带图标)。v2 要点:日历行删除(功能将来融进待办页)、技能上移进
 // 全局操作组、快捷键角标(⌘N/⌘K)从 UI 移除(keydown 行为在 App 保留)、
 // 所有行共用 16px 图标列居中对齐;全局操作组按路由呈当前态(新对话=home、
 // 待办事项=todos、技能=skills;搜索是弹层无路由不设),
@@ -193,7 +194,7 @@ export default function Sidebar({
           onClick={onNewChat}
           title="总聊天入口,新项目从对话里创建"
         >
-          <span className="ico terra">✳</span>
+          <SideIcon name="message-circle-plus" />
           <span className="grow">新对话</span>
         </button>
         <button
@@ -201,7 +202,7 @@ export default function Sidebar({
           title="全局精确查找变更/图片,不经过 AI(⌘K)"
           onClick={onSearch}
         >
-          <span className="ico">⌕</span>
+          <SideIcon name="search" />
           <span className="grow">搜索</span>
         </button>
         <button
@@ -209,7 +210,7 @@ export default function Sidebar({
           onClick={() => { window.location.hash = "#/todos"; }}
           title="汇总所有项目未办结变更"
         >
-          <span className="ico">◎</span>
+          <SideIcon name="list-todo" />
           <span className="grow">待办事项</span>
           {todosOpenCount !== null && todosOpenCount > 0 && (
             <span className="count-badge">{todosOpenCount}</span>
@@ -220,7 +221,7 @@ export default function Sidebar({
           title="CAD 转 3D、PS 合成 PDF 等"
           onClick={() => { window.location.hash = "#/skills"; }}
         >
-          <span className="ico">✦</span>
+          <SideIcon name="blocks" />
           <span className="grow">技能</span>
           <span className="chev">›</span>
         </button>
@@ -242,7 +243,6 @@ export default function Sidebar({
                 title={s.title || s.preview || ""}
                 onClick={() => onOpenSession(s)}
               >
-                <span className="ico">◷</span>
                 <span className="t">{s.title || s.preview || "(未命名对话)"}</span>
                 {sessionTags?.[s.key] && <span className="hist-proj">{sessionTags[s.key]}</span>}
                 <span className="when">{relTime(s.updated_at)}</span>
@@ -400,7 +400,7 @@ export default function Sidebar({
         )}
         <div className="side-row settings-toggle-row">
           <button data-ui="settings-toggle" onClick={() => setSettingsOpen((v) => !v)} aria-expanded={settingsOpen}>
-            <span className="ico">⚙</span>
+            <SideIcon name="settings" />
             <span className="grow">设置</span>
             {hasDesktopUpdateBadge(updateState) && <span className="update-dot" data-ui="update-badge">●</span>}
             <span className="chev">{settingsOpen ? "▴" : "▾"}</span>

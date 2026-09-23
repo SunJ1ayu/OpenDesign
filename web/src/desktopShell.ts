@@ -1,4 +1,5 @@
-import type { BackendState } from "./backendState";
+// 后台起没起好(外壳 → 界面;track opendesign-instant-ui)。界面不再挂横幅(opendesign-quiet-start-icons),通道留着。
+export type BackendState = { phase: "starting" | "ready" };
 
 export type DesktopUpdateState = {
   phase: "idle" | "checking" | "latest" | "downloading" | "downloaded" | "error";

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { backendApi, shellApi, type DesktopUpdateState } from "./desktopShell";
-import { backendBanner, type BackendState } from "./backendState";
+import { shellApi, type DesktopUpdateState } from "./desktopShell";
 import Sidebar, { type SessionItem } from "./workspace/Sidebar";
 import WindowChrome from "./workspace/WindowChrome";
 import ChangesColumn from "./workspace/ChangesColumn";
@@ -83,9 +82,6 @@ export default function App() {
   >(null);
   const [desktopShell] = useState(() => shellApi(window));
   const [updateState, setUpdateState] = useState<DesktopUpdateState>({ phase: "idle" });
-  // 外壳里后台没好时的横幅(track opendesign-instant-ui);浏览器里 backend 桥不存在 ⇒ 永远 null
-  const [backend] = useState(() => backendApi(window));
-  const [backendState, setBackendState] = useState<BackendState | null>(null);
   const [sessions, setSessions] = useState<SessionItem[] | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   // 工作区体检卡浮层(2026-07-28 用户拍板:挪进设置)。计数器兼作 key:
@@ -238,20 +234,6 @@ export default function App() {
       .then((d) => d && setHealth({ version: d.version, ds_root: d.ds_root, model: d.model ?? null }))
       .catch(() => setHealth(null));
   }, []);
-
-  useEffect(() => {
-    if (!backend) return;
-    let active = true;
-    // 先订阅再读初态:就绪事件落在两者之间也不会漏(照 WindowChrome 最大化状态的做法)
-    const unsubscribe = backend.onState((st) => setBackendState(st));
-    void backend.state()
-      .then((st) => { if (active) setBackendState((cur) => (cur?.phase === "ready" ? cur : st)); })
-      .catch(() => {});
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, [backend]);
 
   useEffect(() => {
     if (!desktopShell) return;
@@ -510,11 +492,8 @@ export default function App() {
     <div className="workspace">
       {/* 自己画的窗口栏:只在桌面外壳里渲染,浏览器里整块不存在 */}
       <WindowChrome />
-      {backendBanner(backendState) && (
-        <div className="backend-banner" data-ui="backend-connecting" role="status">
-          <span className="dot" />{backendBanner(backendState)}
-        </div>
-      )}
+      {/* 后台没好时界面不挂任何字(业主 09-23:「这种东西肯定不能显示出来」,照 ZCode);
+          各页的 /api 请求被外壳挂着、就绪后自己补上,见 track opendesign-quiet-start-icons。 */}
       {sidebar}
 
       {/* 3a 新对话页(常驻,非 home 路由时 CSS 隐藏不卸载) */}
