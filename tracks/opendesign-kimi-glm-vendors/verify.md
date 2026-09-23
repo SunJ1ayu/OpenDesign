@@ -90,6 +90,16 @@ runlog: python rc=1 commit=fb97e4d dirty=yes at=2026-09-23T11:24:51Z file=tracks
 (上一行 = 改设计的判据:k10(同名模型两家各一份预设)红;k9b 两格对位在旧补丁上已绿。)
 
 ```
+runlog: bash rc=3 commit=218e13a dirty=no at=2026-09-23T11:27:11Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T112711Z-01-bash.txt
+```
+(上一行 = 改设计后总跑,干净树:六段全 PASS;rc=3 同前。)
+
+```
+runlog: bash rc=0 commit=218e13a dirty=yes at=2026-09-23T11:39:08Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T113908Z-01-bash.txt
+```
+(上一行 = 本单判据 16 条 + ku 全绿。)
+
+```
 <粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
  **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
  收据得进 git(5d)。一份收据都没有的话,写一行
