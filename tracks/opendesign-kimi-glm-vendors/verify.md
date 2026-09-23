@@ -45,6 +45,16 @@ runlog: python rc=1 commit=a913a4f dirty=yes at=2026-09-23T09:53:18Z file=tracks
 同名预设被保留给原来那家 ⇒ 重启后仍在原来那家,两个方向都红;k4b/k7/k7b 此时已绿。)
 
 ```
+runlog: bash rc=3 commit=700ace1 dirty=no at=2026-09-23T09:54:36Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T095436Z-01-bash.txt
+```
+(上一行 = 修完后总跑,干净树:六段全 PASS;rc=3 = 活网关 e2e 2 条 + python 1 条跳过。)
+
+```
+runlog: bash rc=0 commit=700ace1 dirty=yes at=2026-09-23T10:06:26Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T100626Z-01-bash.txt
+```
+(上一行 = 本单判据 11 条 + 前端 ku/老 llm_key/per_vendor_ui 全绿;dirty 只是 verify/收据未提交,源码 = 700ace1。)
+
+```
 <粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
  **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
  收据得进 git(5d)。一份收据都没有的话,写一行

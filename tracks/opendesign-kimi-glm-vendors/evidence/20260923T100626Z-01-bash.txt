@@ -1,0 +1,181 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    bash
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ tests/test_kimi_glm_vendors.py\ \&\&\ node\ --test\ tests/test_kimi_glm_ui.mjs\ tests/test_llm_key.mjs\ tests/test_per_vendor_ui.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  700ace1
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-23T10:06:26Z
+---------------- 输出开始 ----------------
+test_k4_same_model_name_in_both_glm_vendors_never_crosses_over (__main__.TestRouting.test_k4_same_model_name_in_both_glm_vendors_never_crosses_over) ... ok
+test_k4b_the_glm_choice_survives_a_gateway_restart (__main__.TestRouting.test_k4b_the_glm_choice_survives_a_gateway_restart)
+🔴 自审抓到的:prepare_gateway 每次起网关都把同名预设按「最后一家」重指 ⇒ ... ok
+test_k4c_adding_the_other_glm_key_still_switches_to_it_after_restart (__main__.TestRouting.test_k4c_adding_the_other_glm_key_still_switches_to_it_after_restart)
+k4b 的反面:存了另一家 GLM 的 key =「想换过去」(switch-to 标记),重启后要真换到**那一家**, ... ok
+test_k5_kimi_as_a_second_vendor_end_to_end (__main__.TestRouting.test_k5_kimi_as_a_second_vendor_end_to_end) ... /root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py:217: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-vnhrhztf/UserData/.openDesign/keys/kimi.txt' mode='r' encoding='UTF-8'>
+  self.assertEqual(open(os.path.join(self.keys_dir, "kimi.txt")).read().strip(), KIMI_KEY)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_k5b_kimi_on_a_fresh_install_goes_into_the_primary_slot (__main__.TestRouting.test_k5b_kimi_on_a_fresh_install_goes_into_the_primary_slot) ... ok
+test_k7_kimi_is_always_sent_temperature_at_least_1 (__main__.TestRouting.test_k7_kimi_is_always_sent_temperature_at_least_1)
+🔴 自审抓到的:Kimi K2.5+ 拒收 temperature<1.0(nanobot 自带 moonshot 规格的注释与 model_overrides); ... ok
+test_k7b_kimi_as_the_first_and_only_vendor_too (__main__.TestRouting.test_k7b_kimi_as_the_first_and_only_vendor_too) ... ok
+test_k1_three_new_vendors_with_their_endpoints_and_models (__main__.TestTheTable.test_k1_three_new_vendors_with_their_endpoints_and_models) ... ok
+test_k2_every_vendor_links_to_where_its_key_is_made (__main__.TestTheTable.test_k2_every_vendor_links_to_where_its_key_is_made) ... ok
+test_k3_vendor_ids_are_safe_as_file_and_variable_names (__main__.TestTheTable.test_k3_vendor_ids_are_safe_as_file_and_variable_names) ... ok
+test_k6_the_card_is_told_each_vendors_key_link (__main__.TestTheWebEndpoint.test_k6_the_card_is_told_each_vendors_key_link) ... 2026-09-23 18:06:26 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 1.270s
+
+OK
+TAP version 13
+# Subtest: ku1 厂商行带上 keyUrl;缺了也照样认得出这家(老后端)
+ok 1 - ku1 厂商行带上 keyUrl;缺了也照样认得出这家(老后端)
+  ---
+  duration_ms: 2.24218
+  type: 'test'
+  ...
+# Subtest: ku2 🔴 非 https 的 keyUrl 一律丢掉(不渲染 javascript:/http:/相对路径)
+ok 2 - ku2 🔴 非 https 的 keyUrl 一律丢掉(不渲染 javascript:/http:/相对路径)
+  ---
+  duration_ms: 0.324403
+  type: 'test'
+  ...
+# Subtest: ku3 卡片按选中厂商显示「获取 API Key」外链,在新窗口开、不带来源
+ok 3 - ku3 卡片按选中厂商显示「获取 API Key」外链,在新窗口开、不带来源
+  ---
+  duration_ms: 1.112406
+  type: 'test'
+  ...
+# Subtest: a1 状态用 GET 拉,打在约定的那条路径上,不带 body
+ok 4 - a1 状态用 GET 拉,打在约定的那条路径上,不带 body
+  ---
+  duration_ms: 1.371549
+  type: 'test'
+  ...
+# Subtest: a2 状态原样透出(configured/provider/hint/providers 四样都不许丢)
+ok 5 - a2 状态原样透出(configured/provider/hint/providers 四样都不许丢)
+  ---
+  duration_ms: 1.24904
+  type: 'test'
+  ...
+# Subtest: a3 保存用 POST,provider 和 key 都在 body 里,**key 不许进 URL**
+ok 6 - a3 保存用 POST,provider 和 key 都在 body 里,**key 不许进 URL**
+  ---
+  duration_ms: 0.334091
+  type: 'test'
+  ...
+# Subtest: a4 保存成功:回 ok + 后端给的状态与 restart
+ok 7 - a4 保存成功:回 ok + 后端给的状态与 restart
+  ---
+  duration_ms: 0.193716
+  type: 'test'
+  ...
+# Subtest: a5 后端拒绝(400):把**它的**人话原样端出来,不许自己另编一句
+ok 8 - a5 后端拒绝(400):把**它的**人话原样端出来,不许自己另编一句
+  ---
+  duration_ms: 0.274253
+  type: 'test'
+  ...
+# Subtest: a6 服务不可达(fetch 抛)不许静默成功,也不许把 key 带进错误里
+ok 9 - a6 服务不可达(fetch 抛)不许静默成功,也不许把 key 带进错误里
+  ---
+  duration_ms: 0.210075
+  type: 'test'
+  ...
+# Subtest: a7 500 之类也走失败路,不许当成 200 解读
+ok 10 - a7 500 之类也走失败路,不许当成 200 解读
+  ---
+  duration_ms: 0.225525
+  type: 'test'
+  ...
+# Subtest: b1 厂商是后端说了算:没听过的厂商也照样透出、照样能提交
+ok 11 - b1 厂商是后端说了算:没听过的厂商也照样透出、照样能提交
+  ---
+  duration_ms: 0.271044
+  type: 'test'
+  ...
+# Subtest: c1 保存成功后,返回值里不含 key 原文
+ok 12 - c1 保存成功后,返回值里不含 key 原文
+  ---
+  duration_ms: 1.229622
+  type: 'test'
+  ...
+# Subtest: c2 后端要是把 key 回显了,前端也不许原样端出去
+ok 13 - c2 后端要是把 key 回显了,前端也不许原样端出去
+  ---
+  duration_ms: 0.46757
+  type: 'test'
+  ...
+# Subtest: d1 manual = 得业主自己重启,那句话里必须有「重启」
+ok 14 - d1 manual = 得业主自己重启,那句话里必须有「重启」
+  ---
+  duration_ms: 0.293613
+  type: 'test'
+  ...
+# Subtest: d2 requested = 已经替他重启了,不许再叫他去重启
+ok 15 - d2 requested = 已经替他重启了,不许再叫他去重启
+  ---
+  duration_ms: 0.143237
+  type: 'test'
+  ...
+# Subtest: d3 没见过的 restart 值往保守那边倒(宁可让他多点一下)
+ok 16 - d3 没见过的 restart 值往保守那边倒(宁可让他多点一下)
+  ---
+  duration_ms: 0.144366
+  type: 'test'
+  ...
+# Subtest: pv1 两家都活着:按厂商分组列出,只有「当前厂商的当前模型」那一行打勾
+ok 17 - pv1 两家都活着:按厂商分组列出,只有「当前厂商的当前模型」那一行打勾
+  ---
+  duration_ms: 2.058484
+  type: 'test'
+  ...
+# Subtest: pv2 每一行都带着自己的厂商;点了发给后端的是 {model, provider}
+ok 18 - pv2 每一行都带着自己的厂商;点了发给后端的是 {model, provider}
+  ---
+  duration_ms: 0.278814
+  type: 'test'
+  ...
+# Subtest: pv3 同一个模型名出现在两家里:只有当前那家的打勾(不许靠名字判断选中)
+ok 19 - pv3 同一个模型名出现在两家里:只有当前那家的打勾(不许靠名字判断选中)
+  ---
+  duration_ms: 0.172016
+  type: 'test'
+  ...
+# Subtest: pv4 老后端(没有 groups):照旧只列当前这一家,行为与今天一致
+ok 20 - pv4 老后端(没有 groups):照旧只列当前这一家,行为与今天一致
+  ---
+  duration_ms: 0.39855
+  type: 'test'
+  ...
+# Subtest: pv5 读回包:groups 原样保留;形状不对 ⇒ null(与 mp6 同一个严格度)
+ok 21 - pv5 读回包:groups 原样保留;形状不对 ⇒ null(与 mp6 同一个严格度)
+  ---
+  duration_ms: 0.262323
+  type: 'test'
+  ...
+# Subtest: pv6 卡片状态:每家一行透出来;老后端没有 vendors ⇒ 空数组,不崩
+ok 22 - pv6 卡片状态:每家一行透出来;老后端没有 vendors ⇒ 空数组,不崩
+  ---
+  duration_ms: 0.452089
+  type: 'test'
+  ...
+# Subtest: pv7 每一行说的话:在用 / 已配置 / 已保存等重启 / 没填 —— 四种状态四种说法,不许混
+ok 23 - pv7 每一行说的话:在用 / 已配置 / 已保存等重启 / 没填 —— 四种状态四种说法,不许混
+  ---
+  duration_ms: 0.296833
+  type: 'test'
+  ...
+1..23
+# tests 23
+# suites 0
+# pass 23
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 411.661911
+---------------- 输出结束 ----------------
+runlog: bash rc=0 commit=700ace1 dirty=yes at=2026-09-23T10:06:26Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T100626Z-01-bash.txt
