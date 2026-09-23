@@ -1,0 +1,204 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    bash
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ tests/test_kimi_glm_vendors.py\ \&\&\ /root/.venvs/design-studio/bin/python\ tests/test_per_vendor_keys.py\ \&\&\ /root/.venvs/design-studio/bin/python\ tests/test_set_model.py\ \&\&\ node\ --test\ tests/test_kimi_glm_ui.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  922bb7f
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-23T14:57:07Z
+---------------- 输出开始 ----------------
+test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner (__main__.TestEveryPresetGoesToItsOwner.test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner) ... ok
+test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts (__main__.TestEveryPresetGoesToItsOwner.test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts)
+save 现在不会再造出错指的预设,但**已经在业主盘上的**会:0.98.10 及以前换 DeepSeek 后留下的 mimo-* ... ok
+test_k12_set_model_script_keeps_the_vendor_in_the_preset_name (__main__.TestEveryPresetGoesToItsOwner.test_k12_set_model_script_keeps_the_vendor_in_the_preset_name)
+第 4 轮(MiMo)#17:bin/set_model.py 一律写裸模型名 ⇒ 与 `glm-5.3-flash@glm` 并存出第三份。 ... ok
+test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner (__main__.TestOneWriterEvenOnASelfConfiguredEndpoint.test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner) ... ok
+test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts (__main__.TestOneWriterEvenOnASelfConfiguredEndpoint.test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts)
+save 现在不会再造出错指的预设,但**已经在业主盘上的**会:0.98.10 及以前换 DeepSeek 后留下的 mimo-* ... ok
+test_k12_set_model_script_keeps_the_vendor_in_the_preset_name (__main__.TestOneWriterEvenOnASelfConfiguredEndpoint.test_k12_set_model_script_keeps_the_vendor_in_the_preset_name)
+第 4 轮(MiMo)#17:bin/set_model.py 一律写裸模型名 ⇒ 与 `glm-5.3-flash@glm` 并存出第三份。 ... ok
+test_k13_set_model_never_sends_a_model_to_a_vendor_that_does_not_have_it (__main__.TestOneWriterEvenOnASelfConfiguredEndpoint.test_k13_set_model_never_sends_a_model_to_a_vendor_that_does_not_have_it) ... ok
+test_k13b_set_model_on_two_glm_vendors_names_the_vendor_or_refuses (__main__.TestOneWriterEvenOnASelfConfiguredEndpoint.test_k13b_set_model_on_two_glm_vendors_names_the_vendor_or_refuses) ... ok
+test_k13c_what_set_model_picked_survives_the_next_gateway_start (__main__.TestOneWriterEvenOnASelfConfiguredEndpoint.test_k13c_what_set_model_picked_survives_the_next_gateway_start)
+第 5 轮(MiMo)2b:存了第二家(留下「想换过去」)后用 set_model 手选别的 ⇒ 下次起网关被标记拽走。 ... ok
+test_k13d_with_our_vendor_slots_set_model_goes_through_the_ui_entry (__main__.TestOneWriterEvenOnASelfConfiguredEndpoint.test_k13d_with_our_vendor_slots_set_model_goes_through_the_ui_entry) ... ok
+test_k13e_a_self_configured_endpoint_alone_keeps_the_old_behaviour (__main__.TestOneWriterEvenOnASelfConfiguredEndpoint.test_k13e_a_self_configured_endpoint_alone_keeps_the_old_behaviour)
+反面:只有自配端点、没有任何我们管的厂商槽 ⇒ 我们不认识这份配置,照老办法写(任意模型 id 都行)。 ... ok
+test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner (__main__.TestOneWriterForTheModelChoice.test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner) ... ok
+test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts (__main__.TestOneWriterForTheModelChoice.test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts)
+save 现在不会再造出错指的预设,但**已经在业主盘上的**会:0.98.10 及以前换 DeepSeek 后留下的 mimo-* ... ok
+test_k12_set_model_script_keeps_the_vendor_in_the_preset_name (__main__.TestOneWriterForTheModelChoice.test_k12_set_model_script_keeps_the_vendor_in_the_preset_name)
+第 4 轮(MiMo)#17:bin/set_model.py 一律写裸模型名 ⇒ 与 `glm-5.3-flash@glm` 并存出第三份。 ... ok
+test_k13_set_model_never_sends_a_model_to_a_vendor_that_does_not_have_it (__main__.TestOneWriterForTheModelChoice.test_k13_set_model_never_sends_a_model_to_a_vendor_that_does_not_have_it) ... ok
+test_k13b_set_model_on_two_glm_vendors_names_the_vendor_or_refuses (__main__.TestOneWriterForTheModelChoice.test_k13b_set_model_on_two_glm_vendors_names_the_vendor_or_refuses) ... ok
+test_k13c_what_set_model_picked_survives_the_next_gateway_start (__main__.TestOneWriterForTheModelChoice.test_k13c_what_set_model_picked_survives_the_next_gateway_start)
+第 5 轮(MiMo)2b:存了第二家(留下「想换过去」)后用 set_model 手选别的 ⇒ 下次起网关被标记拽走。 ... ok
+test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner (__main__.TestOneWriterWithOnlyThePrimarySlot.test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner) ... ok
+test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts (__main__.TestOneWriterWithOnlyThePrimarySlot.test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts)
+save 现在不会再造出错指的预设,但**已经在业主盘上的**会:0.98.10 及以前换 DeepSeek 后留下的 mimo-* ... ok
+test_k12_set_model_script_keeps_the_vendor_in_the_preset_name (__main__.TestOneWriterWithOnlyThePrimarySlot.test_k12_set_model_script_keeps_the_vendor_in_the_preset_name)
+第 4 轮(MiMo)#17:bin/set_model.py 一律写裸模型名 ⇒ 与 `glm-5.3-flash@glm` 并存出第三份。 ... ok
+test_k13_set_model_never_sends_a_model_to_a_vendor_that_does_not_have_it (__main__.TestOneWriterWithOnlyThePrimarySlot.test_k13_set_model_never_sends_a_model_to_a_vendor_that_does_not_have_it) ... ok
+test_k13b_set_model_on_two_glm_vendors_names_the_vendor_or_refuses (__main__.TestOneWriterWithOnlyThePrimarySlot.test_k13b_set_model_on_two_glm_vendors_names_the_vendor_or_refuses) ... ok
+test_k13c_what_set_model_picked_survives_the_next_gateway_start (__main__.TestOneWriterWithOnlyThePrimarySlot.test_k13c_what_set_model_picked_survives_the_next_gateway_start)
+第 5 轮(MiMo)2b:存了第二家(留下「想换过去」)后用 set_model 手选别的 ⇒ 下次起网关被标记拽走。 ... ok
+test_k13f_with_only_the_primary_slot_set_model_goes_through_the_ui_entry (__main__.TestOneWriterWithOnlyThePrimarySlot.test_k13f_with_only_the_primary_slot_set_model_goes_through_the_ui_entry) ... ok
+test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner (__main__.TestPresetsThatAreNotOurs.test_k11_after_the_primary_vendor_changes_every_preset_still_goes_to_its_owner) ... ok
+test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts (__main__.TestPresetsThatAreNotOurs.test_k11b_a_misrouted_config_already_on_disk_is_aligned_when_the_gateway_starts)
+save 现在不会再造出错指的预设,但**已经在业主盘上的**会:0.98.10 及以前换 DeepSeek 后留下的 mimo-* ... ok
+test_k12_set_model_script_keeps_the_vendor_in_the_preset_name (__main__.TestPresetsThatAreNotOurs.test_k12_set_model_script_keeps_the_vendor_in_the_preset_name)
+第 4 轮(MiMo)#17:bin/set_model.py 一律写裸模型名 ⇒ 与 `glm-5.3-flash@glm` 并存出第三份。 ... ok
+test_k14_hand_written_presets_are_left_alone (__main__.TestPresetsThatAreNotOurs.test_k14_hand_written_presets_are_left_alone) ... ok
+test_k10_each_glm_vendor_keeps_its_own_preset_for_a_shared_model_name (__main__.TestRouting.test_k10_each_glm_vendor_keeps_its_own_preset_for_a_shared_model_name)
+根治(第 3 轮后回头改设计):同名模型按厂商各存一份预设,谁也改不动谁的 —— ... ok
+test_k4_same_model_name_in_both_glm_vendors_never_crosses_over (__main__.TestRouting.test_k4_same_model_name_in_both_glm_vendors_never_crosses_over) ... ok
+test_k4b_the_glm_choice_survives_a_gateway_restart (__main__.TestRouting.test_k4b_the_glm_choice_survives_a_gateway_restart)
+🔴 自审抓到的:prepare_gateway 每次起网关都把同名预设按「最后一家」重指 ⇒ ... ok
+test_k4c_adding_the_other_glm_key_still_switches_to_it_after_restart (__main__.TestRouting.test_k4c_adding_the_other_glm_key_still_switches_to_it_after_restart)
+k4b 的反面:存了另一家 GLM 的 key =「想换过去」(switch-to 标记),重启后要真换到**那一家**, ... ok
+test_k5_kimi_as_a_second_vendor_end_to_end (__main__.TestRouting.test_k5_kimi_as_a_second_vendor_end_to_end) ... /root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py:342: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-j39wuhh6/UserData/.openDesign/keys/kimi.txt' mode='r' encoding='UTF-8'>
+  self.assertEqual(open(os.path.join(self.keys_dir, "kimi.txt")).read().strip(), KIMI_KEY)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_k5b_kimi_on_a_fresh_install_goes_into_the_primary_slot (__main__.TestRouting.test_k5b_kimi_on_a_fresh_install_goes_into_the_primary_slot) ... ok
+test_k7_kimi_is_always_sent_temperature_at_least_1 (__main__.TestRouting.test_k7_kimi_is_always_sent_temperature_at_least_1)
+🔴 自审抓到的:Kimi K2.5+ 拒收 temperature<1.0(nanobot 自带 moonshot 规格的注释与 model_overrides); ... ok
+test_k7b_kimi_as_the_first_and_only_vendor_too (__main__.TestRouting.test_k7b_kimi_as_the_first_and_only_vendor_too) ... ok
+test_k8_a_model_name_two_live_vendors_share_never_switches_vendor_silently (__main__.TestRouting.test_k8_a_model_name_two_live_vendors_share_never_switches_vendor_silently)
+第 1 轮评审(MiMo)发现:POST /api/llm/model 不带 provider 时按厂商表序取第一家 ⇒ ... ok
+test_k8b_without_a_vendor_the_current_vendor_wins (__main__.TestRouting.test_k8b_without_a_vendor_the_current_vendor_wins)
+第 2 轮评审(Grok)复现:正用 GLM 按量 glm-5.3,只带模型名要 glm-5.3-flash, ... ok
+test_k9_losing_one_glm_key_falls_back_to_the_default_not_to_the_other_glm (__main__.TestRouting.test_k9_losing_one_glm_key_falls_back_to_the_default_not_to_the_other_glm)
+第 2 轮评审(Grok):正用套餐 glm-5.3,套餐的 key 文件没了再起网关 ⇒ 预设被删又被按量重建, ... ok
+test_k9b_losing_a_glm_key_symmetric_and_bystander_positions (__main__.TestRouting.test_k9b_losing_a_glm_key_symmetric_and_bystander_positions)
+第 3 轮评审(MiMo)补的对位: ... ok
+test_k1_three_new_vendors_with_their_endpoints_and_models (__main__.TestTheTable.test_k1_three_new_vendors_with_their_endpoints_and_models) ... ok
+test_k2_every_vendor_links_to_where_its_key_is_made (__main__.TestTheTable.test_k2_every_vendor_links_to_where_its_key_is_made) ... ok
+test_k3_vendor_ids_are_safe_as_file_and_variable_names (__main__.TestTheTable.test_k3_vendor_ids_are_safe_as_file_and_variable_names) ... ok
+test_k6_the_card_is_told_each_vendors_key_link (__main__.TestTheWebEndpoint.test_k6_the_card_is_told_each_vendors_key_link) ... 2026-09-23 22:57:10 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+ok
+
+----------------------------------------------------------------------
+Ran 44 tests in 3.126s
+
+OK
+test_v7_the_menu_lists_a_vendor_only_once_the_gateway_has_its_key (__main__.TestMenuAndSwitching.test_v7_the_menu_lists_a_vendor_only_once_the_gateway_has_its_key) ... ok
+test_v8_switching_across_vendors_changes_only_the_active_preset (__main__.TestMenuAndSwitching.test_v8_switching_across_vendors_changes_only_the_active_preset) ... /root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py:431: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-5xhxj13v/UserData/.openDesign/key.txt' mode='r' encoding='UTF-8'>
+  cfg_before_keys = (open(self.key_txt).read(), open(os.path.join(self.keys_dir, "deepseek.txt")).read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py:431: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-5xhxj13v/UserData/.openDesign/keys/deepseek.txt' mode='r' encoding='UTF-8'>
+  cfg_before_keys = (open(self.key_txt).read(), open(os.path.join(self.keys_dir, "deepseek.txt")).read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py:438: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-5xhxj13v/UserData/.openDesign/key.txt' mode='r' encoding='UTF-8'>
+  self.assertEqual((open(self.key_txt).read(), open(os.path.join(self.keys_dir, "deepseek.txt")).read()),
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py:438: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-5xhxj13v/UserData/.openDesign/keys/deepseek.txt' mode='r' encoding='UTF-8'>
+  self.assertEqual((open(self.key_txt).read(), open(os.path.join(self.keys_dir, "deepseek.txt")).read()),
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_v8b_a_vendor_the_gateway_does_not_have_is_refused_and_nothing_changes (__main__.TestMenuAndSwitching.test_v8b_a_vendor_the_gateway_does_not_have_is_refused_and_nothing_changes) ... ok
+test_v10_a_broken_config_or_unreadable_key_never_raises_and_writes_nothing (__main__.TestPreparingTheGateway.test_v10_a_broken_config_or_unreadable_key_never_raises_and_writes_nothing) ... ok
+test_v12_an_existing_single_key_install_is_left_byte_for_byte_alone (__main__.TestPreparingTheGateway.test_v12_an_existing_single_key_install_is_left_byte_for_byte_alone)
+零迁移:只有 key.txt 的老家,起网关不许改配置(改了就是在业主机器上做迁移)。 ... ok
+test_v12b_a_single_key_install_that_moved_to_deepseek_is_also_left_alone (__main__.TestPreparingTheGateway.test_v12b_a_single_key_install_that_moved_to_deepseek_is_also_left_alone)
+另一种老家形状:以前在界面里换成过 DeepSeek(主槽 = DeepSeek,预设只有一个)。 ... ok
+test_v4_every_variable_the_config_references_is_one_the_gateway_is_given (__main__.TestPreparingTheGateway.test_v4_every_variable_the_config_references_is_one_the_gateway_is_given) ... ok
+test_v5_an_entry_whose_key_is_gone_is_removed_and_nothing_dangles (__main__.TestPreparingTheGateway.test_v5_an_entry_whose_key_is_gone_is_removed_and_nothing_dangles) ... ok
+test_v6_after_saving_a_second_vendor_the_gateway_start_switches_to_it_once (__main__.TestPreparingTheGateway.test_v6_after_saving_a_second_vendor_the_gateway_start_switches_to_it_once)
+今天「填 DeepSeek 的 key 保存」的结果就是换到了 DeepSeek —— 新版不许比今天差(F7)。 ... ok
+test_v6b_the_switch_waits_while_the_key_is_not_there (__main__.TestPreparingTheGateway.test_v6b_the_switch_waits_while_the_key_is_not_there) ... ok
+test_v9_owner_who_moved_the_primary_slot_to_deepseek_then_adds_mimo (__main__.TestPreparingTheGateway.test_v9_owner_who_moved_the_primary_slot_to_deepseek_then_adds_mimo)
+业主机器上的真实形态之一:以前在界面里换过 DeepSeek ⇒ 主槽是 DeepSeek, ... ok
+test_v13_fresh_install_first_key_goes_into_the_primary_slot_like_today (__main__.TestSavingASecondVendor.test_v13_fresh_install_first_key_goes_into_the_primary_slot_like_today)
+全新装机(一把 key 都没有):第一把进主槽 —— 所有老启动器都认得它。 ... ok
+test_v14_saving_the_primary_vendor_again_rotates_key_txt_only (__main__.TestSavingASecondVendor.test_v14_saving_the_primary_vendor_again_rotates_key_txt_only) ... ok
+test_v15_saving_the_extra_vendor_again_rotates_only_its_file (__main__.TestSavingASecondVendor.test_v15_saving_the_extra_vendor_again_rotates_only_its_file) ... ok
+test_v16_the_last_save_wins_even_when_it_is_the_primary_vendor (__main__.TestSavingASecondVendor.test_v16_the_last_save_wins_even_when_it_is_the_primary_vendor)
+第 1 轮 K2:先存 DeepSeek(留下「想换过去」),紧接着又存 MiMo(主槽)⇒ 今天是「后存者赢」, ... ok
+test_v17_a_failed_extra_save_leaves_neither_a_key_nor_a_pending_switch_behind (__main__.TestSavingASecondVendor.test_v17_a_failed_extra_save_leaves_neither_a_key_nor_a_pending_switch_behind)
+第 1 轮 K3:存第二家失败 ⇒ 报错,且**两样都不留**:不留 key(否则下次起网关悄悄激活一家 ... ok
+test_v1_with_a_shell_the_second_key_gets_its_own_file_and_the_config_is_untouched (__main__.TestSavingASecondVendor.test_v1_with_a_shell_the_second_key_gets_its_own_file_and_the_config_is_untouched) ... ok
+test_v2_each_key_lives_in_exactly_its_own_file_even_after_the_gateway_is_prepared (__main__.TestSavingASecondVendor.test_v2_each_key_lives_in_exactly_its_own_file_even_after_the_gateway_is_prepared) ... ok
+test_v3_without_a_shell_it_behaves_exactly_like_today (__main__.TestSavingASecondVendor.test_v3_without_a_shell_it_behaves_exactly_like_today)
+git-pull / Linux 那两种启动器只认一个变量:配置里一旦出现额外引用,网关就起不来。 ... ok
+test_v3b_save_without_the_multi_argument_keeps_todays_behaviour (__main__.TestSavingASecondVendor.test_v3b_save_without_the_multi_argument_keeps_todays_behaviour)
+旧调用方(不带 multi)一律按今天的单把语义 —— 默认值不许变成"多把"。 ... ok
+test_v11_each_vendor_reports_configured_live_active_and_pending (__main__.TestStatusForTheCard.test_v11_each_vendor_reports_configured_live_active_and_pending) ... ok
+test_extra_keys_go_to_the_gateway_leg_only (__main__.TestTheKeysOnlyReachTheGateway.test_extra_keys_go_to_the_gateway_leg_only) ... ok
+test_without_extra_keys_nothing_changes (__main__.TestTheKeysOnlyReachTheGateway.test_without_extra_keys_nothing_changes) ... ok
+test_v18_picking_a_model_by_hand_beats_an_earlier_pending_switch (__main__.TestTheWebOnlyOffersPerVendorRowsWithAShell.test_v18_picking_a_model_by_hand_beats_an_earlier_pending_switch)
+第 2 轮 DeepSeek 残余 2:存 DeepSeek 时自动重启没成(界面已说「请手动重启」), ... 2026-09-23 22:57:11 127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 200 -
+2026-09-23 22:57:12 127.0.0.1 - "POST /api/llm/model HTTP/1.1" 200 -
+ok
+test_without_a_shell_the_save_response_has_no_per_vendor_rows_either (__main__.TestTheWebOnlyOffersPerVendorRowsWithAShell.test_without_a_shell_the_save_response_has_no_per_vendor_rows_either)
+第 2 轮 Grok 残余:只清 GET 不清 POST ⇒ 哪天有人拿保存的回包渲染,G3 就回来了。 ... 2026-09-23 22:57:12 127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 200 -
+ok
+test_without_a_shell_there_are_no_per_vendor_rows (__main__.TestTheWebOnlyOffersPerVendorRowsWithAShell.test_without_a_shell_there_are_no_per_vendor_rows) ... 2026-09-23 22:57:13 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-23 22:57:13 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+ok
+
+----------------------------------------------------------------------
+Ran 26 tests in 3.011s
+
+OK
+test_01_roundtrip (__main__.TestSetModel.test_01_roundtrip) ... /root/.openclaw/workspace/projects/design-studio/tests/test_set_model.py:44: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/set_model_test_prfexsrb/config.json' mode='r' encoding='utf-8'>
+  before = open(cfg, encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_set_model.py:47: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/set_model_test_prfexsrb/config.json' mode='r' encoding='utf-8'>
+  d = json.load(open(cfg, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_set_model.py:51: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/set_model_test_prfexsrb/config.json.bak' mode='r' encoding='utf-8'>
+  self.assertEqual(open(cfg + ".bak", encoding="utf-8").read(), before)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_02_missing_config (__main__.TestSetModel.test_02_missing_config) ... ok
+test_03_broken_config (__main__.TestSetModel.test_03_broken_config) ... /root/.openclaw/workspace/projects/design-studio/tests/test_set_model.py:66: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/set_model_test_pn5sznss/config.json' mode='r' encoding='utf-8'>
+  self.assertEqual(open(cfg, encoding="utf-8").read(), "{broken")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_04_empty_model (__main__.TestSetModel.test_04_empty_model) ... /root/.openclaw/workspace/projects/design-studio/tests/test_set_model.py:73: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/set_model_test_fuiwlqdm/config.json' mode='r' encoding='utf-8'>
+  self.assertEqual(json.load(open(cfg, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_05_preset_layout_repoints_preset (__main__.TestSetModel.test_05_preset_layout_repoints_preset) ... /root/.openclaw/workspace/projects/design-studio/tests/test_set_model.py:91: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/set_model_test_cvbuwwu0/config.json' mode='r' encoding='utf-8'>
+  d = json.load(open(cfg, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_06_dangling_preset_repaired (__main__.TestSetModel.test_06_dangling_preset_repaired) ... /root/.openclaw/workspace/projects/design-studio/tests/test_set_model.py:107: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/set_model_test_jrz1vhwz/config.json' mode='r' encoding='utf-8'>
+  d = json.load(open(cfg, encoding="utf-8"))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.217s
+
+OK
+TAP version 13
+# Subtest: ku1 厂商行带上 keyUrl;缺了也照样认得出这家(老后端)
+ok 1 - ku1 厂商行带上 keyUrl;缺了也照样认得出这家(老后端)
+  ---
+  duration_ms: 2.364457
+  type: 'test'
+  ...
+# Subtest: ku2 🔴 非 https 的 keyUrl 一律丢掉(不渲染 javascript:/http:/相对路径)
+ok 2 - ku2 🔴 非 https 的 keyUrl 一律丢掉(不渲染 javascript:/http:/相对路径)
+  ---
+  duration_ms: 0.352992
+  type: 'test'
+  ...
+# Subtest: ku3 卡片按选中厂商显示「获取 API Key」外链,在新窗口开、不带来源
+ok 3 - ku3 卡片按选中厂商显示「获取 API Key」外链,在新窗口开、不带来源
+  ---
+  duration_ms: 1.307931
+  type: 'test'
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 3
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 153.934641
+---------------- 输出结束 ----------------
+runlog: bash rc=0 commit=922bb7f dirty=yes at=2026-09-23T14:57:07Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T145707Z-01-bash.txt

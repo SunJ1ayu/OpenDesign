@@ -258,6 +258,9 @@ runlog: bash rc=0 commit=893cdc7 dirty=yes at=2026-09-23T14:55:14Z file=tracks/o
   (上一行 = #28 变异收据:两个闸变异都被 k13c 杀死,rc=0 = 没有存活。)
 - **停不停**:预案「再有阻断 ⇒ 停」。这条阻断的事实前提被收据证伪、代码零改动;归档闸要求同一次评审里两家族一致 ⇒
   补 k13f 后请同两家复核(第 8 轮 = 仲裁复核,不是修复轮);仍冲突 ⇒ 停下交业主。
+runlog: bash rc=0 commit=922bb7f dirty=no at=2026-09-23T14:56:54Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T145654Z-01-bash.txt
+runlog: bash rc=0 commit=922bb7f dirty=yes at=2026-09-23T14:57:07Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T145707Z-01-bash.txt
+  (上两行 = 补 k13f 后:闸变异收据(两个都被杀,k13f 也在杀手里);判据三件套 + set_model 老判据 rc=0。产品代码自 cb861bf 起零改动。)
 
 ## Accepted deviations
 
