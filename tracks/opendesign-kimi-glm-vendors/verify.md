@@ -214,6 +214,11 @@ runlog: python rc=1 commit=cd0ab0f dirty=yes at=2026-09-23T12:47:52Z file=tracks
   ⇒ k14 补一份「名字是我们会起的、但没写 provider」的预设;把上一版认主人的函数原样放回 ⇒ k14 红。
 runlog: python rc=1 commit=3afb648 dirty=yes at=2026-09-23T12:50:59Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T125059Z-01-python.txt
   (上一行 = 补过的 k14 在修前代码上红。)
+runlog: bash rc=3 commit=b033875 dirty=no at=2026-09-23T12:51:12Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T125112Z-01-bash.txt
+runlog: bash rc=0 commit=b033875 dirty=yes at=2026-09-23T13:03:15Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T130315Z-01-bash.txt
+  (上两行 = 第 5 轮修后:总跑六段全过(python 1465,rc=3 只因既有 SKIP);判据三件套 + set_model 老判据 rc=0。)
+- **追加第 6 轮的理由(派发前写)**:第 5 轮两处实质修改(set_model 改走同一入口、所有权规则收窄)⇒ 必须再审;预算 1 轮、同成员。
+  **这是最后一轮**:再有任何阻断 ⇒ 停下,原样交业主定(不再自己续轮)。
 
 ## Accepted deviations
 
