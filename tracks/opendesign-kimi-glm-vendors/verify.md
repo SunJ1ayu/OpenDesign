@@ -75,6 +75,16 @@ runlog: python rc=1 commit=9d0c2c2 dirty=yes at=2026-09-23T10:54:40Z file=tracks
 (上一行 = 第 2 轮修复清单判据:k8b(不带厂商要同名家族另一模型被换家)、k9(丢一家 GLM key 后改扣另一家)均红。)
 
 ```
+runlog: bash rc=3 commit=47ca5d9 dirty=no at=2026-09-23T10:56:15Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T105615Z-01-bash.txt
+```
+(上一行 = 修完 #7/#8 后总跑,干净树:六段全 PASS;rc=3 同前。)
+
+```
+runlog: bash rc=0 commit=47ca5d9 dirty=yes at=2026-09-23T11:08:01Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T110801Z-01-bash.txt
+```
+(上一行 = 本单判据 14 条 + ku 全绿。)
+
+```
 <粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
  **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
  收据得进 git(5d)。一份收据都没有的话,写一行

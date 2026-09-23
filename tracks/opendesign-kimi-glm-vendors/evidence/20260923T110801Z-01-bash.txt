@@ -1,0 +1,67 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    bash
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ tests/test_kimi_glm_vendors.py\ \&\&\ node\ --test\ tests/test_kimi_glm_ui.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  47ca5d9
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-23T11:08:01Z
+---------------- 输出开始 ----------------
+test_k4_same_model_name_in_both_glm_vendors_never_crosses_over (__main__.TestRouting.test_k4_same_model_name_in_both_glm_vendors_never_crosses_over) ... ok
+test_k4b_the_glm_choice_survives_a_gateway_restart (__main__.TestRouting.test_k4b_the_glm_choice_survives_a_gateway_restart)
+🔴 自审抓到的:prepare_gateway 每次起网关都把同名预设按「最后一家」重指 ⇒ ... ok
+test_k4c_adding_the_other_glm_key_still_switches_to_it_after_restart (__main__.TestRouting.test_k4c_adding_the_other_glm_key_still_switches_to_it_after_restart)
+k4b 的反面:存了另一家 GLM 的 key =「想换过去」(switch-to 标记),重启后要真换到**那一家**, ... ok
+test_k5_kimi_as_a_second_vendor_end_to_end (__main__.TestRouting.test_k5_kimi_as_a_second_vendor_end_to_end) ... /root/.openclaw/workspace/projects/design-studio/tests/test_kimi_glm_vendors.py:280: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-b7ufzuqx/UserData/.openDesign/keys/kimi.txt' mode='r' encoding='UTF-8'>
+  self.assertEqual(open(os.path.join(self.keys_dir, "kimi.txt")).read().strip(), KIMI_KEY)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_k5b_kimi_on_a_fresh_install_goes_into_the_primary_slot (__main__.TestRouting.test_k5b_kimi_on_a_fresh_install_goes_into_the_primary_slot) ... ok
+test_k7_kimi_is_always_sent_temperature_at_least_1 (__main__.TestRouting.test_k7_kimi_is_always_sent_temperature_at_least_1)
+🔴 自审抓到的:Kimi K2.5+ 拒收 temperature<1.0(nanobot 自带 moonshot 规格的注释与 model_overrides); ... ok
+test_k7b_kimi_as_the_first_and_only_vendor_too (__main__.TestRouting.test_k7b_kimi_as_the_first_and_only_vendor_too) ... ok
+test_k8_a_model_name_two_live_vendors_share_never_switches_vendor_silently (__main__.TestRouting.test_k8_a_model_name_two_live_vendors_share_never_switches_vendor_silently)
+第 1 轮评审(MiMo)发现:POST /api/llm/model 不带 provider 时按厂商表序取第一家 ⇒ ... ok
+test_k8b_without_a_vendor_the_current_vendor_wins (__main__.TestRouting.test_k8b_without_a_vendor_the_current_vendor_wins)
+第 2 轮评审(Grok)复现:正用 GLM 按量 glm-5.3,只带模型名要 glm-5.3-flash, ... ok
+test_k9_losing_one_glm_key_falls_back_to_the_default_not_to_the_other_glm (__main__.TestRouting.test_k9_losing_one_glm_key_falls_back_to_the_default_not_to_the_other_glm)
+第 2 轮评审(Grok):正用套餐 glm-5.3,套餐的 key 文件没了再起网关 ⇒ 预设被删又被按量重建, ... ok
+test_k1_three_new_vendors_with_their_endpoints_and_models (__main__.TestTheTable.test_k1_three_new_vendors_with_their_endpoints_and_models) ... ok
+test_k2_every_vendor_links_to_where_its_key_is_made (__main__.TestTheTable.test_k2_every_vendor_links_to_where_its_key_is_made) ... ok
+test_k3_vendor_ids_are_safe_as_file_and_variable_names (__main__.TestTheTable.test_k3_vendor_ids_are_safe_as_file_and_variable_names) ... ok
+test_k6_the_card_is_told_each_vendors_key_link (__main__.TestTheWebEndpoint.test_k6_the_card_is_told_each_vendors_key_link) ... 2026-09-23 19:08:02 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 1.324s
+
+OK
+TAP version 13
+# Subtest: ku1 厂商行带上 keyUrl;缺了也照样认得出这家(老后端)
+ok 1 - ku1 厂商行带上 keyUrl;缺了也照样认得出这家(老后端)
+  ---
+  duration_ms: 2.608612
+  type: 'test'
+  ...
+# Subtest: ku2 🔴 非 https 的 keyUrl 一律丢掉(不渲染 javascript:/http:/相对路径)
+ok 2 - ku2 🔴 非 https 的 keyUrl 一律丢掉(不渲染 javascript:/http:/相对路径)
+  ---
+  duration_ms: 0.334903
+  type: 'test'
+  ...
+# Subtest: ku3 卡片按选中厂商显示「获取 API Key」外链,在新窗口开、不带来源
+ok 3 - ku3 卡片按选中厂商显示「获取 API Key」外链,在新窗口开、不带来源
+  ---
+  duration_ms: 0.676435
+  type: 'test'
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 3
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 148.487596
+---------------- 输出结束 ----------------
+runlog: bash rc=0 commit=47ca5d9 dirty=yes at=2026-09-23T11:08:01Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T110801Z-01-bash.txt
