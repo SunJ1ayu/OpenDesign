@@ -2,7 +2,7 @@
 
 版本号仍只增加第三位，且 `bin/ds_web.py` 与 `desktop/package.json` 必须保持一致。本清单不代替发布审批，也不自动推送或创建 release。
 
-1. 在干净提交上触发 `electron-e2e`，所有 Linux 判据与云 Windows E1～E6 必须通过。
+1. 在干净提交上触发 `electron-e2e`，所有 Linux 判据与云 Windows E1～E7 **全部**通过(FAIL 0)。出货包 artifact `release` 在 E7 之前就上传了 —— 只从整跑 FAIL 0 的那次运行取包。
 2. 从 workflow artifact 取回以下三样资产：
    - `OpenDesign-<版本>-electron-setup.exe`
    - `OpenDesign-<版本>-electron-setup.exe.blockmap`
