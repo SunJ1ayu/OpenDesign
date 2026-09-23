@@ -83,12 +83,29 @@ def _template_models() -> list:
 PROVIDERS = {
     # 名字是给界面看的;端点/模型是给网关用的。
     # `models` = 这家的 key 能用哪些模型(输入框里那颗模型按钮的菜单,track opendesign-composer-model-picker)。
-    "mimo": {"label": "MiMo(小米)", **_template_presets(), "models": _template_models()},
+    # `keyUrl` = key 卡片上「获取 API Key」链到哪(track opendesign-kimi-glm-vendors)。
+    # MiMo 接的是**套餐**端点,套餐 key 只在套餐订阅页建 ⇒ 链套餐页,不照 ZCode 链平台首页。
+    "mimo": {"label": "MiMo(小米)", **_template_presets(), "models": _template_models(),
+             "keyUrl": "https://platform.xiaomimimo.com/token-plan"},
     # 🔴 2026-08-15 现拉 `GET https://api.deepseek.com/models` 核过:
     #    只剩 v4-flash / v4-pro,老的 deepseek-chat / deepseek-reasoner 已下架。
     #    **这是一条会过期的事实**,判据 b4 把它钉住,过期时会红。
     "deepseek": {"label": "DeepSeek 官方", "apiBase": "https://api.deepseek.com/v1",
-                 "model": "deepseek-v4-flash", "models": ["deepseek-v4-flash", "deepseek-v4-pro"]},
+                 "model": "deepseek-v4-flash", "models": ["deepseek-v4-flash", "deepseek-v4-pro"],
+                 "keyUrl": "https://platform.deepseek.com/api_keys"},
+    # 🔴 下面三家 2026-09-23 照 ZCode 内置目录(config/provider/zcode-builtin.json)+ 官方文档 + 无 key 探测(401)填,
+    #    **没用真 key 验过模型名**(业主手上没有);会过期,判据 k1 钉住。
+    #    Kimi 只接按量(开放平台);Kimi 会员(Kimi Code)业主定不加 —— 官方只给编程工具、禁改 User-Agent。
+    "kimi": {"label": "Kimi 按量", "apiBase": "https://api.moonshot.cn/v1",
+             "model": "kimi-k3", "models": ["kimi-k3", "kimi-k2.7-code", "kimi-k2.6"],
+             "keyUrl": "https://platform.kimi.com/console/api-keys"},
+    # GLM 两家有同名模型(glm-5.3):菜单按「厂商+模型」打勾(pv3),换模型按厂商所在槽改预设(判据 k4 用 nanobot 加载器验)。
+    "glm_plan": {"label": "GLM 套餐(Coding Plan)", "apiBase": "https://open.bigmodel.cn/api/coding/paas/v4",
+                 "model": "glm-5.3", "models": ["glm-5.3", "glm-5.3-flash"],
+                 "keyUrl": "https://bigmodel.cn/coding-plan/personal/overview"},
+    "glm": {"label": "GLM 按量", "apiBase": "https://open.bigmodel.cn/api/paas/v4",
+            "model": "glm-5.3", "models": ["glm-5.3", "glm-5.3-flash", "glm-5v-turbo", "glm-5.1"],
+            "keyUrl": "https://bigmodel.cn/usercenter/proj-mgmt/apikeys"},
 }
 
 

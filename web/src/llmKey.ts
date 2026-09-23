@@ -1,6 +1,7 @@
 export const CREDENTIAL_PATH = "/api/llm/credential";
 
-export type Provider = { id: string; label: string; model: string };
+/** `keyUrl` = 「获取 API Key」链到哪(后端厂商表给;只收 https,见 asProvider)。没有 / 不合格 ⇒ 字段不出现。 */
+export type Provider = { id: string; label: string; model: string; keyUrl?: string };
 /** 卡片上每家一行(track opendesign-per-vendor-keys)。**不含 key**,只有末四位提示。 */
 export type Vendor = {
   id: string; label: string;
@@ -36,11 +37,15 @@ function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === "object" ? v as Record<string, unknown> : {};
 }
 
+// 只认 https:// 开头的绝对地址 —— 后端表被改坏时,卡片上不许出现 javascript:/http:/相对路径的链接(ku2)
+const HTTPS_URL = /^https:\/\/[^\s/]+(\/\S*)?$/;
+
 function asProvider(v: unknown): Provider | null {
   const r = asRecord(v);
-  return typeof r.id === "string" && typeof r.label === "string" && typeof r.model === "string"
-    ? { id: r.id, label: r.label, model: r.model }
-    : null;
+  if (typeof r.id !== "string" || typeof r.label !== "string" || typeof r.model !== "string") return null;
+  const p: Provider = { id: r.id, label: r.label, model: r.model };
+  if (typeof r.keyUrl === "string" && HTTPS_URL.test(r.keyUrl)) p.keyUrl = r.keyUrl;
+  return p;
 }
 
 function asVendor(v: unknown): Vendor | null {

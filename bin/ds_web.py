@@ -2532,7 +2532,7 @@ class Handler(BaseHTTPRequestHandler):
     def _llm_credential_get(self):
         cfg = os.environ.get("DS_NANOBOT_CONFIG", DEFAULT_NANOBOT_CONFIG)
         out = ds_credential.status(os.path.expanduser("~"), cfg)
-        out["providers"] = [{"id": k, "label": v["label"], "model": v["model"]}
+        out["providers"] = [{"id": k, "label": v["label"], "model": v["model"], "keyUrl": v.get("keyUrl")}
                             for k, v in ds_credential.PROVIDERS.items()]
         if not _has_shell():
             # 没外壳时保存仍是单把覆盖(ds_credential.save multi=False);界面若照样摆出「每家一行」,

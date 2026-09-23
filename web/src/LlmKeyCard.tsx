@@ -212,6 +212,14 @@ export default function LlmKeyCard({ initialStatus = null, onStatus }: Props) {
           />
         </label>
 
+        {selected?.keyUrl && !shadowed && (
+          // 外链:Electron 外壳把站外地址交给系统浏览器(navPolicy),浏览器里开新标签
+          <a className="llm-key-link" data-ui="llm-key-link" href={selected.keyUrl}
+             target="_blank" rel="noreferrer">
+            获取 {selected.label} 的 API Key ›
+          </a>
+        )}
+
         {shadowed && (
           <p className="llm-key-note" data-ui="llm-key-readonly">
             当前的 key 由环境变量提供,启动时它优先于本机的 key.txt ——
