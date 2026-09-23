@@ -1,0 +1,280 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    node
+cmd:     node --test tests/test_desktop_instant.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  901f0c5
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-23T06:13:41Z
+---------------- 输出开始 ----------------
+TAP version 13
+# Subtest: a1 首页 = 包里的 index.html,入口页不缓存、nosniff
+ok 1 - a1 首页 = 包里的 index.html,入口页不缓存、nosniff
+  ---
+  duration_ms: 51.816742
+  type: 'test'
+  ...
+# Subtest: a2 带哈希的资源长缓存、类型对
+ok 2 - a2 带哈希的资源长缓存、类型对
+  ---
+  duration_ms: 1.625054
+  type: 'test'
+  ...
+# Subtest: a3 🔴 越界一律拒,且从不去读 dist 以外的路径(..%2f / ..%5c / %00 / 绝对路径)
+ok 3 - a3 🔴 越界一律拒,且从不去读 dist 以外的路径(..%2f / ..%5c / %00 / 绝对路径)
+  ---
+  duration_ms: 3.452724
+  type: 'test'
+  ...
+# Subtest: a4 不存在的文件 404,不回落首页(工作台是 \#/ 路由,ds-web 也不回落)
+ok 4 - a4 不存在的文件 404,不回落首页(工作台是 \#/ 路由,ds-web 也不回落)
+  ---
+  duration_ms: 0.647185
+  type: 'test'
+  ...
+# Subtest: a5 🔴 冒名主机 app://别的/ 既不给文件也不进后台
+ok 5 - a5 🔴 冒名主机 app://别的/ 既不给文件也不进后台
+  ---
+  duration_ms: 0.597747
+  type: 'test'
+  ...
+# Subtest: a6 🔴 后台没好时 /api 请求挂着、不失败;就绪后原样转给 127.0.0.1:<端口>(路径与查询串不丢)
+ok 6 - a6 🔴 后台没好时 /api 请求挂着、不失败;就绪后原样转给 127.0.0.1:<端口>(路径与查询串不丢)
+  ---
+  duration_ms: 32.299408
+  type: 'test'
+  ...
+# Subtest: a7 🔴 转发时去掉页面身份头(Origin/Referer/Sec-Fetch-*),业务头照带
+ok 7 - a7 🔴 转发时去掉页面身份头(Origin/Referer/Sec-Fetch-*),业务头照带
+  ---
+  duration_ms: 1.259511
+  type: 'test'
+  ...
+# Subtest: a8 方法与请求体原样转发(上传走流,duplex=half);GET 不带体
+ok 8 - a8 方法与请求体原样转发(上传走流,duplex=half);GET 不带体
+  ---
+  duration_ms: 0.843582
+  type: 'test'
+  ...
+# Subtest: a9 后台连不上(死了/重启中)⇒ 502 JSON,不抛(抛了页面拿到的是无法解释的网络错误)
+ok 9 - a9 后台连不上(死了/重启中)⇒ 502 JSON,不抛(抛了页面拿到的是无法解释的网络错误)
+  ---
+  duration_ms: 1.401249
+  type: 'test'
+  ...
+# Subtest: a10 只有 /api/ 开头才进后台:/apix、/api 本身都按文件处理
+ok 10 - a10 只有 /api/ 开头才进后台:/apix、/api 本身都按文件处理
+  ---
+  duration_ms: 1.188104
+  type: 'test'
+  ...
+# Subtest: a11 窗口地址 = app://opendesign/?shell=1,外壳标记与前端同一个字面量
+ok 11 - a11 窗口地址 = app://opendesign/?shell=1,外壳标记与前端同一个字面量
+  ---
+  duration_ms: 81.189386
+  type: 'test'
+  ...
+# Subtest: n1 🔴 站内(app://opendesign)放行;冒名主机拒、不外开;http(s) 交系统浏览器
+ok 12 - n1 🔴 站内(app://opendesign)放行;冒名主机拒、不外开;http(s) 交系统浏览器
+  ---
+  duration_ms: 1.76513
+  type: 'test'
+  ...
+# Subtest: hs1 🔴 管家还没起来时发的(window-shown / 首帧上报)先攒着,接上后按原顺序补发
+ok 13 - hs1 🔴 管家还没起来时发的(window-shown / 首帧上报)先攒着,接上后按原顺序补发
+  ---
+  duration_ms: 2.32014
+  type: 'test'
+  ...
+# Subtest: hs2 管家已退出 / stdin 不可写 / 写时抛 ⇒ 丢弃并记日志,不抛
+ok 14 - hs2 管家已退出 / stdin 不可写 / 写时抛 ⇒ 丢弃并记日志,不抛
+  ---
+  duration_ms: 0.457721
+  type: 'test'
+  ...
+# Subtest: hs3 攒的有上限(管家永远起不来时不无限长)
+ok 15 - hs3 攒的有上限(管家永远起不来时不无限长)
+  ---
+  duration_ms: 1.383238
+  type: 'test'
+  ...
+# Subtest: bs1 🔴 一开始就是「后台启动中」;ready 且版本一致 ⇒ 放行端口一次、推「就绪」,**不再整页换地址**
+ok 16 - bs1 🔴 一开始就是「后台启动中」;ready 且版本一致 ⇒ 放行端口一次、推「就绪」,**不再整页换地址**
+  ---
+  duration_ms: 7.432534
+  type: 'test'
+  ...
+# Subtest: bs2 版本对不上 ⇒ 不放行(挂着的请求永远不进半新半旧的后台),弹框退出
+ok 17 - bs2 版本对不上 ⇒ 不放行(挂着的请求永远不进半新半旧的后台),弹框退出
+  ---
+  duration_ms: 0.505779
+  type: 'test'
+  ...
+# Subtest: bs3 站内跳转在后台就绪之前就放行(源站创建窗口时就定了)
+ok 18 - bs3 站内跳转在后台就绪之前就放行(源站创建窗口时就定了)
+  ---
+  duration_ms: 0.589318
+  type: 'test'
+  ...
+# Subtest: fb1 启动中有一句中文横幅;就绪、浏览器里(没有外壳)都不显示
+ok 19 - fb1 启动中有一句中文横幅;就绪、浏览器里(没有外壳)都不显示
+  ---
+  duration_ms: 2.338638
+  type: 'test'
+  ...
+# Subtest: fb2 外壳桥:新 preload 给 backend;旧 preload 没有 backend 也照样认得出外壳(窗口按钮不能因此消失)
+ok 20 - fb2 外壳桥:新 preload 给 backend;旧 preload 没有 backend 也照样认得出外壳(窗口按钮不能因此消失)
+  ---
+  duration_ms: 4.359021
+  type: 'test'
+  ...
+# Subtest: s1 🔴 app 协议在模块顶层注册成特权协议(standard/secure/supportFetchAPI/stream),先于 whenReady
+ok 21 - s1 🔴 app 协议在模块顶层注册成特权协议(standard/secure/supportFetchAPI/stream),先于 whenReady
+  ---
+  duration_ms: 0.587667
+  type: 'test'
+  ...
+# Subtest: s2 🔴 窗口一创建就加载 APP_URL;加载页整个删掉
+ok 22 - s2 🔴 窗口一创建就加载 APP_URL;加载页整个删掉
+  ---
+  duration_ms: 0.351462
+  type: 'test'
+  ...
+# Subtest: s3 管家通道全走 hostSender(主进程里不再直接写 host.stdin)
+ok 23 - s3 管家通道全走 hostSender(主进程里不再直接写 host.stdin)
+  ---
+  duration_ms: 0.244165
+  type: 'test'
+  ...
+# Subtest: s4 后台状态经 preload 到界面,界面有那条横幅
+ok 24 - s4 后台状态经 preload 到界面,界面有那条横幅
+  ---
+  duration_ms: 0.668764
+  type: 'test'
+  ...
+# Subtest: bs4 🔴 管家在 ready 之前意外退出 ⇒ 弹一次框并退出;不让业主去托盘
+not ok 25 - bs4 🔴 管家在 ready 之前意外退出 ⇒ 弹一次框并退出;不让业主去托盘
+  ---
+  duration_ms: 5.36112
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:360:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    实测 ["error"]
+    + actual - expected
+    
+      [
+        'error',
+    -   'quit'
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0: 'error'
+    1: 'quit'
+  actual:
+    0: 'error'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:364:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: bs5 管家在 ready 之后意外退出 ⇒ 同样弹框并退出(后台已整个没了,留着窗口只剩一堆 502)
+not ok 26 - bs5 管家在 ready 之后意外退出 ⇒ 同样弹框并退出(后台已整个没了,留着窗口只剩一堆 502)
+  ---
+  duration_ms: 0.850541
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:370:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      [
+        'error',
+    -   'quit'
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0: 'error'
+    1: 'quit'
+  actual:
+    0: 'error'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:375:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: bs6 收摊中 / 已报过 fatal 的管家退出,不弹也不重复退
+ok 27 - bs6 收摊中 / 已报过 fatal 的管家退出,不弹也不重复退
+  ---
+  duration_ms: 1.916177
+  type: 'test'
+  ...
+# Subtest: s1b app 协议不给 corsEnabled / bypassCSP / allowServiceWorkers 等用不着的特权
+not ok 28 - s1b app 协议不给 corsEnabled / bypassCSP / allowServiceWorkers 等用不着的特权
+  ---
+  duration_ms: 0.428671
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:391:1'
+  failureType: 'testCodeFailure'
+  error: '多给了 corsEnabled'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:396:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: fb3 横幅不许许诺「马上」,要说清可能要等一会儿
+not ok 29 - fb3 横幅不许许诺「马上」,要说清可能要等一会儿
+  ---
+  duration_ms: 0.551447
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:401:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input was expected to not match the regular expression /马上/. Input:
+    
+    '正在启动后台,项目和助手马上就好…'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: '正在启动后台,项目和助手马上就好…'
+  operator: 'doesNotMatch'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_desktop_instant.mjs:404:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..29
+# tests 29
+# suites 0
+# pass 25
+# fail 4
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 344.583116
+---------------- 输出结束 ----------------
+runlog: node rc=1 commit=901f0c5 dirty=yes at=2026-09-23T06:13:41Z file=tracks/opendesign-instant-ui/evidence/20260923T061341Z-01-node.txt

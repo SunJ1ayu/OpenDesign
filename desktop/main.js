@@ -21,7 +21,7 @@ app.setPath("userData", path.join(localData, "OpenDesign", "Electron"));
 // 不是 standard 协议的话,相对路径 /api、localStorage、fetch 都不按网页的规矩走。
 protocol.registerSchemesAsPrivileged([{
   scheme: APP_SCHEME,
-  privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true },
+  privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
 }]);
 
 function log(message) {

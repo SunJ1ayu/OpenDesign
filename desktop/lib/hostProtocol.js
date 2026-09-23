@@ -48,7 +48,7 @@ function encodeCommand(command) {
 
 function hostExitMessage(code, { quitting, fatalShown }) {
   if (quitting || fatalShown) return null;
-  return `OpenDesign 后台意外退出了（退出码 ${code}）。请从托盘退出后重新打开。`;
+  return `OpenDesign 后台意外退出了（退出码 ${code}）。请重新打开 OpenDesign。`;
 }
 
 module.exports = { parseHostLine, createHostDecoder, encodeCommand, hostExitMessage };

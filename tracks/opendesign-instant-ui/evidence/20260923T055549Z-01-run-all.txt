@@ -1,0 +1,39 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    run-all
+cmd:     tests/run-all.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  901f0c5
+dirty:   no(跑之前采的;含未跟踪文件)
+head-before: 901f0c58c37cf09ab7035a18c153924b6d5fd566
+source-view-before: sha256:68d91a0b0f4f64b51f190ac451e0b77649360da3180600031edc6962d37a15f3
+started: 2026-09-23T05:55:49Z
+---------------- 输出开始 ----------------
+[1m== 泄漏闸自测(判据的判据)[0m
+   [32m完成[0m  0s
+[1m== node 单测(tests/*.mjs)[0m
+   [32m完成[0m  18s
+[1m== python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python)[0m
+   [32m完成[0m  504s
+[1m== MCP 契约闸[0m
+   [32m完成[0m  5s
+[1m== dist 新鲜度 + 类型检查(npm run build 后 git 应无差异)[0m
+   [32m完成[0m  10s
+[1m== e2e 总跑[0m
+   [32m完成[0m  186s
+
+════ 总跑汇总 ════
+  [32mPASS[0m  泄漏闸自测(判据的判据)   14 条全过
+  [32mPASS[0m  node 单测(tests/*.mjs)           499 通过 / 0 跳过 / 0 todo
+  [32mPASS[0m  python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python) 1435 跑过 / 1 跳过
+  [32mPASS[0m  MCP 契约闸                      三条闸全绿
+  [32mPASS[0m  dist 新鲜度 + 类型检查(npm run build 后 git 应无差异) 与源码同步
+  [32mPASS[0m  e2e 总跑                         41 PASS / 0 FAIL / 2 SKIP
+
+没有红的,但有 3 条没跑 —— 不算通过。
+   要跑那两条 e2e:先按 tests/e2e/README.md 起 gateway,再 tests/run-all.sh --with-gateway
+command-rc: 3
+head-after: 901f0c58c37cf09ab7035a18c153924b6d5fd566
+source-view-after:  sha256:68d91a0b0f4f64b51f190ac451e0b77649360da3180600031edc6962d37a15f3
+source-stable: yes
+---------------- 输出结束 ----------------
+runlog: run-all rc=3 commit=901f0c5 dirty=no final=yes at=2026-09-23T05:55:49Z file=tracks/opendesign-instant-ui/evidence/20260923T055549Z-01-run-all.txt

@@ -6,5 +6,5 @@ export type BackendState = { phase: "starting" | "ready" };
 
 export function backendBanner(state: BackendState | null | undefined): string | null {
   if (!state || state.phase !== "starting") return null;
-  return "正在启动后台,项目和助手马上就好…";
+  return "正在启动后台(有时要一两分钟),项目和助手好了会自己出来…";
 }

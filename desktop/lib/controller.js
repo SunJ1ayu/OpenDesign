@@ -127,8 +127,10 @@ function createController(deps) {
     hostStdout(chunk) { decoder.push(chunk); },
     hostExit(code) {
       decoder.end();
+      // 管家是整棵后台的看护人:它一走,网关和工作台都跟着没了,ready 之前之后都没法再用
+      // ⇒ 弹那一个框并退出,不留一个永远「正在启动后台」或满屏 502 的窗口(MiMo F1)。
       const message = hostExitMessage(code, { quitting, fatalShown });
-      if (message) deps.showError(message);
+      if (message) giveUp(message);
     },
     // spawn 发 error(python.exe 缺失 / 被杀软隔离;收摊时 kill 失败也走这里)。
     hostError(error) {
