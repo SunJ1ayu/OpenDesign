@@ -307,7 +307,16 @@ def select_model(cfg_path: str, model, provider=None, home: str | None = None) -
                 raise CredentialError(f"{PROVIDERS[waiting[0]]['label']} 的 key 后台还没拿到,"
                                       "等后台重启好再选(或先在「AI 模型 key」里填)")
             raise CredentialError(f"{PROVIDERS[live[0]]['label']} 这把 key 用不了 {model}")
-        vendor = hits[0]
+        # 两家都能用同名模型(两家 GLM 的 glm-5.3)时不许按表序猜 —— 猜错就换端点、换 key、换账单(判据 k8):
+        # 预设现在归哪家就留在哪家;谁都没用过它 ⇒ 拒绝,要调用方指明厂商。
+        owner = _preset_vendor(cfg, model) if model in (cfg.get("model_presets") or {}) else None
+        if owner in hits:
+            vendor = owner
+        elif len(hits) > 1:
+            names = "、".join(PROVIDERS[v]["label"] for v in hits)
+            raise CredentialError(f"{model} 在 {names} 都有,请指明要用哪一家")
+        else:
+            vendor = hits[0]
     p = PROVIDERS[vendor]
     if model not in p["models"]:
         raise CredentialError(f"{p['label']} 这把 key 用不了 {model}")
