@@ -272,6 +272,9 @@ runlog: bash rc=0 commit=922bb7f dirty=yes at=2026-09-23T14:57:07Z file=tracks/o
   k13g(Grok:自配端点 + 恰好一家额外槽,set_model 走统一入口)—— 现代码绿,套上 Grok 那种闸写残即红(亲跑)。
 runlog: python rc=1 commit=3c88167 dirty=yes at=2026-09-23T15:39:30Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T153930Z-01-python.txt
   (上一行 = k15、k15b 红。)
+- 夹具修正(判据面,单独 commit):修 #30 时合并器改为 import 同目录的 ds_credential,test_ds_provision 15 条红 ——
+  原因是它的假安装目录只拷了合并器一个文件;出货包 `tracks/opendesign-windows-installer/spike/build-package.sh:258` 是 `cp bin/*.py`。
+  夹具改成同形拷 bin/*.py(不拷整仓,原注释的用意保留);旧合并器 + 新夹具、新合并器 + 新夹具都绿。
 
 ## Accepted deviations
 

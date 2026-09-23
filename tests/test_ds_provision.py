@@ -95,11 +95,13 @@ class ProvisionTestBase(unittest.TestCase):
         self.ds_root = self.base / "ds"
         (self.ds_root / "config").mkdir(parents=True)
         (self.ds_root / "bin").mkdir(parents=True)
-        # 只搬这一步真正要用到的两个文件,别把整个仓拷过来 —— 拷整棵树的话,
+        # 只搬出货包里真有的东西,别把整个仓拷过来 —— 拷整棵树的话,
         # 判据就分不清"脚本自己找得到东西"和"恰好本机什么都在"。
         (self.ds_root / "config" / TEMPLATE.name).write_bytes(TEMPLATE.read_bytes())
-        (self.ds_root / "bin" / "ds_merge_config.py").write_bytes(
-            (BIN / "ds_merge_config.py").read_bytes())
+        # 与出货包同形:build-package.sh 把 bin/*.py 整个拷进 ds\bin(合并器会 import 同目录的 ds_credential)。
+        # 原来只拷合并器一个文件,等于假设它没有同目录依赖 —— 真包里从来不是这样。
+        for src in BIN.glob("*.py"):
+            (self.ds_root / "bin" / src.name).write_bytes(src.read_bytes())
 
     def run_provision(self, *extra: str, home: Path | None = None,
                       env: dict | None = None) -> subprocess.CompletedProcess:
