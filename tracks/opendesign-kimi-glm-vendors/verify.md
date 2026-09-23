@@ -275,6 +275,13 @@ runlog: python rc=1 commit=3c88167 dirty=yes at=2026-09-23T15:39:30Z file=tracks
 - 夹具修正(判据面,单独 commit):修 #30 时合并器改为 import 同目录的 ds_credential,test_ds_provision 15 条红 ——
   原因是它的假安装目录只拷了合并器一个文件;出货包 `tracks/opendesign-windows-installer/spike/build-package.sh:258` 是 `cp bin/*.py`。
   夹具改成同形拷 bin/*.py(不拷整仓,原注释的用意保留);旧合并器 + 新夹具、新合并器 + 新夹具都绿。
+- 变异自检(#30 修法):合并后不对齐 ⇒ k15/k15b 红;不按厂商命名 ⇒ k15 红。
+runlog: bash rc=3 commit=f4f510a dirty=no at=2026-09-23T15:43:31Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T154331Z-01-bash.txt
+runlog: bash rc=0 commit=f4f510a dirty=yes at=2026-09-23T15:55:50Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T155550Z-01-bash.txt
+  (上两行 = 修 #30 后:总跑六段全过(python 1489,rc=3 只因既有 SKIP);判据 + 合并/出货安装/set_model 老判据 rc=0。)
+- **第 9 轮派发(派发前写)**:业主要求评审加上 DeepSeek 和 GPT。正式评审 = MiMo + Grok + DeepSeek(三家族,计入归档);
+  GPT(subcodex,gpt-6-sol)是角色腿、不进普通池(工具设计:GPT 也是执行腿)⇒ 同题单独派,结论入账、逐条核实,但不计入归档覆盖。
+  本单代码全由主 agent 写,不存在「GPT 审自家代码」。有阻断 ⇒ 停下交业主。
 
 ## Accepted deviations
 
