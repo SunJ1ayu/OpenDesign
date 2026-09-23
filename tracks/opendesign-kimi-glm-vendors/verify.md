@@ -60,6 +60,16 @@ runlog: python rc=1 commit=264aad4 dirty=yes at=2026-09-23T10:22:57Z file=tracks
 (上一行 = 第 1 轮修复清单的判据:k8 红(正用按量、只带模型名被换到套餐);k7b 加强为走 `_build_kwargs` 出口,现实现即绿。)
 
 ```
+runlog: bash rc=3 commit=4311fd2 dirty=no at=2026-09-23T10:24:15Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T102415Z-01-bash.txt
+```
+(上一行 = 修完 #1 后总跑,干净树:六段全 PASS;rc=3 = 活网关 e2e 2 条 + python 1 条跳过。)
+
+```
+runlog: bash rc=0 commit=4311fd2 dirty=yes at=2026-09-23T10:36:03Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T103603Z-01-bash.txt
+```
+(上一行 = 本单判据 12 条 + ku 全绿。)
+
+```
 <粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
  **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
  收据得进 git(5d)。一份收据都没有的话,写一行
