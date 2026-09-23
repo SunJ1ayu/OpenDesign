@@ -109,10 +109,11 @@ const winState = (app) =>
   V("E2.instant 第一个页面就是工作台(app://opendesign/?shell=1)", hrefAtUi.startsWith("app://opendesign/?shell=1"), hrefAtUi);
   V("E2.instant 🔴 窗口栏在后台就绪**之前**就画出来了(不再先挂「正在启动」)", backendAtUi === null && backendMs !== null && uiMs < backendMs,
     `窗口栏 +${uiMs}ms / 后台 +${backendMs}ms`);
-  V("E2.connecting 后台没好时有「正在启动后台」横幅", bannerAtUi, `窗口栏出来那一刻 visible=${bannerAtUi}`);
-  const bannerGone = await page.waitForSelector("[data-ui=backend-connecting]", { state: "hidden", timeout: 30000 }).then(() => true, () => false);
+  // 业主 09-23「这种东西肯定不能显示出来」⇒ 反过来钉:后台没好时界面上**没有**任何启动横幅(track opendesign-quiet-start-icons)。
+  V("E2.connecting 后台没好时界面不挂「正在启动后台」横幅", !bannerAtUi, `窗口栏出来那一刻 visible=${bannerAtUi}`);
+  await sleep(2000);                                   // launchReady 已等到后台就绪;再给就绪后的补请求留点时间
   const nav = await page.evaluate(() => ({ mark: window.__odE2Mark, navs: performance.getEntriesByType("navigation").length, href: location.href }));
-  V("E2.noreload 后台就绪后横幅 30 秒内消失,整页没有重新加载", bannerGone && nav.mark === 1 && nav.navs === 1, JSON.stringify({ bannerGone, ...nav }));
+  V("E2.noreload 后台就绪后整页没有重新加载", backendMs !== null && nav.mark === 1 && nav.navs === 1, JSON.stringify({ backendMs, ...nav }));
   await sleep(3000);
   const stuck = await page.isVisible("text=读不到项目列表").catch(() => false);
   V("E2.noreload 项目列表没钉死在「读不到项目列表」(就绪前的请求挂着、就绪后补上)", !stuck, `stuck=${stuck}`);

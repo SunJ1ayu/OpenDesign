@@ -291,15 +291,7 @@ test("bs3 站内跳转在后台就绪之前就放行(源站创建窗口时就定
   assert.deepEqual(rec.external, ["https://example.com/"]);
 });
 
-// ── 前端:后台没好时的那一条横幅 ─────────────────────────────────────
-test("fb1 启动中有一句中文横幅;就绪、浏览器里(没有外壳)都不显示", async () => {
-  const { backendBanner } = await import("../web/src/backendState.ts");
-  assert.match(backendBanner({ phase: "starting" }) ?? "", /[\u4e00-\u9fff]/);
-  assert.equal(backendBanner({ phase: "ready" }), null);
-  assert.equal(backendBanner(null), null);
-  assert.equal(backendBanner(undefined), null);
-});
-
+// ── 前端:外壳桥 ──(fb1 横幅文字判据 09-23 随横幅一起撤,见 track opendesign-quiet-start-icons q1)
 test("fb2 外壳桥:新 preload 给 backend;旧 preload 没有 backend 也照样认得出外壳(窗口按钮不能因此消失)", async () => {
   const { shellApi, backendApi } = await import("../web/src/desktopShell.ts");
   const fn = () => {};
@@ -340,7 +332,7 @@ test("s3 管家通道全走 hostSender(主进程里不再直接写 host.stdin)",
   assert.match(src, /createHostSender/);
 });
 
-test("s4 后台状态经 preload 到界面,界面有那条横幅", () => {
+test("s4 后台状态经 preload 通到界面(界面不再挂横幅,见 test_quiet_start_icons q1)", () => {
   const pre = read("desktop/preload.js");
   assert.match(pre, /backend:\s*\{/);
   assert.match(pre, /"od:backend-state"/);
@@ -349,8 +341,7 @@ test("s4 后台状态经 preload 到界面,界面有那条横幅", () => {
   assert.match(main, /ipcMain\.handle\("od:backend-state"/);
   assert.match(main, /"od:backend-state-changed"/);
   const appTsx = read("web/src/App.tsx");
-  assert.match(appTsx, /backendBanner\(/);
-  assert.match(appTsx, /data-ui="backend-connecting"/);
+  assert.doesNotMatch(appTsx, /data-ui="backend-connecting"/, "业主 09-23:启动时一个字都不许挂");
 });
 
 // ── 第 1 次评审(MiMo)核实成立的三条 —— 判据先行 ─────────────────────────
@@ -397,10 +388,4 @@ test("s1b app 协议不给 corsEnabled / bypassCSP / allowServiceWorkers 等用�
   }
 });
 
-// F7:有 key 时网关冷启动可达数分钟(ds_shell ready_timeout=300),「马上就好」是假话。
-test("fb3 横幅不许许诺「马上」,要说清可能要等一会儿", async () => {
-  const { backendBanner } = await import("../web/src/backendState.ts");
-  const t = backendBanner({ phase: "starting" }) ?? "";
-  assert.doesNotMatch(t, /马上/);
-  assert.match(t, /分钟/, "要让业主知道可能要等几分钟");
-});
+// F7(fb3 横幅别许诺「马上」)09-23 随横幅一起撤 —— 横幅整条没了。
