@@ -27,9 +27,10 @@ runlog: python rc=1 commit=485b83e dirty=yes at=2026-09-23T07:09:03Z file=tracks
 runlog: python rc=1 commit=485b83e dirty=yes at=2026-09-23T07:09:08Z file=tracks/opendesign-release-09810/evidence/20260923T070908Z-01-python.txt
 runlog: run-all rc=3 commit=e67c726 dirty=no final=yes at=2026-09-23T07:10:26Z file=tracks/opendesign-release-09810/evidence/20260923T071026Z-01-run-all.txt
 runlog: bash rc=0 commit=e67c726 dirty=yes at=2026-09-23T07:33:25Z file=tracks/opendesign-release-09810/evidence/20260923T073325Z-01-bash.txt
+runlog: prod-smoke-10 rc=0 commit=83d15f9 dirty=no at=2026-09-23T07:48:23Z file=tracks/opendesign-release-09810/evidence/20260923T074823Z-01-prod-smoke-10.txt
 ```
 
-- 说明:07:09:03 那份 rc=1 是我把测试类名写错(C7Shell,报 errors=1,量具错);07:09:08 才是 C7d 的真红;run-all rc=3 = 各段全绿、3 条要网关的没跑;cloud 35830315041 FAIL 0。
+- 说明:07:09:03 那份 rc=1 是我把测试类名写错(C7Shell,报 errors=1,量具错);07:09:08 才是 C7d 的真红;run-all rc=3 = 各段全绿、3 条要网关的没跑;cloud 35830315041 FAIL 0;prod-smoke-10 = T5 发布后从 GitHub 取回逐字节比对 + 旧 blockmap(v0.98.9)在。
 
 ## Review
 
