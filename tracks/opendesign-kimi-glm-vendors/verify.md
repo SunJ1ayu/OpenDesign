@@ -235,6 +235,10 @@ runlog: bash rc=0 commit=b033875 dirty=yes at=2026-09-23T13:03:15Z file=tracks/o
 - **状态:NEEDS_MORE_INFO(第 6 轮 = 预案里的最后一轮,再有阻断即停)**。给业主的选择:
   A. 修 #26(闸改成「有我们管的厂商槽就走统一入口」+ 一条判据),再审一轮;
   B. 本单先停在这里不发,等业主有空再定。
+- **业主 09-23 晚选 A(「修掉这个」)。** 判据 k13d(自配端点 + 两家 GLM:set_model `--provider glm` 真发按量、不出裸名、没 key 的厂商拒绝;红)、
+  k13e(反面:只有自配端点、没有我们的厂商槽 ⇒ 照老办法写;修前修后都得绿)。
+runlog: python rc=1 commit=d179286 dirty=yes at=2026-09-23T14:24:41Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T142441Z-01-python.txt
+  (上一行 = k13d 红,k13e 绿。)
 
 ## Accepted deviations
 

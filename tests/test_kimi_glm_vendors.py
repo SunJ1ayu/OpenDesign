@@ -572,6 +572,46 @@ class TestOneWriterForTheModelChoice(TestEveryPresetGoesToItsOwner):
                          "set_model 手选的模型被「想换过去」标记顶掉了")
 
 
+class TestOneWriterEvenOnASelfConfiguredEndpoint(TestOneWriterForTheModelChoice):
+    """第 6 轮(MiMo)#26,亲跑复现:主槽是业主**自配的端点**(install.ps1 `--api-base`,不用手改)、界面里又加了两家 GLM ⇒
+    set_model.py 的闸只看「主槽认得出」,走了老分支:`--provider glm` 被无视、裸名 glm-5.3 抄走套餐的槽 ⇒ 要按量,实际扣套餐。
+    「我们管的配置」= 配置里**有任何一个我们管的厂商槽**,不只是主槽认得出。"""
+
+    def self_configured(self):
+        self.have_mimo_in_primary()
+        cfg = self.cfg()
+        cfg["providers"]["custom"]["apiBase"] = "https://my-own-proxy.example/v1"
+        with open(self.cfg_path, "w", encoding="utf-8") as fh:
+            json.dump(cfg, fh, ensure_ascii=False, indent=2)
+
+    def test_k13d_with_our_vendor_slots_set_model_goes_through_the_ui_entry(self):
+        self.self_configured()
+        self.add("glm_plan", GLM_PLAN_KEY)
+        self.add("glm", GLM_KEY)
+        env = self.gateway_env()
+        ds_credential.select_model(self.cfg_path, "glm-5.3", provider="glm_plan")
+        r = self.set_model("glm-5.3", "--provider", "glm")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.cfg()["agents"]["defaults"]["modelPreset"], "glm-5.3@glm")
+        snap = self.snapshot(env, None)
+        self.assertEqual((snap.provider.api_base, snap.provider.api_key), (EXPECTED["glm"]["apiBase"], GLM_KEY),
+                         "要的是按量,实际发去了别家")
+        self.assertNotIn("glm-5.3", self.cfg()["model_presets"], "出现了不带厂商的裸名")
+        before = self.cfg_bytes()
+        r = self.set_model("kimi-k3")                     # 这台机器上没有 Kimi 的 key
+        self.assertNotEqual(r.returncode, 0)
+        self.assertEqual(self.cfg_bytes(), before)
+
+    def test_k13e_a_self_configured_endpoint_alone_keeps_the_old_behaviour(self):
+        """反面:只有自配端点、没有任何我们管的厂商槽 ⇒ 我们不认识这份配置,照老办法写(任意模型 id 都行)。"""
+        self.self_configured()
+        r = self.set_model("my-proxy/some-model")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        cfg = self.cfg()
+        self.assertEqual(cfg["agents"]["defaults"]["modelPreset"], "my-proxy/some-model")
+        self.assertEqual(cfg["model_presets"]["my-proxy/some-model"]["provider"], "custom")
+
+
 class TestPresetsThatAreNotOurs(TestEveryPresetGoesToItsOwner):
     """第 5 轮:对齐只许动**我们自己起的名字**(模型在那家目录里、名字就是那家会起的名字),
     业主手写的一律不碰 —— 哪怕名字碰巧以 `@kimi` 结尾(MiMo 2a),哪怕没写 provider(Grok #3,nanobot 默认 auto)。"""
