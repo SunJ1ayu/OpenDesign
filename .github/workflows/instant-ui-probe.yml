@@ -26,12 +26,15 @@ jobs:
           python -m pip install -q websockets
           npm install --no-audit --no-fund
           if ($LASTEXITCODE) { throw "npm rc=$LASTEXITCODE" }
+          if (Test-Path node_modules\electron\install.js) { node node_modules\electron\install.js }
+          $e = node -p "require('electron')"
+          "electron = $e"; if (-not (Test-Path $e)) { throw "electron 二进制不在" }
       - name: 跑两次 + 判读
         run: |
           $ud = Join-Path $env:RUNNER_TEMP 'probe-ud'
           $b = Start-Process python -ArgumentList 'backend.py','18866','18865' -PassThru -NoNewWindow
           Start-Sleep 3
-          $e = '.\node_modules\electron\dist\electron.exe'
+          $e = node -p "require('electron')"
           & $e . --mode=write --http-port=18866 --ws-port=18865 "--udata=$ud" "--out=$env:RUNNER_TEMP\w.json" | Out-Host
           & $e . --mode=read --http-port=18866 --ws-port=18865 "--udata=$ud" "--out=$env:RUNNER_TEMP\r.json" | Out-Host
           Get-Content "$env:RUNNER_TEMP\w.json"; Get-Content "$env:RUNNER_TEMP\r.json"
