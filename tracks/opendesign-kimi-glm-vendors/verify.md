@@ -184,6 +184,11 @@ runlog: python rc=1 commit=627c28b dirty=yes at=2026-09-23T12:14:13Z file=tracks
   v9 夹具原先靠「save 换主槽后 mimo-* 残留」造老形状,修后 save 不再造它 ⇒ 夹具改为照老样子直接写出(断言不变;新旧实现上都绿)。
 runlog: python rc=1 commit=04e78b4 dirty=yes at=2026-09-23T12:18:21Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T121821Z-01-python.txt
   (上一行 = 补的 k11b 在修前代码上红;两个存活变异各被 k11b 的一格杀死。)
+runlog: bash rc=3 commit=bc67483 dirty=no at=2026-09-23T12:18:45Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T121845Z-01-bash.txt
+runlog: bash rc=0 commit=bc67483 dirty=yes at=2026-09-23T12:30:38Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260923T123038Z-01-bash.txt
+  (上两行 = 按根因修后:总跑六段全过(python 1455,rc=3 只因既有 SKIP);判据三件套 + set_model 老判据 rc=0。)
+- **追加第 5 轮的理由(派发前写)**:业主拍板走 B(按根因修),方向又变了一次(从「改名字」到「不变量:预设只发到主人那家」)⇒ 必须再审一轮;
+  预算 = 1 轮(两家族,同成员 MiMo + Grok)。再有阻断:若与本根因同类 ⇒ 说明根因判定错了,停下交业主;若是新的不同类问题 ⇒ 逐条核实后按常规处置。
 
 ## Accepted deviations
 
