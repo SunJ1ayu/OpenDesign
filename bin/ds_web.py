@@ -2609,6 +2609,9 @@ class Handler(BaseHTTPRequestHandler):
                                                       key=str(body.get("key") or "") or None, multi=multi)
                     if body.get("key"):
                         restart = ds_shell_bridge_restart()
+                elif op == "update":
+                    ds_credential.update_custom_provider(home, cfg, body.get("provider"), label=body.get("label"),
+                                                         api_base=body.get("apiBase"))
                 elif op == "remove":
                     ds_credential.remove_custom_provider(home, cfg, body.get("provider"))
                 else:

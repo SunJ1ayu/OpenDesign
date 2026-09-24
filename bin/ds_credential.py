@@ -1184,6 +1184,35 @@ def add_custom_provider(home: str, cfg_path: str, *, label: str, api_base: str, 
 
 
 @_scoped
+def update_custom_provider(home: str, cfg_path: str, provider: str, *, label=None, api_base=None) -> dict:
+    """自定义供应商改名 / 改 Base URL(照 ZCode;QA Q8)。改地址查撞车;槽的 apiBase 由起网关按目录写,这里顺手当场改。"""
+    meta = _known(provider)
+    if not meta.get("custom"):
+        raise CredentialError(f"{meta['label']} 是内置厂商,名称和地址不能改")
+    reg = _load_registry(home)
+    entry = next(cp for cp in reg["customProviders"] if cp["id"] == provider)
+    if label is not None:
+        label = label.strip() if isinstance(label, str) else ""
+        if not label or len(label) > 40:
+            raise CredentialError("供应商名称要填,不超过 40 个字")
+        entry["label"] = label
+    if api_base is not None:
+        base = _check_base(api_base)
+        for v, other in _P().items():
+            if v != provider and _norm_base(other["apiBase"]) == base:
+                raise CredentialError(f"这个地址已经是「{other['label']}」了")
+        entry["apiBase"] = base
+    _save_registry(home, reg)
+    with catalog_scope(home):
+        cfg = _read_cfg(cfg_path)
+        slot = (cfg.get("providers") or {}).get(extra_provider_name(provider))
+        if isinstance(slot, dict) and api_base is not None:
+            slot["apiBase"] = entry["apiBase"]
+            _write_cfg(cfg_path, cfg)
+        return providers_view(home, cfg_path)
+
+
+@_scoped
 def remove_custom_provider(home: str, cfg_path: str, provider: str) -> dict:
     meta = _known(provider)
     if not meta.get("custom"):
