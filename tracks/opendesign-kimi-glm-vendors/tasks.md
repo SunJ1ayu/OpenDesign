@@ -5,5 +5,5 @@
 - [x] T1 判据先行(k1~k6 + ku1~ku3),单独 commit,红检
 - [x] T2 PROVIDERS 三家 + keyUrl;/api/llm/credential 带 keyUrl
 - [x] T3 前端:llmKey.ts 解析 + LlmKeyCard 外链
-- [ ] T4 build + 总跑 + 截图亲看
-- [ ] T5 high:两家族外部评审 → 仲裁 → 归档
+- [x] T4 build + 总跑 + 截图亲看
+- [x] T5 high:两家族外部评审 → 仲裁 → 归档

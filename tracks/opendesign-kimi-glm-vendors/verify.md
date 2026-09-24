@@ -12,9 +12,9 @@
 
 ## Mechanical checks
 
-- [ ] build passes
-- [ ] tests pass
-- [ ] no secrets / unsafe ops
+- [x] build passes(dist 新鲜度闸:npm run build 后 git 无差异,见 run-all-archive)
+- [x] tests pass(run-all-archive:python 1507 / node 509 / e2e 41 PASS,3 条既有 SKIP 需起 gateway)
+- [x] no secrets / unsafe ops(runlog 秘密形状扫描过;未 push、未发版)
 
 **机器打印的**(不是我的转述)—— 判据用 `runlog` 跑,把它打印的收据行原样粘进来:
 
@@ -431,13 +431,34 @@ runlog: r12-mutants-with-d4e rc=0 commit=575ffc5 dirty=yes at=2026-09-24T03:44:5
   判据挡不住假想实现、0.98.11 之前就有的行为、手改配置形状 ⇒ 照报,但按 4b 记延期,不算 BLOCK;腿若能说明某条延期其实是本单引入或正常入口可达的缺陷 ⇒ 照样 BLOCK。
   停止条件:两家不冲突且无新真实缺陷 ⇒ 归档;否则停下交业主,不再自行加轮。
 
+- 最后一次评审花名册: submimo=PASS(verdict=PASS) subdeepseek=PASS(verdict=PASS)(日志 /root/aiwork/logs/panel-kimi-glm-r13-20260924-122737.* [仓外不承重])
+  两家不冲突 ⇒ 覆盖成立(preflight 只剩 outcome.verdict 待填)。评审期间 HEAD 6238620 → 703c5fd 只改了豁免的 verify.md(`git diff --stat` 核过)。
+  MiMo 的可写副本里没有 nanobot,它用不依赖 nanobot 的对等探针走完钱路径(两家 GLM 分账、同家换 key、挪进主槽、老裸名、五家合并);
+  DeepSeek 用 nanobot 真加载器跑了 300×10 随机序列 0 失败。两家都无 BLOCK。照报项与主裁处置:
+
+  | # | 发现 | 核实 | 处置 |
+  |---|---|---|---|
+  | 64 | (两家)`bin/set_model.py` 在有我们厂商槽的配置上只收目录内模型;它自己帮助里的示例 `xiaomi/mimo-v2.5-pro` 现在会被拒(rc=2,配置一字不动) | 本单引入(k13「一个写入口」的既定代价);拒绝不改配置、不换家 | **延期**:业主那边不走 set_model.py(界面换模型);只有照帮助手敲命令的人看到一句拒绝提示。下次动 set_model.py 时顺手改帮助示例 |
+  | 65 | (DeepSeek)Kimi/GLM 模型名与 keyUrl 离线没法验 | proposal「不做」里已写明未经真 key 验证 | **延期(已知)**:发版说明写明;业主拿真 key 冒烟一次最值 |
+  | 66 | (DeepSeek)老安装手打端点(如缺 `/v1`)+ 无外壳存同家 key ⇒ 被当成换端点,目录外手写预设被删、回那家默认 | 只有老安装手打端点 + git-pull/Linux 无外壳 | **延期**:业主装法是外壳、端点精确,碰不到 |
+  | 67 | (MiMo)#31 存量形状(认得出的端点 + 别家模型名)起网关换成该端点那家默认 | d7 设计的存量清扫;旧选择本来就发不通,不扣错钱 | **驳回为缺陷**:按设计 |
+  - #60 两家都复现,都确认 0.98.9 起就有(DeepSeek 核了 `53560cc` 同一行),按业主定单独做。
+runlog: run-all-archive rc=3 commit=703c5fd dirty=yes final=yes at=2026-09-24T04:49:25Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T044925Z-01-run-all-archive.txt
+  (上一行 = 归档前 final 总跑:六段全过,rc=3 仅既有 3 条 SKIP(两条 e2e 要起 gateway)。dirty=yes 只因 r13 的 observation 还没提交;跑的过程中源码未变(无 source-stable 警告)。)
+- **主裁裁决:PASS**。依据:proposal 两条交付(三家厂商、key 链接)已兑现;「加三家不能弄坏已有的东西」经两家独立评审 + DeepSeek 两轮随机序列(400/300 条)+ 我亲跑探针,
+  正常入口没有本单引入的发错家 / 连不上 / 已选模型被换;延期项(#49 #55~#57 #59~#66)每条写了「业主那边会长成什么样」。未 push、未发版(发 0.98.11 要业主点头)。
+
 ## Accepted deviations
 
-- <接受的非关键偏差 + 原因 + 影响范围,或 None>
+- #60 额外格同家换 key 回默认模型:0.98.9 起就有,业主 09-24 定单独做,不进本单。
+- #64 set_model.py 帮助示例过时(本单引入,不影响界面),下次动它时改。
+- #65 Kimi/GLM 模型名与 keyUrl 未经真 key 验证(proposal 已写明),发版说明写明、建议业主真 key 冒烟。
 
 ## 试行记录(review-convergence 试行,约五单;拿不到的写 unknown,别补 0)
 
-- 总交付历时:<开工 commit 时刻 → 归档 commit 时刻>
-- 每轮新增有效阻断:<第 1 轮 n / 第 2 轮 n>
-- 基础设施等待:<重试次数;observations 里 panel-review 的 duration_ms 求和>
-- 交付后返工:<归档后因本单再改过几次;不知道写 unknown>
+- 总交付历时:09-23 17:37(`5c2093b` 判据先行)→ 09-24 13:1x 归档,约 19.5 小时
+- 每轮新增有效阻断:**粗数**(按各轮发现表处置栏含「必须修/本单修」机械数,各轮写法不统一,只作量级):
+  r1 3 / r2 3 / r3 1 / r4 0 / r5 4 / r6~r9 0(当时写作「阻断成立 / 待业主」,机械数漏计)/ r10 8 / r11 0(写作「待业主定」)/ r12 1 / r12 重派 1 / 最后一次 0。
+  r12 与重派那 2 条都是判据缺口,后按 4b 改判延期 ⇒ **r11 修完后本单引入的正常入口阻断 = 0**;此后三次派发是空转(业主 12:23 点出,复盘见上)。
+- 基础设施等待:MiMo 超时 1 次(r12)、两次派发没起腿(缺自审 / 冷却);observations 里 15 次 panel-review 的 duration_ms 合计约 288 分钟
+- 交付后返工:unknown(刚归档)
