@@ -290,12 +290,16 @@ class TestView(Rig):
 class _FakeVendor(http.server.BaseHTTPRequestHandler):
     key = PROXY_KEY
     seen: list = []
+    status_by_model = {"gpt-busy": 429, "gpt-boom": 502, "gpt-forbidden": 403}
 
     def do_POST(self):  # noqa: N802
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
         type(self).seen.append((self.path, body.get("model")))
         if self.headers.get("Authorization") != f"Bearer {self.key}":
             return self._send(401, {"error": {"message": "invalid api key"}})
+        if body.get("model") in type(self).status_by_model:
+            code = type(self).status_by_model[body["model"]]
+            return self._send(code, {"error": {"message": f"upstream said {code}"}})
         if body.get("model") != "gpt-x":
             return self._send(404, {"error": {"message": "model not found"}})
         self._send(200, {"id": "x", "object": "chat.completion", "model": "gpt-x",
@@ -338,6 +342,30 @@ class TestConnectivity(Rig):
                            multi=True, switch=False)
         r = ds_credential.test_model(self.home, self.cfg_path, pid, "gpt-x")
         self.assertFalse(r["ok"])
+        self.assertNotIn("sk-oracle-wrong", json.dumps(r), "测试结果把 key 回显出来了")
+
+    def test_z14_failed_test_speaks_plain_words_first_and_keeps_the_raw_reason(self):
+        """09-24 QA-执行 K2(Grok D4):业主不是程序员,「404 model not found」不算人话。
+        先按 HTTP 状态说人话,原文(状态码 + 厂商那句)留着备查;永不带 key。"""
+        self.put_primary("mimo")
+        models = ["gpt-x", "gpt-missing", "gpt-busy", "gpt-boom", "gpt-forbidden"]
+        pid = ds_credential.add_custom_provider(self.home, self.cfg_path, label="假厂商", api_base=self.base,
+                                                models=models, key=PROXY_KEY, multi=True)
+        want = {"gpt-missing": (r"模型 ID", "404", "model not found"),
+                "gpt-busy": (r"额度|频繁", "429", "upstream said 429"),
+                "gpt-boom": (r"那边出错|稍后再试", "502", "upstream said 502"),
+                "gpt-forbidden": (r"API Key", "403", "upstream said 403")}
+        for model, (plain, code, raw) in want.items():
+            r = ds_credential.test_model(self.home, self.cfg_path, pid, model)
+            self.assertFalse(r["ok"], model)
+            self.assertRegex(r["message"], plain, f"{model}:没先说人话")
+            self.assertIn(code, r["message"], f"{model}:状态码丢了(排查要用)")
+            self.assertIn(raw, r["message"], f"{model}:厂商原话丢了")
+        ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider=pid, key="sk-oracle-wrong-000000000000",
+                           multi=True, switch=False)
+        r = ds_credential.test_model(self.home, self.cfg_path, pid, "gpt-x")
+        self.assertRegex(r["message"], r"API Key", "401:没说是 key 的问题")
+        self.assertIn("401", r["message"])
         self.assertNotIn("sk-oracle-wrong", json.dumps(r), "测试结果把 key 回显出来了")
 
 

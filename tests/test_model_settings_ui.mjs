@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   readProvidersResponse, providerStatus, providerStateText, navGroups, contextLabel,
-  settingsRoute, settingsHash, PROVIDERS_PATH, anyConfigured,
+  settingsRoute, settingsHash, PROVIDERS_PATH, anyConfigured, STATUS_LABEL,
 } from "../web/src/settings/modelSettings.ts";
 
 const M = (id, o = {}) => ({ id, label: id, builtin: true, contextWindow: null, ...o });
@@ -64,7 +64,9 @@ test("ms4 每家一句话:在用 / 就绪 / 已保存等重启 / 没填 / 已禁
   assert.match(t[1], /cdef/);
   assert.match(t[2], /重启/, "等重启那一家必须说清要等后台重启");
   assert.doesNotMatch(t[3], /…/, "没填的不许出现首尾提示");
-  assert.match(t[4], /禁用/);
+  // 09-24 QA-执行 K3:禁用那一句和圆点用同一个词(ZCode disabledStatus「未启用」),不许一屏两种说法
+  assert.ok(t[4].startsWith(STATUS_LABEL.disabled), t[4]);
+  assert.doesNotMatch(t[4], /已禁用/);
 });
 
 test("ms5 左栏两组:内置供应商(照后端顺序)/ 自定义供应商(没有也要有这一组,「添加供应商」挂在它下面)", () => {

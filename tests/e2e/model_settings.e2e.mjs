@@ -301,6 +301,13 @@ try {
         && /26\.2万/.test(await modelRow("mimo", "mimo-e2e").locator('[data-ui="ms-ctx"]').innerText().catch(() => "")),
     "A2 添加模型 ⇒ 列表里多一行,上下文按「万」显示");
   check(await modelRow("mimo", "mimo-e2e").locator('[data-ui="ms-delete"]').count() === 1, "A16 自己加的模型有「删除」");
+  // 09-24 QA-执行 K5(DS D5):内置行没有「删除」时,「测试 / 编辑」不许整体右移、和自加模型行错开一列
+  {
+    const xOf = async (m) => (await modelRow("mimo", m).locator('[data-ui="ms-test"]').boundingBox())?.x ?? NaN;
+    const [xb, xc] = [await xOf(CATALOG.mimo.model), await xOf("mimo-e2e")];
+    const noDel = await modelRow("mimo", CATALOG.mimo.model).locator('[data-ui="ms-delete"]').count() === 0;
+    check(noDel && Math.abs(xb - xc) <= 1, `K5 内置行(没有删除)与自加行的「测试」在同一列(内置 x=${xb},自加 x=${xc},内置无删除=${noDel})`);
+  }
 
   // ── 聊天框能选到它;在用的模型删不掉、在用的那家禁不掉(A2 / A6)──
   await backToChat();
@@ -314,6 +321,12 @@ try {
   await enable.click();
   check(await until(async () => /正在用/.test(await notice()), 5000) && await enable.getAttribute("aria-checked") === "true",
     `A6 正在用的那家禁不掉,开关不动(提示「${await notice()}」)`);
+  // 09-24 QA-执行 K4(两家):这句拒绝提示不许挂到下一件不相干的事(添加供应商弹窗)后面
+  await page.locator(`${MS} [data-ui="ms-add-provider"]`).click();
+  await page.locator('[data-ui="ms-provider-form"]').waitFor({ timeout: 5000 });
+  check(!/正在用/.test(await notice()), `K4 打开添加供应商后,上一句拒绝提示已收起(实际「${await notice()}」)`);
+  await page.keyboard.press("Escape");
+  await until(async () => !(await page.locator('[data-ui="ms-provider-form"]').isVisible()), 3000);
 
   // ── 存另一家 key:不换当前、提示重启、重启完才进菜单(A3)──
   await select("deepseek");
@@ -336,6 +349,9 @@ try {
   check(await until(() => navItem("deepseek").locator('[data-provider-status="disabled"]').count().then((n) => n === 1), 5000)
         && (await detail("deepseek").locator('[data-ui="ms-state"]').innerText()).includes(DS_KEY.slice(-4)),
     "A7 禁用 ⇒ 状态点变灰,末四位还在");
+  // 09-24 QA-执行 K3(两家):同一屏圆点「未启用」、状态句 / 提示却写「已禁用」—— 照 ZCode 统一成一个词
+  check(!/已禁用/.test(await detail("deepseek").innerText()),
+    `K3 禁用后详情里不再出现「已禁用」(圆点叫「未启用」)(状态句「${await detail("deepseek").locator('[data-ui="ms-state"]').innerText()}」,提示「${await notice()}」)`);
   await backToChat();
   let tree = await menuTree();
   check(!tree.deepseek && tree.mimo?.selected, `A7/A12 禁用的那家不在换模型菜单里(实际 ${JSON.stringify(Object.keys(tree))})`);
@@ -356,6 +372,18 @@ try {
         && (await detail("mimo").locator('[data-ui="ms-state"]').innerText()).includes(MIMO_KEY.slice(-4))
         && readFileSync(join(home, ".openDesign", "key.txt"), "utf8").trim() === MIMO_KEY,
     `A20 空着保存 ⇒ 报错,原 key 与末四位不变(「${await notice()}」)`);
+  // 09-24 QA-执行 K1(DS D1 追到根):主槽那家(MiMo)没有「等重启」可观察(有 key 即算后台拿到)⇒
+  //   重启只是「已请求」,提示不许自称「已重启 / 已生效」;要一直是那句老实话(稍等片刻…连不上就手动重启)
+  {
+    const before = restarts.length;
+    await detail("mimo").locator('[data-ui="ms-key"]').fill(MIMO_KEY);
+    await detail("mimo").locator('[data-ui="ms-key-save"]').click();
+    check(await until(async () => /重启/.test(await notice()), 5000) && await until(() => restarts.length > before, 8000),
+      `K1 前提:主槽存 key 也请了外壳重启、提示说重启(「${await notice()}」)`);
+    await page.waitForTimeout(3500);   // > 两轮轮询
+    check(!/已重启|已生效/.test(await notice()) && /重启/.test(await notice()),
+      `K1 主槽存 key:提示不许自称已重启 / 已生效(实际「${await notice()}」)`);
+  }
 
   // ── 添加供应商:拒收(A19 / A9)──
   const form = page.locator('[data-ui="ms-provider-form"]');
@@ -402,7 +430,8 @@ try {
   check(await until(async () => /成功/.test(await res.innerText()), 10000) && vendorSeen.some((v) => v.auth && v.model === "gpt-e2e"),
     `A15/A10 不等重启就能「测试」,用的是刚存的 key(「${await res.innerText().catch(() => "")}」)`);
   await modelRow(cid, "other-e2e").locator('[data-ui="ms-test"]').click();
-  check(await until(async () => /404|model not found/.test(await res.innerText()), 10000)
+  // 09-24 QA-执行 K2(Grok D4):只甩「404 model not found」不算可读 —— 要先说人话(模型 ID 不对),原文可留作括号
+  check(await until(async () => /模型 ID/.test(await res.innerText()) && /404/.test(await res.innerText()), 10000)
         && !(await res.innerText()).includes(CUSTOM_KEY),
     `A2 测试失败给可读原因、不带 key(「${await res.innerText().catch(() => "")}」)`);
   check(await until(() => restarts.length > restartsBefore, 8000)
