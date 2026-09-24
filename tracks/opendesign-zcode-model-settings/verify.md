@@ -12,22 +12,32 @@
 
 ## Mechanical checks
 
-- [ ] build passes
-- [ ] tests pass
-- [ ] no secrets / unsafe ops
+- [x] build passes(dist 新鲜度 + 类型检查闸在 run-all 里,与源码同步)
+- [x] tests pass(run-all rc=3 = **没有红**,只跳既有三条:两条要活网关的 e2e new_chat / project-thread + 1 条 python;全仓一直如此,与本单无关)
+- [x] no secrets / unsafe ops(录像脚本自查 key 不进 tour.md;判据 C 组泄漏扫描、z10/z14 不回显 key)
 
-**机器打印的**(不是我的转述)—— 判据用 `runlog` 跑,把它打印的收据行原样粘进来:
-
-```
-runlog -t opendesign-zcode-model-settings -- <判据命令>
-```
+**机器打印的**(按时间序,逐字节;红的几遍是判据先行的红检,最后一遍 run-all 在 600bbe7):
 
 ```
-<粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
- **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
- 收据得进 git(5d)。一份收据都没有的话,写一行
- 「- 无机器证据:<理由>」认账 —— 沉默不算理由(5c)。>
+runlog: backend-criteria-red rc=1 commit=a2222b5 dirty=yes at=2026-09-24T07:57:51Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T075751Z-01-backend-criteria-red.txt
+runlog: web-criteria-red rc=1 commit=1575924 dirty=yes at=2026-09-24T08:05:36Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T080536Z-01-web-criteria-red.txt
+runlog: t4-node-criteria-red rc=1 commit=89c21ab dirty=yes at=2026-09-24T08:59:18Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T085918Z-01-t4-node-criteria-red.txt
+runlog: t4-w8-red rc=1 commit=89c21ab dirty=yes at=2026-09-24T08:59:18Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T085918Z-02-t4-w8-red.txt
+runlog: t4-configured-red rc=1 commit=980c73f dirty=yes at=2026-09-24T10:37:13Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T103713Z-01-t4-configured-red.txt
+runlog: qa-exec-fixes-red rc=1 commit=cd4c734 dirty=yes at=2026-09-24T11:16:56Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T111656Z-01-qa-exec-fixes-red.txt
+runlog: run-all-after-qa-fixes rc=3 commit=33e6108 dirty=no final=yes at=2026-09-24T11:20:50Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T112050Z-01-run-all-after-qa-fixes.txt
+runlog: mutation-model-picker-after-qa-fixes rc=0 commit=cfd1e72 dirty=no at=2026-09-24T11:35:34Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T113534Z-01-mutation-model-picker-after-qa-fixes.txt
+runlog: mutation-llm-key-after-qa-fixes rc=0 commit=cfd1e72 dirty=yes at=2026-09-24T11:38:07Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T113807Z-01-mutation-llm-key-after-qa-fixes.txt
+runlog: run-all-final rc=3 commit=23b008f dirty=no final=yes at=2026-09-24T11:45:59Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T114559Z-01-run-all-final.txt
+runlog: review-r1-fixes-red rc=1 commit=0dc309b dirty=yes at=2026-09-24T12:24:01Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T122401Z-01-review-r1-fixes-red.txt
+runlog: run-all-after-review-r1 rc=3 commit=600bbe7 dirty=no final=yes at=2026-09-24T12:28:55Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T122855Z-01-run-all-after-review-r1.txt
+runlog: mutation-model-picker-after-review-r1 rc=0 commit=0752917 dirty=no at=2026-09-24T12:42:05Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T124205Z-01-mutation-model-picker-after-review-r1.txt
+runlog: mutation-llm-key-after-review-r1 rc=0 commit=0752917 dirty=yes at=2026-09-24T12:44:36Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T124436Z-01-mutation-llm-key-after-review-r1.txt
 ```
+
+- 红收据各自对应:backend/web = T2/T3 判据先行;t4-* = T4 移植批与 w9/ms9;qa-exec-fixes-red = QA 缺陷 K1~K5;review-r1-fixes-red = 第 1 轮代码评审 #1~#5。
+  K6(上下文标签)的红是在 9fd4dfb 提交前手跑 node 看到的(ms6 1 fail),没有单独 runlog 收据 —— 如实记账。
+- 红检(判据的判据):mutation-model-picker 23/23、mutation-llm-key 18/18,QA 修复后与第 1 轮评审修复后各跑一次,全咬住、还原核对一致。
 
 ## 判据先行的红收据
 
@@ -98,6 +108,7 @@ runlog: t4-configured-red rc=1 commit=980c73f dirty=yes at=2026-09-24T10:37:13Z 
 - 反锚定记账:第 1 轮派发时 verify.md 评审一节是空模板(工具照例报 anchor leak,指的是这份文件);腿能读到的是 evidence/qa-exec-triage.md(QA 缺陷的主裁分级),与代码评审题面不重叠。
 - 腿的花名册:
   - 第 1 轮:`submimo=PASS(verdict=BLOCK) subkimi=PASS(verdict=PASS)`(`/root/aiwork/logs/panel-zcode-r1-20260924-195939.roster` [仓外不承重])
+  - 第 2 轮:`submimo=PASS(verdict=BLOCK) subkimi=PASS(verdict=PASS)`(`/root/aiwork/logs/panel-zcode-r2-20260924-205018.roster` [仓外不承重])
 - 轮次记录(每次派发一行;实质评审与基础设施重试分开,重试不算轮但次数与耗时照记):
 
   | 轮 | 类型(实质 / 重试) | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
@@ -106,6 +117,8 @@ runlog: t4-configured-red rc=1 commit=980c73f dirty=yes at=2026-09-24T10:37:13Z 
   | QA-执行 | 测试员(非评审,不计轮) | — | explore-zcode-qa-exec-20260924-190341 | 5 条用户层真问题 K1~K5(见 evidence/qa-exec-triage.md) |
   | QA-复测 | 测试员(非评审,不计轮) | — | explore-zcode-qa-retest-20260924-193518 | 0(K1~K5/T1~T3 全关;顺藤查出 K6) |
   | 1 | 实质 | rc=3,BLOCK 0(PENDING 2) | panel-zcode-r1-20260924-195939(MiMo 18 分、Kimi 19 分) | 3(#1 #2 #3) |
+  | 2 | 实质(预算最后一轮) | rc=3,BLOCK 0(PENDING 2) | panel-zcode-r2-20260924-205018(MiMo、Kimi) | 1(#8,本单引入的假话) |
+  | 3 | **追加**(见下「追加一轮」) | 待填 | 待填 | 待填 |
 
 - findings(**先处置、后动手**;一轮一份修复清单,一次修完再复审 —— panel 抽屉 4b):
 
@@ -118,6 +131,18 @@ runlog: t4-configured-red rc=1 commit=980c73f dirty=yes at=2026-09-24T10:37:13Z 
   | 5 | (MiMo MIN-3)「显示」按钮悬停字写「已保存的永远只显示末四位」,实际是首四 + 末四 | _hint 与 ModelSettings.tsx 眼睛按钮 title | 本单修(措辞) | 界面文字说真话 |
   | 6 | (Kimi LOW)主槽换 key 后绿条一直说「正在自动重启」 | K1 的有意选择(主槽没有可观察的等待) | 延期 | 业主那边:存完 MiMo key 绿条停在「稍等片刻」,回聊天能用就是好了;要改口得有网关侧信号(同主裁自审 F2) |
   | 7 | (Kimi 自己排除)save() 主槽「先写配置、后写 key.txt」 | 095ec4c 已存在 | 驳回(不属本单) | 老版本就有 |
+  | 8 | (MiMo 第 2 轮 发现 1)等重启那家一出现在配置里,绿条就改口「**后台已重启,这把 key 已生效**」;而外壳是**先** prepare_gateway 写配置、**再** sup.restart —— 重启进行中(冷启动)或重启失败(外壳自己弹「没能自己重启」)时这句都是假话 | 亲读 bin/ds_shell.py build_env / restart_gateway 顺序;ModelSettings.tsx awaiting 那段;这句是**我 cb0c57b 加的** | **本单必须修** | 本单引入的回归,且正面违反仓里明写的「不许撒谎的重启」(ds_web.py 重启应答那段注释)。修法:改口只说确定知道的 ——「后台已开始换上这把 key」+ 稍等几秒 + 弹窗说没重启成就重开 |
+  | 9 | (同上,MiMo 的推论)此时去聊天框选这家 ⇒ 旧网关沿用旧厂商「发错家」 | 亲读 ds_shell_core.py `Supervisor.restart`:**先杀旧腿再起新腿**,重启失败时没有网关(连不上 + 外壳弹窗),不会一直发错家;剩下「外壳写完配置到旧网关被杀」那一瞬,是 0.98.9 per-vendor-keys design.md:109 当年评审过、判可接受的窄窗 | 驳回(持续发错家不成立;窄窗老版本就有) | — |
+  | 10 | (MiMo 第 2 轮 发现 2)删自定义供应商:key 先删、后面两处写失败 ⇒ 界面到刷新前仍显示「已保存」 | 亲读 remove_custom_provider + 前端失败分支不刷新 | 延期 | 业主那边:要磁盘写失败才碰到;key 没外泄(#2 的目标);报错照出,刷新后显示「还没填 API Key」,重填即可 |
+  | 11 | (MiMo 第 2 轮 发现 3)`_commit_both` 还原配置那一步也写失败(连续两次写盘失败)⇒ 配置新地址、登记旧地址 | 我自审 R2-F1 已列 | 延期 | 业主那边:要盘彻底坏了才碰到;钱去的是他刚填的新地址(同一家),不是别家 |
+  | 12 | (MiMo)env 供 key 且变量名非 DS_、key.txt 空时 #1 的闸放行;(Kimi)删供应商不清「想换过去」标记、编号复用后可能指向新供应商 | 前者:标准 Windows 装法 child_env 剥掉 DS_*,Kimi 核为够不着;后者:新界面已不调 /api/llm/credential(web/src 无引用),标记只能手搓请求写出 | 驳回(锤子类 / 走不到) | — |
+
+- **追加一轮**(4b ④:预算 2 轮已用完,派发前在这里写明):
+  - 具体阻断:#8 一处 —— 我自己加的「后台已重启,这把 key 已生效」在重启完成前 / 重启失败时就说,违反「不许撒谎的重启」。
+  - 为什么不能「延期 + 分裂裁决」收场:它是**本单引入的回归**、落在业主明确要的「提示说真话」上,按 4b 属「本单必须修」;而改了它,第 2 轮的评审绑定就不覆盖最终交付,归档闸不认。
+  - 追加目的:只核验这一句改口(及对应判据)是否说真话、有没有别处还在宣称重启完成;**不重开整单**。
+  - 新的有限预算:**1 轮,两家(同 MiMo、Kimi)**;这一轮的新发现只要不是「本单必须修」一律延期,**不再续轮**。
+
 
 - arbitrated verdict (主裁): <...>
   > 这里写理由；最终枚举写进 `decision.json.outcome.verdict`。归档时仍为空会被
@@ -125,7 +150,10 @@ runlog: t4-configured-red rc=1 commit=980c73f dirty=yes at=2026-09-24T10:37:13Z 
 
 ## Accepted deviations
 
-- <接受的非关键偏差 + 原因 + 影响范围,或 None>
+- **只配自定义供应商(一家内置 key 都没有)用不了**(第 1 轮评审 #1):ZCode 可以只用中转,我们现在当场拒并说清「先填一家内置厂商」。
+  原因:外壳只靠主槽(内置厂商)的 key 起网关;要让只配中转也能聊,得改主槽 + 额外槽的槽位设计(kimi-glm 那单 13 轮磨出来的规矩)、
+  改外壳起网关的条件,属于设计改动,本单不做。影响:业主两台机器都有 MiMo key,不受影响;新机器 / 只有中转 key 的人会被挡在添加那一步(说真话,不是死路)。已告诉业主,要做另开单。
+- 上下文标签:ZCode 缺值时画「0」,我们不画(不编数字、也不画误导人的 0)。
 
 ## 试行记录(review-convergence 试行,约五单;拿不到的写 unknown,别补 0)
 

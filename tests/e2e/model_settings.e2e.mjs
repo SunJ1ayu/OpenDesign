@@ -344,9 +344,13 @@ try {
     () => navItem("deepseek").locator('[data-provider-status="ready"]').count().then((n) => n === 1), 15000),
   "A3 后台起好后 DeepSeek 变成就绪(页面自己跟上)");
   check(currentModel() === "mimo-e2e", "A3 存别家的 key 没换当前模型(D4)");
-  // 09-24 QA-执行录像第 4 步主裁亲看:后台都起好了,绿条还写着「正在自动重启…」,和上面「就绪 / 在用」自相矛盾
-  check(await until(async () => !/正在/.test(await notice()) && /生效/.test(await notice()), 8000),
-    `A3 重启完成后提示跟着改口(不再说「正在重启」,说已生效)(实际「${await notice()}」)`);
+  // 09-24 QA-执行录像第 4 步主裁亲看:这家已就绪,绿条还是保存那一刻的「正在自动重启…」,和「就绪」打架 ⇒ 要改口。
+  // 第 2 轮评审 #8(MiMo):原来这条要求改口成「已生效」—— **题面本身错了**:外壳先写配置、再重启网关,
+  // 条目出现只证明「后台已开始换上这把 key」,证明不了「已重启 / 已生效」(重启进行中或失败时都是假话,
+  // 违反「不许撒谎的重启」)。所以改问:改口了,而且不许自称已重启 / 已生效。
+  check(await until(async () => !/正在自动重启/.test(await notice()) && /已开始/.test(await notice()), 8000)
+        && !/已重启|已生效/.test(await notice()),
+    `A3 这家就绪后提示改口,只说「已开始换上」,不自称已重启 / 已生效(实际「${await notice()}」)`);
 
   // ── 禁用 / 启用(A7)──
   await select("deepseek");
