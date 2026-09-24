@@ -419,10 +419,12 @@ try {
   await runIfSaved("E1 已配置时不再自己带进设置页(别打扰他)", async () => {
     // 🔴 不许用"死等 N 秒然后看它没跳"来判 —— 拉状态慢一点,「不跳」就变成「还没跳」,这是假绿。
     //    正确的等法:等到**它确实已经知道自己配好了**(状态响应到达)再看。
+    // ⚠️ 只改 # 后面的 goto 在 Chromium 里是同文档跳转、**不重新加载** ⇒ 必须再 reload 一次,才问得到"打开时"的行为
+    await page.goto(`${BASE}/#/`, { waitUntil: "domcontentloaded" });
     const got = page.waitForResponse(
       (r) => r.url().endsWith("/api/llm/providers") && r.request().method() === "GET" && r.status() === 200,
       { timeout: 15000 });
-    await page.goto(`${BASE}/#/`, { waitUntil: "domcontentloaded" });
+    await page.reload({ waitUntil: "domcontentloaded" });
     await got;                       // 状态已经到手
     await page.waitForTimeout(1200); // 再给它足够时间"跳"(要跳早跳了)
     if (await ms.isVisible().catch(() => false)) throw new Error("配好了还带进设置页");
@@ -518,6 +520,7 @@ try {
       await route.fulfill({ json: body });
     });
     await page.goto(`${BASE}/#/settings/models?provider=${PICK}`, { waitUntil: "domcontentloaded" });
+    await page.reload({ waitUntil: "domcontentloaded" });   // 同上:只改 # 不重载,stub 拦不到新的 GET
     const d = detailOf(PICK);
     await d.waitFor({ timeout: 8000 });
     if (await d.locator('[data-ui="ms-key"]').isEnabled()) {
