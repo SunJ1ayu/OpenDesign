@@ -1,0 +1,20 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    prod-smoke-12
+cmd:     /tmp/claude-0/-root/4e6ed443-af3b-4cf7-8d4a-dac123ef3173/scratchpad/rel12/prod-smoke-12.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  ae33c3d
+dirty:   no(跑之前采的;含未跟踪文件)
+started: 2026-09-24T15:00:18Z
+---------------- 输出开始 ----------------
+OK   正式版(非预发布/草稿)
+OK   latest.yml 取回 200
+OK   exe 取回 200
+OK   bm 取回 200
+OK   old 取回 200
+OK   latest 清单版本 = 0.98.12(0.98.11 会看到它)
+OK   安装包字节 = artifact
+OK   blockmap 字节 = artifact
+OK   latest.yml sha512/size 对得上安装包
+OK   tag v0.98.12 与被测提交 8326ccb 源码一致(只差 tracks/ 记录)
+---------------- 输出结束 ----------------
+runlog: prod-smoke-12 rc=0 commit=ae33c3d dirty=no at=2026-09-24T15:00:18Z file=tracks/opendesign-release-09812/evidence/20260924T150018Z-01-prod-smoke-12.txt
