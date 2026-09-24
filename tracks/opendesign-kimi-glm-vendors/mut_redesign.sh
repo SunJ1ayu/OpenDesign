@@ -24,7 +24,11 @@ mut M5-merge-template-into-foreign bin/ds_merge_config.py 'tpl["model_presets"] 
 mut M6-merge-accepts-flags bin/ds_merge_config.py 'if args.api_base is not None or args.model is not None:' 'if False:'
 # 第 10 轮修复清单
 mut M7-rename-becomes-delete bin/ds_credential.py 'if here in PROVIDERS and model in PROVIDERS[here]["models"]:' 'if False:'
-mut M8-save-always-resets-model bin/ds_credential.py 'if endpoint_changed or not (isinstance(presets.get(cur), dict)' 'if True or not (isinstance(presets.get(cur), dict)'
+mut M8-save-always-resets-model bin/ds_credential.py '    if cur is None and not endpoint_changed:
+        pass
+    elif not (' '    if True:
+        defaults["modelPreset"] = name
+    elif not ('
 mut M9-foreign-needs-own-presets bin/ds_merge_config.py 'foreign = bool(existing_base) and ds_credential' 'foreign = bool(existing_base) and bool(own_presets) and ds_credential'
 mut M10-merge-skips-alignment bin/ds_merge_config.py '    ds_credential._route_presets(cfg)
     ds_credential._fallback_if_dangling(cfg)' '    pass'
@@ -40,5 +44,12 @@ mut M13-keep-presets-on-a-gone-slot bin/ds_credential.py '        if prov != "cu
 mut M14-fallback-picks-whatever-is-first bin/ds_credential.py '        fallback = preset_name(primary, PROVIDERS[primary]["model"]) if primary else None' '        fallback = None'
 mut M15-rename-skips-params bin/ds_credential.py '                    _rename_preset(cfg, name, preset_name(here, model))
                     _apply_params(presets[preset_name(here, model)], here)' '                    _rename_preset(cfg, name, preset_name(here, model))'
+mut M16-merge-invents-current-on-foreign bin/ds_merge_config.py 'elif own_presets and (existing_preset or not foreign):' 'elif own_presets:'
+mut M17-fallback-picks-first-on-foreign bin/ds_credential.py '        elif defaults.get("model") or not presets:
+            defaults.pop("modelPreset")' '        elif not presets:
+            defaults.pop("modelPreset")'
+mut M18-model-field-brain-gets-overwritten bin/ds_credential.py '    if cur is None and not endpoint_changed:
+        pass' '    if False:
+        pass'
 find bin -name __pycache__ -exec rm -rf {} + 2>/dev/null
 echo "survived=$survived"; exit $survived

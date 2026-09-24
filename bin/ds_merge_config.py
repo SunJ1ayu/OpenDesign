@@ -133,8 +133,9 @@ def main() -> int:
     known = set(tpl["model_presets"]) | set(own_presets)
     if existing_preset and existing_preset in known:
         tpl["agents"]["defaults"]["modelPreset"] = existing_preset
-    elif own_presets:
-        # 悬空了,但机主自己还有别的预设 ⇒ 用他自己的第一个,别落回模板默认:
+    elif own_presets and (existing_preset or not foreign):
+        # 悬空了,但机主自己还有别的预设 ⇒ 用他自己的第一个,别落回模板默认
+        # (自配端点上他**从没设过** modelPreset ⇒ 不替他挑,他用的是 model 字段;#46,d5c):
         # 那会产出「模板的模型 @ 机主的端点」这种自相矛盾态(四审 subdeepseek MEDIUM)——
         # 模型名在机主的端点上根本不存在,聊天时才炸。
         tpl["agents"]["defaults"]["modelPreset"] = next(iter(own_presets))
@@ -165,10 +166,8 @@ def main() -> int:
     # 模板的 MiMo 预设合进了别家端点的配置(机主在界面换过厂商)、或盘上留着老安装写的裸名:
     # 与 save / 起网关同一条规矩对齐 —— 目录里的模型只以那家的正式名字挂在那家的槽上;当前模型因此悬空就回落。
     ds_credential._route_presets(cfg)
-    ds_credential._fallback_if_dangling(cfg)
+    ds_credential._fallback_if_dangling(cfg)     # 悬空 ⇒ 回主槽默认;主槽认不出 ⇒ 回机主自己的 model 字段
     defaults = cfg.setdefault("agents", {}).setdefault("defaults", {})
-    if foreign and defaults.get("modelPreset") and defaults["modelPreset"] not in (cfg.get("model_presets") or {}):
-        defaults.pop("modelPreset")              # 悬空的 modelPreset 网关直接拒绝加载;自配端点上不无中生有,删掉让 model 字段生效
     args.target.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     # 汇总印**落地文件里的值**,不是模板的值。

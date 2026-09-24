@@ -228,14 +228,6 @@ def preset_name(vendor: str, model: str) -> str:
     return f"{model}{PRESET_VENDOR_SEP}{vendor}" if shared else model
 
 
-def _qualified_vendor(name) -> str | None:
-    """`glm-5.3@glm_plan` → `glm_plan`;不是按厂商分开的预设名 ⇒ None。"""
-    if not isinstance(name, str) or PRESET_VENDOR_SEP not in name:
-        return None
-    vendor = name.rsplit(PRESET_VENDOR_SEP, 1)[1]
-    return vendor if vendor in PROVIDERS else None
-
-
 def _apply_params(preset: dict, vendor: str) -> dict:
     """把这家必带的生成参数(presetParams)盖到预设上;其余字段不动。"""
     preset.update(PROVIDERS[vendor].get("presetParams") or {})
@@ -648,10 +640,13 @@ def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = Fal
     ex = presets.get(name)
     if not (isinstance(ex, dict) and ex.get("provider") == "custom" and ex.get("model") == preset["model"]):
         presets[name] = _custom_preset(provider, preset["model"])
-    # 当前模型:换了厂商 ⇒ 这家的默认;同一家换 key 且当前正用主槽里的模型 ⇒ 不动(#38,d4b)。
-    # 当前在别的格(额外厂商)⇒ 存进主槽就是要用这家,照旧切过来(第 1 轮 K2)。
+    # 当前模型能不动就不动(照 ZCode:不改用户原来的选择)。对齐之后还挂在主槽上的,一定是这家的模型 ⇒ 不动
+    # (同一家换 key #38、这家从额外格挪进主槽 #52);当前写在 model 字段、端点没换 ⇒ 不替他设 modelPreset(#47)。
+    # 当前没了(属于别家、被对齐删掉)或在别的格 ⇒ 存进主槽就是要用这家,切到这家默认(第 1 轮 K2)。
     cur = defaults.get("modelPreset")
-    if endpoint_changed or not (isinstance(presets.get(cur), dict) and presets[cur].get("provider") == "custom"):
+    if cur is None and not endpoint_changed:
+        pass
+    elif not (isinstance(presets.get(cur), dict) and presets[cur].get("provider") == "custom"):
         defaults["modelPreset"] = name
 
     try:
@@ -800,5 +795,7 @@ def _fallback_if_dangling(cfg: dict) -> None:
             presets[fallback] = _custom_preset(primary, PROVIDERS[primary]["model"])
         if fallback:
             defaults["modelPreset"] = fallback
-        elif presets:
+        elif defaults.get("model") or not presets:
+            defaults.pop("modelPreset")          # 主槽认不出(机主自配端点):回到他自己的 model 字段,不替他挑一份(#48)
+        else:
             defaults["modelPreset"] = next(iter(presets))
