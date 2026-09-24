@@ -310,6 +310,11 @@ runlog: bash rc=0 commit=f4f510a dirty=yes at=2026-09-23T15:55:50Z file=tracks/o
 runlog: redesign-red rc=1 commit=02a2b02 dirty=yes at=2026-09-24T00:36:50Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T003650Z-01-redesign-red.txt
   (上一行 = 新判据红:d4 护栏绿,其余 50 格全红。)
 - 本次评审预算(派发前写):改设计后 **2 轮实质评审**,high = 每轮两个不同家族;有真实阻断就停下交业主,不续轮。
+- 实现(`4836d9e`):判据全绿;变异自检六个(去掉稳态清扫 / 裸名留在主槽 / 忽略端点变化 / 永远当端点变了 / 合并照合模板 / 合并收参数)全被杀。
+runlog: redesign-mutants rc=0 commit=edc6608 dirty=yes at=2026-09-24T00:39:07Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T003907Z-01-redesign-mutants.txt
+runlog: run-all rc=3 commit=edc6608 dirty=yes at=2026-09-24T00:39:24Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T003924Z-01-run-all.txt
+  (上两行 = 实现在工作树上时:总跑六段全过(python 1494、node 509、e2e 41),rc=3 只因既有 3 条 SKIP(两条要活网关的 e2e + 一条 python)。
+   之后只改了 install.ps1 两句提示文字,d1 复跑绿。)
 
 ## Accepted deviations
 
