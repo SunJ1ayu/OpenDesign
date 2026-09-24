@@ -162,8 +162,14 @@ try {
     await card.locator(".fvis-actions .primary").click();
     await page.locator(".fvis-ok").waitFor({ timeout: 10000 });
 
-    // ★ 写路径真的通:左侧项目列表当场多出那两个被猜掉的文件夹。
+    // ★ 写路径真的通:左侧项目列表多出那两个被猜掉的文件夹。
     //   断在**用户看得见的结果**上,不是"请求发出去了"。
+    //   09-24 起设置是整页(照 ZCode 整条侧栏换成设置栏目)⇒ 项目列表要「返回工作区」才看得见:
+    //   关掉体检卡 → 返回 → 再看(**不重新加载**,问的仍是"保存当场就把列表刷了")。
+    await page.keyboard.press("Escape");
+    await page.locator('[data-ui="folder-visibility"]').waitFor({ state: "hidden", timeout: 5000 });
+    await page.locator('[data-ui="settings-toggle"]').click();
+    await page.locator(".proj-list").waitFor({ timeout: 5000 });
     await page.waitForFunction(
       () => document.querySelectorAll(".proj-list .proj-row").length >= 3, { timeout: 10000 });
     const after = await projRows(page);
