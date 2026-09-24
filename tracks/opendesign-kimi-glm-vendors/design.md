@@ -66,6 +66,10 @@
 > (b) 我原计划「主人另有槽就改指」也用于认不出主人的名字 ⇒ 裸 glm-5.3 会被改指到 od_glm 扣按量,改成只删。
 > 未采纳:给老启动器 ds-nanobot.ps1 加启动前对齐(老 git-pull 形态;界面任一次 save 已会对齐,延期);
 > Linux auth.json / env 遮蔽两条为模块头已写明的既有边界。
+> **第 10 轮后(MiMo/DeepSeek 均 BLOCK,业主「遵循第一性原理,不要留下屎山」)**:清扫删过头(把能用的旧名预设删了、换掉业主选的模型)⇒
+> 未认主的目录模型改为「所在格厂商有这个模型就原地改正式名,否则删,永不跨格」;同家换 key 不动当前模型;合并对自配端点一律不合 MiMo 模板、不无中生有 modelPreset。
+> 同时把重复的层收掉:起网关原先 ②③ 各自改指一遍、③b 再改指一遍 —— 现在起网关只补条目与缺的预设,**预设挂在哪只由 `_route_presets` 一处决定**
+> (含「指向已没有的额外格 ⇒ 删」,d12 + 变异 M13 钉)。
 > 判据 `tests/test_vendor_one_door.py`(d1~d8);k14 的「名模不一致」一格改判为删(它发到的那家没有这个模型);k15/k15b 与合并器两条显式参数判据随写口一起退场。
 - `bin/ds_credential.py` PROVIDERS 加三行 + 每行 `keyUrl`;`/api/llm/credential` 的 providers 带出 `keyUrl`。
 - `web/src/llmKey.ts` asProvider 读可选 keyUrl(只收 https);`LlmKeyCard.tsx` 在 API key 输入框下显示「获取 {label} 的 API Key ›」外链(新窗口/外部浏览器)。

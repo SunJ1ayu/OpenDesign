@@ -336,6 +336,18 @@ runlog: run-all rc=3 commit=edc6608 dirty=yes at=2026-09-24T00:39:24Z file=track
 - 本轮修复清单 = #36~#40、#42~#44,判据先 commit(红),再一次修完,派第 2 轮(预算最后一轮)。
 runlog: r10-criteria-red rc=1 commit=a99efaa dirty=yes at=2026-09-24T01:19:15Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T011915Z-01-r10-criteria-red.txt
   (上一行 = 第 10 轮判据红:d4b×2、d5b×2、d7b×4、d9(glm-5.3-flash 一格)、d10、d11;d3 改成问整条不变量 + 额外槽在场后现实现仍绿。)
+runlog: r10-mutants-fixed rc=0 commit=403b634 dirty=yes at=2026-09-24T01:22:17Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T012217Z-01-r10-mutants-fixed.txt
+runlog: r10-mutants rc=2 commit=403b634 dirty=yes at=2026-09-24T01:21:43Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T012143Z-01-r10-mutants.txt
+  (上两行按时间倒序:先跑的 rc=2 里 M1/M2「存活」是假的 —— 代码改了,它们要替换的原文已不存在,脚本没打上变异就跑了测试;
+   脚本加了 BROKEN 分支(替换失败大声报),M1/M2 按新代码重写后全杀。)
+runlog: run-all-r10 rc=3 commit=403b634 dirty=yes at=2026-09-24T01:22:41Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T012241Z-01-run-all-r10.txt
+  (上一行 = 修完第 10 轮清单后总跑:六段全过(python 1500、e2e 41),rc=3 仅既有 3 条 SKIP。)
+- 业主插话「遵循第一性原理别忘了 不要留下屎山」⇒ 派最后一轮前回头审整条逻辑:起网关 ②③ 与 _route_presets 三处都在改指,收成一处(见 design.md)。
+  自查补出一条没人盯的规矩(指向已删额外格的预设):先补判据 d12,再加变异 M13。
+runlog: r10-mutants-after-cleanup rc=0 commit=403b634 dirty=yes at=2026-09-24T01:44:29Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T014429Z-01-r10-mutants-after-cleanup.txt
+runlog: d12-red-on-403b634 rc=1 commit=403b634 dirty=yes at=2026-09-24T01:45:23Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T014523Z-01-d12-red-on-403b634.txt
+runlog: r10-mutants-final rc=0 commit=403b634 dirty=yes at=2026-09-24T01:45:33Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T014533Z-01-r10-mutants-final.txt
+  (上三行 = 收层后 12 个变异全杀;d12 在修复前代码上是绿的(老 ① 本就会删),rc=1 来自其余未修判据 —— d12 的红检靠变异 M13:删掉那条规矩 ⇒ d12 红;最终 13 个变异全杀。)
 
 ## Accepted deviations
 
