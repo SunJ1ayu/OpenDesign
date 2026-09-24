@@ -112,17 +112,20 @@ def main() -> int:
     # 模板的 MiMo 示例默认会把 apiBase / modelPreset 原样盖回去。
     # **静默发生**,而机主不是程序员 —— 他看到的只是"助手突然变笨了",不会去翻配置。
     # 规则:以**目标里已有的**为准;目标里也没有(全新装机)才落模板默认。
-    # 模板的**预设清单**照旧合进来(更新的意义就在这儿),只是不动"默认指向哪一个"。
+    # 模板的**预设清单**照旧合进来(更新的意义就在这儿),只是不动"默认指向哪一个" ——
+    # 例外是机主自配的端点:模板预设全是 MiMo 的,不合(见下)。
     existing_base = (cfg.get("providers", {}).get("custom", {}) or {}).get("apiBase")
     if existing_base:
         tpl["providers"]["custom"]["apiBase"] = existing_base
 
     existing_preset = (cfg.get("agents", {}).get("defaults", {}) or {}).get("modelPreset")
     own_presets = cfg.get("model_presets", {}) or {}
-    # 模板的预设全是 MiMo 的。主槽是机主以前自配的端点(认不出是哪家)、他自己也有预设时,
-    # 合进来就会指 custom、`/model mimo-v2.5` 发到他那个端点 ⇒ 不合(09-24,判据 d5)。
+    # 模板的预设全是 MiMo 的。主槽是机主以前自配的端点(认不出是哪家)时,合进来就会指 custom、
+    # `mimo-v2.5` 发到他那个端点 ⇒ 不合,也不替他设 modelPreset(它压过 agents.defaults.model,
+    # 纯 onboard 形态的机主会被换成一个他端点上没有的模型 ⇒ 聊天连不上;第 10 轮 #36,d5/d5b)。
     # 认得出的别家端点照合:之后的对齐会把它们删掉或指回 MiMo 自己的槽。
-    if existing_base and own_presets and ds_credential._vendor_by_base(existing_base) is None:
+    foreign = bool(existing_base) and ds_credential._vendor_by_base(existing_base) is None
+    if foreign:
         tpl["model_presets"] = {}
     # 机主的默认预设必须真的存在(自有的,或模板带来的),否则等于指向空气 ——
     # nanobot 对这种配置**直接拒绝加载**(schema.py 的 model validator 会抛),
@@ -135,6 +138,8 @@ def main() -> int:
         # 那会产出「模板的模型 @ 机主的端点」这种自相矛盾态(四审 subdeepseek MEDIUM)——
         # 模型名在机主的端点上根本不存在,聊天时才炸。
         tpl["agents"]["defaults"]["modelPreset"] = next(iter(own_presets))
+    elif foreign:
+        tpl["agents"]["defaults"].pop("modelPreset", None)
 
     wanted = {
         "providers": {"custom": tpl["providers"]["custom"]},
@@ -161,14 +166,18 @@ def main() -> int:
     # 与 save / 起网关同一条规矩对齐 —— 目录里的模型只以那家的正式名字挂在那家的槽上;当前模型因此悬空就回落。
     ds_credential._route_presets(cfg)
     ds_credential._fallback_if_dangling(cfg)
+    defaults = cfg.setdefault("agents", {}).setdefault("defaults", {})
+    if foreign and defaults.get("modelPreset") and defaults["modelPreset"] not in (cfg.get("model_presets") or {}):
+        defaults.pop("modelPreset")              # 悬空的 modelPreset 网关直接拒绝加载;自配端点上不无中生有,删掉让 model 字段生效
     args.target.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     # 汇总印**落地文件里的值**,不是模板的值。
     # 修好上面那条之后两者会不一样 —— 还照印模板,就成了"屏幕说大脑是 MiMo、
     # 盘上其实是机主的模型"。这台机器的规矩:盘上和回显对不上 = BLOCK。
     landed_base = cfg["providers"]["custom"]["apiBase"]
-    landed_preset = cfg["agents"]["defaults"]["modelPreset"]
-    landed_model = (cfg.get("model_presets", {}).get(landed_preset, {}) or {}).get("model", "?")
+    landed_preset = defaults.get("modelPreset")
+    landed_model = ((cfg.get("model_presets", {}).get(landed_preset, {}) or {}).get("model")
+                    if landed_preset else defaults.get("model")) or "?"
     print(f"ds_merge_config: 已合并 4 段进 {args.target}(备份: {backup.name})")
     print(f"  apiBase = {landed_base}")
     print(f"  model   = {landed_model}(默认预设 {landed_preset})")

@@ -116,12 +116,16 @@ if (Test-Path $KeyFile) {
     Write-Host "  已有 $KeyFile,跳过(要换 key 直接编辑该文件)"
 } else {
     New-Item -ItemType Directory -Path $KeyDir -Force | Out-Null
-    $key = Read-Host "  粘贴 MiMo 的 key 后回车"
+    $key = Read-Host "  粘贴 MiMo 的 key 后回车(没有 MiMo 的 key:直接回车跳过)"
     $key = $key.Trim()
-    if (-not $key) { Write-Error "key 为空,重跑本脚本" }
-    # ascii 避免 PS5.1 默认编码带 BOM;key 都是 ASCII 字符
-    Set-Content -Path $KeyFile -Value $key -NoNewline -Encoding ascii
-    Write-Host "  已写入 $KeyFile"
+    if (-not $key) {
+        # 别把别家的 key 塞进 MiMo 那一格(端点是 MiMo 的 ⇒ 聊天 401,界面还显示"已配置")。
+        Write-Host "  已跳过。装完打开 OpenDesign,在「AI 模型 key」里选厂商、填 key,再重启一次。" -ForegroundColor Yellow
+    } else {
+        # ascii 避免 PS5.1 默认编码带 BOM;key 都是 ASCII 字符
+        Set-Content -Path $KeyFile -Value $key -NoNewline -Encoding ascii
+        Write-Host "  已写入 $KeyFile"
+    }
 }
 
 Step 7 "合并 config(providers/model_presets/agents/mcpServers 四段;channels 不动)"

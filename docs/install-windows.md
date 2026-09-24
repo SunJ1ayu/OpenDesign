@@ -64,7 +64,7 @@ notepad "$env:USERPROFILE\.openDesign\key.txt"   # 只放一行:机主自己的 
 
 把 `config/nanobot.config.windows.jsonc` 的几段合并进 `%USERPROFILE%\.nanobot\config.json`(去掉注释),要改的:
 
-- `providers.custom.apiBase` + `model_presets.primary.model` → 换成**机主买的那家 LLM**(模板里是 MiMo 示例)。
+- 端点和模型**不在这里改**:大脑默认 MiMo,换厂商装完在界面「AI 模型 key」里换(那里按厂商配好端点与模型)。
 - `DS_ORGANIZE_ROOTS`:默认已按 D4 = 桌面+下载;机主要管别的目录,分号追加。
   **要用收件箱认领(0.25.0)就把工作区根也追加进来**(如
   `...;${USERPROFILE}/Desktop;D:/设计工作区`)——工作区接入(workspace.json)
