@@ -1,15 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  desktopUpdateLabel,
-  hasDesktopUpdateBadge,
-  RESTART_HINT,
-  showCheck,
-  showRestart,
-  showRetry,
-} from "../desktopUpdate";
+import { hasDesktopUpdateBadge, RESTART_HINT, showRestart } from "../desktopUpdate";
 import type { DesktopUpdateState } from "../desktopShell";
-import { RELEASES_PAGE } from "../update";
-import type { ConsentMode, Project } from "../api";
+import type { Project } from "../api";
 import { relTime } from "../api";
 import { displayProjectName } from "./projectName";
 import GroupToggle from "../GroupToggle";
@@ -20,7 +12,7 @@ import {
 } from "./projectGroups";
 
 // 左侧栏 v2(P3 T3,handoff §1,240px):品牌 / 全局操作组(新对话/搜索/
-// 待办事项/技能)/ 历史对话 / 项目 / 设置弹层。图标 09-23 由 Unicode 占位换成
+// 待办事项/技能)/ 历史对话 / 项目 / 设置入口(09-24 起开设置整页)。图标 09-23 由 Unicode 占位换成
 // ZCode 同款 lucide 线条图标(./icons.tsx;历史行不再带图标)。v2 要点:日历行删除(功能将来融进待办页)、技能上移进
 // 全局操作组、快捷键角标(⌘N/⌘K)从 UI 移除(keydown 行为在 App 保留)、
 // 所有行共用 16px 图标列居中对齐;全局操作组按路由呈当前态(新对话=home、
@@ -31,7 +23,8 @@ import {
 export type SessionItem = { key: string; title?: string; preview?: string; updated_at?: string };
 
 type Props = {
-  route: "home" | "workspace" | "todos" | "skills" | "gallery";
+  /** "settings" 时侧栏不渲染(设置页自带栏目),这里只为类型完整。 */
+  route: "home" | "workspace" | "todos" | "skills" | "gallery" | "settings";
   projects: Project[];
   /** 阶段词表(/api/projects 下发,单一真相源 = 后端 PROJECT_STAGES):项目分堆的排序依据 */
   stages: string[];
@@ -48,17 +41,10 @@ type Props = {
   onNewChat: () => void;
   onNewProject: () => void;
   onSearch: () => void;
-  /** 设置弹层里的「工作区文件夹」入口(体检卡 2026-07-28 挪进设置,浮层由 App 渲染)。 */
-  onOpenFolderVisibility: () => void;
-  /** 设置弹层里的「AI 模型」入口(大模型 key 卡片由 App 渲染)。 */
-  onOpenLlmKey: () => void;
-  /** 业主同意闸档位(track opendesign-owner-consent)。null = 还没拉到。 */
-  consentMode: ConsentMode | null;
-  onSetConsentMode: (mode: ConsentMode) => void;
-  health: { version: string; ds_root: string; model: string | null } | null;
+  /** 「设置」那一行:打开设置整页(照 ZCode,track opendesign-zcode-model-settings;原弹层各项搬进「常规」)。 */
+  onOpenSettings: () => void;
   desktopShell: boolean;
   updateState: DesktopUpdateState;
-  onCheckUpdate: () => void;
   onInstallUpdate: () => void;
 };
 
@@ -79,11 +65,10 @@ function dotTitle(p: Project, current: boolean): string {
 
 export default function Sidebar({
   route, projects, stages, selectedKey, onSelectProject, todosOpenCount, excludedStructural,
-  onOpenFolderVisibility, onOpenLlmKey, consentMode, onSetConsentMode,
+  onOpenSettings,
   sessions, sessionTags, onOpenSession, onDeleteSession, onNewChat, onNewProject,
-  onSearch, health, desktopShell, updateState, onCheckUpdate, onInstallUpdate,
+  onSearch, desktopShell, updateState, onInstallUpdate,
 }: Props) {
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // 项目按阶段分堆(T3,用户 07-28 拍板)。折叠状态**落 localStorage**:待办页的
   // toggled 是 useState、刷新即忘,这里不重蹈覆辙(判据 D 段钉死)。
@@ -110,29 +95,6 @@ export default function Sidebar({
     const next = revealStage(stagePrefs, g);
     if (next !== stagePrefs) writeStagePrefs(next);
   }, [selectedKey, groups, stagePrefs]);
-
-  // 弹层外点击收起(设置行自身的 toggle 在 onClick 里处理)
-  useEffect(() => {
-    if (!settingsOpen) return;
-    const onDown = (e: MouseEvent) => {
-      const el = e.target as Element | null;
-      // 弹层内与设置行自身不算"外":设置行的 toggle 自己管开合
-      if (el && el.closest(".settings-pop, .side-footer")) return;
-      setSettingsOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [settingsOpen]);
-
-  // 全局原则(修改单 A3):esc 关一切弹层——设置弹层也不例外。
-  useEffect(() => {
-    if (!settingsOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSettingsOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [settingsOpen]);
 
   const recent = (sessions ?? []).slice(0, 2);
 
@@ -297,113 +259,12 @@ export default function Sidebar({
       <div className="side-flex" />
 
       <div className="side-footer">
-        {/* 设置弹层(向上弹出;唯一的原型交互)。挂在 side-footer 里、贴着「设置」那一行的上沿:
-            那一行下好更新后会多出「重启以更新」而变高,原来按侧栏底部写死 54px 摆 ⇒ 弹层盖住「设置」(T4 收货 F5)。 */}
-        {settingsOpen && (
-          <div className="settings-pop">
-            <button className="item" title="定稿仅浅色;深色适配排期中">
-              <span className="lbl">外观</span>
-              <span className="val">浅色 ▾</span>
-              <span className="soon">深色即将支持</span>
-            </button>
-            <button
-              className="item"
-              data-ui="settings-llm-key"
-              title="设置大模型 API key"
-              onClick={() => {
-                setSettingsOpen(false);
-                onOpenLlmKey();
-              }}
-            >
-              <span className="lbl">AI 模型</span>
-              <span className="val mono">{health?.model ?? "配置 key ›"}</span>
-            </button>
-            <button className="item">
-              <span className="lbl">数据与备份</span>
-              <span className="val mono">{health ? health.ds_root : "~/OpenDesign"}</span>
-            </button>
-            <button
-              className="item"
-              data-ui="settings-folder-visibility"
-              title="选哪些文件夹要出现在左边的项目列表里"
-              onClick={() => {
-                setSettingsOpen(false);
-                onOpenFolderVisibility();
-              }}
-            >
-              <span className="lbl">工作区文件夹</span>
-              <span className="val">哪些算项目 ›</span>
-            </button>
-            {/* 业主同意闸的档位(track opendesign-owner-consent)。
-                业主原话:「让用户选择弹或者都不弹,就像 Claude Code 和 Codex 这些 agent」。
-                **这里是全机唯一能改这个档位的入口** —— 任何 MCP 工具都写不了
-                config/consent.json,判据 O5 从工具表真相源枚举 33 个工具逐个真调验过。
-                关掉是降低安全性的动作,所以只有关的方向要二次确认(开不用)。 */}
-            <button
-              className="item"
-              data-ui="settings-consent-mode"
-              title="助手想扩大它能看到的文件范围时(改工作区根、绑项目文件夹),要不要先问你"
-              onClick={() => {
-                if (consentMode === null) return;
-                const next = consentMode === "ask" ? "allow" : "ask";
-                if (next === "allow" && !window.confirm(
-                  "关掉之后,助手改工作区根目录、绑定项目文件夹**不再问你**,立即生效。\n\n"
-                  + "这意味着:它读到的一份文档里如果藏了指令,就可能让它把工作区指到别处、"
-                  + "读走那边的资料,而你不会看到任何提示。\n\n确定要关掉吗?")) return;
-                onSetConsentMode(next);
-              }}
-            >
-              <span className="lbl">危险动作确认</span>
-              <span className="val">
-                {consentMode === null ? "…"
-                  : consentMode === "ask" ? "每次问我 ›" : "不用问 ›"}
-              </span>
-            </button>
-            <button className="item" title="⌘N 新对话 · ⌘K 搜索">
-              <span className="lbl">快捷键</span>
-            </button>
-            <div className="divider" />
-            {desktopShell ? (
-              <>
-                <div className="item">
-                  <span className="lbl muted">软件更新</span>
-                  <span className="val mono faint" data-ui="update-status">
-                    {desktopUpdateLabel(updateState, health?.version ?? "未知")}
-                  </span>
-                </div>
-                {showCheck(updateState) && (
-                  <button className="item" data-ui="update-check" onClick={onCheckUpdate}>
-                    <span className="lbl">检查更新</span>
-                  </button>
-                )}
-                {showRetry(updateState) && (
-                  <button className="item" data-ui="update-retry" onClick={onCheckUpdate}>
-                    <span className="lbl">重试</span>
-                  </button>
-                )}
-                {showRestart(updateState) && (
-                  <button className="item" onClick={onInstallUpdate}>
-                    <span className="lbl">重启以更新</span>
-                    <span className="val faint">{RESTART_HINT}</span>
-                  </button>
-                )}
-              </>
-            ) : (
-              <a className="item" href={RELEASES_PAGE} target="_blank" rel="noreferrer">
-                <span className="lbl muted" data-ui="update-status">
-                  当前版本 v{health?.version ?? "未知"}
-                </span>
-                <span className="val faint">发布页 ›</span>
-              </a>
-            )}
-          </div>
-        )}
         <div className="side-row settings-toggle-row">
-          <button data-ui="settings-toggle" onClick={() => setSettingsOpen((v) => !v)} aria-expanded={settingsOpen}>
+          <button data-ui="settings-toggle" onClick={onOpenSettings} aria-expanded={false}>
             <SideIcon name="settings" />
             <span className="grow">设置</span>
             {hasDesktopUpdateBadge(updateState) && <span className="update-dot" data-ui="update-badge">●</span>}
-            <span className="chev">{settingsOpen ? "▴" : "▾"}</span>
+            <span className="chev">›</span>
           </button>
           {desktopShell && showRestart(updateState) && (
             <button className="side-update-restart" data-ui="update-restart" onClick={onInstallUpdate}>

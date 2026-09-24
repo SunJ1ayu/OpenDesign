@@ -11,9 +11,15 @@ import SkillsPage from "./SkillsPage";
 import GalleryPage from "./GalleryPage";
 import SearchPanel from "./SearchPanel";
 import FolderVisibilityCard from "./workspace/FolderVisibilityCard";
-import LlmKeyCard from "./LlmKeyCard";
+import SettingsPage from "./settings/SettingsPage";
 import { ChatSession } from "./chat/connection";
-import { fetchKeyStatus, type KeyStatus } from "./llmKey";
+import {
+  anyConfigured,
+  fetchProviders,
+  settingsHash,
+  settingsRoute,
+  type SettingsSection,
+} from "./settings/modelSettings";
 import {
   loadThreadMap,
   projectPrefix,
@@ -46,9 +52,11 @@ import {
 // track opendesign-todo-assistant T1:4a 待办页同款常驻——右栏第三个 ChatPage
 // 实例(项目助手)要求切页对话不丢,「无状态页每次进入重建」的旧取舍作废。
 
-type Route = "home" | "workspace" | "todos" | "skills" | "gallery";
+type Route = "home" | "workspace" | "todos" | "skills" | "gallery" | "settings";
 
 function fromHash(): Route {
+  // 设置整页(照 ZCode,track opendesign-zcode-model-settings):#/settings[/general|/models][?provider=…]
+  if (settingsRoute(window.location.hash)) return "settings";
   const h = window.location.hash.replace(/^#\//, "");
   if (h === "workspace" || h === "todos" || h === "skills" || h === "gallery") return h;
   return "home";
@@ -63,6 +71,9 @@ function newChatTarget(prev: { nonce: number } | null) {
 
 export default function App() {
   const [route, setRoute] = useState<Route>(fromHash);
+  const [settings, setSettings] = useState(() => settingsRoute(window.location.hash));
+  // 「返回工作区」回到进设置前那一页(照 ZCode「返回」);直接从设置页打开的 ⇒ 回首页
+  const backHash = useRef(settingsRoute(window.location.hash) ? "#/" : window.location.hash || "#/");
   const session = useMemo(() => new ChatSession(), []);
 
   // ---- 数据:项目 / 待办计数 / 服务信息 / 历史对话 ----
@@ -87,8 +98,6 @@ export default function App() {
   // 工作区体检卡浮层(2026-07-28 用户拍板:挪进设置)。计数器兼作 key:
   // 每次打开都重挂一次 = 拿到当下最新的工作区状态,不会拿上次打开时的旧快照当真。
   const [fvisOpen, setFvisOpen] = useState(0);
-  const [llmKeyOpen, setLlmKeyOpen] = useState(false);
-  const [llmKeyStatus, setLlmKeyStatus] = useState<KeyStatus | null>(null);
   // 业主同意闸档位(track opendesign-owner-consent):设置里那一行的当前值。
   // null = 还没拉到(那时那一行显示「…」而不是猜一个默认值 —— 显示错的档位
   // 比显示"不知道"危险:业主会以为闸开着)。
@@ -198,7 +207,12 @@ export default function App() {
   }, [selectedKey]);
 
   useEffect(() => {
-    const onHash = () => setRoute(fromHash());
+    const onHash = () => {
+      const st = settingsRoute(window.location.hash);
+      if (!st) backHash.current = window.location.hash || "#/";
+      setSettings(st);
+      setRoute(fromHash());
+    };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
@@ -247,20 +261,22 @@ export default function App() {
       unsubscribe();
     };
   }, [desktopShell]);
-  // 大模型 key 状态:首次打开只拉一次。没配就自动弹卡;已配只记录状态,不打扰。
+  // 一家 key 都没有:打开就进「设置 · 模型设置」(接替旧 key 卡片的自动弹出;每次打开都这样,直到存上一把)。
+  // 已经在设置页里(直接打开的链接)就不改地址;已配置只看一眼,不打扰。
   useEffect(() => {
     let stale = false;
-    fetchKeyStatus(fetch)
-      .then((st) => {
-        if (stale) return;
-        setLlmKeyStatus(st);
-        if (!st.configured) setLlmKeyOpen(true);
-      })
-      .catch(() => {});
+    void fetchProviders(fetch).then((v) => {
+      if (stale || !v || anyConfigured(v) || settingsRoute(window.location.hash)) return;
+      window.location.hash = settingsHash("models");
+    });
     return () => {
       stale = true;
     };
   }, []);
+  const openSettings = useCallback((section: SettingsSection, provider?: string | null) => {
+    window.location.hash = settingsHash(section, provider);
+  }, []);
+  const manageModels = useCallback((provider: string | null) => openSettings("models", provider), [openSettings]);
 
   // 业主同意闸档位:跟着 dataEpoch 重拉(助手刚排的队 / 另一个窗口改过档位,
   // 下一拍就对上)。拉不到时**保持 null** —— 设置里那一行显示「…」,
@@ -437,19 +453,10 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [fvisOpen]);
-  useEffect(() => {
-    if (!llmKeyOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.preventDefault(); setLlmKeyOpen(false); }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [llmKeyOpen]);
 
   const selected = projects.find((p) => p.key === selectedKey) ?? null;
   // 历史行项目小标:命中项目映射的会话标上项目名
   const sessionTags = useMemo(() => sessionLabels(projThreads, projects), [projThreads, projects]);
-  const updateLlmKeyStatus = useCallback((st: KeyStatus) => setLlmKeyStatus(st), []);
   const sidebar = (
     <Sidebar
       route={route}
@@ -459,17 +466,7 @@ export default function App() {
       selectedKey={selectedKey}
       onSelectProject={goProject}
       onSearch={() => setSearchOpen(true)}
-      onOpenFolderVisibility={() => setFvisOpen((n) => n + 1)}
-      onOpenLlmKey={() => setLlmKeyOpen(true)}
-      consentMode={consentMode}
-      onSetConsentMode={(m) => {
-        // 乐观更新会在失败时把界面停在错的档位上 —— 这一格宁可慢一拍,
-        // 也要显示后端**真实**的值(它决定的是助手能不能不打招呼就换根)。
-        apiSetConsentMode(m)
-          .then(() => fetchConsent())
-          .then((st) => setConsentMode(st.mode))
-          .catch(() => { /* 失败就不动:下次打开设置会重新拉 */ });
-      }}
+      onOpenSettings={() => openSettings("general")}
       todosOpenCount={todosCount}
       sessions={sessions}
       sessionTags={sessionTags}
@@ -479,6 +476,32 @@ export default function App() {
       onNewProject={() => {
         prefillHome("新建项目:");
         window.location.hash = "#/";
+      }}
+      desktopShell={!!desktopShell}
+      updateState={updateState}
+      onInstallUpdate={() => { void desktopShell?.update.install(); }}
+    />
+  );
+  const settingsPage = settings && (
+    <SettingsPage
+      section={settings.section}
+      provider={settings.provider}
+      onBack={() => { window.location.hash = backHash.current; }}
+      onNavigate={(section, provider) => {
+        const next = settingsHash(section, provider);
+        // 左栏点另一家只换选中,不往历史里堆一条(浏览器后退回到进设置之前)
+        if (provider && settings.section === section) window.location.replace(next);
+        else window.location.hash = next;
+      }}
+      onOpenFolderVisibility={() => setFvisOpen((n) => n + 1)}
+      consentMode={consentMode}
+      onSetConsentMode={(m) => {
+        // 乐观更新会在失败时把界面停在错的档位上 —— 这一格宁可慢一拍,
+        // 也要显示后端**真实**的值(它决定的是助手能不能不打招呼就换根)。
+        apiSetConsentMode(m)
+          .then(() => fetchConsent())
+          .then((st) => setConsentMode(st.mode))
+          .catch(() => { /* 失败就不动:下次打开设置会重新拉 */ });
       }}
       health={health}
       desktopShell={!!desktopShell}
@@ -494,7 +517,7 @@ export default function App() {
       <WindowChrome />
       {/* 后台没好时界面不挂任何字(业主 09-23:「这种东西肯定不能显示出来」,照 ZCode);
           各页的 /api 请求被外壳挂着、就绪后自己补上,见 track opendesign-quiet-start-icons。 */}
-      {sidebar}
+      {route === "settings" ? settingsPage : sidebar}
 
       {/* 3a 新对话页(常驻,非 home 路由时 CSS 隐藏不卸载) */}
       <section className={`home-pane${route === "home" ? "" : " route-hidden"}`}>
@@ -502,7 +525,7 @@ export default function App() {
           variant="home"
           slot="home"
           session={session}
-          onOpenLlmKey={() => setLlmKeyOpen(true)}
+          onManageModels={manageModels}
           prefill={homePrefill}
           onConnected={onConnected}
           onTurnEnd={onTurnEnd}
@@ -560,7 +583,7 @@ export default function App() {
           dataEpoch={dataEpoch}
           inboxActive={route === "workspace"}
           onNewChat={newProjectChat}
-          onOpenLlmKey={() => setLlmKeyOpen(true)}
+          onManageModels={manageModels}
         />
       </div>
 
@@ -575,7 +598,7 @@ export default function App() {
           active={route === "todos"}
           dataEpoch={dataEpoch}
           session={session}
-          onOpenLlmKey={() => setLlmKeyOpen(true)}
+          onManageModels={manageModels}
         />
       </div>
       {route === "skills" && <SkillsPage onUseSkill={useSkill} />}
@@ -606,11 +629,6 @@ export default function App() {
         </div>
       )}
 
-      {llmKeyOpen && (
-        <div className="connect-modal-mask" onClick={() => setLlmKeyOpen(false)}>
-          <LlmKeyCard initialStatus={llmKeyStatus} onStatus={updateLlmKeyStatus} />
-        </div>
-      )}
 
       {/* 5a 搜索命令面板(⌘K 浮层,盖在当前页上) */}
       <SearchPanel

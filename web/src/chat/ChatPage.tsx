@@ -33,11 +33,12 @@ import {
   MODEL_PATH,
   MODELS_PATH,
   modelChipLabel,
-  modelMenuItems,
+  modelMenuTree,
   modelSelectBody,
   readModelsResponse,
   type ModelsStatus,
 } from "./modelPicker";
+import ModelMenu from "./ModelMenu";
 
 // P2 T3:视觉照 handoff §4 重排(用户消息低对比右对齐 / AI 无气泡直排 /
 // 赤陶流式光标 / Claude 式组合输入卡 / 「记一下」chip 预填)。
@@ -109,8 +110,8 @@ type Props = {
    *  三处挂载点当前都没有 `key`,实例不随项目切换重建,所以固定串就够;
    *  哪天给它们加了 key,这里要改成带 project 的身份(gpt 腿提的)。 */
   slot?: string;
-  /** 模型菜单最后一行「换厂商 / 换 key…」:打开 App 级的「AI 模型 key」卡(与侧栏同一个入口)。 */
-  onOpenLlmKey?: () => void;
+  /** 换模型弹框底行「管理模型」:打开设置页的模型设置,落在 provider 那一家(照 ZCode;App 负责跳路由)。 */
+  onManageModels?: (provider: string | null) => void;
 };
 
 function StockLink() {
@@ -134,7 +135,7 @@ export default function ChatPage({
   projectLabel,
   variant = "column",
   slot,
-  onOpenLlmKey,
+  onManageModels,
 }: Props) {
   const fallback = useMemo(() => new ChatSession(), []);
   const session = sessionProp ?? fallback;
@@ -810,46 +811,19 @@ export default function ChatPage({
                 <span className="caret">▴</span>
               </button>
               {modelMenuOpen && (
-                <div className="model-menu" data-ui="chat-model-menu" role="menu">
-                  {modelMenuItems(models).map((it, i) =>
-                    it.kind === "group" ? (
-                      <div className="group" key={`g${i}`}>{it.label}</div>
-                    ) : it.kind === "sep" ? (
-                      <div className="sep" key={`s${i}`} />
-                    ) : it.kind === "model" ? (
-                      <button
-                        key={`${it.provider ?? ""}:${it.id}`}
-                        className={`item${it.active ? " active" : ""}`}
-                        role="menuitemradio"
-                        aria-checked={it.active}
-                        data-model-id={it.id}
-                        data-provider={it.provider ?? undefined}
-                        disabled={modelBusy}
-                        onClick={() => {
-                          if (it.active) setModelMenuOpen(false);
-                          else void pickModel(it);
-                        }}
-                      >
-                        <span className="name">{it.label}</span>
-                        <span className="check">{it.active ? "✓" : ""}</span>
-                      </button>
-                    ) : (
-                      <button
-                        key="switch"
-                        className="item"
-                        role="menuitem"
-                        data-ui="chat-model-switch-provider"
-                        onClick={() => {
-                          setModelMenuOpen(false);
-                          onOpenLlmKey?.();
-                        }}
-                      >
-                        {it.label}
-                      </button>
-                    ),
-                  )}
-                  {modelErr && <div className="err" data-ui="chat-model-error">{modelErr}</div>}
-                </div>
+                <ModelMenu
+                  tree={modelMenuTree(models)}
+                  busy={modelBusy}
+                  error={modelErr}
+                  onPick={(m) => {
+                    if (m.active) setModelMenuOpen(false);
+                    else void pickModel(m);
+                  }}
+                  onManage={(provider) => {
+                    setModelMenuOpen(false);
+                    onManageModels?.(provider);
+                  }}
+                />
               )}
             </div>
           )}

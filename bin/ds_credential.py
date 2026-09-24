@@ -1002,8 +1002,11 @@ def providers_view(home: str, cfg_path: str, *, multi: bool = True) -> dict:
         cfg = _read_cfg(cfg_path)
     except CredentialError:
         cfg = None
-    rows = {r["id"]: r for r in status(home, cfg_path)["vendors"]}
+    st = status(home, cfg_path)
+    rows = {r["id"]: r for r in st["vendors"]}
     presets = (cfg or {}).get("model_presets") or {}
+    # 启动脚本 env 优先:主槽那家的 key 由环境变量供着时,写 key.txt 不会生效(save 会拒)⇒ 界面提前渲染成只读(w8)
+    shadowed = _current_provider(cfg) if cfg is not None and _env_key(cfg) else None
     out = []
     for vid, meta in _P().items():
         r = rows.get(vid, {})
@@ -1019,13 +1022,15 @@ def providers_view(home: str, cfg_path: str, *, multi: bool = True) -> dict:
                     "apiBase": meta["apiBase"], "keyUrl": meta.get("keyUrl"),
                     "configured": bool(r.get("configured")), "hint": r.get("hint"),
                     "live": bool(r.get("live")), "active": bool(r.get("active")), "pending": bool(r.get("pending")),
-                    "enabled": bool(meta.get("enabled", True)), "models": models})
+                    "enabled": bool(meta.get("enabled", True)), "writable": vid != shadowed, "models": models})
     current = None
     if cfg is not None:
         vendor, model = _in_use(cfg)
         if vendor:
             current = {"provider": vendor, "model": model}
-    return {"providers": out, "current": current, "multi": bool(multi)}
+    # configured = 旧 key 卡片那个口径(有 key 就算有,env 或 key.txt):首启要不要进模型设置只看它(w9)。
+    # 每家那一行在配置读不出时认不出 key 归谁,不能拿来代替。
+    return {"providers": out, "current": current, "multi": bool(multi), "configured": bool(st["configured"])}
 
 
 def _check_model_id(model) -> str:
