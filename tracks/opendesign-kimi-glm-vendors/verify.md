@@ -349,6 +349,10 @@ runlog: d12-red-on-403b634 rc=1 commit=403b634 dirty=yes at=2026-09-24T01:45:23Z
 runlog: r10-mutants-final rc=0 commit=403b634 dirty=yes at=2026-09-24T01:45:33Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T014533Z-01-r10-mutants-final.txt
   (上三行 = 收层后 12 个变异全杀;d12 在修复前代码上是绿的(老 ① 本就会删),rc=1 来自其余未修判据 —— d12 的红检靠变异 M13:删掉那条规矩 ⇒ d12 红;最终 13 个变异全杀。)
 
+runlog: run-all-final rc=3 commit=fab85c8 dirty=no final=yes at=2026-09-24T01:47:07Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T014707Z-01-run-all-final.txt
+  (上一行 = 派第 11 轮前,干净树 final:六段全过(python 1501、node 509、e2e 41),rc=3 仅既有 3 条 SKIP。)
+- 第 11 轮 = 改设计后第 2 轮(预算最后一轮):MiMo + DeepSeek,同成员复核 #36~#44 与收层;有真实阻断 ⇒ 停下交业主,不续轮。
+
 ## Accepted deviations
 
 - <接受的非关键偏差 + 原因 + 影响范围,或 None>
