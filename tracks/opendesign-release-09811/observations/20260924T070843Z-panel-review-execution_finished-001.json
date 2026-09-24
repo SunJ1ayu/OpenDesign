@@ -1,0 +1,136 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-release-09811",
+  "run_id": "20260924-150332-4022182-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-release-09811-review",
+  "started_at": "2026-09-24T07:03:32Z",
+  "finished_at": "2026-09-24T07:08:43Z",
+  "duration_ms": 310710,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "high",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "subdeepseek-agent",
+        "degraded": false,
+        "duration_ms": 303106,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:3184283ab1dce04bb43785a4c39f920212ab7585ec44b67271815425ec687d2a",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-release-09811-20260924-150332.subdeepseek.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "deepseek",
+        "model": {
+          "invoked": "deepseek-flash",
+          "reported": null,
+          "requested": "deepseek-flash"
+        },
+        "name": "subdeepseek",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260924-150332-4022182-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:573f5d7319ecf05655ee8d7007c1b2101aea9812b6494dfa8f8e5964bc1c4852",
+            "policy_version": 1,
+            "track": "opendesign-release-09811"
+          },
+          "digest": "sha256:0e7c67e56e1fdd56f3123d7eaf6154a88fb6df2df8af36c47ff362f6acb614d9",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "79ad4f5dfd969dbc676d6e84e71341d147cde4c5",
+            "index_tree_oid": "4f1070f5ac46c417fc2e2454eadd9d75b0b6fe12",
+            "worktree_tree_oid": "4f1070f5ac46c417fc2e2454eadd9d75b0b6fe12"
+          },
+          "task_sha256": "sha256:9b28831a3a57e456e719bca2cd3fc912effc48ef024be8d49cf7b09f9dfb9bbd"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "api",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      },
+      {
+        "adapter": "subcursor",
+        "degraded": false,
+        "duration_ms": 308151,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:73740e36b19f3fb765ad62e89412cf023a79f96abdcd026c35c9d1c97f42bbde",
+          "ref": "file:///root/aiwork/logs/panel-opendesign-release-09811-20260924-150332.subcursor.grok-4.7-high.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "xai",
+        "model": {
+          "invoked": "grok-4.7-high",
+          "reported": null,
+          "requested": "grok-4.7-high"
+        },
+        "name": "subcursor.grok-4.7-high",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260924-150332-4022182-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:573f5d7319ecf05655ee8d7007c1b2101aea9812b6494dfa8f8e5964bc1c4852",
+            "policy_version": 1,
+            "track": "opendesign-release-09811"
+          },
+          "digest": "sha256:0e7c67e56e1fdd56f3123d7eaf6154a88fb6df2df8af36c47ff362f6acb614d9",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "79ad4f5dfd969dbc676d6e84e71341d147cde4c5",
+            "index_tree_oid": "4f1070f5ac46c417fc2e2454eadd9d75b0b6fe12",
+            "worktree_tree_oid": "4f1070f5ac46c417fc2e2454eadd9d75b0b6fe12"
+          },
+          "task_sha256": "sha256:9b28831a3a57e456e719bca2cd3fc912effc48ef024be8d49cf7b09f9dfb9bbd"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "PASS",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
