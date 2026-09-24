@@ -201,6 +201,24 @@ class TestCustomProvider(Rig):
         self.assertFalse(any(pid in name for name in self.cfg()["providers"]), "删掉的供应商槽还在")
 
 
+    def test_z13_a_custom_provider_can_be_renamed_and_repointed_without_collisions(self):
+        """QA-设计 Grok Q2 → 主裁定 Q8:照 ZCode,自定义供应商能改名、改 Base URL;改地址同样查撞车;key 不丢、当前模型跟着新地址。"""
+        self.put_primary("mimo")
+        pid = self.add_proxy()
+        self.gateway_env()
+        self.select("gpt-x", pid)
+        ds_credential.update_custom_provider(self.home, self.cfg_path, pid, label="新名字",
+                                             api_base="https://proxy2.example/v1")
+        row = next(p for p in self.view()["providers"] if p["id"] == pid)
+        self.assertEqual((row["label"], row["apiBase"]), ("新名字", "https://proxy2.example/v1"))
+        self.assertEqual(self.sends(), ("gpt-x", "https://proxy2.example/v1", PROXY_KEY))
+        for base in (ds_credential.PROVIDERS["kimi"]["apiBase"], "ftp://x", ""):
+            with self.subTest(base=base), self.assertRaises(ds_credential.CredentialError):
+                ds_credential.update_custom_provider(self.home, self.cfg_path, pid, api_base=base)
+        with self.assertRaises(ds_credential.CredentialError):
+            ds_credential.update_custom_provider(self.home, self.cfg_path, pid, label="  ")
+
+
 class TestEnableAndKeys(Rig):
 
     def test_z6_disable_hides_from_the_menu_without_touching_routing(self):
