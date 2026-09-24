@@ -13,7 +13,17 @@
 - [ ] T3b **试点:测试员角色**(业主 09-24 同意,见 evidence/qa-pilot.md):QA-设计两家 16:15 派出
       (日志前缀在 scratchpad prefix_qa;/root/aiwork/logs/explore-zcode-qa-design-*)→ 主裁合并成 evidence/acceptance-cases.md → 据此写 T4 判据;
       界面建好后 QA-执行(真操作 + 截图)→ 缺陷分级 → 再做代码评审(1 轮为主)。
-- [ ] T4 界面判据先行(node 纯逻辑 + e2e),再实现界面:
+- [x] T3b QA-设计完成 → evidence/acceptance-cases.md(A1~A29 + 需求空白主裁定 Q1~Q9,`3b19d75`);Q8 后台补 update_custom_provider(判据 z13 `df32ac2` → 实现 `36c5529`)
+- [ ] T4 **进行中(09-24 16:4x 断点)**:已写 tests/test_model_settings_ui.mjs(ms1~ms7,模块 web/src/settings/modelSettings.ts:
+      readProvidersResponse / providerStatus / providerStateText / navGroups / contextLabel / settingsRoute / settingsHash / PROVIDERS_PATH)。
+      **下一步**:① 把 tests/test_model_picker.mjs(mp1~mp4)与 tests/test_per_vendor_ui.mjs(pv1~pv4)改成问两级树
+      `modelMenuTree(status)`(每家一行:provider/label/active/models[{id,label,active,provider}];底行 MANAGE_MODELS_LABEL=「管理模型」;
+      厂商行打勾 = 它下面有当前模型;同名模型只勾当前那家;没模型 ⇒ 空树只剩底行);pv6/pv7、ku1~ku3 已由 ms1~ms4 接替 ⇒ 从旧文件删掉并在 verify 对照表写明;
+      ② 这批判据改动单独 commit(红);③ 写 modelSettings.ts、改 modelPicker.ts(删 modelMenuItems / SWITCH_PROVIDER_LABEL)、设置整页组件、ChatPage 两级弹框、
+      App 路由(#/settings…)与首启无 key 进模型设置;删 LlmKeyCard / llmKey.ts(先 grep 其它引用:TodoPage.tsx、TodoRail.tsx 里有)。
+      e2e:移植 llm_key / per_vendor_keys / model_picker 三份到新界面(对照表进 verify),desktop_update 与云 E4 不改。
+      界面判据改完、实现前,可按 QA 试点再派 QA-执行(界面建好后)。
+- [ ] T4(原计划细节,保留)界面判据先行(node 纯逻辑 + e2e),再实现界面:
       - 设置整页:点侧栏「设置」(data-ui=settings-toggle)⇒ 整个侧栏换成设置栏目(返回工作区 / 常规 / 模型设置);
         「返回工作区」接替 settings-toggle(同 data-ui、aria-expanded=true);常规页放原弹层各项,**更新相关钩子原样沿用**
         (update-status / update-check / update-retry;update-restart 与 update-badge 留在侧栏设置行)⇒ 云 E4(.github/scripts/electron-e2e/e4-drive.mjs)
