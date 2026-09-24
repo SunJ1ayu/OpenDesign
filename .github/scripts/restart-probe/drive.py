@@ -79,7 +79,7 @@ first = {}
 threading.Thread(target=lambda: first.setdefault("line", host.stdout.readline()), daemon=True).start()
 while "line" not in first and time.monotonic() - t0 < 420:
     time.sleep(0.2)
-say(f"host 第一帧: {first.get('line', b'(超时)')[:300]!r}")
+say(f"host 第一帧: {first.get('line', b'(timeout)')[:300]!r}")
 ready = json.loads(first["line"])
 web = ready["web_port"]
 wsport = json.loads((home / ".nanobot" / "config.json").read_text(encoding="utf-8"))["channels"]["websocket"]["port"]
