@@ -401,6 +401,21 @@ runlog: run-all-r12 rc=3 commit=9a071b1 dirty=no final=yes at=2026-09-24T02:46:3
   停止条件:只剩「要手改配置才碰得到」的边缘形状或判据对未来实现的缺口 ⇒ 记延期收尾;MiMo 再超时 ⇒ 停下交业主,不再自行重试。
 runlog: r12-mutants-with-d4e rc=0 commit=575ffc5 dirty=yes at=2026-09-24T03:44:59Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T034459Z-01-r12-mutants-with-d4e.txt
   (上一行 = 补 d4e 后 19 个变异全杀;M19 在补 d4e 前的副本里 9 套测试全绿(见 #54 核实栏),d4e 在它上面两格都红。)
+- 重派记录(基础设施,不算实质轮):11:47 两次派发都没起腿 —— ① 缺仓外自审(补 `/root/aiwork/tasks/opendesign-kimi-glm-vendors-r12b-my-review.md`,派发前写);
+  ② MiMo 刚超时进冷却(`PANEL_HEALTH_OVERRIDE=submimo=healthy` 放回)。11:48 起腿:日志 /root/aiwork/logs/panel-kimi-glm-r12b-20260924-114803.* [仓外不承重],MiMo 3000s / DeepSeek 2400s。
+- 第 12 轮重派花名册: submimo=PASS(verdict=BLOCK) subdeepseek=PASS(verdict=PASS)(日志 /root/aiwork/logs/panel-kimi-glm-r12b-20260924-114803.* [仓外不承重])
+  **两家结论冲突 ⇒ 这次的覆盖不成立**(归档闸不认有冲突的组)。两家都确认 #46~#53 在出货代码上关掉、本单 diff 没引入新序列、#55~#58 处置站得住。
+
+  | # | 发现 | 核实 | 可达性 | 处置 |
+  |---|---|---|---|---|
+  | 59 | (DeepSeek)d4e 能被另一种错误改写骗过:「当前模型不在新厂商目录里才重置」⇒ 自配端点 model=glm-5.1、先存 DeepSeek 再存 GLM ⇒ 悬空、nanobot 拒载 | 我在全仓副本亲跑:该改写下 6 套指定测试全绿;出货代码同一序列切到 glm-5.3@glm、按量端点 | 只有将来有人这样改才出现;每一步的**当前**行为都已有判据(d4e + 换别家的 d4c 对照面) | **延期**:业主那边今天不会发生;属「挡不住任意未来实现」 |
+  | 60 | (MiMo F1)正用额外格 Kimi 的 kimi-k2.7-code,界面给 Kimi 再存一把 key(换 key)⇒ 起网关后当前变成 kimi-k3 | 我亲跑复现(属实);根因 `_synced_config` ⑤ 兑现「想换过去」时固定取那家默认(`bin/ds_credential.py:773-778`),不看当前是否已在用这家;0.98.9 起就如此(非本单引入);卡片保存前写着「将使用 Kimi 的 kimi-k3」 | **正常入口** | **交业主**:与主槽同家换 key 不动模型(#38/d4b)不一致,也与业主 09-24 定的「不改用户原来的选择」冲突;修法是同一条规矩搬到兑现处(当前预设已属这家 ⇒ 不动),小,但要再审一轮 |
+  | 61 | (MiMo F2a)d4e 只存 DeepSeek,「只给 DeepSeek 切」的写死实现全绿 | 读 d4e 属实 | 只有将来有人写死一家 | **延期**(若再修一轮,d4e 顺手按五家循环,零成本) |
+  | 62 | (MiMo F2b)d4e 的「有外壳」那格没放主槽 key ⇒ 走的仍是主槽直写,不是有外壳时真实走的「写标记 → 起网关兑现」;该路径没有判据(变异「自配主槽上标记不兑现」会穿过) | 我亲跑属实:那格 key.txt 不存在;真实形态(自配端点 + 主槽有 key + 有外壳)出货代码起网关后发 deepseek-v4-flash → api.deepseek.com(对) | **正常入口**(Windows 外壳上的老自配机器走的正是这条) | **本单修(判据)**,同 #54 的标准。**更正我自己**:上面 #54 行与 r12-mutants 收据注释里「无外壳/有外壳两格」说错了,第二格实际与第一格同一条路 |
+  | 63 | (MiMo 补充)合并与 _fallback_if_dangling 对「自配端点 + 悬空 + 自有预设」回落答案不一致(合并取第一份自有预设,_fallback 回 model 字段) | 读 `bin/ds_merge_config.py:136-141` 属实 | 只有手改出悬空才会遇到 | **延期**:业主那边只有手改过配置才会看到当前模型变成他自己写的第一份预设 |
+
+- **状态:NEEDS_MORE_INFO,停下交业主**(业主给的追加 1 轮已用完;#60 正常入口、#62 判据缺口成立;本次两家冲突,不论修不修都要再有一次不冲突的两家评审才能归档)。
+  主裁建议:修 #60(照 #38 同一条规矩)+ #62(d4e 补真实外壳路径、问起网关后 nanobot 真发的)+ #61 顺手,再审 1 轮;停止条件照旧。
 
 ## Accepted deviations
 
