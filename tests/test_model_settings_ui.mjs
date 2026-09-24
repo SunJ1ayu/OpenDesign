@@ -91,3 +91,8 @@ test("ms7 设置页路由:#/settings ⇒ 常规;#/settings/models?provider=kimi 
   assert.equal(settingsHash("models", "kimi"), "#/settings/models?provider=kimi");
   assert.deepEqual(settingsRoute(settingsHash("models", "c_1")), { section: "models", provider: "c_1" });
 });
+
+test("ms8 被环境变量供着的那一家 writable=false 原样透出(界面据此禁用输入并说明,H1);老后端没这个字段 ⇒ 当可写", () => {
+  const v = readProvidersResponse(200, { ...VIEW, providers: [P("mimo", { writable: false }), P("deepseek")] });
+  assert.deepEqual(v.providers.map((p) => p.writable), [false, true]);
+});

@@ -29,6 +29,44 @@ runlog -t opendesign-zcode-model-settings -- <判据命令>
  「- 无机器证据:<理由>」认账 —— 沉默不算理由(5c)。>
 ```
 
+## 判据先行的红收据
+
+- 后台 z1~z12 / 接口 w1~w7 / 界面纯逻辑 ms1~ms7:见 evidence/20260924T075751Z-01-backend-criteria-red.txt、20260924T080536Z-01-web-criteria-red.txt(当时没粘行,文件在)
+- T4 移植批(模块未写 ⇒ 红在 ERR_MODULE_NOT_FOUND;b2 本来就该绿)与 w8(红在 KeyError 'writable'):
+
+```
+runlog: t4-node-criteria-red rc=1 commit=89c21ab dirty=yes at=2026-09-24T08:59:18Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T085918Z-01-t4-node-criteria-red.txt
+runlog: t4-w8-red rc=1 commit=89c21ab dirty=yes at=2026-09-24T08:59:18Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T085918Z-02-t4-w8-red.txt
+```
+
+## T4 判据移植对照(旧界面 → 照 ZCode 的新界面;09-24,判据单独 commit)
+
+旧 key 卡片(`LlmKeyCard.tsx` / `llmKey.ts`)与一维换模型菜单被删;钉着它们的判据**逐条搬到新界面,编号尽量不变**,性质一条不丢。
+钩子表见 design.md「界面钩子」。
+
+| 旧 | 新 | 说明 |
+|---|---|---|
+| test_model_picker mp1~mp4(modelMenuItems) | 同号,问 `modelMenuTree`(两级树) | 「换厂商 / 换 key…」⇒ 底行「管理模型」(落到当前那家);mp5/mp6 原样 |
+| test_per_vendor_ui pv1~pv4 | 同号,问 `modelMenuTree` | pv3 加问厂商行的勾;pv1 加问没模型的那家不列;pv5 原样 |
+| test_per_vendor_ui pv6 / pv7(卡片每行状态与说法) | test_model_settings_ui ms1 / ms4 | 四种说法 + ZCode 的「已禁用」= 五种 |
+| test_kimi_glm_ui ku1 / ku2(keyUrl 透出、只收 https) | ms1 / ms2 | 文件删除 |
+| test_kimi_glm_ui ku3(源码扫:链接跟着选中那家、新窗口、不带来源、没链接不画) | e2e model_settings A28 ×2 | 从扫源码改成问真页面(更强) |
+| test_llm_key a1~a7 / b1 / c1 / c2 / d1~d3(llmKey.ts) | 同号,问 `settings/modelSettings.ts` | 新增 a8(添加供应商带 key 同一纪律);c2 加问 key 塞进某家末四位提示 |
+| test_llm_key_surface b2 / c3 / c4 | 同号;c3/c4 扫 `web/src/settings/` 全部源码 | 原来只扫逻辑层一份,现在连组件一起扫 |
+| e2e llm_key A1~A7 | 同号 | 自动弹卡 ⇒ 自动进 `#/settings/models`;关卡片 ⇒「返回工作区」;遮罩吃点击 ⇒ 离开后点得动侧栏 |
+| e2e llm_key B1~B3 / C1~C10 / D1 / E1 / E2 / G1 / C5 | 同号 | 选择器换新钩子;E1 等 `/api/llm/providers` 回包;E2 新旧两个接口都问;C5 保存路径 `/api/llm/providers/key` |
+| e2e llm_key F0~F3 | 同号 + F4 | 设置弹层 ⇒ 设置页「常规」;F1 问「模型设置」入口唯一且常规页没有第二个密码框;F4 常规页原弹层各项都在 |
+| e2e llm_key H1(卡片只读) | 同号(stub `/api/llm/providers` 的 writable=false) | 后台一半新增 w8(test_ds_web_providers,真环境变量) |
+| — | e2e llm_key N1 | 老装法说明 + 无「添加供应商」(QA Q6 / A25) |
+| e2e per_vendor_keys A1~E | 同号 | 卡片行 ⇒ 设置页左栏 + 详情 `ms-state`;**C2 按 D4 改语义**:存别家 key 不换当前模型(原「存完就换过去」);D 组改成先点 DeepSeek-pro 再点 MiMo-pro(当前本来就是 mimo-v2.5,先点它问不出"变了") |
+| e2e model_picker ①~⑮ | 同号 + ⑦a/⑦b/⑦c | ⑦ 问厂商行 ✓ + 管理模型;⑦b 子菜单在右边;⑦c 斜着移进子菜单不闪退(A23);⑫ ⇒ 管理模型进设置页当前那家 |
+| e2e settings_fvis B(`.settings-pop`) | 同段,等 `settings-general` | 其余原样 |
+| — | e2e model_settings(新) | 验收清单 A1/A2/A3/A5/A6/A7/A8/A9/A10/A12/A15/A16/A18/A19/A20/A21/A22/A27/A28 + Q8;**无外网出口**(只测本机假厂商) |
+| desktop_update / 云 E4 | **不改** | `settings-toggle` / `update-*` 钩子沿用(常规页放更新各项,侧栏设置行留 `update-restart` / `update-badge`) |
+
+仍由别处管、这里不重复:A13 升级(py z11 + 业主 UAT)、A14(desktop_update + 云 E4)、A26 两处聊天框同步(`MODEL_CHANGED_EVENT` 未改)、A29 像不像 ZCode(T5 截图亲看 + QA-执行)。
+`tests/mutation-llm-key.sh` 的锚点指着旧文件,实现落地后改锚点重跑(红检,不是判据本身)。
+
 ## Review
 
 - 规格自查(读任何 panel 输出之前先答):<回看 design 的用户成功条件、前提证据和未解决项。

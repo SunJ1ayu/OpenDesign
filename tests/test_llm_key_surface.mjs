@@ -7,6 +7,10 @@
 // 和没有闸一样 —— 这个仓里栽过一次(win-deps-audit.py 剥后缀剥错,任何包都判缺失)。
 // 拆出来之后,它们从此刻起就给真结论。
 //
+// 09-24 起旧 key 卡片(web/src/llmKey.ts + LlmKeyCard.tsx)由照 ZCode 的「设置 · 模型设置」接替
+// (track opendesign-zcode-model-settings):c3/c4 扫的对象换成 **web/src/settings/ 下全部源码**
+// (逻辑层 modelSettings.ts 与填 key 的界面组件都在那儿)—— 比原来只扫逻辑层一份更宽,性质不变。
+//
 // 跑法:node --test tests/test_llm_key_surface.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -16,7 +20,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC = join(ROOT, "web", "src", "llmKey.ts");
+const SETTINGS_DIR = join(ROOT, "web", "src", "settings");
 
 /** web/src 下所有 .ts/.tsx(不含 dist / node_modules)。 */
 function walkSrc(dir) {
@@ -58,24 +62,25 @@ print(json.dumps(ds_credential.PROVIDERS, ensure_ascii=False))
   }
 });
 
-/** 读 llmKey.ts;还没落地时给一句人话,别甩 ENOENT。 */
+/** 读设置页源码(逻辑层 + 组件);还没落地时给一句人话,别甩 ENOENT。 */
 function readImpl() {
-  if (!existsSync(SRC)) {
-    assert.fail("web/src/llmKey.ts 还不存在 —— 实现没落地,这一条此刻问不出东西");
+  if (!existsSync(join(SETTINGS_DIR, "modelSettings.ts"))) {
+    assert.fail("web/src/settings/modelSettings.ts 还不存在 —— 实现没落地,这一条此刻问不出东西");
   }
-  return readFileSync(SRC, "utf-8");
+  return walkSrc(SETTINGS_DIR).map((f) => [f.slice(ROOT.length + 1), readFileSync(f, "utf-8")]);
 }
 
-test("c3 逻辑层不许碰 localStorage / sessionStorage / cookie", () => {
-  const src = readImpl();
-  for (const v of ["localStorage", "sessionStorage", "document.cookie"]) {
-    assert.ok(!src.includes(v), `llmKey.ts 里出现了 ${v} —— key 只能过一次手,不许留副本`);
+test("c3 设置页(逻辑层 + 填 key 的组件)不许碰 localStorage / sessionStorage / cookie", () => {
+  for (const [f, src] of readImpl()) {
+    for (const v of ["localStorage", "sessionStorage", "document.cookie"]) {
+      assert.ok(!src.includes(v), `${f} 里出现了 ${v} —— key 只能过一次手,不许留副本`);
+    }
   }
 });
 
-test("c4 逻辑层不许自己打日志(console 是 e2e 明账要扫的那一面)", () => {
-  const src = readImpl();
-  assert.ok(!/\bconsole\.(log|info|warn|error|debug)\s*\(/.test(src),
-            "llmKey.ts 里有 console.* —— 调试语句是 key 最常见的漏法");
+test("c4 设置页不许自己打日志(console 是 e2e 明账要扫的那一面)", () => {
+  for (const [f, src] of readImpl()) {
+    assert.ok(!/\bconsole\.(log|info|warn|error|debug)\s*\(/.test(src),
+              `${f} 里有 console.* —— 调试语句是 key 最常见的漏法`);
+  }
 });
-

@@ -11,6 +11,10 @@
 //   ② 旧头部还在、只是多加了一个按钮 ⇒ 断言页面上没有 .chat-meta、没有「退出登录」。
 //   ③ 重连中也挂着绿点 = 界面谎称已连接 ⇒ 掐断后断言按钮不出现(chat_reconnect 那条语义保留)。
 //
+// 09-24 起菜单照 ZCode 两级弹框(track opendesign-zcode-model-settings,旧→新对照在它的 verify.md):
+//   ⑦ 改问「厂商行 ✓ + 底行管理模型」,并新增 ⑦b 子菜单在厂商行右边、⑦c 斜着移进子菜单不闪退(QA A23);
+//   ⑧ 在子菜单里点;⑫「换厂商 / 换 key…」→「管理模型」进设置页这家。其余原样。
+//
 // 跑法:node tests/e2e/model_picker.e2e.mjs(自起 ds_web 于 8844;不需要 nanobot)
 import { spawn } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
@@ -147,24 +151,45 @@ try {
   const chipBox2 = await page.locator(chip).boundingBox();
   check(menuBox && chipBox2 && menuBox.y + menuBox.height <= chipBox2.y + 1, "⑥ 菜单向上弹(在按钮上方)");
   const menuText = await page.locator(menu).innerText();
-  check(menuText.includes("mimo-v2.5-pro") && menuText.includes("换厂商 / 换 key…") && menuText.includes("MiMo"),
-    "⑦ 菜单里有当前 key 的两个模型、厂商名、和「换厂商 / 换 key…」");
+  const vendor = page.locator(`${menu} [data-ui="chat-model-vendor"][data-provider="mimo"]`);
+  check(menuText.includes("MiMo") && menuText.includes("管理模型") && !menuText.includes("换厂商")
+        && await vendor.getAttribute("data-selected") === "true",
+    "⑦ 菜单里是厂商一行(MiMo,当前那家打勾)和底行「管理模型」;旧的「换厂商 / 换 key…」没了");
+  const sub = page.locator(`[data-ui="chat-model-sub"][data-provider="mimo"]`);
+  await vendor.hover();
+  check(await until(() => sub.isVisible(), 5000), "⑦a 移到厂商行 ⇒ 弹出这家的模型");
+  const vBox = await vendor.boundingBox();
+  const sBox = await sub.boundingBox();
+  check(vBox && sBox && sBox.x >= vBox.x + vBox.width - 8, "⑦b 模型子菜单在厂商行右边(照 ZCode 向右弹)");
+  // ⑦c QA A23:从厂商行**斜着**移进子菜单(先经过菜单里别的地方)子菜单不许闪退。
+  //     只测"直接跳进去"问不出这件事:鼠标真实轨迹会先擦过厂商行下沿。
+  const target = page.locator(`[data-ui="chat-model-sub"][data-provider="mimo"] [data-model-id="mimo-v2.5-pro"]`);
+  const tBox = await target.boundingBox();
+  if (vBox && tBox) {
+    await page.mouse.move(vBox.x + vBox.width - 12, vBox.y + vBox.height / 2);
+    await page.mouse.move(tBox.x + tBox.width / 2, tBox.y + tBox.height / 2, { steps: 12 });
+  }
+  check(await sub.isVisible() && (await sub.locator("[data-model-id]").innerText().catch(() => "")).length > 0
+        && (await page.locator(`${menu} [data-ui="chat-model-sub"] [data-model-id="mimo-v2.5"]`).getAttribute("aria-checked")) === "true",
+    "⑦c 斜着移进子菜单不闪退;当前模型那行打勾");
 
   // ── 选中 ⇒ 真写配置 ⇒ 按钮换字 ────────────────────────────────────────
-  await page.locator(`${menu} [data-model-id="mimo-v2.5-pro"]`).click();
+  await target.click();
   check(await until(() => modelPresetOnDisk() === "mimo-v2.5-pro", 8000), "⑧ 选 mimo-v2.5-pro ⇒ 盘上的配置真的改了");
   check(posts.length === 1, `⑨ 恰好发出一次 POST /api/llm/model(实际 ${posts.length})`);
   check(await until(async () => (await page.locator(chip).innerText()).includes("mimo-v2.5-pro"), 8000),
     "⑩ 按钮上的字变成 mimo-v2.5-pro");
   check(!(await page.locator(menu).isVisible()), "⑪ 选完菜单收起");
 
-  // ── 换厂商 ⇒ 打开现有的「AI 模型 key」 ────────────────────────────────
+  // ── 管理模型 ⇒ 设置页 · 模型设置,落在当前那家 ────────────────────────
   await page.locator(chip).click();
   await page.locator(menu).waitFor({ state: "visible", timeout: 5000 });
-  await page.locator(`${menu} [data-ui="chat-model-switch-provider"]`).click();
-  check(await until(() => page.locator('[data-ui="llm-key-card"]').isVisible(), 5000),
-    "⑫ 「换厂商 / 换 key…」打开 AI 模型 key 卡片");
-  await page.keyboard.press("Escape");
+  await page.locator(`${menu} [data-ui="chat-model-manage"]`).click();
+  check(await until(() => page.locator('[data-ui="model-settings"] [data-ui="ms-detail"][data-provider="mimo"]').isVisible(), 5000)
+        && /#\/settings\/models/.test(page.url()),
+    "⑫ 「管理模型」打开设置页的模型设置,右边是当前那家(MiMo)");
+  await page.locator('[data-ui="settings-toggle"]:visible').click();
+  await page.locator(chip).waitFor({ state: "visible", timeout: 5000 });
 
   // ── 断线 ⇒ 按钮不许挂着 ────────────────────────────────────────────────
   await page.evaluate(() => window.__killAll());

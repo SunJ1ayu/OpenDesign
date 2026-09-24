@@ -2,10 +2,14 @@
 // 真 chromium + 真 ds_web + 一个**假外壳**(只会应答重启暗号、并替外壳做 prepare_gateway 那一步)。
 // 主 agent 亲写。设计:tracks/opendesign-per-vendor-keys/design.md。
 //
+// 09-24 移植到照 ZCode 的新界面(track opendesign-zcode-model-settings;旧→新对照在它的 verify.md):
+// 旧 key 卡片 → 设置页「模型设置」;一维菜单 → 两级弹框;「换厂商 / 换 key…」→「管理模型」。
+// **C2 语义按业主定的 D4 改了**:存别家的 key 不换当前模型(照 ZCode),原来是"存完就换过去"。
+//
 // 业主视角的一整趟:
-//   A 已经配过 MiMo:菜单里只有 MiMo 一组;卡片上 MiMo 一行「在用 + 末四位」,DeepSeek 一行「还没填」
-//   B 在卡片里选 DeepSeek、粘 key、保存 ⇒ MiMo 的 key **原样还在**;DeepSeek 的 key 落进它自己的文件
-//   C 外壳重启网关(这里是假外壳做 prepare_gateway)之后:菜单出现两组,DeepSeek 那行打勾(存完就换过去,与今天一致)
+//   A 已经配过 MiMo:菜单里只有 MiMo 一家;「管理模型」进设置页,MiMo「在用 + 末四位」,DeepSeek「还没填」
+//   B 在设置页选 DeepSeek、粘 key、保存 ⇒ MiMo 的 key **原样还在**;DeepSeek 的 key 落进它自己的文件
+//   C 外壳重启网关(这里是假外壳做 prepare_gateway)之后:菜单出现两家,勾仍在 MiMo(存 key 不换当前模型,D4)
 //   D 在菜单里点 MiMo 的模型、再点 DeepSeek 的模型 ⇒ **配置文件真的变了**,而且指向对的那一家(不是只换了按钮上的字)
 //   E 两把 key 都不许出现在页面文本 / 无障碍树 / 控制台里
 //
@@ -162,91 +166,113 @@ try {
   await waitConnected(page, pane);
 
   // 第 1 轮 K1:菜单打开时先用手上的旧数据画、再用打开那一下拉到的新数据重画。
-  // 读在两者之间就是时序性红(Kimi 环境 2/2 红)⇒ **等打开那次 /api/llm/models 回包落地、
-  // 再过两帧**才读。等的是真实状态,不是放宽。
+  // 读在两者之间就是时序性红 ⇒ **等打开那次 /api/llm/models 回包落地、且菜单里的家数与回包一致**再读。
   const twoFrames = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-  // 第 2 轮 DeepSeek 残余 3:回包头到了 ≠ 页面画好了。改成**等菜单里的组数与这次回包一致**再读 ——
-  // 等的是页面反映了新数据这件事本身,不是一个经验帧数。
-  const groupsInMenu = async () => {
+  const vendorRow = (id) => page.locator(`${menu} [data-ui="chat-model-vendor"][data-provider="${id}"]`);
+  const openMenu = async () => {
     const fresh = page.waitForResponse((r) => r.url().includes("/api/llm/models"), { timeout: 8000 });
     await page.locator(chip).click();
     const body = await (await fresh).json().catch(() => ({}));
     const want = Array.isArray(body.groups) && body.groups.length ? body.groups.length : 1;
     await page.locator(menu).waitFor({ state: "visible", timeout: 5000 });
-    await until(async () => (await page.locator(`${menu} .group`).count()) === want, 5000);
+    await until(async () => (await page.locator(`${menu} [data-ui="chat-model-vendor"]`).count()) === want, 5000);
     await twoFrames();
-    const labels = await page.locator(`${menu} .group`).allInnerTexts();
-    const models = await page.locator(`${menu} [data-model-id]`).evaluateAll(
-      (els) => els.map((e) => [e.getAttribute("data-provider"), e.getAttribute("data-model-id"),
-                               e.getAttribute("aria-checked")]));
-    return { labels, models };
+  };
+  // 两级弹框:每家一行,移上去才向右弹出这家的模型 ⇒ 逐家悬停,把子菜单里的行读出来
+  const vendorsInMenu = async () => {
+    await openMenu();
+    const rows = await page.locator(`${menu} [data-ui="chat-model-vendor"]`).evaluateAll(
+      (els) => els.map((e) => [e.getAttribute("data-provider"), e.innerText, e.getAttribute("data-selected")]));
+    const models = [];
+    for (const [id] of rows) {
+      await vendorRow(id).hover();
+      const sub = page.locator(`[data-ui="chat-model-sub"][data-provider="${id}"]`);
+      await sub.waitFor({ state: "visible", timeout: 5000 });
+      models.push(...await sub.locator("[data-model-id]").evaluateAll(
+        (els) => els.map((e) => [e.getAttribute("data-provider"), e.getAttribute("data-model-id"),
+                                 e.getAttribute("aria-checked")])));
+    }
+    return { labels: rows.map((r) => r[1]), selected: rows.filter((r) => r[2] === "true").map((r) => r[0]), models };
   };
   const closeMenu = async () => {
     if (await page.locator(menu).isVisible()) await page.keyboard.press("Escape");
   };
 
   // ── A ──
-  const a = await groupsInMenu();
-  check(a.labels.length === 1 && /MiMo/.test(a.labels[0]), `A1 只配了 MiMo:菜单只有 MiMo 一组(实际 ${JSON.stringify(a.labels)})`);
-  check(a.models.every(([p]) => p === "mimo"), `A2 每一行都标着厂商 mimo(实际 ${JSON.stringify(a.models)})`);
-  await page.locator(`${menu} [data-ui="chat-model-switch-provider"]`).click();
-  const card = '[data-ui="llm-key-card"]';
-  check(await until(() => page.locator(card).isVisible(), 5000), "A3 「换厂商 / 换 key…」打开卡片");
-  const row = (id) => page.locator(`${card} [data-ui="llm-key-vendor"][data-vendor="${id}"]`);
-  check(await until(async () => (await row("mimo").count()) === 1 && (await row("deepseek").count()) === 1, 5000),
-    "A4 卡片上两家各一行");
-  const mimoRow = await row("mimo").innerText().catch(() => "");
-  const dsRow0 = await row("deepseek").innerText().catch(() => "");
-  check(/在用/.test(mimoRow) && mimoRow.includes(MIMO_KEY.slice(-4)), `A5 MiMo 一行:在用 + 末四位(实际「${mimoRow}」)`);
+  const a = await vendorsInMenu();
+  check(a.labels.length === 1 && /MiMo/.test(a.labels[0]), `A1 只配了 MiMo:菜单只有 MiMo 一家(实际 ${JSON.stringify(a.labels)})`);
+  check(a.models.length > 0 && a.models.every(([p]) => p === "mimo"), `A2 每一行都标着厂商 mimo(实际 ${JSON.stringify(a.models)})`);
+  await page.locator(`${menu} [data-ui="chat-model-manage"]`).click();
+  const ms = '[data-ui="model-settings"]';
+  check(await until(() => page.locator(ms).isVisible(), 5000)
+        && await until(() => page.locator('[data-ui="ms-detail"][data-provider="mimo"]').isVisible(), 5000),
+    "A3 「管理模型」打开模型设置,落在当前那家(MiMo)");
+  const navItem = (id) => page.locator(`${ms} [data-ui="ms-nav-item"][data-provider="${id}"]`);
+  const stateOf = async (id) => {
+    if (!(await page.locator(`[data-ui="ms-detail"][data-provider="${id}"]`).isVisible())) {
+      await navItem(id).click();
+      await page.locator(`[data-ui="ms-detail"][data-provider="${id}"]`).waitFor({ timeout: 5000 });
+    }
+    return page.locator(`[data-ui="ms-detail"][data-provider="${id}"] [data-ui="ms-state"]`).innerText().catch(() => "");
+  };
+  check(await until(async () => (await navItem("mimo").count()) === 1 && (await navItem("deepseek").count()) === 1, 5000),
+    "A4 左栏两家各一行");
+  const mimoRow = await stateOf("mimo");
+  check(/在用/.test(mimoRow) && mimoRow.includes(MIMO_KEY.slice(-4)), `A5 MiMo:在用 + 末四位(实际「${mimoRow}」)`);
+  const dsRow0 = await stateOf("deepseek");
   // 🔴 「没有末四位」在那一行根本不存在时也成立 ⇒ 先要求它有字(第一版就是这么假绿的)
   check(dsRow0.trim().length > 0 && !dsRow0.includes("…") && !dsRow0.includes(DS_KEY.slice(-4)),
-    `A6 DeepSeek 一行在、且没有末四位(还没填)(实际「${dsRow0}」)`);
+    `A6 DeepSeek 在、且没有末四位(还没填)(实际「${dsRow0}」)`);
 
   // ── B ──
-  await row("deepseek").click();
-  check(await page.locator('[data-ui="llm-key-provider"]').inputValue() === "deepseek", "B1 点 DeepSeek 那一行 ⇒ 下拉里选中了 DeepSeek");
-  await page.locator('[data-ui="llm-key-input"]').fill(DS_KEY);
-  await page.locator('[data-ui="llm-key-save"]').click();
-  check(await until(() => page.locator('[data-ui="llm-key-notice"]').isVisible(), 8000), "B2 保存后有提示");
-  // 第 2 轮 DeepSeek 残余 4:B7 要问的是「卡片自己跟上」,前提是存完那一刻它**确实**处在「等重启」——
-  // 否则一台慢机器上它可能一开始就是「在用」,B7 不靠轮询也绿。先把前提钉住。
-  check(await until(async () => /重启/.test(await row("deepseek").innerText()), 1200),
-    `B2b 存完那一刻 DeepSeek 一行写着要等后台重启(实际「${await row("deepseek").innerText().catch(() => "")}」)`);
-  check(readFileSync(join(home, ".openDesign", "key.txt"), "utf8").trim() === MIMO_KEY, "B3 MiMo 的 key 原样还在(本单要解决的正是它被覆盖)");
+  check(await page.locator('[data-ui="ms-detail"][data-provider="deepseek"]').isVisible(), "B1 点左栏 DeepSeek ⇒ 右边是 DeepSeek 的详情");
+  await page.locator('[data-ui="ms-key"]:visible').fill(DS_KEY);
+  await page.locator('[data-ui="ms-key-save"]:visible').click();
+  check(await until(() => page.locator('[data-ui="ms-notice"]:visible').isVisible(), 8000), "B2 保存后有提示");
+  // B7 要问的是「页面自己跟上」,前提是存完那一刻它**确实**处在「等重启」—— 先把前提钉住。
+  check(await until(async () => /重启/.test(await stateOf("deepseek")), 1200),
+    `B2b 存完那一刻 DeepSeek 写着要等后台重启(实际「${await stateOf("deepseek")}」)`);
+  check(readFileSync(join(home, ".openDesign", "key.txt"), "utf8").trim() === MIMO_KEY, "B3 MiMo 的 key 原样还在");
   check(existsSync(dsKeyFile) && readFileSync(dsKeyFile, "utf8").trim() === DS_KEY, "B4 DeepSeek 的 key 落进它自己的文件");
   check(await until(() => restarts.length > 0, 8000), `B5 保存之后请了外壳重启网关(假外壳收到 ${restarts.length} 次)`);
   check(restarts.every((r) => r.rc === 0), `B6 外壳那一步(prepare_gateway)没出错:${JSON.stringify(restarts)}`);
-  // 第 1 轮 G5:卡片一直开着,后台起好之后它要自己跟上,不许一直写着「等重启」
-  check(await until(async () => /在用/.test(await row("deepseek").innerText()), 15000),
-    `B7 卡片开着不动:后台起好后 DeepSeek 一行自己变成「在用」(实际「${await row("deepseek").innerText().catch(() => "")}」)`);
+  // 第 1 轮 G5:页面一直开着,后台起好之后它要自己跟上,不许一直写着「等重启」
+  check(await until(async () => !/重启/.test(await stateOf("deepseek"))
+                     && (await navItem("deepseek").locator('[data-provider-status="ready"]').count()) === 1, 15000),
+    `B7 页面开着不动:后台起好后 DeepSeek 自己变成「就绪」(实际「${await stateOf("deepseek")}」)`);
 
   // ── C ──
-  await page.keyboard.press("Escape");
-  await until(async () => !(await page.locator(card).isVisible()), 3000);
-  const c = await groupsInMenu();
+  await page.locator('[data-ui="settings-toggle"]:visible').click();
+  await until(async () => !(await page.locator(ms).isVisible()), 3000);
+  await page.locator(`${pane} .chat-card`).waitFor({ state: "visible", timeout: 5000 });
+  const c = await vendorsInMenu();
   check(c.labels.length === 2 && /MiMo/.test(c.labels.join()) && /DeepSeek/.test(c.labels.join()),
-    `C1 网关拿到 key 之后菜单出现两组(实际 ${JSON.stringify(c.labels)})`);
+    `C1 网关拿到 key 之后菜单出现两家(实际 ${JSON.stringify(c.labels)})`);
   const checked = c.models.filter(([, , on]) => on === "true");
-  check(checked.length === 1 && checked[0][0] === "deepseek" && checked[0][1] === CATALOG.deepseek.model,
-    `C2 存完就换到了 DeepSeek(与今天一致)(实际打勾 ${JSON.stringify(checked)})`);
+  check(checked.length === 1 && checked[0][0] === "mimo" && checked[0][1] === CATALOG.mimo.model
+        && JSON.stringify(c.selected) === '["mimo"]',
+    `C2 存 DeepSeek 的 key 没换当前模型:勾仍在 MiMo(D4,照 ZCode)(实际打勾 ${JSON.stringify(checked)} / 厂商行 ${JSON.stringify(c.selected)})`);
 
   // ── D ──
   const pick = async (provider, model) => {
-    if (!(await page.locator(menu).isVisible())) await page.locator(chip).click();
-    await page.locator(`${menu} [data-provider="${provider}"][data-model-id="${model}"]`).click();
+    if (!(await page.locator(menu).isVisible())) await openMenu();
+    await vendorRow(provider).hover();
+    const item = page.locator(`[data-ui="chat-model-sub"][data-provider="${provider}"] [data-model-id="${model}"]`);
+    await item.waitFor({ state: "visible", timeout: 5000 });
+    await item.click();
     return until(() => readCfg().agents.defaults.modelPreset === model, 8000);
   };
   const entryFor = (cfg, apiBase) => (cfg.providers.custom?.apiBase === apiBase ? "custom"
     : Object.entries(cfg.providers).find(([n, p]) => n !== "custom" && p?.apiBase === apiBase)?.[0]);
-  check(await pick("mimo", "mimo-v2.5"), "D1 点 MiMo 的模型 ⇒ 配置里的当前模型真的变了");
+  check(await pick("deepseek", "deepseek-v4-pro"), "D1 点 DeepSeek 的 pro ⇒ 配置里的当前模型真的变了");
   let cfg = readCfg();
-  check(cfg.model_presets["mimo-v2.5"]?.provider === entryFor(cfg, CATALOG.mimo.apiBase),
-    `D2 它指向 MiMo 的端点(预设 provider=${cfg.model_presets["mimo-v2.5"]?.provider})`);
-  check(await until(async () => (await page.locator(chip).innerText()).includes("mimo-v2.5"), 5000), "D3 按钮上的字跟着变");
-  check(await pick("deepseek", "deepseek-v4-pro"), "D4 再点 DeepSeek 的 pro ⇒ 配置里的当前模型真的变了");
-  cfg = readCfg();
   check(cfg.model_presets["deepseek-v4-pro"]?.provider === entryFor(cfg, CATALOG.deepseek.apiBase),
-    `D5 它指向 DeepSeek 的端点(预设 provider=${cfg.model_presets["deepseek-v4-pro"]?.provider})`);
+    `D2 它指向 DeepSeek 的端点(预设 provider=${cfg.model_presets["deepseek-v4-pro"]?.provider})`);
+  check(await until(async () => (await page.locator(chip).innerText()).includes("deepseek-v4-pro"), 5000), "D3 按钮上的字跟着变");
+  check(await pick("mimo", "mimo-v2.5-pro"), "D4 再点 MiMo 的 pro ⇒ 配置里的当前模型真的变了");
+  cfg = readCfg();
+  check(cfg.model_presets["mimo-v2.5-pro"]?.provider === entryFor(cfg, CATALOG.mimo.apiBase),
+    `D5 它指向 MiMo 的端点(预设 provider=${cfg.model_presets["mimo-v2.5-pro"]?.provider})`);
   check(readFileSync(join(home, ".openDesign", "key.txt"), "utf8").trim() === MIMO_KEY
         && readFileSync(dsKeyFile, "utf8").trim() === DS_KEY, "D6 换模型没碰任何 key 文件");
 

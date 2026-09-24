@@ -132,6 +132,28 @@ class TestProvidersApi(Rig):
         st, d = self.call("GET", "/api/llm/providers")
         self.assertNotIn("evil", [m["id"] for m in d["providers"][0]["models"]])
 
+    def test_w8_a_key_from_the_environment_is_read_only_here(self):
+        """旧 key 卡片 H1 的后台一半(09-24 移植):启动脚本 env 优先 ⇒ 被环境变量供着的那一家在设置页只读、说清为什么;
+        别家照常能存(额外格不受那个变量影响)。"""
+        env_key = "sk-oracle-from-env-var-0123456789"
+        saved = os.environ.get("DS_LLM_KEY")
+        self.addCleanup(lambda: os.environ.__setitem__("DS_LLM_KEY", saved) if saved is not None
+                        else os.environ.pop("DS_LLM_KEY", None))
+        os.environ["DS_LLM_KEY"] = env_key
+        self.with_shell()
+        st, d = self.call("GET", "/api/llm/providers")
+        self.assertEqual(st, 200, d)
+        rows = {p["id"]: p for p in d["providers"]}
+        self.assertIs(rows["mimo"]["writable"], False, "被环境变量供着的那一家要标成只读")
+        self.assertTrue(rows["mimo"]["hint"] and rows["mimo"]["hint"].endswith(env_key[-4:]), "末四位要报真正生效的那把")
+        self.assertIs(rows["deepseek"]["writable"], True)
+        self.assertNotIn(env_key, json.dumps(d, ensure_ascii=False))
+        st, d = self.call("POST", "/api/llm/providers/key", {"provider": "mimo", "key": KIMI_KEY})
+        self.assertEqual(st, 400, d)
+        self.assertIn("环境变量", d["error"])
+        st, d = self.call("POST", "/api/llm/providers/key", {"provider": "deepseek", "key": KIMI_KEY})
+        self.assertEqual(st, 200, d)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

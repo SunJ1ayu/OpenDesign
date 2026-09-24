@@ -1,22 +1,25 @@
 // T4 oracle:业主在界面里填大模型 key(真 chromium + 真 ds_web)。
 // 主 agent 亲写;执行腿对本文件逐字节 off-limits。
-// track opendesign-key-onboarding,design.md 第二/三节 + 「这个 oracle 能被什么骗过」。
+// 原 track opendesign-key-onboarding(旧 key 卡片);09-24 起那张卡片由照 ZCode 的「设置 · 模型设置」接替
+// (track opendesign-zcode-model-settings)—— **每一问原样保留、编号不变**,只把问的地方换成新页面
+// (钩子表在那个 track 的 design.md,旧→新对照在它的 verify.md)。
 //
 // ── 为什么必须有这一条(纯逻辑判据顶不了)────────────────────────────────
 // key 是**凭据**。它会不会漏,漏在浏览器那一侧:页面 HTML、无障碍树、控制台、
 // 以及**线上真正飞过去的字节**。tests/test_llm_key.mjs 只能问"我写的那条路对不对";
-// 它答不了"有没有从我没想到的那面漏出去"(design 骗法一)。
+// 它答不了"有没有从我没想到的那面漏出去"。
 // 所以这里的主断言不是"功能好了",是:**整个流程走完,KEY 原文在全机器上只该出现
 // 在两个地方 —— 那一次 POST 的请求体,和 key.txt。别处一次都不许。**
 //
 // 覆盖:
-//   A 没配 key 时,一打开就有得填(不是一句"请去找记事本")
+//   A 没配 key 时,一打开就进「模型设置」有得填(不是一句"请去找记事本");离得开、离开后不挡东西、下次打开照样带进来
 //   B 厂商是后端说了算,选谁就落谁的端点(期望值从 bin/ds_credential.py 现读,不抄)
 //   C 🔴 KEY 只在"那一次 POST 的 body"和 key.txt 里出现;
-//     HTML / aria / console / 任何一份响应体 / ds_web 自己的日志 / 配置文件 —— 零命中
+//     HTML / aria / console / 任何一份响应体 / ds_web 自己的日志 / 配置文件 / 浏览器存储 —— 零命中
 //   D 没有外壳时那句话不许撒谎:必须叫业主自己重启(restart=manual)
-//   E 存完再打开:不弹了、只显示末四位、原文永不回显
-//   F 设置里能再打开**同一个**卡片(一份代码两个入口)
+//   E 存完再打开:不再带进设置页、只显示末四位、原文永不回显
+//   F 设置页里「模型设置」只有一个入口,不教人敲命令行,已存的那家显示末四位
+//   G 换 key 是覆盖  H 被环境变量供着 ⇒ 只读并说明  N 没外壳(老装法)只能用一家
 //
 // 跑法:node tests/e2e/llm_key.e2e.mjs(自起 ds_web 于 8837;需要 web/dist 是新的)
 import { spawn, spawnSync } from "node:child_process";
@@ -202,89 +205,78 @@ try {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
 
   // A —— 没配 key 时,一打开就有得填
-  const card = page.locator('[data-ui="llm-key-card"]');
-  await run("A1 没配 key 时首屏自己弹出填 key 的卡片", async () => {
-    await card.waitFor({ timeout: 15000 });
+  const ms = page.locator('[data-ui="model-settings"]');
+  const nav = (id) => page.locator(`[data-ui="ms-nav-item"][data-provider="${id}"]`);
+  const detailOf = (id) => page.locator(`[data-ui="ms-detail"][data-provider="${id}"]`);
+  const keyInput = page.locator('[data-ui="ms-key"]:visible');
+  await run("A1 没配 key 时一打开就进「模型设置」(接替首屏自动弹卡)", async () => {
+    await ms.waitFor({ timeout: 15000 });
+    if (!/#\/settings\/models/.test(page.url())) throw new Error(`地址不是模型设置:${page.url()}`);
     CARD_UP = true;
   });
-  await runIfCard("A2 卡片里有厂商选择、key 输入框、保存按钮", async () => {
-    // 数**看得见的**那一个:两个入口都常驻 DOM、靠 CSS 显隐,是合理实现,
-    // 按总数判会把它冤枉掉。业主眼前只该有一个,这才是要守的东西。
-    for (const ui of ["llm-key-provider", "llm-key-input", "llm-key-save"]) {
+  await runIfCard("A2 有厂商列表、key 输入框、保存按钮", async () => {
+    // 数**看得见的**那一个:业主眼前只该有一个,这才是要守的东西。
+    for (const ui of ["ms-nav", "ms-key", "ms-key-save"]) {
       const n = await page.locator(`[data-ui="${ui}"]:visible`).count();
       if (n !== 1) throw new Error(`屏幕上看得见的 [data-ui="${ui}"] 应恰好 1 个,实为 ${n}`);
     }
   });
   await runIfCard("A3 key 输入框是密码框(肩后偷看是最原始的那一面)", async () => {
-    const inp = page.locator('[data-ui="llm-key-input"]');
-    const t = await inp.getAttribute("type");
+    const t = await keyInput.getAttribute("type");
     if (t !== "password") throw new Error(`type=${t}`);
     // 不加 autocomplete=off,浏览器会把这把 key 记进自己的凭据库 ——
     // 那是 key.txt 之外的第二个持久副本,而且 C9 扫不到它。
-    const ac = (await inp.getAttribute("autocomplete") || "").toLowerCase();
+    const ac = (await keyInput.getAttribute("autocomplete") || "").toLowerCase();
     if (ac !== "off" && ac !== "new-password") {
       throw new Error(`autocomplete=${ac || "(没设)"} —— 浏览器会记住这把 key`);
     }
   });
-  await runIfCard("A4 厂商选项由后端给,后端有几家就是几家", async () => {
-    // 问"每一家都在不在",不锁总数 —— 锁总数会把合理的「请选择…」占位项判成红,
-    // 而误报和假绿一样坏。
-    const values = await page.locator('[data-ui="llm-key-provider"] option')
-      .evaluateAll((os) => os.map((o) => o.value));
+  await runIfCard("A4 厂商列表由后端给,后端有几家就是几家", async () => {
+    // 问"每一家都在不在",不锁总数(将来自定义供应商也在这张表里)。
+    const values = await page.locator('[data-ui="ms-nav-item"]').evaluateAll((os) => os.map((o) => o.getAttribute("data-provider")));
     for (const id of PROVIDER_IDS) {
-      if (!values.includes(id)) throw new Error(`后端有 ${id},界面选项里没有:${JSON.stringify(values)}`);
+      if (!values.includes(id)) throw new Error(`后端有 ${id},界面列表里没有:${JSON.stringify(values)}`);
     }
   });
 
-  // A5~A7 —— 这张卡片挡在业主和整个界面之间,所以「关得掉」「关掉不留残余」
-  // 跟「弹得出来」同等重要。
-  //
-  // 🔴 补这三条的直接原因(2026-08-16,别把它当锦上添花删掉):T4 合入后的全量回归
-  //    **29 条 e2e 一起红**,形态全是 `connect-modal-mask intercepts pointer events`
-  //    —— 遮罩吃掉了所有点击。那次的根因确实在夹具(开发机没 key ⇒ 每条 e2e 一开页面
-  //    就被自动弹的卡片挡住),已在 tests/e2e/run-all.sh 修掉。**但那个修法是给每条
-  //    e2e 预置一把假 key,等于把「没配 key 的那个界面」从所有 e2e 的视野里挪走了**
-  //    —— 而那恰恰是业主装完第一次打开时看到的界面。⇒ 挪走之后,谁哪天删掉
-  //    App.tsx 里遮罩的 onClick,判据将**一条都不红**,而业主会被一张关不掉的卡片
-  //    锁在门外。这三条就是补上那个洞:夹具让别的场景绕开它,这里正面问它。
+  // A5~A7 —— 这一页挡在业主和整个界面之间,所以「离得开」「离开不留残余」「下次照样带进来」
+  // 跟「进得来」同等重要(2026-08-16 那次 29 条 e2e 被遮罩吃点击一起红,是这三问的来历;
+  // 夹具给别的 e2e 预置了假 key,「没配 key 的那个界面」只有这里在正面问)。
   let CARD_DISMISSED = false;
-  await runIfCard("A5 点卡片外面能把它关掉(业主可以先不填,先看看)", async () => {
-    // 点遮罩左上角:离卡片最远,不会误点到卡片自己身上。
-    await page.locator(".connect-modal-mask").click({ position: { x: 5, y: 5 } });
-    await card.waitFor({ state: "hidden", timeout: 8000 });
+  await runIfCard("A5 「返回工作区」能离开设置页(业主可以先不填,先看看)", async () => {
+    await page.locator('[data-ui="settings-toggle"]:visible').click();
+    await ms.waitFor({ state: "hidden", timeout: 8000 });
+    if (/#\/settings/.test(page.url())) throw new Error(`还停在设置页:${page.url()}`);
     CARD_DISMISSED = true;
   });
   const runIfDismissed = async (label, fn) => {
-    if (!CARD_DISMISSED) { failed++; console.log(`  FAIL - ${label}: 卡片(A5)就没关掉 —— 这一问此刻问不出东西,不许算绿`); return; }
+    if (!CARD_DISMISSED) { failed++; console.log(`  FAIL - ${label}: 设置页(A5)就没离开 —— 这一问此刻问不出东西,不许算绿`); return; }
     await run(label, fn);
   };
-  await runIfDismissed("A6 关掉之后点得动别的东西(遮罩不许留下来吃点击)", async () => {
-    // 🔴 「卡片不见了」证明不了「不挡了」:遮罩完全可以留在 DOM 里透明地继续拦点击,
-    //    肉眼和 waitFor(hidden) 都看不出来 —— 上面那 29 条红正是这个形态。
-    //    所以这一问必须**真点一次别的东西,并且看见它有反应**。
+  await runIfDismissed("A6 离开之后点得动别的东西(没有残留的一层吃点击)", async () => {
+    // 「看不见了」证明不了「不挡了」⇒ 真点一次别的东西,并且看见它有反应。
     await page.locator(".side-footer .side-row").click({ timeout: 5000 });
-    await page.locator(".settings-pop").waitFor({ timeout: 8000 });
+    await page.locator('[data-ui="settings-general"]').waitFor({ timeout: 8000 });
   });
-  await run("A7 关掉不等于「以后别再提醒我」:重开页面照样弹(否则他永远填不上)", async () => {
-    // 这一问还兼着**恢复现场**:B 组要用这张卡片填 key,而 A5 把它关掉了。
-    // 未配置状态下重开必弹(A1 的机制)⇒ 删掉这一问会让 B 组莫名其妙全红。
+  await run("A7 离开不等于「以后别再提醒我」:重开页面照样带进模型设置(否则他永远填不上)", async () => {
+    // 兼着**恢复现场**:B 组要在这一页填 key。
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
-    await card.waitFor({ timeout: 15000 });
+    await ms.waitFor({ timeout: 15000 });
   });
 
   // B/D —— 填一把 key、挑非默认厂商、保存
   await runIfCard("B1 选厂商 + 填 key + 保存,界面给出结果", async () => {
-    await page.locator('[data-ui="llm-key-provider"]').selectOption(PICK);
-    await page.locator('[data-ui="llm-key-input"]').fill(KEY);
-    await page.locator('[data-ui="llm-key-save"]').click();
-    await page.locator('[data-ui="llm-key-notice"]').waitFor({ timeout: 15000 });
+    await nav(PICK).click();
+    await detailOf(PICK).waitFor({ timeout: 8000 });
+    await keyInput.fill(KEY);
+    await page.locator('[data-ui="ms-key-save"]:visible').click();
+    await page.locator('[data-ui="ms-notice"]:visible').waitFor({ timeout: 15000 });
     SAVED = true;
   });
   await runIfSaved("D1 没有外壳 ⇒ 那句话必须叫业主自己重启,不许假装已生效", async () => {
-    const txt = (await page.locator('[data-ui="llm-key-notice"]').innerText()).trim();
+    const txt = (await page.locator('[data-ui="ms-notice"]:visible').innerText()).trim();
     if (!/重启|重新启动|重新打开/.test(txt)) throw new Error(`没让他重启:「${txt}」`);
   });
-
   // B2/B3 —— 落盘落对地方(值从后端真相源来,不在这儿抄第二遍)
   await runIfSaved("B2 key 落在 key.txt 里,一行、就是原文", async () => {
     const p = join(home, ".openDesign", "key.txt");
@@ -395,9 +387,9 @@ try {
     }
   });
   await runIfSaved("C10 保存成功后输入框已清空(别让 key 一直躺在页面里)", async () => {
-    // 两种都算对:① 表单还在但已清空;② 保存成功后整张卡片/表单直接卸载(更保守)。
+    // 两种都算对:① 输入框还在但已清空;② 保存成功后输入框直接卸载(更保守)。
     // 只认①会把②冤枉掉,而②恰恰是更安全的做法。
-    const inp = page.locator('[data-ui="llm-key-input"]');
+    const inp = page.locator('[data-ui="ms-key"]');
     if (await inp.count() === 0) return;                 // 卸载了,更好
     const v = await inp.inputValue();
     if (v !== "") throw new Error(`输入框里还留着 ${v.length} 个字符`);
@@ -424,121 +416,124 @@ try {
   });
 
   // E —— 存完之后再打开
-  await runIfSaved("E1 已配置时不再自己弹卡片(别打扰他)", async () => {
-    // 🔴 不许用"死等 N 秒然后看它没弹"来判 —— 实现拉状态慢一点,
-    //    「不弹」就变成「还没弹」,而这是假绿。
+  await runIfSaved("E1 已配置时不再自己带进设置页(别打扰他)", async () => {
+    // 🔴 不许用"死等 N 秒然后看它没跳"来判 —— 拉状态慢一点,「不跳」就变成「还没跳」,这是假绿。
     //    正确的等法:等到**它确实已经知道自己配好了**(状态响应到达)再看。
     const got = page.waitForResponse(
-      (r) => r.url().endsWith("/api/llm/credential") && r.status() === 200,
+      (r) => r.url().endsWith("/api/llm/providers") && r.request().method() === "GET" && r.status() === 200,
       { timeout: 15000 });
-    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.goto(`${BASE}/#/`, { waitUntil: "domcontentloaded" });
     await got;                       // 状态已经到手
-    await page.waitForTimeout(1200); // 再给它足够时间"弹"(要弹早弹了)
-    if (await card.isVisible().catch(() => false)) throw new Error("配好了还弹");
+    await page.waitForTimeout(1200); // 再给它足够时间"跳"(要跳早跳了)
+    if (await ms.isVisible().catch(() => false)) throw new Error("配好了还带进设置页");
+    if (/#\/settings/.test(page.url())) throw new Error(`配好了地址还被改成设置页:${page.url()}`);
   });
-  await runIfSaved("E2 状态接口只回末四位提示,永不回原文", async () => {
-    const d = await (await fetch(`${BASE}/api/llm/credential`)).json();
-    if (d.configured !== true) throw new Error(`configured=${d.configured}`);
-    if (leaked(JSON.stringify(d))) throw new Error("状态接口把 key 回显了");
-    if (!d.hint || !String(d.hint).includes(KEY.slice(-4))) {
-      throw new Error(`hint 认不出是哪把:${d.hint}`);
-    }
-    // 「不含整串」不等于「没泄漏」:回显前 20 个字符同样是泄漏。钉死它的规模。
-    if (leaked(d.hint) || String(d.hint).length > 16) {
-      throw new Error(`hint 给多了(${String(d.hint).length} 字符):${d.hint}`);
+  await runIfSaved("E2 状态接口只回末四位提示,永不回原文(新旧两个接口都问)", async () => {
+    const d = await (await fetch(`${BASE}/api/llm/providers`)).json();
+    const row = (d.providers || []).find((p) => p.id === PICK);
+    if (!row || row.configured !== true) throw new Error(`${PICK} 没标成已配置:${JSON.stringify(row)}`);
+    const legacy = await (await fetch(`${BASE}/api/llm/credential`)).json();
+    for (const [name, hint, all] of [["providers", row.hint, d], ["credential", legacy.hint, legacy]]) {
+      if (leaked(JSON.stringify(all))) throw new Error(`${name} 接口把 key 回显了`);
+      if (!hint || !String(hint).includes(KEY.slice(-4))) throw new Error(`${name} 的 hint 认不出是哪把:${hint}`);
+      // 「不含整串」不等于「没泄漏」:回显前 20 个字符同样是泄漏。钉死它的规模。
+      if (leaked(hint) || String(hint).length > 16) throw new Error(`${name} 的 hint 给多了(${String(hint).length} 字符):${hint}`);
     }
   });
 
-  // F —— 一份代码两个入口
+  // F —— 设置页里的入口
   //
-  // 🔴 先把设置弹层真的打开,再问里面有什么。第一版我漏了这一步,于是 F3
-  //    「设置里没有教人敲命令行的提示」**绿了** —— 弹层压根没渲染,搜不到字符串
-  //    当然"没有"。这就是上面 runIfSaved 那段说的同一种假绿,我自己又踩了一次:
-  //    **"没找到坏东西"必须先证明"我真的在看那个地方"。**
+  // 🔴 先把设置页真的打开,再问里面有什么:"没找到坏东西"必须先证明"我真的在看那个地方"
+  //    (第一版 F3 在弹层压根没渲染时绿过)。
   let POP_UP = false;
-  await run("F0 设置弹层能打开(下面两问的前提,不许靠它没渲染来蒙混过关)", async () => {
+  await run("F0 侧栏「设置」能打开设置页(下面几问的前提,不许靠它没渲染来蒙混过关)", async () => {
     await page.locator(".side-footer .side-row").click();
-    await page.locator(".settings-pop").waitFor({ timeout: 8000 });
+    await page.locator('[data-ui="settings-general"]').waitFor({ timeout: 8000 });
     POP_UP = true;
   });
   const runIfPop = async (label, fn) => {
-    if (!POP_UP) { failed++; console.log(`  FAIL - ${label}: 设置弹层(F0)没打开 —— 这一问此刻问不出东西,不许算绿`); return; }
+    if (!POP_UP) { failed++; console.log(`  FAIL - ${label}: 设置页(F0)没打开 —— 这一问此刻问不出东西,不许算绿`); return; }
     await run(label, fn);
   };
-  await runIfPop("F1 设置里有且只有一个改 key 的入口", async () => {
-    const n = await page.locator('[data-ui="settings-llm-key"]').count();
-    if (n !== 1) throw new Error(`设置里的 key 入口 ${n} 个(要一处,别新增一行还留着旧的)`);
+  await runIfPop("F1 设置里有且只有一个「模型设置」入口;常规页上没有第二个填 key 的框", async () => {
+    const n = await page.locator('[data-ui="settings-nav-models"]').count();
+    if (n !== 1) throw new Error(`设置里的模型设置入口 ${n} 个(要一处)`);
+    const pw = await page.locator('input[type="password"]:visible').count();
+    if (pw !== 0) throw new Error(`常规页上看得见 ${pw} 个密码框 —— 另做了一份填 key 的地方`);
   });
-  await runIfPop("F3 设置里那一行不再教业主去敲命令行", async () => {
+  await runIfPop("F4 「常规」里原弹层各项都在(工作区文件夹 / 危险动作确认 / 快捷键 / 软件更新)", async () => {
+    const g = page.locator('[data-ui="settings-general"]');
+    for (const ui of ["settings-folder-visibility", "settings-consent-mode", "update-status"]) {
+      if (!(await g.locator(`[data-ui="${ui}"]`).first().isVisible())) throw new Error(`常规页上看不见 ${ui}`);
+    }
+    if (!/快捷键/.test(await g.innerText())) throw new Error("常规页上没有「快捷键」");
+  });
+  await runIfPop("F3 设置里不再教业主去敲命令行", async () => {
     const html = await page.content();
     if (html.includes("set_model.py")) {
       throw new Error("旧的「跑个命令切模型」提示还在 —— 业主要的是在设置里统一弄");
     }
   });
-  await runIfSaved("F2 点它打开的是同一个卡片(不是另做一份)", async () => {
-    await page.locator('[data-ui="settings-llm-key"]').click();
-    await card.waitFor({ timeout: 8000 });
-    // 已配置时进来必须能看见"当前是哪把",否则业主不知道自己在改什么
-    // 文本节点 or placeholder 都算"显示了" —— 只认 innerText 会把
-    // 「placeholder 里写末四位」这种合理实现判红(误报)。
-    const txt = await card.innerText();
-    const aria = String(await card.ariaSnapshot());
-    const shown = txt + "\n" + aria;
-    if (!shown.includes(KEY.slice(-4))) {
-      throw new Error(`卡片没显示末四位:「${txt.slice(0, 120)}」`);
-    }
-    if (shown.includes(KEY)) throw new Error("卡片把 key 原文显示出来了");
+  await runIfSaved("F2 从设置进「模型设置」,已存的那家显示末四位、不显示原文", async () => {
+    await page.locator('[data-ui="settings-nav-models"]').click();
+    await ms.waitFor({ timeout: 8000 });
+    if (await ms.count() !== 1) throw new Error(`模型设置渲染了 ${await ms.count()} 份(应是同一份)`);
+    await nav(PICK).click();
+    const d = detailOf(PICK);
+    await d.waitFor({ timeout: 8000 });
+    // 文本节点 or placeholder 都算"显示了" —— 只认 innerText 会把「placeholder 里写末四位」判红(误报)。
+    const shown = (await d.innerText()) + "\n" + String(await d.ariaSnapshot());
+    if (!shown.includes(KEY.slice(-4))) throw new Error(`没显示末四位:「${(await d.innerText()).slice(0, 120)}」`);
+    if (shown.includes(KEY)) throw new Error("把 key 原文显示出来了");
   });
-  // G —— 换一把 key 再存一次(原来只问了"第一次填")
+  await runIfSaved("N1 没外壳(老装法):模型设置顶上说清只能用一家,且没有「添加供应商」(QA Q6)", async () => {
+    const note = page.locator('[data-ui="ms-single-note"]:visible');
+    if (await note.count() !== 1) throw new Error("没有老装法那句说明");
+    if (!/一家/.test(await note.innerText())) throw new Error(`说明没讲清只能用一家:「${await note.innerText()}」`);
+    if (await page.locator('[data-ui="ms-add-provider"]').count() !== 0) throw new Error("老装法还摆着「添加供应商」");
+  });
+  // G —— 换一把 key 再存一次
   await runIfSaved("G1 换 key:key.txt 被**覆盖**,旧的那把不许留在里面", async () => {
     const KEY2 = "sk-e2e-SECOND-abcdefghijklmn-TAIL0002";
-    await page.locator('[data-ui="llm-key-input"]').fill(KEY2);
-    await page.locator('[data-ui="llm-key-save"]').click();
+    await keyInput.fill(KEY2);
+    await page.locator('[data-ui="ms-key-save"]:visible').click();
     await page.waitForTimeout(1200);
     const body = readFileSync(join(home, ".openDesign", "key.txt"), "utf-8");
     if (body.includes(KEY)) throw new Error("旧 key 还在文件里 —— 是追加不是覆盖");
     if (body.trim() !== KEY2) throw new Error(`换完之后内容不对:${JSON.stringify(body.slice(0, 20))}…`);
     if (body.trim().split("\n").length !== 1) throw new Error("key.txt 变成多行了");
   });
-  // C5 故意排在最后:`pagehide` / `visibilitychange` / 卸载时才发的 beacon,
-  //     在 C 组那个时点根本还没发生。E1 的 reload 会真正触发一次卸载,
-  //     所以要等它之后再清点"这一整趟里到底有多少东西带着 key 飞出去过"。
+  // C5 故意排在最后:`pagehide` / `visibilitychange` / 卸载时才发的 beacon,在 C 组那个时点还没发生;
+  //     E1 的跳转会真正触发一次卸载,所以等它之后再清点。
   // H —— key 由环境变量供着时,这一格必须**提前**变成只读
   //
-  // 对照 DeepSeek Harness 的 credentials seam:`describe()` 把「由当前进程环境供值」
-  // 的引用报成 `writable: false`,**界面据此提前渲染为只读**。我们的后端已经会拒绝
-  // 这种写入(E 组),但那是业主填完、点了保存才撞上的 —— 那一次白填本可以避免。
-  //
-  // 这一问用接口 stub 造场景:后端算得对不对由 tests/test_credential.py 的 E 组管
-  // (还过了红检),这里只问「前端拿到 writable=false 之后长什么样」。分工别混。
+  // 后端算得对不对由 tests/test_ds_web_providers.py w8 管;这里只问「前端拿到 writable=false 之后长什么样」。分工别混。
   await run("H1 key 由环境变量供着 ⇒ 输入框只读,并说清为什么", async () => {
-    await page.route("**/api/llm/credential", async (route) => {
+    await page.route("**/api/llm/providers", async (route) => {
       if (route.request().method() !== "GET") { await route.continue(); return; }
       const res = await route.fetch();
       const body = await res.json();
-      await route.fulfill({ json: { ...body, configured: true, source: "env",
-                                    writable: false, hint: "sk-e…ENV9" } });
+      body.providers = body.providers.map((p) => (p.id === PICK
+        ? { ...p, configured: true, writable: false, hint: "sk-e…ENV9" } : p));
+      await route.fulfill({ json: body });
     });
-    await page.goto(BASE, { waitUntil: "domcontentloaded" });
-    // configured=true ⇒ 不会自动弹,从设置里打开
-    await page.locator(".side-footer .side-row").click();
-    await page.locator('[data-ui="settings-llm-key"]').click();
-    await card.waitFor({ timeout: 8000 });
-    if (await page.locator('[data-ui="llm-key-input"]').isEnabled()) {
+    await page.goto(`${BASE}/#/settings/models?provider=${PICK}`, { waitUntil: "domcontentloaded" });
+    const d = detailOf(PICK);
+    await d.waitFor({ timeout: 8000 });
+    if (await d.locator('[data-ui="ms-key"]').isEnabled()) {
       throw new Error("被环境变量遮蔽,输入框却还能填 —— 业主会白填一次才被后端拒绝");
     }
-    const shown = (await card.innerText()) + "\n" + String(await card.ariaSnapshot());
+    const shown = (await d.innerText()) + "\n" + String(await d.ariaSnapshot());
     if (!shown.includes("环境变量")) {
-      throw new Error(`没告诉业主为什么改不了:「${(await card.innerText()).slice(0, 140)}」`);
+      throw new Error(`没告诉业主为什么改不了:「${(await d.innerText()).slice(0, 140)}」`);
     }
   });
 
   await runIfSaved("C5 出站带 key 的请求:每一条都必须是那次保存,且不在 URL / 头里", async () => {
-    // 不锁"恰好一条"——失败重试一次是合理实现,契约里也没禁。要守的是两件:
-    //   ① 真的发生过(否则这一问在空转);② **每一条**都得是那个保存请求。
+    // 不锁"恰好一条"(失败重试一次是合理实现)。要守的是两件:① 真的发生过;② **每一条**都得是保存请求。
     if (requestsWithKey.length === 0) throw new Error("一条带 key 的请求都没有 —— 保存根本没发出去");
     for (const r of requestsWithKey) {
-      if (r.method !== "POST" || !r.url.endsWith("/api/llm/credential")) {
+      if (r.method !== "POST" || !r.url.endsWith("/api/llm/providers/key")) {
         throw new Error(`key 被发去了别处:${r.method} ${r.url}`);
       }
       if (r.inUrl) throw new Error("key 进了 URL(会落进 access log / 浏览器历史)");

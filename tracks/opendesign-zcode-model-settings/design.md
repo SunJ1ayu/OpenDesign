@@ -69,3 +69,33 @@
 先写判据(红):小米加 v2.6-pro → 起网关 → 选中 ⇒ nanobot 加载发往小米端点 + 小米 key;自定义供应商同理;禁用 ⇒ 当前回落、预设删;
 自定义 Base URL 撞内置 ⇒ 拒;存 key 不改当前模型;老配置(0.98.11 五家 + 额外格 + 当前)升级后新接口列出原样;界面结构判据(设置整页栏目、两级弹框、管理模型)。
 e2e 截图亲看对照 ZCode 截图。
+
+## 界面钩子(T4 判据与实现共用;09-24 定,改名 = 改判据)
+
+照 ZCode 源码:设置页 `settings/model-provider-section/`(SectionLayout 左 224px 导航 + 右详情、ProviderStatusIndicator 三态点、
+ProviderCardSections 名称/Base URL/API Key/模型列表)、换模型 `ModelConfigSelect.tsx`(向上弹;每家一行 SubTrigger ✓ + ›,
+向右弹 SubContent 模型 ✓;底部粘性「管理模型」)。文案取 ZCode zh-CN(就绪 / 未就绪 / 未启用、获取 API Key、模型列表、添加模型、
+上下文窗口、添加模型供应商、每行一个模型名称、Chat Completions (/v1/chat/completions)、管理模型)。
+
+- 侧栏(工作区):`settings-toggle`「设置」行(aria-expanded=false)+ `update-badge` + `update-restart` —— 原样不动。
+- 设置整页 `settings-page`(`#/settings[/general|/models][?provider=<id>]`;聊天实例照常驻,不卸载):
+  左栏 `nav.side.settings-nav` = `settings-toggle`「← 返回工作区」(aria-expanded=true,回进设置前那一页)/ `settings-nav-general` 常规 /
+  `settings-nav-models` 模型设置(选中带 aria-current=page)。
+- 常规 `settings-general`:原弹层各项原样(`settings-folder-visibility` 开体检卡浮层、`settings-consent-mode`、快捷键、
+  软件更新 `update-status` / `update-check` / `update-retry` / 「重启以更新」+ 约 2 分钟提示;浏览器里是版本 + 发布页链接)。
+- 模型设置 `model-settings`:`ms-refresh` 刷新、`ms-add-provider` 添加供应商(没外壳不渲染,改渲染 `ms-single-note` 老装法说明)。
+  左栏 `ms-group`(data-group=builtin|custom,标题 内置供应商 / 自定义供应商)> `ms-nav-item`(data-provider,aria-current,内含
+  `[data-provider-status=ready|unavailable|disabled]` 圆点)。
+  右详情 `ms-detail`(data-provider):`ms-name`、`ms-enable`(role=switch,aria-checked)、`ms-state`(providerStateText)、
+  `ms-base`(内置 readonly)、自定义另有 `ms-format`(只读 Chat Completions)与 `ms-provider-save` / `ms-delete-provider`;
+  API Key:`ms-key`(type=password,autocomplete=off,**永远是空的**,已存的只以末四位出现在 placeholder/ms-state)、`ms-key-eye`(只管正在输入的)、
+  `ms-key-save`、`ms-key-link`(获取 API Key,https,target=_blank,rel=noreferrer;没链接不渲染)、`ms-key-shadowed`(环境变量供着 ⇒ 输入禁用 + 说明);
+  `ms-notice`(保存结果 / 重启提示 / 后端人话)。模型列表 `ms-models` > `ms-model`(data-model)含 `ms-ctx` 上下文标签、`ms-test` 测试、
+  `ms-edit` 编辑(上下文窗口)、`ms-delete` 删除(内置模型不渲染);`ms-add-model` 添加模型;`ms-test-result`。
+  弹窗 `ms-model-dialog`(`ms-model-id` / `ms-model-ctx` / `ms-dialog-save` / `ms-dialog-error`);
+  添加供应商表单 `ms-provider-form`(`ms-pf-name` / `ms-pf-base` / `ms-pf-key` / `ms-pf-format` 只读 / `ms-pf-models` 每行一个 /
+  `ms-pf-save` / `ms-pf-error`)。
+- 聊天框:`chat-model` 按钮;`chat-model-menu` 向上弹;每家 `chat-model-vendor`(data-provider,当前那家 data-selected=true + ✓,
+  悬停或点击向右弹出 `chat-model-sub`);模型行 `[data-model-id]`(data-provider,aria-checked);底行 `chat-model-manage`「管理模型」
+  ⇒ `#/settings/models?provider=<当前那家>`(ZCode 只开到模型设置;落到当前那家是我们多给的一步,悬停过的那家在移到底行时已收起)。
+- 首启:一家 key 都没有 ⇒ 打开即进 `#/settings/models`;每次打开都这样,直到存上一把(接替旧卡片 A1/A7)。

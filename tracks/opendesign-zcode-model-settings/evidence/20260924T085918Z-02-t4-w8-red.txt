@@ -1,0 +1,57 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    t4-w8-red
+cmd:     /root/.venvs/design-studio/bin/python tests/test_ds_web_providers.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  89c21ab
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-24T08:59:18Z
+---------------- 输出开始 ----------------
+test_w1_the_settings_view (__main__.TestProvidersApi.test_w1_the_settings_view) ... 2026-09-24 16:59:18 127.0.0.1 - "GET /api/llm/providers HTTP/1.1" 200 -
+ok
+test_w2_add_a_model_then_pick_it_in_the_chat_box (__main__.TestProvidersApi.test_w2_add_a_model_then_pick_it_in_the_chat_box) ... 2026-09-24 16:59:19 127.0.0.1 - "POST /api/llm/providers/models HTTP/1.1" 200 -
+2026-09-24 16:59:19 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-24 16:59:20 127.0.0.1 - "POST /api/llm/model HTTP/1.1" 200 -
+ok
+test_w3_refusals_speak_human (__main__.TestProvidersApi.test_w3_refusals_speak_human) ... 2026-09-24 16:59:20 127.0.0.1 - "POST /api/llm/providers/models HTTP/1.1" 400 -
+2026-09-24 16:59:20 127.0.0.1 - "POST /api/llm/providers/models HTTP/1.1" 400 -
+2026-09-24 16:59:21 127.0.0.1 - "POST /api/llm/providers/models HTTP/1.1" 400 -
+2026-09-24 16:59:21 127.0.0.1 - "POST /api/llm/providers/models HTTP/1.1" 400 -
+2026-09-24 16:59:22 127.0.0.1 - "POST /api/llm/providers/models HTTP/1.1" 400 -
+2026-09-24 16:59:22 127.0.0.1 - "POST /api/llm/providers/enabled HTTP/1.1" 400 -
+ok
+test_w4_no_shell_means_no_custom_provider (__main__.TestProvidersApi.test_w4_no_shell_means_no_custom_provider) ... 2026-09-24 16:59:23 127.0.0.1 - "POST /api/llm/providers/custom HTTP/1.1" 400 -
+2026-09-24 16:59:23 127.0.0.1 - "GET /api/llm/providers HTTP/1.1" 200 -
+ok
+test_w5_with_a_shell_a_key_save_keeps_the_model_and_asks_for_a_restart (__main__.TestProvidersApi.test_w5_with_a_shell_a_key_save_keeps_the_model_and_asks_for_a_restart) ... 2026-09-24 16:59:24 127.0.0.1 - "POST /api/llm/providers/key HTTP/1.1" 200 -
+2026-09-24 16:59:24 127.0.0.1 - "POST /api/llm/providers/custom HTTP/1.1" 200 -
+2026-09-24 16:59:25 127.0.0.1 - "POST /api/llm/providers/custom HTTP/1.1" 200 -
+ok
+test_w6_the_test_button (__main__.TestProvidersApi.test_w6_the_test_button) ... 2026-09-24 16:59:25 127.0.0.1 - "POST /api/llm/providers/custom HTTP/1.1" 200 -
+2026-09-24 16:59:26 127.0.0.1 - "POST /api/llm/test HTTP/1.1" 200 -
+/usr/lib/python3.12/unittest/case.py:669: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 39703)>
+  function, args, kwargs = self._cleanups.pop()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_w7_cross_site_writes_are_refused (__main__.TestProvidersApi.test_w7_cross_site_writes_are_refused) ... 2026-09-24 16:59:26 127.0.0.1 - "POST /api/llm/providers/models HTTP/1.1" 403 -
+2026-09-24 16:59:27 127.0.0.1 - "GET /api/llm/providers HTTP/1.1" 200 -
+ok
+test_w8_a_key_from_the_environment_is_read_only_here (__main__.TestProvidersApi.test_w8_a_key_from_the_environment_is_read_only_here)
+旧 key 卡片 H1 的后台一半(09-24 移植):启动脚本 env 优先 ⇒ 被环境变量供着的那一家在设置页只读、说清为什么; ... 2026-09-24 16:59:27 127.0.0.1 - "GET /api/llm/providers HTTP/1.1" 200 -
+ERROR
+
+======================================================================
+ERROR: test_w8_a_key_from_the_environment_is_read_only_here (__main__.TestProvidersApi.test_w8_a_key_from_the_environment_is_read_only_here)
+旧 key 卡片 H1 的后台一半(09-24 移植):启动脚本 env 优先 ⇒ 被环境变量供着的那一家在设置页只读、说清为什么;
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_web_providers.py", line 147, in test_w8_a_key_from_the_environment_is_read_only_here
+    self.assertIs(rows["mimo"]["writable"], False, "被环境变量供着的那一家要标成只读")
+                  ~~~~~~~~~~~~^^^^^^^^^^^^
+KeyError: 'writable'
+
+----------------------------------------------------------------------
+Ran 8 tests in 9.579s
+
+FAILED (errors=1)
+---------------- 输出结束 ----------------
+runlog: t4-w8-red rc=1 commit=89c21ab dirty=yes at=2026-09-24T08:59:18Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T085918Z-02-t4-w8-red.txt

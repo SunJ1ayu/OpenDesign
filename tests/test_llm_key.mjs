@@ -1,39 +1,37 @@
-// T4 oracle:界面里填大模型 key 的**纯逻辑层**(web/src/llmKey.ts)。
+// T4 oracle:界面里填大模型 key 的**纯逻辑层**。
 // 主 agent 亲写;执行腿对本文件逐字节 off-limits(改这份 = 改考卷)。
-// track opendesign-key-onboarding,design.md 第二/三/四节。
+// 原 track opendesign-key-onboarding(模块 web/src/llmKey.ts);09-24 起旧 key 卡片由照 ZCode 的「设置 · 模型设置」接替
+// (track opendesign-zcode-model-settings),问的对象换成 web/src/settings/modelSettings.ts —— **每一条性质原样保留**,
+// 对照表在那个 track 的 verify.md。
 //
 // 跑法:node --test tests/test_llm_key.mjs(Node 22+,原生 strip-types)
 //
-// ── 后端契约(T2/T3 已交付并各自有判据,见 tests/test_ds_web_credential.py)──
-//   GET  /api/llm/credential → 200 {configured, provider, hint,
-//                                   providers:[{id,label,model}]}
-//   POST /api/llm/credential {provider,key} → 200 {configured, provider, hint, restart}
-//                                           → 400 {error:"人话"}
+// ── 后端契约(判据 tests/test_ds_web_providers.py w1~w8)──────────────────
+//   GET  /api/llm/providers → 200 {providers:[{id,label,configured,hint,writable,…,models}], current, multi}
+//   POST /api/llm/providers/key {provider,key} → 200 同上 + restart
+//                                            → 400 {error:"人话"}
 //   restart ∈ {"requested","manual"}。**"manual" = 网关没被重启,得业主自己动手。**
 //
-// ── 这份考卷问什么(对着 design 那节「这个 oracle 能被什么骗过」写的)────────
+// ── 这份考卷问什么 ────────────────────────────────────────────────────────
 //   a*  契约:发到哪、发了什么、回来是什么形状
-//   b*  厂商清单**只能来自后端**(骗法四:两边各硬编码一份,就会一起错)
-//   c*  key 不许在前端留下任何副本(骗法一的前端那一半)
-//   d*  重启那句话不许撒谎(骗法三:manual 必须说"请重启",requested 不许说)
+//   b*  厂商清单**只能来自后端**(两边各硬编码一份,就会一起错)
+//   c*  key 不许在前端留下任何副本
+//   d*  重启那句话不许撒谎(manual 必须说"请重启",requested 不许说)
 //
 // ⚠️ 判据先行时它红在 ERR_MODULE_NOT_FOUND 上 —— 那种红只证明"没有就会响",
-//    **不证明"写错了会响"**(08-14 实证)。实现落地后必须另跑一轮定点变异。
+//    **不证明"写错了会响"**(08-14 实证)。实现落地后跑 tests/mutation-llm-key.sh 定点变异。
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import {
-  CREDENTIAL_PATH,
-  fetchKeyStatus,
-  saveKey,
+  PROVIDERS_PATH,
+  PROVIDER_KEY_PATH,
+  CUSTOM_PROVIDER_PATH,
+  fetchProviders,
+  saveProviderKey,
+  postSettings,
   restartNotice,
-} from "../web/src/llmKey.ts";
-
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC = join(ROOT, "web", "src", "llmKey.ts");
+} from "../web/src/settings/modelSettings.ts";
 
 // 一把长得像真 key 的串:够长(过 _hint 的 12 字符线)、好在文本里搜。
 const KEY = "sk-oracle-1234567890-ABCDEFGH-9999";
@@ -57,47 +55,53 @@ const jsonRes = (status, body = {}) => ({
   json: async () => body,
 });
 
-const STATUS_EMPTY = {
-  configured: false,
-  provider: null,
-  hint: null,
-  providers: [
-    { id: "mimo", label: "MiMo(小米)", model: "mimo-v2.5" },
-    { id: "deepseek", label: "DeepSeek 官方", model: "deepseek-v4-flash" },
-  ],
-};
+const ROW = (id, o = {}) => ({
+  id, label: id.toUpperCase(), kind: "builtin", apiBase: `https://${id}.example/v1`, keyUrl: null,
+  configured: false, hint: null, live: false, active: false, pending: false, enabled: true, writable: true,
+  models: [{ id: `${id}-a`, label: `${id}-a`, builtin: true, contextWindow: null }], ...o,
+});
+const VIEW_EMPTY = { providers: [ROW("mimo"), ROW("deepseek")], current: null, multi: true };
+const saved = (o = {}) => ({
+  providers: [ROW("mimo", { configured: true, hint: "sk-o…9999", pending: true }), ROW("deepseek")],
+  current: null, multi: true, restart: "manual", ...o,
+});
 
 // ---- a* 契约 -------------------------------------------------------------
 
 test("a1 状态用 GET 拉,打在约定的那条路径上,不带 body", async () => {
-  const f = recFetch(() => jsonRes(200, STATUS_EMPTY));
-  await fetchKeyStatus(f);
+  const f = recFetch(() => jsonRes(200, VIEW_EMPTY));
+  await fetchProviders(f);
   assert.equal(f.calls.length, 1);
   const { url, init } = f.calls[0];
-  assert.equal(url, CREDENTIAL_PATH);
-  assert.equal(CREDENTIAL_PATH, "/api/llm/credential"); // 路径写错 = 整条链断
+  assert.equal(url, PROVIDERS_PATH);
+  assert.equal(PROVIDERS_PATH, "/api/llm/providers"); // 路径写错 = 整条链断
   assert.ok(!init.method || init.method.toUpperCase() === "GET", `方法应是 GET,实为 ${init.method}`);
   assert.equal(init.body, undefined);
 });
 
-test("a2 状态原样透出(configured/provider/hint/providers 四样都不许丢)", async () => {
+test("a2 状态原样透出(每家 configured/hint/writable 与当前在用都不许丢);读不到 ⇒ null 不抛", async () => {
   const body = {
-    configured: true, provider: "deepseek", hint: "sk-o…9999",
-    providers: STATUS_EMPTY.providers,
+    providers: [ROW("mimo"), ROW("deepseek", { configured: true, hint: "sk-o…9999", writable: false })],
+    current: { provider: "deepseek", model: "deepseek-a" }, multi: false,
   };
-  const st = await fetchKeyStatus(recFetch(() => jsonRes(200, body)));
-  assert.equal(st.configured, true);
-  assert.equal(st.provider, "deepseek");
-  assert.equal(st.hint, "sk-o…9999");
-  assert.deepEqual(st.providers, STATUS_EMPTY.providers);
+  const st = await fetchProviders(recFetch(() => jsonRes(200, body)));
+  const ds = st.providers.find((p) => p.id === "deepseek");
+  assert.equal(ds.configured, true);
+  assert.equal(ds.hint, "sk-o…9999");
+  assert.equal(ds.writable, false);
+  assert.deepEqual(st.current, { provider: "deepseek", model: "deepseek-a" });
+  assert.equal(st.multi, false);
+  assert.equal(await fetchProviders(async () => { throw new TypeError("Failed to fetch"); }), null);
+  assert.equal(await fetchProviders(recFetch(() => jsonRes(500, {}))), null);
 });
 
 test("a3 保存用 POST,provider 和 key 都在 body 里,**key 不许进 URL**", async () => {
-  const f = recFetch(() => jsonRes(200, { configured: true, provider: "mimo",
-                                          hint: "sk-o…9999", restart: "manual" }));
-  await saveKey(f, "mimo", KEY);
+  const f = recFetch(() => jsonRes(200, saved()));
+  await saveProviderKey(f, "mimo", KEY);
   assert.equal(f.calls.length, 1);
   const { url, init } = f.calls[0];
+  assert.equal(url, PROVIDER_KEY_PATH);
+  assert.equal(PROVIDER_KEY_PATH, "/api/llm/providers/key");
   assert.equal(init.method?.toUpperCase(), "POST");
   // URL 会进 access log / 浏览器历史 / Referer —— key 落在这儿就等于漏了。
   assert.ok(!url.includes(KEY), `key 出现在 URL 里:${url}`);
@@ -107,51 +111,58 @@ test("a3 保存用 POST,provider 和 key 都在 body 里,**key 不许进 URL**",
   assert.equal(sent.key, KEY);
 });
 
-test("a4 保存成功:回 ok + 后端给的状态与 restart", async () => {
-  const f = recFetch(() => jsonRes(200, { configured: true, provider: "mimo",
-                                          hint: "sk-o…9999", restart: "requested" }));
-  const r = await saveKey(f, "mimo", KEY);
+test("a4 保存成功:回 ok + 后端给的新列表与 restart", async () => {
+  const r = await saveProviderKey(recFetch(() => jsonRes(200, saved({ restart: "requested" }))), "mimo", KEY);
   assert.equal(r.ok, true);
-  assert.equal(r.configured, true);
-  assert.equal(r.provider, "mimo");
-  assert.equal(r.hint, "sk-o…9999");
+  assert.equal(r.view.providers[0].configured, true);
+  assert.equal(r.view.providers[0].hint, "sk-o…9999");
   assert.equal(r.restart, "requested");
 });
 
 test("a5 后端拒绝(400):把**它的**人话原样端出来,不许自己另编一句", async () => {
   const f = recFetch(() => jsonRes(400, { error: "API key 里有中文或特殊字符,请检查是不是复制多了" }));
-  const r = await saveKey(f, "mimo", "中文key");
+  const r = await saveProviderKey(f, "mimo", "中文key");
   assert.equal(r.ok, false);
-  // 要的是"后端那句话到得了业主眼前",不是"一个字都不许多" ——
-  // 实现加个「保存失败:」前缀完全合理,逐字相等会把它冤枉掉。
+  // 要的是"后端那句话到得了业主眼前",不是"一个字都不许多"(加个「保存失败:」前缀完全合理)。
   assert.ok(r.error.includes("API key 里有中文或特殊字符,请检查是不是复制多了"),
             `后端的人话没端出来:${r.error}`);
 });
 
 test("a6 服务不可达(fetch 抛)不许静默成功,也不许把 key 带进错误里", async () => {
   const boom = async () => { throw new TypeError("Failed to fetch"); };
-  const r = await saveKey(boom, "mimo", KEY);
+  const r = await saveProviderKey(boom, "mimo", KEY);
   assert.equal(r.ok, false, "网络炸了却报成功 = 业主以为存上了");
   assert.ok(r.error && r.error.length > 0, "得给一句能读的话");
   assert.ok(!JSON.stringify(r).includes(KEY), "错误对象里带了 key 原文");
 });
 
-test("a7 500 之类也走失败路,不许当成 200 解读", async () => {
-  const r = await saveKey(recFetch(() => jsonRes(500, {})), "mimo", KEY);
-  assert.equal(r.ok, false);
+test("a7 500 之类 / 200 但形状不对 也走失败路,不许当成成功解读", async () => {
+  assert.equal((await saveProviderKey(recFetch(() => jsonRes(500, {})), "mimo", KEY)).ok, false);
+  assert.equal((await saveProviderKey(recFetch(() => jsonRes(200, { providers: "x" })), "mimo", KEY)).ok, false);
+});
+
+test("a8 添加自定义供应商(带 key)走同一条纪律:POST、key 只在 body、回包不含 key", async () => {
+  const f = recFetch(() => jsonRes(200, saved({ key: KEY })));
+  const r = await postSettings(f, CUSTOM_PROVIDER_PATH,
+    { op: "add", label: "中转", apiBase: "https://proxy.example/v1", models: ["gpt-x"], key: KEY }, KEY);
+  assert.equal(CUSTOM_PROVIDER_PATH, "/api/llm/providers/custom");
+  assert.equal(f.calls[0].init.method?.toUpperCase(), "POST");
+  assert.ok(!f.calls[0].url.includes(KEY));
+  assert.equal(JSON.parse(f.calls[0].init.body).key, KEY);
+  assert.equal(r.ok, true);
+  assert.ok(!JSON.stringify(r).includes(KEY), "回包把 key 带回来了");
 });
 
 // ---- b* 厂商清单只能来自后端 ----------------------------------------------
 
 test("b1 厂商是后端说了算:没听过的厂商也照样透出、照样能提交", async () => {
-  // 后端换了厂商表(将来加第三家 / 改端点),前端不该有自己的白名单。
-  const acme = { id: "acme", label: "Acme 云", model: "acme-1" };
-  const st = await fetchKeyStatus(recFetch(() => jsonRes(200, { ...STATUS_EMPTY, providers: [acme] })));
-  assert.deepEqual(st.providers, [acme]);
+  // 后端换了厂商表(加一家 / 改端点),前端不该有自己的白名单。
+  const acme = ROW("acme", { label: "Acme 云" });
+  const st = await fetchProviders(recFetch(() => jsonRes(200, { ...VIEW_EMPTY, providers: [acme] })));
+  assert.deepEqual(st.providers.map((p) => [p.id, p.label]), [["acme", "Acme 云"]]);
 
-  const f = recFetch(() => jsonRes(200, { configured: true, provider: "acme",
-                                          hint: "sk-o…9999", restart: "manual" }));
-  const r = await saveKey(f, "acme", KEY);
+  const f = recFetch(() => jsonRes(200, saved({ providers: [acme] })));
+  const r = await saveProviderKey(f, "acme", KEY);
   assert.equal(r.ok, true, "前端自带白名单就会把后端的新厂商挡在外面");
   assert.equal(JSON.parse(f.calls[0].init.body).provider, "acme");
 });
@@ -159,18 +170,17 @@ test("b1 厂商是后端说了算:没听过的厂商也照样透出、照样能�
 // ---- c* key 不许在前端留副本 ----------------------------------------------
 
 test("c1 保存成功后,返回值里不含 key 原文", async () => {
-  const f = recFetch(() => jsonRes(200, { configured: true, provider: "mimo",
-                                          hint: "sk-o…9999", restart: "manual" }));
-  const r = await saveKey(f, "mimo", KEY);
+  const r = await saveProviderKey(recFetch(() => jsonRes(200, saved())), "mimo", KEY);
   assert.ok(!JSON.stringify(r).includes(KEY), "返回值把 key 带回来了");
 });
 
-test("c2 后端要是把 key 回显了,前端也不许原样端出去", async () => {
-  // 反向验:这条防的是"上游漏了、前端当传声筒"。后端有 h4 咬着,这儿是纵深。
-  const f = recFetch(() => jsonRes(200, { configured: true, provider: "mimo", hint: "sk-o…9999",
-                                          restart: "manual", key: KEY, echo: { apiKey: KEY } }));
-  const r = await saveKey(f, "mimo", KEY);
+test("c2 后端要是把 key 回显了(多出来的字段、甚至塞进某家的末四位提示),前端也不许原样端出去", async () => {
+  // 反向验:这条防的是"上游漏了、前端当传声筒"。后端有 w1/w5 咬着,这儿是纵深。
+  const leaky = saved({ key: KEY, echo: { apiKey: KEY } });
+  leaky.providers[1] = ROW("deepseek", { configured: true, hint: KEY, label: `DS ${KEY}` });
+  const r = await saveProviderKey(recFetch(() => jsonRes(200, leaky)), "mimo", KEY);
   assert.ok(!JSON.stringify(r).includes(KEY), "上游回显了 key,前端照单全收");
+  assert.ok(r.ok, "回显不等于保存失败:key 抹掉、其余照常");
 });
 
 // ---- d* 重启文案不许撒谎 ---------------------------------------------------

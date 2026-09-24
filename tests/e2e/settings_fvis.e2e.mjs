@@ -140,10 +140,11 @@ try {
     const before = await projRows(page);
     check(before.length === 1, `前提:一开始项目列表只有 1 个项目(实测 ${before.length}:${before})`);
 
-    await page.locator('.side-footer .side-row').click();       // 打开设置弹层
-    await page.locator(".settings-pop").waitFor({ timeout: 5000 });
+    // 09-24 起设置从弹层改成整页(照 ZCode,track opendesign-zcode-model-settings):入口在「常规」里,其余原样
+    await page.locator('.side-footer .side-row').click();       // 打开设置页(常规)
+    await page.locator('[data-ui="settings-general"]').waitFor({ timeout: 5000 });
     const entry = page.locator('[data-ui="settings-folder-visibility"]');
-    check(await entry.count() > 0, "设置弹层里有「工作区文件夹」入口");
+    check(await entry.count() > 0, "设置页「常规」里有「工作区文件夹」入口");
     await entry.click();
 
     const card = page.locator('[data-ui="folder-visibility"]');
