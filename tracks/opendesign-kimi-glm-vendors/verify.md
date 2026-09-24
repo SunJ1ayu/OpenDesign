@@ -353,6 +353,22 @@ runlog: run-all-final rc=3 commit=fab85c8 dirty=no final=yes at=2026-09-24T01:47
   (上一行 = 派第 11 轮前,干净树 final:六段全过(python 1501、node 509、e2e 41),rc=3 仅既有 3 条 SKIP。)
 - 第 11 轮 = 改设计后第 2 轮(预算最后一轮):MiMo + DeepSeek,同成员复核 #36~#44 与收层;有真实阻断 ⇒ 停下交业主,不续轮。
 
+- 第 11 轮花名册(改设计后第 2 轮 = 预算最后一轮): submimo=PASS(verdict=BLOCK) subdeepseek=PASS(verdict=BLOCK)(日志 /root/aiwork/logs/panel-kimi-glm-r11-20260924-1000.* [仓外不承重])
+  两家都确认:#36~#44 在正常入口上成立;DeepSeek 270 条随机序列(含老安装脏数据注入)0 次发错家;MiMo 也没找到新的跨家扣钱路径。阻断全在边缘形状与判据缺口:
+
+  | # | 发现 | 核实 | 可达性 | 处置 |
+  |---|---|---|---|---|
+  | 46 | (MiMo F1)合并:自配端点 + 机主有预设 + 从没设过 modelPreset ⇒ 替他设成第一份,压过 agents.defaults.model | 读 ds_merge_config.py:137 `elif own_presets` 不区分「悬空」与「没设」属实;本单前就有 | 要手改配置才有这形状 | 待业主定 |
+  | 47 | (MiMo F2)界面 save 同一家,当前模型写在 agents.defaults.model(没有 modelPreset)⇒ 被换成默认 | 读 save 末段属实 | 我们的安装总会写 modelPreset,要手改 | 待业主定 |
+  | 48 | (MiMo F3)主槽自配端点 + 额外格 key 文件没了 ⇒ modelPreset 悬空、网关起不来 | 读 _fallback_if_dangling 属实;0.98.9 起就有 | 界面没有删 key 的入口,要手删文件 | 待业主定 |
+  | 49 | (MiMo F4)老合并已经污染过的自配端点配置,新合并不修 | 属实;主槽认不出时不碰是设计 | 老 git-pull 自配端点的机器 | 建议延期:认不出的端点上替人猜归属就是又一个写口 |
+  | 50 | (DeepSeek 1)改名补 presetParams 那一行删掉,全部判据仍绿 | 属实(判据缺口) | Kimi 的非正式名只能手改出 | 待业主定 |
+  | 51 | (DeepSeek 2)悬空回落主槽默认只被夹具字典序顺带钉住 | 属实(判据缺口,钱轴) | — | 待业主定 |
+  | 52 | (DeepSeek 3/5)同家换 key 的择一条件没被考;手删 key.txt 后同家从额外格挪进主槽当前型号回默认 | 属实,低 | 手删文件 | 待业主定 |
+  | 53 | (DeepSeek 4)`_qualified_vendor` 死代码 | 全仓无调用方,属实 | — | 待业主定(一行删除) |
+
+- **状态:NEEDS_MORE_INFO,按预案停**(预算 2 轮已用完,有阻断不自行续轮)。交业主:A 一次小修(#46~#48、#50~#53,多为判据与边缘)+ 追加 1 轮 / B 记延期、本单按现状收尾(需业主接受这些边缘形状)。
+
 ## Accepted deviations
 
 - <接受的非关键偏差 + 原因 + 影响范围,或 None>
