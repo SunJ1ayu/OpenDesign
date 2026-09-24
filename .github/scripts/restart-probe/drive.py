@@ -29,6 +29,7 @@ ws_cfg.update(enabled=True, host="127.0.0.1", token="probe-kouling", websocketRe
 
 dead = "http://127.0.0.1:9"
 env = dict(os.environ, LOCALAPPDATA=str(app), PROBE_FAULT="1", PYTHONIOENCODING="utf-8",
+           PROBE_DEVNULL="1" if ARM.endswith("devnull") else "0",
            HTTP_PROXY=dead, HTTPS_PROXY=dead, http_proxy=dead, https_proxy=dead,
            NO_PROXY="127.0.0.1,localhost", no_proxy="127.0.0.1,localhost")
 t0 = time.monotonic()
@@ -87,7 +88,7 @@ say(f"web={web} ws={wsport} ws在听={listening(wsport)}")
 snapshot("起好之后")
 
 live = {"open": False, "closed_at": None}
-if ARM == "live":
+if ARM.startswith("live"):
     code, body = get(web, "/api/chat/bootstrap")
     say(f"bootstrap(经工作台)= {code}")
     info = json.loads(body)
@@ -126,7 +127,7 @@ for i in range(120):                                  # 最多看 240s(业主等
     if now != last:
         say(f"ws在听={now[0]} bootstrap={now[1]} 管家活着={now[2]} 网关.log新增={now[3]}B 活ws断于={live['closed_at']}")
         last = now
-    if i % 5 == 0:
+    if i % 15 == 0:
         snapshot(f"存key后第{i}轮")
     if now[0] and now[1] == 200:
         up_at = time.monotonic() - t0

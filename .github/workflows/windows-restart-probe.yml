@@ -56,12 +56,15 @@ jobs:
           Expand-Archive artifact\pkg.zip -DestinationPath probe -Force
           Copy-Item .github\scripts\restart-probe\sitecustomize.py probe\pkg\python\Lib\site-packages\
           Get-ChildItem probe\pkg\ds\bin\ds_host.py, probe\pkg\python\python.exe
-      - name: live 组(聊天页连着再存 key)
-        continue-on-error: true
-        run: probe\pkg\python\python.exe .github\scripts\restart-probe\drive.py probe\pkg live probe-out
-      - name: idle 组(什么都不连就存 key,对照)
+      - name: idle 组(对照:原样,应复现卡死)
         continue-on-error: true
         run: probe\pkg\python\python.exe .github\scripts\restart-probe\drive.py probe\pkg idle probe-out
+      - name: idle-devnull 组(子进程 stdin=DEVNULL)
+        continue-on-error: true
+        run: probe\pkg\python\python.exe .github\scripts\restart-probe\drive.py probe\pkg idle-devnull probe-out
+      - name: live-devnull 组(聊天页连着 + 子进程 stdin=DEVNULL)
+        continue-on-error: true
+        run: probe\pkg\python\python.exe .github\scripts\restart-probe\drive.py probe\pkg live-devnull probe-out
       - uses: actions/upload-artifact@v4
         if: always()
         with:
