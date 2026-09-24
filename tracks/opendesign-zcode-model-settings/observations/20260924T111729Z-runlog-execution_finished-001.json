@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-zcode-model-settings",
+  "run_id": "20260924T111656Z-01-qa-exec-fixes-red",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "qa-exec-fixes-red",
+  "started_at": "2026-09-24T11:16:56Z",
+  "finished_at": "2026-09-24T11:17:29Z",
+  "duration_ms": 32602,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

@@ -107,7 +107,7 @@ export function readProvidersResponse(status: number, body: unknown): ProvidersV
   };
 }
 
-/** 左栏状态点(照 ZCode ProviderStatusIndicator):已禁用 > 就绪 > 未就绪(ms3)。 */
+/** 左栏状态点(照 ZCode ProviderStatusIndicator):未启用 > 就绪 > 未就绪(ms3)。 */
 export function providerStatus(p: ProviderRow): ProviderStatus {
   if (!p.enabled) return "disabled";
   return p.configured && p.live ? "ready" : "unavailable";
@@ -116,11 +116,11 @@ export function providerStatus(p: ProviderRow): ProviderStatus {
 /** 圆点的读屏文字(ZCode zh-CN 原词)。 */
 export const STATUS_LABEL: Record<ProviderStatus, string> = { ready: "就绪", unavailable: "未就绪", disabled: "未启用" };
 
-/** 详情顶上那一句:在用 / 就绪 / 已保存等重启 / 没填 / 已禁用 —— 五种说法不许混(ms4)。
+/** 详情顶上那一句:在用 / 就绪 / 已保存等重启 / 没填 / 未启用 —— 五种说法不许混(ms4)。
  *  等重启那一句必须说清要等后台重启 —— 不说,业主会以为存了没用。 */
 export function providerStateText(p: ProviderRow): string {
   const hint = p.hint ? ` ${p.hint}` : "";
-  if (!p.enabled) return `已禁用${p.configured ? ` · 已存${hint}` : ""}(不会出现在换模型菜单里)`;
+  if (!p.enabled) return `${STATUS_LABEL.disabled}${p.configured ? ` · 已存${hint}` : ""}(不会出现在换模型菜单里)`;
   if (p.configured && p.live && p.active) return `在用 · 已存${hint}`;
   if (p.configured && p.live) return `就绪 · 已存${hint}`;
   if (p.configured) return `已保存${hint},正在重启后台…重启完成后就能在聊天里选`;

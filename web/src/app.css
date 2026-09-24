@@ -3212,6 +3212,7 @@ textarea.ms-input { height: auto; padding: 8px 10px; resize: vertical; line-heig
 .ms-link-btn:hover:not(:disabled) { background: var(--paper-side); color: var(--ink); }
 .ms-link-btn:disabled { color: var(--ink-5); cursor: default; }
 .ms-link-btn.danger { color: var(--terra-deep); }
+.ms-link-btn.ms-slot { visibility: hidden; pointer-events: none; }
 .ms-test-result { margin: 0; font-size: 12.5px; color: var(--st-done-fg); line-height: 1.55; overflow-wrap: anywhere; }
 .ms-test-result.err { color: var(--terra-deep); }
 .ms-error { margin: 8px 0 0; font-size: 12.5px; color: var(--terra-deep); line-height: 1.55; }

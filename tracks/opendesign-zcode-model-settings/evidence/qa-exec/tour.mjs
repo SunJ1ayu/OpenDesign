@@ -128,9 +128,9 @@ try {
   await shot(page, "填 MiMo 的 key(还没点保存)", "输入框是密码框;「显示」只管正在输入的这把", { aria: false });
   await detail("mimo").locator('[data-ui="ms-key-save"]').click();
   await page.locator('[data-ui="ms-notice"]').waitFor();
-  await shot(page, "MiMo 保存后", "提示正在重启后台;左栏 MiMo 圆点在重启完成前是黄的(未就绪)");
-  await page.waitForFunction(() => document.querySelector('[data-provider="mimo"] [data-provider-status="ready"]'), null, { timeout: 15000 }).catch(() => {});
-  await shot(page, "后台重启完成", "MiMo 变成就绪(绿点),状态句「在用 · 已存 …」");
+  await sleep(3500);   // 假外壳 1.5 秒后起好;多等两轮轮询,看提示会不会自称「已重启」
+  await shot(page, "MiMo 保存后(等了 3.5 秒)",
+    "MiMo 是第一家(主槽):有 key 即算后台拿到 ⇒ 直接绿点「在用」,没有「等重启」可看;提示一直是「正在自动重启…稍等片刻」这句老实话,不自称已重启");
 
   await page.locator('[data-ui="settings-toggle"]').click();
   await page.locator(".home-pane").waitFor({ state: "visible" });
@@ -174,9 +174,18 @@ try {
   await page.waitForFunction(() => document.querySelector('[data-provider="deepseek"] [data-provider-status="ready"]'), null, { timeout: 15000 }).catch(() => {});
   await detail("deepseek").locator('[data-ui="ms-enable"]').click();
   await sleep(600);
-  await shot(page, "禁用 DeepSeek", "圆点变灰,状态句「已禁用 …」,末四位还在");
+  await shot(page, "禁用 DeepSeek", "圆点变灰「未启用」,状态句「未启用 · 已存 …」,末四位还在");
+  await page.locator('[data-ui="settings-toggle"]').click();
+  await page.locator(".home-pane").waitFor({ state: "visible" });
+  await page.locator(chip).click();
+  await page.locator('.home-pane [data-ui="chat-model-menu"]').waitFor();
+  await shot(page, "禁用后看换模型菜单", "只有 MiMo 一家(DeepSeek 已禁用,不出现)");
+  await page.keyboard.press("Escape");
+  await page.goto(`${base}/#/settings/models?provider=deepseek`, { waitUntil: "domcontentloaded" });
+  await detail("deepseek").waitFor();
   await detail("deepseek").locator('[data-ui="ms-enable"]').click();
   await sleep(600);
+  await shot(page, "再启用 DeepSeek", "不用重填 key,回到就绪(后面菜单里会有它)");
   await page.locator(`${MS} [data-ui="ms-nav-item"][data-provider="mimo"]`).click();
   await detail("mimo").locator('[data-ui="ms-enable"]').click();
   await page.locator('[data-ui="ms-notice"]').waitFor();
@@ -204,8 +213,11 @@ try {
   await shot(page, "点「测试」(gpt-4.1-mini)", "不等重启就能测,显示连接成功");
   await detail(cid).locator('[data-ui="ms-model"][data-model="claude-lite"] [data-ui="ms-test"]').click();
   await page.waitForFunction(() => /失败/.test(document.querySelector('[data-ui="ms-test-result"]')?.textContent || ""), null, { timeout: 15000 }).catch(() => {});
-  await shot(page, "点「测试」(claude-lite,假厂商没有这个模型)", "失败给可读原因");
-  await sleep(2500);
+  await shot(page, "点「测试」(claude-lite,假厂商没有这个模型)", "失败先说人话,原文留括号");
+  await page.waitForFunction((id) => document.querySelector(`[data-ui="ms-nav-item"][data-provider="${id}"] [data-provider-status="ready"]`),
+    cid, { timeout: 15000 }).catch(() => {});
+  await sleep(400);
+  await shot(page, "后台重启完成(不刷新)", "公司中转自己变成就绪(绿点),状态句「就绪 · 已存 …」,提示改口成「已生效」");
 
   await page.locator('[data-ui="settings-toggle"]').click();
   await page.locator(".home-pane").waitFor({ state: "visible" });

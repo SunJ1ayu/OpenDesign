@@ -1261,6 +1261,19 @@ def _vendor_error(body: bytes) -> str:
     return ""
 
 
+def _plain_http_reason(code: int, *, custom: bool = False) -> str:
+    """「测试」失败先说人话(业主不是程序员),状态码与厂商原话由调用方留在括号里备查(z14)。"""
+    if code in (401, 403):
+        return "API Key 不对,或这把 key 没有这个模型的权限"
+    if code == 404:
+        return "这家找不到这个模型,检查模型 ID 是否拼对" + (",Base URL 是否填对" if custom else "")
+    if code == 429:
+        return "请求太频繁或额度用完了,稍后再试或去厂商那边看额度"
+    if code >= 500:
+        return "厂商那边出错了,稍后再试"
+    return "厂商拒绝了这次请求"
+
+
 @_scoped
 def test_model(home: str, cfg_path: str, provider: str, model: str, *, timeout: float = 20) -> dict:
     """模型列表每行的「测试」:用这家的 key **直接**请求厂商一次最小对话(不经网关 ⇒ 存完 key 立刻能测)。
@@ -1295,7 +1308,8 @@ def test_model(home: str, cfg_path: str, provider: str, model: str, *, timeout: 
         return {"ok": True, "message": f"{model} 连接成功"}
     except urllib.error.HTTPError as exc:
         detail = scrub(_vendor_error(exc.read(65536)))
-        return {"ok": False, "message": f"{exc.code} {detail}".strip()}
+        raw = f"HTTP {exc.code}" + (f":{detail}" if detail else "")
+        return {"ok": False, "message": f"{_plain_http_reason(exc.code, custom=bool(meta.get('custom')))}({raw})"}
     except (urllib.error.URLError, OSError, ValueError) as exc:
         reason = getattr(exc, "reason", exc)
         return {"ok": False, "message": scrub(f"连不上 {host}:{reason}")}

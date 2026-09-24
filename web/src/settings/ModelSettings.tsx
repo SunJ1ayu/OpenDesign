@@ -168,7 +168,8 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
     const raw = keyRef.current?.value ?? "";
     const r = await saveProviderKey(fetch, p.id, raw);
     if (apply(r, "已保存")) {
-      if (r.ok && r.restart === "requested") setAwaiting(p.id);
+      // 只有这一行确实「等重启」才等它改口;主槽那家没有可观察的等待(有 key 即算后台拿到)⇒ 保留「正在重启」那句老实话
+      if (r.ok && r.restart === "requested" && r.view.providers.some((x) => x.id === p.id && x.pending)) setAwaiting(p.id);
       if (keyRef.current) keyRef.current.value = "";
       setShowKey(false);
     }
@@ -176,7 +177,7 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
 
   const toggleEnabled = (p: ProviderRow) => run(async () => {
     apply(await postSettings(fetch, PROVIDER_ENABLED_PATH, { provider: p.id, enabled: !p.enabled }),
-      p.enabled ? `已禁用 ${p.label}` : `已启用 ${p.label}`);
+      p.enabled ? `${p.label} 已设为未启用` : `已启用 ${p.label}`);
   });
 
   const removeModel = (p: ProviderRow, model: string) => run(async () => {
@@ -240,7 +241,7 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
     setView(r.view);
     const added = r.view.providers.find((p) => !before.has(p.id));
     if (added) onSelectProvider(added.id);
-    if (added && r.restart === "requested") setAwaiting(added.id);
+    if (added && r.restart === "requested" && added.pending) setAwaiting(added.id);
     // 换家会清提示 ⇒ 等选中生效后再说「正在重启」
     window.setTimeout(() => setNotice({ ok: true, text: r.restart ? restartNotice(r.restart) : "已添加" }), 0);
   });
@@ -267,7 +268,7 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
           </button>
           {view?.multi && (
             <button className="ms-btn primary" data-ui="ms-add-provider"
-              onClick={() => { setFormErr(""); setFormOpen(true); }}>
+              onClick={() => { setFormErr(""); setNotice(null); setFormOpen(true); }}>
               添加供应商
             </button>
           )}
@@ -428,9 +429,12 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
                           onClick={() => { setDialogErr(""); setDialog({ mode: "edit", model: m.id, contextWindow: m.contextWindow }); }}>
                           编辑
                         </button>
-                        {!m.builtin && (
+                        {!m.builtin ? (
                           <button className="ms-link-btn danger" data-ui="ms-delete" disabled={busy}
                             onClick={() => void removeModel(sel, m.id)}>删除</button>
+                        ) : (
+                          // 内置模型删不了:留个同宽的空位,「测试 / 编辑」和自加模型行对齐(K5)
+                          <span className="ms-link-btn ms-slot" aria-hidden="true">删除</span>
                         )}
                       </div>
                     );
