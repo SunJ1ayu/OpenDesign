@@ -91,30 +91,34 @@ runlog: t4-configured-red rc=1 commit=980c73f dirty=yes at=2026-09-24T10:37:13Z 
 
 ## Review
 
-- 规格自查(读任何 panel 输出之前先答):<回看 design 的用户成功条件、前提证据和未解决项。
-  实现符合规格不证明规格合理;实现评审也可质疑规格,但不能替代实施前 panel 4c 的方案检查。
-  本轮若暴露能推翻方向的前提,先回到设计;全池一致 PASS 也不等于题是对的。>
-- 腿的花名册: <把 `<日志前缀>.roster` 里那一行**原样粘过来**,别手写>
-  > panel-review 收尾自己写这个文件(off / FAIL(rc) / 降级 都在里面)。
-  > **控制器没活到收尾时它压根不存在** —— 那时跑 `panel-roster <日志前缀>` 从盘上重建,
-  > 与控制器自己写的**归一化后一致**(判据 R5b 守着;抬头有渲染时间戳,不是字面逐字节)。**一轮零记录的评审也粘得出这一行**,
-  > 所以"那轮被砍了所以没有花名册"不再是理由(2026-08-23,track panel-roster-from-disk)。
-  > 08-06 立这条的理由:08-05 我在这里手写了"三条腿一致 PASS",而 Kimi 根本没出结论
-  > (同一页第 90 行我自己还写着它没出报告)—— 手抄一份终端上的东西,抄错那次没人会发现。
+- 规格自查(读任何 panel 输出之前先答;第 1 轮派发前的主裁自审正本在仓外 `/root/aiwork/tasks/opendesign-zcode-model-settings-r1-my-review.md` [仓外不承重]):
+  用户成功条件 = 照 ZCode 的设置页 + 两级换模型,钱跟着选中那家走、升级不断聊天、选好的模型不被换、key 不回显。
+  自审判 PASS,点名最不放心「漏包 _scoped 的写入口」与「两处写中途失败」。**第 1 轮证明我对第二条的担心是对的、而对设计的检查漏了一条整路径**(只配中转的新用户,见 #1)。
+- 切片 / 整份:**整份**。理由:本轮的实验是 QA 腿(测试员角色),再叠切片会搅乱「谁抓到的」归因;切片对比数据 09-15 已有一份(in-app-update 那单)。
+- 反锚定记账:第 1 轮派发时 verify.md 评审一节是空模板(工具照例报 anchor leak,指的是这份文件);腿能读到的是 evidence/qa-exec-triage.md(QA 缺陷的主裁分级),与代码评审题面不重叠。
+- 腿的花名册:
+  - 第 1 轮:`submimo=PASS(verdict=BLOCK) subkimi=PASS(verdict=PASS)`(`/root/aiwork/logs/panel-zcode-r1-20260924-195939.roster` [仓外不承重])
 - 轮次记录(每次派发一行;实质评审与基础设施重试分开,重试不算轮但次数与耗时照记):
 
   | 轮 | 类型(实质 / 重试) | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
   |---|---|---|---|---|
-  | 1 | 实质 | <rc,BLOCK 数> | <…> | <n> |
+  | QA-设计 | 测试员(非评审,不计轮) | — | explore-zcode-qa-design-* | —(产出验收清单 A1~A29、需求空白 Q1~Q9) |
+  | QA-执行 | 测试员(非评审,不计轮) | — | explore-zcode-qa-exec-20260924-190341 | 5 条用户层真问题 K1~K5(见 evidence/qa-exec-triage.md) |
+  | QA-复测 | 测试员(非评审,不计轮) | — | explore-zcode-qa-retest-20260924-193518 | 0(K1~K5/T1~T3 全关;顺藤查出 K6) |
+  | 1 | 实质 | rc=3,BLOCK 0(PENDING 2) | panel-zcode-r1-20260924-195939(MiMo 18 分、Kimi 19 分) | 3(#1 #2 #3) |
 
 - findings(**先处置、后动手**;一轮一份修复清单,一次修完再复审 —— panel 抽屉 4b):
 
   | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
   |---|---|---|---|---|
-  | 1 | <…> | <file:line / 复现收据> | 必须修 / 延期 / 驳回 / 尚未核实 | <延期必写:它在业主或下一个使用者那边会长成什么样> |
+  | 1 | (MiMo BLOCK-1)只配自定义供应商、一家内置 key 都没有:外壳重启网关只认 key.txt ⇒「不动」;起程序时 startup_plan(has_key=False) 不起网关 ⇒ 聊天永远用不了,界面却说「正在自动重启」 | 亲读 bin/ds_shell.py `restart_gateway`(`if not k: log…; return`)、bin/ds_shell_core.py `startup_plan`;design.md G4/D2 只考虑过「主槽被禁/被挪」,没考虑只有中转的新用户 | **本单必须修** | 承诺「能加自定义供应商」在这条路上不成立且界面撒谎。修法:没有内置 key 时拒绝添加自定义供应商 / 拒存自定义 key,说清要先填一家内置厂商;**让只配中转也能聊是设计改动**(主槽槽位规矩 13 轮),不在本单做,写进 Accepted deviations 并告诉业主 |
+  | 2 | (MiMo BLOCK-2)删自定义供应商:先写登记、再写配置、最后删 key 且吞掉 OSError;新供应商按登记里的空号复用 id ⇒ 继承旧 key,显示成「已保存」,起网关时把旧 key 发到新端点 | 亲读 remove_custom_provider / add_custom_provider(`used` 只看登记) | **本单必须修** | key 外泄到第三方端点 = 安全面。修法:先删 key(删不掉就报错、什么都不动),分配 id 跳过盘上还有 key 文件的号 |
+  | 3 | (MiMo BLOCK-3 + MIN-2;Kimi MEDIUM)四个新写口(删模型 / 改上下文窗口 / 改名改地址 / 添加供应商带 key)先写登记后写配置或 key:第二处失败时报「写不进去」而登记已变 —— 改地址那支界面与测试是新地址、聊天仍走旧地址;添加供应商留下僵尸,重试撞「这个地址已经是…」 | 亲读四个函数写序;Kimi 用 monkeypatch `_atomic_write` 实测 D/E/F/G 四支 | **本单必须修**(整类一次修) | 数据一致性 + 「两处写中途失败看不出来」正是题面第 2 问。修法统一:配置 / key 先写、登记最后写;登记写不进去 ⇒ 把配置 / key 还原。**同一类不逐个打补丁** |
+  | 4 | (MiMo MIN-1;Kimi LOW)等重启那一句写死「正在重启后台…」:重启其实不会发生(没外壳应答 manual、prepare_gateway 失败)时是永久假话 | modelSettings.ts providerStateText pending 分支 | 本单修(一行措辞) | 说成「后台重启后就能选;一直没好就重开 OpenDesign」,两种情况都是真话 |
+  | 5 | (MiMo MIN-3)「显示」按钮悬停字写「已保存的永远只显示末四位」,实际是首四 + 末四 | _hint 与 ModelSettings.tsx 眼睛按钮 title | 本单修(措辞) | 界面文字说真话 |
+  | 6 | (Kimi LOW)主槽换 key 后绿条一直说「正在自动重启」 | K1 的有意选择(主槽没有可观察的等待) | 延期 | 业主那边:存完 MiMo key 绿条停在「稍等片刻」,回聊天能用就是好了;要改口得有网关侧信号(同主裁自审 F2) |
+  | 7 | (Kimi 自己排除)save() 主槽「先写配置、后写 key.txt」 | 095ec4c 已存在 | 驳回(不属本单) | 老版本就有 |
 
-  > 只写发现。腿的身份/降级不在这儿抄第二遍:日志自带身份牌(降级横幅 + 视野边界),
-  > 花名册在上一格,查工件不查自述。延期 = 留在这里,不自动开新单。
 - arbitrated verdict (主裁): <...>
   > 这里写理由；最终枚举写进 `decision.json.outcome.verdict`。归档时仍为空会被
   > `track-record validate --phase archive` 挡住，`track list` 也会打 ⚠️。

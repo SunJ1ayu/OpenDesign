@@ -301,6 +301,11 @@ try {
         && /^262\.1K$/.test((await modelRow("mimo", "mimo-e2e").locator('[data-ui="ms-ctx"]').innerText().catch(() => "")).trim()),
     "A2 添加模型 ⇒ 列表里多一行,上下文照 ZCode 写成 262.1K(K6)");
   check(await modelRow("mimo", "mimo-e2e").locator('[data-ui="ms-delete"]').count() === 1, "A16 自己加的模型有「删除」");
+  // 09-24 第 1 轮评审 #5(MiMo MIN-3):已保存的提示是「首四…末四」,悬停字不许说「只显示末四位」
+  {
+    const eyeTitle = await detail("mimo").locator('[data-ui="ms-key-eye"]').getAttribute("title");
+    check(!!eyeTitle && !/末四位/.test(eyeTitle), `#5 「显示」按钮悬停字不再说「只显示末四位」(实际「${eyeTitle}」)`);
+  }
   // 09-24 QA-执行 K5(DS D5):内置行没有「删除」时,「测试 / 编辑」不许整体右移、和自加模型行错开一列
   {
     const xOf = async (m) => (await modelRow("mimo", m).locator('[data-ui="ms-test"]').boundingBox())?.x ?? NaN;

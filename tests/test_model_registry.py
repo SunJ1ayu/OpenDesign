@@ -24,6 +24,7 @@ import subprocess
 import sys
 import threading
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -367,6 +368,126 @@ class TestConnectivity(Rig):
         self.assertRegex(r["message"], r"API Key", "401:没说是 key 的问题")
         self.assertIn("401", r["message"])
         self.assertNotIn("sk-oracle-wrong", json.dumps(r), "测试结果把 key 回显出来了")
+
+
+class TestFailureSafety(Rig):
+    """第 1 轮代码评审(MiMo BLOCK-1/2/3、Kimi MEDIUM)要修的三件事:只配中转的死路、删掉的 key 流到新供应商、两处写只成一半。"""
+
+    def _raw(self, path):
+        try:
+            with open(path, "rb") as fh:
+                return fh.read()
+        except FileNotFoundError:
+            return None
+
+    def _reg_path(self):
+        return ds_credential.registry_path(self.home)
+
+    def test_z15_custom_provider_needs_a_builtin_key_first(self):
+        """一家内置 key 都没有:外壳不起网关(startup_plan)、重启也只认 key.txt ⇒ 只配中转永远聊不了。
+        不许收下再让界面说「正在自动重启」—— 当场说清要先填一家内置厂商。"""
+        self.assertFalse(os.path.exists(self.key_txt), "前提:这台机器一家内置 key 都没有")
+        with self.assertRaises(ds_credential.CredentialError) as cm:
+            ds_credential.add_custom_provider(self.home, self.cfg_path, label="中转", api_base="https://relay.example/v1",
+                                              models=["gpt-x"], key=PROXY_KEY, multi=True)
+        self.assertIn("内置", str(cm.exception))
+        self.assertEqual(self.view()["providers"][-1]["kind"], "builtin", "被拒了却还是登记了自定义供应商")
+        self.assertFalse(os.path.isdir(self.keys_dir) and any(f.startswith("c_") for f in os.listdir(self.keys_dir)),
+                         "被拒了却把中转的 key 落了盘")
+        # 对照:有了内置 key 同一步就收
+        self.have_mimo_in_primary()
+        pid = ds_credential.add_custom_provider(self.home, self.cfg_path, label="中转", api_base="https://relay.example/v1",
+                                                models=["gpt-x"], key=PROXY_KEY, multi=True)
+        self.assertTrue(pid.startswith("c_"))
+
+    def test_z16_a_deleted_providers_key_never_reaches_a_new_one(self):
+        """删自定义供应商时 key 删不掉:不许「登记删了、key 留着」—— 下一个新供应商会复用编号、继承这把 key,
+        界面标成已保存,起网关时把它发到新端点(key 外泄)。"""
+        self.have_mimo_in_primary()
+        a = ds_credential.add_custom_provider(self.home, self.cfg_path, label="甲", api_base="https://a.example/v1",
+                                              models=["gpt-x"], key=PROXY_KEY, multi=True)
+        key_a = ds_credential.extra_key_path(self.home, a)
+        real_remove = os.remove
+
+        def locked(path, *args, **kw):
+            if os.path.abspath(path) == os.path.abspath(key_a):
+                raise PermissionError(13, "被占用", path)
+            return real_remove(path, *args, **kw)
+        with mock.patch.object(ds_credential.os, "remove", side_effect=locked):
+            with self.assertRaises(ds_credential.CredentialError):
+                ds_credential.remove_custom_provider(self.home, self.cfg_path, a)
+        self.assertIn(a, [p["id"] for p in self.view()["providers"]], "删不掉 key 却从列表里消失了 —— 业主看不见那把残留的 key")
+        # 更早版本留下的残留 key(编号空着、文件还在):新供应商绝不能认领它
+        ds_credential.remove_custom_provider(self.home, self.cfg_path, a)
+        with open(key_a, "w", encoding="utf-8") as fh:
+            fh.write(PROXY_KEY + "\n")
+        b = ds_credential.add_custom_provider(self.home, self.cfg_path, label="乙", api_base="https://b.example/v1",
+                                              models=["gpt-y"], multi=True)
+        row = next(p for p in self.view()["providers"] if p["id"] == b)
+        self.assertFalse(row["configured"], f"新供应商 {b} 认领了残留的 key")
+        self.assertNotIn(PROXY_KEY, ds_credential.prepare_gateway(self.home, self.cfg_path).values(),
+                         "残留的 key 会被注入网关、发往新供应商的端点")
+
+    def _setup_two_writes(self):
+        self.have_mimo_in_primary()
+        ds_credential.add_model(self.home, self.cfg_path, "mimo", "mimo-x-1")
+        cid = ds_credential.add_custom_provider(self.home, self.cfg_path, label="中转", api_base="https://r1.example/v1",
+                                                models=["gpt-x", "gpt-z"], key=PROXY_KEY, multi=True)
+        ds_credential.prepare_gateway(self.home, self.cfg_path)      # 起过一次网关:预设与 od_c 槽都在配置里
+        return cid
+
+    def test_z17_two_writes_both_land_or_neither(self):
+        """登记(models.json)与配置 / key 两处写:任一处写不进去 ⇒ 两处都停在原样(报错与盘面一致,重试不被堵)。"""
+        cid = self._setup_two_writes()
+        # 顺序有讲究:每条最后都会真做一次(对照),「删自加模型」必须排最后,否则后面几条会因「没有这个模型」
+        # 先被拒 —— 那样的 assertRaises 是白绿。下面还核报错正是注入的那一次写失败。
+        ops = {
+            "改上下文窗口": lambda: ds_credential.set_context_window(self.home, self.cfg_path, "mimo", "mimo-x-1", 262144),
+            "改 Base URL": lambda: ds_credential.update_custom_provider(self.home, self.cfg_path, cid,
+                                                                       api_base="https://r2.example/v1"),
+            "删自定义模型": lambda: ds_credential.remove_model(self.home, self.cfg_path, cid, "gpt-z"),
+            "删自加模型": lambda: ds_credential.remove_model(self.home, self.cfg_path, "mimo", "mimo-x-1"),
+        }
+        boom = ds_credential.CredentialError("写不进去(OSError),请确认这台机器上这个文件夹可写")
+        for name, op in ops.items():
+            for broken in ("_save_registry", "_write_cfg"):
+                cfg0, reg0 = self._raw(self.cfg_path), self._raw(self._reg_path())
+                with mock.patch.object(ds_credential, broken, side_effect=boom) as hit:
+                    with self.assertRaises(ds_credential.CredentialError, msg=f"{name}/{broken}") as cm:
+                        op()
+                self.assertTrue(hit.called and "写不进去" in str(cm.exception),
+                                f"{name}/{broken}:报错不是注入的那次写失败({cm.exception})")
+                self.assertEqual(self._raw(self.cfg_path), cfg0, f"{name}:{broken} 失败后配置被改了一半")
+                self.assertEqual(self._raw(self._reg_path()), reg0, f"{name}:{broken} 失败后登记被改了一半")
+            cfg0, reg0 = self._raw(self.cfg_path), self._raw(self._reg_path())
+            op()                                                    # 两处都好时照常生效(对照:这一步真改了盘)
+            self.assertNotEqual(self._raw(self._reg_path()), reg0, f"{name}:对照组没改动登记 —— 这条问不出东西")
+        self.assertEqual(ds_credential.PROVIDERS.get(cid), None)   # (不改全局目录)
+
+    def test_z17b_add_provider_with_key_leaves_no_zombie(self):
+        """添加供应商带 key:key 写不进去 ⇒ 不留「登记在、key 没有」的僵尸(重试不撞「这个地址已经是…」);
+        登记写不进去 ⇒ 不留 key 文件。"""
+        self.have_mimo_in_primary()
+        args = dict(label="中转", api_base="https://r9.example/v1", models=["r9m"], key=PROXY_KEY, multi=True)
+        reg0 = self._raw(self._reg_path())
+        real_write = ds_credential._atomic_write
+
+        def key_disk_full(path, body):
+            if os.path.dirname(os.path.abspath(path)) == os.path.abspath(self.keys_dir):
+                raise OSError(28, "磁盘满了", path)
+            return real_write(path, body)
+        with mock.patch.object(ds_credential, "_atomic_write", side_effect=key_disk_full):
+            with self.assertRaises(ds_credential.CredentialError):
+                ds_credential.add_custom_provider(self.home, self.cfg_path, **args)
+        self.assertEqual(self._raw(self._reg_path()), reg0, "key 没存上,供应商却登记了(僵尸)")
+        with mock.patch.object(ds_credential, "_save_registry",
+                               side_effect=ds_credential.CredentialError("写不进去")):
+            with self.assertRaises(ds_credential.CredentialError):
+                ds_credential.add_custom_provider(self.home, self.cfg_path, **args)
+        self.assertFalse(os.path.isdir(self.keys_dir) and any(f.startswith("c_") for f in os.listdir(self.keys_dir)),
+                         "供应商没登记上,key 文件却留在盘上")
+        pid = ds_credential.add_custom_provider(self.home, self.cfg_path, **args)   # 重试照常成功
+        self.assertTrue(next(p for p in self.view()["providers"] if p["id"] == pid)["configured"])
 
 
 if __name__ == "__main__":

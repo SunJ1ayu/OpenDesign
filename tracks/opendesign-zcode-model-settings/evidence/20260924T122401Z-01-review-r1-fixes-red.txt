@@ -1,0 +1,205 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    review-r1-fixes-red
+cmd:     sh -c /root/.venvs/design-studio/bin/python\ -m\ unittest\ tests.test_model_registry.TestFailureSafety\;\ node\ --test\ tests/test_model_settings_ui.mjs\;\ timeout\ 300\ node\ tests/e2e/model_settings.e2e.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  0dc309b
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-24T12:24:01Z
+---------------- 输出开始 ----------------
+FFFF
+======================================================================
+FAIL: test_z15_custom_provider_needs_a_builtin_key_first (tests.test_model_registry.TestFailureSafety.test_z15_custom_provider_needs_a_builtin_key_first)
+一家内置 key 都没有:外壳不起网关(startup_plan)、重启也只认 key.txt ⇒ 只配中转永远聊不了。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 390, in test_z15_custom_provider_needs_a_builtin_key_first
+    with self.assertRaises(ds_credential.CredentialError) as cm:
+AssertionError: CredentialError not raised
+
+======================================================================
+FAIL: test_z16_a_deleted_providers_key_never_reaches_a_new_one (tests.test_model_registry.TestFailureSafety.test_z16_a_deleted_providers_key_never_reaches_a_new_one)
+删自定义供应商时 key 删不掉:不许「登记删了、key 留着」—— 下一个新供应商会复用编号、继承这把 key,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 417, in test_z16_a_deleted_providers_key_never_reaches_a_new_one
+    with self.assertRaises(ds_credential.CredentialError):
+AssertionError: CredentialError not raised
+
+======================================================================
+FAIL: test_z17_two_writes_both_land_or_neither (tests.test_model_registry.TestFailureSafety.test_z17_two_writes_both_land_or_neither)
+登记(models.json)与配置 / key 两处写:任一处写不进去 ⇒ 两处都停在原样(报错与盘面一致,重试不被堵)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 461, in test_z17_two_writes_both_land_or_neither
+    self.assertEqual(self._raw(self._reg_path()), reg0, f"{name}:{broken} 失败后登记被改了一半")
+AssertionError: b'{\n[313 chars],\n  "contextWindow": {\n    "mimo/mimo-x-1": 262144\n  }\n}\n' != b'{\n[313 chars],\n  "contextWindow": {}\n}\n' : 改上下文窗口:_write_cfg 失败后登记被改了一半
+
+======================================================================
+FAIL: test_z17b_add_provider_with_key_leaves_no_zombie (tests.test_model_registry.TestFailureSafety.test_z17b_add_provider_with_key_leaves_no_zombie)
+添加供应商带 key:key 写不进去 ⇒ 不留「登记在、key 没有」的僵尸(重试不撞「这个地址已经是…」);
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 482, in test_z17b_add_provider_with_key_leaves_no_zombie
+    self.assertEqual(self._raw(self._reg_path()), reg0, "key 没存上,供应商却登记了(僵尸)")
+AssertionError: b'{\n  "version": 1,\n  "extraModels": {}[238 chars]n}\n' != None : key 没存上,供应商却登记了(僵尸)
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.026s
+
+FAILED (failures=4)
+TAP version 13
+# Subtest: ms1 读回包:正常原样;非 200 / 形状不对 ⇒ null;坏的一行丢掉、不拖垮整页(pv6)
+ok 1 - ms1 读回包:正常原样;非 200 / 形状不对 ⇒ null;坏的一行丢掉、不拖垮整页(pv6)
+  ---
+  duration_ms: 2.423235
+  type: 'test'
+  ...
+# Subtest: ms2 🔴「获取 API Key」只收 https;坏链接不让整行厂商消失(ku1/ku2)
+ok 2 - ms2 🔴「获取 API Key」只收 https;坏链接不让整行厂商消失(ku1/ku2)
+  ---
+  duration_ms: 0.380842
+  type: 'test'
+  ...
+# Subtest: ms3 状态点三态(照 ZCode):已禁用 > 就绪(key 在、后台拿到)> 未就绪(没填或等重启)
+ok 3 - ms3 状态点三态(照 ZCode):已禁用 > 就绪(key 在、后台拿到)> 未就绪(没填或等重启)
+  ---
+  duration_ms: 0.179656
+  type: 'test'
+  ...
+# Subtest: ms4 每家一句话:在用 / 就绪 / 已保存等重启 / 没填 / 已禁用 —— 五种说法不许混(pv7)
+not ok 4 - ms4 每家一句话:在用 / 就绪 / 已保存等重启 / 没填 / 已禁用 —— 五种说法不许混(pv7)
+  ---
+  duration_ms: 0.630427
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_model_settings_ui.mjs:54:1'
+  failureType: 'testCodeFailure'
+  error: '「正在重启」在重启不会发生时是永久假话'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: '已保存 sk-o…cdef,正在重启后台…重启完成后就能在聊天里选'
+  operator: 'doesNotMatch'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_model_settings_ui.mjs:67:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: ms5 左栏两组:内置供应商(照后端顺序)/ 自定义供应商(没有也要有这一组,「添加供应商」挂在它下面)
+ok 5 - ms5 左栏两组:内置供应商(照后端顺序)/ 自定义供应商(没有也要有这一组,「添加供应商」挂在它下面)
+  ---
+  duration_ms: 0.4266
+  type: 'test'
+  ...
+# Subtest: ms6 上下文长度照 ZCode 的技术写法(128K / 262.1K / 1M),不用「万」;没有就不显示
+ok 6 - ms6 上下文长度照 ZCode 的技术写法(128K / 262.1K / 1M),不用「万」;没有就不显示
+  ---
+  duration_ms: 12.619779
+  type: 'test'
+  ...
+# Subtest: ms7 设置页路由:\#/settings ⇒ 常规;\#/settings/models?provider=kimi ⇒ 模型设置并选中 kimi;来回一致
+ok 7 - ms7 设置页路由:\#/settings ⇒ 常规;\#/settings/models?provider=kimi ⇒ 模型设置并选中 kimi;来回一致
+  ---
+  duration_ms: 0.588116
+  type: 'test'
+  ...
+# Subtest: ms8 被环境变量供着的那一家 writable=false 原样透出(界面据此禁用输入并说明,H1);老后端没这个字段 ⇒ 当可写
+ok 8 - ms8 被环境变量供着的那一家 writable=false 原样透出(界面据此禁用输入并说明,H1);老后端没这个字段 ⇒ 当可写
+  ---
+  duration_ms: 0.213394
+  type: 'test'
+  ...
+# Subtest: ms9 首启要不要进模型设置:与旧卡片同一口径 —— 后端说有 key 就算有(配置读不出时每家那行认不出 key 归谁);老后端没这个字段 ⇒ 看每家那行
+ok 9 - ms9 首启要不要进模型设置:与旧卡片同一口径 —— 后端说有 key 就算有(配置读不出时每家那行认不出 key 归谁);老后端没这个字段 ⇒ 看每家那行
+  ---
+  duration_ms: 0.376662
+  type: 'test'
+  ...
+1..9
+# tests 9
+# suites 0
+# pass 8
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 162.44819
+  ok   - A22 左栏两组:内置供应商 / 自定义供应商(实际 ["builtin","custom"])
+  ok   - A22 内置五家、照后端顺序(实际 ["mimo","deepseek","kimi","glm_plan","glm"])
+  ok   - A22 状态点:有 key 且后台拿到 = 就绪;没填 = 未就绪
+  ok   - A22 顶上有「刷新」和「添加供应商」(有外壳)
+  ok   - A21 内置厂商的 Base URL 看得见、改不了
+  ok   - A5 GLM 套餐 / 按量是两行、名字不同
+  ok   - A28 「获取 API Key」跟着选中的那家、https、新窗口开、不带来源(接替 ku3)
+  ok   - A1 小米的模型列表里有 v2.6-pro / v2.6-flash(实际 ["mimo-v2.5","mimo-v2.5-pro","mimo-v2.6-pro","mimo-v2.6-flash"])
+  ok   - A16 内置模型没有「删除」,有「测试」
+  ok   - A18 添加模型空 ID ⇒ 说人话、不新增(实际「模型 ID 不能为空」)
+  ok   - A18 添加模型带空格 ⇒ 说人话、不新增(实际「模型 ID 不对:只能用字母、数字和 . _ - : / +,不超过 128 个字符」)
+  ok   - A18 添加模型重复 ⇒ 说人话、不新增(实际「MiMo(小米) 已经有 mimo-v2.5 了」)
+  ok   - A18 添加模型上下文不是数字 ⇒ 说人话、不新增(实际「上下文窗口必须是正整数」)
+  ok   - A18 添加模型上下文太小 ⇒ 说人话、不新增(实际「上下文窗口要填 1024 到 10000000 之间的整数」)
+  ok   - A2 添加模型 ⇒ 列表里多一行,上下文照 ZCode 写成 262.1K(K6)
+  ok   - A16 自己加的模型有「删除」
+  FAIL - #5 「显示」按钮悬停字不再说「只显示末四位」(实际「只管正在输入的这一把;已保存的永远只显示末四位」)
+  ok   - K5 内置行(没有删除)与自加行的「测试」在同一列(内置 x=1202.953125,自加 x=1202.953125,内置无删除=true)
+  ok   - A2 聊天框换模型里选得到刚加的模型,配置真的换过去
+  ok   - A6 正在用的模型删不掉,说人话、当前不变(提示「mimo-e2e 正在用,先在聊天框里换一个模型再删」)
+  ok   - A6 正在用的那家禁不掉,开关不动(提示「mimo-e2e 正在用,先在聊天框里换一个模型再删」)
+  ok   - K4 打开添加供应商后,上一句拒绝提示已收起(实际「」)
+  ok   - A3 存完提示正在重启后台(「已保存,正在自动重启后台服务,稍等片刻即可继续使用;若稍后仍连不上,请手动重启 OpenDesign。」)
+  ok   - A3/A15 重启完成前这家不进换模型菜单
+  ok   - A3 后台起好后 DeepSeek 变成就绪(页面自己跟上)
+  ok   - A3 存别家的 key 没换当前模型(D4)
+  ok   - A3 重启完成后提示跟着改口(不再说「正在重启」,说已生效)(实际「后台已重启,这把 key 已生效,可以在聊天里选这家的模型了。」)
+  ok   - A7 禁用 ⇒ 状态点变灰,末四位还在
+  ok   - K3 禁用后详情里不再出现「已禁用」(圆点叫「未启用」)(状态句「未启用 · 已存 sk-e…89ab(不会出现在换模型菜单里)」,提示「DeepSeek 官方 已设为未启用」)
+  ok   - A7/A12 禁用的那家不在换模型菜单里(实际 ["mimo"])
+  ok   - A7 再启用 ⇒ 不用重填 key 就回到就绪
+  ok   - A7/A4 启用后回到菜单;勾仍只在当前那家
+  ok   - A20 空着保存 ⇒ 报错,原 key 与末四位不变(「API key 是空的」)
+  ok   - K1 前提:主槽存 key 也请了外壳重启、提示说重启(「已保存,正在自动重启后台服务,稍等片刻即可继续使用;若稍后仍连不上,请手动重启 OpenDesign。」)
+  ok   - K1 主槽存 key:提示不许自称已重启 / 已生效(实际「已保存,正在自动重启后台服务,稍等片刻即可继续使用;若稍后仍连不上,请手动重启 OpenDesign。」)
+  ok   - A19 添加供应商缺名称 ⇒ 说人话、不新增、当前不变(「供应商名称要填,不超过 40 个字」)
+  ok   - A19 添加供应商没有模型 ⇒ 说人话、不新增、当前不变(「添加供应商前,请至少添加一个模型」)
+  ok   - A9 添加供应商Base URL 撞内置 ⇒ 说人话、不新增、当前不变(「这个地址已经是「MiMo(小米)」了,直接在它那页配置」)
+  ok   - A10 API 格式只读:Chat Completions
+  ok   - A10 自定义供应商出现在左栏「自定义供应商」下
+  ok   - A28 自定义供应商没有「获取 API Key」链接(不画空链接)
+  ok   - A15/A10 不等重启就能「测试」,用的是刚存的 key(「本地中转 / gpt-e2e 连接成功」)
+  ok   - A2 测试失败给可读原因、不带 key(「本地中转 / other-e2e 连接失败:这家找不到这个模型,检查模型 ID 是否拼对,Base URL 是否填对(HTTP 404:model not found)」)
+  ok   - A10 带 key 添加 ⇒ 请外壳重启;起好后就绪
+  ok   - A10 聊天框换模型里选得到自定义供应商的模型,配置真的换过去
+  ok   - A10 选中后发往自定义供应商的端点(预设挂在 od_c_1)
+  ok   - Q8 自定义供应商能改名
+  ok   - Q8 改 Base URL 撞内置 ⇒ 拒收,端点不变(「这个地址已经是「DeepSeek 官方」了」)
+  ok   - A27 刷新不丢数据
+  ok   - 前置:换回 mimo-v2.5
+  ok   - A16 自己加的模型删得掉
+  ok   - Q8 自定义供应商删得掉
+  ok   - A16 删掉的模型与供应商从换模型菜单里消失(实际 {"mimo":{"selected":true,"models":["mimo-v2.5","mimo-v2.5-pro","mimo-v2.6-pro","mimo-v2.6-flash"]},"deepseek":{"selected":false,"models":["deepseek-v4-flash","deepseek-v4-pro"]}})
+  ok   - A8 key(…cdef)没出现在页面 HTML里
+  ok   - A8 key(…cdef)没出现在无障碍树里
+  ok   - A8 key(…cdef)没出现在控制台里
+  ok   - A8 key(…cdef)没出现在响应体里
+  ok   - A8 key(…cdef)没出现在ds_web 日志里
+  ok   - A8 key(…cdef)没出现在配置文件里
+  ok   - A8 key(…89ab)没出现在页面 HTML里
+  ok   - A8 key(…89ab)没出现在无障碍树里
+  ok   - A8 key(…89ab)没出现在控制台里
+  ok   - A8 key(…89ab)没出现在响应体里
+  ok   - A8 key(…89ab)没出现在ds_web 日志里
+  ok   - A8 key(…89ab)没出现在配置文件里
+  ok   - A8 key(…abcd)没出现在页面 HTML里
+  ok   - A8 key(…abcd)没出现在无障碍树里
+  ok   - A8 key(…abcd)没出现在控制台里
+  ok   - A8 key(…abcd)没出现在响应体里
+  ok   - A8 key(…abcd)没出现在ds_web 日志里
+  ok   - A8 key(…abcd)没出现在配置文件里
+  ok   - 全程没有页面级 JS 报错
+
+1 条红
+---------------- 输出结束 ----------------
+runlog: review-r1-fixes-red rc=1 commit=0dc309b dirty=yes at=2026-09-24T12:24:01Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T122401Z-01-review-r1-fixes-red.txt

@@ -63,6 +63,8 @@ test("ms4 每家一句话:在用 / 就绪 / 已保存等重启 / 没填 / 已禁
   assert.match(t[0], /在用/);
   assert.match(t[1], /cdef/);
   assert.match(t[2], /重启/, "等重启那一家必须说清要等后台重启");
+  // 09-24 第 1 轮评审 #4(MiMo MIN-1、Kimi LOW):重启可能根本不会发生(没外壳应答 / 起网关那步失败)⇒ 不许说「正在」
+  assert.doesNotMatch(t[2], /正在/, "「正在重启」在重启不会发生时是永久假话");
   assert.doesNotMatch(t[3], /…/, "没填的不许出现首尾提示");
   // 09-24 QA-执行 K3:禁用那一句和圆点用同一个词(ZCode disabledStatus「未启用」),不许一屏两种说法
   assert.ok(t[4].startsWith(STATUS_LABEL.disabled), t[4]);
