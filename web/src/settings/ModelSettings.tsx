@@ -387,7 +387,7 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
                     onKeyDown={(e) => { if (e.key === "Enter") void saveKey(sel); }}
                   />
                   <button className="ms-icon-btn" data-ui="ms-key-eye" type="button" disabled={!sel.writable}
-                    aria-label={showKey ? "隐藏正在输入的 key" : "显示正在输入的 key"} title="只管正在输入的这一把;已保存的永远只显示末四位"
+                    aria-label={showKey ? "隐藏正在输入的 key" : "显示正在输入的 key"} title="只管正在输入的这一把;已保存的只显示首尾几位"
                     onClick={() => setShowKey((v) => !v)}>
                     {showKey ? "隐藏" : "显示"}
                   </button>

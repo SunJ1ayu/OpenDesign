@@ -676,7 +676,7 @@
   - heading "DeepSeek 官方" [level=3]
   - text: 已启用
   - switch "禁用供应商" [checked]
-  - paragraph: 已保存 sk-q…89ab,正在重启后台…重启完成后就能在聊天里选
+  - paragraph: 已保存 sk-q…89ab,后台重启后就能在聊天里选;一直没好就退出 OpenDesign 再打开
   - status: 已保存,正在自动重启后台服务,稍等片刻即可继续使用;若稍后仍连不上,请手动重启 OpenDesign。
   - text: Base URL(只读)
   - textbox "Base URL(只读)": https://api.deepseek.com/v1
@@ -1139,12 +1139,12 @@
   - button "删除供应商"
   - text: 已启用
   - switch "禁用供应商" [checked]
-  - paragraph: 已保存 sk-q…abcd,正在重启后台…重启完成后就能在聊天里选
+  - paragraph: 已保存 sk-q…abcd,后台重启后就能在聊天里选;一直没好就退出 OpenDesign 再打开
   - status: 已保存,正在自动重启后台服务,稍等片刻即可继续使用;若稍后仍连不上,请手动重启 OpenDesign。
   - text: Base URL
   - textbox "Base URL":
     - /placeholder: https://api.example.com/v1
-    - text: http://127.0.0.1:38687/v1
+    - text: http://127.0.0.1:39607/v1
   - text: API 格式 Chat Completions (/v1/chat/completions)
   - button "保存名称和地址" [disabled]
   - text: API Key
@@ -1208,12 +1208,12 @@
   - button "删除供应商"
   - text: 已启用
   - switch "禁用供应商" [checked]
-  - paragraph: 已保存 sk-q…abcd,正在重启后台…重启完成后就能在聊天里选
+  - paragraph: 已保存 sk-q…abcd,后台重启后就能在聊天里选;一直没好就退出 OpenDesign 再打开
   - status: 已保存,正在自动重启后台服务,稍等片刻即可继续使用;若稍后仍连不上,请手动重启 OpenDesign。
   - text: Base URL
   - textbox "Base URL":
     - /placeholder: https://api.example.com/v1
-    - text: http://127.0.0.1:38687/v1
+    - text: http://127.0.0.1:39607/v1
   - text: API 格式 Chat Completions (/v1/chat/completions)
   - button "保存名称和地址" [disabled]
   - text: API Key
@@ -1278,12 +1278,12 @@
   - button "删除供应商"
   - text: 已启用
   - switch "禁用供应商" [checked]
-  - paragraph: 已保存 sk-q…abcd,正在重启后台…重启完成后就能在聊天里选
+  - paragraph: 已保存 sk-q…abcd,后台重启后就能在聊天里选;一直没好就退出 OpenDesign 再打开
   - status: 已保存,正在自动重启后台服务,稍等片刻即可继续使用;若稍后仍连不上,请手动重启 OpenDesign。
   - text: Base URL
   - textbox "Base URL":
     - /placeholder: https://api.example.com/v1
-    - text: http://127.0.0.1:38687/v1
+    - text: http://127.0.0.1:39607/v1
   - text: API 格式 Chat Completions (/v1/chat/completions)
   - button "保存名称和地址" [disabled]
   - text: API Key
@@ -1353,7 +1353,7 @@
   - text: Base URL
   - textbox "Base URL":
     - /placeholder: https://api.example.com/v1
-    - text: http://127.0.0.1:38687/v1
+    - text: http://127.0.0.1:39607/v1
   - text: API 格式 Chat Completions (/v1/chat/completions)
   - button "保存名称和地址" [disabled]
   - text: API Key

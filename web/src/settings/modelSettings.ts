@@ -123,7 +123,8 @@ export function providerStateText(p: ProviderRow): string {
   if (!p.enabled) return `${STATUS_LABEL.disabled}${p.configured ? ` · 已存${hint}` : ""}(不会出现在换模型菜单里)`;
   if (p.configured && p.live && p.active) return `在用 · 已存${hint}`;
   if (p.configured && p.live) return `就绪 · 已存${hint}`;
-  if (p.configured) return `已保存${hint},正在重启后台…重启完成后就能在聊天里选`;
+  // 不说「正在」:重启可能根本不会发生(没外壳应答、起网关那步失败)—— 那时「正在重启」是永久假话(第 1 轮评审 #4)
+  if (p.configured) return `已保存${hint},后台重启后就能在聊天里选;一直没好就退出 OpenDesign 再打开`;
   return "还没填 API Key";
 }
 

@@ -705,6 +705,30 @@ def _atomic_write(path: str, body: str) -> None:
         raise
 
 
+def _check_key(key) -> str:
+    k = (key or "").strip() if isinstance(key, str) else ""
+    if not k:
+        raise CredentialError("API key 是空的")
+    try:
+        k.encode("latin-1")
+    except UnicodeEncodeError:
+        # 与登录口令那条同源:非 latin-1 的东西过不了 HTTP 头/环境变量这一路,
+        # 现在说清楚,好过装完聊天时炸一句英文。
+        raise CredentialError("API key 里有中文或特殊字符,请检查是不是复制多了") from None
+    return k
+
+
+# 第 1 轮代码评审 #1(MiMo BLOCK-1):外壳只在有主槽 key(内置厂商)时起网关、重启也只认 key.txt ⇒
+# 只配自定义供应商永远聊不了。让它也能用是槽位设计的改动(不在本单);这里当场说清,不收下再让界面说「正在重启」。
+NEED_BUILTIN_KEY = ("要先在上面填好一家内置厂商(比如 MiMo)的 API Key,才能用自定义供应商 —— "
+                    "OpenDesign 的后台得先靠内置那家跑起来。")
+
+
+def _has_builtin_key(home: str, cfg) -> bool:
+    """主槽(永远是内置厂商)有没有 key:env 优先,其次 key.txt —— 与外壳 build_env / startup_plan 同一口径。"""
+    return ((_env_key(cfg) if isinstance(cfg, dict) else None) or read_key(home)) is not None
+
+
 @_scoped
 def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = False,
          switch: bool = True) -> dict:
@@ -724,15 +748,7 @@ def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = Fal
     """
     if provider not in _P():
         raise CredentialError(f"不认识的厂商:{provider}")
-    k = (key or "").strip()
-    if not k:
-        raise CredentialError("API key 是空的")
-    try:
-        k.encode("latin-1")
-    except UnicodeEncodeError:
-        # 与登录口令那条同源:非 latin-1 的东西过不了 HTTP 头/环境变量这一路,
-        # 现在说清楚,好过装完聊天时炸一句英文。
-        raise CredentialError("API key 里有中文或特殊字符,请检查是不是复制多了") from None
+    k = _check_key(key)
 
     preset = _P()[provider]
     is_custom = bool(preset.get("custom"))
@@ -748,7 +764,9 @@ def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = Fal
 
     if multi and isinstance(cfg, dict):
         primary = _current_provider(cfg)
-        primary_has_key = (_env_key(cfg) or read_key(home)) is not None
+        primary_has_key = _has_builtin_key(home, cfg)
+        if is_custom and not primary_has_key:
+            raise CredentialError(NEED_BUILTIN_KEY)
         if is_custom or (primary_has_key and provider != primary):
             if not switch:
                 # 设置页存 key(照 ZCode):不写「想换过去」、不换当前模型(D4,z7;顺带收掉 kimi-glm #60)
@@ -984,6 +1002,29 @@ def _write_cfg(cfg_path: str, cfg: dict) -> None:
         raise CredentialError(f"写不进去({exc.__class__.__name__}),请确认这台机器上这个文件夹可写") from None
 
 
+def _commit_both(home: str, cfg_path: str, reg: dict, cfg: dict | None = None) -> None:
+    """登记(models.json)+ 配置两处写(第 1 轮代码评审 #3,MiMo BLOCK-3 / Kimi MEDIUM):**先写配置、登记最后写**;
+    登记写不进去 ⇒ 把配置还原成原样再报错。任一步失败,两处都停在原样 —— 报错与盘面一致、重试不被堵,
+    也不会出现「界面是新地址、聊天还走旧地址」。"""
+    before = None
+    if cfg is not None:
+        try:
+            with open(cfg_path, encoding="utf-8") as fh:
+                before = fh.read()
+        except OSError as exc:
+            raise CredentialError(f"配置读不出来:{cfg_path}({exc.__class__.__name__})") from None
+        _write_cfg(cfg_path, cfg)
+    try:
+        _save_registry(home, reg)
+    except CredentialError:
+        if before is not None:
+            try:
+                _atomic_write(cfg_path, before)
+            except OSError:
+                pass
+        raise
+
+
 def _in_use(cfg: dict) -> tuple:
     """(正在用的厂商, 正在用的模型)。"""
     return _preset_vendor(cfg, ds_model.active_preset_name(cfg)), ds_model.resolve_model(cfg)
@@ -1105,8 +1146,7 @@ def remove_model(home: str, cfg_path: str, provider: str, model: str) -> dict:
     else:
         reg["extraModels"][provider] = [m for m in reg["extraModels"].get(provider, []) if m != model]
     reg["contextWindow"].pop(f"{provider}/{model}", None)
-    _save_registry(home, reg)
-    _write_cfg(cfg_path, cfg)
+    _commit_both(home, cfg_path, reg, cfg)
     with catalog_scope(home):
         return providers_view(home, cfg_path)
 
@@ -1120,13 +1160,13 @@ def set_context_window(home: str, cfg_path: str, provider: str, model: str, toke
     tokens = _check_tokens(tokens)
     reg = _load_registry(home)
     reg["contextWindow"][f"{provider}/{model}"] = tokens
-    _save_registry(home, reg)
+    cfg = _read_cfg(cfg_path)
+    p = (cfg.get("model_presets") or {}).get(preset_name(provider, model))
+    if isinstance(p, dict):                      # 已有的预设当场改(配置里字段是驼峰,同 _apply_params)
+        p.pop("context_window_tokens", None)
+        p["contextWindowTokens"] = tokens
+    _commit_both(home, cfg_path, reg, cfg if isinstance(p, dict) else None)
     with catalog_scope(home):
-        cfg = _read_cfg(cfg_path)
-        p = (cfg.get("model_presets") or {}).get(preset_name(provider, model))
-        if isinstance(p, dict):
-            _apply_params(p, provider)
-            _write_cfg(cfg_path, cfg)
         return providers_view(home, cfg_path)
 
 
@@ -1174,17 +1214,33 @@ def add_custom_provider(home: str, cfg_path: str, *, label: str, api_base: str, 
         m = _check_model_id(m)
         if m not in ids:
             ids.append(m)
+    if not _has_builtin_key(home, _read_cfg(cfg_path)):
+        raise CredentialError(NEED_BUILTIN_KEY)
+    k = _check_key(key) if key else None
     reg = _load_registry(home)
     used = {cp["id"] for cp in reg["customProviders"]}
     n = 1
-    while f"{CUSTOM_PREFIX}{n}" in used or f"{CUSTOM_PREFIX}{n}" in PROVIDERS:
+    # 盘上还留着 key 文件的编号也跳过(更早失败的删除留下的):新供应商绝不认领别人的 key(#2)
+    while (f"{CUSTOM_PREFIX}{n}" in used or f"{CUSTOM_PREFIX}{n}" in PROVIDERS
+           or os.path.exists(extra_key_path(home, f"{CUSTOM_PREFIX}{n}"))):
         n += 1
     pid = f"{CUSTOM_PREFIX}{n}"
     reg["customProviders"].append({"id": pid, "label": label, "apiBase": base, "models": ids})
-    _save_registry(home, reg)
-    if key:
-        with catalog_scope(home):
-            save(home, cfg_path, pid, key, multi=True, switch=False)
+    # key 先落盘、登记最后写(#3):key 写不进去 ⇒ 不留「登记在、key 没有」的僵尸;登记写不进去 ⇒ 撤掉 key 文件
+    if k:
+        try:
+            _atomic_write(extra_key_path(home, pid), k + "\n")
+        except OSError as exc:
+            raise CredentialError(f"写不进去({exc.__class__.__name__}),请确认这台机器上这个文件夹可写") from None
+    try:
+        _save_registry(home, reg)
+    except CredentialError:
+        if k:
+            try:
+                os.remove(extra_key_path(home, pid))
+            except OSError:
+                pass
+        raise
     return pid
 
 
@@ -1207,13 +1263,13 @@ def update_custom_provider(home: str, cfg_path: str, provider: str, *, label=Non
             if v != provider and _norm_base(other["apiBase"]) == base:
                 raise CredentialError(f"这个地址已经是「{other['label']}」了")
         entry["apiBase"] = base
-    _save_registry(home, reg)
+    cfg = _read_cfg(cfg_path)
+    slot = (cfg.get("providers") or {}).get(extra_provider_name(provider))
+    touch = isinstance(slot, dict) and api_base is not None
+    if touch:                                    # nanobot 每句前重读配置 ⇒ 下一句就走新地址
+        slot["apiBase"] = entry["apiBase"]
+    _commit_both(home, cfg_path, reg, cfg if touch else None)
     with catalog_scope(home):
-        cfg = _read_cfg(cfg_path)
-        slot = (cfg.get("providers") or {}).get(extra_provider_name(provider))
-        if isinstance(slot, dict) and api_base is not None:
-            slot["apiBase"] = entry["apiBase"]
-            _write_cfg(cfg_path, cfg)
         return providers_view(home, cfg_path)
 
 
@@ -1225,6 +1281,15 @@ def remove_custom_provider(home: str, cfg_path: str, provider: str) -> dict:
     cfg = _read_cfg(cfg_path)
     if _in_use(cfg)[0] == provider:
         raise CredentialError(f"{meta['label']} 正在用,先在聊天框里换到别家的模型再删")
+    # 第 1 轮代码评审 #2(MiMo BLOCK-2):**先删 key**。删不掉就什么都不动 —— 供应商还在列表里,业主看得见;
+    # 反过来(登记先删、key 留盘)下一个新供应商会继承这把 key 并把它发到新端点。
+    try:
+        os.remove(extra_key_path(home, provider))
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        raise CredentialError(f"{meta['label']} 的 API Key 文件删不掉({exc.__class__.__name__}),"
+                              "可能被别的程序占着;关掉它再删一次") from None
     slot = extra_provider_name(provider)
     (cfg.get("providers") or {}).pop(slot, None)
     presets = cfg.get("model_presets")
@@ -1236,12 +1301,7 @@ def remove_custom_provider(home: str, cfg_path: str, provider: str) -> dict:
     reg["customProviders"] = [cp for cp in reg["customProviders"] if cp["id"] != provider]
     reg["disabled"] = [v for v in reg["disabled"] if v != provider]
     reg["contextWindow"] = {k: v for k, v in reg["contextWindow"].items() if not k.startswith(provider + "/")}
-    _save_registry(home, reg)
-    _write_cfg(cfg_path, cfg)
-    try:
-        os.remove(extra_key_path(home, provider))
-    except OSError:
-        pass
+    _commit_both(home, cfg_path, reg, cfg)
     with catalog_scope(home):
         return providers_view(home, cfg_path)
 
