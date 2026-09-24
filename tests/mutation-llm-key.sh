@@ -12,8 +12,10 @@
 set -u
 cd "$(dirname "$0")/.."
 WORK="$(mktemp -d)"
-SRCS=(web/src/llmKey.ts web/src/LlmKeyCard.tsx web/src/chat/connection.ts
-      web/src/App.tsx web/src/workspace/Sidebar.tsx)
+# 09-24 起旧 key 卡片由「设置 · 模型设置」接替(track opendesign-zcode-model-settings):
+# 每条变异照旧问同一个问题,只是打在新代码上(旧→新对照见那个 track 的 verify.md)。
+SRCS=(web/src/settings/modelSettings.ts web/src/settings/ModelSettings.tsx web/src/chat/connection.ts
+      web/src/App.tsx web/src/settings/SettingsPage.tsx)
 
 for s in "${SRCS[@]}"; do cp "$s" "$WORK/$(basename "$s").orig"; done
 restore() {
@@ -82,33 +84,30 @@ UNIT="node --test tests/test_llm_key.mjs tests/test_llm_key_surface.mjs tests/te
 echo "== 红检:T4 前端(每条都要重新 build,慢是应该的)"
 
 # ---- 逻辑层(纯 node 判据就能咬,不必 build)----------------------------
-mutate M1 web/src/llmKey.ts \
-  'method: "POST",' 'method: "GET",' \
+# (多行锚点:同一句在文件里出现不止一次时带上邻行取唯一 —— 锚点不唯一脚本会记 [BAD],不算咬住)
+mutate M1 web/src/settings/modelSettings.ts \
+  '    res = await fetchFn(path, {
+      method: "POST",' '    res = await fetchFn(path, {
+      method: "GET",' \
   "$UNIT" \
-  "a3 保存用 POST" "saveKey 改用 GET ⇒ a3 该红"
-# 🔴 M3/M7 的第一版**变异体自己编译不过**(2026-08-16 首次全跑才暴露,被脚本正确地
-#    记成 [BAD] 不算数)。教训是这一类脚本共有的:**最自然的那个变异往往编译不过**,
-#    而 TS 的报错点还离锚点很远,容易误读成"实现坏了"。两种坑各踩了一次:
-#      M3 `!== 999`   ⇒ status 被窄化成字面量 999,和后面第 91 行的 `=== 400` 无重叠;
-#      M7 去掉 safeHint 的唯一调用 ⇒ noUnusedLocals 报 TS6133。
-#    ⇒ 改成语义相同但编译得过的写法:M3 放宽比较(不产生字面量窄化),
-#      M7 保留对 safeHint 的引用(短路到不可达分支)。
-mutate M3 web/src/llmKey.ts \
-  'if (res.status === 200) {' 'if (res.status >= 200) {' \
+  "a3 保存用 POST" "保存改用 GET ⇒ a3 该红"
+mutate M3 web/src/settings/modelSettings.ts \
+  'if (res.status !== 200) {' 'if (res.status > 400) {' \
   "$UNIT" \
-  "a5 后端拒绝" "400 也当成功 ⇒ a5/a7 该红"
-mutate M4 web/src/llmKey.ts \
+  "a5 后端拒绝" "400 也当成功 ⇒ a5 该红"
+mutate M4 web/src/settings/modelSettings.ts \
   '请手动重启 OpenDesign 后再继续使用。' '请稍后再试。' \
   "$UNIT" \
   "d1 manual" "manual 不提重启 ⇒ d1/d3 该红"
-mutate M5 web/src/llmKey.ts \
+mutate M5 web/src/settings/modelSettings.ts \
   'if (restart === "requested") {' 'if (restart !== "manual") {' \
   "$UNIT" \
   "d3 没见过的 restart" "未知值倒向 requested ⇒ d3 该红(保守方向反了)"
-mutate M7 web/src/llmKey.ts \
-  'hint: safeHint(body.hint, key),' 'hint: key || safeHint(body.hint, key),' \
+mutate M7 web/src/settings/modelSettings.ts \
+  'const data = withoutSecret(asRecord(await readJson(res)), secret);' \
+  'const data = asRecord(await readJson(res)); void withoutSecret;' \
   "$UNIT" \
-  "c1 保存成功后" "把入参 key 当 hint 端出去 ⇒ c1/c2 该红"
+  "c2 后端要是把 key 回显了" "回包不抹 key ⇒ c2 该红"
 mutate M17 web/src/chat/connection.ts \
   'const pw = this.storage.getItem(PASSWORD_KEY);' \
   'const pw = this.storage.getItem(PASSWORD_KEY) ?? "undefined";' \
@@ -116,72 +115,74 @@ mutate M17 web/src/chat/connection.ts \
   "没口令 = 代签主路" "没口令时瞎编一个 Bearer ⇒ 代签断言该红"
 
 # ---- 界面层(必须 build 之后跑 e2e)-------------------------------------
-mutate M9 web/src/LlmKeyCard.tsx \
-  'type="password"' 'type="text"' \
+mutate M9 web/src/settings/ModelSettings.tsx \
+  'type={showKey ? "text" : "password"}' 'type="text"' \
   "$E2E" \
   "FAIL - A3" "输入框改明文 ⇒ A3 该红"
-mutate M10 web/src/LlmKeyCard.tsx \
-  'autoComplete="off"' 'autoComplete="on"' \
+mutate M10 web/src/settings/ModelSettings.tsx \
+  '                    type={showKey ? "text" : "password"}
+                    autoComplete="off"' '                    type={showKey ? "text" : "password"}
+                    autoComplete="on"' \
   "$E2E" \
   "FAIL - A3" "去掉 autocomplete ⇒ A3 该红"
-mutate M11 web/src/LlmKeyCard.tsx \
-  'if (inputRef.current) inputRef.current.value = "";' \
-  'if (inputRef.current) { /* 不清空 */ }' \
+mutate M11 web/src/settings/ModelSettings.tsx \
+  'if (keyRef.current) keyRef.current.value = "";' \
+  'if (keyRef.current) { /* 不清空 */ }' \
   "$E2E" \
   "FAIL - C10" "保存后不清空输入框 ⇒ C10 该红"
-mutate M12 web/src/LlmKeyCard.tsx \
-  'const outcome = await saveKey(fetch, provider, rawKey);' \
-  'localStorage.setItem("ds-last-key", rawKey); const outcome = await saveKey(fetch, provider, rawKey);' \
+mutate M12 web/src/settings/ModelSettings.tsx \
+  'const r = await saveProviderKey(fetch, p.id, raw);' \
+  '(window as unknown as Record<string, Storage>)["local" + "Storage"].setItem("ds-last-key", raw); const r = await saveProviderKey(fetch, p.id, raw);' \
   "$E2E" \
-  "FAIL - C9" "顺手把 key 存进 localStorage ⇒ C9 该红"
-mutate M13 web/src/LlmKeyCard.tsx \
-  'if (inputRef.current) inputRef.current.value = "";' \
-  'document.title = rawKey; if (inputRef.current) inputRef.current.value = "";' \
+  "FAIL - C9" "顺手把 key 存进 localStorage ⇒ C9 该红(拼字躲开源码扫描 c3,问的是 e2e 自己咬不咬)"
+mutate M13 web/src/settings/ModelSettings.tsx \
+  'if (keyRef.current) keyRef.current.value = "";' \
+  'document.title = raw; if (keyRef.current) keyRef.current.value = "";' \
   "$E2E" \
   "FAIL - C1" "把 key 写进页面标题 ⇒ C1 该红"
 mutate M14 web/src/App.tsx \
-  'if (!st.configured) setLlmKeyOpen(true);' 'setLlmKeyOpen(true);' \
+  'if (stale || !v || anyConfigured(v) || settingsRoute(window.location.hash)) return;' \
+  'if (stale || !v || settingsRoute(window.location.hash)) return;' \
   "$E2E" \
-  "FAIL - E1" "已配置时也自动弹 ⇒ E1 该红"
+  "FAIL - E1" "已配置时也带进设置页 ⇒ E1 该红"
 mutate M18 web/src/App.tsx \
-  '<div className="connect-modal-mask" onClick={() => setLlmKeyOpen(false)}>' \
-  '<div className="connect-modal-mask">' \
+  'onBack={() => { window.location.hash = backHash.current; }}' \
+  'onBack={() => {}}' \
   "$E2E" \
-  "FAIL - A5" "遮罩上的 onClick 没了 ⇒ 卡片关不掉,业主被锁在门外 ⇒ A5 该红"
+  "FAIL - A5" "「返回工作区」没反应 ⇒ 业主被锁在设置页 ⇒ A5 该红"
 
-# 🔴 M19 是 M18 的**加强版,也是 A6 存在的全部理由**:它造出"看起来关掉了、
-#    其实遮罩还在吃点击"这个形态 —— 卡片确实不见了(A5 照样绿),但那层
-#    position:fixed;inset:0 的遮罩留在 DOM 里继续拦截所有点击。
-#    这正是 08-16 那次 29 条 e2e 一起红的真实形态。**M19 漏网 = A6 是 A5 的重复,
-#    删了它不心疼;M19 咬住 = A6 问到了 A5 问不出的东西。**
+# 🔴 M19 是 M18 的**加强版,也是 A6 存在的全部理由**:"看起来离开了、其实还有一层透明的东西在吃点击"
+#    (08-16 那次 29 条 e2e 一起红的真实形态)。设置页确实不见了(A5 照样绿),但一层 inset:0 的
+#    遮罩留在页面上。**M19 漏网 = A6 是 A5 的重复;M19 咬住 = A6 问到了 A5 问不出的东西。**
 mutate M19 web/src/App.tsx \
-  '<div className="connect-modal-mask" onClick={() => setLlmKeyOpen(false)}>' \
-  '<div className="connect-modal-mask" onClick={() => { const el = document.querySelector("[data-ui=\"llm-key-card\"]"); if (el) (el as HTMLElement).style.display = "none"; }}>' \
+  '      {route === "settings" ? settingsPage : sidebar}' \
+  '      {route === "settings" ? settingsPage : sidebar}
+      {route !== "settings" && <div className="connect-modal-mask" style={{ opacity: 0 }} />}' \
   "$E2E" \
-  "FAIL - A6" "卡片藏起来但遮罩留着继续吃点击 ⇒ A5 绿而 A6 该红"
+  "FAIL - A6" "离开后留一层透明遮罩吃点击 ⇒ A5 绿而 A6 该红"
 
 mutate M20 web/src/App.tsx \
-  'if (!st.configured) setLlmKeyOpen(true);' \
-  'if (!st.configured && !sessionStorage.getItem("ds-key-dismissed")) setLlmKeyOpen(true); sessionStorage.setItem("ds-key-dismissed", "1");' \
+  '      window.location.hash = settingsHash("models");' \
+  '      if (!(window as unknown as Record<string, Storage>)["session" + "Storage"].getItem("ds-key-dismissed")) window.location.hash = settingsHash("models");
+      (window as unknown as Record<string, Storage>)["session" + "Storage"].setItem("ds-key-dismissed", "1");' \
   "$E2E" \
-  "FAIL - A7" "关掉一次就再也不提醒 ⇒ 业主永远填不上 key ⇒ A7 该红"
+  "FAIL - A7" "离开一次就再也不带进来 ⇒ 业主永远填不上 key ⇒ A7 该红"
 
 # ── H 组(被环境变量遮蔽时只读)────────────────────────────────────────────
-mutate M21 web/src/LlmKeyCard.tsx \
-  'disabled={loading || saving || shadowed}' \
-  'disabled={loading || saving}' \
+mutate M21 web/src/settings/ModelSettings.tsx \
+  '                    disabled={!sel.writable || busy}
+                    placeholder=' '                    disabled={busy}
+                    placeholder=' \
   "$E2E" \
   "FAIL - H1" "遮蔽时输入框照样能填 ⇒ 业主白填一次才被后端拒绝 ⇒ H1 该红"
-
-mutate M22 web/src/LlmKeyCard.tsx \
-  'const shadowed = status?.writable === false;' \
-  'const shadowed = false;' \
+mutate M22 web/src/settings/modelSettings.ts \
+  'writable: r.writable !== false,' 'writable: true,' \
   "$E2E" \
   "FAIL - H1" "整个只读态失效(既不禁用也不说明)⇒ H1 该红"
 
-mutate M16 web/src/workspace/Sidebar.tsx \
-  'title="设置大模型 API key"' \
-  'title="切换模型:python bin/set_model.py <模型id>"' \
+mutate M16 web/src/settings/SettingsPage.tsx \
+  '<span className="val mono">⌘N 新对话 · ⌘K 搜索</span>' \
+  '<span className="val mono">⌘N 新对话 · ⌘K 搜索 · 切换模型:python bin/set_model.py &lt;模型id&gt;</span>' \
   "$E2E" \
   "FAIL - F3" "把教人敲命令行的提示放回去 ⇒ F3 该红"
 

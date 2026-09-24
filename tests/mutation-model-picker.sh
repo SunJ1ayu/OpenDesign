@@ -17,7 +17,7 @@ set -u
 cd "$(dirname "$0")/.."
 PY="${PY:-/root/.venvs/design-studio/bin/python}"
 
-FILES=(bin/ds_credential.py bin/ds_web.py web/src/chat/modelPicker.ts web/src/chat/ChatPage.tsx web/src/app.css)
+FILES=(bin/ds_credential.py bin/ds_web.py web/src/chat/modelPicker.ts web/src/chat/ChatPage.tsx web/src/chat/ModelMenu.tsx web/src/app.css)
 WORK="$(mktemp -d)"
 dist_hash() { (find web/dist -type f -print0 | sort -z | xargs -0 sha256sum) | sha256sum | cut -d' ' -f1; }
 BEFORE="$(sha256sum "${FILES[@]}")"
@@ -96,23 +96,30 @@ mut_e2e() {  # mut_e2e <编号> <靶子(断言标签开头)> <文件> <old> <new
 echo "== 段 A 后端 lm =="
 mut_py a1 test_lm4_ids_outside_the_current_catalog_are_refused bin/ds_credential.py \
   '    if model not in p["models"]:' '    if False:'
+# 09-24 锚点随后端改版重对(kimi-glm 起 select_model 按厂商槽建预设、目录走 _P();track opendesign-zcode-model-settings)
 mut_py a2 test_lm3_nanobot_itself_reads_the_new_model bin/ds_credential.py \
-  '.setdefault("defaults", {})["modelPreset"] = model' '.setdefault("defaults", {})["model"] = model'
+  '    cfg.setdefault("agents", {}).setdefault("defaults", {})["modelPreset"] = name
+    try:' '    cfg.setdefault("agents", {}).setdefault("defaults", {})["model"] = model
+    try:'
 # a3 照配置里的 model_presets 列(不按厂商目录)⇒ 换到 DeepSeek 后 MiMo 残留被列成能用
 mut_py a3 test_lm5_deepseek_catalog_and_switching_to_pro bin/ds_credential.py \
-  'models=[{"id": m, "label": m} for m in p["models"]])' \
-  'models=[{"id": m, "label": m} for m in (cfg.get("model_presets") or {})])'
+  '"models": [{"id": m, "label": m} for m in _P()[v]["models"]]} for v in shown]' \
+  '"models": [{"id": m, "label": m} for m in (cfg.get("model_presets") or {})]} for v in shown]'
 mut_py a4 test_lm8_mimo_models_come_from_the_template bin/ds_credential.py \
-  '"models": _template_models()}' '"models": ["mimo-v2.5", "mimo-v2.5-pro"]}'
-mut_py a5 test_lm5_deepseek_catalog_and_switching_to_pro bin/ds_credential.py \
-  '    if model not in presets:' '    if False:'
+  '**_template_presets(), "models": _template_models(),' '**_template_presets(), "models": ["mimo-v2.5", "mimo-v2.5-pro"],'
+# a5 已退场(09-24):它变异的「预设不存在就拒」那道检查,kimi-glm 起改成按厂商槽现建预设,锚点所指的代码已不存在;
+#    lm5 的"按目录列 / 换得过去"仍由 a3 咬着。
 # a6 配置读不出来时替业主建一份
 # (锚点带上下一行:同一句 raise 在 save() 里还有一份,只取 select_model 这一份 —— 首跑因不唯一没打上去)
 mut_py a6 test_lm6_missing_broken_or_unknown_config bin/ds_credential.py \
   '        raise CredentialError(f"配置读不出来:{cfg_path}({exc.__class__.__name__})") from None
-    if not isinstance(cfg, dict):' \
+    if not isinstance(cfg, dict):
+        raise CredentialError(f"配置读不出来:{cfg_path}")
+    live = _live_vendors(cfg)' \
   '        cfg = {"providers": {"custom": {"apiBase": PROVIDERS["mimo"]["apiBase"]}}}
-    if not isinstance(cfg, dict):'
+    if not isinstance(cfg, dict):
+        raise CredentialError(f"配置读不出来:{cfg_path}")
+    live = _live_vendors(cfg)'
 # (锚点带上 do_POST 的 Host 检查那三行:do_GET 里也有一处一模一样的跨站检查 —— 首跑因不唯一没打上去)
 mut_py a7 test_lm7_cross_site_post_is_refused bin/ds_web.py \
   '        if not self._host_ok():  # H2:针孔与 405 之前先验 Host(同 do_GET)
@@ -133,14 +140,20 @@ mut_py a7 test_lm7_cross_site_post_is_refused bin/ds_web.py \
 mut_py a8 test_lm2_post_changes_only_the_active_preset bin/ds_credential.py \
   'current=ds_model.resolve_model(cfg),' 'current=cfg["agents"]["defaults"].get("model"),'
 
-echo "== 段 B 前端纯逻辑 mp =="
-mut_node b1 "mp1 " 'active: m.id === status.current }' 'active: false }'
-mut_node b2 "mp3 " 'if (!status || status.models.length === 0) return [tail];' 'if (!status) return [tail];'
-mut_node b3 "mp4 " 'active: m.id === status.current }' 'active: m.id === status.current || m === status.models[0] }'
+echo "== 段 B 前端纯逻辑 mp(09-24 起问两级树 modelMenuTree)=="
+mut_node b1 "mp1 " 'active: provider === status.provider && m.id === status.current }));' 'active: false }));'
+mut_node b2 "mp3 " '        : [];
+  const vendors' '        : [{ provider: "", label: status.label ?? "当前这把 key", models: [] }];
+  const vendors'
+mut_node b3 "mp4 " 'active: provider === status.provider && m.id === status.current }));' \
+  'active: (provider === status.provider && m.id === status.current) || m === g.models[0] }));'
 mut_node b4 "mp5 " 'return status?.current || gatewayModel || "选择模型";' 'return gatewayModel || status?.current || "选择模型";'
 mut_node b5 "mp6 " 'if (status !== 200 || !body || typeof body !== "object") return null;' 'if (!body || typeof body !== "object") return null;'
-mut_node b6 "mp2 " '    { kind: "sep" },
-    tail,' '    tail,'
+mut_node b6 "mp2 " 'const manage = { label: MANAGE_MODELS_LABEL, provider: status?.provider ?? null };' \
+  'const manage = { label: MANAGE_MODELS_LABEL, provider: null };'
+# b7 厂商行的勾按"是不是当前厂商"打,不看它下面有没有当前模型 ⇒ 当前模型不在目录里时谎称选中
+mut_node b7 "mp4 " 'return { provider, label: g.label, active: models.some((m) => m.active), models };' \
+  'return { provider, label: g.label, active: provider === status.provider, models };'
 
 echo "== 段 C e2e(每条重建 dist)=="
 mut_e2e c1 "⑭" web/src/chat/ChatPage.tsx \
@@ -148,11 +161,12 @@ mut_e2e c1 "⑭" web/src/chat/ChatPage.tsx \
             <div className="model-pick">' \
   '{(view.kind === "connected" || view.kind === "reconnecting") && (
             <div className="model-pick">'
+# c2 只换按钮上的字、不发 POST ⇒ 盘上配置没变
 mut_e2e c2 "⑧" web/src/chat/ChatPage.tsx \
-  '                          else void pickModel(it.id);' \
-  '                          else { setModels(models && { ...models, current: it.id }); setModelMenuOpen(false); }'
+  '                    else void pickModel(m);' \
+  '                    else { setModels(models && { ...models, current: m.id }); setModelMenuOpen(false); }'
 mut_e2e c3 "⑫" web/src/chat/ChatPage.tsx \
-  '                          onOpenLlmKey?.();' '                          void 0;'
+  '                    onManageModels?.(provider);' '                    void provider;'
 mut_e2e c4 "③" web/src/chat/ChatPage.tsx \
   '      {(variant !== "home" || transcript.messages.length > 0) && inputCard}' \
   '      <div className="chat-meta">已连接</div>
@@ -169,6 +183,19 @@ mut_e2e c6 "④" web/src/chat/ChatPage.tsx \
   '                <span className="caret">▴</span>' \
   '                <span className="caret">▴</span>
                 <span className="item">退出登录</span>'
+# c7 子菜单向左弹(不照 ZCode)
+mut_e2e c7 "⑦b" web/src/app.css \
+  '  position: absolute;
+  left: calc(100% + 4px);' \
+  '  position: absolute;
+  right: calc(100% + 4px);'
+# c8 子菜单不取消宽限期里的收起 ⇒ 斜着移过去会闪退(QA A23)
+mut_e2e c8 "⑦c 斜着" web/src/chat/ModelMenu.tsx \
+  '          onMouseEnter={cancel}
+' ''
+# c9 厂商行不打勾
+mut_e2e c9 "⑦ " web/src/chat/ModelMenu.tsx \
+  'data-selected={v.active ? "true" : undefined}' 'data-selected={undefined}'
 
 echo "== 咬住 $bites / 漏网 $escapes =="
 
@@ -178,5 +205,5 @@ if [ "$AFTER" != "$BEFORE" ] || [ "$(dist_hash)" != "$BEFORE_DIST" ]; then
   echo "🔴 恢复失败:被测文件或 web/dist 与开跑前对不上 —— 工作树需要人来收拾"
   exit 9
 fi
-echo "还原核对:5 个被测文件 + web/dist 与开跑前逐字节一致"
+echo "还原核对:${#FILES[@]} 个被测文件 + web/dist 与开跑前逐字节一致"
 [ "$escapes" -eq 0 ]
