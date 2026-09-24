@@ -108,9 +108,8 @@ class TestAddedModels(Rig):
         self.gateway_env()
         self.select("mimo-x-next", "mimo")
         self.assertEqual(self.sends(), ("mimo-x-next", MIMO_BASE, KEYS["mimo"]))
-        cfg = self.cfg()
-        cur = cfg["model_presets"][cfg["agents"]["defaults"]["modelPreset"]]
-        self.assertEqual(cur.get("context_window_tokens"), 262144, "上下文窗口没写进预设")
+        self.assertEqual(self.snapshot(self.gateway_env(), None).context_window_tokens, 262144,
+                         "上下文窗口没到 nanobot 手里")
         self.add_extra("deepseek")
         self.assertEqual(self.sends(), ("mimo-x-next", MIMO_BASE, KEYS["mimo"]))
         self.merge()
@@ -153,10 +152,8 @@ class TestAddedModels(Rig):
         self.gateway_env()
         self.select("mimo-v2.5", "mimo")
         ds_credential.set_context_window(self.home, self.cfg_path, "mimo", "mimo-v2.5", 500000)
-        self.gateway_env()
-        cfg = self.cfg()
-        self.assertEqual(cfg["model_presets"][cfg["agents"]["defaults"]["modelPreset"]].get("context_window_tokens"),
-                         500000)
+        self.assertEqual(self.snapshot(self.gateway_env(), None).context_window_tokens, 500000,
+                         "改的上下文窗口没到 nanobot 手里")
 
 
 class TestCustomProvider(Rig):
