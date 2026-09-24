@@ -81,6 +81,8 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
+  // 刚存了 key、正在等后台重启的是哪一家:起好之后提示要改口(不然绿条还说「正在重启」,和状态句打架)
+  const [awaiting, setAwaiting] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
@@ -124,6 +126,16 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
+  useEffect(() => {
+    if (!awaiting || !view) return;
+    const row = view.providers.find((p) => p.id === awaiting);
+    if (!row || row.pending) return;
+    if (row.id === selectedId && row.live) {
+      setNotice({ ok: true, text: "后台已重启,这把 key 已生效,可以在聊天里选这家的模型了。" });
+    }
+    setAwaiting(null);
+  }, [awaiting, view, selectedId]);
+
   // 有哪家「已保存、等后台重启」⇒ 隔一会儿再问一次,起好之后页面自己跟上(旧卡片 G5 / e2e B7)
   const waiting = !!view?.providers.some((p) => p.pending);
   useEffect(() => {
@@ -156,6 +168,7 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
     const raw = keyRef.current?.value ?? "";
     const r = await saveProviderKey(fetch, p.id, raw);
     if (apply(r, "已保存")) {
+      if (r.ok && r.restart === "requested") setAwaiting(p.id);
       if (keyRef.current) keyRef.current.value = "";
       setShowKey(false);
     }
@@ -227,6 +240,7 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
     setView(r.view);
     const added = r.view.providers.find((p) => !before.has(p.id));
     if (added) onSelectProvider(added.id);
+    if (added && r.restart === "requested") setAwaiting(added.id);
     // 换家会清提示 ⇒ 等选中生效后再说「正在重启」
     window.setTimeout(() => setNotice({ ok: true, text: r.restart ? restartNotice(r.restart) : "已添加" }), 0);
   });
@@ -301,6 +315,10 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
                 ) : (
                   <h3 className="ms-name" data-ui="ms-name">{sel.label}</h3>
                 )}
+                {sel.kind === "custom" && (
+                  <button className="ms-link-btn danger" data-ui="ms-delete-provider" disabled={busy}
+                    onClick={() => void deleteCustom(sel)}>删除供应商</button>
+                )}
                 <label className="ms-switch-wrap">
                   <span className="ms-muted">{sel.enabled ? "已启用" : "未启用"}</span>
                   <button
@@ -337,10 +355,9 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
                     <div className="ms-readonly" data-ui="ms-format">{API_FORMAT}</div>
                   </div>
                   <div className="ms-row-actions">
-                    <button className="ms-btn primary" data-ui="ms-provider-save" disabled={busy}
-                      onClick={() => void saveCustom(sel)}>保存</button>
-                    <button className="ms-btn danger" data-ui="ms-delete-provider" disabled={busy}
-                      onClick={() => void deleteCustom(sel)}>删除供应商</button>
+                    <button className="ms-btn" data-ui="ms-provider-save"
+                      disabled={busy || (nameDraft.trim() === sel.label && baseDraft.trim() === sel.apiBase)}
+                      onClick={() => void saveCustom(sel)}>保存名称和地址</button>
                   </div>
                 </>
               )}
@@ -395,11 +412,12 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
                   {sel.models.length === 0 && <p className="ms-empty">当前没有配置模型,添加模型后可在聊天中使用。</p>}
                   {sel.models.map((m) => {
                     const ctx = contextLabel(m.contextWindow);
-                    const inUse = current?.provider === sel.id && current.model === m.id;
+                    // 一把 key 都没存的那家不标「在用」(配置里记着的当前模型此刻根本发不出去)
+                    const inUse = sel.configured && current?.provider === sel.id && current.model === m.id;
                     return (
                       <div className="ms-model" data-ui="ms-model" data-model={m.id} key={m.id}>
                         <span className="nm mono" title={m.label}>{m.label}</span>
-                        {inUse && <span className="ms-badge in-use">在用</span>}
+                        {inUse && <span className="ms-badge in-use" data-ui="ms-in-use">在用</span>}
                         {ctx && <span className="ms-badge" data-ui="ms-ctx" title={`上下文窗口:${ctx}`}>{ctx}</span>}
                         <span className="grow" />
                         <button className="ms-link-btn" data-ui="ms-test" disabled={testing !== null}
