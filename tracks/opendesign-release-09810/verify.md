@@ -12,9 +12,9 @@
 
 ## Mechanical checks
 
-- [ ] build passes
-- [ ] tests pass
-- [ ] no secrets / unsafe ops
+- [x] build passes(云 run 35830315041 出货包)
+- [x] tests pass(run-all rc=3 仅既有 SKIP;云 FAIL 0)
+- [x] no secrets / unsafe ops
 
 **机器打印的**(不是我的转述)—— 判据用 `runlog` 跑,把它打印的收据行原样粘进来:
 
@@ -62,10 +62,16 @@ subkimi=PASS(verdict=PASS) subcursor.grok-4.7-high=PASS(verdict=PASS)
   | 2 | (Kimi)云 E4 测的是 0.98.10→0.98.11 替身,生产第一跳要业主真机 | 验收边界已写 | 接受 | T6 真机回显兜底 |
 
 - arbitrated verdict (主裁): 发布前评审 PASS —— 两家族同一次 PASS、0 阻断;我核过:云 run 35830315041 FAIL 0、出货三样同一次运行、版本三处一致。整体 outcome 等 T6 业主真机。
+- **T6(09-24)业主真机**:业主原话「是软件自己提示的」—— 0.98.9 经生产源**应用内自动更新**到 0.98.10(Electron 更新器生产第一跳走通)。
+  业主 09-23 晚用 0.98.10 时报了「头上显示正在启动后台还有一段话」⇒ 冷启动第一眼工作台 + 有 key 横幅在,都看到了(横幅随后在 quiet-start-icons 删掉,0.98.11 发)。
+  「各页只转圈不报错」「窗口拖窄首页无横向滚动」业主没单独回报 ⇒ 记接受偏差,并入 0.98.11 的真机清单。
+- **事实上已完成**(发布前评审 PASS + 生产源 smoke 全 OK + 业主真机自动更新回显),但**不能按 PASS 归档**:评审绑定的是仓库级交付,
+  发布后仓库又走了 kimi-glm / quiet-start 等单 ⇒ `observation.review_delivery` BLOCK(要求对已发出的版本重审,无意义)。decision 保持 null,单子留着。
+  教训(给 0.98.11 发版单):**发布 + smoke 当天就归档**,业主真机回显事后补进已归档的 verify.md(收尾记录允许原地补写)。
 
 ## Accepted deviations
 
-- <接受的非关键偏差 + 原因 + 影响范围,或 None>
+- 真机清单里「各页只转圈不报错」「窄窗首页无横向滚动」业主未单独回报;两项云 e2e 已测(E2.noreload / narrow),并入 0.98.11 发版单的真机清单。
 
 ## 试行记录(review-convergence 试行,约五单;拿不到的写 unknown,别补 0)
 
