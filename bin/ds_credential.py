@@ -36,10 +36,15 @@ Linux 的 `bin/ds-nanobot` 从 `~/.local/share/mimocode/auth.json` 读 key、
 """
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import json
 import os
 import re
 import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
 
 import ds_model  # 「当前大脑」preset 优先规则的唯一真相源(与 ds_web / set_model.py 同源)
 
@@ -113,6 +118,135 @@ PROVIDERS = {
 }
 
 
+# ── 目录 = 内置 ⊕ 用户登记(track opendesign-zcode-model-settings)──────────────────
+# 业主 09-24:「严格按照zcode做」。ZCode 每家一张模型列表:内置几个 + 用户「添加模型」手填;还能加自定义供应商。
+# 4c 挑战(Grok)核实:下面这些路由/清扫规矩**只认目录** —— 用户加的模型、自定义供应商不进目录,
+# 菜单看不见、select_model 拒、起网关/合并时被当成手写预设删。所以目录不再是常量,而是
+# **内置 PROVIDERS ⊕ `<home>/.openDesign/models.json`**,由入口函数进门时算一次(catalog_scope),
+# 本次调用内所有助手经 `_P()` 读同一张;出门自动恢复。**不改全局 PROVIDERS**(测试与多 home 会互相串)。
+# 没进范围的调用(老测试直接调助手)看到的就是内置目录 —— 与改动前逐字节同一行为。
+_CATALOG: contextvars.ContextVar = contextvars.ContextVar("ds_credential_catalog", default=None)
+CUSTOM_PREFIX = "c_"
+_MODEL_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/+-]{0,127}$")  # 不许 @:那是预设名里的厂商分隔符
+
+
+def _P() -> dict:
+    """当前范围里的目录(没进范围 ⇒ 内置)。"""
+    return _CATALOG.get() or PROVIDERS
+
+
+def registry_path(home: str) -> str:
+    return os.path.join(home, ".openDesign", "models.json")
+
+
+def _empty_registry() -> dict:
+    return {"version": 1, "extraModels": {}, "customProviders": [], "disabled": [], "contextWindow": {}}
+
+
+def _load_registry(home: str | None) -> dict:
+    """读登记;没有 / 读不出 / 形状不对 ⇒ 空登记(0.98.11 的机器没有这个文件,照常用)。"""
+    reg = _empty_registry()
+    if not home:
+        return reg
+    try:
+        with open(registry_path(home), encoding="utf-8") as fh:
+            raw = json.load(fh)
+    except (OSError, ValueError):
+        return reg
+    if not isinstance(raw, dict):
+        return reg
+    em = raw.get("extraModels")
+    if isinstance(em, dict):
+        reg["extraModels"] = {v: [m for m in ms if isinstance(m, str) and _MODEL_ID_RE.match(m)]
+                              for v, ms in em.items() if isinstance(v, str) and isinstance(ms, list)}
+    cps = raw.get("customProviders")
+    if isinstance(cps, list):
+        for cp in cps:
+            if (isinstance(cp, dict) and isinstance(cp.get("id"), str) and cp["id"].startswith(CUSTOM_PREFIX)
+                    and isinstance(cp.get("label"), str) and isinstance(cp.get("apiBase"), str)
+                    and isinstance(cp.get("models"), list)):
+                models = [m for m in cp["models"] if isinstance(m, str) and _MODEL_ID_RE.match(m)]
+                if models:
+                    reg["customProviders"].append({"id": cp["id"], "label": cp["label"],
+                                                   "apiBase": cp["apiBase"], "models": models})
+    if isinstance(raw.get("disabled"), list):
+        reg["disabled"] = [v for v in raw["disabled"] if isinstance(v, str)]
+    if isinstance(raw.get("contextWindow"), dict):
+        reg["contextWindow"] = {k: v for k, v in raw["contextWindow"].items()
+                                if isinstance(k, str) and type(v) is int and v > 0}
+    return reg
+
+
+def _save_registry(home: str, reg: dict) -> None:
+    try:
+        _atomic_write(registry_path(home), json.dumps(reg, ensure_ascii=False, indent=2) + "\n")
+    except OSError as exc:
+        raise CredentialError(f"写不进去({exc.__class__.__name__}),请确认这台机器上这个文件夹可写") from None
+
+
+def catalog(home: str | None) -> dict:
+    """内置五家 ⊕ 登记。每家:label / apiBase / model(默认)/ models(内置 + 用户加的)/ builtinModels /
+    enabled / custom / keyUrl / presetParams / contextWindow{模型: tokens}。"""
+    reg = _load_registry(home)
+    disabled = set(reg["disabled"])
+    out = {}
+    for vendor, meta in PROVIDERS.items():
+        m = dict(meta)
+        extra = [x for x in reg["extraModels"].get(vendor, []) if x not in meta["models"]]
+        m["models"] = list(meta["models"]) + extra
+        m["builtinModels"] = list(meta["models"])
+        m["enabled"] = vendor not in disabled
+        m["custom"] = False
+        out[vendor] = m
+    for cp in reg["customProviders"]:
+        if cp["id"] in out:
+            continue
+        out[cp["id"]] = {"label": cp["label"], "apiBase": cp["apiBase"], "model": cp["models"][0],
+                         "models": list(cp["models"]), "builtinModels": [], "enabled": cp["id"] not in disabled,
+                         "custom": True, "keyUrl": None}
+    for key, tokens in reg["contextWindow"].items():
+        vendor, _, model = key.partition("/")
+        if vendor in out:
+            out[vendor].setdefault("contextWindow", {})[model] = tokens
+    return out
+
+
+def home_of(cfg_path: str | None) -> str | None:
+    """配置在 `<home>/.nanobot/config.json` ⇒ home(与 key.txt / keys/ 同根);别的布局 ⇒ None(只用内置目录)。"""
+    if not cfg_path:
+        return None
+    d = os.path.dirname(os.path.abspath(cfg_path))
+    return os.path.dirname(d) if os.path.basename(d) == ".nanobot" else None
+
+
+@contextlib.contextmanager
+def catalog_scope(home: str | None):
+    """本次调用内的目录 = catalog(home)。可嵌套;出门恢复。"""
+    token = _CATALOG.set(catalog(home) if home else None)
+    try:
+        yield _P()
+    finally:
+        _CATALOG.reset(token)
+
+
+def _scoped(fn):
+    """公开入口进门时按 `home`(没给 ⇒ 从 cfg_path 推)建目录范围;已在范围里(入口套入口)⇒ 沿用外层。
+    🔴 P4:漏包一个入口,那个入口就只认内置目录 —— 判据 z2/z4 走完 存 key → 起网关 → 选中 → 合并 咬着。"""
+    import functools
+    import inspect
+    sig = inspect.signature(fn)
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        if _CATALOG.get() is not None:
+            return fn(*args, **kwargs)
+        bound = sig.bind_partial(*args, **kwargs).arguments
+        home = bound.get("home") or home_of(bound.get("cfg_path"))
+        with catalog_scope(home):
+            return fn(*args, **kwargs)
+    return wrapper
+
+
 def _norm_base(base) -> str:
     """端点比较前去掉首尾空白与尾斜杠:`…/v1/` 和 `…/v1` 是同一家(挑战腿指出的 F5)。"""
     return str(base or "").strip().rstrip("/")
@@ -122,7 +256,7 @@ def _vendor_by_base(base):
     b = _norm_base(base)
     if not b:
         return None
-    for name, preset in PROVIDERS.items():
+    for name, preset in _P().items():
         if b == _norm_base(preset["apiBase"]):
             return name
     return None
@@ -184,7 +318,7 @@ def _extra_entries(cfg: dict) -> dict:
     for name, entry in ((cfg.get("providers") or {}).items()):
         if isinstance(name, str) and name.startswith(EXTRA_PREFIX) and isinstance(entry, dict):
             vendor = name[len(EXTRA_PREFIX):]
-            if vendor in PROVIDERS:
+            if vendor in _P():
                 out[vendor] = entry
     return out
 
@@ -209,7 +343,7 @@ def _preset_vendor(cfg: dict, preset_name) -> str | None:
     prov = preset.get("provider")
     if isinstance(prov, str) and prov.startswith(EXTRA_PREFIX):
         vendor = prov[len(EXTRA_PREFIX):]
-        return vendor if vendor in PROVIDERS else None
+        return vendor if vendor in _P() else None
     return _current_provider(cfg)
 
 
@@ -224,20 +358,25 @@ def preset_name(vendor: str, model: str) -> str:
     """某家某模型的预设名。**同名模型按厂商各存一份**(两家 GLM 都有 glm-5.3 ⇒ `glm-5.3@glm_plan` / `glm-5.3@glm`),
     谁也改不动谁的归属 —— 共用一份时连打了五次补丁(k4b/k4c/k8/k8b/k9),第 3 轮评审后回头改成这样(k10)。
     不重名的模型照旧就用模型名:老配置、nanobot `/model` 列表一个字不变。"""
-    shared = any(v != vendor and model in p["models"] for v, p in PROVIDERS.items())
+    shared = any(v != vendor and model in p["models"] for v, p in _P().items())
     return f"{model}{PRESET_VENDOR_SEP}{vendor}" if shared else model
 
 
 def _apply_params(preset: dict, vendor: str) -> dict:
     """把这家必带的生成参数(presetParams)盖到预设上;其余字段不动。"""
-    preset.update(PROVIDERS[vendor].get("presetParams") or {})
+    meta = _P()[vendor]
+    preset.update(meta.get("presetParams") or {})
+    cw = (meta.get("contextWindow") or {}).get(preset.get("model"))
+    if cw:                                   # 设置页「编辑模型配置 → 上下文窗口」(ZCode);配置里字段是驼峰
+        preset.pop("context_window_tokens", None)
+        preset["contextWindowTokens"] = cw
     return preset
 
 
 def _custom_preset(vendor: str, model: str) -> dict:
     # 主槽预设沿用老形状(含 apiBase —— nanobot 不读它,但 lm5 与老配置都是这个样子)
     return _apply_params({"label": model, "provider": "custom", "model": model,
-                          "apiBase": PROVIDERS[vendor]["apiBase"]}, vendor)
+                          "apiBase": _P()[vendor]["apiBase"]}, vendor)
 
 
 def _extra_preset(vendor: str, model: str) -> dict:
@@ -248,7 +387,7 @@ def _preset_owner(name, preset: dict) -> str | None:
     """这份预设是不是**我们替某家起的**:模型在那家目录里,且名字正是 `preset_name(那家, 模型)` ⇒ 那家;
     其余一律 None(业主手写的,哪怕名字碰巧以 `@kimi` 结尾、或名字和模型对不上 —— 第 5 轮 #20)。"""
     model = preset.get("model")
-    for v, p in PROVIDERS.items():
+    for v, p in _P().items():
         if model in p["models"] and name == preset_name(v, model):
             return v
     return None
@@ -276,7 +415,7 @@ def _route_presets(cfg: dict, *, endpoint_changed: bool = False) -> None:
     presets = cfg.get("model_presets")
     if not isinstance(presets, dict):
         return
-    catalog = {m for p in PROVIDERS.values() for m in p["models"]}
+    catalog = {m for p in _P().values() for m in p["models"]}
     for name in list(presets):
         p = presets[name]
         if not isinstance(p, dict):
@@ -293,7 +432,7 @@ def _route_presets(cfg: dict, *, endpoint_changed: bool = False) -> None:
             model = p.get("model")
             if model in catalog:
                 here = primary if prov == "custom" else prov[len(EXTRA_PREFIX):]
-                if here in PROVIDERS and model in PROVIDERS[here]["models"]:
+                if here in _P() and model in _P()[here]["models"]:
                     _rename_preset(cfg, name, preset_name(here, model))
                     _apply_params(presets[preset_name(here, model)], here)
                 else:
@@ -323,7 +462,8 @@ def _rename_preset(cfg: dict, old: str, new: str) -> None:
         defaults["modelPreset"] = new
 
 
-def models_status(cfg_path: str) -> dict:
+@_scoped
+def models_status(cfg_path: str, home: str | None = None) -> dict:
     """输入框里模型按钮要的东西:当前厂商、当前模型、这把 key 能选的模型(判据 lm1/lm5/lm6)。
 
     🔴 模型列表按**厂商目录**给,不按配置里的 model_presets 给:换到 DeepSeek 之后,
@@ -347,13 +487,16 @@ def models_status(cfg_path: str) -> dict:
     active = _preset_vendor(cfg, ds_model.active_preset_name(cfg))
     if active not in live:
         active = live[0]
-    groups = [{"provider": v, "label": PROVIDERS[v]["label"],
-               "models": [{"id": m, "label": m} for m in PROVIDERS[v]["models"]]} for v in live]
-    out.update(provider=active, label=PROVIDERS[active]["label"], current=ds_model.resolve_model(cfg),
-               models=groups[live.index(active)]["models"], groups=groups)
+    # 禁用的厂商只在菜单里藏(D3:路由与 key 不动)。正在用的那家不许禁用,所以 active 总在菜单里。
+    shown = [v for v in live if _P()[v].get("enabled", True) or v == active]
+    groups = [{"provider": v, "label": _P()[v]["label"],
+               "models": [{"id": m, "label": m} for m in _P()[v]["models"]]} for v in shown]
+    out.update(provider=active, label=_P()[active]["label"], current=ds_model.resolve_model(cfg),
+               models=groups[shown.index(active)]["models"], groups=groups)
     return out
 
 
+@_scoped
 def select_model(cfg_path: str, model, provider=None, home: str | None = None) -> dict:
     """把当前模型换成 `model`:写 agents.defaults.modelPreset(判据 lm2~lm6、v8)。
 
@@ -382,21 +525,24 @@ def select_model(cfg_path: str, model, provider=None, home: str | None = None) -
     live = _live_vendors(cfg)
     if not live:
         raise CredentialError("认不出现在用的是哪家的 key,请先在「AI 模型 key」里选厂商")
+    enabled = [v for v in live if _P()[v].get("enabled", True)]
     if provider is not None:
-        if provider not in PROVIDERS:
+        if provider not in _P():
             raise CredentialError(f"不认识的厂商:{provider}")
+        if not _P()[provider].get("enabled", True):
+            raise CredentialError(f"{_P()[provider]['label']} 已禁用,先在「模型设置」里启用")
         if provider not in live:
-            raise CredentialError(f"{PROVIDERS[provider]['label']} 的 key 后台还没拿到,"
+            raise CredentialError(f"{_P()[provider]['label']} 的 key 后台还没拿到,"
                                   "等后台重启好再选(或先在「AI 模型 key」里填)")
         vendor = provider
     else:
-        hits = [v for v in live if model in PROVIDERS[v]["models"]]
+        hits = [v for v in enabled if model in _P()[v]["models"]]
         if not hits:
-            waiting = [v for v in PROVIDERS if v not in live and model in PROVIDERS[v]["models"]]
+            waiting = [v for v in _P() if v not in live and model in _P()[v]["models"]]
             if waiting:
-                raise CredentialError(f"{PROVIDERS[waiting[0]]['label']} 的 key 后台还没拿到,"
+                raise CredentialError(f"{_P()[waiting[0]]['label']} 的 key 后台还没拿到,"
                                       "等后台重启好再选(或先在「AI 模型 key」里填)")
-            raise CredentialError(f"{PROVIDERS[live[0]]['label']} 这把 key 用不了 {model}")
+            raise CredentialError(f"{_P()[live[0]]['label']} 这把 key 用不了 {model}")
         # 两家都能用同名模型(两家 GLM 的 glm-5.3)时不许按表序猜 —— 猜错就换端点、换 key、换账单(判据 k8/k8b):
         # 当前在用的那家有这个模型 ⇒ 就是它(老菜单只列当前这家的目录,不带厂商 = 这家里的那个模型);
         # 否则说不清 ⇒ 拒绝,要调用方指明厂商。
@@ -404,11 +550,11 @@ def select_model(cfg_path: str, model, provider=None, home: str | None = None) -
         if active in hits:
             vendor = active
         elif len(hits) > 1:
-            names = "、".join(PROVIDERS[v]["label"] for v in hits)
+            names = "、".join(_P()[v]["label"] for v in hits)
             raise CredentialError(f"{model} 在 {names} 都有,请指明要用哪一家")
         else:
             vendor = hits[0]
-    p = PROVIDERS[vendor]
+    p = _P()[vendor]
     if model not in p["models"]:
         raise CredentialError(f"{p['label']} 这把 key 用不了 {model}")
     slot = _slot_of(cfg, vendor)
@@ -486,6 +632,7 @@ def _env_key(cfg: dict) -> str | None:
     return (os.environ.get(var) or "").strip() or None
 
 
+@_scoped
 def status(home: str, cfg_path: str | None = None) -> dict:
     """业主视角的当前状态。**永远不含 key 原文。**
 
@@ -523,7 +670,7 @@ def _vendor_rows(home: str, cfg, primary, primary_key) -> list:
     live_vendors = _live_vendors(cfg) if cfg is not None else []
     active = _preset_vendor(cfg, ds_model.active_preset_name(cfg)) if cfg is not None else None
     rows = []
-    for vendor, meta in PROVIDERS.items():
+    for vendor, meta in _P().items():
         if vendor == primary:
             k = primary_key
             is_live = k is not None
@@ -558,7 +705,9 @@ def _atomic_write(path: str, body: str) -> None:
         raise
 
 
-def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = False) -> dict:
+@_scoped
+def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = False,
+         switch: bool = True) -> dict:
     """存一家的 key。返回状态(**不含 key**)。
 
     `multi=False`(没有外壳:git-pull / Linux 开发机):**与今天逐字节相同** —— 主槽覆盖、
@@ -573,7 +722,7 @@ def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = Fal
     顺序是**先改配置、再写 key**:配置改坏了就整个失败,不留下"key 在但端点还是旧的"
     那种半成品(业主会拿着一把对的 key 连到错的地方,而报错长得像 key 不对)。
     """
-    if provider not in PROVIDERS:
+    if provider not in _P():
         raise CredentialError(f"不认识的厂商:{provider}")
     k = (key or "").strip()
     if not k:
@@ -585,7 +734,11 @@ def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = Fal
         # 现在说清楚,好过装完聊天时炸一句英文。
         raise CredentialError("API key 里有中文或特殊字符,请检查是不是复制多了") from None
 
-    preset = PROVIDERS[provider]
+    preset = _P()[provider]
+    is_custom = bool(preset.get("custom"))
+    if is_custom and not multi:
+        # 自定义供应商只进额外槽(D2);没外壳的启动器只认主槽那一个变量
+        raise CredentialError("这台机器是老装法(没有外壳),只能用内置厂商")
     try:
         with open(cfg_path, encoding="utf-8") as fh:
             cfg = json.load(fh)
@@ -596,7 +749,15 @@ def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = Fal
     if multi and isinstance(cfg, dict):
         primary = _current_provider(cfg)
         primary_has_key = (_env_key(cfg) or read_key(home)) is not None
-        if primary_has_key and provider != primary:
+        if is_custom or (primary_has_key and provider != primary):
+            if not switch:
+                # 设置页存 key(照 ZCode):不写「想换过去」、不换当前模型(D4,z7;顺带收掉 kimi-glm #60)
+                try:
+                    _atomic_write(extra_key_path(home, provider), k + "\n")
+                except OSError as exc:
+                    raise CredentialError(f"写不进去({exc.__class__.__name__}),"
+                                          f"请确认这台机器上这个文件夹可写") from None
+                return status(home, cfg_path)
             # 先写「想换过去」、再写 key;key 写不进去就把标记撤掉 ⇒ 失败的保存两样都不留
             # (第 1 轮 K3:反过来的话,标记写失败会留下一把业主以为没存上的 key,下次起网关悄悄激活)。
             marker = _switch_marker_path(home)
@@ -646,6 +807,8 @@ def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = Fal
     cur = defaults.get("modelPreset")
     if cur is None and not endpoint_changed:
         pass
+    elif not switch and isinstance(presets.get(cur), dict):
+        pass                                     # 设置页存 key 不换当前模型(D4);当前还在就不动
     elif not (isinstance(presets.get(cur), dict) and presets[cur].get("provider") == "custom"):
         defaults["modelPreset"] = name
 
@@ -667,6 +830,7 @@ def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = Fal
 
 
 # ── 外壳起网关的那一刻(track opendesign-per-vendor-keys)────────────────────────
+@_scoped
 def prepare_gateway(home: str, cfg_path: str) -> dict:
     """外壳每次起/重启网关前调一次(`ds_shell.build_env`):让配置里的额外厂商条目
     与 key 文件对齐,返回**要注入网关的额外变量 → key**(主槽 key 仍走原来那条路)。
@@ -722,14 +886,14 @@ def _read_marker(home: str) -> str | None:
             v = fh.read().strip()
     except (OSError, UnicodeDecodeError):
         return None
-    return v if v in PROVIDERS else None
+    return v if v in _P() else None
 
 
 def _synced_config(home: str, cfg: dict):
     """算出对齐之后的配置(不写盘)。返回 (新配置, 标记是否兑现)。"""
     import copy
     primary = _current_provider(cfg)
-    wanted = {v: k for v in PROVIDERS if v != primary for k in [read_extra_key(home, v)] if k}
+    wanted = {v: k for v in _P() if v != primary for k in [read_extra_key(home, v)] if k}
     existing = {name for name in (cfg.get("providers") or {})
                 if isinstance(name, str) and name.startswith(EXTRA_PREFIX)}
     marker = _read_marker(home)
@@ -755,12 +919,12 @@ def _synced_config(home: str, cfg: dict):
         name = extra_provider_name(vendor)
         entry = dict(providers.get(name)) if isinstance(providers.get(name), dict) else {}
         entry["apiKey"] = "${%s}" % extra_var_name(vendor)
-        entry["apiBase"] = PROVIDERS[vendor]["apiBase"]
+        entry["apiBase"] = _P()[vendor]["apiBase"]
         providers[name] = entry
 
     # ③ 每家有 key 的厂商(含主槽那家),目录里的模型都有预设(菜单里的每一项都能直接选);**挂在哪格不在这里管**
     for vendor in ([primary] if primary is not None else []) + list(wanted):
-        for model in PROVIDERS[vendor]["models"]:
+        for model in _P()[vendor]["models"]:
             presets.setdefault(preset_name(vendor, model),
                                _custom_preset(vendor, model) if vendor == primary else _extra_preset(vendor, model))
 
@@ -772,7 +936,7 @@ def _synced_config(home: str, cfg: dict):
     marker_done = False
     if marker is not None:
         if marker in wanted or (marker == primary and read_key(home)):
-            target = preset_name(marker, PROVIDERS[marker]["model"])
+            target = preset_name(marker, _P()[marker]["model"])
             if target in presets:
                 defaults["modelPreset"] = target
                 marker_done = True
@@ -790,12 +954,314 @@ def _fallback_if_dangling(cfg: dict) -> None:
         return
     if defaults.get("modelPreset") and defaults["modelPreset"] not in presets:
         primary = _current_provider(cfg)
-        fallback = preset_name(primary, PROVIDERS[primary]["model"]) if primary else None
+        fallback = preset_name(primary, _P()[primary]["model"]) if primary else None
         if fallback and fallback not in presets:
-            presets[fallback] = _custom_preset(primary, PROVIDERS[primary]["model"])
+            presets[fallback] = _custom_preset(primary, _P()[primary]["model"])
         if fallback:
             defaults["modelPreset"] = fallback
         elif defaults.get("model") or not presets:
             defaults.pop("modelPreset")          # 主槽认不出(机主自配端点):回到他自己的 model 字段,不替他挑一份(#48)
         else:
             defaults["modelPreset"] = next(iter(presets))
+
+
+# ── 设置页(照 ZCode,track opendesign-zcode-model-settings)──────────────────────────
+def _read_cfg(cfg_path: str) -> dict:
+    try:
+        with open(cfg_path, encoding="utf-8") as fh:
+            cfg = json.load(fh)
+    except (OSError, ValueError) as exc:
+        raise CredentialError(f"配置读不出来:{cfg_path}({exc.__class__.__name__})") from None
+    if not isinstance(cfg, dict):
+        raise CredentialError(f"配置读不出来:{cfg_path}")
+    return cfg
+
+
+def _write_cfg(cfg_path: str, cfg: dict) -> None:
+    try:
+        _atomic_write(cfg_path, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n")
+    except OSError as exc:
+        raise CredentialError(f"写不进去({exc.__class__.__name__}),请确认这台机器上这个文件夹可写") from None
+
+
+def _in_use(cfg: dict) -> tuple:
+    """(正在用的厂商, 正在用的模型)。"""
+    return _preset_vendor(cfg, ds_model.active_preset_name(cfg)), ds_model.resolve_model(cfg)
+
+
+def _known(provider) -> dict:
+    if not isinstance(provider, str) or provider not in _P():
+        raise CredentialError(f"不认识的厂商:{provider}")
+    return _P()[provider]
+
+
+@_scoped
+def providers_view(home: str, cfg_path: str, *, multi: bool = True) -> dict:
+    """设置页要的一切(**永不含 key 原文**,只回末四位提示):每家一行 + 模型列表 + 当前在用。"""
+    try:
+        cfg = _read_cfg(cfg_path)
+    except CredentialError:
+        cfg = None
+    rows = {r["id"]: r for r in status(home, cfg_path)["vendors"]}
+    presets = (cfg or {}).get("model_presets") or {}
+    out = []
+    for vid, meta in _P().items():
+        r = rows.get(vid, {})
+        models = []
+        for m in meta["models"]:
+            cw = (meta.get("contextWindow") or {}).get(m)
+            p = presets.get(preset_name(vid, m))
+            if cw is None and isinstance(p, dict):
+                cw = p.get("contextWindowTokens") or p.get("context_window_tokens")
+            models.append({"id": m, "label": m, "builtin": m in meta.get("builtinModels", []),
+                           "contextWindow": cw if type(cw) is int else None})
+        out.append({"id": vid, "label": meta["label"], "kind": "custom" if meta.get("custom") else "builtin",
+                    "apiBase": meta["apiBase"], "keyUrl": meta.get("keyUrl"),
+                    "configured": bool(r.get("configured")), "hint": r.get("hint"),
+                    "live": bool(r.get("live")), "active": bool(r.get("active")), "pending": bool(r.get("pending")),
+                    "enabled": bool(meta.get("enabled", True)), "models": models})
+    current = None
+    if cfg is not None:
+        vendor, model = _in_use(cfg)
+        if vendor:
+            current = {"provider": vendor, "model": model}
+    return {"providers": out, "current": current, "multi": bool(multi)}
+
+
+def _check_model_id(model) -> str:
+    m = (model or "").strip() if isinstance(model, str) else ""
+    if not _MODEL_ID_RE.match(m):
+        raise CredentialError("模型 ID 不对:只能用字母、数字和 . _ - : / +,不超过 128 个字符")
+    return m
+
+
+def _check_tokens(tokens) -> int:
+    if type(tokens) is not int or not 1024 <= tokens <= 10_000_000:
+        raise CredentialError("上下文窗口要填 1024 到 10000000 之间的整数")
+    return tokens
+
+
+@_scoped
+def add_model(home: str, cfg_path: str, provider: str, model: str, *, context_window=None) -> dict:
+    """「添加模型」:进这家的目录(登记),菜单与路由从此认它。"""
+    meta = _known(provider)
+    model = _check_model_id(model)
+    if model in meta["models"]:
+        raise CredentialError(f"{meta['label']} 已经有 {model} 了")
+    if context_window is not None:
+        context_window = _check_tokens(context_window)
+    reg = _load_registry(home)
+    if meta.get("custom"):
+        for cp in reg["customProviders"]:
+            if cp["id"] == provider:
+                cp["models"].append(model)
+    else:
+        reg["extraModels"].setdefault(provider, []).append(model)
+    if context_window is not None:
+        reg["contextWindow"][f"{provider}/{model}"] = context_window
+    _save_registry(home, reg)
+    with catalog_scope(home):
+        return providers_view(home, cfg_path)
+
+
+def _drop_presets(cfg: dict, provider: str, models) -> None:
+    """删掉我们替 provider 起的、装着这些模型的预设(按**当前范围的目录**算名字 —— 调用方在改登记之前调)。"""
+    presets = cfg.get("model_presets")
+    if not isinstance(presets, dict):
+        return
+    slots = {extra_provider_name(provider)}
+    if provider == _current_provider(cfg):
+        slots.add("custom")
+    names = {preset_name(provider, m) for m in models}
+    for n in list(presets):
+        p = presets[n]
+        if isinstance(p, dict) and n in names and p.get("provider") in slots:
+            presets.pop(n)
+
+
+@_scoped
+def remove_model(home: str, cfg_path: str, provider: str, model: str) -> dict:
+    meta = _known(provider)
+    if model not in meta["models"]:
+        raise CredentialError(f"{meta['label']} 没有 {model}")
+    if model in meta.get("builtinModels", []):
+        raise CredentialError(f"{model} 是内置模型,不能删")
+    cfg = _read_cfg(cfg_path)
+    if _in_use(cfg) == (provider, model):
+        raise CredentialError(f"{model} 正在用,先在聊天框里换一个模型再删")
+    _drop_presets(cfg, provider, [model])
+    reg = _load_registry(home)
+    if meta.get("custom"):
+        for cp in reg["customProviders"]:
+            if cp["id"] == provider:
+                if len(cp["models"]) <= 1:
+                    raise CredentialError("自定义供应商至少要留一个模型")
+                cp["models"] = [m for m in cp["models"] if m != model]
+    else:
+        reg["extraModels"][provider] = [m for m in reg["extraModels"].get(provider, []) if m != model]
+    reg["contextWindow"].pop(f"{provider}/{model}", None)
+    _save_registry(home, reg)
+    _write_cfg(cfg_path, cfg)
+    with catalog_scope(home):
+        return providers_view(home, cfg_path)
+
+
+@_scoped
+def set_context_window(home: str, cfg_path: str, provider: str, model: str, tokens) -> dict:
+    """「编辑模型配置 → 上下文窗口」:记进登记,已有的预设当场改(nanobot 每句前重读配置,下一句生效)。"""
+    meta = _known(provider)
+    if model not in meta["models"]:
+        raise CredentialError(f"{meta['label']} 没有 {model}")
+    tokens = _check_tokens(tokens)
+    reg = _load_registry(home)
+    reg["contextWindow"][f"{provider}/{model}"] = tokens
+    _save_registry(home, reg)
+    with catalog_scope(home):
+        cfg = _read_cfg(cfg_path)
+        p = (cfg.get("model_presets") or {}).get(preset_name(provider, model))
+        if isinstance(p, dict):
+            _apply_params(p, provider)
+            _write_cfg(cfg_path, cfg)
+        return providers_view(home, cfg_path)
+
+
+@_scoped
+def set_enabled(home: str, cfg_path: str, provider: str, enabled: bool) -> dict:
+    """启用 / 禁用(D3):只管菜单里藏不藏、能不能选;路由与 key 一概不动。正在用的那家不许禁用。"""
+    meta = _known(provider)
+    if not enabled and _in_use(_read_cfg(cfg_path))[0] == provider:
+        raise CredentialError(f"{meta['label']} 正在用,先在聊天框里换到别家的模型再禁用")
+    reg = _load_registry(home)
+    dis = [v for v in reg["disabled"] if v != provider]
+    if not enabled:
+        dis.append(provider)
+    reg["disabled"] = dis
+    _save_registry(home, reg)
+    with catalog_scope(home):
+        return providers_view(home, cfg_path)
+
+
+def _check_base(api_base) -> str:
+    base = _norm_base(api_base)
+    u = urllib.parse.urlparse(base)
+    if u.scheme not in ("http", "https") or not u.netloc:
+        raise CredentialError("Base URL 要以 http:// 或 https:// 开头,例如 https://api.example.com/v1")
+    return base
+
+
+@_scoped
+def add_custom_provider(home: str, cfg_path: str, *, label: str, api_base: str, models, key=None,
+                        multi: bool = True) -> str:
+    """「添加供应商」(自定义端点):只走 OpenAI 兼容格式、只进额外槽(D2)。返回新厂商 id。"""
+    if not multi:
+        raise CredentialError("这台机器是老装法(没有外壳),加不了自定义供应商")
+    label = (label or "").strip() if isinstance(label, str) else ""
+    if not label or len(label) > 40:
+        raise CredentialError("供应商名称要填,不超过 40 个字")
+    base = _check_base(api_base)
+    for v, meta in _P().items():
+        if _norm_base(meta["apiBase"]) == base:
+            raise CredentialError(f"这个地址已经是「{meta['label']}」了,直接在它那页配置")
+    if not isinstance(models, list) or not models:
+        raise CredentialError("添加供应商前,请至少添加一个模型")
+    ids = []
+    for m in models:
+        m = _check_model_id(m)
+        if m not in ids:
+            ids.append(m)
+    reg = _load_registry(home)
+    used = {cp["id"] for cp in reg["customProviders"]}
+    n = 1
+    while f"{CUSTOM_PREFIX}{n}" in used or f"{CUSTOM_PREFIX}{n}" in PROVIDERS:
+        n += 1
+    pid = f"{CUSTOM_PREFIX}{n}"
+    reg["customProviders"].append({"id": pid, "label": label, "apiBase": base, "models": ids})
+    _save_registry(home, reg)
+    if key:
+        with catalog_scope(home):
+            save(home, cfg_path, pid, key, multi=True, switch=False)
+    return pid
+
+
+@_scoped
+def remove_custom_provider(home: str, cfg_path: str, provider: str) -> dict:
+    meta = _known(provider)
+    if not meta.get("custom"):
+        raise CredentialError(f"{meta['label']} 是内置厂商,不能删")
+    cfg = _read_cfg(cfg_path)
+    if _in_use(cfg)[0] == provider:
+        raise CredentialError(f"{meta['label']} 正在用,先在聊天框里换到别家的模型再删")
+    slot = extra_provider_name(provider)
+    (cfg.get("providers") or {}).pop(slot, None)
+    presets = cfg.get("model_presets")
+    if isinstance(presets, dict):
+        for n in list(presets):
+            if isinstance(presets[n], dict) and presets[n].get("provider") == slot:
+                presets.pop(n)
+    reg = _load_registry(home)
+    reg["customProviders"] = [cp for cp in reg["customProviders"] if cp["id"] != provider]
+    reg["disabled"] = [v for v in reg["disabled"] if v != provider]
+    reg["contextWindow"] = {k: v for k, v in reg["contextWindow"].items() if not k.startswith(provider + "/")}
+    _save_registry(home, reg)
+    _write_cfg(cfg_path, cfg)
+    try:
+        os.remove(extra_key_path(home, provider))
+    except OSError:
+        pass
+    with catalog_scope(home):
+        return providers_view(home, cfg_path)
+
+
+def _vendor_error(body: bytes) -> str:
+    try:
+        obj = json.loads(body or b"{}")
+    except ValueError:
+        return (body or b"")[:200].decode("utf-8", "replace").strip()
+    err = obj.get("error") if isinstance(obj, dict) else None
+    if isinstance(err, dict) and isinstance(err.get("message"), str):
+        return err["message"]
+    if isinstance(err, str):
+        return err
+    if isinstance(obj, dict) and isinstance(obj.get("message"), str):
+        return obj["message"]
+    return ""
+
+
+@_scoped
+def test_model(home: str, cfg_path: str, provider: str, model: str, *, timeout: float = 20) -> dict:
+    """模型列表每行的「测试」:用这家的 key **直接**请求厂商一次最小对话(不经网关 ⇒ 存完 key 立刻能测)。
+    返回 {ok, message};message 里**永不带 key**。"""
+    meta = _known(provider)
+    model = _check_model_id(model)
+    try:
+        cfg = _read_cfg(cfg_path)
+    except CredentialError:
+        cfg = {}
+    if provider == _current_provider(cfg) and not meta.get("custom"):
+        k = _env_key(cfg) or read_key(home)
+    else:
+        k = read_extra_key(home, provider)
+    if not k:
+        return {"ok": False, "message": "还没填 API Key"}
+    base = _norm_base(meta["apiBase"])
+    body = {"model": model, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 16}
+    body.update(meta.get("presetParams") or {})
+    req = urllib.request.Request(base + "/chat/completions", data=json.dumps(body).encode(), method="POST",
+                                 headers={"Authorization": f"Bearer {k}", "Content-Type": "application/json"})
+    host = urllib.parse.urlparse(base).hostname or ""
+    handlers = [urllib.request.ProxyHandler({})] if host in ("127.0.0.1", "localhost", "::1") else []
+    opener = urllib.request.build_opener(*handlers)
+
+    def scrub(text: str) -> str:
+        return (text or "").replace(k, "***")
+
+    try:
+        with opener.open(req, timeout=timeout) as resp:
+            resp.read(65536)
+        return {"ok": True, "message": f"{model} 连接成功"}
+    except urllib.error.HTTPError as exc:
+        detail = scrub(_vendor_error(exc.read(65536)))
+        return {"ok": False, "message": f"{exc.code} {detail}".strip()}
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        reason = getattr(exc, "reason", exc)
+        return {"ok": False, "message": scrub(f"连不上 {host}:{reason}")}

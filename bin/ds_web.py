@@ -947,6 +947,8 @@ class Handler(BaseHTTPRequestHandler):
             self._llm_credential_get()
         elif path == "/api/llm/models":
             self._llm_models_get()
+        elif path == "/api/llm/providers":
+            self._llm_providers_get()
         elif path == "/api/chat/bootstrap":
             self._proxy("/webui/bootstrap")
         elif path == "/api/chat/sessions":
@@ -1017,6 +1019,8 @@ class Handler(BaseHTTPRequestHandler):
             self._llm_credential_post()
         elif path == "/api/llm/model":
             self._llm_model_post()
+        elif path in LLM_PROVIDER_POSTS:
+            self._llm_providers_post(path)
         elif path == UPLOAD_PATH:
             self._upload()
         elif path == INBOX_CREATE_PATH:
@@ -2561,6 +2565,63 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._json(200, out)
 
+    # ---- 设置页 · 模型设置(照 ZCode,track opendesign-zcode-model-settings)--------------
+    # 语义全在 ds_credential(目录 = 内置 ⊕ 登记;D1~D4);这一层只做路由、状态码与「别把 key 回显」。
+    def _llm_providers_get(self):
+        cfg = os.environ.get("DS_NANOBOT_CONFIG", DEFAULT_NANOBOT_CONFIG)
+        self._json(200, ds_credential.providers_view(os.path.expanduser("~"), cfg, multi=_has_shell()))
+
+    def _llm_providers_post(self, path: str):
+        body = self._read_json_body()
+        if body is None:
+            return
+        cfg = os.environ.get("DS_NANOBOT_CONFIG", DEFAULT_NANOBOT_CONFIG)
+        home = os.path.expanduser("~")
+        multi = _has_shell()
+        restart = None
+        try:
+            if path == "/api/llm/test":
+                out = ds_credential.test_model(home, cfg, body.get("provider"), body.get("model"))
+                self._json(200, out)
+                return
+            if path == "/api/llm/providers/key":
+                ds_credential.save(home=home, cfg_path=cfg, provider=str(body.get("provider") or ""),
+                                   key=str(body.get("key") or ""), multi=multi, switch=False)
+                restart = ds_shell_bridge_restart()     # 新 key 要进网关:请外壳重启网关(没外壳 ⇒ manual)
+            elif path == "/api/llm/providers/enabled":
+                ds_credential.set_enabled(home, cfg, body.get("provider"), bool(body.get("enabled")))
+            elif path == "/api/llm/providers/models":
+                op, provider, model = body.get("op"), body.get("provider"), body.get("model")
+                if op == "add":
+                    ds_credential.add_model(home, cfg, provider, model, context_window=body.get("contextWindow"))
+                elif op == "remove":
+                    ds_credential.remove_model(home, cfg, provider, model)
+                elif op == "context":
+                    ds_credential.set_context_window(home, cfg, provider, model, body.get("contextWindow"))
+                else:
+                    raise ds_credential.CredentialError("不认识的操作")
+            elif path == "/api/llm/providers/custom":
+                op = body.get("op")
+                if op == "add":
+                    models = body.get("models")
+                    ds_credential.add_custom_provider(home, cfg, label=body.get("label"), api_base=body.get("apiBase"),
+                                                      models=models if isinstance(models, list) else [],
+                                                      key=str(body.get("key") or "") or None, multi=multi)
+                    if body.get("key"):
+                        restart = ds_shell_bridge_restart()
+                elif op == "remove":
+                    ds_credential.remove_custom_provider(home, cfg, body.get("provider"))
+                else:
+                    raise ds_credential.CredentialError("不认识的操作")
+        except ds_credential.CredentialError as exc:
+            # CredentialError 的文本按契约不含 key;别在这儿把 body 回显出去。
+            self._json(400, {"error": str(exc)})
+            return
+        out = ds_credential.providers_view(home, cfg, multi=multi)
+        if restart is not None:
+            out["restart"] = restart
+        self._json(200, out)
+
     def _llm_credential_post(self):
         body = self._read_json_body()
         if body is None:
@@ -2605,6 +2666,10 @@ class Handler(BaseHTTPRequestHandler):
             self._json(500, {"error": "internal"})
             return
         self._send(200, ctype, body, {"Cache-Control": cache})
+
+
+LLM_PROVIDER_POSTS = frozenset({"/api/llm/providers/key", "/api/llm/providers/enabled",
+                                 "/api/llm/providers/models", "/api/llm/providers/custom", "/api/llm/test"})
 
 
 def make_server(ds_root: str, dist: str, host: str = "127.0.0.1",

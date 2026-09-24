@@ -91,6 +91,13 @@ def main() -> int:
     ap.add_argument("--api-base", default=None)
     ap.add_argument("--model", default=None)
     args = ap.parse_args()
+    # 目录 = 内置 ⊕ 设置页登记(用户加的模型、自定义供应商;track opendesign-zcode-model-settings P4):
+    # 合并里的对齐/回落必须和起网关、界面用同一张目录,否则用户加的会被当成手写预设。
+    with ds_credential.catalog_scope(ds_credential.home_of(str(args.target))):
+        return _main(args)
+
+
+def _main(args) -> int:
     if args.api_base is not None or args.model is not None:
         print("ds_merge_config: 不再支持 --api-base / --model。换厂商、换模型请在 OpenDesign 界面的「AI 模型 key」里操作。"
               "(配置一字未动)", file=sys.stderr)
