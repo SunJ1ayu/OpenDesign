@@ -151,7 +151,9 @@ class ReadTheCurrentModel(Rig):
         self.assertEqual(d.get("label"), ds_credential.PROVIDERS["mimo"]["label"])
         self.assertEqual(d.get("current"), "mimo-v2.5")
         self.assertEqual(sorted(m["id"] for m in d.get("models", [])), tpl_presets)
-        self.assertEqual(tpl_presets, ["mimo-v2.5", "mimo-v2.5-pro"], "前提:模板里就是这两个")
+        # 09-24 业主要 v2.6(小米服务端 /v1/models 实查已列),模板加了两个(track opendesign-zcode-model-settings)
+        self.assertEqual(tpl_presets, ["mimo-v2.5", "mimo-v2.5-pro", "mimo-v2.6-flash", "mimo-v2.6-pro"],
+                         "前提:模板里就是这四个")
         for m in d["models"]:
             self.assertTrue(m.get("label"), "每个模型得有给人看的名字:%r" % m)
 
