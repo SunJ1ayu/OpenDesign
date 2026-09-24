@@ -161,17 +161,29 @@ try {
   const vBox = await vendor.boundingBox();
   const sBox = await sub.boundingBox();
   check(vBox && sBox && sBox.x >= vBox.x + vBox.width - 8, "⑦b 模型子菜单在厂商行右边(照 ZCode 向右弹)");
-  // ⑦c QA A23:从厂商行**斜着**移进子菜单(先经过菜单里别的地方)子菜单不许闪退。
-  //     只测"直接跳进去"问不出这件事:鼠标真实轨迹会先擦过厂商行下沿。
-  const target = page.locator(`[data-ui="chat-model-sub"][data-provider="mimo"] [data-model-id="mimo-v2.5-pro"]`);
-  const tBox = await target.boundingBox();
+  // ⑦c QA A23:从厂商行**斜着**移进子菜单(途中擦过菜单里别的行)子菜单不许闪退。
+  //     09-24 判据修:① 第一版用多元素 locator 取 innerText,Playwright 严格模式必抛 ⇒ 这一问恒红、问不出东西;
+  //     ② 第一版轨迹从厂商行右沿直进子菜单,一行都没擦过 ⇒ 问不到"擦过别的行会不会收"。
+  //     现在:从厂商行左侧出发、瞄子菜单**最后一行**(轨迹必然往下擦过底行「管理模型」),先证明真擦过了,
+  //     再等过宽限期(>200ms)看子菜单还在 —— 等不够就问不出"过一会儿才收"。
+  const lastItem = sub.locator("[data-model-id]").last();
+  const tBox = await lastItem.boundingBox();
+  await page.evaluate(() => {
+    window.__crossedManage = false;
+    document.querySelector('[data-ui="chat-model-manage"]')
+      ?.addEventListener("mouseenter", () => { window.__crossedManage = true; }, { once: true });
+  });
   if (vBox && tBox) {
-    await page.mouse.move(vBox.x + vBox.width - 12, vBox.y + vBox.height / 2);
-    await page.mouse.move(tBox.x + tBox.width / 2, tBox.y + tBox.height / 2, { steps: 12 });
+    await page.mouse.move(vBox.x + 20, vBox.y + vBox.height / 2);
+    await page.mouse.move(tBox.x + tBox.width / 2, tBox.y + tBox.height / 2, { steps: 16 });
   }
-  check(await sub.isVisible() && (await sub.locator("[data-model-id]").innerText().catch(() => "")).length > 0
+  const crossed = await page.evaluate(() => window.__crossedManage === true);
+  check(crossed, "⑦c 前提:轨迹确实擦过了底行「管理模型」(没擦过 = 下一问问不出东西)");
+  await page.waitForTimeout(450);
+  check(crossed && await sub.isVisible() && (await sub.locator("[data-model-id]").count()) > 0
         && (await page.locator(`${menu} [data-ui="chat-model-sub"] [data-model-id="mimo-v2.5"]`).getAttribute("aria-checked")) === "true",
-    "⑦c 斜着移进子菜单不闪退;当前模型那行打勾");
+    "⑦c 斜着移进子菜单(擦过别的行)不闪退,过了宽限期还在;当前模型那行打勾");
+  const target = page.locator(`[data-ui="chat-model-sub"][data-provider="mimo"] [data-model-id="mimo-v2.5-pro"]`);
 
   // ── 选中 ⇒ 真写配置 ⇒ 按钮换字 ────────────────────────────────────────
   await target.click();
