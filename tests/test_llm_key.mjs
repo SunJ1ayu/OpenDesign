@@ -200,9 +200,12 @@ test("d2 requested = 已经替他重启了,不许再叫他去重启", () => {
 });
 
 test("d3 没见过的 restart 值往保守那边倒(宁可让他多点一下)", () => {
+  // 09-24 加强:只查「有重启两个字」分不出两种说法 —— requested 那句也含「请手动重启」(08-16 四审加的兜底),
+  // 把未知值倒向"正在自动重启"时这条照绿(红检 mutation-llm-key M5 漏网)。保守 = 与 manual 同一句。
   for (const v of ["", "unknown", undefined, null]) {
     const s = restartNotice(v);
     assert.ok(s && /重启|重新启动|重新打开/.test(s),
               `restart=${JSON.stringify(v)} 时没有让业主自己重启:${s}`);
+    assert.equal(s, restartNotice("manual"), `restart=${JSON.stringify(v)} 时说成了已替他重启:${s}`);
   }
 });

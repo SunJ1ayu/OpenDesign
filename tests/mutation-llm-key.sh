@@ -85,6 +85,7 @@ echo "== 红检:T4 前端(每条都要重新 build,慢是应该的)"
 
 # ---- 逻辑层(纯 node 判据就能咬,不必 build)----------------------------
 # (多行锚点:同一句在文件里出现不止一次时带上邻行取唯一 —— 锚点不唯一脚本会记 [BAD],不算咬住)
+# (变异体要编译得过:noUnusedLocals/Parameters 会把"删掉唯一一次使用"判成错 —— M7/M14 首跑因此 [BAD],09-24 改成保留引用)
 mutate M1 web/src/settings/modelSettings.ts \
   '    res = await fetchFn(path, {
       method: "POST",' '    res = await fetchFn(path, {
@@ -105,7 +106,7 @@ mutate M5 web/src/settings/modelSettings.ts \
   "d3 没见过的 restart" "未知值倒向 requested ⇒ d3 该红(保守方向反了)"
 mutate M7 web/src/settings/modelSettings.ts \
   'const data = withoutSecret(asRecord(await readJson(res)), secret);' \
-  'const data = asRecord(await readJson(res)); void withoutSecret;' \
+  'const data = asRecord(await readJson(res)); void withoutSecret; void secret;' \
   "$UNIT" \
   "c2 后端要是把 key 回显了" "回包不抹 key ⇒ c2 该红"
 mutate M17 web/src/chat/connection.ts \
@@ -142,7 +143,7 @@ mutate M13 web/src/settings/ModelSettings.tsx \
   "FAIL - C1" "把 key 写进页面标题 ⇒ C1 该红"
 mutate M14 web/src/App.tsx \
   'if (stale || !v || anyConfigured(v) || settingsRoute(window.location.hash)) return;' \
-  'if (stale || !v || settingsRoute(window.location.hash)) return;' \
+  'if (stale || !v || (anyConfigured(v) && false) || settingsRoute(window.location.hash)) return;' \
   "$E2E" \
   "FAIL - E1" "已配置时也带进设置页 ⇒ E1 该红"
 mutate M18 web/src/App.tsx \

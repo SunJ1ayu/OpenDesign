@@ -191,6 +191,9 @@ class SwitchWithinTheCurrentKey(Rig):
         before = self.raw(self.cfg_path)
         bad_bodies = ({"model": "deepseek-v4-pro"},      # 别家的(当前 key 是 MiMo)
                       {"model": "gpt-4o"},               # 随便的串
+                      # 09-24 补:点名厂商的那条路(新菜单每次都带厂商)—— 这家目录里没有的一样拒;
+                      # 原来只问了不带厂商的一半,删掉那道检查整套 python 判据全绿(红检 mutation-model-picker a1)
+                      {"model": "gpt-4o", "provider": "mimo"}, {"model": "deepseek-v4-pro", "provider": "mimo"},
                       {"model": ""}, {"model": None}, {"model": ["mimo-v2.5-pro"]}, {})
         with self.serve() as port:
             for body in bad_bodies:
