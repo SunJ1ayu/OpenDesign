@@ -378,6 +378,10 @@ runlog: run-all-final rc=3 commit=fab85c8 dirty=no final=yes at=2026-09-24T01:47
 runlog: r11-criteria-red rc=1 commit=10d0bbe dirty=yes at=2026-09-24T02:44:12Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T024412Z-01-r11-criteria-red.txt
 runlog: r11-mutants-before-fix rc=0 commit=10d0bbe dirty=yes at=2026-09-24T02:44:14Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T024414Z-01-r11-mutants-before-fix.txt
   (上一行**不算证据**:跑的时候判据里还有 4 条红,任何变异都会「被杀」。修完在全绿基础上重跑。)
+runlog: r11-mutants-after-fix rc=0 commit=55d295e dirty=yes at=2026-09-24T02:45:50Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T024550Z-01-r11-mutants-after-fix.txt
+  (上一行 = 修完、判据全绿的基础上:18 个变异全杀(M8 按新代码重写;新增 M16~M18)。)
+runlog: run-all-r12 rc=3 commit=9a071b1 dirty=no final=yes at=2026-09-24T02:46:32Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T024632Z-01-run-all-r12.txt
+  (上一行 = 派第 12 轮前,干净树 final:六段全过(python 1506、node 509、e2e 41),rc=3 仅既有 3 条 SKIP。)
 
 ## Accepted deviations
 
