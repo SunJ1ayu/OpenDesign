@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   readProvidersResponse, providerStatus, providerStateText, navGroups, contextLabel,
-  settingsRoute, settingsHash, PROVIDERS_PATH,
+  settingsRoute, settingsHash, PROVIDERS_PATH, anyConfigured,
 } from "../web/src/settings/modelSettings.ts";
 
 const M = (id, o = {}) => ({ id, label: id, builtin: true, contextWindow: null, ...o });
@@ -95,4 +95,12 @@ test("ms7 设置页路由:#/settings ⇒ 常规;#/settings/models?provider=kimi 
 test("ms8 被环境变量供着的那一家 writable=false 原样透出(界面据此禁用输入并说明,H1);老后端没这个字段 ⇒ 当可写", () => {
   const v = readProvidersResponse(200, { ...VIEW, providers: [P("mimo", { writable: false }), P("deepseek")] });
   assert.deepEqual(v.providers.map((p) => p.writable), [false, true]);
+});
+
+test("ms9 首启要不要进模型设置:与旧卡片同一口径 —— 后端说有 key 就算有(配置读不出时每家那行认不出 key 归谁);老后端没这个字段 ⇒ 看每家那行", () => {
+  const none = VIEW.providers.map((p) => ({ ...p, configured: false }));
+  assert.equal(anyConfigured(readProvidersResponse(200, { ...VIEW, providers: none, configured: true })), true);
+  assert.equal(anyConfigured(readProvidersResponse(200, { ...VIEW, providers: none, configured: false })), false);
+  assert.equal(anyConfigured(readProvidersResponse(200, { ...VIEW, providers: none })), false);
+  assert.equal(anyConfigured(readProvidersResponse(200, VIEW)), true);
 });

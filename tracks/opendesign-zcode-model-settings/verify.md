@@ -39,6 +39,12 @@ runlog: t4-node-criteria-red rc=1 commit=89c21ab dirty=yes at=2026-09-24T08:59:1
 runlog: t4-w8-red rc=1 commit=89c21ab dirty=yes at=2026-09-24T08:59:18Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T085918Z-02-t4-w8-red.txt
 ```
 
+- 实现中补的判据 w9 / ms9(首启口径与旧卡片同一个:有 key 就算有;红在 KeyError 'configured' / ms9 首条断言):
+
+```
+runlog: t4-configured-red rc=1 commit=980c73f dirty=yes at=2026-09-24T10:37:13Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T103713Z-01-t4-configured-red.txt
+```
+
 ## T4 判据移植对照(旧界面 → 照 ZCode 的新界面;09-24,判据单独 commit)
 
 旧 key 卡片(`LlmKeyCard.tsx` / `llmKey.ts`)与一维换模型菜单被删;钉着它们的判据**逐条搬到新界面,编号尽量不变**,性质一条不丢。

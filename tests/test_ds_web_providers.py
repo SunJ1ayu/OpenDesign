@@ -154,6 +154,19 @@ class TestProvidersApi(Rig):
         st, d = self.call("POST", "/api/llm/providers/key", {"provider": "deepseek", "key": KIMI_KEY})
         self.assertEqual(st, 200, d)
 
+    def test_w9_has_a_key_means_the_same_as_the_old_card(self):
+        """首启「一家 key 都没有 ⇒ 进模型设置」的口径与旧 key 卡片同一个(status().configured):
+        有 key 就算配好,不看配置读不读得出 —— 配置缺了/坏了时,每家那一行认不出 key 归谁,
+        只看行会把一台有 key 的机器每次打开都甩进设置页(T4 实现时 desktop_update / settings_fvis 抓到)。"""
+        os.remove(self.cfg_path)
+        st, d = self.call("GET", "/api/llm/providers")
+        self.assertEqual(st, 200, d)
+        self.assertIs(d["configured"], True, "key.txt 在、配置不在:仍算已配置")
+        self.assertNotIn(PRIMARY_KEY, json.dumps(d, ensure_ascii=False))
+        os.remove(self.key_path)
+        st, d = self.call("GET", "/api/llm/providers")
+        self.assertIs(d["configured"], False)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
