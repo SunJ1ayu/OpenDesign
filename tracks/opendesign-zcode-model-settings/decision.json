@@ -24,6 +24,40 @@
     "model": "claude-opus-5-5"
   },
   "outcome": {
-    "verdict": null
+    "verdict": "PASS",
+    "split_resolutions": [
+      {
+        "run_id": "20260924-213655-286173-panel-review",
+        "subject_digest": "sha256:16f43f5e5253f19170ceab945a8416e7ec2fb59e6441bf425f639c62c2f54f99",
+        "legs": [
+          {
+            "name": "submimo",
+            "log_digest": "sha256:362e7a2ccc696e0a6f7301fb8e0a77c7ed69f44490eaf2054843f0b6e5291cd2",
+            "rebuttals": [
+              {
+                "quote": "改口后和状态句当场自相矛盾:上面「就绪」、下面「已开始换上」",
+                "disposition": "deferred",
+                "reason": "界面唯一的信号是「这家进了配置」(prepare_gateway 在 sup.restart 之前写),拿不到「新网关已起好」;没有这个信号,任何措辞都做不到既一致又精确 —— 腿给的两条修法:保留「正在自动重启」会与「就绪」原样对撞,「这一档不说就绪」则没有信号能离开这一档。现在的一对:主句是真话,两行都指向同一个动作(稍等即可选),不引起错误操作、不涉及钱/数据/key;0.98.11 同一时刻也是「已配置」+「正在自动重启…稍等片刻」。真修法 = 外壳在网关起好后回报(设计改动),延期;同一处第三次打补丁,按规矩停下重看设计而不是再补。",
+                "evidence": [
+                  "bin/ds_shell.py:285",
+                  "bin/ds_shell.py:290",
+                  "web/src/settings/modelSettings.ts:113",
+                  "web/src/settings/ModelSettings.tsx:137"
+                ]
+              },
+              {
+                "quote": "「稍等几秒就能在聊天里选」在重启失败时是落空的承诺",
+                "disposition": "deferred",
+                "reason": "腿自己判「延期即可」:失败时外壳弹「没能自己重启」,同一句尾部正指向该做的动作(退出再打开),整句不是撒谎的重启;与 R3-1 同根,随网关起好信号一并处理。",
+                "evidence": [
+                  "web/src/settings/ModelSettings.tsx:137",
+                  "bin/ds_shell_core.py:609"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

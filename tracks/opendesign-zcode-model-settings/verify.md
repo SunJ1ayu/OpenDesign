@@ -16,7 +16,7 @@
 - [x] tests pass(run-all rc=3 = **没有红**,只跳既有三条:两条要活网关的 e2e new_chat / project-thread + 1 条 python;全仓一直如此,与本单无关)
 - [x] no secrets / unsafe ops(录像脚本自查 key 不进 tour.md;判据 C 组泄漏扫描、z10/z14 不回显 key)
 
-**机器打印的**(按时间序,逐字节;红的几遍是判据先行的红检,最后一遍 run-all 在 600bbe7):
+**机器打印的**(按时间序,逐字节;红的几遍是判据先行的红检,最后一遍 run-all 在 0bd0560 = 最终交付代码):
 
 ```
 runlog: backend-criteria-red rc=1 commit=a2222b5 dirty=yes at=2026-09-24T07:57:51Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T075751Z-01-backend-criteria-red.txt
@@ -33,11 +33,15 @@ runlog: review-r1-fixes-red rc=1 commit=0dc309b dirty=yes at=2026-09-24T12:24:01
 runlog: run-all-after-review-r1 rc=3 commit=600bbe7 dirty=no final=yes at=2026-09-24T12:28:55Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T122855Z-01-run-all-after-review-r1.txt
 runlog: mutation-model-picker-after-review-r1 rc=0 commit=0752917 dirty=no at=2026-09-24T12:42:05Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T124205Z-01-mutation-model-picker-after-review-r1.txt
 runlog: mutation-llm-key-after-review-r1 rc=0 commit=0752917 dirty=yes at=2026-09-24T12:44:36Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T124436Z-01-mutation-llm-key-after-review-r1.txt
+runlog: review-r2-fix-red rc=1 commit=5c33761 dirty=yes at=2026-09-24T13:12:03Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T131203Z-01-review-r2-fix-red.txt
+runlog: run-all-after-review-r2 rc=3 commit=0bd0560 dirty=no final=yes at=2026-09-24T13:15:14Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T131514Z-01-run-all-after-review-r2.txt
+runlog: mutation-model-picker-after-review-r2 rc=0 commit=3fa07d3 dirty=no at=2026-09-24T13:28:35Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T132835Z-01-mutation-model-picker-after-review-r2.txt
+runlog: mutation-llm-key-after-review-r2 rc=0 commit=3fa07d3 dirty=yes at=2026-09-24T13:31:04Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T133104Z-01-mutation-llm-key-after-review-r2.txt
 ```
 
-- 红收据各自对应:backend/web = T2/T3 判据先行;t4-* = T4 移植批与 w9/ms9;qa-exec-fixes-red = QA 缺陷 K1~K5;review-r1-fixes-red = 第 1 轮代码评审 #1~#5。
+- 红收据各自对应:backend/web = T2/T3 判据先行;t4-* = T4 移植批与 w9/ms9;qa-exec-fixes-red = QA 缺陷 K1~K5;review-r1-fixes-red = 第 1 轮代码评审 #1~#5;review-r2-fix-red = 第 2 轮 #8。
   K6(上下文标签)的红是在 9fd4dfb 提交前手跑 node 看到的(ms6 1 fail),没有单独 runlog 收据 —— 如实记账。
-- 红检(判据的判据):mutation-model-picker 23/23、mutation-llm-key 18/18,QA 修复后与第 1 轮评审修复后各跑一次,全咬住、还原核对一致。
+- 红检(判据的判据):mutation-model-picker 23/23、mutation-llm-key 18/18,QA 修复后、第 1 轮评审修复后、第 2 轮评审修复后各跑一次,全咬住、还原核对一致。
 
 ## 判据先行的红收据
 
@@ -109,6 +113,7 @@ runlog: t4-configured-red rc=1 commit=980c73f dirty=yes at=2026-09-24T10:37:13Z 
 - 腿的花名册:
   - 第 1 轮:`submimo=PASS(verdict=BLOCK) subkimi=PASS(verdict=PASS)`(`/root/aiwork/logs/panel-zcode-r1-20260924-195939.roster` [仓外不承重])
   - 第 2 轮:`submimo=PASS(verdict=BLOCK) subkimi=PASS(verdict=PASS)`(`/root/aiwork/logs/panel-zcode-r2-20260924-205018.roster` [仓外不承重])
+  - 第 3 轮(追加):`submimo=PASS(verdict=BLOCK) subkimi=PASS(verdict=PASS)`(`/root/aiwork/logs/panel-zcode-r3-20260924-213655.roster` [仓外不承重])
 - 轮次记录(每次派发一行;实质评审与基础设施重试分开,重试不算轮但次数与耗时照记):
 
   | 轮 | 类型(实质 / 重试) | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
@@ -118,7 +123,7 @@ runlog: t4-configured-red rc=1 commit=980c73f dirty=yes at=2026-09-24T10:37:13Z 
   | QA-复测 | 测试员(非评审,不计轮) | — | explore-zcode-qa-retest-20260924-193518 | 0(K1~K5/T1~T3 全关;顺藤查出 K6) |
   | 1 | 实质 | rc=3,BLOCK 0(PENDING 2) | panel-zcode-r1-20260924-195939(MiMo 18 分、Kimi 19 分) | 3(#1 #2 #3) |
   | 2 | 实质(预算最后一轮) | rc=3,BLOCK 0(PENDING 2) | panel-zcode-r2-20260924-205018(MiMo、Kimi) | 1(#8,本单引入的假话) |
-  | 3 | **追加**(见下「追加一轮」) | 待填 | 待填 | 待填 |
+  | 3 | **追加**(见下「追加一轮」) | rc=3,BLOCK 0(PENDING 2) | panel-zcode-r3-20260924-213655(MiMo 26 分、Kimi 12 分) | 0(MiMo 2 条主裁延期,见 #13 #14) |
 
 - findings(**先处置、后动手**;一轮一份修复清单,一次修完再复审 —— panel 抽屉 4b):
 
@@ -137,6 +142,9 @@ runlog: t4-configured-red rc=1 commit=980c73f dirty=yes at=2026-09-24T10:37:13Z 
   | 11 | (MiMo 第 2 轮 发现 3)`_commit_both` 还原配置那一步也写失败(连续两次写盘失败)⇒ 配置新地址、登记旧地址 | 我自审 R2-F1 已列 | 延期 | 业主那边:要盘彻底坏了才碰到;钱去的是他刚填的新地址(同一家),不是别家 |
   | 12 | (MiMo)env 供 key 且变量名非 DS_、key.txt 空时 #1 的闸放行;(Kimi)删供应商不清「想换过去」标记、编号复用后可能指向新供应商 | 前者:标准 Windows 装法 child_env 剥掉 DS_*,Kimi 核为够不着;后者:新界面已不调 /api/llm/credential(web/src 无引用),标记只能手搓请求写出 | 驳回(锤子类 / 走不到) | — |
 
+  | 13 | (MiMo 第 3 轮 R3-1,判 BLOCK)改口后同一屏上面「就绪」、下面「后台已开始换上这把 key:稍等几秒…」,口径对撞 | 界面唯一信号是「这家进了配置」(bin/ds_shell.py:285 build_env→prepare_gateway 先于 :290 sup.restart),拿不到「新网关已起好」;0.98.11 同一时刻是「已配置」+「正在自动重启…稍等片刻」(git show 095ec4c:web/src/llmKey.ts vendorStateText / restartNotice) | **延期(主裁裁分裂,写进 decision.json split_resolutions)** | 业主那边:存第二家 key 后几秒内看到绿点「就绪」配「稍等几秒就能选」—— 两行指向同一个动作,不会做错事,不涉及钱/数据/key。腿给的两条修法都不成立(保留「正在自动重启」照样对撞;「这一档不说就绪」没有信号离开这一档)。**真修法 = 外壳在网关起好后回报一声**(设计改动)。同一处第三次打补丁 ⇒ 停下,不再补 |
+  | 14 | (MiMo 第 3 轮 R3-2,腿自判延期)「稍等几秒就能选」在重启失败时落空 | 同句尾部「若弹窗说没能自己重启,请退出 OpenDesign 再打开」正指向该做的动作 | 延期 | 与 #13 同根,随网关起好信号一并处理 |
+
 - **追加一轮**(4b ④:预算 2 轮已用完,派发前在这里写明):
   - 具体阻断:#8 一处 —— 我自己加的「后台已重启,这把 key 已生效」在重启完成前 / 重启失败时就说,违反「不许撒谎的重启」。
   - 为什么不能「延期 + 分裂裁决」收场:它是**本单引入的回归**、落在业主明确要的「提示说真话」上,按 4b 属「本单必须修」;而改了它,第 2 轮的评审绑定就不覆盖最终交付,归档闸不认。
@@ -144,7 +152,26 @@ runlog: t4-configured-red rc=1 commit=980c73f dirty=yes at=2026-09-24T10:37:13Z 
   - 新的有限预算:**1 轮,两家(同 MiMo、Kimi)**;这一轮的新发现只要不是「本单必须修」一律延期,**不再续轮**。
 
 
-- arbitrated verdict (主裁): <...>
+- arbitrated verdict (主裁): **PASS**(第 3 轮 MiMo BLOCK / Kimi PASS 为分裂,主裁按 #13 #14 裁「延期」,原话、指纹与证据写在 decision.json `outcome.split_resolutions`)。
+  三轮实质评审共 4 条真阻断(#1 #2 #3 #8),全部判据先红后修;第 3 轮之后不再续轮(兑现「追加一轮」写下的预算)。
+  最终交付 @bfc5b77:run-all 无红(收据 run-all-after-review-r2)、红检 23/23 与 18/18(收据 *-after-review-r2)。
+  **留给后面的设计项**(不自动开单,业主说开再开):① 只配中转也能用(槽位设计,#1);② 外壳在网关起好后回报,界面才能说「好了」(#6 #13 #14)。
+
+## QA 试点评估(业主 09-24「多模型先参与测试」;evidence/qa-pilot.md 是开工时的设定,评估写在这里 —— 那份在评审绑定里,改了会作废绑定)
+
+| 阶段 | 腿的墙钟 | 产出 | 其中代码评审大概率也能找到的 |
+|---|---|---|---|
+| QA-设计(需求阶段写用例) | DeepSeek 0.8 分、Grok 4.3 分 | 验收清单 A1~A29 + 9 条需求空白 Q1~Q9(Q8「自定义供应商改名/改地址」直接变成后台新功能) | 0(那时还没代码) |
+| 录像(主裁在真界面走一遍,给 QA 看) | unknown | 录前主裁自己看出 4 条(长模型名挤掉「发送」、提示不改口、没 key 标在用、两个保存) | 0 |
+| QA-执行(看录像提缺陷) | DeepSeek 2.7 分、Grok 4.5 分 | 真问题 5 条 K1~K5;误报 1 条 S1(我录像漏截一步)+ 若干读屏假象 | 2(K1 时序、K2 报错不是人话) |
+| QA-复测(关单) | DeepSeek 1.2 分、Grok 5.4 分 | 5 条全关;顺藤查出 K6(「万」不是 ZCode 写法) | 0 |
+| 代码评审 3 轮 | 每轮 12~26 分 | 4 条真阻断(只配中转死路、删掉的 key 被新供应商继承、两处写只成一半、我修 QA 问题时加的假话) | —— |
+
+- **两类发现几乎不重叠**:QA 抓「看得见的」(文案、对齐、叫法、需求空白),代码评审抓「看不见的」(失败路径、key 外泄、跨模块)。
+  代码评审的 4 条阻断 QA 一条没抓到;QA 的 6 条(K1~K6)代码评审大概率只抓得到 2 条。
+- **三方共同盲区**:只配中转的新用户 —— QA 设计分别写了「加中转」和「没 key 首启」、没组合;录像与测试都先存了 MiMo key;4c 也漏了。最后是 MiMo 读外壳启动代码抓到。
+- **我修 QA 问题时引入了新假话(cb0c57b →#8)**,由代码评审第 2 轮抓回 ⇒ QA 修复同样要过代码评审,两者不能互相替代。
+- 要改:录像每个动作都要截一步;读屏文本不含悬停字 / 图标,题面要写明,免得误报。
   > 这里写理由；最终枚举写进 `decision.json.outcome.verdict`。归档时仍为空会被
   > `track-record validate --phase archive` 挡住，`track list` 也会打 ⚠️。
 
@@ -157,7 +184,7 @@ runlog: t4-configured-red rc=1 commit=980c73f dirty=yes at=2026-09-24T10:37:13Z 
 
 ## 试行记录(review-convergence 试行,约五单;拿不到的写 unknown,别补 0)
 
-- 总交付历时:<开工 commit 时刻 → 归档 commit 时刻>
-- 每轮新增有效阻断:<第 1 轮 n / 第 2 轮 n>
-- 基础设施等待:<重试次数;observations 里 panel-review 的 duration_ms 求和>
-- 交付后返工:<归档后因本单再改过几次;不知道写 unknown>
+- 总交付历时:09-24 上午立单(`a2222b5`)→ 22:1x 归档,约一整天(含界面整页重做与 QA 试点)
+- 每轮新增有效阻断:第 1 轮 3 / 第 2 轮 1 / 第 3 轮(追加)0
+- 基础设施等待:重试 0;三轮代码评审约 19 + 20 + 26 分(并行两腿取长),QA 三次共约 15 分
+- 交付后返工:unknown(刚归档)
