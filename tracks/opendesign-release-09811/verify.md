@@ -23,11 +23,13 @@ runlog -t opendesign-release-09811 -- <判据命令>
 ```
 
 ```
-<粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
- **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
- 收据得进 git(5d)。一份收据都没有的话,写一行
- 「- 无机器证据:<理由>」认账 —— 沉默不算理由(5c)。>
+runlog: run-all rc=3 commit=c7aee6f dirty=no final=yes at=2026-09-24T06:40:59Z file=tracks/opendesign-release-09811/evidence/20260924T064059Z-01-run-all.txt
+runlog: cloud-e2e rc=0 commit=c7aee6f dirty=yes at=2026-09-24T07:02:52Z file=tracks/opendesign-release-09811/evidence/20260924T070252Z-01-cloud-e2e.txt
 ```
+- run-all rc=3 = 六段全过(python 1507 / node 509 / e2e 41),3 条既有 SKIP 要起 gateway。
+- cloud-e2e = run 35965656125(head `c7aee6f`,payload + e2e 两个 job 都 success):**141 OK / 0 FAIL**。
+  quiet-start 移交的两条兑现:E2.connecting「后台没好时不挂横幅」、E2.noreload「就绪后整页不重载」;E4 应用内更新(0.98.11 → 替身 0.98.12)
+  「重启以更新」→ 向导两下 → 自己重开、版本三方一致;E1r 出货版与被测版逐文件只差更新源。
 
 ## Review
 
