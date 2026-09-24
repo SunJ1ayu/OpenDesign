@@ -1,0 +1,68 @@
+# 存 key 后自动重启网关 —— 真 Windows 上到底卡在哪(track opendesign-key-restart)。**探针,不是判据**:只记录、不判卷。
+#
+# 业主 09-25 00:32 真机:设置页存 DeepSeek key ⇒ 外壳重启网关 ⇒ 新网关 2.5 分钟一行日志都没写、始终没起来,
+# 00:34:59 弹「后台没能自己重启:工作台 启动失败: 退出码 1」。Linux 上同一条路径栽在另一处(端口试探被 TIME_WAIT 挡),
+# 所以 Windows 的机制只能在 Windows 上问。drive.py 两组:live(聊天页连着再存)/ idle(对照)。
+# sitecustomize.py 只放进这台机器上的包:网关一进 Python 就记一笔,之后每 20s 打一次所有线程的栈。
+#
+# 跑法:推到 ci-restart/** 分支,或 Actions 页面手点。
+
+name: windows-restart-probe
+
+on:
+  push:
+    branches: ['ci-restart/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  payload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 组 Python 包(与 electron-e2e 同一条出货流水线)
+        run: bash tracks/opendesign-windows-installer/spike/build-package.sh out --electron
+      - name: 打成一个 zip
+        run: cd out && zip -qr pkg.zip pkg && ls -la pkg.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg
+          path: out/pkg.zip
+          retention-days: 3
+
+  probe:
+    needs: payload
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: pkg
+          path: artifact
+      - name: 解包 + 放探针钩子
+        run: |
+          Expand-Archive artifact\pkg.zip -DestinationPath probe -Force
+          Copy-Item .github\scripts\restart-probe\sitecustomize.py probe\pkg\python\Lib\site-packages\
+          Get-ChildItem probe\pkg\ds\bin\ds_host.py, probe\pkg\python\python.exe
+      - name: live 组(聊天页连着再存 key)
+        continue-on-error: true
+        run: probe\pkg\python\python.exe .github\scripts\restart-probe\drive.py probe\pkg live probe-out
+      - name: idle 组(什么都不连就存 key,对照)
+        continue-on-error: true
+        run: probe\pkg\python\python.exe .github\scripts\restart-probe\drive.py probe\pkg idle probe-out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: restart-probe-out
+          path: probe-out
+          retention-days: 7
