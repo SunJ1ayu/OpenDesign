@@ -298,8 +298,8 @@ try {
   }
   await addModel("mimo", "mimo-e2e", "262144");
   check(await until(() => modelRow("mimo", "mimo-e2e").isVisible(), 8000)
-        && /26\.2万/.test(await modelRow("mimo", "mimo-e2e").locator('[data-ui="ms-ctx"]').innerText().catch(() => "")),
-    "A2 添加模型 ⇒ 列表里多一行,上下文按「万」显示");
+        && /^262\.1K$/.test((await modelRow("mimo", "mimo-e2e").locator('[data-ui="ms-ctx"]').innerText().catch(() => "")).trim()),
+    "A2 添加模型 ⇒ 列表里多一行,上下文照 ZCode 写成 262.1K(K6)");
   check(await modelRow("mimo", "mimo-e2e").locator('[data-ui="ms-delete"]').count() === 1, "A16 自己加的模型有「删除」");
   // 09-24 QA-执行 K5(DS D5):内置行没有「删除」时,「测试 / 编辑」不许整体右移、和自加模型行错开一列
   {

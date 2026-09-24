@@ -78,11 +78,15 @@ test("ms5 左栏两组:内置供应商(照后端顺序)/ 自定义供应商(没�
   assert.deepEqual(none[1].items, []);
 });
 
-test("ms6 上下文长度按「万」显示(ZCode 行内那个小标签);没有就不显示", () => {
-  assert.equal(contextLabel(262144), "26.2万");
-  assert.equal(contextLabel(128000), "12.8万");
-  assert.equal(contextLabel(1000000), "100万");
+// 09-24 QA 复测顺藤查出 K6:原来按「万」是我自作主张 —— ZCode formatModelContextWindowLabel 固定 en-US compact
+// (源码注释:「容量 badge 是技术规格，不应随中文 locale 变成万/亿」);期望值照它算,不另起一套写法。
+test("ms6 上下文长度照 ZCode 的技术写法(128K / 262.1K / 1M),不用「万」;没有就不显示", () => {
+  assert.equal(contextLabel(262144), "262.1K");
+  assert.equal(contextLabel(128000), "128K");
+  assert.equal(contextLabel(1000000), "1M");
+  assert.equal(contextLabel(64000), "64K");
   assert.equal(contextLabel(null), "");
+  assert.equal(contextLabel(0), "");
 });
 
 test("ms7 设置页路由:#/settings ⇒ 常规;#/settings/models?provider=kimi ⇒ 模型设置并选中 kimi;来回一致", () => {
