@@ -10,6 +10,9 @@
       `catalog_scope`/`_scoped` 包所有入口 + 合并器 + set_model;新 API:providers_view / add_model / remove_model / set_context_window /
       set_enabled / add_custom_provider / remove_custom_provider / test_model;save(switch=False);MiMo 模板补 v2.6-pro/flash;lm1 前提更新(`1575924`)
 - [x] T3 ds-web 接口判据 w1~w7(`7ba8802`)→ 实现(同 `05db6c4`):GET /api/llm/providers;POST /api/llm/providers/{key,enabled,models,custom}、/api/llm/test
+- [ ] T3b **试点:测试员角色**(业主 09-24 同意,见 evidence/qa-pilot.md):QA-设计两家 16:15 派出
+      (日志前缀在 scratchpad prefix_qa;/root/aiwork/logs/explore-zcode-qa-design-*)→ 主裁合并成 evidence/acceptance-cases.md → 据此写 T4 判据;
+      界面建好后 QA-执行(真操作 + 截图)→ 缺陷分级 → 再做代码评审(1 轮为主)。
 - [ ] T4 界面判据先行(node 纯逻辑 + e2e),再实现界面:
       - 设置整页:点侧栏「设置」(data-ui=settings-toggle)⇒ 整个侧栏换成设置栏目(返回工作区 / 常规 / 模型设置);
         「返回工作区」接替 settings-toggle(同 data-ui、aria-expanded=true);常规页放原弹层各项,**更新相关钩子原样沿用**
