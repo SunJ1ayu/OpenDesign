@@ -73,6 +73,22 @@ runlog: t4-configured-red rc=1 commit=980c73f dirty=yes at=2026-09-24T10:37:13Z 
 仍由别处管、这里不重复:A13 升级(py z11 + 业主 UAT)、A14(desktop_update + 云 E4)、A26 两处聊天框同步(`MODEL_CHANGED_EVENT` 未改)、A29 像不像 ZCode(T5 截图亲看 + QA-执行)。
 `tests/mutation-llm-key.sh` 的锚点指着旧文件,实现落地后改锚点重跑(红检,不是判据本身)。
 
+## T4 实现中的判据改动与事故(09-24 下午)
+
+- `ae7d599` 判据修:llm_key E1/H1 只改 # 的 goto 在 Chromium 是同文档跳转、不重载 ⇒ 补 reload(实现前自查)。
+- `980c73f` 判据修:model_picker ⑦c ① 多元素 locator 取 innerText 必抛(恒红)② 原轨迹一行不擦、问不到擦边闪退;
+  改瞄最后一行 + 断言真擦过底行 + 等过宽限期。红检:删子菜单 `onMouseEnter={cancel}` ⇒ ⑦c FAIL,还原 ALL PASS。
+  🔴 **这个 commit 误带了 `web/src/LlmKeyCard.tsx` / `web/src/llmKey.ts` 的删除**(早先 `git rm` 留在暂存区,
+  提交判据时没看 `git diff --cached`)。判据内容不受影响,但单独检出 980c73f 前端 build 不过(App.tsx 仍引用它们);
+  本地未 push,不改写历史,在此认账。之后每次判据提交前先看 `git diff --cached --stat`。
+- `5d214d4` 判据 w9 / ms9(红):首启「没 key 进模型设置」口径必须与旧卡片同一个(status().configured)。
+  来历:desktop_update / settings_fvis 的 ds_web 没有 nanobot 配置,每家那一行认不出 key.txt 归谁,只看行 ⇒ 有 key 的机器被甩进设置页。
+  这是我实现里引入的**真行为改动**(不是判据问题),修在 `6a8d320`。
+- `ea99d37` 判据移植:settings_fvis B「保存当场看左侧列表」—— 设置整页时侧栏不在屏上,观察点结构性不存在;
+  改成关体检卡 → 返回工作区 → 看列表(不 reload,性质不变:没刷新 dataEpoch 就看不到)。
+- `6a8d320` 实现;`ca53484` 两个红检脚本改锚点(另:mutation-model-picker 段 A 的后端锚点早在 kimi-glm 改版时就失效了,
+  c2 锚点也早已过时 —— 红检脚本会悄悄烂掉,只有真跑才知道)。
+
 ## Review
 
 - 规格自查(读任何 panel 输出之前先答):<回看 design 的用户成功条件、前提证据和未解决项。
