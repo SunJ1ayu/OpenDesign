@@ -40,6 +40,8 @@ jobs:
     needs: payload
     runs-on: windows-latest
     timeout-minutes: 40
+    env:
+      PYTHONIOENCODING: utf-8     # 驱动脚本自己往控制台打中文;不设 = cp1252 当场 UnicodeEncodeError(probe-2 就死在这)
     defaults:
       run:
         shell: pwsh
