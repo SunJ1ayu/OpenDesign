@@ -344,6 +344,25 @@ class TestWhenThePrimaryVendorChanges(pv.Rig):
         for name, p in keep.items():
             self.assertEqual(got.get(name), p)
 
+    def test_d12_losing_an_extra_key_leaves_nothing_pointing_at_the_gone_slot(self):
+        """清理后补的(主裁自查):额外格 od_kimi 的 key 没了、条目删了,指着它的**任何**预设(我们起的、改名能救的、手写的)都得跟着走 ——
+        改名只在格还在时才有意义;留一份指向不存在的格,nanobot 按名字加载就是悬空。"""
+        self.put_primary("mimo")
+        self.extra_key("kimi")
+        self.gateway_env()
+        self.on_disk({"my-kimi": {"label": "x", "provider": "od_kimi", "model": "kimi-k2.6"},
+                      "my-own": {"label": "x", "provider": "od_kimi", "model": "my-own-model"}}, "my-kimi")
+        os.remove(os.path.join(self.keys_dir, "kimi.txt"))
+        env = self.gateway_env()
+        cfg = self.cfg()
+        self.assertNotIn("od_kimi", cfg["providers"])
+        left = {n: p["provider"] for n, p in cfg["model_presets"].items()
+                if isinstance(p, dict) and str(p.get("provider", "")).startswith("od_")}
+        self.assertEqual(left, {}, "还有预设指着已经没有的格")
+        for name in cfg["model_presets"]:
+            self.snapshot(env, name)                  # 每一份都要能被 nanobot 按名字加载
+        self.assertEqual(self.snapshot(env, None).provider.api_key, KEYS["mimo"])
+
     def test_d4_same_vendor_new_key_leaves_hand_written_presets_alone(self):
         for shell in (False, True):
             with self.subTest(shell=shell):
