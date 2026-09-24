@@ -51,5 +51,7 @@ mut M17-fallback-picks-first-on-foreign bin/ds_credential.py '        elif defau
 mut M18-model-field-brain-gets-overwritten bin/ds_credential.py '    if cur is None and not endpoint_changed:
         pass' '    if False:
         pass'
+# 第 12 轮:DeepSeek F1 —— 只钉了 d4d 那半边时,去掉「端点没换」这个条件全判据绿
+mut M19-model-field-brain-never-switches bin/ds_credential.py '    if cur is None and not endpoint_changed:' '    if cur is None:'
 find bin -name __pycache__ -exec rm -rf {} + 2>/dev/null
 echo "survived=$survived"; exit $survived

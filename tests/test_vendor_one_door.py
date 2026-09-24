@@ -414,6 +414,29 @@ class TestWhenThePrimaryVendorChanges(pv.Rig):
         self.assertNotIn("modelPreset", got, "同一家换 key,替他换了当前模型")
         self.assertEqual(got["model"], "glm-5.1")
 
+    def test_d4e_a_self_configured_brain_that_picks_a_vendor_really_switches_to_it(self):
+        """第 12 轮(DeepSeek F1):d4d 只钉了「端点没换 ⇒ 不设 modelPreset」那半边;另半边没人问 ——
+        自配端点、当前写在 model 字段(d5c 合并后就是这个形态),在界面选 DeepSeek 存 key
+        ⇒ 必须切到 DeepSeek 默认,否则旧端点的模型名发到 DeepSeek,聊天连不上。
+        换厂商只剩界面这一条路,这正是这类老机器会走的那一步。"""
+        for multi in (False, True):
+            with self.subTest(multi=multi):
+                self.setUp()
+                os.makedirs(os.path.dirname(self.cfg_path), exist_ok=True)
+                with open(self.cfg_path, "w", encoding="utf-8") as fh:
+                    json.dump({"providers": {"custom": {"apiKey": "${DS_LLM_KEY}",
+                                                        "apiBase": "https://corp-proxy.example/v1"}},
+                               "agents": {"defaults": {"model": "corp/llama-3"}}}, fh)
+                ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek",
+                                   key=KEYS["deepseek"], multi=multi)
+                want = ds_credential.PROVIDERS["deepseek"]
+                d = self.cfg()["agents"]["defaults"]
+                self.assertEqual(d.get("modelPreset"), ds_credential.preset_name("deepseek", want["model"]),
+                                 "选了 DeepSeek,当前模型还是旧端点的")
+                snap = self.snapshot(self.gateway_env(), None)   # nanobot 自己加载:真发出去的模型与端点
+                self.assertEqual(snap.model, want["model"])
+                self.assertEqual(snap.provider.api_base, want["apiBase"])
+
     def test_d12b_losing_an_extra_key_on_a_self_configured_primary_still_starts(self):
         """第 11 轮(MiMo F3,#48):主槽是机主自配端点、正用额外格 Kimi;Kimi 的 key 没了 ⇒ modelPreset 不许悬空(网关会拒绝加载),
         回到他原来的 agents.defaults.model。"""

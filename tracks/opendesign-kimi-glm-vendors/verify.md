@@ -382,6 +382,25 @@ runlog: r11-mutants-after-fix rc=0 commit=55d295e dirty=yes at=2026-09-24T02:45:
   (上一行 = 修完、判据全绿的基础上:18 个变异全杀(M8 按新代码重写;新增 M16~M18)。)
 runlog: run-all-r12 rc=3 commit=9a071b1 dirty=no final=yes at=2026-09-24T02:46:32Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T024632Z-01-run-all-r12.txt
   (上一行 = 派第 12 轮前,干净树 final:六段全过(python 1506、node 509、e2e 41),rc=3 仅既有 3 条 SKIP。)
+- 第 12 轮花名册(业主选 A 后追加的 1 轮): submimo=FAIL(rc=124) subdeepseek=PASS(verdict=BLOCK)(日志 /root/aiwork/logs/panel-kimi-glm-r12-20260924-1107.* [仓外不承重])
+  MiMo 跑满 2100s 被砍,没交结论 ⇒ 本轮只有一个合格家族,**high 覆盖不成立**(归档闸按同一次评审两家族核)。
+  半截日志读过:它跑完 P1~P10 探针正要写报告;P1/P2/P5/P9/P10 与本轮修法一致,P3 = 下表 #56,P7 见 #58。
+  DeepSeek:判据在修前 10d0bbe 上 4 条红、修后绿;18 变异独立重跑全杀;400 seed × 14 步随机序列(界面 save 两种、select_model、起网关、安装合并)0 违规;
+  #46~#48、#50~#53 在出货代码上都关掉了。
+
+  | # | 发现 | 核实 | 可达性 | 处置 |
+  |---|---|---|---|---|
+  | 54 | (DeepSeek F1)save 的新守卫 `cur is None and not endpoint_changed` 只钉了 d4d 那半边;变异 `if cur is None:` 全判据绿,而它会让自配端点(只有 model 字段)的机主在界面选 DeepSeek 后仍发旧端点的模型名 ⇒ 连不上 | 我在全仓副本亲跑:该变异下 9 套相关测试全绿(test_vendor_one_door / kimi_glm / per_vendor_keys / merge_config / provision / set_model / credential / ds_web_credential / ds_web);出货代码对(读 `bin/ds_credential.py:647-650`) | 正常入口(界面换厂商是这类老机器唯一的路,且 d5c 合并正是把它们留在 model 字段形态) | **本单修(判据)**:补 d4e(无外壳/有外壳两格,问 nanobot 真发出的模型与端点),变异 M19 被杀。理由:本单自己把老机器留在这个形态,又撤掉了安装脚本换厂商那条路 ⇒ 这半边是**当前承诺**,不是「任意未来实现」;且本来就要重派(见下),补它不多花一轮 |
+  | 55 | (DeepSeek F2)合并 `not foreign` 半边无判据 | 属实(DeepSeek 实跑) | 只有手改(认得出的端点 + 自有预设 + 从没设过 modelPreset;正常装机一直有 modelPreset) | **延期**:业主那边不会碰到;只在将来有人改这行时测试不响 |
+  | 56 | (DeepSeek F4 / MiMo P3)认得出的端点 + 只有 model 字段 + 手写预设 + 无 modelPreset ⇒ 合并替他挑第一份手写预设 | 属实;第 10 轮起即如此,本轮未动 | 只有手改 | **延期**:业主那边只有手写过预设才会看到当前模型变成他自己写的第一份 |
+  | 57 | (DeepSeek F3)起网关快路径 `if new != cfg` 才回落 ⇒ 手改出悬空 modelPreset、又无额外槽时不修,nanobot 拒绝加载 | 读 `bin/ds_credential.py:736-741` 属实;本轮未动,已发的 0.98.10 同样 | 只有手改(#48 那条正常触发走全路径,已修;DeepSeek 400 seed 从未产出悬空) | **延期**:业主那边只有手改配置写了不存在的预设名才会后台起不来,与现网版本一样 |
+  | 58 | (MiMo P7,未写成结论)正用额外格 Kimi,再存一次主槽 MiMo 的 key ⇒ 当前切回 MiMo | 属实,但这是 0.98.9 已发版的既定契约 K2(`tracks/archive/opendesign-per-vendor-keys/verify.md:60`,「存哪家的 key = 要用哪家,最后一次保存为准」;存额外厂商的 key 同样会换过去) | 正常入口 | **驳回为缺陷**:不是本单引入、也不是「无故」换 —— 界面里存 key 就是选这家;本轮「能不动就不动」管的是用户没做选择的那些路径 |
+
+- **重派的理由(派发前写)**:这不是新一轮修改,是第 12 轮的**基础设施重试**(MiMo 超时,覆盖不成立;不跨 run 拼接)。
+  顺带核验 #54 的判据(d4e + M19;产品代码自 9a071b1 零改动)。成员不变(MiMo + DeepSeek),MiMo 超时放到 3000s。
+  停止条件:只剩「要手改配置才碰得到」的边缘形状或判据对未来实现的缺口 ⇒ 记延期收尾;MiMo 再超时 ⇒ 停下交业主,不再自行重试。
+runlog: r12-mutants-with-d4e rc=0 commit=575ffc5 dirty=yes at=2026-09-24T03:44:59Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T034459Z-01-r12-mutants-with-d4e.txt
+  (上一行 = 补 d4e 后 19 个变异全杀;M19 在补 d4e 前的副本里 9 套测试全绿(见 #54 核实栏),d4e 在它上面两格都红。)
 
 ## Accepted deviations
 
