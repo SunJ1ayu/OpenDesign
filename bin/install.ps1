@@ -4,8 +4,10 @@
 # 用法(不依赖执行策略,Bypass 只对本次进程生效):
 #     powershell -ExecutionPolicy Bypass -File C:\OpenDesign\bin\install.ps1
 #
-# 交互最多四处:nanobot onboard 向导、设 WebUI 登录口令(已开启则跳过)、
-# 粘贴机主自己的 LLM key(D1)、(可选)改 apiBase/model。已完成的步骤自动跳过。
+# 交互最多三处:nanobot onboard 向导、设 WebUI 登录口令(已开启则跳过)、
+# 粘贴 MiMo 的 key(D1)。已完成的步骤自动跳过。
+# 换厂商(DeepSeek / Kimi / GLM …)、换模型只在 OpenDesign 界面的「AI 模型 key」里做 ——
+# 这里曾让机主手填端点和模型,那是会把钱扣到别家的写口(2026-09-24 删,track opendesign-kimi-glm-vendors)。
 #
 # 手动逐步安装(脚本失败时的排查路径)见 docs/install-windows.md。
 
@@ -109,12 +111,12 @@ if ($wsOk) {
     if ($LASTEXITCODE -ne 0) { Write-Error "开启 WebUI 通道失败,报错见上" }
 }
 
-Step 6 "LLM key(D1:机主自备,任何 OpenAI 兼容端点;部署者不提供)"
+Step 6 "MiMo 的 key(D1:机主自备,部署者不提供;用别家的模型:装完在界面「AI 模型 key」里选厂商再填)"
 if (Test-Path $KeyFile) {
     Write-Host "  已有 $KeyFile,跳过(要换 key 直接编辑该文件)"
 } else {
     New-Item -ItemType Directory -Path $KeyDir -Force | Out-Null
-    $key = Read-Host "  粘贴 LLM key 后回车"
+    $key = Read-Host "  粘贴 MiMo 的 key 后回车"
     $key = $key.Trim()
     if (-not $key) { Write-Error "key 为空,重跑本脚本" }
     # ascii 避免 PS5.1 默认编码带 BOM;key 都是 ASCII 字符
@@ -123,16 +125,8 @@ if (Test-Path $KeyFile) {
 }
 
 Step 7 "合并 config(providers/model_presets/agents/mcpServers 四段;channels 不动)"
-Write-Host "  模板默认大脑 = MiMo(https://token-plan-cn.xiaomimimo.com/v1, mimo-v2.5)。"
-$apiBase = Read-Host "  用别家 LLM 就填它的 OpenAI 兼容 base URL;直接回车 = 保留这台机器上已有的设置(全新装机则用 MiMo 默认)"
-$model   = ""
-while ($apiBase.Trim() -and -not $model.Trim()) {
-    $model = Read-Host "  对应的 model 名(换了端点就必须填)"
-}
-$mergeArgs = @((Join-Path $DsRoot "config\nanobot.config.windows.jsonc"), $ConfigJson)
-if ($apiBase.Trim()) { $mergeArgs += @("--api-base", $apiBase.Trim()) }
-if ($model.Trim())   { $mergeArgs += @("--model", $model.Trim()) }
-& $VPython (Join-Path $DsRoot "bin\ds_merge_config.py") @mergeArgs
+Write-Host "  大脑默认 MiMo;已装过的机器保留原来的设置。换厂商请装完在界面「AI 模型 key」里换。"
+& $VPython (Join-Path $DsRoot "bin\ds_merge_config.py") (Join-Path $DsRoot "config\nanobot.config.windows.jsonc") $ConfigJson
 if ($LASTEXITCODE -ne 0) { Write-Error "config 合并失败,报错见上" }
 
 Step 8 "部署 workspace(AGENTS.md/SOUL.md + skills)"

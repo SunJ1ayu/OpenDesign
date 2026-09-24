@@ -146,7 +146,7 @@ else
   no "读不出 SLIM_DROP —— 瘦身清单没了,还是 build-package.sh 被改了?"
 fi
 
-NEED="ds/bin/ds_web.py ds/bin/ds_mcp.py ds/bin/enable_webui.py ds/bin/ds_merge_config.py
+NEED="ds/bin/ds_web.py ds/bin/ds_mcp.py ds/bin/enable_webui.py ds/bin/ds_merge_config.py ds/bin/ds_credential.py ds/bin/ds_model.py
       ds/config/nanobot.config.windows.jsonc ds/web/dist/index.html ds/版本号.txt"
 if [ "$APP_MODE" = 1 ]; then
   # 出货形态多要四样:外壳两件、配置就绪脚本、托盘图标。

@@ -262,31 +262,39 @@ def _preset_owner(name, preset: dict) -> str | None:
     return None
 
 
-def _route_presets(cfg: dict) -> None:
-    """**每份认得出主人的预设,只许发到它主人那家**(原地改;k11)。
+def _route_presets(cfg: dict, *, endpoint_changed: bool = False) -> None:
+    """**目录里的模型,只许以那家的正式名字挂在那家的槽上**(原地改;k11、d3~d8)。
 
     根因(第 4 轮两家 BLOCK):主槽 `custom` 的厂商会变,而指向它的预设不带厂商 ⇒ 主槽一换人,
     旧主槽留下的预设(`glm-5.3@glm_plan`、`mimo-v2.5`)就跟着发到新主槽,名字说一家、扣另一家的钱。
-    所以在**槽的厂商会变的每一处**(save 写主槽、起网关)都对齐一遍:
-    主人是主槽那家 ⇒ custom;主人有额外槽条目 ⇒ od_<主人>;都不是(主人手里没 key)⇒ 删掉。
-    只动**我们起的名字**(见 _preset_owner)且显式指向我们自己槽位(custom / od_*)的预设;
-    主槽厂商认不出(业主自配的端点)时不碰指向 custom 的。业主手写的一律不碰(k14)。
+    第 9 轮后照 ZCode 收成一条**稳态**规矩(不等端点变,盘上已有的错配也扫;方案挑战 Grok 指出):
+    只看指向我们自己槽位(custom / od_*)的预设;主槽端点认不出(机主自配)时指向 custom 的一律不碰。
+      · 我们起的名字(见 _preset_owner)⇒ 主人是主槽 ⇒ custom;主人有额外槽 ⇒ od_<主人>;都不是 ⇒ 删。
+        留下的补齐那家必带的参数(Kimi 的 temperature)。
+      · 模型在某家目录里、名字却不是我们起的(裸共享名 `glm-5.3`、名模不一致)⇒ **删,不改指** ——
+        说不清它属于哪家,改指到「主人另有的槽」会把套餐的账记到按量(d8)。
+      · 目录外的模型(机主手写)⇒ 不碰;只有 `endpoint_changed`(save 刚把主槽端点换掉)时,
+        指向 custom 的删掉 —— 它们绑的是旧端点(d3/d4)。
+    没写 provider 的(nanobot 的 auto)不是我们的槽,不碰(第 5 轮 #21)。
     """
     primary = _current_provider(cfg)
     providers = cfg.get("providers") or {}
     presets = cfg.get("model_presets")
     if not isinstance(presets, dict):
         return
+    catalog = {m for p in PROVIDERS.values() for m in p["models"]}
     for name in list(presets):
         p = presets[name]
         if not isinstance(p, dict):
             continue
-        prov = p.get("provider")                 # 没写 = nanobot 的 auto,不是我们的槽(第 5 轮 #21)
+        prov = p.get("provider")
         ours = prov == "custom" or (isinstance(prov, str) and prov.startswith(EXTRA_PREFIX))
         if not ours or (prov == "custom" and primary is None):
             continue
         owner = _preset_owner(name, p)
         if owner is None:
+            if p.get("model") in catalog or (prov == "custom" and endpoint_changed):
+                presets.pop(name)
             continue
         if owner == primary:
             slot = "custom"
@@ -297,6 +305,7 @@ def _route_presets(cfg: dict) -> None:
             continue
         if prov != slot:
             p["provider"] = slot
+        _apply_params(p, owner)
 
 
 def models_status(cfg_path: str) -> dict:
@@ -603,13 +612,15 @@ def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = Fal
             f"(启动脚本读 {var} 优先于 key.txt)。要在界面里改,请先清掉那个环境变量。")
 
     custom = cfg.setdefault("providers", {}).setdefault("custom", {})
+    endpoint_changed = _norm_base(custom.get("apiBase")) != _norm_base(preset["apiBase"])
     custom["apiBase"] = preset["apiBase"]
     custom["apiKey"] = "${%s}" % var             # 只留引用形态,原文永不进配置
     presets = cfg.setdefault("model_presets", {})
     name = preset_name(provider, preset["model"])
     presets[name] = _custom_preset(provider, preset["model"])
     cfg.setdefault("agents", {}).setdefault("defaults", {})["modelPreset"] = name
-    _route_presets(cfg)                          # 主槽可能刚换了厂商:旧主槽的预设不许跟着发到新主槽(k11)
+    # 主槽可能刚换了厂商:旧主槽的预设不许跟着发到新主槽(k11);端点真换了 ⇒ 绑在旧端点上的手写预设也不留(d3)
+    _route_presets(cfg, endpoint_changed=endpoint_changed)
 
     try:
         _atomic_write(cfg_path, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n")

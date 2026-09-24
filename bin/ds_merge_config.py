@@ -2,13 +2,14 @@
 """把 OpenDesign Windows config 模板合并进已有的 nanobot config.json。
 
 用法:
-    python ds_merge_config.py TEMPLATE.jsonc TARGET.json [--api-base URL] [--model NAME]
+    python ds_merge_config.py TEMPLATE.jsonc TARGET.json
 
 只合并模板里的四段(TARGET 先备份为 TARGET.bak-<时间戳>):
     providers.custom / model_presets / agents.defaults / tools.mcpServers
 channels 段永远不碰 —— websocket 归 `nanobot onboard` 管,feishu 是可选通道不预填。
---api-base/--model 不给时:**以目标配置里已有的为准**(不重置机主选好的大脑),
-目标里也没有才落模板默认(MiMo 示例端点)。
+端点与当前模型**以目标配置里已有的为准**(不重置机主选好的大脑),目标里也没有才落模板默认(MiMo)。
+**换厂商、换模型不在这里做**(09-24 起,track opendesign-kimi-glm-vendors):--api-base/--model 已取消,
+给了就报错退出 —— 换厂商只走界面这一扇门(照 ZCode;老安装脚本手填端点+模型是第 9 轮 #31/#33 的写口)。
 """
 
 import argparse
@@ -90,6 +91,10 @@ def main() -> int:
     ap.add_argument("--api-base", default=None)
     ap.add_argument("--model", default=None)
     args = ap.parse_args()
+    if args.api_base is not None or args.model is not None:
+        print("ds_merge_config: 不再支持 --api-base / --model。换厂商、换模型请在 OpenDesign 界面的「AI 模型 key」里操作。"
+              "(配置一字未动)", file=sys.stderr)
+        return 2
 
     if not args.target.exists():
         print(f"ds_merge_config: 目标 {args.target} 不存在(先跑 nanobot onboard)", file=sys.stderr)
@@ -103,50 +108,33 @@ def main() -> int:
         return 1
 
     # ── 已经装过的机器:**不许把机主选好的大脑重置回模板默认**(2026-08-06)──────
-    # 形状:装完之后机主用 `/model` 或 `set_model.py` 换了大脑;下次更新再合一次配置,
-    # 不带 --model 时模板的 MiMo 示例默认会把 apiBase / modelPreset 原样盖回去。
+    # 形状:装完之后机主在界面、`/model` 或 `set_model.py` 换了大脑;下次更新再合一次配置,
+    # 模板的 MiMo 示例默认会把 apiBase / modelPreset 原样盖回去。
     # **静默发生**,而机主不是程序员 —— 他看到的只是"助手突然变笨了",不会去翻配置。
-    # 规则:显式给了 --api-base/--model 就照做;没给就以**目标里已有的**为准;
-    #      目标里也没有(全新装机)才落模板默认。
+    # 规则:以**目标里已有的**为准;目标里也没有(全新装机)才落模板默认。
     # 模板的**预设清单**照旧合进来(更新的意义就在这儿),只是不动"默认指向哪一个"。
-    if args.api_base:
-        tpl["providers"]["custom"]["apiBase"] = args.api_base
-    else:
-        existing_base = (cfg.get("providers", {}).get("custom", {}) or {}).get("apiBase")
-        if existing_base:
-            tpl["providers"]["custom"]["apiBase"] = existing_base
+    existing_base = (cfg.get("providers", {}).get("custom", {}) or {}).get("apiBase")
+    if existing_base:
+        tpl["providers"]["custom"]["apiBase"] = existing_base
 
-    if not args.model:
-        existing_preset = (cfg.get("agents", {}).get("defaults", {}) or {}).get("modelPreset")
-        own_presets = cfg.get("model_presets", {}) or {}
-        # 机主的默认预设必须真的存在(自有的,或模板带来的),否则等于指向空气 ——
-        # nanobot 对这种配置**直接拒绝加载**(schema.py 的 model validator 会抛),
-        # 也就是说留着它 = 机器起不来。所以要回落。
-        known = set(tpl["model_presets"]) | set(own_presets)
-        if existing_preset and existing_preset in known:
-            tpl["agents"]["defaults"]["modelPreset"] = existing_preset
-        elif own_presets:
-            # 悬空了,但机主自己还有别的预设 ⇒ 用他自己的第一个,别落回模板默认:
-            # 那会产出「模板的模型 @ 机主的端点」这种自相矛盾态(四审 subdeepseek MEDIUM)——
-            # 模型名在机主的端点上根本不存在,聊天时才炸。
-            tpl["agents"]["defaults"]["modelPreset"] = next(iter(own_presets))
-
-    if args.model:
-        # 换端点 = 模板的 MiMo 示例预设全部作废:替换成机主模型的单一预设
-        # (预设 key 直接用模型名,与模板"/model 列表显示模型名"的约定一致),
-        # 并把默认预设指过去。maxTokens 等参数沿用模板第一个预设的值。
-        base = dict(next(iter(tpl["model_presets"].values())))
-        base.update(label=args.model, model=args.model)
-        # 端点认得出是哪家、模型在那家目录里 ⇒ 用那家的预设名(两家 GLM 都有的 glm-5.3 ⇒ `glm-5.3@glm_plan`)
-        # 并带上那家必带的参数;写裸名的话,之后主槽换成别家时对齐认不出它,glm-5.3 会跟着发到别家
-        # (track opendesign-kimi-glm-vendors 第 8 轮 #30,判据 k15)。认不出 ⇒ 机主自己的端点和模型,照写。
-        vendor = ds_credential._current_provider(tpl)
-        name = args.model
-        if vendor and args.model in ds_credential.PROVIDERS[vendor]["models"]:
-            name = ds_credential.preset_name(vendor, args.model)
-            ds_credential._apply_params(base, vendor)
-        tpl["model_presets"] = {name: base}
-        tpl["agents"]["defaults"]["modelPreset"] = name
+    existing_preset = (cfg.get("agents", {}).get("defaults", {}) or {}).get("modelPreset")
+    own_presets = cfg.get("model_presets", {}) or {}
+    # 模板的预设全是 MiMo 的。主槽是机主以前自配的端点(认不出是哪家)、他自己也有预设时,
+    # 合进来就会指 custom、`/model mimo-v2.5` 发到他那个端点 ⇒ 不合(09-24,判据 d5)。
+    # 认得出的别家端点照合:之后的对齐会把它们删掉或指回 MiMo 自己的槽。
+    if existing_base and own_presets and ds_credential._vendor_by_base(existing_base) is None:
+        tpl["model_presets"] = {}
+    # 机主的默认预设必须真的存在(自有的,或模板带来的),否则等于指向空气 ——
+    # nanobot 对这种配置**直接拒绝加载**(schema.py 的 model validator 会抛),
+    # 也就是说留着它 = 机器起不来。所以要回落。
+    known = set(tpl["model_presets"]) | set(own_presets)
+    if existing_preset and existing_preset in known:
+        tpl["agents"]["defaults"]["modelPreset"] = existing_preset
+    elif own_presets:
+        # 悬空了,但机主自己还有别的预设 ⇒ 用他自己的第一个,别落回模板默认:
+        # 那会产出「模板的模型 @ 机主的端点」这种自相矛盾态(四审 subdeepseek MEDIUM)——
+        # 模型名在机主的端点上根本不存在,聊天时才炸。
+        tpl["agents"]["defaults"]["modelPreset"] = next(iter(own_presets))
 
     wanted = {
         "providers": {"custom": tpl["providers"]["custom"]},
@@ -169,8 +157,8 @@ def main() -> int:
     shutil.copy2(args.target, backup)
 
     deep_merge(cfg, wanted)
-    # 合并可能换了主槽的厂商(重装换端点):深合并会留下旧厂商的预设、仍指 custom ⇒ 跟着发到新端点。
-    # 与 save 写主槽同一条规矩:每份我们起的预设只发到它主人那家,主人没槽就删;当前模型因此悬空就回落(k15b)。
+    # 模板的 MiMo 预设合进了别家端点的配置(机主在界面换过厂商)、或盘上留着老安装写的裸名:
+    # 与 save / 起网关同一条规矩对齐 —— 目录里的模型只以那家的正式名字挂在那家的槽上;当前模型因此悬空就回落。
     ds_credential._route_presets(cfg)
     ds_credential._fallback_if_dangling(cfg)
     args.target.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

@@ -16,8 +16,8 @@ powershell -ExecutionPolicy Bypass -File C:\OpenDesign\bin\install.ps1
 
 `install.ps1` 自动做:执行策略、venv + pip、onboard、**开 WebUI 通道**、key 文件、
 config 合并(`bin/ds_merge_config.py`,channels 段不碰)、workspace/skills 拷贝。
-交互最多四处:onboard 向导、设 WebUI 登录口令、粘贴机主自己的 LLM key(D1)、
-可选改 apiBase/model(回车 = MiMo 默认)。脚本可重复运行,已完成的步骤自动跳过。
+交互最多三处:onboard 向导、设 WebUI 登录口令、粘贴 MiMo 的 key(D1)。
+大脑默认 MiMo,换厂商装完在界面「AI 模型 key」里换。脚本可重复运行,已完成的步骤自动跳过。
 装完照 §5 启动验证。
 
 **脚本中途失败**:把报错原文发回部署者;下面 §0–§5 是同一流程的手动逐步版,用于排查。
