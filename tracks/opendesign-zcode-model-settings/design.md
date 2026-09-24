@@ -44,7 +44,7 @@
 - `catalog(home)` = 内置五家(现有 PROVIDERS,MiMo 目录补 v2.6-pro / v2.6-flash)⊕ `models.json` 登记
   (`extraModels[vendor]`、`customProviders[{id,label,apiBase,models}]`、`disabled[]`、`contextWindow[vendor/model]`)。
   入口函数(save / select_model / prepare_gateway / models_status / status / 合并)各算一次,显式传给路由助手;不改全局。
-- 禁用的厂商在路由里等同「没 key」(预设删、当前回落);key 文件保留。
+- ~~禁用的厂商在路由里等同「没 key」(预设删、当前回落)~~ **已被 D3 取代**(QA-设计 Grok 指出矛盾):禁用只在菜单里藏、不动路由;正在用的不许禁用。
 - 自定义供应商 id = `c_<slug>`,槽 `od_c_<slug>`,key 在 `keys/c_<slug>.txt`,只进额外槽(不进主槽);Base URL 撞内置端点 ⇒ 拒收。
 - 新接口:`GET /api/llm/providers`(列表 + 状态 + 模型)、存 key / 启用 / 加删改模型 / 增删自定义供应商、`POST /api/llm/test`(直连厂商测一句)。
   老接口 `/api/llm/credential`、`/api/llm/models`、`/api/llm/model` 保留(兼容与测试)。
