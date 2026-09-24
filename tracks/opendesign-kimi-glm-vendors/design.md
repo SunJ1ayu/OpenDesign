@@ -47,6 +47,26 @@
 >
 > **第 8 轮后**:安装合并 `ds_merge_config.py` 也是「改主槽厂商」的写入口 ⇒ 同一条规矩:认得出端点且模型在那家目录里时按 `preset_name` 命名
 > (带那家必带参数);合并后跑 `_route_presets` + 悬空回落。认不出的端点/模型 = 机主自己填的,照写不动。
+>
+> **第 9 轮四家全 BLOCK 后改设计(业主 09-24「不如直接抄 zcode」→「可以 那你开始吧」)**:
+> 九轮的缝几乎都是「写口多 + custom 是会换主人的指针」。照 ZCode 收成两条:
+> **① 换厂商只有界面一扇门**:install.ps1 删掉手填端点/模型两问,ds_merge_config 拒收 --api-base/--model(报错叫机主去界面)。
+> 手填端点只活在 install.ps1(出货安装 ds_provision 从不传)⇒ #31/#33 的写口消失。
+> **② 目录里的模型只许以「那家的正式名字」挂在那家的槽上(稳态不变量,不等端点变)**:`_route_presets` 在主槽认得出时,
+> 凡指向我们的槽(custom / od_*)、模型在某家目录里、名字却不是我们起的(裸共享名 `glm-5.3`、名模不一致)⇒ **删,不改指**
+> (改指会把套餐的账记到按量);我们起的名字照旧按主人归位。目录外的手写模型:端点不变一个不碰;
+> **save 把主槽端点换掉的那一刻**才删(它们绑的是旧端点)。当前模型悬空回落主槽默认(带那家必带参数)。
+> 顺手:留下的我们的预设补齐 presetParams;合并时主槽端点认不出(机主旧的自配端点)就不再合进模板的 MiMo 预设;
+> check-package 必需清单补 ds_credential.py / ds_model.py。
+> 不做:主槽整体迁进 od_*(启动器与外壳的 key.txt/DS_LLM_KEY 链条是启动路径,历史事故区;要拆的是「预设属于谁」不是「key 放哪」)。
+>
+> **方案挑战(4c)**:题面 `evidence/20260924-design-challenge-brief.md`,Grok 4.7(xai,读仓)原文 `evidence/20260924-design-challenge-grok.md`。
+> 主裁方向先落盘在仓外、未喂给挑战腿。挑战改变了两处决定(均已核代码成立):
+> (a) 我原计划只在「主槽端点变化那一刻」清扫 ⇒ 盘上已存在的错配(主槽 Kimi + 裸名 glm-5.3→custom)永远不会被扫,改成稳态不变量;
+> (b) 我原计划「主人另有槽就改指」也用于认不出主人的名字 ⇒ 裸 glm-5.3 会被改指到 od_glm 扣按量,改成只删。
+> 未采纳:给老启动器 ds-nanobot.ps1 加启动前对齐(老 git-pull 形态;界面任一次 save 已会对齐,延期);
+> Linux auth.json / env 遮蔽两条为模块头已写明的既有边界。
+> 判据 `tests/test_vendor_one_door.py`(d1~d8);k14 的「名模不一致」一格改判为删(它发到的那家没有这个模型);k15/k15b 与合并器两条显式参数判据随写口一起退场。
 - `bin/ds_credential.py` PROVIDERS 加三行 + 每行 `keyUrl`;`/api/llm/credential` 的 providers 带出 `keyUrl`。
 - `web/src/llmKey.ts` asProvider 读可选 keyUrl(只收 https);`LlmKeyCard.tsx` 在 API key 输入框下显示「获取 {label} 的 API Key ›」外链(新窗口/外部浏览器)。
 - 链接:MiMo `https://platform.xiaomimimo.com/token-plan`(我们接的是套餐端点,不能照 ZCode 链平台首页);DeepSeek `https://platform.deepseek.com/api_keys`;

@@ -12,8 +12,11 @@
   "design": {
     "uncertainty": "low",
     "premise_attack": {
-      "status": "not_required",
-      "evidence": []
+      "status": "done",
+      "evidence": [
+        "evidence/20260924-design-challenge-brief.md",
+        "evidence/20260924-design-challenge-grok.md"
+      ]
     }
   },
   "execution_plan": {

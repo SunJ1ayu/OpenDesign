@@ -298,6 +298,19 @@ runlog: bash rc=0 commit=f4f510a dirty=yes at=2026-09-23T15:55:50Z file=tracks/o
   出货的一键安装包(ds_provision)不走这两问。第一性原理的修法是把手填端点/模型这两问从老安装脚本撤掉(换厂商一律走界面),或合并器拒绝「认得出但不成对」的端点/模型并要求重录 key。
 - **状态:NEEDS_MORE_INFO,停**。交业主。
 
+## 第 9 轮后改设计(业主 09-24「不如直接抄 zcode」→「可以 那你开始吧」)
+
+- 同类缝第九次出现 ⇒ 不再补缝,回头改设计(见 design.md「第 9 轮四家全 BLOCK 后改设计」)。
+- 4c 方案挑战:一条读仓的不同家族腿(Grok 4.7,xai),主裁方向先落盘仓外、未喂给它;原文与题面存 evidence/20260924-design-challenge-*.md。
+  改变了两处决定:稳态清扫(不等端点变)、认不出主人的名字只删不改指。
+- 处置第 9 轮发现:#31/#33 = 写口删除(d1/d2),盘上存量由 d7/d8 管;#32 = d3 穷举五家两两换 × 有无外壳 × 每家每个模型的裸名/限定名/手写名;
+  #34 与新规矩一致(记录);#35 = d6。
+- 判据(单独 commit):tests/test_vendor_one_door.py d1~d8 新增;k14「名模不一致」一格、k15/k15b、test_ds_merge_config 两条显式参数判据退场,
+  test_existing_brain_survives_a_plain_remerge 的「模板预设要合进来」改判(那些 MiMo 预设会发到机主自配的端点)。
+runlog: redesign-red rc=1 commit=02a2b02 dirty=yes at=2026-09-24T00:36:50Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T003650Z-01-redesign-red.txt
+  (上一行 = 新判据红:d4 护栏绿,其余 50 格全红。)
+- 本次评审预算(派发前写):改设计后 **2 轮实质评审**,high = 每轮两个不同家族;有真实阻断就停下交业主,不续轮。
+
 ## Accepted deviations
 
 - <接受的非关键偏差 + 原因 + 影响范围,或 None>

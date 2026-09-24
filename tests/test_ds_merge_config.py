@@ -5,7 +5,7 @@
 
 覆盖:
   1. 默认合并(不带 --model)rc=0,且 agents.defaults.modelPreset 指向的预设存在;
-  2. --api-base/--model 换端点:rc=0,apiBase 生效、新模型有预设、modelPreset 指过去;
+  2. (09-24 退场)--api-base/--model 已不收,换厂商只走界面(见 test_vendor_one_door d2);
   3. channels 段永远不动;
   4. 改前备份存在;
   5. (08-06)重合并**不许把机主已选的大脑重置回模板默认**,显式参数仍然照做,
@@ -60,16 +60,8 @@ class TestMergeConfig(unittest.TestCase):
         self.assertIs(cfg["tools"]["file"]["enable"], False)
         self.assertIs(cfg["tools"]["exec"]["enable"], False)
 
-    def test_model_override_creates_preset_and_repoints_default(self):
-        p = run_merge(self.target, "--api-base", "https://ex.com/v1",
-                      "--model", "glm-5.2")
-        self.assertEqual(p.returncode, 0, msg=p.stderr)
-        cfg = self.merged()
-        self.assertEqual(cfg["providers"]["custom"]["apiBase"], "https://ex.com/v1")
-        preset = cfg["agents"]["defaults"]["modelPreset"]
-        self.assertEqual(cfg["model_presets"][preset]["model"], "glm-5.2")
-        self.assertEqual(cfg["model_presets"][preset]["provider"], "custom")
-
+    # 「--api-base/--model 换端点」两条判据 09-24 随写口一起退场:换厂商只走界面,合并器拒收这两个参数
+    # (track opendesign-kimi-glm-vendors 第 9 轮后改设计;拒收由 tests/test_vendor_one_door.py d2 钉)。
 
     # ── 2026-08-06:合配置**不许把机主已经选好的大脑重置回模板默认** ────────────
     # 记忆里挂了两天的那条("合配置会把大脑重置成 MiMo,无论打不打包都该修")。
@@ -93,23 +85,8 @@ class TestMergeConfig(unittest.TestCase):
         self.assertEqual(cfg["agents"]["defaults"]["modelPreset"], "owner-model",
                          "默认预设被模板盖回去了(= 大脑被重置)")
         self.assertIn("owner-model", cfg["model_presets"], "机主自己的预设被删了")
-        # 模板带来的新预设仍然要合进来(更新的意义就在这儿),只是不许改默认指向
-        self.assertGreater(len(cfg["model_presets"]), 1, "模板预设没合进来")
-
-    def test_explicit_flags_still_win(self):
-        # 显式指定时必须照做 —— 这条防止上面那条修过头,变成"永远改不了大脑"
-        owned = dict(BASE_TARGET)
-        owned["providers"] = {"custom": {"apiBase": "https://owner-llm.example.com/v1"}}
-        owned["agents"] = {"defaults": {"modelPreset": "owner-model"}}
-        owned["model_presets"] = {"owner-model": {"label": "owner-model", "model": "owner-model"}}
-        self.target.write_text(json.dumps(owned), encoding="utf-8")
-
-        r = run_merge(self.target, "--api-base", "https://new.example.com/v1",
-                      "--model", "brand-new-model")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        cfg = json.loads(self.target.read_text(encoding="utf-8"))
-        self.assertEqual(cfg["providers"]["custom"]["apiBase"], "https://new.example.com/v1")
-        self.assertEqual(cfg["agents"]["defaults"]["modelPreset"], "brand-new-model")
+        # 模板带来的预设全是 MiMo 的:端点是机主自己的,合进来就会指 custom 发到他那儿 ⇒ 不合(09-24,d5)
+        self.assertEqual(set(cfg["model_presets"]), {"owner-model"}, "模板的 MiMo 预设合进了机主的端点")
 
     def test_summary_prints_what_actually_landed(self):
         # 收尾那两行原来印的是**模板**的值 —— 修好之后模板值和落地值会不一样,

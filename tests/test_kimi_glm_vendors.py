@@ -630,38 +630,10 @@ class TestOneWriterWithOnlyThePrimarySlot(TestOneWriterForTheModelChoice):
 
 
 class TestTheInstallerMergeIsAWriterToo(TestOneWriterForTheModelChoice):
-    """第 8 轮(MiMo)#30:老 PowerShell 安装脚本 `bin/install.ps1` 让机主手填 apiBase + model,交给 `bin/ds_merge_config.py`;
-    它按模型名写**裸名**预设(`glm-5.3 → custom`)。之后主槽换成别家 ⇒ 对齐认不出这种裸名(不是我们起的名字)⇒ glm-5.3 发到别家。
-    合并也是「改主槽厂商」的写入口 ⇒ 同一条规矩:按厂商命名、合完对齐。install.ps1 那条路没有外壳,所以用没外壳的 env 问。"""
+    """第 8 轮(MiMo)#30 的 k15/k15b 已随写口退场(见下);这里只剩第 8 轮 Grok 补的 k13g。"""
 
-    def merge(self, *args):
-        import subprocess
-        return subprocess.run([sys.executable, os.path.join(ROOT, "bin", "ds_merge_config.py"), pv.TEMPLATE,
-                               self.cfg_path, *args], capture_output=True, encoding="utf-8", timeout=30)
-
-    def test_k15_the_installer_names_a_shared_model_by_vendor(self):
-        r = self.merge("--api-base", EXPECTED["glm_plan"]["apiBase"], "--model", "glm-5.3")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        cfg = self.cfg()
-        self.assertEqual(cfg["agents"]["defaults"]["modelPreset"], "glm-5.3@glm_plan")
-        self.assertNotIn("glm-5.3", cfg["model_presets"], "安装写出了两家都有的裸名")
-        os.makedirs(os.path.dirname(self.key_txt), exist_ok=True)
-        with open(self.key_txt, "w", encoding="utf-8") as fh:
-            fh.write(GLM_PLAN_KEY + "\n")
-        self.assert_every_preset_goes_to_its_owner(self.plain_env(), {"glm_plan"}, "装成 GLM 套餐")
-        # #30 原序列:之后主槽换成 Kimi
-        self.replace_primary("kimi", shell=False)
-        self.assert_every_preset_goes_to_its_owner(self.plain_env(), {"kimi"}, "装 GLM 套餐后换 Kimi")
-
-    def test_k15b_an_installer_merge_that_changes_the_endpoint_aligns_the_old_presets(self):
-        """已装过 MiMo 的机器,重跑安装换成 DeepSeek:合并是深合并,MiMo 的预设留着且仍指 custom ⇒ 发到 DeepSeek。"""
-        self.have_mimo_in_primary()
-        r = self.merge("--api-base", ds_credential.PROVIDERS["deepseek"]["apiBase"], "--model", "deepseek-v4-flash")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        with open(self.key_txt, "w", encoding="utf-8") as fh:
-            fh.write(pv.DS_KEY + "\n")
-        self.assertEqual(self.cfg()["agents"]["defaults"]["modelPreset"], "deepseek-v4-flash")
-        self.assert_every_preset_goes_to_its_owner(self.plain_env(), {"deepseek"}, "重装换 DeepSeek")
+    # k15/k15b 09-24 退场:合并器不再收 --api-base/--model(install.ps1 也不再问),这两条序列造不出来了;
+    # 写口消失由 tests/test_vendor_one_door.py d1/d2 钉,盘上已有的裸名由 d7/d8 钉。
 
     def test_k13g_self_configured_endpoint_with_exactly_one_vendor_slot(self):
         """第 8 轮(Grok):闸写成「主槽认得出 或 额外槽≥2」能穿过 k13c~k13f,洞在「自配端点 + 恰好一家额外槽」。"""
@@ -691,7 +663,7 @@ class TestPresetsThatAreNotOurs(TestEveryPresetGoesToItsOwner):
         self.have_mimo_in_primary()
         mine = {
             "我的@kimi": {"label": "x", "provider": "custom", "model": "my-own-model"},
-            "glm-5.3@glm_plan": {"label": "x", "provider": "custom", "model": "kimi-k3"},   # 名模不一致 = 不是我们起的
+            # 「名模不一致」(glm-5.3@glm_plan / kimi-k3)09-24 改判为删:目录里的模型挂在没有它的那家槽上 ⇒ 见 d8b
             "没写provider": {"label": "x", "model": "deepseek-v4-flash"},
             # 名字正是我们会起的,但没写 provider(nanobot 按 auto 路由)⇒ 不是指向我们的槽,也不碰(变异自检补的)
             "deepseek-v4-flash": {"label": "x", "model": "deepseek-v4-flash"},
