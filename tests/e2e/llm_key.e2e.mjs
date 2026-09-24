@@ -221,6 +221,10 @@ try {
       if (n !== 1) throw new Error(`屏幕上看得见的 [data-ui="${ui}"] 应恰好 1 个,实为 ${n}`);
     }
   });
+  await runIfCard("A2b 一把 key 都没有时,模型列表里不许标「在用」(录像第 1 步:没 key 却写着在用)", async () => {
+    const n = await page.locator('[data-ui="ms-in-use"]').count();
+    if (n !== 0) throw new Error(`没填 key 却有 ${n} 行标着在用`);
+  });
   await runIfCard("A3 key 输入框是密码框(肩后偷看是最原始的那一面)", async () => {
     const t = await keyInput.getAttribute("type");
     if (t !== "password") throw new Error(`type=${t}`);
@@ -487,6 +491,9 @@ try {
     const shown = (await d.innerText()) + "\n" + String(await d.ariaSnapshot());
     if (!shown.includes(KEY.slice(-4))) throw new Error(`没显示末四位:「${(await d.innerText()).slice(0, 120)}」`);
     if (shown.includes(KEY)) throw new Error("把 key 原文显示出来了");
+    // A2b 的对照:存上 key 之后,当前那个模型要标「在用」(否则 A2b 的"没有"问不出东西)
+    const inUse = await d.locator('[data-ui="ms-in-use"]').count();
+    if (inUse !== 1) throw new Error(`存了 key 之后标「在用」的行 ${inUse} 个(应 1 个)`);
   });
   await runIfSaved("N1 没外壳(老装法):模型设置顶上说清只能用一家,且没有「添加供应商」(QA Q6)", async () => {
     const note = page.locator('[data-ui="ms-single-note"]:visible');

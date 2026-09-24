@@ -326,6 +326,9 @@ try {
     () => navItem("deepseek").locator('[data-provider-status="ready"]').count().then((n) => n === 1), 15000),
   "A3 后台起好后 DeepSeek 变成就绪(页面自己跟上)");
   check(currentModel() === "mimo-e2e", "A3 存别家的 key 没换当前模型(D4)");
+  // 09-24 QA-执行录像第 4 步主裁亲看:后台都起好了,绿条还写着「正在自动重启…」,和上面「就绪 / 在用」自相矛盾
+  check(await until(async () => !/正在/.test(await notice()) && /生效/.test(await notice()), 8000),
+    `A3 重启完成后提示跟着改口(不再说「正在重启」,说已生效)(实际「${await notice()}」)`);
 
   // ── 禁用 / 启用(A7)──
   await select("deepseek");
