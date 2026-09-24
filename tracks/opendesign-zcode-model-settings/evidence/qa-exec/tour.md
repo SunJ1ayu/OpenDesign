@@ -1144,7 +1144,7 @@
   - text: Base URL
   - textbox "Base URL":
     - /placeholder: https://api.example.com/v1
-    - text: http://127.0.0.1:39607/v1
+    - text: http://127.0.0.1:46207/v1
   - text: API 格式 Chat Completions (/v1/chat/completions)
   - button "保存名称和地址" [disabled]
   - text: API Key
@@ -1213,7 +1213,7 @@
   - text: Base URL
   - textbox "Base URL":
     - /placeholder: https://api.example.com/v1
-    - text: http://127.0.0.1:39607/v1
+    - text: http://127.0.0.1:46207/v1
   - text: API 格式 Chat Completions (/v1/chat/completions)
   - button "保存名称和地址" [disabled]
   - text: API Key
@@ -1283,7 +1283,7 @@
   - text: Base URL
   - textbox "Base URL":
     - /placeholder: https://api.example.com/v1
-    - text: http://127.0.0.1:39607/v1
+    - text: http://127.0.0.1:46207/v1
   - text: API 格式 Chat Completions (/v1/chat/completions)
   - button "保存名称和地址" [disabled]
   - text: API Key
@@ -1307,7 +1307,7 @@
 ## 23 后台重启完成(不刷新)
 
 - 地址:`/#/settings/models?provider=c_1`
-- 这一步要看的:公司中转自己变成就绪(绿点),状态句「就绪 · 已存 …」,提示改口成「已生效」
+- 这一步要看的:公司中转自己变成就绪(绿点),状态句「就绪 · 已存 …」,提示改口成「后台已开始换上这把 key」(不自称已生效)
 - 截图:23.jpg
 
 页面无障碍文本(读屏看到的):
@@ -1349,11 +1349,11 @@
   - text: 已启用
   - switch "禁用供应商" [checked]
   - paragraph: 就绪 · 已存 sk-q…abcd
-  - status: 后台已重启,这把 key 已生效,可以在聊天里选这家的模型了。
+  - status: 后台已开始换上这把 key:稍等几秒就能在聊天里选这家的模型;若弹窗说没能自己重启,请退出 OpenDesign 再打开。
   - text: Base URL
   - textbox "Base URL":
     - /placeholder: https://api.example.com/v1
-    - text: http://127.0.0.1:39607/v1
+    - text: http://127.0.0.1:46207/v1
   - text: API 格式 Chat Completions (/v1/chat/completions)
   - button "保存名称和地址" [disabled]
   - text: API Key

@@ -131,7 +131,10 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
     const row = view.providers.find((p) => p.id === awaiting);
     if (!row || row.pending) return;
     if (row.id === selectedId && row.live) {
-      setNotice({ ok: true, text: "后台已重启,这把 key 已生效,可以在聊天里选这家的模型了。" });
+      // 🔴 只说确定知道的:这家进了配置 = 外壳已开始重启网关(prepare_gateway 只在起 / 重启网关时跑),
+      //    **不等于**新网关已经起好 —— 外壳先写配置、再换进程,换失败它会自己弹窗。
+      //    不许说「已重启 / 已生效」(第 2 轮评审 #8,「不许撒谎的重启」)。
+      setNotice({ ok: true, text: "后台已开始换上这把 key:稍等几秒就能在聊天里选这家的模型;若弹窗说没能自己重启,请退出 OpenDesign 再打开。" });
     }
     setAwaiting(null);
   }, [awaiting, view, selectedId]);

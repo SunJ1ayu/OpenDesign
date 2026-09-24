@@ -217,7 +217,7 @@ try {
   await page.waitForFunction((id) => document.querySelector(`[data-ui="ms-nav-item"][data-provider="${id}"] [data-provider-status="ready"]`),
     cid, { timeout: 15000 }).catch(() => {});
   await sleep(400);
-  await shot(page, "后台重启完成(不刷新)", "公司中转自己变成就绪(绿点),状态句「就绪 · 已存 …」,提示改口成「已生效」");
+  await shot(page, "后台重启完成(不刷新)", "公司中转自己变成就绪(绿点),状态句「就绪 · 已存 …」,提示改口成「后台已开始换上这把 key」(不自称已生效)");
 
   await page.locator('[data-ui="settings-toggle"]').click();
   await page.locator(".home-pane").waitFor({ state: "visible" });
