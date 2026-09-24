@@ -193,6 +193,23 @@ try {
     "⑩ 按钮上的字变成 mimo-v2.5-pro");
   check(!(await page.locator(menu).isVisible()), "⑪ 选完菜单收起");
 
+  // ── ⑯ 项目页右栏(窄):长模型名不许把「发送」挤出输入卡、不许把「记一下」挤成两行 ─────────
+  //     09-24 QA-执行录像第 24 步主裁亲看抓到:当前模型换成 mimo-v2.5-pro / v2.6-pro 这类长名字后,
+  //     右栏输入卡里「发送」被切掉一半、「记一下」折成两行。此刻按钮上正是长名字(⑩)。
+  await page.goto(`${base}/#/workspace`, { waitUntil: "domcontentloaded" });
+  await page.locator(".ws-pane").waitFor({ state: "visible", timeout: 10000 });
+  await waitConnected(page, ".ws-pane");
+  const wsCard = page.locator(".ws-pane .chat-card").first();
+  const cardBox = await wsCard.boundingBox();
+  const sendWs = await wsCard.locator(".send-btn").boundingBox();
+  const noteWs = await wsCard.locator(".tool-chip").first().boundingBox();
+  const chipWs = await wsCard.locator('[data-ui="chat-model"]').boundingBox();
+  check(cardBox && sendWs && sendWs.x >= cardBox.x && sendWs.x + sendWs.width <= cardBox.x + cardBox.width + 0.5
+        && noteWs && noteWs.height <= 30 && chipWs && chipWs.x + chipWs.width <= sendWs.x + 1,
+    `⑯ 右栏输入卡:「发送」整个在卡里、「记一下」一行、模型按钮不压「发送」(卡 ${JSON.stringify(cardBox)} 发送 ${JSON.stringify(sendWs)} 记一下 ${JSON.stringify(noteWs)})`);
+  await page.goto(`${base}/#/`, { waitUntil: "domcontentloaded" });
+  await page.locator(chip).waitFor({ state: "visible", timeout: 10000 });
+
   // ── 管理模型 ⇒ 设置页 · 模型设置,落在当前那家 ────────────────────────
   await page.locator(chip).click();
   await page.locator(menu).waitFor({ state: "visible", timeout: 5000 });
