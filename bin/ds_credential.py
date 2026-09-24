@@ -680,7 +680,7 @@ def prepare_gateway(home: str, cfg_path: str) -> dict:
     (判据 v4 把配置交给 nanobot 自己的加载器来答)。
 
     - 只有主槽一把 key 的老家:一个字节都不动(v12/v12b,零迁移);
-    - 有第二家的 key:补条目、把那家目录里的模型预设指到它的条目;主槽那家的目录预设补齐并指回 custom;
+    - 有第二家的 key:补条目、补齐每家有 key 的厂商目录里的预设;**挂在哪格只由 _route_presets 决定**;
     - 条目没有对应 key 了:删条目、删指向它的预设;当前模型悬空就回落主槽默认(v5);
     - 「想换过去」标记:那家此刻真有 key 才兑现,兑现后才删(v6/v6b);
     - **任何出错都不抛**(外壳不能因为这一步起不来):不写配置,只返回盘上配置里已引用、且读得到 key 的那些(v10)。
@@ -769,10 +769,10 @@ def _synced_config(home: str, cfg: dict):
             presets.setdefault(preset_name(vendor, model),
                                _custom_preset(vendor, model) if vendor == primary else _extra_preset(vendor, model))
 
-    # ③b 挂在哪只由这一处决定:每份预设只发到它主人那家,主人没格就删(见 _route_presets)
+    # ④ 挂在哪只由这一处决定:每份预设只发到它主人那家,主人没格就删(见 _route_presets)
     _route_presets(new)
 
-    # ④ 「想换过去」:那家此刻真有 key(额外槽有条目,或就是主槽且主槽有 key)才兑现
+    # ⑤ 「想换过去」:那家此刻真有 key(额外槽有条目,或就是主槽且主槽有 key)才兑现
     defaults = new.setdefault("agents", {}).setdefault("defaults", {})
     marker_done = False
     if marker is not None:
@@ -787,8 +787,8 @@ def _synced_config(home: str, cfg: dict):
 
 
 def _fallback_if_dangling(cfg: dict) -> None:
-    """⑤ 当前模型悬空(指向刚删的预设)⇒ 回落主槽默认;nanobot 对悬空的 modelPreset 直接拒绝加载。
-    同名模型各家一份预设,丢了 key 的那家的预设在①/③b 删掉 ⇒ 这里回落,不会落到另一家同名预设上(k9)。"""
+    """⑥ 当前模型悬空(指向刚删的预设)⇒ 回落主槽默认;nanobot 对悬空的 modelPreset 直接拒绝加载。
+    同名模型各家一份预设,丢了 key 的那家的预设在 _route_presets 删掉 ⇒ 这里回落,不会落到另一家同名预设上(k9)。"""
     defaults = (cfg.get("agents") or {}).get("defaults")
     presets = cfg.get("model_presets")
     if not isinstance(defaults, dict) or not isinstance(presets, dict):

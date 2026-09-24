@@ -65,7 +65,7 @@ def main() -> int:
         return 2
 
     # 「我们管的配置」= 配置里有任何一个我们管的厂商槽(主槽认得出,或界面加过的额外厂商)。
-    # 只看主槽不够:自配端点(install.ps1 --api-base)+ 界面加了两家 GLM 时会走老分支,无视 --provider(第 6 轮 #26,k13d)。
+    # 只看主槽不够:自配端点(老版本 install.ps1 手填过的,09-24 起不再能填)+ 界面加了两家 GLM 时会走老分支,无视 --provider(第 6 轮 #26,k13d)。
     if isinstance(cfg, dict) and ds_credential._live_vendors(cfg):
         return _select_via_the_ui_entry(args, cfg, original)
 
