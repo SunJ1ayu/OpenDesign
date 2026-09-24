@@ -368,6 +368,16 @@ runlog: run-all-final rc=3 commit=fab85c8 dirty=no final=yes at=2026-09-24T01:47
   | 53 | (DeepSeek 4)`_qualified_vendor` 死代码 | 全仓无调用方,属实 | — | 待业主定(一行删除) |
 
 - **状态:NEEDS_MORE_INFO,按预案停**(预算 2 轮已用完,有阻断不自行续轮)。交业主:A 一次小修(#46~#48、#50~#53,多为判据与边缘)+ 追加 1 轮 / B 记延期、本单按现状收尾(需业主接受这些边缘形状)。
+- **业主 09-24 选 A,不加界面提示**(先问了「zcode 是怎么做的」:ZCode 选择 = 厂商+模型一对,用不了就报「不可用」让人重选,
+  不改原选择、不自动清库;老配置只迁能确认的用户意图)。本轮照它的原则修:**能不动用户的选择就不动**;
+  非动不可(nanobot 要求当前模型有效才肯启动)才回落,且只回主槽那家、不随便挑。#49 延期(认不出的端点上不替人猜)。
+- **追加 1 轮的理由(派发前写)**:具体阻断 = #46~#48(三处替用户改了当前模型 / 悬空)、#50/#51(钱轴判据缺口);
+  目的 = 核验这批修法;新预算 = 1 轮(MiMo + DeepSeek)。这一轮若只剩「要手改配置才碰得到」的边缘形状 ⇒ 记延期收尾,不再续轮。
+- 判据:d4c(#52)、d4d(#47)、d5c(#46)、d12b(#48)红;d7b 加 Kimi 改名带 temperature(#50)、d13 回落不落到排在最前的别家(#51)—— 现实现即绿,
+  靠变异 M14/M15 证明它们咬得住。
+runlog: r11-criteria-red rc=1 commit=10d0bbe dirty=yes at=2026-09-24T02:44:12Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T024412Z-01-r11-criteria-red.txt
+runlog: r11-mutants-before-fix rc=0 commit=10d0bbe dirty=yes at=2026-09-24T02:44:14Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T024414Z-01-r11-mutants-before-fix.txt
+  (上一行**不算证据**:跑的时候判据里还有 4 条红,任何变异都会「被杀」。修完在全绿基础上重跑。)
 
 ## Accepted deviations
 

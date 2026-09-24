@@ -174,6 +174,21 @@ class TestTheOldInstallerCannotChangeTheVendor(pv.Rig):
         self.assertNotRegex(code, r'if \(-not \$key\) \{ Write-Error', "空 key 仍然终止安装")
         self.assertIn("跳过", code)
 
+    def test_d5c_merge_never_invents_a_current_model_on_a_self_configured_endpoint(self):
+        """第 11 轮(MiMo F1,#46):自配端点 + 机主有自己的预设 + 从没设过 modelPreset(他用的是 agents.defaults.model)
+        ⇒ 合并不许替他挑一份当当前模型(照 ZCode:不改用户原来的选择)。"""
+        cfg = {"providers": {"custom": {"apiKey": "${DS_LLM_KEY}", "apiBase": "https://corp-proxy.example/v1"}},
+               "model_presets": {"my-aaa": {"label": "a", "provider": "custom", "model": "my-own-model"}},
+               "agents": {"defaults": {"model": "corp/llama-3"}}}
+        with open(self.cfg_path, "w", encoding="utf-8") as fh:
+            json.dump(cfg, fh)
+        r = self.merge()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        got = self.cfg()
+        self.assertNotIn("modelPreset", got["agents"]["defaults"], "合并替机主挑了当前模型")
+        self.assertEqual(got["agents"]["defaults"]["model"], "corp/llama-3")
+        self.assertEqual(set(got["model_presets"]), {"my-aaa"})
+
     def test_d6_the_package_check_requires_the_modules_the_merger_imports(self):
         """第 9 轮 #35:合并器 import ds_credential(它再 import ds_model),出货包少了它们安装就合并失败。"""
         with open(CHECK_PACKAGE, encoding="utf-8") as fh:
@@ -328,6 +343,9 @@ class TestWhenThePrimaryVendorChanges(pv.Rig):
                     cur = cfg["agents"]["defaults"]["modelPreset"]
                     self.assertEqual(cur, want)
                     self.assertEqual(cfg["model_presets"][cur]["model"], model, "业主选好的模型被换了")
+                    if primary == "kimi":           # 第 11 轮(DeepSeek 1,#50):改名后也得带上那家必带的参数
+                        self.assertGreaterEqual(cfg["model_presets"][cur].get("temperature", 0), 1.0,
+                                                "改名后的 Kimi 预设没带 temperature=1.0 ⇒ 每句被拒")
                     snap = self.snapshot(env, None)
                     self.assertEqual(snap.provider.api_base, ds_credential.PROVIDERS[primary]["apiBase"])
 
@@ -361,6 +379,78 @@ class TestWhenThePrimaryVendorChanges(pv.Rig):
         self.assertEqual(left, {}, "还有预设指着已经没有的格")
         for name in cfg["model_presets"]:
             self.snapshot(env, name)                  # 每一份都要能被 nanobot 按名字加载
+        self.assertEqual(self.snapshot(env, None).provider.api_key, KEYS["mimo"])
+
+    def test_d4c_a_vendor_moving_into_the_primary_slot_keeps_the_model_you_picked(self):
+        """第 11 轮(DeepSeek 3/5,#52):主槽 MiMo、额外格 GLM 按量、正用 glm-5.1;主槽 key 没了、再存一次 GLM 的 key
+        (GLM 挪进主槽)⇒ 当前还是 glm-5.1、发到按量。换到**别家**时才回到那家默认(对照)。"""
+        self.put_primary("mimo")
+        self.extra_key("glm")
+        self.gateway_env()
+        ds_credential.select_model(self.cfg_path, "glm-5.1", provider="glm")
+        os.remove(self.key_txt)
+        ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="glm", key=KEYS["glm"], multi=True)
+        cfg = self.cfg()
+        self.assertEqual(cfg["model_presets"][cfg["agents"]["defaults"]["modelPreset"]]["model"], "glm-5.1")
+        snap = self.snapshot(self.gateway_env(), None)
+        self.assertEqual(snap.provider.api_base, ds_credential.PROVIDERS["glm"]["apiBase"])
+
+        self.setUp()                                  # 对照:正用 mimo-v2.5-pro,换成 DeepSeek ⇒ DeepSeek 默认
+        self.put_primary("mimo")
+        ds_credential.select_model(self.cfg_path, "mimo-v2.5-pro")
+        ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=KEYS["deepseek"])
+        self.assertEqual(self.cfg()["agents"]["defaults"]["modelPreset"], "deepseek-v4-flash")
+
+    def test_d4d_same_vendor_new_key_leaves_a_model_field_brain_alone(self):
+        """第 11 轮(MiMo F2,#47):当前模型写在 agents.defaults.model(没有 modelPreset)⇒ 同一家换 key 不许替他设 modelPreset。"""
+        self.put_primary("glm")
+        cfg = self.cfg()
+        cfg["agents"]["defaults"].pop("modelPreset", None)
+        cfg["agents"]["defaults"]["model"] = "glm-5.1"
+        with open(self.cfg_path, "w", encoding="utf-8") as fh:
+            json.dump(cfg, fh, ensure_ascii=False, indent=2)
+        ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="glm", key=KEYS["glm"] + "x")
+        got = self.cfg()["agents"]["defaults"]
+        self.assertNotIn("modelPreset", got, "同一家换 key,替他换了当前模型")
+        self.assertEqual(got["model"], "glm-5.1")
+
+    def test_d12b_losing_an_extra_key_on_a_self_configured_primary_still_starts(self):
+        """第 11 轮(MiMo F3,#48):主槽是机主自配端点、正用额外格 Kimi;Kimi 的 key 没了 ⇒ modelPreset 不许悬空(网关会拒绝加载),
+        回到他原来的 agents.defaults.model。"""
+        self.have_mimo_in_primary()
+        cfg = self.cfg()
+        cfg["providers"]["custom"]["apiBase"] = "https://corp-proxy.example/v1"
+        cfg["agents"]["defaults"]["model"] = "corp/llama-3"
+        with open(self.cfg_path, "w", encoding="utf-8") as fh:
+            json.dump(cfg, fh, ensure_ascii=False, indent=2)
+        self.extra_key("kimi")
+        self.gateway_env()
+        ds_credential.select_model(self.cfg_path, "kimi-k3", provider="kimi")
+        os.remove(os.path.join(self.keys_dir, "kimi.txt"))
+        env = self.gateway_env()
+        d = self.cfg()["agents"]["defaults"]
+        self.assertNotIn("modelPreset", d, "modelPreset 悬空或被随便挑了一份")
+        self.assertEqual(d["model"], "corp/llama-3")
+        self.snapshot(env, None)                      # nanobot 加载得起来
+
+    def test_d13_losing_the_current_vendors_key_falls_back_to_the_primary_not_to_whatever_is_first(self):
+        """第 11 轮(DeepSeek 2,#51):额外格 Kimi 的预设排在最前,正用 GLM 按量;GLM 的 key 没了 ⇒ 回落**主槽** MiMo 默认,
+        不许落到排在最前的 Kimi(换家扣钱)。"""
+        self.put_primary("mimo")
+        self.extra_key("kimi")
+        self.extra_key("glm")
+        self.gateway_env()
+        ds_credential.select_model(self.cfg_path, "glm-5.1", provider="glm")
+        cfg = self.cfg()
+        kimi_first = {n: p for n, p in cfg["model_presets"].items() if p.get("provider") == "od_kimi"}
+        kimi_first.update({n: p for n, p in cfg["model_presets"].items() if n not in kimi_first and n != "mimo-v2.5"})
+        kimi_first["mimo-v2.5"] = cfg["model_presets"]["mimo-v2.5"]
+        cfg["model_presets"] = kimi_first
+        with open(self.cfg_path, "w", encoding="utf-8") as fh:
+            json.dump(cfg, fh, ensure_ascii=False, indent=2)
+        os.remove(os.path.join(self.keys_dir, "glm.txt"))
+        env = self.gateway_env()
+        self.assertEqual(self.cfg()["agents"]["defaults"]["modelPreset"], "mimo-v2.5")
         self.assertEqual(self.snapshot(env, None).provider.api_key, KEYS["mimo"])
 
     def test_d4_same_vendor_new_key_leaves_hand_written_presets_alone(self):

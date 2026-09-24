@@ -36,5 +36,9 @@ mut M12-save-overwrites-before-route bin/ds_credential.py '    _route_presets(cf
 mut M13-keep-presets-on-a-gone-slot bin/ds_credential.py '        if prov != "custom" and not isinstance(providers.get(prov), dict):
             presets.pop(name)' '        if False:
             presets.pop(name)'
+# 第 11 轮:DeepSeek 实测穿过全部判据的两个变异
+mut M14-fallback-picks-whatever-is-first bin/ds_credential.py '        fallback = preset_name(primary, PROVIDERS[primary]["model"]) if primary else None' '        fallback = None'
+mut M15-rename-skips-params bin/ds_credential.py '                    _rename_preset(cfg, name, preset_name(here, model))
+                    _apply_params(presets[preset_name(here, model)], here)' '                    _rename_preset(cfg, name, preset_name(here, model))'
 find bin -name __pycache__ -exec rm -rf {} + 2>/dev/null
 echo "survived=$survived"; exit $survived
