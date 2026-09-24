@@ -162,7 +162,7 @@ try {
   await page.locator('[data-ui="ms-model-ctx"]').fill("262144");
   await page.locator('[data-ui="ms-dialog-save"]').click();
   await page.locator('[data-ui="ms-model-dialog"]').waitFor({ state: "hidden" });
-  await shot(page, "加好了 mimo-v2.7-preview", "列表多一行,上下文 26.2万,有「删除」;内置模型没有「删除」");
+  await shot(page, "加好了 mimo-v2.7-preview", "列表多一行,上下文 262.1K(照 ZCode 技术写法),有「删除」;内置模型没有「删除」");
 
   await page.locator(`${MS} [data-ui="ms-nav-item"][data-provider="deepseek"]`).click();
   await detail("deepseek").waitFor();

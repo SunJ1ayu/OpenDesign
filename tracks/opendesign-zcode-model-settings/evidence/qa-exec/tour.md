@@ -56,16 +56,16 @@
   - paragraph: 设置 API Key 后即可在聊天里选这家的模型。
   - text: 模型列表
   - button "+ 添加模型"
-  - text: mimo-v2.5 12.8万
+  - text: mimo-v2.5 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.5-pro 12.8万
+  - text: mimo-v2.5-pro 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-pro 12.8万
+  - text: mimo-v2.6-pro 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-flash 12.8万
+  - text: mimo-v2.6-flash 128K
   - button "测试"
   - button "编辑"
 ```
@@ -136,16 +136,16 @@
   - button "保存"
   - text: 模型列表
   - button "+ 添加模型"
-  - text: mimo-v2.5 在用 12.8万
+  - text: mimo-v2.5 在用 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.5-pro 12.8万
+  - text: mimo-v2.5-pro 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-pro 12.8万
+  - text: mimo-v2.6-pro 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-flash 12.8万
+  - text: mimo-v2.6-flash 128K
   - button "测试"
   - button "编辑"
 ```
@@ -334,16 +334,16 @@
   - button "保存"
   - text: 模型列表
   - button "+ 添加模型"
-  - text: mimo-v2.5 12.8万
+  - text: mimo-v2.5 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.5-pro 12.8万
+  - text: mimo-v2.5-pro 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-pro 在用 12.8万
+  - text: mimo-v2.6-pro 在用 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-flash 12.8万
+  - text: mimo-v2.6-flash 128K
   - button "测试"
   - button "编辑"
 ```
@@ -401,16 +401,16 @@
   - button "保存"
   - text: 模型列表
   - button "+ 添加模型"
-  - text: mimo-v2.5 12.8万
+  - text: mimo-v2.5 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.5-pro 12.8万
+  - text: mimo-v2.5-pro 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-pro 在用 12.8万
+  - text: mimo-v2.6-pro 在用 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-flash 12.8万
+  - text: mimo-v2.6-flash 128K
   - button "测试"
   - button "编辑"
   - dialog "添加模型":
@@ -477,16 +477,16 @@
   - button "保存"
   - text: 模型列表
   - button "+ 添加模型"
-  - text: mimo-v2.5 12.8万
+  - text: mimo-v2.5 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.5-pro 12.8万
+  - text: mimo-v2.5-pro 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-pro 在用 12.8万
+  - text: mimo-v2.6-pro 在用 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-flash 12.8万
+  - text: mimo-v2.6-flash 128K
   - button "测试"
   - button "编辑"
   - dialog "添加模型":
@@ -504,7 +504,7 @@
 ## 11 加好了 mimo-v2.7-preview
 
 - 地址:`/#/settings/models?provider=mimo`
-- 这一步要看的:列表多一行,上下文 26.2万,有「删除」;内置模型没有「删除」
+- 这一步要看的:列表多一行,上下文 262.1K(照 ZCode 技术写法),有「删除」;内置模型没有「删除」
 - 截图:11.jpg
 
 页面无障碍文本(读屏看到的):
@@ -555,19 +555,19 @@
   - button "保存"
   - text: 模型列表
   - button "+ 添加模型"
-  - text: mimo-v2.5 12.8万
+  - text: mimo-v2.5 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.5-pro 12.8万
+  - text: mimo-v2.5-pro 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-pro 在用 12.8万
+  - text: mimo-v2.6-pro 在用 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-flash 12.8万
+  - text: mimo-v2.6-flash 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.7-preview 26.2万
+  - text: mimo-v2.7-preview 262.1K
   - button "测试"
   - button "编辑"
   - button "删除"
@@ -908,19 +908,19 @@
   - button "保存"
   - text: 模型列表
   - button "+ 添加模型"
-  - text: mimo-v2.5 12.8万
+  - text: mimo-v2.5 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.5-pro 12.8万
+  - text: mimo-v2.5-pro 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-pro 在用 12.8万
+  - text: mimo-v2.6-pro 在用 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-flash 12.8万
+  - text: mimo-v2.6-flash 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.7-preview 26.2万
+  - text: mimo-v2.7-preview 262.1K
   - button "测试"
   - button "编辑"
   - button "删除"
@@ -979,19 +979,19 @@
   - button "保存"
   - text: 模型列表
   - button "+ 添加模型"
-  - text: mimo-v2.5 12.8万
+  - text: mimo-v2.5 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.5-pro 12.8万
+  - text: mimo-v2.5-pro 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-pro 在用 12.8万
+  - text: mimo-v2.6-pro 在用 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-flash 12.8万
+  - text: mimo-v2.6-flash 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.7-preview 26.2万
+  - text: mimo-v2.7-preview 262.1K
   - button "测试"
   - button "编辑"
   - button "删除"
@@ -1063,19 +1063,19 @@
   - button "保存"
   - text: 模型列表
   - button "+ 添加模型"
-  - text: mimo-v2.5 12.8万
+  - text: mimo-v2.5 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.5-pro 12.8万
+  - text: mimo-v2.5-pro 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-pro 在用 12.8万
+  - text: mimo-v2.6-pro 在用 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-flash 12.8万
+  - text: mimo-v2.6-flash 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.7-preview 26.2万
+  - text: mimo-v2.7-preview 262.1K
   - button "测试"
   - button "编辑"
   - button "删除"
@@ -1144,7 +1144,7 @@
   - text: Base URL
   - textbox "Base URL":
     - /placeholder: https://api.example.com/v1
-    - text: http://127.0.0.1:39953/v1
+    - text: http://127.0.0.1:38687/v1
   - text: API 格式 Chat Completions (/v1/chat/completions)
   - button "保存名称和地址" [disabled]
   - text: API Key
@@ -1213,7 +1213,7 @@
   - text: Base URL
   - textbox "Base URL":
     - /placeholder: https://api.example.com/v1
-    - text: http://127.0.0.1:39953/v1
+    - text: http://127.0.0.1:38687/v1
   - text: API 格式 Chat Completions (/v1/chat/completions)
   - button "保存名称和地址" [disabled]
   - text: API Key
@@ -1283,7 +1283,7 @@
   - text: Base URL
   - textbox "Base URL":
     - /placeholder: https://api.example.com/v1
-    - text: http://127.0.0.1:39953/v1
+    - text: http://127.0.0.1:38687/v1
   - text: API 格式 Chat Completions (/v1/chat/completions)
   - button "保存名称和地址" [disabled]
   - text: API Key
@@ -1353,7 +1353,7 @@
   - text: Base URL
   - textbox "Base URL":
     - /placeholder: https://api.example.com/v1
-    - text: http://127.0.0.1:39953/v1
+    - text: http://127.0.0.1:38687/v1
   - text: API 格式 Chat Completions (/v1/chat/completions)
   - button "保存名称和地址" [disabled]
   - text: API Key
@@ -1541,19 +1541,19 @@
   - button "保存"
   - text: 模型列表
   - button "+ 添加模型"
-  - text: mimo-v2.5 12.8万
+  - text: mimo-v2.5 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.5-pro 12.8万
+  - text: mimo-v2.5-pro 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-pro 在用 12.8万
+  - text: mimo-v2.6-pro 在用 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.6-flash 12.8万
+  - text: mimo-v2.6-flash 128K
   - button "测试"
   - button "编辑"
-  - text: mimo-v2.7-preview 26.2万
+  - text: mimo-v2.7-preview 262.1K
   - button "测试"
   - button "编辑"
   - button "删除"

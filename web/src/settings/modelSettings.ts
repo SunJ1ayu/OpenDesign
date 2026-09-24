@@ -137,11 +137,13 @@ export function navGroups(view: ProvidersView): NavGroup[] {
   ];
 }
 
-/** 上下文长度按「万」显示(ms6):262144 ⇒ 26.2万;没有 ⇒ 空串(不显示那个小标签)。 */
+/** 上下文长度小标签(ms6):照 ZCode formatModelContextWindowLabel —— 技术规格,固定 en-US compact,
+ *  262144 ⇒ 262.1K、128000 ⇒ 128K;没有 ⇒ 空串(不显示那个小标签,不像 ZCode 画「0」)。 */
 export function contextLabel(tokens: number | null | undefined): string {
   if (typeof tokens !== "number" || !Number.isFinite(tokens) || tokens <= 0) return "";
-  const wan = Math.round(tokens / 1000) / 10;
-  return `${Number.isInteger(wan) ? wan.toFixed(0) : wan.toFixed(1)}万`;
+  return new Intl.NumberFormat("en-US", {
+    notation: tokens >= 1_000 ? "compact" : "standard", maximumFractionDigits: 1, minimumFractionDigits: 0,
+  }).format(tokens);
 }
 
 /** 设置页路由(ms7):#/settings[/general|/models][?provider=<id>];不是设置页 ⇒ null。 */
