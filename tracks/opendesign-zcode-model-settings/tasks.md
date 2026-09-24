@@ -11,7 +11,7 @@
       set_enabled / add_custom_provider / remove_custom_provider / test_model;save(switch=False);MiMo 模板补 v2.6-pro/flash;lm1 前提更新(`1575924`)
 - [x] T3 ds-web 接口判据 w1~w7(`7ba8802`)→ 实现(同 `05db6c4`):GET /api/llm/providers;POST /api/llm/providers/{key,enabled,models,custom}、/api/llm/test
 - [ ] T3b **试点:测试员角色**(业主 09-24 同意,见 evidence/qa-pilot.md):QA-设计两家 16:15 派出
-      (日志前缀在 scratchpad prefix_qa;/root/aiwork/logs/explore-zcode-qa-design-*)→ 主裁合并成 evidence/acceptance-cases.md → 据此写 T4 判据;
+      (日志前缀在 scratchpad prefix_qa;/root/aiwork/logs/explore-zcode-qa-design-*)→ 主裁合并成 evidence/acceptance-cases.md → 据此写 T4 判据; [仓外不承重]
       界面建好后 QA-执行(真操作 + 截图)→ 缺陷分级 → 再做代码评审(1 轮为主)。
 - [x] T3b QA-设计完成 → evidence/acceptance-cases.md(A1~A29 + 需求空白主裁定 Q1~Q9,`3b19d75`);Q8 后台补 update_custom_provider(判据 z13 `df32ac2` → 实现 `36c5529`)
 - [x] T4 界面(09-24):判据移植批 `7000f41`(+ 判据修 `ae7d599` `980c73f`、w9/ms9 `5d214d4`、settings_fvis `ea99d37`)

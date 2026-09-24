@@ -107,7 +107,8 @@ async function shot(page, title, note, { aria = true } = {}) {
   await page.screenshot({ path: join(OUT, `${id}.jpg`), type: "jpeg", quality: 72 });
   // 读屏树会吐出密码框里**正在输入的值** ⇒ 输入框里有 key 的那一步不取文本
   const text = aria ? String(await page.locator("body").ariaSnapshot().catch(() => "(取不到)")) : "(这一步输入框里有 key,不取读屏文本)";
-  steps.push({ id, title, note, url: page.url().replace(base, ""), aria: text });
+  // 台面的临时目录会出现在「常规 · 数据与备份」里:换成占位(工件不许引用会话临时目录)
+  steps.push({ id, title, note, url: page.url().replace(base, ""), aria: text.split(tmp).join("<临时目录>") });
   console.log(`  ${id} ${title}`);
 }
 

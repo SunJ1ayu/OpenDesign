@@ -1333,7 +1333,7 @@
   - button "模型设置"
 - main:
   - heading "常规" [level=2]
-  - text: 外观 浅色 深色即将支持 数据与备份 /tmp/ds-qa-tour-W3QPaI/ds
+  - text: 外观 浅色 深色即将支持 数据与备份 <临时目录>/ds
   - button "工作区文件夹 哪些算项目 ›"
   - button "危险动作确认 每次问我 ›"
   - text: 快捷键 ⌘N 新对话 · ⌘K 搜索
