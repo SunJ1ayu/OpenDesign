@@ -1,9 +1,27 @@
 # Tasks: opendesign-zcode-model-settings
 
-- base-ref: 095ec4c6a4f2a3d55244ce0026b5a735dc677bfe
+> 接手先读:proposal(业主原话)、design(D1~D4)、本文件「接手须知」。ZCode 源码克隆在
+> /tmp/claude-0/-root/21304192-cb7b-484a-b81f-0a79c7cff119/scratchpad/zcode [仓外不承重](没了就 `git clone --depth 1 https://github.com/zai-org/ZCode`);
+> 设置页在 packages/ui/src/settings/model-provider-section/,换模型弹框在 packages/ui/src/ModelConfigSelect.tsx;
+> 真截图:https://doc.dmxapi.cn/zcode.html(Zcode7/10/14/15.png)。
 
-> 委托 submimo fix 时:主 agent 先写失败测试(oracle)并 commit,再把窄范围实现
-> 交给它;oracle/测试文件对它 off-limits;~2 次红了收回主 agent。
-
-- [ ] <task 1>
-- [ ] <task 2>
+- [x] T1 方案 + 4c 挑战(Grok)→ D1~D4(`a2222b5`)
+- [x] T2 后台判据 z1~z12(`218f0af`,`eb51281` 修键名)→ 实现(`05db6c4`):目录 = 内置 ⊕ `<home>/.openDesign/models.json`,
+      `catalog_scope`/`_scoped` 包所有入口 + 合并器 + set_model;新 API:providers_view / add_model / remove_model / set_context_window /
+      set_enabled / add_custom_provider / remove_custom_provider / test_model;save(switch=False);MiMo 模板补 v2.6-pro/flash;lm1 前提更新(`1575924`)
+- [x] T3 ds-web 接口判据 w1~w7(`7ba8802`)→ 实现(同 `05db6c4`):GET /api/llm/providers;POST /api/llm/providers/{key,enabled,models,custom}、/api/llm/test
+- [ ] T4 界面判据先行(node 纯逻辑 + e2e),再实现界面:
+      - 设置整页:点侧栏「设置」(data-ui=settings-toggle)⇒ 整个侧栏换成设置栏目(返回工作区 / 常规 / 模型设置);
+        「返回工作区」接替 settings-toggle(同 data-ui、aria-expanded=true);常规页放原弹层各项,**更新相关钩子原样沿用**
+        (update-status / update-check / update-retry;update-restart 与 update-badge 留在侧栏设置行)⇒ 云 E4(.github/scripts/electron-e2e/e4-drive.mjs)
+        与 tests/e2e/desktop_update.e2e.mjs 不用改。
+      - 模型设置照 ZCode:标题「模型设置」+ 说明 + 刷新 + 添加供应商;卡片左栏(内置供应商五家 / 自定义供应商 + 添加供应商,状态点 ready/unavailable/disabled),
+        右详情(名称 + 启用/禁用、Base URL(内置只读)、API Key + 获取 API Key、模型列表 行内 上下文长度 + 测试/编辑/删除、添加模型弹窗:模型 ID + 上下文窗口);
+        添加供应商表单(名称、Base URL、API Key、API 格式只读「Chat Completions」、至少一个模型)。
+      - 聊天框两级弹框:沿用 chat-model / chat-model-menu;每家一行(当前 ✓),悬停/点开向右弹出这家模型(当前 ✓),底行「管理模型」直达设置页该厂商;
+        没 key 首次打开 ⇒ 直接进设置页模型设置(接替旧 LlmKeyCard 的 A1/A7)。
+      - 旧 LlmKeyCard 与 tests/e2e/llm_key.e2e.mjs、per_vendor_keys.e2e.mjs、model_picker.e2e.mjs、tests/test_model_picker.mjs、test_kimi_glm_ui.mjs
+        要**逐条移植**到新界面(判据改动单独 commit,verify.md 写「旧条目 → 新条目」对照表;泄漏扫描 C 组、env 遮蔽只读 H1、没外壳 manual D、
+        重启外壳 B5/B6、只列有 key 的厂商 A1/A2、✓ 只在(厂商,模型)都对上时 pv3 —— 一条不许丢)。
+- [ ] T5 build(web/dist)+ run-all + 截图亲看对照 ZCode 截图 + 云 Windows 整跑
+- [ ] T6 两家族评审(impact high,预算 2 轮;锤子砸墙类照报不算阻断;分裂按 split_resolutions 裁)→ 归档 → 发 0.98.12(另开发版单,当天归档)
