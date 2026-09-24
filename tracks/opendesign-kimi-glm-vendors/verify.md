@@ -316,6 +316,27 @@ runlog: run-all rc=3 commit=edc6608 dirty=yes at=2026-09-24T00:39:24Z file=track
   (上两行 = 实现在工作树上时:总跑六段全过(python 1494、node 509、e2e 41),rc=3 只因既有 3 条 SKIP(两条要活网关的 e2e + 一条 python)。
    之后只改了 install.ps1 两句提示文字,d1 复跑绿。)
 
+- 第 10 轮花名册(改设计后第 1 轮实质评审): submimo=PASS(verdict=BLOCK) subdeepseek=PASS(verdict=BLOCK)(日志 /root/aiwork/logs/panel-kimi-glm-r10-20260924-0901.* [仓外不承重])
+  反锚定:复审轮,verify.md 已含第 9 轮处置与本轮改设计说明,腿读到属预期(4b ②);主审自审在仓外 /root/aiwork/tasks/opendesign-kimi-glm-vendors-r10-my-review.md。
+  DeepSeek 另跑 60 轮 × 100 步随机序列(五个入口混跑,每步交 nanobot 加载器问端点+key):0 违规 —— 新设计的主张成立,阻断都在边上。
+
+  | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
+  |---|---|---|---|---|
+  | 36 | (MiMo A)合并:主槽是认不出的自配端点、机主**没有**自己的预设(纯 onboard)⇒ 模板 MiMo 预设照合、modelPreset 被设成 mimo-v2.5,压过机主的 agents.defaults.model ⇒ MiMo 模型名发到他的端点,聊天连不上 | 读 ds_merge_config.py:125 的 `own_presets` 条件属实;本单前就有,但合并是本单「写口」名单里的一扇 | 本单必须修 | 正是「名字属于 A、发到 B」;自配端点一律不合模板预设,modelPreset 只留机主自己有的,没有就不设(悬空的删掉) |
+  | 37 | (MiMo B)稳态清扫把「目录模型 + 非正式名」一律删:主槽 GLM 套餐 + 老安装写的裸名 glm-5.3-flash(路由本来正确、正在用)⇒ 删掉并回落 glm-5.3,**业主选的模型被换** | 读 _route_presets 新分支属实;是本轮引入的回归;d7/d8 只种了默认模型,问不到 | 本单必须修 | 模型在它所在那格厂商的目录里 ⇒ **原地改成正式名**(不换格、不换模型),当前模型跟着改名;只有那格厂商没有这个模型才删(Grok 担心的跨格改指仍不做) |
+  | 38 | (MiMo C)同一家再存一次 key(换 key)⇒ save 把当前模型重置成那家默认 | 读 save 末段属实;历史行为 | 本单修 | 小改动;「当前模型被无故换掉」是本单写明要挡的;端点没变就不动当前模型 |
+  | 39 | (DeepSeek 1)合并路径的对齐没有判据:删掉合并末尾两行全绿 | 属实(k15b 退场带走了这条性质) | 本单必须修(判据) | 老 git-pull 形态上合并是唯一一次清扫;补 d9 |
+  | 40 | (DeepSeek 2)install.ps1 强制填 MiMo 的 key ⇒ 没有 MiMo key 的人要么装不完、要么把别家 key 塞进 MiMo 槽(401,界面还显示已配置) | 读 install.ps1 Step 6 属实 | 本单修 | 回车可跳过,提示装完在界面里选厂商填 key |
+  | 41 | (DeepSeek 3)手写的 od_kimi 预设被删后回落到主槽默认、跨厂商 | 只能手改配置造出;#37 的「原地改名」后,模型在该格目录里的不再删 | 延期 | 剩下的只有「手写预设的模型那格厂商根本没有」—— 本来就发不通;业主那边长成:手改过配置的人换回了主槽默认模型 |
+  | 42 | (DeepSeek 4/5、MiMo 4)install-windows.md 手动合并一节仍教改端点、测试/合并器注释过时 | 属实 | 本单修 | 文字 |
+  | 43 | (MiMo 3)d3 只查指 custom 的、裸共享名留在新主槽不判违规、没有额外槽在场的组合;d4 不问当前模型 | 属实 | 本单修(判据) | d3 改查「每份指我们槽位的目录模型都是那格厂商的正式名」,加额外槽在场的组合;d4 加当前模型不变 |
+  | 44 | (MiMo 残留)select_model 对已存在的正式名预设只纠 provider 不纠 model | 只能手改造出 | 本单修 | 一行;与不变量对齐 |
+  | 45 | (MiMo 5)d1 是文本闸 | 属实 | 延期 | 对「不再问端点/模型」够用;install.ps1 是老装法,业主那边长不出东西 |
+
+- 本轮修复清单 = #36~#40、#42~#44,判据先 commit(红),再一次修完,派第 2 轮(预算最后一轮)。
+runlog: r10-criteria-red rc=1 commit=a99efaa dirty=yes at=2026-09-24T01:19:15Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T011915Z-01-r10-criteria-red.txt
+  (上一行 = 第 10 轮判据红:d4b×2、d5b×2、d7b×4、d9(glm-5.3-flash 一格)、d10、d11;d3 改成问整条不变量 + 额外槽在场后现实现仍绿。)
+
 ## Accepted deviations
 
 - <接受的非关键偏差 + 原因 + 影响范围,或 None>

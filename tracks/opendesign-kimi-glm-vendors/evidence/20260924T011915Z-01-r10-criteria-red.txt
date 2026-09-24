@@ -1,0 +1,216 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    r10-criteria-red
+cmd:     /root/.venvs/design-studio/bin/python tests/test_vendor_one_door.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  a99efaa
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-24T01:19:15Z
+---------------- 输出开始 ----------------
+test_d10_install_ps1_lets_you_skip_the_mimo_key (__main__.TestTheOldInstallerCannotChangeTheVendor.test_d10_install_ps1_lets_you_skip_the_mimo_key)
+第 10 轮(DeepSeek #40):没有 MiMo key 的人回车跳过,装完在界面里选厂商填 key —— 不许逼他把别家的 key 塞进 MiMo 槽。 ... FAIL
+test_d1_install_ps1_no_longer_asks_for_an_endpoint_or_a_model (__main__.TestTheOldInstallerCannotChangeTheVendor.test_d1_install_ps1_no_longer_asks_for_an_endpoint_or_a_model) ... ok
+test_d2_the_merger_refuses_to_change_the_endpoint_or_the_model (__main__.TestTheOldInstallerCannotChangeTheVendor.test_d2_the_merger_refuses_to_change_the_endpoint_or_the_model) ... ok
+test_d5_an_update_merge_adds_no_template_preset_to_somebody_elses_endpoint (__main__.TestTheOldInstallerCannotChangeTheVendor.test_d5_an_update_merge_adds_no_template_preset_to_somebody_elses_endpoint)
+模板的预设全是 MiMo 的。主槽不是 MiMo(机主以前自配的端点)时,普通更新合并把它们加进来并指 custom ... ok
+test_d5b_a_self_configured_endpoint_without_presets_gets_no_mimo_brain (__main__.TestTheOldInstallerCannotChangeTheVendor.test_d5b_a_self_configured_endpoint_without_presets_gets_no_mimo_brain)
+第 10 轮(MiMo #36):纯 onboard 形态(自配端点、没有 model_presets、只有 agents.defaults.model) ... 
+  test_d5b_a_self_configured_endpoint_without_presets_gets_no_mimo_brain (__main__.TestTheOldInstallerCannotChangeTheVendor.test_d5b_a_self_configured_endpoint_without_presets_gets_no_mimo_brain) (presets=None, current=None)
+第 10 轮(MiMo #36):纯 onboard 形态(自配端点、没有 model_presets、只有 agents.defaults.model) ... FAIL
+  test_d5b_a_self_configured_endpoint_without_presets_gets_no_mimo_brain (__main__.TestTheOldInstallerCannotChangeTheVendor.test_d5b_a_self_configured_endpoint_without_presets_gets_no_mimo_brain) (presets={}, current='gone-model')
+第 10 轮(MiMo #36):纯 onboard 形态(自配端点、没有 model_presets、只有 agents.defaults.model) ... FAIL
+test_d6_the_package_check_requires_the_modules_the_merger_imports (__main__.TestTheOldInstallerCannotChangeTheVendor.test_d6_the_package_check_requires_the_modules_the_merger_imports)
+第 9 轮 #35:合并器 import ds_credential(它再 import ds_model),出货包少了它们安装就合并失败。 ... ok
+test_d9_an_update_merge_aligns_what_is_already_on_disk (__main__.TestTheOldInstallerCannotChangeTheVendor.test_d9_an_update_merge_aligns_what_is_already_on_disk)
+第 10 轮(DeepSeek #39):老 git-pull 形态不跑起网关对齐,更新合并是唯一一次清扫 —— 它也要守同一条不变量。 ... 
+  test_d9_an_update_merge_aligns_what_is_already_on_disk (__main__.TestTheOldInstallerCannotChangeTheVendor.test_d9_an_update_merge_aligns_what_is_already_on_disk) (primary='glm_plan')
+第 10 轮(DeepSeek #39):老 git-pull 形态不跑起网关对齐,更新合并是唯一一次清扫 —— 它也要守同一条不变量。 ... FAIL
+test_d11_picking_a_model_fixes_a_preset_whose_model_field_was_wrong (__main__.TestWhenThePrimaryVendorChanges.test_d11_picking_a_model_fixes_a_preset_whose_model_field_was_wrong)
+第 10 轮(MiMo 残留 #44):正式名 glm-5.1 的预设里 model 被手改成 glm-5.3,界面选 glm-5.1 ⇒ 发出去的必须是 glm-5.1。 ... FAIL
+test_d3_after_any_primary_change_nothing_but_the_new_vendor_points_at_the_primary_slot (__main__.TestWhenThePrimaryVendorChanges.test_d3_after_any_primary_change_nothing_but_the_new_vendor_points_at_the_primary_slot) ... ok
+test_d4_same_vendor_new_key_leaves_hand_written_presets_alone (__main__.TestWhenThePrimaryVendorChanges.test_d4_same_vendor_new_key_leaves_hand_written_presets_alone) ... ok
+test_d4b_same_vendor_new_key_keeps_the_current_model (__main__.TestWhenThePrimaryVendorChanges.test_d4b_same_vendor_new_key_keeps_the_current_model)
+第 10 轮(MiMo #38):选好 glm-5.1 之后再存一次 GLM 的 key(换 key)⇒ 当前模型不许回到默认 glm-5.3。 ... 
+  test_d4b_same_vendor_new_key_keeps_the_current_model (__main__.TestWhenThePrimaryVendorChanges.test_d4b_same_vendor_new_key_keeps_the_current_model) (shell=False)
+第 10 轮(MiMo #38):选好 glm-5.1 之后再存一次 GLM 的 key(换 key)⇒ 当前模型不许回到默认 glm-5.3。 ... FAIL
+  test_d4b_same_vendor_new_key_keeps_the_current_model (__main__.TestWhenThePrimaryVendorChanges.test_d4b_same_vendor_new_key_keeps_the_current_model) (shell=True)
+第 10 轮(MiMo #38):选好 glm-5.1 之后再存一次 GLM 的 key(换 key)⇒ 当前模型不许回到默认 glm-5.3。 ... FAIL
+test_d7_a_bare_shared_name_already_on_disk_is_dropped_not_kept_on_the_wrong_vendor (__main__.TestWhenThePrimaryVendorChanges.test_d7_a_bare_shared_name_already_on_disk_is_dropped_not_kept_on_the_wrong_vendor)
+主槽早就是 Kimi(没人再改端点),盘上留着老安装写的裸名 glm-5.3→custom 且正在用 ⇒ 每句 glm-5.3 发到 Moonshot。 ... ok
+test_d7b_a_working_preset_under_an_old_name_keeps_its_model (__main__.TestWhenThePrimaryVendorChanges.test_d7b_a_working_preset_under_an_old_name_keeps_its_model)
+第 10 轮(MiMo #37):主槽 GLM 套餐 + 老安装写的裸名 glm-5.3-flash(路由本来对、正在用)。 ... 
+  test_d7b_a_working_preset_under_an_old_name_keeps_its_model (__main__.TestWhenThePrimaryVendorChanges.test_d7b_a_working_preset_under_an_old_name_keeps_its_model) (primary='glm_plan', name='glm-5.3-flash', model='glm-5.3-flash', how='起网关')
+第 10 轮(MiMo #37):主槽 GLM 套餐 + 老安装写的裸名 glm-5.3-flash(路由本来对、正在用)。 ... FAIL
+  test_d7b_a_working_preset_under_an_old_name_keeps_its_model (__main__.TestWhenThePrimaryVendorChanges.test_d7b_a_working_preset_under_an_old_name_keeps_its_model) (primary='glm_plan', name='glm-5.3-flash', model='glm-5.3-flash', how='同家存 key')
+第 10 轮(MiMo #37):主槽 GLM 套餐 + 老安装写的裸名 glm-5.3-flash(路由本来对、正在用)。 ... FAIL
+  test_d7b_a_working_preset_under_an_old_name_keeps_its_model (__main__.TestWhenThePrimaryVendorChanges.test_d7b_a_working_preset_under_an_old_name_keeps_its_model) (primary='kimi', name='kimi-k3', model='kimi-k2.6', how='起网关')
+第 10 轮(MiMo #37):主槽 GLM 套餐 + 老安装写的裸名 glm-5.3-flash(路由本来对、正在用)。 ... FAIL
+  test_d7b_a_working_preset_under_an_old_name_keeps_its_model (__main__.TestWhenThePrimaryVendorChanges.test_d7b_a_working_preset_under_an_old_name_keeps_its_model) (primary='kimi', name='kimi-k3', model='kimi-k2.6', how='同家存 key')
+第 10 轮(MiMo #37):主槽 GLM 套餐 + 老安装写的裸名 glm-5.3-flash(路由本来对、正在用)。 ... FAIL
+test_d8_a_bare_shared_name_is_never_moved_to_the_other_glm (__main__.TestWhenThePrimaryVendorChanges.test_d8_a_bare_shared_name_is_never_moved_to_the_other_glm)
+主槽 GLM 套餐 + od_glm(按量)+ 裸名 glm-5.3→custom 正在用:改指到 od_glm = 套餐的账记到按量。只许删,回落套餐自己的 glm-5.3@glm_plan。 ... ok
+test_d8b_a_catalog_model_under_a_name_that_is_not_ours_is_dropped_too (__main__.TestWhenThePrimaryVendorChanges.test_d8b_a_catalog_model_under_a_name_that_is_not_ours_is_dropped_too)
+名模不一致(名字 glm-5.3@glm_plan、模型 kimi-k3、指着 MiMo 主槽):发到的那家没有这个模型 ⇒ 删。 ... ok
+
+======================================================================
+FAIL: test_d10_install_ps1_lets_you_skip_the_mimo_key (__main__.TestTheOldInstallerCannotChangeTheVendor.test_d10_install_ps1_lets_you_skip_the_mimo_key)
+第 10 轮(DeepSeek #40):没有 MiMo key 的人回车跳过,装完在界面里选厂商填 key —— 不许逼他把别家的 key 塞进 MiMo 槽。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_vendor_one_door.py", line 174, in test_d10_install_ps1_lets_you_skip_the_mimo_key
+    self.assertNotRegex(code, r'if \(-not \$key\) \{ Write-Error', "空 key 仍然终止安装")
+AssertionError: Regex matched: 'if (-not $key) { Write-Error' matches 'if \\(-not \\$key\\) \\{ Write-Error' in '\n$ErrorActionPreference = "Stop"\n\nfunction Step([int]$n, [string]$msg) {\n    Write-Host ""\n    Write-Host "[$n/8] $msg" -ForegroundColor Cyan\n}\n\n$DsRoot      = Split-Path -Parent $PSScriptRoot\n$Venv        = Join-Path $env:USERPROFILE ".venvs\\design-studio"\n$VPython     = Join-Path $Venv "Scripts\\python.exe"\n$Nanobot     = Join-Path $Venv "Scripts\\nanobot.exe"\n$NanobotHome = Join-Path $env:USERPROFILE ".nanobot"\n$ConfigJson  = Join-Path $NanobotHome "config.json"\n$KeyDir      = Join-Path $env:USERPROFILE ".openDesign"\n$KeyFile     = Join-Path $KeyDir "key.txt"\n\nStep 1 "检查 Python(需要 3.10+)"\n$pyv = ""\ntry { $pyv = (& python -c "import sys; print(\'%d.%d\' % sys.version_info[:2])" 2>$null) } catch {}\nif (-not $pyv) {\n    Write-Error "没找到可用的 Python。装法:winget install -e --id Python.Python.3.12(或 python.org 官方安装器,勾 Add to PATH),装完新开 PowerShell 再跑本脚本。"\n}\n$parts = $pyv.Split("."); $major = [int]$parts[0]; $minor = [int]$parts[1]\nif ($major -lt 3 -or ($major -eq 3 -and $minor -lt 10)) {\n    Write-Error "Python $pyv 太旧,需要 3.10+。winget install -e --id Python.Python.3.12 后新开 PowerShell 再跑。"\n}\nWrite-Host "  Python $pyv OK"\n\nStep 2 "放开当前用户执行策略(RemoteSigned,以后启动 ds-nanobot.ps1 需要)"\n$pol = Get-ExecutionPolicy -Scope CurrentUser\nif ($pol -eq "RemoteSigned" -or $pol -eq "Unrestricted" -or $pol -eq "Bypass") {\n    Write-Host "  已是 $pol,跳过"\n} else {\n    try {\n        Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force -ErrorAction Stop\n        Write-Host "  已设为 RemoteSigned"\n    } catch {\n        Write-Host "  CurrentUser 已尝试设为 RemoteSigned（进程内 Bypass 覆盖的告警可忽略）" -ForegroundColor DarkGray\n    }\n}\n\nStep 3 "建 venv 并安装 nanobot-ai + mcp"\nif (-not (Test-Path $VPython)) {\n    python -m venv $Venv\n    if ($LASTEXITCODE -ne 0) { Write-Error "python -m venv 失败,报错见上" }\n}\n& $VPython -m pip install nanobot-ai==0.2.2 mcp==1.28.1 firecrawl-anydoc==0.1.6\nif ($LASTEXITCODE -ne 0) { Write-Error "pip install 失败,报错见上(常见:网络;可加 -i 镜像源重试)" }\n& $VPython -m pip check\nif ($LASTEXITCODE -ne 0) { Write-Host "  ⚠ pip check 报依赖冲突(见上),通常仍可用;把输出发回部署者" }\n\n& $VPython -c "import anydoc, importlib.metadata as m, tempfile, os; p=os.path.join(tempfile.mkdtemp(),\'a.csv\'); open(p,\'w\',encoding=\'utf-8\').write(\'项目,工期\\n王姐家,45天\\n\'); md=anydoc.to_markdown(p); assert \'45天\' in md, md; print(\'  OK 文档转换器 firecrawl-anydoc \' + m.version(\'firecrawl-anydoc\') + \' 真转过一份 CSV\')"\nif ($LASTEXITCODE -ne 0) {\n    Write-Host "  ⚠ 文档转换器装上了但转不动 —— 助手读资料的功能会返回 converter_unavailable;"\n    Write-Host "    其余功能不受影响。把上面的报错发回部署者。"\n}\n\nStep 4 "nanobot onboard(交互向导,生成基础配置)"\nif (Test-Path $ConfigJson) {\n    Write-Host "  已有 $ConfigJson,跳过 onboard(要重跑:删掉该文件后再运行本脚本)"\n} else {\n    & $Nanobot onboard\n    if (-not (Test-Path $ConfigJson)) {\n        Write-Error "onboard 结束但没生成 $ConfigJson,把上面的输出发回给部署者"\n    }\n}\n\nStep 5 "确保本地 WebUI 通道开启(onboard 实测不会开;不开则浏览器界面起不来)"\n$wsOk = $false\ntry {\n    $cfg = Get-Content $ConfigJson -Raw -Encoding UTF8 | ConvertFrom-Json\n    if ($cfg.channels.websocket.enabled -and $cfg.channels.websocket.token) { $wsOk = $true }\n} catch {}\nif ($wsOk) {\n    Write-Host "  WebUI 通道已开启,跳过"\n} else {\n    $token = ""\n    while (-not $token.Trim()) {\n        $token = Read-Host "  设 WebUI 登录口令(浏览器 http://127.0.0.1:8765/ 登录用,记下来)"\n    }\n    & $VPython (Join-Path $DsRoot "bin\\enable_webui.py") $token.Trim()\n    if ($LASTEXITCODE -ne 0) { Write-Error "开启 WebUI 通道失败,报错见上" }\n}\n\nStep 6 "MiMo 的 key(D1:机主自备,部署者不提供;用别家的模型:装完在界面「AI 模型 key」里选厂商再填)"\nif (Test-Path $KeyFile) {\n    Write-Host "  已有 $KeyFile,跳过(要换 key 直接编辑该文件)"\n} else {\n    New-Item -ItemType Directory -Path $KeyDir -Force | Out-Null\n    $key = Read-Host "  粘贴 MiMo 的 key 后回车"\n    $key = $key.Trim()\n    if (-not $key) { Write-Error "key 为空,重跑本脚本" }\n    Set-Content -Path $KeyFile -Value $key -NoNewline -Encoding ascii\n    Write-Host "  已写入 $KeyFile"\n}\n\nStep 7 "合并 config(providers/model_presets/agents/mcpServers 四段;channels 不动)"\nWrite-Host "  大脑默认 MiMo;已装过的机器保留原来的设置。换厂商请装完在界面「AI 模型 key」里换。"\n& $VPython (Join-Path $DsRoot "bin\\ds_merge_config.py") (Join-Path $DsRoot "config\\nanobot.config.windows.jsonc") $ConfigJson\nif ($LASTEXITCODE -ne 0) { Write-Error "config 合并失败,报错见上" }\n\nStep 8 "部署 workspace(AGENTS.md/SOUL.md + skills)"\n$Ws = Join-Path $NanobotHome "workspace"\nNew-Item -ItemType Directory -Path (Join-Path $Ws "skills") -Force | Out-Null\nCopy-Item (Join-Path $DsRoot "workspace\\AGENTS.md"), (Join-Path $DsRoot "workspace\\SOUL.md") $Ws -Force\nCopy-Item (Join-Path $DsRoot "skills\\*") (Join-Path $Ws "skills\\") -Recurse -Force\nWrite-Host "  已拷入 $Ws"\n\nWrite-Host ""\nWrite-Host "安装完成。启动:" -ForegroundColor Green\nWrite-Host "    & `"$DsRoot\\bin\\ds-nanobot.ps1`" gateway"\nWrite-Host "然后浏览器开 http://127.0.0.1:8765/ ,用安装时设的 WebUI 口令登录,验证三件:"\nWrite-Host "  1) 问“有什么待办” -> 应调 list_todos 返回(脑通 + MCP 通)"\nWrite-Host "  2) 让它扫桌面提整理方案 -> 只出 dry-run 清单,不动文件(.approved 闸生效)"\nWrite-Host "  3) 记一条测试变更 -> 项目 md 里 C<n> 追加正常"\nWrite-Host "以后更新:在 $DsRoot 里 git pull(config/key 不会被动到)。"' : 空 key 仍然终止安装
+
+======================================================================
+FAIL: test_d5b_a_self_configured_endpoint_without_presets_gets_no_mimo_brain (__main__.TestTheOldInstallerCannotChangeTheVendor.test_d5b_a_self_configured_endpoint_without_presets_gets_no_mimo_brain) (presets=None, current=None)
+第 10 轮(MiMo #36):纯 onboard 形态(自配端点、没有 model_presets、只有 agents.defaults.model)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_vendor_one_door.py", line 139, in test_d5b_a_self_configured_endpoint_without_presets_gets_no_mimo_brain
+    self.assertEqual(got.get("model_presets") or {}, {}, "MiMo 模板预设合进了机主的端点")
+AssertionError: {'mimo-v2.5': {'label': 'mimo-v2.5', 'prov[267 chars]0.1}} != {}
++ {}
+- {'mimo-v2.5': {'contextWindowTokens': 128000,
+-                'label': 'mimo-v2.5',
+-                'maxTokens': 8192,
+-                'model': 'mimo-v2.5',
+-                'provider': 'custom',
+-                'temperature': 0.1},
+-  'mimo-v2.5-pro': {'contextWindowTokens': 128000,
+-                    'label': 'mimo-v2.5-pro',
+-                    'maxTokens': 8192,
+-                    'model': 'mimo-v2.5-pro',
+-                    'provider': 'custom',
+-                    'temperature': 0.1}} : MiMo 模板预设合进了机主的端点
+
+======================================================================
+FAIL: test_d5b_a_self_configured_endpoint_without_presets_gets_no_mimo_brain (__main__.TestTheOldInstallerCannotChangeTheVendor.test_d5b_a_self_configured_endpoint_without_presets_gets_no_mimo_brain) (presets={}, current='gone-model')
+第 10 轮(MiMo #36):纯 onboard 形态(自配端点、没有 model_presets、只有 agents.defaults.model)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_vendor_one_door.py", line 139, in test_d5b_a_self_configured_endpoint_without_presets_gets_no_mimo_brain
+    self.assertEqual(got.get("model_presets") or {}, {}, "MiMo 模板预设合进了机主的端点")
+AssertionError: {'mimo-v2.5': {'label': 'mimo-v2.5', 'prov[267 chars]0.1}} != {}
++ {}
+- {'mimo-v2.5': {'contextWindowTokens': 128000,
+-                'label': 'mimo-v2.5',
+-                'maxTokens': 8192,
+-                'model': 'mimo-v2.5',
+-                'provider': 'custom',
+-                'temperature': 0.1},
+-  'mimo-v2.5-pro': {'contextWindowTokens': 128000,
+-                    'label': 'mimo-v2.5-pro',
+-                    'maxTokens': 8192,
+-                    'model': 'mimo-v2.5-pro',
+-                    'provider': 'custom',
+-                    'temperature': 0.1}} : MiMo 模板预设合进了机主的端点
+
+======================================================================
+FAIL: test_d9_an_update_merge_aligns_what_is_already_on_disk (__main__.TestTheOldInstallerCannotChangeTheVendor.test_d9_an_update_merge_aligns_what_is_already_on_disk) (primary='glm_plan')
+第 10 轮(DeepSeek #39):老 git-pull 形态不跑起网关对齐,更新合并是唯一一次清扫 —— 它也要守同一条不变量。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_vendor_one_door.py", line 168, in test_d9_an_update_merge_aligns_what_is_already_on_disk
+    self.assertEqual(got["model_presets"][cur]["model"], want_model)
+AssertionError: 'glm-5.3' != 'glm-5.3-flash'
+- glm-5.3
++ glm-5.3-flash
+
+
+======================================================================
+FAIL: test_d11_picking_a_model_fixes_a_preset_whose_model_field_was_wrong (__main__.TestWhenThePrimaryVendorChanges.test_d11_picking_a_model_fixes_a_preset_whose_model_field_was_wrong)
+第 10 轮(MiMo 残留 #44):正式名 glm-5.1 的预设里 model 被手改成 glm-5.3,界面选 glm-5.1 ⇒ 发出去的必须是 glm-5.1。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_vendor_one_door.py", line 378, in test_d11_picking_a_model_fixes_a_preset_whose_model_field_was_wrong
+    self.assertEqual(self.cfg()["model_presets"]["glm-5.1"]["model"], "glm-5.1")
+AssertionError: 'glm-5.3' != 'glm-5.1'
+- glm-5.3
+?       ^
++ glm-5.1
+?       ^
+
+
+======================================================================
+FAIL: test_d4b_same_vendor_new_key_keeps_the_current_model (__main__.TestWhenThePrimaryVendorChanges.test_d4b_same_vendor_new_key_keeps_the_current_model) (shell=False)
+第 10 轮(MiMo #38):选好 glm-5.1 之后再存一次 GLM 的 key(换 key)⇒ 当前模型不许回到默认 glm-5.3。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_vendor_one_door.py", line 371, in test_d4b_same_vendor_new_key_keeps_the_current_model
+    self.assertEqual(self.cfg()["agents"]["defaults"]["modelPreset"], "glm-5.1")
+AssertionError: 'glm-5.3@glm' != 'glm-5.1'
+- glm-5.3@glm
++ glm-5.1
+
+
+======================================================================
+FAIL: test_d4b_same_vendor_new_key_keeps_the_current_model (__main__.TestWhenThePrimaryVendorChanges.test_d4b_same_vendor_new_key_keeps_the_current_model) (shell=True)
+第 10 轮(MiMo #38):选好 glm-5.1 之后再存一次 GLM 的 key(换 key)⇒ 当前模型不许回到默认 glm-5.3。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_vendor_one_door.py", line 371, in test_d4b_same_vendor_new_key_keeps_the_current_model
+    self.assertEqual(self.cfg()["agents"]["defaults"]["modelPreset"], "glm-5.1")
+AssertionError: 'glm-5.3@glm' != 'glm-5.1'
+- glm-5.3@glm
++ glm-5.1
+
+
+======================================================================
+FAIL: test_d7b_a_working_preset_under_an_old_name_keeps_its_model (__main__.TestWhenThePrimaryVendorChanges.test_d7b_a_working_preset_under_an_old_name_keeps_its_model) (primary='glm_plan', name='glm-5.3-flash', model='glm-5.3-flash', how='起网关')
+第 10 轮(MiMo #37):主槽 GLM 套餐 + 老安装写的裸名 glm-5.3-flash(路由本来对、正在用)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_vendor_one_door.py", line 329, in test_d7b_a_working_preset_under_an_old_name_keeps_its_model
+    self.assertEqual(cur, want)
+AssertionError: 'glm-5.3@glm_plan' != 'glm-5.3-flash@glm_plan'
+- glm-5.3@glm_plan
++ glm-5.3-flash@glm_plan
+?        ++++++
+
+
+======================================================================
+FAIL: test_d7b_a_working_preset_under_an_old_name_keeps_its_model (__main__.TestWhenThePrimaryVendorChanges.test_d7b_a_working_preset_under_an_old_name_keeps_its_model) (primary='glm_plan', name='glm-5.3-flash', model='glm-5.3-flash', how='同家存 key')
+第 10 轮(MiMo #37):主槽 GLM 套餐 + 老安装写的裸名 glm-5.3-flash(路由本来对、正在用)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_vendor_one_door.py", line 329, in test_d7b_a_working_preset_under_an_old_name_keeps_its_model
+    self.assertEqual(cur, want)
+AssertionError: 'glm-5.3@glm_plan' != 'glm-5.3-flash@glm_plan'
+- glm-5.3@glm_plan
++ glm-5.3-flash@glm_plan
+?        ++++++
+
+
+======================================================================
+FAIL: test_d7b_a_working_preset_under_an_old_name_keeps_its_model (__main__.TestWhenThePrimaryVendorChanges.test_d7b_a_working_preset_under_an_old_name_keeps_its_model) (primary='kimi', name='kimi-k3', model='kimi-k2.6', how='起网关')
+第 10 轮(MiMo #37):主槽 GLM 套餐 + 老安装写的裸名 glm-5.3-flash(路由本来对、正在用)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_vendor_one_door.py", line 329, in test_d7b_a_working_preset_under_an_old_name_keeps_its_model
+    self.assertEqual(cur, want)
+AssertionError: 'kimi-k3' != 'kimi-k2.6'
+- kimi-k3
+?       ^
++ kimi-k2.6
+?       ^^^
+
+
+======================================================================
+FAIL: test_d7b_a_working_preset_under_an_old_name_keeps_its_model (__main__.TestWhenThePrimaryVendorChanges.test_d7b_a_working_preset_under_an_old_name_keeps_its_model) (primary='kimi', name='kimi-k3', model='kimi-k2.6', how='同家存 key')
+第 10 轮(MiMo #37):主槽 GLM 套餐 + 老安装写的裸名 glm-5.3-flash(路由本来对、正在用)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_vendor_one_door.py", line 329, in test_d7b_a_working_preset_under_an_old_name_keeps_its_model
+    self.assertEqual(cur, want)
+AssertionError: 'kimi-k3' != 'kimi-k2.6'
+- kimi-k3
+?       ^
++ kimi-k2.6
+?       ^^^
+
+
+----------------------------------------------------------------------
+Ran 15 tests in 1.500s
+
+FAILED (failures=11)
+---------------- 输出结束 ----------------
+runlog: r10-criteria-red rc=1 commit=a99efaa dirty=yes at=2026-09-24T01:19:15Z file=tracks/opendesign-kimi-glm-vendors/evidence/20260924T011915Z-01-r10-criteria-red.txt

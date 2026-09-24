@@ -13,15 +13,16 @@ ZCode 的做法是:厂商只在设置页里换,模型永远属于某一家。这
 
 1. **老安装脚本不再能换端点/模型**:install.ps1 不问、ds_merge_config 不收 --api-base/--model(d1/d2)。
    第 9 轮 #31(认得出的端点 + 别家的共享模型名)和 #33(换端点沿用旧 key)的写口因此不存在。
-2. **主槽端点真的换了的那一刻**,指向 custom 的预设里,凡不是新厂商的(别家的、裸共享名、机主手写的)
-   一律不许再指 custom:主人另有槽就改指它,否则删掉 —— 它们绑的是旧端点,留着就发错家(d3)。
-   端点没换(同一家换 key)时机主手写的一份不碰(d4,和 k14 同一条)。
+2. **目录里的模型只以那家的正式名字挂在那家的槽上**(稳态,save / 起网关 / 合并都守;第 10 轮起):
+   我们起的名字按主人归位;名字不正式但那格厂商有这个模型 ⇒ 原地改成正式名(模型不变、当前模型跟着改名,d7b);
+   那格厂商没有这个模型 ⇒ 删(不改指到别格,d8)。主槽端点真的换了 ⇒ 绑在旧端点上的手写预设也删(d3);
+   端点没换(同一家换 key)时手写预设和当前模型都不动(d4/d4b)。
 
 ## d3 为什么是穷举
 
 第 9 轮 #32:k11/k15 只钉了 glm-5.3 一个名字、几条序列。d3 不挑序列:五家两两换(有外壳/没外壳),
 主槽里事先种下**每一家每一个模型**的裸名和 `模型@厂商` 两种名字、外加机主手写的,换完问一条性质:
-指向 custom 的每一份都必须是新厂商目录里的模型,名字带厂商的必须带新厂商。
+指向我们槽位的每一份都必须是那格厂商目录里的模型、且是那家的正式名(第 10 轮起也问 od_*、也有额外槽在场的组合)。
 
 ## 它问不出什么
 
@@ -117,6 +118,62 @@ class TestTheOldInstallerCannotChangeTheVendor(pv.Rig):
         self.assertEqual(self.merge().returncode, 0)
         self.assertEqual(set(self.cfg()["model_presets"]), tpl_presets)
 
+    def test_d5b_a_self_configured_endpoint_without_presets_gets_no_mimo_brain(self):
+        """第 10 轮(MiMo #36):纯 onboard 形态(自配端点、没有 model_presets、只有 agents.defaults.model)
+        合并后不许多出 MiMo 预设、也不许设 modelPreset(它压过 model 字段 ⇒ MiMo 模型名发到机主端点,聊天连不上)。
+        悬空的 modelPreset 删掉,不无中生有。"""
+        for presets, current in ((None, None), ({}, "gone-model")):
+            with self.subTest(presets=presets, current=current):
+                self.setUp()
+                cfg = {"providers": {"custom": {"apiKey": "${DS_LLM_KEY}", "apiBase": "https://corp-proxy.example/v1"}},
+                       "agents": {"defaults": {"model": "corp/llama-3"}}}
+                if presets is not None:
+                    cfg["model_presets"] = presets
+                if current:
+                    cfg["agents"]["defaults"]["modelPreset"] = current
+                with open(self.cfg_path, "w", encoding="utf-8") as fh:
+                    json.dump(cfg, fh)
+                r = self.merge()
+                self.assertEqual(r.returncode, 0, r.stderr)
+                got = self.cfg()
+                self.assertEqual(got.get("model_presets") or {}, {}, "MiMo 模板预设合进了机主的端点")
+                self.assertNotIn("modelPreset", got["agents"]["defaults"], "modelPreset 会压过机主的 model 字段")
+                self.assertEqual(got["agents"]["defaults"]["model"], "corp/llama-3")
+                self.assertEqual(got["providers"]["custom"]["apiBase"], "https://corp-proxy.example/v1")
+
+    def test_d9_an_update_merge_aligns_what_is_already_on_disk(self):
+        """第 10 轮(DeepSeek #39):老 git-pull 形态不跑起网关对齐,更新合并是唯一一次清扫 —— 它也要守同一条不变量。"""
+        for primary, leftovers, current, want_model in (
+                ("deepseek", {"mimo-v2.5": "mimo-v2.5", "mimo-v2.5-pro": "mimo-v2.5-pro"}, "mimo-v2.5", "deepseek-v4-flash"),
+                ("kimi", {"glm-5.3": "glm-5.3"}, "glm-5.3", "kimi-k3"),
+                ("glm_plan", {"glm-5.3-flash": "glm-5.3-flash"}, "glm-5.3-flash", "glm-5.3-flash")):
+            with self.subTest(primary=primary):
+                self.setUp()
+                ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider=primary, key=KEYS[primary])
+                cfg = self.cfg()
+                for n, m in leftovers.items():
+                    cfg["model_presets"][n] = {"label": n, "provider": "custom", "model": m}
+                cfg["agents"]["defaults"]["modelPreset"] = current
+                with open(self.cfg_path, "w", encoding="utf-8") as fh:
+                    json.dump(cfg, fh, ensure_ascii=False, indent=2)
+                r = self.merge()
+                self.assertEqual(r.returncode, 0, r.stderr)
+                got = self.cfg()
+                cat = ds_credential.PROVIDERS[primary]["models"]
+                for n, p in got["model_presets"].items():
+                    if isinstance(p, dict) and p.get("provider") == "custom":
+                        self.assertIn(p.get("model"), cat, f"{n} 的模型不属于主槽 {primary}")
+                        self.assertEqual(n, ds_credential.preset_name(primary, p["model"]), f"{n} 不是正式名")
+                cur = got["agents"]["defaults"]["modelPreset"]
+                self.assertEqual(got["model_presets"][cur]["model"], want_model)
+
+    def test_d10_install_ps1_lets_you_skip_the_mimo_key(self):
+        """第 10 轮(DeepSeek #40):没有 MiMo key 的人回车跳过,装完在界面里选厂商填 key —— 不许逼他把别家的 key 塞进 MiMo 槽。"""
+        with open(INSTALL_PS1, encoding="utf-8-sig") as fh:
+            code = "\n".join(ln for ln in fh.read().splitlines() if not ln.lstrip().startswith("#"))
+        self.assertNotRegex(code, r'if \(-not \$key\) \{ Write-Error', "空 key 仍然终止安装")
+        self.assertIn("跳过", code)
+
     def test_d6_the_package_check_requires_the_modules_the_merger_imports(self):
         """第 9 轮 #35:合并器 import ds_credential(它再 import ds_model),出货包少了它们安装就合并失败。"""
         with open(CHECK_PACKAGE, encoding="utf-8") as fh:
@@ -151,28 +208,47 @@ class TestWhenThePrimaryVendorChanges(pv.Rig):
         ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider=vendor, key=KEYS[vendor], multi=shell)
 
     def violations(self, new):
+        """第 10 轮(MiMo #43)起问的是整条不变量,不只问指 custom 的:
+        指向我们槽位(custom / od_*)的每一份,若模型在目录里 ⇒ 必须在**那一格厂商**的目录里、且名字就是那家的正式名;
+        指 custom 的目录外模型(机主手写,绑旧端点)⇒ 主槽刚换过端点,不许留。"""
         cfg = self.cfg()
+        catalog = {m for p in ds_credential.PROVIDERS.values() for m in p["models"]}
         bad = []
         for name, p in cfg["model_presets"].items():
-            if not isinstance(p, dict) or p.get("provider") != "custom":
+            if not isinstance(p, dict):
                 continue
-            if p.get("model") not in ds_credential.PROVIDERS[new]["models"]:
-                bad.append(f"{name}(模型 {p.get('model')})指着主槽,而主槽现在是 {new}")
-            elif "@" in name and name.rsplit("@", 1)[1] in ds_credential.PROVIDERS and name.rsplit("@", 1)[1] != new:
-                bad.append(f"{name} 名字说是别家,却指着主槽 {new}")
+            prov, model = p.get("provider"), p.get("model")
+            if prov == "custom":
+                slot_vendor = new
+            elif isinstance(prov, str) and prov.startswith("od_") and prov[3:] in ds_credential.PROVIDERS:
+                slot_vendor = prov[3:]
+            else:
+                continue
+            if model not in catalog:
+                if prov == "custom":
+                    bad.append(f"{name}(手写 {model})还指着换过端点的主槽 {new}")
+                continue
+            if model not in ds_credential.PROVIDERS[slot_vendor]["models"]:
+                bad.append(f"{name}(模型 {model})挂在 {prov}({slot_vendor})上,那家没有这个模型")
+            elif name != ds_credential.preset_name(slot_vendor, model):
+                bad.append(f"{name}(模型 {model})挂在 {prov} 上,名字不是 {slot_vendor} 的正式名")
         if cfg["model_presets"].get("没写provider") != {"label": "x", "model": "whatever"}:
             bad.append("没写 provider 的手写预设被动了(它不指我们的槽)")
         return bad
 
     def test_d3_after_any_primary_change_nothing_but_the_new_vendor_points_at_the_primary_slot(self):
-        for shell in (False, True):
+        for shell, with_extra in ((False, False), (True, False), (True, True)):
             for old in VENDORS:
                 for new in VENDORS:
                     if new == old:
                         continue
-                    with self.subTest(shell=shell, old=old, new=new):
+                    extra = next(v for v in VENDORS if v not in (old, new)) if with_extra else None
+                    with self.subTest(shell=shell, old=old, new=new, extra=extra):
                         self.setUp()
                         self.put_primary(old)
+                        if extra:
+                            self.extra_key(extra)
+                            self.gateway_env()          # 额外槽条目由起网关写
                         self.plant()
                         self.replace_primary(new, shell)
                         self.assertEqual(self.violations(new), [], "存完 key 就查(还没起网关)")
@@ -232,6 +308,29 @@ class TestWhenThePrimaryVendorChanges(pv.Rig):
         self.assertEqual((snap.provider.api_base, snap.provider.api_key),
                          (ds_credential.PROVIDERS["glm_plan"]["apiBase"], KEYS["glm_plan"]))
 
+    def test_d7b_a_working_preset_under_an_old_name_keeps_its_model(self):
+        """第 10 轮(MiMo #37):主槽 GLM 套餐 + 老安装写的裸名 glm-5.3-flash(路由本来对、正在用)。
+        清扫只许**原地改成正式名**,不许删了回落默认 glm-5.3 —— 那是把业主选好的模型换掉。名模不一致但那家有这个模型的同理。"""
+        for primary, name, model, want in (("glm_plan", "glm-5.3-flash", "glm-5.3-flash", "glm-5.3-flash@glm_plan"),
+                                           ("glm_plan", "glm-5.3", "glm-5.3", "glm-5.3@glm_plan"),
+                                           ("kimi", "kimi-k3", "kimi-k2.6", "kimi-k2.6")):
+            for how in ("起网关", "同家存 key"):
+                with self.subTest(primary=primary, name=name, model=model, how=how):
+                    self.setUp()
+                    self.put_primary(primary)
+                    self.on_disk({name: {"label": name, "provider": "custom", "model": model}}, name)
+                    if how == "起网关":
+                        env = self.gateway_env()
+                    else:
+                        ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider=primary, key=KEYS[primary])
+                        env = self.gateway_env()
+                    cfg = self.cfg()
+                    cur = cfg["agents"]["defaults"]["modelPreset"]
+                    self.assertEqual(cur, want)
+                    self.assertEqual(cfg["model_presets"][cur]["model"], model, "业主选好的模型被换了")
+                    snap = self.snapshot(env, None)
+                    self.assertEqual(snap.provider.api_base, ds_credential.PROVIDERS[primary]["apiBase"])
+
     def test_d8b_a_catalog_model_under_a_name_that_is_not_ours_is_dropped_too(self):
         """名模不一致(名字 glm-5.3@glm_plan、模型 kimi-k3、指着 MiMo 主槽):发到的那家没有这个模型 ⇒ 删。
         目录外的手写模型(my-own-model)、没写 provider 的,端点不变时照旧不碰(与 k14 同一条)。"""
@@ -257,6 +356,26 @@ class TestWhenThePrimaryVendorChanges(pv.Rig):
                 ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="glm",
                                    key=KEYS["glm"] + "x", multi=shell)
                 self.assertEqual(self.cfg()["model_presets"].get("我的模型"), before, "同一家换 key,手写预设被动了")
+
+    def test_d4b_same_vendor_new_key_keeps_the_current_model(self):
+        """第 10 轮(MiMo #38):选好 glm-5.1 之后再存一次 GLM 的 key(换 key)⇒ 当前模型不许回到默认 glm-5.3。"""
+        for shell in (False, True):
+            with self.subTest(shell=shell):
+                self.setUp()
+                self.put_primary("glm")
+                ds_credential.select_model(self.cfg_path, "glm-5.1", provider="glm")
+                if shell:
+                    os.remove(self.key_txt)
+                ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="glm",
+                                   key=KEYS["glm"] + "x", multi=shell)
+                self.assertEqual(self.cfg()["agents"]["defaults"]["modelPreset"], "glm-5.1")
+
+    def test_d11_picking_a_model_fixes_a_preset_whose_model_field_was_wrong(self):
+        """第 10 轮(MiMo 残留 #44):正式名 glm-5.1 的预设里 model 被手改成 glm-5.3,界面选 glm-5.1 ⇒ 发出去的必须是 glm-5.1。"""
+        self.put_primary("glm")
+        self.on_disk({"glm-5.1": {"label": "glm-5.1", "provider": "custom", "model": "glm-5.3"}}, "glm-5.3@glm")
+        ds_credential.select_model(self.cfg_path, "glm-5.1", provider="glm")
+        self.assertEqual(self.cfg()["model_presets"]["glm-5.1"]["model"], "glm-5.1")
 
 
 if __name__ == "__main__":
