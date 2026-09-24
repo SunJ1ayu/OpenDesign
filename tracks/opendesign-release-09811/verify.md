@@ -12,9 +12,9 @@
 
 ## Mechanical checks
 
-- [ ] build passes
-- [ ] tests pass
-- [ ] no secrets / unsafe ops
+- [x] build passes(云 run 35965656125 出货包)
+- [x] tests pass(run-all 六段过、rc=3 仅既有 SKIP;云 141 OK / 0 FAIL)
+- [x] no secrets / unsafe ops(push 未被 secret scanning 拦;发布经业主授权「你做完直接传上去吧」)
 
 **机器打印的**(不是我的转述)—— 判据用 `runlog` 跑,把它打印的收据行原样粘进来:
 
@@ -25,11 +25,14 @@ runlog -t opendesign-release-09811 -- <判据命令>
 ```
 runlog: run-all rc=3 commit=c7aee6f dirty=no final=yes at=2026-09-24T06:40:59Z file=tracks/opendesign-release-09811/evidence/20260924T064059Z-01-run-all.txt
 runlog: cloud-e2e rc=0 commit=c7aee6f dirty=yes at=2026-09-24T07:02:52Z file=tracks/opendesign-release-09811/evidence/20260924T070252Z-01-cloud-e2e.txt
+runlog: prod-smoke-11 rc=0 commit=c632d20 dirty=no at=2026-09-24T07:11:38Z file=tracks/opendesign-release-09811/evidence/20260924T071138Z-01-prod-smoke-11.txt
 ```
 - run-all rc=3 = 六段全过(python 1507 / node 509 / e2e 41),3 条既有 SKIP 要起 gateway。
 - cloud-e2e = run 35965656125(head `c7aee6f`,payload + e2e 两个 job 都 success):**141 OK / 0 FAIL**。
   quiet-start 移交的两条兑现:E2.connecting「后台没好时不挂横幅」、E2.noreload「就绪后整页不重载」;E4 应用内更新(0.98.11 → 替身 0.98.12)
   「重启以更新」→ 向导两下 → 自己重开、版本三方一致;E1r 出货版与被测版逐文件只差更新源。
+- prod-smoke-11 = T4 发布后从 GitHub 正式地址取回:正式版;latest 清单 = 0.98.11;安装包 / blockmap 字节 = artifact;
+  旧 blockmap `download/v0.98.10/` 在;tag v0.98.11 与被测 `c7aee6f` 非 tracks 源码一致。
 
 ## Review
 
@@ -61,15 +64,19 @@ subdeepseek=PASS(verdict=PASS) subcursor.grok-4.7-high=PASS(verdict=PASS)
   | 2 | (DeepSeek F3)老手动装法变了:install.ps1 不问端点/模型、合并器拒 `--api-base/--model` | kimi-glm 单的设计(业主「照 ZCode」) | 接受 | 业主走 Electron 安装/更新(`ds_provision` → 合并器无参数),够不到;git-pull/手动装的使用者看 docs/install-windows.md(已同步改) |
   | 3 | (DeepSeek F6)artifact 保留 14 天 | `.github/workflows/electron-e2e.yml` | 本单当天发布 | —— |
 
-- arbitrated verdict (主裁): 发布前评审 PASS —— 两家族同一次 PASS、0 阻断;我核过:云 run 35965656125 141 OK / 0 FAIL、head = 被测 `c7aee6f`、版本三处一致。
+- arbitrated verdict (主裁): **PASS**。发布前评审两家族同一次 PASS、0 阻断;云 run 35965656125 141 OK / 0 FAIL、head = 被测 `c7aee6f`、版本三处一致;
+  09-24 15:10 发布正式 release v0.98.11(https://github.com/SunJ1ayu/OpenDesign/releases/tag/v0.98.11),中文说明已换上,生产源 smoke 全 OK。
+  **当天归档**(0.98.10 单的教训);业主真机回显(0.98.10 自动更新到 0.98.11 + 真机清单)事后补在下面。
+- 业主真机(待补):版本 0.98.11;启动无横幅;侧栏新图标;设置→AI 模型里有 Kimi / 两家 GLM 且「获取 API Key」链接能打开;
+  窄窗首页无横向滚动、各页只转圈不报错(0.98.10 单移交)。
 
 ## Accepted deviations
 
-- <接受的非关键偏差 + 原因 + 影响范围,或 None>
+- 业主真机结果不在归档前承诺里(见 proposal「不承诺」),事后补记。
 
 ## 试行记录(review-convergence 试行,约五单;拿不到的写 unknown,别补 0)
 
-- 总交付历时:<开工 commit 时刻 → 归档 commit 时刻>
-- 每轮新增有效阻断:<第 1 轮 n / 第 2 轮 n>
-- 基础设施等待:<重试次数;observations 里 panel-review 的 duration_ms 求和>
-- 交付后返工:<归档后因本单再改过几次;不知道写 unknown>
+- 总交付历时:09-24 14:3x 立单(`c7aee6f`)→ 15:1x 发布并归档,约 45 分钟
+- 每轮新增有效阻断:第 1 轮 0
+- 基础设施等待:重试 0;云 Windows 整跑约 20 分钟、评审约 5 分钟
+- 交付后返工:unknown(刚归档)
