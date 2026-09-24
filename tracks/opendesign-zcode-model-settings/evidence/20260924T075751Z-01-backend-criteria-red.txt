@@ -1,0 +1,191 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    backend-criteria-red
+cmd:     /root/.venvs/design-studio/bin/python tests/test_model_registry.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  a2222b5
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-24T07:57:51Z
+---------------- 输出开始 ----------------
+test_z12_context_window_edit_reaches_the_preset (__main__.TestAddedModels.test_z12_context_window_edit_reaches_the_preset) ... ERROR
+test_z2_a_model_added_on_the_primary_vendor_is_selectable_and_survives (__main__.TestAddedModels.test_z2_a_model_added_on_the_primary_vendor_is_selectable_and_survives)
+小米那页「添加模型」填一个新 ID ⇒ 菜单里有、选得上、发到小米;再存别家 key、起网关、合并更新都不丢。 ... ERROR
+test_z3_a_model_added_on_an_extra_vendor_goes_to_that_vendor_with_its_params (__main__.TestAddedModels.test_z3_a_model_added_on_an_extra_vendor_goes_to_that_vendor_with_its_params)
+额外格 Kimi 加 kimi-k9 ⇒ 发到 Moonshot、带 Kimi 的 key、temperature≥1(Kimi 的 presetParams 照样套上)。 ... ERROR
+test_z8_builtin_and_in_use_models_cannot_be_removed (__main__.TestAddedModels.test_z8_builtin_and_in_use_models_cannot_be_removed) ... ERROR
+test_z1_mimo_ships_with_v26 (__main__.TestBuiltinCatalog.test_z1_mimo_ships_with_v26)
+小米服务端 /v1/models 09-24 实查已列 mimo-v2.6-pro / mimo-v2.6-flash(业主的原问题);内置目录要有。 ... ERROR
+test_z10_the_test_button_really_asks_the_vendor_and_never_echoes_the_key (__main__.TestConnectivity.test_z10_the_test_button_really_asks_the_vendor_and_never_echoes_the_key) ... ERROR
+test_z4_a_custom_provider_is_selectable_routes_to_its_endpoint_and_survives (__main__.TestCustomProvider.test_z4_a_custom_provider_is_selectable_routes_to_its_endpoint_and_survives) ... ERROR
+test_z4b_removing_a_custom_provider (__main__.TestCustomProvider.test_z4b_removing_a_custom_provider) ... ERROR
+test_z5_a_custom_endpoint_may_not_collide_or_exist_without_a_shell (__main__.TestCustomProvider.test_z5_a_custom_endpoint_may_not_collide_or_exist_without_a_shell) ... 
+  test_z5_a_custom_endpoint_may_not_collide_or_exist_without_a_shell (__main__.TestCustomProvider.test_z5_a_custom_endpoint_may_not_collide_or_exist_without_a_shell) (base='https://api.deepseek.com/v1') ... ERROR
+  test_z5_a_custom_endpoint_may_not_collide_or_exist_without_a_shell (__main__.TestCustomProvider.test_z5_a_custom_endpoint_may_not_collide_or_exist_without_a_shell) (base='https://token-plan-cn.xiaomimimo.com/v1/') ... ERROR
+test_z5_a_custom_endpoint_may_not_collide_or_exist_without_a_shell (__main__.TestCustomProvider.test_z5_a_custom_endpoint_may_not_collide_or_exist_without_a_shell) ... ERROR
+test_z6_disable_hides_from_the_menu_without_touching_routing (__main__.TestEnableAndKeys.test_z6_disable_hides_from_the_menu_without_touching_routing) ... ERROR
+test_z7_saving_a_key_never_changes_the_current_model (__main__.TestEnableAndKeys.test_z7_saving_a_key_never_changes_the_current_model)
+设置页存 key 不换当前模型(ZCode);额外格同一家换 key 也不回默认(kimi-glm #60)。 ... ERROR
+test_z11_a_0_98_11_machine_without_a_registry_file_just_works (__main__.TestView.test_z11_a_0_98_11_machine_without_a_registry_file_just_works) ... ERROR
+test_z9_the_settings_view_lists_every_vendor_with_status_and_models (__main__.TestView.test_z9_the_settings_view_lists_every_vendor_with_status_and_models) ... ERROR
+
+======================================================================
+ERROR: test_z12_context_window_edit_reaches_the_preset (__main__.TestAddedModels.test_z12_context_window_edit_reaches_the_preset)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 155, in test_z12_context_window_edit_reaches_the_preset
+    ds_credential.set_context_window(self.home, self.cfg_path, "mimo", "mimo-v2.5", 500000)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_credential' has no attribute 'set_context_window'
+
+======================================================================
+ERROR: test_z2_a_model_added_on_the_primary_vendor_is_selectable_and_survives (__main__.TestAddedModels.test_z2_a_model_added_on_the_primary_vendor_is_selectable_and_survives)
+小米那页「添加模型」填一个新 ID ⇒ 菜单里有、选得上、发到小米;再存别家 key、起网关、合并更新都不丢。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 106, in test_z2_a_model_added_on_the_primary_vendor_is_selectable_and_survives
+    ds_credential.add_model(self.home, self.cfg_path, "mimo", "mimo-x-next", context_window=262144)
+    ^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_credential' has no attribute 'add_model'. Did you mean: 'ds_model'?
+
+======================================================================
+ERROR: test_z3_a_model_added_on_an_extra_vendor_goes_to_that_vendor_with_its_params (__main__.TestAddedModels.test_z3_a_model_added_on_an_extra_vendor_goes_to_that_vendor_with_its_params)
+额外格 Kimi 加 kimi-k9 ⇒ 发到 Moonshot、带 Kimi 的 key、temperature≥1(Kimi 的 presetParams 照样套上)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 122, in test_z3_a_model_added_on_an_extra_vendor_goes_to_that_vendor_with_its_params
+    self.add_extra("kimi")
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 57, in add_extra
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider=vendor,
+TypeError: save() got an unexpected keyword argument 'switch'
+
+======================================================================
+ERROR: test_z8_builtin_and_in_use_models_cannot_be_removed (__main__.TestAddedModels.test_z8_builtin_and_in_use_models_cannot_be_removed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 138, in test_z8_builtin_and_in_use_models_cannot_be_removed
+    ds_credential.remove_model(self.home, self.cfg_path, "mimo", "mimo-v2.5")
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_credential' has no attribute 'remove_model'
+
+======================================================================
+ERROR: test_z1_mimo_ships_with_v26 (__main__.TestBuiltinCatalog.test_z1_mimo_ships_with_v26)
+小米服务端 /v1/models 09-24 实查已列 mimo-v2.6-pro / mimo-v2.6-flash(业主的原问题);内置目录要有。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 92, in test_z1_mimo_ships_with_v26
+    models = ds_credential.catalog(self.home)["mimo"]["models"]
+             ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_credential' has no attribute 'catalog'
+
+======================================================================
+ERROR: test_z10_the_test_button_really_asks_the_vendor_and_never_echoes_the_key (__main__.TestConnectivity.test_z10_the_test_button_really_asks_the_vendor_and_never_echoes_the_key)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 314, in test_z10_the_test_button_really_asks_the_vendor_and_never_echoes_the_key
+    pid = ds_credential.add_custom_provider(self.home, self.cfg_path, label="假厂商", api_base=self.base,
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_credential' has no attribute 'add_custom_provider'
+
+======================================================================
+ERROR: test_z4_a_custom_provider_is_selectable_routes_to_its_endpoint_and_survives (__main__.TestCustomProvider.test_z4_a_custom_provider_is_selectable_routes_to_its_endpoint_and_survives)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 170, in test_z4_a_custom_provider_is_selectable_routes_to_its_endpoint_and_survives
+    pid = self.add_proxy()
+          ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 165, in add_proxy
+    return ds_credential.add_custom_provider(self.home, self.cfg_path, label="我的中转", api_base=base,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_credential' has no attribute 'add_custom_provider'
+
+======================================================================
+ERROR: test_z4b_removing_a_custom_provider (__main__.TestCustomProvider.test_z4b_removing_a_custom_provider)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 195, in test_z4b_removing_a_custom_provider
+    pid = self.add_proxy()
+          ^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 165, in add_proxy
+    return ds_credential.add_custom_provider(self.home, self.cfg_path, label="我的中转", api_base=base,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_credential' has no attribute 'add_custom_provider'
+
+======================================================================
+ERROR: test_z5_a_custom_endpoint_may_not_collide_or_exist_without_a_shell (__main__.TestCustomProvider.test_z5_a_custom_endpoint_may_not_collide_or_exist_without_a_shell) (base='https://api.deepseek.com/v1')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 185, in test_z5_a_custom_endpoint_may_not_collide_or_exist_without_a_shell
+    self.add_proxy(base=base)
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 165, in add_proxy
+    return ds_credential.add_custom_provider(self.home, self.cfg_path, label="我的中转", api_base=base,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_credential' has no attribute 'add_custom_provider'
+
+======================================================================
+ERROR: test_z5_a_custom_endpoint_may_not_collide_or_exist_without_a_shell (__main__.TestCustomProvider.test_z5_a_custom_endpoint_may_not_collide_or_exist_without_a_shell) (base='https://token-plan-cn.xiaomimimo.com/v1/')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 185, in test_z5_a_custom_endpoint_may_not_collide_or_exist_without_a_shell
+    self.add_proxy(base=base)
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 165, in add_proxy
+    return ds_credential.add_custom_provider(self.home, self.cfg_path, label="我的中转", api_base=base,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_credential' has no attribute 'add_custom_provider'
+
+======================================================================
+ERROR: test_z5_a_custom_endpoint_may_not_collide_or_exist_without_a_shell (__main__.TestCustomProvider.test_z5_a_custom_endpoint_may_not_collide_or_exist_without_a_shell)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 186, in test_z5_a_custom_endpoint_may_not_collide_or_exist_without_a_shell
+    self.add_proxy()
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 165, in add_proxy
+    return ds_credential.add_custom_provider(self.home, self.cfg_path, label="我的中转", api_base=base,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_credential' has no attribute 'add_custom_provider'
+
+======================================================================
+ERROR: test_z6_disable_hides_from_the_menu_without_touching_routing (__main__.TestEnableAndKeys.test_z6_disable_hides_from_the_menu_without_touching_routing)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 211, in test_z6_disable_hides_from_the_menu_without_touching_routing
+    self.add_extra("kimi")
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 57, in add_extra
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider=vendor,
+TypeError: save() got an unexpected keyword argument 'switch'
+
+======================================================================
+ERROR: test_z7_saving_a_key_never_changes_the_current_model (__main__.TestEnableAndKeys.test_z7_saving_a_key_never_changes_the_current_model)
+设置页存 key 不换当前模型(ZCode);额外格同一家换 key 也不回默认(kimi-glm #60)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 233, in test_z7_saving_a_key_never_changes_the_current_model
+    self.add_extra("kimi")
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 57, in add_extra
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider=vendor,
+TypeError: save() got an unexpected keyword argument 'switch'
+
+======================================================================
+ERROR: test_z11_a_0_98_11_machine_without_a_registry_file_just_works (__main__.TestView.test_z11_a_0_98_11_machine_without_a_registry_file_just_works)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 266, in test_z11_a_0_98_11_machine_without_a_registry_file_just_works
+    self.add_extra("kimi")
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 57, in add_extra
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider=vendor,
+TypeError: save() got an unexpected keyword argument 'switch'
+
+======================================================================
+ERROR: test_z9_the_settings_view_lists_every_vendor_with_status_and_models (__main__.TestView.test_z9_the_settings_view_lists_every_vendor_with_status_and_models)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 244, in test_z9_the_settings_view_lists_every_vendor_with_status_and_models
+    self.add_extra("kimi")
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_model_registry.py", line 57, in add_extra
+    ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider=vendor,
+TypeError: save() got an unexpected keyword argument 'switch'
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.564s
+
+FAILED (errors=15)
+---------------- 输出结束 ----------------
+runlog: backend-criteria-red rc=1 commit=a2222b5 dirty=yes at=2026-09-24T07:57:51Z file=tracks/opendesign-zcode-model-settings/evidence/20260924T075751Z-01-backend-criteria-red.txt
