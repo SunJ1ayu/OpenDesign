@@ -1,8 +1,0 @@
-# panel-review 花名册(2026-09-25 10:49:17)task=opendesign-key-restart-r2
-# PASS = 进程 rc=0,**不等于给了裁决**;off = 这条腿压根没派(不许读成通过)。
-# impact-risk=high requested-budget=2 selected-count=2
-# selected=subdeepseek(deepseek/subdeepseek-agent),subcursor.grok-4.7-high(xai/subcursor)
-# escalation=none
-# snapshot=head:2c622fa
-# 日志:/root/aiwork/logs/panel-keyrestart-r2-20260925-104115.*.log
-subdeepseek=PASS(verdict=PASS) subcursor.grok-4.7-high=PASS(verdict=PASS)
