@@ -35,7 +35,10 @@ const vendor = createServer((req, res) => {
   req.on("end", () => {
     let body = {};
     try { body = JSON.parse(raw || "{}"); } catch { /* 坏包 */ }
-    const hit = { mode: MODE, path: req.url, at: Date.now(), sent: 0, cutByClient: false };
+    // 认「这是哪一句的请求」靠请求里最后一句用户话(网关还会另发取标题之类的请求,不能拿「最后一个请求」当那一路)
+    const lastUser = [...(body.messages || [])].reverse().find((m) => m.role === "user");
+    const ask = typeof lastUser?.content === "string" ? lastUser.content : JSON.stringify(lastUser?.content ?? "");
+    const hit = { mode: MODE, path: req.url, at: Date.now(), sent: 0, cutByClient: false, ask: ask.slice(0, 200) };
     hits.push(hit);
     if (BODIES[MODE]) {
       const [code, b] = BODIES[MODE];
@@ -151,6 +154,15 @@ async function sendNoWait(scope, text) {
   await page.locator(`${scope} .send-btn`).click();
   await page.locator(`${scope} .stop-btn`).waitFor({ timeout: 5000 });
 }
+async function waitHit(text, timeout = 15000) {
+  const t0 = Date.now();
+  for (;;) {
+    const h = [...hits].reverse().find((x) => x.ask.includes(text) && x.mode !== "ok");
+    if (h) return h;
+    if (Date.now() - t0 > timeout) throw new Error(`假厂商没收到「${text}」那一路请求`);
+    await page.waitForTimeout(100);
+  }
+}
 async function clickStopAndTime(scope) {
   const t0 = Date.now();
   await page.locator(`${scope} .stop-btn`).click();
@@ -174,7 +186,7 @@ try {
       const r = await (await fetch("/api/llm/models")).json();
       return { provider: r.provider, label: r.label, current: r.current, groups: (r.groups || []).map((g) => g.provider) };
     }),
-    说明: "录像台子把主槽的地址改指到本机假厂商,后台按地址认不出是 MiMo ⇒ provider 为空 ⇒ 按钮按设计退回只写模型名;业主机器上地址是真的" });
+    说明: "录像台子把主槽的地址改指到本机假厂商,后台认不出当前模型是哪家、兜底报了有 key 的第一家(自定义那家);当前模型不在那家目录里 ⇒ 按钮不写厂商名、只写模型名(第 1 遍录像这里写成了「王工… · mimo-v2.5」,已修)。业主机器上主槽地址是真的,认得出" });
 
   await page.locator(`${pane} [data-ui="composer-plus"]`).click();
   await page.waitForTimeout(300);
@@ -218,7 +230,7 @@ try {
   await page.waitForFunction(() => /第3段/.test(document.querySelector(".home-pane .msg-ai.streaming")?.textContent || ""), null, { timeout: 30000 });
   await step("回复中(假厂商慢慢吐字):输入框下面那颗键", { ...(await btnState(pane)),
     停止键读屏名: await page.locator(`${pane} .stop-btn`).getAttribute("aria-label") });
-  const hitSlow = hits.at(-1);
+  const hitSlow = await waitHit("讲个长故事");
   const tStop = await clickStopAndTime(pane);
   await page.waitForTimeout(1500);
   await step("点 ■ 停止", { "从点下到 ↑ 回来毫秒": tStop, ...(await btnState(pane)), 系统小字: await notes(pane),
@@ -242,13 +254,27 @@ try {
   await step("这时点 ■", { "从点下到 ↑ 回来毫秒": tThinkStop, ...(await btnState(pane)), 系统小字: await notes(pane),
     思考动画: await page.locator(`${pane} .msg-ai.thinking`).count(), 助手气泡数: await bubbles(pane).count() });
 
+  // ── 重开软件,从侧栏点回这段(停过两次;放在这里做:再往后建的对话会把它挤出侧栏,那是第 3 件侧栏的事)──
+  const liveNotes = await notes(pane);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitConnected(page, pane, 60000);
+  const histRows = await page.locator(".hist-row").allInnerTexts();
+  await page.locator(".hist-row").first().click({ timeout: 15000 });
+  await page.waitForFunction(() => document.querySelectorAll('.home-pane [data-ui="chat-system-note"]').length >= 2, null,
+    { timeout: 20000 }).catch(() => {});
+  await page.waitForTimeout(800);
+  await step("重开软件,从侧栏点回刚才停过两次的这段(走网关回放)", { 侧栏历史: histRows, 系统小字: await notes(pane),
+    实时时的系统小字: liveNotes, 逐条相同: JSON.stringify(liveNotes) === JSON.stringify(await notes(pane)),
+    有没有英文系统句: (await page.locator(`${pane} .msg-ai`).allInnerTexts()).some((t) => /Stopped|No active task/.test(t)),
+    用户气泡: await userBubbles(pane), 回答: await bubbles(pane).allInnerTexts() });
+
   // ── 三栏:首页在说,项目助手也在说,只停项目栏 ──
   const cr = await fetch(`${base}/api/projects/create`, { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project: "翡翠湾-1801" }) });
   if (!cr.ok) throw new Error(`夹具:建项目失败 HTTP ${cr.status} ${await cr.text()}`);
   MODE = "slow";
   await sendNoWait(pane, "首页这边讲个长故事");
-  const homeHit = hits.at(-1);
+  const homeHit = await waitHit("首页这边讲个长故事");
   await page.goto(`${base}/#/workspace`, { waitUntil: "domcontentloaded" });
   await page.reload({ waitUntil: "domcontentloaded" });
   const proj = page.locator(".proj-row", { hasText: "翡翠湾-1801" }).first();
@@ -259,7 +285,7 @@ try {
   // 重载会断掉首页那一轮 —— 首页那条要在重载之后另起
   MODE = "slow";
   await sendNoWait(".chatcol", "项目这边也讲一个");
-  const projHit = hits.at(-1);
+  const projHit = await waitHit("项目这边也讲一个");
   await page.waitForTimeout(2000);
   await step("项目栏在回复", { ...(await btnState(".chatcol")) });
   const tProjStop = await clickStopAndTime(".chatcol");
@@ -271,11 +297,11 @@ try {
   await page.locator(pane).waitFor({ state: "visible", timeout: 8000 });
   await waitConnected(page, pane, 60000);
   await sendNoWait(pane, "首页再讲一个长的");
-  const homeHit2 = hits.at(-1);
+  const homeHit2 = await waitHit("首页再讲一个长的");
   await page.goto(`${base}/#/workspace`, { waitUntil: "domcontentloaded" });
   await page.locator(".chatcol").waitFor({ state: "visible", timeout: 8000 });
   await sendNoWait(".chatcol", "项目这边再讲一个");
-  const projHit2 = hits.at(-1);
+  const projHit2 = await waitHit("项目这边再讲一个");
   await page.waitForTimeout(1500);
   await clickStopAndTime(".chatcol");
   const homeSentAtProjStop = homeHit2.sent;
@@ -288,23 +314,6 @@ try {
   const t1 = Date.now();
   while (Date.now() - t1 < 30000 && (await page.locator(`${pane} .stop-btn`).count()) > 0) await page.waitForTimeout(300);
   await step("首页那一条自己说完", { ...(await btnState(pane)), 最后一条回答结尾: (await bubbles(pane).last().innerText().catch(() => "")).slice(-20) });
-
-  // ── 重开软件,从侧栏点回第一段(停过两次的那段)──
-  const liveNotes = await notes(pane);
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await waitConnected(page, pane, 60000);
-  const histRows = await page.locator(".hist-row").allInnerTexts();
-  await step("重开软件后的侧栏历史", { 侧栏历史: histRows });
-  const row = page.locator(".hist-row", { hasText: "讲个长故事" }).first();
-  if (await row.count()) {
-    await row.click();
-    await page.waitForTimeout(3000);
-    await step("点回「讲个长故事」那段(走网关回放)", { 系统小字: await notes(pane), 实时时的系统小字: liveNotes,
-      有没有英文系统句: (await page.locator(`${pane} .msg-ai`).allInnerTexts()).some((t) => /Stopped|No active task/.test(t)),
-      用户气泡: await userBubbles(pane) });
-  } else {
-    await step("侧栏里没有「讲个长故事」那段(被新对话挤出了 —— 第 3 件侧栏要解决的)", { 侧栏历史: histRows });
-  }
 
   // ── Q3′:出错小字的标签 ──
   MODE = "quota";
