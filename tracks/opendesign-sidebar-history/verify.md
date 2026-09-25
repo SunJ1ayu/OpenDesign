@@ -45,6 +45,9 @@ runlog -t opendesign-sidebar-history -- <判据命令>
   | 轮 | 类型(实质 / 重试) | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
   |---|---|---|---|---|
   | 1 | 实质 | rc=3(BLOCK 0,PENDING 2:归档才要的收据引用) | `/root/aiwork/logs/panel-sidebar-r1-20260925-225828` | 1(GPT H1) |
+  | 2 | 实质 | rc=3(BLOCK 0,PENDING 2) | `/root/aiwork/logs/panel-sidebar-r2-20260925-235401` | 2(GPT 第 2 轮 M-a / M-b,中) |
+  | — | (23:28 那次没派出去:缺第 2 轮自审文件,工具拒派,不算轮;我没看派发输出白等 20 多分钟) | — | `/root/aiwork/logs/panel-sidebar-r2-20260925-232832` | — |
+  | 3 | 实质(业主 09-26 00:1x 同意加这一轮:只核第 2 轮两条的修复) | 见下 | 见下 | 见下 |
 
 - findings(第 1 轮代码评审 + QA 判卷,一份修复清单,一次修完):
 
@@ -66,7 +69,19 @@ runlog -t opendesign-sidebar-history -- <判据命令>
   | D3 | (我,录像发现,老问题)前端写死连 ws 8765;管家试绑端口不带 SO_REUSEADDR,Linux 上 8765 刚断开的连接(TIME_WAIT)未过就顺延到 8766 ⇒ 页面连不上 | 第 1 遍录像 18.jpg「连接不上」;台子等 62 秒才可绑(第 2 遍录像事实) | **延期、另开单**(不在本单) | 业主「关掉马上再开」可能撞上;Windows 上是否同样未核实 |
   | D4 | (我)回放记录是 nanobot 内部格式(schema v3),钉版本才靠得住 | — | **延期** | 升级 nanobot 时要回看 |
 
-- arbitrated verdict (主裁):(第 2 轮后填)
+- 第 2 轮花名册:`subcursor.gpt-5.6-sol-high=PASS(verdict=BLOCK) subcursor.kimi-k3-high=PASS(verdict=PASS)`
+- 第 2 轮 findings:
+
+  | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
+  |---|---|---|---|---|
+  | R7 | (GPT 第 2 轮 M-a)改名失败时,这段对话自己仍把目标名算碰过 ⇒ 出现在已存在的目标项目下 | 旧 `_Touched.tool` 无条件 add(new) | **已修** `e417b03`(判据先行 `9ba42b5` 红):改名只算碰过旧名 | 真问题,一行修 |
+  | R8 | (GPT 第 2 轮 M-b)我对 D1(改错又改回去 A→B→A、新项目用旧名)的延期理由站不住:按项目是核心承诺 | 旧 `_resolve` 全局别名、成环停在错的名字 | **已修** `e417b03`:后台回原始名字 + 成功改名记录,前端「现在还有的项目优先、再顺着改名找第一个还在的」(判据 s10) | 我同意这个反驳;D1 从延期改为已修(剩「新项目恰好用了被改掉的旧名」时,老对话归到新项目 —— 更少见,记 D1′ 延期) |
+  | R9 | (Kimi 第 2 轮,低)一轮回合收尾时刷新侧栏状态的那一下不经排队,和正在进行的置顶回话赛跑 | `App.tsx` sessionsEpoch effect 里 fetchSidebarState | **延期** | 本机毫秒级窗口;盘上数据对,下次刷新自愈 |
+  | Q6 | (QA 复测 DeepSeek)待办数仍是没名字的裸数字;「+1」全名只有悬停看得到 | 第 2 遍录像 06 / 08 | **延期** | 待办数是老样子不在本单;桌面版业主用鼠标 |
+  | D1′ | (我)项目 A 改名成 B 之后,又新建了一个也叫 A 的项目 ⇒ 改名前碰过老 A 的对话归到新 A 下 | 前端规则「现在还有的优先」 | **延期** | 很少见;对话仍在按时间里 |
+
+- QA 复测(只复测报过又被修的 Q2 / Q3;人选 = 报过的人,GLM 冷却中未派):`subcursor.gemini-3.8-flash-high=EXPLORE(rc=0,coverage=none) subdeepseek=EXPLORE(rc=0,coverage=none)` —— 两家都判 Q2、Q3「已修好」,没引出新问题。
+- arbitrated verdict (主裁):(第 3 轮后填)
 
 ## Accepted deviations
 

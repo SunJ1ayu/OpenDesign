@@ -70,17 +70,17 @@ E2E="(cd web && npm run build >/dev/null 2>&1 || { echo 构建失败:变异没�
 
 # ── B 后台:对话碰过哪些项目 ──
 mutate B1 bin/ds_sessions.py \
-  '                    add(a.get("name"))' '                    pass' \
+  '            self.add(args.get("name"))' '            pass' \
   "$PY" "py:test_p1_derived_mapping" "只读过档案(read_project 的 name)不算碰过"
 mutate B2 bin/ds_sessions.py \
-  '                alias[old] = new' '                pass' \
-  "$PY" "py:test_p1_derived_mapping" "改名前的对话不归到新名下(4c C2)"
+  '    alias = {old: new for old, new in pairs if old != new}' '    alias = {}' \
+  "$PY" "py:test_p7_failed_rename_no_alias" "改名记录丢了,改名前的对话归不到新名下(4c C2)"
 mutate B3 bin/ds_sessions.py \
-  '            if hit is None or hit[0] != sig:' '            if hit is None:' \
+  '    if hit is None or hit[0] != sig:' '    if hit is None:' \
   "$PY" "py:test_p3_changed_file_is_reread" "对话文件变了还用旧缓存"
 mutate B4 bin/ds_sessions.py \
-  '                if not isinstance(name, str) or not name.startswith(_TOOL_PREFIX):' \
-  '                if not isinstance(name, str) or not name.startswith("mcp_"):' \
+  '        if not isinstance(name, str) or not name.startswith(_TOOL_PREFIX):' \
+  '        if not isinstance(name, str) or not name.startswith("mcp_"):' \
   "$PY" "py:test_p1_derived_mapping" "别的 MCP 服务的工具也算"
 # ── B 后台:置顶 / 改名 / 删除 ──
 mutate B5 bin/ds_sessions.py \
@@ -124,7 +124,7 @@ mutate B13 bin/ds_web.py \
 
 # ── B 后台:回放记录与最后聊天时间(QA 录像推翻 P4 之后,design P1′ / P6) ──
 mutate B14 bin/ds_web.py \
-  '                data = ds_sessions.session_projects(sessions, ds_sessions.webui_dir(cfg))' \
+  '                data = ds_sessions.session_projects(sessions, webui)' \
   '                data = ds_sessions.session_projects(sessions)' \
   "$PY" "py:test_e1_session_projects" "不读回放记录,长对话被压缩后从项目下消失"
 mutate B15 bin/ds_sessions.py \
@@ -136,7 +136,7 @@ mutate B16 bin/ds_sessions.py \
   '                    merge(key, ([prefix] if prefix else []) + seg_names)' \
   "$PY" "py:test_p4_transcript_after_idle_compact" "分段后每份的第一句都当项目前缀"
 mutate B17 bin/ds_sessions.py \
-  '            last_ts = row["timestamp"]' '            last_ts = None' \
+  '                ts = _TS_RE.findall(line)' '                ts = []' \
   "$PY" "py:test_p6_last_active_is_last_message_time" "没读最后一条消息的时间"
 mutate B18 bin/ds_web.py \
   '                last = ds_sessions.last_active(sessions)' '                last = {}' \
@@ -183,11 +183,11 @@ mutate F4 web/src/workspace/sidebarModel.ts \
   '    if (`websocket:${chatId}` === sessionKey) add(project);' '    if (false) add(project);' \
   "$UNIT" "s4" "项目对话不算碰过它的项目"
 mutate F5 web/src/workspace/sidebarModel.ts \
-  '      if (hits.length === 1) add(hits[0]);' '' \
+  '    return hits.length === 1 ? hits[0] : null;' '    return null;' \
   "$UNIT" "s4" "助手只写名字(分组项目)对不上"
 mutate F6 web/src/workspace/sidebarModel.ts \
-  '  const add = (k: string | undefined) => { if (k && keys.has(k) && !out.includes(k)) out.push(k); };' \
-  '  const add = (k: string | undefined) => { if (k && !out.includes(k)) out.push(k); };' \
+  '  const add = (k: string | null | undefined) => { if (k && keys.has(k) && !out.includes(k)) out.push(k); };' \
+  '  const add = (k: string | null | undefined) => { if (k && !out.includes(k)) out.push(k); };' \
   "$UNIT" "s4" "删掉的项目还挂着对话"
 mutate F7 web/src/workspace/sidebarModel.ts \
   '    for (const p of ps) (byProject[p] ??= []).push(s);' '    (byProject[ps[0]] ??= []).push(s);' \
@@ -240,7 +240,7 @@ mutate E4 web/src/workspace/Sidebar.tsx \
   '                    onClick={() => { setMenuId(null); onPinSession(s, pinned); }}>' \
   "$E2E" "not ok - ② ⋯ 置顶" "点「置顶」发的是取消置顶"
 mutate E5 web/src/App.tsx \
-  '      setSidebarState(await pinChatSession(s.key, pinned));' '      await pinChatSession(s.key, pinned);' \
+  '      setSidebarState(await sidebarQueue(() => pinChatSession(s.key, pinned)));' '      await sidebarQueue(() => pinChatSession(s.key, pinned));' \
   "$E2E" "not ok - ② ⋯ 置顶" "置顶存上了,界面不换"
 mutate E6 web/src/workspace/Sidebar.tsx \
   '    if (t !== null && t !== displayTitle(s, titleOverrides)) onRenameSession(s, t);' \
@@ -261,8 +261,8 @@ mutate E10 web/src/workspace/Sidebar.tsx \
   '      {view === "project" && sessions !== null && pv.other.length > 9999 && (' \
   "$E2E" "not ok - ③ 按项目" "没有「其他对话」"
 mutate E11 web/src/App.tsx \
-  '    for (const s of sessions ?? []) out[s.key] = sessionProjects(s.key, derivedProjects, projThreads, projects);' \
-  '    for (const s of sessions ?? []) out[s.key] = sessionProjects(s.key, {}, projThreads, projects);' \
+  '    for (const s of sessions ?? []) out[s.key] = sessionProjects(s.key, derivedProjects, projThreads, projects, projectRenames);' \
+  '    for (const s of sessions ?? []) out[s.key] = sessionProjects(s.key, {}, projThreads, projects, projectRenames);' \
   "$E2E" "not ok - ③ 按项目" "后台读出的「碰过的项目」没用上"
 mutate E12 web/src/workspace/Sidebar.tsx \
   '    try { localStorage.setItem(SIDE_VIEW_STORAGE_KEY, v); } catch { /* 记不住就算了 */ }' '' \
