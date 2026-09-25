@@ -159,7 +159,11 @@ test("c7 回复中点停止:网关回 idle ⇒ 解锁、收思考、半截回答
 
 test("c8 回话先于 idle 到(时序变了)⇒ 同样解锁;同一帧收两次只一条小字", () => {
   let s = requestStop(midStream(), "stop-1");
-  s = run(s, [STOPPED, STOPPED]);
+  // 第一帧一到就要收尾(变异红检 Z3 抓到:原来只在收了两遍之后才断言,第二遍走「重复帧」分支替第一遍补了收尾)
+  s = applyEvent(s, STOPPED);
+  assert.equal(s.busy, false, "回话一到就解锁,不等 idle");
+  assert.equal(s.messages.at(-1).systemNote, true);
+  s = applyEvent(s, STOPPED);
   assert.equal(s.busy, false);
   assert.equal(s.messages.at(-1).streaming, false);
   assert.equal(s.messages.filter((m) => m.systemNote).length, 1);

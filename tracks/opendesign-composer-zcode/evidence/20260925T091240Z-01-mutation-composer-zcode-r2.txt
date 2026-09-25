@@ -1,0 +1,17 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    mutation-composer-zcode-r2
+cmd:     bash tests/mutation-composer-zcode.sh Z3 Z7 Z10 Z18
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  4d57d9c
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T09:12:40Z
+---------------- 输出开始 ----------------
+  [咬住] Z3 —— 回话先于 idle 到时不收尾
+  [咬住] Z7 —— 只认半角 /(业主开着中文标点,按 / 打出「、」,永远弹不出)
+  [咬住] Z10 —— 问候语分界错一小时
+  [咬住] Z18 —— 问候语不随时间
+红检:咬住 4 / 漏网 0
+(已按还原后的源码重新构建 web/dist)
+(已还原源码)
+---------------- 输出结束 ----------------
+runlog: mutation-composer-zcode-r2 rc=0 commit=4d57d9c dirty=yes at=2026-09-25T09:12:40Z file=tracks/opendesign-composer-zcode/evidence/20260925T091240Z-01-mutation-composer-zcode-r2.txt
