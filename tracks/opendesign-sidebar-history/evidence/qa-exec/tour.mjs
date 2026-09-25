@@ -304,7 +304,7 @@ try {
   await step("点最早那段「很早的对话26」", { 地址: await page.evaluate(() => location.hash),
     首页气泡: (await page.locator(`${pane} .msg-user, ${pane} .msg-ai`).allInnerTexts()).map((t) => t.slice(0, 40)) });
   await send(pane, "还在吗");
-  await step("在这段里接着发「还在吗」", { 回复: await lastReply(pane), 今天这段: await rows('[data-ui="side-history"]').then((r) => r.slice(0, 3)),
+  await step("在这段里接着发「还在吗」", { 回复: await lastReply(pane), "历史前三行(不分段,看分段请看侧栏文字)": await rows('[data-ui="side-history"]').then((r) => r.slice(0, 3)),
     分段小标: await page.locator('[data-ui="side-day"]').allInnerTexts() });
 
   // ── 新对话第一句就让助手记账(侧栏开着「按项目」、翡翠湾展开着)──
@@ -315,7 +315,12 @@ try {
     其他对话: await rows('[data-ui="side-other"]').then((r) => r.slice(0, 6)) });
   await newChat();
   await send(pane, "给翡翠湾-1801记一笔:主卧衣柜改推拉门");
+  const expBtn = page.locator('[data-ui="proj-expand"][data-project="翡翠湾-1801"]');
   await step("新对话第一句「给翡翠湾-1801记一笔:主卧衣柜改推拉门」,等它记完(不刷新页面)", {
+    "翡翠湾那一行右边两个数字各是什么": {
+      "待办数(裸数字)": await side.locator(".proj-row", { hasText: "翡翠湾-1801" }).first().locator(".n-open").innerText().catch(() => "(没有)"),
+      "对话数按钮": await expBtn.innerText(), "对话数按钮里有没有对话图标": (await expBtn.locator("svg").count()) === 1 ? "有" : "没有",
+      "对话数按钮的读屏名": await expBtn.getAttribute("aria-label") },
     回复: await lastReply(pane), 翡翠湾下: await projList("翡翠湾-1801"),
     其他对话前几条: await rows('[data-ui="side-other"]').then((r) => r.slice(0, 4)),
     "档案里有没有这笔": projFile("翡翠湾-1801").includes("主卧衣柜改推拉门") ? "有" : "没有",
@@ -327,8 +332,9 @@ try {
     回复: await lastReply(pane), 翡翠湾下: await projList("翡翠湾-1801"), 滨江下: await projList("滨江-12F"),
     滨江档案阶段: (projFile("滨江-12F").match(/- 阶段: (.+)/) || [])[1] });
   await view("time");
-  await step("拨回「按时间」看这两段", { 今天: await rows('[data-ui="side-history"]').then((r) => r.slice(0, 4)),
-    行上的项目小标: await page.locator('[data-ui="side-history"] .hist-row .hist-proj').allInnerTexts().then((t) => t.slice(0, 4)) });
+  await step("拨回「按时间」看这两段", { "历史前四行(不分段,看分段请看侧栏文字)": await rows('[data-ui="side-history"]').then((r) => r.slice(0, 4)),
+    "「这周想把两个项目…」那行的小标": await page.locator('[data-ui="side-history"] .hist-row', { hasText: "这周想把两个项目" }).first().locator(".hist-proj").innerText(),
+    "这个小标的悬停字": await page.locator('[data-ui="side-history"] .hist-row', { hasText: "这周想把两个项目" }).first().locator(".hist-proj").getAttribute("title") });
 
   await newChat();
   await send(pane, "陈总办公室那边下周量房吗");
@@ -369,8 +375,10 @@ try {
   await page.waitForTimeout(600);
   await step("回车", { 已置顶: await rows('[data-ui="side-pinned"]'), "盘上 sidebar.json": sidebarFile() });
   await view("time");
-  await step("「按时间」里看置顶那段", { 已置顶: await rows('[data-ui="side-pinned"]'), 今天: await rows('[data-ui="side-history"]').then((r) => r.slice(0, 5)) });
+  await step("「按时间」里看置顶那段", { 已置顶: await rows('[data-ui="side-pinned"]'),
+    "历史前五行(不分段,看分段请看侧栏文字)": await rows('[data-ui="side-history"]').then((r) => r.slice(0, 5)) });
   await view("project");
+  await step("关软件之前,再拨回「按项目」(看重开后记不记得这次的选择)", { 视图按钮: await viewState() });
 
   // ── 关掉软件再打开 ──
   const oldBase = base;
