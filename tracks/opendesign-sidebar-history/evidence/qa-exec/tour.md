@@ -1,6 +1,6 @@
 # QA 执行 · 真界面操作录像(track opendesign-sidebar-history)
 
-台面:真管家 + 真网关 + 真工作台 + 真 chromium;包 = 本机按出货形状摆的一份(ds 来自 `git archive 58c60fd bin config web/dist`)。
+台面:真管家 + 真网关 + 真工作台 + 真 chromium;包 = 本机按出货形状摆的一份(ds 来自 `git archive 96d14a0 bin config web/dist`(第 1 轮修复后))。
 主槽指到本机假厂商:话里要动项目的(「给X记一笔:…」「两个项目一起推进」「把老宅改名成老宅翻新」「临时样板间这个项目删掉」、项目栏里「帮我看看档案」),
 假厂商先回**工具调用**,网关真去执行(真写项目档案),再回一句话;网关给对话起名时,假厂商回用户第一句的前 14 个字。
 开录前在网关的对话目录里照它的格式种了 30 段旧对话(昨天 2 段、更早 28 段;其中 4 段碰过项目:昨天的报价→陈总办公室、老宅水电改造→老宅、样板间软装→临时样板间、很早的对话26→翡翠湾-1801)。
@@ -311,7 +311,7 @@ OpenDesign
 截图:04.jpg
 
 - 回复:好的。
-- 今天这段:["很早的对话26","昨天的报价","昨天闲聊"]
+- 历史前三行(不分段,看分段请看侧栏文字):["很早的对话26","昨天的报价","昨天闲聊"]
 - 分段小标:["今天","昨天","更早"]
 
 侧栏文字:
@@ -495,6 +495,7 @@ OpenDesign
 
 截图:06.jpg
 
+- 翡翠湾那一行右边两个数字各是什么:{"待办数(裸数字)":"1","对话数按钮":"2\n▾","对话数按钮里有没有对话图标":"有","对话数按钮的读屏名":"收起这个项目的 2 段对话"}
 - 回复:好的,处理完了:{ "ok": true, "change_id": "C1", "line": "- [待确认] C1 2
 - 翡翠湾下:["给翡翠湾-1801记一笔:主","很早的对话26"]
 - 其他对话前几条:["昨天闲聊","很早的对话01","很早的对话02","很早的对话03"]
@@ -652,8 +653,9 @@ OpenDesign
 
 截图:08.jpg
 
-- 今天:["这周想把两个项目一起推进","给翡翠湾-1801记一笔:主","很早的对话26","昨天的报价"]
-- 行上的项目小标:["翡翠湾-1801 +1","翡翠湾-1801","翡翠湾-1801","陈总办公室"]
+- 历史前四行(不分段,看分段请看侧栏文字):["这周想把两个项目一起推进","给翡翠湾-1801记一笔:主","很早的对话26","昨天的报价"]
+- 「这周想把两个项目…」那行的小标:翡翠湾-1801 +1
+- 这个小标的悬停字:碰过的项目:翡翠湾-1801、滨江-12F
 
 侧栏文字:
 ```
@@ -1104,7 +1106,7 @@ OpenDesign
 - 已置顶:["这周想把两个项目一起推进"]
 - 翡翠湾下:["给翡翠湾-1801记一笔:主","很早的对话26"]
 - 滨江下:["滨江长对话"]
-- 盘上 sidebar.json:{"pinned_keys":["websocket:02dcb534-fac4-4cf2-901f-3650a22b81fc"]}
+- 盘上 sidebar.json:{"pinned_keys":["websocket:f2947006-386f-4fd0-81f9-0a81520464ad"]}
 
 侧栏文字:
 ```
@@ -1186,7 +1188,7 @@ OpenDesign
 截图:14.jpg
 
 - 已置顶:["给甲方的预算口径"]
-- 盘上 sidebar.json:{"pinned_keys":["websocket:02dcb534-fac4-4cf2-901f-3650a22b81fc"],"title_overrides":{"websocket:02dcb534-fac4-4cf2-901f-3650a22b81fc":"给甲方的预算口径"}}
+- 盘上 sidebar.json:{"pinned_keys":["websocket:f2947006-386f-4fd0-81f9-0a81520464ad"],"title_overrides":{"websocket:f2947006-386f-4fd0-81f9-0a81520464ad":"给甲方的预算口径"}}
 
 侧栏文字:
 ```
@@ -1346,7 +1348,7 @@ OpenDesign
 截图:16.jpg
 
 - 已置顶:["给甲方的预算口径"]
-- 盘上 sidebar.json:{"pinned_keys":["websocket:02dcb534-fac4-4cf2-901f-3650a22b81fc"],"title_overrides":{"websocket:02dcb534-fac4-4cf2-901f-3650a22b81fc":"给甲方的预算口径"}}
+- 盘上 sidebar.json:{"pinned_keys":["websocket:f2947006-386f-4fd0-81f9-0a81520464ad"],"title_overrides":{"websocket:f2947006-386f-4fd0-81f9-0a81520464ad":"给甲方的预算口径"}}
 
 侧栏文字:
 ```
@@ -1428,7 +1430,7 @@ OpenDesign
 截图:17.jpg
 
 - 已置顶:["给甲方的预算口径"]
-- 今天:["帮我看看档案","陈总办公室那边下周量房吗","给翡翠湾-1801记一笔:主","很早的对话26","昨天的报价"]
+- 历史前五行(不分段,看分段请看侧栏文字):["帮我看看档案","陈总办公室那边下周量房吗","给翡翠湾-1801记一笔:主","很早的对话26","昨天的报价"]
 
 侧栏文字:
 ```
@@ -1549,9 +1551,90 @@ OpenDesign
 ›
 ```
 
-## 18. 完全关掉软件(管家退出)再打开
+## 18. 关软件之前,再拨回「按项目」(看重开后记不记得这次的选择)
 
 截图:18.jpg
+
+- 视图按钮:{"按时间":"false","按项目":"true"}
+
+侧栏文字:
+```
+OpenDesign
+新对话
+搜索
+待办事项
+2
+技能
+›
+历史对话
+按时间
+按项目
+已置顶
+给甲方的预算口径
+翡翠湾-1801 +1
+今天
+点项目右边的数字,看它的对话
+项目
+5
++
+▾
+洽谈
+1
+临时样板间
+1
+▸
+▾
+平面方案
+2
+滨江-12F
+1
+▾
+滨江长对话
+9-16
+老宅
+1
+▸
+▾
+方案深化
+1
+陈总办公室
+2
+▾
+帮我看看档案
+今天
+昨天的报价
+昨天
+▾
+施工跟进
+1
+翡翠湾-1801
+2
+2
+▾
+给翡翠湾-1801记一笔:主
+今天
+很早的对话26
+今天
+其他对话
+27
+陈总办公室那边下周量房吗
+今天
+昨天闲聊
+昨天
+很早的对话01
+9-19
+很早的对话02
+9-18
+很早的对话03
+9-17
+显示更多
+设置
+›
+```
+
+## 19. 完全关掉软件(管家退出)再打开
+
+截图:19.jpg
 
 - 前后地址:http://127.0.0.1:8766 → http://127.0.0.1:8766
 - 等聊天端口释放了几秒:62
@@ -1634,9 +1717,9 @@ OpenDesign
 ›
 ```
 
-## 19. 「⋯」→「取消置顶」
+## 20. 「⋯」→「取消置顶」
 
-截图:19.jpg
+截图:20.jpg
 
 - 已置顶:(置顶区没了)
 - 翡翠湾下:["给甲方的预算口径","给翡翠湾-1801记一笔:主","很早的对话26"]
@@ -1717,9 +1800,9 @@ OpenDesign
 ›
 ```
 
-## 20. 改名之前:老宅下面
+## 21. 改名之前:老宅下面
 
-截图:20.jpg
+截图:21.jpg
 
 - 老宅下:["老宅水电改造"]
 
@@ -1800,9 +1883,9 @@ OpenDesign
 ›
 ```
 
-## 21. 新对话「把老宅改名成老宅翻新」(助手真改名)
+## 22. 新对话「把老宅改名成老宅翻新」(助手真改名)
 
-截图:21.jpg
+截图:22.jpg
 
 - 回复:好的,处理完了:{ "ok": true, "old": "老宅", "new": "老宅翻新", "updated":
 - 项目栏:["临时样板间","滨江-12F","老宅翻新","陈总办公室","翡翠湾-1801"]
@@ -1887,9 +1970,9 @@ OpenDesign
 ›
 ```
 
-## 22. 删项目之前:临时样板间下面
+## 23. 删项目之前:临时样板间下面
 
-截图:22.jpg
+截图:23.jpg
 
 - 临时样板间下:["样板间软装"]
 
@@ -1974,9 +2057,9 @@ OpenDesign
 ›
 ```
 
-## 23. 新对话「临时样板间这个项目删掉吧」(助手真删,进回收站)
+## 24. 新对话「临时样板间这个项目删掉吧」(助手真删,进回收站)
 
-截图:23.jpg
+截图:24.jpg
 
 - 回复:好的,处理完了:{ "ok": true, "project": "临时样板间", "trashed": "projects
 - 项目栏:["滨江-12F","老宅翻新","陈总办公室","翡翠湾-1801"]
@@ -2056,95 +2139,12 @@ OpenDesign
 ›
 ```
 
-## 24. 把「陈总办公室那边下周量房吗」置顶并改名「要删的这段」
-
-截图:24.jpg
-
-- 已置顶:["要删的这段"]
-- 盘上 sidebar.json:{"pinned_keys":["websocket:29a56d03-c7c6-4aef-8360-3e37e3af295c"],"title_overrides":{"websocket:02dcb534-fac4-4cf2-901f-3650a22b81fc":"给甲方的预算口径","websocket:29a56d03-c7c6-4aef-8360-3e37e3af295c":"要删的这段"}}
-
-侧栏文字:
-```
-OpenDesign
-新对话
-搜索
-待办事项
-2
-技能
-›
-历史对话
-按时间
-按项目
-已置顶
-要删的这段
-今天
-点项目右边的数字,看它的对话
-项目
-4
-+
-▾
-平面方案
-2
-滨江-12F
-2
-▾
-给甲方的预算口径
-今天
-滨江长对话
-9-16
-老宅翻新
-2
-▾
-把老宅改名成老宅翻新
-今天
-老宅水电改造
-9-22
-▾
-方案深化
-1
-陈总办公室
-2
-▾
-帮我看看档案
-今天
-昨天的报价
-昨天
-▾
-施工跟进
-1
-翡翠湾-1801
-2
-3
-▾
-给甲方的预算口径
-今天
-给翡翠湾-1801记一笔:主
-今天
-很早的对话26
-今天
-其他对话
-28
-临时样板间这个项目删掉吧,是
-今天
-昨天闲聊
-昨天
-样板间软装
-9-21
-很早的对话01
-9-19
-很早的对话02
-9-18
-显示更多
-设置
-›
-```
-
-## 25. 「⋯」→「删除」,确认框点「取消」
+## 25. 把「陈总办公室那边下周量房吗」置顶并改名「要删的这段」
 
 截图:25.jpg
 
-- 确认框原文:删除对话「要删的这段」?删除后不可恢复。
 - 已置顶:["要删的这段"]
+- 盘上 sidebar.json:{"pinned_keys":["websocket:2c516d0b-6460-4f27-b835-07617c1b5c24"],"title_overrides":{"websocket:f2947006-386f-4fd0-81f9-0a81520464ad":"给甲方的预算口径","websocket:2c516d0b-6460-4f27-b835-07617c1b5c24":"要删的这段"}}
 
 侧栏文字:
 ```
@@ -2222,14 +2222,97 @@ OpenDesign
 ›
 ```
 
-## 26. 再删一次,确认框点「确定」;然后「按时间」翻到底找它
+## 26. 「⋯」→「删除」,确认框点「取消」
 
 截图:26.jpg
 
 - 确认框原文:删除对话「要删的这段」?删除后不可恢复。
+- 已置顶:["要删的这段"]
+
+侧栏文字:
+```
+OpenDesign
+新对话
+搜索
+待办事项
+2
+技能
+›
+历史对话
+按时间
+按项目
+已置顶
+要删的这段
+今天
+点项目右边的数字,看它的对话
+项目
+4
++
+▾
+平面方案
+2
+滨江-12F
+2
+▾
+给甲方的预算口径
+今天
+滨江长对话
+9-16
+老宅翻新
+2
+▾
+把老宅改名成老宅翻新
+今天
+老宅水电改造
+9-22
+▾
+方案深化
+1
+陈总办公室
+2
+▾
+帮我看看档案
+今天
+昨天的报价
+昨天
+▾
+施工跟进
+1
+翡翠湾-1801
+2
+3
+▾
+给甲方的预算口径
+今天
+给翡翠湾-1801记一笔:主
+今天
+很早的对话26
+今天
+其他对话
+28
+临时样板间这个项目删掉吧,是
+今天
+昨天闲聊
+昨天
+样板间软装
+9-21
+很早的对话01
+9-19
+很早的对话02
+9-18
+显示更多
+设置
+›
+```
+
+## 27. 再删一次,确认框点「确定」;然后「按时间」翻到底找它
+
+截图:27.jpg
+
+- 确认框原文:删除对话「要删的这段」?删除后不可恢复。
 - 已置顶:(置顶区没了)
 - 按时间里还有没有:没有
-- 盘上 sidebar.json:{"pinned_keys":[],"title_overrides":{"websocket:02dcb534-fac4-4cf2-901f-3650a22b81fc":"给甲方的预算口径"}}
+- 盘上 sidebar.json:{"pinned_keys":[],"title_overrides":{"websocket:f2947006-386f-4fd0-81f9-0a81520464ad":"给甲方的预算口径"}}
 
 侧栏文字:
 ```
@@ -2347,9 +2430,9 @@ OpenDesign
 ›
 ```
 
-## 27. 折叠第一个阶段堆「▾」
+## 28. 折叠第一个阶段堆「▾」
 
-截图:27.jpg
+截图:28.jpg
 
 - 项目栏:["陈总办公室","翡翠湾-1801"]
 
@@ -2412,9 +2495,9 @@ OpenDesign
 ›
 ```
 
-## 28. 再展开;点项目栏的「+」(新建项目)
+## 29. 再展开;点项目栏的「+」(新建项目)
 
-截图:28.jpg
+截图:29.jpg
 
 - 地址:#/
 - 首页输入框:新建项目:
@@ -2492,9 +2575,9 @@ OpenDesign
 ›
 ```
 
-## 29. 从「按项目」翡翠湾下面点回「给翡翠湾-1801记一笔…」那段
+## 30. 从「按项目」翡翠湾下面点回「给翡翠湾-1801记一笔…」那段
 
-截图:29.jpg
+截图:30.jpg
 
 - 地址:#/
 - 首页气泡:["给翡翠湾-1801记一笔:主卧衣柜改推拉门","好的,处理完了:{ \"ok\": true, \"change_id\": \"C1\", \"line\": \""]
@@ -2575,24 +2658,24 @@ OpenDesign
 ## 假厂商收到的请求(起名 / 对话 / 工具之后)
 
 ```
-{"kind":"chat","ask":"-a45e717ef67b\nSender ID: 72733889-eae9-4d40-847f-800de674316a\n[/Runtime Context]","tools":[]}
-{"kind":"chat","ask":"-195d74578b83\nSender ID: 5c34a1ed-c5a8-49bd-83db-3b54a4f875cf\n[/Runtime Context]","tools":["append_change({\"project\":\"翡翠湾-1801\",\"content\":\"主卧衣柜改推拉门\"})"]}
-{"kind":"after-tool","ask":"-195d74578b83\nSender ID: 5c34a1ed-c5a8-49bd-83db-3b54a4f875cf\n[/Runtime Context]","tools":[]}
+{"kind":"chat","ask":"-891bdf4cf3ff\nSender ID: 0c7a4d57-b73e-4c9b-ade5-503ef96f7fd3\n[/Runtime Context]","tools":[]}
+{"kind":"chat","ask":"-0f90c7eb14c3\nSender ID: fc667f19-3b8b-47a2-a2f3-de32dae7d192\n[/Runtime Context]","tools":["append_change({\"project\":\"翡翠湾-1801\",\"content\":\"主卧衣柜改推拉门\"})"]}
+{"kind":"after-tool","ask":"-0f90c7eb14c3\nSender ID: fc667f19-3b8b-47a2-a2f3-de32dae7d192\n[/Runtime Context]","tools":[]}
 {"kind":"title","ask":"\nAssistant: 好的,处理完了:{\n  \"ok\": true,\n  \"change_id\": \"C1\",\n  \"line\": \"- [待确认] C1 2","tools":[]}
-{"kind":"chat","ask":"-3650a22b81fc\nSender ID: e18933de-76a6-41ff-a1c1-f25c49a6b4bb\n[/Runtime Context]","tools":["append_change({\"project\":\"翡翠湾-1801\",\"content\":\"餐厅吊灯换款\"})","set_stage({\"project\":\"滨江-12F\",\"stage\":\"平面方案\"})"]}
-{"kind":"after-tool","ask":"-3650a22b81fc\nSender ID: e18933de-76a6-41ff-a1c1-f25c49a6b4bb\n[/Runtime Context]","tools":[]}
+{"kind":"chat","ask":"-0a81520464ad\nSender ID: 492ae41b-8d5f-431d-b340-8c7b9be377f6\n[/Runtime Context]","tools":["append_change({\"project\":\"翡翠湾-1801\",\"content\":\"餐厅吊灯换款\"})","set_stage({\"project\":\"滨江-12F\",\"stage\":\"平面方案\"})"]}
+{"kind":"after-tool","ask":"-0a81520464ad\nSender ID: 492ae41b-8d5f-431d-b340-8c7b9be377f6\n[/Runtime Context]","tools":[]}
 {"kind":"title","ask":"起推进\nAssistant: 好的,处理完了:{\n  \"ok\": true,\n  \"project\": \"滨江-12F\",\n  \"stage\": \"平面方案\",","tools":[]}
-{"kind":"chat","ask":"-3e37e3af295c\nSender ID: f9ec42fa-11c9-4181-a486-cfffca15ce42\n[/Runtime Context]","tools":[]}
+{"kind":"chat","ask":"-07617c1b5c24\nSender ID: 9f62f2a7-79fa-4001-9e61-f8c75204b97b\n[/Runtime Context]","tools":[]}
 {"kind":"title","ask":"ctuation at the end.\n- Return only the title.\n\nUser: 陈总办公室那边下周量房吗\nAssistant: 好的。","tools":[]}
-{"kind":"chat","ask":"-b218f6a51a16\nSender ID: 126cb069-3b83-4310-82db-05f3bf6a65eb\n[/Runtime Context]","tools":["read_project({\"name\":\"陈总办公室\"})"]}
-{"kind":"after-tool","ask":"-b218f6a51a16\nSender ID: 126cb069-3b83-4310-82db-05f3bf6a65eb\n[/Runtime Context]","tools":[]}
+{"kind":"chat","ask":"-635536cf5c09\nSender ID: de346a29-1b74-4b09-9237-4e83219336d3\n[/Runtime Context]","tools":["read_project({\"name\":\"陈总办公室\"})"]}
+{"kind":"after-tool","ask":"-635536cf5c09\nSender ID: de346a29-1b74-4b09-9237-4e83219336d3\n[/Runtime Context]","tools":[]}
 {"kind":"title","ask":"\nAssistant: 好的,处理完了:{\n  \"ok\": true,\n  \"content\": \"# 陈总办公室\\n\\n- 业主: [[李四]]\\n- 阶段:","tools":[]}
-{"kind":"chat","ask":"-b218f6a51a16\nSender ID: 126cb069-3b83-4310-82db-05f3bf6a65eb\n[/Runtime Context]","tools":[]}
-{"kind":"chat","ask":"-7ec99d711cae\nSender ID: 43add227-6f77-463e-8058-fe0b6ae06087\n[/Runtime Context]","tools":["rename_project({\"old\":\"老宅\",\"new\":\"老宅翻新\"})"]}
-{"kind":"after-tool","ask":"-7ec99d711cae\nSender ID: 43add227-6f77-463e-8058-fe0b6ae06087\n[/Runtime Context]","tools":[]}
+{"kind":"chat","ask":"-635536cf5c09\nSender ID: de346a29-1b74-4b09-9237-4e83219336d3\n[/Runtime Context]","tools":[]}
+{"kind":"chat","ask":"-f13bc3b679e4\nSender ID: e334acf8-5600-44a7-aed5-60b137a8562b\n[/Runtime Context]","tools":["rename_project({\"old\":\"老宅\",\"new\":\"老宅翻新\"})"]}
+{"kind":"after-tool","ask":"-f13bc3b679e4\nSender ID: e334acf8-5600-44a7-aed5-60b137a8562b\n[/Runtime Context]","tools":[]}
 {"kind":"title","ask":"\nAssistant: 好的,处理完了:{\n  \"ok\": true,\n  \"old\": \"老宅\",\n  \"new\": \"老宅翻新\",\n  \"updated\":","tools":[]}
-{"kind":"chat","ask":"-7531990a0a76\nSender ID: 020fb3f6-84ed-44f9-a994-84111cd3060b\n[/Runtime Context]","tools":["delete_project({\"project\":\"临时样板间\"})"]}
-{"kind":"after-tool","ask":"-7531990a0a76\nSender ID: 020fb3f6-84ed-44f9-a994-84111cd3060b\n[/Runtime Context]","tools":[]}
+{"kind":"chat","ask":"-ce0a0aacbe76\nSender ID: 8e737224-8f93-4d81-a624-0f550980ac36\n[/Runtime Context]","tools":["delete_project({\"project\":\"临时样板间\"})"]}
+{"kind":"after-tool","ask":"-ce0a0aacbe76\nSender ID: 8e737224-8f93-4d81-a624-0f550980ac36\n[/Runtime Context]","tools":[]}
 {"kind":"title","ask":"\nAssistant: 好的,处理完了:{\n  \"ok\": true,\n  \"project\": \"临时样板间\",\n  \"trashed\": \"projects","tools":[]}
 ```
 
