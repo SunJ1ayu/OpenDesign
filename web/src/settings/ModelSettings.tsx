@@ -150,7 +150,10 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
   const apply = (r: SaveResult, okText: string, savedId?: string): boolean => {
     if (r.ok) {
       setView(r.view);
-      setNotice({ ok: true, text: r.restart ? restartNotice(r.restart, !!savedId && r.view.current?.provider === savedId) : okText });
+      const saved = savedId ? r.view.providers.find((x) => x.id === savedId) : undefined;
+      setNotice({ ok: true, text: r.restart
+        ? restartNotice(r.restart, !!savedId && r.view.current?.provider === savedId, !!saved && !saved.enabled)
+        : okText });
       return true;
     }
     setNotice({ ok: false, text: r.error });

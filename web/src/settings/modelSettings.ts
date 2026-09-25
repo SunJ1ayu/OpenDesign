@@ -246,7 +246,11 @@ export async function testModel(fetchFn: FetchLike, provider: string, model: str
   }
 }
 
-export function restartNotice(restart: unknown, savedIsCurrent = false): string {
+export function restartNotice(restart: unknown, savedIsCurrent = false, savedDisabled = false): string {
+  if (restart === "live" && savedDisabled) {
+    // 未启用的那家不在换模型菜单里(D3),不能叫他去右下角换(第 1 轮评审 DeepSeek #1);正在用的那家不许禁用,所以这里一定不是当前那家
+    return "已保存。这家现在未启用:在上面打开「启用」后,才会出现在聊天框右下角的换模型里。";
+  }
   if (restart === "live") {
     // 网关在跑、现读 key 文件(ds_web.key_saved_verdict;track opendesign-key-restart):不重启、连接不断。
     // 存 key 不换当前模型 ⇒ 只有改的就是正在用的那家,才能说「下一句就用」;存了另一家要告诉他去哪儿换(QA 设计 d5)。
