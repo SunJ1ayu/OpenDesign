@@ -105,12 +105,14 @@ const currentModel = () => {
 // ── 假外壳:认暗号、回 OK,然后(晚 1.5 秒)做外壳起网关时的那一步 ──
 const HELLO = "OpenDesign.ds_shell_core.lock.v1\n";
 const restarts = [];
+const frames = [];              // 外壳收到的每一帧的动词(track opendesign-key-restart:网关在跑时一帧都不该有)
 const fakeShell = createServer((sock) => {
   let buf = "";
   sock.on("data", (b) => {
     buf += b.toString("utf8");
     if (buf.startsWith(HELLO) && buf.slice(HELLO.length).includes("\n")) {
       const verb = buf.slice(HELLO.length).split("\n")[0];
+      frames.push(verb);
       if (verb === "RESTART-BACKEND") {
         sock.end("OK RESTART-BACKEND\n");
         setTimeout(() => {
@@ -128,6 +130,13 @@ print(sorted(ds_credential.prepare_gateway(${JSON.stringify(home)}, ${JSON.strin
   });
 });
 await new Promise((r) => fakeShell.listen(0, "127.0.0.1", r));
+
+// ── 假网关端口(track opendesign-key-restart):ds_web 存完 key 看「网关端口在不在听」判 live / 请外壳起。
+//    显式给它一个我们管的端口 —— 不给就落到默认 8765,那上面有没有人听取决于跑判据的机器(开发机上真有一个网关在听)。
+//    聊天那条 websocket 在页面里是替身(_ws-stub),这个端口只影响 ds_web 的判法。
+const fakeGw = createServer((s) => s.destroy());
+await new Promise((r) => fakeGw.listen(0, "127.0.0.1", r));
+const GW_PORT = fakeGw.address().port;
 
 // ── 本机假厂商:只认 CUSTOM_KEY、只认 gpt-e2e ──
 const vendorSeen = [];
@@ -165,6 +174,7 @@ try {
   srv = spawn(PY, [join(ROOT, "bin", "ds_web.py")], {
     env: { ...process.env, DS_ROOT: dsRoot, DS_WEB_PORT: String(PORT), DS_NANOBOT_CONFIG: cfgPath,
            HOME: home, USERPROFILE: home, DS_LLM_KEY: "", DS_SHELL_LOCK_PORT: String(fakeShell.address().port),
+           DS_NANOBOT_PORT: String(GW_PORT),
            DS_WEB_DIST: join(ROOT, "web", "dist") },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -333,24 +343,23 @@ try {
   await page.keyboard.press("Escape");
   await until(async () => !(await page.locator('[data-ui="ms-provider-form"]').isVisible()), 3000);
 
-  // ── 存另一家 key:不换当前、提示重启、重启完才进菜单(A3)──
+  // ── 存另一家 key(A3;09-25 track opendesign-key-restart 改写):网关在跑 ⇒ 不找外壳、不重启,
+  //    存完当场就绪、进换模型菜单;不换当前;提示告诉他去右下角换,不说「下一句就用」(QA 设计 d5)。
+  //    原来这里问的是「提示正在重启 / 重启完才进菜单 / 就绪后改口已开始」—— 那是存 key 要重启网关时的契约,
+  //    业主 09-25 拍板改成照 ZCode 存了就用;网关真用上没有由 tests/test_key_live.py L1 在真网关上问。
   await select("deepseek");
+  const framesA3 = frames.length;
   await detail("deepseek").locator('[data-ui="ms-key"]').fill(DS_KEY);
   await detail("deepseek").locator('[data-ui="ms-key-save"]').click();
-  check(await until(async () => /重启/.test(await notice()), 5000), `A3 存完提示正在重启后台(「${await notice()}」)`);
+  check(await until(async () => /右下角/.test(await notice()), 5000) && !/重启|下一句|稍等/.test(await notice()),
+    `A3 存另一家:提示说去右下角换,不提重启、不说下一句就用(「${await notice()}」)`);
   const early = await (await fetch(`${base}/api/llm/models`)).json();
-  check(!(early.groups || []).some((g) => g.provider === "deepseek"), "A3/A15 重启完成前这家不进换模型菜单");
-  check(await until(() => restarts.length > 0, 8000) && await until(
-    () => navItem("deepseek").locator('[data-provider-status="ready"]').count().then((n) => n === 1), 15000),
-  "A3 后台起好后 DeepSeek 变成就绪(页面自己跟上)");
+  check((early.groups || []).some((g) => g.provider === "deepseek"), "A3/A15 存完当场进换模型菜单(网关现读 key 文件,不等重启)");
+  check(await until(() => navItem("deepseek").locator('[data-provider-status="ready"]').count().then((n) => n === 1), 5000),
+    "A3 存完当场就绪");
+  await page.waitForTimeout(500);
+  check(frames.length === framesA3, `A3 网关在跑 ⇒ 一帧都没发给外壳(实际 ${JSON.stringify(frames.slice(framesA3))})`);
   check(currentModel() === "mimo-e2e", "A3 存别家的 key 没换当前模型(D4)");
-  // 09-24 QA-执行录像第 4 步主裁亲看:这家已就绪,绿条还是保存那一刻的「正在自动重启…」,和「就绪」打架 ⇒ 要改口。
-  // 第 2 轮评审 #8(MiMo):原来这条要求改口成「已生效」—— **题面本身错了**:外壳先写配置、再重启网关,
-  // 条目出现只证明「后台已开始换上这把 key」,证明不了「已重启 / 已生效」(重启进行中或失败时都是假话,
-  // 违反「不许撒谎的重启」)。所以改问:改口了,而且不许自称已重启 / 已生效。
-  check(await until(async () => !/正在自动重启/.test(await notice()) && /已开始/.test(await notice()), 8000)
-        && !/已重启|已生效/.test(await notice()),
-    `A3 这家就绪后提示改口,只说「已开始换上」,不自称已重启 / 已生效(实际「${await notice()}」)`);
 
   // ── 禁用 / 启用(A7)──
   await select("deepseek");
@@ -381,17 +390,17 @@ try {
         && (await detail("mimo").locator('[data-ui="ms-state"]').innerText()).includes(MIMO_KEY.slice(-4))
         && readFileSync(join(home, ".openDesign", "key.txt"), "utf8").trim() === MIMO_KEY,
     `A20 空着保存 ⇒ 报错,原 key 与末四位不变(「${await notice()}」)`);
-  // 09-24 QA-执行 K1(DS D1 追到根):主槽那家(MiMo)没有「等重启」可观察(有 key 即算后台拿到)⇒
-  //   重启只是「已请求」,提示不许自称「已重启 / 已生效」;要一直是那句老实话(稍等片刻…连不上就手动重启)
+  // K1(09-25 track opendesign-key-restart 改写):改的就是正在用的那家(MiMo)的 key ⇒ 网关在跑、不找外壳,
+  //   提示说下一句就用新 key;原来问的是「请了外壳重启、提示一直说重启」(存 key 要重启时的契约)。
   {
-    const before = restarts.length;
+    const before = frames.length;
     await detail("mimo").locator('[data-ui="ms-key"]').fill(MIMO_KEY);
     await detail("mimo").locator('[data-ui="ms-key-save"]').click();
-    check(await until(async () => /重启/.test(await notice()), 5000) && await until(() => restarts.length > before, 8000),
-      `K1 前提:主槽存 key 也请了外壳重启、提示说重启(「${await notice()}」)`);
-    await page.waitForTimeout(3500);   // > 两轮轮询
-    check(!/已重启|已生效/.test(await notice()) && /重启/.test(await notice()),
-      `K1 主槽存 key:提示不许自称已重启 / 已生效(实际「${await notice()}」)`);
+    check(await until(async () => /下一句/.test(await notice()), 5000) && !/重启|稍等/.test(await notice()),
+      `K1 改正在用的那家的 key:提示说下一句就用新 key,不提重启(「${await notice()}」)`);
+    await page.waitForTimeout(3500);   // > 两轮轮询:提示不许被轮询改回别的说法
+    check(/下一句/.test(await notice()) && frames.length === before,
+      `K1 网关在跑 ⇒ 没找外壳,提示也没被改口(实际「${await notice()}」,帧 ${JSON.stringify(frames.slice(before))})`);
   }
 
   // ── 添加供应商:拒收(A19 / A9)──
@@ -428,7 +437,7 @@ try {
   await form.locator('[data-ui="ms-pf-base"]').fill(VENDOR_BASE);
   await form.locator('[data-ui="ms-pf-key"]').fill(CUSTOM_KEY);
   await form.locator('[data-ui="ms-pf-models"]').fill("gpt-e2e\nother-e2e");
-  const restartsBefore = restarts.length;
+  const framesA10 = frames.length;
   await form.locator('[data-ui="ms-pf-save"]').click();
   check(await until(async () => (await customCount()) === 1, 8000), "A10 自定义供应商出现在左栏「自定义供应商」下");
   const cid = await page.locator(`${MS} [data-ui="ms-group"][data-group="custom"] [data-ui="ms-nav-item"]`).getAttribute("data-provider");
@@ -443,9 +452,9 @@ try {
   check(await until(async () => /模型 ID/.test(await res.innerText()) && /404/.test(await res.innerText()), 10000)
         && !(await res.innerText()).includes(CUSTOM_KEY),
     `A2 测试失败给可读原因、不带 key(「${await res.innerText().catch(() => "")}」)`);
-  check(await until(() => restarts.length > restartsBefore, 8000)
-        && await until(() => navItem(cid).locator('[data-provider-status="ready"]').count().then((n) => n === 1), 15000),
-    "A10 带 key 添加 ⇒ 请外壳重启;起好后就绪");
+  check(await until(() => navItem(cid).locator('[data-provider-status="ready"]').count().then((n) => n === 1), 5000)
+        && frames.length === framesA10,
+    `A10 带 key 添加 ⇒ 网关在跑、不找外壳,当场就绪(09-25 改写;帧 ${JSON.stringify(frames.slice(framesA10))})`);
   await backToChat();
   check(await pickInMenu(cid, "gpt-e2e"), "A10 聊天框换模型里选得到自定义供应商的模型,配置真的换过去");
   const cfg = readCfg();
@@ -490,6 +499,22 @@ try {
   check(!tree[cid] && !(tree.mimo?.models || []).includes("mimo-e2e"), `A16 删掉的模型与供应商从换模型菜单里消失(实际 ${JSON.stringify(tree)})`);
   await page.keyboard.press("Escape");
 
+  // ── 网关没在跑时存 key(track opendesign-key-restart):请外壳把它起起来,提示说「启动」不说「重启」──
+  //    (全新装机第一次存 key 就是这个形状:开机没 key ⇒ 只起了工作台。)
+  {
+    await new Promise((r) => fakeGw.close(r));
+    const before = frames.length;
+    await openSettings("mimo");
+    await detail("mimo").locator('[data-ui="ms-key"]').fill(MIMO_KEY);
+    await detail("mimo").locator('[data-ui="ms-key-save"]').click();
+    check(await until(async () => /启动后台服务/.test(await notice()), 5000) && !/重启/.test(await notice().then((t) => t.replace(/退出 OpenDesign 再打开/, ""))),
+      `G1 网关没在跑:提示正在启动后台服务(「${await notice()}」)`);
+    check(await until(() => frames.slice(before).includes("RESTART-BACKEND"), 5000),
+      `G1 网关没在跑 ⇒ 请外壳把它起起来(帧 ${JSON.stringify(frames.slice(before))})`);
+    await page.keyboard.press("Escape");
+    await backToChat();
+  }
+
   // ── 全程 key 足迹(A8)──
   const html = await page.content();
   const aria = String(await page.locator("body").ariaSnapshot().catch(() => ""));
@@ -508,6 +533,7 @@ try {
   try { srv?.kill("SIGKILL"); } catch { /* 已经没了 */ }
   fakeShell.close();
   fakeVendor.close();
+  try { fakeGw.close(); } catch { /* 已经关了 */ }
   rmSync(tmp, { recursive: true, force: true });
 }
 console.log(failures ? `\n${failures} 条红` : "\n全绿");

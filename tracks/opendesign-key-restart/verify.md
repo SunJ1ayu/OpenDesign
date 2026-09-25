@@ -27,6 +27,7 @@ runlog: oracle-red rc=1 commit=9296c63 dirty=yes at=2026-09-25T00:58:38Z file=tr
 runlog: oracle-d4-red rc=1 commit=8a641cf dirty=yes at=2026-09-25T01:01:50Z file=tracks/opendesign-key-restart/evidence/20260925T010150Z-01-oracle-d4-red.txt
 runlog: rewritten-oracles-red-on-old rc=1 commit=e3fd5c5 dirty=yes at=2026-09-25T01:11:36Z file=tracks/opendesign-key-restart/evidence/20260925T011136Z-01-rewritten-oracles-red-on-old.txt
 runlog: oracle-d5-red rc=1 commit=748b680 dirty=yes at=2026-09-25T01:13:06Z file=tracks/opendesign-key-restart/evidence/20260925T011306Z-01-oracle-d5-red.txt
+runlog: e2e-model-settings-rewrite-red rc=1 commit=d093dda dirty=yes at=2026-09-25T01:16:50Z file=tracks/opendesign-key-restart/evidence/20260925T011650Z-01-e2e-model-settings-rewrite-red.txt
 ```
 
 ```
