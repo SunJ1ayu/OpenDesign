@@ -257,8 +257,9 @@ export function restartNotice(restart: unknown, savedIsCurrent = false): string 
   if (restart === "requested") {
     // 🔴 措辞只能说到"已请求"。`requested` 的定义是**帧送到了外壳、它认了这个动词**
     //    (ds_web._restart_verdict),不是"起好了" —— 外壳随后失败会自己弹告警。
-    //    只在后台服务没在跑时才会走到这里(全新装机第一次存 key),所以说「启动」不说「重启」。
-    return "已保存,正在启动后台服务,稍等片刻即可开始对话;若稍后仍连不上,请退出 OpenDesign 再打开。";
+    //    只在聊天服务没在跑时才会走到这里(全新装机第一次存 key),所以不说「重启」;
+    //    也不沿用业主 09-24 让删掉的那条启动横幅的原话(test_quiet_start_icons q1 全仓禁用)。
+    return "已保存,正在准备聊天服务,稍等片刻即可开始对话;若稍后仍连不上,请退出 OpenDesign 再打开。";
   }
   return "已保存。当前环境不能自动应用新配置,请手动重启 OpenDesign 后再继续使用。";
 }
