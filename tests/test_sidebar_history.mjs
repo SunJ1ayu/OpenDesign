@@ -14,6 +14,7 @@ import {
   projectView,
   cleanRename,
   firstTag,
+  withLastActive,
   TITLE_MAX,
 } from "../web/src/workspace/sidebarModel.ts";
 
@@ -109,4 +110,17 @@ test("s7 按时间视图的项目小标:第一个(项目对话优先)+「+N」;�
   assert.equal(firstTag(["陈总办公室", "翡翠湾-1801", "施工组:滨江-12F"], name), "陈总办公室 +2");
   assert.equal(firstTag(["施工组:滨江-12F"], name), "滨江-12F");
   assert.equal(firstTag([], name), null);
+});
+
+// design P6:网关每 15 分钟空闲压缩一次,每次都把 updated_at 刷成当时 ⇒ 分段 / 排序 / 「几天前」要用后台读出的最后一条消息时间
+test("s8 最后聊天时间盖掉网关的 updated_at;没有就用原来的;不改原数组", () => {
+  const ss = [
+    { key: "websocket:a", title: "A", updated_at: at(9, 25, 14, 50) },
+    { key: "websocket:b", title: "B", updated_at: at(9, 25, 14, 50) },
+  ];
+  const out = withLastActive(ss, { "websocket:a": at(8, 16, 9, 30) });
+  assert.equal(out[0].updated_at, at(8, 16, 9, 30));
+  assert.equal(out[1].updated_at, at(9, 25, 14, 50));
+  assert.equal(ss[0].updated_at, at(9, 25, 14, 50), "不改原数组");
+  assert.equal(dayBucket(out[0].updated_at, NOW), "更早");
 });

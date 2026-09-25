@@ -35,8 +35,13 @@ const STUB = () => {
     for (let i = 1; i <= 25; i++) {
       sessions.push({ key: `websocket:old${i}`, title: `很早的对话${String(i).padStart(2, "0")}`, updated_at: ago((3 + i) * DAY) });
     }
+    // 网关每 15 分钟空闲压缩一次、把 updated_at 刷成当时(design P6)⇒ 列表里的 updated_at 全是「刚才」;
+    // 真正的最后聊天时间由 ds_web 的 session-projects 另给(last_active)
+    const lastActive = Object.fromEntries(sessions.map((x) => [x.key, x.updated_at]));
+    for (const x of sessions) x.updated_at = ago(60 * 1000);
     return {
       sessions,
+      lastActive,
       projects: { "websocket:k1": ["翡翠湾-1801"], "websocket:k2": ["翡翠湾-1801", "陈总办公室"], "websocket:old25": ["翡翠湾-1801"] },
       pinned: [],
       titles: {},
@@ -57,7 +62,7 @@ const STUB = () => {
     const s = load();
     if (u.includes("/api/chat/bootstrap")) return json({ token: "stub", ws_path: "/ws", expires_in: 600, model_name: "stub" });
     if (u.includes("/api/chat/sessions?") || u.endsWith("/api/chat/sessions")) return json({ sessions: s.sessions });
-    if (u.includes("/api/chat/session-projects")) return json({ sessions: s.projects });
+    if (u.includes("/api/chat/session-projects")) return json({ sessions: s.projects, last_active: s.lastActive });
     if (u.includes("/api/chat/sidebar-state")) return json({ pinned_keys: s.pinned, title_overrides: s.titles });
     const m = u.match(/\/api\/chat\/sessions\/([^/]+)\/(pin|rename|delete|thread)/);
     if (m) {

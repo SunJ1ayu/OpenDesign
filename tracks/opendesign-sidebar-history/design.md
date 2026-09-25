@@ -21,10 +21,21 @@
   - **P3′ 置顶 / 改名存 ds_web 自己的 `<数据根>/config/sidebar.json`**:与 `consent.json` 同目录同写法(`ds_common.archive_lock` 锁内读 - 改 - 写 +
     `atomic_write_text`);数据根在安装目录外 ⇒ 重装、清浏览器缓存都不丢(C6 的要求照样满足),没有长度上限,网关没起也能置顶改名。
     代价:nanobot 自带网页看不到这些置顶改名 —— 业主不用那个网页,不算损失。
-  - P4 单文件 2000 条消息才截早期记录(`FILE_MAX_MESSAGES`)⇒ 正常用碰不到;项目对话另有映射兜底。
+  - ~~P4 单文件 2000 条消息才截早期记录 ⇒ 正常用碰不到~~ **QA 录像时推翻(09-25 22:2x)**:网关默认 `idleCompactAfterMinutes=15`(我们的配置没改),
+    闲置 15 分钟的对话会被「空闲压缩」(nanobot agent/memory.py `compact_idle_session`):对话文件只留最近约 8 条消息,早期的删掉;
+    **而且每次都把元数据 updated_at 刷成当时**(连「没东西可压」那条路也刷)。实证:本机真实 299 段对话元数据 updated_at 全是今天,
+    最后一条消息的日期却分布在 07-07 ~ 09-16 的 24 天里(`evidence/20260925T142601Z-01-probe-real-sessions-time.txt`);
+    用网关自己的代码压一段 20 条的对话,第 2 条的记账工具调用没了(`…142601Z-02-probe-idle-compact.txt`)。两个后果:
+    ① 按「更新时间」分今天 / 昨天 / 更早 ⇒ 全挤在今天(老侧栏「最近 2 条」其实也是乱的);
+    ② 业主给项目记完账又聊了几句,闲置 15 分钟后这段对话从项目下面消失 —— 方案二的核心承诺落空。
+  - **P1′ 碰过的项目 = 对话文件 ∪ 网关的界面回放记录**:回放记录 `<配置目录>/webui/websocket_<id>.jsonl`(+ 超 8MB 后分段挪进
+    `websocket_<id>.segments/*.jsonl`)是**只追加**的显示记录(nanobot webui/transcript.py),不被空闲压缩;事件 `user`(text,首句带项目前缀)、
+    `message.tool_events[]`(name / arguments 对象 / result)。对话文件照读(回放记录缺的情况下兜底,如老版本留下的对话)。
+  - **P6 最后聊天时间 = 对话文件里最后一条消息的 timestamp**(压缩留下的是最近几条、带原时间);没有就不给,前端退回网关的 updated_at。
+    ds_web 的 session-projects 接口多回一张 `last_active` 表,前端拿它盖掉 updated_at 再分段、排序、显示「几天前」。
   - P5 项目没有界面改名入口(ds_web 无 rename);改名只经助手 `rename_project` ⇒ 从记录里读改名(旧 → 新)做别名即可。
 - 完全实现仍可能失败:① 首页只在嘴上提了项目、助手没动项目工具 ⇒ 归「其他对话」(不承诺,proposal 写明);
-  ② 极长的对话被网关截断后早期碰过的项目丢了(P4,延期);③ 业主在资源管理器里手改项目文件夹名 ⇒ 旧对话对不上(锤子砸墙类,不管)。
+  ② ~~极长的对话被网关截断后早期碰过的项目丢了(P4,延期)~~ 由 P1′ 读回放记录接住;③ 业主在资源管理器里手改项目文件夹名 ⇒ 旧对话对不上(锤子砸墙类,不管)。
 - 未解决项:无改变方向的。
 
 ## 4c 挑战记录(派发前我的方向已落盘在仓外 /root/aiwork/tasks/opendesign-sidebar-history-my-direction.md,未喂给腿)
@@ -77,14 +88,15 @@ Gemini 3.8 flash、Kimi K3、GLM 5.2、Composer 2.5(MiMo 这两天都挂在只�
    - `projectView(sessions, projectsOf, pinned)`:每个项目 ⇒ 它的对话(项目对话在前,其余按时间);没碰过项目的 ⇒ 其他;置顶的全部抽走。
    - `cleanRename(raw)`:去空格;空 ⇒ null(界面当取消);超 160 截断。
 2. **ds_web**:
-   - `GET /api/chat/session-projects` ⇒ `{"sessions": {"websocket:<id>": ["项目 key", …]}}`:读网关配置的 workspace/sessions/websocket_*.jsonl,
+   - `GET /api/chat/session-projects` ⇒ `{"sessions": {"websocket:<id>": ["项目名", …]}, "last_active": {"websocket:<id>": "<最后一条消息时间>"}}`:
+     读网关配置的 workspace/sessions/websocket_*.jsonl **和** `<配置目录>/webui/` 下的回放记录(P1′),
      收集 design-studio 工具调用参数(project / name(read_project)/ old,new(rename_project,顺带记别名))+ 首条用户消息「【当前项目:X】」;
-     别名展开后按 key 或名字对上当前项目列表;按文件 mtime 缓存。只读。
+     别名展开后按 key 或名字对上当前项目列表(前端);最后聊天时间见 P6;按文件 (mtime,size) 缓存。只读。
    - `POST /api/chat/sessions/<key>/pin` `{"pinned": bool}`、`POST /api/chat/sessions/<key>/rename` `{"title": str}`:针孔同删除那一套
      (CT json、body 上限、key 正则、同站),`<数据根>/config/sidebar.json` 锁内读 ⇒ 只改 pinned_keys / title_overrides ⇒ 原子写回;返回这两个字段(P3′)。
    - `GET /api/chat/sidebar-state` ⇒ 只回 `{pinned_keys, title_overrides}`;没文件 / 坏文件 ⇒ 空。
    - 删除针孔:网关删成功(2xx)后,锁内把这个 key 从两个字段去掉(C11);网关拒 / 连不上 ⇒ 不动。
-3. **App.tsx**:会话列表不再拼 limit;拉 session-projects 与 sidebar-state(随 sessionsEpoch 刷新 —— 每轮收尾都 bump,新对话首句让助手记账后马上出现在项目下,QA Grok TC-07);置顶 / 改名 / 删除后刷新。
+3. **App.tsx**:会话列表不再拼 limit;拿 last_active 盖掉会话的 updated_at(P6);拉 session-projects 与 sidebar-state(随 sessionsEpoch 刷新 —— 每轮收尾都 bump,新对话首句让助手记账后马上出现在项目下,QA Grok TC-07);置顶 / 改名 / 删除后刷新。
 4. **Sidebar.tsx**:置顶区 + 切换「按时间 | 按项目」+ 两种视图;每行「⋯」菜单(置顶 / 取消置顶、改名(行内输入框,Enter 存、Esc 放弃)、删除(沿用确认));
    按时间先 10 条、「显示更多」+20;按项目每个项目行一个 ▸(默认收起,显示条数),展开先 5 条 + 显示更多;「其他对话」同样。
    侧栏中间一整块滚动(C5)。项目行的点击、分堆、折叠不动。

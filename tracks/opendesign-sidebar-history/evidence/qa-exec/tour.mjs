@@ -364,7 +364,7 @@ try {
   await send(pane, "临时样板间这个项目删掉吧,是建重复了");
   await step("新对话「临时样板间这个项目删掉吧」(助手真删,进回收站)", { 回复: await lastReply(pane),
     项目栏: await side.locator(".proj-row .nm").allInnerTexts(),
-    其他对话里有没有「样板间软装」: (await rows('[data-ui="side-other"]')).includes("样板间软装") ? "有" : "前几条里没有(可能要点显示更多)",
+    "其他对话里有没有「样板间软装」": (await rows('[data-ui="side-other"]')).includes("样板间软装") ? "有" : "前几条里没有(可能要点显示更多)",
     其他对话前几条: await rows('[data-ui="side-other"]') });
 
   // ── 删除一段置顶 + 改过名、又碰过项目的对话 ──

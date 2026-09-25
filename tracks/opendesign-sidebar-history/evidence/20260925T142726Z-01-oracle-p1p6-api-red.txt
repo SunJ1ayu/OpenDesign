@@ -1,0 +1,29 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    oracle-p1p6-api-red
+cmd:     /root/.venvs/design-studio/bin/python tests/test_sidebar_history_api.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  2654b1f
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T14:27:26Z
+---------------- 输出开始 ----------------
+/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+  """主变更行 C 号 —— **五个写口共用这一个定义**。
+setUpModule (__main__) ... ERROR
+
+======================================================================
+ERROR: setUpModule (__main__)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_sidebar_history_api.py", line 134, in setUpModule
+    _fixture()
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_sidebar_history_api.py", line 126, in _fixture
+    _transcript("j", [_tool_event("read_project", name="陈总办公室")], segment="000001.jsonl")
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: _tool_event() got multiple values for argument 'name'
+
+----------------------------------------------------------------------
+Ran 0 tests in 0.003s
+
+FAILED (errors=1)
+---------------- 输出结束 ----------------
+runlog: oracle-p1p6-api-red rc=5 commit=2654b1f dirty=yes at=2026-09-25T14:27:26Z file=tracks/opendesign-sidebar-history/evidence/20260925T142726Z-01-oracle-p1p6-api-red.txt

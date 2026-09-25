@@ -13,6 +13,9 @@
      GET  /api/chat/session-projects、GET /api/chat/sidebar-state(只回两个字段);
      POST /api/chat/sessions/<key>/pin {"pinned":bool}、…/rename {"title":str}:锁内读 - 改 - 写,别的字段原样回写;
      CT 不是 json / key 非法 / 跨站 ⇒ 拒且不写;删除成功后清这条的置顶与改名;删除时网关连不上 ⇒ 502、不清。
+  碰过的项目还要读网关的**界面回放记录** `<配置目录>/webui/websocket_<id>.jsonl`(+ `.segments/*.jsonl`):网关每 15 分钟把闲置对话
+     「空闲压缩」成最近约 8 条,长对话早期的工具调用从对话文件里没了,回放记录是只追加的(design P1′,探针 probe-idle-compact);
+     最后聊天时间 = 对话文件里最后一条消息的 timestamp —— 元数据 updated_at 每次压缩都被刷成当时(design P6,探针 probe-real-sessions-time)。
   置顶 / 改名存在 ds_web 自己的 `<数据根>/config/sidebar.json`(同 consent.json 的位置与写法),**不经网关**:
      网关的状态更新口把整份状态塞进网址,请求行上限 8192 字节 —— 实测 60 条 10 字改名或 6 条 160 字改名就被断开,
      且之后每次写都要发整份 ⇒ 永远存不上、连取消置顶都取消不了(evidence/20260925T*-probe-gateway-longline.txt)。
@@ -46,6 +49,7 @@ TOKEN = "sidebar-oracle-token"
 CFG_DIR = _tmpreg.mkdtemp("ds-sidebar-判据配置-")
 WS_DIR = _tmpreg.mkdtemp("ds-sidebar-工作区-")
 SESS = os.path.join(WS_DIR, "sessions")
+WEBUI = os.path.join(CFG_DIR, "webui")   # 网关把回放记录放在配置文件旁边的 webui/(nanobot config/paths.py get_runtime_subdir)
 
 
 def _call(tool, /, **args):
@@ -57,11 +61,29 @@ def _write_session(chat_id, lines):
     os.makedirs(SESS, exist_ok=True)
     path = os.path.join(SESS, f"websocket_{chat_id}.jsonl")
     with open(path, "w", encoding="utf-8") as fh:
-        fh.write(json.dumps({"_type": "metadata", "key": f"websocket:{chat_id}", "metadata": {"title": "t"}},
+        fh.write(json.dumps({"_type": "metadata", "key": f"websocket:{chat_id}", "metadata": {"title": "t"},
+                             "updated_at": "2026-09-25T21:12:19.316099"},   # 网关空闲压缩刷成的「当时」
                             ensure_ascii=False) + "\n")
         for ln in lines:
             fh.write((ln if isinstance(ln, str) else json.dumps(ln, ensure_ascii=False)) + "\n")
     return path
+
+
+def _transcript(chat_id, events, segment=None):
+    """网关界面回放记录的形状(本机 ~/.nanobot/webui/websocket_*.jsonl,09-25 查):每行一个事件。"""
+    d = os.path.join(WEBUI, f"websocket_{chat_id}.segments") if segment else WEBUI
+    os.makedirs(d, exist_ok=True)
+    path = os.path.join(d, segment or f"websocket_{chat_id}.jsonl")
+    with open(path, "w", encoding="utf-8") as fh:
+        for ev in events:
+            fh.write(json.dumps(ev, ensure_ascii=False) + "\n")
+    return path
+
+
+def _tool_event(tool, /, **args):
+    return {"event": "message", "chat_id": "x", "text": "", "kind": "progress", "tool_events": [
+        {"version": 1, "phase": "end", "call_id": "c", "name": f"mcp_design-studio_{tool}_tool",
+         "arguments": args, "result": "{\"ok\": true}", "error": None, "files": [], "embeds": []}]}
 
 
 def _fixture():
@@ -92,6 +114,17 @@ def _fixture():
     # 用户消息是多段(带图)时的前缀
     _write_session("g", [{"role": "user", "content": [{"type": "text", "text": "【当前项目:翡翠湾-1801】看这张"},
                                                      {"type": "image_url", "image_url": {"url": "x"}}]}])
+    # i:长对话被网关空闲压缩过 —— 对话文件里只剩后面的闲聊;早期的项目前缀与记账只在回放记录里
+    _write_session("i", [{"role": "user", "content": "那就这样吧", "timestamp": "2026-08-16T09:00:00.000000"},
+                         {"role": "assistant", "content": "好", "timestamp": "2026-08-16T09:30:00.000000"}])
+    _transcript("i", [{"event": "user", "chat_id": "i", "text": "【当前项目:滨江-12F】先看看进度"},
+                      _tool_event("append_change", project="翡翠湾-1801", content="吊顶"),
+                      {"event": "user", "chat_id": "i", "text": "【当前项目:不该算】后来的话"},
+                      {"event": "turn_end", "chat_id": "i"}])
+    # j:回放记录超 8MB 后挪进分段文件的早期部分
+    _write_session("j", [{"role": "user", "content": "继续", "timestamp": "2026-08-10T08:00:00.000000"}])
+    _transcript("j", [_tool_event("read_project", name="陈总办公室")], segment="000001.jsonl")
+    _transcript("j", [{"event": "user", "chat_id": "j", "text": "继续"}])
     # 不是 websocket_ 的文件不管
     with open(os.path.join(SESS, "cli_direct.jsonl"), "w", encoding="utf-8") as fh:
         fh.write(json.dumps({"role": "assistant", "tool_calls": [_call("append_change", project="翡翠湾-1801")]}) + "\n")
@@ -147,6 +180,32 @@ class TestSessionProjects(unittest.TestCase):
         self.assertNotIn("websocket:f", got, "没碰项目的不出现")
         self.assertEqual(got.get("websocket:g"), ["翡翠湾-1801"], "多段用户消息里的前缀也认")
         self.assertFalse(any(k.startswith("cli") for k in got), "非 websocket_ 文件不管")
+
+    def test_p4_transcript_after_idle_compact(self):
+        got = ds_sessions.session_projects(SESS, WEBUI)
+        self.assertEqual(got.get("websocket:i"), ["滨江-12F", "翡翠湾-1801"],
+                         "对话文件被压缩后,回放记录里的首句前缀与记账照认;后来的前缀不算(design P1′)")
+        self.assertEqual(got.get("websocket:j"), ["陈总办公室"], "挪进 .segments 的早期回放也读")
+        self.assertEqual(got.get("websocket:a"), ["翡翠湾-1801"], "没有回放记录的对话照旧只看对话文件")
+        self.assertNotIn("websocket:i", ds_sessions.session_projects(SESS), "不给回放目录就只看对话文件(证明上面那条靠的是回放记录)")
+
+    def test_p5_transcript_change_is_reread(self):
+        p = _transcript("m", [{"event": "user", "chat_id": "m", "text": "随便聊"}])
+        _write_session("m", [{"role": "user", "content": "随便聊"}])
+        self.assertNotIn("websocket:m", ds_sessions.session_projects(SESS, WEBUI))
+        with open(p, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(_tool_event("set_stage", project="翡翠湾-1801", stage="施工"), ensure_ascii=False) + "\n")
+        os.utime(p, (time.time() + 5, time.time() + 5))
+        self.assertEqual(ds_sessions.session_projects(SESS, WEBUI).get("websocket:m"), ["翡翠湾-1801"], "回放记录变了要重读")
+        os.remove(p)
+        os.remove(os.path.join(SESS, "websocket_m.jsonl"))
+
+    def test_p6_last_active_is_last_message_time(self):
+        la = ds_sessions.last_active(SESS)
+        self.assertEqual(la.get("websocket:i"), "2026-08-16T09:30:00.000000",
+                         "最后一条消息的时间,不是元数据 updated_at(网关每次空闲压缩都刷它,design P6)")
+        self.assertEqual(la.get("websocket:j"), "2026-08-10T08:00:00.000000")
+        self.assertNotIn("websocket:a", la, "消息没带时间 ⇒ 不给,前端退回网关的 updated_at")
 
     def test_p2_missing_dir_is_empty(self):
         self.assertEqual(ds_sessions.session_projects(os.path.join(WS_DIR, "没有这个")), {})
@@ -324,6 +383,8 @@ class TestEndpoints(unittest.TestCase):
             st, body = _req(port, "/api/chat/session-projects")
             self.assertEqual(st, 200)
             self.assertEqual(body["sessions"].get("websocket:a"), ["翡翠湾-1801"])
+            self.assertEqual(body["sessions"].get("websocket:i"), ["滨江-12F", "翡翠湾-1801"], "回放记录在配置文件旁边的 webui/ 下")
+            self.assertEqual(body["last_active"].get("websocket:i"), "2026-08-16T09:30:00.000000")
             self.assertEqual(up.requests, [], "只读本机文件,不碰网关")
 
     def test_e2_sidebar_state_only_two_fields(self):
