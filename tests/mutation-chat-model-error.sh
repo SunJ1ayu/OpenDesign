@@ -135,5 +135,36 @@ mutate M13 web/src/settings/modelSettings.ts \
   "node --test tests/test_llm_key.mjs" "not ok 17 - d7" \
   "设置页那句又说回开关上没有的「启用」"
 
+# ── 第 1 轮 QA 判卷 + 代码评审后的修复(verify.md Q1 / Q2 / R2 / R3)──
+mutate M14 web/src/chat/modelError.ts \
+  '找到发这句时用的那家(输入框右下角显示的是现在选的模型),' \
+  '找到发这句时用的那家,' \
+  "$UNIT" "not ok 14 - Q2" \
+  "key 错那句又不指右下角了(第一版实现就是这样)"
+
+mutate M15 web/src/chat/modelError.ts \
+  '"再发一次试试(这句带了图的话,先去掉图再发);一直这样的话,到「设置 → 模型设置」点这家模型旁的「测试」,先确认这家还能用。",' \
+  '"再发一次试试;一直这样的话,到「设置 → 模型设置」点这家模型旁的「测试」,它会告诉你具体哪里不对。",' \
+  "$UNIT" "not ok 15 - Q1" \
+  "认不出的错又替「测试」许愿"
+
+mutate M16 web/src/chat/modelError.ts \
+  '    if (only === "gatewayOnly" && vendorBody) continue;' \
+  '' \
+  "$UNIT" "not ok 16 - R2" \
+  "厂商回了报错体也叫人查网络"
+
+mutate M17 web/src/chat/modelError.ts \
+  '  ["network", /proxy/],' \
+  '' \
+  "$UNIT" "not ok 16 - R2" \
+  "代理认证失败说成 key 不对"
+
+mutate M18 web/src/chat/modelError.ts \
+  '    .replace(/\b[0-9a-f]{32}\.[A-Za-z0-9]{4,}([A-Za-z0-9]{4})\b/gi, "****$1")' \
+  '' \
+  "$UNIT" "not ok 17 - R3" \
+  "GLM 形状的 key 不打码"
+
 echo "红检:咬住 $pass / 漏网 $fail"
 [ $fail -eq 0 ]
