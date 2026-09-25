@@ -144,5 +144,11 @@ mutate M15 web/src/settings/modelSettings.ts \
   "node --test tests/test_llm_key.mjs" "not ok 15 - d5" \
   "改正在用的那家却说在重启、叫他等"
 
+mutate M16 web/src/settings/modelSettings.ts \
+  '  if (restart === "live" && savedDisabled) {' \
+  '  if (false && savedDisabled) {' \
+  "node --test tests/test_llm_key.mjs" "not ok 16 - d6" \
+  "未启用的那家存 key 仍叫他去右下角换(第 1 轮 DeepSeek #1)"
+
 echo "红检:咬住 $pass / 漏网 $fail"
 [ $fail -eq 0 ]
