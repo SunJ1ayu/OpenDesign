@@ -44,7 +44,14 @@ p.write_text(s.replace(old, new), encoding="utf-8")
 PY
   local out rc
   out="$(timeout 900 bash -c "$oracle" 2>&1)"; rc=$?
-  if [ $rc -ne 0 ] && grep -qF -- "$marker" <<<"$out"; then
+  # 单测按**测试名**认红(「not ok <任意编号> - c19」):中间插测试会让编号整体后移,按编号认会把咬住记成漏网(r1fix 第 1 遍就是)
+  local hit=1
+  if [[ "$marker" =~ ^not\ ok\ [0-9]+\ -\ (c[0-9]+)$ ]]; then
+    grep -qE -- "^not ok [0-9]+ - ${BASH_REMATCH[1]} " <<<"$out" && hit=0
+  else
+    grep -qF -- "$marker" <<<"$out" && hit=0
+  fi
+  if [ $rc -ne 0 ] && [ $hit -eq 0 ]; then
     echo "  [咬住] $id —— $why"
     pass=$((pass+1))
   else
@@ -150,8 +157,33 @@ mutate Z19 web/src/chat/modelPicker.ts \
   "$UNIT" "not ok 6 - c6" \
   "后台兜底报错了厂商,按钮照写(QA 执行第 1 步抓到的回归)"
 
+# ── 第 1 轮评审修复(R1 / R2 / R3)──
+mutate Z20 web/src/chat/transcript.ts \
+  '  return withoutStop({ ...state, messages: [...state.messages, msg], busy: true, activity: [] });' \
+  '  return { ...state, messages: [...state.messages, msg], busy: true, activity: [] };' \
+  "$UNIT" "not ok 19 - c19" \
+  "新一轮带着上一轮的停止标记(■ 一直灰,评审 R2)"
+
+mutate Z21 web/src/chat/transcript.ts \
+  '      return state.busy || state.stopPending ? withoutStop({ ...state, busy: false }) : state;' \
+  '      return state.busy ? { ...state, busy: false } : state;' \
+  "$UNIT" "not ok 19 - c19" \
+  "出错收尾不清停止标记(评审 R2)"
+
+mutate Z22 web/src/chat/transcript.ts \
+  '  const stopped = !!(state.stopPending && bubble.systemNote && e.turn_id === state.stopPending);' \
+  '  const stopped = !!(state.stopPending && bubble.systemNote);' \
+  "$UNIT" "not ok 20 - c20" \
+  "后台子任务回报也当停止回话,提前解锁(评审 R3)"
+
+mutate Z23 web/src/chat/transcript.ts \
+  '  return withoutStop({ ...state, busy: false, thinking: false, activity: [] });' \
+  '  return { ...state, busy: false, thinking: false, activity: [] };' \
+  "$UNIT" "not ok 19 - c19" \
+  "断线后放掉这一轮不清停止标记(评审 R2)"
+
 # ── 界面(要构建 + e2e)──
-if wanted Z14 || wanted Z15 || wanted Z16 || wanted Z17 || wanted Z18 || [ ${#only[@]} -eq 0 ]; then rebuilt=1; fi
+if wanted Z14 || wanted Z15 || wanted Z16 || wanted Z17 || wanted Z18 || wanted Z24 || [ ${#only[@]} -eq 0 ]; then rebuilt=1; fi
 mutate Z14 web/src/chat/ChatPage.tsx \
   '    setTranscript((s) => requestStop(s, turnId));' \
   '    setTranscript((s) => requestStop(appendLocalUser(s, "/stop", `local-${turnId}`), turnId));' \
@@ -182,6 +214,12 @@ mutate Z18 web/src/chat/ChatPage.tsx \
   '            <div className="home-greet">{greetingFor(new Date(2026, 0, 1, 10))}</div>' \
   "$E2E" "not ok - ⑤ 首页问候语" \
   "问候语不随时间"
+
+mutate Z24 web/src/chat/ChatPage.tsx \
+  '            if (m.event === "turn_end" || (m.event === "goal_status" && m.status === "idle")) onTurnEnd?.();' \
+  '            if (m.event === "turn_end" || (m.event === "goal_status" && m.status === "idle" && m.never === 1)) onTurnEnd?.();' \
+  "$E2E" "not ok - ④ 发送是 ↑ 图标" \
+  "停下之后侧栏历史 / 项目数据不刷新(评审 R1)"
 
 echo "红检:咬住 $pass / 漏网 $fail"
 [ $fail -eq 0 ]
