@@ -104,6 +104,7 @@ export default function App() {
   const [sidebarState, setSidebarState] = useState<SidebarState>(EMPTY_SIDEBAR_STATE);
   const [derivedProjects, setDerivedProjects] = useState<Record<string, string[]>>({});
   const [lastActive, setLastActive] = useState<Record<string, string>>({});
+  const [projectRenames, setProjectRenames] = useState<Record<string, string>>({});
   const [searchOpen, setSearchOpen] = useState(false);
   // 工作区体检卡浮层(2026-07-28 用户拍板:挪进设置)。计数器兼作 key:
   // 每次打开都重挂一次 = 拿到当下最新的工作区状态,不会拿上次打开时的旧快照当真。
@@ -344,7 +345,7 @@ export default function App() {
       .then((st) => { if (!stale) setSidebarState(st); })
       .catch(() => { /* 读不到 ⇒ 保留上一份;没有置顶改名也不妨碍看历史 */ });
     fetchSessionProjects()
-      .then((f) => { if (!stale) { setDerivedProjects(f.projects); setLastActive(f.lastActive); } })
+      .then((f) => { if (!stale) { setDerivedProjects(f.projects); setLastActive(f.lastActive); setProjectRenames(f.renames); } })
       .catch(() => { /* 读不到 ⇒ 按项目视图里全进「其他对话」 */ });
     return () => {
       stale = true;
@@ -498,9 +499,9 @@ export default function App() {
   );
   const sessionProjectMap = useMemo(() => {
     const out: Record<string, string[]> = {};
-    for (const s of sessions ?? []) out[s.key] = sessionProjects(s.key, derivedProjects, projThreads, projects);
+    for (const s of sessions ?? []) out[s.key] = sessionProjects(s.key, derivedProjects, projThreads, projects, projectRenames);
     return out;
-  }, [sessions, derivedProjects, projThreads, projects]);
+  }, [sessions, derivedProjects, projThreads, projects, projectRenames]);
   const threadKeys = useMemo(
     () => new Set(Object.values(projThreads).map((id) => `websocket:${id}`)),
     [projThreads],

@@ -69,8 +69,10 @@ export function displayTitle(s: SessionLike, overrides: Readonly<Record<string, 
 /**
  * 一段对话碰过哪些项目(返回当前项目列表里的 key):
  *   ① 它是哪些项目的项目对话(前端既有映射 project → chat_id)—— 排最前;
- *   ② 后台从对话记录读出的项目名(ds_sessions.session_projects):先按 key 对,再按名字对(分组项目 key =「组:名」,
+ *   ② 后台从对话记录读出的**原始**项目名(ds_sessions.session_projects):先按 key 对,再按名字对(分组项目 key =「组:名」,
  *      助手常只写名字);同名的项目不止一个就对不上(不猜);
+ *   ③ 名字现在对不上 ⇒ 顺着改名记录(renames,只含成功的改名)往下找**第一个现在还有的**:
+ *      项目改错又改回去(A→B→A)时,碰过 A 或 B 的都归现在的 A,不挂反(第 2 轮评审 GPT);成环且都不在了 ⇒ 不挂。
  *   删掉 / 不在列表里的忽略;不重复。
  */
 export function sessionProjects(
@@ -78,6 +80,7 @@ export function sessionProjects(
   derived: Readonly<Record<string, readonly string[]>>,
   threadMap: Readonly<Record<string, string>>,
   projects: readonly ProjectLike[],
+  renames: Readonly<Record<string, string>> = {},
 ): string[] {
   const keys = new Set(projects.map((p) => p.key));
   const byName = new Map<string, string[]>();
@@ -85,18 +88,26 @@ export function sessionProjects(
     const n = p.name || p.key;
     byName.set(n, [...(byName.get(n) ?? []), p.key]);
   }
+  const match = (n: string): string | null => {
+    if (keys.has(n)) return n;
+    const hits = byName.get(n) ?? [];
+    return hits.length === 1 ? hits[0] : null;
+  };
+  const resolve = (n: string): string | null => {
+    const seen = new Set<string>();
+    for (let cur: string | undefined = n; cur !== undefined && !seen.has(cur); cur = renames[cur]) {
+      const hit = match(cur);
+      if (hit) return hit;
+      seen.add(cur);
+    }
+    return null;
+  };
   const out: string[] = [];
-  const add = (k: string | undefined) => { if (k && keys.has(k) && !out.includes(k)) out.push(k); };
+  const add = (k: string | null | undefined) => { if (k && keys.has(k) && !out.includes(k)) out.push(k); };
   for (const [project, chatId] of Object.entries(threadMap)) {
     if (`websocket:${chatId}` === sessionKey) add(project);
   }
-  for (const n of derived[sessionKey] ?? []) {
-    if (keys.has(n)) add(n);
-    else {
-      const hits = byName.get(n) ?? [];
-      if (hits.length === 1) add(hits[0]);
-    }
-  }
+  for (const n of derived[sessionKey] ?? []) add(resolve(n));
   return out;
 }
 

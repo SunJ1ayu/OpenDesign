@@ -29,7 +29,7 @@
     token,CT json 闸是 CSRF 纵深。本服务仍零 PKB 写面。
     删成功(上游 2xx)后顺带把这条从置顶 / 改名里去掉(track opendesign-sidebar-history C11),再回前端。
 侧栏历史对话(track opendesign-sidebar-history,纯逻辑在 bin/ds_sessions.py):
-  GET  /api/chat/session-projects        {"sessions": {key: [项目名…]}, "last_active": {key: 最后一条消息时间}}
+  GET  /api/chat/session-projects        {"sessions": {key: [项目名…]}, "last_active": {key: 最后一条消息时间}, "renames": {旧: 新}}
                                          从网关的对话文件 + 界面回放记录读出(只读,不经网关;design P1′ / P6)
   GET  /api/chat/sidebar-state           {"pinned_keys", "title_overrides"}
   POST /api/chat/sessions/<key>/pin      {"pinned": bool}
@@ -1522,16 +1522,18 @@ class Handler(BaseHTTPRequestHandler):
         """GET:每段对话碰过哪些项目(ds_sessions.session_projects)。只读本机网关对话文件,不经网关。"""
         cfg = os.environ.get("DS_NANOBOT_CONFIG", DEFAULT_NANOBOT_CONFIG)
         ws = ds_sessions.workspace_dir(cfg)
-        data, last = {}, {}
+        data, last, ren = {}, {}, {}
         try:
             if ws:
                 sessions = os.path.join(ws, "sessions")
+                webui = ds_sessions.webui_dir(cfg)
                 # 回放记录一起读:长对话被网关空闲压缩后,早期的工具调用只在那里(design P1′)
-                data = ds_sessions.session_projects(sessions, ds_sessions.webui_dir(cfg))
+                data = ds_sessions.session_projects(sessions, webui)
                 last = ds_sessions.last_active(sessions)
+                ren = ds_sessions.renames(sessions, webui)   # 改名怎么归由前端按现有项目定(第 2 轮评审 GPT)
         except Exception:
             traceback.print_exc()   # 读不出来 ⇒ 按项目视图里全进「其他对话」、时间退回网关的,侧栏照常能用
-        self._json(200, {"sessions": data, "last_active": last})
+        self._json(200, {"sessions": data, "last_active": last, "renames": ren})
 
     def _sidebar_state(self):
         try:

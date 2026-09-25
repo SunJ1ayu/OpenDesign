@@ -156,6 +156,19 @@ mutate B21 bin/ds_sessions.py \
   '                last_ts = ts[-1] if ts else None' \
   "$PY" "py:test_p8_last_active_skips_rows_without_time" "最后一行没带时间就退回被刷过的 updated_at"
 
+# ── 第 2 轮修复(评审 GPT 第 2 轮 M-a / M-b)──
+mutate B22 bin/ds_sessions.py \
+  '            self.add(old)
+            if' \
+  '            self.add(old)
+            self.add(new)
+            if' \
+  "$PY" "py:test_p7_failed_rename_no_alias" "改名失败那段也算碰过目标项目"
+mutate B23 bin/ds_web.py \
+  '                ren = ds_sessions.renames(sessions, webui)   # 改名怎么归由前端按现有项目定(第 2 轮评审 GPT)' \
+  '                ren = {}' \
+  "$PY" "py:test_e1_session_projects" "接口不回改名记录"
+
 # ── F 前台纯逻辑 ──
 mutate F1 web/src/workspace/sidebarModel.ts \
   '  if (t >= today) return "今天";' '  if (t >= now.getTime() - 86400000) return "今天";' \
@@ -200,6 +213,14 @@ mutate F12 web/src/workspace/sidebarModel.ts \
 mutate F13 web/src/workspace/sidebarModel.ts \
   '    const run = tail.then(task);' '    const run = task();' \
   "$UNIT" "s9" "置顶 / 改名不排队,回话乱序会把界面盖回旧状态"
+
+mutate F14 web/src/workspace/sidebarModel.ts \
+  '    for (let cur: string | undefined = n; cur !== undefined && !seen.has(cur); cur = renames[cur]) {' \
+  '    for (let cur: string | undefined = n; cur !== undefined && !seen.has(cur); cur = undefined) {' \
+  "$UNIT" "s10" "不顺着改名找,改过名的项目下对话全丢"
+mutate F15 web/src/workspace/sidebarModel.ts \
+  '      if (hit) return hit;' '      if (hit && renames[cur] === undefined) return hit;' \
+  "$UNIT" "s10" "改名记录压过现在还有的项目,改错又改回去时挂反"
 
 # ── E 界面(真 chromium) ──
 # 变异要编译得过:把某个回调的唯一调用删掉会被 tsc 当「没用到的变量」拒掉(rc=99,第 1 遍 E13/E14 就是),改成仍引用、不调用

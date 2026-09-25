@@ -111,8 +111,9 @@ class _Touched:
         tool = name[len(_TOOL_PREFIX):]
         if tool == "rename_project_tool":
             old, new = args.get("old"), args.get("new")
+            # 只算碰过旧名;新名归不归它,由改名记录(只收成功的)交给前端按「现在还有哪些项目」定 ——
+            # 改名失败(新名已被别的项目占着)时,这段对话不该出现在那个已存在的项目下(第 2 轮评审 GPT)
             self.add(old)
-            self.add(new)
             if isinstance(old, str) and isinstance(new, str) and old.strip() and new.strip():
                 pair = (old.strip(), new.strip())
                 if ok:
@@ -279,28 +280,17 @@ def _scan_all(sessions_dir: str, webui: str | None) -> tuple[dict, dict, dict]:
     return names, last, alias
 
 
-def _resolve(name: str, alias: dict[str, str]) -> str:
-    seen = {name}
-    while name in alias and alias[name] not in seen:   # 改名链 a⇒b⇒c 走到底;成环就停
-        name = alias[name]
-        seen.add(name)
-    return name
-
-
 def session_projects(sessions_dir: str, webui: str | None = None) -> dict[str, list[str]]:
-    """{"websocket:<id>": [项目名, …]};没碰过项目的对话不出现;目录不在 ⇒ {}。
-    webui = 网关界面回放记录目录(见 webui_dir);给了就一起读(长对话被空闲压缩后,早期的工具调用只在那里,design P1′)。"""
-    names, _last, alias = _scan_all(sessions_dir, webui)
-    out: dict[str, list[str]] = {}
-    for key, ns in names.items():
-        resolved: list[str] = []
-        for n in ns:
-            r = _resolve(n, alias)
-            if r not in resolved:
-                resolved.append(r)
-        if resolved:
-            out[key] = resolved
-    return out
+    """{"websocket:<id>": [碰过的项目名(原始名字), …]};没碰过项目的对话不出现;目录不在 ⇒ {}。
+    webui = 网关界面回放记录目录(见 webui_dir);给了就一起读(长对话被空闲压缩后,早期的工具调用只在那里,design P1′)。
+    **不在这里展开改名**:项目改错又改回去(A→B→A)时,哪个名字现在还在只有前端知道(它有项目列表),见 renames()。"""
+    names, _last, _alias = _scan_all(sessions_dir, webui)
+    return {key: ns for key, ns in names.items() if ns}
+
+
+def renames(sessions_dir: str, webui: str | None = None) -> dict[str, str]:
+    """成功的项目改名 {旧名: 新名}(工具回 ok 的才收;失败的改名收了会把对话挂错,评审 GPT H1)。"""
+    return _scan_all(sessions_dir, webui)[2]
 
 
 def last_active(sessions_dir: str) -> dict[str, str]:
