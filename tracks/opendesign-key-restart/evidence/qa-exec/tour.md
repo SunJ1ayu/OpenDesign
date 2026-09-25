@@ -1,6 +1,6 @@
 # QA 执行 · 真界面操作录像(track opendesign-key-restart)
 
-台面:真管家 + 真网关(经 ds_gateway.py)+ 真工作台 + 真 chromium;包 = /tmp/claude-0/-root/4674cfd7-e665-4183-9f19-c44e6517bdff/scratchpad/pkg5(见同目录 README)。每步:截图 NN.jpg + 页面文字 + 当时的事实。
+台面:真管家 + 真网关(经 ds_gateway.py)+ 真工作台 + 真 chromium;包 = 本机按出货形状摆的一份,ds 来自 `git archive a8a53c9 bin config web/dist`(产品代码与 ce8f5fa 相同),python.exe 是包一层 venv python 的小脚本。每步:截图 NN.jpg + 页面文字 + 当时的事实。(本机路径在会话临时目录 [仓外不承重];头一行是事后补写的说明,事实行未改。)
 
 ## 01. 打开软件:聊天连上,右下角换模型按钮在
 

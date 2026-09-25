@@ -103,7 +103,7 @@ const gwPid = () => (spawnSync("ss", ["-ltnpH", `sport = :${wsPort}`], { encodin
 
 const OUT = HERE;
 const lines = ["# QA 执行 · 真界面操作录像(track opendesign-key-restart)", "",
-  `台面:真管家 + 真网关(经 ds_gateway.py)+ 真工作台 + 真 chromium;包 = ${PKG}(见同目录 README)。每步:截图 NN.jpg + 页面文字 + 当时的事实。`, ""];
+  `台面:真管家 + 真网关(经 ds_gateway.py)+ 真工作台 + 真 chromium;包 = 本机按出货形状摆的一份(${process.env.TOUR_PKG_FROM || "ds 来自哪次提交:未注明"})。每步:截图 NN.jpg + 页面文字 + 当时的事实。`, ""];
 let n = 0;
 const pane = ".home-pane";
 const browser = await launchBrowser();
