@@ -10,6 +10,6 @@
 - [x] T4 web/src/workspace/sidebarModel.ts 纯逻辑
 - [x] T5 App.tsx:不拼 limit;拉 session-projects / sidebar-state;置顶 / 改名 / 删除后刷新
 - [x] T6 Sidebar.tsx + app.css:置顶区、按时间 | 按项目、⋯ 菜单、显示更多、中间整块滚动
-- [ ] T7 变异测试 + 总跑 + 构建 dist
-- [ ] T8 QA 执行(真管家 + 真网关 + 假厂商录像)+ 判卷
-- [ ] T9 评审(high,每轮两家不同家族,上限 2 轮)+ 主裁 + 归档
+- [x] T7 变异测试 + 总跑 + 构建 dist
+- [x] T8 QA 执行(真管家 + 真网关 + 假厂商录像)+ 判卷
+- [x] T9 评审(high,每轮两家不同家族,上限 2 轮)+ 主裁 + 归档
