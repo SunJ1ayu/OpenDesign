@@ -122,6 +122,26 @@ mutate B13 bin/ds_web.py \
   '            fn = lambda st: ds_sessions.patch_sidebar(st, key, title=title[:5])  # noqa: E731' \
   "$PY" "py:test_e3b_many_long_titles_all_kept" "长名字存不全"
 
+# ── B 后台:回放记录与最后聊天时间(QA 录像推翻 P4 之后,design P1′ / P6) ──
+mutate B14 bin/ds_web.py \
+  '                data = ds_sessions.session_projects(sessions, ds_sessions.webui_dir(cfg))' \
+  '                data = ds_sessions.session_projects(sessions)' \
+  "$PY" "py:test_e1_session_projects" "不读回放记录,长对话被压缩后从项目下消失"
+mutate B15 bin/ds_sessions.py \
+  '                for seg in _list(seg_dir, lambda e: e.name.endswith(".jsonl") and e.is_file()) + [path]:' \
+  '                for seg in [path]:' \
+  "$PY" "py:test_p4_transcript_after_idle_compact" "回放记录分段后的早期部分不读"
+mutate B16 bin/ds_sessions.py \
+  '                    merge(key, ([prefix] if prefix and not user_seen else []) + seg_names)' \
+  '                    merge(key, ([prefix] if prefix else []) + seg_names)' \
+  "$PY" "py:test_p4_transcript_after_idle_compact" "分段后每份的第一句都当项目前缀"
+mutate B17 bin/ds_sessions.py \
+  '            last_ts = row["timestamp"]' '            last_ts = None' \
+  "$PY" "py:test_p6_last_active_is_last_message_time" "没读最后一条消息的时间"
+mutate B18 bin/ds_web.py \
+  '                last = ds_sessions.last_active(sessions)' '                last = {}' \
+  "$PY" "py:test_e1_session_projects" "接口不回最后聊天时间"
+
 # ── F 前台纯逻辑 ──
 mutate F1 web/src/workspace/sidebarModel.ts \
   '  if (t >= today) return "今天";' '  if (t >= now.getTime() - 86400000) return "今天";' \
@@ -157,6 +177,11 @@ mutate F10 web/src/workspace/sidebarModel.ts \
 mutate F11 web/src/workspace/sidebarModel.ts \
   '  return projectKeys.length > 1 ? `${first} +${projectKeys.length - 1}` : first;' '  return first;' \
   "$UNIT" "s7" "碰过多个项目的小标不带 +N"
+
+mutate F12 web/src/workspace/sidebarModel.ts \
+  '  return sessions.map((s) => (lastActive[s.key] ? { ...s, updated_at: lastActive[s.key] } : s));' \
+  '  return sessions.map((s) => s);' \
+  "$UNIT" "s8" "最后聊天时间没盖掉网关刷过的 updated_at"
 
 # ── E 界面(真 chromium) ──
 # 变异要编译得过:把某个回调的唯一调用删掉会被 tsc 当「没用到的变量」拒掉(rc=99,第 1 遍 E13/E14 就是),改成仍引用、不调用
@@ -211,6 +236,11 @@ mutate E14 web/src/workspace/Sidebar.tsx \
   '        <button className="hist-row" title={title} onClick={() => onOpenSession(s)}>' \
   '        <button className="hist-row" title={title} onClick={() => void onOpenSession}>' \
   "$E2E" "not ok - ④ 点一条对话" "点对话回不去"
+
+mutate E15 web/src/App.tsx \
+  '    () => (sessions === null ? null : withLastActive(sessions, lastActive)),' \
+  '    () => (sessions === null ? null : withLastActive(sessions, {})),' \
+  "$E2E" "not ok - ① 按时间" "侧栏还按网关刷过的 updated_at 分段(全挤在今天)"
 
 echo "红检:咬住 $pass / 漏网 $fail"
 [ $fail -eq 0 ]

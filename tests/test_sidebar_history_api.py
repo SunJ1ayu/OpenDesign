@@ -125,6 +125,10 @@ def _fixture():
     _write_session("j", [{"role": "user", "content": "继续", "timestamp": "2026-08-10T08:00:00.000000"}])
     _transcript("j", [_tool_event("read_project", name="陈总办公室")], segment="000001.jsonl")
     _transcript("j", [{"event": "user", "chat_id": "j", "text": "继续"}])
+    # n:项目对话的回放记录分过段 —— 第一句(带项目前缀)在分段里;当前那份的第一句是后来的话,正文碰巧以前缀开头也不算
+    _write_session("n", [{"role": "user", "content": "好的"}])
+    _transcript("n", [{"event": "user", "chat_id": "n", "text": "【当前项目:陈总办公室】开个头"}], segment="000001.jsonl")
+    _transcript("n", [{"event": "user", "chat_id": "n", "text": "【当前项目:不该算】后来又写的"}])
     # 不是 websocket_ 的文件不管
     with open(os.path.join(SESS, "cli_direct.jsonl"), "w", encoding="utf-8") as fh:
         fh.write(json.dumps({"role": "assistant", "tool_calls": [_call("append_change", project="翡翠湾-1801")]}) + "\n")
@@ -186,6 +190,7 @@ class TestSessionProjects(unittest.TestCase):
         self.assertEqual(got.get("websocket:i"), ["滨江-12F", "翡翠湾-1801"],
                          "对话文件被压缩后,回放记录里的首句前缀与记账照认;后来的前缀不算(design P1′)")
         self.assertEqual(got.get("websocket:j"), ["陈总办公室"], "挪进 .segments 的早期回放也读")
+        self.assertEqual(got.get("websocket:n"), ["陈总办公室"], "分过段的回放:项目前缀只认整段历史的第一句")
         self.assertEqual(got.get("websocket:a"), ["翡翠湾-1801"], "没有回放记录的对话照旧只看对话文件")
         self.assertNotIn("websocket:i", ds_sessions.session_projects(SESS), "不给回放目录就只看对话文件(证明上面那条靠的是回放记录)")
 
