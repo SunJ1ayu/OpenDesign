@@ -1035,6 +1035,13 @@ export default function ChatPage({
                 )}
                 {m.content}
               </div>
+            ) : m.modelError ? (
+              /* 模型 / 助手出错的说明(track opendesign-chat-error-visible):一眼看得出是出错;
+                 说明与原文都是纯文本 —— 原文走 markdown 会把 invalid_request_error 的下划线吞成强调(4c Grok)。 */
+              <div key={m.id} className="msg-ai msg-error" data-ui="chat-model-error">
+                <div className="msg-error-text">{m.content}</div>
+                <div className="msg-error-raw" data-ui="chat-model-error-raw">原文:{m.modelError.raw}</div>
+              </div>
             ) : (
               <div key={m.id} className={`msg-ai${m.streaming ? " streaming" : ""}`}>
                 {renderMarkdown(m.content)}

@@ -1671,6 +1671,21 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   color: var(--ink);
   overflow-wrap: break-word;
 }
+/* 模型 / 助手出错的说明(track opendesign-chat-error-visible):赤陶左边线 + 浅底,和正常回复一眼分开 */
+.msg-ai.msg-error {
+  border-left: 3px solid var(--terra);
+  background: var(--terra-pill-bg);
+  border-radius: 0 6px 6px 0;
+  padding: 8px 12px;
+}
+.msg-error-text { white-space: pre-line; }
+.msg-error-raw {
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-4);
+  overflow-wrap: anywhere;   /* 原文常是一长串不带空格的 JSON */
+}
 /* 流式光标:8×15 赤陶块,随流式增长闪烁 */
 .msg-ai.streaming > :last-child::after,
 .msg-ai.streaming:empty::after {
