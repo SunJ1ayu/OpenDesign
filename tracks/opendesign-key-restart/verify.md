@@ -57,33 +57,34 @@ runlog: r1-fix-oracle-red-2 rc=1 commit=ce8f5fa dirty=yes at=2026-09-25T02:37:08
 
 ## Review
 
-- 规格自查(读任何 panel 输出之前先答):<回看 design 的用户成功条件、前提证据和未解决项。
-  实现符合规格不证明规格合理;实现评审也可质疑规格,但不能替代实施前 panel 4c 的方案检查。
-  本轮若暴露能推翻方向的前提,先回到设计;全池一致 PASS 也不等于题是对的。>
-- 腿的花名册: <把 `<日志前缀>.roster` 里那一行**原样粘过来**,别手写>
-  > panel-review 收尾自己写这个文件(off / FAIL(rc) / 降级 都在里面)。
-  > **控制器没活到收尾时它压根不存在** —— 那时跑 `panel-roster <日志前缀>` 从盘上重建,
-  > 与控制器自己写的**归一化后一致**(判据 R5b 守着;抬头有渲染时间戳,不是字面逐字节)。**一轮零记录的评审也粘得出这一行**,
-  > 所以"那轮被砍了所以没有花名册"不再是理由(2026-08-23,track panel-roster-from-disk)。
-  > 08-06 立这条的理由:08-05 我在这里手写了"三条腿一致 PASS",而 Kimi 根本没出结论
-  > (同一页第 90 行我自己还写着它没出报告)—— 手抄一份终端上的东西,抄错那次没人会发现。
-- 轮次记录(每次派发一行;实质评审与基础设施重试分开,重试不算轮但次数与耗时照记):
+- 规格自查(读任何 panel 输出之前,2026-09-25 09:5x,原文在 /root/aiwork/tasks/opendesign-key-restart-r1-my-review.md):
+  用户成功条件 = 聊天连着存 key 不断、下一句用上;全新装机第一把 key 网关被起起来;Windows 不再卡。前提 P0~P3 都有证据(design.md);
+  没有能推翻方向的未知。自审 PASS,带 3 条低风险已知项(K-a/K-b/K-c,见下表)。
+- 反锚定记账:第 1 轮派发时 verify.md 只有收据行与「收据说明」(判据怎么红、怎么改),没有自审结论与处置;工具照例报 anchor leak 指的是它。
+- 腿的花名册(第 1 轮):
+  `submimo=FAIL(rc=124) subdeepseek=PASS(verdict=PASS)`
+- 轮次记录:
 
   | 轮 | 类型(实质 / 重试) | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
   |---|---|---|---|---|
-  | 1 | 实质 | <rc,BLOCK 数> | <…> | <n> |
+  | 1 | 实质(MiMo 35 分钟超时 rc=124、无结论 = 基础设施失败;DeepSeek 有效) | rc=3,BLOCK 0(只待评审) | /root/aiwork/logs/panel-keyrestart-r1-20260925-095516 | 0(1 条 LOW 必须修) |
+  | 2 | 实质(核验修复 + 补足两家覆盖:DeepSeek + Grok) | 待填 | 待填 | 待填 |
 
-- findings(**先处置、后动手**;一轮一份修复清单,一次修完再复审 —— panel 抽屉 4b):
+- QA(测试员,非评审、不计轮):QA-设计 DeepSeek + Grok(evidence/20260925-qa-design-*.md);QA-执行 两家判卷(evidence/20260925-qa-exec-*.md,
+  对账:DeepSeek 9 通过 / 0 不通过 / 14 没执行到;Grok 缺陷无)+ 主裁补录真界面 14 步(evidence/qa-exec/tour.md,真管家+真网关+真工作台+真 chromium)。
+- findings(先处置、后动手;一轮一份修复清单):
 
   | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
   |---|---|---|---|---|
-  | 1 | <…> | <file:line / 复现收据> | 必须修 / 延期 / 驳回 / 尚未核实 | <延期必写:它在业主或下一个使用者那边会长成什么样> |
+  | R1-1 | (第 1 轮 DeepSeek LOW)未启用的那家存 key,提示说「右下角就能换」,菜单里却藏着它 | bin/ds_credential.py:511(菜单只列启用的);ModelSettings 保存键不看 enabled;e2e R1-1 红收据 …-r1-fix-oracle-red-2 | 必须修 | 假话提示,修法小;82c252a 修,d6 / e2e R1-1 / 红检 M16 |
+  | Q-1 | (QA 执行录像第 9 步)模型调用出错(key 填错 / 欠费 / 超时 / 限流)时聊天页**什么都不显示**:网关发了整句错误消息(event=message,无 kind),web/src/chat/transcript.ts:243 只认 progress/tool_hint,整句丢掉 | evidence/qa-exec/09.jpg;evidence/qa-exec/wrongkey-repro.py 真网关复现(stream_end 后一条 message「Error: Invalid API key」) | 延期(发版后另开单) | **不是本单引入**(0.98.12 及以前同样);本单只让 key 生效更快,没碰聊天显示。在业主那边长成:填错 key 或额度用完后发消息「没反应」,以为又坏了。发 0.98.13 后紧接着开单修(修法:本轮没有流式正文时把这条 message 显示出来,并说人话) |
+  | Q-2 | (QA DeepSeek ①)第一次存 key 后若网关起不来,提示叫他「退出再打开」 | modelSettings.ts requested 那句 | 驳回 | 网关真起不来时,聊天页「立即重试」只重连、救不了;外壳同时会弹「没能自己启动…请退出再打开」—— 那就是对的出路 |
+  | Q-3 | (QA DeepSeek ②)保存本身失败(写盘失败)时说什么 | — | 驳回 | 要人为造 IO 故障(锤子砸墙);现有路径把后端那句人话原样显示,未改 |
+  | K-a | (自审)额外厂商 key 文件写成、配置写不进 ⇒ 回包 live 但这家没进菜单 | 自审文件 | 延期 | 要配置目录不可写而 keys 可写(手改权限);下次开软件 build_env 会补上 |
+  | K-b | (自审)网关没在跑时连存两次,第二次等不到锁应答 ⇒ 「请手动重启」 | 自审文件 | 延期 | 老版本重启同形;本单后只在全新装机 / 网关挂了才走 |
+  | K-c | (自审)钩子每句读十来次小配置 | — | 延期 | 毫秒级,不优化 |
 
-  > 只写发现。腿的身份/降级不在这儿抄第二遍:日志自带身份牌(降级横幅 + 视野边界),
-  > 花名册在上一格,查工件不查自述。延期 = 留在这里,不自动开新单。
-- arbitrated verdict (主裁): <...>
-  > 这里写理由；最终枚举写进 `decision.json.outcome.verdict`。归档时仍为空会被
-  > `track-record validate --phase archive` 挡住，`track list` 也会打 ⚠️。
+- arbitrated verdict (主裁): 待第 2 轮
 
 ## Accepted deviations
 
