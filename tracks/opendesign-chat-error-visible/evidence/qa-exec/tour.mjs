@@ -208,36 +208,73 @@ try {
   await send(pane, "连发第二句");
   await step("E13 key 错时连发两句:各有一条说明", { 出错说明条数: await errs(pane).count() });
 
-  // E10 项目助手栏
+  // E8 打开待办页再回首页(第 1 遍录像没走,QA 判卷 Q4)
+  const homeLive = await errTexts(pane);
+  await page.goto(`${base}/#/todos`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(1200);
+  await page.goto(`${base}/#/`, { waitUntil: "domcontentloaded" });
+  await page.locator(pane).waitFor({ state: "visible", timeout: 8000 });
+  await page.waitForTimeout(800);
+  const homeBack = await errTexts(pane);
+  await step("E8 打开待办页再回首页", { 出错说明条数: `${homeLive.length} → ${homeBack.length}`,
+    逐条相同: JSON.stringify(homeLive) === JSON.stringify(homeBack) });
+
+  // E24 / D6 真重开软件(整页重载)→ 点回首页这段(此时侧栏里它还在;第 1 遍录像在建项目之后才做,点进了待办那段)
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitConnected(page, pane, 60000);
+  const histRows = await page.locator(".hist-row").allInnerTexts();
+  await page.locator(".hist-row").first().click({ timeout: 15000 });
+  await page.waitForFunction((n) => document.querySelectorAll('.home-pane [data-ui="chat-model-error"]').length >= n,
+    homeLive.length, { timeout: 20000 }).catch(() => {});
+  await page.waitForTimeout(800);
+  const homeReplay = await errTexts(pane);
+  await step("E24/D6 重开软件,从侧栏点回首页这段(走网关回放):每一类出错说明都与实时逐条相同", {
+    侧栏历史: histRows, 出错说明条数: `实时 ${homeLive.length} / 回放 ${homeReplay.length}`,
+    逐条相同: JSON.stringify(homeLive) === JSON.stringify(homeReplay),
+    有没有英文原文当正文: (await page.locator(`${pane} .msg-ai:not([data-ui="chat-model-error"])`).allInnerTexts()).some((t) => /Error:|The AI provider/.test(t)) });
+
+  // E10 项目助手栏:当场 + 首页不冒出 + 切走再回来
   MODE = "401";
   const cr = await fetch(`${base}/api/projects/create`, { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project: "翡翠湾-1801" }) });
   if (!cr.ok) throw new Error(`夹具:建项目失败 HTTP ${cr.status} ${await cr.text()}`);
-  // 只改 # 是同一页内跳转,不重新拉项目列表(第一遍录像卡在这:页面写着「还没有项目」)⇒ 真重载
+  // 只改 # 是同一页内跳转,不重新拉项目列表 ⇒ 真重载
   await page.goto(`${base}/#/workspace`, { waitUntil: "domcontentloaded" });
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.locator(".proj-row", { hasText: "翡翠湾-1801" }).first().click({ timeout: 20000 });
+  const proj = page.locator(".proj-row", { hasText: "翡翠湾-1801" }).first();
+  await proj.click({ timeout: 20000 });
   await waitConnected(page, ".chatcol", 60000);
+  const homeBefore = await errs(pane).count();
   await send(".chatcol", "这个项目的进度");
-  await step("E10 项目助手栏里出错", { 项目栏出错说明: await errTexts(".chatcol") });
+  const projLive = await errTexts(".chatcol");
+  await step("E10 项目助手栏里出错(首页那栏不许跟着冒)", { 项目栏出错说明: projLive,
+    首页出错条数: `${homeBefore} → ${await errs(pane).count()}` });
+  await page.goto(`${base}/#/todos`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(1200);
+  await page.goto(`${base}/#/workspace`, { waitUntil: "domcontentloaded" });
+  await proj.click({ timeout: 20000 });
+  await page.waitForTimeout(2500);
+  const projBack = await errTexts(".chatcol");
+  await step("E10b 项目栏:去待办页再回来、点回这个项目", { 出错说明条数: `${projLive.length} → ${projBack.length}`,
+    逐条相同: JSON.stringify(projLive) === JSON.stringify(projBack) });
 
-  // E11 待办页助手栏:右栏是单行「问一句」框 + 发送键,发出后展开成完整聊天(第一遍录像找 textarea 没找到)
+  // E11 待办页助手栏:右栏是单行「问一句」框 + 发送键,发出后展开成完整聊天
   await page.goto(`${base}/#/todos`, { waitUntil: "domcontentloaded" });
   const railChat = '[data-ui="rail-chat"]';
   await page.locator('[data-ui="rail-ask"]').fill("帮我排一下待办");
   await page.locator('[data-ui="rail-send"]').click();
   await page.locator(`${railChat} [data-ui="chat-model-error"]`).first().waitFor({ timeout: 60000 });
   await page.waitForTimeout(600);
-  await step("E11 待办页助手栏里出错", { 待办栏出错说明: await errTexts(railChat) });
-
-  // E24 关掉再打开(整页重载)→ 点回首页那段历史
-  await page.goto(`${base}/#/`, { waitUntil: "domcontentloaded" });
-  await page.reload({ waitUntil: "domcontentloaded" });   // 真重开(只改 # 不算)
-  await waitConnected(page, pane, 60000);
-  // 历史行的标题是那段的首句回复(「我是 MiMo,正常回复」),不是「你好」;第一遍按「你好」找、点不中又被吞掉了
-  await page.locator(".hist-row").filter({ hasNotText: "当前项目" }).first().click({ timeout: 15000 });
-  await page.waitForTimeout(3000);
-  await step("E24 重新打开软件,点回最早那段对话", { 出错说明: await errTexts(pane) });
+  const railLive = await errTexts(railChat);
+  await step("E11 待办页助手栏里出错", { 待办栏出错说明: railLive });
+  await page.goto(`${base}/#/workspace`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(1200);
+  await page.goto(`${base}/#/todos`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(1200);
+  const railBack = await errTexts(railChat);
+  await step("E11b 待办栏:去工作区再回待办页", { 出错说明条数: `${railLive.length} → ${railBack.length}`,
+    逐条相同: JSON.stringify(railLive) === JSON.stringify(railBack),
+    对话还展开着: await page.locator(`${railChat}:not(.route-hidden)`).count() > 0 });
 
   // E21 设置页:给未启用的一家存 key,看提示
   await page.locator('[data-ui="settings-toggle"]:visible').click();

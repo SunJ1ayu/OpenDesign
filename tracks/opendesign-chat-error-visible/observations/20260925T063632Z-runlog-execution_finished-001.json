@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-chat-error-visible",
+  "run_id": "20260925T063526Z-01-mutation-chat-model-error-r1fix",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "mutation-chat-model-error-r1fix",
+  "started_at": "2026-09-25T06:35:26Z",
+  "finished_at": "2026-09-25T06:36:32Z",
+  "duration_ms": 65882,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 0,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
