@@ -1,0 +1,82 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-composer-zcode",
+  "run_id": "20260925-173149-1149902-panel-review",
+  "controller": "panel-review",
+  "event": "execution_finished",
+  "label": "opendesign-composer-zcode-r1",
+  "started_at": "2026-09-25T09:31:49Z",
+  "finished_at": "2026-09-25T09:34:15Z",
+  "duration_ms": 145568,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "panel-review",
+    "model": null,
+    "risk": "standard",
+    "degraded": false,
+    "work_exit_code": 0,
+    "legs": [
+      {
+        "adapter": "subcursor",
+        "degraded": false,
+        "duration_ms": 143937,
+        "evidence": {
+          "completeness": "complete",
+          "digest": "sha256:61be8dce8fa80c9b45d7179c608a30b5f51250070c452e63fadd1029f185ace4",
+          "ref": "file:///root/aiwork/logs/panel-composer-r1-20260925-173149.subcursor.gpt-5.6-sol-high.evidence.log"
+        },
+        "failure_kind": "none",
+        "family": "openai",
+        "model": {
+          "invoked": "gpt-5.6-sol-high",
+          "reported": null,
+          "requested": "gpt-5.6-sol-high"
+        },
+        "name": "subcursor.gpt-5.6-sol-high",
+        "normalizer_version": 1,
+        "process": {
+          "exit_code": 0,
+          "state": "exited"
+        },
+        "review_contract_version": 1,
+        "run_id": "20260925-173149-1149902-panel-review",
+        "schema_version": 2,
+        "subject": {
+          "delivery": {
+            "digest": "sha256:b6e8b0c36ae4bc93346b7c433ac0cda6d598a0b069bf05912b8f18fceefe5220",
+            "policy_version": 1,
+            "track": "opendesign-composer-zcode"
+          },
+          "digest": "sha256:c213321b35275ab384941d6b1f6fa472f9e3cb6db06f93f19dfc8e0a8a11f4fe",
+          "manifest_version": 2,
+          "source": {
+            "git_object_format": "sha1",
+            "head_oid": "58cf9c315e1c370d3ef7f30562c893dcab1b8bdc",
+            "index_tree_oid": "5c568defb46652d2e0b105a26bab1b72895a14f5",
+            "worktree_tree_oid": "5c568defb46652d2e0b105a26bab1b72895a14f5"
+          },
+          "task_sha256": "sha256:7b5099eb803740630a10fd5d284f1be3ff02384e0b0fcff695b1f29884f8cd0a"
+        },
+        "usage": {
+          "api_cost": null,
+          "billing_mode": "subscription",
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "verdict": "BLOCK",
+        "view": {
+          "delivery_state": "complete",
+          "mode": "full_snapshot"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

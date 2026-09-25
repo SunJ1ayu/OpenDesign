@@ -40,6 +40,7 @@ const vendor = createServer((req, res) => {
     const ask = typeof lastUser?.content === "string" ? lastUser.content : JSON.stringify(lastUser?.content ?? "");
     const hit = { mode: MODE, path: req.url, at: Date.now(), sent: 0, cutByClient: false, ask: ask.slice(0, 200) };
     hits.push(hit);
+    if (MODE === "down") { req.socket.destroy(); return; }   // 连上就断 = 网关眼里「连不上」,它会自己重试约 7 秒
     if (BODIES[MODE]) {
       const [code, b] = BODIES[MODE];
       res.writeHead(code, { "Content-Type": "application/json" });
@@ -365,6 +366,87 @@ try {
   MODE = "ok";
   const tRelay = await sendAndWait(".chatcol", "用这家说一句");
   await step("用这家发一句", { 等了毫秒: tRelay, 最后一条回答: await bubbles(".chatcol").last().innerText().catch(() => "") });
+
+  // ── 第 1 遍判卷(七家)说「没执行到」的几项,补在这里 ──
+  await page.goto(`${base}/#/`, { waitUntil: "domcontentloaded" });
+  await page.locator(pane).waitFor({ state: "visible", timeout: 8000 });
+  await waitConnected(page, pane, 60000);
+  await page.locator('[data-ui="side-new-chat"]').first().click();
+  await page.waitForTimeout(800);
+  await ta(pane).fill("");
+  await page.locator(`${pane} [data-ui="composer-plus"]`).click();
+  await page.locator(`${pane} [data-ui="composer-menu"] [role="menuitem"]`, { hasText: "整理文件夹" }).click();
+  await page.waitForTimeout(300);
+  await step("补:空输入框「+」→「整理文件夹」", { 输入框: await ta(pane).inputValue() });
+
+  await ta(pane).fill("");
+  await ta(pane).type("/");
+  await ta(pane).press("ArrowDown");
+  await ta(pane).press("ArrowDown");
+  await page.waitForTimeout(200);
+  const hl = await page.locator(`${pane} [data-ui="slash-menu"] [role="option"][aria-selected="true"]`).innerText().catch(() => "");
+  await step("补:打 / 后按两下 ↓", { 高亮的那一项: hl });
+  await ta(pane).press("ArrowUp");
+  await ta(pane).press("Tab");
+  await page.waitForTimeout(200);
+  await step("补:再按一下 ↑,然后按 Tab", { 输入框: await ta(pane).inputValue(), 技能表还在: await page.locator(`${pane} [data-ui="slash-menu"]`).count() });
+
+  MODE = "ok";
+  await ta(pane).fill("");
+  await ta(pane).type("/不存在的技能");
+  await page.waitForTimeout(300);
+  const popNone = await page.locator(`${pane} [data-ui="slash-menu"]`).count();
+  await ta(pane).press("Enter");
+  const t2 = Date.now();
+  while (Date.now() - t2 < 20000 && !(await userBubbles(pane)).some((t) => t.includes("/不存在的技能"))) await page.waitForTimeout(200);
+  while (Date.now() - t2 < 30000 && (await page.locator(`${pane} .stop-btn`).count()) > 0) await page.waitForTimeout(300);
+  await page.waitForTimeout(600);
+  await step("补:打「/不存在的技能」(筛不到)再按 Enter", { 打完时技能表: popNone, 用户气泡: await userBubbles(pane),
+    最后一条回答: await bubbles(pane).last().innerText().catch(() => "") });
+
+  const png = join(app, "客厅参考.png");
+  writeFileSync(png, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"));
+  await ta(pane).fill("客厅");
+  await page.locator(`${pane} [data-ui="composer-plus"]`).click();
+  const chooser = page.waitForEvent("filechooser", { timeout: 5000 });
+  await page.locator(`${pane} [data-ui="composer-menu"] [role="menuitem"]`, { hasText: "图片" }).click();
+  await (await chooser).setFiles(png);
+  await page.waitForTimeout(800);
+  await page.locator(`${pane} [data-ui="composer-plus"]`).click();
+  await page.locator(`${pane} [data-ui="composer-menu"] [role="menuitem"]`, { hasText: "找参考图" }).click();
+  await page.waitForTimeout(300);
+  await step("补:先打「客厅」,「+」→「图片」选一张,再「+」→「找参考图」", { 输入框: await ta(pane).inputValue(),
+    缩略图张数: await page.locator(`${pane} [data-ui="chat-thumb"]`).count() });
+  await page.locator(`${pane} .send-btn`).click();
+  const t3 = Date.now();
+  while (Date.now() - t3 < 30000 && (await page.locator(`${pane} .stop-btn`).count()) > 0) await page.waitForTimeout(300);
+  await page.waitForTimeout(800);
+  await step("补:连图带字发出去", { 最后一个用户气泡里的图: await page.locator(`${pane} .msg-user`).last().locator("img").count(),
+    最后一个用户气泡: (await userBubbles(pane)).at(-1), 输入框里还剩的缩略图: await page.locator(`${pane} [data-ui="chat-thumb"]`).count() });
+
+  MODE = "down";
+  await sendNoWait(pane, "厂商连不上的时候");
+  await page.waitForTimeout(2500);
+  await step("补:厂商连不上,网关在自己重试(约 7 秒)的这几秒", { ...(await btnState(pane)), 思考动画: await page.locator(`${pane} .msg-ai.thinking`).count() });
+  const tDownStop = await clickStopAndTime(pane);
+  await page.waitForTimeout(8000);
+  await step("补:这时点 ■,再等 8 秒(看会不会又冒出一条出错说明)", { "从点下到 ↑ 回来毫秒": tDownStop, ...(await btnState(pane)),
+    系统小字: await notes(pane), 出错说明条数: await page.locator(`${pane} [data-ui="chat-model-error"]`).count() });
+  MODE = "ok";
+
+  // 待办栏:单行框发出后展开成完整聊天,在那里停
+  MODE = "slow";
+  await page.goto(`${base}/#/todos`, { waitUntil: "domcontentloaded" });
+  const railChat = '[data-ui="rail-chat"]';
+  await page.locator('[data-ui="rail-ask"]').fill("帮我排一下待办");
+  await page.locator('[data-ui="rail-send"]').click();
+  await page.locator(`${railChat} .stop-btn`).waitFor({ timeout: 30000 });
+  await page.waitForTimeout(2000);
+  await step("补:待办页右栏发出后在回复", { ...(await btnState(railChat)) });
+  const tRail = await clickStopAndTime(railChat);
+  await page.waitForTimeout(1000);
+  await step("补:在待办栏点 ■", { "从点下到 ↑ 回来毫秒": tRail, ...(await btnState(railChat)), 系统小字: await notes(railChat) });
+  MODE = "ok";
 
   // ── 待办小框、技能页 ──
   await page.goto(`${base}/#/todos`, { waitUntil: "domcontentloaded" });

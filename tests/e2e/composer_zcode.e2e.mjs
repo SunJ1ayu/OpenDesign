@@ -41,6 +41,7 @@ const STUB = () => {
       return json({ token: "stub-token", ws_path: "/ws", expires_in: 600, model_name: "stub-model" });
     }
     if (u.includes("/api/chat/sessions?")) {
+      window.__sessionsFetches = (window.__sessionsFetches || 0) + 1;
       return json({ sessions: [{ key: "websocket:chat-old", title: "停过的那次", updated_at: new Date().toISOString() }] });
     }
     // 回放:探针 mode=stream 的 webui-thread 逐字(半截回答一条、那句英文一条;/stop 本身不留用户行)
@@ -277,8 +278,12 @@ try {
     check((await stop.getAttribute("aria-label")) === "停止这次回复", "■ 的 aria-label");
     await page.waitForFunction((sel) => /第2段/.test(document.querySelector(`${sel} .msg-ai.streaming`)?.textContent || ""),
       HOME, { timeout: 5000 });
+    const fetchesBefore = await page.evaluate(() => window.__sessionsFetches || 0);
     await stop.click();
     check(await until(async () => (await sentMessages(page)).some((s) => s.frame.content === "/stop")), "替身收到 /stop");
+    // 评审 R1:网关停下后不发 turn_end,侧栏历史 / 项目数据也要照样刷新(新对话首句就停,侧栏里要出现它)
+    check(await until(async () => (await page.evaluate(() => window.__sessionsFetches || 0)) > fetchesBefore, 3000),
+      "停下之后侧栏历史重新拉了一次");
     check(await until(async () => (await page.locator(`${HOME} .send-btn`).count()) === 1
       && (await page.locator(`${HOME} .stop-btn`).count()) === 0, 3000), "3 秒内 ■ 回到 ↑");
     const note = page.locator(`${HOME} [data-ui="chat-system-note"]`);

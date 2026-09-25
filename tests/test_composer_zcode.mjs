@@ -27,6 +27,7 @@ import {
   applyEvent,
   hydrateFromThread,
   requestStop,
+  releaseTurn,
 } from "../web/src/chat/transcript.ts";
 import { readFileSync } from "node:fs";
 
@@ -211,6 +212,46 @@ test("c11 停止和刚好说完撞上:turn_end 先到 ⇒ 正常结束;随后「
 
 test("c12 不在回复时 requestStop 不改任何状态(按钮本来就不该在)", () => {
   assert.deepEqual(requestStop(emptyTranscript, "stop-1"), emptyTranscript);
+});
+
+// ---- 第 1 轮评审(GPT-5.6 sol)的修复:停止标记不许残留、只认这次 /stop 的回话 ----------------
+
+test("c19 停止标记不残留(评审 R2):出错收尾 / 断线后拉不到历史 / 下一句新消息都清掉它,下一轮的 ■ 能按", () => {
+  // 点了停止、回话没到就出错收尾
+  let s = applyEvent(requestStop(midStream(), "stop-1"), { event: "error", detail: "上游失败" });
+  assert.equal(s.busy, false);
+  assert.equal(s.stopPending, undefined, "error 收尾要连停止标记一起清");
+  // 点了停止、回话没到就断线,重连后拉历史 404:ChatPage 用 releaseTurn 放掉这一轮
+  s = releaseTurn(requestStop(midStream(), "stop-1"));
+  assert.equal(s.busy, false);
+  assert.equal(s.thinking, false);
+  assert.equal(s.stopPending, undefined, "断线后放掉这一轮也要清停止标记");
+  // 就算有残留,新发一句也从干净的停止状态开始
+  const stale = { ...emptyTranscript, stopPending: "stop-old" };
+  const next = appendLocalUser(stale, "再讲一个", "local-2", undefined, "turn-2");
+  assert.equal(next.stopPending, undefined, "新一轮不继承上一轮的停止标记(否则 ■ 一直灰)");
+  // 残留的标记不许让下一轮被别的 idle 提前解锁
+  assert.equal(applyEvent(next, IDLE).busy, true);
+  const page = readFileSync(new URL("../web/src/chat/ChatPage.tsx", import.meta.url), "utf8");
+  assert.match(page, /releaseTurn\(/, "断线对账拉不到历史那条路要用 releaseTurn");
+});
+
+test("c20 只认这次 /stop 的回话(评审初判):停止等回话时来了一句后台回报 ⇒ 不提前解锁", () => {
+  let s = requestStop(midStream(), "stop-1");
+  s = applyEvent(s, { event: "message", text: "Background task completed.", turn_id: "sub-9", turn_seq: 1 });
+  assert.equal(s.busy, true, "后台子任务回报不是停止回话,不解锁");
+  assert.equal(s.stopPending, "stop-1");
+  assert.equal(s.messages.at(-1).systemNote, true, "它照样显示成中文小字");
+  s = applyEvent(s, { ...STOPPED, turn_id: "stop-other" });
+  assert.equal(s.busy, true, "别的 /stop(不是这次点的)的回话也不算");
+  s = applyEvent(s, STOPPED);
+  assert.equal(s.busy, false, "这次 /stop 的回话 ⇒ 收尾");
+});
+
+test("c21 停止收尾也要刷新侧栏历史与项目数据(评审 R1):网关不发 turn_end,idle 帧也要触发同一个刷新", () => {
+  const page = readFileSync(new URL("../web/src/chat/ChatPage.tsx", import.meta.url), "utf8");
+  assert.match(page, /m\.event === "goal_status" && m\.status === "idle"[^\n]*onTurnEnd|onTurnEnd[^\n]*goal_status[^\n]*idle|turnSettled\(m\)/,
+    "收到 idle(停止后网关只发这个)时也调 onTurnEnd");
 });
 
 test("c13 回放(切走再回来 / 重开):同一句中文,与实时逐字相同;半截回答是普通回答", () => {

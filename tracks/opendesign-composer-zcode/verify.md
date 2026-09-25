@@ -5,67 +5,73 @@
 > 机器消费的 impact / uncertainty / execution plan / outcome 只写在同目录
 > `decision.json`；这里保留检查、理由、发现与主 Agent 仲裁说明，不复制枚举。
 
-> Panel hook — 软判断(correctness/security/edge/spec-drift)走 panel-review:
-> 主 agent 先独立审并落 findings,再按 impact-risk 预算跑 panel-review；只有特殊控制面
-> 才显式 `--all` 做全池评审。最后仍由主 agent 主裁。
-> build/test 跑通是机械检查。
-
 ## Mechanical checks
 
-- [ ] build passes
-- [ ] tests pass
-- [ ] no secrets / unsafe ops
+- [x] build passes(`npm run build`,tsc 无错;产物新鲜度闸 `tests/e2e/check-dist-fresh.sh` 逐字节一致)
+- [ ] tests pass(第 1 轮修复后总跑收据待补)
+- [x] no secrets / unsafe ops(纯前端;/stop 走网关自带命令;不改 nanobot)
 
-**机器打印的**(不是我的转述)—— 判据用 `runlog` 跑,把它打印的收据行原样粘进来:
-
-```
-runlog -t opendesign-composer-zcode -- <判据命令>
-```
+**机器打印的收据行**(判据先行的红检、变异红检、修复前后):
 
 ```
-<粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
- **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
- 收据得进 git(5d)。一份收据都没有的话,写一行
- 「- 无机器证据:<理由>」认账 —— 沉默不算理由(5c)。>
+runlog: oracle-unit-red-on-old rc=1 commit=3b1a9eb dirty=yes at=2026-09-25T08:55:01Z file=tracks/opendesign-composer-zcode/evidence/20260925T085501Z-01-oracle-unit-red-on-old.txt
+runlog: e2e-composer-red-on-old rc=1 commit=3b1a9eb dirty=yes at=2026-09-25T08:55:02Z file=tracks/opendesign-composer-zcode/evidence/20260925T085502Z-01-e2e-composer-red-on-old.txt
+runlog: e2e-model_picker-changed-red-on-old rc=1 commit=3b1a9eb dirty=yes at=2026-09-25T08:57:07Z file=tracks/opendesign-composer-zcode/evidence/20260925T085707Z-01-e2e-model_picker-changed-red-on-old.txt
+runlog: e2e-frontend_p2_polish-changed-red-on-old rc=1 commit=3b1a9eb dirty=yes at=2026-09-25T09:00:59Z file=tracks/opendesign-composer-zcode/evidence/20260925T090059Z-01-e2e-frontend_p2_polish-changed-red-on-old.txt
+runlog: e2e-chat_reconnect-changed-red-on-old rc=1 commit=3b1a9eb dirty=yes at=2026-09-25T09:01:02Z file=tracks/opendesign-composer-zcode/evidence/20260925T090102Z-01-e2e-chat_reconnect-changed-red-on-old.txt
+runlog: oracle-rawlabel-red-on-old rc=1 commit=b8a7f85 dirty=yes at=2026-09-25T09:07:35Z file=tracks/opendesign-composer-zcode/evidence/20260925T090735Z-01-oracle-rawlabel-red-on-old.txt
+runlog: mutation-composer-zcode rc=1 commit=4d57d9c dirty=yes at=2026-09-25T09:09:06Z file=tracks/opendesign-composer-zcode/evidence/20260925T090906Z-01-mutation-composer-zcode.txt
+runlog: mutation-composer-zcode-r2 rc=0 commit=4d57d9c dirty=yes at=2026-09-25T09:12:40Z file=tracks/opendesign-composer-zcode/evidence/20260925T091240Z-01-mutation-composer-zcode-r2.txt
+runlog: oracle-chip-vendor-misfiled-red rc=1 commit=52004ef dirty=yes at=2026-09-25T09:19:52Z file=tracks/opendesign-composer-zcode/evidence/20260925T091952Z-01-oracle-chip-vendor-misfiled-red.txt
+runlog: mutation-composer-zcode-z19 rc=0 commit=a2b2bbf dirty=yes at=2026-09-25T09:20:46Z file=tracks/opendesign-composer-zcode/evidence/20260925T092046Z-01-mutation-composer-zcode-z19.txt
+runlog: r1fix-oracle-unit-red rc=1 commit=58cf9c3 dirty=yes at=2026-09-25T09:39:30Z file=tracks/opendesign-composer-zcode/evidence/20260925T093930Z-01-r1fix-oracle-unit-red.txt
+runlog: r1fix-oracle-e2e-red rc=1 commit=58cf9c3 dirty=yes at=2026-09-25T09:39:41Z file=tracks/opendesign-composer-zcode/evidence/20260925T093941Z-01-r1fix-oracle-e2e-red.txt
 ```
+
+- 两份收据**作废、已删**(没进 git):09:00 前我单独跑 `frontend_p2_polish` / `chat_reconnect` 的红检时没给假家目录(总跑 `tests/e2e/run-all.sh` 会造 `E2E_HOME` 放一把假 key),
+  两份都红在连接 / 项目列表这种与本单无关的地方;在干净副本里跑提交里的原版同样红 ⇒ 是我跑法错,不是产品或判据的红。带上假家目录重跑的两份(`…090059Z…` / `…090102Z…`)都只红在改的那一句。
+- 变异第 1 遍 14/18 漏 4 条,逐条分型:Z3 **判据真洞**(c8 两帧之后才断言,重复帧分支替第一帧补了收尾 → c8 补强);Z7 锚点没打上(脚本里 `\u3001` 被转成了真字);
+  Z10 **等价变异**(改的那行永远走不到);Z18 变异没编译过(e2e 根本没跑)。修后 4/4;QA 执行抓到回归后补 Z19,1/1。
 
 ## Review
 
-- 规格自查(读任何 panel 输出之前先答):<回看 design 的用户成功条件、前提证据和未解决项。
-  实现符合规格不证明规格合理;实现评审也可质疑规格,但不能替代实施前 panel 4c 的方案检查。
-  本轮若暴露能推翻方向的前提,先回到设计;全池一致 PASS 也不等于题是对的。>
-- 腿的花名册: <把 `<日志前缀>.roster` 里那一行**原样粘过来**,别手写>
-  > panel-review 收尾自己写这个文件(off / FAIL(rc) / 降级 都在里面)。
-  > **控制器没活到收尾时它压根不存在** —— 那时跑 `panel-roster <日志前缀>` 从盘上重建,
-  > 与控制器自己写的**归一化后一致**(判据 R5b 守着;抬头有渲染时间戳,不是字面逐字节)。**一轮零记录的评审也粘得出这一行**,
-  > 所以"那轮被砍了所以没有花名册"不再是理由(2026-08-23,track panel-roster-from-disk)。
-  > 08-06 立这条的理由:08-05 我在这里手写了"三条腿一致 PASS",而 Kimi 根本没出结论
-  > (同一页第 90 行我自己还写着它没出报告)—— 手抄一份终端上的东西,抄错那次没人会发现。
-- 轮次记录(每次派发一行;实质评审与基础设施重试分开,重试不算轮但次数与耗时照记):
+- 规格自查(读 panel 输出之前):design 的用户成功条件逐条有判据(c1–c18 + e2e 13 问);关键前提 P1 已实验(探针三时机)、P2 由 e2e 三栏钉住、
+  P3 采纳 4c C2、P4(真中文输入法)本机做不了,进业主真机清单。自审(仓外,派发前落盘):`/root/aiwork/tasks/opendesign-composer-zcode-r1-my-review.md`,结论 PASS + 5 条低风险。
+  **评审抓到的两条(R1 / R2)我自审都没看到** —— S1 我只想到「■ 一直灰」的一种来由(网关不回),没顺着 stopPending 的所有清除路径走一遍。
+- 腿的花名册(第 1 轮代码评审,原样):`{roster_r1}`
+- QA 设计花名册(开发前,原样):`{roster_qd}`
+- QA 判卷花名册(第 1 遍录像,原样):`{roster_qa}`
+- 轮次记录:
 
-  | 轮 | 类型(实质 / 重试) | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
+  | 轮 | 类型 | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
   |---|---|---|---|---|
-  | 1 | 实质 | <rc,BLOCK 数> | <…> | <n> |
+  | 1 | 实质 | rc=3,BLOCK 0(PENDING 2;先修了证据寿命 1 条) | /root/aiwork/logs/panel-composer-r1-20260925-173149 | 2(R1 / R2)|
 
-- findings(**先处置、后动手**;一轮一份修复清单,一次修完再复审 —— panel 抽屉 4b):
+- findings(第 1 轮代码评审 + QA 执行七家判卷 + 我在 QA 执行里自己抓的;**先处置、后动手**,一份修复清单):
 
   | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
   |---|---|---|---|---|
-  | 1 | <…> | <file:line / 复现收据> | 必须修 / 延期 / 驳回 / 尚未核实 | <延期必写:它在业主或下一个使用者那边会长成什么样> |
+  | T1 | (QA 执行第 1 遍,我看录像抓的)后台认不出当前模型属于哪家时兜底报「有 key 的第一家」,按钮写成「王工工作室(备用中转)线路 · mimo-v2.5」 | `evidence/qa-exec/tour-r0-before-fix.md` 第 01 步 + `r0-01-chip-misfiled.jpg`;`bin/ds_credential.py` models_status `active = live[0]` | **已修**(判据先行 `…091952Z…` 红 → `20797b6`) | 本单引入:以前按钮只写模型名,兜底错了看不出;带上厂商名就说错扣哪家的钱 |
+  | T2 | (同上)窄栏里厂商名与模型名一起被压成「王工工作室(…· relay-…」 | 录像第 26 步截图 | **已修**(`0c4d302`,模型名先让位) | 「GLM 套餐 / 按量」只差后两个字,压了分不出 |
+  | R1 | (评审)新对话首句就点 ■:网关不发 `turn_end`,而侧栏历史 / 项目数据只在 `turn_end` 时刷新 ⇒ 侧栏里没有这段、停之前工具已做完的改动页面不刷新 | 属实:`web/src/chat/ChatPage.tsx:539` 只在 `turn_end` 调 `onTurnEnd`;`web/src/App.tsx:357-362` 刷新只挂在它上 | **本单必须修** | 本单引入的新路径(停止)漏接既有刷新;业主停完切走,在侧栏找不到刚才那段 |
+  | R2 | (评审)停止标记残留:点了 ■ 回话没到就出错收尾 / 断线且拉历史 404 / 下一句新消息,都原样带着 `stopPending` ⇒ 下一轮 ■ 一直灰 | 属实:`ChatPage.tsx:455-459` 展开保留、`transcript.ts:356` error 分支展开保留、`appendLocalUser` 展开保留;`ChatPage.tsx` ■ `disabled={{... || !!transcript.stopPending}}` | **本单必须修** | 停止键按不动 = 本单承诺 4 不成立 |
+  | R3 | (评审初判)停止收尾只看「是不是系统小字」,不核对是不是**这次** /stop 的回话 ⇒ 等回话那一瞬来一句后台子任务回报就提前解锁 | 属实:`transcript.ts` appendNote `stopped = !!(state.stopPending && bubble.systemNote)` | **本单修**(便宜) | 提前解锁 = 业主能在网关还在停的时候再发一句;探针证实回话带着我们发的 turn_id |
+  | Q1 | (QA Grok / Gemini)技能页点卡片,开头填进了**旧对话**的输入框,不是新开一段 | 录像第 30 步;本单只把技能表换成共用一份,`App.tsx` 点卡片的行为没动(`git diff 464b55a..HEAD -- web/src/App.tsx` 为空) | 延期 | 老行为,不是本单引入(工作区规矩:只碰相关文件)。在业主那边:从技能页点卡片后,输入框里有开头,但上面挂着上一段对话;要先点「新对话」。归档时告诉业主 |
+  | Q2 | (QA Gemini)侧栏历史的标题是助手的回答(「我是 MiMo,正常回复」),不是业主问的那句 | 录像第 16 步;标题由网关生成,本单没碰 | 延期(落点:第 3 件侧栏单) | 老行为;在业主那边:侧栏里认不出哪段是哪段 —— 正是侧栏方案一要解决的,那一单开工把它列进验收 |
+  | Q3 | (QA Grok / GLM / Kimi)选技能后光标在句末,两份测试设计预期在冒号后 | 录像第 03 步「光标 12/12」 | 驳回 | 对照图原话「光标停在后面等你接着打」两种读法都行;业主是先写了话、再想起要「记一下」,光标在句末直接发或接着写都顺;空草稿时两种一样 |
+  | Q4 | (QA GPT-terra)首页第 01 步模型按钮没有厂商名,判「不通过」 | 录像台子把主槽地址指到本机假厂商,后台认不出是 MiMo(第 01 步事实里有接口原样);**真地址下是对的**:e2e 用出货模板的真 MiMo 地址,③ 断言「MiMo · mimo-v2.5」绿 | 驳回 | 台子造成;真地址的证据是 e2e ③ |
+  | Q5 | (QA 七家)录像没走到:空框「+」→整理文件夹、↑↓/Tab、筛不到按 Enter 发送、带图选技能再发、待办栏里停止、厂商连不上时停止 | 各家对账表「没执行到」 | 本单补录(修完一起重录、复判) | 便宜,且多数判据里有、录像里没有 |
+  | Q6 | (QA 多家)真中文输入法拼字时 Enter、另外五档问候语、三栏同时回复 | 录像结构上做不到(无 Windows 输入法);问候六档 c17 单测覆盖 | 进业主真机清单 | — |
 
-  > 只写发现。腿的身份/降级不在这儿抄第二遍:日志自带身份牌(降级横幅 + 视野边界),
-  > 花名册在上一格,查工件不查自述。延期 = 留在这里,不自动开新单。
-- arbitrated verdict (主裁): <...>
-  > 这里写理由；最终枚举写进 `decision.json.outcome.verdict`。归档时仍为空会被
-  > `track-record validate --phase archive` 挡住，`track list` 也会打 ⚠️。
+- arbitrated verdict (主裁): <第 2 轮后写>
 
 ## Accepted deviations
 
-- <接受的非关键偏差 + 原因 + 影响范围,或 None>
+- <第 2 轮后写>
 
 ## 试行记录(review-convergence 试行,约五单;拿不到的写 unknown,别补 0)
 
-- 总交付历时:<开工 commit 时刻 → 归档 commit 时刻>
-- 每轮新增有效阻断:<第 1 轮 n / 第 2 轮 n>
-- 基础设施等待:<重试次数;observations 里 panel-review 的 duration_ms 求和>
-- 交付后返工:<归档后因本单再改过几次;不知道写 unknown>
+- 总交付历时:<待写>
+- 每轮新增有效阻断:第 1 轮 2(R1 / R2)
+- 基础设施等待:<待写>
+- 交付后返工:unknown
