@@ -199,6 +199,14 @@ test("d2 requested = 已经替他重启了,不许再叫他去重启", () => {
   assert.notEqual(s, restartNotice("manual"), "两种结果说同一句话 = 这个字段白读了");
 });
 
+test("d4 live = 网关在跑、下一句就用(track opendesign-key-restart):不提重启、不叫他动手", () => {
+  const s = restartNotice("live");
+  assert.ok(s && s.length > 0);
+  assert.ok(!/重启|重新启动|重新打开|稍等/.test(s), `网关根本没动,却说在重启 / 叫他重开 / 叫他等:${s}`);
+  assert.notEqual(s, restartNotice("manual"));
+  assert.notEqual(s, restartNotice("requested"));
+});
+
 test("d3 没见过的 restart 值往保守那边倒(宁可让他多点一下)", () => {
   // 09-24 加强:只查「有重启两个字」分不出两种说法 —— requested 那句也含「请手动重启」(08-16 四审加的兜底),
   // 把未知值倒向"正在自动重启"时这条照绿(红检 mutation-llm-key M5 漏网)。保守 = 与 manual 同一句。

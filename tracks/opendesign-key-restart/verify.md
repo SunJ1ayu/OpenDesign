@@ -24,6 +24,7 @@ runlog -t opendesign-key-restart -- <判据命令>
 
 ```
 runlog: oracle-red rc=1 commit=9296c63 dirty=yes at=2026-09-25T00:58:38Z file=tracks/opendesign-key-restart/evidence/20260925T005838Z-01-oracle-red.txt
+runlog: oracle-d4-red rc=1 commit=8a641cf dirty=yes at=2026-09-25T01:01:50Z file=tracks/opendesign-key-restart/evidence/20260925T010150Z-01-oracle-d4-red.txt
 ```
 
 ```

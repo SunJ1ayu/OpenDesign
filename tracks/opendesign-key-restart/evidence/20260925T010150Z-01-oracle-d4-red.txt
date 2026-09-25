@@ -1,0 +1,126 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    oracle-d4-red
+cmd:     node --test tests/test_llm_key.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  8a641cf
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T01:01:50Z
+---------------- 输出开始 ----------------
+TAP version 13
+# Subtest: a1 状态用 GET 拉,打在约定的那条路径上,不带 body
+ok 1 - a1 状态用 GET 拉,打在约定的那条路径上,不带 body
+  ---
+  duration_ms: 1.929257
+  type: 'test'
+  ...
+# Subtest: a2 状态原样透出(每家 configured/hint/writable 与当前在用都不许丢);读不到 ⇒ null 不抛
+ok 2 - a2 状态原样透出(每家 configured/hint/writable 与当前在用都不许丢);读不到 ⇒ null 不抛
+  ---
+  duration_ms: 2.034675
+  type: 'test'
+  ...
+# Subtest: a3 保存用 POST,provider 和 key 都在 body 里,**key 不许进 URL**
+ok 3 - a3 保存用 POST,provider 和 key 都在 body 里,**key 不许进 URL**
+  ---
+  duration_ms: 0.863321
+  type: 'test'
+  ...
+# Subtest: a4 保存成功:回 ok + 后端给的新列表与 restart
+ok 4 - a4 保存成功:回 ok + 后端给的新列表与 restart
+  ---
+  duration_ms: 0.391371
+  type: 'test'
+  ...
+# Subtest: a5 后端拒绝(400):把**它的**人话原样端出来,不许自己另编一句
+ok 5 - a5 后端拒绝(400):把**它的**人话原样端出来,不许自己另编一句
+  ---
+  duration_ms: 0.292544
+  type: 'test'
+  ...
+# Subtest: a6 服务不可达(fetch 抛)不许静默成功,也不许把 key 带进错误里
+ok 6 - a6 服务不可达(fetch 抛)不许静默成功,也不许把 key 带进错误里
+  ---
+  duration_ms: 0.311603
+  type: 'test'
+  ...
+# Subtest: a7 500 之类 / 200 但形状不对 也走失败路,不许当成成功解读
+ok 7 - a7 500 之类 / 200 但形状不对 也走失败路,不许当成成功解读
+  ---
+  duration_ms: 0.323831
+  type: 'test'
+  ...
+# Subtest: a8 添加自定义供应商(带 key)走同一条纪律:POST、key 只在 body、回包不含 key
+ok 8 - a8 添加自定义供应商(带 key)走同一条纪律:POST、key 只在 body、回包不含 key
+  ---
+  duration_ms: 0.582887
+  type: 'test'
+  ...
+# Subtest: b1 厂商是后端说了算:没听过的厂商也照样透出、照样能提交
+ok 9 - b1 厂商是后端说了算:没听过的厂商也照样透出、照样能提交
+  ---
+  duration_ms: 2.892526
+  type: 'test'
+  ...
+# Subtest: c1 保存成功后,返回值里不含 key 原文
+ok 10 - c1 保存成功后,返回值里不含 key 原文
+  ---
+  duration_ms: 0.849241
+  type: 'test'
+  ...
+# Subtest: c2 后端要是把 key 回显了(多出来的字段、甚至塞进某家的末四位提示),前端也不许原样端出去
+ok 11 - c2 后端要是把 key 回显了(多出来的字段、甚至塞进某家的末四位提示),前端也不许原样端出去
+  ---
+  duration_ms: 0.552437
+  type: 'test'
+  ...
+# Subtest: d1 manual = 得业主自己重启,那句话里必须有「重启」
+ok 12 - d1 manual = 得业主自己重启,那句话里必须有「重启」
+  ---
+  duration_ms: 0.287033
+  type: 'test'
+  ...
+# Subtest: d2 requested = 已经替他重启了,不许再叫他去重启
+ok 13 - d2 requested = 已经替他重启了,不许再叫他去重启
+  ---
+  duration_ms: 0.197405
+  type: 'test'
+  ...
+# Subtest: d4 live = 网关在跑、下一句就用(track opendesign-key-restart):不提重启、不叫他动手
+not ok 14 - d4 live = 网关在跑、下一句就用(track opendesign-key-restart):不提重启、不叫他动手
+  ---
+  duration_ms: 1.233533
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_llm_key.mjs:202:1'
+  failureType: 'testCodeFailure'
+  error: '网关根本没动,却说在重启 / 叫他重开 / 叫他等:已保存。当前环境不能自动应用新配置,请手动重启 OpenDesign 后再继续使用。'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_llm_key.mjs:205:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: d3 没见过的 restart 值往保守那边倒(宁可让他多点一下)
+ok 15 - d3 没见过的 restart 值往保守那边倒(宁可让他多点一下)
+  ---
+  duration_ms: 0.295083
+  type: 'test'
+  ...
+1..15
+# tests 15
+# suites 0
+# pass 14
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 203.858011
+---------------- 输出结束 ----------------
+runlog: oracle-d4-red rc=1 commit=8a641cf dirty=yes at=2026-09-25T01:01:50Z file=tracks/opendesign-key-restart/evidence/20260925T010150Z-01-oracle-d4-red.txt
