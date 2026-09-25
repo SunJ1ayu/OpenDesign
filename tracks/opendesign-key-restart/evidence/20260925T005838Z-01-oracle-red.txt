@@ -1,0 +1,235 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    oracle-red
+cmd:     bash -c /root/.venvs/design-studio/bin/python\ tests/test_key_restart.py\;\ r1=\$\?\;\ /root/.venvs/design-studio/bin/python\ tests/test_key_live.py\;\ r2=\$\?\;\ echo\ rc_restart=\$r1\ rc_live=\$r2\;\ \[\ \$r1\ -eq\ 0\ \]\ \&\&\ \[\ \$r2\ -eq\ 0\ \]
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  9296c63
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T00:58:38Z
+---------------- 输出开始 ----------------
+test_k1_saving_a_second_vendor_in_settings_adds_its_entry_right_away (__main__.KeyFilesAndConfigTogether.test_k1_saving_a_second_vendor_in_settings_adds_its_entry_right_away) ... FAIL
+test_k2_the_onboarding_switch_happens_right_away (__main__.KeyFilesAndConfigTogether.test_k2_the_onboarding_switch_happens_right_away) ... FAIL
+test_k3_a_custom_provider_with_a_key_is_usable_right_away (__main__.KeyFilesAndConfigTogether.test_k3_a_custom_provider_with_a_key_is_usable_right_away) ... FAIL
+test_r1_the_lock_callback_ensures_instead_of_restarting (__main__.ShellWiresEnsureAndLauncher.test_r1_the_lock_callback_ensures_instead_of_restarting) ... FAIL
+test_r2_the_gateway_is_started_through_the_live_key_launcher (__main__.ShellWiresEnsureAndLauncher.test_r2_the_gateway_is_started_through_the_live_key_launcher) ... ERROR
+test_s1_children_do_not_inherit_the_hosts_stdin (__main__.SupervisorStdinAndEnsure.test_s1_children_do_not_inherit_the_hosts_stdin)
+🔴 让本进程的 stdin 此刻是一根管道(管家的真实形状:Electron 往里写命令)。 ... FAIL
+test_s1b_the_restart_path_too (__main__.SupervisorStdinAndEnsure.test_s1b_the_restart_path_too)
+重启(ensure 补起)走的是同一个 _spawn,也要问一次:业主真机卡死的正是这一条路。 ... FAIL
+test_s2_ensure_leaves_a_live_gateway_alone (__main__.SupervisorStdinAndEnsure.test_s2_ensure_leaves_a_live_gateway_alone)
+存 key 时网关在跑 ⇒ 不许碰它:碰了就是今天的病(杀掉正在用的那个、新的起不来)。 ... ERROR
+test_s2b_ensure_starts_a_gateway_that_was_never_started (__main__.SupervisorStdinAndEnsure.test_s2b_ensure_starts_a_gateway_that_was_never_started)
+全新装机没 key ⇒ 开机只起了工作台;第一次存 key ⇒ 这里把网关起起来(Grok 4c 挑战抓到的那条)。 ... ERROR
+test_s2c_ensure_replaces_a_gateway_that_died (__main__.SupervisorStdinAndEnsure.test_s2c_ensure_replaces_a_gateway_that_died) ... ERROR
+test_w1_gateway_listening_means_live_and_no_frame (__main__.WorkbenchVerdict.test_w1_gateway_listening_means_live_and_no_frame) ... 2026-09-25 08:58:39 127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 200 -
+FAIL
+test_w2_gateway_not_listening_asks_the_shell_to_start_it (__main__.WorkbenchVerdict.test_w2_gateway_not_listening_asks_the_shell_to_start_it) ... 2026-09-25 08:58:40 127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 200 -
+ok
+test_w3_no_shell_is_still_manual_even_if_something_listens (__main__.WorkbenchVerdict.test_w3_no_shell_is_still_manual_even_if_something_listens)
+git-pull / Linux 启动器的网关没有启动器钩子 ⇒ 不许说 live。 ... 2026-09-25 08:58:41 127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 200 -
+ok
+
+======================================================================
+ERROR: test_r2_the_gateway_is_started_through_the_live_key_launcher (__main__.ShellWiresEnsureAndLauncher.test_r2_the_gateway_is_started_through_the_live_key_launcher)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_restart.py", line 269, in test_r2_the_gateway_is_started_through_the_live_key_launcher
+    self.assertEqual(argv, core.gateway_argv(str(shell.python_exe()), str(self.install / "ds")))
+                           ^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_shell_core' has no attribute 'gateway_argv'
+
+======================================================================
+ERROR: test_s2_ensure_leaves_a_live_gateway_alone (__main__.SupervisorStdinAndEnsure.test_s2_ensure_leaves_a_live_gateway_alone)
+存 key 时网关在跑 ⇒ 不许碰它:碰了就是今天的病(杀掉正在用的那个、新的起不来)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_restart.py", line 115, in test_s2_ensure_leaves_a_live_gateway_alone
+    self.sup.ensure([self.svc("网关", BIND_AND_WAIT, port)])
+    ^^^^^^^^^^^^^^^
+AttributeError: 'Supervisor' object has no attribute 'ensure'
+
+======================================================================
+ERROR: test_s2b_ensure_starts_a_gateway_that_was_never_started (__main__.SupervisorStdinAndEnsure.test_s2b_ensure_starts_a_gateway_that_was_never_started)
+全新装机没 key ⇒ 开机只起了工作台;第一次存 key ⇒ 这里把网关起起来(Grok 4c 挑战抓到的那条)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_restart.py", line 126, in test_s2b_ensure_starts_a_gateway_that_was_never_started
+    self.sup.ensure([self.svc("网关", BIND_AND_WAIT, gw)])
+    ^^^^^^^^^^^^^^^
+AttributeError: 'Supervisor' object has no attribute 'ensure'
+
+======================================================================
+ERROR: test_s2c_ensure_replaces_a_gateway_that_died (__main__.SupervisorStdinAndEnsure.test_s2c_ensure_replaces_a_gateway_that_died)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_restart.py", line 136, in test_s2c_ensure_replaces_a_gateway_that_died
+    self.sup.ensure([self.svc("网关", BIND_AND_WAIT, port)])
+    ^^^^^^^^^^^^^^^
+AttributeError: 'Supervisor' object has no attribute 'ensure'
+
+======================================================================
+FAIL: test_k1_saving_a_second_vendor_in_settings_adds_its_entry_right_away (__main__.KeyFilesAndConfigTogether.test_k1_saving_a_second_vendor_in_settings_adds_its_entry_right_away)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_restart.py", line 218, in test_k1_saving_a_second_vendor_in_settings_adds_its_entry_right_away
+    self.assertIsInstance(entry, dict, "存完 DeepSeek,配置里还没有它的条目 —— 运行中的网关用不上它")
+AssertionError: None is not an instance of <class 'dict'> : 存完 DeepSeek,配置里还没有它的条目 —— 运行中的网关用不上它
+
+======================================================================
+FAIL: test_k2_the_onboarding_switch_happens_right_away (__main__.KeyFilesAndConfigTogether.test_k2_the_onboarding_switch_happens_right_away)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_restart.py", line 232, in test_k2_the_onboarding_switch_happens_right_away
+    self.assertEqual(preset.get("provider"), "od_deepseek",
+AssertionError: 'custom' != 'od_deepseek'
+- custom
++ od_deepseek
+ : 「存了想换过去」没当场兑现(不会再有起网关那一下替它兑现):当前 mimo-v2.5
+
+======================================================================
+FAIL: test_k3_a_custom_provider_with_a_key_is_usable_right_away (__main__.KeyFilesAndConfigTogether.test_k3_a_custom_provider_with_a_key_is_usable_right_away)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_restart.py", line 242, in test_k3_a_custom_provider_with_a_key_is_usable_right_away
+    self.assertIsInstance(entry, dict, "带 key 添加的自定义供应商,配置里没有条目")
+AssertionError: None is not an instance of <class 'dict'> : 带 key 添加的自定义供应商,配置里没有条目
+
+======================================================================
+FAIL: test_r1_the_lock_callback_ensures_instead_of_restarting (__main__.ShellWiresEnsureAndLauncher.test_r1_the_lock_callback_ensures_instead_of_restarting)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_restart.py", line 261, in test_r1_the_lock_callback_ensures_instead_of_restarting
+    self.assertEqual([s.name for s in ensured], ["网关"], "锁帧回调没走 ensure")
+AssertionError: Lists differ: [] != ['网关']
+
+Second list contains 1 additional elements.
+First extra element 0:
+'网关'
+
+- []
++ ['网关'] : 锁帧回调没走 ensure
+
+======================================================================
+FAIL: test_s1_children_do_not_inherit_the_hosts_stdin (__main__.SupervisorStdinAndEnsure.test_s1_children_do_not_inherit_the_hosts_stdin)
+🔴 让本进程的 stdin 此刻是一根管道(管家的真实形状:Electron 往里写命令)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_restart.py", line 88, in test_s1_children_do_not_inherit_the_hosts_stdin
+    self.assertEqual(report.read_text(), "devnull",
+AssertionError: 'other' != 'devnull'
+- other
++ devnull
+ : 子进程拿到的是管家的输入管道 —— Windows 上新网关就卡在这里(probe-3/4)
+
+======================================================================
+FAIL: test_s1b_the_restart_path_too (__main__.SupervisorStdinAndEnsure.test_s1b_the_restart_path_too)
+重启(ensure 补起)走的是同一个 _spawn,也要问一次:业主真机卡死的正是这一条路。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_restart.py", line 105, in test_s1b_the_restart_path_too
+    self.assertEqual(report.read_text(), "devnull")
+AssertionError: 'other' != 'devnull'
+- other
++ devnull
+
+
+======================================================================
+FAIL: test_w1_gateway_listening_means_live_and_no_frame (__main__.WorkbenchVerdict.test_w1_gateway_listening_means_live_and_no_frame)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_restart.py", line 164, in test_w1_gateway_listening_means_live_and_no_frame
+    self.assertEqual(self.save(port).get("restart"), "live")
+AssertionError: 'requested' != 'live'
+- requested
++ live
+
+
+----------------------------------------------------------------------
+Ran 13 tests in 3.749s
+
+FAILED (failures=7, errors=4)
+test_g1_the_file_wins_over_the_start_time_env (__main__.LauncherHook.test_g1_the_file_wins_over_the_start_time_env)
+网关启动时 env 里注入的是旧 key;业主随后在设置页换了 ⇒ 解析出来必须是文件里的新 key。 ... FAIL
+test_g2_a_missing_file_falls_back_to_the_env (__main__.LauncherHook.test_g2_a_missing_file_falls_back_to_the_env) ... FAIL
+test_g3_neither_file_nor_env_still_raises_like_nanobot (__main__.LauncherHook.test_g3_neither_file_nor_env_still_raises_like_nanobot)
+两边都没有 ⇒ 照 nanobot 原样抛,不许悄悄解析成空串(空 key 会被当成「配好了」发出去)。 ... FAIL
+test_g4_the_launcher_refuses_to_run_when_the_hook_point_is_gone (__main__.LauncherHook.test_g4_the_launcher_refuses_to_run_when_the_hook_point_is_gone)
+nanobot 升级把 `_env_replace` 改名 / 不再按全局名查 ⇒ 启动器必须当场拒绝, ... FAIL
+test_l1_keys_saved_in_settings_are_used_on_the_next_turn_without_restarting (__main__.LiveKey.test_l1_keys_saved_in_settings_are_used_on_the_next_turn_without_restarting) ... ERROR
+
+======================================================================
+ERROR: test_l1_keys_saved_in_settings_are_used_on_the_next_turn_without_restarting (__main__.LiveKey.test_l1_keys_saved_in_settings_are_used_on_the_next_turn_without_restarting)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_live.py", line 103, in setUp
+    argv = core.gateway_argv(sys.executable, ROOT)
+           ^^^^^^^^^^^^^^^^^
+AttributeError: module 'ds_shell_core' has no attribute 'gateway_argv'
+
+======================================================================
+FAIL: test_g1_the_file_wins_over_the_start_time_env (__main__.LauncherHook.test_g1_the_file_wins_over_the_start_time_env)
+网关启动时 env 里注入的是旧 key;业主随后在设置页换了 ⇒ 解析出来必须是文件里的新 key。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_live.py", line 244, in test_g1_the_file_wins_over_the_start_time_env
+    d = self.out(self.resolve({"DS_LLM_KEY": "sk-start-time-env-0000", "DS_LLM_KEY_DEEPSEEK": "sk-old-ds-env-0000"},
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_live.py", line 239, in out
+    self.assertEqual(r.returncode, 0, f"子进程出错:\n{r.stderr[-2000:]}")
+AssertionError: 1 != 0 : 子进程出错:
+Traceback (most recent call last):
+  File "<string>", line 3, in <module>
+ModuleNotFoundError: No module named 'ds_gateway'
+
+
+======================================================================
+FAIL: test_g2_a_missing_file_falls_back_to_the_env (__main__.LauncherHook.test_g2_a_missing_file_falls_back_to_the_env)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_live.py", line 250, in test_g2_a_missing_file_falls_back_to_the_env
+    d = self.out(self.resolve({"DS_LLM_KEY": "sk-start-time-env-0000", "DS_LLM_KEY_DEEPSEEK": "sk-old-ds-env-0000"}, {}))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_live.py", line 239, in out
+    self.assertEqual(r.returncode, 0, f"子进程出错:\n{r.stderr[-2000:]}")
+AssertionError: 1 != 0 : 子进程出错:
+Traceback (most recent call last):
+  File "<string>", line 3, in <module>
+ModuleNotFoundError: No module named 'ds_gateway'
+
+
+======================================================================
+FAIL: test_g3_neither_file_nor_env_still_raises_like_nanobot (__main__.LauncherHook.test_g3_neither_file_nor_env_still_raises_like_nanobot)
+两边都没有 ⇒ 照 nanobot 原样抛,不许悄悄解析成空串(空 key 会被当成「配好了」发出去)。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_live.py", line 256, in test_g3_neither_file_nor_env_still_raises_like_nanobot
+    d = self.out(self.resolve({}, {}))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_live.py", line 239, in out
+    self.assertEqual(r.returncode, 0, f"子进程出错:\n{r.stderr[-2000:]}")
+AssertionError: 1 != 0 : 子进程出错:
+Traceback (most recent call last):
+  File "<string>", line 3, in <module>
+ModuleNotFoundError: No module named 'ds_gateway'
+
+
+======================================================================
+FAIL: test_g4_the_launcher_refuses_to_run_when_the_hook_point_is_gone (__main__.LauncherHook.test_g4_the_launcher_refuses_to_run_when_the_hook_point_is_gone)
+nanobot 升级把 `_env_replace` 改名 / 不再按全局名查 ⇒ 启动器必须当场拒绝,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_key_live.py", line 276, in test_g4_the_launcher_refuses_to_run_when_the_hook_point_is_gone
+    self.assertIn("REFUSED", r.stdout, f"钩点不在了,启动器照样开跑:\n{r.stdout}\n{r.stderr[-1500:]}")
+AssertionError: 'REFUSED' not found in '' : 钩点不在了,启动器照样开跑:
+
+Traceback (most recent call last):
+  File "<string>", line 5, in <module>
+ModuleNotFoundError: No module named 'ds_gateway'
+
+
+----------------------------------------------------------------------
+Ran 5 tests in 2.014s
+
+FAILED (failures=4, errors=1)
+rc_restart=1 rc_live=1
+---------------- 输出结束 ----------------
+runlog: oracle-red rc=1 commit=9296c63 dirty=yes at=2026-09-25T00:58:38Z file=tracks/opendesign-key-restart/evidence/20260925T005838Z-01-oracle-red.txt

@@ -1,0 +1,18 @@
+# windows-restart-probe probe-3 · run 36032443170(gh run view 36032443170 --log 抽出的时间线,原样)
+# head: 4eea1e279d2f7d80b4f5656337889a7f8ca50c08
+[live +   6.4s] host 第一帧: b'{"event": "ready", "web_port": 8766, "version": "0.98.12"}\n'
+[live +   6.4s] web=8766 ws=8765 ws在听=True
+[live +  13.4s] bootstrap(经工作台)= 200
+[live +  13.5s] 活 websocket 已连上(= 业主聊天页连着)
+[live +  16.6s] 存 key = 200 restart=requested
+[live +  18.6s] ws在听=True bootstrap=502 管家活着=True 网关.log新增=0B 活ws断于=16.57899999999995
+[live +  23.3s] ws在听=False bootstrap=502 管家活着=True 网关.log新增=0B 活ws断于=16.57899999999995
+[live + 544.5s] 结论:新网关240s 内没起来
+[live + 604.8s] 收摊异常 TimeoutExpired(['D:\\a\\OpenDesign\\OpenDesign\\probe\\pkg\\python\\python.exe', 'D:\\a\\OpenDesign\\OpenDesign\\probe\\pkg\\ds\\bin\\ds_host.py'], 60)
+[idle +   4.0s] host 第一帧: b'{"event": "ready", "web_port": 8766, "version": "0.98.12"}\n'
+[idle +   4.0s] web=8766 ws=8765 ws在听=True
+[idle +   4.5s] 存 key = 200 restart=requested
+[idle +   6.6s] ws在听=True bootstrap=502 管家活着=True 网关.log新增=0B 活ws断于=None
+[idle +  11.2s] ws在听=False bootstrap=502 管家活着=True 网关.log新增=0B 活ws断于=None
+[idle + 533.4s] 结论:新网关240s 内没起来
+[idle + 593.7s] 收摊异常 TimeoutExpired(['D:\\a\\OpenDesign\\OpenDesign\\probe\\pkg\\python\\python.exe', 'D:\\a\\OpenDesign\\OpenDesign\\probe\\pkg\\ds\\bin\\ds_host.py'], 60)

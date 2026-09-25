@@ -23,6 +23,10 @@ runlog -t opendesign-key-restart -- <判据命令>
 ```
 
 ```
+runlog: oracle-red rc=1 commit=9296c63 dirty=yes at=2026-09-25T00:58:38Z file=tracks/opendesign-key-restart/evidence/20260925T005838Z-01-oracle-red.txt
+```
+
+```
 <粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
  **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
  收据得进 git(5d)。一份收据都没有的话,写一行

@@ -1,0 +1,8 @@
+# panel-review 花名册(2026-09-25 01:40:06)task=opendesign-key-restart-4c-brief
+# PASS = 进程 rc=0,**不等于给了裁决**;off = 这条腿压根没派(不许读成通过)。
+# impact-risk=high requested-budget=1 selected-count=1
+# selected=subcursor.grok-4.7-high(xai/subcursor)
+# escalation=none
+# snapshot=head:9296c63
+# 日志:/root/aiwork/logs/explore-keyrestart-4c-20260925-013512.*.log
+subcursor.grok-4.7-high=EXPLORE(rc=0,coverage=none)
