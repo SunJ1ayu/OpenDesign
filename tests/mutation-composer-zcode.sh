@@ -144,6 +144,12 @@ mutate Z13 web/src/chat/modelError.ts \
   "$UNIT" "not ok 15 - c15" \
   "网关改写的英文仍标「原文」(Q3′)"
 
+mutate Z19 web/src/chat/modelPicker.ts \
+  '  if (!status.models.some((m) => m.id === status.current)) return null;' \
+  '' \
+  "$UNIT" "not ok 6 - c6" \
+  "后台兜底报错了厂商,按钮照写(QA 执行第 1 步抓到的回归)"
+
 # ── 界面(要构建 + e2e)──
 if wanted Z14 || wanted Z15 || wanted Z16 || wanted Z17 || wanted Z18 || [ ${#only[@]} -eq 0 ]; then rebuilt=1; fi
 mutate Z14 web/src/chat/ChatPage.tsx \
