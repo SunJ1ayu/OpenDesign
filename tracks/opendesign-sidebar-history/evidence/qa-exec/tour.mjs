@@ -107,10 +107,15 @@ for (const [p, st] of Object.entries(PROJ)) {
 const localIso = (ms) => new Date(ms).toLocaleString("sv-SE").replace(" ", "T") + ".000000";
 const DAY = 86400000;
 const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+// 元数据 updated_at 一律写「刚才」:网关默认每 15 分钟空闲压缩一次、每次都把它刷成当时(design P6),业主机器上就是这样;
+// 真正的最后聊天时间在消息自带的 timestamp 里
+const bumped = localIso(Date.now() - 60000);
+const webuiDir = join(home, ".nanobot", "webui");
+mkdirSync(webuiDir, { recursive: true });
 function seed(title, whenMs, firstUser, tool = null) {
   const id = randomUUID();
   const at = localIso(whenMs);
-  const rows = [{ _type: "metadata", key: `websocket:${id}`, created_at: at, updated_at: at,
+  const rows = [{ _type: "metadata", key: `websocket:${id}`, created_at: at, updated_at: bumped,
                   metadata: { webui: true, title }, last_consolidated: 0 },
                 { role: "user", content: firstUser, timestamp: at }];
   if (tool) {
@@ -129,6 +134,22 @@ seed("老宅水电改造", midnight.getTime() - 3 * DAY, "老宅厨房水电要�
   { name: "append_change", args: { project: "老宅", content: "厨房水电改位" } });
 seed("样板间软装", midnight.getTime() - 4 * DAY, "临时样板间软装清单",
   { name: "append_change", args: { project: "临时样板间", content: "软装清单" } });
+// 一段被空闲压缩过的长对话:对话文件里只剩后面的闲聊(没有工具调用);早期给滨江-12F 记的账只在界面回放记录里(design P1′)
+{
+  const id = randomUUID();
+  const at = localIso(midnight.getTime() - 9 * DAY);
+  writeFileSync(join(sessDir, `websocket_${id}.jsonl`), [
+    { _type: "metadata", key: `websocket:${id}`, created_at: at, updated_at: bumped, metadata: { webui: true, title: "滨江长对话" }, last_consolidated: 0 },
+    { role: "user", content: "那就先这样", timestamp: at },
+    { role: "assistant", content: "好的", timestamp: at },
+  ].map((r) => JSON.stringify(r)).join("\n") + "\n");
+  writeFileSync(join(webuiDir, `websocket_${id}.jsonl`), [
+    { event: "user", chat_id: id, text: "滨江-12F 的卫生间墙砖换一下", turn_id: "t1", turn_phase: "user", turn_seq: 1 },
+    { event: "message", chat_id: id, text: "", kind: "progress", turn_id: "t1", tool_events: [{ version: 1, phase: "end", call_id: "c1",
+      name: "mcp_design-studio_append_change_tool", arguments: { project: "滨江-12F", content: "卫生间墙砖换款" }, result: "{\"ok\": true}", error: null, files: [], embeds: [] }] },
+    { event: "turn_end", chat_id: id, turn_id: "t1", turn_phase: "complete", turn_seq: 3 },
+  ].map((r) => JSON.stringify(r)).join("\n") + "\n");
+}
 for (let i = 1; i <= 26; i++) {
   const touch = i === 26 ? { name: "append_change", args: { project: "翡翠湾-1801", content: "最早那次改动" } } : null;
   seed(`很早的对话${String(i).padStart(2, "0")}`, midnight.getTime() - (5 + i) * DAY, `第 ${i} 段旧对话`, touch);
@@ -159,6 +180,16 @@ async function startHost() {
   const first = await new Promise((r) => host.stdout.once("data", (b) => r(String(b))));
   return JSON.parse(first.split("\n")[0]).web_port;
 }
+// 等端口真能再绑:用管家自己那套判断(ds_shell_core.port_free,不带 SO_REUSEADDR)。Linux 上刚断开的连接(TIME_WAIT)会让它判「占着」,
+// 管家就把聊天端口顺延到 8766,而前端写死连 8765 ⇒ 页面连不上 —— 老问题,另报。Node 的 listen 自带 SO_REUSEADDR,拿它判会误以为空了(第 2 遍录像栽过)。
+async function waitPortFree(port, timeoutMs = 150000) {
+  const t0 = Date.now();
+  for (;;) {
+    const r = spawnSync(PY, ["-c", `import sys; sys.path.insert(0, ${JSON.stringify(join(PKG, "ds", "bin"))}); import ds_shell_core as c; sys.exit(0 if c.port_free(${port}) else 1)`]);
+    if (r.status === 0 || Date.now() - t0 > timeoutMs) return Math.round((Date.now() - t0) / 1000);
+    await new Promise((res) => setTimeout(res, 2000));
+  }
+}
 async function quitHost() {
   try { host.stdin.write('{"cmd":"quit"}\n'); } catch { /* 已经没了 */ }
   const t0 = Date.now();
@@ -173,6 +204,9 @@ const lines = ["# QA 执行 · 真界面操作录像(track opendesign-sidebar-hi
   "主槽指到本机假厂商:话里要动项目的(「给X记一笔:…」「两个项目一起推进」「把老宅改名成老宅翻新」「临时样板间这个项目删掉」、项目栏里「帮我看看档案」),",
   "假厂商先回**工具调用**,网关真去执行(真写项目档案),再回一句话;网关给对话起名时,假厂商回用户第一句的前 14 个字。",
   "开录前在网关的对话目录里照它的格式种了 30 段旧对话(昨天 2 段、更早 28 段;其中 4 段碰过项目:昨天的报价→陈总办公室、老宅水电改造→老宅、样板间软装→临时样板间、很早的对话26→翡翠湾-1801)。",
+  "种的旧对话:元数据里的「更新时间」全写成录像开始前 1 分钟(模拟网关每 15 分钟一次的空闲压缩把它刷新),消息自带真实时间;另有一段「滨江长对话」(9 天前)被压缩过 ——",
+  "对话文件里只剩最后两句闲聊,早期给滨江-12F 记账那一步只在界面回放记录里。种的旧对话没有完整的界面回放,点开时首页正文可能是空的(台子限制,不是这次改的)。",
+  "「关掉再开」之前录像台子先等聊天端口 8765 释放(刚断开的连接会占它一阵;不等的话新聊天服务换了端口、页面连不上 —— 那是另一个老问题,另报)。",
   "五个项目:翡翠湾-1801(施工跟进)、陈总办公室(方案深化)、滨江-12F(洽谈)、老宅(平面方案)、临时样板间(洽谈)。",
   "每步:截图 NN.jpg + 侧栏文字 + 当时的事实。读屏文字不含悬停提示与图标;需要时事实里另记 aria-pressed / 悬停字。", ""];
 let n = 0;
@@ -277,6 +311,7 @@ try {
   await view("project");
   await expand("翡翠湾-1801");
   await step("拨到「按项目」,展开翡翠湾-1801(还没发新对话)", { 视图按钮: await viewState(), 翡翠湾下: await projList("翡翠湾-1801"),
+    "滨江下(那段被压缩过的长对话)": await projList("滨江-12F"),
     其他对话: await rows('[data-ui="side-other"]').then((r) => r.slice(0, 6)) });
   await newChat();
   await send(pane, "给翡翠湾-1801记一笔:主卧衣柜改推拉门");
@@ -340,11 +375,12 @@ try {
   // ── 关掉软件再打开 ──
   const oldBase = base;
   await quitHost();
+  const waited = await waitPortFree(8765);
   base = `http://127.0.0.1:${await startHost()}`;
   await page.goto(`${base}/#/`, { waitUntil: "domcontentloaded" });
   await waitConnected(page, pane, 60000);
   await page.locator('[data-ui="side-pinned"]').waitFor({ timeout: 20000 }).catch(() => {});
-  await step("完全关掉软件(管家退出)再打开", { 前后地址: `${oldBase} → ${base}`, 视图按钮: await viewState(),
+  await step("完全关掉软件(管家退出)再打开", { 前后地址: `${oldBase} → ${base}`, 等聊天端口释放了几秒: waited, 视图按钮: await viewState(),
     已置顶: await rows('[data-ui="side-pinned"]'),
     说明: "「按时间 | 按项目」记在浏览器存储里,按地址分;录像台子重开若换了端口就像换了一台浏览器(业主的桌面版地址固定,不受影响)" });
   await menu('[data-ui="side-pinned"]', "给甲方的预算口径", "pin");
