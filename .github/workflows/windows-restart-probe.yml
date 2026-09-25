@@ -5,6 +5,8 @@
 # 所以 Windows 的机制只能在 Windows 上问。drive.py 两组:live(聊天页连着再存)/ idle(对照)。
 # sitecustomize.py 只放进这台机器上的包:网关一进 Python 就记一笔,之后每 20s 打一次所有线程的栈。
 #
+# probe-5 起换成 drive5.py(QA 执行:修好的包走 live / fresh 两条业主路径);drive.py 留着是 probe-1~4 的历史。
+#
 # 跑法:推到 ci-restart/** 分支,或 Actions 页面手点。
 
 name: windows-restart-probe
@@ -56,15 +58,13 @@ jobs:
           Expand-Archive artifact\pkg.zip -DestinationPath probe -Force
           Copy-Item .github\scripts\restart-probe\sitecustomize.py probe\pkg\python\Lib\site-packages\
           Get-ChildItem probe\pkg\ds\bin\ds_host.py, probe\pkg\python\python.exe
-      - name: idle 组(对照:原样,应复现卡死)
+      # probe-5 = QA 执行:**修好的包**(产品自己已 stdin=DEVNULL、存 key 不重启),不再装 DEVNULL 钩子。
+      - name: live 组(聊天连着:存 DeepSeek → 切过去 → 换 MiMo key → 切回;同一条 websocket、网关不换进程)
         continue-on-error: true
-        run: probe\pkg\python\python.exe .github\scripts\restart-probe\drive.py probe\pkg idle probe-out
-      - name: idle-devnull 组(子进程 stdin=DEVNULL)
+        run: probe\pkg\python\python.exe .github\scripts\restart-probe\drive5.py probe\pkg live probe-out
+      - name: fresh 组(全新装机没 key:存第一把 ⇒ 网关被起起来 ⇒ 能聊)
         continue-on-error: true
-        run: probe\pkg\python\python.exe .github\scripts\restart-probe\drive.py probe\pkg idle-devnull probe-out
-      - name: live-devnull 组(聊天页连着 + 子进程 stdin=DEVNULL)
-        continue-on-error: true
-        run: probe\pkg\python\python.exe .github\scripts\restart-probe\drive.py probe\pkg live-devnull probe-out
+        run: probe\pkg\python\python.exe .github\scripts\restart-probe\drive5.py probe\pkg fresh probe-out
       - uses: actions/upload-artifact@v4
         if: always()
         with:
