@@ -221,7 +221,7 @@ class _Up(BaseHTTPRequestHandler):
             srv.updates += 1
             return self._json(200, srv.state)
         if base.startswith("/api/sessions/") and base.endswith("/delete"):
-            return self._json(srv.delete_status, {"deleted": True})
+            return self._json(srv.delete_status, srv.delete_body)
         return self._json(404, {"error": "nope"})
 
     def _json(self, status, obj):
@@ -240,6 +240,7 @@ class _Up(BaseHTTPRequestHandler):
 def _upstream():
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), _Up)
     httpd.requests, httpd.state, httpd.updates, httpd.delete_status = [], json.loads(json.dumps(STATE)), 0, 200
+    httpd.delete_body = {"deleted": True}
     t = threading.Thread(target=httpd.serve_forever, daemon=True)
     t.start()
     try:
@@ -423,6 +424,17 @@ class TestEndpoints(unittest.TestCase):
             st, _ = _req(port, "/api/chat/sessions/websocket:old/delete", "POST", {})
             self.assertEqual(st, 409, "上游拒删的状态码原样透传")
             self.assertEqual(_bytes(root), before, "没删成就不清置顶 / 改名")
+
+    def test_e6b_delete_blocked_by_automation_keeps_state(self):
+        # 网关拒删(对话绑了定时任务)回的是 200 + deleted:false(nanobot ws_http _handle_session_delete)——
+        # 只看状态码会把一段没删掉的对话的置顶 / 改名清掉
+        with _upstream() as up, _serve(up.server_address[1]) as (port, root):
+            _seed(root)
+            before = _bytes(root)
+            up.delete_body = {"deleted": False, "blocked_by_automations": True, "automations": []}
+            st, body = _req(port, "/api/chat/sessions/websocket:old/delete", "POST", {})
+            self.assertEqual((st, body.get("blocked_by_automations")), (200, True), "上游的回话原样透传给前端提示")
+            self.assertEqual(_bytes(root), before, "没删掉就不清置顶 / 改名")
 
     def test_e7_gateway_down(self):
         with _serve(1) as (port, root):
