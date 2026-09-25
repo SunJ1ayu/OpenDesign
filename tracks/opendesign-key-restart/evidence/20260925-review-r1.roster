@@ -1,0 +1,8 @@
+# panel-review 花名册(2026-09-25 10:30:19)task=opendesign-key-restart-r1
+# PASS = 进程 rc=0,**不等于给了裁决**;off = 这条腿压根没派(不许读成通过)。
+# impact-risk=high requested-budget=2 selected-count=2
+# selected=submimo(xiaomi/submimo),subdeepseek(deepseek/subdeepseek-agent)
+# escalation=none
+# snapshot=head:ce8f5fa
+# 日志:/root/aiwork/logs/panel-keyrestart-r1-20260925-095516.*.log
+submimo=FAIL(rc=124) subdeepseek=PASS(verdict=PASS)

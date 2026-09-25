@@ -63,12 +63,14 @@ runlog: r1-fix-oracle-red-2 rc=1 commit=ce8f5fa dirty=yes at=2026-09-25T02:37:08
 - 反锚定记账:第 1 轮派发时 verify.md 只有收据行与「收据说明」(判据怎么红、怎么改),没有自审结论与处置;工具照例报 anchor leak 指的是它。
 - 腿的花名册(第 1 轮):
   `submimo=FAIL(rc=124) subdeepseek=PASS(verdict=PASS)`
+- 腿的花名册(第 2 轮):
+  `subdeepseek=PASS(verdict=PASS) subcursor.grok-4.7-high=PASS(verdict=PASS)`
 - 轮次记录:
 
   | 轮 | 类型(实质 / 重试) | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
   |---|---|---|---|---|
   | 1 | 实质(MiMo 35 分钟超时 rc=124、无结论 = 基础设施失败;DeepSeek 有效) | rc=3,BLOCK 0(只待评审) | /root/aiwork/logs/panel-keyrestart-r1-20260925-095516 | 0(1 条 LOW 必须修) |
-  | 2 | 实质(核验修复 + 补足两家覆盖:DeepSeek + Grok) | 待填 | 待填 | 待填 |
+  | 2 | 实质(核验修复 + 补足两家覆盖:DeepSeek + Grok) | rc=3,BLOCK 0(只待评审) | /root/aiwork/logs/panel-keyrestart-r2-20260925-104115 | 0 |
 
 - QA(测试员,非评审、不计轮):QA-设计 DeepSeek + Grok(evidence/20260925-qa-design-*.md);QA-执行 两家判卷(evidence/20260925-qa-exec-*.md,
   对账:DeepSeek 9 通过 / 0 不通过 / 14 没执行到;Grok 缺陷无)+ 主裁补录真界面 14 步(evidence/qa-exec/tour.md,真管家+真网关+真工作台+真 chromium)。
@@ -81,10 +83,14 @@ runlog: r1-fix-oracle-red-2 rc=1 commit=ce8f5fa dirty=yes at=2026-09-25T02:37:08
   | Q-2 | (QA DeepSeek ①)第一次存 key 后若网关起不来,提示叫他「退出再打开」 | modelSettings.ts requested 那句 | 驳回 | 网关真起不来时,聊天页「立即重试」只重连、救不了;外壳同时会弹「没能自己启动…请退出再打开」—— 那就是对的出路 |
   | Q-3 | (QA DeepSeek ②)保存本身失败(写盘失败)时说什么 | — | 驳回 | 要人为造 IO 故障(锤子砸墙);现有路径把后端那句人话原样显示,未改 |
   | K-a | (自审)额外厂商 key 文件写成、配置写不进 ⇒ 回包 live 但这家没进菜单 | 自审文件 | 延期 | 要配置目录不可写而 keys 可写(手改权限);下次开软件 build_env 会补上 |
-  | K-b | (自审)网关没在跑时连存两次,第二次等不到锁应答 ⇒ 「请手动重启」 | 自审文件 | 延期 | 老版本重启同形;本单后只在全新装机 / 网关挂了才走 |
+  | K-b | (自审,第 2 轮 Grok 更正)网关没在跑时连存两次:锁通道每连接一个线程(bin/ds_shell_core.py `_serve`),第二次照样拿到应答;两次 ensure 只有毫秒内同时到达才会都去起网关、其一失败弹「没能自己启动」 | 核过 `_serve` 起线程;ensure 在 spawn 当场登记新进程,隔几秒的第二次看到它活着即跳过 | 延期 | 设置页保存键处理中锁住(run 的 busy),点不出毫秒级的第二次;我自审原写「第二次等不到应答 ⇒ 请手动重启」是错的,已更正 |
   | K-c | (自审)钩子每句读十来次小配置 | — | 延期 | 毫秒级,不优化 |
+  | O-1 | (第 2 轮 DeepSeek)新提示「下一句对话起就用新的 key」遇到 key 填错 / 欠费时,会放大 Q-1(聊天页不显示错误)的「没反应」观感 | 同 Q-1 | 延期(并入 Q-1 那单) | 根子在聊天显示,修 Q-1 时一并收口;本单不改聊天页 |
+  | O-2 | (第 2 轮 DeepSeek)网关没在跑时给未启用的那家存 key,requested / manual 两句不提「先启用」 | modelSettings.ts requested / manual 分支 | 驳回 | 两句都不假(没叫他去右下角换);要「未启用 + 网关恰好没在跑」同时成立,少说一句不致误操作 |
 
-- arbitrated verdict (主裁): 待第 2 轮
+- arbitrated verdict (主裁): **PASS**。第 1 轮 DeepSeek 唯一的 LOW(R1-1)已修并有三层判据;第 2 轮 DeepSeek + Grok 两家不同家族同一次运行都 PASS,
+  都核了 R1-1 与整单操作序列,对延期 / 驳回理由复核成立。QA 执行(云 Windows probe-5 + 本机真界面 14 步)与判据一致。
+  延期里最要紧的是 Q-1 / O-1(出错时聊天页不显示),不是本单引入,**发 0.98.13 后紧接着开单修**,已告诉业主。
 
 ## Accepted deviations
 
