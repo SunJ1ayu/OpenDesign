@@ -242,6 +242,13 @@ test("c15 Q3′:网关换过的固定英文 ⇒ 小字不叫「原文」;真透�
   assert.match(a.rawLabel, /聊天服务/);
   assert.equal(describeModelError(glm1113)?.rawLabel, "原文");
   assert.equal(describeModelError("Error: {'message': 'Invalid API key', 'type': 'invalid_request_error'}")?.rawLabel, "原文");
+  // 聊天记录里那条出错气泡带着同一个标签(界面照它显示),实时 / 回放一样
+  const live = applyEvent(emptyTranscript, { event: "message", text: arrears, turn_id: "t", turn_seq: 3 });
+  assert.equal(live.messages[0].modelError?.rawLabel, "聊天服务的说法");
+  const rep = hydrateFromThread({ messages: [{ id: "a1", role: "assistant", content: glm1113 }] });
+  assert.equal(rep.messages[0].modelError?.rawLabel, "原文");
+  const page = readFileSync(new URL("../web/src/chat/ChatPage.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(page, />原文:\{m\.modelError\.raw\}/, "小字前缀不许再写死「原文」");
 });
 
 test("c16 D2:key 错那句指到右下角的新写法(厂商名 + 模型名)", () => {

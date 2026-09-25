@@ -252,7 +252,8 @@ test("实时:真帧序(错 key)⇒ 用户那句下面恰好一条出错气泡,�
   assert.equal(u.role, "user");
   assert.equal(a.role, "assistant");
   assert.equal(a.streaming, false);
-  assert.deepEqual(a.modelError, { raw: CAPTURED.mimo401 });
+  // 0.98.14 起多带小字标签(track opendesign-composer-zcode,上一单欠账 Q3′):厂商真原话 ⇒「原文」。整形相等照旧,多钉一格。
+  assert.deepEqual(a.modelError, { raw: CAPTURED.mimo401, rawLabel: "原文" });
   assert.equal(a.content, describeModelError(CAPTURED.mimo401).text);
   assert.equal(s.busy, false);
   assert.equal(s.thinking, false);
