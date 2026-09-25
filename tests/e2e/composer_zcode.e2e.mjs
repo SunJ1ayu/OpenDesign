@@ -5,7 +5,7 @@
 //   ①「+」是一个菜单:图片 + 三个技能;点技能在输入框补好开头、不发出去;「✎ 记一下」按钮没了;
 //   ② 打 / 弹同一份技能表,按字筛,Enter 用、不发送;中文标点模式打出的「、」也算;筛不到 Enter 照常发;
 //   ③ 模型按钮写「MiMo · mimo-v2.5」(厂商短名 · 模型名),悬停看全名;
-//   ④ 发送是 ↑ 图标;回复中变 ■;点了 ⇒ 替身收到 `/stop`、屏上没有 “/stop” 气泡、半截回答留着、中文「已停止」、
+//   ④ 发送是文字「发送」(09-25 业主改回;原为 ↑ 图标);回复中变 ■;点了 ⇒ 替身收到 `/stop`、屏上没有 “/stop” 气泡、半截回答留着、中文「已停止」、
 //      输入框解锁;还在想(没出字)时停同样;三个聊天栏只停点的那一栏;回放(从侧栏点回那段)仍是同一句中文;
 //   ⑤ 首页问候语按时间(页面时钟固定在 15:00 ⇒ 下午好)。
 //
@@ -267,7 +267,8 @@ try {
   await step("④ 发送是 ↑ 图标;回复中变 ■,点了 ⇒ 替身收到 /stop、半截留着、中文「已停止」、解锁", async () => {
     const send = page.locator(`${HOME} .send-btn`);
     check((await send.getAttribute("aria-label")) === "发送", "发送键 aria-label=发送");
-    check(!(await send.innerText()).includes("发送"), "发送键上不再是文字「发送」");
+    // 业主 09-25 18:3x:「发送键用 ↑ 图标还是改回文字吧」(回到 07-19 修改单「文字发送」;track opendesign-send-text)
+    check((await send.innerText()).trim() === "发送", `发送键上是文字「发送」(实际:${JSON.stringify(await send.innerText())})`);
     await page.evaluate(() => { window.__slow = true; });
     await ta.fill("讲个长故事");
     await waitSendable(page, HOME, 8000);
