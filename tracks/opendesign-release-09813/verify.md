@@ -23,6 +23,11 @@ runlog -t opendesign-release-09813 -- <判据命令>
 ```
 
 ```
+runlog: run-all rc=3 commit=9e6b888 dirty=no final=yes at=2026-09-25T03:07:06Z file=tracks/opendesign-release-09813/evidence/20260925T030706Z-01-run-all.txt
+runlog: cloud-e2e rc=0 commit=9e6b888 dirty=yes at=2026-09-25T03:27:58Z file=tracks/opendesign-release-09813/evidence/20260925T032758Z-01-cloud-e2e.txt
+```
+
+```
 <粘收据行,逐字节,别改数。**每次提交**都会跟 evidence/ 里的收据逐字节比对(5a);
  **归档时**还要求:最后跑的那一遍必须在这儿、跑红的那几遍一份都不许藏(5b)、
  收据得进 git(5d)。一份收据都没有的话,写一行
