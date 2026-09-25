@@ -39,6 +39,7 @@ import {
   type ModelsStatus,
 } from "./modelPicker";
 import ModelMenu from "./ModelMenu";
+import { SideIcon } from "../workspace/icons";
 
 // P2 T3:视觉照 handoff §4 重排(用户消息低对比右对齐 / AI 无气泡直排 /
 // 赤陶流式光标 / Claude 式组合输入卡 / 「记一下」chip 预填)。
@@ -1056,10 +1057,20 @@ export default function ChatPage({
           {(transcript.thinking ||
             (transcript.busy &&
               transcript.messages[transcript.messages.length - 1]?.role === "user")) && (
-              <div className="msg-ai thinking" aria-label="助手思考中">
-                <span className="tdot" />
-                <span className="tdot" />
-                <span className="tdot" />
+              <div className="msg-ai thinking" role="status" aria-label="助手思考中">
+                <span className="chat-spin"><SideIcon name="loader" /></span>
+                <span className="shimmer-text">思考中</span>
+              </div>
+            )}
+          {/* 回复中(照 ZCode ChatLoading):正文/工具已经在出、但这一轮还没 turn_end 时,
+              轮尾挂一颗转圈 —— 「还在干活」的信号跟着整轮走,不跟首个 delta 走。
+              刻意**不**用 .msg-ai 类:e2e 以 .msg-ai:not(.streaming):not(.thinking) 认完成态回复。 */}
+          {transcript.busy &&
+            !transcript.thinking &&
+            transcript.messages[transcript.messages.length - 1]?.role !== "user" && (
+              <div className="chat-loading" role="status" aria-label="助手回复中"
+                   data-ui="chat-loading">
+                <span className="chat-spin"><SideIcon name="loader" /></span>
               </div>
             )}
         </div>

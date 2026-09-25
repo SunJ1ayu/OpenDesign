@@ -1671,32 +1671,60 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   color: var(--ink);
   overflow-wrap: break-word;
 }
-/* 流式光标:8×15 赤陶块,随流式增长闪烁 */
-.msg-ai.streaming > :last-child::after,
-.msg-ai.streaming:empty::after {
-  content: "";
+/* ── 回复动画(照 ZCode:packages/ui/src/styles.css + ai-elements/chat-loading.tsx) ──
+   ① 流式正文:新长出来的块(段落/列表/表格…)900ms 淡入,不打字、不闪光标;
+      react-markdown 按位置给 key,已有块不重挂载 ⇒ 只有**新块**播动画,老块不闪。
+   ② 思考中:lucide loader 转圈 +「思考中」字面流光(animated-gradient-text)。
+   ③ 回复中:正文已出但本轮没结束 ⇒ 轮尾一颗转圈(ChatLoading)。
+   ④ 工具回执 / 转圈本身入场同样 900ms 淡入。 */
+@keyframes zc-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.msg-ai.streaming,
+.msg-ai.streaming > *,
+.msg-ai.thinking,
+.msg-activity,
+.chat-loading {
+  animation: zc-fade-in 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.msg-ai.thinking,
+.chat-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+.chat-spin {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  color: var(--ink-4);
+  flex: none;
+}
+.chat-spin .ico { width: 16px; height: 16px; animation: zc-spin 1s linear infinite; }
+@keyframes zc-spin { to { transform: rotate(360deg); } }
+.shimmer-text {
   display: inline-block;
-  width: 8px;
-  height: 15px;
-  background: var(--terra);
-  vertical-align: -2px;
-  border-radius: 1px;
-  margin-left: 1px;
-  animation: cursor-blink 1s steps(2) infinite;
+  font-weight: 500;
+  background: linear-gradient(90deg,
+    var(--ink-2) 0%, var(--ink-2) 34%,
+    rgba(44, 42, 38, 0.22) 50%,
+    var(--ink-2) 66%, var(--ink-2) 100%);
+  background-size: 300% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: zc-gradient-flow 4s linear infinite;
 }
-@keyframes cursor-blink { 50% { opacity: 0; } }
-/* 思考中(connect-ux):发出→首个 delta 之间的三点跳动,纯 CSS 无定时器 */
-.msg-ai.thinking { display: flex; gap: 4px; padding: 6px 0; }
-.msg-ai.thinking .tdot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--ink-4);
-  animation: think-bounce 1.2s ease-in-out infinite;
+@keyframes zc-gradient-flow {
+  0% { background-position: 100% 0; }
+  50%, 100% { background-position: 0% 0; }
 }
-.msg-ai.thinking .tdot:nth-child(2) { animation-delay: 0.15s; }
-.msg-ai.thinking .tdot:nth-child(3) { animation-delay: 0.3s; }
-@keyframes think-bounce { 30% { transform: translateY(-4px); opacity: 0.5; } }
+@media (prefers-reduced-motion: reduce) {
+  .msg-ai.streaming, .msg-ai.streaming > *, .msg-ai.thinking, .msg-activity, .chat-loading,
+  .chat-spin .ico, .shimmer-text { animation: none; }
+  .shimmer-text { color: var(--ink-3); -webkit-text-fill-color: currentColor; background: none; }
+}
 /* 工具活动回执(T5b):事后一行灰字「查了待办清单」。刻意做得比正文弱 ——
    它是过程痕迹不是助手说的话,turn_end 就清掉,不该抢正文的视觉权重。 */
 .msg-activity {

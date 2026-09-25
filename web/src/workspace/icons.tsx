@@ -49,6 +49,19 @@ const ICONS = {
       <circle cx="12" cy="12" r="3" />
     </>
   ),
+  // 聊天「回复中」转圈:ZCode ChatLoading 用的就是 lucide LoaderIcon
+  "loader": (
+    <>
+      <path d="M12 2v4" />
+      <path d="m16.2 7.8 2.9-2.9" />
+      <path d="M18 12h4" />
+      <path d="m16.2 16.2 2.9 2.9" />
+      <path d="M12 18v4" />
+      <path d="m4.9 19.1 2.9-2.9" />
+      <path d="M2 12h4" />
+      <path d="m4.9 4.9 2.9 2.9" />
+    </>
+  ),
 } satisfies Record<string, ReactNode>;
 
 export type SideIconName = keyof typeof ICONS;
