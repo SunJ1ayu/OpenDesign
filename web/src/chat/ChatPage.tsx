@@ -8,6 +8,7 @@ import {
   hydrateFromThread,
   messageEnvelope,
   reconcileThread,
+  releaseTurn,
   requestStop,
   shouldSendOnEnter,
   type TranscriptState,
@@ -454,8 +455,8 @@ export default function ChatPage({
           // 所以"有没有历史"和"要不要解锁输入"是两件事,不许绑在一起判。
           if (!replay || replay.messages.length === 0) {
             if (mode === "reconcile") {
-              setTranscript((s) => (s.busy || s.thinking || s.activity.length
-                ? { ...s, busy: false, thinking: false, activity: [] }
+              setTranscript((s) => (s.busy || s.thinking || s.activity.length || s.stopPending
+                ? releaseTurn(s)
                 : s));
             }
             return;
@@ -536,7 +537,9 @@ export default function ChatPage({
             }
             const errMsg = chatErrorMsg(m);
             if (errMsg) setTurnError(errMsg);
-            if (m.event === "turn_end") onTurnEnd?.();
+            // 这一轮收尾 ⇒ 刷新侧栏历史与项目数据。点 ■ 停下时网关不发 turn_end、只发 goal_status:idle
+            // (探针),也要刷新 —— 新对话首句就停,侧栏里也得有它(评审 R1)。多刷一次无害。
+            if (m.event === "turn_end" || (m.event === "goal_status" && m.status === "idle")) onTurnEnd?.();
             pending.push(m);
             if (timer === null) timer = setTimeout(flush, FLUSH_MS);
           } catch {

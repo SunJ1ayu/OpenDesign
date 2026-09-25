@@ -218,8 +218,8 @@ export function appendLocalUser(
   if (media && media.length > 0) {
     msg.media = media.map((m) => ({ src: m.data_url, name: m.name }));
   }
-  // 新发一轮:上一轮的活动回执清掉(它属于上一轮),等待态交给事件去开
-  return { ...state, messages: [...state.messages, msg], busy: true, activity: [] };
+  // 新发一轮:上一轮的活动回执清掉(它属于上一轮),等待态交给事件去开;上一轮的停止标记也不许带进来(评审 R2)
+  return withoutStop({ ...state, messages: [...state.messages, msg], busy: true, activity: [] });
 }
 
 /**
@@ -267,6 +267,19 @@ function finishTurn(state: TranscriptState): TranscriptState {
   };
 }
 
+/** 去掉停止标记(不留 `stopPending: undefined` 这个键,老判据按整形比较状态)。 */
+function withoutStop(state: TranscriptState): TranscriptState {
+  if (state.stopPending === undefined) return state;
+  const { stopPending: _drop, ...rest } = state;
+  return rest;
+}
+
+/** 放掉这一轮(断线重连后拉不到历史时用):解锁、收思考与活动行,**连停止标记一起清**(评审 R2:
+ *  点了 ■ 回话没到就断线,标记留着 ⇒ 下一轮 ■ 一直灰)。不定稿流式正文 —— 与原来这条路的行为一致。 */
+export function releaseTurn(state: TranscriptState): TranscriptState {
+  return withoutStop({ ...state, busy: false, thinking: false, activity: [] });
+}
+
 /** 点了 ■:记下这条 `/stop` 的 turn_id,等网关回话。不在回复中 ⇒ 什么都不变(按钮本来就不该在)。
  *  不本地先解锁:连接刚断时 /stop 没送到,先解锁会让业主以为停了(design.md Alternatives)。 */
 export function requestStop(state: TranscriptState, turnId: string): TranscriptState {
@@ -282,8 +295,9 @@ function appendNote(state: TranscriptState, e: Record<string, unknown>): Transcr
     ? `note-${e.turn_id}-${e.turn_seq}`
     : `note-${state.messages.length}`;
   const bubble = assistantBubble(id, e.text);
-  // 停止回话先于 idle 到(时序换了)也要收尾:本栏点过停止 + 这是一句系统小字 ⇒ 这一轮结束
-  const stopped = !!(state.stopPending && bubble.systemNote);
+  // 停止回话先于 idle 到(时序换了)也要收尾 —— 但只认**这次** /stop 的回话:网关原样带回我们发的 turn_id(探针)。
+  // 等回话那一瞬来一句后台子任务回报(也是系统小字)不许提前解锁(评审 R3)
+  const stopped = !!(state.stopPending && bubble.systemNote && e.turn_id === state.stopPending);
   if (state.messages.some((m) => m.id === id)) return stopped ? finishTurn(state) : state;
   const next = { ...state, thinking: false, messages: [...state.messages, bubble] };
   return stopped ? finishTurn(next) : next;
@@ -353,7 +367,8 @@ export function applyEvent(state: TranscriptState, ev: unknown): TranscriptState
     case "error":
       // 协议快照未覆盖失败路径:一轮出错若只发 error 不发 turn_end,
       // busy 会死锁到刷新。error 一律解锁(attach 场景的 error 到 T7 才有)。
-      return state.busy ? { ...state, busy: false } : state;
+      // 停止标记一起清(评审 R2:点了 ■ 回话没到就出错收尾,标记留着 ⇒ 下一轮 ■ 一直灰)
+      return state.busy || state.stopPending ? withoutStop({ ...state, busy: false }) : state;
     case "turn_end":
       return finishTurn(state);
     default:
