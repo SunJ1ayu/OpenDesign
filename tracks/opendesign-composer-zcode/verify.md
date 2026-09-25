@@ -8,7 +8,7 @@
 ## Mechanical checks
 
 - [x] build passes(`npm run build`,tsc 无错;产物新鲜度闸 `tests/e2e/check-dist-fresh.sh` 逐字节一致)
-- [ ] tests pass(第 1 轮修复后总跑收据待补)
+- [x] tests pass(最终总跑 `run-all-final` rc=3:只跳既有三条 —— 两条要真网关的 e2e + python 1 条;node 565、python 1553、e2e 44 全过)
 - [x] no secrets / unsafe ops(纯前端;/stop 走网关自带命令;不改 nanobot)
 
 **机器打印的收据行**(判据先行的红检、变异红检、修复前后):
@@ -30,6 +30,7 @@ runlog: mutation-composer-zcode-r1fix rc=1 commit=dfb6aa7 dirty=yes at=2026-09-2
 runlog: mutation-composer-zcode-all-after-r1fix rc=0 commit=dfb6aa7 dirty=yes at=2026-09-25T09:43:06Z file=tracks/opendesign-composer-zcode/evidence/20260925T094306Z-01-mutation-composer-zcode-all-after-r1fix.txt
 runlog: run-all-r1fix rc=1 commit=d1e263f dirty=no at=2026-09-25T09:49:04Z file=tracks/opendesign-composer-zcode/evidence/20260925T094904Z-01-run-all-r1fix.txt
 runlog: e2e-narrow_window-after-locator rc=0 commit=d1e263f dirty=yes at=2026-09-25T10:03:36Z file=tracks/opendesign-composer-zcode/evidence/20260925T100336Z-01-e2e-narrow_window-after-locator.txt
+runlog: run-all-final rc=3 commit=0f0bc49 dirty=no final=yes at=2026-09-25T10:09:53Z file=tracks/opendesign-composer-zcode/evidence/20260925T100953Z-01-run-all-final.txt
 ```
 
 - 两份收据**作废、已删**(没进 git):09:00 前我单独跑 `frontend_p2_polish` / `chat_reconnect` 的红检时没给假家目录(总跑 `tests/e2e/run-all.sh` 会造 `E2E_HOME` 放一把假 key),
@@ -53,6 +54,7 @@ runlog: e2e-narrow_window-after-locator rc=0 commit=d1e263f dirty=yes at=2026-09
   | 轮 | 类型 | 派发前 `track preflight` | 日志前缀 | 新增有效阻断 |
   |---|---|---|---|---|
   | 1 | 实质 | rc=3,BLOCK 0(PENDING 2;先修了证据寿命 1 条) | /root/aiwork/logs/panel-composer-r1-20260925-173149 | 2(R1 / R2)|
+  | 2 | 实质(复审,预算最后一轮) | rc=3,BLOCK 0(PENDING 1) | /root/aiwork/logs/panel-composer-r2-20260925-180424 | 0(腿判 BLOCK 两条,主裁核实:一条是改动前就有的收尾路径,一条是新的小毛病,均不阻断本单) |
 
 - findings(第 1 轮代码评审 + QA 执行七家判卷 + 我在 QA 执行里自己抓的;**先处置、后动手**,一份修复清单):
 
@@ -76,15 +78,43 @@ runlog: e2e-narrow_window-after-locator rc=0 commit=d1e263f dirty=yes at=2026-09
   第 28 步空框「+」→ 整理文件夹 ⇒「帮我扫描整理这个文件夹:」;第 29–30 步 ↓↓ 高亮找参考图、↑ + Tab ⇒ 用上整理文件夹、表收起;
   第 31 步「/不存在的技能」不弹、Enter 当普通话发出并得到回答;第 32–33 步带图选技能 ⇒「找参考图:客厅」+ 1 张缩略图,发出后气泡里 1 张图、输入框清空;
   第 34–35 步厂商连不上、网关重试时点 ■ ⇒ 138 毫秒解锁、「已停止」、之后 8 秒没冒出错说明;第 36–37 步待办栏里点 ■ ⇒ 149 毫秒解锁、「已停止」。全过。
-- arbitrated verdict (主裁): <第 2 轮后写>
+- 腿的花名册(第 2 轮,原样):`subcursor.gpt-5.6-sol-high=PASS(verdict=BLOCK)`
+- findings(第 2 轮评审;预算已用完,只有真阻断才会让本单保持未完成):
+
+  | # | 发现:触发条件与影响 | 核实证据 | 处置 | 理由 |
+  |---|---|---|---|---|
+  | R2′ | (评审 High)点 ■ 后回话到达前 ① 收到 `error`:只解锁,思考动画 / 流式光标留着;② 断线重连拉历史 404:`releaseTurn` 不定稿流式正文;③ 拉历史请求直接抛错:空 catch 吞掉,这一轮不放(■ 灰着) | 三处**改动前逐字相同**:`git show 464b55a:web/src/chat/transcript.ts` error 分支只 `{ ...state, busy: false }`;`git show 464b55a:web/src/chat/ChatPage.tsx` 拉不到历史那条路只清 busy/thinking/activity、`.catch(() => {})` 同在。本单只是在它们上面多清了停止标记(R2 本身已修,评审也认) | 延期(原有的断线 / 出错收尾缺口) | 不是本单引入:改动前任何一轮在这些路径上都一样(③ 改动前是发送键永远灰,现在是 ■ 灰,同一个病);停止只多了一种要在点 ■ 后 0.1 秒内恰好出错 / 断线才碰得上的走法。在业主那边的样子:极少数情况下断线重连后半截回答的闪烁光标不消失,或要刷新一次才能继续 —— 与改动前一样 |
+  | F2 | (评审 Medium)先打 / 弹出技能表,再点「+」⇒ 两个技能菜单叠在一起 | 属实:`ChatPage.tsx` 技能表只由草稿决定、点「+」不收它;两个菜单都向上弹、同一层级 | 延期(落点:「+」菜单第二步「引用项目 / 之前的对话」那一单) | 本单新做出来的小毛病,不影响验收承诺 1/2、不指错门:两个菜单点哪个都能用,选一项或再打字就收起一个。在业主那边的样子:偶尔看到两个一样的技能表叠着。那一单本来就要动「+」菜单,顺手让两个互斥 |
+  | N1 | (评审附注)正常一轮若先 `turn_end` 后 `idle`,侧栏会多刷一次 | 上一单探针的出错轮就是 turn_end 后跟 idle | 接受 | 多一次本机请求,无害;换来的是停止后侧栏一定刷新 |
+
+  评审对 Q1–Q6 的处置全部表态同意;R1、R3 核验修好;R2 的停止标记残留核验修好(上面 R2′ 是它顺着看到的原有收尾缺口)。
+
+- arbitrated verdict (主裁): **PASS**。两轮实质评审(GPT-5.6 sol,第 1 轮 BLOCK 2 条已修,第 2 轮 BLOCK 两条经核实都不是本单阻断,理由见上表)+ 开发前七家 QA 设计 + 真界面录像两遍(第 1 遍 30 步七家判卷,第 2 遍 40 步补录由我逐条核)+ 判据先行红检 + 变异 24/24 + 最终总跑(收据见上)。
+  不续第 3 轮:4b 规定预算用完只有真阻断才保持未完成;R2′ 改动前就在、F2 是不阻断的小毛病 —— 都记在这里、有落点,不自动开单。
 
 ## Accepted deviations
 
-- <第 2 轮后写>
+- R2′:断线 / 出错那几条原有收尾路径不完整(思考动画 / 流式光标可能留着,拉历史抛错时要刷新)—— 改动前就这样,本单没变坏。
+- F2:先打 / 再点「+」时两个技能菜单会叠在一起(落点见上)。
+- Q1:技能页点卡片把开头填进当前对话,不新开一段(老行为,归档时告诉业主)。
+- Q2:侧栏历史标题是助手的回答(老行为,落点:侧栏单)。
+- S1:点 ■ 之后若网关永远不回话,■ 一直灰到这一轮以别的方式结束(探针里回话 0.1 秒内到)。
+- S2:「+」菜单不支持方向键(打 / 的技能表支持)。
+- S3:停在工具执行中间时回放里会不会多出工具痕迹,没实验(停止提示已说明那一步可能已做完)。
+- 停止键不做 Esc 快捷键(误触会打断回复);待办页右栏的小输入框不动(没有技能表)。
+- 发送键改为 ↑ 图标推翻了 07-19 修改单「文字发送」:业主 09-25 同意对照图第 4 条;归档时再提醒他一次(他可以一句话改回文字)。
+
+## 业主真机要亲自走的(录像与判据够不着的)
+
+1. 开着中文输入法(中文标点)在输入框按 / 键:应弹出技能表(打出来的是「、」也算);用拼音打字按 Enter 选字时不会误选技能、不会发出去。
+2. 让它讲一段长的,中途点 ■:一两秒内停下、留着半截、下面一行灰字「已停止…」;马上再问一句能正常回。
+3. 看输入框右下角:写着「MiMo · mimo-v2.5」这样的厂商名;换到 GLM 套餐 / GLM 按量时两家分得清。
+4. 早上 / 中午 / 晚上各打开一次首页,问候语跟着变。
+5. 在「技能」页点一张卡片:开头填进的是当前这段对话(老行为,见 Q1),觉得别扭就说一声。
 
 ## 试行记录(review-convergence 试行,约五单;拿不到的写 unknown,别补 0)
 
-- 总交付历时:<待写>
-- 每轮新增有效阻断:第 1 轮 2(R1 / R2)
-- 基础设施等待:<待写>
+- 总交付历时:约 2 小时(16:3x 立单 → 18:3x 主裁)
+- 每轮新增有效阻断:第 1 轮 2(R1 / R2);第 2 轮 0
+- 基础设施等待:评审腿第 1 轮约 4 分钟、第 2 轮约 4 分钟;QA 设计八家约 1–7 分钟(MiMo 基础设施失败 EROFS)、QA 判卷七家约 2–7 分钟;总跑三次各约 13 分钟;变异全量约 10 分钟
 - 交付后返工:unknown
