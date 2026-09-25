@@ -1,0 +1,28 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    mutation-key-restart
+cmd:     tests/mutation-key-restart.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  ef70f38
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T03:04:32Z
+---------------- 输出开始 ----------------
+  [咬住] M1 —— 网关退回直接 -m nanobot 起(没有钩子)⇒ 换了 key 下一句还带旧的
+  [咬住] M2 —— 启动器不装钩子 ⇒ 解析出启动时的 env
+  [咬住] M3 —— 钩点没了照样开跑(静默退回只认 env)
+  [咬住] M4 —— 两边都没有却解析成空串(空 key 被当成配好了)
+  [咬住] M5 —— 子进程继承管家 stdin(Windows 卡死的根因)
+  [咬住] M6 —— ensure 照样重启活着的网关
+  [咬住] M7 —— ensure 什么都不起(全新装机第一次存 key 连不上)
+  [咬住] M8 —— 网关在跑还去请外壳
+  [咬住] M9 —— 设置页存第二家不当场补条目
+  [咬住] M10 —— 引导页「存了想换过去」不当场兑现
+  [咬住] M11 —— 沿用登记前的目录范围 ⇒ 新自定义供应商补不上条目
+  [咬住] M12 —— 外壳收到帧照旧重启
+  [咬住] M13 —— 外壳不经启动器起网关
+  [咬住] M14 —— 存了别家却说下一句就用它(QA 设计 d5)
+  [咬住] M15 —— 改正在用的那家却说在重启、叫他等
+  [咬住] M16 —— 未启用的那家存 key 仍叫他去右下角换(第 1 轮 DeepSeek #1)
+红检:咬住 16 / 漏网 0
+(已还原源码)
+---------------- 输出结束 ----------------
+runlog: mutation-key-restart rc=0 commit=ef70f38 dirty=yes at=2026-09-25T03:04:32Z file=tracks/opendesign-key-restart/evidence/20260925T030432Z-01-mutation-key-restart.txt

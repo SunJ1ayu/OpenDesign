@@ -12,9 +12,9 @@
 
 ## Mechanical checks
 
-- [ ] build passes
-- [ ] tests pass
-- [ ] no secrets / unsafe ops
+- [x] build passes(web/dist 与源码同步,dist 新鲜度闸过)
+- [x] tests pass(最后一遍 final:ef70f38 rc=3,只跳既有三条;红检 16/16)
+- [x] no secrets / unsafe ops(key 只以 ${VAR} 进配置;判据零外网;探针只推 ci-restart/** 分支)
 
 **机器打印的**(不是我的转述)—— 判据用 `runlog` 跑,把它打印的收据行原样粘进来:
 
@@ -35,6 +35,8 @@ runlog: e2e-per-vendor-rewrite-red-on-25011a3 rc=1 commit=57893fc dirty=yes at=2
 runlog: run-all rc=3 commit=c25ffb3 dirty=no final=yes at=2026-09-25T01:41:05Z file=tracks/opendesign-key-restart/evidence/20260925T014105Z-01-run-all.txt
 runlog: r1-fix-oracle-red rc=1 commit=ce8f5fa dirty=yes at=2026-09-25T02:36:16Z file=tracks/opendesign-key-restart/evidence/20260925T023616Z-01-r1-fix-oracle-red.txt
 runlog: r1-fix-oracle-red-2 rc=1 commit=ce8f5fa dirty=yes at=2026-09-25T02:37:08Z file=tracks/opendesign-key-restart/evidence/20260925T023708Z-01-r1-fix-oracle-red-2.txt
+runlog: run-all rc=3 commit=ef70f38 dirty=no final=yes at=2026-09-25T02:51:03Z file=tracks/opendesign-key-restart/evidence/20260925T025103Z-01-run-all.txt
+runlog: mutation-key-restart rc=0 commit=ef70f38 dirty=yes at=2026-09-25T03:04:32Z file=tracks/opendesign-key-restart/evidence/20260925T030432Z-01-mutation-key-restart.txt
 ```
 
 ```
@@ -50,7 +52,8 @@ runlog: r1-fix-oracle-red-2 rc=1 commit=ce8f5fa dirty=yes at=2026-09-25T02:37:08
   两处都是判据,产品代码没动;改完重跑 final:c25ffb3 rc=3(只跳既有三条:两条要真网关的 e2e + 一条 python skip,同 0.98.12 发版单),无红。
 - `e2e-per-vendor-rewrite-red-on-old`(rc=0)**名字是错的**:`runlog --repo` 在主仓里跑,那一遍其实是新 e2e 对新代码(绿),
   不是对旧实现;对旧实现的真红检是下一行 `…-red-on-25011a3`(用绝对路径跑旧提交临时检出里的那份,B2b/B6/B5 三条红)。
-- 红检 `mutation-key-restart` 15/15 咬住。
+- 红检 `mutation-key-restart` 15/15 咬住(57893fc);第 1 轮修复后加 M16,ef70f38 上 16/16。
+- 最后一遍 final:ef70f38 rc=3(六段过,只跳既有三条),产品代码与第 2 轮评审绑定的交付一致。
 - `r1-fix-oracle-red`:d6 红,但 e2e R1-1 **假绿** —— 禁用那一下的提示本来带「未启用」,检查读到旧提示就过了;
   改成先等「已保存」开头那句再判,`r1-fix-oracle-red-2` 里 R1-1 红在正确的那句上。
 - 云 Windows QA 执行 probe-5(run 36081788020,修好的包):live / fresh 两组全 ok,时间线 evidence/20260925-windows-probe-5.txt。
@@ -92,13 +95,21 @@ runlog: r1-fix-oracle-red-2 rc=1 commit=ce8f5fa dirty=yes at=2026-09-25T02:37:08
   都核了 R1-1 与整单操作序列,对延期 / 驳回理由复核成立。QA 执行(云 Windows probe-5 + 本机真界面 14 步)与判据一致。
   延期里最要紧的是 Q-1 / O-1(出错时聊天页不显示),不是本单引入,**发 0.98.13 后紧接着开单修**,已告诉业主。
 
+## 任务(tasks.md 评审前没写正文、评审后只许改勾选,所以记在这里)
+
+T0 Windows 探针定位卡死根因(probe-1~4)+ 4c 方案挑战 ✓ · T1 判据先行并红检 ✓ · T2 实现 ✓ · T3 QA 设计 / 执行 ✓ ·
+T4 两轮两家族评审 + final run-all + 红检 ✓ · T5 归档 ✓;发版另开 opendesign-release-09813。
+
 ## Accepted deviations
 
-- <接受的非关键偏差 + 原因 + 影响范围,或 None>
+- 业主真机结果不在归档前承诺里(proposal「不承诺」之外的真机回显随 0.98.13 发版单补)。
+- Windows 上的证据来自云 Windows(GitHub Actions)真管家整链 probe-5,不是业主机器;真界面录像在本机 Linux(界面层与平台无关,Windows 特有的那层由 probe-5 证)。
+- 延期项见 Review 表(Q-1/O-1 最要紧,发版后另开单)。
 
 ## 试行记录(review-convergence 试行,约五单;拿不到的写 unknown,别补 0)
 
-- 总交付历时:<开工 commit 时刻 → 归档 commit 时刻>
-- 每轮新增有效阻断:<第 1 轮 n / 第 2 轮 n>
-- 基础设施等待:<重试次数;observations 里 panel-review 的 duration_ms 求和>
-- 交付后返工:<归档后因本单再改过几次;不知道写 unknown>
+- 总交付历时:09-25 01:05 立单(`a3a3d61`,含 Windows 探针)→ 11:1x 归档;其中 01:38~08:43 断线
+- 每轮新增有效阻断:第 1 轮 0(1 条 LOW 必须修)/ 第 2 轮 0
+- 基础设施等待:重试 0 次;第 1 轮 MiMo 35 分钟超时无结论(那一轮 DeepSeek 约 7 分钟);第 2 轮两家约 8 分钟;QA 设计约 4 分钟、QA 判卷约 5 分钟
+- 交付后返工:unknown(刚归档)
+- 4c 记录:Grok 一次方案挑战(约 5 分钟),改变了设计(纳入「网关没在跑就起」),避免了一处全新装机必现的连不上
