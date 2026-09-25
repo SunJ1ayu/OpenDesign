@@ -560,8 +560,11 @@ try {
   // 显式声明这一幕要的形状,不靠上一幕的残留(fast lane 评审建议:跨幕依赖难维护)
   await page.evaluate(() => { window.__threadStatus = 404; window.__silent = true; });
   await sendMessage(page, pane, "断线时还在等回复的那句");
-  check(await until(async () => await page.locator(`${pane} .send-btn`).isDisabled(), 8000),
-    "㉜a 前置:发出去还没回 ⇒ 此刻确实是忙(发送键 disabled)");
+  // 0.98.14 起回复中 ↑ 换成 ■ 停止键(track opendesign-composer-zcode):「忙」的可观察形状从「发送键置灰」
+  // 变成「出现 ■、↑ 不在」。问的仍是同一件事(此刻发不了新消息),只换了它在界面上的样子。
+  check(await until(async () => (await page.locator(`${pane} .stop-btn`).count()) === 1
+      && (await page.locator(`${pane} .send-btn`).count()) === 0, 8000),
+    "㉜a 前置:发出去还没回 ⇒ 此刻确实是忙(出现 ■ 停止键、↑ 不在)");
   await page.evaluate(() => window.__killWS("home", 1006));
   check(await until(() => page.locator(`${pane} [data-ui="chat-model"]`).isVisible(), 25000),
     "㉜b 前置:又连回来了(且这一轮拉历史是 404)");

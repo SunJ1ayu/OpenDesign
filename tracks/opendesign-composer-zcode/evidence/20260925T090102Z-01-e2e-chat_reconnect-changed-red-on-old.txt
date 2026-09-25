@@ -1,0 +1,100 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    e2e-chat_reconnect-changed-red-on-old
+cmd:     node tests/e2e/chat_reconnect.e2e.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  3b1a9eb
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T09:01:02Z
+---------------- 输出开始 ----------------
+ds-web 0.98.13: http://127.0.0.1:8813/  (DS_DATA_ROOT=/tmp/reconnect-e2e-7GlYdr/ds)
+2026-09-25 17:01:02 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 17:01:03 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-25 17:01:03 127.0.0.1 - "GET /assets/index-ULxLSFJE.js HTTP/1.1" 200 -
+2026-09-25 17:01:03 127.0.0.1 - "GET /assets/index-Cj9Z4-u0.css HTTP/1.1" 200 -
+2026-09-25 17:01:03 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 17:01:03 127.0.0.1 - "GET /api/llm/providers HTTP/1.1" 200 -
+2026-09-25 17:01:03 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 17:01:03 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 17:01:03 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 17:01:03 127.0.0.1 - "GET /favicon.ico HTTP/1.1" 404 -
+2026-09-25 17:01:03 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+2026-09-25 17:01:03 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 17:01:03 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+2026-09-25 17:01:03 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 17:01:03 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 17:01:03 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 17:01:03 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+2026-09-25 17:01:03 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+  ok   - 前置:首页那列恰好一条连接,断线前的消息已上屏
+  ok   - 前置:断线前那条的出站信封里有 turn_id
+  ok   - ① 掐断后出现「正在重连」提示
+  ok   - ② 不再是「连接已断开」那个死胡同
+  ok   - ③ 重连期间断线前的气泡还在(锁死「其实是整页 reload」)
+2026-09-25 17:01:04 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 17:01:04 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+  ok   - ④ 到点自己又建了一条连接(纯逻辑层真的被接上了)
+  ok   - ④b 首页那列只重连了一次(退避没把它连成一串)
+  ok   - ⑤ 回到已连接态
+  ok   - ⑥ 重连后 attach 回**第一条连接那个** chat_id(逐字符比,不是形状比)
+  ok   - ⑥b 前置:新连接确实拿到了不同的 chat_id(否则上一条等于没判)
+  ok   - ⑦ 断线期间那条(只存在于服务端历史里)重连后出现在屏幕上
+  ok   - ⑧ 本地发出、服务端没记上的那句没有被对账吃掉
+  ok   - ⑨ 对账不许把消息弄重(每条只出现一次)
+  ok   - ㉒ 重连之后发送键是可用的(不是能打字发不出去)
+  ok   - ㉓ 而且这条真的发出去并上屏了
+2026-09-25 17:01:04 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 17:01:04 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 17:01:04 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+2026-09-25 17:01:04 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+  ok   - ㉔a 前置:出站信封里确实带了 turn_id(协议 §2 一等路径)
+2026-09-25 17:01:04 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 17:01:04 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 17:01:04 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 17:01:04 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+  ok   - ㉔b 前置:断线前屏幕上确实有两条一模一样的话
+  ok   - ㉔c 掐断后自己连回来
+2026-09-25 17:01:05 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 17:01:05 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+  ok   - ㉔d 前置:**本轮**回放已经落到屏幕上(只有这一轮的历史里才有这个记号)
+  ok   - ㉔ 对账后两条一样的话都还在(服务端记上的 + 本地独有的),实得 2 条
+  ok   - ㉕ 服务端记过的老消息不许被对账弄重,实得 1 条
+  ok   - ㉖a 前置:此刻是已连接、输入框可用(不然判的就不是「发送失败」这件事)
+  ok   - ㉖ 发送失败 ⇒ **不上屏假气泡**(界面不许说它发出去了)
+  ok   - ㉗ 而且屏上有一句提示,不是静默吞掉(实得:"聊天连接刚断开,这句话还没发出去。等它重新连接后,再点一次发送。")
+  ok   - ㉘ 失败之后输入没被永久锁住(还能再试)
+  ok   - ㉙ readyState 不是 OPEN 时点发送 ⇒ 不上屏假气泡(不靠异常兜)
+  ok   - ㉙b 而且**一个字节都没往外发**(不是发出去了只是没上屏)
+  ok   - ㉚a 前置:此刻屏上确实还挂着那句失败提示
+2026-09-25 17:01:07 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+2026-09-25 17:01:07 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+  ok   - ㉚b 前置:又自己连回来了
+  ok   - ㉚ 重连成功后那句失败提示自己消失了
+  ok   - ⑬ 补历史打的是真实代理路径 /api/chat/sessions/websocket:<id>/thread
+  ok   - ⑭ 前置:重连后又发了一次 attach
+  ok   - ⑮ attach 还没回 attached ⇒ **不算连上**(不许在 ready 就宣告成功)
+2026-09-25 17:01:07 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 17:01:07 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+  ok   - ⑯ 收到 attached 之后才回到已连接态
+  ok   - ⑰ 前置:连续失败下攒到 4 次重连尝试
+  ok   - ⑱ 间隔逐次变长(退避没被每轮重置):[1068,1784,3616]
+2026-09-25 17:01:23 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 17:01:23 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+  ok   - ⑲ gateway 回来后自己接上
+2026-09-25 17:01:24 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 17:01:24 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+  ok   - ⑳ 历史接口 401 ⇒ 照常连上
+  ok   - ㉑ 历史接口 401 **不许**清口令、不许弹登录框(只有 bootstrap 自己 401 才算)
+2026-09-25 17:01:24 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 17:01:24 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+  ok   - ⑩ 拉历史 404(空会话的真实形状)⇒ 照常连上,不把 404 弹给用户
+  FAIL - ㉜a 前置:发出去还没回 ⇒ 此刻确实是忙(出现 ■ 停止键、↑ 不在)
+2026-09-25 17:01:33 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 17:01:33 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+  ok   - ㉜b 前置:又连回来了(且这一轮拉历史是 404)
+  ok   - ㉜ 断线时正忙 + 重连后拉历史 404 ⇒ 发送键恢复可用(不是永久变灰只能刷新)
+  ok   - ⑪ bootstrap 401(口令真失效)⇒ 回登录框,不是无声转圈
+  ok   - ⑫ 全程没有页面级 JS 报错
+
+1 FAILED
+---------------- 输出结束 ----------------
+runlog: e2e-chat_reconnect-changed-red-on-old rc=1 commit=3b1a9eb dirty=yes at=2026-09-25T09:01:02Z file=tracks/opendesign-composer-zcode/evidence/20260925T090102Z-01-e2e-chat_reconnect-changed-red-on-old.txt

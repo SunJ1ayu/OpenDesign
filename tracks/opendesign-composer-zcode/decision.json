@@ -2,19 +2,26 @@
   "schema_version": 2,
   "track": "opendesign-composer-zcode",
   "impact": {
-    "level": null,
-    "factors": null
+    "level": "standard",
+    "factors": [
+      "cross_module"
+    ]
   },
   "design": {
-    "uncertainty": null,
+    "uncertainty": "low",
     "premise_attack": {
-      "status": null,
-      "evidence": []
+      "status": "done",
+      "evidence": [
+        "evidence/20260925-design-challenge-brief.md",
+        "evidence/20260925-design-challenge-gpt.md",
+        "evidence/20260925-probe-stop.txt",
+        "evidence/probe-stop.py"
+      ]
     }
   },
   "execution_plan": {
-    "adapter": null,
-    "model": null
+    "adapter": "main",
+    "model": "claude-opus-5-5"
   },
   "outcome": {
     "verdict": null

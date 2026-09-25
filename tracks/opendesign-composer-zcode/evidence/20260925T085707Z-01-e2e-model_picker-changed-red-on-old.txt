@@ -1,0 +1,54 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    e2e-model_picker-changed-red-on-old
+cmd:     node tests/e2e/model_picker.e2e.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  3b1a9eb
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T08:57:07Z
+---------------- 输出开始 ----------------
+  ok   - 前置:临时配置里的默认模型是 mimo-v2.5
+ds-web 0.98.13: http://127.0.0.1:8844/  (DS_DATA_ROOT=/tmp/ds-e2e-model-picker-drWxit/ds)
+2026-09-25 16:57:07 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 16:57:08 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-25 16:57:08 127.0.0.1 - "GET /assets/index-ULxLSFJE.js HTTP/1.1" 200 -
+2026-09-25 16:57:08 127.0.0.1 - "GET /assets/index-Cj9Z4-u0.css HTTP/1.1" 200 -
+2026-09-25 16:57:08 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 16:57:08 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 16:57:08 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 16:57:08 127.0.0.1 - "GET /api/llm/providers HTTP/1.1" 200 -
+2026-09-25 16:57:08 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 16:57:08 127.0.0.1 - "GET /favicon.ico HTTP/1.1" 404 -
+2026-09-25 16:57:08 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+2026-09-25 16:57:08 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 16:57:08 127.0.0.1 - "GET /api/chat/sessions?limit=10&direction=latest HTTP/1.1" 502 -
+2026-09-25 16:57:08 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+  ok   - ① 连上后,输入卡里出现模型按钮,写着当前模型 mimo-v2.5
+  ok   - ② 按钮在发送键左边、同一行(业主拍板的位置)
+  ok   - ③ 左上角「已连接 · 模型名」那一行没了
+  ok   - ④ 页面上没有「退出登录」
+2026-09-25 16:57:09 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+  ok   - ⑤ 点按钮弹出菜单
+  ok   - ⑥ 菜单向上弹(在按钮上方)
+  ok   - ⑦ 菜单里是厂商一行(MiMo,当前那家打勾)和底行「管理模型」;旧的「换厂商 / 换 key…」没了
+  ok   - ⑦a 移到厂商行 ⇒ 弹出这家的模型
+  ok   - ⑦b 模型子菜单在厂商行右边(照 ZCode 向右弹)
+  ok   - ⑦c 前提:轨迹确实擦过了底行「管理模型」(没擦过 = 下一问问不出东西)
+  ok   - ⑦c 斜着移进子菜单(擦过别的行)不闪退,过了宽限期还在;当前模型那行打勾
+2026-09-25 16:57:10 127.0.0.1 - "POST /api/llm/model HTTP/1.1" 200 -
+  ok   - ⑧ 选 mimo-v2.5-pro ⇒ 盘上的配置真的改了
+  ok   - ⑨ 恰好发出一次 POST /api/llm/model(实际 1)
+  ok   - ⑩ 按钮上的字变成 mimo-v2.5-pro
+  ok   - ⑪ 选完菜单收起
+2026-09-25 16:57:10 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 16:57:10 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+FAIL(异常): locator.boundingBox: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('.ws-pane .chat-card').first().locator('[data-ui="composer-plus"]').first()[22m
+
+    at /root/.openclaw/workspace/projects/design-studio/tests/e2e/model_picker.e2e.mjs:207:76 {
+  name: 'TimeoutError'
+}
+
+1 FAILED
+---------------- 输出结束 ----------------
+runlog: e2e-model_picker-changed-red-on-old rc=1 commit=3b1a9eb dirty=yes at=2026-09-25T08:57:07Z file=tracks/opendesign-composer-zcode/evidence/20260925T085707Z-01-e2e-model_picker-changed-red-on-old.txt

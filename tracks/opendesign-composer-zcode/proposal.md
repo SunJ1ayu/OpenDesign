@@ -35,7 +35,7 @@
 
 - in:`web/src/chat/ChatPage.tsx`(输入卡)、新 `web/src/chat/composer*.ts`(技能表 / 打 / 筛选 / 问候语 / 厂商短名的纯函数)、
   `web/src/SkillsPage.tsx`(改为共用技能表)、`web/src/chat/transcript.ts`(idle 收尾、停止回话、R1 英文句)、
-  `web/src/chat/modelError.ts`(Q3′ 标签;D2 那句对上新按钮)、`web/src/chat/inputHint.ts`(占位符)、`web/src/chat/modelPicker.ts`(按钮文字)、
+  `web/src/chat/modelError.ts`(Q3′ 标签;D2 那句对上新按钮)、`web/src/chat/inputHint.ts`(聊天输入框占位符;待办小框不动)、`web/src/chat/modelPicker.ts`(按钮文字)、
   样式;对应判据(单测 + e2e);QA 设计 / 执行。
 - 欠账(上一单归档 verify.md 写的「必须」):
   - Q3′:出错说明里,网关换过的固定英文句,小字不再标「原文」;真透传的仍标「原文」。
