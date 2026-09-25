@@ -75,7 +75,9 @@ try {
     check(o.scroll <= o.client + 1, `1024 宽 #/${route || "(首页)"} 不出横向滚动(内容 ${o.scroll} / 窗口 ${o.client})`);
   }
   await page.goto(`${base}/#/`, { waitUntil: "domcontentloaded" });
-  const send = page.locator(".home-pane button", { hasText: "发送" }).first();
+  // 0.98.14 起发送键是 ↑ 图标(track opendesign-composer-zcode,业主 09-25 同意照 ZCode):按钮上没字了,
+  // 改按它的名字「发送」(aria-label)找 —— 问的仍是同一件事:1024 宽时发送键整个在窗口里。
+  const send = page.locator(".home-pane").getByRole("button", { name: "发送", exact: true }).first();
   await send.waitFor({ timeout: 10000 });
   const box = await send.boundingBox();
   check(!!box && box.x + box.width <= 1024, `1024 宽首页「发送」整个在窗口里(右边缘 ${box && Math.round(box.x + box.width)})`);

@@ -26,10 +26,17 @@ runlog: oracle-chip-vendor-misfiled-red rc=1 commit=52004ef dirty=yes at=2026-09
 runlog: mutation-composer-zcode-z19 rc=0 commit=a2b2bbf dirty=yes at=2026-09-25T09:20:46Z file=tracks/opendesign-composer-zcode/evidence/20260925T092046Z-01-mutation-composer-zcode-z19.txt
 runlog: r1fix-oracle-unit-red rc=1 commit=58cf9c3 dirty=yes at=2026-09-25T09:39:30Z file=tracks/opendesign-composer-zcode/evidence/20260925T093930Z-01-r1fix-oracle-unit-red.txt
 runlog: r1fix-oracle-e2e-red rc=1 commit=58cf9c3 dirty=yes at=2026-09-25T09:39:41Z file=tracks/opendesign-composer-zcode/evidence/20260925T093941Z-01-r1fix-oracle-e2e-red.txt
+runlog: mutation-composer-zcode-r1fix rc=1 commit=dfb6aa7 dirty=yes at=2026-09-25T09:42:07Z file=tracks/opendesign-composer-zcode/evidence/20260925T094207Z-01-mutation-composer-zcode-r1fix.txt
+runlog: mutation-composer-zcode-all-after-r1fix rc=0 commit=dfb6aa7 dirty=yes at=2026-09-25T09:43:06Z file=tracks/opendesign-composer-zcode/evidence/20260925T094306Z-01-mutation-composer-zcode-all-after-r1fix.txt
+runlog: run-all-r1fix rc=1 commit=d1e263f dirty=no at=2026-09-25T09:49:04Z file=tracks/opendesign-composer-zcode/evidence/20260925T094904Z-01-run-all-r1fix.txt
+runlog: e2e-narrow_window-after-locator rc=0 commit=d1e263f dirty=yes at=2026-09-25T10:03:36Z file=tracks/opendesign-composer-zcode/evidence/20260925T100336Z-01-e2e-narrow_window-after-locator.txt
 ```
 
 - 两份收据**作废、已删**(没进 git):09:00 前我单独跑 `frontend_p2_polish` / `chat_reconnect` 的红检时没给假家目录(总跑 `tests/e2e/run-all.sh` 会造 `E2E_HOME` 放一把假 key),
   两份都红在连接 / 项目列表这种与本单无关的地方;在干净副本里跑提交里的原版同样红 ⇒ 是我跑法错,不是产品或判据的红。带上假家目录重跑的两份(`…090059Z…` / `…090102Z…`)都只红在改的那一句。
+- 第 1 轮修复后总跑(`…094904Z-01-run-all-r1fix…`)红 1 条:`narrow_window.e2e` 按按钮**文字**「发送」找发送键 —— 本单把它换成了 ↑ 图标(业主同意的第 4 条)。
+  这是老判据锁住了被有意改掉的样子,不是产品红:我开工时排查受影响老判据只搜了 `.send-btn` / 「发送(Enter)」,漏了按文字找的这一处(全仓只此一处)。
+  改成按名字「发送」(aria-label)找,断言一个字不动(1024 宽时发送键整个在窗口里);单跑收据 `…100336Z…` 全过。最终总跑在第 2 轮评审之后再跑一遍。
 - 变异第 1 遍 14/18 漏 4 条,逐条分型:Z3 **判据真洞**(c8 两帧之后才断言,重复帧分支替第一帧补了收尾 → c8 补强);Z7 锚点没打上(脚本里 `\u3001` 被转成了真字);
   Z10 **等价变异**(改的那行永远走不到);Z18 变异没编译过(e2e 根本没跑)。修后 4/4;QA 执行抓到回归后补 Z19,1/1。
 
@@ -63,6 +70,12 @@ runlog: r1fix-oracle-e2e-red rc=1 commit=58cf9c3 dirty=yes at=2026-09-25T09:39:4
   | Q5 | (QA 七家)录像没走到:空框「+」→整理文件夹、↑↓/Tab、筛不到按 Enter 发送、带图选技能再发、待办栏里停止、厂商连不上时停止 | 各家对账表「没执行到」 | 本单补录(修完一起重录、复判) | 便宜,且多数判据里有、录像里没有 |
   | Q6 | (QA 多家)真中文输入法拼字时 Enter、另外五档问候语、三栏同时回复 | 录像结构上做不到(无 Windows 输入法);问候六档 c17 单测覆盖 | 进业主真机清单 | — |
 
+- **第 1 轮修复之后不做测试员整份复判**(业主 09-25 17:5x 定:「测试员为什么要看两次…有必要再走一轮吗」):
+  测试员这一轮没报出本单的真缺陷(Q1–Q4 延期 / 驳回、Q5 是没走到);要修的 R1–R3 来自代码评审,由判据 + 变异 + 第 2 轮评审兜。
+  Q5 的补录由我对着第 2 遍录像逐条核(`evidence/qa-exec/tour.md`,包 = `git archive 239293f`):
+  第 28 步空框「+」→ 整理文件夹 ⇒「帮我扫描整理这个文件夹:」;第 29–30 步 ↓↓ 高亮找参考图、↑ + Tab ⇒ 用上整理文件夹、表收起;
+  第 31 步「/不存在的技能」不弹、Enter 当普通话发出并得到回答;第 32–33 步带图选技能 ⇒「找参考图:客厅」+ 1 张缩略图,发出后气泡里 1 张图、输入框清空;
+  第 34–35 步厂商连不上、网关重试时点 ■ ⇒ 138 毫秒解锁、「已停止」、之后 8 秒没冒出错说明;第 36–37 步待办栏里点 ■ ⇒ 149 毫秒解锁、「已停止」。全过。
 - arbitrated verdict (主裁): <第 2 轮后写>
 
 ## Accepted deviations
