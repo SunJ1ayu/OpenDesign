@@ -9,7 +9,9 @@
 // 业主视角的一整趟:
 //   A 已经配过 MiMo:菜单里只有 MiMo 一家;「管理模型」进设置页,MiMo「在用 + 末四位」,DeepSeek「还没填」
 //   B 在设置页选 DeepSeek、粘 key、保存 ⇒ MiMo 的 key **原样还在**;DeepSeek 的 key 落进它自己的文件
-//   C 外壳重启网关(这里是假外壳做 prepare_gateway)之后:菜单出现两家,勾仍在 MiMo(存 key 不换当前模型,D4)
+//   C 菜单出现两家,勾仍在 MiMo(存 key 不换当前模型,D4)
+//     09-25 改(track opendesign-key-restart):网关现读 key 文件、存 key 不再重启 ⇒ 网关在跑时存完**当场**就绪进菜单,
+//     不找外壳;原来这里是「外壳重启网关(假外壳做 prepare_gateway)之后」。网关没在跑那条路由 model_settings.e2e G1 问。
 //   D 在菜单里点 MiMo 的模型、再点 DeepSeek 的模型 ⇒ **配置文件真的变了**,而且指向对的那一家(不是只换了按钮上的字)
 //   E 两把 key 都不许出现在页面文本 / 无障碍树 / 控制台里
 //
@@ -132,6 +134,10 @@ print(sorted(extra))
 });
 await new Promise((r) => fakeShell.listen(0, "127.0.0.1", r));
 const lockPort = fakeShell.address().port;
+// 假网关端口(track opendesign-key-restart):业主存 key 时网关在跑 ⇒ 给 ds_web 一个在听的端口。显式给 ——
+// 不给就落到默认 8765,有没有人听取决于跑判据的机器。聊天 websocket 在页面里是替身,这个端口只影响 ds_web 的判法。
+const fakeGw = createServer((so) => so.destroy());
+await new Promise((r) => fakeGw.listen(0, "127.0.0.1", r));
 
 const pane = ".home-pane";
 const chip = `${pane} .chat-card [data-ui="chat-model"]`;
@@ -142,6 +148,7 @@ try {
   srv = spawn(PY, [join(ROOT, "bin", "ds_web.py")], {
     env: { ...process.env, DS_ROOT: dsRoot, DS_WEB_PORT: String(PORT), DS_NANOBOT_CONFIG: cfgPath,
            HOME: home, USERPROFILE: home, DS_LLM_KEY: "", DS_SHELL_LOCK_PORT: String(lockPort),
+           DS_NANOBOT_PORT: String(fakeGw.address().port),
            DS_WEB_DIST: join(ROOT, "web", "dist") },
     stdio: ["ignore", "inherit", "inherit"],
   });
@@ -229,17 +236,19 @@ try {
   await page.locator('[data-ui="ms-key"]:visible').fill(DS_KEY);
   await page.locator('[data-ui="ms-key-save"]:visible').click();
   check(await until(() => page.locator('[data-ui="ms-notice"]:visible').isVisible(), 8000), "B2 保存后有提示");
-  // B7 要问的是「页面自己跟上」,前提是存完那一刻它**确实**处在「等重启」—— 先把前提钉住。
-  check(await until(async () => /重启/.test(await stateOf("deepseek")), 1200),
-    `B2b 存完那一刻 DeepSeek 写着要等后台重启(实际「${await stateOf("deepseek")}」)`);
+  // 09-25 改写(track opendesign-key-restart):原 B2b「存完那一刻写着要等后台重启」/ B5「请了外壳重启」/ B7「起好后自己跟上」
+  // 是存 key 要重启网关时的契约;现在网关现读 key 文件 ⇒ 存完当场就绪、不找外壳(网关真用上没有:tests/test_key_live.py L1)。
+  // 「当场」= 1 秒内:假外壳若被请到,它那一步(prepare_gateway)要晚 1.5 秒才做 —— 窗口放宽就分不出是谁补的条目(红检实测过)
+  check(await until(async () => !/重启/.test(await stateOf("deepseek"))
+                     && (await navItem("deepseek").locator('[data-provider-status="ready"]').count()) === 1, 1000),
+    `B2b 存完当场就绪,不写「等重启」(实际「${await stateOf("deepseek")}」)`);
+  const dsEntry = readCfg().providers?.od_deepseek;
+  check(dsEntry?.apiKey === "${DS_LLM_KEY_DEEPSEEK}" && !readFileSync(cfgPath, "utf8").includes(DS_KEY),
+    `B6 配置里当场有 DeepSeek 的条目,只含 \${VAR}、没有 key 原文(实际 ${JSON.stringify(dsEntry)})`);
   check(readFileSync(join(home, ".openDesign", "key.txt"), "utf8").trim() === MIMO_KEY, "B3 MiMo 的 key 原样还在");
   check(existsSync(dsKeyFile) && readFileSync(dsKeyFile, "utf8").trim() === DS_KEY, "B4 DeepSeek 的 key 落进它自己的文件");
-  check(await until(() => restarts.length > 0, 8000), `B5 保存之后请了外壳重启网关(假外壳收到 ${restarts.length} 次)`);
-  check(restarts.every((r) => r.rc === 0), `B6 外壳那一步(prepare_gateway)没出错:${JSON.stringify(restarts)}`);
-  // 第 1 轮 G5:页面一直开着,后台起好之后它要自己跟上,不许一直写着「等重启」
-  check(await until(async () => !/重启/.test(await stateOf("deepseek"))
-                     && (await navItem("deepseek").locator('[data-provider-status="ready"]').count()) === 1, 15000),
-    `B7 页面开着不动:后台起好后 DeepSeek 自己变成「就绪」(实际「${await stateOf("deepseek")}」)`);
+  await page.waitForTimeout(2500);     // > 假外壳那 1.5 秒:真请了它的话,这时一定记上了
+  check(restarts.length === 0, `B5 网关在跑 ⇒ 没找外壳重启网关(假外壳收到 ${restarts.length} 次)`);
 
   // ── C ──
   await page.locator('[data-ui="settings-toggle"]:visible').click();
@@ -293,6 +302,7 @@ try {
   try { await browser?.close(); } catch { /* 已经关了 */ }
   try { srv?.kill("SIGKILL"); } catch { /* 已经没了 */ }
   fakeShell.close();
+  try { fakeGw.close(); } catch { /* 已经关了 */ }
   rmSync(tmp, { recursive: true, force: true });
 }
 console.log(failures ? `\n${failures} 条红` : "\n全绿");

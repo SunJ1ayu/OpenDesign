@@ -28,6 +28,10 @@ runlog: oracle-d4-red rc=1 commit=8a641cf dirty=yes at=2026-09-25T01:01:50Z file
 runlog: rewritten-oracles-red-on-old rc=1 commit=e3fd5c5 dirty=yes at=2026-09-25T01:11:36Z file=tracks/opendesign-key-restart/evidence/20260925T011136Z-01-rewritten-oracles-red-on-old.txt
 runlog: oracle-d5-red rc=1 commit=748b680 dirty=yes at=2026-09-25T01:13:06Z file=tracks/opendesign-key-restart/evidence/20260925T011306Z-01-oracle-d5-red.txt
 runlog: e2e-model-settings-rewrite-red rc=1 commit=d093dda dirty=yes at=2026-09-25T01:16:50Z file=tracks/opendesign-key-restart/evidence/20260925T011650Z-01-e2e-model-settings-rewrite-red.txt
+runlog: run-all rc=1 commit=57893fc dirty=no final=yes at=2026-09-25T01:24:05Z file=tracks/opendesign-key-restart/evidence/20260925T012405Z-01-run-all.txt
+runlog: mutation-key-restart rc=0 commit=57893fc dirty=yes at=2026-09-25T01:37:38Z file=tracks/opendesign-key-restart/evidence/20260925T013738Z-01-mutation-key-restart.txt
+runlog: e2e-per-vendor-rewrite-red-on-old rc=0 commit=57893fc dirty=yes at=2026-09-25T01:39:52Z file=tracks/opendesign-key-restart/evidence/20260925T013952Z-01-e2e-per-vendor-rewrite-red-on-old.txt
+runlog: e2e-per-vendor-rewrite-red-on-25011a3 rc=1 commit=57893fc dirty=yes at=2026-09-25T01:40:14Z file=tracks/opendesign-key-restart/evidence/20260925T014014Z-01-e2e-per-vendor-rewrite-red-on-25011a3.txt
 ```
 
 ```
@@ -36,6 +40,15 @@ runlog: e2e-model-settings-rewrite-red rc=1 commit=d093dda dirty=yes at=2026-09-
  收据得进 git(5d)。一份收据都没有的话,写一行
  「- 无机器证据:<理由>」认账 —— 沉默不算理由(5c)。>
 ```
+
+收据说明(机器行之外的人话,不改数):
+- `run-all` 57893fc(final)rc=1 两段红:① 死断言闸点名 tests/test_key_live.py 的 `self.fail("网关 30 秒没开 websocket")`
+  (只在出错时才跑)⇒ 改成循环外 assertIsNotNone;② e2e per_vendor_keys B2b 仍问「存完那一刻写着要等后台重启」—— 旧契约,已改写。
+  两处都是判据,产品代码没动;改完重跑 final。
+- `e2e-per-vendor-rewrite-red-on-old`(rc=0)**名字是错的**:`runlog --repo` 在主仓里跑,那一遍其实是新 e2e 对新代码(绿),
+  不是对旧实现;对旧实现的真红检是下一行 `…-red-on-25011a3`(用绝对路径跑旧提交临时检出里的那份,B2b/B6/B5 三条红)。
+- 红检 `mutation-key-restart` 15/15 咬住。
+- 云 Windows QA 执行 probe-5(run 36081788020,修好的包):live / fresh 两组全 ok,时间线 evidence/20260925-windows-probe-5.txt。
 
 ## Review
 

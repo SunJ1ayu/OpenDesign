@@ -123,14 +123,18 @@ class LiveKey(unittest.TestCase):
 
     async def _connect(self):
         import websockets
+        ws = None
         for _ in range(300):
             alive = self.gw.poll() is None
             self.assertTrue(alive, f"网关起不来(rc={self.gw.returncode}):\n{self.gateway_log() if not alive else ''}")
             try:
-                return await websockets.connect(f"ws://127.0.0.1:{self.ws_port}/?client_id=oracle&token=key-live")
+                ws = await websockets.connect(f"ws://127.0.0.1:{self.ws_port}/?client_id=oracle&token=key-live")
+                break
             except OSError:
                 await asyncio.sleep(0.1)
-        self.fail("网关 30 秒没开 websocket")
+        # 放在循环外、每次都执行(死断言闸:只在出错时才跑的 self.fail 等于没问)
+        self.assertIsNotNone(ws, "网关 30 秒没开 websocket")
+        return ws
 
     async def _say_expect(self, ws, text: str, vendor: FakeVendor, key: str, model: str) -> None:
         before = [len(v.hits) for v in self.vendors()]

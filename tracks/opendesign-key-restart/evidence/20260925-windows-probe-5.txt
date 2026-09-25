@@ -1,0 +1,31 @@
+# windows-restart-probe probe-5(QA 执行:修好的包)· run 36081788020(gh run view --log 抽出的时间线,原样)
+# head: 12ce8e506e3f02a8a69541fa0a5f3fa4dd40bf71
+[live +   6.2s] host 第一帧: b'{"event": "ready", "web_port": 8766, "version": "0.98.12"}\n'
+[live +   6.2s] web=8766 ws=8765 ws在听=True
+[live +   6.3s] 活 websocket 已连上(= 聊天页连着)
+[live +   6.3s] 网关监听 PID = 2268
+[live +  13.3s] 「第一句(MiMo K1)」→ MiMo:[('456789', 'mimo-v2.5')]; DeepSeek:[]
+[live +  13.3s] ok   「第一句(MiMo K1)」只打到 MiMo、带的是 …456789
+[live +  13.3s] ok   设置页存 DeepSeek ⇒ 回包 live(实际 200 live)
+[live +  13.3s] ok   聊天框切到 DeepSeek(实际 200 {'provider': 'deepseek', 'label': 'DeepSeek 官方', 'current': 'deepseek-v4-pro', 'models': [{'id': 'deepseek-v4-flash', 'l)
+[live +  27.8s] 「切到 DeepSeek 之后」→ MiMo:[]; DeepSeek:[('6789ab', 'deepseek-v4-pro')]
+[live +  27.8s] ok   「切到 DeepSeek 之后」只打到 DeepSeek、带的是 …6789ab
+[live +  27.9s] ok   设置页换 MiMo 的 key ⇒ 回包 live(实际 200 live)
+[live +  27.9s] ok   聊天框切回 MiMo(实际 200)
+[live +  46.4s] 「切回 MiMo(K2)」→ MiMo:[('543210', 'mimo-v2.5')]; DeepSeek:[]
+[live +  46.4s] ok   「切回 MiMo(K2)」只打到 MiMo、带的是 …543210
+[live +  46.4s] ok   全程同一条 websocket 没断(断于 None )
+[live +  46.4s] ok   网关监听进程没换(之前 2268,之后 2268)
+[live +  46.4s] 结论摘要:全部 ok
+[live +  46.5s] 管家收摊 rc=0
+[fresh +   2.6s] host 第一帧: b'{"event": "ready", "web_port": 8766, "version": "0.98.12"}\n'
+[fresh +   2.9s] web=8766 ws=8765 ws在听=False
+[fresh +   3.2s] ok   全新装机没 key:开机只起工作台,网关没在听
+[fresh +   3.4s] 存第一把 key = 200 restart=requested
+[fresh +   3.4s] ok   存第一把 key ⇒ 回包 requested(请外壳把网关起起来)
+[fresh +   5.8s] ok   网关被起起来了(@+5.8s)
+[fresh +   5.9s] 活 websocket 已连上(= 聊天页连着)
+[fresh +  11.4s] 「第一句(刚起来的网关)」→ MiMo:[('456789', 'mimo-v2.5')]; DeepSeek:[]
+[fresh +  11.4s] ok   「第一句(刚起来的网关)」只打到 MiMo、带的是 …456789
+[fresh +  11.4s] 结论摘要:全部 ok
+[fresh +  11.4s] 管家收摊 rc=0
