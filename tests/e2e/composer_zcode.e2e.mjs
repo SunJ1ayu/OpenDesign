@@ -40,7 +40,8 @@ const STUB = () => {
     if (u.includes("/api/chat/bootstrap")) {
       return json({ token: "stub-token", ws_path: "/ws", expires_in: 600, model_name: "stub-model" });
     }
-    if (u.includes("/api/chat/sessions?")) {
+    // 会话列表:带不带查询串都认(网关不读 limit,侧栏单 opendesign-sidebar-history 起前端不再拼 ?limit=10)
+    if (u.includes("/api/chat/sessions?") || u.endsWith("/api/chat/sessions")) {
       window.__sessionsFetches = (window.__sessionsFetches || 0) + 1;
       return json({ sessions: [{ key: "websocket:chat-old", title: "停过的那次", updated_at: new Date().toISOString() }] });
     }

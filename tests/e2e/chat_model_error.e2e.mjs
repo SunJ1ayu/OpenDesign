@@ -41,7 +41,8 @@ const STUB = (RAW) => {
       return json({ token: "stub-token", ws_path: "/ws", expires_in: 600, model_name: "stub-model" });
     }
     // 历史对话列表:一段「错 key 那次」的旧对话
-    if (u.includes("/api/chat/sessions?")) {
+    // 会话列表:带不带查询串都认(网关不读 limit,侧栏单 opendesign-sidebar-history 起前端不再拼 ?limit=10)
+    if (u.includes("/api/chat/sessions?") || u.endsWith("/api/chat/sessions")) {
       return json({ sessions: [{ key: "websocket:chat-old", title: "上次那句", updated_at: new Date().toISOString() }] });
     }
     // 回放:探针抓到的 webui-thread 形状,assistant 行就是英文原文

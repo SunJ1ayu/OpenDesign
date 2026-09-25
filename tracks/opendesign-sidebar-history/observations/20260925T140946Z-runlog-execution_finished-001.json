@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-sidebar-history",
+  "run_id": "20260925T135509Z-01-run-all-impl",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "run-all-impl",
+  "started_at": "2026-09-25T13:55:09Z",
+  "finished_at": "2026-09-25T14:09:46Z",
+  "duration_ms": 876908,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
