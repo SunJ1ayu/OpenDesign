@@ -53,6 +53,14 @@ export function timeSections<T extends SessionLike>(
   return DAY_ORDER.filter((d) => out.has(d)).map((label) => ({ label, items: out.get(label)! }));
 }
 
+/**
+ * 最后聊天时间盖掉网关的 updated_at(design P6):网关默认每 15 分钟空闲压缩闲置对话,每次都把 updated_at 刷成当时,
+ * 拿它分今天 / 昨天 / 更早会全挤在今天。lastActive 由后台从对话文件最后一条消息的时间读出;没有的照旧。返回新数组。
+ */
+export function withLastActive<T extends SessionLike>(sessions: readonly T[], lastActive: Readonly<Record<string, string>>): T[] {
+  return sessions.map((s) => (lastActive[s.key] ? { ...s, updated_at: lastActive[s.key] } : s));
+}
+
 /** 行上显示的名字:改过的名字 > 自动名字 > 第一句预览 >「(未命名对话)」。 */
 export function displayTitle(s: SessionLike, overrides: Readonly<Record<string, string>>): string {
   return overrides[s.key] || s.title || s.preview || "(未命名对话)";

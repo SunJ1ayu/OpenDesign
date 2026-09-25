@@ -159,11 +159,14 @@ export async function deleteChatSession(
 export type SidebarState = { pinned_keys: string[]; title_overrides: Record<string, string> };
 export const EMPTY_SIDEBAR_STATE: SidebarState = { pinned_keys: [], title_overrides: {} };
 
-/** 每段对话碰过的项目名(后台从对话记录读出);读不到 ⇒ 空表(按项目视图里全进「其他对话」)。 */
-export async function fetchSessionProjects(): Promise<Record<string, string[]>> {
+/** 每段对话碰过的项目名 + 最后聊天时间(后台从对话记录与回放记录读出);读不到 ⇒ 空表
+ * (按项目视图里全进「其他对话」、时间退回网关的 updated_at)。 */
+export type SessionFacts = { projects: Record<string, string[]>; lastActive: Record<string, string> };
+export async function fetchSessionProjects(): Promise<SessionFacts> {
   const r = await fetch("/api/chat/session-projects");
   if (!r.ok) throw new Error(`服务返回 ${r.status}`);
-  return ((await r.json()) as { sessions?: Record<string, string[]> }).sessions ?? {};
+  const d = (await r.json()) as { sessions?: Record<string, string[]>; last_active?: Record<string, string> };
+  return { projects: d.sessions ?? {}, lastActive: d.last_active ?? {} };
 }
 
 export async function fetchSidebarState(): Promise<SidebarState> {

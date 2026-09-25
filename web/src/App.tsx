@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { shellApi, type DesktopUpdateState } from "./desktopShell";
 import Sidebar, { type SessionItem } from "./workspace/Sidebar";
-import { displayTitle, sessionProjects } from "./workspace/sidebarModel";
+import { displayTitle, sessionProjects, withLastActive } from "./workspace/sidebarModel";
 import WindowChrome from "./workspace/WindowChrome";
 import ChangesColumn from "./workspace/ChangesColumn";
 import CompanionColumn from "./workspace/CompanionColumn";
@@ -103,6 +103,7 @@ export default function App() {
   // 侧栏历史对话(track opendesign-sidebar-history):置顶 / 改名(ds_web 的 sidebar.json)与每段对话碰过的项目名
   const [sidebarState, setSidebarState] = useState<SidebarState>(EMPTY_SIDEBAR_STATE);
   const [derivedProjects, setDerivedProjects] = useState<Record<string, string[]>>({});
+  const [lastActive, setLastActive] = useState<Record<string, string>>({});
   const [searchOpen, setSearchOpen] = useState(false);
   // 工作区体检卡浮层(2026-07-28 用户拍板:挪进设置)。计数器兼作 key:
   // 每次打开都重挂一次 = 拿到当下最新的工作区状态,不会拿上次打开时的旧快照当真。
@@ -343,7 +344,7 @@ export default function App() {
       .then((st) => { if (!stale) setSidebarState(st); })
       .catch(() => { /* 读不到 ⇒ 保留上一份;没有置顶改名也不妨碍看历史 */ });
     fetchSessionProjects()
-      .then((m) => { if (!stale) setDerivedProjects(m); })
+      .then((f) => { if (!stale) { setDerivedProjects(f.projects); setLastActive(f.lastActive); } })
       .catch(() => { /* 读不到 ⇒ 按项目视图里全进「其他对话」 */ });
     return () => {
       stale = true;
@@ -489,6 +490,11 @@ export default function App() {
 
   const selected = projects.find((p) => p.key === selectedKey) ?? null;
   // 每段对话碰过哪些项目(项目对话映射 + 后台从对话记录读出的),项目对话在前(track opendesign-sidebar-history)
+  // 侧栏用的会话:时间换成最后聊天时间(design P6 —— 网关的 updated_at 每 15 分钟被空闲压缩刷一次)
+  const sidebarSessions = useMemo(
+    () => (sessions === null ? null : withLastActive(sessions, lastActive)),
+    [sessions, lastActive],
+  );
   const sessionProjectMap = useMemo(() => {
     const out: Record<string, string[]> = {};
     for (const s of sessions ?? []) out[s.key] = sessionProjects(s.key, derivedProjects, projThreads, projects);
@@ -509,7 +515,7 @@ export default function App() {
       onSearch={() => setSearchOpen(true)}
       onOpenSettings={() => openSettings("general")}
       todosOpenCount={todosCount}
-      sessions={sessions}
+      sessions={sidebarSessions}
       sessionProjects={sessionProjectMap}
       threadKeys={threadKeys}
       pinnedKeys={sidebarState.pinned_keys}

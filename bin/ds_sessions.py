@@ -55,12 +55,17 @@ def workspace_dir(cfg_path: str) -> str | None:
 
 # ---------------------------------------------------------------- 对话碰过哪些项目
 
-_cache: dict[str, tuple[tuple[int, int], tuple[str, list[str], list[tuple[str, str]]]]] = {}
+def webui_dir(cfg_path: str) -> str:
+    """网关界面回放记录的目录:配置文件旁边的 webui/(nanobot config/paths.py get_runtime_subdir)。"""
+    return os.path.join(os.path.dirname(os.path.abspath(cfg_path)), "webui")
+
+
+# path ⇒ ((mtime_ns, size), 解析结果);对话文件与回放记录共用,每次只重读变了的文件
+_cache: dict[str, tuple[tuple[int, int], tuple]] = {}
 _cache_lock = threading.Lock()
 
 
-def _args(fn: dict) -> dict:
-    raw = fn.get("arguments")
+def _args(raw) -> dict:
     if isinstance(raw, dict):
         return raw
     if isinstance(raw, str):
@@ -82,19 +87,49 @@ def _user_text(content) -> str:
     return ""
 
 
-def _scan_file(path: str, fallback_key: str) -> tuple[str, list[str], list[tuple[str, str]]]:
-    """一个对话文件 ⇒ (会话 key, 碰过的项目名按出现顺序, 改名别名[(旧, 新)])。坏行跳过。"""
+class _Touched:
+    """一段记录里碰过的项目名(按出现顺序、去重)+ 改名别名。"""
+
+    def __init__(self):
+        self.names: list[str] = []
+        self.aliases: list[tuple[str, str]] = []
+
+    def add(self, v):
+        if isinstance(v, str) and v.strip() and v.strip() not in self.names:
+            self.names.append(v.strip())
+
+    def prefix(self, text: str):
+        m = _PREFIX_RE.match(text or "")
+        if m:
+            self.add(m.group(1))
+
+    def tool(self, name, args: dict):
+        if not isinstance(name, str) or not name.startswith(_TOOL_PREFIX):
+            return
+        tool = name[len(_TOOL_PREFIX):]
+        if tool == "rename_project_tool":
+            old, new = args.get("old"), args.get("new")
+            self.add(old)
+            self.add(new)
+            if isinstance(old, str) and isinstance(new, str) and old.strip() and new.strip():
+                self.aliases.append((old.strip(), new.strip()))
+        elif tool == "read_project_tool":
+            self.add(args.get("name"))
+        else:
+            self.add(args.get("project"))
+
+
+def _scan_file(path: str, fallback_key: str) -> tuple:
+    """一个对话文件 ⇒ (会话 key, 碰过的项目名, 改名别名, 最后一条消息的 timestamp)。坏行跳过。"""
     key = fallback_key
-    names: list[str] = []
-    aliases: list[tuple[str, str]] = []
+    t = _Touched()
     seen_user = False
-
-    def add(v):
-        if isinstance(v, str) and v.strip() and v.strip() not in names:
-            names.append(v.strip())
-
+    last_ts = None
+    last_line = ""
     with open(path, encoding="utf-8", errors="replace") as fh:
         for i, line in enumerate(fh):
+            if line.strip():
+                last_line = line
             # 首条用户消息之前的行(元数据)照解析;之后只解析带项目工具名的行 —— 工具结果常常很长
             if seen_user and _TOOL_PREFIX not in line:
                 continue
@@ -110,30 +145,118 @@ def _scan_file(path: str, fallback_key: str) -> tuple[str, list[str], list[tuple
                 continue
             if row.get("role") == "user" and not seen_user:
                 seen_user = True
-                m = _PREFIX_RE.match(_user_text(row.get("content")))
-                if m:
-                    add(m.group(1))
+                t.prefix(_user_text(row.get("content")))
                 continue
             for call in row.get("tool_calls") or []:
                 fn = call.get("function") if isinstance(call, dict) else None
-                if not isinstance(fn, dict):
-                    continue
-                name = fn.get("name")
-                if not isinstance(name, str) or not name.startswith(_TOOL_PREFIX):
-                    continue
-                tool = name[len(_TOOL_PREFIX):]
-                a = _args(fn)
-                if tool == "rename_project_tool":
-                    old, new = a.get("old"), a.get("new")
-                    add(old)
-                    add(new)
-                    if isinstance(old, str) and isinstance(new, str) and old.strip() and new.strip():
-                        aliases.append((old.strip(), new.strip()))
-                elif tool == "read_project_tool":
-                    add(a.get("name"))
-                else:
-                    add(a.get("project"))
-    return key, names, aliases
+                if isinstance(fn, dict):
+                    t.tool(fn.get("name"), _args(fn.get("arguments")))
+    # 最后聊天时间 = 最后一条消息自带的时间(网关空闲压缩会刷元数据 updated_at,留下的最近几条消息带原时间,design P6)
+    try:
+        row = json.loads(last_line)
+        if isinstance(row, dict) and row.get("_type") != "metadata" and isinstance(row.get("timestamp"), str):
+            last_ts = row["timestamp"]
+    except ValueError:
+        pass
+    return key, t.names, t.aliases, last_ts
+
+
+def _scan_transcript(path: str) -> tuple:
+    """一份界面回放记录(只追加,不被空闲压缩)⇒ (这份第一句用户话里的项目前缀, 工具碰过的项目名, 改名别名, 这份里有没有用户话)。
+    事件:`user`(text)、`message.tool_events[]`(name / arguments 对象)。"""
+    t = _Touched()
+    first = _Touched()
+    has_user = False
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            is_user = '"user"' in line
+            if not is_user and _TOOL_PREFIX not in line:
+                continue          # 流式正文 / 思考片段占了绝大多数行,不解析
+            try:
+                ev = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(ev, dict):
+                continue
+            if ev.get("event") == "user":
+                if not has_user:
+                    first.prefix(ev.get("text") if isinstance(ev.get("text"), str) else "")
+                has_user = True
+                continue
+            for te in ev.get("tool_events") or []:
+                if isinstance(te, dict):
+                    t.tool(te.get("name"), _args(te.get("arguments")))
+    return (first.names[0] if first.names else None), t.names, t.aliases, has_user
+
+
+def _cached(path: str, parse, live: set):
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    sig = (st.st_mtime_ns, st.st_size)
+    live.add(path)
+    hit = _cache.get(path)
+    if hit is None or hit[0] != sig:
+        try:
+            hit = (sig, parse(path))
+        except OSError:
+            return None
+        _cache[path] = hit
+    return hit[1]
+
+
+def _list(d: str, pred) -> list[str]:
+    try:
+        return sorted(e.path for e in os.scandir(d) if pred(e))
+    except OSError:
+        return []
+
+
+def _scan_all(sessions_dir: str, webui: str | None) -> tuple[dict, dict, dict]:
+    """⇒ (key ⇒ 项目名列表(未展开别名), key ⇒ 最后一条消息时间, 旧名 ⇒ 新名)。"""
+    is_ws = lambda e: e.name.startswith("websocket_") and e.name.endswith(".jsonl") and e.is_file()  # noqa: E731
+    names: dict[str, list[str]] = {}
+    last: dict[str, str] = {}
+    pairs: list[tuple[str, str]] = []
+
+    def merge(key, got):
+        cur = names.setdefault(key, [])
+        for n in got:
+            if n not in cur:
+                cur.append(n)
+
+    with _cache_lock:
+        live: set = set()
+        if webui:
+            # 回放记录在前:它是完整历史(早的分段 → 当前那份),首句的项目前缀也在这里
+            for path in _list(webui, is_ws):
+                key = "websocket:" + os.path.basename(path)[len("websocket_"):-len(".jsonl")]
+                seg_dir = path[:-len(".jsonl")] + ".segments"
+                user_seen = False
+                for seg in _list(seg_dir, lambda e: e.name.endswith(".jsonl") and e.is_file()) + [path]:
+                    got = _cached(seg, _scan_transcript, live)
+                    if got is None:
+                        continue
+                    prefix, seg_names, seg_pairs, has_user = got
+                    # 项目前缀只认整段历史的第一句(项目栏发起的对话只有第一句带);后面分段里第一句的前缀是正文里后来写的
+                    merge(key, ([prefix] if prefix and not user_seen else []) + seg_names)
+                    pairs.extend(seg_pairs)
+                    user_seen = user_seen or has_user
+        for path in _list(sessions_dir, is_ws):
+            fallback = "websocket:" + os.path.basename(path)[len("websocket_"):-len(".jsonl")]
+            got = _cached(path, lambda p, fb=fallback: _scan_file(p, fb), live)
+            if got is None:
+                continue
+            key, got_names, got_pairs, last_ts = got
+            merge(key, got_names)
+            pairs.extend(got_pairs)
+            if last_ts:
+                last[key] = last_ts
+        for gone in [p for p in _cache if p not in live and (p.startswith(sessions_dir) or (webui and p.startswith(webui)))]:
+            del _cache[gone]
+    alias = {old: new for old, new in pairs if old != new}
+    return names, last, alias
 
 
 def _resolve(name: str, alias: dict[str, str]) -> str:
@@ -144,49 +267,25 @@ def _resolve(name: str, alias: dict[str, str]) -> str:
     return name
 
 
-def session_projects(sessions_dir: str) -> dict[str, list[str]]:
-    """{"websocket:<id>": [项目名, …]};没碰过项目的对话不出现;目录不在 ⇒ {}。"""
-    try:
-        entries = [e for e in os.scandir(sessions_dir)
-                   if e.name.startswith("websocket_") and e.name.endswith(".jsonl") and e.is_file()]
-    except OSError:
-        return {}
-    scanned = []
-    with _cache_lock:
-        live = set()
-        for e in entries:
-            try:
-                st = e.stat()
-            except OSError:
-                continue
-            sig = (st.st_mtime_ns, st.st_size)
-            live.add(e.path)
-            hit = _cache.get(e.path)
-            if hit is None or hit[0] != sig:
-                fallback = "websocket:" + e.name[len("websocket_"):-len(".jsonl")]
-                try:
-                    hit = (sig, _scan_file(e.path, fallback))
-                except OSError:
-                    continue
-                _cache[e.path] = hit
-            scanned.append(hit[1])
-        for gone in [p for p in _cache if os.path.dirname(p) == sessions_dir and p not in live]:
-            del _cache[gone]
-    alias: dict[str, str] = {}
-    for _key, _names, pairs in scanned:
-        for old, new in pairs:
-            if old != new:
-                alias[old] = new
+def session_projects(sessions_dir: str, webui: str | None = None) -> dict[str, list[str]]:
+    """{"websocket:<id>": [项目名, …]};没碰过项目的对话不出现;目录不在 ⇒ {}。
+    webui = 网关界面回放记录目录(见 webui_dir);给了就一起读(长对话被空闲压缩后,早期的工具调用只在那里,design P1′)。"""
+    names, _last, alias = _scan_all(sessions_dir, webui)
     out: dict[str, list[str]] = {}
-    for key, names, _pairs in scanned:
+    for key, ns in names.items():
         resolved: list[str] = []
-        for n in names:
+        for n in ns:
             r = _resolve(n, alias)
             if r not in resolved:
                 resolved.append(r)
         if resolved:
             out[key] = resolved
     return out
+
+
+def last_active(sessions_dir: str) -> dict[str, str]:
+    """{"websocket:<id>": 最后一条消息的 timestamp};消息没带时间的不出现(前端退回网关的 updated_at)。"""
+    return _scan_all(sessions_dir, None)[1]
 
 
 # ---------------------------------------------------------------- 置顶 / 改名
