@@ -1,0 +1,65 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    oracle-e2e-v2-red-on-old
+cmd:     node tests/e2e/sidebar_history.e2e.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  febc747
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T13:36:22Z
+---------------- 输出开始 ----------------
+ds-web 0.98.13: http://127.0.0.1:8859/  (DS_DATA_ROOT=/tmp/sidebar-e2e-XDswyn/ds)
+2026-09-25 21:36:23 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 21:36:23 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-25 21:36:23 127.0.0.1 - "GET /assets/index-Bgp4oko3.js HTTP/1.1" 200 -
+2026-09-25 21:36:23 127.0.0.1 - "GET /assets/index-CCki4H_U.css HTTP/1.1" 200 -
+2026-09-25 21:36:24 127.0.0.1 - "GET /favicon.ico HTTP/1.1" 404 -
+2026-09-25 21:36:24 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 21:36:24 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 21:36:24 127.0.0.1 - "GET /api/llm/providers HTTP/1.1" 200 -
+2026-09-25 21:36:24 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 21:36:24 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 21:36:24 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 21:36:24 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 21:36:24 127.0.0.1 - "GET /api/projects/%E6%BB%A8%E6%B1%9F-12F/changes HTTP/1.1" 200 -
+2026-09-25 21:36:24 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+  not ok - ① 按时间(默认):今天 / 昨天 / 更早 分段;先显示一部分,「显示更多」翻到最早的: locator.waitFor: Timeout 10000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-ui="side-day"]').first() to be visible[22m
+
+  not ok - ② ⋯ 置顶 ⇒ 进「已置顶」,下面不重复: locator.hover: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-ui="side-history"] .hist-row').filter({ hasText: '客厅吊顶改方案' }).first()[22m
+
+  not ok - ② ⋯ 改名 ⇒ 行上是新名字;重开还在: locator.hover: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-ui="side-history"] .hist-row').filter({ hasText: '昨天的报价' }).first()[22m
+
+  not ok - ③ 按项目:两个项目下都出现;项目对话在最前;其他对话;置顶的不在项目下: locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-ui="side-view-project"]')[22m
+
+2026-09-25 21:38:04 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-25 21:38:04 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 21:38:04 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 21:38:04 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 21:38:04 127.0.0.1 - "GET /api/llm/providers HTTP/1.1" 200 -
+2026-09-25 21:38:04 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 21:38:04 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 21:38:04 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 21:38:04 127.0.0.1 - "GET /api/projects/%E6%BB%A8%E6%B1%9F-12F/changes HTTP/1.1" 200 -
+2026-09-25 21:38:04 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+  not ok - ④ 切换记住;点项目名照旧进工作区: locator.waitFor: Timeout 10000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-ui="side-view-project"]') to be visible[22m
+
+  not ok - ④ 点一条对话回首页接着聊(发 attach): locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-ui="side-other"] .hist-row').filter({ hasText: '天气闲聊' }).first()[22m
+
+  not ok - ② ⋯ 删除(确认)⇒ 没了,置顶 / 改名一起清: locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-ui="side-view-time"]')[22m
+
+  ok - 页面无未捕获异常:
+sidebar_history.e2e: 7 FAIL
+---------------- 输出结束 ----------------
+runlog: oracle-e2e-v2-red-on-old rc=1 commit=febc747 dirty=yes at=2026-09-25T13:36:22Z file=tracks/opendesign-sidebar-history/evidence/20260925T133622Z-01-oracle-e2e-v2-red-on-old.txt

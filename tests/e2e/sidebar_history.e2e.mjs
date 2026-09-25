@@ -104,7 +104,14 @@ const dsRoot = join(tmp, "ds");
 const ws = join(tmp, "ws");
 mkdirSync(join(dsRoot, "projects"), { recursive: true });
 mkdirSync(join(dsRoot, "config"), { recursive: true });
-for (const p of ["翡翠湾-1801", "陈总办公室", "滨江-12F"]) mkdirSync(join(ws, p), { recursive: true });
+// 三个建档项目(档案 + 工作区文件夹;照 frontend_p2_polish / cockpit 的写法)。
+// 09-25 修:原先只登记了文件夹、没写档案 ⇒ /api/projects 回空(改动前后都空),项目栏的三条断言在结构上就问不出来。
+const STAGE = { "翡翠湾-1801": "施工跟进", "陈总办公室": "方案深化", "滨江-12F": "洽谈" };
+for (const p of ["翡翠湾-1801", "陈总办公室", "滨江-12F"]) {
+  mkdirSync(join(ws, p), { recursive: true });
+  writeFileSync(join(dsRoot, "projects", `${p}.md`),
+    `# ${p}\n\n- 业主: [[李四]]\n- 阶段: ${STAGE[p]}\n\n## 变更记录\n\n## 沟通日志\n\n---\n最后更新: 2026-09-20\n`);
+}
 writeFileSync(join(dsRoot, "config", "workspace.json"), JSON.stringify({
   root: ws, projectsDir: ".", projects: { "翡翠湾-1801": "翡翠湾-1801", "陈总办公室": "陈总办公室", "滨江-12F": "滨江-12F" },
 }));

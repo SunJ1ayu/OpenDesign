@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-sidebar-history",
+  "run_id": "20260925T133622Z-01-oracle-e2e-v2-red-on-old",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "oracle-e2e-v2-red-on-old",
+  "started_at": "2026-09-25T13:36:22Z",
+  "finished_at": "2026-09-25T13:39:14Z",
+  "duration_ms": 171766,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}
