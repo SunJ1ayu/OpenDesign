@@ -69,6 +69,8 @@ test("s4 对话碰过哪些项目:派生的 + 项目对话映射,去重、项目
     ["陈总办公室", "翡翠湾-1801", "施工组:滨江-12F"], "项目对话在前;「滨江-12F」对上分组 key;已删项目忽略;不重复");
   assert.deepEqual(sessionProjects("websocket:z", derived, threadMap, PROJECTS), []);
   assert.deepEqual(sessionProjects("websocket:b", { "websocket:b": ["施工组:滨江-12F"] }, {}, PROJECTS), ["施工组:滨江-12F"]);
+  assert.deepEqual(sessionProjects("websocket:q", {}, { "已删项目": "q" }, PROJECTS), [],
+    "项目对话映射里的项目已经删了 ⇒ 忽略(回「其他对话」,QA 设计定)");
 });
 
 test("s5 按项目:碰过几个项目就在几个项目下都出现;项目对话在前、其余最近在前;没碰过的进「其他」;置顶的全抽走", () => {

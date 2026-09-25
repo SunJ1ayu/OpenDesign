@@ -176,6 +176,15 @@ try {
     check((await rowsIn('[data-ui="side-history"]').count()) === 30, "30 条都看得到");
     const proj = await side.locator(".proj-row").count();
     check(proj === 3, `下面的项目栏照旧(3 个项目):${proj}`);
+    // 4c C5:历史翻开 30 条之后,左下角设置不能被挤出屏幕,项目栏要滚得到
+    const setBox = await page.locator('[data-ui="settings-toggle"]').boundingBox();
+    check(!!setBox && setBox.y >= 0 && setBox.y + setBox.height <= 900, `左下角设置还在屏幕里:${JSON.stringify(setBox)}`);
+    const lastProj = side.locator(".proj-row").last();
+    await lastProj.scrollIntoViewIfNeeded();
+    const pb = await lastProj.boundingBox();
+    const setBox2 = await page.locator('[data-ui="settings-toggle"]').boundingBox();
+    check(!!pb && pb.y >= 0 && pb.y + pb.height <= (setBox2 ? setBox2.y : 900),
+      `项目栏滚得到、且不被设置那一行盖住:${JSON.stringify({ pb, setBox2 })}`);
   });
 
   await step("② ⋯ 置顶 ⇒ 进「已置顶」,下面不重复", async () => {
@@ -185,6 +194,19 @@ try {
     await page.locator('[data-ui="hist-pin"]').click();
     check(await until(async () => (await texts('[data-ui="side-pinned"]')).includes("客厅吊顶改方案")), "进了「已置顶」");
     check(!(await texts('[data-ui="side-history"]')).includes("客厅吊顶改方案"), "下面的列表里不再重复");
+  });
+
+  await step("② ⋯ 改名:清空回车 = 取消,名字不变(QA Grok TC-10)", async () => {
+    const row = page.locator('[data-ui="side-history"] .hist-row', { hasText: "昨天的报价" }).first();
+    await row.hover();
+    await row.locator('[data-ui="hist-menu"]').click();
+    await page.locator('[data-ui="hist-rename"]').click();
+    const input = page.locator('[data-ui="hist-rename-input"]');
+    await input.fill("   ");
+    await input.press("Enter");
+    check(await until(async () => (await page.locator('[data-ui="hist-rename-input"]').count()) === 0), "改名框关了");
+    check((await texts('[data-ui="side-history"]')).includes("昨天的报价"), "名字没变");
+    check(!(await page.evaluate(() => window.__sidebarPosts)).some((p) => p.op === "rename"), "没发改名请求");
   });
 
   await step("② ⋯ 改名 ⇒ 行上是新名字;重开还在", async () => {
