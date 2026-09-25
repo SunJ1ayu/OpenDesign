@@ -24,16 +24,21 @@ const STUB = () => {
   const DAY = 86400000;
   const now = Date.now();
   const ago = (ms) => new Date(now - ms).toISOString();
+  // 按本机「今天零点」种时间(分段按日期,不是 24 小时滚动):09-26 零点刚过跑,「1 小时前」其实是昨天,整条误红过一次
+  const midnight = new Date(now); midnight.setHours(0, 0, 0, 0);
+  const m0 = midnight.getTime();
+  const today = (frac) => new Date(m0 + (now - m0) * frac).toISOString();          // 今天零点到现在之间
+  const at = (ms) => new Date(m0 - ms).toISOString();                               // 今天零点往前
   const seed = () => {
     const sessions = [
-      { key: "websocket:k1", title: "客厅吊顶改方案", updated_at: ago(60 * 60 * 1000) },
-      { key: "websocket:k2", title: "主材清单讨论", updated_at: ago(2 * 60 * 60 * 1000) },
-      { key: "websocket:k3", title: "天气闲聊", updated_at: ago(3 * 60 * 60 * 1000) },
-      { key: "websocket:k4", title: "陈总项目对话", updated_at: ago(DAY + 60 * 60 * 1000) },
-      { key: "websocket:k5", title: "昨天的报价", updated_at: ago(DAY + 2 * 60 * 60 * 1000) },
+      { key: "websocket:k1", title: "客厅吊顶改方案", updated_at: today(0.9) },
+      { key: "websocket:k2", title: "主材清单讨论", updated_at: today(0.6) },
+      { key: "websocket:k3", title: "天气闲聊", updated_at: today(0.3) },
+      { key: "websocket:k4", title: "陈总项目对话", updated_at: at(60 * 60 * 1000) },
+      { key: "websocket:k5", title: "昨天的报价", updated_at: at(2 * 60 * 60 * 1000) },
     ];
     for (let i = 1; i <= 25; i++) {
-      sessions.push({ key: `websocket:old${i}`, title: `很早的对话${String(i).padStart(2, "0")}`, updated_at: ago((3 + i) * DAY) });
+      sessions.push({ key: `websocket:old${i}`, title: `很早的对话${String(i).padStart(2, "0")}`, updated_at: at((2 + i) * DAY) });
     }
     // 网关每 15 分钟空闲压缩一次、把 updated_at 刷成当时(design P6)⇒ 列表里的 updated_at 全是「刚才」;
     // 真正的最后聊天时间由 ds_web 的 session-projects 另给(last_active)
