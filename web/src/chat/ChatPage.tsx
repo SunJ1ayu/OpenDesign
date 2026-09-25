@@ -8,6 +8,7 @@ import {
   hydrateFromThread,
   messageEnvelope,
   reconcileThread,
+  requestStop,
   shouldSendOnEnter,
   type TranscriptState,
 } from "./transcript";
@@ -17,7 +18,16 @@ import {
   type ReconnectState,
 } from "./reconnect";
 import { renderMarkdown } from "./markdown";
-import { inputPlaceholder } from "./inputHint";
+import { composerPlaceholder } from "./inputHint";
+import {
+  SKILLS,
+  applySkillPrefill,
+  filterSkills,
+  greetingFor,
+  nextGreetingDelayMs,
+  slashQuery,
+  type Skill,
+} from "./composerSkills";
 import {
   MAX_CHAT_IMAGES,
   chatErrorMsg,
@@ -33,6 +43,7 @@ import {
   MODEL_PATH,
   MODELS_PATH,
   modelChipLabel,
+  modelChipVendor,
   modelMenuTree,
   modelSelectBody,
   readModelsResponse,
@@ -42,6 +53,8 @@ import ModelMenu from "./ModelMenu";
 
 // P2 T3:视觉照 handoff §4 重排(用户消息低对比右对齐 / AI 无气泡直排 /
 // 赤陶流式光标 / Claude 式组合输入卡 / 「记一下」chip 预填)。
+// 0.98.14 照 ZCode 改输入框(track opendesign-composer-zcode):「+」菜单(图片 + 技能)、打 / 弹技能表、
+// 模型按钮带厂商名、↑ 发送 / ■ 停止、问候语按时间;「记一下」chip 挪进菜单。
 // 逻辑层零改动:connection.ts / transcript.ts / markdown.ts 原样复用(硬约束,
 // 各自 oracle 守着);连接流程、80ms 节流、信封与事件归组与 P1 完全一致。
 
@@ -166,6 +179,7 @@ export default function ChatPage({
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [modelErr, setModelErr] = useState("");
   const [modelBusy, setModelBusy] = useState(false);
+  const modelVendor = modelChipVendor(models);
   const loadModels = () => {
     fetch(MODELS_PATH)
       .then(async (r) => readModelsResponse(r.status, await r.json().catch(() => null)))
@@ -229,6 +243,58 @@ export default function ChatPage({
     }
   };
   const [draft, setDraft] = useState("");
+  // ── 「+」菜单与打 / 的技能表(track opendesign-composer-zcode ①②)────────────────
+  const [plusOpen, setPlusOpen] = useState(false);
+  const [slashIdx, setSlashIdx] = useState(0);
+  // Esc 关掉之后,这段 / 查询不再弹;草稿不再是 / 查询时复位
+  const [slashClosed, setSlashClosed] = useState(false);
+  const slashQ = slashQuery(draft);
+  const slashItems = slashQ === null ? [] : filterSkills(slashQ);
+  const slashOpen = !slashClosed && slashItems.length > 0;
+  useEffect(() => {
+    if (slashQ === null) setSlashClosed(false);
+    setSlashIdx(0);
+  }, [slashQ]);
+  // 断线时菜单不许挂着(同模型菜单)
+  useEffect(() => {
+    if (view.kind !== "connected") setPlusOpen(false);
+  }, [view.kind]);
+  useEffect(() => {
+    if (!plusOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const el = e.target as Element | null;
+      if (el && el.closest(".composer-plus-wrap")) return;
+      setPlusOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPlusOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [plusOpen]);
+  /** 用一个技能:草稿补好开头(不叠两个、原来的字留着),光标到末尾;不发送。 */
+  const applySkill = (skill: Skill) => {
+    setDraft((d) => applySkillPrefill(d, skill));
+    setPlusOpen(false);
+    setSlashClosed(false);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    });
+  };
+  // ── 问候语按时间(⑤):窗口开着过了分界点自己换 ─────────────────────────────
+  const [greetAt, setGreetAt] = useState(() => new Date());
+  useEffect(() => {
+    if (variant !== "home") return;
+    const t = setTimeout(() => setGreetAt(new Date()), nextGreetingDelayMs(greetAt));
+    return () => clearTimeout(t);
+  }, [greetAt, variant]);
   const pwRef = useRef<HTMLInputElement>(null);
   const wsRef = useRef<WebSocket | null>(null); // 当前活连接,send 用
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -662,6 +728,23 @@ export default function ChatPage({
     if (sendText(draft.trim())) setDraft("");
   };
 
+  /** ■ 停止(④):往本栏自己的聊天发 `/stop`(网关优先通道,按本聊天取消、掐断厂商那边的流),
+   *  **不上屏用户气泡**;等网关回 idle / 那句回话再解锁(transcript.requestStop)。
+   *  停一栏不影响另外两栏:三栏各自一条连接、各自一个 chat_id。 */
+  const stop = () => {
+    const ws = wsRef.current;
+    if (!transcript.busy || view.kind !== "connected" || !ws) return;
+    const turnId = `stop-${crypto.randomUUID()}`;
+    try {
+      if (ws.readyState !== WebSocket.OPEN) throw new Error("closed");
+      ws.send(JSON.stringify(messageEnvelope(view.chatId, "/stop", turnId)));
+    } catch {
+      setTurnError("聊天连接刚断开,停止没送到。等它重新连接后,再点一次停止。");
+      return;
+    }
+    setTranscript((s) => requestStop(s, turnId));
+  };
+
   // 程序化发送:nonce 去重(ref,不进依赖数组=每渲染都核对但只消费一次);
   // 发不出去(未连接/busy)→ 降级为预填+聚焦,动作不丢
   const dispatchedRef = useRef(0);
@@ -719,6 +802,25 @@ export default function ChatPage({
         {turnError && (
           <div className="chat-turn-error" data-ui="chat-turn-error">{turnError}</div>
         )}
+        {slashOpen && (
+          <div className="slash-menu" role="listbox" aria-label="技能" data-ui="slash-menu">
+            {slashItems.map((s, i) => (
+              <div
+                key={s.name}
+                role="option"
+                aria-selected={i === slashIdx}
+                className={`slash-item${i === slashIdx ? " on" : ""}`}
+                // mousedown 不抢走输入框的焦点
+                onMouseDown={(e) => { e.preventDefault(); applySkill(s); }}
+                onMouseEnter={() => setSlashIdx(i)}
+              >
+                <span className="icon-block sm">{s.abbr}</span>
+                <span className="nm">{s.name}</span>
+                <span className="ds">{s.desc}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <textarea
           ref={inputRef}
           rows={2}
@@ -729,11 +831,13 @@ export default function ChatPage({
               : transcript.busy
                 ? "回复中…"
                 : variant === "home"
-                  ? inputPlaceholder("聊设计、找参考")
-                  : inputPlaceholder("问这个项目")
+                  ? composerPlaceholder("聊设计、找参考")
+                  : composerPlaceholder("问这个项目")
           }
           disabled={view.kind !== "connected"}
           onChange={(e) => setDraft(e.target.value)}
+          aria-autocomplete="list"
+          aria-expanded={slashOpen}
           onPaste={(e) => {
             // 截图直接 Ctrl+V 是设计师最顺手的一步(剪贴板里是 File,没有文件名的
             // 那种由浏览器给 image.png)。有图就吃掉图,文字粘贴照旧走默认行为。
@@ -743,6 +847,26 @@ export default function ChatPage({
             void addFiles(files);
           }}
           onKeyDown={(e) => {
+            // 技能表开着:↑↓ 选、Enter/Tab 用、Esc 关。输入法拼字时一律不接管(Enter 是选字)
+            const composing = e.nativeEvent.isComposing || e.keyCode === 229;
+            if (slashOpen && !composing) {
+              if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                e.preventDefault();
+                const n = slashItems.length;
+                setSlashIdx((i) => (i + (e.key === "ArrowDown" ? 1 : n - 1)) % n);
+                return;
+              }
+              if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
+                e.preventDefault();
+                applySkill(slashItems[Math.min(slashIdx, slashItems.length - 1)]);
+                return;
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setSlashClosed(true);
+                return;
+              }
+            }
             if (
               shouldSendOnEnter({
                 key: e.key,
@@ -769,24 +893,51 @@ export default function ChatPage({
               e.target.value = ""; // 同一张图连选两次也要触发 change
             }}
           />
-          <button
-            className="tool-sq"
-            title={`添加图片(最多 ${MAX_CHAT_IMAGES} 张,单张 8MB;也可直接拖进来或 Ctrl+V)`}
-            disabled={view.kind !== "connected"}
-            onClick={() => attachRef.current?.click()}
-          >
-            +
-          </button>
-          <button
-            className="tool-chip"
-            title="快捷开头:记一下"
-            onClick={() => {
-              setDraft((d) => (d.startsWith("记一下") ? d : `记一下:${d}`));
-              inputRef.current?.focus();
-            }}
-          >
-            ✎ 记一下
-          </button>
+          {/* 「+」= 一个菜单装「往这句话里加东西」(①,照 ZCode):图片 + 三个技能;原「✎ 记一下」挪进来 */}
+          <div className="composer-plus-wrap">
+            <button
+              className="tool-sq"
+              data-ui="composer-plus"
+              aria-label="添加"
+              aria-haspopup="menu"
+              aria-expanded={plusOpen}
+              title="添加图片、用技能"
+              disabled={view.kind !== "connected"}   // 同原来的「+」:没连上时输入框也用不了
+              onClick={() => setPlusOpen((v) => !v)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+            {plusOpen && (
+              <div className="composer-menu" role="menu" data-ui="composer-menu">
+                <button
+                  role="menuitem"
+                  className="cm-item"
+                  disabled={view.kind !== "connected"}
+                  title={`最多 ${MAX_CHAT_IMAGES} 张,单张 8MB`}
+                  onClick={() => { setPlusOpen(false); attachRef.current?.click(); }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       strokeWidth="2" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="16" rx="2" />
+                    <circle cx="9" cy="10" r="2" />
+                    <path d="M21 17l-5-5-9 8" />
+                  </svg>
+                  <span className="nm">图片</span>
+                  <span className="hint">也可拖进来 / Ctrl+V</span>
+                </button>
+                <div className="cm-sep" aria-hidden="true">技能</div>
+                {SKILLS.map((sk) => (
+                  <button key={sk.name} role="menuitem" className="cm-item" onClick={() => applySkill(sk)}>
+                    <span className="icon-block sm">{sk.abbr}</span>
+                    <span className="nm">{sk.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <span className="grow" />
           {/* 只在**真的连上**时出现:重连中挂着绿点 = 界面在撒谎说"已连接",
               而 e2e 正是拿它判"连上没有"(原来认的是左上角 .chat-meta,已按业主拍板删掉)。 */}
@@ -795,7 +946,7 @@ export default function ChatPage({
               <button
                 className="model-chip"
                 data-ui="chat-model"
-                title="换模型(所有对话下一句起生效)"
+                title={`${modelVendor ? `${modelVendor.full} · ` : ""}${modelChipLabel(models, view.model)}(点这里换模型,所有对话下一句起生效)`}
                 aria-haspopup="menu"
                 aria-expanded={modelMenuOpen}
                 onClick={() => {
@@ -807,6 +958,8 @@ export default function ChatPage({
                 }}
               >
                 <span className="dot" />
+                {modelVendor && <span className="vendor">{modelVendor.short}</span>}
+                {modelVendor && <span className="sep" aria-hidden="true">·</span>}
                 <span className="name">{modelChipLabel(models, view.model)}</span>
                 <span className="caret">▴</span>
               </button>
@@ -827,17 +980,33 @@ export default function ChatPage({
               )}
             </div>
           )}
-          <button
-            className="send-btn"
-            title="发送(Enter)"
-            disabled={
-              view.kind !== "connected" || transcript.busy
-              || (!draft.trim() && attached.length === 0)
-            }
-            onClick={send}
-          >
-            发送
-          </button>
+          {/* ④ 照 ZCode:不在回复时 ↑ 发送;回复中换成 ■ 停止(两颗按钮,读屏与判据分得清「能不能发」) */}
+          {transcript.busy ? (
+            <button
+              className="stop-btn"
+              aria-label="停止这次回复"
+              title="停止这次回复"
+              disabled={view.kind !== "connected" || !!transcript.stopPending}
+              onClick={stop}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor" />
+              </svg>
+            </button>
+          ) : (
+            <button
+              className="send-btn"
+              aria-label="发送"
+              title="发送(Enter)"
+              disabled={view.kind !== "connected" || (!draft.trim() && attached.length === 0)}
+              onClick={send}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 19V5M6 11l6-6 6 6" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -987,7 +1156,7 @@ export default function ChatPage({
           /* 3a 空态(handoff §5):问候语 + 620px 大输入卡 + 三建议 chip,
              除此之外不放任何内容;首条消息后走下面的普通聊天流分支 */
           <div className="home-hero">
-            <div className="home-greet">今天想聊点什么?</div>
+            <div className="home-greet">{greetingFor(greetAt)}</div>
             {inputCard}
             <div className="home-chips">{HOME_CHIPS.map(prefillChip)}</div>
           </div>
@@ -1035,12 +1204,15 @@ export default function ChatPage({
                 )}
                 {m.content}
               </div>
+            ) : m.systemNote ? (
+              /* 网关的英文系统句(停止回话等)换成的一行中文小字,不是助手回复(track opendesign-composer-zcode,R1) */
+              <div key={m.id} className="msg-note" data-ui="chat-system-note">{m.content}</div>
             ) : m.modelError ? (
               /* 模型 / 助手出错的说明(track opendesign-chat-error-visible):一眼看得出是出错;
                  说明与原文都是纯文本 —— 原文走 markdown 会把 invalid_request_error 的下划线吞成强调(4c Grok)。 */
               <div key={m.id} className="msg-ai msg-error" data-ui="chat-model-error">
                 <div className="msg-error-text">{m.content}</div>
-                <div className="msg-error-raw" data-ui="chat-model-error-raw">原文:{m.modelError.raw}</div>
+                <div className="msg-error-raw" data-ui="chat-model-error-raw">{m.modelError.rawLabel}:{m.modelError.raw}</div>
               </div>
             ) : (
               <div key={m.id} className={`msg-ai${m.streaming ? " streaming" : ""}`}>

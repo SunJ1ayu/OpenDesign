@@ -1730,6 +1730,14 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   background: var(--ink-4);
   flex: none;
 }
+/* 系统小字(track opendesign-composer-zcode):停止回话等网关系统句换成的中文。
+   和活动回执同一档弱度、但它是**留下来的**记录(回放里也在),所以不带圆点、用斜体区分。 */
+.msg-note {
+  font-size: 12px;
+  color: var(--ink-4);
+  font-style: italic;
+  padding: 2px 0;
+}
 /* markdown 紧凑排版(AI 无气泡直排) */
 .msg-ai > :first-child { margin-top: 0; }
 .msg-ai > :last-child { margin-bottom: 0; }
@@ -1768,6 +1776,48 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   transition: border-color var(--hover-ease);
 }
 .chat-card:focus-within { border-color: var(--terra); }
+/* 打 / 弹出的技能表贴着输入卡上沿(track opendesign-composer-zcode ②) */
+.chat-card { position: relative; }
+.slash-menu {
+  position: absolute;
+  left: 8px;
+  bottom: 100%;
+  margin-bottom: 6px;
+  width: min(360px, calc(100% - 16px));
+  background: #fff;
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
+  box-shadow: var(--shadow-pop);
+  padding: 4px;
+  z-index: 20;
+}
+.slash-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.slash-item.on { background: var(--paper-side); }
+.slash-item .nm { flex: none; }
+.slash-item .ds { min-width: 0; font-size: 11px; color: var(--ink-5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.icon-block.sm {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  background: var(--paper-side);
+  color: var(--terra-deep);
+  font-size: 11px;
+  font-weight: 600;
+}
 /* 发图(track opendesign-chat-image):拖到输入卡上的高亮态 + 缩略图条 */
 .chat-card.dropping { border-color: var(--terra); background: var(--paper-inset); }
 .chat-thumbs { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px 0; }
@@ -1825,26 +1875,48 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   font-size: 14px;
   transition: background var(--hover-ease);
 }
-.tool-sq:hover { background: var(--paper-side); }
-.tool-chip {
-  height: 26px;
-  flex: none;
-  white-space: nowrap;
+.tool-sq:hover, .tool-sq[aria-expanded="true"] { background: var(--paper-side); }
+/* 「+」菜单(track opendesign-composer-zcode ①,照 ZCode:一个菜单装「往这句话里加东西」) */
+.composer-plus-wrap { position: relative; flex: none; }
+.composer-menu {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  margin-bottom: 6px;
+  min-width: 220px;
+  width: max-content;
+  max-width: min(300px, calc(100vw - 32px));
+  background: #fff;
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
+  box-shadow: var(--shadow-pop);
+  padding: 4px;
+  z-index: 20;
+}
+.cm-item {
   display: flex;
   align-items: center;
-  border: 1px solid var(--border-main);
-  border-radius: 8px;
-  padding: 0 9px;
-  font-size: 11px;
-  color: var(--ink-3);
-  transition: background var(--hover-ease);
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  text-align: left;
+  white-space: nowrap;
 }
-.tool-chip:hover { background: var(--paper-side); }
-/* 发送按钮(拍板:文字「发送」,不用 ↑ 图标;圆角统一 8px 主按钮体系) */
+.cm-item:hover, .cm-item:focus-visible { background: var(--paper-side); outline: none; }
+.cm-item:disabled { color: var(--ink-5); cursor: default; }
+.cm-item .hint { margin-left: auto; padding-left: 12px; font-size: 11px; color: var(--ink-5); }
+.cm-sep { padding: 6px 8px 2px; font-size: 11px; color: var(--ink-5); border-top: 1px solid var(--border-soft); margin-top: 4px; }
+/* 发送按钮:07-19 修改单定过文字「发送」;09-25 业主同意照 ZCode 换成 ↑ 图标(对照图 ④,track opendesign-composer-zcode)。
+   仍是 8px 圆角主色块;读屏 / 悬停叫「发送」。回复中换成 .stop-btn(■)。 */
 .send-btn {
+  width: 28px;
   height: 28px;
   flex: none;
-  padding: 0 14px;
+  padding: 0;
   border-radius: 8px;
   background: var(--terra);
   color: #fff;
@@ -1861,6 +1933,21 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
    浅粉旧色像"褪色的可点态",用户分不清能不能点(Kimi #2)。 */
 .send-btn:disabled { background: var(--paper-hover); color: var(--ink-5); cursor: default; }
 .send-btn:disabled:hover { background: var(--paper-hover); }
+.stop-btn {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 8px;
+  border: 1px solid var(--border-main);
+  background: var(--paper-side);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--hover-ease);
+}
+.stop-btn:hover { background: var(--paper-hover); }
+.stop-btn:disabled { color: var(--ink-5); cursor: default; }
 
 /* 聊天登录/连接/错误(逻辑不变,壳内窄版) */
 .chat-fill {
@@ -1912,11 +1999,11 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 /* 输入卡里的模型按钮(track opendesign-composer-model-picker):发送键左边,点开向上弹。
    原来左上角那行「已连接 · 模型名」+ … 退出登录已按业主 09-15 拍板删掉。
    09-24 起照 ZCode 两级弹框(ModelMenu.tsx):每家一行 ✓ + ›,向右弹出这家模型,底部粘性「管理模型」。 */
-/* 窄栏(项目页右栏 ~270px)里长模型名要让位:按钮可缩到只剩省略号,「记一下」「发送」不许被挤(判据 ⑯) */
+/* 窄栏(项目页右栏 ~270px)里长模型名要让位:按钮可缩到只剩省略号,「+」「↑」不许被挤(判据 ⑯) */
 .model-pick { position: relative; min-width: 0; display: flex; }
 .model-chip {
   height: 26px;
-  max-width: min(180px, 100%);
+  max-width: min(240px, 100%);
   min-width: 0;
   display: flex;
   align-items: center;
@@ -1930,6 +2017,9 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 .model-chip:hover, .model-chip[aria-expanded="true"] { background: var(--paper-side); }
 .model-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--st-done-dot); flex: none; }
 .model-chip .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 厂商名(③):比模型名弱一档;窄栏里它先省略,模型名尽量留全(自定义厂商名最长 40 字) */
+.model-chip .vendor { flex: 0 1 auto; min-width: 0; max-width: 96px; color: var(--ink-5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model-chip .sep { flex: none; color: var(--ink-5); margin: 0 -1px; }
 .model-chip .caret { font-size: 9px; color: var(--ink-5); flex: none; }
 /* 照 ZCode ModelConfigSelect(Radix DropdownMenu):行高 32px、圆角 6px、勾在右、› 在厂商行最右;
    子菜单贴着主菜单右边(放不下翻到左边,.flip);底部「管理模型」粘在最下。 */
@@ -2093,7 +2183,6 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 }
 .home-hero .chat-card .tools { padding: 10px 12px 12px; }
 .home-hero .tool-sq { width: 28px; height: 28px; font-size: 15px; }
-.home-hero .tool-chip { height: 28px; padding: 0 10px; font-size: 11.5px; }
 .home-hero .send-btn { height: 30px; padding: 0 16px; font-size: 13px; }
 
 /* 三建议 chip(描边胶囊,预填不自动发) */

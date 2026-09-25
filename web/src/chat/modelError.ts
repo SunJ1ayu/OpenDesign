@@ -16,6 +16,8 @@ export interface ModelErrorNote {
   text: string;
   /** 原文(key 形状的长串已打码),以小字附在后面备查。 */
   raw: string;
+  /** 小字前面的标签:网关换过的固定句(FIXED)不是厂商原话 ⇒「聊天服务的说法」;其余「原文」(上一单欠账 Q3′)。 */
+  rawLabel: "原文" | "聊天服务的说法";
 }
 
 // nanobot 的固定句(site-packages/nanobot:agent/runner.py:59-64、agent/loop.py:1070、utils/runtime.py)
@@ -37,7 +39,7 @@ type Kind =
 const TEXT: Record<Kind, string> = {
   auth:
     "这句没回上来:API Key 不对(填错、过期,或这把 key 没有这个模型的权限)。\n" +
-    "到「设置 → 模型设置」找到发这句时用的那家(输入框右下角显示的是现在选的模型),重新填 key,再点模型旁的「测试」确认能用。",
+    "到「设置 → 模型设置」找到发这句时用的那家(输入框右下角写着现在用的是哪家、哪个模型),重新填 key,再点模型旁的「测试」确认能用。",
   quota:
     "这句没回上来:这家的额度用完了、到了套餐用量上限,或者账户欠费。\n" +
     "去这家厂商的网站看看余额、充值或等额度重置;着急的话可以先在输入框右下角换一家模型。",
@@ -110,5 +112,5 @@ export function describeModelError(content: string): ModelErrorNote | null {
   if (!t) return null;
   const kind = kindOf(t);
   if (!kind) return null;
-  return { text: TEXT[kind], raw: maskKeys(t) };
+  return { text: TEXT[kind], raw: maskKeys(t), rawLabel: FIXED[t] ? "聊天服务的说法" : "原文" };
 }

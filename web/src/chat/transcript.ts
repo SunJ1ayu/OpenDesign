@@ -10,6 +10,7 @@
 // 全部纯函数,不碰 DOM/ws,node --test 直接可测;节流是 UI 层的事,不在这里。
 
 import { describeModelError } from "./modelError.ts";
+import { describeSystemNote } from "./systemNote.ts";
 
 export interface ChatMessage {
   id: string; // assistant = stream_id;user = 本地生成 id
@@ -25,15 +26,21 @@ export interface ChatMessage {
   media?: BubbleMedia[];
   /** 这条是「模型 / 助手出错」的说明(track opendesign-chat-error-visible):content 已是给人看的中文,
    *  raw = 网关原文(key 形状的串已打码),以小字附着备查。实时与回放都由 describeModelError 产生。 */
-  modelError?: { raw: string };
+  modelError?: { raw: string; rawLabel: string };
+  /** 网关的英文系统句(停止回话、子任务空回报)换成的一行中文**系统小字**,不是助手回复
+   *  (track opendesign-composer-zcode;上一单欠账 R1)。content 已是中文。 */
+  systemNote?: true;
 }
 
 /** 一条非流式的完整助手消息:整条就是网关出错壳 ⇒ 换成人话 + 原文;否则原样。
  *  实时(applyEvent)与回放(hydrateFromThread)共用 ⇒ 切走再回来是同一句。 */
 function assistantBubble(id: string, text: string): ChatMessage {
+  const note = describeSystemNote(text);
+  if (note) return { id, role: "assistant", content: note, streaming: false, systemNote: true };
   const err = describeModelError(text);
   return err
-    ? { id, role: "assistant", content: err.text, streaming: false, modelError: { raw: err.raw } }
+    ? { id, role: "assistant", content: err.text, streaming: false,
+        modelError: { raw: err.raw, rawLabel: err.rawLabel } }
     : { id, role: "assistant", content: text, streaming: false };
 }
 
@@ -49,6 +56,10 @@ export interface TranscriptState {
    *  `tool_events[].phase` 实测只有 `"end"` ⇒ 不做进度条,不编数据。
    *  turn_end 清空。 */
   activity: string[];
+  /** 业主点了 ■ 停止、网关还没回话:值 = 发出去的那条 `/stop` 的 turn_id(track opendesign-composer-zcode)。
+   *  网关停下后只发 goal_status:idle + 一句回话,**不发 turn_end**(探针 evidence/20260925-probe-stop.txt)⇒
+   *  只有这个标记在时,idle 才算这一轮结束;没点过停止的 idle 不解锁(4c C2:正常回复只认 turn_end)。 */
+  stopPending?: string;
 }
 
 export const emptyTranscript: TranscriptState = Object.freeze({
@@ -245,6 +256,23 @@ export function reconcileThread(
   return [...replay, ...localOnly];
 }
 
+/** 这一轮收尾:解锁输入,兜底定稿所有仍在流的消息(stream_end 丢了也不卡界面),
+ *  并清掉本轮的等待态、活动回执与停止标记(下一轮不该顶着上一轮的尾巴)。turn_end 与「停下了」共用。 */
+function finishTurn(state: TranscriptState): TranscriptState {
+  return {
+    busy: false,
+    thinking: false,
+    activity: [],
+    messages: state.messages.map((m) => (m.streaming ? { ...m, streaming: false } : m)),
+  };
+}
+
+/** 点了 ■:记下这条 `/stop` 的 turn_id,等网关回话。不在回复中 ⇒ 什么都不变(按钮本来就不该在)。
+ *  不本地先解锁:连接刚断时 /stop 没送到,先解锁会让业主以为停了(design.md Alternatives)。 */
+export function requestStop(state: TranscriptState, turnId: string): TranscriptState {
+  return state.busy ? { ...state, stopPending: turnId } : state;
+}
+
 /** 没有 kind 的 message → 追加一条完整的助手气泡(出错壳换成人话)。
  *  id 由 turn_id + turn_seq 派生:同一帧收两次只算一条;缺了(定时推送等)就按序号,不互相吞。
  *  busy 不动(仍由 turn_end / error 解锁);「正在思考」收掉 —— 回复已经到了。 */
@@ -253,8 +281,12 @@ function appendNote(state: TranscriptState, e: Record<string, unknown>): Transcr
   const id = typeof e.turn_id === "string" && e.turn_id && typeof e.turn_seq === "number"
     ? `note-${e.turn_id}-${e.turn_seq}`
     : `note-${state.messages.length}`;
-  if (state.messages.some((m) => m.id === id)) return state;
-  return { ...state, thinking: false, messages: [...state.messages, assistantBubble(id, e.text)] };
+  const bubble = assistantBubble(id, e.text);
+  // 停止回话先于 idle 到(时序换了)也要收尾:本栏点过停止 + 这是一句系统小字 ⇒ 这一轮结束
+  const stopped = !!(state.stopPending && bubble.systemNote);
+  if (state.messages.some((m) => m.id === id)) return stopped ? finishTurn(state) : state;
+  const next = { ...state, thinking: false, messages: [...state.messages, bubble] };
+  return stopped ? finishTurn(next) : next;
 }
 
 /** 入站事件 → 新 state。认不出/畸形的一律原样返回(安全降级)。 */
@@ -263,7 +295,9 @@ export function applyEvent(state: TranscriptState, ev: unknown): TranscriptState
   const e = ev as Record<string, unknown>;
   switch (e.event) {
     case "goal_status":
-      // 等待态开:running 之外的状态(idle 等)不动它
+      // 本栏点过 ■ 之后的 idle = 网关已经停下(它不发 turn_end)⇒ 这一轮结束;别的 idle 不动(4c C2)
+      if (e.status === "idle") return state.stopPending ? finishTurn(state) : state;
+      // 等待态开
       return e.status === "running" && !state.thinking
         ? { ...state, thinking: true }
         : state;
@@ -321,16 +355,7 @@ export function applyEvent(state: TranscriptState, ev: unknown): TranscriptState
       // busy 会死锁到刷新。error 一律解锁(attach 场景的 error 到 T7 才有)。
       return state.busy ? { ...state, busy: false } : state;
     case "turn_end":
-      // 收尾:解锁输入,兜底定稿所有仍在流的消息(stream_end 丢了也不卡界面),
-      // 并清掉本轮的等待态与活动回执(下一轮不该顶着上一轮的尾巴)
-      return {
-        busy: false,
-        thinking: false,
-        activity: [],
-        messages: state.messages.map((m) =>
-          m.streaming ? { ...m, streaming: false } : m,
-        ),
-      };
+      return finishTurn(state);
     default:
       return state;
   }

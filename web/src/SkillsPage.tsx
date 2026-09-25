@@ -2,37 +2,8 @@
 // (不放 CAD 转 3D 等未接入的假卡——点了没反应=欺骗用户);点卡 → 3a 新对话
 // 预填调用话术(复用 P2 prefill 钩子)。「+ 添加技能」本轮无行为。
 
-type Skill = {
-  abbr: string; // 图标块缩写
-  name: string;
-  desc: string;
-  flow: string; // 输入 → 输出 角标
-  prefill: string;
-};
-
-const SKILLS: Skill[] = [
-  {
-    abbr: "记",
-    name: "记一下",
-    desc: "把业主的口头改动记进项目变更账本,自动编号、永不丢。",
-    flow: "口头 → 变更记录",
-    prefill: "记一下:",
-  },
-  {
-    abbr: "理",
-    name: "整理文件夹",
-    desc: "扫描一个目录给出归类方案,你确认之后才动文件。",
-    flow: "扫描 → 方案 → 确认",
-    prefill: "帮我扫描整理这个文件夹:",
-  },
-  {
-    abbr: "图",
-    name: "找参考图",
-    desc: "按空间、风格在已入库的参考图里精确检索。",
-    flow: "空间/风格 → 图",
-    prefill: "找参考图:",
-  },
-];
+// 技能表只有一份(track opendesign-composer-zcode):「+」菜单与打 / 弹出的表用的也是它。
+import { SKILLS } from "./chat/composerSkills.ts";
 
 type Props = { onUseSkill: (prefill: string) => void };
 
