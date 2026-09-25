@@ -12,7 +12,11 @@
   B. ds_web 针孔(记录型假网关,照 tests/test_ds_web_proxy.py):
      GET  /api/chat/session-projects、GET /api/chat/sidebar-state(只回两个字段);
      POST /api/chat/sessions/<key>/pin {"pinned":bool}、…/rename {"title":str}:锁内读 - 改 - 写,别的字段原样回写;
-     CT 不是 json / key 非法 / 跨站 ⇒ 拒且不写;网关连不上 ⇒ 502;删除成功后清这条的置顶与改名。
+     CT 不是 json / key 非法 / 跨站 ⇒ 拒且不写;删除成功后清这条的置顶与改名;删除时网关连不上 ⇒ 502、不清。
+  置顶 / 改名存在 ds_web 自己的 `<数据根>/config/sidebar.json`(同 consent.json 的位置与写法),**不经网关**:
+     网关的状态更新口把整份状态塞进网址,请求行上限 8192 字节 —— 实测 60 条 10 字改名或 6 条 160 字改名就被断开,
+     且之后每次写都要发整份 ⇒ 永远存不上、连取消置顶都取消不了(evidence/20260925T*-probe-gateway-longline.txt)。
+     所以 e3b 存 100 条 160 字的改名必须全在;e3c 20 个置顶同时发一条不丢(锁)。
 样本形状照本机真对话文件(~/.nanobot/workspace/sessions/websocket_*.jsonl,09-25 查):
   {"_type":"metadata","key":"websocket:<id>",...} 一行 + 消息行;工具调用在 assistant 行的 tool_calls[].function{name, arguments(JSON 串)}。
 纯 stdlib、离线、端口 0。
@@ -34,6 +38,7 @@ sys.path.insert(0, os.path.join(ROOT, "bin"))
 sys.path.insert(0, HERE)
 
 import _tmpreg  # noqa: E402
+import ds_common  # noqa: E402
 import ds_sessions  # noqa: E402
 import ds_web  # noqa: E402
 
@@ -255,10 +260,43 @@ def _serve(nanobot_port):
     t = threading.Thread(target=httpd.serve_forever, daemon=True)
     t.start()
     try:
-        yield httpd.server_address[1]
+        yield httpd.server_address[1], root
     finally:
         httpd.shutdown()
         httpd.server_close()
+
+
+def _side_path(root):
+    """置顶 / 改名的家:业主数据根下的 config/sidebar.json(重装、清浏览器缓存都不丢)。"""
+    return os.path.join(ds_common.data_root(root), "config", "sidebar.json")
+
+
+FILE_STATE = {"pinned_keys": ["websocket:old"], "title_overrides": {"websocket:old": "老名字"},
+              "将来的字段": {"别动": [1, 2]}}
+
+
+def _seed(root, obj=FILE_STATE):
+    p = _side_path(root)
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    with open(p, "w", encoding="utf-8") as fh:
+        if isinstance(obj, str):
+            fh.write(obj)
+        else:
+            json.dump(obj, fh, ensure_ascii=False)
+    return p
+
+
+def _load(root):
+    with open(_side_path(root), encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def _bytes(root):
+    try:
+        with open(_side_path(root), "rb") as fh:
+            return fh.read()
+    except FileNotFoundError:
+        return None
 
 
 def _req(port, path, method="GET", body=None, ctype="application/json", headers=None):
@@ -281,21 +319,28 @@ def _req(port, path, method="GET", body=None, ctype="application/json", headers=
 
 class TestEndpoints(unittest.TestCase):
     def test_e1_session_projects(self):
-        with _upstream() as up, _serve(up.server_address[1]) as port:
+        with _upstream() as up, _serve(up.server_address[1]) as (port, _root):
             st, body = _req(port, "/api/chat/session-projects")
             self.assertEqual(st, 200)
             self.assertEqual(body["sessions"].get("websocket:a"), ["翡翠湾-1801"])
             self.assertEqual(up.requests, [], "只读本机文件,不碰网关")
 
     def test_e2_sidebar_state_only_two_fields(self):
-        with _upstream() as up, _serve(up.server_address[1]) as port:
+        with _upstream() as up, _serve(up.server_address[1]) as (port, root):
+            st, body = _req(port, "/api/chat/sidebar-state")
+            self.assertEqual((st, body), (200, {"pinned_keys": [], "title_overrides": {}}), "还没有文件 ⇒ 空")
+            _seed(root)
             st, body = _req(port, "/api/chat/sidebar-state")
             self.assertEqual(st, 200)
             self.assertEqual(body, {"pinned_keys": ["websocket:old"], "title_overrides": {"websocket:old": "老名字"}})
-            self.assertEqual(up.requests[0]["auth"], f"Bearer {TOKEN}", "口令由 ds_web 替前端签")
+            _seed(root, "{坏的")
+            st, body = _req(port, "/api/chat/sidebar-state")
+            self.assertEqual((st, body), (200, {"pinned_keys": [], "title_overrides": {}}), "坏文件不崩,当空")
+            self.assertEqual(up.requests, [], "置顶 / 改名不经网关")
 
     def test_e3_pin_rename_read_modify_write(self):
-        with _upstream() as up, _serve(up.server_address[1]) as port:
+        with _upstream() as up, _serve(up.server_address[1]) as (port, root):
+            _seed(root)
             st, body = _req(port, "/api/chat/sessions/websocket:a/pin", "POST", {"pinned": True})
             self.assertEqual(st, 200, body)
             self.assertEqual(body["pinned_keys"], ["websocket:old", "websocket:a"])
@@ -304,12 +349,46 @@ class TestEndpoints(unittest.TestCase):
             self.assertEqual(body["title_overrides"]["websocket:a"], "王女士吊顶")
             st, body = _req(port, "/api/chat/sessions/websocket:old/rename", "POST", {"title": ""})
             self.assertNotIn("websocket:old", body["title_overrides"], "空 ⇒ 恢复自动名字")
-            for k in ("archived_keys", "project_name_overrides", "tags_by_key", "collapsed_groups", "view"):
-                self.assertEqual(up.state[k], STATE[k], f"网关状态里的 {k} 被原样写回")
-            self.assertEqual(up.updates, 3)
+            disk = _load(root)
+            self.assertEqual(disk["pinned_keys"], ["websocket:old", "websocket:a"], "真写到盘上了")
+            self.assertEqual(disk["title_overrides"], {"websocket:a": "王女士吊顶"})
+            self.assertEqual(disk["将来的字段"], FILE_STATE["将来的字段"], "文件里别的字段原样")
+            st, body = _req(port, "/api/chat/sessions/websocket:old/pin", "POST", {"pinned": False})
+            self.assertEqual(body["pinned_keys"], ["websocket:a"])
+            self.assertEqual(up.requests, [], "不经网关")
+
+    def test_e3b_many_long_titles_all_kept(self):
+        # 网关状态口把整份状态放进网址,6 条 160 字就断 —— 换了存法,100 条也得全在
+        with _upstream() as up, _serve(up.server_address[1]) as (port, root):
+            for i in range(100):
+                st, body = _req(port, f"/api/chat/sessions/websocket:k{i:03d}/rename", "POST", {"title": "长" * 160})
+                self.assertEqual(st, 200, f"第 {i + 1} 条改名没存上:{body}")
+            st, body = _req(port, "/api/chat/sidebar-state")
+            self.assertEqual(len(body["title_overrides"]), 100)
+            self.assertTrue(all(len(t) == 160 for t in body["title_overrides"].values()))
+
+    def test_e3c_concurrent_pins_none_lost(self):
+        with _upstream() as up, _serve(up.server_address[1]) as (port, root):
+            errs = []
+
+            def pin(i):
+                st, body = _req(port, f"/api/chat/sessions/websocket:c{i:02d}/pin", "POST", {"pinned": True})
+                if st != 200:
+                    errs.append((i, st, body))
+
+            ts = [threading.Thread(target=pin, args=(i,)) for i in range(20)]
+            for t in ts:
+                t.start()
+            for t in ts:
+                t.join()
+            self.assertEqual(errs, [])
+            self.assertEqual(sorted(_load(root)["pinned_keys"]), [f"websocket:c{i:02d}" for i in range(20)],
+                             "同时点的置顶一条不丢(读 - 改 - 写要在锁里)")
 
     def test_e4_rejects_without_writing(self):
-        with _upstream() as up, _serve(up.server_address[1]) as port:
+        with _upstream() as up, _serve(up.server_address[1]) as (port, root):
+            _seed(root)
+            before = _bytes(root)
             st, _ = _req(port, "/api/chat/sessions/websocket:a/pin", "POST", b'{"pinned": true}', ctype="text/plain")
             self.assertEqual(st, 400, "CT 不是 json ⇒ 拒(CSRF 纵深,同删除针孔)")
             st, _ = _req(port, "/api/chat/sessions/..%2F..%2Fx/pin", "POST", {"pinned": True})
@@ -321,29 +400,39 @@ class TestEndpoints(unittest.TestCase):
             st, _ = _req(port, "/api/chat/sessions/websocket:a/pin", "POST", {"pinned": True},
                          headers={"Origin": "http://evil.example", "Sec-Fetch-Site": "cross-site"})
             self.assertIn(st, (400, 403), "跨站拒")
-            self.assertEqual(up.updates, 0, "被拒的一条都没写")
+            st, _ = _req(port, "/api/chat/sessions/websocket:a/pin", "GET")
+            self.assertIn(st, (404, 405), "GET 面不许有写")
+            self.assertEqual(_bytes(root), before, "被拒的一条都没写")
 
     def test_e5_delete_cleans_pin_and_title(self):
-        with _upstream() as up, _serve(up.server_address[1]) as port:
+        with _upstream() as up, _serve(up.server_address[1]) as (port, root):
+            _seed(root)
             st, _ = _req(port, "/api/chat/sessions/websocket:old/delete", "POST", {})
             self.assertEqual(st, 200)
-            self.assertNotIn("websocket:old", up.state["pinned_keys"])
-            self.assertNotIn("websocket:old", up.state["title_overrides"])
-            self.assertEqual(up.state["archived_keys"], STATE["archived_keys"])
+            self.assertTrue(any(r["path"] == "/api/sessions/websocket:old/delete" for r in up.requests), "删除照旧交给网关")
+            disk = _load(root)
+            self.assertNotIn("websocket:old", disk["pinned_keys"])
+            self.assertNotIn("websocket:old", disk["title_overrides"])
+            self.assertEqual(disk["将来的字段"], FILE_STATE["将来的字段"])
 
     def test_e6_delete_failure_keeps_state(self):
-        with _upstream() as up, _serve(up.server_address[1]) as port:
+        with _upstream() as up, _serve(up.server_address[1]) as (port, root):
+            _seed(root)
+            before = _bytes(root)
             up.delete_status = 409
             st, _ = _req(port, "/api/chat/sessions/websocket:old/delete", "POST", {})
             self.assertEqual(st, 409, "上游拒删的状态码原样透传")
-            self.assertEqual(up.updates, 0, "没删成就不清置顶 / 改名")
+            self.assertEqual(_bytes(root), before, "没删成就不清置顶 / 改名")
 
     def test_e7_gateway_down(self):
-        with _serve(1) as port:
-            st, _ = _req(port, "/api/chat/sessions/websocket:a/pin", "POST", {"pinned": True})
+        with _serve(1) as (port, root):
+            _seed(root)
+            before = _bytes(root)
+            st, _ = _req(port, "/api/chat/sessions/websocket:old/delete", "POST", {})
             self.assertEqual(st, 502)
-            st, _ = _req(port, "/api/chat/sidebar-state")
-            self.assertEqual(st, 502)
+            self.assertEqual(_bytes(root), before, "网关没起 ⇒ 没删成 ⇒ 不清")
+            st, body = _req(port, "/api/chat/sessions/websocket:a/pin", "POST", {"pinned": True})
+            self.assertEqual(st, 200, "置顶不靠网关")
 
 
 if __name__ == "__main__":

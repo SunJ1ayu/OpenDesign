@@ -1,0 +1,75 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    probe-gateway-longline
+cmd:     /root/.venvs/design-studio/bin/python tracks/opendesign-sidebar-history/evidence/probe-gateway-longline.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  aff50ad
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T13:25:10Z
+---------------- 输出开始 ----------------
+opening handshake failed
+Traceback (most recent call last):
+  File "/root/.venvs/design-studio/lib/python3.12/site-packages/websockets/http11.py", line 320, in parse_line
+    line = yield from read_line(MAX_LINE_LENGTH)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.venvs/design-studio/lib/python3.12/site-packages/websockets/streams.py", line 49, in read_line
+    raise RuntimeError(f"read {n} bytes, expected no more than {m} bytes")
+RuntimeError: read 9601 bytes, expected no more than 8192 bytes
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/root/.venvs/design-studio/lib/python3.12/site-packages/websockets/server.py", line 547, in parse
+    request = yield from Request.parse(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.venvs/design-studio/lib/python3.12/site-packages/websockets/http11.py", line 138, in parse
+    request_line = yield from parse_line(read_line)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.venvs/design-studio/lib/python3.12/site-packages/websockets/http11.py", line 322, in parse_line
+    raise SecurityError("line too long")
+websockets.exceptions.SecurityError: line too long
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/root/.venvs/design-studio/lib/python3.12/site-packages/websockets/asyncio/server.py", line 356, in conn_handler
+    await connection.handshake(
+  File "/root/.venvs/design-studio/lib/python3.12/site-packages/websockets/asyncio/server.py", line 207, in handshake
+    raise self.protocol.handshake_exc
+websockets.exceptions.InvalidMessage: did not receive a valid HTTP request
+opening handshake failed
+Traceback (most recent call last):
+  File "/root/.venvs/design-studio/lib/python3.12/site-packages/websockets/http11.py", line 320, in parse_line
+    line = yield from read_line(MAX_LINE_LENGTH)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.venvs/design-studio/lib/python3.12/site-packages/websockets/streams.py", line 49, in read_line
+    raise RuntimeError(f"read {n} bytes, expected no more than {m} bytes")
+RuntimeError: read 9169 bytes, expected no more than 8192 bytes
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/root/.venvs/design-studio/lib/python3.12/site-packages/websockets/server.py", line 547, in parse
+    request = yield from Request.parse(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.venvs/design-studio/lib/python3.12/site-packages/websockets/http11.py", line 138, in parse
+    request_line = yield from parse_line(read_line)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.venvs/design-studio/lib/python3.12/site-packages/websockets/http11.py", line 322, in parse_line
+    raise SecurityError("line too long")
+websockets.exceptions.SecurityError: line too long
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/root/.venvs/design-studio/lib/python3.12/site-packages/websockets/asyncio/server.py", line 356, in conn_handler
+    await connection.handshake(
+  File "/root/.venvs/design-studio/lib/python3.12/site-packages/websockets/asyncio/server.py", line 207, in handshake
+    raise self.protocol.handshake_exc
+websockets.exceptions.InvalidMessage: did not receive a valid HTTP request
+titles=  5 len= 10 url_bytes=   896 -> (200, b'{"len": 896}')
+titles= 30 len= 10 url_bytes=  4846 -> (200, b'{"len": 4846}')
+titles= 60 len= 10 url_bytes=  9586 -> ('RemoteDisconnected', 'Remote end closed connection without response')
+titles=  5 len=160 url_bytes=  7646 -> (200, b'{"len": 7646}')
+titles=  6 len=160 url_bytes=  9154 -> ('RemoteDisconnected', 'Remote end closed connection without response')
+---------------- 输出结束 ----------------
+runlog: probe-gateway-longline rc=0 commit=aff50ad dirty=yes at=2026-09-25T13:25:10Z file=tracks/opendesign-sidebar-history/evidence/20260925T132510Z-01-probe-gateway-longline.txt
