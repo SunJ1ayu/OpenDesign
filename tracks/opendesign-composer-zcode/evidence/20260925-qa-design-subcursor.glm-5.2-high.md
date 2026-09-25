@@ -1,8 +1,8 @@
 先核实仓库与 diff 的状态,再交付。
 
 核实结果:
-- `/tmp/aiwork-review-workspaces/subcursor.rpGYT6oO/repo` 下只有 `README.md` 和 `.git` 内部文件,**没有任何源码**——与任务声明的「黑盒、信息全在 brief」一致。
-- `/tmp/aiwork-review-workspaces/subcursor.rpGYT6oO/cursor-workspace/review.diff` 为**空文件**——与「还没开发」一致。
+- `/tmp/aiwork-review-workspaces/subcursor.rpGYT6oO/repo` 下只有 `README.md` 和 `.git` 内部文件,**没有任何源码**——与任务声明的「黑盒、信息全在 brief」一致。 [仓外不承重]
+- `/tmp/aiwork-review-workspaces/subcursor.rpGYT6oO/cursor-workspace/review.diff` 为**空文件**——与「还没开发」一致。 [仓外不承重]
 
 所以下面是纯黑盒测试设计,所有依据来自 brief 本身。
 
