@@ -133,10 +133,16 @@ mutate M13 bin/ds_shell.py \
   "外壳不经启动器起网关"
 
 mutate M14 web/src/settings/modelSettings.ts \
-  '    return "已保存,下一句对话起就用它。";' \
-  '    return "已保存,正在自动重启后台服务,稍等片刻即可继续使用。";' \
-  "node --test tests/test_llm_key.mjs" "not ok" \
-  "live 却说在重启、叫他等"
+  '      : "已保存,马上可用:在聊天框右下角就能换到这家的模型。";' \
+  '      : "已保存,下一句对话起就用它。";' \
+  "node --test tests/test_llm_key.mjs" "not ok 15 - d5" \
+  "存了别家却说下一句就用它(QA 设计 d5)"
+
+mutate M15 web/src/settings/modelSettings.ts \
+  '      ? "已保存,下一句对话起就用新的 key。"' \
+  '      ? "已保存,正在自动重启后台服务,稍等片刻即可继续使用。"' \
+  "node --test tests/test_llm_key.mjs" "not ok 15 - d5" \
+  "改正在用的那家却说在重启、叫他等"
 
 echo "红检:咬住 $pass / 漏网 $fail"
 [ $fail -eq 0 ]
