@@ -207,6 +207,15 @@ test("d4 live = 网关在跑、下一句就用(track opendesign-key-restart):不
   assert.notEqual(s, restartNotice("requested"));
 });
 
+test("d5 live 存的不是正在用的那家 ⇒ 不许说「下一句就用它」(QA 设计 Grok Q1 / DeepSeek T14:存 key 不换当前模型)", () => {
+  const other = restartNotice("live", false);
+  assert.ok(!/下一句/.test(other), `存了另一家却暗示下一句就改走它:${other}`);
+  assert.ok(/右下角/.test(other), `没告诉他去哪儿换到这家:${other}`);
+  const same = restartNotice("live", true);
+  assert.ok(/下一句/.test(same), `改的就是正在用的那家,却没说下一句就用新 key:${same}`);
+  assert.equal(restartNotice("live"), other, "不知道是不是正在用的那家 ⇒ 用两种情况都成立的那句");
+});
+
 test("d3 没见过的 restart 值往保守那边倒(宁可让他多点一下)", () => {
   // 09-24 加强:只查「有重启两个字」分不出两种说法 —— requested 那句也含「请手动重启」(08-16 四审加的兜底),
   // 把未知值倒向"正在自动重启"时这条照绿(红检 mutation-llm-key M5 漏网)。保守 = 与 manual 同一句。
