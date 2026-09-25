@@ -216,6 +216,13 @@ test("d5 live 存的不是正在用的那家 ⇒ 不许说「下一句就用它�
   assert.equal(restartNotice("live"), other, "不知道是不是正在用的那家 ⇒ 用两种情况都成立的那句");
 });
 
+test("d6 live 存的是未启用的那家 ⇒ 不许说「右下角就能换」(第 1 轮评审 DeepSeek #1:菜单里藏着它),要说先启用", () => {
+  const s = restartNotice("live", false, true);
+  assert.ok(!/右下角就能换/.test(s), `未启用的那家不在换模型菜单里,却叫他去右下角换:${s}`);
+  assert.ok(/启用/.test(s) && !/已禁用/.test(s), `没说要先启用(或用了界面上不用的词「已禁用」):${s}`);
+  assert.equal(restartNotice("live", false), restartNotice("live", false, false), "没说未启用 ⇒ 与原来那句一样");
+});
+
 test("d3 没见过的 restart 值往保守那边倒(宁可让他多点一下)", () => {
   // 09-24 加强:只查「有重启两个字」分不出两种说法 —— requested 那句也含「请手动重启」(08-16 四审加的兜底),
   // 把未知值倒向"正在自动重启"时这条照绿(红检 mutation-llm-key M5 漏网)。保守 = 与 manual 同一句。

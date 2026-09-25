@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-key-restart",
+  "run_id": "20260925T023708Z-01-r1-fix-oracle-red-2",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "r1-fix-oracle-red-2",
+  "started_at": "2026-09-25T02:37:08Z",
+  "finished_at": "2026-09-25T02:37:46Z",
+  "duration_ms": 37316,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

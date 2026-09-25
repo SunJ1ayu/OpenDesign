@@ -370,6 +370,13 @@ try {
   // 09-24 QA-执行 K3(两家):同一屏圆点「未启用」、状态句 / 提示却写「已禁用」—— 照 ZCode 统一成一个词
   check(!/已禁用/.test(await detail("deepseek").innerText()),
     `K3 禁用后详情里不再出现「已禁用」(圆点叫「未启用」)(状态句「${await detail("deepseek").locator('[data-ui="ms-state"]').innerText()}」,提示「${await notice()}」)`);
+  // 第 1 轮代码评审 DeepSeek #1(track opendesign-key-restart):未启用的那家存 key,提示不许叫他去右下角换(菜单里藏着它)
+  await detail("deepseek").locator('[data-ui="ms-key"]').fill(DS_KEY);
+  await detail("deepseek").locator('[data-ui="ms-key-save"]').click();
+  // 先等**存 key 的那句**出来(以「已保存」开头)再判:禁用那一下的提示本来就带「未启用」,不等就会读到旧提示假绿(红检实测过)
+  check(await until(async () => /^已保存/.test(await notice()), 5000)
+        && /启用/.test(await notice()) && !/右下角就能换/.test(await notice()),
+    `R1-1 未启用的那家存 key:提示说要先启用,不叫他去右下角换(「${await notice()}」)`);
   await backToChat();
   let tree = await menuTree();
   check(!tree.deepseek && tree.mimo?.selected, `A7/A12 禁用的那家不在换模型菜单里(实际 ${JSON.stringify(Object.keys(tree))})`);

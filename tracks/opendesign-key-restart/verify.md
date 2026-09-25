@@ -33,6 +33,8 @@ runlog: mutation-key-restart rc=0 commit=57893fc dirty=yes at=2026-09-25T01:37:3
 runlog: e2e-per-vendor-rewrite-red-on-old rc=0 commit=57893fc dirty=yes at=2026-09-25T01:39:52Z file=tracks/opendesign-key-restart/evidence/20260925T013952Z-01-e2e-per-vendor-rewrite-red-on-old.txt
 runlog: e2e-per-vendor-rewrite-red-on-25011a3 rc=1 commit=57893fc dirty=yes at=2026-09-25T01:40:14Z file=tracks/opendesign-key-restart/evidence/20260925T014014Z-01-e2e-per-vendor-rewrite-red-on-25011a3.txt
 runlog: run-all rc=3 commit=c25ffb3 dirty=no final=yes at=2026-09-25T01:41:05Z file=tracks/opendesign-key-restart/evidence/20260925T014105Z-01-run-all.txt
+runlog: r1-fix-oracle-red rc=1 commit=ce8f5fa dirty=yes at=2026-09-25T02:36:16Z file=tracks/opendesign-key-restart/evidence/20260925T023616Z-01-r1-fix-oracle-red.txt
+runlog: r1-fix-oracle-red-2 rc=1 commit=ce8f5fa dirty=yes at=2026-09-25T02:37:08Z file=tracks/opendesign-key-restart/evidence/20260925T023708Z-01-r1-fix-oracle-red-2.txt
 ```
 
 ```
@@ -49,6 +51,8 @@ runlog: run-all rc=3 commit=c25ffb3 dirty=no final=yes at=2026-09-25T01:41:05Z f
 - `e2e-per-vendor-rewrite-red-on-old`(rc=0)**名字是错的**:`runlog --repo` 在主仓里跑,那一遍其实是新 e2e 对新代码(绿),
   不是对旧实现;对旧实现的真红检是下一行 `…-red-on-25011a3`(用绝对路径跑旧提交临时检出里的那份,B2b/B6/B5 三条红)。
 - 红检 `mutation-key-restart` 15/15 咬住。
+- `r1-fix-oracle-red`:d6 红,但 e2e R1-1 **假绿** —— 禁用那一下的提示本来带「未启用」,检查读到旧提示就过了;
+  改成先等「已保存」开头那句再判,`r1-fix-oracle-red-2` 里 R1-1 红在正确的那句上。
 - 云 Windows QA 执行 probe-5(run 36081788020,修好的包):live / fresh 两组全 ok,时间线 evidence/20260925-windows-probe-5.txt。
 
 ## Review

@@ -1,0 +1,15 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    r1-fix-oracle-red-2
+cmd:     bash -c node\ --test\ tests/test_llm_key.mjs\ 2\>\&1\ \|\ grep\ -E\ \'\^not\ ok\|\^#\ \(pass\|fail\)\'\;\ node\ tests/e2e/model_settings.e2e.mjs\ 2\>\&1\ \|\ grep\ -E\ \'FAIL\|条红\|全绿\'\;\ exit\ 1
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  ce8f5fa
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T02:37:08Z
+---------------- 输出开始 ----------------
+not ok 16 - d6 live 存的是未启用的那家 ⇒ 不许说「右下角就能换」(第 1 轮评审 DeepSeek \#1:菜单里藏着它),要说先启用
+# pass 16
+# fail 1
+  FAIL - R1-1 未启用的那家存 key:提示说要先启用,不叫他去右下角换(「已保存,马上可用:在聊天框右下角就能换到这家的模型。」)
+1 条红
+---------------- 输出结束 ----------------
+runlog: r1-fix-oracle-red-2 rc=1 commit=ce8f5fa dirty=yes at=2026-09-25T02:37:08Z file=tracks/opendesign-key-restart/evidence/20260925T023708Z-01-r1-fix-oracle-red-2.txt
