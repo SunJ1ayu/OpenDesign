@@ -37,6 +37,20 @@ runlog: mutation-chat-model-error-3 rc=0 commit=50accdc dirty=yes at=2026-09-25T
 runlog: run-all rc=3 commit=ab86b21 dirty=no at=2026-09-25T05:55:25Z file=tracks/opendesign-chat-error-visible/evidence/20260925T055525Z-01-run-all.txt
 ```
 
+第 1 轮修复(处置表 Q1 Q2 R2 R3)—— 判据先行:4 条新断言在修复前的实现上红(红在正点上:Q1 / Q2 / R2 / R3 各一条),单独提交 `8417650`;
+修复 `49a669a` 后变异补 M14–M18,整套 18/18 咬住:
+
+```
+runlog: r1-fix-oracle-red rc=1 commit=cb007f0 dirty=yes at=2026-09-25T06:33:57Z file=tracks/opendesign-chat-error-visible/evidence/20260925T063357Z-01-r1-fix-oracle-red.txt
+runlog: mutation-chat-model-error-r1fix rc=0 commit=49a669a dirty=no at=2026-09-25T06:35:26Z file=tracks/opendesign-chat-error-visible/evidence/20260925T063526Z-01-mutation-chat-model-error-r1fix.txt
+```
+
+总跑(第 1 轮修复 + 录像第 2 遍之后,第 2 轮评审前;rc=3 只跳既有三条要真网关的,node 544 / python 1553 / e2e 43 PASS 0 FAIL):
+
+```
+runlog: run-all-r1fix rc=3 commit=5dc28d8 dirty=no at=2026-09-25T06:41:00Z file=tracks/opendesign-chat-error-visible/evidence/20260925T064100Z-01-run-all-r1fix.txt
+```
+
 ## QA(测试员;不计评审轮)
 
 - QA 设计(开发前,黑盒):Grok `evidence/20260925-qa-design-subcursor.grok-4.7-high.md`(26 条用例,采为执行底稿);DeepSeek `evidence/20260925-qa-design-subdeepseek.md`
@@ -46,6 +60,10 @@ runlog: run-all rc=3 commit=ab86b21 dirty=no at=2026-09-25T05:55:25Z file=tracks
 - QA 判卷(两家读录像 + e2e + 总跑,题面 `evidence/20260925-qa-exec-brief.md`):DeepSeek `evidence/20260925-qa-exec-subdeepseek.md`、
   Grok `evidence/20260925-qa-exec-subcursor.grok-4.7-high.md`,花名册 `evidence/20260925-qa-exec.roster`。P0:首页五类错误、切走回来、历史回放、项目栏 / 待办栏当场 都「已执行·通过」;
   缺口与缺陷见下表 Q 行。
+- QA 执行第 2 遍(第 1 轮修复后,包 = `git archive 49a669a`;提交 `5dc28d8`):整份重录 20 步全过。补 Q4:第 14 步 E8(开待办再回首页 9→9 逐条相同)、
+  第 15 步 E24·D6(真重载后从侧栏点回首页这段,回放 9 条与实时逐条相同、无英文原文当正文)、第 17 步 E10b、第 19 步 E11b;
+  Q1 / Q2 的新说法在第 02 / 11 / 16 / 18 步原样可见。注意第 16 步「首页不许跟着冒」基线是 0(重载后首页是新会话),只证明项目栏出错不往首页冒。
+  (这一遍是断线接手后跑的:上一会话改完 tour.mjs 还没来得及跑就断了;改动核过是完整的四段补步。)
 
 ## Review
 
