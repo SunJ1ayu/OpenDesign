@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { shellApi, type DesktopUpdateState } from "./desktopShell";
 import Sidebar, { type SessionItem } from "./workspace/Sidebar";
+import { displayTitle, sessionProjects } from "./workspace/sidebarModel";
 import WindowChrome from "./workspace/WindowChrome";
 import ChangesColumn from "./workspace/ChangesColumn";
 import CompanionColumn from "./workspace/CompanionColumn";
@@ -23,7 +24,6 @@ import {
 import {
   loadThreadMap,
   projectPrefix,
-  sessionLabels,
   threadFor,
   THREADS_STORAGE_KEY,
   withThread,
@@ -32,6 +32,12 @@ import {
 } from "./chat/projectThread";
 import {
   deleteChatSession,
+  EMPTY_SIDEBAR_STATE,
+  fetchSessionProjects,
+  fetchSidebarState,
+  pinChatSession,
+  renameChatSession,
+  type SidebarState,
   fetchChanges,
   fetchConsent,
   fetchProjectsData,
@@ -94,6 +100,9 @@ export default function App() {
   const [desktopShell] = useState(() => shellApi(window));
   const [updateState, setUpdateState] = useState<DesktopUpdateState>({ phase: "idle" });
   const [sessions, setSessions] = useState<SessionItem[] | null>(null);
+  // 侧栏历史对话(track opendesign-sidebar-history):置顶 / 改名(ds_web 的 sidebar.json)与每段对话碰过的项目名
+  const [sidebarState, setSidebarState] = useState<SidebarState>(EMPTY_SIDEBAR_STATE);
+  const [derivedProjects, setDerivedProjects] = useState<Record<string, string[]>>({});
   const [searchOpen, setSearchOpen] = useState(false);
   // 工作区体检卡浮层(2026-07-28 用户拍板:挪进设置)。计数器兼作 key:
   // 每次打开都重挂一次 = 拿到当下最新的工作区状态,不会拿上次打开时的旧快照当真。
@@ -316,10 +325,12 @@ export default function App() {
   }, [selectedKey, projects]);
 
   // 历史对话:经 ds_web 白名单代理拉;没手输口令时由 ds_web 代签,失败静默为 null。
+  // 网关的会话列表不认 limit、一次回全部(design P2)⇒ 不拼查询串,「显示更多」在侧栏里切。
+  // 同一拍刷新置顶 / 改名与「碰过的项目」:每轮回复收尾都 bump,新对话让助手记了账马上出现在项目下(QA Grok TC-07)。
   useEffect(() => {
     let stale = false;
     session
-      .apiFetch("/api/chat/sessions?limit=10&direction=latest")
+      .apiFetch("/api/chat/sessions")
       .then(async (r) => {
         if (r.status !== 200) throw new Error(String(r.status));
         const d = (await r.json()) as { sessions?: SessionItem[] };
@@ -328,6 +339,12 @@ export default function App() {
       .catch(() => {
         if (!stale) setSessions(null);
       });
+    fetchSidebarState()
+      .then((st) => { if (!stale) setSidebarState(st); })
+      .catch(() => { /* 读不到 ⇒ 保留上一份;没有置顶改名也不妨碍看历史 */ });
+    fetchSessionProjects()
+      .then((m) => { if (!stale) setDerivedProjects(m); })
+      .catch(() => { /* 读不到 ⇒ 按项目视图里全进「其他对话」 */ });
     return () => {
       stale = true;
     };
@@ -377,7 +394,7 @@ export default function App() {
   // resume(已渲染 transcript 不清,与 p3「新对话不重置」同语义,accepted deviation)
   const deleteSession = useCallback(
     async (s: SessionItem) => {
-      const label = s.title || s.preview || "未命名对话";
+      const label = displayTitle(s, sidebarState.title_overrides);
       if (!window.confirm(`删除对话「${label}」?删除后不可恢复。`)) return;
       try {
         const res = await deleteChatSession(session, s.key);
@@ -405,8 +422,24 @@ export default function App() {
         window.alert("删除失败:服务不可用或登录已过期。");
       }
     },
-    [session],
+    [session, sidebarState],
   );
+
+  // 置顶 / 改名(track opendesign-sidebar-history):后端回的就是存好的那份,直接换上。
+  const pinSession = useCallback(async (s: SessionItem, pinned: boolean) => {
+    try {
+      setSidebarState(await pinChatSession(s.key, pinned));
+    } catch {
+      window.alert(pinned ? "没置顶上,稍后再试。" : "没取消置顶,稍后再试。");
+    }
+  }, []);
+  const renameSession = useCallback(async (s: SessionItem, title: string) => {
+    try {
+      setSidebarState(await renameChatSession(s.key, title));
+    } catch {
+      window.alert("名字没存上,稍后再试。");
+    }
+  }, []);
 
   // 新对话:回 3a 并**强制开一条新的**。
   // 真机反馈 2026-07-24 #9:旧实现写 setResumeTarget(null),人已经在新对话里时
@@ -455,8 +488,16 @@ export default function App() {
   }, [fvisOpen]);
 
   const selected = projects.find((p) => p.key === selectedKey) ?? null;
-  // 历史行项目小标:命中项目映射的会话标上项目名
-  const sessionTags = useMemo(() => sessionLabels(projThreads, projects), [projThreads, projects]);
+  // 每段对话碰过哪些项目(项目对话映射 + 后台从对话记录读出的),项目对话在前(track opendesign-sidebar-history)
+  const sessionProjectMap = useMemo(() => {
+    const out: Record<string, string[]> = {};
+    for (const s of sessions ?? []) out[s.key] = sessionProjects(s.key, derivedProjects, projThreads, projects);
+    return out;
+  }, [sessions, derivedProjects, projThreads, projects]);
+  const threadKeys = useMemo(
+    () => new Set(Object.values(projThreads).map((id) => `websocket:${id}`)),
+    [projThreads],
+  );
   const sidebar = (
     <Sidebar
       route={route}
@@ -469,9 +510,14 @@ export default function App() {
       onOpenSettings={() => openSettings("general")}
       todosOpenCount={todosCount}
       sessions={sessions}
-      sessionTags={sessionTags}
+      sessionProjects={sessionProjectMap}
+      threadKeys={threadKeys}
+      pinnedKeys={sidebarState.pinned_keys}
+      titleOverrides={sidebarState.title_overrides}
       onOpenSession={openSession}
       onDeleteSession={deleteSession}
+      onPinSession={pinSession}
+      onRenameSession={renameSession}
       onNewChat={newChat}
       onNewProject={() => {
         prefillHome("新建项目:");

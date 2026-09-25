@@ -154,6 +154,38 @@ export async function deleteChatSession(
   return (await r.json()) as DeleteSessionResult;
 }
 
+/** 侧栏历史对话(track opendesign-sidebar-history):置顶 / 改名存在 ds_web 自己的文件里,不经网关 ⇒ 直接 fetch。
+ * key 同删除:裸串不 encode。 */
+export type SidebarState = { pinned_keys: string[]; title_overrides: Record<string, string> };
+export const EMPTY_SIDEBAR_STATE: SidebarState = { pinned_keys: [], title_overrides: {} };
+
+/** 每段对话碰过的项目名(后台从对话记录读出);读不到 ⇒ 空表(按项目视图里全进「其他对话」)。 */
+export async function fetchSessionProjects(): Promise<Record<string, string[]>> {
+  const r = await fetch("/api/chat/session-projects");
+  if (!r.ok) throw new Error(`服务返回 ${r.status}`);
+  return ((await r.json()) as { sessions?: Record<string, string[]> }).sessions ?? {};
+}
+
+export async function fetchSidebarState(): Promise<SidebarState> {
+  const r = await fetch("/api/chat/sidebar-state");
+  if (!r.ok) throw new Error(`服务返回 ${r.status}`);
+  return (await r.json()) as SidebarState;
+}
+
+async function postSidebar(key: string, op: "pin" | "rename", body: object): Promise<SidebarState> {
+  const r = await fetch(`/api/chat/sessions/${key}/${op}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`服务返回 ${r.status}`);
+  return (await r.json()) as SidebarState;
+}
+
+export const pinChatSession = (key: string, pinned: boolean) => postSidebar(key, "pin", { pinned });
+/** title 空串 = 恢复自动名字(界面上清空回车当取消,不会发空串)。 */
+export const renameChatSession = (key: string, title: string) => postSidebar(key, "rename", { title });
+
 /** 第三个非 GET(track opendesign-todo-edit 写针孔):待办行内编辑。
  * body 只含要改的字段(见 todo.buildEditRequest);后端 ds_tools.edit_change 保格式 + 留痕。
  * 失败抛错(带后端 error code)由调用方提示。 */
