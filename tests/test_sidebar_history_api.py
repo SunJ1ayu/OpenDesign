@@ -101,7 +101,9 @@ def _fixture():
         {"role": "user", "content": "【当前项目:不该算】正文里后来又出现的前缀不算"},
     ])
     # c:把「老宅」改名成「老宅翻新」;d:改名前记过「老宅」⇒ 应归到「老宅翻新」
-    _write_session("c", [{"role": "assistant", "content": "", "tool_calls": [_call("rename_project", old="老宅", new="老宅翻新")]}])
+    _write_session("c", [{"role": "assistant", "content": "", "tool_calls": [_call("rename_project", old="老宅", new="老宅翻新")]},
+                         {"role": "tool", "tool_call_id": "c", "name": "mcp_design-studio_rename_project_tool",
+                          "content": "{\"ok\": true, \"old\": \"老宅\", \"new\": \"老宅翻新\"}"}])
     _write_session("d", [{"role": "assistant", "content": "", "tool_calls": [_call("append_change", project="老宅", content="x")]}])
     # e:arguments 是对象而不是串;别的 MCP 服务的工具不算;没碰项目
     _write_session("e", [
@@ -129,6 +131,23 @@ def _fixture():
     _write_session("n", [{"role": "user", "content": "好的"}])
     _transcript("n", [{"event": "user", "chat_id": "n", "text": "【当前项目:陈总办公室】开个头"}], segment="000001.jsonl")
     _transcript("n", [{"event": "user", "chat_id": "n", "text": "【当前项目:不该算】后来又写的"}])
+    # r / u:改名**失败**(新名已被占用)—— 不许记别名,否则陈总办公室 / 滨江-12F 的对话会被挂到翡翠湾下(评审 GPT H1)
+    _write_session("r", [{"role": "assistant", "content": "", "tool_calls": [_call("rename_project", old="陈总办公室", new="翡翠湾-1801")]},
+                         {"role": "tool", "tool_call_id": "c", "name": "mcp_design-studio_rename_project_tool",
+                          "content": "{\"error\": \"name_taken\"}"}])
+    _write_session("u", [{"role": "user", "content": "改个名"}])
+    _transcript("u", [{"event": "message", "chat_id": "u", "text": "", "tool_events": [
+        {"version": 1, "phase": "end", "call_id": "c", "name": "mcp_design-studio_rename_project_tool",
+         "arguments": {"old": "滨江-12F", "new": "翡翠湾-1801"}, "result": "{\"error\": \"name_taken\"}", "error": None}]}])
+    # w / x:回放记录里的改名成功照样记别名
+    _write_session("w", [{"role": "user", "content": "改名"}])
+    _transcript("w", [{"event": "message", "chat_id": "w", "text": "", "tool_events": [
+        {"version": 1, "phase": "end", "call_id": "c", "name": "mcp_design-studio_rename_project_tool",
+         "arguments": {"old": "临时名", "new": "正式名"}, "result": "{\"ok\": true}", "error": None}]}])
+    _write_session("x", [{"role": "assistant", "content": "", "tool_calls": [_call("append_change", project="临时名", content="x")]}])
+    # y:最后一行碰巧没带时间 ⇒ 往前找最近一条带时间的(评审 Kimi F1)
+    _write_session("y", [{"role": "user", "content": "早", "timestamp": "2026-08-20T10:00:00.000000"},
+                         {"role": "assistant", "content": "早"}])
     # 不是 websocket_ 的文件不管
     with open(os.path.join(SESS, "cli_direct.jsonl"), "w", encoding="utf-8") as fh:
         fh.write(json.dumps({"role": "assistant", "tool_calls": [_call("append_change", project="翡翠湾-1801")]}) + "\n")
@@ -211,6 +230,17 @@ class TestSessionProjects(unittest.TestCase):
                          "最后一条消息的时间,不是元数据 updated_at(网关每次空闲压缩都刷它,design P6)")
         self.assertEqual(la.get("websocket:j"), "2026-08-10T08:00:00.000000")
         self.assertNotIn("websocket:a", la, "消息没带时间 ⇒ 不给,前端退回网关的 updated_at")
+
+    def test_p7_failed_rename_no_alias(self):
+        got = ds_sessions.session_projects(SESS, WEBUI)
+        self.assertEqual(got.get("websocket:b"), ["陈总办公室", "滨江-12F"],
+                         "改名失败(对话文件里工具回 name_taken / 回放记录里 result 带 error)不许把旧名的对话挂到新名下")
+        self.assertEqual(got.get("websocket:x"), ["正式名"], "回放记录里改名成功照样记别名")
+        self.assertEqual(got.get("websocket:d"), ["老宅翻新"], "对话文件里改名成功(工具回 ok)照样记别名")
+
+    def test_p8_last_active_skips_rows_without_time(self):
+        self.assertEqual(ds_sessions.last_active(SESS).get("websocket:y"), "2026-08-20T10:00:00.000000",
+                         "最后一行没带时间就往前找最近一条带时间的")
 
     def test_p2_missing_dir_is_empty(self):
         self.assertEqual(ds_sessions.session_projects(os.path.join(WS_DIR, "没有这个")), {})

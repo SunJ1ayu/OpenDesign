@@ -15,6 +15,7 @@ import {
   cleanRename,
   firstTag,
   withLastActive,
+  makeSerial,
   TITLE_MAX,
 } from "../web/src/workspace/sidebarModel.ts";
 
@@ -123,4 +124,17 @@ test("s8 最后聊天时间盖掉网关的 updated_at;没有就用原来的;不�
   assert.equal(out[1].updated_at, at(9, 25, 14, 50));
   assert.equal(ss[0].updated_at, at(9, 25, 14, 50), "不改原数组");
   assert.equal(dayBucket(out[0].updated_at, NOW), "更早");
+});
+
+// 评审 GPT M2:快速连点两次置顶,两个请求的回话可能乱序到达,后到的旧状态会把界面盖回去 ⇒ 置顶 / 改名在前端排队依次发
+test("s9 排队:后一个等前一个做完才开始;前一个失败不挡后一个;各自拿到自己的结果", async () => {
+  const run = makeSerial();
+  const log = [];
+  const slow = run(async () => { log.push("1 开始"); await new Promise((r) => setTimeout(r, 30)); log.push("1 完"); return "一"; });
+  const bad = run(async () => { log.push("2 开始"); throw new Error("坏了"); });
+  const fast = run(async () => { log.push("3 开始"); log.push("3 完"); return "三"; });
+  assert.equal(await slow, "一");
+  await assert.rejects(bad, /坏了/);
+  assert.equal(await fast, "三");
+  assert.deepEqual(log, ["1 开始", "1 完", "2 开始", "3 开始", "3 完"]);
 });

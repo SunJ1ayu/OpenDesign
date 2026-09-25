@@ -181,6 +181,10 @@ try {
     check((await rowsIn('[data-ui="side-history"]').count()) === 30, "30 条都看得到");
     const proj = await side.locator(".proj-row").count();
     check(proj === 3, `下面的项目栏照旧(3 个项目):${proj}`);
+    // QA DeepSeek / GLM:「翡翠湾-1801 +1」看不出另一个是哪个 ⇒ 小标悬停列出全部项目名
+    const tagTitle = await page.locator('[data-ui="side-history"] .hist-row', { hasText: "主材清单讨论" }).first()
+      .locator(".hist-proj").getAttribute("title");
+    check(!!tagTitle && tagTitle.includes("翡翠湾-1801") && tagTitle.includes("陈总办公室"), `小标悬停列出全部项目:${tagTitle}`);
     // 4c C5:历史翻开 30 条之后,左下角设置不能被挤出屏幕,项目栏要滚得到
     const setBox = await page.locator('[data-ui="settings-toggle"]').boundingBox();
     check(!!setBox && setBox.y >= 0 && setBox.y + setBox.height <= 900, `左下角设置还在屏幕里:${JSON.stringify(setBox)}`);
@@ -231,6 +235,10 @@ try {
 
   await step("③ 按项目:两个项目下都出现;项目对话在最前;其他对话;置顶的不在项目下", async () => {
     await page.locator('[data-ui="side-view-project"]').click();
+    // QA Gemini:项目行上待办数与对话数两个裸数字挨着分不清 ⇒ 对话数带对话图标、读屏名说明是「几段对话」
+    const exp = page.locator('[data-ui="proj-expand"][data-project="翡翠湾-1801"]');
+    check((await exp.locator("svg").count()) === 1, "对话数前有对话图标");
+    check(/段对话/.test((await exp.getAttribute("aria-label")) || ""), `对话数的读屏名:${await exp.getAttribute("aria-label")}`);
     for (const p of ["翡翠湾-1801", "陈总办公室"]) {
       await page.locator(`[data-ui="proj-expand"][data-project="${p}"]`).click();
     }
