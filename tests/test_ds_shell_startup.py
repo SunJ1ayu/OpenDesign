@@ -59,6 +59,7 @@ class FakeSupervisor:
     def __init__(self):
         self.started: list = []
         self.restarted: list = []
+        self.ensured: list = []
         FakeSupervisor.made.append(self)
 
     def start(self, services):
@@ -66,6 +67,9 @@ class FakeSupervisor:
 
     def restart(self, services):
         self.restarted.extend(services)
+
+    def ensure(self, services):
+        self.ensured.extend(services)
 
     def shutdown(self):
         pass
@@ -174,15 +178,19 @@ class StartBackend(unittest.TestCase):
         self.write_key("sk-tian-jin-qu-de")
         restart()
 
-        self.assertEqual(["网关"], [s.name for s in sup.restarted],
-                         "只换网关那条腿 —— ds-web 换掉的话,业主正看的页面会断")
-        self.assertEqual("sk-tian-jin-qu-de", sup.restarted[0].env.get("DS_LLM_KEY"))
+        # 09-25 改写(track opendesign-key-restart):锁帧回调从「重启网关」改成「确保网关在跑」(活着的不碰,
+        # 语义在 Supervisor.ensure,判据 test_key_restart S2)。这里问的两件事不变:只动网关、带现读的新 key。
+        self.assertEqual(["网关"], [s.name for s in sup.ensured],
+                         "只动网关那条腿 —— ds-web 换掉的话,业主正看的页面会断")
+        self.assertEqual("sk-tian-jin-qu-de", sup.ensured[0].env.get("DS_LLM_KEY"))
+        self.assertEqual([], sup.restarted)
 
     def test_s5_restart_with_an_empty_key_file_does_not_touch_anything(self):
         """key 还是空的就别动网关:重启一次要几十秒,换来的还是连不上。"""
         sup, _web, restart = self.start()
         restart()
         self.assertEqual([], sup.restarted)
+        self.assertEqual([], sup.ensured)
 
 
 class ShellIsImportableHere(unittest.TestCase):

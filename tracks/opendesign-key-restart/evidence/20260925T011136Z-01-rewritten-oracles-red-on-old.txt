@@ -1,0 +1,73 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    rewritten-oracles-red-on-old
+cmd:     /root/.venvs/design-studio/bin/python -m unittest tests.test_per_vendor_keys tests.test_ds_shell_startup
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  e3fd5c5
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T01:11:36Z
+---------------- 输出开始 ----------------
+F/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py:446: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-gpq5kxcg/UserData/.openDesign/key.txt' mode='r' encoding='UTF-8'>
+  cfg_before_keys = (open(self.key_txt).read(), open(os.path.join(self.keys_dir, "deepseek.txt")).read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py:446: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-gpq5kxcg/UserData/.openDesign/keys/deepseek.txt' mode='r' encoding='UTF-8'>
+  cfg_before_keys = (open(self.key_txt).read(), open(os.path.join(self.keys_dir, "deepseek.txt")).read())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py:453: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-gpq5kxcg/UserData/.openDesign/key.txt' mode='r' encoding='UTF-8'>
+  self.assertEqual((open(self.key_txt).read(), open(os.path.join(self.keys_dir, "deepseek.txt")).read()),
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py:453: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/ds-per-vendor-gpq5kxcg/UserData/.openDesign/keys/deepseek.txt' mode='r' encoding='UTF-8'>
+  self.assertEqual((open(self.key_txt).read(), open(os.path.join(self.keys_dir, "deepseek.txt")).read()),
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+...............F...F..2026-09-25 09:11:37 127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 200 -
+2026-09-25 09:11:37 127.0.0.1 - "POST /api/llm/model HTTP/1.1" 200 -
+.2026-09-25 09:11:38 127.0.0.1 - "POST /api/llm/credential HTTP/1.1" 200 -
+.2026-09-25 09:11:38 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+2026-09-25 09:11:39 127.0.0.1 - "GET /api/llm/credential HTTP/1.1" 200 -
+.....F.
+======================================================================
+FAIL: test_v7_the_menu_lists_a_vendor_only_once_the_gateway_has_its_key (tests.test_per_vendor_keys.TestMenuAndSwitching.test_v7_the_menu_lists_a_vendor_only_once_the_gateway_has_its_key)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 435, in test_v7_the_menu_lists_a_vendor_only_once_the_gateway_has_its_key
+    self.assertEqual(set(groups), {"mimo", "deepseek"})
+AssertionError: Items in the second set but not the first:
+'deepseek'
+
+======================================================================
+FAIL: test_v1_with_a_shell_the_second_key_gets_its_own_file_and_its_entry_right_away (tests.test_per_vendor_keys.TestSavingASecondVendor.test_v1_with_a_shell_the_second_key_gets_its_own_file_and_its_entry_right_away)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 167, in test_v1_with_a_shell_the_second_key_gets_its_own_file_and_its_entry_right_away
+    self.assertEqual(cfg["providers"].get("od_deepseek", {}).get("apiKey"), "${DS_LLM_KEY_DEEPSEEK}",
+AssertionError: None != '${DS_LLM_KEY_DEEPSEEK}' : 存完第二家,配置里没有它只含 ${VAR} 的条目
+
+======================================================================
+FAIL: test_v11_each_vendor_reports_configured_live_active_and_pending (tests.test_per_vendor_keys.TestStatusForTheCard.test_v11_each_vendor_reports_configured_live_active_and_pending)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_per_vendor_keys.py", line 510, in test_v11_each_vendor_reports_configured_live_active_and_pending
+    self.assertTrue(v["deepseek"]["live"] and v["deepseek"]["active"])
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_s4_restart_gateway_swaps_only_the_gateway_and_reads_the_new_key (tests.test_ds_shell_startup.StartBackend.test_s4_restart_gateway_swaps_only_the_gateway_and_reads_the_new_key)
+业主在界面里填完 key ⇒ ds-web 通过锁通道叫回来。
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_ds_shell_startup.py", line 183, in test_s4_restart_gateway_swaps_only_the_gateway_and_reads_the_new_key
+    self.assertEqual(["网关"], [s.name for s in sup.ensured],
+AssertionError: Lists differ: ['网关'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'网关'
+
+- ['网关']
++ [] : 只动网关那条腿 —— ds-web 换掉的话,业主正看的页面会断
+
+----------------------------------------------------------------------
+Ran 32 tests in 2.997s
+
+FAILED (failures=4)
+---------------- 输出结束 ----------------
+runlog: rewritten-oracles-red-on-old rc=1 commit=e3fd5c5 dirty=yes at=2026-09-25T01:11:36Z file=tracks/opendesign-key-restart/evidence/20260925T011136Z-01-rewritten-oracles-red-on-old.txt

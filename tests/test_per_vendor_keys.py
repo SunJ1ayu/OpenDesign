@@ -148,7 +148,7 @@ class Rig(unittest.TestCase):
 class TestSavingASecondVendor(Rig):
     """v1~v3:存第二家。**有外壳**时各存各的、配置不动;**没外壳**时与今天逐字节相同。"""
 
-    def test_v1_with_a_shell_the_second_key_gets_its_own_file_and_the_config_is_untouched(self):
+    def test_v1_with_a_shell_the_second_key_gets_its_own_file_and_its_entry_right_away(self):
         self.have_mimo_in_primary()
         before = self.cfg_bytes()
         ds_credential.save(home=self.home, cfg_path=self.cfg_path,
@@ -159,9 +159,15 @@ class TestSavingASecondVendor(Rig):
         self.assertEqual(len([ln for ln in body.splitlines() if ln.strip()]), 1, f"不止一行:{body!r}")
         with open(self.key_txt, encoding="utf-8") as fh:
             self.assertEqual(fh.read().strip(), MIMO_KEY, "存第二家把第一家的 key 覆盖了 —— 本单要解决的正是这件事")
-        # 🔴 配置一个字节都不许动:此刻网关手里没有 DeepSeek 的 key,
-        #    往配置里加引用 = 实验 p2 第四句那种"界面说换了、后台没换"。
-        self.assertEqual(self.cfg_bytes(), before, "保存那一下就改了配置 —— 额外厂商的条目只许外壳在起网关时写")
+        # 09-25 改写(track opendesign-key-restart):原来这里要求「配置一个字节都不许动」,理由是「此刻网关手里没有
+        # DeepSeek 的 key」。网关改由 bin/ds_gateway.py 起、每句前现读 key 文件之后,那个理由不成立了 ——
+        # key 文件一落盘,运行中的网关下一句就拿得到;不当场补条目,反倒是「存了却用不上」(业主 09-25 的病)。
+        # 「条目在 ⇒ 网关拿得到」改由真网关判据 test_key_live L1 直接问(比这里问配置字节更强)。
+        cfg = self.cfg()
+        self.assertEqual(cfg["providers"].get("od_deepseek", {}).get("apiKey"), "${DS_LLM_KEY_DEEPSEEK}",
+                         "存完第二家,配置里没有它只含 ${VAR} 的条目")
+        self.assertNotEqual(self.cfg_bytes(), before)
+        self.assertNotIn(DS_KEY, self.cfg_bytes().decode("utf-8"), "key 原文进了配置")
 
     def test_v2_each_key_lives_in_exactly_its_own_file_even_after_the_gateway_is_prepared(self):
         self.have_mimo_in_primary()
@@ -326,10 +332,15 @@ class TestPreparingTheGateway(Rig):
                          "「想换过去」只该生效一次")
 
     def test_v6b_the_switch_waits_while_the_key_is_not_there(self):
+        # 09-25 改写(track opendesign-key-restart):save 现在写完 key 文件就当场 prepare_gateway,
+        # 「标记在、key 不在」走 save 已到不了;这里直接摆出那个状态,问的仍是 prepare_gateway 的同一条契约。
         self.have_mimo_in_primary()
-        ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=True)
         ds_key = os.path.join(self.keys_dir, "deepseek.txt")
-        os.rename(ds_key, ds_key + ".aside")
+        os.makedirs(self.keys_dir, exist_ok=True)
+        with open(os.path.join(self.keys_dir, "switch-to"), "w", encoding="utf-8") as fh:
+            fh.write("deepseek\n")
+        with open(ds_key + ".aside", "w", encoding="utf-8") as fh:
+            fh.write(DS_KEY + "\n")
         ds_credential.prepare_gateway(self.home, self.cfg_path)
         self.assertIn(self.cfg()["agents"]["defaults"]["modelPreset"], ds_credential.PROVIDERS["mimo"]["models"],
                       "key 不在也切过去了 ⇒ 网关按 DeepSeek 预设加载会缺变量")
@@ -412,10 +423,14 @@ class TestMenuAndSwitching(Rig):
         self.assertEqual(list(groups), ["mimo"])
         for k in ("provider", "label", "current", "models"):
             self.assertIn(k, got, f"老字段 {k} 没了 ⇒ 旧前端炸")
-        ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=True)
+        # 09-25 改写(track opendesign-key-restart):「网关还没拿到」这一档走 save 已不存在(网关现读 key 文件、
+        # save 当场补条目)⇒ 直接摆出「key 文件在、条目不在」(save 中途补条目失败时的样子)问同一件事。
+        os.makedirs(self.keys_dir, exist_ok=True)
+        with open(os.path.join(self.keys_dir, "deepseek.txt"), "w", encoding="utf-8") as fh:
+            fh.write(DS_KEY + "\n")
         _, groups = self.groups()
         self.assertEqual(list(groups), ["mimo"], "key 刚存、网关还没拿到,菜单就列出了 DeepSeek(F1/F2)")
-        ds_credential.prepare_gateway(self.home, self.cfg_path)
+        ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=True)
         got, groups = self.groups()
         self.assertEqual(set(groups), {"mimo", "deepseek"})
         self.assertEqual(groups["deepseek"], ds_credential.PROVIDERS["deepseek"]["models"])
@@ -443,7 +458,10 @@ class TestMenuAndSwitching(Rig):
 
     def test_v8b_a_vendor_the_gateway_does_not_have_is_refused_and_nothing_changes(self):
         self.have_mimo_in_primary()
-        ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=True)
+        # 09-25 改写(track opendesign-key-restart):save 已当场补条目 ⇒ 「存了、网关没拿到」直接摆出来(key 文件在、条目不在)
+        os.makedirs(self.keys_dir, exist_ok=True)
+        with open(os.path.join(self.keys_dir, "deepseek.txt"), "w", encoding="utf-8") as fh:
+            fh.write(DS_KEY + "\n")
         before = self.cfg_bytes()
         with self.assertRaises(ds_credential.CredentialError):
             ds_credential.select_model(self.cfg_path, "deepseek-v4-flash")   # 网关还没拿到这家的 key
@@ -475,15 +493,19 @@ class TestStatusForTheCard(Rig):
         self.assertFalse(v["deepseek"]["configured"])
 
         self.have_mimo_in_primary()
-        ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=True)
+        # 09-25 改写(track opendesign-key-restart):pending 这一档走 save 已到不了(当场补条目),
+        # 直接摆出「key 文件在、条目不在」问同一件事;随后走真的 save 问「当场就 live」。
+        os.makedirs(self.keys_dir, exist_ok=True)
+        with open(os.path.join(self.keys_dir, "deepseek.txt"), "w", encoding="utf-8") as fh:
+            fh.write(DS_KEY + "\n")
         _, v = self.vendors()
         self.assertTrue(v["mimo"]["configured"] and v["mimo"]["live"] and v["mimo"]["active"])
         self.assertTrue(v["deepseek"]["configured"], "存了 key 却报没配置")
         self.assertFalse(v["deepseek"]["live"], "网关还没拿到就报活的")
-        self.assertTrue(v["deepseek"]["pending"], "应该告诉业主「已保存,后台重启后能用」")
+        self.assertTrue(v["deepseek"]["pending"], "应该告诉业主「已保存,还没生效」")
         self.assertTrue(v["deepseek"]["hint"] and DS_KEY[-4:] in v["deepseek"]["hint"])
 
-        ds_credential.prepare_gateway(self.home, self.cfg_path)
+        ds_credential.save(home=self.home, cfg_path=self.cfg_path, provider="deepseek", key=DS_KEY, multi=True)
         _, v = self.vendors()
         self.assertTrue(v["deepseek"]["live"] and v["deepseek"]["active"])
         self.assertFalse(v["deepseek"]["pending"])
