@@ -1,0 +1,27 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    mutation-chat-model-error-2
+cmd:     bash tests/mutation-chat-model-error.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  50accdc
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T05:53:03Z
+---------------- 输出开始 ----------------
+  [咬住] M1 —— 没有 kind 的 message 照旧丢掉(就是这个 bug)
+  [咬住] M2 —— 回放不过同一个函数 ⇒ 切走再回来冒英文原文
+  [咬住] M3 —— 欠费说成 key 错(把人指去改一把没坏的 key)
+  [咬住] M4 —— 拿 invalid_request_error 当 key 错的依据(模型名错 / 图片被拒也会被说成 key 错)
+  [咬住] M5 —— 助手自己崩了却按厂商报错分类
+  [咬住] M6 —— 正文中间引用一句报错也被改写成出错说明
+  [咬住] M7 —— 原文小字不给 key 打码
+  [咬住] M8 —— 说明出来了思考动画还挂着
+  [咬住] M9 —— 同一帧收两次出两条
+  [咬住] M10 —— 不认识的 kind 也上屏(内部痕迹当成回复)
+  [咬住] M11 —— 一轮中途来一句话就把输入解锁
+  [漏网] M12 —— 界面不按出错样式画(看不出是出错、没有原文小字)(rc=99,没见到「not ok - ① 发完一句」)
+        构建失败:变异没编译过
+  [咬住] M13 —— 设置页那句又说回开关上没有的「启用」
+红检:咬住 12 / 漏网 1
+(已按还原后的源码重新构建 web/dist)
+(已还原源码)
+---------------- 输出结束 ----------------
+runlog: mutation-chat-model-error-2 rc=1 commit=50accdc dirty=yes at=2026-09-25T05:53:03Z file=tracks/opendesign-chat-error-visible/evidence/20260925T055303Z-01-mutation-chat-model-error-2.txt
