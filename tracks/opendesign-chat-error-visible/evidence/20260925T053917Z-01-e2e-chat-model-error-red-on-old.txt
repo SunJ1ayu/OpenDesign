@@ -1,0 +1,29 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    e2e-chat-model-error-red-on-old
+cmd:     node tests/e2e/chat_model_error.e2e.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  180782d
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T05:39:17Z
+---------------- 输出开始 ----------------
+ds-web 0.98.13: http://127.0.0.1:8853/  (DS_DATA_ROOT=/tmp/chaterr-e2e-H7dHlU/ds)
+2026-09-25 13:39:17 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 13:39:20 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-25 13:39:20 127.0.0.1 - "GET /assets/index-DVRm7xhZ.css HTTP/1.1" 200 -
+2026-09-25 13:39:20 127.0.0.1 - "GET /assets/index-Bhp7PEg-.js HTTP/1.1" 200 -
+2026-09-25 13:39:20 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 13:39:20 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 13:39:20 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 13:39:20 127.0.0.1 - "GET /api/llm/providers HTTP/1.1" 200 -
+2026-09-25 13:39:20 127.0.0.1 - "GET /favicon.ico HTTP/1.1" 404 -
+2026-09-25 13:39:20 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 13:39:20 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 13:39:20 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 13:39:20 127.0.0.1 - "GET /api/llm/providers HTTP/1.1" 200 -
+  not ok - 场景中断: locator.waitFor: Timeout 20000ms exceeded.
+Call log:
+[2m  - waiting for locator('.home-pane .send-btn:not([disabled])') to be visible[22m
+
+chat_model_error.e2e: 1 FAIL
+---------------- 输出结束 ----------------
+runlog: e2e-chat-model-error-red-on-old rc=1 commit=180782d dirty=yes at=2026-09-25T05:39:17Z file=tracks/opendesign-chat-error-visible/evidence/20260925T053917Z-01-e2e-chat-model-error-red-on-old.txt
