@@ -197,8 +197,9 @@ class TestSessionProjects(unittest.TestCase):
         got = ds_sessions.session_projects(SESS)
         self.assertEqual(got.get("websocket:a"), ["翡翠湾-1801"])
         self.assertEqual(got.get("websocket:b"), ["陈总办公室", "滨江-12F"], "首句前缀在前;read_project 的 name 也算;后来正文里的前缀不算;坏行跳过")
-        self.assertEqual(got.get("websocket:c"), ["老宅翻新"], "改名本身:旧名经别名归到新名,不重复")
-        self.assertEqual(got.get("websocket:d"), ["老宅翻新"], "改名前记过旧名的对话归到新名下(4c C2)")
+        # 第 2 轮评审 GPT:后台只回**原始名字**,改名怎么归由前端按「现在还有哪些项目」决定(改错又改回去 A→B→A 不能挂反)
+        self.assertEqual(got.get("websocket:c"), ["老宅"], "改名那段:只算它碰过的旧名(新名不算,成功与否交给改名记录)")
+        self.assertEqual(got.get("websocket:d"), ["老宅"], "原始名字;归到新名下由前端按改名记录做(4c C2)")
         self.assertEqual(got.get("websocket:e"), ["翡翠湾-1801"], "arguments 是对象也认;别的 MCP 服务的工具不算")
         self.assertNotIn("websocket:f", got, "没碰项目的不出现")
         self.assertEqual(got.get("websocket:g"), ["翡翠湾-1801"], "多段用户消息里的前缀也认")
@@ -233,10 +234,12 @@ class TestSessionProjects(unittest.TestCase):
 
     def test_p7_failed_rename_no_alias(self):
         got = ds_sessions.session_projects(SESS, WEBUI)
-        self.assertEqual(got.get("websocket:b"), ["陈总办公室", "滨江-12F"],
-                         "改名失败(对话文件里工具回 name_taken / 回放记录里 result 带 error)不许把旧名的对话挂到新名下")
-        self.assertEqual(got.get("websocket:x"), ["正式名"], "回放记录里改名成功照样记别名")
-        self.assertEqual(got.get("websocket:d"), ["老宅翻新"], "对话文件里改名成功(工具回 ok)照样记别名")
+        self.assertEqual(got.get("websocket:b"), ["陈总办公室", "滨江-12F"])
+        self.assertEqual(got.get("websocket:r"), ["陈总办公室"],
+                         "改名失败那段自己也不算碰过目标项目(第 2 轮 GPT:否则它会出现在已存在的目标项目下)")
+        ren = ds_sessions.renames(SESS, WEBUI)
+        self.assertEqual(ren, {"老宅": "老宅翻新", "临时名": "正式名"},
+                         "改名记录只收成功的:对话文件里工具回 ok、回放记录里 result 回 ok;失败的(name_taken)不收")
 
     def test_p8_last_active_skips_rows_without_time(self):
         self.assertEqual(ds_sessions.last_active(SESS).get("websocket:y"), "2026-08-20T10:00:00.000000",
@@ -419,6 +422,7 @@ class TestEndpoints(unittest.TestCase):
             self.assertEqual(st, 200)
             self.assertEqual(body["sessions"].get("websocket:a"), ["翡翠湾-1801"])
             self.assertEqual(body["sessions"].get("websocket:i"), ["滨江-12F", "翡翠湾-1801"], "回放记录在配置文件旁边的 webui/ 下")
+            self.assertEqual(body["renames"], {"老宅": "老宅翻新", "临时名": "正式名"}, "接口带上成功的改名记录")
             self.assertEqual(body["last_active"].get("websocket:i"), "2026-08-16T09:30:00.000000")
             self.assertEqual(up.requests, [], "只读本机文件,不碰网关")
 

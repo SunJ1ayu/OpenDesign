@@ -1,0 +1,223 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    oracle-r2fix-api-red
+cmd:     /root/.venvs/design-studio/bin/python tests/test_sidebar_history_api.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  bc84d28
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T16:00:08Z
+---------------- 输出开始 ----------------
+/root/.openclaw/workspace/projects/design-studio/bin/ds_tools.py:246: SyntaxWarning: invalid escape sequence '\]'
+  """主变更行 C 号 —— **五个写口共用这一个定义**。
+test_e1_session_projects (__main__.TestEndpoints.test_e1_session_projects) ... 2026-09-26 00:00:08 127.0.0.1 - "GET /api/chat/session-projects HTTP/1.1" 200 -
+ERROR
+test_e2_sidebar_state_only_two_fields (__main__.TestEndpoints.test_e2_sidebar_state_only_two_fields) ... 2026-09-26 00:00:09 127.0.0.1 - "GET /api/chat/sidebar-state HTTP/1.1" 200 -
+2026-09-26 00:00:09 127.0.0.1 - "GET /api/chat/sidebar-state HTTP/1.1" 200 -
+2026-09-26 00:00:09 127.0.0.1 - "GET /api/chat/sidebar-state HTTP/1.1" 200 -
+ok
+test_e3_pin_rename_read_modify_write (__main__.TestEndpoints.test_e3_pin_rename_read_modify_write) ... 2026-09-26 00:00:10 127.0.0.1 - "POST /api/chat/sessions/websocket:a/pin HTTP/1.1" 200 -
+2026-09-26 00:00:10 127.0.0.1 - "POST /api/chat/sessions/websocket:a/rename HTTP/1.1" 200 -
+2026-09-26 00:00:10 127.0.0.1 - "POST /api/chat/sessions/websocket:old/rename HTTP/1.1" 200 -
+2026-09-26 00:00:10 127.0.0.1 - "POST /api/chat/sessions/websocket:old/pin HTTP/1.1" 200 -
+ok
+test_e3b_many_long_titles_all_kept (__main__.TestEndpoints.test_e3b_many_long_titles_all_kept) ... 2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k000/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k001/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k002/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k003/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k004/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k005/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k006/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k007/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k008/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k009/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k010/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k011/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k012/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k013/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k014/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k015/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k016/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k017/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k018/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k019/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k020/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k021/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k022/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k023/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k024/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k025/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k026/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k027/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k028/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k029/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k030/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k031/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k032/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k033/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k034/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k035/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k036/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k037/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k038/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k039/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k040/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k041/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k042/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k043/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k044/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k045/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k046/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k047/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k048/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k049/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k050/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k051/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k052/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k053/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k054/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k055/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k056/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k057/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k058/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k059/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k060/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k061/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k062/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k063/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k064/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k065/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k066/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k067/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k068/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k069/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k070/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k071/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k072/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k073/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k074/rename HTTP/1.1" 200 -
+2026-09-26 00:00:11 127.0.0.1 - "POST /api/chat/sessions/websocket:k075/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k076/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k077/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k078/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k079/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k080/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k081/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k082/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k083/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k084/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k085/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k086/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k087/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k088/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k089/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k090/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k091/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k092/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k093/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k094/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k095/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k096/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k097/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k098/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:k099/rename HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "GET /api/chat/sidebar-state HTTP/1.1" 200 -
+ok
+test_e3c_concurrent_pins_none_lost (__main__.TestEndpoints.test_e3c_concurrent_pins_none_lost) ... 2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c00/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c01/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c03/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c02/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c08/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c07/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c04/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c05/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c06/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c09/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c10/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c11/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c12/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c13/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c14/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c15/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c16/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c17/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c18/pin HTTP/1.1" 200 -
+2026-09-26 00:00:12 127.0.0.1 - "POST /api/chat/sessions/websocket:c19/pin HTTP/1.1" 200 -
+ok
+test_e4_rejects_without_writing (__main__.TestEndpoints.test_e4_rejects_without_writing) ... 2026-09-26 00:00:13 127.0.0.1 - "POST /api/chat/sessions/websocket:a/pin HTTP/1.1" 400 -
+2026-09-26 00:00:13 127.0.0.1 - "POST /api/chat/sessions/..%2F..%2Fx/pin HTTP/1.1" 404 -
+2026-09-26 00:00:13 127.0.0.1 - "POST /api/chat/sessions/websocket:a/pin HTTP/1.1" 400 -
+2026-09-26 00:00:13 127.0.0.1 - "POST /api/chat/sessions/websocket:a/rename HTTP/1.1" 400 -
+2026-09-26 00:00:13 127.0.0.1 - "POST /api/chat/sessions/websocket:a/pin HTTP/1.1" 403 -
+2026-09-26 00:00:13 127.0.0.1 - "GET /api/chat/sessions/websocket:a/pin HTTP/1.1" 404 -
+ok
+test_e5_delete_cleans_pin_and_title (__main__.TestEndpoints.test_e5_delete_cleans_pin_and_title) ... 2026-09-26 00:00:14 127.0.0.1 - "POST /api/chat/sessions/websocket:old/delete HTTP/1.1" 200 -
+ok
+test_e6_delete_failure_keeps_state (__main__.TestEndpoints.test_e6_delete_failure_keeps_state) ... 2026-09-26 00:00:15 127.0.0.1 - "POST /api/chat/sessions/websocket:old/delete HTTP/1.1" 409 -
+ok
+test_e6b_delete_blocked_by_automation_keeps_state (__main__.TestEndpoints.test_e6b_delete_blocked_by_automation_keeps_state) ... 2026-09-26 00:00:15 127.0.0.1 - "POST /api/chat/sessions/websocket:old/delete HTTP/1.1" 200 -
+ok
+test_e7_gateway_down (__main__.TestEndpoints.test_e7_gateway_down) ... 2026-09-26 00:00:16 127.0.0.1 - "POST /api/chat/sessions/websocket:old/delete HTTP/1.1" 502 -
+2026-09-26 00:00:16 127.0.0.1 - "POST /api/chat/sessions/websocket:a/pin HTTP/1.1" 200 -
+ok
+test_s1_pin_unpin_keeps_other_fields (__main__.TestPatch.test_s1_pin_unpin_keeps_other_fields) ... ok
+test_s2_rename_set_and_clear (__main__.TestPatch.test_s2_rename_set_and_clear) ... ok
+test_s3_forget (__main__.TestPatch.test_s3_forget) ... ok
+test_s4_clean_title (__main__.TestPatch.test_s4_clean_title) ... ok
+test_p1_derived_mapping (__main__.TestSessionProjects.test_p1_derived_mapping) ... FAIL
+test_p2_missing_dir_is_empty (__main__.TestSessionProjects.test_p2_missing_dir_is_empty) ... ok
+test_p3_changed_file_is_reread (__main__.TestSessionProjects.test_p3_changed_file_is_reread) ... ok
+test_p4_transcript_after_idle_compact (__main__.TestSessionProjects.test_p4_transcript_after_idle_compact) ... ok
+test_p5_transcript_change_is_reread (__main__.TestSessionProjects.test_p5_transcript_change_is_reread) ... ok
+test_p6_last_active_is_last_message_time (__main__.TestSessionProjects.test_p6_last_active_is_last_message_time) ... ok
+test_p7_failed_rename_no_alias (__main__.TestSessionProjects.test_p7_failed_rename_no_alias) ... FAIL
+test_p8_last_active_skips_rows_without_time (__main__.TestSessionProjects.test_p8_last_active_skips_rows_without_time) ... ok
+test_w1_default_when_missing (__main__.TestWorkspaceDir.test_w1_default_when_missing) ... ok
+test_w2_env_and_tilde (__main__.TestWorkspaceDir.test_w2_env_and_tilde) ... ok
+test_w3_unreadable_config_is_none (__main__.TestWorkspaceDir.test_w3_unreadable_config_is_none) ... ok
+
+======================================================================
+ERROR: test_e1_session_projects (__main__.TestEndpoints.test_e1_session_projects)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_sidebar_history_api.py", line 425, in test_e1_session_projects
+    self.assertEqual(body["renames"], {"老宅": "老宅翻新", "临时名": "正式名"}, "接口带上成功的改名记录")
+                     ~~~~^^^^^^^^^^^
+KeyError: 'renames'
+
+======================================================================
+FAIL: test_p1_derived_mapping (__main__.TestSessionProjects.test_p1_derived_mapping)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_sidebar_history_api.py", line 201, in test_p1_derived_mapping
+    self.assertEqual(got.get("websocket:c"), ["老宅"], "改名那段:只算它碰过的旧名(新名不算,成功与否交给改名记录)")
+AssertionError: Lists differ: ['老宅翻新'] != ['老宅']
+
+First differing element 0:
+'老宅翻新'
+'老宅'
+
+- ['老宅翻新']
+?     --
+
++ ['老宅'] : 改名那段:只算它碰过的旧名(新名不算,成功与否交给改名记录)
+
+======================================================================
+FAIL: test_p7_failed_rename_no_alias (__main__.TestSessionProjects.test_p7_failed_rename_no_alias)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.openclaw/workspace/projects/design-studio/tests/test_sidebar_history_api.py", line 238, in test_p7_failed_rename_no_alias
+    self.assertEqual(got.get("websocket:r"), ["陈总办公室"],
+AssertionError: Lists differ: ['陈总办公室', '翡翠湾-1801'] != ['陈总办公室']
+
+First list contains 1 additional elements.
+First extra element 1:
+'翡翠湾-1801'
+
+- ['陈总办公室', '翡翠湾-1801']
++ ['陈总办公室'] : 改名失败那段自己也不算碰过目标项目(第 2 轮 GPT:否则它会出现在已存在的目标项目下)
+
+----------------------------------------------------------------------
+Ran 25 tests in 8.047s
+
+FAILED (failures=2, errors=1)
+---------------- 输出结束 ----------------
+runlog: oracle-r2fix-api-red rc=1 commit=bc84d28 dirty=yes at=2026-09-25T16:00:08Z file=tracks/opendesign-sidebar-history/evidence/20260925T160008Z-01-oracle-r2fix-api-red.txt

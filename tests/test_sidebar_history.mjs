@@ -138,3 +138,21 @@ test("s9 排队:后一个等前一个做完才开始;前一个失败不挡后一
   assert.equal(await fast, "三");
   assert.deepEqual(log, ["1 开始", "1 完", "2 开始", "3 开始", "3 完"]);
 });
+
+// 第 2 轮评审 GPT:改名记录是全局的、不分先后 —— 项目改错又改回去(A→B→A)时,不能把对话挂反。
+// 规则:对话碰过的名字就是现在还有的项目 ⇒ 就是它;不是 ⇒ 顺着改名记录往下找第一个现在还有的;都没有 ⇒ 不挂(回「其他对话」)。
+test("s10 改名:现在还有的项目优先;顺着改名找;改错又改回去不挂反;成环且都没了就不挂", () => {
+  const P = (...names) => names.map((n) => ({ key: n, name: n }));
+  // 简单改名:老宅 → 老宅翻新
+  assert.deepEqual(sessionProjects("websocket:a", { "websocket:a": ["老宅"] }, {}, P("老宅翻新"), { "老宅": "老宅翻新" }), ["老宅翻新"]);
+  // 连着改:a → b → c,只剩 c
+  assert.deepEqual(sessionProjects("websocket:a", { "websocket:a": ["a"] }, {}, P("c"), { a: "b", b: "c" }), ["c"]);
+  // 改错又改回去:A → B → A,现在是 A;碰过 A 的、碰过 B 的,都归 A
+  const back = { A: "B", B: "A" };
+  assert.deepEqual(sessionProjects("websocket:x", { "websocket:x": ["A"] }, {}, P("A"), back), ["A"]);
+  assert.deepEqual(sessionProjects("websocket:y", { "websocket:y": ["B"] }, {}, P("A"), back), ["A"]);
+  // 成环且两个都不在了 ⇒ 不挂,不死循环
+  assert.deepEqual(sessionProjects("websocket:z", { "websocket:z": ["A"] }, {}, P("别的"), back), []);
+  // 不给改名记录 ⇒ 照旧(s4 的调用法)
+  assert.deepEqual(sessionProjects("websocket:a", { "websocket:a": ["老宅"] }, {}, P("老宅翻新")), []);
+});
