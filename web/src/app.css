@@ -2017,8 +2017,10 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 .model-chip:hover, .model-chip[aria-expanded="true"] { background: var(--paper-side); }
 .model-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--st-done-dot); flex: none; }
 .model-chip .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 厂商名(③):比模型名弱一档;窄栏里它先省略,模型名尽量留全(自定义厂商名最长 40 字) */
-.model-chip .vendor { flex: 0 1 auto; min-width: 0; max-width: 96px; color: var(--ink-5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 厂商名(③):比模型名弱一档。窄栏里**模型名先让**:③ 要的是一眼看出扣哪家的钱,「GLM 套餐 / GLM 按量」只差后两个字,
+   被压就分不出了;模型名多半自带厂商前缀(deepseek-… / glm-…),省略掉尾巴还认得。厂商名最宽 96px(自定义的最长 40 字,超了省略、悬停看全名)。
+   QA 执行录像第 26 步:两边一起压成「王工工作室(…· relay-…」之后改的。 */
+.model-chip .vendor { flex: none; max-width: 96px; color: var(--ink-5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .model-chip .sep { flex: none; color: var(--ink-5); margin: 0 -1px; }
 .model-chip .caret { font-size: 9px; color: var(--ink-5); flex: none; }
 /* 照 ZCode ModelConfigSelect(Radix DropdownMenu):行高 32px、圆角 6px、勾在右、› 在厂商行最右;
