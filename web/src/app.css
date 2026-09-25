@@ -386,6 +386,7 @@ body.has-window-chrome { padding-top: 30px; }
 }
 .proj-expand:hover { background: var(--paper-hover); color: var(--ink-2); }
 .proj-expand .chev { font-size: 9px; color: var(--ink-5); }
+.proj-expand .ico { width: 11px; height: 11px; flex: none; }
 .proj-sessions { padding: 0 0 4px 16px; }
 /* 项目按阶段分堆(track opendesign-due-picker T3):堆头复用共享折叠控件 .grp-toggle,
    不另起第二套折叠语言;只把字号/留白收到与 .side-sect 小标题同一档,免得 240px 窄栏

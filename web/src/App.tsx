@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { shellApi, type DesktopUpdateState } from "./desktopShell";
 import Sidebar, { type SessionItem } from "./workspace/Sidebar";
-import { displayTitle, sessionProjects, withLastActive } from "./workspace/sidebarModel";
+import { displayTitle, makeSerial, sessionProjects, withLastActive } from "./workspace/sidebarModel";
 import WindowChrome from "./workspace/WindowChrome";
 import ChangesColumn from "./workspace/ChangesColumn";
 import CompanionColumn from "./workspace/CompanionColumn";
@@ -426,21 +426,22 @@ export default function App() {
     [session, sidebarState],
   );
 
-  // 置顶 / 改名(track opendesign-sidebar-history):后端回的就是存好的那份,直接换上。
+  // 置顶 / 改名(track opendesign-sidebar-history):后端回的就是存好的那份,直接换上;排队发,回话按发出顺序到(评审 GPT M2)
+  const sidebarQueue = useMemo(() => makeSerial(), []);
   const pinSession = useCallback(async (s: SessionItem, pinned: boolean) => {
     try {
-      setSidebarState(await pinChatSession(s.key, pinned));
+      setSidebarState(await sidebarQueue(() => pinChatSession(s.key, pinned)));
     } catch {
       window.alert(pinned ? "没置顶上,稍后再试。" : "没取消置顶,稍后再试。");
     }
-  }, []);
+  }, [sidebarQueue]);
   const renameSession = useCallback(async (s: SessionItem, title: string) => {
     try {
-      setSidebarState(await renameChatSession(s.key, title));
+      setSidebarState(await sidebarQueue(() => renameChatSession(s.key, title)));
     } catch {
       window.alert("名字没存上,稍后再试。");
     }
-  }, []);
+  }, [sidebarQueue]);
 
   // 新对话:回 3a 并**强制开一条新的**。
   // 真机反馈 2026-07-24 #9:旧实现写 setResumeTarget(null),人已经在新对话里时

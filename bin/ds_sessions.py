@@ -27,10 +27,10 @@ import threading
 import ds_common
 
 TITLE_MAX = 160            # 与网关标题上限一致(nanobot sidebar_state._MAX_TITLE_LEN)
-_KEY_MAX = 512
 _TOOL_PREFIX = "mcp_design-studio_"
 _PREFIX_RE = re.compile(r"^【当前项目:([^】]+)】")
 _ENV_REF_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")   # 与网关 config/loader.py 同规则
+_TS_RE = re.compile(r'"timestamp":\s*"([^"]+)"')   # 行上自己的时间;工具结果里的是转义过的 \"timestamp\",对不上
 
 
 # ---------------------------------------------------------------- 网关工作区
@@ -103,20 +103,36 @@ class _Touched:
         if m:
             self.add(m.group(1))
 
-    def tool(self, name, args: dict):
+    def tool(self, name, args: dict, ok: bool | None = None):
+        """ok = 工具回的是不是成功;None = 这一行还看不到结果(对话文件里结果在后面的 tool 行,见 _scan_file)。
+        改名只在成功时记别名 —— 失败的改名(新名被占 name_taken 等)照记会把旧名的对话挂到别的项目下(评审 GPT H1)。"""
         if not isinstance(name, str) or not name.startswith(_TOOL_PREFIX):
-            return
+            return None
         tool = name[len(_TOOL_PREFIX):]
         if tool == "rename_project_tool":
             old, new = args.get("old"), args.get("new")
             self.add(old)
             self.add(new)
             if isinstance(old, str) and isinstance(new, str) and old.strip() and new.strip():
-                self.aliases.append((old.strip(), new.strip()))
+                pair = (old.strip(), new.strip())
+                if ok:
+                    self.aliases.append(pair)
+                return pair
         elif tool == "read_project_tool":
             self.add(args.get("name"))
         else:
             self.add(args.get("project"))
+        return None
+
+
+def _tool_ok(result) -> bool:
+    """工具回话是否成功:ds_tools 成功回 {"ok": true, …},失败回 {"error": …}。"""
+    if isinstance(result, str):
+        try:
+            result = json.loads(result)
+        except ValueError:
+            return False
+    return isinstance(result, dict) and result.get("ok") is True and "error" not in result
 
 
 def _scan_file(path: str, fallback_key: str) -> tuple:
@@ -125,11 +141,15 @@ def _scan_file(path: str, fallback_key: str) -> tuple:
     t = _Touched()
     seen_user = False
     last_ts = None
-    last_line = ""
+    pending: dict = {}      # 改名调用 id ⇒ (旧, 新):等后面的 tool 行说成功才记别名
     with open(path, encoding="utf-8", errors="replace") as fh:
         for i, line in enumerate(fh):
-            if line.strip():
-                last_line = line
+            if i > 0:
+                # 最后聊天时间 = 最后一条带时间的消息(网关空闲压缩会刷元数据 updated_at,留下的最近几条带原时间,design P6);
+                # 逐行找而不是只看最后一行:最后一行碰巧没带时间也不退回被刷过的 updated_at(评审 Kimi F1)
+                ts = _TS_RE.findall(line)
+                if ts:
+                    last_ts = ts[-1]
             # 首条用户消息之前的行(元数据)照解析;之后只解析带项目工具名的行 —— 工具结果常常很长
             if seen_user and _TOOL_PREFIX not in line:
                 continue
@@ -147,17 +167,17 @@ def _scan_file(path: str, fallback_key: str) -> tuple:
                 seen_user = True
                 t.prefix(_user_text(row.get("content")))
                 continue
+            if row.get("role") == "tool":
+                pair = pending.pop(row.get("tool_call_id"), None)
+                if pair and _tool_ok(row.get("content")):
+                    t.aliases.append(pair)
+                continue
             for call in row.get("tool_calls") or []:
                 fn = call.get("function") if isinstance(call, dict) else None
                 if isinstance(fn, dict):
-                    t.tool(fn.get("name"), _args(fn.get("arguments")))
-    # 最后聊天时间 = 最后一条消息自带的时间(网关空闲压缩会刷元数据 updated_at,留下的最近几条消息带原时间,design P6)
-    try:
-        row = json.loads(last_line)
-        if isinstance(row, dict) and row.get("_type") != "metadata" and isinstance(row.get("timestamp"), str):
-            last_ts = row["timestamp"]
-    except ValueError:
-        pass
+                    pair = t.tool(fn.get("name"), _args(fn.get("arguments")))
+                    if pair:
+                        pending[call.get("id")] = pair
     return key, t.names, t.aliases, last_ts
 
 
@@ -185,7 +205,7 @@ def _scan_transcript(path: str) -> tuple:
                 continue
             for te in ev.get("tool_events") or []:
                 if isinstance(te, dict):
-                    t.tool(te.get("name"), _args(te.get("arguments")))
+                    t.tool(te.get("name"), _args(te.get("arguments")), ok=_tool_ok(te.get("result")))
     return (first.names[0] if first.names else None), t.names, t.aliases, has_user
 
 
@@ -354,10 +374,6 @@ def _read_state(path: str) -> dict:
 
 def load_sidebar(ds_root: str) -> dict:
     return public_state(_read_state(sidebar_path(ds_root)))
-
-
-def valid_key(key: str) -> bool:
-    return isinstance(key, str) and 0 < len(key) <= _KEY_MAX
 
 
 def update_sidebar(ds_root: str, fn) -> dict:

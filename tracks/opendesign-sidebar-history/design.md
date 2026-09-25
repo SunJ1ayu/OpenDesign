@@ -29,9 +29,12 @@
     ① 按「更新时间」分今天 / 昨天 / 更早 ⇒ 全挤在今天(老侧栏「最近 2 条」其实也是乱的);
     ② 业主给项目记完账又聊了几句,闲置 15 分钟后这段对话从项目下面消失 —— 方案二的核心承诺落空。
   - **P1′ 碰过的项目 = 对话文件 ∪ 网关的界面回放记录**:回放记录 `<配置目录>/webui/websocket_<id>.jsonl`(+ 超 8MB 后分段挪进
-    `websocket_<id>.segments/*.jsonl`)是**只追加**的显示记录(nanobot webui/transcript.py),不被空闲压缩;事件 `user`(text,首句带项目前缀)、
+    `websocket_<id>.segments/NNNNNN.jsonl`,六位补零、按名排序即时间序)是显示记录(nanobot webui/transcript.py),**不被空闲压缩**。
+    评审 GPT 核实它并非物理只追加:超 8MB 时把旧轮次挪进分段并重写当前那份;fork 会重写目标记录(OpenDesign 没有 fork 入口)。
+    扫描读「分段 ∪ 当前那份」,轮转不漏;按 (mtime,size) 缓存,轮转中途读到半截下一次刷新自愈。事件 `user`(text,首句带项目前缀)、
     `message.tool_events[]`(name / arguments 对象 / result)。对话文件照读(回放记录缺的情况下兜底,如老版本留下的对话)。
-  - **P6 最后聊天时间 = 对话文件里最后一条消息的 timestamp**(压缩留下的是最近几条、带原时间);没有就不给,前端退回网关的 updated_at。
+  - **P6 最后聊天时间 = 对话文件里最后一条带 timestamp 的消息**(压缩留下的是最近几条、带原时间;逐行找,最后一行没带时间也不退回 —— 评审 Kimi F1);
+    一条都没有就不给,前端退回网关的 updated_at。改名别名只在工具回 ok 时记(评审 GPT H1:失败的改名会把旧名的对话挂错)。
     ds_web 的 session-projects 接口多回一张 `last_active` 表,前端拿它盖掉 updated_at 再分段、排序、显示「几天前」。
   - P5 项目没有界面改名入口(ds_web 无 rename);改名只经助手 `rename_project` ⇒ 从记录里读改名(旧 → 新)做别名即可。
 - 完全实现仍可能失败:① 首页只在嘴上提了项目、助手没动项目工具 ⇒ 归「其他对话」(不承诺,proposal 写明);

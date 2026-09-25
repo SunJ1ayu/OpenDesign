@@ -142,3 +142,17 @@ export function firstTag(projectKeys: readonly string[], nameOf: (key: string) =
   const first = nameOf(projectKeys[0]);
   return projectKeys.length > 1 ? `${first} +${projectKeys.length - 1}` : first;
 }
+
+/**
+ * 排队:置顶 / 改名在前端一个接一个发(评审 GPT M2)。快速连点两次时两个请求并发,后端锁保证盘上两条都在,
+ * 但每个回话是各自那一刻的整份状态、到达先后不定,后到的旧状态会把界面盖回去;排队后回话按发出顺序到。
+ * 前一个失败不挡后一个;各自拿到自己的结果。
+ */
+export function makeSerial(): <T>(task: () => Promise<T>) => Promise<T> {
+  let tail: Promise<unknown> = Promise.resolve();
+  return <T>(task: () => Promise<T>): Promise<T> => {
+    const run = tail.then(task);
+    tail = run.catch(() => undefined);
+    return run;
+  };
+}

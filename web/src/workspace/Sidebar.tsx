@@ -180,7 +180,7 @@ export default function Sidebar({
     if (t !== null && t !== displayTitle(s, titleOverrides)) onRenameSession(s, t);
   };
 
-  const histRow = (s: SessionItem, where: string, tag: string | null = null) => {
+  const histRow = (s: SessionItem, where: string, tag: { text: string; all: string } | null = null) => {
     const id = `${where}|${s.key}`;
     const title = displayTitle(s, titleOverrides);
     if (renaming?.id === id) {
@@ -209,7 +209,7 @@ export default function Sidebar({
       <div className={`hist-item${open ? " menu-open" : ""}`} key={s.key}>
         <button className="hist-row" title={title} onClick={() => onOpenSession(s)}>
           <span className="t">{title}</span>
-          {tag && <span className="hist-proj">{tag}</span>}
+          {tag && <span className="hist-proj" title={tag.all}>{tag.text}</span>}
           <span className="when">{relTime(s.updated_at)}</span>
           {/* span 非嵌套 button(HTML 不允许);阻冒泡免触发续聊 */}
           <span
@@ -243,7 +243,12 @@ export default function Sidebar({
       </div>
     );
   };
-  const tagOf = (key: string) => firstTag(sessionProjects[key] ?? [], nameOf);
+  // 小标只写第一个 +N;悬停列出全部(QA DeepSeek / GLM:「翡翠湾-1801 +1」看不出另一个是哪个)
+  const tagOf = (key: string) => {
+    const keys = sessionProjects[key] ?? [];
+    const text = firstTag(keys, nameOf);
+    return text ? { text, all: `碰过的项目:${keys.map(nameOf).join("、")}` } : null;
+  };
   const moreBtn = (onMore: () => void) => (
     <button className="side-more" data-ui="side-more" onClick={onMore}>显示更多</button>
   );
@@ -286,9 +291,12 @@ export default function Sidebar({
               data-ui="proj-expand"
               data-project={p.key}
               aria-expanded={expanded}
+              aria-label={`${expanded ? "收起" : "展开"}这个项目的 ${list.length} 段对话`}
               title={expanded ? "收起这个项目的对话" : `看这个项目的 ${list.length} 段对话`}
               onClick={() => setOpenProj((m) => ({ ...m, [p.key]: !expanded }))}
             >
+              {/* 对话图标:和左边的待办数(裸数字)区分开(QA Gemini:「2 2 ▾」分不清哪个是待办、哪个是对话) */}
+              <SideIcon name="message-circle" />
               {list.length}<span className="chev">{expanded ? "▾" : "▸"}</span>
             </button>
           )}

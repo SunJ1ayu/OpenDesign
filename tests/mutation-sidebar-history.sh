@@ -142,6 +142,20 @@ mutate B18 bin/ds_web.py \
   '                last = ds_sessions.last_active(sessions)' '                last = {}' \
   "$PY" "py:test_e1_session_projects" "接口不回最后聊天时间"
 
+# ── 第 1 轮修复(评审 GPT H1 / Kimi F1)──
+mutate B19 bin/ds_sessions.py \
+  '                if pair and _tool_ok(row.get("content")):' '                if pair:' \
+  "$PY" "py:test_p7_failed_rename_no_alias" "对话文件里改名失败也记别名"
+mutate B20 bin/ds_sessions.py \
+  '                    t.tool(te.get("name"), _args(te.get("arguments")), ok=_tool_ok(te.get("result")))' \
+  '                    t.tool(te.get("name"), _args(te.get("arguments")), ok=True)' \
+  "$PY" "py:test_p7_failed_rename_no_alias" "回放记录里改名失败也记别名"
+mutate B21 bin/ds_sessions.py \
+  '                if ts:
+                    last_ts = ts[-1]' \
+  '                last_ts = ts[-1] if ts else None' \
+  "$PY" "py:test_p8_last_active_skips_rows_without_time" "最后一行没带时间就退回被刷过的 updated_at"
+
 # ── F 前台纯逻辑 ──
 mutate F1 web/src/workspace/sidebarModel.ts \
   '  if (t >= today) return "今天";' '  if (t >= now.getTime() - 86400000) return "今天";' \
@@ -182,6 +196,10 @@ mutate F12 web/src/workspace/sidebarModel.ts \
   '  return sessions.map((s) => (lastActive[s.key] ? { ...s, updated_at: lastActive[s.key] } : s));' \
   '  return sessions.map((s) => s);' \
   "$UNIT" "s8" "最后聊天时间没盖掉网关刷过的 updated_at"
+
+mutate F13 web/src/workspace/sidebarModel.ts \
+  '    const run = tail.then(task);' '    const run = task();' \
+  "$UNIT" "s9" "置顶 / 改名不排队,回话乱序会把界面盖回旧状态"
 
 # ── E 界面(真 chromium) ──
 # 变异要编译得过:把某个回调的唯一调用删掉会被 tsc 当「没用到的变量」拒掉(rc=99,第 1 遍 E13/E14 就是),改成仍引用、不调用
@@ -241,6 +259,14 @@ mutate E15 web/src/App.tsx \
   '    () => (sessions === null ? null : withLastActive(sessions, lastActive)),' \
   '    () => (sessions === null ? null : withLastActive(sessions, {})),' \
   "$E2E" "not ok - ① 按时间" "侧栏还按网关刷过的 updated_at 分段(全挤在今天)"
+
+mutate E16 web/src/workspace/Sidebar.tsx \
+  '          {tag && <span className="hist-proj" title={tag.all}>{tag.text}</span>}' \
+  '          {tag && <span className="hist-proj">{tag.text}</span>}' \
+  "$E2E" "not ok - ① 按时间" "「+1」悬停看不到全部项目"
+mutate E17 web/src/workspace/Sidebar.tsx \
+  '              <SideIcon name="message-circle" />' '' \
+  "$E2E" "not ok - ③ 按项目" "对话数没图标,和待办数挨着分不清"
 
 echo "红检:咬住 $pass / 漏网 $fail"
 [ $fail -eq 0 ]

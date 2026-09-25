@@ -1,0 +1,19 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    mutation-r1fix
+cmd:     bash tests/mutation-sidebar-history.sh B19 B20 B21 F13 E16 E17
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  1b3f2fb
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T15:14:19Z
+---------------- 输出开始 ----------------
+  [咬住] B19 —— 对话文件里改名失败也记别名
+  [咬住] B20 —— 回放记录里改名失败也记别名
+  [咬住] B21 —— 最后一行没带时间就退回被刷过的 updated_at
+  [咬住] F13 —— 置顶 / 改名不排队,回话乱序会把界面盖回旧状态
+  [咬住] E16 —— 「+1」悬停看不到全部项目
+  [咬住] E17 —— 对话数没图标,和待办数挨着分不清
+红检:咬住 6 / 漏网 0
+(已按还原后的源码重新构建 web/dist)
+(已还原源码)
+---------------- 输出结束 ----------------
+runlog: mutation-r1fix rc=0 commit=1b3f2fb dirty=yes at=2026-09-25T15:14:19Z file=tracks/opendesign-sidebar-history/evidence/20260925T151419Z-01-mutation-r1fix.txt
