@@ -357,6 +357,20 @@ def ds_shell_bridge_restart() -> str:
     return _restart_verdict(reply)
 
 
+def key_saved_verdict(nanobot_port: int) -> str:
+    """存完 key 之后该怎么说、要不要叫外壳(track opendesign-key-restart)。
+
+    - 没外壳(git-pull / Linux 启动器):网关没有现读 key 的启动器 ⇒ `manual`,照旧请他手动重启;
+    - 网关端口在听 ⇒ `live`:外壳起的网关每句前现读 key 文件,下一句就用上。**不发任何帧** —— 发了就是今天的病;
+    - 没在听(全新装机第一次存 key / 网关挂了)⇒ 请外壳把它起起来,回 `requested` 或 `manual`(不许撒谎,见下)。
+    """
+    if not _has_shell():
+        return "manual"
+    if ds_shell_core.port_listening(nanobot_port):
+        return "live"
+    return ds_shell_bridge_restart()
+
+
 def _gateway_password() -> str | None:
     """网关 websocket 通道的口令(**只往上游发,永不回给浏览器**)。
 
@@ -2587,7 +2601,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/llm/providers/key":
                 ds_credential.save(home=home, cfg_path=cfg, provider=str(body.get("provider") or ""),
                                    key=str(body.get("key") or ""), multi=multi, switch=False)
-                restart = ds_shell_bridge_restart()     # 新 key 要进网关:请外壳重启网关(没外壳 ⇒ manual)
+                restart = key_saved_verdict(self.server.nanobot_port)   # 网关在跑 ⇒ live;没在跑 ⇒ 请外壳起
             elif path == "/api/llm/providers/enabled":
                 ds_credential.set_enabled(home, cfg, body.get("provider"), bool(body.get("enabled")))
             elif path == "/api/llm/providers/models":
@@ -2608,7 +2622,7 @@ class Handler(BaseHTTPRequestHandler):
                                                       models=models if isinstance(models, list) else [],
                                                       key=str(body.get("key") or "") or None, multi=multi)
                     if body.get("key"):
-                        restart = ds_shell_bridge_restart()
+                        restart = key_saved_verdict(self.server.nanobot_port)
                 elif op == "update":
                     ds_credential.update_custom_provider(home, cfg, body.get("provider"), label=body.get("label"),
                                                          api_base=body.get("apiBase"))
@@ -2642,7 +2656,7 @@ class Handler(BaseHTTPRequestHandler):
         out.pop("env_var", None)          # 给外壳用的,不必给浏览器
         if not _has_shell():
             out["vendors"] = []           # 与 GET 同一条规矩(第 1 轮 G3;第 2 轮补上保存回包这一侧)
-        out["restart"] = ds_shell_bridge_restart()
+        out["restart"] = key_saved_verdict(self.server.nanobot_port)
         self._json(200, out)
 
     def _static(self, path: str):

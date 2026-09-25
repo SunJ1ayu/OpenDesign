@@ -248,7 +248,8 @@ def start_backend(home: Path, lock_port: int | None = None):
     logs = Path(os.environ.get("LOCALAPPDATA", Path.home())) / APP / "Logs"
 
     def gateway_service(e):
-        return core.Service(name="网关", argv=[str(python_exe()), "-m", "nanobot", "gateway"],
+        # 经启动器起:网关每句前现读 key 文件 ⇒ 存 key 不用重启(track opendesign-key-restart)
+        return core.Service(name="网关", argv=core.gateway_argv(str(python_exe()), str(install_root() / "ds")),
                             env=e, ready_port=ws, log_path=logs / "网关.log",
                             # 冷启动要连 3 个 MCP 子进程,S0 真机上见过接近 4 分钟
                             ready_timeout=300)
@@ -277,21 +278,23 @@ def start_backend(home: Path, lock_port: int | None = None):
         die(f"{APP} 没能启动。\n\n{e}\n\n详细日志:{logs}")
 
     def restart_gateway():
-        """业主在界面里填完 key ⇒ ds-web 通过锁通道叫到这里。
+        """业主存完 key、ds-web 看到网关没在听 ⇒ 通过锁通道叫到这里。**只起没在跑的网关,活着的不碰。**
 
-        **现读**一遍 key 和配置(build_env 就是干这个的),把网关换成新进程;
-        界面那条腿一动不动 —— 他正看着的页面就是它发的。
+        网关现读 key 文件(bin/ds_gateway.py),在跑时存 key 不用它换进程 —— 09-25 业主真机的病
+        正是「杀掉正在用的那个、新的没起来」(track opendesign-key-restart)。没在跑的情形:
+        全新装机没 key ⇒ 开机只起了工作台,第一次存 key 从这里起网关。名字沿用锁通道的老动词。
+        **现读**一遍 key 和配置(build_env)再起;界面那条腿一动不动 —— 他正看着的页面就是它发的。
         """
-        k, fresh = build_env()      # fresh 是两条腿各自的 env,重启只换网关那条
+        k, fresh = build_env()      # fresh 是两条腿各自的 env,这里只起网关那条
         if not k:
-            log("[重启网关] 收到请求,但 key.txt 还是空的 —— 不动")
+            log("[起网关] 收到请求,但 key.txt 还是空的 —— 不动")
             return
         try:
-            sup.restart([gateway_service(fresh["网关"])])
-            log("[重启网关] 完成")
+            sup.ensure([gateway_service(fresh["网关"])])
+            log("[起网关] 网关在跑")
         except Exception as exc:      # 回调跑在锁的线程里:炸出去会把那条线程带走
-            log(f"[重启网关] 失败:{exc}")
-            alert(f"key 已经存好了,但后台没能自己重启:\n{exc}\n\n"
+            log(f"[起网关] 失败:{exc}")
+            alert(f"key 已经存好了,但后台没能自己启动:\n{exc}\n\n"
                   f"请退出 {APP} 再打开一次。")
 
     return sup, web, restart_gateway

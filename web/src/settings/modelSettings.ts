@@ -247,10 +247,15 @@ export async function testModel(fetchFn: FetchLike, provider: string, model: str
 }
 
 export function restartNotice(restart: unknown): string {
+  if (restart === "live") {
+    // 网关在跑、现读 key 文件(ds_web.key_saved_verdict;track opendesign-key-restart):不重启、连接不断
+    return "已保存,下一句对话起就用它。";
+  }
   if (restart === "requested") {
     // 🔴 措辞只能说到"已请求"。`requested` 的定义是**帧送到了外壳、它认了这个动词**
-    //    (ds_web._restart_verdict),不是"重启成功了" —— 外壳随后失败会自己弹告警。
-    return "已保存,正在自动重启后台服务,稍等片刻即可继续使用;若稍后仍连不上,请手动重启 OpenDesign。";
+    //    (ds_web._restart_verdict),不是"起好了" —— 外壳随后失败会自己弹告警。
+    //    只在后台服务没在跑时才会走到这里(全新装机第一次存 key),所以说「启动」不说「重启」。
+    return "已保存,正在启动后台服务,稍等片刻即可开始对话;若稍后仍连不上,请退出 OpenDesign 再打开。";
   }
   return "已保存。当前环境不能自动应用新配置,请手动重启 OpenDesign 后再继续使用。";
 }

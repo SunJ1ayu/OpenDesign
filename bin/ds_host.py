@@ -94,15 +94,16 @@ def serve(inp, out, *, make_lock, start_backend, home, diag, app_dir, log,
     ds_shell.alert, ds_shell.die = _alert, _die
 
     def on_restart():
-        """ds-web:业主在界面里存好了 key ⇒ 请求重启网关。跑在锁的线程里,炸出去会把那条线程带走。"""
+        """ds-web:业主存好了 key、网关没在听 ⇒ 请求把网关起起来(活着的不碰,见 ds_shell.restart_gateway)。
+        跑在锁的线程里,炸出去会把那条线程带走。"""
         if not restart_holder:
-            log("[重启网关] 收到请求,但后台还没起好 —— 不动")
+            log("[起网关] 收到请求,但后台还没起好 —— 不动")
             return
         try:
             restart_holder[0]()
         except Exception as exc:
-            log(f"[重启网关] 失败:{exc!r}")
-            _alert(f"key 已经存好了,但后台没能自己重启:\n{exc}\n\n请退出 {APP} 再打开一次。")
+            log(f"[起网关] 失败:{exc!r}")
+            _alert(f"key 已经存好了,但后台没能自己启动:\n{exc}\n\n请退出 {APP} 再打开一次。")
 
     lock = make_lock(on_show=lambda: pipe.emit("show"), on_restart=on_restart)
     sup = None

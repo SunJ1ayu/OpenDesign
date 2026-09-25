@@ -182,7 +182,9 @@ def lock_timeouts() -> dict[str, float]:
 # 两处各抄一份的代价我付过(见 ports_for 那段注释),这里只留一个真相源。
 LOCK_HELLO = b"OpenDesign.ds_shell_core.lock.v1\n"
 LOCK_SHOW = b"SHOW\n"
-LOCK_RESTART = b"RESTART-BACKEND\n"     # 业主填完 key ⇒ 网关得重来一次才认新 env
+# 业主存完 key、而网关没在跑 ⇒ 请外壳把它起起来。名字是老的、线上兼容不改;语义是 ensure 不是重启:
+# 网关在跑时 ds-web 不发这个帧(网关现读 key 文件),外壳收到也只起没在跑的那条(track opendesign-key-restart)。
+LOCK_RESTART = b"RESTART-BACKEND\n"
 LOCK_OK = b"OK\n"
 # 🔴 应答**点名动词**:老外壳认不出 RESTART 也会回裸 OK,ds-web 就会把
 #    "什么都没重启"报成 requested,界面对业主说「已自动应用新配置」——
@@ -656,6 +658,18 @@ class Supervisor:
                 self._children = [c for c in self._children if c is not child]
                 raise
 
+    def ensure(self, services: list[Service]) -> None:
+        """确保点名的腿在跑:**活着的一动不动**,没有的 / 死了的才走 `restart` 起起来。
+
+        业主存 key 走这里(track opendesign-key-restart):网关现读 key 文件(bin/ds_gateway.py),
+        在跑就不许碰 —— 09-25 业主真机的病正是「杀掉正在用的那个、新的没起来」。
+        没在跑的情形:全新装机没 key ⇒ 开机只起了工作台,第一次存 key 由这里把网关起起来。
+        """
+        alive = {c.service.name for c in list(self._children) if c.proc.poll() is None}
+        todo = [s for s in services if s.name not in alive]
+        if todo:
+            self.restart(todo)
+
     def shutdown(self) -> None:
         with self._shutdown_lock:
             children = list(self._children)
@@ -770,6 +784,10 @@ class Supervisor:
         except OSError as exc:
             raise StartupFailed(f"{svc.name} 起不来:日志写不了({log_path}):{exc}") from exc
         kwargs: dict[str, Any] = {
+            # 🔴 不许继承管家的 stdin(判据 S1,track opendesign-key-restart):那是 Electron 写命令的管道,
+            #    管家主线程一直同步 readline 着它。Windows 上新子进程初始化碰到这条管道就卡住(进程在、不进 Python)——
+            #    开机时不卡,是因为那时管家还没开始读;存 key 后起网关必卡(云 Windows probe-3/4,evidence 里)。
+            "stdin": subprocess.DEVNULL,
             "stdout": log_file,
             "stderr": subprocess.STDOUT,
             "env": {str(k): str(v) for k, v in svc.env.items()},
@@ -1123,6 +1141,14 @@ def missing_env_message(missing: list[str], *, app: str, key_path: str) -> str:
         tips.append(f"· 配置里还用到了这些没设好的东西:{'、'.join(others)}\n"
                     "    请重新运行安装程序。")
     return f"{app} 起不来,还差点东西:\n\n" + "\n\n".join(tips) + "\n\n补好之后重新打开就行。"
+
+
+def gateway_argv(python_exe: str, ds_root: str) -> list[str]:
+    """网关怎么起:经我们的启动器,不再直接 `-m nanobot gateway`(track opendesign-key-restart)。
+
+    启动器让网关每次解析 `${VAR}` 时现读 key 文件 ⇒ 存 key 不用重启网关。外壳与判据 L 组同一来源。
+    """
+    return [str(python_exe), os.path.join(str(ds_root), "bin", "ds_gateway.py")]
 
 
 def startup_plan(has_key: bool) -> dict:

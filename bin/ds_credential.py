@@ -312,6 +312,26 @@ def read_extra_key(home: str, vendor: str) -> str | None:
         return None
 
 
+def live_key(home: str, var: str, cfg_path: str | None = None) -> str | None:
+    """网关每次解析 `${var}` 时现读的那把 key(bin/ds_gateway.py 的钩子调它;track opendesign-key-restart)。
+
+    主槽变量(配置 `providers.custom.apiKey` 引用的那个)→ key.txt;`DS_LLM_KEY_<V>` → keys/<v>.txt(含自定义供应商)。
+    别的变量、或文件读不到 ⇒ None,调用方落回进程环境。**变量 → 文件的对应只写在这一处。**
+    """
+    if var.startswith("DS_LLM_KEY_"):
+        with catalog_scope(home):
+            for vendor in _P():
+                if extra_var_name(vendor) == var:
+                    return read_extra_key(home, vendor)
+        return None
+    try:
+        with open(cfg_path or os.path.join(home, ".nanobot", "config.json"), encoding="utf-8") as fh:
+            main_var = env_var_name(json.load(fh))
+    except (OSError, ValueError, AttributeError, CredentialError):
+        return None
+    return read_key(home) if var == main_var else None
+
+
 def _extra_entries(cfg: dict) -> dict:
     """配置里现有的额外槽条目:{厂商: 条目}。只认 `od_<目录里的厂商>`。"""
     out = {}
@@ -739,9 +759,9 @@ def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = Fal
 
     `multi=True`(有外壳,ds_web 按 DS_SHELL_LOCK_PORT 判):
       · 主槽还没有 key(全新装机)或这家就是主槽那家 ⇒ 同上(主槽);
-      · 否则 ⇒ 写 `keys/<厂商>.txt` + 「想换过去」标记,**配置一个字节不动**(v1)——
-        此刻网关还没拿到这把 key,往配置里加引用就是"界面说换了、后台没换"。
-        条目由外壳起网关时的 prepare_gateway 写,与注入 key 同一处。
+      · 否则 ⇒ 先写 `keys/<厂商>.txt`(+「想换过去」标记),**再**当场调 prepare_gateway 补这家的条目与预设、兑现标记。
+        运行中的网关每句前现读 key 文件(bin/ds_gateway.py,track opendesign-key-restart)⇒ 条目一写就能用,不再等起网关;
+        顺序不能反:条目先于 key 文件落盘,网关那一句解析不到变量,会悄悄留在旧厂商上。
 
     顺序是**先改配置、再写 key**:配置改坏了就整个失败,不留下"key 在但端点还是旧的"
     那种半成品(业主会拿着一把对的 key 连到错的地方,而报错长得像 key 不对)。
@@ -775,6 +795,7 @@ def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = Fal
                 except OSError as exc:
                     raise CredentialError(f"写不进去({exc.__class__.__name__}),"
                                           f"请确认这台机器上这个文件夹可写") from None
+                prepare_gateway(home, cfg_path)          # key 文件在先,条目在后(见 docstring)
                 return status(home, cfg_path)
             # 先写「想换过去」、再写 key;key 写不进去就把标记撤掉 ⇒ 失败的保存两样都不留
             # (第 1 轮 K3:反过来的话,标记写失败会留下一把业主以为没存上的 key,下次起网关悄悄激活)。
@@ -793,6 +814,7 @@ def save(home: str, cfg_path: str, provider: str, key: str, *, multi: bool = Fal
                     pass
                 raise CredentialError(f"写不进去({exc.__class__.__name__}),"
                                       f"请确认这台机器上这个文件夹可写") from None
+            prepare_gateway(home, cfg_path)              # 当场兑现「想换过去」:不会再有起网关那一下替它兑现
             return status(home, cfg_path)
 
     var = env_var_name(cfg)                      # 会抛 CredentialError,由调用方翻译
@@ -1241,6 +1263,11 @@ def add_custom_provider(home: str, cfg_path: str, *, label: str, api_base: str, 
             except OSError:
                 pass
         raise
+    if k:
+        # 网关现读 key 文件 ⇒ 条目当场写,不等起网关(track opendesign-key-restart)。
+        # 🔴 要**新开**目录范围:进门时的那份目录是登记之前算的,里面还没有 pid,沿用它就补不上这家的条目。
+        with catalog_scope(home):
+            prepare_gateway(home, cfg_path)
     return pid
 
 
