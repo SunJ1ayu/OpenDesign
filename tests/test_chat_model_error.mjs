@@ -186,6 +186,48 @@ test("不是网关出错壳的正常回复一律不动(Grok 4c:回放分不清�
   for (const s of normal) assert.equal(describeModelError(s), null, `正常回复被当成出错改写了:${s}`);
 });
 
+// ---- 第 1 轮 QA 判卷 + 代码评审后补的(verify.md Q1 / Q2 / R2 / R3)-----------------
+
+test("Q2 key 不对 ⇒ 要指到输入框右下角(屏上唯一能对上号的线索;design 写了、第一版实现漏了)", () => {
+  for (const k of ["mimo401", "glm401"]) {
+    const { text } = d(CAPTURED[k]);
+    assert.ok(/右下角/.test(text), `${k}:没指到输入框右下角那个模型按钮:${text}`);
+  }
+});
+
+test("Q1 认不出的错不许替「测试」许愿(测试只测得出这家能不能用,测不出图片被拒这类)", () => {
+  for (const raw of [FROM_SOURCE.unknown, FROM_SOURCE.imageRejected, FROM_SOURCE.defaultError]) {
+    const { text } = d(raw);
+    assert.ok(!/告诉你|具体哪里/.test(text), `许诺「测试」会说明原因,而它说明不了:${text}`);
+    assert.ok(/图/.test(text), `没提醒「带了图的话先去掉图」(最常见的认不出来的错):${text}`);
+  }
+});
+
+test("R2 厂商回了报错体 = 连得上 ⇒ 不许叫他查网络;代理认证失败不许说成 key 不对", () => {
+  const upstream502 = "Error: {'message': 'Bad gateway: failed to establish upstream connection', 'type': 'server_error', 'code': 502}";
+  const upstream503 = "Error: {'message': 'upstream connection error', 'code': 503}";
+  for (const raw of [upstream502, upstream503]) {
+    const { text } = d(raw);
+    assertSteps("upstream", text, { mustNot: ["network", "refillKey", "topUp"] });
+    assert.ok(/厂商/.test(text), `厂商那边的 5xx 没说是厂商那边:${text}`);
+  }
+  const proxy407 = "Error: {'message': 'proxy authentication required', 'code': 407}";
+  const p = d(proxy407).text;
+  assertSteps("proxy407", p, { must: ["network"], mustNot: ["refillKey", "topUp"] });
+  // 网关自己连不上(没有报错体)仍是「连不上」
+  assertSteps("conn", d(CAPTURED.conn).text, { must: ["network"] });
+});
+
+test("R3 原文打码也认 GLM 的 <id>.<secret> 形状与 api_key= 写法", () => {
+  const glmKey = "0123456789abcdef0123456789abcdef.AbCdEfGh12345678";
+  const g = d(`Error: {'code': '401', 'message': 'key ${glmKey} 令牌已过期或验证不正确'}`);
+  assert.ok(!g.raw.includes(glmKey) && !g.raw.includes("AbCdEfGh12345678"), `GLM 形状的 key 原样亮出来了:${g.raw}`);
+  assert.ok(g.raw.includes("令牌已过期或验证不正确"), "打码误伤了报错正文");
+  const a = d("Error: {'message': 'bad request api_key=XyZ0123456789abcdefLONG', 'type': 'weird'}");
+  assert.ok(!a.raw.includes("XyZ0123456789abcdefLONG"), `api_key= 后面的 key 没打码:${a.raw}`);
+  for (const raw of Object.values(CAPTURED)) assert.equal(d(raw).raw, raw, "探针原文里没有 key,打码不许动它");
+});
+
 // ---- 接进 applyEvent:实时 --------------------------------------------------------
 
 // 探针里 401 那一轮的真实帧序(turn_id / stream_id 换成短串,字段一个不少)

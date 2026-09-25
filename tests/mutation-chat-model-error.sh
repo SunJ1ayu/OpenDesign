@@ -59,13 +59,13 @@ UNIT="node --test tests/test_chat_model_error.mjs"
 mutate M1 web/src/chat/transcript.ts \
   '      if (e.kind === undefined || e.kind === null) return appendNote(state, e);' \
   '      if (e.kind === undefined || e.kind === null) return state;' \
-  "$UNIT" "not ok 14 - 实时:真帧序" \
+  "$UNIT" "not ok 18 - 实时:真帧序" \
   "没有 kind 的 message 照旧丢掉(就是这个 bug)"
 
 mutate M2 web/src/chat/transcript.ts \
   '      ? assistantBubble(id, r.content)' \
   '      ? { id, role, content: r.content, streaming: false }' \
-  "$UNIT" "not ok 22 - 回放" \
+  "$UNIT" "not ok 26 - 回放" \
   "回放不过同一个函数 ⇒ 切走再回来冒英文原文"
 
 mutate M3 web/src/chat/modelError.ts \
@@ -101,25 +101,25 @@ mutate M7 web/src/chat/modelError.ts \
 mutate M8 web/src/chat/transcript.ts \
   '  return { ...state, thinking: false, messages: [...state.messages, assistantBubble(id, e.text)] };' \
   '  return { ...state, messages: [...state.messages, assistantBubble(id, e.text)] };' \
-  "$UNIT" "not ok 15 - 实时:出错说明一到就收掉" \
+  "$UNIT" "not ok 19 - 实时:出错说明一到就收掉" \
   "说明出来了思考动画还挂着"
 
 mutate M9 web/src/chat/transcript.ts \
   '  if (state.messages.some((m) => m.id === id)) return state;' \
   '' \
-  "$UNIT" "not ok 18 - 实时:同一帧收两次" \
+  "$UNIT" "not ok 22 - 实时:同一帧收两次" \
   "同一帧收两次出两条"
 
 mutate M10 web/src/chat/transcript.ts \
   '      if (e.kind !== "progress" && e.kind !== "tool_hint") return state;' \
   '      if (e.kind !== "progress" && e.kind !== "tool_hint") return appendNote(state, e);' \
-  "$UNIT" "not ok 19 - 实时:空 text" \
+  "$UNIT" "not ok 23 - 实时:空 text" \
   "不认识的 kind 也上屏(内部痕迹当成回复)"
 
 mutate M11 web/src/chat/transcript.ts \
   '  return { ...state, thinking: false, messages: [...state.messages, assistantBubble(id, e.text)] };' \
   '  return { ...state, busy: false, thinking: false, messages: [...state.messages, assistantBubble(id, e.text)] };' \
-  "$UNIT" "not ok 17 - 实时:没有 kind 的普通消息" \
+  "$UNIT" "not ok 21 - 实时:没有 kind 的普通消息" \
   "一轮中途来一句话就把输入解锁"
 
 if wanted M12; then rebuilt=1; fi
