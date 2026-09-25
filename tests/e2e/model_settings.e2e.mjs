@@ -499,7 +499,8 @@ try {
   check(!tree[cid] && !(tree.mimo?.models || []).includes("mimo-e2e"), `A16 删掉的模型与供应商从换模型菜单里消失(实际 ${JSON.stringify(tree)})`);
   await page.keyboard.press("Escape");
 
-  // ── 网关没在跑时存 key(track opendesign-key-restart):请外壳把它起起来,提示说「启动」不说「重启」──
+  // ── 网关没在跑时存 key(track opendesign-key-restart):请外壳把它起起来,提示说「正在准备」不说「重启」──
+  //    (不用「正在启动后台」:那是业主 09-24 让删掉的启动横幅的原话,test_quiet_start_icons q1 全仓禁用。)
   //    (全新装机第一次存 key 就是这个形状:开机没 key ⇒ 只起了工作台。)
   {
     await new Promise((r) => fakeGw.close(r));
@@ -507,8 +508,8 @@ try {
     await openSettings("mimo");
     await detail("mimo").locator('[data-ui="ms-key"]').fill(MIMO_KEY);
     await detail("mimo").locator('[data-ui="ms-key-save"]').click();
-    check(await until(async () => /启动后台服务/.test(await notice()), 5000) && !/重启/.test(await notice().then((t) => t.replace(/退出 OpenDesign 再打开/, ""))),
-      `G1 网关没在跑:提示正在启动后台服务(「${await notice()}」)`);
+    check(await until(async () => /正在准备聊天服务/.test(await notice()), 5000) && !/重启/.test(await notice()),
+      `G1 网关没在跑:提示正在准备聊天服务,不提重启(「${await notice()}」)`);
     check(await until(() => frames.slice(before).includes("RESTART-BACKEND"), 5000),
       `G1 网关没在跑 ⇒ 请外壳把它起起来(帧 ${JSON.stringify(frames.slice(before))})`);
     await page.keyboard.press("Escape");
