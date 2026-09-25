@@ -165,7 +165,7 @@ try {
     const text = (await errBubble.first().innerText()).trim();
     check(/API Key/.test(text) && /重新填/.test(text) && /模型设置/.test(text) && /测试/.test(text),
       `说明里带着去哪儿、做什么:${JSON.stringify(text)}`);
-    check(!/充值|余额|稍等/.test(text.split("原文")[0]), `key 错却把人指去别处:${JSON.stringify(text)}`);
+    check(!/充值|余额|稍等/.test(text.split("原文")[0]), `key 错时没把人指去充值 / 干等:${JSON.stringify(text)}`);
     check((await page.locator(`${HOME} .msg-ai.thinking`).count()) === 0, "说明出来后思考动画已收掉");
   });
 
@@ -179,7 +179,7 @@ try {
 
   await step("① 正文区不许出现英文原文当回复(那是修之前「切回来」的样子)", async () => {
     const plain = await page.locator(`${HOME} .msg-ai:not([data-ui="chat-model-error"])`).allInnerTexts();
-    check(!plain.some((t) => /Error:/.test(t)), `英文原文成了普通回复:${JSON.stringify(plain)}`);
+    check(!plain.some((t) => /Error:/.test(t)), `没有英文原文被当成普通回复:${JSON.stringify(plain)}`);
   });
 
   await step("② 出错后输入框可用;再发一句正常回复照常来、不带出错样式、不多气泡", async () => {
@@ -202,9 +202,9 @@ try {
       HOME, { timeout: 10000 });
     await errBubble.first().waitFor({ timeout: 10000 });
     const replayText = (await errBubble.first().innerText()).trim();
-    check(replayText === liveText, `回放与实时说法不一样:\n实时 ${JSON.stringify(liveText)}\n回放 ${JSON.stringify(replayText)}`);
+    check(replayText === liveText, `回放与实时是同一句:\n实时 ${JSON.stringify(liveText)}\n回放 ${JSON.stringify(replayText)}`);
     const plain = await page.locator(`${HOME} .msg-ai:not([data-ui="chat-model-error"])`).allInnerTexts();
-    check(!plain.some((t) => /Error:/.test(t)), `回放里英文原文仍当正文:${JSON.stringify(plain)}`);
+    check(!plain.some((t) => /Error:/.test(t)), `回放里没有英文原文当正文:${JSON.stringify(plain)}`);
   });
 
   check(errs.length === 0, `页面无未捕获异常:${errs.join(" | ")}`);
