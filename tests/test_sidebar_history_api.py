@@ -48,9 +48,9 @@ WS_DIR = _tmpreg.mkdtemp("ds-sidebar-工作区-")
 SESS = os.path.join(WS_DIR, "sessions")
 
 
-def _call(name, **args):
+def _call(tool, /, **args):
     return {"id": "c", "type": "function",
-            "function": {"name": f"mcp_design-studio_{name}_tool", "arguments": json.dumps(args, ensure_ascii=False)}}
+            "function": {"name": f"mcp_design-studio_{tool}_tool", "arguments": json.dumps(args, ensure_ascii=False)}}
 
 
 def _write_session(chat_id, lines):
