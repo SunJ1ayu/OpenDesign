@@ -1,0 +1,113 @@
+######## mode=stream (2026-09-25T08:35:20Z)
++  0.8s {'event': 'goal_status', 'status': 'running', 'started_at': 1790325320.9488912}
++  0.9s {'event': 'delta', 'text': '第0段。', 'stream_id': 'websocket:77c0a435-5670-4541-bfc3-85e31c5d01aa:1790325320908774053:0', 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 2}
++  1.2s {'event': 'delta', 'text': '第1段。', 'stream_id': 'websocket:77c0a435-5670-4541-bfc3-85e31c5d01aa:1790325320908774053:0', 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 3}
++  2.1s >>> 发 /stop
++  2.1s {'event': 'goal_status', 'status': 'running', 'started_at': 1790325320.9488912}
++  2.1s {'event': 'goal_status', 'status': 'idle'}
++  2.1s {'event': 'message', 'text': 'Stopped 1 task(s).', 'turn_id': 'turn-stop', 'turn_phase': 'answer', 'turn_seq': 1}
+   [vendor] 客户端断开了流(第 1 次调用)
+   delta 总数 4
++ 10.2s >>> 再发一句,看还能不能聊
++ 10.2s {'event': 'goal_status', 'status': 'running', 'started_at': 1790325331.1312819}
++ 10.2s {'event': 'delta', 'text': '第二轮', 'stream_id': 'websocket:77c0a435-5670-4541-bfc3-85e31c5d01aa:1790325331075977060:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 2}
++ 10.3s {'event': 'delta', 'text': '正常回复。', 'stream_id': 'websocket:77c0a435-5670-4541-bfc3-85e31c5d01aa:1790325331075977060:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 3}
++ 10.3s {'event': 'stream_end', 'stream_id': 'websocket:77c0a435-5670-4541-bfc3-85e31c5d01aa:1790325331075977060:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 4}
++ 10.3s {'event': 'turn_end', 'latency_ms': 168, 'goal_state': {'active': False}, 'turn_id': 'turn-2', 'turn_phase': 'complete', 'turn_seq': 5}
+---- replay:
+   {"id": "u-0-ee6e7dbf", "role": "user", "content": "讲个长故事", "turnId": "turn-1", "turnPhase": "user", "turnSeq": 1, "createdAt": 1790325332306}
+   {"id": "buf-1-6b487b32", "role": "assistant", "content": "第0段。第1段。第2段。第3段。", "isStreaming": false, "turnId": "turn-1", "turnPhase": "answer", "turnSeq": 5, "createdAt": 1790325332307}
+   {"id": "as-5-c0136f4c", "role": "assistant", "createdAt": 1790325332311, "content": "Stopped 1 task(s).", "turnId": "turn-stop", "turnPhase": "answer", "turnSeq": 1}
+   {"id": "u-6-85b445ed", "role": "user", "content": "还在吗", "turnId": "turn-2", "turnPhase": "user", "turnSeq": 1, "createdAt": 1790325332312}
+   {"id": "buf-7-3e86875e", "role": "assistant", "content": "第二轮正常回复。", "isStreaming": false, "turnId": "turn-2", "turnPhase": "answer", "turnSeq": 3, "createdAt": 1790325332313, "latencyMs": 168}
+vendor 调用次数 3
+---- gw log (stop/cancel/error):
+2026-09-25 16:35:22 | INFO  | - | Task cancelled for session websocket:77c0a435-5670-4541-bfc3-85e31c5d01aa
+2026-09-25 16:35:32 | INFO  | - | Agent loop stopping
+2026-09-25 16:35:32 | INFO  | - | Stopping all channels...
+2026-09-25 16:35:32 | INFO  | - | Stopped websocket channel
+rc=0
+######## mode=think (2026-09-25T08:35:32Z)
++  0.8s {'event': 'goal_status', 'status': 'running', 'started_at': 1790325333.5971973}
++  2.0s >>> 发 /stop
++  2.0s {'event': 'goal_status', 'status': 'running', 'started_at': 1790325333.5971973}
++  2.0s {'event': 'goal_status', 'status': 'idle'}
++  2.0s {'event': 'message', 'text': 'Stopped 1 task(s).', 'turn_id': 'turn-stop', 'turn_phase': 'answer', 'turn_seq': 1}
+   [vendor] 客户端断开了流(第 1 次调用)
+   delta 总数 0
++ 10.1s >>> 再发一句,看还能不能聊
++ 10.2s {'event': 'goal_status', 'status': 'running', 'started_at': 1790325343.7579086}
++ 10.2s {'event': 'delta', 'text': '第二轮', 'stream_id': 'websocket:39576438-95a6-4434-a9fc-2b93f3db47a4:1790325343703183691:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 2}
++ 10.3s {'event': 'delta', 'text': '正常回复。', 'stream_id': 'websocket:39576438-95a6-4434-a9fc-2b93f3db47a4:1790325343703183691:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 3}
++ 10.3s {'event': 'stream_end', 'stream_id': 'websocket:39576438-95a6-4434-a9fc-2b93f3db47a4:1790325343703183691:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 4}
++ 10.3s {'event': 'turn_end', 'latency_ms': 163, 'goal_state': {'active': False}, 'turn_id': 'turn-2', 'turn_phase': 'complete', 'turn_seq': 5}
+---- replay:
+   {"id": "u-0-8526a5a9", "role": "user", "content": "讲个长故事", "turnId": "turn-1", "turnPhase": "user", "turnSeq": 1, "createdAt": 1790325344925}
+   {"id": "as-1-752f7744", "role": "assistant", "createdAt": 1790325344926, "content": "Stopped 1 task(s).", "turnId": "turn-stop", "turnPhase": "answer", "turnSeq": 1}
+   {"id": "u-2-9325bb78", "role": "user", "content": "还在吗", "turnId": "turn-2", "turnPhase": "user", "turnSeq": 1, "createdAt": 1790325344927}
+   {"id": "buf-3-a56931eb", "role": "assistant", "content": "第二轮正常回复。", "isStreaming": false, "turnId": "turn-2", "turnPhase": "answer", "turnSeq": 3, "createdAt": 1790325344928, "latencyMs": 163}
+vendor 调用次数 3
+---- gw log (stop/cancel/error):
+2026-09-25 16:35:35 | INFO  | - | Task cancelled for session websocket:39576438-95a6-4434-a9fc-2b93f3db47a4
+2026-09-25 16:35:44 | INFO  | - | Agent loop stopping
+2026-09-25 16:35:44 | INFO  | - | Stopping all channels...
+2026-09-25 16:35:44 | INFO  | - | Stopped websocket channel
+rc=0
+######## mode=idle (2026-09-25T08:35:45Z)
++  2.1s >>> 发 /stop
++  2.1s {'event': 'message', 'text': 'No active task to stop.', 'turn_id': 'turn-stop', 'turn_phase': 'answer', 'turn_seq': 1}
+   delta 总数 0
++ 10.2s >>> 再发一句,看还能不能聊
++ 11.1s {'event': 'goal_status', 'status': 'running', 'started_at': 1790325356.490452}
++ 11.1s {'event': 'delta', 'text': '第0段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 2}
++ 11.5s {'event': 'delta', 'text': '第1段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 3}
++ 11.9s {'event': 'delta', 'text': '第2段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 4}
++ 12.3s {'event': 'delta', 'text': '第3段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 5}
++ 12.7s {'event': 'delta', 'text': '第4段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 6}
++ 13.1s {'event': 'delta', 'text': '第5段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 7}
++ 13.5s {'event': 'delta', 'text': '第6段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 8}
++ 13.9s {'event': 'delta', 'text': '第7段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 9}
++ 14.3s {'event': 'delta', 'text': '第8段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 10}
++ 14.7s {'event': 'delta', 'text': '第9段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 11}
++ 15.1s {'event': 'delta', 'text': '第10段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 12}
++ 15.5s {'event': 'delta', 'text': '第11段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 13}
++ 15.9s {'event': 'delta', 'text': '第12段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 14}
++ 16.3s {'event': 'delta', 'text': '第13段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 15}
++ 16.7s {'event': 'delta', 'text': '第14段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 16}
++ 17.1s {'event': 'delta', 'text': '第15段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 17}
++ 17.5s {'event': 'delta', 'text': '第16段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 18}
++ 17.9s {'event': 'delta', 'text': '第17段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 19}
++ 18.3s {'event': 'delta', 'text': '第18段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 20}
++ 18.7s {'event': 'delta', 'text': '第19段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 21}
++ 19.1s {'event': 'delta', 'text': '第20段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 22}
++ 19.5s {'event': 'delta', 'text': '第21段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 23}
++ 19.9s {'event': 'delta', 'text': '第22段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 24}
++ 20.3s {'event': 'delta', 'text': '第23段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 25}
++ 20.7s {'event': 'delta', 'text': '第24段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 26}
++ 21.1s {'event': 'delta', 'text': '第25段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 27}
++ 21.5s {'event': 'delta', 'text': '第26段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 28}
++ 21.9s {'event': 'delta', 'text': '第27段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 29}
++ 22.3s {'event': 'delta', 'text': '第28段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 30}
++ 22.7s {'event': 'delta', 'text': '第29段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 31}
++ 23.1s {'event': 'delta', 'text': '第30段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 32}
++ 23.5s {'event': 'delta', 'text': '第31段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 33}
++ 23.9s {'event': 'delta', 'text': '第32段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 34}
++ 24.3s {'event': 'delta', 'text': '第33段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 35}
++ 24.7s {'event': 'delta', 'text': '第34段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 36}
++ 25.1s {'event': 'delta', 'text': '第35段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 37}
++ 25.5s {'event': 'delta', 'text': '第36段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 38}
++ 25.9s {'event': 'delta', 'text': '第37段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 39}
++ 26.3s {'event': 'delta', 'text': '第38段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 40}
++ 26.7s {'event': 'delta', 'text': '第39段。', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 41}
++ 27.1s {'event': 'stream_end', 'stream_id': 'websocket:957af8d9-81a8-4f32-a758-7deb96aca4a7:1790325356451095356:0', 'turn_id': 'turn-2', 'turn_phase': 'answer', 'turn_seq': 42}
++ 27.1s {'event': 'turn_end', 'latency_ms': 16867, 'goal_state': {'active': False}, 'turn_id': 'turn-2', 'turn_phase': 'complete', 'turn_seq': 43}
+---- replay:
+   {"id": "as-0-94865422", "role": "assistant", "createdAt": 1790325374379, "content": "No active task to stop.", "turnId": "turn-stop", "turnPhase": "answer", "turnSeq": 1}
+   {"id": "u-1-2ebce907", "role": "user", "content": "还在吗", "turnId": "turn-2", "turnPhase": "user", "turnSeq": 1, "createdAt": 1790325374380}
+   {"id": "buf-2-3991db63", "role": "assistant", "content": "第0段。第1段。第2段。第3段。第4段。第5段。第6段。第7段。第8段。第9段。第10段。第11段。第12段。第13段。第14段。第15段。第16段。第17段。第18段。第19段。第20段。第21段。第22段。第23段。第24段。第25段。第26段。第27段。第28段。第29段。第30段。第31段。第32段。第33段。第34段。第35段。第36段。第37段。第38段。第39段。", "isStreaming": false, "turnId": "turn-2", "turnPhase": "answer", "turnSeq": 41, "createdAt": 1790325374381, "latencyMs": 16867}
+vendor 调用次数 2
+---- gw log (stop/cancel/error):
+2026-09-25 16:36:14 | INFO  | - | Agent loop stopping
+2026-09-25 16:36:14 | INFO  | - | Stopping all channels...
+2026-09-25 16:36:14 | INFO  | - | Stopped websocket channel
+rc=0
