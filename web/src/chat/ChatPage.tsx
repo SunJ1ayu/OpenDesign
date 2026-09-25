@@ -983,7 +983,8 @@ export default function ChatPage({
               )}
             </div>
           )}
-          {/* ④ 照 ZCode:不在回复时 ↑ 发送;回复中换成 ■ 停止(两颗按钮,读屏与判据分得清「能不能发」) */}
+          {/* ④ 不在回复时文字「发送」(业主 09-25 改回,07-19 修改单原则);回复中换成 ■ 停止(照 ZCode)。
+              两颗按钮,读屏与判据分得清「能不能发」;同样的最小宽度,换的时候那一排不跳。 */}
           {transcript.busy ? (
             <button
               className="stop-btn"
@@ -1004,10 +1005,7 @@ export default function ChatPage({
               disabled={view.kind !== "connected" || (!draft.trim() && attached.length === 0)}
               onClick={send}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 19V5M6 11l6-6 6 6" />
-              </svg>
+              发送
             </button>
           )}
         </div>

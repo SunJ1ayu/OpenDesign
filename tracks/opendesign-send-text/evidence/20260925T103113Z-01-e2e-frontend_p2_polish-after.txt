@@ -1,0 +1,135 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    e2e-frontend_p2_polish-after
+cmd:     node tests/e2e/frontend_p2_polish.e2e.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  d67e80d
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T10:31:13Z
+---------------- 输出开始 ----------------
+ds-web 0.98.13: http://127.0.0.1:8794/  (DS_DATA_ROOT=/tmp/fp2-e2e-79urhH/ds)
+2026-09-25 18:31:13 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 18:31:14 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-25 18:31:14 127.0.0.1 - "GET /assets/index-Bgp4oko3.js HTTP/1.1" 200 -
+2026-09-25 18:31:14 127.0.0.1 - "GET /assets/index-CCki4H_U.css HTTP/1.1" 200 -
+2026-09-25 18:31:14 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 18:31:14 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 18:31:14 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 18:31:14 127.0.0.1 - "GET /api/llm/providers HTTP/1.1" 200 -
+2026-09-25 18:31:14 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 18:31:14 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+  ok - 连接卡:说明含「现在就能用」(变更/图墙/文件不受影响)
+  ok - 连接卡:口令输入与获取提示在卡内
+  ok - 连接卡:表单保留 .chat-login 契约(helpers.loginPane 兼容)
+  ok - 连接卡:主按钮「连接」
+  ok - 侧栏:未连接不出「历史对话」组
+  ok - 侧栏:旧占位提示已删
+  ok - 侧栏未建档行:不再渲染「建档 →」链接(T5 已删除)
+2026-09-25 18:31:14 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-25 18:31:14 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-25 18:31:14 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-25 18:31:14 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 18:31:14 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+  ok - 中央列:标题旁 stage-chip
+  ok - 中央列:stage-chip 落点契约
+  ok - 伴随列:速览行删掉(业主不再展示)
+  ok - 伴随列:当前状态那句话已删掉
+  ok - 聊天列:未连接不放裸表单
+  ok - 聊天列:琥珀横幅文案
+  ok - 横幅点开:同一张连接卡为 modal
+  ok - esc 关掉连接 modal
+  ok - 发送按钮 aria-label=发送(实际:发送)
+  ok - 快记卡:单行输入契约
+  ok - 空间 popover:本项目已有空间「玄关」成建议
+  ok - 选中后 chip 显示空间名
+2026-09-25 18:31:15 127.0.0.1 - "POST /api/changes/add HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+  ok - 提交后轻提示「已记入 C2」
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+  ok - 新行插入列表并短暂高亮
+  ok - 磁盘:空间前缀落盘
+2026-09-25 18:31:15 127.0.0.1 - "POST /api/changes/add HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+  ok - 不选空间:C3 行无【】前缀(不猜不落未分类)
+  ok - popover 自由输入自定义空间
+2026-09-25 18:31:15 127.0.0.1 - "POST /api/changes/add HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+  ok - 磁盘:自定义空间前缀落盘
+  ok - 变更行:✎ 编辑图标钮(保留 .edit-trigger 契约)
+  ok - 变更行:✓ 标记完成图标钮
+2026-09-25 18:31:15 127.0.0.1 - "POST /api/changes/edit HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+  ok - ✓ 点击:磁盘状态改已完成
+  ok - 核心 stage 成功(2 项)
+2026-09-25 18:31:15 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /assets/index-CCki4H_U.css HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /assets/index-Bgp4oko3.js HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/llm/providers HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-25 18:31:15 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+  ok - 收件箱摘要行:标题
+  ok - 收件箱摘要行:计数
+  ok - 收件箱摘要行:扫描整理次按钮在行内
+  ok - 收件箱默认收起:明细不可见
+  ok - 点开:方案明细 2 行
+2026-09-25 18:31:16 127.0.0.1 - "GET /api/files/images/%E7%A9%BA%E9%A1%B9%E7%9B%AE-701 HTTP/1.1" 200 -
+2026-09-25 18:31:16 127.0.0.1 - "GET /api/projects/%E7%A9%BA%E9%A1%B9%E7%9B%AE-701/refs HTTP/1.1" 200 -
+2026-09-25 18:31:16 127.0.0.1 - "GET /api/projects/%E7%A9%BA%E9%A1%B9%E7%9B%AE-701/changes HTTP/1.1" 200 -
+2026-09-25 18:31:16 127.0.0.1 - "GET /api/files/overview/%E7%A9%BA%E9%A1%B9%E7%9B%AE-701 HTTP/1.1" 200 -
+  ok - 变更空态:「记第一条变更」→ 聚焦快记输入
+  ok - 参考图空态:「登记参考图」可点
+  ok - 项目图空态(已映射):「打开文件夹」次按钮
+2026-09-25 18:31:16 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-25 18:31:16 127.0.0.1 - "GET /api/files/overview/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-25 18:31:16 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-25 18:31:16 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/changes HTTP/1.1" 200 -
+2026-09-25 18:31:16 127.0.0.1 - "GET /api/projects/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/refs HTTP/1.1" 200 -
+2026-09-25 18:31:16 127.0.0.1 - "GET /api/files/images/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801 HTTP/1.1" 200 -
+2026-09-25 18:31:16 127.0.0.1 - "GET /api/files/file/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/06-%E6%95%88%E6%9E%9C%E5%9B%BE/%E7%BB%88%E7%A8%BFA.png HTTP/1.1" 200 -
+2026-09-25 18:31:16 127.0.0.1 - "GET /api/files/file/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/06-%E6%95%88%E6%9E%9C%E5%9B%BE/%E7%BB%88%E7%A8%BFA.png HTTP/1.1" 200 -
+2026-09-25 18:31:16 127.0.0.1 - "GET /api/files/file/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/06-%E6%95%88%E6%9E%9C%E5%9B%BE/%E7%BB%88%E7%A8%BFB.png HTTP/1.1" 200 -
+2026-09-25 18:31:16 127.0.0.1 - "GET /api/files/file/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/06-%E6%95%88%E6%9E%9C%E5%9B%BE/%E7%BB%88%E7%A8%BFA.png HTTP/1.1" 200 -
+2026-09-25 18:31:16 127.0.0.1 - "GET /api/files/file/%E7%BF%A1%E7%BF%A0%E6%B9%BE-1801/06-%E6%95%88%E6%9E%9C%E5%9B%BE/%E7%BB%88%E7%A8%BFB.png HTTP/1.1" 200 -
+  ok - lightbox:→ 键切到下一张
+  ok - lightbox:esc 关闭
+FRONTEND-P2-POLISH E2E: ALL PASS
+---------------- 输出结束 ----------------
+runlog: e2e-frontend_p2_polish-after rc=0 commit=d67e80d dirty=yes at=2026-09-25T10:31:13Z file=tracks/opendesign-send-text/evidence/20260925T103113Z-01-e2e-frontend_p2_polish-after.txt

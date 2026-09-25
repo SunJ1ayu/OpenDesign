@@ -1910,13 +1910,13 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 .cm-item:disabled { color: var(--ink-5); cursor: default; }
 .cm-item .hint { margin-left: auto; padding-left: 12px; font-size: 11px; color: var(--ink-5); }
 .cm-sep { padding: 6px 8px 2px; font-size: 11px; color: var(--ink-5); border-top: 1px solid var(--border-soft); margin-top: 4px; }
-/* 发送按钮:07-19 修改单定过文字「发送」;09-25 业主同意照 ZCode 换成 ↑ 图标(对照图 ④,track opendesign-composer-zcode)。
-   仍是 8px 圆角主色块;读屏 / 悬停叫「发送」。回复中换成 .stop-btn(■)。 */
+/* 发送按钮 = 文字「发送」(07-19 修改单原则;09-25 照 ZCode 换过一版 ↑ 图标,业主当天改回 —— track opendesign-send-text)。
+   8px 圆角主色块;回复中换成 .stop-btn(■),两颗同样的最小宽度,换的时候那一排不跳。 */
 .send-btn {
-  width: 28px;
+  min-width: 52px;
   height: 28px;
   flex: none;
-  padding: 0;
+  padding: 0 14px;
   border-radius: 8px;
   background: var(--terra);
   color: #fff;
@@ -1934,7 +1934,7 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 .send-btn:disabled { background: var(--paper-hover); color: var(--ink-5); cursor: default; }
 .send-btn:disabled:hover { background: var(--paper-hover); }
 .stop-btn {
-  width: 28px;
+  min-width: 52px;
   height: 28px;
   flex: none;
   border-radius: 8px;

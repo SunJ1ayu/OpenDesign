@@ -1,0 +1,22 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-send-text",
+  "impact": {
+    "level": "self",
+    "factors": []
+  },
+  "design": {
+    "uncertainty": "low",
+    "premise_attack": {
+      "status": "not_required",
+      "evidence": []
+    }
+  },
+  "execution_plan": {
+    "adapter": "main",
+    "model": "claude-opus-5-5"
+  },
+  "outcome": {
+    "verdict": "PASS"
+  }
+}
