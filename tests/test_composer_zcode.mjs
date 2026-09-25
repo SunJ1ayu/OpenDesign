@@ -113,6 +113,12 @@ test("c6 厂商短名:内置五家按 id 查表(GLM 两家分得开);自定义�
   assert.equal(custom?.full, "王工(测试)中转");
   assert.equal(modelChipVendor(status("mimo", "MiMo(小米)"))?.full, "MiMo(小米)", "悬停看全名");
   assert.equal(modelChipVendor(null), null);
+  // QA 执行第 1 步抓到:后台认不出当前模型是哪家时兜底报「有 key 的第一家」(ds_credential.models_status `active = live[0]`),
+  // 当前模型根本不在那家目录里 ⇒ 按钮不许把别家的名字安在它头上(说错扣哪家的钱),退回只写模型名
+  const misfiled = { provider: "c_1", label: "王工工作室(备用中转)线路", current: "mimo-v2.5",
+    models: [{ id: "relay-chat-v1", label: "relay-chat-v1" }] };
+  assert.equal(modelChipVendor(misfiled), null, "当前模型不在这家目录里 ⇒ 不写厂商名");
+  assert.equal(modelChipVendor({ ...misfiled, current: "relay-chat-v1" })?.short, "王工工作室(备用中转)线路");
   assert.equal(modelChipVendor({ provider: null, label: null, current: null, models: [] }), null);
   // 模型名那一半照旧(老判据 mp 的语义不动)
   assert.equal(modelChipLabel(status("mimo", "MiMo(小米)", "mimo-v2.5"), "gw"), "mimo-v2.5");
