@@ -1,0 +1,8 @@
+# panel-review 花名册(2026-09-25 18:40:42)task=opendesign-sidebar-history-4c
+# PASS = 进程 rc=0,**不等于给了裁决**;off = 这条腿压根没派(不许读成通过)。
+# impact-risk=high requested-budget=1 selected-count=1
+# selected=subcursor.gpt-5.6-sol-high(openai/subcursor)
+# escalation=none
+# snapshot=head:4a235db
+# 日志:/root/aiwork/logs/explore-sidebar-4c-20260925-183707.*.log
+subcursor.gpt-5.6-sol-high=EXPLORE(rc=0,coverage=none)
