@@ -42,7 +42,7 @@ import ModelMenu from "./ModelMenu";
 import { SideIcon } from "../workspace/icons";
 
 // P2 T3:视觉照 handoff §4 重排(用户消息低对比右对齐 / AI 无气泡直排 /
-// 赤陶流式光标 / Claude 式组合输入卡 / 「记一下」chip 预填)。
+// 流式回复动画(照 ZCode:思考中流光 / 新块淡入 / 轮尾转圈)/ Claude 式组合输入卡 / 「记一下」chip 预填)。
 // 逻辑层零改动:connection.ts / transcript.ts / markdown.ts 原样复用(硬约束,
 // 各自 oracle 守着);连接流程、80ms 节流、信封与事件归组与 P1 完全一致。
 
