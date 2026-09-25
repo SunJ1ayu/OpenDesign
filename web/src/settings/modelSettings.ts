@@ -246,10 +246,13 @@ export async function testModel(fetchFn: FetchLike, provider: string, model: str
   }
 }
 
-export function restartNotice(restart: unknown): string {
+export function restartNotice(restart: unknown, savedIsCurrent = false): string {
   if (restart === "live") {
-    // 网关在跑、现读 key 文件(ds_web.key_saved_verdict;track opendesign-key-restart):不重启、连接不断
-    return "已保存,下一句对话起就用它。";
+    // 网关在跑、现读 key 文件(ds_web.key_saved_verdict;track opendesign-key-restart):不重启、连接不断。
+    // 存 key 不换当前模型 ⇒ 只有改的就是正在用的那家,才能说「下一句就用」;存了另一家要告诉他去哪儿换(QA 设计 d5)。
+    return savedIsCurrent
+      ? "已保存,下一句对话起就用新的 key。"
+      : "已保存,马上可用:在聊天框右下角就能换到这家的模型。";
   }
   if (restart === "requested") {
     // 🔴 措辞只能说到"已请求"。`requested` 的定义是**帧送到了外壳、它认了这个动词**

@@ -147,10 +147,10 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
     return () => window.clearTimeout(t);
   }, [waiting, view, load]);
 
-  const apply = (r: SaveResult, okText: string): boolean => {
+  const apply = (r: SaveResult, okText: string, savedId?: string): boolean => {
     if (r.ok) {
       setView(r.view);
-      setNotice({ ok: true, text: r.restart ? restartNotice(r.restart) : okText });
+      setNotice({ ok: true, text: r.restart ? restartNotice(r.restart, !!savedId && r.view.current?.provider === savedId) : okText });
       return true;
     }
     setNotice({ ok: false, text: r.error });
@@ -170,7 +170,7 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
   const saveKey = (p: ProviderRow) => run(async () => {
     const raw = keyRef.current?.value ?? "";
     const r = await saveProviderKey(fetch, p.id, raw);
-    if (apply(r, "已保存")) {
+    if (apply(r, "已保存", p.id)) {
       // 只有这一行确实「等重启」才等它改口;主槽那家没有可观察的等待(有 key 即算后台拿到)⇒ 保留「正在重启」那句老实话
       if (r.ok && r.restart === "requested" && r.view.providers.some((x) => x.id === p.id && x.pending)) setAwaiting(p.id);
       if (keyRef.current) keyRef.current.value = "";
