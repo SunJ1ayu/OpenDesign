@@ -56,11 +56,27 @@ MiMo rc=1 EROFS,没有报告;GLM high/max各rc=1(分别缺 How it works / Direct
 | DeepSeek:识别不了当前模型所属厂商时按钮只显示模型名 | modelPicker.ts:117-122有意避免误标厂商,属composer已归档边界 | 接受;正常已知模型显示厂商和模型,真机回显保留 |
 | DeepSeek:离线评审不能再向GitHub查run | 主裁在线亲查两个job成功/head,cloud-check完整141项收据和出货字节已核 | 已满足,不把离线边界当产品缺陷 |
 
-主裁:发布准备通过。版本/产品源码与被测提交一致、出货三样字节相符、Windows141项全过;
+发布前主裁:发布准备通过。版本/产品源码与被测提交一致、出货三样字节相符、Windows141项全过;
 两家族同次PASS,没有阻断。发布动作与真实安装后回显仍未完成,
 所以decision.outcome.verdict保持null、T4/T5未勾、不得归档为已发布。
 
 ## Release
 
-尚未发布。安装包在 /root/opendesign-release14/artifact/,改写后的更新清单 sha512 / size 与安装包一致,三样 sha256 已冻在 evidence/asset-manifest.json。当前产品源码与被测 b37b8dd 逐文件一致(除 tracks)。
-正式发布审批与安装后真机回显待完成;不自动开延期项或aiwork腿池单。
+用户明确回复「发」授权正式发布。main 已推送 88533f4;
+正式版本于 2026-09-26T08:08:45Z 发布:
+https://github.com/SunJ1ayu/OpenDesign/releases/tag/v0.98.14 。
+tag 精确指向被测产品 b37b8ddd4c3be2f35fccf6c8a853caab3036bd0f,非 draft / prerelease;
+线上说明与已审说明一致,恰好三样发布资产。
+
+正式 releases/latest 与 releases/latest/download/latest.yml 均已切至 0.98.14。
+从正式 URL 下载三样资产逐字节计算 size / sha256,全部匹配冻结 manifest;
+线上 feed 的 sha512 / size 与线上安装包匹配,链接是正式 v0.98.14 路径;
+v0.98.13 blockmap HTTP 200,差量更新旧源仍可用。
+
+```
+runlog: production-smoke rc=0 commit=88533f4 dirty=no final=yes at=2026-09-26T08:11:56Z file=tracks/opendesign-release-09814/evidence/20260926T081156Z-01-production-smoke.txt
+```
+
+最终主裁 **PASS**:本地与云验收、两家族同次发布评审、正式发布身份及生产字节验证均完成。
+用户电脑安装后的真机回显尚待业主按 evidence/uat-checklist.md 补验,不计入已通过结果。
+T5 归档按本次 closeout 一并执行;不自动开延期项或 aiwork 腿池单。
