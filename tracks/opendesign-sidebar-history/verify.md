@@ -12,6 +12,13 @@
 
 ## Mechanical checks
 
+- 09-26 Codex 接手核验:最终本地总跑 575 条 Node 通过、Python 1578 跑过 / 1 跳过、e2e 45 PASS / 0 FAIL / 2 SKIP;MCP、泄漏闸、类型检查与 dist 新鲜度通过。三条既有跳过保持单列,不计作通过。
+- 沙箱内第一次尝试被 `unshare: Operation not permitted` 挡住,已中止(退出 130),未完成、无有效收据;清掉该次仅含头部的占位文件。下列 host 收据是在获准环境保留断网守卫重跑的最终结果,`source-stable: yes`。
+
+```
+runlog: takeover-final-host rc=3 commit=68540f0 dirty=yes final=yes at=2026-09-26T06:58:12Z file=tracks/opendesign-sidebar-history/evidence/20260926T065812Z-01-takeover-final-host.txt
+```
+
 - [x] build passes(`npm run build`,总跑「dist 新鲜度 + 类型检查」一段)
 - [x] tests pass(最终总跑见下面最后一行;rc=3 = 只跳既有三条:两条要真网关的 e2e + python 1 条,同前几单)
 - [x] no secrets / unsafe ops(新写口只写 `<数据根>/config/sidebar.json` 两个字段;新读口只读网关对话文件与回放记录)
