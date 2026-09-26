@@ -18,6 +18,10 @@ runlog: assets-verify rc=0 commit=b37b8dd dirty=yes at=2026-09-26T07:48:14Z file
 runlog: cloud-windows-e2e rc=0 commit=b37b8dd dirty=yes final=yes at=2026-09-26T07:51:59Z file=tracks/opendesign-release-09814/evidence/20260926T075159Z-01-cloud-windows-e2e.txt
 ```
 
+```
+runlog: assets-ready rc=0 commit=e3cced8 dirty=yes final=yes at=2026-09-26T08:00:03Z file=tracks/opendesign-release-09814/evidence/20260926T080003Z-01-assets-ready.txt
+```
+
 ## QA
 
 黑盒题面:发布说明与真机清单,仓库参数为没有产品代码的 qa-blackbox-repo。
@@ -37,7 +41,24 @@ MiMo rc=1 EROFS,没有报告;GLM high/max各rc=1(分别缺 How it works / Direct
 
 ## Review
 
-独立自审在 /root/aiwork/tasks/opendesign-release-09814-review-my-review.md,发布评审待派。
+- 第1轮实质发布评审;派前preflight BLOCK=0 / PENDING=1(待评审和仲裁)。
+- 同一次两家族: `subdeepseek=PASS(verdict=PASS) subcursor.grok-4.7-high=PASS(verdict=PASS)`。
+- 绑定记录在 observations/20260926T075933Z-panel-review-execution_finished-001.json;
+  原始日志 /root/aiwork/logs/panel-release14-review-20260926.*.log,摘要如下,日志本身不作口头证明。
+- 工具报verify.md反锚定提示:本文件初审前只填机械结果和QA文案处置,发布主裁自审结论在仓外。
+  两家工具事件未读取仓外my-review;没有把该结论喂入题面。Grok直接复核产品及证据,
+  DeepSeek另外重算三样hash、重跑check-assets及相关单测。
+
+| 发现 | 核实与用户影响 | 处置 |
+|---|---|---|
+| DeepSeek:升级入口箭头仍像第三级菜单 | 软件更新是常规页区域,说明第17行/清单第1步已明确;用户到常规页即可找到区域 | 接受低风险措辞,不为非阻断再改说明并新增评审轮 |
+| DeepSeek:结构闸未列ds_sessions.py | 组包bin/*.py包含它;ds_web顶层import使真实Windows起窗断言可拦缺模块 | 当前验证充分;不扩为任意未来改坏打包的防护单 |
+| DeepSeek:识别不了当前模型所属厂商时按钮只显示模型名 | modelPicker.ts:117-122有意避免误标厂商,属composer已归档边界 | 接受;正常已知模型显示厂商和模型,真机回显保留 |
+| DeepSeek:离线评审不能再向GitHub查run | 主裁在线亲查两个job成功/head,cloud-check完整141项收据和出货字节已核 | 已满足,不把离线边界当产品缺陷 |
+
+主裁:发布准备通过。版本/产品源码与被测提交一致、出货三样字节相符、Windows141项全过;
+两家族同次PASS,没有阻断。发布动作与真实安装后回显仍未完成,
+所以decision.outcome.verdict保持null、T4/T5未勾、不得归档为已发布。
 
 ## Release
 
