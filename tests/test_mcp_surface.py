@@ -39,6 +39,10 @@ diff **恰好 1 行改动**,工具数不变(仍是 32)。
 → **33**(2026-08-08 新增 `delete_change`,出自 track opendesign-owner-review-0808
 ——业主真机验收发现单条待办没有删除能力,agent 只能拿"改状态"悄悄顶替。刷新前
 逐条读过 diff:**纯新增 22 行,只有这一个工具**,没有一条现有 description 被动)。
+同为 33 的一次刷新(2026-09-26,track opendesign-consent-dock):`set_workspace_tool` /
+`bind_project_tool` 改成**等业主在确认卡上点完才返回**,description 各追加一句告诉助手
+怎么读 `owner_decision`。刷新前逐条读过 diff:**恰好 2 行改动,就是这两条 description**,
+inputSchema 未变(工具改成 async 不影响参数表),工具数不变(仍是 33)。
 """
 import unittest
 

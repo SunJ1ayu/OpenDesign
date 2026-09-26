@@ -704,6 +704,7 @@ export default function TodoPage({
           onSelectDate={toggleDateFilter}
           session={session}
           onManageModels={onManageModels}
+          active={active}
         />
       </div>
     </div>

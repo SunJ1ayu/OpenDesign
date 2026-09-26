@@ -37,6 +37,8 @@ type Props = {
   onTurnEnd?: () => void;
   /** 换模型弹框底行「管理模型」→ 设置页模型设置(纯透传给 ChatPage)。 */
   onManageModels?: (provider: string | null) => void;
+  /** 待办页在屏幕上(业主同意卡只在可见的那个聊天里出,track opendesign-consent-dock)。 */
+  active?: boolean;
 };
 
 function ymFromIso(iso: string): [number, number] {
@@ -53,7 +55,7 @@ function daysBetween(due: string, today: string): number {
 }
 
 export default function TodoRail({
-  items, today, selectedDate, onSelectDate, session, onTurnEnd, onManageModels,
+  items, today, selectedDate, onSelectDate, session, onTurnEnd, onManageModels, active = false,
 }: Props) {
   const [[year, month], setYm] = useState<[number, number]>(() => ymFromIso(today));
   // 项目助手(T3/T4/T5):expanded=两态切换;connected=ChatPage onConnected 记的
@@ -262,6 +264,7 @@ export default function TodoRail({
               onConnected={() => setConnected(true)}
               onTurnEnd={onTurnEnd}
               onManageModels={onManageModels}
+              consentActive={active && expanded}
             />
           </div>
         </div>

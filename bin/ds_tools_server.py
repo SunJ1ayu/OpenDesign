@@ -2,8 +2,12 @@
 """design-studio 主工具 MCP 登记层。"""
 from __future__ import annotations
 
+import asyncio
 import os
+import time
+from datetime import datetime, timedelta
 
+import ds_consent
 import ds_documents
 import ds_lint
 from ds_tools import (
@@ -27,6 +31,80 @@ from ds_tools import (
     set_workspace,
     update_client,
 )
+
+
+# ── 业主同意:工具停下来等业主点(track opendesign-consent-dock)──────────────────
+# 以前 set_workspace/bind_project 排完队就立刻回 {"pending": true},这一轮对话随即结束,
+# 业主点完同意助手也不知道。现在照 ZCode:工具**停在这里等**业主在聊天输入框上方那张卡上
+# 点完,再把"执行后的结果 / 被拒绝"作为返回值交给助手,助手接着往下干。
+#
+# 等多久由环境变量 DS_CONSENT_WAIT_S 决定,**只有外壳起网关时写进配置**(ds_shell_core.
+# patch_config,和 nanobot 的 toolTimeout 同一处、一起写)。两条理由:
+#   · 等待必须短于 nanobot 给这个工具的超时,否则 nanobot 先掐断,助手只看到一句
+#     "timed out"。两个数写在同一个地方,才不会一个改了另一个忘了;
+#   · 没设 = 0 = 不等,行为和以前逐字一样 —— 判据、终端直跑、老配置都走这条。
+# 等的方式是**异步**轮询落盘记录:FastMCP 的同步工具直接跑在事件循环上,
+# 同步 sleep 会把同一个 server 上的其它工具全部卡死。
+CONSENT_POLL_S = 0.5
+
+
+def _consent_wait_s() -> float:
+    try:
+        return max(0.0, float(os.environ.get("DS_CONSENT_WAIT_S", "0")))
+    except ValueError:
+        return 0.0
+
+
+def _owner_outcome(rec: dict, pending_id: str) -> dict:
+    """把一条已决的记录翻成交给助手的返回值。"""
+    if rec.get("approved") is True:
+        result = rec.get("result") if isinstance(rec.get("result"), dict) else {"ok": True}
+        return {**result, "owner_decision": "approved"}
+    return {
+        "ok": False,
+        "error": "owner_rejected",
+        "owner_decision": "rejected",
+        "pending_id": pending_id,
+        "note": "业主在确认卡上点了「拒绝」,什么都没改。别换个说法再提同一个请求;"
+                "问问业主为什么、想怎么办。",
+    }
+
+
+async def await_owner(r: dict, ds_root: str, wait_s: float | None = None) -> dict:
+    """r 是排队结果({"pending": true, "pending_id": ...})时,等业主点完再返回。
+
+    其它返回(直接生效 / 参数错误)原样放行。等不到就回排队结果并加一句说明 ——
+    卡片还留着,业主之后点了,前端会在对话里告诉助手(见 ds_consent.mark_waiter)。
+    """
+    wait_s = _consent_wait_s() if wait_s is None else wait_s
+    if wait_s <= 0 or not (isinstance(r, dict) and r.get("pending")
+                           and isinstance(r.get("pending_id"), str)):
+        return r
+    pid = r["pending_id"]
+    deadline = time.monotonic() + wait_s
+    # 截止时刻多留几秒:前端在"刚好超时"那一刻点下去,宁可当成"还在等"少补一句,
+    # 也不要助手收到两遍结果 —— 反过来也只是少一句提示,不影响执行本身。
+    until = (datetime.now() + timedelta(seconds=wait_s + 5)).isoformat(timespec="seconds")
+    ds_consent.mark_waiter(ds_root, pid, until)
+    try:
+        while time.monotonic() < deadline:
+            rec = ds_consent.get_pending(ds_root, pid)
+            if rec is None:
+                return {"error": "pending_not_found", "pending_id": pid}
+            if rec.get("resolved_at") is not None:
+                return _owner_outcome(rec, pid)
+            await asyncio.sleep(CONSENT_POLL_S)
+    finally:
+        # 业主点了停止(nanobot 取消这次调用)也走这里:清掉"在等"的标记,
+        # 之后业主再点卡片,前端就知道要在对话里补一句。
+        ds_consent.mark_waiter(ds_root, pid, None)
+    return {
+        **r,
+        "owner_decision": "waiting",
+        "note": f"确认卡已经放在聊天输入框上方,业主 {int(wait_s // 60) or 1} 分钟内没有处理,"
+                "什么都还没改。请告诉业主:点卡片上的「同意」或「拒绝」;"
+                "他点完之后会在对话里告诉你结果,到时再接着做。",
+    }
 
 
 def build(ds_root: str | None = None):
@@ -223,17 +301,21 @@ def build(ds_root: str | None = None):
         return ds_lint.lint_pkb(ds_root)
 
     @server.tool()
-    def set_workspace_tool(root: str, projects_dir: str = "",
-                           projects_depth: int = 0) -> dict:
+    async def set_workspace_tool(root: str, projects_dir: str = "",
+                                 projects_depth: int = 0) -> dict:
         """把工作台接到用户电脑的项目文件夹根目录(以后能直接看文件和参考图)。
         root=项目文件夹根的绝对路径(直接传用户说的路径即可,反斜杠不用转义);
         projects_dir=可选,项目夹所在子目录(相对 root);若接上后 folder_count=0 且用户说
         项目就直接放在这个文件夹里,再传 projects_dir="."。
         projects_depth=可选:项目夹直接摆在 projects_dir 下不用传;用户的项目按
         年份/客户等先分了一层文件夹(如 2026/0315 某项目)再传 2,所有分组下的项目
-        会一起认出。返回 folder_count=认出的项目夹数(depth=2 时为跨分组总数)。"""
-        return set_workspace(root, projects_dir=projects_dir,
-                             projects_depth=projects_depth, ds_root=ds_root)
+        会一起认出。返回 folder_count=认出的项目夹数(depth=2 时为跨分组总数)。
+        需要业主同意时,聊天输入框上方会弹出确认卡,本工具**等业主点完才返回**:
+        owner_decision=approved 表示已生效;rejected 表示业主拒绝了(别再提);
+        waiting 表示业主还没点,照 note 说的告诉业主。"""
+        return await await_owner(
+            set_workspace(root, projects_dir=projects_dir,
+                          projects_depth=projects_depth, ds_root=ds_root), ds_root)
 
     @server.tool()
     def rename_project_tool(old: str, new: str) -> dict:
@@ -244,13 +326,14 @@ def build(ds_root: str | None = None):
         return rename_project(old, new, ds_root=ds_root)
 
     @server.tool()
-    def bind_project_tool(project: str, folder: str) -> dict:
+    async def bind_project_tool(project: str, folder: str) -> dict:
         """把已建档项目与工作区文件夹关联(合并项目列表里的重复条目)。
         用户说"那个文件夹就是 XX 项目"、或项目列表出现同名两行(一个建档一个
         未建档)时用。project=项目档案名;folder=用户念的文件夹名即可(纯名唯一
         就绑;按年份分组撞名/没找到时,返回里有 folders 候选名单,从中挑准确的
-        `组:名` 重试一次,别自己编)。重绑=覆盖,绑错再绑一次即可。"""
-        return bind_project(project, folder, ds_root=ds_root)
+        `组:名` 重试一次,别自己编)。重绑=覆盖,绑错再绑一次即可。
+        需要业主同意时同 set_workspace_tool:弹确认卡、等业主点完才返回,看 owner_decision。"""
+        return await await_owner(bind_project(project, folder, ds_root=ds_root), ds_root)
 
     # ── 读项目资料(track opendesign-anydoc)──────────────────────────────
     # 两个工具而不是一个"自动找最新并直接回答"的大工具:**服务器负责安全枚举,

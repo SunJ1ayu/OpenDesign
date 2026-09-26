@@ -743,7 +743,7 @@ export async function fetchConsent(): Promise<ConsentState> {
   return (await r.json()) as ConsentState;
 }
 
-async function consentPost(path: string, body: unknown): Promise<void> {
+async function consentPost(path: string, body: unknown): Promise<unknown> {
   const r = await fetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -758,14 +758,25 @@ async function consentPost(path: string, body: unknown): Promise<void> {
     }
     throw new Error(code || `服务返回 ${r.status}`);
   }
+  try {
+    return await r.json();
+  } catch {
+    return null;
+  }
 }
 
 /** 设置页两档开关。默认 ask;这是**唯一**能改档位的入口(任何 MCP 工具都写不了)。 */
-export function setConsentMode(mode: ConsentMode): Promise<void> {
-  return consentPost("/api/consent/mode", { mode });
+export async function setConsentMode(mode: ConsentMode): Promise<void> {
+  await consentPost("/api/consent/mode", { mode });
 }
 
+/** resolve 的回执。`waiter`:点下去那一刻,有没有一次工具调用正停在这张卡上等结果
+ *  (track opendesign-consent-dock)。true ⇒ 结果已经作为工具返回值交给助手;
+ *  false ⇒ 助手不知道业主点了什么,前端要在对话里替业主说一句。只影响提示,不参与授权。 */
+export type ConsentResolved = { ok: boolean; applied: boolean; waiter?: boolean };
+
 /** 同意 / 拒绝一条待确认。一次性:批过或拒过的再点会被后端 409。 */
-export function resolveConsent(pendingId: string, approve: boolean): Promise<void> {
-  return consentPost("/api/consent/resolve", { pending_id: pendingId, approve });
+export async function resolveConsent(pendingId: string, approve: boolean): Promise<ConsentResolved> {
+  const r = await consentPost("/api/consent/resolve", { pending_id: pendingId, approve });
+  return (r ?? { ok: true, applied: approve }) as ConsentResolved;
 }
