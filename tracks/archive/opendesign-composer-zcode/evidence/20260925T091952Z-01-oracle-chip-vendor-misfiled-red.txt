@@ -1,0 +1,155 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    oracle-chip-vendor-misfiled-red
+cmd:     node --test tests/test_composer_zcode.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  52004ef
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T09:19:52Z
+---------------- 输出开始 ----------------
+TAP version 13
+# Subtest: c1 技能表:三个技能、开头与技能页原来的一字不差;技能页 import 同一份(不许两份)
+ok 1 - c1 技能表:三个技能、开头与技能页原来的一字不差;技能页 import 同一份(不许两份)
+  ---
+  duration_ms: 4.927921
+  type: 'test'
+  ...
+# Subtest: c2 点技能补开头:空草稿 / 有字 / 已是别的技能开头 ⇒ 只留一个开头,原文保留
+ok 2 - c2 点技能补开头:空草稿 / 有字 / 已是别的技能开头 ⇒ 只留一个开头,原文保留
+  ---
+  duration_ms: 0.515949
+  type: 'test'
+  ...
+# Subtest: c3 打 / 才弹:整段草稿以 / 开头且没有空白;中文标点模式的「、」与全角「/」同样算
+ok 3 - c3 打 / 才弹:整段草稿以 / 开头且没有空白;中文标点模式的「、」与全角「/」同样算
+  ---
+  duration_ms: 0.228875
+  type: 'test'
+  ...
+# Subtest: c4 按字筛:名字 / 缩写 / 关键词;筛不到 ⇒ 空表(页面据此不弹、Enter 照常发)
+ok 4 - c4 按字筛:名字 / 缩写 / 关键词;筛不到 ⇒ 空表(页面据此不弹、Enter 照常发)
+  ---
+  duration_ms: 0.42679
+  type: 'test'
+  ...
+# Subtest: c5 占位字:聊天输入框前半句各处保留,后缀换成「输入 / 选技能」;待办小框没有技能表,保持原样(4c C4)
+ok 5 - c5 占位字:聊天输入框前半句各处保留,后缀换成「输入 / 选技能」;待办小框没有技能表,保持原样(4c C4)
+  ---
+  duration_ms: 2.141982
+  type: 'test'
+  ...
+# Subtest: c6 厂商短名:内置五家按 id 查表(GLM 两家分得开);自定义原样;拿不到列表 ⇒ 没有厂商名
+not ok 6 - c6 厂商短名:内置五家按 id 查表(GLM 两家分得开);自定义原样;拿不到列表 ⇒ 没有厂商名
+  ---
+  duration_ms: 1.840329
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_composer_zcode.mjs:104:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    当前模型不在这家目录里 ⇒ 不写厂商名
+    + actual - expected
+    
+    + {
+    +   full: '王工工作室(备用中转)线路',
+    +   short: '王工工作室(备用中转)线路'
+    + }
+    - null
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: ~
+  actual:
+    short: '王工工作室(备用中转)线路'
+    full: '王工工作室(备用中转)线路'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_composer_zcode.mjs:120:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: c7 回复中点停止:网关回 idle ⇒ 解锁、收思考、半截回答定稿留着;那句英文变成中文系统小字
+ok 7 - c7 回复中点停止:网关回 idle ⇒ 解锁、收思考、半截回答定稿留着;那句英文变成中文系统小字
+  ---
+  duration_ms: 1.060216
+  type: 'test'
+  ...
+# Subtest: c8 回话先于 idle 到(时序变了)⇒ 同样解锁;同一帧收两次只一条小字
+ok 8 - c8 回话先于 idle 到(时序变了)⇒ 同样解锁;同一帧收两次只一条小字
+  ---
+  duration_ms: 0.308434
+  type: 'test'
+  ...
+# Subtest: c9 没点过停止时,idle 不解锁(正常回复只认 turn_end —— 4c C2)
+ok 9 - c9 没点过停止时,idle 不解锁(正常回复只认 turn_end —— 4c C2)
+  ---
+  duration_ms: 0.515789
+  type: 'test'
+  ...
+# Subtest: c10 还没出字(还在想)就停 ⇒ 解锁、收思考,没有空助手气泡
+ok 10 - c10 还没出字(还在想)就停 ⇒ 解锁、收思考,没有空助手气泡
+  ---
+  duration_ms: 0.835093
+  type: 'test'
+  ...
+# Subtest: c11 停止和刚好说完撞上:turn_end 先到 ⇒ 正常结束;随后「没有在进行的」⇒ 中文小字,不改已完成的回答
+ok 11 - c11 停止和刚好说完撞上:turn_end 先到 ⇒ 正常结束;随后「没有在进行的」⇒ 中文小字,不改已完成的回答
+  ---
+  duration_ms: 0.534568
+  type: 'test'
+  ...
+# Subtest: c12 不在回复时 requestStop 不改任何状态(按钮本来就不该在)
+ok 12 - c12 不在回复时 requestStop 不改任何状态(按钮本来就不该在)
+  ---
+  duration_ms: 0.175057
+  type: 'test'
+  ...
+# Subtest: c13 回放(切走再回来 / 重开):同一句中文,与实时逐字相同;半截回答是普通回答
+ok 13 - c13 回放(切走再回来 / 重开):同一句中文,与实时逐字相同;半截回答是普通回答
+  ---
+  duration_ms: 0.697925
+  type: 'test'
+  ...
+# Subtest: c14 R1:子任务空回报 “Background task completed.” 实时 / 回放都是中文小字;别的句子不误伤
+ok 14 - c14 R1:子任务空回报 “Background task completed.” 实时 / 回放都是中文小字;别的句子不误伤
+  ---
+  duration_ms: 0.259175
+  type: 'test'
+  ...
+# Subtest: c15 Q3′:网关换过的固定英文 ⇒ 小字不叫「原文」;真透传的仍叫「原文」
+ok 15 - c15 Q3′:网关换过的固定英文 ⇒ 小字不叫「原文」;真透传的仍叫「原文」
+  ---
+  duration_ms: 1.996895
+  type: 'test'
+  ...
+# Subtest: c16 D2:key 错那句指到右下角的新写法(厂商名 + 模型名)
+ok 16 - c16 D2:key 错那句指到右下角的新写法(厂商名 + 模型名)
+  ---
+  duration_ms: 0.381592
+  type: 'test'
+  ...
+# Subtest: c17 问候语六档(分界照 ZCode 5/9/12/14/18/23),措辞照对照图
+ok 17 - c17 问候语六档(分界照 ZCode 5/9/12/14/18/23),措辞照对照图
+  ---
+  duration_ms: 0.45109
+  type: 'test'
+  ...
+# Subtest: c18 窗口开着过分界自动换:到下一个分界点的毫秒数
+ok 18 - c18 窗口开着过分界自动换:到下一个分界点的毫秒数
+  ---
+  duration_ms: 0.259104
+  type: 'test'
+  ...
+1..18
+# tests 18
+# suites 0
+# pass 17
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 236.994005
+---------------- 输出结束 ----------------
+runlog: oracle-chip-vendor-misfiled-red rc=1 commit=52004ef dirty=yes at=2026-09-25T09:19:52Z file=tracks/opendesign-composer-zcode/evidence/20260925T091952Z-01-oracle-chip-vendor-misfiled-red.txt

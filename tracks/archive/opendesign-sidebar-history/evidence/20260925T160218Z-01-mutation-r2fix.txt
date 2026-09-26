@@ -1,0 +1,16 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    mutation-r2fix
+cmd:     bash tests/mutation-sidebar-history.sh B22 B23 F14 F15
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  c37ee08
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T16:02:18Z
+---------------- 输出开始 ----------------
+  [咬住] B22 —— 改名失败那段也算碰过目标项目
+  [咬住] B23 —— 接口不回改名记录
+  [咬住] F14 —— 不顺着改名找,改过名的项目下对话全丢
+  [咬住] F15 —— 改名记录压过现在还有的项目,改错又改回去时挂反
+红检:咬住 4 / 漏网 0
+(已还原源码)
+---------------- 输出结束 ----------------
+runlog: mutation-r2fix rc=0 commit=c37ee08 dirty=yes at=2026-09-25T16:02:18Z file=tracks/opendesign-sidebar-history/evidence/20260925T160218Z-01-mutation-r2fix.txt

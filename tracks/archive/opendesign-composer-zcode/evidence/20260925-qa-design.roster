@@ -1,0 +1,8 @@
+# panel-review 花名册(2026-09-25 16:49:21)task=opendesign-composer-zcode-qa-design
+# PASS = 进程 rc=0,**不等于给了裁决**;off = 这条腿压根没派(不许读成通过)。
+# impact-risk=high requested-budget=8 selected-count=8
+# selected=subdeepseek(deepseek/subdeepseek-agent),subcursor.grok-4.7-high(xai/subcursor),subcursor.gpt-5.6-terra-high(openai/subcursor),subcursor.gemini-3.8-flash-high(google/subcursor),subcursor.kimi-k3-high(moonshot/subcursor),subcursor.glm-5.2-high(zhipu/subcursor),subcursor.composer-2.5(cursor/subcursor),submimo(xiaomi/submimo)
+# escalation=none
+# snapshot=head:c54d85a
+# 日志:/root/aiwork/logs/explore-composer-qa-design-20260925-164137.*.log
+subdeepseek=EXPLORE(rc=0,coverage=none) subcursor.grok-4.7-high=EXPLORE(rc=0,coverage=none) subcursor.gpt-5.6-terra-high=EXPLORE(rc=0,coverage=none) subcursor.gemini-3.8-flash-high=EXPLORE(rc=0,coverage=none) subcursor.kimi-k3-high=EXPLORE(rc=0,coverage=none) subcursor.glm-5.2-high=EXPLORE(rc=0,coverage=none) subcursor.composer-2.5=EXPLORE(rc=0,coverage=none) submimo=FAIL(rc=1)

@@ -223,6 +223,12 @@ test("d6 live 存的是未启用的那家 ⇒ 不许说「右下角就能换」(
   assert.equal(restartNotice("live", false), restartNotice("live", false, false), "没说未启用 ⇒ 与原来那句一样");
 });
 
+test("d7 未启用那句的叫法对得上开关旁实际显示的字「未启用 / 已启用」(track opendesign-chat-error-visible;key-restart QA 执行顺带发现)", () => {
+  const s = restartNotice("live", false, true);
+  assert.ok(!/打开「启用」/.test(s), `开关旁边根本没有「启用」这两个字的按钮:${s}`);
+  assert.ok(/「未启用」/.test(s), `没用开关旁边实际显示的字「未启用」:${s}`);
+});
+
 test("d3 没见过的 restart 值往保守那边倒(宁可让他多点一下)", () => {
   // 09-24 加强:只查「有重启两个字」分不出两种说法 —— requested 那句也含「请手动重启」(08-16 四审加的兜底),
   // 把未知值倒向"正在自动重启"时这条照绿(红检 mutation-llm-key M5 漏网)。保守 = 与 manual 同一句。

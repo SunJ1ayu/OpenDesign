@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-send-text",
+  "run_id": "20260925T103113Z-01-e2e-frontend_p2_polish-after",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "e2e-frontend_p2_polish-after",
+  "started_at": "2026-09-25T10:31:13Z",
+  "finished_at": "2026-09-25T10:31:16Z",
+  "duration_ms": 3498,
+  "exit_code": 0,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 0,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

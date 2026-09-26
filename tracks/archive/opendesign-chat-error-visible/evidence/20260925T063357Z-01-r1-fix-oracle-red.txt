@@ -1,0 +1,247 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    r1-fix-oracle-red
+cmd:     node --test tests/test_chat_model_error.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  cb007f0
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T06:33:57Z
+---------------- 输出开始 ----------------
+TAP version 13
+# Subtest: key 不对:四家真 401 + 假厂商那句 ⇒ 去模型设置重填、点「测试」;不许叫他充值 / 等 / 查网络
+ok 1 - key 不对:四家真 401 + 假厂商那句 ⇒ 去模型设置重填、点「测试」;不许叫他充值 / 等 / 查网络
+  ---
+  duration_ms: 3.647628
+  type: 'test'
+  ...
+# Subtest: 额度 / 欠费:网关的欠费固定句 + GLM 余额不足 ⇒ 去充值看余额;**不许叫他改 key**(那句英文里明明写着 API key)
+ok 2 - 额度 / 欠费:网关的欠费固定句 + GLM 余额不足 ⇒ 去充值看余额;**不许叫他改 key**(那句英文里明明写着 API key)
+  ---
+  duration_ms: 0.331632
+  type: 'test'
+  ...
+# Subtest: 限流 ⇒ 稍等再发;不许叫他充值 / 改 key / 查网络(欠费和限流都是 429,最容易混)
+ok 3 - 限流 ⇒ 稍等再发;不许叫他充值 / 改 key / 查网络(欠费和限流都是 429,最容易混)
+  ---
+  duration_ms: 0.330892
+  type: 'test'
+  ...
+# Subtest: 连不上 ⇒ 查网络;不许叫他改 key / 充值
+ok 4 - 连不上 ⇒ 查网络;不许叫他改 key / 充值
+  ---
+  duration_ms: 0.528408
+  type: 'test'
+  ...
+# Subtest: 厂商出错(5xx)⇒ 稍后再试;不许叫他查网络 / 改 key / 充值(网好好的)
+ok 5 - 厂商出错(5xx)⇒ 稍后再试;不许叫他查网络 / 改 key / 充值(网好好的)
+  ---
+  duration_ms: 0.480779
+  type: 'test'
+  ...
+# Subtest: 超时 / 卡住 ⇒ 说超时、稍后再试;不许叫他改 key / 充值
+ok 6 - 超时 / 卡住 ⇒ 说超时、稍后再试;不许叫他改 key / 充值
+  ---
+  duration_ms: 0.228254
+  type: 'test'
+  ...
+# Subtest: Grok 反例:invalid_request_error 不等于 key 错 —— 模型不存在 ⇒ 换模型;图片被拒 ⇒ 通用;都不许叫他重填 key
+ok 7 - Grok 反例:invalid_request_error 不等于 key 错 —— 模型不存在 ⇒ 换模型;图片被拒 ⇒ 通用;都不许叫他重填 key
+  ---
+  duration_ms: 0.38612
+  type: 'test'
+  ...
+# Subtest: 对话太长 ⇒ 开新对话;不许叫他改 key / 充值
+ok 8 - 对话太长 ⇒ 开新对话;不许叫他改 key / 充值
+  ---
+  duration_ms: 0.194466
+  type: 'test'
+  ...
+# Subtest: 认不出的 ⇒「模型那边出错了」+ 去点「测试」看看;不猜去向
+ok 9 - 认不出的 ⇒「模型那边出错了」+ 去点「测试」看看;不猜去向
+  ---
+  duration_ms: 0.601577
+  type: 'test'
+  ...
+# Subtest: Grok 反例:助手自己出错(Python 异常形状 / 主循环兜底句)⇒ 说是助手这边;不许赖厂商、叫他改 key 或充值
+ok 10 - Grok 反例:助手自己出错(Python 异常形状 / 主循环兜底句)⇒ 说是助手这边;不许赖厂商、叫他改 key 或充值
+  ---
+  duration_ms: 0.650065
+  type: 'test'
+  ...
+# Subtest: 空答固定句 ⇒ 中文说「没整理出回答」
+ok 11 - 空答固定句 ⇒ 中文说「没整理出回答」
+  ---
+  duration_ms: 0.187076
+  type: 'test'
+  ...
+# Subtest: 原文原样留着备查(raw),只给 key 形状的长串打码
+ok 12 - 原文原样留着备查(raw),只给 key 形状的长串打码
+  ---
+  duration_ms: 0.200697
+  type: 'test'
+  ...
+# Subtest: 不是网关出错壳的正常回复一律不动(Grok 4c:回放分不清「报错」和「助手在引用这句报错」)
+ok 13 - 不是网关出错壳的正常回复一律不动(Grok 4c:回放分不清「报错」和「助手在引用这句报错」)
+  ---
+  duration_ms: 0.120987
+  type: 'test'
+  ...
+# Subtest: Q2 key 不对 ⇒ 要指到输入框右下角(屏上唯一能对上号的线索;design 写了、第一版实现漏了)
+not ok 14 - Q2 key 不对 ⇒ 要指到输入框右下角(屏上唯一能对上号的线索;design 写了、第一版实现漏了)
+  ---
+  duration_ms: 0.569188
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_chat_model_error.mjs:191:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    mimo401:没指到输入框右下角那个模型按钮:这句没回上来:API Key 不对(填错、过期,或这把 key 没有这个模型的权限)。
+    到「设置 → 模型设置」找到发这句时用的那家,重新填 key,再点模型旁的「测试」确认能用。
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_chat_model_error.mjs:194:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: Q1 认不出的错不许替「测试」许愿(测试只测得出这家能不能用,测不出图片被拒这类)
+not ok 15 - Q1 认不出的错不许替「测试」许愿(测试只测得出这家能不能用,测不出图片被拒这类)
+  ---
+  duration_ms: 0.216985
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_chat_model_error.mjs:198:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    许诺「测试」会说明原因,而它说明不了:这句没回上来:模型那边出错了。
+    再发一次试试;一直这样的话,到「设置 → 模型设置」点这家模型旁的「测试」,它会告诉你具体哪里不对。
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_chat_model_error.mjs:201:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: R2 厂商回了报错体 = 连得上 ⇒ 不许叫他查网络;代理认证失败不许说成 key 不对
+not ok 16 - R2 厂商回了报错体 = 连得上 ⇒ 不许叫他查网络;代理认证失败不许说成 key 不对
+  ---
+  duration_ms: 0.192377
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_chat_model_error.mjs:206:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    upstream:把人指到别处去了(network):这句没回上来:连不上模型厂商。
+    先看看电脑能不能上网,再发一次;网络正常还这样的话,稍后再试。
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    assertSteps (file:///root/.openclaw/workspace/projects/design-studio/tests/test_chat_model_error.mjs:81:35)
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_chat_model_error.mjs:211:5)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: R3 原文打码也认 GLM 的 <id>.<secret> 形状与 api_key= 写法
+not ok 17 - R3 原文打码也认 GLM 的 <id>.<secret> 形状与 api_key= 写法
+  ---
+  duration_ms: 0.219815
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_chat_model_error.mjs:221:1'
+  failureType: 'testCodeFailure'
+  error: "GLM 形状的 key 原样亮出来了:Error: {'code': '401', 'message': 'key 0123456789abcdef0123456789abcdef.AbCdEfGh12345678 令牌已过期或验证不正确'}"
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_chat_model_error.mjs:224:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: 实时:真帧序(错 key)⇒ 用户那句下面恰好一条出错气泡,说人话,输入解锁、思考动画收掉
+ok 18 - 实时:真帧序(错 key)⇒ 用户那句下面恰好一条出错气泡,说人话,输入解锁、思考动画收掉
+  ---
+  duration_ms: 1.580795
+  type: 'test'
+  ...
+# Subtest: 实时:出错说明一到就收掉「正在思考」(不用等 turn_end)
+ok 19 - 实时:出错说明一到就收掉「正在思考」(不用等 turn_end)
+  ---
+  duration_ms: 0.138767
+  type: 'test'
+  ...
+# Subtest: 实时:五类探针原文各走一遍真帧序,都恰好一条出错气泡
+ok 20 - 实时:五类探针原文各走一遍真帧序,都恰好一条出错气泡
+  ---
+  duration_ms: 0.47023
+  type: 'test'
+  ...
+# Subtest: 实时:没有 kind 的普通消息(助手主动发的话 / 定时提醒)⇒ 原样一条普通助手气泡,不标出错、不动 busy
+ok 21 - 实时:没有 kind 的普通消息(助手主动发的话 / 定时提醒)⇒ 原样一条普通助手气泡,不标出错、不动 busy
+  ---
+  duration_ms: 0.151397
+  type: 'test'
+  ...
+# Subtest: 实时:同一帧收两次(同 turn_id + turn_seq)只一条;同一轮两句不同的各一条
+ok 22 - 实时:同一帧收两次(同 turn_id + turn_seq)只一条;同一轮两句不同的各一条
+  ---
+  duration_ms: 0.183635
+  type: 'test'
+  ...
+# Subtest: 实时:空 text / 非字符串 / 不认识的 kind ⇒ 不出气泡(只放开「没有 kind」这一种)
+ok 23 - 实时:空 text / 非字符串 / 不认识的 kind ⇒ 不出气泡(只放开「没有 kind」这一种)
+  ---
+  duration_ms: 0.103827
+  type: 'test'
+  ...
+# Subtest: 回归:正常流式一轮(delta…stream_end→turn_end)+ 活动回执 ⇒ 仍只一条正文气泡,不多出任何东西
+ok 24 - 回归:正常流式一轮(delta…stream_end→turn_end)+ 活动回执 ⇒ 仍只一条正文气泡,不多出任何东西
+  ---
+  duration_ms: 0.771671
+  type: 'test'
+  ...
+# Subtest: 回归:进行中的一轮先有 activity,出错说明到了之后 activity 不被吞(turn_end 才清)
+ok 25 - 回归:进行中的一轮先有 activity,出错说明到了之后 activity 不被吞(turn_end 才清)
+  ---
+  duration_ms: 0.245264
+  type: 'test'
+  ...
+# Subtest: 回放:webui-thread 里那条英文原文 ⇒ 与实时**同一句**中文 + 同一份原文;正常回复不动
+ok 26 - 回放:webui-thread 里那条英文原文 ⇒ 与实时**同一句**中文 + 同一份原文;正常回复不动
+  ---
+  duration_ms: 0.492449
+  type: 'test'
+  ...
+1..26
+# tests 26
+# suites 0
+# pass 22
+# fail 4
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 177.047725
+---------------- 输出结束 ----------------
+runlog: r1-fix-oracle-red rc=1 commit=cb007f0 dirty=yes at=2026-09-25T06:33:57Z file=tracks/opendesign-chat-error-visible/evidence/20260925T063357Z-01-r1-fix-oracle-red.txt

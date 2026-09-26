@@ -1,0 +1,8 @@
+# panel-review 花名册(2026-09-26 15:34:50)task=opendesign-release-09814-qa
+# PASS = 进程 rc=0,**不等于给了裁决**;off = 这条腿压根没派(不许读成通过)。
+# impact-risk=high requested-budget=1 selected-count=1
+# selected=subcursor.glm-5.2-max(zhipu/subcursor)
+# escalation=none
+# snapshot=head:c54d85a
+# 日志:/root/aiwork/logs/explore-release14-qa-glm-retry-20260926.*.log
+subcursor.glm-5.2-max=FAIL(rc=1)

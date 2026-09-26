@@ -1,0 +1,37 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    mutation-composer-zcode-all-after-r1fix
+cmd:     bash tests/mutation-composer-zcode.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  dfb6aa7
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T09:43:06Z
+---------------- 输出开始 ----------------
+  [咬住] Z1 —— 任何 idle 都解锁(业主会在回复中途插话 —— 4c C2)
+  [咬住] Z2 —— 点了停止、网关回 idle 还卡在回复中(网关不发 turn_end)
+  [咬住] Z3 —— 回话先于 idle 到时不收尾
+  [咬住] Z4 —— 停止回话照旧英文当助手回复(R1)
+  [咬住] Z5 —— 停在记账中间,不提醒那一步可能已经做了(QA Gemini)
+  [咬住] Z6 —— 不在回复时也记停止标记
+  [咬住] Z7 —— 只认半角 /(业主开着中文标点,按 / 打出「、」,永远弹不出)
+  [咬住] Z8 —— 换技能时叠两个开头
+  [咬住] Z9 —— 关键词筛不到(打 /账本 找不到记一下)
+  [咬住] Z10 —— 问候语分界错一小时
+  [咬住] Z11 —— GLM 两家分不开(看不出扣哪家的钱)
+  [咬住] Z12 —— 自定义供应商名字也去括号(4c C5)
+  [咬住] Z13 —— 网关改写的英文仍标「原文」(Q3′)
+  [咬住] Z19 —— 后台兜底报错了厂商,按钮照写(QA 执行第 1 步抓到的回归)
+  [咬住] Z20 —— 新一轮带着上一轮的停止标记(■ 一直灰,评审 R2)
+  [咬住] Z21 —— 出错收尾不清停止标记(评审 R2)
+  [咬住] Z22 —— 后台子任务回报也当停止回话,提前解锁(评审 R3)
+  [咬住] Z23 —— 断线后放掉这一轮不清停止标记(评审 R2)
+  [咬住] Z14 —— 点停止上屏一条 /stop 用户气泡
+  [咬住] Z15 —— 技能表开着按 Enter 把 /参考 发出去了
+  [咬住] Z16 —— 按钮上没有厂商名
+  [咬住] Z17 —— 系统小字画成普通助手回复
+  [咬住] Z18 —— 问候语不随时间
+  [咬住] Z24 —— 停下之后侧栏历史 / 项目数据不刷新(评审 R1)
+红检:咬住 24 / 漏网 0
+(已按还原后的源码重新构建 web/dist)
+(已还原源码)
+---------------- 输出结束 ----------------
+runlog: mutation-composer-zcode-all-after-r1fix rc=0 commit=dfb6aa7 dirty=yes at=2026-09-25T09:43:06Z file=tracks/opendesign-composer-zcode/evidence/20260925T094306Z-01-mutation-composer-zcode-all-after-r1fix.txt

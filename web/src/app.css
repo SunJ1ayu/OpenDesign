@@ -250,8 +250,6 @@ body.has-window-chrome { padding-top: 30px; }
 .side-sect .sect-title { font-size: 11px; color: var(--ink-4); letter-spacing: 0.08em; }
 .side-sect .sect-count { font: 600 10px var(--font-mono); color: var(--ink-5); margin-left: 6px; }
 .side-sect .grow { flex: 1; }
-.side-sect .sect-link { font-size: 11px; color: var(--terra-deep); transition: color var(--hover-ease); }
-.side-sect .sect-link:hover { color: var(--terra); text-decoration: none; }
 .side-sect .sect-add { color: var(--ink-4); font-size: 14px; line-height: 1; transition: color var(--hover-ease); }
 .side-sect .sect-add:hover { color: var(--terra); }
 
@@ -289,18 +287,76 @@ body.has-window-chrome { padding-top: 30px; }
   border-radius: 4px;
   padding: 0 5px;
 }
-/* p7 删除 ✕:默认隐藏,悬停行时替换时间位出现 */
-.hist-row .hist-del {
+/* 「⋯」(置顶 / 改名 / 删除,track opendesign-sidebar-history;替掉 p7 的 ✕):默认隐藏,悬停行 / 菜单开着时替换时间位出现 */
+.hist-item { position: relative; }
+.hist-row .hist-menu {
   display: none;
   flex: none;
-  width: 16px;
+  width: 18px;
   text-align: center;
+  line-height: 16px;
   color: var(--ink-4);
   border-radius: 4px;
 }
-.hist-row:hover .when { display: none; }
-.hist-row:hover .hist-del { display: inline-block; }
-.hist-row .hist-del:hover { color: var(--terra-deep); background: var(--terra-pill-bg); }
+.hist-row:hover .when, .hist-item.menu-open .when { display: none; }
+.hist-row:hover .hist-menu, .hist-item.menu-open .hist-menu { display: inline-block; }
+.hist-row .hist-menu:hover { color: var(--terra-deep); background: var(--terra-pill-bg); }
+.hist-pop {
+  position: absolute;
+  right: 6px;
+  top: calc(100% - 2px);
+  z-index: 30;
+  min-width: 112px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid var(--border-main);
+  border-radius: 8px;
+  box-shadow: var(--shadow-card);
+}
+.hist-pop button {
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.hist-pop button:hover { background: var(--paper-hover); }
+.hist-pop button.danger { color: var(--terra-deep); }
+.hist-rename {
+  width: 100%;
+  padding: 5px 9px;
+  font-size: 12.5px;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--terra);
+  border-radius: 7px;
+  outline: none;
+}
+/* 历史对话的「按时间 | 按项目」切换 */
+.side-view { display: flex; gap: 1px; padding: 1px; border-radius: 6px; background: var(--paper-hover); }
+.side-view button {
+  padding: 1px 7px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  color: var(--ink-4);
+  transition: background var(--hover-ease), color var(--hover-ease);
+}
+.side-view button.on { background: #fff; color: var(--ink-2); box-shadow: 0 0 0 1px var(--border-main); }
+/* 分段小标(今天 / 昨天 / 更早 / 已置顶) */
+.side-day { padding: 6px 18px 2px; font-size: 10.5px; color: var(--ink-5); letter-spacing: 0.06em; }
+.side-list .side-day { padding: 6px 10px 2px; }
+.side-more {
+  align-self: flex-start;
+  margin: 2px 0 0 18px;
+  padding: 3px 0;
+  font-size: 11.5px;
+  color: var(--terra-deep);
+  transition: color var(--hover-ease);
+}
+.side-more:hover { color: var(--terra); }
+.side-list .side-more, .proj-sessions .side-more { margin-left: 10px; }
 .side-empty-hint { padding: 4px 18px; font-size: 11.5px; color: var(--ink-5); }
 
 .proj-list {
@@ -311,6 +367,27 @@ body.has-window-chrome { padding-top: 30px; }
   overflow: auto;
   min-height: 48px;
 }
+/* 中间一整块滚动(历史 + 项目 + 其他对话,4c C5):「显示更多」多出来的行不再把项目栏挤出去 */
+.side-scroll { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; padding-bottom: 8px; }
+.side-scroll .proj-list { overflow: visible; }
+/* 按项目:项目行 + 右边「对话数 ▸」;展开的对话缩进挂在项目下 */
+.proj-item { display: flex; align-items: center; gap: 2px; }
+.proj-item .proj-row { flex: 1; min-width: 0; }
+.proj-expand {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  font: 600 10px var(--font-mono);
+  color: var(--ink-4);
+  transition: background var(--hover-ease), color var(--hover-ease);
+}
+.proj-expand:hover { background: var(--paper-hover); color: var(--ink-2); }
+.proj-expand .chev { font-size: 9px; color: var(--ink-5); }
+.proj-expand .ico { width: 11px; height: 11px; flex: none; }
+.proj-sessions { padding: 0 0 4px 16px; }
 /* 项目按阶段分堆(track opendesign-due-picker T3):堆头复用共享折叠控件 .grp-toggle,
    不另起第二套折叠语言;只把字号/留白收到与 .side-sect 小标题同一档,免得 240px 窄栏
    里两级标题打架。已交付的堆默认收着 —— 分堆就是为了它们别占地方。 */
@@ -391,7 +468,6 @@ body.has-window-chrome { padding-top: 30px; }
   border-radius: 99px;
 }
 
-.side-flex { flex: 1; }
 
 .side-footer { position: relative; border-top: 1px solid var(--border-main); padding: 8px 10px; }
 .side-footer .side-row { padding: 8px 10px; user-select: none; }
@@ -1671,6 +1747,21 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   color: var(--ink);
   overflow-wrap: break-word;
 }
+/* 模型 / 助手出错的说明(track opendesign-chat-error-visible):赤陶左边线 + 浅底,和正常回复一眼分开 */
+.msg-ai.msg-error {
+  border-left: 3px solid var(--terra);
+  background: var(--terra-pill-bg);
+  border-radius: 0 6px 6px 0;
+  padding: 8px 12px;
+}
+.msg-error-text { white-space: pre-line; }
+.msg-error-raw {
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-4);
+  overflow-wrap: anywhere;   /* 原文常是一长串不带空格的 JSON */
+}
 /* ── 回复动画(照 ZCode:packages/ui/src/styles.css + ai-elements/chat-loading.tsx) ──
    ① 流式正文:新长出来的块(段落/列表/表格…)900ms 淡入,不打字、不闪光标;
       react-markdown 按位置给 key,已有块不重挂载 ⇒ 只有**新块**播动画,老块不闪。
@@ -1747,6 +1838,14 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   background: var(--ink-4);
   flex: none;
 }
+/* 系统小字(track opendesign-composer-zcode):停止回话等网关系统句换成的中文。
+   和活动回执同一档弱度、但它是**留下来的**记录(回放里也在),所以不带圆点、用斜体区分。 */
+.msg-note {
+  font-size: 12px;
+  color: var(--ink-4);
+  font-style: italic;
+  padding: 2px 0;
+}
 /* markdown 紧凑排版(AI 无气泡直排) */
 .msg-ai > :first-child { margin-top: 0; }
 .msg-ai > :last-child { margin-bottom: 0; }
@@ -1785,6 +1884,48 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   transition: border-color var(--hover-ease);
 }
 .chat-card:focus-within { border-color: var(--terra); }
+/* 打 / 弹出的技能表贴着输入卡上沿(track opendesign-composer-zcode ②) */
+.chat-card { position: relative; }
+.slash-menu {
+  position: absolute;
+  left: 8px;
+  bottom: 100%;
+  margin-bottom: 6px;
+  width: min(360px, calc(100% - 16px));
+  background: #fff;
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
+  box-shadow: var(--shadow-pop);
+  padding: 4px;
+  z-index: 20;
+}
+.slash-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.slash-item.on { background: var(--paper-side); }
+.slash-item .nm { flex: none; }
+.slash-item .ds { min-width: 0; font-size: 11px; color: var(--ink-5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.icon-block.sm {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  background: var(--paper-side);
+  color: var(--terra-deep);
+  font-size: 11px;
+  font-weight: 600;
+}
 /* 发图(track opendesign-chat-image):拖到输入卡上的高亮态 + 缩略图条 */
 .chat-card.dropping { border-color: var(--terra); background: var(--paper-inset); }
 .chat-thumbs { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px 0; }
@@ -1842,23 +1983,45 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
   font-size: 14px;
   transition: background var(--hover-ease);
 }
-.tool-sq:hover { background: var(--paper-side); }
-.tool-chip {
-  height: 26px;
-  flex: none;
-  white-space: nowrap;
+.tool-sq:hover, .tool-sq[aria-expanded="true"] { background: var(--paper-side); }
+/* 「+」菜单(track opendesign-composer-zcode ①,照 ZCode:一个菜单装「往这句话里加东西」) */
+.composer-plus-wrap { position: relative; flex: none; }
+.composer-menu {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  margin-bottom: 6px;
+  min-width: 220px;
+  width: max-content;
+  max-width: min(300px, calc(100vw - 32px));
+  background: #fff;
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
+  box-shadow: var(--shadow-pop);
+  padding: 4px;
+  z-index: 20;
+}
+.cm-item {
   display: flex;
   align-items: center;
-  border: 1px solid var(--border-main);
-  border-radius: 8px;
-  padding: 0 9px;
-  font-size: 11px;
-  color: var(--ink-3);
-  transition: background var(--hover-ease);
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  text-align: left;
+  white-space: nowrap;
 }
-.tool-chip:hover { background: var(--paper-side); }
-/* 发送按钮(拍板:文字「发送」,不用 ↑ 图标;圆角统一 8px 主按钮体系) */
+.cm-item:hover, .cm-item:focus-visible { background: var(--paper-side); outline: none; }
+.cm-item:disabled { color: var(--ink-5); cursor: default; }
+.cm-item .hint { margin-left: auto; padding-left: 12px; font-size: 11px; color: var(--ink-5); }
+.cm-sep { padding: 6px 8px 2px; font-size: 11px; color: var(--ink-5); border-top: 1px solid var(--border-soft); margin-top: 4px; }
+/* 发送按钮 = 文字「发送」(07-19 修改单原则;09-25 照 ZCode 换过一版 ↑ 图标,业主当天改回 —— track opendesign-send-text)。
+   8px 圆角主色块;回复中换成 .stop-btn(■),两颗同样的最小宽度,换的时候那一排不跳。 */
 .send-btn {
+  min-width: 52px;
   height: 28px;
   flex: none;
   padding: 0 14px;
@@ -1878,6 +2041,21 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
    浅粉旧色像"褪色的可点态",用户分不清能不能点(Kimi #2)。 */
 .send-btn:disabled { background: var(--paper-hover); color: var(--ink-5); cursor: default; }
 .send-btn:disabled:hover { background: var(--paper-hover); }
+.stop-btn {
+  min-width: 52px;
+  height: 28px;
+  flex: none;
+  border-radius: 8px;
+  border: 1px solid var(--border-main);
+  background: var(--paper-side);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--hover-ease);
+}
+.stop-btn:hover { background: var(--paper-hover); }
+.stop-btn:disabled { color: var(--ink-5); cursor: default; }
 
 /* 聊天登录/连接/错误(逻辑不变,壳内窄版) */
 .chat-fill {
@@ -1929,11 +2107,11 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 /* 输入卡里的模型按钮(track opendesign-composer-model-picker):发送键左边,点开向上弹。
    原来左上角那行「已连接 · 模型名」+ … 退出登录已按业主 09-15 拍板删掉。
    09-24 起照 ZCode 两级弹框(ModelMenu.tsx):每家一行 ✓ + ›,向右弹出这家模型,底部粘性「管理模型」。 */
-/* 窄栏(项目页右栏 ~270px)里长模型名要让位:按钮可缩到只剩省略号,「记一下」「发送」不许被挤(判据 ⑯) */
+/* 窄栏(项目页右栏 ~270px)里长模型名要让位:按钮可缩到只剩省略号,「+」「↑」不许被挤(判据 ⑯) */
 .model-pick { position: relative; min-width: 0; display: flex; }
 .model-chip {
   height: 26px;
-  max-width: min(180px, 100%);
+  max-width: min(240px, 100%);
   min-width: 0;
   display: flex;
   align-items: center;
@@ -1947,6 +2125,11 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 .model-chip:hover, .model-chip[aria-expanded="true"] { background: var(--paper-side); }
 .model-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--st-done-dot); flex: none; }
 .model-chip .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 厂商名(③):比模型名弱一档。窄栏里**模型名先让**:③ 要的是一眼看出扣哪家的钱,「GLM 套餐 / GLM 按量」只差后两个字,
+   被压就分不出了;模型名多半自带厂商前缀(deepseek-… / glm-…),省略掉尾巴还认得。厂商名最宽 96px(自定义的最长 40 字,超了省略、悬停看全名)。
+   QA 执行录像第 26 步:两边一起压成「王工工作室(…· relay-…」之后改的。 */
+.model-chip .vendor { flex: none; max-width: 96px; color: var(--ink-5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model-chip .sep { flex: none; color: var(--ink-5); margin: 0 -1px; }
 .model-chip .caret { font-size: 9px; color: var(--ink-5); flex: none; }
 /* 照 ZCode ModelConfigSelect(Radix DropdownMenu):行高 32px、圆角 6px、勾在右、› 在厂商行最右;
    子菜单贴着主菜单右边(放不下翻到左边,.flip);底部「管理模型」粘在最下。 */
@@ -2110,7 +2293,6 @@ button.due-tag:hover { box-shadow: inset 0 0 0 1px var(--border-main); }
 }
 .home-hero .chat-card .tools { padding: 10px 12px 12px; }
 .home-hero .tool-sq { width: 28px; height: 28px; font-size: 15px; }
-.home-hero .tool-chip { height: 28px; padding: 0 10px; font-size: 11.5px; }
 .home-hero .send-btn { height: 30px; padding: 0 16px; font-size: 13px; }
 
 /* 三建议 chip(描边胶囊,预填不自动发) */

@@ -1,0 +1,8 @@
+# panel-review 花名册(2026-09-25 14:29:02)task=opendesign-chat-error-visible-qa-exec-brief
+# PASS = 进程 rc=0,**不等于给了裁决**;off = 这条腿压根没派(不许读成通过)。
+# impact-risk=high requested-budget=2 selected-count=2
+# selected=subdeepseek(deepseek/subdeepseek-agent),subcursor.grok-4.7-high(xai/subcursor)
+# escalation=none
+# snapshot=head:e88bed6
+# 日志:/root/aiwork/logs/explore-chaterr-qa-exec-20260925-142347.*.log
+subdeepseek=EXPLORE(rc=0,coverage=none) subcursor.grok-4.7-high=EXPLORE(rc=0,coverage=none)

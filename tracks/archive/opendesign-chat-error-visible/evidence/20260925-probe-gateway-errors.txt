@@ -1,0 +1,157 @@
+# 探针原始输出(2026-09-25,track opendesign-chat-error-visible)
+# 脚本 = 同目录 probe-gateway-errors.py:真 nanobot 网关(仓库 venv)+ 本机假厂商回指定状态码与报错体;零外网(代理指向没人听的端口)。
+# 每段:实时 ws 事件序列 → webui-thread 回放行 → 网关 ERROR/WARN 行。
+
+===== mode=401
++  1.3s {'event': 'goal_status', 'status': 'running', 'started_at': 1790314335.5810313}
++  1.3s {'event': 'stream_end', 'stream_id': 'websocket:d971683a-4ceb-425f-ad01-56be372428c1:1790314335533338758:0', 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 2}
++  1.3s {'event': 'message', 'text': "Error: {'message': 'Invalid API key', 'type': 'invalid_request_error'}", 'latency_ms': 1275, 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 3}
++  1.3s {'event': 'turn_end', 'latency_ms': 1275, 'goal_state': {'active': False}, 'turn_id': 'turn-1', 'turn_phase': 'complete', 'turn_seq': 4}
+---- replay:
+   {"id": "u-0-1efab423", "role": "user", "content": "你好", "turnId": "turn-1", "turnPhase": "user", "turnSeq": 1, "createdAt": 1790314337874}
+   {"id": "as-2-e4a5a6ad", "role": "assistant", "createdAt": 1790314337876, "content": "Error: {'message': 'Invalid API key', 'type': 'invalid_request_error'}", "latencyMs": 1275, "turnId": "turn-1", "turnPhase": "answer", "turnSeq": 3, "isStreaming": false}
+---- gw log errors:
+2026-09-25 13:32:16 | ERROR | - | LLM returned error: Error: {'message': 'Invalid API key', 'type': 'invalid_request_error'}
+
+===== mode=429q
++  1.0s {'event': 'goal_status', 'status': 'running', 'started_at': 1790314339.7746737}
++  1.0s {'event': 'stream_end', 'stream_id': 'websocket:74bcf09f-f744-497d-bb5e-80753697e0e9:1790314339720912333:0', 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 2}
++  1.0s {'event': 'message', 'text': 'The AI provider rejected the request because the API key is out of quota or the account is in arrears. Please top up / check the billing status of your API key and try again.', 'latency_ms': 975, 'turn_id': 'turn-1', 'turn_phase':
++  1.0s {'event': 'turn_end', 'latency_ms': 975, 'goal_state': {'active': False}, 'turn_id': 'turn-1', 'turn_phase': 'complete', 'turn_seq': 4}
+---- replay:
+   {"id": "u-0-168ab894", "role": "user", "content": "你好", "turnId": "turn-1", "turnPhase": "user", "turnSeq": 1, "createdAt": 1790314341760}
+   {"id": "as-2-3699968d", "role": "assistant", "createdAt": 1790314341762, "content": "The AI provider rejected the request because the API key is out of quota or the account is in arrears. Please top up / check the billing status of your API key and try again.", "latencyMs": 975, "turnId": "turn-1", "turnPhase": "answer", "turnSeq": 3, "isStreaming": false}
+---- gw log errors:
+2026-09-25 13:32:20 | ERROR | - | LLM returned error: The AI provider rejected the request because the API key is out of quota or the account is in arrears. Please top up / check the billing status of your API key and try again.
+
+===== mode=429r
++  0.9s {'event': 'goal_status', 'status': 'running', 'started_at': 1790314342.999338}
++  7.9s {'event': 'stream_end', 'stream_id': 'websocket:7827b71a-fe17-4191-9165-035193c575e0:1790314342960592045:0', 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 2}
++  7.9s {'event': 'message', 'text': "Error: {'message': 'Rate limit reached for requests', 'type': 'rate_limit_error'}", 'latency_ms': 7933, 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 3}
++  7.9s {'event': 'turn_end', 'latency_ms': 7933, 'goal_state': {'active': False}, 'turn_id': 'turn-1', 'turn_phase': 'complete', 'turn_seq': 4}
+---- replay:
+   {"id": "u-0-9774e8f8", "role": "user", "content": "你好", "turnId": "turn-1", "turnPhase": "user", "turnSeq": 1, "createdAt": 1790314351959}
+   {"id": "as-2-4f81c381", "role": "assistant", "createdAt": 1790314351961, "content": "Error: {'message': 'Rate limit reached for requests', 'type': 'rate_limit_error'}", "latencyMs": 7933, "turnId": "turn-1", "turnPhase": "answer", "turnSeq": 3, "isStreaming": false}
+---- gw log errors:
+ repo initialization
+2026-09-25 13:32:23 | WARNING | - | LLM transient error (attempt 1/3), retrying in 1s: error: {'message': 'rate limit reached for requests', 'type': 'rate_limit_error'}
+2026-09-25 13:32:24 | WARNING | - | LLM transient error (attempt 2/3), retrying in 2s: error: {'message': 'rate limit reached for requests', 'type': 'rate_limit_error'}
+2026-09-25 13:32:26 | WARNING | - | LLM transient error (attempt 3/3), retrying in 4s: error: {'message': 'rate limit reached for requests', 'type': 'rate_limit_error'}
+2026-09-25 13:32:30 | WARNING | - | LLM request failed after 4 retries, giving up: error: {'message': 'rate limit reached for requests', 'type': 'rate_limit_error'}
+2026-09-25 13:32:30 | ERROR | - | LLM returned error: Error: {'message': 'Rate limit reached for requests', 'type': 'rate_limit_error'}
+2026-09-25 13:32:30 | WARNING | - | LLM transient error (attempt 1/3), retrying in 1s: error: {'message': 'rate limit reached for requests', 'type': 'rate_limit_error'}
+2026-09-25 13:32:31 | WARNING | - | LLM transient error (attempt 2/3), retrying in 2s: error: {'message': 'rate limit reached for requests', 'type': 'rate_limit_error'}
+2026-09-25 13:32:33 | WARNING | - | LLM transient error (attempt 3/3), retrying in 4s: error: {'message': 'rate limit reached for requests', 'type': 'rate_limit_error'}
+2026-09-25 13:32:37 | WARNING | - | LLM request failed after 4 retries, giving up: error: {'message': 'rate limit reached for requests', 'type': 'rate_limit_error'}
+
+===== mode=500
++  0.9s {'event': 'goal_status', 'status': 'running', 'started_at': 1790314359.47625}
++  7.9s {'event': 'stream_end', 'stream_id': 'websocket:cecfae17-132d-48c3-b48a-a7c57e2de596:1790314359435991126:0', 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 2}
++  7.9s {'event': 'message', 'text': "Error: {'message': 'internal server error', 'type': 'server_error'}", 'latency_ms': 7890, 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 3}
++  7.9s {'event': 'turn_end', 'latency_ms': 7890, 'goal_state': {'active': False}, 'turn_id': 'turn-1', 'turn_phase': 'complete', 'turn_seq': 4}
+---- replay:
+   {"id": "u-0-081784cc", "role": "user", "content": "你好", "turnId": "turn-1", "turnPhase": "user", "turnSeq": 1, "createdAt": 1790314368392}
+   {"id": "as-2-fcc198f8", "role": "assistant", "createdAt": 1790314368394, "content": "Error: {'message': 'internal server error', 'type': 'server_error'}", "latencyMs": 7890, "turnId": "turn-1", "turnPhase": "answer", "turnSeq": 3, "isStreaming": false}
+---- gw log errors:
+2026-09-25 13:32:40 | WARNING | - | LLM transient error (attempt 1/3), retrying in 1s: error: {'message': 'internal server error', 'type': 'server_error'}
+2026-09-25 13:32:41 | WARNING | - | LLM transient error (attempt 2/3), retrying in 2s: error: {'message': 'internal server error', 'type': 'server_error'}
+2026-09-25 13:32:43 | WARNING | - | LLM transient error (attempt 3/3), retrying in 4s: error: {'message': 'internal server error', 'type': 'server_error'}
+2026-09-25 13:32:47 | WARNING | - | LLM request failed after 4 retries, giving up: error: {'message': 'internal server error', 'type': 'server_error'}
+2026-09-25 13:32:47 | ERROR | - | LLM returned error: Error: {'message': 'internal server error', 'type': 'server_error'}
+2026-09-25 13:32:47 | WARNING | - | LLM transient error (attempt 1/3), retrying in 1s: error: {'message': 'internal server error', 'type': 'server_error'}
+2026-09-25 13:32:48 | WARNING | - | LLM transient error (attempt 2/3), retrying in 2s: error: {'message': 'internal server error', 'type': 'server_error'}
+2026-09-25 13:32:50 | WARNING | - | LLM transient error (attempt 3/3), retrying in 4s: error: {'message': 'internal server error', 'type': 'server_error'}
+2026-09-25 13:32:54 | WARNING | - | LLM request failed after 4 retries, giving up: error: {'message': 'internal server error', 'type': 'server_error'}
+
+===== mode=down
++  0.9s {'event': 'goal_status', 'status': 'running', 'started_at': 1790314375.6493006}
++  7.9s {'event': 'stream_end', 'stream_id': 'websocket:e53d5a19-6816-4019-a3b1-06e77ff15b3e:1790314375609545543:0', 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 2}
++  7.9s {'event': 'message', 'text': 'Error calling LLM: Connection error.', 'latency_ms': 7907, 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 3}
++  7.9s {'event': 'turn_end', 'latency_ms': 7907, 'goal_state': {'active': False}, 'turn_id': 'turn-1', 'turn_phase': 'complete', 'turn_seq': 4}
+---- replay:
+   {"id": "u-0-0da1a4a0", "role": "user", "content": "你好", "turnId": "turn-1", "turnPhase": "user", "turnSeq": 1, "createdAt": 1790314384588}
+   {"id": "as-2-d88468ab", "role": "assistant", "createdAt": 1790314384590, "content": "Error calling LLM: Connection error.", "latencyMs": 7907, "turnId": "turn-1", "turnPhase": "answer", "turnSeq": 3, "isStreaming": false}
+---- gw log errors:
+2026-09-25 13:32:56 | WARNING | - | LLM transient error (attempt 1/3), retrying in 1s: error calling llm: connection error.
+2026-09-25 13:32:57 | WARNING | - | LLM transient error (attempt 2/3), retrying in 2s: error calling llm: connection error.
+2026-09-25 13:32:59 | WARNING | - | LLM transient error (attempt 3/3), retrying in 4s: error calling llm: connection error.
+2026-09-25 13:33:03 | WARNING | - | LLM request failed after 4 retries, giving up: error calling llm: connection error.
+2026-09-25 13:33:03 | ERROR | - | LLM returned error: Error calling LLM: Connection error.
+2026-09-25 13:33:03 | WARNING | - | LLM transient error (attempt 1/3), retrying in 1s: error calling llm: connection error.
+2026-09-25 13:33:04 | WARNING | - | LLM transient error (attempt 2/3), retrying in 2s: error calling llm: connection error.
+2026-09-25 13:33:06 | WARNING | - | LLM transient error (attempt 3/3), retrying in 4s: error calling llm: connection error.
+2026-09-25 13:33:10 | WARNING | - | LLM request failed after 4 retries, giving up: error calling llm: connection error.
+
+===== raw mimo-401 HTTP 401 body={"error":{"message":"Invalid API Key","param":"Please provide valid API Key","code":"401","type":"invalid_key"}}
++  0.8s {'event': 'goal_status', 'status': 'running', 'started_at': 1790314391.8764203}
++  0.9s {'event': 'stream_end', 'stream_id': 'websocket:9aa09fa0-3b48-4c90-84ae-307cf2dbc512:1790314391838340325:0', 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 2}
++  0.9s {'event': 'message', 'text': "Error: {'message': 'Invalid API Key', 'param': 'Please provide valid API Key', 'code': '401', 'type': 'invalid_key'}", 'latency_ms': 854, 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 3}
++  0.9s {'event': 'turn_end', 'latency_ms': 854, 'goal_state': {'active': False}, 'turn_id': 'turn-1', 'turn_phase': 'complete', 'turn_seq': 4}
+---- replay:
+   {"id": "u-0-14c5c152", "role": "user", "content": "你好", "turnId": "turn-1", "turnPhase": "user", "turnSeq": 1, "createdAt": 1790314393764}
+   {"id": "as-2-1aca542e", "role": "assistant", "createdAt": 1790314393766, "content": "Error: {'message': 'Invalid API Key', 'param': 'Please provide valid API Key', 'code': '401', 'type': 'invalid_key'}", "latencyMs": 854, "turnId": "turn-1", "turnPhase": "answer", "turnSeq": 3, "isStreaming": false}
+---- gw log errors:
+2026-09-25 13:33:12 | ERROR | - | LLM returned error: Error: {'message': 'Invalid API Key', 'param': 'Please provide valid API Key', 'code': '401', 'type': 'invalid_key'}
+
+===== raw deepseek-401 HTTP 401 body={"error":{"message":"Authentication Fails, Your api key: ****0000 is invalid (request_id: b3895a70-4933-49a6-b70c-f7a84cab683c)","type":"authentication_error","param":null,"code":"invalid_request_error"}}
++  0.8s {'event': 'goal_status', 'status': 'running', 'started_at': 1790314395.0220625}
++  0.8s {'event': 'stream_end', 'stream_id': 'websocket:b349299e-07c3-4c25-bbf6-8c79e6115048:1790314394984031594:0', 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 2}
++  0.8s {'event': 'message', 'text': "Error: {'message': 'Authentication Fails, Your api key: ****0000 is invalid (request_id: b3895a70-4933-49a6-b70c-f7a84cab683c)', 'type': 'authentication_error', 'param': None, 'code': 'invalid_request_error'}", 'latency_ms': 836, 
++  0.8s {'event': 'turn_end', 'latency_ms': 836, 'goal_state': {'active': False}, 'turn_id': 'turn-1', 'turn_phase': 'complete', 'turn_seq': 4}
+---- replay:
+   {"id": "u-0-48181596", "role": "user", "content": "你好", "turnId": "turn-1", "turnPhase": "user", "turnSeq": 1, "createdAt": 1790314396882}
+   {"id": "as-2-4b3850d2", "role": "assistant", "createdAt": 1790314396884, "content": "Error: {'message': 'Authentication Fails, Your api key: ****0000 is invalid (request_id: b3895a70-4933-49a6-b70c-f7a84cab683c)', 'type': 'authentication_error', 'param': None, 'code': 'invalid_request_error'}", "latencyMs": 836, "turnId": "turn-1", "turnPhase": "answer", "turnSeq": 3, "isStreaming": false}
+---- gw log errors:
+2026-09-25 13:33:15 | ERROR | - | LLM returned error: Error: {'message': 'Authentication Fails, Your api key: ****0000 is invalid (request_id: b3895a70-4933-49a6-b70c-f7a84cab683c)', 'type': 'authentication_error', 'param': None, 'code': 'invalid_request
+
+===== raw kimi-401 HTTP 401 body={"error":{"message":"Invalid Authentication","type":"invalid_authentication_error"}}
++  0.9s {'event': 'goal_status', 'status': 'running', 'started_at': 1790314398.1621575}
++  0.9s {'event': 'stream_end', 'stream_id': 'websocket:b3558208-64a3-493e-a105-147f8cc54775:1790314398118434791:0', 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 2}
++  0.9s {'event': 'message', 'text': "Error: {'message': 'Invalid Authentication', 'type': 'invalid_authentication_error'}", 'latency_ms': 915, 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 3}
++  0.9s {'event': 'turn_end', 'latency_ms': 915, 'goal_state': {'active': False}, 'turn_id': 'turn-1', 'turn_phase': 'complete', 'turn_seq': 4}
+---- replay:
+   {"id": "u-0-4e262de9", "role": "user", "content": "你好", "turnId": "turn-1", "turnPhase": "user", "turnSeq": 1, "createdAt": 1790314400097}
+   {"id": "as-2-6944271e", "role": "assistant", "createdAt": 1790314400099, "content": "Error: {'message': 'Invalid Authentication', 'type': 'invalid_authentication_error'}", "latencyMs": 915, "turnId": "turn-1", "turnPhase": "answer", "turnSeq": 3, "isStreaming": false}
+---- gw log errors:
+2026-09-25 13:33:19 | ERROR | - | LLM returned error: Error: {'message': 'Invalid Authentication', 'type': 'invalid_authentication_error'}
+
+===== raw glm-401 HTTP 401 body={"error":{"code":"401","message":"令牌已过期或验证不正确"}}
++  1.0s {'event': 'goal_status', 'status': 'running', 'started_at': 1790314401.3569808}
++  1.0s {'event': 'stream_end', 'stream_id': 'websocket:33d13599-2430-47a7-b2f8-41e4157e98f8:1790314401308070042:0', 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 2}
++  1.0s {'event': 'message', 'text': "Error: {'code': '401', 'message': '令牌已过期或验证不正确'}", 'latency_ms': 985, 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 3}
++  1.0s {'event': 'turn_end', 'latency_ms': 985, 'goal_state': {'active': False}, 'turn_id': 'turn-1', 'turn_phase': 'complete', 'turn_seq': 4}
+---- replay:
+   {"id": "u-0-8e18cc61", "role": "user", "content": "你好", "turnId": "turn-1", "turnPhase": "user", "turnSeq": 1, "createdAt": 1790314403359}
+   {"id": "as-2-29bbb4d6", "role": "assistant", "createdAt": 1790314403361, "content": "Error: {'code': '401', 'message': '令牌已过期或验证不正确'}", "latencyMs": 985, "turnId": "turn-1", "turnPhase": "answer", "turnSeq": 3, "isStreaming": false}
+---- gw log errors:
+2026-09-25 13:33:22 | ERROR | - | LLM returned error: Error: {'code': '401', 'message': '令牌已过期或验证不正确'}
+
+===== raw deepseek-402 HTTP 402 body={"error":{"message":"Insufficient Balance","type":"unknown_error","param":null,"code":"invalid_request_error"}}
++  0.9s {'event': 'goal_status', 'status': 'running', 'started_at': 1790314404.6848207}
++  0.9s {'event': 'stream_end', 'stream_id': 'websocket:7b9ae1ed-1ec9-4660-8e06-d625ac47c727:1790314404646682797:0', 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 2}
++  0.9s {'event': 'message', 'text': 'The AI provider rejected the request because the API key is out of quota or the account is in arrears. Please top up / check the billing status of your API key and try again.', 'latency_ms': 860, 'turn_id': 'turn-1', 'turn_phase':
++  0.9s {'event': 'turn_end', 'latency_ms': 860, 'goal_state': {'active': False}, 'turn_id': 'turn-1', 'turn_phase': 'complete', 'turn_seq': 4}
+---- replay:
+   {"id": "u-0-496839fd", "role": "user", "content": "你好", "turnId": "turn-1", "turnPhase": "user", "turnSeq": 1, "createdAt": 1790314406570}
+   {"id": "as-2-ce49d540", "role": "assistant", "createdAt": 1790314406572, "content": "The AI provider rejected the request because the API key is out of quota or the account is in arrears. Please top up / check the billing status of your API key and try again.", "latencyMs": 860, "turnId": "turn-1", "turnPhase": "answer", "turnSeq": 3, "isStreaming": false}
+---- gw log errors:
+2026-09-25 13:33:25 | ERROR | - | LLM returned error: The AI provider rejected the request because the API key is out of quota or the account is in arrears. Please top up / check the billing status of your API key and try again.
+
+===== raw glm-1113 HTTP 429 body={"error":{"code":"1113","message":"余额不足或无可用资源包,请充值。"}}
++  1.0s {'event': 'goal_status', 'status': 'running', 'started_at': 1790314407.9772322}
++  8.1s {'event': 'stream_end', 'stream_id': 'websocket:3a83aff8-eed4-4a0d-819e-3ee668acd0ec:1790314407898800799:0', 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 2}
++  8.1s {'event': 'message', 'text': "Error: {'code': '1113', 'message': '余额不足或无可用资源包,请充值。'}", 'latency_ms': 8030, 'turn_id': 'turn-1', 'turn_phase': 'answer', 'turn_seq': 3}
++  8.1s {'event': 'turn_end', 'latency_ms': 8030, 'goal_state': {'active': False}, 'turn_id': 'turn-1', 'turn_phase': 'complete', 'turn_seq': 4}
+---- replay:
+   {"id": "u-0-610700a5", "role": "user", "content": "你好", "turnId": "turn-1", "turnPhase": "user", "turnSeq": 1, "createdAt": 1790314417005}
+   {"id": "as-2-8f5e5cfa", "role": "assistant", "createdAt": 1790314417007, "content": "Error: {'code': '1113', 'message': '余额不足或无可用资源包,请充值。'}", "latencyMs": 8030, "turnId": "turn-1", "turnPhase": "answer", "turnSeq": 3, "isStreaming": false}
+---- gw log errors:
+2026-09-25 13:33:28 | WARNING | - | LLM transient error (attempt 1/3), retrying in 1s: error: {'code': '1113', 'message': '余额不足或无可用资源包,请充值。'}
+2026-09-25 13:33:29 | WARNING | - | LLM transient error (attempt 2/3), retrying in 2s: error: {'code': '1113', 'message': '余额不足或无可用资源包,请充值。'}
+2026-09-25 13:33:31 | WARNING | - | LLM transient error (attempt 3/3), retrying in 4s: error: {'code': '1113', 'message': '余额不足或无可用资源包,请充值。'}
+2026-09-25 13:33:35 | WARNING | - | LLM request failed after 4 retries, giving up: error: {'code': '1113', 'message': '余额不足或无可用资源包,请充值。'}
+2026-09-25 13:33:35 | ERROR | - | LLM returned error: Error: {'code': '1113', 'message': '余额不足或无可用资源包,请充值。'}
+2026-09-25 13:33:35 | WARNING | - | LLM transient error (attempt 1/3), retrying in 1s: error: {'code': '1113', 'message': '余额不足或无可用资源包,请充值。'}
+2026-09-25 13:33:36 | WARNING | - | LLM transient error (attempt 2/3), retrying in 2s: error: {'code': '1113', 'message': '余额不足或无可用资源包,请充值。'}
+2026-09-25 13:33:38 | WARNING | - | LLM transient error (attempt 3/3), retrying in 4s: error: {'code': '1113', 'message': '余额不足或无可用资源包,请充值。'}
+2026-09-25 13:33:42 | WARNING | - | LLM request failed after 4 retries, giving up: error: {'code': '1113', 'message': '余额不足或无可用资源包,请充值。'}

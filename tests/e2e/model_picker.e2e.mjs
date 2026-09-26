@@ -202,11 +202,13 @@ try {
   const wsCard = page.locator(".ws-pane .chat-card").first();
   const cardBox = await wsCard.boundingBox();
   const sendWs = await wsCard.locator(".send-btn").boundingBox();
-  const noteWs = await wsCard.locator(".tool-chip").first().boundingBox();
+  // 「✎ 记一下」0.98.14 起挪进「+」菜单(track opendesign-composer-zcode),这一排剩「+」:
+  // 原断言「记一下一行」问的是「长模型名把工具行挤折」,现在问同一件事的对象换成「+」(方块不许被压扁 / 折行)。
+  const noteWs = await wsCard.locator('[data-ui="composer-plus"]').first().boundingBox();
   const chipWs = await wsCard.locator('[data-ui="chat-model"]').boundingBox();
   check(cardBox && sendWs && sendWs.x >= cardBox.x && sendWs.x + sendWs.width <= cardBox.x + cardBox.width + 0.5
         && noteWs && noteWs.height <= 30 && chipWs && chipWs.x + chipWs.width <= sendWs.x + 1,
-    `⑯ 右栏输入卡:「发送」整个在卡里、「记一下」一行、模型按钮不压「发送」(卡 ${JSON.stringify(cardBox)} 发送 ${JSON.stringify(sendWs)} 记一下 ${JSON.stringify(noteWs)})`);
+    `⑯ 右栏输入卡:↑ 整个在卡里、「+」一行、模型按钮(带厂商名)不压 ↑(卡 ${JSON.stringify(cardBox)} 发送 ${JSON.stringify(sendWs)} + ${JSON.stringify(noteWs)})`);
   await page.goto(`${base}/#/`, { waitUntil: "domcontentloaded" });
   await page.locator(chip).waitFor({ state: "visible", timeout: 10000 });
 

@@ -1,0 +1,39 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    takeover-final-host
+cmd:     bash tests/run-all.sh
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  68540f0
+dirty:   yes(跑之前采的;含未跟踪文件)
+head-before: 68540f024bfcdfe84bdb393dd16618abee903f44
+source-view-before: sha256:81b5c5fb6fd6cbcfd99ba47958a2c0b5e422e41ce6a9c56444fbabe7567bd9ba
+started: 2026-09-26T06:58:12Z
+---------------- 输出开始 ----------------
+[1m== 泄漏闸自测(判据的判据)[0m
+   [32m完成[0m  1s
+[1m== node 单测(tests/*.mjs)[0m
+   [32m完成[0m  16s
+[1m== python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python)[0m
+   [32m完成[0m  547s
+[1m== MCP 契约闸[0m
+   [32m完成[0m  5s
+[1m== dist 新鲜度 + 类型检查(npm run build 后 git 应无差异)[0m
+   [32m完成[0m  8s
+[1m== e2e 总跑[0m
+   [32m完成[0m  231s
+
+════ 总跑汇总 ════
+  [32mPASS[0m  泄漏闸自测(判据的判据)   14 条全过
+  [32mPASS[0m  node 单测(tests/*.mjs)           575 通过 / 0 跳过 / 0 todo
+  [32mPASS[0m  python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python) 1578 跑过 / 1 跳过
+  [32mPASS[0m  MCP 契约闸                      三条闸全绿
+  [32mPASS[0m  dist 新鲜度 + 类型检查(npm run build 后 git 应无差异) 与源码同步
+  [32mPASS[0m  e2e 总跑                         45 PASS / 0 FAIL / 2 SKIP
+
+没有红的,但有 3 条没跑 —— 不算通过。
+   要跑那两条 e2e:先按 tests/e2e/README.md 起 gateway,再 tests/run-all.sh --with-gateway
+command-rc: 3
+head-after: 68540f024bfcdfe84bdb393dd16618abee903f44
+source-view-after:  sha256:81b5c5fb6fd6cbcfd99ba47958a2c0b5e422e41ce6a9c56444fbabe7567bd9ba
+source-stable: yes
+---------------- 输出结束 ----------------
+runlog: takeover-final-host rc=3 commit=68540f0 dirty=yes final=yes at=2026-09-26T06:58:12Z file=tracks/opendesign-sidebar-history/evidence/20260926T065812Z-01-takeover-final-host.txt

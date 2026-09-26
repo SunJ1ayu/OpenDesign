@@ -184,9 +184,10 @@ try {
   await modal.waitFor({ state: "detached", timeout: 5000 });
   check(true, "esc 关掉连接 modal");
 
-  // 发送按钮 = 文字「发送」(未连接置灰同形)
-  const sendTxt = (await wsPane.locator(".send-btn").first().innerText()).trim();
-  check(sendTxt === "发送", `发送按钮=文字「发送」(实际:${sendTxt})`);
+  // 发送按钮:0.98.14 起照 ZCode 换成 ↑ 图标(业主 09-25 同意,track opendesign-composer-zcode)——
+  // 原来断的是「文字=发送」,现在断同一件事的无字版本:它仍叫「发送」(读屏 / 悬停),只是不再写字。
+  const sendLbl = await wsPane.locator(".send-btn").first().getAttribute("aria-label");
+  check(sendLbl === "发送", `发送按钮 aria-label=发送(实际:${sendLbl})`);
 
   // ── B:快记单行输入卡 ──────────────────────────────────────────────────
   const qcard = page.locator('[data-ui="quicknote-card"]');

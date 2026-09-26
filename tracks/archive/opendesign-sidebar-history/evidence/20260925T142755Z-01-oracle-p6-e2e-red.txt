@@ -1,0 +1,74 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    oracle-p6-e2e-red
+cmd:     node tests/e2e/sidebar_history.e2e.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  2654b1f
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T14:27:55Z
+---------------- 输出开始 ----------------
+ds-web 0.98.13: http://127.0.0.1:8859/  (DS_DATA_ROOT=/tmp/sidebar-e2e-W4zHwk/ds)
+2026-09-25 22:27:56 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 22:27:57 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-25 22:27:57 127.0.0.1 - "GET /assets/index-CbF3j4E4.css HTTP/1.1" 200 -
+2026-09-25 22:27:57 127.0.0.1 - "GET /assets/index-BeZEbzOY.js HTTP/1.1" 200 -
+2026-09-25 22:27:57 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 22:27:57 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 22:27:57 127.0.0.1 - "GET /api/llm/providers HTTP/1.1" 200 -
+2026-09-25 22:27:57 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 22:27:57 127.0.0.1 - "GET /favicon.ico HTTP/1.1" 404 -
+2026-09-25 22:27:57 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 22:27:58 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 22:27:58 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 22:27:58 127.0.0.1 - "GET /api/projects/%E6%BB%A8%E6%B1%9F-12F/changes HTTP/1.1" 200 -
+2026-09-25 22:27:58 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+  ok - 默认是按时间
+  not ok - ① 按时间(默认):今天 / 昨天 / 更早 分段;先显示一部分,「显示更多」翻到最早的: FAIL: 分段:["今天"]
+  ok - 进了「已置顶」
+  ok - 下面的列表里不再重复
+  ok - 改名框关了
+  ok - 名字没变
+  ok - 没发改名请求
+  ok - 行上是新名字(去了首尾空格)
+2026-09-25 22:27:58 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-25 22:27:58 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 22:27:58 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 22:27:58 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 22:27:58 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 22:27:58 127.0.0.1 - "GET /api/llm/providers HTTP/1.1" 200 -
+2026-09-25 22:27:58 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 22:27:58 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 22:27:58 127.0.0.1 - "GET /api/projects/%E6%BB%A8%E6%B1%9F-12F/changes HTTP/1.1" 200 -
+  ok - 重开还是新名字
+  ok - 重开置顶还在
+2026-09-25 22:27:58 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+  ok - 碰过两个项目的在两个项目下都有:{"fcw":["主材清单讨论","很早的对话25"],"chen":["陈总项目对话","主材清单讨论"]}
+  ok - 项目对话在最前:["陈总项目对话","主材清单讨论"]
+  ok - 置顶的不在项目下重复
+  ok - 其他对话:["天气闲聊","王女士报价","很早的对话01","很早的对话02","很早的对话03"]
+2026-09-25 22:27:59 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-25 22:27:59 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 22:27:59 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 22:27:59 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 22:27:59 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 22:27:59 127.0.0.1 - "GET /api/llm/providers HTTP/1.1" 200 -
+2026-09-25 22:27:59 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 22:27:59 127.0.0.1 - "GET /api/projects/%E6%BB%A8%E6%B1%9F-12F/changes HTTP/1.1" 200 -
+2026-09-25 22:27:59 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+  ok - 重开还是按项目
+2026-09-25 22:27:59 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 22:27:59 127.0.0.1 - "GET /api/projects/%E6%BB%A8%E6%B1%9F-12F/refs HTTP/1.1" 200 -
+2026-09-25 22:27:59 127.0.0.1 - "GET /api/files/overview/%E6%BB%A8%E6%B1%9F-12F HTTP/1.1" 200 -
+2026-09-25 22:27:59 127.0.0.1 - "GET /api/files/images/%E6%BB%A8%E6%B1%9F-12F HTTP/1.1" 200 -
+2026-09-25 22:27:59 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 22:27:59 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+  ok - 点项目名进工作区
+2026-09-25 22:27:59 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+  ok - 挂回了那段对话
+  ok - 回到首页
+  ok - 置顶区里没了
+  ok - 列表里也没了
+  ok - 删的是这一条
+  ok - 页面无未捕获异常:
+sidebar_history.e2e: 1 FAIL
+---------------- 输出结束 ----------------
+runlog: oracle-p6-e2e-red rc=1 commit=2654b1f dirty=yes at=2026-09-25T14:27:55Z file=tracks/opendesign-sidebar-history/evidence/20260925T142755Z-01-oracle-p6-e2e-red.txt

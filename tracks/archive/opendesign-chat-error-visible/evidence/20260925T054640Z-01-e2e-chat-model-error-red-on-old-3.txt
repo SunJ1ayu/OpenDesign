@@ -1,0 +1,42 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    e2e-chat-model-error-red-on-old-3
+cmd:     node tests/e2e/chat_model_error.e2e.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  180782d
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T05:46:40Z
+---------------- 输出开始 ----------------
+ds-web 0.98.13: http://127.0.0.1:8853/  (DS_DATA_ROOT=/tmp/chaterr-e2e-XTKNYa/ds)
+2026-09-25 13:46:41 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 13:46:42 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-25 13:46:42 127.0.0.1 - "GET /assets/index-DVRm7xhZ.css HTTP/1.1" 200 -
+2026-09-25 13:46:42 127.0.0.1 - "GET /assets/index-Bhp7PEg-.js HTTP/1.1" 200 -
+2026-09-25 13:46:42 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 13:46:42 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 13:46:42 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 13:46:42 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 13:46:42 127.0.0.1 - "GET /api/llm/providers HTTP/1.1" 200 -
+2026-09-25 13:46:42 127.0.0.1 - "GET /favicon.ico HTTP/1.1" 404 -
+2026-09-25 13:46:42 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 13:46:42 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 13:46:42 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 13:46:42 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 13:46:42 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+  not ok - ① 发完一句 ⇒ 当场一条出错说明(中文、指去模型设置重填 key 并点测试): locator.waitFor: Timeout 10000ms exceeded.
+Call log:
+[2m  - waiting for locator('.home-pane [data-ui="chat-model-error"]').first() to be visible[22m
+
+  not ok - ① 原文以纯文本小字附着(下划线不被当成 markdown 强调吞掉): FAIL: 有且只有一行原文小字
+  ok - 英文原文成了普通回复:[]
+2026-09-25 13:46:52 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 13:46:52 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 13:46:52 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+  not ok - ② 出错后输入框可用;再发一句正常回复照常来、不带出错样式、不多气泡: FAIL: 助手气泡 = 出错说明 1 + 正常回复 1,实得 1
+  not ok - ③ 从侧栏点回那段历史(走回放)⇒ 同一句中文,没有英文原文当正文: locator.innerText: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('.home-pane [data-ui="chat-model-error"]').first()[22m
+
+  ok - 页面无未捕获异常:
+chat_model_error.e2e: 4 FAIL
+---------------- 输出结束 ----------------
+runlog: e2e-chat-model-error-red-on-old-3 rc=1 commit=180782d dirty=yes at=2026-09-25T05:46:40Z file=tracks/opendesign-chat-error-visible/evidence/20260925T054640Z-01-e2e-chat-model-error-red-on-old-3.txt

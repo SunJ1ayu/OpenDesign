@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-chat-error-visible",
+  "run_id": "20260925T054640Z-01-e2e-chat-model-error-red-on-old-3",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "e2e-chat-model-error-red-on-old-3",
+  "started_at": "2026-09-25T05:46:40Z",
+  "finished_at": "2026-09-25T05:47:22Z",
+  "duration_ms": 42021,
+  "exit_code": 1,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 1,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

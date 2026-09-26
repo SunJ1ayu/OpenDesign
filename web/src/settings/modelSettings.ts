@@ -249,7 +249,8 @@ export async function testModel(fetchFn: FetchLike, provider: string, model: str
 export function restartNotice(restart: unknown, savedIsCurrent = false, savedDisabled = false): string {
   if (restart === "live" && savedDisabled) {
     // 未启用的那家不在换模型菜单里(D3),不能叫他去右下角换(第 1 轮评审 DeepSeek #1);正在用的那家不许禁用,所以这里一定不是当前那家
-    return "已保存。这家现在未启用:在上面打开「启用」后,才会出现在聊天框右下角的换模型里。";
+    // 开关旁显示的字是「未启用 / 已启用」(ModelSettings.tsx),没有叫「启用」的按钮 —— 叫法要对得上(key-restart QA 执行顺带发现)
+    return "已保存。这家现在是「未启用」:把上面「未启用」旁边的开关打开,它才会出现在聊天框右下角的换模型里。";
   }
   if (restart === "live") {
     // 网关在跑、现读 key 文件(ds_web.key_saved_verdict;track opendesign-key-restart):不重启、连接不断。

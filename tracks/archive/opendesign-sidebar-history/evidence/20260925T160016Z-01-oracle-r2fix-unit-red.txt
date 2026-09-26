@@ -1,0 +1,105 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    oracle-r2fix-unit-red
+cmd:     node --test tests/test_sidebar_history.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  bc84d28
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T16:00:16Z
+---------------- 输出开始 ----------------
+TAP version 13
+# Subtest: s1 分段:今天 / 昨天 / 更早,按本机日期(不是 24 小时滚动)
+ok 1 - s1 分段:今天 / 昨天 / 更早,按本机日期(不是 24 小时滚动)
+  ---
+  duration_ms: 1.447669
+  type: 'test'
+  ...
+# Subtest: s2 按时间:分段按顺序、段内最近在前;空段不出;置顶的抽走
+ok 2 - s2 按时间:分段按顺序、段内最近在前;空段不出;置顶的抽走
+  ---
+  duration_ms: 1.811551
+  type: 'test'
+  ...
+# Subtest: s3 显示名:改过的名字优先,否则自动名字 / 预览 /「(未命名对话)」
+ok 3 - s3 显示名:改过的名字优先,否则自动名字 / 预览 /「(未命名对话)」
+  ---
+  duration_ms: 0.244826
+  type: 'test'
+  ...
+# Subtest: s4 对话碰过哪些项目:派生的 + 项目对话映射,去重、项目对话在前、按 key 或名字对上、删掉的项目忽略
+ok 4 - s4 对话碰过哪些项目:派生的 + 项目对话映射,去重、项目对话在前、按 key 或名字对上、删掉的项目忽略
+  ---
+  duration_ms: 0.491969
+  type: 'test'
+  ...
+# Subtest: s5 按项目:碰过几个项目就在几个项目下都出现;项目对话在前、其余最近在前;没碰过的进「其他」;置顶的全抽走
+ok 5 - s5 按项目:碰过几个项目就在几个项目下都出现;项目对话在前、其余最近在前;没碰过的进「其他」;置顶的全抽走
+  ---
+  duration_ms: 0.515319
+  type: 'test'
+  ...
+# Subtest: s6 改名:去首尾空格;空 / 全空格 ⇒ null(取消,名字不变);超长截到 160
+ok 6 - s6 改名:去首尾空格;空 / 全空格 ⇒ null(取消,名字不变);超长截到 160
+  ---
+  duration_ms: 0.193596
+  type: 'test'
+  ...
+# Subtest: s7 按时间视图的项目小标:第一个(项目对话优先)+「+N」;没有 ⇒ null
+ok 7 - s7 按时间视图的项目小标:第一个(项目对话优先)+「+N」;没有 ⇒ null
+  ---
+  duration_ms: 0.277643
+  type: 'test'
+  ...
+# Subtest: s8 最后聊天时间盖掉网关的 updated_at;没有就用原来的;不改原数组
+ok 8 - s8 最后聊天时间盖掉网关的 updated_at;没有就用原来的;不改原数组
+  ---
+  duration_ms: 0.229296
+  type: 'test'
+  ...
+# Subtest: s9 排队:后一个等前一个做完才开始;前一个失败不挡后一个;各自拿到自己的结果
+ok 9 - s9 排队:后一个等前一个做完才开始;前一个失败不挡后一个;各自拿到自己的结果
+  ---
+  duration_ms: 31.176181
+  type: 'test'
+  ...
+# Subtest: s10 改名:现在还有的项目优先;顺着改名找;改错又改回去不挂反;成环且都没了就不挂
+not ok 10 - s10 改名:现在还有的项目优先;顺着改名找;改错又改回去不挂反;成环且都没了就不挂
+  ---
+  duration_ms: 1.757452
+  type: 'test'
+  location: '/root/.openclaw/workspace/projects/design-studio/tests/test_sidebar_history.mjs:144:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+    + []
+    - [
+    -   '老宅翻新'
+    - ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0: '老宅翻新'
+  actual:
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///root/.openclaw/workspace/projects/design-studio/tests/test_sidebar_history.mjs:147:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 9
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 190.569131
+---------------- 输出结束 ----------------
+runlog: oracle-r2fix-unit-red rc=1 commit=bc84d28 dirty=yes at=2026-09-25T16:00:16Z file=tracks/opendesign-sidebar-history/evidence/20260925T160016Z-01-oracle-r2fix-unit-red.txt

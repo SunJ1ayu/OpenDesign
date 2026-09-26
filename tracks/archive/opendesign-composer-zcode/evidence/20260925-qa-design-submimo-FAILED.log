@@ -1,0 +1,11 @@
+# submimo explore log
+time: 2026-09-25T16:42:05+08:00
+mode: explore
+agent: aiwork-review
+repo: /root/qa-blackbox-repo
+task: /root/qa-blackbox-repo/.submimo-task-1085067.md
+model: xiaomi/mimo-v2.6-pro
+
+[91m[1mError: [0mUnexpected error, check log file at /root/.local/share/mimocode/log/2026-09-25T084219.log for more details
+
+EROFS: read-only file system, open

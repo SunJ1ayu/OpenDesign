@@ -1,0 +1,8 @@
+# panel-review 花名册(2026-09-25 14:31:26)task=opendesign-chat-error-visible-r1
+# PASS = 进程 rc=0,**不等于给了裁决**;off = 这条腿压根没派(不许读成通过)。
+# impact-risk=standard requested-budget=1 selected-count=1
+# selected=subdeepseek(deepseek/subdeepseek-agent)
+# escalation=none
+# snapshot=head:e88bed6
+# 日志:/root/aiwork/logs/panel-chaterr-r1-20260925-142541.*.log
+subdeepseek=PASS(verdict=PASS)

@@ -1,0 +1,78 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    mutation-composer-zcode-r1fix
+cmd:     bash tests/mutation-composer-zcode.sh Z20 Z21 Z22 Z23 Z24
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  dfb6aa7
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T09:42:07Z
+---------------- 输出开始 ----------------
+  [漏网] Z20 —— 新一轮带着上一轮的停止标记(■ 一直灰,评审 R2)(rc=1,没见到「not ok 19 - c19」)
+        # Subtest: c18 窗口开着过分界自动换:到下一个分界点的毫秒数
+        ok 21 - c18 窗口开着过分界自动换:到下一个分界点的毫秒数
+          ---
+          duration_ms: 0.227607
+          type: 'test'
+          ...
+        1..21
+        # tests 21
+        # suites 0
+        # pass 20
+        # fail 1
+        # cancelled 0
+        # skipped 0
+        # todo 0
+        # duration_ms 241.323158
+  [漏网] Z21 —— 出错收尾不清停止标记(评审 R2)(rc=1,没见到「not ok 19 - c19」)
+        # Subtest: c18 窗口开着过分界自动换:到下一个分界点的毫秒数
+        ok 21 - c18 窗口开着过分界自动换:到下一个分界点的毫秒数
+          ---
+          duration_ms: 0.164248
+          type: 'test'
+          ...
+        1..21
+        # tests 21
+        # suites 0
+        # pass 20
+        # fail 1
+        # cancelled 0
+        # skipped 0
+        # todo 0
+        # duration_ms 171.740089
+  [漏网] Z22 —— 后台子任务回报也当停止回话,提前解锁(评审 R3)(rc=1,没见到「not ok 20 - c20」)
+        # Subtest: c18 窗口开着过分界自动换:到下一个分界点的毫秒数
+        ok 21 - c18 窗口开着过分界自动换:到下一个分界点的毫秒数
+          ---
+          duration_ms: 0.231286
+          type: 'test'
+          ...
+        1..21
+        # tests 21
+        # suites 0
+        # pass 20
+        # fail 1
+        # cancelled 0
+        # skipped 0
+        # todo 0
+        # duration_ms 199.867139
+  [漏网] Z23 —— 断线后放掉这一轮不清停止标记(评审 R2)(rc=1,没见到「not ok 19 - c19」)
+        # Subtest: c18 窗口开着过分界自动换:到下一个分界点的毫秒数
+        ok 21 - c18 窗口开着过分界自动换:到下一个分界点的毫秒数
+          ---
+          duration_ms: 0.196537
+          type: 'test'
+          ...
+        1..21
+        # tests 21
+        # suites 0
+        # pass 20
+        # fail 1
+        # cancelled 0
+        # skipped 0
+        # todo 0
+        # duration_ms 182.504975
+  [咬住] Z24 —— 停下之后侧栏历史 / 项目数据不刷新(评审 R1)
+红检:咬住 1 / 漏网 4
+(已按还原后的源码重新构建 web/dist)
+(已还原源码)
+---------------- 输出结束 ----------------
+runlog: mutation-composer-zcode-r1fix rc=1 commit=dfb6aa7 dirty=yes at=2026-09-25T09:42:07Z file=tracks/opendesign-composer-zcode/evidence/20260925T094207Z-01-mutation-composer-zcode-r1fix.txt

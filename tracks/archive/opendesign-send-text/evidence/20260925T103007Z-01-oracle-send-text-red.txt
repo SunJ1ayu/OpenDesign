@@ -1,0 +1,82 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    oracle-send-text-red
+cmd:     node tests/e2e/composer_zcode.e2e.mjs
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  d67e80d
+dirty:   yes(跑之前采的;含未跟踪文件)
+started: 2026-09-25T10:30:07Z
+---------------- 输出开始 ----------------
+ds-web 0.98.13: http://127.0.0.1:8857/  (DS_DATA_ROOT=/tmp/composer-e2e-kitPL5/ds)
+2026-09-25 18:30:07 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 18:30:08 127.0.0.1 - "GET / HTTP/1.1" 200 -
+2026-09-25 18:30:08 127.0.0.1 - "GET /assets/index-B19eWTzl.css HTTP/1.1" 200 -
+2026-09-25 18:30:08 127.0.0.1 - "GET /assets/index-DEcyfUe5.js HTTP/1.1" 200 -
+2026-09-25 18:30:09 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 18:30:09 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 18:30:09 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
+2026-09-25 18:30:09 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 18:30:09 127.0.0.1 - "GET /favicon.ico HTTP/1.1" 404 -
+2026-09-25 18:30:09 127.0.0.1 - "GET /api/llm/providers HTTP/1.1" 200 -
+2026-09-25 18:30:09 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+2026-09-25 18:30:09 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+  ok - 问候语:"下午好,今天想聊点什么?"
+  ok - 占位字:"聊设计、找参考;输入 / 选技能"
+  ok - 输入卡里没有「✎ 记一下」
+  ok - 菜单四项:["图片\n也可拖进来 / Ctrl+V","记\n记一下","理\n整理文件夹","图\n找参考图"]
+  ok - 图片那一项写着也可拖进来 / Ctrl+V
+  ok - 点「图片」弹出选图
+  ok - 补开头:"记一下:客厅改浅色"
+  ok - 点完菜单关上
+  ok - 换开头不叠:"找参考图:客厅改浅色"
+  ok - 一条都没发出去
+  ok - 打 / ⇒ 三个技能
+  ok - 打成 /参考 ⇒ 只剩一个
+  ok - 剩下的是找参考图
+  ok - Enter 用技能:"找参考图:"
+  ok - 用完表收起
+  ok - Enter 没把 /参考 发出去
+  ok - 「、」开头 ⇒ 弹技能表
+  ok - Esc ⇒ 收起
+  ok - 草稿没被动
+  ok - /xyz 不弹
+  ok - Enter 把 /xyz 当普通话发出去
+2026-09-25 18:30:10 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 18:30:10 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 18:30:10 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+  ok - 按钮上的字:"MiMo\n·\nmimo-v2.5\n▴"
+  ok - 按钮上是短名(括号部分去掉)
+  ok - 悬停提示带全名:"MiMo(小米) · mimo-v2.5(点这里换模型,所有对话下一句起生效)"
+  ok - 发送键 aria-label=发送
+  not ok - ④ 发送是 ↑ 图标;回复中变 ■,点了 ⇒ 替身收到 /stop、半截留着、中文「已停止」、解锁: FAIL: 发送键上是文字「发送」(实际:"")
+2026-09-25 18:30:10 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 18:30:10 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 18:30:10 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+  ok - 发出去了、回复完了
+2026-09-25 18:30:10 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 18:30:10 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 18:30:10 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+  ok - 解锁
+  ok - 思考动画收掉
+  ok - 没有多出助手气泡(前 2 后 2)
+  not ok - ④ 还在想(没出字)就停 ⇒ 解锁,没有空白助手气泡: FAIL: 多一行「已停止」
+2026-09-25 18:30:10 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 18:30:10 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+  ok - 两栏各自一个聊天
+2026-09-25 18:30:11 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+2026-09-25 18:30:11 127.0.0.1 - "GET /api/intake HTTP/1.1" 200 -
+2026-09-25 18:30:11 127.0.0.1 - "GET /api/projects HTTP/1.1" 200 -
+2026-09-25 18:30:11 127.0.0.1 - "GET /api/todos HTTP/1.1" 200 -
+2026-09-25 18:30:11 127.0.0.1 - "GET /api/consent HTTP/1.1" 200 -
+  ok - 项目栏停了
+  ok - 这次的 /stop 发在项目栏自己的聊天上
+  not ok - ④ 三个聊天栏:只停点的那一栏,首页那条照常说完: FAIL: 首页那条还在出字(0 → 0)
+2026-09-25 18:30:11 127.0.0.1 - "GET /api/llm/models HTTP/1.1" 200 -
+  ok - 回放里一行系统小字
+  ok - 回放小字中文:"已停止(已经开始的那一步可能已做完)"
+  ok - 回放与实时同一句:实时 "已停止(已经开始的那一步可能已做完)" 回放 "已停止(已经开始的那一步可能已做完)"
+  ok - 半截回答在
+  ok - 没有英文原句当回答
+  ok - 页面无未捕获异常:
+composer_zcode.e2e: 3 FAIL
+---------------- 输出结束 ----------------
+runlog: oracle-send-text-red rc=1 commit=d67e80d dirty=yes at=2026-09-25T10:30:07Z file=tracks/opendesign-send-text/evidence/20260925T103007Z-01-oracle-send-text-red.txt

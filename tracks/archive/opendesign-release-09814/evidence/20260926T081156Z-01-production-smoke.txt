@@ -1,0 +1,41 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    production-smoke
+cmd:     python3 -u /root/opendesign-release14/prod-smoke.py
+cwd:     /root/.openclaw/workspace/projects/design-studio(仓根)
+commit:  88533f4
+dirty:   no(跑之前采的;含未跟踪文件)
+head-before: 88533f447e1e2af12e8559cd62381170b6f3a822
+source-view-before: sha256:4b7516ab4079b5c57d3f95d050fdc55d065a04ff503ed6a189edd83fd86f67f2
+started: 2026-09-26T08:11:56Z
+---------------- 输出开始 ----------------
+PASS formal release published
+PASS published notes match approved notes
+PASS official latest release is v0.98.14
+PASS exactly three expected published assets
+PASS release tag resolves to tested product commit b37b8ddd4c3be2f35fccf6c8a853caab3036bd0f
+PASS remote main matches release preparation commit 88533f447e1e2af12e8559cd62381170b6f3a822
+PASS HTTP 200 https://github.com/SunJ1ayu/OpenDesign/releases/latest/download/latest.yml
+PASS official automatic-update feed matches approved bytes
+PASS live feed version is 0.98.14
+PASS versioned official URL OpenDesign-0.98.14-electron-setup.exe
+PASS HTTP 200 https://github.com/SunJ1ayu/OpenDesign/releases/download/v0.98.14/OpenDesign-0.98.14-electron-setup.exe
+PASS published bytes OpenDesign-0.98.14-electron-setup.exe size=164798174 sha256=fa4373c3e5e3ae1ce222880665658f56209ee4fc336ac1caae9deeed872c9ae9
+PASS live update feed points at verified installer
+PASS versioned official URL OpenDesign-0.98.14-electron-setup.exe.blockmap
+PASS HTTP 200 https://github.com/SunJ1ayu/OpenDesign/releases/download/v0.98.14/OpenDesign-0.98.14-electron-setup.exe.blockmap
+PASS published bytes OpenDesign-0.98.14-electron-setup.exe.blockmap size=173397 sha256=65f195355c509c0378bb8f422dba4d7d6a03943fa5d845e14d46618299718982
+PASS versioned official URL latest.yml
+PASS HTTP 200 https://github.com/SunJ1ayu/OpenDesign/releases/download/v0.98.14/latest.yml
+PASS published bytes latest.yml size=505 sha256=49d9fea820981a9c9ecdd26932271397bc752f179800f4a834945517313cdc9e
+PASS live installer downloaded and hashed
+PASS live feed sha512 matches live installer
+PASS live feed size matches live installer
+PASS HTTP 200 https://github.com/SunJ1ayu/OpenDesign/releases/download/v0.98.13/OpenDesign-0.98.13-electron-setup.exe.blockmap
+PASS previous blockmap remains downloadable for differential update
+PRODUCTION SMOKE PASS https://github.com/SunJ1ayu/OpenDesign/releases/tag/v0.98.14 published_at=2026-09-26T08:08:45Z
+command-rc: 0
+head-after: 88533f447e1e2af12e8559cd62381170b6f3a822
+source-view-after:  sha256:4b7516ab4079b5c57d3f95d050fdc55d065a04ff503ed6a189edd83fd86f67f2
+source-stable: yes
+---------------- 输出结束 ----------------
+runlog: production-smoke rc=0 commit=88533f4 dirty=no final=yes at=2026-09-26T08:11:56Z file=tracks/opendesign-release-09814/evidence/20260926T081156Z-01-production-smoke.txt

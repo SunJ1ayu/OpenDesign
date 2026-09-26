@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { hasDesktopUpdateBadge, RESTART_HINT, showRestart } from "../desktopUpdate";
 import type { DesktopUpdateState } from "../desktopShell";
 import type { Project } from "../api";
@@ -10,6 +10,7 @@ import {
   groupProjectsByStage, isStageGroupOpen, loadStagePrefs, revealStage,
   SIDE_STAGE_STORAGE_KEY, type StageGroup, type StagePrefs,
 } from "./projectGroups";
+import { byRecent, cleanRename, displayTitle, firstTag, projectView, timeSections } from "./sidebarModel";
 
 // 左侧栏 v2(P3 T3,handoff §1,240px):品牌 / 全局操作组(新对话/搜索/
 // 待办事项/技能)/ 历史对话 / 项目 / 设置入口(09-24 起开设置整页)。图标 09-23 由 Unicode 占位换成
@@ -19,6 +20,17 @@ import {
 // 待办事项=todos、技能=skills;搜索是弹层无路由不设),
 // 项目行的白底卡片当前态只在 workspace 路由呈现(t3 画板:3a 下项目行均普通态,
 // 仅选中项目圆点保持赤陶)。
+// 09-25 历史对话照 ZCode 改(track opendesign-sidebar-history,业主「方案一和方案二一起做」):
+// 置顶区 +「按时间 | 按项目」切换(记住上次选的);按时间 = 今天 / 昨天 / 更早 + 显示更多;
+// 按项目 = 项目栏每个项目右边的数字展开它的对话 + 最下「其他对话」;每行「⋯」置顶 / 改名 / 删除。
+// 中间(历史 + 项目 + 其他)一整块滚动,「显示更多」不会把项目栏挤出去(4c C5)。
+
+/** 两种视图记在本机(不是业主数据,丢了回默认「按时间」)。 */
+export const SIDE_VIEW_STORAGE_KEY = "odw.sideView";
+type SideView = "time" | "project";
+const TIME_FIRST = 10;   // 按时间先显示几条
+const LIST_FIRST = 5;    // 项目 / 其他对话展开后先显示几条
+const MORE_STEP = 20;    // 每点一次「显示更多」多几条
 
 export type SessionItem = { key: string; title?: string; preview?: string; updated_at?: string };
 
@@ -34,10 +46,17 @@ type Props = {
   sessions: SessionItem[] | null; // null = 未连接/不可用(隐藏区块内容)
   /** -p2:被"猜"成结构目录、因此没进列表的文件夹名(显式声明的不报) */
   excludedStructural?: string[];
-  /** project-thread:sessionKey → 项目显示名(命中项目映射的会话加小标) */
-  sessionTags?: Record<string, string>;
+  /** 每段对话碰过的项目 key(项目对话在前;App 由 sidebarModel.sessionProjects 算好) */
+  sessionProjects: Record<string, string[]>;
+  /** 项目对话(project-thread 映射)的会话 key:按项目视图里排在它自己项目的最前 */
+  threadKeys: ReadonlySet<string>;
+  pinnedKeys: string[];
+  titleOverrides: Record<string, string>;
   onOpenSession: (s: SessionItem) => void; // p6:点历史行 → 首页 attach 续聊
-  onDeleteSession: (s: SessionItem) => void; // p7:悬停 ✕,确认在 App 层
+  onDeleteSession: (s: SessionItem) => void; // ⋯ → 删除,确认在 App 层
+  onPinSession: (s: SessionItem, pinned: boolean) => void;
+  /** 只在名字真变了时调;空名字在这层就当取消,不会传进来 */
+  onRenameSession: (s: SessionItem, title: string) => void;
   onNewChat: () => void;
   onNewProject: () => void;
   onSearch: () => void;
@@ -66,7 +85,8 @@ function dotTitle(p: Project, current: boolean): string {
 export default function Sidebar({
   route, projects, stages, selectedKey, onSelectProject, todosOpenCount, excludedStructural,
   onOpenSettings,
-  sessions, sessionTags, onOpenSession, onDeleteSession, onNewChat, onNewProject,
+  sessions, sessionProjects, threadKeys, pinnedKeys, titleOverrides,
+  onOpenSession, onDeleteSession, onPinSession, onRenameSession, onNewChat, onNewProject,
   onSearch, desktopShell, updateState, onInstallUpdate,
 }: Props) {
 
@@ -96,13 +116,148 @@ export default function Sidebar({
     if (next !== stagePrefs) writeStagePrefs(next);
   }, [selectedKey, groups, stagePrefs]);
 
-  const recent = (sessions ?? []).slice(0, 2);
+  // ---- 历史对话 ----
+  const [view, setView] = useState<SideView>(() => {
+    try { return localStorage.getItem(SIDE_VIEW_STORAGE_KEY) === "project" ? "project" : "time"; }
+    catch { return "time"; }
+  });
+  const writeView = (v: SideView) => {
+    setView(v);
+    try { localStorage.setItem(SIDE_VIEW_STORAGE_KEY, v); } catch { /* 记不住就算了 */ }
+  };
+  const [timeShown, setTimeShown] = useState(TIME_FIRST);
+  const [otherShown, setOtherShown] = useState(LIST_FIRST);
+  const [openProj, setOpenProj] = useState<Record<string, boolean>>({});
+  const [projShown, setProjShown] = useState<Record<string, number>>({});
+  // 同一段对话在按项目视图里可能出现在好几处 ⇒ 菜单 / 改名框按「哪一处 | 哪一段」认,只开在点的那一处
+  const [menuId, setMenuId] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<{ id: string; draft: string } | null>(null);
+  const renamingRef = useRef<string | null>(null);
+
+  // 菜单开着时:点别处 / Esc 关掉
+  useEffect(() => {
+    if (!menuId) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Element | null;
+      if (!t?.closest?.(".hist-pop, .hist-menu")) setMenuId(null);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMenuId(null); };
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [menuId]);
+
+  const nameOf = useMemo(() => {
+    const m = new Map(projects.map((p) => [p.key, displayProjectName(p.name || p.key)]));
+    return (k: string) => m.get(k) ?? k;
+  }, [projects]);
+  const pinnedSet = useMemo(() => new Set(pinnedKeys), [pinnedKeys]);
+  const pinnedList = useMemo(
+    () => byRecent((sessions ?? []).filter((s) => pinnedSet.has(s.key))),
+    [sessions, pinnedSet],
+  );
+  const unpinnedCount = (sessions ?? []).length - pinnedList.length;
+  const pv = useMemo(
+    () => projectView(sessions ?? [], (k) => sessionProjects[k] ?? [], pinnedKeys, threadKeys),
+    [sessions, sessionProjects, pinnedKeys, threadKeys],
+  );
+
+  const startRename = (id: string, s: SessionItem) => {
+    setMenuId(null);
+    renamingRef.current = id;
+    setRenaming({ id, draft: displayTitle(s, titleOverrides) });
+  };
+  // Enter 与失焦都走这里;renamingRef 防 Enter 之后卸载那一下的失焦再存一遍
+  const finishRename = (s: SessionItem, id: string, save: boolean, draft: string) => {
+    if (renamingRef.current !== id) return;
+    renamingRef.current = null;
+    setRenaming(null);
+    if (!save) return;
+    const t = cleanRename(draft);
+    if (t !== null && t !== displayTitle(s, titleOverrides)) onRenameSession(s, t);
+  };
+
+  const histRow = (s: SessionItem, where: string, tag: { text: string; all: string } | null = null) => {
+    const id = `${where}|${s.key}`;
+    const title = displayTitle(s, titleOverrides);
+    if (renaming?.id === id) {
+      return (
+        <div className="hist-item" key={s.key}>
+          <input
+            className="hist-rename"
+            data-ui="hist-rename-input"
+            autoFocus
+            maxLength={200}
+            value={renaming.draft}
+            aria-label="对话的新名字"
+            onChange={(e) => setRenaming({ id, draft: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); finishRename(s, id, true, e.currentTarget.value); }
+              else if (e.key === "Escape") { e.preventDefault(); finishRename(s, id, false, ""); }
+            }}
+            onBlur={(e) => finishRename(s, id, true, e.currentTarget.value)}
+          />
+        </div>
+      );
+    }
+    const pinned = pinnedSet.has(s.key);
+    const open = menuId === id;
+    return (
+      <div className={`hist-item${open ? " menu-open" : ""}`} key={s.key}>
+        <button className="hist-row" title={title} onClick={() => onOpenSession(s)}>
+          <span className="t">{title}</span>
+          {tag && <span className="hist-proj" title={tag.all}>{tag.text}</span>}
+          <span className="when">{relTime(s.updated_at)}</span>
+          {/* span 非嵌套 button(HTML 不允许);阻冒泡免触发续聊 */}
+          <span
+            className="hist-menu"
+            role="button"
+            data-ui="hist-menu"
+            title="置顶 / 改名 / 删除"
+            aria-haspopup="menu"
+            aria-expanded={open}
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuId(open ? null : id);
+            }}
+          >
+            ⋯
+          </span>
+        </button>
+        {open && (
+          <div className="hist-pop" role="menu" data-ui="hist-pop">
+            <button role="menuitem" data-ui="hist-pin"
+                    onClick={() => { setMenuId(null); onPinSession(s, !pinned); }}>
+              {pinned ? "取消置顶" : "置顶"}
+            </button>
+            <button role="menuitem" data-ui="hist-rename" onClick={() => startRename(id, s)}>改名</button>
+            <button role="menuitem" className="danger" data-ui="hist-delete"
+                    onClick={() => { setMenuId(null); onDeleteSession(s); }}>
+              删除
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+  // 小标只写第一个 +N;悬停列出全部(QA DeepSeek / GLM:「翡翠湾-1801 +1」看不出另一个是哪个)
+  const tagOf = (key: string) => {
+    const keys = sessionProjects[key] ?? [];
+    const text = firstTag(keys, nameOf);
+    return text ? { text, all: `碰过的项目:${keys.map(nameOf).join("、")}` } : null;
+  };
+  const moreBtn = (onMore: () => void) => (
+    <button className="side-more" data-ui="side-more" onClick={onMore}>显示更多</button>
+  );
 
   const projRow = (p: Project) => {
     const current = p.key === selectedKey;
     // 白底卡片当前态只在 2a(workspace)呈现;3a 等页选中项目仅保留赤陶圆点
     const card = current && route === "workspace";
-    return (
+    const row = (
       <button
         key={p.key}
         className={`proj-row${card ? " current" : ""}${p.delivered ? " delivered" : ""}${p.unregistered ? " unregistered" : ""}`}
@@ -120,6 +275,40 @@ export default function Sidebar({
           p.open_count > 0 && <span className="n-open">{p.open_count}</span>
         )}
       </button>
+    );
+    if (view !== "project" || sessions === null) return row;
+    // 按项目:项目行照旧(点了进工作区),右边一个「对话数 ▸」展开它的对话
+    const list = pv.byProject[p.key] ?? [];
+    const expanded = !!openProj[p.key] && list.length > 0;
+    const shown = projShown[p.key] ?? LIST_FIRST;
+    return (
+      <Fragment key={p.key}>
+        <div className="proj-item">
+          {row}
+          {list.length > 0 && (
+            <button
+              className="proj-expand"
+              data-ui="proj-expand"
+              data-project={p.key}
+              aria-expanded={expanded}
+              aria-label={`${expanded ? "收起" : "展开"}这个项目的 ${list.length} 段对话`}
+              title={expanded ? "收起这个项目的对话" : `看这个项目的 ${list.length} 段对话`}
+              onClick={() => setOpenProj((m) => ({ ...m, [p.key]: !expanded }))}
+            >
+              {/* 对话图标:和左边的待办数(裸数字)区分开(QA Gemini:「2 2 ▾」分不清哪个是待办、哪个是对话) */}
+              <SideIcon name="message-circle" />
+              {list.length}<span className="chev">{expanded ? "▾" : "▸"}</span>
+            </button>
+          )}
+        </div>
+        {expanded && (
+          <div className="side-list proj-sessions" data-ui="proj-sessions" data-project={p.key}>
+            {list.slice(0, shown).map((s) => histRow(s, `p:${p.key}`))}
+            {list.length > shown
+              && moreBtn(() => setProjShown((m) => ({ ...m, [p.key]: shown + MORE_STEP })))}
+          </div>
+        )}
+      </Fragment>
     );
   };
 
@@ -189,41 +378,48 @@ export default function Sidebar({
         </button>
       </div>
 
+      <div className="side-scroll" data-ui="side-scroll">
       {/* 历史对话(修改单 F4:未连接时整组隐藏——sessions===null 即未连接) */}
       {sessions !== null && (
         <>
           <div className="side-sect">
             <span className="sect-title">历史对话</span>
             <span className="grow" />
-            <button className="sect-link" title="全部对话(即将支持)">全部</button>
-          </div>
-          <div className="side-list">
-            {recent.map((s) => (
-              <button
-                className="hist-row"
-                key={s.key}
-                title={s.title || s.preview || ""}
-                onClick={() => onOpenSession(s)}
-              >
-                <span className="t">{s.title || s.preview || "(未命名对话)"}</span>
-                {sessionTags?.[s.key] && <span className="hist-proj">{sessionTags[s.key]}</span>}
-                <span className="when">{relTime(s.updated_at)}</span>
-                {/* span 非嵌套 button(HTML 不允许);阻冒泡免触发续聊 */}
-                <span
-                  className="hist-del"
-                  role="button"
-                  title="删除对话"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteSession(s);
-                  }}
-                >
-                  ✕
-                </span>
+            <div className="side-view" role="group" aria-label="历史对话怎么排">
+              <button data-ui="side-view-time" aria-pressed={view === "time"}
+                      className={view === "time" ? "on" : ""} onClick={() => writeView("time")}>
+                按时间
               </button>
-            ))}
-            {recent.length === 0 && <div className="side-empty-hint">暂无对话</div>}
+              <button data-ui="side-view-project" aria-pressed={view === "project"}
+                      className={view === "project" ? "on" : ""} onClick={() => writeView("project")}>
+                按项目
+              </button>
+            </div>
           </div>
+          {pinnedList.length > 0 && (
+            <>
+              <div className="side-day">已置顶</div>
+              <div className="side-list" data-ui="side-pinned">
+                {pinnedList.map((s) => histRow(s, "pin", tagOf(s.key)))}
+              </div>
+            </>
+          )}
+          {view === "time" ? (
+            <>
+              <div className="side-list" data-ui="side-history">
+                {timeSections(sessions, new Date(), pinnedKeys, timeShown).map((sec) => (
+                  <Fragment key={sec.label}>
+                    <div className="side-day" data-ui="side-day">{sec.label}</div>
+                    {sec.items.map((s) => histRow(s, "time", tagOf(s.key)))}
+                  </Fragment>
+                ))}
+              </div>
+              {unpinnedCount > timeShown && moreBtn(() => setTimeShown((n) => n + MORE_STEP))}
+              {sessions.length === 0 && <div className="side-empty-hint">暂无对话</div>}
+            </>
+          ) : (
+            <div className="side-empty-hint">点项目右边的数字,看它的对话</div>
+          )}
         </>
       )}
 
@@ -256,7 +452,20 @@ export default function Sidebar({
         )}
       </div>
 
-      <div className="side-flex" />
+      {/* 按项目:没碰过任何项目的对话 */}
+      {view === "project" && sessions !== null && pv.other.length > 0 && (
+        <>
+          <div className="side-sect">
+            <span className="sect-title">其他对话</span>
+            <span className="sect-count">{pv.other.length}</span>
+          </div>
+          <div className="side-list" data-ui="side-other">
+            {pv.other.slice(0, otherShown).map((s) => histRow(s, "other"))}
+          </div>
+          {pv.other.length > otherShown && moreBtn(() => setOtherShown((n) => n + MORE_STEP))}
+        </>
+      )}
+      </div>
 
       <div className="side-footer">
         <div className="side-row settings-toggle-row">

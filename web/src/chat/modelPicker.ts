@@ -100,3 +100,23 @@ export function modelSelectBody(item: { id: string; provider: string | null }): 
 export function modelChipLabel(status: ModelsStatus | null, gatewayModel: string | undefined): string {
   return status?.current || gatewayModel || "选择模型";
 }
+
+// 按钮前的厂商名(track opendesign-composer-zcode ③):一眼看出这句扣哪家的钱。
+// 内置五家按 provider id 查短名(GLM 两家必须分得开);自定义供应商的名字原样 —— 括号里可能正是它的身份(4c C5)。
+const VENDOR_SHORT: Record<string, string> = {
+  mimo: "MiMo",
+  deepseek: "DeepSeek 官方",
+  kimi: "Kimi 按量",
+  glm_plan: "GLM 套餐",
+  glm: "GLM 按量",
+};
+
+/** 模型列表拿不到 / 没有当前厂商 ⇒ null(按钮只写模型名,和以前一样)。full = 设置页上那家的全名(悬停提示用)。
+ *  当前模型不在这家的目录里 ⇒ 也是 null:后台认不出当前模型属于哪家时会兜底报「有 key 的第一家」
+ *  (ds_credential.models_status `active = live[0]`),那时写厂商名就是把别家的名字安在它头上(QA 执行第 1 步抓到)。 */
+export function modelChipVendor(status: ModelsStatus | null): { short: string; full: string } | null {
+  if (!status || !status.provider) return null;
+  if (!status.models.some((m) => m.id === status.current)) return null;
+  const full = status.label || status.provider;
+  return { short: VENDOR_SHORT[status.provider] ?? full, full };
+}

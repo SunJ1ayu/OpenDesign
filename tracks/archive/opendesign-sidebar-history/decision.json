@@ -1,0 +1,54 @@
+{
+  "schema_version": 2,
+  "track": "opendesign-sidebar-history",
+  "impact": {
+    "level": "high",
+    "factors": [
+      "new_write_surface",
+      "data_consistency",
+      "cross_module"
+    ]
+  },
+  "design": {
+    "uncertainty": "low",
+    "premise_attack": {
+      "status": "done",
+      "evidence": [
+        "evidence/20260925-design-challenge-brief.md",
+        "evidence/20260925-design-challenge-gpt.md",
+        "evidence/20260925-qa-test-design-brief.md"
+      ]
+    }
+  },
+  "execution_plan": {
+    "adapter": "main",
+    "model": "claude-opus-5-5"
+  },
+  "outcome": {
+    "verdict": "PASS",
+    "split_resolutions": [
+      {
+        "run_id": "20260926-002630-1549328-panel-review",
+        "subject_digest": "sha256:356f1b76247146456813eed6b6dd8759ebc3af556be10692c15bc3bcb993541b",
+        "legs": [
+          {
+            "name": "subcursor.gpt-5.6-sol-high",
+            "log_digest": "sha256:0275d9af089f4387448291872b66ba65c675e9081f1c44b6b5480c5a88352bdd",
+            "rebuttals": [
+              {
+                "quote": "跨对话的重复改名会按文件名字典序覆盖，而非真实操作顺序",
+                "disposition": "deferred",
+                "reason": "属实但罕见:要同一个项目在不同对话里改名三次以上且来回重名(A→B、B→A、A→C)才触发;后果是个别旧对话落「其他对话」(按时间照样找得到)或挂到后来新建的同名项目,不丢数据。根治要可靠的改名先后:回放记录不带时间、项目档案不记曾用名,只能让 rename_project 在档案里记曾用名 —— 那是 ds_tools 的写入改动,另开单;本单两次改名修复(失败改名、改错又改回去)已覆盖常见路径。",
+                "evidence": [
+                  "bin/ds_sessions.py:251-280",
+                  "bin/ds_tools.py:1125-1253",
+                  "web/src/workspace/sidebarModel.ts:91-103"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

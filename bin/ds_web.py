@@ -27,6 +27,15 @@
     删除历史对话 = 代理 nanobot 原生删除(上游自带"绑定自动化先拒"保护);上游
     不查方法,本服务只以 POST 暴露(GET 面保持纯只读);真正鉴权在上游 Bearer
     token,CT json 闸是 CSRF 纵深。本服务仍零 PKB 写面。
+    删成功(上游 2xx)后顺带把这条从置顶 / 改名里去掉(track opendesign-sidebar-history C11),再回前端。
+侧栏历史对话(track opendesign-sidebar-history,纯逻辑在 bin/ds_sessions.py):
+  GET  /api/chat/session-projects        {"sessions": {key: [项目名…]}, "last_active": {key: 最后一条消息时间}, "renames": {旧: 新}}
+                                         从网关的对话文件 + 界面回放记录读出(只读,不经网关;design P1′ / P6)
+  GET  /api/chat/sidebar-state           {"pinned_keys", "title_overrides"}
+  POST /api/chat/sessions/<key>/pin      {"pinned": bool}
+  POST /api/chat/sessions/<key>/rename   {"title": str}(空 = 恢复自动名字)
+    置顶 / 改名存 `<数据根>/config/sidebar.json`,**不经网关**(网关的状态口把整份状态塞进网址,8KB 就断)。
+    闸同删除针孔:CT json → key 白名单 → 字段类型;锁内读 - 改 - 写。
 收件箱认领(track opendesign-intake,聊天驱动+面板确认):
   GET /api/intake                  收件箱清单+确定性建议+待确认 plans(只读,
                                    未配置降级 configured:false)
@@ -82,6 +91,7 @@ import ds_model
 import ds_openfolder
 import ds_organize  # 针孔④ approve+apply 直调核心(锁/复验/审计全在核心)
 import ds_refs
+import ds_sessions  # 侧栏历史对话(track opendesign-sidebar-history)
 import ds_shell_core     # 只取锁通道的协议常量与读行:帧格式两处各抄一份迟早对不上
 import ds_taxonomy
 import ds_todo
@@ -91,7 +101,7 @@ import ds_workspace
 # 版本号约定(2026-08-25 业主亲口定):**从 0.98 起只往第三位加** —— 0.98.1、
 # 0.98.2、0.98.3……**中途不许跳到 0.99 或 1.x**。`1.0.0` 留给业主说"就它了"
 # 的那一版(他的原话:"我希望最后发行版是 1.0")。
-VERSION = "0.98.13"  # 09-25:存 key 不再重启网关(网关现读 key 文件,照 ZCode 存了就用)+ 外壳子进程不继承管家 stdin(Windows 起网关卡死的根因)
+VERSION = "0.98.14"  # 聊天错误提示、输入框交互、历史对话按时间与项目查看
                     # 再进工作区(更新期间只显示进度,**没有倒计时、也没有取消按钮**;
                     # 方案最后从"倒计时 10 秒"改成了"立即更新")。查更新超时或安装明确
                     # 失败时仍可进旧版并说明原因;手动更新入口一行没动;同一个版本自动
@@ -413,6 +423,7 @@ def _doc_reader_status():
 _KEY_RE = re.compile(r"^[A-Za-z0-9_:.-]{1,128}$")
 _THREAD_RE = re.compile(r"^/api/chat/sessions/([^/]+)/thread$")
 _SESSION_DELETE_RE = re.compile(r"^/api/chat/sessions/([^/]+)/delete$")  # p7 POST 针孔②
+_SESSION_SIDEBAR_RE = re.compile(r"^/api/chat/sessions/([^/]+)/(pin|rename)$")  # 置顶 / 改名(sidebar-history)
 
 # P2 只读 API 路由(段捕获用 [^/]+,中文项目名在 wire 上是 %xx,故不含裸 /):
 _CHANGES_RE = re.compile(r"^/api/projects/([^/]+)/changes$")
@@ -967,6 +978,10 @@ class Handler(BaseHTTPRequestHandler):
             self._proxy("/webui/bootstrap")
         elif path == "/api/chat/sessions":
             self._proxy("/api/sessions")
+        elif path == "/api/chat/session-projects":
+            self._session_projects()
+        elif path == "/api/chat/sidebar-state":
+            self._sidebar_state()
         elif (m := _THREAD_RE.match(path)):
             key = m.group(1)  # 原样段,不 unquote(见模块头契约)
             if _KEY_RE.match(key) and key not in (".", ".."):
@@ -1057,6 +1072,8 @@ class Handler(BaseHTTPRequestHandler):
             self._consent_resolve()
         elif (m := _SESSION_DELETE_RE.match(path)):
             self._delete_session(m.group(1))
+        elif (m := _SESSION_SIDEBAR_RE.match(path)):
+            self._session_sidebar(m.group(1), m.group(2))
         else:
             self._method_not_allowed()
 
@@ -1483,7 +1500,79 @@ class Handler(BaseHTTPRequestHandler):
         if not _KEY_RE.match(key) or key in (".", ".."):
             self._json(404, {"error": "bad key"})
             return
-        self._proxy(f"/api/sessions/{key}/delete")
+        got = self._proxy_fetch(f"/api/sessions/{key}/delete")
+        if got is None:
+            self._json(502, {"error": "nanobot gateway unreachable"})
+            return
+        status, ctype, body = got
+        try:
+            deleted = json.loads(body.decode("utf-8")).get("deleted") is True
+        except (ValueError, UnicodeDecodeError, AttributeError):
+            deleted = False
+        # 网关拒删(对话绑了定时任务)回的也是 200,只是 deleted:false ⇒ 要看回话,不能只看状态码
+        if 200 <= status < 300 and deleted:
+            # 先清完再回前端:前端收到就刷新侧栏,晚一步会看到已删对话的置顶残留
+            try:
+                ds_sessions.update_sidebar(self.server.ds_root, lambda st: ds_sessions.forget_session(st, key))
+            except Exception:
+                traceback.print_exc()   # 对话已删;残留的置顶 key 前端对不上会忽略,不牵连删除结果
+        self._send(status, ctype, body)
+
+    def _session_projects(self):
+        """GET:每段对话碰过哪些项目(ds_sessions.session_projects)。只读本机网关对话文件,不经网关。"""
+        cfg = os.environ.get("DS_NANOBOT_CONFIG", DEFAULT_NANOBOT_CONFIG)
+        ws = ds_sessions.workspace_dir(cfg)
+        data, last, ren = {}, {}, {}
+        try:
+            if ws:
+                sessions = os.path.join(ws, "sessions")
+                webui = ds_sessions.webui_dir(cfg)
+                # 回放记录一起读:长对话被网关空闲压缩后,早期的工具调用只在那里(design P1′)
+                data = ds_sessions.session_projects(sessions, webui)
+                last = ds_sessions.last_active(sessions)
+                ren = ds_sessions.renames(sessions, webui)   # 改名怎么归由前端按现有项目定(第 2 轮评审 GPT)
+        except Exception:
+            traceback.print_exc()   # 读不出来 ⇒ 按项目视图里全进「其他对话」、时间退回网关的,侧栏照常能用
+        self._json(200, {"sessions": data, "last_active": last, "renames": ren})
+
+    def _sidebar_state(self):
+        try:
+            self._json(200, ds_sessions.load_sidebar(self.server.ds_root))
+        except Exception:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
+
+    def _session_sidebar(self, key: str, op: str):
+        """POST 置顶 / 改名(track opendesign-sidebar-history)。闸序同删除针孔:CT json → key 白名单 → 字段类型。"""
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            self._json(400, {"error": "bad request"})
+            return
+        body = self._read_json_body()
+        if body is None:
+            return
+        if not _KEY_RE.match(key) or key in (".", ".."):
+            self._json(404, {"error": "bad key"})
+            return
+        if op == "pin":
+            pinned = body.get("pinned")
+            if not isinstance(pinned, bool):
+                self._json(400, {"error": "bad request"})
+                return
+            fn = lambda st: ds_sessions.patch_sidebar(st, key, pinned=pinned)  # noqa: E731
+        else:
+            title = body.get("title")
+            if not isinstance(title, str):
+                self._json(400, {"error": "bad request"})
+                return
+            fn = lambda st: ds_sessions.patch_sidebar(st, key, title=title)  # noqa: E731
+        try:
+            out = ds_sessions.update_sidebar(self.server.ds_root, fn)
+        except Exception:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
+            return
+        self._json(200, out)
 
     def _intake(self):
         """GET /api/intake(只读):收件箱清单+确定性建议 + 待确认 plans。
@@ -2475,6 +2564,15 @@ class Handler(BaseHTTPRequestHandler):
         上游方法恒为 GET(nanobot ws_http 路由不查方法;delete 针孔也走这条,
         POST 语义只存在于本服务的暴露面)——将来若有上游要求真 POST 的端点,
         这里要加 method 参数,别隐式复用。"""
+        got = self._proxy_fetch(up_path)
+        if got is None:  # gateway 没起/端口错:502 可辨,进程不挂
+            self._json(502, {"error": "nanobot gateway unreachable"})
+            return
+        status, ctype, body = got
+        self._send(status, ctype, body)  # 状态码原样透传(含 401)
+
+    def _proxy_fetch(self, up_path: str):
+        """_proxy 的取数那一半:返回 (状态码, Content-Type, body);上游连不上 ⇒ None。"""
         q = urlsplit(self.path).query
         if q:
             up_path += "?" + q
@@ -2501,10 +2599,9 @@ class Handler(BaseHTTPRequestHandler):
                 ctype = r.getheader("Content-Type") or "application/json; charset=utf-8"
             finally:
                 conn.close()
-        except OSError:  # gateway 没起/端口错:502 可辨,进程不挂
-            self._json(502, {"error": "nanobot gateway unreachable"})
-            return
-        self._send(status, ctype, body)  # 状态码原样透传(含 401)
+        except OSError:
+            return None
+        return status, ctype, body
 
     def _same_site_ok(self) -> bool:
         """拒跨站。**它是纵深,不是唯一那道门**(浏览器的同源策略不让别的站读到响应,
