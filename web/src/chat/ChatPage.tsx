@@ -54,7 +54,8 @@ import ModelMenu from "./ModelMenu";
 import { SideIcon } from "../workspace/icons";
 import ConsentCard, { describe as describeConsent } from "../workspace/ConsentCard";
 import type { ConsentPending, ConsentResolved } from "../api";
-import { useConsentPending } from "./consentStore";
+import { anyChatBusy, useConsentPending } from "./consentStore";
+import { consentNoticeText, shouldTellAssistant } from "./consentNotice";
 
 // P2 T3:视觉照 handoff §4 重排(用户消息低对比右对齐 / AI 无气泡直排 /
 // 流式回复动画(照 ZCode:思考中流光 / 新块淡入 / 轮尾转圈)/ Claude 式组合输入卡 / 「记一下」chip 预填)。
@@ -744,8 +745,8 @@ export default function ChatPage({
   // ── 业主同意卡(track opendesign-consent-dock)──────────────────────────────
   // 卡片渲染在输入卡正上方(照 ZCode)。助手的工具会停下来等这张卡(ds_tools_server.await_owner),
   // 点完结果直接作为工具返回值交给助手 —— 那种情况前端什么都不用补。
-  // 只有**没有工具在等**时(等超时了 / 业主点了停止 / 卡是早先留下的,后端回 waiter=false),
-  // 助手才不知道业主点了什么:这时替业主在对话里说一句,省得他再打一遍。
+  // 结果没送到助手手上时(等超时了 / 业主点了停止 / 卡是早先留下的),替业主在对话里说一句,
+  // 省得他再打一遍。"送没送到"的判定见 consentNotice.shouldTellAssistant(只看后端 waiter 不够)。
   // 这句话只是**告知**,不是授权 —— 授权在点卡片那一下已经完成(聊天里说"同意"本来就不算数)。
   const consentPending = useConsentPending(consentActive, transcript.busy);
   const waitingOwner = transcript.busy && consentPending.length > 0;
@@ -756,11 +757,8 @@ export default function ChatPage({
   const attachedRef = useRef(attached);
   attachedRef.current = attached;
   const onConsentDecided = (p: ConsentPending, approve: boolean, res: ConsentResolved) => {
-    if (res.waiter) return;
-    const { title } = describeConsent(p);
-    const note = approve
-      ? `我在确认卡上点了「同意」(${title}),已经生效了,接着做吧。`
-      : `我在确认卡上点了「拒绝」(${title}),先别改。`;
+    if (!shouldTellAssistant(res.waiter, anyChatBusy())) return;
+    const note = consentNoticeText(describeConsent(p).title, approve);
     // 有附图时不自动发:sendText 会把图一起带走。发不出去(没连上 / 另一轮在跑)就递到输入框,
     // 但不覆盖业主已经打了一半的字。
     if (attachedRef.current.length === 0 && sendTextRef.current(note)) return;

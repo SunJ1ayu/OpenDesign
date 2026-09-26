@@ -41,6 +41,11 @@ function retime() {
   timerMs = want;
 }
 
+/** 此刻有没有任何一个聊天在跑一轮(含被藏起来的)。见 consentNotice.shouldTellAssistant。 */
+export function anyChatBusy(): boolean {
+  return fastDemand > 0;
+}
+
 /** 立刻拉一次(并发时合并成一次)。 */
 export function refreshConsent(): void {
   if (inflight) return;
