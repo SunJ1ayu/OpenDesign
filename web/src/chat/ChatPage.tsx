@@ -54,8 +54,10 @@ import ModelMenu from "./ModelMenu";
 import { SideIcon } from "../workspace/icons";
 import ConsentCard, { describe as describeConsent } from "../workspace/ConsentCard";
 import type { ConsentPending, ConsentResolved } from "../api";
-import { anyChatBusy, useConsentPending } from "./consentStore";
-import { consentNoticeText, shouldTellAssistant } from "./consentNotice";
+import {
+  consentDelivered, deliverConsentNotice, registerConsentNotice, useConsentPending,
+} from "./consentStore";
+import { consentNoticeText } from "./consentNotice";
 
 // P2 T3:视觉照 handoff §4 重排(用户消息低对比右对齐 / AI 无气泡直排 /
 // 流式回复动画(照 ZCode:思考中流光 / 新块淡入 / 轮尾转圈)/ Claude 式组合输入卡 / 「记一下」chip 预填)。
@@ -746,9 +748,11 @@ export default function ChatPage({
   // 卡片渲染在输入卡正上方(照 ZCode)。助手的工具会停下来等这张卡(ds_tools_server.await_owner),
   // 点完结果直接作为工具返回值交给助手 —— 那种情况前端什么都不用补。
   // 结果没送到助手手上时(等超时了 / 业主点了停止 / 卡是早先留下的),替业主在对话里说一句,
-  // 省得他再打一遍。"送没送到"的判定见 consentNotice.shouldTellAssistant(只看后端 waiter 不够)。
+  // 省得他再打一遍。"送没送到、该告诉哪个聊天"见 consentNotice.ConsentOwners(按卡片归属判断,
+  // 只看后端 waiter 或"任意聊天在跑"都会吞结果 —— PR #2 两轮审查实机复现过)。
   // 这句话只是**告知**,不是授权 —— 授权在点卡片那一下已经完成(聊天里说"同意"本来就不算数)。
-  const consentPending = useConsentPending(consentActive, transcript.busy);
+  const consentSlot = slot ?? variant;
+  const consentPending = useConsentPending(consentActive, transcript.busy, consentSlot);
   const waitingOwner = transcript.busy && consentPending.length > 0;
   const sendTextRef = useRef(sendText);
   sendTextRef.current = sendText;
@@ -756,13 +760,19 @@ export default function ChatPage({
   draftRef.current = draft;
   const attachedRef = useRef(attached);
   attachedRef.current = attached;
+  // 有附图时不自动发:sendText 会把图一起带走。
+  const trySendNotice = (text: string): boolean =>
+    attachedRef.current.length === 0 && sendTextRef.current(text);
+  // 登记"替业主说一句"的入口:别的聊天里点了**本聊天提的卡**时,结果送到这里来。
+  useEffect(() => registerConsentNotice(consentSlot, (t) => trySendNotice(t)), [consentSlot]);
   const onConsentDecided = (p: ConsentPending, approve: boolean, res: ConsentResolved) => {
-    if (!shouldTellAssistant(res.waiter, anyChatBusy())) return;
+    if (consentDelivered(p.pending_id, res.waiter)) return;
     const note = consentNoticeText(describeConsent(p).title, approve);
-    // 有附图时不自动发:sendText 会把图一起带走。发不出去(没连上 / 另一轮在跑)就递到输入框,
-    // 但不覆盖业主已经打了一半的字。
-    if (attachedRef.current.length === 0 && sendTextRef.current(note)) return;
-    if (!draftRef.current.trim()) setDraft(note);
+    deliverConsentNotice(p.pending_id, consentSlot, note, (t) => {
+      // 本聊天兜底:发不出去(没连上 / 另一轮在跑)就递到输入框,不覆盖业主已经打了一半的字。
+      if (trySendNotice(t)) return;
+      if (!draftRef.current.trim()) setDraft(t);
+    });
   };
 
   /** ■ 停止(④):往本栏自己的聊天发 `/stop`(网关优先通道,按本聊天取消、掐断厂商那边的流),

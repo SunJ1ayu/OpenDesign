@@ -10,6 +10,7 @@
 //   · 都闲着且没有待确认 → 不拉。另外挂载 / 切到可见 / 窗口回到前台 / 每轮结束时各拉一次。
 import { useEffect, useSyncExternalStore } from "react";
 import { fetchConsent, type ConsentPending } from "../api";
+import { ConsentOwners } from "./consentNotice";
 
 const EMPTY: ConsentPending[] = [];
 const FAST_MS = 1000;
@@ -18,7 +19,8 @@ const SLOW_MS = 5000;
 let pending: ConsentPending[] = EMPTY;
 const listeners = new Set<() => void>();
 let inflight = false;
-let fastDemand = 0;
+// 哪些聊天在跑 + 每张卡归哪个聊天(见 consentNotice.ts 顶部的第一性说明)。
+const owners = new ConsentOwners();
 let timer: ReturnType<typeof setInterval> | undefined;
 let timerMs = 0;
 
@@ -34,16 +36,35 @@ function publish(next: ConsentPending[]) {
 }
 
 function retime() {
-  const want = fastDemand > 0 ? FAST_MS : pending.length > 0 ? SLOW_MS : 0;
+  const want = owners.anyBusy() ? FAST_MS : pending.length > 0 ? SLOW_MS : 0;
   if (want === timerMs) return;
   if (timer !== undefined) clearInterval(timer);
   timer = want ? setInterval(refreshConsent, want) : undefined;
   timerMs = want;
 }
 
-/** 此刻有没有任何一个聊天在跑一轮(含被藏起来的)。见 consentNotice.shouldTellAssistant。 */
-export function anyChatBusy(): boolean {
-  return fastDemand > 0;
+/** 业主点完之后,结果是否已作为工具返回值送到了**提这张卡的那一轮**(见 ConsentOwners.delivered)。 */
+export function consentDelivered(pendingId: string, waiter: boolean | undefined): boolean {
+  return owners.delivered(pendingId, waiter);
+}
+
+// 没送到时替业主说的那句话,要说给**提卡的那个聊天**(是它的助手在等)。
+// 每个 ChatPage 按自己的 slot 登记一个"说一句"的函数:能发出去回 true。
+const noticeHandlers = new Map<string, (text: string) => boolean>();
+
+export function registerConsentNotice(slot: string, fn: (text: string) => boolean): () => void {
+  noticeHandlers.set(slot, fn);
+  return () => {
+    if (noticeHandlers.get(slot) === fn) noticeHandlers.delete(slot);
+  };
+}
+
+/** 先交给提卡的聊天;它发不出去(没连上 / 又在跑别的)就退回业主点卡的这个聊天(clickedFallback)。 */
+export function deliverConsentNotice(pendingId: string, clickedSlot: string, text: string,
+                                     clickedFallback: (text: string) => void): void {
+  const target = owners.target(pendingId, clickedSlot);
+  if (target !== clickedSlot && noticeHandlers.get(target)?.(text)) return;
+  clickedFallback(text);
 }
 
 /** 立刻拉一次(并发时合并成一次)。 */
@@ -51,7 +72,11 @@ export function refreshConsent(): void {
   if (inflight) return;
   inflight = true;
   fetchConsent()
-    .then((s) => publish(s.pending || []))
+    .then((s) => {
+      const list = s.pending || [];
+      owners.observe(list.map((p) => p.pending_id)); // 新卡记下此刻在跑的聊天
+      publish(list);
+    })
     // 拉不到就当没有待确认:这张卡是**加法**,它自己坏掉不该把聊天带塌。
     // (真正的安全保证在后端 —— 拉不到卡不等于闸失效,那边照样不落盘。)
     .catch(() => publish(EMPTY))
@@ -71,21 +96,22 @@ function subscribe(l: () => void) {
  * 当前待确认列表。
  * @param active 这个聊天此刻在屏幕上 —— 只有它渲染卡片(三个实例同时渲染会出三张)。
  * @param busy   这个聊天正在跑一轮 —— 哪怕它被藏起来了,也要让全局切到快拉。
+ * @param slot   这个聊天的稳定身份(home / workspace / todo),用来记卡片归属。
  */
-export function useConsentPending(active: boolean, busy: boolean): ConsentPending[] {
+export function useConsentPending(active: boolean, busy: boolean, slot: string): ConsentPending[] {
   const list = useSyncExternalStore(subscribe, () => pending);
 
   useEffect(() => {
     if (!busy) return;
-    fastDemand += 1;
+    owners.setBusy(slot, true);
     retime();
     refreshConsent();
     return () => {
-      fastDemand -= 1;
+      owners.setBusy(slot, false); // 结束或被 ■ 停止:它提的卡从此"没人接"
       retime();
       refreshConsent(); // 这一轮结束了:卡可能刚被点掉,也可能等超时还留着
     };
-  }, [busy]);
+  }, [busy, slot]);
 
   useEffect(() => {
     if (!active) return;
