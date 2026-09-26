@@ -1,7 +1,7 @@
 {
   "name": "opendesign",
   "productName": "OpenDesign",
-  "version": "0.98.13",
+  "version": "0.98.14",
   "private": true,
   "description": "OpenDesign 桌面外壳(Electron)。版本号唯一来源是 bin/ds_web.py 的 VERSION,改版本两处一起改(判据 c4)。",
   "author": "OpenDesign",
