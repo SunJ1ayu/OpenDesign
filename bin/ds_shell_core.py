@@ -1011,6 +1011,19 @@ class Supervisor:
 # (npx / 别的 exe)一个字都不许动,改了就是把人家的工具弄坏。
 OUR_MCP = ("design-studio", "design-studio-organize", "design-studio-refs")
 
+# 业主同意卡:set_workspace/bind_project 两个工具会停下来等业主点(track opendesign-consent-dock,
+# 见 ds_tools_server.await_owner)。两个数**必须一起写、写在这一处**:
+#   · CONSENT_WAIT_S —— 工具最多等多久,经 env DS_CONSENT_WAIT_S 交给 MCP 进程;
+#   · CONSENT_TOOL_TIMEOUT_S —— nanobot 给这个 server 的工具超时(默认 30 秒),
+#     必须比等待长,留出执行和回话的余量;否则 nanobot 先掐断,助手只看到一句 "timed out"。
+# 为什么写在这里而不是只写模板:模板只在**首次安装**时合并(installer.nsh 的
+# `${ifNot} ${isUpdated}`),升级上来的机器永远拿不到;这里每次起网关都会跑。
+# 代价(明账):同一个 server 上的其它工具,真卡死时也要等到这个超时才会被 nanobot 放弃
+# (以前 30 秒)。业主随时可以点 ■ 停止,不会真的困住。
+CONSENT_SERVER = "design-studio"
+CONSENT_WAIT_S = 300
+CONSENT_TOOL_TIMEOUT_S = CONSENT_WAIT_S + 30
+
 
 def patch_config(path, *, gateway_port: int, ws_port: int, python_exe: str,
                  data_root: str | None = None) -> None:
@@ -1053,6 +1066,8 @@ def patch_config(path, *, gateway_port: int, ws_port: int, python_exe: str,
         # 那要 loader 展开,而它只在网关自己的 env 里查得到。
         if data_root:
             servers[name].setdefault("env", {})[ds_common.DATA_ROOT_ENV] = str(data_root)
+    servers[CONSENT_SERVER].setdefault("env", {})["DS_CONSENT_WAIT_S"] = str(CONSENT_WAIT_S)
+    servers[CONSENT_SERVER]["toolTimeout"] = CONSENT_TOOL_TIMEOUT_S
 
     tmp_name: str | None = None
     try:

@@ -33,7 +33,7 @@
       "name": "append_change_tool"
     },
     {
-      "description": "把已建档项目与工作区文件夹关联(合并项目列表里的重复条目)。\n        用户说\"那个文件夹就是 XX 项目\"、或项目列表出现同名两行(一个建档一个\n        未建档)时用。project=项目档案名;folder=用户念的文件夹名即可(纯名唯一\n        就绑;按年份分组撞名/没找到时,返回里有 folders 候选名单,从中挑准确的\n        `组:名` 重试一次,别自己编)。重绑=覆盖,绑错再绑一次即可。",
+      "description": "把已建档项目与工作区文件夹关联(合并项目列表里的重复条目)。\n        用户说\"那个文件夹就是 XX 项目\"、或项目列表出现同名两行(一个建档一个\n        未建档)时用。project=项目档案名;folder=用户念的文件夹名即可(纯名唯一\n        就绑;按年份分组撞名/没找到时,返回里有 folders 候选名单,从中挑准确的\n        `组:名` 重试一次,别自己编)。重绑=覆盖,绑错再绑一次即可。\n        需要业主同意时同 set_workspace_tool:弹确认卡、等业主点完才返回,看 owner_decision。",
       "inputSchema": {
         "properties": {
           "folder": {
@@ -421,7 +421,7 @@
       "name": "set_stage_tool"
     },
     {
-      "description": "把工作台接到用户电脑的项目文件夹根目录(以后能直接看文件和参考图)。\n        root=项目文件夹根的绝对路径(直接传用户说的路径即可,反斜杠不用转义);\n        projects_dir=可选,项目夹所在子目录(相对 root);若接上后 folder_count=0 且用户说\n        项目就直接放在这个文件夹里,再传 projects_dir=\".\"。\n        projects_depth=可选:项目夹直接摆在 projects_dir 下不用传;用户的项目按\n        年份/客户等先分了一层文件夹(如 2026/0315 某项目)再传 2,所有分组下的项目\n        会一起认出。返回 folder_count=认出的项目夹数(depth=2 时为跨分组总数)。",
+      "description": "把工作台接到用户电脑的项目文件夹根目录(以后能直接看文件和参考图)。\n        root=项目文件夹根的绝对路径(直接传用户说的路径即可,反斜杠不用转义);\n        projects_dir=可选,项目夹所在子目录(相对 root);若接上后 folder_count=0 且用户说\n        项目就直接放在这个文件夹里,再传 projects_dir=\".\"。\n        projects_depth=可选:项目夹直接摆在 projects_dir 下不用传;用户的项目按\n        年份/客户等先分了一层文件夹(如 2026/0315 某项目)再传 2,所有分组下的项目\n        会一起认出。返回 folder_count=认出的项目夹数(depth=2 时为跨分组总数)。\n        需要业主同意时,聊天输入框上方会弹出确认卡,本工具**等业主点完才返回**:\n        owner_decision=approved 表示已生效;rejected 表示业主拒绝了(别再提);\n        waiting 表示业主还没点,照 note 说的告诉业主。",
       "inputSchema": {
         "properties": {
           "projects_depth": {

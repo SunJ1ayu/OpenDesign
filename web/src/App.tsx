@@ -584,6 +584,7 @@ export default function App() {
           onConnected={onConnected}
           onTurnEnd={onTurnEnd}
           resume={resumeTarget}
+          consentActive={route === "home"}
         />
       </section>
 
