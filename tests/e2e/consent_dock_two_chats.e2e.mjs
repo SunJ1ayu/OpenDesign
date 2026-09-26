@@ -16,6 +16,9 @@
 //   C0 对照:提卡的聊天还在跑 ⇒ 点同意后**不许**补话(结果已作为工具返回值送到)。
 //   C1 R2 原样:首页停止 → 项目助手在跑另一条 → 回首页点同意 ⇒ 首页那条连接收到"同意"那句话。
 //   C2 在**别的聊天**里点首页提的卡 ⇒ 话仍送回首页(是首页的助手在等)。
+//   C3 三审原样:首页提 A → 停止 → 首页又提 B → 点 A 的旧卡 ⇒ 仍要告诉首页(在跑的是 B 那一轮):
+//      B 在跑时排队、不塞输入框,B 一结束自动发;补话带上落盘结果(认出几个项目夹、已生效),
+//      助手不用再拿同样参数申请一遍。
 //
 // 跑法:node tests/e2e/consent_dock_two_chats.e2e.mjs(自起 ds_web 于 8860)
 import { spawn, spawnSync } from "node:child_process";
@@ -190,6 +193,8 @@ try {
     const homeMsgs = (await sentBy(page, "home")).slice(before);
     check(homeMsgs.some((c) => c.includes("同意") && c.includes(newRoot)),
       `首页那条连接收到了结果:${JSON.stringify(homeMsgs)}`);
+    check(homeMsgs.some((c) => /认出 \d+ 个项目夹/.test(c) && c.includes("已经生效")),
+      "补话带上了落盘结果并明说已生效");
     check(!(await sentBy(page, "workspace")).some((c) => c.includes("确认卡")),
       "没有错发给正在跑别的事的项目助手");
   });
@@ -221,6 +226,35 @@ try {
     const homeMsgs = (await sentBy(page, "home")).slice(before);
     check(homeMsgs.some((c) => c.includes("同意")), `送回了首页:${JSON.stringify(homeMsgs)}`);
     check(!(await sentBy(page, "workspace")).some((c) => c.includes("确认卡")), "没有发给点卡的项目助手");
+  });
+  await step("C3 三审原样:首页提 A → 停止 → 首页又提 B → 点 A 的旧卡 ⇒ 仍告诉首页", async () => {
+    await page.goto(`${base}/#/`);
+    if (await page.locator(`${HOME} .stop-btn`).count()) {       // C2 的补话开了新一轮,先停掉
+      await page.locator(`${HOME} .stop-btn`).click();
+      await page.locator(`${HOME} .stop-btn`).waitFor({ state: "detached", timeout: 8000 });
+    }
+    writeFileSync(cfgPath, JSON.stringify({ root: oldRoot, projects: {}, projectsDir: "01-项目" }, null, 2));
+    await send(page, HOME, "请求 A:接工作区");
+    stageWaitingCard(newRoot);
+    await homeCard.waitFor({ timeout: 10000 });                  // A 的卡归「首页这一轮」
+    await page.locator(`${HOME} .stop-btn`).click();             // ■ 停止
+    await page.locator(`${HOME} .stop-btn`).waitFor({ state: "detached", timeout: 8000 });
+    await send(page, HOME, "请求 B:汇总一下");                   // 同一个聊天开了新一轮
+    const before = (await sentBy(page, "home")).length;
+    await homeCard.locator('[data-ui="consent-item"] button').nth(1).click();   // 点 A 的旧卡
+    await homeCard.waitFor({ state: "detached", timeout: 8000 });
+    check(resolves.at(-1)?.waiter === true, "复现条件成立:后端仍报 waiter=true");
+    // 首页正在跑 B ⇒ 这时发不出去:排队,不许塞进输入框让业主自己按发送
+    await page.waitForTimeout(800);
+    check(!(await page.locator(`${HOME} textarea`).inputValue()).includes("同意"), "没有把话塞进输入框");
+    check((await sentBy(page, "home")).length === before, "B 还在跑时没有插话");
+    await page.locator(`${HOME} .stop-btn`).click();             // B 这一轮结束(这里用停止模拟)
+    await page.waitForFunction((n) => window.__sent.filter((x) => x.slot === "home" && x.content.includes("同意")).length > 0
+      && window.__sent.filter((x) => x.slot === "home").length > n, before + 1, { timeout: 8000 }).catch(() => {});
+    const landed = (await sentBy(page, "home")).slice(before).find((c) => c.includes("同意")) || "";
+    check(!!landed, `B 一结束,首页自动把 A 的结果发给了助手:${JSON.stringify((await sentBy(page, "home")).slice(before))}`);
+    check(/认出 \d+ 个项目夹/.test(landed) && landed.includes("不用再调用工具"),
+      `带上了落盘结果、明说别再申请:${JSON.stringify(landed)}`);
   });
 } catch (e) {
   failures += 1;

@@ -6,7 +6,9 @@
 //      前端只看 waiter ⇒ 不通知助手,对话卡住。
 //   R2 修成"waiter 且任意聊天在跑"之后:首页停止 → 项目助手跑另一条 → 回首页点同意,
 //      "项目助手在跑"被当成"这张卡有人接" ⇒ 又吞掉。
-// ⇒ 按**卡片归属**判:卡冒出来时哪个聊天在跑,就归哪个聊天;点的时候只看它还在不在跑。
+//   R3 修成"按聊天归属"之后:首页提 A → 停止 → 首页又提 B → 点 A 的旧卡:首页在跑的是 B 那一轮,
+//      仍被当成"A 有人接" ⇒ 又吞掉。另:补话只说"点了同意",助手以为没办,拿同样参数又调一遍。
+// ⇒ 按**卡片归属到"哪个聊天的哪一轮"**判;补话带上落盘结果并明说已生效。
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -77,7 +79,31 @@ test("n7 替业主说的话写明点了什么、点的是哪张卡", () => {
   const t = "助手想把工作区根目录改成:D:\\设计";
   assert.match(consentNoticeText(t, true), /同意/);
   assert.match(consentNoticeText(t, false), /拒绝/);
-  assert.ok(consentNoticeText(t, true).includes(t));
+  assert.ok(consentNoticeText(t, true).includes(t), "没有结果时至少说清是哪张卡");
+});
+
+test("n9 🔴 R3:同一个聊天停了又开新一轮 ⇒ 新一轮不是提卡的那一轮,照样告诉它", () => {
+  const o = new ConsentOwners();
+  o.setBusy("home", true);          // 第 1 轮:请求 A
+  o.observe([CARD]);                // A 的卡归「首页第 1 轮」
+  o.setBusy("home", false);         // ■ 停止
+  o.setBusy("home", true);          // 第 2 轮:请求 B
+  o.observe([CARD]);
+  assert.equal(o.delivered(CARD, true), false, "首页在跑的是 B 那一轮,A 的结果没人接");
+  assert.equal(o.target(CARD, "home"), "home");
+});
+
+test("n10 🔴 R3:补话带上落盘结果并明说已生效,助手别再拿同样参数申请一遍", () => {
+  const t = "助手想把工作区根目录改成:D:\\设计";
+  const ws = consentNoticeText(t, true, { ok: true, root: "D:\\设计", folder_count: 3 });
+  assert.match(ws, /认出 3 个项目夹/);
+  assert.match(ws, /已经生效/);
+  assert.match(ws, /不用再调用工具/);
+  const bind = consentNoticeText("x", true, { ok: true, project: "翡翠湾", folder: "2026:翡翠湾" });
+  assert.match(bind, /翡翠湾」已经关联到文件夹「2026:翡翠湾/);
+  assert.match(consentNoticeText(t, false), /什么都没改/);
+  const src = readFileSync(new URL("../web/src/chat/ChatPage.tsx", import.meta.url), "utf-8");
+  assert.match(src, /consentNoticeText\(.*,\s*res\.result\)/, "ChatPage 没把落盘结果交给补话");
 });
 
 test("n8 ChatPage 按卡片归属判断并把话送回提卡的聊天(不是只看 waiter / 任意聊天在跑)", () => {

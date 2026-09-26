@@ -925,6 +925,16 @@ def set_workspace(root: str, projects_dir: str = "", projects_depth: int = 0,
     params = {"root": real_root, "projects_dir": projects_dir,
               "projects_depth": projects_depth}
     if ds_consent.load_mode(ds_root) == ds_consent.MODE_ASK:
+        # 已经是这个状态了 ⇒ 什么都不会变,不弹卡,直接回当前事实(track opendesign-consent-dock)。
+        # 由来:PR #2 三审实机 —— 业主点完同意后,助手又拿同样参数调了一遍,又弹一张卡。
+        # 安全上:只在根**完全相同**时成立,不扩大任何可读面(新根永远走不到这里)。
+        # 只管"要不要弹卡";不用问档照旧重存(workspace 锁的判据 t04/t07 靠这条写口)。
+        cur = ds_workspace.load_config(ds_root)
+        if (cur is not None and os.path.realpath(cur["root"]) == real_root
+                and projects_dir in ("", cur.get("projectsDir") or "")
+                and projects_depth in (0, cur.get("projectsDepth") or 1)):
+            return {"ok": True, "root": real_root, "unchanged": True,
+                    "folder_count": len(ds_workspace.project_folders(cur))}
         return ds_consent.create_pending(ds_root, "set_workspace", params)
     return _apply_set_workspace(real_root, projects_dir=projects_dir,
                                 projects_depth=projects_depth, ds_root=ds_root)
@@ -1059,6 +1069,13 @@ def _bind_project_impl(project: str, folder: str, ds_root: str,
                     "folders": [n for n, _ in folders][:50]}
         folder, target = matches[0]
         rel = os.path.relpath(target, cfg["root"]).replace(os.sep, "/")
+        existing = raw.get("projects")
+        if (require_consent and ds_consent.load_mode(ds_root) == ds_consent.MODE_ASK
+                and isinstance(existing, dict) and existing.get(project) == rel):
+            # 已经这么关联着 ⇒ 什么都不会变,不弹卡(同 set_workspace 的"已经是这个状态")
+            box["write"] = False
+            return {"ok": True, "project": project, "folder": folder, "rel": rel,
+                    "unchanged": True}
         if require_consent and ds_consent.load_mode(ds_root) == ds_consent.MODE_ASK:
             # ⚠️ **锁内只做决定,排队要出了锁再排**(判据 O9a 钉死)。
             # 曾经这里直接 `return ds_consent.create_pending(...)` —— 那是在**持着

@@ -19,6 +19,8 @@
   W6 **走真 MCP 入口**:工具在等的时候,同一个 server 上的别的工具照常响应
      (同步 sleep 会把整个 server 卡死 —— 这条是 async 的承重墙)。
   W7 外壳写进配置的两个数:等待 < nanobot 的工具超时,且只写在 design-studio 上。
+  W8 (PR #2 三审)同意之后 resolve 回执带落盘结果(前端补话要说"已生效、认出几个");
+     已经是这个状态时再调一遍不弹卡、直接回当前事实;换成新根照样要卡(闸没松)。
 
 纯 stdlib + mcp、离线,不烧 LLM。
 """
@@ -214,6 +216,49 @@ class W7_外壳写进配置的两个数(unittest.TestCase):
         for n in ("design-studio-organize", "design-studio-refs", "别人家的"):
             self.assertNotIn("toolTimeout", got[n], f"{n} 不该被改超时")
             self.assertNotIn("DS_CONSENT_WAIT_S", got[n].get("env", {}))
+
+
+class W8_点完之后助手别再重复申请(unittest.TestCase):
+    def setUp(self):
+        self.ds, self.old, self.new = _mkfixture()
+
+    def tearDown(self):
+        shutil.rmtree(self.ds, ignore_errors=True)
+
+    def test_w8a_同意的回执带落盘结果_拒绝的不带(self):
+        pid = ds_tools.set_workspace(self.new, ds_root=self.ds)["pending_id"]
+        r = ds_consent.resolve_pending(self.ds, pid, True, apply_fn=ds_tools.apply_pending)
+        self.assertTrue(r.get("ok"), r)
+        self.assertIsInstance(r.get("result"), dict, "回执里没有执行结果,前端没法告诉助手认出了几个")
+        self.assertIn("folder_count", r["result"])
+        pid2 = ds_tools.set_workspace(self.old, ds_root=self.ds)["pending_id"]
+        r2 = ds_consent.resolve_pending(self.ds, pid2, False)
+        self.assertNotIn("result", r2)
+
+    def test_w8b_已经是这个根了再调一遍_不弹卡直接回当前事实(self):
+        before = _ws_bytes(self.ds)
+        r = ds_tools.set_workspace(self.old, ds_root=self.ds)
+        self.assertTrue(r.get("ok") and r.get("unchanged"), r)
+        self.assertFalse(r.get("pending"), "什么都不会变,却又弹了一张卡")
+        self.assertIn("folder_count", r)
+        self.assertEqual(ds_consent.list_pending(self.ds), [])
+        self.assertEqual(_ws_bytes(self.ds), before)
+
+    def test_w8c_换成新根照样要卡_闸没松(self):
+        r = ds_tools.set_workspace(self.new, ds_root=self.ds)
+        self.assertTrue(r.get("pending"), "新根必须走同意卡")
+        # 同一个根、但换了项目夹子目录:也算改动,照样要卡
+        r2 = ds_tools.set_workspace(self.old, projects_dir=".", ds_root=self.ds)
+        self.assertTrue(r2.get("pending"), r2)
+
+    def test_w8d_已经这么关联着再绑一遍_不弹卡(self):
+        cfg = json.loads(_ws_bytes(self.ds))
+        cfg["projects"] = {PROJ_IN: f"01-项目/{PROJ_IN}"}
+        with open(os.path.join(self.ds, "config", "workspace.json"), "w", encoding="utf-8") as fh:
+            json.dump(cfg, fh, ensure_ascii=False)
+        r = ds_tools.bind_project(PROJ_IN, PROJ_IN, ds_root=self.ds)
+        self.assertTrue(r.get("ok") and r.get("unchanged"), r)
+        self.assertEqual(ds_consent.list_pending(self.ds), [])
 
 
 if __name__ == "__main__":

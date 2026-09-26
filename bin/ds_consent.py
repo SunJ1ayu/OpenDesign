@@ -262,7 +262,12 @@ def resolve_pending(ds_root: str, pending_id: str, approve: bool,
     # 有 ⇒ 结果会作为工具返回值直接交给助手,前端什么都不用补;
     # 没有(等超时了 / 业主点了停止 / 卡是上一轮留下的)⇒ 助手不知道业主点了什么,
     # 前端要在对话里替业主说一句。**只读、只影响提示,不参与授权。**
-    return {"ok": True, "applied": bool(approve), "waiter": _waiter_alive(rec)}
+    # result:同意之后落盘的执行结果(folder_count 等)。没有工具在等时,前端拿它替业主告诉助手
+    # "已经生效、结果是什么" —— 只说"点了同意",助手会以为还没办,拿同样参数再调一遍(PR #2 三审)。
+    out = {"ok": True, "applied": bool(approve), "waiter": _waiter_alive(rec)}
+    if approve and isinstance(rec.get("result"), dict):
+        out["result"] = rec["result"]
+    return out
 
 
 def _waiter_alive(rec: dict) -> bool:

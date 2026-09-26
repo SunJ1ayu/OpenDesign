@@ -773,7 +773,13 @@ export async function setConsentMode(mode: ConsentMode): Promise<void> {
 /** resolve 的回执。`waiter`:点下去那一刻,有没有一次工具调用正停在这张卡上等结果
  *  (track opendesign-consent-dock)。true ⇒ 结果已经作为工具返回值交给助手;
  *  false ⇒ 助手不知道业主点了什么,前端要在对话里替业主说一句。只影响提示,不参与授权。 */
-export type ConsentResolved = { ok: boolean; applied: boolean; waiter?: boolean };
+export type ConsentResolved = {
+  ok: boolean;
+  applied: boolean;
+  waiter?: boolean;
+  /** 同意之后落盘的执行结果(set_workspace:root/folder_count;bind_project:project/folder)。 */
+  result?: Record<string, unknown>;
+};
 
 /** 同意 / 拒绝一条待确认。一次性:批过或拒过的再点会被后端 409。 */
 export async function resolveConsent(pendingId: string, approve: boolean): Promise<ConsentResolved> {

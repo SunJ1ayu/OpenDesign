@@ -763,14 +763,34 @@ export default function ChatPage({
   // 有附图时不自动发:sendText 会把图一起带走。
   const trySendNotice = (text: string): boolean =>
     attachedRef.current.length === 0 && sendTextRef.current(text);
+  // 本聊天正在跑另一轮时发不出去:**排队,这一轮一结束就自动发**(PR #2 三审 C3:以前只递到输入框,
+  // 业主还得自己按发送,等于没送到)。没连上才退回输入框。
+  const queuedNoticesRef = useRef<string[]>([]);
+  const busyRef = useRef(transcript.busy);
+  busyRef.current = transcript.busy;
+  const connectedRef = useRef(false);
+  connectedRef.current = view.kind === "connected";
+  const acceptNotice = (text: string): boolean => {
+    if (trySendNotice(text)) return true;
+    if (connectedRef.current && busyRef.current) {
+      queuedNoticesRef.current.push(text);
+      return true;
+    }
+    return false;
+  };
+  useEffect(() => {
+    if (transcript.busy || view.kind !== "connected" || queuedNoticesRef.current.length === 0) return;
+    const text = queuedNoticesRef.current.join("\n");
+    if (trySendNotice(text)) queuedNoticesRef.current = [];
+  });
   // 登记"替业主说一句"的入口:别的聊天里点了**本聊天提的卡**时,结果送到这里来。
-  useEffect(() => registerConsentNotice(consentSlot, (t) => trySendNotice(t)), [consentSlot]);
+  useEffect(() => registerConsentNotice(consentSlot, (t) => acceptNotice(t)), [consentSlot]);
   const onConsentDecided = (p: ConsentPending, approve: boolean, res: ConsentResolved) => {
     if (consentDelivered(p.pending_id, res.waiter)) return;
-    const note = consentNoticeText(describeConsent(p).title, approve);
+    const note = consentNoticeText(describeConsent(p).title, approve, res.result);
     deliverConsentNotice(p.pending_id, consentSlot, note, (t) => {
-      // 本聊天兜底:发不出去(没连上 / 另一轮在跑)就递到输入框,不覆盖业主已经打了一半的字。
-      if (trySendNotice(t)) return;
+      // 本聊天兜底:在跑另一轮 ⇒ 排队、这一轮结束自动发;没连上 ⇒ 递到输入框,不覆盖业主打了一半的字。
+      if (acceptNotice(t)) return;
       if (!draftRef.current.trim()) setDraft(t);
     });
   };
