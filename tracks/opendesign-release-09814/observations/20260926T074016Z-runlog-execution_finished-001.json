@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "track": "opendesign-release-09814",
+  "run_id": "20260926T072443Z-01-release-local-final",
+  "controller": "runlog",
+  "event": "execution_finished",
+  "label": "release-local-final",
+  "started_at": "2026-09-26T07:24:43Z",
+  "finished_at": "2026-09-26T07:40:16Z",
+  "duration_ms": 933155,
+  "exit_code": 3,
+  "actual": {
+    "adapter": "runlog",
+    "model": null,
+    "risk": null,
+    "degraded": null,
+    "work_exit_code": 3,
+    "legs": null
+  },
+  "usage": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "api_cost": null,
+    "billing_mode": null
+  }
+}

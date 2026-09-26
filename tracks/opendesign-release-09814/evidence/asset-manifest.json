@@ -1,0 +1,19 @@
+{
+  "version": "0.98.14",
+  "run": 36226326190,
+  "head": "b37b8ddd4c3be2f35fccf6c8a853caab3036bd0f",
+  "assets": {
+    "OpenDesign-0.98.14-electron-setup.exe": {
+      "size": 164798174,
+      "sha256": "fa4373c3e5e3ae1ce222880665658f56209ee4fc336ac1caae9deeed872c9ae9"
+    },
+    "OpenDesign-0.98.14-electron-setup.exe.blockmap": {
+      "size": 173397,
+      "sha256": "65f195355c509c0378bb8f422dba4d7d6a03943fa5d845e14d46618299718982"
+    },
+    "latest.yml": {
+      "size": 505,
+      "sha256": "49d9fea820981a9c9ecdd26932271397bc752f179800f4a834945517313cdc9e"
+    }
+  }
+}
