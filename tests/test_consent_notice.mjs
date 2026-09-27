@@ -234,3 +234,60 @@ test("n19 工具名映射;工具开始事件不进聊天里的活动回执(否�
   st = applyEvent(st, ev("end"));
   assert.equal(st.activity.length, 1);
 });
+
+// ── PR #3 二审:绑定申请要项目名**和**文件夹都对上 ──────────────────────────────
+test("n20 🔴 二审原样:项目助手把同一项目绑到甲、首页绑到乙 ⇒ 乙的卡不许出现在项目页", () => {
+  const o = new ConsentOwners();
+  o.setBusy("workspace", true);
+  o.toolStarted("workspace", "c_ws", "bind_project", { project: "翡翠湾", folder: "甲" });
+  o.observe([{ pending_id: WS_CARD, action: "bind_project", params: { project: "翡翠湾", folder: "甲" } }]);
+  o.setBusy("home", true);
+  o.toolStarted("home", "c_home", "bind_project", { project: "翡翠湾", folder: "乙" });
+  o.observe([
+    { pending_id: WS_CARD, action: "bind_project", params: { project: "翡翠湾", folder: "甲" } },
+    { pending_id: HOME_CARD, action: "bind_project", params: { project: "翡翠湾", folder: "乙" } },
+  ]);
+  assert.equal(o.showsIn(HOME_CARD, "workspace"), false, "首页绑乙的卡跑到了项目页");
+  assert.equal(o.showsIn(HOME_CARD, "home"), true);
+  assert.equal(o.showsIn(WS_CARD, "home"), false, "项目助手绑甲的卡跑到了首页");
+  assert.equal(o.showsIn(WS_CARD, "workspace"), true);
+});
+
+test("n21 两张绑定卡同一拍被看见,且卡上是后端解析后的「分组:名」,也能各归各", () => {
+  const o = new ConsentOwners();
+  o.setBusy("workspace", true);
+  o.setBusy("home", true);
+  o.toolStarted("workspace", "c1", "bind_project", { project: "翡翠湾", folder: "甲" });
+  o.toolStarted("home", "c2", "bind_project", { project: "翡翠湾", folder: "2025:乙" });
+  o.observe([
+    { pending_id: WS_CARD, action: "bind_project", params: { project: "翡翠湾", folder: "2026:甲" } },
+    { pending_id: HOME_CARD, action: "bind_project", params: { project: "翡翠湾", folder: "2025:乙" } },
+  ]);
+  assert.equal(o.showsIn(WS_CARD, "home"), false);
+  assert.equal(o.showsIn(HOME_CARD, "workspace"), false);
+  // 纯名只认"分组:纯名"的尾巴,不许靠包含关系乱认
+  const p = new ConsentOwners();
+  p.setBusy("home", true);
+  p.setBusy("workspace", true);
+  p.toolStarted("home", "x", "bind_project", { project: "翡翠湾", folder: "乙" });
+  p.toolStarted("workspace", "y", "bind_project", { project: "翡翠湾", folder: "甲乙" });
+  p.observe([{ pending_id: HOME_CARD, action: "bind_project", params: { project: "翡翠湾", folder: "2026:甲乙" } }]);
+  assert.equal(p.showsIn(HOME_CARD, "home"), false, "「乙」不等于「甲乙」");
+  assert.equal(p.showsIn(HOME_CARD, "workspace"), true);
+});
+
+test("n22 一次调用只排一张卡:认领过的调用不许再被别的卡拿去当主人", () => {
+  const o = new ConsentOwners();
+  o.setBusy("workspace", true);
+  o.setBusy("home", true);
+  o.toolStarted("workspace", "c1", "set_workspace", { root: "D:\\项目A" });
+  o.observe([{ pending_id: WS_CARD, action: "set_workspace", params: { root: "D:\\项目A" } }]);
+  o.toolStarted("home", "c2", "set_workspace", { root: "E:\\写法不同" });
+  // 首页那张卡的参数和谁都对不上(比如后端解析了符号链接),同动作还没认领的只剩首页那次 ⇒ 归首页
+  o.observe([
+    { pending_id: WS_CARD, action: "set_workspace", params: { root: "D:\\项目A" } },
+    { pending_id: HOME_CARD, action: "set_workspace", params: { root: "F:\\真实路径" } },
+  ]);
+  assert.equal(o.showsIn(HOME_CARD, "workspace"), false, "项目助手那次调用已经认领了自己的卡");
+  assert.equal(o.showsIn(HOME_CARD, "home"), true);
+});

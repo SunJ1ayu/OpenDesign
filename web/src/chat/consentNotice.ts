@@ -41,9 +41,20 @@ function samePath(a: unknown, b: unknown): boolean {
   return na !== null && na === n(b);
 }
 
+/** 文件夹比较:卡上记的是后端解析后的 key(按年份/客户分组时形如 `2026:甲`),助手传的可能是
+ *  纯名(`甲`,后端唯一命中才会绑)。所以全名相同,或卡上的是 `分组:助手说的纯名`,都算同一个。 */
+function sameFolder(asked: unknown, recorded: unknown): boolean {
+  if (typeof asked !== "string" || typeof recorded !== "string") return false;
+  return asked === recorded || (recorded.includes(":") && recorded.split(":", 2)[1] === asked);
+}
+
 function argsMatch(action: string, args: Record<string, unknown>, params: Record<string, unknown>): boolean {
   if (action === "set_workspace") return samePath(args.root, params.root);
-  if (action === "bind_project") return args.project === params.project;
+  // 项目名**和**文件夹都要对上(PR #3 二审:只比项目名时,两个聊天把同一个项目绑到不同文件夹,
+  // 两张卡都认两个聊天为主,项目页里看得到首页那张)
+  if (action === "bind_project") {
+    return args.project === params.project && sameFolder(args.folder, params.folder);
+  }
   return false;
 }
 
@@ -56,6 +67,8 @@ export class ConsentOwners {
   private owners = new Map<string, Map<string, number>>();
   /** 还没结束的受闸工具调用(call_id → 谁发起、第几轮、动作、参数),来自工具"开始"事件。 */
   private open = new Map<string, OpenCall>();
+  /** 已经认领过一张卡的调用:一次调用只排一张卡,认过就不许再被别的卡拿去当主人。 */
+  private claimed = new Set<string>();
 
   /** 某个聊天的连接里收到受闸工具的"开始"事件。 */
   toolStarted(slot: string, callId: string, action: string, args: Record<string, unknown>): void {
@@ -66,6 +79,7 @@ export class ConsentOwners {
   /** 收到"结束"事件,或这一轮结束 / 被停止:这次调用不再算"还开着"。 */
   toolEnded(slot: string, callId: string): void {
     this.open.delete(`${slot}#${callId}`);
+    this.claimed.delete(`${slot}#${callId}`);
   }
 
   setBusy(slot: string, on: boolean): void {
@@ -76,7 +90,12 @@ export class ConsentOwners {
     } else {
       this.busy.delete(slot);
       // 这一轮结束 / 被停止:它发起的调用都不再"开着"(已认过主的卡不受影响)
-      for (const [k, c] of this.open) if (c.slot === slot) this.open.delete(k);
+      for (const [k, c] of this.open) {
+        if (c.slot === slot) {
+          this.open.delete(k);
+          this.claimed.delete(k);
+        }
+      }
     }
   }
 
@@ -85,10 +104,11 @@ export class ConsentOwners {
   }
 
   /**
-   * 每次拉到卡片列表时调用:新卡认主,已消失的卡清掉。认主顺序:
-   *  ① 还开着的、同动作的调用里,参数对得上的那几个 ⇒ 它们的聊天;
-   *  ② 参数都对不上(路径写法不同等)⇒ 同动作的所有开着的调用;
-   *  ③ 一个都没有(网关没开 sendToolHints 的老配置)⇒ 退回"此刻在跑的那几轮"。
+   * 每次拉到卡片列表时调用:新卡认主,已消失的卡清掉。认主顺序(只看**还没认领过卡**的调用):
+   *  ① 同动作、参数对得上(动作 + 全部关键参数)的调用 ⇒ 它们的聊天;
+   *  ② 参数都对不上(写法差异等),但同动作的调用只剩**一个** ⇒ 就是它;
+   *  ③ 同动作的调用有好几个、参数又都对不上 ⇒ 分不清,全算上(宁可多显示,也不能让卡没处点);
+   *  ④ 一个都没有(网关没开 sendToolHints 的老配置)⇒ 退回"此刻在跑的那几轮"。
    */
   observe(cards: readonly (ConsentCardRef | string)[]): void {
     const list = cards.map((c) => (typeof c === "string" ? { pending_id: c } : c));
@@ -96,12 +116,16 @@ export class ConsentOwners {
     for (const id of [...this.owners.keys()]) if (!live.has(id)) this.owners.delete(id);
     for (const c of list) {
       if (this.owners.has(c.pending_id)) continue;
-      const same = [...this.open.values()].filter((o) => o.action === c.action);
-      const exact = same.filter((o) => argsMatch(o.action, o.args, c.params ?? {}));
+      const same = [...this.open.entries()]
+        .filter(([k, o]) => o.action === c.action && !this.claimed.has(k));
+      const exact = same.filter(([, o]) => argsMatch(o.action, o.args, c.params ?? {}));
       const from = exact.length ? exact : same;
-      this.owners.set(c.pending_id, from.length
-        ? new Map(from.map((o) => [o.slot, o.turn] as [string, number]))
-        : new Map(this.busy));
+      if (from.length === 0) {
+        this.owners.set(c.pending_id, new Map(this.busy));
+        continue;
+      }
+      if (exact.length || same.length === 1) for (const [k] of from) this.claimed.add(k);
+      this.owners.set(c.pending_id, new Map(from.map(([, o]) => [o.slot, o.turn] as [string, number])));
     }
   }
 

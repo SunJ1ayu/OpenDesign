@@ -20,6 +20,8 @@
 //   C3 三审原样:首页提 A → 停止 → 首页又提 B → 点 A 的旧卡 ⇒ 仍要告诉首页(在跑的是 B 那一轮):
 //      B 在跑时排队、不塞输入框,B 一结束自动发;补话带上落盘结果(认出几个项目夹、已生效),
 //      助手不用再拿同样参数申请一遍。
+//   C5 PR #3 二审原样:项目助手把同一项目绑到甲、首页绑到乙 ⇒ 乙的卡不出现在项目页
+//      (绑定申请要项目名**和**文件夹都对上才认主)。
 //   C4 PR #3 审查原样(并发):项目助手在等自己的卡时,首页再提一张 ⇒ 各在各的聊天里,
 //      切到项目页看不到首页的卡、首页也看不到项目助手的卡(按工具开始事件认主,不按"谁在跑"猜)。
 //
@@ -80,6 +82,14 @@ const STUB = () => {
                                     status: "running", started_at: 1 }), 10);
       // 消息里写了"接到 <路径>" ⇒ 像真网关(开了 sendToolHints)那样,在工具开始时往**这条连接**
       // 推一条 tool_hint 开始事件(帧形状抄自真 nanobot 0.2.2 网关实抓)
+      const bind = /绑定 (\S+) 到 (\S+)/.exec(m.content || "");
+      if (bind) {
+        setTimeout(() => this._emit({ event: "message", chat_id: this.chatId, kind: "tool_hint",
+          text: `design-studio::bind_project_tool("${bind[1]}")`, turn_phase: "activity",
+          tool_events: [{ version: 1, phase: "start", call_id: `call_${Date.now()}`,
+            name: "mcp_design-studio_bind_project_tool", arguments: { project: bind[1], folder: bind[2] },
+            result: null, error: null, files: [], embeds: [] }] }), 30);
+      }
       const hit = /接到 (\S+)/.exec(m.content || "");
       if (hit) {
         setTimeout(() => this._emit({ event: "message", chat_id: this.chatId, kind: "tool_hint",
@@ -105,6 +115,10 @@ const rootA = join(tmp, "rootA");
 const rootB = join(tmp, "rootB");
 mkdirSync(join(rootA, "01-项目", "甲"), { recursive: true });
 mkdirSync(join(rootB, "01-项目", "乙"), { recursive: true });
+// C5:同一个项目,两个候选文件夹(都在当前工作区根里)
+mkdirSync(join(oldRoot, "01-项目", "甲夹"), { recursive: true });
+mkdirSync(join(oldRoot, "01-项目", "乙夹"), { recursive: true });
+writeFileSync(join(dsRoot, "projects", "测试项目.md"), "# 测试项目\n\n- 阶段:方案\n");
 const cfgPath = join(dsRoot, "config", "workspace.json");
 writeFileSync(cfgPath, JSON.stringify({ root: oldRoot, projects: {}, projectsDir: "01-项目" }, null, 2));
 // 已配 key 的机器(否则 App 一打开就跳去模型设置页,见 chat_model_error.e2e.mjs 同款夹具)
@@ -129,6 +143,21 @@ print(r["pending_id"])
 `], { encoding: "utf-8" });
   const pid = (r.stdout || "").trim();
   if (!/^\d{8}-\d{6}-[0-9a-f]{6}$/.test(pid)) throw new Error(`夹具没排上待确认:${r.stdout}${r.stderr}`);
+  return pid;
+}
+
+/** 同上,排一条真的"绑定项目"待确认。 */
+function stageWaitingBindCard(project, folder) {
+  const r = spawnSync("python3", ["-c", `
+import sys; sys.path.insert(0, ${JSON.stringify(join(ROOT, "bin"))})
+import ds_tools, ds_consent
+r = ds_tools.bind_project(${JSON.stringify(project)}, ${JSON.stringify(folder)}, ds_root=${JSON.stringify(dsRoot)})
+assert r.get("pending"), r
+ds_consent.mark_waiter(${JSON.stringify(dsRoot)}, r["pending_id"], "2099-01-01T00:00:00")
+print(r["pending_id"])
+`], { encoding: "utf-8" });
+  const pid = (r.stdout || "").trim();
+  if (!/^\d{8}-\d{6}-[0-9a-f]{6}$/.test(pid)) throw new Error(`夹具没排上绑定待确认:${r.stdout}${r.stderr}`);
   return pid;
 }
 
@@ -309,6 +338,51 @@ try {
     const colText = await colCard.innerText();
     check(colText.includes(rootA) && !colText.includes(rootB),
       `项目页只有自己的卡(A),首页的卡(B)没有串过来:${JSON.stringify(colText.slice(0, 80))}`);
+    await stopIfRunning(COL);
+    await page.goto(`${base}/#/`);
+    await stopIfRunning(HOME);
+  });
+  await step("C5 二审原样:项目助手把同一项目绑到甲夹、首页绑到乙夹 ⇒ 乙的卡不出现在项目页", async () => {
+    const stopIfRunning = async (scope) => {
+      if (await page.locator(`${scope} .stop-btn`).count()) {
+        await page.locator(`${scope} .stop-btn`).click();
+        await page.locator(`${scope} .stop-btn`).waitFor({ state: "detached", timeout: 8000 });
+      }
+    };
+    // C4 留下的两张接工作区的卡先拒掉,免得干扰
+    for (const pend of JSON.parse(spawnSync("python3", ["-c", `
+import sys, json; sys.path.insert(0, ${JSON.stringify(join(ROOT, "bin"))})
+import ds_consent; print(json.dumps([p["pending_id"] for p in ds_consent.list_pending(${JSON.stringify(dsRoot)})]))
+`], { encoding: "utf-8" }).stdout || "[]")) {
+      spawnSync("python3", ["-c", `import sys; sys.path.insert(0, ${JSON.stringify(join(ROOT, "bin"))})
+import ds_consent; ds_consent.resolve_pending(${JSON.stringify(dsRoot)}, ${JSON.stringify(pend)}, False)`]);
+    }
+    await page.goto(`${base}/#/`);
+    await stopIfRunning(HOME);
+    await page.goto(`${base}/#/workspace`);
+    await stopIfRunning(COL);
+    writeFileSync(cfgPath, JSON.stringify({ root: oldRoot, projects: {}, projectsDir: "01-项目" }, null, 2));
+    // ① 项目助手:把「测试项目」绑到甲夹,它在等
+    await send(page, COL, "绑定 测试项目 到 甲夹");
+    await page.waitForTimeout(300);
+    stageWaitingBindCard("测试项目", "甲夹");
+    await page.waitForFunction(() => [...document.querySelectorAll('.chatcol [data-ui="consent-card"]')]
+      .some((c) => c.innerText.includes("甲夹")), null, { timeout: 10000 });
+    // ② 首页:同一个项目绑到乙夹
+    await page.goto(`${base}/#/`);
+    await send(page, HOME, "绑定 测试项目 到 乙夹");
+    await page.waitForTimeout(300);
+    stageWaitingBindCard("测试项目", "乙夹");
+    await page.waitForFunction(() => [...document.querySelectorAll('.home-pane [data-ui="consent-card"]')]
+      .some((c) => c.innerText.includes("乙夹")), null, { timeout: 10000 });
+    const homeText = await homeCard.innerText();
+    check(homeText.includes("乙夹") && !homeText.includes("甲夹"), `首页只有自己的绑定卡(乙夹):${JSON.stringify(homeText.slice(0, 90))}`);
+    // ③ 切到项目页:只有甲夹那张(二审截图 02-bind-project 那一幕)
+    await page.goto(`${base}/#/workspace`);
+    await page.waitForTimeout(2500);
+    const colText = await colCard.innerText();
+    check(colText.includes("甲夹") && !colText.includes("乙夹"),
+      `项目页只有自己的绑定卡(甲夹),首页的(乙夹)没有串过来:${JSON.stringify(colText.slice(0, 90))}`);
     await stopIfRunning(COL);
     await page.goto(`${base}/#/`);
     await stopIfRunning(HOME);
