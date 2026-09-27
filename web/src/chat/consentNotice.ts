@@ -9,16 +9,64 @@
 // 两轮审查的教训(PR #2):
 //   · 第一版只看后端 waiter —— 点了停止之后 waiter 还是 true ⇒ 吞掉结果;
 //   · 第二版看"waiter 且**任意**聊天在跑" —— 首页停止、项目助手在跑别的事时,仍被当成"有人接"⇒ 又吞掉。
-// ⇒ 必须按**这张卡归哪个聊天**判断。前端能知道的最直接事实是:卡是在哪个聊天跑着的时候冒出来的
-//   (聊天在跑时每秒拉一次卡片,卡一出现就记下当时在跑的那几个聊天)。
+// ⇒ 必须按**这张卡归哪个聊天**判断。
+//
+// ## 归属的真实信号:工具的"开始"事件(PR #3 审查)
+// 以前按"卡冒出来时哪几个聊天在跑"猜 —— 两个聊天同时在跑时就把两个都算成主人,
+// 项目助手在等自己的卡时,首页再提一张,切到项目页仍能看到首页的卡。
+// 网关开了 sendToolHints(ds_shell_core.patch_config 写)后,每次调用工具**之前**会往
+// **发起它的那条聊天连接**推一条 tool_hint,带 phase:"start"、工具名和参数。
+// 于是每个聊天记下"我发起了哪些还没结束的受闸调用(动作 + 参数)",卡片冒出来时按
+// 动作 + 参数对上是谁发起的 —— 这是事实,不是猜。收不到这条信号(老配置)才退回按"谁在跑"。
+
+/** 受闸工具名 → 同意卡上的动作名(与 bin/ds_consent.py GUARDED_ACTIONS 一致)。 */
+export function consentActionOf(toolName: unknown): "set_workspace" | "bind_project" | null {
+  if (typeof toolName !== "string") return null;
+  if (toolName.endsWith("set_workspace_tool")) return "set_workspace";
+  if (toolName.endsWith("bind_project_tool")) return "bind_project";
+  return null;
+}
+
+/** 卡片(来自 /api/consent)的最小形状。 */
+export type ConsentCardRef = { pending_id: string; action?: string; params?: Record<string, unknown> };
+
+type OpenCall = { slot: string; turn: number; action: string; args: Record<string, unknown> };
+
+/** 路径比较:Windows 不分大小写、正反斜杠都认、忽略末尾分隔符。后端记的是 realpath,
+ *  助手传的是原样路径 —— 对不上时退回"同动作的唯一发起者",不会因此认错主。 */
+function samePath(a: unknown, b: unknown): boolean {
+  const n = (x: unknown) =>
+    typeof x === "string" ? x.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase() : null;
+  const na = n(a);
+  return na !== null && na === n(b);
+}
+
+function argsMatch(action: string, args: Record<string, unknown>, params: Record<string, unknown>): boolean {
+  if (action === "set_workspace") return samePath(args.root, params.root);
+  if (action === "bind_project") return args.project === params.project;
+  return false;
+}
 
 export class ConsentOwners {
   /** 正在跑的聊天 → 它当前这一轮的编号。 */
   private busy = new Map<string, number>();
   /** 每个聊天跑过几轮(只增不减):同一个聊天停了又开新一轮,编号不同 ⇒ 不是同一轮。 */
   private turns = new Map<string, number>();
-  /** 每张卡第一次被看见时,正在跑的那几**轮**(slot → 轮次)。空 = 看见时没有聊天在跑。 */
+  /** 每张卡的主人:发起它的那几**轮**(slot → 轮次)。空 = 不知道是谁。 */
   private owners = new Map<string, Map<string, number>>();
+  /** 还没结束的受闸工具调用(call_id → 谁发起、第几轮、动作、参数),来自工具"开始"事件。 */
+  private open = new Map<string, OpenCall>();
+
+  /** 某个聊天的连接里收到受闸工具的"开始"事件。 */
+  toolStarted(slot: string, callId: string, action: string, args: Record<string, unknown>): void {
+    const turn = this.busy.get(slot) ?? this.turns.get(slot) ?? 0;
+    this.open.set(`${slot}#${callId}`, { slot, turn, action, args });
+  }
+
+  /** 收到"结束"事件,或这一轮结束 / 被停止:这次调用不再算"还开着"。 */
+  toolEnded(slot: string, callId: string): void {
+    this.open.delete(`${slot}#${callId}`);
+  }
 
   setBusy(slot: string, on: boolean): void {
     if (on) {
@@ -27,6 +75,8 @@ export class ConsentOwners {
       this.busy.set(slot, turn);
     } else {
       this.busy.delete(slot);
+      // 这一轮结束 / 被停止:它发起的调用都不再"开着"(已认过主的卡不受影响)
+      for (const [k, c] of this.open) if (c.slot === slot) this.open.delete(k);
     }
   }
 
@@ -34,11 +84,25 @@ export class ConsentOwners {
     return this.busy.size > 0;
   }
 
-  /** 每次拉到卡片列表时调用:新卡记下此刻在跑的那几轮,已消失的卡清掉。 */
-  observe(ids: readonly string[]): void {
-    const live = new Set(ids);
+  /**
+   * 每次拉到卡片列表时调用:新卡认主,已消失的卡清掉。认主顺序:
+   *  ① 还开着的、同动作的调用里,参数对得上的那几个 ⇒ 它们的聊天;
+   *  ② 参数都对不上(路径写法不同等)⇒ 同动作的所有开着的调用;
+   *  ③ 一个都没有(网关没开 sendToolHints 的老配置)⇒ 退回"此刻在跑的那几轮"。
+   */
+  observe(cards: readonly (ConsentCardRef | string)[]): void {
+    const list = cards.map((c) => (typeof c === "string" ? { pending_id: c } : c));
+    const live = new Set(list.map((c) => c.pending_id));
     for (const id of [...this.owners.keys()]) if (!live.has(id)) this.owners.delete(id);
-    for (const id of ids) if (!this.owners.has(id)) this.owners.set(id, new Map(this.busy));
+    for (const c of list) {
+      if (this.owners.has(c.pending_id)) continue;
+      const same = [...this.open.values()].filter((o) => o.action === c.action);
+      const exact = same.filter((o) => argsMatch(o.action, o.args, c.params ?? {}));
+      const from = exact.length ? exact : same;
+      this.owners.set(c.pending_id, from.length
+        ? new Map(from.map((o) => [o.slot, o.turn] as [string, number]))
+        : new Map(this.busy));
+    }
   }
 
   /**

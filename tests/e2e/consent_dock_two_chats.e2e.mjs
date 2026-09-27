@@ -20,6 +20,8 @@
 //   C3 三审原样:首页提 A → 停止 → 首页又提 B → 点 A 的旧卡 ⇒ 仍要告诉首页(在跑的是 B 那一轮):
 //      B 在跑时排队、不塞输入框,B 一结束自动发;补话带上落盘结果(认出几个项目夹、已生效),
 //      助手不用再拿同样参数申请一遍。
+//   C4 PR #3 审查原样(并发):项目助手在等自己的卡时,首页再提一张 ⇒ 各在各的聊天里,
+//      切到项目页看不到首页的卡、首页也看不到项目助手的卡(按工具开始事件认主,不按"谁在跑"猜)。
 //
 // 跑法:node tests/e2e/consent_dock_two_chats.e2e.mjs(自起 ds_web 于 8860)
 import { spawn, spawnSync } from "node:child_process";
@@ -76,6 +78,16 @@ const STUB = () => {
       // 这一轮开始跑、不收尾 —— 等价于助手的工具正停在确认卡上等
       setTimeout(() => this._emit({ event: "goal_status", chat_id: this.chatId,
                                     status: "running", started_at: 1 }), 10);
+      // 消息里写了"接到 <路径>" ⇒ 像真网关(开了 sendToolHints)那样,在工具开始时往**这条连接**
+      // 推一条 tool_hint 开始事件(帧形状抄自真 nanobot 0.2.2 网关实抓)
+      const hit = /接到 (\S+)/.exec(m.content || "");
+      if (hit) {
+        setTimeout(() => this._emit({ event: "message", chat_id: this.chatId, kind: "tool_hint",
+          text: `design-studio::set_workspace_tool("${hit[1]}")`, turn_phase: "activity",
+          tool_events: [{ version: 1, phase: "start", call_id: `call_${Date.now()}`,
+            name: "mcp_design-studio_set_workspace_tool", arguments: { root: hit[1] },
+            result: null, error: null, files: [], embeds: [] }] }), 30);
+      }
     }
   }
   window.WebSocket = StubWS;
@@ -89,6 +101,10 @@ mkdirSync(join(dsRoot, "projects"), { recursive: true });
 mkdirSync(join(dsRoot, "config"), { recursive: true });
 mkdirSync(join(oldRoot, "01-项目", "翡翠湾-1801"), { recursive: true });
 mkdirSync(join(newRoot, "01-项目", "机密别墅"), { recursive: true });
+const rootA = join(tmp, "rootA");
+const rootB = join(tmp, "rootB");
+mkdirSync(join(rootA, "01-项目", "甲"), { recursive: true });
+mkdirSync(join(rootB, "01-项目", "乙"), { recursive: true });
 const cfgPath = join(dsRoot, "config", "workspace.json");
 writeFileSync(cfgPath, JSON.stringify({ root: oldRoot, projects: {}, projectsDir: "01-项目" }, null, 2));
 // 已配 key 的机器(否则 App 一打开就跳去模型设置页,见 chat_model_error.e2e.mjs 同款夹具)
@@ -259,6 +275,43 @@ try {
     check(!!landed, `B 一结束,首页自动把 A 的结果发给了助手:${JSON.stringify((await sentBy(page, "home")).slice(before))}`);
     check(/认出 \d+ 个项目夹/.test(landed) && landed.includes("不用再调用工具"),
       `带上了落盘结果、明说别再申请:${JSON.stringify(landed)}`);
+  });
+  await step("C4 审查原样(并发):项目助手在等自己的卡时首页再提一张 ⇒ 各在各的聊天里", async () => {
+    const stopIfRunning = async (scope) => {
+      if (await page.locator(`${scope} .stop-btn`).count()) {
+        await page.locator(`${scope} .stop-btn`).click();
+        await page.locator(`${scope} .stop-btn`).waitFor({ state: "detached", timeout: 8000 });
+      }
+    };
+    await page.goto(`${base}/#/`);
+    await stopIfRunning(HOME);
+    await page.goto(`${base}/#/workspace`);
+    await stopIfRunning(COL);
+    writeFileSync(cfgPath, JSON.stringify({ root: oldRoot, projects: {}, projectsDir: "01-项目" }, null, 2));
+    // ① 项目助手发起 A,它的卡出来、它在等
+    await send(page, COL, `接到 ${rootA}`);
+    await page.waitForTimeout(300);
+    stageWaitingCard(rootA);
+    await colCard.waitFor({ timeout: 10000 });
+    check((await colCard.innerText()).includes(rootA), "项目助手里是它自己的卡(A)");
+    // ② 项目助手还在等,首页发起 B
+    await page.goto(`${base}/#/`);
+    await send(page, HOME, `接到 ${rootB}`);
+    await page.waitForTimeout(300);
+    stageWaitingCard(rootB);
+    await page.waitForFunction((r) => [...document.querySelectorAll('.home-pane [data-ui="consent-card"]')]
+      .some((c) => c.innerText.includes(r)), rootB, { timeout: 10000 });
+    const homeText = await homeCard.innerText();
+    check(homeText.includes(rootB) && !homeText.includes(rootA), `首页只有自己的卡(B),没有 A:${JSON.stringify(homeText.slice(0, 80))}`);
+    // ③ 切到项目页:只有 A,没有首页的 B(审查截图 05-parallel-project 那一幕)
+    await page.goto(`${base}/#/workspace`);
+    await page.waitForTimeout(2500);
+    const colText = await colCard.innerText();
+    check(colText.includes(rootA) && !colText.includes(rootB),
+      `项目页只有自己的卡(A),首页的卡(B)没有串过来:${JSON.stringify(colText.slice(0, 80))}`);
+    await stopIfRunning(COL);
+    await page.goto(`${base}/#/`);
+    await stopIfRunning(HOME);
   });
 } catch (e) {
   failures += 1;

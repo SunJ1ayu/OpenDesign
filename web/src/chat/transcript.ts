@@ -329,6 +329,9 @@ export function applyEvent(state: TranscriptState, ev: unknown): TranscriptState
       const lines: string[] = [];
       for (const t of raw) {
         if (typeof t !== "object" || t === null) continue;
+        // 工具"开始"事件(网关开了 sendToolHints 才有,track opendesign-consent-dock 用它给同意卡认主)
+        // 不进回执:回执说的是"刚才干了什么",同一个工具开始、结束各记一行就重复了。
+        if ((t as Record<string, unknown>).phase === "start") continue;
         lines.push(activityLabel((t as Record<string, unknown>).name));
       }
       if (lines.length === 0) return state;

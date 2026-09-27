@@ -1384,7 +1384,9 @@ class PatchConfig(unittest.TestCase):
             # 业主同意卡(track opendesign-consent-dock):工具等业主点的时长 + nanobot 给
             # 这个 server 的超时,必须一起写、只写在 design-studio 上(见 core.CONSENT_*)。
             "/tools/mcpServers/design-studio/env/DS_CONSENT_WAIT_S",
-            "/tools/mcpServers/design-studio/toolTimeout"}
+            "/tools/mcpServers/design-studio/toolTimeout",
+            # 同意卡认主:工具开始时网关往发起的聊天连接推 tool_hint(PR #3 审查)
+            "/channels/websocket/sendToolHints"}
         self.assertEqual(changed - allowed, set(), f"动了不该动的地方:{sorted(changed - allowed)}")
         self.assertEqual(allowed - changed, set(), f"该改的没改到:{sorted(allowed - changed)}")
 

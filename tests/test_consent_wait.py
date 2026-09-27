@@ -207,9 +207,13 @@ class W7_外壳写进配置的两个数(unittest.TestCase):
                            "tools": {"mcpServers": servers}}, fh)
             core.patch_config(path, gateway_port=1, ws_port=2, python_exe="py")
             with open(path, encoding="utf-8") as fh:
-                got = json.load(fh)["tools"]["mcpServers"]
+                whole = json.load(fh)
+            got = whole["tools"]["mcpServers"]
+            ws_cfg = whole["channels"]["websocket"]
         finally:
             shutil.rmtree(d, ignore_errors=True)
+        self.assertIs(ws_cfg.get("sendToolHints"), True,
+                      "网关不推工具开始事件,前端就没法把同意卡绑到真正发起的聊天上")
         ds = got["design-studio"]
         self.assertEqual(ds["env"]["DS_CONSENT_WAIT_S"], str(core.CONSENT_WAIT_S))
         self.assertEqual(ds["toolTimeout"], core.CONSENT_TOOL_TIMEOUT_S)
