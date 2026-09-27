@@ -106,7 +106,7 @@ function createWindow() {
     icon: path.join(resources, "opendesign.ico"),
     show: false,
     frame: false,
-    backgroundColor: "#f7f5f0",
+    backgroundColor: "#161616",   // 与界面默认深色(ZCode Zai Dark 底色)一致,开窗那一下不闪白
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,

@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OpenDesign 工作台</title>
+    <script>
+      // 第一帧之前定好深 / 浅色(与 src/theme.ts 同一个键、同一套解析),免得浅色用户开机先闪黑
+      (function () {
+        var p = "dark";
+        try { p = localStorage.getItem("od-theme") || "dark"; } catch (e) {}
+        if (p === "system") {
+          try { p = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; } catch (e) { p = "dark"; }
+        }
+        document.documentElement.setAttribute("data-theme", p === "light" ? "light" : "dark");
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -14,6 +14,9 @@ import {
 import type { DesktopUpdateState } from "../desktopShell";
 import { RELEASES_PAGE } from "../update";
 import type { ConsentMode } from "../api";
+import { useState } from "react";
+import { applyTheme, loadThemePref, type ThemePref } from "../theme";
+import { SideIcon, type SideIconName } from "../workspace/icons";
 import ModelSettings from "./ModelSettings";
 import type { SettingsSection } from "./modelSettings";
 
@@ -35,16 +38,30 @@ type Props = {
   onInstallUpdate: () => void;
 };
 
-function Icon({ d }: { d: string }) {
+/** 外观三档(照 ZCode THEME_OPTIONS:跟随系统 Monitor / 深色 Moon / 浅色 Sun)。 */
+const THEMES: { pref: ThemePref; label: string; icon: SideIconName }[] = [
+  { pref: "dark", label: "深色", icon: "moon" },
+  { pref: "light", label: "浅色", icon: "sun" },
+  { pref: "system", label: "跟随系统", icon: "monitor" },
+];
+
+function Appearance() {
+  const [pref, setPref] = useState<ThemePref>(() => loadThemePref());
   return (
-    <svg className="ico" viewBox="0 0 24 24" aria-hidden="true">
-      <path d={d} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <div className="settings-item" data-ui="settings-appearance">
+      <span className="lbl">外观</span>
+      <span className="seg theme-seg" role="radiogroup" aria-label="外观">
+        {THEMES.map((t) => (
+          <button key={t.pref} type="button" role="radio" aria-checked={pref === t.pref}
+            data-theme-opt={t.pref} className={`opt${pref === t.pref ? " on" : ""}`}
+            onClick={() => { applyTheme(t.pref); setPref(t.pref); }}>
+            <SideIcon name={t.icon} />{t.label}
+          </button>
+        ))}
+      </span>
+    </div>
   );
 }
-const ARROW_LEFT = "M19 12H5M12 19l-7-7 7-7";
-const SLIDERS = "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6";
-const PACKAGE = "M16.5 9.4 7.55 4.24M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.27 6.96 12 12.01l8.73-5.05M12 22.08V12";
 
 function General(p: Props) {
   const { consentMode, onSetConsentMode, health, desktopShell, updateState, onCheckUpdate, onInstallUpdate } = p;
@@ -52,10 +69,7 @@ function General(p: Props) {
     <section className="settings-general" data-ui="settings-general">
       <h2>常规</h2>
       <div className="settings-list">
-        <div className="settings-item" title="定稿仅浅色;深色适配排期中">
-          <span className="lbl">外观</span>
-          <span className="val">浅色 <span className="soon">深色即将支持</span></span>
-        </div>
+        <Appearance />
         <div className="settings-item">
           <span className="lbl">数据与备份</span>
           <span className="val mono">{health ? health.ds_root : "~/OpenDesign"}</span>
@@ -147,7 +161,7 @@ export default function SettingsPage(props: Props) {
       <nav className="side settings-nav" data-ui="settings-nav" aria-label="设置">
         <div className="side-group">
           <button className="side-row settings-back" data-ui="settings-toggle" aria-expanded={true} onClick={onBack}>
-            <Icon d={ARROW_LEFT} />
+            <SideIcon name="arrow-left" />
             <span className="grow">返回工作区</span>
           </button>
         </div>
@@ -155,12 +169,12 @@ export default function SettingsPage(props: Props) {
         <div className="side-group">
           <button className={`side-row${section === "general" ? " current" : ""}`} data-ui="settings-nav-general"
             aria-current={section === "general" ? "page" : undefined} onClick={() => onNavigate("general")}>
-            <Icon d={SLIDERS} />
+            <SideIcon name="settings-2" />
             <span className="grow">常规</span>
           </button>
           <button className={`side-row${section === "models" ? " current" : ""}`} data-ui="settings-nav-models"
             aria-current={section === "models" ? "page" : undefined} onClick={() => onNavigate("models")}>
-            <Icon d={PACKAGE} />
+            <SideIcon name="package" />
             <span className="grow">模型设置</span>
           </button>
         </div>
