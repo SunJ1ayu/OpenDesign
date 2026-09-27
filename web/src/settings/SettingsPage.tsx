@@ -23,6 +23,9 @@ type Props = {
   onBack: () => void;
   onNavigate: (section: SettingsSection, provider?: string | null) => void;
   onOpenFolderVisibility: () => void;
+  /** 现在接的项目文件夹(没接 ⇒ null)与"更换"入口(track opendesign-workspace-picker)。 */
+  workspaceRoot: string | null;
+  onPickWorkspace: () => void;
   consentMode: ConsentMode | null;
   onSetConsentMode: (mode: ConsentMode) => void;
   health: { version: string; ds_root: string; model: string | null } | null;
@@ -57,6 +60,16 @@ function General(p: Props) {
           <span className="lbl">数据与备份</span>
           <span className="val mono">{health ? health.ds_root : "~/OpenDesign"}</span>
         </div>
+        {/* 手动选工作区(track opendesign-workspace-picker):以前只能靠助手设,接好之后界面上没有地方换 */}
+        <button className="settings-item" data-ui="settings-workspace-root"
+          title="选你电脑上放项目的那个文件夹" onClick={p.onPickWorkspace}>
+          <span className="lbl">项目文件夹</span>
+          <span className="val">
+            {p.workspaceRoot
+              ? <><span className="mono">{p.workspaceRoot}</span> · 更换 ›</>
+              : "还没接入 · 选择 ›"}
+          </span>
+        </button>
         <button className="settings-item" data-ui="settings-folder-visibility"
           title="选哪些文件夹要出现在左边的项目列表里" onClick={p.onOpenFolderVisibility}>
           <span className="lbl">工作区文件夹</span>

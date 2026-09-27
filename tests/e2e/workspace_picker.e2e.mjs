@@ -1,0 +1,172 @@
+// 业主手动选工作区 e2e —— track opendesign-workspace-picker。真 chromium + 真 ds_web。
+//
+// 以前工作区只能靠助手设;接好之后界面上没有地方换。现在:设置页「项目文件夹」/ 项目页「接入工作区」
+// → 选文件夹(桌面版弹系统对话框,浏览器里手填)→ 预览三种摆法各认出几个项目 → 接入。
+//
+// 覆盖:
+//   W1 浏览器里(没有外壳):设置页 → 手填路径 → 预览(有总夹时默认选它,写着认出几个、叫什么)→ 接入 →
+//      配置真的写了、设置页那一行显示新路径
+//   W2 桌面版:点「更换」直接弹系统对话框(替身返回一个没有总夹的文件夹)→ 默认选"直接放在这里"→ 接入
+//   W3 桌面版:对话框里点了取消 ⇒ 什么都不改、弹窗关掉
+//   W4 项目页「接入工作区」打开的是这个对话框,**不再**往聊天里发话
+//
+// 跑法:node tests/e2e/workspace_picker.e2e.mjs(自起 ds_web 于 8861)
+import { spawn } from "node:child_process";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { launchBrowser, check } from "./helpers.mjs";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const PORT = 8861;
+
+const tmp = mkdtempSync(join(tmpdir(), "wspick-e2e-"));
+const dsRoot = join(tmp, "ds");
+const ws = join(tmp, "ws");          // 有「01-项目」总夹
+const flat = join(tmp, "flat");      // 项目直接摆着
+mkdirSync(join(dsRoot, "projects"), { recursive: true });
+mkdirSync(join(dsRoot, "config"), { recursive: true });
+for (const p of ["01-项目/甲", "01-项目/乙", "2026/丙", "散项目"]) mkdirSync(join(ws, p), { recursive: true });
+for (const p of ["戊", "己", "庚"]) mkdirSync(join(flat, p), { recursive: true });
+writeFileSync(join(dsRoot, "projects", "翡翠湾.md"), "# 翡翠湾\n\n- 阶段:方案\n");
+const cfgPath = join(dsRoot, "config", "workspace.json");
+// 已配 key 的机器(否则 App 一打开就跳去模型设置页,同 chat_model_error.e2e.mjs 夹具)
+const home = join(tmp, "home");
+const nbCfg = join(home, ".nanobot", "config.json");
+mkdirSync(join(home, ".openDesign"), { recursive: true });
+writeFileSync(join(home, ".openDesign", "key.txt"), "sk-e2e-workspace-picker\n");
+mkdirSync(join(home, ".nanobot"), { recursive: true });
+const template = readFileSync(join(ROOT, "config", "nanobot.config.windows.jsonc"), "utf8")
+  .split("\n").filter((ln) => !/^\s*\/\//.test(ln)).join("\n");
+writeFileSync(nbCfg, JSON.stringify(JSON.parse(template), null, 2));
+
+/** 桌面外壳替身:shellApi 认它所需的全套方法 + pickFolder(由 window.__pickResult 决定选了什么)。 */
+const SHELL_STUB = () => {
+  window.__pickCalls = [];
+  window.__pickResult = null;
+  const noop = () => Promise.resolve(null);
+  window.odShell = {
+    minimize: noop, toggleMaximize: () => Promise.resolve({ maximized: false }), close: noop,
+    windowState: () => Promise.resolve({ maximized: false }), onWindowState: () => () => {},
+    reportStartup: () => {},
+    pickFolder: (d) => { window.__pickCalls.push(d ?? ""); return Promise.resolve(window.__pickResult); },
+    update: { check: noop, install: noop, state: () => Promise.resolve({ phase: "idle" }), onState: () => () => {} },
+  };
+};
+
+let failures = 0;
+let browser = null;
+let srv = null;
+const step = async (label, fn) => {
+  console.log(`\n== ${label}`);
+  try { await fn(); } catch (e) { failures += 1; console.log(`  not ok - ${label}: ${e.message}`); }
+};
+const cfg = () => (existsSync(cfgPath) ? JSON.parse(readFileSync(cfgPath, "utf-8")) : null);
+
+try {
+  srv = spawn("python3", [join(ROOT, "bin", "ds_web.py")], {
+    env: { ...process.env, DS_ROOT: dsRoot, DS_WEB_PORT: String(PORT), DS_NANOBOT_CONFIG: nbCfg,
+           HOME: home, USERPROFILE: home },
+    stdio: ["ignore", "inherit", "inherit"],
+  });
+  const base = `http://127.0.0.1:${PORT}`;
+  for (let i = 0; ; i++) {
+    try { await fetch(`${base}/api/health`); break; }
+    catch { if (i > 50) throw new Error("ds_web 起不来"); await new Promise((r) => setTimeout(r, 200)); }
+  }
+  browser = await launchBrowser();
+
+  await step("W1 浏览器里:设置页 → 手填路径 → 预览 → 接入", async () => {
+    const page = await browser.newPage({ viewport: { width: 1300, height: 860 } });
+    await page.route("**/api/update/**", (r) => r.fulfill({ status: 200, body: "{}" }));
+    await page.goto(`${base}/#/settings/general`, { waitUntil: "domcontentloaded" });
+    const row = page.locator('[data-ui="settings-workspace-root"]');
+    await row.waitFor({ timeout: 15000 });
+    check((await row.innerText()).includes("还没接入"), "没接时这一行说「还没接入」");
+    await row.click();
+    await page.locator('[data-ui="ws-picker-input"]').fill(ws);
+    await page.locator('[data-ui="ws-picker"] button[type="submit"]').click();
+    await page.locator('[data-ui="ws-picker-layout"]').first().waitFor({ timeout: 10000 });
+    const sel = page.locator('[data-ui="ws-picker-layout"][aria-checked="true"]');
+    check(await sel.getAttribute("data-layout") === "auto", "有「01-项目」总夹时默认选它");
+    const selText = await sel.innerText();
+    check(selText.includes("认出 2 个") && selText.includes("甲") && selText.includes("乙"),
+      `写着认出几个、叫什么:${JSON.stringify(selText)}`);
+    check((await page.locator('[data-ui="ws-picker"]').innerText()).includes("上传") ||
+          (await page.locator('[data-ui="ws-picker"]').innerText()).includes("发给大模型"),
+      "影响面写在对话框里(接入后助手能读这里的资料)");
+    check(cfg() === null, "预览不写任何东西");
+    await page.locator('[data-ui="ws-picker-apply"]').click();
+    const done = page.locator('[data-ui="ws-picker-done"]');
+    await done.waitFor({ timeout: 10000 });
+    check((await done.innerText()).includes("认出 2 个项目"), "接入后告诉业主认出几个");
+    const c = cfg();
+    check(c && c.projectsDir === "01-项目", `配置真的写了:${JSON.stringify(c)}`);
+    await page.locator('[data-ui="ws-picker"] .btn-primary').click();
+    await page.waitForFunction(() => document.querySelector('[data-ui="settings-workspace-root"]')?.innerText.includes("更换"),
+      null, { timeout: 8000 });
+    check((await row.innerText()).includes("ws"), "设置页那一行显示新路径");
+    await page.close();
+  });
+
+  await step("W2 桌面版:点「更换」直接弹系统对话框 → 没有总夹时默认「直接放在这里」→ 接入", async () => {
+    const page = await browser.newPage({ viewport: { width: 1300, height: 860 } });
+    await page.route("**/api/update/**", (r) => r.fulfill({ status: 200, body: "{}" }));
+    await page.addInitScript(SHELL_STUB);
+    await page.addInitScript((p) => { window.__pickResult = p; }, flat);
+    await page.goto(`${base}/#/settings/general`, { waitUntil: "domcontentloaded" });
+    await page.locator('[data-ui="settings-workspace-root"]').click();
+    await page.locator('[data-ui="ws-picker-layout"]').first().waitFor({ timeout: 10000 });
+    check(await page.locator('[data-ui="ws-picker-input"]').count() === 0, "桌面版不让手填,用系统对话框");
+    const calls = await page.evaluate(() => window.__pickCalls);
+    check(calls.length === 1 && calls[0].endsWith("ws"), `对话框从现在的文件夹打开:${JSON.stringify(calls)}`);
+    check(await page.locator('[data-layout="auto"]').count() === 0, "没有总夹时不列「都放在总夹里」");
+    const sel = page.locator('[data-ui="ws-picker-layout"][aria-checked="true"]');
+    check(await sel.getAttribute("data-layout") === "direct", "默认选「直接放在这个文件夹里」");
+    await page.locator('[data-ui="ws-picker-apply"]').click();
+    await page.locator('[data-ui="ws-picker-done"]').waitFor({ timeout: 10000 });
+    const c = cfg();
+    check(c && c.root.endsWith("flat") && c.projectsDir === ".", `换到新根、旧的「01-项目」没残留:${JSON.stringify(c)}`);
+    await page.close();
+  });
+
+  await step("W3 桌面版:对话框里点取消 ⇒ 什么都不改、弹窗关掉", async () => {
+    const before = readFileSync(cfgPath, "utf-8");
+    const page = await browser.newPage({ viewport: { width: 1300, height: 860 } });
+    await page.route("**/api/update/**", (r) => r.fulfill({ status: 200, body: "{}" }));
+    await page.addInitScript(SHELL_STUB);          // __pickResult = null ⇒ 取消
+    await page.goto(`${base}/#/settings/general`, { waitUntil: "domcontentloaded" });
+    await page.locator('[data-ui="settings-workspace-root"]').click();
+    await page.waitForTimeout(800);
+    check(await page.locator('[data-ui="ws-picker"]').count() === 0, "弹窗关掉了");
+    check(readFileSync(cfgPath, "utf-8") === before, "配置一个字节都没动");
+    await page.close();
+  });
+
+  await step("W4 项目页「接入工作区」打开的是这个对话框,不再往聊天里发话", async () => {
+    rmSync(cfgPath, { force: true });                  // 回到"还没接入"
+    const page = await browser.newPage({ viewport: { width: 1300, height: 860 } });
+    await page.route("**/api/update/**", (r) => r.fulfill({ status: 200, body: "{}" }));
+    const wsFrames = [];
+    page.on("websocket", (w) => w.on("framesent", (f) => wsFrames.push(String(f.payload))));
+    await page.goto(`${base}/#/workspace`, { waitUntil: "domcontentloaded" });
+    const btn = page.locator('[data-ui="connect-workspace"]');
+    await btn.waitFor({ timeout: 15000 });
+    await btn.click();
+    await page.locator('[data-ui="ws-picker"]').waitFor({ timeout: 5000 });
+    check(true, "点了打开选文件夹对话框");
+    check(!wsFrames.some((f) => f.includes("接进来")), "没有往聊天里发「把我的项目文件夹接进来」");
+    await page.close();
+  });
+} catch (e) {
+  failures += 1;
+  console.log(`  not ok - 场景中断: ${e.message}`);
+} finally {
+  if (browser) await browser.close();
+  if (srv) srv.kill();
+  rmSync(tmp, { recursive: true, force: true });
+}
+
+console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILED`);
+process.exit(failures === 0 ? 0 : 1);

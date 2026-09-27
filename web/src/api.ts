@@ -786,3 +786,56 @@ export async function resolveConsent(pendingId: string, approve: boolean): Promi
   const r = await consentPost("/api/consent/resolve", { pending_id: pendingId, approve });
   return (r ?? { ok: true, applied: approve }) as ConsentResolved;
 }
+
+// ── 业主手动选工作区(track opendesign-workspace-picker)─────────────────────────
+// 业主本人在界面上选文件夹 = 同意本身,不走同意卡(同 bindProject 的先例)。先预览、再确定。
+export type WorkspaceLayout = {
+  layout: "auto" | "direct" | "grouped";
+  projects_dir: string;
+  projects_depth: 1 | 2;
+  count: number;
+  sample: string[];
+};
+export type WorkspacePreview = { ok: true; root: string; layouts: WorkspaceLayout[] };
+
+/** 后端错误码 → 一句人话(业主不写代码,屏幕上不该出现 root_not_dir 这种东西)。 */
+// 不写成 `constructor(public code ...)`:tests 用 Node 直接剥类型跑 api.ts,那种写法它不认
+export class WorkspacePickError extends Error {
+  code: string;
+  constructor(code: string, message: string) {
+    super(message);
+    this.code = code;
+  }
+}
+async function workspacePost<T>(path: string, body: unknown): Promise<T> {
+  const r = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  let d: { error?: string; message?: string } & Record<string, unknown> = {};
+  try {
+    d = (await r.json()) as typeof d;
+  } catch {
+    /* 非 JSON:回落状态码 */
+  }
+  if (!r.ok) {
+    const code = d.error ?? `http_${r.status}`;
+    const msg =
+      code === "root_not_dir" ? "这个文件夹不存在,或者不是文件夹。"
+      : code === "root_not_absolute" ? "请填完整路径,比如 D:\\设计工作区。"
+      : code === "location_overlap" ? (d.message ?? "这个文件夹和 OpenDesign 自己的目录重叠了,换一个吧。")
+      : code === "layout_invalid" ? "项目的摆法不对,请重新选一次。"
+      : `没能完成(${code}),工作区没有被改动。`;
+    throw new WorkspacePickError(code, msg);
+  }
+  return d as T;
+}
+/** 预览:这个文件夹按三种摆法各认出几个项目。只读。 */
+export const previewWorkspace = (root: string) =>
+  workspacePost<WorkspacePreview>("/api/workspace/root/preview", { root });
+/** 确定:把工作区接到这个文件夹(根 + 摆法)。 */
+export const setWorkspaceRoot = (root: string, layout: WorkspaceLayout) =>
+  workspacePost<{ ok: true; root: string; folder_count: number }>("/api/workspace/root", {
+    root, projects_dir: layout.projects_dir, projects_depth: layout.projects_depth,
+  });
