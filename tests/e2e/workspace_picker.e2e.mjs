@@ -220,7 +220,7 @@ try {
     check(await apply.isDisabled(), "改了路径没重新预览,「接入」点不了");
     await look.click();
     await layouts.first().waitFor({ timeout: 10000 });
-    check((await page.locator('[role="radiogroup"]').innerText()).includes("戊"),
+    check((await page.locator('[data-ui="ws-picker"] [role="radiogroup"]').innerText()).includes("戊"),
       "重新预览的是 B");
     await apply.click();
     await page.locator('[data-ui="ws-picker-done"]').waitFor({ timeout: 10000 });
@@ -246,7 +246,7 @@ try {
     await look2.click();
     await p2.locator('[data-ui="ws-picker-layout"]').first().waitFor({ timeout: 10000 });
     await p2.waitForTimeout(2200);                   // 等 A 那条慢请求回来
-    const txt = await p2.locator('[role="radiogroup"]').innerText();
+    const txt = await p2.locator('[data-ui="ws-picker"] [role="radiogroup"]').innerText();
     check(txt.includes("戊") && !txt.includes("甲"), `晚回来的 A 没盖掉 B:${JSON.stringify(txt)}`);
     check(await p2.locator('[data-layout="auto"]').count() === 0, "没有 A 才有的「都放在总夹里」");
     await p2.close();
