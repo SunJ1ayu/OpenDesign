@@ -124,7 +124,14 @@ try {
     });
     await page.goto(`${base}/#/settings/general`, { waitUntil: "domcontentloaded" });
     await page.locator('[data-ui="settings-workspace-root"]').click();
+    // 加载中业主手快点「选择文件夹…」(PR #4 二审):按钮是灰的,点了也不弹;加载完只自动弹一次
+    const choose = page.locator('[data-ui="ws-picker-choose"]');
+    await choose.waitFor({ timeout: 5000 });
+    check(await choose.isDisabled(), "当前文件夹还没拉到时「选择文件夹…」是灰的");
+    await choose.click({ force: true, timeout: 2000 }).catch(() => {});
+    check((await page.evaluate(() => window.__pickCalls)).length === 0, "加载中点了也不以空路径弹对话框");
     await page.locator('[data-ui="ws-picker-layout"]').first().waitFor({ timeout: 10000 });
+    await page.waitForTimeout(400);
     check(await page.locator('[data-ui="ws-picker-input"]').count() === 0, "桌面版不让手填,用系统对话框");
     const calls = await page.evaluate(() => window.__pickCalls);
     check(calls.length === 1 && calls[0].endsWith("ws"), `对话框从现在的文件夹打开:${JSON.stringify(calls)}`);

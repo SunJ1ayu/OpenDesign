@@ -59,6 +59,8 @@ export default function WorkspacePicker({ currentRoot: rootHint, onClose, onDone
   const [err, setErr] = useState("");
   const [done, setDone] = useState<{ root: string; folder_count: number } | null>(null);
   const started = useRef(false);
+  /** 系统对话框正开着:不许再开第二个(PR #4 二审:加载中手点一次、加载完又自动弹一次)。 */
+  const picking = useRef(false);
 
   const runPreview = useCallback(async (p: string) => {
     setErr("");
@@ -76,8 +78,16 @@ export default function WorkspacePicker({ currentRoot: rootHint, onClose, onDone
   }, []);
 
   const pick = useCallback(async () => {
-    if (!picker) return;
-    const p = await picker(preview?.root ?? currentRoot ?? undefined).catch(() => null);
+    // "现在接的是哪个"还没拉到就不弹:否则对话框从空路径打开
+    if (!picker || picking.current || currentRoot === undefined) return;
+    picking.current = true;
+    started.current = true;      // 手点过了,自动弹那一下就不用再来
+    let p: string | null;
+    try {
+      p = await picker(preview?.root ?? currentRoot ?? undefined).catch(() => null);
+    } finally {
+      picking.current = false;
+    }
     if (!p) {
       if (!preview) onClose();   // 一上来就取消 = 不换了
       return;
@@ -90,7 +100,6 @@ export default function WorkspacePicker({ currentRoot: rootHint, onClose, onDone
   // 等"现在接的是哪个"拉到了再弹,对话框才能从那个文件夹打开。
   useEffect(() => {
     if (started.current || !picker || currentRoot === undefined) return;
-    started.current = true;
     void pick();
   }, [picker, pick, currentRoot]);
 
@@ -131,8 +140,9 @@ export default function WorkspacePicker({ currentRoot: rootHint, onClose, onDone
           <>
             {picker ? (
               <div className="ws-picker-path">
-                <span className="mono">{preview?.root ?? (busy ? "…" : "还没选")}</span>
-                <button className="btn-secondary sm" onClick={() => void pick()} disabled={busy}>
+                <span className="mono">{preview?.root ?? (busy || currentRoot === undefined ? "…" : "还没选")}</span>
+                <button className="btn-secondary sm" data-ui="ws-picker-choose"
+                        onClick={() => void pick()} disabled={busy || currentRoot === undefined}>
                   {preview ? "换一个文件夹…" : "选择文件夹…"}
                 </button>
               </div>
