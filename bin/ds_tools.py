@@ -1026,10 +1026,13 @@ def preview_workspace(root: str, ds_root: str = DEFAULT_DS_ROOT, sample: int = 5
     base = {"root": real_root, "projects": {}, "galleryDepth": None,
             "structuralDirs": None, "ds_root": ds_root}
     layouts = []
-    auto_cfg = {**base, "projectsDir": None, "projectsDepth": None}
-    proot = ds_workspace.projects_root(auto_cfg)
-    if proot and os.path.realpath(proot) != real_root:
-        layouts.append(("auto", os.path.basename(proot), 1, auto_cfg))
+    # 总夹名取**根下那一项自己的名字**(「01-项目」),不取 realpath 之后的名字 —— 它是软链接时,
+    # realpath 是链接目标的名字,写进配置就对不上了(PR #4 审查:预览"认出 2 个",接入后 0 个)。
+    # 并且每种摆法都**用接入时要写进配置的那一份设置**来数:预览看到几个,接上后就是几个。
+    cand = next((c for c in ds_workspace._PROJECTS_DIR_CANDIDATES
+                 if os.path.isdir(os.path.join(real_root, c))), None)
+    if cand is not None:
+        layouts.append(("auto", cand, 1, {**base, "projectsDir": cand, "projectsDepth": None}))
     layouts.append(("direct", ".", 1, {**base, "projectsDir": ".", "projectsDepth": None}))
     layouts.append(("grouped", ".", 2, {**base, "projectsDir": ".", "projectsDepth": 2}))
     out = []

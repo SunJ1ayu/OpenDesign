@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  previewWorkspace, setWorkspaceRoot, WorkspacePickError,
+  fetchWorkspaceHealth, previewWorkspace, setWorkspaceRoot, WorkspacePickError,
   type WorkspaceLayout, type WorkspacePreview,
 } from "../api";
 import { pickFolderApi } from "../desktopShell";
@@ -39,8 +39,19 @@ function bestLayout(ls: WorkspaceLayout[]): number {
   return best;
 }
 
-export default function WorkspacePicker({ currentRoot, onClose, onDone }: Props) {
+export default function WorkspacePicker({ currentRoot: rootHint, onClose, onDone }: Props) {
   const picker = pickFolderApi();
+  // 现在接的是哪个文件夹:打开时**自己拉一次**,不靠外层传进来的那份 —— 外层是异步拉的,
+  // 业主一进设置页就点「更换」时它可能还没到,系统对话框就从空路径打开、"现在接的是"那行也不见了
+  // (云沙箱 e2e W2 偶发红就是这个竞态)。外层那份只当拉到之前的占位。
+  const [currentRoot, setCurrentRoot] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    let stale = false;
+    fetchWorkspaceHealth()
+      .then((h) => { if (!stale) setCurrentRoot(h.configured ? h.root ?? null : null); })
+      .catch(() => { if (!stale) setCurrentRoot(rootHint ?? null); });
+    return () => { stale = true; };
+  }, [rootHint]);
   const [path, setPath] = useState("");
   const [preview, setPreview] = useState<WorkspacePreview | null>(null);
   const [sel, setSel] = useState(0);
@@ -75,12 +86,13 @@ export default function WorkspacePicker({ currentRoot, onClose, onDone }: Props)
     void runPreview(p);
   }, [picker, preview, currentRoot, onClose, runPreview]);
 
-  // 桌面版:一打开就弹系统对话框(业主点的就是"更换…",没必要再多点一下)
+  // 桌面版:一打开就弹系统对话框(业主点的就是"更换…",没必要再多点一下)。
+  // 等"现在接的是哪个"拉到了再弹,对话框才能从那个文件夹打开。
   useEffect(() => {
-    if (started.current || !picker) return;
+    if (started.current || !picker || currentRoot === undefined) return;
     started.current = true;
     void pick();
-  }, [picker, pick]);
+  }, [picker, pick, currentRoot]);
 
   const apply = async () => {
     if (!preview) return;

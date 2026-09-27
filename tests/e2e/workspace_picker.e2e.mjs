@@ -9,10 +9,11 @@
 //   W2 桌面版:点「更换」直接弹系统对话框(替身返回一个没有总夹的文件夹)→ 默认选"直接放在这里"→ 接入
 //   W3 桌面版:对话框里点了取消 ⇒ 什么都不改、弹窗关掉
 //   W4 项目页「接入工作区」打开的是这个对话框,**不再**往聊天里发话
+//   W5 (PR #4 审查)「01-项目」是软链接:预览说认出几个,接入后就是几个(以前预览 2、接入后 0)
 //
 // 跑法:node tests/e2e/workspace_picker.e2e.mjs(自起 ds_web 于 8861)
 import { spawn } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -115,6 +116,12 @@ try {
     await page.route("**/api/update/**", (r) => r.fulfill({ status: 200, body: "{}" }));
     await page.addInitScript(SHELL_STUB);
     await page.addInitScript((p) => { window.__pickResult = p; }, flat);
+    // 把"现在接的是哪个文件夹"拖慢 1.2 秒:业主一进设置页就点「更换」的竞态,每次都复现
+    // (以前对话框会从空路径打开 —— 云沙箱里这条偶发红过一次,就是它)
+    await page.route("**/api/workspace/health", async (r) => {
+      await new Promise((res) => setTimeout(res, 1200));
+      await r.continue();
+    });
     await page.goto(`${base}/#/settings/general`, { waitUntil: "domcontentloaded" });
     await page.locator('[data-ui="settings-workspace-root"]').click();
     await page.locator('[data-ui="ws-picker-layout"]').first().waitFor({ timeout: 10000 });
@@ -157,6 +164,34 @@ try {
     await page.locator('[data-ui="ws-picker"]').waitFor({ timeout: 5000 });
     check(true, "点了打开选文件夹对话框");
     check(!wsFrames.some((f) => f.includes("接进来")), "没有往聊天里发「把我的项目文件夹接进来」");
+    await page.close();
+  });
+  await step("W5 「01-项目」是软链接:预览认出几个,接入后就是几个", async () => {
+    const lnRoot = join(tmp, "linked");
+    const real = join(lnRoot, "真实的项目夹");
+    for (const p of ["辛", "壬"]) mkdirSync(join(real, p), { recursive: true });
+    try {
+      symlinkSync(real, join(lnRoot, "01-项目"), "dir");
+    } catch (e) {
+      console.log(`  (跳过:这台机器建不了软链接 —— ${e.code})`);
+      return;
+    }
+    const page = await browser.newPage({ viewport: { width: 1300, height: 860 } });
+    await page.route("**/api/update/**", (r) => r.fulfill({ status: 200, body: "{}" }));
+    await page.goto(`${base}/#/settings/general`, { waitUntil: "domcontentloaded" });
+    await page.locator('[data-ui="settings-workspace-root"]').click();
+    await page.locator('[data-ui="ws-picker-input"]').fill(lnRoot);
+    await page.locator('[data-ui="ws-picker"] button[type="submit"]').click();
+    const sel = page.locator('[data-ui="ws-picker-layout"][aria-checked="true"]');
+    await sel.waitFor({ timeout: 10000 });
+    const selText = await sel.innerText();
+    check(await sel.getAttribute("data-layout") === "auto" && selText.includes("「01-项目」"),
+      `总夹名是根下那一项的名字「01-项目」,不是链接目标的名字:${JSON.stringify(selText)}`);
+    check(selText.includes("认出 2 个"), "预览认出 2 个");
+    await page.locator('[data-ui="ws-picker-apply"]').click();
+    const done = page.locator('[data-ui="ws-picker-done"]');
+    await done.waitFor({ timeout: 10000 });
+    check((await done.innerText()).includes("认出 2 个项目"), `接入后也是 2 个:${JSON.stringify(await done.innerText())}`);
     await page.close();
   });
 } catch (e) {

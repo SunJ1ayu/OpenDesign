@@ -13,6 +13,8 @@
   P4 ds_web 针孔 posture:只收 JSON、键白名单、跨站 403;成功回 folder_count
   P5 模型碰不到:MCP 工具表里没有这两个入口
   P6 业主换了根,排队中的助手申请按既定规则判过期(判据 O10 的另一面)
+  P7 (PR #4 审查)「01-项目」是软链接时,预览与接入后的项目数一致:总夹名取根下那一项自己的名字,
+     不取链接目标的名字;链接指到工作区外时,预览老老实实说认不出,不许先说认出几个、接上后变 0
 
 纯 stdlib、离线、端口 0。
 """
@@ -51,7 +53,10 @@ def _mkws():
 
 def _cfg(ds):
     p = os.path.join(ds, "config", "workspace.json")
-    return json.load(open(p, encoding="utf-8")) if os.path.exists(p) else None
+    if not os.path.exists(p):
+        return None
+    with open(p, encoding="utf-8") as fh:
+        return json.load(fh)
 
 
 def _cfg_bytes(ds):
@@ -221,6 +226,50 @@ class P4_针孔(unittest.TestCase):
             st, r = _post(port, "/api/workspace/root/preview", {"root": self.ds})
             self.assertEqual((st, r.get("error")), (409, "location_overlap"))
             self.assertTrue(r.get("message", "").startswith("工作区路径"))
+
+
+@unittest.skipIf(not hasattr(os, "symlink"), "平台不支持软链接")
+class P7_总夹是软链接(unittest.TestCase):
+    def setUp(self):
+        self.t = tempfile.mkdtemp(prefix="wspick_ln_")
+        self.ds = os.path.join(self.t, "ds")
+        os.makedirs(os.path.join(self.ds, "config"))
+        os.makedirs(os.path.join(self.ds, "projects"))
+        self.ws = os.path.join(self.t, "ws")
+        os.makedirs(self.ws)
+
+    def tearDown(self):
+        shutil.rmtree(self.t, ignore_errors=True)
+
+    def _link(self, target):
+        for p in ("甲", "乙"):
+            os.makedirs(os.path.join(target, p), exist_ok=True)
+        try:
+            os.symlink(target, os.path.join(self.ws, "01-项目"), target_is_directory=True)
+        except OSError as e:          # Windows 没有开发者模式时建不了软链接
+            self.skipTest(f"建不了软链接:{e}")
+
+    def _preview_then_apply(self):
+        pv = ds_tools.preview_workspace(self.ws, ds_root=self.ds)
+        self.assertTrue(pv.get("ok"), pv)
+        auto = next((l for l in pv["layouts"] if l["layout"] == "auto"), None)
+        self.assertIsNotNone(auto, "根下有「01-项目」(哪怕是软链接)就该列出这种摆法")
+        self.assertEqual(auto["projects_dir"], "01-项目", "总夹名要取根下那一项自己的名字,不是链接目标的")
+        r = ds_tools.owner_set_workspace(self.ws, auto["projects_dir"], auto["projects_depth"], ds_root=self.ds)
+        return auto, r
+
+    def test_p7a_链接目标在工作区内_预览2个接入后也是2个(self):
+        self._link(os.path.join(self.ws, "真实的项目夹"))
+        auto, r = self._preview_then_apply()
+        self.assertEqual(auto["count"], 2)
+        self.assertEqual(r.get("folder_count"), auto["count"], f"预览说 {auto['count']} 个,接入后 {r}")
+        self.assertEqual(_cfg(self.ds)["projectsDir"], "01-项目")
+
+    def test_p7b_链接目标在工作区外_预览与接入结果一致(self):
+        self._link(os.path.join(self.t, "工作区外面"))
+        auto, r = self._preview_then_apply()
+        self.assertEqual(r.get("folder_count"), auto["count"],
+                         f"预览说 {auto['count']} 个,接入后 {r} —— 不许先说认得出、接上后变 0")
 
 
 if __name__ == "__main__":
