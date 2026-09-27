@@ -10,7 +10,7 @@
 //   · 都闲着且没有待确认 → 不拉。另外挂载 / 切到可见 / 窗口回到前台 / 每轮结束时各拉一次。
 import { useEffect, useSyncExternalStore } from "react";
 import { fetchConsent, type ConsentPending } from "../api";
-import { ConsentOwners } from "./consentNotice";
+import { ConsentOwners, consentActionOf } from "./consentNotice";
 
 const EMPTY: ConsentPending[] = [];
 const FAST_MS = 1000;
@@ -67,6 +67,33 @@ export function deliverConsentNotice(pendingId: string, clickedSlot: string, tex
   clickedFallback(text);
 }
 
+/**
+ * 某个聊天的连接里收到一帧:从里面挑出受闸工具的"开始 / 结束"事件记账(认主的真实信号)。
+ * 网关开了 sendToolHints 才会有"开始"事件(ds_shell_core.patch_config);没有也不出错,
+ * 认主退回按"谁在跑"。
+ */
+export function noteConsentToolEvents(slot: string, frame: unknown): void {
+  if (typeof frame !== "object" || frame === null) return;
+  const events = (frame as { tool_events?: unknown }).tool_events;
+  if (!Array.isArray(events)) return;
+  let started = false;
+  for (const ev of events) {
+    if (typeof ev !== "object" || ev === null) continue;
+    const e = ev as { phase?: unknown; call_id?: unknown; name?: unknown; arguments?: unknown };
+    const action = consentActionOf(e.name);
+    if (!action || typeof e.call_id !== "string") continue;
+    if (e.phase === "start") {
+      const args = typeof e.arguments === "object" && e.arguments !== null
+        ? (e.arguments as Record<string, unknown>) : {};
+      owners.toolStarted(slot, e.call_id, action, args);
+      started = true;
+    } else if (e.phase === "end") {
+      owners.toolEnded(slot, e.call_id);
+    }
+  }
+  if (started) refreshConsent(); // 卡马上就要冒出来了,别等下一拍轮询
+}
+
 /** 立刻拉一次(并发时合并成一次)。 */
 export function refreshConsent(): void {
   if (inflight) return;
@@ -74,7 +101,7 @@ export function refreshConsent(): void {
   fetchConsent()
     .then((s) => {
       const list = s.pending || [];
-      owners.observe(list.map((p) => p.pending_id)); // 新卡记下此刻在跑的聊天
+      owners.observe(list); // 新卡认主:按发起它的那次工具调用(见 ConsentOwners.observe)
       publish(list);
     })
     // 拉不到就当没有待确认:这张卡是**加法**,它自己坏掉不该把聊天带塌。
@@ -121,5 +148,8 @@ export function useConsentPending(active: boolean, busy: boolean, slot: string):
     return () => window.removeEventListener("focus", onFocus);
   }, [active]);
 
-  return active ? list : EMPTY;
+  if (!active) return EMPTY;
+  // 只显示**本聊天提的**卡(归属不明的哪都显示),见 ConsentOwners.showsIn。
+  const mine = list.filter((p) => owners.showsIn(p.pending_id, slot));
+  return mine.length === list.length ? list : mine;
 }

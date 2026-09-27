@@ -1056,6 +1056,10 @@ def patch_config(path, *, gateway_port: int, ws_port: int, python_exe: str,
 
     cfg.setdefault("gateway", {})["port"] = int(gateway_port)
     ws["port"] = int(ws_port)
+    # 同意卡认主(track opendesign-consent-dock,PR #3 审查):工具调用**开始**时,网关往发起它的
+    # 那条聊天连接推一条 tool_hint(带工具名和参数),前端据此把卡片绑到真正发起的聊天上。
+    # nanobot 默认不推(send_tool_hints=False);只开聊天这一个通道,不动别的通道。
+    ws["sendToolHints"] = True
     for name in OUR_MCP:
         servers[name]["command"] = str(python_exe)
         # 🔴 三个 MCP **不是外壳起的** —— 网关按这里的 env 块起它们,而 MCP SDK 的

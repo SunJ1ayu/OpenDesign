@@ -55,7 +55,8 @@ import { SideIcon } from "../workspace/icons";
 import ConsentCard, { describe as describeConsent } from "../workspace/ConsentCard";
 import type { ConsentPending, ConsentResolved } from "../api";
 import {
-  consentDelivered, deliverConsentNotice, registerConsentNotice, useConsentPending,
+  consentDelivered, deliverConsentNotice, noteConsentToolEvents, registerConsentNotice,
+  useConsentPending,
 } from "./consentStore";
 import { consentNoticeText } from "./consentNotice";
 
@@ -553,6 +554,8 @@ export default function ChatPage({
             // 这一轮收尾 ⇒ 刷新侧栏历史与项目数据。点 ■ 停下时网关不发 turn_end、只发 goal_status:idle
             // (探针),也要刷新 —— 新对话首句就停,侧栏里也得有它(评审 R1)。多刷一次无害。
             if (m.event === "turn_end" || (m.event === "goal_status" && m.status === "idle")) onTurnEnd?.();
+            // 同意卡认主:这条连接发起了哪次受闸工具调用(不等 80ms 节流,卡片随时会冒出来)
+            noteConsentToolEvents(slot ?? variant, m);
             pending.push(m);
             if (timer === null) timer = setTimeout(flush, FLUSH_MS);
           } catch {
