@@ -1,0 +1,23 @@
+[1m== 泄漏闸自测(判据的判据)[0m
+   [32m完成[0m  0s
+[1m== node 单测(tests/*.mjs)[0m
+   [32m完成[0m  16s
+[1m== python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python)[0m
+   [32m完成[0m  518s
+[1m== MCP 契约闸[0m
+   [32m完成[0m  4s
+[1m== dist 新鲜度 + 类型检查(npm run build 后 git 应无差异)[0m
+   [32m完成[0m  11s
+[1m== e2e 总跑[0m
+   [32m完成[0m  269s
+
+════ 总跑汇总 ════
+  [32mPASS[0m  泄漏闸自测(判据的判据)   14 条全过
+  [32mPASS[0m  node 单测(tests/*.mjs)           597 通过 / 0 跳过 / 0 todo
+  [32mPASS[0m  python 全量 + 死断言闸(/root/.venvs/design-studio/bin/python) 1605 跑过 / 1 跳过
+  [32mPASS[0m  MCP 契约闸                      三条闸全绿
+  [32mPASS[0m  dist 新鲜度 + 类型检查(npm run build 后 git 应无差异) 与源码同步
+  [32mPASS[0m  e2e 总跑                         47 PASS / 0 FAIL / 2 SKIP / ⚠️ 浏览器收容 1 次(已自动收掉):workspace_picker.e2e.mjs
+
+没有红的,但有 3 条没跑 —— 不算通过。
+   要跑那两条 e2e:先按 tests/e2e/README.md 起 gateway,再 tests/run-all.sh --with-gateway

@@ -1,0 +1,48 @@
+{
+  "tag": "v0.98.18",
+  "commit": "8986c7a99c3f4f9f73fa81850ab32ccafb1ebbd7",
+  "releaseUrl": "https://github.com/SunJ1ayu/OpenDesign/releases/tag/v0.98.18",
+  "publishedAt": "2026-09-27T15:42:44Z",
+  "mergedAt": "2026-09-27T15:10:39Z",
+  "checks": [
+    "formal release published",
+    "published notes match approved notes",
+    "official latest release is v0.98.18",
+    "main points to the tested build commit",
+    "release tag points to tested commit 8986c7a99c3f4f9f73fa81850ab32ccafb1ebbd7",
+    "PR #4 merged",
+    "exactly three expected release assets",
+    "HTTP 200 https://github.com/SunJ1ayu/OpenDesign/releases/latest/download/latest.yml",
+    "unauthenticated latest feed matches verified bytes",
+    "automatic update feed is 0.98.18",
+    "official asset URL OpenDesign-0.98.18-electron-setup.exe",
+    "HTTP 200 https://github.com/SunJ1ayu/OpenDesign/releases/download/v0.98.18/OpenDesign-0.98.18-electron-setup.exe",
+    "public bytes match verified asset OpenDesign-0.98.18-electron-setup.exe",
+    "feed points to verified installer",
+    "official asset URL OpenDesign-0.98.18-electron-setup.exe.blockmap",
+    "HTTP 200 https://github.com/SunJ1ayu/OpenDesign/releases/download/v0.98.18/OpenDesign-0.98.18-electron-setup.exe.blockmap",
+    "public bytes match verified asset OpenDesign-0.98.18-electron-setup.exe.blockmap",
+    "official asset URL latest.yml",
+    "HTTP 200 https://github.com/SunJ1ayu/OpenDesign/releases/download/v0.98.18/latest.yml",
+    "public bytes match verified asset latest.yml",
+    "public installer downloaded and hashed",
+    "live SHA-512 matches public installer",
+    "live size matches public installer",
+    "HTTP 200 https://github.com/SunJ1ayu/OpenDesign/releases/download/v0.98.16/OpenDesign-0.98.16-electron-setup.exe.blockmap",
+    "0.98.16 blockmap remains downloadable for differential update"
+  ],
+  "assets": {
+    "OpenDesign-0.98.18-electron-setup.exe": {
+      "size": 164814170,
+      "sha256": "7a5300f572d7d83246a434423b33915c651eea8456af19ef82a0341c59b3d66c"
+    },
+    "OpenDesign-0.98.18-electron-setup.exe.blockmap": {
+      "size": 173465,
+      "sha256": "7b03f1387d0ddee03e4f6949b77a99992f281968457642c9f6f0d9cda70ca9ad"
+    },
+    "latest.yml": {
+      "size": 505,
+      "sha256": "7a13d3fa42184cc6eb88242a8b6a44e7baf1c841fbe636fa3123c3dc9992c494"
+    }
+  }
+}

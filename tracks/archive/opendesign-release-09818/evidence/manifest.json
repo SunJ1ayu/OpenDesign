@@ -1,0 +1,31 @@
+{
+  "version": "0.98.18",
+  "sourceCommit": "8986c7a99c3f4f9f73fa81850ab32ccafb1ebbd7",
+  "reviewedPrCommit": "62f78482c5b7b7400a424266787c7a00b2196926",
+  "prMergeCommit": "92b92e8f9b9d94cb3fb5982a1922d759cda5cb89",
+  "run": "36328729027",
+  "formalReleasePublished": true,
+  "windowsAssertions": 141,
+  "windowsFailures": 0,
+  "cloudConclusion": "success",
+  "files": [
+    {
+      "name": "OpenDesign-0.98.18-electron-setup.exe",
+      "bytes": 164814170,
+      "sha256": "7a5300f572d7d83246a434423b33915c651eea8456af19ef82a0341c59b3d66c"
+    },
+    {
+      "name": "OpenDesign-0.98.18-electron-setup.exe.blockmap",
+      "bytes": 173465,
+      "sha256": "7b03f1387d0ddee03e4f6949b77a99992f281968457642c9f6f0d9cda70ca9ad"
+    },
+    {
+      "name": "latest.yml",
+      "bytes": 505,
+      "sha256": "7a13d3fa42184cc6eb88242a8b6a44e7baf1c841fbe636fa3123c3dc9992c494"
+    }
+  ],
+  "releaseUrl": "https://github.com/SunJ1ayu/OpenDesign/releases/tag/v0.98.18",
+  "localFailures": 0,
+  "localExistingSkips": 3
+}

@@ -1,0 +1,42 @@
+# runlog receipt —— 机器写的,别手改(改了守卫看不出来,但闸③ 会在 diff 里看见)
+slug:    production-smoke
+cmd:     python3 -u tracks/opendesign-release-09818/evidence/prod-smoke.py
+cwd:     /root/opendesign-release18/record(仓根)
+commit:  8986c7a
+dirty:   yes(跑之前采的;含未跟踪文件)
+head-before: 8986c7a99c3f4f9f73fa81850ab32ccafb1ebbd7
+source-view-before: sha256:4188ed2ee27b6033eb31779a5dd220d2985dba77d4fad959e4c2c250f61426fc
+started: 2026-09-27T15:44:05Z
+---------------- 输出开始 ----------------
+PASS formal release published
+PASS published notes match approved notes
+PASS official latest release is v0.98.18
+PASS main points to the tested build commit
+PASS release tag points to tested commit 8986c7a99c3f4f9f73fa81850ab32ccafb1ebbd7
+PASS PR #4 merged
+PASS exactly three expected release assets
+PASS HTTP 200 https://github.com/SunJ1ayu/OpenDesign/releases/latest/download/latest.yml
+PASS unauthenticated latest feed matches verified bytes
+PASS automatic update feed is 0.98.18
+PASS official asset URL OpenDesign-0.98.18-electron-setup.exe
+PASS HTTP 200 https://github.com/SunJ1ayu/OpenDesign/releases/download/v0.98.18/OpenDesign-0.98.18-electron-setup.exe
+PASS public bytes match verified asset OpenDesign-0.98.18-electron-setup.exe
+PASS feed points to verified installer
+PASS official asset URL OpenDesign-0.98.18-electron-setup.exe.blockmap
+PASS HTTP 200 https://github.com/SunJ1ayu/OpenDesign/releases/download/v0.98.18/OpenDesign-0.98.18-electron-setup.exe.blockmap
+PASS public bytes match verified asset OpenDesign-0.98.18-electron-setup.exe.blockmap
+PASS official asset URL latest.yml
+PASS HTTP 200 https://github.com/SunJ1ayu/OpenDesign/releases/download/v0.98.18/latest.yml
+PASS public bytes match verified asset latest.yml
+PASS public installer downloaded and hashed
+PASS live SHA-512 matches public installer
+PASS live size matches public installer
+PASS HTTP 200 https://github.com/SunJ1ayu/OpenDesign/releases/download/v0.98.16/OpenDesign-0.98.16-electron-setup.exe.blockmap
+PASS 0.98.16 blockmap remains downloadable for differential update
+PRODUCTION SMOKE PASS https://github.com/SunJ1ayu/OpenDesign/releases/tag/v0.98.18
+command-rc: 0
+head-after: 8986c7a99c3f4f9f73fa81850ab32ccafb1ebbd7
+source-view-after:  sha256:4188ed2ee27b6033eb31779a5dd220d2985dba77d4fad959e4c2c250f61426fc
+source-stable: yes
+---------------- 输出结束 ----------------
+runlog: production-smoke rc=0 commit=8986c7a dirty=yes final=yes at=2026-09-27T15:44:05Z file=tracks/opendesign-release-09818/evidence/20260927T154405Z-01-production-smoke.txt

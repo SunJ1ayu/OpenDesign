@@ -1,0 +1,15 @@
+{
+  "sourceCommit": "8986c7a99c3f4f9f73fa81850ab32ccafb1ebbd7",
+  "nodePass": 597,
+  "pythonRun": 1605,
+  "pythonSkip": 1,
+  "browserPass": 47,
+  "browserFail": 0,
+  "browserSkip": 2,
+  "existingSkips": 3,
+  "failures": 0,
+  "browserCleanupNotes": {
+    "workspace_picker.e2e.mjs": 1
+  },
+  "runnerExitMeaning": "no failures, three existing skips; exit 3"
+}
