@@ -1000,6 +1000,64 @@ def _apply_set_workspace(root: str, projects_dir: str = "", projects_depth: int 
     return {"ok": True, "root": real_root, "folder_count": folder_count}
 
 
+# ── 业主在界面上手动选工作区(track opendesign-workspace-picker)────────────────────
+# 以前工作区只能靠助手设(set_workspace 走 MCP + 同意卡);接好之后想换,界面上没有入口,
+# 也没有"选择文件夹"的对话框。这两个函数只给 ds_web 的业主针孔用,**不登记成 MCP 工具**:
+#   · 业主在系统对话框里亲手选了文件夹,这本身就是同意 —— 同意闸拦的是**模型**擅自扩大
+#     自己能看到的范围,不是业主本人(同 ds_web._bind_project 那段注释的先例);
+#   · 业主不该需要懂 projectsDir / projectsDepth:先预览三种摆法各认出几个项目,让他挑。
+WORKSPACE_LAYOUTS = ("auto", "direct", "grouped")
+
+
+def preview_workspace(root: str, ds_root: str = DEFAULT_DS_ROOT, sample: int = 5) -> dict:
+    """业主挑了一个文件夹:三种摆法各能认出几个项目、举几个名字。**只读,不写任何东西。**
+    auto   = 里面有「01-项目」这类项目总夹(只有真的有时才列);
+    direct = 项目夹直接摆在这个文件夹里;
+    grouped= 先按年份/客户分了一层,项目夹在第二层。
+    和项目列表用**同一个**识别函数(ds_workspace.project_folders),预览看到的就是接上后的样子。"""
+    if not isinstance(root, str) or not os.path.isabs(root):
+        return {"error": "root_not_absolute"}
+    real_root = os.path.realpath(root)
+    if not os.path.isdir(real_root):
+        return {"error": "root_not_dir"}
+    location_error = _workspace_location_error(real_root, ds_root)
+    if location_error:
+        return location_error
+    base = {"root": real_root, "projects": {}, "galleryDepth": None,
+            "structuralDirs": None, "ds_root": ds_root}
+    layouts = []
+    # 总夹名取**根下那一项自己的名字**(「01-项目」),不取 realpath 之后的名字 —— 它是软链接时,
+    # realpath 是链接目标的名字,写进配置就对不上了(PR #4 审查:预览"认出 2 个",接入后 0 个)。
+    # 并且每种摆法都**用接入时要写进配置的那一份设置**来数:预览看到几个,接上后就是几个。
+    cand = next((c for c in ds_workspace._PROJECTS_DIR_CANDIDATES
+                 if os.path.isdir(os.path.join(real_root, c))), None)
+    if cand is not None:
+        layouts.append(("auto", cand, 1, {**base, "projectsDir": cand, "projectsDepth": None}))
+    layouts.append(("direct", ".", 1, {**base, "projectsDir": ".", "projectsDepth": None}))
+    layouts.append(("grouped", ".", 2, {**base, "projectsDir": ".", "projectsDepth": 2}))
+    out = []
+    for name, pdir, depth, cfg in layouts:
+        folders = ds_workspace.project_folders(cfg)
+        out.append({"layout": name, "projects_dir": pdir, "projects_depth": depth,
+                    "count": len(folders), "sample": [n for n, _ in folders[:sample]]})
+    return {"ok": True, "root": real_root, "layouts": out}
+
+
+def owner_set_workspace(root: str, projects_dir: str, projects_depth: int,
+                        ds_root: str = DEFAULT_DS_ROOT) -> dict:
+    """业主本人在界面上确定工作区。**不经同意闸**(理由见本节开头),只给 ds_web 针孔用。
+    摆法两项都必须显式给(projects_dir="."/总夹名,depth=1/2):set_workspace 里"留空 = 保留旧值"
+    的语义在这里是错的 —— 换到一个摆法不同的文件夹,旧的 projectsDir 会让新根一个项目都认不出。"""
+    if not isinstance(projects_dir, str) or not projects_dir \
+            or isinstance(projects_depth, bool) or projects_depth not in (1, 2):
+        return {"error": "layout_invalid"}
+    if projects_dir != "." and (projects_dir in ("..",) or "/" in projects_dir
+                                or "\\" in projects_dir or ":" in projects_dir):
+        return {"error": "layout_invalid"}   # 总夹只能是根下一级的名字
+    return _apply_set_workspace(root, projects_dir=projects_dir,
+                                projects_depth=projects_depth, ds_root=ds_root)
+
+
 # ── 工具 4.4c bind_project(bind-project track)──────────────────────────────────
 # 自动绑定三级(显式映射/名字直等/token 唯一)对不上真实命名时,项目列表会出现
 # "建档项目 + 同名文件夹"两行——保守不绑是对的(绑错比不绑重),本工具就是那个

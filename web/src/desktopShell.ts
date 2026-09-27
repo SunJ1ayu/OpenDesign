@@ -22,6 +22,8 @@ export interface OdShell {
   reportStartup(event: string, detail?: string): unknown;
   /** 后台起没起好(track opendesign-instant-ui);旧 preload 没有,用 backendApi() 取 */
   backend?: OdBackend;
+  /** 系统"选择文件夹"对话框(track opendesign-workspace-picker);取消 ⇒ null。旧 preload 没有,用 pickFolderApi() 取 */
+  pickFolder?: (defaultPath?: string) => Promise<string | null>;
   update: {
     check(): Promise<unknown>;
     install(): Promise<unknown>;
@@ -41,6 +43,13 @@ export function shellApi(win: unknown = globalThis): OdShell | null {
   if (!update || !method(update.check) || !method(update.install)
       || !method(update.state) || !method(update.onState)) return null;
   return api as OdShell;
+}
+
+/** 系统"选择文件夹"对话框(新 preload 才有)。浏览器里 / 旧外壳 ⇒ null,界面退回手填路径。 */
+export function pickFolderApi(win: unknown = globalThis): ((defaultPath?: string) => Promise<string | null>) | null {
+  if (!shellApi(win)) return null;
+  const fn = (win as { odShell?: { pickFolder?: unknown } }).odShell?.pickFolder;
+  return method(fn) ? (fn as (defaultPath?: string) => Promise<string | null>) : null;
 }
 
 /** 后台状态桥(新 preload 才有)。旧 preload 没有它时返回 null —— 外壳照样认得出(fb2)。 */

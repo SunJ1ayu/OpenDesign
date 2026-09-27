@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld("odShell", {
     return () => ipcRenderer.removeListener("od:window-state-changed", listener);
   },
   reportStartup: (event, detail) => ipcRenderer.send("od:report", String(event), detail == null ? "" : String(detail)),
+  pickFolder: (defaultPath) => ipcRenderer.invoke("od:pick-folder", defaultPath == null ? "" : String(defaultPath)),
   backend: {
     state: () => ipcRenderer.invoke("od:backend-state"),
     onState: (callback) => {

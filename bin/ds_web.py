@@ -453,6 +453,12 @@ UPLOAD_PATH = "/api/upload"  # do_POST 写针孔⑬(track opendesign-image-uploa
 INBOX_CREATE_PATH = "/api/inbox/create"  # do_POST 写针孔⑭(track opendesign-chat-image),精确匹配
 BIND_PROJECT_PATH = "/api/projects/bind"  # do_POST 写针孔⑨(同上 track),精确匹配
 FOLDER_VISIBILITY_PATH = "/api/workspace/folder-visibility"  # 阶段二:整份存结构目录声明
+# 业主手动选工作区(track opendesign-workspace-picker):先预览三种摆法,再确定。只收业主点的,
+# 模型没有 MCP 入口(见 ds_tools.owner_set_workspace 注释)。
+WORKSPACE_PREVIEW_PATH = "/api/workspace/root/preview"
+WORKSPACE_ROOT_PATH = "/api/workspace/root"
+_WORKSPACE_PREVIEW_ALLOWED_KEYS = {"root"}
+_WORKSPACE_ROOT_ALLOWED_KEYS = {"root", "projects_dir", "projects_depth"}
 STAGE_PATH = "/api/projects/stage"  # do_POST 写针孔⑩(track opendesign-stage-history §7),精确匹配
 REFS_UPDATE_PATH = "/api/refs/update"  # do_POST 写针孔⑪(同上 track §8),精确匹配
 DUE_DATE_PATH = "/api/changes/due"  # do_POST 写针孔⑫(track opendesign-todo-duedate),精确匹配
@@ -1058,6 +1064,10 @@ class Handler(BaseHTTPRequestHandler):
             self._bind_project()
         elif path == FOLDER_VISIBILITY_PATH:
             self._folder_visibility()
+        elif path == WORKSPACE_PREVIEW_PATH:
+            self._workspace_preview()
+        elif path == WORKSPACE_ROOT_PATH:
+            self._workspace_root()
         elif path == STAGE_PATH:
             self._set_stage()
         elif path == REFS_UPDATE_PATH:
@@ -2243,6 +2253,65 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._json(200, {"ok": True, "status": status,
                          "inbox": name, "path": os.path.join(root_real, name)})
+
+    def _workspace_error(self, r: dict) -> None:
+        err = r.get("error", "internal")
+        if err in ("root_not_absolute", "layout_invalid", "depth_invalid"):
+            self._json(400, {"error": err})
+        elif err == "root_not_dir":
+            self._json(404, {"error": err})
+        elif isinstance(err, str) and err.startswith("工作区路径"):
+            # _workspace_location_error 回的是给人看的整句(与安装目录 / 应用状态目录重叠)
+            self._json(409, {"error": "location_overlap", "message": err})
+        else:
+            self._json(500, {"error": "internal"})
+
+    def _workspace_preview(self):
+        """POST /api/workspace/root/preview:业主挑了个文件夹,三种摆法各认出几个项目。**只读。**
+        用 POST 只是因为路径放进 JSON 比放 query 稳(中文、反斜杠);posture 同同意闸针孔。"""
+        body = self._consent_json_body(_WORKSPACE_PREVIEW_ALLOWED_KEYS)
+        if body is None:
+            return
+        root = body.get("root")
+        if not isinstance(root, str) or not root:
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            r = ds_tools.preview_workspace(root, ds_root=self.server.ds_root)
+        except Exception:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
+            return
+        if r.get("ok"):
+            self._json(200, r)
+        else:
+            self._workspace_error(r)
+
+    def _workspace_root(self):
+        """POST /api/workspace/root:业主确定工作区(根 + 摆法)。
+        **不经同意闸**:这是业主本人在界面上选的文件夹 —— 同意闸拦的是模型擅自扩大可读范围,
+        让业主确认业主自己是荒谬的(同 _bind_project 那段注释的先例与四条安全前提)。
+        排队中的 set_workspace / bind_project 卡会因根变了而按既定规则判过期(判据 O10)。"""
+        body = self._consent_json_body(_WORKSPACE_ROOT_ALLOWED_KEYS)
+        if body is None:
+            return
+        root = body.get("root")
+        pdir = body.get("projects_dir")
+        depth = body.get("projects_depth")
+        if not isinstance(root, str) or not root or not isinstance(pdir, str) \
+                or isinstance(depth, bool) or not isinstance(depth, int):
+            self._json(400, {"error": "bad request"})
+            return
+        try:
+            r = ds_tools.owner_set_workspace(root, pdir, depth, ds_root=self.server.ds_root)
+        except Exception:
+            traceback.print_exc()
+            self._json(500, {"error": "internal"})
+            return
+        if r.get("ok"):
+            self._json(200, r)
+        else:
+            self._workspace_error(r)
 
     def _bind_project(self):
         """POST 写针孔⑨(track opendesign-frontend-p1):项目↔工作区文件夹关联。

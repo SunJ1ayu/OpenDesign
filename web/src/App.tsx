@@ -12,6 +12,7 @@ import SkillsPage from "./SkillsPage";
 import GalleryPage from "./GalleryPage";
 import SearchPanel from "./SearchPanel";
 import FolderVisibilityCard from "./workspace/FolderVisibilityCard";
+import WorkspacePicker from "./workspace/WorkspacePicker";
 import SettingsPage from "./settings/SettingsPage";
 import { ChatSession } from "./chat/connection";
 import {
@@ -47,6 +48,7 @@ import {
   type ConsentMode,
   type Project,
 } from "./api";
+import { fetchWorkspaceHealth } from "./api";
 
 // 外壳(P3 T1,handoff v2 导航模型):
 //   hash 路由:#/ = home(3a 新对话,默认)| workspace(2a,点项目进入)
@@ -109,6 +111,9 @@ export default function App() {
   // 工作区体检卡浮层(2026-07-28 用户拍板:挪进设置)。计数器兼作 key:
   // 每次打开都重挂一次 = 拿到当下最新的工作区状态,不会拿上次打开时的旧快照当真。
   const [fvisOpen, setFvisOpen] = useState(0);
+  // 手动选工作区(track opendesign-workspace-picker):设置页「项目文件夹」与项目页「接入工作区」共用一个对话框
+  const [wsPickOpen, setWsPickOpen] = useState(false);
+  const [wsRoot, setWsRoot] = useState<string | null>(null);
   // 业主同意闸档位(track opendesign-owner-consent):设置里那一行的当前值。
   // null = 还没拉到(那时那一行显示「…」而不是猜一个默认值 —— 显示错的档位
   // 比显示"不知道"危险:业主会以为闸开着)。
@@ -297,6 +302,14 @@ export default function App() {
     fetchConsent()
       .then((st) => { if (!stale) setConsentMode(st.mode); })
       .catch(() => { if (!stale) setConsentMode(null); });
+    return () => { stale = true; };
+  }, [dataEpoch]);
+  // 当前接的是哪个文件夹(设置页那一行显示它;接好 / 助手改过之后跟着 dataEpoch 重拉)
+  useEffect(() => {
+    let stale = false;
+    fetchWorkspaceHealth()
+      .then((h) => { if (!stale) setWsRoot(h.configured ? h.root ?? null : null); })
+      .catch(() => { /* 拉不到就不显示路径,不影响别的 */ });
     return () => { stale = true; };
   }, [dataEpoch]);
 
@@ -548,6 +561,8 @@ export default function App() {
         else window.location.hash = next;
       }}
       onOpenFolderVisibility={() => setFvisOpen((n) => n + 1)}
+      workspaceRoot={wsRoot}
+      onPickWorkspace={() => setWsPickOpen(true)}
       consentMode={consentMode}
       onSetConsentMode={(m) => {
         // 乐观更新会在失败时把界面停在错的档位上 —— 这一格宁可慢一拍,
@@ -618,9 +633,7 @@ export default function App() {
           onOpenGallery={() => {
             window.location.hash = "#/gallery";
           }}
-          onConnectWorkspace={(path) =>
-            dispatchCol(`把我的项目文件夹接进来,路径是:${path}`)
-          }
+          onPickWorkspace={() => setWsPickOpen(true)}
           folders={projects.filter((p) => p.unregistered).map((p) => p.key)}
           onBound={() => setDataEpoch((n) => n + 1)}
           onPrefillRegRef={() => dispatchCol("我发一张图,帮我登记参考图")}
@@ -663,6 +676,15 @@ export default function App() {
           // 图墙是从伴随列「打开图墙」进来的一层,返回 = 回原来那个项目的工作区
           // (选中项目不变,所以直接切路由即可,不用走 goProject)
           onBack={() => { window.location.hash = "#/workspace"; }}
+        />
+      )}
+
+      {/* 手动选工作区(track opendesign-workspace-picker):设置页「项目文件夹」/ 项目页「接入工作区」 */}
+      {wsPickOpen && (
+        <WorkspacePicker
+          currentRoot={wsRoot}
+          onClose={() => setWsPickOpen(false)}
+          onDone={() => setDataEpoch((n) => n + 1)}
         />
       )}
 

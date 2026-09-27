@@ -202,6 +202,16 @@ ipcMain.on("od:report", (_event, event, detail) => sendHost({ cmd: "report", eve
 ipcMain.handle("od:update-check", () => ctl.checkNow());
 ipcMain.handle("od:update-state", () => ctl.updateState());
 ipcMain.handle("od:backend-state", () => ctl.backendState());
+// 业主手动选工作区(track opendesign-workspace-picker):弹系统自己的"选择文件夹"对话框。
+// 只回业主选中的那个路径(取消 ⇒ null);设不设、怎么设由界面预览后交给 ds_web 针孔决定。
+ipcMain.handle("od:pick-folder", async (_event, defaultPath) => {
+  const r = await dialog.showOpenDialog(win, {
+    title: "选择项目文件夹",
+    properties: ["openDirectory"],
+    defaultPath: typeof defaultPath === "string" && defaultPath ? defaultPath : undefined,
+  });
+  return r.canceled || !r.filePaths || !r.filePaths[0] ? null : r.filePaths[0];
+});
 ipcMain.handle("od:update-install", async () => {
   // 放行 electron-updater 自己发出的 app.quit；失败时控制器会立即 relaunch。
   quitting = true;

@@ -41,9 +41,9 @@ type Props = {
   /** 路由门:仅工作区路由可见时才拉数据,防隐藏列白扫全树。 */
   active: boolean;
   onOpenGallery: () => void;
-  /** connect-ux:用户在表单里填好路径确认 → 组装完整消息发进聊天(浏览器拿
-      不到真实磁盘路径,路径必须用户给;写只走 MCP=对话,405 铁律不破)。 */
-  onConnectWorkspace: (path: string) => void;
+  /** 「接入工作区」:打开手动选工作区的对话框(track opendesign-workspace-picker)。
+      以前是把路径拼成一句话发给助手,靠助手去接 —— 业主自己的事不该绕道助手。 */
+  onPickWorkspace: () => void;
   /** track opendesign-frontend-p1 §③:候选=工作区自动发现的未建档文件夹 key。
       App 传 projects.filter(p => p.unregistered).map(p => p.key)。 */
   folders: string[];
@@ -59,7 +59,7 @@ export default function CompanionColumn({
   dataEpoch,
   active,
   onOpenGallery,
-  onConnectWorkspace,
+  onPickWorkspace,
   folders,
   onBound,
   onPrefillRegRef,
@@ -70,8 +70,6 @@ export default function CompanionColumn({
   const [wsImages, setWsImages] = useState<FilesImages | null>(null);
   const [openErr, setOpenErr] = useState(false);
   // connect-ux:接入表单(点「接入工作区」展开;确认后收起,聊天里能看到消息)
-  const [connectOpen, setConnectOpen] = useState(false);
-  const [connectPath, setConnectPath] = useState("");
   // §③ 项目↔文件夹关联:unmapped 分支的下拉+按钮
   const [bindFolder, setBindFolder] = useState("");
   const [binding, setBinding] = useState(false);
@@ -301,53 +299,14 @@ export default function CompanionColumn({
           <div className="aside-empty" style={{ margin: "4px 8px 0" }}>
             还没接入你电脑上的项目文件夹。
           </div>
-          {!connectOpen ? (
-            <button
-              className="connect-workspace"
-              onClick={() => setConnectOpen(true)}
-              title="告诉 OpenDesign 你的项目文件夹在哪"
-            >
-              接入工作区
-            </button>
-          ) : (
-            <form
-              className="connect-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const p = connectPath.trim();
-                if (!p) return;
-                onConnectWorkspace(p);
-                setConnectOpen(false);
-                setConnectPath("");
-              }}
-            >
-              <div className="hint">
-                工作台在浏览器里看不到你的磁盘,把项目文件夹路径贴给助手:
-              </div>
-              <input
-                autoFocus
-                value={connectPath}
-                placeholder="例如 D:\设计工作区"
-                onChange={(e) => setConnectPath(e.target.value)}
-              />
-              <div className="acts">
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={!connectPath.trim()}
-                >
-                  发给助手
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setConnectOpen(false)}
-                >
-                  取消
-                </button>
-              </div>
-            </form>
-          )}
+          <button
+            className="connect-workspace"
+            data-ui="connect-workspace"
+            onClick={onPickWorkspace}
+            title="选你电脑上放项目的那个文件夹"
+          >
+            接入工作区
+          </button>
         </div>
       ) : fstate === "unmapped" ? (
         <div className="file-list">
