@@ -1380,7 +1380,11 @@ class PatchConfig(unittest.TestCase):
         # 允许集合是**写死的三个自有 server**,不是"夹具里所有 server" ——
         # 后者会让"把第三方 MCP 也改掉"这个 bug 自动合法(攻题二轮 MED#8)。
         allowed = {"/gateway/port", "/channels/websocket/port"} | {
-            f"/tools/mcpServers/{n}/command" for n in OURS}
+            f"/tools/mcpServers/{n}/command" for n in OURS} | {
+            # 业主同意卡(track opendesign-consent-dock):工具等业主点的时长 + nanobot 给
+            # 这个 server 的超时,必须一起写、只写在 design-studio 上(见 core.CONSENT_*)。
+            "/tools/mcpServers/design-studio/env/DS_CONSENT_WAIT_S",
+            "/tools/mcpServers/design-studio/toolTimeout"}
         self.assertEqual(changed - allowed, set(), f"动了不该动的地方:{sorted(changed - allowed)}")
         self.assertEqual(allowed - changed, set(), f"该改的没改到:{sorted(allowed - changed)}")
 

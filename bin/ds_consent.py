@@ -251,6 +251,49 @@ def resolve_pending(ds_root: str, pending_id: str, approve: bool,
             applied = apply_fn(action, params, ds_root)
             if not applied.get("ok"):
                 return applied
+            # 执行结果随记录落盘:还在等的那次工具调用(见 mark_waiter)从这里读出
+            # folder_count 等,原样交还给助手 —— 助手拿到的是**执行后的事实**,
+            # 不是"业主大概同意了"。
+            rec["result"] = applied
+        rec["approved"] = bool(approve)
         rec["resolved_at"] = _now()
         _write_json(path, rec)
-    return {"ok": True, "applied": bool(approve)}
+    # waiter:此刻有没有一次工具调用正卡在这张卡上等结果(track opendesign-consent-dock)。
+    # 有 ⇒ 结果会作为工具返回值直接交给助手,前端什么都不用补;
+    # 没有(等超时了 / 业主点了停止 / 卡是上一轮留下的)⇒ 助手不知道业主点了什么,
+    # 前端要在对话里替业主说一句。**只读、只影响提示,不参与授权。**
+    # result:同意之后落盘的执行结果(folder_count 等)。没有工具在等时,前端拿它替业主告诉助手
+    # "已经生效、结果是什么" —— 只说"点了同意",助手会以为还没办,拿同样参数再调一遍(PR #2 三审)。
+    out = {"ok": True, "applied": bool(approve), "waiter": _waiter_alive(rec)}
+    if approve and isinstance(rec.get("result"), dict):
+        out["result"] = rec["result"]
+    return out
+
+
+def _waiter_alive(rec: dict) -> bool:
+    until = rec.get("waiter_until")
+    if not isinstance(until, str):
+        return False
+    try:
+        return datetime.fromisoformat(until) > datetime.now()
+    except ValueError:
+        return False
+
+
+def mark_waiter(ds_root: str, pending_id: str, until: str | None) -> None:
+    """记下/清掉「有一次工具调用正在等这张卡」(截止时刻,ISO 字符串;None = 不等了)。
+
+    用**截止时刻**而不是布尔:等待的那个进程要是被直接杀掉,finally 跑不到,
+    布尔会永远是"在等",前端就永远不补那句话;截止时刻过了自然失效。
+    只改未决的记录;已决的不动(已决之后这个字段没有意义)。
+    这里**不能**改 action/params/resolved_at —— 它只是给提示用的旁注。
+    """
+    if not is_valid_pending_id(pending_id):
+        return
+    with _with_pending_lock(ds_root) as lock_fh, ds_lock.exclusive(lock_fh):
+        path = _pending_path(ds_root, pending_id)
+        rec = _read_pending_file(path)
+        if not isinstance(rec, dict) or rec.get("resolved_at") is not None:
+            return
+        rec["waiter_until"] = until
+        _write_json(path, rec)

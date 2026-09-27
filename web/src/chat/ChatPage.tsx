@@ -52,6 +52,12 @@ import {
 } from "./modelPicker";
 import ModelMenu from "./ModelMenu";
 import { SideIcon } from "../workspace/icons";
+import ConsentCard, { describe as describeConsent } from "../workspace/ConsentCard";
+import type { ConsentPending, ConsentResolved } from "../api";
+import {
+  consentDelivered, deliverConsentNotice, registerConsentNotice, useConsentPending,
+} from "./consentStore";
+import { consentNoticeText } from "./consentNotice";
 
 // P2 T3:视觉照 handoff §4 重排(用户消息低对比右对齐 / AI 无气泡直排 /
 // 流式回复动画(照 ZCode:思考中流光 / 新块淡入 / 轮尾转圈)/ Claude 式组合输入卡 / 「记一下」chip 预填)。
@@ -127,6 +133,11 @@ type Props = {
   slot?: string;
   /** 换模型弹框底行「管理模型」:打开设置页的模型设置,落在 provider 那一家(照 ZCode;App 负责跳路由)。 */
   onManageModels?: (provider: string | null) => void;
+  /**
+   * 这个聊天此刻在屏幕上(track opendesign-consent-dock):只有它在输入框上方渲染业主同意卡。
+   * 三个聊天常驻挂载,不分可见就会同时出三张卡。缺省 false = 不渲染卡(但照样参与"有人在跑就快拉")。
+   */
+  consentActive?: boolean;
 };
 
 function StockLink() {
@@ -151,6 +162,7 @@ export default function ChatPage({
   variant = "column",
   slot,
   onManageModels,
+  consentActive = false,
 }: Props) {
   const fallback = useMemo(() => new ChatSession(), []);
   const session = sessionProp ?? fallback;
@@ -732,6 +744,57 @@ export default function ChatPage({
     if (sendText(draft.trim())) setDraft("");
   };
 
+  // ── 业主同意卡(track opendesign-consent-dock)──────────────────────────────
+  // 卡片渲染在输入卡正上方(照 ZCode)。助手的工具会停下来等这张卡(ds_tools_server.await_owner),
+  // 点完结果直接作为工具返回值交给助手 —— 那种情况前端什么都不用补。
+  // 结果没送到助手手上时(等超时了 / 业主点了停止 / 卡是早先留下的),替业主在对话里说一句,
+  // 省得他再打一遍。"送没送到、该告诉哪个聊天"见 consentNotice.ConsentOwners(按卡片归属判断,
+  // 只看后端 waiter 或"任意聊天在跑"都会吞结果 —— PR #2 两轮审查实机复现过)。
+  // 这句话只是**告知**,不是授权 —— 授权在点卡片那一下已经完成(聊天里说"同意"本来就不算数)。
+  const consentSlot = slot ?? variant;
+  const consentPending = useConsentPending(consentActive, transcript.busy, consentSlot);
+  const waitingOwner = transcript.busy && consentPending.length > 0;
+  const sendTextRef = useRef(sendText);
+  sendTextRef.current = sendText;
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const attachedRef = useRef(attached);
+  attachedRef.current = attached;
+  // 有附图时不自动发:sendText 会把图一起带走。
+  const trySendNotice = (text: string): boolean =>
+    attachedRef.current.length === 0 && sendTextRef.current(text);
+  // 本聊天正在跑另一轮时发不出去:**排队,这一轮一结束就自动发**(PR #2 三审 C3:以前只递到输入框,
+  // 业主还得自己按发送,等于没送到)。没连上才退回输入框。
+  const queuedNoticesRef = useRef<string[]>([]);
+  const busyRef = useRef(transcript.busy);
+  busyRef.current = transcript.busy;
+  const connectedRef = useRef(false);
+  connectedRef.current = view.kind === "connected";
+  const acceptNotice = (text: string): boolean => {
+    if (trySendNotice(text)) return true;
+    if (connectedRef.current && busyRef.current) {
+      queuedNoticesRef.current.push(text);
+      return true;
+    }
+    return false;
+  };
+  useEffect(() => {
+    if (transcript.busy || view.kind !== "connected" || queuedNoticesRef.current.length === 0) return;
+    const text = queuedNoticesRef.current.join("\n");
+    if (trySendNotice(text)) queuedNoticesRef.current = [];
+  });
+  // 登记"替业主说一句"的入口:别的聊天里点了**本聊天提的卡**时,结果送到这里来。
+  useEffect(() => registerConsentNotice(consentSlot, (t) => acceptNotice(t)), [consentSlot]);
+  const onConsentDecided = (p: ConsentPending, approve: boolean, res: ConsentResolved) => {
+    if (consentDelivered(p.pending_id, res.waiter)) return;
+    const note = consentNoticeText(describeConsent(p).title, approve, res.result);
+    deliverConsentNotice(p.pending_id, consentSlot, note, (t) => {
+      // 本聊天兜底:在跑另一轮 ⇒ 排队、这一轮结束自动发;没连上 ⇒ 递到输入框,不覆盖业主打了一半的字。
+      if (acceptNotice(t)) return;
+      if (!draftRef.current.trim()) setDraft(t);
+    });
+  };
+
   /** ■ 停止(④):往本栏自己的聊天发 `/stop`(网关优先通道,按本聊天取消、掐断厂商那边的流),
    *  **不上屏用户气泡**;等网关回 idle / 那句回话再解锁(transcript.requestStop)。
    *  停一栏不影响另外两栏:三栏各自一条连接、各自一个 chat_id。 */
@@ -764,6 +827,7 @@ export default function ChatPage({
   // Claude 式组合输入卡(handoff §4:白底/14px 圆角/聚焦赤陶描边/工具行)
   const inputCard = (
     <div className="chat-inputwrap">
+      <ConsentCard pending={consentPending} waiting={waitingOwner} onDecided={onConsentDecided} />
       <div
         className={`chat-card${mediaDrag ? " dropping" : ""}`}
         onDragOver={(e) => {
@@ -1239,7 +1303,7 @@ export default function ChatPage({
               transcript.messages[transcript.messages.length - 1]?.role === "user")) && (
               <div className="msg-ai thinking" role="status" aria-label="助手思考中">
                 <span className="chat-spin"><SideIcon name="loader" /></span>
-                <span className="shimmer-text">思考中</span>
+                <span className="shimmer-text">{waitingOwner ? "等你在下方确认" : "思考中"}</span>
               </div>
             )}
           {/* 回复中(照 ZCode ChatLoading):正文/工具已经在出、但这一轮还没 turn_end 时,
@@ -1251,6 +1315,7 @@ export default function ChatPage({
               <div className="chat-loading" role="status" aria-label="助手回复中"
                    data-ui="chat-loading">
                 <span className="chat-spin"><SideIcon name="loader" /></span>
+                {waitingOwner && <span className="shimmer-text">等你在下方确认</span>}
               </div>
             )}
         </div>
