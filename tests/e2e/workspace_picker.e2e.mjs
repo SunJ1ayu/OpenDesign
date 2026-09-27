@@ -10,6 +10,7 @@
 //   W3 桌面版:对话框里点了取消 ⇒ 什么都不改、弹窗关掉
 //   W4 项目页「接入工作区」打开的是这个对话框,**不再**往聊天里发话
 //   W5 (PR #4 审查)「01-项目」是软链接:预览说认出几个,接入后就是几个(以前预览 2、接入后 0)
+//   W6 (PR #4 三审)手填路径看过 A 再改成 B:A 的预览作废、「接入」写的是 B;A 的慢请求晚回来也不盖掉 B
 //
 // 跑法:node tests/e2e/workspace_picker.e2e.mjs(自起 ds_web 于 8861)
 import { spawn } from "node:child_process";
@@ -200,6 +201,55 @@ try {
     await done.waitFor({ timeout: 10000 });
     check((await done.innerText()).includes("认出 2 个项目"), `接入后也是 2 个:${JSON.stringify(await done.innerText())}`);
     await page.close();
+  });
+  await step("W6 (PR #4 三审)手填:看过 A 再改成 B ⇒ A 的预览作废;A 的请求晚回来也不盖掉 B", async () => {
+    const page = await browser.newPage({ viewport: { width: 1300, height: 860 } });
+    await page.route("**/api/update/**", (r) => r.fulfill({ status: 200, body: "{}" }));
+    await page.goto(`${base}/#/settings/general`, { waitUntil: "domcontentloaded" });
+    await page.locator('[data-ui="settings-workspace-root"]').click();
+    const input = page.locator('[data-ui="ws-picker-input"]');
+    const look = page.locator('[data-ui="ws-picker"] button[type="submit"]');
+    const apply = page.locator('[data-ui="ws-picker-apply"]');
+    const layouts = page.locator('[data-ui="ws-picker-layout"]');
+    // ① 看过 A,改成 B 不点「看看」:A 的预览必须消失、「接入」不能点(以前点了写进去的是 A)
+    await input.fill(ws);
+    await look.click();
+    await layouts.first().waitFor({ timeout: 10000 });
+    await input.fill(flat);
+    check(await layouts.count() === 0, "改了路径,旧预览就撤掉");
+    check(await apply.isDisabled(), "改了路径没重新预览,「接入」点不了");
+    await look.click();
+    await layouts.first().waitFor({ timeout: 10000 });
+    check((await page.locator('[role="radiogroup"]').innerText()).includes("戊"),
+      "重新预览的是 B");
+    await apply.click();
+    await page.locator('[data-ui="ws-picker-done"]').waitFor({ timeout: 10000 });
+    const c = cfg();
+    check(c && c.root.endsWith("flat"), `写进去的是 B,不是 A:${JSON.stringify(c && c.root)}`);
+    await page.close();
+
+    // ② A 的预览请求拖慢,期间改成 B 并预览:A 晚回来后界面上仍是 B
+    const p2 = await browser.newPage({ viewport: { width: 1300, height: 860 } });
+    await p2.route("**/api/update/**", (r) => r.fulfill({ status: 200, body: "{}" }));
+    await p2.route("**/api/workspace/root/preview", async (r) => {
+      if ((r.request().postData() || "").includes("flat")) return r.continue();
+      await new Promise((res) => setTimeout(res, 1500));
+      await r.continue();
+    });
+    await p2.goto(`${base}/#/settings/general`, { waitUntil: "domcontentloaded" });
+    await p2.locator('[data-ui="settings-workspace-root"]').click();
+    const in2 = p2.locator('[data-ui="ws-picker-input"]');
+    const look2 = p2.locator('[data-ui="ws-picker"] button[type="submit"]');
+    await in2.fill(ws);
+    await look2.click();
+    await in2.fill(flat);
+    await look2.click();
+    await p2.locator('[data-ui="ws-picker-layout"]').first().waitFor({ timeout: 10000 });
+    await p2.waitForTimeout(2200);                   // 等 A 那条慢请求回来
+    const txt = await p2.locator('[role="radiogroup"]').innerText();
+    check(txt.includes("戊") && !txt.includes("甲"), `晚回来的 A 没盖掉 B:${JSON.stringify(txt)}`);
+    check(await p2.locator('[data-layout="auto"]').count() === 0, "没有 A 才有的「都放在总夹里」");
+    await p2.close();
   });
 } catch (e) {
   failures += 1;

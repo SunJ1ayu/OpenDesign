@@ -56,26 +56,42 @@ export default function WorkspacePicker({ currentRoot: rootHint, onClose, onDone
   const [preview, setPreview] = useState<WorkspacePreview | null>(null);
   const [sel, setSel] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [err, setErr] = useState("");
   const [done, setDone] = useState<{ root: string; folder_count: number } | null>(null);
   const started = useRef(false);
   /** 系统对话框正开着:不许再开第二个(PR #4 二审:加载中手点一次、加载完又自动弹一次)。 */
   const picking = useRef(false);
 
+  /** 第几次预览:只认最后一次的结果(PR #4 三审:先看 A、改成 B,A 的请求晚回来会把 A 的预览盖回去)。 */
+  const previewSeq = useRef(0);
+
   const runPreview = useCallback(async (p: string) => {
+    const my = ++previewSeq.current;
     setErr("");
+    setPreview(null);
     setBusy(true);
     try {
       const pv = await previewWorkspace(p.trim());
+      if (my !== previewSeq.current) return;
       setPreview(pv);
       setSel(bestLayout(pv.layouts));
     } catch (e) {
+      if (my !== previewSeq.current) return;
       setErr(e instanceof WorkspacePickError ? e.message : "没能读取这个文件夹,请再试一次。");
-      setPreview(null);
     } finally {
-      setBusy(false);
+      if (my === previewSeq.current) setBusy(false);
     }
   }, []);
+
+  /** 手填的路径改了:旧预览作废(否则「接入」写进去的是上一个文件夹),在路上的预览也不认了。 */
+  const editPath = (v: string) => {
+    setPath(v);
+    previewSeq.current++;
+    setPreview(null);
+    setErr("");
+    setBusy(false);
+  };
 
   const pick = useCallback(async () => {
     // "现在接的是哪个"还没拉到就不弹:否则对话框从空路径打开
@@ -107,6 +123,7 @@ export default function WorkspacePicker({ currentRoot: rootHint, onClose, onDone
     if (!preview) return;
     setErr("");
     setBusy(true);
+    setApplying(true);
     try {
       const r = await setWorkspaceRoot(preview.root, preview.layouts[sel]);
       setDone(r);
@@ -115,6 +132,7 @@ export default function WorkspacePicker({ currentRoot: rootHint, onClose, onDone
       setErr(e instanceof WorkspacePickError ? e.message : "没能接入,工作区没有被改动。");
     } finally {
       setBusy(false);
+      setApplying(false);
     }
   };
 
@@ -153,8 +171,9 @@ export default function WorkspacePicker({ currentRoot: rootHint, onClose, onDone
                   autoFocus
                   data-ui="ws-picker-input"
                   value={path}
+                  disabled={applying}
                   placeholder="例如 D:\设计工作区"
-                  onChange={(e) => setPath(e.target.value)}
+                  onChange={(e) => editPath(e.target.value)}
                 />
                 <button type="submit" className="btn-secondary sm" disabled={busy || !path.trim()}>
                   看看
