@@ -15,7 +15,8 @@
 // 覆盖:
 //   C0 对照:提卡的聊天还在跑 ⇒ 点同意后**不许**补话(结果已作为工具返回值送到)。
 //   C1 R2 原样:首页停止 → 项目助手在跑另一条 → 回首页点同意 ⇒ 首页那条连接收到"同意"那句话。
-//   C2 在**别的聊天**里点首页提的卡 ⇒ 话仍送回首页(是首页的助手在等)。
+//   C2 卡片跟着提它的聊天走(照 ZCode,业主 09-27 反馈"切到别的页面卡片也一直在"):
+//      首页提的卡,切到项目助手**不显示**;切回首页还在,点了结果送回首页。
 //   C3 三审原样:首页提 A → 停止 → 首页又提 B → 点 A 的旧卡 ⇒ 仍要告诉首页(在跑的是 B 那一轮):
 //      B 在跑时排队、不塞输入框,B 一结束自动发;补话带上落盘结果(认出几个项目夹、已生效),
 //      助手不用再拿同样参数申请一遍。
@@ -162,7 +163,7 @@ try {
     stageWaitingCard(newRoot);
     await homeCard.waitFor({ timeout: 10000 });
     const before = (await sentBy(page, "home")).length;
-    await homeCard.locator('[data-ui="consent-item"] button').nth(1).click();   // 同意
+    await homeCard.locator('[data-ui="consent-item"] button', { hasText: "同意" }).click();   // 同意
     await homeCard.waitFor({ state: "detached", timeout: 8000 });
     await page.waitForTimeout(800);
     check(resolves.at(-1)?.waiter === true, `后端回 waiter=true(${JSON.stringify(resolves.at(-1))})`);
@@ -184,7 +185,7 @@ try {
     await page.goto(`${base}/#/`);                              // ③ 回首页点原卡的「同意」
     await homeCard.waitFor({ timeout: 10000 });
     const before = (await sentBy(page, "home")).length;
-    await homeCard.locator('[data-ui="consent-item"] button').nth(1).click();
+    await homeCard.locator('[data-ui="consent-item"] button', { hasText: "同意" }).click();
     await homeCard.waitFor({ state: "detached", timeout: 8000 });
     check(resolves.at(-1)?.waiter === true, "复现条件成立:后端仍报 waiter=true(孤儿工具还在等)");
     check(JSON.parse(readFileSync(cfgPath, "utf-8")).root.endsWith("new"), "配置已改");
@@ -199,7 +200,7 @@ try {
       "没有错发给正在跑别的事的项目助手");
   });
 
-  await step("C2 在项目助手里点首页提的卡 ⇒ 话仍送回首页", async () => {
+  await step("C2 卡片跟着提它的聊天走:首页提的卡,切到项目助手不显示,切回首页还在", async () => {
     // 项目助手那一轮先停掉,好让卡在首页跑着时冒出来、归属唯一
     await page.goto(`${base}/#/workspace`);
     await page.locator(`${COL} .stop-btn`).click();
@@ -214,18 +215,21 @@ try {
     await send(page, HOME, "第三次接工作区");
     stageWaitingCard(newRoot);
     await homeCard.waitFor({ timeout: 10000 });
+    await page.goto(`${base}/#/workspace`);                     // 切到别的页面
+    await page.waitForTimeout(2500);                            // 给轮询充分的机会把卡"带过去"
+    check(await colCard.count() === 0, "首页提的卡没有跟到项目助手里");
+    check(await page.locator('[data-ui="consent-card"]').count() === 0, "页面上任何地方都没有这张卡");
+    await page.goto(`${base}/#/`);                              // 切回首页
+    await homeCard.waitFor({ timeout: 10000 });
+    check(true, "切回首页,卡还在");
+    const before = (await sentBy(page, "home")).length;
+    await homeCard.locator('[data-ui="consent-item"] button', { hasText: "同意" }).click();
+    await homeCard.waitFor({ state: "detached", timeout: 8000 });
+    check(resolves.at(-1)?.waiter === true, "首页那一轮还在跑,工具在等");
+    await page.waitForTimeout(800);
+    check((await sentBy(page, "home")).length === before, "结果由工具直接送到,不用补话");
     await page.locator(`${HOME} .stop-btn`).click();
     await page.locator(`${HOME} .stop-btn`).waitFor({ state: "detached", timeout: 8000 });
-    await page.goto(`${base}/#/workspace`);
-    await colCard.waitFor({ timeout: 10000 });
-    const before = (await sentBy(page, "home")).length;
-    await colCard.locator('[data-ui="consent-item"] button').nth(1).click();
-    await colCard.waitFor({ state: "detached", timeout: 8000 });
-    await page.waitForFunction((n) => window.__sent.filter((x) => x.slot === "home").length > n,
-      before, { timeout: 5000 }).catch(() => {});
-    const homeMsgs = (await sentBy(page, "home")).slice(before);
-    check(homeMsgs.some((c) => c.includes("同意")), `送回了首页:${JSON.stringify(homeMsgs)}`);
-    check(!(await sentBy(page, "workspace")).some((c) => c.includes("确认卡")), "没有发给点卡的项目助手");
   });
   await step("C3 三审原样:首页提 A → 停止 → 首页又提 B → 点 A 的旧卡 ⇒ 仍告诉首页", async () => {
     await page.goto(`${base}/#/`);
@@ -241,7 +245,7 @@ try {
     await page.locator(`${HOME} .stop-btn`).waitFor({ state: "detached", timeout: 8000 });
     await send(page, HOME, "请求 B:汇总一下");                   // 同一个聊天开了新一轮
     const before = (await sentBy(page, "home")).length;
-    await homeCard.locator('[data-ui="consent-item"] button').nth(1).click();   // 点 A 的旧卡
+    await homeCard.locator('[data-ui="consent-item"] button', { hasText: "同意" }).click();   // 点 A 的旧卡
     await homeCard.waitFor({ state: "detached", timeout: 8000 });
     check(resolves.at(-1)?.waiter === true, "复现条件成立:后端仍报 waiter=true");
     // 首页正在跑 B ⇒ 这时发不出去:排队,不许塞进输入框让业主自己按发送

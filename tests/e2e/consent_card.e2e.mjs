@@ -11,7 +11,9 @@
 //     —— 这道闸的强度就等于业主看不看得懂他在批什么,文案是它的承重墙。
 //   B **卡片加载完、业主没点任何东西时,一个 resolve 请求都不许发出去**(首要理由)。
 //   C 点「拒绝」→ workspace.json 逐字节没变,卡片消失。
-//   D 「拒绝」占主按钮位 —— 安全闸的刻意不对称(拿不准时的正确动作是拒绝)。
+//   D 「同意」排第一、默认高亮 —— 照 ZCode。
+//     (2026-09-27 业主拍板改的,track opendesign-consent-dock。原先 D 钉的是「拒绝」在前的刻意不对称;
+//      安全性改由"影响面写在卡上 + 卡片不自动抢焦点"承担,A/B/C 三条一条没松。)
 //
 // 跑法:node tests/e2e/consent_card.e2e.mjs(自起 ds_web 于 8831)
 import { spawn, spawnSync } from "node:child_process";
@@ -102,15 +104,17 @@ try {
     expect(readFileSync(cfgPath, "utf-8") === cfgBefore, "workspace.json 逐字节未变");
   });
 
-  await step("D 「拒绝」占主按钮位(安全闸的刻意不对称)", async () => {
+  await step("D 「同意」排第一、默认高亮(照 ZCode,业主 09-27 拍板)", async () => {
     const first = card.locator('[data-ui="consent-item"] button').first();
-    expect((await first.innerText()).trim() === "拒绝", "第一个按钮是「拒绝」");
-    expect(await first.evaluate((b) => b.classList.contains("btn-primary")),
-      "「拒绝」用的是主按钮角色(btn-primary)");
+    expect((await first.innerText()).trim() === "同意", "第一个按钮是「同意」");
+    expect(await first.getAttribute("data-selected") === "true",
+      "「同意」是默认高亮的那一行(照 ZCode 的列表选项)");
+    expect(await card.evaluate((c) => !c.contains(document.activeElement)),
+      "卡片没有自动抢焦点(一个回车不会替业主点下同意)");
   });
 
   await step("C 点「拒绝」→ 不落盘,卡片消失", async () => {
-    await card.locator('[data-ui="consent-item"] button').first().click();
+    await card.locator('[data-ui="consent-item"] button', { hasText: "拒绝" }).click();
     await card.waitFor({ state: "detached", timeout: 8000 });
     expect(readFileSync(cfgPath, "utf-8") === cfgBefore,
       "拒绝之后 workspace.json 仍然逐字节未变");

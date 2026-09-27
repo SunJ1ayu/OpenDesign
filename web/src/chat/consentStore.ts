@@ -121,5 +121,8 @@ export function useConsentPending(active: boolean, busy: boolean, slot: string):
     return () => window.removeEventListener("focus", onFocus);
   }, [active]);
 
-  return active ? list : EMPTY;
+  if (!active) return EMPTY;
+  // 只显示**本聊天提的**卡(归属不明的哪都显示),见 ConsentOwners.showsIn。
+  const mine = list.filter((p) => owners.showsIn(p.pending_id, slot));
+  return mine.length === list.length ? list : mine;
 }

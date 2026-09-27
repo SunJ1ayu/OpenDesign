@@ -90,6 +90,8 @@ export function describe(p: ConsentPending): { title: string; impact: string } {
 export default function ConsentCard({ pending, waiting = false, onDecided }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState("");
+  // 每张卡当前高亮的是第几项(照 ZCode:默认第 0 项 =「同意」,↑↓ 移动)
+  const [sel, setSel] = useState<Record<string, number>>({});
   const optRefs = useRef<Record<string, (HTMLButtonElement | null)[]>>({});
 
   const decide = useCallback((p: ConsentPending, approve: boolean) => {
@@ -113,21 +115,23 @@ export default function ConsentCard({ pending, waiting = false, onDecided }: Pro
 
   if (pending.length === 0) return null;
 
-  // 键盘(照 ZCode PermissionDialog):焦点在某一条的选项上时,1=拒绝、2=同意,
+  // 键盘(照 ZCode PermissionDialog):焦点在某一条的选项上时,1=同意、2=拒绝,
   // ↑↓←→ 在两项间移动,回车/空格就是按钮本身的点击。**不自动抢焦点**:
   // 业主可能正在输入框里打下一句,弹卡时把焦点抢走,他下一下回车就成了替他做决定。
   const onKey = (p: ConsentPending) => (e: KeyboardEvent<HTMLDivElement>) => {
     if (busy === p.pending_id) return;
     if (e.key === "1" || e.key === "2") {
       e.preventDefault();
-      decide(p, e.key === "2");
+      decide(p, e.key === "1");   // 1 = 同意(排第一),2 = 拒绝
       return;
     }
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
       e.preventDefault();
       const opts = optRefs.current[p.pending_id] || [];
       const at = opts.findIndex((b) => b === document.activeElement);
-      const next = at < 0 ? 0 : (at + (e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 1) + 2) % 2;
+      const cur = at < 0 ? (sel[p.pending_id] ?? 0) : at;
+      const next = (cur + (e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 1) + 2) % 2;
+      setSel((m) => ({ ...m, [p.pending_id]: next }));
       opts[next]?.focus();
     }
   };
@@ -149,38 +153,38 @@ export default function ConsentCard({ pending, waiting = false, onDecided }: Pro
             <div className="consent-title">{title}</div>
             <div className="consent-impact">{impact}</div>
             <div className="consent-actions">
-              {/* 按钮角色沿用仓里既定的那套(track opendesign-button-roles):
-                  btn-primary / btn-secondary,别在这里发明第三种。
-                  「拒绝」放主按钮位、排第 1 个是刻意的**不对称**(ZCode 是「允许」在前,
-                  这里不照搬):这张卡是安全闸,拿不准时的正确动作是拒绝(拒了再让助手
-                  重提一次,成本很低;误同意则是不可撤销地把资料面打开了)。
-                  编号用 data-key + CSS 画出来,不进按钮文字(e2e 按文字认「拒绝」)。 */}
-              <button
-                ref={(b) => { refs[0] = b; }}
-                className="btn-primary consent-opt"
-                data-key="1"
-                aria-keyshortcuts="1"
-                disabled={busy === p.pending_id}
-                onClick={() => decide(p, false)}
-              >
-                拒绝
-              </button>
-              <button
-                ref={(b) => { refs[1] = b; }}
-                className="btn-secondary consent-opt"
-                data-key="2"
-                aria-keyshortcuts="2"
-                disabled={busy === p.pending_id}
-                onClick={() => decide(p, true)}
-              >
-                同意
-              </button>
+              {/* 照 ZCode 的权限确认窗:整行选项列表,编号在前,**高亮的那一行**是默认项
+                  (浅底 + 编号变深),↑↓ 移动高亮,回车 / 点击即选。顺序:「同意」第 1、「拒绝」第 2。
+                  ⚠️ 业主 2026-09-27 拍板改的:原先刻意反过来(「拒绝」在前、占主按钮位,安全闸的
+                  不对称),业主用下来要照 ZCode。安全性不靠按钮顺序:卡上照旧写清影响面,且
+                  **不自动抢焦点** —— 业主正在输入框里打字时,一个回车不会替他点下同意。
+                  这里不用 btn-primary / btn-secondary:ZCode 这块是列表行,不是按钮组。
+                  编号用 data-key + CSS 画出来,不进按钮文字(e2e 按文字认选项)。 */}
+              {([["同意", true], ["拒绝", false]] as const).map(([label, approve], i) => {
+                const on = (sel[p.pending_id] ?? 0) === i;
+                return (
+                  <button
+                    key={label}
+                    ref={(b) => { refs[i] = b; }}
+                    type="button"
+                    className={`consent-opt${on ? " selected" : ""}`}
+                    data-key={String(i + 1)}
+                    data-selected={on ? "true" : "false"}
+                    aria-keyshortcuts={String(i + 1)}
+                    disabled={busy === p.pending_id}
+                    onFocus={() => setSel((m) => ({ ...m, [p.pending_id]: i }))}
+                    onClick={() => decide(p, approve)}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         );
       })}
       {err && <div className="consent-err">{err}</div>}
-      <div className="consent-hint">点选,或按 1 / 2</div>
+      <div className="consent-hint">使用 ↑↓ 选择,回车确认;也可以直接按 1 / 2</div>
     </div>
   );
 }

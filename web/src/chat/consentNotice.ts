@@ -56,6 +56,17 @@ export class ConsentOwners {
     return !!own && own.size > 0 && [...own].every(([slot, turn]) => this.busy.get(slot) === turn);
   }
 
+  /**
+   * 这张卡该在哪个聊天里显示(照 ZCode:确认窗属于提它的那个会话,切走就不在别处出现)。
+   * 业主反馈:卡片跳出来后切到别的页面,卡也跟着一直在 —— 以前是"哪个聊天在屏幕上就显示在哪"。
+   * 归属不明(看见时没有聊天在跑,比如刚打开软件时就已经排着的旧卡)⇒ 哪个聊天都显示,
+   * 免得卡片没地方点、一直挂着。
+   */
+  showsIn(id: string, slot: string): boolean {
+    const own = this.owners.get(id);
+    return !own || own.size === 0 || own.has(slot);
+  }
+
   /** 没送到时,告诉哪个聊天:归属唯一 ⇒ 提卡的那个聊天(是它的助手在等);否则 ⇒ 业主点卡的这个。 */
   target(id: string, clickedSlot: string): string {
     const own = this.owners.get(id);

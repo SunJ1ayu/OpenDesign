@@ -117,3 +117,33 @@ test("n8 ChatPage 按卡片归属判断并把话送回提卡的聊天(不是只�
   assert.match(store, /owners\.observe\(/, "拉到卡片时没记归属");
   assert.match(store, /owners\.setBusy\(slot, false\)/, "聊天停止/结束时没登记");
 });
+
+test("n11 卡片只在提它的聊天里显示(照 ZCode;业主 09-27:切到别的页面卡片也一直在)", () => {
+  const o = new ConsentOwners();
+  o.setBusy("home", true);
+  o.observe([CARD]);
+  assert.equal(o.showsIn(CARD, "home"), true);
+  assert.equal(o.showsIn(CARD, "workspace"), false, "首页提的卡不许跟到项目助手里");
+  assert.equal(o.showsIn(CARD, "todo"), false);
+  o.setBusy("home", false);                        // 停了也还是首页的卡,切回去能点
+  assert.equal(o.showsIn(CARD, "home"), true);
+  assert.equal(o.showsIn(CARD, "workspace"), false);
+});
+
+test("n12 归属不明的卡(刚打开软件时就排着的)哪个聊天都显示,免得没地方点", () => {
+  const o = new ConsentOwners();
+  o.observe([CARD]);                               // 看见时没有聊天在跑
+  assert.equal(o.showsIn(CARD, "home"), true);
+  assert.equal(o.showsIn(CARD, "workspace"), true);
+  assert.equal(o.showsIn("never-seen", "todo"), true);
+});
+
+test("n13 ConsentCard 照 ZCode:「同意」排第一、默认高亮;按 1 = 同意", () => {
+  const src = readFileSync(new URL("../web/src/workspace/ConsentCard.tsx", import.meta.url), "utf-8");
+  assert.match(src, /\[\["同意", true\], \["拒绝", false\]\]/, "选项顺序不是 同意 在前");
+  assert.match(src, /decide\(p, e\.key === "1"\)/, "按 1 不是同意");
+  assert.match(src, /\(sel\[p\.pending_id\] \?\? 0\) === i/, "默认高亮不是第一项");
+  assert.doesNotMatch(src, /\.focus\(\)[^;]*;\s*\/\/\s*auto/i);
+  const store = readFileSync(new URL("../web/src/chat/consentStore.ts", import.meta.url), "utf-8");
+  assert.match(store, /owners\.showsIn\(p\.pending_id, slot\)/, "卡片没按归属过滤");
+});
