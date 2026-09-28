@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { radioKeyTarget } from "../theme";
 import { clampRatio, type SidePaneTab } from "./sidePane";
 
@@ -26,7 +26,18 @@ type Props = {
 export default function SidePane({ open, tab, ratio, onTab, onRatio, files, assistant }: Props) {
   const ref = useRef<HTMLElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [hostWidth, setHostWidth] = useState(0);
   const cur = Math.max(0, TABS.findIndex((t) => t.id === tab));
+  useEffect(() => {
+    const host = ref.current?.parentElement;
+    if (!host) return;
+    const update = () => setHostWidth(host.getBoundingClientRect().width);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, []);
+  const shownRatio = clampRatio(ratio, hostWidth);
 
   // 拖左边缘调宽:比例按整个 ws-pane 的宽度算(面板 + 主区),照 ZCode 的百分比宽度
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
@@ -49,8 +60,13 @@ export default function SidePane({ open, tab, ratio, onTab, onRatio, files, assi
     const d = e.key === "ArrowLeft" ? 0.02 : e.key === "ArrowRight" ? -0.02 : 0;
     if (!d) return;
     e.preventDefault();
-    const w = ref.current?.parentElement?.getBoundingClientRect().width ?? 0;
-    onRatio(clampRatio(ratio + d, w));
+    const pane = ref.current;
+    const w = pane?.parentElement?.getBoundingClientRect().width ?? 0;
+    if (!pane || !w) return;
+    // CSS 会在窄窗把面板临时压到主区剩余宽度;按键应从眼前的宽度起算。
+    const shown = pane.getBoundingClientRect().width / w;
+    const next = clampRatio(shown + d, w);
+    if (Math.abs(next - shown) > 0.001) onRatio(next);
   };
 
   return (
@@ -67,9 +83,9 @@ export default function SidePane({ open, tab, ratio, onTab, onRatio, files, assi
         role="separator"
         aria-orientation="vertical"
         aria-label="拖动调整右侧面板宽度"
-        aria-valuenow={Math.round(ratio * 100)}
-        aria-valuemin={0}
-        aria-valuemax={65}
+        aria-valuenow={Math.round(shownRatio * 100)}
+        aria-valuemin={Math.round(clampRatio(0, hostWidth) * 100)}
+        aria-valuemax={Math.round(clampRatio(1, hostWidth) * 100)}
         tabIndex={0}
         onPointerDown={onPointerDown}
         onKeyDown={onResizeKey}
