@@ -17,7 +17,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, existsSync
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchBrowser, check } from "./helpers.mjs";
+import { launchBrowser, check, sidePaneTab } from "./helpers.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PORT = 8795;
@@ -133,6 +133,7 @@ try {
   check(Math.abs(geo.chat - (geo.pane - 2)) <= 2, `I3 项目助手铺满面板(实际 ${Math.round(geo.chat)} / 面板 ${Math.round(geo.pane)})`);
 
   // ── I4:「最近更新」行可点 ────────────────────────────────────────────
+  await sidePaneTab(page, "files");   // 最近文件在右侧面板的「图片 · 文件」里(照 ZCode Side Pane 改版)
   const recentRows = page.locator('[data-ui="recent-row"]');
   await recentRows.first().waitFor({ timeout: 10000 });
   const n = await recentRows.count();

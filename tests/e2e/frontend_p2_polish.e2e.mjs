@@ -16,7 +16,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchBrowser, check } from "./helpers.mjs";
+import { launchBrowser, check, sidePaneTab } from "./helpers.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PORT = 8794;
@@ -270,6 +270,7 @@ try {
   check(focused === "quicknote-input", "变更空态:「记第一条变更」→ 聚焦快记输入");
   check(await page.locator('.aside [data-ui="empty-reg-ref"]').count() === 1,
     "参考图空态:「登记参考图」可点");
+  await sidePaneTab(page, "files");     // 图片在右侧面板的「图片 · 文件」里(照 ZCode Side Pane 改版)
   await page.locator('.seg .opt:has-text("项目图")').click();
   await page.locator('.aside [data-ui="empty-open-folder"]').waitFor({ timeout: 5000 });
   check(true, "项目图空态(已映射):「打开文件夹」次按钮");

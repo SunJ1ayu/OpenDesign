@@ -9,7 +9,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchBrowser, check, expandInbox } from "./helpers.mjs";
+import { launchBrowser, check, expandInbox, sidePaneTab } from "./helpers.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PORT = 8793;
@@ -140,6 +140,7 @@ try {
 
   // ③ 项目↔文件夹关联:未映射项目 → 下拉选文件夹 → 关联 → 映射写盘、表单消失
   await page.locator(`.proj-list .proj-row:has-text("${projB}")`).first().click();
+  await sidePaneTab(page, "files");     // 关联表单在右侧面板的「图片 · 文件」里(照 ZCode Side Pane 改版)
   await page.locator(".bind-form").waitFor({ timeout: 10000 });
   await page.selectOption(".bind-select", folderB);
   await page.locator('.bind-form button:has-text("关联")').click();
