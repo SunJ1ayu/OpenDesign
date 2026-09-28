@@ -221,8 +221,7 @@ try {
   });
 
   await step("② 打 / 弹同一份技能表;按字筛;Enter 用、不发送", async () => {
-    await ta.fill("");
-    await ta.type("/");
+    await ta.fill("/");
     const pop = page.locator(`${HOME} [data-ui="slash-menu"]`);
     await pop.waitFor({ timeout: 3000 });
     check((await pop.locator('[role="option"]').count()) === 3, "打 / ⇒ 三个技能");
@@ -236,8 +235,7 @@ try {
   });
 
   await step("② 中文标点模式下 / 键打出的「、」也弹;Esc 关了之后草稿留着", async () => {
-    await ta.fill("");
-    await ta.type("、");
+    await ta.fill("、");
     const pop = page.locator(`${HOME} [data-ui="slash-menu"]`);
     check(await until(async () => (await pop.count()) === 1), "「、」开头 ⇒ 弹技能表");
     await ta.press("Escape");
@@ -246,8 +244,7 @@ try {
   });
 
   await step("② 筛不到 ⇒ 不弹,Enter 照常发送", async () => {
-    await ta.fill("");
-    await ta.type("/xyz");
+    await ta.fill("/xyz");
     await new Promise((r) => setTimeout(r, 300));
     check((await page.locator(`${HOME} [data-ui="slash-menu"]`).count()) === 0, "/xyz 不弹");
     await ta.press("Enter");
