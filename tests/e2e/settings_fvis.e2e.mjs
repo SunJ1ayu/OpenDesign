@@ -152,8 +152,12 @@ try {
     expect(await card.isVisible(), "点开后体检卡可见");
     // 设置里是"专门来改这个"的场景,不该再要求点一次展开
     const boxes = card.locator('input[type=checkbox]');
-    expect(await boxes.count() >= 3,
-      `默认就是展开可用的(实测 ${await boxes.count()} 个勾选框,期望 ≥3)`);
+    // 卡片先出框,勾选框等 /api/workspace/health 回来才渲染 ⇒ 点开就数会数到半截。
+    // CI 慢机实测:判断那一刻 <3、拼失败文案时再数已是 3(同一句里数了两次)。等第 3 个出现再数一次;
+    // 默认若是收起的,勾选框永远等不到,照样红。
+    await boxes.nth(2).waitFor({ state: "attached", timeout: 10000 }).catch(() => {});
+    const nBoxes = await boxes.count();
+    expect(nBoxes >= 3, `默认就是展开可用的(实测 ${nBoxes} 个勾选框,期望 ≥3)`);
     const names = await card.locator(".fvis-name").allInnerTexts();
     expect(names.includes("00-收件箱") && names.includes("03-共享资源"),
       `列出了工作区根下的文件夹(实测 ${JSON.stringify(names)})`);
