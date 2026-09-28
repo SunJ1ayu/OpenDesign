@@ -221,9 +221,15 @@ try {
   });
 
   await step("② 打 / 弹同一份技能表;按字筛;Enter 用、不发送", async () => {
+    // 上一步点完技能,applySkill 要到下一帧(requestAnimationFrame)才把焦点和光标挪回末尾。
+    // 那一帧若落在 fill 的「全选」和「输入」之间,全选被收成光标,"/" 接在原句后面 ⇒ 不是 / 查询、表不弹
+    // (CI 慢机上连续三跑都红在这里,下一步打「、」时没有待执行的那一帧,照常弹)。先等它挪完再改草稿。
+    await until(() => ta.evaluate((el) => document.activeElement === el && el.selectionStart === el.value.length));
     await ta.fill("/");
     const pop = page.locator(`${HOME} [data-ui="slash-menu"]`);
-    await pop.waitFor({ timeout: 3000 });
+    await pop.waitFor({ timeout: 3000 }).catch(async (e) => {
+      throw new Error(`${e.message}(当时草稿 ${JSON.stringify(await ta.inputValue())})`);
+    });
     check((await pop.locator('[role="option"]').count()) === 3, "打 / ⇒ 三个技能");
     await ta.type("参考");
     check(await until(async () => (await pop.locator('[role="option"]').count()) === 1), "打成 /参考 ⇒ 只剩一个");
