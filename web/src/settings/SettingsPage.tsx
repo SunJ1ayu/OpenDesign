@@ -14,8 +14,8 @@ import {
 import type { DesktopUpdateState } from "../desktopShell";
 import { RELEASES_PAGE } from "../update";
 import type { ConsentMode } from "../api";
-import { useState } from "react";
-import { applyTheme, loadThemePref, type ThemePref } from "../theme";
+import { useRef, useState } from "react";
+import { applyTheme, loadThemePref, radioKeyTarget, type ThemePref } from "../theme";
 import { SideIcon, type SideIconName } from "../workspace/icons";
 import ModelSettings from "./ModelSettings";
 import type { SettingsSection } from "./modelSettings";
@@ -47,14 +47,29 @@ const THEMES: { pref: ThemePref; label: string; icon: SideIconName }[] = [
 
 function Appearance() {
   const [pref, setPref] = useState<ThemePref>(() => loadThemePref());
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const choose = (i: number) => {
+    const t = THEMES[i];
+    applyTheme(t.pref);
+    setPref(t.pref);
+    refs.current[i]?.focus();
+  };
+  const cur = Math.max(0, THEMES.findIndex((t) => t.pref === pref));
   return (
     <div className="settings-item" data-ui="settings-appearance">
-      <span className="lbl">外观</span>
-      <span className="seg theme-seg" role="radiogroup" aria-label="外观">
-        {THEMES.map((t) => (
-          <button key={t.pref} type="button" role="radio" aria-checked={pref === t.pref}
-            data-theme-opt={t.pref} className={`opt${pref === t.pref ? " on" : ""}`}
-            onClick={() => { applyTheme(t.pref); setPref(t.pref); }}>
+      <span className="lbl" id="settings-appearance-lbl">外观</span>
+      <span className="seg theme-seg" role="radiogroup" aria-labelledby="settings-appearance-lbl"
+        onKeyDown={(e) => {
+          const next = radioKeyTarget(e.key, cur, THEMES.length);
+          if (next === null) return;
+          e.preventDefault();
+          choose(next);
+        }}>
+        {THEMES.map((t, i) => (
+          <button key={t.pref} ref={(el) => { refs.current[i] = el; }} type="button" role="radio"
+            aria-checked={i === cur} tabIndex={i === cur ? 0 : -1}
+            data-theme-opt={t.pref} className={`opt${i === cur ? " on" : ""}`}
+            onClick={() => choose(i)}>
             <SideIcon name={t.icon} />{t.label}
           </button>
         ))}

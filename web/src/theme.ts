@@ -48,3 +48,13 @@ export function watchSystemTheme(w: Win = globalThis as Win): () => void {
   mq.addEventListener?.("change", on);
   return () => mq.removeEventListener?.("change", on);
 }
+
+/** 单选组的键盘(WAI-ARIA radiogroup,PR #5 审查):Tab 只停在选中那一项(roving tabindex),
+ *  ←↑ / →↓ 循环移到上 / 下一项并**同时选中**,Home / End 到首 / 尾。按钮本身的空格 / 回车 = 点它。 */
+export function radioKeyTarget(key: string, cur: number, n: number): number | null {
+  if (key === "ArrowRight" || key === "ArrowDown") return (cur + 1) % n;
+  if (key === "ArrowLeft" || key === "ArrowUp") return (cur - 1 + n) % n;
+  if (key === "Home") return 0;
+  if (key === "End") return n - 1;
+  return null;
+}

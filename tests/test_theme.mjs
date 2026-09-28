@@ -142,3 +142,15 @@ test("t9 🔴 深色下承载信息的五档文字,在每一种底上都 ≥ 4.5
   const disabledInk5 = COMPONENTS.split("\n").filter((l) => /:disabled/.test(l) && /color: var\(--ink-5\)/.test(l));
   assert.deepEqual(disabledInk5, []);
 });
+
+test("t10 外观单选组的键盘:→↓ 下一项、←↑ 上一项(首尾循环),Home / End 到首尾,别的键不管", async () => {
+  const { radioKeyTarget } = await import("../web/src/theme.ts");
+  assert.equal(radioKeyTarget("ArrowRight", 0, 3), 1);
+  assert.equal(radioKeyTarget("ArrowDown", 2, 3), 0);
+  assert.equal(radioKeyTarget("ArrowLeft", 0, 3), 2);
+  assert.equal(radioKeyTarget("ArrowUp", 1, 3), 0);
+  assert.equal(radioKeyTarget("Home", 2, 3), 0);
+  assert.equal(radioKeyTarget("End", 0, 3), 2);
+  assert.equal(radioKeyTarget("Tab", 0, 3), null);
+  assert.equal(radioKeyTarget("a", 0, 3), null);
+});
