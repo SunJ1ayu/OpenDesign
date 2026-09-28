@@ -9,8 +9,9 @@ export type SidePaneTab = "files" | "assistant";
 export type SidePaneState = { open: boolean; tab: SidePaneTab; ratio: number };
 
 export const SIDE_PANE_KEY = "od-side-pane";
-/** 照 ZCode sidePaneLayout:默认占 45%,最宽 65%;最窄按像素(聊天输入框再窄就放不下)。 */
-export const SIDE_PANE_DEFAULT: SidePaneState = { open: true, tab: "files", ratio: 0.45 };
+/** 照 ZCode sidePaneLayout:默认占 45%,最宽 65%;最窄按像素(聊天输入框再窄就放不下)。
+ *  默认停在「项目助手」:它是这一页的主交互,同意卡也出在这里;图片 · 文件点一下就到。 */
+export const SIDE_PANE_DEFAULT: SidePaneState = { open: true, tab: "assistant", ratio: 0.45 };
 export const SIDE_PANE_MAX_RATIO = 0.65;
 export const SIDE_PANE_MIN_PX = 280;
 

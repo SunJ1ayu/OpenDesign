@@ -4,7 +4,7 @@
 // 覆盖:
 //   I1 图墙「来源」chip 云 → 描边下拉(单选过滤 + × 清除)
 //   I2 未建档页「建档」= 主按钮(.btn-primary)
-//   I3 列宽重分配:伴随列 ~400px / 助手列 ~300px
+//   I3 列宽重分配:右侧面板默认占项目页 ≈45%,当前标签页铺满面板(原固定「伴随 400 / 助手 300」随面板改版退役)
 //   I4 「最近更新」行可点:白名单内 .dwg → 真开该文件;.bat → 退化为开所在文件夹
 //      (DS_OPEN_CMD 注入记录脚本,断言启动器实际收到的路径——永不真开程序)
 //   I6 侧栏项目名:括号开头显括号后内容,title 兜全名
@@ -123,11 +123,14 @@ try {
   await page.locator(`.proj-list .proj-row:has-text("${projA}")`).first().click();
   await page.locator(".change-row").first().waitFor({ timeout: 10000 });
 
-  // ── I3:列宽重分配(伴随列 ~400 / 助手列 ~300)────────────────────────
-  const asideW = await page.locator(".aside").evaluate((el) => el.getBoundingClientRect().width);
-  const chatW = await page.locator(".chatcol").evaluate((el) => el.getBoundingClientRect().width);
-  check(Math.abs(asideW - 400) <= 2, `I3 伴随列 ≈400px(实际 ${asideW})`);
-  check(Math.abs(chatW - 300) <= 2, `I3 助手列 ≈300px(实际 ${chatW})`);
+  // ── I3:列宽重分配。原来是固定「伴随列 ~400 / 助手列 ~300」;项目页改成照 ZCode Side Pane
+  //    (变更记录 + 右侧标签面板)后,改问:面板默认占项目页 ≈45%,当前标签页铺满面板。
+  const geo = await page.evaluate(() => {
+    const w = (sel) => document.querySelector(sel)?.getBoundingClientRect().width ?? 0;
+    return { host: w(".ws-pane"), pane: w(".side-pane"), chat: w(".chatcol") };
+  });
+  check(Math.abs(geo.pane / geo.host - 0.45) <= 0.02, `I3 右侧面板默认 ≈45%(实际 ${Math.round(geo.pane)} / ${Math.round(geo.host)})`);
+  check(Math.abs(geo.chat - (geo.pane - 2)) <= 2, `I3 项目助手铺满面板(实际 ${Math.round(geo.chat)} / 面板 ${Math.round(geo.pane)})`);
 
   // ── I4:「最近更新」行可点 ────────────────────────────────────────────
   const recentRows = page.locator('[data-ui="recent-row"]');

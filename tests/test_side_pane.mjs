@@ -9,8 +9,8 @@ import {
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 
-test("s1 默认:开着、停在「图片 · 文件」、占 45%(照 ZCode SIDE_PANE_DEFAULT_EXPANDED_RATIO)", () => {
-  assert.deepEqual(SIDE_PANE_DEFAULT, { open: true, tab: "files", ratio: 0.45 });
+test("s1 默认:开着、停在「项目助手」(主交互 + 同意卡在这)、占 45%(照 ZCode SIDE_PANE_DEFAULT_EXPANDED_RATIO)", () => {
+  assert.deepEqual(SIDE_PANE_DEFAULT, { open: true, tab: "assistant", ratio: 0.45 });
   assert.equal(SIDE_PANE_MAX_RATIO, 0.65);
 });
 
@@ -29,7 +29,7 @@ test("s3 记在本机的状态读回来:坏 JSON / 缺字段 / 乱值都回默�
   assert.deepEqual(parseSidePane('{"open":false,"tab":"assistant","ratio":0.5}'),
     { open: false, tab: "assistant", ratio: 0.5 });
   assert.deepEqual(parseSidePane('{"open":"yes","tab":"x","ratio":9}'),
-    { open: true, tab: "files", ratio: 0.65 });
+    { open: true, tab: "assistant", ratio: 0.65 });
 });
 
 test("s4 🔴 有事要看项目助手 ⇒ 面板打开并切到「项目助手」;已经在那里就原样返回(不触发多余的存盘)", () => {

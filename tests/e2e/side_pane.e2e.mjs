@@ -4,7 +4,7 @@
 // 变更记录占主位,「图片 · 文件」和「项目助手」收进右侧一块面板,标签切换,可收起、可拖宽。
 //
 // 覆盖:
-//   P1 默认:面板开着、停在「图片 · 文件」;开关 aria-expanded=true
+//   P1 默认:面板开着、停在「项目助手」(这一页的主交互,同意卡也出在这);开关 aria-expanded=true
 //   P2 收起:面板整块隐藏、变更记录铺满;项目助手的聊天**仍挂着**(keep-mounted);刷新后仍是收起
 //   P3 标签:点「项目助手」切过去;键盘 ← / → 在两个标签间切(roving tabindex,只有选中的能 Tab 到)
 //   P4 拖左边缘调宽:变宽、夹在 65% 以内,刷新后宽度还在
@@ -69,13 +69,13 @@ try {
   await toggle.waitFor({ timeout: 15000 });
   const box = (loc) => loc.evaluate((e) => { const b = e.getBoundingClientRect(); return { l: b.left, r: b.right, w: b.width }; });
 
-  await step("P1 默认开着、停在「图片 · 文件」", async () => {
+  await step("P1 默认开着、停在「项目助手」;「图片 · 文件」没切过去也已挂着", async () => {
     check(await pane.isVisible(), "面板可见");
     check(await toggle.getAttribute("aria-expanded") === "true", "开关 aria-expanded=true");
-    check(await tabFiles.getAttribute("aria-selected") === "true", "选中的是「图片 · 文件」");
-    check(await page.locator("#spane-panel-files").isVisible(), "图片 · 文件那页可见");
-    check(!(await page.locator("#spane-panel-assistant").isVisible()), "项目助手那页隐藏");
-    check(await page.locator(".chatcol").count() === 1, "项目助手的聊天已经挂着(没切过去也在)");
+    check(await tabAsst.getAttribute("aria-selected") === "true", "选中的是「项目助手」");
+    check(await page.locator("#spane-panel-assistant").isVisible(), "项目助手那页可见");
+    check(!(await page.locator("#spane-panel-files").isVisible()), "图片 · 文件那页隐藏");
+    check(await page.locator("#spane-panel-files .aside").count() === 1, "图片 · 文件那页已经挂着(没切过去也在)");
   });
 
   await step("P2 收起:整块隐藏、变更记录铺满;聊天仍挂着;刷新后仍收起", async () => {
