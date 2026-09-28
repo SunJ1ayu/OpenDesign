@@ -105,4 +105,22 @@ jobs:
           else
             echo "::error::tests/run-all.sh 退出码 $rc"
           fi
+          # run-all.sh 把各段细节写进 /tmp 下的日志目录,红了才保留;runner 一收工就没了。
+          # 这里把红的那几段日志尾部直接印进 job 日志,完整目录另外作为构件上传。
+          for f in $(sed -n 's/.*→ \(\/tmp\/[^ ]*\.log\)$/\1/p' "$out"); do
+            echo "::group::$f(末尾 200 行)"
+            sudo tail -n 200 "$f"
+            echo "::endgroup::"
+          done
           exit 1
+
+      - name: 上传红了的日志
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-all-logs
+          path: |
+            /tmp/ds-all-*
+            /tmp/ds-e2e-log-*
+          if-no-files-found: ignore
+          retention-days: 7
