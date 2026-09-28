@@ -184,6 +184,12 @@ try {
     await card.locator('button:has-text("去项目")').click();
 
     await groups().first().waitFor({ timeout: 15000 });
+    // 等到路由真的切过去、堆也展开(最多 5s)再断言:侧栏堆在待办页上本来就在,上面那个 waitFor
+    // 立刻返回,紧接着数行数会和"点了 → 切路由 → 展开"赛跑(项目页改成面板布局后渲染稍重,赛输过)
+    await page.waitForFunction((key) =>
+      location.hash === "#/workspace" &&
+      [...document.querySelectorAll(".proj-list .proj-row")].some((r) => r.textContent.includes(key)),
+      "松涛苑-0101", { timeout: 5000 }).catch(() => {});
     expect(await row("松涛苑-0101").count() === 1,
       "进来了就看得见自己在哪:竣工验收这堆自己展开了");
     expect(await head("竣工验收").getAttribute("aria-expanded") === "true",

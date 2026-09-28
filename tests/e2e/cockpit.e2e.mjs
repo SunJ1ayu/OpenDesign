@@ -8,7 +8,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchBrowser, check } from "./helpers.mjs";
+import { launchBrowser, check, sidePaneTab } from "./helpers.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PORT = 8791;
@@ -79,6 +79,7 @@ try {
   // ③ 速览块整条不存在 —— **夹具档案里「当前状态: 等瓦工进场」那行照留**,
   // 才证明是"有内容也不显示",而不是夹具没写所以看不见(后者什么都没证明)。
   check(await page.locator(".cockpit-brief").count() === 0, "速览块已删除(.cockpit-brief 不存在)");
+  await sidePaneTab(page, "files");   // 驾驶舱列在右侧面板的「图片 · 文件」里(照 ZCode Side Pane 改版)
   const asideAll = await page.locator(".aside").innerText();
   check(!asideAll.includes("等瓦工进场"), "伴随列不再显示「当前状态」那句话");
 

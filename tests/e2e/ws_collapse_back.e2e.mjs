@@ -215,7 +215,9 @@ try {
     expect(await back.first().isVisible(), "返回工作区按钮可见(不是藏在别的层里)");
 
     await back.first().click();
-    await page.waitForFunction(() => location.hash === "#/workspace", { timeout: 5000 });
+    await page.waitForFunction(() => location.hash === "#/workspace", null, { timeout: 5000 });
+    // 地址变了之后路由状态还要一拍才落到界面上:等工作区真的现形(最多 5s)再断言,别和它赛跑
+    await page.locator(".ws-pane:not(.route-hidden)").waitFor({ state: "visible", timeout: 5000 }).catch(() => {});
     expect(await page.locator(".ws-pane:not(.route-hidden)").isVisible(),
       "点了就回到项目工作区(ws-pane 现形)");
     expect(await page.locator(".chatcol").isVisible() && await page.locator(".ws-main .center").isVisible(),
