@@ -58,7 +58,14 @@ jobs:
           "$RUNNER_TEMP/venv/bin/python" -m pip install --quiet nanobot-ai==0.2.2 mcp==1.28.1 firecrawl-anydoc==0.1.6
 
       - name: 前端依赖
-        run: npm ci --prefix web --no-audit --no-fund
+        run: |
+          # web/package-lock.json 的 217 个下载地址全是本机所在云的内网镜像 mirrors.tencentyun.com,
+          # GitHub 的机器连不上(npm 卡住后以 "Exit handler never called" 崩掉,首跑实测)。
+          # 只在 CI 里临时换成官方源的同一路径;锁文件的 integrity 不变、npm ci 逐包校验,
+          # 装到的仍是锁文件钉死的那一份。装完还原锁文件,工作树与提交保持一致。
+          sed -i 's#http://mirrors.tencentyun.com/npm/#https://registry.npmjs.org/#g' web/package-lock.json
+          npm ci --prefix web --no-audit --no-fund
+          git checkout -- web/package-lock.json
 
       - name: Playwright ${{ env.PW_VERSION }} 与 Chromium
         run: |
