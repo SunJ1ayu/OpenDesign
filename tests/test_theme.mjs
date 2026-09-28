@@ -113,3 +113,32 @@ test("t8 圆角照 ZCode 的档位:只用 4 / 6 / 8 / 12 / 16 px(外加胶囊与
     .filter((v) => !["0", "2px", "4px", "6px", "8px", "12px", "16px", "50%", "99px", "999px"].includes(v));
   assert.deepEqual(odd, []);
 });
+
+// ── 对比度(PR #5 审查:深色下 --ink-5 #555 对卡片只有 1.9:1,占位字 / 时间 / 分组名看不清)──
+function lum(hex) {
+  const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+}
+const contrast = (a, b) => {
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+test("t9 🔴 深色下承载信息的五档文字,在每一种底上都 ≥ 4.5:1(WCAG AA);禁用态另走 --disabled-*", () => {
+  const bgs = ["--card", "--paper", "--paper-side", "--paper-inset", "--paper-hover"];
+  const low = [];
+  for (const fg of ["--ink", "--ink-2", "--ink-3", "--ink-4", "--ink-5"]) {
+    for (const bg of bgs) {
+      const r = contrast(DARK[fg], DARK[bg]);
+      if (r < 4.5) low.push(`${fg} ${DARK[fg]} on ${bg} ${DARK[bg]} = ${r.toFixed(2)}`);
+    }
+  }
+  assert.deepEqual(low, []);
+  // 层次还在:一档比一档暗
+  const L = ["--ink", "--ink-2", "--ink-3", "--ink-4", "--ink-5"].map((k) => lum(DARK[k]));
+  for (let i = 1; i < L.length; i++) assert.ok(L[i] < L[i - 1], `第 ${i} 档不比上一档暗`);
+  // 禁用态不借 --ink-5(借了就会跟着信息字一起变亮、看不出是禁用)
+  const disabledInk5 = COMPONENTS.split("\n").filter((l) => /:disabled/.test(l) && /color: var\(--ink-5\)/.test(l));
+  assert.deepEqual(disabledInk5, []);
+});
