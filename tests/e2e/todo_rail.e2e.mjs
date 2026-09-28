@@ -149,7 +149,16 @@ try {
   );
   const bg = (sel) =>
     page.locator(sel).first().evaluate((el) => getComputedStyle(el).backgroundColor);
-  const isWhite = (c) => c === "rgb(255, 255, 255)";
+  // "白底卡" = 卡片色 --card(浅色下是白,深色下是 ZCode 的卡片灰;外观可切,所以按变量比,不写死白)
+  const cardBg = await page.evaluate(() => {
+    const d = document.createElement("div");
+    d.style.background = "var(--card)";
+    document.body.appendChild(d);
+    const c = getComputedStyle(d).backgroundColor;
+    d.remove();
+    return c;
+  });
+  const isWhite = (c) => c === cardBg;
   const isTransparent = (c) => c === "rgba(0, 0, 0, 0)" || c === "transparent";
   for (const sel of [".rail-cal", ".rail-follow"]) {
     check(!isWhite(await bg(sel)), `${sel} 不再是白卡(实测 ${await bg(sel)})`);

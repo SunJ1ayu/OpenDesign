@@ -202,8 +202,17 @@ try {
     const f0 = g.folders[0];
     expect(/solid/.test(f0.border) && parseFloat(f0.border) >= 1,
       `锚:「打开文件夹」本身是描边按钮(实测 border ${f0.border})`);
-    expect(f0.bg === "rgb(255, 255, 255)",
-      `锚:「打开文件夹」本身是白底(实测 ${f0.bg})`);
+    // "白底" = 卡片色 --card(浅色下是白,深色下是 ZCode 的卡片灰;外观可切,按变量比)
+    const cardBg = await page.evaluate(() => {
+      const d = document.createElement("div");
+      d.style.background = "var(--card)";
+      document.body.appendChild(d);
+      const c = getComputedStyle(d).backgroundColor;
+      d.remove();
+      return c;
+    });
+    expect(f0.bg === cardBg,
+      `锚:「打开文件夹」本身是卡片底(实测 ${f0.bg},卡片色 ${cardBg})`);
     // 再比全等
     for (const [i, f] of g.folders.entries()) {
       expect(fingerprint(g.open) === fingerprint(f),
