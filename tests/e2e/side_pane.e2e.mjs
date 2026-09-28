@@ -11,6 +11,7 @@
 //   P5 🔴 在「图片 · 文件」里点「登记参考图」(往项目助手发话)⇒ 面板自动切到「项目助手」
 //   P6 🔴 (PR #6 审查)面板已存成 65% → 窗口缩到 1024:不许横向溢出,主区 ≥ 400、面板 ≥ 280;
 //      放大回 1440 又回到 65%(缩窗是临时让位,不改存下的宽度)
+//   P7/P8 🔴 缩窗后的分隔条读数与实际宽度一致;键盘调宽从实际宽度起算,碰到上限不改存盘
 //
 // 跑法:node tests/e2e/side_pane.e2e.mjs(自起 ds_web 于 8863)
 import { spawn } from "node:child_process";
@@ -169,6 +170,40 @@ try {
     const host1 = await box(page.locator(".ws-pane"));
     const w1 = (await box(pane)).w;
     check(Math.abs(w1 / host1.w - 0.65) <= 0.02, `放回 1440 又是 65%(${Math.round(w1)} / ${Math.round(host1.w)})`);
+  });
+  await step("P7 缩窗后分隔条的无障碍宽度读数等于实际宽度", async () => {
+    await page.setViewportSize({ width: 1024, height: 860 });
+    await page.waitForTimeout(300);
+    const host = await box(page.locator(".ws-pane"));
+    const shown = await box(pane);
+    const handle = page.locator('[data-ui="side-pane-resize"]');
+    const actual = Math.round(shown.w / host.w * 100);
+    check(Math.abs(Number(await handle.getAttribute("aria-valuenow")) - actual) <= 1,
+      `aria-valuenow 应报实际 ${actual}%,不是存盘的 65%`);
+    check(Math.abs(Number(await handle.getAttribute("aria-valuemax")) - actual) <= 1,
+      `aria-valuemax 应报窄窗上限 ${actual}%`);
+  });
+  await step("P8 窄窗键盘:到上限不改存盘,向右第一次就变窄;放大后保留实际调整", async () => {
+    const handle = page.locator('[data-ui="side-pane-resize"]');
+    const before = await box(pane);
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("od-side-pane")).ratio);
+    check(Math.abs(saved - 0.65) < 0.01, `前提:存盘仍是 65%,实际 ${saved}`);
+    await handle.focus();
+    await page.keyboard.press("ArrowLeft");
+    const atLimit = await box(pane);
+    const kept = await page.evaluate(() => JSON.parse(localStorage.getItem("od-side-pane")).ratio);
+    check(Math.abs(atLimit.w - before.w) <= 1 && Math.abs(kept - saved) < 0.001,
+      `已到上限时 ← 不应改显示或存盘(${Math.round(before.w)} → ${Math.round(atLimit.w)}, ${saved} → ${kept})`);
+    await page.keyboard.press("ArrowRight");
+    const narrower = await box(pane);
+    const adjusted = await page.evaluate(() => JSON.parse(localStorage.getItem("od-side-pane")).ratio);
+    check(narrower.w < before.w - 10 && adjusted < saved,
+      `第一次 → 应立即变窄并存盘(${Math.round(before.w)} → ${Math.round(narrower.w)}, ${saved} → ${adjusted})`);
+    await page.setViewportSize({ width: 1440, height: 860 });
+    const hostWide = await box(page.locator(".ws-pane"));
+    const paneWide = await box(pane);
+    check(Math.abs(paneWide.w - hostWide.w * adjusted) <= 2,
+      `放大后应保留键盘实际调整(${Math.round(paneWide.w)} / ${Math.round(hostWide.w)})`);
   });
 } catch (e) {
   failures += 1;
