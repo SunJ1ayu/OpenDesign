@@ -9,9 +9,16 @@
 #   · e2e 的 playwright-core 与 Chromium:钉 1.58.2(本机现用版本),E2E_PW_MODULES 指过去;
 #   · 无出口守卫要 root 才能 `unshare -n` ⇒ 总跑用 sudo 以 root 跑(本机也是 root)。
 #
-# 退出码:默认跑法必有 3 条没跑 —— python 1 条 Windows 专属、e2e 2 条要活 gateway(见 tests/e2e/README.md),
-# run-all.sh 因此返回 3("没红,但有没跑的,不算通过")。这里**只在没跑的恰好是 3 条时放行**;
-# 多一条没跑就红(SKIP 不算 PASS)。以后这个数变了,改下面的 EXPECTED_NOT_RUN 并在提交说明里写清是哪条、为什么。
+# 退出码:CI 上必有 4 条没跑,run-all.sh 因此返回 3("没红,但有没跑的,不算通过"):
+#   · python 2 条:1 条 Windows 专属(本机同样跳过);1 条 test_ws_protocol_smoke —— 它连本机常开的活 gateway,
+#     CI 上没有 gateway 就整份跳过(本机有 gateway 时会跑,所以本机只跳 1 条);
+#   · e2e 2 条:new_chat / project-thread 要活 gateway(见 tests/e2e/README.md)。
+# 三条要 gateway 的都要真模型 key,CI 不给 secrets、也不该联网调模型,所以只能在本机跑。
+# 这里**只在没跑的恰好是 4 条时放行**;多一条没跑就红(SKIP 不算 PASS)。
+# 以后这个数变了,改下面的 EXPECTED_NOT_RUN 并在提交说明里写清是哪条、为什么。
+#
+# 拉完整历史(fetch-depth: 0):test_desktop_config C5 用 `git show win-installer-0.98.8:…` 读已发布的旧更新器,
+# 默认的单提交浅检出不带 tag,这条会红、它后面两条断言也就成了死断言(第三跑实测)。
 #
 # 不做路径过滤:必过的检查被跳过时,GitHub 会把"跳过"当成通过。
 # 不给 secrets:pull_request 事件跑的是 PR 自己的代码。
@@ -37,9 +44,11 @@ jobs:
     timeout-minutes: 60
     env:
       PW_VERSION: "1.58.2"
-      EXPECTED_NOT_RUN: "3"
+      EXPECTED_NOT_RUN: "4"
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -97,7 +106,7 @@ jobs:
             exit 0
           fi
           if [ "$rc" -eq 3 ] && grep -qF "但有 ${EXPECTED_NOT_RUN} 条没跑" "$out"; then
-            echo "没有红的;没跑的恰好是预期的 ${EXPECTED_NOT_RUN} 条(python 1 条 Windows 专属、e2e 2 条要活 gateway)⇒ 通过"
+            echo "没有红的;没跑的恰好是预期的 ${EXPECTED_NOT_RUN} 条(python:Windows 专属 1 条 + 要活 gateway 的 ws 冒烟 1 条;e2e:要活 gateway 的 2 条)⇒ 通过"
             exit 0
           fi
           if [ "$rc" -eq 3 ]; then
@@ -106,12 +115,21 @@ jobs:
             echo "::error::tests/run-all.sh 退出码 $rc"
           fi
           # run-all.sh 把各段细节写进 /tmp 下的日志目录,红了才保留;runner 一收工就没了。
-          # 这里把红的那几段日志尾部直接印进 job 日志,完整目录另外作为构件上传。
+          # 这里把红的那几段日志尾部直接印进 job 日志;e2e 段里每条红了的场景另有自己的日志,也一并印出。
           for f in $(sed -n 's/.*→ \(\/tmp\/[^ ]*\.log\)$/\1/p' "$out"); do
             echo "::group::$f(末尾 200 行)"
-            sudo tail -n 200 "$f"
+            sudo tail -n 200 "$f" || true
             echo "::endgroup::"
+            for g in $(sudo grep -ohE '/tmp/[^ ]+\.e2e\.(mjs|py)\.log' "$f" | sort -u || true); do
+              echo "::group::$g(末尾 120 行)"
+              sudo tail -n 120 "$g" || true
+              echo "::endgroup::"
+            done
           done
+          # 完整目录拷出来给 runner 用户,下一步作为构件上传(原目录是 root 建的 700,上传步骤读不了)。
+          mkdir -p "$RUNNER_TEMP/run-all-logs"
+          sudo cp -r /tmp/ds-all-* /tmp/ds-leakprobe-* "$RUNNER_TEMP/run-all-logs/" 2>/dev/null || true
+          sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/run-all-logs"
           exit 1
 
       - name: 上传红了的日志
@@ -119,8 +137,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: run-all-logs
-          path: |
-            /tmp/ds-all-*
-            /tmp/ds-e2e-log-*
+          path: ${{ runner.temp }}/run-all-logs
           if-no-files-found: ignore
           retention-days: 7
