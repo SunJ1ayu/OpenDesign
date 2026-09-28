@@ -1,0 +1,101 @@
+# PR 上的自动检查(aiwork 改造 · 阶段 A;计划见 SunJ1ayu/aiwork 的 WORKFLOW-MIGRATION-PLAN.md,规则 R2)。
+#
+# 防的误放行:没测过的代码进 main;测试结果只靠 Builder 在 PR 评论里自述(PR #6 的状态:check runs = 0)。
+# 删掉会怎样:PR 上重新没有机器产出的测试结果,main 的分支规则也就没有可要求的检查。
+#
+# 跑的就是本地收货那一条 `tests/run-all.sh`(泄漏闸自测 / node 单测 / python 全量 + 死断言闸 /
+# MCP 契约闸 / dist 新鲜度 + 类型检查 / e2e),不另写一份检查清单。和本机不同的三处环境都在下面显式给:
+#   · Python 3.12(死断言闸用 sys.monitoring,3.12 才有):建 venv,装与 bin/install.ps1 相同的钉版本依赖,PY= 指过去;
+#   · e2e 的 playwright-core 与 Chromium:钉 1.58.2(本机现用版本),E2E_PW_MODULES 指过去;
+#   · 无出口守卫要 root 才能 `unshare -n` ⇒ 总跑用 sudo 以 root 跑(本机也是 root)。
+#
+# 退出码:默认跑法必有 3 条没跑 —— python 1 条 Windows 专属、e2e 2 条要活 gateway(见 tests/e2e/README.md),
+# run-all.sh 因此返回 3("没红,但有没跑的,不算通过")。这里**只在没跑的恰好是 3 条时放行**;
+# 多一条没跑就红(SKIP 不算 PASS)。以后这个数变了,改下面的 EXPECTED_NOT_RUN 并在提交说明里写清是哪条、为什么。
+#
+# 不做路径过滤:必过的检查被跳过时,GitHub 会把"跳过"当成通过。
+# 不给 secrets:pull_request 事件跑的是 PR 自己的代码。
+
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      PW_VERSION: "1.58.2"
+      EXPECTED_NOT_RUN: "3"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Python 依赖(与 bin/install.ps1 同一组钉版本)
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/python" -m pip install --quiet --upgrade pip
+          "$RUNNER_TEMP/venv/bin/python" -m pip install --quiet nanobot-ai==0.2.2 mcp==1.28.1 firecrawl-anydoc==0.1.6
+
+      - name: 前端依赖
+        run: npm ci --prefix web --no-audit --no-fund
+
+      - name: Playwright ${{ env.PW_VERSION }} 与 Chromium
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pw" --no-save --no-audit --no-fund "playwright-core@$PW_VERSION"
+          npx --yes "playwright@$PW_VERSION" install --with-deps chromium
+
+      - name: 总跑 tests/run-all.sh
+        run: |
+          # 以 root 跑的 git 要认这个由 runner 用户检出的工作树
+          sudo git config --system --add safe.directory "$GITHUB_WORKSPACE"
+          out="$RUNNER_TEMP/run-all.txt"
+          set +e
+          sudo env "PATH=$PATH" "HOME=$HOME" \
+            "PY=$RUNNER_TEMP/venv/bin/python" \
+            "E2E_PW_MODULES=$RUNNER_TEMP/pw/node_modules" \
+            bash tests/run-all.sh 2>&1 | tee "$out"
+          rc=${PIPESTATUS[0]}
+          set -e
+
+          {
+            echo '### tests/run-all.sh'
+            echo '```'
+            sed -n '/总跑汇总/,$p' "$out" | sed 's/\x1b\[[0-9;]*m//g'
+            echo "command-rc: $rc"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$rc" -eq 0 ]; then
+            exit 0
+          fi
+          if [ "$rc" -eq 3 ] && grep -qF "但有 ${EXPECTED_NOT_RUN} 条没跑" "$out"; then
+            echo "没有红的;没跑的恰好是预期的 ${EXPECTED_NOT_RUN} 条(python 1 条 Windows 专属、e2e 2 条要活 gateway)⇒ 通过"
+            exit 0
+          fi
+          if [ "$rc" -eq 3 ]; then
+            echo "::error::没有红的,但没跑的条数不是预期的 ${EXPECTED_NOT_RUN} 条 —— SKIP 不算 PASS,查上面的汇总"
+          else
+            echo "::error::tests/run-all.sh 退出码 $rc"
+          fi
+          exit 1
