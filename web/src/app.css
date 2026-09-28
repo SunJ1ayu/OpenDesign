@@ -263,7 +263,10 @@ html, body { overflow: auto; }
   flex-grow: 0;
   flex-shrink: 0;
   min-width: 280px;
-  max-width: 65%;
+  /* 最宽 = 65% 与"给主区留足 400 + 4px 缝"两者取小(PR #6 审查:存成 65% 后把窗口缩到 1024,
+     面板仍占 504、主区被 400 钉住 ⇒ 横向溢出)。窗口窄了面板先让;存下的比例不动,放大回来照旧。
+     数字与 sidePane.ts 的 SIDE_PANE_MAIN_MIN_PX 同步 */
+  max-width: min(65%, calc(100% - 404px));
   min-height: 0;
 }
 .spane-resize {

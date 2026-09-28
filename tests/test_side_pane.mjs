@@ -14,13 +14,16 @@ test("s1 默认:开着、停在「项目助手」(主交互 + 同意卡在这)�
   assert.equal(SIDE_PANE_MAX_RATIO, 0.65);
 });
 
-test("s2 宽度夹在 [最窄像素, 65%]:拖太宽 / 太窄都拉回来;坏值回默认", () => {
-  assert.equal(clampRatio(0.9, 1000), 0.65);
+test("s2 宽度夹在 [最窄像素, min(65%, 给主区留足 404px)]:拖太宽 / 太窄都拉回来;坏值回默认", () => {
+  assert.equal(clampRatio(0.9, 2000), 0.65);              // 宽屏:65% 封顶
+  assert.equal(clampRatio(0.9, 1000), (1000 - 404) / 1000); // 1000:给主区留 404 更紧 ⇒ 0.596
   assert.equal(clampRatio(0.05, 1000), SIDE_PANE_MIN_PX / 1000);
   assert.equal(clampRatio(0.5, 1000), 0.5);
   assert.equal(clampRatio(NaN, 1000), 0.45);
-  // 宿主很窄时,最窄像素换算出来超过 65% ⇒ 以 65% 为准,不能反过来撑破
-  assert.equal(clampRatio(0.3, 300), 0.65);
+  // PR #6 审查:最宽还要给主区留足 404px —— 宿主 776(1024 宽窗口)时最多 (776-404)/776 ≈ 0.479
+  assert.equal(clampRatio(0.65, 776), (776 - 404) / 776);
+  // 宿主窄到放不下"主区 404 + 面板 280"时,以给主区留地为准(整页由 960 地板兜底滚动)
+  assert.ok(clampRatio(0.3, 600) <= (600 - 404) / 600 + 1e-9);
 });
 
 test("s3 记在本机的状态读回来:坏 JSON / 缺字段 / 乱值都回默认,不崩", () => {

@@ -9,6 +9,8 @@
 //   P3 标签:点「项目助手」切过去;键盘 ← / → 在两个标签间切(roving tabindex,只有选中的能 Tab 到)
 //   P4 拖左边缘调宽:变宽、夹在 65% 以内,刷新后宽度还在
 //   P5 🔴 在「图片 · 文件」里点「登记参考图」(往项目助手发话)⇒ 面板自动切到「项目助手」
+//   P6 🔴 (PR #6 审查)面板已存成 65% → 窗口缩到 1024:不许横向溢出,主区 ≥ 400、面板 ≥ 280;
+//      放大回 1440 又回到 65%(缩窗是临时让位,不改存下的宽度)
 //
 // 跑法:node tests/e2e/side_pane.e2e.mjs(自起 ds_web 于 8863)
 import { spawn } from "node:child_process";
@@ -143,6 +145,30 @@ try {
       document.querySelector('[data-ui="side-pane-tab-assistant"]')?.getAttribute("aria-selected") === "true",
       null, { timeout: 5000 });
     check(await page.locator("#spane-panel-assistant").isVisible(), "项目助手那页可见 —— 发出去的话业主看得见");
+  });
+  await step("P6 🔴 已存成 65% 再把窗口缩到 1024:不溢出、主区 ≥ 400、面板 ≥ 280;放回 1440 又是 65%", async () => {
+    const host0 = await box(page.locator(".ws-pane"));
+    const w0 = (await box(pane)).w;
+    check(Math.abs(w0 / host0.w - 0.65) <= 0.02, `前提:面板存着 65%(${Math.round(w0)} / ${Math.round(host0.w)})`);
+    await page.setViewportSize({ width: 1024, height: 860 });
+    await page.waitForTimeout(300);
+    const o = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth,
+      body: document.body.scrollWidth,
+      main: document.querySelector(".ws-main").getBoundingClientRect().width,
+      pane: document.querySelector(".side-pane").getBoundingClientRect().width,
+      paneRight: document.querySelector(".side-pane").getBoundingClientRect().right,
+    }));
+    check(o.scroll <= o.client + 1 && o.body <= o.client + 1,
+      `1024 宽不横向溢出(文档 ${o.scroll} / body ${o.body} / 窗口 ${o.client})`);
+    check(o.paneRight <= o.client + 1, `面板右缘在窗口里(${Math.round(o.paneRight)} / ${o.client})`);
+    check(o.main >= 399, `变更记录没被挤到 400 以下(${Math.round(o.main)})`);
+    check(o.pane >= 279, `面板没被挤到 280 以下(${Math.round(o.pane)})`);
+    await page.setViewportSize({ width: 1440, height: 860 });
+    await page.waitForTimeout(300);
+    const host1 = await box(page.locator(".ws-pane"));
+    const w1 = (await box(pane)).w;
+    check(Math.abs(w1 / host1.w - 0.65) <= 0.02, `放回 1440 又是 65%(${Math.round(w1)} / ${Math.round(host1.w)})`);
   });
 } catch (e) {
   failures += 1;

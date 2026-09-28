@@ -14,12 +14,18 @@ export const SIDE_PANE_KEY = "od-side-pane";
 export const SIDE_PANE_DEFAULT: SidePaneState = { open: true, tab: "assistant", ratio: 0.45 };
 export const SIDE_PANE_MAX_RATIO = 0.65;
 export const SIDE_PANE_MIN_PX = 280;
+/** 主区(变更记录)至少要留的宽度 + 与面板之间的缝;与 app.css `.ws-main` min-width / `.side-pane` max-width 同步。 */
+export const SIDE_PANE_MAIN_MIN_PX = 400 + 4;
 
-/** 把宽度比例夹到 [最窄像素, 65%] 之间;宿主宽度未知(0)时只夹上限。 */
+/** 把宽度比例夹到 [最窄像素, 最宽] 之间。最宽 = 65% 与"给主区留足 404px"两者取小
+ *  (PR #6 审查:只夹 65% 时,窄窗口下主区被挤出、页面横向溢出)。宿主宽度未知(0)时只夹 65%。 */
 export function clampRatio(r: number, hostPx: number): number {
   if (!Number.isFinite(r)) return SIDE_PANE_DEFAULT.ratio;
-  const min = hostPx > 0 ? Math.min(SIDE_PANE_MAX_RATIO, SIDE_PANE_MIN_PX / hostPx) : 0.2;
-  return Math.min(SIDE_PANE_MAX_RATIO, Math.max(min, r));
+  const max = hostPx > 0
+    ? Math.min(SIDE_PANE_MAX_RATIO, Math.max(0, (hostPx - SIDE_PANE_MAIN_MIN_PX) / hostPx))
+    : SIDE_PANE_MAX_RATIO;
+  const min = hostPx > 0 ? Math.min(max, SIDE_PANE_MIN_PX / hostPx) : 0.2;
+  return Math.min(max, Math.max(min, r));
 }
 
 export function parseSidePane(raw: unknown): SidePaneState {
