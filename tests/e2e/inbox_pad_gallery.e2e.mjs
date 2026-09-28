@@ -36,7 +36,7 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
-import { launchBrowser, check } from "./helpers.mjs";
+import { launchBrowser, check, sidePaneTab } from "./helpers.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PORT = 8805;
@@ -227,6 +227,7 @@ try {
   // ── B 伴随列不再有「图墙 →」小字,但进图墙的路没堵死 ───────────────────────
   await step("B「图片」标题旁不再有「图墙 →」,缩略图仍是入口", async () => {
     await page.goto(`${base}/#/workspace`, { waitUntil: "domcontentloaded" });
+    await sidePaneTab(page, "files");   // 图片在右侧面板的「图片 · 文件」里(照 ZCode Side Pane 改版)
     await page.locator(".aside .aside-head").first().waitFor({ timeout: 15000 });
     await page.locator(`.proj-list .proj-row:has-text("${KEY}")`).first().click();
     await page.locator('.seg .opt:has-text("项目图")').click();

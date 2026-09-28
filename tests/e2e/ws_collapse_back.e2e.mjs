@@ -141,7 +141,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 
   // ── #2 收起项目助手 ────────────────────────────────────────────────────────
-  await step("#2 收起「项目助手」后不溢出、不留竖排残片", async () => {
+  await step("#2 收起右侧面板(项目助手所在)后不溢出、不留残片,展开回来原样", async () => {
     await page.goto(`${base}/#/workspace`, { waitUntil: "domcontentloaded" });
     await page.locator(".chatcol").waitFor({ timeout: 15000 });
     // 卡片要真的在场,否则这一段测了个寂寞(假绿的经典形态)
@@ -157,15 +157,17 @@ try {
     const expandedInnerH = await page.evaluate(() =>
       document.querySelector(".inbox-card").getBoundingClientRect().height);
 
-    await page.locator('.chatcol-head .icon-btn[title="收起"]').click();
-    await page.locator(".chatcol.collapsed").waitFor({ timeout: 5000 });
-
-    const w = await page.evaluate(() =>
-      Math.round(document.querySelector(".chatcol.collapsed").getBoundingClientRect().width));
-    expect(w <= 40, `收起后聊天列收成竖条(实测 ${w}px)`);
+    // 收起:项目助手原来自带的「» 收成 36px 竖条」已随 ZCode Side Pane 改版删掉,
+    // 改由主区右上角的开关收起整块右侧面板(收件箱卡在「项目助手」标签里,跟着一起收)。
+    // 三条红线照旧守:不溢出、不留残片、展开回来状态原样(没被卸载)。
+    const toggle = page.locator('[data-ui="side-pane-toggle"]');
+    await toggle.click();
+    await page.waitForFunction(() =>
+      document.querySelector('[data-ui="side-pane-toggle"]')?.getAttribute("aria-expanded") === "false",
+      null, { timeout: 5000 });
+    expect(!(await page.locator('[data-ui="side-pane"]').isVisible()), "收起后右侧面板整块让位(不再有窄竖条)");
 
     // ★ 本段红线一:整个文档不许出现横向溢出。
-    //   坏实现下 36px 列里的卡片按 min-content 撑开、顶出视口右缘 —— 用户截图现场。
     const over = await page.evaluate(() => {
       const de = document.documentElement;
       return { scroll: de.scrollWidth, client: de.clientWidth };
@@ -173,30 +175,26 @@ try {
     expect(over.scroll <= over.client + 1,
       `收起后无横向溢出(scrollWidth ${over.scroll} ≤ clientWidth ${over.client})`);
 
-    // ★ 红线二:竖条里**任何**可见后代都不许越过视口右缘。
-    //   只查 scrollWidth 不够 —— 溢出被祖先裁掉时 scrollWidth 可以是干净的,
-    //   而用户看到的仍是半截字(截图里那两片就是被视口切掉的)。
+    // ★ 红线二:收起的面板里**任何**后代都不许还留在画面上(残片 / 越界的半截字)。
     const spill = await page.evaluate(() => {
-      const vw = window.innerWidth;
       const out = [];
-      for (const el of document.querySelectorAll(".chatcol.collapsed *")) {
+      for (const el of document.querySelectorAll('[data-ui="side-pane"] *')) {
         const b = el.getBoundingClientRect();
         if (b.width === 0 && b.height === 0) continue;
-        if (b.right > vw + 1) out.push(`${el.className || el.tagName}@${Math.round(b.right)}`);
+        out.push(`${el.className || el.tagName}@${Math.round(b.left)}`);
       }
       return out;
     });
-    expect(spill.length === 0, `竖条内无越界元素(越界:${spill.join(", ") || "无"})`);
+    expect(spill.length === 0, `收起的面板里没有残留在画面上的元素(残留:${spill.slice(0, 5).join(", ") || "无"})`);
 
-    // ★ 红线三:被压扁的卡片不许留在画面上。36px 宽里放不下一张卡,
-    //   "还渲染着"和"看得过去"在这个宽度上不可兼得 —— 收起时它们必须让位。
-    expect(!(await page.locator(".inbox-card").isVisible()),
-      "收起态:收件箱卡不可见(不再被压成竖排)");
+    // ★ 红线三:收件箱卡不许留在画面上,但**仍挂着**(keep-mounted)
+    expect(!(await page.locator(".inbox-card").isVisible()), "收起态:收件箱卡不可见");
+    expect(await page.locator(".inbox-card").count() === 1, "收起态:收件箱卡仍挂着(只是 CSS 隐藏)");
 
-    // 展开回去:两张卡回来,且**体检卡仍是展开态** = 只是 CSS 隐藏、没有卸载重建
+    // 展开回去:卡回来,且**仍是展开态** = 只是 CSS 隐藏、没有卸载重建
     // (keep-mounted 是全仓红线,卸载 = 用户刚点开的东西被吞掉)。
-    await page.locator('.chat-rail .icon-btn').click();
-    await page.locator(".chatcol:not(.collapsed)").waitFor({ timeout: 5000 });
+    await toggle.click();
+    await page.locator('[data-ui="side-pane"]').waitFor({ state: "visible", timeout: 5000 });
     expect(await page.locator(".inbox-card").isVisible(), "展开回来:收件箱卡回到画面");
     expect(await page.locator('[data-ui="inbox-expanded"]').count() > 0,
       "展开回来:收件箱卡仍是展开态 = 只是 CSS 隐藏、没有卸载重建");
@@ -217,10 +215,13 @@ try {
     expect(await back.first().isVisible(), "返回工作区按钮可见(不是藏在别的层里)");
 
     await back.first().click();
-    await page.waitForFunction(() => location.hash === "#/workspace", { timeout: 5000 });
+    await page.waitForFunction(() => location.hash === "#/workspace", null, { timeout: 5000 });
+    // 地址变了之后路由状态还要一拍才落到界面上:等工作区真的现形(最多 5s)再断言,别和它赛跑
+    await page.locator(".ws-pane:not(.route-hidden)").waitFor({ state: "visible", timeout: 5000 }).catch(() => {});
     expect(await page.locator(".ws-pane:not(.route-hidden)").isVisible(),
       "点了就回到项目工作区(ws-pane 现形)");
-    expect(await page.locator(".chatcol").isVisible(), "回来的是完整工作区三列,不是空壳");
+    expect(await page.locator(".chatcol").isVisible() && await page.locator(".ws-main .center").isVisible(),
+      "回来的是完整工作区(变更记录 + 右侧面板里的项目助手),不是空壳");
   });
 
   // ⚠️ **规格变更(2026-07-31,用户第三次拍板)**:本段原来钉的是相反的行为 ——

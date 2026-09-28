@@ -113,6 +113,21 @@ const ICONS = {
       <line x1="12" x2="12" y1="17" y2="21" />
     </>
   ),
+  // 项目页右侧面板开关(照 ZCode WorkspaceSidePaneToggleButton:开着显示 PanelRightClose,收着显示 PanelRightOpen)
+  "panel-right-open": (
+    <>
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+      <path d="M15 3v18" />
+      <path d="m10 15-3-3 3-3" />
+    </>
+  ),
+  "panel-right-close": (
+    <>
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+      <path d="M15 3v18" />
+      <path d="m8 9 3 3-3 3" />
+    </>
+  ),
 } satisfies Record<string, ReactNode>;
 
 export type SideIconName = keyof typeof ICONS;

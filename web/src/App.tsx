@@ -13,6 +13,11 @@ import GalleryPage from "./GalleryPage";
 import SearchPanel from "./SearchPanel";
 import FolderVisibilityCard from "./workspace/FolderVisibilityCard";
 import WorkspacePicker from "./workspace/WorkspacePicker";
+import SidePane from "./workspace/SidePane";
+import { SideIcon } from "./workspace/icons";
+import {
+  parseSidePane, revealAssistant, SIDE_PANE_KEY, type SidePaneState,
+} from "./workspace/sidePane";
 import SettingsPage from "./settings/SettingsPage";
 import { ChatSession } from "./chat/connection";
 import {
@@ -137,9 +142,25 @@ export default function App() {
     text: "",
     nonce: 0,
   });
+  // 项目页右侧面板(照 ZCode Side Pane):开没开、在哪个标签、多宽 —— 记在本机,下次打开照旧
+  const [sidePane, setSidePaneRaw] = useState<SidePaneState>(() => {
+    try { return parseSidePane(localStorage.getItem(SIDE_PANE_KEY)); } catch { return parseSidePane(null); }
+  });
+  const setSidePane = useCallback((f: (s: SidePaneState) => SidePaneState) => {
+    setSidePaneRaw((cur) => {
+      const next = f(cur);
+      if (next !== cur) {
+        try { localStorage.setItem(SIDE_PANE_KEY, JSON.stringify(next)); } catch { /* 记不住就算了 */ }
+      }
+      return next;
+    });
+  }, []);
+  /** 有事要业主看项目助手(发了话 / 冒出同意卡 / 从历史打开那段对话):面板打开并切过去。 */
+  const showAssistant = useCallback(() => setSidePane(revealAssistant), [setSidePane]);
   const dispatchCol = useCallback((text: string) => {
     setColDispatch((p) => ({ text, nonce: p.nonce + 1 }));
-  }, []);
+    showAssistant();
+  }, [showAssistant]);
   const [sessionsEpoch, setSessionsEpoch] = useState(0); // 连接就绪/每轮回复后刷新历史对话
   // M5(07-13 盲评):每轮回复收尾后,AI 可能刚记了变更/改了状态——变更列、待办角标、
   // 项目列表都要跟着刷,否则聊完仍要 F5(p6 只修了历史对话侧栏这一半)。
@@ -605,53 +626,80 @@ export default function App() {
 
       {/* 2a 主工作区三列(常驻,非 workspace 路由时 CSS 隐藏不卸载) */}
       <div className={`ws-pane${route === "workspace" ? "" : " route-hidden"}`}>
-        {projErr ? (
-          <section className="center">
-            <div className="center-empty">
-              <div className="error-note">{projErr}</div>
-              <div className="muted">确认 ds-web 服务在跑,刷新重试。</div>
-            </div>
-          </section>
-        ) : (
-          <ChangesColumn
-            project={selected}
-            changes={changes}
-            error={changesErr}
-            stages={stages}
-            onEdited={() => setDataEpoch((n) => n + 1)}
-            onCreated={(key) => {
-              setSelectedKey(key);
-              setDataEpoch((n) => n + 1);
-            }}
-            highlight={colHighlight}
-          />
-        )}
-        <CompanionColumn
-          projectKey={selectedKey}
-          dataEpoch={dataEpoch}
-          active={route === "workspace"}
-          onOpenGallery={() => {
-            window.location.hash = "#/gallery";
-          }}
-          onPickWorkspace={() => setWsPickOpen(true)}
-          folders={projects.filter((p) => p.unregistered).map((p) => p.key)}
-          onBound={() => setDataEpoch((n) => n + 1)}
-          onPrefillRegRef={() => dispatchCol("我发一张图,帮我登记参考图")}
-        />
-        <ChatColumn
-          session={session}
-          dispatch={colDispatch}
-          onConnected={onConnected}
-          onTurnEnd={onTurnEnd}
-          resume={colChat?.resume ?? null}
-          onChatId={onColChatId}
-          onAttachFailed={onColAttachFailed}
-          firstSendPrefix={selected ? projectPrefix(selected.name || selected.key) : undefined}
-          projectLabel={selected ? selected.name || selected.key : undefined}
-          dataEpoch={dataEpoch}
-          inboxActive={route === "workspace"}
-          onNewChat={newProjectChat}
-          onManageModels={manageModels}
+        {/* 主区 = 变更记录;右上角是右侧面板的开关(照 ZCode:开关在主区头部) */}
+        <div className="ws-main">
+          {projErr ? (
+            <section className="center">
+              <div className="center-empty">
+                <div className="error-note">{projErr}</div>
+                <div className="muted">确认 ds-web 服务在跑,刷新重试。</div>
+              </div>
+            </section>
+          ) : (
+            <ChangesColumn
+              project={selected}
+              changes={changes}
+              error={changesErr}
+              stages={stages}
+              onEdited={() => setDataEpoch((n) => n + 1)}
+              onCreated={(key) => {
+                setSelectedKey(key);
+                setDataEpoch((n) => n + 1);
+              }}
+              highlight={colHighlight}
+            />
+          )}
+          <button
+            type="button"
+            className="icon-btn spane-toggle"
+            data-ui="side-pane-toggle"
+            aria-controls="ws-side-pane"
+            aria-expanded={sidePane.open}
+            aria-label={sidePane.open ? "收起右侧面板" : "展开右侧面板"}
+            title={sidePane.open ? "收起右侧面板" : "展开右侧面板(图片 · 文件、项目助手)"}
+            onClick={() => setSidePane((s) => ({ ...s, open: !s.open }))}
+          >
+            <SideIcon name={sidePane.open ? "panel-right-close" : "panel-right-open"} />
+          </button>
+        </div>
+        <SidePane
+          open={sidePane.open}
+          tab={sidePane.tab}
+          ratio={sidePane.ratio}
+          onTab={(tab) => setSidePane((s) => (s.tab === tab ? s : { ...s, tab }))}
+          onRatio={(ratio) => setSidePane((s) => (s.ratio === ratio ? s : { ...s, ratio }))}
+          files={
+            <CompanionColumn
+              projectKey={selectedKey}
+              dataEpoch={dataEpoch}
+              active={route === "workspace"}
+              onOpenGallery={() => {
+                window.location.hash = "#/gallery";
+              }}
+              onPickWorkspace={() => setWsPickOpen(true)}
+              folders={projects.filter((p) => p.unregistered).map((p) => p.key)}
+              onBound={() => setDataEpoch((n) => n + 1)}
+              onPrefillRegRef={() => dispatchCol("我发一张图,帮我登记参考图")}
+            />
+          }
+          assistant={
+            <ChatColumn
+              session={session}
+              dispatch={colDispatch}
+              onConnected={onConnected}
+              onTurnEnd={onTurnEnd}
+              resume={colChat?.resume ?? null}
+              onChatId={onColChatId}
+              onAttachFailed={onColAttachFailed}
+              firstSendPrefix={selected ? projectPrefix(selected.name || selected.key) : undefined}
+              projectLabel={selected ? selected.name || selected.key : undefined}
+              dataEpoch={dataEpoch}
+              inboxActive={route === "workspace"}
+              onNewChat={newProjectChat}
+              onManageModels={manageModels}
+              onConsentPending={showAssistant}
+            />
+          }
         />
       </div>
 

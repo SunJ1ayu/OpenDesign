@@ -282,6 +282,18 @@ export async function expandInbox(page) {
   }
 }
 
+/** 项目页右侧面板(照 ZCode Side Pane)切到某个标签:"files" = 图片 · 文件,"assistant" = 项目助手。
+ *  面板收着就先展开;已经在那个标签上就什么也不做。只在项目页(#/workspace)上调。
+ *  两个标签页都常驻挂载、只是 CSS 隐藏 —— 所以断言"在不在"用 count() 不受影响,
+ *  要**点 / 看 / 量**「图片 · 文件」里的东西(收件箱整理、绑文件夹、项目图…)才需要先切过去。 */
+export async function sidePaneTab(page, id) {
+  const toggle = page.locator('[data-ui="side-pane-toggle"]');
+  await toggle.waitFor({ state: "visible", timeout: 15000 });
+  if ((await toggle.getAttribute("aria-expanded")) === "false") await toggle.click();
+  const tab = page.locator(`[data-ui="side-pane-tab-${id}"]`);
+  if ((await tab.getAttribute("aria-selected")) !== "true") await tab.click();
+}
+
 /** 简易断言:失败即抛,场景层统一 try/catch 计数。 */
 export function check(cond, label) {
   if (!cond) throw new Error(`FAIL: ${label}`);

@@ -18,7 +18,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchBrowser, check } from "./helpers.mjs";
+import { launchBrowser, check, sidePaneTab } from "./helpers.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PORT = 8861;
@@ -166,6 +166,7 @@ try {
     const wsFrames = [];
     page.on("websocket", (w) => w.on("framesent", (f) => wsFrames.push(String(f.payload))));
     await page.goto(`${base}/#/workspace`, { waitUntil: "domcontentloaded" });
+    await sidePaneTab(page, "files");   // 「接入工作区」在右侧面板的「图片 · 文件」里(照 ZCode Side Pane 改版)
     const btn = page.locator('[data-ui="connect-workspace"]');
     await btn.waitFor({ timeout: 15000 });
     await btn.click();

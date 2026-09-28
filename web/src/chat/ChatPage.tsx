@@ -139,6 +139,8 @@ type Props = {
    * 三个聊天常驻挂载,不分可见就会同时出三张卡。缺省 false = 不渲染卡(但照样参与"有人在跑就快拉")。
    */
   consentActive?: boolean;
+  /** 本聊天冒出了新的同意卡(从 0 张变成有卡):项目页据此把右侧面板打开、切到「项目助手」。 */
+  onConsentPending?: () => void;
 };
 
 function StockLink() {
@@ -164,6 +166,7 @@ export default function ChatPage({
   slot,
   onManageModels,
   consentActive = false,
+  onConsentPending,
 }: Props) {
   const fallback = useMemo(() => new ChatSession(), []);
   const session = sessionProp ?? fallback;
@@ -757,6 +760,11 @@ export default function ChatPage({
   const consentSlot = slot ?? variant;
   const consentPending = useConsentPending(consentActive, transcript.busy, consentSlot);
   const waitingOwner = transcript.busy && consentPending.length > 0;
+  // 卡从无到有的那一下告诉外层(项目页右侧面板收着 / 停在别的标签时,卡就看不见了)
+  const hasConsent = consentPending.length > 0;
+  useEffect(() => {
+    if (hasConsent) onConsentPending?.();
+  }, [hasConsent, onConsentPending]);
   const sendTextRef = useRef(sendText);
   sendTextRef.current = sendText;
   const draftRef = useRef(draft);

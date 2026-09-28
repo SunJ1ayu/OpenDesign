@@ -5,8 +5,8 @@
 // 三栏(变更 / 伴随 / 助手)的兜底,却加在了**所有页**上。
 //
 // 判据:1024×720(= 云 Windows 窗口)下,首页 / 待办 / 技能 / 图库 页面不比窗口宽,「发送」整个在窗口里;
-// 项目页在 1280 宽(= 默认窗口宽)下不出滚动;项目页在 1024 宽下**照旧**出横向滚动 ——
-// 那是刻意的兜底(三栏放不下时宁可滚动,不挤坏),这一条钉住「没顺手把它也拆了」。
+// 项目页在 1280 宽(= 默认窗口宽)下不出滚动;项目页 1024 宽放得下(右侧面板改版后地板降到 960),
+// 900 宽**照旧**出横向滚动 —— 那是刻意的兜底(放不下时宁可滚动,不挤坏),这一条钉住「没顺手把它也拆了」。
 //
 // 跑法:node tests/e2e/narrow_window.e2e.mjs(自起 ds_web 于 8852,无 gateway)
 import { spawn } from "node:child_process";
@@ -82,12 +82,25 @@ try {
   const box = await send.boundingBox();
   check(!!box && box.x + box.width <= 1024, `1024 宽首页「发送」整个在窗口里(右边缘 ${box && Math.round(box.x + box.width)})`);
 
-  // ── 项目页:1024 宽照旧兜底滚动(三栏不挤坏) ──────────────────────────
+  // ── 项目页:1024 宽放得下、不挤坏(右侧面板改版后,照 ZCode Side Pane 可收可拖)──────
+  //    以前固定三栏要 1260,1024 只能兜底滚动;现在变更记录 + 右侧面板,地板降到 960。
+  //    "宁可滚动也不挤坏"这条兜底还在,只是挪到了 960 以下(下面 900 宽那条钉着)。
   await page.locator(".proj-list .proj-row").first().click();
   await page.waitForFunction(() => location.hash === "#/workspace", null, { timeout: 10000 });
   await page.waitForTimeout(800);
   const w = await overflow(page);
-  check(w.scroll > w.client + 100, `1024 宽项目页照旧横向滚动兜底(内容 ${w.scroll} / 窗口 ${w.client})`);
+  check(w.scroll <= w.client + 1, `1024 宽项目页放得下、不出横向滚动(内容 ${w.scroll} / 窗口 ${w.client})`);
+  const cols = await page.evaluate(() => ({
+    main: document.querySelector(".ws-main")?.getBoundingClientRect().width ?? 0,
+    pane: document.querySelector(".side-pane")?.getBoundingClientRect().width ?? 0,
+  }));
+  check(cols.main >= 399 && cols.pane >= 279,
+    `1024 宽下没挤坏:变更记录 ≥ 400、右侧面板 ≥ 280(实测 ${Math.round(cols.main)} / ${Math.round(cols.pane)})`);
+  await page.setViewportSize({ width: 900, height: 720 });
+  await page.waitForTimeout(300);
+  const w9 = await overflow(page);
+  check(w9.scroll > w9.client + 40, `900 宽项目页照旧横向滚动兜底,不挤坏(内容 ${w9.scroll} / 窗口 ${w9.client})`);
+  await page.setViewportSize({ width: 1024, height: 720 });
 
   // ── 项目页:默认窗口宽 1280 下不出滚动 ───────────────────────────────
   await page.setViewportSize({ width: 1280, height: 800 });

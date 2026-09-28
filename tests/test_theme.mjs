@@ -51,7 +51,7 @@ test("t2 applyTheme:记住偏好并把解析结果写到 <html data-theme>;存�
 });
 
 test("t3 🔴 两套主题变量一一对应:深色有的浅色都有,反之亦然(少一个就是某处在另一套里没颜色)", () => {
-  const onlyDark = Object.keys(DARK).filter((k) => !(k in LIGHT) && !/^--(font|hover-ease)/.test(k));
+  const onlyDark = Object.keys(DARK).filter((k) => !(k in LIGHT) && !/^--(font|hover-ease|text-)/.test(k));
   const onlyLight = Object.keys(LIGHT).filter((k) => !(k in DARK));
   assert.deepEqual(onlyDark, [], `浅色缺:${onlyDark}`);
   assert.deepEqual(onlyLight, [], `深色缺:${onlyLight}`);
@@ -84,9 +84,9 @@ test("t6 开机第一帧就是对的主题:index.html 的内联脚本与 theme.t
   assert.ok(script.includes(`localStorage.getItem("${THEME_KEY}")`), "键对不上");
   assert.match(script, /\|\| "dark"/, "默认不是深色");
   assert.ok(html.indexOf("<script>") < html.indexOf('src="/src/main.tsx"'), "得在应用脚本之前");
-  // 桌面窗口的底色 = 深色页面底,开窗那一下不闪白
+  // 桌面窗口的底色 = 深色窗口底(--paper-side,面板之间露出来的那层),开窗那一下不闪白
   const main = read("desktop/main.js");
-  assert.ok(main.includes(`backgroundColor: "${DARK["--paper"]}"`), "窗口底色与深色 --paper 不一致");
+  assert.ok(main.includes(`backgroundColor: "${DARK["--paper-side"]}"`), "窗口底色与深色 --paper-side 不一致");
 });
 
 test("t7 设置页图标照 ZCode:返回 ArrowLeft / 常规 Settings2 / 模型 Package;外观三档 Moon / Sun / Monitor", () => {
@@ -153,4 +153,47 @@ test("t10 外观单选组的键盘:→↓ 下一项、←↑ 上一项(首尾循
   assert.equal(radioKeyTarget("End", 0, 3), 2);
   assert.equal(radioKeyTarget("Tab", 0, 3), null);
   assert.equal(radioKeyTarget("a", 0, 3), null);
+});
+
+// ── 字号 / 间距 / 布局照 ZCode DESIGN.md(Typography text-ui-* / Spacing 4px / Workspace layout)──
+test("t11 🔴 组件里的字号只用那几档变量(xs 10 / sm 12 / caption 13 / base 14 / lg 16 / xl 18 + 两个大标题),不写死 px", () => {
+  const raw = [...COMPONENTS.matchAll(/font-size:\s*([^;}]+)|font:\s*([^;}]+)/g)]
+    .map((m) => (m[1] ?? m[2]).trim())
+    .filter((v) => /\d(\.\d+)?px/.test(v));
+  assert.deepEqual(raw, []);
+  assert.equal(DARK["--text-base"], "14px", "正文基准照 ZCode 是 14px");
+  for (const k of ["--text-xs", "--text-sm", "--text-caption", "--text-base", "--text-lg", "--text-xl"]) {
+    assert.ok(k in DARK, `${k} 没定义`);
+  }
+});
+
+test("t12 间距照 ZCode 的 4px 节奏:padding / margin / gap 只用 0 1 2 4 6 8 10 12 16 20 24 28 32 40 48 64 …", () => {
+  const ok = new Set(["0", "1px", "2px", "4px", "6px", "8px", "10px", "12px", "16px", "20px", "24px", "28px",
+    "32px", "40px", "48px", "64px", "120px"]);
+  // 唯一例外:桌面窗口栏让位 = .win-bar 的 30px 高(外壳契约,tests/e2e/shell_chrome 钉着),不跟档位走
+  const odd = [];
+  for (const m of COMPONENTS.replace(/body\.has-window-chrome \{ padding-top: 30px; \}/, "").matchAll(/\b(?:padding|margin|gap|row-gap|column-gap)(?:-[a-z]+)*:\s*([^;}]+)/g)) {
+    // calc() 里是版心宽度之类的算式,不是间距
+    for (const t of m[1].replace(/calc\([^)]*\)/g, "").match(/-?\d+(?:\.\d+)?px/g) ?? []) {
+      if (!ok.has(t.replace(/^-/, ""))) odd.push(`${t} ← ${m[0].trim()}`);
+    }
+  }
+  assert.deepEqual(odd, []);
+});
+
+test("t13 布局照 ZCode:侧栏贴窗口底,内容区是带描边 + 12px 圆角的独立面板,彼此隔 4px", () => {
+  const ws = CSS.slice(CSS.indexOf(".workspace {"), CSS.indexOf("}", CSS.indexOf(".workspace {")));
+  assert.match(ws, /gap:\s*4px/);
+  assert.match(ws, /padding:\s*4px 4px 4px 0/);
+  assert.match(ws, /background:\s*var\(--paper-side\)/);
+  for (const sel of [".home-pane", ".workspace > .page", ".todos-pane > .page", ".settings-page",
+    ".ws-pane > .ws-main", ".ws-pane > .side-pane"]) {
+    assert.ok(CSS.includes(sel), `${sel} 不是面板`);
+  }
+  const frame = CSS.slice(CSS.indexOf(".ws-pane > .side-pane {"), CSS.indexOf("}", CSS.indexOf(".ws-pane > .side-pane {")));
+  assert.match(frame, /border-radius:\s*12px/);
+  assert.match(frame, /border:\s*1px solid var\(--border-main\)/);
+  // 侧栏不再用一条竖线和内容区隔开(面板自己有边)
+  const side = CSS.slice(CSS.indexOf("\n.side {"), CSS.indexOf("}", CSS.indexOf("\n.side {")));
+  assert.doesNotMatch(side, /border-right/);
 });
