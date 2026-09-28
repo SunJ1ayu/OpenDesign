@@ -316,7 +316,8 @@ try {
   await step("H 【护栏】待办页仍撑满整宽,右栏仍留对称呼吸位", async () => {
     await gotoTodo();
     const g = await geo();
-    expect(g.vw - g.pane.right <= 2,
+    // ≤ 6:ZCode 面板布局让内容面板离窗口边 4px(有意的缝),防的是"缩成内容宽"那种几百 px 的回归
+    expect(g.vw - g.pane.right <= 6,
       `待办页撑满整宽(pane 距右缘 ${g.vw - g.pane.right}px)`);
     const gutter = g.vw - g.rail.right;
     expect(gutter >= 10 && gutter <= 60, `右栏距屏幕右缘 10~60px(实测 ${gutter}px)`);

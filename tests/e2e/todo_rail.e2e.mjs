@@ -128,7 +128,8 @@ try {
     return { vw: window.innerWidth, paneR: right(".todos-pane"), railR: right(".todo-rail"),
              calT: top(".rail-cal"), cardT: top(".todo-card") };
   });
-  check(geo.vw - geo.paneR <= 2,
+  // ≤ 6:ZCode 面板布局让内容面板离窗口边 4px(有意的缝),防的是"缩成内容宽"那种几百 px 的回归
+  check(geo.vw - geo.paneR <= 6,
     `待办页撑满整宽(pane 距右缘 ${geo.vw - geo.paneR}px,防浮在内容后回归)`);
   const railGutter = geo.vw - geo.railR;
   check(railGutter >= 10 && railGutter <= 60,
