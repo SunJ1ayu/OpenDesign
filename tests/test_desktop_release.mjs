@@ -109,3 +109,23 @@ test("r8 🔴 发布命令由工具生成:正式 release、tag v<版本>、恰�
   assert.throws(() => ghReleaseCommand({ version: "0.98.12", ...files, latestYmlText: rewriteLatestYml(LATEST, "0.98.11") }),
     "版本对不上还给命令 ⇒ 发出去的 tag 和包不是一版");
 });
+
+test("r9 🔴 发版 workflow 给 --target:tag 打在构建用的那个提交上,不是发布那一刻的 main 最新", () => {
+  const files = {
+    installer: "dist/OpenDesign-0.98.11-electron-setup.exe",
+    blockmap: "dist/OpenDesign-0.98.11-electron-setup.exe.blockmap",
+    latestYml: "feed/latest.yml",
+  };
+  const latestYmlText = rewriteLatestYml(LATEST, "0.98.11");
+  const sha = "3af3083" + "0".repeat(33);
+  const argv = ghReleaseCommand({ version: "0.98.11", ...files, latestYmlText, target: sha });
+  const t = argv.indexOf("--target");
+  assert.ok(t >= 0 && argv[t + 1] === sha, "给了提交号却没带上 ⇒ tag 落在发布那一刻的 main 最新");
+  assert.equal(argv.filter((a) => a === "--target").length, 1);
+  assert.deepEqual(argv.filter((a) => a !== "--target" && a !== sha), ghReleaseCommand({ version: "0.98.11", ...files, latestYmlText }),
+    "加 --target 不许顺带改别的实参");
+  for (const bad of ["3af3083", "main", "HEAD", "3AF3083" + "0".repeat(33), `${sha} --prerelease`]) {
+    assert.throws(() => ghReleaseCommand({ version: "0.98.11", ...files, latestYmlText, target: bad }),
+      `target=${JSON.stringify(bad)} 不是完整提交号也放行了`);
+  }
+});
