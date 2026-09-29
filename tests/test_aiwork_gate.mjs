@@ -3,7 +3,7 @@
 // 编号 1–14 = 应拦下;A–C = 应放行(对照组,证明拦的不是一切)。
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 const { decide, parseReviewBlock, matchAny } = await import("../.github/aiwork-gate/decide.mjs");
 const { collect, collectCi, collectPushes, paginate } = await import("../.github/aiwork-gate/collect.mjs");
@@ -266,4 +266,52 @@ test("R3 业主批准早于 BLOCK:豁免不了那条 BLOCK;BLOCK 之后再批准
 
 test("R3b 业主在当前 head 上 Request changes:哪怕是普通 PR 也不放行", () => {
   blocked(run({ reviews: [review({}), approve(HEAD, "2026-09-29T11:00:00Z", "CHANGES_REQUESTED")] }), "G7");
+});
+
+// ── GPT 评审(PR #10 @ e604a31,aiwork-review[bot])的 3 个阻断点 ──────────────────
+// 前两条的根因是"清单靠手抄":这里改成从仓库本身推出应该在清单里的文件,以后新加的也跑不掉。
+const ROOT = new URL("../", import.meta.url);
+const read = (p) => readFileSync(new URL(p, ROOT), "utf8");
+
+test("R6 总跑实际调用的测试框架文件都算判卷面(含 tests/tmpdir-leak-gate.sh)", () => {
+  const harness = new Set([
+    ...read("tests/run-all.sh").match(/tests\/[A-Za-z0-9_./-]+\.(?:sh|py|allow|mjs)/g),
+    ...read("tests/e2e/run-all.sh").match(/tests\/[A-Za-z0-9_./-]+\.(?:sh|py|allow|mjs)/g),
+    ...readdirSync(new URL("tests/e2e/", ROOT))
+      .filter((f) => !/\.e2e\.(?:mjs|py)$/.test(f) && f !== "README.md")
+      .map((f) => `tests/e2e/${f}`),
+    "tests/dead_assertions.allow",
+  ]);
+  const missing = [...harness].filter((f) => !matchAny(policy.judging_surface, f));
+  assert.deepEqual(missing, [], `这些测试框架文件改了不用业主批准:${missing.join("、")}`);
+  assert.ok(harness.has("tests/tmpdir-leak-gate.sh"), "量具:总跑确实调用 tmpdir-leak-gate.sh");
+});
+
+test("R7 bin/ 里凡是碰密钥(用 ds_credential 或处理 apiKey)的文件都在 high 里", () => {
+  const keyFiles = readdirSync(new URL("bin/", ROOT))
+    .filter((f) => /\.(?:py|ps1)$/.test(f))
+    .filter((f) => /\bds_credential\b|apiKey|api_key/.test(read(`bin/${f}`)))
+    .map((f) => `bin/${f}`);
+  assert.ok(keyFiles.includes("bin/ds_web.py") && keyFiles.includes("bin/ds_credential.py"), "量具:扫得到");
+  const missing = keyFiles.filter((f) => !matchAny(policy.high, f));
+  assert.deepEqual(missing, [], `这些碰密钥的文件改了只要一家 PASS:${missing.join("、")}`);
+  for (const f of ["bin/ds_merge_config.py", "bin/ds_shell_core.py"]) assert.ok(matchAny(policy.high, f), `${f} 管首次配置 / 启动注入 key`);
+  const r = run({ files: ["bin/ds_web.py"], reviews: [review({})] });
+  blocked(r, "G6");
+});
+
+test("真实样本:review-pr 第一次真发的评审(PR #10 review 5353128020)关卡读得懂,算作 BLOCK", () => {
+  const sha = "e604a31d6f303ff6f9d305d4b73778acada787b8";
+  const body = "**aiwork-review · subcodex · gpt-6-sol**\n\n## Findings\n\n- **P1 · …**\n\nConclusion: BLOCK\n\n```json\n" +
+    '{"verdict":"BLOCK","head_sha":"e604a31d6f303ff6f9d305d4b73778acada787b8","model":"gpt-6-sol","family":"openai","completeness":"complete","files_read":[".aiwork/policy.json",".github/aiwork-gate/decide.mjs"]}' +
+    "\n```\n";
+  const p = parseReviewBlock(body);
+  assert.equal(p.ok, true, p.why);
+  assert.equal(p.value.family, "openai");
+  const r = decide(facts({
+    pr: { number: 10, state: "open", head_sha: sha, head_ref: "claude/exciting-johnson-w8a35g", base_ref: "main" },
+    reviews: [{ id: 5353128020, login: "aiwork-review[bot]", type: "Bot", state: "COMMENTED", commit_id: sha, submitted_at: "2026-09-29T13:16:31Z", body }],
+  }), policy);
+  assert.equal(r.blocks.length, 1);
+  blocked(r, "G5");
 });

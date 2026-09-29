@@ -77,5 +77,13 @@ class PingWorkflow(unittest.TestCase):
         self.assertEqual(doc["name"], "aiwork-review-ping", "关卡按这个名字监听它跑完")
 
 
+class GateReRunsOnEdit(unittest.TestCase):
+    """GPT 评审(@ e604a31)R8:只改 PR 的目标分支时 head 不变、改动文件却变了 ⇒ 要订阅 edited 重算。"""
+
+    def test_edited_triggers_recompute(self) -> None:
+        types = set(_load(GATE)["on"]["pull_request_target"]["types"])
+        self.assertTrue({"opened", "synchronize", "reopened", "labeled", "edited"} <= types, types)
+
+
 if __name__ == "__main__":
     unittest.main()

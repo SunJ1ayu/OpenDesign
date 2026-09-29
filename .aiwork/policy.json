@@ -2,8 +2,8 @@
   "_说明": [
     "aiwork 放行关卡(aiwork-gate)读的策略。计划见 SunJ1ayu/aiwork 的 WORKFLOW-MIGRATION-PLAN.md 第 2 节 G1–G8。",
     "关卡永远按 main 上的这份判;PR 里改这份文件本身算判卷面(G2),要业主批准。",
-    "judging_surface:改了就要业主在当前提交上批准(G2)——CI、测试入口、关卡自己。",
-    "high:会影响所有用户的安装 / 自动更新 / 密钥 / 首次配置;要两家不同的非作者模型都 PASS,再加业主批准(G6)。"
+    "judging_surface:改了就要业主在当前提交上批准(G2)——CI、测试总跑实际调用的框架文件、关卡自己。tests/test_aiwork_gate.mjs R6 从 run-all.sh 推出应在这里的文件。",
+    "high:会影响所有用户的安装 / 自动更新 / 密钥 / 首次配置;要两家不同的非 Builder 模型都 PASS,再加业主批准(G6)。R7 要求 bin/ 里凡碰密钥的文件都在这里。"
   ],
   "check_name": "aiwork-gate-shadow",
   "gate_app_id": 5121026,
@@ -24,7 +24,13 @@
     "tests/dead_assertions.py",
     "tests/dead_assertions.allow",
     "tests/test-tmpdir-leak-gate.sh",
-    "tests/mcp-gate.sh"
+    "tests/tmpdir-leak-gate.sh",
+    "tests/mcp-gate.sh",
+    "tests/e2e/check-dist-fresh.sh",
+    "tests/e2e/check-ports.sh",
+    "tests/e2e/helpers.mjs",
+    "tests/e2e/_no_egress.py",
+    "tests/e2e/_ws-stub.mjs"
   ],
   "high": [
     "desktop/**",
@@ -36,6 +42,12 @@
     "bin/ds_credential.py",
     "bin/ds_consent.py",
     "bin/ds_provision.py",
-    "bin/ds_host.py"
+    "bin/ds_host.py",
+    "bin/ds_web.py",
+    "bin/ds_gateway.py",
+    "bin/ds_shell.py",
+    "bin/ds_shell_core.py",
+    "bin/ds_merge_config.py",
+    "bin/set_model.py"
   ]
 }

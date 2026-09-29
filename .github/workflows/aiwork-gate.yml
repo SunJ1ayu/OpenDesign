@@ -7,6 +7,7 @@
 #   · pull_request_target / workflow_run 跑的永远是 main 上的这份 workflow 和 .github/aiwork-gate/ 代码,
 #     PR 改关卡、改策略都改不到正在判它的这一份;这里也**不检出 PR 的代码**,只读 GitHub API。
 #   · workflow_run:CI 跑完、有新评审(aiwork-review-ping)时重算;给 PR 加 `aiwork:recheck` 标签也能手动重算。
+#   · edited:只改 PR 的目标分支时 head 不变、改动文件却变了,也要重算(改标题正文时顺带重算一次,无害)。
 #   · 发检查结果用 aiwork-gate App 的私钥,放在只许 main 用的 environment `aiwork-gate` 里:
 #     同仓库分支的 PR 能拿到仓库级 secrets,拿不到只许 main 的 environment secrets。
 #
@@ -17,7 +18,7 @@ name: aiwork-gate
 
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened, labeled]
+    types: [opened, synchronize, reopened, labeled, edited]
   workflow_run:
     workflows: [ci, aiwork-review-ping]
     types: [completed]

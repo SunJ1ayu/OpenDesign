@@ -32,12 +32,13 @@
 | S5 | 业主在网页上改测试 PR 的一个文件(非机器账号推送) | failure,作者 UNKNOWN(G4);业主在新 head 批准 + 有 PASS → success | 混合作者要业主批准 |
 | S6 | 测试 PR 改 `.github/` 下一个文件 / 改 `desktop/` 下一个文件 | 分别要业主批准(G2)/ 两家 PASS + 业主批准(G6) | 判卷面与 high 路径 |
 | S7 | 给 PR 加标签 `aiwork:recheck` | 重算一次 | 手动重算可用 |
+| S8 | 编辑测试 PR 的标题或目标分支 | 重算一次 | edited 事件会触发重判 |
 
 失败注入(API 出错、限流、令牌坏、PR 中途推进)在线上没法安全制造,由 `test_aiwork_gate_run.mjs` 与 `test_aiwork_gate_main.mjs` 覆盖。
 
 ## 从 shadow 转为真拦截
 
-S0–S7 全部符合预期,且之后至少 5 个真实 PR 上 shadow 的结论都和业主的判断一致、没见过过时的 success,再:
+S0–S8 全部符合预期,且之后至少 5 个真实 PR 上 shadow 的结论都和业主的判断一致、没见过过时的 success,再:
 
 1. 发一个只改 `policy.json` 的 PR:`check_name` 改为 `aiwork-gate`(判卷面,要业主批准);
 2. 业主在 main 的分支规则里把必过检查从 `ci` 换成 `aiwork-gate`,并限定来源为 `aiwork-gate` App;
