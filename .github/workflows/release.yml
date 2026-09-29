@@ -4,13 +4,17 @@
 # 删掉会怎样:撤掉本机的业主凭证后就发不了版,会逼着把凭证放回去,身份分离(I1)随之失效。
 #
 # 流程(installer/RELEASE.md 是给人看的版本):
-#   check   只在 main 上跑;两处版本号一致;tag v<版本> 还不存在(同一版本不发两次)
+#   check   只在 main 上跑;environment `release` 的保护是齐的;两处版本号一致;tag v<版本> 还不存在(同一版本不发两次)
 #   e2e     整跑 electron-e2e(Linux 组包 + 云 Windows E1～E7),任何一条 FAIL 都到不了下一步
 #   publish 停在 environment `release` 等业主在 GitHub 上批准;批准后核字节、改写 latest.yml、再核,
 #           用 release-feed.mjs 生成的那组实参建正式 release,tag 打在本次构建的提交上
 #
 # environment `release` 在仓库设置里建:审批人 SunJ1ayu;部署分支只许 main。
 # 谁都可以点「Run workflow」(业主或有写权限的 agent),真正发出去只认业主那一下批准。
+#
+# 名字写错或被删掉时,GitHub 会在 publish 那一刻**自动建一个没有任何保护的同名 environment**,
+# 不等批准直接发出去(第一次建成了 `aiwork`,实际发生过)。所以 check 先核它存在、审批人是业主、
+# 部署分支只有 main;缺一样就在构建之前红,什么都不发。
 
 name: release
 
@@ -28,6 +32,9 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
     outputs:
       ver: ${{ steps.v.outputs.ver }}
     steps:
@@ -36,6 +43,29 @@ jobs:
         run: |
           echo "::error::发版只能在 main 上跑,这次是 $GITHUB_REF"
           exit 1
+
+      - name: environment release 的保护是齐的
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPROVER: SunJ1ayu
+        run: |
+          api="repos/$GITHUB_REPOSITORY/environments/release"
+          if ! envj=$(gh api "$api"); then
+            echo "::error::读不到 environment \`release\`(没建?)—— 没有它,发版会不等批准直接发出去。到仓库 Settings → Environments 建它(见 installer/RELEASE.md)"
+            exit 1
+          fi
+          pol=$(gh api "$api/deployment-branch-policies" || echo '{}')
+          ok=$(jq -n --argjson e "$envj" --argjson p "$pol" --arg who "$APPROVER" '
+            ([$e.protection_rules[]? | select(.type == "required_reviewers") | .reviewers[]?
+              | select(.type == "User") | .reviewer.login] | any(. == $who))
+            and ($e.deployment_branch_policy.custom_branch_policies == true)
+            and ([$p.branch_policies[]? | "\(.type // "branch"):\(.name)"] == ["branch:main"])')
+          if [ "$ok" != "true" ]; then
+            echo "::error::environment \`release\` 的保护不齐:要审批人 $APPROVER、部署分支只许 main"
+            echo "$envj" | jq '{protection_rules, deployment_branch_policy}'
+            echo "$pol" | jq '.branch_policies'
+            exit 1
+          fi
 
       - uses: actions/checkout@v4
 
