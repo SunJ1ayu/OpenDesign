@@ -5,9 +5,11 @@
 //   G2 判卷面:改了 CI / 测试入口 / 关卡自己 → 要业主批准
 //   G3 评审:当前 head 上至少一条合格 PASS(aiwork-review 发的、完整、读过文件、家族不是任何 Builder 的家族)—— 豁免不了
 //   G4 作者:这个分支上的每次推送都来自已知 Builder 账号,否则 UNKNOWN → 要业主批准
-//   G5 当前 head 上任何一条 BLOCK → 要业主在最后一条 BLOCK 之后批准(已撤销的 BLOCK 也算:撤销评审只要写权限,Builder 就有)
+//   G5 当前 head 上任何一条 BLOCK → 要业主在最后一条 BLOCK 之后批准。BLOCK = aiwork-review 的 BLOCK 结论,
+//      或任何其他评审人在当前 head 上最后一次表态是 Request changes / 被撤销(撤销只要写权限,Builder 就有,
+//      撤销抹不掉反对;被撤销的评审看不出原来是什么,一律按反对算)
 //   G6 high 路径:两个不同的非作者家族 PASS(豁免不了)+ 业主批准
-//   G7 业主批准 = 业主在当前 head 上最后一次表态是 Approve;最后一次是 Request changes 则一律不放行
+//   G7 业主批准 = 业主在当前 head 上最后一次表态是 Approve;最后一次是 Request changes 或被撤销则一律不放行
 //   G8 数据不全 → 由 collect.mjs 抛错,main.mjs 直接判 failure
 
 const SHA_RE = /^[0-9a-f]{40}$/;
@@ -73,14 +75,16 @@ export function authorOf(pushes, policy) {
 
 const byTime = (a, b) => (a.submitted_at < b.submitted_at ? -1 : a.submitted_at > b.submitted_at ? 1 : a.id - b.id);
 
-// 业主在当前 head 上最后一次表态(COMMENTED 不算表态)。
-function ownerStance(reviews, policy, head) {
-  const mine = reviews
-    .filter((r) => r.login === policy.owner && r.type === "User" && r.commit_id === head)
-    .filter((r) => ["APPROVED", "CHANGES_REQUESTED", "DISMISSED"].includes(r.state))
-    .sort(byTime);
-  const last = mine[mine.length - 1];
-  return last ? { state: last.state, at: last.submitted_at } : { state: null, at: "" };
+// 除 aiwork-review 以外,每个评审人在当前 head 上最后一次表态(COMMENTED 不算表态)。
+function stancesOnHead(reviews, policy, head) {
+  const last = new Map();
+  for (const r of reviews) {
+    if (r.commit_id !== head || r.login === policy.reviewer_bot) continue;
+    if (!["APPROVED", "CHANGES_REQUESTED", "DISMISSED"].includes(r.state)) continue;
+    const prev = last.get(r.login);
+    if (!prev || byTime(prev, r) < 0) last.set(r.login, r);
+  }
+  return last;
 }
 
 export function decide(facts, policy) {
@@ -149,6 +153,14 @@ export function decide(facts, policy) {
   }
   const stale = botReviews.length - onHead.length;
 
+  // 人的表态:业主单独看(G7);其他人最后一次表态不是 Approve 的,都算 BLOCK(G5)
+  const stances = stancesOnHead(facts.reviews, policy, head);
+  const ownerLast = [...stances.values()].find((r) => r.login === policy.owner && r.type === "User") ?? null;
+  for (const [login, r] of stances) {
+    if (login === policy.owner || r.state === "APPROVED") continue;
+    blocks.push({ id: r.id, at: r.submitted_at, family: "评审人", model: `${login}${r.state === "DISMISSED" ? "(被撤销的评审)" : " 要求修改"}` });
+  }
+
   // G3
   const reviewOk = passes.length > 0;
   add(
@@ -175,9 +187,9 @@ export function decide(facts, policy) {
   }
 
   // G7
-  const stance = ownerStance(facts.reviews, policy, head);
-  const approved = stance.state === "APPROVED";
-  const ownerObjects = stance.state === "CHANGES_REQUESTED";
+  const approved = ownerLast?.state === "APPROVED";
+  const ownerObjects = ownerLast !== null && !approved;
+  const stance = { at: ownerLast?.submitted_at ?? "" };
   const lastBlockAt = blocks.map((b) => b.at).sort().at(-1) ?? "";
   // 批准要晚于最后一条 BLOCK:业主批准时还没看到的 BLOCK,不能被那次批准豁免
   const blockWaived = approved && stance.at > lastBlockAt;
@@ -187,7 +199,7 @@ export function decide(facts, policy) {
   if (blocked) needOwner.push("有 BLOCK");
   if (high.length) needOwner.push("high 路径");
   const ownerOk = !ownerObjects && (!needOwner.length || (approved && (!blocked || blockWaived)));
-  if (ownerObjects) add(false, "G7", "业主在当前 head 上要求修改(Request changes)");
+  if (ownerObjects) add(false, "G7", ownerLast.state === "DISMISSED" ? "业主在当前 head 上的评审被撤销了,需要业主重新表态" : "业主在当前 head 上要求修改(Request changes)");
   else if (needOwner.length) {
     const why = !approved ? "还没有" : blocked && !blockWaived ? "批准早于最后一条 BLOCK,要在看过 BLOCK 之后再批准" : "已批准";
     add(ownerOk, "G7", `需要业主在当前 head 上批准(${needOwner.join("、")}):${why}`);

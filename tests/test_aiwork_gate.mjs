@@ -315,3 +315,34 @@ test("真实样本:review-pr 第一次真发的评审(PR #10 review 5353128020)�
   assert.equal(r.blocks.length, 1);
   blocked(r, "G5");
 });
+
+// ── aiwork-review[bot] 人工复核(评论 5891150875,@ e604a31)的 2 个阻断点 + 同类的撤销绕过 ─────────
+const human = (login, state, at, id) => ({ id, login, type: "User", state, commit_id: HEAD, submitted_at: at, body: "" });
+
+test("R9 其他协作者在当前 head 上 Request changes → 算 BLOCK(G5);业主在其后批准才放行", () => {
+  blocked(run({ reviews: [review({}), human("someone", "CHANGES_REQUESTED", "2026-09-29T12:00:00Z", 50)] }), "G5");
+  const waived = run({ reviews: [review({}), human("someone", "CHANGES_REQUESTED", "2026-09-29T12:00:00Z", 50), approve(HEAD, "2026-09-29T13:00:00Z")] });
+  assert.equal(waived.conclusion, "success", waived.summary);
+  const early = run({ reviews: [review({}), approve(HEAD, "2026-09-29T11:00:00Z"), human("someone", "CHANGES_REQUESTED", "2026-09-29T12:00:00Z", 50)] });
+  blocked(early, "G7");
+  const retracted = run({ reviews: [review({}), human("someone", "CHANGES_REQUESTED", "2026-09-29T12:00:00Z", 50), human("someone", "APPROVED", "2026-09-29T12:30:00Z", 51)] });
+  assert.equal(retracted.conclusion, "success", "同一个人后来改成 Approve,就不再算反对");
+  const onOld = { ...human("someone", "CHANGES_REQUESTED", "2026-09-29T12:00:00Z", 50), commit_id: OLD };
+  assert.equal(run({ reviews: [review({}), onOld] }).conclusion, "success", "旧提交上的 Request changes 不管当前 head");
+});
+
+test("R9b 撤销评审抹不掉反对:被撤销的 Request changes 仍算 BLOCK,业主的也仍算业主反对", () => {
+  blocked(run({ reviews: [review({}), human("someone", "DISMISSED", "2026-09-29T12:00:00Z", 50)] }), "G5");
+  blocked(run({ reviews: [review({}), approve(HEAD, "2026-09-29T11:00:00Z", "CHANGES_REQUESTED"), approve(HEAD, "2026-09-29T11:00:00Z", "DISMISSED")].map((r, i) => ({ ...r, id: 90 + i })) }), "G7");
+});
+
+test("R10 分页响应自带 total_count 时,取到的条数必须对上,否则按 G8 抛错", async () => {
+  const run1 = { id: 5, path: ".github/workflows/ci.yml", head_sha: HEAD, status: "completed", conclusion: "success", pull_requests: [{ number: 10 }] };
+  const short = { getPage: async () => ({ data: { total_count: 2, workflow_runs: [run1] }, next: null }) };
+  await assert.rejects(collectCi(short, "o/r", HEAD, policy, 10), /条数/);
+  const exact = { getPage: async () => ({ data: { total_count: 1, workflow_runs: [run1] }, next: null }) };
+  assert.equal((await collectCi(exact, "o/r", HEAD, policy, 10)).state, "success");
+  let page = 0;
+  const twoPages = { getPage: async () => ({ data: { total_count: 2, workflow_runs: [{ ...run1, id: 5 + page }] }, next: page++ === 0 ? "p2" : null }) };
+  assert.equal((await collectCi(twoPages, "o/r", HEAD, policy, 10)).state, "success", "分两页取齐也对得上");
+});

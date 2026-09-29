@@ -4,15 +4,23 @@
 const MAX_PAGES = 30;
 
 // api:{ get(path) → JSON, getPage(pathOrUrl) → { data, next } };真实实现在 main.mjs,测试里用替身。
+// 响应自带 total_count 的(如 workflow_runs),取到的条数必须等于它:少一条可能正好是最新那次失败的运行。
 export async function paginate(api, path, key) {
   const out = [];
   let url = path;
+  let expected = null;
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, next } = await api.getPage(url);
     const items = key ? data?.[key] : data;
     if (!Array.isArray(items)) throw new Error(`${path}:第 ${page + 1} 页不是列表`);
+    if (key && page === 0 && Number.isInteger(data.total_count)) expected = data.total_count;
     out.push(...items);
-    if (!next) return out;
+    if (!next) {
+      if (expected !== null && out.length !== expected) {
+        throw new Error(`${path}:条数对不上,取到 ${out.length} 条,接口说有 ${expected} 条`);
+      }
+      return out;
+    }
     url = next;
   }
   throw new Error(`${path}:超过 ${MAX_PAGES} 页还没取完`);
