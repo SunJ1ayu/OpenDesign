@@ -6,7 +6,7 @@
     "high:会影响所有用户的安装 / 自动更新 / 密钥 / 首次配置;要两家不同的非作者模型都 PASS,再加业主批准(G6)。"
   ],
   "check_name": "aiwork-gate-shadow",
-  "gate_app_id": null,
+  "gate_app_id": 5121026,
   "owner": "SunJ1ayu",
   "builders": {
     "SunJ1ayuBoT": "anthropic"

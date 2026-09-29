@@ -225,4 +225,5 @@ test("策略:check 名先用 shadow;判卷面罩住 .github 与 .aiwork;Builder 
   for (const p of [".github/**", ".aiwork/**"]) assert.ok(policy.judging_surface.includes(p));
   assert.deepEqual(policy.builders, { SunJ1ayuBoT: "anthropic" });
   assert.equal(policy.reviewer_bot, "aiwork-review[bot]");
+  assert.ok(Number.isInteger(policy.gate_app_id) && policy.gate_app_id > 0, "gate_app_id 要填 aiwork-gate App 的 App ID");
 });
