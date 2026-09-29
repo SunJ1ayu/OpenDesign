@@ -31,7 +31,7 @@ const fuseState = (r) => (r.status !== "completed" ? "pending" : r.conclusion ==
 
 const PR_EVENTS = new Set(["pull_request", "pull_request_review", "pull_request_target"]);
 
-// 从事件本身拿"判哪个 PR、哪个提交",不发请求。lookupSha:事件没带 PR 号,要按提交号去查。
+// 从事件本身拿"判哪个 PR、哪个提交",不发请求。lookupSha:事件没带 PR 号,要按提交号(再按分支)去查。
 export function targetsFromEvent(eventName, event) {
   if (eventName === "pull_request_target") {
     return { targets: [{ number: event.pull_request.number, sha: event.pull_request.head.sha }], lookupSha: null, skip: null };
@@ -40,7 +40,10 @@ export function targetsFromEvent(eventName, event) {
     const run = event.workflow_run;
     if (!PR_EVENTS.has(run.event)) return { targets: [], lookupSha: null, skip: `触发它的是 ${run.event},与 PR 无关` };
     const listed = (run.pull_requests ?? []).map((p) => ({ number: p.number, sha: run.head_sha }));
-    return listed.length ? { targets: listed, lookupSha: null, skip: null } : { targets: [], lookupSha: run.head_sha, skip: null };
+    if (listed.length) return { targets: listed, lookupSha: null, skip: null };
+    const owner = run.head_repository?.owner?.login;
+    const lookupHead = owner && run.head_branch ? `${owner}:${run.head_branch}` : null;
+    return { targets: [], lookupSha: run.head_sha, lookupHead, skip: null };
   }
   return { targets: [], lookupSha: null, skip: `不支持的事件 ${eventName}` };
 }
@@ -100,18 +103,25 @@ export async function gate({ repo, eventName, event, policy, api, poster, fuse, 
   for (const t of plan.targets) targets.push({ ...t, id: await start(t.sha) });
 
   if (plan.lookupSha) {
+    // 这个提交可能已不是 PR 的 head(评审后又推了、或是合并提交):不要求它等于 head,
+    // 查到的每个开着的 PR 都在它**当前** head 上重算(下面的循环会把旧提交判 failure)
     const id = await start(plan.lookupSha);
     let prs;
     try {
       prs = await api.get(`/repos/${repo}/commits/${plan.lookupSha}/pulls`);
       if (!Array.isArray(prs)) throw new Error("返回的不是列表");
+      if (plan.lookupHead) {
+        const byBranch = await api.get(`/repos/${repo}/pulls?state=open&head=${encodeURIComponent(plan.lookupHead)}&per_page=100`);
+        if (!Array.isArray(byBranch)) throw new Error("按分支查 PR 返回的不是列表");
+        prs = [...prs, ...byBranch];
+      }
     } catch (e) {
-      await finish(plan.lookupSha, g8(`按提交号查 PR 失败:${e.message}`), id);
+      await finish(plan.lookupSha, g8(`按提交号 / 分支查 PR 失败:${e.message}`), id);
       return [];
     }
-    const open = prs.filter((p) => p.state === "open" && p.head?.sha === plan.lookupSha);
+    const open = [...new Map(prs.filter((p) => p.state === "open").map((p) => [p.number, p])).values()];
     if (!open.length) {
-      await finish(plan.lookupSha, { status: "completed", conclusion: "failure", title: "这个提交不是任何开着的 PR 的 head", summary: "" }, id);
+      await finish(plan.lookupSha, { status: "completed", conclusion: "failure", title: "这个提交 / 分支没有开着的 PR", summary: "" }, id);
       return [];
     }
     targets = open.map((p, i) => ({ number: p.number, sha: plan.lookupSha, id: i === 0 ? id : null }));

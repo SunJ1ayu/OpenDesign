@@ -47,9 +47,18 @@ export async function collectCi(api, repo, headSha, policy, prNumber) {
       : { state: "missing", detail: "没有 ci.yml 的运行" };
   }
   const run = mine[0];
-  if (run.status !== "completed") return { state: "pending", detail: `运行 ${run.id} 状态 ${run.status}` };
-  if (run.conclusion === "success") return { state: "success", detail: `运行 ${run.id}` };
-  return { state: "failure", detail: `结论 ${run.conclusion}(运行 ${run.html_url ?? run.id})` };
+  // created_at 是触发这次运行的事件的时间;重跑(re-run)沿用当时的合并提交,所以不看 run_started_at
+  const at = { created_at: run.created_at ?? null };
+  if (run.status !== "completed") return { state: "pending", detail: `运行 ${run.id} 状态 ${run.status}`, ...at };
+  if (run.conclusion === "success") return { state: "success", detail: `运行 ${run.id}`, ...at };
+  return { state: "failure", detail: `结论 ${run.conclusion}(运行 ${run.html_url ?? run.id})`, ...at };
+}
+
+// 最后一次改目标分支的时间:改了目标,PR 的 CI 不会自己重跑(ci.yml 不订阅 edited),旧的 CI 测的是旧目标。
+export async function collectBaseChange(api, repo, prNumber) {
+  const events = await paginate(api, `/repos/${repo}/issues/${prNumber}/events?per_page=100`);
+  const times = events.filter((e) => e.event === "base_ref_changed").map((e) => e.created_at).sort();
+  return times.at(-1) ?? null;
 }
 
 const PUSH_TYPES = new Set(["push", "force_push", "branch_creation"]);
@@ -97,6 +106,7 @@ export async function collect(api, repo, prNumber, policy) {
   }));
 
   const ci = await collectCi(api, repo, headSha, policy, pr.number);
+  const base_changed_at = await collectBaseChange(api, repo, pr.number);
 
   const sameRepo = pr.head.repo?.full_name === repo;
   const pushes = sameRepo
@@ -108,6 +118,7 @@ export async function collect(api, repo, prNumber, policy) {
     files,
     reviews,
     ci,
+    base_changed_at,
     pushes,
   };
 }

@@ -1,7 +1,7 @@
 // aiwork 放行关卡的判定部分:只吃收集好的事实(collect.mjs)和策略(.aiwork/policy.json),不碰网络。
 // 规则编号对应 SunJ1ayu/aiwork 的 WORKFLOW-MIGRATION-PLAN.md 第 2 节;对抗用例见 tests/test_aiwork_gate.mjs。
 //
-//   G1 CI:当前 head 上、来自 ci.yml 的那次运行成功 —— 业主批准也豁免不了
+//   G1 CI:当前 head 上、来自 ci.yml 的那次运行成功,且是在最后一次改目标分支之后触发的 —— 业主批准也豁免不了
 //   G2 判卷面:改了 CI / 测试入口 / 关卡自己 → 要业主批准
 //   G3 评审:当前 head 上至少一条合格 PASS(aiwork-review 发的、完整、读过文件、家族不是任何 Builder 的家族)—— 豁免不了
 //   G4 作者:这个分支上的每次推送都来自已知 Builder 账号,否则 UNKNOWN → 要业主批准
@@ -108,9 +108,14 @@ export function decide(facts, policy) {
 
   // G1
   const ci = facts.ci;
-  const ciOk = ci.state === "success";
-  if (ci.state === "pending" || ci.state === "missing") {
+  const pending = ci.state === "pending" || ci.state === "missing";
+  // 目标分支在这次 CI 之后改过:它测的是旧目标的合并结果。缺创建时间就当作旧的
+  const baseMoved = ci.state === "success" && Boolean(facts.base_changed_at) && !(Date.parse(ci.created_at) > Date.parse(facts.base_changed_at));
+  const ciOk = ci.state === "success" && !baseMoved;
+  if (pending) {
     add(false, "G1", ci.state === "pending" ? "CI 还在跑,等它跑完再判" : "当前 head 上还没有 CI 运行");
+  } else if (baseMoved) {
+    add(false, "G1", `目标分支在这次 CI 之后改过(${facts.base_changed_at}),CI 测的是旧目标:推一个新提交,或关掉再重开 PR,让 CI 在新目标上重跑`);
   } else {
     add(ciOk, "G1", ciOk ? "CI(ci.yml)在当前 head 上通过" : `CI 没通过:${ci.detail}`);
   }
@@ -216,14 +221,13 @@ export function decide(facts, policy) {
   }
 
   const verdictLine = (() => {
-    if (!ciOk) return ci.state === "pending" || ci.state === "missing" ? "等 CI" : "不放行:CI 没通过";
+    if (!ciOk) return pending ? "等 CI" : baseMoved ? "不放行:目标分支改过,CI 要在新目标上重跑" : "不放行:CI 没通过";
     if (!reviewOk) return "不放行:缺合格评审";
     if (!highOk) return "不放行:high 路径要两家不同模型都 PASS";
     if (ownerObjects) return "不放行:业主要求修改";
     if (!ownerOk) return `等业主批准:${needOwner.join("、")}`;
     return "放行";
   })();
-  const pending = ci.state === "pending" || ci.state === "missing";
   const pass = verdictLine === "放行";
   return {
     status: pending ? "in_progress" : "completed",

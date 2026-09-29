@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { generateKeyPairSync, createVerify } from "node:crypto";
 import { spawn } from "node:child_process";
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -39,18 +39,19 @@ function fakeGitHub(opts = {}) {
       if (u.startsWith("/repos/o/r/pulls/10/reviews")) return send(200, []);
       if (u.startsWith("/repos/o/r/actions/runs")) return send(200, { workflow_runs: [{ id: 1, path: ".github/workflows/ci.yml", head_sha: HEAD, status: "completed", conclusion: "success", pull_requests: [{ number: 10 }] }] });
       if (u.startsWith("/repos/o/r/activity")) return send(200, [{ id: 1, timestamp: "t", activity_type: "push", after: HEAD, actor: { login: "SunJ1ayuBoT" } }]);
+      if (u.startsWith("/repos/o/r/issues/10/events")) return send(200, []);
       send(404, { message: `fake: no route ${u}` });
     });
   });
   return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve({ server, log, url: `http://127.0.0.1:${server.address().port}` })));
 }
 
-function runMain(apiUrl, extraEnv = {}) {
+function runMain(apiUrl, extraEnv = {}, main = MAIN) {
   const dir = mkdtempSync(join(tmpdir(), "gate-main-"));
   const eventPath = join(dir, "event.json");
   writeFileSync(eventPath, JSON.stringify({ pull_request: { number: 10, head: { sha: HEAD } } }));
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [MAIN], {
+    const child = spawn(process.execPath, [main], {
       env: { PATH: process.env.PATH, GITHUB_API_URL: apiUrl, GITHUB_REPOSITORY: "o/r", GITHUB_EVENT_NAME: "pull_request_target", GITHUB_EVENT_PATH: eventPath, GITHUB_TOKEN: "read_token", AIWORK_GATE_PRIVATE_KEY: PEM, ...extraEnv },
     });
     let out = "";
@@ -153,5 +154,27 @@ test("整机:没有私钥 → App 检查一条都发不出,但保险丝用 GITHU
     assert.ok(fuseWrites(gh.log).every((r) => r.auth === "Bearer read_token"));
   } finally {
     gh.server.close();
+  }
+});
+
+// aiwork-review[bot] 评审(PR #10 review 5354768826,@ ae8c58f)第 4 个阻断点:main 上的策略文件不是合法 JSON 时,
+// 进程在进 gate() 之前就崩了,保险丝没被拨到 failure。
+test("整机:策略文件不是合法 JSON → 不发 App 检查、不读数据,但保险丝照样拨到 failure", async () => {
+  const gh = await fakeGitHub();
+  const root = mkdtempSync(join(tmpdir(), "gate-policy-"));
+  try {
+    const src = new URL("../.github/aiwork-gate/", import.meta.url).pathname;
+    mkdirSync(join(root, ".github"), { recursive: true });
+    cpSync(src, join(root, ".github", "aiwork-gate"), { recursive: true });
+    mkdirSync(join(root, ".aiwork"));
+    writeFileSync(join(root, ".aiwork", "policy.json"), '{ "check_name": "aiwork-gate-shadow", ');
+    const { code, out } = await runMain(gh.url, {}, join(root, ".github", "aiwork-gate", "main.mjs"));
+    assert.notEqual(code, 0);
+    assert.match(out, /policy\.json/);
+    assert.deepEqual(fuseWrites(gh.log).map((r) => r.body.state), ["failure"]);
+    assert.equal(gh.log.filter((r) => r.url.startsWith("/repos/o/r/check-runs") || r.url.startsWith("/repos/o/r/pulls")).length, 0);
+  } finally {
+    gh.server.close();
+    rmSync(root, { recursive: true, force: true });
   }
 });

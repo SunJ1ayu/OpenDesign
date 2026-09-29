@@ -10,7 +10,13 @@ import { FUSE_CONTEXT, gate } from "./run.mjs";
 const env = process.env;
 const API = env.GITHUB_API_URL || "https://api.github.com";
 const repo = env.GITHUB_REPOSITORY;
-const policy = JSON.parse(readFileSync(new URL("../../.aiwork/policy.json", import.meta.url), "utf8"));
+// 读不出 / 不是合法 JSON 也不在这里崩:交给 gate() 按"策略不合法"处理,它会先把保险丝拨到 failure
+let policy = null;
+try {
+  policy = JSON.parse(readFileSync(new URL("../../.aiwork/policy.json", import.meta.url), "utf8"));
+} catch (e) {
+  console.log(`读不了 .aiwork/policy.json:${e.message}`);
+}
 
 async function request(method, url, token, body) {
   const res = await fetch(url.startsWith("http") ? url : `${API}${url}`, {

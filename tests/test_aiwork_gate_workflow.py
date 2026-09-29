@@ -59,6 +59,7 @@ class GateWorkflow(unittest.TestCase):
         writes = {k for k, v in perms.items() if v != "read"}
         self.assertEqual(writes, {"statuses"}, "除了保险丝要的 statuses: write,其余一律只读")
         self.assertEqual(perms["statuses"], "write")
+        self.assertEqual(perms.get("issues"), "read", "读 PR 事件(最后一次改目标分支,G1)要 issues: read")
         self.assertNotIn("permissions", self.job, "job 级别不许再放宽")
 
     def test_one_run_per_pr(self) -> None:

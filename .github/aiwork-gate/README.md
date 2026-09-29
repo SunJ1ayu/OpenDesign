@@ -44,7 +44,7 @@
 | S5 | 业主在网页上改测试 PR 的一个文件(非机器账号推送) | failure,作者 UNKNOWN(G4);业主在新 head 批准 + 有 PASS → success | 混合作者要业主批准 |
 | S6 | 测试 PR 改 `.github/` 下一个文件 / 改 `desktop/` 下一个文件 | 分别要业主批准(G2)/ 两家 PASS + 业主批准(G6) | 判卷面与 high 路径 |
 | S7 | 给 PR 加标签 `aiwork:recheck` | 重算一次 | 手动重算可用 |
-| S8 | 编辑测试 PR 的标题或目标分支 | 重算一次 | edited 事件会触发重判 |
+| S8 | 编辑测试 PR 的标题;再改一次目标分支 | 各重算一次;改目标分支后 G1 ❌「目标分支在这次 CI 之后改过」,推一个新提交(或关掉再重开 PR)让 CI 重跑后恢复 | edited 事件会触发重判;旧目标上的 CI 不算数 |
 | S9 | 任选上面一次重算,看测试 PR 的检查列表 | `aiwork-gate/fuse` 先变黄(pending),算完与 `aiwork-gate-shadow` 同结论;发出者是 GitHub Actions | 保险丝接通,不靠 App 私钥 |
 
 失败注入(API 出错、限流、App 私钥坏了、PR 中途推进)在线上没法安全制造,由 `test_aiwork_gate_run.mjs`(R5–R5g、R14–R14f)与 `test_aiwork_gate_main.mjs` 覆盖。

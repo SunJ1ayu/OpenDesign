@@ -3,7 +3,7 @@
 // 编号 1–14 = 应拦下;A–C = 应放行(对照组,证明拦的不是一切)。
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 
 const { decide, parseReviewBlock, matchAny } = await import("../.github/aiwork-gate/decide.mjs");
 const { collect, collectCi, collectPushes, paginate } = await import("../.github/aiwork-gate/collect.mjs");
@@ -387,4 +387,65 @@ test("R13 首次安装 / 启动脚本调用的 bin 脚本、写登录口令的 b
   const missing = [...new Set([...called, ...tokenWriters])].filter((f) => !matchAny(policy.high, f));
   assert.deepEqual(missing, [], `这些首次配置 / 写口令的脚本改了只要一家 PASS:${missing.join("、")}`);
   blocked(run({ files: ["bin/enable_webui.py"], reviews: [review({})] }), "G6");
+});
+
+// ── aiwork-review[bot] 评审(PR #10 review 5354768826,@ ae8c58f)的第 1、3 个阻断点 ─────────────────
+// 碰密钥的正则:ds_credential、apiKey / api_key、FOO_KEY 这类环境变量、口令、password、["token"] 写入
+const SECRET_RE = /\bds_credential\b|apiKey|api_key|\b[A-Z][A-Z0-9_]*_KEY\b|口令|[Pp]assword|\[["']token["']\]/;
+
+test("R15 首次配置模板(config/nanobot.config*.jsonc)、安装脚本引用的 bin/ 与 config/ 文件、bin/ 里碰密钥的文件(不限扩展名)都在 high", () => {
+  const launchers = readdirSync(new URL("bin/", ROOT)).filter((f) => f.endsWith(".ps1")).map((f) => `bin/${f}`).filter((f) => matchAny(policy.high, f));
+  const referenced = [...new Set(launchers.flatMap((f) => [...read(f).matchAll(/\b(bin|config)[\\/]([A-Za-z0-9_.-]+)/g)].map((m) => `${m[1]}/${m[2]}`)))]
+    .filter((p) => existsSync(new URL(p, ROOT)));
+  assert.ok(referenced.includes("config/nanobot.config.windows.jsonc"), "量具:install.ps1 把这份模板合进用户配置");
+  const templates = readdirSync(new URL("config/", ROOT)).filter((f) => /^nanobot\.config.*\.jsonc$/.test(f)).map((f) => `config/${f}`);
+  assert.ok(templates.length >= 2, "量具:Windows 与 Linux 两份模板");
+  const keyFiles = readdirSync(new URL("bin/", ROOT), { withFileTypes: true })
+    .filter((d) => d.isFile() && !d.name.endsWith(".pyc"))
+    .map((d) => `bin/${d.name}`)
+    .filter((f) => SECRET_RE.test(read(f)));
+  assert.ok(keyFiles.includes("bin/ds-nanobot"), "量具:没有扩展名的 Linux 启动脚本(读 MIMO_TP_KEY)也扫得到");
+  const missing = [...new Set([...referenced, ...templates, ...keyFiles])].filter((f) => !matchAny(policy.high, f));
+  assert.deepEqual(missing, [], `这些首次配置 / 碰密钥的文件改了只要一家 PASS:${missing.join("、")}`);
+  blocked(run({ files: ["config/nanobot.config.windows.jsonc"], reviews: [review({})] }), "G6");
+  assert.ok(!matchAny(policy.high, "config/taxonomy.default.json"), "对照:分类表是产品数据,不算 high");
+});
+
+test("R17 目标分支在这次 CI 之后(或同一时刻)改过 → G1 不算通过(业主批准也豁免不了);CI 缺创建时间也不算", () => {
+  const ci = { state: "success", detail: "运行 1", created_at: "2026-09-29T10:00:00Z" };
+  blocked(run({ ci, base_changed_at: "2026-09-29T11:00:00Z" }), "G1");
+  blocked(run({ ci, base_changed_at: "2026-09-29T11:00:00Z", reviews: [review({}), approve()] }), "G1");
+  assert.equal(run({ ci, base_changed_at: "2026-09-29T09:00:00Z" }).conclusion, "success", "改目标在 CI 之前:这次 CI 测的就是新目标");
+  assert.equal(run({ ci, base_changed_at: null }).conclusion, "success", "没改过目标分支");
+  assert.match(run({ ci, base_changed_at: "2026-09-29T11:00:00Z" }).title, /CI/);
+  blocked(run({ ci, base_changed_at: ci.created_at }), "G1");
+  blocked(run({ ci: { state: "success", detail: "运行 1" }, base_changed_at: "2026-09-29T09:00:00Z" }), "G1");
+});
+
+test("R17b 收集:CI 运行带上创建时间;从 PR 事件里取最后一次改目标分支的时间", async () => {
+  const run1 = { id: 5, path: ".github/workflows/ci.yml", head_sha: HEAD, status: "completed", conclusion: "success", pull_requests: [{ number: 10 }], created_at: "2026-09-29T10:00:00Z" };
+  assert.equal((await collectCi({ getPage: async () => ({ data: { workflow_runs: [run1] }, next: null }) }, "o/r", HEAD, policy, 10)).created_at, "2026-09-29T10:00:00Z");
+  const pr = { number: 10, state: "open", changed_files: 1, head: { sha: HEAD, ref: "x", repo: { full_name: "o/r" } }, base: { ref: "main" } };
+  const events = [
+    { id: 1, event: "base_ref_changed", created_at: "2026-09-29T08:00:00Z" },
+    { id: 2, event: "labeled", created_at: "2026-09-29T12:00:00Z" },
+    { id: 3, event: "base_ref_changed", created_at: "2026-09-29T11:00:00Z" },
+  ];
+  const seen = [];
+  const api = {
+    get: async () => pr,
+    getPage: async (p) => {
+      seen.push(p);
+      if (p.includes("/files")) return { data: [{ filename: "web/a.ts" }], next: null };
+      if (p.includes("/actions/runs")) return { data: { workflow_runs: [run1] }, next: null };
+      if (p.includes("/issues/10/events")) return { data: events, next: null };
+      return { data: [], next: null };
+    },
+  };
+  const f = await collect(api, "o/r", 10, policy);
+  assert.equal(f.base_changed_at, "2026-09-29T11:00:00Z");
+  assert.ok(seen.some((p) => p.startsWith("/repos/o/r/issues/10/events")));
+  blocked(decide({ ...f, reviews: [review({})], pushes: { covers_head: true, actors: ["SunJ1ayuBoT"] } }, policy), "G1");
+  const boom = { ...api, getPage: async (p) => { if (p.includes("/issues/10/events")) throw new Error("HTTP 502"); return api.getPage(p); } };
+  await assert.rejects(collect(boom, "o/r", 10, policy), /502/, "读不到事件 ⇒ G8,不能当成没改过");
 });

@@ -37,6 +37,7 @@ function goodApi(calls, over = {}) {
       if (p.includes("/reviews")) return { data: [], next: null };
       if (p.includes("/actions/runs")) return { data: { workflow_runs: [{ id: 1, path: ".github/workflows/ci.yml", head_sha: HEAD, status: "completed", conclusion: "success", pull_requests: [{ number: 10 }] }] }, next: null };
       if (p.includes("/activity")) return { data: [{ id: 1, timestamp: "t", activity_type: "push", after: HEAD, actor: { login: "SunJ1ayuBoT" } }], next: null };
+      if (p.includes("/issues/10/events")) return { data: [], next: null };
       throw new Error(`没料到的请求 ${p}`);
     },
   };
@@ -173,4 +174,31 @@ test("R14f 保险丝本身拨不动(GITHUB_TOKEN 出错)→ App 照常写回结�
   await assert.rejects(gate({ repo: "o/r", eventName: "pull_request_target", event: prtEvent, policy, api: goodApi(calls), poster, fuse }), /statuses/);
   const fin = calls.filter((c) => c[0] === "finish");
   assert.deepEqual(fin.map((c) => c.slice(1, 4)), [[HEAD, "completed", "failure"]], "App 的新结论照样写回");
+});
+
+// ── aiwork-review[bot] 评审(PR #10 review 5354768826,@ ae8c58f)第 2 个阻断点 ─────────────────────
+// workflow_run 没带关联 PR、运行的提交又不是 PR 当前 head(过时的提交 / 合并提交):
+// 以前只在那个旧提交上写 failure 就收手,当前 head 上的旧 success 没人重算。
+test("R16 workflow_run 没带 PR、提交已不是 head → 按提交查到 PR 后在当前 head 上重算,旧提交判 failure", async () => {
+  const { calls, poster, fuse } = recorder();
+  const api = goodApi(calls, { get: (p) => (p.endsWith("/pulls/10") ? prObj() : p.includes(`/commits/${OLD}/pulls`) ? [prObj()] : []) });
+  await gate({ repo: "o/r", eventName: "workflow_run", event: wrEvent({ head_sha: OLD, pull_requests: [] }), policy, api, poster, fuse });
+  const fin = calls.filter((c) => c[0] === "finish");
+  assert.deepEqual(fin.find((c) => c[1] === OLD)?.slice(2, 4), ["completed", "failure"]);
+  assert.ok(fin.some((c) => c[1] === HEAD && c[2] === "completed"), "当前 head 上重算出新结论");
+  assert.deepEqual(fuses(calls, HEAD), ["pending", "failure"], "当前 head 的保险丝跟新结论");
+});
+
+test("R16b 按提交查不到 PR(比如合并提交)→ 再按事件里的分支查;都查不到才在该提交上判 failure", async () => {
+  const MERGE = "d".repeat(40);
+  const { calls, poster, fuse } = recorder();
+  const api = goodApi(calls, { get: (p) => (p.endsWith("/pulls/10") ? prObj() : p.startsWith("/repos/o/r/pulls?") ? [prObj()] : []) });
+  const ev = wrEvent({ head_sha: MERGE, pull_requests: [], head_branch: "claude/x", head_repository: { full_name: "o/r", owner: { login: "o" } } });
+  await gate({ repo: "o/r", eventName: "workflow_run", event: ev, policy, api, poster, fuse });
+  const byBranch = calls.find((c) => c[0] === "get" && c[1].startsWith("/repos/o/r/pulls?"));
+  assert.ok(byBranch && byBranch[1].includes("state=open") && byBranch[1].includes(encodeURIComponent("o:claude/x")), byBranch?.[1]);
+  assert.ok(calls.some((c) => c[0] === "finish" && c[1] === HEAD && c[2] === "completed"), "在 PR 当前 head 上重算");
+  const { calls: c2, poster: p2, fuse: f2 } = recorder();
+  await gate({ repo: "o/r", eventName: "workflow_run", event: ev, policy, api: goodApi(c2, { get: () => [] }), poster: p2, fuse: f2 });
+  assert.deepEqual(c2.filter((c) => c[0] === "finish").map((c) => c.slice(1, 4)), [[MERGE, "completed", "failure"]]);
 });
