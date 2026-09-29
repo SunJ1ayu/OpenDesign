@@ -1,0 +1,111 @@
+# 发版(aiwork 改造 · 阶段 B;计划见 SunJ1ayu/aiwork 的 WORKFLOW-MIGRATION-PLAN.md,规则 D1)。
+#
+# 防的误放行:用没合进 main 的代码打包发布;agent 自己把版本发出去。
+# 删掉会怎样:撤掉本机的业主凭证后就发不了版,会逼着把凭证放回去,身份分离(I1)随之失效。
+#
+# 流程(installer/RELEASE.md 是给人看的版本):
+#   check   只在 main 上跑;两处版本号一致;tag v<版本> 还不存在(同一版本不发两次)
+#   e2e     整跑 electron-e2e(Linux 组包 + 云 Windows E1～E7),任何一条 FAIL 都到不了下一步
+#   publish 停在 environment `release` 等业主在 GitHub 上批准;批准后核字节、改写 latest.yml、再核,
+#           用 release-feed.mjs 生成的那组实参建正式 release,tag 打在本次构建的提交上
+#
+# environment `release` 在仓库设置里建:审批人 SunJ1ayu;部署分支只许 main。
+# 谁都可以点「Run workflow」(业主或有写权限的 agent),真正发出去只认业主那一下批准。
+
+name: release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ver: ${{ steps.v.outputs.ver }}
+    steps:
+      - name: 只在 main 上发
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::发版只能在 main 上跑,这次是 $GITHUB_REF"
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - id: v
+        name: 版本号与 tag
+        run: |
+          ver=$(sed -n 's/^VERSION = "\([^"]*\)".*/\1/p' bin/ds_web.py)
+          pkg=$(node -p "require('./desktop/package.json').version")
+          if [ -z "$ver" ] || [ "$ver" != "$pkg" ]; then
+            echo "::error::bin/ds_web.py VERSION($ver)与 desktop/package.json version($pkg)不一致"
+            exit 1
+          fi
+          if [ -n "$(git ls-remote --tags origin "refs/tags/v$ver")" ]; then
+            echo "::error::tag v$ver 已经存在 —— 先合一个改版本号的发版 PR 再来发"
+            exit 1
+          fi
+          echo "ver=$ver" >> "$GITHUB_OUTPUT"
+          echo "发 $ver,构建提交 $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+
+  e2e:
+    needs: check
+    permissions:
+      contents: read
+    uses: ./.github/workflows/electron-e2e.yml
+
+  publish:
+    needs: [check, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: write
+    env:
+      VER: ${{ needs.check.outputs.ver }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: rel
+
+      - name: 核字节 → 改写 latest.yml → 再核 → 建 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          exe="rel/OpenDesign-$VER-electron-setup.exe"
+          mkdir feed
+          node desktop/scripts/release-feed.mjs verify rel/latest.yml "$exe"
+          node desktop/scripts/release-feed.mjs rewrite rel/latest.yml feed/latest.yml "$VER"
+          node desktop/scripts/release-feed.mjs verify feed/latest.yml "$exe"
+          node desktop/scripts/release-feed.mjs gh-command "$VER" "$exe" "$exe.blockmap" feed/latest.yml --target "$GITHUB_SHA" --run
+
+      - name: 回显:版本 + 构建提交 + 资产
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(git ls-remote origin "refs/tags/v$VER" | cut -f1)
+          {
+            echo "### OpenDesign $VER"
+            echo "- 构建提交:\`$GITHUB_SHA\`"
+            echo "- tag v$VER 指向:\`$tag\`"
+            echo '- 资产:'
+            gh release view "v$VER" --json assets --jq '.assets[] | "  - \(.name)(\(.size) 字节)"'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$tag" != "$GITHUB_SHA" ]; then
+            echo "::error::tag v$VER 指向 $tag,不是构建提交 $GITHUB_SHA"
+            exit 1
+          fi

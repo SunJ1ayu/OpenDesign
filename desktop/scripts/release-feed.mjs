@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { basename } from "node:path";
@@ -40,18 +41,22 @@ export function verifyFeed(text, installer) {
   return { ok: true, reason: "" };
 }
 
-export function ghReleaseCommand({ version, installer, blockmap, latestYml, latestYmlText }) {
+// target:tag 打在哪个提交上。不给时 gh 把 tag 打在发布那一刻的 main 最新提交上 ——
+// 打包到发布之间 main 前进了,tag 就指向没打进包里的代码。发版 workflow 一律给构建用的那个提交。
+export function ghReleaseCommand({ version, installer, blockmap, latestYml, latestYmlText, target }) {
   const name = installerName(version);
   if (!installer.endsWith(name) || !blockmap.endsWith(`${name}.blockmap`)) throw new Error("发布资产名与版本不一致");
   if (basename(latestYml) !== "latest.yml") throw new Error("更新清单资产名必须是 latest.yml");
   const rewritten = rewriteLatestYml(latestYmlText, version);
   if (rewritten !== latestYmlText) throw new Error("latest.yml 还没有改写成带版本的绝对地址");
+  if (target !== undefined && !/^[0-9a-f]{40}$/.test(target)) throw new Error("--target 要完整的 40 位提交号");
   return [
     "release", "create", `v${version}`,
     installer, blockmap, latestYml,
     "--repo", "SunJ1ayu/OpenDesign",
     "--title", `OpenDesign ${version}`,
     "--generate-notes",
+    ...(target === undefined ? [] : ["--target", target]),
   ];
 }
 
@@ -76,16 +81,25 @@ async function main(argv) {
     console.log(`已改写 ${output}`);
     return;
   }
-  if (command === "gh-command" && args.length === 4) {
-    const [version, installer, blockmap, latestYml] = args;
+  if (command === "gh-command" && args.length >= 4) {
+    const [version, installer, blockmap, latestYml, ...rest] = args;
+    let target;
+    let run = false;
+    for (let i = 0; i < rest.length; i++) {
+      if (rest[i] === "--target" && rest[i + 1]) target = rest[++i];
+      else if (rest[i] === "--run") run = true;
+      else throw new Error(`不认识的参数 ${rest[i]}`);
+    }
     const commandArgs = ghReleaseCommand({
-      version, installer, blockmap, latestYml,
+      version, installer, blockmap, latestYml, target,
       latestYmlText: await readFile(latestYml, "utf8"),
     });
     console.log(["gh", ...commandArgs].map(shellQuote).join(" "));
+    // --run:发版 workflow 用。直接执行上面这条(不经 shell),保证真正执行的就是 r8 / r9 钉住的那组实参。
+    if (run) execFileSync("gh", commandArgs, { stdio: "inherit" });
     return;
   }
-  throw new Error("用法：verify <latest.yml> <安装包> | rewrite <入> <出> <版本> [--base URL] | gh-command <版本> <安装包> <blockmap> <latest.yml>");
+  throw new Error("用法：verify <latest.yml> <安装包> | rewrite <入> <出> <版本> [--base URL] | gh-command <版本> <安装包> <blockmap> <latest.yml> [--target 提交号] [--run]");
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

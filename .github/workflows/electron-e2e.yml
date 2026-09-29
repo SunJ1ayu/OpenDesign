@@ -8,12 +8,13 @@
 # E4 的 v2 = 同一份代码把版本号 +1、改一个 .py 与一个前端 js(增量下载量才有参考价值);
 # 替身源按 GitHub 真实布局摆,latest.yml 用**发布时同一个工具**(desktop/scripts/release-feed.mjs)改写。
 #
-# 跑法:手动触发,或推到 ci-electron/** 分支。
+# 跑法:手动触发,或推到 ci-electron/** 分支;发版时由 release.yml 整个调用(workflow_call),出货包 artifact `release` 从那次运行取。
 
 name: electron-e2e
 
 on:
   workflow_dispatch:
+  workflow_call:
   push:
     branches: ['ci-electron/**']
 
