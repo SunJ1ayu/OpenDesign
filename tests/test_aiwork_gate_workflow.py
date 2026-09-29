@@ -85,5 +85,37 @@ class GateReRunsOnEdit(unittest.TestCase):
         self.assertTrue({"opened", "synchronize", "reopened", "labeled", "edited"} <= types, types)
 
 
+
+class WorkflowScriptsParse(unittest.TestCase):
+    """PR #10 上 aiwork-review-ping 的 ping 红过:`run: echo "PR #${{ … }}"` 里空格后的 `#` 被 YAML 当成注释,
+    实际执行的只剩 `echo "PR`,引号不配对。这里把每个 workflow 里用 bash 跑的脚本按 YAML 解析后的样子取出来,
+    `bash -n` 过一遍语法 —— 只看解析后的文本才抓得到这类错。"""
+
+    def test_bash_steps_parse(self) -> None:
+        import re
+        import subprocess
+
+        bad = []
+        for wf in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
+            doc = _load(wf)
+            wf_shell = ((doc.get("defaults") or {}).get("run") or {}).get("shell")
+            for job_id, job in (doc.get("jobs") or {}).items():
+                job_shell = ((job.get("defaults") or {}).get("run") or {}).get("shell", wf_shell)
+                for i, step in enumerate(job.get("steps") or []):
+                    if "run" not in step:
+                        continue
+                    shell = step.get("shell", job_shell) or "bash"
+                    if not str(shell).startswith("bash"):
+                        continue
+                    script = re.sub(r"\$\{\{.*?\}\}", "X", str(step["run"]))
+                    r = subprocess.run(["bash", "-n"], input=script, capture_output=True, text=True)
+                    if r.returncode:
+                        bad.append(f"{wf.name} {job_id} 第 {i + 1} 步:{r.stderr.strip()}")
+        self.assertEqual(bad, [])
+
+    def test_ping_runs_whole_message(self) -> None:
+        step = _load(PING)["jobs"]["ping"]["steps"][0]
+        self.assertIn("aiwork-gate", step["run"], "echo 的整句都要在,不能被当成注释截掉")
+
 if __name__ == "__main__":
     unittest.main()

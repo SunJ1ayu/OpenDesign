@@ -15,4 +15,5 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - run: echo "PR #${{ github.event.pull_request.number }} 有新评审,触发 aiwork-gate 重算"
+      # run 里不嵌表达式、不写"空格加井号":既防 YAML 把它当注释截断,也不把事件内容拼进 shell
+      - run: echo "有新评审,触发 aiwork-gate 重算"
