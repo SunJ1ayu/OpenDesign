@@ -5,7 +5,8 @@
 //   G2 判卷面:改了 CI / 测试入口 / 关卡自己 → 要业主批准
 //   G3 评审:当前 head 上至少一条合格 PASS(aiwork-review 发的、完整、读过文件、家族不是任何 Builder 的家族)—— 豁免不了
 //   G4 作者:这个分支上的每次推送都来自已知 Builder 账号,否则 UNKNOWN → 要业主批准
-//   G5 当前 head 上任何一条 BLOCK → 要业主在最后一条 BLOCK 之后批准。BLOCK = aiwork-review 的 BLOCK 结论,
+//   G5 当前 head 上任何一条 BLOCK → 要业主在最后一条 BLOCK 之后批准。BLOCK = aiwork-review 在当前 head 上发的、
+//      除"格式完整且结论不是 BLOCK"以外的一切(BLOCK 结论、Request changes、正文结论行写 BLOCK、结论块看不懂),
 //      或任何其他评审人在当前 head 上最后一次表态是 Request changes / 被撤销(撤销只要写权限,Builder 就有,
 //      撤销抹不掉反对;被撤销的评审看不出原来是什么,一律按反对算)
 //   G6 high 路径:两个不同的非作者家族 PASS(豁免不了)+ 业主批准
@@ -16,6 +17,8 @@ const SHA_RE = /^[0-9a-f]{40}$/;
 const VERDICTS = new Set(["PASS", "BLOCK", "NEEDS_MORE_INFO", "UNKNOWN"]);
 const COMPLETENESS = new Set(["complete", "partial", "none"]);
 const FAMILY_RE = /^[a-z][a-z0-9-]*$/;
+// review-pr 的正文里有一行独占的 `Conclusion: …`(评审腿的原话);它写 BLOCK 而结论块不是 BLOCK,就是自相矛盾
+const CONCLUSION_BLOCK_RE = /^[\s>*_#-]*Conclusion\s*[:：]\s*[*_]*\s*BLOCK\b/im;
 
 export function globToRegExp(pattern) {
   let re = "";
@@ -73,6 +76,17 @@ export function authorOf(pushes, policy) {
   return { known: true, family: families[0], actors };
 }
 
+// aiwork-review 的一条评审算不算 BLOCK:算就返回原因(可为空串),不算返回 null。
+// BLOCK 从宽认、PASS 从严认:Request changes、结论块写 BLOCK、正文结论行写 BLOCK、结论块看不懂(缺字段、
+// 不止一个、不是 JSON、没有)都算 —— 看不出它想说什么,就当它反对(哪怕已被撤销)。
+function blockReason(r, p) {
+  if (r.state === "CHANGES_REQUESTED") return "";
+  if (!p.ok) return `看不懂:${p.why}`;
+  if (p.value.verdict === "BLOCK") return "";
+  if (CONCLUSION_BLOCK_RE.test(r.body ?? "")) return "正文结论行写的是 BLOCK";
+  return null;
+}
+
 const byTime = (a, b) => (a.submitted_at < b.submitted_at ? -1 : a.submitted_at > b.submitted_at ? 1 : a.id - b.id);
 
 // 除 aiwork-review 以外,每个评审人在当前 head 上最后一次表态(COMMENTED 不算表态)。
@@ -114,13 +128,9 @@ export function decide(facts, policy) {
   const rejected = [];
   for (const r of onHead) {
     const p = parseReviewBlock(r.body);
-    // BLOCK 从宽认:结论块写着 BLOCK,或评审本身是 Request changes,都算(哪怕块里别的字段不对、或已被撤销)
-    if (r.state === "CHANGES_REQUESTED" || (p.ok && p.value.verdict === "BLOCK")) {
-      blocks.push({ id: r.id, at: r.submitted_at, family: p.ok ? p.value.family : "?", model: p.ok ? p.value.model : `评审 #${r.id}` });
-      continue;
-    }
-    if (!p.ok) {
-      rejected.push(`评审 #${r.id}:${p.why}`);
+    const why = blockReason(r, p);
+    if (why !== null) {
+      blocks.push({ id: r.id, at: r.submitted_at, family: p.ok ? p.value.family : "?", model: `${p.ok ? p.value.model : `评审 #${r.id}`}${why ? `,${why}` : ""}` });
       continue;
     }
     const v = p.value;

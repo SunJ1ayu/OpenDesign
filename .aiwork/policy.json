@@ -3,7 +3,8 @@
     "aiwork 放行关卡(aiwork-gate)读的策略。计划见 SunJ1ayu/aiwork 的 WORKFLOW-MIGRATION-PLAN.md 第 2 节 G1–G8。",
     "关卡永远按 main 上的这份判;PR 里改这份文件本身算判卷面(G2),要业主批准。",
     "judging_surface:改了就要业主在当前提交上批准(G2)——CI、测试总跑实际调用的框架文件、关卡自己。tests/test_aiwork_gate.mjs R6 从 run-all.sh 推出应在这里的文件。",
-    "high:会影响所有用户的安装 / 自动更新 / 密钥 / 首次配置;要两家不同的非 Builder 模型都 PASS,再加业主批准(G6)。R7 要求 bin/ 里凡碰密钥的文件都在这里。"
+    "high:会影响所有用户的安装 / 自动更新 / 密钥 / 首次配置;要两家不同的非 Builder 模型都 PASS,再加业主批准(G6)。R7 要求 bin/ 里凡碰密钥的文件都在这里;R13 要求安装 / 启动脚本调用的 bin 脚本、写登录口令的 bin 脚本都在这里。",
+    "high 管的是装到机主电脑上、以他的系统权限运行、把密钥或口令落盘 / 注入进程的代码。浏览器界面(web/)不单列:同一页面里任何一个文件都拿得到同样的口令和 key,只列其中几个挡不住什么,web/ 的改动走普通评审(G3)。"
   ],
   "check_name": "aiwork-gate-shadow",
   "gate_app_id": 5121026,
@@ -48,6 +49,7 @@
     "bin/ds_shell.py",
     "bin/ds_shell_core.py",
     "bin/ds_merge_config.py",
-    "bin/set_model.py"
+    "bin/set_model.py",
+    "bin/enable_webui.py"
   ]
 }

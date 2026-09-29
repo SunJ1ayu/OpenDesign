@@ -6,7 +6,7 @@
     一旦混进 pull_request / push,PR 就能改掉正在判它的关卡;
   · 检出的是默认分支、不留凭据 ⇒ 不执行 PR 的代码;
   · 私钥只从 environment `aiwork-gate` 来(只许 main 用),仓库级 secret 同仓库分支的 PR 拿得到;
-  · 顶层权限全是只读;发检查结果靠 App 私钥,不靠 GITHUB_TOKEN 的写权限;
+  · 顶层权限除了保险丝要的 statuses: write 全是只读;发检查结果靠 App 私钥,不靠 GITHUB_TOKEN 的写权限;
   · 敲门的 aiwork-review-ping 什么权限都没有、不碰 secret。
 """
 from __future__ import annotations
@@ -56,7 +56,9 @@ class GateWorkflow(unittest.TestCase):
     def test_read_only_token(self) -> None:
         perms = self.doc["permissions"]
         self.assertTrue(perms, "要显式写权限,不能吃仓库默认值")
-        self.assertEqual({v for v in perms.values()}, {"read"})
+        writes = {k for k, v in perms.items() if v != "read"}
+        self.assertEqual(writes, {"statuses"}, "除了保险丝要的 statuses: write,其余一律只读")
+        self.assertEqual(perms["statuses"], "write")
         self.assertNotIn("permissions", self.job, "job 级别不许再放宽")
 
     def test_one_run_per_pr(self) -> None:

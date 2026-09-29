@@ -1,10 +1,11 @@
 // aiwork 放行关卡入口:由 .github/workflows/aiwork-gate.yml 调用,代码永远是 main 上的这一份。
 // 这里只管"接线":真实的 GitHub API、aiwork-gate App 的令牌、发 / 改检查。流程和失败处理在 run.mjs。
-// 读用 GITHUB_TOKEN(只读);发检查结果用 aiwork-gate App 的临时令牌 —— 分支规则只认这个 App 发的结果,
-// PR 自己加的 workflow 用 GITHUB_TOKEN 发一个同名检查也冒充不了。
+// 读数据、拨保险丝用 GITHUB_TOKEN(除 statuses: write 外只读);发检查结果用 aiwork-gate App 的临时令牌 ——
+// 分支规则只认这个 App 发的结果,PR 自己加的 workflow 用 GITHUB_TOKEN 发一个同名检查也冒充不了。
+// 保险丝故意不靠 App 私钥:私钥坏了 App 就改不了自己发过的旧 success,只能靠它挡(见 run.mjs 文件头)。
 import { createSign } from "node:crypto";
 import { appendFileSync, readFileSync } from "node:fs";
-import { gate } from "./run.mjs";
+import { FUSE_CONTEXT, gate } from "./run.mjs";
 
 const env = process.env;
 const API = env.GITHUB_API_URL || "https://api.github.com";
@@ -28,15 +29,27 @@ async function request(method, url, token, body) {
   return { data: text ? JSON.parse(text) : null, link: res.headers.get("link") };
 }
 
-const readToken = env.GITHUB_TOKEN;
+const actionsToken = env.GITHUB_TOKEN;
 const api = {
   async get(path) {
-    return (await request("GET", path, readToken)).data;
+    return (await request("GET", path, actionsToken)).data;
   },
   async getPage(path) {
-    const { data, link } = await request("GET", path, readToken);
+    const { data, link } = await request("GET", path, actionsToken);
     const m = /<([^>]+)>;\s*rel="next"/.exec(link ?? "");
     return { data, next: m ? m[1] : null };
+  },
+};
+
+const runUrl = env.GITHUB_SERVER_URL && env.GITHUB_RUN_ID ? `${env.GITHUB_SERVER_URL}/${repo}/actions/runs/${env.GITHUB_RUN_ID}` : null;
+const fuse = {
+  async set(sha, state, description) {
+    await request("POST", `/repos/${repo}/statuses/${sha}`, actionsToken, {
+      state,
+      context: FUSE_CONTEXT,
+      description: String(description).slice(0, 140),
+      ...(runUrl ? { target_url: runUrl } : {}),
+    });
   },
 };
 
@@ -86,6 +99,7 @@ await gate({
   policy,
   api,
   poster,
+  fuse,
   log: (line) => {
     console.log(line);
     if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `${line}\n\n`);

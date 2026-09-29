@@ -346,3 +346,45 @@ test("R10 分页响应自带 total_count 时,取到的条数必须对上,否则�
   const twoPages = { getPage: async () => ({ data: { total_count: 2, workflow_runs: [{ ...run1, id: 5 + page }] }, next: page++ === 0 ? "p2" : null }) };
   assert.equal((await collectCi(twoPages, "o/r", HEAD, policy, 10)).state, "success", "分两页取齐也对得上");
 });
+
+// ── aiwork-review[bot] 评审(PR #10 review 5353990150,@ 875569c)的前 2 个阻断点 ─────────────────
+test("R12 aiwork-review 在当前 head 上发的东西,除非是格式完整、结论不是 BLOCK 的评审,否则一律按 BLOCK 算", () => {
+  // 结论块写着 BLOCK,但缺 files_read —— 明确的 BLOCK 不能因为格式不全被当成"无效评审"丢掉
+  const noFiles = review({ id: 2, verdict: "BLOCK" });
+  noFiles.body = noFiles.body.replace(/,"files_read":\[[^\]]*\]/, "");
+  assert.equal(parseReviewBlock(noFiles.body).ok, false, "量具:这条确实格式不全");
+  const r = run({ reviews: [review({ id: 1 }), noFiles] });
+  blocked(r, "G5");
+  assert.equal(r.blocks.length, 1);
+  // 看不懂的(两个结论块、不是 JSON、没有结论块、空正文)也按 BLOCK:看不出它原来想说什么,就当它反对
+  for (const body of ["```json\n{\"verdict\":\"PASS\"}\n```\n```json\n{}\n```", "```json\n{不是 json}\n```", "Conclusion: BLOCK", ""]) {
+    blocked(run({ reviews: [review({ id: 1 }), { ...review({ id: 3 }), body }] }), "G5");
+  }
+  // 结论块写 PASS、正文结论行却写 BLOCK:自相矛盾,按 BLOCK
+  const contradict = review({ id: 4 });
+  contradict.body = `**aiwork-review · subcodex · gpt-x**\n\nConclusion: BLOCK\n\n${contradict.body}`;
+  blocked(run({ reviews: [review({ id: 1 }), contradict] }), "G5");
+  // 业主在这些 BLOCK 之后批准,照常豁免
+  const waived = run({ reviews: [review({ id: 1 }), noFiles, approve(HEAD, "2026-09-29T11:00:00Z")] });
+  assert.equal(waived.conclusion, "success", waived.summary);
+  // 对照:格式完整、只是不合格的 PASS(不完整、Builder 家族)不算 BLOCK,只是不算 PASS
+  assert.equal(run({ reviews: [review({ id: 1 }), review({ id: 5, completeness: "partial" })] }).conclusion, "success");
+  assert.equal(run({ reviews: [review({ id: 1 }), review({ id: 6, family: "anthropic" })] }).conclusion, "success");
+  // 对照:旧提交上格式不全的评审不管当前 head
+  assert.equal(run({ reviews: [review({ id: 1 }), { ...noFiles, commit_id: OLD }] }).conclusion, "success");
+});
+
+test("R13 首次安装 / 启动脚本调用的 bin 脚本、写登录口令的 bin 脚本,都在 high 里(含 bin/enable_webui.py)", () => {
+  const launchers = readdirSync(new URL("bin/", ROOT)).filter((f) => f.endsWith(".ps1")).map((f) => `bin/${f}`).filter((f) => matchAny(policy.high, f));
+  assert.ok(launchers.includes("bin/install.ps1"), "量具:安装脚本本身在 high");
+  const called = [...new Set(launchers.flatMap((f) => [...read(f).matchAll(/bin[\\/]([A-Za-z0-9_.-]+\.(?:py|ps1))/g)].map((m) => `bin/${m[1]}`)))];
+  assert.ok(called.includes("bin/enable_webui.py"), "量具:install.ps1 确实调用 enable_webui.py");
+  const tokenWriters = readdirSync(new URL("bin/", ROOT))
+    .filter((f) => /\.(?:py|ps1)$/.test(f))
+    .filter((f) => /口令|password|\[["']token["']\]/i.test(read(`bin/${f}`)))
+    .map((f) => `bin/${f}`);
+  assert.ok(tokenWriters.includes("bin/enable_webui.py") && tokenWriters.includes("bin/ds_provision.py"), "量具:扫得到写口令的脚本");
+  const missing = [...new Set([...called, ...tokenWriters])].filter((f) => !matchAny(policy.high, f));
+  assert.deepEqual(missing, [], `这些首次配置 / 写口令的脚本改了只要一家 PASS:${missing.join("、")}`);
+  blocked(run({ files: ["bin/enable_webui.py"], reviews: [review({})] }), "G6");
+});
