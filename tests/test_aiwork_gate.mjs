@@ -78,16 +78,19 @@ test("1 CI 红 / 被跳过 / neutral / 还在跑 / 没跑 → 不放行(G1),业�
 });
 
 test("2 PR 新增一个同名的假 ci job:只认 ci.yml 这条路径的运行(G1)", async () => {
-  const fake = { id: 9, path: ".github/workflows/sneaky.yml", head_sha: HEAD, status: "completed", conclusion: "success", name: "ci" };
-  const real = { id: 5, path: ".github/workflows/ci.yml", head_sha: HEAD, status: "completed", conclusion: "failure", html_url: "u" };
+  const pr10 = [{ number: 10 }];
+  const fake = { id: 9, path: ".github/workflows/sneaky.yml", head_sha: HEAD, status: "completed", conclusion: "success", name: "ci", pull_requests: pr10 };
+  const real = { id: 5, path: ".github/workflows/ci.yml", head_sha: HEAD, status: "completed", conclusion: "failure", html_url: "u", pull_requests: pr10 };
   const api = { getPage: async () => ({ data: { workflow_runs: [fake, real] }, next: null }) };
-  assert.equal((await collectCi(api, "o/r", HEAD, policy)).state, "failure");
+  assert.equal((await collectCi(api, "o/r", HEAD, policy, 10)).state, "failure");
   const onlyFake = { getPage: async () => ({ data: { workflow_runs: [fake] }, next: null }) };
-  assert.equal((await collectCi(onlyFake, "o/r", HEAD, policy)).state, "missing");
+  assert.equal((await collectCi(onlyFake, "o/r", HEAD, policy, 10)).state, "missing");
   const withRef = { getPage: async () => ({ data: { workflow_runs: [{ ...real, path: ".github/workflows/ci.yml@refs/pull/10/merge", conclusion: "success" }] }, next: null }) };
-  assert.equal((await collectCi(withRef, "o/r", HEAD, policy)).state, "success", "路径带 @ref 后缀也认");
+  assert.equal((await collectCi(withRef, "o/r", HEAD, policy, 10)).state, "success", "路径带 @ref 后缀也认");
   const rerun = { getPage: async () => ({ data: { workflow_runs: [{ ...real, id: 5, conclusion: "success" }, { ...real, id: 6, conclusion: "failure" }] }, next: null }) };
-  assert.equal((await collectCi(rerun, "o/r", HEAD, policy)).state, "failure", "以最新一次运行为准");
+  assert.equal((await collectCi(rerun, "o/r", HEAD, policy, 10)).state, "failure", "以最新一次运行为准");
+  const running = { getPage: async () => ({ data: { workflow_runs: [{ ...real, status: "in_progress", conclusion: null }] }, next: null }) };
+  assert.equal((await collectCi(running, "o/r", HEAD, policy, 10)).state, "pending");
 });
 
 test("3 改 ci.yml / run-all.sh / .aiwork/ 且业主未批准 → 不放行(G2);批准后放行", () => {
@@ -226,4 +229,41 @@ test("策略:check 名先用 shadow;判卷面罩住 .github 与 .aiwork;Builder 
   assert.deepEqual(policy.builders, { SunJ1ayuBoT: "anthropic" });
   assert.equal(policy.reviewer_bot, "aiwork-review[bot]");
   assert.ok(Number.isInteger(policy.gate_app_id) && policy.gate_app_id > 0, "gate_app_id 要填 aiwork-gate App 的 App ID");
+});
+
+// ── GPT 评审(PR #10 @ 58d9bea)指出的阻断点:先复现再修 ─────────────────────
+test("R1 UNKNOWN 作者时,Builder 家族(anthropic)的 PASS 也不算 —— 不能靠 Claude 审 Claude 加业主批准放行", () => {
+  const r = run({
+    pushes: { covers_head: true, actors: ["SunJ1ayuBoT", "SunJ1ayu"] },
+    reviews: [review({ family: "anthropic", model: "claude-x" }), approve()],
+  });
+  blocked(r, "G3");
+  const high = run({
+    files: ["desktop/main.js"],
+    pushes: { covers_head: false, actors: [] },
+    reviews: [review({ id: 1 }), review({ id: 2, family: "anthropic", model: "claude-x" }), approve()],
+  });
+  blocked(high, "G6");
+});
+
+test("R2 别的 PR 在同一提交上的 CI 不算到本 PR(G1)", async () => {
+  const mine = { id: 5, path: ".github/workflows/ci.yml", head_sha: HEAD, status: "completed", conclusion: "failure", html_url: "u", pull_requests: [{ number: 10 }] };
+  const other = { id: 9, path: ".github/workflows/ci.yml", head_sha: HEAD, status: "completed", conclusion: "success", pull_requests: [{ number: 11 }] };
+  const api = { getPage: async () => ({ data: { workflow_runs: [mine, other] }, next: null }) };
+  assert.equal((await collectCi(api, "o/r", HEAD, policy, 10)).state, "failure", "只认关联到本 PR 的运行");
+  const onlyOther = { getPage: async () => ({ data: { workflow_runs: [other] }, next: null }) };
+  assert.notEqual((await collectCi(onlyOther, "o/r", HEAD, policy, 10)).state, "success");
+  const unlinked = { getPage: async () => ({ data: { workflow_runs: [{ ...other, pull_requests: [] }] }, next: null }) };
+  assert.notEqual((await collectCi(unlinked, "o/r", HEAD, policy, 10)).state, "success", "没关联任何 PR 的运行也不算");
+});
+
+test("R3 业主批准早于 BLOCK:豁免不了那条 BLOCK;BLOCK 之后再批准才算(G5 / G7)", () => {
+  const early = run({ reviews: [review({ id: 1 }), approve(HEAD, "2026-09-29T11:00:00Z"), review({ id: 2, verdict: "BLOCK", at: "2026-09-29T12:00:00Z" })] });
+  blocked(early, "G7");
+  const late = run({ reviews: [review({ id: 1 }), review({ id: 2, verdict: "BLOCK", at: "2026-09-29T12:00:00Z" }), approve(HEAD, "2026-09-29T13:00:00Z")] });
+  assert.equal(late.conclusion, "success", late.summary);
+});
+
+test("R3b 业主在当前 head 上 Request changes:哪怕是普通 PR 也不放行", () => {
+  blocked(run({ reviews: [review({}), approve(HEAD, "2026-09-29T11:00:00Z", "CHANGES_REQUESTED")] }), "G7");
 });

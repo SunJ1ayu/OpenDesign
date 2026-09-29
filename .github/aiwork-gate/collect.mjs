@@ -22,16 +22,22 @@ function stripRef(workflowPath) {
   return String(workflowPath ?? "").replace(/@.*$/, "");
 }
 
-export async function collectCi(api, repo, headSha, policy) {
+// 同一个提交可能同时是别的 PR 的 head(基线不同,合并结果就不同):只认明确关联到本 PR 的那次运行。
+export async function collectCi(api, repo, headSha, policy, prNumber) {
   const runs = await paginate(
     api,
     `/repos/${repo}/actions/runs?head_sha=${headSha}&event=${policy.ci.event}&per_page=100`,
     "workflow_runs",
   );
-  const mine = runs
-    .filter((r) => stripRef(r.path) === policy.ci.workflow_path && r.head_sha === headSha)
+  const ciRuns = runs.filter((r) => stripRef(r.path) === policy.ci.workflow_path && r.head_sha === headSha);
+  const mine = ciRuns
+    .filter((r) => (r.pull_requests ?? []).some((p) => p.number === prNumber))
     .sort((a, b) => b.id - a.id);
-  if (!mine.length) return { state: "missing", detail: "没有 ci.yml 的运行" };
+  if (!mine.length) {
+    return ciRuns.length
+      ? { state: "failure", detail: `这个提交上有 ${ciRuns.length} 次 ci.yml 运行,但都没关联到 PR #${prNumber}` }
+      : { state: "missing", detail: "没有 ci.yml 的运行" };
+  }
   const run = mine[0];
   if (run.status !== "completed") return { state: "pending", detail: `运行 ${run.id} 状态 ${run.status}` };
   if (run.conclusion === "success") return { state: "success", detail: `运行 ${run.id}` };
@@ -82,7 +88,7 @@ export async function collect(api, repo, prNumber, policy) {
     submitted_at: r.submitted_at ?? "",
   }));
 
-  const ci = await collectCi(api, repo, headSha, policy);
+  const ci = await collectCi(api, repo, headSha, policy, pr.number);
 
   const sameRepo = pr.head.repo?.full_name === repo;
   const pushes = sameRepo

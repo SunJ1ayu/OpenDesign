@@ -3,11 +3,11 @@
 //
 //   G1 CI:当前 head 上、来自 ci.yml 的那次运行成功 —— 业主批准也豁免不了
 //   G2 判卷面:改了 CI / 测试入口 / 关卡自己 → 要业主批准
-//   G3 评审:当前 head 上至少一条合格 PASS(aiwork-review 发的、完整、读过文件、家族 ≠ 作者家族)—— 豁免不了
+//   G3 评审:当前 head 上至少一条合格 PASS(aiwork-review 发的、完整、读过文件、家族不是任何 Builder 的家族)—— 豁免不了
 //   G4 作者:这个分支上的每次推送都来自已知 Builder 账号,否则 UNKNOWN → 要业主批准
-//   G5 当前 head 上任何一条 BLOCK → 要业主批准(已撤销的 BLOCK 也算:撤销评审只要写权限,Builder 就有)
+//   G5 当前 head 上任何一条 BLOCK → 要业主在最后一条 BLOCK 之后批准(已撤销的 BLOCK 也算:撤销评审只要写权限,Builder 就有)
 //   G6 high 路径:两个不同的非作者家族 PASS(豁免不了)+ 业主批准
-//   G7 业主批准 = 业主在当前 head 上最后一次表态是 Approve
+//   G7 业主批准 = 业主在当前 head 上最后一次表态是 Approve;最后一次是 Request changes 则一律不放行
 //   G8 数据不全 → 由 collect.mjs 抛错,main.mjs 直接判 failure
 
 const SHA_RE = /^[0-9a-f]{40}$/;
@@ -71,12 +71,16 @@ export function authorOf(pushes, policy) {
   return { known: true, family: families[0], actors };
 }
 
-function ownerApproved(reviews, policy, head) {
+const byTime = (a, b) => (a.submitted_at < b.submitted_at ? -1 : a.submitted_at > b.submitted_at ? 1 : a.id - b.id);
+
+// 业主在当前 head 上最后一次表态(COMMENTED 不算表态)。
+function ownerStance(reviews, policy, head) {
   const mine = reviews
     .filter((r) => r.login === policy.owner && r.type === "User" && r.commit_id === head)
     .filter((r) => ["APPROVED", "CHANGES_REQUESTED", "DISMISSED"].includes(r.state))
-    .sort((a, b) => (a.submitted_at < b.submitted_at ? -1 : a.submitted_at > b.submitted_at ? 1 : a.id - b.id));
-  return mine.length > 0 && mine[mine.length - 1].state === "APPROVED";
+    .sort(byTime);
+  const last = mine[mine.length - 1];
+  return last ? { state: last.state, at: last.submitted_at } : { state: null, at: "" };
 }
 
 export function decide(facts, policy) {
@@ -100,6 +104,7 @@ export function decide(facts, policy) {
   // 评审
   const botReviews = facts.reviews.filter((r) => r.login === policy.reviewer_bot && r.type === "Bot");
   const onHead = botReviews.filter((r) => r.commit_id === head);
+  const builderFamilies = new Set(Object.values(policy.builders));
   const passes = [];
   const blocks = [];
   const rejected = [];
@@ -107,7 +112,7 @@ export function decide(facts, policy) {
     const p = parseReviewBlock(r.body);
     // BLOCK 从宽认:结论块写着 BLOCK,或评审本身是 Request changes,都算(哪怕块里别的字段不对、或已被撤销)
     if (r.state === "CHANGES_REQUESTED" || (p.ok && p.value.verdict === "BLOCK")) {
-      blocks.push({ id: r.id, family: p.ok ? p.value.family : "?", model: p.ok ? p.value.model : `评审 #${r.id}` });
+      blocks.push({ id: r.id, at: r.submitted_at, family: p.ok ? p.value.family : "?", model: p.ok ? p.value.model : `评审 #${r.id}` });
       continue;
     }
     if (!p.ok) {
@@ -135,8 +140,9 @@ export function decide(facts, policy) {
       rejected.push(`评审 #${r.id}:没读任何文件`);
       continue;
     }
-    if (author.known && v.family === author.family) {
-      rejected.push(`评审 #${r.id}:${v.family} 审 ${v.family},自己审自己`);
+    // 作者 UNKNOWN 时也不能让 Builder 家族来审:谁推的说不清,就把所有 Builder 家族都当作者
+    if (builderFamilies.has(v.family) || (author.known && v.family === author.family)) {
+      rejected.push(`评审 #${r.id}:${v.family} 是 Builder 家族,不能审 Builder 的代码`);
       continue;
     }
     passes.push({ id: r.id, family: v.family, model: v.model });
@@ -169,19 +175,30 @@ export function decide(facts, policy) {
   }
 
   // G7
-  const approved = ownerApproved(facts.reviews, policy, head);
+  const stance = ownerStance(facts.reviews, policy, head);
+  const approved = stance.state === "APPROVED";
+  const ownerObjects = stance.state === "CHANGES_REQUESTED";
+  const lastBlockAt = blocks.map((b) => b.at).sort().at(-1) ?? "";
+  // 批准要晚于最后一条 BLOCK:业主批准时还没看到的 BLOCK,不能被那次批准豁免
+  const blockWaived = approved && stance.at > lastBlockAt;
   const needOwner = [];
   if (!author.known) needOwner.push("作者 UNKNOWN");
   if (judging.length) needOwner.push("改了判卷面");
   if (blocked) needOwner.push("有 BLOCK");
   if (high.length) needOwner.push("high 路径");
-  if (needOwner.length) add(approved, "G7", `需要业主在当前 head 上批准(${needOwner.join("、")}):${approved ? "已批准" : "还没有"}`);
+  const ownerOk = !ownerObjects && (!needOwner.length || (approved && (!blocked || blockWaived)));
+  if (ownerObjects) add(false, "G7", "业主在当前 head 上要求修改(Request changes)");
+  else if (needOwner.length) {
+    const why = !approved ? "还没有" : blocked && !blockWaived ? "批准早于最后一条 BLOCK,要在看过 BLOCK 之后再批准" : "已批准";
+    add(ownerOk, "G7", `需要业主在当前 head 上批准(${needOwner.join("、")}):${why}`);
+  }
 
   const verdictLine = (() => {
     if (!ciOk) return ci.state === "pending" || ci.state === "missing" ? "等 CI" : "不放行:CI 没通过";
     if (!reviewOk) return "不放行:缺合格评审";
     if (!highOk) return "不放行:high 路径要两家不同模型都 PASS";
-    if (needOwner.length && !approved) return `等业主批准:${needOwner.join("、")}`;
+    if (ownerObjects) return "不放行:业主要求修改";
+    if (!ownerOk) return `等业主批准:${needOwner.join("、")}`;
     return "放行";
   })();
   const pending = ci.state === "pending" || ci.state === "missing";
