@@ -28,9 +28,10 @@ const isPrData = (c) => (c[0] === "get" || c[0] === "getPage") && !c[1].startsWi
 const reviewBody = (sha, verdict) => "```json\n" + JSON.stringify({ verdict, head_sha: sha, model: "gpt-x", family: "openai", completeness: "complete", files_read: ["a"] }) + "\n```";
 // 假 GitHub:几个开着的 PR,各有自己的 head、改动文件和一条 aiwork-review 评审(verdict 为 null 就没有评审);
 // CI、推送记录按各自的 head 给。readHead 让"读 PR 本身"时读到另一个 head(列出之后又推进了),state 同理。
-// fail(path) 为真的请求一律报错。
-function prsApi(calls, prs, { fail = () => false } = {}) {
+// fail(path) 为真的请求一律报错;lists 依次给出每次"列开着的 PR"读到哪几个(读完了就一直是最后一个)。
+function prsApi(calls, prs, { fail = () => false, lists = null } = {}) {
   const numbers = Object.keys(prs).map(Number);
+  let listed = 0;
   const pr = (n, read = false) => ({
     number: n,
     state: read ? prs[n].readState ?? "open" : "open",
@@ -52,7 +53,10 @@ function prsApi(calls, prs, { fail = () => false } = {}) {
     async getPage(p) {
       calls.push(["getPage", p]);
       check(p);
-      if (p === "/repos/o/r/pulls?state=open&per_page=100") return { data: numbers.map((n) => pr(n)), next: null };
+      if (p === "/repos/o/r/pulls?state=open&per_page=100") {
+        const now = lists ? lists[Math.min(listed++, lists.length - 1)] : numbers;
+        return { data: now.map((n) => pr(n)), next: null };
+      }
       const m = /\/pulls\/(\d+)\/(files|reviews)/.exec(p);
       if (m && m[2] === "files") return { data: prs[m[1]].files.map((f) => ({ filename: f })), next: null };
       if (m && m[2] === "reviews") {
@@ -101,12 +105,37 @@ test("R5 先在每个 head 上占位(保险丝 pending → App in_progress),再�
   assert.deepEqual(finishes(r.calls).map((f) => [f[0], f[2]]), [[HEAD, "success"], [OTHER, "success"]]);
 });
 
-test("R5b 连开着的 PR 都列不出来 → 叫醒这次运行的提交保险丝 failure,不发检查,运行报错", async () => {
+// 评审 5362031164 第 1 条:列不出 PR 时只拨了运行的提交(评审敲门的运行可能指向 main),被评审 PR 的 head 没挡住。
+test("R5b 连开着的 PR 都列不出来 → 事件里带的提交(PR 的 head、运行的提交)全拨 failure,不发检查,运行报错", async () => {
   const r = recorder();
   const api = prsApi(r.calls, one(), { fail: (p) => p.startsWith("/repos/o/r/pulls?") });
-  await assert.rejects(run(r, api, { event: { workflow_run: { event: "pull_request_review", head_sha: HEAD, pull_requests: [] } } }), /502/);
-  assert.deepEqual(r.calls.filter((c) => c[0] === "fuse").map((c) => c.slice(1, 3)), [[HEAD, "failure"]]);
+  const event = { workflow_run: { event: "pull_request_review", head_sha: MAIN, pull_requests: [{ number: 10, head: { sha: HEAD } }] } };
+  await assert.rejects(run(r, api, { event }), /502/);
+  assert.deepEqual(r.calls.filter((c) => c[0] === "fuse").map((c) => c.slice(1, 3)), [[MAIN, "failure"], [HEAD, "failure"]]);
   assert.ok(!r.calls.some((c) => c[0] === "start"));
+});
+
+// 评审 5362031164 第 2 条:列表不是一次拍下的,翻页期间有 PR 关掉,后面的往前挪,一个仍开着的 PR 被漏掉。
+test("R26 开着的 PR 连读两遍一致才算数:第一遍漏了的,第二、三遍读到了就照算;一直对不上 → 事件里的提交 failure", async () => {
+  const r = recorder();
+  const prs = { 10: { head: HEAD, files: ["web/a.ts"] }, 11: { head: OTHER, files: ["web/b.ts"], verdict: "BLOCK" } };
+  await run(r, prsApi(r.calls, prs, { lists: [[10], [10, 11], [10, 11]] }));
+  assert.deepEqual(finishes(r.calls).map((f) => [f[0], f[2]]), [[HEAD, "success"], [OTHER, "failure"]], "第一遍漏掉的 #11 也重算了");
+  const r2 = recorder();
+  await assert.rejects(run(r2, prsApi(r2.calls, prs, { lists: [[10], [10, 11], [10], [10, 11], [10]] })), /对不上/);
+  assert.deepEqual(r2.calls.filter((c) => c[0] === "fuse").map((c) => c.slice(1, 3)), [[HEAD, "failure"]]);
+});
+
+// 评审 5362031164 第 3 条:逐个 head"拨 pending → 发占位",第一个 head 的占位卡住时后面的 head 连 pending 都没有,
+// 这时超时或取消,后面的提交留着上一次的 success。现在先把所有 head 的保险丝拨到 pending(快、不靠 App),再发占位;
+// 单个请求另有超时(main.mjs),卡住的请求拖不垮整次运行。
+test("R27 先把所有 head 的保险丝拨到 pending,再发任何 App 占位", async () => {
+  const r = recorder();
+  await run(r, prsApi(r.calls, { 10: { head: HEAD, files: ["web/a.ts"] }, 11: { head: OTHER, files: ["web/b.ts"] } }));
+  const lastPending = r.calls.findLastIndex((c) => c[0] === "fuse" && c[2] === "pending");
+  const firstStart = r.calls.findIndex((c) => c[0] === "start");
+  assert.ok(lastPending < firstStart, "所有 pending 都在第一个 App 占位之前");
+  assert.deepEqual(fuses(r.calls, OTHER)[0], "pending");
 });
 
 test("R5c 读某个 PR 的数据出错 → 它的 head 判 G8 failure,别的 head 照常", async () => {

@@ -30,7 +30,7 @@ function fakeGitHub(opts = {}) {
       const u = req.url;
       if (u === "/repos/o/r/installation") return send(200, { id: 777 });
       if (u === "/app/installations/777/access_tokens") return send(201, { token: "ghs_fake_app_token" });
-      if (u === "/repos/o/r/check-runs" && req.method === "POST") return send(201, { id: 4242 });
+      if (u === "/repos/o/r/check-runs" && req.method === "POST") return opts.hang ? undefined : send(201, { id: 4242 }); // hang:一直不回
       if (u.startsWith("/repos/o/r/check-runs/") && req.method === "PATCH") return send(200, { id: 4242 });
       if (u.startsWith("/repos/o/r/statuses/") && req.method === "POST") return send(201, { id: 1 });
       if (opts.prFails && u === "/repos/o/r/pulls/10") return send(502, { message: "bad gateway" });
@@ -54,6 +54,7 @@ function runMain(apiUrl, extraEnv = {}, main = MAIN) {
   writeFileSync(eventPath, JSON.stringify({ pull_request: { number: 10, head: { sha: HEAD } } }));
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [main], {
+      timeout: 20_000, // 卡住就杀掉,测试红而不是挂住
       env: { PATH: process.env.PATH, GITHUB_API_URL: apiUrl, GITHUB_REPOSITORY: "o/r", GITHUB_EVENT_NAME: "pull_request_target", GITHUB_EVENT_PATH: eventPath, GITHUB_TOKEN: "read_token", AIWORK_GATE_PRIVATE_KEY: PEM, ...extraEnv },
     });
     let out = "";
@@ -178,5 +179,20 @@ test("整机:策略文件不是合法 JSON → 不发 App 检查、不读 PR 的
   } finally {
     gh.server.close();
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// aiwork-review[bot] 评审(PR #10 review 5362031164,@ a190849)第 3 个阻断点:一个请求卡住,整次运行被拖到超时。
+test("整机:发占位的请求卡住 → 按单个请求的超时放弃,保险丝已先拨 pending、再拨 failure,进程报错结束", async () => {
+  const gh = await fakeGitHub({ hang: true });
+  try {
+    const started = Date.now();
+    const { code } = await runMain(gh.url, { AIWORK_GATE_TIMEOUT_MS: "300" });
+    assert.notEqual(code, 0);
+    assert.ok(Date.now() - started < 10_000, "没被卡住的请求拖住");
+    assert.deepEqual(fuseWrites(gh.log).map((r) => r.body.state), ["pending", "failure"]);
+  } finally {
+    gh.server.closeAllConnections();
+    gh.server.close();
   }
 });

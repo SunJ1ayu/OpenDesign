@@ -18,9 +18,13 @@ try {
   console.log(`读不了 .aiwork/policy.json:${e.message}`);
 }
 
+// 每个请求最多等这么久:卡住的请求不能把整次运行拖到超时(后面的提交就来不及写)
+const TIMEOUT_MS = Number(env.AIWORK_GATE_TIMEOUT_MS) || 30_000;
+
 async function request(method, url, token, body) {
   const res = await fetch(url.startsWith("http") ? url : `${API}${url}`, {
     method,
+    signal: AbortSignal.timeout(TIMEOUT_MS),
     headers: {
       Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",

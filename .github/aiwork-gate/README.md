@@ -42,7 +42,35 @@
 - job 上**不许**按事件过滤(比如只认某个标签):排队时被顶掉的运行,要靠顶掉它的那次来算。
 - 代价:每次运行读每个开着的 PR 约 6–8 次 API。`GITHUB_TOKEN` 每小时 1000 次;开着的 PR 多、事件又密时会先撞上它,
   撞上就是 G8 不放行(不会误放行)。到时再按实际用量优化。
-- 事件到重算之间有几十秒(排队时更久),这期间 head 上还是上一次的结论:看到关卡在跑或在排队,先别合并。
+- 一次运行里先把所有 head 的保险丝拨到 pending(快、不靠 App),再发 App 占位,之后才读 PR 的数据;单个请求最多等
+  30 秒(`AIWORK_GATE_TIMEOUT_MS`),卡住的请求拖不垮整次运行。开着的 PR 的列表连读两遍一致才算数(翻页期间有 PR 关掉,
+  后面的会往前挪、漏掉一个)。
+
+## 每样输入的门铃
+
+关卡的结论是它读到的输入的函数;哪样输入变了没有门铃,旧结论就一直挂着。
+
+| 关卡读的输入 | 变了靠什么叫醒 |
+|---|---|
+| PR 的 head、改动文件、推送记录 | `pull_request_target`:`opened` / `synchronize` / `reopened` |
+| 目标分支(G1 要 CI 晚于最后一次改目标分支) | `pull_request_target`:`edited` |
+| 开着的 PR 有哪些(同一提交上几个 PR 合在一起判) | `pull_request_target`:`opened` / `reopened` / `closed` |
+| CI(以最后开始的那次执行为准) | `workflow_run`(ci):`requested` / `completed` |
+| 评审(读当前正文,撤销按撤销那一刻) | `aiwork-review-ping`:`submitted` / `edited` / `dismissed` → `workflow_run`:`requested` / `completed` |
+| 策略 `.aiwork/policy.json`(只认 main 上的) | 改 main 之后 CI 跑完的 `workflow_run` |
+| 手动重算 | 给 PR 加任何标签(如 `aiwork:recheck`) |
+
+## 已知限制:状态检查只能"最终一致"
+
+关卡靠"输入变了 → 叫醒 → 重算 → 写回",写在提交上的结论总是某一刻的。下面几条是这种做法本身的上限,补不死:
+
+1. **窗口**:输入变了到重算写完之间有几十秒(排队时更久),这期间提交上还是上一次的结论。看到关卡在跑或在排队,先别合并。
+2. **列不出开着的 PR**(接口出错、额度用光):不知道该挡哪些提交,只能挡住事件里带的提交;别的 PR 的旧结论要等下一次运行。
+3. **运行在"全部拨 pending"之前被杀**(取消、机器掉线):没拨到的提交留着上一次的结论。
+4. **没有别人碰不到的锁**:并发组名是仓库里共享的,任何 workflow(包括 PR 里新加的)都能加入 `aiwork-gate` 组,
+   取消正在跑的关卡或顶掉排队的那次;同仓库的 workflow 还共用 `GITHUB_TOKEN` 的每小时额度,能把它用光。
+
+只报不拦(shadow)时这些只影响显示。要硬保证,只能在**合并那一刻**用最新数据再判一次 —— 见下"转真拦截之前"。
 
 ## 同一提交上有几个 PR
 
@@ -67,12 +95,15 @@
 | S8 | 编辑测试 PR 的标题;再改一次目标分支 | 各重算一次;改目标分支后 G1 ❌「目标分支在这次 CI 之后改过」,推一个新提交(或关掉再重开 PR)让 CI 重跑后恢复 | edited 事件会触发重判;旧目标上的 CI 不算数 |
 | S9 | 任选上面一次重算,看测试 PR 的检查列表;再连着触发两次(比如先后加两个标签),看 Actions 里 aiwork-gate 的运行 | `aiwork-gate/fuse` 先变黄(pending),算完与 `aiwork-gate-shadow` 同结论,发出者是 GitHub Actions;两次运行一个跑完另一个才开始 | 保险丝接通,不靠 App 私钥;同一时间只有一次运行 |
 
-失败注入(API 出错、限流、App 私钥坏了、PR 中途推进)在线上没法安全制造,由 `test_aiwork_gate_run.mjs`(R4–R5e、R14b–R14f、R20、R25)与 `test_aiwork_gate_main.mjs` 覆盖;几次运行不会交错由 workflow 的并发组保证(`test_aiwork_gate_workflow.py`)。
+失败注入(API 出错、限流、App 私钥坏了、PR 中途推进)在线上没法安全制造,由 `test_aiwork_gate_run.mjs`(R4–R5e、R14b–R14f、R20、R25–R27)与 `test_aiwork_gate_main.mjs`(含请求卡住)覆盖;几次运行不会交错由 workflow 的并发组保证(`test_aiwork_gate_workflow.py`)。
 
 ## 从 shadow 转为真拦截
 
 S0–S9 全部符合预期,且之后至少 5 个真实 PR 上 shadow 的结论都和业主的判断一致、没见过过时的 success,再:
 
+0. **先补上"合并那一刻再判一次"**(上面"已知限制"的解法,另开 PR):合并只经一个动作 —— 当场用最新数据重算这一个 PR,
+   放行才调用合并接口并带上当时的 head(`sha` 参数:head 变了合并就失败);分支规则限定只有它能合并。
+   仓库属于组织时也可以改用 GitHub 合并队列(关卡跑在 `merge_group` 上)。
 1. 发一个只改 `policy.json` 的 PR:`check_name` 改为 `aiwork-gate`(判卷面,要业主批准);
 2. 业主在 main 的分支规则里把必过检查从 `ci` 换成**两条**:`aiwork-gate`(来源限定 `aiwork-gate` App)和
    `aiwork-gate/fuse`(来源限定 GitHub Actions)。只设第一条,App 私钥坏了时旧 success 仍能合并;

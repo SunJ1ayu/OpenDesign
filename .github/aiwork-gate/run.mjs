@@ -10,17 +10,18 @@
 //     检查和保险丝都挂在提交上;同一提交可以是几个 PR 的 head,目标分支不同 ⇒ 改动、要求都不同。
 //
 // 一次运行:
-//   1. 列出所有开着的 PR,按 head 提交分组;
-//   2. 先在每个 head 上占位(保险丝 pending + App 检查 in_progress),再读任何 PR 的数据 ——
-//      半路死掉,没算完的提交也停在 in_progress / pending,不会留着上一次的结论;
+//   1. 列出所有开着的 PR(连读两遍一致才算数),按 head 提交分组;
+//   2. 先把每个 head 的保险丝拨到 pending(快、不靠 App),再给每个 head 发 App 占位,之后才读 PR 的数据 ——
+//      半路卡住或死掉,没算完的提交也停在 pending / in_progress,不会留着上一次的结论;
 //   3. 每个 head:把以它为 head 的 PR 全判一遍,合成一个结论写一次(App 先写,保险丝跟着)。
 //
 // 两道信号:App 检查(分支规则只认它,PR 冒充不了)+ 保险丝(GITHUB_TOKEN 发的 commit status `aiwork-gate/fuse`,
 // 不靠 App 私钥)。只有 App 自己改得动它发过的检查 —— App 私钥坏了,旧 success 就一直挂着,这时靠保险丝挡。
 // 保险丝谁有写权限的 workflow 都能拨,所以只能多挡、不能单独放行:转真拦截时两道都设为必过。
 //   · 每个提交要么写上这次算出的结论,要么保险丝 failure(App 发不出占位 / 写不回结论、策略不合法);
-//   · 连开着的 PR 都列不出来 → 不知道该挡哪些提交,至少把叫醒这次运行的那个提交的保险丝拨到 failure;
+//   · 连开着的 PR 都列不出来 → 不知道该挡哪些提交,只能把事件里带的提交(PR 的 head、运行的提交)拨到 failure;
 //   · 运行被取消或超时 → 占位停在 in_progress、保险丝停在 pending,同样挡着;下一次运行全部重算。
+// 这种"事件来了再重算"的做法本身补不死的窗口,见 README「已知限制」;硬保证要靠合并那一刻再判一次。
 
 import { collect, paginate } from "./collect.mjs";
 import { decide } from "./decide.mjs";
@@ -59,8 +60,22 @@ function combine(verdicts) {
   };
 }
 
-// 叫醒这次运行的那个提交:只在连开着的 PR 都列不出来时用
-const eventSha = (event) => event?.pull_request?.head?.sha ?? event?.workflow_run?.head_sha ?? null;
+// 事件里带的提交:只在连开着的 PR 都列不出来时用(不知道该挡哪些,至少挡住这些)
+const eventShas = (event) =>
+  [event?.pull_request?.head?.sha, event?.workflow_run?.head_sha, ...(event?.workflow_run?.pull_requests ?? []).map((p) => p?.head?.sha)]
+    .filter((sha, i, all) => typeof sha === "string" && SHA_RE.test(sha) && all.indexOf(sha) === i);
+
+// 开着的 PR 的快照。列表不是一次拍下的:翻页期间有 PR 关掉,后面的会往前挪、漏掉一个 —— 连读两遍一致才算数
+async function openPrs(api, repo) {
+  let seen = null;
+  for (let round = 0; round < 4; round++) {
+    const prs = (await paginate(api, `/repos/${repo}/pulls?state=open&per_page=100`)).map((p) => ({ number: p.number, sha: p.head?.sha }));
+    const key = JSON.stringify(prs.map((p) => [p.number, p.sha]).sort((x, y) => x[0] - y[0]));
+    if (key === seen) return prs;
+    seen = key;
+  }
+  throw new Error("开着的 PR 连读四遍都对不上(一直有 PR 在开关或推送)");
+}
 
 export async function gate({ repo, event, policy, api, poster, fuse, log = () => {} }) {
   const errors = [];
@@ -76,15 +91,13 @@ export async function gate({ repo, event, policy, api, poster, fuse, log = () =>
   // 1. 所有开着的 PR,按 head 提交分组
   const heads = new Map();
   try {
-    for (const pr of await paginate(api, `/repos/${repo}/pulls?state=open&per_page=100`)) {
-      const sha = pr.head?.sha;
-      if (typeof sha !== "string" || !SHA_RE.test(sha)) throw new Error(`PR #${pr.number} 的 head 不是提交号`);
+    for (const { number, sha } of await openPrs(api, repo)) {
+      if (typeof sha !== "string" || !SHA_RE.test(sha)) throw new Error(`PR #${number} 的 head 不是提交号`);
       if (!heads.has(sha)) heads.set(sha, []);
-      heads.get(sha).push(pr.number);
+      heads.get(sha).push(number);
     }
   } catch (e) {
-    const sha = eventSha(event);
-    if (typeof sha === "string" && SHA_RE.test(sha)) await blow(sha, "列不出开着的 PR,这个提交上的旧结论作废");
+    for (const sha of eventShas(event)) await blow(sha, "列不出开着的 PR,这个提交上的旧结论作废");
     throw e;
   }
 
@@ -95,14 +108,16 @@ export async function gate({ repo, event, policy, api, poster, fuse, log = () =>
     throw e;
   }
 
-  // 2. 先在每个 head 上占位,再读任何 PR 的数据
-  const ids = new Map();
+  // 2. 先把每个 head 的保险丝都拨到 pending,再逐个发 App 占位,之后才读 PR 的数据
   for (const sha of heads.keys()) {
     try {
       await fuse.set(sha, "pending", "重算中,算完之前不放行");
     } catch (e) {
       log(`保险丝拨不到 pending(${sha.slice(0, 7)}):${e.message};App 检查照发,算完还会再拨一次`);
     }
+  }
+  const ids = new Map();
+  for (const sha of heads.keys()) {
     try {
       ids.set(sha, await poster.start(sha));
     } catch (e) {

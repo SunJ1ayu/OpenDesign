@@ -97,13 +97,21 @@ class PingWorkflow(unittest.TestCase):
         self.assertEqual(doc["name"], "aiwork-review-ping", "关卡按这个名字监听它跑完")
 
 
-class GateReRunsOnEdit(unittest.TestCase):
-    """GPT 评审(@ e604a31)R8:只改 PR 的目标分支时 head 不变、改动文件却变了 ⇒ 要订阅 edited 重算。"""
+class EveryInputHasADoorbell(unittest.TestCase):
+    """关卡的结论是它读到的输入的函数;哪样输入变了没有门铃,旧结论就一直挂着。
+    GPT 评审(@ e604a31)R8:只改目标分支 ⇒ edited;评审 5362031164 第 5、6 条:改写评审正文、关掉同一提交上的另一个 PR。
+    CI 开跑也要敲门:同一 PR 同一提交上以最后开始的那次 CI 为准,重跑一开始 CI 就是"在跑",不再是上一次的成功。"""
 
-    def test_edited_triggers_recompute(self) -> None:
+    def test_pr_changes(self) -> None:
         types = set(_load(GATE)["on"]["pull_request_target"]["types"])
-        self.assertTrue({"opened", "synchronize", "reopened", "labeled", "edited"} <= types, types)
+        # 推送、开 / 关 / 重开、改目标分支,手动重算用的标签
+        self.assertTrue({"opened", "synchronize", "reopened", "closed", "edited", "labeled"} <= types, types)
 
+    def test_ci_start_and_finish(self) -> None:
+        self.assertTrue({"requested", "completed"} <= set(_load(GATE)["on"]["workflow_run"]["types"]))
+
+    def test_review_submit_edit_dismiss(self) -> None:
+        self.assertTrue({"submitted", "edited", "dismissed"} <= set(_load(PING)["on"]["pull_request_review"]["types"]))
 
 
 class WorkflowScriptsParse(unittest.TestCase):
