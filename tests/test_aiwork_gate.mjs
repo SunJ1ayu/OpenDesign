@@ -580,3 +580,21 @@ test("R28c 收集:从 GraphQL 取改写时间(晚于提交才算改写);REST 的
   await assert.rejects(collect(mk(short), "o/r", 10, policy), /条数对不上/);
   await assert.rejects(collect(mk(async () => { throw new Error("GraphQL:rate limited"); }), "o/r", 10, policy), /GraphQL/);
 });
+
+// ── aiwork-review[bot] 评审(PR #10 review 5362839443,@ 224f338)────────────────────────────────
+// 正文结论行和结论块是同一个结论的两种写法。以前只认正文写 BLOCK 为矛盾:结论块 PASS、正文写 NEEDS_MORE_INFO
+// (评审说信息不足)照样算合格 PASS。现在两处必须一样,有一行不一样就按 BLOCK。
+test("R29 正文结论行和结论块不一样(哪怕不是写 BLOCK)→ 按 BLOCK;一样才可能算 PASS", () => {
+  const withLine = (id, ...lines) => {
+    const r = review({ id });
+    r.body = `**aiwork-review · subcodex · gpt-x**\n\n${lines.join("\n\n")}\n\n${r.body}`;
+    return r;
+  };
+  for (const line of ["Conclusion: NEEDS_MORE_INFO", "Conclusion: UNKNOWN", "**Conclusion:** needs_more_info"]) {
+    blocked(run({ reviews: [withLine(4, line)] }), "G5");
+  }
+  blocked(run({ reviews: [withLine(4, "Conclusion: PASS", "Conclusion: BLOCK")] }), "G5");
+  assert.equal(run({ reviews: [withLine(4, "Conclusion: PASS")] }).conclusion, "success", "对照:两处都是 PASS");
+  assert.equal(run({ reviews: [withLine(4, "**Conclusion:** Pass")] }).conclusion, "success", "对照:加粗、大小写不同照样认");
+  assert.equal(run({ reviews: [withLine(4, "评审提到 Conclusion: BLOCK 的写法(不在行首)")] }).conclusion, "success", "对照:不在行首的不算结论行");
+});

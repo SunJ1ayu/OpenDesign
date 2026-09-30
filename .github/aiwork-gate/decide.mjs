@@ -17,8 +17,10 @@ const SHA_RE = /^[0-9a-f]{40}$/;
 const VERDICTS = new Set(["PASS", "BLOCK", "NEEDS_MORE_INFO", "UNKNOWN"]);
 const COMPLETENESS = new Set(["complete", "partial", "none"]);
 const FAMILY_RE = /^[a-z][a-z0-9-]*$/;
-// review-pr 的正文里有一行独占的 `Conclusion: …`(评审腿的原话);它写 BLOCK 而结论块不是 BLOCK,就是自相矛盾
-const CONCLUSION_BLOCK_RE = /^[\s>*_#-]*Conclusion\s*[:：]\s*[*_]*\s*BLOCK\b/im;
+// review-pr 的正文里有一行独占的 `Conclusion: …`(评审腿的原话),和结论块的 verdict 是同一个结论的两种写法:
+// 每一行结论行都得和结论块一样,有一行不一样就是自相矛盾
+const CONCLUSION_LINE_RE = /^[\s>*_#-]*Conclusion\s*[:：]\s*[*_]*\s*([A-Za-z_]+)/gim;
+const conclusionLines = (body) => [...String(body ?? "").matchAll(CONCLUSION_LINE_RE)].map((m) => m[1].toUpperCase());
 
 export function globToRegExp(pattern) {
   let re = "";
@@ -85,7 +87,8 @@ function blockReason(r, p) {
   if (r.state === "CHANGES_REQUESTED") return "";
   if (!p.ok) return `看不懂:${p.why}`;
   if (p.value.verdict === "BLOCK") return "";
-  if (CONCLUSION_BLOCK_RE.test(r.body ?? "")) return "正文结论行写的是 BLOCK";
+  const off = conclusionLines(r.body).find((c) => c !== p.value.verdict);
+  if (off) return `正文结论行写的是 ${off},结论块是 ${p.value.verdict}`;
   return null;
 }
 
