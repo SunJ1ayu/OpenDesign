@@ -142,5 +142,5 @@
 |---|---|
 | `review-pr`(本机) | 每次评审前从 PR 所在仓库的 main 上读本文件 + `.aiwork/accepted-risks.md`,放进给评审模型的任务书 |
 | `.aiwork/accepted-risks.md` | 业主已接受的风险;在 `.aiwork/` 下,属于判卷面:改它要业主批准,Builder 自己加不进去 |
-| `AGENTS.md` / `CLAUDE.md` | `AGENTS.md` 只写一句"处理评审按 `.aiwork/review-rules.md`",不抄内容;`CLAUDE.md` 只导入 `AGENTS.md` |
+| `AGENTS.md` / `CLAUDE.md` | `AGENTS.md` 只写一句"处理评审按 `.aiwork/review-rules.md`",不抄内容;`CLAUDE.md` 只导入 `AGENTS.md`。它们也在判卷面里,改了要业主批准 |
 | OpenClaw(阶段 E) | `AGENT.md` 引用本文件;负责数轮数、到第 3 轮就把说明交给业主;派活时按概念分,同一概念不同时派给两个 PR;等一轮的腿都审完再让修改方动手 |
