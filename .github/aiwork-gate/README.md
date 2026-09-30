@@ -6,7 +6,7 @@
 |---|---|
 | `collect.mjs` | 只读 GitHub API 收集事实;出错、分页没取完、条数对不上一律抛错(G8) |
 | `decide.mjs` | 纯判定,不碰网络(G1–G7) |
-| `run.mjs` | 流程:校验策略(不合法就只把保险丝拨到 failure)→ 拨保险丝、发占位 → 读 → 判 → 写回;任何一步出错都把占位 / 保险丝改成 failure |
+| `run.mjs` | 流程,只守一件事:一个提交上的结论 = 以它为 head 的所有开着的 PR 的结论合在一起,读不全就不放行。事件提交先占位 → 定涉及的 PR → 读各 PR 当前 head → 每个 head 把它上面的 PR 全判一遍、写一次 → 事件提交已不是 head 就判 failure |
 | `main.mjs` | 接线:真实 API、`aiwork-gate` App 令牌、发 / 改检查、用 `GITHUB_TOKEN` 拨保险丝 |
 | `../../.aiwork/policy.json` | 策略:判卷面、high 路径、Builder、评审 App、检查名、App ID |
 

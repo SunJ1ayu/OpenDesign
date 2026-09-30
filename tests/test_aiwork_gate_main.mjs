@@ -40,6 +40,7 @@ function fakeGitHub(opts = {}) {
       if (u.startsWith("/repos/o/r/actions/runs")) return send(200, { workflow_runs: [{ id: 1, path: ".github/workflows/ci.yml", head_sha: HEAD, status: "completed", conclusion: "success", pull_requests: [{ number: 10 }] }] });
       if (u.startsWith("/repos/o/r/activity")) return send(200, [{ id: 1, timestamp: "t", activity_type: "push", after: HEAD, actor: { login: "SunJ1ayuBoT" } }]);
       if (u.startsWith("/repos/o/r/issues/10/events")) return send(200, []);
+      if (u.startsWith(`/repos/o/r/commits/${HEAD}/pulls`)) return send(200, [{ number: 10, state: "open", head: { sha: HEAD } }]);
       send(404, { message: `fake: no route ${u}` });
     });
   });

@@ -38,6 +38,7 @@ function goodApi(calls, over = {}) {
       if (p.includes("/actions/runs")) return { data: { workflow_runs: [{ id: 1, path: ".github/workflows/ci.yml", head_sha: HEAD, status: "completed", conclusion: "success", pull_requests: [{ number: 10 }] }] }, next: null };
       if (p.includes("/activity")) return { data: [{ id: 1, timestamp: "t", activity_type: "push", after: HEAD, actor: { login: "SunJ1ayuBoT" } }], next: null };
       if (p.includes("/issues/10/events")) return { data: [], next: null };
+      if (p.includes(`/commits/${HEAD}/pulls`)) return { data: [prObj()], next: null };
       throw new Error(`没料到的请求 ${p}`);
     },
   };

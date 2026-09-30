@@ -1,18 +1,23 @@
-// aiwork 放行关卡的流程:校验策略 → 先占位 → 读数据 → 判 → 写回结论。网络与 App 令牌由 main.mjs 注入。
+// aiwork 放行关卡的流程。网络与 App 令牌由 main.mjs 注入;判定在 decide.mjs,读数据在 collect.mjs。
 //
-// 失败处理的原则:head 上**任何时候都不能留着一条过时的 success**。
-//   · 两道信号:App 发的检查(分支规则只认它,PR 冒充不了)+ 保险丝(GITHUB_TOKEN 发的 commit status
-//     `aiwork-gate/fuse`,不靠 App 私钥)。只有 App 自己改得动它发的检查 —— App 私钥坏了,旧 success 就一直挂着,
-//     这时靠保险丝挡。保险丝谁有写权限的 workflow 都能拨,所以它只能多挡、不能单独放行:转真拦截时两道都设为必过;
-//   · 策略不全(比如缺 App ID)→ 不读数据、不发检查,把事件里那个提交的保险丝拨到 failure,抛错;
-//   · 占位:能从事件本身知道提交号时,先把那个提交的保险丝拨到 pending,再发一条 in_progress 的 App 检查
-//     把旧结论压掉,再去读 API;App 检查发不出去(私钥坏了)→ 保险丝 failure,抛错,不读数据;
-//   · 之后任何一步出错(查 PR 号、读 PR、收集、判定)→ 把占位改成 failure(G8);事件里的提交已不是 head 时,
-//     当前 head 也判 G8 failure;App 写不回 → 保险丝 failure;
-//   · App 把结论写回之后,保险丝才跟着结论走(success / failure / pending);
-//   · 运行被取消或超时 → 占位停在 in_progress、保险丝停在 pending,同样挡着,不会被当成通过;
-//   · 检查和保险丝都挂在**提交**上,而同一提交可能同时是几个开着的 PR 的 head(目标分支不同 ⇒ 改动、要求都不同):
-//     要写 success 之前,把这个提交上其他开着的 PR 也判一遍,全都放行才放行(不然能专门开个 PR 来"借"放行)。
+// 只守一件事:**一个提交上的结论 = 以它为 head 的所有开着的 PR 的结论合在一起;读不全就不放行。**
+// 检查和保险丝都挂在提交上,不是 PR 上(同一提交可以是几个 PR 的 head,目标分支不同 ⇒ 改动、要求都不同)。
+//
+// 一次运行:
+//   1. 在事件的提交上先占位(保险丝 pending + App 检查 in_progress),压掉旧结论,再去读任何数据;
+//   2. 定下涉及哪些 PR:事件带了就用,没带就按提交、再按分支查;
+//   3. 读每个 PR 当前的 head;
+//   4. 每个 head 提交:把以它为 head 的开着的 PR 全判一遍,合成一个结论,写一次;
+//   5. 事件的提交若已不是任何开着的 PR 的 head(PR 推进了 / 关了),它上面判 failure。
+// 任何一步读不全 → 那个提交判 G8 failure;连 PR 都读不到,就无从知道当前 head,只能在事件的提交上判。
+//
+// 两道信号:App 检查(分支规则只认它,PR 冒充不了)+ 保险丝(GITHUB_TOKEN 发的 commit status `aiwork-gate/fuse`,
+// 不靠 App 私钥)。只有 App 自己改得动它发过的检查 —— App 私钥坏了,旧 success 就一直挂着,这时靠保险丝挡。
+// 保险丝谁有写权限的 workflow 都能拨,所以只能多挡、不能单独放行:转真拦截时两道都设为必过。
+//   · 占位:先拨保险丝(不靠 App 私钥),再发 App 检查;App 发不出去 → 保险丝 failure,抛错,不读数据;
+//   · 写回:App 先写结论,保险丝再跟着结论走;App 写不回 → 保险丝 failure;
+//   · 策略不合法 → 不读数据、不发检查,只把事件提交的保险丝拨到 failure;
+//   · 运行被取消或超时 → 占位停在 in_progress、保险丝停在 pending,同样挡着。
 
 import { collect, paginate } from "./collect.mjs";
 import { decide } from "./decide.mjs";
@@ -35,49 +40,38 @@ const fuseState = (r) => (r.status !== "completed" ? "pending" : r.conclusion ==
 
 const PR_EVENTS = new Set(["pull_request", "pull_request_review", "pull_request_target"]);
 
-// 从事件本身拿"判哪个 PR、哪个提交",不发请求。lookupSha:事件没带 PR 号,要按提交号(再按分支)去查。
+// 从事件本身拿"哪个提交、哪些 PR",不发请求。numbers 为空时,要按提交(再按分支 lookupHead)去查。
 export function targetsFromEvent(eventName, event) {
   if (eventName === "pull_request_target") {
-    return { targets: [{ number: event.pull_request.number, sha: event.pull_request.head.sha }], lookupSha: null, skip: null };
+    return { sha: event.pull_request.head.sha, numbers: [event.pull_request.number], lookupHead: null, skip: null };
   }
   if (eventName === "workflow_run") {
     const run = event.workflow_run;
-    if (!PR_EVENTS.has(run.event)) return { targets: [], lookupSha: null, skip: `触发它的是 ${run.event},与 PR 无关` };
-    const listed = (run.pull_requests ?? []).map((p) => ({ number: p.number, sha: run.head_sha }));
-    if (listed.length) return { targets: listed, lookupSha: null, skip: null };
+    if (!PR_EVENTS.has(run.event)) return { sha: null, numbers: [], lookupHead: null, skip: `触发它的是 ${run.event},与 PR 无关` };
     const owner = run.head_repository?.owner?.login;
     const lookupHead = owner && run.head_branch ? `${owner}:${run.head_branch}` : null;
-    return { targets: [], lookupSha: run.head_sha, lookupHead, skip: null };
+    return { sha: run.head_sha, numbers: (run.pull_requests ?? []).map((p) => p.number), lookupHead, skip: null };
   }
-  return { targets: [], lookupSha: null, skip: `不支持的事件 ${eventName}` };
-}
-
-// 这个提交上其他开着的 PR 也判一遍;有一个不放行就不放行,有一个在等 CI 就等。本身已是 failure 的不用再查。
-async function combineWithSiblings({ api, repo, policy }, result, head, number) {
-  if (result.status === "completed" && result.conclusion !== "success") return result;
-  const siblings = (await paginate(api, `/repos/${repo}/commits/${head}/pulls?per_page=100`))
-    .filter((p) => p.state === "open" && p.head?.sha === head && p.number !== number);
-  if (!siblings.length) return result;
-  const others = [];
-  for (const p of siblings) {
-    const facts = await collect(api, repo, p.number, policy);
-    if (facts.pr.state !== "open" || facts.pr.head_sha !== head) continue; // 这期间关了 / 推进了,已不在这个提交上
-    others.push({ number: p.number, r: decide(facts, policy) });
-  }
-  if (!others.length) return result;
-  const list = others.map((o) => `- PR #${o.number}:${o.r.title}`).join("\n");
-  const summary = `${result.summary}\n\n---\n同一提交上还有开着的 PR(检查挂在提交上,全都放行才放行):\n${list}`;
-  const bad = others.find((o) => o.r.status === "completed" && o.r.conclusion !== "success");
-  if (bad) return { status: "completed", conclusion: "failure", title: `不放行:同一提交上的 PR #${bad.number} ${bad.r.title}`, summary };
-  const waiting = others.find((o) => o.r.status !== "completed");
-  if (result.status !== "completed") return { ...result, summary };
-  if (waiting) return { status: "in_progress", conclusion: null, title: `等同一提交上的 PR #${waiting.number}:${waiting.r.title}`, summary };
-  return { ...result, summary };
+  return { sha: null, numbers: [], lookupHead: null, skip: `不支持的事件 ${eventName}` };
 }
 
 const g8 = (message) => ({ status: "completed", conclusion: "failure", title: "不放行:数据不全(G8)", summary: `读 GitHub 数据出错,按失败处理:\n\n${message}` });
-const closed = (number) => ({ status: "completed", conclusion: "failure", title: `PR #${number} 已不是 open,不判`, summary: "PR 已关闭或已合并。" });
-const moved = (head) => ({ status: "completed", conclusion: "failure", title: "这个提交已不是 PR 的 head", summary: `PR 已推进到 \`${head}\`,结论在那个提交上。` });
+const notHead = { status: "completed", conclusion: "failure", title: "这个提交已不是任何开着的 PR 的 head", summary: "PR 已推进或已关闭;结论在各 PR 当前的 head 上。" };
+
+// 几个 PR 的结论合成一个:有一个不放行就不放行,有一个在等就等,全都放行才放行。
+function combine(verdicts) {
+  if (verdicts.length === 1) return verdicts[0].r;
+  const pick =
+    verdicts.find((v) => v.r.status === "completed" && v.r.conclusion !== "success") ??
+    verdicts.find((v) => v.r.status !== "completed") ??
+    verdicts[0];
+  const list = verdicts.map((v) => `- PR #${v.number}:${v.r.title}`).join("\n");
+  return {
+    ...pick.r,
+    title: `PR #${pick.number}:${pick.r.title}`,
+    summary: `${pick.r.summary}\n\n---\n这个提交是 ${verdicts.length} 个开着的 PR 的 head(检查挂在提交上,全都放行才放行):\n${list}`,
+  };
+}
 
 export async function gate({ repo, eventName, event, policy, api, poster, fuse, log = () => {} }) {
   const plan = targetsFromEvent(eventName, event);
@@ -94,22 +88,25 @@ export async function gate({ repo, eventName, event, policy, api, poster, fuse, 
       log(`保险丝也拨不动(${sha.slice(0, 7)}):${e.message}`);
     }
   };
-  const start = async (sha) => {
+  const ids = new Map();
+  const placeholder = async (sha) => {
+    if (ids.has(sha)) return ids.get(sha);
     try {
       await fuse.set(sha, "pending", "重算中,算完之前不放行");
     } catch (e) {
       log(`保险丝拨不到 pending(${sha.slice(0, 7)}):${e.message};App 检查照发,最后还会再拨一次`);
     }
     try {
-      return await poster.start(sha);
+      ids.set(sha, await poster.start(sha));
     } catch (e) {
       await blow(sha, "关卡 App 发不出检查,这个提交上的旧结论作废");
       throw e;
     }
+    return ids.get(sha);
   };
-  const finish = async (sha, result, id) => {
+  const finish = async (sha, result) => {
     try {
-      await poster.finish(sha, result, id);
+      await poster.finish(sha, result, ids.get(sha));
     } catch (e) {
       await blow(sha, "关卡 App 写不回结论,这个提交上的旧结论作废");
       throw e;
@@ -120,86 +117,77 @@ export async function gate({ repo, eventName, event, policy, api, poster, fuse, 
   try {
     validatePolicy(policy);
   } catch (e) {
-    for (const sha of new Set([...plan.targets.map((t) => t.sha), plan.lookupSha].filter(Boolean))) {
-      await blow(sha, "关卡策略不合法,这个提交上的旧结论作废");
-    }
+    await blow(plan.sha, "关卡策略不合法,这个提交上的旧结论作废");
     throw e;
   }
 
-  let targets = [];
-  for (const t of plan.targets) targets.push({ ...t, id: await start(t.sha) });
+  // 1. 先在事件的提交上占位
+  await placeholder(plan.sha);
 
-  if (plan.lookupSha) {
-    // 这个提交可能已不是 PR 的 head(评审后又推了、或是合并提交):不要求它等于 head,
-    // 查到的每个开着的 PR 都在它**当前** head 上重算(下面的循环会把旧提交判 failure)
-    const id = await start(plan.lookupSha);
-    let prs;
+  // 2. 涉及哪些 PR
+  let numbers = plan.numbers;
+  if (!numbers.length) {
     try {
-      prs = await api.get(`/repos/${repo}/commits/${plan.lookupSha}/pulls`);
-      if (!Array.isArray(prs)) throw new Error("返回的不是列表");
+      const prs = await api.get(`/repos/${repo}/commits/${plan.sha}/pulls`);
+      if (!Array.isArray(prs)) throw new Error("按提交查 PR 返回的不是列表");
       if (plan.lookupHead) {
         const byBranch = await api.get(`/repos/${repo}/pulls?state=open&head=${encodeURIComponent(plan.lookupHead)}&per_page=100`);
         if (!Array.isArray(byBranch)) throw new Error("按分支查 PR 返回的不是列表");
-        prs = [...prs, ...byBranch];
+        prs.push(...byBranch);
       }
+      numbers = [...new Set(prs.filter((p) => p.state === "open").map((p) => p.number))];
     } catch (e) {
-      await finish(plan.lookupSha, g8(`按提交号 / 分支查 PR 失败:${e.message}`), id);
+      await finish(plan.sha, g8(`按提交号 / 分支查 PR 失败:${e.message}`));
       return [];
     }
-    const open = [...new Map(prs.filter((p) => p.state === "open").map((p) => [p.number, p])).values()];
-    if (!open.length) {
-      await finish(plan.lookupSha, { status: "completed", conclusion: "failure", title: "这个提交 / 分支没有开着的 PR", summary: "" }, id);
-      return [];
-    }
-    targets = open.map((p, i) => ({ number: p.number, sha: plan.lookupSha, id: i === 0 ? id : null }));
-    for (const t of targets) if (t.id === null) t.id = await start(t.sha);
   }
 
-  const results = [];
-  for (const t of targets) {
-    let facts;
+  // 3. 每个 PR 当前的 head
+  const heads = new Map();
+  let readError = null;
+  for (const n of numbers) {
     try {
-      facts = await collect(api, repo, t.number, policy);
+      const pr = await api.get(`/repos/${repo}/pulls/${n}`);
+      if (pr?.state !== "open") continue;
+      const head = pr.head?.sha;
+      if (typeof head !== "string" || !SHA_RE.test(head)) throw new Error("head 不是提交号");
+      if (!heads.has(head)) heads.set(head, new Set());
+      heads.get(head).add(n);
     } catch (e) {
-      await finish(t.sha, g8(e.message), t.id);
-      // 事件里的提交可能已不是 head:再单独读一次 PR,当前 head 上的旧结论也压成 failure。
-      // PR 本身都读不到时无从知道当前 head,只能等下一次事件重算
-      let head = null;
-      try {
-        head = (await api.get(`/repos/${repo}/pulls/${t.number}`))?.head?.sha ?? null;
-      } catch (e2) {
-        log(`读不到 PR #${t.number} 的当前 head:${e2.message}`);
-      }
-      if (typeof head === "string" && SHA_RE.test(head) && head !== t.sha) {
-        await finish(head, g8(e.message), await start(head));
-      }
-      results.push({ number: t.number, sha: t.sha, title: g8("").title });
-      continue;
+      readError ??= `读 PR #${n} 失败:${e.message}`;
     }
-    if (facts.pr.state !== "open") {
-      await finish(t.sha, closed(t.number), t.id);
-      continue;
-    }
+  }
+
+  // 4. 每个 head 提交:以它为 head 的开着的 PR 全判一遍,写一次
+  const results = [];
+  for (const [head, known] of heads) {
+    await placeholder(head);
     let result;
     try {
-      result = decide(facts, policy);
+      const listed = await paginate(api, `/repos/${repo}/commits/${head}/pulls?per_page=100`);
+      const all = new Set([...known, ...listed.filter((p) => p.state === "open" && p.head?.sha === head).map((p) => p.number)]);
+      const verdicts = [];
+      for (const n of all) {
+        const facts = await collect(api, repo, n, policy);
+        if (facts.pr.state !== "open" || facts.pr.head_sha !== head) continue; // 算的时候已关闭 / 推进
+        let r;
+        try {
+          r = decide(facts, policy);
+        } catch (e) {
+          r = g8(`判定出错:${e.message}`);
+        }
+        verdicts.push({ number: n, r });
+      }
+      result = verdicts.length ? combine(verdicts) : notHead;
     } catch (e) {
-      result = g8(`判定出错:${e.message}`);
+      result = g8(e.message);
     }
-    const head = facts.pr.head_sha;
-    try {
-      result = await combineWithSiblings({ api, repo, policy }, result, head, t.number);
-    } catch (e) {
-      result = g8(`判同一提交上的其他 PR 时出错:${e.message}`);
-    }
-    if (head === t.sha) {
-      await finish(head, result, t.id);
-    } else {
-      await finish(t.sha, moved(head), t.id);
-      await finish(head, result, await start(head));
-    }
-    log(`PR #${t.number} @ ${head.slice(0, 7)}:${result.title}\n${result.summary}`);
-    results.push({ number: t.number, sha: head, title: result.title, summary: result.summary });
+    await finish(head, result);
+    log(`${head.slice(0, 7)}:${result.title}\n${result.summary}`);
+    results.push({ sha: head, title: result.title, summary: result.summary });
   }
+
+  // 5. 事件的提交已不是任何开着的 PR 的 head
+  if (!heads.has(plan.sha)) await finish(plan.sha, readError ? g8(readError) : notHead);
   return results;
 }
