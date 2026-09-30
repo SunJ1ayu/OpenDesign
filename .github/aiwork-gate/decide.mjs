@@ -87,7 +87,10 @@ function blockReason(r, p) {
   return null;
 }
 
-const byTime = (a, b) => (a.submitted_at < b.submitted_at ? -1 : a.submitted_at > b.submitted_at ? 1 : a.id - b.id);
+// 一条人的评审只有一个生效时刻:被撤销的是撤销那一刻(缺撤销时间就当它在最后,之前的批准豁免不了),
+// 其余是提交那一刻。选"最后一次表态"和比"批准是否晚于 BLOCK"都用它。
+const effectiveAt = (r) => (r.state === "DISMISSED" ? r.dismissed_at || "9999-12-31T23:59:59Z" : r.submitted_at);
+const byTime = (a, b) => (effectiveAt(a) < effectiveAt(b) ? -1 : effectiveAt(a) > effectiveAt(b) ? 1 : a.id - b.id);
 
 // 除 aiwork-review 以外,每个评审人在当前 head 上最后一次表态(COMMENTED 不算表态)。
 function stancesOnHead(reviews, policy, head) {
@@ -173,9 +176,7 @@ export function decide(facts, policy) {
   const ownerLast = [...stances.values()].find((r) => r.login === policy.owner && r.type === "User") ?? null;
   for (const [login, r] of stances) {
     if (login === policy.owner || r.state === "APPROVED") continue;
-    // 被撤销的评审,反对的时刻是撤销那一刻;缺撤销时间就当它在最后(之前的批准豁免不了)
-    const at = r.state === "DISMISSED" ? r.dismissed_at || "9999-12-31T23:59:59Z" : r.submitted_at;
-    blocks.push({ id: r.id, at, family: "评审人", model: `${login}${r.state === "DISMISSED" ? "(被撤销的评审)" : " 要求修改"}` });
+    blocks.push({ id: r.id, at: effectiveAt(r), family: "评审人", model: `${login}${r.state === "DISMISSED" ? "(被撤销的评审)" : " 要求修改"}` });
   }
 
   // G3
@@ -206,7 +207,7 @@ export function decide(facts, policy) {
   // G7
   const approved = ownerLast?.state === "APPROVED";
   const ownerObjects = ownerLast !== null && !approved;
-  const stance = { at: ownerLast?.submitted_at ?? "" };
+  const stance = { at: ownerLast ? effectiveAt(ownerLast) : "" };
   const lastBlockAt = blocks.map((b) => b.at).sort().at(-1) ?? "";
   // 批准要晚于最后一条 BLOCK:业主批准时还没看到的 BLOCK,不能被那次批准豁免
   const blockWaived = approved && stance.at > lastBlockAt;
@@ -226,7 +227,7 @@ export function decide(facts, policy) {
     if (!ciOk) return pending ? "等 CI" : baseMoved ? "不放行:目标分支改过,CI 要在新目标上重跑" : "不放行:CI 没通过";
     if (!reviewOk) return "不放行:缺合格评审";
     if (!highOk) return "不放行:high 路径要两家不同模型都 PASS";
-    if (ownerObjects) return "不放行:业主要求修改";
+    if (ownerObjects) return ownerLast.state === "DISMISSED" ? "不放行:业主的评审被撤销了,要业主重新表态" : "不放行:业主要求修改";
     if (!ownerOk) return `等业主批准:${needOwner.join("、")}`;
     return "放行";
   })();

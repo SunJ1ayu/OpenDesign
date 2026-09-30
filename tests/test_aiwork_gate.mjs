@@ -484,3 +484,21 @@ test("R19b 收集:从 PR 事件里取每条被撤销评审的撤销时间;人的
   assert.equal(f.reviews.find((r) => r.id === 51).dismissed_at, null);
   await assert.rejects(collect(mk([]), "o/r", 10, policy), /撤销/);
 });
+
+// ── aiwork-review[bot] 评审(PR #10 review 5360910945,@ cfd348a)─────────────────────────────────
+// 同一个人先后两次表态,早的那条在批准之后才被撤销:以前"最后表态"按提交时间选,选中批准,撤销被忽略。
+// 一条评审只有一个生效时刻(被撤销的 = 撤销那一刻),选最后表态和比先后都用它。
+test("R21 同一人:10:00 评审、11:00 批准、12:00 早的那条被撤销 → 最后表态是撤销(反对);业主本人同样", () => {
+  const at = (h) => `2026-09-29T${h}:00:00Z`;
+  const early = (login, id, dismissedAt) => ({ ...human(login, "DISMISSED", at("10"), id), dismissed_at: dismissedAt });
+  // 其他评审人
+  const other = [early("someone", 50, at("12")), human("someone", "APPROVED", at("11"), 51)];
+  blocked(run({ reviews: [review({}), ...other, approve(HEAD, at("11"))] }), "G7");
+  assert.equal(run({ reviews: [review({}), ...other, approve(HEAD, at("13"))] }).conclusion, "success", "业主在撤销之后批准 ⇒ 放行");
+  // 对照:早的那条在批准之前就被撤销 ⇒ 最后表态是批准
+  assert.equal(run({ reviews: [review({}), early("someone", 50, at("10")), human("someone", "APPROVED", at("11"), 51)] }).conclusion, "success");
+  // 业主本人:10:00 的评审 12:00 被撤销,11:00 的批准不再算数
+  const owner = [{ ...approve(HEAD, at("10"), "DISMISSED"), id: 90, dismissed_at: at("12") }, { ...approve(HEAD, at("11")), id: 91 }];
+  blocked(run({ files: [".github/workflows/ci.yml"], reviews: [review({}), ...owner] }), "G7");
+  assert.equal(run({ files: [".github/workflows/ci.yml"], reviews: [review({}), ...owner, { ...approve(HEAD, at("13")), id: 92 }] }).conclusion, "success");
+});
