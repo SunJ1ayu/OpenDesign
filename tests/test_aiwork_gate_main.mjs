@@ -20,6 +20,7 @@ const PEM = privateKey.export({ type: "pkcs8", format: "pem" });
 
 function fakeGitHub(opts = {}) {
   const log = [];
+  const check = { id: 4242, name: policy.check_name, app: { id: policy.gate_app_id }, head_sha: HEAD, status: null, conclusion: null, output: null }; // 发了才有
   const server = createServer((req, res) => {
     let body = "";
     req.on("data", (c) => (body += c));
@@ -30,8 +31,9 @@ function fakeGitHub(opts = {}) {
       const u = req.url;
       if (u === "/repos/o/r/installation") return send(200, { id: 777 });
       if (u === "/app/installations/777/access_tokens") return send(201, { token: "ghs_fake_app_token" });
-      if (u === "/repos/o/r/check-runs" && req.method === "POST") return send(201, { id: 4242 });
-      if (u.startsWith("/repos/o/r/check-runs/") && req.method === "PATCH") return send(200, { id: 4242 });
+      if (u === "/repos/o/r/check-runs" && req.method === "POST") return send(201, Object.assign(check, JSON.parse(body)));
+      if (u.startsWith("/repos/o/r/check-runs/") && req.method === "PATCH") return send(200, Object.assign(check, JSON.parse(body)));
+      if (u.startsWith(`/repos/o/r/commits/${HEAD}/check-runs?`)) return send(200, check.status ? { total_count: 1, check_runs: [check] } : { total_count: 0, check_runs: [] });
       if (u.startsWith("/repos/o/r/statuses/") && req.method === "POST") return send(201, { id: 1 });
       if (opts.prFails && u === "/repos/o/r/pulls/10") return send(502, { message: "bad gateway" });
       if (u === "/repos/o/r/pulls/10") return send(200, { number: 10, state: "open", changed_files: 1, head: { sha: HEAD, ref: "claude/x", repo: { full_name: "o/r" } }, base: { ref: "main" } });

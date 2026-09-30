@@ -1,21 +1,25 @@
 // aiwork 放行关卡的流程。网络与 App 令牌由 main.mjs 注入;判定在 decide.mjs,读数据在 collect.mjs。
 //
-// 只守一件事:**一个提交上的结论 = 以它为 head 的所有开着的 PR 的结论合在一起;读不全就不放行。**
+// 只守两件事:
+//   · **一个提交上的结论 = 以它为 head 的所有开着的 PR 的结论合在一起;读不全就不放行。**
+//   · **一个提交上以最新的那条关卡检查为准。** 每次运行先在提交上占位(新的一条检查),再读数据 ⇒ 最新那条
+//     检查背后的数据也最新。GitHub 对同名检查只认最新的一条;保险丝也照这一条走,不看"谁最后写"——
+//     几次运行同时算同一个提交(并发组按事件分,管不住运行时才知道的 head),慢一步的旧运行写完也盖不掉新结论。
 // 检查和保险丝都挂在提交上,不是 PR 上(同一提交可以是几个 PR 的 head,目标分支不同 ⇒ 改动、要求都不同)。
 //
 // 一次运行:
 //   1. 在事件的提交上先占位(保险丝 pending + App 检查 in_progress),压掉旧结论,再去读任何数据;
 //   2. 定下涉及哪些 PR:事件带了就用,没带就按提交、再按分支查;
-//   3. 读每个 PR 当前的 head;
-//   4. 每个 head 提交:把以它为 head 的开着的 PR 全判一遍,合成一个结论,写一次;
-//   5. 事件的提交若已不是任何开着的 PR 的 head(PR 推进了 / 关了),它上面判 failure。
-// 任何一步读不全 → 那个提交判 G8 failure;连 PR 都读不到,就无从知道当前 head,只能在事件的提交上判。
+//   3. 读每个 PR 当前的 head(读不到就按事件说的算:还在事件的提交上);
+//   4. 涉及的每个提交(事件的提交 + 各 PR 当前的 head):把以它为 head 的开着的 PR 全判一遍,合成一个结论写一次;
+//      一个都没有(PR 推进了 / 关了)→ 它上面判 failure。
+// 任何一步读不全 → 那个提交判 G8 failure。
 //
 // 两道信号:App 检查(分支规则只认它,PR 冒充不了)+ 保险丝(GITHUB_TOKEN 发的 commit status `aiwork-gate/fuse`,
 // 不靠 App 私钥)。只有 App 自己改得动它发过的检查 —— App 私钥坏了,旧 success 就一直挂着,这时靠保险丝挡。
 // 保险丝谁有写权限的 workflow 都能拨,所以只能多挡、不能单独放行:转真拦截时两道都设为必过。
 //   · 占位:先拨保险丝(不靠 App 私钥),再发 App 检查;App 发不出去 → 保险丝 failure,抛错,不读数据;
-//   · 写回:App 先写结论,保险丝再跟着结论走;App 写不回 → 保险丝 failure;
+//   · 写回:App 先写结论,保险丝再跟这个提交上最新的那条检查;App 写不回 / 读不回 → 保险丝 failure;
 //   · 策略不合法 → 不读数据、不发检查,只把事件提交的保险丝拨到 failure;
 //   · 运行被取消或超时 → 占位停在 in_progress、保险丝停在 pending,同样挡着。
 
@@ -106,14 +110,34 @@ export async function gate({ repo, eventName, event, policy, api, poster, fuse, 
     }
     return ids.get(sha);
   };
+  // 这个提交上最新的那条关卡检查:本 App、本检查名里 id 最大的。自己那条一定在(列表慢半拍也算上它)
+  const latestCheck = async (sha, mine) => {
+    const runs = await paginate(api, `/repos/${repo}/commits/${sha}/check-runs?check_name=${encodeURIComponent(policy.check_name)}&app_id=${policy.gate_app_id}&filter=all&per_page=100`, "check_runs");
+    const newer = runs.filter((r) => r.app?.id === policy.gate_app_id && r.name === policy.check_name && r.id > mine.id);
+    if (!newer.length) return mine;
+    const c = newer.reduce((x, y) => (y.id > x.id ? y : x));
+    return { id: c.id, state: fuseState(c), title: c.output?.title ?? "" };
+  };
+  // 保险丝跟最新的那条检查走;拨完再看一眼,最新那条在这期间变了(更新的运行占了位 / 写回了)就再跟一次
+  const follow = async (sha, result) => {
+    const mine = { id: ids.get(sha), state: fuseState(result), title: result.title };
+    let seen = null;
+    for (let round = 0; round < 10; round++) {
+      const now = await latestCheck(sha, mine);
+      if (seen && now.id === seen.id && now.state === seen.state) return;
+      await fuse.set(sha, now.state, now.title);
+      seen = now;
+    }
+    throw new Error(`提交 ${sha.slice(0, 7)} 上的关卡检查一直在变,保险丝跟不上`);
+  };
   const finish = async (sha, result) => {
     try {
       await poster.finish(sha, result, ids.get(sha));
+      await follow(sha, result);
     } catch (e) {
-      await blow(sha, "关卡 App 写不回结论,这个提交上的旧结论作废");
+      await blow(sha, "关卡检查写不回 / 读不回,这个提交上的旧结论作废");
       throw e;
     }
-    await fuse.set(sha, fuseState(result), result.title);
   };
 
   try {
@@ -139,34 +163,34 @@ export async function gate({ repo, eventName, event, policy, api, poster, fuse, 
     }
   }
 
-  // 3. 每个 PR 当前的 head
-  const heads = new Map();
-  let readError = null;
+  // 3. 每个 PR 当前的 head;读不到就按事件说的算(还在事件的提交上),第 4 步收集时再读不到就是 G8
+  const commits = new Map([[plan.sha, new Set()]]);
   for (const n of numbers) {
+    let head = plan.sha;
     try {
       const pr = await api.get(`/repos/${repo}/pulls/${n}`);
       if (pr?.state !== "open") continue;
-      const head = pr.head?.sha;
-      if (typeof head !== "string" || !SHA_RE.test(head)) throw new Error("head 不是提交号");
-      if (!heads.has(head)) heads.set(head, new Set());
-      heads.get(head).add(n);
+      if (typeof pr.head?.sha !== "string" || !SHA_RE.test(pr.head.sha)) throw new Error("head 不是提交号");
+      head = pr.head.sha;
     } catch (e) {
-      readError ??= `读 PR #${n} 失败:${e.message}`;
+      log(`读 PR #${n} 失败,按事件的提交算:${e.message}`);
     }
+    if (!commits.has(head)) commits.set(head, new Set());
+    commits.get(head).add(n);
   }
 
-  // 4. 每个 head 提交:以它为 head 的开着的 PR 全判一遍,写一次
+  // 4. 涉及的每个提交:以它为 head 的开着的 PR 全判一遍,写一次
   const results = [];
-  for (const [head, known] of heads) {
-    await placeholder(head);
+  for (const [sha, known] of commits) {
+    await placeholder(sha);
     let result;
     try {
-      const listed = await prsOnCommit(head);
-      const all = new Set([...known, ...listed.filter((p) => p.state === "open" && p.head?.sha === head).map((p) => p.number)]);
+      const listed = await prsOnCommit(sha);
+      const all = new Set([...known, ...listed.filter((p) => p.state === "open" && p.head?.sha === sha).map((p) => p.number)]);
       const verdicts = [];
       for (const n of all) {
         const facts = await collect(api, repo, n, policy);
-        if (facts.pr.state !== "open" || facts.pr.head_sha !== head) continue; // 算的时候已关闭 / 推进
+        if (facts.pr.state !== "open" || facts.pr.head_sha !== sha) continue; // 已关闭 / 已推进
         let r;
         try {
           r = decide(facts, policy);
@@ -179,12 +203,9 @@ export async function gate({ repo, eventName, event, policy, api, poster, fuse, 
     } catch (e) {
       result = g8(e.message);
     }
-    await finish(head, result);
-    log(`${head.slice(0, 7)}:${result.title}\n${result.summary}`);
-    results.push({ sha: head, title: result.title, summary: result.summary });
+    await finish(sha, result);
+    log(`${sha.slice(0, 7)}:${result.title}\n${result.summary}`);
+    results.push({ sha, title: result.title, summary: result.summary });
   }
-
-  // 5. 事件的提交已不是任何开着的 PR 的 head
-  if (!heads.has(plan.sha)) await finish(plan.sha, readError ? g8(readError) : notHead);
   return results;
 }

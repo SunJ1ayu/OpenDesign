@@ -71,16 +71,16 @@ class GateWorkflow(unittest.TestCase):
         self.assertIn("workflow_run.pull_requests[0].number", conc["group"])
 
 
-class SameCommitSerialized(unittest.TestCase):
-    """补充评审 5360728878:检查和保险丝挂在提交上,同一提交可能是几个 PR 的 head;每个 PR 一个并发组管不住
-    跨 PR 的先后 ⇒ job 再按 head 提交分组,同一提交一次只算一个,新的取消旧的(旧的占位停在 in_progress,照样挡着)。"""
+class FuseFollowsLatestCheck(unittest.TestCase):
+    """aiwork-review 评审 5361260820(@ 53fa9ed)第 1 条:并发组按事件的提交分,运行却写到 PR 当前的 head,
+    同一提交上几次运行可能同时在算 ⇒ 对错不能靠并发组。run.mjs 以提交上最新的那条关卡检查为准,保险丝跟它走,
+    要用 GITHUB_TOKEN 读检查;以前按 head 提交再分一组的 job 并发组管不住这种情况,删掉,免得看着像是它在保证。"""
 
-    def test_job_serialized_per_commit(self) -> None:
-        conc = _load(GATE)["jobs"]["gate"].get("concurrency") or {}
-        self.assertIs(conc.get("cancel-in-progress"), True)
-        group = str(conc.get("group", ""))
-        self.assertIn("github.event.pull_request.head.sha", group)
-        self.assertIn("github.event.workflow_run.head_sha", group)
+    def test_token_reads_checks(self) -> None:
+        self.assertEqual(_load(GATE)["permissions"].get("checks"), "read")
+
+    def test_no_per_commit_job_group(self) -> None:
+        self.assertNotIn("concurrency", _load(GATE)["jobs"]["gate"])
 
 
 class PingWorkflow(unittest.TestCase):

@@ -6,7 +6,7 @@
 |---|---|
 | `collect.mjs` | 只读 GitHub API 收集事实;出错、分页没取完、条数对不上一律抛错(G8) |
 | `decide.mjs` | 纯判定,不碰网络(G1–G7) |
-| `run.mjs` | 流程,只守一件事:一个提交上的结论 = 以它为 head 的所有开着的 PR 的结论合在一起,读不全就不放行。事件提交先占位 → 定涉及的 PR → 读各 PR 当前 head → 每个 head 把它上面的 PR 全判一遍、写一次 → 事件提交已不是 head 就判 failure |
+| `run.mjs` | 流程,只守两件事:一个提交上的结论 = 以它为 head 的所有开着的 PR 的结论合在一起,读不全就不放行;一个提交上以最新的那条关卡检查为准(保险丝也跟它)。事件提交先占位 → 定涉及的 PR → 读各 PR 当前 head → 涉及的每个提交(事件提交 + 各 head)把以它为 head 的开着的 PR 全判一遍、写一次,一个都没有就判 failure |
 | `main.mjs` | 接线:真实 API、`aiwork-gate` App 令牌、发 / 改检查、用 `GITHUB_TOKEN` 拨保险丝 |
 | `../../.aiwork/policy.json` | 策略:判卷面、high 路径、Builder、评审 App、检查名、App ID |
 
@@ -23,18 +23,25 @@
 
 - **App 检查**(`aiwork-gate-shadow`,转真拦截后叫 `aiwork-gate`):结论本身。只有 `aiwork-gate` App 发得出,PR 冒充不了。
 - **保险丝**(commit status `aiwork-gate/fuse`):用 workflow 自带的 `GITHUB_TOKEN` 发,**不靠 App 私钥**。
-  每次重算先拨到 pending,App 把结论写回之后才跟着结论走;App 发不出 / 写不回、策略不合法 → failure。
+  每次重算先拨到 pending,App 把结论写回之后,跟这个提交上**最新的那条**关卡检查走;App 发不出 / 写不回、策略不合法 → failure。
 - 为什么要两道:GitHub 上只有 App 自己改得动它发过的检查。App 私钥坏了(被撤、过期、secret 被删)时,
   同一个提交上的旧 success 会一直挂着,之后来的 BLOCK、业主撤回批准都盖不掉它 —— 这时靠保险丝挡。
 - 保险丝**只能多挡、不能单独放行**:任何有写权限的 workflow 都拨得动它,所以它必须和 App 检查一起设为必过。
 - 仍然挡不住的:关卡 workflow 根本没跑起来(Actions 被关、environment 被加了审批人、检出 main 失败)——
   那时两道都停在旧值。看到 aiwork-gate 的运行失败或一直在等,先别合并。
 
+## 一个提交上以最新的那条检查为准
+
+几次运行可能同时在算同一个提交:并发组按事件分(PR 号 / 事件的提交),运行却写到 PR **当前**的 head ——
+旧提交上的 CI 跑完、新 head 上来了评审,两次运行都会去算新 head。每次运行都先占位(新发一条检查)再读数据,
+所以最新那条检查背后的数据也最新;GitHub 对同名检查只认最新的一条。保险丝同样只跟最新那条走,
+不看"谁最后写":慢一步的旧运行写完,也盖不掉新运行的结论。拨完再看一眼,最新那条在这期间变了就再跟一次。
+
 ## 同一提交上有几个 PR
 
 检查和保险丝都挂在**提交**上,不是 PR 上。同一提交可以同时是几个开着的 PR 的 head(目标分支不同,改动和要求就不同)。
 所以写 success 之前,关卡把这个提交上其他开着的 PR 也判一遍:**全都放行才放行**,有一个不放行就不放行,
-查不到就按 G8 失败。并发上,每个 PR 一组之外,job 再按 head 提交分组,同一提交一次只算一个、新的取消旧的。
+查不到就按 G8 失败。事件的提交已不是这个 PR 的 head 时,它可能还是别的 PR 的 head,同样按它上面的 PR 判。
 
 ## 首次部署验收(shadow:检查名 `aiwork-gate-shadow`,只报不拦)
 
@@ -49,11 +56,11 @@
 | S4 | 同一 head 再发一条 BLOCK | failure(G5);业主**在 BLOCK 之后**批准 → success | BLOCK 与批准的先后被认 |
 | S5 | 业主在网页上改测试 PR 的一个文件(非机器账号推送) | failure,作者 UNKNOWN(G4);业主在新 head 批准 + 有 PASS → success | 混合作者要业主批准 |
 | S6 | 测试 PR 改 `.github/` 下一个文件 / 改 `desktop/` 下一个文件 | 分别要业主批准(G2)/ 两家 PASS + 业主批准(G6) | 判卷面与 high 路径 |
-| S7 | 给 PR 加标签 `aiwork:recheck` | 重算一次 | 手动重算可用 |
+| S7 | 给 PR 加标签 `aiwork:recheck` | 重算一次;算的时候合并框里这条检查显示"重算中",不再显示上一次的结论 | 手动重算可用;同名检查 GitHub 以最新的一条为准(关卡和保险丝都靠这一点) |
 | S8 | 编辑测试 PR 的标题;再改一次目标分支 | 各重算一次;改目标分支后 G1 ❌「目标分支在这次 CI 之后改过」,推一个新提交(或关掉再重开 PR)让 CI 重跑后恢复 | edited 事件会触发重判;旧目标上的 CI 不算数 |
-| S9 | 任选上面一次重算,看测试 PR 的检查列表 | `aiwork-gate/fuse` 先变黄(pending),算完与 `aiwork-gate-shadow` 同结论;发出者是 GitHub Actions | 保险丝接通,不靠 App 私钥 |
+| S9 | 任选上面一次重算,看测试 PR 的检查列表 | `aiwork-gate/fuse` 先变黄(pending),算完与 `aiwork-gate-shadow` 同结论;发出者是 GitHub Actions | 保险丝接通,不靠 App 私钥;读得到检查(`checks: read`) |
 
-失败注入(API 出错、限流、App 私钥坏了、PR 中途推进)在线上没法安全制造,由 `test_aiwork_gate_run.mjs`(R5–R5g、R14–R14f)与 `test_aiwork_gate_main.mjs` 覆盖。
+失败注入(API 出错、限流、App 私钥坏了、PR 中途推进)在线上没法安全制造,由 `test_aiwork_gate_run.mjs`(R5–R5g、R14–R14f、R22 几次运行交错)与 `test_aiwork_gate_main.mjs` 覆盖。
 
 ## 从 shadow 转为真拦截
 
