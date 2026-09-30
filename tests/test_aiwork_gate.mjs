@@ -300,7 +300,9 @@ test("R6 总跑实际调用的测试框架文件都算判卷面(含 tests/tmpdir
 
 // high 清单从仓库推出(与 R6 判卷面同理,一处推导,不靠手抄):凡是
 //   · bin/ 里碰机主密钥的文件(不限扩展名):ds_credential、apiKey / api_key、FOO_KEY 这类环境变量、口令、password、
-//     ["token"] 写入,以及在代码里拼出机主 nanobot 配置路径的 —— 那份配置里就是密钥、工具开关、模型端点;
+//     ["token"] 写入,以及碰机主 nanobot 配置的 —— 那份配置里就是密钥、工具开关、模型端点。碰它有两种方式:
+//     按路径打开它(代码里拼出配置路径),或按它的结构读写它(只有那份配置才有的键:modelPreset、model_presets、
+//     mcpServers、restrictToWorkspace —— 比如 ds_model.py 决定写配置的人往哪个字段写);
 //   · high 里的安装 / 启动脚本(.ps1)引用到的 bin/ 与 config/ 文件(首次配置时会跑、会合进用户配置的);
 //   · nanobot 配置模板 config/nanobot.config*.jsonc(合进那份配置)
 // 都必须在 high 里。历次评审漏掉的(ds_web.py、enable_webui.py、配置模板、bin/ds-nanobot、
@@ -308,6 +310,7 @@ test("R6 总跑实际调用的测试框架文件都算判卷面(含 tests/tmpdir
 const USER_SECRETS_RE = new RegExp([
   /\bds_credential\b|apiKey|api_key|\b[A-Z][A-Z0-9_]*_KEY\b|口令|[Pp]assword|\[["']token["']\]/.source,
   /["']~\/\.nanobot\/config\.json["']|["']\.nanobot["']\s*[,/]\s*["']config\.json["']/.source,
+  /\bmodelPreset\b|\bmodel_presets\b|\bmcpServers\b|\brestrictToWorkspace\b/.source,
 ].join("|"));
 
 test("high 清单从仓库推出:碰密钥 / 口令 / 机主 nanobot 配置的 bin 文件、安装脚本引用的 bin 与 config 文件、nanobot 配置模板,都在 high", () => {
@@ -320,10 +323,10 @@ test("high 清单从仓库推出:碰密钥 / 口令 / 机主 nanobot 配置的 b
     .filter((p) => existsSync(new URL(p, ROOT)));
   const templates = readdirSync(new URL("config/", ROOT)).filter((f) => /^nanobot\.config.*\.jsonc$/.test(f)).map((f) => `config/${f}`);
   // 量具:推导确实扫得到历次漏过的那些
-  for (const f of ["bin/ds_credential.py", "bin/ds_web.py", "bin/ds_shell_core.py", "bin/ds_provision.py", "bin/enable_webui.py", "bin/ds-nanobot", "bin/set_model.py", "bin/disable_builtin_file_tools.py"]) {
+  for (const f of ["bin/ds_credential.py", "bin/ds_web.py", "bin/ds_shell_core.py", "bin/ds_provision.py", "bin/enable_webui.py", "bin/ds-nanobot", "bin/set_model.py", "bin/disable_builtin_file_tools.py", "bin/ds_model.py"]) {
     assert.ok(keyFiles.includes(f), `量具:扫得到碰密钥 / 口令 / 机主 nanobot 配置的 ${f}`);
   }
-  for (const f of ["bin/ds_tools.py", "bin/ds_sessions.py", "bin/ds_mcp.py"]) {
+  for (const f of ["bin/ds_tools.py", "bin/ds_sessions.py", "bin/ds_mcp.py", "bin/ds_common.py"]) {
     assert.ok(!keyFiles.includes(f), `对照:${f} 只在提示文字里提到那份配置 / 只用 workspace,不算`);
   }
   assert.ok(launchers.includes("bin/install.ps1"), "量具:安装脚本本身在 high");
@@ -333,7 +336,7 @@ test("high 清单从仓库推出:碰密钥 / 口令 / 机主 nanobot 配置的 b
   assert.ok(templates.length >= 2, "量具:Windows 与 Linux 两份模板");
   const missing = [...new Set([...keyFiles, ...referenced, ...templates])].filter((f) => !matchAny(policy.high, f));
   assert.deepEqual(missing, [], `这些碰密钥 / 首次配置的文件改了只要一家 PASS:${missing.join("、")}`);
-  for (const f of ["bin/ds_web.py", "bin/enable_webui.py", "config/nanobot.config.windows.jsonc", "bin/ds-nanobot", "bin/disable_builtin_file_tools.py"]) {
+  for (const f of ["bin/ds_web.py", "bin/enable_webui.py", "config/nanobot.config.windows.jsonc", "bin/ds-nanobot", "bin/disable_builtin_file_tools.py", "bin/ds_model.py"]) {
     blocked(run({ files: [f], reviews: [review({})] }), "G6");
   }
   assert.ok(!matchAny(policy.high, "config/taxonomy.default.json"), "对照:分类表是产品数据,不算 high");
