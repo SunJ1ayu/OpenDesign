@@ -229,3 +229,56 @@ test("R18b 连 PR 本身都读不到 → 无从知道当前 head,只在事件提
   await gate({ repo: "o/r", eventName: "workflow_run", event: wrEvent({ head_sha: OLD }), policy, api, poster, fuse });
   assert.deepEqual(calls.filter((c) => c[0] === "finish").map((c) => c.slice(1, 4)), [[OLD, "completed", "failure"]]);
 });
+
+// ── aiwork-review[bot] 补充评审(PR #10 review 5360728878,@ 0ce3f73)─────────────────────────────
+// 同一提交可能同时是几个开着的 PR 的 head(目标分支不同 ⇒ 改动、要求都不同),而检查和保险丝都挂在提交上:
+// 以前按 PR 各判各的、后写的覆盖先写的 ⇒ 一个 PR 的放行能盖掉另一个 PR 的不放行(还能专门开一个 PR 来"借"放行)。
+const passBody = (sha) => "```json\n" + JSON.stringify({ verdict: "PASS", head_sha: sha, model: "gpt-x", family: "openai", completeness: "complete", files_read: ["a"] }) + "\n```";
+function twoPrApi(calls, { filesOf = { 10: ["web/a.ts"], 11: [".github/workflows/ci.yml"] }, siblingsFail = false } = {}) {
+  const pr = (n) => prObj({ number: n });
+  const run = { id: 1, path: ".github/workflows/ci.yml", head_sha: HEAD, status: "completed", conclusion: "success", pull_requests: [{ number: 10 }, { number: 11 }], created_at: "2026-09-29T08:00:00Z" };
+  return {
+    async get(p) {
+      calls.push(["get", p]);
+      const m = /\/pulls\/(\d+)$/.exec(p);
+      if (m) return pr(Number(m[1]));
+      throw new Error(`没料到的请求 ${p}`);
+    },
+    async getPage(p) {
+      calls.push(["getPage", p]);
+      const m = /\/pulls\/(\d+)\/(files|reviews)/.exec(p);
+      if (m && m[2] === "files") return { data: filesOf[m[1]].map((f) => ({ filename: f })), next: null };
+      if (m && m[2] === "reviews") return { data: [{ id: 1, user: { login: "aiwork-review[bot]", type: "Bot" }, state: "COMMENTED", commit_id: HEAD, submitted_at: "2026-09-29T09:00:00Z", body: passBody(HEAD) }], next: null };
+      if (p.includes(`/commits/${HEAD}/pulls`)) {
+        if (siblingsFail) throw new Error("HTTP 502 commits/pulls");
+        return { data: [pr(10), pr(11)], next: null };
+      }
+      if (p.includes("/actions/runs")) return { data: { workflow_runs: [run] }, next: null };
+      if (p.includes("/activity")) return { data: [{ id: 1, timestamp: "t", activity_type: "push", after: HEAD, actor: { login: "SunJ1ayuBoT" } }], next: null };
+      if (p.includes("/events")) return { data: [], next: null };
+      throw new Error(`没料到的请求 ${p}`);
+    },
+  };
+}
+
+test("R20 同一提交上另一个开着的 PR 不放行 → 这个提交上的结论就是不放行(不管哪个 PR 后算)", async () => {
+  for (const number of [10, 11]) {
+    const { calls, poster, fuse } = recorder();
+    await gate({ repo: "o/r", eventName: "pull_request_target", event: { pull_request: { number, head: { sha: HEAD } } }, policy, api: twoPrApi(calls), poster, fuse });
+    const fin = calls.filter((c) => c[0] === "finish" && c[1] === HEAD);
+    assert.equal(fin.at(-1)[3], "failure", `从 PR #${number} 触发:${fin.at(-1)[4]}`);
+    if (number === 10) assert.match(fin.at(-1)[4], /#11/, "从放行的 PR 触发时,标题点名拦住它的那个 PR");
+    assert.equal(fuses(calls, HEAD).at(-1), "failure");
+  }
+});
+
+test("R20b 同一提交上的 PR 都放行 → 放行;查同一提交上的其他 PR 失败 → G8", async () => {
+  const { calls, poster, fuse } = recorder();
+  await gate({ repo: "o/r", eventName: "pull_request_target", event: prtEvent, policy, api: twoPrApi(calls, { filesOf: { 10: ["web/a.ts"], 11: ["web/b.ts"] } }), poster, fuse });
+  assert.equal(calls.filter((c) => c[0] === "finish").at(-1)[3], "success", "对照:两个都放行");
+  const r2 = recorder();
+  await gate({ repo: "o/r", eventName: "pull_request_target", event: prtEvent, policy, api: twoPrApi(r2.calls, { siblingsFail: true }), poster: r2.poster, fuse: r2.fuse });
+  const last = r2.calls.filter((c) => c[0] === "finish").at(-1);
+  assert.equal(last[3], "failure");
+  assert.match(last[4], /G8/);
+});

@@ -43,9 +43,11 @@ class GateWorkflow(unittest.TestCase):
         w = checkouts[0].get("with") or {}
         self.assertEqual(w.get("ref"), "${{ github.event.repository.default_branch }}")
         self.assertIs(w.get("persist-credentials"), False)
-        text = GATE.read_text(encoding="utf-8")
-        for bad in ("pull_request.head", "head_sha }}", "refs/pull/"):
-            self.assertNotIn(bad, text, f"关卡 workflow 里出现了 {bad!r},可能在检出或执行 PR 的代码")
+        # 步骤里(检出参数、脚本、环境变量)一律不许出现 PR 的提交 / 引用;并发组用 head 提交分组不碰代码,不在此列
+        steps = yaml.safe_dump(self.job["steps"], allow_unicode=True)
+        for bad in ("pull_request.head", "head_sha", "refs/pull/", "head_ref"):
+            self.assertNotIn(bad, steps, f"关卡 workflow 的步骤里出现了 {bad!r},可能在检出或执行 PR 的代码")
+        self.assertNotIn("env", self.doc, "顶层不放环境变量")
 
     def test_key_only_from_main_only_environment(self) -> None:
         self.assertEqual(self.job.get("environment"), "aiwork-gate")
@@ -67,6 +69,18 @@ class GateWorkflow(unittest.TestCase):
         self.assertIs(conc["cancel-in-progress"], True)
         self.assertIn("pull_request.number", conc["group"])
         self.assertIn("workflow_run.pull_requests[0].number", conc["group"])
+
+
+class SameCommitSerialized(unittest.TestCase):
+    """补充评审 5360728878:检查和保险丝挂在提交上,同一提交可能是几个 PR 的 head;每个 PR 一个并发组管不住
+    跨 PR 的先后 ⇒ job 再按 head 提交分组,同一提交一次只算一个,新的取消旧的(旧的占位停在 in_progress,照样挡着)。"""
+
+    def test_job_serialized_per_commit(self) -> None:
+        conc = _load(GATE)["jobs"]["gate"].get("concurrency") or {}
+        self.assertIs(conc.get("cancel-in-progress"), True)
+        group = str(conc.get("group", ""))
+        self.assertIn("github.event.pull_request.head.sha", group)
+        self.assertIn("github.event.workflow_run.head_sha", group)
 
 
 class PingWorkflow(unittest.TestCase):

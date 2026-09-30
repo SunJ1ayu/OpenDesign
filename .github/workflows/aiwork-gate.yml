@@ -40,6 +40,11 @@ concurrency:
 jobs:
   gate:
     if: github.event_name != 'pull_request_target' || github.event.action != 'labeled' || github.event.label.name == 'aiwork:recheck'
+    # 检查和保险丝挂在提交上,同一提交可能是几个 PR 的 head;上面按 PR 分组管不住跨 PR 的先后,
+    # 这里再按 head 提交分组:同一提交一次只算一个,新的取消旧的(只用来分组,不检出、不执行这个提交)
+    concurrency:
+      group: aiwork-gate-sha-${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: aiwork-gate

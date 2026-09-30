@@ -10,9 +10,11 @@
 //   · 之后任何一步出错(查 PR 号、读 PR、收集、判定)→ 把占位改成 failure(G8);事件里的提交已不是 head 时,
 //     当前 head 也判 G8 failure;App 写不回 → 保险丝 failure;
 //   · App 把结论写回之后,保险丝才跟着结论走(success / failure / pending);
-//   · 运行被取消或超时 → 占位停在 in_progress、保险丝停在 pending,同样挡着,不会被当成通过。
+//   · 运行被取消或超时 → 占位停在 in_progress、保险丝停在 pending,同样挡着,不会被当成通过;
+//   · 检查和保险丝都挂在**提交**上,而同一提交可能同时是几个开着的 PR 的 head(目标分支不同 ⇒ 改动、要求都不同):
+//     要写 success 之前,把这个提交上其他开着的 PR 也判一遍,全都放行才放行(不然能专门开个 PR 来"借"放行)。
 
-import { collect } from "./collect.mjs";
+import { collect, paginate } from "./collect.mjs";
 import { decide } from "./decide.mjs";
 
 export function validatePolicy(p) {
@@ -48,6 +50,29 @@ export function targetsFromEvent(eventName, event) {
     return { targets: [], lookupSha: run.head_sha, lookupHead, skip: null };
   }
   return { targets: [], lookupSha: null, skip: `不支持的事件 ${eventName}` };
+}
+
+// 这个提交上其他开着的 PR 也判一遍;有一个不放行就不放行,有一个在等 CI 就等。本身已是 failure 的不用再查。
+async function combineWithSiblings({ api, repo, policy }, result, head, number) {
+  if (result.status === "completed" && result.conclusion !== "success") return result;
+  const siblings = (await paginate(api, `/repos/${repo}/commits/${head}/pulls?per_page=100`))
+    .filter((p) => p.state === "open" && p.head?.sha === head && p.number !== number);
+  if (!siblings.length) return result;
+  const others = [];
+  for (const p of siblings) {
+    const facts = await collect(api, repo, p.number, policy);
+    if (facts.pr.state !== "open" || facts.pr.head_sha !== head) continue; // 这期间关了 / 推进了,已不在这个提交上
+    others.push({ number: p.number, r: decide(facts, policy) });
+  }
+  if (!others.length) return result;
+  const list = others.map((o) => `- PR #${o.number}:${o.r.title}`).join("\n");
+  const summary = `${result.summary}\n\n---\n同一提交上还有开着的 PR(检查挂在提交上,全都放行才放行):\n${list}`;
+  const bad = others.find((o) => o.r.status === "completed" && o.r.conclusion !== "success");
+  if (bad) return { status: "completed", conclusion: "failure", title: `不放行:同一提交上的 PR #${bad.number} ${bad.r.title}`, summary };
+  const waiting = others.find((o) => o.r.status !== "completed");
+  if (result.status !== "completed") return { ...result, summary };
+  if (waiting) return { status: "in_progress", conclusion: null, title: `等同一提交上的 PR #${waiting.number}:${waiting.r.title}`, summary };
+  return { ...result, summary };
 }
 
 const g8 = (message) => ({ status: "completed", conclusion: "failure", title: "不放行:数据不全(G8)", summary: `读 GitHub 数据出错,按失败处理:\n\n${message}` });
@@ -162,6 +187,11 @@ export async function gate({ repo, eventName, event, policy, api, poster, fuse, 
       result = g8(`判定出错:${e.message}`);
     }
     const head = facts.pr.head_sha;
+    try {
+      result = await combineWithSiblings({ api, repo, policy }, result, head, t.number);
+    } catch (e) {
+      result = g8(`判同一提交上的其他 PR 时出错:${e.message}`);
+    }
     if (head === t.sha) {
       await finish(head, result, t.id);
     } else {
