@@ -449,3 +449,38 @@ test("R17b 收集:CI 运行带上创建时间;从 PR 事件里取最后一次改
   const boom = { ...api, getPage: async (p) => { if (p.includes("/issues/10/events")) throw new Error("HTTP 502"); return api.getPage(p); } };
   await assert.rejects(collect(boom, "o/r", 10, policy), /502/, "读不到事件 ⇒ G8,不能当成没改过");
 });
+
+// ── aiwork-review[bot] 评审(PR #10 review 5360642584,@ 0ce3f73)第 2 个阻断点 ─────────────────────
+// 被撤销的评审按反对算(R9b);反对的时刻是**撤销那一刻**,不是它当初提交的时刻。
+test("R19 评审在业主批准之后才被撤销 → 那次批准豁免不了;撤销在批准之前 → 照常豁免;缺撤销时间 → 豁免不了", () => {
+  const dismissed = (at) => ({ ...human("someone", "DISMISSED", "2026-09-29T10:00:00Z", 50), dismissed_at: at });
+  const owner = approve(HEAD, "2026-09-29T11:00:00Z");
+  blocked(run({ reviews: [review({}), dismissed("2026-09-29T12:00:00Z"), owner] }), "G7");
+  assert.equal(run({ reviews: [review({}), dismissed("2026-09-29T10:30:00Z"), owner] }).conclusion, "success", "撤销在批准之前");
+  blocked(run({ reviews: [review({}), dismissed(undefined), owner] }), "G7");
+  // 业主在撤销之后再批准 ⇒ 放行
+  assert.equal(run({ reviews: [review({}), dismissed("2026-09-29T12:00:00Z"), approve(HEAD, "2026-09-29T13:00:00Z")] }).conclusion, "success");
+});
+
+test("R19b 收集:从 PR 事件里取每条被撤销评审的撤销时间;人的被撤销评审找不到撤销事件 → G8 抛错", async () => {
+  const pr = { number: 10, state: "open", changed_files: 1, head: { sha: HEAD, ref: "x", repo: { full_name: "o/r" } }, base: { ref: "main" } };
+  const reviews = [
+    { id: 50, user: { login: "someone", type: "User" }, state: "DISMISSED", commit_id: HEAD, submitted_at: "2026-09-29T10:00:00Z", body: "" },
+    { id: 51, user: { login: "someone", type: "User" }, state: "APPROVED", commit_id: OLD, submitted_at: "2026-09-29T09:00:00Z", body: "" },
+  ];
+  const mk = (events) => ({
+    get: async () => pr,
+    getPage: async (p) => {
+      if (p.includes("/files")) return { data: [{ filename: "web/a.ts" }], next: null };
+      if (p.includes("/reviews")) return { data: reviews, next: null };
+      if (p.includes("/actions/runs")) return { data: { workflow_runs: [] }, next: null };
+      if (p.includes("/issues/10/events")) return { data: events, next: null };
+      return { data: [], next: null };
+    },
+  });
+  const ev = { id: 7, event: "review_dismissed", created_at: "2026-09-29T12:00:00Z", dismissed_review: { review_id: 50, state: "changes_requested" } };
+  const f = await collect(mk([ev]), "o/r", 10, policy);
+  assert.equal(f.reviews.find((r) => r.id === 50).dismissed_at, "2026-09-29T12:00:00Z");
+  assert.equal(f.reviews.find((r) => r.id === 51).dismissed_at, null);
+  await assert.rejects(collect(mk([]), "o/r", 10, policy), /撤销/);
+});

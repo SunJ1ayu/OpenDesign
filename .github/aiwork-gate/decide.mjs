@@ -8,7 +8,7 @@
 //   G5 当前 head 上任何一条 BLOCK → 要业主在最后一条 BLOCK 之后批准。BLOCK = aiwork-review 在当前 head 上发的、
 //      除"格式完整且结论不是 BLOCK"以外的一切(BLOCK 结论、Request changes、正文结论行写 BLOCK、结论块看不懂),
 //      或任何其他评审人在当前 head 上最后一次表态是 Request changes / 被撤销(撤销只要写权限,Builder 就有,
-//      撤销抹不掉反对;被撤销的评审看不出原来是什么,一律按反对算)
+//      撤销抹不掉反对;被撤销的评审看不出原来是什么,一律按反对算,反对的时刻是撤销那一刻)
 //   G6 high 路径:两个不同的非作者家族 PASS(豁免不了)+ 业主批准
 //   G7 业主批准 = 业主在当前 head 上最后一次表态是 Approve;最后一次是 Request changes 或被撤销则一律不放行
 //   G8 数据不全 → 由 collect.mjs 抛错,main.mjs 直接判 failure
@@ -173,7 +173,9 @@ export function decide(facts, policy) {
   const ownerLast = [...stances.values()].find((r) => r.login === policy.owner && r.type === "User") ?? null;
   for (const [login, r] of stances) {
     if (login === policy.owner || r.state === "APPROVED") continue;
-    blocks.push({ id: r.id, at: r.submitted_at, family: "评审人", model: `${login}${r.state === "DISMISSED" ? "(被撤销的评审)" : " 要求修改"}` });
+    // 被撤销的评审,反对的时刻是撤销那一刻;缺撤销时间就当它在最后(之前的批准豁免不了)
+    const at = r.state === "DISMISSED" ? r.dismissed_at || "9999-12-31T23:59:59Z" : r.submitted_at;
+    blocks.push({ id: r.id, at, family: "评审人", model: `${login}${r.state === "DISMISSED" ? "(被撤销的评审)" : " 要求修改"}` });
   }
 
   // G3

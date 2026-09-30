@@ -54,11 +54,19 @@ export async function collectCi(api, repo, headSha, policy, prNumber) {
   return { state: "failure", detail: `结论 ${run.conclusion}(运行 ${run.html_url ?? run.id})`, ...at };
 }
 
-// 最后一次改目标分支的时间:改了目标,PR 的 CI 不会自己重跑(ci.yml 不订阅 edited),旧的 CI 测的是旧目标。
-export async function collectBaseChange(api, repo, prNumber) {
+// 从 PR 的事件里取两样时间:
+//   · 最后一次改目标分支:改了目标,PR 的 CI 不会自己重跑(ci.yml 不订阅 edited),旧的 CI 测的是旧目标;
+//   · 每条评审被撤销的时刻:评审接口只给提交时间,被撤销的评审按反对算,反对的时刻是撤销那一刻。
+export async function collectPrEvents(api, repo, prNumber) {
   const events = await paginate(api, `/repos/${repo}/issues/${prNumber}/events?per_page=100`);
   const times = events.filter((e) => e.event === "base_ref_changed").map((e) => e.created_at).sort();
-  return times.at(-1) ?? null;
+  const dismissedAt = new Map();
+  for (const e of events) {
+    if (e.event !== "review_dismissed" || e.dismissed_review?.review_id == null) continue;
+    const id = e.dismissed_review.review_id;
+    if (!dismissedAt.has(id) || dismissedAt.get(id) < e.created_at) dismissedAt.set(id, e.created_at);
+  }
+  return { base_changed_at: times.at(-1) ?? null, dismissedAt };
 }
 
 const PUSH_TYPES = new Set(["push", "force_push", "branch_creation"]);
@@ -106,7 +114,13 @@ export async function collect(api, repo, prNumber, policy) {
   }));
 
   const ci = await collectCi(api, repo, headSha, policy, pr.number);
-  const base_changed_at = await collectBaseChange(api, repo, pr.number);
+  const { base_changed_at, dismissedAt } = await collectPrEvents(api, repo, pr.number);
+  for (const r of reviews) {
+    r.dismissed_at = r.state === "DISMISSED" ? dismissedAt.get(r.id) ?? null : null;
+    if (r.state === "DISMISSED" && !r.dismissed_at && r.login !== policy.reviewer_bot) {
+      throw new Error(`评审 #${r.id}(${r.login})被撤销,但 PR 事件里找不到撤销时间`);
+    }
+  }
 
   const sameRepo = pr.head.repo?.full_name === repo;
   const pushes = sameRepo

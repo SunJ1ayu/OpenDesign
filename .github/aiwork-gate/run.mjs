@@ -7,7 +7,8 @@
 //   · 策略不全(比如缺 App ID)→ 不读数据、不发检查,把事件里那个提交的保险丝拨到 failure,抛错;
 //   · 占位:能从事件本身知道提交号时,先把那个提交的保险丝拨到 pending,再发一条 in_progress 的 App 检查
 //     把旧结论压掉,再去读 API;App 检查发不出去(私钥坏了)→ 保险丝 failure,抛错,不读数据;
-//   · 之后任何一步出错(查 PR 号、读 PR、收集、判定)→ 把占位改成 failure(G8);App 写不回 → 保险丝 failure;
+//   · 之后任何一步出错(查 PR 号、读 PR、收集、判定)→ 把占位改成 failure(G8);事件里的提交已不是 head 时,
+//     当前 head 也判 G8 failure;App 写不回 → 保险丝 failure;
 //   · App 把结论写回之后,保险丝才跟着结论走(success / failure / pending);
 //   · 运行被取消或超时 → 占位停在 in_progress、保险丝停在 pending,同样挡着,不会被当成通过。
 
@@ -27,6 +28,7 @@ export function validatePolicy(p) {
 }
 
 export const FUSE_CONTEXT = "aiwork-gate/fuse";
+const SHA_RE = /^[0-9a-f]{40}$/;
 const fuseState = (r) => (r.status !== "completed" ? "pending" : r.conclusion === "success" ? "success" : "failure");
 
 const PR_EVENTS = new Set(["pull_request", "pull_request_review", "pull_request_target"]);
@@ -135,6 +137,17 @@ export async function gate({ repo, eventName, event, policy, api, poster, fuse, 
       facts = await collect(api, repo, t.number, policy);
     } catch (e) {
       await finish(t.sha, g8(e.message), t.id);
+      // 事件里的提交可能已不是 head:再单独读一次 PR,当前 head 上的旧结论也压成 failure。
+      // PR 本身都读不到时无从知道当前 head,只能等下一次事件重算
+      let head = null;
+      try {
+        head = (await api.get(`/repos/${repo}/pulls/${t.number}`))?.head?.sha ?? null;
+      } catch (e2) {
+        log(`读不到 PR #${t.number} 的当前 head:${e2.message}`);
+      }
+      if (typeof head === "string" && SHA_RE.test(head) && head !== t.sha) {
+        await finish(head, g8(e.message), await start(head));
+      }
       results.push({ number: t.number, sha: t.sha, title: g8("").title });
       continue;
     }

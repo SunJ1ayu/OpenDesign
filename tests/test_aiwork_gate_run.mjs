@@ -202,3 +202,30 @@ test("R16b 按提交查不到 PR(比如合并提交)→ 再按事件里的分支
   await gate({ repo: "o/r", eventName: "workflow_run", event: ev, policy, api: goodApi(c2, { get: () => [] }), poster: p2, fuse: f2 });
   assert.deepEqual(c2.filter((c) => c[0] === "finish").map((c) => c.slice(1, 4)), [[MERGE, "completed", "failure"]]);
 });
+
+// ── aiwork-review[bot] 评审(PR #10 review 5360642584,@ 0ce3f73)第 1 个阻断点 ─────────────────────
+// 旧提交的事件到来、PR 已推进、收集又出错:以前只在旧提交上判 G8,当前 head 上的旧 success 没人压。
+test("R18 事件提交已不是 head 且收集出错 → 事件提交与当前 head 都判 G8 failure(App 检查 + 保险丝)", async () => {
+  const { calls, poster, fuse } = recorder();
+  const api = goodApi(calls, { get: (p) => (p.endsWith("/pulls/10") ? prObj() : []) });
+  const base = api.getPage;
+  api.getPage = async (p) => {
+    if (p.includes("/files")) throw new Error("HTTP 502 files");
+    return base(p);
+  };
+  await gate({ repo: "o/r", eventName: "workflow_run", event: wrEvent({ head_sha: OLD }), policy, api, poster, fuse });
+  const fin = calls.filter((c) => c[0] === "finish");
+  assert.deepEqual(fin.find((c) => c[1] === OLD)?.slice(2, 4), ["completed", "failure"]);
+  const onHead = fin.find((c) => c[1] === HEAD);
+  assert.ok(onHead, "当前 head 上也要写结论");
+  assert.deepEqual(onHead.slice(2, 4), ["completed", "failure"]);
+  assert.match(onHead[4], /G8/);
+  assert.deepEqual(fuses(calls, HEAD), ["pending", "failure"]);
+});
+
+test("R18b 连 PR 本身都读不到 → 无从知道当前 head,只在事件提交上判 G8 failure", async () => {
+  const { calls, poster, fuse } = recorder();
+  const api = goodApi(calls, { get: () => { throw new Error("HTTP 503"); } });
+  await gate({ repo: "o/r", eventName: "workflow_run", event: wrEvent({ head_sha: OLD }), policy, api, poster, fuse });
+  assert.deepEqual(calls.filter((c) => c[0] === "finish").map((c) => c.slice(1, 4)), [[OLD, "completed", "failure"]]);
+});
