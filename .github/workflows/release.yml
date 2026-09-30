@@ -9,7 +9,7 @@
 #   publish 停在 environment `release` 等业主在 GitHub 上批准;批准后核字节、改写 latest.yml、再核,
 #           用 release-feed.mjs 生成的那组实参建正式 release,tag 打在本次构建的提交上
 #
-# environment `release` 在仓库设置里建:审批人 SunJ1ayu;部署分支只许 main。
+# environment `release` 在仓库设置里建:审批人是业主(`.aiwork/policy.json` 的 owner);部署分支只许 main。
 # 谁都可以点「Run workflow」(业主或有写权限的 agent),真正发出去只认业主那一下批准。
 #
 # 名字写错或被删掉时,GitHub 会在 publish 那一刻**自动建一个没有任何保护的同名 environment**,
@@ -44,11 +44,14 @@ jobs:
           echo "::error::发版只能在 main 上跑,这次是 $GITHUB_REF"
           exit 1
 
+      - uses: actions/checkout@v4
+
       - name: environment release 的保护是齐的
         env:
           GH_TOKEN: ${{ github.token }}
-          APPROVER: SunJ1ayu
         run: |
+          # 业主是谁只在 policy 里定义(关卡也读它);上一步只许 main,读到的是 main 上那份
+          APPROVER=$(jq -er '.owner' .aiwork/policy.json)
           api="repos/$GITHUB_REPOSITORY/environments/release"
           if ! envj=$(gh api "$api"); then
             echo "::error::读不到 environment \`release\`(没建?)—— 没有它,发版会不等批准直接发出去。到仓库 Settings → Environments 建它(见 installer/RELEASE.md)"
@@ -66,8 +69,6 @@ jobs:
             echo "$pol" | jq '.branch_policies'
             exit 1
           fi
-
-      - uses: actions/checkout@v4
 
       - id: v
         name: 版本号与 tag

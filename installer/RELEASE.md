@@ -19,6 +19,6 @@
    最后一条建 tag `v<版本>` 的正式 release（不是 prerelease），恰好上传安装包、`.blockmap` 与改写过的 `latest.yml` 三样资产；tag 打在本次构建的提交上，不是发布那一刻 main 的最新提交。
 6. **核对**：运行摘要里写着版本、构建提交、tag 指向和三样资产；tag 指向与构建提交对不上时这一步会红。
 
-一次性设置（仓库 Settings → Environments → New environment，名字**必须**是 `release`）：Required reviewers 选 SunJ1ayu；Deployment branches and tags 选 Selected，只加 `main`。
+一次性设置（仓库 Settings → Environments → New environment，名字**必须**是 `release`）：Required reviewers 选业主（`.aiwork/policy.json` 里 owner 那个账号）；Deployment branches and tags 选 Selected，只加 `main`。
 
 换壳首版两台机器错开一天手动安装；旧版安装包继续保留在发布页。
