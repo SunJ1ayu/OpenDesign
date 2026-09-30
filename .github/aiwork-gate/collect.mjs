@@ -1,5 +1,5 @@
 // aiwork 放行关卡的收集部分:从 GitHub API 读判定要的事实。只读,不执行、不检出 PR 的代码。
-// G8 失败即拒:任何一次请求出错、分页没取完、条数对不上,都抛错,由 main.mjs 判 failure。
+// G8 失败即拒:任何一次请求出错、分页没取完、条数对不上,都抛错,由 run.mjs 判 failure。
 
 const MAX_PAGES = 30;
 
@@ -117,9 +117,7 @@ export async function collect(api, repo, prNumber, policy) {
   const { base_changed_at, dismissedAt } = await collectPrEvents(api, repo, pr.number);
   for (const r of reviews) {
     r.dismissed_at = r.state === "DISMISSED" ? dismissedAt.get(r.id) ?? null : null;
-    if (r.state === "DISMISSED" && !r.dismissed_at && r.login !== policy.reviewer_bot) {
-      throw new Error(`评审 #${r.id}(${r.login})被撤销,但 PR 事件里找不到撤销时间`);
-    }
+    if (r.state === "DISMISSED" && !r.dismissed_at) throw new Error(`评审 #${r.id}(${r.login})被撤销,但 PR 事件里找不到撤销时间`);
   }
 
   const sameRepo = pr.head.repo?.full_name === repo;
@@ -128,7 +126,7 @@ export async function collect(api, repo, prNumber, policy) {
     : { covers_head: false, actors: [] };
 
   return {
-    pr: { number: pr.number, state: pr.state, head_sha: headSha, head_ref: pr.head.ref, base_ref: pr.base.ref },
+    pr: { number: pr.number, state: pr.state, head_sha: headSha },
     files,
     reviews,
     ci,

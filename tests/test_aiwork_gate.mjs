@@ -30,7 +30,7 @@ const approve = (commit = HEAD, at = "2026-09-29T11:00:00Z", state = "APPROVED")
 
 function facts(over = {}) {
   return {
-    pr: { number: 10, state: "open", head_sha: HEAD, head_ref: "claude/x", base_ref: "main" },
+    pr: { number: 10, state: "open", head_sha: HEAD },
     files: ["web/src/a.ts"],
     reviews: [review({})],
     ci: { state: "success", detail: "运行 1" },
@@ -168,7 +168,7 @@ test("12 业主批准针对旧 head;业主批准豁免不了红 CI(G7)", () => {
   blocked(run({ pushes: { covers_head: true, actors: ["SunJ1ayu"] }, reviews: [review({}), approve(), { ...later, id: 100 }] }), "G7");
 });
 
-test("13 API 出错、限流、分页不全、条数对不上 → 抛错(G8,由 main.mjs 判 failure)", async () => {
+test("13 API 出错、限流、分页不全、条数对不上 → 抛错(G8,由 run.mjs 判 failure)", async () => {
   const boom = { get: async () => { throw new Error("HTTP 403 rate limit"); }, getPage: async () => { throw new Error("HTTP 403"); } };
   await assert.rejects(collect(boom, "o/r", 10, policy));
   let n = 0;
@@ -287,17 +287,38 @@ test("R6 总跑实际调用的测试框架文件都算判卷面(含 tests/tmpdir
   assert.ok(harness.has("tests/tmpdir-leak-gate.sh"), "量具:总跑确实调用 tmpdir-leak-gate.sh");
 });
 
-test("R7 bin/ 里凡是碰密钥(用 ds_credential 或处理 apiKey)的文件都在 high 里", () => {
-  const keyFiles = readdirSync(new URL("bin/", ROOT))
-    .filter((f) => /\.(?:py|ps1)$/.test(f))
-    .filter((f) => /\bds_credential\b|apiKey|api_key/.test(read(`bin/${f}`)))
-    .map((f) => `bin/${f}`);
-  assert.ok(keyFiles.includes("bin/ds_web.py") && keyFiles.includes("bin/ds_credential.py"), "量具:扫得到");
-  const missing = keyFiles.filter((f) => !matchAny(policy.high, f));
-  assert.deepEqual(missing, [], `这些碰密钥的文件改了只要一家 PASS:${missing.join("、")}`);
-  for (const f of ["bin/ds_merge_config.py", "bin/ds_shell_core.py"]) assert.ok(matchAny(policy.high, f), `${f} 管首次配置 / 启动注入 key`);
-  const r = run({ files: ["bin/ds_web.py"], reviews: [review({})] });
-  blocked(r, "G6");
+
+// high 清单从仓库推出(与 R6 判卷面同理,一处推导,不靠手抄):凡是
+//   · bin/ 里碰密钥或口令的文件(不限扩展名):ds_credential、apiKey / api_key、FOO_KEY 这类环境变量、口令、password、["token"] 写入;
+//   · high 里的安装 / 启动脚本(.ps1)引用到的 bin/ 与 config/ 文件(首次配置时会跑、会合进用户配置的);
+//   · nanobot 配置模板 config/nanobot.config*.jsonc(工具开关、模型端点)
+// 都必须在 high 里。历次评审漏掉的(ds_web.py、enable_webui.py、配置模板、bin/ds-nanobot)都是这里的量具。
+const SECRET_RE = /\bds_credential\b|apiKey|api_key|\b[A-Z][A-Z0-9_]*_KEY\b|口令|[Pp]assword|\[["']token["']\]/;
+
+test("high 清单从仓库推出:碰密钥 / 口令的 bin 文件、安装脚本引用的 bin 与 config 文件、nanobot 配置模板,都在 high", () => {
+  const keyFiles = readdirSync(new URL("bin/", ROOT), { withFileTypes: true })
+    .filter((d) => d.isFile() && !d.name.endsWith(".pyc"))
+    .map((d) => `bin/${d.name}`)
+    .filter((f) => SECRET_RE.test(read(f)));
+  const launchers = readdirSync(new URL("bin/", ROOT)).filter((f) => f.endsWith(".ps1")).map((f) => `bin/${f}`).filter((f) => matchAny(policy.high, f));
+  const referenced = [...new Set(launchers.flatMap((f) => [...read(f).matchAll(/\b(bin|config)[\\/]([A-Za-z0-9_.-]+)/g)].map((m) => `${m[1]}/${m[2]}`)))]
+    .filter((p) => existsSync(new URL(p, ROOT)));
+  const templates = readdirSync(new URL("config/", ROOT)).filter((f) => /^nanobot\.config.*\.jsonc$/.test(f)).map((f) => `config/${f}`);
+  // 量具:推导确实扫得到历次漏过的那些
+  for (const f of ["bin/ds_credential.py", "bin/ds_web.py", "bin/ds_shell_core.py", "bin/ds_provision.py", "bin/enable_webui.py", "bin/ds-nanobot"]) {
+    assert.ok(keyFiles.includes(f), `量具:扫得到碰密钥 / 口令的 ${f}`);
+  }
+  assert.ok(launchers.includes("bin/install.ps1"), "量具:安装脚本本身在 high");
+  for (const f of ["bin/enable_webui.py", "bin/ds_merge_config.py", "config/nanobot.config.windows.jsonc"]) {
+    assert.ok(referenced.includes(f), `量具:install.ps1 引用 ${f}`);
+  }
+  assert.ok(templates.length >= 2, "量具:Windows 与 Linux 两份模板");
+  const missing = [...new Set([...keyFiles, ...referenced, ...templates])].filter((f) => !matchAny(policy.high, f));
+  assert.deepEqual(missing, [], `这些碰密钥 / 首次配置的文件改了只要一家 PASS:${missing.join("、")}`);
+  for (const f of ["bin/ds_web.py", "bin/enable_webui.py", "config/nanobot.config.windows.jsonc", "bin/ds-nanobot"]) {
+    blocked(run({ files: [f], reviews: [review({})] }), "G6");
+  }
+  assert.ok(!matchAny(policy.high, "config/taxonomy.default.json"), "对照:分类表是产品数据,不算 high");
 });
 
 test("真实样本:review-pr 第一次真发的评审(PR #10 review 5353128020)关卡读得懂,算作 BLOCK", () => {
@@ -374,42 +395,8 @@ test("R12 aiwork-review 在当前 head 上发的东西,除非是格式完整、�
   assert.equal(run({ reviews: [review({ id: 1 }), { ...noFiles, commit_id: OLD }] }).conclusion, "success");
 });
 
-test("R13 首次安装 / 启动脚本调用的 bin 脚本、写登录口令的 bin 脚本,都在 high 里(含 bin/enable_webui.py)", () => {
-  const launchers = readdirSync(new URL("bin/", ROOT)).filter((f) => f.endsWith(".ps1")).map((f) => `bin/${f}`).filter((f) => matchAny(policy.high, f));
-  assert.ok(launchers.includes("bin/install.ps1"), "量具:安装脚本本身在 high");
-  const called = [...new Set(launchers.flatMap((f) => [...read(f).matchAll(/bin[\\/]([A-Za-z0-9_.-]+\.(?:py|ps1))/g)].map((m) => `bin/${m[1]}`)))];
-  assert.ok(called.includes("bin/enable_webui.py"), "量具:install.ps1 确实调用 enable_webui.py");
-  const tokenWriters = readdirSync(new URL("bin/", ROOT))
-    .filter((f) => /\.(?:py|ps1)$/.test(f))
-    .filter((f) => /口令|password|\[["']token["']\]/i.test(read(`bin/${f}`)))
-    .map((f) => `bin/${f}`);
-  assert.ok(tokenWriters.includes("bin/enable_webui.py") && tokenWriters.includes("bin/ds_provision.py"), "量具:扫得到写口令的脚本");
-  const missing = [...new Set([...called, ...tokenWriters])].filter((f) => !matchAny(policy.high, f));
-  assert.deepEqual(missing, [], `这些首次配置 / 写口令的脚本改了只要一家 PASS:${missing.join("、")}`);
-  blocked(run({ files: ["bin/enable_webui.py"], reviews: [review({})] }), "G6");
-});
 
-// ── aiwork-review[bot] 评审(PR #10 review 5354768826,@ ae8c58f)的第 1、3 个阻断点 ─────────────────
-// 碰密钥的正则:ds_credential、apiKey / api_key、FOO_KEY 这类环境变量、口令、password、["token"] 写入
-const SECRET_RE = /\bds_credential\b|apiKey|api_key|\b[A-Z][A-Z0-9_]*_KEY\b|口令|[Pp]assword|\[["']token["']\]/;
-
-test("R15 首次配置模板(config/nanobot.config*.jsonc)、安装脚本引用的 bin/ 与 config/ 文件、bin/ 里碰密钥的文件(不限扩展名)都在 high", () => {
-  const launchers = readdirSync(new URL("bin/", ROOT)).filter((f) => f.endsWith(".ps1")).map((f) => `bin/${f}`).filter((f) => matchAny(policy.high, f));
-  const referenced = [...new Set(launchers.flatMap((f) => [...read(f).matchAll(/\b(bin|config)[\\/]([A-Za-z0-9_.-]+)/g)].map((m) => `${m[1]}/${m[2]}`)))]
-    .filter((p) => existsSync(new URL(p, ROOT)));
-  assert.ok(referenced.includes("config/nanobot.config.windows.jsonc"), "量具:install.ps1 把这份模板合进用户配置");
-  const templates = readdirSync(new URL("config/", ROOT)).filter((f) => /^nanobot\.config.*\.jsonc$/.test(f)).map((f) => `config/${f}`);
-  assert.ok(templates.length >= 2, "量具:Windows 与 Linux 两份模板");
-  const keyFiles = readdirSync(new URL("bin/", ROOT), { withFileTypes: true })
-    .filter((d) => d.isFile() && !d.name.endsWith(".pyc"))
-    .map((d) => `bin/${d.name}`)
-    .filter((f) => SECRET_RE.test(read(f)));
-  assert.ok(keyFiles.includes("bin/ds-nanobot"), "量具:没有扩展名的 Linux 启动脚本(读 MIMO_TP_KEY)也扫得到");
-  const missing = [...new Set([...referenced, ...templates, ...keyFiles])].filter((f) => !matchAny(policy.high, f));
-  assert.deepEqual(missing, [], `这些首次配置 / 碰密钥的文件改了只要一家 PASS:${missing.join("、")}`);
-  blocked(run({ files: ["config/nanobot.config.windows.jsonc"], reviews: [review({})] }), "G6");
-  assert.ok(!matchAny(policy.high, "config/taxonomy.default.json"), "对照:分类表是产品数据,不算 high");
-});
+// ── aiwork-review[bot] 评审(PR #10 review 5354768826,@ ae8c58f)的第 3 个阻断点 ─────────────────────
 
 test("R17 目标分支在这次 CI 之后(或同一时刻)改过 → G1 不算通过(业主批准也豁免不了);CI 缺创建时间也不算", () => {
   const ci = { state: "success", detail: "运行 1", created_at: "2026-09-29T10:00:00Z" };
@@ -501,4 +488,13 @@ test("R21 同一人:10:00 评审、11:00 批准、12:00 早的那条被撤销 �
   const owner = [{ ...approve(HEAD, at("10"), "DISMISSED"), id: 90, dismissed_at: at("12") }, { ...approve(HEAD, at("11")), id: 91 }];
   blocked(run({ files: [".github/workflows/ci.yml"], reviews: [review({}), ...owner] }), "G7");
   assert.equal(run({ files: [".github/workflows/ci.yml"], reviews: [review({}), ...owner, { ...approve(HEAD, at("13")), id: 92 }] }).conclusion, "success");
+});
+
+test("R21b 评审机器人的评审被撤销:结论写在正文里还读得到,生效时刻仍是提交那一刻(撤销不算新的反对)", () => {
+  const at = (h) => `2026-09-29T${h}:00:00Z`;
+  const botBlock = { ...review({ id: 2, verdict: "BLOCK", at: at("10") }), state: "DISMISSED", dismissed_at: at("12") };
+  // 业主 11:00 在看过 10:00 的 BLOCK 之后批准 ⇒ 豁免;12:00 的撤销不改变这条 BLOCK 的内容
+  assert.equal(run({ reviews: [review({ id: 1 }), botBlock, approve(HEAD, at("11"))] }).conclusion, "success");
+  // 对照:业主在 BLOCK 之前批准 ⇒ 豁免不了
+  blocked(run({ reviews: [review({ id: 1 }), botBlock, approve(HEAD, at("09"))] }), "G7");
 });

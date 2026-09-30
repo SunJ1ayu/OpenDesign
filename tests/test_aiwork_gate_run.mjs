@@ -28,11 +28,12 @@ function goodApi(calls, over = {}) {
       calls.push(["get", p]);
       if (over.get) return over.get(p);
       if (p.endsWith("/pulls/10")) return prObj();
-      if (p.includes("/commits/")) return [prObj()];
       throw new Error(`没料到的请求 ${p}`);
     },
     async getPage(p) {
       calls.push(["getPage", p]);
+      const listed = over.list?.(p); // PR 列表(按提交 / 按分支)一律翻页读
+      if (listed) return { data: listed, next: null };
       if (p.includes("/files")) return { data: [{ filename: "web/a.ts" }], next: null };
       if (p.includes("/reviews")) return { data: [], next: null };
       if (p.includes("/actions/runs")) return { data: { workflow_runs: [{ id: 1, path: ".github/workflows/ci.yml", head_sha: HEAD, status: "completed", conclusion: "success", pull_requests: [{ number: 10 }] }] }, next: null };
@@ -182,7 +183,7 @@ test("R14f 保险丝本身拨不动(GITHUB_TOKEN 出错)→ App 照常写回结�
 // 以前只在那个旧提交上写 failure 就收手,当前 head 上的旧 success 没人重算。
 test("R16 workflow_run 没带 PR、提交已不是 head → 按提交查到 PR 后在当前 head 上重算,旧提交判 failure", async () => {
   const { calls, poster, fuse } = recorder();
-  const api = goodApi(calls, { get: (p) => (p.endsWith("/pulls/10") ? prObj() : p.includes(`/commits/${OLD}/pulls`) ? [prObj()] : []) });
+  const api = goodApi(calls, { list: (p) => (p.includes(`/commits/${OLD}/pulls`) ? [prObj()] : undefined) });
   await gate({ repo: "o/r", eventName: "workflow_run", event: wrEvent({ head_sha: OLD, pull_requests: [] }), policy, api, poster, fuse });
   const fin = calls.filter((c) => c[0] === "finish");
   assert.deepEqual(fin.find((c) => c[1] === OLD)?.slice(2, 4), ["completed", "failure"]);
@@ -193,14 +194,15 @@ test("R16 workflow_run 没带 PR、提交已不是 head → 按提交查到 PR �
 test("R16b 按提交查不到 PR(比如合并提交)→ 再按事件里的分支查;都查不到才在该提交上判 failure", async () => {
   const MERGE = "d".repeat(40);
   const { calls, poster, fuse } = recorder();
-  const api = goodApi(calls, { get: (p) => (p.endsWith("/pulls/10") ? prObj() : p.startsWith("/repos/o/r/pulls?") ? [prObj()] : []) });
+  const api = goodApi(calls, { list: (p) => (p.includes(`/commits/${MERGE}/pulls`) ? [] : p.startsWith("/repos/o/r/pulls?") ? [prObj()] : undefined) });
   const ev = wrEvent({ head_sha: MERGE, pull_requests: [], head_branch: "claude/x", head_repository: { full_name: "o/r", owner: { login: "o" } } });
   await gate({ repo: "o/r", eventName: "workflow_run", event: ev, policy, api, poster, fuse });
-  const byBranch = calls.find((c) => c[0] === "get" && c[1].startsWith("/repos/o/r/pulls?"));
+  const byBranch = calls.find((c) => c[0] === "getPage" && c[1].startsWith("/repos/o/r/pulls?"));
   assert.ok(byBranch && byBranch[1].includes("state=open") && byBranch[1].includes(encodeURIComponent("o:claude/x")), byBranch?.[1]);
   assert.ok(calls.some((c) => c[0] === "finish" && c[1] === HEAD && c[2] === "completed"), "在 PR 当前 head 上重算");
   const { calls: c2, poster: p2, fuse: f2 } = recorder();
-  await gate({ repo: "o/r", eventName: "workflow_run", event: ev, policy, api: goodApi(c2, { get: () => [] }), poster: p2, fuse: f2 });
+  const none = (p) => (p.includes("/commits/") || p.startsWith("/repos/o/r/pulls?") ? [] : undefined);
+  await gate({ repo: "o/r", eventName: "workflow_run", event: ev, policy, api: goodApi(c2, { list: none }), poster: p2, fuse: f2 });
   assert.deepEqual(c2.filter((c) => c[0] === "finish").map((c) => c.slice(1, 4)), [[MERGE, "completed", "failure"]]);
 });
 

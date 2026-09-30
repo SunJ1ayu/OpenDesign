@@ -11,7 +11,7 @@
 //      撤销抹不掉反对;被撤销的评审看不出原来是什么,一律按反对算,反对的时刻是撤销那一刻)
 //   G6 high 路径:两个不同的非作者家族 PASS(豁免不了)+ 业主批准
 //   G7 业主批准 = 业主在当前 head 上最后一次表态是 Approve;最后一次是 Request changes 或被撤销则一律不放行
-//   G8 数据不全 → 由 collect.mjs 抛错,main.mjs 直接判 failure
+//   G8 数据不全 → 由 collect.mjs 抛错,run.mjs 判 failure
 
 const SHA_RE = /^[0-9a-f]{40}$/;
 const VERDICTS = new Set(["PASS", "BLOCK", "NEEDS_MORE_INFO", "UNKNOWN"]);
@@ -87,19 +87,25 @@ function blockReason(r, p) {
   return null;
 }
 
-// 一条人的评审只有一个生效时刻:被撤销的是撤销那一刻(缺撤销时间就当它在最后,之前的批准豁免不了),
-// 其余是提交那一刻。选"最后一次表态"和比"批准是否晚于 BLOCK"都用它。
-const effectiveAt = (r) => (r.state === "DISMISSED" ? r.dismissed_at || "9999-12-31T23:59:59Z" : r.submitted_at);
-const byTime = (a, b) => (effectiveAt(a) < effectiveAt(b) ? -1 : effectiveAt(a) > effectiveAt(b) ? 1 : a.id - b.id);
+const isReviewerBot = (r, policy) => r.login === policy.reviewer_bot && r.type === "Bot";
 
-// 除 aiwork-review 以外,每个评审人在当前 head 上最后一次表态(COMMENTED 不算表态)。
+// 一条评审只有一个生效时刻 = 它的立场为我们所知的那一刻。选"最后一次表态"、定 BLOCK 时刻、比"批准是否晚于
+// BLOCK"都只用它。评审机器人的结论写在正文里,撤销了也读得到 ⇒ 提交那一刻;人的评审被撤销后原立场就丢了,
+// 立场变成"被撤销" ⇒ 撤销那一刻(缺撤销时间就当它在最后,之前的批准豁免不了);其余 ⇒ 提交那一刻。
+function effectiveAt(r, policy) {
+  if (r.state === "DISMISSED" && !isReviewerBot(r, policy)) return r.dismissed_at || "9999-12-31T23:59:59Z";
+  return r.submitted_at;
+}
+
+// 除评审机器人以外,每个评审人在当前 head 上最后一次表态(COMMENTED 不算表态)。
 function stancesOnHead(reviews, policy, head) {
   const last = new Map();
   for (const r of reviews) {
-    if (r.commit_id !== head || r.login === policy.reviewer_bot) continue;
+    if (r.commit_id !== head || isReviewerBot(r, policy)) continue;
     if (!["APPROVED", "CHANGES_REQUESTED", "DISMISSED"].includes(r.state)) continue;
     const prev = last.get(r.login);
-    if (!prev || byTime(prev, r) < 0) last.set(r.login, r);
+    const later = !prev || effectiveAt(r, policy) > effectiveAt(prev, policy) || (effectiveAt(r, policy) === effectiveAt(prev, policy) && r.id > prev.id);
+    if (later) last.set(r.login, r);
   }
   return last;
 }
@@ -128,7 +134,7 @@ export function decide(facts, policy) {
   add(author.known, "G4", author.known ? `作者:${author.actors.join("、")}(${author.family})` : `作者 UNKNOWN:${author.why}`);
 
   // 评审
-  const botReviews = facts.reviews.filter((r) => r.login === policy.reviewer_bot && r.type === "Bot");
+  const botReviews = facts.reviews.filter((r) => isReviewerBot(r, policy));
   const onHead = botReviews.filter((r) => r.commit_id === head);
   const builderFamilies = new Set(Object.values(policy.builders));
   const passes = [];
@@ -138,7 +144,7 @@ export function decide(facts, policy) {
     const p = parseReviewBlock(r.body);
     const why = blockReason(r, p);
     if (why !== null) {
-      blocks.push({ id: r.id, at: r.submitted_at, family: p.ok ? p.value.family : "?", model: `${p.ok ? p.value.model : `评审 #${r.id}`}${why ? `,${why}` : ""}` });
+      blocks.push({ id: r.id, at: effectiveAt(r, policy), family: p.ok ? p.value.family : "?", model: `${p.ok ? p.value.model : `评审 #${r.id}`}${why ? `,${why}` : ""}` });
       continue;
     }
     const v = p.value;
@@ -176,7 +182,7 @@ export function decide(facts, policy) {
   const ownerLast = [...stances.values()].find((r) => r.login === policy.owner && r.type === "User") ?? null;
   for (const [login, r] of stances) {
     if (login === policy.owner || r.state === "APPROVED") continue;
-    blocks.push({ id: r.id, at: effectiveAt(r), family: "评审人", model: `${login}${r.state === "DISMISSED" ? "(被撤销的评审)" : " 要求修改"}` });
+    blocks.push({ id: r.id, at: effectiveAt(r, policy), family: "评审人", model: `${login}${r.state === "DISMISSED" ? "(被撤销的评审)" : " 要求修改"}` });
   }
 
   // G3
@@ -206,18 +212,17 @@ export function decide(facts, policy) {
 
   // G7
   const approved = ownerLast?.state === "APPROVED";
-  const ownerObjects = ownerLast !== null && !approved;
-  const stance = { at: ownerLast ? effectiveAt(ownerLast) : "" };
+  const ownerObjection = ownerLast === null || approved ? null : ownerLast.state === "DISMISSED" ? "业主的评审被撤销了,要业主重新表态" : "业主要求修改(Request changes)";
   const lastBlockAt = blocks.map((b) => b.at).sort().at(-1) ?? "";
   // 批准要晚于最后一条 BLOCK:业主批准时还没看到的 BLOCK,不能被那次批准豁免
-  const blockWaived = approved && stance.at > lastBlockAt;
+  const blockWaived = approved && effectiveAt(ownerLast, policy) > lastBlockAt;
   const needOwner = [];
   if (!author.known) needOwner.push("作者 UNKNOWN");
   if (judging.length) needOwner.push("改了判卷面");
   if (blocked) needOwner.push("有 BLOCK");
   if (high.length) needOwner.push("high 路径");
-  const ownerOk = !ownerObjects && (!needOwner.length || (approved && (!blocked || blockWaived)));
-  if (ownerObjects) add(false, "G7", ownerLast.state === "DISMISSED" ? "业主在当前 head 上的评审被撤销了,需要业主重新表态" : "业主在当前 head 上要求修改(Request changes)");
+  const ownerOk = !ownerObjection && (!needOwner.length || (approved && (!blocked || blockWaived)));
+  if (ownerObjection) add(false, "G7", `当前 head 上${ownerObjection}`);
   else if (needOwner.length) {
     const why = !approved ? "还没有" : blocked && !blockWaived ? "批准早于最后一条 BLOCK,要在看过 BLOCK 之后再批准" : "已批准";
     add(ownerOk, "G7", `需要业主在当前 head 上批准(${needOwner.join("、")}):${why}`);
@@ -227,7 +232,7 @@ export function decide(facts, policy) {
     if (!ciOk) return pending ? "等 CI" : baseMoved ? "不放行:目标分支改过,CI 要在新目标上重跑" : "不放行:CI 没通过";
     if (!reviewOk) return "不放行:缺合格评审";
     if (!highOk) return "不放行:high 路径要两家不同模型都 PASS";
-    if (ownerObjects) return ownerLast.state === "DISMISSED" ? "不放行:业主的评审被撤销了,要业主重新表态" : "不放行:业主要求修改";
+    if (ownerObjection) return `不放行:${ownerObjection}`;
     if (!ownerOk) return `等业主批准:${needOwner.join("、")}`;
     return "放行";
   })();

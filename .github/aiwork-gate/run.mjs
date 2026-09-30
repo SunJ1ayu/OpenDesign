@@ -88,6 +88,8 @@ export async function gate({ repo, eventName, event, policy, api, poster, fuse, 
       log(`保险丝也拨不动(${sha.slice(0, 7)}):${e.message}`);
     }
   };
+  // 以某个提交为 head(或含这个提交)的 PR;列表一律翻页取全,取不全就抛错(G8)
+  const prsOnCommit = (sha) => paginate(api, `/repos/${repo}/commits/${sha}/pulls?per_page=100`);
   const ids = new Map();
   const placeholder = async (sha) => {
     if (ids.has(sha)) return ids.get(sha);
@@ -128,13 +130,8 @@ export async function gate({ repo, eventName, event, policy, api, poster, fuse, 
   let numbers = plan.numbers;
   if (!numbers.length) {
     try {
-      const prs = await api.get(`/repos/${repo}/commits/${plan.sha}/pulls`);
-      if (!Array.isArray(prs)) throw new Error("按提交查 PR 返回的不是列表");
-      if (plan.lookupHead) {
-        const byBranch = await api.get(`/repos/${repo}/pulls?state=open&head=${encodeURIComponent(plan.lookupHead)}&per_page=100`);
-        if (!Array.isArray(byBranch)) throw new Error("按分支查 PR 返回的不是列表");
-        prs.push(...byBranch);
-      }
+      const prs = await prsOnCommit(plan.sha);
+      if (plan.lookupHead) prs.push(...(await paginate(api, `/repos/${repo}/pulls?state=open&head=${encodeURIComponent(plan.lookupHead)}&per_page=100`)));
       numbers = [...new Set(prs.filter((p) => p.state === "open").map((p) => p.number))];
     } catch (e) {
       await finish(plan.sha, g8(`按提交号 / 分支查 PR 失败:${e.message}`));
@@ -164,7 +161,7 @@ export async function gate({ repo, eventName, event, policy, api, poster, fuse, 
     await placeholder(head);
     let result;
     try {
-      const listed = await paginate(api, `/repos/${repo}/commits/${head}/pulls?per_page=100`);
+      const listed = await prsOnCommit(head);
       const all = new Set([...known, ...listed.filter((p) => p.state === "open" && p.head?.sha === head).map((p) => p.number)]);
       const verdicts = [];
       for (const n of all) {
