@@ -100,7 +100,6 @@ const poster = {
 const event = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, "utf8"));
 await gate({
   repo,
-  eventName: env.GITHUB_EVENT_NAME,
   event,
   policy,
   api,

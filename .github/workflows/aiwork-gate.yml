@@ -6,13 +6,13 @@
 # 为什么这样触发(M1):
 #   · pull_request_target / workflow_run 跑的永远是 main 上的这份 workflow 和 .github/aiwork-gate/ 代码,
 #     PR 改关卡、改策略都改不到正在判它的这一份;这里也**不检出 PR 的代码**,只读 GitHub API。
-#   · workflow_run:CI 跑完、有新评审(aiwork-review-ping)时重算;给 PR 加 `aiwork:recheck` 标签也能手动重算。
+#   · 事件只是门铃:每次运行都把所有开着的 PR 全重算一遍(见 .github/aiwork-gate/run.mjs 文件头)。
+#     workflow_run:CI 跑完、有新评审(aiwork-review-ping)时;给 PR 加标签(如 `aiwork:recheck`)也能手动重算。
 #   · edited:只改 PR 的目标分支时 head 不变、改动文件却变了,也要重算(改标题正文时顺带重算一次,无害)。
 #   · 发检查结果用 aiwork-gate App 的私钥,放在只许 main 用的 environment `aiwork-gate` 里:
 #     同仓库分支的 PR 能拿到仓库级 secrets,拿不到只许 main 的 environment secrets。
 #   · 唯一的写权限 statuses: write 给保险丝(commit status `aiwork-gate/fuse`):App 私钥坏了时 App 改不了
-#     自己发过的旧 success,由保险丝挡住;checks: read 让保险丝跟提交上最新的那条关卡检查走
-#     (见 .github/aiwork-gate/run.mjs 文件头)。
+#     自己发过的旧 success,由保险丝挡住(见 .github/aiwork-gate/run.mjs 文件头)。
 #
 # 先以 `aiwork-gate-shadow` 这个名字只报不拦(.aiwork/policy.json 的 check_name);
 # 判得准了,再改名 `aiwork-gate` 并在 main 的分支规则里设为必过、限定只认 aiwork-gate App,
@@ -32,18 +32,17 @@ permissions:
   pull-requests: read
   actions: read
   issues: read
-  checks: read
   statuses: write
 
-# 同一 PR 来了新事件,旧的那次算了也白算,取消它省事。对错不靠并发组:它按事件分,运行却写到 PR 当前的 head,
-# 同一个提交上几次运行照样可能同时在算 —— 由 run.mjs 按"提交上最新的那条关卡检查为准"收口。
+# 同一时间只有一次运行:组名固定(不随事件变),不取消正在跑的;排队的只留最新一个,它开始时读到的一定不比
+# 被它顶掉的旧。所以同一提交上后写的结论一定出自后读的数据。每次运行都重算全部开着的 PR,顶掉的那些不会漏算。
 concurrency:
-  group: aiwork-gate-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.run_id }}
-  cancel-in-progress: true
+  group: aiwork-gate
+  cancel-in-progress: false
 
 jobs:
   gate:
-    if: github.event_name != 'pull_request_target' || github.event.action != 'labeled' || github.event.label.name == 'aiwork:recheck'
+    # 不按事件过滤(比如只认某个标签):排队时被顶掉的运行要靠顶掉它的那次来算,那次不能被跳过
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: aiwork-gate

@@ -20,7 +20,6 @@ const PEM = privateKey.export({ type: "pkcs8", format: "pem" });
 
 function fakeGitHub(opts = {}) {
   const log = [];
-  const check = { id: 4242, name: policy.check_name, app: { id: policy.gate_app_id }, head_sha: HEAD, status: null, conclusion: null, output: null }; // 发了才有
   const server = createServer((req, res) => {
     let body = "";
     req.on("data", (c) => (body += c));
@@ -31,18 +30,18 @@ function fakeGitHub(opts = {}) {
       const u = req.url;
       if (u === "/repos/o/r/installation") return send(200, { id: 777 });
       if (u === "/app/installations/777/access_tokens") return send(201, { token: "ghs_fake_app_token" });
-      if (u === "/repos/o/r/check-runs" && req.method === "POST") return send(201, Object.assign(check, JSON.parse(body)));
-      if (u.startsWith("/repos/o/r/check-runs/") && req.method === "PATCH") return send(200, Object.assign(check, JSON.parse(body)));
-      if (u.startsWith(`/repos/o/r/commits/${HEAD}/check-runs?`)) return send(200, check.status ? { total_count: 1, check_runs: [check] } : { total_count: 0, check_runs: [] });
+      if (u === "/repos/o/r/check-runs" && req.method === "POST") return send(201, { id: 4242 });
+      if (u.startsWith("/repos/o/r/check-runs/") && req.method === "PATCH") return send(200, { id: 4242 });
       if (u.startsWith("/repos/o/r/statuses/") && req.method === "POST") return send(201, { id: 1 });
       if (opts.prFails && u === "/repos/o/r/pulls/10") return send(502, { message: "bad gateway" });
-      if (u === "/repos/o/r/pulls/10") return send(200, { number: 10, state: "open", changed_files: 1, head: { sha: HEAD, ref: "claude/x", repo: { full_name: "o/r" } }, base: { ref: "main" } });
+      const pr10 = { number: 10, state: "open", changed_files: 1, head: { sha: HEAD, ref: "claude/x", repo: { full_name: "o/r" } }, base: { ref: "main" } };
+      if (u === "/repos/o/r/pulls?state=open&per_page=100") return send(200, [pr10]);
+      if (u === "/repos/o/r/pulls/10") return send(200, pr10);
       if (u.startsWith("/repos/o/r/pulls/10/files")) return send(200, [{ filename: "web/a.ts" }]);
       if (u.startsWith("/repos/o/r/pulls/10/reviews")) return send(200, []);
       if (u.startsWith("/repos/o/r/actions/runs")) return send(200, { workflow_runs: [{ id: 1, path: ".github/workflows/ci.yml", head_sha: HEAD, status: "completed", conclusion: "success", pull_requests: [{ number: 10 }] }] });
       if (u.startsWith("/repos/o/r/activity")) return send(200, [{ id: 1, timestamp: "t", activity_type: "push", after: HEAD, actor: { login: "SunJ1ayuBoT" } }]);
       if (u.startsWith("/repos/o/r/issues/10/events")) return send(200, []);
-      if (u.startsWith(`/repos/o/r/commits/${HEAD}/pulls`)) return send(200, [{ number: 10, state: "open", head: { sha: HEAD } }]);
       send(404, { message: `fake: no route ${u}` });
     });
   });
@@ -90,8 +89,8 @@ test("整机:JWT 验得过、只要 checks:write、读用 GITHUB_TOKEN、先占�
     assert.equal(writes[0].body.head_sha, HEAD);
     assert.ok(writes.every((w) => w.auth === "Bearer ghs_fake_app_token"), "发检查只用 App 令牌");
     const firstWrite = gh.log.indexOf(writes[0]);
-    const firstRead = gh.log.findIndex((r) => r.url.startsWith("/repos/o/r/pulls"));
-    assert.ok(firstWrite < firstRead, "先占位,后读数据");
+    const firstRead = gh.log.findIndex((r) => r.url.startsWith("/repos/o/r/pulls/"));
+    assert.ok(firstWrite < firstRead, "先占位,后读 PR 的数据");
     const last = writes.at(-1);
     assert.equal(last.method, "PATCH");
     assert.equal(last.url, "/repos/o/r/check-runs/4242");
@@ -117,12 +116,12 @@ test("整机:读 PR 出错 → 占位被改成 failure(G8),进程正常结束", 
   }
 });
 
-test("整机:没有私钥 → 进程失败,一条检查都不发、一条数据都不读", async () => {
+test("整机:没有私钥 → 进程失败,一条检查都不发、PR 的数据一条都不读(只列了开着的 PR)", async () => {
   const gh = await fakeGitHub();
   try {
     const { code } = await runMain(gh.url, { AIWORK_GATE_PRIVATE_KEY: "" });
     assert.notEqual(code, 0);
-    assert.equal(gh.log.filter((r) => r.url.startsWith("/repos/o/r/check-runs") || r.url.startsWith("/repos/o/r/pulls")).length, 0);
+    assert.equal(gh.log.filter((r) => r.url.startsWith("/repos/o/r/check-runs") || r.url.startsWith("/repos/o/r/pulls/")).length, 0);
   } finally {
     gh.server.close();
   }
@@ -162,7 +161,7 @@ test("整机:没有私钥 → App 检查一条都发不出,但保险丝用 GITHU
 
 // aiwork-review[bot] 评审(PR #10 review 5354768826,@ ae8c58f)第 4 个阻断点:main 上的策略文件不是合法 JSON 时,
 // 进程在进 gate() 之前就崩了,保险丝没被拨到 failure。
-test("整机:策略文件不是合法 JSON → 不发 App 检查、不读数据,但保险丝照样拨到 failure", async () => {
+test("整机:策略文件不是合法 JSON → 不发 App 检查、不读 PR 的数据,但保险丝照样拨到 failure", async () => {
   const gh = await fakeGitHub();
   const root = mkdtempSync(join(tmpdir(), "gate-policy-"));
   try {
@@ -175,7 +174,7 @@ test("整机:策略文件不是合法 JSON → 不发 App 检查、不读数据,
     assert.notEqual(code, 0);
     assert.match(out, /policy\.json/);
     assert.deepEqual(fuseWrites(gh.log).map((r) => r.body.state), ["failure"]);
-    assert.equal(gh.log.filter((r) => r.url.startsWith("/repos/o/r/check-runs") || r.url.startsWith("/repos/o/r/pulls")).length, 0);
+    assert.equal(gh.log.filter((r) => r.url.startsWith("/repos/o/r/check-runs") || r.url.startsWith("/repos/o/r/pulls/")).length, 0);
   } finally {
     gh.server.close();
     rmSync(root, { recursive: true, force: true });

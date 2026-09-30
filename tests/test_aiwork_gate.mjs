@@ -329,6 +329,20 @@ test("high 清单从仓库推出:碰密钥 / 口令 / 机主 nanobot 配置的 b
   assert.ok(!matchAny(policy.high, "config/taxonomy.default.json"), "对照:分类表是产品数据,不算 high");
 });
 
+// aiwork-review[bot] 评审(PR #10 review 5361623557,@ 8f010fa)第 2 个阻断点:同一 PR 在同一提交上跑过两次 CI,
+// 旧的那次(运行号 5)后来被重跑且失败,新的那次(运行号 6)早先成功。重跑沿用原运行号,以前按运行号取"最新"⇒ 取到 6,判通过。
+test("R24 CI 以最后开始的那次执行为准:旧运行后来重跑失败,早先成功的新运行号不算数(G1)", async () => {
+  const pr10 = [{ number: 10 }];
+  const run = (id, conclusion, run_started_at) => ({ id, path: ".github/workflows/ci.yml", head_sha: HEAD, status: "completed", conclusion, pull_requests: pr10, run_started_at, created_at: "2026-09-29T08:00:00Z" });
+  const api = (runs) => ({ getPage: async () => ({ data: { workflow_runs: runs }, next: null }) });
+  const rerunFailed = [run(5, "failure", "2026-09-29T10:00:00Z"), run(6, "success", "2026-09-29T09:00:00Z")];
+  assert.equal((await collectCi(api(rerunFailed), "o/r", HEAD, policy, 10)).state, "failure");
+  const rerunPassed = [run(5, "success", "2026-09-29T10:00:00Z"), run(6, "failure", "2026-09-29T09:00:00Z")];
+  assert.equal((await collectCi(api(rerunPassed), "o/r", HEAD, policy, 10)).state, "success", "对照:旧运行重跑通过就以它为准");
+  const rerunning = [{ ...run(5, null, "2026-09-29T10:00:00Z"), status: "in_progress" }, run(6, "success", "2026-09-29T09:00:00Z")];
+  assert.equal((await collectCi(api(rerunning), "o/r", HEAD, policy, 10)).state, "pending", "重跑还没完就等");
+});
+
 test("真实样本:review-pr 第一次真发的评审(PR #10 review 5353128020)关卡读得懂,算作 BLOCK", () => {
   const sha = "e604a31d6f303ff6f9d305d4b73778acada787b8";
   const body = "**aiwork-review · subcodex · gpt-6-sol**\n\n## Findings\n\n- **P1 · …**\n\nConclusion: BLOCK\n\n```json\n" +

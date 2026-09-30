@@ -38,9 +38,11 @@ export async function collectCi(api, repo, headSha, policy, prNumber) {
     "workflow_runs",
   );
   const ciRuns = runs.filter((r) => stripRef(r.path) === policy.ci.workflow_path && r.head_sha === headSha);
+  // 同一 PR 在同一提交上可能跑过几次(重开 PR、手动重跑):认最后开始的那次执行。
+  // 重跑沿用原来的运行号、只更新 run_started_at,所以不能按运行号排(按运行号,旧运行重跑失败会被较新的成功盖住)
   const mine = ciRuns
     .filter((r) => (r.pull_requests ?? []).some((p) => p.number === prNumber))
-    .sort((a, b) => b.id - a.id);
+    .sort((a, b) => String(b.run_started_at ?? "").localeCompare(String(a.run_started_at ?? "")) || b.id - a.id);
   if (!mine.length) {
     return ciRuns.length
       ? { state: "failure", detail: `这个提交上有 ${ciRuns.length} 次 ci.yml 运行,但都没关联到 PR #${prNumber}` }
