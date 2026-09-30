@@ -115,8 +115,14 @@ jobs:
             echo "::error::tests/run-all.sh 退出码 $rc"
           fi
           # run-all.sh 把各段细节写进 /tmp 下的日志目录,红了才保留;runner 一收工就没了。
-          # 这里把红的那几段日志尾部直接印进 job 日志;e2e 段里每条红了的场景另有自己的日志,也一并印出。
+          # 这里把红的那几段日志直接印进 job 日志:先印红了的那几条测试(node 的 `not ok`、python 的 FAIL / ERROR,
+          # 各带后面 40 行的报错),再印末尾 —— 只印末尾时,几百条里红的那一条多半不在末尾,
+          # 上传的日志构件在本机那边又常下不下来,等于没留线索(PR #10 @ 224f338 实际发生过)。
+          # e2e 段里每条红了的场景另有自己的日志,也一并印出。
           for f in $(sed -n 's/.*→ \(\/tmp\/[^ ]*\.log\)$/\1/p' "$out"); do
+            echo "::group::$f 里红了的测试(最多 20 条)"
+            sudo grep -E -A 40 -m 20 '^[[:space:]]*not ok |^(FAIL|ERROR): ' "$f" || true
+            echo "::endgroup::"
             echo "::group::$f(末尾 200 行)"
             sudo tail -n 200 "$f" || true
             echo "::endgroup::"

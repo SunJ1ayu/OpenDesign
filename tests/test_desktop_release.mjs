@@ -94,7 +94,8 @@ test("r8 🔴 发布命令由工具生成:正式 release、tag v<版本>、恰�
     blockmap: `${dir}/OpenDesign-0.98.11-electron-setup.exe.blockmap`,
     latestYml: "feed/latest.yml",
   };
-  const argv = ghReleaseCommand({ version: "0.98.11", ...files, latestYmlText: rewriteLatestYml(LATEST, "0.98.11") });
+  const target = "3af3083" + "0".repeat(33);
+  const argv = ghReleaseCommand({ version: "0.98.11", ...files, target, latestYmlText: rewriteLatestYml(LATEST, "0.98.11") });
   assert.deepEqual(argv.slice(0, 3), ["release", "create", "v0.98.11"]);
   for (const bad of ["--prerelease", "--draft"]) {
     assert.ok(!argv.includes(bad), `${bad} ⇒ releases/latest/download 看不见它,旧版永远「已是最新」`);
@@ -104,13 +105,15 @@ test("r8 🔴 发布命令由工具生成:正式 release、tag v<版本>、恰�
   assert.deepEqual(assets.sort(), Object.values(files).sort(), "资产要恰好三样:安装包 + blockmap + 改写过的 latest.yml");
   const r = argv.indexOf("--repo");
   if (r >= 0) assert.equal(argv[r + 1], "SunJ1ayu/OpenDesign");
-  assert.throws(() => ghReleaseCommand({ version: "0.98.11", ...files, latestYmlText: LATEST }),
+  assert.throws(() => ghReleaseCommand({ version: "0.98.11", ...files, target, latestYmlText: LATEST }),
     "没改写的 latest.yml 发出去 ⇒ 每次更新都退整包 158MB");
-  assert.throws(() => ghReleaseCommand({ version: "0.98.12", ...files, latestYmlText: rewriteLatestYml(LATEST, "0.98.11") }),
+  assert.throws(() => ghReleaseCommand({ version: "0.98.12", ...files, target, latestYmlText: rewriteLatestYml(LATEST, "0.98.11") }),
     "版本对不上还给命令 ⇒ 发出去的 tag 和包不是一版");
 });
 
-test("r9 🔴 发版 workflow 给 --target:tag 打在构建用的那个提交上,不是发布那一刻的 main 最新", () => {
+// 不给 --target 时 gh 把 tag 打在发布那一刻的 main 最新提交上;打包到发布之间 main 前进了,tag 就指向没打进包里的代码。
+// 没有哪种发法可以不管 tag 落在哪 ⇒ 不给就不生成命令(以前只靠 workflow 记得带,手敲的命令漏了照样发)。
+test("r9 🔴 tag 一律打在构建用的那个提交上:不给 --target 就不生成发布命令", () => {
   const files = {
     installer: "dist/OpenDesign-0.98.11-electron-setup.exe",
     blockmap: "dist/OpenDesign-0.98.11-electron-setup.exe.blockmap",
@@ -122,8 +125,8 @@ test("r9 🔴 发版 workflow 给 --target:tag 打在构建用的那个提交上
   const t = argv.indexOf("--target");
   assert.ok(t >= 0 && argv[t + 1] === sha, "给了提交号却没带上 ⇒ tag 落在发布那一刻的 main 最新");
   assert.equal(argv.filter((a) => a === "--target").length, 1);
-  assert.deepEqual(argv.filter((a) => a !== "--target" && a !== sha), ghReleaseCommand({ version: "0.98.11", ...files, latestYmlText }),
-    "加 --target 不许顺带改别的实参");
+  assert.throws(() => ghReleaseCommand({ version: "0.98.11", ...files, latestYmlText }), /--target/,
+    "不给提交号也生成了命令 ⇒ tag 落在发布那一刻的 main 最新");
   for (const bad of ["3af3083", "main", "HEAD", "3AF3083" + "0".repeat(33), `${sha} --prerelease`]) {
     assert.throws(() => ghReleaseCommand({ version: "0.98.11", ...files, latestYmlText, target: bad }),
       `target=${JSON.stringify(bad)} 不是完整提交号也放行了`);

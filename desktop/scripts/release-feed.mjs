@@ -41,22 +41,22 @@ export function verifyFeed(text, installer) {
   return { ok: true, reason: "" };
 }
 
-// target:tag 打在哪个提交上。不给时 gh 把 tag 打在发布那一刻的 main 最新提交上 ——
-// 打包到发布之间 main 前进了,tag 就指向没打进包里的代码。发版 workflow 一律给构建用的那个提交。
+// target:tag 打在哪个提交上,必须给构建用的那个提交。不给时 gh 把 tag 打在发布那一刻的 main 最新提交上 ——
+// 打包到发布之间 main 前进了,tag 就指向没打进包里的代码。没有哪种发法可以不管这个,所以不给就不生成命令。
 export function ghReleaseCommand({ version, installer, blockmap, latestYml, latestYmlText, target }) {
   const name = installerName(version);
   if (!installer.endsWith(name) || !blockmap.endsWith(`${name}.blockmap`)) throw new Error("发布资产名与版本不一致");
   if (basename(latestYml) !== "latest.yml") throw new Error("更新清单资产名必须是 latest.yml");
   const rewritten = rewriteLatestYml(latestYmlText, version);
   if (rewritten !== latestYmlText) throw new Error("latest.yml 还没有改写成带版本的绝对地址");
-  if (target !== undefined && !/^[0-9a-f]{40}$/.test(target)) throw new Error("--target 要完整的 40 位提交号");
+  if (!/^[0-9a-f]{40}$/.test(target ?? "")) throw new Error("--target 要给构建用的那个提交(完整的 40 位提交号)");
   return [
     "release", "create", `v${version}`,
     installer, blockmap, latestYml,
     "--repo", "SunJ1ayu/OpenDesign",
     "--title", `OpenDesign ${version}`,
     "--generate-notes",
-    ...(target === undefined ? [] : ["--target", target]),
+    "--target", target,
   ];
 }
 
@@ -99,7 +99,7 @@ async function main(argv) {
     if (run) execFileSync("gh", commandArgs, { stdio: "inherit" });
     return;
   }
-  throw new Error("用法：verify <latest.yml> <安装包> | rewrite <入> <出> <版本> [--base URL] | gh-command <版本> <安装包> <blockmap> <latest.yml> [--target 提交号] [--run]");
+  throw new Error("用法：verify <latest.yml> <安装包> | rewrite <入> <出> <版本> [--base URL] | gh-command <版本> <安装包> <blockmap> <latest.yml> --target 提交号 [--run]");
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
