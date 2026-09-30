@@ -1,0 +1,20 @@
+# 有人在 PR 上提交、改写或撤销评审时,只负责"敲一下门",让 aiwork-gate 重算(aiwork-gate.yml 的 workflow_run)。
+# 关卡读的是评审的当前正文:改写正文(比如 PASS 改成 BLOCK)也是输入变了,同样要敲门。
+# 这里什么都不做、什么权限都不要:pull_request_review 跑的是 PR 里的 workflow,不能让它碰任何东西;
+# 真正的判定在 main 上的 aiwork-gate 里,从 GitHub API 重新读,不信这里的任何输出。
+
+name: aiwork-review-ping
+
+on:
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      # run 里不嵌表达式、不写"空格加井号":既防 YAML 把它当注释截断,也不把事件内容拼进 shell
+      - run: echo "有新评审,触发 aiwork-gate 重算"
