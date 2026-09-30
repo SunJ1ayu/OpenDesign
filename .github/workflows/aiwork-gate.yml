@@ -9,7 +9,8 @@
 #   · 事件只是门铃:每次运行都把所有开着的 PR 全重算一遍(见 .github/aiwork-gate/run.mjs 文件头)。
 #     关卡读的每样输入变了都要有门铃(对照表见 .github/aiwork-gate/README.md「每样输入的门铃」):
 #     推送 / 开关 PR / 改目标分支(edited,改标题正文时顺带重算一次,无害)/ 关闭(同一提交上少了一个 PR)、
-#     CI 开跑与跑完(workflow_run requested / completed)、评审提交 / 改写 / 撤销(aiwork-review-ping);
+#     CI 开跑与跑完(workflow_run requested / in_progress / completed;重跑不一定发 requested,开始跑时会发 in_progress)、
+#     评审提交 / 改写 / 撤销(aiwork-review-ping);
 #     给 PR 加标签(如 `aiwork:recheck`)也能手动重算。
 #   · 发检查结果用 aiwork-gate App 的私钥,放在只许 main 用的 environment `aiwork-gate` 里:
 #     同仓库分支的 PR 能拿到仓库级 secrets,拿不到只许 main 的 environment secrets。
@@ -27,7 +28,7 @@ on:
     types: [opened, synchronize, reopened, closed, labeled, edited]
   workflow_run:
     workflows: [ci, aiwork-review-ping]
-    types: [requested, completed]
+    types: [requested, in_progress, completed]
 
 permissions:
   contents: read

@@ -49,6 +49,12 @@ const api = {
     const m = /<([^>]+)>;\s*rel="next"/.exec(link ?? "");
     return { data, next: m ? m[1] : null };
   },
+  // REST 不给的(评审改写时间)才走 GraphQL;有 errors 就当读失败
+  async graphql(query, variables) {
+    const { data } = await request("POST", env.GITHUB_GRAPHQL_URL || `${API}/graphql`, actionsToken, { query, variables });
+    if (data?.errors?.length) throw new Error(`GraphQL:${data.errors.map((e) => e.message).join(";").slice(0, 300)}`);
+    return data?.data;
+  },
 };
 
 const runUrl = env.GITHUB_SERVER_URL && env.GITHUB_RUN_ID ? `${env.GITHUB_SERVER_URL}/${repo}/actions/runs/${env.GITHUB_RUN_ID}` : null;

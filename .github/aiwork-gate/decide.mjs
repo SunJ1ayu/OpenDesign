@@ -78,8 +78,10 @@ export function authorOf(pushes, policy) {
 
 // aiwork-review 的一条评审算不算 BLOCK:算就返回原因(可为空串),不算返回 null。
 // BLOCK 从宽认、PASS 从严认:Request changes、结论块写 BLOCK、正文结论行写 BLOCK、结论块看不懂(缺字段、
-// 不止一个、不是 JSON、没有)都算 —— 看不出它想说什么,就当它反对(哪怕已被撤销)。
+// 不止一个、不是 JSON、没有)、发出后正文被改写过(不再是它当时写下的结论)都算 —— 看不出它想说什么,
+// 或说不准是不是它说的,就当它反对(哪怕已被撤销)。review-pr 从不改写评审,要改结论就发一条新的。
 function blockReason(r, p) {
+  if (r.edited_at) return "发出后正文被改写过";
   if (r.state === "CHANGES_REQUESTED") return "";
   if (!p.ok) return `看不懂:${p.why}`;
   if (p.value.verdict === "BLOCK") return "";
@@ -89,11 +91,12 @@ function blockReason(r, p) {
 
 const isReviewerBot = (r, policy) => r.login === policy.reviewer_bot && r.type === "Bot";
 
-// 一条评审只有一个生效时刻 = 它的立场为我们所知的那一刻。选"最后一次表态"、定 BLOCK 时刻、比"批准是否晚于
-// BLOCK"都只用它。评审机器人的结论写在正文里,撤销了也读得到 ⇒ 提交那一刻;人的评审被撤销后原立场就丢了,
-// 立场变成"被撤销" ⇒ 撤销那一刻(缺撤销时间就当它在最后,之前的批准豁免不了);其余 ⇒ 提交那一刻。
+// 一条评审只有一个生效时刻 = 它现在的立场为我们所知的那一刻。选"最后一次表态"、定 BLOCK 时刻、比"批准是否晚于
+// BLOCK"都只用它。评审机器人的立场写在正文里:撤销了也读得到,正文被改写就是改写那一刻;人的立场是评审状态:
+// 被撤销后原立场就丢了 ⇒ 撤销那一刻(缺撤销时间就当它在最后,之前的批准豁免不了);其余 ⇒ 提交那一刻。
 function effectiveAt(r, policy) {
-  if (r.state === "DISMISSED" && !isReviewerBot(r, policy)) return r.dismissed_at || "9999-12-31T23:59:59Z";
+  if (isReviewerBot(r, policy)) return r.edited_at || r.submitted_at;
+  if (r.state === "DISMISSED") return r.dismissed_at || "9999-12-31T23:59:59Z";
   return r.submitted_at;
 }
 

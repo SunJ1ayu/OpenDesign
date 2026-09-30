@@ -42,6 +42,7 @@ function fakeGitHub(opts = {}) {
       if (u.startsWith("/repos/o/r/actions/runs")) return send(200, { workflow_runs: [{ id: 1, path: ".github/workflows/ci.yml", head_sha: HEAD, status: "completed", conclusion: "success", pull_requests: [{ number: 10 }] }] });
       if (u.startsWith("/repos/o/r/activity")) return send(200, [{ id: 1, timestamp: "t", activity_type: "push", after: HEAD, actor: { login: "SunJ1ayuBoT" } }]);
       if (u.startsWith("/repos/o/r/issues/10/events")) return send(200, []);
+      if (u === "/graphql" && req.method === "POST") return send(200, { data: { repository: { pullRequest: { reviews: { totalCount: 0, pageInfo: { hasNextPage: false }, nodes: [] } } } } });
       send(404, { message: `fake: no route ${u}` });
     });
   });
@@ -83,6 +84,8 @@ test("整机:JWT 验得过、只要 checks:write、读用 GITHUB_TOKEN、先占�
     assert.deepEqual(tok.body, { repositories: ["r"], permissions: { checks: "write" } });
     const reads = gh.log.filter((r) => r.method === "GET" && r.url.startsWith("/repos/o/r/") && r.url !== "/repos/o/r/installation");
     assert.ok(reads.length >= 5 && reads.every((r) => r.auth === "Bearer read_token"), "读数据只用 GITHUB_TOKEN");
+    const gql = gh.log.filter((r) => r.url === "/graphql");
+    assert.ok(gql.length >= 1 && gql.every((r) => r.auth === "Bearer read_token"), "评审改写记录(GraphQL)也只用 GITHUB_TOKEN 读");
     const writes = gh.log.filter((r) => r.url.startsWith("/repos/o/r/check-runs"));
     assert.equal(writes[0].method, "POST");
     assert.equal(writes[0].body.status, "in_progress");

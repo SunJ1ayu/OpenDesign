@@ -108,7 +108,8 @@ class EveryInputHasADoorbell(unittest.TestCase):
         self.assertTrue({"opened", "synchronize", "reopened", "closed", "edited", "labeled"} <= types, types)
 
     def test_ci_start_and_finish(self) -> None:
-        self.assertTrue({"requested", "completed"} <= set(_load(GATE)["on"]["workflow_run"]["types"]))
+        # 评审 5362368273 第 2 条:重跑不一定发 requested,开始跑时会发 in_progress
+        self.assertTrue({"requested", "in_progress", "completed"} <= set(_load(GATE)["on"]["workflow_run"]["types"]))
 
     def test_review_submit_edit_dismiss(self) -> None:
         self.assertTrue({"submitted", "edited", "dismissed"} <= set(_load(PING)["on"]["pull_request_review"]["types"]))

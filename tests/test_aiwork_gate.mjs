@@ -207,10 +207,20 @@ test("推送者:只数到最近一次建分支;删分支之前的上一世不算
   assert.equal((await collectPushes(api3, "o/r", "claude/x", "c".repeat(40))).covers_head, false);
 });
 
+// 假 GitHub 的 GraphQL:给出这些评审的改写时间(edited 里没有的就是没改写过)
+const graphqlOf = (reviews, edited = {}) => async () => ({
+  repository: { pullRequest: { reviews: {
+    totalCount: reviews.length,
+    pageInfo: { hasNextPage: false, endCursor: null },
+    nodes: reviews.map((r) => ({ databaseId: r.id, submittedAt: r.submitted_at, lastEditedAt: edited[r.id] ?? null })),
+  } } },
+});
+
 test("收集:fork 来的 PR 没有推送记录 → 作者 UNKNOWN;改名文件的旧路径也算改动", async () => {
   const pr = { number: 10, state: "open", changed_files: 1, head: { sha: HEAD, ref: "x", repo: { full_name: "evil/r" } }, base: { ref: "main" } };
   const api = {
     get: async () => pr,
+    graphql: graphqlOf([]),
     getPage: async (p) => {
       if (p.includes("/files")) return { data: [{ filename: "web/a.ts", previous_filename: ".github/workflows/ci.yml" }], next: null };
       if (p.includes("/actions/runs")) return { data: { workflow_runs: [] }, next: null };
@@ -443,6 +453,7 @@ test("R17b 收集:CI 运行带上创建时间;从 PR 事件里取最后一次改
   const seen = [];
   const api = {
     get: async () => pr,
+    graphql: graphqlOf([]),
     getPage: async (p) => {
       seen.push(p);
       if (p.includes("/files")) return { data: [{ filename: "web/a.ts" }], next: null };
@@ -479,6 +490,7 @@ test("R19b 收集:从 PR 事件里取每条被撤销评审的撤销时间;人的
   ];
   const mk = (events) => ({
     get: async () => pr,
+    graphql: graphqlOf(reviews),
     getPage: async (p) => {
       if (p.includes("/files")) return { data: [{ filename: "web/a.ts" }], next: null };
       if (p.includes("/reviews")) return { data: reviews, next: null };
@@ -519,4 +531,52 @@ test("R21b 评审机器人的评审被撤销:结论写在正文里还读得到,�
   assert.equal(run({ reviews: [review({ id: 1 }), botBlock, approve(HEAD, at("11"))] }).conclusion, "success");
   // 对照:业主在 BLOCK 之前批准 ⇒ 豁免不了
   blocked(run({ reviews: [review({ id: 1 }), botBlock, approve(HEAD, at("09"))] }), "G7");
+});
+
+// ── aiwork-review[bot] 评审(PR #10 review 5362368273,@ 372d885)第 1 个阻断点 ────────────────────
+// 关卡读评审的当前正文,却按提交时间算它的生效时刻:10:00 的 PASS 在业主 11:00 批准之后、12:00 被改写成 BLOCK,
+// 算成 10:00 的 BLOCK,被 11:00 的批准豁免。评审机器人的立场写在正文里,正文被改写,立场就是改写那一刻才有的;
+// 而且改写过的正文说不准是不是机器人当时写的(有写权限的人也可能改别人的评审)⇒ 一律按 BLOCK。
+const edited = (over, at) => ({ ...review(over), edited_at: at });
+
+test("R28 评审机器人的评审发出后被改写 → 按 BLOCK,生效时刻是改写那一刻:改写前的业主批准豁免不了", () => {
+  const second = review({ id: 2, family: "deepseek", model: "ds" });
+  const owner = approve(HEAD, "2026-09-29T11:00:00Z");
+  const r = run({ reviews: [edited({ verdict: "BLOCK" }, "2026-09-29T12:00:00Z"), second, owner] });
+  blocked(r, "G7");
+  assert.equal(r.blocks.length, 1);
+  assert.equal(r.blocks[0].at, "2026-09-29T12:00:00Z", "BLOCK 的时刻是改写那一刻,不是提交那一刻");
+  assert.equal(run({ reviews: [edited({ verdict: "BLOCK" }, "2026-09-29T12:00:00Z"), second, approve(HEAD, "2026-09-29T13:00:00Z")] }).conclusion, "success", "对照:业主在改写之后批准 ⇒ 放行");
+});
+
+test("R28b 评审被改写成 PASS(比如有写权限的人把 BLOCK 改成 PASS)→ 不算 PASS,算 BLOCK", () => {
+  const r = run({ reviews: [edited({}, "2026-09-29T10:05:00Z")] });
+  blocked(r, "G5");
+  assert.match(r.summary, /改写/);
+  assert.equal(run({ reviews: [review({})] }).conclusion, "success", "对照:没改写过的同一条 PASS ⇒ 放行");
+});
+
+test("R28c 收集:从 GraphQL 取改写时间(晚于提交才算改写);REST 的评审在改写记录里找不到、条数对不上 → G8", async () => {
+  const pr = { number: 10, state: "open", changed_files: 1, head: { sha: HEAD, ref: "x", repo: { full_name: "o/r" } }, base: { ref: "main" } };
+  const rest = [
+    { id: 60, user: { login: "aiwork-review[bot]", type: "Bot" }, state: "COMMENTED", commit_id: HEAD, submitted_at: "2026-09-29T10:00:00Z", body: "" },
+    { id: 61, user: { login: "aiwork-review[bot]", type: "Bot" }, state: "COMMENTED", commit_id: HEAD, submitted_at: "2026-09-29T10:00:00Z", body: "" },
+  ];
+  const mk = (graphql) => ({
+    get: async () => pr,
+    graphql,
+    getPage: async (p) => {
+      if (p.includes("/files")) return { data: [{ filename: "web/a.ts" }], next: null };
+      if (p.includes("/reviews")) return { data: rest, next: null };
+      if (p.includes("/actions/runs")) return { data: { workflow_runs: [] }, next: null };
+      return { data: [], next: null };
+    },
+  });
+  const f = await collect(mk(graphqlOf(rest, { 60: "2026-09-29T12:00:00Z", 61: "2026-09-29T10:00:00Z" })), "o/r", 10, policy);
+  assert.equal(f.reviews.find((r) => r.id === 60).edited_at, "2026-09-29T12:00:00Z");
+  assert.equal(f.reviews.find((r) => r.id === 61).edited_at, null, "改写时间不晚于提交时间 ⇒ 不算改写");
+  await assert.rejects(collect(mk(graphqlOf(rest.slice(0, 1))), "o/r", 10, policy), /改写记录里找不到/);
+  const short = async () => ({ repository: { pullRequest: { reviews: { totalCount: 3, pageInfo: { hasNextPage: false }, nodes: rest.map((r) => ({ databaseId: r.id })) } } } });
+  await assert.rejects(collect(mk(short), "o/r", 10, policy), /条数对不上/);
+  await assert.rejects(collect(mk(async () => { throw new Error("GraphQL:rate limited"); }), "o/r", 10, policy), /GraphQL/);
 });

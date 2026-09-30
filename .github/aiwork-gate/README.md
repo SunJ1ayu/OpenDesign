@@ -55,8 +55,8 @@
 | PR 的 head、改动文件、推送记录 | `pull_request_target`:`opened` / `synchronize` / `reopened` |
 | 目标分支(G1 要 CI 晚于最后一次改目标分支) | `pull_request_target`:`edited` |
 | 开着的 PR 有哪些(同一提交上几个 PR 合在一起判) | `pull_request_target`:`opened` / `reopened` / `closed` |
-| CI(以最后开始的那次执行为准) | `workflow_run`(ci):`requested` / `completed` |
-| 评审(读当前正文,撤销按撤销那一刻) | `aiwork-review-ping`:`submitted` / `edited` / `dismissed` → `workflow_run`:`requested` / `completed` |
+| CI(以最后开始的那次执行为准) | `workflow_run`(ci):`requested` / `in_progress` / `completed`(重跑不一定发 `requested`,开始跑时会发 `in_progress`) |
+| 评审(读当前正文;机器人评审发出后被改写过一律按 BLOCK、时刻按改写那一刻;人的评审被撤销按撤销那一刻) | `aiwork-review-ping`:`submitted` / `edited` / `dismissed` → `workflow_run` |
 | 策略 `.aiwork/policy.json`(只认 main 上的) | 改 main 之后 CI 跑完的 `workflow_run` |
 | 手动重算 | 给 PR 加任何标签(如 `aiwork:recheck`) |
 

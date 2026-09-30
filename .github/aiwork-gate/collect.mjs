@@ -3,7 +3,7 @@
 
 const MAX_PAGES = 30;
 
-// api:{ get(path) → JSON, getPage(pathOrUrl) → { data, next } };真实实现在 main.mjs,测试里用替身。
+// api:{ get(path) → JSON, getPage(pathOrUrl) → { data, next }, graphql(query, variables) → data };真实实现在 main.mjs,测试里用替身。
 // 响应自带 total_count 的(如 workflow_runs),取到的条数必须等于它:少一条可能正好是最新那次失败的运行。
 export async function paginate(api, path, key) {
   const out = [];
@@ -71,6 +71,33 @@ export async function collectPrEvents(api, repo, prNumber) {
   return { base_changed_at: times.at(-1) ?? null, dismissedAt };
 }
 
+// 每条评审发出之后有没有被改写过、何时改写(REST 不给,只有 GraphQL 的 lastEditedAt 有)。
+// 评审机器人的结论写在正文里:正文被改写过,就不再是它当时写下的结论(有写权限的人也可能改别人的评审)。
+const REVIEW_EDITS = `query($owner: String!, $name: String!, $number: Int!, $after: String) {
+  repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviews(first: 100, after: $after) {
+    totalCount pageInfo { hasNextPage endCursor } nodes { databaseId submittedAt lastEditedAt } } } } }`;
+
+export async function collectReviewEdits(api, repo, prNumber) {
+  const [owner, name] = repo.split("/");
+  const seen = new Set();
+  const editedAt = new Map();
+  let after = null;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const conn = (await api.graphql(REVIEW_EDITS, { owner, name, number: prNumber, after }))?.repository?.pullRequest?.reviews;
+    if (!conn || !Array.isArray(conn.nodes)) throw new Error(`PR #${prNumber} 的评审改写记录读不出`);
+    for (const n of conn.nodes) {
+      seen.add(n.databaseId);
+      if (n.submittedAt && n.lastEditedAt && n.lastEditedAt > n.submittedAt) editedAt.set(n.databaseId, n.lastEditedAt);
+    }
+    if (!conn.pageInfo?.hasNextPage) {
+      if (seen.size !== conn.totalCount) throw new Error(`PR #${prNumber} 的评审改写记录条数对不上,取到 ${seen.size} 条,接口说有 ${conn.totalCount} 条`);
+      return { seen, editedAt };
+    }
+    after = conn.pageInfo.endCursor;
+  }
+  throw new Error(`PR #${prNumber} 的评审改写记录超过 ${MAX_PAGES} 页还没取完`);
+}
+
 const PUSH_TYPES = new Set(["push", "force_push", "branch_creation"]);
 
 // 只看分支这一世:从最新往回数,数到最近一次建分支为止;遇到删分支就停(那之前是上一世)。
@@ -117,9 +144,12 @@ export async function collect(api, repo, prNumber, policy) {
 
   const ci = await collectCi(api, repo, headSha, policy, pr.number);
   const { base_changed_at, dismissedAt } = await collectPrEvents(api, repo, pr.number);
+  const edits = await collectReviewEdits(api, repo, pr.number);
   for (const r of reviews) {
     r.dismissed_at = r.state === "DISMISSED" ? dismissedAt.get(r.id) ?? null : null;
     if (r.state === "DISMISSED" && !r.dismissed_at) throw new Error(`评审 #${r.id}(${r.login})被撤销,但 PR 事件里找不到撤销时间`);
+    if (!edits.seen.has(r.id)) throw new Error(`评审 #${r.id}(${r.login})在改写记录里找不到`);
+    r.edited_at = edits.editedAt.get(r.id) ?? null;
   }
 
   const sameRepo = pr.head.repo?.full_name === repo;

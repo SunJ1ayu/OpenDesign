@@ -23,7 +23,7 @@ function recorder() {
 }
 const fuses = (calls, sha) => calls.filter((c) => c[0] === "fuse" && (!sha || c[1] === sha)).map((c) => c[2]);
 const finishes = (calls) => calls.filter((c) => c[0] === "finish").map((c) => c.slice(1, 5));
-const isPrData = (c) => (c[0] === "get" || c[0] === "getPage") && !c[1].startsWith("/repos/o/r/pulls?");
+const isPrData = (c) => c[0] === "graphql" || ((c[0] === "get" || c[0] === "getPage") && !c[1].startsWith("/repos/o/r/pulls?"));
 
 const reviewBody = (sha, verdict) => "```json\n" + JSON.stringify({ verdict, head_sha: sha, model: "gpt-x", family: "openai", completeness: "complete", files_read: ["a"] }) + "\n```";
 // 假 GitHub:几个开着的 PR,各有自己的 head、改动文件和一条 aiwork-review 评审(verdict 为 null 就没有评审);
@@ -43,6 +43,11 @@ function prsApi(calls, prs, { fail = () => false, lists = null } = {}) {
     if (fail(p)) throw new Error(`HTTP 502 ${p}`);
   };
   return {
+    async graphql(query, { number }) {
+      calls.push(["graphql", number]);
+      const nodes = prs[number].verdict === null ? [] : [{ databaseId: 1, submittedAt: "2026-09-29T09:00:00Z", lastEditedAt: null }];
+      return { repository: { pullRequest: { reviews: { totalCount: nodes.length, pageInfo: { hasNextPage: false }, nodes } } } };
+    },
     async get(p) {
       calls.push(["get", p]);
       check(p);
@@ -229,7 +234,7 @@ test("R25 事件只是门铃:PR 事件、带 / 不带 PR 的 workflow_run、指�
   for (const event of events) {
     const r = recorder();
     await run(r, prsApi(r.calls, { 10: { head: HEAD, files: ["web/a.ts"], verdict: "BLOCK" } }), { event });
-    seen.push(JSON.stringify(r.calls.filter((c) => c[0] !== "get" && c[0] !== "getPage")));
+    seen.push(JSON.stringify(r.calls.filter((c) => c[0] !== "get" && c[0] !== "getPage" && c[0] !== "graphql")));
   }
   assert.ok(seen.every((s) => s === seen[0]), "写下的东西与事件无关");
   assert.match(seen[0], /"finish","a{40}","completed","failure"/, "被评审的 PR 的 head 重算成 failure(BLOCK)");
