@@ -11,8 +11,9 @@
 #     推送 / 开关 PR / 改目标分支(edited,改标题正文时顺带重算一次,无害)/ 关闭(同一提交上少了一个 PR)、
 #     CI 开跑与跑完(workflow_run requested / in_progress / completed;重跑不一定发 requested,开始跑时会发 in_progress)、
 #     评审提交 / 改写 / 撤销(aiwork-review-ping);
-#     给 PR 加标签(如 `aiwork:recheck`)也能手动重算。
-#   · 发检查结果用 aiwork-gate App 的私钥,放在只许 main 用的 environment `aiwork-gate` 里:
+#     给 PR 加标签(如 `aiwork:recheck`)也能手动重算;加合并标签 `aiwork:merge` 就是请关卡在放行时合并
+#     (见 .github/aiwork-gate/README.md「合并」)。
+#   · 发检查结果、合并用 aiwork-gate App 的私钥,放在只许 main 用的 environment `aiwork-gate` 里:
 #     同仓库分支的 PR 能拿到仓库级 secrets,拿不到只许 main 的 environment secrets。
 #   · 唯一的写权限 statuses: write 给保险丝(commit status `aiwork-gate/fuse`):App 私钥坏了时 App 改不了
 #     自己发过的旧 success,由保险丝挡住(见 .github/aiwork-gate/run.mjs 文件头)。

@@ -6,16 +6,20 @@
 |---|---|
 | `collect.mjs` | 只读 GitHub API 收集事实;出错、分页没取完、条数对不上一律抛错(G8) |
 | `decide.mjs` | 纯判定,不碰网络(G1–G7) |
-| `run.mjs` | 流程:每次运行把所有开着的 PR 全重算一遍(事件只是门铃)。列出开着的 PR、按 head 分组 → 先在每个 head 上占位 → 每个 head 把以它为 head 的 PR 全判一遍、合成一个结论写一次;读不全就不放行 |
-| `main.mjs` | 接线:真实 API、`aiwork-gate` App 令牌、发 / 改检查、用 `GITHUB_TOKEN` 拨保险丝 |
-| `../../.aiwork/policy.json` | 策略:判卷面、high 路径、Builder、评审 App、检查名、App ID |
+| `run.mjs` | 流程:每次运行把所有开着的 PR 全重算一遍(事件只是门铃)。列出开着的 PR、按 head 分组 → 先在每个 head 上占位 → 每个 head 把以它为 head 的 PR 全判一遍、合成一个结论写一次;读不全就不放行;写上的是放行,就合并有合并请求的 PR(见下「合并」) |
+| `main.mjs` | 接线:真实 API、`aiwork-gate` App 令牌、发 / 改检查、合并、用 `GITHUB_TOKEN` 拨保险丝 |
+| `../../.aiwork/policy.json` | 策略:判卷面、high 路径、Builder、评审 App、检查名、App ID、合并标签和谁贴的算数 |
 
 测试:`tests/test_aiwork_gate.mjs`(判定与收集)、`tests/test_aiwork_gate_run.mjs`(流程与失败处理)、
 `tests/test_aiwork_gate_main.mjs`(假 GitHub API 上真跑 `main.mjs`)、`tests/test_aiwork_gate_workflow.py`(workflow 形状)。
 
 ## 一次性设置
 
-- `aiwork-gate` App(App ID 写在 `policy.json` 的 `gate_app_id`):只有 Checks 读写,只装在本仓库。
+- `aiwork-gate` App(App ID 写在 `policy.json` 的 `gate_app_id`):只装在本仓库。权限 Checks 读写(发检查),
+  Contents、Pull requests、Workflows 读写(合并:合并接口要前两个;PR 改了 `.github/workflows/` 的,GitHub 还要
+  Workflows 才让 App 合)。改了 App 的权限,要在仓库的安装处接受新权限才生效。
+  私钥能合并 PR 之后,它和 main 本身一样要紧。
+- 标签 `aiwork:merge`(`policy.json` 的 `merge_label`)。
 - environment `aiwork-gate`:部署分支只许 `main`,**不设审批人**;私钥放在它的 secret `AIWORK_GATE_PRIVATE_KEY`。
   设了审批人,关卡每次都要等人点,等的时候检查和保险丝都停在旧值。
 
@@ -58,12 +62,27 @@
 | CI(以最后开始的那次执行为准) | `workflow_run`(ci):`requested` / `in_progress` / `completed`(重跑不一定发 `requested`,开始跑时会发 `in_progress`) |
 | 评审(读当前正文;机器人评审发出后被改写过一律按 BLOCK、时刻按改写那一刻;人的评审被撤销按撤销那一刻) | `aiwork-review-ping`:`submitted` / `edited` / `dismissed` → `workflow_run` |
 | 策略 `.aiwork/policy.json`(只认 main 上的) | 改 main 之后 CI 跑完的 `workflow_run` |
+| 合并请求(PR 上有没有 `aiwork:merge`、最后是谁贴的) | `pull_request_target`:`labeled`(撤掉标签不用叫醒:只会少合并,下一次运行自然读到) |
 | 手动重算 | 给 PR 加任何标签(如 `aiwork:recheck`) |
 
 ## 已知限制:状态检查只能"最终一致"
 
 关卡靠"输入变了 → 叫醒 → 重算 → 写回",写在提交上的结论总是某一刻的。这种做法本身有补不死的上限,
-业主已接受,列在 `.aiwork/accepted-risks.md`。要硬保证,见下"转真拦截之前"第 0 步。
+业主已接受,列在 `.aiwork/accepted-risks.md`。经合并标签合并的 PR 不靠提交上的旧结论,见下「合并」。
+
+## 合并:贴 `aiwork:merge`
+
+- **谁贴的算数**:业主(`policy.json` 的 `owner`)和 `merge_requesters` 里的账号(以后放 OpenClaw 的身份)。
+  Builder 贴的不算,也写不进名单(策略校验会拒)—— 不然 Builder 能把自己的 PR 合进去。
+  认的是 PR 事件里最后一次贴这个标签的人:撤掉再贴,按最后一次算。
+- **不另起一套判定**:关卡每次运行照常把所有开着的 PR 判一遍;某个 head 的结论(App 检查和保险丝)都写上了、
+  而且是放行,就当场合并这个 head 上有合并请求的 PR。合并用的就是这次刚读到的数据,调合并接口时带上判过的
+  head(`sha`):判完之后又推了新提交,接口会拒,不会把没判过的提交合进去。
+- **没放行的请求留着**:之后哪次运行判为放行,就在那次合。不想合了就撤掉标签。
+- **合并没成**(分支落后于 main、有冲突、评审讨论没解决完、刚推了新提交):原因写在那次运行的摘要里,请求留着。
+  处理完之后,推送、评审都会叫醒下一次运行再合;没有门铃的(比如把讨论标为已解决),加个 `aiwork:recheck`。
+- 合并用 App 另换的一张令牌(Contents / Pull requests / Workflows 写权限),只在真要合并时才换;发检查的那张始终只有 Checks。
+- 业主仍可以在网页上直接合并;那条路看的是提交上某一刻的结论(见 `.aiwork/accepted-risks.md`)。
 
 ## 同一提交上有几个 PR
 
@@ -88,16 +107,25 @@
 | S8 | 编辑测试 PR 的标题;再改一次目标分支 | 各重算一次;改目标分支后 G1 ❌「目标分支在这次 CI 之后改过」,推一个新提交(或关掉再重开 PR)让 CI 重跑后恢复 | edited 事件会触发重判;旧目标上的 CI 不算数 |
 | S9 | 任选上面一次重算,看测试 PR 的检查列表;再连着触发两次(比如先后加两个标签),看 Actions 里 aiwork-gate 的运行 | `aiwork-gate/fuse` 先变黄(pending),算完与 `aiwork-gate-shadow` 同结论,发出者是 GitHub Actions;两次运行一个跑完另一个才开始 | 保险丝接通,不靠 App 私钥;同一时间只有一次运行 |
 
-失败注入(API 出错、限流、App 私钥坏了、PR 中途推进)在线上没法安全制造,由 `test_aiwork_gate_run.mjs`(R4–R5e、R14b–R14f、R20、R25–R27)与 `test_aiwork_gate_main.mjs`(含请求卡住)覆盖;几次运行不会交错由 workflow 的并发组保证(`test_aiwork_gate_workflow.py`)。
+合并(本节在「合并」上线后补做,同样用无害的测试 PR):
+
+| # | 做什么 | 预期 | 证明了什么 |
+|---|---|---|---|
+| S10 | 业主给一个会放行的测试 PR 贴 `aiwork:merge` | 那次运行放行后当场合并:合并者是 `aiwork-gate` App,合进去的是判过的 head | 合并用的是刚判过的数据和 head |
+| S11 | 机器账号(Builder)给另一个会放行的测试 PR 贴 `aiwork:merge` | 不合并;运行摘要里写"是 SunJ1ayuBoT 提的,不算数" | Builder 合不了自己的 PR |
+| S12 | 业主给一个还缺评审的测试 PR 贴 `aiwork:merge`,之后补上 PASS | 贴的时候不合;PASS 之后那次运行合并 | 请求留着,放行时才合 |
+
+失败注入(API 出错、限流、App 私钥坏了、PR 中途推进、合并接口拒绝)在线上没法安全制造,由 `test_aiwork_gate_run.mjs`(R4–R5e、R14b–R14f、R20、R25–R27、M1–M10)与 `test_aiwork_gate_main.mjs`(含请求卡住)覆盖;几次运行不会交错由 workflow 的并发组保证(`test_aiwork_gate_workflow.py`)。
 
 ## 从 shadow 转为真拦截
 
-S0–S9 全部符合预期,且之后至少 5 个真实 PR 上 shadow 的结论都和业主的判断一致、没见过过时的 success,再:
+S0–S12 全部符合预期,且之后至少 5 个真实 PR 上 shadow 的结论都和业主的判断一致、没见过过时的 success,再:
 
-0. **先补上"合并那一刻再判一次"**(上面"已知限制"的解法,另开 PR):合并只经一个动作 —— 当场用最新数据重算这一个 PR,
-   放行才调用合并接口并带上当时的 head(`sha` 参数:head 变了合并就失败);分支规则限定只有它能合并。
-   仓库属于组织时也可以改用 GitHub 合并队列(关卡跑在 `merge_group` 上)。
 1. 发一个只改 `policy.json` 的 PR:`check_name` 改为 `aiwork-gate`(判卷面,要业主批准);
-2. 业主在 main 的分支规则里把必过检查从 `ci` 换成**两条**:`aiwork-gate`(来源限定 `aiwork-gate` App)和
-   `aiwork-gate/fuse`(来源限定 GitHub Actions)。只设第一条,App 私钥坏了时旧 success 仍能合并;
-3. 用一个故意缺评审的 PR 确认合并按钮被挡住。
+2. 业主在 main 的规则集里:
+   - 必过检查从 `ci` 换成**两条**:`aiwork-gate`(来源限定 `aiwork-gate` App)和
+     `aiwork-gate/fuse`(来源限定 GitHub Actions)。只设第一条,App 私钥坏了时旧 success 仍能合并;
+   - **另建**一个规则集,目标 main,只勾 Restrict updates;绕过名单:Repository admin(业主自己还能合)和
+     `aiwork-gate` App(选 For pull requests only:只能合 PR,不能直接推)。这样别人只能贴标签请关卡合。
+     必须另建:绕过名单绕过的是整个规则集,和必过检查放在一起,App 合并时连必过检查也绕过了;
+3. 确认:故意缺评审的 PR 合并按钮被挡住;机器账号在网页上合并被拒;贴了标签、放行的 PR 由 App 合进去。

@@ -12,6 +12,8 @@
 //   G6 high 路径:两个不同的非作者家族 PASS(豁免不了)+ 业主批准
 //   G7 业主批准 = 业主在当前 head 上最后一次表态是 Approve;最后一次是 Request changes 或被撤销则一律不放行
 //   G8 数据不全 → 由 collect.mjs 抛错,run.mjs 判 failure
+//
+// 放不放行只由 decide() 说了算;合不合并 = 放行 且 合并请求算数(mergeRequester;run.mjs 第 4 步)。
 
 const SHA_RE = /^[0-9a-f]{40}$/;
 const VERDICTS = new Set(["PASS", "BLOCK", "NEEDS_MORE_INFO", "UNKNOWN"]);
@@ -114,6 +116,12 @@ function stancesOnHead(reviews, policy, head) {
     if (later) last.set(r.login, r);
   }
   return last;
+}
+
+// 只回答"谁要求合并、他算不算数":Builder 贴的标签不算,不然 Builder 能自己把自己的 PR 合进去。
+export function mergeRequester(facts, policy) {
+  const by = facts.merge_request?.by ?? null;
+  return by !== null && (by === policy.owner || policy.merge_requesters.includes(by)) ? by : null;
 }
 
 export function decide(facts, policy) {

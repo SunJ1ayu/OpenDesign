@@ -1,7 +1,8 @@
 // aiwork 放行关卡入口 main.mjs 的整机冒烟:起一个假的 GitHub API,真跑 main.mjs 子进程。
 // 钉住接线本身:JWT 用 App ID 签、公钥验得过;换令牌只要 checks:write;读数据用 GITHUB_TOKEN;
 // 先发 in_progress 占位,再把同一条检查 PATCH 成结论;读 PR 出错时占位被改成 failure;
-// 保险丝(commit status)只用 GITHUB_TOKEN 发,App 私钥坏了也拨得动。
+// 保险丝(commit status)只用 GITHUB_TOKEN 发,App 私钥坏了也拨得动;
+// 合并用另换的一张令牌(只在要合并时才换),带上判过的 head。
 // 跑法:node --test tests/test_aiwork_gate_main.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -29,20 +30,28 @@ function fakeGitHub(opts = {}) {
       const send = (code, data) => { res.writeHead(code, { "content-type": "application/json" }); res.end(JSON.stringify(data)); };
       const u = req.url;
       if (u === "/repos/o/r/installation") return send(200, { id: 777 });
-      if (u === "/app/installations/777/access_tokens") return send(201, { token: "ghs_fake_app_token" });
+      // 按要的权限发不同的令牌,好分清哪个请求用的是哪张
+      if (u === "/app/installations/777/access_tokens") return send(201, { token: JSON.parse(body).permissions.checks ? "ghs_fake_app_token" : "ghs_fake_merge_token" });
+      if (u === "/repos/o/r/pulls/10/merge" && req.method === "PUT") return send(200, { merged: true });
       if (u === "/repos/o/r/check-runs" && req.method === "POST") return opts.hang ? undefined : send(201, { id: 4242 }); // hang:一直不回
       if (u.startsWith("/repos/o/r/check-runs/") && req.method === "PATCH") return send(200, { id: 4242 });
       if (u.startsWith("/repos/o/r/statuses/") && req.method === "POST") return send(201, { id: 1 });
       if (opts.prFails && u === "/repos/o/r/pulls/10") return send(502, { message: "bad gateway" });
-      const pr10 = { number: 10, state: "open", changed_files: 1, head: { sha: HEAD, ref: "claude/x", repo: { full_name: "o/r" } }, base: { ref: "main" } };
+      // mergeReady:有合格 PASS、业主贴了合并标签 → 放行并合并
+      const labels = opts.mergeReady ? [{ name: policy.merge_label }] : [];
+      const pr10 = { number: 10, state: "open", changed_files: 1, labels, head: { sha: HEAD, ref: "claude/x", repo: { full_name: "o/r" } }, base: { ref: "main" } };
       if (u === "/repos/o/r/pulls?state=open&per_page=100") return send(200, [pr10]);
       if (u === "/repos/o/r/pulls/10") return send(200, pr10);
       if (u.startsWith("/repos/o/r/pulls/10/files")) return send(200, [{ filename: "web/a.ts" }]);
-      if (u.startsWith("/repos/o/r/pulls/10/reviews")) return send(200, []);
+      const pass = "```json\n" + JSON.stringify({ verdict: "PASS", head_sha: HEAD, model: "gpt-x", family: "openai", completeness: "complete", files_read: ["web/a.ts"] }) + "\n```";
+      const reviews = opts.mergeReady ? [{ id: 1, user: { login: policy.reviewer_bot, type: "Bot" }, state: "COMMENTED", commit_id: HEAD, submitted_at: "2026-09-29T09:00:00Z", body: pass }] : [];
+      if (u.startsWith("/repos/o/r/pulls/10/reviews")) return send(200, reviews);
       if (u.startsWith("/repos/o/r/actions/runs")) return send(200, { workflow_runs: [{ id: 1, path: ".github/workflows/ci.yml", head_sha: HEAD, status: "completed", conclusion: "success", pull_requests: [{ number: 10 }] }] });
       if (u.startsWith("/repos/o/r/activity")) return send(200, [{ id: 1, timestamp: "t", activity_type: "push", after: HEAD, actor: { login: "SunJ1ayuBoT" } }]);
-      if (u.startsWith("/repos/o/r/issues/10/events")) return send(200, []);
-      if (u === "/graphql" && req.method === "POST") return send(200, { data: { repository: { pullRequest: { reviews: { totalCount: 0, pageInfo: { hasNextPage: false }, nodes: [] } } } } });
+      const events = opts.mergeReady ? [{ id: 1, event: "labeled", label: { name: policy.merge_label }, actor: { login: policy.owner }, created_at: "2026-09-29T10:00:00Z" }] : [];
+      if (u.startsWith("/repos/o/r/issues/10/events")) return send(200, events);
+      const nodes = reviews.map((r) => ({ databaseId: r.id, submittedAt: r.submitted_at, lastEditedAt: null }));
+      if (u === "/graphql" && req.method === "POST") return send(200, { data: { repository: { pullRequest: { reviews: { totalCount: nodes.length, pageInfo: { hasNextPage: false }, nodes } } } } });
       send(404, { message: `fake: no route ${u}` });
     });
   });
@@ -80,8 +89,8 @@ test("整机:JWT 验得过、只要 checks:write、读用 GITHUB_TOKEN、先占�
     const claims = JSON.parse(Buffer.from(c, "base64url").toString());
     assert.equal(claims.iss, String(policy.gate_app_id));
     assert.ok(claims.exp - claims.iat <= 600);
-    const tok = gh.log.find((r) => r.url === "/app/installations/777/access_tokens");
-    assert.deepEqual(tok.body, { repositories: ["r"], permissions: { checks: "write" } });
+    const toks = gh.log.filter((r) => r.url === "/app/installations/777/access_tokens");
+    assert.deepEqual(toks.map((t) => t.body), [{ repositories: ["r"], permissions: { checks: "write" } }], "不合并就不换合并用的令牌");
     const reads = gh.log.filter((r) => r.method === "GET" && r.url.startsWith("/repos/o/r/") && r.url !== "/repos/o/r/installation");
     assert.ok(reads.length >= 5 && reads.every((r) => r.auth === "Bearer read_token"), "读数据只用 GITHUB_TOKEN");
     const gql = gh.log.filter((r) => r.url === "/graphql");
@@ -196,6 +205,29 @@ test("整机:发占位的请求卡住 → 按单个请求的超时放弃,保险�
     assert.deepEqual(fuseWrites(gh.log).map((r) => r.body.state), ["pending", "failure"]);
   } finally {
     gh.server.closeAllConnections();
+    gh.server.close();
+  }
+});
+
+test("整机:业主贴了合并标签、判为放行 → 结论写完之后,用另换的合并令牌、带着判过的 head 合并", async () => {
+  const gh = await fakeGitHub({ mergeReady: true });
+  try {
+    const { code, out } = await runMain(gh.url);
+    assert.equal(code, 0, out);
+    const last = gh.log.filter((r) => r.url.startsWith("/repos/o/r/check-runs")).at(-1);
+    assert.equal(last.body.conclusion, "success", out);
+    const merge = gh.log.filter((r) => r.url === "/repos/o/r/pulls/10/merge");
+    assert.equal(merge.length, 1, out);
+    assert.equal(merge[0].method, "PUT");
+    assert.deepEqual(merge[0].body, { sha: HEAD, merge_method: "merge" });
+    assert.equal(merge[0].auth, "Bearer ghs_fake_merge_token");
+    // 合并接口要 contents + pull_requests;改了 .github/workflows/ 的 PR 还要 workflows,否则 GitHub 拒绝 App 合并
+    const tok = gh.log.find((r) => r.url === "/app/installations/777/access_tokens" && !r.body.permissions.checks);
+    assert.deepEqual(tok.body, { repositories: ["r"], permissions: { contents: "write", pull_requests: "write", workflows: "write" } });
+    assert.ok(gh.log.filter((r) => r.url.startsWith("/repos/o/r/check-runs")).every((r) => r.auth === "Bearer ghs_fake_app_token"), "发检查不用合并令牌");
+    const fuseOk = gh.log.findIndex((r) => r.url.startsWith("/repos/o/r/statuses/") && r.body.state === "success");
+    assert.ok(fuseOk >= 0 && fuseOk < gh.log.indexOf(merge[0]), "先写放行的结论,再合并");
+  } finally {
     gh.server.close();
   }
 });

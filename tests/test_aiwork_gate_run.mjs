@@ -36,6 +36,7 @@ function prsApi(calls, prs, { fail = () => false, lists = null } = {}) {
     number: n,
     state: read ? prs[n].readState ?? "open" : "open",
     changed_files: prs[n].files.length,
+    labels: (prs[n].labels ?? []).map((name) => ({ name })),
     head: { sha: read ? prs[n].readHead ?? prs[n].head : prs[n].head, ref: `claude/pr${n}`, repo: { full_name: "o/r" } },
     base: { ref: "main" },
   });
@@ -75,7 +76,8 @@ function prsApi(calls, prs, { fail = () => false, lists = null } = {}) {
       }
       const act = /\/activity\?ref=refs%2Fheads%2Fclaude%2Fpr(\d+)/.exec(p);
       if (act) return { data: [{ id: 1, timestamp: "t", activity_type: "push", after: prs[act[1]].head, actor: { login: "SunJ1ayuBoT" } }], next: null };
-      if (p.includes("/events")) return { data: [], next: null };
+      const ev = /\/issues\/(\d+)\/events/.exec(p);
+      if (ev) return { data: prs[ev[1]].events ?? [], next: null };
       throw new Error(`没料到的请求 ${p}`);
     },
   };
@@ -238,4 +240,123 @@ test("R25 事件只是门铃:PR 事件、带 / 不带 PR 的 workflow_run、指�
   }
   assert.ok(seen.every((s) => s === seen[0]), "写下的东西与事件无关");
   assert.match(seen[0], /"finish","a{40}","completed","failure"/, "被评审的 PR 的 head 重算成 failure(BLOCK)");
+});
+
+// ── 合并那一刻再判一次(README「从 shadow 转为真拦截」第 0 步)──────────────────────────────────────
+// 合并请求 = PR 上贴着 aiwork:merge,且最后一次贴它的是业主或 merge_requesters 里的人(以后是 OpenClaw)。
+// 合并不另起一套判定:就在这次运行里,用刚读到的数据判完、结论写上之后,带着判过的 head 调合并接口
+// (head 变了接口就拒);没放行就不合,请求留着,等哪次运行判为放行再合。
+const MERGE = policy.merge_label;
+const labeled = (login, at = "2026-09-29T10:00:00Z", event = "labeled") => ({ id: Date.parse(at), event, label: { name: MERGE }, actor: { login }, created_at: at });
+function mergeRecorder(r, { fail = () => false } = {}) {
+  return { async merge(number, sha) { r.calls.push(["merge", number, sha]); if (fail(number)) throw new Error("HTTP 409 Head branch was modified"); } };
+}
+const merges = (calls) => calls.filter((c) => c[0] === "merge").map((c) => [c[1], c[2]]);
+
+test("M1 业主贴了 aiwork:merge、PR 放行 → 结论写完之后,带着判过的 head 合并;没贴的 PR 不合", async () => {
+  const r = recorder();
+  const api = prsApi(r.calls, {
+    10: { head: HEAD, files: ["web/a.ts"], labels: [MERGE], events: [labeled(policy.owner)] },
+    11: { head: OTHER, files: ["web/b.ts"] },
+  });
+  await run(r, api, { merger: mergeRecorder(r) });
+  assert.deepEqual(merges(r.calls), [[10, HEAD]]);
+  const merged = r.calls.findIndex((c) => c[0] === "merge");
+  const wrote = r.calls.findIndex((c) => c[0] === "fuse" && c[1] === HEAD && c[2] === "success");
+  assert.ok(wrote >= 0 && wrote < merged, "先把放行的结论写到提交上,再合并");
+});
+
+test("M2 只认业主和 merge_requesters 里的人贴的标签:Builder 贴的不合", async () => {
+  const builder = Object.keys(policy.builders)[0];
+  for (const [who, expect] of [[builder, []], ["someone-else", []], ["aiwork-orchestrator[bot]", [[10, HEAD]]]]) {
+    const r = recorder();
+    const api = prsApi(r.calls, { 10: { head: HEAD, files: ["web/a.ts"], labels: [MERGE], events: [labeled(who)] } });
+    await run(r, api, { merger: mergeRecorder(r), policy: { ...policy, merge_requesters: ["aiwork-orchestrator[bot]"] } });
+    assert.deepEqual(merges(r.calls), expect, who);
+  }
+});
+
+test("M3 贴了标签但没放行 → 不合、请求留着;之后某次运行判为放行 → 合", async () => {
+  const r = recorder();
+  const blocked = prsApi(r.calls, { 10: { head: HEAD, files: ["web/a.ts"], verdict: null, labels: [MERGE], events: [labeled(policy.owner)] } });
+  await run(r, blocked, { merger: mergeRecorder(r) });
+  assert.deepEqual(merges(r.calls), [], "缺评审不合");
+  const r2 = recorder();
+  const passed = prsApi(r2.calls, { 10: { head: HEAD, files: ["web/a.ts"], labels: [MERGE], events: [labeled(policy.owner)] } });
+  await run(r2, passed, { merger: mergeRecorder(r2) });
+  assert.deepEqual(merges(r2.calls), [[10, HEAD]]);
+});
+
+test("M4 标签已不在 PR 上、或最后一次动它是撤掉 → 不合;业主贴过、Builder 撤掉又重贴 → 按最后一次(Builder)算,不合", async () => {
+  const builder = Object.keys(policy.builders)[0];
+  const cases = [
+    { labels: [], events: [labeled(policy.owner)] },
+    { labels: [MERGE], events: [labeled(policy.owner, "2026-09-29T10:00:00Z"), labeled(policy.owner, "2026-09-29T11:00:00Z", "unlabeled")] },
+    { labels: [MERGE], events: [] },
+    { labels: [MERGE], events: [labeled(policy.owner, "2026-09-29T10:00:00Z"), labeled(builder, "2026-09-29T11:00:00Z", "unlabeled"), labeled(builder, "2026-09-29T12:00:00Z")] },
+  ];
+  for (const c of cases) {
+    const r = recorder();
+    await run(r, prsApi(r.calls, { 10: { head: HEAD, files: ["web/a.ts"], ...c } }), { merger: mergeRecorder(r) });
+    assert.deepEqual(merges(r.calls), [], JSON.stringify(c));
+  }
+});
+
+test("M5 同一提交还是另一个不放行的 PR 的 head → 这个提交上的结论不放行,贴了标签也不合", async () => {
+  const r = recorder();
+  const api = prsApi(r.calls, {
+    10: { head: HEAD, files: ["web/a.ts"], labels: [MERGE], events: [labeled(policy.owner)] },
+    11: { head: HEAD, files: ["web/b.ts"], verdict: "BLOCK" },
+  });
+  await run(r, api, { merger: mergeRecorder(r) });
+  assert.deepEqual(merges(r.calls), []);
+});
+
+test("M6 合并接口出错(比如判完之后又推了新提交)→ 记下原因,不抛错,别的提交照常写结论", async () => {
+  const r = recorder();
+  const logs = [];
+  const api = prsApi(r.calls, {
+    10: { head: HEAD, files: ["web/a.ts"], labels: [MERGE], events: [labeled(policy.owner)] },
+    11: { head: OTHER, files: ["web/b.ts"] },
+  });
+  await run(r, api, { merger: mergeRecorder(r, { fail: (n) => n === 10 }), log: (l) => logs.push(l) });
+  assert.deepEqual(merges(r.calls), [[10, HEAD]]);
+  assert.deepEqual(finishes(r.calls).map((f) => [f[0], f[2]]), [[HEAD, "success"], [OTHER, "success"]]);
+  assert.ok(logs.some((l) => /PR #10/.test(l) && /409/.test(l)), logs.join("\n"));
+});
+
+test("M7 策略:merge_label 必须是非空字符串,merge_requesters 必须是字符串数组", () => {
+  assert.throws(() => validatePolicy({ ...policy, merge_label: "" }), /merge_label/);
+  assert.throws(() => validatePolicy({ ...policy, merge_requesters: "SunJ1ayu" }), /merge_requesters/);
+  assert.throws(() => validatePolicy({ ...policy, merge_requesters: [1] }), /merge_requesters/);
+  assert.throws(() => validatePolicy({ ...policy, merge_requesters: [Object.keys(policy.builders)[0]] }), /merge_requesters/, "Builder 不能在名单里");
+  assert.equal(policy.merge_label, "aiwork:merge");
+  assert.ok(!policy.merge_requesters.includes(policy.owner), "业主一直算,不在名单里再写一遍");
+});
+
+test("M8 放行的结论没写全(保险丝拨不动)→ 不合并;运行照常报错", async () => {
+  const r = recorder();
+  const fuse = { async set(sha, state) { r.calls.push(["fuse", sha, state]); if (state === "success") throw new Error("HTTP 502 statuses"); } };
+  const api = prsApi(r.calls, { 10: { head: HEAD, files: ["web/a.ts"], labels: [MERGE], events: [labeled(policy.owner)] } });
+  await assert.rejects(run(r, api, { fuse, merger: mergeRecorder(r) }), /502/);
+  assert.deepEqual(merges(r.calls), []);
+});
+
+test("M9 贴着标签却不合并时,日志说清为什么:谁贴的不算数 / 找不到是谁贴的", async () => {
+  const builder = Object.keys(policy.builders)[0];
+  for (const [events, why] of [[[labeled(builder)], new RegExp(`${builder}.*不算数`)], [[], /找不到是谁/]]) {
+    const r = recorder();
+    const logs = [];
+    await run(r, prsApi(r.calls, { 10: { head: HEAD, files: ["web/a.ts"], labels: [MERGE], events } }), { merger: mergeRecorder(r), log: (l) => logs.push(l) });
+    assert.deepEqual(merges(r.calls), []);
+    assert.ok(logs.some((l) => /PR #10/.test(l) && why.test(l)), logs.join("\n"));
+  }
+});
+
+test("M10 只看合并标签自己的记录:业主贴了之后 Builder 又贴了别的标签(aiwork:recheck)→ 还是业主的请求,合", async () => {
+  const builder = Object.keys(policy.builders)[0];
+  const recheck = { ...labeled(builder, "2026-09-29T11:00:00Z"), label: { name: "aiwork:recheck" } };
+  const r = recorder();
+  await run(r, prsApi(r.calls, { 10: { head: HEAD, files: ["web/a.ts"], labels: [MERGE, "aiwork:recheck"], events: [labeled(policy.owner), recheck] } }), { merger: mergeRecorder(r) });
+  assert.deepEqual(merges(r.calls), [[10, HEAD]]);
 });

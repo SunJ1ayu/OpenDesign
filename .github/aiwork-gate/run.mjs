@@ -13,7 +13,10 @@
 //   1. 列出所有开着的 PR(连读两遍一致才算数),按 head 提交分组;
 //   2. 先把每个 head 的保险丝拨到 pending(快、不靠 App),再给每个 head 发 App 占位,之后才读 PR 的数据 ——
 //      半路卡住或死掉,没算完的提交也停在 pending / in_progress,不会留着上一次的结论;
-//   3. 每个 head:把以它为 head 的 PR 全判一遍,合成一个结论写一次(App 先写,保险丝跟着)。
+//   3. 每个 head:把以它为 head 的 PR 全判一遍,合成一个结论写一次(App 先写,保险丝跟着);
+//   4. 结论写上且是放行,就当场合并这个 head 上有合并请求的 PR(见 decide.mjs 的 mergeRequester),
+//      带上判过的 head —— 合并用的就是这次刚读到的数据,判完之后又推了新提交,合并接口会拒。
+//      没放行的请求留着,等哪次运行判为放行再合。这就是"合并那一刻再判一次":不另起一套判定。
 //
 // 两道信号:App 检查(分支规则只认它,PR 冒充不了)+ 保险丝(GITHUB_TOKEN 发的 commit status `aiwork-gate/fuse`,
 // 不靠 App 私钥)。只有 App 自己改得动它发过的检查 —— App 私钥坏了,旧 success 就一直挂着,这时靠保险丝挡。
@@ -21,10 +24,10 @@
 //   · 每个提交要么写上这次算出的结论,要么保险丝 failure(App 发不出占位 / 写不回结论、策略不合法);
 //   · 连开着的 PR 都列不出来 → 不知道该挡哪些提交,只能把事件里带的提交(PR 的 head、运行的提交)拨到 failure;
 //   · 运行被取消或超时 → 占位停在 in_progress、保险丝停在 pending,同样挡着;下一次运行全部重算。
-// 这种"事件来了再重算"的做法本身补不死的窗口,见 README「已知限制」;硬保证要靠合并那一刻再判一次。
+// 这种"事件来了再重算"的做法本身补不死的窗口,见 README「已知限制」;经合并请求合并的 PR 由第 4 步补上。
 
 import { collect, paginate } from "./collect.mjs";
-import { decide } from "./decide.mjs";
+import { decide, mergeRequester } from "./decide.mjs";
 
 export function validatePolicy(p) {
   const bad = [];
@@ -35,6 +38,12 @@ export function validatePolicy(p) {
   if (typeof p?.reviewer_bot !== "string" || !p.reviewer_bot.endsWith("[bot]")) bad.push("reviewer_bot");
   if (typeof p?.ci?.workflow_path !== "string" || typeof p?.ci?.event !== "string") bad.push("ci");
   if (!Array.isArray(p?.judging_surface) || !Array.isArray(p?.high)) bad.push("judging_surface/high");
+  if (typeof p?.merge_label !== "string" || !p.merge_label) bad.push("merge_label");
+  // Builder 不能在名单里:不然它能自己把自己的 PR 合进去
+  const requesters = p?.merge_requesters;
+  if (!Array.isArray(requesters) || !requesters.every((m) => typeof m === "string" && m && !Object.hasOwn(p?.builders ?? {}, m))) {
+    bad.push("merge_requesters");
+  }
   if (bad.length) throw new Error(`.aiwork/policy.json 不完整或不合法:${bad.join("、")}`);
 }
 
@@ -77,7 +86,7 @@ async function openPrs(api, repo) {
   throw new Error("开着的 PR 连读四遍都对不上(一直有 PR 在开关或推送)");
 }
 
-export async function gate({ repo, event, policy, api, poster, fuse, log = () => {} }) {
+export async function gate({ repo, event, policy, api, poster, fuse, merger = null, log = () => {} }) {
   const errors = [];
   // 拨到 failure 是最后一道保底:它自己再出错也只记日志,不盖掉原本的错误
   const blow = async (sha, why) => {
@@ -131,8 +140,8 @@ export async function gate({ repo, event, policy, api, poster, fuse, log = () =>
   for (const [sha, numbers] of heads) {
     if (!ids.has(sha)) continue;
     let result;
+    const verdicts = [];
     try {
-      const verdicts = [];
       for (const n of numbers) {
         const facts = await collect(api, repo, n, policy);
         if (facts.pr.state !== "open" || facts.pr.head_sha !== sha) continue; // 列出之后又推进 / 关了
@@ -142,7 +151,7 @@ export async function gate({ repo, event, policy, api, poster, fuse, log = () =>
         } catch (e) {
           r = g8(`判定出错:${e.message}`);
         }
-        verdicts.push({ number: n, r });
+        verdicts.push({ number: n, r, request: facts.merge_request, mergeBy: mergeRequester(facts, policy) });
       }
       result = verdicts.length ? combine(verdicts) : moved;
     } catch (e) {
@@ -155,13 +164,31 @@ export async function gate({ repo, event, policy, api, poster, fuse, log = () =>
       errors.push(e);
       continue;
     }
+    let written = true;
     try {
       await fuse.set(sha, fuseState(result), result.title);
     } catch (e) {
       errors.push(e);
+      written = false;
     }
     log(`${sha.slice(0, 7)}:${result.title}\n${result.summary}`);
     results.push({ sha, title: result.title, summary: result.summary });
+    // 4. 合并:只在这个提交上的放行结论(App 检查和保险丝)都写上了的时候;
+    //    合并出错(判完又推了新提交、有冲突)只记下,请求留着
+    for (const v of verdicts) {
+      if (v.request && !v.mergeBy) {
+        const who = v.request.by ? `是 ${v.request.by} 提的` : "在 PR 事件里找不到是谁提的";
+        log(`PR #${v.number}:贴着合并标签,但合并请求${who},不算数(只认业主和 merge_requesters)`);
+      }
+      if (!v.mergeBy || !written || fuseState(result) !== "success") continue;
+      try {
+        if (!merger) throw new Error("没有合并接口");
+        await merger.merge(v.number, sha);
+        log(`PR #${v.number}:按 ${v.mergeBy} 的请求合并了 ${sha.slice(0, 7)}`);
+      } catch (e) {
+        log(`PR #${v.number}:按 ${v.mergeBy} 的请求合并 ${sha.slice(0, 7)} 没成:${e.message}`);
+      }
+    }
   }
   if (errors.length) throw errors[0];
   return results;

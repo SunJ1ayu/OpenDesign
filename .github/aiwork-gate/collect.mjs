@@ -59,7 +59,8 @@ export async function collectCi(api, repo, headSha, policy, prNumber) {
 // 从 PR 的事件里取两样时间:
 //   · 最后一次改目标分支:改了目标,PR 的 CI 不会自己重跑(ci.yml 不订阅 edited),旧的 CI 测的是旧目标;
 //   · 每条评审被撤销的时刻:评审接口只给提交时间,被撤销的评审按反对算,反对的时刻是撤销那一刻。
-export async function collectPrEvents(api, repo, prNumber) {
+// 以及合并请求是谁提的:合并标签最后一次被贴上 / 撤掉的那条记录,最后一次是贴上,贴的人就是提请求的人。
+export async function collectPrEvents(api, repo, prNumber, mergeLabel) {
   const events = await paginate(api, `/repos/${repo}/issues/${prNumber}/events?per_page=100`);
   const times = events.filter((e) => e.event === "base_ref_changed").map((e) => e.created_at).sort();
   const dismissedAt = new Map();
@@ -68,7 +69,12 @@ export async function collectPrEvents(api, repo, prNumber) {
     const id = e.dismissed_review.review_id;
     if (!dismissedAt.has(id) || dismissedAt.get(id) < e.created_at) dismissedAt.set(id, e.created_at);
   }
-  return { base_changed_at: times.at(-1) ?? null, dismissedAt };
+  const lastMergeLabel = events
+    .filter((e) => (e.event === "labeled" || e.event === "unlabeled") && e.label?.name === mergeLabel)
+    .sort((a, b) => (a.created_at === b.created_at ? a.id - b.id : a.created_at < b.created_at ? -1 : 1))
+    .at(-1);
+  const mergeLabelBy = lastMergeLabel?.event === "labeled" ? lastMergeLabel.actor?.login ?? null : null;
+  return { base_changed_at: times.at(-1) ?? null, dismissedAt, mergeLabelBy };
 }
 
 // 每条评审发出之后有没有被改写过、何时改写(REST 不给,只有 GraphQL 的 lastEditedAt 有)。
@@ -143,7 +149,7 @@ export async function collect(api, repo, prNumber, policy) {
   }));
 
   const ci = await collectCi(api, repo, headSha, policy, pr.number);
-  const { base_changed_at, dismissedAt } = await collectPrEvents(api, repo, pr.number);
+  const { base_changed_at, dismissedAt, mergeLabelBy } = await collectPrEvents(api, repo, pr.number, policy.merge_label);
   const edits = await collectReviewEdits(api, repo, pr.number);
   for (const r of reviews) {
     r.dismissed_at = r.state === "DISMISSED" ? dismissedAt.get(r.id) ?? null : null;
@@ -164,5 +170,7 @@ export async function collect(api, repo, prNumber, policy) {
     ci,
     base_changed_at,
     pushes,
+    // 标签现在贴着 = 有合并请求;是谁提的看事件里最后一次贴它的人(找不到就是 null,不算数)
+    merge_request: (pr.labels ?? []).some((l) => l.name === policy.merge_label) ? { by: mergeLabelBy } : null,
   };
 }
