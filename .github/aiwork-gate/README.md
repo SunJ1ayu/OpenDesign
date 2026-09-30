@@ -20,6 +20,7 @@
   Workflows 才让 App 合)。改了 App 的权限,要在仓库的安装处接受新权限才生效。
   私钥能合并 PR 之后,它和 main 本身一样要紧。
 - 标签 `aiwork:merge`(`policy.json` 的 `merge_label`)。
+- main 的规则集保留「合并前分支必须和 main 同步」(Require branches to be up to date,现在已开;不能关,见「合并」)。
 - environment `aiwork-gate`:部署分支只许 `main`,**不设审批人**;私钥放在它的 secret `AIWORK_GATE_PRIVATE_KEY`。
   设了审批人,关卡每次都要等人点,等的时候检查和保险丝都停在旧值。
 
@@ -78,7 +79,12 @@
 - **不另起一套判定**:关卡每次运行照常把所有开着的 PR 判一遍;某个 head 的结论(App 检查和保险丝)都写上了、
   而且是放行,就当场合并这个 head 上有合并请求的 PR。合并用的就是这次刚读到的数据,调合并接口时带上判过的
   head(`sha`):判完之后又推了新提交,接口会拒,不会把没判过的提交合进去。
-- **没放行的请求留着**:之后哪次运行判为放行,就在那次合。不想合了就撤掉标签。
+- **没放行的请求留着**:之后哪次运行判为放行,就在那次合。不想合了就撤掉标签(关卡正在合的那几秒里撤可能来不及,
+  见 `.aiwork/accepted-risks.md` 第 5 条)。
+- **"在最新的 main 上测过"不归关卡判**:关卡读的输入(head、改动、评审、head 上的 CI、推送、标签)没有一样随 main
+  前进而变,main 动了重判一遍结论也一样。这一点靠 main 规则集的「合并前分支必须和 main 同步」,它对 App 的合并同样生效:
+  同一次运行里合了一个 PR,指向 main 的其他 PR 就落后了,GitHub 拒绝合并,请求留着;更新分支 → CI、评审重来 → 放行时再合。
+  关了这条规则,关卡会把没和最新 main 一起测过的 PR 合进去。
 - **合并没成**(分支落后于 main、有冲突、评审讨论没解决完、刚推了新提交):原因写在那次运行的摘要里,请求留着。
   处理完之后,推送、评审都会叫醒下一次运行再合;没有门铃的(比如把讨论标为已解决),加个 `aiwork:recheck`。
 - 合并用 App 另换的一张令牌(Contents / Pull requests / Workflows 写权限),只在真要合并时才换;发检查的那张始终只有 Checks。
@@ -114,17 +120,19 @@
 | S10 | 业主给一个会放行的测试 PR 贴 `aiwork:merge` | 那次运行放行后当场合并:合并者是 `aiwork-gate` App,合进去的是判过的 head | 合并用的是刚判过的数据和 head |
 | S11 | 机器账号(Builder)给另一个会放行的测试 PR 贴 `aiwork:merge` | 不合并;运行摘要里写"是 SunJ1ayuBoT 提的,不算数" | Builder 合不了自己的 PR |
 | S12 | 业主给一个还缺评审的测试 PR 贴 `aiwork:merge`,之后补上 PASS | 贴的时候不合;PASS 之后那次运行合并 | 请求留着,放行时才合 |
+| S13 | 两个都会放行、都指向 main 的测试 PR,业主都贴上 `aiwork:merge` | 合进去一个;另一个被 GitHub 拒(分支落后于 main),摘要里写明,请求留着 | 连着合并时,后一个必须先和新的 main 一起测过 |
 
 失败注入(API 出错、限流、App 私钥坏了、PR 中途推进、合并接口拒绝)在线上没法安全制造,由 `test_aiwork_gate_run.mjs`(R4–R5e、R14b–R14f、R20、R25–R27、M1–M10)与 `test_aiwork_gate_main.mjs`(含请求卡住)覆盖;几次运行不会交错由 workflow 的并发组保证(`test_aiwork_gate_workflow.py`)。
 
 ## 从 shadow 转为真拦截
 
-S0–S12 全部符合预期,且之后至少 5 个真实 PR 上 shadow 的结论都和业主的判断一致、没见过过时的 success,再:
+S0–S13 全部符合预期,且之后至少 5 个真实 PR 上 shadow 的结论都和业主的判断一致、没见过过时的 success,再:
 
 1. 发一个只改 `policy.json` 的 PR:`check_name` 改为 `aiwork-gate`(判卷面,要业主批准);
 2. 业主在 main 的规则集里:
    - 必过检查从 `ci` 换成**两条**:`aiwork-gate`(来源限定 `aiwork-gate` App)和
-     `aiwork-gate/fuse`(来源限定 GitHub Actions)。只设第一条,App 私钥坏了时旧 success 仍能合并;
+     `aiwork-gate/fuse`(来源限定 GitHub Actions)。只设第一条,App 私钥坏了时旧 success 仍能合并。
+     「合并前分支必须和 main 同步」留着(见「合并」);
    - **另建**一个规则集,目标 main,只勾 Restrict updates;绕过名单:Repository admin(业主自己还能合)和
      `aiwork-gate` App(选 For pull requests only:只能合 PR,不能直接推)。这样别人只能贴标签请关卡合。
      必须另建:绕过名单绕过的是整个规则集,和必过检查放在一起,App 合并时连必过检查也绕过了;
