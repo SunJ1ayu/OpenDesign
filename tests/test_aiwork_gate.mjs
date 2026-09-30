@@ -4,6 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 
 const { decide, parseReviewBlock, matchAny } = await import("../.github/aiwork-gate/decide.mjs");
 const { collect, collectCi, collectPushes, paginate } = await import("../.github/aiwork-gate/collect.mjs");
@@ -600,4 +601,31 @@ test("R29 正文结论行和结论块不一样(哪怕不是写 BLOCK)→ 按 BLO
   assert.equal(run({ reviews: [withLine(4, "Conclusion: PASS")] }).conclusion, "success", "对照:两处都是 PASS");
   assert.equal(run({ reviews: [withLine(4, "**Conclusion:** Pass")] }).conclusion, "success", "对照:加粗、大小写不同照样认");
   assert.equal(run({ reviews: [withLine(4, "评审提到 Conclusion: BLOCK 的写法(不在行首)")] }).conclusion, "success", "对照:不在行首的不算结论行");
+});
+
+// ── aiwork-review[bot] 评审(PR #11 review 5364058197,@ e3d7561)────────────────────────────────
+// 给写代码的 agent 的指令文件(评审和修改怎么做、听谁的)和评审规则是一回事:Builder 改了它们,就改了约束自己的规则。
+// 以前判卷面只罩 .aiwork/ 和测试框架,根目录新加的 AGENTS.md / CLAUDE.md 改了不用业主批准。
+// 这一类从仓库推出:Claude Code 自动读任意层级的 CLAUDE.md / CLAUDE.local.md 和 .claude/ 下的设置、钩子、skill;
+// Codex 读 AGENTS.md / AGENTS.override.md(评审腿在仓库根跑,所以策略罩的是根目录那份;子目录里再冒出一份,这里会红,逼着定它算不算)。
+// workspace/AGENTS.md 不算:那是装到用户电脑上给产品助手看的契约,产品数据,走普通评审。
+const AGENT_INSTRUCTIONS_RE = /(^|\/)CLAUDE(\.local)?\.md$|(^|\/)AGENTS(\.override)?\.md$|^\.claude\//;
+const PRODUCT_CONTRACT = "workspace/AGENTS.md";
+
+test("R30 给写代码的 agent 的指令文件(AGENTS.md、CLAUDE.md、.claude/)都算判卷面,改了要业主批准(G2)", () => {
+  const tracked = execFileSync("git", ["ls-files"], { cwd: new URL(".", ROOT), encoding: "utf8" }).split("\n").filter(Boolean);
+  const found = tracked.filter((f) => AGENT_INSTRUCTIONS_RE.test(f) && f !== PRODUCT_CONTRACT);
+  for (const f of ["AGENTS.md", "CLAUDE.md"]) assert.ok(found.includes(f), `量具:扫得到 ${f}`);
+  assert.ok(tracked.includes(PRODUCT_CONTRACT), "量具:产品契约还在原处");
+  const missing = found.filter((f) => !matchAny(policy.judging_surface, f));
+  assert.deepEqual(missing, [], `这些 agent 指令文件改了不用业主批准:${missing.join("、")}`);
+  // 仓库里现在还没有、以后会加的同类文件,也提前罩住
+  for (const f of ["CLAUDE.local.md", "web/CLAUDE.md", "AGENTS.override.md", ".claude/settings.json", ".claude/skills/steward/SKILL.md"]) {
+    assert.ok(matchAny(policy.judging_surface, f), `以后加的 ${f} 也要罩住`);
+  }
+  assert.ok(!matchAny(policy.judging_surface, PRODUCT_CONTRACT), "对照:产品契约不算判卷面");
+  for (const f of ["AGENTS.md", "CLAUDE.md", ".claude/settings.json"]) {
+    blocked(run({ files: [f] }), "G7");
+    assert.equal(run({ files: [f], reviews: [review({}), approve()] }).conclusion, "success", `${f}:业主批准后放行`);
+  }
 });
