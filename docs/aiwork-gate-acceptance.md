@@ -1,0 +1,25 @@
+# 放行关卡首次部署验收记录
+
+对照 `.github/aiwork-gate/README.md`「首次部署验收」逐条验,每条附检查或运行的链接。验收时关卡是 shadow(检查名 `aiwork-gate-shadow`,只报不拦)。
+时间 2026-09-30(UTC)。测试 PR 是 #13;有几条在 PR #10 ~ #12 上已经顺带验过。
+
+| # | 结果 | 在哪验的 | 看到了什么 | 凭据 |
+|---|---|---|---|---|
+| S0 | ✅ | main @ `43b4cd9`(PR #10 合并) | main 上 CI 跑完后的关卡运行成功;main 的提交上没有 `aiwork-gate-shadow`,也没有保险丝 | main 上 CI 跑完后触发的 [运行 36692667451](https://github.com/SunJ1ayu/OpenDesign/actions/runs/36692667451) |
+| S1 | ✅ | #13 @ `b5f3299` | 开 PR 10 秒后出现 `aiwork-gate-shadow`(进行中,「等 CI」),由关卡的 App 发出,不是 Actions 任务;保险丝同时变黄「重算中」 | [检查 109895879577](https://github.com/SunJ1ayu/OpenDesign/runs/109895879577);[运行 36718049294](https://github.com/SunJ1ayu/OpenDesign/actions/runs/36718049294) |
+| S2 | ✅ | #13 @ `b5f3299`;#11、#12 | CI 通过后「不放行:缺合格评审」:G1 ✅,G4 ✅ 作者 `SunJ1ayuBoT(anthropic)`;只改 `docs/` 时不出现 G2 / G6 | [检查 109902467276](https://github.com/SunJ1ayu/OpenDesign/runs/109902467276) |
+| S3 | ✅ | #13 @ `d49313e`;#12 | 评审发出后约 20 秒自动重算;有 PASS、CI 通过、不需要业主批准的 PR 直接「放行」 | [检查 109912120362](https://github.com/SunJ1ayu/OpenDesign/runs/109912120362);#12 [评审 5366237384](https://github.com/SunJ1ayu/OpenDesign/pull/12#pullrequestreview-5366237384) → [运行 36715848297](https://github.com/SunJ1ayu/OpenDesign/actions/runs/36715848297) |
+| S4 | ✅ | #13 @ `d49313e` | 同一提交上先 PASS 后 BLOCK:从「放行」变为「等业主批准:有 BLOCK」(G5、G7);业主在 BLOCK 之后批准 → 「放行」 | [评审 5366980550](https://github.com/SunJ1ayu/OpenDesign/pull/13#pullrequestreview-5366980550) → [检查 109913852941](https://github.com/SunJ1ayu/OpenDesign/runs/109913852941);业主 [评审 5367004875](https://github.com/SunJ1ayu/OpenDesign/pull/13#pullrequestreview-5367004875) → [运行 36723573121](https://github.com/SunJ1ayu/OpenDesign/actions/runs/36723573121) |
+| S5 | ⚠️ 前半通过,后半没验(见注 1) | #13 @ `e279c8d` | 业主在网页上提交后:G4「作者 UNKNOWN:有非 Builder 账号推送过:SunJ1ayu」,G7 要业主在当前提交上批准;旧提交上的批准和评审都不算。**没验到**:新提交上有 PASS + 业主批准 → 放行 | [检查 109915947779](https://github.com/SunJ1ayu/OpenDesign/runs/109915947779)、[检查 109923336016](https://github.com/SunJ1ayu/OpenDesign/runs/109923336016) |
+| S6 | ✅ | #11、#12 | 改判卷面要业主批准(G2);high 路径只有 1 家 PASS 时拦下,2 家(openai、deepseek)都 PASS 时 G6 通过 | #11 [检查 109825010381](https://github.com/SunJ1ayu/OpenDesign/runs/109825010381);#12 [检查 109888506197](https://github.com/SunJ1ayu/OpenDesign/runs/109888506197)(1 家)、[检查 109891360301](https://github.com/SunJ1ayu/OpenDesign/runs/109891360301)(2 家) |
+| S7 | ✅ | #13 @ `b5f3299` | 加标签 → 关卡重算一次 | [运行 36720544315](https://github.com/SunJ1ayu/OpenDesign/actions/runs/36720544315)、[运行 36720583501](https://github.com/SunJ1ayu/OpenDesign/actions/runs/36720583501) |
+| S8 | ✅ | #13 @ `b5f3299` → `d49313e` | 改标题 → 重算,结论不变;改目标分支 → G1「目标分支在这次 CI 之后改过」;改回 main、推新提交让 CI 重跑后恢复 | 改标题 [检查 109904975829](https://github.com/SunJ1ayu/OpenDesign/runs/109904975829);改目标分支 [检查 109905165792](https://github.com/SunJ1ayu/OpenDesign/runs/109905165792);改回 [检查 109905494806](https://github.com/SunJ1ayu/OpenDesign/runs/109905494806);恢复 [检查 109912120362](https://github.com/SunJ1ayu/OpenDesign/runs/109912120362) |
+| S9 | ✅ | #13 | 重算时保险丝先变黄「重算中,算完之前不放行」,压住上一次的「放行」,算完与检查同结论,由 GitHub Actions 发出;连着两次重算,后一次的任务在前一次跑完后才开始 | [运行 36723334048](https://github.com/SunJ1ayu/OpenDesign/actions/runs/36723334048)(保险丝先 pending 后 failure);[运行 36720544315](https://github.com/SunJ1ayu/OpenDesign/actions/runs/36720544315) → [运行 36720583501](https://github.com/SunJ1ayu/OpenDesign/actions/runs/36720583501)(排队) |
+
+注:
+
+1. S5 后半(新提交上有 PASS + 业主批准 → 放行)没做成:#13 在「等业主批准:作者 UNKNOWN」时被误点合并。
+   README 要求 S0–S9 全部符合预期才转真拦截,所以 **S5 后半在转真拦截之前要补验**
+   (在一个有业主网页提交的 PR 上:有 PASS、业主在当前提交上批准,看关卡是否放行),补完再把这一行改成 ✅。
+2. 这次误合并本身说明了 shadow 的边界:只报不拦时,没放行的 PR 照样能合。转真拦截之后,合并按钮会被挡住。
+3. S4 的 BLOCK 是为验收手工发的评审(正文注明「验收用」),不是评审模型的结论。
