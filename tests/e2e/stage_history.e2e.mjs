@@ -178,6 +178,21 @@ try {
   // 2026-07-28 按用户要求删掉;入口另有 inbox_pad_gallery.e2e.mjs 钉)。
   await page.evaluate(() => { window.location.hash = "#/gallery"; });
   await page.locator(".gallery-page").waitFor({ timeout: 10000 });
+  // 编辑区一出现就记下它的样子:MutationObserver 在提交后的微任务里跑,早于之后任何一次渲染。
+  // 第一帧就得是这张图的值 —— 先显示上一张(或空)的草稿再回填的话,这一帧里打的字会被回填冲掉,
+  // 读输入框也会偶发读到空串(PR #12、#18 的 CI 各红过一次)。
+  await page.evaluate(() => {
+    const mo = new MutationObserver(() => {
+      const ed = document.querySelector('[data-ui="ref-edit"]');
+      if (!ed) return;
+      window.__refEditFirst = {
+        note: ed.querySelector('[data-ui="ref-note-input"]').value,
+        styles: [...ed.querySelectorAll('[data-ui="ref-style-option"].on')].map((b) => b.textContent.trim()),
+      };
+      mo.disconnect();
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+  });
   // 相册墙:参考图库那册只有一张 → 点封面直接放大(既有语义,p2-polish 定的)
   await page.locator('.gallery-page .g-cell:has(.g-cap .g:text-is("参考"))')
     .first().click();
@@ -186,8 +201,9 @@ try {
   await editor.waitFor({ timeout: 8000 });
   check((await editor.locator('[data-ui="ref-style-option"]').count()) >= 2,
     "#8 风格选项来自后端下发的词表(至少奶油风/侘寂风两项)");
-  const note0 = await page.locator('[data-ui="ref-note-input"]').inputValue();
-  check(note0 === "弧形吊顶", `#8 备注回填当前值(实际 ${JSON.stringify(note0)})`);
+  const first = await page.evaluate(() => window.__refEditFirst);
+  check(first?.note === "弧形吊顶" && first.styles.join() === "奶油风",
+    `#8 编辑区一出现,备注和风格就是这张图的当前值(实际 ${JSON.stringify(first)})`);
 
   await editor.locator('[data-ui="ref-style-option"]', { hasText: "侘寂风" })
     .first().click();
