@@ -13,6 +13,7 @@ import {
   type WsImage,
 } from "./gallery";
 import { useInboxDrop } from "./inboxDrop";
+import { useResetOnChange } from "./resetOnChange";
 
 // 图墙(P5 T5,一等面):refs 索引(空间/风格标签)∪ 工作区项目图片。
 // 两层:相册墙(每个集合文件夹一张封面)→ 点开看该册全部图 → 点图 lightbox。
@@ -138,13 +139,13 @@ export default function GalleryPage({ project, onBack }: Props) {
   }, [key]);
 
   // 切到另一张图(或关闭):编辑区重新以当前值预填,不沿用上一张的草稿。
-  useEffect(() => {
+  useResetOnChange(zoom?.id, () => {
     setEditStyles(new Set(zoom?.style ?? []));
     setEditSpaces(new Set(zoom?.space ?? []));
     setEditNote(zoom?.note ?? "");
     setEditErr(null);
     setEditSaved(null);
-  }, [zoom?.id]);
+  });
 
   async function saveRefEdit() {
     if (!zoom?.refId || editSaving) return;

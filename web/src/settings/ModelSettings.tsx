@@ -24,6 +24,7 @@ import {
   type ProvidersView,
   type SaveResult,
 } from "./modelSettings";
+import { useResetOnChange } from "../resetOnChange";
 
 type Props = {
   /** 路由里点名的那一家(#/settings/models?provider=…);null ⇒ 当前在用那家,再没有就第一家。 */
@@ -115,16 +116,15 @@ export default function ModelSettings({ provider, onSelectProvider }: Props) {
   const selectedId = pickSelected(view, provider);
   const sel = view?.providers.find((p) => p.id === selectedId) ?? null;
 
-  // 换了一家:提示、测试结果、草稿都归零(别让上一家的话挂在这一家头上)
-  useEffect(() => {
+  // 换了一家:提示、测试结果、草稿都归零(别让上一家的话挂在这一家头上)。
+  // 只在换家时重置;sel 的其余字段随轮询变化不该冲掉草稿
+  useResetOnChange(selectedId, () => {
     setNotice(null);
     setTestResult(null);
     setShowKey(false);
     setNameDraft(sel?.label ?? "");
     setBaseDraft(sel?.apiBase ?? "");
-    // 只在换家时重置;sel 的其余字段随轮询变化不该冲掉草稿
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId]);
+  });
 
   useEffect(() => {
     if (!awaiting || !view) return;
