@@ -186,8 +186,8 @@ try {
   await editor.waitFor({ timeout: 8000 });
   check((await editor.locator('[data-ui="ref-style-option"]').count()) >= 2,
     "#8 风格选项来自后端下发的词表(至少奶油风/侘寂风两项)");
-  check((await page.locator('[data-ui="ref-note-input"]').inputValue()) === "弧形吊顶",
-    "#8 备注回填当前值");
+  const note0 = await page.locator('[data-ui="ref-note-input"]').inputValue();
+  check(note0 === "弧形吊顶", `#8 备注回填当前值(实际 ${JSON.stringify(note0)})`);
 
   await editor.locator('[data-ui="ref-style-option"]', { hasText: "侘寂风" })
     .first().click();
