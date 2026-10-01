@@ -242,7 +242,7 @@ test("R25 事件只是门铃:PR 事件、带 / 不带 PR 的 workflow_run、指�
   assert.match(seen[0], /"finish","a{40}","completed","failure"/, "被评审的 PR 的 head 重算成 failure(BLOCK)");
 });
 
-// ── 合并那一刻再判一次(README「从 shadow 转为真拦截」第 0 步)──────────────────────────────────────
+// ── 合并那一刻再判一次(.github/aiwork-gate/README.md「合并」)──────────────────────────────────────
 // 合并请求 = PR 上贴着 aiwork:merge,且最后一次贴它的是业主或 merge_requesters 里的人(以后是 OpenClaw)。
 // 合并不另起一套判定:就在这次运行里,用刚读到的数据判完、结论写上之后,带着判过的 head 调合并接口
 // (head 变了接口就拒);没放行就不合,请求留着,等哪次运行判为放行再合。
