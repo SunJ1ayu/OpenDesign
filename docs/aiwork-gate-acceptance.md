@@ -2,7 +2,8 @@
 
 对照 `.github/aiwork-gate/README.md`「首次部署验收」逐条验,每条附检查或运行的链接。验收时关卡是 shadow(检查名 `aiwork-gate-shadow`,只报不拦)。
 时间 2026-09-30(UTC)。测试 PR 是 #13;有几条在 PR #10 ~ #12 上已经顺带验过。
-S5 后半和合并标签(S10–S13,PR #15 加的)在 2026-10-01 用 PR #16、#17 验;这两个 PR 的改动本身是正常的小修,验完都已由关卡合并。
+S5 后半和合并标签 S10–S12(PR #15 加的)在 2026-10-01 用 PR #16、#17 验,S13 用 PR #18、#19 验(见注 4);
+这几个 PR 的改动本身都是正常的修改;#16、#17、#19 已由关卡合并,#18 就是本记录所在的 PR。
 
 | # | 结果 | 在哪验的 | 看到了什么 | 凭据 |
 |---|---|---|---|---|
@@ -19,7 +20,7 @@ S5 后半和合并标签(S10–S13,PR #15 加的)在 2026-10-01 用 PR #16、#17
 | S10 | ✅ | #16 @ `5af2ab8` | 业主贴的 `aiwork:merge`;PASS 后那次运行放行并当场合并:合并者 `aiwork-gate[bot]`,合并提交 `f78c7d0` 的第二个父提交就是判过的 `5af2ab8`;日志「PR #16:按 SunJ1ayu 的请求合并了 5af2ab8」 | [评审 5374361278](https://github.com/SunJ1ayu/OpenDesign/pull/16#pullrequestreview-5374361278) → [运行 36807432622](https://github.com/SunJ1ayu/OpenDesign/actions/runs/36807432622)、[检查 110194829262](https://github.com/SunJ1ayu/OpenDesign/runs/110194829262) |
 | S11 | ✅ | #17 @ `c0f16fc` | 机器账号 `SunJ1ayuBoT` 贴的 `aiwork:merge`;有 PASS、放行,但不合并;日志「PR #17:贴着合并标签,但合并请求是 SunJ1ayuBoT 提的,不算数」 | [评审 5374361528](https://github.com/SunJ1ayu/OpenDesign/pull/17#pullrequestreview-5374361528) → [运行 36807432622](https://github.com/SunJ1ayu/OpenDesign/actions/runs/36807432622) |
 | S12 | ✅ | #16 @ `5af2ab8` | 业主在评审之前贴标签:那次运行「不放行:缺合格评审」,不合并;PASS 之后那次运行合并(同 S10) | [运行 36804811986](https://github.com/SunJ1ayu/OpenDesign/actions/runs/36804811986)、[检查 110186723765](https://github.com/SunJ1ayu/OpenDesign/runs/110186723765) |
-| S13 | ⚠️ 部分通过(见注 4) | #17 @ `c0f16fc` | 验到的:#16 合并后 #17 落后于 main;业主撤掉机器账号的标签、自己重贴 → 关卡放行并去合并,GitHub 拒绝(HTTP 405「Required status check "ci" is expected」),原因写进日志,请求留着;之后业主点 Update branch、重新评审批准后合并(见 S5)。**没验到**:两个都由业主贴了标签、都已放行的 PR,在同一次运行里连着合并 | [运行 36807902897](https://github.com/SunJ1ayu/OpenDesign/actions/runs/36807902897)、[检查 110196295702](https://github.com/SunJ1ayu/OpenDesign/runs/110196295702) |
+| S13 | ✅(见注 4) | #19 @ `b262bd3`、#18 @ `0871fbe` | 两个都已放行;业主相隔 1 秒先后贴上 `aiwork:merge`。同一次运行里关卡先合进 #19,4 秒后再去合 #18,GitHub 拒绝(HTTP 405「Required status check "ci" is expected」:#18 已落后于刚变的 main),原因写进日志,请求留着 | [运行 36819494271](https://github.com/SunJ1ayu/OpenDesign/actions/runs/36819494271) |
 
 注:
 
@@ -28,7 +29,6 @@ S5 后半和合并标签(S10–S13,PR #15 加的)在 2026-10-01 用 PR #16、#17
    并由关卡按业主的合并标签当场合并。
 2. 这次误合并本身说明了 shadow 的边界:只报不拦时,没放行的 PR 照样能合。转真拦截之后,合并按钮会被挡住。
 3. S4 的 BLOCK 是为验收手工发的评审(正文注明「验收用」),不是评审模型的结论。
-4. S13 按 README 的场景是两个 PR 都由业主贴上标签、都已放行,关卡在**同一次运行**里合进第一个后再去合第二个。
-   这次 #16 合并时 #17 的标签还是机器账号贴的,业主重贴已是另一次运行,只验到了"落后于 main 的 PR 合并会被拒"。
-   同一次运行里第二次合并紧跟第一次(相隔一两秒),GitHub 是否同样拒绝要实测,所以 **S13 在转真拦截之前要补验**:
-   两个 PR 都有 PASS 后,业主几秒内先后给两个贴标签(第一次运行开始读数据前两个标签都在),看日志里第二个是否被拒。
+4. S13 第一次(#16、#17)没验全:#16 合并时 #17 的标签还是机器账号贴的,业主重贴已是另一次运行,只验到"落后于 main 的 PR
+   合并会被拒"([运行 36807902897](https://github.com/SunJ1ayu/OpenDesign/actions/runs/36807902897))。同一次运行里第二次合并紧跟第一次,
+   GitHub 是否同样拒绝要实测;2026-10-01 用 #18、#19 补验,结果如上:相隔 4 秒的第二次合并同样被拒。
