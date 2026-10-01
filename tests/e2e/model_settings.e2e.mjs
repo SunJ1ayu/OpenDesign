@@ -471,6 +471,23 @@ try {
 
   // ── 改名 / 改 Base URL 撞内置被拒(Q8)──
   await openSettings(cid);
+  // 从别家切到这一家的那一帧,名称草稿就得是这一家的:先显示上一家的草稿再回填的话,
+  // 这一帧里打的字会被回填冲掉(下面的 fill 就站在这个窗口上)。
+  // MutationObserver 在提交后的微任务里跑,早于之后任何一次渲染;内置供应商的名称不是输入框,不记
+  await select("mimo");
+  await page.evaluate(() => {
+    window.__msFirstName = {};
+    new MutationObserver(() => {
+      for (const d of document.querySelectorAll('[data-ui="ms-detail"]')) {
+        const id = d.getAttribute("data-provider");
+        const input = d.querySelector('input[data-ui="ms-name"]');
+        if (input && !(id in window.__msFirstName)) window.__msFirstName[id] = input.value;
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  await select(cid);
+  const firstName = await page.evaluate((id) => window.__msFirstName[id], cid);
+  check(firstName === "本地中转", `Q8 从别家切到这一家的那一帧,名称草稿就是它的名字(实际 ${JSON.stringify(firstName)})`);
   await detail(cid).locator('[data-ui="ms-name"]').fill("本地中转二号");
   await detail(cid).locator('[data-ui="ms-provider-save"]').click();
   check(await until(async () => /二号/.test(await navItem(cid).innerText()), 5000), "Q8 自定义供应商能改名");
