@@ -3,6 +3,7 @@
 // 读数据、拨保险丝用 GITHUB_TOKEN(除 statuses: write 外只读);发检查结果用 aiwork-gate App 的临时令牌 ——
 // 分支规则只认这个 App 发的结果,PR 自己加的 workflow 用 GITHUB_TOKEN 发一个同名检查也冒充不了。
 // 保险丝故意不靠 App 私钥:私钥坏了 App 就改不了自己发过的旧 success,只能靠它挡(见 run.mjs 文件头)。
+// 合并(run.mjs 第 4 步)另换一张 App 令牌,只在真要合并时才换:发检查的那张始终只有 checks: write。
 import { createSign } from "node:crypto";
 import { appendFileSync, readFileSync } from "node:fs";
 import { FUSE_CONTEXT, gate } from "./run.mjs";
@@ -70,9 +71,11 @@ const fuse = {
 };
 
 const b64url = (x) => Buffer.from(x).toString("base64url");
-let appTokenCache = null;
-async function appToken() {
-  if (appTokenCache) return appTokenCache;
+// 按权限分开换、分开缓存:一张令牌只带这一类请求要的权限
+const appTokens = new Map();
+async function appToken(permissions) {
+  const want = JSON.stringify(permissions);
+  if (appTokens.has(want)) return appTokens.get(want);
   const key = env.AIWORK_GATE_PRIVATE_KEY;
   if (!key) throw new Error("缺 aiwork-gate App 的私钥(environment aiwork-gate 的 secret AIWORK_GATE_PRIVATE_KEY)");
   const now = Math.floor(Date.now() / 1000);
@@ -82,17 +85,20 @@ async function appToken() {
   const tok = (
     await request("POST", `/app/installations/${inst.id}/access_tokens`, jwt, {
       repositories: [repo.split("/")[1]],
-      permissions: { checks: "write" },
+      permissions,
     })
   ).data;
-  appTokenCache = tok.token;
-  return appTokenCache;
+  appTokens.set(want, tok.token);
+  return tok.token;
 }
+const CHECKS = { checks: "write" };
+// 合并接口要 contents + pull_requests;PR 改了 .github/workflows/ 的,GitHub 还要 workflows 才让 App 合
+const MERGE = { contents: "write", pull_requests: "write", workflows: "write" };
 
 const output = (r) => ({ title: r.title, summary: r.summary.slice(0, 60000) });
 const poster = {
   async start(sha) {
-    const res = await request("POST", `/repos/${repo}/check-runs`, await appToken(), {
+    const res = await request("POST", `/repos/${repo}/check-runs`, await appToken(CHECKS), {
       name: policy.check_name,
       head_sha: sha,
       status: "in_progress",
@@ -103,7 +109,14 @@ const poster = {
   async finish(sha, result, id) {
     const body = { status: result.status, output: output(result) };
     if (result.status === "completed") body.conclusion = result.conclusion;
-    await request("PATCH", `/repos/${repo}/check-runs/${id}`, await appToken(), body);
+    await request("PATCH", `/repos/${repo}/check-runs/${id}`, await appToken(CHECKS), body);
+  },
+};
+
+// 带上判过的 head:判完之后又推了新提交,接口就拒(409),不会把没判过的提交合进去
+const merger = {
+  async merge(number, sha) {
+    await request("PUT", `/repos/${repo}/pulls/${number}/merge`, await appToken(MERGE), { sha, merge_method: "merge" });
   },
 };
 
@@ -115,6 +128,7 @@ await gate({
   api,
   poster,
   fuse,
+  merger,
   log: (line) => {
     console.log(line);
     if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `${line}\n\n`);

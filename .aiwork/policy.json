@@ -4,6 +4,7 @@
     "关卡永远按 main 上的这份判;PR 里改这份文件本身算判卷面(G2),要业主批准。",
     "judging_surface:改了就要业主在当前提交上批准(G2)——CI、测试总跑实际调用的框架文件、关卡自己,以及给写代码的 agent 的指令文件(根目录 AGENTS.md、任意层级的 CLAUDE.md、.claude/;改它们就是改约束 Builder 的规则)。tests/test_aiwork_gate.mjs R6 从 run-all.sh、R30 从仓库里的文件推出应在这里的文件。workspace/AGENTS.md 是装给产品助手的契约,不算。",
     "high:会影响所有用户的安装 / 自动更新 / 密钥 / 首次配置;要两家不同的非 Builder 模型都 PASS,再加业主批准(G6)。tests/test_aiwork_gate.mjs 的「high 清单从仓库推出」一处推导应在这里的文件:bin/ 里凡碰密钥、口令或机主 nanobot 配置的(不限扩展名;按路径打开那份配置,或按它独有的结构读写它)、安装 / 启动脚本引用的 bin/ 与 config/ 文件、nanobot 配置模板。",
+    "merge_label / merge_requesters:请关卡合并 PR 用的标签,和除业主外谁贴的算数(以后放 OpenClaw 的身份)。规则见 .github/aiwork-gate/README.md「合并」。",
     "high 管的是装到机主电脑上、以他的系统权限运行、把密钥或口令落盘 / 注入进程的代码,以及决定他 nanobot 配置内容的一切 —— 那份配置里就是密钥、工具开关(能不能执行命令、能不能直接读写文件)、模型端点:合进去的模板、读写它的脚本(如 disable_builtin_file_tools.py)、决定往它哪个字段写的解析函数(如 ds_model.py)。不单列的:浏览器界面 web/(同一页面里任何文件都拿得到同样的口令和 key,只列几个挡不住什么);安装时复制的给模型看的说明(workspace/*.md、skills/**)与产品数据(config/taxonomy.default.json 等)。它们走普通评审(G3)。"
   ],
   "check_name": "aiwork-gate-shadow",
@@ -13,6 +14,8 @@
     "SunJ1ayuBoT": "anthropic"
   },
   "reviewer_bot": "aiwork-review[bot]",
+  "merge_label": "aiwork:merge",
+  "merge_requesters": [],
   "ci": {
     "workflow_path": ".github/workflows/ci.yml",
     "event": "pull_request"
