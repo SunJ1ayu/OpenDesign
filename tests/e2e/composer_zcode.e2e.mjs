@@ -221,20 +221,25 @@ try {
   });
 
   await step("② 打 / 弹同一份技能表;按字筛;Enter 用、不发送", async () => {
-    // 上一步点完技能,applySkill 要到下一帧(requestAnimationFrame)才把焦点和光标挪回末尾。
-    // 那一帧若落在 fill 的「全选」和「输入」之间,全选被收成光标,"/" 接在原句后面 ⇒ 不是 / 查询、表不弹
-    // (CI 慢机上连续三跑都红在这里,下一步打「、」时没有待执行的那一帧,照常弹)。先等它挪完再改草稿。
-    await until(() => ta.evaluate((el) => document.activeElement === el && el.selectionStart === el.value.length));
     await ta.fill("/");
     const pop = page.locator(`${HOME} [data-ui="slash-menu"]`);
-    await pop.waitFor({ timeout: 3000 }).catch(async (e) => {
-      throw new Error(`${e.message}(当时草稿 ${JSON.stringify(await ta.inputValue())})`);
-    });
+    await pop.waitFor({ timeout: 3000 });
     check((await pop.locator('[role="option"]').count()) === 3, "打 / ⇒ 三个技能");
     await ta.type("参考");
     check(await until(async () => (await pop.locator('[role="option"]').count()) === 1), "打成 /参考 ⇒ 只剩一个");
     check(/找参考图/.test(await pop.innerText()), "剩下的是找参考图");
-    await ta.press("Enter");
+    // 用完技能不能留"下一帧再挪光标"的活:那一帧会落在紧接着的输入之后,把人刚做的全选收成光标
+    // (CI 上 fill 的全选就这样被收掉,「、」「/」接在原句后面、表不弹,时红时绿)。
+    // Enter、全选、等两帧在页面里一口气做完,中间不让出帧,所以每次都能复现。
+    const after = await ta.evaluate(async (el) => {
+      el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+      for (let i = 0; i < 5; i++) await Promise.resolve(); // React 在微任务里提交,不过帧
+      el.select();
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      return { start: el.selectionStart, end: el.selectionEnd, len: el.value.length };
+    });
+    check(after.start === 0 && after.end === after.len,
+      `用完技能紧接着全选,两帧后全选还在:${JSON.stringify(after)}`);
     check((await ta.inputValue()) === "找参考图:", `Enter 用技能:${JSON.stringify(await ta.inputValue())}`);
     check((await pop.count()) === 0, "用完表收起");
     check((await sentMessages(page)).length === 0, "Enter 没把 /参考 发出去");

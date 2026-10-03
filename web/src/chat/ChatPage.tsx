@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { ChatSession, type BootstrapInfo } from "./connection";
 import {
   emptyTranscript,
@@ -294,17 +295,18 @@ export default function ChatPage({
       window.removeEventListener("keydown", onKey);
     };
   }, [plusOpen]);
-  /** 用一个技能:草稿补好开头(不叠两个、原来的字留着),光标到末尾;不发送。 */
+  /** 用一个技能:草稿补好开头(不叠两个、原来的字留着),光标到末尾;不发送。
+   *  草稿当场提交、当场挪光标:挪光标若留到下一帧,那一帧会落在紧接着的输入之后,把人刚做的全选收成光标。 */
   const applySkill = (skill: Skill) => {
-    setDraft((d) => applySkillPrefill(d, skill));
-    setPlusOpen(false);
-    setSlashClosed(false);
-    requestAnimationFrame(() => {
-      const el = inputRef.current;
-      if (!el) return;
-      el.focus();
-      el.setSelectionRange(el.value.length, el.value.length);
+    flushSync(() => {
+      setDraft((d) => applySkillPrefill(d, skill));
+      setPlusOpen(false);
+      setSlashClosed(false);
     });
+    const el = inputRef.current;
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
   };
   // ── 问候语按时间(⑤):窗口开着过了分界点自己换 ─────────────────────────────
   const [greetAt, setGreetAt] = useState(() => new Date());
