@@ -40,6 +40,55 @@ function facts(over = {}) {
   };
 }
 const run = (over) => decide(facts(over), policy);
+
+test("任务角色:登记为 Builder 不妨碍审核另一个家族的任务", () => {
+  const families = ["anthropic", "openai", "deepseek", "google"];
+  const builders = Object.fromEntries(families.map((family) => [`task-${family}`, family]));
+  for (const producer of families) {
+    for (const reviewer of families) {
+      const result = decide(facts({
+        pushes: { covers_head: true, actors: [`task-${producer}`] },
+        reviews: [review({ family: reviewer, model: `${reviewer}-test-model` })],
+      }), { ...policy, builders });
+      assert.equal(result.author.family, producer);
+      assert.equal(result.conclusion, producer === reviewer ? "failure" : "success",
+                   `${producer} 写 / ${reviewer} 审:\n${result.summary}`);
+    }
+  }
+});
+
+test("任务角色:high 的两家审核可以都是其他任务的 Builder", () => {
+  const builders = { ...policy.builders, "task-openai": "openai", "task-deepseek": "deepseek" };
+  const result = decide(facts({
+    files: ["desktop/main.js"],
+    reviews: [review({ id: 1 }), review({ id: 2, family: "deepseek", model: "deepseek-test" }), approve()],
+  }), { ...policy, builders });
+  assert.equal(result.conclusion, "success", result.summary);
+  const duplicateFamily = decide(facts({
+    files: ["desktop/main.js"], reviews: [review({ id: 1 }), review({ id: 2 }), approve()],
+  }), { ...policy, builders });
+  assert.equal(duplicateFamily.conclusion, "failure", "同家族两份结果不能填满 high 预算");
+});
+
+test("任务角色:作者不明时仍排除所有可能的 Builder 家族", () => {
+  const builders = { ...policy.builders, "task-openai": "openai" };
+  for (const pushes of [
+    { covers_head: false, actors: ["task-openai"] },
+    { covers_head: true, actors: ["unregistered-build-app[bot]"] },
+    { covers_head: true, actors: ["SunJ1ayuBoT", "task-openai"] },
+  ]) {
+    for (const family of Object.values(builders)) {
+      const result = decide(facts({ pushes, reviews: [review({ family }), approve()] }), { ...policy, builders });
+      assert.equal(result.author.known, false);
+      assert.equal(result.conclusion, "failure", result.summary);
+    }
+    const outside = decide(facts({ pushes,
+      reviews: [review({ family: "deepseek", model: "deepseek-test" }), approve()],
+    }), { ...policy, builders });
+    assert.equal(outside.conclusion, "success", "保留原有 UNKNOWN + 独立评审 + 业主批准的路径");
+  }
+});
+
 const blocked = (r, rule) => {
   assert.equal(r.conclusion, "failure", `应拦下,实际 ${r.conclusion}:${r.title}`);
   if (rule) assert.match(r.summary, new RegExp(`❌ ${rule}`), `应因 ${rule} 拦下:\n${r.summary}`);
