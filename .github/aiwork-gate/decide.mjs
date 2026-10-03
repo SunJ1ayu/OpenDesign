@@ -3,7 +3,7 @@
 //
 //   G1 CI:当前 head 上、来自 ci.yml 的那次运行成功,且是在最后一次改目标分支之后触发的 —— 业主批准也豁免不了
 //   G2 判卷面:改了 CI / 测试入口 / 关卡自己 → 要业主批准
-//   G3 评审:当前 head 上至少一条合格 PASS(aiwork-review 发的、完整、读过文件、家族不是任何 Builder 的家族)—— 豁免不了
+//   G3 评审:当前 head 上至少一条合格 PASS(aiwork-review 发的、完整、读过文件、家族不是本次作者的家族)—— 豁免不了
 //   G4 作者:这个分支上的每次推送都来自已知 Builder 账号,否则 UNKNOWN → 要业主批准
 //   G5 当前 head 上任何一条 BLOCK → 要业主在最后一条 BLOCK 之后批准。BLOCK = aiwork-review 在当前 head 上发的、
 //      除"格式完整且结论不是 BLOCK"以外的一切(BLOCK 结论、Request changes、正文结论行写 BLOCK、结论块看不懂),
@@ -150,7 +150,9 @@ export function decide(facts, policy) {
   // 评审
   const botReviews = facts.reviews.filter((r) => isReviewerBot(r, policy));
   const onHead = botReviews.filter((r) => r.commit_id === head);
-  const builderFamilies = new Set(Object.values(policy.builders));
+  // 已知作者只排除本次实现家族:登记为 Builder 不代表写过所有 PR。
+  // UNKNOWN 沿用保守边界,不能猜测共享账号这次实际调用的模型。
+  const authorFamilies = new Set(author.known ? [author.family] : Object.values(policy.builders));
   const passes = [];
   const blocks = [];
   const rejected = [];
@@ -182,9 +184,8 @@ export function decide(facts, policy) {
       rejected.push(`评审 #${r.id}:没读任何文件`);
       continue;
     }
-    // 作者 UNKNOWN 时也不能让 Builder 家族来审:谁推的说不清,就把所有 Builder 家族都当作者
-    if (builderFamilies.has(v.family) || (author.known && v.family === author.family)) {
-      rejected.push(`评审 #${r.id}:${v.family} 是 Builder 家族,不能审 Builder 的代码`);
+    if (authorFamilies.has(v.family)) {
+      rejected.push(`评审 #${r.id}:${v.family} ${author.known ? "是本次作者家族" : "是可能的 Builder 家族"},不能提供独立评审`);
       continue;
     }
     passes.push({ id: r.id, family: v.family, model: v.model });
