@@ -223,9 +223,7 @@ try {
   await step("② 打 / 弹同一份技能表;按字筛;Enter 用、不发送", async () => {
     await ta.fill("/");
     const pop = page.locator(`${HOME} [data-ui="slash-menu"]`);
-    await pop.waitFor({ timeout: 3000 }).catch(async (e) => {
-      throw new Error(`${e.message}(当时草稿 ${JSON.stringify(await ta.inputValue())})`);
-    });
+    await pop.waitFor({ timeout: 3000 });
     check((await pop.locator('[role="option"]').count()) === 3, "打 / ⇒ 三个技能");
     await ta.type("参考");
     check(await until(async () => (await pop.locator('[role="option"]').count()) === 1), "打成 /参考 ⇒ 只剩一个");
