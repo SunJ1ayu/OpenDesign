@@ -8,7 +8,7 @@
     "merge_label / merge_requesters:请关卡合并 PR 用的标签,和除业主外谁贴的算数(以后放 OpenClaw 的身份)。规则见 .github/aiwork-gate/README.md「合并」。",
     "high 管的是装到机主电脑上、以他的系统权限运行、把密钥或口令落盘 / 注入进程的代码,以及决定他 nanobot 配置内容的一切 —— 那份配置里就是密钥、工具开关(能不能执行命令、能不能直接读写文件)、模型端点:合进去的模板、读写它的脚本(如 disable_builtin_file_tools.py)、决定往它哪个字段写的解析函数(如 ds_model.py)。不单列的:浏览器界面 web/(同一页面里任何文件都拿得到同样的口令和 key,只列几个挡不住什么);安装时复制的给模型看的说明(workspace/*.md、skills/**)与产品数据(config/taxonomy.default.json 等)。它们走普通评审(G3)。"
   ],
-  "check_name": "aiwork-gate-shadow",
+  "check_name": "aiwork-gate",
   "gate_app_id": 5121026,
   "owner": "SunJ1ayu",
   "builders": {
