@@ -1,6 +1,6 @@
 # 已接受风险
 
-业主已经接受、评审时**不当问题报**的风险(见 `.aiwork/review-rules.md` 第二节)。每条写明:是什么、为什么补不了、
+业主已经接受、评审时**不当问题报**的风险(见 [aiwork 的 REVIEW-RULES.md](https://github.com/SunJ1ayu/aiwork/blob/main/REVIEW-RULES.md) 第二节)。每条写明:是什么、为什么补不了、
 什么时候由什么解决。在 `.aiwork/` 下,属于判卷面:加一条、改一条都要业主批准。
 
 ## 放行关卡(`.github/aiwork-gate/`):状态检查只能"最终一致"
