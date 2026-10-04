@@ -36,12 +36,13 @@ S5 后半和合并标签 S10–S12(PR #15 加的)在 2026-10-01 用 PR #16、#17
 ## 转真拦截(2026-10-04)
 
 对照 `.github/aiwork-gate/README.md`「从 shadow 转为真拦截」。前提:上面 S0–S13 全部通过;之后真实 PR #18、#20、#21、#22、#23
-上关卡结论都与业主判断一致,没见过过时的 success。T4、T5 用本记录所在的 PR 验。
+上关卡结论都与业主判断一致,没见过过时的 success。T4、T6 用本记录所在的 PR 验。
 
 | # | 做什么 | 结果 | 凭据 |
 |---|---|---|---|
 | T1 | 检查名改为 `aiwork-gate` | ✅ | [PR #24](https://github.com/SunJ1ayu/OpenDesign/pull/24),关卡合并为 `b6efa4d` |
-| T2 | main 规则集:必过检查从 `ci` 换成 `aiwork-gate`(来源限定 aiwork-gate App)与 `aiwork-gate/fuse`(来源限定 GitHub Actions);「合并前必须与 main 同步」保留 | 待业主 | |
-| T3 | 另建规则集:目标 main,只勾 Restrict updates;绕过名单 Repository admin 与 aiwork-gate App(For pull requests only) | 待业主 | |
-| T4 | 缺评审时合并按钮被挡住 | 待验 | |
-| T5 | 贴标签、放行之后由 aiwork-gate App 合并 | 待验 | |
+| T2 | main 规则集(改名为 `main-required-checks`):必过检查从 `ci` 换成 `aiwork-gate`(来源限定 aiwork-gate App)与 `aiwork-gate/fuse`(来源限定 GitHub Actions);「合并前必须与 main 同步」保留 | ✅ | 接口读出:`required_status_checks` = `aiwork-gate`(integration 5121026,即 aiwork-gate App)、`aiwork-gate/fuse`(integration 15368,即 GitHub Actions);`strict_required_status_checks_policy: true` |
+| T3 | 另建规则集 `main-gate-merge-only`:目标 main,只勾 Restrict updates;绕过名单 Repository admin(Always allow)与 aiwork-gate App(For pull requests only) | ✅ | 接口读出:目标 `~DEFAULT_BRANCH`,规则只有 `update`;绕过名单接口不对非管理员返回,由业主 2026-10-04 在设置页核对确认 |
+| T4 | 缺评审时合并被挡 | ✅ | 本 PR 在评审之前:`mergeable_state: blocked`,[检查 111364337019](https://github.com/SunJ1ayu/OpenDesign/runs/111364337019)「不放行:缺合格评审」,保险丝同结论([运行 37177914079](https://github.com/SunJ1ayu/OpenDesign/actions/runs/37177914079)) |
+| T5 | 机器账号绕不过规则集 | ✅ | 以 `SunJ1ayuBoT` 读两个规则集:`current_user_can_bypass` 都是 `never` |
+| T6 | 贴标签、放行之后由 aiwork-gate App 合并 | 以本 PR 为准 | 本 PR 的合并者是 `aiwork-gate[bot]` 即通过 |
