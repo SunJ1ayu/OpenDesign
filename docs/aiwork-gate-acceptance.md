@@ -32,3 +32,16 @@ S5 后半和合并标签 S10–S12(PR #15 加的)在 2026-10-01 用 PR #16、#17
 4. S13 第一次(#16、#17)没验全:#16 合并时 #17 的标签还是机器账号贴的,业主重贴已是另一次运行,只验到"落后于 main 的 PR
    合并会被拒"([运行 36807902897](https://github.com/SunJ1ayu/OpenDesign/actions/runs/36807902897))。同一次运行里第二次合并紧跟第一次,
    GitHub 是否同样拒绝要实测;2026-10-01 用 #18、#19 补验,结果如上:相隔 4 秒的第二次合并同样被拒。
+
+## 转真拦截(2026-10-04)
+
+对照 `.github/aiwork-gate/README.md`「从 shadow 转为真拦截」。前提:上面 S0–S13 全部通过;之后真实 PR #18、#20、#21、#22、#23
+上关卡结论都与业主判断一致,没见过过时的 success。T4、T5 用本记录所在的 PR 验。
+
+| # | 做什么 | 结果 | 凭据 |
+|---|---|---|---|
+| T1 | 检查名改为 `aiwork-gate` | ✅ | [PR #24](https://github.com/SunJ1ayu/OpenDesign/pull/24),关卡合并为 `b6efa4d` |
+| T2 | main 规则集:必过检查从 `ci` 换成 `aiwork-gate`(来源限定 aiwork-gate App)与 `aiwork-gate/fuse`(来源限定 GitHub Actions);「合并前必须与 main 同步」保留 | 待业主 | |
+| T3 | 另建规则集:目标 main,只勾 Restrict updates;绕过名单 Repository admin 与 aiwork-gate App(For pull requests only) | 待业主 | |
+| T4 | 缺评审时合并按钮被挡住 | 待验 | |
+| T5 | 贴标签、放行之后由 aiwork-gate App 合并 | 待验 | |
