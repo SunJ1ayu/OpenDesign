@@ -26,7 +26,7 @@
 
 ## 两道信号:App 检查 + 保险丝
 
-- **App 检查**(`aiwork-gate-shadow`,转真拦截后叫 `aiwork-gate`):结论本身。只有 `aiwork-gate` App 发得出,PR 冒充不了。
+- **App 检查**(`aiwork-gate`;shadow 阶段叫 `aiwork-gate-shadow`):结论本身。只有 `aiwork-gate` App 发得出,PR 冒充不了。
 - **保险丝**(commit status `aiwork-gate/fuse`):用 workflow 自带的 `GITHUB_TOKEN` 发,**不靠 App 私钥**。
   每次重算先拨到 pending,App 把结论写回之后才跟着结论走;App 发不出 / 写不回、策略不合法 → failure。
 - 为什么要两道:GitHub 上只有 App 自己改得动它发过的检查。App 私钥坏了(被撤、过期、secret 被删)时,
@@ -135,7 +135,7 @@
 
 S0–S13 全部符合预期,且之后至少 5 个真实 PR 上 shadow 的结论都和业主的判断一致、没见过过时的 success,再:
 
-1. 发一个只改 `policy.json` 的 PR:`check_name` 改为 `aiwork-gate`(判卷面,要业主批准);
+1. 发一个 PR 把 `policy.json` 的 `check_name` 改为 `aiwork-gate`(连同钉住它的那条测试;判卷面,要业主批准);
 2. 业主在 main 的规则集里:
    - 必过检查从 `ci` 换成**两条**:`aiwork-gate`(来源限定 `aiwork-gate` App)和
      `aiwork-gate/fuse`(来源限定 GitHub Actions)。只设第一条,App 私钥坏了时旧 success 仍能合并。

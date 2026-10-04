@@ -283,8 +283,8 @@ test("收集:fork 来的 PR 没有推送记录 → 作者 UNKNOWN;改名文件�
   blocked(decide({ ...f, ci: { state: "success", detail: "" }, reviews: [review({})] }, policy), "G2");
 });
 
-test("策略:check 名先用 shadow;判卷面罩住 .github 与 .aiwork;Builder 只有机器账号", () => {
-  assert.equal(policy.check_name, "aiwork-gate-shadow");
+test("策略:check 名是 aiwork-gate(已转真拦截);判卷面罩住 .github 与 .aiwork;Builder 只有机器账号", () => {
+  assert.equal(policy.check_name, "aiwork-gate");
   for (const p of [".github/**", ".aiwork/**"]) assert.ok(policy.judging_surface.includes(p));
   assert.deepEqual(policy.builders, { SunJ1ayuBoT: "anthropic" });
   assert.equal(policy.reviewer_bot, "aiwork-review[bot]");

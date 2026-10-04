@@ -18,9 +18,9 @@
 #   · 唯一的写权限 statuses: write 给保险丝(commit status `aiwork-gate/fuse`):App 私钥坏了时 App 改不了
 #     自己发过的旧 success,由保险丝挡住(见 .github/aiwork-gate/run.mjs 文件头)。
 #
-# 先以 `aiwork-gate-shadow` 这个名字只报不拦(.aiwork/policy.json 的 check_name);
-# 判得准了,再改名 `aiwork-gate` 并在 main 的分支规则里设为必过、限定只认 aiwork-gate App,
-# 同时把保险丝 `aiwork-gate/fuse` 也设为必过(步骤见 .github/aiwork-gate/README.md)。
+# 检查名 `aiwork-gate`(.aiwork/policy.json 的 check_name;shadow 阶段叫 `aiwork-gate-shadow`、只报不拦)。
+# 在 main 的规则集里设为必过、限定只认 aiwork-gate App,保险丝 `aiwork-gate/fuse` 也设为必过
+# (步骤见 .github/aiwork-gate/README.md「从 shadow 转为真拦截」)。
 
 name: aiwork-gate
 
