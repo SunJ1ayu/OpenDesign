@@ -1,4 +1,4 @@
-# 发版(aiwork 改造 · 阶段 B;计划见 SunJ1ayu/aiwork 的 WORKFLOW-MIGRATION-PLAN.md,规则 D1)。
+# 发版(aiwork 改造 · 阶段 B;计划在 git 历史里,规则 D1)。
 #
 # 防的误放行:用没合进 main 的代码打包发布;agent 自己把版本发出去。
 # 删掉会怎样:撤掉本机的业主凭证后就发不了版,会逼着把凭证放回去,身份分离(I1)随之失效。

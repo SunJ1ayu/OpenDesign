@@ -3,12 +3,14 @@
 业主已经接受、评审时**不当问题报**的风险(见 [aiwork 的 REVIEW-RULES.md](https://github.com/SunJ1ayu/aiwork/blob/main/REVIEW-RULES.md) 第二节)。每条写明:是什么、为什么补不了、
 什么时候由什么解决。在 `.aiwork/` 下,属于判卷面:加一条、改一条都要业主批准。
 
-## 放行关卡(`.github/aiwork-gate/`):状态检查只能"最终一致"
+## 放行关卡：状态检查只能"最终一致"
+
+见 [aiwork 的 gate/README.md](https://github.com/SunJ1ayu/aiwork/blob/main/gate/README.md)「已知限制」。
 
 业主接受于 2026-09-30(OpenDesign PR #10,关卡只报不拦的 shadow 阶段)。
 关卡靠"输入变了 → 叫醒 → 重算 → 写回",写在提交上的结论总是某一刻的;GitHub 也没有别人碰不到的锁、会自己过期的状态。
 下面几条是这种做法本身的上限,再怎么补也只是把窗口换个地方。**经合并标签合并的 PR 不受 1–4 影响**:关卡在同一次运行里
-用刚读到的数据判为放行、写上结论之后才合并,并带上判过的 head(`.github/aiwork-gate/README.md`「合并」);那条路上剩下的是第 5 条。
+用刚读到的数据判为放行、写上结论之后才合并,并带上判过的 head(见 [aiwork 的 gate/README.md](https://github.com/SunJ1ayu/aiwork/blob/main/gate/README.md)「合并」);那条路上剩下的是第 5 条。
 业主在网页上直接合并(业主保留这个权限)时,1–4 照旧。
 
 1. **窗口**:输入变了到重算写完之间有几十秒(排队时更久),这期间提交上还是上一次的结论。看到关卡在跑或在排队,先别合并。
