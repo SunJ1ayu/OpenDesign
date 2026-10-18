@@ -62,7 +62,10 @@ jobs:
           persist-credentials: false
 
       - name: 把 aiwork 检出移出工作树
-        run: mv aiwork-def "$RUNNER_TEMP/aiwork"
+        run: |
+          mv aiwork-def "$RUNNER_TEMP/aiwork"
+          # 用的是 aiwork 哪个提交，只在这里打一行。测试和总跑不再各打、再按同一串字去抄。
+          git -C "$RUNNER_TEMP/aiwork" log -1 --format='aiwork 检出 %H'
 
       - uses: actions/setup-python@v5
         with:

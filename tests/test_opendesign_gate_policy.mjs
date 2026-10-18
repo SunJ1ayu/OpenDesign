@@ -1,22 +1,22 @@
 // OpenDesign 自己的关卡策略：判卷面和高风险清单从本仓库推出来，字段对着 .aiwork/policy.json。
 // 路径匹配只用 aiwork gate/decide.mjs 的 matchAny，不在这里另写一份。
 // 关卡代码本身的判定在 SunJ1ayu/aiwork 的 tests/test_aiwork_gate*.mjs。
-// CI 把 AIWORK_CHECKOUT 经 sudo env 传进来；本地默认 /root/aiwork。拿不到就失败，不跳过。
+// 只读 AIWORK_CHECKOUT。没设，或那个目录里缺 gate/decide.mjs、gate/run.mjs，就失败。
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
-const aiwork = process.env.AIWORK_CHECKOUT || "/root/aiwork";
-const decidePath = `${aiwork}/gate/decide.mjs`;
-if (!existsSync(decidePath)) {
-  throw new Error(`缺少 aiwork 检出里的 gate/decide.mjs。设 AIWORK_CHECKOUT，本地默认 /root/aiwork。现在是 ${aiwork}`);
+const aiwork = process.env.AIWORK_CHECKOUT;
+const needed = ["gate/decide.mjs", "gate/run.mjs"];
+const missing = aiwork ? needed.filter((name) => !existsSync(`${aiwork}/${name}`)) : needed;
+if (!aiwork || missing.length) {
+  throw new Error(`把 AIWORK_CHECKOUT 设成 aiwork 检出的路径。现在是 ${aiwork || "（没设）"}，没有 ${missing.join("、")}`);
 }
-const sha = execFileSync("git", ["-C", aiwork, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
-console.log(`aiwork checkout ${aiwork} @ ${sha}`);
 
-const { decide, matchAny } = await import(pathToFileURL(decidePath).href);
+const { decide, matchAny } = await import(pathToFileURL(`${aiwork}/gate/decide.mjs`).href);
+const { validatePolicy } = await import(pathToFileURL(`${aiwork}/gate/run.mjs`).href);
 const policy = JSON.parse(readFileSync(new URL("../.aiwork/policy.json", import.meta.url), "utf8"));
 
 const HEAD = "a".repeat(40);
@@ -62,7 +62,7 @@ test("策略:check 名是 aiwork-gate(已转真拦截);判卷面罩住 .github �
   for (const p of [".github/**", ".aiwork/**"]) assert.ok(policy.judging_surface.includes(p));
   assert.deepEqual(policy.builders, { SunJ1ayuBoT: "anthropic" });
   assert.equal(policy.reviewer_bot, "aiwork-review[bot]");
-  assert.ok(Number.isInteger(policy.gate_app_id) && policy.gate_app_id > 0, "gate_app_id 要填 aiwork-gate App 的 App ID");
+  validatePolicy(policy);
   const note = policy["_说明"].join("\n");
   assert.match(note, /gate\/README\.md/);
   assert.match(note, /high_min_families/);

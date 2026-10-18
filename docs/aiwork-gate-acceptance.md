@@ -1,6 +1,6 @@
 # 放行关卡首次部署验收记录
 
-对照 `.github/aiwork-gate/README.md`「首次部署验收」逐条验,每条附检查或运行的链接。验收时关卡是 shadow(检查名 `aiwork-gate-shadow`,只报不拦)。
+对照 `https://github.com/SunJ1ayu/OpenDesign/blob/05fe41b97ba94b86bb31f032adb763b1b1576a5e/.github/aiwork-gate/README.md`「首次部署验收」逐条验,每条附检查或运行的链接。验收时关卡是 shadow(检查名 `aiwork-gate-shadow`,只报不拦)。
 时间 2026-09-30(UTC)。测试 PR 是 #13;有几条在 PR #10 ~ #12 上已经顺带验过。
 S5 后半和合并标签 S10–S12(PR #15 加的)在 2026-10-01 用 PR #16、#17 验,S13 用 PR #18、#19 验(见注 4);
 这几个 PR 的改动本身都是正常的修改;#16、#17、#19 已由关卡合并,#18 就是本记录所在的 PR。
@@ -35,7 +35,7 @@ S5 后半和合并标签 S10–S12(PR #15 加的)在 2026-10-01 用 PR #16、#17
 
 ## 转真拦截(2026-10-04)
 
-对照 `.github/aiwork-gate/README.md`「从 shadow 转为真拦截」。前提:上面 S0–S13 全部通过;之后真实 PR #18、#20、#21、#22、#23
+对照 `https://github.com/SunJ1ayu/OpenDesign/blob/05fe41b97ba94b86bb31f032adb763b1b1576a5e/.github/aiwork-gate/README.md`「从 shadow 转为真拦截」。前提:上面 S0–S13 全部通过;之后真实 PR #18、#20、#21、#22、#23
 上关卡结论都与业主判断一致,没见过过时的 success。T4、T6 用本记录所在的 PR 验。
 
 | # | 做什么 | 结果 | 凭据 |

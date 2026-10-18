@@ -105,8 +105,6 @@ _pass=$(grep -m1 '^# pass '    "$_l" | awk '{print $3}'); _pass="${_pass:-?}"
 _skp=$(grep -m1 '^# skipped ' "$_l" | awk '{print $3}'); _skp="${_skp:-0}"
 _todo=$(grep -m1 '^# todo '   "$_l" | awk '{print $3}'); _todo="${_todo:-0}"
 note_last "${_pass} 通过 / ${_skp} 跳过 / ${_todo} todo" $((_skp + _todo))
-# 策略测试打印自己用的 aiwork 提交。这段日志成功时会被收掉，先抄到总跑自己的输出里，CI 日志才看得见。
-grep -h 'aiwork checkout ' "$_l" || true
 
 # ── ③ python 全量(解释器写死,见文件头形态②)────────────────────────
 # python 全量 **走死断言闸的替身**(一次跑、两个信号,2026-08-07):
@@ -119,8 +117,6 @@ grep -h 'aiwork checkout ' "$_l" || true
 # 这正是这个脚本文件头列的第 ③ 次复发:**默认关掉的检查等于没有检查**。
 run_seg "python 全量 + 死断言闸($PY)" py-full env DS_SHELL_E2E=1 "$PY" tests/dead_assertions.py
 _l="$LAST_LOG"
-# 比对模板的测试打印自己用的 aiwork 提交。这段日志成功时会被收掉，先抄到总跑自己的输出里。
-grep -h 'aiwork checkout ' "$_l" || true
 _ran=$(grep -oE '^Ran [0-9]+ test' "$_l" | tail -1 | awk '{print $2}'); _ran="${_ran:-?}"
 _skp=$(grep -oE 'skipped=[0-9]+' "$_l" | tail -1 | cut -d= -f2); _skp="${_skp:-0}"
 _dead=$(grep -oE '[0-9]+ 条断言一次都没执行过' "$_l" | head -1 | awk '{print $1}')

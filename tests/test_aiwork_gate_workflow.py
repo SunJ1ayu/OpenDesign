@@ -26,15 +26,16 @@ def _load(p: Path) -> dict:
 
 
 def aiwork_checkout() -> Path:
-    """模板和 matchAny 的定义在 aiwork 检出里。CI 经 AIWORK_CHECKOUT 传入；本地默认 /root/aiwork。拿不到就失败，不跳过。"""
-    root = Path(os.environ.get("AIWORK_CHECKOUT") or "/root/aiwork")
-    missing = [name for name in ("templates/aiwork-gate.yml", "templates/aiwork-review-ping.yml", "gate/decide.mjs") if not (root / name).is_file()]
-    if missing:
+    """模板的定义在 aiwork 检出里。只读 AIWORK_CHECKOUT，没设或目录里缺文件就失败。"""
+    raw = os.environ.get("AIWORK_CHECKOUT")
+    root = Path(raw) if raw else None
+    needed = ("templates/aiwork-gate.yml", "templates/aiwork-review-ping.yml", "gate/decide.mjs")
+    missing = needed if root is None else tuple(name for name in needed if not (root / name).is_file())
+    if root is None or missing:
+        where = root if root is not None else "（没设）"
         raise AssertionError(
-            f"缺少 aiwork 检出（设 AIWORK_CHECKOUT，本地默认 /root/aiwork）: {root} 没有 {', '.join(missing)}"
+            f"把 AIWORK_CHECKOUT 设成 aiwork 检出的路径。现在是 {where}，没有 {', '.join(missing)}"
         )
-    sha = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
-    print(f"aiwork checkout {root} @ {sha}", flush=True)
     return root
 
 
