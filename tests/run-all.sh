@@ -19,6 +19,10 @@
 #    不给系统 python3 留门;要换解释器只能显式 `PY=... tests/run-all.sh`。
 #
 # 用法:
+#   先在本仓库外准备 SunJ1ayu/aiwork 最新 main 的干净检出:
+#   git clone --branch main --single-branch https://github.com/SunJ1ayu/aiwork.git <aiwork检出路径>
+#   export AIWORK_CHECKOUT=<aiwork检出的绝对路径>
+#   以下命令都继承这个变量,node 和 python 两段都要用:
 #   tests/run-all.sh                 # 各段全跑(约 6 分钟);两条要活 gateway 的 e2e 记 SKIP
 #   tests/run-all.sh --with-gateway  # 连那两条也跑(先按 tests/e2e/README.md 把 gateway 起起来)
 #   PY=<python> tests/run-all.sh     # 换 python(Windows 真机:...\Scripts\python.exe)

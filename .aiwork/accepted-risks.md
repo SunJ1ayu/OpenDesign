@@ -23,3 +23,16 @@
    这期间关卡读的任何一样输入变了 —— 新来的 BLOCK、业主撤回批准、撤掉合并标签 —— 都拦不住这次合并;只有推了新提交
    拦得住(合并接口按判过的 head 拒)。GitHub 的合并接口只能附带"head 还是这个提交"这一个前提;合并前再读一遍某一样
    输入,只是把窗口缩短、换个地方。要更紧只能用合并队列(关卡跑在 `merge_group` 上),那要求仓库属于组织。
+
+## 放行关卡：aiwork main 改了关卡，本仓库不会马上重算
+
+业主接受于 [2026-10-18 的 A 决定](https://github.com/SunJ1ayu/OpenDesign/pull/27#issuecomment-6249281704)。
+
+- **是什么**：关卡代码每次从 `SunJ1ayu/aiwork` 的 `main` 现取，持有本仓库的 aiwork-gate App 私钥执行，信任的是 aiwork main。
+  aiwork 合进关卡改动，没有对应的门铃叫醒本仓库；开着的 PR 上的 `aiwork-gate` 和 `aiwork-gate/fuse` 会留着旧代码算的结论，
+  直到本仓库下一次事件触发重算。业主在网页上直接合并时，可能用到旧结论。
+- **为什么在本仓库修不了**：跨仓库唤醒需要在 aiwork 那边增加能叫醒本仓库的凭证；定时重算需要改 aiwork 的关卡模板。
+  两份关卡 workflow 必须和 aiwork `templates/` 逐字节一样，不能只在本仓库加一套触发方式。
+- **现在靠什么兜着**：aiwork main 受保护，关卡代码和模板改动要经 PR、由业主批准；经合并标签合并时，关卡在同一次运行里按当时的代码重算。
+  aiwork 合进关卡改动以后，人工给本仓库任一开着的 PR 加标签，就会触发所有开着的 PR 重算。
+- **什么时候修**：搬 Mac 主线完成后，由 aiwork 在关卡模板里加定时重算，再同步到本仓库；待办记在 [aiwork #39](https://github.com/SunJ1ayu/aiwork/issues/39)。
