@@ -17,8 +17,8 @@
 #     (见 gate/README.md「合并」)。
 #   · 发检查结果、合并用 aiwork-gate App 的私钥,放在只许 main 用的 environment `aiwork-gate` 里:
 #     同仓库分支的 PR 能拿到仓库级 secrets,拿不到只许 main 的 environment secrets。
-#   · 唯一的写权限 statuses: write 给保险丝(commit status `aiwork-gate/fuse`):App 私钥坏了时 App 改不了
-#     自己发过的旧 success,由保险丝挡住(见 gate/run.mjs 文件头)。
+#   · statuses: write 供当前保险丝(commit status `aiwork-gate/fuse`)使用；checks: write 预先授予后续检查式保险丝。
+#     当前仍由 status 保险丝挡住 App 私钥失效后的旧 success(见 gate/run.mjs 文件头)；分阶段上线见 gate/README.md。
 #
 # 检查名在本仓库 .aiwork/policy.json 的 check_name。shadow 阶段叫 `aiwork-gate-shadow`、只报不拦。
 # 转真拦截的步骤见 gate/README.md「从 shadow 转为真拦截」。
@@ -38,6 +38,7 @@ permissions:
   actions: read
   issues: read
   statuses: write
+  checks: write
 
 # 同一时间只有一次运行:组名固定(不随事件变),不取消正在跑的;排队的只留最新一个,它开始时读到的一定不比
 # 被它顶掉的旧。所以同一提交上后写的结论一定出自后读的数据。每次运行都重算全部开着的 PR,顶掉的那些不会漏算。
