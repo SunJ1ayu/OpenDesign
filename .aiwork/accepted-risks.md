@@ -3,12 +3,14 @@
 业主已经接受、评审时**不当问题报**的风险(见 [aiwork 的 REVIEW-RULES.md](https://github.com/SunJ1ayu/aiwork/blob/main/REVIEW-RULES.md) 第二节)。每条写明:是什么、为什么补不了、
 什么时候由什么解决。在 `.aiwork/` 下,属于判卷面:加一条、改一条都要业主批准。
 
-## 放行关卡(`.github/aiwork-gate/`):状态检查只能"最终一致"
+## 放行关卡：状态检查只能"最终一致"
+
+见 [aiwork 的 gate/README.md](https://github.com/SunJ1ayu/aiwork/blob/main/gate/README.md)「已知限制」。
 
 业主接受于 2026-09-30(OpenDesign PR #10,关卡只报不拦的 shadow 阶段)。
 关卡靠"输入变了 → 叫醒 → 重算 → 写回",写在提交上的结论总是某一刻的;GitHub 也没有别人碰不到的锁、会自己过期的状态。
 下面几条是这种做法本身的上限,再怎么补也只是把窗口换个地方。**经合并标签合并的 PR 不受 1–4 影响**:关卡在同一次运行里
-用刚读到的数据判为放行、写上结论之后才合并,并带上判过的 head(`.github/aiwork-gate/README.md`「合并」);那条路上剩下的是第 5 条。
+用刚读到的数据判为放行、写上结论之后才合并,并带上判过的 head(见 [aiwork 的 gate/README.md](https://github.com/SunJ1ayu/aiwork/blob/main/gate/README.md)「合并」);那条路上剩下的是第 5 条。
 业主在网页上直接合并(业主保留这个权限)时,1–4 照旧。
 
 1. **窗口**:输入变了到重算写完之间有几十秒(排队时更久),这期间提交上还是上一次的结论。看到关卡在跑或在排队,先别合并。
@@ -21,3 +23,16 @@
    这期间关卡读的任何一样输入变了 —— 新来的 BLOCK、业主撤回批准、撤掉合并标签 —— 都拦不住这次合并;只有推了新提交
    拦得住(合并接口按判过的 head 拒)。GitHub 的合并接口只能附带"head 还是这个提交"这一个前提;合并前再读一遍某一样
    输入,只是把窗口缩短、换个地方。要更紧只能用合并队列(关卡跑在 `merge_group` 上),那要求仓库属于组织。
+
+## 放行关卡：aiwork main 改了关卡，本仓库不会马上重算
+
+业主接受于 [2026-10-18 的 A 决定](https://github.com/SunJ1ayu/OpenDesign/pull/27#issuecomment-6249281704)。
+
+- **是什么**：关卡代码每次从 `SunJ1ayu/aiwork` 的 `main` 现取，持有本仓库的 aiwork-gate App 私钥执行，信任的是 aiwork main。
+  aiwork 合进关卡改动，没有对应的门铃叫醒本仓库；开着的 PR 上的 `aiwork-gate` 和 `aiwork-gate/fuse` 会留着旧代码算的结论，
+  直到本仓库下一次事件触发重算。业主在网页上直接合并时，可能用到旧结论。
+- **为什么在本仓库修不了**：跨仓库唤醒需要在 aiwork 那边增加能叫醒本仓库的凭证；定时重算需要改 aiwork 的关卡模板。
+  两份关卡 workflow 必须和 aiwork `templates/` 逐字节一样，不能只在本仓库加一套触发方式。
+- **现在靠什么兜着**：aiwork main 受保护，关卡代码和模板改动要经 PR、由业主批准；经合并标签合并时，关卡在同一次运行里按当时的代码重算。
+  aiwork 合进关卡改动以后，人工给本仓库任一开着的 PR 加标签，就会触发所有开着的 PR 重算。
+- **什么时候修**：搬 Mac 主线完成后，由 aiwork 在关卡模板里加定时重算，再同步到本仓库；待办记在 [aiwork #39](https://github.com/SunJ1ayu/aiwork/issues/39)。

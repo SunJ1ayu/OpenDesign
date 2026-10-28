@@ -1,4 +1,4 @@
-# PR 上的自动检查(aiwork 改造 · 阶段 A;计划见 SunJ1ayu/aiwork 的 WORKFLOW-MIGRATION-PLAN.md,规则 R2)。
+# PR 上的自动检查(aiwork 改造 · 阶段 A;计划在 git 历史里,规则 R2)。
 #
 # 防的误放行:没测过的代码进 main;测试结果只靠 Builder 在 PR 评论里自述(PR #6 的状态:check runs = 0)。
 # 删掉会怎样:PR 上重新没有机器产出的测试结果,main 的分支规则也就没有可要求的检查。
@@ -50,6 +50,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      # 推导判卷面 / high 清单的测试，和钉住两份关卡 workflow 的测试，都读这份检出里的
+      # gate/decide.mjs（matchAny）和 templates/。不在 OpenDesign 再抄一份。
+      # 检出后立刻移出工作树：留在仓库里会被 git status 看成未跟踪目录。
+      - name: 检出 aiwork main（模板和 matchAny 的定义）
+        uses: actions/checkout@v4
+        with:
+          repository: SunJ1ayu/aiwork
+          ref: main
+          path: aiwork-def
+          persist-credentials: false
+
+      - name: 把 aiwork 检出移出工作树
+        run: |
+          mv aiwork-def "$RUNNER_TEMP/aiwork"
+          # 用的是 aiwork 哪个提交，只在这里打一行。测试和总跑不再各打、再按同一串字去抄。
+          git -C "$RUNNER_TEMP/aiwork" log -1 --format='aiwork 检出 %H'
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -87,9 +104,11 @@ jobs:
           sudo git config --system --add safe.directory "$GITHUB_WORKSPACE"
           out="$RUNNER_TEMP/run-all.txt"
           set +e
+          # AIWORK_CHECKOUT 必须列在这里：sudo env 只放行写出的变量，测试拿不到就红，不许跳过。
           sudo env "PATH=$PATH" "HOME=$HOME" \
             "PY=$RUNNER_TEMP/venv/bin/python" \
             "E2E_PW_MODULES=$RUNNER_TEMP/pw/node_modules" \
+            "AIWORK_CHECKOUT=$RUNNER_TEMP/aiwork" \
             bash tests/run-all.sh 2>&1 | tee "$out"
           rc=${PIPESTATUS[0]}
           set -e

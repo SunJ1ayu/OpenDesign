@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""发版 workflow 的形状(规则 D1;计划见 SunJ1ayu/aiwork 的 WORKFLOW-MIGRATION-PLAN.md)。
+"""发版 workflow 的形状(规则 D1;计划在 git 历史里)。
 
 业主是谁只在 `.aiwork/policy.json` 的 owner 一处定义,关卡(G7)和发版的审批人检查都读它。
 以前发版 workflow 里另写了一份审批人,换业主账号时两处各说各的:关卡认新账号,
