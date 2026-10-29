@@ -5,7 +5,7 @@
 # 删掉会怎样:放不放行又回到靠人看评论区自述。
 #
 # 为什么这样触发(M1):
-#   · pull_request_target / workflow_run 跑的是本仓库 main 上的这份 workflow。
+#   · pull_request_target / workflow_run / schedule 跑的是本仓库 main 上的这份 workflow。
 #     关卡代码另从 SunJ1ayu/aiwork 的 main 检出，策略只读本仓库 main 上的 .aiwork/policy.json。
 #     PR 改 workflow、改策略、改关卡都改不到正在判它的这一份。这里不检出 PR 的代码，只读 GitHub API。
 #   · 事件只是门铃:每次运行都把所有开着的 PR 全重算一遍(见 gate/run.mjs 文件头)。
@@ -13,12 +13,13 @@
 #     推送 / 开关 PR / 改目标分支(edited,改标题正文时顺带重算一次,无害)/ 关闭(同一提交上少了一个 PR)、
 #     CI 开跑与跑完(workflow_run requested / in_progress / completed;重跑不一定发 requested,开始跑时会发 in_progress)、
 #     评审提交 / 改写 / 撤销(aiwork-review-ping);
+#     aiwork main 的关卡代码变化由 schedule 定时补算，间隔与限制见门铃表。
 #     给 PR 加标签(如 `aiwork:recheck`)也能手动重算;加合并标签 `aiwork:merge` 就是请关卡在放行时合并
 #     (见 gate/README.md「合并」)。
 #   · 发检查结果、合并用 aiwork-gate App 的私钥,放在只许 main 用的 environment `aiwork-gate` 里:
 #     同仓库分支的 PR 能拿到仓库级 secrets,拿不到只许 main 的 environment secrets。
-#   · statuses: write 供当前保险丝(commit status `aiwork-gate/fuse`)使用；checks: write 预先授予后续检查式保险丝。
-#     当前仍由 status 保险丝挡住 App 私钥失效后的旧 success(见 gate/run.mjs 文件头)；分阶段上线见 gate/README.md。
+#   · 唯一的写权限 checks: write 给独立保险丝检查(名称见 gate/run.mjs):App 私钥坏了时 App 改不了
+#     自己发过的旧 success,由保险丝挡住(见 gate/run.mjs 文件头)。
 #
 # 检查名在本仓库 .aiwork/policy.json 的 check_name。shadow 阶段叫 `aiwork-gate-shadow`、只报不拦。
 # 转真拦截的步骤见 gate/README.md「从 shadow 转为真拦截」。
@@ -26,6 +27,8 @@
 name: aiwork-gate
 
 on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
   pull_request_target:
     types: [opened, synchronize, reopened, closed, labeled, edited]
   workflow_run:
@@ -37,7 +40,6 @@ permissions:
   pull-requests: read
   actions: read
   issues: read
-  statuses: write
   checks: write
 
 # 同一时间只有一次运行:组名固定(不随事件变),不取消正在跑的;排队的只留最新一个,它开始时读到的一定不比
